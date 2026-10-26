@@ -12,10 +12,15 @@ use tokio::net::TcpListener;
 
 const TOKEN: &str = "mt_secret";
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\nfake-image";
+#[derive(Clone)]
+struct Seen {
+    path: String,
+    request: String,
+}
 
 /// Serves `GET /api/daemon/attachments/<id>` (or any request by its full path) for the machine token; records every
 /// requested path.
-async fn file_server(files: HashMap<String, Vec<u8>>) -> (String, Arc<Mutex<Vec<String>>>) {
+async fn file_server(files: HashMap<String, Vec<u8>>) -> (String, Arc<Mutex<Vec<Seen>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let hits = Arc::new(Mutex::new(vec![]));
@@ -26,10 +31,27 @@ async fn file_server(files: HashMap<String, Vec<u8>>) -> (String, Arc<Mutex<Vec<
             let (files, log) = (files.clone(), log.clone());
             tokio::spawn(async move {
                 let mut buf = vec![0; 8192];
-                let n = sock.read(&mut buf).await.unwrap();
+                let mut n = sock.read(&mut buf).await.unwrap();
+                loop {
+                    let req = String::from_utf8_lossy(&buf[..n]);
+                    let Some((head, body)) = req.split_once("\r\n\r\n") else { break };
+                    let len = head
+                        .lines()
+                        .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(str::to_owned))
+                        .and_then(|v| v.trim().parse::<usize>().ok())
+                        .unwrap_or(0);
+                    if body.len() >= len {
+                        break;
+                    }
+                    let read = sock.read(&mut buf[n..]).await.unwrap();
+                    if read == 0 {
+                        break;
+                    }
+                    n += read;
+                }
                 let req = String::from_utf8_lossy(&buf[..n]).to_string();
                 let path = req.split_whitespace().nth(1).unwrap_or_default().to_string();
-                log.lock().unwrap().push(path.clone());
+                log.lock().unwrap().push(Seen { path: path.clone(), request: req.clone() });
                 let id = path.trim_start_matches("/api/daemon/attachments/");
                 let authed = req.lines().any(|l| l.eq_ignore_ascii_case(&format!("authorization: Bearer {TOKEN}")));
                 let (status, body) = match files.get(id) {
@@ -234,7 +256,7 @@ async fn the_fallback_contexts_attachments_are_fetched_only_when_the_fallback_is
     r.engine.handle(with_fallback("r3", Some("gone".into())), &r.out);
     let done = r.done("r3").await;
     assert_eq!(done.new_session_reason.as_deref(), Some("resume_failed"), "{:?}", done.error);
-    assert_eq!(*hits.lock().unwrap(), ["/api/daemon/attachments/a3"]);
+    assert_eq!(hits.lock().unwrap()[0].path, "/api/daemon/attachments/a3");
     assert_eq!(std::fs::read(&old).unwrap(), b"old\n");
     let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
     assert!(echo["prompt"].as_str().unwrap().contains("旧日志（附件：.gonggong/attachments/m0/old.log）"));
@@ -285,6 +307,33 @@ async fn a_failed_download_fails_the_run() {
 }
 
 #[tokio::test]
+async fn sends_workspace_images_and_video_to_the_chat_without_asking_the_owner() {
+    let (url, hits) = file_server(HashMap::from([(
+        "/api/daemon/runs/r1/attachments".to_string(),
+        br#"{"id":"m9","kind":"bot"}"#.to_vec(),
+    )]))
+    .await;
+    let mut r = rig(&url);
+    let ws = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(ws.path().join("out")).unwrap();
+    std::fs::write(ws.path().join("out/shot.png"), PNG).unwrap();
+    std::fs::write(ws.path().join("out/demo.mp4"), b"movie").unwrap();
+    let mut s = start("r1", ws.path(), vec![], vec![]);
+    s.prompt.text = r#"mock:tool send_attachments {"paths":["out/shot.png","out/demo.mp4"],"text":"预览"}"#.into();
+    r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
+    let done = r.done("r1").await;
+    assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
+    assert_eq!(done.reply, "已发送 2 个附件到群聊");
+    let hits = hits.lock().unwrap();
+    let req = &hits[0].request;
+    assert_eq!(hits[0].path, "/api/daemon/runs/r1/attachments");
+    assert!(req.starts_with("POST /api/daemon/runs/r1/attachments HTTP/1.1"), "{req}");
+    let lower = req.to_ascii_lowercase();
+    assert!(lower.contains("content-type: image/png") && lower.contains("content-type: video/mp4"), "{req}");
+    assert!(req.contains(r#"filename="shot.png""#) && req.contains(r#"filename="demo.mp4""#));
+}
+
+#[tokio::test]
 async fn gonggong_tools_reach_the_server_for_the_live_run_without_asking_the_owner() {
     let tool = "/api/daemon/runs/r1/tools/fetch_attachments";
     let res = r##"{"text":"#1 的附件：","isError":false,"attachments":[{"id":"a2","name":"ci.log","size":4,"mime":"text/plain","messageId":"m1"}]}"##;
@@ -302,5 +351,8 @@ async fn gonggong_tools_reach_the_server_for_the_live_run_without_asking_the_own
         done.error
     );
     assert_eq!(std::fs::read(ws.path().join(".gonggong/attachments/m1/ci.log")).unwrap(), b"boom");
-    assert_eq!(*hits.lock().unwrap(), [tool, "/api/daemon/attachments/a2"]);
+    assert_eq!(
+        hits.lock().unwrap().iter().map(|h| h.path.as_str()).collect::<Vec<_>>(),
+        [tool, "/api/daemon/attachments/a2"]
+    );
 }

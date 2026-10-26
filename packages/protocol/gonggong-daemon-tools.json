@@ -1,5 +1,33 @@
 [
   {
+    "name": "send_attachments",
+    "title": "发送文件到群聊",
+    "description": "把工作区里的图片、视频或其他文件作为本 Bot 的群消息发送，成员可直接在聊天中预览。paths 使用工作区相对路径，一次 1 至 10 个文件；需要成员查看本次生成的媒体文件时主动使用。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "minItems": 1,
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "工作区内的相对路径"
+          },
+          "description": "要发送的工作区文件，1 至 10 个"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 20000,
+          "description": "随附件发送的说明，可省略"
+        }
+      },
+      "required": ["paths"]
+    }
+  },
+  {
     "name": "service_start",
     "title": "启动托管服务",
     "description": "在工作区里启动一个长期运行的服务（如 dev server），由 gonggong 托管：本轮结束后仍在运行，可查看日志、随时停止。需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动；群里已有的预览卡片会自动接上重启后的服务，不必重新发布。",

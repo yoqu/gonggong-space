@@ -217,6 +217,8 @@ async fn handle(
                 Some(call(asker.as_ref(), args).await)
             } else if SERVER.names.contains(name) {
                 Some(forward(backends.api.as_ref().as_ref(), asker.as_ref(), name, args).await)
+            } else if name == "send_attachments" {
+                Some(send_attachments(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
             } else if name == "client_release_publish" {
                 Some(publish_release(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
             } else if name == "client_release_notes" {
@@ -367,6 +369,41 @@ async fn forward(api: Option<&Config>, asker: &dyn Asker, name: &str, args: &Val
     }
     attachments::fetch(api, &cwd, &res.attachments).await?;
     Ok(format!("{}\n{}", res.text, attachment_note(&res.attachments)).trim_end().into())
+}
+
+#[derive(Deserialize)]
+struct SendAttachmentsArgs {
+    paths: Vec<String>,
+    text: Option<String>,
+}
+
+async fn send_attachments(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> Result<String, String> {
+    let a = SendAttachmentsArgs::deserialize(args).map_err(|e| format!("参数无效：{e}"))?;
+    if !(1..=10).contains(&a.paths.len()) {
+        return Err("paths 需要 1 至 10 个工作区文件".into());
+    }
+    let count = a.paths.len();
+    let api = api.ok_or("未连接服务器，无法发送附件")?;
+    let (run_id, cwd) = asker.active_run().ok_or(NOT_RUNNING)?;
+    let root = cwd.canonicalize().map_err(|e| format!("工作区不可用：{e}"))?;
+    let mut paths = vec![];
+    for file in a.paths {
+        let path = workspace_file(&root, &file).ok_or_else(|| format!("文件 {file} 必须是工作区内已存在的文件"))?;
+        paths.push((file, path));
+    }
+    let mut form = reqwest::multipart::Form::new();
+    if let Some(text) = a.text {
+        form = form.text("text", text);
+    }
+    for (file, path) in paths {
+        let part = reqwest::multipart::Part::file(&path).await.map_err(|e| format!("读取 {file} 失败：{e}"))?;
+        form = form.part("files", part);
+    }
+    post_form(api, &format!("/api/daemon/runs/{run_id}/attachments"), form)
+        .await
+        .and_then(|r| r)
+        .map_err(|e| format!("附件未发送：{e}"))?;
+    Ok(format!("已发送 {count} 个附件到群聊"))
 }
 
 #[derive(Deserialize)]
@@ -971,6 +1008,7 @@ mod tests {
                 "secret_request",
                 "plugin_catalog",
                 "creation_propose",
+                "send_attachments",
                 "service_start",
                 "service_list",
                 "service_logs",
@@ -1070,6 +1108,36 @@ mod tests {
 
     fn config(server: String) -> Config {
         Config { server, token: "mt_1".into(), machine_id: "m".into(), owner_name: "王磊".into() }
+    }
+
+    #[tokio::test]
+    async fn uploads_workspace_media_as_chat_attachments() {
+        let (base, seen) = fake_server(r#"{"id":"m1","kind":"bot","attachments":[]}"#).await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("out")).unwrap();
+        std::fs::write(dir.path().join("out/shot.png"), "PNG").unwrap();
+        let live =
+            Fake(Mutex::default(), Mutex::default(), Some(("r1".into(), dir.path().to_path_buf())), Mutex::default());
+        let args = json!({ "paths": ["out/shot.png"], "text": "预览" });
+
+        let text = send_attachments(Some(&config(base)), &live, &args).await.unwrap();
+        assert_eq!(text, "已发送 1 个附件到群聊");
+        let req = seen.lock().unwrap()[0].clone();
+        assert!(req.starts_with("POST /api/daemon/runs/r1/attachments HTTP/1.1"), "{req}");
+        assert!(req.to_ascii_lowercase().contains("authorization: bearer mt_1"));
+        assert!(req.contains(r#"name="text""#) && req.contains("预览"));
+        // Part::file streams its body separately; the integration test below checks the received media bytes.
+        assert!(req.contains(r#"name="files"; filename="shot.png""#));
+
+        for path in ["../x", "out", "out/missing.png", "/etc/passwd"] {
+            let err = send_attachments(Some(&config("http://x".into())), &live, &json!({ "paths": [path] })).await;
+            assert!(err.unwrap_err().contains("必须是工作区内已存在的文件"), "{path}");
+        }
+        assert_eq!(seen.lock().unwrap().len(), 1);
+        assert_eq!(
+            send_attachments(Some(&config("http://x".into())), &Fake::default(), &args).await,
+            Err(NOT_RUNNING.into())
+        );
     }
 
     #[tokio::test]

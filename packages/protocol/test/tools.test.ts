@@ -10,6 +10,7 @@ import {
   ListMessagesArgs,
   PreviewExposeArgs,
   PreviewMiniprogramArgs,
+  SendAttachmentsArgs,
   ServiceStartArgs,
 } from '../src/index.js'
 
@@ -58,6 +59,12 @@ describe('gonggong tools', () => {
     expect(ServiceStartArgs.safeParse({ name: 'Web', command: 'x' }).success).toBe(false)
     expect(ServiceStartArgs.safeParse({ name: '../x', command: 'x' }).success).toBe(false)
     expect(ServiceStartArgs.safeParse({ name: 'web', command: '' }).success).toBe(false)
+  })
+
+  it('send attachments names one to ten workspace files', () => {
+    expect(SendAttachmentsArgs.safeParse({ paths: ['out/shot.png'], text: '截图' }).success).toBe(true)
+    expect(SendAttachmentsArgs.safeParse({ paths: [] }).success).toBe(false)
+    expect(SendAttachmentsArgs.safeParse({ paths: Array(11).fill('a.mp4') }).success).toBe(false)
   })
 
   it('client release notes target one published version', () => {

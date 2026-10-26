@@ -112,3 +112,22 @@ export async function openFile(path: string): Promise<Readable> {
     await fd.close()
   }
 }
+
+/** Decrypts before slicing: encrypted storage offsets are not plaintext byte ranges. */
+export async function openFileRange(
+  path: string,
+  range: { start: number; end: number } = { start: 0, end: Number.MAX_SAFE_INTEGER },
+): Promise<Readable> {
+  if (range.start === 0 && range.end === Number.MAX_SAFE_INTEGER) return openFile(path)
+  let offset = 0
+  const slice = new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      const start = Math.max(range.start - offset, 0)
+      const end = Math.min(range.end + 1 - offset, chunk.length)
+      if (start < end) this.push(chunk.subarray(start, end))
+      offset += chunk.length
+      done()
+    },
+  })
+  return pipeline(await openFile(path), slice, () => {})
+}

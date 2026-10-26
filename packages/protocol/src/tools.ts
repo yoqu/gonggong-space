@@ -65,6 +65,15 @@ export const ListQuestionsArgs = z.object({
 
 export const FetchAttachmentsArgs = z.object({ message: seq.describe('消息 #seq') })
 
+export const SendAttachmentsArgs = z.object({
+  paths: z
+    .array(z.string().min(1).max(500).describe('工作区内的相对路径'))
+    .min(1)
+    .max(10)
+    .describe('要发送的工作区文件，1 至 10 个'),
+  text: z.string().max(20000).describe('随附件发送的说明，可省略').optional(),
+})
+
 export const ListFeishuMessagesArgs = z.object({
   limit: z.number().int().min(1).max(50).describe('条数，默认 20').optional(),
   before: z.string().describe('取该时间之前的消息，ISO 8601（上一页末尾给出）').optional(),
@@ -747,6 +756,13 @@ export const FeishuSendCardArgs = z.object({
  * `gonggong-daemon-tools.json`. `service_start` is not auto-approved: it runs an arbitrary command.
  */
 export const DAEMON_TOOLS = {
+  send_attachments: {
+    title: '发送文件到群聊',
+    description:
+      '把工作区里的图片、视频或其他文件作为本 Bot 的群消息发送，成员可直接在聊天中预览。' +
+      'paths 使用工作区相对路径，一次 1 至 10 个文件；需要成员查看本次生成的媒体文件时主动使用。',
+    input: SendAttachmentsArgs,
+  },
   service_start: {
     title: '启动托管服务',
     description:

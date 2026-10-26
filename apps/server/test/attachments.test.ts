@@ -14,7 +14,7 @@ import { attachments, messages, runs } from '../src/db/schema.js'
 import { FILE_OVERHEAD } from '../src/lib/seal.js'
 import { MASK } from '../src/modules/runs/redact.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
-import { client } from './support/http.js'
+import { client, events } from './support/http.js'
 
 type Upload = Omit<Attachment, 'messageId'>
 
@@ -160,6 +160,131 @@ describe('uploads', () => {
     expect(Buffer.from(await ok.arrayBuffer())).toEqual(PNG)
     expect((await get(w.otherToken)).status).toBe(403)
     expect((await get()).status).toBe(401)
+  })
+
+  it('supports byte ranges for inline video playback', async () => {
+    const w = await world()
+    const video = Buffer.from('0123456789')
+    const { body } = await upload(w.cookies.wang, w.g.id, 'demo.mp4', video, 'video/mp4')
+    const get = (range?: string) =>
+      fetch(t.url(`/api/attachments/${body.id}`), {
+        headers: { cookie: w.cookies.wang, ...(range && { range }) },
+      })
+
+    const full = await get()
+    expect(full.headers.get('accept-ranges')).toBe('bytes')
+    expect(full.headers.get('content-length')).toBe(String(video.length))
+    expect(Buffer.from(await full.arrayBuffer())).toEqual(video)
+
+    const part = await get('bytes=2-5')
+    expect(part.status).toBe(206)
+    expect(part.headers.get('content-range')).toBe(`bytes 2-5/${video.length}`)
+    expect(part.headers.get('content-length')).toBe('4')
+    expect(Buffer.from(await part.arrayBuffer())).toEqual(video.subarray(2, 6))
+
+    const suffix = await get('bytes=-3')
+    expect(suffix.status).toBe(206)
+    expect(suffix.headers.get('content-range')).toBe(`bytes 7-9/${video.length}`)
+    expect(Buffer.from(await suffix.arrayBuffer())).toEqual(video.subarray(7))
+
+    const invalid = await get('bytes=20-30')
+    expect(invalid.status).toBe(416)
+    expect(invalid.headers.get('content-range')).toBe(`bytes */${video.length}`)
+    await invalid.arrayBuffer()
+    expect((await get('bytes=-0')).status).toBe(416)
+  })
+})
+
+describe('agent attachments', () => {
+  async function liveRun(w: Awaited<ReturnType<typeof world>>, status = 'running') {
+    const [trigger] = await t.db
+      .insert(messages)
+      .values({ groupId: w.g.id, kind: 'user', authorUserId: w.wang.id, body: '@小王的 Claude 发图' })
+      .returning()
+    return (
+      await t.db
+        .insert(runs)
+        .values({
+          groupId: w.g.id,
+          botId: w.claude.id,
+          triggerMessageId: trigger!.id,
+          originUserId: w.wang.id,
+          status,
+        })
+        .returning()
+    )[0]!
+  }
+
+  async function sendAgentFiles(
+    runId: string,
+    token: string,
+    files: { name: string; data: Buffer; type?: string }[],
+    text?: string,
+  ) {
+    const form = new FormData()
+    if (text !== undefined) form.set('text', text)
+    for (const file of files)
+      form.append('files', new Blob([new Uint8Array(file.data)], { type: file.type }), file.name)
+    const res = await fetch(t.url(`/api/daemon/runs/${runId}/attachments`), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    })
+    return { status: res.status, body: (await res.json()) as MessageDto & { message?: string } }
+  }
+
+  it('posts a bot message with encrypted media attachments and broadcasts it', async () => {
+    const w = await world()
+    const run = await liveRun(w)
+    const seen = events(t, w.li.id)
+    const res = await sendAgentFiles(
+      run.id,
+      w.token,
+      [
+        { name: 'shot.png', data: PNG, type: 'image/png' },
+        { name: 'demo.mp4', data: Buffer.from('movie'), type: 'video/mp4' },
+      ],
+      '生成的预览',
+    )
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({
+      kind: 'bot',
+      authorId: w.claude.id,
+      authorName: '小王的 Claude',
+      body: '生成的预览',
+      runId: run.id,
+      attachments: [
+        { name: 'shot.png', size: PNG.length, mime: 'image/png', messageId: res.body.id },
+        { name: 'demo.mp4', size: 5, mime: 'video/mp4', messageId: res.body.id },
+      ],
+    })
+    expect(seen).toEqual([{ t: 'message.new', message: res.body }])
+    const stored = await t.db.select().from(attachments).where(eq(attachments.messageId, res.body.id))
+    expect(stored).toHaveLength(2)
+    expect(stored.every((a) => a.uploaderId === w.wang.id && a.groupId === w.g.id)).toBe(true)
+    const raw = readFileSync(join(process.env.GONGGONG_DATA_DIR as string, stored[0]!.storageKey))
+    expect(raw.includes('PNG')).toBe(false)
+
+    const media = await fetch(t.url(`/api/attachments/${res.body.attachments[1]!.id}`), {
+      headers: { cookie: w.cookies.li, range: 'bytes=1-3' },
+    })
+    expect(media.status).toBe(206)
+    expect(await media.text()).toBe('ovi')
+  })
+
+  it('refuses another machine, an ended run, empty text-only and oversized uploads', async () => {
+    const w = await world()
+    const run = await liveRun(w)
+    const file = { name: 'shot.png', data: PNG, type: 'image/png' }
+    expect((await sendAgentFiles(run.id, w.otherToken, [file])).status).toBe(404)
+    expect((await sendAgentFiles((await liveRun(w, 'completed')).id, w.token, [file])).status).toBe(404)
+    expect((await sendAgentFiles(run.id, w.token, [], '')).status).toBe(400)
+    const big = await sendAgentFiles(run.id, w.token, [
+      { name: 'big.mp4', data: Buffer.alloc(MAX_ATTACHMENT_BYTES + 1), type: 'video/mp4' },
+    ])
+    expect(big).toMatchObject({ status: 400, body: { message: '单个附件不能超过 50 MB' } })
+    expect(await t.db.select().from(attachments)).toHaveLength(0)
+    expect(await t.db.select().from(messages).where(eq(messages.kind, 'bot'))).toHaveLength(0)
   })
 })
 
