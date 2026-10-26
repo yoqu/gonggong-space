@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useToasts } from '../src/ui'
 import {
@@ -91,6 +91,25 @@ describe('log filters', () => {
     await waitFor(() => expect(useToasts.getState().items.at(-1)?.message).toBe('提交不存在'))
     expect((search as HTMLInputElement).value).toBe('abcdef1')
     expect(logTab().commit).toBe(hash('2'))
+  })
+
+  it('does not let pending text input overwrite the commit filter reset', async () => {
+    const tab = await openLog()
+    const search = tab.getByRole('searchbox', { name: '文本或哈希' })
+    vi.useFakeTimers()
+    try {
+      fireEvent.change(search, { target: { value: '2222222' } })
+      await act(async () => {
+        fireEvent.click(tab.getByRole('button', { name: '转到提交 2222222' }))
+        await Promise.resolve()
+      })
+      expect(logTab().commit).toBe(hash('2'))
+      act(() => vi.advanceTimersByTime(500))
+      expect(logTab().filter?.text).toBeUndefined()
+      expect((search as HTMLInputElement).value).toBe('')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('filters by branch, user, date and path, sets the graph options and clears the filters', async () => {

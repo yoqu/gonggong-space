@@ -1,5 +1,5 @@
 import type { GitRefsDto } from '@gonggong/protocol'
-import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { GitLogTabFilter } from '../../../app/workbench'
 import { t } from '../../../i18n'
 import { pad } from '../../../lib/time'
@@ -67,14 +67,12 @@ function TextFilter({
   const [text, setText] = useState(filter.text ?? '')
   const applied = useRef(filter.text ?? '')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-    },
-    [],
-  )
-  // A text set elsewhere (cleared filters) replaces what is typed.
-  useEffect(() => {
+  // Cancel typing before a text set elsewhere replaces it, so the old value cannot come back from its timer.
+  useLayoutEffect(() => {
+    if (timer.current) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
     const now = filter.text ?? ''
     if (now === applied.current) return
     applied.current = now
@@ -90,9 +88,14 @@ function TextFilter({
   latest.current = apply
   useEffect(() => {
     if (text.trim() === applied.current) return
-    timer.current = setTimeout(() => latest.current(text), TYPING_MS)
+    const id = setTimeout(() => {
+      if (timer.current === id) timer.current = null
+      latest.current(text)
+    }, TYPING_MS)
+    timer.current = id
     return () => {
-      if (timer.current) clearTimeout(timer.current)
+      clearTimeout(id)
+      if (timer.current === id) timer.current = null
     }
   }, [text])
   const hash = text.trim()
@@ -107,13 +110,26 @@ function TextFilter({
           aria-label={t('文本或哈希')}
           value={text}
           onChange={(e) => {
-            if (timer.current) clearTimeout(timer.current)
+            if (timer.current) {
+              clearTimeout(timer.current)
+              timer.current = null
+            }
             setText(e.target.value)
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') apply(text)
+            if (e.key === 'Enter') {
+              if (timer.current) {
+                clearTimeout(timer.current)
+                timer.current = null
+              }
+              apply(text)
+            }
             else if (e.key === 'Escape' && text) {
               e.stopPropagation()
+              if (timer.current) {
+                clearTimeout(timer.current)
+                timer.current = null
+              }
               setText('')
               apply('')
             }
@@ -144,13 +160,20 @@ function TextFilter({
         <button
           type="button"
           className="glf-goto"
-          onClick={() =>
+          onClick={() => {
+            if (timer.current) {
+              clearTimeout(timer.current)
+              timer.current = null
+            }
             void onGoTo(hash).then((found) => {
-              if (!found) return
+              if (!found) {
+                apply(hash)
+                return
+              }
               applied.current = ''
               setText('')
             })
-          }
+          }}
         >
           <Icon name="git-commit" size={12} />
           {t('转到提交 {hash}', { hash })}
