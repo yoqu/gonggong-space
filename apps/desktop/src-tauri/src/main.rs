@@ -19,6 +19,8 @@ use tauri_plugin_deep_link::DeepLinkExt;
 const SNAPSHOT_EVENT: &str = "daemon://snapshot";
 
 fn show_window(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
@@ -116,6 +118,12 @@ fn main() {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
+                #[cfg(target_os = "macos")]
+                if gonggong::config::Settings::load(&window.state::<Host>().home)
+                    .is_ok_and(|settings| settings.hide_dock_on_close)
+                {
+                    let _ = window.app_handle().set_activation_policy(tauri::ActivationPolicy::Accessory);
+                }
             }
         })
         .build(tauri::generate_context!())

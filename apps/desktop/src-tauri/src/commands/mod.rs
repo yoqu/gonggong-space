@@ -36,6 +36,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         settings::set_mirror,
         settings::set_env,
         settings::set_launch_at_login,
+        settings::set_hide_dock_on_close,
         settings::unbind,
         settings::stop_daemon,
         updates::check_update,

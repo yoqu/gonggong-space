@@ -16,6 +16,7 @@ beforeEach(() => {
   m.settings.mockResolvedValue({
     autoUpgrade: true,
     launchAtLogin: false,
+    hideDockOnClose: false,
     mirror: { kind: 'npmmirror' },
     env: {},
   })

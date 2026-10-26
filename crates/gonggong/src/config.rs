@@ -64,6 +64,8 @@ impl Config {
 pub struct Settings {
     /// Off = the persistent form of `GONGGONG_NO_AUTO_UPGRADE=1`.
     pub auto_upgrade: bool,
+    /// macOS: closing the window leaves only the menu-bar icon.
+    pub hide_dock_on_close: bool,
     /// Where Node and the agent CLIs are downloaded from.
     pub mirror: Mirror,
     /// Extra environment of the agent processes and npm.
@@ -72,7 +74,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { auto_upgrade: true, mirror: Mirror::default(), env: BTreeMap::new() }
+        Settings { auto_upgrade: true, hide_dock_on_close: false, mirror: Mirror::default(), env: BTreeMap::new() }
     }
 }
 
@@ -151,8 +153,18 @@ mod tests {
     fn settings_default_to_auto_upgrade_and_round_trip() {
         let home = tempfile::tempdir().unwrap();
         assert!(Settings::load(home.path()).unwrap().auto_upgrade);
+        assert!(!Settings::load(home.path()).unwrap().hide_dock_on_close);
         Settings { auto_upgrade: false, ..Settings::default() }.save(home.path()).unwrap();
         assert!(!Settings::load(home.path()).unwrap().auto_upgrade);
+    }
+
+    #[test]
+    fn dock_preference_round_trips_without_changing_other_settings() {
+        let home = tempfile::tempdir().unwrap();
+        Settings { hide_dock_on_close: true, ..Settings::default() }.save(home.path()).unwrap();
+        let settings = Settings::load(home.path()).unwrap();
+        assert!(settings.hide_dock_on_close);
+        assert!(settings.auto_upgrade);
     }
 
     #[test]

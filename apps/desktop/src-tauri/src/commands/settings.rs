@@ -13,6 +13,7 @@ use tauri_plugin_autostart::ManagerExt;
 pub struct SettingsDto {
     auto_upgrade: bool,
     launch_at_login: bool,
+    hide_dock_on_close: bool,
     mirror: Mirror,
     env: BTreeMap<String, String>,
 }
@@ -23,6 +24,7 @@ pub fn get_settings(app: AppHandle, host: State<'_, Host>) -> Result<SettingsDto
     Ok(SettingsDto {
         auto_upgrade: settings.auto_upgrade,
         launch_at_login: app.autolaunch().is_enabled().map_err(|e| e.to_string())?,
+        hide_dock_on_close: settings.hide_dock_on_close,
         mirror: settings.mirror,
         env: settings.env,
     })
@@ -33,6 +35,17 @@ pub fn set_auto_upgrade(on: bool, host: State<'_, Host>) -> Result<()> {
     let mut settings = Settings::load(&host.home).map_err(|e| e.to_string())?;
     settings.auto_upgrade = on;
     settings.save(&host.home).map_err(|e| e.to_string())
+}
+
+pub fn save_hide_dock_on_close(home: &Path, on: bool) -> Result<()> {
+    let mut settings = Settings::load(home).map_err(|e| e.to_string())?;
+    settings.hide_dock_on_close = on;
+    settings.save(home).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_hide_dock_on_close(on: bool, host: State<'_, Host>) -> Result<()> {
+    save_hide_dock_on_close(&host.home, on)
 }
 
 fn http_url(s: &str) -> Result<String> {
@@ -126,5 +139,16 @@ mod tests {
         save_env(home.path(), env("GOOD_1")).unwrap();
         let settings = Settings::load(home.path()).unwrap();
         assert_eq!((settings.env, settings.auto_upgrade), (env("GOOD_1"), true), "other settings kept");
+    }
+
+    #[test]
+    fn dock_preference_is_saved_in_local_settings() {
+        let home = tempfile::tempdir().unwrap();
+        save_hide_dock_on_close(home.path(), true).unwrap();
+        let settings = Settings::load(home.path()).unwrap();
+        assert!(settings.hide_dock_on_close);
+        assert!(settings.auto_upgrade, "other settings kept");
+        save_hide_dock_on_close(home.path(), false).unwrap();
+        assert!(!Settings::load(home.path()).unwrap().hide_dock_on_close);
     }
 }

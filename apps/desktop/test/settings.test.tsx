@@ -13,14 +13,32 @@ beforeEach(() => {
   m.settings.mockResolvedValue({
     autoUpgrade: true,
     launchAtLogin: false,
+    hideDockOnClose: false,
     mirror: { kind: 'npmmirror' },
     env: { FOO: '1' },
   })
   m.setAutoUpgrade.mockResolvedValue()
   m.setLaunchAtLogin.mockResolvedValue()
+  m.setHideDockOnClose.mockResolvedValue()
   m.unbind.mockResolvedValue()
   m.reveal.mockResolvedValue()
   useDaemon.setState({ info: INFO })
+})
+
+it('offers the menu-bar-only preference on macOS and saves it', async () => {
+  render(<SettingsPage go={() => {}} />)
+  const dock = await screen.findByRole('switch', { name: '关闭窗口后隐藏程序坞图标' })
+  expect(dock).toHaveProperty('checked', false)
+  fireEvent.click(dock)
+  await waitFor(() => expect(dock).toHaveProperty('checked', true))
+  expect(m.setHideDockOnClose).toHaveBeenCalledWith(true)
+})
+
+it('does not show the macOS dock preference on other platforms', async () => {
+  useDaemon.setState({ info: { ...INFO, machine: { ...INFO.machine, os: 'windows' } } })
+  render(<SettingsPage go={() => {}} />)
+  await screen.findByRole('switch', { name: '自动升级' })
+  expect(screen.queryByRole('switch', { name: '关闭窗口后隐藏程序坞图标' })).toBeNull()
 })
 
 it('shows local paths and the server, toggles preferences and unbinds after confirmation', async () => {

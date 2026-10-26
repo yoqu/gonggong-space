@@ -26,6 +26,7 @@ beforeEach(() => {
   vi.mocked(ipc).settings.mockResolvedValue({
     autoUpgrade: true,
     launchAtLogin: false,
+    hideDockOnClose: false,
     mirror: { kind: 'npmmirror' },
     env: {},
   })

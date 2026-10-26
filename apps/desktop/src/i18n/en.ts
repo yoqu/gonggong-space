@@ -1,4 +1,7 @@
 export const en = {
+  关闭窗口后隐藏程序坞图标: 'Hide the Dock icon when the window closes',
+  '保留菜单栏图标，可从菜单栏重新打开；后台服务继续运行':
+    'Keep the menu-bar icon to reopen the window; background services keep running',
   '本机已绑定到 {host}，请先在设置中解绑':
     'This machine is already bound to {host}. Unbind it in Settings first',
   已连接: 'Connected',

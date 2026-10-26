@@ -33,6 +33,7 @@ beforeEach(() => {
   m.settings.mockResolvedValue({
     autoUpgrade: true,
     launchAtLogin: false,
+    hideDockOnClose: false,
     mirror: { kind: 'npmmirror' },
     env: {},
   })
@@ -62,6 +63,7 @@ it('does not check by itself while 自动升级 is off', async () => {
   m.settings.mockResolvedValue({
     autoUpgrade: false,
     launchAtLogin: false,
+    hideDockOnClose: false,
     mirror: { kind: 'npmmirror' },
     env: {},
   })

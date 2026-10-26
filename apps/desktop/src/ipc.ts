@@ -230,6 +230,8 @@ export type Mirror =
 export interface Settings {
   autoUpgrade: boolean
   launchAtLogin: boolean
+  /** macOS only: closing the window leaves just the menu-bar icon. */
+  hideDockOnClose: boolean
   mirror: Mirror
   /** Extra environment of the agent processes. */
   env: Record<string, string>
@@ -334,6 +336,7 @@ export const ipc = {
   setMirror: (mirror: Mirror) => invoke<void>('set_mirror', { mirror }),
   setEnv: (env: Record<string, string>) => invoke<void>('set_env', { env }),
   setLaunchAtLogin: (on: boolean) => invoke<void>('set_launch_at_login', { on }),
+  setHideDockOnClose: (on: boolean) => invoke<void>('set_hide_dock_on_close', { on }),
   unbind: () => invoke<void>('unbind'),
   workspaces: () => invoke<Workspaces>('workspaces'),
   reveal: (path: string) => invoke<void>('reveal', { path }),

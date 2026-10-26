@@ -209,7 +209,8 @@ export function SettingsPage(_: PageProps) {
   }, [])
 
   const toggle =
-    (key: 'autoUpgrade' | 'launchAtLogin', save: (on: boolean) => Promise<void>) => async (on: boolean) => {
+    (key: 'autoUpgrade' | 'launchAtLogin' | 'hideDockOnClose', save: (on: boolean) => Promise<void>) =>
+    async (on: boolean) => {
       try {
         await save(on)
         setSettings((s) => s && { ...s, [key]: on })
@@ -295,6 +296,19 @@ export function SettingsPage(_: PageProps) {
             onChange={toggle('launchAtLogin', ipc.setLaunchAtLogin)}
           />
         </GroupRow>
+        {info?.machine.os === 'macos' ? (
+          <GroupRow
+            label={t('关闭窗口后隐藏程序坞图标')}
+            description={t('保留菜单栏图标，可从菜单栏重新打开；后台服务继续运行')}
+          >
+            <Switch
+              aria-label={t('关闭窗口后隐藏程序坞图标')}
+              checked={settings?.hideDockOnClose ?? false}
+              disabled={!settings}
+              onChange={toggle('hideDockOnClose', ipc.setHideDockOnClose)}
+            />
+          </GroupRow>
+        ) : null}
       </GroupBox>
       <GroupBox>
         {settings ? (

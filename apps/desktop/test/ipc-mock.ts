@@ -23,6 +23,7 @@ vi.mock('../src/ipc', () => ({
     settings: vi.fn(async () => ({
       autoUpgrade: false,
       launchAtLogin: false,
+      hideDockOnClose: false,
       mirror: { kind: 'npmmirror' },
       env: {},
     })),
@@ -30,6 +31,7 @@ vi.mock('../src/ipc', () => ({
     setMirror: vi.fn(),
     setEnv: vi.fn(),
     setLaunchAtLogin: vi.fn(),
+    setHideDockOnClose: vi.fn(),
     unbind: vi.fn(),
     workspaces: vi.fn(),
     reveal: vi.fn(),
