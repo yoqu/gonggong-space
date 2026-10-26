@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1 — 2026-10-26
+
+- macOS 新增「关闭窗口后隐藏程序坞图标」设置：开启后关闭窗口仅保留菜单栏图标，可从菜单栏重新打开；后台 daemon 继续运行，默认保持原行为 / macOS adds "Hide the Dock icon when the window closes": leave only the menu-bar icon after closing, reopen it from there, and keep the daemon running; the previous behavior remains the default
+
 ## v0.4.0 — 2026-10-23
 
 - Git 管理对标 IntelliJ IDEA：Commit 窗口、完整差异视图、带提交图的 Git Log、比较、分支弹窗、合并冲突三方解决、贮藏、注解和文件历史 / IDEA-style Git management: Commit window, full diff viewer, Git Log with commit graph, compare, branch popup, three-way conflict resolution, stashes, blame and file history
