@@ -123,8 +123,7 @@ function TextFilter({
                 timer.current = null
               }
               apply(text)
-            }
-            else if (e.key === 'Escape' && text) {
+            } else if (e.key === 'Escape' && text) {
               e.stopPropagation()
               if (timer.current) {
                 clearTimeout(timer.current)
