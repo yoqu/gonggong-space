@@ -506,6 +506,10 @@ export const ApprovalRequest = z.object({
   toolKind: z.string(),
   /** Command line / path / URL the agent wants to touch. */
   detail: z.string(),
+  /** Why the daemon forwarded this request; older daemons omit it. */
+  reason: z
+    .enum(['high_risk', 'protected_base', 'network', 'write', 'unparsed', 'not_allowed'])
+    .default('not_allowed'),
   options: z.array(PermissionOption),
   /** Rules an allow_always answer adds to the bot's alwaysAllow; empty → the scope can't be shown, so don't offer it. */
   remember: z.array(z.string()).default([]),

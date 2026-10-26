@@ -194,7 +194,7 @@ describe('bind machine dialog', () => {
           minVersion: '2.0.0',
           catalog: null,
         },
-        { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0', catalog: null },
+        { kind: 'codex', available: false, version: null, path: null, minVersion: '0.160.1', catalog: null },
       ],
     })
     expect(screen.getByText('Claude Code 2.1.4')).toBeTruthy()

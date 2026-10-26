@@ -1454,10 +1454,24 @@ pub struct ApprovalRequest {
     pub title: String,
     pub tool_kind: String,
     pub detail: String,
+    #[serde(default)]
+    pub reason: ApprovalReason,
     pub options: Vec<PermissionOption>,
     /// Rules an allow_always answer adds to the bot's `always_allow`; empty → don't offer it.
     #[serde(default)]
     pub remember: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalReason {
+    HighRisk,
+    ProtectedBase,
+    Network,
+    Write,
+    Unparsed,
+    #[default]
+    NotAllowed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -16,3 +16,5 @@ website/.vitepress/cache/
 videos/*/snapshots/
 videos/*/renders/
 videos/*/.hyperframes/
+apps/web/.vitest/
+design/

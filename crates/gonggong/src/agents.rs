@@ -22,7 +22,7 @@ pub fn binary(kind: AgentKind) -> &'static str {
 pub fn min_version(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "2.0.0",
-        AgentKind::Codex => "0.40.0",
+        AgentKind::Codex => "0.160.1",
     }
 }
 

@@ -691,6 +691,7 @@ describe('question and approval cards', () => {
       title: '执行命令',
       toolKind: 'execute',
       detail: o.detail ?? 'rm -rf build',
+      reason: 'not_allowed',
       options: [
         { optionId: 'no', name: '拒绝', kind: 'reject_once' },
         { optionId: 'always', name: '始终允许', kind: 'allow_always' },

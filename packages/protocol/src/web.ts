@@ -1539,6 +1539,9 @@ export const ApprovalDto = z.object({
   title: z.string(),
   toolKind: z.string(),
   detail: z.string(),
+  reason: z
+    .enum(['high_risk', 'protected_base', 'network', 'write', 'unparsed', 'not_allowed'])
+    .default('not_allowed'),
   options: z.array(PermissionOption),
   /** What 始终允许 would add to the bot's alwaysAllow. */
   remember: z.array(z.string()),

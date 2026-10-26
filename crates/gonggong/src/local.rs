@@ -2,7 +2,7 @@
 //! path per agent. Model, effort and the bot's 命令审批 are set on the server (plan J8): `Rules` applies the latter to
 //! permission requests here. Also the catalog probed from each adapter (`<home>/models.json`), reported to the server
 //! for its pickers.
-use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, RunStart, Tier};
+use crate::protocol::{AgentCatalog, AgentKind, Approval, ApprovalReason, RunBot, RunStart, Tier};
 use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -116,6 +116,27 @@ impl LocalSettings {
 }
 
 impl Rules {
+    pub fn reason(&self, command: Option<&str>, tool_kind: &str, cwd: &Path) -> ApprovalReason {
+        if command.is_some_and(floor_hit) {
+            ApprovalReason::HighRisk
+        } else if command.is_some_and(|c| self.pushes_base(c, cwd)) {
+            ApprovalReason::ProtectedBase
+        } else if tool_kind == "fetch" {
+            ApprovalReason::Network
+        } else if matches!(tool_kind, "edit" | "delete" | "move") {
+            ApprovalReason::Write
+        } else if command.is_some_and(|c| segments(c).is_none()) {
+            ApprovalReason::Unparsed
+        } else {
+            ApprovalReason::NotAllowed
+        }
+    }
+
+    /// ACP read/search tools act in the workspace by default; explicit locations must stay inside it.
+    pub fn reads_within(&self, paths: &[PathBuf], cwd: &Path) -> bool {
+        paths.iter().all(|path| within_root(path, cwd, &self.roots(cwd)))
+    }
+
     /// Plan D15. `command` is the shell command of an execute-kind tool call, `None` for any other request, which
     /// `tool:<title>` rules match; `cwd` is the run's workspace and `always` the rules the owner allowed always in this
     /// conversation. The floor (plan A6) always goes to the owner.
@@ -134,6 +155,38 @@ impl Rules {
             Approval::Ask => allowed(trusted, command, title, &roots),
         };
         if local { Decision::Local } else { Decision::Ask }
+    }
+}
+
+fn within_root(path: &Path, cwd: &Path, roots: &[&Path]) -> bool {
+    let absolute = if path.is_absolute() { path.to_path_buf() } else { cwd.join(path) };
+    match std::fs::canonicalize(&absolute) {
+        Ok(path) => roots.iter().any(|root| {
+            let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+            path.starts_with(root)
+        }),
+        Err(_) => {
+            if let Some(parent) = absolute.parent()
+                && let Ok(parent) = std::fs::canonicalize(parent)
+            {
+                let path = parent.join(absolute.file_name().unwrap_or_default());
+                return roots.iter().any(|root| {
+                    let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+                    path.starts_with(root)
+                });
+            }
+            let mut clean = PathBuf::new();
+            for part in absolute.components() {
+                match part {
+                    std::path::Component::ParentDir => {
+                        clean.pop();
+                    }
+                    std::path::Component::CurDir => {}
+                    other => clean.push(other),
+                }
+            }
+            roots.iter().any(|root| clean.starts_with(root))
+        }
     }
 }
 
@@ -250,10 +303,150 @@ fn starts_with_any<'a>(line: &str, prefixes: impl IntoIterator<Item = &'a str>) 
         .any(|p| !p.is_empty() && line.strip_prefix(p).is_some_and(|rest| rest.is_empty() || rest.starts_with(' ')))
 }
 
-/// `git diff/log --output` writes a file, so git takes no expanded word that could turn into it.
+/// Read-only programs whose arguments cannot write or execute. Reject expanded words: an expansion can become an
+/// option with side effects. Keep this allowlist narrow; a parser for one program must not be applied to another.
 fn read_only(line: &str, words: &[String]) -> bool {
-    starts_with_any(line, READ_ONLY.iter().copied())
-        && !words.iter().any(|w| w.starts_with("--output") || (words[0] == "git" && w.contains('$')))
+    if starts_with_any(line, READ_ONLY.iter().copied()) {
+        return !words.iter().any(|w| w.starts_with("--output") || (words[0] == "git" && w.contains('$')));
+    }
+    let Some((name, args)) = program(words) else { return false };
+    if !matches!(name, "rg" | "sed" | "find" | "ps" | "jq" | "diff" | "stat" | "du" | "which") {
+        return false;
+    }
+    if args.iter().any(|word| unquote(word).contains('$')) {
+        return false;
+    }
+    match name {
+        "sed" => sed_read_only(args),
+        "find" => !args.iter().any(|w| {
+            matches!(
+                unquote(w),
+                "-delete" | "-exec" | "-execdir" | "-ok" | "-okdir" | "-fls" | "-fprint" | "-fprintf" | "-fprint0"
+            )
+        }),
+        "rg" => !args.iter().any(|w| {
+            let w = unquote(w);
+            matches!(w, "--pre" | "--pre-glob" | "--hostname-bin")
+                || ["--pre=", "--pre-glob=", "--hostname-bin="].iter().any(|p| w.starts_with(p))
+        }),
+        _ => !args.iter().any(|word| unquote(word).starts_with("--output")),
+    }
+}
+
+/// Parse the option portion and inline sed scripts. Script files are not trusted: their contents can write or run.
+fn sed_read_only(words: &[String]) -> bool {
+    let mut scripts = Vec::new();
+    let mut i = 0;
+    let mut operands = false;
+    while i < words.len() {
+        let word = unquote(&words[i]);
+        if word.contains('$') {
+            return false;
+        }
+        if operands {
+            i += 1;
+            continue;
+        }
+        match word {
+            "--" => operands = true,
+            "-n" | "--quiet" | "--silent" | "-s" | "--separate" | "-u" | "--unbuffered" | "-z" | "--null-data"
+            | "-l" | "--line-length" | "--posix" | "-r" | "-E" | "--regexp-extended" => {}
+            "-e" | "--expression" => {
+                i += 1;
+                let Some(script) = words.get(i) else { return false };
+                scripts.push(script.as_str());
+            }
+            "-f" | "--file" | "-i" | "--in-place" => return false,
+            _ if word.starts_with("--expression=") => scripts.push(&words[i]),
+            _ if word.starts_with("--file=") || word.starts_with("--in-place") => return false,
+            _ if word.starts_with("-i") || short_has(word, "if") => return false,
+            _ if word.starts_with('-') && word.len() > 1 => {
+                // `-ne 'script'` is the common compact form. Once `e` appears, the rest is its script.
+                let flags = &word[1..];
+                if let Some(at) = flags.find('e') {
+                    if !flags[..at].chars().all(|c| "nEsulzr".contains(c)) {
+                        return false;
+                    }
+                    if flags[at + 1..].is_empty() {
+                        i += 1;
+                        let Some(script) = words.get(i) else { return false };
+                        scripts.push(script.as_str());
+                    } else {
+                        scripts.push(&flags[at + 1..]);
+                    }
+                } else if !flags.chars().all(|c| "nEsulzr".contains(c)) {
+                    return false;
+                }
+            }
+            _ => {
+                scripts.push(&words[i]);
+                operands = true;
+            }
+        }
+        i += 1;
+    }
+    !scripts.is_empty() && scripts.iter().all(|word| sed_script_read_only(word))
+}
+
+/// Sed `w` writes files; GNU sed `e` runs shell commands. Both are refused conservatively.
+fn sed_script_read_only(word: &str) -> bool {
+    let script = word.split_once('=').map_or_else(|| unquote(word), |(_, script)| unquote(script));
+    let bytes = script.as_bytes();
+    let mut command_start = true;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b';' | b'\n' => {
+                command_start = true;
+                i += 1;
+            }
+            b'{' | b'}' => {
+                command_start = true;
+                i += 1;
+            }
+            b' ' | b'\t' | b'0'..=b'9' | b'$' | b'+' | b'~' | b',' | b'!' if command_start => i += 1,
+            b'/' | b'\\' if command_start => {
+                let Some(&delimiter) = (if bytes[i] == b'/' { Some(&b'/') } else { bytes.get(i + 1) }) else {
+                    return false;
+                };
+                i += if bytes[i] == b'/' { 1 } else { 2 };
+                while i < bytes.len() && bytes[i] != delimiter {
+                    i += if bytes[i] == b'\\' { 2 } else { 1 };
+                }
+                i += 1;
+            }
+            b'\\' => i += 2,
+            b'e' | b'w' | b'W' if command_start => return false,
+            b's' | b'y' if command_start && i + 1 < bytes.len() => {
+                let substitute = bytes[i] == b's';
+                let delimiter = bytes[i + 1];
+                let mut fields = 1;
+                i += 2;
+                while i < bytes.len() && fields < 3 {
+                    match bytes[i] {
+                        b'\\' => i += 2,
+                        b if b == delimiter => {
+                            fields += 1;
+                            i += 1;
+                        }
+                        _ => i += 1,
+                    }
+                }
+                while substitute && i < bytes.len() && !matches!(bytes[i], b';' | b'\n') {
+                    if matches!(bytes[i], b'e' | b'w' | b'W') {
+                        return false;
+                    }
+                    i += 1;
+                }
+                command_start = false;
+            }
+            _ => {
+                command_start = false;
+                i += 1;
+            }
+        }
+    }
+    true
 }
 
 /// `cd <dir>` with a literal path inside one of `roots`.
@@ -806,6 +999,119 @@ mod tests {
         assert_eq!(rules.decide(Tier::Workspace, Some("cd /sdkx && go build"), "t", cwd, &[]), Decision::Ask);
         assert_eq!(rules.remember(Some("cd /sdk && pnpm lint"), "t", cwd), ["pnpm lint"]);
         assert_eq!(bot(Approval::Ask, &[]).remember(Some("cd /sdk && pnpm lint"), "t", cwd), ["cd /sdk", "pnpm lint"]);
+    }
+
+    #[test]
+    fn read_tools_stay_inside_the_workspace_and_follow_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("workspace");
+        let outside = dir.path().join("outside");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&outside).unwrap();
+        let rules = Rules { extra_dirs: vec![outside.clone()], ..bot(Approval::Ask, &[]) };
+        assert!(rules.reads_within(&[], &root));
+        assert!(rules.reads_within(&["src/lib.rs".into()], &root));
+        assert!(rules.reads_within(&["../outside/report.txt".into()], &root));
+        assert!(!rules.reads_within(&["../../secret".into()], &root));
+        assert!(!rules.reads_within(&[dir.path().join("secret").into()], &root));
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(dir.path(), root.join("escape")).unwrap();
+            assert!(!rules.reads_within(&[root.join("escape/secret")], &root));
+        }
+    }
+
+    #[test]
+    fn common_read_only_commands_are_allowed_without_a_rule() {
+        let commands = [
+            "rg -n \"TODO|FIXME\" crates",
+            "rg --hidden --glob '!target' pattern .",
+            "sed -n '1,120p' src/main.rs",
+            "sed 's/old/new/g' README.md",
+            "find crates -type f -name '*.rs'",
+            "find . -maxdepth 2 -print",
+            "find . -maxdepth 2 -printf '%p\\n'",
+            "ps aux",
+            "ps -p 123 -o pid,command",
+            "jq '.dependencies' package.json",
+            "jq -r '.scripts[]' package.json",
+            "diff -u before.txt after.txt",
+            "stat -f '%N %z' Cargo.toml",
+            "du -sh target",
+            "which cargo rustc",
+            "rg TODO . | sed -n '1,20p' && find src -type f -name '*.rs'",
+        ];
+        for command in commands {
+            assert!(read_only(command, &segments(command).unwrap()[0].words), "{command}");
+            assert_eq!(
+                bot(Approval::Ask, &[]).decide(Tier::Workspace, Some(command), "t", Path::new("/w"), &[]),
+                Decision::Local,
+                "{command}",
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_commands_reject_writing_execution_and_expanded_options() {
+        let commands = [
+            "sed -i.bak 's/a/b/' file",
+            "sed --in-place 's/a/b/' file",
+            "sed -e '1w /tmp/out' file",
+            "sed -n -f script.sed file",
+            "find . -delete",
+            "find . -exec rm {} +",
+            "find . -execdir rm {} +",
+            "find . -ok rm {} ;",
+            "find . -okdir rm {} ;",
+            "find . -fprint /tmp/out",
+            "find . -fprintf /tmp/out '%p'",
+            "find . -fls /tmp/out",
+            "rg --pre 'cat' pattern .",
+            "rg --pre=cat pattern .",
+            "rg --hostname-bin cat pattern .",
+            "diff --output=/tmp/out before after",
+            "sed '1w /tmp/out' file",
+            "sed '/pattern/w /tmp/out' file",
+            "sed '1,5w /tmp/out' file",
+            "sed 's/a/b/e' file",
+            "sed 's/a/b/ge' file",
+            "sed 's/a/b/w /tmp/out' file",
+            "sed 's/a/b/gw /tmp/out' file",
+            "sed 'e id' file",
+            "sed -ne 's/a/b/e' file",
+            "sed --expression='1w /tmp/out' file",
+            "sed -n '1e id' file",
+            "sed -n '1 { w /tmp/out }' file",
+            "sed -n '1 { e id }' file",
+            "sed --sandbox 's/a/b/' file",
+            "sed $(echo -n) 's/a/b/' file",
+            "ps --format $(cat args)",
+            "sed $(echo -i) 's/a/b/' file",
+            "find . $(echo -delete)",
+        ];
+        for command in commands {
+            assert_eq!(
+                bot(Approval::Ask, &[]).decide(Tier::Workspace, Some(command), "t", Path::new("/w"), &[]),
+                Decision::Ask,
+                "{command}",
+            );
+        }
+        assert!(sed_read_only(&segments("sed -ne '1,20p' src/main.rs").unwrap()[0].words[1..]));
+    }
+
+    #[test]
+    fn read_tools_reject_a_symlink_to_a_missing_outside_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("workspace");
+        let outside = dir.path().join("outside");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&outside).unwrap();
+        let rules = bot(Approval::Ask, &[]);
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&outside, root.join("escape")).unwrap();
+            assert!(!rules.reads_within(&[root.join("escape/not-created-yet")], &root));
+        }
     }
 
     #[test]

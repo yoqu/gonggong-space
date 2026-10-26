@@ -100,8 +100,8 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
         (AgentKind::Claude, Tier::ReadOnly) => "default",
         (AgentKind::Codex, Tier::Full) => "agent-full-access",
         // Not `agent`: it hands approvals to Codex's own reviewer model (fails on third-party providers) instead
-        // of the owner. `read-only` is codex-acp's workspace-write sandbox that asks the client.
-        (AgentKind::Codex, Tier::Workspace) => "read-only",
+        // of the owner. `workspace-write` keeps approvals with the owner and limits edits to the workspace.
+        (AgentKind::Codex, Tier::Workspace) => "workspace-write",
         (AgentKind::Codex, Tier::ReadOnly) => "read-only",
     }
 }
@@ -674,9 +674,12 @@ mod tests {
     #[test]
     fn maps_tiers_to_modes() {
         assert_eq!(mode_for(AgentKind::Claude, Tier::Full), "bypassPermissions");
+        assert_eq!(mode_for(AgentKind::Claude, Tier::Workspace), "acceptEdits");
+        assert_eq!(mode_for(AgentKind::Claude, Tier::ReadOnly), "default");
+        assert_eq!(mode_for(AgentKind::Codex, Tier::Full), "agent-full-access");
         assert_eq!(mode_for(AgentKind::Codex, Tier::ReadOnly), "read-only");
         // codex-acp's `agent` mode sends approvals to Codex's own reviewer model instead of the owner.
-        assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), "read-only");
+        assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), "workspace-write");
     }
 
     #[test]

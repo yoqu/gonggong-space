@@ -18,6 +18,7 @@ const approval: ApprovalDto = {
   title: 'Bash',
   toolKind: 'execute',
   detail: 'rm -rf dist',
+  reason: 'not_allowed',
   options: [],
   remember: [],
   status: 'approved',

@@ -7,7 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { auditLogs, bots, groups, messages, notifications, runs } from '../src/db/schema.js'
+import { approvals, auditLogs, bots, groups, messages, notifications, runs } from '../src/db/schema.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
 import { MASK } from '../src/modules/runs/redact.js'
@@ -100,6 +100,7 @@ async function world() {
       title: 'Bash',
       toolKind: 'execute',
       detail: 'go build ./...',
+      reason: 'not_allowed',
       options,
       ...(remember && { remember }),
     })
@@ -124,11 +125,14 @@ describe('approvals', () => {
       title: 'Bash',
       toolKind: 'execute',
       detail: 'go build ./...',
+      reason: 'not_allowed',
       options: OPTIONS,
       status: 'pending',
       decidedBy: null,
       expiresAt: new Date(clock.getTime() + 30 * 60_000).toISOString(),
     })
+    const stored = await t.db.query.approvals.findFirst({ where: eq(approvals.id, approval.id) })
+    expect(stored?.reason).toBe('not_allowed')
     const row = await w.run(runId)
     expect(row).toMatchObject({ status: 'awaiting_approval', step: '等待审批：Bash' })
     // The owner is notified right after the request is stored and the card is pushed.
@@ -179,6 +183,25 @@ describe('approvals', () => {
         detail: { runId, approvalId: approval.id, optionId: 'allow', detail: 'go build ./...' },
       },
     ])
+  })
+
+  it('stores the reason supplied by the daemon', async () => {
+    const w = await world()
+    const { runId, approval } = await w.request()
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-network',
+      title: 'Fetch',
+      toolKind: 'fetch',
+      detail: 'https://wiki.corp',
+      reason: 'network',
+      options: OPTIONS,
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    expect(run.approvals.map((a) => a.reason)).toEqual(['not_allowed', 'network'])
+    const stored = await t.db.query.approvals.findFirst({ where: eq(approvals.id, approval.id) })
+    expect(stored?.reason).toBe('not_allowed')
   })
 
   it('records a reject decision and keeps awaiting while another request is pending', async () => {

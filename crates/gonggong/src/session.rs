@@ -1056,6 +1056,7 @@ fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
         return Permission::Now(auto_allow(&req.options));
     }
     let command = command_of(req.tool_call.fields.raw_input.as_ref());
+    let read_paths = read_paths(&req);
     let release = req
         .tool_call
         .fields
@@ -1068,8 +1069,12 @@ fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
         unreachable!("tool call updates always map to tool events")
     };
     let command = command.filter(|_| tool_kind == "execute");
+    let read_only_tool = command.is_none()
+        && matches!(tool_kind.as_str(), "read" | "search")
+        && a.rules.reads_within(&read_paths, &a.cwd);
     match a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always) {
         Decision::Full => return Permission::Now(auto_allow(&req.options)),
+        _ if read_only_tool => return Permission::Now(auto_allow(&req.options)),
         Decision::Local if let Some(allow) = auto_allow(&req.options) => {
             let step = t!("已按命令审批规则自动批准：{command}", command = command.unwrap_or(title));
             let event = RunEvent::Status { status: RunStatus::Running, step };
@@ -1088,6 +1093,7 @@ fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
         run_id,
         request_id: request_id.clone(),
         detail: release.or(detail).unwrap_or_else(|| title.clone()),
+        reason: a.rules.reason(command.as_deref(), &tool_kind, &a.cwd),
         title: title.clone(),
         tool_kind,
         options: wire_options(&req.options),
@@ -1096,6 +1102,28 @@ fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
     let (tx, rx) = oneshot::channel();
     s.approvals.insert(request_id, Approval { title, remember, options: req.options, tx });
     Permission::Ask(rx)
+}
+
+fn read_paths(req: &RequestPermissionRequest) -> Vec<PathBuf> {
+    let mut paths: Vec<PathBuf> = req
+        .tool_call
+        .fields
+        .locations
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .map(|location| location.path.clone())
+        .collect();
+    if paths.is_empty()
+        && let Some(raw) = &req.tool_call.fields.raw_input
+    {
+        for key in ["file_path", "filePath", "path"] {
+            if let Some(path) = raw.get(key).and_then(serde_json::Value::as_str) {
+                paths.push(PathBuf::from(path));
+            }
+        }
+    }
+    paths
 }
 
 /// Resolves `grace` after `run_id` is cancelled; never if it is not.

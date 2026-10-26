@@ -13,6 +13,8 @@
       "!.agents",
       "!.obsidian",
       "!**/test-results",
+      "!apps/web/.vitest",
+      "!design",
       "!**/playwright-report",
       "!website/.vitepress/cache",
       "!videos",

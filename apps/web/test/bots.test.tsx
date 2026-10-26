@@ -38,7 +38,7 @@ const mbp: MachineDto = {
       minVersion: '2.0.0',
       catalog: null,
     },
-    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.40.0', catalog: null },
+    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.160.1', catalog: null },
   ],
   daemonVersion: '0.1.0',
   features: [],

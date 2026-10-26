@@ -63,6 +63,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       title: req.title,
       toolKind: req.toolKind,
       detail: req.detail,
+      reason: req.reason,
       options: req.options,
       remember: rememberable(raw.remember),
       expiresAt,

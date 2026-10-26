@@ -42,7 +42,7 @@ use tokio::sync::mpsc;
 /// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`.
 pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
-    (AgentKind::Codex, "@agentclientprotocol/codex-acp", "1.13.0"),
+    (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.2.2"),
 ];
 const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Claude Code aborts an HTTP MCP call after a minute, or five silent minutes, while 「向群成员提问」 waits for a person
@@ -1066,6 +1066,17 @@ impl Inner {
 fn installed_version(pkg: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(pkg.join("package.json")).ok()?;
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pins_codex_adapter_with_workspace_write_mode() {
+        let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
+        assert_eq!(*version, "2.2.2");
+    }
 }
 
 /// The turn did not start: the server queues it again until the replica is settled (F11, F12).

@@ -81,7 +81,7 @@ export const INFO: AppInfo = {
   backupsDir: '/Users/wl/.gonggong/backups',
   adapters: [
     { kind: 'claude', package: '@agentclientprotocol/claude-agent-acp', version: '0.81.0' },
-    { kind: 'codex', package: '@agentclientprotocol/codex-acp', version: '1.13.0' },
+    { kind: 'codex', package: '@agentclientprotocol/codex-acp', version: '2.2.2' },
   ],
 }
 
@@ -124,7 +124,7 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
         available: false,
         version: null,
         path: null,
-        minVersion: '0.40.0',
+        minVersion: '0.160.1',
         catalog: null,
         latest: null,
         managed: false,
@@ -161,7 +161,7 @@ export const CODEX: AgentCard = {
   available: false,
   version: null,
   path: null,
-  minVersion: '0.40.0',
+  minVersion: '0.160.1',
   customPath: false,
   catalog: null,
   login: null,

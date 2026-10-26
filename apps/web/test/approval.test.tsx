@@ -1,4 +1,4 @@
-import type { ApprovalDto, BotDto, RunDto } from '@gonggong/protocol'
+import { ApprovalDto, type BotDto, type RunDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
@@ -22,6 +22,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
   title: 'Bash',
   toolKind: 'execute',
   detail: 'go build ./...',
+  reason: 'not_allowed',
   options: [
     { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
@@ -67,6 +68,17 @@ afterEach(() => {
 })
 
 describe('ApprovalBlock', () => {
+  it('explains why the request needs a person', () => {
+    login('u1', '王磊')
+    render(<ApprovalBlock run={run([approval({ reason: 'unparsed' })])} />)
+    expect(screen.getByText(/命令较复杂，无法确认是否只读/)).toBeTruthy()
+  })
+
+  it('uses the generic explanation for a request from an older server', () => {
+    const old = { ...approval(), reason: undefined }
+    expect(ApprovalDto.parse(old).reason).toBe('not_allowed')
+  })
+
   it('renders nothing without approvals', () => {
     login('u1', '王磊')
     const { container } = render(<ApprovalBlock run={run([])} />)
@@ -79,12 +91,12 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([approval()])} />)
     expect(screen.getByText('权限请求 · 执行命令')).toBeTruthy()
     expect(screen.getByText('go build ./...')).toBeTruthy()
-    expect(screen.getByText('超出「工作区写入」档位 · 01:30 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText(/超出「工作区写入」档位 · 01:30 后自动拒绝/)).toBeTruthy()
     expect(screen.getByText('你是 Bot 主人')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(screen.getByText('超出「工作区写入」档位 · 01:29 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText(/超出「工作区写入」档位 · 01:29 后自动拒绝/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '批准' }))
     await waitFor(() => expect(calls).toHaveLength(1))
@@ -136,7 +148,7 @@ describe('ApprovalBlock', () => {
     const { rerender } = render(<ApprovalBlock run={run([])} />)
     vi.setSystemTime(NOW.getTime() + 20_000)
     rerender(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.getByText('超出「工作区写入」档位 · 01:10 后自动拒绝，agent 自行绕路')).toBeTruthy()
+    expect(screen.getByText(/超出「工作区写入」档位 · 01:10 后自动拒绝/)).toBeTruthy()
   })
 
   it('sends the reject option and shows a failed decision', async () => {
@@ -183,7 +195,7 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)
     expect(screen.getByText(text)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
-    expect(screen.getByText('超出「工作区写入」档位')).toBeTruthy()
+    expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖 · 超出「工作区写入」档位/)).toBeTruthy()
   })
 
   it('shows the latest request of the run', () => {

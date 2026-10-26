@@ -20,6 +20,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
   title: 'Bash',
   toolKind: 'execute',
   detail: 'rm -rf dist',
+  reason: 'not_allowed',
   options: [
     { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },

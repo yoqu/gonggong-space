@@ -404,8 +404,10 @@ mod tests {
             latest: None,
             managed: false,
         };
-        let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.46.0"))]);
-        assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.46.0 可用"));
+        let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.160.1"))]);
+        assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.160.1 可用"));
+        let outdated = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.46.0"))]);
+        assert_eq!(outdated.detail, "Codex 0.46.0 低于 0.160.1");
         let partial = agents(&[info(AgentKind::Claude, Some("1.0.0")), info(AgentKind::Codex, None)]);
         assert_eq!(partial.status, Status::Warn);
         assert_eq!(partial.detail, "Claude Code 1.0.0 低于 2.0.0 · Codex 未安装");

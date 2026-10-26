@@ -10,6 +10,8 @@
 //                editing via shell)
 //   "mock:say <text>" reply with the rest of the prompt (from its last "mock:say") verbatim
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
+//   "mock:read <path>" ask permission for a read tool call at <path>, reply "read" or "denied"
+//   "mock:search <path>" the same for a search tool call
 //   "mock:ask <json>" call the injected gonggong MCP ask tool with <json> as arguments (after a permission request)
 //                     and reply with the tool's text result
 //   "mock:tool <name> <json>" the same for any gonggong tool
@@ -203,6 +205,32 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     })
     const ran = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
     await say(ran ? 'ran' : 'denied')
+    return { stopReason: 'end_turn' }
+  }
+  const read = text.indexOf('mock:read ')
+  const search = text.indexOf('mock:search ')
+  if (read >= 0 || search >= 0) {
+    const path = text.slice(read >= 0 ? read + 10 : search + 12).trim()
+    const kind = read >= 0 ? 'read' : 'search'
+    const toolCall = {
+      toolCallId: 'read-1',
+      title: `${kind === 'read' ? 'Read' : 'Search'} ${path}`,
+      kind,
+      status: 'pending',
+      rawInput: { file_path: path },
+      locations: [{ path }],
+    }
+    await update({ sessionUpdate: 'tool_call', ...toolCall })
+    const res = await client.request(acp.methods.client.session.requestPermission, {
+      sessionId,
+      toolCall,
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    })
+    const allowed = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
+    await say(allowed ? 'read' : 'denied')
     return { stopReason: 'end_turn' }
   }
   const ask = text.indexOf('mock:ask ')

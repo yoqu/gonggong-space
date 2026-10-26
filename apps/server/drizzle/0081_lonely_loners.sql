@@ -1,0 +1,1 @@
+ALTER TABLE "approvals" ADD COLUMN "reason" text DEFAULT 'not_allowed' NOT NULL;

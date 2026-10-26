@@ -100,6 +100,7 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
   title: a.title,
   toolKind: a.toolKind,
   detail: a.detail,
+  reason: a.reason as ApprovalDto['reason'],
   options: a.options as ApprovalDto['options'],
   remember: a.remember,
   status: a.status as ApprovalDto['status'],

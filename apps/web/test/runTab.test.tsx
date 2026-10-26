@@ -128,6 +128,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
       title: 'Bash',
       toolKind: 'execute',
       detail: 'echo hello-approval',
+      reason: 'not_allowed',
       options: [],
       remember: [],
       status: 'approved',

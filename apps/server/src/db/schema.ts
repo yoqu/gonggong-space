@@ -739,6 +739,8 @@ export const approvals = pgTable(
     title: text('title').notNull(),
     toolKind: text('tool_kind').notNull(),
     detail: text('detail').notNull(),
+    /** Why the daemon forwarded the request; old records use the generic reason. */
+    reason: text('reason').notNull().default('not_allowed'),
     options: jsonb('options').notNull(),
     /** What an allow_always answer adds to the bot's alwaysAllow. */
     remember: jsonb('remember').$type<string[]>().notNull().default([]),

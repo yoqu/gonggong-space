@@ -195,6 +195,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
             title: "Write hello.txt".into(),
             tool_kind: "edit".into(),
             detail: file.display().to_string(),
+            reason: ApprovalReason::Write,
             options: vec![
                 PermissionOption { option_id: "allow".into(), name: "Allow".into(), kind: PermissionKind::AllowOnce },
                 PermissionOption {
@@ -1138,6 +1139,28 @@ async fn server_sent_ask_goes_to_the_owner_whatever_the_old_local_file_says() {
     assert_eq!(approval.tool_kind, "execute");
     decide(&r, &approval, Some("allow"));
     assert_eq!(r.finish("r1").await.1.reply, "ran");
+}
+
+#[tokio::test]
+async fn read_tools_are_auto_allowed_only_inside_the_workspace() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:exec rg -n TODO ."));
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.reply, "ran");
+
+    r.run(follow_up("r2", "mock:read src/lib.rs", &done));
+    let (_, done) = r.finish("r2").await;
+    assert_eq!(done.reply, "read");
+
+    r.run(follow_up("r3", "mock:search src", &done));
+    let (_, done) = r.finish("r3").await;
+    assert_eq!(done.reply, "read");
+
+    r.run(follow_up("r4", "mock:read /etc/passwd", &done));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.reason, ApprovalReason::NotAllowed);
+    decide(&r, &approval, Some("reject"));
+    assert_eq!(r.finish("r4").await.1.reply, "denied");
 }
 
 #[tokio::test]

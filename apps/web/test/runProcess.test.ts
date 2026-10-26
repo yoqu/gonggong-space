@@ -120,6 +120,7 @@ const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
   title: 'Bash',
   toolKind: 'execute',
   detail: 'go build ./...',
+  reason: 'not_allowed',
   options: [],
   remember: [],
   status: 'pending',

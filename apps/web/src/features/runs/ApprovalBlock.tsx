@@ -37,6 +37,15 @@ const DONE: Record<ApprovalDto['status'], [string, TagTone]> = {
   void: [t('已作废'), 'gray'],
 }
 
+const REASON: Record<ApprovalDto['reason'], string> = {
+  high_risk: t('高危命令，必须由主人确认'),
+  protected_base: t('可能修改受保护的基准分支'),
+  network: t('需要访问网络'),
+  write: t('需要写入或修改文件'),
+  unparsed: t('命令较复杂，无法确认是否只读'),
+  not_allowed: t('未被只读规则或已保存的允许规则覆盖'),
+}
+
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
   kinds.map((k) => options.find((o) => o.kind === k)).find(Boolean)
 
@@ -114,7 +123,13 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
       </div>
       <div className="approval__cmd">{a.detail}</div>
       <div className="approval__why">
-        {pending ? t('{tier} · {time} 后自动拒绝，agent 自行绕路', { tier, time: countdown(left) }) : tier}
+        {pending
+          ? t('{reason} · {tier} · {time} 后自动拒绝，agent 自行绕路', {
+              reason: REASON[a.reason],
+              tier,
+              time: countdown(left),
+            })
+          : t('{reason} · {tier}', { reason: REASON[a.reason], tier })}
       </div>
       {pending ? (
         <div className="approval__actions">

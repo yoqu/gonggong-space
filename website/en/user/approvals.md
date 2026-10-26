@@ -12,7 +12,7 @@ The card shows:
 
 - The title 「权限请求 · 类型」 ("Permission request · type"). Types include: 执行命令 (run command), 访问网络 (network access), 写入文件 (write file), 删除文件 (delete file), 移动文件 (move file), 读取文件 (read file), 搜索 (search), and 其他操作 (other).
 - The specifics, such as the command to run.
-- An explanation line, e.g. 「超出「工作区写入」档位 · 29:41 后自动拒绝，agent 自行绕路」 ("Exceeds the 'Workspace write' tier · auto-rejected in 29:41, the agent will work around it"). The countdown ring turns orange in the last 30 seconds.
+- The explanation starts with the reason, such as file writes, network access, a high-risk command, a protected base branch, or a command that could not be parsed, followed by the tier and countdown. The countdown ring turns orange in the last 30 seconds.
 
 ### Who can approve
 
@@ -63,7 +63,7 @@ Each request is decided in this order:
 1. Gonggong Space's built-in tools (such as asking group members a question or reading group messages) are always allowed.
 2. If the tier is Full access: allowed automatically.
 3. If it hits the hard floor (see below): the Bot owner is always asked to approve.
-4. If the whole command consists only of read-only commands (such as `cat`, `ls`, `git status`) and `cd` within the workspace: approved automatically under both 「每次询问」 (Ask every time) and 「白名单自动」 (Auto for allowlist).
+4. If the whole command consists only of read-only commands and `cd` within the workspace: approved automatically under both 「每次询问」 (Ask every time) and 「白名单自动」 (Auto for allowlist). Besides `cat`, `ls`, and `git status`, these include `rg`, non-writing `sed`, `find` without deletion or execution, `jq`, `ps`, `diff`, `stat`, `du`, and `which`. Read/search tools are exempt only when all their paths stay inside the workspace or its additional directories; symlinks leading outside still require approval.
 5. If it matches the Bot's 「命令审批」 (Command approval) rules (allowlist, always allow, or auto for all): approved automatically, and the process shows 「已按命令审批规则自动批准」 ("Automatically approved by command approval rules").
 6. Otherwise, the Bot owner is asked to approve.
 

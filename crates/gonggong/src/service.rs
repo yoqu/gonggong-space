@@ -544,6 +544,7 @@ mod tests {
                 title: "t".into(),
                 tool_kind: "execute".into(),
                 detail: String::new(),
+                reason: Default::default(),
                 options: Vec::new(),
                 remember: Vec::new(),
             }),

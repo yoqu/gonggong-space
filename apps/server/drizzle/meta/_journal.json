@@ -568,6 +568,13 @@
       "when": 1792849380448,
       "tag": "0080_safe_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1792986477314,
+      "tag": "0081_lonely_loners",
+      "breakpoints": true
     }
   ]
 }

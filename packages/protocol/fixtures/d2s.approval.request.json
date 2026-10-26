@@ -5,6 +5,7 @@
   "title": "go build ./...",
   "toolKind": "execute",
   "detail": "go build ./... && go vet ./server/refund/...",
+  "reason": "not_allowed",
   "options": [
     { "optionId": "allow", "name": "Allow", "kind": "allow_once" },
     { "optionId": "always", "name": "Always Allow", "kind": "allow_always" },
