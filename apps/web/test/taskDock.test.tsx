@@ -4,8 +4,8 @@ import { createRef } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
-import { useWorkspace } from '../src/app/workspace'
 import { useWorkbench } from '../src/app/workbench'
+import { useWorkspace } from '../src/app/workspace'
 import { TaskDock } from '../src/features/chat/TaskDock'
 import { ApprovalCard } from '../src/features/runs/ApprovalBlock'
 import { QuestionCard } from '../src/features/runs/QuestionBlock'
@@ -39,7 +39,9 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
 const set = (o: Partial<QuestionSetDto> = {}): QuestionSetDto => ({
   id: 'qs1',
   runId: 'r2',
-  questions: [{ id: 'q1', type: 'yesno', title: '允许改 fixture 吗？', options: ['是', '否'], recommended: 0 }],
+  questions: [
+    { id: 'q1', type: 'yesno', title: '允许改 fixture 吗？', options: ['是', '否'], recommended: 0 },
+  ],
   status: 'pending',
   answers: null,
   attachments: [],
@@ -173,12 +175,7 @@ describe('TaskDock', () => {
     const pending = ['r1', 'r2', 'r3'].map((id) =>
       run({ id, status: 'awaiting_approval', approvals: [approval({ id: `a-${id}`, runId: id })] }),
     )
-    render(
-      <TaskDock
-        runs={[...pending, run({ id: 'r4', status: 'running' })]}
-        onLocate={() => {}}
-      />,
-    )
+    render(<TaskDock runs={[...pending, run({ id: 'r4', status: 'running' })]} onLocate={() => {}} />)
 
     expect(screen.getAllByTestId('task-dock-pending')).toHaveLength(3)
     expect(screen.getAllByTestId('task-dock-row')).toHaveLength(1)

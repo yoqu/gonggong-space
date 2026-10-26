@@ -277,9 +277,21 @@ function MergeView({
   const pieces = useMemo(() => compute(ignoreWhitespace), [split, ignoreWhitespace])
   const fresh = useMemo(() => pieces.map(initialState), [pieces])
   const states = draft?.states.length === pieces.length ? draft.states : fresh
+  const currentStates = () => {
+    const stored = useMergeDrafts.getState().drafts[draftKey]
+    const draft = stored?.source === source ? stored : null
+    return draft?.states.length === pieces.length ? draft.states : fresh
+  }
+  const currentResult = () =>
+    joinText(
+      currentStates().flatMap((s) => s.lines),
+      split.eol,
+      split.trailing,
+    )
   const save = (next: PieceState[], ws = ignoreWhitespace) =>
     saveDraft(draftKey, { source, ignoreWhitespace: ws, states: next })
-  const update = (i: number, s: PieceState) => save(states.map((x, k) => (k === i ? s : x)))
+  const update = (i: number, change: (state: PieceState) => PieceState) =>
+    save(currentStates().map((s, k) => (k === i ? change(s) : s)))
 
   const [showBase, setShowBase] = useState(false)
   const [current, setCurrent] = useState<number | null>(() => {
@@ -314,11 +326,6 @@ function MergeView({
       dir === 1 ? (list.find((i) => i > from) ?? list[0]) : (list.findLast((i) => i < from) ?? list.at(-1))
     if (next != null) jump(next)
   }
-  const result = joinText(
-    states.flatMap((s) => s.lines),
-    split.eol,
-    split.trailing,
-  )
   const keys = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key !== 'F7') return
     e.preventDefault()
@@ -346,7 +353,7 @@ function MergeView({
             lines={s.lines}
             from={from.result}
             label={t('第 {line} 行起的合并结果', { line: from.result })}
-            onEdit={(lines) => update(i, { ...s, lines })}
+            onEdit={(lines) => update(i, (state) => ({ ...state, lines }))}
           />
           <span className="gm3-gutter" />
           <Cell col="theirs" lines={p.theirs} from={from.theirs} />
@@ -384,9 +391,9 @@ function MergeView({
         <Gutter
           side="ours"
           state={s.ours}
-          onApply={() => update(i, applySide(p, s, 'ours'))}
-          onIgnore={() => update(i, ignoreSide(s, 'ours'))}
-          onUndo={touched ? () => update(i, openState(p)) : undefined}
+          onApply={() => update(i, (state) => applySide(p, state, 'ours'))}
+          onIgnore={() => update(i, (state) => ignoreSide(state, 'ours'))}
+          onUndo={touched ? () => update(i, () => openState(p)) : undefined}
         />
         <ResultCell
           lines={s.lines}
@@ -397,13 +404,13 @@ function MergeView({
               ? t('冲突 {n} 的合并结果', { n })
               : t('第 {line} 行起的合并结果', { line: from.result })
           }
-          onEdit={(lines) => update(i, { ...s, lines, edited: true })}
+          onEdit={(lines) => update(i, (state) => ({ ...state, lines, edited: true }))}
         />
         <Gutter
           side="theirs"
           state={s.theirs}
-          onApply={() => update(i, applySide(p, s, 'theirs'))}
-          onIgnore={() => update(i, ignoreSide(s, 'theirs'))}
+          onApply={() => update(i, (state) => applySide(p, state, 'theirs'))}
+          onIgnore={() => update(i, (state) => ignoreSide(state, 'theirs'))}
         />
         <Cell col="theirs" lines={p.theirs} from={from.theirs} tone={tone('theirs')} />
       </div>
@@ -411,12 +418,21 @@ function MergeView({
   })
 
   const applyAll = (side: Side | 'all') => {
-    const at = new Set(nonConflict(side))
     save(
-      states.map((s, i) =>
-        at.has(i) ? applySide(pieces[i] as Piece, s, (pieces[i] as Piece).kind as Side) : s,
-      ),
+      currentStates().map((s, i) => {
+        const p = pieces[i] as Piece
+        return (p.kind === 'ours' || p.kind === 'theirs') &&
+          (side === 'all' || side === p.kind) &&
+          s[p.kind] === 'open'
+          ? applySide(p, s, p.kind)
+          : s
+      }),
     )
+  }
+  const apply = () => {
+    const states = currentStates()
+    if (conflictAt.some((i) => !isResolved(states[i] as PieceState))) setConfirming(true)
+    else onApply(currentResult())
   }
   return (
     <section className="gm" aria-label={t('合并工具')} onKeyDown={keys}>
@@ -455,7 +471,7 @@ function MergeView({
           icon="bolt"
           label={t('解决简单冲突')}
           disabled={!canMagic}
-          onClick={() => save(states.map((s, i) => magic(pieces[i] as Piece, s) ?? s))}
+          onClick={() => save(currentStates().map((s, i) => magic(pieces[i] as Piece, s) ?? s))}
         />
         <span className="spacer" />
         <Button
@@ -482,12 +498,7 @@ function MergeView({
         {rows}
       </div>
       {footer(
-        <Button
-          size="small"
-          variant="primary"
-          disabled={busy}
-          onClick={() => (open.length ? setConfirming(true) : onApply(result))}
-        >
+        <Button size="small" variant="primary" disabled={busy} onClick={apply}>
           {busy ? <Spinner size={12} /> : null}
           {applyLabel}
         </Button>,
@@ -504,7 +515,7 @@ function MergeView({
             variant: 'destructive',
             onClick: () => {
               setConfirming(false)
-              onApply(result)
+              onApply(currentResult())
             },
           },
         ]}

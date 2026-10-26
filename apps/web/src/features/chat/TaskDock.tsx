@@ -135,8 +135,12 @@ export function TaskDock({
               {t('待我处理 {n}', { n: counts.attention })}
             </span>
           ) : null}
-          {counts.running ? <span className="task-dock__count">{t('运行中 {n}', { n: counts.running })}</span> : null}
-          {counts.waiting ? <span className="task-dock__count">{t('等待中 {n}', { n: counts.waiting })}</span> : null}
+          {counts.running ? (
+            <span className="task-dock__count">{t('运行中 {n}', { n: counts.running })}</span>
+          ) : null}
+          {counts.waiting ? (
+            <span className="task-dock__count">{t('等待中 {n}', { n: counts.waiting })}</span>
+          ) : null}
         </span>
         {collapsible ? (
           <button
@@ -155,12 +159,7 @@ export function TaskDock({
           row.kind === 'pending' ? (
             <PendingRow key={row.key} item={row.item} onLocate={() => locatePending(row.item)} />
           ) : (
-            <RunRow
-              key={row.key}
-              run={row.run}
-              waiting={row.section === 'waiting'}
-              onLocate={onLocate}
-            />
+            <RunRow key={row.key} run={row.run} waiting={row.section === 'waiting'} onLocate={onLocate} />
           ),
         )}
       </ul>

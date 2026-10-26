@@ -224,7 +224,7 @@ describe('commit view', () => {
 
   it('says when there is nothing to commit, the changes cannot be read, or the client is older', async () => {
     mockApi(routes({ [`GET ${BASE}/changes`]: { ...CHANGES, changes: [] } }))
-    const { unmount } = render(<></>)
+    const { unmount } = render(<div />)
     let tab = await openGit()
     expect(await tab.findByText('没有未提交的改动')).toBeTruthy()
     expect((tab.getByRole('button', { name: '提交' }) as HTMLButtonElement).disabled).toBe(true)
