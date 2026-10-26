@@ -4,6 +4,8 @@ import {
   type RunDto,
   type TimelineDto,
   type WebEvent,
+  withRunDelta,
+  withRunProgress,
   withRunStep,
 } from '@gonggong/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -176,9 +178,18 @@ export function useTimeline(groupId: string) {
           const run = s.runs[e.runId]
           return run ? { ...s, runs: mergeRuns(s.runs, [withRunStep(run, e)]) } : s
         })
+      else if (e.t === 'run.progress' && e.groupId === groupId)
+        setState((s) => {
+          const run = s.runs[e.runId]
+          return run ? { ...s, runs: mergeRuns(s.runs, [withRunProgress(run, e)]) } : s
+        })
       else if (e.t === 'run.delta' && runIds.current.has(e.runId)) {
         pending.set(e.runId, (pending.get(e.runId) ?? '') + e.text)
         flushTimer ??= setTimeout(flushDeltas, DELTA_FLUSH_MS)
+        setState((s) => {
+          const run = s.runs[e.runId]
+          return run ? { ...s, runs: mergeRuns(s.runs, [withRunDelta(run, e)]) } : s
+        })
       }
     })
     // Refill anything missed while the socket was down.

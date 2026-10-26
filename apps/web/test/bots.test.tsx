@@ -870,7 +870,15 @@ describe('bot page', () => {
     const fetched = () => calls.filter((c) => c.key === 'GET /api/bots/b1/activity').length
     expect(fetched()).toBe(1)
 
-    push({ t: 'run.step', runId: 'r1', groupId: 'g1', botId: 'b1', step: '运行 go test', usage: null })
+    push({
+      t: 'run.step',
+      runId: 'r1',
+      groupId: 'g1',
+      botId: 'b1',
+      step: '运行 go test',
+      usage: null,
+      lastActivityAt: new Date().toISOString(),
+    })
     expect(await within(live).findByText('运行 go test')).toBeTruthy()
     await act(() => new Promise((r) => setTimeout(r, 400)))
     expect(fetched()).toBe(1)
@@ -894,6 +902,7 @@ describe('bot page', () => {
         queuedAt: at,
         startedAt: at,
         endedAt: null,
+        lastActivityAt: at,
         parentRunId: null,
         hopMax: 3,
         offlineWaitMin: 30,

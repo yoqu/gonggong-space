@@ -22,6 +22,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: '2026-09-23T10:00:00.000Z',
   startedAt: '2026-09-23T10:00:01.000Z',
   endedAt: null,
+  lastActivityAt: '2026-09-23T10:00:01.000Z',
   parentRunId: null,
   hopMax: 3,
   offlineWaitMin: 30,

@@ -88,7 +88,7 @@ describe('realtime client', () => {
     rt.subscribe((e) => got.push(e))
     rt.start()
     last().open()
-    const ev = { t: 'run.delta', runId: 'r1', text: 'hi' }
+    const ev = { t: 'run.delta', runId: 'r1', text: 'hi', lastActivityAt: new Date().toISOString() }
     last().emit('not json')
     last().emit({ t: 'unknown.kind' })
     last().emit({ t: 'run.delta', runId: 1 })

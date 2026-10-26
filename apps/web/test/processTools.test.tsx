@@ -160,6 +160,7 @@ describe('following a live run', () => {
       queuedAt: at,
       startedAt: at,
       endedAt: null,
+      lastActivityAt: at,
       parentRunId: null,
       hopMax: 3,
       offlineWaitMin: 30,

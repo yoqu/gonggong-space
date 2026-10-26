@@ -33,7 +33,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   ...o,
 })
 
-const bot = (id: string, name: string) => ({ id, name }) as BotDto
+const bot = (id: string, name: string) => ({ id, name, ownerId: 'u1', ownerName: '小王' }) as BotDto
 
 const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateDto => ({
   botId,
@@ -62,6 +62,7 @@ const git = (o: Partial<NonNullable<GroupBotStateDto['git']>> = {}) => ({
 })
 
 beforeEach(() => {
+  useSession.setState({ user: { id: 'u1', name: '小王' } as UserDto })
   useWorkspace.setState({
     bots: [
       bot('b1', '小王的 Claude'),
@@ -81,6 +82,158 @@ async function menu(name: string) {
 }
 
 describe('git status bar', () => {
+  it('keeps my bots and issues visible while other healthy bots stay in 更多工作区', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1'),
+        state('b2'),
+        state('b3', { git: git({ behind: 2 }) }),
+        state('b4', { state: 'failed', error: 'clone failed' }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+    })
+    useWorkspace.setState({
+      bots: [
+        bot('b1', '小王的 Claude'),
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2' },
+        { ...bot('b3', '阿杰的 Claude'), ownerId: 'u3' },
+        { ...bot('b4', '小周的 Codex'), ownerId: 'u4' },
+      ],
+    })
+    render(<GitBar group={group()} />)
+    expect(await screen.findByTestId('git-b1')).toBeTruthy()
+    expect(screen.getByTestId('git-b3')).toBeTruthy()
+    expect(screen.getByTestId('git-b4')).toBeTruthy()
+    expect(screen.queryByTestId('git-b2')).toBeNull()
+    const more = screen.getByRole('button', { name: '展开其余 1 个 Bot 的工作区' })
+    expect(more.textContent).toContain('更多工作区')
+    fireEvent.click(more)
+    expect(await screen.findByTestId('git-b2')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '收起更多工作区' }).getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('anchors the bar on the first healthy bot in group order when I own none, without hiding issues', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1'),
+        state('b2'),
+        state('b3', { git: git({ conflicts: 1 }) }),
+        state('b4', { state: 'unbound' }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+    })
+    useSession.setState({ user: { id: 'u9', name: '旁观的成员' } as UserDto })
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), ownerId: 'u1' },
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2' },
+        { ...bot('b3', '阿杰的 Claude'), ownerId: 'u3' },
+        { ...bot('b4', '小周的 Codex'), ownerId: 'u4' },
+      ],
+    })
+    render(<GitBar group={group()} />)
+    expect(await screen.findByTestId('git-b1')).toBeTruthy()
+    expect(screen.getByTestId('git-b3')).toBeTruthy()
+    expect(screen.getByTestId('git-b4')).toBeTruthy()
+    expect(screen.queryByTestId('git-b2')).toBeNull()
+    expect(screen.getByRole('button', { name: '展开其余 1 个 Bot 的工作区' })).toBeTruthy()
+  })
+
+  it('starts with other workspaces collapsed after switching groups', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [state('b1'), state('b2')],
+      'GET /groups/g2/bot-states': [state('b1'), state('b2')],
+      'GET /groups/g1/git/operations': { operations: [] },
+      'GET /groups/g2/git/operations': { operations: [] },
+    })
+    useSession.setState({ user: { id: 'u9', name: '旁观的成员' } as UserDto })
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), ownerId: 'u1' },
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2' },
+      ],
+    })
+    const { rerender } = render(<GitBar group={group({ botIds: ['b1', 'b2'] })} />)
+    fireEvent.click(await screen.findByRole('button', { name: '展开其余 1 个 Bot 的工作区' }))
+    expect(await screen.findByTestId('git-b2')).toBeTruthy()
+
+    useWorkspace.setState((s) => ({
+      botStates: {
+        ...s.botStates,
+        g2: { b1: state('b1'), b2: state('b2') },
+      },
+    }))
+    rerender(<GitBar group={group({ id: 'g2', botIds: ['b2', 'b1'] })} />)
+    expect(screen.queryByTestId('git-bar-others')).toBeNull()
+    const more = screen.getByRole('button', { name: '展开其余 1 个 Bot 的工作区' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('shows a Bot with a Git operation waiting for approval or failed', async () => {
+    const operation = (botId: string, status: 'pending_approval' | 'failed') => ({
+      id: `${botId}-${status}`,
+      groupId: 'g1',
+      botId,
+      repo: null,
+      action: 'push' as const,
+      branch: 'main',
+      remote: 'origin',
+      message: null,
+      paths: null,
+      args: null,
+      pushesBase: false,
+      status,
+      requestedBy: { id: 'u2', name: '老李' },
+      decidedBy: null,
+      output: null,
+      error: status === 'failed' ? 'rejected' : null,
+      detail: null,
+      createdAt: '2026-10-26T10:00:00.000Z',
+      expiresAt: '2026-10-27T10:00:00.000Z',
+      finishedAt: status === 'failed' ? '2026-10-26T10:01:00.000Z' : null,
+    })
+    mockApi({
+      'GET /groups/g1/bot-states': [state('b1'), state('b2'), state('b3'), state('b4')],
+      'GET /groups/g1/git/operations': {
+        operations: [operation('b2', 'pending_approval'), operation('b3', 'failed')],
+      },
+    })
+    useWorkspace.setState({
+      bots: [
+        bot('b1', '小王的 Claude'),
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2' },
+        { ...bot('b3', '阿杰的 Claude'), ownerId: 'u3' },
+        { ...bot('b4', '小周的 Codex'), ownerId: 'u4' },
+      ],
+    })
+    render(<GitBar group={group()} />)
+    expect(await screen.findByTestId('git-b2')).toBeTruthy()
+    expect(screen.getByTestId('git-b2').textContent).toContain('待审批 1')
+    expect(screen.getByTestId('git-b3').textContent).toContain('Git 失败')
+    expect(screen.queryByTestId('git-b4')).toBeNull()
+  })
+
+  it('shows every issue once, even when I own none of the group’s Bots', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1', { state: 'failed', error: 'clone failed' }),
+        state('b2', { git: git({ dirty: true }) }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+    })
+    useSession.setState({ user: { id: 'u9' } as UserDto })
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), ownerId: 'u1' },
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2' },
+      ],
+    })
+    render(<GitBar group={group({ botIds: ['b1', 'b2'] })} />)
+    expect(screen.getAllByTestId('git-b1')).toHaveLength(1)
+    expect(screen.getAllByTestId('git-b2')).toHaveLength(1)
+    expect(screen.queryByTestId('git-bar-more')).toBeNull()
+  })
+
   it('puts my own bots first, keeping the group order otherwise', async () => {
     mockApi({ 'GET /groups/g1/bot-states': [] })
     useWorkspace.setState({
@@ -92,14 +245,20 @@ describe('git status bar', () => {
       ],
     })
     const order = () =>
-      [...screen.getByTestId('git-bar').children].map((el) => el.getAttribute('data-testid'))
+      [...screen.getByTestId('git-bar-items').children].map((el) => el.getAttribute('data-testid'))
+    const others = () =>
+      [...screen.getByTestId('git-bar-others').children].map((el) => el.getAttribute('data-testid'))
     useSession.setState({ user: { id: 'u2' } as UserDto })
     const { unmount } = render(<GitBar group={group({ mode: 'force', repo: null })} />)
-    expect(order()).toEqual(['git-b2', 'git-b4', 'git-b1', 'git-b3'])
+    expect(order()).toEqual(['git-b2', 'git-b4'])
+    fireEvent.click(screen.getByRole('button', { name: '展开其余 2 个 Bot 的工作区' }))
+    expect(others()).toEqual(['git-b1', 'git-b3'])
     unmount()
     useSession.setState({ user: { id: 'u9' } as UserDto })
     render(<GitBar group={group({ mode: 'force', repo: null })} />)
-    expect(order()).toEqual(['git-b1', 'git-b2', 'git-b3', 'git-b4'])
+    expect(order()).toEqual(['git-b1'])
+    fireEvent.click(screen.getByRole('button', { name: '展开其余 3 个 Bot 的工作区' }))
+    expect(others()).toEqual(['git-b2', 'git-b3', 'git-b4'])
   })
 
   it('loads the states and renders branch, behind/ahead, dirty and workspace hints', async () => {
@@ -375,8 +534,8 @@ describe('git status bar', () => {
     useWorkspace.setState({
       bots: [
         { ...bot('b1', '小王的 Claude'), ownerId: 'u1' },
-        bot('b2', '老李的 Codex'),
-        bot('b3', '阿杰的 Claude'),
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u1' },
+        { ...bot('b3', '阿杰的 Claude'), ownerId: 'u1' },
       ],
     })
     useWorkbench.setState({ groupId: 'g1', benches: {} })
@@ -390,7 +549,7 @@ describe('git status bar', () => {
     expect(screen.getByTestId('git-b3').textContent).toBe('阿杰的 Claude1 个子仓库')
   })
 
-  it('outside partition groups shows every bot with its menu; the context meter appears once known', async () => {
+  it('outside partition groups shows every bot with its menu and only surfaces context near its limit', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('[]')),
@@ -402,10 +561,21 @@ describe('git status bar', () => {
     useWorkspace.getState().applyEvent({
       t: 'group.botState',
       groupId: 'g1',
+      state: state('b1', { git: git(), context: { used: 50_000, size: 200_000 } }),
+    })
+    useWorkspace.getState().applyEvent({
+      t: 'group.botState',
+      groupId: 'g1',
       state: state('b2', { git: git(), context: { used: 50_000, size: 200_000 } }),
     })
-    await waitFor(() => expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codex25%'))
+    await waitFor(() => expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codex'))
     expect(screen.getByTestId('git-b1').textContent).toBe('小王的 Claude')
+    useWorkspace.getState().applyEvent({
+      t: 'group.botState',
+      groupId: 'g1',
+      state: state('b2', { git: git(), context: { used: 150_000, size: 200_000 } }),
+    })
+    await waitFor(() => expect(screen.getByTestId('git-b2').textContent).toBe('老李的 Codex75%'))
   })
 
   it('heads the menu with 执行位置 in a group without a repo: the repo row says so, base branch is hidden', async () => {
@@ -434,7 +604,7 @@ describe('context meter', () => {
       .mock.calls.filter(([url]) => url === '/api/groups/g1/messages')
       .map(([, init]) => JSON.parse(String(init?.body)).body)
 
-  it('shows the occupancy by level and offers /compact and /new for the bot', async () => {
+  it('hides healthy occupancy, shows warning and critical, and offers /compact and /new', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) =>
@@ -450,22 +620,20 @@ describe('context meter', () => {
       ),
     )
     render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
-    const meter = await screen.findByRole('button', { name: '小王的 Claude 上下文 124k / 200k' })
-    expect(meter.textContent).toBe('62%')
-    expect(meter.dataset.level).toBe('normal')
+    await screen.findByRole('button', { name: '老李的 Codex 上下文 190k / 200k' })
+    expect(screen.queryByRole('button', { name: '小王的 Claude 上下文 124k / 200k' })).toBeNull()
     expect(screen.getByRole('button', { name: '老李的 Codex 上下文 190k / 200k' }).dataset.level).toBe(
       'critical',
     )
-    expect(screen.getByRole('button', { name: '阿杰的 Claude 上下文 800k / 1M' }).dataset.level).toBe(
-      'warning',
-    )
+    const meter = screen.getByRole('button', { name: '阿杰的 Claude 上下文 800k / 1M' })
+    expect(meter.dataset.level).toBe('warning')
 
     fireEvent.click(meter)
     fireEvent.click(await screen.findByRole('button', { name: '压缩上下文' }))
-    await waitFor(() => expect(posted()).toEqual(['/compact @小王的 Claude']))
+    await waitFor(() => expect(posted()).toEqual(['/compact @阿杰的 Claude']))
     fireEvent.click(meter)
     fireEvent.click(await screen.findByRole('button', { name: '开新对话' }))
-    await waitFor(() => expect(posted()).toEqual(['/compact @小王的 Claude', '/new @小王的 Claude']))
+    await waitFor(() => expect(posted()).toEqual(['/compact @阿杰的 Claude', '/new @阿杰的 Claude']))
   })
 
   it('counts down to auto-compaction and warns 20k before it', async () => {
@@ -483,18 +651,14 @@ describe('context meter', () => {
       ),
     )
     render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
-    const meter = await screen.findByRole('button', { name: '小王的 Claude 上下文 50k / 200k' })
-    expect(meter.getAttribute('title')).toContain('还剩 117k 自动压缩')
-    expect(meter.dataset.level).toBe('normal')
+    await screen.findByRole('button', { name: '阿杰的 Claude 上下文 150k / 200k' })
+    expect(screen.queryByRole('button', { name: '小王的 Claude 上下文 50k / 200k' })).toBeNull()
+    const meter = screen.getByRole('button', { name: '阿杰的 Claude 上下文 150k / 200k' })
+    expect(meter.getAttribute('title')).toContain('还剩 17k 自动压缩')
+    expect(meter.dataset.level).toBe('warning')
     expect(meter.querySelector('.ctx-meter__mark')).toBeTruthy()
-    const other = screen.getByRole('button', { name: '老李的 Codex 上下文 50k / 200k' })
-    expect(other.querySelector('.ctx-meter__mark')).toBeNull()
-    // 75% of the window, past compactAt − 20k: warning, but never critical while the agent compacts by itself.
-    expect(screen.getByRole('button', { name: '阿杰的 Claude 上下文 150k / 200k' }).dataset.level).toBe(
-      'warning',
-    )
     fireEvent.click(meter)
-    expect(await screen.findByText(/还剩 117k 自动压缩/)).toBeTruthy()
+    expect(await screen.findByText(/还剩 17k 自动压缩/)).toBeTruthy()
     expect(screen.queryByText(/即将用满/)).toBeNull()
   })
 
@@ -512,10 +676,8 @@ describe('context meter', () => {
       ),
     )
     render(<GitBar group={group({ botIds: ['b1', 'b2'] })} />)
-    const meter = await screen.findByRole('button', { name: '小王的 Claude 上下文 100k / 200k' })
-    expect(meter.dataset.level).toBe('normal')
-    expect(meter.querySelector('.ctx-meter__mark--block')).toBeTruthy()
-    const full = screen.getByRole('button', { name: '老李的 Codex 上下文 180k / 200k' })
+    const full = await screen.findByRole('button', { name: '老李的 Codex 上下文 180k / 200k' })
+    expect(screen.queryByRole('button', { name: '小王的 Claude 上下文 100k / 200k' })).toBeNull()
     expect(full.dataset.level).toBe('critical')
     fireEvent.click(full)
     expect(
@@ -531,13 +693,13 @@ describe('context meter', () => {
       vi.fn(async (url: string) =>
         url.endsWith('/bot-states')
           ? new Response(
-              JSON.stringify([state('b1', { git: git(), context: { used: 50_000, size: 200_000 } })]),
+              JSON.stringify([state('b1', { git: git(), context: { used: 180_000, size: 200_000 } })]),
             )
           : new Response(JSON.stringify({ id: 'm1' })),
       ),
     )
     render(<GitBar group={group({ botIds: ['b1'] })} />)
-    fireEvent.click(await screen.findByRole('button', { name: '小王的 Claude 上下文 50k / 200k' }))
+    fireEvent.click(await screen.findByRole('button', { name: '小王的 Claude 上下文 180k / 200k' }))
     fireEvent.change(await screen.findByRole('textbox', { name: '压缩时保留的重点（可选）' }), {
       target: { value: '  保留接口设计 ' },
     })

@@ -2,8 +2,11 @@ import type { GroupDto, GroupTabDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useInspector } from '../src/app/inspector'
+import { useSession } from '../src/app/session'
 import { tabKey, useWorkbench } from '../src/app/workbench'
+import { useWorkspace } from '../src/app/workspace'
 import { GroupTabBar } from '../src/features/group-tabs/GroupTabBar'
+import { NewTabMenu } from '../src/features/workbench/NewTabMenu'
 import { LinkTab } from '../src/features/workbench/tabs/LinkTab'
 import { mockApi } from './mockApi'
 
@@ -28,11 +31,43 @@ const notice = tab({ id: 't3', title: '群公告', target: { kind: 'entry', entr
 
 beforeEach(() => {
   localStorage.clear()
+  useSession.setState({ user: { id: 'u1', name: '王磊' } as never })
+  useWorkspace.setState({
+    bots: [{ id: 'b1', name: '小王的 Claude', ownerId: 'u1' } as never],
+    groups: [group],
+  })
   useWorkbench.setState({ groupId: 'g1', open: false, mode: 'split', previous: 'split', benches: {} })
   useInspector.setState({ view: null, payload: null })
 })
 
 describe('群标签栏', () => {
+  it('hides the empty bar until the group has a custom tab', async () => {
+    const calls = mockApi({ 'GET /groups/g0/tabs': { tabs: [] } })
+    render(<GroupTabBar group={{ ...group, id: 'g0' }} />)
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'GET', path: '/groups/g0/tabs', body: undefined }),
+    )
+    expect(screen.queryByRole('navigation', { name: '群标签栏' })).toBeNull()
+    expect(screen.queryByText('消息')).toBeNull()
+    expect(screen.queryByRole('button', { name: '添加标签' })).toBeNull()
+  })
+
+  it('keeps the first-tab entry in the workbench when the bar is empty', async () => {
+    mockApi({
+      'GET /groups/g0/knowledge': { entries: [], canManage: false },
+    })
+    useWorkspace.setState({ groups: [{ ...group, id: 'g0' }] })
+    useWorkbench.setState({ groupId: 'g0' })
+    render(
+      <NewTabMenu>
+        <span>+</span>
+      </NewTabMenu>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '新建标签页' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '添加群标签…' }))
+    expect(screen.getByRole('dialog', { name: '添加标签' })).toBeTruthy()
+  })
+
   it('lists 消息 then the group’s tabs; a click opens the page in the workbench, or a new tab when it can’t be framed', async () => {
     mockApi({ 'GET /groups/g1/tabs': { tabs: [docs, jenkins, notice] } })
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
@@ -61,10 +96,10 @@ describe('群标签栏', () => {
 
   it('adds a link titled after its page unless a title was typed', async () => {
     const calls = mockApi({
-      'GET /groups/g2/tabs': { tabs: [] },
+      'GET /groups/g2/tabs': { tabs: [notice] },
       'GET /groups/g2/knowledge': { entries: [], canManage: false },
       'POST /link-meta': { title: '共工文档', icon: null, embeddable: true },
-      'POST /groups/g2/tabs': { tabs: [docs] },
+      'POST /groups/g2/tabs': { tabs: [notice, docs] },
     })
     render(<GroupTabBar group={{ ...group, id: 'g2' }} />)
     fireEvent.click(await screen.findByRole('button', { name: '添加标签' }))
@@ -78,7 +113,10 @@ describe('群标签栏', () => {
         body: { title: '共工文档', target: { kind: 'link', url: 'https://docs.example.com/' } },
       }),
     )
-    expect((await screen.findAllByTestId('group-tab')).map((x) => x.textContent)).toEqual(['接口文档'])
+    expect((await screen.findAllByTestId('group-tab')).map((x) => x.textContent)).toEqual([
+      '群公告',
+      '接口文档',
+    ])
   })
 
   it('marks a tab whose target is gone', async () => {

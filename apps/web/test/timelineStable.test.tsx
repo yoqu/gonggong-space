@@ -140,6 +140,7 @@ const run = (o: Partial<RunDto>): RunDto => ({
   queuedAt: at,
   startedAt: at,
   endedAt: at,
+  lastActivityAt: at,
   ...o,
 })
 

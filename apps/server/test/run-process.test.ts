@@ -98,12 +98,59 @@ async function world() {
     (
       await t.app.inject({ url: `/api/runs/${runId}`, headers: { cookie: await t.seed.cookie(userId) } })
     ).json<RunDetailDto>()
+  const timeline = async (userId = bob.id) =>
+    (
+      await t.app.inject({
+        url: `/api/groups/${group.id}/timeline`,
+        headers: { cookie: await t.seed.cookie(userId) },
+      })
+    ).json<TimelineDto>()
   const session = async (runId: string, userId = bob.id) =>
     t.app.inject({ url: `/api/runs/${runId}/session`, headers: { cookie: await t.seed.cookie(userId) } })
-  return { alice, bob, bot, group, mention, send, done, ended, detail, session, seen, box }
+  return { alice, bob, bot, group, mention, send, done, ended, detail, timeline, session, seen, box }
 }
 
 describe('run process', () => {
+  it('advances lastActivityAt when the first event is only streamed text or thought', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    let now = new Date(Date.now() + 1000)
+    t.ctx.now = () => now
+
+    w.send(runId, { kind: 'text', delta: '开始' })
+    await expect
+      .poll(() => w.seen.find((e) => e.t === 'run.delta' && e.runId === runId))
+      .toMatchObject({ t: 'run.delta', lastActivityAt: now.toISOString() })
+
+    now = new Date(now.getTime() + 1000)
+    w.send(runId, { kind: 'thought', delta: '思考' })
+    await expect
+      .poll(async () => {
+        const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))
+        return rows.map((row) => openEvent(row.payload as RunEvent)).at(-1)
+      })
+      .toEqual({ kind: 'thought', delta: '思考' })
+    expect((await w.detail(runId)).run.lastActivityAt).toBe(now.toISOString())
+  })
+
+  it('advances lastActivityAt with persisted events and uses it on realtime, detail and timeline cards', async () => {
+    const w = await world()
+    const runId = await w.mention()
+
+    w.send(runId, { kind: 'status', status: 'running', step: '读取' })
+    await expect.poll(async () => (await w.detail(runId)).run.lastActivityAt).toEqual(expect.any(String))
+    const at = (await w.detail(runId)).run.lastActivityAt
+    expect(Date.parse(at)).toBeGreaterThanOrEqual(Date.parse((await w.detail(runId)).run.startedAt!))
+    expect((await w.timeline()).runs.find((r) => r.id === runId)?.lastActivityAt).toBe(at)
+    expect(
+      w.seen.find(
+        (e) =>
+          (e.t === 'run.step' && e.runId === runId && e.lastActivityAt === at) ||
+          (e.t === 'run.updated' && e.run.id === runId && e.run.lastActivityAt === at),
+      ),
+    ).toBeDefined()
+  })
+
   it('redacts events, the patch and the reply before persisting, merging streamed text; seals the process', async () => {
     const w = await world()
     const runId = await w.mention()
@@ -192,13 +239,22 @@ describe('run process', () => {
     const runId = await w.mention()
     const update = vi.spyOn(t.ctx.db, 'update')
     const chunks = Array.from({ length: 60 }, (_, i) => `part${i} `)
+    let now = new Date(Date.now() + 1000)
+    t.ctx.now = () => now
     for (const delta of chunks) w.send(runId, { kind: 'text', delta })
     w.send(runId, { kind: 'status', status: 'running', step: 'marker' })
     await expect
       .poll(async () => (await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))).length)
       .toBe(2)
+    const [, marker] = await t.db
+      .select()
+      .from(runEvents)
+      .where(eq(runEvents.runId, runId))
+      .orderBy(asc(runEvents.id))
+    now = new Date(now.getTime() + 1000)
     expect(update.mock.calls.filter(([table]) => table === runEvents).length).toBeLessThan(3)
     expect((await w.detail(runId)).events[0]?.event).toEqual({ kind: 'text', delta: chunks.join('') })
+    expect((await w.detail(runId)).run.lastActivityAt).toBe(marker!.createdAt.toISOString())
 
     // Still streaming: the row catches up on its own, and a reader flushes it at once.
     w.send(runId, { kind: 'thought', delta: '想一想' })
@@ -208,10 +264,13 @@ describe('run process', () => {
         return rows.map((r) => openEvent(r.payload as RunEvent)).at(-1)
       })
       .toEqual({ kind: 'thought', delta: '想一想' })
+    expect((await w.detail(runId)).run.lastActivityAt).toBe(now.toISOString())
     w.send(runId, { kind: 'thought', delta: '再想' })
+    now = new Date(now.getTime() + 1000)
     await expect
       .poll(async () => (await w.detail(runId)).events.at(-1)?.event)
       .toEqual({ kind: 'thought', delta: '想一想再想' })
+    expect((await w.detail(runId)).run.lastActivityAt).toBe(now.toISOString())
   })
 
   describe('live stream redaction', () => {
@@ -499,11 +558,17 @@ describe('run process', () => {
     const ids = { runId, groupId: w.group.id, botId: w.bot.id }
     await expect.poll(() => seen().length).toBe(5)
     expect(seen()).toEqual([
-      { t: 'run.step', ...ids, step: 'ls', usage: null },
-      { t: 'run.progress', ...ids },
-      { t: 'run.step', ...ids, step: 'ls', usage: { totalTokens: 900 } },
-      { t: 'run.progress', ...ids },
-      { t: 'run.progress', ...ids },
+      { t: 'run.step', ...ids, step: 'ls', usage: null, lastActivityAt: expect.any(String) },
+      { t: 'run.progress', ...ids, lastActivityAt: expect.any(String) },
+      {
+        t: 'run.step',
+        ...ids,
+        step: 'ls',
+        usage: { totalTokens: 900 },
+        lastActivityAt: expect.any(String),
+      },
+      { t: 'run.progress', ...ids, lastActivityAt: expect.any(String) },
+      { t: 'run.progress', ...ids, lastActivityAt: expect.any(String) },
     ])
     // A status change still pushes the whole card.
     w.done(runId)

@@ -1,9 +1,10 @@
 import type { NotificationDto, NotificationUnreadDto, WebEvent } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { notifications, pushSubscriptions, systemParams } from '../src/db/schema.js'
+import { messages, notifications, pushSubscriptions, runs, systemParams } from '../src/db/schema.js'
 import { notify, resolveNotifications } from '../src/modules/notifications/notify.js'
-import { createTestApp, type TestApp } from './support/app.js'
+import { isNotificationSuppressed } from '../src/modules/notifications/suppress.js'
+import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
 const push = vi.hoisted(() => ({
@@ -30,6 +31,31 @@ async function login() {
 }
 /** Notifications are about a group of the recipients' team. */
 const someGroup = async (createdBy: string) => (await t.seed.group({ createdBy })).id
+
+async function seedRun(
+  userId: string,
+  groupId: string,
+  o: { parentRunId?: string; continuationOf?: string } = {},
+) {
+  const bot = await t.seed.bot({ ownerId: userId })
+  const [message] = await t.db
+    .insert(messages)
+    .values({ groupId, kind: 'user', authorUserId: userId, body: '@bot' })
+    .returning()
+  const [run] = await t.db
+    .insert(runs)
+    .values({
+      groupId,
+      botId: bot.id,
+      triggerMessageId: message!.id,
+      originUserId: userId,
+      status: 'completed',
+      parentRunId: o.parentRunId,
+      continuationOf: o.continuationOf,
+    })
+    .returning()
+  return run!
+}
 
 describe('notification center', () => {
   it('marks all of my notifications read, leaving other users alone', async () => {
@@ -166,6 +192,14 @@ describe('unread badge', () => {
 })
 
 describe('web push', () => {
+  it('suppresses delivery only while the recipient is reading the notification group', () => {
+    const isReading = (_userId: string, groupId: string) => groupId === 'g1'
+    const notification = (payload: Record<string, unknown>) => ({ payload }) as NotificationDto
+    expect(isNotificationSuppressed(isReading, 'u1', notification({ groupId: 'g1' }))).toBe(true)
+    expect(isNotificationSuppressed(isReading, 'u1', notification({ groupId: 'g2' }))).toBe(false)
+    expect(isNotificationSuppressed(isReading, 'u1', notification({}))).toBe(false)
+  })
+
   it('generates the VAPID key pair once and keeps it in system params', async () => {
     const { api } = await login()
     expect((await api.get('/api/push/key')).body).toEqual({ publicKey: 'PUB' })
@@ -235,5 +269,104 @@ describe('web push', () => {
     })
     expect(await t.db.select().from(notifications)).toHaveLength(1)
     push.sendNotification.mockImplementation(async () => ({ statusCode: 201 }))
+  })
+
+  it('stays quiet while the user is reading that group on a visible, focused page', async () => {
+    const { user, api } = await login()
+    const g = await someGroup(user.id)
+    await api.post('/api/push/subscriptions', sub('https://push.test/read'))
+    const ws = t.ws('/ws/web', {
+      cookie: await t.seed.cookie(user.id),
+      origin: `http://${new URL(t.url('/')).host}`,
+    })
+    await inbox(ws).opened
+    await expect.poll(() => t.ctx.bus.isConnected(user.id)).toBe(true)
+    const say = async (msg: object) => {
+      ws.send(JSON.stringify(msg))
+      await new Promise((r) => {
+        ws.once('pong', r)
+        ws.ping()
+      })
+    }
+    const send = () =>
+      notify(t.ctx, user.id, 'approval', {
+        groupId: g,
+        runId: 'r1',
+        botName: 'codex',
+        title: 'go build',
+      })
+
+    await say({ t: 'focus', groupId: g })
+    await say({ t: 'visible', visible: true })
+    await send()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(push.sendNotification).not.toHaveBeenCalled()
+
+    await say({ t: 'visible', visible: false })
+    await send()
+    await vi.waitFor(() => expect(push.sendNotification).toHaveBeenCalledTimes(1))
+    ws.close()
+  })
+
+  it('uses one task tag across continuations, relay hops and chain completion', async () => {
+    const { user, api } = await login()
+    const g = await someGroup(user.id)
+    const root = await seedRun(user.id, g)
+    const continuation = await seedRun(user.id, g, { continuationOf: root.id })
+    const relay = await seedRun(user.id, g, { parentRunId: root.id })
+    await api.post('/api/push/subscriptions', sub('https://push.test/task'))
+
+    await notify(t.ctx, user.id, 'approval', {
+      groupId: g,
+      runId: continuation.id,
+      botName: 'codex',
+      title: 'go build',
+    })
+    await notify(t.ctx, user.id, 'question', {
+      groupId: g,
+      runId: relay.id,
+      botName: 'codex',
+      count: 1,
+    })
+    await notify(t.ctx, user.id, 'chain_done', {
+      groupId: g,
+      rootRunId: root.id,
+      hops: 2,
+    })
+
+    await vi.waitFor(() => expect(push.sendNotification).toHaveBeenCalledTimes(3))
+    const tags = push.sendNotification.mock.calls.map((call) => JSON.parse(call[1] as string).tag)
+    expect(tags).toEqual([`task:${root.id}`, `task:${root.id}`, `task:${root.id}`])
+  })
+
+  it('does not merge notifications without the same stable business key', async () => {
+    const { user, api } = await login()
+    const botA = await t.seed.bot({ ownerId: user.id, name: 'A' })
+    const botB = await t.seed.bot({ ownerId: user.id, name: 'B' })
+    await api.post('/api/push/subscriptions', sub('https://push.test/objects'))
+
+    await notify(t.ctx, user.id, 'bot_share_request', {
+      requestId: 'share-a',
+      botId: botA.id,
+      botName: 'A',
+    })
+    await notify(t.ctx, user.id, 'bot_share_request', {
+      requestId: 'share-b',
+      botId: botB.id,
+      botName: 'B',
+    })
+    await notify(t.ctx, user.id, 'bot_share_decided', {
+      botId: botA.id,
+      botName: 'A',
+      byName: '王磊',
+      approved: false,
+    })
+
+    await vi.waitFor(() => expect(push.sendNotification).toHaveBeenCalledTimes(3))
+    const payloads = push.sendNotification.mock.calls.map((call) => JSON.parse(call[1] as string))
+    const tags = payloads.flatMap((body) => (body.tag === undefined ? [] : [body.tag]))
+    expect(tags).toHaveLength(2)
+    expect(tags).toEqual(expect.arrayContaining(['bot-share-request:share-a', 'bot-share-request:share-b']))
+    expect(payloads.filter((body) => body.tag === undefined)).toHaveLength(1)
   })
 })

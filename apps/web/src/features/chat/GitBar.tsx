@@ -1,5 +1,5 @@
-import type { GroupBotStateDto, GroupDto, RepoStatus } from '@gonggong/protocol'
-import { useEffect, useRef } from 'react'
+import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { loadBotStates, loadGitOperations, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -12,9 +12,11 @@ import { BranchLabel, WorkspaceMenu } from '../git/GitControls'
 import { PendingBadge } from '../git/GitOperations'
 import { openTab } from '../workbench/open'
 import { ContextMeter } from './ContextMeter'
+import { contextGauge } from './ContextRing'
 
 const WORKSPACE_LABEL = { managed: t('托管目录'), cd: t('本机目录') }
 const FOCUS_REFRESH_MS = 30_000
+const NO_STATES: Record<string, GroupBotStateDto> = {}
 
 function Commits({ icon, name, n }: { icon: IconName; name: string; n: number }) {
   return (
@@ -92,6 +94,7 @@ function Item({
   s,
   showGit,
   machine,
+  failed,
 }: {
   group: GroupDto
   name: string
@@ -99,6 +102,7 @@ function Item({
   /** Partition groups with a repo, where the bar shows each bot's git status. */
   showGit: boolean
   machine: string | null
+  failed: boolean
 }) {
   const groupId = group.id
   const git = s.git
@@ -165,9 +169,20 @@ function Item({
             </>
           )}
           <PendingBadge groupId={groupId} botId={s.botId} />
+          {failed ? (
+            <button
+              type="button"
+              className="git-bar__failed"
+              onClick={() => openTab({ kind: 'git', botId: s.botId, view: 'ops' })}
+            >
+              {t('Git 失败')}
+            </button>
+          ) : null}
         </>
       ) : null}
-      {s.context ? <ContextMeter groupId={groupId} bot={name} context={s.context} /> : null}
+      {s.context && contextGauge(s.context).level !== 'normal' ? (
+        <ContextMeter groupId={groupId} bot={name} context={s.context} />
+      ) : null}
       <span className="git-bar__actions">
         <WorkspaceMenu
           botId={s.botId}
@@ -183,16 +198,34 @@ function Item({
   )
 }
 
+function hasIssue(s: GroupBotStateDto, failedOperation: boolean, pendingApproval: boolean) {
+  const git = s.git
+  return (
+    ['failed', 'unbound', 'confirm'].includes(s.state) ||
+    failedOperation ||
+    pendingApproval ||
+    !!git?.dirty ||
+    !!git?.behind ||
+    !!git?.conflicts ||
+    !!git?.ongoing ||
+    !!git?.repos.some((r) => !!r.dirty) ||
+    !!git?.repos.some((r) => !!r.behind)
+  )
+}
+
 /**
  * Bot bar under the header: every bot's 执行位置, its context occupancy (once reported) and, in partition groups with
  * a repo, its git status refreshed after every turn (spec §5.3 / §8.4). The workspace banner reads the same states.
  */
 export function GitBar({ group }: { group: GroupDto }) {
   const showGit = group.mode === 'partition' && !!group.repo
-  const states = useWorkspace((s) => s.botStates[group.id])
+  const states = useWorkspace((s) => s.botStates[group.id]) ?? NO_STATES
   const bots = useWorkspace((s) => s.bots)
   const me = useSession((s) => s.user?.id)
   const botKey = group.botIds.join()
+  const gitOps = useWorkspace((s) => s.gitOps[group.id])
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
+  const showOthers = expandedGroupId === group.id
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the group's bots change
   useEffect(() => {
@@ -222,39 +255,75 @@ export function GitBar({ group }: { group: GroupDto }) {
   }, [group.id, botKey, showGit])
 
   if (!group.botIds.length) return null
-  // My own bots first (what I act on most), the group's order otherwise; sort is stable.
-  const mine = (id: string) => bots.find((b) => b.id === id)?.ownerId === me
-  const ordered = [...group.botIds].sort((a, b) => Number(mine(b)) - Number(mine(a)))
+  const stateOf = (id: string) =>
+    states[id] ?? {
+      botId: id,
+      workspace: 'managed',
+      state: 'pending',
+      path: null,
+      git: null,
+      error: null,
+      reason: null,
+      tier: null,
+      model: null,
+      effort: null,
+      context: null,
+      extraDirs: [],
+    }
+  const operationsFor = (id: string) => gitOps?.filter((op) => op.botId === id) ?? []
+  const needsApproval = (id: string) => operationsFor(id).some((op) => op.status === 'pending_approval')
+  const failedOperation = (id: string) => operationsFor(id).some((op) => op.status === 'failed')
+  const owned = group.botIds.filter((id) => bots.find((b) => b.id === id)?.ownerId === me)
+  const issues = group.botIds.filter(
+    (id) => !owned.includes(id) && hasIssue(stateOf(id), failedOperation(id), needsApproval(id)),
+  )
+  const anchor = owned.length ? null : (group.botIds.find((id) => !issues.includes(id)) ?? null)
+  const visible = [...owned, ...(anchor ? [anchor] : []), ...issues]
+  const others = group.botIds.filter((id) => !visible.includes(id))
+
+  const item = (id: string) => {
+    const bot = bots.find((b) => b.id === id)
+    return (
+      <Item
+        key={id}
+        group={group}
+        showGit={showGit}
+        machine={bot?.machineName ?? null}
+        failed={failedOperation(id)}
+        name={bot?.name ?? 'bot'}
+        s={stateOf(id)}
+      />
+    )
+  }
+
   return (
     <div className="git-bar" data-testid="git-bar">
-      {ordered.map((id) => {
-        const bot = bots.find((b) => b.id === id)
-        return (
-          <Item
-            key={id}
-            group={group}
-            showGit={showGit}
-            machine={bot?.machineName ?? null}
-            name={bot?.name ?? 'bot'}
-            s={
-              states?.[id] ?? {
-                botId: id,
-                workspace: 'managed',
-                state: 'pending',
-                path: null,
-                git: null,
-                error: null,
-                reason: null,
-                tier: null,
-                model: null,
-                effort: null,
-                context: null,
-                extraDirs: [],
-              }
+      <div className="git-bar__items" data-testid="git-bar-items">
+        {visible.map(item)}
+      </div>
+      {others.length ? (
+        <>
+          <button
+            type="button"
+            className="git-bar__more"
+            data-testid="git-bar-more"
+            aria-expanded={showOthers}
+            aria-label={
+              showOthers ? t('收起更多工作区') : t('展开其余 {n} 个 Bot 的工作区', { n: others.length })
             }
-          />
-        )
-      })}
+            onClick={() => setExpandedGroupId(showOthers ? null : group.id)}
+          >
+            {showOthers ? t('收起') : t('更多工作区')}
+            <span className="git-bar__more-count">{others.length}</span>
+            <Icon name={showOthers ? 'chevron-up' : 'chevron-down'} size={11} weight={1.8} />
+          </button>
+          {showOthers ? (
+            <div className="git-bar__others" data-testid="git-bar-others">
+              {others.map(item)}
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   )
 }

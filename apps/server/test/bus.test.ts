@@ -7,7 +7,12 @@ it('serializes an event once however many connections receive it', () => {
   const sent: string[] = []
   for (const user of ['u1', 'u1', 'u2']) bus.attach(user, (_, json) => sent.push(json()))
   const stringify = vi.spyOn(JSON, 'stringify')
-  const event: WebEvent = { t: 'run.delta', runId: 'r1', text: 'hi' }
+  const event: WebEvent = {
+    t: 'run.delta',
+    runId: 'r1',
+    text: 'hi',
+    lastActivityAt: new Date().toISOString(),
+  }
   bus.publish(['u1', 'u2', 'u3'], event)
   expect(stringify).toHaveBeenCalledTimes(1)
   stringify.mockRestore()

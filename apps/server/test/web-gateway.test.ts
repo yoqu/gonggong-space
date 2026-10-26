@@ -28,7 +28,13 @@ const flushed = (ws: WebSocket) =>
 
 const focus = (ws: WebSocket, groupId: string | null) => ws.send(JSON.stringify({ t: 'focus', groupId }))
 
-const delta = (group: string): WebEvent => ({ t: 'run.delta', runId: `run-${group}`, text: group })
+const DELTA_AT = new Date().toISOString()
+const delta = (group: string): WebEvent => ({
+  t: 'run.delta',
+  runId: `run-${group}`,
+  text: group,
+  lastActivityAt: DELTA_AT,
+})
 const MARK: WebEvent = { t: 'group.removed', groupId: 'mark' }
 
 /** A connected, attached socket whose user is `userId`; `upTo()` collects what it got through the next MARK. */
@@ -148,7 +154,12 @@ it('drops a client that stops reading instead of buffering without bound', SLOW,
   ;(ws as unknown as { _socket: { pause(): void } })._socket.pause()
   const text = 'x'.repeat(1 << 20)
   for (let i = 0; i < 64 && t.ctx.bus.isConnected(c.userId); i++) {
-    t.ctx.bus.publish([c.userId], { t: 'run.delta', runId: 'r', text })
+    t.ctx.bus.publish([c.userId], {
+      t: 'run.delta',
+      runId: 'r',
+      text,
+      lastActivityAt: new Date().toISOString(),
+    })
     await new Promise((r) => setImmediate(r))
   }
   await expect.poll(() => t.ctx.bus.isConnected(c.userId), SLOW).toBe(false)

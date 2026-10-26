@@ -3,6 +3,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Dialog, MenuButton, type MenuItem, Presence, TextField } from '../../ui'
+import { AddTabDialog } from '../group-tabs/AddTabDialog'
 import { openTab } from './open'
 
 const LINK = /^https?:\/\/\S+$/i
@@ -65,13 +66,16 @@ export function NewTabMenu({ className, children }: { className?: string; childr
   const allBots = useWorkspace((s) => s.bots)
   const states = useWorkspace((s) => (groupId ? s.botStates[groupId] : undefined))
   const [linking, setLinking] = useState(false)
+  const [addingGroupTab, setAddingGroupTab] = useState(false)
   const bots = (group?.botIds ?? []).flatMap((id) => allBots.filter((b) => b.id === id))
   const withGit = bots.filter((b) => states?.[b.id]?.git)
   const items: MenuItem[] = [
     { label: t('打开网页…'), value: 'link', icon: 'globe' },
+    ...(group
+      ? [{ label: t('添加群标签…'), value: 'group-tab', icon: 'tag' as const }, { separator: true as const }]
+      : []),
     ...(bots.length
       ? [
-          { separator: true as const },
           { header: t('浏览文件') },
           ...bots.map((b) => ({ label: b.name, value: `files:${b.id}`, icon: 'folder' as const })),
         ]
@@ -87,6 +91,7 @@ export function NewTabMenu({ className, children }: { className?: string; childr
   const onSelect = (value: string) => {
     const [kind, botId = ''] = value.split(':')
     if (kind === 'link') setLinking(true)
+    else if (kind === 'group-tab') setAddingGroupTab(true)
     else if (kind === 'files') openTab({ kind: 'files', botId, dir: '', selected: null })
     else openTab({ kind: 'git', botId })
   }
@@ -102,7 +107,12 @@ export function NewTabMenu({ className, children }: { className?: string; childr
       >
         {children}
       </MenuButton>
-      <Presence>{linking ? <OpenLinkDialog onClose={() => setLinking(false)} /> : null}</Presence>
+      <Presence>
+        {linking ? <OpenLinkDialog onClose={() => setLinking(false)} /> : null}
+        {addingGroupTab && group ? (
+          <AddTabDialog group={group} onClose={() => setAddingGroupTab(false)} />
+        ) : null}
+      </Presence>
     </>
   )
 }

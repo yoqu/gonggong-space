@@ -58,15 +58,14 @@ import { openTab } from '../workbench/open'
 import { useRunDeltas } from './deltas'
 import { GitBar } from './GitBar'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
-import { LiveRunsBar } from './LiveRunsBar'
 import { MentionNames } from './Markdown'
 import { branchableRuns } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
-import { PendingDock } from './PendingDock'
 import { PinnedMessages } from './PinnedMessages'
 import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
+import { TaskDock } from './TaskDock'
 import {
   BotReply,
   dayLabel,
@@ -772,8 +771,7 @@ export function ChatView({
               <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
               <PreviewTags groupId={group.id} />
             </div>
-            <LiveRunsBar runs={runList} onLocate={locate} />
-            <PendingDock runs={runList} root={box} onLocate={locate} />
+            <TaskDock runs={runList} root={box} onLocate={locate} />
             <ProviderBanner group={group} />
             <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} />
             <CreationHost group={group} onSent={onSent} />

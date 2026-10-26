@@ -138,6 +138,7 @@ const run: RunDto = {
   queuedAt: at,
   startedAt: at,
   endedAt: at,
+  lastActivityAt: at,
 }
 
 const timeline = {

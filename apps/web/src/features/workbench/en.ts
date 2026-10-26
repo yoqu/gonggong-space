@@ -105,6 +105,7 @@ export default {
   '文件#view': 'File',
   关闭全部标签页: 'Close all tabs',
   新建标签页: 'New tab',
+  '添加群标签…': 'Add group tab…',
   打开网页: 'Open web page',
   '打开网页…': 'Open web page…',
   网址: 'URL',

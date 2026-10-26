@@ -65,7 +65,7 @@ it('upserts groups from realtime events', () => {
   const { applyEvent } = useWorkspace.getState()
   applyEvent({ t: 'group.updated', group: g })
   applyEvent({ t: 'group.updated', group: { ...g, name: 'B' } })
-  applyEvent({ t: 'run.delta', runId: 'r', text: 'x' })
+  applyEvent({ t: 'run.delta', runId: 'r', text: 'x', lastActivityAt: new Date().toISOString() })
   expect(useWorkspace.getState().groups).toEqual([{ ...g, name: 'B' }])
 })
 

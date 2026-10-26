@@ -1615,6 +1615,8 @@ export const RunDto = z.object({
   queuedAt: z.string(),
   startedAt: z.string().nullable(),
   endedAt: z.string().nullable(),
+  /** Latest persisted run activity, falling back to the end, start or queue fact. Never a client clock value. */
+  lastActivityAt: z.string(),
   /** Relay chain (spec §4.6): hop 1 = triggered by a human; hopMax = the group's chain limit. */
   parentRunId: z.string().nullable(),
   /** The run whose agent went on by itself here once a background task finished (后台任务完成后继续). */
@@ -2340,11 +2342,22 @@ export const WebEvent = z.discriminatedUnion('t', [
   z.object({ t: z.literal('message.hidden'), groupId: z.string(), messageId: z.string() }),
   z.object({ t: z.literal('run.updated'), run: RunDto }),
   /** Only to connections showing the run's group, or that never sent a focus. */
-  z.object({ t: z.literal('run.delta'), runId: z.string(), text: z.string() }),
+  z.object({
+    t: z.literal('run.delta'),
+    runId: z.string(),
+    text: z.string(),
+    lastActivityAt: z.string(),
+  }),
   /** The run's process got an event that left its card as it was. Scoped like run.delta. */
-  z.object({ t: z.literal('run.progress'), runId: z.string(), groupId: z.string(), botId: z.string() }),
+  z.object({
+    t: z.literal('run.progress'),
+    runId: z.string(),
+    groupId: z.string(),
+    botId: z.string(),
+    lastActivityAt: z.string(),
+  }),
   /** The run's process got an event that only changed the card's step or usage; replaces those fields. */
-  RunDto.pick({ step: true, stepI18n: true, usage: true }).extend({
+  RunDto.pick({ step: true, stepI18n: true, usage: true, lastActivityAt: true }).extend({
     t: z.literal('run.step'),
     runId: z.string(),
     groupId: z.string(),
@@ -2403,5 +2416,17 @@ export type WebClientMsg = z.infer<typeof WebClientMsg>
 /** A run card with a run.step applied. */
 export const withRunStep = (
   run: RunDto,
-  { step, stepI18n, usage }: Extract<WebEvent, { t: 'run.step' }>,
-): RunDto => ({ ...run, step, stepI18n, usage })
+  { step, stepI18n, usage, lastActivityAt }: Extract<WebEvent, { t: 'run.step' }>,
+): RunDto => ({ ...run, step, stepI18n, usage, lastActivityAt })
+
+/** A run card with a run.progress timestamp applied. */
+export const withRunProgress = (
+  run: RunDto,
+  { lastActivityAt }: Extract<WebEvent, { t: 'run.progress' }>,
+): RunDto => ({ ...run, lastActivityAt })
+
+/** A run card with a run.delta timestamp applied. */
+export const withRunDelta = (
+  run: RunDto,
+  { lastActivityAt }: Extract<WebEvent, { t: 'run.delta' }>,
+): RunDto => ({ ...run, lastActivityAt })

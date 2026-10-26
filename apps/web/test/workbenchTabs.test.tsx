@@ -109,6 +109,7 @@ describe('tab bar', () => {
     // Git only for the bots whose workspace is a repo.
     expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
       '打开网页…',
+      '添加群标签…',
       '小王的 Claude',
       '老李的 Codex',
       '小王的 Claude',

@@ -1,7 +1,7 @@
 import type { ApprovalDto, GroupParams, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
-import { and, asc, eq, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { approvals, attachments, questionSets, runs, statusIn, users } from '../../db/schema.js'
+import { approvals, attachments, questionSets, runEvents, runs, statusIn, users } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
 import { mirrorRun } from '../feishu/mirror.js'
 import { cachedGroupParams } from '../groups/params.js'
@@ -50,6 +50,7 @@ export const runDto = (
     questions?: QuestionSetDto[]
     hopMax?: number
     offlineWaitMin?: number
+    lastActivityAt?: Date
   } = {},
 ): RunDto => ({
   id: r.id,
@@ -67,6 +68,14 @@ export const runDto = (
   queuedAt: r.queuedAt.toISOString(),
   startedAt: r.startedAt?.toISOString() ?? null,
   endedAt: r.endedAt?.toISOString() ?? null,
+  lastActivityAt: new Date(
+    Math.max(
+      extra.lastActivityAt?.getTime() ?? 0,
+      r.endedAt?.getTime() ?? 0,
+      r.startedAt?.getTime() ?? 0,
+      r.queuedAt.getTime(),
+    ),
+  ).toISOString(),
   parentRunId: r.parentRunId,
   continuationOf: r.continuationOf,
   hopMax: extra.hopMax ?? PARAM_DEFAULTS.chainMaxHops,
@@ -117,7 +126,7 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
   if (!rows.length) return (r) => runDto(r)
   const ids = rows.map((r) => r.id)
   const groupIds = [...new Set(rows.map((r) => r.groupId))]
-  const [aps, qs, paramsByGroup] = await Promise.all([
+  const [aps, qs, paramsByGroup, activity] = await Promise.all([
     ctx.db
       .select({ a: approvals, name: users.name })
       .from(approvals)
@@ -131,6 +140,14 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
       .where(inArray(questionSets.runId, ids))
       .orderBy(asc(questionSets.createdAt)),
     Promise.all(groupIds.map((id) => cachedGroupParams(ctx, id))),
+    ctx.db
+      .select({
+        runId: runEvents.runId,
+        lastActivityAt: sql<Date>`max(${runEvents.createdAt})`.mapWith(runEvents.createdAt),
+      })
+      .from(runEvents)
+      .where(inArray(runEvents.runId, ids))
+      .groupBy(runEvents.runId),
   ])
   const fileIds = qs.flatMap((x) => x.q.attachmentIds)
   const [files, leanings] = await Promise.all([
@@ -147,6 +164,7 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
     ),
   ])
   const params = new Map(groupIds.map((id, i) => [id, paramsByGroup[i]]))
+  const activityByRun = new Map(activity.map((r) => [r.runId, r.lastActivityAt]))
   return (r) => {
     const p = params.get(r.groupId) as GroupParams
     return runDto(r, {
@@ -156,6 +174,7 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
         .map((x) => questionSetDto(x.q, x.name, files, leanings)),
       hopMax: p.chainMaxHops,
       offlineWaitMin: p.offlineWaitMin,
+      lastActivityAt: activityByRun.get(r.id),
     })
   }
 }
@@ -193,7 +212,7 @@ export async function listRuns(
 }
 
 /** Pushes a change of the card's step or usage alone, without loading what the rest of the card needs. */
-export async function publishStep(ctx: Ctx, r: CardRow) {
+export async function publishStep(ctx: Ctx, r: CardRow, lastActivityAt = ctx.now()) {
   ctx.bus.publish(await memberIds(ctx, r.groupId), {
     t: 'run.step',
     runId: r.id,
@@ -202,6 +221,7 @@ export async function publishStep(ctx: Ctx, r: CardRow) {
     step: r.step,
     ...stepI18nOf(r),
     usage: (r.usage as Usage | null) ?? null,
+    lastActivityAt: lastActivityAt.toISOString(),
   })
 }
 

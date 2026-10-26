@@ -108,6 +108,7 @@ const run = (o: Partial<RunDto>): RunDto => ({
   queuedAt: new Date(Date.now() - HOUR).toISOString(),
   startedAt: new Date(Date.now() - HOUR).toISOString(),
   endedAt: null,
+  lastActivityAt: new Date(Date.now() - HOUR).toISOString(),
   ...o,
 })
 

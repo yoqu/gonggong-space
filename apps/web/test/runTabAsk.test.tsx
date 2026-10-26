@@ -67,6 +67,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: local(10, 0, 0),
   startedAt: local(10, 0, 1),
   endedAt: null,
+  lastActivityAt: local(10, 0, 1),
   parentRunId: null,
   hopMax: 3,
   offlineWaitMin: 30,
@@ -176,6 +177,7 @@ describe('approvals and questions in the run tab', () => {
         run({
           status: 'completed',
           endedAt: local(10, 2, 0),
+          lastActivityAt: local(10, 2, 0),
           approvals: [approval({ status: 'approved', decidedByName: '王磊', decidedAt: local(10, 0, 9) })],
         }),
       ),

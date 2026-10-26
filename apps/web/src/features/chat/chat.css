@@ -251,16 +251,61 @@
 .git-bar {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-6);
   padding: var(--space-6) var(--space-16);
   border-bottom: 1px solid var(--separator);
   font-size: var(--text-subheadline-size);
+}
+.git-bar__items {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
   overflow-x: auto;
   scrollbar-width: none;
 }
-.git-bar::-webkit-scrollbar {
+.git-bar__items::-webkit-scrollbar,
+.git-bar__others::-webkit-scrollbar {
   display: none;
+}
+.git-bar__more {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--control-small);
+  padding: 0 var(--space-8);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+}
+.git-bar__more:hover {
+  background: var(--selection-fill);
+  color: var(--label);
+}
+.git-bar__more-count {
+  min-width: 16px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  color: var(--label);
+  font-size: var(--text-caption-size);
+  text-align: center;
+}
+.git-bar__others {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding-top: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .git-bar__item {
   display: flex;
@@ -349,6 +394,16 @@
 .git-bar__error {
   color: var(--tint-red-text);
   cursor: help;
+}
+.git-bar__failed {
+  height: 20px;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+  font: inherit;
+  white-space: nowrap;
 }
 
 /* Repo settings (group settings dialog) */

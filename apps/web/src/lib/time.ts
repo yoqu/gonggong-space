@@ -34,8 +34,8 @@ export const countdown = (ms: number) => {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
 
-export function ago(iso: string) {
-  const min = Math.floor((Date.now() - Date.parse(iso)) / 60_000)
+export function ago(iso: string, now = Date.now()) {
+  const min = Math.floor((now - Date.parse(iso)) / 60_000)
   if (min < 1) return t('刚刚')
   if (min < 60) return t('{n} 分钟前', { n: min })
   if (min < 1440) return t('{n} 小时前', { n: Math.floor(min / 60) })

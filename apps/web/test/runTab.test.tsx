@@ -116,6 +116,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: at,
   startedAt: at,
   endedAt: null,
+  lastActivityAt: at,
   parentRunId: 'r0',
   hopMax: 3,
   offlineWaitMin: 30,
@@ -377,7 +378,7 @@ describe('run tab', () => {
       within(rail).getByText('正在处理').closest('li')?.querySelector('.ui-mascot[data-role]'),
     ).toBeTruthy()
 
-    push({ t: 'run.delta', runId: 'r1', text: '正在收尾' })
+    push({ t: 'run.delta', runId: 'r1', text: '正在收尾', lastActivityAt: new Date().toISOString() })
     expect(await within(rail).findByText('正在收尾')).toBeTruthy()
     // The user's own unfolding survives live updates.
     expect(
@@ -422,11 +423,11 @@ describe('run tab', () => {
     renderChat()
     const rail = await openProcess()
     expect(await within(rail).findByText('改完了')).toBeTruthy()
-    push({ t: 'run.delta', runId: 'r1', text: '，' })
-    push({ t: 'run.delta', runId: 'r1', text: '收尾' })
+    push({ t: 'run.delta', runId: 'r1', text: '，', lastActivityAt: new Date().toISOString() })
+    push({ t: 'run.delta', runId: 'r1', text: '收尾', lastActivityAt: new Date().toISOString() })
     expect(await within(rail).findByText('改完了，收尾')).toBeTruthy()
     current = detail({ events: [{ id: 4, at, event: { kind: 'text', delta: '改完了，收尾。' } }] })
-    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1', lastActivityAt: at })
     expect(await within(rail).findByText('改完了，收尾。')).toBeTruthy()
   })
 
@@ -449,7 +450,7 @@ describe('run tab', () => {
     expect(within(rail).getByRole('button', { name: /思考\s*先看调用方/ })).toBeTruthy()
     const diffsLive = urls('/groups/g1/bots/b1/diff').length
     // Progress refreshes only the process: the card comes with realtime events, the patch once the run ended.
-    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1', lastActivityAt: at })
     await waitFor(() => expect(urls('/runs/r1/events')).toEqual(['/api/runs/r1/events?since=4']))
     await waitFor(() => expect(urls('/groups/g1/bots/b1/diff').length).toBe(diffsLive + 1))
     expect(urls('/runs/r1')).toHaveLength(2)
@@ -458,8 +459,8 @@ describe('run tab', () => {
       useWorkbench.getState().show({ kind: 'run', runId: 'r2', view: 'process', file: null })
     })
     const diffs = urls('/groups/g1/bots/b1/diff').length
-    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
-    push({ t: 'run.delta', runId: 'r1', text: '，收尾' })
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1', lastActivityAt: at })
+    push({ t: 'run.delta', runId: 'r1', text: '，收尾', lastActivityAt: new Date().toISOString() })
     await act(() => new Promise((r) => setTimeout(r, 2100)))
     expect(urls('/runs/r1/events')).toHaveLength(1)
     expect(urls('/groups/g1/bots/b1/diff')).toHaveLength(diffs)
@@ -491,6 +492,7 @@ describe('run tab', () => {
       botId: 'b1',
       step: 'cat src/b.ts',
       usage: { totalTokens: 2500 },
+      lastActivityAt: new Date().toISOString(),
     })
     expect(await within(rail).findByText('2.5k tokens')).toBeTruthy()
     await waitFor(() => expect(urls('/runs/r1/events')).toEqual(['/api/runs/r1/events?since=3']))
@@ -510,7 +512,7 @@ describe('run tab', () => {
       vi.mocked(fetch).mock.calls.filter(([u]) => String(u).split('?')[0] === '/api/runs/r1/events').length
     const before = fetches()
     for (let i = 0; i < 5; i++) {
-      push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' })
+      push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1', lastActivityAt: at })
       await act(() => new Promise((r) => setTimeout(r, 150)))
     }
     expect(fetches()).toBeGreaterThan(before)

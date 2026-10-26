@@ -339,7 +339,7 @@ describe('run engine', () => {
     d.send(done(runId, { reply: '已完成。' }))
 
     const delta = await web.until((e) => e.t === 'run.delta')
-    expect(delta).toEqual({ t: 'run.delta', runId, text: '好的' })
+    expect(delta).toEqual({ t: 'run.delta', runId, text: '好的', lastActivityAt: expect.any(String) })
     await web.until((e) => e.t === 'run.step' && e.step === 'Write hello.txt')
     const msg = await web.until<Extract<WebEvent, { t: 'message.new' }>>((e) => e.t === 'message.new')
     expect(msg.message).toMatchObject({
@@ -618,6 +618,91 @@ describe('run engine', () => {
 })
 
 describe('timeline runs', () => {
+  it('uses the latest persisted activity, falling back to queue, start or end facts', async () => {
+    const alice = await t.seed.user({ name: '王磊' })
+    const bot = await t.seed.bot({ ownerId: alice.id, name: 'A' })
+    const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })
+    const say = async () =>
+      (
+        await t.db
+          .insert(messages)
+          .values({ groupId: group.id, kind: 'user', authorUserId: alice.id, body: 'x' })
+          .returning()
+      )[0]!
+    const queuedAt = new Date(Date.UTC(2026, 0, 1, 0, 0, 0))
+    const startedAt = new Date(Date.UTC(2026, 0, 1, 0, 1, 0))
+    const eventAt = new Date(Date.UTC(2026, 0, 1, 0, 3, 0))
+    const endedAt = new Date(Date.UTC(2026, 0, 1, 0, 5, 0))
+    const queued = await t.db
+      .insert(runs)
+      .values({
+        groupId: group.id,
+        botId: bot.id,
+        triggerMessageId: (await say()).id,
+        originUserId: alice.id,
+        status: 'queued',
+        queuedAt,
+      })
+      .returning()
+    const running = await t.db
+      .insert(runs)
+      .values({
+        groupId: group.id,
+        botId: bot.id,
+        triggerMessageId: (await say()).id,
+        originUserId: alice.id,
+        status: 'running',
+        queuedAt,
+        startedAt,
+      })
+      .returning()
+    const completed = await t.db
+      .insert(runs)
+      .values({
+        groupId: group.id,
+        botId: bot.id,
+        triggerMessageId: (await say()).id,
+        originUserId: alice.id,
+        status: 'completed',
+        queuedAt,
+        startedAt,
+        endedAt,
+      })
+      .returning()
+    await t.db.insert(runEvents).values({
+      runId: running[0]!.id,
+      kind: 'status',
+      payload: { kind: 'status', status: 'running', step: '读取' },
+      createdAt: eventAt,
+    })
+    await t.db.insert(runEvents).values({
+      runId: completed[0]!.id,
+      kind: 'status',
+      payload: { kind: 'status', status: 'running', step: '读取' },
+      createdAt: eventAt,
+    })
+
+    expect(
+      Object.fromEntries((await listRuns(t.ctx, group.id)).map((r) => [r.id, r.lastActivityAt])),
+    ).toEqual({
+      [queued[0]!.id]: queuedAt.toISOString(),
+      [running[0]!.id]: eventAt.toISOString(),
+      [completed[0]!.id]: endedAt.toISOString(),
+    })
+    const detail = await t.app.inject({
+      url: `/api/runs/${running[0]!.id}`,
+      headers: { cookie: await t.seed.cookie(alice.id) },
+    })
+    expect(detail.statusCode).toBe(200)
+    expect(detail.json()).toMatchObject({ run: { lastActivityAt: eventAt.toISOString() } })
+    await t.db.update(runs).set({ purgedAt: endedAt }).where(eq(runs.id, running[0]!.id))
+    await t.db.delete(runEvents).where(eq(runEvents.runId, running[0]!.id))
+    expect((await listRuns(t.ctx, group.id)).find((r) => r.id === running[0]!.id)?.lastActivityAt).toBe(
+      startedAt.toISOString(),
+    )
+    expect(queued[0]!.id).not.toBe(completed[0]!.id)
+  })
+
   it('lists the page’s runs and, on request, the group’s live ones: once each, in queue order', async () => {
     const alice = await t.seed.user({ name: '王磊' })
     const bot = await t.seed.bot({ ownerId: alice.id, name: 'A' })

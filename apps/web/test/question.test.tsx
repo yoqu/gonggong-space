@@ -59,6 +59,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: NOW.toISOString(),
   startedAt: NOW.toISOString(),
   endedAt: null,
+  lastActivityAt: NOW.toISOString(),
   parentRunId: null,
   hopMax: 3,
   offlineWaitMin: 30,

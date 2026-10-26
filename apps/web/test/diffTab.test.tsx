@@ -133,7 +133,15 @@ describe('diff tab', () => {
     const { rerender } = render(<TabContent tab={tab()} active={false} />)
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
-      act(() => push?.({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1' }))
+      act(() =>
+        push?.({
+          t: 'run.progress',
+          runId: 'r1',
+          groupId: 'g1',
+          botId: 'b1',
+          lastActivityAt: new Date().toISOString(),
+        }),
+      )
       act(() => vi.advanceTimersByTime(2000))
     } finally {
       vi.useRealTimers()

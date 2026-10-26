@@ -62,7 +62,8 @@ function benchKey(tab: GroupTabDto): string | null {
  * tab in the workbench (⌘/Ctrl-click or the context menu: a new browser tab); drag to reorder.
  */
 export function GroupTabBar({ group }: { group: GroupDto }) {
-  const tabs = useGroupTabs(group.id) ?? []
+  const known = useGroupTabs(group.id)
+  const tabs = known ?? []
   const shown = useWorkbench((s) =>
     s.open && s.groupId === group.id ? (s.benches[group.id]?.active ?? null) : null,
   )
@@ -109,6 +110,8 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
     if (moved) ids.splice(to, 0, moved)
     groupTabsApi.reorder(group.id, ids).catch(toastError)
   }
+
+  if (!known || !tabs.length) return null
 
   return (
     <nav className="gtabs" aria-label={t('群标签栏')}>

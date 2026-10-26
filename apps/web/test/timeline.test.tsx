@@ -141,6 +141,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: min(1),
   startedAt: min(1),
   endedAt: null,
+  lastActivityAt: min(1),
   ...o,
 })
 
@@ -348,6 +349,7 @@ describe('timeline bubbles', () => {
       botId: 'b1',
       step: '运行 go test ./...',
       usage: { totalTokens: 2500 },
+      lastActivityAt: min(2),
     })
     expect(await within(card).findByText('运行 go test ./...')).toBeTruthy()
     expect(within(card).getByTitle('2.5k tokens')).toBeTruthy()
@@ -462,9 +464,9 @@ describe('hover action bar', () => {
     expect(screen.queryByRole('menuitem', { name: '查看过程' })).toBeNull()
   })
 
-  it('shows working Bots whose run card is not in view in the live runs bar, not as a typing row', async () => {
+  it('shows working Bots whose run card is not in view in the task dock, not as a typing row', async () => {
     renderChat({ messages: [msg({ seq: 2 })], runs: [run()] })
-    expect((await screen.findByTestId('live-runs')).textContent).toContain('小王的 Claude')
+    expect((await screen.findByTestId('task-dock')).textContent).toContain('小王的 Claude')
     expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
   })
 

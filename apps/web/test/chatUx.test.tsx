@@ -139,6 +139,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: at,
   startedAt: at,
   endedAt: null,
+  lastActivityAt: at,
   ...o,
 })
 
@@ -385,11 +386,11 @@ describe('scroll position', () => {
   })
 })
 
-describe('live runs bar', () => {
-  const bar = () => screen.queryByTestId('live-runs')
-  const rows = () => [...(bar()?.querySelectorAll<HTMLElement>('.lr-row') ?? [])]
+describe('task dock', () => {
+  const bar = () => screen.queryByTestId('task-dock')
+  const rows = () => [...(bar()?.querySelectorAll<HTMLElement>('[data-testid="task-dock-row"]') ?? [])]
 
-  it('lists only executing runs above the composer, those waiting on someone first', async () => {
+  it('lists only live runs above the composer, those waiting on someone first', async () => {
     const started = new Date(Date.now() - 65_000).toISOString()
     mockApi({
       messages: [msg({ seq: 2, body: '@小王的 Claude 看下字段' })],
@@ -402,30 +403,29 @@ describe('live runs bar', () => {
       ],
     })
     renderAt()
-    await waitFor(() => expect(rows()).toHaveLength(3))
+    await waitFor(() => expect(rows()).toHaveLength(2))
     expect(precedes(bar()!, box())).toBe(true)
-    const [approval, answer, running] = rows()
-    expect(approval!.textContent).toContain('小王的 Claude')
-    expect(approval!.textContent).toContain('等待审批')
-    expect(approval!.classList).toContain('lr-row--awaiting')
-    expect(answer!.textContent).toContain('老李的 Codex')
-    expect(answer!.textContent).toContain('等待回答')
-    expect(running!.textContent).toContain('读取 server/refund.go')
-    expect(running!.textContent).toMatch(/1 分 [56] 秒/)
-    expect(running!.classList).not.toContain('lr-row--awaiting')
+    fireEvent.click(within(bar()!).getByRole('button', { name: /展开/ }))
+    expect(rows().map((row) => row.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('运行中'),
+        expect.stringContaining('排队中'),
+        expect.stringContaining('读取 server/refund.go'),
+      ]),
+    )
   })
 
-  it('shows three rows and folds the rest behind +N', async () => {
+  it('shows two rows and folds the rest behind the expand control', async () => {
     mockApi({
       messages: [msg({ seq: 2 })],
       runs: ['r1', 'r2', 'r3', 'r4', 'r5'].map((id) => run({ id })),
     })
     renderAt()
-    await waitFor(() => expect(rows()).toHaveLength(3))
-    fireEvent.click(within(bar()!).getByRole('button', { name: '+2' }))
+    await waitFor(() => expect(rows()).toHaveLength(2))
+    fireEvent.click(within(bar()!).getByRole('button', { name: /展开 3/ }))
     expect(rows()).toHaveLength(5)
     fireEvent.click(within(bar()!).getByRole('button', { name: '收起' }))
-    expect(rows()).toHaveLength(3)
+    expect(rows()).toHaveLength(2)
   })
 
   it('opens the run process from 过程', async () => {
@@ -481,16 +481,14 @@ describe('live runs bar', () => {
     expect(screen.getByTestId('loc').textContent).toBe('')
   })
 
-  it('is hidden without executing runs', async () => {
+  it('shows queued work while it is live', async () => {
     mockApi({
       messages: [msg({ seq: 2 })],
       runs: [run({ status: 'queued', startedAt: null }), run({ id: 'r2', status: 'completed', endedAt: at })],
     })
     renderAt()
-    await screen.findAllByTestId('run-card')
-    expect(bar()).toBeNull()
-    push({ t: 'run.updated', run: run({ status: 'running' }) })
-    expect(rows()).toHaveLength(1)
+    await waitFor(() => expect(rows()).toHaveLength(1))
+    expect(rows()[0]!.textContent).toContain('排队中')
   })
 })
 

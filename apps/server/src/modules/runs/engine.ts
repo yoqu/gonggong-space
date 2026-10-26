@@ -192,7 +192,8 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   }
   await pushDelta(ctx, run, await closeStream(runId))
   const event = redactDeep(raw, (await runRedactors(ctx, runId)).redact)
-  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: sealEvent(event) })
+  const at = ctx.now()
+  await ctx.db.insert(runEvents).values({ runId, kind: event.kind, payload: sealEvent(event), createdAt: at })
   // Updates of one tool call repeat its title: only a changed step is pushed.
   const setChanged = (set: Partial<RunRow>, changed: SQL) =>
     ctx.db
@@ -216,7 +217,7 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
           : []
   let card = false
   for (const row of await updated) {
-    await publishStep(ctx, row)
+    await publishStep(ctx, row, at)
     // The Feishu card shows the step, not the usage.
     if (event.kind !== 'usage') await mirrorRun(ctx, row)
     card = true
@@ -239,7 +240,13 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   if (!card)
     ctx.bus.publish(
       await memberIds(ctx, run.groupId),
-      { t: 'run.progress', runId, groupId: run.groupId, botId: run.botId },
+      {
+        t: 'run.progress',
+        runId,
+        groupId: run.groupId,
+        botId: run.botId,
+        lastActivityAt: at.toISOString(),
+      },
       run.groupId,
     )
 }
@@ -283,7 +290,11 @@ async function onCompaction(ctx: Ctx, run: Owner, e: Extract<RunEvent, { kind: '
 
 async function pushDelta(ctx: Ctx, run: { id: string; groupId: string }, text: string) {
   if (!text) return
-  ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.delta', runId: run.id, text }, run.groupId)
+  ctx.bus.publish(
+    await memberIds(ctx, run.groupId),
+    { t: 'run.delta', runId: run.id, text, lastActivityAt: ctx.now().toISOString() },
+    run.groupId,
+  )
   mirrorDelta(ctx, run.id, text)
 }
 
@@ -532,12 +543,12 @@ async function closeStream(runId: string) {
 async function writeSegment(ctx: Ctx, runId: string, { id, kind, agentId, plain }: Segment, redact: Redact) {
   const payload = { kind, delta: seal(redact(plain)), agentId }
   if (id !== undefined) {
-    await ctx.db.update(runEvents).set({ payload }).where(eq(runEvents.id, id))
+    await ctx.db.update(runEvents).set({ payload, createdAt: ctx.now() }).where(eq(runEvents.id, id))
     return id
   }
   const [row] = await ctx.db
     .insert(runEvents)
-    .values({ runId, kind, payload })
+    .values({ runId, kind, payload, createdAt: ctx.now() })
     .returning({ id: runEvents.id })
   return row?.id
 }

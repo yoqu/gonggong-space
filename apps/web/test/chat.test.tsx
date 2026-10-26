@@ -182,6 +182,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
   queuedAt: at,
   startedAt: at,
   endedAt: null,
+  lastActivityAt: at,
   ...o,
 })
 
@@ -545,8 +546,13 @@ describe('chat view', () => {
     expect(card.textContent).not.toContain('mcp__')
 
     // A burst of streamed text lands as one update rather than a re-render per chunk.
-    push({ t: 'run.delta', runId: 'r1', text: '正在对比 v1 与 v2 ' })
-    push({ t: 'run.delta', runId: 'r1', text: '的字段' })
+    push({
+      t: 'run.delta',
+      runId: 'r1',
+      text: '正在对比 v1 与 v2 ',
+      lastActivityAt: new Date().toISOString(),
+    })
+    push({ t: 'run.delta', runId: 'r1', text: '的字段', lastActivityAt: new Date().toISOString() })
     expect(card.textContent).not.toContain('正在对比')
     await waitFor(() => expect(card.textContent).toContain('正在对比 v1 与 v2 的字段'))
     push({
@@ -559,6 +565,8 @@ describe('chat view', () => {
     push({ t: 'message.new', message: msg({ seq: 9, authorId: 'u2', authorName: '李建国', body: '收到' }) })
     expect(within(main).getByText('收到')).toBeTruthy()
 
+    expect(within(main).getByTestId('git-bar-more').textContent).toContain('更多工作区')
+    fireEvent.click(within(main).getByTestId('git-bar-more'))
     expect(within(main).getByTestId('git-bar').textContent).toContain('老李的 Codex待创建')
     const git = { branch: 'main', ahead: 0, behind: 1, dirty: true, workspace: 'managed' as const, repos: [] }
     push({
@@ -606,7 +614,7 @@ describe('chat view', () => {
     const entering = () => main.querySelectorAll('.tl-item--enter')
     expect(entering()).toHaveLength(0)
 
-    push({ t: 'run.delta', runId: 'r1', text: '流式输出' })
+    push({ t: 'run.delta', runId: 'r1', text: '流式输出', lastActivityAt: new Date().toISOString() })
     push({ t: 'message.new', message: timeline.messages[1]! })
     expect(entering()).toHaveLength(0)
 
@@ -625,11 +633,11 @@ describe('chat view', () => {
     renderAt('/g/g1')
     await within(screen.getByRole('main')).findByTestId('run-card')
     // Deltas carry no group: another group's run streams over the same socket.
-    push({ t: 'run.delta', runId: 'r-other', text: '别的群' })
-    push({ t: 'run.delta', runId: 'r1', text: '本群' })
+    push({ t: 'run.delta', runId: 'r-other', text: '别的群', lastActivityAt: new Date().toISOString() })
+    push({ t: 'run.delta', runId: 'r1', text: '本群', lastActivityAt: new Date().toISOString() })
     await waitFor(() => expect(useRunDeltas.getState()).toEqual({ r1: '本群' }))
     push({ t: 'run.updated', run: run({ id: 'r2' }) })
-    push({ t: 'run.delta', runId: 'r2', text: '新一轮' })
+    push({ t: 'run.delta', runId: 'r2', text: '新一轮', lastActivityAt: new Date().toISOString() })
     await waitFor(() => expect(useRunDeltas.getState()).toEqual({ r1: '本群', r2: '新一轮' }))
   })
 
