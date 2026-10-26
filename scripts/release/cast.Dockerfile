@@ -6,14 +6,21 @@ FROM rust:1.98.0-bullseye
 ARG LLVM=21
 # Bullseye is past its security support: deb.debian.org's bullseye-security index lists packages its pool no longer
 # serves (404), so that suite comes from the snapshot the base image was built from.
-RUN sed -i 's|^deb http://deb.debian.org/debian-security|deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260824T000000Z|' \
+RUN sed -i 's|^deb http://deb.debian.org/debian-security|deb http://snapshot.debian.org/archive/debian-security/20260824T000000Z|' \
       /etc/apt/sources.list \
-    && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-$LLVM main" \
+    && arch="$(dpkg --print-architecture)" \
+    && if [ "$arch" = arm64 ]; then other=amd64; else other=arm64; fi \
+    && cross="g++-x86-64-linux-gnu libc6-dev-amd64-cross" \
+    && if [ "$arch" = amd64 ]; then cross="g++-aarch64-linux-gnu libc6-dev-arm64-cross"; fi \
+    && dpkg --add-architecture "$other" \
+    && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - \
+    && echo "deb [arch=$arch] http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-$LLVM main" \
       > /etc/apt/sources.list.d/llvm.list \
-    && apt-get update && apt-get install -y -o Acquire::Retries=5 --no-install-recommends \
+    && sed -i -E "s|^deb |deb [arch=$arch,$other] |" /etc/apt/sources.list \
+    && apt-get -o Acquire::Check-Valid-Until=false update && apt-get install -y -o Acquire::Retries=5 --no-install-recommends \
       clang-$LLVM lld-$LLVM llvm-$LLVM pkg-config libglib2.0-dev \
-      g++-x86-64-linux-gnu libc6-dev-amd64-cross g++-aarch64-linux-gnu libc6-dev-arm64-cross \
+      libglib2.0-dev:"$other" \
+      $cross \
     && rm -rf /var/lib/apt/lists/* \
     && for t in clang clang++ clang-cl lld lld-link llvm-lib llvm-ar llvm-rc llvm-dlltool; do \
       ln -sf "/usr/bin/$t-$LLVM" "/usr/local/bin/$t"; done \
