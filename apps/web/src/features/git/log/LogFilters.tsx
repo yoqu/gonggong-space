@@ -66,6 +66,13 @@ function TextFilter({
 }) {
   const [text, setText] = useState(filter.text ?? '')
   const applied = useRef(filter.text ?? '')
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
   // A text set elsewhere (cleared filters) replaces what is typed.
   useEffect(() => {
     const now = filter.text ?? ''
@@ -83,8 +90,10 @@ function TextFilter({
   latest.current = apply
   useEffect(() => {
     if (text.trim() === applied.current) return
-    const timer = setTimeout(() => latest.current(text), TYPING_MS)
-    return () => clearTimeout(timer)
+    timer.current = setTimeout(() => latest.current(text), TYPING_MS)
+    return () => {
+      if (timer.current) clearTimeout(timer.current)
+    }
   }, [text])
   const hash = text.trim()
   return (
@@ -97,7 +106,10 @@ function TextFilter({
           placeholder={t('文本或哈希')}
           aria-label={t('文本或哈希')}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            if (timer.current) clearTimeout(timer.current)
+            setText(e.target.value)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') apply(text)
             else if (e.key === 'Escape' && text) {
