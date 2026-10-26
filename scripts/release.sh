@@ -138,7 +138,7 @@ docker_builds() {
     # Cross-compile x86_64 on the native builder; emulating recent rustc under QEMU on Apple Silicon can SIGSEGV.
     [[ $key == linux-aarch64 && $key != "$host" ]] && platform="linux/${key#linux-}"
     echo "== gg-cast $key ($target${platform:+, emulated})"
-    cast_builder "$out" "$platform" "cargo $build -q ${CAST[*]} --target $target; \
+    cast_builder "$out" "$platform" "rustup target add $target; cargo $build -q ${CAST[*]} --target $target; \
       cp /target/$target/release/gg-cast$exe /out/$(cast_artifact "$key")"
     cast_keep "$key"
   done

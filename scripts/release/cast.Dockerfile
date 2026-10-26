@@ -16,7 +16,7 @@ RUN sed -i 's|^deb http://deb.debian.org/debian-security|deb [check-valid-until=
     && rm -rf /var/lib/apt/lists/* \
     && for t in clang clang++ clang-cl lld lld-link llvm-lib llvm-ar llvm-rc llvm-dlltool; do \
       ln -sf "/usr/bin/$t-$LLVM" "/usr/local/bin/$t"; done \
-    && rustup target add x86_64-pc-windows-msvc \
+    && rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-pc-windows-msvc \
     && cargo install --locked cargo-xwin@0.23.1 \
     && git config --system --add safe.directory '*'
 WORKDIR /src
