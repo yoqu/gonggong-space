@@ -149,7 +149,12 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
     goTo: async (rev) => {
       const hash = await resolve(rev)
       if (!hash) return false
-      if (now().filter?.text) patch(tabKey, { filter: cleanFilter({ ...now().filter, text: undefined }) })
+      const listed = log.commits.some((c) => c.hash === hash)
+      if (listed || now().filter?.text)
+        patch(tabKey, {
+          filter: cleanFilter({ ...now().filter, text: undefined }),
+          ...(listed ? { commit: hash, file: null } : {}),
+        })
       setSeek({ hash, rev })
       return true
     },
