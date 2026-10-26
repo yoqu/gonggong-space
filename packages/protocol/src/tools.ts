@@ -724,9 +724,17 @@ export const ClientReleasePublishArgs = z
         '要整体发布的目录（工作区内的相对路径，如 dist/0.3.1）：上传其中所有发布产物与 RELEASE_NOTES.md，SHA256SUMS、manifest.json 与子目录跳过',
       )
       .optional(),
+    kind: z
+      .literal('daemon')
+      .describe('仅发布 daemon 与 gg-cast（不包含桌面端）；dir 需有全部平台产物，桌面端沿用原发布流程')
+      .optional(),
   })
   .refine((a) => (a.file === undefined) !== (a.dir === undefined), {
     message: 'file 与 dir 需要且只能给一个',
+  })
+  .refine((a) => a.kind === undefined || a.dir !== undefined, {
+    message: 'kind 仅支持 dir',
+    path: ['kind'],
   })
 export const ClientReleaseNotesArgs = z.object({
   version: DaemonRelease.shape.version.describe('要更新说明的已发布版本，如 0.3.5；必须与当前发布版本一致'),
@@ -800,6 +808,7 @@ export const DAEMON_TOOLS = {
       '或桌面端更新包 Gonggong_<版本>_*.app.tar.gz 及其 .sig 签名、*-setup.exe.sig）上传到当前空间，' +
       '成员的 daemon 随后自动升级、桌面端从这里检查更新、可在网页下载安装包。' +
       '推荐用 dir 一次发布 scripts/release.sh 的整个输出目录（dist/<版本>），只需审批一次；补传单个文件时用 file。' +
+      '快速发版用 dir 加 kind="daemon"，只上传 daemon 与缓存的 gg-cast，不等待桌面端。' +
       '只有系统管理员发起的对话可以发布。',
     input: ClientReleasePublishArgs,
   },

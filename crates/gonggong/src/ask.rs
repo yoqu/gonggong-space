@@ -7,6 +7,7 @@ use crate::hosted::{Scope, Services, StartArgs};
 use crate::protocol::{Answer, Attachment, OptionMeta, Question, QuestionType, ToolCallRes};
 use crate::tls;
 use agent_client_protocol::schema::v1::{McpServer, McpServerHttp};
+use futures_util::{StreamExt, stream};
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
@@ -410,18 +411,26 @@ async fn send_attachments(api: Option<&Config>, asker: &dyn Asker, args: &Value)
 struct ReleaseArgs {
     file: Option<String>,
     dir: Option<String>,
+    kind: Option<String>,
 }
 
 enum Release {
     File(String),
-    Dir(String),
+    Dir(String, bool),
 }
 
 impl Release {
     fn parse(args: &Value) -> Result<Release, String> {
         match ReleaseArgs::deserialize(args).map_err(|e| format!("参数无效：{e}"))? {
-            ReleaseArgs { file: Some(file), dir: None } => Ok(Release::File(file)),
-            ReleaseArgs { file: None, dir: Some(dir) } => Ok(Release::Dir(dir)),
+            ReleaseArgs { file: Some(file), dir: None, kind: None } => Ok(Release::File(file)),
+            ReleaseArgs { file: None, dir: Some(dir), kind: None } => Ok(Release::Dir(dir, false)),
+            ReleaseArgs { file: None, dir: Some(dir), kind: Some(kind) } if kind == "daemon" => {
+                Ok(Release::Dir(dir, true))
+            }
+            ReleaseArgs { file: Some(_), dir: None, kind: Some(_) } => Err("参数无效：单文件不支持 kind".into()),
+            ReleaseArgs { file: None, dir: Some(_), kind: Some(_) } => {
+                Err("参数无效：dir 的 kind 仅支持 daemon".into())
+            }
             _ => Err("参数无效：file 与 dir 需要且只能给一个".into()),
         }
     }
@@ -445,12 +454,14 @@ fn is_release_file(name: &str) -> bool {
 
 /// The release files directly in `rel` (inside the canonical `root`) as (name, path), by name with the notes last:
 /// the server attaches notes to the release the artifacts before them created.
-fn release_files(root: &Path, rel: &str) -> Result<Vec<(String, PathBuf)>, String> {
+fn release_files(root: &Path, rel: &str, daemon_only: bool) -> Result<Vec<(String, PathBuf)>, String> {
     let dir = crate::hosted::inside(root, rel)?;
     let entries = std::fs::read_dir(&dir).map_err(|e| format!("读取 {rel} 失败：{e}"))?;
     let mut files: Vec<(String, PathBuf)> = entries
         .filter_map(|e| {
-            let name = e.ok()?.file_name().into_string().ok().filter(|n| is_release_file(n))?;
+            let name = e.ok()?.file_name().into_string().ok().filter(|n| {
+                is_release_file(n) && (!daemon_only || *n == RELEASE_NOTES || !n.starts_with("Gonggong_"))
+            })?;
             let path = workspace_file(root, dir.join(&name))?;
             Some((name, path))
         })
@@ -459,7 +470,32 @@ fn release_files(root: &Path, rel: &str) -> Result<Vec<(String, PathBuf)>, Strin
         return Err(format!("{rel} 里没有可发布的产物"));
     }
     files.sort_by(|a, b| (a.0 == RELEASE_NOTES, &a.0).cmp(&(b.0 == RELEASE_NOTES, &b.0)));
+    if daemon_only {
+        let version = release_version(files.iter().map(|(name, _)| name.as_str()))?;
+        for prefix in ["gonggong", "gg-cast"] {
+            for platform in ["macos-aarch64", "macos-x86_64", "linux-x86_64", "linux-aarch64", "windows-x86_64"] {
+                let suffix = if platform.starts_with("windows") { ".exe" } else { "" };
+                let name = format!("{prefix}-{version}-{platform}{suffix}");
+                if !files.iter().any(|(n, _)| *n == name) {
+                    return Err(format!("daemon 快速发布缺少 {name}；请先完整发布以生成缓存"));
+                }
+            }
+        }
+    }
     Ok(files)
+}
+
+fn release_version<'a>(names: impl Iterator<Item = &'a str>) -> Result<String, String> {
+    let mut version = None;
+    for name in names {
+        let Some(rest) = name.strip_prefix("gonggong-").or_else(|| name.strip_prefix("gg-cast-")) else { continue };
+        let v = rest.split('-').next().unwrap_or_default();
+        if version.is_some_and(|current| current != v) {
+            return Err("daemon 快速发布目录中的产物版本不一致".into());
+        }
+        version = Some(v);
+    }
+    version.map(String::from).ok_or_else(|| "daemon 快速发布目录里没有 daemon 产物".into())
 }
 
 /// What the bot owner approves for a `client_release_publish` call: the file, or every file of the dir.
@@ -467,11 +503,11 @@ pub fn release_approval(title: &str, raw_input: Option<&Value>, cwd: &Path) -> O
     if !(title.contains(SERVER_NAME) && title.contains("client_release_publish")) {
         return None;
     }
-    let dir = match Release::parse(crate::mcp_call::arguments(raw_input?)).ok()? {
+    let (dir, daemon_only) = match Release::parse(crate::mcp_call::arguments(raw_input?)).ok()? {
         Release::File(file) => return Some(crate::t!("发布 {file}", file = file)),
-        Release::Dir(dir) => dir,
+        Release::Dir(dir, daemon_only) => (dir, daemon_only),
     };
-    let files = release_files(&cwd.canonicalize().ok()?, &dir).ok()?;
+    let files = release_files(&cwd.canonicalize().ok()?, &dir, daemon_only).ok()?;
     let names: Vec<&str> = files.iter().take(APPROVAL_NAMES).map(|f| f.0.as_str()).collect();
     let mut detail =
         crate::t!("发布 {dir} 中的 {n} 个文件：", dir = dir, n = files.len()) + &names.join(crate::t!("、"));
@@ -481,16 +517,16 @@ pub fn release_approval(title: &str, raw_input: Option<&Value>, cwd: &Path) -> O
     Some(detail)
 }
 
-/// Uploads one release artifact, or every one of a dir (stopping at the first failure), to the server, which takes
-/// them only for a run a sysadmin started.
+/// Uploads one release artifact, or a dir with four parallel artifact uploads. The server serializes its manifest
+/// updates; the notes go last so they attach to the release created by the artifacts.
 async fn publish_release(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> Result<String, String> {
     let release = Release::parse(args)?;
     let api = api.ok_or("未连接服务器，无法发布")?;
     let (run_id, cwd) = asker.active_run().ok_or(NOT_RUNNING)?;
     let root = cwd.canonicalize().map_err(|e| format!("工作区不可用：{e}"))?;
     let mb = |size: usize| size as f64 / 1_048_576.0;
-    let dir = match release {
-        Release::Dir(dir) => dir,
+    let (dir, daemon_only) = match release {
+        Release::Dir(dir, daemon_only) => (dir, daemon_only),
         Release::File(file) => {
             let path = workspace_file(&root, &file).ok_or("文件必须是工作区内已存在的文件")?;
             let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
@@ -499,27 +535,49 @@ async fn publish_release(api: Option<&Config>, asker: &dyn Asker, args: &Value) 
             return Ok(format!("已发布 {name}（{:.1} MB）到当前空间，当前发布版本 {version}", mb(size)));
         }
     };
-    let files = release_files(&root, &dir)?;
-    let (mut total, mut last) = (0, Value::Null);
-    for (i, (name, path)) in files.iter().enumerate() {
-        match upload_release(api, &run_id, name, path).await {
-            Ok((size, body)) => (total, last) = (total + size, body),
-            Err(e) => {
-                let names = |f: &[(String, PathBuf)]| f.iter().map(|f| f.0.as_str()).collect::<Vec<_>>().join("、");
-                let mut msg = e;
-                if i > 0 {
-                    msg += &format!("\n已发布 {i} 个文件：{}", names(&files[..i]));
-                }
-                if i + 1 < files.len() {
-                    msg += &format!("\n未上传 {} 个文件：{}", files.len() - i - 1, names(&files[i + 1..]));
-                }
-                return Err(msg);
-            }
+    let mut files = release_files(&root, &dir, daemon_only)?;
+    let count = files.len();
+    let notes = if files.last().is_some_and(|(name, _)| name == RELEASE_NOTES) { files.pop() } else { None };
+    let mut uploads = stream::iter(files.into_iter().map(|(name, path)| {
+        let (api, run_id) = (api.clone(), run_id.clone());
+        async move {
+            let result = upload_release(&api, &run_id, &name, &path).await;
+            (name, result)
         }
+    }))
+    .buffer_unordered(4);
+    let (mut total, mut last, mut failed) = (0, Value::Null, vec![]);
+    let mut uploaded = 0;
+    while let Some((name, result)) = uploads.next().await {
+        match result {
+            Ok((size, body)) => {
+                total += size;
+                last = body;
+                uploaded += 1;
+            }
+            Err(e) => failed.push((name, e)),
+        }
+    }
+    if !failed.is_empty() {
+        let mut names = failed.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>();
+        if notes.is_some() {
+            names.push(RELEASE_NOTES);
+        }
+        let mut msg = failed.iter().map(|(_, e)| e.as_str()).collect::<Vec<_>>().join("\n");
+        msg += &format!("\n未发布 {} 个文件：{}", names.len(), names.join("、"));
+        if uploaded > 0 {
+            msg += &format!("\n已上传 {uploaded} 个文件；可直接重试同一目录");
+        }
+        return Err(msg);
+    }
+    if let Some((name, path)) = notes {
+        let (size, body) = upload_release(api, &run_id, &name, &path).await?;
+        total += size;
+        last = body;
     }
     let version = last["version"].as_str().unwrap_or_default();
     let mut text =
-        format!("已发布 {dir} 中的 {} 个文件（共 {:.1} MB）到当前空间，当前发布版本 {version}", files.len(), mb(total));
+        format!("已发布 {dir} 中的 {count} 个文件（共 {:.1} MB）到当前空间，当前发布版本 {version}", mb(total));
     if let Some(warning) = last["warning"].as_str() {
         text += &format!("\n{warning}");
     }
@@ -528,10 +586,10 @@ async fn publish_release(api: Option<&Config>, asker: &dyn Asker, args: &Value) 
 
 /// Uploads one release file as `name`: its size and the server's release.
 async fn upload_release(api: &Config, run_id: &str, name: &str, path: &Path) -> Result<(usize, Value), String> {
-    let data = tokio::fs::read(path).await.map_err(|e| format!("读取 {name} 失败：{e}"))?;
-    let size = data.len();
-    let form =
-        reqwest::multipart::Form::new().part("file", reqwest::multipart::Part::bytes(data).file_name(name.to_string()));
+    let size = usize::try_from(tokio::fs::metadata(path).await.map_err(|e| format!("读取 {name} 失败：{e}"))?.len())
+        .map_err(|_| format!("{name} 太大，无法上传"))?;
+    let part = reqwest::multipart::Part::file(path).await.map_err(|e| format!("读取 {name} 失败：{e}"))?;
+    let form = reqwest::multipart::Form::new().part("file", part.file_name(name.to_string()));
     let body = post_form(api, &format!("/api/daemon/runs/{run_id}/release-files"), form)
         .await
         .map_err(|e| format!("上传 {name} 失败：{e}"))?
@@ -1213,6 +1271,17 @@ mod tests {
         }
     }
 
+    fn daemon_release_dir(root: &Path) {
+        release_dir(root);
+        for prefix in ["gonggong", "gg-cast"] {
+            for platform in ["macos-aarch64", "macos-x86_64", "linux-x86_64", "linux-aarch64", "windows-x86_64"] {
+                let suffix = if platform.starts_with("windows") { ".exe" } else { "" };
+                let name = format!("{prefix}-0.3.7-{platform}{suffix}");
+                std::fs::write(root.join("dist/0.3.7").join(&name), format!("data of {name}")).unwrap();
+            }
+        }
+    }
+
     const RELEASE_ORDER: [&str; 5] = [
         "Gonggong_0.3.7_aarch64.app.tar.gz.sig",
         "Gonggong_0.3.7_x64-setup.exe",
@@ -1231,7 +1300,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn uploads_every_release_artifact_of_a_dir_in_one_call_with_the_notes_last() {
+    async fn uploads_a_dir_with_four_parallel_artifacts_and_the_notes_last() {
         let (base, seen) = fake_server(r#"{"version":"0.3.7","builds":{}}"#).await;
         let dir = tempfile::tempdir().unwrap();
         release_dir(dir.path());
@@ -1239,10 +1308,87 @@ mod tests {
         let text =
             publish_release(Some(&config(base)), &live_in(dir.path()), &json!({ "dir": "dist/0.3.7" })).await.unwrap();
         assert_eq!(text, "已发布 dist/0.3.7 中的 5 个文件（共 0.0 MB）到当前空间，当前发布版本 0.3.7");
-        assert_eq!(uploaded(&seen), RELEASE_ORDER);
+        let uploaded = uploaded(&seen);
+        assert_eq!(uploaded.last().map(String::as_str), Some(RELEASE_NOTES));
+        let mut artifacts = uploaded[..uploaded.len() - 1].to_vec();
+        artifacts.sort();
+        assert_eq!(artifacts, RELEASE_ORDER[..RELEASE_ORDER.len() - 1]);
         let reqs = seen.lock().unwrap().clone();
         assert!(reqs.iter().all(|r| r.starts_with("POST /api/daemon/runs/r1/release-files HTTP/1.1")));
-        assert!(reqs[3].contains("data of gonggong-0.3.7-macos-aarch64"), "{}", reqs[3]);
+        assert!(reqs.iter().any(|r| r.contains("data of gonggong-0.3.7-macos-aarch64")));
+    }
+
+    #[tokio::test]
+    async fn publishes_only_complete_daemon_artifacts_with_at_most_four_parallel_uploads() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let seen = Arc::new(Mutex::new(vec![]));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let active = Arc::new(AtomicUsize::new(0));
+        tokio::spawn({
+            let (seen, peak, active) = (seen.clone(), peak.clone(), active.clone());
+            async move {
+                loop {
+                    let (mut socket, _) = listener.accept().await.unwrap();
+                    let (seen, peak, active) = (seen.clone(), peak.clone(), active.clone());
+                    tokio::spawn(async move {
+                        let mut buf = vec![0u8; 16384];
+                        let n = socket.read(&mut buf).await.unwrap();
+                        let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                        seen.lock().unwrap().push(req);
+                        let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                        peak.fetch_max(current, Ordering::SeqCst);
+                        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                        let body = r#"{"version":"0.3.7","builds":{}}"#;
+                        let res = format!(
+                            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                            body.len()
+                        );
+                        socket.write_all(res.as_bytes()).await.unwrap();
+                        active.fetch_sub(1, Ordering::SeqCst);
+                    });
+                }
+            }
+        });
+        let dir = tempfile::tempdir().unwrap();
+        daemon_release_dir(dir.path());
+
+        let text = publish_release(
+            Some(&config(base)),
+            &live_in(dir.path()),
+            &json!({ "dir": "dist/0.3.7", "kind": "daemon" }),
+        )
+        .await
+        .unwrap();
+
+        assert!(text.starts_with("已发布 dist/0.3.7 中的 11 个文件"), "{text}");
+        let uploaded = uploaded(&seen);
+        assert_eq!(uploaded.len(), 11);
+        assert_eq!(uploaded.last().map(String::as_str), Some(RELEASE_NOTES));
+        assert!(!uploaded.iter().any(|name| name.starts_with("Gonggong_")));
+        assert_eq!(peak.load(Ordering::SeqCst), 4);
+    }
+
+    #[tokio::test]
+    async fn refuses_incomplete_or_mixed_version_daemon_releases_before_uploading() {
+        let (base, seen) = fake_server(r#"{"version":"0.3.7","builds":{}}"#).await;
+        let dir = tempfile::tempdir().unwrap();
+        release_dir(dir.path());
+        let (api, live) = (config(base), live_in(dir.path()));
+        let args = json!({ "dir": "dist/0.3.7", "kind": "daemon" });
+
+        let err = publish_release(Some(&api), &live, &args).await.unwrap_err();
+        assert!(err.contains("daemon 快速发布缺少"), "{err}");
+        daemon_release_dir(dir.path());
+        let mixed = dir.path().join("dist/0.3.7/gg-cast-0.3.7-linux-x86_64");
+        std::fs::remove_file(&mixed).unwrap();
+        std::fs::write(dir.path().join("dist/0.3.7/gg-cast-0.3.8-linux-x86_64"), "other").unwrap();
+        let err = publish_release(Some(&api), &live, &args).await.unwrap_err();
+        assert_eq!(err, "daemon 快速发布目录中的产物版本不一致");
+        assert!(seen.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -1260,7 +1406,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stops_a_dir_release_at_the_first_refused_file() {
+    async fn waits_for_in_flight_uploads_and_keeps_parallel_dir_failures_retryable() {
         let (base, seen) = fake_server_by(|req| {
             if req.contains("gg-cast-") {
                 ("400 Bad Request", r#"{"error":"invalid","message":"版本低于当前发布的 0.3.8"}"#.into())
@@ -1275,13 +1421,12 @@ mod tests {
         let err = publish_release(Some(&config(base)), &live_in(dir.path()), &json!({ "dir": "dist/0.3.7" }))
             .await
             .unwrap_err();
-        assert_eq!(
-            err,
-            "服务器拒绝了 gg-cast-0.3.7-windows-x86_64.exe：版本低于当前发布的 0.3.8\n\
-             已发布 2 个文件：Gonggong_0.3.7_aarch64.app.tar.gz.sig、Gonggong_0.3.7_x64-setup.exe\n\
-             未上传 2 个文件：gonggong-0.3.7-macos-aarch64、RELEASE_NOTES.md"
-        );
-        assert_eq!(uploaded(&seen), RELEASE_ORDER[..3]);
+        assert!(err.contains("服务器拒绝了 gg-cast-0.3.7-windows-x86_64.exe：版本低于当前发布的 0.3.8"), "{err}");
+        assert!(err.contains("未发布 2 个文件：gg-cast-0.3.7-windows-x86_64.exe、RELEASE_NOTES.md"), "{err}");
+        assert!(err.contains("已上传 3 个文件；可直接重试同一目录"), "{err}");
+        let uploaded = uploaded(&seen);
+        assert_eq!(uploaded.len(), 4);
+        assert!(!uploaded.iter().any(|name| name == RELEASE_NOTES));
     }
 
     #[tokio::test]
@@ -1340,6 +1485,11 @@ mod tests {
         assert!(many.starts_with("发布 many 中的 25 个文件：gonggong-0.3.10-linux-x86_64、"), "{many}");
         assert!(many.ends_with(" 等 25 个"), "{many}");
         assert_eq!(many.matches("gonggong-").count(), APPROVAL_NAMES);
+
+        daemon_release_dir(dir.path());
+        let daemon = detail(json!({ "dir": "dist/0.3.7", "kind": "daemon" })).unwrap();
+        assert!(daemon.starts_with("发布 dist/0.3.7 中的 11 个文件："), "{daemon}");
+        assert!(!daemon.contains("Gonggong_"), "{daemon}");
 
         assert_eq!(detail(json!({ "dir": ".." })), None);
         assert_eq!(detail(json!({})), None);

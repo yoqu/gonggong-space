@@ -15,7 +15,7 @@ import {
   ReleaseNotesReq,
   type UpgradeInfo,
 } from '@gonggong/protocol'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -59,11 +59,21 @@ export function upgradeFor(
   }
 }
 
-async function saveRelease(ctx: Ctx, release: DaemonRelease) {
-  await ctx.db
-    .insert(systemParams)
-    .values({ key: KEY, value: release })
-    .onConflictDoUpdate({ target: systemParams.key, set: { value: release } })
+async function updateRelease(
+  ctx: Ctx,
+  change: (current: DaemonRelease | null) => DaemonRelease | Promise<DaemonRelease>,
+) {
+  return ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${KEY}))`)
+    const [row] = await tx.select().from(systemParams).where(eq(systemParams.key, KEY))
+    const current = (row?.value as DaemonRelease | undefined) ?? null
+    const release = await change(current)
+    await tx
+      .insert(systemParams)
+      .values({ key: KEY, value: release })
+      .onConflictDoUpdate({ target: systemParams.key, set: { value: release } })
+    return { current, release }
+  })
 }
 
 /** Deletes a build this server hosts; external (CDN) urls are left alone. */
@@ -92,15 +102,15 @@ async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) 
     }
     const releaseNotes = Buffer.concat(chunks).toString('utf8').trim()
     if (!releaseNotes) return fail('invalid', '版本说明不能为空')
-    const current = await daemonRelease(ctx)
-    if (!current) return fail('invalid', '请先上传一个发布产物，再上传版本说明')
-    const release = { ...current, releaseNotes }
-    await saveRelease(ctx, release)
+    const { release } = await updateRelease(ctx, (current) => {
+      if (!current) return fail('invalid', '请先上传一个发布产物，再上传版本说明')
+      return { ...current, releaseNotes }
+    })
     await audit(ctx, {
       category: 'admin',
       actorUserId: actorId,
       action: 'daemon.release.notes',
-      detail: { version: current.version, source: 'upload' },
+      detail: { version: release.version, source: 'upload' },
     })
     return release
   }
@@ -134,22 +144,35 @@ async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) 
       createWriteStream(tmp),
     )
     if (part.file.truncated) fail('invalid', '单个文件不能超过 {mb} MB', { mb: MAX_FILE_MB })
-    await rename(tmp, join(downloads(), part.filename))
+    const url = `/downloads/${part.filename}`
+    const sha256 = hash.digest('hex')
+    const { release } = await updateRelease(ctx, async (current) => {
+      if (current && compareVersions(file.version, current.version) < 0)
+        return fail('invalid', '{file} 的版本低于当前发布的 {version}', {
+          file: part.filename,
+          version: current.version,
+        })
+      // Keep file replacement and deletion under the manifest lock; only multipart streaming stays parallel.
+      await rename(tmp, join(downloads(), part.filename))
+      if (current && current.version !== file.version)
+        await Promise.all(hostedUrls(current).map(removeHosted))
+      const base: DaemonRelease =
+        current?.version === file.version && current
+          ? current
+          : { version: file.version, builds: {}, cast: {} }
+      return { ...base, [file.kind]: { ...base[file.kind], [file.platform]: { url, sha256 } } }
+    })
+    await audit(ctx, {
+      category: 'admin',
+      actorUserId: actorId,
+      action: 'daemon.release.upload',
+      detail: file,
+    })
+    return release.releaseNotes ? release : { ...release, warning: '未提供版本说明，请补充 RELEASE_NOTES.md' }
   } catch (e) {
     await unlink(tmp).catch(() => {})
     throw e
   }
-  const same = current?.version === file.version
-  const base: DaemonRelease = same && current ? current : { version: file.version, builds: {}, cast: {} }
-  const url = `/downloads/${part.filename}`
-  const release = {
-    ...base,
-    [file.kind]: { ...base[file.kind], [file.platform]: { url, sha256: hash.digest('hex') } },
-  }
-  await saveRelease(ctx, release)
-  if (current && !same) await Promise.all(hostedUrls(current).map(removeHosted))
-  await audit(ctx, { category: 'admin', actorUserId: actorId, action: 'daemon.release.upload', detail: file })
-  return release.releaseNotes ? release : { ...release, warning: '未提供版本说明，请补充 RELEASE_NOTES.md' }
 }
 
 const hostedUrls = (r: DaemonRelease) =>
@@ -205,7 +228,7 @@ export function releaseRoutes(ctx: Ctx) {
     app.put('/api/admin/daemon-release', async (req) => {
       const actor = await requireSysadmin(ctx, req)
       const release = DaemonRelease.parse(req.body)
-      await saveRelease(ctx, release)
+      await updateRelease(ctx, () => release)
       await audit(ctx, {
         category: 'admin',
         actorUserId: actor.id,
@@ -224,15 +247,15 @@ export function releaseRoutes(ctx: Ctx) {
     app.put('/api/admin/daemon-release/notes', async (req) => {
       const actor = await requireSysadmin(ctx, req)
       const { releaseNotes } = ReleaseNotesReq.parse(req.body)
-      const current = await daemonRelease(ctx)
-      if (!current) return fail('not_found', '还没有已发布的版本')
-      const release = { ...current, releaseNotes }
-      await saveRelease(ctx, release)
+      const { release } = await updateRelease(ctx, (current) => {
+        if (!current) return fail('not_found', '还没有已发布的版本')
+        return { ...current, releaseNotes }
+      })
       await audit(ctx, {
         category: 'admin',
         actorUserId: actor.id,
         action: 'daemon.release.notes',
-        detail: { version: current.version, source: 'edit' },
+        detail: { version: release.version, source: 'edit' },
       })
       return release
     })
@@ -248,15 +271,15 @@ export function releaseRoutes(ctx: Ctx) {
     app.post<{ Params: { runId: string } }>('/api/daemon/runs/:runId/release-notes', async (req) => {
       const actorId = await releaseRunActor(ctx, req)
       const { version, releaseNotes } = DaemonReleaseNotesReq.parse(req.body)
-      const current = await daemonRelease(ctx)
-      if (!current) return fail('not_found', '还没有已发布的版本')
-      if (current.version !== version)
-        return fail('conflict', '当前发布版本是 {current}，不是 {version}', {
-          current: current.version,
-          version,
-        })
-      const release = { ...current, releaseNotes }
-      await saveRelease(ctx, release)
+      const { release } = await updateRelease(ctx, (current) => {
+        if (!current) return fail('not_found', '还没有已发布的版本')
+        if (current.version !== version)
+          return fail('conflict', '当前发布版本是 {current}，不是 {version}', {
+            current: current.version,
+            version,
+          })
+        return { ...current, releaseNotes }
+      })
       await audit(ctx, {
         category: 'admin',
         actorUserId: actorId,
@@ -273,18 +296,18 @@ export function releaseRoutes(ctx: Ctx) {
         const kind = ReleaseKind.safeParse(req.params.kind)
         if (!kind.success) return fail('invalid', '未知的产物类型')
         const { platform } = req.params
-        const current = await daemonRelease(ctx)
-        const build = current?.[kind.data]?.[platform]
-        if (!current || !build) return fail('not_found', '该平台没有已发布的文件')
-        const { [platform]: _, ...rest } = current[kind.data] ?? {}
-        const release = { ...current, [kind.data]: rest }
-        await saveRelease(ctx, release)
-        await removeHosted(build.url)
+        const { current, release } = await updateRelease(ctx, async (current) => {
+          const build = current?.[kind.data]?.[platform]
+          if (!current || !build) return fail('not_found', '该平台没有已发布的文件')
+          await removeHosted(build.url)
+          const { [platform]: _, ...rest } = current[kind.data] ?? {}
+          return { ...current, [kind.data]: rest }
+        })
         await audit(ctx, {
           category: 'admin',
           actorUserId: actor.id,
           action: 'daemon.release.remove',
-          detail: { kind: kind.data, version: current.version, platform },
+          detail: { kind: kind.data, version: current?.version, platform },
         })
         return release
       },

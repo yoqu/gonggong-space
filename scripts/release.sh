@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Release builds of the gonggong daemon (plan D16/D17).
-#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop] [--publish <server-url>]
+#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop | --daemon-only] [--publish <server-url>]
 #                      [--github [--notes <file>]] [--allow-dirty]
+# --daemon-only builds gg for all five platforms and reuses every cached gg-cast, with no desktop or GitHub work.
 # Builds come from the working tree, so it must be clean (git status --porcelain empty) unless --allow-dirty.
 # Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], gg-cast-<version>-<os>-<arch>[.exe] (the desktop
 # preview publisher, crates/gg-cast, downloaded by daemons on their first live preview), SHA256SUMS, manifest.json
@@ -24,10 +25,11 @@
 set -euo pipefail
 source "$(dirname "$0")/release/lib.sh"
 
-only="" publish="" github="" notes="" allow_dirty=""
+only="" publish="" github="" notes="" allow_dirty="" daemon_only=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --only) only="$2"; shift 2 ;;
+    --daemon-only) daemon_only=1; shift ;;
     --publish) publish="$2"; shift 2 ;;
     --github) github=1; shift ;;
     --allow-dirty) allow_dirty=1; shift ;;
@@ -41,6 +43,12 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+
+if [ -n "$daemon_only" ]; then
+  [ -z "$only" ] || { echo "error: --daemon-only cannot be combined with --only" >&2; exit 2; }
+  [ -z "$github" ] || { echo "error: --daemon-only cannot be combined with --github" >&2; exit 2; }
+  only="macos-aarch64,macos-x86_64,linux-x86_64,linux-aarch64,windows-x86_64"
+fi
 
 if [ -z "$allow_dirty" ] && [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   echo "error: the working tree has uncommitted changes (git status), commit or stash them, or pass --allow-dirty" >&2
@@ -85,6 +93,14 @@ cast_cache=""
 if [ "${GONGGONG_CAST_REBUILD:-}" != 1 ] && [ -z "$(git -C "$ROOT" status --porcelain -- "${cast_inputs[@]}")" ]; then
   cast_cache="${GONGGONG_CAST_CACHE:-$HOME/.cache/gonggong/gg-cast}/$(git -C "$ROOT" ls-tree -r HEAD -- "${cast_inputs[@]}" |
     git hash-object --stdin | cut -c1-16)"
+fi
+if [ -n "$daemon_only" ]; then
+  [ -n "$cast_cache" ] || { echo "error: gg-cast 有改动或缓存被禁用，请先完整发布" >&2; exit 1; }
+  for p in "${PLATFORMS[@]}"; do
+    key="${p%%:*}"
+    [ -f "$cast_cache/$key" ] || { echo "error: daemon 快速发布缺少 $key 的 gg-cast 缓存，请先完整发布" >&2; exit 1; }
+  done
+  echo "== gg-cast all platforms (cached $(basename "$cast_cache"))"
 fi
 # cast_cached <key>: copies a cached gg-cast of <key> into $out; fails when there is none.
 cast_cached() {

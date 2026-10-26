@@ -75,11 +75,14 @@ describe('gonggong tools', () => {
     expect(ClientReleaseNotesArgs.safeParse({ version: '0.3.5', releaseNotes: '  ' }).success).toBe(false)
   })
 
-  it('client releases publish one file or one directory', () => {
+  it('client releases publish one file or a daemon-only directory', () => {
     expect(
       ClientReleasePublishArgs.safeParse({ file: 'dist/0.3.7/gonggong-0.3.7-linux-x86_64' }).success,
     ).toBe(true)
     expect(ClientReleasePublishArgs.safeParse({ dir: 'dist/0.3.7' }).success).toBe(true)
+    expect(ClientReleasePublishArgs.safeParse({ dir: 'dist/0.3.7', kind: 'daemon' }).success).toBe(true)
+    expect(ClientReleasePublishArgs.safeParse({ dir: 'dist/0.3.7', kind: 'desktop' }).success).toBe(false)
+    expect(ClientReleasePublishArgs.safeParse({ file: 'dist/0.3.7/gg', kind: 'daemon' }).success).toBe(false)
     expect(ClientReleasePublishArgs.safeParse({}).success).toBe(false)
     expect(ClientReleasePublishArgs.safeParse({ file: 'a', dir: 'dist' }).success).toBe(false)
   })

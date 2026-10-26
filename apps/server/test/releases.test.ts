@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type DaemonRelease, PROTOCOL_VERSION } from '@gonggong/protocol'
@@ -201,6 +202,97 @@ describe('daemon release files (管理后台 · 客户端发布)', () => {
     expect(log?.detail).toMatchObject({ kind: 'builds', version: '0.2.0', platform: 'macos-aarch64' })
     const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
     expect(audit.json()[0].summary).toBe('上传 gg-cast 0.2.0（macos-aarch64）')
+  })
+
+  it('merges concurrent same-version uploads without losing platforms or notes', async () => {
+    const cookie = await admin()
+    await upload(cookie, 'Gonggong_0.2.0_aarch64.app.tar.gz', 'app')
+    await upload(cookie, 'RELEASE_NOTES.md', '## 0.2.0\n\n- 并发上传保留说明')
+    const artifacts: [string, string][] = [
+      ['macos-aarch64', 'mac'],
+      ['macos-x86_64', 'intel'],
+      ['linux-x86_64', 'linux64'],
+      ['linux-aarch64', 'linuxarm'],
+      ['windows-x86_64.exe', 'windows'],
+    ]
+    const done = await Promise.all(
+      artifacts.map(([platform, data]) => upload(cookie, `gonggong-0.2.0-${platform}`, data)),
+    )
+    expect(done.every((res) => res.status === 200)).toBe(true)
+
+    const got = await t.app.inject({ url: '/api/admin/daemon-release', headers: { cookie } })
+    expect(got.json().releaseNotes).toBe('## 0.2.0\n\n- 并发上传保留说明')
+    expect(got.json().update['macos-aarch64']).toEqual({
+      url: '/downloads/Gonggong_0.2.0_aarch64.app.tar.gz',
+      sha256: digest('app'),
+    })
+    expect(Object.keys(got.json().builds)).toHaveLength(5)
+    for (const [platform, data] of [
+      ['macos-aarch64', 'mac'],
+      ['macos-x86_64', 'intel'],
+      ['linux-x86_64', 'linux64'],
+      ['linux-aarch64', 'linuxarm'],
+      ['windows-x86_64', 'windows'],
+    ] as [string, string][]) {
+      expect(got.json().builds[platform]).toEqual({
+        url: `/downloads/gonggong-0.2.0-${platform}${platform.startsWith('windows') ? '.exe' : ''}`,
+        sha256: digest(data),
+      })
+    }
+  })
+
+  it('serializes edited notes with concurrent artifacts', async () => {
+    const cookie = await admin()
+    await upload(cookie, 'gonggong-0.2.0-macos-aarch64', 'daemon')
+    await upload(cookie, 'RELEASE_NOTES.md', '## 0.2.0\n\n- 首批上传')
+    await Promise.all([
+      upload(cookie, 'gonggong-0.2.0-linux-x86_64', 'linux'),
+      upload(cookie, 'RELEASE_NOTES.md', '## 0.2.0\n\n- 最后编辑'),
+    ])
+    const got = await t.app.inject({ url: '/api/admin/daemon-release', headers: { cookie } })
+    expect(got.json().releaseNotes).toBe('## 0.2.0\n\n- 最后编辑')
+    expect(Object.keys(got.json().builds).sort()).toEqual(['linux-x86_64', 'macos-aarch64'])
+  })
+
+  it('rejects an older upload that finishes after a newer version without leaving its file', async () => {
+    const cookie = await admin()
+    const boundary = 'gonggong-release-race'
+    const req = request(t.url('/api/admin/daemon-release/files'), {
+      method: 'POST',
+      headers: { cookie, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    })
+    const response = new Promise<{ status: number; body: DaemonRelease & { message?: string } }>(
+      (resolve, reject) => {
+        req.on('response', (res) => {
+          let body = ''
+          res.setEncoding('utf8')
+          res.on('data', (chunk) => (body += chunk))
+          res.on('end', () => resolve({ status: res.statusCode ?? 500, body: JSON.parse(body) }))
+        })
+        req.on('error', reject)
+      },
+    )
+    req.write(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="gonggong-0.2.0-macos-aarch64"\r\n` +
+        'Content-Type: application/octet-stream\r\n\r\nold',
+    )
+    try {
+      await expect
+        .poll(() => readdirSync(join(dir, 'downloads')).some((name) => name.startsWith('.upload-')))
+        .toBe(true)
+      expect((await upload(cookie, 'gonggong-0.3.0-linux-x86_64', 'new')).status).toBe(200)
+    } finally {
+      req.end(`\r\n--${boundary}--\r\n`)
+    }
+
+    const older = await response
+    expect(older.status).toBe(400)
+    expect(older.body.message).toContain('0.3.0')
+    const got = await t.app.inject({ url: '/api/admin/daemon-release', headers: { cookie } })
+    expect(got.json().version).toBe('0.3.0')
+    expect(got.json().builds['linux-x86_64'].sha256).toBe(digest('new'))
+    expect(readFileSync(downloaded('gonggong-0.3.0-linux-x86_64'), 'utf8')).toBe('new')
+    expect(existsSync(downloaded('gonggong-0.2.0-macos-aarch64'))).toBe(false)
   })
 
   it('replaces the whole release on a newer version and refuses older versions and unknown names', async () => {

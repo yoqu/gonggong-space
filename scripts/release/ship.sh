@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-command client release (docs/plan/发布与平台说明.md):
-#   scripts/release/ship.sh <version>                 bump, tag, push, build every artifact, publish the GitHub release
-#   scripts/release/ship.sh verify <version> <server> check that <server> serves <version> to daemons and desktop apps
+#   scripts/release/ship.sh <version> [--daemon-only] bump, tag, push and build; the fast path skips desktop and GitHub
+#   scripts/release/ship.sh verify <version> <server> [--daemon-only] check downloads and desktop updates when requested
 # Write docs/release-notes/v<version>.md and the CHANGELOG entry (`## v<version> — <date>`) first; they are committed
 # with the version bump. Then, without waiting on each other: GitHub Actions builds the Windows desktop installer from
 # the pushed tag while this machine runs scripts/release.sh (its Docker builds beside the macOS ones). The assets go to
@@ -20,8 +20,41 @@ step() { echo "== $(date +%H:%M:%S) $*"; }
 
 valid() { [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "error: not a version: $1" >&2; exit 2; }; }
 
+verify_daemon() {
+  local v="$1" server="${2%/}" sums="$ROOT/dist/$1/SHA256SUMS"
+  local ok=1 prefix platform suffix name label expected actual
+  [ -f "$sums" ] || { echo "FAIL daemon checksums: $sums not found"; return 1; }
+  for prefix in gonggong gg-cast; do
+    label=gg
+    [ "$prefix" = gonggong ] || label=gg-cast
+    for platform in macos-aarch64 macos-x86_64 linux-x86_64 linux-aarch64 windows-x86_64; do
+      suffix=""
+      [[ $platform == windows-* ]] && suffix=.exe
+      name="$prefix-$v-$platform$suffix"
+      expected="$(awk -v file="$name" '$2 == file { print $1 }' "$sums")"
+      if [ -z "$expected" ]; then
+        echo "FAIL $label $name: missing from SHA256SUMS"
+        ok=0
+        continue
+      fi
+      if ! actual="$(curl -sSfL --connect-timeout 10 --max-time 300 "$server/downloads/$name" |
+        shasum -a 256 | cut -d' ' -f1)"; then
+        echo "FAIL $label $name: download failed"
+        ok=0
+      elif [ "$actual" != "$expected" ]; then
+        echo "FAIL $label $name: SHA-256 mismatch"
+        ok=0
+      else
+        echo "ok   $label $platform"
+      fi
+    done
+  done
+  [ "$ok" = 1 ]
+}
+
 verify() {
   local v="$1" server="${2%/}" ok=1 platform body
+  verify_daemon "$v" "$server" || ok=0
   for platform in darwin/aarch64 windows/x86_64; do
     body="$(curl -sS "$server/api/desktop-update/$platform/0.0.0" || true)"
     if node -e 'const r = JSON.parse(process.argv[1]); process.exit(r.version === process.argv[2] && r.signature ? 0 : 1)' \
@@ -32,24 +65,20 @@ verify() {
       ok=0
     fi
   done
-  for platform in macos-aarch64 macos-x86_64 linux-x86_64 linux-aarch64 windows-x86_64.exe; do
-    if curl -sSfI -o /dev/null "$server/downloads/gonggong-$v-$platform"; then
-      echo "ok   gg $platform"
-    else
-      echo "FAIL gg $platform: not served"
-      ok=0
-    fi
-  done
   [ "$ok" = 1 ]
 }
 
 if [ "${1:-}" = verify ]; then
-  [ $# -eq 3 ] || { echo "usage: $0 verify <version> <server-url>" >&2; exit 2; }
+  { [ $# -eq 3 ] || { [ $# -eq 4 ] && [ "${4:-}" = --daemon-only ]; }; } ||
+    { echo "usage: $0 verify <version> <server-url> [--daemon-only]" >&2; exit 2; }
   valid "$2"
-  verify "$2" "$3"
+  if [ "${4:-}" = --daemon-only ]; then verify_daemon "$2" "$3"; else verify "$2" "$3"; fi
   exit
 fi
-[ $# -eq 1 ] || { echo "usage: $0 <version> | verify <version> <server-url>" >&2; exit 2; }
+daemon_only=""
+if [ $# -eq 2 ] && [ "$2" = --daemon-only ]; then daemon_only=1; fi
+[ $# -eq 1 ] || [ -n "$daemon_only" ] ||
+  { echo "usage: $0 <version> [--daemon-only] | verify <version> <server-url> [--daemon-only]" >&2; exit 2; }
 v="$1"
 valid "$v"
 tag="v$v"
@@ -81,6 +110,14 @@ git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag "$tag"
 step "push main and $tag"
 direct git push -q gitlab HEAD:main
 direct git push -q origin HEAD:main "$tag"
+
+if [ -n "$daemon_only" ]; then
+  step "build daemon fast channel (scripts/release.sh --daemon-only)"
+  bash scripts/release.sh --daemon-only --allow-dirty
+  echo "next: client_release_publish with dir=dist/$v, kind: \"daemon\""
+  echo "then: $0 verify $v <server-url> --daemon-only"
+  exit
+fi
 
 if ! direct gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   direct gh release create "$tag" --repo "$repo" --draft --verify-tag --title "共工空间 $tag" --notes-file "$notes"
