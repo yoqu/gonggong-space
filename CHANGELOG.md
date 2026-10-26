@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.2 — 2026-10-26
+
+- Codex 的「工作区写入」档改用 `workspace-write`，不再与「只读」档混用；升级 Codex ACP 适配器到 2.2.2，要求 Codex CLI ≥ 0.160.1 / Codex workspace mode now uses `workspace-write` instead of sharing the read-only mapping; Codex ACP is pinned to 2.2.2 and requires Codex CLI 0.160.1 or later
+- 扩充只读命令与工作区内读取/搜索工具的免审范围，同时保留写入、命令执行、网络、越界路径、高危命令和基准分支保护审批 / Expand automatic approval for read-only commands and in-workspace read/search tools while retaining approval for writes, command execution, network access, out-of-scope paths, dangerous commands and protected base branches
+- 审批卡展示具体原因；服务端迁移 `0081` 给 `approvals` 新增 `reason` 列，旧 daemon 与旧服务端缺少该字段时保持兼容 / Approval cards explain the request reason; server migration `0081` adds `approvals.reason`, with backward-compatible defaults for older daemons and servers
+
 ## v0.4.1 — 2026-10-26
 
 - macOS 新增「关闭窗口后隐藏程序坞图标」设置：开启后关闭窗口仅保留菜单栏图标，可从菜单栏重新打开；后台 daemon 继续运行，默认保持原行为 / macOS adds "Hide the Dock icon when the window closes": leave only the menu-bar icon after closing, reopen it from there, and keep the daemon running; the previous behavior remains the default
