@@ -3,6 +3,8 @@
 ## v0.4.1 — 2026-10-26
 
 - macOS 新增「关闭窗口后隐藏程序坞图标」设置：开启后关闭窗口仅保留菜单栏图标，可从菜单栏重新打开；后台 daemon 继续运行，默认保持原行为 / macOS adds "Hide the Dock icon when the window closes": leave only the menu-bar icon after closing, reopen it from there, and keep the daemon running; the previous behavior remains the default
+- 包含已在 main 的 Git 管理第二期 R1–R5：提交与差异查看、检出/拉取/推送、交互式变基、三栏冲突解决、文件注解与贮藏、受控 Git 操作控制台 / Includes the Git-management phase two R1–R5 work already on main: commit and diff views, checkout/pull/push, interactive rebase, three-way conflict resolution, file annotations and stashes, and a guarded Git command console
+- 服务端部署自动执行迁移 `0080`，给 `git_operations` 新增 `detail` 列；需要配套的 daemon 与桌面端才能使用新的 Git 协议能力 / Server deployment automatically runs migration `0080`, adding `git_operations.detail`; matching daemon and desktop clients are required for the new Git protocol capabilities
 
 ## v0.4.0 — 2026-10-23
 
