@@ -126,6 +126,30 @@ describe('@TA on a hover card', () => {
 describe('the composer takes the mention', () => {
   const box = () => screen.getByRole('combobox') as HTMLTextAreaElement
 
+  it('keeps the picked bot mention intact when completing /new', async () => {
+    const claude = { ...bot, name: '共字君' }
+    const codex = { ...bot, id: 'b2', name: '共字君Codex', agentKind: 'codex' } as const
+    const codexGroup = { ...group, botIds: [claude.id, codex.id] }
+    useWorkspace.setState({ bots: [claude, codex] })
+    mockApi({
+      'GET /groups/g1/candidates/commands?botId=b1,b2': {
+        system: [{ name: 'new', hint: '开新会话' }],
+        skill: [],
+        agent: [],
+      },
+    })
+    render(<MessageComposer group={codexGroup} onSent={() => {}} />)
+    fireEvent.change(box(), { target: { value: '@共', selectionStart: 2 } })
+    fireEvent.keyDown(box(), { key: 'ArrowDown' })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(box().value).toBe('@共字君Codex ')
+
+    fireEvent.change(box(), { target: { value: '@共字君Codex /new', selectionStart: 14 } })
+    await screen.findByRole('option', { name: /\/new/ })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(box().value).toBe('@共字君Codex /new ')
+  })
+
   it('inserts @name at the caret, focuses the input and never mentions twice', () => {
     render(<MessageComposer group={group} onSent={() => {}} />)
     fireEvent.change(box(), { target: { value: '请看下这个' } })

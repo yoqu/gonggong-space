@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { placeCommand, trigger } from '../src/features/chat/ComposerCandidates'
 
-const names = ['小王的 Claude', '李建国']
+const names = ['小王的 Claude', '李建国', '共字君', '共字君Codex']
 
 describe('/ in the composer', () => {
   it('completes a command at the start, after leading mentions, or after a space mid-sentence', () => {
@@ -13,6 +13,14 @@ describe('/ in the composer', () => {
   it('stays quiet inside paths, URLs and fractions, and once the message starts with a command', () => {
     for (const s of ['改 src/a', '打开 https://x', '占 1/2', '看 /usr/', '/review 然后 /dep'])
       expect(trigger(s, names)).toBeNull()
+  })
+
+  it('does not split a bot mention when another bot name is its prefix', () => {
+    expect(trigger('@共字君Codex /new', names)).toEqual({ char: '/', query: 'new', mid: false })
+    expect(placeCommand('@共字君Codex 请 /new', 16, '/new', names)).toEqual({
+      next: '@共字君Codex /new 请 ',
+      pos: '@共字君Codex /new 请 '.length,
+    })
   })
 
   it('moves a picked mid-sentence command to the start, after leading mentions', () => {

@@ -37,10 +37,11 @@ const DEBOUNCE_MS = 150
 /** Where a command goes: after leading whitespace and mentions (`@bot /…`). */
 function headOf(text: string, names: string[]) {
   let i = text.length - text.trimStart().length
+  const ordered = [...names].sort((a, b) => b.length - a.length)
   for (
-    let n = names.find((x) => text.startsWith(`@${x}`, i));
+    let n = ordered.find((x) => text.startsWith(`@${x}`, i));
     n;
-    n = names.find((x) => text.startsWith(`@${x}`, i))
+    n = ordered.find((x) => text.startsWith(`@${x}`, i))
   )
     i +=
       n.length + 1 + (text.slice(i + n.length + 1).length - text.slice(i + n.length + 1).trimStart().length)
