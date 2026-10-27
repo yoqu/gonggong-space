@@ -125,12 +125,39 @@ const pick = (name: string) => fireEvent.click(screen.getByRole('menuitemcheckbo
 const type = (value: string) => fireEvent.change(screen.getByRole('combobox'), { target: { value } })
 
 beforeEach(() => {
+  sessionStorage.clear()
   useWorkspace.setState({ bots: [bot], botStates: { g1: { b1: state() } } })
   useSession.setState({ user: wang, status: 'ready' })
 })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('run config chips', () => {
+  it('refreshes the model catalog from the conversation picker', async () => {
+    const updated = { ...CATALOG, models: [...CATALOG.models, { value: 'new', name: 'New model' }] }
+    const calls = mockApi({ ...LIVE, 'POST /bots/b1/catalog/refresh': { catalog: updated } })
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('@cc 构建')
+    await ready()
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitem', { name: '刷新模型' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/bots/b1/catalog/refresh')).toBe(true))
+    fireEvent.click(chip())
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'New model' })).toBeTruthy()
+  })
+
+  it('allows refreshing when no catalog was reported', async () => {
+    mockApi({
+      'GET /bots/b1/catalog': { catalog: null },
+      'POST /bots/b1/catalog/refresh': { catalog: CATALOG },
+    })
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    type('@cc 构建')
+    await ready()
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitem', { name: '刷新模型' }))
+    await waitFor(() => expect(chip().textContent).toContain('Sonnet'))
+  })
+
   it('show the defaults of each mentioned bot and send a one-shot pick', async () => {
     const calls = mockApi({ ...LIVE, 'POST /groups/g1/messages': { id: 'm1' } as MessageDto })
     render(<MessageComposer group={group} onSent={() => {}} />)
@@ -258,12 +285,16 @@ describe('run config chips', () => {
     expect(calls.map((c) => c.path)).toEqual(['/bots/b1/catalog'])
   })
 
-  it('are disabled with the reason when the catalog cannot be read', async () => {
+  it('shows the reason and allows retry when the catalog cannot be read', async () => {
     mockApi({ 'GET /bots/b1/catalog': apiError(409, 'conflict', '机器未响应，请稍后重试') })
     render(<MessageComposer group={group} onSent={() => {}} />)
     type('@cc 构建')
-    await waitFor(() => expect(chip().getAttribute('title')).toBe('机器未响应，请稍后重试'))
-    expect(chip().hasAttribute('disabled')).toBe(true)
+    await ready()
+    fireEvent.click(chip())
+    expect(screen.getByRole('menuitem', { name: '机器未响应，请稍后重试' }).hasAttribute('disabled')).toBe(
+      true,
+    )
+    expect(screen.getByRole('menuitem', { name: '刷新模型' })).toBeTruthy()
   })
 
   it('are read-only for members who are neither the bot owner nor a group admin', () => {

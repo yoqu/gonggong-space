@@ -101,7 +101,7 @@ export function RunConfigChip({
   const label = agentConfigLabel(catalog, model ?? catalog?.current ?? null, effort)
   const text = message ? `${bot.name} · ${label}` : label
   const name = t('{name} 的模型与推理强度', { name: bot.name })
-  if (!editable || !live?.catalog)
+  if (!editable || !live)
     return (
       <MenuButton
         className="run-config__chip"
@@ -131,11 +131,15 @@ export function RunConfigChip({
   const efforts = effortOptions(available, model)
   const items: MenuItem[] = [
     { header: t('模型') },
-    ...modelOptions(available, model).map((o) => ({
+    ...(available ? modelOptions(available, model) : []).map((o) => ({
       label: o.label,
       value: `m:${o.value}`,
       checked: (model ?? '') === o.value,
     })),
+    ...(!available
+      ? [{ label: live.error ?? t('机器尚未上报可选模型'), value: 'unavailable', disabled: true }]
+      : []),
+    { label: t('刷新模型'), value: 'refresh', disabled: live.refresh.busy },
     ...(efforts.length
       ? [
           { separator: true as const },
@@ -157,6 +161,7 @@ export function RunConfigChip({
       title={text}
       items={items}
       onSelect={(v) => {
+        if (v === 'refresh') return void live.refresh.run()
         if (v === 'save') return void save()
         if (v === 'reset') return onPick(null)
         if (v.startsWith('m:')) {
