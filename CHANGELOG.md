@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.4 — 2026-10-28
+
+- 工作台新增「终端」标签：机器主人可在 Bot 工作区打开交互式 Shell（macOS/Linux），空闲会话自动回收；输出中的网址与工作区路径可点击 / The workbench adds a Terminal tab: machine owners open an interactive shell in the Bot's workspace (macOS/Linux), idle sessions are reaped, and URLs and workspace paths in the output are clickable
+- daemon 校验服务器 HTTPS 证书；旧配置默认按系统 CA 校验，自签服务器需 `gg login --fingerprint` 或 `--ca-file` 重新绑定；非本机服务器必须用 `https://` / The daemon verifies the server's HTTPS certificate; older configs use the system CAs, self-signed servers need `gg login --fingerprint` or `--ca-file`, and non-local servers must use `https://`
+- 修复终端 PTY 描述符被其他子进程继承、大量输出时输入与结束卡死、粘贴两次的问题，修复 Windows daemon 编译 / Fix PTY descriptors leaking into other child processes, input and terminate hanging under heavy output, and double paste; fix the Windows daemon build
+- 对话中可直接刷新模型列表；修复 `@Bot /new` 被改写；群聊顶部显示未提交改动的增删行数；切换会话保持列表滚动位置 / Refresh models from chat; fix `@Bot /new` being rewritten; show added/removed lines of uncommitted changes in the chat header; keep the conversation list's scroll position
+
 ## v0.4.3 — 2026-10-27
 
 - 切换工作目录立即取消同一 Bot 的旧 clone，不再等待卡住的 Git；旧请求的迟到回包不会覆盖新目录 / Switching a workspace cancels its Bot's previous clone immediately instead of waiting behind a stuck Git command; late replies cannot overwrite the new directory
