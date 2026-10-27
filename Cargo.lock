@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "gonggong"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
@@ -1987,7 +1987,7 @@ dependencies = [
 
 [[package]]
 name = "gonggong-desktop"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "gonggong",
