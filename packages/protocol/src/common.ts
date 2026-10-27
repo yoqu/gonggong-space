@@ -95,6 +95,9 @@ export const GitStatus = z.object({
   dirty: z.boolean(),
   /** Uncommitted files of the root work tree; absent from older daemons. */
   dirtyCount: z.number().int().optional(),
+  /** Uncommitted added/deleted lines, including untracked files; absent from older daemons. */
+  additions: z.number().int().optional(),
+  deletions: z.number().int().optional(),
   /** When the daemon took the status; absent from older daemons. */
   checkedAt: z.string().optional(),
   workspace: z.enum(['managed', 'cd']),

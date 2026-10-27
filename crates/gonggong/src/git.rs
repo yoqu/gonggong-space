@@ -299,6 +299,8 @@ async fn status_in(
             behind: None,
             dirty,
             dirty_count,
+            additions: None,
+            deletions: None,
             checked_at,
             workspace,
             repos,
@@ -311,6 +313,7 @@ async fn status_in(
     let (p, (head, ongoing, conflicts, stashes)) = tokio::join!(probe(dir, scans), root_state(dir, scans));
     let (p, ongoing) = (p?, ongoing?.map(|o| o.kind));
     let (branch, ahead, behind, dirty_count) = (p.branch, p.ahead, p.behind, Some(p.dirty));
+    let (additions, deletions) = line_counts(dir, p.dirty > 0, head.as_deref(), scans).await?;
     let (dirty, conflicts, stashes) = (p.dirty > 0, Some(conflicts?), Some(stashes?));
     Ok(GitStatus {
         branch,
@@ -318,6 +321,8 @@ async fn status_in(
         behind,
         dirty,
         dirty_count,
+        additions: Some(additions),
+        deletions: Some(deletions),
         checked_at,
         workspace,
         repos,
@@ -326,6 +331,21 @@ async fn status_in(
         conflicts,
         stashes,
     })
+}
+
+/// Lines changed from HEAD in the root work tree; the scratch index includes untracked, non-ignored files.
+async fn line_counts(dir: &Path, dirty: bool, head: Option<&str>, scans: &Scans) -> Result<(u32, u32), String> {
+    if !dirty {
+        return Ok((0, 0));
+    }
+    let tree = scans.tree(dir).await?;
+    let base = head.unwrap_or(EMPTY_TREE);
+    let raw = git(dir, &["diff", "--numstat", &base, &tree, "--"]).await?;
+    let counts = raw.lines().filter_map(|line| {
+        let mut fields = line.splitn(3, '\t');
+        Some((fields.next()?.parse::<u32>().ok()?, fields.next()?.parse::<u32>().ok()?))
+    });
+    Ok(counts.fold((0, 0), |(add, del), (a, d)| (add.saturating_add(a), del.saturating_add(d))))
 }
 
 type RootState = (Option<String>, Result<Option<GitOngoing>, String>, Result<u32, String>, Result<u32, String>);
@@ -1078,6 +1098,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn status_counts_uncommitted_lines_without_ignored_or_private_files() {
+        let r = Remote::new();
+        let w = r.clone_to("w");
+        fs::write(w.join(".gitignore"), "ignored.txt\n").unwrap();
+        run(&w, &["add", ".gitignore"]);
+        run(&w, &["commit", "-q", "-m", "ignore"]);
+        fs::write(w.join("ignored.txt"), "not counted\n").unwrap();
+        fs::create_dir_all(w.join(".gonggong")).unwrap();
+        fs::write(w.join(".gonggong/state"), "not counted\n").unwrap();
+        fs::write(w.join("README.md"), "changed\n").unwrap();
+        fs::write(w.join("new.txt"), "one\ntwo\n").unwrap();
+        run(&w, &["add", "new.txt"]);
+        let s = status(&w, &[], WorkspaceKind::Managed).await.unwrap();
+        assert_eq!((s.additions, s.deletions), (Some(3), Some(1)));
+    }
+
+    #[tokio::test]
     async fn counts_paths_changed_during_the_turn() {
         let r = Remote::new();
         let w = r.clone_to("w");
@@ -1453,6 +1490,8 @@ mod tests {
             behind: None,
             dirty: false,
             dirty_count: None,
+            additions: None,
+            deletions: None,
             checked_at: None,
             workspace: WorkspaceKind::Cd,
             repos: vec![st("a", "main", true), st("b", "feat/x", false)],

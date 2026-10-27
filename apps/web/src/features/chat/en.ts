@@ -216,4 +216,6 @@ export default {
   分支到新聊天: 'Branch to new chat',
   '还剩 {n} 自动压缩': 'Auto-compacts in {n}',
   '还剩 {n} 自动压缩。': 'Auto-compacts in {n}. ',
+  '新增 {n} 行': '{n} added lines',
+  '删除 {n} 行': '{n} deleted lines',
 } satisfies Record<string, string>

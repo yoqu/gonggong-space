@@ -11,6 +11,8 @@
     "behind": null,
     "dirty": true,
     "dirtyCount": 3,
+    "additions": 120,
+    "deletions": 8,
     "checkedAt": "2026-10-22T02:00:00.000Z",
     "workspace": "managed",
     "head": "a1b2c3d",

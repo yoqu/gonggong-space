@@ -16,6 +16,7 @@ import { contextGauge } from './ContextRing'
 
 const WORKSPACE_LABEL = { managed: t('托管目录'), cd: t('本机目录') }
 const FOCUS_REFRESH_MS = 30_000
+const POLL_REFRESH_MS = 30_000
 const NO_STATES: Record<string, GroupBotStateDto> = {}
 
 function Commits({ icon, name, n }: { icon: IconName; name: string; n: number }) {
@@ -155,6 +156,18 @@ function Item({
                 <Commits icon="arrow-up" name={t('领先 {n} 个提交', { n: git.ahead })} n={git.ahead} />
               ) : null}
               {git?.dirty ? <span className="git-bar__dirty">{t('未提交')}</span> : null}
+              {git?.additions ? (
+                <span className="git-bar__add" title={t('新增 {n} 行', { n: git.additions })}>
+                  +{Math.min(git.additions, 99)}
+                  {git.additions > 99 ? '+' : ''}
+                </span>
+              ) : null}
+              {git?.deletions ? (
+                <span className="git-bar__del" title={t('删除 {n} 行', { n: git.deletions })}>
+                  -{Math.min(git.deletions, 99)}
+                  {git.deletions > 99 ? '+' : ''}
+                </span>
+              ) : null}
               {git?.ongoing || git?.conflicts ? (
                 <button
                   type="button"
@@ -251,7 +264,11 @@ export function GitBar({ group }: { group: GroupDto }) {
       for (const id of group.botIds) if (shown[id]?.git) refreshGitQuietly(group.id, id)
     }
     window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
+    const timer = window.setInterval(onFocus, POLL_REFRESH_MS)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(timer)
+    }
   }, [group.id, botKey, showGit])
 
   if (!group.botIds.length) return null

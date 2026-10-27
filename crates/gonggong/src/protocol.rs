@@ -112,6 +112,11 @@ pub struct GitStatus {
     /// Uncommitted files of the root work tree; absent from older daemons.
     #[serde(default, rename = "dirtyCount", skip_serializing_if = "Option::is_none")]
     pub dirty_count: Option<u32>,
+    /// Uncommitted added/deleted lines, including untracked files; absent from older daemons.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additions: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deletions: Option<u32>,
     /// When the status was taken (RFC 3339); absent from older daemons.
     #[serde(default, rename = "checkedAt", skip_serializing_if = "Option::is_none")]
     pub checked_at: Option<String>,

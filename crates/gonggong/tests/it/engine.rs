@@ -509,6 +509,8 @@ async fn repo_workspace_is_left_alone_before_the_turn_and_reports_git_changes() 
         behind: Some(0),
         dirty: false,
         dirty_count: Some(0),
+        additions: Some(0),
+        deletions: Some(0),
         checked_at: None,
         workspace: WorkspaceKind::Managed,
         repos: vec![],
@@ -527,7 +529,10 @@ async fn repo_workspace_is_left_alone_before_the_turn_and_reports_git_changes() 
     let (_, done) = r.finish("r2").await;
     assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
     assert_eq!(done.files_changed, 3);
-    assert_eq!(unstamped(done.git), Some(GitStatus { ahead: Some(1), dirty: true, dirty_count: Some(2), ..clean }));
+    assert_eq!(
+        unstamped(done.git),
+        Some(GitStatus { ahead: Some(1), dirty: true, dirty_count: Some(2), additions: Some(2), ..clean })
+    );
     let repos: Vec<_> = done.repos.iter().map(|r| (r.path.as_str(), r.branch.as_deref())).collect();
     assert_eq!(repos, [("", Some("main"))]);
 }

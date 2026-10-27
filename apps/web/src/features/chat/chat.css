@@ -334,6 +334,12 @@
 .git-bar__dirty {
   color: var(--tint-orange-text);
 }
+.git-bar__add {
+  color: var(--tint-green-text);
+}
+.git-bar__del {
+  color: var(--tint-red-text);
+}
 .git-bar__hint {
   color: var(--label-secondary);
 }

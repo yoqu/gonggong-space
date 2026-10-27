@@ -82,6 +82,23 @@ async function menu(name: string) {
 }
 
 describe('git status bar', () => {
+  it('shows added and deleted lines with capped badges and exact totals on hover', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1', { git: git({ dirty: true, additions: 12, deletions: 3 }) }),
+        state('b2', { git: git({ dirty: true, additions: 150, deletions: 100 }) }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+    })
+    render(<GitBar group={group({ botIds: ['b1', 'b2'] })} />)
+    expect((await screen.findByTestId('git-b1')).textContent).toContain('未提交+12-3')
+    expect(screen.getByTitle('新增 12 行')).toBeTruthy()
+    expect(screen.getByTitle('删除 3 行')).toBeTruthy()
+    expect(screen.getByTestId('git-b2').textContent).toContain('未提交+99+-99+')
+    expect(screen.getByTitle('新增 150 行')).toBeTruthy()
+    expect(screen.getByTitle('删除 100 行')).toBeTruthy()
+  })
+
   it('keeps my bots and issues visible while other healthy bots stay in 更多工作区', async () => {
     mockApi({
       'GET /groups/g1/bot-states': [
@@ -468,7 +485,7 @@ describe('git status bar', () => {
   })
 
   it('re-reads the git status of the bots showing it when the window regains focus, at most every 30s', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
     vi.setSystemTime(new Date('2026-10-15T02:00:00.000Z'))
     const calls = mockApi({
       'GET /groups/g1/bot-states': [state('b1', { git: git() }), state('b2', { state: 'cloning' })],
@@ -489,6 +506,8 @@ describe('git status bar', () => {
     vi.setSystemTime(new Date('2026-10-15T02:00:31.000Z'))
     fireEvent.focus(window)
     expect(refreshes()).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(refreshes()).toHaveLength(3)
     vi.useRealTimers()
   })
 

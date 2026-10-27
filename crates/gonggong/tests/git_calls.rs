@@ -76,5 +76,6 @@ async fn a_turn_scans_and_stages_the_work_tree_once_after_it_ends() {
     let post = calls(&log);
     eprintln!("git processes after a turn without changes: {}", post.len());
     assert_eq!((changed.unwrap(), patch.unwrap().patch), (0, None));
-    assert_eq!(count(&post, " diff "), 0, "{post:#?}");
+    assert_eq!(count(&post, " diff --no-color"), 0, "{post:#?}");
+    assert_eq!(count(&post, " status --porcelain"), 1, "{post:#?}");
 }
