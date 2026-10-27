@@ -1,6 +1,7 @@
 use crate::protocol::{
-    TERMINAL_MAX_BUFFERED_BYTES, TERMINAL_MAX_PER_MACHINE, TERMINAL_REPLAY_BYTES, TERMINAL_REPLAY_CHUNKS,
-    TerminalClientControl, TerminalEndReason, TerminalHead, TerminalOpen, TerminalOpenAction, TerminalStatus,
+    TERMINAL_IDLE_MS, TERMINAL_MAX_BUFFERED_BYTES, TERMINAL_MAX_PER_MACHINE, TERMINAL_REPLAY_BYTES,
+    TERMINAL_REPLAY_CHUNKS, TerminalClientControl, TerminalEndReason, TerminalHead, TerminalOpen, TerminalOpenAction,
+    TerminalStatus,
 };
 use crate::workspace;
 use hyper::body::Bytes;
@@ -11,7 +12,7 @@ use std::io::{Read, Write};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::{Mutex as AsyncMutex, mpsc, oneshot};
@@ -81,11 +82,24 @@ pub struct TerminalManager {
     home: PathBuf,
     sessions: Arc<Mutex<HashMap<String, Arc<Session>>>>,
     open_lock: Arc<AsyncMutex<()>>,
+    reaper: Arc<Reaper>,
 }
 
 impl TerminalManager {
     pub fn new(home: PathBuf) -> Self {
-        Self { home, sessions: Arc::default(), open_lock: Arc::default() }
+        Self::with_idle_timeout(home, Duration::from_millis(TERMINAL_IDLE_MS))
+    }
+
+    pub fn with_idle_timeout(home: PathBuf, idle: Duration) -> Self {
+        let sessions = Arc::new(Mutex::new(HashMap::new()));
+        let manager = Self {
+            home,
+            sessions: sessions.clone(),
+            open_lock: Arc::default(),
+            reaper: Arc::new(Reaper { task: Mutex::new(None) }),
+        };
+        *manager.reaper.task.lock().unwrap() = Some(tokio::spawn(reap_idle(Arc::downgrade(&sessions), idle)));
+        manager
     }
 
     /// Dropping the returned attachment only disconnects its web stream.
@@ -157,12 +171,16 @@ impl TerminalManager {
     }
 
     pub async fn terminate(&self, session_id: &str) -> Result<TerminalHead, TerminalError> {
+        self.end(session_id, TerminalEndReason::User).await
+    }
+
+    async fn end(&self, session_id: &str, reason: TerminalEndReason) -> Result<TerminalHead, TerminalError> {
         let session = self.session(session_id)?;
         if session.state.lock().unwrap().head.status != TerminalStatus::Running {
             return Ok(session.state.lock().unwrap().head.clone());
         }
         let (reply, result) = oneshot::channel();
-        session.command(Command::Terminate { reply }).await?;
+        session.command(Command::Terminate { reason, reply }).await?;
         result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)?;
         Ok(session.state.lock().unwrap().head.clone())
     }
@@ -191,6 +209,44 @@ struct Session {
     commands: mpsc::Sender<Command>,
 }
 
+struct Reaper {
+    task: Mutex<Option<tokio::task::JoinHandle<()>>>,
+}
+
+impl Drop for Reaper {
+    fn drop(&mut self) {
+        if let Some(task) = self.task.get_mut().unwrap().take() {
+            task.abort();
+        }
+    }
+}
+
+async fn reap_idle(sessions: Weak<Mutex<HashMap<String, Arc<Session>>>>, idle: Duration) {
+    let interval = (idle / 4).clamp(Duration::from_millis(25), Duration::from_secs(60));
+    loop {
+        tokio::time::sleep(interval).await;
+        let now = tokio::time::Instant::now();
+        let expired = {
+            let Some(sessions) = sessions.upgrade() else { return };
+            let sessions = sessions.lock().unwrap();
+            sessions
+                .iter()
+                .filter_map(|(_, session)| {
+                    let mut state = session.state.lock().unwrap();
+                    (state.head.status == TerminalStatus::Running && now.duration_since(state.last_active) >= idle)
+                        .then(|| {
+                            state.head.status = TerminalStatus::Closed;
+                            session.clone()
+                        })
+                })
+                .collect::<Vec<_>>()
+        };
+        for session in expired {
+            let _ = session.terminate_claimed(TerminalEndReason::IdleTimeout).await;
+        }
+    }
+}
+
 impl Session {
     async fn spawn(open: TerminalOpen, cwd: PathBuf) -> Result<Arc<Self>, TerminalError> {
         let session_id = open.session_id.clone();
@@ -210,6 +266,7 @@ impl Session {
         };
         let state = Arc::new(Mutex::new(State {
             head,
+            last_active: tokio::time::Instant::now(),
             replay: VecDeque::new(),
             replay_bytes: 0,
             subscribers: HashMap::new(),
@@ -250,10 +307,17 @@ impl Session {
         }
         self.commands.send(command).await.map_err(|_| TerminalError::NotRunning)
     }
+
+    async fn terminate_claimed(&self, reason: TerminalEndReason) -> Result<(), TerminalError> {
+        let (reply, result) = oneshot::channel();
+        self.commands.send(Command::Terminate { reason, reply }).await.map_err(|_| TerminalError::NotRunning)?;
+        result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)
+    }
 }
 
 struct State {
     head: TerminalHead,
+    last_active: tokio::time::Instant,
     replay: VecDeque<TerminalOutput>,
     replay_bytes: usize,
     subscribers: HashMap<u64, mpsc::Sender<TerminalEvent>>,
@@ -263,7 +327,7 @@ struct State {
 enum Command {
     Input { data: Bytes, reply: oneshot::Sender<Result<(), String>> },
     Resize { cols: u16, rows: u16, reply: oneshot::Sender<Result<(), String>> },
-    Terminate { reply: oneshot::Sender<Result<(), String>> },
+    Terminate { reason: TerminalEndReason, reply: oneshot::Sender<Result<(), String>> },
 }
 
 struct Spawned {
@@ -331,6 +395,7 @@ async fn run_session(mut spawned: Spawned, state: Arc<Mutex<State>>, mut command
                         state.head.cols = cols;
                         state.head.rows = rows;
                         state.head.last_active_at = now();
+                        state.last_active = tokio::time::Instant::now();
                     }
                     let failed = result.is_err();
                     let _ = reply.send(result);
@@ -339,14 +404,14 @@ async fn run_session(mut spawned: Spawned, state: Arc<Mutex<State>>, mut command
                         return;
                     }
                 }
-                Some(Command::Terminate { reply }) => {
+                Some(Command::Terminate { reason, reply }) => {
                     let root_pid = spawned.root_pid;
                     let result = tokio::task::spawn_blocking(move || kill_session(root_pid))
                         .await
                         .map_err(|error| error.to_string())
                         .and_then(|result| result);
                     if result.is_ok() {
-                        finish(&state, TerminalStatus::Closed, None, TerminalEndReason::User).await;
+                        finish(&state, TerminalStatus::Closed, None, reason).await;
                     }
                     let failed = result.is_err();
                     let _ = reply.send(result);
@@ -467,6 +532,7 @@ async fn publish(state: &Arc<Mutex<State>>, data: Vec<u8>) {
         let mut state = state.lock().unwrap();
         state.head.next += 1;
         state.head.last_active_at = now();
+        state.last_active = tokio::time::Instant::now();
         let output = TerminalOutput { seq: state.head.next, data: Bytes::from(data) };
         state.replay_bytes += output.data.len();
         state.replay.push_back(output.clone());
@@ -490,7 +556,6 @@ async fn finish(state: &Arc<Mutex<State>>, status: TerminalStatus, exit_code: Op
         state.head.status = status;
         state.head.exit_code = exit_code;
         state.head.reason = Some(reason);
-        state.head.last_active_at = now();
         (state.head.next, std::mem::take(&mut state.subscribers))
     };
     for subscriber in subscribers.into_values() {
@@ -510,7 +575,9 @@ async fn emit(state: &Arc<Mutex<State>>, event: TerminalEvent) {
 }
 
 fn touch(state: &Mutex<State>) {
-    state.lock().unwrap().head.last_active_at = now();
+    let mut state = state.lock().unwrap();
+    state.head.last_active_at = now();
+    state.last_active = tokio::time::Instant::now();
 }
 
 fn now() -> String {

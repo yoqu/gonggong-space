@@ -21,9 +21,13 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_idle_timeout(Duration::from_millis(60_000))
+    }
+
+    fn with_idle_timeout(idle: Duration) -> Self {
         let home = tempfile::tempdir().unwrap();
         let work = tempfile::tempdir().unwrap();
-        let manager = TerminalManager::new(home.path().to_path_buf());
+        let manager = TerminalManager::with_idle_timeout(home.path().to_path_buf(), idle);
         Self { _home: home, work, manager }
     }
 
@@ -100,6 +104,7 @@ async fn command(
 
 async fn bash(manager: &TerminalManager, id: &str, attachment: &mut gonggong::terminal::TerminalAttachment) {
     input(manager, id, "exec /bin/bash --noprofile --norc -i\r").await;
+    tokio::task::yield_now().await;
     command(manager, id, attachment, ":").await;
 }
 
@@ -323,4 +328,24 @@ async fn attach_cannot_cross_group_or_bot_boundaries() {
     other.bot_id = uuid::Uuid::new_v4().to_string();
     assert!(matches!(fixture.manager.open(other).await, Err(TerminalError::NotFound)));
     fixture.manager.terminate(&open.session_id).await.unwrap();
+}
+
+#[tokio::test]
+async fn idle_shells_and_their_process_trees_are_reaped() {
+    let fixture = Fixture::with_idle_timeout(Duration::from_secs(2));
+    let (open, mut attachment) = fixture.create().await;
+    bash(&fixture.manager, &open.session_id, &mut attachment).await;
+    command(&fixture.manager, &open.session_id, &mut attachment, "sleep 30 & printf '%s' $! > idle.pid").await;
+    let pid_path = fixture.work.path().join("idle.pid");
+    wait_for_file(&pid_path).await;
+    let pid: i32 = std::fs::read_to_string(pid_path).unwrap().parse().unwrap();
+
+    command(&fixture.manager, &open.session_id, &mut attachment, ":").await;
+    let (exit_code, reason) = wait_for_exit(&mut attachment).await;
+    assert_eq!(exit_code, None);
+    assert_eq!(reason, TerminalEndReason::IdleTimeout);
+    let head = head(&fixture.manager, &open.session_id).await;
+    assert_eq!(head.status, TerminalStatus::Closed);
+    assert_eq!(head.reason, Some(TerminalEndReason::IdleTimeout));
+    assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
 }
