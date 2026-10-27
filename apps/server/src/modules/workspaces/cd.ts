@@ -1,37 +1,10 @@
-import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { postEvent } from '../messages/service.js'
-import { currentRepo, forget, onlineMachine, track } from './provision.js'
 
 export const ABSOLUTE = /^(\/|[A-Za-z]:[\\/])/
 
-/**
- * Asks the bot's machine to bind the (group, bot) workspace to `path` (null = managed). The daemon validates the
- * directory (against the group repo, if any) and answers with workspace.state, which the workspace engine applies
- * and hands to `onCdResult`. Returns false when the machine is offline.
- */
-export async function requestCd(
-  ctx: Ctx,
-  o: { groupId: string; botId: string; path: string | null; force?: boolean },
-) {
-  const [bot] = await ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, o.botId))
-  const repo = await currentRepo(ctx, o.groupId, o.botId)
-  const machineId = onlineMachine(ctx, bot?.machineId ?? null)
-  if (!machineId) return false
-  const requestId = track({
-    kind: 'cd',
-    machineId,
-    ...o,
-    repoId: repo?.id ?? null,
-    cdPath: o.path,
-    joined: false,
-  })
-  const sent = ctx.hub.send(machineId, { t: 'workspace.cd', requestId, ...o, force: !!o.force, repo })
-  if (!sent) forget(requestId)
-  return sent
-}
+export { requestCd } from './provision.js'
 
 /** Audit + timeline note once an owner's binding request (/cd or the chat banner) was sent. */
 export async function announceCd(

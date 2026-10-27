@@ -7,9 +7,9 @@ import {
   type RepoAccessReason,
   type WorkspaceState,
 } from '@gonggong/protocol'
-import { and, asc, eq, isNull, notInArray } from 'drizzle-orm'
+import { and, asc, eq, isNull, lt, notInArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, groupRepos, groups, users } from '../../db/schema.js'
+import { bots, groupBots, groupRepos, groups, machines, users } from '../../db/schema.js'
 import { inSharedDm } from '../bots/shares.js'
 import { onCdResult } from '../commands/cd.js'
 import { postEvent } from '../messages/service.js'
@@ -22,7 +22,7 @@ import { updateBotState } from './state.js'
 type BotRef = { id: string; name: string; machineId: string | null }
 
 /**
- * An ensure / cd request awaiting its daemon's answer. Only the latest ensure per (group, bot) is kept.
+ * An ensure / cd request awaiting its daemon's answer. Only the latest request per (group, bot) is kept.
  * 'default' = a cd to the bot's default workspace made on join (plan W2–W4).
  */
 export interface Pending {
@@ -42,6 +42,8 @@ const pending = new Map<string, Pending>()
 /** Registers a request about to be sent; returns its requestId. */
 export function track(p: Pending) {
   const requestId = randomUUID()
+  for (const [id, active] of pending)
+    if (active.groupId === p.groupId && active.botId === p.botId) pending.delete(id)
   pending.set(requestId, p)
   return requestId
 }
@@ -102,13 +104,21 @@ async function ownerName(ctx: Ctx, botId: string) {
   return row?.name ?? ''
 }
 
-/** Asks the owner's daemon to validate and bind the default directory; false when the machine is offline. */
-async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string, joined: boolean) {
+/** Asks the owner's daemon to validate a directory; false when the machine is offline. */
+async function sendCd(
+  ctx: Ctx,
+  groupId: string,
+  bot: { id: string; machineId: string | null },
+  path: string | null,
+  kind: 'cd' | 'default',
+  joined = false,
+  force = false,
+) {
   const machineId = onlineMachine(ctx, bot.machineId)
   if (!machineId) return false
   const repo = await currentRepo(ctx, groupId, bot.id)
   const requestId = track({
-    kind: 'default',
+    kind,
     machineId,
     groupId,
     botId: bot.id,
@@ -123,10 +133,27 @@ async function sendDefault(ctx: Ctx, groupId: string, bot: BotRef, path: string,
     botId: bot.id,
     repo,
     path,
-    force: false,
+    force,
   })
   if (!sent) forget(requestId)
   return sent
+}
+
+/** An explicit /cd or workspace picker choice, including a return to the managed clone. */
+export async function requestCd(
+  ctx: Ctx,
+  o: { groupId: string; botId: string; path: string | null; force?: boolean },
+) {
+  const [bot] = await ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, o.botId))
+  return sendCd(
+    ctx,
+    o.groupId,
+    { id: o.botId, machineId: bot?.machineId ?? null },
+    o.path,
+    'cd',
+    false,
+    o.force,
+  )
 }
 
 /**
@@ -184,7 +211,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
     cdPath: path,
     workspaceState: 'pending',
   })
-  if (!(await sendDefault(ctx, groupId, bot, path, o.joined)))
+  if (!(await sendCd(ctx, groupId, bot, path, 'default', o.joined)))
     await postEvent(ctx, groupId, '{bot} · daemon 离线，上线后使用默认工作区', { bot: lead })
 }
 
@@ -232,7 +259,14 @@ async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: stri
  * Re-requests the managed workspace the owner chose, after its machine reconnected: repo-less groups are ready at once
  * (the daemon creates `_empty` on first run); otherwise the daemon is asked to clone.
  */
-export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef) {
+export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, reconnect = false) {
+  if (reconnect) {
+    const [row] = await ctx.db
+      .select({ state: groupBots.workspaceState })
+      .from(groupBots)
+      .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id)))
+    if (!row || ['ready', 'unbound', 'confirm'].includes(row.state)) return
+  }
   const repo = await currentRepo(ctx, groupId, bot.id)
   if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }))
   const machineId = onlineMachine(ctx, bot.machineId)
@@ -265,7 +299,13 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   if (msg.requestId && !req) return
   if (req && (req.machineId !== machineId || req.groupId !== msg.groupId || req.botId !== msg.botId)) return
   const [row] = await ctx.db
-    .select({ name: bots.name, ownerId: bots.ownerId, error: groupBots.workspaceError })
+    .select({
+      name: bots.name,
+      ownerId: bots.ownerId,
+      machineId: bots.machineId,
+      state: groupBots.workspaceState,
+      error: groupBots.workspaceError,
+    })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
     .where(
@@ -299,6 +339,9 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   if (req?.kind === 'cd' && req.cdPath && msg.state === 'failed')
     await forgetLocalPath(ctx, machineId, req.cdPath)
   if (req?.kind === 'cd' && msg.state !== 'cloning') await onCdResult(ctx, msg, req.cdPath === null)
+  // The daemon cancelled the superseded clone; a refused new directory must not leave a phantom clone in progress.
+  if (req?.kind === 'cd' && req.cdPath && msg.state === 'failed' && row.state === 'cloning')
+    await ensureWorkspace(ctx, msg.groupId, { id: msg.botId, name: row.name, machineId: row.machineId })
   if (req?.kind === 'ensure' && msg.state === 'ready')
     await postEvent(ctx, msg.groupId, '{bot} · daemon 已 clone 到托管工作区', { bot: row.name })
   // A retry failing the same way (e.g. on every reconnect) is not announced again.
@@ -359,22 +402,43 @@ async function onOnline(ctx: Ctx, machineId: string) {
       name: bots.name,
       machineId: bots.machineId,
       cdPath: groupBots.cdPath,
+      state: groupBots.workspaceState,
     })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
     .innerJoin(groups, eq(groups.id, groupBots.groupId))
+    .innerJoin(machines, eq(machines.id, bots.machineId))
     .where(
       and(
         eq(bots.machineId, machineId),
+        // Only recover workspaces that existed before this connection. Joining a bot during the hello handshake
+        // belongs to its own workspace flow, not to reconnect recovery.
+        lt(groupBots.addedAt, machines.lastSeenAt),
         isNull(bots.deletedAt),
         isNull(groupBots.removedAt),
         isNull(groups.archivedAt),
         notInArray(groupBots.workspaceState, ['ready', 'unbound', 'confirm']),
       ),
     )
-  for (const { groupId, cdPath, ...bot } of rows)
-    if (cdPath) await sendDefault(ctx, groupId, bot, cdPath, false)
-    else await ensureWorkspace(ctx, groupId, bot)
+  for (const { groupId, cdPath, state, ...bot } of rows) {
+    // A request already sent on this connection is still being answered by the daemon.
+    if (
+      [...pending.values()].some(
+        (p) => p.machineId === machineId && p.groupId === groupId && p.botId === bot.id,
+      )
+    )
+      continue
+    // The join flow may have asked the owner or selected a directory after the query above.
+    const [current] = await ctx.db
+      .select({ state: groupBots.workspaceState, cdPath: groupBots.cdPath })
+      .from(groupBots)
+      .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, bot.id)))
+    if (!current || ['ready', 'unbound', 'confirm'].includes(current.state)) continue
+    if (current.state !== state && current.cdPath)
+      await requestCd(ctx, { groupId, botId: bot.id, path: current.cdPath })
+    else if (cdPath) await sendCd(ctx, groupId, bot, cdPath, 'default')
+    else await ensureWorkspace(ctx, groupId, bot, true)
+  }
 }
 
 /** Wires daemon workspace reports and machine presence; handled in arrival order. Returns a drain-and-detach fn. */

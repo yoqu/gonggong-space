@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.3 — 2026-10-27
+
+- 切换工作目录立即取消同一 Bot 的旧 clone，不再等待卡住的 Git；旧请求的迟到回包不会覆盖新目录 / Switching a workspace cancels its Bot's previous clone immediately instead of waiting behind a stuck Git command; late replies cannot overwrite the new directory
+- 取消 clone 时终止其 SSH/HTTPS 子进程，并清理托管 `.partial` 目录；本机目录不删除 / Cancelling a clone terminates its SSH/HTTPS children and removes the managed `.partial` directory without deleting local directories
+- HTTP(S) Git 传输连续 30 秒低于每秒 1 字节时明确报网络问题，大仓库仍不受总 clone 时长限制 / HTTP(S) Git transfers stalled below one byte per second for 30 seconds report a network problem; large repositories still have no total clone deadline
+- 修复 daemon 重连与新入群目录选择竞态，避免自动 clone 覆盖等待确认或刚选择的工作区 / Fix daemon reconnect racing new workspace choices, so automatic cloning cannot replace an unconfirmed or newly selected directory
+
 ## v0.4.2 — 2026-10-26
 
 - Codex 的「工作区写入」档改用 `workspace-write`，不再与「只读」档混用；升级 Codex ACP 适配器到 2.2.2，要求 Codex CLI ≥ 0.160.1 / Codex workspace mode now uses `workspace-write` instead of sharing the read-only mapping; Codex ACP is pinned to 2.2.2 and requires Codex CLI 0.160.1 or later

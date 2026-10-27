@@ -175,6 +175,26 @@ describe('confirming the workspace of a bot joining a repo group', () => {
     )
   })
 
+  it('keeps the owner’s directory choice when a reconnect is racing it', async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const g = await w.createGroup()
+    expect(
+      (await w.asAlice.put(`/api/groups/${g.id}/bots/${w.bot.id}/workspace`, { path: '/src/local' })).status,
+    ).toBe(204)
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'cloning' })
+      .where(and(eq(groupBots.groupId, g.id), eq(groupBots.botId, w.bot.id)))
+    t.ctx.hub.emit('online', w.a.machine.id)
+
+    for (;;) {
+      const req = await d.next()
+      expect(req.t).not.toBe('workspace.ensure')
+      if (req.t === 'workspace.cd') break
+    }
+  })
+
   it('lists the owner’s local clones found by the daemon, with where a managed clone would go', async () => {
     const w = await world()
     const d = await daemon(w.a.token)
@@ -493,6 +513,42 @@ async function updateCd(groupId: string, botId: string) {
 }
 
 describe('/cd requests', () => {
+  it('keeps a new directory binding when the superseded clone answers late', async () => {
+    const w = await world()
+    const g = await w.createGroup()
+    const d = await daemon(w.a.token)
+    const cloning = await joinEnsure(d, g.id)
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/new' })
+    const cd = await d.next()
+    d.send(reply(cd, { path: '/src/new', git: { ...git, workspace: 'cd' } }))
+    await until(async () => (await w.stateOf(g.id)).workspace === 'cd')
+
+    d.send(reply(cloning))
+    await new Promise((r) => setTimeout(r, 200))
+    expect(await w.stateOf(g.id)).toMatchObject({
+      workspace: 'cd',
+      state: 'ready',
+      path: '/src/new',
+    })
+    expect(await w.bodies(g.id)).not.toContain('小王的 Claude · daemon 已 clone 到托管工作区')
+  })
+
+  it('resumes the managed clone when the directory that replaced it is refused', async () => {
+    const w = await world()
+    const g = await w.createGroup()
+    const d = await daemon(w.a.token)
+    await joinEnsure(d, g.id)
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/bad' })
+    const cd = await d.next()
+    d.send(reply(cd, { state: 'failed', path: null, git: null, error: '目录不存在' }))
+    await until(async () => (await w.bodies(g.id)).includes('小王的 Claude 绑定工作区失败：目录不存在'))
+
+    const retry = await joinEnsure(d, g.id)
+    d.send(reply(retry))
+    await until(async () => (await w.stateOf(g.id)).state === 'ready')
+    expect(await w.stateOf(g.id)).toMatchObject({ workspace: 'managed', state: 'ready' })
+  })
+
   it('binds to a validated directory, keeps the workspace on refusal, and goes back to managed', async () => {
     const w = await world()
     const g = await w.createGroup()

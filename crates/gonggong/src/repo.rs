@@ -4,10 +4,14 @@ use crate::protocol::{GitProtocol, REPO_BRANCHES_MAX, RepoAccessReason, RepoProb
 use crate::t;
 use regex::Regex;
 use std::path::Path;
+use std::process::Stdio;
 use std::sync::LazyLock;
 use std::time::Duration;
 
 const CANDIDATE_TIMEOUT: Duration = Duration::from_secs(15);
+/// There is no total clone limit, but a dead proxy or connection must not leave the workspace cloning forever.
+const HTTP_LOW_SPEED_LIMIT: &str = "1";
+const HTTP_LOW_SPEED_TIME: &str = "30";
 
 /// `git@host:path`, also user-less `host:path` (ssh config aliases); a one-letter host would be a Windows drive.
 static SCP: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:[^@/\s]+@)?([^:/\s\\]{2,}):(.+)$").unwrap());
@@ -84,6 +88,8 @@ const NETWORK: &[&str] = &[
     "could not resolve",
     "connection refused",
     "connection timed out",
+    "operation too slow",
+    "transfer closed with",
     "operation timed out",
     "network is unreachable",
     "no route to host",
@@ -139,7 +145,7 @@ async fn batch_ssh() -> Option<&'static str> {
 }
 
 /// Runs a git remote command non-interactively in the C locale, so failures classify the same on every machine.
-/// `limit` None = no time limit (clones of big repos).
+/// `limit` None = no total time limit; Git still aborts HTTP after 30 seconds below one byte per second.
 pub async fn remote_git(dir: &Path, args: &[&str], limit: Option<Duration>) -> Result<String, Failure> {
     remote_git_with(dir, args, &[], limit).await
 }
@@ -175,14 +181,32 @@ pub(crate) async fn remote_output_with(
 ) -> Result<std::process::Output, Failure> {
     let started = crate::git_console::start(dir, args);
     let mut cmd = crate::proc::async_command("git");
-    cmd.arg("-C").arg(dir).args(args).env("GIT_TERMINAL_PROMPT", "0").env("LC_ALL", "C").kill_on_drop(true);
+    // A cancelled clone must end its transport and ssh children too, not just the git process.
+    #[cfg(unix)]
+    cmd.process_group(0);
     cmd.envs(env.iter().copied());
+    cmd.arg("-c")
+        .arg(format!("http.lowSpeedLimit={HTTP_LOW_SPEED_LIMIT}"))
+        .arg("-c")
+        .arg(format!("http.lowSpeedTime={HTTP_LOW_SPEED_TIME}"))
+        .arg("-C")
+        .arg(dir);
     if let Some(ssh) = batch_ssh().await {
         cmd.env("GIT_SSH_COMMAND", ssh);
     }
+    cmd.args(args).env("GIT_TERMINAL_PROMPT", "0").env("LC_ALL", "C").kill_on_drop(true);
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let child = cmd.spawn();
+    let out = async {
+        let child = child?;
+        let tree = ProcessTree::new(child.id());
+        let out = child.wait_with_output().await;
+        tree.disarm();
+        out
+    };
     let out = match limit {
-        None => cmd.output().await,
-        Some(limit) => match tokio::time::timeout(limit, cmd.output()).await {
+        None => out.await,
+        Some(limit) => match tokio::time::timeout(limit, out).await {
             Ok(out) => out,
             Err(_) => {
                 let detail = t!("{s} 秒内无响应", s = limit.as_secs());
@@ -201,6 +225,30 @@ pub(crate) async fn remote_output_with(
             started.error(&failure.detail);
             Err(failure)
         }
+    }
+}
+
+struct ProcessTree(Option<u32>);
+
+impl ProcessTree {
+    fn new(pid: Option<u32>) -> Self {
+        Self(pid)
+    }
+
+    fn disarm(mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for ProcessTree {
+    fn drop(&mut self) {
+        let Some(pid) = self.0 else { return };
+        let (program, args) = if cfg!(windows) {
+            ("taskkill", vec!["/T".into(), "/F".into(), "/PID".into(), pid.to_string()])
+        } else {
+            ("kill", vec!["-KILL".into(), "--".into(), format!("-{pid}")])
+        };
+        let _ = crate::proc::command(program).args(args).stdout(Stdio::null()).stderr(Stdio::null()).status();
     }
 }
 
@@ -333,6 +381,10 @@ mod tests {
         for (stderr, want) in cases {
             assert_eq!(classify(stderr).reason, want, "{stderr}");
         }
+        let f = classify(
+            "fatal: unable to access 'https://x/y/': Operation too slow. Less than 1 bytes/sec transferred the last 2 seconds",
+        );
+        assert_eq!(f.reason, RepoAccessReason::Network);
         let f = classify("fatal: unable to access 'https://oauth2:secret@x/y/': The requested URL returned error: 403");
         assert_eq!(f.reason, RepoAccessReason::Denied);
         assert_eq!(f.detail, "unable to access 'https://x/y/': The requested URL returned error: 403");
@@ -385,5 +437,25 @@ mod tests {
         let r = probe(req(&gone, "main")).await;
         assert_eq!((r.ok, r.reason), (false, Some(RepoAccessReason::Denied)));
         assert!(r.detail.is_some());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_unbounded_remote_command_still_fails_when_http_transfer_stalls() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let hanging = tokio::spawn(async move {
+            let (_socket, _) = listener.accept().await.unwrap();
+            std::future::pending::<()>().await;
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let url = format!("http://{address}/repo.git");
+        let started = std::time::Instant::now();
+        let result = remote_git(dir.path(), &["ls-remote", &url], None).await;
+        hanging.abort();
+        let error = result.unwrap_err();
+        assert!(started.elapsed() >= Duration::from_secs(30) && started.elapsed() < Duration::from_secs(60));
+        assert_eq!(error.reason, RepoAccessReason::Network, "{error:?}");
+        assert!(error.detail.contains("too slow"), "{error:?}");
     }
 }

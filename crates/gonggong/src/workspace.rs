@@ -76,12 +76,14 @@ pub fn workspace_dir(home: &Path, group: &str, bot: &str, spec: &WorkspaceSpec) 
     }
 }
 
-/// Serializes clones, /cd checks and run cwd resolution of one (group, bot).
+/// Serializes clones and run cwd resolution of one (group, bot).
 type Locks = Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>;
+type Requests = Mutex<HashMap<(String, String), watch::Sender<bool>>>;
 
 pub struct Workspaces {
     home: PathBuf,
     locks: Locks,
+    requests: Requests,
     /// Turns in each real directory, across groups and bots sharing it (plan W10): one at a time unless the group
     /// confirmed running beside the others.
     dirs: Mutex<HashMap<PathBuf, watch::Sender<Vec<Holder>>>>,
@@ -141,11 +143,18 @@ impl Drop for DirGuard {
 struct Failed {
     reason: Option<RepoAccessReason>,
     message: String,
+    cancelled: bool,
 }
 
 impl From<String> for Failed {
     fn from(message: String) -> Self {
-        Failed { reason: None, message }
+        Failed { reason: None, message, cancelled: false }
+    }
+}
+
+impl Failed {
+    fn cancelled() -> Self {
+        Failed { reason: None, message: String::new(), cancelled: true }
     }
 }
 
@@ -154,7 +163,7 @@ type Outcome = Result<(PathBuf, Option<GitStatus>, Vec<String>), Failed>;
 
 impl Workspaces {
     pub fn new(home: PathBuf) -> Self {
-        Workspaces { home, locks: Mutex::default(), dirs: Mutex::default() }
+        Workspaces { home, locks: Mutex::default(), requests: Mutex::default(), dirs: Mutex::default() }
     }
 
     /// Holds the turn's directory for its duration. A busy directory asks the group first: start beside the other
@@ -236,22 +245,42 @@ impl Workspaces {
         self.locks.lock().unwrap().entry((group.into(), bot.into())).or_default().clone()
     }
 
+    /// The newest workspace request wins. In particular, /cd cancels a clone instead of waiting behind its lock.
+    fn begin(&self, group: &str, bot: &str) -> watch::Receiver<bool> {
+        let (tx, rx) = watch::channel(false);
+        let previous = self.requests.lock().unwrap().insert((group.into(), bot.into()), tx);
+        if let Some(previous) = previous {
+            previous.send_replace(true);
+        }
+        rx
+    }
+
     /// workspace.ensure: reports `cloning` only when a clone is actually needed, then `ready` / `failed`.
     pub async fn ensure(&self, req: WorkspaceEnsure, out: &Outbox) {
+        let mut cancel = self.begin(&req.group_id, &req.bot_id);
         let lock = self.lock(&req.group_id, &req.bot_id);
-        let _guard = lock.lock().await;
+        let _guard = tokio::select! {
+            _ = cancelled(&mut cancel) => return,
+            guard = lock.lock() => guard,
+        };
         let reply = |outcome| report(out, &req.group_id, &req.bot_id, &req.request_id, outcome);
-        let outcome = self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None)).await;
+        let outcome = self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None), &mut cancel).await;
         reply(Some(outcome));
     }
 
     /// workspace.cd: bind to a validated local directory, or go back to the managed workspace (`path: None`).
     pub async fn cd(&self, req: WorkspaceCd, out: &Outbox) {
-        let lock = self.lock(&req.group_id, &req.bot_id);
-        let _guard = lock.lock().await;
+        let mut cancel = self.begin(&req.group_id, &req.bot_id);
         let reply = |outcome| report(out, &req.group_id, &req.bot_id, &req.request_id, outcome);
         let outcome = match &req.path {
-            None => self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None)).await,
+            None => {
+                let lock = self.lock(&req.group_id, &req.bot_id);
+                let _guard = tokio::select! {
+                    _ = cancelled(&mut cancel) => return,
+                    guard = lock.lock() => guard,
+                };
+                self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None), &mut cancel).await
+            }
             Some(path) => {
                 let dir = PathBuf::from(path);
                 match check_cd(&dir, req.repo.as_ref().filter(|_| !req.force)).await {
@@ -294,13 +323,21 @@ impl Workspaces {
         let lock = self.lock(&start.group_id, &start.bot.id);
         let _guard = lock.lock().await;
         let dir = self.settle(&start.group_id, &start.bot.id, start.workspace.repo.as_ref()).await?;
-        prepare(&dir, start.workspace.repo.as_ref(), || {}).await.map_err(|f| f.message)?;
+        let (_cancel, mut cancelled) = watch::channel(false);
+        prepare(&dir, start.workspace.repo.as_ref(), || {}, &mut cancelled).await.map_err(|f| f.message)?;
         Ok(dir)
     }
 
-    async fn managed(&self, group: &str, bot: &str, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -> Outcome {
+    async fn managed(
+        &self,
+        group: &str,
+        bot: &str,
+        repo: Option<&RepoSpec>,
+        on_clone: impl FnOnce(),
+        cancel: &mut watch::Receiver<bool>,
+    ) -> Outcome {
         let dir = self.settle(group, bot, repo).await?;
-        prepare(&dir, repo, on_clone).await?;
+        prepare(&dir, repo, on_clone, cancel).await?;
         let git = match repo {
             Some(_) => git::status(&dir, &[], WorkspaceKind::Managed).await.ok(),
             None => None,
@@ -365,6 +402,7 @@ fn report(out: &Outbox, group: &str, bot: &str, request_id: &str, outcome: Optio
 
 fn send_state(out: &Outbox, group: &str, bot: &str, request_id: Option<&str>, outcome: Option<Outcome>) {
     let (state, path, git, error, reason, remotes) = match outcome {
+        Some(Err(Failed { cancelled: true, .. })) => return,
         Some(Ok((dir, git, remotes))) => {
             (WorkspaceStateKind::Ready, Some(dir.to_string_lossy().into_owned()), git, None, None, remotes)
         }
@@ -385,7 +423,12 @@ fn send_state(out: &Outbox, group: &str, bot: &str, request_id: Option<&str>, ou
 }
 
 /// Makes `dir` a usable workspace: an existing clone is kept as is; anything else there is replaced by a fresh clone.
-async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -> Result<(), Failed> {
+async fn prepare(
+    dir: &Path,
+    repo: Option<&RepoSpec>,
+    on_clone: impl FnOnce(),
+    cancel: &mut watch::Receiver<bool>,
+) -> Result<(), Failed> {
     let Some(repo) = repo else {
         let io = |e: std::io::Error| t!("无法创建工作区 {path}: {e}", path = dir.display(), e = e);
         return Ok(tokio::fs::create_dir_all(dir).await.map_err(io)?);
@@ -399,25 +442,30 @@ async fn prepare(dir: &Path, repo: Option<&RepoSpec>, on_clone: impl FnOnce()) -
         }
     } else {
         on_clone();
-        clone(dir, repo).await?;
+        clone(dir, repo, cancel).await?;
     }
-    init_submodules(dir).await;
+    init_submodules(dir, cancel).await?;
     Ok(())
 }
 
 /// Checks out the submodules this clone never initialized (fresh clones, clones from before submodules were
 /// supported), one at a time so a broken one doesn't hold back the rest. A failed one stays initialized, so later
 /// runs don't retry it; the workspace works without it.
-async fn init_submodules(dir: &Path) {
+async fn init_submodules(dir: &Path, cancel: &mut watch::Receiver<bool>) -> Result<(), Failed> {
     for (name, path) in git::gitmodules(dir).await {
         if git(dir, &["config", "--get", &format!("submodule.{name}.url")]).await.is_ok() {
             continue;
         }
         let args = ["submodule", "update", "--init", "--recursive", "--", &path];
-        if let Err(f) = repo::remote_git(dir, &args, None).await {
+        let result = tokio::select! {
+            _ = cancelled(cancel) => return Err(Failed::cancelled()),
+            result = repo::remote_git(dir, &args, None) => result,
+        };
+        if let Err(f) = result {
             tracing::warn!("submodule {path} of {} not checked out: {}", dir.display(), f.detail);
         }
     }
+    Ok(())
 }
 
 async fn is_clone_root(dir: &Path) -> bool {
@@ -427,7 +475,7 @@ async fn is_clone_root(dir: &Path) -> bool {
 
 /// Clones next to the target and renames, so an interrupted clone never looks like a valid workspace. Tries the
 /// owner's preferred protocol first, then the other one; the URL that worked becomes `origin`.
-async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
+async fn clone(dir: &Path, repo: &RepoSpec, cancel: &mut watch::Receiver<bool>) -> Result<(), Failed> {
     let parent = dir.parent().expect("managed paths have a parent");
     let mut partial = dir.as_os_str().to_owned();
     partial.push(".partial");
@@ -444,7 +492,14 @@ async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
             tokio::fs::remove_dir_all(&partial).await.map_err(io)?;
         }
         let args = ["clone", "-q", "-c", "core.autocrlf=false", "--branch", &repo.branch, "--", &url, &target];
-        match repo::remote_git(parent, &args, None).await {
+        let result = tokio::select! {
+            _ = cancelled(cancel) => {
+                let _ = tokio::fs::remove_dir_all(&partial).await;
+                return Err(Failed::cancelled());
+            }
+            result = repo::remote_git(parent, &args, None) => result,
+        };
+        match result {
             Ok(_) => return Ok(tokio::fs::rename(&partial, dir).await.map_err(io)?),
             // The repo answered, so the other protocol would not find the branch either.
             Err(f) if f.reason == RepoAccessReason::BranchMissing => {
@@ -458,7 +513,15 @@ async fn clone(dir: &Path, repo: &RepoSpec) -> Result<(), Failed> {
     }
     let _ = tokio::fs::remove_dir_all(&partial).await;
     let f = first.expect("candidates is never empty");
-    Err(Failed { reason: Some(f.reason), message: t!("clone 失败：{detail}", detail = f.detail) })
+    Err(Failed { reason: Some(f.reason), message: t!("clone 失败：{detail}", detail = f.detail), cancelled: false })
+}
+
+async fn cancelled(cancel: &mut watch::Receiver<bool>) {
+    while !*cancel.borrow_and_update() {
+        if cancel.changed().await.is_err() {
+            return;
+        }
+    }
 }
 
 /// /cd target must be an absolute, existing, usable directory; with a group repo also a work tree of that repo.
