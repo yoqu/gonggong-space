@@ -19,6 +19,44 @@ pub struct Config {
     pub token: String,
     pub machine_id: String,
     pub owner_name: String,
+    /// The same trust choice is used by every HTTPS/WSS connection to this server.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_trust: Option<Trust>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum Trust {
+    System,
+    Fingerprint { sha256: String },
+    CaFile { path: PathBuf },
+}
+
+impl Trust {
+    pub fn fingerprint(value: &str) -> Result<Self> {
+        let value = value.trim();
+        let value = value.get(..7).filter(|p| p.eq_ignore_ascii_case("sha256:")).map_or(value, |_| &value[7..]);
+        let hex: String = value.chars().filter(|c| *c != ':').collect();
+        if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            anyhow::bail!(crate::t!("证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）"));
+        }
+        let hex = hex.to_ascii_uppercase();
+        let sha256 = hex.as_bytes().chunks(2).map(|p| std::str::from_utf8(p).unwrap()).collect::<Vec<_>>().join(":");
+        Ok(Trust::Fingerprint { sha256 })
+    }
+
+    pub fn ca_file(path: &Path) -> Result<Self> {
+        let path =
+            path.canonicalize().with_context(|| crate::t!("无法读取 CA 证书文件 {path}", path = path.display()))?;
+        Ok(Trust::CaFile { path })
+    }
+
+    pub fn fingerprint_value(&self) -> Option<&str> {
+        match self {
+            Trust::Fingerprint { sha256 } => Some(sha256),
+            _ => None,
+        }
+    }
 }
 
 impl Config {

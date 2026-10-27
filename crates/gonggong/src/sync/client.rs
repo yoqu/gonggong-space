@@ -43,7 +43,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(config: &Config) -> Result<Self> {
-        let http = tls::builder().connect_timeout(CONNECT_TIMEOUT).tcp_keepalive(KEEPALIVE).build()?;
+        let http = tls::builder(config)?.connect_timeout(CONNECT_TIMEOUT).tcp_keepalive(KEEPALIVE).build()?;
         Ok(Client {
             http,
             server: config.server.trim_end_matches('/').into(),
@@ -139,7 +139,13 @@ mod tests {
     }
 
     fn config(server: &str) -> Config {
-        Config { server: server.into(), token: "t".into(), machine_id: "m".into(), owner_name: "o".into() }
+        Config {
+            server: server.into(),
+            token: "t".into(),
+            machine_id: "m".into(),
+            owner_name: "o".into(),
+            tls_trust: None,
+        }
     }
 
     #[tokio::test]

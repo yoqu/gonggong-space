@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, Trust};
 use crate::protocol::{DaemonLoginReq, DaemonLoginRes, MachineInfo, SystemInfo};
 use crate::t;
 use crate::tls;
@@ -59,14 +59,15 @@ pub struct Link {
     pub server: String,
     /// Upper case `XXXX-XXXX`.
     pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
 }
 
 const LINK_SCHEME: &str = "gonggong";
 const LINK_HOST: &str = "bind";
 
 /// Parses a pasted 接入链接 or `gg login --server … --code …` (flags in any order, `--flag=value` too); surrounding
-/// whitespace and quotes are ignored, and so is the certificate fingerprint older servers still add (`fp`,
-/// `--fingerprint`). Never binds by itself (plan J3).
+/// whitespace and quotes are ignored. `fp` / `--fingerprint` explicitly trust a self-signed certificate.
 pub fn parse_link(input: &str) -> Result<Link> {
     let input = unquote(input.trim());
     if input.starts_with(&format!("{LINK_SCHEME}:")) { link_of_url(input) } else { link_of_command(input) }
@@ -82,7 +83,7 @@ fn link_of_url(input: &str) -> Result<Link> {
         bail!(t!("不是共工空间的接入链接"));
     }
     let param = |name: &str| url.query_pairs().find(|(k, _)| k == name).map(|(_, v)| v.into_owned());
-    checked(param("server"), param("code"))
+    checked(param("server"), param("code"), param("fp"))
 }
 
 fn link_of_command(input: &str) -> Result<Link> {
@@ -119,10 +120,10 @@ fn link_of_command(input: &str) -> Result<Link> {
         };
         *slot = Some(unquote(value).to_string());
     }
-    checked(server, code)
+    checked(server, code, fingerprint)
 }
 
-fn checked(server: Option<String>, code: Option<String>) -> Result<Link> {
+fn checked(server: Option<String>, code: Option<String>, fingerprint: Option<String>) -> Result<Link> {
     let server = server.context(t!("缺少服务器地址"))?;
     let server = server.trim().trim_end_matches('/');
     let url = reqwest::Url::parse(server).with_context(|| t!("服务器地址格式错误：{server}", server = server))?;
@@ -133,12 +134,16 @@ fn checked(server: Option<String>, code: Option<String>) -> Result<Link> {
     if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
         bail!(t!("服务器地址不能包含账号、查询参数或 #：{server}", server = server));
     }
+    tls::validate_server(server)?;
     let code = code.context(t!("缺少绑定码"))?.trim().to_uppercase();
     let valid = |part: &str| part.len() == 4 && part.chars().all(|c| c.is_ascii_alphanumeric());
     if !code.split_once('-').is_some_and(|(a, b)| valid(a) && valid(b)) {
         bail!(t!("绑定码格式错误，应为 XXXX-XXXX"));
     }
-    Ok(Link { server: server.into(), code })
+    let fingerprint = fingerprint
+        .map(|value| Trust::fingerprint(&value).map(|trust| trust.fingerprint_value().unwrap().to_owned()))
+        .transpose()?;
+    Ok(Link { server: server.into(), code, fingerprint })
 }
 
 #[derive(Deserialize)]
@@ -149,9 +154,16 @@ struct ApiError {
 
 /// Exchanges a one-time bind code for this machine's long-lived token.
 /// Returns the config and whether the server restored this host's earlier machine.
-pub async fn login(server: &str, code: &str, machine: MachineInfo) -> Result<(Config, bool)> {
+pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust) -> Result<(Config, bool)> {
     let server = server.trim_end_matches('/');
-    let res = tls::http()?
+    let config = Config {
+        server: server.into(),
+        token: String::new(),
+        machine_id: String::new(),
+        owner_name: String::new(),
+        tls_trust: Some(trust),
+    };
+    let res = tls::http(&config)?
         .post(format!("{server}/api/daemon/login"))
         .json(&DaemonLoginReq { code: code.trim().to_uppercase(), machine })
         .send()
@@ -172,14 +184,13 @@ pub async fn login(server: &str, code: &str, machine: MachineInfo) -> Result<(Co
         bail!(t!("绑定失败：{reason}", reason = reason));
     }
     let body: DaemonLoginRes = res.json().await.context(t!("服务器响应无法解析"))?;
-    let config =
-        Config { server: server.into(), token: body.token, machine_id: body.machine_id, owner_name: body.owner_name };
+    let config = Config { token: body.token, machine_id: body.machine_id, owner_name: body.owner_name, ..config };
     Ok((config, body.restored))
 }
 
 /// Voids this machine's token on the server; the machine itself stays so logging in again restores it.
 pub async fn logout(config: &Config) -> Result<()> {
     let url = format!("{}/api/daemon/logout", config.server);
-    let res = tls::http()?.post(url).bearer_auth(&config.token).send().await?;
+    let res = tls::http(config)?.post(url).bearer_auth(&config.token).send().await?;
     crate::bots::ok(res).await.map(drop)
 }

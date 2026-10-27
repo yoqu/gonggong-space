@@ -97,6 +97,7 @@ test('two machines: switch, distribute both ways, merge, conflict, hand edit, of
   // The remote machine: daemon binary + the scripted agent with its dependencies.
   ssh(`[ -f ~/${RDIR}/pid ] && kill $(cat ~/${RDIR}/pid); rm -rf ~/${RDIR} && mkdir -p ~/${RDIR}/agent`)
   scp(GONGGONG_BIN, `${RDIR}/gg`)
+  scp(join(dir, 'cert.pem'), `${RDIR}/cert.pem`)
   // pnpm's layout doesn't survive a copy: ship the scripted agent as one bundle.
   const esbuild = execFileSync(
     'bash',
@@ -135,9 +136,9 @@ test('two machines: switch, distribute both ways, merge, conflict, hand edit, of
     })
     const me = await call<{ id: string }>(api, 'get', '/api/me')
     const code = async () => (await call<{ code: string }>(api, 'post', '/api/bind-codes')).code
-    local.login(await code())
+    local.login(await code(), join(dir, 'cert.pem'))
     local.start()
-    ssh(`cd ~/${RDIR} && ${renv} ./gg login --server ${base} --code ${await code()}`)
+    ssh(`cd ~/${RDIR} && ${renv} ./gg login --server ${base} --code ${await code()} --ca-file ~/${RDIR}/cert.pem`)
     remoteStart()
     const machines = async () =>
       call<{ id: string; online: boolean; name: string }[]>(api, 'get', '/api/machines')

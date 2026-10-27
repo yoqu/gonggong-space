@@ -38,7 +38,8 @@ export function machine(server = SERVER, extraEnv: Record<string, string> = {}) 
   let exited: Promise<number | null> = Promise.resolve(null)
   return {
     home,
-    login: (code: string) => gonggong(['login', '--server', server, '--code', code], env),
+    login: (code: string, caFile?: string) =>
+      gonggong(['login', '--server', server, '--code', code, ...(caFile ? ['--ca-file', caFile] : [])], env),
     /** `gg login <接入链接>`, as copied from the web's bind dialog. */
     loginLink: (link: string) => gonggong(['login', link], env),
     start() {

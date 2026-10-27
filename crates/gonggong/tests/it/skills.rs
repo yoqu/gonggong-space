@@ -73,7 +73,13 @@ async fn rig() -> Rig {
         reap: Duration::from_secs(600),
         cancel_grace: Duration::from_secs(30),
         continuation: Default::default(),
-        api: Some(Config { server, token: TOKEN.into(), machine_id: "mc1".into(), owner_name: "王磊".into() }),
+        api: Some(Config {
+            server,
+            token: TOKEN.into(),
+            machine_id: "mc1".into(),
+            owner_name: "王磊".into(),
+            tls_trust: None,
+        }),
     });
     let (out, rx) = Outbox::channel();
     Rig { engine, out, rx, home, versions, hits }

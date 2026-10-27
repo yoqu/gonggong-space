@@ -143,7 +143,15 @@ async fn fetch(api: &Config, r: &SkillRef, dir: &Path) -> Result<(), String> {
 pub(crate) async fn download(api: &Config, path: &str, dir: &Path) -> Result<(), String> {
     let url = format!("{}/api/daemon/{path}", api.server.trim_end_matches('/'));
     let res: DaemonSkillRes = async {
-        tls::http()?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?.json().await.map_err(Into::into)
+        tls::http(api)?
+            .get(url)
+            .bearer_auth(&api.token)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await
+            .map_err(Into::into)
     }
     .await
     .map_err(|err: anyhow::Error| format!("{err:#}"))?;

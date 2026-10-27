@@ -351,7 +351,7 @@ async fn forward(api: Option<&Config>, asker: &dyn Asker, name: &str, args: &Val
     let (run_id, cwd) = asker.active_run().ok_or(NOT_RUNNING)?;
     let url = format!("{}/api/daemon/runs/{run_id}/tools/{name}", api.server.trim_end_matches('/'));
     let send = async {
-        let res = tls::http()?
+        let res = tls::http(api)?
             .post(url)
             .bearer_auth(&api.token)
             .json(&json!({ "arguments": args }))
@@ -661,7 +661,8 @@ fn workspace_file(root: &Path, rel: impl AsRef<Path>) -> Option<PathBuf> {
 async fn post_form(api: &Config, path: &str, form: reqwest::multipart::Form) -> Result<Result<Value, String>, String> {
     let url = format!("{}{path}", api.server.trim_end_matches('/'));
     let send = async {
-        let res = tls::http()?.post(url).bearer_auth(&api.token).multipart(form).timeout(UPLOAD_TIMEOUT).send().await?;
+        let res =
+            tls::http(api)?.post(url).bearer_auth(&api.token).multipart(form).timeout(UPLOAD_TIMEOUT).send().await?;
         let status = res.status();
         let body: Value = res.json().await.unwrap_or(Value::Null);
         anyhow::Ok((status, body))
@@ -677,7 +678,7 @@ async fn post_form(api: &Config, path: &str, form: reqwest::multipart::Form) -> 
 async fn post_json(api: &Config, path: &str, body: &Value) -> Result<Result<Value, String>, String> {
     let url = format!("{}{path}", api.server.trim_end_matches('/'));
     let send = async {
-        let res = tls::http()?.post(url).bearer_auth(&api.token).json(body).timeout(FORWARD_TIMEOUT).send().await?;
+        let res = tls::http(api)?.post(url).bearer_auth(&api.token).json(body).timeout(FORWARD_TIMEOUT).send().await?;
         let status = res.status();
         let body: Value = res.json().await.unwrap_or(Value::Null);
         anyhow::Ok((status, body))
@@ -1165,7 +1166,7 @@ mod tests {
     }
 
     fn config(server: String) -> Config {
-        Config { server, token: "mt_1".into(), machine_id: "m".into(), owner_name: "王磊".into() }
+        Config { server, token: "mt_1".into(), machine_id: "m".into(), owner_name: "王磊".into(), tls_trust: None }
     }
 
     #[tokio::test]

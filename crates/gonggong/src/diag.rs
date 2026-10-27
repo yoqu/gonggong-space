@@ -442,6 +442,7 @@ mod tests {
             token: token.into(),
             machine_id: "m1".into(),
             owner_name: "王磊".into(),
+            tls_trust: Some(crate::config::Trust::System),
         };
         let checks = vec![check(CheckKind::Disk, Status::Ok, "工作区 1.8 GB · 剩余 212 GB")];
         let dest = home.path().join("diag.zip");

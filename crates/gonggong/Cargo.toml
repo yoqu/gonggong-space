@@ -23,9 +23,10 @@ hyper = { version = "1.11.1", features = ["server", "client", "http1"] }
 hyper-util = { version = "0.1.20", features = ["tokio"] }
 machine-uid = "0.6.0"
 regex = "1.13.1"
-reqwest = { version = "0.13.5", features = ["json", "multipart", "stream"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "multipart", "stream", "rustls"] }
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 rustls = { version = "0.23.45", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+rustls-native-certs = "0.8.5"
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.11.0"

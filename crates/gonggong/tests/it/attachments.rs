@@ -92,6 +92,7 @@ fn rig(server: &str) -> Rig {
             token: TOKEN.into(),
             machine_id: "mc1".into(),
             owner_name: "王磊".into(),
+            tls_trust: None,
         }),
     });
     let (out, rx) = Outbox::channel();

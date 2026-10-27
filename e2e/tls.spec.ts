@@ -1,5 +1,5 @@
 /**
- * Opt-in (plan D18): server over HTTPS/WSS with a self-signed dev certificate; the daemon binds without pinning.
+ * Opt-in: server over HTTPS/WSS with a self-signed dev certificate explicitly trusted by the daemon.
  * Run: GONGGONG_E2E_TLS=1 pnpm exec playwright test -c e2e/tls.config.ts
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
@@ -45,7 +45,7 @@ test('tls: daemon binds and runs over HTTPS/WSS with a self-signed certificate',
     })
     const me = await (await api.get('/api/me')).json()
     const { code } = await (await api.post('/api/bind-codes')).json()
-    expect(m.login(code)).toContain('绑定成功')
+    expect(m.login(code, join(dir, 'cert.pem'))).toContain('绑定成功')
 
     m.start()
     const machineOnline = async () => (await (await api.get('/api/machines')).json())[0]?.online

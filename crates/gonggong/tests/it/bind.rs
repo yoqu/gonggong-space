@@ -1,4 +1,5 @@
 use gonggong::bind;
+use gonggong::config::Trust;
 use gonggong::protocol::MachineInfo;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -53,7 +54,7 @@ async fn serve_once(status: &'static str, body: &'static str) -> (String, tokio:
 async fn login_exchanges_the_code_for_a_config() {
     let (url, req) =
         serve_once("200 OK", r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","restored":true}"#).await;
-    let (cfg, restored) = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine()).await.unwrap();
+    let (cfg, restored) = bind::login(&format!("{url}/"), " k7qm-4x2p ", machine(), Trust::System).await.unwrap();
     assert!(restored);
     assert_eq!(cfg.server, url);
     assert_eq!(cfg.token, "mt_abc");
@@ -75,6 +76,7 @@ async fn logout_voids_the_token_on_the_server() {
         token: "mt_abc".into(),
         machine_id: "m1".into(),
         owner_name: "王磊".into(),
+        tls_trust: None,
     };
     bind::logout(&config).await.unwrap();
     let req = req.await.unwrap();
@@ -91,7 +93,7 @@ async fn login_explains_rejections_in_chinese() {
         ("400 Bad Request", r#"{"error":"invalid","message":"x"}"#, "XXXX-XXXX"),
     ] {
         let (url, _) = serve_once(status, body).await;
-        let err = bind::login(&url, "AAAA-AAAA", machine()).await.unwrap_err().to_string();
+        let err = bind::login(&url, "AAAA-AAAA", machine(), Trust::System).await.unwrap_err().to_string();
         assert!(err.starts_with("绑定失败："), "{err}");
         assert!(err.contains(expect), "{err}");
     }
@@ -103,7 +105,7 @@ async fn login_reports_unreachable_servers() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
-    let err = format!("{:#}", bind::login(&url, "AAAA-AAAA", machine()).await.unwrap_err());
+    let err = format!("{:#}", bind::login(&url, "AAAA-AAAA", machine(), Trust::System).await.unwrap_err());
     assert!(err.contains("无法连接服务器"), "{err}");
 }
 
@@ -122,11 +124,17 @@ fn machine_info_describes_this_host() {
     assert!(sys.os_version.is_some());
 }
 
-/// Older servers still add their certificate fingerprint; it is ignored.
-const FP: &str = "sha256:ab:cd:ef:01";
+const FP: &str =
+    "sha256:BA:78:16:BF:8F:01:CF:EA:41:41:40:DE:5D:AE:22:23:B0:03:61:A3:96:17:7A:9C:B4:10:FF:61:F2:00:15:AD";
 
 fn link(server: &str, code: &str) -> bind::Link {
-    bind::Link { server: server.into(), code: code.into() }
+    bind::Link { server: server.into(), code: code.into(), fingerprint: None }
+}
+
+fn trusted_link(server: &str, code: &str) -> bind::Link {
+    let mut link = link(server, code);
+    link.fingerprint = Some(FP[7..].into());
+    link
 }
 
 #[test]
@@ -134,9 +142,9 @@ fn parses_the_bind_link() {
     let parsed = bind::parse_link("gonggong://bind?server=https%3A%2F%2Fgonggong.corp.cn%2F&code=k7qm-4x2p").unwrap();
     assert_eq!(parsed, link("https://gonggong.corp.cn", "K7QM-4X2P"));
     let with_fp = format!("  gonggong://bind?code=K7QM-4X2P&server=http%3A%2F%2F127.0.0.1%3A8080&fp={FP}\n");
-    assert_eq!(bind::parse_link(&with_fp).unwrap(), link("http://127.0.0.1:8080", "K7QM-4X2P"));
+    assert_eq!(bind::parse_link(&with_fp).unwrap(), trusted_link("http://127.0.0.1:8080", "K7QM-4X2P"));
     let remote_http = "gonggong://bind?server=http%3A%2F%2Fgg.uyoqu.com%2F&code=K7QM-4X2P";
-    assert_eq!(bind::parse_link(remote_http).unwrap(), link("http://gg.uyoqu.com", "K7QM-4X2P"));
+    assert!(bind::parse_link(remote_http).is_err());
     let sub_path = "gonggong://bind?server=https%3A%2F%2Fg.corp%2Fgonggong%2F&code=K7QM-4X2P";
     assert_eq!(bind::parse_link(sub_path).unwrap(), link("https://g.corp/gonggong", "K7QM-4X2P"));
 }
@@ -146,7 +154,7 @@ fn parses_the_login_command() {
     let plain = "gg login --server https://gonggong.corp.cn/ --code k7qm-4x2p";
     assert_eq!(bind::parse_link(plain).unwrap(), link("https://gonggong.corp.cn", "K7QM-4X2P"));
     let mixed = format!("\n gg login --code=K7QM-4X2P \\\n  --fingerprint '{FP}' --server=\"https://g.corp:8443\"  \n");
-    assert_eq!(bind::parse_link(&mixed).unwrap(), link("https://g.corp:8443", "K7QM-4X2P"));
+    assert_eq!(bind::parse_link(&mixed).unwrap(), trusted_link("https://g.corp:8443", "K7QM-4X2P"));
     let quoted = "gg login 'gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P'";
     assert_eq!(bind::parse_link(quoted).unwrap(), link("https://g.corp", "K7QM-4X2P"));
 }
@@ -170,6 +178,7 @@ fn rejects_anything_else() {
         "gg logout --server https://g.corp --code K7QM-4X2P",
         "gg login --server https://g.corp",
         "gg login --server https://g.corp --code K7QM-4X2P --token x",
+        "gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P&fp=bad",
         "gg login --server --code K7QM-4X2P",
         "rm -rf / ; gg login --server https://g.corp --code K7QM-4X2P",
     ] {

@@ -63,6 +63,7 @@ async fn serve() -> (Config, Arc<Mutex<Seen>>) {
         token: "mt_1".into(),
         machine_id: "m1".into(),
         owner_name: "王磊".into(),
+        tls_trust: None,
     };
     (config, seen)
 }

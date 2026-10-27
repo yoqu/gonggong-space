@@ -57,6 +57,7 @@ api POST /api/auth/login -d '{"account":"admin","password":"admin-init"}' >/dev/
 api POST /api/auth/password -d "{\"oldPassword\":\"admin-init\",\"newPassword\":\"$PASS\"}" >/dev/null
 me="$(api GET /api/me | jq -r .id)"
 code="$(api POST /api/bind-codes -d '{}' | jq -r .code)"
+fp="$(openssl x509 -in "$WORK/tls/cert.pem" -noout -fingerprint -sha256 | cut -d= -f2)"
 
 git init -q --bare -b main "$WORK/repo.git"
 git clone -q "$WORK/repo.git" "$WORK/seed" 2>/dev/null
@@ -67,7 +68,7 @@ git -C "$WORK/seed" push -q origin main
 echo "== member machine: $(basename "$GONGGONG_LINUX_BIN") in a container"
 box="$(docker create --add-host host.docker.internal:host-gateway \
   -e GONGGONG_LOG=info -e GONGGONG_NO_AUTO_UPGRADE=1 -e GONGGONG_ADAPTER_CMD='node /opt/mock-agent/agent.js' gonggong-linux-e2e \
-  sh -ec "gg login --server https://host.docker.internal:$PORT --code $code; exec gg run")"
+  sh -ec "gg login --server https://host.docker.internal:$PORT --code $code --fingerprint '$fp'; exec gg run")"
 docker cp "$GONGGONG_LINUX_BIN" "$box:/usr/local/bin/gg" >/dev/null
 COPYFILE_DISABLE=1 tar --no-xattrs -C / -cf - "${WORK#/}/repo.git" | docker cp - "$box:/" >/dev/null
 docker start "$box" >/dev/null

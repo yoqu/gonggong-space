@@ -86,7 +86,7 @@ fn prune(root: &Path, keep: &HashSet<String>, reused: &[std::path::PathBuf]) {
 
 async fn download(api: &Config, a: &Attachment, path: &Path) -> anyhow::Result<()> {
     let url = format!("{}/api/daemon/attachments/{}", api.server.trim_end_matches('/'), a.id);
-    let mut res = tls::http()?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?;
+    let mut res = tls::http(api)?.get(url).bearer_auth(&api.token).send().await?.error_for_status()?;
     tokio::fs::create_dir_all(path.parent().expect("attachment paths have a parent")).await?;
     // Written aside and renamed, so a cut-off download is never taken for the file.
     let mut part = path.as_os_str().to_owned();

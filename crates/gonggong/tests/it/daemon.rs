@@ -20,6 +20,7 @@ fn options(home: &Path, port: u16) -> Options {
             token: "mt_1".into(),
             machine_id: "m1".into(),
             owner_name: "王磊".into(),
+            tls_trust: None,
         },
         adapter_cmd: None,
         self_upgrade: false,

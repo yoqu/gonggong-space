@@ -1,6 +1,7 @@
 use super::Result;
 use crate::host::Host;
 use gonggong::bind::Link;
+use gonggong::config::Trust;
 use tauri::State;
 
 /// The 接入链接 or `gg login` command pasted, opened or found on the clipboard; binding waits for 绑定 (plan J3).
@@ -11,9 +12,10 @@ pub fn parse_link(input: String) -> Result<Link> {
 
 /// Exchanges the bind code for this machine's token, like `gg login`.
 #[tauri::command]
-pub async fn login(server: String, code: String) -> Result<()> {
+pub async fn login(server: String, code: String, fingerprint: Option<String>) -> Result<()> {
     let machine = gonggong::bind::machine_info();
-    let (config, _) = gonggong::bind::login(&server, &code, machine).await.map_err(|e| format!("{e:#}"))?;
+    let trust = fingerprint.map_or(Ok(Trust::System), |fp| Trust::fingerprint(&fp)).map_err(|e| format!("{e:#}"))?;
+    let (config, _) = gonggong::bind::login(&server, &code, machine, trust).await.map_err(|e| format!("{e:#}"))?;
     config.save().map_err(|e| e.to_string())
 }
 

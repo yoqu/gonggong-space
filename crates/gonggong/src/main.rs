@@ -1,7 +1,7 @@
 use anyhow::{Context, bail};
 use clap::{Parser, Subcommand};
 use gonggong::bind::machine_info;
-use gonggong::config::{self, Config};
+use gonggong::config::{self, Config, Trust};
 use gonggong::configure;
 use gonggong::daemon::{Daemon, Options};
 use gonggong::diag::Status;
@@ -36,15 +36,18 @@ enum Cmd {
     /// (gg login 'gonggong://bind?…') or --server and --code.
     Login {
         /// The 接入链接 copied from the Web.
-        #[arg(conflicts_with_all = ["server", "code"], required_unless_present_all = ["server", "code"])]
+        #[arg(conflicts_with_all = ["server", "code", "fingerprint", "ca_file"], required_unless_present_all = ["server", "code"])]
         link: Option<String>,
         #[arg(long, requires = "code")]
         server: Option<String>,
         #[arg(long, requires = "server")]
         code: Option<String>,
-        /// Ignored: certificates are no longer pinned (accepted for commands copied from older servers).
-        #[arg(long, hide = true)]
+        /// Trust this SHA-256 certificate fingerprint (needed for a self-signed server).
+        #[arg(long, requires = "server", conflicts_with = "ca_file")]
         fingerprint: Option<String>,
+        /// Trust the PEM CA certificate at this path (needed for a private CA).
+        #[arg(long, requires = "server", conflicts_with = "fingerprint")]
+        ca_file: Option<PathBuf>,
     },
     /// Unbind this machine locally (removes the saved token).
     Logout,
@@ -190,17 +193,23 @@ async fn main() -> anyhow::Result<()> {
     };
     match cli.cmd {
         Cmd::Agents { cmd } => gonggong::tools::cli(&config::home(), cmd).await?,
-        Cmd::Login { link, server, code, fingerprint: _ } => {
-            let (server, code) = match (link, server, code) {
+        Cmd::Login { link, server, code, fingerprint, ca_file } => {
+            let (server, code, fingerprint) = match (link, server, code) {
                 (Some(link), _, _) => {
                     let link = gonggong::bind::parse_link(&link)?;
-                    (link.server, link.code)
+                    (link.server, link.code, link.fingerprint)
                 }
-                (None, Some(server), Some(code)) => (server, code),
+                (None, Some(server), Some(code)) => (server, code, fingerprint),
                 _ => unreachable!("clap requires a link or --server and --code"),
             };
+            let trust = match (fingerprint, ca_file) {
+                (Some(fingerprint), None) => Trust::fingerprint(&fingerprint)?,
+                (None, Some(path)) => Trust::ca_file(&path)?,
+                (None, None) => Trust::System,
+                (Some(_), Some(_)) => unreachable!("clap makes the trust options exclusive"),
+            };
             let machine = machine_info();
-            let (config, restored) = gonggong::bind::login(&server, &code, machine.clone()).await?;
+            let (config, restored) = gonggong::bind::login(&server, &code, machine.clone(), trust).await?;
             config.save()?;
             if restored {
                 println!(
