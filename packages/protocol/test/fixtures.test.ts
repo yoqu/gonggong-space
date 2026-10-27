@@ -11,6 +11,7 @@ import {
   ServerToDaemon,
   SyncChangesRes,
   SyncMissingRes,
+  TerminalHead,
   TunnelHead,
   TunnelOpen,
   TunnelReset,
@@ -19,6 +20,7 @@ import {
 const dir = join(import.meta.dirname, '../fixtures')
 const schemas = { d2s: DaemonToServer, s2d: ServerToDaemon }
 const tunnel = { open: TunnelOpen, head: TunnelHead, reset: TunnelReset }
+const terminal = { head: TerminalHead }
 /** Machine-token REST bodies the daemon parses. */
 const http = {
   'daemon-bots': z.array(DaemonBotDto),
@@ -37,9 +39,13 @@ describe('wire fixtures (shared with the Rust daemon)', () => {
         expect(raw).toEqual(JSON.parse(JSON.stringify(AGENT_SETTING_FIELDS)))
         return
       }
-      if (dirn === 'tunnel' || dirn === 'http') {
+      if (dirn === 'tunnel' || dirn === 'http' || dirn === 'terminal') {
         const schema =
-          dirn === 'tunnel' ? tunnel[kind as keyof typeof tunnel] : http[kind as keyof typeof http]
+          dirn === 'tunnel'
+            ? tunnel[kind as keyof typeof tunnel]
+            : dirn === 'terminal'
+              ? terminal[kind as keyof typeof terminal]
+              : http[kind as keyof typeof http]
         expect(schema.parse(raw)).toEqual(raw)
         return
       }

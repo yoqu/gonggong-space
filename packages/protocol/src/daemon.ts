@@ -1106,6 +1106,7 @@ export const DaemonFeature = z.enum([
    * rebase `todo`, resolve `paths`, the apply / restore actions.
    */
   'gitOps4',
+  'terminal-v1',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

@@ -1,7 +1,7 @@
 use gonggong::bots::Bot;
 use gonggong::protocol::{
-    DaemonPluginRes, DaemonSkillRes, DaemonToServer, ServerToDaemon, SyncChangesRes, SyncMissingRes, TunnelHead,
-    TunnelOpen, TunnelReset,
+    DaemonPluginRes, DaemonSkillRes, DaemonToServer, ServerToDaemon, SyncChangesRes, SyncMissingRes, TerminalHead,
+    TunnelHead, TunnelOpen, TunnelReset,
 };
 use gonggong::tunnel::{Frame, FrameType};
 use serde::Serialize;
@@ -30,6 +30,7 @@ fn every_shared_fixture_round_trips() {
             ["tunnel", "open"] => round_trip::<TunnelOpen>(&raw, &name),
             ["tunnel", "head"] => round_trip::<TunnelHead>(&raw, &name),
             ["tunnel", "reset"] => round_trip::<TunnelReset>(&raw, &name),
+            ["terminal", "head"] => round_trip::<TerminalHead>(&raw, &name),
             ["http", "sync-changes"] => round_trip::<SyncChangesRes>(&raw, &name),
             ["http", "sync-missing"] => round_trip::<SyncMissingRes>(&raw, &name),
             ["http", "daemon-skill"] => round_trip::<DaemonSkillRes>(&raw, &name),

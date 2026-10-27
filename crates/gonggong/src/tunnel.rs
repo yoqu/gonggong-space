@@ -193,6 +193,10 @@ where
                         }
                     };
                     let port = match &open.target {
+                        TunnelTarget::Terminal { .. } => {
+                            out.reset("terminal transport is not available yet".into()).await;
+                            continue;
+                        }
                         TunnelTarget::Preview { preview_id, port } => {
                             if allow.read().unwrap().get(preview_id) != Some(port) {
                                 out.reset(t!("端口 {port} 未开放预览", port = port)).await;

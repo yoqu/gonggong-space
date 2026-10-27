@@ -47,6 +47,22 @@ const TunnelRequest = z.object({
 })
 
 const PreviewPort = z.object({ previewId: z.string(), port: z.number().int().min(1).max(65535) })
+const TerminalTarget = z.object({
+  action: z.enum(['create', 'attach']),
+  sessionId: z.string().uuid(),
+  groupId: z.string().uuid(),
+  botId: z.string().uuid(),
+  workspace: WorkspaceSpec,
+  cols: z.number().int().min(2).max(500),
+  rows: z.number().int().min(2).max(500),
+  after: z.number().int().nonnegative(),
+})
+const TerminalRequest = z.object({
+  method: z.literal('TERMINAL'),
+  path: z.literal('/'),
+  headers: z.tuple([]),
+  upgrade: z.literal(true),
+})
 
 /**
  * Targets: an open preview's loopback port; the read-only file server over a (group, bot) workspace (files
@@ -56,6 +72,7 @@ const PreviewPort = z.object({ previewId: z.string(), port: z.number().int().min
  * which are started if they do not run unless `launch` is false (background retakes).
  */
 export const TunnelOpen = z.union([
+  TerminalRequest.extend({ terminal: TerminalTarget }),
   TunnelRequest.extend(PreviewPort.shape),
   TunnelRequest.extend({
     snapshot: z.union([
