@@ -77,7 +77,7 @@ describe('terminal workbench integration', () => {
       </>,
     )
     expect(screen.getByText('终端 · 我的 Bot')).toBeTruthy()
-    expect(screen.getByTestId('terminal-body')).toBeTruthy()
+    await screen.findByTestId('terminal-body')
     useWorkbench.getState().setGroup('g2')
     patchTerminalSession('g1', 'b1', sessionId)
     await waitFor(() => expect(useWorkbench.getState().benches.g1?.tabs).toEqual([tab(sessionId)]))

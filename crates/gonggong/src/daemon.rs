@@ -82,6 +82,7 @@ impl Daemon {
                 engine.previews(),
                 opts.home.clone(),
                 engine.tunnel_offered(),
+                engine.terminals(),
             )),
         ];
         if let Some(up) = &upgrader

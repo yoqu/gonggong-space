@@ -16,9 +16,10 @@ import { bots, groupBots, machines, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { currentRepo } from '../workspaces/provision.js'
-import type { TerminalAttachment, TerminalTransport } from './transport.js'
+import { auditTerminal } from './audit.js'
+import type { TerminalAttachment, TerminalDaemonStream, TerminalSessions } from './transport.js'
 
-export type { TerminalAttachment, TerminalTransport } from './transport.js'
+export type { TerminalAttachment, TerminalSessions as TerminalTransport } from './transport.js'
 
 type Session = TerminalDto & {
   userId: string
@@ -45,7 +46,7 @@ export class TerminalService {
 
   constructor(
     private ctx: Context,
-    private transport: TerminalTransport,
+    private transport: TerminalSessions,
   ) {}
 
   private serial<T>(operation: () => Promise<T>): Promise<T> {
@@ -133,8 +134,24 @@ export class TerminalService {
         attached: false,
       }
       this.sessions.set(session.sessionId, session)
+      await auditTerminal(this.ctx as Ctx, {
+        actorUserId: userId, machineId: session.machineId, groupId, botId, sessionId: session.sessionId,
+        action: 'create', workspace: { repo: (await currentRepo(this.ctx as Ctx, groupId, botId))?.id ?? null, cdPath: target.groupBot.cdPath },
+        status: session.status, reason: session.reason,
+      })
       return dto(session)
     })
+  }
+
+  async authorize(userId: string, groupId: string, botId: string) {
+    const target = await this.target(userId, groupId, botId)
+    return {
+      userId,
+      groupId,
+      botId,
+      machineId: target.machine.id,
+      cdPath: target.groupBot.cdPath,
+    }
   }
 
   list(userId: string, groupId: string, botId: string) {
@@ -167,51 +184,94 @@ export class TerminalService {
     return () => this.ctx.hub.off('offline', offline)
   }
 
-  attach(userId: string, sessionId: string, after = 0) {
-    return this.serial(async () => {
-      const session = this.session(sessionId)
-      if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
-      const target = await this.target(userId, session.groupId, session.botId)
-      if (session.machineId !== target.machine.id) {
-        await this.revoke(session)
-        return fail('conflict', '终端已结束，请新建会话')
-      }
-      if (session.status !== 'running') return fail('conflict', '终端已结束，请新建会话')
-      this.requireCapability(target.machine)
-      const open: TerminalOpen = {
-        action: session.attached ? 'attach' : 'create',
-        sessionId,
+  async attach(userId: string, sessionId: string, after = 0) {
+    const session = this.session(sessionId)
+    if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    const target = await this.target(userId, session.groupId, session.botId)
+    if (session.machineId !== target.machine.id) {
+      await this.revoke(session)
+      return fail('conflict', '终端已结束，请新建会话')
+    }
+    if (session.status !== 'running') return fail('conflict', '终端已结束，请新建会话')
+    this.requireCapability(target.machine)
+    const open: TerminalOpen = {
+      action: session.attached ? 'attach' : 'create',
+      sessionId,
+      groupId: session.groupId,
+      botId: session.botId,
+      workspace: {
+        repo: await currentRepo(this.ctx as Ctx, session.groupId, session.botId),
+        cdPath: target.groupBot.cdPath,
+      },
+      cols: session.cols,
+      rows: session.rows,
+      after,
+    }
+    const workspace = { repo: open.workspace.repo?.id ?? null, cdPath: open.workspace.cdPath }
+    session.attached = true
+    try {
+      const attachment = await this.transport.attach(open)
+      await auditTerminal(this.ctx as Ctx, {
+        actorUserId: userId,
+        machineId: session.machineId,
         groupId: session.groupId,
         botId: session.botId,
-        workspace: {
-          repo: await currentRepo(this.ctx as Ctx, session.groupId, session.botId),
-          cdPath: target.groupBot.cdPath,
+        sessionId,
+        action: 'attach',
+        workspace,
+        status: session.status, reason: session.reason,
+      })
+      const relayAttachment: TerminalDaemonStream = {
+        send: (type, payload) => attachment.send(type, payload),
+        subscribe: (onFrame, onDisconnect) => attachment.subscribe(onFrame, onDisconnect),
+        pause: () => attachment.pause(),
+        resume: () => attachment.resume(),
+        close: (reason) => attachment.close(reason),
+        detach: (reason = 'browser detached') => {
+          attachment.detach(reason)
+          if (reason !== 'terminal ended') {
+            void auditTerminal(this.ctx as Ctx, {
+              actorUserId: userId,
+              machineId: session.machineId,
+              groupId: session.groupId,
+              botId: session.botId,
+              sessionId,
+              action: 'detach',
+              workspace,
+              status: session.status,
+              reason: session.reason,
+            }).catch(() => {})
+          }
         },
-        cols: session.cols,
-        rows: session.rows,
-        after,
       }
-      const attachment = await this.transport.attach(open)
-      session.attached = true
-      return { open, attachment, terminal: dto(session) }
-    })
+      return {
+        open,
+        attachment: relayAttachment,
+        terminal: dto(session),
+      }
+    } catch (error) {
+      session.attached = false
+      throw error
+    }
   }
 
-  end(userId: string, sessionId: string) {
-    return this.serial(async () => {
-      const session = this.session(sessionId)
-      if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
-      const target = await this.target(userId, session.groupId, session.botId)
-      if (session.machineId !== target.machine.id) {
-        await this.revoke(session)
-        return fail('conflict', '终端已结束')
-      }
-      if (session.status !== 'running') return fail('conflict', '终端已结束')
-      await this.transport.terminate(sessionId, 'user')
-      session.status = 'closed'
-      session.reason = 'user'
-      return dto(session)
+  async end(userId: string, sessionId: string) {
+    const session = this.session(sessionId)
+    if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    const target = await this.target(userId, session.groupId, session.botId)
+    if (session.machineId !== target.machine.id) {
+      await this.revoke(session)
+      return fail('conflict', '终端已结束')
+    }
+    if (session.status !== 'running') return fail('conflict', '终端已结束')
+    await this.transport.terminate(sessionId, 'user')
+    session.status = 'closed'
+    session.reason = 'user'
+    await auditTerminal(this.ctx as Ctx, {
+      actorUserId: userId, machineId: session.machineId, groupId: session.groupId, botId: session.botId, sessionId,
+      action: 'terminate', workspace: { repo: null, cdPath: null }, status: session.status, reason: session.reason,
     })
+    return dto(session)
   }
 
   owner(userId: string, sessionId: string) {
@@ -246,6 +306,14 @@ export class TerminalService {
     session.exitCode = exitCode
     session.reason = reason
     session.lastActiveAt = this.ctx.now().toISOString()
+    if (status !== 'running') {
+      const session = this.sessions.get(sessionId)
+      if (session) void auditTerminal(this.ctx as Ctx, {
+        actorUserId: null, machineId: session.machineId, groupId: session.groupId, botId: session.botId, sessionId,
+        action: status === 'closed' && reason === 'revoked' ? 'revoke' : 'exit',
+        workspace: { repo: null, cdPath: null }, status, reason,
+      }).catch(() => {})
+    }
     return dto(session)
   }
 }

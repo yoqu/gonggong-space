@@ -21,7 +21,14 @@ class FakeTransport implements TerminalTransport {
   async attach(open: Parameters<TerminalTransport['attach']>[0]): Promise<TerminalAttachment> {
     this.opens.push(open)
     this.attachments += 1
-    return { detach: () => {} }
+    return {
+      detach: () => {},
+      close: () => {},
+      send: async () => {},
+      subscribe: () => () => {},
+      pause: () => {},
+      resume: () => {},
+    }
   }
 
   async terminate(sessionId: string, reason: 'user' | 'revoked') {

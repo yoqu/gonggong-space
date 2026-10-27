@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test'
 import { adminSession, bindManaged, buildDaemon, call, memberWithMachine, SERVER_LOG } from './helpers'
@@ -27,12 +27,17 @@ async function attach(page: Page, groupId: string, botId: string, sessionId: str
   await page.evaluate(
     ({ groupId, botId, sessionId }) => {
       const saved = JSON.parse(localStorage.getItem('gonggong.workbench') ?? '{}')
-      saved.benches = {
-        ...saved.benches,
-        [groupId]: {
-          tabs: [{ kind: 'terminal', botId, sessionId }],
-          active: `terminal:${botId}`,
-          used: { [`terminal:${botId}`]: Date.now() },
+      saved = {
+        ...saved,
+        groupId,
+        open: true,
+        benches: {
+          ...saved.benches,
+          [groupId]: {
+            tabs: [{ kind: 'terminal', botId, sessionId }],
+            active: `terminal:${botId}`,
+            used: { [`terminal:${botId}`]: Date.now() },
+          },
         },
       }
       localStorage.setItem('gonggong.workbench', JSON.stringify(saved))
@@ -84,8 +89,9 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
     m.start()
     await bindManaged(page.request, group.id, [bot.id])
     await page.goto(`/g/${group.id}`)
-    await page.getByRole('button', { name: '新建标签页' }).click()
-    await page.getByRole('menuitem', { name: botName, exact: true }).click()
+    await page.getByRole('button', { name: '工作台', exact: true }).click()
+    await page.getByRole('button', { name: '新建标签页' }).first().click()
+    await page.getByRole('menuitem', { name: botName, exact: true }).and(page.locator('[data-value^="terminal:"]')).click()
     const terminal = page.getByRole('region', { name: '终端', exact: true })
     await expect(terminal).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
 
@@ -102,7 +108,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
       'printf \'GG_REAL tty=%s cwd=%s\\n\' "$(test -t 0 && printf yes)" "$PWD"',
       'GG_REAL tty=yes',
     )
-    const cwd = join(m.home, 'workspaces', group.id, bot.id, '_empty')
+    const cwd = realpathSync(join(m.home, 'workspaces', group.id, bot.id, '_empty'))
     await expect(terminal.locator('.xterm-rows')).toContainText(`cwd=${cwd}`)
 
     await run(page, terminal, "printf 'GG_%s\\n' 'INTERRUPT_READY'; sleep 30", 'GG_INTERRUPT_READY')
@@ -130,7 +136,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
     })
     expect((await other.request.delete(`/api/terminals/${terminalId}`)).status()).toBe(403)
 
-    await run(page, terminal, 'sleep 60 & printf \'GG_%s\\n\' "CHILD=$!"', 'GG_CHILD=')
+    await run(page, terminal, `sleep 60 & printf 'GG_%s\\n' 'CHILD='$!`, 'GG_CHILD=')
     const childPid = Number(
       /GG_CHILD=(\d+)/.exec((await terminal.locator('.xterm-rows').innerText()).replaceAll('\n', ''))?.[1],
     )
@@ -166,8 +172,8 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
 
     await replacement.keyboard.press('Alt+w')
     await expect(reconnected).toHaveCount(0)
-    await replacement.getByRole('button', { name: '新建标签页' }).click()
-    await replacement.getByRole('menuitem', { name: botName, exact: true }).click()
+    await replacement.getByRole('button', { name: '新建标签页' }).first().click()
+    await replacement.getByRole('menuitem', { name: botName, exact: true }).and(page.locator('[data-value^="terminal:"]')).click()
     const eofTerminal = replacement.getByRole('region', { name: '终端', exact: true })
     await expect(eofTerminal).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
     await eofTerminal.locator('.xterm-helper-textarea').focus()

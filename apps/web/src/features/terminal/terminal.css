@@ -49,9 +49,25 @@
 }
 
 .wt-terminal__host {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+.wt-terminal__search {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  width: min(280px, calc(100% - 24px));
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 4px;
+  color: var(--label);
+  background: var(--content-bg);
+  font: inherit;
 }
 
 .wt-terminal__host .xterm {

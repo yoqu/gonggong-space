@@ -24,9 +24,7 @@ const DaemonData = z.object({
 })
 const DaemonHead = z.union([TerminalHead, TerminalDaemonControl])
 
-export interface TerminalAttachment {
-  detach(): void
-}
+export interface TerminalAttachment extends TerminalDaemonStream {}
 
 export interface TerminalSessions {
   attach(open: TerminalOpen): Promise<TerminalAttachment>
@@ -46,6 +44,7 @@ export interface TerminalDaemonStream {
   pause(): void
   resume(): void
   close(reason: string): void
+  detach(reason?: string): void
 }
 
 export type TerminalTransportOptions = {
@@ -139,7 +138,7 @@ export class TerminalRelay {
     if (this.detached) return
     this.detached = true
     this.unsubscribe()
-    this.daemon.close(reason)
+    this.daemon.detach(reason)
     if (this.drainTimer) clearInterval(this.drainTimer)
     this.drainTimer = undefined
     for (const release of this.drainWaiters) release()

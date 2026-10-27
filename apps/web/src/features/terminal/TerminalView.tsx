@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { Terminal } from '@xterm/xterm'
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
@@ -7,23 +8,21 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
 import { Button, Dialog, EmptyState, Presence, Spinner } from '../../ui'
-import { createTerminal, endTerminal, terminalSocketUrl } from './api'
+import { createTerminal, endTerminal, resolveTerminalLink, terminalSocketUrl } from './api'
+import { attachTerminalKeyboard } from './keyboard'
+import { createTerminalLinkProvider } from './links'
+import { TerminalOutputWriter } from './output'
+import { openFileAt } from '../workbench/tabs/DiffTab'
 import '@xterm/xterm/css/xterm.css'
 import './terminal.css'
+import type { TerminalViewProps } from './view'
 
 type Phase = 'loading' | 'running' | 'exited' | 'error'
 type Exit = { code: number | null; reason: string | null } | null
 type Message = { type: 'head' | 'reset' | 'exit'; value: Record<string, unknown> }
 const pendingCreates = new Map<string, Promise<string>>()
 
-export interface TerminalViewProps {
-  sessionId?: string
-  groupId?: string
-  botId?: string
-  active: boolean
-  onSession?: (sessionId: string) => void
-  onExit?: (exitCode: number | null, reason: string | null) => void
-}
+export type { TerminalViewProps } from './view'
 
 function colors() {
   const css = getComputedStyle(document.documentElement)
@@ -99,6 +98,8 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
     let disposed = false
     let attachedSession = sessionId
     let settled = false
+    let attempts = 0
+    let reconnect: ReturnType<typeof setTimeout> | undefined
     const term = new Terminal({
       allowProposedApi: true,
       fontFamily: 'var(--font-mono)',
@@ -110,10 +111,45 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       theme: colors(),
     })
     const fit = new FitAddon()
+    const search = new SearchAddon()
+    const searchBar = document.createElement('input')
+    searchBar.className = 'wt-terminal__search'
+    searchBar.setAttribute('aria-label', t('搜索终端输出'))
+    searchBar.hidden = true
+    searchBar.addEventListener('input', () => search.findNext(searchBar.value, { incremental: true }))
+    searchBar.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        searchBar.hidden = true
+        search.clearDecorations()
+        term.focus()
+      }
+    })
+    el.append(searchBar)
     terminal.current = term
     fitter.current = fit
     term.loadAddon(fit)
+    term.loadAddon(search)
+    const output = new TerminalOutputWriter(term)
+    let after = 0
     term.open(el)
+    const keyboard = attachTerminalKeyboard(term, {
+      host: el,
+      active: () => shown.current,
+      onSearch: () => {
+        searchBar.hidden = !searchBar.hidden
+        if (searchBar.hidden) search.clearDecorations()
+        else searchBar.focus()
+      },
+      onError: () => setError(t('剪贴板不可用，请检查浏览器权限')),
+    })
+    term.registerLinkProvider(createTerminalLinkProvider(term, {
+      openUrl: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+      resolveFile: async (path, line) => {
+        if (!groupId || !botId) return
+        const target = await resolveTerminalLink(groupId, botId, path, line)
+        if (target.exists) openFileAt(botId, target.path, target.line)
+      },
+    }))
 
     const send = (data: string | Uint8Array) => {
       if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(data)
@@ -127,12 +163,14 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
     })
     const finish = (code: number | null, reason: string | null) => {
       settled = true
+      if (reconnect) clearTimeout(reconnect)
       setPhase('exited')
       setExit({ code, reason })
       callbacks.current.onExit?.(code, reason)
     }
     const fail = (message: string) => {
       settled = true
+      if (reconnect) clearTimeout(reconnect)
       setPhase('error')
       setError(message)
     }
@@ -160,24 +198,34 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
         return
       }
       void bytes(event.data).then((data) => {
-        // The first four bytes identify output order; round 6 owns replay.
-        if (!disposed) term.write(data.subarray(4))
+        if (disposed || data.byteLength < 4) return
+        after = new DataView(data.buffer, data.byteOffset, 4).getUint32(0)
+        output.write(data.subarray(4))
       })
     }
     const attach = (id: string) => {
       attachedSession = id
-      const ws = new WebSocket(terminalSocketUrl(id))
+      const ws = new WebSocket(terminalSocketUrl(id, after))
       ws.binaryType = 'arraybuffer'
       socket.current = ws
       ws.onmessage = onMessage
       ws.onopen = () => {
+        attempts = 0
         if (!disposed && shown.current) fit.fit()
       }
+      const retry = () => {
+        if (disposed || settled || reconnect) return
+        setPhase('loading')
+        reconnect = setTimeout(() => {
+          reconnect = undefined
+          if (!disposed && !settled) attach(id)
+        }, Math.min(5_000, 500 * 2 ** attempts++))
+      }
       ws.onerror = () => {
-        if (!disposed) fail(t('终端连接失败，请稍后重试'))
+        retry()
       }
       ws.onclose = (event) => {
-        if (!disposed && !settled && event.code !== 1000) fail(t('终端连接已断开'))
+        if (!disposed && !settled && event.code !== 1000) retry()
       }
       return ws
     }
@@ -217,11 +265,16 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => {
       disposed = true
+      if (reconnect) clearTimeout(reconnect)
       observer.disconnect()
       theme.disconnect()
       input.dispose()
       binary.dispose()
       resize.dispose()
+      keyboard()
+      output.dispose()
+      search.dispose()
+      searchBar.remove()
       socket.current?.close()
       socket.current = null
       term.dispose()

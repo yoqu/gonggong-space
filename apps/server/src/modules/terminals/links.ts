@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { fail } from '../../lib/errors.js'
 
-export type TerminalLinkTarget = { userId: string; groupId: string; botId: string }
+export type TerminalLinkTarget = { userId: string; groupId: string; botId: string; cdPath?: string | null }
 export type TerminalLinkUser = { id: string }
 
 type Options = {

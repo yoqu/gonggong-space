@@ -1,21 +1,27 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
-import { patchTerminalSession, TerminalViewGuard } from '../../terminal/TerminalView'
+import { patchTerminalSession } from '../../terminal/TerminalView'
+import { lazyTerminalUI } from '../../terminal/lazy'
+import type { TerminalViewProps } from '../../terminal/view'
 import type { TabMeta, TabProps } from '../types'
+
+const terminalUI = lazyTerminalUI<TerminalViewProps>(() => import('../../terminal/TerminalView').then((module) => ({ default: module.TerminalViewGuard })))
 
 export function TerminalTab({ tab, active }: TabProps<'terminal'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
   const [initialSession] = useState(tab.sessionId)
   return (
-    <TerminalViewGuard
-      sessionId={initialSession}
-      groupId={groupId}
-      botId={tab.botId}
-      active={active}
-      onSession={(sessionId) => patchTerminalSession(groupId, tab.botId, sessionId)}
-    />
+    <Suspense fallback={null}>
+      <terminalUI.Component
+        sessionId={initialSession}
+        groupId={groupId}
+        botId={tab.botId}
+        active={active}
+        onSession={(sessionId) => patchTerminalSession(groupId, tab.botId, sessionId)}
+      />
+    </Suspense>
   )
 }
 

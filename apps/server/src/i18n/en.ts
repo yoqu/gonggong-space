@@ -434,12 +434,11 @@ export const en = {
   'SKILL.md 的 name 只能用小写字母、数字和连字符，最长 64 个字符':
     'The name in SKILL.md may only use lowercase letters, digits and hyphens, up to 64 characters',
   'SKILL.md 缺少 description（最长 1024 个字符）': 'SKILL.md needs a description (up to 1024 characters)',
-  '文件路径不合法：{path}': 'Invalid file path: {path}',
-  仅机器主人可以使用终端: 'Only the machine owner can use the terminal',
   '文件重复：{path}': 'Duplicate file: {path}',
   '文件内容不是合法的 base64：{path}': 'File content is not valid base64: {path}',
   'Skill 不能超过 5 MB': 'A skill cannot exceed 5 MB',
   '该机器上没有可使用这个 skill 的 Bot': 'No Bot on this machine can use this skill',
+  '文件路径不合法：{path}': 'Invalid file path: {path}',
 
   // Plugins
   插件不存在: 'Plugin not found',

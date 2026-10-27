@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
     opened = false
     focused = 0
     disposed = 0
+    textarea = document.createElement('textarea')
     constructor() {
       Terminal.instances.push(this)
     }
@@ -30,9 +31,15 @@ const mocks = vi.hoisted(() => {
     dispose() {
       this.disposed++
     }
-    write(value: Uint8Array) {
+    write(value: Uint8Array, callback?: () => void) {
       this.writes.push(value)
+      callback?.()
     }
+    attachCustomKeyEventHandler() {}
+    registerLinkProvider() { return { dispose: vi.fn() } }
+    getSelection() { return '' }
+    paste() {}
+    blur() {}
     onData(fn: (value: string) => void) {
       this.data = fn
       return { dispose: vi.fn() }
@@ -77,11 +84,13 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@xterm/xterm', () => ({ Terminal: mocks.Terminal }))
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: mocks.FitAddon }))
+vi.mock('@xterm/addon-search', () => ({ SearchAddon: class { findNext() {} clearDecorations() {} dispose() {} } }))
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 vi.mock('../src/features/terminal/api', () => ({
   createTerminal: mocks.create,
   endTerminal: mocks.end,
-  terminalSocketUrl: (id: string) => `ws://terminals/${id}`,
+  terminalSocketUrl: (id: string, after = 0) => `ws://terminals/${id}${after ? `?after=${after}` : ''}`,
+  resolveTerminalLink: vi.fn(),
 }))
 
 const sessionId = '7ca45f50-93a2-4f7f-b0c1-ff1dd24ef731'
@@ -116,6 +125,10 @@ class Socket {
   close() {
     this.closed++
     this.readyState = 3
+  }
+  disconnect(code = 1013) {
+    this.readyState = 3
+    this.onclose?.({ code } as CloseEvent)
   }
   open() {
     this.readyState = 1
@@ -241,5 +254,28 @@ describe('terminal view', () => {
     render(<TerminalView sessionId={sessionId} groupId="g1" botId="b1" active />)
     expect(mocks.create).not.toHaveBeenCalled()
     expect(lastSocket().url).toBe(`ws://terminals/${sessionId}`)
+  })
+
+  it('reconnects the same session from its last output sequence without creating another PTY', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<TerminalView sessionId={sessionId} active />)
+    const first = lastSocket()
+    act(() => {
+      first.open()
+      first.json({ sessionId, status: 'running', next: 9 })
+      first.data(8, 'hello\r\n')
+      first.disconnect()
+    })
+    expect(screen.getByText('正在连接终端…')).toBeTruthy()
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+    expect(Socket.instances).toHaveLength(2)
+    expect(lastSocket().url).toBe(`ws://terminals/${sessionId}?after=8`)
+    expect(mocks.create).not.toHaveBeenCalled()
+    act(() => {
+      lastSocket().open()
+      lastSocket().json({ sessionId, status: 'running', next: 9 })
+    })
+    expect(screen.getByText('终端运行中')).toBeTruthy()
+    vi.useRealTimers()
   })
 })

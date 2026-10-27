@@ -54,6 +54,10 @@ impl Frame {
 // ── Daemon runtime ───────────────────────────────────────────────────────────
 use crate::config::Config;
 use crate::protocol::{SnapshotTarget, TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use crate::protocol::{TerminalClientControl, TerminalDaemonControl};
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use crate::terminal::{TerminalEvent, TerminalManager};
 use crate::t;
 use crate::wechatide::Shot;
 use anyhow::Context;
@@ -90,7 +94,8 @@ const INBOX: usize = 256;
 
 /// Keeps the tunnel connected for the daemon's lifetime, once a server that serves previews has welcomed it.
 /// `home` locates managed workspaces for the files browser's streams.
-pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio::sync::watch::Receiver<bool>) {
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio::sync::watch::Receiver<bool>, manager: TerminalManager) {
     let mut backoff = Duration::from_secs(1);
     loop {
         if offered.wait_for(|on| *on).await.is_err() {
@@ -99,7 +104,7 @@ pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio
         match crate::tls::connect_tunnel(&config).await {
             Ok(ws) => {
                 backoff = Duration::from_secs(1);
-                if let Err(e) = serve(ws, allow.clone(), home.clone()).await {
+                if let Err(e) = serve_with_terminals(ws, allow.clone(), home.clone(), manager.clone()).await {
                     tracing::debug!("tunnel closed: {e:#}");
                 }
             }
@@ -114,6 +119,62 @@ enum Inbound {
     Data(Bytes),
     End,
     Reset,
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+enum TerminalInbound {
+    Data(Bytes),
+    Control(TerminalClientControl),
+    Detach,
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+async fn terminal_stream(manager: TerminalManager, open: crate::protocol::TerminalOpen, out: Out, mut input: mpsc::Receiver<TerminalInbound>) {
+    use base64::Engine;
+    let result = async {
+        let mut attached = manager.open(open).await.map_err(|e| e.to_string())?;
+        out.json(FrameType::Head, &attached.head).await;
+        for output in attached.replay.drain(..) {
+            let payload = serde_json::json!({ "sessionId": attached.head.session_id, "seq": output.seq, "data": base64::engine::general_purpose::STANDARD.encode(output.data) });
+            if !out.json(FrameType::Data, &payload).await { return Ok(()); }
+        }
+        loop {
+            tokio::select! {
+                event = attached.events.recv() => match event {
+                    Some(TerminalEvent::Output(output)) => {
+                        let payload = serde_json::json!({ "sessionId": attached.head.session_id, "seq": output.seq, "data": base64::engine::general_purpose::STANDARD.encode(output.data) });
+                        if !out.json(FrameType::Data, &payload).await { return Ok(()); }
+                    }
+                    Some(TerminalEvent::Exit { next, exit_code, reason }) => {
+                        let head = manager.head(&attached.head.session_id).await.map_err(|e| e.to_string())?;
+                        out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id: attached.head.session_id.clone(), state: head.status, next, exit_code, reason: Some(reason) }).await;
+                        return Ok(());
+                    }
+                    None => return Ok(()),
+                },
+                inbound = input.recv() => match inbound {
+                    Some(TerminalInbound::Data(data)) => manager.input(&attached.head.session_id, data).await.map_err(|e| e.to_string())?,
+                    Some(TerminalInbound::Control(TerminalClientControl::Resize { session_id, cols, rows })) => {
+                        manager.resize(&session_id, cols, rows).await.map_err(|e| e.to_string())?;
+                    }
+                    Some(TerminalInbound::Control(TerminalClientControl::Terminate { session_id })) => {
+                        let head = manager.terminate(&session_id).await.map_err(|e| e.to_string())?;
+                        out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id, state: head.status, next: head.next, exit_code: head.exit_code, reason: head.reason }).await;
+                        return Ok(());
+                    }
+                    Some(TerminalInbound::Control(TerminalClientControl::Ping { session_id })) => {
+                        out.json(FrameType::Head, &manager.head(&session_id).await.map_err(|e| e.to_string())?).await;
+                    }
+                    Some(TerminalInbound::Detach) | None => return Ok(()),
+                }
+            }
+        }
+    }.await;
+    if let Err(error) = result { out.reset(error).await; }
+}
+
+fn out_for(id: u32, tx: &mpsc::Sender<Frame>) -> Out {
+    Out { id, tx: tx.clone() }
 }
 
 #[derive(Clone)]
@@ -142,6 +203,21 @@ pub async fn serve<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf) -> an
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
+    serve_inner(ws, allow, home, None).await
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+async fn serve_with_terminals<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf, manager: TerminalManager) -> anyhow::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    serve_inner(ws, allow, home, Some(manager)).await
+}
+
+async fn serve_inner<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf, #[cfg(any(target_os = "macos", target_os = "linux"))] manager: Option<TerminalManager>) -> anyhow::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let (mut sink, mut source) = ws.split();
     let (tx, mut rx) = mpsc::channel::<Frame>(OUTBOX);
     let writer = tokio::spawn(async move {
@@ -163,6 +239,8 @@ where
     // File streams take no request body; the server resets one when the browser drops it (media seeking does
     // that a lot), which must stop reading the file.
     let mut cancels: HashMap<u32, oneshot::Sender<()>> = HashMap::new();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let mut terminals: HashMap<u32, mpsc::Sender<TerminalInbound>> = HashMap::new();
     let result = async {
         loop {
             let Ok(next) = tokio::time::timeout(PING_EVERY * 2, source.next()).await else {
@@ -193,8 +271,17 @@ where
                         }
                     };
                     let port = match &open.target {
-                        TunnelTarget::Terminal { .. } => {
-                            out.reset("terminal transport is not available yet".into()).await;
+                        TunnelTarget::Terminal { terminal } => {
+                            #[cfg(any(target_os = "macos", target_os = "linux"))]
+                            {
+                                let (itx, irx) = mpsc::channel(INBOX);
+                                terminals.insert(id, itx);
+                                let manager = manager.clone().expect("terminal manager");
+                                let terminal = (**terminal).clone();
+                                tokio::spawn(async move { terminal_stream(manager, terminal, out, irx).await });
+                            }
+                            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+                            out.reset("terminal transport is unavailable on this platform".into()).await;
                             continue;
                         }
                         TunnelTarget::Preview { preview_id, port } => {
@@ -268,6 +355,11 @@ where
                     });
                 }
                 FrameType::Data => {
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    if let Some(s) = terminals.get(&id) {
+                        let _ = s.send(TerminalInbound::Data(frame.payload)).await;
+                        continue;
+                    }
                     if let Some(s) = streams.get(&id)
                         && let Err(mpsc::error::TrySendError::Full(_)) = s.try_send(Inbound::Data(frame.payload))
                         && let Some(s) = streams.remove(&id)
@@ -285,6 +377,8 @@ where
                     }
                 }
                 FrameType::Reset => {
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    if let Some(s) = terminals.remove(&id) { let _ = s.send(TerminalInbound::Detach).await; }
                     if let Some(s) = streams.remove(&id) {
                         tokio::spawn(async move { s.send(Inbound::Reset).await });
                     }
@@ -292,7 +386,15 @@ where
                         let _ = c.send(());
                     }
                 }
-                FrameType::Head => {}
+                FrameType::Head => {
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    if let Some(s) = terminals.get(&id) {
+                        match serde_json::from_slice::<TerminalClientControl>(&frame.payload) {
+                            Ok(control) => { let _ = s.send(TerminalInbound::Control(control)).await; }
+                            Err(error) => out_for(id, &tx).reset(error.to_string()).await,
+                        }
+                    }
+                }
             }
         }
         anyhow::Ok(())

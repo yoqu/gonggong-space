@@ -13,9 +13,10 @@ export function endTerminal(sessionId: string) {
   return api.del<void>(`/terminals/${sessionId}`)
 }
 
-export function terminalSocketUrl(sessionId: string) {
+export function terminalSocketUrl(sessionId: string, after = 0) {
   const url = new URL(`/ws/terminals/${sessionId}`, window.location.href)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.searchParams.set('after', String(after))
   return url.toString()
 }
 

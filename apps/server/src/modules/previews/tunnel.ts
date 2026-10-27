@@ -36,6 +36,8 @@ export class TunnelHub {
 export class TunnelConn {
   private next = 1
   private streams = new Map<number, TunnelStream>()
+  private terminals = new Map<number, { onFrame: (f: ReturnType<typeof decodeFrame>) => void; onClose: () => void }>()
+  private readonly closeHandlers = new Set<() => void>()
 
   constructor(private ws: WebSocket) {
     ws.on('message', (raw: Buffer, isBinary) => {
@@ -43,7 +45,39 @@ export class TunnelConn {
     })
     ws.on('close', () => {
       for (const s of [...this.streams.values()]) s.fail('daemon 已断开')
+      for (const s of [...this.terminals.values()]) s.onClose()
+      this.terminals.clear()
+      for (const close of this.closeHandlers) close()
     })
+  }
+
+  onClose(handler: () => void) {
+    this.closeHandlers.add(handler)
+    return () => this.closeHandlers.delete(handler)
+  }
+
+  /** Raw terminal frames stay separate from preview streams, whose overload policy resets slow readers. */
+  terminal(
+    open: TunnelOpen,
+    onFrame: (f: ReturnType<typeof decodeFrame>) => void,
+    onClose: () => void,
+  ) {
+    if (this.streams.size + this.terminals.size >= TUNNEL_MAX_STREAMS) throw new Error('too many streams on this machine')
+    const id = this.next
+    this.next = this.next >= 0xffff_fffd ? 1 : this.next + 2
+    this.terminals.set(id, { onFrame, onClose })
+    void this.send(id, TUNNEL_FRAME.open, Buffer.from(JSON.stringify(open))).catch(() => {
+      this.terminals.get(id)?.onClose()
+      this.terminals.delete(id)
+    })
+    return {
+      id,
+      send: (type: TunnelFrameType, payload: Uint8Array = new Uint8Array()) => this.send(id, type, payload),
+      close: (reason: string) => {
+        if (!this.terminals.delete(id)) return
+        void this.send(id, TUNNEL_FRAME.reset, Buffer.from(JSON.stringify({ reason }))).catch(() => {})
+      },
+    }
   }
 
   /** Starts a request (or upgrade) on the daemon; write the request body, then end(). */
@@ -79,6 +113,12 @@ export class TunnelConn {
     try {
       f = decodeFrame(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength))
     } catch {
+      return
+    }
+    const terminal = this.terminals.get(f.streamId)
+    if (terminal) {
+      terminal.onFrame(f)
+      if (f.type === TUNNEL_FRAME.reset) this.terminals.delete(f.streamId)
       return
     }
     const s = this.streams.get(f.streamId)

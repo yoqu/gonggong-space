@@ -111,7 +111,7 @@ describe('preview tunnel (server side)', () => {
     const { conn } = await daemon()
     const hello = conn.open(open('/hello'))
     hello.end()
-    const post = conn.open({ ...open('/echo'), method: 'POST' })
+    const post = conn.open({ ...open('/echo'), method: 'POST' } as TunnelOpen)
     post.write('abc')
     post.end('def')
     expect(await hello.head).toEqual({

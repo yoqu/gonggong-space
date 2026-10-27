@@ -109,6 +109,8 @@ pub(crate) struct Inner {
     /// Agent tools and providers driven from the Web.
     manage: Manage,
     replicas: Arc<Replicas>,
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    terminals: crate::terminal::TerminalManager,
 }
 
 type DiffResult = Result<git::Diff, String>;
@@ -140,6 +142,8 @@ impl Engine {
         let home = config.home.clone();
         let replicas = Replicas::new(home.clone(), config.api.as_ref());
         let manage = Manage::new(home, config.user_home.clone());
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        let terminals = crate::terminal::TerminalManager::new(config.home.clone());
         Engine(Arc::new(Inner {
             config,
             workspaces,
@@ -157,6 +161,8 @@ impl Engine {
             diff_slots: Arc::new(tokio::sync::Semaphore::new(DIFF_SLOTS)),
             manage,
             replicas,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            terminals,
         }))
     }
 
@@ -177,6 +183,11 @@ impl Engine {
     /// Ports the preview tunnel may forward to, kept current by `previews.sync`.
     pub fn previews(&self) -> tunnel::Allow {
         self.0.previews.clone()
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pub fn terminals(&self) -> crate::terminal::TerminalManager {
+        self.0.terminals.clone()
     }
 
     /// `agents.reprobe`: probes the agent again now, whatever is cached, and publishes the new catalog before
@@ -834,7 +845,10 @@ impl Handler for Engine {
     }
 
     fn features(&self) -> Vec<String> {
-        self.0.manage.features()
+        let mut features = self.0.manage.features();
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        features.push(crate::protocol::FEATURE_TERMINAL.into());
+        features
     }
 
     fn report(&self, out: &Outbox) {

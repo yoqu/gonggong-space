@@ -55,6 +55,10 @@ class FakeDaemon implements TerminalDaemonStream {
     this.sendCompleted = true
   }
 
+  detach(reason = 'browser detached') {
+    this.close(reason)
+  }
+
   releaseOne() {
     this.sendGates.shift()?.()
   }
