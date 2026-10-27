@@ -32,12 +32,15 @@ export function terminalRoutes({ ctx, terminals }: { ctx: Ctx; terminals: Termin
         }
       },
     )
-    app.post<PairParams>('/api/groups/:groupId/bots/:botId/terminals', async (req, reply): Promise<TerminalDto> => {
-      const user = await requireUser(ctx, req)
-      const input = TerminalCreateReq.parse(req.body)
-      const terminal = await terminals.create(user.id, req.params.groupId, req.params.botId, input)
-      return reply.status(201).send(terminal)
-    })
+    app.post<PairParams>(
+      '/api/groups/:groupId/bots/:botId/terminals',
+      async (req, reply): Promise<TerminalDto> => {
+        const user = await requireUser(ctx, req)
+        const input = TerminalCreateReq.parse(req.body)
+        const terminal = await terminals.create(user.id, req.params.groupId, req.params.botId, input)
+        return reply.status(201).send(terminal)
+      },
+    )
 
     app.get<PairParams>('/api/groups/:groupId/bots/:botId/terminals', async (req): Promise<TerminalDto[]> => {
       const user = await requireUser(ctx, req)

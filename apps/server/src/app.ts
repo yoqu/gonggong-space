@@ -1,13 +1,15 @@
-import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { join } from 'node:path'
 import type { Writable } from 'node:stream'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
 import { PROTOCOL_VERSION } from '@gonggong/protocol'
+import { eq } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
 import type { Ctx } from './context.js'
 import { daemonGateway } from './daemon/gateway.js'
+import { bots } from './db/schema.js'
 import { localize, type MessageKey, t } from './i18n/index.js'
 import { HttpError } from './lib/errors.js'
 import { originCheck } from './lib/origin.js'
@@ -19,6 +21,7 @@ import { startApprovalTimer } from './modules/approvals/service.js'
 import { attachmentRoutes } from './modules/attachments/routes.js'
 import { feishuAuthRoutes } from './modules/auth/feishu.js'
 import { authRoutes } from './modules/auth/routes.js'
+import { requireUser } from './modules/auth/session.js'
 import { avatarRoutes } from './modules/avatars/routes.js'
 import { botRoutes } from './modules/bots/routes.js'
 import { shareRequestRoutes } from './modules/bots/share-requests.js'
@@ -80,17 +83,13 @@ import { startSyncEngine } from './modules/sync/engine.js'
 import { syncRoutes } from './modules/sync/routes.js'
 import { teamRoutes } from './modules/teams/routes.js'
 import { TerminalDaemonTransport } from './modules/terminals/daemon.js'
+import { terminalLinkRoutes } from './modules/terminals/links.js'
 import { terminalRoutes } from './modules/terminals/routes.js'
 import { TerminalService } from './modules/terminals/sessions.js'
-import { terminalLinkRoutes } from './modules/terminals/links.js'
-import { requireUser } from './modules/auth/session.js'
-import { currentRepo } from './modules/workspaces/provision.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
-import { startWorkspaceEngine } from './modules/workspaces/provision.js'
+import { currentRepo, startWorkspaceEngine } from './modules/workspaces/provision.js'
 import { workspaceRoutes } from './modules/workspaces/routes.js'
-import { bots } from './db/schema.js'
-import { eq } from 'drizzle-orm'
 import { webGateway } from './realtime/gateway.js'
 import type { TlsOptions } from './tls.js'
 
@@ -174,23 +173,33 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   })
   terminals = new TerminalService(ctx, daemonTerminals)
   await app.register(terminalRoutes({ ctx, terminals }))
-  await app.register(terminalLinkRoutes({
-    user: (req) => requireUser(ctx, req),
-    authorize: (userId, groupId, botId) => terminals.authorize(userId, groupId, botId),
-    exists: async (target, file) => {
-      const { groupId, botId } = target
-      const [bot] = await ctx.db.select().from(bots).where(eq(bots.id, botId))
-      if (!bot?.machineId) return false
-      const workspace = { repo: await currentRepo(ctx, groupId, botId), cdPath: target.cdPath ?? null }
-      const result = await ctx.hub.request(
-        bot.machineId,
-        { t: 'files.read', requestId: randomUUID(), groupId, botId, workspace, path: file.path, maxBytes: 0 },
-        'files.read.result',
-        10_000,
-      )
-      return !!result && !result.error
-    },
-  }))
+  await app.register(
+    terminalLinkRoutes({
+      user: (req) => requireUser(ctx, req),
+      authorize: (userId, groupId, botId) => terminals.authorize(userId, groupId, botId),
+      exists: async (target, file) => {
+        const { groupId, botId } = target
+        const [bot] = await ctx.db.select().from(bots).where(eq(bots.id, botId))
+        if (!bot?.machineId) return false
+        const workspace = { repo: await currentRepo(ctx, groupId, botId), cdPath: target.cdPath ?? null }
+        const result = await ctx.hub.request(
+          bot.machineId,
+          {
+            t: 'files.read',
+            requestId: randomUUID(),
+            groupId,
+            botId,
+            workspace,
+            path: file.path,
+            maxBytes: 0,
+          },
+          'files.read.result',
+          10_000,
+        )
+        return !!result && !result.error
+      },
+    }),
+  )
   app.addHook('onClose', terminals.watchDisconnects())
   await app.register(machineRoutes(ctx))
   await app.register(providerRoutes(ctx))

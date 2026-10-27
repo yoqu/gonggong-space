@@ -1,1 +1,16 @@
-{"terminal":{"action":"create","sessionId":"9b22ce47-f2df-44bd-a446-33a9edbd27b1","groupId":"1451b34b-8e35-4550-a359-12405b882ee4","botId":"f612adbb-fb19-4e55-b53b-40945a6c2062","workspace":{"repo":null,"cdPath":null},"cols":80,"rows":24,"after":0},"method":"TERMINAL","path":"/","headers":[],"upgrade":true}
+{
+  "terminal": {
+    "action": "create",
+    "sessionId": "9b22ce47-f2df-44bd-a446-33a9edbd27b1",
+    "groupId": "1451b34b-8e35-4550-a359-12405b882ee4",
+    "botId": "f612adbb-fb19-4e55-b53b-40945a6c2062",
+    "workspace": { "repo": null, "cdPath": null },
+    "cols": 80,
+    "rows": 24,
+    "after": 0
+  },
+  "method": "TERMINAL",
+  "path": "/",
+  "headers": [],
+  "upgrade": true
+}

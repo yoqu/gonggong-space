@@ -8,11 +8,11 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
 import { Button, Dialog, EmptyState, Presence, Spinner } from '../../ui'
+import { openFileAt } from '../workbench/tabs/DiffTab'
 import { createTerminal, endTerminal, resolveTerminalLink, terminalSocketUrl } from './api'
 import { attachTerminalKeyboard } from './keyboard'
 import { createTerminalLinkProvider } from './links'
 import { TerminalOutputWriter } from './output'
-import { openFileAt } from '../workbench/tabs/DiffTab'
 import '@xterm/xterm/css/xterm.css'
 import './terminal.css'
 import type { TerminalViewProps } from './view'
@@ -142,14 +142,16 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       },
       onError: () => setError(t('剪贴板不可用，请检查浏览器权限')),
     })
-    term.registerLinkProvider(createTerminalLinkProvider(term, {
-      openUrl: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
-      resolveFile: async (path, line) => {
-        if (!groupId || !botId) return
-        const target = await resolveTerminalLink(groupId, botId, path, line)
-        if (target.exists) openFileAt(botId, target.path, target.line)
-      },
-    }))
+    term.registerLinkProvider(
+      createTerminalLinkProvider(term, {
+        openUrl: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+        resolveFile: async (path, line) => {
+          if (!groupId || !botId) return
+          const target = await resolveTerminalLink(groupId, botId, path, line)
+          if (target.exists) openFileAt(botId, target.path, target.line)
+        },
+      }),
+    )
 
     const send = (data: string | Uint8Array) => {
       if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(data)
@@ -216,10 +218,13 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       const retry = () => {
         if (disposed || settled || reconnect) return
         setPhase('loading')
-        reconnect = setTimeout(() => {
-          reconnect = undefined
-          if (!disposed && !settled) attach(id)
-        }, Math.min(5_000, 500 * 2 ** attempts++))
+        reconnect = setTimeout(
+          () => {
+            reconnect = undefined
+            if (!disposed && !settled) attach(id)
+          },
+          Math.min(5_000, 500 * 2 ** attempts++),
+        )
       }
       ws.onerror = () => {
         retry()

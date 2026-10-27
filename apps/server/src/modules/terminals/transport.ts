@@ -4,7 +4,7 @@ import {
   TerminalDaemonControl,
   TerminalHead,
   type TerminalOpen,
-  TerminalStatus as TerminalStatusSchema,
+  type TerminalStatus as TerminalStatusSchema,
   TUNNEL_FRAME,
   type TunnelFrameType,
   TunnelReset,

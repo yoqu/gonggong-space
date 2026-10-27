@@ -461,7 +461,10 @@ mod tests {
         }
         assert!(read("logs/daemon.2026-09-23.log").contains("WARN  git     https://[REDACTED]@git.corp/x"));
         let cfg: Value = serde_json::from_str(&read("config.json")).unwrap();
-        assert_eq!(cfg, json!({"server": "https://gonggong.corp", "machineId": "m1", "ownerName": "王磊"}));
+        assert_eq!(
+            cfg,
+            json!({"server": "https://gonggong.corp", "machineId": "m1", "ownerName": "王磊", "tlsTrust": {"kind": "system"}})
+        );
         let local: Value = serde_json::from_str(&read("local.json")).unwrap();
         assert_eq!(local["bots"]["b1"]["model"], "opus");
         assert!(local.get("githubToken").is_none());

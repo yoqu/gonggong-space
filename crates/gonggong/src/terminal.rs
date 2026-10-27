@@ -518,6 +518,12 @@ fn spawn_reader(mut reader: File, events: mpsc::Sender<IoEvent>, cancel: Arc<Ato
                     std::thread::sleep(Duration::from_millis(5));
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                #[cfg(target_os = "linux")]
+                // Linux PTY masters report EIO after the slave closes; wait() supplies the real exit status.
+                Err(error) if error.raw_os_error() == Some(libc::EIO) => {
+                    let _ = events.blocking_send(IoEvent::Eof);
+                    return;
+                }
                 Err(error) => {
                     let _ = events.blocking_send(IoEvent::from(error));
                     return;
@@ -593,7 +599,7 @@ fn validate_size(cols: u16, rows: u16) -> Result<(), TerminalError> {
 }
 
 fn kill_session(root_pid: u32) -> Result<(), String> {
-    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    use sysinfo::{ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, System};
 
     let root = i32::try_from(root_pid).map_err(|_| "invalid shell pid".to_string())?;
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
@@ -602,11 +608,15 @@ fn kill_session(root_pid: u32) -> Result<(), String> {
         system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
         let mut pids = system
             .processes()
-            .keys()
-            .map(|pid| pid.as_u32() as i32)
-            .filter(|pid| unsafe { libc::getsid(*pid) } == root)
+            .values()
+            .filter(|process| unsafe { libc::getsid(process.pid().as_u32() as i32) } == root)
+            .filter(|process| process.status() != ProcessStatus::Zombie && process.status() != ProcessStatus::Dead)
+            .map(|process| process.pid().as_u32() as i32)
             .collect::<Vec<_>>();
-        if pids.is_empty() {
+        // The root may already be a zombie: it is still a valid process-group target even when process enumeration
+        // has stopped reporting it. Signal that group first, then reap descendants in their other job-control groups.
+        pids.push(-root);
+        if pids.len() == 1 {
             return Ok(());
         }
         pids.sort_by_key(|pid| *pid == root);

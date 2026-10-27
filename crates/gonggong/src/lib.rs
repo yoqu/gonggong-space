@@ -46,9 +46,9 @@ pub mod static_site;
 pub mod status;
 pub mod sync;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub mod terminal_lifecycle;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub mod terminal;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod terminal_lifecycle;
 pub mod tls;
 pub mod tools;
 pub mod tunnel;

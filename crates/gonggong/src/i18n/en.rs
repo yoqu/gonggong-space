@@ -1,4 +1,36 @@
 pub(super) const EN: &[(&str, &str)] = &[
+    (
+        "证书指纹格式错误，应为 sha256:AB:CD:…（64 位十六进制）",
+        "Invalid certificate fingerprint; expected sha256:AB:CD:... (64 hexadecimal digits)",
+    ),
+    ("无法读取 CA 证书文件 {path}", "Couldn't read CA certificate file {path}"),
+    (
+        "服务器证书指纹不匹配，拒绝连接：期望 {pin}，实际 {actual}",
+        "Server certificate fingerprint mismatch; expected {pin}, got {actual}",
+    ),
+    (
+        "无法加载系统 CA 证书，请使用 --ca-file 或 --fingerprint 显式信任服务器证书",
+        "Couldn't load system CA certificates; use --ca-file or --fingerprint to trust the server certificate explicitly",
+    ),
+    ("CA 证书文件格式错误：{path}", "Invalid CA certificate file: {path}"),
+    ("CA 证书文件没有可用证书：{path}", "No usable certificate in CA file: {path}"),
+    ("服务器地址无效：{server}", "Invalid server address: {server}"),
+    (
+        "只允许通过 https:// 连接非本机服务器：{server}",
+        "Non-local servers must use https://: {server}",
+    ),
+    (
+        "不支持的服务器协议 {scheme}://，请使用 https://",
+        "Unsupported server protocol {scheme}://; use https://",
+    ),
+    (
+        "警告：{env}=1，已关闭服务器证书校验，连接可被中间人冒充。只可用于本地开发！",
+        "Warning: {env}=1 disables server certificate verification. A man-in-the-middle can impersonate the server. Local development only!",
+    ),
+    (
+        "本机配置缺少服务器证书信任设置（tlsTrust），请重新执行 gg login",
+        "The local configuration has no server certificate trust setting (tlsTrust); run gg login again",
+    ),
     ("不支持用 {app} 打开", "Can't open with {app}"),
     ("本机没有安装 {app}", "{app} is not installed on this machine"),
     ("工作区目录不存在：{path}", "The workspace directory doesn't exist: {path}"),

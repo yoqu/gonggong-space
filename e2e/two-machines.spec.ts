@@ -138,7 +138,9 @@ test('two machines: switch, distribute both ways, merge, conflict, hand edit, of
     const code = async () => (await call<{ code: string }>(api, 'post', '/api/bind-codes')).code
     local.login(await code(), join(dir, 'cert.pem'))
     local.start()
-    ssh(`cd ~/${RDIR} && ${renv} ./gg login --server ${base} --code ${await code()} --ca-file ~/${RDIR}/cert.pem`)
+    ssh(
+      `cd ~/${RDIR} && ${renv} ./gg login --server ${base} --code ${await code()} --ca-file ~/${RDIR}/cert.pem`,
+    )
     remoteStart()
     const machines = async () =>
       call<{ id: string; online: boolean; name: string }[]>(api, 'get', '/api/machines')

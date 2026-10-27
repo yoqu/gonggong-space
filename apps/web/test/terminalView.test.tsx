@@ -36,8 +36,12 @@ const mocks = vi.hoisted(() => {
       callback?.()
     }
     attachCustomKeyEventHandler() {}
-    registerLinkProvider() { return { dispose: vi.fn() } }
-    getSelection() { return '' }
+    registerLinkProvider() {
+      return { dispose: vi.fn() }
+    }
+    getSelection() {
+      return ''
+    }
     paste() {}
     blur() {}
     onData(fn: (value: string) => void) {
@@ -84,7 +88,13 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@xterm/xterm', () => ({ Terminal: mocks.Terminal }))
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: mocks.FitAddon }))
-vi.mock('@xterm/addon-search', () => ({ SearchAddon: class { findNext() {} clearDecorations() {} dispose() {} } }))
+vi.mock('@xterm/addon-search', () => ({
+  SearchAddon: class {
+    findNext() {}
+    clearDecorations() {}
+    dispose() {}
+  },
+}))
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 vi.mock('../src/features/terminal/api', () => ({
   createTerminal: mocks.create,

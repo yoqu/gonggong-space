@@ -175,7 +175,7 @@ export const isFrameKey = (key: string) => key.startsWith('web:') || key.startsW
 
 const empty = (): Bench => ({ tabs: [], active: null, used: {} })
 
-type Saved = Pick<WorkbenchState, 'mode' | 'benches'>
+type Saved = Pick<WorkbenchState, 'open' | 'mode' | 'benches'>
 
 const load = (): Partial<Saved> => {
   try {
@@ -187,7 +187,7 @@ const load = (): Partial<Saved> => {
 
 const save = (s: Saved) => {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ mode: s.mode, benches: s.benches }))
+    localStorage.setItem(STORE_KEY, JSON.stringify({ open: s.open, mode: s.mode, benches: s.benches }))
   } catch {
     // storage unavailable (private mode): tabs last for this page only
   }
@@ -213,13 +213,13 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
   }
   return {
     groupId: null,
-    open: false,
+    open: saved.open === true,
     mode: saved.mode === 'focus' || saved.mode === 'split' ? saved.mode : 'split',
     previous: 'split',
     benches: saved.benches ?? {},
     setGroup: (groupId) => {
       const bench = groupId ? get().benches[groupId] : undefined
-      set({ groupId, open: !!bench?.tabs.length && get().open })
+      set({ groupId, open: groupId ? !!bench?.tabs.length && get().open : get().open })
     },
     show: (tab) => {
       const key = tabKey(tab)
@@ -275,7 +275,10 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
       })
       const { groupId, benches } = get()
       // Closing the last tab hides the workbench; an empty one is only shown when asked for (to add a tab).
-      if (groupId && !benches[groupId]?.tabs.length) set({ open: false })
+      if (groupId && !benches[groupId]?.tabs.length) {
+        set({ open: false })
+        save(get())
+      }
     },
     closeAll: () => update(empty, { open: false }),
     closeOthers: (key) =>
@@ -291,7 +294,10 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
         if (moved) tabs.splice(to, 0, moved)
         return { ...b, tabs }
       }),
-    setOpen: (open) => set({ open }),
+    setOpen: (open) => {
+      set({ open })
+      save(get())
+    },
     setMode: (mode) => {
       const { mode: current } = get()
       set({ mode, previous: mode === 'full' ? current : get().previous })

@@ -303,17 +303,20 @@ async fn terminate_kills_background_children_in_other_job_control_groups() {
     assert_eq!(unsafe { libc::kill(pid, 0) }, 0);
 
     fixture.manager.terminate(&open.session_id).await.unwrap();
-    timeout(Duration::from_secs(5), async {
-        while unsafe { libc::kill(pid, 0) } == 0 {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap();
+    assert!(!process_is_running(pid));
     let head = head(&fixture.manager, &open.session_id).await;
     assert_eq!(head.status, TerminalStatus::Closed);
     assert_eq!(head.reason, Some(TerminalEndReason::User));
     fixture.manager.terminate(&open.session_id).await.unwrap();
+}
+
+fn process_is_running(pid: i32) -> bool {
+    #[cfg(target_os = "linux")]
+    if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+        // A container's PID 1 need not reap orphaned test children. A zombie has already exited.
+        return stat.rsplit(") ").next().and_then(|rest| rest.chars().next()) != Some('Z');
+    }
+    unsafe { libc::kill(pid, 0) == 0 }
 }
 
 #[tokio::test]
@@ -332,7 +335,7 @@ async fn attach_cannot_cross_group_or_bot_boundaries() {
 
 #[tokio::test]
 async fn idle_shells_and_their_process_trees_are_reaped() {
-    let fixture = Fixture::with_idle_timeout(Duration::from_secs(2));
+    let fixture = Fixture::with_idle_timeout(Duration::from_secs(5));
     let (open, mut attachment) = fixture.create().await;
     bash(&fixture.manager, &open.session_id, &mut attachment).await;
     command(&fixture.manager, &open.session_id, &mut attachment, "sleep 30 & printf '%s' $! > idle.pid").await;

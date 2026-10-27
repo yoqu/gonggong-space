@@ -1,11 +1,12 @@
 import {
   TerminalDaemonControl,
-  TerminalHead,
-  TUNNEL_FRAME,
   type TerminalEndReason,
+  TerminalHead,
   type TerminalOpen,
   type TerminalStatus,
+  TUNNEL_FRAME,
   type TunnelFrameType,
+  TunnelReset,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -24,13 +25,17 @@ type State = {
   exitCode: number | null
   reason: z.infer<typeof TerminalEndReason> | null
 }
-type DaemonStream = { send(type: TunnelFrameType, payload?: Uint8Array): Promise<void>; close(reason: string): void }
+type DaemonStream = {
+  send(type: TunnelFrameType, payload?: Uint8Array): Promise<void>
+  close(reason: string): void
+}
 
 class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
   private frameListener?: (frame: TerminalDaemonFrame) => void
   private disconnectListener?: (reason: TerminalDaemonDisconnect) => void
-  private paused = false
+  private paused = true
   private pending: TerminalDaemonFrame[] = []
+  private pendingBytes = 0
   private ended?: { resolve: () => void; reject: (error: Error) => void }
   private closed = false
   readonly termination: Promise<void>
@@ -38,8 +43,9 @@ class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
   constructor(
     private stream: DaemonStream,
     private sessionId: string,
+    readonly machineId: string,
     private onState: (sessionId: string, state: State) => void,
-    private onClose: (sessionId: string) => void,
+    private onClose: (sessionId: string, terminal: DaemonTerminal) => void,
   ) {
     this.termination = new Promise((resolve, reject) => {
       this.ended = { resolve, reject }
@@ -51,9 +57,13 @@ class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
     return this.stream.send(type, payload)
   }
 
-  subscribe(onFrame: (frame: TerminalDaemonFrame) => void, onDisconnect: (reason: TerminalDaemonDisconnect) => void) {
+  subscribe(
+    onFrame: (frame: TerminalDaemonFrame) => void,
+    onDisconnect: (reason: TerminalDaemonDisconnect) => void,
+  ) {
     this.frameListener = onFrame
     this.disconnectListener = onDisconnect
+    this.resume()
     return () => {
       this.frameListener = undefined
       this.disconnectListener = undefined
@@ -61,25 +71,36 @@ class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
   }
 
   frame(frame: TerminalDaemonFrame) {
+    if (this.closed) return
     try {
       if (frame.type === TUNNEL_FRAME.head) {
-        const value = z.union([TerminalHead, TerminalDaemonControl]).parse(JSON.parse(Buffer.from(frame.payload).toString()))
+        const value = z
+          .union([TerminalHead, TerminalDaemonControl])
+          .parse(JSON.parse(Buffer.from(frame.payload).toString()))
         if (value.sessionId !== this.sessionId) throw new Error('wrong terminal session')
         const status = 'status' in value ? value.status : value.state
         if (status !== 'running') {
           this.onState(this.sessionId, { status, exitCode: value.exitCode, reason: value.reason })
           this.closed = true
-          this.onClose(this.sessionId)
+          this.onClose(this.sessionId, this)
+          this.stream.close('terminal ended')
           this.ended?.resolve()
         }
       } else if (frame.type === TUNNEL_FRAME.reset) {
-        this.disconnected()
+        const { reason } = TunnelReset.parse(JSON.parse(Buffer.from(frame.payload).toString()))
+        this.disconnected(reason)
         return
       }
-      if (this.paused) this.pending.push(frame)
-      else this.frameListener?.(frame)
-    } catch {
-      this.disconnected()
+      if (this.paused) {
+        this.pendingBytes += frame.payload.byteLength
+        if (this.pendingBytes > 4 * 1024 * 1024) {
+          this.disconnected()
+          return
+        }
+        this.pending.push(frame)
+      } else this.frameListener?.(frame)
+    } catch (error) {
+      this.disconnected(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -89,7 +110,11 @@ class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
 
   resume() {
     this.paused = false
-    for (const frame of this.pending.splice(0)) this.frameListener?.(frame)
+    for (const frame of this.pending.splice(0)) {
+      this.pendingBytes -= frame.payload.byteLength
+      this.frameListener?.(frame)
+    }
+    this.pendingBytes = 0
   }
 
   close(reason: string) {
@@ -97,19 +122,24 @@ class DaemonTerminal implements TerminalDaemonStream, TerminalAttachment {
   }
 
   detach(reason = 'browser detached') {
-    if (this.closed) return
-    this.closed = true
-    this.onClose(this.sessionId)
-    this.stream.close(reason)
-    this.ended?.reject(new Error('终端连接已断开'))
+    this.frameListener = undefined
+    this.disconnectListener = undefined
+    this.pending = []
+    this.pendingBytes = 0
+    this.paused = false
+    // The live daemon stream remains available as the explicit terminate control channel.
+    if (this.closed) this.stream.close(reason)
   }
 
-  disconnected() {
+  disconnected(reason = 'daemon 已断开') {
     if (this.closed) return
     this.closed = true
-    this.onClose(this.sessionId)
+    this.pending = []
+    this.pendingBytes = 0
+    this.onClose(this.sessionId, this)
+    this.stream.close('daemon disconnected')
     this.disconnectListener?.('daemon_disconnected')
-    this.ended?.reject(new Error('daemon 已断开'))
+    this.ended?.reject(new Error(reason))
   }
 }
 
@@ -123,25 +153,32 @@ export class TerminalDaemonTransport implements TerminalSessions {
   ) {}
 
   async attach(open: TerminalOpen): Promise<TerminalAttachment> {
-    const [bot] = await this.ctx.db.select({ machineId: bots.machineId }).from(bots).where(eq(bots.id, open.botId))
+    const [bot] = await this.ctx.db
+      .select({ machineId: bots.machineId })
+      .from(bots)
+      .where(eq(bots.id, open.botId))
     const machineId = bot?.machineId
     const conn = machineId ? this.ctx.tunnels.get(machineId) : undefined
-    if (!conn) throw new Error('daemon 已断开')
-    if (machineId && !this.watches.has(machineId)) {
-      this.watches.set(
-        machineId,
-        conn.onClose(() => {
-          for (const terminal of this.streams.values()) terminal.disconnected()
-        }),
-      )
-    }
+    if (!conn || !machineId) throw new Error('daemon 已断开')
+    this.watches.get(machineId)?.()
+    this.watches.set(
+      machineId,
+      conn.onClose(() => {
+        for (const terminal of [...this.streams.values()])
+          if (terminal.machineId === machineId) terminal.disconnected()
+      }),
+    )
     let terminal!: DaemonTerminal
     const stream = conn.terminal(
       { terminal: open, method: 'TERMINAL', path: '/', headers: [], upgrade: true },
       (frame) => terminal.frame({ type: frame.type, payload: frame.payload }),
       () => terminal.disconnected(),
     )
-    terminal = new DaemonTerminal(stream, open.sessionId, this.onState, (sessionId) => this.streams.delete(sessionId))
+    terminal = new DaemonTerminal(stream, open.sessionId, machineId, this.onState, (sessionId, ended) => {
+      if (this.streams.get(sessionId) === ended) this.streams.delete(sessionId)
+    })
+    // Reattaching replaces only the old transport; the daemon detaches that stream without killing its PTY.
+    this.streams.get(open.sessionId)?.disconnected()
     this.streams.set(open.sessionId, terminal)
     return terminal
   }
@@ -162,7 +199,7 @@ export class TerminalDaemonTransport implements TerminalSessions {
         }),
       ])
     } catch (error) {
-      terminal.detach('terminate failed')
+      terminal.disconnected()
       throw error
     } finally {
       if (timeout) clearTimeout(timeout)

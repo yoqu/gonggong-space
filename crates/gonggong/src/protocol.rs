@@ -1764,7 +1764,7 @@ pub struct TerminalHead {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum TerminalClientControl {
     Resize { session_id: String, cols: u16, rows: u16 },
     Terminate { session_id: String },
@@ -1772,7 +1772,7 @@ pub enum TerminalClientControl {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
+#[serde(tag = "op", rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum TerminalDaemonControl {
     State {
         session_id: String,

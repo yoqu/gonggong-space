@@ -138,6 +138,10 @@ async fn wait_for_file(path: &Path) {
 }
 
 fn process_exists(pid: i32) -> bool {
+    #[cfg(target_os = "linux")]
+    if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+        return stat.rsplit(") ").next().and_then(|rest| rest.chars().next()) != Some('Z');
+    }
     unsafe { libc::kill(pid, 0) == 0 }
 }
 
@@ -193,13 +197,7 @@ async fn explicit_terminate_kills_the_shell_and_its_background_process_tree() {
     assert!(process_exists(pid));
 
     shell.manager.terminate(&shell.open.session_id).await.unwrap();
-    timeout(Duration::from_secs(5), async {
-        while process_exists(pid) {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap();
+    assert!(!process_exists(pid));
     let head = shell.manager.head(&shell.open.session_id).await.unwrap();
     assert_eq!(head.status, TerminalStatus::Closed);
     assert_eq!(head.reason, Some(TerminalEndReason::User));

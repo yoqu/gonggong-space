@@ -1,0 +1,8 @@
+{
+  "op": "exit",
+  "sessionId": "4bd950d1-3802-42d8-ae88-c8db0bd842e1",
+  "state": "closed",
+  "next": 42,
+  "exitCode": null,
+  "reason": "user"
+}

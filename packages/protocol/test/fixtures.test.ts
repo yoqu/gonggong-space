@@ -11,6 +11,8 @@ import {
   ServerToDaemon,
   SyncChangesRes,
   SyncMissingRes,
+  TerminalClientControl,
+  TerminalDaemonControl,
   TerminalHead,
   TunnelHead,
   TunnelOpen,
@@ -20,7 +22,11 @@ import {
 const dir = join(import.meta.dirname, '../fixtures')
 const schemas = { d2s: DaemonToServer, s2d: ServerToDaemon }
 const tunnel = { open: TunnelOpen, head: TunnelHead, reset: TunnelReset }
-const terminal = { head: TerminalHead }
+const terminal = {
+  head: TerminalHead,
+  'client-control': TerminalClientControl,
+  'daemon-control': TerminalDaemonControl,
+}
 /** Machine-token REST bodies the daemon parses. */
 const http = {
   'daemon-bots': z.array(DaemonBotDto),

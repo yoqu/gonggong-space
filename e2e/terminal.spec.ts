@@ -27,7 +27,7 @@ async function attach(page: Page, groupId: string, botId: string, sessionId: str
   await page.evaluate(
     ({ groupId, botId, sessionId }) => {
       const saved = JSON.parse(localStorage.getItem('gonggong.workbench') ?? '{}')
-      saved = {
+      Object.assign(saved, {
         ...saved,
         groupId,
         open: true,
@@ -39,7 +39,7 @@ async function attach(page: Page, groupId: string, botId: string, sessionId: str
             used: { [`terminal:${botId}`]: Date.now() },
           },
         },
-      }
+      })
       localStorage.setItem('gonggong.workbench', JSON.stringify(saved))
     },
     { groupId, botId, sessionId },
@@ -69,6 +69,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
   const { m, api } = await memberWithMachine(page, `term${tag}`)
   const otherContext = await browser.newContext({ baseURL: test.info().project.use.baseURL })
   const other = await otherContext.newPage()
+  const ownerContext = await browser.newContext({ baseURL: test.info().project.use.baseURL })
   let terminalId: string | undefined
   let cleanup: APIRequestContext = page.request
   try {
@@ -91,7 +92,10 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
     await page.goto(`/g/${group.id}`)
     await page.getByRole('button', { name: '工作台', exact: true }).click()
     await page.getByRole('button', { name: '新建标签页' }).first().click()
-    await page.getByRole('menuitem', { name: botName, exact: true }).and(page.locator('[data-value^="terminal:"]')).click()
+    await page
+      .getByRole('menuitem', { name: botName, exact: true })
+      .and(page.locator('[data-value^="terminal:"]'))
+      .click()
     const terminal = page.getByRole('region', { name: '终端', exact: true })
     await expect(terminal).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
 
@@ -144,7 +148,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
     expect(processExists(childPid)).toBe(true)
 
     await page.close()
-    const replacement = await otherContext.newPage()
+    const replacement = await ownerContext.newPage()
     cleanup = replacement.request
     await replacement.request.post('/api/auth/login', {
       data: { account: `term${tag}`, password: 'member-pass' },
@@ -172,8 +176,12 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
 
     await replacement.keyboard.press('Alt+w')
     await expect(reconnected).toHaveCount(0)
+    await replacement.getByRole('button', { name: '工作台', exact: true }).click()
     await replacement.getByRole('button', { name: '新建标签页' }).first().click()
-    await replacement.getByRole('menuitem', { name: botName, exact: true }).and(page.locator('[data-value^="terminal:"]')).click()
+    await replacement
+      .getByRole('menuitem', { name: botName, exact: true })
+      .and(replacement.locator('[data-value^="terminal:"]'))
+      .click()
     const eofTerminal = replacement.getByRole('region', { name: '终端', exact: true })
     await expect(eofTerminal).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
     await eofTerminal.locator('.xterm-helper-textarea').focus()
@@ -187,6 +195,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
   } finally {
     if (terminalId) await cleanup.delete(`/api/terminals/${terminalId}`).catch(() => {})
     m.stop()
+    await ownerContext.close()
     await otherContext.close()
   }
 })

@@ -56,9 +56,9 @@ use crate::config::Config;
 use crate::protocol::{SnapshotTarget, TunnelHead, TunnelOpen, TunnelReset, TunnelTarget};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 use crate::protocol::{TerminalClientControl, TerminalDaemonControl};
+use crate::t;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 use crate::terminal::{TerminalEvent, TerminalManager};
-use crate::t;
 use crate::wechatide::Shot;
 use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
@@ -95,7 +95,13 @@ const INBOX: usize = 256;
 /// Keeps the tunnel connected for the daemon's lifetime, once a server that serves previews has welcomed it.
 /// `home` locates managed workspaces for the files browser's streams.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub async fn run(config: Config, allow: Allow, home: PathBuf, mut offered: tokio::sync::watch::Receiver<bool>, manager: TerminalManager) {
+pub async fn run(
+    config: Config,
+    allow: Allow,
+    home: PathBuf,
+    mut offered: tokio::sync::watch::Receiver<bool>,
+    manager: TerminalManager,
+) {
     let mut backoff = Duration::from_secs(1);
     loop {
         if offered.wait_for(|on| *on).await.is_err() {
@@ -129,7 +135,12 @@ enum TerminalInbound {
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-async fn terminal_stream(manager: TerminalManager, open: crate::protocol::TerminalOpen, out: Out, mut input: mpsc::Receiver<TerminalInbound>) {
+async fn terminal_stream(
+    manager: TerminalManager,
+    open: crate::protocol::TerminalOpen,
+    out: Out,
+    mut input: mpsc::Receiver<TerminalInbound>,
+) {
     use base64::Engine;
     let result = async {
         let mut attached = manager.open(open).await.map_err(|e| e.to_string())?;
@@ -170,7 +181,9 @@ async fn terminal_stream(manager: TerminalManager, open: crate::protocol::Termin
             }
         }
     }.await;
-    if let Err(error) = result { out.reset(error).await; }
+    if let Err(error) = result {
+        out.reset(error).await;
+    }
 }
 
 fn out_for(id: u32, tx: &mpsc::Sender<Frame>) -> Out {
@@ -207,14 +220,24 @@ where
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-async fn serve_with_terminals<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf, manager: TerminalManager) -> anyhow::Result<()>
+async fn serve_with_terminals<S>(
+    ws: WebSocketStream<S>,
+    allow: Allow,
+    home: PathBuf,
+    manager: TerminalManager,
+) -> anyhow::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     serve_inner(ws, allow, home, Some(manager)).await
 }
 
-async fn serve_inner<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf, #[cfg(any(target_os = "macos", target_os = "linux"))] manager: Option<TerminalManager>) -> anyhow::Result<()>
+async fn serve_inner<S>(
+    ws: WebSocketStream<S>,
+    allow: Allow,
+    home: PathBuf,
+    #[cfg(any(target_os = "macos", target_os = "linux"))] manager: Option<TerminalManager>,
+) -> anyhow::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -378,7 +401,9 @@ where
                 }
                 FrameType::Reset => {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
-                    if let Some(s) = terminals.remove(&id) { let _ = s.send(TerminalInbound::Detach).await; }
+                    if let Some(s) = terminals.remove(&id) {
+                        let _ = s.send(TerminalInbound::Detach).await;
+                    }
                     if let Some(s) = streams.remove(&id) {
                         tokio::spawn(async move { s.send(Inbound::Reset).await });
                     }
@@ -386,11 +411,14 @@ where
                         let _ = c.send(());
                     }
                 }
-                FrameType::Head => {
+                FrameType::Head =>
+                {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     if let Some(s) = terminals.get(&id) {
                         match serde_json::from_slice::<TerminalClientControl>(&frame.payload) {
-                            Ok(control) => { let _ = s.send(TerminalInbound::Control(control)).await; }
+                            Ok(control) => {
+                                let _ = s.send(TerminalInbound::Control(control)).await;
+                            }
                             Err(error) => out_for(id, &tx).reset(error.to_string()).await,
                         }
                     }

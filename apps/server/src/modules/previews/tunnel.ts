@@ -36,7 +36,10 @@ export class TunnelHub {
 export class TunnelConn {
   private next = 1
   private streams = new Map<number, TunnelStream>()
-  private terminals = new Map<number, { onFrame: (f: ReturnType<typeof decodeFrame>) => void; onClose: () => void }>()
+  private terminals = new Map<
+    number,
+    { onFrame: (f: ReturnType<typeof decodeFrame>) => void; onClose: () => void }
+  >()
   private readonly closeHandlers = new Set<() => void>()
 
   constructor(private ws: WebSocket) {
@@ -57,12 +60,9 @@ export class TunnelConn {
   }
 
   /** Raw terminal frames stay separate from preview streams, whose overload policy resets slow readers. */
-  terminal(
-    open: TunnelOpen,
-    onFrame: (f: ReturnType<typeof decodeFrame>) => void,
-    onClose: () => void,
-  ) {
-    if (this.streams.size + this.terminals.size >= TUNNEL_MAX_STREAMS) throw new Error('too many streams on this machine')
+  terminal(open: TunnelOpen, onFrame: (f: ReturnType<typeof decodeFrame>) => void, onClose: () => void) {
+    if (this.streams.size + this.terminals.size >= TUNNEL_MAX_STREAMS)
+      throw new Error('too many streams on this machine')
     const id = this.next
     this.next = this.next >= 0xffff_fffd ? 1 : this.next + 2
     this.terminals.set(id, { onFrame, onClose })

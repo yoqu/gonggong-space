@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { bots, groupBots, groupMembers, groupRepos, machines, users } from '../src/db/schema.js'
 import { terminalRoutes } from '../src/modules/terminals/routes.js'
 import {
-  TerminalService,
   type TerminalAttachment,
+  TerminalService,
   type TerminalTransport,
 } from '../src/modules/terminals/sessions.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -132,7 +132,9 @@ describe('terminal ownership and target resolution', () => {
   })
 
   it('resolves the current repo and /cd binding at attach time, never from client cwd', async () => {
-    await t.db.insert(groupRepos).values({ groupId: group.id, url: 'git@host:team/repo.git', baseBranch: 'main' })
+    await t.db
+      .insert(groupRepos)
+      .values({ groupId: group.id, url: 'git@host:team/repo.git', baseBranch: 'main' })
     await t.db
       .update(groupBots)
       .set({ workspaceKind: 'cd', cdPath: '/owner/current-workspace' })
@@ -173,7 +175,10 @@ describe('terminal ownership and target resolution', () => {
     await service.attach(owner.id, created.sessionId)
     await service.attach(owner.id, created.sessionId)
     expect(transport.opens.map((open) => (open as { action: string }).action)).toEqual(['create', 'attach'])
-    expect(await service.owner(owner.id, created.sessionId)).toMatchObject({ userId: owner.id, machineId: machine.id })
+    expect(await service.owner(owner.id, created.sessionId)).toMatchObject({
+      userId: owner.id,
+      machineId: machine.id,
+    })
   })
 })
 
@@ -231,7 +236,9 @@ describe('terminal capabilities and session lifecycle', () => {
       throw new Error('daemon did not confirm termination')
     }
     await expect(service.end(owner.id, next.sessionId)).rejects.toThrow('daemon did not confirm')
-    expect((await service.list(owner.id, group.id, bot.id)).find((s) => s.sessionId === next.sessionId)).toMatchObject({
+    expect(
+      (await service.list(owner.id, group.id, bot.id)).find((s) => s.sessionId === next.sessionId),
+    ).toMatchObject({
       status: 'running',
     })
   })
@@ -257,7 +264,9 @@ describe('terminal capabilities and session lifecycle', () => {
     const created = await session()
     await t.db.update(machines).set({ revokedAt: now }).where(eq(machines.id, machine.id))
     await expect(service.attach(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'forbidden' })
-    await expect(service.create(owner.id, group.id, bot.id, create)).rejects.toMatchObject({ code: 'forbidden' })
+    await expect(service.create(owner.id, group.id, bot.id, create)).rejects.toMatchObject({
+      code: 'forbidden',
+    })
     expect((await service.list(owner.id, group.id, bot.id))[0]).toMatchObject({
       status: 'closed',
       reason: 'revoked',
@@ -268,6 +277,27 @@ describe('terminal capabilities and session lifecycle', () => {
     await t.db.update(users).set({ disabledAt: now }).where(eq(users.id, owner.id))
     await expect(service.attach(owner.id, next.sessionId)).rejects.toMatchObject({ code: 'forbidden' })
     expect(transport.terminated).toContain(next.sessionId)
+  })
+
+  it('does not report a revoked shell as closed before daemon confirmation', async () => {
+    const created = await session()
+    let fail = true
+    transport.terminate = async (sessionId) => {
+      transport.terminated.push(sessionId)
+      if (fail) throw new Error('daemon did not confirm termination')
+    }
+
+    await t.db.update(machines).set({ revokedAt: now }).where(eq(machines.id, machine.id))
+
+    await expect(service.attach(owner.id, created.sessionId)).rejects.toThrow(
+      'daemon did not confirm termination',
+    )
+    fail = false
+    expect((await service.list(owner.id, group.id, bot.id))[0]).toMatchObject({
+      status: 'closed',
+      reason: 'revoked',
+    })
+    expect(transport.terminated).toEqual([created.sessionId, created.sessionId])
   })
 })
 

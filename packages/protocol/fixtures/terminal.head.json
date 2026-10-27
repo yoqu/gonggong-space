@@ -1,1 +1,11 @@
-{"sessionId":"9b22ce47-f2df-44bd-a446-33a9edbd27b1","status":"running","cols":80,"rows":24,"next":1,"createdAt":"2026-10-27T08:00:00.000Z","lastActiveAt":"2026-10-27T08:00:00.000Z","exitCode":null,"reason":null}
+{
+  "sessionId": "9b22ce47-f2df-44bd-a446-33a9edbd27b1",
+  "status": "running",
+  "cols": 80,
+  "rows": 24,
+  "next": 1,
+  "createdAt": "2026-10-27T08:00:00.000Z",
+  "lastActiveAt": "2026-10-27T08:00:00.000Z",
+  "exitCode": null,
+  "reason": null
+}

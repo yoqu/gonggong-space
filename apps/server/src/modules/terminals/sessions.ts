@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto'
 import {
   TERMINAL_FEATURE,
   TERMINAL_MAX_PER_USER,
-  TerminalStatus,
   type TerminalCreateReq,
   type TerminalDto,
-  TerminalEndReason,
+  type TerminalEndReason,
   type TerminalOpen,
+  type TerminalStatus,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
-import { z } from 'zod'
+import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, machines, users } from '../../db/schema.js'
@@ -17,7 +17,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { currentRepo } from '../workspaces/provision.js'
 import { auditTerminal } from './audit.js'
-import type { TerminalAttachment, TerminalDaemonStream, TerminalSessions } from './transport.js'
+import type { TerminalDaemonStream, TerminalSessions } from './transport.js'
 
 export type { TerminalAttachment, TerminalSessions as TerminalTransport } from './transport.js'
 
@@ -79,10 +79,7 @@ export class TerminalService {
       .innerJoin(users, eq(users.id, machines.ownerId))
       .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
     if (!row || row.groupBot.removedAt || row.bot.deletedAt) return fail('not_found', 'Bot 不存在')
-    if (
-      row.machine.ownerId !== userId ||
-      (!allowRevoked && (row.machine.revokedAt || row.ownerDisabled))
-    )
+    if (row.machine.ownerId !== userId || (!allowRevoked && (row.machine.revokedAt || row.ownerDisabled)))
       return fail('forbidden', '仅机器主人可以使用终端')
     return row
   }
@@ -101,12 +98,9 @@ export class TerminalService {
 
   private async revoke(session: Session) {
     if (session.status !== 'running') return
-    try {
-      await this.transport.terminate(session.sessionId, 'revoked')
-    } finally {
-      session.status = 'closed'
-      session.reason = 'revoked'
-    }
+    await this.transport.terminate(session.sessionId, 'revoked')
+    session.status = 'closed'
+    session.reason = 'revoked'
   }
 
   create(userId: string, groupId: string, botId: string, input: TerminalCreateReq) {
@@ -135,9 +129,18 @@ export class TerminalService {
       }
       this.sessions.set(session.sessionId, session)
       await auditTerminal(this.ctx as Ctx, {
-        actorUserId: userId, machineId: session.machineId, groupId, botId, sessionId: session.sessionId,
-        action: 'create', workspace: { repo: (await currentRepo(this.ctx as Ctx, groupId, botId))?.id ?? null, cdPath: target.groupBot.cdPath },
-        status: session.status, reason: session.reason,
+        actorUserId: userId,
+        machineId: session.machineId,
+        groupId,
+        botId,
+        sessionId: session.sessionId,
+        action: 'create',
+        workspace: {
+          repo: (await currentRepo(this.ctx as Ctx, groupId, botId))?.id ?? null,
+          cdPath: target.groupBot.cdPath,
+        },
+        status: session.status,
+        reason: session.reason,
       })
       return dto(session)
     })
@@ -171,8 +174,7 @@ export class TerminalService {
           for (const session of sessions) await this.revoke(session)
         }
       }
-      for (const session of sessions)
-        if (session.machineId !== target.machine.id) await this.revoke(session)
+      for (const session of sessions) if (session.machineId !== target.machine.id) await this.revoke(session)
       return sessions.map(dto)
     })
   }
@@ -219,7 +221,8 @@ export class TerminalService {
         sessionId,
         action: 'attach',
         workspace,
-        status: session.status, reason: session.reason,
+        status: session.status,
+        reason: session.reason,
       })
       const relayAttachment: TerminalDaemonStream = {
         send: (type, payload) => attachment.send(type, payload),
@@ -268,8 +271,15 @@ export class TerminalService {
     session.status = 'closed'
     session.reason = 'user'
     await auditTerminal(this.ctx as Ctx, {
-      actorUserId: userId, machineId: session.machineId, groupId: session.groupId, botId: session.botId, sessionId,
-      action: 'terminate', workspace: { repo: null, cdPath: null }, status: session.status, reason: session.reason,
+      actorUserId: userId,
+      machineId: session.machineId,
+      groupId: session.groupId,
+      botId: session.botId,
+      sessionId,
+      action: 'terminate',
+      workspace: { repo: null, cdPath: null },
+      status: session.status,
+      reason: session.reason,
     })
     return dto(session)
   }
@@ -308,11 +318,18 @@ export class TerminalService {
     session.lastActiveAt = this.ctx.now().toISOString()
     if (status !== 'running') {
       const session = this.sessions.get(sessionId)
-      if (session) void auditTerminal(this.ctx as Ctx, {
-        actorUserId: null, machineId: session.machineId, groupId: session.groupId, botId: session.botId, sessionId,
-        action: status === 'closed' && reason === 'revoked' ? 'revoke' : 'exit',
-        workspace: { repo: null, cdPath: null }, status, reason,
-      }).catch(() => {})
+      if (session)
+        void auditTerminal(this.ctx as Ctx, {
+          actorUserId: null,
+          machineId: session.machineId,
+          groupId: session.groupId,
+          botId: session.botId,
+          sessionId,
+          action: status === 'closed' && reason === 'revoked' ? 'revoke' : 'exit',
+          workspace: { repo: null, cdPath: null },
+          status,
+          reason,
+        }).catch(() => {})
     }
     return dto(session)
   }
