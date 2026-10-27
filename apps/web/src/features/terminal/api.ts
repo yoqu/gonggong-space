@@ -10,7 +10,7 @@ export function listTerminals(groupId: string, botId: string) {
 }
 
 export function endTerminal(sessionId: string) {
-  return api.delete<void>(`/terminals/${sessionId}`)
+  return api.del<void>(`/terminals/${sessionId}`)
 }
 
 export function terminalSocketUrl(sessionId: string) {
