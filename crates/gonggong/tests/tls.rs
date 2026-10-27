@@ -174,10 +174,12 @@ async fn a_fingerprint_is_shared_by_https_wss_and_the_tunnel() {
     tls::connect_url(&cfg, cfg.ws_url().replacen("/ws/daemon", "/api/health", 1)).await.unwrap();
 }
 
-#[test]
-fn old_https_configs_require_rebinding_instead_of_skipping_verification() {
-    let err = tls::http(&config("https://g.corp", None)).err().unwrap();
-    assert!(err.to_string().contains("重新执行 gg login"), "{err}");
+#[tokio::test]
+async fn old_https_configs_verify_with_system_roots_instead_of_skipping_verification() {
+    assert!(tls::http(&config("https://g.corp", None)).is_ok());
+    let server = serve(Reply::Json("[]")).await;
+    let err = Client::new(&config(&server.url, None)).unwrap().list().await.unwrap_err();
+    assert!(format!("{err:#}").contains("certificate"), "{err:#}");
 }
 
 #[test]

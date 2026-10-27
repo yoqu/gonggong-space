@@ -74,16 +74,21 @@ impl Daemon {
         });
         engine.watch_agents(agents.clone());
         let services = engine.services();
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        let tunnel = crate::tunnel::run(
+            opts.config.clone(),
+            engine.previews(),
+            opts.home.clone(),
+            engine.tunnel_offered(),
+            engine.terminals(),
+        );
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        let tunnel =
+            crate::tunnel::run(opts.config.clone(), engine.previews(), opts.home.clone(), engine.tunnel_offered());
         let mut background = vec![
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
-            tokio::spawn(crate::tunnel::run(
-                opts.config.clone(),
-                engine.previews(),
-                opts.home.clone(),
-                engine.tunnel_offered(),
-                engine.terminals(),
-            )),
+            tokio::spawn(tunnel),
         ];
         if let Some(up) = &upgrader
             && let Some(source) = GithubSource::from_env()

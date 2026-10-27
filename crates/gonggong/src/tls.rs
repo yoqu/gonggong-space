@@ -7,7 +7,7 @@ use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signat
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime, pem::PemObject};
 use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
 use std::net::IpAddr;
-use std::sync::{Arc, Once};
+use std::sync::{Arc, LazyLock, Once};
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{Connector, MaybeTlsStream, WebSocketStream};
@@ -73,6 +73,13 @@ impl ServerCertVerifier for Verifier {
     }
 }
 
+/// Loaded once: reading the OS store (the macOS keychain) on every team-server request is slow and blocks a worker.
+static SYSTEM_ROOTS: LazyLock<Option<Arc<RootCertStore>>> = LazyLock::new(|| {
+    let mut roots = RootCertStore::empty();
+    roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
+    (!roots.is_empty()).then(|| Arc::new(roots))
+});
+
 pub struct Transport {
     config: Arc<ClientConfig>,
 }
@@ -83,12 +90,9 @@ impl Transport {
         let builder = ClientConfig::builder_with_provider(provider.clone()).with_safe_default_protocol_versions()?;
         let config = match trust {
             Trust::System => {
-                let mut roots = RootCertStore::empty();
-                let native = rustls_native_certs::load_native_certs();
-                roots.add_parsable_certificates(native.certs);
-                if roots.is_empty() {
+                let Some(roots) = SYSTEM_ROOTS.clone() else {
                     bail!(t!("无法加载系统 CA 证书，请使用 --ca-file 或 --fingerprint 显式信任服务器证书"));
-                }
+                };
                 builder.with_root_certificates(roots).with_no_client_auth()
             }
             Trust::CaFile { path } => {
@@ -155,8 +159,9 @@ pub fn transport(server: &str, trust: Option<&Trust>) -> Result<Option<Transport
         });
         return Ok(Some(Transport::insecure()));
     }
-    let trust = trust.context(t!("本机配置缺少服务器证书信任设置（tlsTrust），请重新执行 gg login"))?;
-    Ok(Some(Transport::new(trust)?))
+    // Configs saved before tlsTrust existed must keep the daemon starting (and able to auto-upgrade): verify against
+    // the system roots; a self-signed server then needs `gg login --fingerprint`.
+    Ok(Some(Transport::new(trust.unwrap_or(&Trust::System))?))
 }
 
 pub fn for_login(server: &str, trust: &Trust) -> Result<Option<Transport>> {

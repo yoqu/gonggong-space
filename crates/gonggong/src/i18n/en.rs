@@ -21,10 +21,6 @@ pub(super) const EN: &[(&str, &str)] = &[
         "警告：{env}=1，已关闭服务器证书校验，连接可被中间人冒充。只可用于本地开发！",
         "Warning: {env}=1 disables server certificate verification. A man-in-the-middle can impersonate the server. Local development only!",
     ),
-    (
-        "本机配置缺少服务器证书信任设置（tlsTrust），请重新执行 gg login",
-        "The local configuration has no server certificate trust setting (tlsTrust); run gg login again",
-    ),
     ("不支持用 {app} 打开", "Can't open with {app}"),
     ("本机没有安装 {app}", "{app} is not installed on this machine"),
     ("工作区目录不存在：{path}", "The workspace directory doesn't exist: {path}"),
