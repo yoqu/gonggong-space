@@ -94,13 +94,12 @@ const INBOX: usize = 256;
 
 /// Keeps the tunnel connected for the daemon's lifetime, once a server that serves previews has welcomed it.
 /// `home` locates managed workspaces for the files browser's streams.
-#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub async fn run(
     config: Config,
     allow: Allow,
     home: PathBuf,
     mut offered: tokio::sync::watch::Receiver<bool>,
-    manager: TerminalManager,
+    #[cfg(any(target_os = "macos", target_os = "linux"))] manager: TerminalManager,
 ) {
     let mut backoff = Duration::from_secs(1);
     loop {
@@ -110,7 +109,11 @@ pub async fn run(
         match crate::tls::connect_tunnel(&config).await {
             Ok(ws) => {
                 backoff = Duration::from_secs(1);
-                if let Err(e) = serve_with_terminals(ws, allow.clone(), home.clone(), manager.clone()).await {
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                let served = serve_inner(ws, allow.clone(), home.clone(), Some(manager.clone())).await;
+                #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+                let served = serve_inner(ws, allow.clone(), home.clone()).await;
+                if let Err(e) = served {
                     tracing::debug!("tunnel closed: {e:#}");
                 }
             }
@@ -149,6 +152,9 @@ async fn terminal_stream(
             let payload = serde_json::json!({ "sessionId": attached.head.session_id, "seq": output.seq, "data": base64::engine::general_purpose::STANDARD.encode(output.data) });
             if !out.json(FrameType::Data, &payload).await { return Ok(()); }
         }
+        // Input and control calls wait on the session, which may itself wait for room in `attached.events`: keep
+        // draining it meanwhile, one call at a time so keystrokes stay in order.
+        let mut control: Option<std::pin::Pin<Box<dyn Future<Output = Result<bool, String>> + Send>>> = None;
         loop {
             tokio::select! {
                 event = attached.events.recv() => match event {
@@ -161,22 +167,35 @@ async fn terminal_stream(
                         out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id: attached.head.session_id.clone(), state: head.status, next, exit_code, reason: Some(reason) }).await;
                         return Ok(());
                     }
-                    None => return Ok(()),
-                },
-                inbound = input.recv() => match inbound {
-                    Some(TerminalInbound::Data(data)) => manager.input(&attached.head.session_id, data).await.map_err(|e| e.to_string())?,
-                    Some(TerminalInbound::Control(TerminalClientControl::Resize { session_id, cols, rows })) => {
-                        manager.resize(&session_id, cols, rows).await.map_err(|e| e.to_string())?;
-                    }
-                    Some(TerminalInbound::Control(TerminalClientControl::Terminate { session_id })) => {
-                        let head = manager.terminate(&session_id).await.map_err(|e| e.to_string())?;
-                        out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id, state: head.status, next: head.next, exit_code: head.exit_code, reason: head.reason }).await;
+                    None => {
+                        out.send(FrameType::End, Bytes::new()).await;
                         return Ok(());
                     }
-                    Some(TerminalInbound::Control(TerminalClientControl::Ping { session_id })) => {
-                        out.json(FrameType::Head, &manager.head(&session_id).await.map_err(|e| e.to_string())?).await;
-                    }
-                    Some(TerminalInbound::Detach) | None => return Ok(()),
+                },
+                done = async { control.as_mut().unwrap().await }, if control.is_some() => {
+                    control = None;
+                    if done? { return Ok(()); }
+                }
+                inbound = input.recv(), if control.is_none() => {
+                    let (manager, out, session) = (manager.clone(), out.clone(), attached.head.session_id.clone());
+                    control = Some(match inbound {
+                        Some(TerminalInbound::Data(data)) => {
+                            Box::pin(async move { manager.input(&session, data).await.map(|()| false).map_err(|e| e.to_string()) })
+                        }
+                        Some(TerminalInbound::Control(TerminalClientControl::Resize { session_id, cols, rows })) => {
+                            Box::pin(async move { manager.resize(&session_id, cols, rows).await.map(|_| false).map_err(|e| e.to_string()) })
+                        }
+                        Some(TerminalInbound::Control(TerminalClientControl::Terminate { session_id })) => Box::pin(async move {
+                            let head = manager.terminate(&session_id).await.map_err(|e| e.to_string())?;
+                            out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id, state: head.status, next: head.next, exit_code: head.exit_code, reason: head.reason }).await;
+                            Ok(true)
+                        }),
+                        Some(TerminalInbound::Control(TerminalClientControl::Ping { session_id })) => Box::pin(async move {
+                            out.json(FrameType::Head, &manager.head(&session_id).await.map_err(|e| e.to_string())?).await;
+                            Ok(false)
+                        }),
+                        Some(TerminalInbound::Detach) | None => return Ok(()),
+                    });
                 }
             }
         }
@@ -216,20 +235,10 @@ pub async fn serve<S>(ws: WebSocketStream<S>, allow: Allow, home: PathBuf) -> an
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    serve_inner(ws, allow, home, None).await
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-async fn serve_with_terminals<S>(
-    ws: WebSocketStream<S>,
-    allow: Allow,
-    home: PathBuf,
-    manager: TerminalManager,
-) -> anyhow::Result<()>
-where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    serve_inner(ws, allow, home, Some(manager)).await
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    return serve_inner(ws, allow, home, None).await;
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    return serve_inner(ws, allow, home).await;
 }
 
 async fn serve_inner<S>(
@@ -570,4 +579,61 @@ async fn pipe(
     }
     down.abort();
     Ok(())
+}
+
+#[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+mod terminal_tests {
+    use super::*;
+    use crate::protocol::{TerminalOpen, TerminalOpenAction, WorkspaceSpec};
+
+    #[tokio::test]
+    async fn flooding_output_cannot_wedge_input_and_terminate() {
+        let (home, work) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let manager = TerminalManager::new(home.path().to_path_buf());
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let open = TerminalOpen {
+            action: TerminalOpenAction::Create,
+            session_id: session_id.clone(),
+            group_id: uuid::Uuid::new_v4().to_string(),
+            bot_id: uuid::Uuid::new_v4().to_string(),
+            workspace: WorkspaceSpec {
+                repo: None,
+                cd_path: Some(work.path().to_string_lossy().into_owned()),
+                protect_base: false,
+                extra_dirs: vec![],
+            },
+            cols: 80,
+            rows: 24,
+            after: 0,
+        };
+        let (tx, mut frames) = mpsc::channel(OUTBOX);
+        let (input, inbox) = mpsc::channel(INBOX);
+        let stream = tokio::spawn(terminal_stream(manager, open, Out { id: 1, tx }, inbox));
+        assert_eq!(frames.recv().await.unwrap().kind, FrameType::Head);
+        input.send(TerminalInbound::Data("exec yes\r".into())).await.unwrap();
+        let flooding = async {
+            for _ in 0..OUTBOX {
+                assert_eq!(frames.recv().await.unwrap().kind, FrameType::Data);
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(15), flooding).await.expect("yes never started");
+        // The socket stalls while the shell floods: the outbox and the session's event queue both fill up.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        // Keystrokes `yes` ignores, so the flood goes on while each one waits for the session.
+        for _ in 0..64 {
+            input.send(TerminalInbound::Data("x".into())).await.unwrap();
+        }
+        let terminate = TerminalClientControl::Terminate { session_id: session_id.clone() };
+        input.send(TerminalInbound::Control(terminate)).await.unwrap();
+        let exited = tokio::time::timeout(Duration::from_secs(15), async {
+            while let Some(frame) = frames.recv().await {
+                if frame.kind == FrameType::Head {
+                    return;
+                }
+            }
+            panic!("terminal stream closed without an exit head");
+        });
+        exited.await.expect("input and terminate wedged behind flooding output");
+        stream.await.unwrap();
+    }
 }

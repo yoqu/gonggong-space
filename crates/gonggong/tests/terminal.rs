@@ -352,3 +352,16 @@ async fn idle_shells_and_their_process_trees_are_reaped() {
     assert_eq!(head.reason, Some(TerminalEndReason::IdleTimeout));
     assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
 }
+
+#[tokio::test]
+async fn pty_master_fds_are_not_inherited_by_other_children() {
+    let fixture = Fixture::new();
+    let (open, _attachment) = fixture.create().await;
+    let masters = (0..4096)
+        .filter(|&fd| unsafe { libc::isatty(fd) == 1 && libc::unlockpt(fd) == 0 })
+        .map(|fd| (fd, unsafe { libc::fcntl(fd, libc::F_GETFD) } & libc::FD_CLOEXEC != 0))
+        .collect::<Vec<_>>();
+    assert!(masters.len() >= 2, "expected the PTY master and its reader duplicate, got {masters:?}");
+    assert!(masters.iter().all(|(_, cloexec)| *cloexec), "PTY master fds without FD_CLOEXEC: {masters:?}");
+    fixture.manager.terminate(&open.session_id).await.unwrap();
+}

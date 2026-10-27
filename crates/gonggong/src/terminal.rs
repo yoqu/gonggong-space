@@ -484,8 +484,9 @@ fn spawn_pty(cwd: PathBuf, cols: u16, rows: u16) -> Result<Spawned, TerminalErro
 
 fn clone_reader(master: &dyn MasterPty) -> Result<File, TerminalError> {
     let fd = master.as_raw_fd().ok_or_else(|| TerminalError::Spawn("missing PTY fd".into()))?;
-    // A nonblocking duplicate can be cancelled without closing an fd in use by another thread.
-    let duplicate = unsafe { libc::dup(fd) };
+    // A nonblocking duplicate can be cancelled without closing an fd in use by another thread. CLOEXEC is set
+    // atomically so agents and git spawned meanwhile cannot inherit another group's terminal.
+    let duplicate = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
     if duplicate < 0 {
         return Err(TerminalError::Io(std::io::Error::last_os_error().to_string()));
     }
