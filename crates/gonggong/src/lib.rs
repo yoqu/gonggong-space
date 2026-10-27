@@ -45,6 +45,8 @@ pub mod snapshot;
 pub mod static_site;
 pub mod status;
 pub mod sync;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod terminal;
 pub mod tls;
 pub mod tools;
 pub mod tunnel;
