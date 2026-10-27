@@ -12,6 +12,7 @@ import { LinkTab, useLinkTabMeta } from './tabs/LinkTab'
 import { LiveTab, useLiveTabMeta } from './tabs/LiveTab'
 import { MiniprogramTab, useMiniprogramTabMeta } from './tabs/MiniprogramTab'
 import { RunTab, useRunTabMeta } from './tabs/RunTab'
+import { TerminalTab, useTerminalTabMeta } from './tabs/TerminalTab'
 import { useWebTabMeta, WebTab } from './tabs/WebTab'
 import type { TabMeta } from './types'
 
@@ -45,6 +46,8 @@ export const TabContent = memo(function TabContent({ tab, active }: { tab: Workb
       return <LinkTab tab={tab} tabKey={key} active={active} />
     case 'knowledge':
       return <KnowledgeTab tab={tab} tabKey={key} active={active} />
+    case 'terminal':
+      return <TerminalTab tab={tab} tabKey={key} active={active} />
   }
 })
 
@@ -79,6 +82,8 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
       return <LinkMeta tab={tab}>{children}</LinkMeta>
     case 'knowledge':
       return <KnowledgeMeta tab={tab}>{children}</KnowledgeMeta>
+    case 'terminal':
+      return <TerminalMeta tab={tab}>{children}</TerminalMeta>
   }
 }
 
@@ -96,3 +101,4 @@ const GitCompareMeta = ({ tab, children }: MetaProps<'git-compare'>) => children
 const GitMergeMeta = ({ tab, children }: MetaProps<'git-merge'>) => children(useGitMergeTabMeta(tab))
 const LinkMeta = ({ tab, children }: MetaProps<'link'>) => children(useLinkTabMeta(tab))
 const KnowledgeMeta = ({ tab, children }: MetaProps<'knowledge'>) => children(useKnowledgeTabMeta(tab))
+const TerminalMeta = ({ tab, children }: MetaProps<'terminal'>) => children(useTerminalTabMeta(tab))

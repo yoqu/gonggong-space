@@ -76,6 +76,8 @@ export type WorkbenchTab =
   /** A third-party page pinned in the group's tab bar (群标签栏). */
   | { kind: 'link'; url: string; title: string }
   | { kind: 'knowledge'; knowledgeId: string; title: string }
+  /** A daemon-owned shell; closing this tab only detaches its browser socket. */
+  | { kind: 'terminal'; botId: string; sessionId?: string }
 
 /** The scope a log tab is opened on: none for a bot's root log, else its repo and path. */
 export const logScope = (repo: string | null | undefined, path: string | null | undefined) =>
@@ -120,7 +122,7 @@ interface WorkbenchState {
   /** Merges fields into an open tab (same kind), e.g. the picked file or the entered path. */
   patch: (key: string, fields: Partial<WorkbenchTab>) => void
   /** Puts `tab` in the place of the tab at `key`, e.g. a change of what makes its key; a tab it now equals goes. */
-  replace: (key: string, tab: WorkbenchTab) => void
+  replace: (key: string, tab: WorkbenchTab, groupId?: string) => void
   closeTab: (key: string) => void
   closeOthers: (key: string) => void
   closeAll: () => void
@@ -163,6 +165,8 @@ export function tabKey(t: WorkbenchTab): string {
       return `link:${t.url}`
     case 'knowledge':
       return `kb:${t.knowledgeId}`
+    case 'terminal':
+      return `terminal:${t.botId}`
   }
 }
 
@@ -199,8 +203,9 @@ export function liveFrames(bench: Bench): Set<string> {
 const saved = load()
 
 export const useWorkbench = create<WorkbenchState>()((set, get) => {
-  const update = (fn: (b: Bench) => Bench, extra: Partial<WorkbenchState> = {}) => {
-    const { groupId, benches } = get()
+  const update = (fn: (b: Bench) => Bench, extra: Partial<WorkbenchState> = {}, target?: string) => {
+    const { groupId: current, benches } = get()
+    const groupId = target ?? current
     if (!groupId) return
     const next = { ...benches, [groupId]: fn(benches[groupId] ?? empty()) }
     set({ benches: next, ...extra })
@@ -241,20 +246,24 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
         ...b,
         tabs: b.tabs.map((t) => (tabKey(t) === key ? ({ ...t, ...fields } as WorkbenchTab) : t)),
       })),
-    replace: (key, tab) =>
-      update((b) => {
-        const next = tabKey(tab)
-        const tabs = b.tabs.flatMap((t) => {
-          const k = tabKey(t)
-          return k === key ? [tab] : k === next ? [] : [t]
-        })
-        const { [key]: at, ...used } = b.used
-        return {
-          tabs,
-          active: b.active === key ? next : b.active,
-          used: { ...used, [next]: at ?? Date.now() },
-        }
-      }),
+    replace: (key, tab, groupId) =>
+      update(
+        (b) => {
+          const next = tabKey(tab)
+          const tabs = b.tabs.flatMap((t) => {
+            const k = tabKey(t)
+            return k === key ? [tab] : k === next ? [] : [t]
+          })
+          const { [key]: at, ...used } = b.used
+          return {
+            tabs,
+            active: b.active === key ? next : b.active,
+            used: { ...used, [next]: at ?? Date.now() },
+          }
+        },
+        {},
+        groupId,
+      ),
     closeTab: (key) => {
       update((b) => {
         const at = b.tabs.findIndex((t) => tabKey(t) === key)

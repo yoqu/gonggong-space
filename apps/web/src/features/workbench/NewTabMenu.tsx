@@ -1,4 +1,6 @@
+import { TERMINAL_FEATURE } from '@gonggong/protocol'
 import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import { useSession } from '../../app/session'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -64,11 +66,22 @@ export function NewTabMenu({ className, children }: { className?: string; childr
   const groupId = useWorkbench((s) => s.groupId)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const allBots = useWorkspace((s) => s.bots)
+  const machines = useWorkspace((s) => s.machines)
+  const me = useSession((s) => s.user)
   const states = useWorkspace((s) => (groupId ? s.botStates[groupId] : undefined))
   const [linking, setLinking] = useState(false)
   const [addingGroupTab, setAddingGroupTab] = useState(false)
   const bots = (group?.botIds ?? []).flatMap((id) => allBots.filter((b) => b.id === id))
   const withGit = bots.filter((b) => states?.[b.id]?.git)
+  const withTerminal = bots.filter((b) => {
+    const machine = machines.find((m) => m.id === b.machineId)
+    return (
+      b.ownerId === me?.id &&
+      machine?.online &&
+      machine.os !== 'windows' &&
+      machine.features.includes(TERMINAL_FEATURE)
+    )
+  })
   const items: MenuItem[] = [
     { label: t('打开网页…'), value: 'link', icon: 'globe' },
     ...(group
@@ -87,12 +100,24 @@ export function NewTabMenu({ className, children }: { className?: string; childr
           ...withGit.map((b) => ({ label: b.name, value: `git:${b.id}`, icon: 'git-branch' as const })),
         ]
       : []),
+    ...(withTerminal.length
+      ? [
+          { separator: true as const },
+          { header: t('新建终端') },
+          ...withTerminal.map((b) => ({
+            label: b.name,
+            value: `terminal:${b.id}`,
+            icon: 'square-terminal' as const,
+          })),
+        ]
+      : []),
   ]
   const onSelect = (value: string) => {
     const [kind, botId = ''] = value.split(':')
     if (kind === 'link') setLinking(true)
     else if (kind === 'group-tab') setAddingGroupTab(true)
     else if (kind === 'files') openTab({ kind: 'files', botId, dir: '', selected: null })
+    else if (kind === 'terminal') openTab({ kind: 'terminal', botId })
     else openTab({ kind: 'git', botId })
   }
   return (
