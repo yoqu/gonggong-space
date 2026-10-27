@@ -38,7 +38,7 @@ let clipboard: {
   writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>
 }
 let onSearch: ReturnType<typeof vi.fn<() => void>>
-let onError: ReturnType<typeof vi.fn<(operation: 'copy' | 'paste') => void>>
+let onError: ReturnType<typeof vi.fn<() => void>>
 
 const attach = (active = () => true) => {
   return attachTerminalKeyboard(terminal, {
@@ -85,6 +85,7 @@ describe('terminal keyboard', () => {
     attach()
     const event = key('C', { ctrlKey: true, shiftKey: true })
     expect(terminal.keyHandler?.(event)).toBe(false)
+    expect(event.defaultPrevented).toBe(true)
     await vi.waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith('selected output'))
     expect(terminal.pasted).toEqual([])
   })
@@ -96,16 +97,22 @@ describe('terminal keyboard', () => {
     expect(clipboard.writeText).not.toHaveBeenCalled()
   })
 
-  it('pastes through xterm once and opens terminal search', async () => {
+  it('leaves paste to the native paste event so xterm pastes exactly once', async () => {
     attach()
     const paste = key('v', { ctrlKey: true, shiftKey: true })
-    expect(terminal.keyHandler?.(paste)).toBe(false)
-    await vi.waitFor(() => expect(terminal.pasted).toEqual(['from clipboard']))
+    expect(terminal.keyHandler?.(paste)).toBe(true)
+    expect(paste.defaultPrevented).toBe(false)
+    await Promise.resolve()
+    expect(clipboard.readText).not.toHaveBeenCalled()
+    expect(terminal.pasted).toEqual([])
+  })
 
+  it('opens terminal search instead of the browser find bar', () => {
+    attach()
     const search = key('f', { ctrlKey: true, shiftKey: true })
     expect(terminal.keyHandler?.(search)).toBe(false)
+    expect(search.defaultPrevented).toBe(true)
     expect(onSearch).toHaveBeenCalledTimes(1)
-    expect(terminal.pasted).toEqual(['from clipboard'])
   })
 
   it('supports macOS Command shortcuts without intercepting plain Ctrl shortcuts', async () => {
@@ -120,11 +127,18 @@ describe('terminal keyboard', () => {
     expect(terminal.keyHandler?.(key('c', { ctrlKey: true }))).toBe(true)
     expect(terminal.keyHandler?.(key('v', { ctrlKey: true }))).toBe(true)
     expect(terminal.keyHandler?.(key('f', { ctrlKey: true }))).toBe(true)
-    expect(terminal.keyHandler?.(key('c', { metaKey: true }))).toBe(false)
+    const copy = key('c', { metaKey: true })
+    expect(terminal.keyHandler?.(copy)).toBe(false)
+    expect(copy.defaultPrevented).toBe(true)
     await vi.waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith('selected output'))
-    expect(terminal.keyHandler?.(key('v', { metaKey: true }))).toBe(false)
-    await vi.waitFor(() => expect(terminal.pasted).toEqual(['from clipboard']))
-    expect(terminal.keyHandler?.(key('f', { metaKey: true }))).toBe(false)
+    const paste = key('v', { metaKey: true })
+    expect(terminal.keyHandler?.(paste)).toBe(true)
+    expect(paste.defaultPrevented).toBe(false)
+    expect(clipboard.readText).not.toHaveBeenCalled()
+    expect(terminal.pasted).toEqual([])
+    const search = key('f', { metaKey: true })
+    expect(terminal.keyHandler?.(search)).toBe(false)
+    expect(search.defaultPrevented).toBe(true)
     expect(onSearch).toHaveBeenCalledTimes(1)
     dispose()
   })
@@ -139,13 +153,10 @@ describe('terminal keyboard', () => {
   })
 
   it('reports clipboard failures without unhandled rejections', async () => {
-    clipboard.readText.mockRejectedValue(new Error('denied'))
     clipboard.writeText.mockRejectedValue(new Error('denied'))
     attach()
-    terminal.keyHandler?.(key('v', { ctrlKey: true, shiftKey: true }))
     terminal.keyHandler?.(key('c', { ctrlKey: true, shiftKey: true }))
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(2))
-    expect(terminal.pasted).toEqual([])
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1))
   })
 
   it('focuses only while active and blurs the hidden terminal', () => {
@@ -202,15 +213,16 @@ describe('terminal keyboard', () => {
     editor.remove()
   })
 
-  it('does not run clipboard actions after disposal', async () => {
-    let read: ((text: string) => void) | undefined
-    clipboard.readText.mockImplementation(() => new Promise<string>((resolve) => (read = resolve)))
+  it('does not report clipboard failures after disposal', async () => {
+    let fail: ((error: Error) => void) | undefined
+    clipboard.writeText.mockImplementation(() => new Promise<void>((_, reject) => (fail = reject)))
     const dispose = attach()
-    terminal.keyHandler?.(key('v', { ctrlKey: true, shiftKey: true }))
+    terminal.keyHandler?.(key('c', { ctrlKey: true, shiftKey: true }))
+    await vi.waitFor(() => expect(fail).toBeDefined())
     dispose()
-    read?.('late')
-    await Promise.resolve()
-    expect(terminal.pasted).toEqual([])
+    fail?.(new Error('late'))
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(onError).not.toHaveBeenCalled()
     window.dispatchEvent(new Event('focus'))
     expect(terminal.focused).toBe(0)
   })

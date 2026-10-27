@@ -2,16 +2,16 @@ import type { Terminal } from '@xterm/xterm'
 
 type KeyboardTerminal = Pick<
   Terminal,
-  'textarea' | 'attachCustomKeyEventHandler' | 'focus' | 'blur' | 'paste' | 'getSelection'
+  'textarea' | 'attachCustomKeyEventHandler' | 'focus' | 'blur' | 'getSelection'
 >
 
-type TerminalClipboard = Pick<globalThis.Clipboard, 'readText' | 'writeText'>
+type TerminalClipboard = Pick<globalThis.Clipboard, 'writeText'>
 
 export interface TerminalKeyboardOptions {
   host: HTMLElement
   active: () => boolean
   onSearch: () => void
-  onError: (operation: 'copy' | 'paste') => void
+  onError: () => void
   macOS?: boolean
   clipboard?: TerminalClipboard
 }
@@ -29,35 +29,23 @@ export function attachTerminalKeyboard(terminal: KeyboardTerminal, options: Term
   let restoreFocus = false
   let ownsFocus = false
 
-  const copy = () => {
+  const copy = (event: KeyboardEvent) => {
     const selection = terminal.getSelection()
     if (!selection) return true
+    event.preventDefault()
     void Promise.resolve()
       .then(() => {
         if (!clipboard) throw new Error('Clipboard unavailable')
         return clipboard.writeText(selection)
       })
       .catch(() => {
-        if (!disposed && active()) onError('copy')
+        if (!disposed && active()) onError()
       })
     return false
   }
 
-  const paste = () => {
-    void Promise.resolve()
-      .then(() => {
-        if (!clipboard) throw new Error('Clipboard unavailable')
-        return clipboard.readText()
-      })
-      .then((text) => {
-        if (!disposed) terminal.paste(text)
-      })
-      .catch(() => {
-        if (!disposed && active()) onError('paste')
-      })
-    return false
-  }
-
+  // xterm does not cancel events the handler rejects, so consumed shortcuts must preventDefault
+  // themselves. Paste stays native: xterm's paste listener already applies bracketed paste.
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.type !== 'keydown' || event.defaultPrevented || event.isComposing || event.keyCode === 229)
       return true
@@ -67,10 +55,9 @@ export function attachTerminalKeyboard(terminal: KeyboardTerminal, options: Term
     if (!modifier || event.altKey) return true
     switch (event.key.toLowerCase()) {
       case 'c':
-        return copy()
-      case 'v':
-        return paste()
+        return copy(event)
       case 'f':
+        event.preventDefault()
         onSearch()
         return false
       default:
