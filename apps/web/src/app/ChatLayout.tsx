@@ -223,7 +223,11 @@ export function ChatLayout({
   }, full)
   const railBody = rail && railOpen ? rail : null
   const list = (
-    <nav aria-label={t('会话列表')} className="chat__sidebar">
+    <nav
+      aria-label={t('会话列表')}
+      className="chat__sidebar"
+      hidden={(bench && mode !== 'split') || (mobile && mobileView !== 'list')}
+    >
       {sidebar}
     </nav>
   )
@@ -232,14 +236,11 @@ export function ChatLayout({
       className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
       rail={mobile ? undefined : nav?.('vertical')}
       sidebar={
-        bench ? (
-          { split: list, focus: strip, full: undefined }[mode]
-        ) : !mobile || mobileView === 'list' ? (
-          <>
-            {list}
-            {mobile ? nav?.('horizontal') : null}
-          </>
-        ) : undefined
+        <>
+          {list}
+          {bench && mode === 'focus' ? strip : null}
+          {mobile && mobileView === 'list' ? nav?.('horizontal') : null}
+        </>
       }
       inspector={
         railBody && !bench ? (

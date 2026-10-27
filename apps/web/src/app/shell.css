@@ -153,6 +153,10 @@ body {
 .chat__center[hidden] {
   display: none;
 }
+.chat__sidebar[hidden],
+.chat--full > .ui-frame__sidebar {
+  display: none;
+}
 .chat__split {
   position: relative;
   flex: none;

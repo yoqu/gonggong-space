@@ -75,13 +75,16 @@ describe('workbench column', () => {
 
   it('split keeps the list, focus folds it into the icon strip, full hides it and collapses the chat', () => {
     render(layout())
+    const sidebar = screen.getByRole('navigation', { name: '会话列表' })
     expect(screen.getByText('完整会话列表')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '专注' }))
     expect(useWorkbench.getState().mode).toBe('focus')
-    expect(screen.queryByText('完整会话列表')).toBeNull()
+    expect(screen.getByText('完整会话列表').closest('nav')).toBe(sidebar)
+    expect(sidebar.hidden).toBe(true)
     expect(screen.getByText('会话图标条')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '全屏' }))
     expect(screen.queryByText('会话图标条')).toBeNull()
+    expect(screen.getByText('完整会话列表').closest('nav')).toBe(sidebar)
     expect(chat().hidden).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: '展开聊天' }))
     expect(chat().hidden).toBe(false)
@@ -115,7 +118,7 @@ describe('workbench column', () => {
   it('renders split as focus below 1100px', () => {
     setWidth(1000)
     render(layout())
-    expect(screen.queryByText('完整会话列表')).toBeNull()
+    expect(screen.getByText('完整会话列表').closest('nav')?.hidden).toBe(true)
     expect(screen.getByText('会话图标条')).toBeTruthy()
     expect(screen.getByRole('button', { name: '专注' }).getAttribute('aria-pressed')).toBe('true')
   })

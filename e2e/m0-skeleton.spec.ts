@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { adminSession, buildDaemon, gonggong } from './helpers'
+import { expect, type Page, test } from '@playwright/test'
+import { adminSession, buildDaemon, call, gonggong } from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -45,4 +45,81 @@ test('切换玻璃档位刷新后保持', async ({ page }) => {
   await page.reload()
   await expect(page.getByRole('button', { name: '账户菜单' })).toBeVisible()
   await expect(html).toHaveAttribute('data-glass', 'tinted')
+})
+
+async function seedGroups(page: Page, prefix: string) {
+  const groups = []
+  for (let i = 0; i < 30; i++) {
+    groups.push(
+      await call<{ id: string }>(page.request, 'post', '/api/groups', {
+        name: `${prefix} ${i}`,
+        kind: 'group',
+      }),
+    )
+  }
+  return groups
+}
+
+async function scrollAndClickVisibleGroup(page: Page) {
+  const list = page.locator('.sidebar__scroll')
+  await expect.poll(() => list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+  await list.evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  const before = await list.evaluate((el) => el.scrollTop)
+  expect(before).toBeGreaterThan(0)
+  const target = await list.locator('[data-testid^="group-item-"]').evaluateAll((rows) => {
+    const bounds = rows[0]!.closest('.sidebar__scroll')!.getBoundingClientRect()
+    return rows
+      .find((row) => {
+        if (row.getAttribute('aria-current') === 'page') return false
+        const box = row.getBoundingClientRect()
+        return box.top >= bounds.top && box.bottom <= bounds.bottom
+      })
+      ?.getAttribute('data-testid')
+  })
+  expect(target).toBeTruthy()
+  const groupId = target!.slice('group-item-'.length)
+  await page.getByTestId(target!).click()
+  await expect(page).toHaveURL(`/g/${groupId}`)
+  return { list, before }
+}
+
+test('点击长会话列表下方的群后保持侧栏滚动位置', async ({ page }) => {
+  await adminSession(page.request)
+  const groups = await seedGroups(page, '会话')
+  await page.goto(`/g/${groups[0]!.id}`)
+  const { list, before } = await scrollAndClickVisibleGroup(page)
+  await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBe(before)
+})
+
+test('工作台随群切换展开后不重置侧栏滚动位置', async ({ page }) => {
+  await page.addInitScript(() => {
+    const path = location.pathname.split('/')
+    const groupId = path[1] === 'g' ? path[2] : null
+    if (!groupId || localStorage.getItem('gonggong.workbench')) return
+    localStorage.setItem(
+      'gonggong.workbench',
+      JSON.stringify({
+        mode: 'split',
+        benches: {
+          [groupId]: {
+            tabs: [{ kind: 'run', runId: 'sidebar-test-run', view: 'process', file: null }],
+            active: 'run:sidebar-test-run',
+            used: {},
+          },
+        },
+      }),
+    )
+  })
+  await adminSession(page.request)
+  const groups = await seedGroups(page, '工作台会话')
+  await page.goto(`/g/${groups[0]!.id}`)
+  await page.getByRole('button', { name: '工作台', exact: true }).click()
+  await expect(page.getByRole('region', { name: '工作台' })).toBeVisible()
+  const original = await page.locator('.sidebar__scroll').elementHandle()
+  const { list, before } = await scrollAndClickVisibleGroup(page)
+  await expect(page.getByRole('region', { name: '工作台' })).toBeVisible()
+  await expect.poll(() => original!.evaluate((el) => el.isConnected)).toBe(true)
+  await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBe(before)
 })
