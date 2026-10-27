@@ -1138,11 +1138,35 @@ mod tests {
         fake_server_by(move |req| (status, if req.starts_with("POST") { tool } else { "PDF" }.to_string())).await
     }
 
+    /// Reads a whole request: replying before a streamed body is sent breaks the client's pipe under load.
+    async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
+        use tokio::io::AsyncReadExt;
+        let mut buf = vec![];
+        let mut chunk = [0u8; 16384];
+        loop {
+            let n = socket.read(&mut chunk).await.unwrap();
+            buf.extend_from_slice(&chunk[..n]);
+            if let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                let head = String::from_utf8_lossy(&buf[..end]).to_ascii_lowercase();
+                let body = &buf[end + 4..];
+                let length = head.lines().find_map(|l| l.strip_prefix("content-length:")).map(|v| v.trim().parse());
+                let done = match length {
+                    Some(len) => body.len() >= len.unwrap(),
+                    None => !head.contains("transfer-encoding: chunked") || body.ends_with(b"0\r\n\r\n"),
+                };
+                if done {
+                    return String::from_utf8_lossy(&buf).to_string();
+                }
+            }
+            assert!(n > 0, "connection closed mid-request");
+        }
+    }
+
     /// Answers each request with `answer(request)`: its status line and body.
     async fn fake_server_by(
         answer: impl Fn(&str) -> (&'static str, String) + Send + 'static,
     ) -> (String, Arc<Mutex<Vec<String>>>) {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::io::AsyncWriteExt;
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let seen = Arc::new(Mutex::new(vec![]));
@@ -1150,9 +1174,7 @@ mod tests {
         tokio::spawn(async move {
             loop {
                 let (mut s, _) = listener.accept().await.unwrap();
-                let mut buf = vec![0u8; 16384];
-                let n = s.read(&mut buf).await.unwrap();
-                let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                let req = read_request(&mut s).await;
                 let (status, body) = answer(&req);
                 log.lock().unwrap().push(req);
                 let res = format!(
@@ -1322,7 +1344,7 @@ mod tests {
     #[tokio::test]
     async fn publishes_only_complete_daemon_artifacts_with_at_most_four_parallel_uploads() {
         use std::sync::atomic::{AtomicUsize, Ordering};
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::io::AsyncWriteExt;
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -1336,9 +1358,7 @@ mod tests {
                     let (mut socket, _) = listener.accept().await.unwrap();
                     let (seen, peak, active) = (seen.clone(), peak.clone(), active.clone());
                     tokio::spawn(async move {
-                        let mut buf = vec![0u8; 16384];
-                        let n = socket.read(&mut buf).await.unwrap();
-                        let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                        let req = read_request(&mut socket).await;
                         seen.lock().unwrap().push(req);
                         let current = active.fetch_add(1, Ordering::SeqCst) + 1;
                         peak.fetch_max(current, Ordering::SeqCst);

@@ -15,14 +15,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("CA 证书文件格式错误：{path}", "Invalid CA certificate file: {path}"),
     ("CA 证书文件没有可用证书：{path}", "No usable certificate in CA file: {path}"),
     ("服务器地址无效：{server}", "Invalid server address: {server}"),
-    (
-        "只允许通过 https:// 连接非本机服务器：{server}",
-        "Non-local servers must use https://: {server}",
-    ),
-    (
-        "不支持的服务器协议 {scheme}://，请使用 https://",
-        "Unsupported server protocol {scheme}://; use https://",
-    ),
+    ("只允许通过 https:// 连接非本机服务器：{server}", "Non-local servers must use https://: {server}"),
+    ("不支持的服务器协议 {scheme}://，请使用 https://", "Unsupported server protocol {scheme}://; use https://"),
     (
         "警告：{env}=1，已关闭服务器证书校验，连接可被中间人冒充。只可用于本地开发！",
         "Warning: {env}=1 disables server certificate verification. A man-in-the-middle can impersonate the server. Local development only!",
