@@ -83,12 +83,9 @@ it('opens a running run for what the agent did after its turn, attributed like t
     parentRunId: null,
   })
   expect((await row(id))?.startedAt).not.toBeNull()
-  expect(seen).toContainEqual(
-    expect.objectContaining({
-      t: 'run.updated',
-      run: expect.objectContaining({ id, continuationOf: first }),
-    }),
-  )
+  await expect
+    .poll(() => seen.find((e) => e.t === 'run.updated' && e.run.id === id))
+    .toMatchObject({ run: { continuationOf: first } })
 
   send({ t: 'run.event', runId: id, event: { kind: 'text', delta: '测试全过了' } })
   send(done(id, '测试全过了'))
