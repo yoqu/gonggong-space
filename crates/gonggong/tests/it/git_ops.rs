@@ -560,6 +560,8 @@ async fn commit_takes_only_the_given_paths() {
     let req = GitAction {
         message: Some("部分提交".into()),
         paths: Some(paths.map(String::from).to_vec()),
+        // Production always supplies the Bot identity; do not depend on the CI host's global Git config.
+        identity: Some(GitIdentity { name: "小王的 Claude".into(), email: "b1@bots.gonggong.local".into() }),
         ..r.action_req(GitActionKind::Commit)
     };
     let (ok, _, output, error) = r.act(req.clone()).await;
