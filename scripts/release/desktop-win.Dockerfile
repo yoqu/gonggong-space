@@ -1,6 +1,7 @@
 # Cross-compiles the Windows desktop installer on Linux (https://v2.tauri.app/distribute/windows-installer/): the MSVC
 # target through cargo-xwin (clang-cl + lld-link + the downloaded MSVC CRT/SDK), NSIS for the installer, llvm-rc for
-# the app's resources. Trixie for NSIS 3.11 (bookworm's 3.08 lacks headers the installer script includes). The Tauri CLI asks pkg-config for appindicator on any Linux host, even for this target.
+# the app's resources. Trixie for NSIS 3.11: bookworm's 3.08 lacks headers the installer script includes. The Tauri
+# CLI asks pkg-config for appindicator on any Linux host, even for this target.
 FROM node:24-trixie AS node
 FROM rust:1.98.0-trixie
 RUN apt-get update && apt-get install -y -o Acquire::Retries=5 --no-install-recommends clang lld llvm nsis \
