@@ -1243,6 +1243,9 @@ pub struct RunStart {
     /// Only sent to daemons announcing [`FEATURE_PLUGINS`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginRef>,
+    /// gonggong tools left out of the session's `tools/list`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden_tools: Vec<String>,
     /// An agent command sent verbatim as the prompt instead of the composed group context.
     #[serde(default)]
     pub command: Option<String>,

@@ -149,6 +149,7 @@ fn start(run_id: &str, kind: AgentKind, cwd: &Path, skills: Vec<SkillRef>, resum
         mcp_servers: vec![],
         skills,
         plugins: vec![],
+        hidden_tools: vec![],
         command: None,
         sync: None,
         env: Default::default(),

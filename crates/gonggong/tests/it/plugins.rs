@@ -173,6 +173,7 @@ fn start(t: Turn) -> RunStart {
         mcp_servers: vec![],
         skills: t.skills,
         plugins: t.plugins,
+        hidden_tools: vec![],
         command: None,
         sync: None,
         env: Default::default(),

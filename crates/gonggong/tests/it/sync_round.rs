@@ -218,6 +218,7 @@ impl Rig {
             mcp_servers: vec![],
             skills: vec![],
             plugins: vec![],
+            hidden_tools: vec![],
             command: None,
             sync: Some(sync),
             env: Default::default(),

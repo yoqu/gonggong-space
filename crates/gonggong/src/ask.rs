@@ -66,6 +66,8 @@ pub trait Asker: Send + Sync {
     fn active_run(&self) -> Option<(String, PathBuf)>;
     /// The run in progress as hosted services see it.
     fn scope(&self) -> Option<Scope>;
+    /// Tools the server left out for this conversation's group (`RunStart::hidden_tools`).
+    fn hidden_tools(&self) -> Vec<String>;
 }
 
 /// A tool list and its names, parsed once: every tool call and permission request looks them up.
@@ -208,10 +210,7 @@ async fn handle(
             )
         }
         "ping" => result(id, json!({})),
-        "tools/list" => {
-            let tools: Vec<Value> = [vec![tool()], SERVER.list.clone(), DAEMON.list.clone()].concat();
-            result(id, json!({ "tools": tools }))
-        }
+        "tools/list" => result(id, json!({ "tools": listed(&asker.hidden_tools()) })),
         "tools/call" if params["name"] == "html_preview" => match html_preview(&params["arguments"]).await {
             Ok(content) => result(id, json!({ "content": content, "isError": false })),
             Err(e) => result(id, tool_result(&e, true)),
@@ -246,6 +245,12 @@ async fn handle(
         _ => error(id, -32601, "method not found"),
     };
     reply(StatusCode::OK, Some(body))
+}
+
+/// Every tool but the hidden ones (still callable: the server refuses them where they do not apply).
+fn listed(hidden: &[String]) -> Vec<Value> {
+    let all = [vec![tool()], SERVER.list.clone(), DAEMON.list.clone()].concat();
+    all.into_iter().filter(|t| !hidden.iter().any(|h| t["name"] == h.as_str())).collect()
 }
 
 fn result(id: Value, result: Value) -> Value {
@@ -1063,6 +1068,22 @@ mod tests {
             let out = crate::service::Outbox::channel().0;
             Some(Scope { group_id: "g".into(), bot_id: "b".into(), run_id: Some(run_id), root, out })
         }
+
+        fn hidden_tools(&self) -> Vec<String> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn leaves_hidden_tools_out_of_the_list() {
+        let names = |hidden: &[String]| -> Vec<String> {
+            listed(hidden).iter().map(|t| t["name"].as_str().unwrap().to_string()).collect()
+        };
+        let all = names(&[]);
+        let some = names(&["feishu_send_card".into(), "plugin_catalog".into()]);
+        assert_eq!(some.len(), all.len() - 2);
+        assert!(!some.iter().any(|n| n == "feishu_send_card" || n == "plugin_catalog"));
+        assert_eq!(some[0], TOOL);
     }
 
     fn services() -> Services {

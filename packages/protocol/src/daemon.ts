@@ -310,6 +310,8 @@ export const RunStart = z.object({
    * loaded like a Claude plugin named `name`; Codex links its skills as `<name>-<skill>`. Same timing as `skills`.
    */
   plugins: z.array(PluginRef).default([]),
+  /** gonggong tools left out of the session's `tools/list` (useless in this group, e.g. Feishu ones when unbound). */
+  hiddenTools: z.array(z.string()).default([]),
   /** An agent command (`/compact …`): sent verbatim as the prompt so the adapter runs it; `prompt` is not composed. */
   command: z.string().nullable().default(null),
   /** Force groups only (null in partition groups). */

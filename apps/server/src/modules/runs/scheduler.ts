@@ -200,6 +200,10 @@ export async function schedule(ctx: Ctx, botId: string) {
   await sendDueInits(ctx, botId)
 }
 
+/** Tools left out of a session's list where they cannot work (still refused by the server if called). */
+const FEISHU_TOOLS = ['list_feishu_messages', 'feishu_send_card']
+const PLUGIN_TOOLS = ['plugin_catalog', 'creation_propose']
+
 /** 禁止直推基准分支, for the agent (the daemon also asks the owner before any push to it). */
 const branchHint = (base: string) =>
   `本群开启了「禁止直推基准分支」：不要直接提交或推送到基准分支 ${base}。当前在 ${base} 上时，改代码前先新建一个分支（名字不限）；已经在其他分支上就直接在该分支开发、提交并推送，不用另建分支。需要合并时告诉触发人发起合并请求。推送到 ${base} 需要 Bot 主人审批。`
@@ -276,8 +280,7 @@ export async function buildRunStart(
         )
       : null,
     interruptNote(tx, run, at),
-    // A DM's single chat with the bot app is synced whole: nothing to read from Feishu.
-    group.kind === 'group' && boundChat(tx, run.groupId),
+    boundChat(tx, run.groupId),
     run.parentRunId ? relayNote(tx, run.parentRunId, at) : [],
     meta.scheduleOf ? scheduleNote(tx, meta.scheduleOf, at) : null,
     runTier(tx, (gb.tier ?? bot.tier) as Tier),
@@ -295,6 +298,8 @@ export async function buildRunStart(
   const note = [...(interrupted ? [interrupted.note] : []), ...relay, ...(scheduled ? [scheduled] : [])]
   const kbNote = (body: string | null | undefined): ContextMessage[] =>
     body ? [{ seq: 0, author: '共工空间', kind: 'user', body, at, attachments: [] }] : []
+  // A DM's single chat with the bot app is synced whole: nothing to read from Feishu.
+  const feishuHinted = group.kind === 'group' && feishu
   const kbNow = kbNote(resumeSessionId && gb.knowledgeAt ? kb?.changes : kb?.full)
   const protectBase = group.protectBase && !!repo
   const msg: RunStart = {
@@ -307,7 +312,7 @@ export async function buildRunStart(
       name: bot.name,
       agentKind: bot.agentKind as AgentKind,
       systemPrompt: [
-        ...(feishu ? [feishuHint(feishu.syncAll)] : []),
+        ...(feishuHinted ? [feishuHint(feishuHinted.syncAll)] : []),
         ...(protectBase && repo ? [branchHint(repo.baseBranch)] : []),
         ...(command ? [] : [UI_BLOCKS_GUIDE]),
         ...(command || !plugins.length ? [] : [pluginHint(plugins.map((p) => p.name))]),
@@ -351,6 +356,8 @@ export async function buildRunStart(
     mcpServers: mcpServers.flatMap((c) => substitute(c, secrets.env) ?? []),
     skills: skills.map(({ name, versionId, digest }) => ({ name, versionId, digest })),
     plugins,
+    // An agent command may open the session, so it hides nothing.
+    hiddenTools: command ? [] : [...(feishu ? [] : FEISHU_TOOLS), ...(plugins.length ? [] : PLUGIN_TOOLS)],
     command,
     sync,
     env: secrets.env,

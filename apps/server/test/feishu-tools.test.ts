@@ -190,8 +190,13 @@ describe('list_feishu_messages', () => {
       await schedule(t.ctx, w.claude.id)
       return sent.filter((m): m is RunStart => m.t === 'run.start').at(-1)!
     }
-    expect((await startOf()).bot.systemPrompt).not.toContain('list_feishu_messages')
+    const off = await startOf()
+    expect(off.bot.systemPrompt).not.toContain('list_feishu_messages')
+    expect(off.hiddenTools).toEqual(expect.arrayContaining(['list_feishu_messages', 'feishu_send_card']))
     await w.bind()
-    expect((await startOf()).bot.systemPrompt).toContain('list_feishu_messages')
+    const on = await startOf()
+    expect(on.bot.systemPrompt).toContain('list_feishu_messages')
+    expect(on.hiddenTools).not.toContain('list_feishu_messages')
+    expect(on.hiddenTools).not.toContain('feishu_send_card')
   })
 })

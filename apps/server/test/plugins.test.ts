@@ -533,11 +533,18 @@ describe('plugins in run.start', () => {
     expect(on.plugins.map((x) => x.name)).toEqual(['web-prototype'])
     expect(on.bot.systemPrompt).toContain('本群启用了创作插件：web-prototype')
     expect(on.bot.systemPrompt).toContain('creation_propose')
+    expect(on.hiddenTools).not.toContain('plugin_catalog')
     await switchOn(w, false)
     const off = await build()
     expect(off.plugins).toEqual([])
     expect(off.bot.systemPrompt).not.toContain('创作插件')
-    expect({ ...on, plugins: [], bot: { ...on.bot, systemPrompt: off.bot.systemPrompt } }).toEqual(off)
+    expect(off.hiddenTools).toEqual(expect.arrayContaining(['plugin_catalog', 'creation_propose']))
+    expect({
+      ...on,
+      plugins: [],
+      hiddenTools: off.hiddenTools,
+      bot: { ...on.bot, systemPrompt: off.bot.systemPrompt },
+    }).toEqual(off)
     await t.db.delete(plugins)
     expect(await build()).toEqual(off)
   })

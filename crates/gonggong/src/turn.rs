@@ -666,7 +666,9 @@ mod tests {
         assert!(s.contains("用工具查，不要猜"));
         assert!(s.contains("调用 ask_group_members 提问并等待"));
         assert!(s.contains("调用 hand_off 交代任务"));
-        assert!(s.contains("service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram"));
+        assert!(
+            s.contains("service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram")
+        );
         assert!(s.ends_with("\n\n只改 server/"));
     }
 

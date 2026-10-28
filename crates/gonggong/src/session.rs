@@ -173,6 +173,7 @@ struct Active {
     kind: WorkspaceKind,
     /// Set when this is the agent going on by itself between turns, not a prompt.
     continuation: Option<Cont>,
+    hidden_tools: Vec<String>,
 }
 
 /// A run the server opened for output between turns (a background task finished and the agent went on by itself).
@@ -196,6 +197,7 @@ struct Prev {
     out: Outbox,
     compact: Option<CompactPolicy>,
     session: Option<SessionId>,
+    hidden_tools: Vec<String>,
 }
 
 impl Prev {
@@ -211,6 +213,7 @@ impl Prev {
             out: a.out.clone(),
             compact: a.turn.compact,
             session,
+            hidden_tools: a.hidden_tools.clone(),
         }
     }
 }
@@ -581,6 +584,7 @@ impl Shared {
             extras: req.extras.clone(),
             kind: if req.start.workspace.cd_path.is_none() { WorkspaceKind::Managed } else { WorkspaceKind::Cd },
             continuation: None,
+            hidden_tools: req.start.hidden_tools.clone(),
         });
         Some(true)
     }
@@ -689,6 +693,7 @@ impl Shared {
             extras: prev.extras.clone(),
             kind: prev.kind,
             continuation: Some(Cont { session, last: Instant::now(), concluding: false }),
+            hidden_tools: prev.hidden_tools,
         });
         for held in w.held {
             match held {
@@ -1338,6 +1343,11 @@ impl Asker for Shared {
             root: a.cwd.clone(),
             out: a.out.clone(),
         })
+    }
+
+    /// Not limited to a streaming run: the agent lists tools while its session is being set up.
+    fn hidden_tools(&self) -> Vec<String> {
+        self.0.lock().unwrap().active.as_ref().map(|a| a.hidden_tools.clone()).unwrap_or_default()
     }
 }
 

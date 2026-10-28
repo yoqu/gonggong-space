@@ -84,6 +84,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
         mcp_servers: vec![],
         skills: vec![],
         plugins: vec![],
+        hidden_tools: vec![],
         command: None,
         sync: None,
         env: Default::default(),

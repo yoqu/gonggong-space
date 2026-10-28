@@ -24,6 +24,9 @@ impl Asker for Live {
     fn scope(&self) -> Option<Scope> {
         None
     }
+    fn hidden_tools(&self) -> Vec<String> {
+        vec![]
+    }
 }
 
 /// Answers every request with a stored render and records it whole.
