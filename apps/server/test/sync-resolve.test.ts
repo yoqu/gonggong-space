@@ -268,8 +268,12 @@ describe('conflicts (F11)', () => {
       `/api/groups/${w.g.id}/timeline`,
     )
     expect(res.body.messages.find((m) => m.id === card.id)?.syncConflict).toEqual({ id: c.id, botId: w.b.id })
-    const rows = await t.db.select().from(notifications).where(eq(notifications.type, 'sync_conflict'))
-    expect(rows.map((r) => r.userId).sort()).toEqual([w.li.id, w.wang.id].sort())
+    // Notifications are written after the card is posted.
+    const rows = await vi.waitFor(async () => {
+      const rows = await t.db.select().from(notifications).where(eq(notifications.type, 'sync_conflict'))
+      expect(rows.map((r) => r.userId).sort()).toEqual([w.li.id, w.wang.id].sort())
+      return rows
+    })
     expect(rows[0]!.payload).toMatchObject({
       botName: '老李的 Codex',
       version: 2,
