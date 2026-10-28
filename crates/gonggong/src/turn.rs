@@ -72,9 +72,9 @@ pub fn sync_hint(sync: &RunSyncStart, behind: Option<u64>) -> Option<String> {
     ))
 }
 
-/// "2026-09-23T10:12:00.123Z" → "2026-09-23 10:12" (UTC, as sent by the server).
+/// "2026-09-23T10:12:00.123Z" → "2026-09-23 10:12 UTC" (as sent by the server, labeled so agents don't read it as local).
 fn short_time(iso: &str) -> String {
-    iso.get(..16).unwrap_or(iso).replacen('T', " ", 1)
+    format!("{} UTC", iso.get(..16).unwrap_or(iso).replacen('T', " ", 1))
 }
 
 pub fn system_prompt(bot: &RunBot) -> String {
@@ -608,7 +608,7 @@ mod tests {
     fn composes_context_then_trigger() {
         assert_eq!(
             compose_prompt(&prompt(), &[ctx("陈晨", "退款 v1 下线"), ctx("小李的 Codex", "接口已改好")], 0),
-            "群聊上下文：\n[#1 2026-09-23 10:12] 陈晨: 退款 v1 下线\n[#1 2026-09-23 10:12] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
+            "群聊上下文：\n[#1 2026-09-23 10:12 UTC] 陈晨: 退款 v1 下线\n[#1 2026-09-23 10:12 UTC] 小李的 Codex: 接口已改好\n\n王磊 说：@小王 写个脚本"
         );
         assert_eq!(compose_prompt(&prompt(), &[], 0), "王磊 说：@小王 写个脚本");
     }
@@ -642,7 +642,7 @@ mod tests {
     fn points_the_agent_at_the_gonggong_tools_for_omitted_context() {
         assert_eq!(
             compose_prompt(&prompt(), &[ctx("陈晨", "hi")], 12),
-            "群聊上下文（此前还有 12 条未展示，需要时用 gonggong 的 list_messages(before=1) 或 search_messages 查看）：\n[#1 2026-09-23 10:12] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
+            "群聊上下文（此前还有 12 条未展示，需要时用 gonggong 的 list_messages(before=1) 或 search_messages 查看）：\n[#1 2026-09-23 10:12 UTC] 陈晨: hi\n\n王磊 说：@小王 写个脚本"
         );
     }
 

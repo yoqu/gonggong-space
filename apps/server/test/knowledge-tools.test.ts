@@ -61,7 +61,7 @@ describe('knowledge base tools', () => {
     expect((await w.call(run.id, 'kb_list', { tag: '部署' })).text).toBe('本群知识库没有带标签「部署」的条目')
     const got = await w.call(run.id, 'kb_get', { id: e!.id })
     expect(got.text).toContain('「测试环境」（id')
-    expect(got.text).toContain('v1 · 标签：环境 · Claude 修改于')
+    expect(got.text).toMatch(/v1 · 标签：环境 · Claude 修改于 [\d-]+ [\d:]+ UTC）/)
     expect(got.text).toContain('地址 https://test.example.com，账号找王磊')
     const hit = await w.call(run.id, 'kb_search', { query: '账号' })
     expect(hit.text).toContain(`命中「账号」1 条：\n- 测试环境（id ${e!.id} · v1）：地址`)

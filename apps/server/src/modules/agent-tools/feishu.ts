@@ -14,7 +14,7 @@ import { refuse, type ToolOutput } from './service.js'
 type Args = z.infer<(typeof GONGGONG_TOOLS)['list_feishu_messages']['input']>
 
 const BODY_MAX = 2000
-const time = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ')
+const time = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 /** Appended to the bot's instructions in groups bound to a Feishu chat (plan §2.6), by whether 同步全部飞书消息 is on. */
 export const feishuHint = (syncAll: boolean) =>
   syncAll

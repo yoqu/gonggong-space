@@ -193,7 +193,7 @@ describe('skill tools', () => {
     expect(renamed.text).toBe('已更新群层 Skill「code-review」（原名「review」）：v3，下一轮生效')
 
     const versions = await li.call('skill_versions', { name: 'code-review' })
-    expect(versions.text.replace(/ · [\d-]+ [\d:]+$/gm, '').split('\n')).toEqual([
+    expect(versions.text.replace(/ · [\d-]+ [\d:]+ UTC$/gm, '').split('\n')).toEqual([
       '「code-review」（群层）的版本：',
       `- v3（当前）· ${md('code-review', 'two').length + 5} 字节 · 李建国`,
       `- v2 · ${md('review', 'one').length + 5} 字节 · 李建国`,

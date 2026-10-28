@@ -205,7 +205,7 @@ async fn writes_attachments_into_the_workspace_excluded_from_git_and_sends_image
     let echo: serde_json::Value = serde_json::from_str(&done.reply).unwrap();
     let prompt = echo["prompt"].as_str().unwrap();
     assert!(
-        prompt.contains("[#1 2026-09-23 10:12] 陈晨: CI 挂了（附件：.gonggong/attachments/m1/ci.log）\n"),
+        prompt.contains("[#1 2026-09-23 10:12 UTC] 陈晨: CI 挂了（附件：.gonggong/attachments/m1/ci.log）\n"),
         "{prompt}"
     );
     assert!(

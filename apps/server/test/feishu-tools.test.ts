@@ -150,16 +150,16 @@ describe('list_feishu_messages', () => {
     expect(all.text).toBe(
       [
         '飞书群「支付重构」最近 4 条（实时读取，未保存）',
-        '[2026-09-23 10:01] 王磊: 退款要兼容旧签名',
-        '[2026-09-23 10:02] 飞书用户（ou_stranger）: 方案 先灰度文档',
-        '[2026-09-23 10:03] 小王的 Claude: [图片]',
-        '[2026-09-23 10:04] 飞书应用（cli_other）: [文件 spec.pdf]',
+        '[2026-09-23 10:01 UTC] 王磊: 退款要兼容旧签名',
+        '[2026-09-23 10:02 UTC] 飞书用户（ou_stranger）: 方案 先灰度文档',
+        '[2026-09-23 10:03 UTC] 小王的 Claude: [图片]',
+        '[2026-09-23 10:04 UTC] 飞书应用（cli_other）: [文件 spec.pdf]',
       ].join('\n'),
     )
 
     const page = await w.call({ limit: 2 })
-    expect(page.text).toContain('[2026-09-23 10:03]')
-    expect(page.text).not.toContain('[2026-09-23 10:02]')
+    expect(page.text).toContain('[2026-09-23 10:03 UTC]')
+    expect(page.text).not.toContain('[2026-09-23 10:02 UTC]')
     expect(page.text.split('\n').at(-1)).toBe(`更早：before=${at(3).toISOString()}`)
     const older = await w.call({ limit: 2, before: at(3).toISOString() })
     expect(older.text).toContain('退款要兼容旧签名')

@@ -19,7 +19,7 @@ import { asTool, refuse, type ToolOutput } from './service.js'
 type Run = typeof runs.$inferSelect
 type Args<N extends keyof typeof GONGGONG_TOOLS> = z.infer<(typeof GONGGONG_TOOLS)[N]['input']>
 
-const time = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ')
+const time = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 const tagsOf = (e: KnowledgeRow) => (e.tags.length ? ` · 标签：${e.tags.join('、')}` : '')
 const head = (e: KnowledgeRow) =>
   `${e.title}（id ${e.id} · v${e.version}${e.pinned ? ' · 置顶' : ''}${tagsOf(e)}）`

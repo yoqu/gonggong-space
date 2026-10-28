@@ -124,10 +124,10 @@ describe('gonggong tool calls', () => {
     expect(latest.isError).toBe(false)
     const lines = latest.text.split('\n')
     expect(lines[0]).toMatch(new RegExp(`^群「支付服务重构」#${s(said[4]!)}–#\\d+（3 条）$`))
-    expect(lines[1]).toBe(`[#${s(said[4]!)} 2026-09-23 10:04] 李建国: 消息5`)
+    expect(lines[1]).toBe(`[#${s(said[4]!)} 2026-09-23 10:04 UTC] 李建国: 消息5`)
     expect(lines[2]).toMatch(
       new RegExp(
-        `^\\[#${s(reply)} 2026-09-23 10:07\\] 老李的 Codex: 接口已改好长+…（已截断，共 2105 字）（附件：diff.png）$`,
+        `^\\[#${s(reply)} 2026-09-23 10:07 UTC\\] 老李的 Codex: 接口已改好长+…（已截断，共 2105 字）（附件：diff.png）$`,
       ),
     )
     expect(lines[3]).toMatch(/王磊: @Bot 干活$/)

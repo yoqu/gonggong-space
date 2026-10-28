@@ -330,7 +330,7 @@ async fn injects_cwd_mode_system_prompt_and_context_then_reuses_the_session() {
     assert_eq!(Path::new(e["cwd"].as_str().unwrap()).canonicalize().unwrap(), r.workspace().canonicalize().unwrap());
     assert_eq!(e["mode"], "acceptEdits");
     assert!(e["systemPrompt"].as_str().unwrap().contains("小王的 Claude"));
-    assert_eq!(e["prompt"], "群聊上下文：\n[#3 2026-09-23 10:12] 陈晨: 新上下文\n\n王磊 说：mock:echo");
+    assert_eq!(e["prompt"], "群聊上下文：\n[#3 2026-09-23 10:12 UTC] 陈晨: 新上下文\n\n王磊 说：mock:echo");
 
     r.run(follow_up("r2", "mock:echo again", &first));
     let (_, second) = r.finish("r2").await;
@@ -379,7 +379,7 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
     r.run(s);
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.new_session_reason.as_deref(), Some("resume_failed"));
-    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00] 王磊: 旧消息\n"));
+    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00 UTC] 王磊: 旧消息\n"));
 }
 
 #[tokio::test]

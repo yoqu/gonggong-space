@@ -147,7 +147,7 @@ async fn a_removed_pinned_provider_starts_a_new_session_with_recent_history() {
     assert_ne!(second.session_id, first.session_id);
     assert_ne!(e["pid"], echo(&first)["pid"]);
     assert_eq!(e["settings"], Value::Null);
-    assert!(e["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00] 王磊: 旧消息\n"));
+    assert!(e["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00 UTC] 王磊: 旧消息\n"));
     assert_eq!(r.pinned(second.session_id.as_deref().unwrap()), OFFICIAL);
     assert!(!r.settings_file(&a).exists(), "the removed provider's key is not left on disk");
 }

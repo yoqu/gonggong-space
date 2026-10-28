@@ -84,7 +84,7 @@ const TYPE: Record<Question['type'], string> = {
 const STATE: Record<string, string> = { pending: '等待回答', expired: '超时未答', void: '已作废' }
 const MODE: Record<string, string> = { partition: '分区模式', force: '强制同步' }
 
-const time = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ')
+const time = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 const clip = (s: string, max = BODY_MAX) =>
   s.length > max ? `${s.slice(0, max)}…（已截断，共 ${s.length} 字）` : s
 

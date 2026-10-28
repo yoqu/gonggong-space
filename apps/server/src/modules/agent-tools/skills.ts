@@ -35,7 +35,7 @@ const DENIED: Record<Writable, string> = {
 
 const PLATFORM: Layer = { scope: 'platform', teamId: null, groupId: null }
 
-const time = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ')
+const time = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 
 /** The originator's writable layer, refused with a correctable reason. */
 async function writable(ctx: Ctx, run: Run, scope: Writable = 'group') {

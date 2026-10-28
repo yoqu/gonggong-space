@@ -21,7 +21,7 @@ export function messageTokens(m: ContextMessage): number {
   const files = m.attachments.length
     ? `（附件：${m.attachments.map((a) => `.gonggong/attachments/${a.messageId}/${a.name}`).join('、')}）`
     : ''
-  return estimateTokens(`[#${m.seq} 01-01 00:00] ${m.author}: ${m.body}${files}\n`)
+  return estimateTokens(`[#${m.seq} 2026-01-01 00:00 UTC] ${m.author}: ${m.body}${files}\n`)
 }
 
 // Agent-facing: not translated.
