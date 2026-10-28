@@ -163,13 +163,13 @@ describe('agent commands', () => {
     await w.say(w.asWang, '/compact @小王的 Claude 保留接口约定')
     const first = w.sent.find((m): m is RunStart => m.t === 'run.start')!
     expect(first).toMatchObject({ command: '/compact 保留接口约定', prompt: { context: [], omitted: 0 } })
-    expect(first.bot.systemPrompt).not.toContain('```chart')
+    expect(first.bot.systemPrompt).not.toContain('```actions')
     expect(await w.eventsText()).toEqual([])
     await t.db.update(runs).set({ status: 'completed' }).where(eq(runs.id, first.runId))
     await w.say(w.asWang, '@小王的 Claude 继续')
     const second = w.sent.filter((m): m is RunStart => m.t === 'run.start')[1]!
     expect(second.command).toBeNull()
-    expect(second.bot.systemPrompt).toContain('```chart')
+    expect(second.bot.systemPrompt).toContain('```actions')
     expect(second.prompt.context.map((c) => c.body)).toEqual(['先聊点别的'])
   })
 

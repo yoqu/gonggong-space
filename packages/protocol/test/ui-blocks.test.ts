@@ -1,36 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { findUiBlocks, parseUiBlock, summarizeUiBlock, WIDGET_MAX } from '../src/index.js'
+import { findUiBlocks, parseUiBlock, summarizeUiBlock } from '../src/index.js'
 
 describe('ui blocks', () => {
   it('parses valid blocks and leaves invalid ones as code', () => {
-    expect(
-      parseUiBlock('chart', '{"type":"line","x":["10:00","11:00"],"series":[{"name":"CPU","data":[35,52]}]}'),
-    ).toMatchObject({
-      lang: 'chart',
-      data: { type: 'line', series: [{ name: 'CPU' }] },
-    })
-    expect(parseUiBlock('chart', '{"type":"radar","x":[],"series":[]}')).toBeNull()
-    expect(parseUiBlock('metrics', 'not json')).toBeNull()
-    expect(
-      parseUiBlock('metrics', '[{"label":"模板","value":"44","delta":"原来 4 个","tone":"good"}]'),
-    ).toEqual({
-      lang: 'metrics',
-      data: [{ label: '模板', value: '44', delta: '原来 4 个', tone: 'good' }],
-    })
     expect(parseUiBlock('actions', '{"options":[{"label":"扩容"}]}')).toEqual({
       lang: 'actions',
       data: { id: 'actions', options: [{ label: '扩容' }] },
     })
+    expect(parseUiBlock('actions', 'not json')).toBeNull()
+    expect(parseUiBlock('mermaid', 'graph TD; A-->B')).toEqual({ lang: 'mermaid', source: 'graph TD; A-->B' })
     expect(parseUiBlock('ts', 'const a = 1')).toBeNull()
-    expect(parseUiBlock('widget', 'x'.repeat(WIDGET_MAX + 1))).toBeNull()
+  })
+
+  it('leaves the retired chart, metrics, timeline and widget fences as code', () => {
+    expect(parseUiBlock('chart', '{"type":"line","x":["a"],"series":[{"name":"CPU","data":[1]}]}')).toBeNull()
+    expect(parseUiBlock('metrics', '[{"label":"CPU","value":78}]')).toBeNull()
+    expect(parseUiBlock('timeline', '[{"time":"10:00","title":"x"}]')).toBeNull()
+    expect(parseUiBlock('widget', '<p>hi</p>')).toBeNull()
   })
 
   it('finds closed blocks in a reply and summarizes them', () => {
     const md =
-      '结论如下\n\n```metrics\n[{"label":"CPU","value":78,"unit":"%"}]\n```\n\n```ts\nx\n```\n\n```chart\n{"type":"bar"'
+      '结论如下\n\n```actions\n{"prompt":"怎么办","options":[{"label":"扩容"},{"label":"忽略"}]}\n```\n\n```ts\nx\n```\n\n```mermaid\ngraph TD'
     const found = findUiBlocks(md)
     expect(found).toHaveLength(1)
-    expect(summarizeUiBlock(found[0]!.block)).toBe('CPU 78%')
-    expect(md.slice(found[0]!.start, found[0]!.end)).toMatch(/^```metrics[\s\S]*```$/)
+    expect(summarizeUiBlock(found[0]!.block)).toBe('怎么办：扩容 / 忽略')
+    expect(md.slice(found[0]!.start, found[0]!.end)).toMatch(/^```actions[\s\S]*```$/)
   })
 })

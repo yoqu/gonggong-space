@@ -17,6 +17,7 @@ mod git_ops4_r3;
 mod git_ops4_r4;
 mod git_ops5;
 mod hosted;
+mod html_render;
 mod net;
 mod plugins;
 mod providers_run;

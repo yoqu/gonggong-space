@@ -202,6 +202,7 @@ export const en = {
   '该机器上没有这个群的 Bot': 'This machine has no Bot in this group',
   '每条消息最多 {max} 个附件': 'At most {max} {max:attachment|attachments} per message',
   附件无效: 'Invalid attachment',
+  页面无效: 'Invalid page',
   附件无效或已发送过: 'Invalid attachment, or it was already sent',
 
   // Auth and accounts

@@ -147,9 +147,9 @@ describe('reading groups', () => {
   it('shows a rich UI block of the last message as its summary', async () => {
     const p = await people()
     const g = await t.seed.group({ createdBy: p.wang.id, name: 'A' })
-    const body = '```metrics\n[{"label":"DAU","value":12,"unit":"万"}]\n```\n后续'
+    const body = '```actions\n{"prompt":"发布吗？","options":[{"label":"发布"}]}\n```\n后续'
     await p.asWang.post(`/api/groups/${g.id}/messages`, { body, clientId: 'client-0001' })
-    expect((await p.asWang.get<GroupDto[]>('/api/groups')).body[0]?.last).toBe('王磊：DAU 12万')
+    expect((await p.asWang.get<GroupDto[]>('/api/groups')).body[0]?.last).toBe('王磊：发布吗？：发布')
   })
 
   it('lists only my groups with unread, lastSeq and last line', async () => {

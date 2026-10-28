@@ -1,5 +1,15 @@
 import { z } from 'zod'
 import { SkillFile } from './daemon.js'
+import {
+  HTML_RENDER_COLUMN_WIDTH,
+  HTML_RENDER_HTML_MAX,
+  HTML_RENDER_LAYOUT_GUIDE,
+  HTML_RENDER_MAX_FIT_HEIGHT,
+  HTML_RENDER_MAX_HEIGHT,
+  HTML_RENDER_MIN_HEIGHT,
+  HTML_RENDER_THEME_GUIDE,
+  HTML_RENDER_TITLE_MAX,
+} from './html-render.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 import {
   DaemonRelease,
@@ -690,6 +700,36 @@ export const PreviewStaticArgs = z.object({
   path: z.string().regex(/^\//).max(500).describe('打开时的路径，默认 /（目录下的 index.html）').optional(),
 })
 
+const page = z.string().min(1).max(HTML_RENDER_HTML_MAX).describe('A complete, self-contained HTML document.')
+
+export const HtmlPreviewArgs = z.object({
+  html: page,
+  width: z
+    .number()
+    .int()
+    .min(240)
+    .max(1600)
+    .describe(`CSS pixels, 240 to 1600. Default ${HTML_RENDER_COLUMN_WIDTH}. Use about 390 for phones.`)
+    .optional(),
+  appearance: z.enum(['light', 'dark']).describe('Default light.').optional(),
+})
+
+export const HtmlRenderArgs = z.object({
+  html: page,
+  title: z.string().min(1).max(HTML_RENDER_TITLE_MAX).describe('What the page shows; names its message.'),
+  height: z
+    .number()
+    .int()
+    .min(HTML_RENDER_MIN_HEIGHT)
+    .max(HTML_RENDER_MAX_HEIGHT)
+    .describe(
+      `Frame height in CSS pixels, ${HTML_RENDER_MIN_HEIGHT} to ${HTML_RENDER_MAX_HEIGHT}. Use the contentHeight from html_preview.`,
+    ),
+})
+
+const PAGE_RULES =
+  'Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is.'
+
 export const PreviewMiniprogramArgs = z.object({
   dir: z
     .string()
@@ -800,6 +840,16 @@ export const DAEMON_TOOLS = {
     description:
       '把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。',
     input: PreviewStaticArgs,
+  },
+  html_preview: {
+    title: '预览 HTML',
+    description: `Check an HTML page before html_render. Returns a PNG, contentHeight and console output. ${PAGE_RULES} Theme and layout rules are in html_render.`,
+    input: HtmlPreviewArgs,
+  },
+  html_render: {
+    title: '在群聊中展示 HTML',
+    description: `Show a finished HTML page (chart, diagram, dashboard, mockup) inline in the group chat, as its own message above your final reply. Do not announce or restate the page. The frame fits its height to the page up to ${HTML_RENDER_MAX_FIT_HEIGHT}px. ${PAGE_RULES} ${HTML_RENDER_LAYOUT_GUIDE} ${HTML_RENDER_THEME_GUIDE}`,
+    input: HtmlRenderArgs,
   },
   client_release_publish: {
     title: '发布客户端到当前空间',

@@ -212,6 +212,10 @@ async fn handle(
             let tools: Vec<Value> = [vec![tool()], SERVER.list.clone(), DAEMON.list.clone()].concat();
             result(id, json!({ "tools": tools }))
         }
+        "tools/call" if params["name"] == "html_preview" => match html_preview(&params["arguments"]).await {
+            Ok(content) => result(id, json!({ "content": content, "isError": false })),
+            Err(e) => result(id, tool_result(&e, true)),
+        },
         "tools/call" => {
             let (name, args) = (params["name"].as_str().unwrap_or_default(), &params["arguments"]);
             let out = if name == TOOL {
@@ -220,6 +224,8 @@ async fn handle(
                 Some(forward(backends.api.as_ref().as_ref(), asker.as_ref(), name, args).await)
             } else if name == "send_attachments" {
                 Some(send_attachments(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
+            } else if name == "html_render" {
+                Some(html_render(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
             } else if name == "client_release_publish" {
                 Some(publish_release(backends.api.as_ref().as_ref(), asker.as_ref(), args).await)
             } else if name == "client_release_notes" {
@@ -405,6 +411,75 @@ async fn send_attachments(api: Option<&Config>, asker: &dyn Asker, args: &Value)
         .and_then(|r| r)
         .map_err(|e| format!("附件未发送：{e}"))?;
     Ok(format!("已发送 {count} 个附件到群聊"))
+}
+
+/// `HtmlPreviewArgs` / `HtmlRenderArgs` of `packages/protocol/src/tools.ts`.
+#[derive(Deserialize)]
+struct HtmlArgs {
+    html: String,
+    width: Option<i64>,
+    #[serde(default)]
+    appearance: crate::html_render::Appearance,
+    title: Option<String>,
+    height: Option<i64>,
+}
+
+const HTML_MAX: usize = 512_000;
+const HTML_TITLE_MAX: usize = 200;
+const HTML_HEIGHTS: std::ops::RangeInclusive<i64> = 80..=2000;
+
+fn html_args(args: &Value) -> Result<HtmlArgs, String> {
+    let a = HtmlArgs::deserialize(args).map_err(|e| format!("参数无效：{e}"))?;
+    if a.html.is_empty() || a.html.chars().count() > HTML_MAX {
+        return Err(format!("参数无效：html 需要 1 至 {HTML_MAX} 个字符"));
+    }
+    Ok(a)
+}
+
+/// A screenshot for the agent to check its page: an image and the page's numbers as JSON.
+async fn html_preview(args: &Value) -> Result<Value, String> {
+    let a = html_args(args)?;
+    let shot = crate::html_render::preview(a.html, a.width, a.appearance).await?;
+    let mut info = json!({
+        "width": shot.width,
+        "contentHeight": shot.content_height,
+        "capturedHeight": shot.captured_height,
+        "consoleMessages": shot.console_messages,
+    });
+    if !shot.missing_images.is_empty() {
+        info["missingImages"] = json!(shot.missing_images);
+    }
+    Ok(json!([
+        { "type": "image", "data": shot.png, "mimeType": "image/png" },
+        { "type": "text", "text": info.to_string() },
+    ]))
+}
+
+/// Publishes a page to the group as its own message, with the heights it measured at the clients' widths.
+async fn html_render(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> Result<String, String> {
+    let a = html_args(args)?;
+    let title: String = a.title.as_deref().unwrap_or_default().trim().chars().take(HTML_TITLE_MAX).collect();
+    if title.is_empty() {
+        return Err("参数无效：title 不能为空".into());
+    }
+    let height = a.height.ok_or("参数无效：缺少 height")?.clamp(*HTML_HEIGHTS.start(), *HTML_HEIGHTS.end());
+    let api = api.ok_or("未连接服务器，无法展示")?;
+    let (run_id, _) = asker.active_run().ok_or(NOT_RUNNING)?;
+    let html = crate::html_render::prepare(a.html).await?;
+    let heights = crate::html_render::heights(&html).await;
+    let mut form = reqwest::multipart::Form::new().text("title", title.clone()).text("height", height.to_string());
+    if let Some(heights) = heights {
+        form = form.text("heights", json!(heights).to_string());
+    }
+    let page = reqwest::multipart::Part::bytes(html.into_bytes())
+        .file_name("page.html")
+        .mime_str("text/html")
+        .map_err(|e| e.to_string())?;
+    post_form(api, &format!("/api/daemon/runs/{run_id}/html-renders"), form.part("html", page))
+        .await
+        .and_then(|r| r)
+        .map_err(|e| format!("页面未展示：{e}"))?;
+    Ok(format!("Shown \"{title}\" in the chat above your reply. Do not restate it."))
 }
 
 #[derive(Deserialize)]
@@ -1073,6 +1148,8 @@ mod tests {
                 "service_logs",
                 "service_stop",
                 "preview_static",
+                "html_preview",
+                "html_render",
                 "client_release_publish",
                 "client_release_notes",
                 "feishu_send_card",

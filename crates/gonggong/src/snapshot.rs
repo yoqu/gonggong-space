@@ -27,7 +27,7 @@ const INSTALLED: &[&str] = &[];
 const ON_PATH: &[&str] = &["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge"];
 
 /// `GONGGONG_BROWSER`, else a Chrome-family browser at its usual place or on PATH.
-fn browser() -> Option<PathBuf> {
+pub(crate) fn browser() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("GONGGONG_BROWSER") {
         return Some(PathBuf::from(p)).filter(|p| p.is_file());
     }

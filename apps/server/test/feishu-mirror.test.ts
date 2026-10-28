@@ -551,8 +551,7 @@ describe('共工 → 飞书', () => {
     const [run] = await t.db.select().from(runs).where(eq(runs.triggerMessageId, sent.body.id))
     const msg = t.feishu.sent.find((s) => s.msgType === 'interactive')!
     const cardId = (msg.content.data as { card_id: string }).card_id
-    const chart =
-      '```chart\n{"type":"line","title":"日活","x":["一","二"],"series":[{"name":"DAU","data":[1,2]}]}\n```'
+    const chart = '```mermaid\ngraph TD\nA-->B\n```'
     const actions = '```actions\n{"prompt":"发布吗？","options":[{"label":"发布"},{"label":"取消"}]}\n```'
     const [reply] = await t.db
       .insert(messages)
@@ -566,9 +565,9 @@ describe('共工 → 飞书', () => {
       .returning()
     await setRun(run!.id, { status: 'completed', step: '' })
     const json = JSON.stringify(t.feishu.cards.get(cardId)!.card)
-    expect(json).toContain('📊 日活（DAU）')
+    expect(json).toContain('🔀 流程图')
     expect(json).toContain('发布吗？：发布 / 取消')
-    expect(json).not.toContain('```chart')
+    expect(json).not.toContain('```mermaid')
     expect(json).not.toContain('```actions')
     expect(json).toContain('const a = 1')
     expect(json).toContain(`${BASE}/g/${group.id}?msg=${reply!.id}`)

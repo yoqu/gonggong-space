@@ -19,6 +19,7 @@ mod git_console;
 pub mod git_ops;
 pub mod git_write;
 pub mod hosted;
+pub mod html_render;
 pub mod i18n;
 pub mod inject;
 pub mod local;

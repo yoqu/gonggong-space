@@ -26,6 +26,7 @@ import {
 } from '../messages/service.js'
 import { LIVE } from '../runs/dto.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
+import { publishHtmlRender, serveHtmlRender } from './html-render.js'
 import { type AttachmentRow, dataDir, inlineType, safeName, type Upload, uploadDto } from './service.js'
 
 async function findAttachment(ctx: Ctx, id: string) {
@@ -238,6 +239,14 @@ export function attachmentRoutes(ctx: Ctx) {
 
     app.post<{ Params: { runId: string } }>('/api/daemon/runs/:runId/attachments', (req) =>
       sendAgentAttachments(ctx, req),
+    )
+
+    app.post<{ Params: { runId: string } }>('/api/daemon/runs/:runId/html-renders', (req) =>
+      publishHtmlRender(ctx, req),
+    )
+
+    app.get<{ Params: { id: string } }>('/api/attachments/:id/render', (req, reply) =>
+      serveHtmlRender(ctx, req, reply),
     )
   }
 }

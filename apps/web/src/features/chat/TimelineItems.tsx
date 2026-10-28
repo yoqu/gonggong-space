@@ -27,6 +27,7 @@ import { CreationCardView } from '../plugins/CreationCard'
 import { PreviewCard } from '../previews/PreviewCard'
 import { ReactionBar } from '../reactions'
 import { RichMessage } from '../rich/context'
+import { HtmlRender } from '../rich/HtmlRender'
 import { ApprovalBlock } from '../runs/ApprovalBlock'
 import { InterruptBlock } from '../runs/InterruptBlock'
 import { runMascot } from '../runs/mascot'
@@ -505,7 +506,8 @@ function ReplyMessage({
   return (
     <div data-testid="bot-reply">
       <Message
-        className={cx(isRich(m) && 'tl-msg--wide')}
+        className={cx((isRich(m) || m.htmlRender) && 'tl-msg--wide')}
+        bare={!!m.htmlRender}
         author={botAuthor(m.authorName, m.authorId, m.groupId)}
         continued={continued}
         time={<Time iso={m.createdAt} pin={m} />}
@@ -520,7 +522,9 @@ function ReplyMessage({
           </>
         }
       >
-        {m.previewId ? (
+        {m.htmlRender ? (
+          <HtmlRender page={m.htmlRender} />
+        ) : m.previewId ? (
           <PreviewCard
             previewId={m.previewId}
             groupId={m.groupId}

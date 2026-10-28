@@ -1,0 +1,37 @@
+/* An html_render page: no card or border, it sits on the chat background like the reply text. */
+.html-render {
+  position: relative;
+  width: 720px;
+  max-width: 100%;
+}
+.html-render__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+.html-render__expand {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.html-render:hover .html-render__expand,
+.html-render__expand:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .html-render__expand {
+    opacity: 1;
+  }
+}
+.html-render__full {
+  display: block;
+  width: 100%;
+  height: min(80vh, 900px);
+  border: 0;
+  border-radius: var(--radius-field);
+  background: var(--content-bg);
+}

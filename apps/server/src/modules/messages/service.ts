@@ -1,6 +1,7 @@
 import type {
   ActionAnswer,
   Attachment,
+  HtmlRenderRef,
   I18nParams,
   I18nText,
   McpSecretCard,
@@ -61,6 +62,8 @@ export type MessageMeta = {
   card?: MessageCard
   /** A bot reply's answered ```actions blocks, by block id (plan 富交互消息). */
   actions?: Record<string, ActionAnswer>
+  /** A page published with html_render. */
+  htmlRender?: HtmlRenderRef
 }
 
 /** A user message's author name, a Feishu sender's when they have no 共工 account; needs `users` left-joined. */
@@ -97,6 +100,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).progress && { progress: (m.meta as MessageMeta).progress }),
     ...((m.meta as MessageMeta).card && { card: (m.meta as MessageMeta).card }),
     ...((m.meta as MessageMeta).actions && { actions: (m.meta as MessageMeta).actions }),
+    ...((m.meta as MessageMeta).htmlRender && { htmlRender: (m.meta as MessageMeta).htmlRender }),
   }
 }
 

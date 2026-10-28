@@ -60,6 +60,7 @@ import {
   ToolStatus,
   ToolsSettings,
 } from './daemon.js'
+import { HtmlRenderRef } from './html-render.js'
 import { I18nText } from './i18n.js'
 import { LiveRun } from './live-run.js'
 import { MessageCard } from './plugins.js'
@@ -1332,6 +1333,8 @@ export const MessageDto = z.object({
   actions: z.record(z.string(), ActionAnswer).optional(),
   /** Generic card (plan 插件体系-方案); unknown kinds are shown as the body. */
   card: MessageCard.optional(),
+  /** A page a bot published with html_render, shown inline in a sandboxed frame. */
+  htmlRender: HtmlRenderRef.optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 

@@ -58,6 +58,7 @@ export const DRAWN_PATHS = {
   'doc-warning': `${PANE_PATHS.doc} M9 8.3v2.6 M9 13h.01`,
   'shield-check': `${shield} M6.6 8.9l1.7 1.7 3.2-3.3`,
   'shield-warning': `${shield} M9 6v3.8 M9 11.9h.01`,
+  expand: 'M10.5 3h4.5v4.5 M15 3l-5 5 M7.5 15H3v-4.5 M3 15l5-5',
   'sidebar-right': `${panel} M11 3.5v11 M12.6 6h1.2 M12.6 8h1.2`,
   'slider-horizontal':
     'M3 5.5h6.3 M12.7 5.5H15 M3 12.5h2.3 M8.7 12.5H15 M11 7.2a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z M7 14.2a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z',
