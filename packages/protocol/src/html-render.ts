@@ -194,19 +194,18 @@ export const paletteTheme = (appearance: HtmlRenderAppearance) =>
 
 /** Agent-facing (not translated). */
 export const HTML_RENDER_THEME_GUIDE = [
-  'Use theme CSS variables on :root, not fixed colors:',
+  'Use theme CSS variables, not fixed colors:',
   '--background, --foreground, --muted, --card, --popover, --secondary, --border, --ring, --primary, --accent, --destructive, --warning, --success, --info, --code-background',
-  '(most have a matching -foreground; accent, destructive, warning and success also have -surface),',
-  '--chart-1 to --chart-6, --radius, --font-sans, --font-mono.',
-  'The base sheet sets background, text (14px) and font. The page follows the reader’s light or dark theme.',
+  '(most have -foreground; accent, destructive, warning, success also -surface),',
+  '--chart-1..6, --radius, --font-sans, --font-mono. The base sheet sets background, 14px text and font, and follows the reader’s light/dark theme.',
 ].join(' ')
 
 /** Agent-facing (not translated). */
 export const HTML_RENDER_LAYOUT_GUIDE = [
-  `Frame width is the reply column (${HTML_RENDER_COLUMN_WIDTH}px desktop, about 360px phones), on the chat background.`,
-  'Leave html, body and the outer element with no background color, no outer card, border, banner title or side padding. This wins over any rule that sets a page background.',
-  'A box that needs its own background gets 16px padding and var(--radius) corners. Give charts fixed pixel heights.',
-  'Let content set the height. Do not use vh units or height:100% on html or body: vh is rejected, both loop.',
+  `Width is the reply column (${HTML_RENDER_COLUMN_WIDTH}px desktop, ~360px phones) on the chat background.`,
+  'html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule).',
+  'An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights.',
+  'Content sets the height: no vh units (rejected) or height:100% on html/body (loops).',
 ].join(' ')
 
 // ── Host ↔ page messages (MCP Apps JSON-RPC) ─────────────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@
   {
     "name": "service_start",
     "title": "启动托管服务",
-    "description": "在工作区里启动一个长期运行的服务（如 dev server），由 gonggong 托管：本轮结束后仍在运行，可查看日志、随时停止。需要给群里看运行中的网页时用它启动，再用 preview_expose 发布，不要自己在后台起进程。同名服务会先停止再启动；群里已有的预览卡片会自动接上重启后的服务，不必重新发布。",
+    "description": "在工作区启动由 gonggong 托管的长期服务（如 dev server），本轮结束后仍运行，再用 preview_expose 发布。同名服务先停再启，已有预览卡片自动接上，不必重新发布。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -153,7 +153,7 @@
   {
     "name": "html_preview",
     "title": "预览 HTML",
-    "description": "Check an HTML page before html_render. Returns a PNG, contentHeight and console output. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Theme and layout rules are in html_render.",
+    "description": "Check a page before html_render: returns a PNG, contentHeight and console output. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Rules are in html_render.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -181,7 +181,7 @@
   {
     "name": "html_render",
     "title": "在群聊中展示 HTML",
-    "description": "Show a finished HTML page (chart, diagram, dashboard, mockup) inline in the group chat, as its own message above your final reply. Do not announce or restate the page. The frame fits its height to the page up to 20000px. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Frame width is the reply column (720px desktop, about 360px phones), on the chat background. Leave html, body and the outer element with no background color, no outer card, border, banner title or side padding. This wins over any rule that sets a page background. A box that needs its own background gets 16px padding and var(--radius) corners. Give charts fixed pixel heights. Let content set the height. Do not use vh units or height:100% on html or body: vh is rejected, both loop. Use theme CSS variables on :root, not fixed colors: --background, --foreground, --muted, --card, --popover, --secondary, --border, --ring, --primary, --accent, --destructive, --warning, --success, --info, --code-background (most have a matching -foreground; accent, destructive, warning and success also have -surface), --chart-1 to --chart-6, --radius, --font-sans, --font-mono. The base sheet sets background, text (14px) and font. The page follows the reader’s light or dark theme.",
+    "description": "Show a finished HTML page inline in the chat, as its own message above your reply; do not restate it. Height fits the page up to 20000px. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Width is the reply column (720px desktop, ~360px phones) on the chat background. html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule). An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights. Content sets the height: no vh units (rejected) or height:100% on html/body (loops). Use theme CSS variables, not fixed colors: --background, --foreground, --muted, --card, --popover, --secondary, --border, --ring, --primary, --accent, --destructive, --warning, --success, --info, --code-background (most have -foreground; accent, destructive, warning, success also -surface), --chart-1..6, --radius, --font-sans, --font-mono. The base sheet sets background, 14px text and font, and follows the reader’s light/dark theme.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -210,7 +210,7 @@
   {
     "name": "client_release_publish",
     "title": "发布客户端到当前空间",
-    "description": "把本机构建好的客户端产物（gg daemon、gg-cast、桌面端安装包 Gonggong_<版本>_*.dmg / *-setup.exe，或桌面端更新包 Gonggong_<版本>_*.app.tar.gz 及其 .sig 签名、*-setup.exe.sig）上传到当前空间，成员的 daemon 随后自动升级、桌面端从这里检查更新、可在网页下载安装包。推荐用 dir 一次发布 scripts/release.sh 的整个输出目录（dist/<版本>），只需审批一次；补传单个文件时用 file。快速发版用 dir 加 kind=\"daemon\"，只上传 daemon 与缓存的 gg-cast，不等待桌面端。只有系统管理员发起的对话可以发布。",
+    "description": "把 scripts/release.sh 构建的客户端产物（gg daemon、gg-cast、桌面端安装包与更新包）上传到当前空间，成员的 daemon 与桌面端随后从这里更新。推荐用 dir 发布整个 dist/<版本>（只审批一次），补传单个文件用 file；只发 daemon 用 dir 加 kind=\"daemon\"。仅限系统管理员发起的对话。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -237,7 +237,7 @@
   {
     "name": "client_release_notes",
     "title": "更新客户端版本说明",
-    "description": "写入或更新当前空间已发布版本的 Markdown 更新说明，桌面端与 daemon 的下一次更新检查会拿到具体内容。必须指定当前发布版本；只有系统管理员发起的对话可以使用。",
+    "description": "写入当前发布版本的 Markdown 更新说明，客户端下次检查更新时展示。仅限系统管理员发起的对话。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -291,7 +291,7 @@
   {
     "name": "preview_miniprogram",
     "title": "发布小程序预览",
-    "description": "在本机微信开发者工具里打开工作区的小程序项目并跳到指定页面，在群里发一张带模拟器截图的预览卡片；同一项目再次调用会切换卡片的页面并重新截图。开发者工具的启动、登录（未登录时卡片上显示登录二维码，扫码后自动恢复）和「信任此项目」都由它处理：不要自己用 wechatide、cli 或其他命令操作开发者工具，也不要另发登录二维码。",
+    "description": "在本机微信开发者工具里打开工作区的小程序并跳到指定页面，群里发一张带模拟器截图的预览卡片；同一项目再调用会切换页面。启动、登录（卡片上显示二维码）和信任项目都由它处理，不要自己用 cli 等命令操作开发者工具或另发二维码。",
     "inputSchema": {
       "type": "object",
       "properties": {
