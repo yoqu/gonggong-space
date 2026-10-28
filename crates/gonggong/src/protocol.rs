@@ -1693,6 +1693,8 @@ pub const FEATURE_SESSION_FORK: &str = "sessionFork";
 pub const FEATURE_AGENT_SETTINGS: &str = "agentSettings";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
+/// 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete.
+pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 pub const FEATURE_GIT_OPS: &str = "gitOps";
 /// git.diff, git.refresh and commit `paths`: without it a server must not send paths, or everything gets committed.
 pub const FEATURE_GIT_OPS2: &str = "gitOps2";
@@ -2171,6 +2173,12 @@ pub enum DaemonToServer {
     DirResult(DirResult),
     #[serde(rename = "apps.list.result", rename_all = "camelCase")]
     AppsListResult { request_id: String, apps: Vec<String> },
+    #[serde(rename = "logs.result", rename_all = "camelCase")]
+    LogsResult { request_id: String, lines: Vec<crate::logs::LogLine>, error: Option<String> },
+    #[serde(rename = "workspaces.result", rename_all = "camelCase")]
+    WorkspacesResult { request_id: String, entries: Vec<crate::workspace::Entry>, error: Option<String> },
+    #[serde(rename = "workspace.delete.result", rename_all = "camelCase")]
+    WorkspaceDeleteResult { request_id: String, error: Option<String> },
     #[serde(rename = "workspace.open.result", rename_all = "camelCase")]
     WorkspaceOpenResult { request_id: String, error: Option<String> },
     #[serde(rename = "session.fork.result", rename_all = "camelCase")]
@@ -2459,6 +2467,13 @@ pub enum ServerToDaemon {
     DirList { request_id: String, path: Option<String> },
     #[serde(rename = "apps.list", rename_all = "camelCase")]
     AppsList { request_id: String },
+    /// 我的机器管理 → 日志 (needs [`FEATURE_MACHINE_ADMIN`]).
+    #[serde(rename = "logs.get", rename_all = "camelCase")]
+    LogsGet { request_id: String, level: crate::logs::LogLevel, limit: usize },
+    #[serde(rename = "workspaces.list", rename_all = "camelCase")]
+    WorkspacesList { request_id: String },
+    #[serde(rename = "workspace.delete", rename_all = "camelCase")]
+    WorkspaceDelete { request_id: String, group_id: String, bot_id: String, path: String },
     #[serde(rename = "workspace.open")]
     WorkspaceOpen(WorkspaceOpen),
     #[serde(rename = "session.fork")]

@@ -1,0 +1,29 @@
+{
+  "t": "workspaces.result",
+  "requestId": "rq-ws-1",
+  "entries": [
+    {
+      "groupId": "1451b34b-8e35-4550-a359-12405b882ee4",
+      "groupName": "退款 v2 迁移",
+      "dm": false,
+      "botId": "f612adbb-fb19-4e55-b53b-40945a6c2062",
+      "botName": "小王的 Claude",
+      "kind": "managed",
+      "path": "/Users/wang/.gonggong/workspaces/1451b34b-8e35-4550-a359-12405b882ee4/f612adbb-fb19-4e55-b53b-40945a6c2062/refund",
+      "size": 52428800,
+      "state": "running"
+    },
+    {
+      "groupId": "9b22ce47-f2df-44bd-a446-33a9edbd27b1",
+      "groupName": null,
+      "dm": false,
+      "botId": "f612adbb-fb19-4e55-b53b-40945a6c2062",
+      "botName": null,
+      "kind": "cd",
+      "path": "/Users/wang/code/site",
+      "size": null,
+      "state": "removed"
+    }
+  ],
+  "error": null
+}

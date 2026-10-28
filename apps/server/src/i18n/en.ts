@@ -397,6 +397,7 @@ export const en = {
   '每个用户最多同时打开 4 个终端': 'Each user can have at most 4 active terminals',
   终端不存在: 'Terminal not found',
   机器不存在或已吊销: 'Machine not found or revoked',
+  只有机器主人可以管理这台机器: 'Only the machine’s owner can manage it',
   请填写机器上的绝对路径: 'Enter an absolute path on the machine',
   终端已结束: 'The terminal has ended',
   '终端已结束，请新建会话': 'The terminal has ended, create a new session',

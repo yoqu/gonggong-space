@@ -724,7 +724,7 @@ pub async fn reset_cd(config: &Config, group: &str, bot: &str) -> anyhow::Result
     crate::bots::ok(res).await.map(drop)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EntryKind {
     Managed,
@@ -733,7 +733,7 @@ pub enum EntryKind {
     Cd,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EntryState {
     Running,
@@ -745,7 +745,7 @@ pub enum EntryState {
 }
 
 /// One row of the 工作区 page. Names are `None` for dirs the server no longer knows about.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
     pub group_id: String,
@@ -926,6 +926,30 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The 工作区 page for the web's 我的机器管理: the server's pairs as the desktop app gets them, sizes walked off the
+/// async runtime.
+pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<Vec<Entry>, String> {
+    let config = config.ok_or_else(|| t!("daemon 未登录服务器").to_string())?;
+    let pairs = fetch_pairs(&config).await.map_err(|e| t!("读取工作区失败：{e}", e = e))?;
+    tokio::task::spawn_blocking(move || list(&home, &pairs)).await.map_err(|e| e.to_string())
+}
+
+/// Deletes the web's chosen workspace if it is still that row and still deletable (see [`delete`]).
+pub async fn delete_for_web(
+    home: PathBuf,
+    config: Option<Config>,
+    group_id: String,
+    bot_id: String,
+    path: String,
+) -> Result<(), String> {
+    let entry = list_for_web(home.clone(), config)
+        .await?
+        .into_iter()
+        .find(|e| e.group_id == group_id && e.bot_id == bot_id && e.path == Path::new(&path))
+        .ok_or_else(|| t!("工作区不存在或已变化，请刷新").to_string())?;
+    tokio::task::spawn_blocking(move || delete(&home, &entry)).await.map_err(|e| e.to_string())?
 }
 
 /// A local backup under `<home>/backups` (overwritten local edits, interrupted leftovers); never uploaded.

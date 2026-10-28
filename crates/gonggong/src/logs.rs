@@ -57,7 +57,7 @@ impl LogLevel {
 }
 
 /// `10:23:01 INFO  git     fetch origin …`, as on the prototype's log pane.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
 pub struct LogLine {
     pub level: LogLevel,
     pub text: String,
@@ -221,6 +221,14 @@ pub fn read_recent(home: &Path, max: LogLevel, limit: usize) -> Vec<LogLine> {
     out
 }
 
+/// The newest log lines for the web's 我的机器管理, masked like the diagnostics bundle: the machine token, live run
+/// secrets and credentials by shape never leave the machine.
+pub fn for_web(home: &Path, max: LogLevel, limit: usize, token: &str) -> Vec<LogLine> {
+    let live = live_secrets();
+    let secrets: Vec<&str> = std::iter::once(token).chain(live.iter().map(String::as_str)).collect();
+    read_recent(home, max, limit).into_iter().map(|l| LogLine { text: redact(&l.text, &secrets), ..l }).collect()
+}
+
 /// Run secrets (`run.start.env`) of the live adapter processes, by holder: in memory only, gone with the adapter.
 static LIVE_SECRETS: LazyLock<Mutex<HashMap<u64, Vec<String>>>> = LazyLock::new(Mutex::default);
 static NEXT_HOLDER: AtomicU64 = AtomicU64::new(0);
@@ -380,6 +388,18 @@ mod tests {
         assert_eq!(texts(LogLevel::Warn, 10), ["23:59:30 WARN  sync    two", "00:00:02 ERROR engine  four"]);
         assert_eq!(texts(LogLevel::Debug, 2), ["00:00:01 DEBUG engine  three", "00:00:02 ERROR engine  four"]);
         assert_eq!(texts(LogLevel::Info, 10).len(), 3);
+    }
+
+    #[test]
+    fn lines_for_the_web_never_carry_the_machine_token_or_credentials() {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir(home.path())).unwrap();
+        let log = "2026-09-23 00:00:01 WARN  tunnel  retry with plaintoken-1234567890 password=hunter22\n\
+                   2026-09-23 00:00:02 DEBUG engine  noise\n";
+        std::fs::write(dir(home.path()).join("daemon.2026-09-23.log"), log).unwrap();
+        let lines = for_web(home.path(), LogLevel::Info, 10, "plaintoken-1234567890");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].text, "00:00:01 WARN  tunnel  retry with [REDACTED] password=[REDACTED]");
     }
 
     #[test]

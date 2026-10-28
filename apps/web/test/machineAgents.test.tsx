@@ -190,7 +190,7 @@ describe('machine dialog tabs', () => {
   })
 
   it('blocks only Agent 设置 on a daemon without agentSettings', () => {
-    open({ ...mbp, features: ['tools', 'providers', 'ccSwitch'] })
+    open({ ...mbp, features: ['tools', 'providers', 'ccSwitch', 'machineAdmin'] })
     expect(tab('Agent 工具').disabled).toBe(false)
     expect(tab('供应商').disabled).toBe(false)
     expect(tab('Agent 设置').disabled).toBe(true)
@@ -199,7 +199,9 @@ describe('machine dialog tabs', () => {
 
   it('names every outdated tab in one note', () => {
     open({ ...mbp, features: [] })
-    expect(screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商与Agent 设置')).toBeTruthy()
+    expect(
+      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、工作区与日志'),
+    ).toBeTruthy()
   })
 })
 

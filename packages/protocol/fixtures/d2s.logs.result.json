@@ -1,0 +1,9 @@
+{
+  "t": "logs.result",
+  "requestId": "rq-logs-1",
+  "lines": [
+    { "level": "warn", "text": "10:23:01 WARN  gonggong::tunnel reconnecting in 2s" },
+    { "level": "error", "text": "10:23:03 ERROR gonggong::git fetch failed: token [REDACTED]" }
+  ],
+  "error": null
+}

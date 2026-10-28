@@ -564,3 +564,54 @@
   font-size: 10px;
   line-height: 15px;
 }
+
+.machine__tag--update {
+  background: var(--control-fill);
+  color: var(--system-blue);
+}
+
+/* 我的机器管理 → 工作区 / 日志 */
+.machine-admin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.machine-admin__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.machine-admin__hint {
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+.machine-admin__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.machine-admin__size {
+  font-variant-numeric: tabular-nums;
+  color: var(--label-secondary);
+}
+.machine-logs {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--control-fill);
+  font: 12px / 1.5 var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.machine-logs__line[data-level="error"] {
+  color: var(--system-red);
+}
+.machine-logs__line[data-level="warn"] {
+  color: var(--system-orange);
+}
+.machine-logs__line[data-level="debug"] {
+  color: var(--label-tertiary);
+}

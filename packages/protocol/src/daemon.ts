@@ -1029,6 +1029,46 @@ export const SessionForkResult = z.object({
   error: z.string().nullable(),
 })
 
+export const LogLevelName = z.enum(['error', 'warn', 'info', 'debug'])
+
+/** Answer to logs.get: oldest first, credentials masked before they leave the machine. */
+export const LogsResult = z.object({
+  t: z.literal('logs.result'),
+  requestId: z.string(),
+  lines: z.array(z.object({ level: LogLevelName, text: z.string() })),
+  error: z.string().nullable(),
+})
+
+/** One workspace on the machine, as its desktop app's 工作区 page lists it; names are null once the server forgot them. */
+export const MachineWorkspace = z.object({
+  groupId: z.string(),
+  groupName: z.string().nullable(),
+  dm: z.boolean(),
+  botId: z.string(),
+  botName: z.string().nullable(),
+  kind: z.enum(['managed', 'empty', 'cd']),
+  path: z.string(),
+  /** Bytes on disk (a lower bound on huge trees); null for /cd dirs, the owner's own checkout. */
+  size: z.number().int().nonnegative().nullable(),
+  state: z.enum(['running', 'idle', 'removed', 'unused']),
+})
+export type MachineWorkspace = z.infer<typeof MachineWorkspace>
+
+/** Answer to workspaces.list. */
+export const WorkspacesResult = z.object({
+  t: z.literal('workspaces.result'),
+  requestId: z.string(),
+  entries: z.array(MachineWorkspace),
+  error: z.string().nullable(),
+})
+
+/** Answer to workspace.delete. */
+export const WorkspaceDeleteResult = z.object({
+  t: z.literal('workspace.delete.result'),
+  requestId: z.string(),
+  error: z.string().nullable(),
+})
+
 /** Answer to dir.list. */
 export const DirResult = z.object({
   t: z.literal('dir.result'),
@@ -1121,6 +1161,10 @@ export const DaemonFeature = z.enum([
    */
   'gitOps4',
   'terminal-v2',
+  /** A terminal open's `cwd`: machine terminals in a directory of their own. */
+  'terminal-dir',
+  /** 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete. */
+  'machineAdmin',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1331,6 +1375,9 @@ export const BotsProviderState = z.object({
 export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsUpdate,
   AppsListResult,
+  LogsResult,
+  WorkspacesResult,
+  WorkspaceDeleteResult,
   WorkspaceOpenResult,
   SessionForkResult,
   CommandsUpdate,
@@ -1757,6 +1804,26 @@ export const WorkspaceOpen = z.object({
   app: z.string(),
 })
 
+/** 我的机器管理 → 日志: the newest `limit` daemon log lines at or below `level`. */
+export const LogsGet = z.object({
+  t: z.literal('logs.get'),
+  requestId: z.string(),
+  level: LogLevelName,
+  limit: z.number().int().min(1).max(2000),
+})
+
+/** 我的机器管理 → 工作区: every workspace on the machine with its size. */
+export const WorkspacesList = z.object({ t: z.literal('workspaces.list'), requestId: z.string() })
+
+/** Deletes a removed or unused managed workspace (never a running one or a /cd dir), as the desktop app does. */
+export const WorkspaceDelete = z.object({
+  t: z.literal('workspace.delete'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  path: z.string(),
+})
+
 /** Browse the machine's directories for the workspace picker; `path` null → the home dir. */
 export const DirList = z.object({
   t: z.literal('dir.list'),
@@ -1881,6 +1948,9 @@ export const AgentsReprobe = z.object({
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   AppsList,
+  LogsGet,
+  WorkspacesList,
+  WorkspaceDelete,
   WorkspaceOpen,
   SessionFork,
   RepoFind,

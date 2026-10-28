@@ -680,4 +680,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("不能覆盖当前分支 {branch}", "Can't overwrite the current branch {branch}"),
     ("该提交不在分支 {branch} 上", "That commit isn't on branch {branch}"),
     ("HEAD 已变化（现在是 {short}），请刷新后重试", "HEAD moved (now {short}); refresh and try again"),
+    ("daemon 未登录服务器", "The daemon is not logged in to a server"),
+    ("读取工作区失败：{e}", "Couldn't read the workspaces: {e}"),
+    ("工作区不存在或已变化，请刷新", "The workspace is gone or has changed; refresh"),
 ];

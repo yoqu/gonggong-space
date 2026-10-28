@@ -1562,3 +1562,67 @@ describe('machine terminals', () => {
     expect(screen.getByTestId('terminal-item-s9')).toBeTruthy()
   })
 })
+
+describe('machine admin tabs', () => {
+  const admin: MachineDto = { ...machine, features: ['machineAdmin'], daemonVersion: '0.4.4' }
+
+  it("shows the machine's workspaces with sizes, deletes a removed one, and reads its masked logs", async () => {
+    const entries = [
+      {
+        groupId: 'g1',
+        groupName: '退款 v2 迁移',
+        dm: false,
+        botId: 'b1',
+        botName: '小王的 Claude',
+        kind: 'managed',
+        path: '/h/.gonggong/workspaces/g1/b1/refund',
+        size: 5 * 1024 * 1024,
+        state: 'running',
+      },
+      {
+        groupId: 'g0',
+        groupName: null,
+        dm: false,
+        botId: 'b1',
+        botName: null,
+        kind: 'empty',
+        path: '/h/.gonggong/workspaces/g0/b1/_empty',
+        size: 2048,
+        state: 'removed',
+      },
+    ]
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /machines': () => [admin],
+      'GET /client-downloads': () => ({ version: '0.4.5', builds: [], desktop: [] }),
+      'GET /machines/mc1/workspaces': () => ({ entries }),
+      'POST /machines/mc1/workspaces/delete': () => null,
+      'GET /machines/mc1/logs': () => ({
+        lines: [{ level: 'warn', text: '10:23:01 WARN  tunnel token [REDACTED]' }],
+      }),
+    })
+    renderAt('/machine/mc1')
+    const page = await screen.findByRole('region', { name: '机器详情' })
+    expect(await within(page).findByText('可升级到 0.4.5')).toBeTruthy()
+
+    fireEvent.click(within(page).getByRole('tab', { name: '工作区' }))
+    const list = await within(page).findByRole('region', { name: '工作区' })
+    expect(await within(list).findByText('5.0 MB')).toBeTruthy()
+    expect(within(list).getByText('可清理 2.0 KB')).toBeTruthy()
+    // Only the removed one can go; a running workspace is never offered.
+    fireEvent.click(within(list).getByRole('button', { name: '删除' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '删除这个工作区？' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/machines/mc1/workspaces/delete')?.body).toEqual({
+        groupId: 'g0',
+        botId: 'b1',
+        path: '/h/.gonggong/workspaces/g0/b1/_empty',
+      }),
+    )
+
+    fireEvent.click(within(page).getByRole('tab', { name: '日志' }))
+    expect(await within(page).findByText(/tunnel token \[REDACTED\]/)).toBeTruthy()
+    expect(calls.map((c) => c.path)).toContain('/machines/mc1/logs?level=info&limit=300')
+  })
+})

@@ -11,13 +11,18 @@ import { idParam } from '../../lib/ids.js'
 export const OFFLINE = '机器离线'
 
 /** A live machine of `userId`: its tools and providers are only ever read or changed by its owner. */
-export async function ownMachine(ctx: Ctx, userId: string, rawId: string) {
+export async function ownMachine(
+  ctx: Ctx,
+  userId: string,
+  rawId: string,
+  denied: MessageKey = '只有机器主人可以管理其 Agent 工具与供应商',
+) {
   const [m] = await ctx.db
     .select()
     .from(machines)
     .where(and(eq(machines.id, idParam(rawId, '机器不存在')), isNull(machines.revokedAt)))
   if (!m) return fail('not_found', '机器不存在')
-  return m.ownerId === userId ? m : fail('forbidden', '只有机器主人可以管理其 Agent 工具与供应商')
+  return m.ownerId === userId ? m : fail('forbidden', denied)
 }
 
 export function requireFeature(

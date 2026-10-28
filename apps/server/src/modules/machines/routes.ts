@@ -23,6 +23,7 @@ import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { onMachineBound } from '../bots/binding.js'
 import { machineDto, publishBots } from '../bots/dto.js'
+import { machineAdminRoutes } from './admin.js'
 import { netRoutes } from './net.js'
 import { toolRoutes } from './tools.js'
 
@@ -84,6 +85,7 @@ export function machineRoutes(ctx: Ctx) {
     }
     await app.register(netRoutes(ctx))
     await app.register(toolRoutes(ctx))
+    await app.register(machineAdminRoutes(ctx))
     ctx.hub.on('online', pushState)
     ctx.hub.on('offline', pushState)
     ctx.hub.on('message', onMessage)

@@ -370,6 +370,35 @@ impl Handler for Engine {
                     async move { out.send(DaemonToServer::DirResult(workspace::browse(request_id, path).await)) },
                 );
             }
+            ServerToDaemon::LogsGet { request_id, level, limit } => {
+                let (home, out) = (self.0.config.home.clone(), out.clone());
+                let token = self.0.config.api.as_ref().map(|c| c.token.clone()).unwrap_or_default();
+                tokio::spawn(async move {
+                    let read = tokio::task::spawn_blocking(move || crate::logs::for_web(&home, level, limit, &token));
+                    let (lines, error) = match read.await {
+                        Ok(lines) => (lines, None),
+                        Err(e) => (vec![], Some(e.to_string())),
+                    };
+                    out.send(DaemonToServer::LogsResult { request_id, lines, error });
+                });
+            }
+            ServerToDaemon::WorkspacesList { request_id } => {
+                let (home, config, out) = (self.0.config.home.clone(), self.0.config.api.clone(), out.clone());
+                tokio::spawn(async move {
+                    let (entries, error) = match workspace::list_for_web(home, config).await {
+                        Ok(entries) => (entries, None),
+                        Err(e) => (vec![], Some(e)),
+                    };
+                    out.send(DaemonToServer::WorkspacesResult { request_id, entries, error });
+                });
+            }
+            ServerToDaemon::WorkspaceDelete { request_id, group_id, bot_id, path } => {
+                let (home, config, out) = (self.0.config.home.clone(), self.0.config.api.clone(), out.clone());
+                tokio::spawn(async move {
+                    let error = workspace::delete_for_web(home, config, group_id, bot_id, path).await.err();
+                    out.send(DaemonToServer::WorkspaceDeleteResult { request_id, error });
+                });
+            }
             ServerToDaemon::AppsList { request_id } => {
                 let out = out.clone();
                 tokio::spawn(async move {

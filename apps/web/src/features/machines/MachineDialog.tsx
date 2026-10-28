@@ -1,10 +1,11 @@
-import type { BotDto, MachineDto } from '@gonggong/protocol'
+import { type BotDto, type ClientDownloads, compareVersions, type MachineDto } from '@gonggong/protocol'
 import { useId, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { useGet } from '../../lib/useGet'
 import {
   Button,
   Dialog,
@@ -20,6 +21,7 @@ import {
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { LogsPanel, WorkspacesPanel } from './AdminPanels'
 import { AgentSettingsPanel } from './AgentSettingsPanel'
 import { OS_LABEL } from './model'
 import { ProvidersPanel } from './ProvidersPanel'
@@ -43,9 +45,21 @@ export const OS_ICON: Record<MachineDto['os'], IconName> = {
   windows: 'windows',
 }
 
-type Tab = 'overview' | 'tools' | 'providers' | 'agent'
-const TAB_NAME = { tools: t('Agent 工具'), providers: t('供应商#nav'), agent: t('Agent 设置') }
-const FEATURE = { tools: 'tools', providers: 'providers', agent: 'agentSettings' } as const
+type Tab = 'overview' | 'tools' | 'providers' | 'agent' | 'workspaces' | 'logs'
+const TAB_NAME = {
+  tools: t('Agent 工具'),
+  providers: t('供应商#nav'),
+  agent: t('Agent 设置'),
+  workspaces: t('工作区'),
+  logs: t('日志'),
+}
+const FEATURE = {
+  tools: 'tools',
+  providers: 'providers',
+  agent: 'agentSettings',
+  workspaces: 'machineAdmin',
+  logs: 'machineAdmin',
+} as const
 
 /** Why the machine's tools / providers / agent settings cannot be managed live right now, if so. */
 const blocked = (m: MachineDto, tab: Exclude<Tab, 'overview'>) =>
@@ -53,7 +67,9 @@ const blocked = (m: MachineDto, tab: Exclude<Tab, 'overview'>) =>
 
 function blockedNote(m: MachineDto) {
   if (!m.online) return t('机器离线，上线后才能管理 Agent 工具、供应商与 Agent 设置')
-  const old = (['tools', 'providers', 'agent'] as const).filter((f) => blocked(m, f)).map((f) => TAB_NAME[f])
+  const old = (['tools', 'providers', 'agent', 'workspaces', 'logs'] as const)
+    .filter((f) => blocked(m, f))
+    .map((f) => TAB_NAME[f])
   const last = old.pop()
   if (!last) return null
   const what = old.length ? `${old.join(t('、'))}${t('与')}${last}` : last
@@ -85,6 +101,7 @@ export function MachineDetails({
     return t === 'providers' || t === 'agent' ? t : 'overview'
   })
   const owner = useSession((st) => st.user?.id === machine.ownerId)
+  const latest = useGet<ClientDownloads | null>('/client-downloads').data?.version
   const formId = useId()
   const save = async () => {
     setSaving(true)
@@ -117,6 +134,8 @@ export function MachineDetails({
               { value: 'tools', label: TAB_NAME.tools, disabled: !!blocked(machine, 'tools') },
               { value: 'providers', label: TAB_NAME.providers, disabled: !!blocked(machine, 'providers') },
               { value: 'agent', label: TAB_NAME.agent, disabled: !!blocked(machine, 'agent') },
+              { value: 'workspaces', label: TAB_NAME.workspaces, disabled: !!blocked(machine, 'workspaces') },
+              { value: 'logs', label: TAB_NAME.logs, disabled: !!blocked(machine, 'logs') },
             ]}
           />
           {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
@@ -136,6 +155,10 @@ export function MachineDetails({
         <ToolsPanel machine={machine} />
       ) : tab === 'agent' ? (
         <AgentSettingsPanel machine={machine} />
+      ) : tab === 'workspaces' ? (
+        <WorkspacesPanel machine={machine} />
+      ) : tab === 'logs' ? (
+        <LogsPanel machine={machine} />
       ) : (
         <ProvidersPanel machine={machine} />
       )}
@@ -152,6 +175,14 @@ export function MachineDetails({
                 <span className="machine__tag">{machine.arch}</span>
                 {machine.daemonVersion ? (
                   <span className="machine__tag">daemon v{machine.daemonVersion}</span>
+                ) : null}
+                {latest && machine.daemonVersion && compareVersions(machine.daemonVersion, latest) < 0 ? (
+                  <span
+                    className="machine__tag machine__tag--update"
+                    title={t('daemon 会自动升级到最新版本')}
+                  >
+                    {t('可升级到 {version}', { version: latest })}
+                  </span>
                 ) : null}
               </span>
             </span>
