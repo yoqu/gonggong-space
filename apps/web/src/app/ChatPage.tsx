@@ -1,12 +1,11 @@
 import type { GroupDto, GroupPreviewsDto } from '@gonggong/protocol'
 import { Suspense, useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useShallow } from 'zustand/react/shallow'
 import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
-import type { GroupKind } from '../features/chat/NewGroupDialog'
 import { BindMachineDialog, MachinePage } from '../features/machines/lazy'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
@@ -20,6 +19,7 @@ import { AppRail } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
 import { useInspector } from './inspector'
+import { isMachinesPath, MachineSidebar } from './MachineSidebar'
 import { ChatStrip, ConversationStrip, Sidebar } from './Sidebar'
 import { useSession } from './session'
 import { useIsMobile } from './viewport'
@@ -134,13 +134,15 @@ function useLinkedBot() {
 export function ChatPage() {
   const { groupId, botId, machineId } = useParams()
   const navigate = useNavigate()
+  // 我的机器管理: its tree replaces the conversation list; /machines alone opens nothing yet.
+  const managing = isMachinesPath(useLocation().pathname)
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
   const { groups, bots, machines, workspaceLoaded } = useWorkspace(
     useShallow((s) => ({ groups: s.groups, bots: s.bots, machines: s.machines, workspaceLoaded: s.loaded })),
   )
   const [groupsState, retryGroups] = useChatData()
-  const [creating, setCreating] = useState<GroupKind | null>(null)
+  const [creating, setCreating] = useState(false)
   const [fromFeishu, setFromFeishu] = useLinkedFeishuChat()
   const [binding, setBinding] = useState(false)
   const [newBot, setNewBot] = useState(false)
@@ -148,7 +150,7 @@ export function ChatPage() {
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const sharedBots = bots.filter((b) => !!me && b.sharedWith.includes(me.id))
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
-  const firstRun = !groupId && !botId && !machineId && groupsState === 'ready' && !groups.length
+  const firstRun = !managing && !groupId && groupsState === 'ready' && !groups.length
   const openBot = bots.find((b) => b.id === botId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
@@ -168,15 +170,16 @@ export function ChatPage() {
   }, [group])
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
-    if (groupId || botId || machineId || mobile || groupsState !== 'ready' || !groups.length) return
+    if (groupId || managing || mobile || groupsState !== 'ready' || !groups.length) return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, botId, machineId, mobile, groupsState, groups, navigate])
+  }, [groupId, managing, mobile, groupsState, groups, navigate])
 
   return (
     <>
       <ChatLayout
         mobileView={groupId || botId || machineId ? 'chat' : 'list'}
+        sidebarLabel={managing ? t('我的机器管理') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
           benchShown ? (
@@ -191,20 +194,29 @@ export function ChatPage() {
         railOpen={!!inspector}
         railKind={inspector === 'group-info' ? 'info' : 'run'}
         sidebar={
-          <Sidebar
-            groups={groups}
-            bots={myBots}
-            sharedBots={sharedBots}
-            machines={myMachines}
-            guide={!firstRun || mobile}
-            header={<ShellBar onNewGroup={() => setCreating('group')} />}
-            onNewGroup={() => setCreating('group')}
-            onNewDm={() => setCreating('dm')}
-            loaded={workspaceLoaded && groupsState === 'ready'}
-            onBindMachine={() => setBinding(true)}
-            onNewBot={() => setNewBot(true)}
-            onConfirmBot={(id) => void confirmBot(id)}
-          />
+          managing ? (
+            <MachineSidebar
+              bots={myBots}
+              sharedBots={sharedBots}
+              machines={myMachines}
+              loaded={workspaceLoaded}
+              onBindMachine={() => setBinding(true)}
+              onNewBot={() => setNewBot(true)}
+              onConfirmBot={(id) => void confirmBot(id)}
+            />
+          ) : (
+            <Sidebar
+              groups={groups}
+              bots={myBots}
+              machines={myMachines}
+              guide={!firstRun || mobile}
+              header={<ShellBar onNewGroup={() => setCreating(true)} />}
+              onNewGroup={() => setCreating(true)}
+              loaded={workspaceLoaded && groupsState === 'ready'}
+              onBindMachine={() => setBinding(true)}
+              onNewBot={() => setNewBot(true)}
+            />
+          )
         }
       >
         {machineId ? (
@@ -246,6 +258,14 @@ export function ChatPage() {
               )}
             </div>
           )
+        ) : managing ? (
+          <div className="chat__placeholder">
+            <EmptyState
+              illustration={<PickChatArt />}
+              title={t('选择一台机器或 Bot')}
+              description={t('在左侧查看机器与其上的 Bot，管理配置、权限与共享。')}
+            />
+          </div>
         ) : group ? (
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : viewed ? (
@@ -276,7 +296,7 @@ export function ChatPage() {
               hasBot={myBots.length > 0}
               onBindMachine={() => setBinding(true)}
               onNewBot={() => setNewBot(true)}
-              onNewGroup={() => setCreating('group')}
+              onNewGroup={() => setCreating(true)}
             />
           </div>
         ) : (
@@ -294,10 +314,9 @@ export function ChatPage() {
           <Suspense fallback={null}>
             <NewGroupDialog
               me={me}
-              kind={creating}
-              onClose={() => setCreating(null)}
+              onClose={() => setCreating(false)}
               onFromFeishu={() => {
-                setCreating(null)
+                setCreating(false)
                 setFromFeishu({})
               }}
             />

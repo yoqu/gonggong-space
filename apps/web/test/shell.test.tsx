@@ -191,7 +191,7 @@ describe('sidebar', () => {
     )
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    expect(within(nav).getByText('我的 Bot')).toBeTruthy()
+    expect(within(nav).getByRole('region', { name: '会话' })).toBeTruthy()
     await waitFor(() => expect(useWorkspace.getState().loaded).toBe(true))
     expect(within(nav).queryByText(/还没有/)).toBeNull()
     await act(async () => answer(new Response('[]')))
@@ -226,7 +226,7 @@ describe('sidebar live runs', () => {
     expect(within(screen.getByTestId('group-item-g2')).queryByText('运行中')).toBeNull()
   })
 
-  it('shows the most urgent state, stacks the bots with only the first moving, and lifts what waits on me', async () => {
+  it('shows the most urgent state, stacks the bots with only the first moving, and flags what waits on me in place', async () => {
     const runs = [
       live('r1', 'running'),
       live('r2', 'queued'),
@@ -261,7 +261,8 @@ describe('sidebar live runs', () => {
     const order = [...document.querySelectorAll('[data-testid^="group-item-"]')].map((e) =>
       e.getAttribute('data-testid'),
     )
-    expect(order).toEqual(['group-item-g3', 'group-item-g2', 'group-item-g1', 'group-item-g4'])
+    // Waiting on me shows on the row; the order stays pinned first, then the latest message.
+    expect(order).toEqual(['group-item-g3', 'group-item-g1', 'group-item-g2', 'group-item-g4'])
   })
 })
 
@@ -418,8 +419,8 @@ describe('sidebar rows', () => {
   it('leaves out machine details that are missing instead of printing undefined', async () => {
     const bare = { ...machine('m1', true), os: undefined } as unknown as MachineDto
     mockApi(routes([], [bare]))
-    renderAt('/')
-    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    renderAt('/machines')
+    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
     const row = await within(nav).findByRole('link', { name: /^m1/ })
     expect(row.textContent).not.toContain('undefined')
     expect(row.getAttribute('title')).toBe('m1 · 在线')

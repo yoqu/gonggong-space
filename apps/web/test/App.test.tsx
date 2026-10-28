@@ -92,7 +92,10 @@ describe('session guard', () => {
     expect(within(rail).getByRole('button', { name: '管理后台' })).toBeTruthy()
     expect(within(rail).getByRole('button', { name: '账户菜单' }).textContent).toBe('王磊')
     expect(within(nav).queryByRole('button', { name: '账户菜单' })).toBeNull()
-    for (const s of ['群', '私聊', '我的 Bot']) expect(within(nav).getByText(s)).toBeTruthy()
+    // Groups and DMs share one list; bots and machines live in 我的机器管理.
+    expect(within(nav).getByRole('region', { name: '会话' })).toBeTruthy()
+    expect(within(nav).queryByText('我的 Bot')).toBeNull()
+    expect(within(rail).getByRole('button', { name: '我的机器管理' })).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()
     expect(useSession.getState().user?.name).toBe('王磊')
   })
@@ -116,14 +119,14 @@ describe('chat shell', () => {
     expect(within(screen.getByRole('main')).getByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
   })
 
-  it("shows a DM's workspace path under its name and follows the Bot's workspace", () => {
+  it("shows a DM's latest message, with its workspace path on hover following the Bot's workspace", () => {
     useWorkspace.setState({
       groups: [{ ...group('d1', '重构登录', 'dm'), botIds: ['b1'], workspacePath: null, last: '王磊：在吗' }],
     })
     renderAt('/')
     const row = screen.getByTestId('group-item-d1')
-    expect(row.textContent).toContain('未选择工作区')
-    expect(row.textContent).not.toContain('在吗')
+    expect(row.textContent).toContain('在吗')
+    expect(row.getAttribute('title')).toBe('未选择工作区')
     act(() =>
       useWorkspace.getState().applyEvent({
         t: 'group.botState',
@@ -144,7 +147,7 @@ describe('chat shell', () => {
         },
       }),
     )
-    expect(row.textContent).toContain('/Users/wang/code/login')
+    expect(row.getAttribute('title')).toContain('/Users/wang/code/login')
   })
 
   it('shows either the list or the chat under 768px', () => {

@@ -53,13 +53,14 @@ test('a shared bot: DM in its own workspace, the owner approves from the notific
     await page.keyboard.press('Escape')
 
     // 2. The member finds it under 共享给我 and starts a DM from its page.
-    await other.goto('/')
+    await other.goto('/machines')
     const shared = other.getByRole('region', { name: '共享给我' })
     await shared.getByRole('link', { name: /共享 Bot/ }).click()
     await expect(other.getByText('sharer1 共享给你')).toBeVisible()
     await other.getByRole('button', { name: '私聊' }).click()
     await expect(other.getByRole('heading', { name: '共享 Bot · sharer1' })).toBeVisible()
-    await expect(other.getByText('共享 Bot 加入 · 使用独立的托管工作区')).toBeVisible()
+    // Scoped to the chat: the DM's row previews the same line as its latest message.
+    await expect(other.getByRole('main').getByText('共享 Bot 加入 · 使用独立的托管工作区')).toBeVisible()
 
     // 3. A floor command still asks the owner, who decides right from the notification.
     await other

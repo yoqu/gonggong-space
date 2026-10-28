@@ -5,7 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, GroupBox, Icon, IconButton, Input } from '../../ui'
+import { Button, Dialog, GroupBox, Icon, IconButton, Input, SegmentedControl } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
@@ -29,14 +29,13 @@ export type GroupKind = GroupDto['kind']
 const toggle = (list: string[], id: string) =>
   list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
 
+/** 发起会话: a group, or a DM when only one of my (or shared) Bots is picked and nobody else; the switch overrides it. */
 export function NewGroupDialog({
   me,
-  kind,
   onClose,
   onFromFeishu,
 }: {
   me: UserDto
-  kind: GroupKind
   onClose: () => void
   /** 从飞书群创建 instead (offered once the main Feishu app is configured). */
   onFromFeishu?: () => void
@@ -50,18 +49,22 @@ export function NewGroupDialog({
   const [people, setPeople] = useState<string[]>([])
   const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
-  const dm = kind === 'dm'
-  const users = useGet<UserBriefDto[]>(dm ? null : '/users').data ?? []
+  const [prefer, setPrefer] = useState<GroupKind | null>(null)
+  const users = useGet<UserBriefDto[]>('/users').data ?? []
 
   const setRepoDraft = (o: Partial<RepoDraft>) => {
     setRepo((r) => ({ ...r, ...o }))
     if (o.url !== undefined && !nameTouched) setName(o.url ? repoName(o.url) : '')
   }
 
-  const choices = allBots.filter((b) => !dm || b.ownerId === me.id || b.sharedWith.includes(me.id))
   const picked = botIds.map((id) => allBots.find((b) => b.id === id)).filter((b): b is BotDto => !!b)
   const owners = [...new Set(picked.filter((b) => b.ownerId !== me.id).map((b) => b.ownerId))]
   const manual = people.filter((id) => !owners.includes(id))
+  const only = picked.length === 1 ? picked[0] : undefined
+  // A DM is me and one Bot I may chat with privately; it can never take more members.
+  const dmable = !!only && (only.ownerId === me.id || only.sharedWith.includes(me.id)) && !manual.length
+  const dm = dmable && prefer !== 'group'
+  const kind: GroupKind = dm ? 'dm' : 'group'
   const userName = (id: string) =>
     users.find((u) => u.id === id)?.name ?? allBots.find((b) => b.ownerId === id)?.ownerName ?? ''
 
@@ -127,6 +130,22 @@ export function NewGroupDialog({
       }
     >
       <div className="ng">
+        <section className="ng-section">
+          <SegmentedControl<GroupKind>
+            aria-label={t('会话类型')}
+            items={[
+              { value: 'group', label: t('群聊') },
+              { value: 'dm', label: t('私聊'), disabled: !dmable },
+            ]}
+            value={kind}
+            onChange={setPrefer}
+          />
+          <p className="ng-hint">
+            {dm
+              ? t('只选了一个 Bot、没有其他成员，将创建私聊；私聊之后不能再加人。')
+              : t('只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。')}
+          </p>
+        </section>
         {dm ? null : (
           <section className="ng-section">
             <h3 className="ng-section__title">{t('名称')}</h3>
@@ -179,59 +198,57 @@ export function NewGroupDialog({
                   {t('添加 Bot…')}
                 </button>
               }
-              bots={choices}
+              bots={allBots}
               isOn={(id) => botIds.includes(id)}
               onPick={(b) => setBotIds(toggle(botIds, b.id))}
             />
           </GroupBox>
         </section>
 
-        {dm ? null : (
-          <section className="ng-section">
-            <h3 className="ng-section__title">
-              {t('成员 · {n}', { n: 1 + owners.length + manual.length })}
-              {owners.length ? t('（Bot 主人自动加入）') : ''}
-            </h3>
-            <GroupBox>
-              <fieldset className="ng-members" aria-label={t('成员')}>
-                <span className="ng-member ng-member--fixed" title={t('群管理员')}>
-                  {me.name}
-                  <span className="ng-member__sub">{t('群管理员')}</span>
+        <section className="ng-section">
+          <h3 className="ng-section__title">
+            {t('成员 · {n}', { n: 1 + owners.length + manual.length })}
+            {owners.length ? t('（Bot 主人自动加入）') : ''}
+          </h3>
+          <GroupBox>
+            <fieldset className="ng-members" aria-label={t('成员')}>
+              <span className="ng-member ng-member--fixed" title={t('群管理员')}>
+                {me.name}
+                <span className="ng-member__sub">{t('群管理员')}</span>
+              </span>
+              {owners.map((id) => (
+                <span key={id} className="ng-member ng-member--fixed" title={t('Bot 主人，自动加入')}>
+                  {userName(id)}
+                  <span className="ng-member__sub">{t('Bot 主人')}</span>
                 </span>
-                {owners.map((id) => (
-                  <span key={id} className="ng-member ng-member--fixed" title={t('Bot 主人，自动加入')}>
-                    {userName(id)}
-                    <span className="ng-member__sub">{t('Bot 主人')}</span>
-                  </span>
-                ))}
-                {manual.map((id) => (
-                  <span key={id} className="ng-member">
-                    {userName(id)}
-                    <button
-                      type="button"
-                      className="ng-member__x"
-                      aria-label={t('移除 {name}', { name: userName(id) })}
-                      onClick={() => setPeople(people.filter((p) => p !== id))}
-                    >
-                      <Icon name="xmark" size={9} weight={2.4} />
-                    </button>
-                  </span>
-                ))}
-                <MemberPicker
-                  trigger={
-                    <button type="button" className="ng-member ng-member--add" aria-label={t('添加成员')}>
-                      <Icon name="plus" size={11} weight={2} />
-                    </button>
-                  }
-                  users={users.filter(
-                    (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
-                  )}
-                  onAdd={(ids) => setPeople([...people, ...ids])}
-                />
-              </fieldset>
-            </GroupBox>
-          </section>
-        )}
+              ))}
+              {manual.map((id) => (
+                <span key={id} className="ng-member">
+                  {userName(id)}
+                  <button
+                    type="button"
+                    className="ng-member__x"
+                    aria-label={t('移除 {name}', { name: userName(id) })}
+                    onClick={() => setPeople(people.filter((p) => p !== id))}
+                  >
+                    <Icon name="xmark" size={9} weight={2.4} />
+                  </button>
+                </span>
+              ))}
+              <MemberPicker
+                trigger={
+                  <button type="button" className="ng-member ng-member--add" aria-label={t('添加成员')}>
+                    <Icon name="plus" size={11} weight={2} />
+                  </button>
+                }
+                users={users.filter(
+                  (u) => u.id !== me.id && !owners.includes(u.id) && !manual.includes(u.id),
+                )}
+                onAdd={(ids) => setPeople([...people, ...ids])}
+              />
+            </fieldset>
+          </GroupBox>
+        </section>
 
         <section className="ng-section">
           <GroupBox>

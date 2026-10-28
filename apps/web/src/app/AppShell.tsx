@@ -35,7 +35,7 @@ export function ShellBar({ onNewGroup }: { onNewGroup?: () => void }) {
         <TeamSwitcher />
         {onNewGroup ? (
           <ToolbarGroup>
-            <ToolbarButton icon="plus" label={t('新建群')} onClick={onNewGroup} />
+            <ToolbarButton icon="plus" label={t('发起会话')} onClick={onNewGroup} />
           </ToolbarGroup>
         ) : null}
       </Toolbar>

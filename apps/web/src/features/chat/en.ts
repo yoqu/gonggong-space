@@ -218,4 +218,9 @@ export default {
   '审查改动：新增 {add} 行，删除 {del} 行': 'Review changes: {add} added, {del} deleted lines',
   审查未提交的改动: 'Review uncommitted changes',
   '在 Git 面板中审查': 'Review in the Git panel',
+  会话类型: 'Conversation type',
+  '只选了一个 Bot、没有其他成员，将创建私聊；私聊之后不能再加人。':
+    'Only one Bot and nobody else: this creates a direct message, which cannot take more members later.',
+  '只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。':
+    'Pick just one of your (or shared) Bots and no members to create a direct message.',
 } satisfies Record<string, string>

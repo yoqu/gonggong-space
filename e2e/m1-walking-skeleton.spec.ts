@@ -40,7 +40,9 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   m.start()
 
   try {
-    // Create a bot for myself from the sidebar: bound directly to the machine.
+    // Create a bot for myself from 我的机器管理: bound directly to the machine.
+    const rail = page.getByRole('navigation', { name: '应用导航' })
+    await rail.getByRole('button', { name: '我的机器管理' }).click()
     await page.getByRole('button', { name: '新建 Bot…', exact: true }).click()
     await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')
@@ -49,10 +51,11 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     await page.getByRole('button', { name: '完成' }).click()
     await expect(page.getByText('小王的 Claude').first()).toBeVisible()
 
-    // Private chat without a repo, with that bot (a DM is titled by its bot, no name field).
-    await page.getByRole('button', { name: '新建私聊' }).click()
+    // Private chat without a repo: that bot alone makes it a DM (titled by its bot, no name field).
+    await rail.getByRole('button', { name: /^消息/ }).click()
+    await page.getByRole('button', { name: '发起会话' }).click()
+    await page.getByRole('dialog', { name: '新建群' }).getByRole('button', { name: '添加 Bot…' }).click()
     const dm = page.getByRole('dialog', { name: '新建私聊' })
-    await dm.getByRole('button', { name: '添加 Bot…' }).click()
     await page
       .getByRole('dialog', { name: '添加 Bot' })
       .getByRole('menuitemcheckbox', { name: /小王的 Claude/ })

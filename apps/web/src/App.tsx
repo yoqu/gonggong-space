@@ -42,6 +42,7 @@ export function App() {
             <Route path="g/:groupId" element={<ChatPage />} />
             <Route path="bot/:botId" element={<ChatPage />} />
             <Route path="machine/:machineId" element={<ChatPage />} />
+            <Route path="machines" element={<ChatPage />} />
           </Route>
           <Route path="admin/*" element={later(<AdminRoutes />)} />
           <Route path="*" element={<NotFound />} />

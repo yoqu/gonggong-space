@@ -44,6 +44,12 @@ export const botStateText = (b: BotDto) =>
     ? [b.machineName, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
     : BINDING_LABEL[b.binding]
 
+/** The same line under its machine (我的机器管理), the agent in place of the machine: `Claude Code · 在线`. */
+export const botStateUnderMachine = (b: BotDto) =>
+  b.binding === 'bound'
+    ? [AGENT_LABEL[b.agentKind], SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
+    : BINDING_LABEL[b.binding]
+
 export const agentLine = (b: BotDto) => [AGENT_LABEL[b.agentKind], b.agentVersion].filter(Boolean).join(' ')
 export const agentCliVersion = (b: BotDto) =>
   b.agentVersion ? `${AGENT_CLI[b.agentKind]} ${b.agentVersion}` : '--'

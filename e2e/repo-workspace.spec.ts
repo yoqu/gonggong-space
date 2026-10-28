@@ -52,8 +52,10 @@ test('picks a recent repo and moves my bot to a local checkout', async ({ page }
       .not.toBe('offline')
 
     await page.goto('/')
-    await page.getByRole('button', { name: '新建群' }).first().click()
+    await page.getByRole('button', { name: '发起会话' }).first().click()
     const dialog = page.getByRole('dialog', { name: '新建群' })
+    // One Bot of mine alone would make it a DM.
+    await dialog.getByRole('radio', { name: '群聊' }).click()
     await dialog.getByRole('button', { name: '添加 Bot…' }).click()
     await page
       .getByRole('dialog', { name: '添加 Bot' })

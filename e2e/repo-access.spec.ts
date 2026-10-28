@@ -61,7 +61,7 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
 
     // New group dialog: each bot's machine checks the repo with its own git, as soon as a repo is picked.
     await page.goto('/')
-    await page.getByRole('button', { name: '新建群' }).first().click()
+    await page.getByRole('button', { name: '发起会话' }).first().click()
     const dialog = page.getByRole('dialog', { name: '新建群' })
     await dialog.getByLabel('名称').fill('权限校验')
     await dialog.getByRole('button', { name: '添加 Bot…' }).click()

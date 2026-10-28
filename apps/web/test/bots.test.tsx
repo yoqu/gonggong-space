@@ -147,9 +147,11 @@ function renderAt(path: string, user: UserDto) {
   )
 }
 
-/** Members open their bots from the chat sidebar: an overview in the main area, settings in a dialog. */
+/** Members open their bots from 我的机器管理: an overview in the main area, settings in a dialog. */
 async function openMyBot(name = '小王的 Claude') {
-  const nav = screen.getByRole('navigation', { name: '会话列表' })
+  const rail = screen.getByRole('navigation', { name: '应用导航' })
+  fireEvent.click(within(rail).getByRole('button', { name: '我的机器管理' }))
+  const nav = await screen.findByRole('navigation', { name: '我的机器管理' })
   fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
   const page = await screen.findByRole('region', { name: 'Bot 概况' })
   fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
@@ -234,8 +236,8 @@ describe('sidebar 我的 BOT', () => {
       unread = 0
       return bot({ id: 'b2', name: '小王的 Codex', presence: 'agent_missing' })
     }
-    renderAt('/', wang)
-    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    renderAt('/machines', wang)
+    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
     expect(await within(nav).findByText('wanglei-mbp · 在线')).toBeTruthy()
     expect(within(nav).queryByText('别人的')).toBeNull()
     const row = within(nav).getByRole('link', { name: /小王的 Claude/ })
@@ -258,7 +260,7 @@ describe('新建 Bot', () => {
   it('creates a bot for myself on my machine', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = (b) => bot({ name: (b as { name: string }).name })
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     const name = await within(dialog).findByLabelText('名称')
@@ -296,7 +298,7 @@ describe('新建 Bot', () => {
   it('says to open the desktop app when the machine is offline', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [{ ...mbp, online: false }] }]
     routes['POST /api/bots'] = () => bot({ presence: 'offline' })
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
@@ -314,7 +316,7 @@ describe('新建 Bot', () => {
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
       link: 'gonggong://bind?server=x&code=K7QM-4X2P',
     })
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
@@ -344,7 +346,7 @@ describe('新建 Bot', () => {
     const withCatalog = { ...mbp, agents: [{ ...mbp.agents[0]!, catalog: CATALOG }, mbp.agents[1]!] }
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [withCatalog] }]
     routes['POST /api/bots'] = () => bot({})
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
@@ -407,7 +409,7 @@ describe('新建 Bot', () => {
     routes['GET /api/machines/m1/catalog?agent=claude&provider=inherit'] = () => ({ catalog: CATALOG })
     routes['GET /api/machines/m1/catalog?agent=claude&provider=p1'] = () => ({ catalog: kimi })
     routes['POST /api/bots'] = () => bot({})
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
@@ -438,7 +440,7 @@ describe('新建 Bot', () => {
     routes['POST /api/bots'] = () => bot({})
     routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
     routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
-    renderAt('/', wang)
+    renderAt('/machines', wang)
     fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
@@ -1009,8 +1011,8 @@ describe('bot page profile', () => {
       liveRunIds: [],
       liveRuns: [],
     })
-    renderAt('/', li)
-    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    renderAt('/machines', li)
+    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
     const shared = await within(nav).findByRole('region', { name: '共享给我' })
     expect(within(shared).getByRole('link', { name: /小王的 Claude/ }).textContent).toContain('王磊 共享')
     expect(within(nav).queryByText('别人的')).toBeNull()
@@ -1145,8 +1147,8 @@ describe('bot page ux', () => {
       bot({ id: 'b3', name: '别处的 Bot', machineId: 'm2', machineName: 'other' }),
     ]
     routes['GET /api/machines'] = () => [mbp]
-    renderAt('/', wang)
-    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    renderAt('/machines', wang)
+    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
     const section = await within(nav).findByRole('region', { name: '我的机器' })
     fireEvent.click(await within(section).findByRole('link', { name: /wanglei-mbp/ }))
     const dialog = await screen.findByRole('region', { name: '机器详情' })

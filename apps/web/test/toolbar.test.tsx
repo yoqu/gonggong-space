@@ -103,7 +103,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
 })
 
 describe('Sidebar rows', () => {
-  it("tags Bot DMs with their workspace path, prefixes another group's unsent draft and keeps it off the open one", () => {
+  it("tags Bot DMs, shows their latest message with the workspace path on hover, prefixes another group's unsent draft and keeps it off the open one", () => {
     sessionStorage.setItem('gonggong:draft:g1', '周报晚点补')
     sessionStorage.setItem('gonggong:draft:g2', '当前草稿')
     try {
@@ -129,7 +129,10 @@ describe('Sidebar rows', () => {
       const preview = (id: string) => screen.getByTestId(id).querySelector('.pn-conv__preview')?.textContent
       expect(preview('group-item-g1')).toBe('[草稿] 周报晚点补')
       expect(preview('group-item-g2')).toBe('0 人 · 分区模式')
-      expect(preview('group-item-d1')).toBe('/Users/wang/.gonggo…es/t1/g1/d1/scripts')
+      expect(preview('group-item-d1')).toBe('设计师大象：快速开始')
+      expect(screen.getByTestId('group-item-d1').getAttribute('title')).toBe(
+        '/Users/wang/.gonggo…es/t1/g1/d1/scripts',
+      )
     } finally {
       sessionStorage.clear()
     }

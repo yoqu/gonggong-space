@@ -33,7 +33,9 @@ function isolated() {
 }
 
 async function openMachine(page: Page, tab: '供应商' | 'Agent 工具') {
-  await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').click()
+  await page.goto('/machines')
+  // The machine's row comes before the Bots listed under it.
+  await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
   const dialog = page.getByRole('region', { name: '机器详情' })
   await expect(dialog.getByRole('tab', { name: tab })).toBeEnabled({ timeout: 30_000 })
   await dialog.getByRole('tab', { name: tab }).click()
@@ -146,7 +148,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       await confirm.getByRole('button', { name: '切换' }).click()
       await expect(claude.getByRole('radio', { name: /DeepSeek/ })).toBeChecked()
       await expect(claude).toContainText(`Key ****${KEY.slice(-4)}`)
-      await page.goBack()
+      await page.goto(`/g/${group.id}`)
 
       const kept = await turn()
       expect(kept.run.newSessionReason).toBeNull()
@@ -191,7 +193,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       await expect(confirm).toContainText('1 个群的会话正在使用 DeepSeek，删除后它们下一轮会自动开启新会话')
       await confirm.getByRole('button', { name: '删除' }).click()
       await expect(claude.getByRole('radio', { name: /官方登录/ })).toBeChecked()
-      await page.goBack()
+      await page.goto(`/g/${group.id}`)
       expect(existsSync(settings)).toBe(false)
 
       const restarted = await turn()
