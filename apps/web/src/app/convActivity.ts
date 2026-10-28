@@ -68,3 +68,6 @@ export function activityOf(runs: LiveRun[]): Activity | null {
       : null,
   }
 }
+
+/** Something waits on the viewer here: the conversation goes up, below the pinned ones, until it is handled. */
+export const needsMe = (runs: LiveRun[]) => runs.some((r) => r.needsMe)

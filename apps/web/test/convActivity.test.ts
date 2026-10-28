@@ -1,6 +1,6 @@
 import type { LiveRun } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
-import { activityOf, levelOf } from '../src/app/convActivity'
+import { activityOf, levelOf, needsMe } from '../src/app/convActivity'
 
 const run = (id: string, status: LiveRun['status'], o: Partial<LiveRun> = {}): LiveRun => ({
   id,
@@ -68,6 +68,10 @@ describe('conversation activity', () => {
       botId: 'bot-a',
       title: '用哪个库？',
     })
+    expect([
+      needsMe([run('r', 'running')]),
+      needsMe([run('a', 'awaiting_answer', { needsMe: true })]),
+    ]).toEqual([false, true])
   })
 })
 
