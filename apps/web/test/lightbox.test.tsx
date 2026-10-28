@@ -20,6 +20,11 @@ function Viewer({ start = 0 }: { start?: number }) {
 
 const shown = () => screen.getByRole('dialog').querySelector('.ui-lightbox__img img')?.getAttribute('src')
 
+const scale = () => {
+  const img = screen.getByRole('dialog').querySelector('.ui-lightbox__img img') as HTMLElement
+  return Number(/scale\(([\d.]+)\)/.exec(img.style.transform)?.[1] ?? 1)
+}
+
 const swipe = (dx: number, dy = 0) => {
   const stage = document.querySelector('.ui-lightbox__stage') as HTMLElement
   fireEvent.touchStart(stage, { touches: [{ clientX: 200, clientY: 300 }] })
@@ -68,8 +73,37 @@ describe('Lightbox', () => {
   it('leaves zoom when paging', () => {
     render(<Viewer />)
     fireEvent.click(screen.getByRole('button', { name: '放大' }))
+    expect(scale()).toBeGreaterThan(1)
     fireEvent.keyDown(document, { key: 'ArrowRight' })
-    expect(screen.getByRole('button', { name: '放大' })).toBeTruthy()
+    expect(scale()).toBe(1)
+  })
+
+  it('zooms with the buttons, keys and wheel, and resets to fit', () => {
+    render(<Lightbox src="/a.png" alt="a.png" onClose={() => {}} />)
+    const out = screen.getByRole('button', { name: '缩小' }) as HTMLButtonElement
+    expect(out.disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '放大' }))
+    const once = scale()
+    expect(once).toBeGreaterThan(1)
+    fireEvent.keyDown(document, { key: '+' })
+    expect(scale()).toBeGreaterThan(once)
+    fireEvent.keyDown(document, { key: '-' })
+    expect(scale()).toBeCloseTo(once)
+    fireEvent.wheel(screen.getByRole('dialog'), { deltaY: -200, clientX: 10, clientY: 10 })
+    expect(scale()).toBeGreaterThan(once)
+    fireEvent.click(screen.getByRole('button', { name: '适应窗口' }))
+    expect(scale()).toBe(1)
+    expect(out.disabled).toBe(true)
+  })
+
+  it('pans a zoomed image by dragging', () => {
+    render(<Lightbox src="/a.png" alt="a.png" onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '放大' }))
+    const img = screen.getByRole('dialog').querySelector('.ui-lightbox__img img') as HTMLElement
+    fireEvent.pointerDown(img, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(img, { pointerId: 1, clientX: 140, clientY: 120 })
+    fireEvent.pointerUp(img, { pointerId: 1, clientX: 140, clientY: 120 })
+    expect(img.style.transform).toMatch(/translate\(40px, 20px\)/)
   })
 
   it('gives toolbar buttons a translucent fill so their white text shows on the scrim', () => {

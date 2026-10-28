@@ -206,12 +206,15 @@ export const HTML_RENDER_LAYOUT_GUIDE = [
   'html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule).',
   'An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights.',
   'Content sets the height: no vh units (rejected) or height:100% on html/body (loops).',
+  'A clicked image opens in the host’s zoomable viewer; build no lightbox. Image facts (resolution, size, path) go as small tags over its bottom-left corner, not a block of their own.',
 ].join(' ')
 
 // ── Host ↔ page messages (MCP Apps JSON-RPC) ─────────────────────────────────────────────────────────────────────
 
 const HOST_CONTEXT_CHANGED = 'ui/notifications/host-context-changed'
 const OPEN_LINK = 'ui/open-link'
+/** Not in MCP Apps: a clicked page image opens in the host's zoomable viewer, the frame being too small for it. */
+const OPEN_IMAGE = 'gg/open-image'
 const SIZE_CHANGED = 'ui/notifications/size-changed'
 
 const rpc = (data: unknown, method: string) => {
@@ -232,6 +235,14 @@ export function readHtmlRenderLinkRequest(data: unknown): { id: string | number;
   const url = m?.params.url
   if (!m || (typeof m.id !== 'string' && typeof m.id !== 'number')) return undefined
   return typeof url === 'string' && /^https?:\/\//i.test(url) ? { id: m.id, url } : undefined
+}
+
+/** Inlined (data:image) or http(s) images only: the host shows the src in its own document. */
+export function readHtmlRenderImageRequest(data: unknown): { src: string; alt: string } | undefined {
+  const p = rpc(data, OPEN_IMAGE)?.params
+  const src = p?.src
+  if (typeof src !== 'string' || !/^(?:data:image\/[\w.+-]+[;,]|https?:\/\/)/i.test(src)) return undefined
+  return { src, alt: typeof p?.alt === 'string' ? p.alt : '' }
 }
 
 export const htmlRenderResult = (id: string | number) => ({ jsonrpc: '2.0', id, result: {} }) as const
@@ -255,7 +266,8 @@ const BASE_CSS =
   'html{background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none}' +
   'html::-webkit-scrollbar{display:none}body{margin:0}code,kbd,pre,samp{font-family:var(--font-mono)}' +
   // Focus outlines paint inside the element, so the frame edge never clips them.
-  ':where(:focus-visible){outline:2px solid var(--ring)}:focus-visible{outline-width:2px!important;outline-offset:-2px!important}'
+  ':where(:focus-visible){outline:2px solid var(--ring)}:focus-visible{outline-width:2px!important;outline-offset:-2px!important}' +
+  ':where(img):not(a img,button img){cursor:zoom-in}'
 
 const rootRule = (theme: HtmlRenderTheme) =>
   `:root{color-scheme:${theme.appearance};${Object.entries(theme.variables)
@@ -267,8 +279,9 @@ export const htmlRenderPreviewStyle = (appearance: HtmlRenderAppearance) =>
   `<style id="gg-theme">${rootRule(paletteTheme(appearance))}${BASE_CSS}</style>`
 
 // Applies the fragment's theme before paint and follows host theme changes; reports the content height; sends
-// http(s) link clicks to the host (an opaque-origin frame cannot open them usefully itself).
-const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("gg-theme"),n=0;if(!s)return;var b=${JSON.stringify(BASE_CSS)};function a(t){if(!t||typeof t!=="object"||!t.variables||typeof t.variables!=="object")return;var c=":root{color-scheme:"+(t.appearance==="dark"?"dark":"light")+";";for(var k in t.variables){if(/^--[a-z0-9-]+$/.test(k))c+=k+":"+String(t.variables[k]).replace(/[;{}<>]/g,"")+";";}s.textContent=c+"}"+b;}try{var m=/[#&]${THEME_FRAGMENT}=([^&]*)/.exec(location.hash);if(m){a(JSON.parse(decodeURIComponent(m[1])));history.replaceState(history.state,"",location.pathname+location.search);}}catch(e){}window.addEventListener("message",function(e){var d=e.data,p=d&&d.params;if(e.source===window.parent&&d&&d.jsonrpc==="2.0"&&d.method===${JSON.stringify(HOST_CONTEXT_CHANGED)}&&p&&p.styles)a({appearance:p.theme,variables:p.styles.variables});});document.addEventListener("click",function(e){var l=e.isTrusted?e.composedPath().find(function(t){return t&&t.matches&&t.matches("a[href]");}):null,u;if(!l)return;try{u=new URL(l.getAttribute("href"),document.baseURI);}catch(x){return;}if(!/^https?:$/.test(u.protocol)||u.href.split("#")[0]===location.href.split("#")[0])return;if(window.parent!==window){e.preventDefault();window.parent.postMessage({jsonrpc:"2.0",id:"gg-link-"+(++n),method:${JSON.stringify(OPEN_LINK)},params:{url:u.href}},"*");}else{l.setAttribute("target","_blank");l.setAttribute("rel","noopener");}},true);if(window.parent!==window){var h,o,z=function(){var r=document.documentElement,v=Math.ceil(r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height);if(v===h)return;h=v;window.parent.postMessage({jsonrpc:"2.0",method:${JSON.stringify(SIZE_CHANGED)},params:{height:v}},"*");};if(window.ResizeObserver){o=new ResizeObserver(z);o.observe(document.documentElement);}document.addEventListener("DOMContentLoaded",function(){if(o&&document.body)o.observe(document.body);z();});window.addEventListener("load",z);}})();`
+// http(s) link clicks to the host (an opaque-origin frame cannot open them usefully itself), and image clicks the
+// page itself did not handle.
+const BOOTSTRAP_SCRIPT = `(function(){var s=document.getElementById("gg-theme"),n=0;if(!s)return;var b=${JSON.stringify(BASE_CSS)};function a(t){if(!t||typeof t!=="object"||!t.variables||typeof t.variables!=="object")return;var c=":root{color-scheme:"+(t.appearance==="dark"?"dark":"light")+";";for(var k in t.variables){if(/^--[a-z0-9-]+$/.test(k))c+=k+":"+String(t.variables[k]).replace(/[;{}<>]/g,"")+";";}s.textContent=c+"}"+b;}try{var m=/[#&]${THEME_FRAGMENT}=([^&]*)/.exec(location.hash);if(m){a(JSON.parse(decodeURIComponent(m[1])));history.replaceState(history.state,"",location.pathname+location.search);}}catch(e){}window.addEventListener("message",function(e){var d=e.data,p=d&&d.params;if(e.source===window.parent&&d&&d.jsonrpc==="2.0"&&d.method===${JSON.stringify(HOST_CONTEXT_CHANGED)}&&p&&p.styles)a({appearance:p.theme,variables:p.styles.variables});});document.addEventListener("click",function(e){var l=e.isTrusted?e.composedPath().find(function(t){return t&&t.matches&&t.matches("a[href]");}):null,u;if(!l)return;try{u=new URL(l.getAttribute("href"),document.baseURI);}catch(x){return;}if(!/^https?:$/.test(u.protocol)||u.href.split("#")[0]===location.href.split("#")[0])return;if(window.parent!==window){e.preventDefault();window.parent.postMessage({jsonrpc:"2.0",id:"gg-link-"+(++n),method:${JSON.stringify(OPEN_LINK)},params:{url:u.href}},"*");}else{l.setAttribute("target","_blank");l.setAttribute("rel","noopener");}},true);if(window.parent!==window){var h,o,z=function(){var r=document.documentElement,v=Math.ceil(r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height);if(v===h)return;h=v;window.parent.postMessage({jsonrpc:"2.0",method:${JSON.stringify(SIZE_CHANGED)},params:{height:v}},"*");};if(window.ResizeObserver){o=new ResizeObserver(z);o.observe(document.documentElement);}document.addEventListener("DOMContentLoaded",function(){if(o&&document.body)o.observe(document.body);z();});window.addEventListener("load",z);window.addEventListener("click",function(e){var i=e.target;if(!e.isTrusted||e.defaultPrevented||!i||i.tagName!=="IMG"||i.closest("a[href],button")||!(i.currentSrc||i.src))return;window.parent.postMessage({jsonrpc:"2.0",method:${JSON.stringify(OPEN_IMAGE)},params:{src:i.currentSrc||i.src,alt:i.alt||""}},"*");});}})();`
 
 function bootstrapMarkup(scan: string) {
   const css = `${rootRule(paletteTheme('light'))}@media (prefers-color-scheme: dark){${rootRule(paletteTheme('dark'))}}${BASE_CSS}`

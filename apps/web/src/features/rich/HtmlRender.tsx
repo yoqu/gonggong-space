@@ -8,11 +8,12 @@ import {
   htmlRenderThemeFragment,
   htmlRenderThemeMessage,
   readHtmlRenderContentHeight,
+  readHtmlRenderImageRequest,
   readHtmlRenderLinkRequest,
 } from '@gonggong/protocol'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { t } from '../../i18n'
-import { Dialog, IconButton } from '../../ui'
+import { Dialog, IconButton, Lightbox } from '../../ui'
 import { attachmentUrl } from '../attachments/api'
 import { token } from './theme'
 import './html-render.css'
@@ -30,19 +31,23 @@ function usePageTheme(): HtmlRenderTheme {
   return useMemo(() => htmlRenderTheme(name.endsWith('dark') ? 'dark' : 'light', token), [name])
 }
 
+type PageImage = { src: string; alt: string }
+
 /**
  * A published page in an opaque-origin frame (never allow-same-origin: it must not reach the app's session). It
- * reports its height, takes the app theme and asks to open links; a link opens only while the reader is using the
- * frame, since a page script can post at any time.
+ * reports its height, takes the app theme and asks to open links and images; those open only while the reader is
+ * using the frame, since a page script can post at any time.
  */
 function PageFrame({
   page,
   className,
   onContentHeight,
+  onImage,
 }: {
   page: HtmlRenderRef
   className: string
   onContentHeight?: (height: number) => void
+  onImage: (image: PageImage) => void
 }) {
   const theme = usePageTheme()
   const frame = useRef<HTMLIFrameElement>(null)
@@ -52,6 +57,8 @@ function PageFrame({
   useEffect(postTheme, [theme])
   const heightRef = useRef(onContentHeight)
   heightRef.current = onContentHeight
+  const imageRef = useRef(onImage)
+  imageRef.current = onImage
   // At commit: a fast page may post its first height before passive effects run.
   useLayoutEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -59,8 +66,11 @@ function PageFrame({
       if (!f || e.source !== f.contentWindow) return
       const height = readHtmlRenderContentHeight(e.data)
       if (height !== undefined) return heightRef.current?.(height)
+      if (document.activeElement !== f || navigator.userActivation?.isActive === false) return
+      const image = readHtmlRenderImageRequest(e.data)
+      if (image) return imageRef.current(image)
       const link = readHtmlRenderLinkRequest(e.data)
-      if (!link || document.activeElement !== f || navigator.userActivation?.isActive === false) return
+      if (!link) return
       window.open(link.url, '_blank', 'noopener,noreferrer')
       f.contentWindow?.postMessage(htmlRenderResult(link.id), '*')
     }
@@ -88,6 +98,7 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   // Client fonts can wrap the page taller than it was measured; the live height wins.
   const [contentHeight, setContentHeight] = useState<number>()
   const [full, setFull] = useState(false)
+  const [image, setImage] = useState<PageImage>()
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
@@ -104,7 +115,12 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
       className="html-render"
       style={{ height: htmlRenderFrameHeight(page, width, contentHeight) }}
     >
-      <PageFrame page={page} className="html-render__frame" onContentHeight={setContentHeight} />
+      <PageFrame
+        page={page}
+        className="html-render__frame"
+        onContentHeight={setContentHeight}
+        onImage={setImage}
+      />
       <IconButton
         title={t('全屏查看')}
         variant="glass"
@@ -116,8 +132,11 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
       </IconButton>
       {full && (
         <Dialog open onClose={() => setFull(false)} title={page.title} width={1200}>
-          <PageFrame page={page} className="html-render__full" />
+          <PageFrame page={page} className="html-render__full" onImage={setImage} />
         </Dialog>
+      )}
+      {image && (
+        <Lightbox src={image.src} alt={image.alt || page.title} onClose={() => setImage(undefined)} />
       )}
     </div>
   )

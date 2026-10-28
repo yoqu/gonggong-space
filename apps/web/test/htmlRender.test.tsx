@@ -78,6 +78,23 @@ describe('html render', () => {
     expect(open).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer')
   })
 
+  it('opens a clicked page image in the zoomable viewer, only for a frame the reader is using', () => {
+    render(<HtmlRender page={page} />)
+    const frame = frameOf()
+    const image = (src: string) => ({
+      jsonrpc: '2.0',
+      method: 'gg/open-image',
+      params: { src, alt: 'chart.png' },
+    })
+    post(frame.contentWindow, image('data:image/png;base64,AAAA'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    frame.focus()
+    vi.stubGlobal('navigator', { ...navigator, userActivation: { isActive: true } })
+    post(frame.contentWindow, image('data:image/png;base64,AAAA'))
+    const viewer = screen.getByRole('dialog', { name: 'chart.png' })
+    expect(viewer.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA')
+  })
+
   it('opens full screen in a second frame', () => {
     render(<HtmlRender page={page} />)
     fireEvent.click(screen.getByRole('button', { name: '全屏查看' }))

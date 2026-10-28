@@ -175,8 +175,11 @@ export function ChatLayout({
   railKind = 'run',
   workbench,
   mobileView,
+  sidebarLabel = t('会话列表'),
 }: {
   sidebar: ReactNode
+  /** The sidebar's landmark name: the conversation list, or the machine panel in its place. */
+  sidebarLabel?: string
   /** The conversation list folded to icons, shown in the workbench's 专注 mode. */
   strip?: ReactNode
   children: ReactNode
@@ -224,7 +227,7 @@ export function ChatLayout({
   const railBody = rail && railOpen ? rail : null
   const list = (
     <nav
-      aria-label={t('会话列表')}
+      aria-label={sidebarLabel}
       className="chat__sidebar"
       hidden={(bench && mode !== 'split') || (mobile && mobileView !== 'list')}
     >

@@ -3,6 +3,7 @@ export default {
   搜索: 'Search',
   缩小: 'Zoom out',
   放大: 'Zoom in',
+  适应窗口: 'Fit to window',
   上一张: 'Previous',
   下一张: 'Next',
   没有项目: 'No items',

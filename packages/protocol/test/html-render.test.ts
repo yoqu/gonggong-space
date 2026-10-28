@@ -15,6 +15,7 @@ import {
   injectHtmlRenderBootstrap,
   paletteTheme,
   readHtmlRenderContentHeight,
+  readHtmlRenderImageRequest,
   readHtmlRenderLinkRequest,
 } from '../src/index.js'
 
@@ -85,6 +86,7 @@ describe('html render bootstrap', () => {
     expect(out).toContain('ui/notifications/size-changed')
     expect(out).toContain('ui/notifications/host-context-changed')
     expect(out).toContain('ui/open-link')
+    expect(out).toContain('gg/open-image')
   })
 })
 
@@ -118,6 +120,24 @@ describe('html render messages', () => {
       url: 'https://example.com/a',
     })
     expect(readHtmlRenderLinkRequest(link('javascript:alert(1)'))).toBeUndefined()
+  })
+
+  it('reads image requests for inlined or http images only', () => {
+    const image = (src: unknown) => ({
+      jsonrpc: '2.0',
+      method: 'gg/open-image',
+      params: { src, alt: 'a.png' },
+    })
+    expect(readHtmlRenderImageRequest(image('data:image/png;base64,AAAA'))).toEqual({
+      src: 'data:image/png;base64,AAAA',
+      alt: 'a.png',
+    })
+    expect(readHtmlRenderImageRequest(image('https://example.com/a.png'))?.src).toBe(
+      'https://example.com/a.png',
+    )
+    expect(readHtmlRenderImageRequest(image('data:text/html,<b>x</b>'))).toBeUndefined()
+    expect(readHtmlRenderImageRequest(image('javascript:alert(1)'))).toBeUndefined()
+    expect(readHtmlRenderImageRequest(image(3))).toBeUndefined()
   })
 
   it('carries every page variable in the theme', () => {
