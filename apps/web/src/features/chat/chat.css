@@ -331,7 +331,25 @@
   display: inline-flex;
   align-items: center;
 }
+.git-bar__changes {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 20px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: none;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.git-bar__changes:hover {
+  background: var(--selection-fill);
+}
 .git-bar__dirty {
+  font-family: var(--font-sans);
   color: var(--tint-orange-text);
 }
 .git-bar__add {
@@ -339,6 +357,15 @@
 }
 .git-bar__del {
   color: var(--tint-red-text);
+}
+/* Past 99 the overflow rides as a superscript badge, not a second "+" glyph. */
+.git-bar__over {
+  position: relative;
+  top: -0.5em;
+  margin-left: 1px;
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1;
 }
 .git-bar__hint {
   color: var(--label-secondary);

@@ -82,21 +82,32 @@ async function menu(name: string) {
 }
 
 describe('git status bar', () => {
-  it('shows added and deleted lines with capped badges and exact totals on hover', async () => {
+  it('shows added and deleted lines with an overflow badge, opening the Git panel to review', async () => {
     mockApi({
       'GET /groups/g1/bot-states': [
         state('b1', { git: git({ dirty: true, additions: 12, deletions: 3 }) }),
         state('b2', { git: git({ dirty: true, additions: 150, deletions: 100 }) }),
+        state('b3', { git: git({ dirty: true, additions: 0, deletions: 0 }) }),
       ],
       'GET /groups/g1/git/operations': { operations: [] },
     })
-    render(<GitBar group={group({ botIds: ['b1', 'b2'] })} />)
-    expect((await screen.findByTestId('git-b1')).textContent).toContain('未提交+12-3')
-    expect(screen.getByTitle('新增 12 行')).toBeTruthy()
-    expect(screen.getByTitle('删除 3 行')).toBeTruthy()
-    expect(screen.getByTestId('git-b2').textContent).toContain('未提交+99+-99+')
-    expect(screen.getByTitle('新增 150 行')).toBeTruthy()
-    expect(screen.getByTitle('删除 100 行')).toBeTruthy()
+    useWorkbench.setState({ groupId: 'g1', benches: {} })
+    render(<GitBar group={group({ botIds: ['b1', 'b2', 'b3'] })} />)
+    const b1 = await screen.findByTestId('git-b1')
+    expect(b1.textContent).toBe('小王的 Claudemain+12−3')
+    const review = within(b1).getByRole('button', { name: '审查改动：新增 12 行，删除 3 行' })
+    const b2 = screen.getByTestId('git-b2')
+    expect(b2.textContent).toBe('老李的 Codexmain+99+−99+')
+    expect(b2.querySelectorAll('.git-bar__over')).toHaveLength(2)
+    expect(within(b2).getByRole('button', { name: '审查改动：新增 150 行，删除 100 行' })).toBeTruthy()
+    // Binary-only changes have no line counts: fall back to the word.
+    expect(screen.getByTestId('git-b3').textContent).toBe('阿杰的 Claudemain未提交')
+    fireEvent.click(review)
+    expect(useWorkbench.getState().benches.g1?.tabs.at(-1)).toEqual({
+      kind: 'git',
+      botId: 'b1',
+      view: 'commit',
+    })
   })
 
   it('shows Git for a detected local workspace without a group repository', async () => {

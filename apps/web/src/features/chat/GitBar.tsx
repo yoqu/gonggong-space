@@ -28,6 +28,50 @@ function Commits({ icon, name, n }: { icon: IconName; name: string; n: number })
   )
 }
 
+function Count({ n }: { n: number }) {
+  return n > 99 ? (
+    <>
+      99<span className="git-bar__over">+</span>
+    </>
+  ) : (
+    n
+  )
+}
+
+/** Uncommitted lines when known (binary-only changes have none), clicking through to review them in the Git panel. */
+function Changes({ git, onClick }: { git: NonNullable<GroupBotStateDto['git']>; onClick: () => void }) {
+  const add = git.additions ?? 0
+  const del = git.deletions ?? 0
+  const lines = add || del
+  const label = lines ? t('审查改动：新增 {add} 行，删除 {del} 行', { add, del }) : t('审查未提交的改动')
+  return (
+    <button
+      type="button"
+      className="git-bar__changes"
+      aria-label={label}
+      title={`${label} · ${t('在 Git 面板中审查')}`}
+      onClick={onClick}
+    >
+      {lines ? (
+        <>
+          {add ? (
+            <span className="git-bar__add">
+              +<Count n={add} />
+            </span>
+          ) : null}
+          {del ? (
+            <span className="git-bar__del">
+              −<Count n={del} />
+            </span>
+          ) : null}
+        </>
+      ) : (
+        <span className="git-bar__dirty">{t('未提交')}</span>
+      )}
+    </button>
+  )
+}
+
 /** 执行位置 at the head of a bot's menu: where it works in this group, to tell which code it is changing (郑晓佳 #1488). */
 function Where({
   s,
@@ -153,18 +197,8 @@ function Item({
               {git?.ahead ? (
                 <Commits icon="arrow-up" name={t('领先 {n} 个提交', { n: git.ahead })} n={git.ahead} />
               ) : null}
-              {git?.dirty ? <span className="git-bar__dirty">{t('未提交')}</span> : null}
-              {git?.additions ? (
-                <span className="git-bar__add" title={t('新增 {n} 行', { n: git.additions })}>
-                  +{Math.min(git.additions, 99)}
-                  {git.additions > 99 ? '+' : ''}
-                </span>
-              ) : null}
-              {git?.deletions ? (
-                <span className="git-bar__del" title={t('删除 {n} 行', { n: git.deletions })}>
-                  -{Math.min(git.deletions, 99)}
-                  {git.deletions > 99 ? '+' : ''}
-                </span>
+              {git?.dirty ? (
+                <Changes git={git} onClick={() => openTab({ kind: 'git', botId: s.botId, view: 'commit' })} />
               ) : null}
               {git?.ongoing || git?.conflicts ? (
                 <button

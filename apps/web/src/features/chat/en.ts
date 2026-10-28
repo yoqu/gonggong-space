@@ -215,6 +215,7 @@ export default {
   分支到新聊天: 'Branch to new chat',
   '还剩 {n} 自动压缩': 'Auto-compacts in {n}',
   '还剩 {n} 自动压缩。': 'Auto-compacts in {n}. ',
-  '新增 {n} 行': '{n} added lines',
-  '删除 {n} 行': '{n} deleted lines',
+  '审查改动：新增 {add} 行，删除 {del} 行': 'Review changes: {add} added, {del} deleted lines',
+  审查未提交的改动: 'Review uncommitted changes',
+  '在 Git 面板中审查': 'Review in the Git panel',
 } satisfies Record<string, string>
