@@ -9,7 +9,7 @@ import { t } from '../../i18n'
 import { ApiError, errorText } from '../../lib/api'
 import { Button, Dialog, EmptyState, Presence, Spinner } from '../../ui'
 import { openFileAt } from '../workbench/tabs/DiffTab'
-import { createTerminal, endTerminal, resolveTerminalLink, terminalSocketUrl } from './api'
+import { createTerminal, endTerminal, openSpaceSession, resolveTerminalLink, terminalSocketUrl } from './api'
 import { attachTerminalKeyboard } from './keyboard'
 import { createTerminalLinkProvider } from './links'
 import { TerminalOutputWriter } from './output'
@@ -76,7 +76,15 @@ function reasonText(reason: string | null) {
 }
 
 /** A live xterm view. Detaching its socket never terminates the daemon-owned PTY. */
-export function TerminalView({ sessionId, groupId, botId, active, onSession, onExit }: TerminalViewProps) {
+export function TerminalView({
+  sessionId,
+  groupId,
+  botId,
+  spaceId,
+  active,
+  onSession,
+  onExit,
+}: TerminalViewProps) {
   const host = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal>(null)
   const fitter = useRef<FitAddon>(null)
@@ -246,9 +254,16 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       if (started.current || disposed) return
       started.current = true
       fit.fit()
+      const size = { cols: term.cols, rows: term.rows }
+      const open = () =>
+        spaceId
+          ? openSpaceSession(spaceId, size).then((dto) => dto.sessionId)
+          : groupId && botId
+            ? sessionFor(groupId, botId, size)
+            : null
       if (sessionId) attach(sessionId)
-      else if (groupId && botId) {
-        sessionFor(groupId, botId, { cols: term.cols, rows: term.rows }).then(
+      else {
+        open()?.then(
           (id) => {
             if (disposed) return
             setCurrentSession(id)
@@ -296,7 +311,7 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       connect.current = null
       started.current = false
     }
-  }, [sessionId, groupId, botId])
+  }, [sessionId, groupId, botId, spaceId])
 
   useEffect(() => {
     if (!active) return

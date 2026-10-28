@@ -149,6 +149,11 @@
   flex-direction: column;
   gap: var(--space-6);
 }
+.ng-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
 .ng-hint {
   margin: var(--space-6) 0 0;
   font-size: var(--text-footnote-size);

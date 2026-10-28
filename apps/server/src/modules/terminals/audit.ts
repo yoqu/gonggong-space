@@ -5,8 +5,10 @@ import { audit } from '../../lib/audit.js'
 export type TerminalAuditEvent = {
   actorUserId: string | null
   machineId: string
-  groupId: string
-  botId: string
+  /** Null for a machine terminal, which has its `spaceId` instead. */
+  groupId: string | null
+  botId: string | null
+  spaceId?: string
   sessionId: string
   action: 'create' | 'attach' | 'detach' | 'exit' | 'terminate' | 'revoke'
   workspace: { repo: string | null; cdPath: string | null }
@@ -24,6 +26,7 @@ export async function auditTerminal(ctx: Ctx, event: TerminalAuditEvent) {
     detail: {
       machineId: event.machineId,
       botId: event.botId,
+      ...(event.spaceId ? { spaceId: event.spaceId } : {}),
       sessionId: event.sessionId,
       workspace: { repo: event.workspace.repo, cdPath: event.workspace.cdPath },
       lifecycle: { status: event.status, reason: event.reason },

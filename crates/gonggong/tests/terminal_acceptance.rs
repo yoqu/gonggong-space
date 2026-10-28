@@ -38,6 +38,7 @@ impl RealShell {
             cols: 80,
             rows: 24,
             after: 0,
+            cwd: None,
         };
         let attachment = manager.open(open.clone()).await.unwrap();
         assert_eq!(attachment.head.status, TerminalStatus::Running);

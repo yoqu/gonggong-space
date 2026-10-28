@@ -1,11 +1,11 @@
 import type { BotDto, BotProbeDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, GroupBox, Icon, IconButton, Input, SegmentedControl } from '../../ui'
+import { Button, Dialog, GroupBox, Icon, IconButton, Input, SegmentedControl, Tabs } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
@@ -20,6 +20,7 @@ import {
   repoUnavailable,
   repoValidated,
 } from '../repos/repo-access'
+import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
 import { repoName } from './repo'
 import './chat.css'
 import { t } from '../../i18n'
@@ -29,17 +30,36 @@ export type GroupKind = GroupDto['kind']
 const toggle = (list: string[], id: string) =>
   list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
 
-/** 发起会话: a group, or a DM when only one of my (or shared) Bots is picked and nobody else; the switch overrides it. */
-export function NewGroupDialog({
-  me,
-  onClose,
-  onFromFeishu,
-}: {
+type NewProps = {
   me: UserDto
   onClose: () => void
   /** 从飞书群创建 instead (offered once the main Feishu app is configured). */
   onFromFeishu?: () => void
-}) {
+}
+
+/** The top bar's「+」: 发起会话 (a group or a DM) or 新建终端 on one of my machines. */
+export function NewGroupDialog(props: NewProps) {
+  const [mode, setMode] = useState<'chat' | 'terminal'>('chat')
+  const tabs = (
+    <Tabs
+      aria-label={t('新建')}
+      items={[
+        { value: 'chat', label: t('发起会话') },
+        { value: 'terminal', label: t('新建终端') },
+      ]}
+      value={mode}
+      onChange={setMode}
+    />
+  )
+  return mode === 'chat' ? (
+    <NewChatDialog {...props} tabs={tabs} />
+  ) : (
+    <NewTerminalDialog tabs={tabs} onClose={props.onClose} />
+  )
+}
+
+/** 发起会话: a group, or a DM when only one of my (or shared) Bots is picked and nobody else; the switch overrides it. */
+function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: ReactNode }) {
   const feishu = useAuthOptions()?.feishuLogin
   const allBots = useWorkspace((s) => s.bots)
   const navigate = useNavigate()
@@ -130,6 +150,7 @@ export function NewGroupDialog({
       }
     >
       <div className="ng">
+        {tabs}
         <section className="ng-section">
           <SegmentedControl<GroupKind>
             aria-label={t('会话类型')}

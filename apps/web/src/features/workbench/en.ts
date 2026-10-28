@@ -143,4 +143,18 @@ export default {
   选择一个文件查看改动: 'Pick a file to see its changes',
   '根目录不是 Git 仓库，各子仓库的改动在分支菜单中查看':
     'The root is not a Git repository; see each sub-repo’s changes from the branch menu',
+  终端会话: 'Terminal',
+  '新开 Shell': 'New shell',
+  删除终端: 'Delete terminal',
+  '删除终端「{name}」？': 'Delete terminal "{name}"?',
+  '会结束其中的 Shell 及正在运行的进程，并从会话列表移除；机器上的目录不受影响。':
+    'This ends its shell and the processes running in it and removes it from the conversations; the directory on the machine is untouched.',
+  重命名终端: 'Rename terminal',
+  新建: 'New',
+  '浏览…': 'Browse…',
+  选择终端目录: 'Choose the terminal directory',
+  '终端会作为一个会话出现在左侧，只有你能打开；Shell 闲置 24 小时后结束，再次打开会新开一个。':
+    'The terminal appears as a conversation on the left that only you can open; its shell ends after 24 idle hours and opening it again starts a new one.',
+  '没有可用的机器：需要你的一台在线的 macOS 或 Linux 机器，且客户端已升级到最新版本。':
+    'No machine available: you need one of your machines online, on macOS or Linux, with the latest client.',
 } satisfies Record<string, string>

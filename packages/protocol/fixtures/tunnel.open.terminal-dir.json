@@ -1,0 +1,17 @@
+{
+  "terminal": {
+    "action": "create",
+    "sessionId": "5f0c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+    "groupId": "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f",
+    "botId": "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f",
+    "workspace": { "repo": null, "cdPath": null },
+    "cols": 120,
+    "rows": 32,
+    "after": 0,
+    "cwd": "/Users/wang/code/scripts"
+  },
+  "method": "TERMINAL",
+  "path": "/",
+  "headers": [],
+  "upgrade": true
+}

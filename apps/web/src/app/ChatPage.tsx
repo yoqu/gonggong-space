@@ -9,6 +9,7 @@ import { ChatView } from '../features/chat/ChatView'
 import { BindMachineDialog, MachinePage } from '../features/machines/lazy'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
+import { loadTerminalSpaces, useTerminalSpaces } from '../features/terminal/spaces'
 import { openTab } from '../features/workbench/open'
 import { t } from '../i18n'
 import { api } from '../lib/api'
@@ -30,6 +31,7 @@ import { useWorkspace } from './workspace'
 const NewGroupDialog = named(() => import('../features/chat/NewGroupDialog'), 'NewGroupDialog')
 const FeishuGroupDialog = named(() => import('../features/feishu/FeishuGroupDialog'), 'FeishuGroupDialog')
 const Workbench = named(() => import('../features/workbench/Workbench'), 'Workbench')
+const TerminalSpacePage = named(() => import('../features/terminal/TerminalSpacePage'), 'TerminalSpacePage')
 
 const LAST_GROUP_KEY = 'gonggong.lastGroup'
 
@@ -63,11 +65,18 @@ function loadGroups(setState: (s: 'ready' | 'error') => void) {
 const setInspectorHost = (host: HTMLElement | null) => useInspector.setState({ host })
 
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
+const loadSpaces = () =>
+  loadTerminalSpaces().catch((e: Error) => console.warn('terminal spaces failed to load:', e))
+
 function useChatData() {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   useEffect(() => {
     loadGroups(setState)
-    return realtime.onReconnect(() => loadGroups(setState))
+    void loadSpaces()
+    return realtime.onReconnect(() => {
+      loadGroups(setState)
+      void loadSpaces()
+    })
   }, [])
   const retry = () => {
     setState('loading')
@@ -132,7 +141,7 @@ function useLinkedBot() {
 }
 
 export function ChatPage() {
-  const { groupId, botId, machineId } = useParams()
+  const { groupId, botId, machineId, spaceId } = useParams()
   const navigate = useNavigate()
   // 我的机器管理: its tree replaces the conversation list; /machines alone opens nothing yet.
   const managing = isMachinesPath(useLocation().pathname)
@@ -150,7 +159,9 @@ export function ChatPage() {
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const sharedBots = bots.filter((b) => !!me && b.sharedWith.includes(me.id))
   const myMachines = machines.filter((m) => m.ownerId === me?.id)
-  const firstRun = !managing && !groupId && groupsState === 'ready' && !groups.length
+  const spaces = useTerminalSpaces((s) => s.spaces)
+  const space = spaces.find((s) => s.id === spaceId)
+  const firstRun = !managing && !groupId && !spaceId && groupsState === 'ready' && !groups.length
   const openBot = bots.find((b) => b.id === botId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
@@ -162,7 +173,7 @@ export function ChatPage() {
   useLinkedPreview(group?.id)
   useLinkedBot()
   const viewed = useGroupOutsideList(groupId, groupsState === 'ready' && !group)
-  const benchGroup = botId || machineId ? null : (group?.id ?? null)
+  const benchGroup = botId || machineId || spaceId ? null : (group?.id ?? null)
   useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
   const benchShown = useWorkbench((s) => !!benchGroup && s.groupId === benchGroup && s.open)
   useEffect(() => {
@@ -170,15 +181,15 @@ export function ChatPage() {
   }, [group])
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
-    if (groupId || managing || mobile || groupsState !== 'ready' || !groups.length) return
+    if (groupId || spaceId || managing || mobile || groupsState !== 'ready' || !groups.length) return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, managing, mobile, groupsState, groups, navigate])
+  }, [groupId, spaceId, managing, mobile, groupsState, groups, navigate])
 
   return (
     <>
       <ChatLayout
-        mobileView={groupId || botId || machineId ? 'chat' : 'list'}
+        mobileView={groupId || botId || machineId || spaceId ? 'chat' : 'list'}
         sidebarLabel={managing ? t('我的机器管理') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
@@ -209,6 +220,7 @@ export function ChatPage() {
               groups={groups}
               bots={myBots}
               machines={myMachines}
+              spaces={spaces}
               guide={!firstRun || mobile}
               header={<ShellBar onNewGroup={() => setCreating(true)} />}
               onNewGroup={() => setCreating(true)}
@@ -256,6 +268,20 @@ export function ChatPage() {
               ) : (
                 <Mascot action="wait" size={72} label={t('加载中')} />
               )}
+            </div>
+          )
+        ) : spaceId ? (
+          space ? (
+            <Suspense fallback={null}>
+              <TerminalSpacePage
+                key={space.id}
+                space={space}
+                onBack={mobile ? () => navigate('/') : undefined}
+              />
+            </Suspense>
+          ) : (
+            <div className="chat__placeholder">
+              <EmptyState illustration={<DeniedArt />} title={t('终端不存在或已删除')} />
             </div>
           )
         ) : managing ? (

@@ -8,6 +8,7 @@ import type {
   MessageDto,
   RepoProbeRes,
   RunDto,
+  TerminalSpaceDto,
   UserDto,
   WebEvent,
 } from '@gonggong/protocol'
@@ -19,7 +20,12 @@ import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { useRunDeltas } from '../src/features/chat/deltas'
+import { useTerminalSpaces } from '../src/features/terminal/spaces'
 import { useToasts } from '../src/ui/toast'
+
+vi.mock('../src/features/terminal/TerminalView', () => ({
+  TerminalView: ({ spaceId }: { spaceId?: string }) => <div data-testid="terminal-body">{spaceId}</div>,
+}))
 
 const me: UserDto = {
   id: 'u1',
@@ -284,6 +290,7 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', FakeSocket)
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
+  useTerminalSpaces.setState({ spaces: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -1490,5 +1497,68 @@ describe('repo and workspaces', () => {
     fireEvent.click(within(drawer).getByRole('button', { name: /仓库与工作区/ }))
     expect(screen.queryByRole('dialog', { name: /仓库与工作区/ })).toBeNull()
     expect(within(drawer).queryByRole('button', { name: '更换…' })).toBeNull()
+  })
+})
+
+describe('machine terminals', () => {
+  const space: TerminalSpaceDto = {
+    id: 's1',
+    machineId: 'mc1',
+    machineName: 'wanglei-mbp',
+    name: '运维脚本',
+    cwd: '/Users/w/code/ops',
+    createdAt: '2026-09-20T00:00:00.000Z',
+    lastActiveAt: '2026-09-30T00:00:00.000Z',
+  }
+
+  it('lists one among the conversations by its last opening, and opens nothing but its terminal', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group({ lastAt: '2026-09-25T00:00:00.000Z' })]),
+      'GET /terminal-spaces': () => [space],
+      'DELETE /terminal-spaces/s1': () => null,
+    })
+    renderAt('/g/g1')
+    const row = await screen.findByTestId('terminal-item-s1')
+    expect(row.textContent).toContain('运维脚本')
+    expect(row.textContent).toContain('wanglei-mbp · ')
+    const order = [...document.querySelectorAll('[data-testid$="-item-s1"], [data-testid="group-item-g1"]')]
+    expect(order.map((e) => e.getAttribute('data-testid'))).toEqual(['terminal-item-s1', 'group-item-g1'])
+
+    fireEvent.click(row)
+    const main = screen.getByRole('main')
+    expect(await within(main).findByRole('heading', { name: '运维脚本' })).toBeTruthy()
+    expect(within(main).getByText('wanglei-mbp · /Users/w/code/ops')).toBeTruthy()
+    expect(within(main).getByTestId('terminal-body').textContent).toBe('s1')
+    expect(within(main).queryByPlaceholderText(/输入消息/)).toBeNull()
+
+    fireEvent.click(within(main).getByRole('button', { name: '删除终端' }))
+    const confirm = await screen.findByRole('alertdialog', { name: /删除终端「运维脚本」/ })
+    fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(screen.queryByTestId('terminal-item-s1')).toBeNull())
+    expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/terminal-spaces/s1' }))
+  })
+
+  it('creates one from the plus dialog on a capable machine of mine', async () => {
+    const calls = mockApi({
+      ...baseRoutes([group()]),
+      'GET /machines': () => [{ ...machine, features: ['terminal-v2', 'terminal-dir'] }],
+      'GET /terminal-spaces': () => [],
+      'POST /terminal-spaces': (b) => ({ ...space, id: 's9', ...(b as object) }),
+    })
+    renderAt('/g/g1')
+    fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
+    fireEvent.click(await screen.findByRole('tab', { name: '新建终端' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建终端' })
+    await waitFor(() => expect(within(dialog).getByText('wanglei-mbp')).toBeTruthy())
+    fireEvent.change(within(dialog).getByLabelText('目录'), { target: { value: '/Users/w/code/ops' } })
+    expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('ops')
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    expect(await within(screen.getByRole('main')).findByRole('heading', { name: 'ops' })).toBeTruthy()
+    expect(calls.find((c) => c.method === 'POST' && c.path === '/terminal-spaces')?.body).toEqual({
+      machineId: 'mc1',
+      cwd: '/Users/w/code/ops',
+      name: 'ops',
+    })
+    expect(screen.getByTestId('terminal-item-s9')).toBeTruthy()
   })
 })

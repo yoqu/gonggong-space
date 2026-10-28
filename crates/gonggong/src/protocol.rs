@@ -1684,6 +1684,8 @@ pub struct TunnelReset {
 pub const FEATURE_TOOLS: &str = "tools";
 /// Web terminals: hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output.
 pub const FEATURE_TERMINAL: &str = "terminal-v2";
+/// Machine terminals: a `cwd` on the terminal open names the directory instead of a bot workspace.
+pub const FEATURE_TERMINAL_DIR: &str = "terminal-dir";
 pub const FEATURE_PROVIDERS: &str = "providers";
 pub const FEATURE_CC_SWITCH: &str = "ccSwitch";
 pub const FEATURE_SYNC: &str = "sync";
@@ -1744,6 +1746,10 @@ pub struct TerminalOpen {
     pub cols: u16,
     pub rows: u16,
     pub after: u64,
+    /// A machine terminal's own absolute directory (its group and bot ids are both its space id); none = the bot's
+    /// workspace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

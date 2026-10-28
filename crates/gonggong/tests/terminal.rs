@@ -46,6 +46,7 @@ impl Fixture {
             cols: 80,
             rows: 24,
             after,
+            cwd: None,
         }
     }
 
@@ -178,6 +179,7 @@ async fn managed_workspace_is_resolved_from_group_and_bot() {
         cols: 80,
         rows: 24,
         after: 0,
+        cwd: None,
     };
     let cwd = gonggong::workspace::workspace_dir(home.path(), &open.group_id, &open.bot_id, &open.workspace);
     std::fs::create_dir_all(&cwd).unwrap();
@@ -187,6 +189,26 @@ async fn managed_workspace_is_resolved_from_group_and_bot() {
     assert!(String::from_utf8_lossy(&output).contains(&cwd.to_string_lossy().to_string()));
     manager.terminate(&open.session_id).await.unwrap();
     open.after = 0;
+}
+
+#[tokio::test]
+async fn a_machine_terminal_opens_in_the_directory_it_names() {
+    let fixture = Fixture::new();
+    let dir = tempfile::tempdir().unwrap();
+    let mut open = fixture.open(TerminalOpenAction::Create, 0);
+    open.cwd = Some(dir.path().to_string_lossy().into_owned());
+    let mut attachment = fixture.manager.open(open.clone()).await.unwrap();
+    bash(&fixture.manager, &open.session_id, &mut attachment).await;
+    let output = command(&fixture.manager, &open.session_id, &mut attachment, "pwd").await;
+    let cwd = dir.path().canonicalize().unwrap();
+    assert!(String::from_utf8_lossy(&output).contains(&cwd.to_string_lossy().to_string()));
+    fixture.manager.terminate(&open.session_id).await.unwrap();
+
+    for missing in [dir.path().join("gone").to_string_lossy().into_owned(), "relative/dir".into()] {
+        let mut open = fixture.open(TerminalOpenAction::Create, 0);
+        open.cwd = Some(missing);
+        assert!(matches!(fixture.manager.open(open).await, Err(TerminalError::WorkspaceUnavailable)));
+    }
 }
 
 #[tokio::test]

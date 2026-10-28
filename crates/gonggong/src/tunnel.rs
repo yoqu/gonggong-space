@@ -647,6 +647,7 @@ mod terminal_tests {
                 cols: 80,
                 rows: 24,
                 after: 0,
+                cwd: None,
             }
         }
 

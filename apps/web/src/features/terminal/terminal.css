@@ -92,3 +92,27 @@
 .wt-terminal[data-phase="exited"] .wt-terminal__host {
   visibility: hidden;
 }
+
+/* A machine terminal opened from the conversation list: the header, then the terminal filling the rest. */
+.terminal-space {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.terminal-space__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.terminal-space__avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-field);
+  background: var(--control-track);
+  color: var(--label-secondary);
+}

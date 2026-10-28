@@ -23,3 +23,7 @@ export function terminalSocketUrl(sessionId: string, after = 0) {
 export function resolveTerminalLink(groupId: string, botId: string, path: string, line = 1) {
   return api.post<TerminalLinkDto>(`/groups/${groupId}/bots/${botId}/terminal-links/resolve`, { path, line })
 }
+
+export function openSpaceSession(spaceId: string, size: TerminalCreateReq) {
+  return api.post<TerminalDto>(`/terminal-spaces/${spaceId}/session`, size)
+}

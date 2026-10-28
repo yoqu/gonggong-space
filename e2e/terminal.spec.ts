@@ -1,4 +1,5 @@
-import { readFileSync, realpathSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test'
 import { adminSession, bindManaged, buildDaemon, call, memberWithMachine, SERVER_LOG } from './helpers'
@@ -197,5 +198,51 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
     m.stop()
     await ownerContext.close()
     await otherContext.close()
+  }
+})
+
+test('machine terminal: a directory of my machine as its own conversation, with a fresh shell after one ends', async ({
+  page,
+}) => {
+  test.setTimeout(3 * 60_000)
+  const { m, api } = await memberWithMachine(page, `mterm${Date.now().toString(36)}`)
+  const dir = mkdtempSync(join(tmpdir(), 'gg-mterm-'))
+  m.start()
+  try {
+    const space = await api.call<{ id: string }>('post', '/api/terminal-spaces', {
+      machineId: await api.machineId(),
+      cwd: dir,
+      name: '目录终端',
+    })
+    // The daemon announces directory terminals once it has connected.
+    await expect
+      .poll(
+        async () =>
+          (
+            await page.request.post(`/api/terminal-spaces/${space.id}/session`, {
+              data: { cols: 80, rows: 24 },
+            })
+          ).status(),
+        {
+          timeout: 30_000,
+        },
+      )
+      .toBe(200)
+    await page.goto(`/t/${space.id}`)
+    await expect(page.getByTestId(`terminal-item-${space.id}`)).toBeVisible()
+    const terminal = page.getByRole('region', { name: '终端', exact: true })
+    await expect(terminal).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
+    await run(page, terminal, `printf 'GG_DIR=%s\\n' "$PWD"`, 'GG_DIR=')
+    await expect(terminal.locator('.xterm-rows')).toContainText(`GG_DIR=${realpathSync(dir)}`)
+
+    await terminal.locator('.xterm-helper-textarea').focus()
+    await page.keyboard.press('Control+d')
+    await expect(terminal).toHaveAttribute('data-phase', 'exited', { timeout: 20_000 })
+    await page.getByRole('button', { name: '新开 Shell' }).click()
+    const fresh = page.getByRole('region', { name: '终端', exact: true })
+    await expect(fresh).toHaveAttribute('data-phase', 'running', { timeout: 30_000 })
+    await run(page, fresh, "printf 'GG_%s\\n' 'FRESH'", 'GG_FRESH')
+  } finally {
+    m.stop()
   }
 })

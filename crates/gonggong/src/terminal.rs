@@ -124,8 +124,11 @@ impl TerminalManager {
                         return Err(TerminalError::SessionLimit);
                     }
                 }
-                let cwd = workspace::workspace_dir(&self.home, &open.group_id, &open.bot_id, &open.workspace);
-                if !cwd.is_dir() {
+                let cwd = match &open.cwd {
+                    Some(dir) => PathBuf::from(dir),
+                    None => workspace::workspace_dir(&self.home, &open.group_id, &open.bot_id, &open.workspace),
+                };
+                if !cwd.is_absolute() || !cwd.is_dir() {
                     return Err(TerminalError::WorkspaceUnavailable);
                 }
                 let session = Session::spawn(open.clone(), cwd).await?;

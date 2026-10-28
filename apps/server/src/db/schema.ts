@@ -1529,3 +1529,23 @@ export const feishuMessageLinks = pgTable(
   },
   (t) => [index('feishu_links_message').on(t.messageId), index('feishu_links_run').on(t.runId)],
 )
+
+/** Machine terminals (我的机器管理 → 新建终端): a named directory on the owner's machine, listed among conversations. */
+export const terminalSpaces = pgTable(
+  'terminal_spaces',
+  {
+    id: id(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id),
+    machineId: uuid('machine_id')
+      .notNull()
+      .references(() => machines.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Absolute directory on the machine the shell starts in. */
+    cwd: text('cwd').notNull(),
+    createdAt: createdAt(),
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('terminal_spaces_owner').on(t.ownerId)],
+)

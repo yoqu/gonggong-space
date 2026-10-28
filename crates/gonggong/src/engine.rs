@@ -847,7 +847,7 @@ impl Handler for Engine {
     fn features(&self) -> Vec<String> {
         let mut features = self.0.manage.features();
         #[cfg(any(target_os = "macos", target_os = "linux"))]
-        features.push(crate::protocol::FEATURE_TERMINAL.into());
+        features.extend([crate::protocol::FEATURE_TERMINAL.into(), crate::protocol::FEATURE_TERMINAL_DIR.into()]);
         features
     }
 

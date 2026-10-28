@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
+  TERMINAL_DIR_FEATURE,
   TERMINAL_FEATURE,
   TERMINAL_MAX_PER_USER,
   type TerminalCreateReq,
@@ -13,7 +14,7 @@ import { and, eq } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { bots, groupBots, machines, users } from '../../db/schema.js'
+import { bots, groupBots, machines, terminalSpaces, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { currentRepo } from '../workspaces/provision.js'
@@ -28,10 +29,13 @@ type Session = TerminalDto & {
   cols: number
   rows: number
   attached: boolean
+  /** A machine terminal's space: its shell runs in `cwd`, and its group and bot ids are both the space id. */
+  spaceId: string | null
+  cwd: string | null
 }
 
 type Context = Pick<Ctx, 'hub' | 'now'> & { db: Db }
-type Target = Awaited<ReturnType<TerminalService['target']>>
+type Target = { machine: typeof machines.$inferSelect; revoked: boolean }
 
 const dto = ({
   userId: _userId,
@@ -39,8 +43,14 @@ const dto = ({
   cols: _cols,
   rows: _rows,
   attached: _attached,
+  spaceId: _spaceId,
+  cwd: _cwd,
   ...session
 }: Session): TerminalDto => session
+
+/** Daemons report every shell by group and bot; a machine terminal's are both its space id. */
+const spaceOfLive = (terminal: TerminalLive) =>
+  terminal.groupId === terminal.botId ? terminal.groupId : null
 
 /**
  * Sessions live in memory; the daemon owns the shells. A daemon going offline leaves them running, and its next
@@ -79,10 +89,26 @@ export class TerminalService {
     if (target.revoked) return fail('forbidden', '仅机器主人可以使用终端')
   }
 
-  private requireCapability(machine: typeof machines.$inferSelect) {
+  /** The space and its machine; only their owner may use it. */
+  private async spaceTarget(userId: string, spaceId: string) {
+    if (!isUuid(spaceId)) return fail('not_found', '终端不存在')
+    const [row] = await this.ctx.db
+      .select({ space: terminalSpaces, machine: machines, ownerDisabled: users.disabledAt })
+      .from(terminalSpaces)
+      .innerJoin(machines, eq(machines.id, terminalSpaces.machineId))
+      .innerJoin(users, eq(users.id, machines.ownerId))
+      .where(eq(terminalSpaces.id, spaceId))
+    // Someone else's space is not theirs to know about; a machine that changed hands is.
+    if (!row || row.space.ownerId !== userId) return fail('not_found', '终端不存在')
+    if (row.machine.ownerId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    return { ...row, revoked: !!(row.machine.revokedAt || row.ownerDisabled) }
+  }
+
+  private requireCapability(machine: typeof machines.$inferSelect, feature = TERMINAL_FEATURE) {
     if (machine.os !== 'macos' && machine.os !== 'linux')
       return fail('conflict', '网页终端仅支持 macOS 和 Linux')
-    if (!this.ctx.hub.features(machine.id).includes(TERMINAL_FEATURE))
+    const features = this.ctx.hub.features(machine.id)
+    if (!features.includes(TERMINAL_FEATURE) || !features.includes(feature))
       return fail('conflict', 'daemon 未连接或不支持网页终端')
   }
 
@@ -95,10 +121,46 @@ export class TerminalService {
   private async owned(userId: string, sessionId: string) {
     const session = this.session(sessionId)
     if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    if (session.spaceId) {
+      const target = await this.spaceTarget(userId, session.spaceId)
+      this.expire(session, target)
+      this.requireUsable(target)
+      return { session, target, cdPath: null }
+    }
     const target = await this.target(userId, session.groupId, session.botId)
     this.expire(session, target)
     this.requireUsable(target)
-    return { session, target }
+    return { session, target, cdPath: target.groupBot.cdPath }
+  }
+
+  /** A new session counted against the user's limit; its shell starts on the first attach. */
+  private start(
+    userId: string,
+    machineId: string,
+    place: Pick<Session, 'groupId' | 'botId' | 'spaceId' | 'cwd'>,
+    input: TerminalCreateReq,
+  ) {
+    const active = [...this.sessions.values()].filter(
+      (session) => session.userId === userId && session.status === 'running',
+    )
+    if (active.length >= TERMINAL_MAX_PER_USER) return fail('conflict', '每个用户最多同时打开 4 个终端')
+    const timestamp = this.ctx.now().toISOString()
+    const session: Session = {
+      sessionId: randomUUID(),
+      ...place,
+      userId,
+      machineId,
+      status: 'running',
+      createdAt: timestamp,
+      lastActiveAt: timestamp,
+      exitCode: null,
+      reason: null,
+      cols: input.cols,
+      rows: input.rows,
+      attached: false,
+    }
+    this.sessions.set(session.sessionId, session)
+    return session
   }
 
   private expire(session: Session, target: Target) {
@@ -128,6 +190,7 @@ export class TerminalService {
       groupId: session.groupId,
       botId: session.botId,
       sessionId: session.sessionId,
+      ...(session.spaceId ? { groupId: null, botId: null, spaceId: session.spaceId } : {}),
       action: reason === 'revoked' ? 'revoke' : 'exit',
       workspace: { repo: null, cdPath: null },
       status,
@@ -140,27 +203,12 @@ export class TerminalService {
       const target = await this.target(userId, groupId, botId)
       this.requireUsable(target)
       this.requireCapability(target.machine)
-      const active = [...this.sessions.values()].filter(
-        (session) => session.userId === userId && session.status === 'running',
-      )
-      if (active.length >= TERMINAL_MAX_PER_USER) return fail('conflict', '每个用户最多同时打开 4 个终端')
-      const timestamp = this.ctx.now().toISOString()
-      const session: Session = {
-        sessionId: randomUUID(),
-        groupId,
-        botId,
+      const session = this.start(
         userId,
-        machineId: target.machine.id,
-        status: 'running',
-        createdAt: timestamp,
-        lastActiveAt: timestamp,
-        exitCode: null,
-        reason: null,
-        cols: input.cols,
-        rows: input.rows,
-        attached: false,
-      }
-      this.sessions.set(session.sessionId, session)
+        target.machine.id,
+        { groupId, botId, spaceId: null, cwd: null },
+        input,
+      )
       await auditTerminal(this.ctx as Ctx, {
         actorUserId: userId,
         machineId: session.machineId,
@@ -177,6 +225,42 @@ export class TerminalService {
       })
       return dto(session)
     })
+  }
+
+  /** The machine terminal's running session, or a new one in its directory. */
+  openSpace(userId: string, spaceId: string, input: TerminalCreateReq) {
+    return this.serial(async () => {
+      const target = await this.spaceTarget(userId, spaceId)
+      this.requireUsable(target)
+      this.requireCapability(target.machine, TERMINAL_DIR_FEATURE)
+      const live = [...this.sessions.values()].find((s) => s.spaceId === spaceId && s.status === 'running')
+      if (live) return dto(live)
+      const session = this.start(
+        userId,
+        target.machine.id,
+        { groupId: spaceId, botId: spaceId, spaceId, cwd: target.space.cwd },
+        input,
+      )
+      await auditTerminal(this.ctx as Ctx, {
+        actorUserId: userId,
+        machineId: session.machineId,
+        groupId: null,
+        botId: null,
+        spaceId,
+        sessionId: session.sessionId,
+        action: 'create',
+        workspace: { repo: null, cdPath: target.space.cwd },
+        status: session.status,
+        reason: session.reason,
+      })
+      return dto(session)
+    })
+  }
+
+  /** Ends a machine terminal's running shell, if any (the space is being deleted). */
+  async closeSpace(userId: string, spaceId: string) {
+    const live = [...this.sessions.values()].find((s) => s.spaceId === spaceId && s.status === 'running')
+    if (live) await this.end(userId, live.sessionId).catch(() => this.revoke(live))
   }
 
   async authorize(userId: string, groupId: string, botId: string) {
@@ -226,6 +310,8 @@ export class TerminalService {
       for (const terminal of unknown) {
         this.sessions.set(terminal.sessionId, {
           ...terminal,
+          spaceId: spaceOfLive(terminal),
+          cwd: null,
           userId: machine.ownerId,
           machineId,
           status: 'running',
@@ -240,28 +326,31 @@ export class TerminalService {
 
   /** An ended session comes back without an attachment, so the socket can report how it ended. */
   async attach(userId: string, sessionId: string, after = 0) {
-    const { session, target } = await this.owned(userId, sessionId)
+    const { session, target, cdPath } = await this.owned(userId, sessionId)
     if (session.status !== 'running') return { terminal: dto(session) }
-    this.requireCapability(target.machine)
+    this.requireCapability(target.machine, session.spaceId ? TERMINAL_DIR_FEATURE : TERMINAL_FEATURE)
     const open: TerminalOpen = {
       action: session.attached ? 'attach' : 'create',
       sessionId,
       groupId: session.groupId,
       botId: session.botId,
       workspace: {
-        repo: await currentRepo(this.ctx as Ctx, session.groupId, session.botId),
-        cdPath: target.groupBot.cdPath,
+        repo: session.spaceId ? null : await currentRepo(this.ctx as Ctx, session.groupId, session.botId),
+        cdPath,
       },
       cols: session.cols,
       rows: session.rows,
       after,
+      ...(session.cwd ? { cwd: session.cwd } : {}),
     }
+    const place = session.spaceId
+      ? { groupId: null, botId: null, spaceId: session.spaceId }
+      : { groupId: session.groupId, botId: session.botId }
     const audit = (action: 'attach' | 'detach') =>
       auditTerminal(this.ctx as Ctx, {
         actorUserId: userId,
         machineId: session.machineId,
-        groupId: session.groupId,
-        botId: session.botId,
+        ...place,
         sessionId,
         action,
         workspace: { repo: open.workspace.repo?.id ?? null, cdPath: open.workspace.cdPath },
@@ -292,8 +381,9 @@ export class TerminalService {
     await auditTerminal(this.ctx as Ctx, {
       actorUserId: userId,
       machineId: session.machineId,
-      groupId: session.groupId,
-      botId: session.botId,
+      ...(session.spaceId
+        ? { groupId: null, botId: null, spaceId: session.spaceId }
+        : { groupId: session.groupId, botId: session.botId }),
       sessionId,
       action: 'terminate',
       workspace: { repo: null, cdPath: null },

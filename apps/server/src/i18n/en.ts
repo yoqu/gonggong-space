@@ -396,6 +396,8 @@ export const en = {
   'daemon 未连接或不支持网页终端': 'The daemon is offline or does not support web terminals',
   '每个用户最多同时打开 4 个终端': 'Each user can have at most 4 active terminals',
   终端不存在: 'Terminal not found',
+  机器不存在或已吊销: 'Machine not found or revoked',
+  请填写机器上的绝对路径: 'Enter an absolute path on the machine',
   终端已结束: 'The terminal has ended',
   '终端已结束，请新建会话': 'The terminal has ended, create a new session',
   仅发起人可以填写: 'Only the person who started the turn can fill these in',

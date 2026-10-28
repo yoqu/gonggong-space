@@ -3,6 +3,8 @@ import { WorkspaceSpec } from './daemon.js'
 
 /** Hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output. */
 export const TERMINAL_FEATURE = 'terminal-v2'
+/** Machine terminals: a `cwd` on the terminal open names the directory instead of a bot workspace. */
+export const TERMINAL_DIR_FEATURE = 'terminal-dir'
 export const TERMINAL_IDLE_MS = 24 * 60 * 60 * 1000
 export const TERMINAL_REPLAY_BYTES = 1024 * 1024
 export const TERMINAL_REPLAY_CHUNKS = 4096
@@ -49,8 +51,33 @@ export const TerminalOpen = z.object({
   cols: z.number().int().min(2).max(500),
   rows: z.number().int().min(2).max(500),
   after: z.number().int().nonnegative(),
+  /** A machine terminal's own absolute directory (its group and bot ids are both its space id); absent = the bot's workspace. */
+  cwd: z.string().min(1).max(4096).optional(),
 })
 export type TerminalOpen = z.infer<typeof TerminalOpen>
+
+/** A machine terminal (我的机器管理 → 新建终端): a named directory on one of my machines, kept as a conversation. */
+export const TerminalSpaceDto = z.object({
+  id: z.string().uuid(),
+  machineId: z.string().uuid(),
+  machineName: z.string(),
+  name: z.string(),
+  cwd: z.string(),
+  createdAt: z.string(),
+  lastActiveAt: z.string(),
+})
+export type TerminalSpaceDto = z.infer<typeof TerminalSpaceDto>
+
+export const TERMINAL_SPACE_NAME_MAX = 60
+export const TerminalSpaceCreateReq = z.object({
+  machineId: z.string().uuid(),
+  cwd: z.string().trim().min(1).max(4096),
+  name: z.string().trim().min(1).max(TERMINAL_SPACE_NAME_MAX),
+})
+export type TerminalSpaceCreateReq = z.infer<typeof TerminalSpaceCreateReq>
+export const TerminalSpaceUpdateReq = z.object({
+  name: z.string().trim().min(1).max(TERMINAL_SPACE_NAME_MAX),
+})
 
 export const TerminalHead = z.object({
   sessionId: z.string().uuid(),

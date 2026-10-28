@@ -53,6 +53,7 @@ export default {
   '群#nav': 'Groups',
   新建私聊: 'New direct message',
   还没有会话: 'No conversations yet',
+  终端不存在或已删除: 'Terminal not found or deleted',
   '会话#list': 'Conversations',
   发起会话: 'New conversation',
   我的机器管理: 'My machines',

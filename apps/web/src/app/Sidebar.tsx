@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, MachineDto } from '@gonggong/protocol'
+import type { BotDto, GroupDto, MachineDto, TerminalSpaceDto } from '@gonggong/protocol'
 import {
   type MouseEvent,
   memo,
@@ -38,6 +38,8 @@ export interface SidebarProps {
   /** My bots and machines: for the 开始使用 guide and the footer (they are managed in 我的机器管理). */
   bots: BotDto[]
   machines: MachineDto[]
+  /** My machine terminals, listed among the conversations. */
+  spaces?: TerminalSpaceDto[]
   /** Toolbar row and search above the list. */
   header?: ReactNode
   /** All lists have arrived: empty states and the 开始使用 guide wait for it so "not yet" never reads as "none". */
@@ -213,6 +215,37 @@ const GroupRow = memo(function GroupRow({
   )
 })
 
+/** A machine terminal in the conversation list: its machine and directory under its name. */
+function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
+  return (
+    <NavLink
+      to={`/t/${s.id}`}
+      className="pn-conv"
+      title={s.cwd}
+      data-testid={`terminal-item-${s.id}`}
+      tabIndex={tabStop ? 0 : -1}
+      onKeyDown={(e) =>
+        keyNav(e, e.currentTarget.closest<HTMLElement>('.sidebar__scroll'), '.pn-conv', { select: true })
+      }
+    >
+      <ConversationContent
+        item={{
+          id: s.id,
+          name: s.name,
+          group: true,
+          avatarNode: (
+            <span className="sidebar-terminal">
+              <Icon name="terminal" size={18} />
+            </span>
+          ),
+          tags: [{ label: t('终端'), tone: 'gray' }],
+          preview: `${s.machineName} · ${middle(s.cwd)}`,
+        }}
+      />
+    </NavLink>
+  )
+}
+
 function SetupGuide({
   bound,
   hasBot,
@@ -267,21 +300,29 @@ function SetupGuide({
 /** 完成: marked done and no message since; a new one brings it back to its list. */
 const isDone = (g: GroupDto) => g.doneSeq != null && g.lastSeq <= g.doneSeq
 
-/** Groups and DMs together: pinned first, then the latest message first (a run waiting on me shows on its row). */
-const byPin = (list: GroupDto[]) =>
-  [...list].sort(
-    (a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastAt ?? '').localeCompare(a.lastAt ?? ''),
-  )
+type Row = GroupDto | TerminalSpaceDto
+const isSpace = (r: Row): r is TerminalSpaceDto => 'cwd' in r
+const pathOf = (r: Row) => (isSpace(r) ? `/t/${r.id}` : `/g/${r.id}`)
+
+/**
+ * Groups, DMs and machine terminals together: pinned first, then the latest message (a terminal: its last opening)
+ * first; a run waiting on me shows on its row.
+ */
+const byPin = <R extends Row>(list: R[]) => {
+  const pinned = (r: Row) => !isSpace(r) && r.pinned
+  const at = (r: Row) => (isSpace(r) ? r.lastActiveAt : r.lastAt) ?? ''
+  return [...list].sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || at(b).localeCompare(at(a)))
+}
 
 /** While `held` (the pointer is over the list) rows keep their places so a click lands where it aimed; newcomers go last. */
-function useHeldOrder(list: GroupDto[], held: boolean) {
+function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
   const shown = useRef<string[]>([])
   if (!held) {
     shown.current = list.map((g) => g.id)
     return list
   }
   const at = new Map(shown.current.map((id, i) => [id, i]))
-  const place = (g: GroupDto) => at.get(g.id) ?? at.size
+  const place = (r: R) => at.get(r.id) ?? at.size
   return [...list].sort((a, b) => place(a) - place(b))
 }
 
@@ -374,6 +415,7 @@ export function Sidebar({
   groups,
   bots,
   machines,
+  spaces = [],
   header,
   onNewGroup,
   loaded,
@@ -393,10 +435,13 @@ export function Sidebar({
   const shown = groups.filter((g) => !onlyFlagged || g.flagged)
   const [hovered, setHovered] = useState(false)
   const done = shown.filter(isDone)
-  const open = useHeldOrder(byPin(shown.filter((g) => !isDone(g))), hovered)
+  const open = useHeldOrder(
+    byPin<Row>([...shown.filter((g) => !isDone(g)), ...(onlyFlagged ? [] : spaces)]),
+    hovered,
+  )
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
-  const rows = [...open, ...(showDone ? done : [])]
-  const at = rows.findIndex((g) => pathname === `/g/${g.id}`)
+  const rows: Row[] = [...open, ...(showDone ? done : [])]
+  const at = rows.findIndex((r) => pathname === pathOf(r))
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
   return (
@@ -435,9 +480,13 @@ export function Sidebar({
           <section aria-label={t('会话#list')}>
             <div className="sidebar__list sidebar__list--convs">
               {open.length
-                ? open.map((g) => (
-                    <GroupRow key={g.id} g={g} current={pathname === `/g/${g.id}`} tabStop={g.id === stop} />
-                  ))
+                ? open.map((r) =>
+                    isSpace(r) ? (
+                      <SpaceRow key={r.id} s={r} tabStop={r.id === stop} />
+                    ) : (
+                      <GroupRow key={r.id} g={r} current={pathname === pathOf(r)} tabStop={r.id === stop} />
+                    ),
+                  )
                 : empty(t('还没有会话'))}
             </div>
           </section>

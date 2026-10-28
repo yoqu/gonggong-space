@@ -829,3 +829,14 @@ a.sidebar__open {
   display: flex;
   padding: var(--space-8) var(--space-12) 0;
 }
+
+/* A machine terminal's avatar in the conversation list. */
+.sidebar-terminal {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-field);
+  background: var(--control-track);
+  color: var(--label-secondary);
+}
