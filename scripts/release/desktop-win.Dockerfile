@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y -o Acquire::Retries=5 --no-install-reco
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && npm install -g pnpm@11.3.0
+# The bundler's NSIS plugin, fetched here with retries: GitHub downloads from the build machines often break off.
+ARG NSIS_TAURI_UTILS=https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll
+RUN dir=/root/.cache/tauri/NSIS/Plugins/x86-unicode/additional && mkdir -p "$dir" \
+    && curl -fsSL --retry 10 --retry-all-errors -o "$dir/nsis_tauri_utils.dll" "$NSIS_TAURI_UTILS" \
+    && echo "75197fee3c6a814fe035788d1c34ead39349b860  $dir/nsis_tauri_utils.dll" | sha1sum -c -
 WORKDIR /src
 ENV CARGO_TARGET_DIR=/target CARGO_NET_RETRY=10 XWIN_ACCEPT_LICENSE=1 XWIN_CACHE_DIR=/target/xwin \
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CI=true
