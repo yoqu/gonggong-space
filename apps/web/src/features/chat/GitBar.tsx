@@ -227,11 +227,10 @@ function hasIssue(s: GroupBotStateDto, failedOperation: boolean, pendingApproval
 }
 
 /**
- * Bot bar under the header: every bot's 执行位置, its context occupancy (once reported) and, in partition groups with
- * a repo, its git status refreshed after every turn (spec §5.3 / §8.4). The workspace banner reads the same states.
+ * Bot bar under the header: every bot's 执行位置, its context occupancy and detected Git status.
  */
 export function GitBar({ group }: { group: GroupDto }) {
-  const showGit = group.mode === 'partition' && !!group.repo
+  const showGit = group.mode === 'partition'
   const states = useWorkspace((s) => s.botStates[group.id]) ?? NO_STATES
   const bots = useWorkspace((s) => s.bots)
   const me = useSession((s) => s.user?.id)
@@ -304,7 +303,7 @@ export function GitBar({ group }: { group: GroupDto }) {
       <Item
         key={id}
         group={group}
-        showGit={showGit}
+        showGit={showGit && (!!group.repo || !!stateOf(id).git)}
         machine={bot?.machineName ?? null}
         failed={failedOperation(id)}
         name={bot?.name ?? 'bot'}

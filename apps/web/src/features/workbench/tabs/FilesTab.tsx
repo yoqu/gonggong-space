@@ -266,10 +266,10 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   const [showDiff, setShowDiff] = useState(true)
   const stamp = useGitStamp(groupId, tab.botId)
   const [expanded, setExpanded] = useState(() => new Set(chain(tab.dir)))
-  // Versions and compare need the group repo (partition mode), like the bar's git status.
+  // Versions and compare are available for a detected workspace repo in partition mode.
   const versioned = useWorkspace((s) => {
     const g = s.groups.find((x) => x.id === groupId)
-    return g?.mode === 'partition' && !!g.repo
+    return g?.mode === 'partition' && (!!g.repo || !!s.botStates[groupId]?.[tab.botId]?.git)
   })
   const rev = tab.rev ?? null
   const repo = gitBase(groupId, tab.botId)

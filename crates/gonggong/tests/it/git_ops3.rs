@@ -1229,7 +1229,12 @@ async fn log_filters_by_author_text_dates_and_path_in_date_or_topo_order() {
     let dates = GitLogFilter { since: Some("2026-10-02".into()), until: Some("2026-10-06".into()), ..f() };
     assert_eq!(log(&mut r, None, dates).await, ["side one", "Fix (refund) again"]);
     let file = GitLogFilter { path: Some("g1.txt".into()), ..f() };
-    assert_eq!(log(&mut r, None, file).await, ["edit g1", "other work", "fix refund bug"], "renames followed");
+    assert_eq!(log(&mut r, None, file.clone()).await, ["edit g1", "other work", "fix refund bug"], "renames followed");
+    assert_eq!(
+        log(&mut r, None, GitLogFilter { order: Some(GitLogOrder::Topo), ..file }).await,
+        ["edit g1", "other work", "fix refund bug"],
+        "renames followed in topological order"
+    );
     let dir = GitLogFilter { path: Some("./".into()), ..f() };
     assert_eq!(log(&mut r, None, dir).await.len(), dated.len());
 

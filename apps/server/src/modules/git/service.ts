@@ -89,11 +89,11 @@ export const featureFor = (
           ? 'gitOps2'
           : 'gitOps'
 
-/** The bot's workspace in a partition group with a repo: the only place manual git is offered. */
+/** The bot's workspace in a partition group; the daemon checks whether it contains a Git repository. */
 export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, feature: DaemonFeature = 'gitOps') {
   const botId = idParam(rawBotId, 'Bot 不存在')
-  const repo = group.mode === 'partition' ? await currentRepo(ctx, group.id, botId) : null
-  if (!repo) return fail('conflict', '仅绑定了仓库的分区模式群可以使用 Git 操作')
+  if (group.mode !== 'partition') return fail('conflict', '仅分区模式群可以使用 Git 操作')
+  const repo = await currentRepo(ctx, group.id, botId)
   const active = (await activeBots(ctx, group.id)).find((b) => b.id === botId)
   if (!active) return fail('not_found', '该 Bot 不在群内')
   const [row] = await ctx.db
@@ -406,7 +406,7 @@ export function assertValid(req: GitActionReq) {
  * about when the request doesn't say; returns the operation as it is to run, a push's target pinned (see pinTarget).
  */
 export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
-  if (!t.group.protectBase) return { op, pushesBase: false }
+  if (!t.group.protectBase || !t.workspace.repo) return { op, pushesBase: false }
   const base = t.workspace.repo.branch
   if (op.action === 'push') {
     const pinned = await pinTarget(ctx, op, t)

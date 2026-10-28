@@ -276,7 +276,9 @@ pub async fn log(
 async fn names(dir: &Path, walk: &[String], n: u32, rel: String) -> Result<Vec<String>, String> {
     let n = format!("-n{n}");
     let head = ["--literal-pathspecs", "log", "-z", "--follow", "--name-only", "--format=", &n];
-    let args: Vec<&str> = head.into_iter().chain(walk.iter().map(String::as_str)).chain(["--", &rel]).collect();
+    // Git 2.56 may stop following renames across merges with --date-order.
+    let walk = walk.iter().map(|arg| if arg == "--date-order" { "--topo-order" } else { arg.as_str() });
+    let args: Vec<&str> = head.into_iter().chain(walk).chain(["--", &rel]).collect();
     let raw = git(dir, &args).await?;
     let mut names = vec![rel.clone()];
     for name in raw.split('\0').filter(|n| !n.is_empty()) {

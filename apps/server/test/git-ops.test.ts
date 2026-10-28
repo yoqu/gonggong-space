@@ -42,6 +42,28 @@ const ops = (w: Awaited<ReturnType<typeof world>>) =>
   w.members.get<GitOperationsDto>(`/api/groups/${w.group.id}/git/operations`)
 
 describe('git reads', () => {
+  it('opens a local Git workspace without a group repository and runs Git actions', async () => {
+    const w = await world()
+    await t.db.delete(groupRepos).where(eq(groupRepos.groupId, w.group.id))
+    await t.db
+      .update(groupBots)
+      .set({ workspaceKind: 'cd', cdPath: '/work/local', workspacePath: '/work/local' })
+      .where(eq(groupBots.groupId, w.group.id))
+    await t.db.update(groups).set({ protectBase: true }).where(eq(groups.id, w.group.id))
+    const d = await daemon(w.token)
+    const refs = w.members.get<GitRefsDto>(`${w.base}/refs`)
+    const req = await d.next('git.refs')
+    expect(req.workspace).toMatchObject({ repo: null, cdPath: '/work/local' })
+    d.send({ t: 'git.refs.result', requestId: req.requestId, branches: [], remotes: [], error: null })
+    expect((await refs).status).toBe(200)
+    const action = w.owners.post<GitOperationDto>(`${w.base}/actions`, {
+      action: 'commit',
+      message: 'local change',
+    })
+    const sent = await d.act({ output: 'committed' })
+    expect(sent.workspace).toMatchObject({ repo: null, cdPath: '/work/local' })
+    expect((await action).status).toBe(200)
+  })
   it('tells an older daemon apart at once instead of waiting for it', async () => {
     const w = await world()
     await daemon(w.token, [])
@@ -221,7 +243,7 @@ describe('git reads', () => {
     expect(await refs).toEqual({ status: 200, body: { branches: [], remotes: [], tags: [], recent: [] } })
   })
 
-  it('refuses outsiders, groups without a repo or not in partition mode, and offline bots', async () => {
+  it('refuses outsiders and force groups, and reports an offline bot without a group repo', async () => {
     const w = await world()
     expect((await w.outsiders.get(`${w.base}/refs`)).status).toBe(404)
     expect((await w.members.get(`${w.base}/refs`)).status).toBe(409)
@@ -230,12 +252,15 @@ describe('git reads', () => {
     const force = await w.members.get(`${w.base}/refs`)
     expect(force).toMatchObject({
       status: 409,
-      body: { message: '仅绑定了仓库的分区模式群可以使用 Git 操作' },
+      body: { message: '仅分区模式群可以使用 Git 操作' },
     })
     await t.db.update(groups).set({ mode: 'partition' }).where(eq(groups.id, w.group.id))
     await t.db.delete(groupRepos).where(eq(groupRepos.groupId, w.group.id))
     expect((await w.members.get(`${w.base}/refs`)).status).toBe(409)
-    expect((await w.owners.post(`${w.base}/actions`, { action: 'pull' })).status).toBe(409)
+    expect(await w.owners.post(`${w.base}/actions`, { action: 'pull' })).toMatchObject({
+      status: 200,
+      body: { status: 'failed', error: 'cc 离线，无法执行 Git 操作' },
+    })
   })
 })
 

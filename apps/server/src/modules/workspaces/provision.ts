@@ -331,7 +331,7 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
       ...(msg.state !== 'cloning' && { workspaceError: msg.error }),
       workspaceReason: msg.state === 'failed' ? msg.reason : null,
       ...(msg.path && { workspacePath: msg.path }),
-      ...(msg.git && { gitStatus: msg.git }),
+      ...(msg.state === 'ready' && { gitStatus: msg.git }),
       ...(req?.kind === 'cd' &&
         msg.state === 'ready' && { workspaceKind: req.cdPath ? 'cd' : 'managed', cdPath: req.cdPath }),
     })

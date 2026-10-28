@@ -99,6 +99,22 @@ describe('git status bar', () => {
     expect(screen.getByTitle('删除 100 行')).toBeTruthy()
   })
 
+  it('shows Git for a detected local workspace without a group repository', async () => {
+    mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1', {
+          workspace: 'cd',
+          path: '/work/local',
+          git: git({ workspace: 'cd', branch: 'feature/local' }),
+        }),
+        state('b2', { workspace: 'cd', path: '/work/plain' }),
+      ],
+      'GET /groups/g1/git/operations': { operations: [] },
+    })
+    render(<GitBar group={group({ repo: null, botIds: ['b1', 'b2'] })} />)
+    expect(await screen.findByRole('button', { name: '打开 小王的 Claude 的 Git' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '打开 老李的 Codex 的 Git' })).toBeNull()
+  })
   it('keeps my bots and issues visible while other healthy bots stay in 更多工作区', async () => {
     mockApi({
       'GET /groups/g1/bot-states': [
