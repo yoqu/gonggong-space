@@ -1,10 +1,10 @@
 # Cross-compiles the Windows desktop installer on Linux (https://v2.tauri.app/distribute/windows-installer/): the MSVC
 # target through cargo-xwin (clang-cl + lld-link + the downloaded MSVC CRT/SDK), NSIS for the installer, llvm-rc for
-# the app's resources. The Tauri CLI looks for an appindicator library on any Linux host, even for this target.
+# the app's resources. The Tauri CLI asks pkg-config for appindicator on any Linux host, even for this target.
 FROM node:24-bookworm AS node
 FROM rust:1.98.0-bookworm
 RUN apt-get update && apt-get install -y -o Acquire::Retries=5 --no-install-recommends clang lld llvm nsis \
-      libayatana-appindicator3-1 \
+      pkg-config libayatana-appindicator3-dev \
     && rm -rf /var/lib/apt/lists/* \
     && rustup target add x86_64-pc-windows-msvc \
     && cargo install --locked cargo-xwin@0.23.1 \
