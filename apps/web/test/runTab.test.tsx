@@ -431,6 +431,29 @@ describe('run tab', () => {
     expect(await within(rail).findByText('改完了，收尾。')).toBeTruthy()
   })
 
+  it('refreshes a running subagent’s streamed text when progress arrives', async () => {
+    const sub = {
+      id: 4,
+      at,
+      event: {
+        kind: 'subagent' as const,
+        agentId: 'a1',
+        name: 'Probe',
+        task: '检查',
+        state: 'running' as const,
+      },
+    }
+    const text = (delta: string) => ({ id: 5, at, event: { kind: 'text' as const, agentId: 'a1', delta } })
+    let current = detail({ events: [sub, text('正在检查')] })
+    mockApi(() => current)
+    renderChat()
+    const rail = await openProcess()
+    expect(await within(rail).findByText('正在检查')).toBeTruthy()
+    current = detail({ events: [text('正在检查代码')] })
+    push({ t: 'run.progress', runId: 'r1', groupId: 'g1', botId: 'b1', lastActivityAt: at })
+    expect(await within(rail).findByText('正在检查代码')).toBeTruthy()
+  })
+
   it('refetches the process only from its last event, and nothing while the tab is hidden', async () => {
     let current = detail()
     mockApi(() => current)

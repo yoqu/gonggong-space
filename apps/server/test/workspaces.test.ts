@@ -513,6 +513,19 @@ async function updateCd(groupId: string, botId: string) {
 }
 
 describe('/cd requests', () => {
+  it('clears the previous Git status when switching to a non-Git workspace', async () => {
+    const w = await world()
+    const g = await w.createGroup({ repo: false })
+    const d = await daemon(w.a.token)
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/git' })
+    d.send(reply(await d.next(), { path: '/src/git', git: { ...git, workspace: 'cd' } }))
+    await until(async () => (await w.stateOf(g.id)).git !== null)
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/plain' })
+    d.send(reply(await d.next(), { path: '/src/plain', git: null }))
+    await until(async () => (await w.stateOf(g.id)).path === '/src/plain')
+    expect((await w.stateOf(g.id)).git).toBeNull()
+  })
+
   it('keeps a new directory binding when the superseded clone answers late', async () => {
     const w = await world()
     const g = await w.createGroup()

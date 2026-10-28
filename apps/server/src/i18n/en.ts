@@ -696,8 +696,7 @@ export const en = {
   未知错误: 'Unknown error',
 
   // Manual git in a group
-  '仅绑定了仓库的分区模式群可以使用 Git 操作':
-    'Git operations are only available in partition groups with a repo',
+  '仅分区模式群可以使用 Git 操作': 'Git operations are only available in partition groups',
   '{bot} 离线，无法读取 Git 信息': "{bot} is offline, can't read git",
   '{bot} 离线，无法执行 Git 操作': "{bot} is offline, can't run the git operation",
   '{bot} 未响应，Git 操作结果未知': "{bot} did not respond; the git operation's outcome is unknown",

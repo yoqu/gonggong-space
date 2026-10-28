@@ -422,6 +422,19 @@ function save(st: Open, seg: Segment) {
     if (!plain || seg.saved === plain.length) return
     seg.id = await writeSegment(st.ctx, st.runId, { ...seg, plain }, st.redact)
     seg.saved = plain.length
+    const owner = seg.agentId && owners.get(st.runId)
+    if (owner)
+      st.ctx.bus.publish(
+        await memberIds(st.ctx, owner.groupId),
+        {
+          t: 'run.progress',
+          runId: owner.id,
+          groupId: owner.groupId,
+          botId: owner.botId,
+          lastActivityAt: st.ctx.now().toISOString(),
+        },
+        owner.groupId,
+      )
   })
   st.write = job.catch(() => {})
   return job

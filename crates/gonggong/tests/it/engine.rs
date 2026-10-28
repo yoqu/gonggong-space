@@ -1253,6 +1253,80 @@ async fn attributes_subagent_work_and_reports_background_tasks_after_the_run() {
 }
 
 #[tokio::test]
+#[ignore = "requires a real Codex ACP adapter, Codex CLI and authenticated account"]
+async fn real_codex_streams_subagent_work() {
+    let home = tempfile::tempdir().unwrap();
+    let user_home = PathBuf::from(std::env::var("HOME").unwrap());
+    let adapter = user_home.join(".gonggong/adapters/node_modules/@agentclientprotocol/codex-acp/dist/index.js");
+    let cli = user_home.join(".gonggong/adapters/node_modules/@openai/codex/bin/codex.js");
+    let mut settings = LocalSettings::default();
+    settings.agents.insert(AgentKind::Codex, gonggong::local::AgentSettings { path: Some(cli.display().to_string()) });
+    settings.save(home.path()).unwrap();
+    let engine = Engine::new(EngineConfig {
+        home: home.path().to_path_buf(),
+        user_home,
+        adapter_cmd: Some(format!("node {}", adapter.display())),
+        idle: Duration::from_secs(60),
+        reap: Duration::from_secs(600),
+        cancel_grace: Duration::from_secs(30),
+        continuation: Continuation::default(),
+        api: None,
+    });
+    let (out, mut rx) = Outbox::channel();
+    let mut request = start(
+        "real-codex",
+        "Spawn exactly one subagent. Ask it to execute printf SUBAGENT_PROBE_OK and report its output. Wait for it to finish.",
+    );
+    request.bot.agent_kind = AgentKind::Codex;
+    request.bot.system_prompt.clear();
+    request.bot.tier = Tier::Full;
+    request.bot.approval = Approval::All;
+    request.prompt.context.clear();
+    engine.handle(ServerToDaemon::RunStart(Box::new(request)), &out);
+    let mut spawned = None;
+    let mut child_tool = false;
+    let mut child_text = String::new();
+    let mut finished = false;
+    tokio::time::timeout(Duration::from_secs(180), async {
+        while let Some(message) = rx.recv().await {
+            match message {
+                DaemonToServer::RunEvent { event: RunEvent::Subagent { agent_id, state, .. }, .. } => {
+                    if state == SubagentState::Running {
+                        spawned = Some(agent_id);
+                    } else if Some(&agent_id) == spawned.as_ref() && state == SubagentState::Completed {
+                        finished = true;
+                    }
+                }
+                DaemonToServer::RunEvent {
+                    event: RunEvent::Tool { agent_id: Some(id), title, detail, .. }, ..
+                } => {
+                    child_tool |= Some(&id) == spawned.as_ref()
+                        && (title.contains("SUBAGENT_PROBE_OK")
+                            || detail.is_some_and(|d| d.contains("SUBAGENT_PROBE_OK")));
+                }
+                DaemonToServer::RunEvent { event: RunEvent::Text { agent_id: Some(id), delta }, .. } => {
+                    if Some(&id) == spawned.as_ref() {
+                        child_text.push_str(&delta);
+                    }
+                }
+                DaemonToServer::RunDone(done) => {
+                    assert_eq!(done.outcome, RunOutcome::Completed, "{}", done.reply);
+                    return;
+                }
+                _ => {}
+            }
+        }
+        panic!("outbox closed before the run finished");
+    })
+    .await
+    .expect("real Codex run timed out");
+    assert!(
+        spawned.is_some() && child_tool && child_text.contains("SUBAGENT_PROBE_OK") && finished,
+        "spawned={spawned:?}, child_tool={child_tool}, child_text={child_text:?}, finished={finished}"
+    );
+}
+
+#[tokio::test]
 async fn stops_a_background_task_that_outlived_its_run() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "mock:bgtask"));

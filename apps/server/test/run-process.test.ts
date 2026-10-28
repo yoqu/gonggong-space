@@ -111,6 +111,37 @@ async function world() {
 }
 
 describe('run process', () => {
+  it('notifies viewers as a subagent streams text and thoughts without waiting for another event', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    w.send(runId, { kind: 'subagent', agentId: 'a1', name: 'Explore', task: '查找', state: 'running' })
+    await expect
+      .poll(() => w.seen.some((e) => e.t === 'run.updated' && e.run.delegation.subagents === 1))
+      .toBe(true)
+    for (const kind of ['thought', 'text'] as const) {
+      const before = w.seen.filter((e) => e.t === 'run.progress' && e.runId === runId).length
+      w.send(runId, { kind, agentId: 'a1', delta: `${kind} from child` })
+      await expect
+        .poll(() => w.seen.filter((e) => e.t === 'run.progress' && e.runId === runId).length)
+        .toBeGreaterThan(before)
+      expect((await w.detail(runId)).events.map((e) => e.event)).toContainEqual({
+        kind,
+        agentId: 'a1',
+        delta: `${kind} from child`,
+      })
+    }
+    const before = w.seen.filter((e) => e.t === 'run.progress' && e.runId === runId).length
+    w.send(runId, { kind: 'text', agentId: 'a1', delta: ' continued' })
+    await expect
+      .poll(() => w.seen.filter((e) => e.t === 'run.progress' && e.runId === runId).length)
+      .toBeGreaterThan(before)
+    expect((await w.detail(runId)).events.map((e) => e.event)).toContainEqual({
+      kind: 'text',
+      agentId: 'a1',
+      delta: 'text from child continued',
+    })
+  })
+
   it('advances lastActivityAt when the first event is only streamed text or thought', async () => {
     const w = await world()
     const runId = await w.mention()
