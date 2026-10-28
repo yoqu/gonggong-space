@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "html_renders" jsonb DEFAULT '[]'::jsonb NOT NULL;

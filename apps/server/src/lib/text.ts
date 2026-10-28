@@ -1,4 +1,4 @@
-import { findUiBlocks, summarizeUiBlock } from '@gonggong/protocol'
+import { findUiBlocks, type HtmlRenderRef, summarizeUiBlock, unplacedHtmlPages } from '@gonggong/protocol'
 
 export const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
@@ -12,13 +12,20 @@ export function snippet(body: string, q: string) {
 export const patchPaths = (patch: string) =>
   [...patch.matchAll(/^diff --git a\/.+? b\/(?<path>.+)$/gm)].map((m) => m.groups?.path ?? '')
 
-/** `markdown` with each rich UI block (plan 富交互消息) replaced by its one-line summary, for places that can't render it. */
-export function summarizeBlocks(markdown: string) {
+/**
+ * `markdown` with each rich UI block (plan 富交互消息) replaced by its one-line summary, for places that can't render
+ * it; `pages` (the reply's html_render pages) name their blocks, and those it does not place follow by title.
+ */
+export function summarizeBlocks(markdown: string, pages: HtmlRenderRef[] = []) {
   let out = ''
   let at = 0
   for (const b of findUiBlocks(markdown)) {
-    out += markdown.slice(at, b.start) + summarizeUiBlock(b.block)
+    out += markdown.slice(at, b.start) + summarizeUiBlock(b.block, pages)
     at = b.end
   }
-  return out + markdown.slice(at)
+  out += markdown.slice(at)
+  const rest = unplacedHtmlPages(markdown, pages)
+    .map((p) => `📄 ${p.title}`)
+    .join('\n')
+  return [out, rest].filter(Boolean).join('\n\n')
 }

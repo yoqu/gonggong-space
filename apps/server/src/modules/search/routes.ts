@@ -6,13 +6,13 @@ import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groupRepos, groups, messages, runs, users } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { open } from '../../lib/seal.js'
-import { likePattern, patchPaths, snippet } from '../../lib/text.js'
+import { likePattern, patchPaths, snippet, summarizeBlocks } from '../../lib/text.js'
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
 import { groupTitle } from '../groups/title.js'
 import { notHiddenBy } from '../messages/recall.js'
-import { userAuthorName } from '../messages/service.js'
+import { type MessageMeta, userAuthorName } from '../messages/service.js'
 import { runMatches } from '../runs/search-text.js'
 import { currentTeam } from '../teams/service.js'
 
@@ -60,7 +60,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       .limit(LIMIT)
     return rows.map(({ m, author, bot, group }) => ({
       kind: 'msg',
-      title: snippet(m.body, q),
+      title: snippet(summarizeBlocks(m.body, (m.meta as MessageMeta).htmlRenders), q),
       sub: `${bot ? t('{bot} 最终回复', { bot }) : (author ?? '')} · ${group}`,
       groupId: m.groupId,
       messageId: m.id,

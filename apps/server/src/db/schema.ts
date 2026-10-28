@@ -4,6 +4,7 @@ import {
   type GitActionArgs,
   type GitActionDetail,
   type GroupTabTarget,
+  type HtmlRenderRef,
   type I18nText,
   LIVE_RUN_STATUSES,
   type PluginManifest,
@@ -692,6 +693,8 @@ export const runs = pgTable(
     settings: jsonb('settings').$type<RunSettingsSnapshot>(),
     /** What search matches besides the bot's name, filled once the run ended (runs/search-text.ts); null till then. */
     searchText: text('search_text'),
+    /** Pages published with html_render (their attachments), posted with the final reply. */
+    htmlRenders: jsonb('html_renders').$type<HtmlRenderRef[]>().notNull().default([]),
   },
   (t) => [
     index('runs_bot_status').on(t.botId, t.status),

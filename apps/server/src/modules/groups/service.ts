@@ -1,5 +1,6 @@
 import {
   type GroupDto,
+  type HtmlRenderRef,
   type I18nText,
   LIVE_RUN_STATUSES,
   liveRunOf,
@@ -79,8 +80,8 @@ export function activeBots(ctx: Ctx, groupId: string) {
     .orderBy(asc(groupBots.addedAt))
 }
 
-const preview = (kind: string, author: string | null, body: string) => {
-  const line = summarizeBlocks(body)
+const preview = (kind: string, author: string | null, body: string, pages?: HtmlRenderRef[]) => {
+  const line = summarizeBlocks(body, pages)
     .replace(/\n[\s\S]*$/, '')
     .slice(0, 80)
   return kind === 'event' ? line : `${author ?? ''}：${line}`
@@ -307,7 +308,12 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
         ? ''
         : last.recalledAt && lastI18n
           ? zhText(lastI18n)
-          : preview(last.kind, last.userName ?? last.botName, last.body),
+          : preview(
+              last.kind,
+              last.userName ?? last.botName,
+              last.body,
+              (last.meta as MessageMeta).htmlRenders,
+            ),
       ...(lastI18n && { lastI18n }),
       lastAt: (last?.createdAt ?? g.createdAt).toISOString(),
       pinned: me.pinned,

@@ -460,7 +460,7 @@ async fn html_preview(args: &Value) -> Result<Value, String> {
     ]))
 }
 
-/// Publishes a page to the group as its own message, with the heights it measured at the clients' widths.
+/// Publishes a page for the run's final reply, with the heights it measured at the clients' widths.
 async fn html_render(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> Result<String, String> {
     let a = html_args(args)?;
     let title: String = a.title.as_deref().unwrap_or_default().trim().chars().take(HTML_TITLE_MAX).collect();
@@ -480,11 +480,15 @@ async fn html_render(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> R
         .file_name("page.html")
         .mime_str("text/html")
         .map_err(|e| e.to_string())?;
-    post_form(api, &format!("/api/daemon/runs/{run_id}/html-renders"), form.part("html", page))
+    let page = post_form(api, &format!("/api/daemon/runs/{run_id}/html-renders"), form.part("html", page))
         .await
         .and_then(|r| r)
         .map_err(|e| format!("页面未展示：{e}"))?;
-    Ok(format!("Shown \"{title}\" in the chat above your reply. Do not restate it."))
+    let id = page["attachmentId"].as_str().ok_or("页面未展示：服务器没有返回页面 id")?;
+    Ok(format!(
+        "Published \"{title}\". It shows in your final reply where you put this block, else after your text; do not restate it.\n```html-page\n{}\n```",
+        json!({ "id": id })
+    ))
 }
 
 #[derive(Deserialize)]

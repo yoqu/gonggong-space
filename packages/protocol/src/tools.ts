@@ -702,7 +702,7 @@ export const HtmlPreviewArgs = z.object({
 
 export const HtmlRenderArgs = z.object({
   html: page,
-  title: z.string().min(1).max(HTML_RENDER_TITLE_MAX).describe('What the page shows; names its message.'),
+  title: z.string().min(1).max(HTML_RENDER_TITLE_MAX).describe('What the page shows.'),
   height: z
     .number()
     .int()
@@ -833,7 +833,7 @@ export const DAEMON_TOOLS = {
   },
   html_render: {
     title: '在群聊中展示 HTML',
-    description: `Show a finished HTML page inline in the chat, as its own message above your reply; do not restate it. Height fits the page up to ${HTML_RENDER_MAX_FIT_HEIGHT}px. ${PAGE_RULES} ${HTML_RENDER_LAYOUT_GUIDE} ${HTML_RENDER_THEME_GUIDE}`,
+    description: `Show a finished HTML page inline in your final reply; the result gives its id to place it there; do not restate it. Height fits the page up to ${HTML_RENDER_MAX_FIT_HEIGHT}px. ${PAGE_RULES} ${HTML_RENDER_LAYOUT_GUIDE} ${HTML_RENDER_THEME_GUIDE}`,
     input: HtmlRenderArgs,
   },
   client_release_publish: {

@@ -3,8 +3,8 @@ import { createWriteStream } from 'node:fs'
 import { mkdir, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import { HtmlRenderRef, injectHtmlRenderBootstrap, type MessageDto } from '@gonggong/protocol'
-import { and, eq, inArray } from 'drizzle-orm'
+import { HtmlRenderRef, injectHtmlRenderBootstrap } from '@gonggong/protocol'
+import { and, eq, exists, inArray, or, sql } from 'drizzle-orm'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
@@ -14,14 +14,7 @@ import { idParam } from '../../lib/ids.js'
 import { FILE_OVERHEAD, openFileRange, sealStream } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { requireReader } from '../groups/service.js'
-import {
-  authorName,
-  type MessageMeta,
-  type MessageRow,
-  messageDto,
-  publishMessage,
-} from '../messages/service.js'
-import { LIVE } from '../runs/dto.js'
+import { cardColumns, LIVE, publishRun } from '../runs/dto.js'
 import { runRedactors } from '../secrets/resolve.js'
 import { dataDir, safeName } from './service.js'
 
@@ -32,7 +25,10 @@ const PAGE_CSP = 'sandbox allow-scripts allow-forms allow-popups'
 
 const invalid = () => fail('invalid', '页面无效')
 
-/** html_render: multipart `title`, `height`, optional `heights` (JSON [[width, height]…]), then the `html` file. */
+/**
+ * html_render: multipart `title`, `height`, optional `heights` (JSON [[width, height]…]), then the `html` file. The
+ * page joins its run's card now and its final reply later; returns it (its id places it in the reply).
+ */
 export async function publishHtmlRender(ctx: Ctx, req: FastifyRequest<{ Params: { runId: string } }>) {
   const machine = await requireMachine(ctx, req)
   const [owned] = await ctx.db
@@ -79,69 +75,83 @@ export async function publishHtmlRender(ctx: Ctx, req: FastifyRequest<{ Params: 
   }
 
   const id = randomUUID()
-  const messageId = randomUUID()
   const storageKey = `attachments/${id}`
   const path = join(dataDir(), storageKey)
   await mkdir(join(dataDir(), 'attachments'), { recursive: true })
   const page = injectHtmlRenderBootstrap(html)
+  const published: HtmlRenderRef = { attachmentId: id, ...ref }
   try {
     await pipeline([Buffer.from(page, 'utf8')], sealStream(), createWriteStream(path))
-    const message = await ctx.db.transaction(async (tx) => {
-      const [live] = await tx
-        .select({ id: runs.id })
-        .from(runs)
+    const updated = await ctx.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(runs)
+        .set({ htmlRenders: sql`${runs.htmlRenders} || ${JSON.stringify([published])}::jsonb` })
         .where(and(eq(runs.id, run.id), inArray(runs.status, LIVE)))
-        .for('update')
-      if (!live) return fail('not_found', '运行不存在或已结束')
+        .returning(cardColumns)
+      if (!row) return fail('not_found', '运行不存在或已结束')
       await tx.insert(attachments).values({
         id,
         uploaderId: run.originUserId,
         groupId: run.groupId,
-        messageId,
+        // Bound to the final reply when the run ends (engine terminate); never a claimable upload before.
+        messageId: randomUUID(),
         name: safeName(`${ref.title}.html`),
         size: (await stat(path)).size - FILE_OVERHEAD,
         mime: 'text/html',
         storageKey,
       })
-      const meta: MessageMeta = { htmlRender: { attachmentId: id, ...ref } }
-      const [row] = (await tx
-        .insert(messages)
-        .values({
-          id: messageId,
-          groupId: run.groupId,
-          kind: 'bot',
-          authorBotId: run.botId,
-          body: ref.title,
-          meta,
-          runId: run.id,
-        })
-        .returning()) as [MessageRow]
       return row
     })
-    const dto = messageDto(message, await authorName(ctx, message))
-    await publishMessage(ctx, dto)
-    return dto satisfies MessageDto
+    await publishRun(ctx, updated)
+    return published
   } catch (e) {
     await unlink(path).catch(() => {})
     throw e
   }
 }
 
-/** The page of an html_render message, as a sandboxed document for the chat's frame. */
+/** A page published with html_render, as a sandboxed document for the chat's frame. */
 export async function serveHtmlRender(
   ctx: Ctx,
   req: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
   const me = await requireUser(ctx, req)
-  const [row] = await ctx.db
-    .select({ a: attachments, meta: messages.meta })
+  const id = idParam(req.params.id, '附件不存在')
+  const [a] = await ctx.db
+    .select()
     .from(attachments)
-    .innerJoin(messages, eq(messages.id, attachments.messageId))
-    .where(eq(attachments.id, idParam(req.params.id, '附件不存在')))
-  const a = row?.a
-  if (!a || (row.meta as MessageMeta).htmlRender?.attachmentId !== a.id)
-    return fail('not_found', '附件不存在')
+    .where(
+      and(
+        eq(attachments.id, id),
+        or(
+          // Pages posted as their own message, before they joined the final reply.
+          exists(
+            ctx.db
+              .select({ one: sql`1` })
+              .from(messages)
+              .where(
+                and(
+                  eq(messages.id, attachments.messageId),
+                  sql`${messages.meta}->'htmlRender'->>'attachmentId' = ${id}`,
+                ),
+              ),
+          ),
+          exists(
+            ctx.db
+              .select({ one: sql`1` })
+              .from(runs)
+              .where(
+                and(
+                  eq(runs.groupId, attachments.groupId),
+                  sql`${runs.htmlRenders} @> ${JSON.stringify([{ attachmentId: id }])}::jsonb`,
+                ),
+              ),
+          ),
+        ),
+      ),
+    )
+  if (!a) return fail('not_found', '附件不存在')
   await requireReader(ctx, a.groupId, me.id)
   return reply
     .header('content-type', 'text/html; charset=utf-8')

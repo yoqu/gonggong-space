@@ -39,6 +39,7 @@ export const cardColumns = {
   effort: runs.effort,
   sync: runs.sync,
   secrets: runs.secrets,
+  htmlRenders: runs.htmlRenders,
 }
 type CardRow = Pick<RunRow, keyof typeof cardColumns>
 
@@ -90,6 +91,7 @@ export const runDto = (
   effort: r.effort,
   sync: r.sync ?? null,
   secrets: r.secrets,
+  ...(r.htmlRenders.length > 0 && { htmlRenders: r.htmlRenders }),
 })
 
 export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }

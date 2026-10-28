@@ -62,8 +62,10 @@ export type MessageMeta = {
   card?: MessageCard
   /** A bot reply's answered ```actions blocks, by block id (plan 富交互消息). */
   actions?: Record<string, ActionAnswer>
-  /** A page published with html_render. */
+  /** Legacy: a page published with html_render as its own message. */
   htmlRender?: HtmlRenderRef
+  /** A final reply's pages its run published with html_render. */
+  htmlRenders?: HtmlRenderRef[]
 }
 
 /** A user message's author name, a Feishu sender's when they have no 共工 account; needs `users` left-joined. */
@@ -101,6 +103,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).card && { card: (m.meta as MessageMeta).card }),
     ...((m.meta as MessageMeta).actions && { actions: (m.meta as MessageMeta).actions }),
     ...((m.meta as MessageMeta).htmlRender && { htmlRender: (m.meta as MessageMeta).htmlRender }),
+    ...((m.meta as MessageMeta).htmlRenders && { htmlRenders: (m.meta as MessageMeta).htmlRenders }),
   }
 }
 

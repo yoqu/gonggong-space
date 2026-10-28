@@ -649,12 +649,18 @@ async function syncRunCard(
 
 async function replyOf(ctx: Ctx, run: Row, base: string | null) {
   const [reply] = await ctx.db
-    .select({ id: messages.id, body: messages.body })
+    .select({ id: messages.id, body: messages.body, meta: messages.meta })
     .from(messages)
     .where(and(eq(messages.runId, run.id), eq(messages.kind, 'bot')))
     .orderBy(asc(messages.seq))
     .limit(1)
-  return reply ? replyMarkdown(reply.body, base && `${base}/g/${run.groupId}?msg=${reply.id}`) : null
+  return reply
+    ? replyMarkdown(
+        reply.body,
+        base && `${base}/g/${run.groupId}?msg=${reply.id}`,
+        (reply.meta as MessageMeta).htmlRenders,
+      )
+    : null
 }
 
 /** Fallback run card: an ordinary card message patched on change, throttled to CARD_THROTTLE_MS. */

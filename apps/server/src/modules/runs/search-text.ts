@@ -7,10 +7,11 @@ import { bots, messages, runEvents, runs, statusIn } from '../../db/schema.js'
 const BATCH = 500
 const MINUTE_MS = 60_000
 
-/** A run's card: step, summary and final reply. */
+/** A run's card: step, summary, final reply and the titles of its html_render pages. */
 export const runCardText = sql<string>`concat_ws(E'\\n', ${runs.step}, ${runs.summary},
   (select string_agg(${messages.body}, E'\\n') from ${messages}
-    where ${messages.runId} = ${runs.id} and ${messages.kind} = 'bot'))`
+    where ${messages.runId} = ${runs.id} and ${messages.kind} = 'bot'),
+  (select string_agg(p->>'title', E'\\n') from jsonb_array_elements(${runs.htmlRenders}) p))`
 
 /**
  * The card and, while the process is retained (plan D9), its tool titles and steps: the plain part of its events.

@@ -575,6 +575,13 @@
       "when": 1792986477314,
       "tag": "0081_lonely_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793168302934,
+      "tag": "0082_melodic_wind_dancer",
+      "breakpoints": true
     }
   ]
 }

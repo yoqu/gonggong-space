@@ -1,9 +1,17 @@
 import { parseUiBlock } from '@gonggong/protocol'
-import { memo, useMemo } from 'react'
+import { memo, useContext, useMemo } from 'react'
 import { CodeBlock } from '../../ui'
 import { Actions } from './Actions'
+import { RichMessage } from './context'
+import { HtmlRender } from './HtmlRender'
 import { Mermaid } from './Mermaid'
 import './rich.css'
+
+/** ```html-page: the reply's html_render page it names; a page of no reply here (another run's) shows nothing. */
+function PlacedPage({ id }: { id: string }) {
+  const page = useContext(RichMessage)?.htmlRenders?.find((p) => p.attachmentId === id)
+  return page ? <HtmlRender page={page} /> : null
+}
 
 /**
  * A closed fenced code block of a reply: its component when the language names a valid UI block (plan 富交互消息),
@@ -25,6 +33,8 @@ export const RichBlock = memo(function RichBlock({
       return <Actions data={block.data} />
     case 'mermaid':
       return <Mermaid source={block.source} fallback={code} />
+    case 'html-page':
+      return <PlacedPage id={block.id} />
     default:
       return code
   }

@@ -2,7 +2,7 @@ import type { RunDone, RunEvent } from '@gonggong/protocol'
 import { and, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
-import { bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
+import { attachments, bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
 import { open, seal } from '../../lib/seal.js'
 import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
@@ -659,20 +659,36 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
             .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
             .returning()
         : []
-    const [message] = reply
-      ? await tx
-          .insert(messages)
-          .values({
-            groupId: run.groupId,
-            kind: 'bot',
-            authorBotId: run.botId,
-            body: reply,
-            // Bots it @s are not triggered: only hand_off starts another bot.
-            meta: { mentions: [], ...(userMentions.length > 0 && { userMentions }) },
-            runId: run.id,
-          })
-          .returning()
-      : []
+    const pages = run.htmlRenders
+    const [message] =
+      reply || pages.length
+        ? await tx
+            .insert(messages)
+            .values({
+              groupId: run.groupId,
+              kind: 'bot',
+              authorBotId: run.botId,
+              body: reply ?? '',
+              // Bots it @s are not triggered: only hand_off starts another bot.
+              meta: {
+                mentions: [],
+                ...(userMentions.length > 0 && { userMentions }),
+                ...(pages.length > 0 && { htmlRenders: pages }),
+              } satisfies MessageMeta,
+              runId: run.id,
+            })
+            .returning()
+        : []
+    if (message && pages.length)
+      await tx
+        .update(attachments)
+        .set({ messageId: message.id })
+        .where(
+          inArray(
+            attachments.id,
+            pages.map((p) => p.attachmentId),
+          ),
+        )
     return { run, state, message }
   })
   if (!ended) return

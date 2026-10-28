@@ -181,7 +181,7 @@
   {
     "name": "html_render",
     "title": "在群聊中展示 HTML",
-    "description": "Show a finished HTML page inline in the chat, as its own message above your reply; do not restate it. Height fits the page up to 20000px. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Width is the reply column (720px desktop, ~360px phones) on the chat background. html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule). An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights. Content sets the height: no vh units (rejected) or height:100% on html/body (loops). A clicked image opens in the host’s zoomable viewer; build no lightbox. Image facts (resolution, size, path) go as small tags over its bottom-left corner, not a block of their own. Use theme CSS variables, not fixed colors: --background, --foreground, --muted, --card, --popover, --secondary, --border, --ring, --primary, --accent, --destructive, --warning, --success, --info, --code-background (most have -foreground; accent, destructive, warning, success also -surface), --chart-1..6, --radius, --font-sans, --font-mono. The base sheet sets background, 14px text and font, and follows the reader’s light/dark theme.",
+    "description": "Show a finished HTML page inline in your final reply; the result gives its id to place it there; do not restate it. Height fits the page up to 20000px. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Width is the reply column (720px desktop, ~360px phones) on the chat background. html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule). An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights. Content sets the height: no vh units (rejected) or height:100% on html/body (loops). A clicked image opens in the host’s zoomable viewer; build no lightbox. Image facts (resolution, size, path) go as small tags over its bottom-left corner, not a block of their own. Use theme CSS variables, not fixed colors: --background, --foreground, --muted, --card, --popover, --secondary, --border, --ring, --primary, --accent, --destructive, --warning, --success, --info, --code-background (most have -foreground; accent, destructive, warning, success also -surface), --chart-1..6, --radius, --font-sans, --font-mono. The base sheet sets background, 14px text and font, and follows the reader’s light/dark theme.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -195,7 +195,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200,
-          "description": "What the page shows; names its message."
+          "description": "What the page shows."
         },
         "height": {
           "type": "integer",

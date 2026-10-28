@@ -1,4 +1,4 @@
-import { type GroupPinsDto, MAX_PINS, type PinnedMessageDto } from '@gonggong/protocol'
+import { type GroupPinsDto, type HtmlRenderRef, MAX_PINS, type PinnedMessageDto } from '@gonggong/protocol'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
@@ -9,7 +9,8 @@ import { type MessageMeta, memberIds, postEvent, userAuthorName } from '../messa
 
 const SNIPPET = 120
 const pinner = alias(users, 'pinner')
-const snippet = (body: string) => summarizeBlocks(body).replace(/\s+/g, ' ').trim().slice(0, SNIPPET)
+const snippet = (body: string, pages?: HtmlRenderRef[]) =>
+  summarizeBlocks(body, pages).replace(/\s+/g, ' ').trim().slice(0, SNIPPET)
 
 /** The group's pins, newest first. */
 export async function groupPins(ctx: Ctx, groupId: string): Promise<GroupPinsDto> {
@@ -28,7 +29,7 @@ export async function groupPins(ctx: Ctx, groupId: string): Promise<GroupPinsDto
         messageId: m.id,
         seq: m.seq,
         authorName: user ?? bot ?? '',
-        text: snippet(m.body),
+        text: snippet(m.body, (m.meta as MessageMeta).htmlRenders),
         attachments: (m.meta as MessageMeta).attachments?.length ?? 0,
         pinnedBy: { id: pin.pinnedBy, name: by },
         pinnedAt: pin.pinnedAt.toISOString(),

@@ -1333,8 +1333,10 @@ export const MessageDto = z.object({
   actions: z.record(z.string(), ActionAnswer).optional(),
   /** Generic card (plan 插件体系-方案); unknown kinds are shown as the body. */
   card: MessageCard.optional(),
-  /** A page a bot published with html_render, shown inline in a sandboxed frame. */
+  /** Legacy: a page published with html_render as its own message, shown inline in a sandboxed frame. */
   htmlRender: HtmlRenderRef.optional(),
+  /** A final reply's pages its run published with html_render: at their ```html-page blocks, the rest after it. */
+  htmlRenders: z.array(HtmlRenderRef).optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
@@ -1648,6 +1650,8 @@ export const RunDto = z.object({
   sync: RunSyncDone.nullable().optional(),
   /** Secrets injected into the run, names and sources only. */
   secrets: z.array(RunSecret).optional(),
+  /** Pages published with html_render so far; the final reply carries them once it is posted. */
+  htmlRenders: z.array(HtmlRenderRef).optional(),
 })
 export type RunDto = z.infer<typeof RunDto>
 

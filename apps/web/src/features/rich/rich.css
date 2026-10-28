@@ -56,3 +56,16 @@
   width: min(560px, calc(100vw - 120px));
   max-width: 100%;
 }
+
+/* A reply with html_render pages: room for the reply column they are designed for; text and pages stack. */
+.rich-reply--pages {
+  width: min(720px, calc(100vw - 120px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.rich-reply .html-render,
+.run-mcard .html-render {
+  border-radius: var(--radius-field);
+  overflow: hidden;
+}

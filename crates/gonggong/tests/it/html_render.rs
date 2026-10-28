@@ -55,7 +55,7 @@ async fn server() -> (String, Arc<Mutex<Vec<String>>>) {
                 }
             }
             log.lock().unwrap().push(String::from_utf8_lossy(&buf).to_string());
-            let body = r#"{"id":"m1"}"#;
+            let body = r#"{"attachmentId":"p1","title":"营收看板","height":2000}"#;
             let res = format!(
                 "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                 body.len()
@@ -101,7 +101,10 @@ async fn uploads_the_checked_page_with_its_title_height_and_heights() {
 
     let result = call(&http.url, json!({ "html": html, "title": "  营收看板 ", "height": 5000 })).await;
     assert_eq!(result["isError"], false, "{result}");
-    assert_eq!(result["content"][0]["text"], "Shown \"营收看板\" in the chat above your reply. Do not restate it.");
+    assert_eq!(
+        result["content"][0]["text"],
+        "Published \"营收看板\". It shows in your final reply where you put this block, else after your text; do not restate it.\n```html-page\n{\"id\":\"p1\"}\n```"
+    );
     let req = seen.lock().unwrap()[0].clone();
     assert!(req.starts_with("POST /api/daemon/runs/r1/html-renders HTTP/1.1"), "{req}");
     assert!(req.to_ascii_lowercase().contains("authorization: bearer mt_1"));

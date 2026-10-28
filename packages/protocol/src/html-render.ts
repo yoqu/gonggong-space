@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // ── Inline HTML renders (plan 即时 HTML，参考 t3code): an agent publishes a self-contained page with the daemon's
-// `html_render` tool; it is stored as an attachment and shown as its own message in a sandboxed frame. The page
+// `html_render` tool; it is stored as an attachment and shown in the run's final reply in a sandboxed frame. The page
 // talks to the host with MCP Apps JSON-RPC messages (size, theme, links).
 
 export const HTML_RENDER_HTML_MAX = 512_000

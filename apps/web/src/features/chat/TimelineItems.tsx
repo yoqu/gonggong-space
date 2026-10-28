@@ -1,4 +1,11 @@
-import { findUiBlocks, type MessageDto, parseMentions, type RunDto, type RunStatus } from '@gonggong/protocol'
+import {
+  findUiBlocks,
+  type MessageDto,
+  parseMentions,
+  type RunDto,
+  type RunStatus,
+  unplacedHtmlPages,
+} from '@gonggong/protocol'
 import { Fragment, memo, type ReactNode, useMemo, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
@@ -506,7 +513,7 @@ function ReplyMessage({
   return (
     <div data-testid="bot-reply">
       <Message
-        className={cx((isRich(m) || m.htmlRender) && 'tl-msg--wide')}
+        className={cx((isRich(m) || !!m.htmlRender || !!m.htmlRenders?.length) && 'tl-msg--wide')}
         bare={!!m.htmlRender}
         author={botAuthor(m.authorName, m.authorId, m.groupId)}
         continued={continued}
@@ -541,16 +548,21 @@ function ReplyMessage({
 }
 
 /**
- * A bot reply's Markdown. One holding UI blocks (charts, buttons…) takes the full bubble width and is never folded
- * under 展开全文, so its components stay usable.
+ * A bot reply's Markdown. One holding UI blocks (charts, buttons…) or html_render pages takes the full bubble width
+ * and is never folded under 展开全文, so its components stay usable. Pages it does not place follow its text.
  */
 function ReplyBody({ m }: { m: MessageDto }) {
   const rich = useMemo(() => findUiBlocks(m.body).length > 0, [m.body])
+  const rest = useMemo(() => unplacedHtmlPages(m.body, m.htmlRenders ?? []), [m.body, m.htmlRenders])
   const body = (
     <RichMessage.Provider value={m}>
-      <Markdown text={m.body} botId={m.authorId ?? undefined} />
+      {m.body.trim() ? <Markdown text={m.body} botId={m.authorId ?? undefined} /> : null}
+      {rest.map((p) => (
+        <HtmlRender key={p.attachmentId} page={p} />
+      ))}
     </RichMessage.Provider>
   )
+  if (m.htmlRenders?.length) return <div className="rich-reply rich-reply--pages">{body}</div>
   return rich ? <div className="rich-reply">{body}</div> : <Clamp>{body}</Clamp>
 }
 
@@ -690,6 +702,7 @@ export const RunCard = memo(function RunCard({
       {(bar) => (
         <div className="run-card" data-testid="run-card" data-status={run.status}>
           <Message
+            className={cx(!reply && !!run.htmlRenders?.length && 'tl-msg--wide')}
             author={botAuthor(botName, run.botId, run.groupId)}
             time={<Time iso={reply?.createdAt ?? run.queuedAt} pin={reply ?? undefined} />}
             meta={meta}
@@ -761,6 +774,9 @@ export const RunCard = memo(function RunCard({
                           {sessionNote}
                         </div>
                       ) : null}
+                      {reply
+                        ? null
+                        : run.htmlRenders?.map((p) => <HtmlRender key={p.attachmentId} page={p} />)}
                       <ApprovalBlock run={run} />
                       <QuestionBlock run={run} />
                       {note ? (

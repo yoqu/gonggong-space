@@ -1,5 +1,6 @@
 import type {
   Answer,
+  HtmlRenderRef,
   PermissionOption,
   ProgressCard,
   ProgressStageStatus,
@@ -196,9 +197,12 @@ export function interactionElements(items: Interaction[]) {
   return [...history, ...pending]
 }
 
-/** A bot reply as card markdown: its rich UI blocks as summaries (not clickable), plus a link to the message in 共工. */
-export function replyMarkdown(body: string, url: string | null) {
-  const text = summarizeBlocks(body)
+/**
+ * A bot reply as card markdown: its rich UI blocks and html_render `pages` as summaries (not clickable), plus a link
+ * to the message in 共工.
+ */
+export function replyMarkdown(body: string, url: string | null, pages: HtmlRenderRef[] = []) {
+  const text = summarizeBlocks(body, pages)
   return text === body || !url ? text : `${text}\n\n[${zt('在共工查看')}](${url})`
 }
 
