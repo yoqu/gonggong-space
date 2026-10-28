@@ -108,12 +108,12 @@ describe('commit message draft', () => {
     let tab = await openGit()
     await treeOf(tab)
     fireEvent.change(box(tab), { target: { value: '修复退款' } })
-    fireEvent.click(tab.getByRole('checkbox', { name: '修改上一次提交' }))
+    fireEvent.click(tab.getByRole('checkbox', { name: '修改' }))
     fireEvent.click(tab.getByRole('tab', { name: '贮藏' }))
     expect(tab.queryByRole('textbox', { name: '提交说明' })).toBeNull()
     fireEvent.click(tab.getByRole('tab', { name: /^提交/ }))
     expect(box(tab).value).toBe('修复退款')
-    expect((tab.getByRole('checkbox', { name: '修改上一次提交' }) as HTMLInputElement).checked).toBe(true)
+    expect((tab.getByRole('checkbox', { name: '修改' }) as HTMLInputElement).checked).toBe(true)
     expect(JSON.parse(localStorage.getItem('gg.git.drafts') ?? '{}')).toEqual({
       'g1:b1:': { message: '修复退款', amend: true, checks: {} },
     })
@@ -136,7 +136,7 @@ describe('commit message draft', () => {
       ]),
     )
     await waitFor(() => expect(box(tab).value).toBe(''))
-    expect((tab.getByRole('checkbox', { name: '修改上一次提交' }) as HTMLInputElement).checked).toBe(false)
+    expect((tab.getByRole('checkbox', { name: '修改' }) as HTMLInputElement).checked).toBe(false)
     expect(localStorage.getItem('gg.git.drafts')).toBe('{}')
   })
 
@@ -167,7 +167,6 @@ describe('commit checkboxes', () => {
     expect(pick(tree, 'b.ts').checked).toBe(true)
     expect(pick(tree, 'src/new.ts').checked).toBe(false)
     expect(pick(tree, '未跟踪的文件').checked).toBe(false)
-    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
 
     fireEvent.click(pick(tree, 'src/new.ts'))
     fireEvent.click(pick(tree, 'src/a.ts'))
@@ -184,7 +183,6 @@ describe('commit checkboxes', () => {
     expect(
       ['src/a.ts', 'b.ts', 'src/new.ts', 'src/c.ts', 'later.md'].map((p) => pick(tree, p).checked),
     ).toEqual([false, true, true, true, false])
-    expect(tab.getByText('已选 3 / 5 个文件')).toBeTruthy()
   })
 
   it('Space checks the selected row, wherever the focus was', async () => {
@@ -212,7 +210,7 @@ describe('a merge, pick or revert in progress', () => {
     expect(box(tab).value).toBe("Merge branch 'feat/fee'")
     expect((tab.getByRole('button', { name: '提交合并' }) as HTMLButtonElement).disabled).toBe(true)
     expect(document.querySelector('.gc-box__hint')?.textContent).toBe('2 个文件有冲突，解决后才能继续')
-    expect((tab.getByRole('checkbox', { name: '修改上一次提交' }) as HTMLInputElement).disabled).toBe(true)
+    expect((tab.getByRole('checkbox', { name: '修改' }) as HTMLInputElement).disabled).toBe(true)
 
     current = { ...MERGING, conflicts: [] }
     fireEvent.click(tab.getByRole('button', { name: '刷新' }))
@@ -331,10 +329,11 @@ describe('selecting and opening', () => {
     fireEvent.click(row('重命名：b.ts'))
     press('a', { metaKey: true })
     expect(selectedRows()).toEqual(['修改：src/a.ts', '重命名：b.ts', '未跟踪：src/new.ts'])
+    const files = ['src/a.ts', 'b.ts', 'src/new.ts']
     press(' ')
-    expect(tab.getByText('已选 3 / 3 个文件')).toBeTruthy()
+    expect(files.map((p) => pick(tab, p).checked)).toEqual([true, true, true])
     press(' ')
-    expect(tab.getByText('勾选要提交的文件')).toBeTruthy()
+    expect(files.map((p) => pick(tab, p).checked)).toEqual([false, false, false])
 
     press('Ω', { code: 'KeyZ', metaKey: true, altKey: true })
     const d = await dialog('回滚改动')

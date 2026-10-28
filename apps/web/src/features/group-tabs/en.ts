@@ -22,7 +22,7 @@ export default {
   'Bot 工作区内的相对路径，如 docs/需求.md': 'Relative to the bot’s workspace, e.g. docs/spec.md',
   Bot: 'Bot',
   置顶消息: 'Pinned messages',
-  'Git 记录': 'Git history',
+  'Git 日志': 'Git log',
   留空时使用网页标题: 'Leave empty to use the page title',
   留空时使用默认名称: 'Leave empty to use the default name',
   本群还没有置顶消息: 'No pinned messages in this group',

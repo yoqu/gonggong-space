@@ -121,7 +121,7 @@ export function CommitBox({
     <div className="gc-box">
       <div className="gc-box__head">
         <Checkbox
-          label={t('修改上一次提交')}
+          label={t('修改#amend')}
           checked={amend}
           disabled={!head || !!ongoing}
           onChange={toggleAmend}
@@ -188,29 +188,18 @@ export function CommitBox({
         </div>
       ) : null}
       <div className="gc-box__actions">
-        <span className="gc-box__hint">
-          {ongoing
-            ? conflicts
-              ? t('{n} 个文件有冲突，解决后才能继续', { n: conflicts })
-              : ''
-            : count
-              ? t('已选 {n} / {total} 个文件', { n: count, total })
-              : amend
-                ? t('只修改提交说明')
-                : total
-                  ? t('勾选要提交的文件')
-                  : ''}
-        </span>
-        <span className="spacer" />
+        <Button size="small" variant="primary" disabled={!ready} onClick={() => void commit(false)}>
+          {busy ? <Spinner size={12} /> : null}
+          {label}
+        </Button>
         {owner && (!ongoing || ongoing.kind === 'merge') ? (
           <Button size="small" disabled={!ready} onClick={() => void commit(true)}>
             {amend ? t('修改并推送…') : t('提交并推送…')}
           </Button>
         ) : null}
-        <Button size="small" variant="primary" disabled={!ready} onClick={() => void commit(false)}>
-          {busy ? <Spinner size={12} /> : null}
-          {label}
-        </Button>
+        {ongoing && conflicts ? (
+          <span className="gc-box__hint">{t('{n} 个文件有冲突，解决后才能继续', { n: conflicts })}</span>
+        ) : null}
       </div>
     </div>
   )

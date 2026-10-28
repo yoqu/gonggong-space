@@ -52,7 +52,7 @@ function benchKey(tab: GroupTabDto): string | null {
         : x.kind === 'file'
           ? { kind: 'file', source: { botId: x.botId, path: x.path } }
           : x.entry === 'git-log' && x.botId
-            ? { kind: 'git-log', botId: x.botId, ref: null, commit: null }
+            ? { kind: 'git', botId: x.botId }
             : null
   return w ? tabKey(w) : null
 }

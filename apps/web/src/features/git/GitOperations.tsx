@@ -1,4 +1,4 @@
-import type { GitOperationDto, GitOperationStatus } from '@gonggong/protocol'
+import type { GitOperationDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -6,7 +6,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ago } from '../../lib/time'
-import { Alert, Button, EmptyState, Tag, type TagTone } from '../../ui'
+import { Icon, Tooltip } from '../../ui'
 import { openTab } from '../workbench/open'
 import { decideGitOperation } from './api'
 import { ACTION_LABEL } from './notify'
@@ -14,18 +14,8 @@ import './git.css'
 
 const NO_OPS: GitOperationDto[] = []
 
-/** The bot's Git tab, pointing at `focus` in its operation log (a notification link). */
-export const openGitPanel = (botId: string, focus: string | null = null) =>
-  openTab({ kind: 'git', botId, focus, view: 'ops' })
-
-const STATUS: Record<GitOperationStatus, { label: string; tone: TagTone }> = {
-  pending_approval: { label: t('待审批'), tone: 'orange' },
-  running: { label: t('执行中'), tone: 'blue' },
-  succeeded: { label: t('已完成'), tone: 'green' },
-  failed: { label: t('失败'), tone: 'red' },
-  rejected: { label: t('已拒绝'), tone: 'gray' },
-  expired: { label: t('已过期'), tone: 'gray' },
-}
+/** The bot's Git tab, where its requests wait for approval (a notification link). */
+export const openGitPanel = (botId: string) => openTab({ kind: 'git', botId, view: 'commit' })
 
 export const useGitOps = (groupId: string) => useWorkspace((s) => s.gitOps[groupId] ?? NO_OPS)
 
@@ -41,86 +31,71 @@ export function PendingBadge({ groupId, botId }: { groupId: string; botId: strin
   )
 }
 
-function Row({ op, owner, focused }: { op: GitOperationDto; owner: boolean; focused: boolean }) {
+function Row({ op, owner }: { op: GitOperationDto; owner: boolean }) {
   const [busy, setBusy] = useState(false)
   const decide = async (approve: boolean) => {
     setBusy(true)
     await decideGitOperation(op.id, approve)
     setBusy(false)
   }
-  const status = STATUS[op.status]
   const target = op.action === 'push' ? `${op.remote ?? 'origin'}/${op.branch ?? ''}` : op.branch
+  const files = op.paths?.length ? t('{n} 个文件', { n: op.paths.length }) : null
   return (
-    <li
-      className="git-op"
-      data-testid={`git-op-${op.id}`}
-      data-focused={focused || undefined}
-      ref={focused ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
-    >
-      <div className="git-op__head">
-        <span className="git-op__action">{ACTION_LABEL[op.action]}</span>
-        {op.repo ? <span className="git-op__mono">{op.repo}</span> : null}
-        {target ? <span className="git-op__mono">{target}</span> : null}
-        {op.paths?.length ? <span>{t('{n} 个文件', { n: op.paths.length })}</span> : null}
-        <span className="spacer" />
-        <Tag tone={status.tone}>{status.label}</Tag>
-      </div>
-      <div className="git-op__meta">
-        <span>{op.requestedBy.name}</span>
-        <span>{ago(op.createdAt)}</span>
-        {op.decidedBy && op.decidedBy.id !== op.requestedBy.id ? (
-          <span>{t('{name} 处理', { name: op.decidedBy.name })}</span>
-        ) : null}
-      </div>
-      {op.message ? <div className="git-op__message">{op.message}</div> : null}
-      {op.pushesBase && op.status === 'pending_approval' ? (
-        <Alert variant="warning" description={t('批准即确认推送基准分支')} />
-      ) : null}
-      {op.error ? <div className="git-op__output git-op__output--error">{op.error}</div> : null}
-      {op.output ? <div className="git-op__output">{op.output}</div> : null}
-      {owner && op.status === 'pending_approval' ? (
-        <div className="git-op__actions">
-          <Button size="small" disabled={busy} onClick={() => void decide(false)}>
-            {t('拒绝')}
-          </Button>
-          <Button
-            size="small"
-            variant={op.pushesBase ? 'destructive' : 'primary'}
-            disabled={busy}
-            onClick={() => void decide(true)}
-          >
-            {t('批准')}
-          </Button>
-        </div>
-      ) : null}
+    <li className="git-op" data-testid={`git-op-${op.id}`} data-base={op.pushesBase || undefined}>
+      <Icon name={op.pushesBase ? 'warning' : 'clock'} size={13} />
+      <span className="git-op__action">{ACTION_LABEL[op.action]}</span>
+      {[op.repo, target].filter(Boolean).map((x) => (
+        <span key={x} className="git-op__mono">
+          {x}
+        </span>
+      ))}
+      <span className="git-op__meta" title={[op.message, files].filter(Boolean).join('\n') || undefined}>
+        {op.requestedBy.name} · {ago(op.createdAt)}
+      </span>
+      <span className="spacer" />
+      {owner ? (
+        <>
+          <Tooltip content={t('拒绝')}>
+            <button
+              type="button"
+              className="gc-tool"
+              aria-label={t('拒绝')}
+              disabled={busy}
+              onClick={() => void decide(false)}
+            >
+              <Icon name="xmark" size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip content={op.pushesBase ? t('批准即确认推送基准分支') : t('批准')}>
+            <button
+              type="button"
+              className="gc-tool git-op__approve"
+              aria-label={t('批准')}
+              disabled={busy}
+              onClick={() => void decide(true)}
+            >
+              <Icon name="check" size={13} />
+            </button>
+          </Tooltip>
+        </>
+      ) : (
+        <span className="git-op__wait">{t('待审批')}</span>
+      )}
     </li>
   )
 }
 
-/** A bot's git operations in the group, pending first: the owner approves or rejects requests, others follow them. */
-export function GitOperationList({
-  groupId,
-  botId,
-  focus,
-}: {
-  groupId: string
-  botId: string
-  focus: string | null
-}) {
+/** A bot's requests waiting for approval, atop its Git tab: the owner approves or rejects, others wait. */
+export function PendingOps({ groupId, botId }: { groupId: string; botId: string }) {
   const ops = useGitOps(groupId)
   const owner = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.ownerId)
   const me = useSession((s) => s.user?.id)
-  const list = ops.filter((o) => o.botId === botId)
-  // Pending first, then newest first as the server sends them.
-  const sorted = [
-    ...list.filter((o) => o.status === 'pending_approval'),
-    ...list.filter((o) => o.status !== 'pending_approval'),
-  ]
-  if (!sorted.length) return <EmptyState compact icon="git-branch" title={t('还没有 Git 操作')} />
+  const pending = ops.filter((o) => o.botId === botId && o.status === 'pending_approval')
+  if (!pending.length) return null
   return (
-    <ul className="git-ops">
-      {sorted.map((o) => (
-        <Row key={o.id} op={o} owner={!!me && owner === me} focused={o.id === focus} />
+    <ul className="git-ops" aria-label={t('待审批')}>
+      {pending.map((o) => (
+        <Row key={o.id} op={o} owner={!!me && owner === me} />
       ))}
     </ul>
   )
@@ -136,7 +111,7 @@ export function LinkedGitOperation({ groupId }: { groupId: string }) {
   const bench = useWorkbench((s) => s.groupId)
   useEffect(() => {
     if (!linked || !loaded || bench !== groupId) return
-    if (op) openGitPanel(op.botId, op.id)
+    if (op) openGitPanel(op.botId)
     setParams(
       (p) => {
         p.delete('git')

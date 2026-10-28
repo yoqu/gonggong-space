@@ -95,7 +95,6 @@ function Item({
   s,
   showGit,
   machine,
-  failed,
 }: {
   group: GroupDto
   name: string
@@ -103,7 +102,6 @@ function Item({
   /** Partition groups with a repo, where the bar shows each bot's git status. */
   showGit: boolean
   machine: string | null
-  failed: boolean
 }) {
   const groupId = group.id
   const git = s.git
@@ -182,15 +180,6 @@ function Item({
             </>
           )}
           <PendingBadge groupId={groupId} botId={s.botId} />
-          {failed ? (
-            <button
-              type="button"
-              className="git-bar__failed"
-              onClick={() => openTab({ kind: 'git', botId: s.botId, view: 'ops' })}
-            >
-              {t('Git 失败')}
-            </button>
-          ) : null}
         </>
       ) : null}
       {s.context && contextGauge(s.context).level !== 'normal' ? (
@@ -211,11 +200,10 @@ function Item({
   )
 }
 
-function hasIssue(s: GroupBotStateDto, failedOperation: boolean, pendingApproval: boolean) {
+function hasIssue(s: GroupBotStateDto, pendingApproval: boolean) {
   const git = s.git
   return (
     ['failed', 'unbound', 'confirm'].includes(s.state) ||
-    failedOperation ||
     pendingApproval ||
     !!git?.dirty ||
     !!git?.behind ||
@@ -288,11 +276,8 @@ export function GitBar({ group }: { group: GroupDto }) {
     }
   const operationsFor = (id: string) => gitOps?.filter((op) => op.botId === id) ?? []
   const needsApproval = (id: string) => operationsFor(id).some((op) => op.status === 'pending_approval')
-  const failedOperation = (id: string) => operationsFor(id).some((op) => op.status === 'failed')
   const owned = group.botIds.filter((id) => bots.find((b) => b.id === id)?.ownerId === me)
-  const issues = group.botIds.filter(
-    (id) => !owned.includes(id) && hasIssue(stateOf(id), failedOperation(id), needsApproval(id)),
-  )
+  const issues = group.botIds.filter((id) => !owned.includes(id) && hasIssue(stateOf(id), needsApproval(id)))
   const anchor = owned.length ? null : (group.botIds.find((id) => !issues.includes(id)) ?? null)
   const visible = [...owned, ...(anchor ? [anchor] : []), ...issues]
   const others = group.botIds.filter((id) => !visible.includes(id))
@@ -305,7 +290,6 @@ export function GitBar({ group }: { group: GroupDto }) {
         group={group}
         showGit={showGit && (!!group.repo || !!stateOf(id).git)}
         machine={bot?.machineName ?? null}
-        failed={failedOperation(id)}
         name={bot?.name ?? 'bot'}
         s={stateOf(id)}
       />

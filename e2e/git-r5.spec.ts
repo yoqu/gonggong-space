@@ -37,7 +37,7 @@ async function stash(gitTab: Locator, message: string) {
   await expect(gitTab.getByRole('button', { name: new RegExp(message) })).toBeVisible({ timeout: 30_000 })
 }
 
-test('R5 real daemon: structured console, annotate previous revision, and stash apply/pop', async ({
+test('R5 real daemon: annotate previous revision, a stash failure off the bot bar, and stash apply/pop', async ({
   page,
 }) => {
   test.setTimeout(6 * 60_000)
@@ -131,7 +131,7 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
       expect(git(dir, 'status', '--porcelain')).toBe('')
     })
 
-    await test.step('an empty stash failure stays in the console with structured commands and exit codes', async () => {
+    await test.step('an empty stash failure is told once, not kept on the bot bar', async () => {
       await page
         .getByTestId('git-bar')
         .getByTestId(`git-${bot.id}`)
@@ -153,19 +153,8 @@ test('R5 real daemon: structured console, annotate previous revision, and stash 
         .toBe(true)
       await empty.press('Escape')
       await expect(empty).toBeHidden()
-      await gitTab.getByRole('tab', { name: '控制台', exact: true }).click()
-      const failed = gitTab
-        .locator('.git-console__op[data-status="failed"]')
-        .filter({ hasText: '贮藏' })
-        .first()
-      await expect(failed).toContainText('失败', { timeout: 30_000 })
-      const stashCommand = failed.locator('.git-console__command-line').filter({ hasText: 'stash push' })
-      await expect(stashCommand.locator('code')).toContainText(/git -C .*stash push/)
-      await expect(stashCommand).toContainText(/退出码 \d+/)
-      await gitTab.getByRole('button', { name: '仅失败' }).click()
-      await expect(gitTab.locator('.git-console__op[data-status="succeeded"]')).toHaveCount(0)
-      await shot(page, '01-console')
-      await gitTab.getByRole('button', { name: '仅失败' }).click()
+      // A failure is told when it happens; the bar does not keep flagging it.
+      await expect(page.getByTestId('git-bar')).not.toContainText('Git 失败')
     })
 
     await test.step('stash context apply preserves the stash and pop removes it', async () => {

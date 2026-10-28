@@ -102,7 +102,6 @@ describe('Git tab toolbar', () => {
     expect(bar.getByRole('button', { name: '切换 小王的 Claude 的分支' }).textContent).toBe('feat/refund-v2')
     expect(bar.getByRole('img', { name: '落后 2 个提交' }).textContent).toBe('↓2')
     expect(bar.getByRole('img', { name: '领先 3 个提交' }).textContent).toBe('↑3')
-    expect(bar.getByRole('button', { name: /^推送…/ }).textContent).toBe('推送…↑3')
   })
 
   it('names a detached HEAD by its commit and an unpublished branch as such', async () => {
@@ -115,7 +114,7 @@ describe('Git tab toolbar', () => {
     mockApi(routes({ 'GET /groups/g1/bot-states': [state({ git: status({ ahead: null, behind: null }) })] }))
     render(<Page />)
     tab = await openGit()
-    expect(tab.getByRole('button', { name: /^推送…/ }).textContent).toBe('推送…未发布')
+    expect(tab.getByRole('button', { name: '推送…（未发布）' })).toBeTruthy()
   })
 
   it('fetches the remotes on demand, showing progress and the failure reason', async () => {
@@ -184,18 +183,15 @@ describe('Git tab toolbar', () => {
     expect(screen.getByRole('dialog', { name: '更新 feat/refund-v2' })).toBeTruthy()
   })
 
-  it('opens the commit history and the rest of the commands from ⋯', async () => {
+  it('switches to the log in the same tab, and opens the rest of the commands from ⋯', async () => {
     const calls = mockApi(routes({ [`POST ${BASE}/actions`]: done }))
     render(<Page />)
     const tab = await openGit()
-    fireEvent.click(tab.getByRole('button', { name: '提交历史' }))
-    expect(benchTabs().at(-1)).toMatchObject({
-      kind: 'git-log',
-      botId: 'b1',
-      ref: null,
-      commit: null,
-      path: null,
-    })
+    expect(tab.queryByRole('tab', { name: '记录' })).toBeNull()
+    expect(tab.queryByRole('tab', { name: '控制台' })).toBeNull()
+    fireEvent.click(tab.getByRole('tab', { name: '日志' }))
+    expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', view: 'log' }])
+    fireEvent.click(tab.getByRole('tab', { name: /^提交/ }))
 
     fireEvent.click(tab.getByRole('button', { name: '更多 Git 操作' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '编辑上一次提交说明…' }))
@@ -939,7 +935,7 @@ describe('pull dialog', () => {
 })
 
 describe('git operation approvals', () => {
-  it('badges pending requests; the owner approves or rejects them in the Git tab’s activity', async () => {
+  it('badges pending requests; the owner approves or rejects them atop the Git tab', async () => {
     const calls = mockApi(
       routes({
         'GET /groups/g1/git/operations': {
@@ -962,12 +958,11 @@ describe('git operation approvals', () => {
     render(<Page />)
     fireEvent.click(await screen.findByRole('button', { name: '待审批 2' }))
     const tab = within(await screen.findByTestId('git-tab'))
-    expect(tab.getByRole('tab', { name: '记录 · 待审批 2' }).getAttribute('aria-selected')).toBe('true')
     const first = within(tab.getByTestId('git-op-op1'))
-    expect(first.getByText('老李')).toBeTruthy()
+    expect(first.getByText(/^老李 · /)).toBeTruthy()
     expect(first.getByText('推送')).toBeTruthy()
     expect(first.getByText('origin/main')).toBeTruthy()
-    expect(first.getByText('批准即确认推送基准分支')).toBeTruthy()
+    expect(tab.getByTestId('git-op-op1').dataset.base).toBe('true')
     const second = within(tab.getByTestId('git-op-op2'))
     expect(second.getByText('合并')).toBeTruthy()
     expect(second.getByText('feat/fee')).toBeTruthy()
@@ -1024,7 +1019,7 @@ describe('git operation approvals', () => {
   })
 
   it('opens the linked operation from ?git= in the Git tab', async () => {
-    mockApi(routes({ 'GET /groups/g1/git/operations': { operations: [op({ status: 'succeeded' })] } }))
+    mockApi(routes({ 'GET /groups/g1/git/operations': { operations: [op()] } }))
     render(
       <MemoryRouter initialEntries={['/g/g1?git=op1']}>
         <Page />
@@ -1032,7 +1027,7 @@ describe('git operation approvals', () => {
       </MemoryRouter>,
     )
     const tab = within(await screen.findByTestId('git-tab'))
-    expect(tab.getByTestId('git-op-op1').dataset.focused).toBe('true')
-    expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', focus: 'op1', view: 'ops' }])
+    expect(tab.getByTestId('git-op-op1')).toBeTruthy()
+    expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', view: 'commit' }])
   })
 })

@@ -53,7 +53,7 @@ function git(dir: string, ...args: string[]) {
 }
 
 async function history(page: Page) {
-  await page.getByTestId('git-tab').getByRole('button', { name: '提交历史' }).click()
+  await page.getByTestId('git-tab').getByRole('tab', { name: '日志' }).click()
   const log = page.locator('.glog').last()
   await log.getByRole('button', { name: '刷新', exact: true }).click()
   await expect(log.locator('.glog-row').first()).toBeVisible({ timeout: 30_000 })
@@ -142,7 +142,7 @@ test('R4 three-way merge applies the edited result to the conflicted work-tree f
     await conflict.getByRole('textbox', { name: '冲突 1 的合并结果' }).fill('resolved by R4')
     await merge.getByRole('button', { name: '应用', exact: true }).click()
 
-    await expect(banner).toContainText('冲突已全部解决', { timeout: 30_000 })
+    await expect(banner.getByRole('button', { name: '提交合并…' })).toBeVisible({ timeout: 30_000 })
     expect(readFileSync(join(w.dir, 'README.md'), 'utf8')).toBe('# demo\nresolved by R4\n')
     expect(git(w.dir, 'diff', '--name-only', '--diff-filter=U')).toBe('')
     expect(git(w.dir, 'diff', '--cached', '--name-only')).toBe('README.md')

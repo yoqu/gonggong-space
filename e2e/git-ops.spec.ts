@@ -100,17 +100,17 @@ test('manual git: the owner switches branch, sees its tree, commits and pushes; 
       // New files start unpicked, as IDEA's unversioned files.
       await expect(git.getByRole('button', { name: '未跟踪：later.txt' })).toBeVisible({ timeout: 30_000 })
       await git.locator('label', { hasText: 'hello.txt' }).click()
-      await expect(git).toContainText('已选 1 / 2 个文件')
+      await expect(git.getByRole('checkbox', { name: '选择 hello.txt' })).toBeChecked()
       await git.getByRole('textbox', { name: '提交说明' }).fill('add hello')
       await git.getByRole('button', { name: '提交', exact: true }).click()
       // What was left out stays, unpicked.
       await expect(git.getByRole('button', { name: '未跟踪：hello.txt' })).toBeHidden({ timeout: 30_000 })
-      await expect(git).toContainText('勾选要提交的文件')
+      await expect(git.getByRole('checkbox', { name: '选择 later.txt' })).not.toBeChecked()
       const left = await api.call<GitCompareDto>('get', `${base}/git/compare?from=HEAD`)
       expect(left.changes.map((c) => c.path)).toEqual(['later.txt'])
       await expect(page.getByText(/提交了 .* 的改动：add hello/).first()).toBeAttached({ timeout: 30_000 })
 
-      await git.getByRole('button', { name: '提交历史' }).click()
+      await git.getByRole('tab', { name: '日志' }).click()
       await page.locator('.glog-row', { hasText: 'add hello' }).click()
       await page.getByRole('button', { name: '新增：hello.txt' }).click()
       await expect(page.locator('.diff__line').filter({ hasText: 'hi' }).first()).toBeVisible({
@@ -159,7 +159,8 @@ test('manual git: the owner switches branch, sees its tree, commits and pushes; 
       await item.getByRole('button', { name: '待审批 1' }).click()
       const row = page.getByTestId(`git-op-${op.id}`)
       await row.getByRole('button', { name: '批准' }).click()
-      await expect(row).toContainText('已完成', { timeout: 30_000 })
+      // Settled requests leave the pending strip.
+      await expect(row).toBeHidden({ timeout: 30_000 })
       await expect(item).toContainText('main', { timeout: 30_000 })
     })
   } finally {

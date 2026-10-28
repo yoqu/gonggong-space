@@ -69,11 +69,20 @@ function useMe(botId: string) {
 /**
  * A bot workspace's commit history, IDEA's Git Log: the branches pane, the filter bar, the commit table with its
  * graph, and the picked commit's details, changed files and diff. With `path` it is that file's (or folder's)
- * history.
+ * history. `current` reads the state as stored now, `update` changes it: a tab of its own, or the Git tab's log.
  */
-export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
+export function GitLog({
+  tab,
+  current,
+  update,
+  active,
+}: {
+  tab: LogTab
+  current: () => LogTab
+  update: (fields: Partial<LogTab>) => void
+  active: boolean
+}) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
-  const patch = useWorkbench((s) => s.patch)
   const git = useWorkspace((s) => s.botStates[groupId]?.[tab.botId]?.git ?? null)
   const root = useRef<HTMLDivElement>(null)
   const wide = useWide(root, WIDE_PX)
@@ -112,12 +121,8 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
     if (active && git) refreshGitQuietly(groupId, tab.botId)
   }, [active, groupId, tab.botId])
 
-  /** The tab as stored now: filters set from a timer must not overwrite a newer change. */
-  const now = () =>
-    (useWorkbench.getState().benches[groupId]?.tabs.find((x) => keyOf(x) === tabKey) as LogTab | undefined) ??
-    tab
   const select = (hash: string) => {
-    if (now().commit !== hash) patch(tabKey, { commit: hash, file: null })
+    if (current().commit !== hash) update({ commit: hash, file: null })
   }
   /** The full hash `rev` names: a listed commit's (by hash or a ref on it), else as the repo resolves it. */
   const resolve = async (rev: string) => {
@@ -135,24 +140,24 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
     }
   }
   const control: LogControl = {
-    setFilter: (fields) => patch(tabKey, { filter: cleanFilter({ ...now().filter, ...fields }) }),
+    setFilter: (fields) => update({ filter: cleanFilter({ ...current().filter, ...fields }) }),
     setRef: (ref, all) => {
       saveLogBranch(tab.botId, repo, all ? 'all' : (ref ?? 'HEAD'))
-      patch(tabKey, {
+      update({
         ref: all ? null : (ref ?? 'HEAD'),
-        filter: cleanFilter({ ...now().filter, all: all || undefined }),
+        filter: cleanFilter({ ...current().filter, all: all || undefined }),
         file: null,
       })
     },
-    setPath: (path) => patch(tabKey, { path, commit: null, file: null }),
-    setRepo: (r) => patch(tabKey, { repo: r, ref: null, path: null, commit: null, file: null }),
+    setPath: (path) => update({ path, commit: null, file: null }),
+    setRepo: (r) => update({ repo: r, ref: null, path: null, commit: null, file: null }),
     goTo: async (rev) => {
       const hash = await resolve(rev)
       if (!hash) return false
       const listed = log.commits.some((c) => c.hash === hash)
-      if (listed || now().filter?.text)
-        patch(tabKey, {
-          filter: cleanFilter({ ...now().filter, text: undefined }),
+      if (listed || current().filter?.text)
+        update({
+          filter: cleanFilter({ ...current().filter, text: undefined }),
           ...(listed ? { commit: hash, file: null } : {}),
         })
       setSeek({ hash, rev })
@@ -160,7 +165,7 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
     },
     clear: () => {
       saveLogBranch(tab.botId, repo, 'all')
-      patch(tabKey, { ref: null, path: null, filter: graphOptions(now().filter), commit: null, file: null })
+      update({ ref: null, path: null, filter: graphOptions(current().filter), commit: null, file: null })
     },
     refresh: () => {
       log.reload()
@@ -216,7 +221,7 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
     const head = log.commits.find((c) => isHead(c, remotes))?.hash
     const was = lastHead.current
     if (head) lastHead.current = head
-    const at = now().commit
+    const at = current().commit
     if (head && at && at === was && head !== was && !log.commits.some((c) => c.hash === at)) pickOne(head)
   }, [log.commits])
 
@@ -240,7 +245,7 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
   const first = log.commits[0]?.hash
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new first commit or layout picks again
   useEffect(() => {
-    if (active && first && layout !== 'narrow' && !now().commit) select(first)
+    if (active && first && layout !== 'narrow' && !current().commit) select(first)
   }, [active, first, layout])
   const paneShown = layout === 'narrow' ? paneOnPhone : (pane ?? layout === 'wide')
   const filterRef = (ref: string | null, all: boolean) => {
@@ -331,7 +336,7 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
       label={t('提交#commits')}
     />
   )
-  const back = () => patch(tabKey, { commit: null, file: null })
+  const back = () => update({ commit: null, file: null })
   const several = layout === 'narrow' ? [] : listed(picked)
   const details =
     several.length > 1 ? (
@@ -351,7 +356,7 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
         file={tab.file ?? null}
         historyPath={tab.path ?? null}
         narrow={layout === 'narrow'}
-        onFile={(file) => patch(tabKey, { file })}
+        onFile={(file) => update({ file })}
         onJump={pickOne}
         onBack={back}
       />
@@ -419,6 +424,17 @@ export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
       {body}
     </div>
   )
+}
+
+/** A file's or folder's history (or a log opened before the Git tab had one) in a tab of its own. */
+export function GitLogTab({ tab, tabKey, active }: TabProps<'git-log'>) {
+  const groupId = useWorkbench((s) => s.groupId) ?? ''
+  const patch = useWorkbench((s) => s.patch)
+  // Filters set from a timer must not overwrite a newer change.
+  const current = () =>
+    (useWorkbench.getState().benches[groupId]?.tabs.find((x) => keyOf(x) === tabKey) as LogTab | undefined) ??
+    tab
+  return <GitLog tab={tab} current={current} update={(f) => patch(tabKey, f)} active={active} />
 }
 
 export function useGitLogTabMeta(tab: TabProps<'git-log'>['tab']): TabMeta {

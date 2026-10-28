@@ -9,7 +9,14 @@ import type {
 } from '@gonggong/protocol'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
-import { type GitLogTabFilter, logScope, tabKey, useWorkbench, type WorkbenchTab } from '../../app/workbench'
+import {
+  type GitLogState,
+  type GitLogTabFilter,
+  logScope,
+  tabKey,
+  useWorkbench,
+  type WorkbenchTab,
+} from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -301,8 +308,8 @@ export function gitCommands(target: GitTarget) {
     compare: (from: string, to: string | null) =>
       openTab({ kind: 'git-compare', botId: target.botId, repo: target.repo, from, to, file: null }),
     /**
-     * The repo's log, or a file's or folder's history (`path`), each in a tab of its own; asked for with nothing to
-     * show, an open one is only brought forward, its filters and selection kept.
+     * The repo's log in the Git tab, or a file's or folder's history (`path`) in a tab of its own; asked for with
+     * nothing to show, an open one is only brought forward, its filters and selection kept.
      */
     openLog: (opts: {
       ref?: string | null
@@ -310,21 +317,39 @@ export function gitCommands(target: GitTarget) {
       path?: string | null
       filter?: GitLogTabFilter
     }) => {
+      const fresh = !opts.ref && !opts.commit && !opts.filter
+      const log: GitLogState = {
+        ref: opts.ref ?? null,
+        commit: opts.commit ?? null,
+        file: null,
+        path: null,
+        filter: opts.filter ?? null,
+      }
+      const { groupId, benches } = useWorkbench.getState()
+      const tabs = groupId ? (benches[groupId]?.tabs ?? []) : []
+      if (!opts.path) {
+        const open = tabs.find((x) => x.kind === 'git' && x.botId === target.botId)
+        const git = open?.kind === 'git' && open.repo === target.repo ? open : undefined
+        return openTab({
+          kind: 'git',
+          botId: target.botId,
+          repo: target.repo,
+          file: git?.file ?? null,
+          view: 'log',
+          log: fresh ? (git?.log ?? null) : log,
+        })
+      }
       const tab: WorkbenchTab = {
         kind: 'git-log',
         botId: target.botId,
         scope: logScope(target.repo, opts.path),
         repo: target.repo,
-        ref: opts.ref ?? null,
-        commit: opts.commit ?? null,
-        file: null,
-        path: opts.path ?? null,
-        filter: opts.filter ?? null,
+        ...log,
+        path: opts.path,
       }
-      const { groupId, benches } = useWorkbench.getState()
       const key = tabKey(tab)
-      const open = groupId ? benches[groupId]?.tabs.find((x) => tabKey(x) === key) : undefined
-      return openTab(open && !opts.ref && !opts.commit && !opts.filter ? open : tab)
+      const open = tabs.find((x) => tabKey(x) === key)
+      return openTab(open && fresh ? open : tab)
     },
     openMerge: (path: string) => openTab({ kind: 'git-merge', botId: target.botId, repo: target.repo, path }),
     /** A work tree change in the bot's diff tab. */

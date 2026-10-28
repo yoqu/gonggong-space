@@ -213,27 +213,8 @@ export function CommitView({
           label={t('全部折叠')}
           onClick={() => setClosed(new Set(folderPaths(groups)))}
         />
-        <span className="spacer" />
-        {all.length ? (
-          <button
-            type="button"
-            className="gc-bar__all"
-            onClick={() =>
-              check(
-                all.map((c) => c.path),
-                picked.length !== all.length,
-              )
-            }
-          >
-            {picked.length === all.length ? t('取消全选') : t('全选')}
-          </button>
-        ) : null}
       </div>
-      {data?.limited ? (
-        <Alert
-          description={t('Bot 所在机器的客户端版本较旧：未跟踪文件、冲突与修改上一次提交需升级后使用')}
-        />
-      ) : null}
+      {data?.limited ? <Alert description={t('客户端版本较旧，部分功能需升级')} /> : null}
       <div className="gc-tree">
         {error ? (
           <Alert variant="error" description={t('读取改动失败：{error}', { error })} />
@@ -330,14 +311,7 @@ export function OngoingBanner({ target, data }: { target: GitTarget; data: GitCh
   return (
     <div className="gc-ongoing" role="status">
       <Icon name={conflicts.length ? 'warning' : 'git-merge'} size={15} />
-      <div className="gc-ongoing__text">
-        <span className="gc-ongoing__title">{title}</span>
-        <span className="gc-ongoing__detail">
-          {conflicts.length
-            ? t('{n} 个文件有冲突，解决后才能继续', { n: conflicts.length })
-            : t('冲突已全部解决，可以继续')}
-        </span>
-      </div>
+      <span className="gc-ongoing__title">{title}</span>
       <span className="spacer" />
       {first ? (
         <Button size="small" variant="primary" onClick={() => cmd.openMerge(first.path)}>

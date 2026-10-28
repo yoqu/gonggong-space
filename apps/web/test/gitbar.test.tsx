@@ -202,7 +202,7 @@ describe('git status bar', () => {
     expect(more.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('shows a Bot with a Git operation waiting for approval or failed', async () => {
+  it('shows a Bot with a Git operation waiting for approval, not one that failed', async () => {
     const operation = (botId: string, status: 'pending_approval' | 'failed') => ({
       id: `${botId}-${status}`,
       groupId: 'g1',
@@ -242,7 +242,7 @@ describe('git status bar', () => {
     render(<GitBar group={group()} />)
     expect(await screen.findByTestId('git-b2')).toBeTruthy()
     expect(screen.getByTestId('git-b2').textContent).toContain('待审批 1')
-    expect(screen.getByTestId('git-b3').textContent).toContain('Git 失败')
+    expect(screen.queryByTestId('git-b3')).toBeNull()
     expect(screen.queryByTestId('git-b4')).toBeNull()
   })
 

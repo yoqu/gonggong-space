@@ -62,7 +62,6 @@ describe('commit view', () => {
     expect((tree.getByRole('checkbox', { name: '选择 未跟踪的文件' }) as HTMLInputElement).checked).toBe(
       false,
     )
-    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
   })
 
   it('commits the picked files (a rename’s both sides) with the message, ⌘↩ too, and remembers it', async () => {
@@ -90,14 +89,15 @@ describe('commit view', () => {
     const tree = within(await tab.findByRole('region', { name: '要提交的文件' }))
     // src holds a tracked change and an untracked file: a folder per group.
     fireEvent.click(tree.getAllByRole('checkbox', { name: '选择 src' })[0] as HTMLElement)
-    expect(tab.getByText('已选 1 / 3 个文件')).toBeTruthy()
-    expect((tree.getByRole('checkbox', { name: '选择 更改' }) as HTMLInputElement).indeterminate).toBe(true)
-    fireEvent.click(tree.getByRole('checkbox', { name: '选择 未跟踪的文件' }))
-    expect(tab.getByText('已选 2 / 3 个文件')).toBeTruthy()
-    fireEvent.click(tab.getByRole('button', { name: '全选' }))
-    expect(tab.getByText('已选 3 / 3 个文件')).toBeTruthy()
-    fireEvent.click(tab.getByRole('button', { name: '取消全选' }))
-    expect(tab.getByText('勾选要提交的文件')).toBeTruthy()
+    const group = (name: string) => tree.getByRole('checkbox', { name: `选择 ${name}` }) as HTMLInputElement
+    expect(group('更改').indeterminate).toBe(true)
+    fireEvent.click(group('未跟踪的文件'))
+    expect(group('未跟踪的文件').checked).toBe(true)
+    fireEvent.click(group('更改'))
+    expect(group('更改').checked).toBe(true)
+    fireEvent.click(group('更改'))
+    fireEvent.click(group('未跟踪的文件'))
+    expect([group('更改').checked, group('未跟踪的文件').checked]).toEqual([false, false])
   })
 
   it('amends the last commit: its message filled in, a reword when nothing is picked, then commit and push', async () => {
@@ -105,9 +105,8 @@ describe('commit view', () => {
     const tab = await openGit()
     await tab.findByRole('region', { name: '要提交的文件' })
     fireEvent.click(tab.getByRole('checkbox', { name: '选择 更改' }))
-    fireEvent.click(tab.getByRole('checkbox', { name: '修改上一次提交' }))
+    fireEvent.click(tab.getByRole('checkbox', { name: '修改' }))
     expect(box(tab).value).toBe('修复退款金额\n\n按原路退回。')
-    expect(tab.getByText('只修改提交说明')).toBeTruthy()
     fireEvent.change(box(tab), { target: { value: '修复退款金额的计算' } })
     fireEvent.click(tab.getByRole('button', { name: '修改并推送…' }))
     await waitFor(() =>
@@ -241,7 +240,7 @@ describe('commit view', () => {
     useWorkbench.setState({ benches: {} })
     tab = await openGit()
     expect(await tab.findByText(/客户端版本较旧/)).toBeTruthy()
-    expect((tab.getByRole('checkbox', { name: '修改上一次提交' }) as HTMLInputElement).disabled).toBe(true)
+    expect((tab.getByRole('checkbox', { name: '修改' }) as HTMLInputElement).disabled).toBe(true)
   })
 
   it('words a non-owner’s commit as a request', async () => {
@@ -276,7 +275,6 @@ describe('merge or rebase in progress', () => {
     const tab = await openGit(status({ ongoing: 'merge', conflicts: 2 }))
     const banner = within(await tab.findByRole('status'))
     expect(banner.getByText('正在合并 feat/fee')).toBeTruthy()
-    expect(banner.getByText('2 个文件有冲突，解决后才能继续')).toBeTruthy()
     const tree = within(tab.getByRole('region', { name: '要提交的文件' }))
     expect(tree.getByRole('button', { name: /^合并冲突/ })).toBeTruthy()
     // A click selects the conflict, a double click opens it.
@@ -339,7 +337,6 @@ describe('merge or rebase in progress', () => {
     )
     const tab = await openGit(status({ ongoing: 'merge', conflicts: 0 }))
     const banner = within(await tab.findByRole('status'))
-    expect(banner.getByText('冲突已全部解决，可以继续')).toBeTruthy()
     fireEvent.click(banner.getByRole('button', { name: '提交合并…' }))
     const d = await dialog('完成合并')
     expect((d.getByRole('textbox', { name: '合并提交说明' }) as HTMLTextAreaElement).value).toBe(

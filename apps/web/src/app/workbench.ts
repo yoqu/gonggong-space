@@ -49,16 +49,16 @@ export type WorkbenchTab =
       filter?: GitLogTabFilter | null
     }
   /**
-   * A bot workspace's source control (IDEA's Commit window): `view` the pane shown, `file` the change shown, `focus` an
-   * operation; `repo` a sub-repo.
+   * A bot workspace's source control (IDEA's Commit window and Git Log in one): `view` the pane shown, `file` the change
+   * shown, `log` the log's state; `repo` a sub-repo.
    */
   | {
       kind: 'git'
       botId: string
       file?: string | null
-      focus?: string | null
       repo?: string | null
       view?: GitTabView | null
+      log?: GitLogState | null
     }
   /** Two versions of a bot's repo side by side: commits on either side and the files that differ; `to` null = the work tree. */
   | {
@@ -83,7 +83,13 @@ export type WorkbenchTab =
 export const logScope = (repo: string | null | undefined, path: string | null | undefined) =>
   repo || path ? `${repo ?? ''}:${path ?? ''}` : null
 
-export type GitTabView = 'commit' | 'stash' | 'ops' | 'console'
+export type GitTabView = 'commit' | 'log' | 'stash'
+
+/** The Git tab's log: as a log tab's fields, its repo the tab's. */
+export type GitLogState = Pick<
+  Extract<WorkbenchTab, { kind: 'git-log' }>,
+  'ref' | 'commit' | 'file' | 'path' | 'filter'
+>
 
 /** What the Git Log tab filters by (all combined); dates are ISO days. */
 export interface GitLogTabFilter {

@@ -24,7 +24,7 @@ const ENTRIES: { value: GroupTabEntry; label: string }[] = [
   { value: 'notice', label: t('群公告') },
   { value: 'pins', label: t('置顶消息') },
   { value: 'schedules', label: t('定时任务') },
-  { value: 'git-log', label: t('Git 记录') },
+  { value: 'git-log', label: t('Git 日志') },
 ]
 const LINK = /^https?:\/\/\S+$/i
 const FORM = 'add-group-tab'

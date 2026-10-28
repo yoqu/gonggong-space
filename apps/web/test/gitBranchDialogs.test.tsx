@@ -266,7 +266,12 @@ describe('update project (IDEA)', () => {
     await waitFor(() => expect(actionsCalled(calls)).toEqual([{ action: 'pull', mode: 'merge' }]))
     await waitFor(() => expect(toasts()).toContain('已更新 3 个文件（2 个提交）'))
     fireEvent.click(toastButton('查看提交'))
-    expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-log', botId: 'b1', ref: '1a2b3c4..5d6e7f8' })
+    expect(benchTabs().at(-1)).toMatchObject({
+      kind: 'git',
+      botId: 'b1',
+      view: 'log',
+      log: { ref: '1a2b3c4..5d6e7f8' },
+    })
   })
 
   it('says all is up to date when nothing came in, for a branch fast-forwarded from the branch popup too', async () => {

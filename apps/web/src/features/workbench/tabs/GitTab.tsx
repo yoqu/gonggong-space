@@ -1,6 +1,6 @@
 import type { GitChangesDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import type { GitTabView } from '../../../app/workbench'
+import type { GitLogState, GitTabView } from '../../../app/workbench'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
@@ -10,25 +10,26 @@ import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { gitBase, gitUrls, refreshGitQuietly, repoStatus, useGitGet } from '../../git/api'
 import { fileOrder, type TreeChange, useChangeLayout } from '../../git/ChangeTree'
-import { CommitView, changeGroups, OngoingBanner } from '../../git/CommitView'
+import { CommitView, changeGroups, OngoingBanner, ToolIcon } from '../../git/CommitView'
 import { gitCommands } from '../../git/commands'
-import { GitConsole } from '../../git/GitConsole'
-import { GitOperationList, useGitOps } from '../../git/GitOperations'
+import { PendingOps, useGitOps } from '../../git/GitOperations'
 import { GitToolbar } from '../../git/GitToolbar'
+import type { LogTab } from '../../git/log/query'
 import { Split } from '../../git/Split'
 import { StashView, stashDiff } from '../../git/StashView'
 import { openTab } from '../open'
 import type { TabMeta, TabProps } from '../types'
 import { openFileAt } from './DiffTab'
+import { GitLog } from './GitLogTab'
 import '../../git/git-tool.css'
 
 /** Below this the picked file's diff opens in its own tab instead of beside the list. */
 const WIDE_PX = 720
 
 /**
- * A bot workspace's source control, IDEA's Commit window and VCS toolbar in one: the repo, its branch popup and sync
- * actions, a merge or rebase in progress, then 提交 (the change tree to pick and commit, the picked file's diff beside
- * it), 贮藏 and 记录 (the operation log with approvals). Non-owners request instead.
+ * A bot workspace's source control, IDEA's Commit window, Git Log and VCS toolbar in one: the views, the repo, its
+ * branch popup and sync actions, requests awaiting approval, a merge or rebase in progress, then 提交 (the change tree
+ * to pick and commit, the picked file's diff beside it), 日志 or 贮藏. Non-owners request instead.
  */
 export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -38,9 +39,6 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   const root = useRef<HTMLDivElement>(null)
   const wide = useWide(root, WIDE_PX)
   const stamp = useGitStamp(groupId, tab.botId)
-  const pending = useGitOps(groupId).filter(
-    (o) => o.botId === tab.botId && o.status === 'pending_approval',
-  ).length
   const repo = git && tab.repo && git.repos.some((r) => r.path === tab.repo) ? tab.repo : null
   const status = git ? repoStatus(git, repo) : null
   // A workspace whose root is no repo opens on its first sub-repo.
@@ -52,7 +50,8 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
     active && shownStatus ? gitUrls.changes(base, target.repo) : null,
     stamp,
   )
-  const view: GitTabView = tab.focus ? 'ops' : (tab.view ?? 'commit')
+  // Views since removed (记录, 控制台) reopen on 提交.
+  const view: GitTabView = tab.view === 'log' || tab.view === 'stash' ? tab.view : 'commit'
   const [stashFile, setStashFile] = useState<{ stash: string; path: string; url: string } | null>(null)
   const layout = useChangeLayout((s) => s.layout)
   // A file reached by stepping (F7, ⌥⇧→…) lands on its first (1) or last (-1) change.
@@ -78,7 +77,7 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
       ]
     : []
   const picked = all.find((c) => c.path === tab.file) ?? (wide ? all.find((c) => !c.conflict) : undefined)
-  const setView = (v: GitTabView) => patch(tabKey, { view: v, focus: null })
+  const setView = (v: GitTabView) => patch(tabKey, { view: v })
   // Selecting only shows a change (beside the list when wide); opening it is the commit view's double click or Enter.
   const select = (c: TreeChange) => {
     setStart(undefined)
@@ -95,77 +94,87 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   const inWorkspace = (path: string) => (target.repo ? `${target.repo}/${path}` : path)
   const conflict = picked?.conflict ? picked.path : data?.conflicts[0]?.path
 
-  const left: ReactNode = (
-    <div className="wb-git__side">
-      <div className="wb-git__views">
-        <Tabs<GitTabView>
-          size="sm"
-          aria-label={t('Git 视图')}
-          value={view}
-          onChange={setView}
-          items={[
-            {
-              value: 'commit',
-              label: data?.changes.length ? t('提交 · {n}', { n: data.changes.length }) : t('提交'),
-            },
-            {
-              value: 'stash',
-              label: git.stashes && !target.repo ? t('贮藏 · {n}', { n: git.stashes }) : t('贮藏'),
-            },
-            { value: 'ops', label: pending ? t('记录 · 待审批 {n}', { n: pending }) : t('记录') },
-            { value: 'console', label: t('控制台') },
-          ]}
-        />
-      </div>
-      <div className="wb-git__view">
-        {view === 'commit' ? (
-          <CommitView
-            target={target}
-            data={data}
-            error={changes.error}
-            selected={picked?.path ?? null}
-            onSelect={select}
-            onReload={() => {
-              changes.reload()
-              refreshGitQuietly(groupId, tab.botId)
-            }}
-          />
-        ) : view === 'stash' ? (
-          <StashView
-            target={target}
-            stamp={stamp}
-            selected={stashFile}
-            onPick={(s, c) => {
-              const url = stashDiff(target, s, c)
-              if (wide) setStashFile({ stash: s.hash, path: c.path, url })
-              else
-                openTab({
-                  kind: 'git-compare',
-                  botId: tab.botId,
-                  repo: target.repo,
-                  from: `${s.hash}^1`,
-                  to: s.hash,
-                  file: c.path,
-                })
-            }}
-          />
-        ) : view === 'ops' ? (
-          <div className="wb-git__ops">
-            <GitOperationList groupId={groupId} botId={tab.botId} focus={tab.focus ?? null} />
-          </div>
-        ) : (
-          <GitConsole groupId={groupId} botId={tab.botId} />
-        )}
-      </div>
-    </div>
+  const views = (
+    <Tabs<GitTabView>
+      size="sm"
+      aria-label={t('Git 视图')}
+      value={view}
+      onChange={setView}
+      items={[
+        {
+          value: 'commit',
+          label: data?.changes.length ? t('提交 · {n}', { n: data.changes.length }) : t('提交'),
+        },
+        { value: 'log', label: t('日志#git') },
+        {
+          value: 'stash',
+          label: git.stashes && !target.repo ? t('贮藏 · {n}', { n: git.stashes }) : t('贮藏'),
+        },
+      ]}
+    />
   )
+
+  const left: ReactNode =
+    view === 'commit' ? (
+      <CommitView
+        target={target}
+        data={data}
+        error={changes.error}
+        selected={picked?.path ?? null}
+        onSelect={select}
+        onReload={() => {
+          changes.reload()
+          refreshGitQuietly(groupId, tab.botId)
+        }}
+      />
+    ) : (
+      <StashView
+        target={target}
+        stamp={stamp}
+        selected={stashFile}
+        onPick={(s, c) => {
+          const url = stashDiff(target, s, c)
+          if (wide) setStashFile({ stash: s.hash, path: c.path, url })
+          else
+            openTab({
+              kind: 'git-compare',
+              botId: tab.botId,
+              repo: target.repo,
+              from: `${s.hash}^1`,
+              to: s.hash,
+              file: c.path,
+            })
+        }}
+      />
+    )
+
+  const log: LogTab = {
+    kind: 'git-log',
+    botId: tab.botId,
+    repo: target.repo,
+    ref: null,
+    commit: null,
+    ...tab.log,
+  }
+  /** The log as stored now: filters set from a timer must not overwrite a newer change. */
+  const currentLog = (): LogTab => {
+    const now = useWorkbench
+      .getState()
+      .benches[groupId]?.tabs.find((x) => x.kind === 'git' && x.botId === tab.botId)
+    return now?.kind === 'git' ? { ...log, repo: now.repo ?? null, ...now.log } : log
+  }
+  const updateLog = ({ repo: r, ...fields }: Partial<LogTab>) => {
+    const { kind: _k, botId: _b, scope: _s, repo: _r, ...was } = currentLog()
+    const next: GitLogState = { ...was, ...fields }
+    patch(tabKey, { log: next, ...(r !== undefined ? { repo: r, file: null } : {}) })
+  }
 
   const right: ReactNode =
     view === 'stash' ? (
       stashFile ? (
         <GitFileDiff key={stashFile.url} url={stashFile.url} path={stashFile.path} />
       ) : (
-        <EmptyState compact icon="archive" title={t('展开一个贮藏，选择文件查看改动')} />
+        <EmptyState compact icon="archive" title={t('选择一个文件查看改动')} />
       )
     ) : picked && !picked.conflict ? (
       <GitFileDiff
@@ -184,14 +193,7 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
         actions={
           // An untracked file has nothing to roll back to.
           picked.untracked ? undefined : (
-            <Button
-              size="small"
-              variant="plain"
-              icon="undo"
-              onClick={() => gitCommands(target).rollback([picked])}
-            >
-              {t('回滚')}
-            </Button>
+            <ToolIcon icon="undo" label={t('回滚')} onClick={() => gitCommands(target).rollback([picked])} />
           )
         }
       />
@@ -200,7 +202,6 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
         compact
         icon="git-merge"
         title={t('{n} 个文件有冲突', { n: data.conflicts.length })}
-        description={t('在合并工具里逐处选择保留哪一方，或手动编辑结果')}
         action={
           <Button variant="primary" onClick={() => gitCommands(target).openMerge(conflict)}>
             {t('解决冲突')}
@@ -214,25 +215,29 @@ export function GitTab({ tab, tabKey, active }: TabProps<'git'>) {
   return (
     <div ref={root} className="wb-git" data-layout={wide ? 'wide' : 'narrow'} data-testid="git-tab">
       <GitToolbar
+        views={views}
         target={target}
         git={git}
         status={shownStatus}
         changes={data}
         onRepo={(r) => patch(tabKey, { repo: r, file: null })}
       />
+      <PendingOps groupId={groupId} botId={tab.botId} />
       <OngoingBanner target={target} data={data} />
       <div className="wb-git__main">
-        {wide ? (
+        {view === 'log' ? (
+          <GitLog tab={log} current={currentLog} update={updateLog} active={active} />
+        ) : wide ? (
           <Split
             storageKey="gg.git.commit-width"
             initial={360}
             min={260}
             label={t('调整列表宽度')}
-            first={left}
+            first={<div className="wb-git__side">{left}</div>}
             second={<div className="wb-git__diff">{right}</div>}
           />
         ) : (
-          left
+          <div className="wb-git__side">{left}</div>
         )}
       </div>
     </div>

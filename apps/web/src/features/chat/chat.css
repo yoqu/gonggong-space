@@ -401,17 +401,6 @@
   color: var(--tint-red-text);
   cursor: help;
 }
-.git-bar__failed {
-  height: 20px;
-  padding: 0 var(--space-8);
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: var(--tint-red);
-  color: var(--tint-red-text);
-  font: inherit;
-  white-space: nowrap;
-}
-
 /* Repo settings (group settings dialog) */
 .repo-settings {
   display: flex;

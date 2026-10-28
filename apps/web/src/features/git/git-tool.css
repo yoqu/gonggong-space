@@ -9,10 +9,11 @@
 .wb-git__bar {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-  min-height: 40px;
-  padding: 4px 8px;
+  min-height: 36px;
+  padding: 3px 6px;
   border-bottom: 1px solid var(--separator);
 }
 .gtb-count {
@@ -43,9 +44,17 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.gtb-btn--text {
-  padding: 0 8px;
-  color: var(--label);
+.gtb-btn--in {
+  color: var(--tint-blue-text);
+}
+.gtb-btn--out {
+  color: var(--tint-green-text);
+}
+.gtb-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--separator);
 }
 .gtb-btn:hover,
 .gtb-btn[aria-expanded="true"] {
@@ -55,10 +64,6 @@
 .gtb-btn:disabled {
   cursor: default;
   opacity: 0.55;
-}
-.gtb-note {
-  color: var(--label-tertiary);
-  font-size: var(--text-caption-size);
 }
 
 .gc-ongoing {
@@ -72,18 +77,9 @@
   background: var(--tint-orange);
   color: var(--tint-orange-text);
 }
-.gc-ongoing__text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .gc-ongoing__title {
   color: var(--label);
   font-weight: 600;
-}
-.gc-ongoing__detail {
-  color: var(--label-secondary);
-  font-size: var(--text-caption-size);
 }
 
 .wb-git__main {
@@ -98,28 +94,6 @@
   min-width: 0;
   min-height: 0;
 }
-.wb-git__views {
-  flex: none;
-  padding: 8px 8px 6px;
-}
-.wb-git__views .ui-seg {
-  width: 100%;
-}
-.wb-git__view {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-.wb-git__ops {
-  flex: 1;
-  overflow: auto;
-  padding: 4px 12px 12px;
-}
-.wb-git__ops .git-ops {
-  max-height: none;
-  overflow: visible;
-}
 .wb-git__diff {
   flex: 1;
   min-width: 0;
@@ -128,6 +102,11 @@
 }
 .wb-git__diff > .ui-empty {
   height: 100%;
+}
+
+.wb-git__main > .glog {
+  flex: 1;
+  min-width: 0;
 }
 
 /* The commit view: tool row, the tree, the message area pinned under it. */
@@ -149,19 +128,6 @@
   height: 16px;
   margin: 0 4px;
   background: var(--separator);
-}
-.gc-bar__all {
-  padding: 2px 6px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: var(--text-caption-size);
-  cursor: pointer;
-}
-.gc-bar__all:hover {
-  background: var(--quote-fill);
 }
 .gc-tool {
   display: inline-flex;
@@ -360,10 +326,4 @@
 }
 .gs-files {
   padding: 0 0 6px 10px;
-}
-
-@media (max-width: 719px) {
-  .gtb-btn--text {
-    padding: 0 6px;
-  }
 }

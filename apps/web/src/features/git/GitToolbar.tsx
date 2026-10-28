@@ -1,5 +1,5 @@
 import type { GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { Icon, MenuButton, type MenuItem, PopUpButton, Spinner, Tooltip, toast } from '../../ui'
@@ -26,16 +26,18 @@ export function BranchName({ status, head }: { status: RepoStatus; head?: string
 }
 
 /**
- * The Git tab's toolbar (IDEA's main toolbar VCS actions): repo, the branch popup with incoming / outgoing counts,
- * fetch, update, push, log, and the rest under ⋯.
+ * The Git tab's toolbar: its views, then IDEA's main toolbar VCS actions — repo, the branch popup with incoming /
+ * outgoing counts, fetch, update, push, and the rest under ⋯.
  */
 export function GitToolbar({
+  views,
   target,
   git,
   status,
   changes,
   onRepo,
 }: {
+  views: ReactNode
   target: GitTarget
   git: GitStatus
   status: RepoStatus
@@ -47,6 +49,7 @@ export function GitToolbar({
   const repos = git.repos.length ? repoOptions(git) : []
   const head = target.repo ? (changes?.head?.shortHash ?? null) : (git.head ?? null)
   const last = changes?.head ?? null
+  const pushLabel = status.ahead == null && status.branch ? t('推送…（未发布）') : t('推送…')
   const fetchAll = async () => {
     setFetching(true)
     try {
@@ -86,6 +89,8 @@ export function GitToolbar({
   }
   return (
     <div className="wb-git__bar" role="toolbar" aria-label={t('Git 工具栏')}>
+      {views}
+      <span className="spacer" />
       {repos.length ? (
         <PopUpButton
           size="small"
@@ -117,7 +122,7 @@ export function GitToolbar({
           ↑{status.ahead}
         </span>
       ) : null}
-      <span className="spacer" />
+      <span className="gtb-sep" />
       <Tooltip content={t('获取远程更新')}>
         <button
           type="button"
@@ -129,22 +134,19 @@ export function GitToolbar({
           {fetching ? <Spinner size={12} /> : <Icon name="arrow-clockwise" size={14} />}
         </button>
       </Tooltip>
-      <button type="button" className="gtb-btn gtb-btn--text" onClick={cmd.pull}>
-        <Icon name="arrow-down" size={14} />
-        {t('更新…')}
-      </button>
-      <button type="button" className="gtb-btn gtb-btn--text" onClick={() => cmd.push()}>
-        <Icon name="arrow-up" size={14} />
-        {t('推送…')}
-        {status.ahead == null && status.branch ? (
-          <span className="gtb-note">{t('未发布#branch')}</span>
-        ) : status.ahead ? (
-          <span className="gtb-note">↑{status.ahead}</span>
-        ) : null}
-      </button>
-      <Tooltip content={t('提交历史')}>
-        <button type="button" className="gtb-btn" aria-label={t('提交历史')} onClick={() => cmd.openLog({})}>
-          <Icon name="clock" size={14} />
+      <Tooltip content={t('更新…')}>
+        <button type="button" className="gtb-btn gtb-btn--in" aria-label={t('更新…')} onClick={cmd.pull}>
+          <Icon name="arrow-down" size={14} />
+        </button>
+      </Tooltip>
+      <Tooltip content={pushLabel}>
+        <button
+          type="button"
+          className="gtb-btn gtb-btn--out"
+          aria-label={pushLabel}
+          onClick={() => cmd.push()}
+        >
+          <Icon name="arrow-up" size={14} />
         </button>
       </Tooltip>
       <MenuButton

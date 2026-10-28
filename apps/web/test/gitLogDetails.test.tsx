@@ -48,7 +48,7 @@ const keys = () => tabs().map(tabKey)
 const active = () => useWorkbench.getState().benches.g1?.active
 
 describe('log tabs', () => {
-  it('opens the repo’s log once, and each path’s or sub-repo’s history in a tab of its own', () => {
+  it('opens the repo’s log in the Git tab, and each path’s history in a tab of its own', () => {
     act(() => {
       target().openLog({})
       target().openLog({ path: 'src/a.ts' })
@@ -56,26 +56,29 @@ describe('log tabs', () => {
       target('libs/core').openLog({})
       target('libs/core').openLog({ path: 'x.ts' })
     })
-    expect(keys()).toEqual([
-      'git-log:b1',
-      'git-log:b1::src/a.ts',
-      'git-log:b1::src',
-      'git-log:b1:libs/core:',
-      'git-log:b1:libs/core:x.ts',
-    ])
+    expect(keys()).toEqual(['git:b1', 'git-log:b1::src/a.ts', 'git-log:b1::src', 'git-log:b1:libs/core:x.ts'])
+    expect(tabs()[0]).toMatchObject({ kind: 'git', view: 'log', repo: 'libs/core' })
     act(() => target().openLog({ path: 'src/a.ts', commit: hash('2') }))
-    expect(tabs()).toHaveLength(5)
+    expect(tabs()).toHaveLength(4)
     expect(active()).toBe('git-log:b1::src/a.ts')
     expect(tabs()[1]).toMatchObject({ path: 'src/a.ts', commit: hash('2') })
   })
 
   it('brings the log forward as it is when nothing in particular is asked for', () => {
     act(() => target().openLog({ ref: 'main', commit: hash('2') }))
-    act(() => useWorkbench.getState().patch('git-log:b1', { filter: { author: '小王' } }))
+    act(() =>
+      useWorkbench.getState().patch('git:b1', {
+        log: { ref: 'main', commit: hash('2'), filter: { author: '小王' } },
+        view: 'commit',
+      }),
+    )
     act(() => target().openLog({ path: 'src/a.ts' }))
     act(() => target().openLog({}))
-    expect(active()).toBe('git-log:b1')
-    expect(tabs()[0]).toMatchObject({ ref: 'main', commit: hash('2'), filter: { author: '小王' } })
+    expect(active()).toBe('git:b1')
+    expect(tabs()[0]).toMatchObject({
+      view: 'log',
+      log: { ref: 'main', commit: hash('2'), filter: { author: '小王' } },
+    })
   })
 
   it('keeps a history tab its own while its path filter changes, titled by what it shows', async () => {

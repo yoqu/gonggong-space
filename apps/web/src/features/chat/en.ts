@@ -70,7 +70,6 @@ export default {
   更多工作区: 'More workspaces',
   '展开其余 {n} 个 Bot 的工作区': 'Show the other {n} {n:Bot|Bots}’ workspaces',
   收起更多工作区: 'Hide other workspaces',
-  'Git 失败': 'Git failed',
   '查看 {name} 的改动': "View {name}'s changes",
   改动: 'Changes',
   '浏览 {name} 的文件': "Browse {name}'s files",

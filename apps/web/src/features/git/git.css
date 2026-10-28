@@ -115,132 +115,45 @@
 }
 
 .git-ops {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  flex: none;
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 60vh;
+  max-height: 30%;
   overflow: auto;
+  border-bottom: 1px solid var(--separator);
+  background: var(--tint-orange);
 }
 .git-op {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-check);
-  background: var(--quote-fill);
-}
-.git-op[data-focused="true"] {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-.git-op__head {
-  display: flex;
   align-items: center;
   gap: var(--space-6);
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: var(--text-subheadline-size);
+  color: var(--tint-orange-text);
+}
+.git-op + .git-op {
+  border-top: 1px solid var(--separator);
+}
+.git-op[data-base] {
+  color: var(--tint-red-text);
 }
 .git-op__action {
+  color: var(--label);
   font-weight: 600;
 }
 .git-op__mono {
+  color: var(--label);
   font-family: var(--font-mono);
 }
-.git-op__meta {
-  display: flex;
-  gap: var(--space-8);
+.git-op__meta,
+.git-op__wait {
   color: var(--label-secondary);
-  font-size: var(--text-subheadline-size);
+  white-space: nowrap;
 }
-.git-op__message {
-  white-space: pre-wrap;
-}
-.git-op__output {
-  font-family: var(--font-mono);
-  font-size: var(--text-subheadline-size);
-  white-space: pre-wrap;
-  color: var(--label-secondary);
-}
-.git-op__output--error {
-  color: var(--tint-red-text);
-}
-.git-op__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-6);
-}
-
-.git-console {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--content-bg);
-}
-.git-console__tools,
-.git-console__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-.git-console__tools {
-  flex: none;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--separator);
-}
-.git-console__hint,
-.git-console__meta,
-.git-console__status {
-  color: var(--label-secondary);
-  font-size: var(--text-caption-size);
-}
-.git-console__list {
-  flex: 1;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  list-style: none;
-}
-.git-console__op {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--separator);
-}
-.git-console__op[data-status="failed"] {
-  box-shadow: inset 2px 0 0 var(--tint-red-text);
-}
-.git-console__commands {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.git-console__command-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  color: var(--label-secondary);
-  font-size: var(--text-caption-size);
-}
-.git-console__command-line code {
-  flex: 1 1 100%;
-  color: var(--label);
-  font: 12px / 1.55 var(--font-mono);
-  overflow-wrap: anywhere;
-}
-.git-console__output {
-  max-height: 40vh;
-  margin: 6px 0 0;
-  overflow: auto;
-  color: var(--label);
-  font: 12px / 1.55 var(--font-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.git-console__output[data-error] {
-  color: var(--tint-red-text);
+.git-op__approve {
+  color: var(--tint-green-text);
 }
 
 /* Commit history tab */

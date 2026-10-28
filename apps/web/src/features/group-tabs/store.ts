@@ -88,8 +88,7 @@ export function openGroupTab(tab: GroupTabDto) {
       openTab({ kind: 'file', source: { botId: x.botId, path: x.path } })
       return
     case 'entry':
-      if (x.entry === 'git-log' && x.botId)
-        openTab({ kind: 'git-log', botId: x.botId, ref: null, commit: null })
+      if (x.entry === 'git-log' && x.botId) openTab({ kind: 'git', botId: x.botId, view: 'log' })
       else if (x.entry === 'pins') usePinsExpanded.setState({ at: Date.now() })
       else useInspector.getState().open('group-info', x.entry === 'notice' ? 'notices' : 'schedules')
   }
