@@ -2,9 +2,10 @@ import { TerminalCreateReq, type TerminalDto } from '@gonggong/protocol'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
+import { HttpError } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
 import type { TerminalService } from './sessions.js'
-import { TerminalTransport } from './transport.js'
+import { TerminalRelay } from './transport.js'
 
 type PairParams = { Params: { groupId: string; botId: string } }
 
@@ -23,12 +24,20 @@ export function terminalRoutes({ ctx, terminals }: { ctx: Ctx; terminals: Termin
         const userId = users.get(req)
         if (!userId) return ws.close(1008, 'unauthorized')
         const after = Number(req.query.after ?? 0)
+        if (!Number.isSafeInteger(after) || after < 0) return ws.close(1008, 'invalid terminal cursor')
         try {
-          const { attachment } = await terminals.attach(userId, req.params.sessionId, after)
-          const relay = new TerminalTransport({ owner: async () => {}, attach: async () => attachment })
-          await relay.attach(ws, req.params.sessionId, after)
-        } catch {
-          ws.close(1011, 'terminal unavailable')
+          const { attachment, terminal } = await terminals.attach(userId, req.params.sessionId, after)
+          if (attachment) return void new TerminalRelay(ws, attachment, terminal.sessionId, after)
+          const { sessionId, status: state, exitCode, reason } = terminal
+          ws.send(JSON.stringify({ op: 'exit', sessionId, state, exitCode, reason }), () =>
+            ws.close(1000, state),
+          )
+        } catch (error) {
+          const forbidden = error instanceof HttpError && error.code === 'forbidden'
+          const code = error instanceof HttpError ? error.code : 'unavailable'
+          ws.send(JSON.stringify({ op: 'reset', code, status: 'running' }), () =>
+            ws.close(forbidden ? 1008 : 1011, 'terminal unavailable'),
+          )
         }
       },
     )

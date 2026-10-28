@@ -153,7 +153,8 @@ async fn real_bash_round_trip_ctrl_c_and_ctrl_d() {
     let cwd = shell.workspace.path().canonicalize().unwrap();
     assert!(output.contains(&format!("cwd={}", cwd.display())), "{output}");
 
-    shell.input("printf 'GG_%s\\n' 'INTERRUPT_READY'; sleep 30\r").await;
+    // The marker comes from the job itself, so Ctrl+C cannot arrive before bash hands it the terminal.
+    shell.input("sh -c 'printf \"GG_%s\\n\" INTERRUPT_READY; exec sleep 30'\r").await;
     shell.output("GG_INTERRUPT_READY").await;
     shell.input(Bytes::from_static(b"\x03")).await;
     let output = shell.command("printf 'GG_%s\\n' 'AFTER_CTRL_C'").await;

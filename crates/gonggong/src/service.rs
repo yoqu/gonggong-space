@@ -146,6 +146,11 @@ pub trait Handler: Send + Sync + 'static {
         Vec::new()
     }
 
+    /// Web terminal shells still running, reported in hello so the server can adopt or forget its sessions.
+    fn terminals(&self) -> Vec<crate::protocol::TerminalLive> {
+        Vec::new()
+    }
+
     /// Optional capabilities announced in hello (`protocol::FEATURE_*`).
     fn features(&self) -> Vec<String> {
         Vec::new()
@@ -355,6 +360,7 @@ impl<H: Handler> Service<H> {
             active_runs,
             services: self.handler.services(),
             features: self.handler.features(),
+            terminals: self.handler.terminals(),
         };
         let welcome = async {
             send(&mut ws, &hello).await?;

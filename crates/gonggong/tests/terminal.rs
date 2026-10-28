@@ -74,8 +74,9 @@ async fn live_until(attachment: &mut gonggong::terminal::TerminalAttachment, mar
         loop {
             match attachment.events.recv().await {
                 Some(TerminalEvent::Output(chunk)) => {
+                    let start = output.len().saturating_sub(marker.len());
                     output.extend_from_slice(&chunk.data);
-                    if String::from_utf8_lossy(&output).contains(marker) {
+                    if String::from_utf8_lossy(&output[start..]).contains(marker) {
                         return output;
                     }
                 }
@@ -193,7 +194,8 @@ async fn ctrl_c_and_ctrl_d_are_written_as_pty_bytes_and_exit_is_reported() {
     let fixture = Fixture::new();
     let (open, mut attachment) = fixture.create().await;
     bash(&fixture.manager, &open.session_id, &mut attachment).await;
-    input(&fixture.manager, &open.session_id, "printf 'SLEEP_READY\\n'; sleep 20\r").await;
+    // The marker comes from the job itself, so Ctrl+C cannot arrive before bash hands it the terminal.
+    input(&fixture.manager, &open.session_id, "sh -c 'printf \"SLEEP_%s\\n\" READY; exec sleep 20'\r").await;
     live_until(&mut attachment, "SLEEP_READY").await;
     input(&fixture.manager, &open.session_id, Bytes::from_static(b"\x03")).await;
     command(&fixture.manager, &open.session_id, &mut attachment, ":").await;
@@ -250,17 +252,20 @@ async fn command_without_stream(manager: &TerminalManager, id: &str, cwd: &Path,
 }
 
 #[tokio::test]
-async fn old_replay_cursors_fail_explicitly_and_new_cursors_still_attach() {
+async fn stale_cursors_resume_from_the_oldest_retained_output() {
     let fixture = Fixture::new();
     let (open, mut attachment) = fixture.create().await;
     bash(&fixture.manager, &open.session_id, &mut attachment).await;
     drop(attachment);
     command_without_stream(&fixture.manager, &open.session_id, fixture.work.path(), "yes x | head -c 1126400").await;
 
-    let mut attach = open.clone();
-    attach.action = TerminalOpenAction::Attach;
-    attach.after = 0;
-    assert!(matches!(fixture.manager.open(attach).await, Err(TerminalError::ReplayExpired)));
+    // A reloaded page starts from 0; an old cursor is a reconnect after a long stall. Both get the same shell back.
+    for after in [0, 1] {
+        let attachment = fixture.attach(&open, after).await;
+        assert_eq!(attachment.head.status, TerminalStatus::Running);
+        assert!(attachment.replay[0].seq > after + 1);
+        assert!(attachment.replay.iter().map(|chunk| chunk.data.len()).sum::<usize>() <= 1024 * 1024);
+    }
 
     let cursor = head(&fixture.manager, &open.session_id).await.next;
     let attachment = fixture.attach(&open, cursor).await;
@@ -269,8 +274,80 @@ async fn old_replay_cursors_fail_explicitly_and_new_cursors_still_attach() {
     let attachment = fixture.attach(&open, cursor - 1).await;
     assert_eq!(attachment.replay.len(), 1);
     assert_eq!(attachment.replay[0].seq, cursor);
-    assert!(attachment.replay.iter().map(|chunk| chunk.data.len()).sum::<usize>() <= 1024 * 1024);
+    let mut ahead = open.clone();
+    ahead.action = TerminalOpenAction::Attach;
+    ahead.after = cursor + 1;
+    assert!(matches!(fixture.manager.open(ahead).await, Err(TerminalError::InvalidCursor)));
     fixture.manager.terminate(&open.session_id).await.unwrap();
+}
+
+#[tokio::test]
+async fn input_into_a_program_that_never_reads_cannot_wedge_the_session() {
+    let fixture = Fixture::new();
+    let (open, mut attachment) = fixture.create().await;
+    bash(&fixture.manager, &open.session_id, &mut attachment).await;
+    input(&fixture.manager, &open.session_id, "stty raw -echo; printf 'GG_%s\\n' RAW_READY; sleep 60\r").await;
+    live_until(&mut attachment, "GG_RAW_READY").await;
+
+    // Far more than the PTY input queue holds: the foreground program never reads it.
+    let paste = Bytes::from(vec![b'x'; 4 * 1024 * 1024]);
+    let pasted = timeout(Duration::from_secs(5), fixture.manager.input(&open.session_id, paste)).await;
+    assert!(pasted.is_ok(), "input waited on a PTY nobody reads");
+    assert_eq!(head(&fixture.manager, &open.session_id).await.status, TerminalStatus::Running);
+
+    timeout(Duration::from_secs(8), fixture.manager.terminate(&open.session_id))
+        .await
+        .expect("terminate queued behind blocked input")
+        .unwrap();
+    assert_eq!(wait_for_exit(&mut attachment).await, (None, TerminalEndReason::User));
+}
+
+#[tokio::test]
+async fn a_viewer_that_stops_reading_is_detached_without_stalling_the_shell_or_other_viewers() {
+    let fixture = Fixture::new();
+    let (open, mut stalled) = fixture.create().await;
+    bash(&fixture.manager, &open.session_id, &mut stalled).await;
+
+    input(&fixture.manager, &open.session_id, "yes x | head -c 3000000; : > burst-done\r").await;
+    wait_for_file(&fixture.work.path().join("burst-done")).await;
+    let detached = timeout(Duration::from_secs(5), async {
+        loop {
+            match stalled.events.recv().await {
+                Some(TerminalEvent::Output(_)) => {}
+                Some(TerminalEvent::Exit { .. }) => panic!("the shell ended"),
+                None => return,
+            }
+        }
+    });
+    detached.await.expect("the stalled viewer was never detached");
+    let cursor = head(&fixture.manager, &open.session_id).await.next;
+    let mut live = fixture.attach(&open, cursor).await;
+    command(&fixture.manager, &open.session_id, &mut live, ":").await;
+    assert_eq!(head(&fixture.manager, &open.session_id).await.status, TerminalStatus::Running);
+    fixture.manager.terminate(&open.session_id).await.unwrap();
+}
+
+#[tokio::test]
+async fn ended_sessions_are_forgotten_and_live_ones_are_listed() {
+    let fixture = Fixture::new();
+    let mut ended = vec![];
+    for _ in 0..20 {
+        let (open, _) = fixture.create().await;
+        fixture.manager.terminate(&open.session_id).await.unwrap();
+        ended.push(open.session_id);
+    }
+    assert!(matches!(fixture.manager.head(&ended[0]).await, Err(TerminalError::NotFound)));
+    assert_eq!(head(&fixture.manager, ended.last().unwrap()).await.status, TerminalStatus::Closed);
+
+    let (open, _attachment) = fixture.create().await;
+    let live = fixture.manager.live();
+    assert_eq!(live.len(), 1);
+    assert_eq!(
+        (&live[0].session_id, &live[0].group_id, &live[0].bot_id),
+        (&open.session_id, &open.group_id, &open.bot_id)
+    );
+    fixture.manager.terminate(&open.session_id).await.unwrap();
+    assert!(fixture.manager.live().is_empty());
 }
 
 #[tokio::test]
@@ -357,10 +434,22 @@ async fn idle_shells_and_their_process_trees_are_reaped() {
 async fn pty_master_fds_are_not_inherited_by_other_children() {
     let fixture = Fixture::new();
     let (open, _attachment) = fixture.create().await;
-    let masters = (0..4096)
-        .filter(|&fd| unsafe { libc::isatty(fd) == 1 && libc::unlockpt(fd) == 0 })
-        .map(|fd| (fd, unsafe { libc::fcntl(fd, libc::F_GETFD) } & libc::FD_CLOEXEC != 0))
-        .collect::<Vec<_>>();
+    let scan = || {
+        (0..4096)
+            .filter(|&fd| unsafe { libc::isatty(fd) == 1 && libc::unlockpt(fd) == 0 })
+            .map(|fd| (fd, unsafe { libc::fcntl(fd, libc::F_GETFD) } & libc::FD_CLOEXEC != 0))
+            .collect::<Vec<_>>()
+    };
+    // Tests running in parallel open PTYs too, and portable-pty marks a fresh pair CLOEXEC only after opening it:
+    // only a master that stays inheritable is a leak.
+    let mut masters = scan();
+    for _ in 0..40 {
+        if masters.iter().all(|(_, cloexec)| *cloexec) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        masters = scan();
+    }
     assert!(masters.len() >= 2, "expected the PTY master and its reader duplicate, got {masters:?}");
     assert!(masters.iter().all(|(_, cloexec)| *cloexec), "PTY master fds without FD_CLOEXEC: {masters:?}");
     fixture.manager.terminate(&open.session_id).await.unwrap();

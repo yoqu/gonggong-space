@@ -1,8 +1,14 @@
+import { randomUUID } from 'node:crypto'
 import cookiePlugin from '@fastify/cookie'
-import { TERMINAL_FEATURE, type TerminalCreateReq } from '@gonggong/protocol'
+import {
+  PROTOCOL_VERSION,
+  TERMINAL_FEATURE,
+  type TerminalCreateReq,
+  type TerminalLive,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { bots, groupBots, groupMembers, groupRepos, machines, users } from '../src/db/schema.js'
 import { terminalRoutes } from '../src/modules/terminals/routes.js'
 import {
@@ -10,30 +16,26 @@ import {
   TerminalService,
   type TerminalTransport,
 } from '../src/modules/terminals/sessions.js'
-import { createTestApp, type TestApp } from './support/app.js'
+import { createTestApp, inbox, type TestApp } from './support/app.js'
 
 class FakeTransport implements TerminalTransport {
   opens: unknown[] = []
+  machines: string[] = []
   attachments = 0
-  ended: string[] = []
   terminated: string[] = []
 
-  async attach(open: Parameters<TerminalTransport['attach']>[0]): Promise<TerminalAttachment> {
+  async attach(
+    open: Parameters<TerminalTransport['attach']>[0],
+    machineId: string,
+  ): Promise<TerminalAttachment> {
     this.opens.push(open)
+    this.machines.push(machineId)
     this.attachments += 1
-    return {
-      detach: () => {},
-      close: () => {},
-      send: async () => {},
-      subscribe: () => () => {},
-      pause: () => {},
-      resume: () => {},
-    }
+    return { close: () => {}, send: async () => {}, subscribe: () => {} }
   }
 
-  async terminate(sessionId: string, reason: 'user' | 'revoked') {
-    this.terminated.push(sessionId)
-    if (reason === 'user') this.ended.push(sessionId)
+  async terminate(target: Parameters<TerminalTransport['terminate']>[0]) {
+    this.terminated.push(target.sessionId)
   }
 }
 
@@ -119,14 +121,16 @@ describe('terminal ownership and target resolution', () => {
       reason: 'revoked',
     })
     expect(transport.terminated).toEqual([created.sessionId])
-    await expect(service.attach(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'conflict' })
+    expect(await service.attach(owner.id, created.sessionId)).not.toHaveProperty('attachment')
   })
 
   it('rejects attach and end after the bot moves without requiring a list first', async () => {
     const created = await session()
     const { machine: otherMachine } = await t.seed.machine(owner.id)
     await t.db.update(bots).set({ machineId: otherMachine.id }).where(eq(bots.id, bot.id))
-    await expect(service.attach(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'conflict' })
+    expect(await service.attach(owner.id, created.sessionId)).toMatchObject({
+      terminal: { status: 'closed', reason: 'revoked' },
+    })
     await expect(service.end(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'conflict' })
     expect(transport.terminated).toEqual([created.sessionId])
   })
@@ -175,15 +179,12 @@ describe('terminal ownership and target resolution', () => {
     await service.attach(owner.id, created.sessionId)
     await service.attach(owner.id, created.sessionId)
     expect(transport.opens.map((open) => (open as { action: string }).action)).toEqual(['create', 'attach'])
-    expect(await service.owner(owner.id, created.sessionId)).toMatchObject({
-      userId: owner.id,
-      machineId: machine.id,
-    })
+    expect(transport.machines).toEqual([machine.id, machine.id])
   })
 })
 
 describe('terminal capabilities and session lifecycle', () => {
-  it('requires terminal-v1 and a macOS or Linux daemon', async () => {
+  it('requires terminal-v2 and a macOS or Linux daemon', async () => {
     await expect(session()).resolves.toMatchObject({ status: 'running' })
     const otherMachine = await t.seed.machine(owner.id, { os: 'windows' })
     const windowsBot = await t.seed.bot({ ownerId: owner.id, machineId: otherMachine.machine.id })
@@ -218,7 +219,7 @@ describe('terminal capabilities and session lifecycle', () => {
     let confirm!: () => void
     let requested!: () => void
     const terminationRequested = new Promise<void>((resolve) => (requested = resolve))
-    transport.terminate = async (sessionId) => {
+    transport.terminate = async ({ sessionId }) => {
       transport.terminated.push(sessionId)
       requested()
       await new Promise<void>((resolve) => (confirm = resolve))
@@ -243,21 +244,53 @@ describe('terminal capabilities and session lifecycle', () => {
     })
   })
 
-  it('marks all sessions daemon_restart on disconnect and never reattaches them', async () => {
-    const created = await session()
-    await service.attach(owner.id, created.sessionId)
-    const unwatch = service.watchDisconnects()
+  it('keeps sessions while the daemon is offline and reconciles them with its hello', async () => {
+    const kept = await session()
+    const lost = await session()
+    const fresh = await session()
+    await service.attach(owner.id, kept.sessionId)
+    await service.attach(owner.id, lost.sessionId)
     t.ctx.hub.unregister(machine.id, daemonConnection)
-    await Promise.resolve()
-    await Promise.resolve()
-    unwatch()
-    expect((await service.list(owner.id, group.id, bot.id))[0]).toMatchObject({
+    expect((await service.list(owner.id, group.id, bot.id)).map((s) => s.status)).toEqual([
+      'running',
+      'running',
+      'running',
+    ])
+
+    const adopted = {
+      sessionId: randomUUID(),
+      groupId: group.id,
+      botId: bot.id,
+      cols: 90,
+      rows: 20,
+      createdAt: now.toISOString(),
+    }
+    await service.reconcile(machine.id, [
+      {
+        sessionId: kept.sessionId,
+        groupId: group.id,
+        botId: bot.id,
+        cols: 100,
+        rows: 30,
+        createdAt: kept.createdAt,
+      },
+      adopted,
+    ])
+    const listed = await service.list(owner.id, group.id, bot.id)
+    expect(listed.find((s) => s.sessionId === kept.sessionId)).toMatchObject({ status: 'running' })
+    expect(listed.find((s) => s.sessionId === lost.sessionId)).toMatchObject({
       status: 'daemon_restart',
       reason: 'daemon_restart',
     })
-    await expect(service.attach(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'conflict' })
-    await expect(service.end(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'conflict' })
-    expect(transport.terminated).toEqual([])
+    expect(listed.find((s) => s.sessionId === adopted.sessionId)).toMatchObject({ status: 'running' })
+    expect(listed.find((s) => s.sessionId === fresh.sessionId)).toMatchObject({ status: 'running' })
+    t.ctx.hub.register(machine.id, daemonConnection, [TERMINAL_FEATURE])
+    await service.attach(owner.id, adopted.sessionId, 7)
+    expect(transport.opens.at(-1)).toMatchObject({ action: 'attach', sessionId: adopted.sessionId, after: 7 })
+    expect(await service.attach(owner.id, lost.sessionId)).toMatchObject({
+      terminal: { status: 'daemon_restart' },
+    })
+    await expect(service.end(owner.id, lost.sessionId)).rejects.toMatchObject({ code: 'conflict' })
   })
 
   it('revokes every session when the machine or its owner is disabled and rejects new connections', async () => {
@@ -279,25 +312,19 @@ describe('terminal capabilities and session lifecycle', () => {
     expect(transport.terminated).toContain(next.sessionId)
   })
 
-  it('does not report a revoked shell as closed before daemon confirmation', async () => {
+  it('revokes locally even when the daemon cannot confirm the termination', async () => {
     const created = await session()
-    let fail = true
-    transport.terminate = async (sessionId) => {
-      transport.terminated.push(sessionId)
-      if (fail) throw new Error('daemon did not confirm termination')
+    transport.terminate = async (target) => {
+      transport.terminated.push(target.sessionId)
+      throw new Error('daemon 已断开')
     }
-
     await t.db.update(machines).set({ revokedAt: now }).where(eq(machines.id, machine.id))
-
-    await expect(service.attach(owner.id, created.sessionId)).rejects.toThrow(
-      'daemon did not confirm termination',
-    )
-    fail = false
+    await expect(service.attach(owner.id, created.sessionId)).rejects.toMatchObject({ code: 'forbidden' })
     expect((await service.list(owner.id, group.id, bot.id))[0]).toMatchObject({
       status: 'closed',
       reason: 'revoked',
     })
-    expect(transport.terminated).toEqual([created.sessionId, created.sessionId])
+    expect(transport.terminated).toEqual([created.sessionId])
   })
 })
 
@@ -324,6 +351,66 @@ describe('terminal REST routes without app integration', () => {
       headers: { cookie },
     })
     expect(removed.statusCode).toBe(204)
-    expect(transport.ended).toEqual([created.json().sessionId])
+    expect(transport.terminated).toEqual([created.json().sessionId])
+  })
+})
+
+describe('terminal sessions across daemon reconnects', () => {
+  it('adopts the shells a daemon reports, ends those it later lost, and tells a reattaching browser', async () => {
+    const { machine: m, token } = await t.seed.machine(owner.id)
+    const b = await t.seed.bot({ ownerId: owner.id, machineId: m.id })
+    const g = await t.seed.group({ createdBy: owner.id, botIds: [b.id] })
+    const cookie = await t.seed.cookie(owner.id)
+    const hello = async (terminals: TerminalLive[]) => {
+      const ws = t.ws('/ws/daemon')
+      const box = inbox(ws)
+      await box.opened
+      ws.send(
+        JSON.stringify({
+          t: 'hello',
+          protocol: PROTOCOL_VERSION,
+          token,
+          daemonVersion: '0.1.0',
+          machine: { name: 'm', os: 'macos', arch: 'aarch64' },
+          agents: [],
+          features: [TERMINAL_FEATURE],
+          terminals,
+        }),
+      )
+      expect(await box.next()).toMatchObject({ t: 'welcome' })
+      return ws
+    }
+    const created = {
+      sessionId: randomUUID(),
+      groupId: g.id,
+      botId: b.id,
+      cols: 80,
+      rows: 24,
+      createdAt: now.toISOString(),
+    }
+    const path = t.url(`/api/groups/${g.id}/bots/${b.id}/terminals`)
+    const first = await hello([created])
+    await vi.waitFor(async () =>
+      expect(await fetch(path, { headers: { cookie } }).then((r) => r.json())).toMatchObject([
+        { sessionId: created.sessionId, status: 'running' },
+      ]),
+    )
+    first.close()
+
+    const second = await hello([])
+    await vi.waitFor(async () =>
+      expect(await fetch(path, { headers: { cookie } }).then((r) => r.json())).toMatchObject([
+        { sessionId: created.sessionId, status: 'daemon_restart' },
+      ]),
+    )
+    const browser = t.ws(`/ws/terminals/${created.sessionId}`, { cookie })
+    const box = inbox(browser)
+    expect(await box.next()).toMatchObject({
+      op: 'exit',
+      sessionId: created.sessionId,
+      state: 'daemon_restart',
+    })
+    expect(await box.closed).toBe(1000)
+    second.close()
   })
 })

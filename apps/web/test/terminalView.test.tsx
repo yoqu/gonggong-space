@@ -159,6 +159,10 @@ class Socket {
 const lastTerm = () => mocks.Terminal.instances.at(-1)!
 const lastFit = () => mocks.FitAddon.instances.at(-1)!
 const lastSocket = () => Socket.instances.at(-1)!
+const written = () =>
+  lastTerm()
+    .writes.map((w) => new TextDecoder().decode(w))
+    .join('')
 
 beforeEach(() => {
   vi.stubGlobal('WebSocket', Socket)
@@ -286,6 +290,64 @@ describe('terminal view', () => {
       lastSocket().json({ sessionId, status: 'running', next: 9 })
     })
     expect(screen.getByText('终端运行中')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('reconnects after a server reset and continues the output where it left off', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<TerminalView sessionId={sessionId} active />)
+    act(() => {
+      lastSocket().open()
+      lastSocket().json({ sessionId, status: 'running', next: 1 })
+      lastSocket().data(3, 'a')
+      lastSocket().json({ op: 'reset', code: 'slow_client', status: 'running' })
+      lastSocket().disconnect(1013)
+    })
+    expect(screen.getByText('正在连接终端…')).toBeTruthy()
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+    expect(lastSocket().url).toBe(`ws://terminals/${sessionId}?after=3`)
+    act(() => {
+      lastSocket().open()
+      lastSocket().json({ sessionId, status: 'running', next: 4 })
+      lastSocket().data(4, 'b')
+    })
+    await waitFor(() => expect(written()).toBe('ab'))
+    expect(screen.getByText('终端运行中')).toBeTruthy()
+    vi.useRealTimers()
+  })
+
+  it('clears the screen before redrawing when its cursor fell out of the retained output', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<TerminalView sessionId={sessionId} active />)
+    act(() => {
+      lastSocket().open()
+      lastSocket().data(3, 'old')
+      lastSocket().disconnect()
+    })
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+    act(() => {
+      lastSocket().open()
+      lastSocket().data(40, 'retained')
+    })
+    await waitFor(() => expect(written()).toBe('old\x1bcretained'))
+    vi.useRealTimers()
+  })
+
+  it('gives up on a session the server keeps reporting as missing', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    render(<TerminalView sessionId={sessionId} active />)
+    for (let i = 0; i < 6; i++) {
+      act(() => {
+        lastSocket().open()
+        lastSocket().json({ op: 'reset', code: 'not_found', status: 'running' })
+        lastSocket().disconnect(1011)
+      })
+      await act(async () => vi.advanceTimersByTimeAsync(5_000))
+    }
+    expect(screen.getByText('终端不存在或已结束')).toBeTruthy()
+    const sockets = Socket.instances.length
+    await act(async () => vi.advanceTimersByTimeAsync(10_000))
+    expect(Socket.instances).toHaveLength(sockets)
     vi.useRealTimers()
   })
 })

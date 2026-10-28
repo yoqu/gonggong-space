@@ -21,6 +21,8 @@ type Phase = 'loading' | 'running' | 'exited' | 'error'
 type Exit = { code: number | null; reason: string | null } | null
 type Message = { type: 'head' | 'reset' | 'exit'; value: Record<string, unknown> }
 const pendingCreates = new Map<string, Promise<string>>()
+const MAX_MISSING_ATTEMPTS = 5
+const RESET_SCREEN = new TextEncoder().encode('\x1bc')
 
 export type { TerminalViewProps } from './view'
 
@@ -190,18 +192,25 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
         if (value.code === 'forbidden' || value.status === 403) {
           fail(t('没有权限使用此终端，仅机器主人可访问'))
         } else if (message.type === 'reset') {
-          fail(typeof value.message === 'string' ? value.message : t('终端连接已断开'))
+          // The socket closes right after a reset and reconnects from `after`; only a session that stays missing ends.
+          if (value.code === 'not_found' && attempts >= MAX_MISSING_ATTEMPTS) fail(t('终端不存在或已结束'))
         } else if (message.type === 'exit' || (value.status && value.status !== 'running')) {
           finish(
             typeof value.exitCode === 'number' ? value.exitCode : null,
             typeof value.reason === 'string' ? value.reason : null,
           )
-        } else setPhase('running')
+        } else {
+          attempts = 0
+          setPhase('running')
+        }
         return
       }
       void bytes(event.data).then((data) => {
         if (disposed || data.byteLength < 4) return
-        after = new DataView(data.buffer, data.byteOffset, 4).getUint32(0)
+        const seq = new DataView(data.buffer, data.byteOffset, 4).getUint32(0)
+        // A cursor older than the daemon's retained output resumes past a gap: redraw from what is left.
+        if (after && seq > after + 1) output.write(RESET_SCREEN)
+        after = seq
         output.write(data.subarray(4))
       })
     }
@@ -212,7 +221,6 @@ export function TerminalView({ sessionId, groupId, botId, active, onSession, onE
       socket.current = ws
       ws.onmessage = onMessage
       ws.onopen = () => {
-        attempts = 0
         if (!disposed && shown.current) fit.fit()
       }
       const retry = () => {

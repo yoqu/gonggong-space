@@ -1,7 +1,7 @@
 use crate::protocol::{
     TERMINAL_IDLE_MS, TERMINAL_MAX_BUFFERED_BYTES, TERMINAL_MAX_PER_MACHINE, TERMINAL_REPLAY_BYTES,
-    TERMINAL_REPLAY_CHUNKS, TerminalClientControl, TerminalEndReason, TerminalHead, TerminalOpen, TerminalOpenAction,
-    TerminalStatus,
+    TERMINAL_REPLAY_CHUNKS, TerminalClientControl, TerminalEndReason, TerminalHead, TerminalLive, TerminalOpen,
+    TerminalOpenAction, TerminalStatus,
 };
 use crate::workspace;
 use hyper::body::Bytes;
@@ -9,17 +9,21 @@ use portable_pty::{CommandBuilder, ExitStatus, MasterPty, PtySize, native_pty_sy
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::os::fd::{FromRawFd, OwnedFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, Weak, mpsc as sync_mpsc};
 use std::time::Duration;
 use thiserror::Error;
-use tokio::sync::{Mutex as AsyncMutex, mpsc, oneshot};
+use tokio::sync::{Mutex as AsyncMutex, mpsc};
 
 const CHUNK_SIZE: usize = 16 * 1024;
-const COMMAND_QUEUE: usize = TERMINAL_MAX_BUFFERED_BYTES / CHUNK_SIZE / 2;
+/// Keystrokes waiting for the PTY; beyond it input is refused instead of waiting on a program that does not read.
+const INPUT_QUEUE: usize = TERMINAL_MAX_BUFFERED_BYTES / CHUNK_SIZE / 4;
 const OUTPUT_QUEUE: usize = TERMINAL_MAX_BUFFERED_BYTES / CHUNK_SIZE;
+/// Ended sessions kept so a late attach still learns how the shell ended.
+const ENDED_KEPT: usize = 16;
+const POLL_MS: i32 = 100;
 
 #[derive(Debug, Error)]
 pub enum TerminalError {
@@ -29,12 +33,12 @@ pub enum TerminalError {
     AlreadyExists,
     #[error("terminal_limit")]
     SessionLimit,
-    #[error("replay_expired")]
-    ReplayExpired,
     #[error("invalid_replay_cursor")]
     InvalidCursor,
     #[error("terminal_not_running")]
     NotRunning,
+    #[error("terminal_input_backlog")]
+    InputBacklog,
     #[error("workspace_not_found")]
     WorkspaceUnavailable,
     #[error("invalid_terminal_size")]
@@ -57,6 +61,8 @@ pub enum TerminalEvent {
     Exit { next: u64, exit_code: Option<i32>, reason: TerminalEndReason },
 }
 
+/// A viewer of one session. Its events end without an `Exit` when it fell too far behind: it reattaches from its
+/// last sequence instead of holding up the shell or the other viewers.
 pub struct TerminalAttachment {
     pub head: TerminalHead,
     pub replay: Vec<TerminalOutput>,
@@ -77,12 +83,14 @@ struct Subscription {
     state: Arc<Mutex<State>>,
 }
 
+type Sessions = Arc<Mutex<HashMap<String, Arc<Session>>>>;
+
 #[derive(Clone)]
 pub struct TerminalManager {
     home: PathBuf,
-    sessions: Arc<Mutex<HashMap<String, Arc<Session>>>>,
+    sessions: Sessions,
     open_lock: Arc<AsyncMutex<()>>,
-    reaper: Arc<Reaper>,
+    _reaper: Arc<Reaper>,
 }
 
 impl TerminalManager {
@@ -91,18 +99,13 @@ impl TerminalManager {
     }
 
     pub fn with_idle_timeout(home: PathBuf, idle: Duration) -> Self {
-        let sessions = Arc::new(Mutex::new(HashMap::new()));
-        let manager = Self {
-            home,
-            sessions: sessions.clone(),
-            open_lock: Arc::default(),
-            reaper: Arc::new(Reaper { task: Mutex::new(None) }),
-        };
-        *manager.reaper.task.lock().unwrap() = Some(tokio::spawn(reap_idle(Arc::downgrade(&sessions), idle)));
-        manager
+        let sessions = Sessions::default();
+        let reaper = Reaper(tokio::spawn(reap_idle(Arc::downgrade(&sessions), idle)));
+        Self { home, sessions, open_lock: Arc::default(), _reaper: Arc::new(reaper) }
     }
 
-    /// Dropping the returned attachment only disconnects its web stream.
+    /// Dropping the returned attachment only disconnects its web stream. An `after` older than the retained output
+    /// resumes from the oldest retained chunk: the viewer sees the gap and redraws.
     pub async fn open(&self, open: TerminalOpen) -> Result<TerminalAttachment, TerminalError> {
         validate_size(open.cols, open.rows)?;
         let _guard = self.open_lock.lock().await;
@@ -112,15 +115,12 @@ impl TerminalManager {
                     return Err(TerminalError::InvalidCursor);
                 }
                 {
-                    let sessions = self.sessions.lock().unwrap();
+                    let mut sessions = self.sessions.lock().unwrap();
                     if sessions.contains_key(&open.session_id) {
                         return Err(TerminalError::AlreadyExists);
                     }
-                    let active = sessions
-                        .values()
-                        .filter(|session| session.state.lock().unwrap().head.status == TerminalStatus::Running)
-                        .count();
-                    if active >= TERMINAL_MAX_PER_MACHINE {
+                    forget_ended(&mut sessions);
+                    if sessions.values().filter(|session| session.running()).count() >= TERMINAL_MAX_PER_MACHINE {
                         return Err(TerminalError::SessionLimit);
                     }
                 }
@@ -133,56 +133,57 @@ impl TerminalManager {
                 self.sessions.lock().unwrap().insert(open.session_id, session);
                 Ok(attachment)
             }
-            TerminalOpenAction::Attach => {
-                let session = self
-                    .sessions
-                    .lock()
-                    .unwrap()
-                    .get(&open.session_id)
-                    .filter(|session| session.group_id == open.group_id && session.bot_id == open.bot_id)
-                    .cloned()
-                    .ok_or(TerminalError::NotFound)?;
-                session.attach(open.after)
-            }
+            TerminalOpenAction::Attach => self.session_in(&open)?.attach(open.after),
+            TerminalOpenAction::Terminate => unreachable!("terminate opens are answered by terminate_open"),
         }
     }
 
-    /// Raw keyboard bytes: Ctrl+C/Ctrl+D are not lifecycle commands.
+    /// Raw keyboard bytes: Ctrl+C/Ctrl+D are not lifecycle commands. Never waits for the PTY: input a program does
+    /// not read fails with [`TerminalError::InputBacklog`] once the queue is full.
     pub async fn input(&self, session_id: &str, data: impl Into<Bytes>) -> Result<(), TerminalError> {
         let mut data = data.into();
         let session = self.session(session_id)?;
-        while !data.is_empty() {
-            let take = data.len().min(CHUNK_SIZE);
-            let chunk = data.split_to(take);
-            let (reply, result) = oneshot::channel();
-            session.command(Command::Input { data: chunk, reply }).await?;
-            result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)?;
+        if !session.running() {
+            return Err(TerminalError::NotRunning);
         }
+        while !data.is_empty() {
+            let chunk = data.split_to(data.len().min(CHUNK_SIZE));
+            session.input.try_send(chunk).map_err(|error| match error {
+                sync_mpsc::TrySendError::Full(_) => TerminalError::InputBacklog,
+                sync_mpsc::TrySendError::Disconnected(_) => TerminalError::NotRunning,
+            })?;
+        }
+        touch(&session.state);
         Ok(())
     }
 
     pub async fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<TerminalHead, TerminalError> {
         validate_size(cols, rows)?;
         let session = self.session(session_id)?;
-        let (reply, result) = oneshot::channel();
-        session.command(Command::Resize { cols, rows, reply }).await?;
-        result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)?;
-        Ok(session.state.lock().unwrap().head.clone())
+        if !session.running() {
+            return Err(TerminalError::NotRunning);
+        }
+        session
+            .master
+            .lock()
+            .unwrap()
+            .resize(size(cols, rows))
+            .map_err(|error| TerminalError::Io(error.to_string()))?;
+        let mut state = session.state.lock().unwrap();
+        state.head.cols = cols;
+        state.head.rows = rows;
+        drop(state);
+        touch(&session.state);
+        Ok(session.head())
     }
 
     pub async fn terminate(&self, session_id: &str) -> Result<TerminalHead, TerminalError> {
-        self.end(session_id, TerminalEndReason::User).await
+        self.session(session_id)?.terminate(TerminalEndReason::User).await
     }
 
-    async fn end(&self, session_id: &str, reason: TerminalEndReason) -> Result<TerminalHead, TerminalError> {
-        let session = self.session(session_id)?;
-        if session.state.lock().unwrap().head.status != TerminalStatus::Running {
-            return Ok(session.state.lock().unwrap().head.clone());
-        }
-        let (reply, result) = oneshot::channel();
-        session.command(Command::Terminate { reason, reply }).await?;
-        result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)?;
-        Ok(session.state.lock().unwrap().head.clone())
+    /// The `terminate` open action: the session must belong to the opener's group and bot, like an attach.
+    pub async fn terminate_open(&self, open: &TerminalOpen) -> Result<TerminalHead, TerminalError> {
+        self.session_in(open)?.terminate(TerminalEndReason::User).await
     }
 
     pub async fn control(&self, control: TerminalClientControl) -> Result<TerminalHead, TerminalError> {
@@ -194,30 +195,61 @@ impl TerminalManager {
     }
 
     pub async fn head(&self, session_id: &str) -> Result<TerminalHead, TerminalError> {
-        Ok(self.session(session_id)?.state.lock().unwrap().head.clone())
+        Ok(self.session(session_id)?.head())
+    }
+
+    /// Running shells, for hello.
+    pub fn live(&self) -> Vec<TerminalLive> {
+        self.sessions
+            .lock()
+            .unwrap()
+            .values()
+            .filter_map(|session| {
+                let head = session.head();
+                (head.status == TerminalStatus::Running).then(|| TerminalLive {
+                    session_id: head.session_id,
+                    group_id: session.group_id.clone(),
+                    bot_id: session.bot_id.clone(),
+                    cols: head.cols,
+                    rows: head.rows,
+                    created_at: head.created_at,
+                })
+            })
+            .collect()
     }
 
     fn session(&self, id: &str) -> Result<Arc<Session>, TerminalError> {
         self.sessions.lock().unwrap().get(id).cloned().ok_or(TerminalError::NotFound)
     }
+
+    fn session_in(&self, open: &TerminalOpen) -> Result<Arc<Session>, TerminalError> {
+        let session = self.session(&open.session_id)?;
+        if session.group_id != open.group_id || session.bot_id != open.bot_id {
+            return Err(TerminalError::NotFound);
+        }
+        Ok(session)
+    }
 }
 
-struct Session {
-    group_id: String,
-    bot_id: String,
-    state: Arc<Mutex<State>>,
-    commands: mpsc::Sender<Command>,
+fn forget_ended(sessions: &mut HashMap<String, Arc<Session>>) {
+    let mut ended = sessions
+        .iter()
+        .filter_map(|(id, session)| session.state.lock().unwrap().ended.map(|at| (at, id.clone())))
+        .collect::<Vec<_>>();
+    if ended.len() < ENDED_KEPT {
+        return;
+    }
+    ended.sort();
+    for (_, id) in &ended[..ended.len() + 1 - ENDED_KEPT] {
+        sessions.remove(id);
+    }
 }
 
-struct Reaper {
-    task: Mutex<Option<tokio::task::JoinHandle<()>>>,
-}
+struct Reaper(tokio::task::JoinHandle<()>);
 
 impl Drop for Reaper {
     fn drop(&mut self) {
-        if let Some(task) = self.task.get_mut().unwrap().take() {
-            task.abort();
-        }
+        self.0.abort();
     }
 }
 
@@ -226,25 +258,30 @@ async fn reap_idle(sessions: Weak<Mutex<HashMap<String, Arc<Session>>>>, idle: D
     loop {
         tokio::time::sleep(interval).await;
         let now = tokio::time::Instant::now();
-        let expired = {
-            let Some(sessions) = sessions.upgrade() else { return };
-            let sessions = sessions.lock().unwrap();
-            sessions
-                .iter()
-                .filter_map(|(_, session)| {
-                    let mut state = session.state.lock().unwrap();
-                    (state.head.status == TerminalStatus::Running && now.duration_since(state.last_active) >= idle)
-                        .then(|| {
-                            state.head.status = TerminalStatus::Closed;
-                            session.clone()
-                        })
-                })
-                .collect::<Vec<_>>()
-        };
+        let Some(sessions) = sessions.upgrade() else { return };
+        let expired = sessions
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|session| {
+                session.running() && now.duration_since(session.state.lock().unwrap().last_active) >= idle
+            })
+            .cloned()
+            .collect::<Vec<_>>();
         for session in expired {
-            let _ = session.terminate_claimed(TerminalEndReason::IdleTimeout).await;
+            // A failed kill leaves the session running, so the next round tries again.
+            tokio::spawn(async move { session.terminate(TerminalEndReason::IdleTimeout).await });
         }
     }
+}
+
+struct Session {
+    group_id: String,
+    bot_id: String,
+    state: Arc<Mutex<State>>,
+    master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+    input: sync_mpsc::SyncSender<Bytes>,
+    root_pid: u32,
 }
 
 impl Session {
@@ -271,11 +308,21 @@ impl Session {
             replay_bytes: 0,
             subscribers: HashMap::new(),
             next_subscriber: 0,
+            terminating: false,
+            exited: None,
+            ended: None,
         }));
-        let (commands, receiver) = mpsc::channel(COMMAND_QUEUE);
-        let session = Arc::new(Self { group_id: open.group_id, bot_id: open.bot_id, state: state.clone(), commands });
-        tokio::spawn(run_session(spawned, state, receiver));
-        Ok(session)
+        let Spawned { master, input, root_pid, events, stop } = spawned;
+        tokio::spawn(run_session(events, stop, state.clone()));
+        Ok(Arc::new(Self { group_id: open.group_id, bot_id: open.bot_id, state, master, input, root_pid }))
+    }
+
+    fn running(&self) -> bool {
+        self.state.lock().unwrap().head.status == TerminalStatus::Running
+    }
+
+    fn head(&self) -> TerminalHead {
+        self.state.lock().unwrap().head.clone()
     }
 
     fn attach(&self, after: u64) -> Result<TerminalAttachment, TerminalError> {
@@ -284,34 +331,41 @@ impl Session {
         if after > state.head.next {
             return Err(TerminalError::InvalidCursor);
         }
-        let oldest = state.replay.front().map_or(state.head.next + 1, |chunk| chunk.seq);
-        if after + 1 < oldest {
-            return Err(TerminalError::ReplayExpired);
-        }
         let replay = state.replay.iter().filter(|chunk| chunk.seq > after).cloned().collect();
         let head = state.head.clone();
-        let subscription = if head.status == TerminalStatus::Running {
+        let subscription = (head.status == TerminalStatus::Running).then(|| {
             state.next_subscriber += 1;
             let id = state.next_subscriber;
             state.subscribers.insert(id, events);
-            Some(Subscription { id, state: self.state.clone() })
-        } else {
-            None
-        };
+            Subscription { id, state: self.state.clone() }
+        });
         Ok(TerminalAttachment { head, replay, events: receiver, subscription })
     }
 
-    async fn command(&self, command: Command) -> Result<(), TerminalError> {
-        if self.state.lock().unwrap().head.status != TerminalStatus::Running {
-            return Err(TerminalError::NotRunning);
+    /// Kills the shell's whole process tree first; the session ends only once that worked.
+    async fn terminate(&self, reason: TerminalEndReason) -> Result<TerminalHead, TerminalError> {
+        {
+            let mut state = self.state.lock().unwrap();
+            if state.head.status != TerminalStatus::Running {
+                return Ok(state.head.clone());
+            }
+            state.terminating = true;
         }
-        self.commands.send(command).await.map_err(|_| TerminalError::NotRunning)
-    }
-
-    async fn terminate_claimed(&self, reason: TerminalEndReason) -> Result<(), TerminalError> {
-        let (reply, result) = oneshot::channel();
-        self.commands.send(Command::Terminate { reason, reply }).await.map_err(|_| TerminalError::NotRunning)?;
-        result.await.map_err(|_| TerminalError::NotRunning)?.map_err(TerminalError::Io)
+        let root_pid = self.root_pid;
+        let killed = tokio::task::spawn_blocking(move || kill_session(root_pid))
+            .await
+            .map_err(|error| error.to_string())
+            .and_then(|result| result);
+        let mut state = self.state.lock().unwrap();
+        state.terminating = false;
+        if let Err(error) = killed {
+            if let Some((status, exit_code, reason)) = state.exited.take() {
+                end(&mut state, status, exit_code, reason);
+            }
+            return Err(TerminalError::Io(error));
+        }
+        end(&mut state, TerminalStatus::Closed, None, reason);
+        Ok(state.head.clone())
     }
 }
 
@@ -322,140 +376,75 @@ struct State {
     replay_bytes: usize,
     subscribers: HashMap<u64, mpsc::Sender<TerminalEvent>>,
     next_subscriber: u64,
-}
-
-enum Command {
-    Input { data: Bytes, reply: oneshot::Sender<Result<(), String>> },
-    Resize { cols: u16, rows: u16, reply: oneshot::Sender<Result<(), String>> },
-    Terminate { reason: TerminalEndReason, reply: oneshot::Sender<Result<(), String>> },
+    /// Set while a terminate kills the process tree; only the terminate ends the session then.
+    terminating: bool,
+    /// The shell's own end, seen while terminating; reported if the kill fails.
+    exited: Option<(TerminalStatus, Option<i32>, TerminalEndReason)>,
+    ended: Option<std::time::Instant>,
 }
 
 struct Spawned {
     master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
-    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    input: sync_mpsc::SyncSender<Bytes>,
     root_pid: u32,
     events: mpsc::Receiver<IoEvent>,
-    cancel_reader: Arc<AtomicBool>,
+    stop: Arc<AtomicBool>,
 }
 
 enum IoEvent {
     Output(Vec<u8>),
     Eof,
     Exit(ExitStatus),
-    Error(String),
+    Error,
 }
 
 impl From<std::io::Error> for IoEvent {
-    fn from(error: std::io::Error) -> Self {
-        Self::Error(error.to_string())
+    fn from(_: std::io::Error) -> Self {
+        Self::Error
     }
 }
 
-struct ReaderCancel(Arc<AtomicBool>);
+/// Stops the PTY reader and writer threads once the session is over.
+struct StopThreads(Arc<AtomicBool>);
 
-impl Drop for ReaderCancel {
+impl Drop for StopThreads {
     fn drop(&mut self) {
         self.0.store(true, Ordering::Relaxed);
     }
 }
 
-async fn run_session(mut spawned: Spawned, state: Arc<Mutex<State>>, mut commands: mpsc::Receiver<Command>) {
-    let _cancel = ReaderCancel(spawned.cancel_reader.clone());
+async fn run_session(mut events: mpsc::Receiver<IoEvent>, stop: Arc<AtomicBool>, state: Arc<Mutex<State>>) {
+    let _stop = StopThreads(stop);
     let mut child_exit = None;
     let mut reader_eof = false;
-    let mut commands_open = true;
     let exit_grace = tokio::time::sleep(Duration::from_secs(1));
     tokio::pin!(exit_grace);
     loop {
         tokio::select! {
-            command = commands.recv(), if commands_open => match command {
-                Some(Command::Input { data, reply }) => {
-                    let writer = spawned.writer.clone();
-                    let result = tokio::task::spawn_blocking(move || {
-                        let mut writer = writer.lock().unwrap();
-                        writer.write_all(&data).and_then(|()| writer.flush()).map_err(|error| error.to_string())
-                    }).await.map_err(|error| error.to_string()).and_then(|result| result);
-                    if result.is_ok() {
-                        touch(&state);
-                    }
-                    let failed = result.is_err();
-                    let _ = reply.send(result);
-                    if failed {
-                        finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error).await;
-                        return;
-                    }
-                }
-                Some(Command::Resize { cols, rows, reply }) => {
-                    let master = spawned.master.clone();
-                    let result = tokio::task::spawn_blocking(move || {
-                        master.lock().unwrap().resize(size(cols, rows)).map_err(|error| error.to_string())
-                    }).await.map_err(|error| error.to_string()).and_then(|result| result);
-                    if result.is_ok() {
-                        let mut state = state.lock().unwrap();
-                        state.head.cols = cols;
-                        state.head.rows = rows;
-                        state.head.last_active_at = now();
-                        state.last_active = tokio::time::Instant::now();
-                    }
-                    let failed = result.is_err();
-                    let _ = reply.send(result);
-                    if failed {
-                        finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error).await;
-                        return;
-                    }
-                }
-                Some(Command::Terminate { reason, reply }) => {
-                    let root_pid = spawned.root_pid;
-                    let result = tokio::task::spawn_blocking(move || kill_session(root_pid))
-                        .await
-                        .map_err(|error| error.to_string())
-                        .and_then(|result| result);
-                    if result.is_ok() {
-                        finish(&state, TerminalStatus::Closed, None, reason).await;
-                    }
-                    let failed = result.is_err();
-                    let _ = reply.send(result);
-                    if !failed {
-                        return;
-                    }
-                }
-                None => commands_open = false,
-            },
-            event = spawned.events.recv() => match event {
-                Some(IoEvent::Output(data)) => publish(&state, data).await,
+            event = events.recv() => match event {
+                Some(IoEvent::Output(data)) => publish(&state, data),
                 Some(IoEvent::Eof) => {
                     reader_eof = true;
                     if let Some(status) = child_exit.take() {
-                        finish_exit(&state, status).await;
-                        return;
+                        return finish_exit(&state, status);
                     }
                 }
                 Some(IoEvent::Exit(status)) => {
-                    child_exit = Some(status);
                     if reader_eof {
-                        finish_exit(&state, child_exit.take().unwrap()).await;
-                        return;
+                        return finish_exit(&state, status);
                     }
+                    child_exit = Some(status);
                     exit_grace.as_mut().reset(tokio::time::Instant::now() + Duration::from_secs(1));
                 }
-                Some(IoEvent::Error(error)) => {
-                    let _ = error;
-                    finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error).await;
-                    return;
-                }
+                Some(IoEvent::Error) => return finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error),
                 None => {
-                    if let Some(status) = child_exit.take() {
-                        finish_exit(&state, status).await;
-                    } else {
-                        finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error).await;
-                    }
-                    return;
+                    return match child_exit.take() {
+                        Some(status) => finish_exit(&state, status),
+                        None => finish(&state, TerminalStatus::Exited, None, TerminalEndReason::Error),
+                    };
                 }
             },
-            _ = &mut exit_grace, if child_exit.is_some() => {
-                finish_exit(&state, child_exit.take().unwrap()).await;
-                return;
-            }
+            _ = &mut exit_grace, if child_exit.is_some() => return finish_exit(&state, child_exit.take().unwrap()),
         }
     }
 }
@@ -469,23 +458,25 @@ fn spawn_pty(cwd: PathBuf, cols: u16, rows: u16) -> Result<Spawned, TerminalErro
     let mut child = pair.slave.spawn_command(command).map_err(|error| TerminalError::Spawn(error.to_string()))?;
     let root_pid = child.process_id().ok_or_else(|| TerminalError::Spawn("missing shell pid".into()))?;
     let writer = pair.master.take_writer().map_err(|error| TerminalError::Spawn(error.to_string()))?;
-    let reader = clone_reader(&*pair.master)?;
-    let master = Arc::new(Mutex::new(pair.master));
-    let writer = Arc::new(Mutex::new(writer));
+    let reader = clone_nonblocking(&*pair.master)?;
+    let fd = pair.master.as_raw_fd().ok_or_else(|| TerminalError::Spawn("missing PTY fd".into()))?;
     let (events, receiver) = mpsc::channel(OUTPUT_QUEUE);
-    let cancel_reader = Arc::new(AtomicBool::new(false));
-    spawn_reader(reader, events.clone(), cancel_reader.clone());
+    let (input, queue) = sync_mpsc::sync_channel(INPUT_QUEUE);
+    let stop = Arc::new(AtomicBool::new(false));
+    spawn_writer(writer, fd, queue, stop.clone());
+    spawn_reader(reader, events.clone(), stop.clone());
     std::thread::spawn(move || {
         let result = child.wait().map(IoEvent::Exit).unwrap_or_else(IoEvent::from);
         let _ = events.blocking_send(result);
     });
-    Ok(Spawned { master, writer, root_pid, events: receiver, cancel_reader })
+    Ok(Spawned { master: Arc::new(Mutex::new(pair.master)), input, root_pid, events: receiver, stop })
 }
 
-fn clone_reader(master: &dyn MasterPty) -> Result<File, TerminalError> {
+/// A duplicate of the PTY master for the reader thread. O_NONBLOCK belongs to the open file description, so every
+/// handle on the master, the writer's too, stops blocking: both threads wait in poll() and can be stopped.
+fn clone_nonblocking(master: &dyn MasterPty) -> Result<File, TerminalError> {
     let fd = master.as_raw_fd().ok_or_else(|| TerminalError::Spawn("missing PTY fd".into()))?;
-    // A nonblocking duplicate can be cancelled without closing an fd in use by another thread. CLOEXEC is set
-    // atomically so agents and git spawned meanwhile cannot inherit another group's terminal.
+    // CLOEXEC is set atomically so agents and git spawned meanwhile cannot inherit another group's terminal.
     let duplicate = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
     if duplicate < 0 {
         return Err(TerminalError::Io(std::io::Error::last_os_error().to_string()));
@@ -498,13 +489,17 @@ fn clone_reader(master: &dyn MasterPty) -> Result<File, TerminalError> {
     Ok(File::from(owned))
 }
 
-fn spawn_reader(mut reader: File, events: mpsc::Sender<IoEvent>, cancel: Arc<AtomicBool>) {
+/// Waits until `fd` is ready for `events` or [`POLL_MS`] passed; false once `stop` is set.
+fn wait_ready(fd: RawFd, events: libc::c_short, stop: &AtomicBool) -> bool {
+    let mut poll = libc::pollfd { fd, events, revents: 0 };
+    unsafe { libc::poll(&mut poll, 1, POLL_MS) };
+    !stop.load(Ordering::Relaxed)
+}
+
+fn spawn_reader(mut reader: File, events: mpsc::Sender<IoEvent>, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let mut buffer = vec![0; CHUNK_SIZE];
         loop {
-            if cancel.load(Ordering::Relaxed) {
-                return;
-            }
             match reader.read(&mut buffer) {
                 Ok(0) => {
                     let _ = events.blocking_send(IoEvent::Eof);
@@ -516,7 +511,9 @@ fn spawn_reader(mut reader: File, events: mpsc::Sender<IoEvent>, cancel: Arc<Ato
                     }
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    std::thread::sleep(Duration::from_millis(5));
+                    if !wait_ready(reader.as_raw_fd(), libc::POLLIN, &stop) {
+                        return;
+                    }
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
                 #[cfg(target_os = "linux")]
@@ -534,50 +531,81 @@ fn spawn_reader(mut reader: File, events: mpsc::Sender<IoEvent>, cancel: Arc<Ato
     });
 }
 
-async fn publish(state: &Arc<Mutex<State>>, data: Vec<u8>) {
-    let output = {
-        let mut state = state.lock().unwrap();
-        state.head.next += 1;
-        state.head.last_active_at = now();
-        state.last_active = tokio::time::Instant::now();
-        let output = TerminalOutput { seq: state.head.next, data: Bytes::from(data) };
-        state.replay_bytes += output.data.len();
-        state.replay.push_back(output.clone());
-        while state.replay_bytes > TERMINAL_REPLAY_BYTES || state.replay.len() > TERMINAL_REPLAY_CHUNKS {
-            let removed = state.replay.pop_front().unwrap();
-            state.replay_bytes -= removed.data.len();
+/// Writes queued input on its own thread: a program that never reads stalls only this thread, never the session.
+/// A write error is left to the reader and wait() to report.
+fn spawn_writer(
+    mut writer: Box<dyn Write + Send>,
+    fd: RawFd,
+    queue: sync_mpsc::Receiver<Bytes>,
+    stop: Arc<AtomicBool>,
+) {
+    std::thread::spawn(move || {
+        while !stop.load(Ordering::Relaxed) {
+            let Ok(data) = queue.recv_timeout(Duration::from_millis(POLL_MS as u64)) else {
+                if matches!(queue.try_recv(), Err(sync_mpsc::TryRecvError::Disconnected)) {
+                    return;
+                }
+                continue;
+            };
+            let mut rest = &data[..];
+            while !rest.is_empty() {
+                match writer.write(rest) {
+                    Ok(written) => rest = &rest[written..],
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if !wait_ready(fd, libc::POLLOUT, &stop) {
+                            return;
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(_) => return,
+                }
+            }
         }
-        output
-    };
-    emit(state, TerminalEvent::Output(output)).await;
+    });
 }
 
-async fn finish_exit(state: &Arc<Mutex<State>>, status: ExitStatus) {
-    let exit_code = (status.signal().is_none()).then(|| status.exit_code() as i32);
-    finish(state, TerminalStatus::Exited, exit_code, TerminalEndReason::Exited).await;
-}
-
-async fn finish(state: &Arc<Mutex<State>>, status: TerminalStatus, exit_code: Option<i32>, reason: TerminalEndReason) {
-    let (next, subscribers) = {
-        let mut state = state.lock().unwrap();
-        state.head.status = status;
-        state.head.exit_code = exit_code;
-        state.head.reason = Some(reason);
-        (state.head.next, std::mem::take(&mut state.subscribers))
-    };
-    for subscriber in subscribers.into_values() {
-        let _ = subscriber.send(TerminalEvent::Exit { next, exit_code, reason }).await;
+fn publish(state: &Mutex<State>, data: Vec<u8>) {
+    let mut state = state.lock().unwrap();
+    state.head.next += 1;
+    state.head.last_active_at = now();
+    state.last_active = tokio::time::Instant::now();
+    let output = TerminalOutput { seq: state.head.next, data: Bytes::from(data) };
+    state.replay_bytes += output.data.len();
+    state.replay.push_back(output.clone());
+    while state.replay_bytes > TERMINAL_REPLAY_BYTES || state.replay.len() > TERMINAL_REPLAY_CHUNKS {
+        let removed = state.replay.pop_front().unwrap();
+        state.replay_bytes -= removed.data.len();
     }
+    // A viewer whose queue is full is dropped: its stream ends and it reattaches from its last sequence.
+    state.subscribers.retain(|_, subscriber| subscriber.try_send(TerminalEvent::Output(output.clone())).is_ok());
 }
 
-async fn emit(state: &Arc<Mutex<State>>, event: TerminalEvent) {
-    let subscribers = {
-        let mut state = state.lock().unwrap();
-        state.subscribers.retain(|_, sender| !sender.is_closed());
-        state.subscribers.values().cloned().collect::<Vec<_>>()
-    };
-    for subscriber in subscribers {
-        let _ = subscriber.send(event.clone()).await;
+fn finish_exit(state: &Mutex<State>, status: ExitStatus) {
+    let exit_code = status.signal().is_none().then(|| status.exit_code() as i32);
+    finish(state, TerminalStatus::Exited, exit_code, TerminalEndReason::Exited);
+}
+
+/// The shell ended on its own. During a terminate the exit is held back until the whole process tree is gone.
+fn finish(state: &Mutex<State>, status: TerminalStatus, exit_code: Option<i32>, reason: TerminalEndReason) {
+    let mut state = state.lock().unwrap();
+    if state.terminating {
+        state.exited = Some((status, exit_code, reason));
+        return;
+    }
+    end(&mut state, status, exit_code, reason);
+}
+
+fn end(state: &mut State, status: TerminalStatus, exit_code: Option<i32>, reason: TerminalEndReason) {
+    if state.head.status != TerminalStatus::Running {
+        return;
+    }
+    state.head.status = status;
+    state.head.exit_code = exit_code;
+    state.head.reason = Some(reason);
+    state.ended = Some(std::time::Instant::now());
+    let next = state.head.next;
+    for subscriber in std::mem::take(&mut state.subscribers).into_values() {
+        let _ = subscriber.try_send(TerminalEvent::Exit { next, exit_code, reason });
     }
 }
 

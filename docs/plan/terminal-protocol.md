@@ -6,8 +6,8 @@
 - daemon 启动真实 shell 并持有 PTY。网页不是命令执行接口，也不能传入 cwd。
 - 终端以 `(sessionId, groupId, botId)` 定位。daemon 自己解析所选 Bot 的当前工作区；网页不发送绝对目录。
 - 刷新、断线、隐藏或关闭 Tab 不结束 PTY。只有显式结束、进程退出、机器归属撤销或闲置超时才清理。
-- daemon 重启后不假装旧 PTY 已恢复。原会话返回 `daemon_restart`。
-- Windows 首期不暴露终端能力；macOS / Linux 通过 `terminal-v1` 能力协商。
+- daemon 断线期间会话保持原状态；daemon 重连时在 hello 的 `terminals` 里列出仍在运行的 shell，服务端据此对账：不在列表中的会话标记 `daemon_restart`，服务端不认识的（服务端重启过）按机器主人收养。从未附着过的会话还没有 shell，不参与对账。
+- Windows 首期不暴露终端能力；macOS / Linux 通过 `terminal-v2` 能力协商。
 - 服务端只保存会话元数据和短期内存重放缓冲，不保存命令全文、按键、终端输出到数据库或日志。
 
 ## 通道
@@ -31,7 +31,7 @@
 
 `workspace` 只由服务端从当前数据库关系解析，不接受浏览器填写。`cdPath` 也只来自服务端保存的 `/cd` 绑定，不代表客户端可传目录。
 
-`create` 创建新会话，`attach` 连接已有会话。`sessionId` 由服务端生成，`attach` 的 `after` 表示浏览器已收到的序号。`head` 成功后返回 `TerminalHead`，不是 HTTP head：
+`create` 创建新会话，`attach` 连接已有会话，`terminate` 结束会话并回一个 exit head 后 `end`——它不依赖任何已附着的流，服务端用它实现 `DELETE` 与撤销。`sessionId` 由服务端生成，`attach` 的 `after` 表示浏览器已收到的序号。`head` 成功后返回 `TerminalHead`，不是 HTTP head：
 
 ```json
 {
@@ -74,17 +74,22 @@ daemon 到服务端的生命周期 head：
 
 ## 流量与恢复
 
-- 每个终端每方向使用有界队列。满时等待，不能按预览流策略静默丢弃。
-- daemon 保留有限输出重放（默认 1 MiB、最多 4096 个序号）；服务器保留会话索引和已结束状态，不持久化终端内容。
-- 重连 `after` 落在重放范围内时从 `after + 1` 重放，随后进入实时输出。太早则明确报 `replay_expired`，浏览器重置显示后重新附着。
-- 同一会话服务端串行化输入 / resize，单机器限制 8 个活动会话，单用户限制 4 个活动会话；拒绝超额，不无限创建进程。
+- 慢的一方断开、重连恢复，任何一环都不为它阻塞或无限缓冲：
+  - daemon 给每个观看者的输出队列满了就结束该流（`end`），PTY 继续运行；
+  - 输入写入线程的队列满了（如向不读 stdin 的程序粘贴大段文本）就 `reset` 该流（`terminal_input_backlog`），隧道不被卡住；
+  - 服务端发给浏览器时 `bufferedAmount` 超过 4 MiB 就 `reset`（`slow_client`），不暂停、不排队。
+  浏览器收到 `reset` 或非 1000 关闭后按退避重连，带上已收到的最后序号 `after`。
+- daemon 保留有限输出重放（默认 1 MiB、最多 4096 个序号）；服务器只保留会话索引和已结束状态，不缓存、不持久化终端内容。
+- 重连从 `after + 1` 重放，随后进入实时输出。`after` 已早于保留范围时从最旧的保留输出开始；浏览器看到序号跳跃就先清屏（`ESC c`）再重绘。
+- 已结束的会话再附着时服务端直接回 `{ "op": "exit", ... }` 并以 1000 关闭；`forbidden` 以 1008 关闭且浏览器不再重试；会话持续 `not_found` 时浏览器重试 5 次后放弃。
+- 单机器限制 8 个活动会话，单用户限制 4 个活动会话；拒绝超额，不无限创建进程。
 - 闲置默认 24 小时，由 daemon 判定并发送 `idle_timeout`。正在交互或有新输出会刷新活动时间。
 
 ## REST
 
 - `POST /api/groups/:groupId/bots/:botId/terminals`：机器主人创建元数据，daemon 真正启动在流打开时完成。
 - `GET /api/groups/:groupId/bots/:botId/terminals`：机器主人列出会话。
-- `DELETE /api/terminals/:sessionId`：机器主人显式结束；仅当确认终止后返回成功。
+- `DELETE /api/terminals/:sessionId`：机器主人显式结束；经独立的 `terminate` 流，daemon 确认（10 秒超时）后才返回成功。机器撤销或 Bot 换机时服务端先在本地关闭会话，再尽力通知 daemon 终止。
 - `POST /api/groups/:groupId/bots/:botId/terminal-links/resolve`：机器主人请求校验工作区相对文件路径；仅返回相对路径、行号、是否存在，不返回任意绝对目录。
 - `/ws/terminals/:sessionId`：浏览器 Cookie 鉴权后由服务端通过 daemon 终端流中继字节。它不传 cwd、shell、env 或命令。
 

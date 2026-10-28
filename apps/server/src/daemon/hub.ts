@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { DaemonToServer, ServerToDaemon } from '@gonggong/protocol'
+import type { DaemonToServer, ServerToDaemon, TerminalLive } from '@gonggong/protocol'
 
 export interface DaemonConn {
   send(msg: ServerToDaemon): void
@@ -10,6 +10,8 @@ interface HubEvents {
   online: [machineId: string]
   offline: [machineId: string]
   message: [machineId: string, msg: Reply]
+  /** The web terminal shells a daemon reported in its hello. */
+  terminals: [machineId: string, live: TerminalLive[]]
 }
 
 type Reply = Exclude<DaemonToServer, { t: 'hello' | 'heartbeat' }>

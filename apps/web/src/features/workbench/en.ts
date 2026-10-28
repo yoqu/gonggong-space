@@ -91,7 +91,7 @@ export default {
   'daemon 已重启，原终端无法恢复': 'The daemon restarted; the old terminal cannot be restored',
   'Shell 已退出，退出码 {code}': 'The shell exited with code {code}',
   '终端连接失败，请稍后重试': 'Could not connect to the terminal. Try again later.',
-  终端连接已断开: 'The terminal connection was lost',
+  终端不存在或已结束: 'The terminal no longer exists',
   搜索终端输出: 'Search terminal output',
   '剪贴板不可用，请检查浏览器权限': 'Clipboard unavailable. Check browser permissions.',
   文件管理器: 'File manager',

@@ -859,6 +859,11 @@ impl Handler for Engine {
         self.0.services.live()
     }
 
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn terminals(&self) -> Vec<crate::protocol::TerminalLive> {
+        self.0.terminals.live()
+    }
+
     fn connected(&self, tunnel: bool) {
         self.0.tunnel.send_replace(tunnel);
         self.0.manage.connected();

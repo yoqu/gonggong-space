@@ -31,7 +31,7 @@ GONGGONG_E2E_TERMINAL=1 pnpm exec playwright test -c e2e/terminal.config.ts
 
 ## 实现边界
 
-1. 真实 `TerminalManager` 接入 daemon tunnel，并上报 `terminal-v1` 能力；PTY 归 daemon 所有。
+1. 真实 `TerminalManager` 接入 daemon tunnel，并上报 `terminal-v2` 能力；PTY 归 daemon 所有。
 2. `TerminalService` 和 daemon transport 提供 REST 与 `/ws/terminals/:sessionId` 中继；Cookie 鉴权后逐会话校验机器主人。
 3. `auditTerminal` 记录创建、附着、网页断流、daemon 退出 / 撤销和确认显式终止。浏览器断流只记 `detach`；daemon 自退的 `actorUserId` 为 `null`。不记录命令、按键或输出。
 4. 关闭标签或网页只关闭 socket；只有「结束终端」走 DELETE / terminate。workbench 保存的 `sessionId` 用于刷新后重新附着。
