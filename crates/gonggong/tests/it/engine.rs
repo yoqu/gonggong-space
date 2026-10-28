@@ -379,7 +379,9 @@ async fn falls_back_to_a_new_session_with_recent_history_when_resume_fails() {
     r.run(s);
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.new_session_reason.as_deref(), Some("resume_failed"));
-    assert!(echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00 UTC] 王磊: 旧消息\n"));
+    assert!(
+        echo(&done)["prompt"].as_str().unwrap().starts_with("群聊上下文：\n[#1 2026-09-23 09:00 UTC] 王磊: 旧消息\n")
+    );
 }
 
 #[tokio::test]
