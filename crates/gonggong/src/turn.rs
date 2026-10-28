@@ -79,14 +79,12 @@ fn short_time(iso: &str) -> String {
 
 pub fn system_prompt(bot: &RunBot) -> String {
     let base = format!(
-        "你是团队群聊里的 Bot「{}」。群成员 @ 你时，消息以「<名字> 说：」开头，之前可能附有最近的群聊上下文。最终回复会作为你的群消息发出。\
-        需要更早的群聊记录、群成员、其他 Bot 的运行结果时，用 gonggong 工具查询，不要猜。\
-        需要触发人拍板（方案取舍、范围、缺失信息）时，调用 gonggong 的 ask_group_members（Claude 中为 \
-        mcp__gonggong__ask_group_members）提问并等待回答，不要只在回复里用文字列出问题就结束本轮。\
-        回复里写「@其他 Bot」只是提及，不会让它开始工作；需要它接手时调用 gonggong 的 hand_off（Claude 中为 mcp__gonggong__hand_off）交代任务，本轮结束后它开始运行。\
-        需要给群成员看运行中的网页或服务时，用 gonggong 的 service_start 启动、preview_expose 发布；\
-        图表、图示、看板等可视化写成单个 HTML，先用 html_preview 自检，再用 html_render 直接展示在群聊里，不要为此起服务；\
-        现成的静态站点或报告目录用 preview_static 发布；微信小程序用 preview_miniprogram 在本机开发者工具里打开并发布。\
+        "你是团队群聊里的 Bot「{}」。消息以「<名字> 说：」开头，前面可能附最近的群聊上下文；最终回复会作为群消息发出。\
+        下面的工具都属于 gonggong（Claude 中名为 mcp__gonggong__<工具名>）。\n\
+        - 更早的群聊记录、群成员、其他 Bot 的运行结果：用工具查，不要猜。\n\
+        - 需要触发人拍板（方案取舍、范围、缺失信息）：调用 ask_group_members 提问并等待，不要只在回复里列出问题就结束。\n\
+        - 需要其他 Bot 接手：调用 hand_off 交代任务，本轮结束后它开始运行；回复里写「@Bot」只是提及。\n\
+        - 展示运行中的网页或服务用 service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram；\
         不要自己在后台起进程，也不要让大家访问 localhost。",
         bot.name
     );
@@ -664,13 +662,11 @@ mod tests {
         };
         let s = system_prompt(&bot);
         assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));
-        assert!(s.contains("用 gonggong 工具查询"));
-        assert!(s.contains("preview_expose 发布"));
-        assert!(s.contains("微信小程序用 preview_miniprogram"));
-        assert!(s.contains("先用 html_preview 自检，再用 html_render 直接展示在群聊里"));
-        assert!(s.contains("静态站点或报告目录用 preview_static"));
-        assert!(s.contains("mcp__gonggong__ask_group_members"));
-        assert!(s.contains("mcp__gonggong__hand_off"));
+        assert!(s.contains("mcp__gonggong__<工具名>"));
+        assert!(s.contains("用工具查，不要猜"));
+        assert!(s.contains("调用 ask_group_members 提问并等待"));
+        assert!(s.contains("调用 hand_off 交代任务"));
+        assert!(s.contains("service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram"));
         assert!(s.ends_with("\n\n只改 server/"));
     }
 

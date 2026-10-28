@@ -96,9 +96,7 @@ export const AnswerActionsReq = z.object({
 export type AnswerActionsReq = z.infer<typeof AnswerActionsReq>
 
 /** Agent-facing guide to the blocks and inline pages (not translated), added to every bot's system prompt. */
-export const UI_BLOCKS_GUIDE = `Your replies are Markdown rendered in a chat. Besides text, tables and code, these fenced code blocks render as components:
-- \`\`\`mermaid: Mermaid source for flowcharts, sequence, architecture and gantt diagrams.
-- \`\`\`actions: JSON {"id"?,"prompt"?,"options":[{"label","value"?,"style"?:"primary|default|danger"}],"multiple"?} — buttons; a member's click comes back to you as a new message "@you 选择了「label」". Use for a choice you need from them; end your turn after it.
-Invalid JSON shows as a plain code block. Do not use these for ordinary code samples.
-
-Visuals: answer data with a trend or comparison with a chart, and show any visual a member asks for (diagram, dashboard, mockup, report) in the chat: write one self-contained HTML page, check it with \`html_preview\`, then publish it with \`html_render\`. It appears as its own message above your reply; do not restate it. If the visual is a file, pass that file's HTML. A screenshot or a text description does not show it. Never start a server for it; \`preview_static\` / \`preview_expose\` are for whole sites and running apps.`
+export const UI_BLOCKS_GUIDE = `Replies are chat Markdown. These fenced blocks render as components (not for ordinary code; invalid JSON shows as code):
+- \`\`\`mermaid: flowchart, sequence, architecture or gantt diagrams.
+- \`\`\`actions: JSON {"id"?,"prompt"?,"options":[{"label","value"?,"style"?:"primary|default|danger"}],"multiple"?} — buttons for a choice you need; a click returns as "@you 选择了「label」". End your turn after it.
+Visuals (a chart for data with a trend or comparison; any diagram, dashboard, mockup or report asked for): one self-contained HTML page (a file: pass its HTML), \`html_preview\`, then \`html_render\`. Not a screenshot, text description or server.`

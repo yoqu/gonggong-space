@@ -664,7 +664,13 @@ export type GonggongToolName = keyof typeof GONGGONG_TOOLS
 type ToolDefs = Record<string, { title: string; description: string; input: z.ZodType }>
 const toolList = (tools: ToolDefs) =>
   Object.entries(tools).map(([name, t]) => {
-    const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, { io: 'input' })
+    const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, {
+      io: 'input',
+      // A `format` says it already; zod's spelled-out regex (hundreds of chars for date-time) only costs tokens.
+      override: ({ jsonSchema: s }) => {
+        if (s.format) delete s.pattern
+      },
+    })
     return { name, title: t.title, description: t.description, inputSchema }
   })
 
