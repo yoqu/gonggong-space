@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Release builds of the gonggong daemon (plan D16/D17).
-#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop | --daemon-only] [--publish <server-url>]
-#                      [--github [--notes <file>]] [--allow-dirty]
+#   scripts/release.sh [--only macos-aarch64,linux-x86_64,...,desktop,desktop-windows | --daemon-only] [--build-only]
+#                      [--publish <server-url>] [--github [--notes <file>]] [--allow-dirty]
+#   scripts/release.sh --assemble [--publish …] [--github …]
+# Split builds (Jenkins: macOS on a Mac, the rest on Linux): each machine runs --only <its part> --build-only, which
+# stops once its files are in dist/<version>; with every part copied into one dist/<version>, --assemble adds the
+# cached gg-cast of each platform built and writes SHA256SUMS and the manifests without building or deleting anything.
+# desktop-windows cross-compiles the Windows installer in Docker (release/desktop-win.Dockerfile, cargo-xwin + NSIS).
 # --daemon-only builds gg for all five platforms and reuses every cached gg-cast, with no desktop or GitHub work.
 # Builds come from the working tree, so it must be clean (git status --porcelain empty) unless --allow-dirty.
 # Writes dist/<version>/: gonggong-<version>-<os>-<arch>[.exe], gg-cast-<version>-<os>-<arch>[.exe] (the desktop
@@ -25,11 +30,13 @@
 set -euo pipefail
 source "$(dirname "$0")/release/lib.sh"
 
-only="" publish="" github="" notes="" allow_dirty="" daemon_only=""
+only="" publish="" github="" notes="" allow_dirty="" daemon_only="" build_only="" assemble=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --only) only="$2"; shift 2 ;;
     --daemon-only) daemon_only=1; shift ;;
+    --build-only) build_only=1; shift ;;
+    --assemble) assemble=1; shift ;;
     --publish) publish="$2"; shift 2 ;;
     --github) github=1; shift ;;
     --allow-dirty) allow_dirty=1; shift ;;
@@ -49,6 +56,11 @@ if [ -n "$daemon_only" ]; then
   [ -z "$github" ] || { echo "error: --daemon-only cannot be combined with --github" >&2; exit 2; }
   only="macos-aarch64,macos-x86_64,linux-x86_64,linux-aarch64,windows-x86_64"
 fi
+if [ -n "$assemble" ]; then
+  [ -z "$only$daemon_only$build_only" ] ||
+    { echo "error: --assemble cannot be combined with --only, --daemon-only or --build-only" >&2; exit 2; }
+  only=none
+fi
 
 if [ -z "$allow_dirty" ] && [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   echo "error: the working tree has uncommitted changes (git status), commit or stash them, or pass --allow-dirty" >&2
@@ -58,7 +70,8 @@ fi
 version="$(gonggong_version)"
 out="$ROOT/dist/$version"
 repo="${GONGGONG_GITHUB_REPO:-yoqu/gonggong-space}"
-rm -rf "$out" && mkdir -p "$out"
+[ -n "$assemble" ] || rm -rf "$out"
+mkdir -p "$out"
 [ -n "$notes" ] || notes="$ROOT/docs/release-notes/v$version.md"
 if [ -f "$notes" ]; then
   cp "$notes" "$out/RELEASE_NOTES.md"
@@ -253,7 +266,42 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
 fi
 
+# Windows installer (NSIS), cross-compiled with cargo-xwin; signed for the updater like the macOS one, not Authenticode.
+if wanted desktop-windows && [ "$only" != "" ]; then
+  echo "== desktop (Windows installer)"
+  grep -q "\"version\": \"$version\"" "$ROOT/apps/desktop/src-tauri/tauri.conf.json" ||
+    { echo "error: tauri.conf.json is not at version $version" >&2; exit 1; }
+  [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] || [ ! -f "$HOME/.tauri/gonggong.key" ] ||
+    TAURI_SIGNING_PRIVATE_KEY="$(cat "$HOME/.tauri/gonggong.key")"
+  : "${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY (key content) is required to sign the app update}"
+  export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+  docker_build -q -t gonggong-desktop-win:1.98 -f "$ROOT/scripts/release/desktop-win.Dockerfile" \
+    "$ROOT/scripts/release" >/dev/null
+  nsis=/target/x86_64-pc-windows-msvc/release/bundle/nsis
+  in_container gonggong-desktop-win:1.98 "$out" "pnpm install --frozen-lockfile --filter '@gonggong/desktop...' \
+      --filter '@gonggong/web...'; rm -rf $nsis
+    pnpm --filter @gonggong/desktop tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+    cp $nsis/*-setup.exe /out/Gonggong_${version}_x64-setup.exe
+    cp $nsis/*-setup.exe.sig /out/Gonggong_${version}_x64-setup.exe.sig" \
+    -e TAURI_SIGNING_PRIVATE_KEY -e TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
+    -v gonggong-desktop-win-target:/target -v gonggong-desktop-win-registry:/usr/local/cargo/registry \
+    -v gonggong-desktop-win-pnpm:/root/.local/share/pnpm
+fi
+
 docker_done
+
+if [ -n "$build_only" ]; then
+  echo "== dist/$version (build only)"
+  ls -l "$out"
+  exit 0
+fi
+if [ -n "$assemble" ]; then
+  for p in "${PLATFORMS[@]}"; do
+    key="${p%%:*}"
+    [ -f "$out/$(artifact "$key")" ] && [ ! -f "$out/$(cast_artifact "$key")" ] || continue
+    cast_cached "$key" || { echo "error: no gg-cast for $key in dist/$version or the cache" >&2; exit 1; }
+  done
+fi
 
 cd "$out"
 shopt -s nullglob
@@ -285,6 +333,10 @@ for file in Gonggong_"$version"_*.app.tar.gz; do
   arch="${file#Gonggong_"$version"_}" arch="${arch%.app.tar.gz}"
   platforms+="$sep\"darwin-$arch\":{\"signature\":\"$(tr -d '\n' < "$file.sig")\",\"url\":\"$gh_base/$file\"}" sep=","
 done
+win="Gonggong_${version}_x64-setup.exe"
+if [ -f "$win.sig" ]; then
+  platforms+="$sep\"windows-x86_64\":{\"signature\":\"$(tr -d '\n' < "$win.sig")\",\"url\":\"$gh_base/$win\"}" sep=","
+fi
 if [ -n "$platforms" ]; then
   node "$ROOT/scripts/release/manifest.mjs" updater "$version" "$notes" \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "{$platforms}" > github/latest.json
