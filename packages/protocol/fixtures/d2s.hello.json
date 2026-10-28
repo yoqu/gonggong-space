@@ -52,5 +52,15 @@
       "exitCode": null
     }
   ],
-  "features": ["tools", "providers", "ccSwitch", "sync"]
+  "features": ["tools", "providers", "ccSwitch", "sync", "terminal-v2"],
+  "terminals": [
+    {
+      "sessionId": "9b22ce47-f2df-44bd-a446-33a9edbd27b1",
+      "groupId": "11111111-1111-4111-8111-111111111111",
+      "botId": "22222222-2222-4222-8222-222222222222",
+      "cols": 120,
+      "rows": 32,
+      "createdAt": "2026-10-27T08:00:00.000Z"
+    }
+  ]
 }

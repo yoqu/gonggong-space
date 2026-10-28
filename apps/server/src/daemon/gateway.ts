@@ -129,6 +129,7 @@ export function daemonGateway(ctx: Ctx) {
         })
         await reconcileRuns(ctx, machineId, hello.activeRuns)
         await reconcileServices(ctx, machineId, hello.services)
+        ctx.hub.emit('terminals', machineId, hello.terminals)
         if (ws.readyState !== ws.OPEN) return
         armTimeout()
         send(ws, {

@@ -40,7 +40,6 @@ export class TunnelConn {
     number,
     { onFrame: (f: ReturnType<typeof decodeFrame>) => void; onClose: () => void }
   >()
-  private readonly closeHandlers = new Set<() => void>()
 
   constructor(private ws: WebSocket) {
     ws.on('message', (raw: Buffer, isBinary) => {
@@ -50,13 +49,7 @@ export class TunnelConn {
       for (const s of [...this.streams.values()]) s.fail('daemon 已断开')
       for (const s of [...this.terminals.values()]) s.onClose()
       this.terminals.clear()
-      for (const close of this.closeHandlers) close()
     })
-  }
-
-  onClose(handler: () => void) {
-    this.closeHandlers.add(handler)
-    return () => this.closeHandlers.delete(handler)
   }
 
   /** Raw terminal frames stay separate from preview streams, whose overload policy resets slow readers. */
@@ -118,7 +111,7 @@ export class TunnelConn {
     const terminal = this.terminals.get(f.streamId)
     if (terminal) {
       terminal.onFrame(f)
-      if (f.type === TUNNEL_FRAME.reset) this.terminals.delete(f.streamId)
+      if (f.type === TUNNEL_FRAME.reset || f.type === TUNNEL_FRAME.end) this.terminals.delete(f.streamId)
       return
     }
     const s = this.streams.get(f.streamId)

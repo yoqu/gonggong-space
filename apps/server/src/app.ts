@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { Writable } from 'node:stream'
 import cookie from '@fastify/cookie'
 import websocket from '@fastify/websocket'
-import { PROTOCOL_VERSION } from '@gonggong/protocol'
+import { PROTOCOL_VERSION, type TerminalLive } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { ZodError } from 'zod'
@@ -169,9 +169,13 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(teamRoutes(ctx))
   let terminals!: TerminalService
   const daemonTerminals = new TerminalDaemonTransport(ctx, (sessionId, state) => {
-    terminals.update(sessionId, state.status, state.exitCode, state.reason)
+    terminals.update(sessionId, state)
   })
   terminals = new TerminalService(ctx, daemonTerminals)
+  const reconcileTerminals = (machineId: string, live: TerminalLive[]) =>
+    void terminals.reconcile(machineId, live)
+  ctx.hub.on('terminals', reconcileTerminals)
+  app.addHook('onClose', async () => void ctx.hub.off('terminals', reconcileTerminals))
   await app.register(terminalRoutes({ ctx, terminals }))
   await app.register(
     terminalLinkRoutes({
@@ -200,7 +204,6 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
       },
     }),
   )
-  app.addHook('onClose', terminals.watchDisconnects())
   await app.register(machineRoutes(ctx))
   await app.register(providerRoutes(ctx))
   await app.register(botRoutes(ctx))

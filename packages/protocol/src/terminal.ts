@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { WorkspaceSpec } from './daemon.js'
 
-export const TERMINAL_FEATURE = 'terminal-v1'
+/** Hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output. */
+export const TERMINAL_FEATURE = 'terminal-v2'
 export const TERMINAL_IDLE_MS = 24 * 60 * 60 * 1000
 export const TERMINAL_REPLAY_BYTES = 1024 * 1024
 export const TERMINAL_REPLAY_CHUNKS = 4096
@@ -38,8 +39,9 @@ export const TerminalDto = z.object({
 })
 export type TerminalDto = z.infer<typeof TerminalDto>
 
+/** `terminate` ends the session and answers with its exit head; it needs no attached stream. */
 export const TerminalOpen = z.object({
-  action: z.enum(['create', 'attach']),
+  action: z.enum(['create', 'attach', 'terminate']),
   sessionId: z.string().uuid(),
   groupId: z.string().uuid(),
   botId: z.string().uuid(),

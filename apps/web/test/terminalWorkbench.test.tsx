@@ -29,8 +29,8 @@ const seed = () => {
       { id: 'b2', name: '别人的 Bot', ownerId: 'other', machineId: 'm2' } as BotDto,
     ],
     machines: [
-      { id: 'm1', online: true, os: 'macos', features: ['terminal-v1'] } as MachineDto,
-      { id: 'm2', online: true, os: 'linux', features: ['terminal-v1'] } as MachineDto,
+      { id: 'm1', online: true, os: 'macos', features: ['terminal-v2'] } as MachineDto,
+      { id: 'm2', online: true, os: 'linux', features: ['terminal-v2'] } as MachineDto,
     ],
   })
 }

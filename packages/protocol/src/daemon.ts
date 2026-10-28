@@ -410,6 +410,16 @@ export const ServiceInfo = z.object({
   exitCode: z.number().int().nullable(),
 })
 export type ServiceInfo = z.infer<typeof ServiceInfo>
+/** A web terminal shell the daemon still runs. */
+export const TerminalLive = z.object({
+  sessionId: z.string().uuid(),
+  groupId: z.string().uuid(),
+  botId: z.string().uuid(),
+  cols: z.number().int().min(2).max(500),
+  rows: z.number().int().min(2).max(500),
+  createdAt: z.string(),
+})
+export type TerminalLive = z.infer<typeof TerminalLive>
 export const Hello = z.object({
   t: z.literal('hello'),
   protocol: z.number().int(),
@@ -424,6 +434,8 @@ export const Hello = z.object({
   services: z.array(ServiceInfo).default([]),
   /** Optional capabilities (DaemonFeature); unknown ones are kept, older daemons send none. */
   features: z.array(z.string()).default([]),
+  /** Running web terminal shells: the server adopts them after its own restart and forgets the ones missing. */
+  terminals: z.array(TerminalLive).default([]),
 })
 export const Heartbeat = z.object({ t: z.literal('heartbeat') })
 export const RunEventMsg = z.object({ t: z.literal('run.event'), runId: z.string(), event: RunEvent })
@@ -1106,7 +1118,7 @@ export const DaemonFeature = z.enum([
    * rebase `todo`, resolve `paths`, the apply / restore actions.
    */
   'gitOps4',
-  'terminal-v1',
+  'terminal-v2',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

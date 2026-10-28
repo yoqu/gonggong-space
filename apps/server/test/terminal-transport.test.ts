@@ -1,5 +1,4 @@
 import {
-  TERMINAL_MAX_BUFFERED_BYTES,
   type TerminalDaemonControl,
   type TerminalHead,
   TUNNEL_FRAME,
@@ -10,8 +9,7 @@ import WebSocket, { type RawData, WebSocketServer } from 'ws'
 import {
   type TerminalDaemonDisconnect,
   type TerminalDaemonStream,
-  type TerminalRelay,
-  TerminalTransport,
+  TerminalRelay,
 } from '../src/modules/terminals/transport.js'
 
 const sessionId = '7ca45f50-93a2-4f7f-b0c1-ff1dd24ef731'
@@ -36,13 +34,8 @@ type Sent = { type: TunnelFrameType; payload: Uint8Array }
 class FakeDaemon implements TerminalDaemonStream {
   readonly sent: Sent[] = []
   readonly closeReasons: string[] = []
-  pauseCount = 0
-  resumeCount = 0
-  blockSends = false
-  sendCompleted = true
   private frameListener?: (frame: { type: TunnelFrameType; payload: Uint8Array }) => void
   private disconnectListener?: (reason: TerminalDaemonDisconnect) => void
-  private sendGates: Array<() => void> = []
 
   get attached() {
     return !!this.frameListener
@@ -50,17 +43,6 @@ class FakeDaemon implements TerminalDaemonStream {
 
   async send(type: TunnelFrameType, payload: Uint8Array = new Uint8Array()) {
     this.sent.push({ type, payload: Buffer.from(payload) })
-    this.sendCompleted = false
-    if (this.blockSends) await new Promise<void>((resolve) => this.sendGates.push(resolve))
-    this.sendCompleted = true
-  }
-
-  detach(reason = 'browser detached') {
-    this.close(reason)
-  }
-
-  releaseOne() {
-    this.sendGates.shift()?.()
   }
 
   subscribe(
@@ -69,18 +51,6 @@ class FakeDaemon implements TerminalDaemonStream {
   ) {
     this.frameListener = onFrame
     this.disconnectListener = onDisconnect
-    return () => {
-      this.frameListener = undefined
-      this.disconnectListener = undefined
-    }
-  }
-
-  pause() {
-    this.pauseCount++
-  }
-
-  resume() {
-    this.resumeCount++
   }
 
   close(reason: string) {
@@ -138,11 +108,9 @@ function inbox(ws: WebSocket) {
   }
 }
 
-describe('terminal transport', () => {
+describe('terminal relay', () => {
   let server: WebSocketServer
   let url: string
-  let transport: TerminalTransport
-  let relay: TerminalRelay | undefined
   const sockets = new Set<WebSocket>()
 
   beforeEach(async () => {
@@ -151,160 +119,79 @@ describe('terminal transport', () => {
     const address = server.address()
     if (typeof address === 'string' || !address) throw new Error('missing test address')
     url = `ws://127.0.0.1:${address.port}`
-    server.on('connection', (ws, req) => {
-      const params = new URL(req.url!, url).searchParams
-      void transport
-        .attach(ws, sessionId, Number(params.get('after') ?? 0))
-        .then((r) => {
-          relay = r
-        })
-        .catch(() => ws.close(1011, 'attach failed'))
-    })
   })
 
   afterEach(async () => {
-    relay?.detach('shutdown')
     for (const ws of sockets) ws.terminate()
     sockets.clear()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
 
-  async function connect(
-    daemon: FakeDaemon,
-    options: { after?: number; maxBufferedBytes?: number; maxQueueBytes?: number } = {},
-  ) {
-    const owner = vi.fn(async () => {})
-    const attach = vi.fn(async () => daemon)
-    transport = new TerminalTransport(
-      { owner, attach },
-      {
-        maxBufferedBytes: options.maxBufferedBytes ?? 1024,
-        maxQueueBytes: options.maxQueueBytes ?? 1024,
-        drainIntervalMs: 2,
-      },
+  async function connect(daemon: FakeDaemon, options: { after?: number; maxBufferedBytes?: number } = {}) {
+    const serverSocket = new Promise<WebSocket>((resolve) =>
+      server.once('connection', (ws) => {
+        new TerminalRelay(ws, daemon, sessionId, options.after ?? 0, options.maxBufferedBytes)
+        resolve(ws)
+      }),
     )
-    const ws = new WebSocket(`${url}/?after=${options.after ?? 0}`)
+    const ws = new WebSocket(url)
     sockets.add(ws)
     const messages = inbox(ws)
-    const serverSocket = new Promise<WebSocket>((resolve) => server.once('connection', resolve))
+    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
     await new Promise<void>((resolve) => ws.once('open', resolve))
     await vi.waitFor(() => expect(daemon.attached).toBe(true))
-    return { ws, messages, owner, attach, serverSocket: await serverSocket }
+    return { ws, messages, closed, serverSocket: await serverSocket }
   }
 
-  it('attaches with after, orders replayed data, and relays binary input and controls', async () => {
+  it('relays output after the cursor and binary input and controls in order', async () => {
     const daemon = new FakeDaemon()
-    const { ws, messages, owner, attach } = await connect(daemon, { after: 4 })
-    expect(owner).toHaveBeenCalledWith(sessionId)
-    expect(attach).toHaveBeenCalledWith({ sessionId, after: 4 })
+    const { ws, messages } = await connect(daemon, { after: 4 })
 
     daemon.emitHead({ next: 5 })
     expect(await messages.json()).toEqual(head({ next: 5 }))
-    daemon.emitData(6, 'b')
+    daemon.emitData(4, 'already seen')
     daemon.emitData(5, 'a')
+    daemon.emitData(6, 'b')
     expect(await messages.bytes()).toEqual({ seq: 5, data: Buffer.from('a') })
     expect(await messages.bytes()).toEqual({ seq: 6, data: Buffer.from('b') })
-    daemon.emitData(5, 'duplicate')
-    daemon.emitData(8, 'd')
-    daemon.emitData(7, 'c')
-    expect(await messages.bytes()).toEqual({ seq: 7, data: Buffer.from('c') })
-    expect(await messages.bytes()).toEqual({ seq: 8, data: Buffer.from('d') })
 
     ws.send(Buffer.from([0, 4, 255]))
     ws.send(JSON.stringify({ op: 'resize', sessionId, cols: 120, rows: 32 }))
+    ws.send(Buffer.from('cd'))
     ws.send(JSON.stringify({ op: 'terminate', sessionId }))
-    await vi.waitFor(() => expect(daemon.sent).toHaveLength(3))
+    await vi.waitFor(() => expect(daemon.sent).toHaveLength(4))
     expect(daemon.sent[0]).toEqual({ type: TUNNEL_FRAME.data, payload: Buffer.from([0, 4, 255]) })
+    expect(daemon.sent[1]?.type).toBe(TUNNEL_FRAME.head)
     expect(JSON.parse(String(daemon.sent[1]!.payload))).toEqual({
       op: 'resize',
       sessionId,
       cols: 120,
       rows: 32,
     })
-    expect(JSON.parse(String(daemon.sent[2]!.payload))).toEqual({ op: 'terminate', sessionId })
-  })
-
-  it('bounds and serializes daemon writes while applying backpressure to the browser', async () => {
-    const daemon = new FakeDaemon()
-    daemon.blockSends = true
-    const { ws, serverSocket } = await connect(daemon, { maxQueueBytes: 64 })
-    daemon.emitHead()
-    const chunks = [
-      Buffer.from('a'.repeat(16)),
-      Buffer.from('b'.repeat(16)),
-      Buffer.from('c'.repeat(16)),
-      Buffer.from('d'.repeat(16)),
-    ]
-    ws.send(chunks[0]!)
-    await vi.waitFor(() => expect(daemon.sent).toHaveLength(1))
-    for (const chunk of chunks.slice(1)) ws.send(chunk)
-
-    await vi.waitFor(() => expect(serverSocket.isPaused).toBe(true))
-    expect(daemon.sent).toHaveLength(1)
-    for (let i = 1; i < chunks.length; i++) {
-      daemon.releaseOne()
-      await vi.waitFor(() => expect(daemon.sent).toHaveLength(i + 1))
-    }
-    daemon.releaseOne()
-    await vi.waitFor(() => expect(serverSocket.isPaused).toBe(false))
-    expect(daemon.sent.map((f) => Buffer.from(f.payload).toString())).toEqual(chunks.map((c) => c.toString()))
-    expect(daemon.sent.every((f) => f.type === TUNNEL_FRAME.data)).toBe(true)
-  })
-
-  it('holds replay data until its head establishes the after cursor', async () => {
-    const daemon = new FakeDaemon()
-    const { messages } = await connect(daemon, { after: 8 })
-    daemon.emitData(10, 'b')
-    daemon.emitData(9, 'a')
-    expect(messages.messages).toHaveLength(0)
-    daemon.emitHead({ next: 9 })
-    expect(await messages.json()).toMatchObject({ next: 9 })
-    expect(await messages.bytes()).toEqual({ seq: 9, data: Buffer.from('a') })
-    expect(await messages.bytes()).toEqual({ seq: 10, data: Buffer.from('b') })
-  })
-
-  it('reports replay_expired when the daemon cannot resume at after', async () => {
-    const daemon = new FakeDaemon()
-    const { ws, messages } = await connect(daemon, { after: 20 })
-    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
-    daemon.emitHead({ next: 5 })
-    expect((await messages.json()).code).toBe('replay_expired')
-    expect(await closed).toBe(1013)
-    expect(daemon.sent).toHaveLength(0)
-  })
-
-  it('preserves interleaved keyboard data and small head controls', async () => {
-    const daemon = new FakeDaemon()
-    const { ws } = await connect(daemon, { maxQueueBytes: 8 })
-    ws.send(Buffer.from('ab'))
-    ws.send(JSON.stringify({ op: 'resize', sessionId, cols: 100, rows: 30 }))
-    ws.send(Buffer.from('cd'))
-    await vi.waitFor(() => expect(daemon.sent).toHaveLength(3))
-    expect(daemon.sent[0]).toEqual({ type: TUNNEL_FRAME.data, payload: Buffer.from('ab') })
-    expect(daemon.sent[1]?.type).toBe(TUNNEL_FRAME.head)
     expect(daemon.sent[2]).toEqual({ type: TUNNEL_FRAME.data, payload: Buffer.from('cd') })
+    expect(JSON.parse(String(daemon.sent[3]!.payload))).toEqual({ op: 'terminate', sessionId })
   })
 
-  it('pauses daemon output while the browser is above budget and resumes without losing bytes', async () => {
+  it('passes a gap in a stale cursor through so the browser can redraw from retained output', async () => {
     const daemon = new FakeDaemon()
-    const { messages, serverSocket } = await connect(daemon, { maxBufferedBytes: 64, maxQueueBytes: 1024 })
+    const { messages } = await connect(daemon, { after: 4 })
+    daemon.emitHead({ next: 40 })
+    await messages.json()
+    daemon.emitData(30, 'oldest retained')
+    expect(await messages.bytes()).toEqual({ seq: 30, data: Buffer.from('oldest retained') })
+  })
+
+  it('resets a browser that stops reading instead of buffering its output', async () => {
+    const daemon = new FakeDaemon()
+    const { messages, closed, serverSocket } = await connect(daemon, { maxBufferedBytes: 64 })
     daemon.emitHead()
     await messages.json()
-    let buffered = 0
-    Object.defineProperty(serverSocket, 'bufferedAmount', { get: () => buffered })
+    Object.defineProperty(serverSocket, 'bufferedAmount', { get: () => 128 })
 
-    buffered = 128
-    await vi.waitFor(() => expect(serverSocket.bufferedAmount).toBe(128))
-    daemon.emitData(1, 'first')
-    expect(await messages.bytes()).toEqual({ seq: 1, data: Buffer.from('first') })
-    await vi.waitFor(() => expect(daemon.pauseCount).toBe(1))
-    daemon.emitData(2, 'second')
-    expect(messages.messages).toHaveLength(0)
-
-    buffered = 0
-    expect(await messages.bytes()).toEqual({ seq: 2, data: Buffer.from('second') })
-    await vi.waitFor(() => expect(daemon.resumeCount).toBe(1))
-    expect(relay?.status).toBe('running')
+    daemon.emitData(1, 'lost to a slow browser')
+    expect(await messages.json()).toMatchObject({ op: 'reset', code: 'slow_client' })
+    expect(await closed).toBe(1013)
+    expect(daemon.closeReasons).toEqual(['slow_client'])
   })
 
   it.each([
@@ -313,8 +200,7 @@ describe('terminal transport', () => {
     ['unknown control', JSON.stringify({ op: 'execute', sessionId, command: 'whoami' })],
   ])('rejects invalid browser control: %s', async (_name, control) => {
     const daemon = new FakeDaemon()
-    const { ws, messages } = await connect(daemon)
-    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
+    const { ws, messages, closed } = await connect(daemon)
     ws.send(control)
     expect((await messages.json()).code).toBe('invalid_control')
     expect(await closed).toBe(1008)
@@ -322,54 +208,63 @@ describe('terminal transport', () => {
     expect(daemon.closeReasons).toHaveLength(1)
   })
 
-  it('rejects oversized input and malformed daemon controls explicitly', async () => {
+  it('rejects oversized input and malformed daemon frames explicitly', async () => {
     const daemon = new FakeDaemon()
-    const first = await connect(daemon, { maxQueueBytes: 1024 })
-    const firstClosed = new Promise<number>((resolve) => first.ws.once('close', resolve))
+    const first = await connect(daemon)
     first.ws.send(Buffer.alloc(64 * 1024 + 1))
     expect((await first.messages.json()).code).toBe('message_too_big')
-    expect(await firstClosed).toBe(1009)
+    expect(await first.closed).toBe(1009)
 
     const secondDaemon = new FakeDaemon()
     const second = await connect(secondDaemon)
-    const secondClosed = new Promise<number>((resolve) => second.ws.once('close', resolve))
     secondDaemon.emit(TUNNEL_FRAME.head, '{bad json')
     expect((await second.messages.json()).code).toBe('protocol_error')
-    expect(await secondClosed).toBe(1008)
+    expect(await second.closed).toBe(1008)
   })
 
-  it('flushes ordered output before reporting shell exit', async () => {
+  it('flushes output before reporting shell exit and closes normally', async () => {
     const daemon = new FakeDaemon()
-    const { ws, messages } = await connect(daemon)
+    const { messages, closed } = await connect(daemon)
     daemon.emitHead()
     await messages.json()
-    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
-    daemon.emitData(2, 'b')
-    daemon.emitControl({
-      op: 'exit',
-      sessionId,
-      state: 'exited',
-      next: 3,
-      exitCode: 0,
-      reason: 'exited',
-    })
-    daemon.emitData(1, 'a')
-    expect(await messages.bytes()).toEqual({ seq: 1, data: Buffer.from('a') })
-    expect(await messages.bytes()).toEqual({ seq: 2, data: Buffer.from('b') })
+    daemon.emitData(1, 'bye')
+    daemon.emitControl({ op: 'exit', sessionId, state: 'exited', next: 2, exitCode: 0, reason: 'exited' })
+    expect(await messages.bytes()).toEqual({ seq: 1, data: Buffer.from('bye') })
     expect(await messages.json()).toMatchObject({ op: 'exit', state: 'exited', exitCode: 0 })
     expect(await closed).toBe(1000)
-    expect(relay?.status).toBe('exited')
+    expect(daemon.closeReasons).toEqual(['terminal ended'])
   })
 
-  it('distinguishes a daemon replacement from shell termination', async () => {
+  it('reports an already ended session from its head', async () => {
     const daemon = new FakeDaemon()
-    const { ws, messages } = await connect(daemon)
+    const { messages, closed } = await connect(daemon)
+    daemon.emitHead({ status: 'closed', reason: 'user' })
+    expect(await messages.json()).toMatchObject({ status: 'closed', reason: 'user' })
+    expect(await closed).toBe(1000)
+  })
+
+  it.each([
+    ['tunnel loss', (d: FakeDaemon) => d.disconnect('daemon_disconnected'), 'daemon_disconnected', 1013],
+    [
+      'viewer dropped by the daemon',
+      (d: FakeDaemon) => d.emit(TUNNEL_FRAME.end, ''),
+      'daemon_detached',
+      1013,
+    ],
+    [
+      'daemon reset',
+      (d: FakeDaemon) => d.emit(TUNNEL_FRAME.reset, { reason: 'terminal_input_backlog' }),
+      'daemon_reset',
+      1011,
+    ],
+  ])('asks the browser to reconnect after %s', async (_name, trigger, code, closeCode) => {
+    const daemon = new FakeDaemon()
+    const { messages, closed } = await connect(daemon)
     daemon.emitHead()
     await messages.json()
-    const closed = new Promise<number>((resolve) => ws.once('close', resolve))
-    daemon.disconnect('daemon_changed')
-    expect(await messages.json()).toMatchObject({ op: 'reset', code: 'daemon_changed', status: 'running' })
-    expect(await closed).toBe(1013)
+    trigger(daemon)
+    expect(await messages.json()).toMatchObject({ op: 'reset', code, status: 'running' })
+    expect(await closed).toBe(closeCode)
     expect(daemon.sent.some((f) => f.type === TUNNEL_FRAME.head)).toBe(false)
   })
 
@@ -380,11 +275,5 @@ describe('terminal transport', () => {
     ws.close()
     await vi.waitFor(() => expect(daemon.closeReasons).toEqual(['browser detached']))
     expect(daemon.sent).toHaveLength(0)
-  })
-
-  it('uses the configured terminal byte budget by default', () => {
-    const daemon = new FakeDaemon()
-    transport = new TerminalTransport({ owner: async () => {}, attach: async () => daemon })
-    expect(TERMINAL_MAX_BUFFERED_BYTES).toBe(4 * 1024 * 1024)
   })
 })

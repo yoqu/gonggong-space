@@ -130,41 +130,47 @@ enum Inbound {
     Reset,
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-enum TerminalInbound {
-    Data(Bytes),
-    Control(TerminalClientControl),
-    Detach,
-}
-
+/// One web viewer of a terminal: its output, and the keystrokes typed into it. The stream ends when the shell does,
+/// when the viewer falls behind (it reattaches from its last sequence), or when the server drops it.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn terminal_stream(
     manager: TerminalManager,
     open: crate::protocol::TerminalOpen,
     out: Out,
-    mut input: mpsc::Receiver<TerminalInbound>,
+    mut input: mpsc::Receiver<Bytes>,
 ) {
+    use crate::protocol::TerminalOpenAction;
     use base64::Engine;
+    let data = |session_id: &str, seq: u64, data: Bytes| {
+        let data = base64::engine::general_purpose::STANDARD.encode(data);
+        serde_json::json!({ "sessionId": session_id, "seq": seq, "data": data })
+    };
     let result = async {
+        if open.action == TerminalOpenAction::Terminate {
+            let head = manager.terminate_open(&open).await.map_err(|e| e.to_string())?;
+            out.json(FrameType::Head, &exit(head)).await;
+            out.send(FrameType::End, Bytes::new()).await;
+            return Ok(());
+        }
         let mut attached = manager.open(open).await.map_err(|e| e.to_string())?;
+        let session_id = attached.head.session_id.clone();
         out.json(FrameType::Head, &attached.head).await;
         for output in attached.replay.drain(..) {
-            let payload = serde_json::json!({ "sessionId": attached.head.session_id, "seq": output.seq, "data": base64::engine::general_purpose::STANDARD.encode(output.data) });
-            if !out.json(FrameType::Data, &payload).await { return Ok(()); }
+            if !out.json(FrameType::Data, &data(&session_id, output.seq, output.data)).await {
+                return Ok(());
+            }
         }
-        // Input and control calls wait on the session, which may itself wait for room in `attached.events`: keep
-        // draining it meanwhile, one call at a time so keystrokes stay in order.
-        let mut control: Option<std::pin::Pin<Box<dyn Future<Output = Result<bool, String>> + Send>>> = None;
         loop {
             tokio::select! {
                 event = attached.events.recv() => match event {
                     Some(TerminalEvent::Output(output)) => {
-                        let payload = serde_json::json!({ "sessionId": attached.head.session_id, "seq": output.seq, "data": base64::engine::general_purpose::STANDARD.encode(output.data) });
-                        if !out.json(FrameType::Data, &payload).await { return Ok(()); }
+                        if !out.json(FrameType::Data, &data(&session_id, output.seq, output.data)).await {
+                            return Ok(());
+                        }
                     }
-                    Some(TerminalEvent::Exit { next, exit_code, reason }) => {
-                        let head = manager.head(&attached.head.session_id).await.map_err(|e| e.to_string())?;
-                        out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id: attached.head.session_id.clone(), state: head.status, next, exit_code, reason: Some(reason) }).await;
+                    Some(TerminalEvent::Exit { .. }) => {
+                        let head = manager.head(&session_id).await.map_err(|e| e.to_string())?;
+                        out.json(FrameType::Head, &exit(head)).await;
                         return Ok(());
                     }
                     None => {
@@ -172,36 +178,47 @@ async fn terminal_stream(
                         return Ok(());
                     }
                 },
-                done = async { control.as_mut().unwrap().await }, if control.is_some() => {
-                    control = None;
-                    if done? { return Ok(()); }
-                }
-                inbound = input.recv(), if control.is_none() => {
-                    let (manager, out, session) = (manager.clone(), out.clone(), attached.head.session_id.clone());
-                    control = Some(match inbound {
-                        Some(TerminalInbound::Data(data)) => {
-                            Box::pin(async move { manager.input(&session, data).await.map(|()| false).map_err(|e| e.to_string()) })
-                        }
-                        Some(TerminalInbound::Control(TerminalClientControl::Resize { session_id, cols, rows })) => {
-                            Box::pin(async move { manager.resize(&session_id, cols, rows).await.map(|_| false).map_err(|e| e.to_string()) })
-                        }
-                        Some(TerminalInbound::Control(TerminalClientControl::Terminate { session_id })) => Box::pin(async move {
-                            let head = manager.terminate(&session_id).await.map_err(|e| e.to_string())?;
-                            out.json(FrameType::Head, &TerminalDaemonControl::Exit { session_id, state: head.status, next: head.next, exit_code: head.exit_code, reason: head.reason }).await;
-                            Ok(true)
-                        }),
-                        Some(TerminalInbound::Control(TerminalClientControl::Ping { session_id })) => Box::pin(async move {
-                            out.json(FrameType::Head, &manager.head(&session_id).await.map_err(|e| e.to_string())?).await;
-                            Ok(false)
-                        }),
-                        Some(TerminalInbound::Detach) | None => return Ok(()),
-                    });
-                }
+                keys = input.recv() => match keys {
+                    Some(keys) => manager.input(&session_id, keys).await.map_err(|e| e.to_string())?,
+                    None => return Ok(()),
+                },
             }
         }
-    }.await;
+    }
+    .await;
     if let Err(error) = result {
         out.reset(error).await;
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn exit(head: crate::protocol::TerminalHead) -> TerminalDaemonControl {
+    TerminalDaemonControl::Exit {
+        session_id: head.session_id,
+        state: head.status,
+        next: head.next,
+        exit_code: head.exit_code,
+        reason: head.reason,
+    }
+}
+
+/// Resize, terminate and ping never queue behind keystrokes a busy program has not read yet.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+async fn terminal_control(manager: TerminalManager, control: TerminalClientControl, out: Out) {
+    let result = match control {
+        TerminalClientControl::Ping { session_id } => manager.head(&session_id).await.map(|head| Some(head)),
+        TerminalClientControl::Resize { session_id, cols, rows } => {
+            manager.resize(&session_id, cols, rows).await.map(|_| None)
+        }
+        // The viewer's own stream reports the exit.
+        TerminalClientControl::Terminate { session_id } => manager.terminate(&session_id).await.map(|_| None),
+    };
+    match result {
+        Ok(Some(head)) => {
+            out.json(FrameType::Head, &head).await;
+        }
+        Ok(None) => {}
+        Err(error) => out.reset(error.to_string()).await,
     }
 }
 
@@ -272,7 +289,7 @@ where
     // that a lot), which must stop reading the file.
     let mut cancels: HashMap<u32, oneshot::Sender<()>> = HashMap::new();
     #[cfg(any(target_os = "macos", target_os = "linux"))]
-    let mut terminals: HashMap<u32, mpsc::Sender<TerminalInbound>> = HashMap::new();
+    let mut terminals: HashMap<u32, mpsc::Sender<Bytes>> = HashMap::new();
     let result = async {
         loop {
             let Ok(next) = tokio::time::timeout(PING_EVERY * 2, source.next()).await else {
@@ -389,7 +406,13 @@ where
                 FrameType::Data => {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     if let Some(s) = terminals.get(&id) {
-                        let _ = s.send(TerminalInbound::Data(frame.payload)).await;
+                        // Never wait here: every stream of this machine shares this loop. A viewer whose keystrokes
+                        // pile up is dropped and reconnects; its shell keeps running.
+                        if s.try_send(frame.payload).is_err() {
+                            terminals.remove(&id);
+                            let out = Out { id, tx: tx.clone() };
+                            tokio::spawn(async move { out.reset("terminal_input_backlog".into()).await });
+                        }
                         continue;
                     }
                     if let Some(s) = streams.get(&id)
@@ -410,9 +433,7 @@ where
                 }
                 FrameType::Reset => {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
-                    if let Some(s) = terminals.remove(&id) {
-                        let _ = s.send(TerminalInbound::Detach).await;
-                    }
+                    terminals.remove(&id);
                     if let Some(s) = streams.remove(&id) {
                         tokio::spawn(async move { s.send(Inbound::Reset).await });
                     }
@@ -423,12 +444,20 @@ where
                 FrameType::Head =>
                 {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
-                    if let Some(s) = terminals.get(&id) {
+                    if terminals.contains_key(&id) {
+                        let out = out_for(id, &tx);
                         match serde_json::from_slice::<TerminalClientControl>(&frame.payload) {
                             Ok(control) => {
-                                let _ = s.send(TerminalInbound::Control(control)).await;
+                                tokio::spawn(terminal_control(
+                                    manager.clone().expect("terminal manager"),
+                                    control,
+                                    out,
+                                ));
                             }
-                            Err(error) => out_for(id, &tx).reset(error.to_string()).await,
+                            Err(error) => {
+                                terminals.remove(&id);
+                                tokio::spawn(async move { out.reset(error.to_string()).await });
+                            }
                         }
                     }
                 }
@@ -584,56 +613,172 @@ async fn pipe(
 #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
 mod terminal_tests {
     use super::*;
-    use crate::protocol::{TerminalOpen, TerminalOpenAction, WorkspaceSpec};
+    use crate::protocol::{TerminalDaemonControl, TerminalOpen, TerminalOpenAction, TerminalStatus, WorkspaceSpec};
+    use base64::Engine;
+    use tokio::net::{TcpListener, TcpStream};
+
+    type ServerWs = WebSocketStream<TcpStream>;
+
+    struct Fixture {
+        _home: tempfile::TempDir,
+        work: tempfile::TempDir,
+        manager: TerminalManager,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let (home, work) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+            let manager = TerminalManager::new(home.path().to_path_buf());
+            Self { _home: home, work, manager }
+        }
+
+        fn open(&self, action: TerminalOpenAction, session_id: &str) -> TerminalOpen {
+            TerminalOpen {
+                action,
+                session_id: session_id.into(),
+                group_id: "g".into(),
+                bot_id: "b".into(),
+                workspace: WorkspaceSpec {
+                    repo: None,
+                    cd_path: Some(self.work.path().to_string_lossy().into_owned()),
+                    protect_base: false,
+                    extra_dirs: vec![],
+                },
+                cols: 80,
+                rows: 24,
+                after: 0,
+            }
+        }
+
+        /// The server's end of a tunnel that serves this fixture's terminals.
+        async fn connect(&self) -> ServerWs {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let (manager, home) = (self.manager.clone(), self._home.path().to_path_buf());
+            tokio::spawn(async move {
+                let tcp = TcpStream::connect(addr).await.unwrap();
+                let (ws, _) = tokio_tungstenite::client_async(format!("ws://{addr}/"), tcp).await.unwrap();
+                serve_inner(ws, Allow::default(), home, Some(manager)).await
+            });
+            let (tcp, _) = listener.accept().await.unwrap();
+            tokio_tungstenite::accept_async(tcp).await.unwrap()
+        }
+    }
+
+    fn encode(stream_id: u32, kind: FrameType, payload: impl Into<Bytes>) -> Message {
+        Message::Binary(Frame { stream_id, kind, payload: payload.into() }.encode())
+    }
+
+    fn open_frame(stream_id: u32, terminal: TerminalOpen) -> Message {
+        let open = TunnelOpen {
+            target: TunnelTarget::Terminal { terminal: Box::new(terminal) },
+            method: "TERMINAL".into(),
+            path: "/".into(),
+            headers: vec![],
+            upgrade: true,
+        };
+        encode(stream_id, FrameType::Open, serde_json::to_vec(&open).unwrap())
+    }
+
+    async fn next(source: &mut futures_util::stream::SplitStream<ServerWs>) -> Frame {
+        loop {
+            let msg = tokio::time::timeout(Duration::from_secs(10), source.next())
+                .await
+                .expect("the tunnel went silent")
+                .unwrap()
+                .unwrap();
+            if let Message::Binary(bytes) = msg {
+                return Frame::decode(bytes).unwrap();
+            }
+        }
+    }
+
+    fn output(frame: &Frame) -> Vec<u8> {
+        let value: serde_json::Value = serde_json::from_slice(&frame.payload).unwrap();
+        base64::engine::general_purpose::STANDARD.decode(value["data"].as_str().unwrap()).unwrap()
+    }
 
     #[tokio::test]
-    async fn flooding_output_cannot_wedge_input_and_terminate() {
-        let (home, work) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-        let manager = TerminalManager::new(home.path().to_path_buf());
-        let session_id = uuid::Uuid::new_v4().to_string();
-        let open = TerminalOpen {
-            action: TerminalOpenAction::Create,
-            session_id: session_id.clone(),
-            group_id: uuid::Uuid::new_v4().to_string(),
-            bot_id: uuid::Uuid::new_v4().to_string(),
-            workspace: WorkspaceSpec {
-                repo: None,
-                cd_path: Some(work.path().to_string_lossy().into_owned()),
-                protect_base: false,
-                extra_dirs: vec![],
-            },
-            cols: 80,
-            rows: 24,
-            after: 0,
-        };
-        let (tx, mut frames) = mpsc::channel(OUTBOX);
-        let (input, inbox) = mpsc::channel(INBOX);
-        let stream = tokio::spawn(terminal_stream(manager, open, Out { id: 1, tx }, inbox));
-        assert_eq!(frames.recv().await.unwrap().kind, FrameType::Head);
-        input.send(TerminalInbound::Data("exec yes\r".into())).await.unwrap();
-        let flooding = async {
-            for _ in 0..OUTBOX {
-                assert_eq!(frames.recv().await.unwrap().kind, FrameType::Data);
+    async fn a_terminal_whose_input_backs_up_is_reset_without_stalling_the_tunnel() {
+        let fixture = Fixture::new();
+        let (mut sink, mut source) = fixture.connect().await.split();
+        let (first, second) = (uuid::Uuid::new_v4().to_string(), uuid::Uuid::new_v4().to_string());
+        sink.send(open_frame(1, fixture.open(TerminalOpenAction::Create, &first))).await.unwrap();
+        assert_eq!(next(&mut source).await.kind, FrameType::Head);
+        let command = "stty raw -echo; printf 'GG_%s\\n' RAW_READY; sleep 60\r";
+        sink.send(encode(1, FrameType::Data, command)).await.unwrap();
+        let mut seen = vec![];
+        while !String::from_utf8_lossy(&seen).contains("GG_RAW_READY") {
+            let frame = next(&mut source).await;
+            assert_eq!((frame.stream_id, frame.kind), (1, FrameType::Data));
+            seen.extend(output(&frame));
+        }
+
+        // A paste the foreground program never reads: far more than the PTY and every queue on the way hold.
+        let flood = tokio::spawn(async move {
+            for _ in 0..1024 {
+                sink.send(encode(1, FrameType::Data, vec![b'x'; 16 * 1024])).await.unwrap();
+            }
+            sink
+        });
+        let mut sink = tokio::time::timeout(Duration::from_secs(10), flood)
+            .await
+            .expect("the tunnel stopped reading behind one terminal")
+            .unwrap();
+        loop {
+            let frame = next(&mut source).await;
+            assert_eq!(frame.stream_id, 1);
+            if frame.kind == FrameType::Reset {
+                break;
+            }
+        }
+
+        sink.send(open_frame(2, fixture.open(TerminalOpenAction::Create, &second))).await.unwrap();
+        let head = loop {
+            let frame = next(&mut source).await;
+            if frame.stream_id != 1 {
+                break frame;
             }
         };
-        tokio::time::timeout(Duration::from_secs(15), flooding).await.expect("yes never started");
-        // The socket stalls while the shell floods: the outbox and the session's event queue both fill up.
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        // Keystrokes `yes` ignores, so the flood goes on while each one waits for the session.
-        for _ in 0..64 {
-            input.send(TerminalInbound::Data("x".into())).await.unwrap();
+        assert_eq!((head.stream_id, head.kind), (2, FrameType::Head));
+        assert_eq!(fixture.manager.head(&first).await.unwrap().status, TerminalStatus::Running);
+
+        for (stream_id, session_id) in [(3, &first), (4, &second)] {
+            sink.send(open_frame(stream_id, fixture.open(TerminalOpenAction::Terminate, session_id))).await.unwrap();
+            let exit = loop {
+                let frame = next(&mut source).await;
+                if (frame.stream_id, frame.kind) == (stream_id, FrameType::Head) {
+                    break serde_json::from_slice::<TerminalDaemonControl>(&frame.payload).unwrap();
+                }
+            };
+            let TerminalDaemonControl::Exit { state, .. } = exit else { panic!("{exit:?}") };
+            assert_eq!(state, TerminalStatus::Closed);
         }
-        let terminate = TerminalClientControl::Terminate { session_id: session_id.clone() };
-        input.send(TerminalInbound::Control(terminate)).await.unwrap();
-        let exited = tokio::time::timeout(Duration::from_secs(15), async {
+    }
+
+    #[tokio::test]
+    async fn a_viewer_that_stops_reading_is_detached_and_the_shell_survives() {
+        let fixture = Fixture::new();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let (tx, mut frames) = mpsc::channel(OUTBOX);
+        let (input, inbox) = mpsc::channel(INBOX);
+        let open = fixture.open(TerminalOpenAction::Create, &session_id);
+        let stream = tokio::spawn(terminal_stream(fixture.manager.clone(), open, Out { id: 1, tx }, inbox));
+        assert_eq!(frames.recv().await.unwrap().kind, FrameType::Head);
+        input.send(Bytes::from("exec yes\r")).await.unwrap();
+        // The socket stalls while the shell floods: the outbox and the session's event queue both fill up.
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        let ended = tokio::time::timeout(Duration::from_secs(15), async {
             while let Some(frame) = frames.recv().await {
-                if frame.kind == FrameType::Head {
+                if frame.kind == FrameType::End {
                     return;
                 }
             }
-            panic!("terminal stream closed without an exit head");
+            panic!("terminal stream closed without detaching");
         });
-        exited.await.expect("input and terminate wedged behind flooding output");
+        ended.await.expect("the stalled viewer was never detached");
         stream.await.unwrap();
+        assert_eq!(fixture.manager.head(&session_id).await.unwrap().status, TerminalStatus::Running);
+        fixture.manager.terminate(&session_id).await.unwrap();
     }
 }

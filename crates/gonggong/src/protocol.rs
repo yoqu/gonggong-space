@@ -1679,7 +1679,8 @@ pub struct TunnelReset {
 }
 
 pub const FEATURE_TOOLS: &str = "tools";
-pub const FEATURE_TERMINAL: &str = "terminal-v1";
+/// Web terminals: hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output.
+pub const FEATURE_TERMINAL: &str = "terminal-v2";
 pub const FEATURE_PROVIDERS: &str = "providers";
 pub const FEATURE_CC_SWITCH: &str = "ccSwitch";
 pub const FEATURE_SYNC: &str = "sync";
@@ -1747,6 +1748,20 @@ pub struct TerminalOpen {
 pub enum TerminalOpenAction {
     Create,
     Attach,
+    /// Ends the session and answers with its exit head; needs no attached stream.
+    Terminate,
+}
+
+/// A shell this daemon still runs, reported at hello so the server can adopt or forget sessions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalLive {
+    pub session_id: String,
+    pub group_id: String,
+    pub bot_id: String,
+    pub cols: u16,
+    pub rows: u16,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2126,6 +2141,8 @@ pub enum DaemonToServer {
         /// Optional capabilities: [`FEATURE_TOOLS`], [`FEATURE_PROVIDERS`], [`FEATURE_CC_SWITCH`], [`FEATURE_SYNC`].
         #[serde(default)]
         features: Vec<String>,
+        #[serde(default)]
+        terminals: Vec<TerminalLive>,
     },
     #[serde(rename = "heartbeat")]
     Heartbeat,
