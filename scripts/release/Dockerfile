@@ -1,6 +1,6 @@
 # Build/test image for the Linux and Windows daemon builds. Debian bullseye keeps the glibc baseline at 2.31
 # (Ubuntu 20.04+, Debian 11+, RHEL 9+). Cross linkers are installed for whichever Linux arch is not native.
-FROM node:24-bullseye AS node
+FROM node:24.15.0-bookworm-slim AS node
 FROM rust:1.98.0-bullseye
 RUN arch="$(dpkg --print-architecture)"; pkgs="gcc-mingw-w64-x86-64"; \
     [ "$arch" = amd64 ] || pkgs="$pkgs gcc-x86-64-linux-gnu libc6-dev-amd64-cross"; \
