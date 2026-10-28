@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.5 — 2026-10-28
+
+- 定时任务支持立即执行，不受启停与时间影响；审批卡新增「本次运行免审批」，本次运行临时切为完全访问，结束后自动恢复 / Scheduled tasks can run immediately regardless of enabled state or timing; approval cards add "allow for this run", which temporarily switches to full access and restores when the run ends
+- Agent 看到的消息时间加「 UTC」后缀，避免被误当本地时间 / Times the agent sees carry a " UTC" suffix so they are not mistaken for local time
+- 精简 Bot 系统提示词与内置工具描述，减少每轮上下文占用；未绑定飞书或未启用插件的群不再向 Bot 列出相应工具 / Trimmed the Bot system prompt and built-in tool descriptions to cut per-turn context; groups without a Feishu binding or enabled plugins no longer list the matching tools to Bots
+- 修复终端大粘贴导致断流、刷新后无法重连的问题；重连从保留的输出恢复 / Fix large terminal pastes breaking the stream and terminals failing to reconnect after a refresh; resume from retained output on reconnect
+- Bot 可用 HTML 预览与渲染工具，将网页截图及按宽度排版的页面直接发到群聊 / Bots can use HTML preview and rendering tools to send webpage screenshots and width-fitted pages directly to the chat
+- Git 历史并入 Git 面板，提交、日志、贮藏集中管理，移除记录与控制台并精简操作入口；顶部改动统计可点击直达代码审查 / Merge Git history into the Git panel with commit, log and stash together, remove operations and console views, streamline actions, and click chat change counts to review code
+- 子 Agent 进度会显示在运行过程里；不带托管仓库的本地 Git 工作区也能识别状态 / Show sub-agent progress in run details and recognize Git status in local workspaces without a managed repository
+
 ## v0.4.4 — 2026-10-28
 
 - 工作台新增「终端」标签：机器主人可在 Bot 工作区打开交互式 Shell（macOS/Linux），空闲会话自动回收；输出中的网址与工作区路径可点击 / The workbench adds a Terminal tab: machine owners open an interactive shell in the Bot's workspace (macOS/Linux), idle sessions are reaped, and URLs and workspace paths in the output are clickable
