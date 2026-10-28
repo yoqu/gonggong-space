@@ -579,6 +579,12 @@ describe('run process', () => {
     const w = await world()
     const runId = await w.mention()
     const tool = { kind: 'tool', toolCallId: 'c1', title: 'ls', toolKind: 'execute' }
+    // The card for the run starting can land after the start message; it must not count as a process event.
+    await expect
+      .poll(() =>
+        w.seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.status === 'running'),
+      )
+      .toBe(true)
     const before = w.seen.length
     w.send(runId, { ...tool, status: 'pending' })
     w.send(runId, { ...tool, status: 'in_progress' })
