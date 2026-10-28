@@ -12,6 +12,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
+import { toast } from '../../ui'
 
 /** Each group's scheduled tasks, loaded on first use and replaced by `group.schedules` events. */
 const useStore = create<Record<string, ScheduleDto[]>>()(() => ({}))
@@ -59,6 +60,12 @@ export const schedulesApi = {
   create: (groupId: string, body: CreateScheduleReq) =>
     api.post<ScheduleDto>(`/groups/${groupId}/schedules`, body).then(put),
   update: (id: string, body: UpdateScheduleReq) => api.patch<ScheduleDto>(`/schedules/${id}`, body).then(put),
+  /** Fires it now whether it is on or not; the group sees the run. */
+  run: (s: ScheduleDto) =>
+    api
+      .post<ScheduleDto>(`/schedules/${s.id}/run`)
+      .then(put)
+      .then(() => toast({ type: 'success', message: t('已触发「{name}」，结果见群聊', { name: s.name }) })),
   remove: (s: ScheduleDto) =>
     api
       .del(`/schedules/${s.id}`)

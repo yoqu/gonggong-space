@@ -63,6 +63,9 @@ export function ScheduleCard({
           >
             {s.enabled ? t('暂停') : t('恢复')}
           </Button>
+          <Button size="small" onClick={() => void attempt(() => schedulesApi.run(s))}>
+            {t('立即执行')}
+          </Button>
           <Button size="small" onClick={() => setEditing(true)}>
             {t('编辑')}
           </Button>

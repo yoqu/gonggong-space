@@ -32,7 +32,8 @@ const oneTiming = (a: { cron?: unknown; runAt?: unknown }) => !(a.cron !== undef
 
 /**
  * GET /api/groups/:id/schedules → GroupSchedulesDto (members); POST (CreateScheduleReq) → ScheduleDto.
- * PATCH /api/schedules/:id (UpdateScheduleReq) and DELETE → owner or group admin. Bots are tried in order at firing
+ * PATCH /api/schedules/:id (UpdateScheduleReq), DELETE and POST /api/schedules/:id/run (fire now, on or off; 409 when
+ * skipped) → owner or group admin. Bots are tried in order at firing
  * time: the first available one runs the task.
  */
 export const CreateScheduleReq = z

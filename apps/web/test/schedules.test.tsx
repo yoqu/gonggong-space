@@ -123,6 +123,18 @@ describe('schedules panel', () => {
     )
   })
 
+  it('managers run a task now, even while it is off', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/schedules': list(schedule({ enabled: false, nextRunAt: null })),
+      'POST /schedules/s1/run': schedule({ enabled: false, nextRunAt: null, lastBotId: 'b1' }),
+    })
+    render(<SchedulesView groupId="g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '立即执行「日报」' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/schedules/s1/run')).toBe(true),
+    )
+  })
+
   it('loads once on the first connect and again after a reconnect', async () => {
     const calls = mockApi({ 'GET /groups/g1/schedules': list(schedule()) })
     const rt = startRealtime()
@@ -233,6 +245,7 @@ describe('schedule card', () => {
     const calls = mockApi({
       'GET /groups/g1/schedules': list(schedule({ createdByBotId: 'b1' })),
       'PATCH /schedules/s1': schedule({ enabled: false }),
+      'POST /schedules/s1/run': schedule(),
       'DELETE /schedules/s1': undefined,
     })
     let push: ((e: never) => void) | undefined
@@ -246,6 +259,8 @@ describe('schedule card', () => {
     expect(screen.getByText(/Codex → Claude/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '暂停' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: '立即执行' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/schedules/s1/run')).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
     fireEvent.click(await screen.findByRole('button', { name: '确认删除' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))

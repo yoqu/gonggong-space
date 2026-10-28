@@ -18,6 +18,12 @@ function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
     await attempt(() => schedulesApi.update(s.id, { enabled }))
     setPending(null)
   }
+  const [running, setRunning] = useState(false)
+  const run = async () => {
+    setRunning(true)
+    await attempt(() => schedulesApi.run(s))
+    setRunning(false)
+  }
   const last = lastText(s, (id) => bots.find((b) => b.id === id)?.name ?? t('已移出'))
   return (
     <div className="sc-row" data-testid={`schedule-${s.id}`}>
@@ -36,6 +42,15 @@ function Row({ s, onEdit }: { s: ScheduleDto; onEdit: () => void }) {
       </span>
       {s.canManage ? (
         <span className="sc-row__ops">
+          <Button
+            variant="plain"
+            size="small"
+            aria-label={t('立即执行「{name}」', { name: s.name })}
+            disabled={running}
+            onClick={() => void run()}
+          >
+            {t('立即执行')}
+          </Button>
           <Button variant="plain" size="small" onClick={onEdit}>
             {t('编辑')}
           </Button>

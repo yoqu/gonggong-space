@@ -16,6 +16,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
+import { runNow } from './engine.js'
 import {
   createSchedule,
   deleteSchedule,
@@ -125,6 +126,14 @@ export function scheduleRoutes(ctx: Ctx) {
       const { s } = await found(ctx, req.params.id)
       await requireManage(ctx, s, me.id)
       await updateSchedule(ctx, s, UpdateScheduleReq.parse(req.body), { userId: me.id })
+      return scheduleDto(await found(ctx, s.id), true)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/schedules/:id/run', async (req): Promise<ScheduleDto> => {
+      const me = await requireUser(ctx, req)
+      const { s } = await found(ctx, req.params.id)
+      await requireManage(ctx, s, me.id)
+      await runNow(ctx, s)
       return scheduleDto(await found(ctx, s.id), true)
     })
 

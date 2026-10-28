@@ -282,6 +282,30 @@ describe('schedule engine', () => {
     expect(bodies).toContain('定时任务「日报」上次尚未结束，本次跳过')
   })
 
+  it('runs a task now on demand, even while off, keeping its timing', async () => {
+    const w = await world()
+    const { body: s } = await w.create('li', { ...daily9, botIds: [w.claude.id] })
+    const url = `/api/schedules/${s.id}/run`
+    await w.req('li', 'PATCH', `/api/schedules/${s.id}`, { enabled: false })
+    expect((await w.req('zhao', 'POST', url)).status).toBe(403)
+    const offline = await w.req<{ message: string }>('li', 'POST', url)
+    expect(offline).toMatchObject({ status: 409, body: { message: '候选 Bot 都不可用（Claude）' } })
+    w.online(w.machine.id)
+    const ran = await w.req<ScheduleDto>('li', 'POST', url)
+    expect(ran.status).toBe(200)
+    expect(ran.body).toMatchObject({
+      enabled: false,
+      nextRunAt: null,
+      lastBotId: w.claude.id,
+      lastFiredAt: clock.toISOString(),
+    })
+    expect(ran.body.lastRunId).toBeTruthy()
+    const fired = (await w.groupMessages()).filter((m) => (m.meta as { scheduleOf?: string }).scheduleOf)
+    expect(fired).toMatchObject([{ authorUserId: w.li.id, body: '@Claude 汇总昨天的 PR' }])
+    const busy = await w.req<{ message: string }>('wang', 'POST', url)
+    expect(busy).toMatchObject({ status: 409, body: { message: '上次运行尚未结束' } })
+  })
+
   it('a one-off task turns itself off after firing; one missed by over a day is dropped', async () => {
     const w = await world()
     w.online(w.machine.id)

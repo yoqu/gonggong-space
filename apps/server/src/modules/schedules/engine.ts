@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, inArray, isNull, lte, sql } from 'drizzle-or
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groups, messages, runs, schedules, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
-import { HttpError } from '../../lib/errors.js'
+import { fail, HttpError } from '../../lib/errors.js'
 import { assertPick, botCatalog } from '../bots/config.js'
 import { mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots } from '../groups/service.js'
@@ -144,8 +144,11 @@ async function runOptionsFor(ctx: Ctx, s: ScheduleRow, botId: string, botName: s
   }
 }
 
-/** @-s the chosen bot with the task in its owner's name; the run then goes the way of any other @. */
-async function fire(ctx: Ctx, s: ScheduleRow) {
+/**
+ * @-s the chosen bot with the task in its owner's name; the run then goes the way of any other @. `manual` (run now)
+ * refuses a skip to the caller instead of telling the group.
+ */
+async function fire(ctx: Ctx, s: ScheduleRow, manual = false) {
   const [owner] = await ctx.db
     .select({ id: users.id, name: users.name })
     .from(groupMembers)
@@ -154,15 +157,19 @@ async function fire(ctx: Ctx, s: ScheduleRow) {
   if (!owner) return pause(ctx, s, { key: '主人已不在群内' })
   if (s.lastRunId) {
     const [last] = await ctx.db.select().from(runs).where(eq(runs.id, s.lastRunId))
-    if (last && UNFINISHED.includes(last.status))
+    if (last && UNFINISHED.includes(last.status)) {
+      if (manual) fail('conflict', '上次运行尚未结束')
       return void (await postEvent(ctx, s.groupId, '定时任务「{name}」上次尚未结束，本次跳过', {
         name: s.name,
       }))
+    }
   }
   const inGroup = await activeBots(ctx, s.groupId)
   const candidates = s.botIds.flatMap((id) => inGroup.filter((b) => b.id === id))
   if (!candidates.length) return pause(ctx, s, { key: '候选 Bot 都已不在群内' })
   const bot = await pick(ctx, s.groupId, candidates)
+  if (!bot && manual)
+    fail('conflict', '候选 Bot 都不可用（{bots}）', { bots: candidates.map((b) => b.name).join('、') })
   if (!bot)
     return void (await postEvent(
       ctx,
@@ -193,6 +200,13 @@ async function fire(ctx: Ctx, s: ScheduleRow) {
     .set({ lastRunId: run?.id ?? null, lastBotId: bot.id })
     .where(eq(schedules.id, s.id))
   if (run && (TERMINAL_RUN_STATUS as readonly string[]).includes(run.status)) await settleSchedule(ctx, run)
+}
+
+/** Fires the schedule at once whether it is on or not, leaving its next firing as it was. */
+export async function runNow(ctx: Ctx, s: ScheduleRow) {
+  await fire(ctx, s, true)
+  await ctx.db.update(schedules).set({ lastFiredAt: ctx.now() }).where(eq(schedules.id, s.id))
+  await publishSchedules(ctx, s.groupId)
 }
 
 /**

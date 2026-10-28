@@ -41,6 +41,9 @@ export default {
   跳过: 'skipped',
   'Bot 创建': 'By Bot',
   '启用「{name}」': 'Turn on "{name}"',
+  立即执行: 'Run now',
+  '立即执行「{name}」': 'Run "{name}" now',
+  '已触发「{name}」，结果见群聊': '"{name}" started. See the chat for the result',
   '{n} / {max} 个': '{n} / {max}',
   还没有定时任务: 'No scheduled tasks yet',
   '到点由 Bot 自动执行一段指令；也可以直接让 Bot 帮你建，例如「每个工作日 9 点汇总昨天的 PR」。':
