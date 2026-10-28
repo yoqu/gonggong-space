@@ -814,6 +814,31 @@ describe('question and approval cards', () => {
     expect(seqs).toEqual([...seqs].sort((x, y) => x - y))
   })
 
+  it('本次运行免审批 on the card approves the pending requests and lifts this run to full', async () => {
+    const { machine, run, ownerFs } = await liveRun()
+    await askApproval(machine.id, run.id, 'r1')
+    await askApproval(machine.id, run.id, 'r2')
+    await feishuIdle(t.ctx)
+    expect(runCard().json).toContain('"content":"本次运行免审批"')
+    const [a] = await t.db.select().from(approvals).where(eq(approvals.requestId, 'r1'))
+    const sent: unknown[] = []
+    const send = t.ctx.hub.send.bind(t.ctx.hub)
+    t.ctx.hub.send = (id, m) => {
+      sent.push(m)
+      return send(id, m)
+    }
+    const res = (await t.feishu.cardAction(BOT_APP, {
+      messageId: runCard().messageId,
+      chatId: CHAT,
+      operator: ownerFs,
+      value: { k: 'full', a: a!.id },
+    })) as { toast: { type: string } }
+    expect(res.toast.type).toBe('success')
+    expect(sent).toContainEqual({ t: 'run.tier', runId: run.id, tier: 'full' })
+    const rows = await t.db.select().from(approvals).where(eq(approvals.runId, run.id))
+    expect(rows.map((r) => r.status)).toEqual(['approved', 'approved'])
+  })
+
   it('a card busy with a click is updated once Feishu lets it (200810)', async () => {
     const { machine, run, ownerHttp } = await liveRun()
     await askApproval(machine.id, run.id, 'r1')

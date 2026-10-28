@@ -107,6 +107,21 @@ describe('ApprovalBlock', () => {
     })
   })
 
+  it('lets the owner waive approvals for the rest of this run, except in demo mode', async () => {
+    login('u1', '王磊')
+    const calls = mockApi({ 'POST /runs/r1/full-access': null })
+    const { unmount } = render(<ApprovalBlock run={run([approval()])} />)
+    expect(screen.getByTitle(/本次运行结束后恢复原档位/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '本次运行免审批' }))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/runs/r1/full-access' })
+    unmount()
+    useSession.setState({ tenancy: { demoMode: true } as never })
+    render(<ApprovalBlock run={run([approval()])} />)
+    expect(screen.queryByRole('button', { name: '本次运行免审批' })).toBeNull()
+    useSession.setState({ tenancy: undefined as never })
+  })
+
   it('offers allow-always only when the agent does and there is something to remember', async () => {
     login('u1', '王磊')
     const calls = mockApi({ 'POST /runs/r1/approvals/a1': approval({ status: 'approved' }) })

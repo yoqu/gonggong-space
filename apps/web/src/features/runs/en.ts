@@ -36,6 +36,9 @@ export default {
     '{tier} · auto-rejects in {time}, then the agent works around it',
   批准: 'Approve',
   始终允许: 'Always allow',
+  本次运行免审批: 'No approvals this run',
+  '本次运行切为「完全访问」，后续请求不再询问；本次运行结束后恢复原档位':
+    'Switches this run to “Full access” so later requests are not asked; the tier is restored when the run ends',
   '拒绝#reject': 'Reject',
   '你是 Bot 主人': 'You own this Bot',
   '仅 Bot 主人 {name} 可操作，你只能查看': 'Only the Bot owner {name} can decide; you can only view',

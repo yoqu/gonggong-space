@@ -109,7 +109,7 @@ function approvalBlock(i: Extract<Interaction, { k: 'approval' }>): unknown[] {
   const options = i.options
     .filter((opt) => opt.kind !== 'allow_always' || i.remember.length)
     .sort((a, b) => OPTION_ORDER.indexOf(a.kind) - OPTION_ORDER.indexOf(b.kind))
-  const buttons = options.map((opt) => {
+  const buttons: unknown[] = options.map((opt) => {
     const value: CardValue = { k: 'approve', a: i.id, o: opt.optionId }
     return {
       tag: 'column',
@@ -123,6 +123,19 @@ function approvalBlock(i: Extract<Interaction, { k: 'approval' }>): unknown[] {
         },
       ],
     }
+  })
+  const full: CardValue = { k: 'full', a: i.id }
+  buttons.push({
+    tag: 'column',
+    width: 'auto',
+    elements: [
+      {
+        tag: 'button',
+        type: 'default',
+        text: text(zt('本次运行免审批')),
+        behaviors: [{ type: 'callback', value: full }],
+      },
+    ],
   })
   return [
     markdown(`**${zt('待审批：{title}', { title: i.title })}**`),
@@ -249,7 +262,10 @@ export function runStreamCard(o: {
 /** What the reply element shows: the streamed text (cut like the final reply), or a placeholder before any. */
 export const streamText = (s: string) => (s ? truncated(s) : zt('正在处理…'))
 
-export type CardValue = { k: 'answer'; q: string } | { k: 'approve'; a: string; o: string }
+export type CardValue =
+  | { k: 'answer'; q: string }
+  | { k: 'approve'; a: string; o: string }
+  | { k: 'full'; a: string }
 
 const field = (i: number) => `q${i}`
 
