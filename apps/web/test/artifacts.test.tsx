@@ -50,6 +50,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   updatedAt: at,
   archivedAt: null,
   running: false,
+  undoVersionId: 'v1',
+  redoVersionId: null,
   ...o,
 })
 const card = (o: Partial<ArtifactCard> = {}): ArtifactCard => ({
@@ -66,9 +68,10 @@ const card = (o: Partial<ArtifactCard> = {}): ArtifactCard => ({
 const routes = (o: Record<string, unknown> = {}) => ({
   'GET /artifacts/a1': artifact(),
   'GET /artifacts/a1/versions': [version(1), version(2)],
-  'POST /artifacts/a1/preview': { previewId: 'pw1', url: 'https://a1.preview.test/' },
+  'POST /artifacts/a1/preview': { previewId: 'pw1', origin: ORIGIN, url: '/api/previews/pw1/open' },
   ...o,
 })
+const ORIGIN = 'https://a1.preview.test'
 const tab = { kind: 'artifact' as const, artifactId: 'a1', title: '读书会小程序' }
 const renderTab = () => render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
 const canvas = () => screen.getByRole('application', { name: '画布' })
@@ -172,7 +175,7 @@ describe('artifact tab', () => {
     await screen.findByTitle('首页')
     expect(screen.queryByRole('toolbar', { name: '所选屏幕' })).toBeNull()
     fireEvent.click(screen.getByTestId('art-node-home'))
-    expect(screen.getByTestId('art-select-home').textContent).toContain('390 × 844')
+    expect(screen.getByTestId('art-select-home').textContent).toContain('390 x 844')
     expect(screen.queryByTestId('art-select-detail')).toBeNull()
     const bar = screen.getByRole('toolbar', { name: '所选屏幕' })
     for (const name of ['生成', '修改', '预览', '更多'])
@@ -200,7 +203,7 @@ describe('artifact tab', () => {
     const item = screen.getByRole('menuitem', { name: /变体/ })
     expect(item.hasAttribute('disabled')).toBe(true)
     expect(item.getAttribute('title')).toBe('即将支持')
-    expect(screen.getByRole('button', { name: '标记' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('switches tools with V and H; the hand does not select', async () => {
@@ -240,9 +243,12 @@ describe('artifact tab', () => {
     expect(screen.queryByText('正在查看 v1（只读）')).toBeNull()
   })
 
-  it('undoes by restoring the previous version; redo waits for a later one', async () => {
+  it('undoes and redoes to the server’s targets', async () => {
     const calls = mockApi(
-      routes({ 'POST /artifacts/a1/versions/v1/restore': artifact({ headVersionId: 'v1' }) }),
+      routes({
+        'GET /artifacts/a1': artifact({ undoVersionId: 'v1', redoVersionId: null }),
+        'POST /artifacts/a1/versions/v1/restore': artifact({ headVersionId: 'v1' }),
+      }),
     )
     renderTab()
     await screen.findByTitle('首页')

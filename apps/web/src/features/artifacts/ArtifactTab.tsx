@@ -7,8 +7,18 @@ import { Button, EmptyState, Icon, MenuButton, Skeleton, Spinner, Tag, Tooltip }
 import { openUrl } from '../previews/store'
 import type { TabMeta, TabProps } from '../workbench/types'
 import { Canvas } from './Canvas'
-import { layoutNodes } from './geometry'
-import { loadArtifact, restoreVersion, useArtifact, useArtifactEntry, useArtifactPreview } from './store'
+import {
+  editArtifact,
+  loadArtifact,
+  readArtifactFile,
+  restoreVersion,
+  setFavorites,
+  useArtifact,
+  useArtifactEntry,
+  useArtifactPreview,
+  useVersionDetail,
+} from './store'
+import { parseTokens } from './tokens'
 import './artifacts.css'
 
 const SOURCE: Record<ArtifactVersionDto['source'], string> = {
@@ -33,21 +43,21 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
-  const layout = useMemo(() => (a ? layoutNodes(a) : null), [a])
+  const { detail, tokens: tokensCss } = useVersionDetail(tab.artifactId, shown)
+  const tokens = useMemo(() => (tokensCss ? parseTokens(tokensCss) : null), [tokensCss])
+  const readOnly = !!viewing || !!a?.running || busy
 
-  // Undo and redo step through the versions that were heads (candidates never were).
-  const line = (entry?.versions ?? []).filter((v) => !v.stale || v.id === head)
-  const at = line.findIndex((v) => v.id === head)
-  const step = (to: ArtifactVersionDto | undefined) =>
-    to && !viewing && !a?.running && !busy
+  // Undo and redo move the head to the server's targets (ArtifactDto.undoVersionId / redoVersionId).
+  const step = (to: string | null | undefined) =>
+    to && !readOnly
       ? async () => {
           setBusy(true)
-          await attempt(() => restoreVersion(tab.artifactId, to.id))
+          await attempt(() => restoreVersion(tab.artifactId, to))
           setBusy(false)
         }
       : null
-  const undo = step(at > 0 ? line[at - 1] : undefined)
-  const redo = step(at >= 0 ? line[at + 1] : undefined)
+  const undo = step(a?.undoVersionId)
+  const redo = step(a?.redoVersionId)
   const adopt = async () => {
     if (!viewing) return
     setBusy(true)
@@ -100,11 +110,6 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
             <Icon name="chevron-down" size={10} weight={2} />
           </MenuButton>
         ) : null}
-        {a.running ? (
-          <Tag tone="blue" icon={<Spinner size={11} />}>
-            {t('生成中')}
-          </Tag>
-        ) : null}
         {current?.issues.length ? (
           <Tag tone="orange" icon="warning">
             {t('{n} 项规范问题', { n: current.issues.length })}
@@ -131,6 +136,13 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           </Button>
         </Tooltip>
       </header>
+      {a.running ? (
+        <div className="art-running" role="status">
+          <Spinner size={13} />
+          <span>{t('AI 正在修改')}</span>
+          <small>{t('完成前画布只读')}</small>
+        </div>
+      ) : null}
       {viewing && current ? (
         <div className="art-past" role="status">
           <Icon name="clock" size={14} />
@@ -143,18 +155,27 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           </Button>
         </div>
       ) : null}
-      {!head || !layout ? (
+      {!head ? (
         <Generating />
       ) : previewError ? (
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
       ) : (
         <Canvas
-          nodes={layout.nodes}
-          device={layout.device}
-          previewId={preview?.previewId ?? null}
+          title={a.title}
+          manifest={viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest}
+          tokens={tokens}
+          links={detail?.id === shown ? (detail.links ?? []) : []}
+          favourites={a.favorites ?? []}
+          preview={preview}
           versionKey={shown ?? ''}
+          readOnly={readOnly}
+          thumbnailUrl={current?.thumbnailUrl ?? null}
           undo={undo}
           redo={redo}
+          onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
+          onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
+          onPresent={present}
+          readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
         />
       )}
     </div>

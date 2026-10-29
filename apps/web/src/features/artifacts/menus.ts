@@ -1,5 +1,6 @@
 import { t } from '../../i18n'
 import type { MenuItem } from '../../ui'
+import { FRAME_PRESETS, type FramePreset, type ScreenFrame } from './geometry'
 
 /** Planned for a later round (docs/plan/原型编辑器-Stitch对标-开发计划.md §3): listed, disabled, with a help tag. */
 const soon = (label: string, shortcut?: string, extra: Partial<MenuItem> = {}): MenuItem => ({
@@ -11,7 +12,31 @@ const soon = (label: string, shortcut?: string, extra: Partial<MenuItem> = {}): 
   ...extra,
 })
 
-/** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕). */
+/** Commands of the selection toolbar, the context menu and the keyboard. */
+export const CMD = {
+  newTab: 'new-tab',
+  edit: 'edit',
+  designSystem: 'design-system',
+  details: 'details',
+  code: 'code',
+  download: 'download',
+  reload: 'reload',
+  remove: 'delete',
+  copy: 'copy',
+  cut: 'cut',
+  paste: 'paste',
+  duplicate: 'duplicate',
+  focus: 'focus',
+  favourite: 'favourite',
+  rename: 'rename',
+  links: 'links',
+  selectAll: 'select-all',
+  fit: 'fit',
+  fullHeight: 'full-height',
+  frame: 'frame:',
+} as const
+
+/** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕); generating comes with R3. */
 export const GENERATE_ITEMS: MenuItem[] = [
   soon(t('即时原型')),
   soon(t('变体'), '⇧V'),
@@ -26,34 +51,107 @@ export const GENERATE_ITEMS: MenuItem[] = [
   soon(t('无障碍检查')),
 ]
 
-export const MODIFY_ITEMS: MenuItem[] = [soon(t('编辑'), 'E'), soon('DESIGN.md')]
+const VARIATION_ITEMS: MenuItem[] = [
+  soon(t('布局')),
+  soon(t('配色')),
+  soon(t('图片')),
+  soon(t('字体')),
+  soon(t('文案')),
+  soon(t('自定义…'), '⇧V'),
+]
 
-export const PREVIEW_NEW_TAB = 'new-tab'
-export const previewItems = (canOpen: boolean): MenuItem[] => [
+const readOnlyTitle = (readOnly: boolean) => (readOnly ? { disabled: true, title: t('AI 正在修改') } : {})
+
+export const modifyItems = (readOnly: boolean): MenuItem[] => [
+  { label: t('编辑'), value: CMD.edit, shortcut: 'E', ...readOnlyTitle(readOnly) },
+  { label: t('设计系统'), value: CMD.designSystem },
+]
+
+const PRESET_LABEL: Record<FramePreset, string> = {
+  mobile: t('手机 390×884'),
+  tablet: t('平板 768×1024'),
+  desktop: t('桌面 1280×1024'),
+}
+
+/** `frame`: the selected screens' framing when they share one. */
+export const previewItems = (single: boolean, frame: ScreenFrame | null): MenuItem[] => [
   {
     label: t('新标签页打开'),
-    value: PREVIEW_NEW_TAB,
+    value: CMD.newTab,
     shortcut: '⇧P',
-    disabled: !canOpen,
-    ...(canOpen ? {} : { title: t('选中一个屏幕') }),
+    disabled: !single,
+    ...(single ? {} : { title: t('选中一个屏幕') }),
   },
   soon(t('显示二维码')),
   { separator: true },
-  soon(t('手机 390×884')),
-  soon(t('平板 768×1024')),
-  soon(t('桌面 1280×1024')),
-  soon(t('全高')),
+  ...(Object.keys(FRAME_PRESETS) as FramePreset[]).map((p) => ({
+    label: PRESET_LABEL[p],
+    value: `${CMD.frame}${p}`,
+    checked: frame?.w === FRAME_PRESETS[p].w,
+  })),
+  { separator: true },
+  { label: t('全高'), value: CMD.fullHeight, checked: !!frame?.full },
 ]
 
-export const MORE_RELOAD = 'reload'
-export const MORE_ITEMS: MenuItem[] = [
-  soon(t('查看详情'), 'I'),
-  soon(t('查看代码'), '⇧C'),
+export const moreItems = (readOnly: boolean): MenuItem[] => [
+  { label: t('查看详情'), value: CMD.details, shortcut: 'I' },
+  { label: t('查看代码'), value: CMD.code, shortcut: '⇧C' },
   soon(t('导出'), '⌘⇧E'),
-  soon(t('下载'), '⇧D'),
-  { label: t('重新加载'), value: MORE_RELOAD, shortcut: '⌘R' },
+  { label: t('下载'), value: CMD.download, shortcut: '⇧D' },
+  { label: t('重新加载'), value: CMD.reload, shortcut: '⌘R' },
   { separator: true },
-  soon(t('删除'), '⌫', { destructive: true }),
+  { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...readOnlyTitle(readOnly) },
+]
+
+/** Right-click on selected screens (Stitch capability list §3, 右键菜单). */
+export function screenContextItems(o: {
+  readOnly: boolean
+  single: boolean
+  canPaste: boolean
+  favourite: boolean
+  showAllLinks: boolean
+  frame: ScreenFrame | null
+}): MenuItem[] {
+  const ro = readOnlyTitle(o.readOnly)
+  return [
+    soon(t('添加到对话'), '⌘L'),
+    { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
+    { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', ...ro },
+    { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: o.readOnly || !o.canPaste },
+    { label: t('创建副本'), value: CMD.duplicate, shortcut: '⌘D', ...ro },
+    { label: t('聚焦'), value: CMD.focus, shortcut: 'F' },
+    { label: t('收藏'), value: CMD.favourite, shortcut: '⇧F', checked: o.favourite },
+    { separator: true },
+    { label: t('重命名'), value: CMD.rename, disabled: o.readOnly || !o.single },
+    { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
+    { separator: true },
+    { header: t('生成') },
+    { label: t('生成'), value: 'generate', submenu: GENERATE_ITEMS },
+    { label: t('变体'), value: 'variations', submenu: VARIATION_ITEMS },
+    soon(t('重新生成'), '⇧R'),
+    { separator: true },
+    { header: t('编辑') },
+    ...modifyItems(o.readOnly),
+    { separator: true },
+    { header: t('预览') },
+    ...previewItems(o.single, o.frame).filter((it) => !('separator' in it)),
+    { separator: true },
+    { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
+    ...moreItems(o.readOnly).filter((it) => 'value' in it && it.value !== CMD.remove && it.disabled !== true),
+  ]
+}
+
+/** Right-click on the empty canvas. */
+export const canvasContextItems = (o: {
+  readOnly: boolean
+  canPaste: boolean
+  showAllLinks: boolean
+}): MenuItem[] => [
+  { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: o.readOnly || !o.canPaste },
+  { label: t('全选'), value: CMD.selectAll, shortcut: '⌘A' },
+  { separator: true },
+  { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
+  { label: t('适应画布'), value: CMD.fit, shortcut: '⇧1' },
 ]
 
 export const ZOOM_IN = 'in'
@@ -86,14 +184,15 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('重做'), keys: ['⌘', '⇧', 'Z'] },
       { label: t('全选'), keys: ['⌘', 'A'] },
       { label: t('取消选择'), keys: ['Esc'] },
-      { label: t('剪切'), keys: ['⌘', 'X'], soon: true },
-      { label: t('拷贝'), keys: ['⌘', 'C'], soon: true },
-      { label: t('粘贴'), keys: ['⌘', 'V'], soon: true },
-      { label: t('复制一份'), keys: ['⌘', 'D'], soon: true },
-      { label: t('下载所选'), keys: ['⇧', 'D'], soon: true },
-      { label: t('删除'), keys: ['⌫'], soon: true },
-      { label: t('微移所选'), keys: ['↑', '↓', '←', '→'], soon: true },
-      { label: t('对齐所选'), keys: ['⇧', '↑↓←→'], soon: true },
+      { label: t('剪切'), keys: ['⌘', 'X'] },
+      { label: t('复制'), keys: ['⌘', 'C'] },
+      { label: t('粘贴'), keys: ['⌘', 'V'] },
+      { label: t('创建副本'), keys: ['⌘', 'D'] },
+      { label: t('下载所选'), keys: ['⇧', 'D'] },
+      { label: t('删除'), keys: ['⌫'] },
+      { label: t('收藏'), keys: ['⇧', 'F'] },
+      { label: t('添加到对话'), keys: ['⌘', 'L'], soon: true },
+      { label: t('微移所选'), keys: ['⇧', '↑↓←→'], soon: true },
     ],
   },
   {
@@ -102,10 +201,10 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('选择'), keys: ['V'] },
       { label: t('抓手'), keys: ['H'] },
       { label: t('平移（按住）'), keys: ['Space'] },
-      { label: t('标记#mark'), keys: ['M'], soon: true },
-      { label: t('直接编辑'), keys: ['E'], soon: true },
+      { label: t('标记#mark'), keys: ['M'] },
+      { label: t('直接编辑'), keys: ['E'] },
       { label: t('缩放（按住）'), keys: ['Z'], soon: true },
-      { label: t('显示连线'), keys: ['X'], soon: true },
+      { label: t('显示连线'), keys: ['X'] },
     ],
   },
   {
@@ -116,16 +215,21 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('缩放到 100%'), keys: ['⇧', '0'] },
       { label: t('适应画布'), keys: ['⇧', '1'] },
       { label: t('适应选中'), keys: ['⇧', '2'] },
+      { label: t('移动视图'), keys: ['↑', '↓', '←', '→'] },
+      { label: t('查看详情'), keys: ['I'] },
+      { label: t('查看代码'), keys: ['⇧', 'C'] },
+      { label: t('新标签页打开'), keys: ['⇧', 'P'] },
+      { label: t('重新加载'), keys: ['⌘', 'R'] },
     ],
   },
   {
     title: t('导航'),
     items: [
-      { label: t('聚焦所选'), keys: ['F'], soon: true },
-      { label: t('下一屏'), keys: ['⌘', '→'], soon: true },
-      { label: t('上一屏'), keys: ['⌘', '←'], soon: true },
-      { label: t('上方的屏'), keys: ['⌘', '↑'], soon: true },
-      { label: t('下方的屏'), keys: ['⌘', '↓'], soon: true },
+      { label: t('聚焦所选'), keys: ['F'] },
+      { label: t('下一屏'), keys: ['⌘', '→'] },
+      { label: t('上一屏'), keys: ['⌘', '←'] },
+      { label: t('上方的屏'), keys: ['⌘', '↑'] },
+      { label: t('下方的屏'), keys: ['⌘', '↓'] },
     ],
   },
 ]

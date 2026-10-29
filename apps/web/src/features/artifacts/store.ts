@@ -1,4 +1,10 @@
-import type { ArtifactDto, ArtifactVersionDto, WebEvent } from '@gonggong/protocol'
+import type {
+  ArtifactDto,
+  ArtifactEditOp,
+  ArtifactVersionDetail,
+  ArtifactVersionDto,
+  WebEvent,
+} from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { api, errorText } from '../../lib/api'
@@ -7,7 +13,7 @@ import { openTab } from '../workbench/open'
 
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
-  artifact: ArtifactDto | null
+  artifact: ArtifactWithFavorites | null
   versions: ArtifactVersionDto[]
   error: string
 }
@@ -61,8 +67,75 @@ export async function restoreVersion(artifactId: string, versionId: string) {
   await loadArtifact(artifactId)
 }
 
+/** POST /api/artifacts/:id/edits: one new version from `ops` on top of `baseVersionId` (409 when it is not the head). */
+export async function editArtifact(artifactId: string, baseVersionId: string, ops: ArtifactEditOp[]) {
+  try {
+    await api.post(`/artifacts/${artifactId}/edits`, { baseVersionId, ops })
+  } finally {
+    await loadArtifact(artifactId)
+  }
+}
+
+/** PUT /api/artifacts/:id/favorites — the member's starred screens. */
+export async function setFavorites(artifactId: string, screenIds: string[]) {
+  useStore.setState((s) => {
+    const e = s[artifactId]
+    return e?.artifact ? { [artifactId]: { ...e, artifact: { ...e.artifact, favorites: screenIds } } } : {}
+  })
+  try {
+    const artifact = await api.put<ArtifactWithFavorites>(`/artifacts/${artifactId}/favorites`, { screenIds })
+    useStore.setState((s) => (s[artifactId] ? { [artifactId]: { ...s[artifactId], artifact } } : {}))
+  } catch (e) {
+    await loadArtifact(artifactId)
+    throw e
+  }
+}
+
+/** A `data-gg-link` of a version: the element of screen `from` with text `text` goes to screen `to`. */
+export interface ArtifactLink {
+  from: string
+  to: string
+  ggId: string
+  text: string
+}
+
+/** Server R2 fields (feat/artifacts-server); drop once the protocol here has them. */
+export type ArtifactWithFavorites = ArtifactDto & { favorites?: string[] }
+export type VersionWithLinks = ArtifactVersionDetail & { links?: ArtifactLink[] }
+
+/** A version's files and links (GET …/versions/:vid), the version's tokens.css when it has one. */
+export function useVersionDetail(artifactId: string, versionId: string | null) {
+  const [state, setState] = useState<{ detail: VersionWithLinks | null; tokens: string | null }>({
+    detail: null,
+    tokens: null,
+  })
+  useEffect(() => {
+    if (!versionId) return
+    let live = true
+    api.get<VersionWithLinks>(`/artifacts/${artifactId}/versions/${versionId}`).then(
+      async (detail) => {
+        const tokens = detail.files.some((f) => f.path === 'tokens.css')
+          ? await readArtifactFile(artifactId, 'tokens.css', versionId).catch(() => null)
+          : null
+        if (live) setState({ detail, tokens })
+      },
+      () => live && setState({ detail: null, tokens: null }),
+    )
+    return () => {
+      live = false
+    }
+  }, [artifactId, versionId])
+  return state
+}
+
+/** A file of a version as text (the source view; never rendered on the main site). */
+export const readArtifactFile = (artifactId: string, path: string, versionId: string) =>
+  api.text(`/artifacts/${artifactId}/files/${path}?version=${encodeURIComponent(versionId)}`)
+
 export interface ArtifactPreview {
   previewId: string
+  /** The preview site's origin: screens' bridge messages must come from it. */
+  origin: string
   url: string
 }
 
