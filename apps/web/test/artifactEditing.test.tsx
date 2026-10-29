@@ -62,6 +62,7 @@ const { files: _, ...head } = version(2)
 const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   id: 'a1',
   favorites: [],
+  botId: null,
   groupId: 'g1',
   title: '读书会小程序',
   dir: 'design/app-screens-ab12',

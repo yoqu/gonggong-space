@@ -1,14 +1,17 @@
-import type {
-  AnnotationDto,
-  AnnotationStatus,
-  CreateAnnotationReq,
-  UpdateAnnotationReq,
+import {
+  type AnnotationDto,
+  type AnnotationStatus,
+  BRIDGE_SNIPPET_MAX,
+  type CreateAnnotationReq,
+  type UpdateAnnotationReq,
 } from '@gonggong/protocol'
 import { and, asc, eq, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { artifactAnnotations, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { readBlob } from './blobs.js'
+import { elementsOf } from './html.js'
 import { type Artifact, requireArtifact, requireVersion } from './service.js'
 
 type Row = typeof artifactAnnotations.$inferSelect
@@ -53,12 +56,22 @@ export async function createAnnotation(
   r: CreateAnnotationReq,
 ) {
   const v = await requireVersion(ctx.db, a, r.versionId)
-  if (!v.files.some((f) => f.path === r.file)) fail('invalid', '文件不存在：{path}', { path: r.file })
+  const file =
+    v.files.find((f) => f.path === r.file) ?? fail('invalid', '文件不存在：{path}', { path: r.file })
+  const snippet =
+    r.snippet ??
+    (r.ggId ? sourceSnippet((await readBlob(a.groupId, file.hash)).toString('utf8'), r.ggId) : '')
   const [n] = await ctx.db
     .insert(artifactAnnotations)
-    .values({ ...r, versionId: v.id, artifactId: a.id, authorId: me.id })
+    .values({ ...r, snippet, versionId: v.id, artifactId: a.id, authorId: me.id })
     .returning()
   return dto(n as Row, me.name)
+}
+
+/** The element's source as written, cut like the bridge's snippet; empty when the source has no such element. */
+function sourceSnippet(html: string, ggId: string) {
+  const loc = elementsOf(html).get(Number(ggId))?.sourceCodeLocation
+  return loc ? html.slice(loc.startOffset, loc.endOffset).slice(0, BRIDGE_SNIPPET_MAX) : ''
 }
 
 /** An annotation of an artifact `userId` can read. */

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { AnnotationDto, ArtifactSubmitRes, MessageDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifactAnnotations, messages, runs } from '../src/db/schema.js'
+import { artifactAnnotations, groupBots, messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -37,7 +37,7 @@ async function setup() {
   const req = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, cookie = li, payload?: object) =>
     t.app.inject({ method, url, headers: { cookie }, payload })
   const annotate = (
-    o: Partial<{ ggId: string | null; note: string; versionId: string; file: string }> = {},
+    o: Partial<{ ggId: string | null; note: string; versionId: string; file: string; snippet: string }> = {},
   ) =>
     req('POST', `/api/artifacts/${a.id}/annotations`, li, {
       versionId: v1.versionId,
@@ -75,6 +75,27 @@ describe('annotations', () => {
     expect((await s.req('DELETE', `/api/annotations/${n.id}`, s.wangCookie)).statusCode).toBe(403)
     expect((await s.req('DELETE', `/api/annotations/${n.id}`)).statusCode).toBe(204)
     expect((await s.req('GET', `/api/artifacts/${s.a.id}/annotations`)).json()).toEqual([])
+  })
+
+  it('take the snippet from the version source when the client sends none', async () => {
+    const s = await setup()
+    const cut = (o: Parameters<typeof s.annotate>[0]) =>
+      s.annotate({ snippet: undefined, ...o }).then((r) => (r.json() as AnnotationDto).snippet)
+    expect(await cut({})).toBe('<h1 class="t">报名</h1>')
+    expect(await cut({ ggId: null })).toBe('')
+    expect(await cut({ ggId: '99999' })).toBe('')
+    const section = HOME.slice(HOME.indexOf('<section'), HOME.indexOf('</section>') + '</section>'.length)
+    expect(await cut({ ggId: String(HOME.indexOf('<section')) })).toBe(section)
+    const html = String(HOME.indexOf('<html'))
+    const big = `<!doctype html>\n<html><body><p>${'字'.repeat(400)}</p></body></html>\n`
+    const run = await s.run([s.a.id], { status: 'succeeded' })
+    const v2 = (
+      await s.submit(run.id, s.a.id, { ...L1, 'screens/home.html': big }, { parent: s.v1.versionId })
+    ).json() as ArtifactSubmitRes
+    const long = await cut({ versionId: v2.versionId, ggId: html })
+    expect(long).toBe(big.slice(Number(html), Number(html) + 300))
+    // A client's own snippet stays as sent.
+    expect(await cut({ snippet: '<h1>自带</h1>' })).toBe('<h1>自带</h1>')
   })
 
   it('refuse files outside the version, and outsiders', async () => {
@@ -245,5 +266,43 @@ describe('composer context', () => {
       artifactContext: { artifactId: other.id },
     })
     expect(foreign.statusCode).toBe(404)
+  })
+
+  const send = (s: Awaited<ReturnType<typeof setup>>, body: string, clientId: string, withContext = true) =>
+    s.req('POST', `/api/groups/${s.g.id}/messages`, s.liCookie, {
+      body,
+      clientId,
+      ...(withContext && { artifactContext: { artifactId: s.a.id, screenIds: ['home'] } }),
+    })
+
+  it("sends a message without @ to the artifact's bot", async () => {
+    const s = await setup()
+    const msg = (await send(s, '标题再大点', 'client-0101')).json() as MessageDto
+    expect(msg.mentions).toEqual([s.bot.id])
+    expect((await s.trigger(msg.id)).map((r) => r.botId)).toEqual([s.bot.id])
+  })
+
+  it('follows an explicit @ over the artifact bot', async () => {
+    const s = await setup()
+    const zhao = await t.seed.bot({ ownerId: s.wang.id, name: '赵的 Codex', machineId: s.A.machine.id })
+    await t.db.insert(groupBots).values({ groupId: s.g.id, botId: zhao.id })
+    const msg = (await send(s, '@赵的 Codex 标题再大点', 'client-0102')).json() as MessageDto
+    expect(msg.mentions).toEqual([zhao.id])
+    expect((await s.trigger(msg.id)).map((r) => r.botId)).toEqual([zhao.id])
+  })
+
+  it('triggers nothing when the artifact bot has left the group', async () => {
+    const s = await setup()
+    await t.db.update(groupBots).set({ removedAt: new Date() }).where(eq(groupBots.botId, s.bot.id))
+    const msg = (await send(s, '标题再大点', 'client-0103')).json() as MessageDto
+    expect(msg.mentions).toEqual([])
+    expect(await s.trigger(msg.id)).toEqual([])
+  })
+
+  it('leaves messages without canvas context alone', async () => {
+    const s = await setup()
+    const msg = (await send(s, '标题再大点', 'client-0104', false)).json() as MessageDto
+    expect(msg.mentions).toEqual([])
+    expect(await s.trigger(msg.id)).toEqual([])
   })
 })

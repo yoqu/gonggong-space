@@ -108,7 +108,7 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
 }
 
 const L1_FILES =
-  '按 SKILL.md 的多屏结构写：gg-artifact.json（清单）、DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）、screens/<id>.html（每屏一个完整 HTML）、assets/（图片等）'
+  '按 SKILL.md 的多屏结构写：gg-artifact.json（清单，每屏写 prompt：一段设计说明，讲这屏做什么、有哪些模块、关键文案和跳转）、DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）、screens/<id>.html（每屏一个完整 HTML）、assets/（图片等）'
 
 /** Where the artifact goes (agent-facing): hosted ones are uploaded by the daemon, others published with preview_static. */
 function outputLines(hosted: { dir: string } | null, l1: boolean) {

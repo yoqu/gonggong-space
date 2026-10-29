@@ -19,6 +19,8 @@
     'height',
   ]
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
+  // What the server and this script add to the stored source.
+  const INJECTED = / data-gg-(?:id|selected|hover|mark)(?:="[^"]*")?/g
   let mode = 'preview'
   let hovered = null
   let selected = null
@@ -76,6 +78,7 @@
 
   const describe = (el) => {
     const cs = getComputedStyle(el)
+    const transition = el.getAttribute('data-gg-transition')
     const computed = {}
     for (const p of COMPUTED) computed[p] = cs.getPropertyValue(p)
     return {
@@ -91,6 +94,8 @@
       src: el.getAttribute('src'),
       href: el.getAttribute('href'),
       link: el.getAttribute('data-gg-link'),
+      transition: TRANSITIONS.includes(transition) ? transition : null,
+      snippet: el.outerHTML.replace(INJECTED, '').slice(0, 300),
     }
   }
 

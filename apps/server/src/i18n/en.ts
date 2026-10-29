@@ -737,6 +737,8 @@ export const en = {
   '缩略图不能超过 {mb} MB': 'A thumbnail cannot exceed {mb} MB',
   '群的产物存储已超过 {gb} GB 上限': "The group's artifact storage exceeds its {gb} GB limit",
   '产物所属的 Bot 没有绑定机器': "The artifact's bot is not bound to a machine",
+  '「{title}」v{n}：在这个目录运行 npx serve（或任意静态服务器），再打开它给出的地址即可预览。多屏原型要通过 HTTP 读取 gg-artifact.json，直接双击 index.html 打不开。':
+    '"{title}" v{n}: run npx serve (or any static server) in this folder and open the address it prints. Multi-screen prototypes read gg-artifact.json over HTTP, so opening index.html directly does not work.',
   '产物已有新版本，请刷新后重做': 'The artifact has a newer version; refresh and redo your changes',
   '文件不存在：{path}': 'File not found: {path}',
   '元素在源码里找不到：{ggId}': 'Element not found in the source: {ggId}',

@@ -1585,6 +1585,8 @@ export const artifacts = pgTable(
     favorites: jsonb('favorites').$type<string[]>().notNull().default([]),
     /** Bots that asked for it with artifact_checkout: their next run checks it out first, then they leave the list. */
     checkoutBotIds: jsonb('checkout_bot_ids').$type<string[]>().notNull().default([]),
+    /** The secret of its public link (a preview share of the head preview), sealed (lib/seal.ts) so members can copy it again. */
+    shareToken: text('share_token'),
     archivedAt: ts('archived_at'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -105,6 +105,9 @@ importers:
       fastify:
         specifier: 5.12.5
         version: 5.12.5
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       livekit-server-sdk:
         specifier: 2.19.1
         version: 2.19.1
