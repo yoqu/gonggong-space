@@ -120,8 +120,8 @@ const routes = (o: Record<string, unknown> = {}) => ({
 
 const me = { id: 'u1', name: '王磊', role: 'member' } as UserDto
 const bots = [
-  { id: 'b1', name: '设计助手' },
-  { id: 'b2', name: '前端' },
+  { id: 'b1', name: '设计助手', presence: 'online' },
+  { id: 'b2', name: '前端', presence: 'running' },
 ] as BotDto[]
 const setBots = (ids: string[]) =>
   useWorkspace.setState({
@@ -889,5 +889,60 @@ describe('link arrows', () => {
     expect(spots).toEqual([{ ggId: '120', screen: 'detail', rect: { x: 20, y: 300, w: 100, h: 40 } }])
     expect(linkPaths(nodes, links, view, { 'screens/home.html': spots ?? [] })[0]?.d).toMatch(/^M120 320 /)
     expect(linkPaths(nodes, links, view)[0]?.d).toMatch(/^M390 96 /)
+  })
+})
+
+describe('Stitch round 2 fixes', () => {
+  const offline = () =>
+    useWorkspace.setState({
+      groups: [{ id: 'g1', kind: 'group', members: [], botIds: ['b1'] } as unknown as GroupDto],
+      bots: [{ id: 'b1', name: '设计助手', presence: 'offline' } as BotDto],
+    })
+
+  it('says an offline bot runs the request once it is back, and queues it (R04)', async () => {
+    offline()
+    const calls = mockApi(routes({ 'GET /artifacts/a1': artifact({ botId: 'b1' }) }))
+    await renderTab()
+    fireEvent.click(node('home'))
+    fireEvent.click(screen.getByRole('button', { name: '生成' }))
+    const menu = screen.getByRole('menu')
+    expect(menu.textContent).toContain('@设计助手 离线，上线后执行')
+    const regen = item(menu, /重新生成/)
+    expect(regen.hasAttribute('disabled')).toBe(false)
+    expect(regen.getAttribute('title')).toBe('@设计助手 离线，上线后执行')
+    fireEvent.click(regen)
+    await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toHaveLength(1))
+    expect(useToasts.getState().items.map((x) => x.message)).toContain('已排队，@设计助手 上线后执行')
+    const group = { id: 'g1', kind: 'group', members: [], botIds: ['b1'] } as unknown as GroupDto
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    expect(screen.getByTestId('art-context-to').textContent).toBe('@设计助手 离线，上线后执行')
+    // Direct edit: Edit with AI still goes, saying so.
+    key('e')
+    select()
+    const ai = action(/用 AI 修改/)
+    expect(ai.hasAttribute('disabled')).toBe(false)
+    expect(ai.textContent).toContain('@设计助手 离线，上线后执行')
+    fireEvent.click(ai)
+    expect(within(popover()).getByRole('note').textContent).toBe('@设计助手 离线，上线后执行')
+  })
+
+  it('points to open annotations left on another version, and shows that version (R05)', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/annotations': [
+          note({ versionId: 'v1' }),
+          note({ id: 'n2', versionId: 'v1' }),
+          note({ id: 'n3', versionId: 'v1', status: 'resolved' }),
+        ],
+        'GET /artifacts/a1/annotations?version=v1': [note({ versionId: 'v1' })],
+      }),
+    )
+    await renderTab()
+    fireEvent.click(screen.getByRole('button', { name: '批注' }))
+    expect(await screen.findByText('还没有批注')).toBeTruthy()
+    const hint = await screen.findByTestId('art-notes-elsewhere')
+    expect(hint.textContent).toContain('v1 上还有 2 条未处理批注')
+    fireEvent.click(within(hint).getByRole('button', { name: '查看' }))
+    expect(await screen.findByText('正在查看 v1（只读）')).toBeTruthy()
   })
 })

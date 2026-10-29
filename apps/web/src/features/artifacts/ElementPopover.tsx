@@ -2,6 +2,7 @@ import type { BotDto } from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { Button, CloseButton, Icon, type IconName, Select, Textarea } from '../../ui'
+import { offlineHint } from './actions'
 import type { PickedElement } from './elements'
 
 const WIDTH = 272
@@ -79,7 +80,7 @@ function Floating({
   )
 }
 
-/** The bot a request goes to: a picker when the group has several. */
+/** The bot a request goes to: a picker when the group has several, and a note while it is offline. */
 export function BotChoice({
   bots,
   bot,
@@ -89,17 +90,26 @@ export function BotChoice({
   bot: BotDto | null
   onPick: (id: string) => void
 }) {
-  if (bots.length < 2) return null
+  const offline = offlineHint(bot)
   return (
-    <div className="art-pop__bot">
-      <span>{t('交给')}</span>
-      <Select
-        label={t('交给')}
-        options={bots.map((b) => ({ value: b.id, label: `@${b.name}` }))}
-        value={bot?.id ?? null}
-        onChange={onPick}
-      />
-    </div>
+    <>
+      {bots.length > 1 ? (
+        <div className="art-pop__bot">
+          <span>{t('交给')}</span>
+          <Select
+            label={t('交给')}
+            options={bots.map((b) => ({ value: b.id, label: `@${b.name}` }))}
+            value={bot?.id ?? null}
+            onChange={onPick}
+          />
+        </div>
+      ) : null}
+      {offline ? (
+        <p className="art-pop__offline" role="note">
+          {offline}
+        </p>
+      ) : null}
+    </>
   )
 }
 
@@ -180,6 +190,7 @@ export function EditPopover({
   }
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const ro = readOnly ? t('AI 正在修改') : undefined
+  const aiHint = noSource ?? (bot ? (offlineHint(bot) ?? undefined) : t('群里没有 Bot'))
 
   return (
     <Floating box={box} room={room} title={t('编辑元素')} label={t('编辑元素')} onClose={onClose}>
@@ -195,14 +206,14 @@ export function EditPopover({
           <Action
             icon="sparkle"
             label={t('用 AI 修改')}
-            hint={noSource ?? (bot ? undefined : t('群里没有 Bot'))}
+            hint={aiHint}
             disabled={!located || !bot}
             onClick={() => setStep('ai')}
           />
           <Action
             icon="link"
             label={t('连到新屏…')}
-            hint={noSource ?? (bot ? undefined : t('群里没有 Bot'))}
+            hint={aiHint}
             disabled={!located || !bot}
             onClick={() => setStep('connect')}
           />

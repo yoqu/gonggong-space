@@ -3,9 +3,16 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
-import { acceptBridge } from '../src/features/artifacts/bridge'
+import { acceptBridge, markReady, postToScreen } from '../src/features/artifacts/bridge'
 import { besideBox } from '../src/features/artifacts/ElementPopover'
-import { dropIndex, neighbour, revealView } from '../src/features/artifacts/geometry'
+import {
+  type CanvasNode,
+  dropIndex,
+  fitView,
+  layoutNodes,
+  neighbour,
+  revealView,
+} from '../src/features/artifacts/geometry'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { parseTokens } from '../src/features/artifacts/tokens'
 import { realtime } from '../src/lib/realtime'
@@ -197,6 +204,15 @@ describe('bridge', () => {
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'gg-bridge', type: 'ready', file: 'screens/home.html', width: 390, height: 844 },
+          origin: ORIGIN,
+          source: iframe.contentWindow,
+        }),
+      )
+    })
     key('e')
     expect(screen.getByRole('button', { name: '直接编辑' }).getAttribute('aria-pressed')).toBe('true')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(true)
@@ -571,5 +587,161 @@ describe('Stitch round 1 fixes', () => {
     expect(besideBox({ left: 600, top: 200, width: 100, height: 30 }, { ...room, right: 360 })).toBeNull()
     expect(besideBox({ left: -300, top: 200, width: 100, height: 30 }, room)).toBeNull()
     expect(besideBox({ left: 100, top: 900, width: 100, height: 30 }, room)).toBeNull()
+  })
+})
+
+describe('Stitch round 2 fixes', () => {
+  const sized = (width: number, height: number) => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(height)
+  }
+  const zoomText = () => screen.getByRole('button', { name: '缩放' }).textContent
+  const titleOf = (name: string) => screen.getByRole('button', { name }).closest('.art-title') as HTMLElement
+  const twelve = {
+    ...manifest,
+    screens: Array.from({ length: 12 }, (_, i) => ({
+      id: `s${i}`,
+      title: `第 ${i} 屏`,
+      file: `screens/s${i}.html`,
+    })),
+  }
+  const post = (file: string, data: Record<string, unknown>, title = '首页') => {
+    const iframe = screen.getByTitle(title) as HTMLIFrameElement
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'gg-bridge', file, ...data },
+          origin: ORIGIN,
+          source: iframe.contentWindow,
+        }),
+      )
+    })
+  }
+
+  it('posts to a screen only once it said ready from the preview origin, the latest queued first (R01)', () => {
+    const f = document.createElement('iframe')
+    document.body.append(f)
+    const sent = vi.spyOn(f.contentWindow as Window, 'postMessage')
+    postToScreen(f, ORIGIN, { type: 'mode', mode: 'mark' })
+    postToScreen(f, ORIGIN, { type: 'mode', mode: 'edit' })
+    postToScreen(f, ORIGIN, { type: 'highlight', ggIds: ['1'] })
+    expect(sent).not.toHaveBeenCalled()
+    markReady(f, ORIGIN)
+    expect(sent.mock.calls).toEqual([
+      [{ source: 'gg-host', type: 'mode', mode: 'edit' }, ORIGIN],
+      [{ source: 'gg-host', type: 'highlight', ggIds: ['1'] }, ORIGIN],
+    ])
+    postToScreen(f, ORIGIN, { type: 'select-clear' })
+    expect(sent).toHaveBeenLastCalledWith({ source: 'gg-host', type: 'select-clear' }, ORIGIN)
+    // Ready from another preview does not count for this one.
+    sent.mockClear()
+    postToScreen(f, 'https://a2.preview.test', { type: 'select-clear' })
+    expect(sent).not.toHaveBeenCalled()
+  })
+
+  it('tells a screen nothing before it is ready, then its tool on ready (R01)', async () => {
+    mockApi(routes())
+    await renderTab()
+    const iframe = screen.getByTitle('首页') as HTMLIFrameElement
+    const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
+    key('m')
+    expect(sent).not.toHaveBeenCalled()
+    post('screens/home.html', { type: 'ready', width: 390, height: 844 })
+    expect(sent).toHaveBeenCalledWith({ source: 'gg-host', type: 'mode', mode: 'mark' }, ORIGIN)
+    expect(sent).toHaveBeenCalledWith({ source: 'gg-host', type: 'highlight', ggIds: [] }, ORIGIN)
+  })
+
+  it('wraps many screens into rows by device width, the prototype after the last (R06)', () => {
+    const { nodes } = layoutNodes({ title: 't', manifest: twelve, system: 640, frames: {}, content: {} })
+    const at = (id: string) => nodes.find((n) => n.id === id) as CanvasNode
+    expect(at('@system')).toMatchObject({ x: 0, y: 0 })
+    expect([0, 1, 5].map((i) => at(`s${i}`).x)).toEqual([840, 1350, 3390])
+    expect(at('s5').y).toBe(0)
+    expect(at('s6')).toMatchObject({ x: 840, y: 844 + 120 + 32 })
+    expect(at('@prototype')).toMatchObject({ x: 840, y: 2 * (844 + 120 + 32) })
+    const desktop = layoutNodes({
+      title: 't',
+      manifest: { ...twelve, device: 'desktop' as const },
+      system: null,
+      frames: {},
+      content: {},
+    })
+    expect(desktop.nodes.filter((n) => n.y === 0).map((n) => n.id)).toEqual(['s0', 's1'])
+    // Dropped on the second row's left: first of that row.
+    const screensOnly = nodes.filter((n) => n.kind === 'screen')
+    expect(dropIndex(screensOnly, 's0', 800, at('s6').y + 10)).toBe(5)
+    expect(dropIndex(screensOnly, 's11', 1100, 10)).toBe(1)
+  })
+
+  it('fits leaving the tools free, and again as the layout grows until the view is moved (R02)', async () => {
+    sized(1200, 800)
+    mockApi(routes())
+    await renderTab()
+    await waitFor(() => expect(zoomText()).toBe('45%'))
+    const proto = titleOf('原型 · 读书会小程序')
+    expect(Number.parseFloat(proto.style.left) + 390 * 0.448).toBeLessThanOrEqual(1200 - 64)
+    post('screens/home.html', { type: 'size', width: 390, height: 1800 })
+    expect(zoomText()).toBe('37%')
+    key('0', { shiftKey: true, code: 'Digit0' })
+    expect(zoomText()).toBe('100%')
+    post('screens/home.html', { type: 'size', width: 390, height: 2400 })
+    expect(zoomText()).toBe('100%')
+    expect(fitView([], { width: 100, height: 100 })).toBeNull()
+  })
+
+  it('shows titles as icons zoomed far out, never wider than their node (R06)', async () => {
+    sized(600, 400)
+    mockApi(routes({ 'GET /artifacts/a1': artifact({ manifest: twelve }) }))
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('第 0 屏')
+    await waitFor(() => expect(titleOf('第 0 屏').classList.contains('art-title--tiny')).toBe(true))
+    const title = titleOf('第 0 屏')
+    expect(screen.getByRole('button', { name: '第 0 屏' }).getAttribute('title')).toBe('第 0 屏')
+    expect(Number.parseFloat(title.style.maxWidth)).toBeLessThanOrEqual(Math.max(390 * 0.15, 26))
+  })
+
+  it('closes an open menu on Escape and keeps the selection (R03)', async () => {
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(node('home'))
+    const gen = screen.getByRole('button', { name: '生成' })
+    // As a pointer press does, focus the button, then open its menu.
+    act(() => gen.focus())
+    fireEvent.click(gen)
+    expect(screen.getByRole('menu')).toBeTruthy()
+    fireEvent.keyDown(gen, { key: 'Escape' })
+    expect(gen.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByTestId('art-select-home')).toBeTruthy()
+    // Right-click menu too.
+    fireEvent.contextMenu(node('home'))
+    expect(document.querySelector('.ui-menu--context')).toBeTruthy()
+    fireEvent.keyDown(canvas(), { key: 'Escape' })
+    expect(document.querySelector('.ui-menu--context')).toBeNull()
+    expect(screen.getByTestId('art-select-home')).toBeTruthy()
+    key('Escape')
+    expect(screen.queryByTestId('art-select-home')).toBeNull()
+  })
+
+  it('opens a screen in the shell’s presentation with ⇧P, and sizes the phone preset by device (R12, R13)', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    mockApi(routes({ 'GET /artifacts/a1': artifact({ manifest: { ...manifest, device: 'miniprogram' } }) }))
+    await renderTab()
+    fireEvent.click(node('home'))
+    key('P', { shiftKey: true })
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/#play:home$/), '_blank', 'noopener')
+    fireEvent.click(screen.getByRole('button', { name: '预览' }))
+    expect(item(screen.getByRole('menu'), /手机/).textContent).toContain('手机 375×884')
+  })
+
+  it('keeps its shortcuts after the tab’s 导出 opened the export panel (K01)', async () => {
+    mockApi(routes())
+    await renderTab()
+    const exportBtn = screen.getAllByRole('button', { name: '导出' })[0] as HTMLElement
+    act(() => exportBtn.focus())
+    fireEvent.click(exportBtn)
+    expect(screen.getByTestId('art-export')).toBeTruthy()
+    expect(document.activeElement).toBe(canvas())
+    key('?', { shiftKey: true, code: 'Slash' })
+    expect(await screen.findByRole('dialog', { name: '快捷键' })).toBeTruthy()
   })
 })

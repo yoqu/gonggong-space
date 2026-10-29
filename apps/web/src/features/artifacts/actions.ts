@@ -41,11 +41,26 @@ export function useArtifactBot(groupId: string, ownBotId?: string | null) {
   return { bots, bot, pick }
 }
 
+/** Whether the bot's machine is up, as the group's member list shows it: else its runs wait. */
+export const botOnline = (b: Pick<BotDto, 'presence'>) => b.presence === 'online' || b.presence === 'running'
+
+/** What a canvas request to `bot` says before it goes: null while the bot is online. */
+export const offlineHint = (bot: BotDto | null) =>
+  bot && !botOnline(bot) ? t('@{name} 离线，上线后执行', { name: bot.name }) : null
+
+/** The toast once a request went to `bot`: handed over, or queued until it comes online. */
+export const handedTo = (bot: BotDto) =>
+  toast(
+    botOnline(bot)
+      ? { type: 'success', message: t('已交给 @{name}', { name: bot.name }) }
+      : { type: 'info', message: t('已排队，@{name} 上线后执行', { name: bot.name }) },
+  )
+
 /** POST /api/artifacts/:id/commands: the server posts the @bot message as the member. */
-export async function sendCommand(artifactId: string, req: ArtifactCommandReq, botName: string) {
+export async function sendCommand(artifactId: string, req: ArtifactCommandReq, bot: BotDto) {
   try {
     await api.post(`/artifacts/${artifactId}/commands`, req)
-    toast({ type: 'success', message: t('已交给 @{name}', { name: botName }) })
+    handedTo(bot)
     return true
   } catch (e) {
     toastError(e)
@@ -92,7 +107,40 @@ export function useAnnotations(artifactId: string, versionId: string | null) {
     }
   }, [artifactId, versionId, tick])
   const reload = useCallback(() => setTick((n) => n + 1), [])
-  return { list, reload }
+  return { list, reload, tick }
+}
+
+/**
+ * Annotations still to do on other versions than `versionId`, by version (they stay with the version they were made
+ * on, so a new version, a local one too, seems to drop them). Asked only while `enabled`.
+ */
+export function useOpenElsewhere(
+  artifactId: string,
+  versionId: string | null,
+  enabled: boolean,
+  tick: number,
+) {
+  const [counts, setCounts] = useState<Record<string, number>>({})
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` reloads with the shown version's list
+  useEffect(() => {
+    if (!enabled) return setCounts({})
+    let live = true
+    api.get<AnnotationDto[]>(`/artifacts/${artifactId}/annotations`).then(
+      (l) => {
+        if (!live) return
+        const next: Record<string, number> = {}
+        for (const a of l)
+          if (a.status === 'open' && a.versionId !== versionId)
+            next[a.versionId] = (next[a.versionId] ?? 0) + 1
+        setCounts(next)
+      },
+      () => live && setCounts({}),
+    )
+    return () => {
+      live = false
+    }
+  }, [artifactId, versionId, enabled, tick])
+  return counts
 }
 
 export const createAnnotation = (artifactId: string, req: CreateAnnotationReq) =>

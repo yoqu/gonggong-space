@@ -29,27 +29,31 @@ import { attempt, toastError } from '../../lib/errors'
 import {
   ConfirmActionDialog,
   ContextMenu,
+  hasOpenOverlay,
   Icon,
   IconButton,
   type IconName,
   MenuButton,
   type MenuItem,
+  overlayMark,
   Presence,
   Skeleton,
   Tooltip,
-  toast,
 } from '../../ui'
 import { openUrl } from '../previews/store'
 import { AnnotationsPanel } from './AnnotationsPanel'
 import {
   createAnnotation,
   deleteAnnotation,
+  handedTo,
+  offlineHint,
   saveEdits,
   sendAnnotations,
   sendCommand,
   updateAnnotation,
   useAnnotations,
   useArtifactBot,
+  useOpenElsewhere,
 } from './actions'
 import { linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
@@ -60,6 +64,7 @@ import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
 import { elementBox, elementLabel, type PickedElement } from './elements'
 import {
+  boundsKey,
   type CanvasNode,
   type Direction,
   defaultFrame,
@@ -67,6 +72,7 @@ import {
   FRAME_PRESETS,
   type FramePreset,
   fitView,
+  framePreset,
   layoutNodes,
   neighbour,
   onScreen,
@@ -80,6 +86,7 @@ import {
 } from './geometry'
 import { Links, linkPaths } from './Links'
 import {
+  type BotState,
   CMD,
   canvasContextItems,
   generateItems,
@@ -112,6 +119,11 @@ const WIDE_PANEL_SIDE = 420
 /** Below this much width the selection toolbar shows icons only (labels move into tooltips). */
 const FLOAT_FULL = 380
 const FLOAT_FULL_WITH_BOT = 500
+
+/** Below this zoom node titles show their icon only. */
+const TINY_ZOOM = 0.15
+/** A title is at most as wide as its node on screen, but keeps room for its icon. */
+const TITLE_MIN = 26
 
 /** Pointer travel (px) after which a press pans instead of clicking. */
 const DRAG = 4
@@ -146,6 +158,10 @@ export interface CanvasProps {
   designPanel: (close: () => void) => ReactNode
   /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
   guardDesign: (proceed: () => void) => void
+  /** The artifact's versions, to name the ones with open annotations. */
+  versions: { id: string; n: number }[]
+  /** Shows a version (read-only unless it is the head). */
+  onViewVersion: (versionId: string) => void
   /** Bumped by the tab's 导出 button: opens the export panel. */
   exportRequest: number
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
@@ -201,6 +217,8 @@ export function Canvas({
   guardDesign,
   exportRequest,
   onPrototypeAsked,
+  versions,
+  onViewVersion,
 }: CanvasProps) {
   const root = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
@@ -217,7 +235,6 @@ export function Canvas({
   const [content, setContent] = useState<Record<string, number>>({})
   const [systemH, setSystemH] = useState(SYSTEM_HEIGHT)
   const [allLinks, setAllLinks] = useState(false)
-  const [panel, setPanelNow] = useState<Panel | null>(null)
   const setPanel = (next: SetStateAction<Panel | null>) => {
     const p = typeof next === 'function' ? next(panel) : next
     if (panel === 'design' && p !== 'design') guardDesign(() => setPanelNow(p))
@@ -227,7 +244,9 @@ export function Canvas({
   const [removing, setRemoving] = useState<string[] | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [clip, setClip] = useState<{ ids: string[]; cut: boolean } | null>(null)
-  const [moving, setMoving] = useState<{ id: string; x: number; dx: number } | null>(null)
+  const [moving, setMoving] = useState<{ id: string; x: number; y: number; dx: number; dy: number } | null>(
+    null,
+  )
   const [ctxOnScreen, setCtxOnScreen] = useState(false)
   /** The element a screen reported clicked with mark or direct edit; `pop` shows its popover. */
   const [element, setElement] = useState<PickedElement | null>(null)
@@ -240,12 +259,27 @@ export function Canvas({
   const [spots, setSpots] = useState<Record<string, BridgeLinkRect[]>>({})
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const shareDenied = useShareAccess(groupId, botId)
+  const botState: BotState = bot ? offlineHint(bot) : 'none'
   const annotations = useAnnotations(artifactId, versionKey || null)
+  const [panel, setPanelNow] = useState<Panel | null>(null)
+  const openElsewhere = useOpenElsewhere(
+    artifactId,
+    versionKey || null,
+    panel === 'annotations' && !annotations.list.length,
+    annotations.tick,
+  )
+  const elsewhere = versions
+    .filter((v) => openElsewhere[v.id])
+    .map((v) => ({ versionId: v.id, n: v.n, count: openElsewhere[v.id] ?? 0 }))
+    .sort((a, b) => b.n - a.n)
   const meId = useSession((s) => s.user?.id ?? null)
   const press = useRef<{ id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null>(
     null,
   )
-  const fitted = useRef(false)
+  /** Until the member moves the view or selects, the view follows the layout as it grows and settles. */
+  const auto = useRef(true)
+  /** Overlays opened after this (menus over the canvas) take Escape before the canvas does. */
+  const escapeFrom = useRef(0)
   const panning = tool === 'hand' || space
   const live = tool === 'mark' || tool === 'edit'
   const canEdit = !readOnly && !!manifest
@@ -277,19 +311,33 @@ export function Canvas({
     return () => ro.disconnect()
   }, [])
 
-  const fitTo = useCallback(
-    (only?: string[]) => {
-      const v = fitView(only ? nodes.filter((n) => only.includes(n.id)) : nodes, room)
-      if (v) setView(v)
-    },
-    [nodes, room],
-  )
-  // Fit once the plane has a size.
+  /** What the open side panel takes of the canvas's right edge (with the tools); popovers and the toolbar avoid it. */
+  const side = (panel === 'element' ? !!element && tool === 'edit' : panel === 'details' ? !!one : !!panel)
+    ? panel === 'design'
+      ? WIDE_PANEL_SIDE
+      : PANEL_SIDE
+    : 0
+  const fitTo = (only?: string[]) => {
+    auto.current = false
+    const v = fitView(only ? nodes.filter((n) => only.includes(n.id)) : nodes, room, Math.max(side, TOOLS))
+    if (v) setView(v)
+  }
+  // Fit whenever the layout's bounds or the plane's size change, until the member takes over the view.
+  const bounds = boundsKey(nodes)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on new bounds or a new plane size only
   useEffect(() => {
-    if (fitted.current || !room.width) return
-    fitted.current = true
-    fitTo()
-  }, [room, fitTo])
+    if (!auto.current || !room.width) return
+    const v = fitView(nodes, room, Math.max(side, TOOLS))
+    if (v) setView(v)
+  }, [bounds, room.width, room.height])
+  useEffect(() => {
+    if (selected.length) auto.current = false
+  }, [selected])
+  /** The member moves the view: no more fitting to the layout. */
+  const moveView = (next: SetStateAction<View>) => {
+    auto.current = false
+    setView(next)
+  }
   // Screens gone from the manifest leave the selection.
   useEffect(() => setSelected((s) => s.filter((id) => nodes.some((n) => n.id === id))), [nodes])
 
@@ -301,6 +349,7 @@ export function Canvas({
       e.preventDefault()
       const box = el.getBoundingClientRect()
       // ctrlKey is also how trackpads report a pinch.
+      auto.current = false
       if (e.ctrlKey || e.metaKey)
         setView((v) => zoomAt(v, v.z * Math.exp(-e.deltaY * 0.01), e.clientX - box.left, e.clientY - box.top))
       else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
@@ -322,8 +371,11 @@ export function Canvas({
   // ── bridge ──
   const origin = preview?.origin ?? null
   const fromScreen = (m: BridgeFromShell) => {
-    if (m.type === 'ready')
-      postToScreen(frameEls.get(m.file), origin, { type: 'mode', mode: bridgeMode(tool) })
+    if (m.type === 'ready') {
+      const f = frameEls.get(m.file)
+      postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
+      if (tool === 'mark') postToScreen(f, origin, { type: 'highlight', ggIds: markedIn(m.file) })
+    }
     if (m.type === 'ready' || m.type === 'size') {
       const h = m.height
       if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
@@ -351,15 +403,15 @@ export function Canvas({
     setDeleting(null)
   }, [versionKey])
   // With the mark tool the annotated elements are outlined in their screens; leaving it clears them.
+  const markedIn = (file: string) =>
+    annotations.list.flatMap((a) => (a.file === file && a.ggId ? [a.ggId] : []))
   const outlined = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: markedIn reads annotations.list
   useEffect(() => {
     if (tool !== 'mark' && !outlined.current) return
     outlined.current = tool === 'mark'
-    for (const [file, f] of frameEls) {
-      const ggIds =
-        tool === 'mark' ? annotations.list.flatMap((a) => (a.file === file && a.ggId ? [a.ggId] : [])) : []
-      postToScreen(f, origin, { type: 'highlight', ggIds })
-    }
+    for (const [file, f] of frameEls)
+      postToScreen(f, origin, { type: 'highlight', ggIds: tool === 'mark' ? markedIn(file) : [] })
   }, [tool, origin, frameEls, annotations.list])
   const dropElement = () => {
     if (element) postToScreen(frameEls.get(element.file), origin, { type: 'select-clear' })
@@ -393,6 +445,8 @@ export function Canvas({
     if (exportRequest === exportSeen.current) return
     exportSeen.current = exportRequest
     setPanel('export')
+    // The tab's button keeps the focus otherwise, outside the canvas: its shortcuts (? and all) would stop working.
+    root.current?.focus({ preventScroll: true })
   }, [exportRequest])
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
@@ -405,7 +459,7 @@ export function Canvas({
       ...(manifest && picked.length && !extra.ggIds ? { screenIds: picked.map((n) => n.id) } : {}),
       ...extra,
     }
-    return sendCommand(artifactId, req, bot.name).then((ok) => {
+    return sendCommand(artifactId, req, bot).then((ok) => {
       if (ok && command === 'instant-prototype') onPrototypeAsked()
       return ok
     })
@@ -483,13 +537,24 @@ export function Canvas({
       return
     }
     if (value.startsWith(CMD.frame)) {
-      const p = FRAME_PRESETS[value.slice(CMD.frame.length) as FramePreset]
-      if (p) reframe((f) => ({ ...f, w: p.w, h: p.h }))
+      const name = value.slice(CMD.frame.length) as FramePreset
+      if (name in FRAME_PRESETS) {
+        const p = framePreset(name, device)
+        reframe((f) => ({ ...f, w: p.w, h: p.h }))
+      }
       return
     }
     switch (value) {
       case CMD.newTab:
-        if (one && preview) window.open(openUrl(preview.previewId, `/${one.file}`), '_blank', 'noopener')
+        // An L1 artifact opens in its shell's presentation, in the device frame (as the prototype editor does).
+        if (one && preview)
+          window.open(
+            manifest
+              ? `${openUrl(preview.previewId, '/')}#play:${one.id}`
+              : openUrl(preview.previewId, `/${one.file}`),
+            '_blank',
+            'noopener',
+          )
         return
       case CMD.edit:
         if (canEdit) setTool('edit')
@@ -552,9 +617,9 @@ export function Canvas({
   const zoom = (value: string) => {
     const cx = room.width / 2
     const cy = room.height / 2
-    if (value === ZOOM_IN) setView((v) => zoomAt(v, v.z * ZOOM_STEP, cx, cy))
-    else if (value === ZOOM_OUT) setView((v) => zoomAt(v, v.z / ZOOM_STEP, cx, cy))
-    else if (value === ZOOM_100) setView((v) => zoomAt(v, 1, cx, cy))
+    if (value === ZOOM_IN) moveView((v) => zoomAt(v, v.z * ZOOM_STEP, cx, cy))
+    else if (value === ZOOM_OUT) moveView((v) => zoomAt(v, v.z / ZOOM_STEP, cx, cy))
+    else if (value === ZOOM_100) moveView((v) => zoomAt(v, 1, cx, cy))
     else if (value === ZOOM_FIT) fitTo()
     else if (value === ZOOM_SELECTION && selected.length) fitTo(selected)
   }
@@ -604,6 +669,8 @@ export function Canvas({
       else if (arrow) run(() => pan(arrow, NUDGE * 10))
       return
     }
+    // A menu or popover over the canvas takes Escape (the shared overlay stack closes it), and only it.
+    if (e.key === 'Escape' && hasOpenOverlay(escapeFrom.current)) return
     if (arrow) run(() => pan(arrow, NUDGE))
     else if (e.key === 'Escape' && element) run(dropElement)
     else if (e.key === 'Escape' && (selected.length || panel))
@@ -619,7 +686,7 @@ export function Canvas({
     else if (key === 'x') run(() => command(CMD.links))
   }
   const pan = (dir: Direction, by: number) =>
-    setView((v) => ({
+    moveView((v) => ({
       ...v,
       x: v.x + (dir === 'left' ? by : dir === 'right' ? -by : 0),
       y: v.y + (dir === 'up' ? by : dir === 'down' ? -by : 0),
@@ -643,7 +710,7 @@ export function Canvas({
       e.currentTarget.setPointerCapture?.(e.pointerId)
       setDragging(true)
     }
-    setView((v) => ({ ...v, x: p.vx + dx, y: p.vy + dy }))
+    moveView((v) => ({ ...v, x: p.vx + dx, y: p.vy + dy }))
   }
   const pointerUp = () => {
     setDragging(false)
@@ -673,16 +740,16 @@ export function Canvas({
     if (!canEdit || n.kind !== 'screen' || e.button !== 0) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture?.(e.pointerId)
-    setMoving({ id: n.id, x: e.clientX, dx: 0 })
+    setMoving({ id: n.id, x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
   }
   const gripMove = (e: PointerEvent<HTMLSpanElement>) =>
-    setMoving((m) => (m ? { ...m, dx: e.clientX - m.x } : m))
+    setMoving((m) => (m ? { ...m, dx: e.clientX - m.x, dy: e.clientY - m.y } : m))
   const gripUp = () => {
     const m = moving
     setMoving(null)
     const n = m && screens.find((s) => s.id === m.id)
-    if (!m || !n || Math.abs(m.dx) < DRAG) return
-    const index = dropIndex(screens, n.id, n.x + n.w / 2 + m.dx / view.z)
+    if (!m || !n || Math.hypot(m.dx, m.dy) < DRAG) return
+    const index = dropIndex(screens, n.id, n.x + n.w / 2 + m.dx / view.z, n.y + m.dy / view.z)
     if (index !== screens.indexOf(n)) edit([manifestOp('reorder', n.id, { index })])
   }
 
@@ -694,6 +761,12 @@ export function Canvas({
   const favNodes = favourites
     .map((id) => screens.find((s) => s.id === id))
     .filter((n): n is CanvasNode => !!n)
+
+  /** Zoomed out this far, titles show their icon only (the name in a tooltip) so they never run into each other. */
+  const tiny = view.z < TINY_ZOOM
+  /** Dot spacing on screen: sparser as the view zooms out, never a haze. */
+  let dot = 24 * view.z
+  while (dot < 12) dot *= 4
 
   const sidePanel =
     panel === 'element' && element && tool === 'edit' ? (
@@ -720,7 +793,7 @@ export function Canvas({
           const ok = await attempt(() =>
             sendAnnotations(artifactId, { annotationIds, botId: bot.id, ...(extra ? { extra } : {}) }),
           )
-          if (ok) toast({ type: 'success', message: t('已交给 @{name}', { name: bot.name }) })
+          if (ok) handedTo(bot)
           annotations.reload()
           return ok
         }}
@@ -733,6 +806,8 @@ export function Canvas({
           fitTo([n.id])
           if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
         }}
+        elsewhere={elsewhere}
+        onView={onViewVersion}
         onClose={() => setPanel(null)}
       />
     ) : panel === 'details' && one ? (
@@ -769,20 +844,18 @@ export function Canvas({
         readFile={readFile}
         onBrief={() =>
           bot
-            ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot.name)
+            ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot)
             : Promise.resolve(false)
         }
         onClose={() => setPanel(null)}
       />
     ) : null
-  /** What the open side panel takes of the canvas's right edge (with the tools); popovers and the toolbar avoid it. */
-  const side = sidePanel ? (panel === 'design' ? WIDE_PANEL_SIDE : PANEL_SIDE) : 0
   const compactFloat =
     room.width > 0 && room.width - side - 24 < (bots.length > 1 ? FLOAT_FULL_WITH_BOT : FLOAT_FULL)
   /** Keyboard focus on an off-screen title pans the view to its node (the plane itself never scrolls). */
   const reveal = (n: CanvasNode) => {
     const v = revealView(n, view, { width: room.width - Math.max(side, TOOLS), height: room.height })
-    if (v) setView(v)
+    if (v) moveView(v)
   }
 
   const contextItems: MenuItem[] =
@@ -794,7 +867,8 @@ export function Canvas({
           favourite: picked.every((n) => favourites.includes(n.id)),
           showAllLinks: allLinks,
           frame: sharedFrame,
-          noBot: !bot,
+          bot: botState,
+          device,
         })
       : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
 
@@ -808,6 +882,9 @@ export function Canvas({
       tabIndex={0}
       aria-label={t('画布')}
       onKeyDown={keyDown}
+      onFocus={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) escapeFrom.current = overlayMark()
+      }}
       onKeyUp={(e) => {
         if (e.key === ' ') setSpace(false)
       }}
@@ -822,7 +899,7 @@ export function Canvas({
           data-testid="art-plane"
           style={{
             backgroundPosition: `${view.x}px ${view.y}px`,
-            backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
+            backgroundSize: `${dot}px ${dot}px`,
           }}
           onPointerDown={pointerDown}
           onPointerMove={pointerMove}
@@ -852,7 +929,9 @@ export function Canvas({
                   top: n.y,
                   width: n.w,
                   height: n.kind === 'system' ? undefined : n.h,
-                  ...(moving?.id === n.id ? { translate: `${moving.dx / view.z}px 0`, zIndex: 1 } : {}),
+                  ...(moving?.id === n.id
+                    ? { translate: `${moving.dx / view.z}px ${moving.dy / view.z}px`, zIndex: 1 }
+                    : {}),
                 }}
                 onClick={(e) => pick(n.id, e.shiftKey)}
                 onDoubleClick={() => open(n)}
@@ -901,7 +980,7 @@ export function Canvas({
                     : n.title
               const icon: IconName =
                 n.kind === 'system' ? 'palette' : n.kind === 'prototype' ? 'play' : deviceIcon(device)
-              const shift = moving?.id === n.id ? moving.dx : 0
+              const shift = moving?.id === n.id ? moving : { dx: 0, dy: 0 }
               return (
                 <div key={n.id}>
                   {renaming === n.id ? (
@@ -920,8 +999,13 @@ export function Canvas({
                         'art-title',
                         on && 'art-title--on',
                         canEdit && n.kind === 'screen' && 'art-title--movable',
+                        tiny && 'art-title--tiny',
                       )}
-                      style={{ left: r.left + shift, top: r.top - 26, maxWidth: Math.max(r.width, 80) }}
+                      style={{
+                        left: r.left + shift.dx,
+                        top: r.top - 26 + shift.dy,
+                        maxWidth: Math.max(r.width, TITLE_MIN),
+                      }}
                     >
                       <span
                         className="art-title__icon"
@@ -949,11 +1033,13 @@ export function Canvas({
                         type="button"
                         className="art-title__name"
                         aria-pressed={on}
+                        aria-label={label}
+                        title={tiny ? label : undefined}
                         onFocus={() => reveal(n)}
                         onClick={(e) => pick(n.id, e.shiftKey)}
                         onDoubleClick={() => (n.kind === 'screen' && canEdit ? setRenaming(n.id) : open(n))}
                       >
-                        <span>{label}</span>
+                        {tiny ? <Icon name={icon} size={13} /> : <span>{label}</span>}
                       </button>
                       {fav ? (
                         <Icon name="star" size={11} className="art-title__fav" label={t('已收藏')} />
@@ -964,7 +1050,12 @@ export function Canvas({
                     <div
                       className="art-select"
                       data-testid={`art-select-${n.id}`}
-                      style={{ left: r.left + shift, top: r.top, width: r.width, height: r.height }}
+                      style={{
+                        left: r.left + shift.dx,
+                        top: r.top + shift.dy,
+                        width: r.width,
+                        height: r.height,
+                      }}
                     >
                       <i className="art-select__handle art-select__handle--nw" />
                       <i className="art-select__handle art-select__handle--ne" />
@@ -990,7 +1081,7 @@ export function Canvas({
             icon="sparkle"
             label={t('生成')}
             compact={compactFloat}
-            items={generateItems(!bot)}
+            items={generateItems(botState)}
             onSelect={command}
           />
           <FloatMenu
@@ -1004,7 +1095,7 @@ export function Canvas({
             icon="eye"
             label={t('预览')}
             compact={compactFloat}
-            items={previewItems(!!one && !!preview, sharedFrame)}
+            items={previewItems(!!one && !!preview, sharedFrame, device)}
             onSelect={command}
           />
           <FloatMenu

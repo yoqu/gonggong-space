@@ -54,6 +54,8 @@ export default {
     'Turns sharing on and copies the link: anyone with the link can view it; turn it off any time under Share.',
   开启并复制链接: 'Turn on and copy link',
   '未选择屏幕时导出整个产物（{scope}）': 'With no screens selected the whole artifact is exported ({scope})',
+  '导出整个版本（全部 {n} 个屏幕），与选中无关':
+    'Exports the whole version ({n} {n:screen|screens}), whatever is selected',
   // Share
   分享产物: 'Share artifact',
   开启分享: 'Enable sharing',

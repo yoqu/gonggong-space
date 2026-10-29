@@ -27,9 +27,14 @@ export function AnnotationsPanel({
   onStatus,
   onDelete,
   onFocus,
+  elsewhere,
+  onView,
   onClose,
 }: {
   list: AnnotationDto[]
+  /** Open annotations on other versions, newest version first. */
+  elsewhere: { versionId: string; n: number; count: number }[]
+  onView: (versionId: string) => void
   meId: string | null
   screenTitle: (file: string) => string
   bots: BotDto[]
@@ -105,6 +110,16 @@ export function AnnotationsPanel({
           description={t('按 M 切到标记，点屏幕里的元素写意见')}
         />
       )}
+      {list.length
+        ? null
+        : elsewhere.map((v) => (
+            <div key={v.versionId} className="art-notes__elsewhere" data-testid="art-notes-elsewhere">
+              <span>{t('v{n} 上还有 {k} 条未处理批注', { n: v.n, k: v.count })}</span>
+              <Button size="small" variant="plain" onClick={() => onView(v.versionId)}>
+                {t('查看')}
+              </Button>
+            </div>
+          ))}
       {list.length ? (
         <div className="art-notes__send">
           <Textarea

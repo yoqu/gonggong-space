@@ -234,6 +234,8 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           designPanel={design.panel}
           guardDesign={design.guard}
           exportRequest={exportRequest}
+          versions={entry.versions}
+          onViewVersion={(id) => setViewing(id === head ? null : id)}
           onPrototypeAsked={() => {
             awaitProto.current = a.running ? 'running' : 'asked'
           }}

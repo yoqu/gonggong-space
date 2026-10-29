@@ -127,8 +127,12 @@ export function ExportPanel({
     <Panel title={t('导出')} onClose={onClose}>
       <div className="art-export" data-testid="art-export">
         <p className="art-export__scope">
-          <Icon name={selected.length ? 'checkmark-circle' : 'grid'} size={14} />
-          {selected.length ? scope : t('未选择屏幕时导出整个产物（{scope}）', { scope })}
+          <Icon name={selected.length && format === 'code' ? 'checkmark-circle' : 'grid'} size={14} />
+          {!selected.length
+            ? t('未选择屏幕时导出整个产物（{scope}）', { scope })
+            : format === 'code'
+              ? scope
+              : t('导出整个版本（全部 {n} 个屏幕），与选中无关', { n: screens.length })}
         </p>
         <h4 className="art-panel__label">{t('格式')}</h4>
         <RadioGroup<Format>

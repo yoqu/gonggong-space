@@ -1,6 +1,7 @@
 import type { BotDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { Icon, MenuButton } from '../../ui'
+import { offlineHint } from './actions'
 import { type CanvasContext, removeContextItem } from './context'
 import './chips.css'
 
@@ -19,6 +20,7 @@ export function ContextChips({
   others: BotDto[]
   onSwitch: (name: string) => void
 }) {
+  const offline = offlineHint(bot)
   return (
     <div className="art-chips" data-testid="art-context-chips">
       {context.items.map((i) => {
@@ -41,9 +43,12 @@ export function ContextChips({
         )
       })}
       {bot ? (
-        <span className="art-chips__to" data-testid="art-context-to">
-          <Icon name="at" size={12} />
-          {t('发给 @{name}', { name: bot.name })}
+        <span
+          className={offline ? 'art-chips__to art-chips__to--offline' : 'art-chips__to'}
+          data-testid="art-context-to"
+        >
+          {offline ? <i className="art-chips__dot" aria-hidden="true" /> : <Icon name="at" size={12} />}
+          {offline ?? t('发给 @{name}', { name: bot.name })}
           {others.length ? (
             <MenuButton
               className="art-chips__switch"

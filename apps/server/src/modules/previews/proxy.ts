@@ -120,6 +120,8 @@ export async function servePreviewHttp(
   if (preview.kind === 'artifact') {
     touch(ctx, preview.id)
     const refused = await serveArtifact(ctx, preview, visitor, req, res)
+    // Browsers ask for a favicon on their own: one the artifact lacks is empty, not an error in the console.
+    if (refused?.status === 404 && url.pathname === '/favicon.ico') return res.writeHead(204).end()
     return refused && page(res, refused.status, refused.key)
   }
   const conn = ctx.tunnels.get(preview.machineId)

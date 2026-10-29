@@ -1,6 +1,7 @@
+import type { ArtifactDevice } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import type { MenuItem } from '../../ui'
-import { FRAME_PRESETS, type FramePreset, type ScreenFrame } from './geometry'
+import { FRAME_PRESETS, type FramePreset, framePreset, type ScreenFrame } from './geometry'
 
 /** Commands of the selection toolbar, the context menu and the keyboard. */
 export const CMD = {
@@ -43,40 +44,51 @@ export const VARIATION_DIMENSIONS: Record<string, { label: string; ai: string }>
 }
 export const VARIATION_CUSTOM = 'custom'
 
-const noBotTitle = (noBot: boolean) => (noBot ? { disabled: true, title: t('群里没有 Bot') } : {})
-const gen = (label: string, command: string, noBot: boolean, shortcut?: string): MenuItem => ({
+/**
+ * Who AI items go to: `none` without a bot in the group (they are off), else the offline hint while the bot's machine
+ * is down (they still go, and wait for it: actions.ts `offlineHint`), else null.
+ */
+export type BotState = 'none' | string | null
+
+const botTitle = (bot: BotState) =>
+  bot === 'none' ? { disabled: true, title: t('群里没有 Bot') } : bot ? { title: bot } : {}
+/** An offline bot heads the menu with the hint. */
+const botHeader = (bot: BotState): MenuItem[] => (bot && bot !== 'none' ? [{ header: bot }] : [])
+const gen = (label: string, command: string, bot: BotState, shortcut?: string): MenuItem => ({
   label,
   value: `${CMD.generate}${command}`,
   ...(shortcut ? { shortcut } : {}),
-  ...noBotTitle(noBot),
+  ...botTitle(bot),
 })
 
 /** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕); each item becomes an @bot message. */
-export const generateItems = (noBot: boolean): MenuItem[] => [
-  gen(t('即时原型'), 'instant-prototype', noBot),
-  gen(t('变体'), 'variations', noBot),
-  gen(t('重新生成'), 'regenerate', noBot, '⇧R'),
-  gen(t('桌面网页版'), 'desktop-version', noBot),
-  gen(t('补全状态'), 'missing-states', noBot),
-  gen(t('动效'), 'animate', noBot),
+export const generateItems = (bot: BotState): MenuItem[] => [
+  ...botHeader(bot),
+  gen(t('即时原型'), 'instant-prototype', bot),
+  gen(t('变体'), 'variations', bot),
+  gen(t('重新生成'), 'regenerate', bot, '⇧R'),
+  gen(t('桌面网页版'), 'desktop-version', bot),
+  gen(t('补全状态'), 'missing-states', bot),
+  gen(t('动效'), 'animate', bot),
   { separator: true },
-  gen(t('应用商店素材'), 'app-store-assets', noBot),
-  gen(t('网页素材'), 'web-assets', noBot),
-  gen(t('营销物料'), 'marketing-kit', noBot),
-  gen(t('无障碍检查'), 'accessibility-audit', noBot),
+  gen(t('应用商店素材'), 'app-store-assets', bot),
+  gen(t('网页素材'), 'web-assets', bot),
+  gen(t('营销物料'), 'marketing-kit', bot),
+  gen(t('无障碍检查'), 'accessibility-audit', bot),
 ]
 
-const variationItems = (noBot: boolean): MenuItem[] => [
+const variationItems = (bot: BotState): MenuItem[] => [
+  ...botHeader(bot),
   ...Object.entries(VARIATION_DIMENSIONS).map(([k, d]) => ({
     label: d.label,
     value: `${CMD.variations}${k}`,
-    ...noBotTitle(noBot),
+    ...botTitle(bot),
   })),
   {
     label: t('自定义…'),
     value: `${CMD.variations}${VARIATION_CUSTOM}`,
     shortcut: '⇧V',
-    ...noBotTitle(noBot),
+    ...botTitle(bot),
   },
 ]
 
@@ -87,14 +99,18 @@ export const modifyItems = (readOnly: boolean): MenuItem[] => [
   { label: t('设计系统'), value: CMD.designSystem },
 ]
 
-const PRESET_LABEL: Record<FramePreset, string> = {
-  mobile: t('手机 390×884'),
-  tablet: t('平板 768×1024'),
-  desktop: t('桌面 1280×1024'),
+const PRESET_NAME: Record<FramePreset, string> = {
+  mobile: t('手机'),
+  tablet: t('平板'),
+  desktop: t('桌面'),
 }
 
-/** `frame`: the selected screens' framing when they share one. */
-export const previewItems = (single: boolean, frame: ScreenFrame | null): MenuItem[] => [
+/** `frame`: the selected screens' framing when they share one; the phone preset is as wide as `device`'s phones. */
+export const previewItems = (
+  single: boolean,
+  frame: ScreenFrame | null,
+  device: ArtifactDevice,
+): MenuItem[] => [
   {
     label: t('新标签页打开'),
     value: CMD.newTab,
@@ -104,11 +120,10 @@ export const previewItems = (single: boolean, frame: ScreenFrame | null): MenuIt
   },
   { label: t('显示二维码'), value: CMD.qr },
   { separator: true },
-  ...(Object.keys(FRAME_PRESETS) as FramePreset[]).map((p) => ({
-    label: PRESET_LABEL[p],
-    value: `${CMD.frame}${p}`,
-    checked: frame?.w === FRAME_PRESETS[p].w,
-  })),
+  ...(Object.keys(FRAME_PRESETS) as FramePreset[]).map((p) => {
+    const { w, h } = framePreset(p, device)
+    return { label: `${PRESET_NAME[p]} ${w}×${h}`, value: `${CMD.frame}${p}`, checked: frame?.w === w }
+  }),
   { separator: true },
   { label: t('全高'), value: CMD.fullHeight, checked: !!frame?.full },
 ]
@@ -131,7 +146,8 @@ export function screenContextItems(o: {
   favourite: boolean
   showAllLinks: boolean
   frame: ScreenFrame | null
-  noBot: boolean
+  bot: BotState
+  device: ArtifactDevice
 }): MenuItem[] {
   const ro = readOnlyTitle(o.readOnly)
   return [
@@ -147,15 +163,15 @@ export function screenContextItems(o: {
     { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
     { separator: true },
     { header: t('生成') },
-    { label: t('生成'), value: 'generate', submenu: generateItems(o.noBot) },
-    { label: t('变体'), value: 'variations', submenu: variationItems(o.noBot) },
-    gen(t('重新生成'), 'regenerate', o.noBot, '⇧R'),
+    { label: t('生成'), value: 'generate', submenu: generateItems(o.bot) },
+    { label: t('变体'), value: 'variations', submenu: variationItems(o.bot) },
+    gen(t('重新生成'), 'regenerate', o.bot, '⇧R'),
     { separator: true },
     { header: t('编辑') },
     ...modifyItems(o.readOnly),
     { separator: true },
     { header: t('预览') },
-    ...previewItems(o.single, o.frame).filter((it) => !('separator' in it)),
+    ...previewItems(o.single, o.frame, o.device).filter((it) => !('separator' in it)),
     { separator: true },
     { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
     ...moreItems(o.readOnly).filter((it) => 'value' in it && it.value !== CMD.remove && it.disabled !== true),

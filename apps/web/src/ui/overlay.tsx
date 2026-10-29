@@ -30,6 +30,15 @@ function onEscape(e: KeyboardEvent) {
   top.close()
 }
 
+/** A mark to pass to `hasOpenOverlay`: overlays opened from now on come after it. */
+export const overlayMark = () => nextSeq
+
+/**
+ * Whether Escape now goes to an overlay opened at or after `since` (an `overlayMark()`), e.g. a menu over a canvas
+ * that handles Escape itself. Without `since`, whether any overlay is open.
+ */
+export const hasOpenOverlay = (since = 0) => escapeStack.some((e) => e.seq >= since)
+
 /** Registers `onClose` on the shared Escape stack while `enabled`. */
 export function useEscape(onClose: () => void, enabled = true) {
   const ref = useRef(onClose)

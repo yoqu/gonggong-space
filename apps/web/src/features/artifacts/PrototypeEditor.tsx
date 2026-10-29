@@ -25,9 +25,10 @@ import {
   Textarea,
   Tooltip,
   toast,
+  useEscape,
 } from '../../ui'
 import { openUrl } from '../previews/store'
-import { saveEdits, sendCommand, useArtifactBot } from './actions'
+import { offlineHint, saveEdits, sendCommand, useArtifactBot } from './actions'
 import { linkSpots, postToScreen, useBridge } from './bridge'
 import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
@@ -69,6 +70,8 @@ const isTransition = (v: unknown): v is ArtifactTransition => TRANSITIONS.some((
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
 const NO_SCROLL = { x: 0, y: 0 }
+/** Room the whole-screen change bar takes under the device while open. */
+const CHANGE_ROOM = 200
 /** The popover's width on screen. */
 const MENU_W = 248
 /** A thumbnail's width in the screen list (px). */
@@ -207,7 +210,7 @@ export function PrototypeEditor({
         Math.min(
           1,
           (room.width - side * 2) / (size.w + BEZEL * 2),
-          (room.height - 96) / (size.h + BEZEL * 2),
+          (room.height - 96 - (change ? CHANGE_ROOM : 0)) / (size.h + BEZEL * 2),
         ),
       )
     : 1
@@ -226,12 +229,8 @@ export function PrototypeEditor({
   const newScreen = (text: string) =>
     askBot((b) =>
       located && edit
-        ? sendCommand(artifactId, { command: 'connect-element', botId: b.id, ggIds: [located], text }, b.name)
-        : sendCommand(
-            artifactId,
-            { command: 'connect-element', botId: b.id, screenIds: [cur.id], text },
-            b.name,
-          ),
+        ? sendCommand(artifactId, { command: 'connect-element', botId: b.id, ggIds: [located], text }, b)
+        : sendCommand(artifactId, { command: 'connect-element', botId: b.id, screenIds: [cur.id], text }, b),
     )
 
   return (
@@ -341,7 +340,7 @@ export function PrototypeEditor({
           </button>
         )}
 
-        <div ref={stage} className="proto-stage">
+        <div ref={stage} className="proto-stage" style={change ? { paddingBottom: CHANGE_ROOM } : undefined}>
           <div
             className="proto-device-box"
             style={{ width: (size.w + BEZEL * 2) * scale, height: (size.h + BEZEL * 2) * scale }}
@@ -421,7 +420,7 @@ export function PrototypeEditor({
                             ? sendCommand(
                                 artifactId,
                                 { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
-                                b.name,
+                                b,
                               )
                             : Promise.resolve(false),
                         )
@@ -436,6 +435,7 @@ export function PrototypeEditor({
           </div>
           {change ? (
             <ChangeBar
+              beside={connect && !!element && edit}
               bots={bots}
               bot={bot}
               onPickBot={pickBot}
@@ -444,7 +444,7 @@ export function PrototypeEditor({
                   sendCommand(
                     artifactId,
                     { command: 'edit-with-ai', botId: b.id, screenIds: [cur.id], text },
-                    b.name,
+                    b,
                   ),
                 )
               }
@@ -672,7 +672,12 @@ function AskForm({
 }
 
 /** The pencil under the device: describe how to change this screen. */
-function ChangeBar(props: {
+function ChangeBar({
+  beside,
+  ...props
+}: {
+  /** The connect panel is open: keep clear of it. */
+  beside: boolean
   bots: BotDto[]
   bot: BotDto | null
   onPickBot: (id: string) => void
@@ -680,7 +685,7 @@ function ChangeBar(props: {
   onClose: () => void
 }) {
   return (
-    <div className="proto-change">
+    <div className={cx('proto-change', beside && 'proto-change--beside')}>
       <AskForm label={t('修改要求')} placeholder={t('描述要怎么改这屏…')} {...props}>
         <small className="proto-change__hint">{t('Esc 关闭')}</small>
       </AskForm>
@@ -722,16 +727,30 @@ function ElementMenu({
   const located = el.ggId !== null
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const noBot = bot ? undefined : t('群里没有 Bot')
+  const offline = offlineHint(bot) ?? undefined
   const ro = readOnly ? t('AI 正在修改') : undefined
   // Inside the scaled screen, scaled back to its real size.
   const span = MENU_W / scale
   const left = Math.max(8, Math.min(el.rect.x, width - span - 8))
   const top = el.rect.y + el.rect.h + 8
-  const action = (icon: IconName, label: string, hint: string | undefined, onClick: () => void) => (
-    <button type="button" className="art-pop__action" disabled={!!hint} title={hint} onClick={onClick}>
+  /** `hint` says why it is off; `note` (an offline bot) only informs. */
+  const action = (
+    icon: IconName,
+    label: string,
+    hint: string | undefined,
+    onClick: () => void,
+    note?: string,
+  ) => (
+    <button
+      type="button"
+      className="art-pop__action"
+      disabled={!!hint}
+      title={hint ?? note}
+      onClick={onClick}
+    >
       <Icon name={icon} size={15} />
       <span>{label}</span>
-      {hint ? <small>{hint}</small> : null}
+      {hint || note ? <small>{hint ?? note}</small> : null}
     </button>
   )
   return (
@@ -758,8 +777,8 @@ function ElementMenu({
             ro ?? noSource ?? (el.textOnly ? undefined : t('含子元素，交给 AI 修改')),
             () => setStep('text'),
           )}
-          {action('sparkle', t('用 AI 修改'), noSource ?? noBot, () => setStep('ai'))}
-          {action('plus', t('构想新屏'), noSource ?? noBot, () => setStep('imagine'))}
+          {action('sparkle', t('用 AI 修改'), noSource ?? noBot, () => setStep('ai'), offline)}
+          {action('plus', t('构想新屏'), noSource ?? noBot, () => setStep('imagine'), offline)}
         </div>
       ) : step === 'text' ? (
         <form
@@ -824,6 +843,7 @@ function ConnectPanel({
     isTransition(el.transition) ? el.transition : 'push',
   )
   const [busy, setBusy] = useState(false)
+  useEscape(onClose)
   const where = { file: el.file, ggId: el.ggId ?? '' }
   const unchanged =
     to === (el.link ?? '') && transition === (isTransition(el.transition) ? el.transition : 'push')

@@ -13,6 +13,11 @@ export const FRAME_PRESETS = {
   desktop: { w: 1280, h: 1024 },
 } as const
 export type FramePreset = keyof typeof FRAME_PRESETS
+/** A preview preset's size on `device`: a mini program's phone is its own 375 wide. */
+export const framePreset = (p: FramePreset, device: ArtifactDevice) =>
+  p === 'mobile' && device === 'miniprogram'
+    ? { ...FRAME_PRESETS.mobile, w: DEVICE_SIZE.miniprogram.w }
+    : FRAME_PRESETS[p]
 export const NODE_GAP = 120
 /** Room above a node for its title, in canvas units at 100%. */
 export const TITLE_ROOM = 32
@@ -70,9 +75,17 @@ export interface LayoutInput {
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
 
+/** How wide a row of screens may get before the next one wraps, in canvas units at 100%. */
+export const ROW_SPAN = 3400
+
+/** Screens a row holds on `device`: about six phones, two desktops. */
+export const perRow = (device: ArtifactDevice) =>
+  Math.max(1, Math.floor(ROW_SPAN / (DEVICE_SIZE[device].w + NODE_GAP)))
+
 /**
- * Nodes left to right, tops aligned (Stitch capability list §3): the design system, the screens in manifest order,
- * then the prototype. An L0 artifact (no manifest) is one desktop page.
+ * The design system on the left; right of it the screens in manifest order, then the prototype, in rows of
+ * `perRow(device)` (Stitch capability list §3), each row below the tallest node of the one above. An L0 artifact (no
+ * manifest) is one desktop page.
  */
 export function layoutNodes({ title, manifest, system, frames, content }: LayoutInput): {
   device: ArtifactDevice
@@ -81,20 +94,29 @@ export function layoutNodes({ title, manifest, system, frames, content }: Layout
   const device = manifest?.device ?? 'desktop'
   const screens = manifest?.screens ?? [{ id: 'index', title, file: 'index.html' }]
   const nodes: CanvasNode[] = []
-  let x = 0
-  const add = (n: Omit<CanvasNode, 'x' | 'y'>) => {
-    nodes.push({ ...n, x, y: 0 })
-    x += n.w + NODE_GAP
-  }
-  if (system !== null) add({ id: SYSTEM_ID, kind: 'system', title: '', file: '', w: SYSTEM_WIDTH, h: system })
-  for (const s of screens) {
+  const left = system !== null ? SYSTEM_WIDTH + NODE_GAP : 0
+  if (system !== null)
+    nodes.push({ id: SYSTEM_ID, kind: 'system', title: '', file: '', x: 0, y: 0, w: SYSTEM_WIDTH, h: system })
+  const cells: Omit<CanvasNode, 'x' | 'y'>[] = screens.map((s) => {
     const f = frames[s.id] ?? defaultFrame(device)
     const h = f.full ? Math.max(1, Math.round(content[s.file] ?? f.h)) : f.h
-    add({ id: s.id, kind: 'screen', title: s.title, file: s.file, w: f.w, h })
-  }
+    return { id: s.id, kind: 'screen', title: s.title, file: s.file, w: f.w, h }
+  })
   if (manifest) {
     const { w, h } = DEVICE_SIZE[device]
-    add({ id: PROTOTYPE_ID, kind: 'prototype', title: manifest.title, file: '', w, h })
+    cells.push({ id: PROTOTYPE_ID, kind: 'prototype', title: manifest.title, file: '', w, h })
+  }
+  const row = perRow(device)
+  let y = 0
+  for (let i = 0; i < cells.length; i += row) {
+    let x = left
+    let tallest = 0
+    for (const c of cells.slice(i, i + row)) {
+      nodes.push({ ...c, x, y })
+      x += c.w + NODE_GAP
+      tallest = Math.max(tallest, c.h)
+    }
+    y += tallest + NODE_GAP + TITLE_ROOM
   }
   return { device, nodes }
 }
@@ -111,22 +133,35 @@ export function zoomAt(view: View, z: number, cx: number, cy: number): View {
   }
 }
 
-/** The view showing every node in `nodes` centred, at most 100%. */
-export function fitView(nodes: CanvasNode[], box: Box): View | null {
-  if (!nodes.length || box.width <= 0 || box.height <= 0) return null
+/**
+ * The view showing every node in `nodes` centred, at most 100%. `right`: what the tools and an open panel take of the
+ * box's right edge; the nodes go in the rest.
+ */
+export function fitView(nodes: CanvasNode[], box: Box, right = 0): View | null {
+  const width = box.width - right
+  if (!nodes.length || width <= 0 || box.height <= 0) return null
   const left = Math.min(...nodes.map((n) => n.x))
   const top = Math.min(...nodes.map((n) => n.y)) - TITLE_ROOM
-  const right = Math.max(...nodes.map((n) => n.x + n.w))
+  const r = Math.max(...nodes.map((n) => n.x + n.w))
   const bottom = Math.max(...nodes.map((n) => n.y + n.h))
-  const z = clampZoom(
-    Math.min(1, (box.width - PAD * 2) / (right - left), (box.height - PAD * 2) / (bottom - top)),
-  )
+  const z = clampZoom(Math.min(1, (width - PAD * 2) / (r - left), (box.height - PAD * 2) / (bottom - top)))
   return {
-    x: (box.width - (right - left) * z) / 2 - left * z,
+    x: (width - (r - left) * z) / 2 - left * z,
     y: (box.height - (bottom - top) * z) / 2 - top * z,
     z,
   }
 }
+
+/** The nodes' bounding box as a key: it changes when the layout grows, moves or settles. */
+export const boundsKey = (nodes: CanvasNode[]) =>
+  nodes.length
+    ? [
+        Math.min(...nodes.map((n) => n.x)),
+        Math.min(...nodes.map((n) => n.y)),
+        Math.max(...nodes.map((n) => n.x + n.w)),
+        Math.max(...nodes.map((n) => n.y + n.h)),
+      ].join(',')
+    : ''
 
 /** A node's rectangle in viewport pixels. */
 export const onScreen = (n: CanvasNode, v: View) => ({
@@ -186,8 +221,13 @@ export function neighbour(nodes: CanvasNode[], from: CanvasNode, dir: Direction)
     })[0]
 }
 
-/** Where a screen dragged by its title to canvas x `dropX` goes among the screens (manifest `reorder` index). */
-export function dropIndex(screens: CanvasNode[], id: string, dropX: number): number {
+/**
+ * Where a screen dragged by its title to canvas point (`dropX`, `dropY`) goes among the screens (manifest `reorder`
+ * index): after every screen of the rows above the drop's row, and after those of its row left of it.
+ */
+export function dropIndex(screens: CanvasNode[], id: string, dropX: number, dropY = 0): number {
   const others = screens.filter((s) => s.id !== id)
-  return others.filter((s) => s.x + s.w / 2 < dropX).length
+  const tops = [...new Set(others.map((s) => s.y))].sort((a, b) => a - b)
+  const rowTop = tops.filter((y) => y <= dropY).at(-1) ?? tops[0] ?? 0
+  return others.filter((s) => s.y < rowTop || (s.y === rowTop && s.x + s.w / 2 < dropX)).length
 }

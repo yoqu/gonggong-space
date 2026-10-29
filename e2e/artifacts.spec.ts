@@ -125,6 +125,26 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         expect(versions).toHaveLength(2)
       })
 
+      await test.step('direct edit: a heading’s new text is saved as the next version, on the card and the canvas', async () => {
+        await page
+          .getByRole('toolbar', { name: '画布工具' })
+          .getByRole('button', { name: '直接编辑' })
+          .click()
+        await screen(page, 'home').getByRole('heading', { name: '首页第一版' }).click()
+        const pop = page.getByRole('dialog', { name: '编辑元素' })
+        await pop.getByRole('button', { name: '编辑文字' }).click()
+        await pop.getByRole('textbox', { name: '文字' }).fill('首页直接改')
+        await pop.getByRole('button', { name: '保存' }).click()
+        await expect(pop).toBeHidden()
+        await expect(card.getByText('v3')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('button', { name: '版本' })).toHaveText(/v3/)
+        await expect(screen(page, 'home').getByRole('heading', { name: '首页直接改' })).toBeVisible({
+          timeout: 30_000,
+        })
+        const versions = await api.call<{ source: string }[]>('get', `/api/artifacts/${artifact.id}/versions`)
+        expect(versions.map((v) => v.source).sort()).toEqual(['edit', 'run', 'run'])
+      })
+
       await test.step('with the bot offline the canvas still opens: the server hosts it', async () => {
         m.stop()
         online = false
@@ -137,7 +157,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
           .toBe(true)
         await page.reload()
         await card.getByRole('button', { name: '打开' }).click()
-        await expect(screen(page, 'home').getByRole('heading', { name: '首页第一版' })).toBeVisible({
+        await expect(screen(page, 'home').getByRole('heading', { name: '首页直接改' })).toBeVisible({
           timeout: 30_000,
         })
         await expect(screen(page, 'detail').getByRole('heading', { name: '活动详情' })).toBeVisible()

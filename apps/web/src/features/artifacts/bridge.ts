@@ -43,12 +43,35 @@ export function linkSpots(links: unknown): BridgeLinkRect[] | undefined {
   })
 }
 
+/**
+ * Frames that said `ready`, with the origin they said it from. Until then a frame shows about:blank (the parent's
+ * origin), so posting to it would only log an origin mismatch and be dropped: messages wait in `pending` instead.
+ */
+const ready = new WeakMap<HTMLIFrameElement, string>()
+const pending = new WeakMap<HTMLIFrameElement, Map<BridgeToShell['type'], BridgeToShell>>()
+
+const send = (frame: HTMLIFrameElement, origin: string, msg: BridgeToShell) =>
+  frame.contentWindow?.postMessage({ source: 'gg-host', ...msg }, origin)
+
+/** `frame` said `ready` from `origin`: it takes messages from now on, the latest queued one of each type first. */
+export function markReady(frame: HTMLIFrameElement, origin: string) {
+  ready.set(frame, origin)
+  const queued = pending.get(frame)
+  pending.delete(frame)
+  for (const msg of queued?.values() ?? []) send(frame, origin, msg)
+}
+
+/** Posts to a screen that said `ready` from `origin`; until it does, keeps the latest message of each type. */
 export function postToScreen(
   frame: HTMLIFrameElement | undefined,
   origin: string | null,
   msg: BridgeToShell,
 ) {
-  if (origin) frame?.contentWindow?.postMessage({ source: 'gg-host', ...msg }, origin)
+  if (!frame || !origin) return
+  if (ready.get(frame) === origin) return send(frame, origin, msg)
+  const queued = pending.get(frame) ?? new Map()
+  queued.set(msg.type, msg)
+  pending.set(frame, queued)
 }
 
 /** Listens for the screens' messages while mounted; `frames` maps a file to the frame showing it. */
@@ -62,7 +85,10 @@ export function useBridge(
   useEffect(() => {
     const listen = (e: MessageEvent) => {
       const m = acceptBridge(e, origin, frames)
-      if (m) handler.current(m)
+      if (!m) return
+      const frame = frames.get(m.file)
+      if (m.type === 'ready' && frame && origin) markReady(frame, origin)
+      handler.current(m)
     }
     window.addEventListener('message', listen)
     return () => window.removeEventListener('message', listen)

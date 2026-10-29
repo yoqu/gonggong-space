@@ -54,6 +54,13 @@
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
 }
+.art-chips__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--system-gray);
+}
 .art-chips__switch {
   height: 22px;
   margin-left: 2px;

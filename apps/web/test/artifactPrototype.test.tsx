@@ -358,6 +358,23 @@ describe('prototype editor', () => {
     })
   })
 
+  it('closes the connect panel with Escape, and makes room under the device for the change bar (P05, P07)', async () => {
+    mockApi(routes())
+    await openEditor()
+    editMode()
+    select()
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', { name: /连到屏幕/ }),
+    )
+    expect(screen.getByTestId('proto-connect')).toBeTruthy()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('proto-connect')).toBeNull()
+    const stage = screen.getByTestId('proto-device').closest('.proto-stage') as HTMLElement
+    expect(stage.style.paddingBottom).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: '用 AI 修改这屏' }))
+    expect(stage.style.paddingBottom).toBe('200px')
+  })
+
   it('edits text and hands elements and whole screens to the AI', async () => {
     const calls = mockApi(routes())
     await openEditor()
@@ -477,8 +494,10 @@ describe('export', () => {
 
     // Copy code takes the selected screens.
     fireEvent.click(screen.getByTestId('art-node-home'))
-    expect(screen.getByTestId('art-export').textContent).toMatch('所选的 1 个屏幕')
+    // The zip is the whole version whatever is selected.
+    expect(screen.getByTestId('art-export').textContent).toMatch('导出整个版本（全部 3 个屏幕），与选中无关')
     fireEvent.click(screen.getByRole('radio', { name: '复制代码' }))
+    expect(screen.getByTestId('art-export').textContent).toMatch('所选的 1 个屏幕')
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('<!-- screens/home.html -->\n<h1>首页</h1>'))
 

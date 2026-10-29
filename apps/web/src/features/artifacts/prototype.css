@@ -382,6 +382,10 @@
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-menu);
 }
+.proto-change--beside {
+  left: calc((100% - 360px) / 2);
+  width: min(520px, calc(100% - 520px));
+}
 .proto-change .proto-ask {
   padding: var(--space-12);
 }

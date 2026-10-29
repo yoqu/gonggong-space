@@ -97,6 +97,8 @@ describe('artifact previews', () => {
     expect([png.headers['content-type'], png.text]).toEqual(['image/png', 'png-bytes'])
     expect((await p.fetch('/nope.html')).status).toBe(404)
     expect((await p.fetch('/screens/home.html', 'POST')).status).toBe(405)
+    // Browsers ask every page's origin for a favicon: an artifact without one answers empty, not 404.
+    expect((await p.fetch('/favicon.ico')).status).toBe(204)
   })
 
   it('follows the head unless opened on a version, and reuses open previews', async () => {
