@@ -687,6 +687,13 @@ describe('group settings inspector', () => {
       routes([group()], {
         'GET /groups/g1/bot-states': [state],
         'PUT /groups/g1/bots/b1/extra-dirs': undefined,
+        'GET /machines/mc1/dirs': {
+          path: '/Users/wl/docs',
+          entries: [],
+          git: null,
+          unusable: null,
+          roots: ['/'],
+        },
       }),
     )
     renderAt('/g/g1')
@@ -698,18 +705,63 @@ describe('group settings inspector', () => {
     fireEvent.click(await within(mine).findByRole('button', { name: '附加目录 1' }))
     const dialog = await screen.findByRole('dialog', { name: '小王的 Claude 的附加目录' })
     expect(within(dialog).getByText(/不参与强制同步/)).toBeTruthy()
-    const field = within(dialog).getByRole('textbox')
-    expect((field as HTMLTextAreaElement).value).toBe('/Users/wl/sdk')
-    fireEvent.change(field, { target: { value: '/Users/wl/sdk\n\n  /Users/wl/docs  \n' } })
+    // Directories are picked on the bot's machine, never typed.
+    expect(within(dialog).queryByRole('textbox')).toBeNull()
+    expect(within(dialog).getByText('/Users/wl/sdk')).toBeTruthy()
+    const pick = async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: '添加目录…' }))
+      const picker = await screen.findByRole('dialog', { name: '为 小王的 Claude 选择附加目录' })
+      await within(picker).findByDisplayValue('/Users/wl/docs')
+      fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: /选择附加目录/ })).toBeNull())
+    }
+    await pick()
+    await pick()
+    expect(within(dialog).getAllByText('/Users/wl/docs')).toHaveLength(1)
+    fireEvent.click(within(dialog).getByRole('button', { name: '移除 /Users/wl/sdk' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toEqual({
         method: 'PUT',
         path: '/groups/g1/bots/b1/extra-dirs',
-        body: { dirs: ['/Users/wl/sdk', '/Users/wl/docs'] },
+        body: { dirs: ['/Users/wl/docs'] },
       }),
     )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '小王的 Claude 的附加目录' })).toBeNull())
+  })
+
+  it("keeps a bot's directories removable but not browsable while its machine is offline", async () => {
+    const state = {
+      botId: 'b1',
+      workspace: 'managed',
+      state: 'ready',
+      path: null,
+      git: null,
+      error: null,
+      reason: null,
+      tier: null,
+      model: null,
+      effort: null,
+      context: null,
+      extraDirs: ['/Users/wl/sdk'],
+    }
+    mockApi(
+      routes([group()], {
+        'GET /bots': bots.map((b) => (b.id === 'b1' ? { ...b, presence: 'offline' } : b)),
+        'GET /groups/g1/bot-states': [state],
+      }),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    const mine = within(d).getByText('小王的 Claude').closest('.gs-bot') as HTMLElement
+    fireEvent.click(await within(mine).findByRole('button', { name: '附加目录 1' }))
+    const dialog = await screen.findByRole('dialog', { name: '小王的 Claude 的附加目录' })
+    expect(within(dialog).getByRole('button', { name: '添加目录…' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByText('机器离线，暂时无法浏览目录；已有目录仍可移除')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '移除 /Users/wl/sdk' }).hasAttribute('disabled')).toBe(
+      false,
+    )
   })
 
   it('flips a pref at once and rolls it back when saving fails', async () => {

@@ -135,8 +135,12 @@ export default {
   附加目录: 'Extra directories',
   '附加目录 {n}': 'Extra directories {n}',
   '{bot} 的附加目录': "{bot}'s extra directories",
-  每行一个本机绝对路径: 'One absolute local path per line',
-  '如：/Users/me/code/pay-sdk': 'e.g. /Users/me/code/pay-sdk',
   '除工作区外，Bot 在本群也可读写这些目录，其中 git 仓库的改动在「改动」里按目录分组显示。附加目录不参与强制同步群的版本同步。修改后下一轮开启新会话。':
     'Besides its workspace, the Bot may read and write these directories in this group; changes in their git repos show under Changes, grouped by directory. Extra directories are not synced in force-sync groups. A change starts a new session from the next turn.',
+  '添加目录…': 'Add directory…',
+  '机器离线，暂时无法浏览目录；已有目录仍可移除':
+    "The machine is offline, so directories can't be browsed now; existing ones can still be removed",
+  'Bot 未绑定机器，无法浏览目录；已有目录仍可移除':
+    "The Bot has no machine, so directories can't be browsed; existing ones can still be removed",
+  '为 {bot} 选择附加目录': 'Choose an additional directory for {bot}',
 } satisfies Record<string, string>

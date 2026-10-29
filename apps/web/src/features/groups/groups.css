@@ -249,3 +249,26 @@
     display: none;
   }
 }
+
+/* Bot 管理 → 附加目录: picked directories, one per row. */
+.gs-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+}
+.gs-dir__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-callout-size);
+}
+.gs-dir-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-12) 0;
+}
