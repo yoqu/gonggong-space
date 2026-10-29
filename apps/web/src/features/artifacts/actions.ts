@@ -16,6 +16,7 @@ import { t } from '../../i18n'
 import { ApiError, api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
+import { postMessage, uuid } from '../chat/MessageComposer'
 
 // R3 of docs/plan/原型编辑器-Stitch对标-开发计划.md: direct edits, annotations and AI commands from the canvas.
 
@@ -29,12 +30,15 @@ export function useGroupBots(groupId: string): BotDto[] {
   )
 }
 
-/** The bot the canvas hands work to, per group: picked once, the only one, or the first. */
+/**
+ * The bot the canvas hands work to, per group: picked once, else the artifact's own bot (ArtifactDto.botId) while it
+ * is in the group, else the first.
+ */
 const usePicked = create<Record<string, string>>()(() => ({}))
-export function useArtifactBot(groupId: string) {
+export function useArtifactBot(groupId: string, ownBotId?: string | null) {
   const bots = useGroupBots(groupId)
   const picked = usePicked((s) => s[groupId])
-  const bot = bots.find((b) => b.id === picked) ?? bots[0] ?? null
+  const bot = bots.find((b) => b.id === picked) ?? bots.find((b) => b.id === ownBotId) ?? bots[0] ?? null
   const pick = useCallback((id: string) => usePicked.setState({ [groupId]: id }), [groupId])
   return { bots, bot, pick }
 }
@@ -48,6 +52,35 @@ export async function sendCommand(artifactId: string, req: CanvasCommandReq, bot
   try {
     await api.post(`/artifacts/${artifactId}/commands`, req)
     toast({ type: 'success', message: t('已交给 @{name}', { name: botName }) })
+    return true
+  } catch (e) {
+    toastError(e)
+    return false
+  }
+}
+
+/**
+ * A request about whole screens, which the command templates do not take without elements (Imagine a new screen,
+ * Describe how to change this screen): an @bot message with the screens as its artifact context, as if typed in the
+ * group composer.
+ */
+export async function askInChat(
+  groupId: string,
+  artifactId: string,
+  bot: Pick<BotDto, 'id' | 'name'>,
+  text: string,
+  screenIds: string[],
+) {
+  try {
+    await postMessage(groupId, {
+      body: `@${bot.name} ${text}`,
+      clientId: uuid(),
+      attachmentIds: [],
+      quote: null,
+      appendTo: null,
+      artifactContext: { artifactId, ...(screenIds.length ? { screenIds } : {}) },
+    })
+    toast({ type: 'success', message: t('已交给 @{name}', { name: bot.name }) })
     return true
   } catch (e) {
     toastError(e)

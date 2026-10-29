@@ -40,6 +40,9 @@ export type FromScreen =
       src: string | null
       href: string | null
       link: string | null
+      /** `data-gg-transition` when valid, and the element's outer HTML (cut short); older bridges send neither. */
+      transition?: string | null
+      snippet?: string
     }
   | { type: 'nav'; file: string; screen: string; transition?: string }
   | { type: 'back'; file: string }

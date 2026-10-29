@@ -49,6 +49,7 @@ import { dropSelectionContext, elementItem, pinContext, screenItem, setSelection
 import { DesignSystemNode } from './DesignSystemNode'
 import { ElementPanel } from './ElementPanel'
 import { EditPopover, MarkPopover } from './ElementPopover'
+import { ExportPanel } from './ExportPanel'
 import { elementBox, elementLabel, type PickedElement } from './elements'
 import {
   type CanvasNode,
@@ -88,12 +89,13 @@ import {
 } from './menus'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
+import { QrDialog, useShareAccess } from './share'
 import type { ArtifactLink } from './store'
 import type { DesignTokens } from './tokens'
 import { VariationsDialog } from './VariationsDialog'
 
 type Tool = 'select' | 'hand' | 'mark' | 'edit'
-type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations'
+type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | 'export'
 
 /** Pointer travel (px) after which a press pans instead of clicking. */
 const DRAG = 4
@@ -103,6 +105,8 @@ const NUDGE = 40
 export interface CanvasProps {
   artifactId: string
   groupId: string
+  /** The artifact's own bot (ArtifactDto.botId): AI instructions go to it by default. */
+  botId: string | null
   title: string
   manifest: GgArtifactManifest | null | undefined
   /** The shown version's tokens.css, parsed; null when it has none. */
@@ -127,6 +131,10 @@ export interface CanvasProps {
   designPanel: (close: () => void) => ReactNode
   /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
   guardDesign: (proceed: () => void) => void
+  /** Bumped by the tab's 导出 button: opens the export panel. */
+  exportRequest: number
+  /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
+  onPrototypeAsked: () => void
 }
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
@@ -159,6 +167,7 @@ const manifestOp = (
 export function Canvas({
   artifactId,
   groupId,
+  botId,
   title,
   manifest,
   tokens,
@@ -176,6 +185,8 @@ export function Canvas({
   readFile,
   designPanel,
   guardDesign,
+  exportRequest,
+  onPrototypeAsked,
 }: CanvasProps) {
   const root = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
@@ -209,9 +220,12 @@ export function Canvas({
   const [pop, setPop] = useState(false)
   const [deleting, setDeleting] = useState<PickedElement | null>(null)
   const [variations, setVariations] = useState(false)
+  /** Show QR Code: the screen whose share link it shows. */
+  const [qr, setQr] = useState<string | null>(null)
   /** Where each screen's link elements are (by file), as the screens report them. */
   const [spots, setSpots] = useState<Record<string, LinkSpot[]>>({})
-  const { bots, bot, pick: pickBot } = useArtifactBot(groupId)
+  const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
+  const shareDenied = useShareAccess(groupId, botId)
   const annotations = useAnnotations(artifactId, versionKey || null)
   const meId = useSession((s) => s.user?.id ?? null)
   const press = useRef<{ id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null>(
@@ -358,6 +372,14 @@ export function Canvas({
     if (manifest) setSelectionContext(contextBase, selectionItems())
   }, [selectionKey, manifest])
   useEffect(() => () => dropSelectionContext(artifactId), [artifactId])
+  // A request made before this canvas mounted (it was away for the prototype editor) is not a new one.
+  const exportSeen = useRef(exportRequest)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a new request only
+  useEffect(() => {
+    if (exportRequest === exportSeen.current) return
+    exportSeen.current = exportRequest
+    setPanel('export')
+  }, [exportRequest])
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
   /** About the selected screens, or with `ggIds` about elements only. */
@@ -369,7 +391,10 @@ export function Canvas({
       ...(manifest && picked.length && !extra.ggIds ? { screenIds: picked.map((n) => n.id) } : {}),
       ...extra,
     }
-    return sendCommand(artifactId, req, bot.name)
+    return sendCommand(artifactId, req, bot.name).then((ok) => {
+      if (ok && command === 'instant-prototype') onPrototypeAsked()
+      return ok
+    })
   }
   const askAboutElement = (command: CanvasCommand, el: PickedElement, text: string) =>
     el.ggId ? ask(command, { ggIds: [{ file: el.file, ggId: el.ggId }], text }) : Promise.resolve(false)
@@ -382,7 +407,7 @@ export function Canvas({
         ggId: el.ggId,
         selector: el.selector.slice(0, 500),
         rect: el.rect,
-        snippet: `<${el.tag}> ${el.text}`.slice(0, 2000),
+        snippet: (el.snippet || `<${el.tag}> ${el.text}`).slice(0, 2000),
         note,
       })
       annotations.reload()
@@ -455,6 +480,10 @@ export function Canvas({
       case CMD.edit:
         if (canEdit) setTool('edit')
         return
+      case CMD.qr:
+        return setQr(one?.id ?? manifest?.entry ?? '')
+      case CMD.export:
+        return setPanel('export')
       case CMD.designSystem:
         return setPanel('design')
       case CMD.details:
@@ -543,6 +572,7 @@ export function Canvas({
       else if (key === 'd') run(() => command(CMD.duplicate))
       else if (key === 'r') run(() => command(CMD.reload))
       else if (key === 'l') run(() => command(CMD.addToChat))
+      else if (key === 'e' && e.shiftKey) run(() => command(CMD.export))
       else if (arrow) run(() => go(arrow))
       return
     }
@@ -1035,6 +1065,7 @@ export function Canvas({
           versionId={versionKey}
           node={one}
           thumbnailUrl={thumbnailUrl}
+          prompt={(manifest?.screens.find((s) => s.id === one.id) as { prompt?: string } | undefined)?.prompt}
           hasSystem={!!tokens}
           onCode={() => setCode(one)}
           onDesignSystem={() => setPanel('design')}
@@ -1051,6 +1082,22 @@ export function Canvas({
         />
       ) : panel === 'design' ? (
         designPanel(() => setPanel(null))
+      ) : panel === 'export' ? (
+        <ExportPanel
+          artifactId={artifactId}
+          versionId={versionKey}
+          screens={screens}
+          selected={picked.map((n) => n.id)}
+          bot={bot}
+          shareDenied={shareDenied}
+          readFile={readFile}
+          onBrief={() =>
+            bot
+              ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot.name)
+              : Promise.resolve(false)
+          }
+          onClose={() => setPanel(null)}
+        />
       ) : null}
 
       <div className="art-corner">
@@ -1077,6 +1124,17 @@ export function Canvas({
       </div>
 
       <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
+      <Presence>
+        {qr !== null ? (
+          <QrDialog
+            artifactId={artifactId}
+            groupId={groupId}
+            botId={botId}
+            screen={qr || undefined}
+            onClose={() => setQr(null)}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {deleting?.ggId ? (
           <ConfirmActionDialog

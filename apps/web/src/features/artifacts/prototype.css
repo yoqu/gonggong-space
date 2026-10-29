@@ -1,0 +1,533 @@
+/* R5: prototype editor, export panel, share and QR dialogs (docs/plan/原型编辑器-Stitch对标-开发计划.md). Tokens only. */
+:root {
+  --proto-bezel: #d4d4da;
+  --proto-bezel-edge: #ffffffb3;
+}
+[data-theme="dark"],
+[data-theme="hc-dark"] {
+  --proto-bezel: #2c2c30;
+  --proto-bezel-edge: #ffffff1f;
+}
+
+.proto {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.proto-bar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 44px;
+  padding: 0 var(--space-8);
+  border-bottom: 1px solid var(--separator);
+  background: var(--window-bg);
+}
+.proto-bar__title {
+  display: inline-block;
+  max-width: 240px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.proto-bar__mode {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.proto-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--art-plane);
+  background-image: radial-gradient(var(--art-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Screens in prototype (left) ── */
+.proto-screens,
+.proto-screens-pill,
+.proto-guide {
+  position: absolute;
+  z-index: 2;
+  border-radius: 16px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+.proto-screens {
+  top: var(--space-12);
+  left: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  width: 212px;
+  max-height: calc(100% - 2 * var(--space-12));
+  overflow: hidden;
+}
+.proto-screens__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-8) var(--space-8) var(--space-12);
+}
+.proto-screens__head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+}
+.proto-screens__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--space-8);
+  overflow: auto;
+  list-style: none;
+}
+.proto-thumb {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.proto-thumb:hover {
+  background: var(--selection-fill);
+}
+.proto-thumb[aria-current="page"] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.proto-thumb:focus-visible {
+  outline: 3px solid var(--focus-ring);
+}
+.proto-thumb__shot {
+  position: relative;
+  display: block;
+  height: 110px;
+  border-radius: 8px;
+  background: var(--content-bg);
+  box-shadow: 0 0 0 1px var(--separator);
+  overflow: hidden;
+}
+.proto-thumb__shot iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.proto-thumb__title {
+  overflow: hidden;
+  padding: 6px 4px 2px;
+  font-size: var(--text-footnote-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proto-screens__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border-top: 1px solid var(--separator);
+}
+.proto-screens__foot .ui-menu-anchor,
+.proto-screens__add {
+  width: 100%;
+}
+.proto-screens__add {
+  justify-content: center;
+  gap: 6px;
+}
+.proto-screens__imagine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  border: 1px dashed var(--control-outline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  cursor: pointer;
+}
+.proto-screens__imagine:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.proto-screens__imagine:disabled {
+  color: var(--label-tertiary);
+  cursor: default;
+}
+.proto-screens__foot .proto-ask {
+  padding: 0;
+}
+.proto-screens-pill {
+  top: var(--space-12);
+  left: var(--space-12);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  cursor: pointer;
+}
+.proto-screens-pill span {
+  color: var(--label-secondary);
+}
+
+/* ── Stage: the device frame ── */
+.proto-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proto-device-box {
+  position: relative;
+  flex: none;
+}
+.proto-device {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 10px;
+  border-radius: 46px;
+  background: var(--proto-bezel);
+  box-shadow:
+    inset 0 0 0 1px var(--proto-bezel-edge),
+    0 0 0 1px var(--separator),
+    0 24px 60px #00000033;
+  transform-origin: 0 0;
+}
+.proto-device--tablet {
+  border-radius: 30px;
+}
+.proto-device--desktop {
+  border-radius: 16px;
+}
+.proto-scroll {
+  width: 100%;
+  height: 100%;
+  border-radius: 36px;
+  background: var(--content-bg);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.proto-scroll::-webkit-scrollbar {
+  display: none;
+}
+.proto-device--tablet .proto-scroll {
+  border-radius: 20px;
+}
+.proto-device--desktop .proto-scroll {
+  border-radius: 6px;
+}
+.proto-content {
+  position: relative;
+}
+.proto-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+
+/* Transitions (data-gg-transition); going back reverses them. */
+.proto-enter--push {
+  animation: proto-from-right 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.proto-enter--push-back {
+  animation: proto-from-left 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.proto-enter--slide-up {
+  animation: proto-from-bottom 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.proto-enter--slide-down {
+  animation: proto-from-top 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.proto-enter--fade {
+  animation: proto-fade 260ms ease-out;
+}
+@keyframes proto-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes proto-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes proto-from-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes proto-from-top {
+  from {
+    transform: translateY(-100%);
+  }
+}
+@keyframes proto-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proto-scroll {
+    animation: none;
+  }
+}
+
+/* Hotspots: link and back elements in document coordinates; clicks go through to the screen. */
+.proto-hots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.proto-hot {
+  position: absolute;
+  border: 1.5px dashed var(--system-blue);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--system-blue) 8%, transparent);
+}
+.proto-hot--selected {
+  border-style: solid;
+  border-color: var(--accent);
+  background: transparent;
+}
+.proto-hot__tag {
+  position: absolute;
+  bottom: 100%;
+  left: -1.5px;
+  margin-bottom: 2px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--system-blue);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+}
+.proto-hot--selected .proto-hot__tag {
+  background: var(--accent);
+}
+.proto-pop {
+  transform-origin: 0 0;
+}
+
+/* The pencil under the device, and its request bar. */
+.proto-pencil {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  translate: -50% 0;
+}
+.proto-pencil__btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--label);
+  cursor: pointer;
+}
+.proto-pencil__btn:hover:not(:disabled) {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.proto-pencil__btn:disabled {
+  color: var(--label-tertiary);
+  cursor: default;
+}
+.proto-change {
+  position: absolute;
+  z-index: 3;
+  bottom: var(--space-12);
+  left: 50%;
+  width: min(560px, calc(100% - 160px));
+  translate: -50% 0;
+  border-radius: 16px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+}
+.proto-change .proto-ask {
+  padding: var(--space-12);
+}
+.proto-change__hint {
+  align-self: flex-end;
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+
+/* Rail (right) and guide. */
+.proto-rail .ui-menu-anchor {
+  display: flex;
+}
+.proto-guide {
+  top: 50%;
+  right: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  width: 280px;
+  padding: var(--space-16);
+  color: var(--label);
+  transform: translateY(-50%);
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.proto-guide svg {
+  color: var(--accent-text);
+}
+.proto-guide p {
+  margin: 0;
+  font-size: var(--text-callout-size);
+  line-height: 1.5;
+}
+
+/* Panels whose action row sits at the bottom. */
+.art-panel__body:has(> .proto-connect) {
+  display: flex;
+  flex-direction: column;
+}
+.proto-connect {
+  flex: 1;
+}
+.proto-connect .ui-popup,
+.proto-connect .ui-popup__btn {
+  width: 100%;
+  max-width: none;
+}
+
+/* ── Export panel ── */
+.art-export__scope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  border-radius: 10px;
+  background: var(--quote-fill);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-export .ui-radiogroup {
+  gap: var(--space-8);
+}
+.art-export__note {
+  margin: var(--space-12) 0 0;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  line-height: 1.5;
+}
+
+/* ── Share and QR dialogs ── */
+.art-share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.art-share__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.art-share__row > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.art-share__row small,
+.art-share__link small {
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-share__note {
+  margin: 0;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  line-height: 1.5;
+}
+.art-share__denied {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--tint-orange-text);
+  font-size: var(--text-footnote-size);
+}
+.art-share__link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-8) var(--space-12);
+  border-radius: 10px;
+  background: var(--quote-fill);
+}
+.art-share__link code {
+  overflow: hidden;
+  font-size: var(--text-footnote-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  text-align: center;
+}
+.art-qr small {
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-qr__code {
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  line-height: 0;
+}
+.art-qr--off {
+  padding: var(--space-8) 0;
+}
+.art-qr--off > svg {
+  color: var(--label-tertiary);
+}

@@ -1,13 +1,14 @@
 import type { ArtifactVersionDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { ago } from '../../lib/time'
-import { Button, EmptyState, Icon, MenuButton, Skeleton, Spinner, Tag, Tooltip } from '../../ui'
-import { openUrl } from '../previews/store'
+import { Button, EmptyState, Icon, MenuButton, Presence, Skeleton, Spinner, Tag } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
 import { Canvas } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
+import { PrototypeEditor } from './PrototypeEditor'
+import { ShareDialog } from './share'
 import {
   editArtifact,
   loadArtifact,
@@ -20,6 +21,7 @@ import {
   useVersionDetail,
 } from './store'
 import './artifacts.css'
+import './prototype.css'
 
 const SOURCE: Record<ArtifactVersionDto['source'], string> = {
   run: t('AI 生成'),
@@ -40,6 +42,10 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
   /** A past version looked at, read-only; null = the head. */
   const [viewing, setViewing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** The prototype editor, on the screen it opened on; null: the canvas. */
+  const [proto, setProto] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [exportRequest, setExportRequest] = useState(0)
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
@@ -54,6 +60,17 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
     readOnly,
     author: entry?.versions.findLast((v) => v.source === 'run')?.authorName ?? null,
   })
+
+  // Instant Prototype opens the editor once the bot's run on it ends (Stitch: Generate Prototype → the editor).
+  const awaitProto = useRef<'asked' | 'running' | null>(null)
+  const running = !!a?.running
+  useEffect(() => {
+    if (running && awaitProto.current === 'asked') awaitProto.current = 'running'
+    else if (!running && awaitProto.current === 'running') {
+      awaitProto.current = null
+      if (a?.manifest) setProto(a.manifest.entry)
+    }
+  }, [running, a?.manifest])
 
   // Undo and redo move the head to the server's targets (ArtifactDto.undoVersionId / redoVersionId).
   const step = (to: string | null | undefined) =>
@@ -89,11 +106,43 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
 
   const versions = [...entry.versions].reverse()
   const current = entry.versions.find((v) => v.id === shown)
-  const entryScreen = a.manifest?.entry
+  const shownManifest = viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest
   const present = () => {
-    if (preview && entryScreen)
-      window.open(`${openUrl(preview.previewId, '/')}#play:${entryScreen}`, '_blank', 'noopener')
+    if (shownManifest) setProto(shownManifest.entry)
   }
+  const shareDialog = (
+    <Presence>
+      {sharing ? (
+        <ShareDialog
+          artifactId={a.id}
+          groupId={a.groupId}
+          botId={a.botId}
+          onClose={() => setSharing(false)}
+        />
+      ) : null}
+    </Presence>
+  )
+
+  if (proto && shownManifest && head)
+    return (
+      <div className="art">
+        <PrototypeEditor
+          artifactId={a.id}
+          groupId={a.groupId}
+          botId={a.botId ?? null}
+          title={a.title}
+          manifest={shownManifest}
+          preview={preview}
+          versionKey={shown ?? ''}
+          readOnly={readOnly}
+          start={proto}
+          onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
+          onBack={() => setProto(null)}
+          onShare={() => setSharing(true)}
+        />
+        {shareDialog}
+      </div>
+    )
 
   return (
     <div className="art">
@@ -128,21 +177,17 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           size="small"
           variant="plain"
           icon="play"
-          disabled={!preview || !entryScreen}
+          disabled={!preview || !shownManifest}
           onClick={present}
         >
           {t('演示')}
         </Button>
-        <Tooltip content={t('即将支持')}>
-          <Button size="small" icon="download" disabled>
-            {t('导出')}
-          </Button>
-        </Tooltip>
-        <Tooltip content={t('即将支持')}>
-          <Button size="small" variant="primary" icon="share" disabled>
-            {t('分享')}
-          </Button>
-        </Tooltip>
+        <Button size="small" icon="download" disabled={!head} onClick={() => setExportRequest((n) => n + 1)}>
+          {t('导出')}
+        </Button>
+        <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
+          {t('分享')}
+        </Button>
       </header>
       {a.running ? (
         <div className="art-running" role="status">
@@ -171,8 +216,9 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
         <Canvas
           artifactId={a.id}
           groupId={a.groupId}
+          botId={a.botId ?? null}
           title={a.title}
-          manifest={viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest}
+          manifest={shownManifest}
           tokens={design.tokens}
           links={detail?.id === shown ? (detail.links ?? []) : []}
           favourites={a.favorites ?? []}
@@ -188,9 +234,14 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
           designPanel={design.panel}
           guardDesign={design.guard}
+          exportRequest={exportRequest}
+          onPrototypeAsked={() => {
+            awaitProto.current = a.running ? 'running' : 'asked'
+          }}
         />
       )}
       {design.dialog}
+      {shareDialog}
     </div>
   )
 }
