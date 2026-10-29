@@ -179,7 +179,7 @@
     }
   })
 
-  // Links and back buttons in document coordinates, for the canvas's arrows.
+  // Links and back buttons in document coordinates, for the canvas's arrows (viewport = document - scroll).
   const docRect = (el) => {
     const r = rectOf(el)
     return { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
@@ -199,6 +199,28 @@
         .map((el) => ({ ggId: ggIdOf(el), rect: docRect(el) })),
     }
   }
+  // Throttled to one post per 100 ms, the last position always sent: the main site moves its overlays with it.
+  let scrollTimer = null
+  let scrolled = false
+  const postScroll = () => post({ type: 'scroll', scrollX: window.scrollX, scrollY: window.scrollY })
+  const scrollTick = () => {
+    scrollTimer = scrolled ? setTimeout(scrollTick, 100) : null
+    if (scrolled) postScroll()
+    scrolled = false
+  }
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (scrollTimer) {
+        scrolled = true
+        return
+      }
+      postScroll()
+      scrollTimer = setTimeout(scrollTick, 100)
+    },
+    { passive: true },
+  )
+
   let last = ''
   const report = () => {
     const l = layout()

@@ -87,6 +87,27 @@ describe('gg-bridge', () => {
     expect(s.posts).toHaveLength(n)
   })
 
+  it('reports scrolling at most every 100 ms, ending with the last position', async () => {
+    const s = screen()
+    const scrollTo = (y: number) => {
+      Object.defineProperty(s.w, 'scrollY', { value: y, configurable: true })
+      s.w.dispatchEvent(new s.w.Event('scroll'))
+    }
+    const scrolls = () => s.posts.map((p) => p.data).filter((d) => d.type === 'scroll')
+    scrollTo(10)
+    scrollTo(20)
+    scrollTo(30)
+    expect(scrolls()).toEqual([
+      { source: 'gg-bridge', file: 'screens/home.html', type: 'scroll', scrollX: 0, scrollY: 10 },
+    ])
+    expect(BridgeFromShell.parse(scrolls()[0])).toMatchObject({ type: 'scroll', scrollY: 10 })
+    await new Promise((r) => setTimeout(r, 150))
+    expect(scrolls().map((d) => d.scrollY)).toEqual([10, 30])
+    await new Promise((r) => setTimeout(r, 150))
+    scrollTo(40)
+    expect(scrolls().map((d) => d.scrollY)).toEqual([10, 30, 40])
+  })
+
   it('sends the transition of a link with nav', () => {
     const s = screen(
       PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-transition="push-back"'),
