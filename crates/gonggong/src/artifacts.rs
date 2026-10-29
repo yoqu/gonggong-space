@@ -7,8 +7,8 @@
 //! key until answered) and the version being written (a checkout a crash cut off is finished, not taken for edits).
 use crate::config::Config;
 use crate::protocol::{
-    ArtifactFile, ArtifactManifestRes, ArtifactSubmitReq, ArtifactSubmitRes, DaemonArtifactRef, DaemonToServer,
-    RunEvent, RunStart, RunStatus, SYNC_MISSING_MAX,
+    ArtifactFile, ArtifactManifestRes, ArtifactSubmitReq, ArtifactSubmitRes, ArtifactSubmitSource, DaemonArtifactRef,
+    DaemonToServer, RunEvent, RunStart, RunStatus, SYNC_MISSING_MAX,
 };
 use crate::service::Outbox;
 use crate::static_site::{self, Body};
@@ -318,7 +318,7 @@ impl Artifacts {
         let matches_head = r.digest.as_deref() == Some(digest(&local).as_str()) && head.is_some();
         let resuming = state.applying.is_some();
         if !matches_head && !resuming && !local.is_empty() && local != state.files {
-            let res = self.submit(run, &f, &mut state, &local).await?;
+            let res = self.submit(run, &f, &mut state, &local, ArtifactSubmitSource::Local).await?;
             if res.head {
                 head = Some(res.version_id);
             }
@@ -350,7 +350,7 @@ impl Artifacts {
         if local.is_empty() || local == state.files {
             return f.save(&state).map(|_| None);
         }
-        self.submit(run, &f, &mut state, &local).await.map(Some)
+        self.submit(run, &f, &mut state, &local, ArtifactSubmitSource::Run).await.map(Some)
     }
 
     /// Screenshots the folder's shell (the canvas view) and uploads it as `version`'s thumbnail; false when the
@@ -379,6 +379,7 @@ impl Artifacts {
         f: &Folder,
         state: &mut State,
         local: &Files,
+        source: ArtifactSubmitSource,
     ) -> Result<ArtifactSubmitRes, String> {
         let files: Vec<ArtifactFile> = local
             .iter()
@@ -399,7 +400,7 @@ impl Artifacts {
             .await
             .map_err(|e| e.message)?;
         let submit_key = uuid::Uuid::new_v4().to_string();
-        state.pending = Some(ArtifactSubmitReq { parent_version_id: state.version.clone(), submit_key, files });
+        state.pending = Some(ArtifactSubmitReq { parent_version_id: state.version.clone(), source, submit_key, files });
         // Persisted before it is sent: an answer lost on the way is asked for again with the same key.
         f.save(state)?;
         self.resend(run, f, state).await
