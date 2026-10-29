@@ -1,6 +1,7 @@
 // One test binary instead of one per file: each extra binary is linked separately and, on macOS, scanned on its first
 // launch. Tests that change process-wide state (env vars, the global tracing subscriber) or need the process-wide HTTP
 // client to themselves (tls: its paused-clock timeouts) stay in their own tests/*.rs.
+mod artifacts;
 mod attachments;
 mod bind;
 mod bots;

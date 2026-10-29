@@ -683,4 +683,22 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("daemon 未登录服务器", "The daemon is not logged in to a server"),
     ("读取工作区失败：{e}", "Couldn't read the workspaces: {e}"),
     ("工作区不存在或已变化，请刷新", "The workspace is gone or has changed; refresh"),
+    ("产物目录不合法：{dir}", "Invalid artifact folder: {dir}"),
+    ("产物状态文件损坏：{e}", "The artifact state file is corrupt: {e}"),
+    ("无法读取产物状态：{e}", "Couldn't read the artifact state: {e}"),
+    ("无法保存产物状态：{e}", "Couldn't save the artifact state: {e}"),
+    ("无法扫描产物目录 {dir}：{e}", "Couldn't scan the artifact folder {dir}: {e}"),
+    ("产物文件超过 10MB：{path}", "Artifact file over 10 MB: {path}"),
+    ("产物超出单版上限（500 个文件、50MB）", "The artifact exceeds the version limits (500 files, 50 MB)"),
+    ("产物版本清单不匹配：{version}", "The artifact version manifest doesn't match: {version}"),
+    ("产物版本含有不安全的路径，已拒绝：{path}", "The artifact version has an unsafe path and was refused: {path}"),
+    ("无法检出产物 {dir}：{e}", "Couldn't check out the artifact {dir}: {e}"),
+    (
+        "产物 {dir} 的本地改动未能上传，本轮未检出最新版本：{e}",
+        "Local changes to the artifact {dir} couldn't be uploaded, so its latest version wasn't checked out this run: {e}",
+    ),
+    (
+        "产物 {dir} 上传失败，下一轮开跑前重试：{e}",
+        "Uploading the artifact {dir} failed; it will be retried before the next run: {e}",
+    ),
 ];

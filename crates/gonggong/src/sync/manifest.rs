@@ -53,9 +53,15 @@ impl Tree {
 }
 
 /// The tree, and the cache it was scanned with (handed back whatever happens).
-pub(super) async fn scan(work: &Path, cache: BTreeMap<String, Stat>) -> (Result<Tree, String>, BTreeMap<String, Stat>) {
+/// `skip`: directories left out (hosted artifacts, which artifact hosting owns).
+pub(super) async fn scan(
+    work: &Path,
+    cache: BTreeMap<String, Stat>,
+    skip: &[String],
+) -> (Result<Tree, String>, BTreeMap<String, Stat>) {
     let excludes = format!("core.excludesFile={}", if cfg!(windows) { "NUL" } else { "/dev/null" });
-    let args = [
+    let skip: Vec<String> = skip.iter().map(|d| format!(":(exclude,literal){d}")).collect();
+    let mut args = vec![
         "-c",
         &excludes,
         "ls-files",
@@ -66,6 +72,7 @@ pub(super) async fn scan(work: &Path, cache: BTreeMap<String, Stat>) -> (Result<
         ".",
         ":(exclude).gonggong",
     ];
+    args.extend(skip.iter().map(String::as_str));
     let listed = match git::git_bytes(work, &args).await {
         Ok(listed) => listed,
         Err(e) => return (Err(e), cache),
@@ -275,7 +282,7 @@ fn exec_bit(_meta: &std::fs::Metadata, cached: Option<&Stat>) -> bool {
     cached.is_some_and(|c| c.exec)
 }
 
-pub(super) fn hash_file(path: &Path) -> std::io::Result<String> {
+pub(crate) fn hash_file(path: &Path) -> std::io::Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut h = Sha256::new();
     let mut buf = vec![0; 64 * 1024];
@@ -342,6 +349,30 @@ mod tests {
         fx.write(".gonggong/attachments/m1/a.png", "private");
         let tree = fx.replica().tree().await.unwrap();
         assert_eq!(paths(&tree), [".gitignore", "global-ignore", "notes.mine", "secret.env"]);
+    }
+
+    #[tokio::test]
+    async fn hosted_artifact_directories_are_left_out_and_kept_at_the_base() {
+        let fx = Fixture::new();
+        fx.write("a.txt", "a");
+        fx.write("design/app-1a2b/index.html", "old");
+        let r = fx.replica();
+        let files = r.tree().await.unwrap().manifest();
+        r.set_base(&super::super::Base { version: 1, files: files.clone() }).unwrap();
+        r.set_exclude(&["design/app-1a2b".into()]).unwrap();
+        fx.write("design/app-1a2b/index.html", "edited by the agent");
+        fx.write("design/app-1a2b/screens/home.html", "new");
+        fx.write("design/app-1a2b-other/x.html", "a sibling with the same prefix still syncs");
+        let tree = r.tree().await.unwrap();
+        assert_eq!(paths(&tree), ["a.txt", "design/app-1a2b-other/x.html"]);
+        let mut want = files;
+        want.insert(
+            "design/app-1a2b-other/x.html".into(),
+            super::super::testing::f("a sibling with the same prefix still syncs", false),
+        );
+        assert_eq!(tree.manifest(), want);
+        r.set_exclude(&[]).unwrap();
+        assert!(r.tree().await.unwrap().files.contains_key("design/app-1a2b/screens/home.html"));
     }
 
     #[tokio::test]

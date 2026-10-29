@@ -5,8 +5,9 @@
 //! cache: path → size, mtime, hash, exec, so only touched files are rehashed; they exist once the replica joined; see
 //! `state`), `work` (the workspace path, so idle replicas can be found), `issue.json` (why it stopped taking versions,
 //! if it did), `held.json` (the held change while a conflict waits, F11), `stopped.json` (the /stop'ped run whose changes wait for keep / discard, F21),
-//! `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect) and
-//! `applying.json` (the version being written, so an apply a crash cut off is finished rather than taken for edits).
+//! `pending.json` (the submit sent and not settled yet, resent with the same id after a timeout or reconnect),
+//! `applying.json` (the version being written, so an apply a crash cut off is finished rather than taken for edits)
+//! and `exclude.json` (the hosted artifact directories of the last run, which artifact hosting owns: never synced).
 mod apply;
 mod check;
 mod client;
@@ -18,8 +19,10 @@ mod state;
 pub use apply::{ApplyError, Applying};
 pub use check::{Issue, Violation, check};
 pub use client::{Client, TRANSFERS};
+pub(crate) use manifest::hash_file;
 pub use manifest::{Stat, Tree};
 pub use merge::Merge;
+pub(crate) use path::safe as safe_path;
 pub(crate) use state::Memory;
 
 use crate::git;
@@ -191,6 +194,18 @@ impl Replica {
         write_json(&self.state.join("pending.json"), &pending)
     }
 
+    /// Directories (`design/<slug>`) the tree leaves out, as the last run named them (`RunStart.artifactExclude`).
+    pub fn exclude(&self) -> Result<Vec<String>, String> {
+        read_json(&self.state.join("exclude.json"))
+    }
+
+    pub fn set_exclude(&self, dirs: &[String]) -> Result<(), String> {
+        if self.exclude()? == dirs {
+            return Ok(());
+        }
+        write_json(&self.state.join("exclude.json"), &dirs)
+    }
+
     pub fn applying(&self) -> Result<Option<Applying>, String> {
         read_json(&self.state.join("applying.json"))
     }
@@ -236,11 +251,12 @@ impl Replica {
     }
 
     /// The work tree now (F4), rehashing only files whose size or mtime changed since the last scan. Sparse-checkout
-    /// entries are not on disk: they stay as the base has them.
+    /// entries are not on disk and excluded directories are not synced: they stay as the base has them.
     pub async fn tree(&self) -> Result<Tree, String> {
         count_scan(&self.work);
+        let exclude = self.exclude()?;
         let cache = self.with_state(|s, _| Ok(std::mem::take(&mut s.cache)))?;
-        let (tree, cache) = manifest::scan(&self.work, cache).await;
+        let (tree, cache) = manifest::scan(&self.work, cache, &exclude).await;
         self.with_state(|s, dir| {
             s.cache = cache;
             let Ok(tree) = &tree else { return Ok(()) };
@@ -248,6 +264,13 @@ impl Replica {
             s.record(dir, changed, None)
         })?;
         let mut tree = tree?;
+        if !exclude.is_empty() {
+            let under =
+                |p: &str| exclude.iter().any(|d| p.strip_prefix(d.as_str()).is_some_and(|r| r.starts_with('/')));
+            tree.sparse.extend(
+                self.with_state(|s, _| Ok(s.base.files.keys().filter(|p| under(p)).cloned().collect::<Vec<_>>()))?,
+            );
+        }
         if !tree.sparse.is_empty() {
             let kept = self.with_state(|s, _| {
                 Ok(tree.sparse.iter().filter_map(|p| Some((p.clone(), s.base.files.get(p)?.clone()))).collect())
