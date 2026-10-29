@@ -181,6 +181,8 @@ export const canvasContextItems = (o: {
   { separator: true },
   { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
   { label: t('适应画布'), value: CMD.fit, shortcut: '⇧1' },
+  { separator: true },
+  { label: t('设计系统'), value: CMD.designSystem },
 ]
 
 export const ZOOM_IN = 'in'

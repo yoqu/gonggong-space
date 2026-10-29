@@ -1,5 +1,5 @@
 import type { ArtifactVersionDto } from '@gonggong/protocol'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { ago } from '../../lib/time'
@@ -7,6 +7,7 @@ import { Button, EmptyState, Icon, MenuButton, Skeleton, Spinner, Tag, Tooltip }
 import { openUrl } from '../previews/store'
 import type { TabMeta, TabProps } from '../workbench/types'
 import { Canvas } from './Canvas'
+import { useDesignSystem } from './DesignSystemPanel'
 import {
   editArtifact,
   loadArtifact,
@@ -18,7 +19,6 @@ import {
   useArtifactPreview,
   useVersionDetail,
 } from './store'
-import { parseTokens } from './tokens'
 import './artifacts.css'
 
 const SOURCE: Record<ArtifactVersionDto['source'], string> = {
@@ -44,8 +44,16 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
   const { detail, tokens: tokensCss } = useVersionDetail(tab.artifactId, shown)
-  const tokens = useMemo(() => (tokensCss ? parseTokens(tokensCss) : null), [tokensCss])
   const readOnly = !!viewing || !!a?.running || busy
+  const design = useDesignSystem({
+    artifactId: tab.artifactId,
+    groupId: a?.groupId,
+    versionId: shown,
+    css: tokensCss,
+    hasDesignMd: detail?.id === shown && !!detail?.files.some((f) => f.path === 'DESIGN.md'),
+    readOnly,
+    author: entry?.versions.findLast((v) => v.source === 'run')?.authorName ?? null,
+  })
 
   // Undo and redo move the head to the server's targets (ArtifactDto.undoVersionId / redoVersionId).
   const step = (to: string | null | undefined) =>
@@ -165,7 +173,7 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           groupId={a.groupId}
           title={a.title}
           manifest={viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest}
-          tokens={tokens}
+          tokens={design.tokens}
           links={detail?.id === shown ? (detail.links ?? []) : []}
           favourites={a.favorites ?? []}
           preview={preview}
@@ -178,8 +186,11 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
           onPresent={present}
           readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
+          designPanel={design.panel}
+          guardDesign={design.guard}
         />
       )}
+      {design.dialog}
     </div>
   )
 }

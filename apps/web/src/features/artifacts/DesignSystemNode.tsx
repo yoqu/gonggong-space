@@ -15,6 +15,7 @@ const COLOR_PREVIEW_MAX = 4
 export function DesignSystemNode({ tokens }: { tokens: DesignTokens }) {
   return (
     <div className="art-ds" style={scope(tokens)} data-testid="art-design-system">
+      {tokens.name ? <h3 className="art-ds__name">{tokens.name}</h3> : null}
       <section className="art-ds__section">
         <h4>{t('色彩')}</h4>
         <div className="art-ds__colors">
