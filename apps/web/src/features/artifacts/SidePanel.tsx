@@ -1,0 +1,112 @@
+import type { ReactNode } from 'react'
+import { t } from '../../i18n'
+import { Button, CloseButton, EmptyState, Icon } from '../../ui'
+import type { CanvasNode } from './geometry'
+
+/** A panel docked to the right of the canvas (Stitch's View Details, Favourites, DESIGN.md). */
+function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <aside className="art-panel" aria-label={title}>
+      <header className="art-panel__head">
+        <h3>{title}</h3>
+        <CloseButton onClick={onClose} />
+      </header>
+      <div className="art-panel__body">{children}</div>
+    </aside>
+  )
+}
+
+/** View Details (I): what the screen is, its size, its design system and its source. */
+export function DetailsPanel({
+  node,
+  thumbnailUrl,
+  hasSystem,
+  onCode,
+  onDesignSystem,
+  onClose,
+}: {
+  node: CanvasNode
+  thumbnailUrl: string | null
+  hasSystem: boolean
+  onCode: () => void
+  onDesignSystem: () => void
+  onClose: () => void
+}) {
+  return (
+    <Panel title={node.title} onClose={onClose}>
+      <div className="art-panel__shot">
+        {thumbnailUrl ? <img src={thumbnailUrl} alt="" /> : <Icon name="smartphone" size={28} />}
+      </div>
+      <h4 className="art-panel__label">{t('属性')}</h4>
+      <dl className="art-props">
+        <dt>{t('类型')}</dt>
+        <dd>{t('设计屏幕')}</dd>
+        <dt>{t('尺寸')}</dt>
+        <dd data-testid="art-details-size">{`${node.w} x ${node.h}`}</dd>
+        <dt>{t('设计系统')}</dt>
+        <dd>
+          {hasSystem ? (
+            <Button size="small" variant="plain" icon="palette" onClick={onDesignSystem}>
+              tokens.css
+            </Button>
+          ) : (
+            '—'
+          )}
+        </dd>
+        <dt>{t('源码')}</dt>
+        <dd>
+          <Button size="small" variant="plain" icon="doc-code" onClick={onCode}>
+            {t('查看代码')}
+          </Button>
+        </dd>
+        <dt>{t('文件')}</dt>
+        <dd>
+          <code>{node.file}</code>
+        </dd>
+      </dl>
+    </Panel>
+  )
+}
+
+export function FavouritesPanel({
+  screens,
+  onPick,
+  onClose,
+}: {
+  screens: CanvasNode[]
+  onPick: (id: string) => void
+  onClose: () => void
+}) {
+  return (
+    <Panel title={t('收藏')} onClose={onClose}>
+      {screens.length ? (
+        <ul className="art-favs">
+          {screens.map((s) => (
+            <li key={s.id}>
+              <button type="button" className="art-favs__item" onClick={() => onPick(s.id)}>
+                <Icon name="star" size={14} />
+                <span>{s.title}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState compact icon="star" title={t('还没有收藏')} description={t('选中屏幕按 ⇧F 收藏')} />
+      )}
+    </Panel>
+  )
+}
+
+/** The design-system panel comes with R4 (docs/plan/原型编辑器-Stitch对标-开发计划.md §2). */
+export function DesignSystemPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <Panel title={t('设计系统')} onClose={onClose}>
+      <EmptyState
+        compact
+        icon="palette"
+        title={t('即将支持')}
+        description={t('在这里调整配色、字体与组件样式')}
+      />
+    </Panel>
+  )
+}

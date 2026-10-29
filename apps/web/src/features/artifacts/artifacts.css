@@ -192,7 +192,7 @@
     0 0 0 1px var(--separator),
     0 8px 28px #0000001f;
 }
-/* Screens are looked at here, not used: the canvas keeps the pointer. */
+/* With the select and hand tools the canvas keeps the pointer; mark and direct edit hand it to the screens. */
 .art-node__frame {
   display: block;
   width: 100%;
@@ -200,6 +200,41 @@
   border: 0;
   background: #fff;
   pointer-events: none;
+}
+.art-node__frame--live {
+  pointer-events: auto;
+}
+.art-ctx {
+  position: absolute;
+  inset: 0;
+}
+.art-node--system {
+  background: transparent;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.art-node--prototype {
+  border-radius: 28px;
+  background: #111114;
+  box-shadow:
+    0 0 0 6px #2a2a2e,
+    0 0 0 7px var(--separator),
+    0 12px 36px #00000033;
+}
+.art-proto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  color: #f5f5f7;
+  font-size: 15px;
+  user-select: none;
+}
+.art-proto span {
+  color: #a1a1a6;
+  font-size: 12px;
 }
 .art-node .ui-skeleton,
 .art-node .ui-skel--block {
@@ -216,28 +251,82 @@
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 20px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
+  gap: 3px;
+  height: 22px;
+  padding: 0 2px;
+  border-radius: 6px;
   color: var(--label-secondary);
-  font: inherit;
   font-size: var(--text-footnote-size);
   white-space: nowrap;
   pointer-events: auto;
+}
+.art-title:hover,
+.art-title--on {
+  color: var(--label);
+}
+.art-title__icon {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+.art-title__grip {
+  position: absolute;
+  inset: 2px;
+  display: none;
+  fill: currentColor;
+}
+/* Hovered or selected, a movable screen's icon becomes its drag handle (Stitch capability list §3). */
+.art-title--movable:hover .art-title__icon > svg:first-child,
+.art-title--movable.art-title--on .art-title__icon > svg:first-child {
+  visibility: hidden;
+}
+.art-title--movable:hover .art-title__grip,
+.art-title--movable.art-title--on .art-title__grip {
+  display: block;
+  visibility: visible;
+}
+.art-title--movable .art-title__icon {
+  cursor: grab;
+  touch-action: none;
+}
+.art-title--movable .art-title__icon:active {
+  cursor: grabbing;
+}
+.art-title__name {
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   cursor: default;
 }
-.art-title span {
+.art-title--on .art-title__name {
+  color: var(--accent-text);
+}
+.art-title__name span {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.art-title:hover {
-  color: var(--label);
+.art-title__fav {
+  flex: none;
+  color: var(--system-yellow);
 }
-.art-title--on {
-  color: var(--accent-text);
+.art-title__input {
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  background: var(--content-bg);
+  box-shadow: 0 0 0 2px var(--accent);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  outline: none;
 }
 .art-select {
   position: absolute;
@@ -437,4 +526,361 @@
 .art-float__btn,
 .art-corner__zoom {
   color: var(--label);
+}
+
+/* AI at work: everything that changes the artifact waits. */
+.art-running {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-footnote-size);
+}
+.art-running small {
+  opacity: 0.8;
+}
+
+/* Connections between screens, drawn in viewport pixels over the plane. */
+.art-links {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.art-links path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.75;
+}
+.art-links marker path {
+  fill: var(--accent);
+  stroke: none;
+}
+.art-link-label {
+  position: absolute;
+  max-width: 160px;
+  overflow: hidden;
+  padding: 1px 8px;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: var(--text-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.art-link-label--dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+/* Side panels (details, favourites, design system), left of the tools. */
+.art-panel {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-12);
+  right: 60px;
+  bottom: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  border-radius: 16px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+}
+.art-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-8) var(--space-16);
+}
+.art-panel__head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--space-16) var(--space-16);
+}
+.art-panel__shot {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  border-radius: 10px;
+  background:
+    radial-gradient(var(--art-dot) 1px, transparent 1px) 0 0 / 12px 12px,
+    var(--art-plane);
+  color: var(--label-tertiary);
+  overflow: hidden;
+}
+.art-panel__shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.art-panel__label {
+  margin: var(--space-16) 0 var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+}
+.art-props {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-6) var(--space-12);
+  margin: 0;
+}
+.art-props dt {
+  color: var(--label-secondary);
+}
+.art-props dd {
+  margin: 0;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+.art-props code {
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+}
+.art-favs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-favs__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-6) var(--space-8);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+}
+.art-favs__item:hover {
+  background: var(--selection-fill);
+}
+.art-favs__item svg {
+  color: var(--system-yellow);
+}
+
+/* View code. */
+.art-code {
+  max-height: min(70vh, 720px);
+  margin: 0;
+  overflow: auto;
+  padding: var(--space-8) 0;
+  border-radius: 10px;
+  background: var(--group-bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+}
+.art-code__line {
+  display: flex;
+}
+.art-code__no {
+  flex: none;
+  width: 48px;
+  padding-right: var(--space-12);
+  color: var(--label-tertiary);
+  text-align: right;
+  user-select: none;
+}
+.art-code__line code {
+  font: inherit;
+  white-space: pre;
+}
+.art-code__wait {
+  display: grid;
+  place-items: center;
+  height: 240px;
+}
+
+/* Design-system node: the artifact's own look, drawn with its tokens (--a-*), with neutral fallbacks. */
+.art-ds {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+  background: var(--a-color-background, var(--a-color-surface, #f7f7f8));
+  color: var(--a-color-on-surface, #1c1c1e);
+  font-family: var(--a-font-sans, system-ui, sans-serif);
+  font-size: 13px;
+}
+.art-ds h4 {
+  margin: 0 0 12px;
+  color: var(--a-color-on-surface-variant, #6e6e73);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.art-ds code {
+  color: var(--a-color-on-surface-variant, #6e6e73);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+}
+.art-ds__colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.art-ds__group {
+  border-radius: 12px;
+  background: var(--a-color-surface, #fff);
+  box-shadow: 0 0 0 1px #0000000f;
+  overflow: hidden;
+}
+.art-ds__swatch {
+  height: 56px;
+  box-shadow: inset 0 -1px 0 #0000000f;
+}
+.art-ds__color {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: center;
+  gap: 0 8px;
+  padding: 6px 10px 0;
+}
+.art-ds__color:last-child {
+  padding-bottom: 10px;
+}
+.art-ds__color i {
+  grid-row: span 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #0000001f;
+}
+.art-ds__color span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-ds__more {
+  padding: 4px 10px 10px 30px;
+  color: var(--a-color-on-surface-variant, #6e6e73);
+  font-size: 11px;
+}
+.art-ds__type {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #0000000d;
+}
+.art-ds__aa {
+  font-family: var(--a-font-sans, inherit);
+}
+.art-ds__name {
+  font-size: 12px;
+}
+.art-ds__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.art-ds__radii {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.art-ds__radius {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+.art-ds__radius i {
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--a-color-primary, #333);
+  background: var(--a-color-surface, #fff);
+}
+.art-ds__space {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+.art-ds__space i {
+  height: 8px;
+  max-width: 100%;
+  border-radius: 2px;
+  background: var(--a-color-primary, #333);
+  opacity: 0.6;
+}
+.art-ds__components {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.art-ds__btn {
+  padding: 8px 18px;
+  border-radius: var(--a-rounded-full, 999px);
+  font-size: 13px;
+  font-weight: 600;
+}
+.art-ds__btn--primary {
+  background: var(--a-color-primary, #333);
+  color: var(--a-color-on-primary, #fff);
+}
+.art-ds__btn--secondary {
+  background: var(--a-color-surface, #fff);
+  color: var(--a-color-primary, #333);
+  box-shadow: 0 1px 3px #00000014;
+}
+.art-ds__btn--outline {
+  box-shadow: inset 0 0 0 1px var(--a-color-outline, #d8d8d8);
+  color: var(--a-color-on-surface, #1c1c1e);
+}
+.art-ds__input {
+  width: 180px;
+  padding: 8px 12px;
+  border-radius: var(--a-rounded-sm, 8px);
+  background: var(--a-color-surface, #fff);
+  box-shadow: inset 0 0 0 1px var(--a-color-outline, #d8d8d8);
+  color: var(--a-color-on-surface-hint, var(--a-color-on-surface-variant, #999));
+}
+.art-ds__tag {
+  padding: 2px 8px;
+  border-radius: var(--a-rounded-xs, 4px);
+  background: var(--a-color-tag-highlight, var(--a-color-primary, #333));
+  color: var(--a-color-on-tag-highlight, var(--a-color-on-primary, #fff));
+  font-size: 11px;
+  font-weight: 500;
+}
+.art-ds__tag--soft {
+  background: var(--a-color-surface-placeholder, #f1f1f1);
+  color: var(--a-color-on-surface-variant, #6e6e73);
 }
