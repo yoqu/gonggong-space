@@ -241,4 +241,19 @@ describe('preview access (port mode)', () => {
     await closePortListener(t.ctx, s.preview.id)
     await expect(get(publicPort, '/')).rejects.toThrow()
   })
+  it("never forwards the main site's session cookie, which reaches every port of the host", async () => {
+    t.ctx.config.preview.domain = null
+    const s = await setup()
+    const publicPort = await openPortListener(t.ctx, s.preview.id)
+    const open = await t.app.inject({
+      url: `/api/previews/${s.preview.id}/open`,
+      headers: { cookie: s.cookie },
+    })
+    const target = new URL(open.headers.location as string)
+    const cookie = cookieOf(await get(publicPort, `${target.pathname}${target.search}`)).split(';')[0]!
+    const res = await get(publicPort, '/', { cookie: `${s.cookie}; ${cookie}; theme=dark` })
+    const seen = JSON.parse(res.text) as TunnelOpen
+    expect(Object.fromEntries(seen.headers).cookie).toBe('theme=dark')
+    await closePortListener(t.ctx, s.preview.id)
+  })
 })

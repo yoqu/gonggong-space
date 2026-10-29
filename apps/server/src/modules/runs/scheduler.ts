@@ -23,6 +23,7 @@ import {
 } from '../../db/schema.js'
 import { feishuHint } from '../agent-tools/feishu.js'
 import { pluginHint } from '../agent-tools/plugins.js'
+import { runArtifacts } from '../artifacts/service.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
 import { publishBot } from '../bots/dto.js'
 import { gitIdentity } from '../bots/git.js'
@@ -141,6 +142,7 @@ export async function schedule(ctx: Ctx, botId: string) {
             ...start.config,
             secrets: start.secrets,
             plugins: start.msg.plugins,
+            artifacts: start.msg.artifacts.map((a) => a.id),
             // Known up front so the live round already starts its own session; run.done may refine it.
             newSessionReason: start.msg.resumeSessionId ? null : (start.msg.newSessionReason ?? 'first'),
           })
@@ -269,33 +271,43 @@ export async function buildRunStart(
   const detached = !!meta.scheduleOf
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = detached || gb.newSessionReason ? null : gb.sessionId
-  const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, plugins] = await Promise.all([
-    // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
-    command ? null : contextMessages(tx, since, params.contextInlineTokens),
-    resumeSessionId && !command
-      ? contextMessages(
-          tx,
-          and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
-          params.sessionReplayTokens,
-        )
-      : null,
-    interruptNote(tx, run, at),
-    boundChat(tx, run.groupId),
-    run.parentRunId ? relayNote(tx, run.parentRunId, at) : [],
-    meta.scheduleOf ? scheduleNote(tx, meta.scheduleOf, at) : null,
-    runTier(tx, (gb.tier ?? bot.tier) as Tier),
-    synced ? runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
-    // A resumed session that already got the knowledge base only hears what changed since.
-    command ? null : knowledgeContext(tx, run.groupId, bot.id, resumeSessionId ? gb.knowledgeAt : null),
-    params.pluginsEnabled && bot.machineId
-      ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env)
-      : [],
-  ])
+  const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, plugins, hosted] =
+    await Promise.all([
+      // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
+      command ? null : contextMessages(tx, since, params.contextInlineTokens),
+      resumeSessionId && !command
+        ? contextMessages(
+            tx,
+            and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
+            params.sessionReplayTokens,
+          )
+        : null,
+      interruptNote(tx, run, at),
+      boundChat(tx, run.groupId),
+      run.parentRunId ? relayNote(tx, run.parentRunId, at) : [],
+      meta.scheduleOf ? scheduleNote(tx, meta.scheduleOf, at) : null,
+      runTier(tx, (gb.tier ?? bot.tier) as Tier),
+      synced ? runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
+      // A resumed session that already got the knowledge base only hears what changed since.
+      command ? null : knowledgeContext(tx, run.groupId, bot.id, resumeSessionId ? gb.knowledgeAt : null),
+      params.pluginsEnabled && bot.machineId
+        ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env)
+        : [],
+      // Only daemons that check artifacts out and upload them get any (old ones keep publishing with preview_static).
+      features.includes('artifacts') && !command ? runArtifacts(tx, run.groupId, bot.id, meta) : null,
+    ])
   const context = recent?.kept.reverse() ?? []
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length
   const config = resolveConfig(catalog, meta.runOptions?.[bot.id], gb, bot)
-  const note = [...(interrupted ? [interrupted.note] : []), ...relay, ...(scheduled ? [scheduled] : [])]
+  const note = [
+    ...(interrupted ? [interrupted.note] : []),
+    ...relay,
+    ...(scheduled ? [scheduled] : []),
+    ...(hosted?.note
+      ? [{ seq: 0, author: '共工空间', kind: 'user' as const, body: hosted.note, at, attachments: [] }]
+      : []),
+  ]
   const kbNote = (body: string | null | undefined): ContextMessage[] =>
     body ? [{ seq: 0, author: '共工空间', kind: 'user', body, at, attachments: [] }] : []
   // A DM's single chat with the bot app is synced whole: nothing to read from Feishu.
@@ -360,8 +372,8 @@ export async function buildRunStart(
     hiddenTools: command ? [] : [...(feishu ? [] : FEISHU_TOOLS), ...(plugins.length ? [] : PLUGIN_TOOLS)],
     command,
     sync,
-    artifacts: [],
-    artifactExclude: [],
+    artifacts: hosted?.refs ?? [],
+    artifactExclude: hosted?.exclude ?? [],
     env: secrets.env,
   }
   return {

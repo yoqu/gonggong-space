@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { GroupPreviewsDto, PreviewDto, ServiceDto } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groupMembers, groups, previews, type runs, services } from '../../db/schema.js'
 import { fail, HttpError } from '../../lib/errors.js'
@@ -25,7 +25,7 @@ const LOGIN_WATCH_MS = 5_000
 const SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024
 
 /** 16 base32 characters (80 bits): the subdomain label in domain mode. */
-const newSlug = () => {
+export const newSlug = () => {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
   return [...randomBytes(16)].map((b) => alphabet[b % 32]).join('')
 }
@@ -71,7 +71,7 @@ async function listPreviews(
     .innerJoin(bots, eq(bots.id, previews.botId))
     .innerJoin(groups, eq(groups.id, previews.groupId))
     .leftJoin(services, eq(services.id, previews.serviceId))
-    .where(and(inPreviews, isNull(previews.closedAt)))
+    .where(and(inPreviews, isNull(previews.closedAt), ne(previews.kind, 'artifact')))
     .orderBy(desc(previews.createdAt))
   const live = await ctx.db
     .select({ s: services, botName: bots.name, ownerId: bots.ownerId, groupName: groups.name })

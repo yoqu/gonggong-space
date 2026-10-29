@@ -60,6 +60,8 @@ export type MessageMeta = {
   progress?: ProgressCard
   /** Generic card (plan 插件体系), e.g. a creation request. */
   card?: MessageCard
+  /** Hosted artifacts the message is about: its run checks them out first (RunStart.artifacts). */
+  artifactRefs?: string[]
   /** A bot reply's answered ```actions blocks, by block id (plan 富交互消息). */
   actions?: Record<string, ActionAnswer>
   /** Legacy: a page published with html_render as its own message. */

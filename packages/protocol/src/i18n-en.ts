@@ -290,6 +290,7 @@ export const protocolEn = {
   '{bot} 请 {user} 填写自己的密钥：{names}': '{bot} asks {user} to fill in their own secrets: {names}',
   '{bot} 请管理员填写密钥：{names}': '{bot} asks an admin to fill in the secrets: {names}',
   '{bot} 的进度：{title}': "{bot}'s progress: {title}",
+  '产物「{title}」': 'Artifact "{title}"',
   '{bot} 提议用「{plugin}」创作，等群成员确认':
     '{bot} proposes a {plugin} creation, waiting for a member to confirm',
   '{user} 置顶了一条消息：{text}': '{user} pinned a message: {text}',

@@ -6,6 +6,7 @@ import type { Ctx } from '../../context.js'
 import { previews } from '../../db/schema.js'
 import { type MessageKey, translator } from '../../i18n/index.js'
 import { remember } from '../../lib/lru.js'
+import { serveArtifact } from '../artifacts/serve.js'
 import { foreignCookies, redeemCode, setCookie, verifyCookie } from './access.js'
 import { redeemShare, shareAllows } from './shares.js'
 
@@ -115,6 +116,11 @@ export async function servePreviewHttp(
     }
     return page(res, 401, UNKNOWN)
   }
+  if (preview.kind === 'artifact') {
+    touch(ctx, preview.id)
+    const refused = await serveArtifact(ctx, preview, req, res)
+    return refused && page(res, refused.status, refused.key)
+  }
   const conn = ctx.tunnels.get(preview.machineId)
   if (!conn || preview.port === null) return page(res, 502, OFFLINE)
   touch(ctx, preview.id)
@@ -157,7 +163,7 @@ export async function servePreviewUpgrade(
 ) {
   const refuse = (status: number) =>
     socket.end(`HTTP/1.1 ${status} ${STATUS_CODES[status]}\r\nconnection: close\r\ncontent-length: 0\r\n\r\n`)
-  if (!preview) return refuse(404)
+  if (!preview || preview.kind === 'artifact') return refuse(404)
   if (!(await allowed(ctx, req, preview))) return refuse(401)
   const conn = ctx.tunnels.get(preview.machineId)
   if (!conn || preview.port === null) return refuse(502)

@@ -1,18 +1,15 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { mkdir, readdir, rename, rm, stat, unlink, utimes } from 'node:fs/promises'
+import { readdir, rm, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { PassThrough, type Readable, Transform } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
-import { createGunzip } from 'node:zlib'
 import { SYNC_FILE_MAX_BYTES } from '@gonggong/protocol'
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groups, syncChanges, syncConflicts, syncHead, syncReplicas, syncVersions } from '../../db/schema.js'
-import { fail } from '../../lib/errors.js'
+import { blobStore } from '../../lib/blob-store.js'
 import { isUuid } from '../../lib/ids.js'
-import { FILE_OVERHEAD, openFile, sealStream } from '../../lib/seal.js'
+import { openFile } from '../../lib/seal.js'
 import { dataDir } from '../attachments/service.js'
+
+export { QuotaExceeded } from '../../lib/blob-store.js'
 
 /** F16: content live in the head within the last 30 days is kept (merge bases); uploads get a day to be submitted. */
 const KEEP_MS = 30 * 86_400_000
@@ -22,80 +19,17 @@ export const blobQuota = { bytes: 5 * 1024 ** 3 }
 /** git's heuristic: a NUL byte in the first 8000 bytes means binary. */
 const SNIFF = 8000
 
-const groupDir = (groupId: string) => join(dataDir(), 'sync', groupId)
-export const blobPath = (groupId: string, hash: string) => join(groupDir(groupId), hash)
-
-/** Plaintext size, or null when the group lacks it. */
-export async function blobSize(groupId: string, hash: string) {
-  try {
-    return (await stat(blobPath(groupId, hash))).size - FILE_OVERHEAD
-  } catch {
-    return null
-  }
-}
-
-/**
- * Plaintext size like blobSize; an existing blob counts as freshly uploaded (a deduplicated upload or missing check
- * is about to reference it, so the sweep's upload grace must not drop it first).
- */
-export async function touchBlob(groupId: string, hash: string) {
-  const size = await blobSize(groupId, hash)
-  if (size !== null) {
-    const now = new Date()
-    await utimes(blobPath(groupId, hash), now, now).catch(() => {})
-  }
-  return size
-}
-
-/** Sealed bytes stored per group, counted once from disk, then kept up to date by uploads and sweeps. */
-const usage = new Map<string, number>()
-async function groupUsage(groupId: string) {
-  const known = usage.get(groupId)
-  if (known !== undefined) return known
-  let n = 0
-  for (const name of await readdir(groupDir(groupId)).catch(() => [] as string[]))
-    n += (await stat(join(groupDir(groupId), name)).catch(() => null))?.size ?? 0
-  usage.set(groupId, n)
-  return n
-}
-
-export class QuotaExceeded extends Error {}
-
-export const openBlob = (groupId: string, hash: string) =>
-  openFile(blobPath(groupId, hash)).catch(() => fail('not_found', '文件内容不存在'))
-
-/** Seals `body` (gzip when told) under its hash once its sha256 proves it; nothing is kept otherwise. */
-export async function writeBlob(groupId: string, hash: string, body: Readable, gzip: boolean) {
-  await mkdir(groupDir(groupId), { recursive: true })
-  const tmp = blobPath(groupId, `.${hash}.${randomUUID()}`)
-  const digest = createHash('sha256')
-  const room = blobQuota.bytes - (await groupUsage(groupId)) - FILE_OVERHEAD
-  let size = 0
-  const check = new Transform({
-    transform(chunk: Buffer, _enc, done) {
-      size += chunk.length
-      if (size > SYNC_FILE_MAX_BYTES) return done(new TooLarge())
-      if (size > room) return done(new QuotaExceeded())
-      digest.update(chunk)
-      done(null, chunk)
-    },
-  })
-  try {
-    // Piped, not pipelined: a failure must not destroy the request, whose rest the route drains before answering.
-    const src = body.pipe(new PassThrough())
-    await pipeline([src, ...(gzip ? [createGunzip()] : []), check, sealStream(), createWriteStream(tmp)])
-    if (digest.digest('hex') !== hash) fail('invalid', '文件内容与哈希不符')
-    await rename(tmp, blobPath(groupId, hash))
-    usage.set(groupId, (await groupUsage(groupId)) + size + FILE_OVERHEAD)
-  } catch (e) {
-    await unlink(tmp).catch(() => {})
-    if (e instanceof TooLarge)
-      fail('invalid', '单个文件不能超过 {mb} MB', { mb: SYNC_FILE_MAX_BYTES / 1024 / 1024 })
-    throw e
-  }
-}
-
-class TooLarge extends Error {}
+const store = blobStore({
+  root: () => join(dataDir(), 'sync'),
+  quota: blobQuota,
+  maxFileBytes: SYNC_FILE_MAX_BYTES,
+})
+const groupDir = store.groupDir
+export const blobPath = store.path
+export const blobSize = store.size
+export const touchBlob = store.touch
+export const openBlob = store.open
+export const writeBlob = store.write
 
 export async function isBinary(groupId: string, hash: string | null) {
   if (!hash) return false
@@ -185,7 +119,7 @@ export async function purgeSyncBlobs(ctx: Ctx) {
   const now = ctx.now().getTime()
   for (const groupId of groupIds) {
     if (!isUuid(groupId)) continue
-    usage.delete(groupId)
+    store.forget(groupId)
     if (await archiveExpired(ctx, groupId, new Date(now - KEEP_MS))) {
       await purgeGroup(ctx, groupId)
       continue

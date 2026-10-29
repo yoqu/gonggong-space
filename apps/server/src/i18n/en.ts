@@ -724,6 +724,23 @@ export const en = {
   '合并结果含有已脱敏的内容，请保留一方或在本机解决':
     'The merge result contains redacted text; keep one side or resolve it on the machine',
   逐块回滚只能针对一个文件: 'Hunks can only be rolled back in one file at a time',
+  // Hosted artifacts
+  产物不存在: 'Artifact not found',
+  产物还没有版本: 'The artifact has no version yet',
+  '产物还没有可预览的版本。': 'The artifact has no version to preview yet.',
+  本轮没有下发这个产物: 'This run was not given this artifact',
+  '文件内容未上传：{path}': 'File content not uploaded: {path}',
+  '文件大小与内容不符：{path}': "File size doesn't match its content: {path}",
+  父版本不属于该产物: "The parent version doesn't belong to this artifact",
+  '产物正在被 AI 修改，请等运行结束': 'The AI is changing this artifact; wait for its run to end',
+  已经是当前版本: 'Already the current version',
+  '缩略图不能超过 {mb} MB': 'A thumbnail cannot exceed {mb} MB',
+  '群的产物存储已超过 {gb} GB 上限': "The group's artifact storage exceeds its {gb} GB limit",
+  '产物所属的 Bot 没有绑定机器': "The artifact's bot is not bound to a machine",
+  // ArtifactFiles' own messages (packages/protocol), answered by the ZodError handler
+  路径重复: 'Duplicate path',
+  路径无效: 'Invalid path',
+  超出单版大小上限: 'The version exceeds its size limit',
   // GitActionReq's own messages (packages/protocol), answered by the ZodError handler
   请填写提交说明: 'Enter a commit message',
   无效的分支或标签名: 'Invalid branch or tag name',

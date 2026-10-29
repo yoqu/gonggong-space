@@ -188,6 +188,9 @@ describe('versions and submit', () => {
       ArtifactSubmitReq.safeParse({ parentVersionId: null, submitKey: crypto.randomUUID(), files }).success
     expect(req([f('screens/home.html')])).toBe(true)
     expect(req([f('../x')])).toBe(false)
+    for (const p of ['.env', 'assets/.DS_Store', 'node_modules/a/b.js', 'x/node_modules/y'])
+      expect(req([f(p)])).toBe(false)
+    expect(req([f('_gg/gg-kit.css')])).toBe(true)
     expect(req([f('a'), f('a')])).toBe(false)
     expect(req([f('a', ARTIFACT_FILE_MAX_BYTES + 1)])).toBe(false)
     expect(req(Array.from({ length: ARTIFACT_MAX_FILES + 1 }, (_, i) => f(`f${i}`)))).toBe(false)

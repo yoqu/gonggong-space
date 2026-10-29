@@ -1,5 +1,6 @@
 import {
   type AgentSettingValues,
+  type ArtifactFile,
   type DiffRepo,
   type GitActionArgs,
   type GitActionDetail,
@@ -7,6 +8,7 @@ import {
   type HtmlRenderRef,
   type I18nText,
   LIVE_RUN_STATUSES,
+  type LintIssue,
   type PluginManifest,
   type PluginRef,
   type RunConfigPick,
@@ -695,6 +697,8 @@ export const runs = pgTable(
     searchText: text('search_text'),
     /** Pages published with html_render (their attachments), posted with the final reply. */
     htmlRenders: jsonb('html_renders').$type<HtmlRenderRef[]>().notNull().default([]),
+    /** Artifact ids sent in its run.start (RunStart.artifacts): the only ones its machine may read or submit. */
+    artifacts: jsonb('artifacts').$type<string[]>().notNull().default([]),
   },
   (t) => [
     index('runs_bot_status').on(t.botId, t.status),
@@ -861,7 +865,7 @@ export const previews = pgTable(
     id: id(),
     /** Subdomain label in domain mode; random, unguessable. */
     slug: text('slug').notNull().unique(),
-    /** 'http' | 'static' | 'gui' | 'miniprogram' */
+    /** 'http' | 'static' | 'gui' | 'miniprogram' | 'artifact' */
     kind: text('kind').notNull(),
     machineId: uuid('machine_id')
       .notNull()
@@ -892,11 +896,16 @@ export const previews = pgTable(
     awaiting: text('awaiting'),
     /** Why the machine could not take the last snapshot (shown on the card until one works). */
     snapshotError: text('snapshot_error'),
+    /** kind 'artifact': served from the artifact's blobs, not through the tunnel. */
+    artifactId: uuid('artifact_id').references(() => artifacts.id),
+    /** A fixed version; null follows the head. */
+    artifactVersionId: uuid('artifact_version_id').references(() => artifactVersions.id),
     closedAt: ts('closed_at'),
     createdAt: createdAt(),
   },
   (t) => [
     index('previews_group').on(t.groupId, t.closedAt),
+    index('previews_artifact').on(t.artifactId).where(sql`${t.artifactId} is not null`),
     index('previews_machine').on(t.machineId, t.closedAt),
   ],
 )
@@ -1548,4 +1557,87 @@ export const terminalSpaces = pgTable(
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('terminal_spaces_owner').on(t.ownerId)],
+)
+
+// ── Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md §3.1) ──────────────
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    pluginId: uuid('plugin_id').references(() => plugins.id),
+    /** Its shell (`kit/`) and lint rules come from this version of the plugin. */
+    pluginVersionId: uuid('plugin_version_id').references(() => pluginVersions.id),
+    designSystemId: text('design_system_id'),
+    title: text('title').notNull(),
+    /** `design/<slug>` in the bots' workspaces. */
+    dir: text('dir').notNull(),
+    /** The bot it was created for: its previews hang off this bot. */
+    botId: uuid('bot_id').references(() => bots.id),
+    /** Not a foreign key: versions reference the artifact, and the first one is inserted after it. */
+    headVersionId: uuid('head_version_id'),
+    createdBy: uuid('created_by').references(() => users.id),
+    /** The artifact card. */
+    messageId: uuid('message_id'),
+    archivedAt: ts('archived_at'),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.groupId, t.dir), index('artifacts_bot').on(t.botId)],
+)
+
+/** Immutable. */
+export const artifactVersions = pgTable(
+  'artifact_versions',
+  {
+    id: id(),
+    artifactId: uuid('artifact_id')
+      .notNull()
+      .references(() => artifacts.id),
+    n: integer('n').notNull(),
+    parentVersionId: uuid('parent_version_id'),
+    /** 'run' | 'edit' | 'local' */
+    source: text('source').notNull(),
+    runId: uuid('run_id').references(() => runs.id),
+    userId: uuid('user_id').references(() => users.id),
+    submitKey: text('submit_key'),
+    /** ArtifactFile[] sorted by path. */
+    files: jsonb('files').$type<ArtifactFile[]>().notNull(),
+    digest: text('digest').notNull(),
+    thumbnailHash: text('thumbnail_hash'),
+    /** Its parent was not the head when it was submitted. */
+    stale: boolean('stale').notNull().default(false),
+    issues: jsonb('issues').$type<LintIssue[]>().notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [unique().on(t.artifactId, t.n), unique().on(t.artifactId, t.submitKey)],
+)
+
+export const artifactAnnotations = pgTable(
+  'artifact_annotations',
+  {
+    id: id(),
+    artifactId: uuid('artifact_id')
+      .notNull()
+      .references(() => artifacts.id),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => artifactVersions.id),
+    file: text('file').notNull(),
+    ggId: text('gg_id'),
+    selector: text('selector').notNull(),
+    rect: jsonb('rect').$type<{ x: number; y: number; w: number; h: number }>().notNull(),
+    snippet: text('snippet').notNull(),
+    note: text('note').notNull(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id),
+    /** 'open' | 'sent' | 'resolved' */
+    status: text('status').notNull().default('open'),
+    sentMessageId: uuid('sent_message_id'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('artifact_annotations_artifact').on(t.artifactId, t.versionId)],
 )

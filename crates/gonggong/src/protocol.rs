@@ -371,9 +371,20 @@ pub struct ArtifactManifestRes {
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactSubmitReq {
     pub parent_version_id: Option<String>,
+    /// `Local`: changes found on the machine before the run, uploaded before the head is checked out.
+    #[serde(default)]
+    pub source: ArtifactSubmitSource,
     /// Retries reuse it: the server answers with the version it already has.
     pub submit_key: String,
     pub files: Vec<ArtifactFile>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ArtifactSubmitSource {
+    #[default]
+    Run,
+    Local,
 }
 
 /// `head` false with `stale` true: kept as a candidate, the head moved on meanwhile.

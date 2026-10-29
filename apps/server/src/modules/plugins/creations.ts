@@ -10,10 +10,12 @@ import {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { messages } from '../../db/schema.js'
+import { artifacts, messages } from '../../db/schema.js'
 import { type MessageKey, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { pluginKit } from '../artifacts/kit.js'
+import { type Artifact, cardOf, newArtifactDir } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { mirrorUserMessage } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
@@ -23,6 +25,7 @@ import {
   type MessageRow,
   memberIds,
   messageDto,
+  postEvent,
   postMessage,
   publishMessage,
 } from '../messages/service.js'
@@ -101,11 +104,20 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
     botId: bot.id,
     botName: bot.name,
   }
-  return { m, card, missing }
+  return { m, card, missing, versionId: found.version.id, features: bot.state.features }
 }
 
+/** Where a hosted artifact goes (agent-facing): L1 when the plugin ships a shell, else a single page. */
+const hostedLines = (dir: string, l1: boolean) => [
+  `产物目录：${dir}/（由共工空间托管：运行前已检出到工作区，跑完自动上传为新版本并更新群里的产物卡片，不需要 preview_static）。`,
+  l1
+    ? '按 SKILL.md 的多屏结构写：gg-artifact.json（清单）、tokens.css（从设计系统原样复制）、screens/<id>.html（每屏一个完整 HTML）、assets/（图片等）；index.html 和 _gg/ 由平台外壳提供，不要复制也不要修改。'
+    : `以 ${dir}/index.html 为入口。`,
+  '完成后简短说明做了什么。',
+]
+
 /** What the agent is asked to do (agent-facing: not translated). */
-function instructions(m: PluginManifest, card: CreationCard) {
+function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: string; l1: boolean } | null) {
   const ds = card.designSystem && m.designSystems.find((d) => d.id === card.designSystem?.id)
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
@@ -118,8 +130,18 @@ function instructions(m: PluginManifest, card: CreationCard) {
       : []),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,
     ...(card.inputs.length ? ['参数：', ...card.inputs.map((i) => `- ${i.label}：${i.value}`)] : []),
-    '产物写到 design/<slug>/index.html（slug 用简短的英文小写和连字符），完成后用 preview_static 发布，再简短说明做了什么。',
+    ...(hosted
+      ? hostedLines(hosted.dir, hosted.l1)
+      : [
+          '产物写到 design/<slug>/index.html（slug 用简短的英文小写和连字符），完成后用 preview_static 发布，再简短说明做了什么。',
+        ]),
   ].join('\n')
+}
+
+/** The artifact's title: the creation's 主题 input, else the template or the plugin. */
+function creationTitle(req: CreationReq, card: CreationCard) {
+  const title = typeof req.inputs.title === 'string' ? req.inputs.title.trim() : ''
+  return (title || card.template?.title || card.pluginTitle).slice(0, 80)
 }
 
 /** A pending 创作确认卡 of the group. */
@@ -161,27 +183,59 @@ export async function createCreation(
 ) {
   const { group } = await requireMember(ctx, groupId, me.id)
   const draft = req.fromDraft ? await pendingDraft(ctx, group.id, req.fromDraft) : null
-  const { m, card } = await resolve(ctx, group.id, me.id, req, false)
-  const row = await ctx.db.transaction(async (tx) => {
+  const { m, card, versionId, features } = await resolve(ctx, group.id, me.id, req, false)
+  // A daemon that checks artifacts out and uploads them gets one made up front (§2); older ones publish themselves.
+  const hosted = features.includes('artifacts')
+  const l1 = hosted && !!(await pluginKit(ctx.db, versionId))
+  const { row, artifact } = await ctx.db.transaction(async (tx) => {
     const id = randomUUID()
     const files = await claimAttachments(tx, req.attachmentIds, {
       uploaderId: me.id,
       groupId: group.id,
       messageId: id,
     })
+    const [artifact] = hosted
+      ? await tx
+          .insert(artifacts)
+          .values({
+            groupId: group.id,
+            pluginId: card.pluginId,
+            pluginVersionId: versionId,
+            designSystemId: card.designSystem?.id ?? null,
+            title: creationTitle(req, card),
+            dir: newArtifactDir(card.template?.id ?? m.name),
+            botId: card.botId,
+            createdBy: me.id,
+          })
+          .returning()
+      : []
     const meta: MessageMeta = {
       mentions: [card.botId],
       card,
       ...(files.length > 0 && { attachments: files }),
+      ...(artifact && { artifactRefs: [artifact.id] }),
     }
+    const body = instructions(m, card, artifact ? { dir: artifact.dir, l1 } : null)
     const [inserted] = await tx
       .insert(messages)
-      .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body: instructions(m, card), meta })
+      .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body, meta })
       .returning()
-    return inserted as MessageRow
+    return { row: inserted as MessageRow, artifact: artifact as Artifact | undefined }
   })
   const dto = messageDto(row, me.name)
   await publishMessage(ctx, dto)
+  if (artifact) {
+    const posted = await postEvent(
+      ctx,
+      group.id,
+      '产物「{title}」',
+      { title: artifact.title },
+      {
+        card: await cardOf(ctx.db, artifact),
+      },
+    )
+    await ctx.db.update(artifacts).set({ messageId: posted.id }).where(eq(artifacts.id, artifact.id))
+  }
   if (draft)
     await settleDraft(ctx, draft.row, draft.card, { status: 'started', by: me.name, creationId: row.id })
   await mirrorUserMessage(ctx, row, me)

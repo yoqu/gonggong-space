@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 import type { Ctx } from '../../context.js'
+import { SESSION_COOKIE } from '../auth/session.js'
 
 /** Who a preview cookie lets in: a group member, or a visitor through a public link (plan P7/P8). */
 export type Visitor = { userId: string } | { shareId: string }
@@ -49,12 +50,15 @@ export function readCookies(header: string | undefined) {
   return out
 }
 
-/** The visitor's cookies minus ours, so the preview itself never sees them. */
+/**
+ * The visitor's cookies minus ours, so the preview itself never sees them. In port mode the main site's session
+ * cookie reaches the preview's port too (cookies ignore ports).
+ */
 export function foreignCookies(header: string | undefined) {
   const kept = (header ?? '')
     .split(';')
     .map((c) => c.trim())
-    .filter((c) => c && !c.startsWith('gg_pv_'))
+    .filter((c) => c && !c.startsWith('gg_pv_') && !c.startsWith(`${SESSION_COOKIE}=`))
   return kept.length ? kept.join('; ') : null
 }
 

@@ -50,8 +50,15 @@ export const GgArtifactManifest = z
 export type GgArtifactManifest = z.infer<typeof GgArtifactManifest>
 
 // ── Versions ────────────────────────────────────────────────────────────────
+/** No dot-file segment and no `node_modules`: the daemon never uploads them and refuses to check them out. */
+const ArtifactPath = SyncPath.refine(
+  (p) => p.split('/').every((s) => !s.startsWith('.') && s !== 'node_modules'),
+  {
+    message: '路径无效',
+  },
+)
 export const ArtifactFile = z.object({
-  path: SyncPath,
+  path: ArtifactPath,
   hash: SyncHash,
   size: z.number().int().min(0).max(ARTIFACT_FILE_MAX_BYTES),
 })
@@ -108,6 +115,9 @@ export const ArtifactVersionDto = z.object({
 export type ArtifactVersionDto = z.infer<typeof ArtifactVersionDto>
 export const ArtifactVersionSummary = ArtifactVersionDto.omit({ files: true })
 export type ArtifactVersionSummary = z.infer<typeof ArtifactVersionSummary>
+/** GET /api/artifacts/:id/versions/:versionId — with its own gg-artifact.json (null for L0 or an invalid one). */
+export const ArtifactVersionDetail = ArtifactVersionDto.extend({ manifest: GgArtifactManifest.nullable() })
+export type ArtifactVersionDetail = z.infer<typeof ArtifactVersionDetail>
 
 export const ArtifactDto = z.object({
   id: z.string(),
@@ -122,6 +132,12 @@ export const ArtifactDto = z.object({
   head: ArtifactVersionSummary.nullable().optional(),
   /** The head's gg-artifact.json; absent for L0 artifacts (rendered from index.html). */
   manifest: GgArtifactManifest.nullable().optional(),
+  /**
+   * Undo / Redo targets for POST …/versions/:versionId/restore, which only moves the head: the head's parent, and the
+   * latest non-stale version whose parent is the head. Sent by GET /api/artifacts/:id.
+   */
+  undoVersionId: z.string().nullable().optional(),
+  redoVersionId: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -386,6 +402,8 @@ export type ArtifactManifestRes = z.infer<typeof ArtifactManifestRes>
 /** POST /api/daemon/runs/:runId/artifacts/:id/versions — every blob uploaded first; `submitKey` makes retries idempotent. */
 export const ArtifactSubmitReq = z.object({
   parentVersionId: z.string().nullable(),
+  /** `local`: changes found on the machine before the run started (uploaded before the head is checked out). */
+  source: z.enum(['run', 'local']).default('run'),
   submitKey: z.uuid(),
   files: ArtifactFiles,
 })
