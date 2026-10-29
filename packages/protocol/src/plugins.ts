@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
 import { SkillFile } from './daemon.js'
 
@@ -86,6 +87,8 @@ export const PluginManifest = z
       .max(10)
       .default([]),
     license: z.string().min(1).max(40),
+    /** Hosted-artifact features: `editable` shows direct editing, `tokens` (e.g. `tokens.css`) the theme panel. */
+    artifact: z.object({ editable: z.boolean().optional(), tokens: PkgPath.optional() }).optional(),
     /** Where it came from, shown with the license (e.g. an open-design template at a pinned commit). */
     source: z
       .object({
@@ -211,5 +214,5 @@ export const CreationDraftCard = CreationCard.extend({
 })
 export type CreationDraftCard = z.infer<typeof CreationDraftCard>
 /** Generic message card; new kinds join the union and old clients fall back to the body. */
-export const MessageCard = z.discriminatedUnion('type', [CreationCard, CreationDraftCard])
+export const MessageCard = z.discriminatedUnion('type', [CreationCard, CreationDraftCard, ArtifactCard])
 export type MessageCard = z.infer<typeof MessageCard>

@@ -5,6 +5,7 @@ import {
   CliSettingsSnapshot,
   RunSettingsSnapshot,
 } from './agent-settings.js'
+import { ArtifactDir, DaemonArtifactRef } from './artifacts.js'
 import {
   AgentKind,
   Answer,
@@ -316,6 +317,10 @@ export const RunStart = z.object({
   command: z.string().nullable().default(null),
   /** Force groups only (null in partition groups). */
   sync: RunSyncStart.nullable().default(null),
+  /** Hosted artifacts checked out before the agent starts (only to daemons with the `artifacts` feature). */
+  artifacts: z.array(DaemonArtifactRef).default([]),
+  /** Directories of the group's artifacts: force sync skips them (artifact hosting owns them). */
+  artifactExclude: z.array(ArtifactDir).default([]),
   /** Resolved secrets (plan 团队密钥-方案): env of the adapter process, kept in memory only, never logged or written. */
   env: z.record(z.string(), z.string()).default({}),
 })
@@ -1165,6 +1170,8 @@ export const DaemonFeature = z.enum([
   'terminal-dir',
   /** 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete. */
   'machineAdmin',
+  /** Hosted artifacts: RunStart.artifacts / artifactExclude and the artifact version routes. */
+  'artifacts',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

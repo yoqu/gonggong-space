@@ -1,0 +1,21 @@
+{
+  "parentVersionId": "av3",
+  "submitKey": "6f1c2a7e-4b3d-4e8a-9c1f-2d3e4f5a6b7c",
+  "files": [
+    {
+      "path": "gg-artifact.json",
+      "hash": "3c9a000000000000000000000000000000000000000000000000000000001b2c",
+      "size": 412
+    },
+    {
+      "path": "screens/home.html",
+      "hash": "9d1e0000000000000000000000000000000000000000000000000000000077aa",
+      "size": 5120
+    },
+    {
+      "path": "tokens.css",
+      "hash": "abababababababababababababababababababababababababababababababab",
+      "size": 2048
+    }
+  ]
+}

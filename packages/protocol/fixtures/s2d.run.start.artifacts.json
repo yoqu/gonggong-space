@@ -1,0 +1,128 @@
+{
+  "t": "run.start",
+  "runId": "r-art",
+  "groupId": "g1",
+  "groupName": "支付服务重构",
+  "bot": {
+    "id": "b1",
+    "name": "小王的 Claude",
+    "agentKind": "claude",
+    "systemPrompt": "后端接口开发，只改 server/ 目录",
+    "tier": "workspace",
+    "model": "opus",
+    "effort": "high",
+    "approval": "allowlist",
+    "allowlist": ["go build", "npm test"],
+    "alwaysAllow": ["npm run build", "tool:mcp__fs__read"],
+    "git": {
+      "name": "小王的 Claude",
+      "email": "b1@bots.gonggong.local"
+    },
+    "agentSettings": {
+      "language": "english",
+      "thinking": "false"
+    }
+  },
+  "workspace": {
+    "repo": {
+      "id": "r_pay",
+      "url": "git@git.corp:pay/pay-server.git",
+      "branch": "main",
+      "protocol": "auto"
+    },
+    "cdPath": null,
+    "protectBase": true,
+    "extraDirs": ["/Users/wl/pay-sdk"]
+  },
+  "resumeSessionId": "sess-0",
+  "prompt": {
+    "text": "@小王的 Claude 写个脚本",
+    "triggeredBy": "王磊",
+    "context": [
+      {
+        "seq": 3,
+        "author": "陈晨",
+        "kind": "user",
+        "body": "退款 v1 下周一下线",
+        "at": "2026-09-23T10:12:00Z",
+        "attachments": [
+          {
+            "id": "a1",
+            "name": "shot.png",
+            "size": 312000,
+            "mime": "image/png",
+            "messageId": "m9"
+          }
+        ]
+      }
+    ],
+    "omitted": 12,
+    "fallbackContext": [
+      {
+        "seq": 1,
+        "author": "王磊",
+        "kind": "user",
+        "body": "早",
+        "at": "2026-09-23T09:00:00Z",
+        "attachments": []
+      }
+    ],
+    "attachments": [
+      {
+        "id": "a1",
+        "name": "shot.png",
+        "size": 312000,
+        "mime": "image/png",
+        "messageId": "m9"
+      }
+    ],
+    "quote": {
+      "author": "小王的 Claude",
+      "body": "字段变化如下"
+    }
+  },
+  "newSessionReason": null,
+  "mcpServers": [
+    {
+      "transport": "stdio",
+      "name": "wiki-search",
+      "command": "npx",
+      "args": ["@corp/mcp-wiki"],
+      "env": {
+        "WIKI_TOKEN": "x"
+      }
+    },
+    {
+      "transport": "http",
+      "name": "grafana",
+      "url": "https://mcp.corp/grafana",
+      "headers": {}
+    }
+  ],
+  "skills": [
+    {
+      "name": "review-pr",
+      "versionId": "0b6f3c1e-2f7a-4c55-9c1d-3a7e8f9b0c21",
+      "digest": "9f2c4a7e0d1b3c5e6f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e"
+    }
+  ],
+  "hiddenTools": ["list_feishu_messages", "feishu_send_card"],
+  "env": {
+    "FEISHU_DEVOPS_TOKEN": "tok-1234567890"
+  },
+  "artifacts": [
+    {
+      "id": "art1",
+      "dir": "design/app-screens-a1b2",
+      "headVersionId": "av3",
+      "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "art2",
+      "dir": "design/app-screens-c3d4",
+      "headVersionId": null,
+      "digest": null
+    }
+  ],
+  "artifactExclude": ["design/app-screens-a1b2", "design/app-screens-c3d4", "design/old-deck-9f0e"]
+}

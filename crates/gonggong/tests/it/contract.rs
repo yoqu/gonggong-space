@@ -1,7 +1,8 @@
 use gonggong::bots::Bot;
 use gonggong::protocol::{
-    DaemonPluginRes, DaemonSkillRes, DaemonToServer, ServerToDaemon, SyncChangesRes, SyncMissingRes,
-    TerminalClientControl, TerminalDaemonControl, TerminalHead, TunnelHead, TunnelOpen, TunnelReset,
+    ArtifactManifestRes, ArtifactSubmitReq, ArtifactSubmitRes, DaemonPluginRes, DaemonSkillRes, DaemonToServer,
+    ServerToDaemon, SyncChangesRes, SyncMissingRes, TerminalClientControl, TerminalDaemonControl, TerminalHead,
+    TunnelHead, TunnelOpen, TunnelReset,
 };
 use gonggong::tunnel::{Frame, FrameType};
 use serde::Serialize;
@@ -37,6 +38,9 @@ fn every_shared_fixture_round_trips() {
             ["http", "sync-missing"] => round_trip::<SyncMissingRes>(&raw, &name),
             ["http", "daemon-skill"] => round_trip::<DaemonSkillRes>(&raw, &name),
             ["http", "daemon-plugin"] => round_trip::<DaemonPluginRes>(&raw, &name),
+            ["http", "daemon-artifact-manifest"] => round_trip::<ArtifactManifestRes>(&raw, &name),
+            ["http", "daemon-artifact-submit"] => round_trip::<ArtifactSubmitReq>(&raw, &name),
+            ["http", "daemon-artifact-submitted"] => round_trip::<ArtifactSubmitRes>(&raw, &name),
             ["data", "agent-setting-fields"] => {
                 // The daemon's field table is its only source: it must match the contract's exactly.
                 assert_eq!(serde_json::to_value(gonggong::agent_settings::FIELDS).unwrap(), raw, "{name}");

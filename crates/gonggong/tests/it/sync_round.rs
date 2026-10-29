@@ -219,6 +219,8 @@ impl Rig {
             skills: vec![],
             plugins: vec![],
             hidden_tools: vec![],
+            artifacts: vec![],
+            artifact_exclude: vec![],
             command: None,
             sync: Some(sync),
             env: Default::default(),

@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
   AGENT_SETTING_FIELDS,
+  ArtifactManifestRes,
+  ArtifactSubmitReq,
+  ArtifactSubmitRes,
   DaemonBotDto,
   DaemonPluginRes,
   DaemonSkillRes,
@@ -34,6 +37,9 @@ const http = {
   'daemon-plugin': DaemonPluginRes,
   'sync-changes': SyncChangesRes,
   'sync-missing': SyncMissingRes,
+  'daemon-artifact-manifest': ArtifactManifestRes,
+  'daemon-artifact-submit': ArtifactSubmitReq,
+  'daemon-artifact-submitted': ArtifactSubmitRes,
 }
 
 describe('wire fixtures (shared with the Rust daemon)', () => {

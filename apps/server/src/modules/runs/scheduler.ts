@@ -360,6 +360,8 @@ export async function buildRunStart(
     hiddenTools: command ? [] : [...(feishu ? [] : FEISHU_TOOLS), ...(plugins.length ? [] : PLUGIN_TOOLS)],
     command,
     sync,
+    artifacts: [],
+    artifactExclude: [],
     env: secrets.env,
   }
   return {

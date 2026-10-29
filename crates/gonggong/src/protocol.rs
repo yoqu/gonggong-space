@@ -338,6 +338,54 @@ pub struct PluginRef {
 /// `GET /api/daemon/plugins/:versionId`
 pub type DaemonPluginRes = DaemonSkillRes;
 
+/// A hosted artifact the run checks out before the agent starts (needs [`FEATURE_ARTIFACTS`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DaemonArtifactRef {
+    pub id: String,
+    /// `design/<slug>` relative to the workspace.
+    pub dir: String,
+    /// None until the first version arrives.
+    pub head_version_id: Option<String>,
+    /// [`crate::sync::root_hash`] of the head's files with `exec` false.
+    pub digest: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactFile {
+    pub path: String,
+    pub hash: String,
+    pub size: u64,
+}
+
+/// `GET /api/daemon/artifacts/:id/versions/:versionId`
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactManifestRes {
+    pub version_id: String,
+    pub files: Vec<ArtifactFile>,
+}
+
+/// `POST /api/daemon/runs/:runId/artifacts/:id/versions`, sent once every blob is uploaded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactSubmitReq {
+    pub parent_version_id: Option<String>,
+    /// Retries reuse it: the server answers with the version it already has.
+    pub submit_key: String,
+    pub files: Vec<ArtifactFile>,
+}
+
+/// `head` false with `stale` true: kept as a candidate, the head moved on meanwhile.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactSubmitRes {
+    pub version_id: String,
+    pub n: u32,
+    pub head: bool,
+    pub stale: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Quote {
     pub author: String,
@@ -1252,6 +1300,12 @@ pub struct RunStart {
     /// Force groups only.
     #[serde(default)]
     pub sync: Option<RunSyncStart>,
+    /// Hosted artifacts to check out before the agent starts (needs [`FEATURE_ARTIFACTS`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<DaemonArtifactRef>,
+    /// Artifact directories force sync skips: artifact hosting owns them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifact_exclude: Vec<String>,
     /// Resolved secrets: env of the adapter process, kept in memory only.
     #[serde(default)]
     pub env: SecretEnv,
@@ -1693,6 +1747,8 @@ pub const FEATURE_SESSION_FORK: &str = "sessionFork";
 pub const FEATURE_AGENT_SETTINGS: &str = "agentSettings";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
+/// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
+pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete.
 pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 pub const FEATURE_GIT_OPS: &str = "gitOps";

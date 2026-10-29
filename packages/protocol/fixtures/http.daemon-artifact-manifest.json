@@ -1,0 +1,20 @@
+{
+  "versionId": "av3",
+  "files": [
+    {
+      "path": "gg-artifact.json",
+      "hash": "3c9a000000000000000000000000000000000000000000000000000000001b2c",
+      "size": 412
+    },
+    {
+      "path": "screens/home.html",
+      "hash": "9d1e0000000000000000000000000000000000000000000000000000000077aa",
+      "size": 5120
+    },
+    {
+      "path": "tokens.css",
+      "hash": "abababababababababababababababababababababababababababababababab",
+      "size": 2048
+    }
+  ]
+}

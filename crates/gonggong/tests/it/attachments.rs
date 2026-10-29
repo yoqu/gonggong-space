@@ -147,6 +147,8 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
         skills: vec![],
         plugins: vec![],
         hidden_tools: vec![],
+        artifacts: vec![],
+        artifact_exclude: vec![],
         command: None,
         sync: None,
         env: Default::default(),

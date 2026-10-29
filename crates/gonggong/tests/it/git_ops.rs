@@ -820,6 +820,8 @@ pub(super) fn slow_run(r: &Rig, run_id: &str, text: &str) -> RunStart {
         skills: vec![],
         plugins: vec![],
         hidden_tools: vec![],
+        artifacts: vec![],
+        artifact_exclude: vec![],
         command: None,
         sync: None,
         env: Default::default(),

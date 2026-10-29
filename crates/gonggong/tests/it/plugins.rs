@@ -174,6 +174,8 @@ fn start(t: Turn) -> RunStart {
         skills: t.skills,
         plugins: t.plugins,
         hidden_tools: vec![],
+        artifacts: vec![],
+        artifact_exclude: vec![],
         command: None,
         sync: None,
         env: Default::default(),
