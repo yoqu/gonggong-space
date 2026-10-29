@@ -1,5 +1,6 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::agent_settings;
+use crate::artifacts;
 use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::config::Config;
@@ -59,6 +60,8 @@ pub(crate) struct TurnReq {
     pub sync: Option<SyncTurn>,
     /// The version the replica is still at when catching up before the turn failed.
     pub behind: Option<u64>,
+    /// Artifacts left as they are because their local changes could not go up (told to the agent).
+    pub artifact_hint: Option<String>,
 }
 
 /// An active turn and the provider it runs with.
@@ -141,6 +144,13 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
                 let event = RunEvent::Status { status: RunStatus::Running, step };
                 turn.req.out.send(DaemonToServer::RunEvent { run_id: s.run_id.clone(), event });
             }
+            if !s.artifacts.is_empty() {
+                let (prepared, hint) = artifacts::before_turn(api, home, s, cwd, &plugins.dirs, &turn.req.out).await;
+                if let Some(a) = shared.0.lock().unwrap().active.as_mut() {
+                    a.artifacts = prepared;
+                }
+                turn.req.artifact_hint = hint;
+            }
             turn.skills = skills;
             turn.plugins = plugins;
             Some(turn)
@@ -167,6 +177,7 @@ struct Active {
     /// Set when the workspace or an additional directory is a repo.
     git: Option<GitTurn>,
     sync: Option<SyncTurn>,
+    artifacts: Option<artifacts::Turn>,
     /// The last prompt has ended: no more appends (spec §8.9) are taken.
     sealed: bool,
     extras: Vec<PathBuf>,
@@ -580,6 +591,7 @@ impl Shared {
             streaming: false,
             git: None,
             sync: req.sync.take(),
+            artifacts: None,
             sealed: false,
             extras: req.extras.clone(),
             kind: if req.start.workspace.cd_path.is_none() { WorkspaceKind::Managed } else { WorkspaceKind::Cd },
@@ -689,6 +701,7 @@ impl Shared {
             streaming: true,
             git: None,
             sync: None,
+            artifacts: None,
             sealed: false,
             extras: prev.extras.clone(),
             kind: prev.kind,
@@ -789,11 +802,19 @@ impl Shared {
     /// Records the workspace's git state, the paths changed since `pre_turn` and their patch on the active turn, then
     /// (force group) settles the turn's changes by how it ended, so run.done reports them settled.
     async fn post_turn(&self, outcome: RunOutcome) {
-        let Some((run_id, git, sync)) =
-            self.0.lock().unwrap().active.as_mut().map(|a| (a.run_id.clone(), a.git.take(), a.sync.take()))
+        let Some((run_id, git, sync, artifacts)) = self
+            .0
+            .lock()
+            .unwrap()
+            .active
+            .as_mut()
+            .map(|a| (a.run_id.clone(), a.git.take(), a.sync.take(), a.artifacts.take()))
         else {
             return;
         };
+        if let Some(artifacts) = artifacts {
+            artifacts.finish().await;
+        }
         // Before the submit: catching up afterwards writes the others' changes into the tree.
         if let Some(g) = git {
             let (status, changed, patch) = git::turn_end(&g.cwd, &g.extras, g.kind, &g.tracked).await;
@@ -1614,7 +1635,10 @@ impl Conversation<'_> {
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
         let text = s.command.clone().unwrap_or_else(|| {
-            let prompt = compose_prompt(&s.prompt, history, omitted);
+            let mut prompt = compose_prompt(&s.prompt, history, omitted);
+            if let Some(hint) = &req.artifact_hint {
+                prompt = format!("{hint}\n\n{prompt}");
+            }
             match s.sync.as_ref().and_then(|sync| sync_hint(sync, req.behind)) {
                 Some(hint) => format!("{hint}\n\n{prompt}"),
                 None => prompt,

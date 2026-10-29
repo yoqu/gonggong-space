@@ -953,7 +953,7 @@ impl Inner {
         });
         actor.shared.enqueue(&start.run_id);
         let behind = sync.as_ref().and_then(|s| s.behind());
-        let _ = actor.tx.send(TurnReq { start, cwd, extras, out, local, sync, behind });
+        let _ = actor.tx.send(TurnReq { start, cwd, extras, out, local, sync, behind, artifact_hint: None });
     }
 
     /// Drops the idle conversation `key` with its ask route (true), unless a run reached it meanwhile or it still
@@ -1116,17 +1116,6 @@ fn installed_version(pkg: &Path) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(&raw).ok()?["version"].as_str().map(String::from)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pins_codex_adapter_with_workspace_write_mode() {
-        let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
-        assert_eq!(*version, "2.2.2");
-    }
-}
-
 /// The turn did not start: the server queues it again until the replica is settled (F11, F12).
 fn waiting(run_id: &str, issue: SyncWaitIssue) -> DaemonToServer {
     let error = match issue {
@@ -1161,5 +1150,16 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
         repos: vec![],
         appends_applied: 0,
         sync: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pins_codex_adapter_with_workspace_write_mode() {
+        let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
+        assert_eq!(*version, "2.2.2");
     }
 }

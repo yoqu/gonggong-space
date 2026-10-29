@@ -1,5 +1,6 @@
 pub mod agent_settings;
 pub mod agents;
+pub mod artifacts;
 pub mod ask;
 pub mod attachments;
 pub mod bind;

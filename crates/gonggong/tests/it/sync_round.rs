@@ -194,6 +194,10 @@ impl Rig {
     }
 
     fn run(&self, run_id: &str, text: &str, sync: RunSyncStart) {
+        self.run_excluding(run_id, text, sync, &[]);
+    }
+
+    fn run_excluding(&self, run_id: &str, text: &str, sync: RunSyncStart, exclude: &[&str]) {
         let start = RunStart {
             run_id: run_id.into(),
             group_id: "g1".into(),
@@ -220,7 +224,7 @@ impl Rig {
             plugins: vec![],
             hidden_tools: vec![],
             artifacts: vec![],
-            artifact_exclude: vec![],
+            artifact_exclude: exclude.iter().map(|d| d.to_string()).collect(),
             command: None,
             sync: Some(sync),
             env: Default::default(),
@@ -310,6 +314,17 @@ fn text(key: &str, params: &[(&str, &str)]) -> I18nText {
 
 fn applied(version: u64, root_hash: String) -> DaemonToServer {
     DaemonToServer::SyncApplied { group_id: "g1".into(), bot_id: "b1".into(), version, root_hash }
+}
+
+#[tokio::test]
+async fn hosted_artifact_folders_are_never_synced() {
+    let mut r = rig().await;
+    std::fs::create_dir_all(r.work().join("design/app")).unwrap();
+    r.join(&[("a.txt", "one\n"), ("design/app/index.html", "synced before hosting\n")]);
+    let edit = "printf 'two\\n' > a.txt && printf 'x' > design/app/index.html && printf 'n' > design/app/new.html";
+    r.run_excluding("r1", &format!("mock:sh {edit}"), at(1, Some(1)), &["design/app"]);
+    let s = r.submit().await;
+    assert_eq!(s.changes, vec![change("a.txt", Some("two\n"), Some("one\n"))]);
 }
 
 #[tokio::test]

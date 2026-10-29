@@ -20,7 +20,7 @@ fn is_dotgit(seg: &str) -> bool {
 }
 
 /// Whether `path` is a safe relative path inside `work` to write or delete; the reason otherwise.
-pub(super) fn safe(work: &Path, path: &str) -> Result<(), String> {
+pub(crate) fn safe(work: &Path, path: &str) -> Result<(), String> {
     let unsafe_path = || t!("同步版本含有不安全的路径，已拒绝整版：{path}", path = path);
     let segs: Vec<&str> = path.split('/').collect();
     let bad_seg = |s: &&str| {

@@ -156,6 +156,7 @@ impl Replicas {
             return Err(Refusal::Lost(reason));
         }
         let lock = self.lock(&start.group_id, &start.bot.id).await;
+        replica.set_exclude(&start.artifact_exclude)?;
         self.prepare(cwd).await;
         match tokio::time::timeout(FLUSH_WAIT, self.flush(&replica, out)).await {
             Ok(Ok(())) => {}
