@@ -103,14 +103,20 @@ export const MessageComposer = memo(function MessageComposer({
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
   const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
-  const targets = !mentioned.length && soleDm && !draft.trimStart().startsWith('/') ? groupBots : mentioned
+  const command = draft.trimStart().startsWith('/')
+  const canvas = useCanvasContext((s) => (s.context?.groupId === group.id ? s.context : null))
+  // …and a plain message sent with the canvas selected goes to the artifact's bot.
+  const canvasBot =
+    canvas && !appending && !command && !mentioned.length && !soleDm
+      ? (groupBots.find((b) => b.id === canvas.botId) ?? null)
+      : null
+  const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
   const sending = useRef(false)
   const uploads = useUploads(group.id)
   useEffect(() => {
     if (dropFiles) dropFiles.current = uploads.add
   })
   const quote = useQuote((s) => (s.quote?.groupId === group.id ? s.quote : null))
-  const canvas = useCanvasContext((s) => (s.context?.groupId === group.id ? s.context : null))
   const canvasFocus = useCanvasContext((s) => s.focus)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
@@ -285,7 +291,13 @@ export const MessageComposer = memo(function MessageComposer({
         sent={sent}
         onFiles={uploads.add}
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
-        placeholder={mobile ? t('发消息，@ 触发 Bot') : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')}
+        placeholder={
+          canvasBot
+            ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
+            : mobile
+              ? t('发消息，@ 触发 Bot')
+              : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+        }
         tools={[
           {
             icon: 'at',
@@ -312,6 +324,7 @@ export const MessageComposer = memo(function MessageComposer({
             : []),
         ]}
         hint={
+          // With the canvas selected, the chips say who the message goes to.
           mobile || targets.length || soleDm
             ? false
             : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
@@ -325,7 +338,14 @@ export const MessageComposer = memo(function MessageComposer({
           chips ? (
             <div className="composer__chips" data-testid="composer-chips">
               <AppendBanner groupId={group.id} />
-              {canvas ? <ContextChips context={canvas} /> : null}
+              {canvas ? (
+                <ContextChips
+                  context={canvas}
+                  bot={canvasBot}
+                  others={canvasBot ? groupBots.filter((b) => b.id !== canvasBot.id) : []}
+                  onSwitch={(name) => change(`@${name} ${draft}`, name.length + 2)}
+                />
+              ) : null}
               {quote ? <QuoteChip quote={quote} /> : null}
               <AttachmentChips uploads={uploads} />
             </div>

@@ -1,5 +1,5 @@
+import type { BridgeLinkRect } from '@gonggong/protocol'
 import { useId } from 'react'
-import type { LinkSpot } from './bridge'
 import type { CanvasNode, View } from './geometry'
 import type { ArtifactLink } from './store'
 
@@ -22,7 +22,7 @@ export function linkPaths(
   nodes: CanvasNode[],
   links: ArtifactLink[],
   v: View,
-  spots: Record<string, LinkSpot[]> = {},
+  spots: Record<string, BridgeLinkRect[]> = {},
 ): LinkPath[] {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const bottom = Math.max(0, ...nodes.map((n) => n.y + n.h))

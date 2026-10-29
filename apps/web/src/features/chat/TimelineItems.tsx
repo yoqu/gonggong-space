@@ -354,6 +354,30 @@ function Text({ body, names, me }: { body: string; names: string[]; me?: string 
 }
 
 /**
+ * Bots a member's message went to without naming them (the canvas hands a plain message to the artifact's bot): the
+ * bubble says so. Not in a dm, where its single bot always gets the message.
+ */
+function useUnnamedTargets(m: MessageDto) {
+  // A string, so replacing the workspace with equal content re-renders and re-parses nothing.
+  const targets = useWorkspace((s) => {
+    const group = s.groups.find((g) => g.id === m.groupId)
+    if (!group || group.kind === 'dm') return ''
+    return JSON.stringify(
+      s.bots
+        .filter((b) => m.mentions.includes(b.id) && group.botIds.includes(b.id))
+        .map((b) => [b.id, b.name]),
+    )
+  })
+  return useMemo(() => {
+    if (!targets) return []
+    const bots = (JSON.parse(targets) as [string, string][]).map(([id, name]) => ({ id, name }))
+    if (!bots.length) return []
+    const named = parseMentions(m.body, bots)
+    return bots.filter((b) => !named.includes(b.id))
+  }, [targets, m.body])
+}
+
+/**
  * A member's message: text in a bubble (mine on the right), attachments as bare cards; `compact` rows continue the
  * author's group (C1). `fanOut`: names of the bots it triggered; two or more draw the fan-out (spec §8.6).
  */
@@ -383,6 +407,7 @@ export const UserMessage = memo(function UserMessage({
   const avatar = useWorkspace(
     (s) => s.groups.find((g) => g.id === m.groupId)?.members.find((x) => x.userId === m.authorId)?.avatar,
   )
+  const unnamed = useUnnamedTargets(m)
   return (
     <MessageMenu
       {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns)}
@@ -394,10 +419,19 @@ export const UserMessage = memo(function UserMessage({
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           meta={
-            m.scheduledBy ? (
-              <Tag tone="gray" icon="clock">
-                {t('定时任务')}
-              </Tag>
+            m.scheduledBy || unnamed.length ? (
+              <>
+                {m.scheduledBy ? (
+                  <Tag tone="gray" icon="clock">
+                    {t('定时任务')}
+                  </Tag>
+                ) : null}
+                {unnamed.map((b) => (
+                  <Tag key={b.id} tone="blue" icon="at">
+                    {t('发给 @{name}', { name: b.name })}
+                  </Tag>
+                ))}
+              </>
             ) : undefined
           }
           bare={!text}

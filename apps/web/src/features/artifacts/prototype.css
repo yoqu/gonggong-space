@@ -422,11 +422,6 @@
   line-height: 1.5;
 }
 
-/* Panels whose action row sits at the bottom. */
-.art-panel__body:has(> .proto-connect) {
-  display: flex;
-  flex-direction: column;
-}
 .proto-connect {
   flex: 1;
 }

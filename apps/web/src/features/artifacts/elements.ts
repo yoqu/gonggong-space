@@ -1,9 +1,8 @@
-import type { StyleProp } from '@gonggong/protocol'
-import type { BridgeRect, FromScreen } from './bridge'
+import type { BridgeFromShell, Rect, StyleProp } from '@gonggong/protocol'
 import type { CanvasNode, View } from './geometry'
 
 /** An element a screen reported as clicked (mark or direct edit), with the screen it is on. */
-export type PickedElement = Extract<FromScreen, { type: 'select' }> & {
+export type PickedElement = Extract<BridgeFromShell, { type: 'select' }> & {
   screenId: string
   screenTitle: string
 }
@@ -21,7 +20,7 @@ export function crumbs(selector: string, keep = 3) {
 }
 
 /** An element rect (the screen frame's viewport px) in the canvas's viewport px at the current pan and zoom. */
-export const elementBox = (n: Pick<CanvasNode, 'x' | 'y'>, r: BridgeRect, v: View) => ({
+export const elementBox = (n: Pick<CanvasNode, 'x' | 'y'>, r: Rect, v: View) => ({
   left: v.x + (n.x + r.x) * v.z,
   top: v.y + (n.y + r.y) * v.z,
   width: r.w * v.z,

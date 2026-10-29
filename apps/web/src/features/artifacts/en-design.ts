@@ -13,7 +13,8 @@ export default {
     'Background, surface, text and outline colours are derived from the seed colour; adjust any of them below',
   种子色: 'Seed colour',
   种子色十六进制: 'Seed colour hex',
-  应用种子色: 'Apply seed colour',
+  '改种子色即重新推导主色；手动改过的颜色保持不变':
+    'Changing the seed re-derives the primary colours; colours you set by hand stay',
   推导出的主色: 'Derived primary colours',
   色板: 'Palette',
   '{name} 的值': 'Value of {name}',

@@ -142,6 +142,7 @@ export default {
   '写下修改意见…': 'Write what to change…',
   '删除这个元素？': 'Delete this element?',
   '发给 @{name}': 'Send to @{name}',
+  '换 Bot': 'Switch bot',
   '发给 @{name}（{n}）': 'Send to @{name} ({n})',
   变体方向: 'Variation direction',
   '只能填数值加单位（如 16px）、令牌 var(--…) 或关键字':

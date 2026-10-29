@@ -6,7 +6,8 @@ export interface TooltipProps {
   /** A short phrase without a full stop. */
   content: ReactNode
   shortcut?: string
-  placement?: 'top' | 'bottom'
+  /** `left`: beside a vertical toolbar at the right edge. */
+  placement?: 'top' | 'bottom' | 'left'
   /** Hover delay in ms. */
   delay?: number
   defaultOpen?: boolean

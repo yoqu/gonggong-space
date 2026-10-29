@@ -1,4 +1,13 @@
-import type { ArtifactEditOp, ArtifactTransition, BotDto, GgArtifactManifest } from '@gonggong/protocol'
+import type {
+  ArtifactEditOp,
+  ArtifactTransition,
+  BotDto,
+  BridgeBackRect,
+  BridgeFromShell,
+  BridgeLinkRect,
+  BridgeMode,
+  GgArtifactManifest,
+} from '@gonggong/protocol'
 import { type ReactNode, useEffect, useReducer, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
@@ -18,7 +27,7 @@ import {
 } from '../../ui'
 import { openUrl } from '../previews/store'
 import { askInChat, saveEdits, sendCommand, useArtifactBot } from './actions'
-import { type BridgeMode, type FromScreen, type LinkSpot, linkSpots, postToScreen, useBridge } from './bridge'
+import { linkSpots, postToScreen, useBridge } from './bridge'
 import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
 import {
@@ -108,8 +117,8 @@ export function PrototypeEditor({
   const [hotspots, setHotspots] = useState(false)
   const [qr, setQr] = useState(false)
   const [content, setContent] = useState<Record<string, number>>({})
-  const [spots, setSpots] = useState<Record<string, LinkSpot[]>>({})
-  const [backs, setBacks] = useState<Record<string, ReturnType<typeof backRects>>>({})
+  const [spots, setSpots] = useState<Record<string, BridgeLinkRect[]>>({})
+  const [backs, setBacks] = useState<Record<string, BridgeBackRect[]>>({})
   const [element, setElement] = useState<PickedElement | null>(null)
   const [menu, setMenu] = useState(false)
   const [connect, setConnect] = useState(false)
@@ -154,15 +163,14 @@ export function PrototypeEditor({
     setConnect(false)
   }, [versionKey, cur?.id])
 
-  useBridge(origin, frames, (m: FromScreen) => {
+  useBridge(origin, frames, (m: BridgeFromShell) => {
     if (m.type === 'ready' || m.type === 'size') {
       if (m.type === 'ready') postToScreen(frames.get(m.file), origin, { type: 'mode', mode: bridgeMode })
       const h = m.height
       if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
       const found = linkSpots(m.links)
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
-      const back = (m as { back?: unknown }).back
-      setBacks((b) => ({ ...b, [m.file]: backRects(back) }))
+      setBacks((b) => ({ ...b, [m.file]: backRects(m.back) }))
     } else if (m.type === 'nav') {
       if (edit) return
       if (!screens.some((s) => s.id === m.screen))

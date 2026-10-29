@@ -12,12 +12,9 @@ import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { openTab } from '../workbench/open'
 
-/** ArtifactDto with the server's R5 `botId` (the bot it was made for), until that contract is merged here. */
-export type HostedArtifact = ArtifactDto & { botId?: string | null }
-
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
-  artifact: HostedArtifact | null
+  artifact: ArtifactDto | null
   versions: ArtifactVersionDto[]
   error: string
 }
@@ -27,7 +24,7 @@ const useStore = create<Record<string, ArtifactEntry>>()(() => ({}))
 export async function loadArtifact(id: string) {
   try {
     const [artifact, versions] = await Promise.all([
-      api.get<HostedArtifact>(`/artifacts/${id}`),
+      api.get<ArtifactDto>(`/artifacts/${id}`),
       api.get<ArtifactVersionDto[]>(`/artifacts/${id}/versions`),
     ])
     useStore.setState({ [id]: { artifact, versions: [...versions].sort((a, b) => a.n - b.n), error: '' } })

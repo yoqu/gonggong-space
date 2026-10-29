@@ -274,8 +274,27 @@ function DesignSystemPanel({
     })
   }
   const derived = seedScheme(seed, mode)
-  const applySeed = () =>
-    setTokens(asTokens(Object.fromEntries(Object.entries(derived).filter(([k]) => k in colors))))
+  /**
+   * A valid seed re-derives its colours at once (Stitch's Seed Color): the primary roles, and in a derived mode the
+   * neutrals too. Only colours still at their saved value or at the previous seed's derivation follow; ones the member
+   * set by hand stay.
+   */
+  const setSeed = (next: string) => {
+    if (!isHex(next)) return update({ seed: next })
+    const prev = isHex(seed) ? seed : next
+    const derive = (c: string) => ({
+      ...seedScheme(c, mode),
+      ...(mode === baseMode ? {} : neutralScheme(c, mode, baseColors)),
+    })
+    const before = derive(prev)
+    const same = (a: string | undefined, b: string | undefined) => !!a && a.toLowerCase() === b?.toLowerCase()
+    const changes = Object.fromEntries(
+      Object.entries(derive(next)).filter(
+        ([k]) => k in colors && (same(colors[k], baseColors[k]) || same(colors[k], before[k])),
+      ),
+    )
+    update({ seed: next, files: applyTokens(files, asTokens(changes)) })
+  }
 
   const fail = (e: unknown) =>
     setError({
@@ -385,18 +404,15 @@ function DesignSystemPanel({
 
             <Section title={t('种子色')}>
               <div className="art-dsp__seed">
-                <ColorWell aria-label={t('种子色')} value={seed} onChange={(c) => update({ seed: c })} />
+                <ColorWell aria-label={t('种子色')} value={seed} onChange={(c) => !locked && setSeed(c)} />
                 <Input
                   mono
                   aria-label={t('种子色十六进制')}
                   value={seed}
                   disabled={locked}
                   invalid={!isHex(seed)}
-                  onChange={(e) => update({ seed: e.target.value.trim() })}
+                  onChange={(e) => setSeed(e.target.value.trim())}
                 />
-                <Button size="small" disabled={locked || !isHex(seed)} onClick={applySeed}>
-                  {t('应用种子色')}
-                </Button>
               </div>
               <div className="art-dsp__derived" title={t('推导出的主色')}>
                 {Object.entries(derived).map(([k, v]) => (
@@ -406,6 +422,7 @@ function DesignSystemPanel({
                   </span>
                 ))}
               </div>
+              <p className="art-dsp__hint">{t('改种子色即重新推导主色；手动改过的颜色保持不变')}</p>
             </Section>
 
             <Section title={t('色板')}>

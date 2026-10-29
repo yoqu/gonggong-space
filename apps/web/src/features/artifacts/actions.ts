@@ -1,6 +1,5 @@
 import type {
   AnnotationDto,
-  ArtifactCommand,
   ArtifactCommandReq,
   ArtifactEditOp,
   ArtifactUploadRes,
@@ -43,12 +42,8 @@ export function useArtifactBot(groupId: string, ownBotId?: string | null) {
   return { bots, bot, pick }
 }
 
-/** `connect-element` comes with the server's R3 contract (Imagine new screen); local until it is merged. */
-export type CanvasCommand = ArtifactCommand
-export type CanvasCommandReq = Omit<ArtifactCommandReq, 'command'> & { command: CanvasCommand }
-
 /** POST /api/artifacts/:id/commands: the server posts the @bot message as the member. */
-export async function sendCommand(artifactId: string, req: CanvasCommandReq, botName: string) {
+export async function sendCommand(artifactId: string, req: ArtifactCommandReq, botName: string) {
   try {
     await api.post(`/artifacts/${artifactId}/commands`, req)
     toast({ type: 'success', message: t('已交给 @{name}', { name: botName }) })

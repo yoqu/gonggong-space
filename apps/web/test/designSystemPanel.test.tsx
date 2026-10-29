@@ -234,9 +234,8 @@ describe('design-system panel', () => {
     expect(p.queryByText('推导')).toBeNull()
     expect(p.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
 
+    // A valid seed applies at once (D04).
     fireEvent.change(p.getByRole('textbox', { name: '种子色十六进制' }), { target: { value: '#8C5835' } })
-    expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#155332')
-    fireEvent.click(p.getByRole('button', { name: '应用种子色' }))
     expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#8c5835')
     expect((value(p, '--color-on-primary') as HTMLInputElement).value).toBe('#ffffff')
 
@@ -254,6 +253,25 @@ describe('design-system panel', () => {
         value: '"Source Han Serif SC", "Noto Serif SC", "Songti SC", serif',
       },
     ])
+  })
+
+  it('derives from the seed as it is typed, keeping colours set by hand', async () => {
+    mockApi(routes())
+    const p = await openPanel()
+    const seed = p.getByRole('textbox', { name: '种子色十六进制' })
+    expect(p.queryByRole('button', { name: '应用种子色' })).toBeNull()
+    fireEvent.change(value(p, '--color-on-primary') as HTMLInputElement, { target: { value: '#EEEEEE' } })
+    // Half-typed: nothing is derived yet.
+    fireEvent.change(seed, { target: { value: '#8C58' } })
+    expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#155332')
+    fireEvent.change(seed, { target: { value: '#8C5835' } })
+    expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#8c5835')
+    expect(node().style.getPropertyValue('--a-color-primary')).toBe('#8c5835')
+    expect((value(p, '--color-on-primary') as HTMLInputElement).value).toBe('#EEEEEE')
+    // The next seed moves what the last one derived.
+    fireEvent.change(seed, { target: { value: '#1E5AA8' } })
+    expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#1e5aa8')
+    expect((value(p, '--color-on-primary') as HTMLInputElement).value).toBe('#EEEEEE')
   })
 
   it('applies a preset only after confirming', async () => {
@@ -323,7 +341,7 @@ describe('design-system panel', () => {
     expect(value(p, '--color-primary')).toHaveProperty('disabled', true)
     expect(p.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
     expect(p.getByRole('button', { name: '保存并让 AI 统一' })).toHaveProperty('disabled', true)
-    expect(p.getByRole('button', { name: '应用种子色' })).toHaveProperty('disabled', true)
+    expect(p.getByRole('textbox', { name: '种子色十六进制' })).toHaveProperty('disabled', true)
     fireEvent.click(p.getByRole('tab', { name: 'DESIGN.md' }))
     expect(p.queryByRole('textbox', { name: 'DESIGN.md' })).toBeNull()
     expect(p.getByRole('heading', { name: '品牌色' })).toBeTruthy()

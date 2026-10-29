@@ -7,7 +7,9 @@ import type { PickedElement } from './elements'
 const WIDTH = 272
 const GAP = 12
 /** Room the right-hand toolbar takes. */
-const TOOLS = 64
+export const TOOLS = 64
+/** The floating selection toolbar's bottom edge: popovers stay below it. */
+const FLOAT_BOTTOM = 56
 
 interface Box {
   left: number
@@ -16,11 +18,27 @@ interface Box {
   height: number
 }
 
-/** Beside the element: right of it when there is room, else left; kept inside the canvas. */
-export function besideBox(box: Box, room: { width: number; height: number }) {
+/** The canvas's size and how much of its right edge the tools (and an open side panel) take. */
+export interface PopRoom {
+  width: number
+  height: number
+  right: number
+}
+
+/**
+ * Beside the element: right of it when there is room, else left; kept inside the free part of the canvas, below the
+ * selection toolbar. Null while the element is out of that part (panned or zoomed away).
+ */
+export function besideBox(box: Box, room: PopRoom) {
+  const free = room.width - Math.max(TOOLS, room.right)
+  const away =
+    box.left + box.width < 0 || box.left > free || box.top + box.height < 0 || box.top > room.height
+  // An unmeasured canvas (width 0) hides nothing.
+  if (room.width && away) return null
   const right = box.left + box.width + GAP
-  const left = right + WIDTH <= room.width - TOOLS ? right : Math.max(GAP, box.left - GAP - WIDTH)
-  const top = Math.min(Math.max(GAP, box.top), Math.max(GAP, room.height - 240))
+  const left =
+    right + WIDTH <= free ? right : Math.max(GAP, Math.min(box.left - GAP - WIDTH, free - GAP - WIDTH))
+  const top = Math.min(Math.max(FLOAT_BOTTOM, box.top), Math.max(FLOAT_BOTTOM, room.height - 240))
   return { left, top, width: WIDTH }
 }
 
@@ -33,18 +51,20 @@ function Floating({
   children,
 }: {
   box: Box
-  room: { width: number; height: number }
+  room: PopRoom
   title: ReactNode
   label: string
   onClose: () => void
   children: ReactNode
 }) {
+  const at = besideBox(box, room)
+  if (!at) return null
   return (
     <div
       className="art-pop"
       role="dialog"
       aria-label={label}
-      style={besideBox(box, room)}
+      style={at}
       onKeyDown={(e) => {
         e.stopPropagation()
         if (e.key === 'Escape') onClose()
@@ -134,7 +154,7 @@ export function EditPopover({
 }: {
   el: PickedElement
   box: Box
-  room: { width: number; height: number }
+  room: PopRoom
   readOnly: boolean
   bots: BotDto[]
   bot: BotDto | null
@@ -272,7 +292,7 @@ export function MarkPopover({
 }: {
   el: PickedElement
   box: Box
-  room: { width: number; height: number }
+  room: PopRoom
   onSave: (note: string) => Promise<boolean>
   onClose: () => void
 }) {

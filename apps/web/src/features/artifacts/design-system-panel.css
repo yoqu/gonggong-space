@@ -7,12 +7,7 @@
 }
 
 .art-panel.art-panel--wide {
-  bottom: 64px;
   width: 360px;
-}
-/* A form over live screens: opaque so their colours do not bleed into the fields. */
-.art-panel.art-dsp {
-  background: var(--content-bg);
 }
 .art-dsp .art-panel__head {
   padding-left: var(--space-12);

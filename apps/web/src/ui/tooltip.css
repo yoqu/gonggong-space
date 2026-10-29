@@ -1,4 +1,4 @@
-/* Pane Tooltip: small glass tag above (or below) its trigger. */
+/* Pane Tooltip: small glass tag above (or below, or left of) its trigger. */
 .ui-tip-anchor {
   position: relative;
   display: inline-flex;
@@ -38,6 +38,16 @@
 .ui-tip[data-open] {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+.ui-tip--left {
+  top: 50%;
+  right: calc(100% + 8px);
+  bottom: auto;
+  left: auto;
+  transform: translate(2px, -50%);
+}
+.ui-tip--left[data-open] {
+  transform: translate(0, -50%);
 }
 .ui-tip__kbd {
   color: var(--label-secondary);

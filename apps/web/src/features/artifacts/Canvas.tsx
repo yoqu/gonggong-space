@@ -1,4 +1,14 @@
-import type { AnnotationDto, ArtifactDevice, ArtifactEditOp, GgArtifactManifest } from '@gonggong/protocol'
+import type {
+  AnnotationDto,
+  ArtifactCommand,
+  ArtifactCommandReq,
+  ArtifactDevice,
+  ArtifactEditOp,
+  BridgeFromShell,
+  BridgeLinkRect,
+  BridgeMode,
+  GgArtifactManifest,
+} from '@gonggong/protocol'
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -32,8 +42,6 @@ import {
 import { openUrl } from '../previews/store'
 import { AnnotationsPanel } from './AnnotationsPanel'
 import {
-  type CanvasCommand,
-  type CanvasCommandReq,
   createAnnotation,
   deleteAnnotation,
   saveEdits,
@@ -43,12 +51,12 @@ import {
   useAnnotations,
   useArtifactBot,
 } from './actions'
-import { type BridgeMode, type FromScreen, type LinkSpot, linkSpots, postToScreen, useBridge } from './bridge'
+import { linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
 import { dropSelectionContext, elementItem, pinContext, screenItem, setSelectionContext } from './context'
 import { DesignSystemNode } from './DesignSystemNode'
 import { ElementPanel } from './ElementPanel'
-import { EditPopover, MarkPopover } from './ElementPopover'
+import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
 import { elementBox, elementLabel, type PickedElement } from './elements'
 import {
@@ -62,6 +70,7 @@ import {
   layoutNodes,
   neighbour,
   onScreen,
+  revealView,
   type ScreenFrame,
   SYSTEM_HEIGHT,
   TITLE_ROOM,
@@ -97,6 +106,13 @@ import { VariationsDialog } from './VariationsDialog'
 type Tool = 'select' | 'hand' | 'mark' | 'edit'
 type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | 'export'
 
+/** Room (px) an open side panel takes at the right, with the tools: its width plus its 60px offset. */
+const PANEL_SIDE = 360
+const WIDE_PANEL_SIDE = 420
+/** Below this much width the selection toolbar shows icons only (labels move into tooltips). */
+const FLOAT_FULL = 380
+const FLOAT_FULL_WITH_BOT = 500
+
 /** Pointer travel (px) after which a press pans instead of clicking. */
 const DRAG = 4
 /** Arrow keys move the view this far (px), ⇧ ten times as far. */
@@ -119,7 +135,6 @@ export interface CanvasProps {
   versionKey: string
   /** No edits: a run is working on the artifact, or a past version is shown. */
   readOnly: boolean
-  thumbnailUrl: string | null
   undo: (() => void) | null
   redo: (() => void) | null
   /** One new version from `ops`; rejects with the server's reason. */
@@ -176,7 +191,6 @@ export function Canvas({
   preview,
   versionKey,
   readOnly,
-  thumbnailUrl,
   undo,
   redo,
   onEdit,
@@ -223,7 +237,7 @@ export function Canvas({
   /** Show QR Code: the screen whose share link it shows. */
   const [qr, setQr] = useState<string | null>(null)
   /** Where each screen's link elements are (by file), as the screens report them. */
-  const [spots, setSpots] = useState<Record<string, LinkSpot[]>>({})
+  const [spots, setSpots] = useState<Record<string, BridgeLinkRect[]>>({})
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const shareDenied = useShareAccess(groupId, botId)
   const annotations = useAnnotations(artifactId, versionKey || null)
@@ -307,7 +321,7 @@ export function Canvas({
 
   // ── bridge ──
   const origin = preview?.origin ?? null
-  const fromScreen = (m: FromScreen) => {
+  const fromScreen = (m: BridgeFromShell) => {
     if (m.type === 'ready')
       postToScreen(frameEls.get(m.file), origin, { type: 'mode', mode: bridgeMode(tool) })
     if (m.type === 'ready' || m.type === 'size') {
@@ -355,7 +369,7 @@ export function Canvas({
   }
 
   // ── selection as chat context (Stitch's Add to Chat) ──
-  const contextBase = { groupId, artifactId, title }
+  const contextBase = { groupId, artifactId, title, botId }
   const selectionItems = () =>
     element?.ggId
       ? [
@@ -383,9 +397,9 @@ export function Canvas({
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
   /** About the selected screens, or with `ggIds` about elements only. */
-  const ask = (command: CanvasCommand, extra: Partial<CanvasCommandReq> = {}) => {
+  const ask = (command: ArtifactCommand, extra: Partial<ArtifactCommandReq> = {}) => {
     if (!bot) return Promise.resolve(false)
-    const req: CanvasCommandReq = {
+    const req: ArtifactCommandReq = {
       command,
       botId: bot.id,
       ...(manifest && picked.length && !extra.ggIds ? { screenIds: picked.map((n) => n.id) } : {}),
@@ -396,7 +410,7 @@ export function Canvas({
       return ok
     })
   }
-  const askAboutElement = (command: CanvasCommand, el: PickedElement, text: string) =>
+  const askAboutElement = (command: ArtifactCommand, el: PickedElement, text: string) =>
     el.ggId ? ask(command, { ggIds: [{ file: el.file, ggId: el.ggId }], text }) : Promise.resolve(false)
   const saveOps = (ops: ArtifactEditOp[]) => saveEdits(onEdit, ops)
   const annotate = async (el: PickedElement, note: string) => {
@@ -457,7 +471,7 @@ export function Canvas({
   const command = (value: string) => {
     const ids = picked.map((n) => n.id)
     if (value.startsWith(CMD.generate)) {
-      if (picked.length) void ask(value.slice(CMD.generate.length) as CanvasCommand)
+      if (picked.length) void ask(value.slice(CMD.generate.length) as ArtifactCommand)
       return
     }
     if (value.startsWith(CMD.variations)) {
@@ -681,6 +695,96 @@ export function Canvas({
     .map((id) => screens.find((s) => s.id === id))
     .filter((n): n is CanvasNode => !!n)
 
+  const sidePanel =
+    panel === 'element' && element && tool === 'edit' ? (
+      <ElementPanel
+        key={`${element.file}#${element.ggId}`}
+        el={element}
+        artifactId={artifactId}
+        screens={screens}
+        tokens={tokens}
+        readOnly={!canEdit}
+        onSave={saveOps}
+        onClose={dropElement}
+      />
+    ) : panel === 'annotations' ? (
+      <AnnotationsPanel
+        list={annotations.list}
+        meId={meId}
+        screenTitle={(file) => screens.find((s) => s.file === file)?.title ?? file}
+        bots={bots}
+        bot={bot}
+        onPickBot={pickBot}
+        onSend={async (annotationIds, extra) => {
+          if (!bot) return false
+          const ok = await attempt(() =>
+            sendAnnotations(artifactId, { annotationIds, botId: bot.id, ...(extra ? { extra } : {}) }),
+          )
+          if (ok) toast({ type: 'success', message: t('已交给 @{name}', { name: bot.name }) })
+          annotations.reload()
+          return ok
+        }}
+        onStatus={(id, status) => annotationAction(() => updateAnnotation(id, { status }))}
+        onDelete={(id) => annotationAction(() => deleteAnnotation(id))}
+        onFocus={(a: AnnotationDto) => {
+          const n = screens.find((s) => s.file === a.file)
+          if (!n) return
+          setSelected([n.id])
+          fitTo([n.id])
+          if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
+        }}
+        onClose={() => setPanel(null)}
+      />
+    ) : panel === 'details' && one ? (
+      <DetailsPanel
+        artifactId={artifactId}
+        versionId={versionKey}
+        node={one}
+        src={src(one)}
+        prompt={manifest?.screens.find((s) => s.id === one.id)?.prompt}
+        systemName={tokens ? tokens.name || t('设计系统') : null}
+        onCode={() => setCode(one)}
+        onDesignSystem={() => setPanel('design')}
+        onClose={() => setPanel(null)}
+      />
+    ) : panel === 'favourites' ? (
+      <FavouritesPanel
+        screens={favNodes}
+        onPick={(id) => {
+          setSelected([id])
+          fitTo([id])
+        }}
+        onClose={() => setPanel(null)}
+      />
+    ) : panel === 'design' ? (
+      designPanel(() => setPanel(null))
+    ) : panel === 'export' ? (
+      <ExportPanel
+        artifactId={artifactId}
+        versionId={versionKey}
+        screens={screens}
+        selected={picked.map((n) => n.id)}
+        bot={bot}
+        shareDenied={shareDenied}
+        readFile={readFile}
+        onBrief={() =>
+          bot
+            ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot.name)
+            : Promise.resolve(false)
+        }
+        onClose={() => setPanel(null)}
+      />
+    ) : null
+  /** What the open side panel takes of the canvas's right edge (with the tools); popovers and the toolbar avoid it. */
+  const side = sidePanel ? (panel === 'design' ? WIDE_PANEL_SIDE : PANEL_SIDE) : 0
+  const compactFloat =
+    room.width > 0 && room.width - side - 24 < (bots.length > 1 ? FLOAT_FULL_WITH_BOT : FLOAT_FULL)
+  /** Keyboard focus on an off-screen title pans the view to its node (the plane itself never scrolls). */
+  const reveal = (n: CanvasNode) => {
+    const v = revealView(n, view, { width: room.width - Math.max(side, TOOLS), height: room.height })
+    if (v) setView(v)
+  }
+
   const contextItems: MenuItem[] =
     ctxOnScreen && picked.length
       ? screenContextItems({
@@ -698,6 +802,7 @@ export function Canvas({
     <div
       ref={root}
       className="art-canvas"
+      style={{ '--art-side': `${side}px` } as CSSProperties}
       role="application"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable so its shortcuts work
       tabIndex={0}
@@ -844,6 +949,7 @@ export function Canvas({
                         type="button"
                         className="art-title__name"
                         aria-pressed={on}
+                        onFocus={() => reveal(n)}
                         onClick={(e) => pick(n.id, e.shiftKey)}
                         onDoubleClick={() => (n.kind === 'screen' && canEdit ? setRenaming(n.id) : open(n))}
                       >
@@ -875,25 +981,44 @@ export function Canvas({
       </ContextMenu>
 
       {picked.length ? (
-        <div className="art-float" role="toolbar" aria-label={t('所选屏幕')}>
-          <FloatMenu icon="sparkle" label={t('生成')} items={generateItems(!bot)} onSelect={command} />
+        <div
+          className={cx('art-float', compactFloat && 'art-float--compact')}
+          role="toolbar"
+          aria-label={t('所选屏幕')}
+        >
+          <FloatMenu
+            icon="sparkle"
+            label={t('生成')}
+            compact={compactFloat}
+            items={generateItems(!bot)}
+            onSelect={command}
+          />
           <FloatMenu
             icon="pencil"
             label={t('修改#modify')}
+            compact={compactFloat}
             items={modifyItems(!canEdit)}
             onSelect={command}
           />
           <FloatMenu
             icon="eye"
             label={t('预览')}
+            compact={compactFloat}
             items={previewItems(!!one && !!preview, sharedFrame)}
             onSelect={command}
           />
-          <FloatMenu icon="more" label={t('更多')} items={moreItems(!canEdit)} onSelect={command} />
+          <FloatMenu
+            icon="more"
+            label={t('更多')}
+            compact={compactFloat}
+            items={moreItems(!canEdit)}
+            onSelect={command}
+          />
           {bots.length > 1 && bot ? (
             <FloatMenu
               icon="bot"
               label={`@${bot.name}`}
+              compact={compactFloat}
               items={bots.map((b) => ({ label: `@${b.name}`, value: b.id, checked: b.id === bot.id }))}
               onSelect={pickBot}
             />
@@ -985,7 +1110,7 @@ export function Canvas({
                 key={`${element.file}#${element.selector}`}
                 el={element}
                 box={box}
-                room={room}
+                room={{ ...room, right: side }}
                 onSave={(note) => annotate(element, note)}
                 onClose={dropElement}
               />
@@ -994,7 +1119,7 @@ export function Canvas({
                 key={`${element.file}#${element.selector}`}
                 el={element}
                 box={box}
-                room={room}
+                room={{ ...room, right: side }}
                 readOnly={!canEdit}
                 bots={bots}
                 bot={bot}
@@ -1020,85 +1145,7 @@ export function Canvas({
           })()
         : null}
 
-      {panel === 'element' && element && tool === 'edit' ? (
-        <ElementPanel
-          key={`${element.file}#${element.ggId}`}
-          el={element}
-          artifactId={artifactId}
-          screens={screens}
-          tokens={tokens}
-          readOnly={!canEdit}
-          onSave={saveOps}
-          onClose={dropElement}
-        />
-      ) : panel === 'annotations' ? (
-        <AnnotationsPanel
-          list={annotations.list}
-          meId={meId}
-          screenTitle={(file) => screens.find((s) => s.file === file)?.title ?? file}
-          bots={bots}
-          bot={bot}
-          onPickBot={pickBot}
-          onSend={async (annotationIds, extra) => {
-            if (!bot) return false
-            const ok = await attempt(() =>
-              sendAnnotations(artifactId, { annotationIds, botId: bot.id, ...(extra ? { extra } : {}) }),
-            )
-            if (ok) toast({ type: 'success', message: t('已交给 @{name}', { name: bot.name }) })
-            annotations.reload()
-            return ok
-          }}
-          onStatus={(id, status) => annotationAction(() => updateAnnotation(id, { status }))}
-          onDelete={(id) => annotationAction(() => deleteAnnotation(id))}
-          onFocus={(a: AnnotationDto) => {
-            const n = screens.find((s) => s.file === a.file)
-            if (!n) return
-            setSelected([n.id])
-            fitTo([n.id])
-            if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
-          }}
-          onClose={() => setPanel(null)}
-        />
-      ) : panel === 'details' && one ? (
-        <DetailsPanel
-          artifactId={artifactId}
-          versionId={versionKey}
-          node={one}
-          thumbnailUrl={thumbnailUrl}
-          prompt={(manifest?.screens.find((s) => s.id === one.id) as { prompt?: string } | undefined)?.prompt}
-          hasSystem={!!tokens}
-          onCode={() => setCode(one)}
-          onDesignSystem={() => setPanel('design')}
-          onClose={() => setPanel(null)}
-        />
-      ) : panel === 'favourites' ? (
-        <FavouritesPanel
-          screens={favNodes}
-          onPick={(id) => {
-            setSelected([id])
-            fitTo([id])
-          }}
-          onClose={() => setPanel(null)}
-        />
-      ) : panel === 'design' ? (
-        designPanel(() => setPanel(null))
-      ) : panel === 'export' ? (
-        <ExportPanel
-          artifactId={artifactId}
-          versionId={versionKey}
-          screens={screens}
-          selected={picked.map((n) => n.id)}
-          bot={bot}
-          shareDenied={shareDenied}
-          readFile={readFile}
-          onBrief={() =>
-            bot
-              ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot.name)
-              : Promise.resolve(false)
-          }
-          onClose={() => setPanel(null)}
-        />
-      ) : null}
+      {sidePanel}
 
       <div className="art-corner">
         <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>
@@ -1229,27 +1276,38 @@ function RenameField({
   )
 }
 
+/** A menu of the selection toolbar; `compact` (a narrow canvas) shows its icon only, the label in a tooltip. */
 function FloatMenu({
   icon,
   label,
+  compact,
   items,
   onSelect,
 }: {
   icon: IconName
   label: string
+  compact: boolean
   items: MenuItem[]
   onSelect: (value: string) => void
 }) {
-  return (
+  const menu = (
     <MenuButton
       className="ui-btn ui-btn--plain ui-btn--small art-float__btn"
+      aria-label={compact ? label : undefined}
       items={items}
       onSelect={onSelect}
     >
       <Icon name={icon} size={14} />
-      {label}
+      {compact ? null : label}
       <Icon name="chevron-down" size={10} weight={2} />
     </MenuButton>
+  )
+  return compact ? (
+    <Tooltip content={label} placement="bottom">
+      {menu}
+    </Tooltip>
+  ) : (
+    menu
   )
 }
 
@@ -1271,7 +1329,7 @@ function ToolButton({
     <Tooltip
       content={onClick ? label : t('{name}（即将支持）', { name: label })}
       shortcut={shortcut}
-      placement="top"
+      placement="left"
     >
       <button
         type="button"

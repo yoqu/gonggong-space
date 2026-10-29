@@ -4,9 +4,11 @@ import type {
   ArtifactVersionDto,
   BotDto,
   GroupDto,
+  MessageDto,
   UserDto,
 } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
@@ -19,6 +21,7 @@ import { linkPaths } from '../src/features/artifacts/Links'
 import { screenSection } from '../src/features/artifacts/notes'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
+import { UserMessage } from '../src/features/chat/TimelineItems'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
 import { apiError, type Call, mockApi } from './mockApi'
@@ -196,6 +199,20 @@ afterEach(() => {
 })
 
 describe('direct edit (E)', () => {
+  it('hides the popover while its element is panned out of view, and brings it back (T07)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+    mockApi(routes())
+    await renderTab()
+    key('e')
+    select()
+    expect(popover()).toBeTruthy()
+    for (let i = 0; i < 4; i++) key('ArrowLeft', { shiftKey: true })
+    expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull()
+    for (let i = 0; i < 4; i++) key('ArrowRight', { shiftKey: true })
+    expect(popover()).toBeTruthy()
+  })
+
   it('edits the text of a text-only element in place: one text op', async () => {
     const calls = mockApi(routes())
     await renderTab()
@@ -662,6 +679,82 @@ describe('selection as chat context', () => {
     expect(screen.queryByTestId('art-context-chips')).toBeNull()
   })
 
+  it('says who a message without an @ goes to, and switches the bot with an @ (A02)', async () => {
+    setBots(['b1', 'b2'])
+    const calls = mockApi(
+      routes({ 'GET /artifacts/a1': artifact({ botId: 'b1' }), 'POST /groups/g1/messages': { id: 'm1' } }),
+    )
+    await renderTab()
+    fireEvent.click(node('home'))
+    render(<MessageComposer group={{ ...group, botIds: ['b1', 'b2'] }} onSent={() => {}} />)
+    const input = screen.getByRole('combobox')
+    expect(input.getAttribute('placeholder')).toBe('描述要怎么改，发给 @设计助手')
+    expect(screen.getByTestId('art-context-to').textContent).toContain('发给 @设计助手')
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
+    fireEvent.change(input, { target: { value: '标题再大点' } })
+    fireEvent.click(screen.getByRole('button', { name: '换 Bot' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '@前端' }))
+    expect((input as HTMLTextAreaElement).value).toBe('@前端 标题再大点')
+    // An explicit @ wins: no implicit target any more.
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+    expect(input.getAttribute('placeholder')).not.toContain('发给')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(bodies(calls, 'POST', '/groups/g1/messages').length).toBe(1))
+  })
+
+  it('keeps the plain hint when the artifact’s bot is not in the group', async () => {
+    mockApi(routes({ 'GET /artifacts/a1': artifact({ botId: 'gone' }) }))
+    await renderTab()
+    fireEvent.click(node('home'))
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    expect(screen.queryByTestId('art-context-to')).toBeNull()
+    expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
+  })
+
+  it('labels a sent message with the bots it went to without an @', () => {
+    setBots(['b1', 'b2'])
+    const m = (body: string, mentions: string[], groupId = 'g1') =>
+      ({
+        id: `m-${body}`,
+        seq: 1,
+        groupId,
+        kind: 'user',
+        authorId: 'u1',
+        authorName: '王磊',
+        body,
+        mentions,
+        runId: null,
+        createdAt: at,
+        attachments: [],
+        quote: null,
+        reactions: [],
+      }) as MessageDto
+    const { unmount } = render(
+      <MemoryRouter>
+        <UserMessage m={m('标题再大点', ['b1'])} names={['设计助手', '前端']} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('发给 @设计助手')).toBeTruthy()
+    unmount()
+    const again = render(
+      <MemoryRouter>
+        <UserMessage m={m('@设计助手 标题再大点', ['b1'])} names={['设计助手', '前端']} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByText('发给 @设计助手')).toBeNull()
+    again.unmount()
+    useWorkspace.setState({
+      groups: [{ id: 'd1', kind: 'dm', members: [], botIds: ['b1'] } as unknown as GroupDto],
+      bots,
+    })
+    render(
+      <MemoryRouter>
+        <UserMessage m={m('标题再大点', ['b1'], 'd1')} names={['设计助手']} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByText('发给 @设计助手')).toBeNull()
+  })
+
   it('removes a chip with ×', async () => {
     mockApi(routes())
     await renderTab()
@@ -678,6 +771,7 @@ describe('selection as chat context', () => {
         groupId: 'g1',
         artifactId: 'a1',
         title: 'x',
+        botId: null,
         items: [
           { key: 'screen:home', screenId: 'home', screenTitle: '首页', pinned: false },
           {
@@ -728,6 +822,30 @@ describe('view details', () => {
     key('i')
     expect((await screen.findByTestId('art-details-origin')).textContent).toMatch(/^v2 · 设计助手/)
     expect(screen.queryByTestId('art-details-note')).toBeNull()
+  })
+
+  it('shows the screen itself as the thumbnail, and the design system by its DESIGN.md name (E01)', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/versions/v2': detail(2, [
+          file('tokens.css'),
+          file('DESIGN.md'),
+          file('screens/home.html'),
+        ]),
+        'GET /artifacts/a1/files/DESIGN.md?version=v2': () =>
+          new Response('---\nname: 暖色书房\n---\n# 设计\n'),
+      }),
+    )
+    await renderTab()
+    fireEvent.click(node('home'))
+    key('i')
+    const panel = await screen.findByRole('complementary', { name: '首页' })
+    const shot = within(panel).getByTestId('art-details-shot') as HTMLIFrameElement
+    expect(decodeURIComponent(shot.getAttribute('src') ?? '')).toContain('/screens/home.html')
+    expect(shot.tabIndex).toBe(-1)
+    expect(shot.style.width).toBe('390px')
+    expect(await within(panel).findByRole('button', { name: '暖色书房' })).toBeTruthy()
+    expect(within(panel).queryByText('tokens.css')).toBeNull()
   })
 
   it('finds a screen’s section by its title or id', () => {

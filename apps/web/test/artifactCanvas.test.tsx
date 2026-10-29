@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { acceptBridge } from '../src/features/artifacts/bridge'
-import { dropIndex, neighbour } from '../src/features/artifacts/geometry'
+import { besideBox } from '../src/features/artifacts/ElementPopover'
+import { dropIndex, neighbour, revealView } from '../src/features/artifacts/geometry'
 import { resetArtifacts } from '../src/features/artifacts/store'
 import { parseTokens } from '../src/features/artifacts/tokens'
 import { realtime } from '../src/lib/realtime'
@@ -472,5 +473,100 @@ describe('while AI is editing', () => {
     key('F', { shiftKey: true })
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
     expect(edits(calls)).toEqual([])
+  })
+})
+
+describe('Stitch round 1 fixes', () => {
+  /** jsdom lays nothing out: give the plane a size. */
+  const sized = (width: number, height: number) => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(height)
+  }
+  const tool = (name: string) =>
+    within(screen.getByRole('toolbar', { name: '画布工具' })).getByRole('button', { name })
+  const side = () => canvas().style.getPropertyValue('--art-side')
+  const float = () => screen.getByRole('toolbar', { name: '所选屏幕' })
+  const titleLeft = (name: string) =>
+    Number.parseFloat((screen.getByRole('button', { name }).closest('.art-title') as HTMLElement).style.left)
+
+  it('puts the vertical toolbar’s tooltips on its left (T03)', async () => {
+    mockApi(routes())
+    await renderTab()
+    const btn = tool('设计系统')
+    const tip = document.getElementById(btn.getAttribute('aria-describedby') ?? '') as HTMLElement
+    expect(tip.classList.contains('ui-tip--left')).toBe(true)
+  })
+
+  it('moves the selection toolbar off an open panel, icons only when narrow (C06)', async () => {
+    sized(700, 600)
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(node('home'))
+    expect(side()).toBe('0px')
+    expect(float().classList.contains('art-float--compact')).toBe(false)
+    expect(within(float()).getByRole('button', { name: /生成/ }).textContent).toContain('生成')
+    fireEvent.click(tool('收藏'))
+    expect(side()).toBe('360px')
+    expect(float().classList.contains('art-float--compact')).toBe(true)
+    const gen = within(float()).getByRole('button', { name: '生成' })
+    expect(gen.textContent).toBe('')
+    expect(document.getElementById(gen.getAttribute('aria-describedby') ?? '')?.textContent).toBe('生成')
+    fireEvent.click(tool('设计系统'))
+    expect(side()).toBe('420px')
+    fireEvent.click(tool('设计系统'))
+    expect(side()).toBe('0px')
+  })
+
+  it('pans to a screen whose title takes the keyboard focus off screen (K03)', async () => {
+    sized(600, 500)
+    mockApi(routes())
+    await renderTab()
+    key('0', { shiftKey: true, code: 'Digit0' })
+    key('ArrowLeft', { shiftKey: true })
+    const before = titleLeft('书籍详情')
+    expect(before < 0 || before > 600 - 64).toBe(true)
+    act(() => screen.getByRole('button', { name: '书籍详情' }).focus())
+    const after = titleLeft('书籍详情')
+    expect(after).toBeGreaterThanOrEqual(0)
+    expect(after).toBeLessThan(600 - 64)
+    // In view already: focusing does not move it.
+    act(() => screen.getByRole('button', { name: '书籍详情' }).blur())
+    act(() => screen.getByRole('button', { name: '书籍详情' }).focus())
+    expect(titleLeft('书籍详情')).toBe(after)
+  })
+
+  it('reveals a node by panning only, and leaves a visible one alone', () => {
+    const n = {
+      id: 'x',
+      kind: 'screen' as const,
+      title: 'x',
+      file: 'screens/x.html',
+      x: 1000,
+      y: 0,
+      w: 390,
+      h: 844,
+    }
+    const v = { x: 0, y: 64, z: 1 }
+    const next = revealView(n, v, { width: 800, height: 600 })
+    expect(next?.z).toBe(1)
+    expect(next?.y).toBe(64)
+    expect((next?.x ?? 0) + n.x).toBe(400 - n.w / 2)
+    expect(revealView(n, { x: -900, y: 64, z: 1 }, { width: 800, height: 600 })).toBeNull()
+  })
+
+  it('places the element popover below the toolbar, off the panel, and drops it off screen (T07)', () => {
+    const room = { width: 900, height: 700, right: 0 }
+    expect(besideBox({ left: 100, top: 10, width: 100, height: 30 }, room)).toEqual({
+      left: 212,
+      top: 56,
+      width: 272,
+    })
+    // An open 360px panel: the popover goes left of the element.
+    expect(besideBox({ left: 400, top: 200, width: 100, height: 30 }, { ...room, right: 360 })?.left).toBe(
+      116,
+    )
+    expect(besideBox({ left: 600, top: 200, width: 100, height: 30 }, { ...room, right: 360 })).toBeNull()
+    expect(besideBox({ left: -300, top: 200, width: 100, height: 30 }, room)).toBeNull()
+    expect(besideBox({ left: 100, top: 900, width: 100, height: 30 }, room)).toBeNull()
   })
 })

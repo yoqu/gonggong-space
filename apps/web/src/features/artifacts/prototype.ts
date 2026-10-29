@@ -1,5 +1,4 @@
-import type { ArtifactEditOp, ArtifactTransition } from '@gonggong/protocol'
-import type { BridgeRect } from './bridge'
+import type { ArtifactEditOp, ArtifactTransition, BridgeBackRect, Rect } from '@gonggong/protocol'
 
 // The prototype editor (Stitch capability list §7): playing the screens' links with transitions, and editing them.
 
@@ -90,14 +89,14 @@ export const disconnectOps = (el: {
 ]
 
 /** The `data-gg-back` elements of a `ready` / `size` message. */
-export function backRects(back: unknown): { ggId: string | null; rect: BridgeRect }[] {
+export function backRects(back: unknown): BridgeBackRect[] {
   if (!Array.isArray(back)) return []
   return back.flatMap((b) => {
     const o = b as Record<string, unknown> | null
     const r = o?.rect as Record<string, unknown> | undefined
     if (!r || ![r.x, r.y, r.w, r.h].every((n) => typeof n === 'number' && Number.isFinite(n))) return []
     const ggId = typeof o?.ggId === 'string' && /^\d{1,9}$/.test(o.ggId) ? o.ggId : null
-    return [{ ggId, rect: r as unknown as BridgeRect }]
+    return [{ ggId, rect: r as unknown as Rect }]
   })
 }
 

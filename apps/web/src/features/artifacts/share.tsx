@@ -1,3 +1,4 @@
+import type { ArtifactShareDto } from '@gonggong/protocol'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useState } from 'react'
 import { create } from 'zustand'
@@ -12,19 +13,11 @@ import { isGroupAdmin } from '../groups/GroupNotice'
 
 // Stitch's Share (capability list §9) on 共工's preview shares: one public link to the artifact's head, read-only.
 
-/** GET / POST /api/artifacts/:id/share (ArtifactShareDto of the server's R5 contract). */
-export interface ArtifactShare {
-  enabled: boolean
-  /** Absolute; null while off. */
-  url: string | null
-  expiresAt: string | null
-}
-
-const useShares = create<Record<string, ArtifactShare | undefined>>()(() => ({}))
+const useShares = create<Record<string, ArtifactShareDto | undefined>>()(() => ({}))
 
 export async function loadShare(artifactId: string) {
   try {
-    const s = await api.get<ArtifactShare>(`/artifacts/${artifactId}/share`)
+    const s = await api.get<ArtifactShareDto>(`/artifacts/${artifactId}/share`)
     useShares.setState({ [artifactId]: s })
   } catch {
     useShares.setState({ [artifactId]: { enabled: false, url: null, expiresAt: null } })
@@ -42,7 +35,7 @@ export function useArtifactShare(artifactId: string) {
     async (enabled: boolean) => {
       setBusy(true)
       try {
-        const s = await api.post<ArtifactShare>(`/artifacts/${artifactId}/share`, { enabled })
+        const s = await api.post<ArtifactShareDto>(`/artifacts/${artifactId}/share`, { enabled })
         useShares.setState({ [artifactId]: s })
         return s
       } catch (e) {

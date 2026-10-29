@@ -46,3 +46,25 @@
   background: var(--control-track);
   color: var(--label);
 }
+.art-chips__to {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-chips__switch {
+  height: 22px;
+  margin-left: 2px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.art-chips__switch:hover {
+  background: var(--selection-fill);
+}

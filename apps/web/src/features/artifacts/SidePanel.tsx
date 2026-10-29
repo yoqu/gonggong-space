@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { Button, CloseButton, EmptyState, Icon } from '../../ui'
@@ -26,14 +26,39 @@ export function Panel({
   )
 }
 
+/** The details panel's shot width when it cannot be measured (the 300px panel less its padding). */
+const SHOT_WIDTH = 268
+
+/**
+ * The screen itself, shrunk to the shot's width (top first): a static, non-interactive copy of what the canvas shows.
+ */
+function ScreenShot({ node, src }: { node: CanvasNode; src: string | null }) {
+  const [width, setWidth] = useState(SHOT_WIDTH)
+  if (!src) return <Icon name="smartphone" size={28} />
+  const scale = width / node.w
+  return (
+    <iframe
+      ref={(el) => {
+        if (el?.parentElement?.clientWidth) setWidth(el.parentElement.clientWidth)
+      }}
+      title={t('{title} 缩略图', { title: node.title })}
+      data-testid="art-details-shot"
+      src={src}
+      tabIndex={-1}
+      loading="lazy"
+      style={{ width: node.w, height: node.h, transform: `scale(${scale})` }}
+    />
+  )
+}
+
 /** View Details (I): what the screen is, its size, its design system, its source, where it comes from and its prompt. */
 export function DetailsPanel({
   artifactId,
   versionId,
   node,
-  thumbnailUrl,
+  src,
   prompt,
-  hasSystem,
+  systemName,
   onCode,
   onDesignSystem,
   onClose,
@@ -41,10 +66,12 @@ export function DetailsPanel({
   artifactId: string
   versionId: string
   node: CanvasNode
-  thumbnailUrl: string | null
+  /** The screen's preview URL; null while the preview opens. */
+  src: string | null
   /** The manifest's design prompt of the screen; else its section of brief.md or DESIGN.md. */
   prompt?: string
-  hasSystem: boolean
+  /** DESIGN.md's name (or a generic one); null without a design system. */
+  systemName: string | null
   onCode: () => void
   onDesignSystem: () => void
   onClose: () => void
@@ -55,7 +82,7 @@ export function DetailsPanel({
   return (
     <Panel title={node.title} onClose={onClose}>
       <div className="art-panel__shot">
-        {thumbnailUrl ? <img src={thumbnailUrl} alt="" /> : <Icon name="smartphone" size={28} />}
+        <ScreenShot node={node} src={src} />
       </div>
       <h4 className="art-panel__label">{t('属性')}</h4>
       <dl className="art-props">
@@ -65,9 +92,9 @@ export function DetailsPanel({
         <dd data-testid="art-details-size">{`${node.w} x ${node.h}`}</dd>
         <dt>{t('设计系统')}</dt>
         <dd>
-          {hasSystem ? (
+          {systemName ? (
             <Button size="small" variant="plain" icon="palette" onClick={onDesignSystem}>
-              tokens.css
+              {systemName}
             </Button>
           ) : (
             '—'

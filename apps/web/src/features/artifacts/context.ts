@@ -20,6 +20,8 @@ export interface CanvasContext {
   groupId: string
   artifactId: string
   title: string
+  /** The artifact's own bot (ArtifactDto.botId): the server hands a message without an @ to it. */
+  botId: string | null
   items: ContextItem[]
 }
 

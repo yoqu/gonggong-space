@@ -223,4 +223,5 @@ export default {
     'Only one Bot and nobody else: this creates a direct message, which cannot take more members later.',
   '只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。':
     'Pick just one of your (or shared) Bots and no members to create a direct message.',
+  '描述要怎么改，发给 @{name}': 'Describe the change for @{name}',
 } satisfies Record<string, string>

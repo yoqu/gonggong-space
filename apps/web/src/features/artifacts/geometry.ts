@@ -136,6 +136,27 @@ export const onScreen = (n: CanvasNode, v: View) => ({
   height: n.h * v.z,
 })
 
+/**
+ * The view panned (not zoomed) to bring `n`'s title into `room`, or null when it is already there. A node wider than
+ * the room starts at its left padding; otherwise it is centred across.
+ */
+export function revealView(n: CanvasNode, v: View, room: { width: number; height: number }): View | null {
+  const r = onScreen(n, v)
+  const title = r.top - TITLE_ROOM
+  const across = r.left >= 0 && r.left + Math.min(r.width, 120) <= room.width
+  const down = title >= 0 && r.top < room.height
+  if (across && down) return null
+  return {
+    z: v.z,
+    x: across
+      ? v.x
+      : r.width <= room.width - 2 * PAD
+        ? room.width / 2 - (n.x + n.w / 2) * v.z
+        : PAD - n.x * v.z,
+    y: down ? v.y : PAD + TITLE_ROOM - n.y * v.z,
+  }
+}
+
 export type Direction = 'left' | 'right' | 'up' | 'down'
 
 /** The nearest node of `nodes` from `from` in a direction (⌘← ⌘→ ⌘↑ ⌘↓), by centre. */

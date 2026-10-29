@@ -160,13 +160,14 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  /* clip, not hidden: focusing a title off screen must not scroll the plane (only the view pans it). */
+  overflow: clip;
   outline: none;
 }
 .art-plane {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
   background-color: var(--art-plane);
   background-image: radial-gradient(var(--art-dot) 1px, transparent 1px);
   background-size: 24px 24px;
@@ -385,7 +386,9 @@
 }
 .art-float {
   top: var(--space-12);
-  left: 50%;
+  /* Centred on the room the side panel leaves (--art-side, set by the canvas). */
+  left: calc((100% - var(--art-side, 0px)) / 2);
+  max-width: calc(100% - var(--art-side, 0px) - 24px);
   gap: 2px;
   padding: 3px;
   transform: translateX(-50%);
@@ -394,10 +397,16 @@
   gap: 5px;
   padding: 0 10px;
 }
+.art-float--compact .art-float__btn {
+  gap: 2px;
+  padding: 0 6px;
+}
 .art-float .ui-menu {
   min-width: 220px;
 }
 .art-tools {
+  /* Above the side panels: its tooltips open to the left, over them. */
+  z-index: 3;
   top: 50%;
   right: var(--space-12);
   flex-direction: column;
@@ -423,12 +432,15 @@
   background: transparent;
   color: var(--label);
 }
-.art-tools__btn:hover:not(:disabled) {
+.art-tools__btn:hover:not(:disabled):not([aria-pressed="true"]) {
   background: var(--selection-fill);
 }
 .art-tools__btn[aria-pressed="true"] {
   background: var(--accent-fill);
   color: var(--on-accent);
+}
+.art-tools__btn[aria-pressed="true"]:hover {
+  filter: brightness(0.9);
 }
 .art-tools__btn:disabled {
   color: var(--label-tertiary);
@@ -582,20 +594,21 @@
   padding: 0;
 }
 
-/* Side panels (details, favourites, design system), left of the tools. */
+/*
+ * Side panels (details, favourites, design system…), left of the tools. Opaque: glass over live white screens turns
+ * into a grey smear in dark mode. The bottom leaves room for the undo / zoom controls.
+ */
 .art-panel {
   position: absolute;
   z-index: 2;
   top: var(--space-12);
   right: 60px;
-  bottom: var(--space-12);
+  bottom: 64px;
   display: flex;
   flex-direction: column;
   width: 300px;
   border-radius: 16px;
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--content-bg);
   box-shadow: var(--shadow-glass);
   overflow: hidden;
 }
@@ -616,13 +629,17 @@
   white-space: nowrap;
 }
 .art-panel__body {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 0 var(--space-16) var(--space-16);
 }
 .art-panel__shot {
+  position: relative;
   display: grid;
+  flex: none;
   place-items: center;
   height: 140px;
   border-radius: 10px;
@@ -632,11 +649,14 @@
   color: var(--label-tertiary);
   overflow: hidden;
 }
-.art-panel__shot img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top;
+.art-panel__shot iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  background: #fff;
+  transform-origin: 0 0;
+  pointer-events: none;
 }
 .art-panel__label {
   margin: var(--space-16) 0 var(--space-6);
@@ -1024,6 +1044,7 @@
 
 .art-el {
   display: flex;
+  flex: 1;
   flex-direction: column;
 }
 .art-el textarea {
@@ -1121,19 +1142,21 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-6);
-  margin: var(--space-16) calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
+  /* Kept at the panel's bottom however short the form is. */
+  margin: auto calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
   padding: var(--space-12) var(--space-16);
   border-top: 1px solid var(--separator);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--content-bg);
+}
+.art-el > :nth-last-child(2) {
+  margin-bottom: var(--space-16);
 }
 
 .art-notes {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0;
+  margin: 0 0 var(--space-12);
   padding: 0;
   list-style: none;
 }
@@ -1205,12 +1228,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  margin: var(--space-12) calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
+  margin: auto calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
   padding: var(--space-12) var(--space-16) var(--space-16);
   border-top: 1px solid var(--separator);
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--content-bg);
 }
 .art-variations {
   display: flex;

@@ -129,7 +129,7 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
         <PrototypeEditor
           artifactId={a.id}
           groupId={a.groupId}
-          botId={a.botId ?? null}
+          botId={a.botId}
           title={a.title}
           manifest={shownManifest}
           preview={preview}
@@ -216,7 +216,7 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
         <Canvas
           artifactId={a.id}
           groupId={a.groupId}
-          botId={a.botId ?? null}
+          botId={a.botId}
           title={a.title}
           manifest={shownManifest}
           tokens={design.tokens}
@@ -225,7 +225,6 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           preview={preview}
           versionKey={shown ?? ''}
           readOnly={readOnly}
-          thumbnailUrl={current?.thumbnailUrl ?? null}
           undo={undo}
           redo={redo}
           onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
