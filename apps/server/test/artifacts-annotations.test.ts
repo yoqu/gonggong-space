@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { AnnotationDto, ArtifactSubmitRes, MessageDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifactAnnotations, messages, runs } from '../src/db/schema.js'
+import { artifactAnnotations, groupBots, messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -266,5 +266,43 @@ describe('composer context', () => {
       artifactContext: { artifactId: other.id },
     })
     expect(foreign.statusCode).toBe(404)
+  })
+
+  const send = (s: Awaited<ReturnType<typeof setup>>, body: string, clientId: string, withContext = true) =>
+    s.req('POST', `/api/groups/${s.g.id}/messages`, s.liCookie, {
+      body,
+      clientId,
+      ...(withContext && { artifactContext: { artifactId: s.a.id, screenIds: ['home'] } }),
+    })
+
+  it("sends a message without @ to the artifact's bot", async () => {
+    const s = await setup()
+    const msg = (await send(s, '标题再大点', 'client-0101')).json() as MessageDto
+    expect(msg.mentions).toEqual([s.bot.id])
+    expect((await s.trigger(msg.id)).map((r) => r.botId)).toEqual([s.bot.id])
+  })
+
+  it('follows an explicit @ over the artifact bot', async () => {
+    const s = await setup()
+    const zhao = await t.seed.bot({ ownerId: s.wang.id, name: '赵的 Codex', machineId: s.A.machine.id })
+    await t.db.insert(groupBots).values({ groupId: s.g.id, botId: zhao.id })
+    const msg = (await send(s, '@赵的 Codex 标题再大点', 'client-0102')).json() as MessageDto
+    expect(msg.mentions).toEqual([zhao.id])
+    expect((await s.trigger(msg.id)).map((r) => r.botId)).toEqual([zhao.id])
+  })
+
+  it('triggers nothing when the artifact bot has left the group', async () => {
+    const s = await setup()
+    await t.db.update(groupBots).set({ removedAt: new Date() }).where(eq(groupBots.botId, s.bot.id))
+    const msg = (await send(s, '标题再大点', 'client-0103')).json() as MessageDto
+    expect(msg.mentions).toEqual([])
+    expect(await s.trigger(msg.id)).toEqual([])
+  })
+
+  it('leaves messages without canvas context alone', async () => {
+    const s = await setup()
+    const msg = (await send(s, '标题再大点', 'client-0104', false)).json() as MessageDto
+    expect(msg.mentions).toEqual([])
+    expect(await s.trigger(msg.id)).toEqual([])
   })
 })

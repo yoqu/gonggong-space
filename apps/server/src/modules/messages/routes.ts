@@ -38,7 +38,7 @@ import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '.
 async function canvasContext(ctx: Ctx, groupId: string, userId: string, c: ArtifactContext) {
   const a = await requireArtifact(ctx, c.artifactId, userId)
   if (a.groupId !== groupId) return fail('not_found', '产物不存在')
-  return { id: a.id, note: await artifactContextNote(ctx, a, c) }
+  return { id: a.id, botId: a.botId, note: await artifactContextNote(ctx, a, c) }
 }
 
 export function messageRoutes(ctx: Ctx) {
@@ -105,7 +105,10 @@ export function messageRoutes(ctx: Ctx) {
         parsed && addressed && !command && !target
           ? await agentCommand(ctx, group.id, parsed, addressed, inGroup)
           : null
-      const mentions = agent?.botIds ?? (!explicit.length && soleDmBot ? [soleDmBot.id] : explicit)
+      // A plain message sent with the canvas selected goes to the artifact's bot, as if it were @-ed.
+      const canvasBot = canvas && !parsed && !target ? inGroup.find((b) => b.id === canvas.botId) : undefined
+      const fallback = soleDmBot ?? canvasBot
+      const mentions = agent?.botIds ?? (!explicit.length && fallback ? [fallback.id] : explicit)
       const picks = await checkPicks(ctx, me, group.id, runOptions, target || command ? [] : mentions)
 
       // The advisory lock serializes retries/double-clicks carrying the same clientId.
