@@ -112,7 +112,7 @@ git add "${release_files[@]}"
 git diff --cached --quiet || git commit -qm "chore(release): ${tag}——版本号、CHANGELOG 与更新说明"
 git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag "$tag"
 step "push main and $tag"
-direct git push -q gitlab HEAD:main
+direct git push -q gitlab HEAD:main "$tag" # the Jenkins release builds the tag from GitLab
 direct git push -q origin HEAD:main "$tag"
 
 jenkins="https://jenkins.crm.luxelakes.com"
