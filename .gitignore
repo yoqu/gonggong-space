@@ -5,6 +5,8 @@ dist/
 *.log
 .env
 .env.local
+.env.release
+.internal-patterns
 coverage/
 playwright-report/
 test-results/

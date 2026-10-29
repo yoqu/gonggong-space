@@ -7,7 +7,7 @@ import { mockApi } from './mockApi'
 
 const me: UserDto = {
   id: 'u1',
-  account: 'zhengxiaojia',
+  account: 'zhangsan',
   name: '郑晓佳',
   role: 'member',
   mustChangePassword: false,
@@ -20,8 +20,8 @@ const me: UserDto = {
 const account: GitAccountDto = {
   id: 'a1',
   provider: 'gitlab',
-  baseUrl: 'https://gitlab.crm.luxelakes.com',
-  login: 'zhengxiaojia',
+  baseUrl: 'https://gitlab.internal.example.com',
+  login: 'zhangsan-frontend',
   status: 'ok',
 }
 
@@ -34,11 +34,11 @@ describe('Git 与仓库 on a narrow screen', () => {
   it('lets a long account line shrink while 断开 keeps its size, with the full text on hover', async () => {
     mockApi({ 'GET /me/git-accounts': [account] })
     render(<SettingsDialog page="git" onClose={() => {}} />)
-    const login = await screen.findByText('zhengxiaojia')
+    const login = await screen.findByText('zhangsan-frontend')
     const row = login.closest('.ui-group__row') as HTMLElement
     expect(row.classList).toContain('settings-account-row')
     expect(row.querySelector('.settings-account')?.getAttribute('title')).toBe(
-      'gitlab.crm.luxelakes.com zhengxiaojia',
+      'gitlab.internal.example.com zhangsan-frontend',
     )
     expect(row.querySelector('.ui-group__desc [title]')?.getAttribute('title')).toBe(account.baseUrl)
     expect(screen.getByRole('button', { name: '断开' }).closest('.settings-account__ops')).toBeTruthy()

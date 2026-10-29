@@ -27,6 +27,16 @@ done
 $all && web=true desktop=true server=true protocol=true cargo=true tools=true
 
 run() { echo "▶ $*"; "$@"; }
+# Internal hosts and addresses stay out of the public repository; the patterns live in the git-ignored
+# .internal-patterns (copied from the internal ops repository), so the list itself is not published either.
+if [ -f .internal-patterns ]; then
+  patterns="$(grep -v -e '^#' -e '^$' .internal-patterns)"
+  if leaks="$(git grep --untracked -I -n -i -E -e "$(paste -sd'|' - <<<"$patterns")" -- . ':!.internal-patterns')"; then
+    echo "✗ internal addresses in the repository (move them to the internal ops repository):" >&2
+    echo "$leaks" | cut -c1-200 >&2
+    exit 1
+  fi
+fi
 run pnpm typecheck
 run pnpm lint
 $tools && run node --test tools/*.test.mjs

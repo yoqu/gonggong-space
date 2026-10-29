@@ -12,10 +12,14 @@
 # GONGGONG_SKIP_DOCKER_CAST…) and needs Docker running.
 # With a Jenkins API token in the keychain (`security add-generic-password -s gonggong-jenkins -a <user> -w <token>`),
 # a full release instead starts the Jenkins job gonggong-client-release on the pushed tag: it builds on the Mac agent
-# and on Linux, publishes the GitHub release, uploads to GONGGONG_RELEASE_SERVER (default https://ai.ludoukj.com) and
-# verifies it. GONGGONG_RELEASE_LOCAL=1 keeps the local build.
+# and on Linux, publishes the GitHub release, uploads to GONGGONG_RELEASE_SERVER and verifies it.
+# GONGGONG_RELEASE_LOCAL=1 keeps the local build.
+# Deployment addresses (GONGGONG_JENKINS_URL, GONGGONG_RELEASE_SERVER) are not in this public repository: put them in
+# the git-ignored .env.release at the repository root (or the environment).
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
+# shellcheck disable=SC1091
+[ -f "$ROOT/.env.release" ] && source "$ROOT/.env.release"
 
 repo="${GONGGONG_GITHUB_REPO:-yoqu/gonggong-space}"
 # Proxies a Bot's environment injects break git pushes and gh (Proxy CONNECT aborted).
@@ -102,6 +106,12 @@ release_files=(CHANGELOG.md "$notes" Cargo.lock crates/gonggong/Cargo.toml apps/
 stray="$(git status --porcelain --untracked-files=no -- . "${release_files[@]/#/:!}")"
 [ -z "$stray" ] || { echo "error: uncommitted changes besides the notes and CHANGELOG:" >&2; echo "$stray" >&2; exit 1; }
 
+# Checked before anything is committed or pushed: the Jenkins release needs both addresses.
+if [ -z "$daemon_only" ] && [ "${GONGGONG_RELEASE_LOCAL:-}" != 1 ] &&
+  security find-generic-password -s gonggong-jenkins >/dev/null 2>&1; then
+  : "${GONGGONG_JENKINS_URL:?set GONGGONG_JENKINS_URL in .env.release}"
+  : "${GONGGONG_RELEASE_SERVER:?set GONGGONG_RELEASE_SERVER in .env.release}"
+fi
 if [ "$(gonggong_version)" != "$v" ]; then
   step "bump to $v"
   sed -i '' "1,/^version = /s/^version = \".*\"/version = \"$v\"/" crates/gonggong/Cargo.toml apps/desktop/src-tauri/Cargo.toml
@@ -115,14 +125,14 @@ step "push main and $tag"
 direct git push -q gitlab HEAD:main "$tag" # the Jenkins release builds the tag from GitLab
 direct git push -q origin HEAD:main "$tag"
 
-jenkins="https://jenkins.crm.luxelakes.com"
 if [ -z "$daemon_only" ] && [ "${GONGGONG_RELEASE_LOCAL:-}" != 1 ] &&
   token="$(security find-generic-password -s gonggong-jenkins -w 2>/dev/null)"; then
+  jenkins="$GONGGONG_JENKINS_URL"
   user="$(security find-generic-password -s gonggong-jenkins | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p')"
   step "start the Jenkins release of $tag"
   direct curl -sS --fail-with-body -u "$user:$token" -o /dev/null "$jenkins/job/gonggong-client-release/buildWithParameters" \
     --data-urlencode "REF=$tag" --data PUBLISH_GITHUB=true --data PUBLISH_SERVER=true \
-    --data-urlencode "SERVER=${GONGGONG_RELEASE_SERVER:-https://ai.ludoukj.com}"
+    --data-urlencode "SERVER=$GONGGONG_RELEASE_SERVER"
   echo "building, publishing and verifying on $jenkins/job/gonggong-client-release/"
   exit
 fi

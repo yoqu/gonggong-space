@@ -16,7 +16,8 @@
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @gonggong/server db:generate`
 
 ## 发版与部署
-- 步骤见 `docs/发版手册.md`（服务端推 `gitlab main` 由 Jenkins 自动测试并部署 ai.ludoukj.com；客户端 `scripts/release/ship.sh <版本>` 触发 Jenkins 构建、发布、校验）。发版和带数据库迁移的改动先确认。
+- 步骤见 `docs/发版手册.md`（服务端推 `gitlab main` 由 Jenkins 自动测试并部署正式环境；客户端 `scripts/release/ship.sh <版本>` 触发 Jenkins 构建、发布、校验）。发版和带数据库迁移的改动先确认。
+- 公开仓库（GitHub）不写内部域名、IP、主机、Jenkins 任务与凭据名称：这些只放 GitLab 内部仓库 `tools/gonggong-ops`（含完整发版手册），本机 `.env.release` / `.internal-patterns` 由那里复制，`pnpm check` 会拦截。
 
 ## 规则
 - **TDD**：先写失败测试（验收 → 集成 → 单元），再实现。切片完成 = 本切片测试全绿 + 全量不回归 + typecheck + lint。
