@@ -85,9 +85,15 @@ const RULES =
   '新增、删除屏幕时同步更新 gg-artifact.json；遵守产品原型插件 SKILL.md 的约定（颜色、圆角、字号只用令牌，不引入外部资源，不改 index.html 和 _gg/）。'
 
 /** One instruction per command (§ Stitch Generate menu), for the selection that follows it. */
-export function commandInstruction(r: Pick<ArtifactCommandReq, 'command' | 'text' | 'count'>, dir: string) {
+export function commandInstruction(
+  r: Pick<ArtifactCommandReq, 'command' | 'text' | 'count' | 'ggIds'>,
+  dir: string,
+) {
   const ask = r.text?.trim() ? `要求：${r.text.trim()}` : ''
   const n = r.count ?? 3
+  // Without elements the selection is whole screens.
+  const elements = !!r.ggIds?.length
+  const newScreen = `新建一屏：${r.text?.trim() ?? ''}。新屏用新 id（文件 screens/<id>.html），登记进 gg-artifact.json，内容与风格和现有屏幕一致、带 data-gg-back 返回按钮；`
   const by: Record<ArtifactCommand, string> = {
     variations: `为选中的每个屏幕各出 ${n} 个变体${ask ? `（${ask}）` : '（布局、配色、图片、字体、文案各有侧重）'}：每个变体是一个新屏（新 id，文件 screens/<id>.html），在 gg-artifact.json 里紧跟在原屏之后登记，标题写明变体方向；不要改原屏。`,
     regenerate: `重新设计选中的屏幕：保留屏幕 id、文件名和进出跳转（data-gg-link / data-gg-back），其余可以重做。${ask}`,
@@ -103,9 +109,13 @@ export function commandInstruction(r: Pick<ArtifactCommandReq, 'command' | 'text
     image: `按要求绘制插图，用 SVG 或 CSS 画，写到 assets/ 下并用在选中的屏幕里，不引用外部图片。${ask}`,
     diagram: `按要求画图表或流程图：作为新屏（id 以 diagram- 开头）用 HTML / SVG 绘制，登记进 gg-artifact.json。${ask}`,
     'project-brief': `根据当前产物写一份产品需求文档（PRD）到 ${dir}/brief.md：背景、目标用户、核心流程、每屏的功能与字段、交互与状态、待定问题。回复里用几句话总结。${ask}`,
-    'edit-with-ai': `只修改下面选中的元素，${ask || '按说明修改'}。不要改动其他元素和屏幕。`,
+    'edit-with-ai': elements
+      ? `只修改下面选中的元素，${ask || '按说明修改'}。不要改动其他元素和屏幕。`
+      : `按要求修改下面选中的整屏，${ask || '按说明修改'}。保留屏幕 id、文件名和进出跳转（data-gg-link / data-gg-back），不要改动其他屏幕。`,
     'apply-design-system': `按产物当前的 ${dir}/DESIGN.md 和 ${dir}/tokens.css 统一所有屏幕的视觉：颜色、字体、圆角、间距、组件样式改用其中的令牌和规范，不改内容和结构（文案、区块、屏幕、跳转都保持不变）。${ask}`,
-    'connect-element': `新建一屏：${r.text?.trim() ?? ''}。新屏用新 id（文件 screens/<id>.html），登记进 gg-artifact.json，内容与风格和现有屏幕一致、带 data-gg-back 返回按钮；再给下面选中的元素加 data-gg-link="<新屏 id>"，其他元素和屏幕不要改。`,
+    'connect-element': elements
+      ? `${newScreen}再给下面选中的元素加 data-gg-link="<新屏 id>"，其他元素和屏幕不要改。`
+      : `${newScreen}再在下面选中的屏幕里找合适的位置加一个进入新屏的入口（按钮、列表项或卡片等，带 data-gg-link="<新屏 id>"），与原有布局协调，其他屏幕不要改。`,
   }
   return by[r.command]
 }

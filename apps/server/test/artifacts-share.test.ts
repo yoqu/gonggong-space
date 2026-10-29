@@ -122,6 +122,27 @@ describe('artifact export', () => {
     const empty = await s.artifact()
     expect((await s.req('GET', `/api/artifacts/${empty.id}/export.zip`, s.liCookie)).statusCode).toBe(404)
   })
+
+  it('downloads with the session cookie alone, whatever team the client has picked', async () => {
+    const s = await setup()
+    const url = `/api/artifacts/${s.a.id}/export.zip`
+    // A plain link click: the browser sends the cookie and no X-GG-Team.
+    const plain = await t.app.inject({
+      method: 'GET',
+      url,
+      headers: { cookie: s.liCookie, accept: 'text/html', 'sec-fetch-mode': 'navigate' },
+    })
+    expect(plain.statusCode).toBe(200)
+    expect(plain.headers['content-type']).toBe('application/zip')
+    const other = await t.seed.team({ ownerId: s.li.id, name: '另一个团队' })
+    const elsewhere = await t.app.inject({
+      method: 'GET',
+      url,
+      headers: { cookie: s.liCookie, 'x-gg-team': other.id },
+    })
+    expect(elsewhere.statusCode).toBe(200)
+    expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(401)
+  })
 })
 
 describe('artifact sharing', () => {
@@ -151,6 +172,9 @@ describe('artifact sharing', () => {
     // Visitors see the head's stored source, with no element ids and no bridge.
     const link = new URL(share.url!)
     const visit = await get(link.host, link.pathname)
+    // No fragment in Location: browsers carry the link's own (`#play:<screen>`) over the redirect (RFC 9110 §10.2.2).
+    expect(visit.status).toBe(302)
+    expect(visit.headers.location).toBe('/')
     const cookie = (visit.headers['set-cookie'] as string[])[0]!.split(';')[0]!
     expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe(L1['screens/home.html'])
     expect((await get(link.host, '/__gg/bridge.js', { cookie })).status).toBe(404)

@@ -771,7 +771,7 @@ export const en = {
   缺少标题: 'Missing title',
   缺少位置: 'Missing position',
   缺少修改要求: 'Missing the change request',
-  没有选中元素: 'No element selected',
+  没有选中元素或屏幕: 'No element or screen selected',
   路径重复: 'Duplicate path',
   路径无效: 'Invalid path',
   超出单版大小上限: 'The version exceeds its size limit',

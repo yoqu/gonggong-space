@@ -233,6 +233,33 @@ describe('AI commands', () => {
     })
     expect(missing.statusCode).toBe(400)
   })
+
+  it('edit a whole screen and connect a screen to a new one when no element is selected', async () => {
+    const s = await setup()
+    const post = (payload: object) =>
+      s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, { botId: s.bot.id, ...payload })
+
+    const edit = await post({ command: 'edit-with-ai', screenIds: ['home'], text: '换成深色主题' })
+    expect(edit.statusCode).toBe(200)
+    const e = (edit.json() as MessageDto).body
+    expect(e).toMatch(/^@小王的 Claude 按要求修改下面选中的整屏，要求：换成深色主题/)
+    expect(e).toContain('保留屏幕 id、文件名和进出跳转')
+    expect(e).not.toContain('只修改下面选中的元素')
+    expect(e).toContain('- home（首页，screens/home.html）')
+    expect(await s.trigger((edit.json() as MessageDto).id)).toHaveLength(1)
+
+    const connect = await post({ command: 'connect-element', screenIds: ['home'], text: '活动详情页' })
+    expect(connect.statusCode).toBe(200)
+    const c = (connect.json() as MessageDto).body
+    expect(c).toContain('新建一屏：活动详情页')
+    expect(c).toContain('在下面选中的屏幕里找合适的位置加一个进入新屏的入口')
+    expect(c).toContain('data-gg-link="<新屏 id>"')
+    expect(c).not.toContain('给下面选中的元素')
+    expect(c).toContain('- home（首页，screens/home.html）')
+
+    expect((await post({ command: 'edit-with-ai', screenIds: ['home'] })).statusCode).toBe(400)
+    expect((await post({ command: 'connect-element', screenIds: [], text: '详情' })).statusCode).toBe(400)
+  })
 })
 
 describe('composer context', () => {

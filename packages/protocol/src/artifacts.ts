@@ -464,7 +464,10 @@ export const BridgeToShell = z.discriminatedUnion('type', [
 export type BridgeToShell = z.infer<typeof BridgeToShell>
 export const BRIDGE_SNIPPET_MAX = 300
 const FromScreen = { source: z.literal('gg-bridge'), file: ArtifactHtmlFile }
-/** Where the screen's `data-gg-link` elements are, in document coordinates (for the canvas's link arrows). */
+/**
+ * Where the screen's `data-gg-link` elements are, in document coordinates (for the canvas's link arrows): the
+ * viewport position is `rect.x - scrollX`, `rect.y - scrollY` with the latest `scroll` (0, 0 before any).
+ */
 export const BridgeLinkRect = z.object({ ggId: GgId.nullable(), screen: z.string(), rect: Rect })
 export type BridgeLinkRect = z.infer<typeof BridgeLinkRect>
 export const BridgeBackRect = z.object({ ggId: GgId.nullable(), rect: Rect })
@@ -476,7 +479,10 @@ const Layout = {
   /** `data-gg-back` elements. */
   back: z.array(BridgeBackRect).max(500).optional(),
 }
-/** Element rects are in the screen's viewport (its iframe), in CSS pixels, except `links` / `back`. */
+/**
+ * Element rects (`hover`, `select`) are in the screen's viewport (its iframe) when posted, in CSS pixels; `links` /
+ * `back` are in document coordinates (see BridgeLinkRect).
+ */
 export const BridgeFromShell = z.discriminatedUnion('type', [
   /** On load, then `size` whenever the document's size or its links' layout changes (the canvas sizes the iframe to it). */
   z.object({ ...FromScreen, type: z.literal('ready'), ...Layout }),
@@ -515,6 +521,12 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   }),
   /** Preview mode: a `data-gg-back` element was clicked. */
   z.object({ ...FromScreen, type: z.literal('back') }),
+  /**
+   * The screen scrolled (at most every 100 ms, the last position always sent): its `window.scrollX` / `scrollY`, in
+   * CSS pixels. Turns document coordinates into viewport ones; rects posted earlier in viewport coordinates move by
+   * the change.
+   */
+  z.object({ ...FromScreen, type: z.literal('scroll'), scrollX: z.number(), scrollY: z.number() }),
 ])
 export type BridgeFromShell = z.infer<typeof BridgeFromShell>
 
@@ -591,8 +603,10 @@ export type ArtifactElementRef = z.infer<typeof ArtifactElementRef>
 
 /**
  * POST /api/artifacts/:id/commands — posts an @bot message as the user with the instruction for `command` and the
- * selection (answers its MessageDto). `count`: how many variations (default 3); `text`: the request (needed by
- * `edit-with-ai` and `connect-element`, which also need `ggIds`).
+ * selection (answers its MessageDto). `count`: how many variations (default 3); `text`: the request, needed by
+ * `edit-with-ai` and `connect-element`, which also need `ggIds` or `screenIds`: with elements they change / link
+ * from those elements; with screens only, `edit-with-ai` changes the whole screens and `connect-element` adds an
+ * entry to the new screen where the AI sees fit on them.
  */
 export const ArtifactCommandReq = z
   .object({
@@ -606,7 +620,8 @@ export const ArtifactCommandReq = z
   .superRefine((r, ctx) => {
     if (r.command !== 'edit-with-ai' && r.command !== 'connect-element') return
     if (!r.text?.trim()) ctx.addIssue({ code: 'custom', path: ['text'], message: '缺少修改要求' })
-    if (!r.ggIds?.length) ctx.addIssue({ code: 'custom', path: ['ggIds'], message: '没有选中元素' })
+    if (!r.ggIds?.length && !r.screenIds?.length)
+      ctx.addIssue({ code: 'custom', path: ['ggIds'], message: '没有选中元素或屏幕' })
   })
 export type ArtifactCommandReq = z.infer<typeof ArtifactCommandReq>
 

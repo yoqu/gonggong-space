@@ -407,6 +407,7 @@ describe('bridge', () => {
       { ...at, type: 'nav', screen: 'home' },
       { ...at, type: 'nav', screen: 'home', transition: 'push-back' },
       { ...at, type: 'back' },
+      { ...at, type: 'scroll', scrollX: 0, scrollY: 320 },
       {
         ...at,
         type: 'ready',
@@ -425,6 +426,7 @@ describe('bridge', () => {
       },
     ])
       expect(BridgeFromShell.parse(m)).toEqual(m)
+    expect(BridgeFromShell.safeParse({ ...at, type: 'scroll', scrollY: 1 }).success).toBe(false)
     expect(BridgeFromShell.safeParse({ ...select, source: 'x' }).success).toBe(false)
     expect(BridgeFromShell.safeParse({ ...select, file: '../x.html' }).success).toBe(false)
     expect(BridgeFromShell.parse({ ...select, transition: null }).type).toBe('select')
@@ -450,7 +452,7 @@ describe('share', () => {
 })
 
 describe('commands and context', () => {
-  it('edit-with-ai needs elements and a request', () => {
+  it('edit-with-ai needs a request and elements or screens', () => {
     const base = { command: 'edit-with-ai', botId: 'b1' }
     expect(ArtifactCommandReq.safeParse(base).success).toBe(false)
     expect(
@@ -460,6 +462,11 @@ describe('commands and context', () => {
         ggIds: [{ file: 'screens/home.html', ggId: '3' }],
       }).success,
     ).toBe(true)
+    // A whole screen instead of elements.
+    expect(ArtifactCommandReq.safeParse({ ...base, text: '更醒目', screenIds: ['home'] }).success).toBe(true)
+    expect(ArtifactCommandReq.safeParse({ ...base, text: '更醒目' }).success).toBe(false)
+    expect(ArtifactCommandReq.safeParse({ ...base, text: '更醒目', screenIds: [] }).success).toBe(false)
+    expect(ArtifactCommandReq.safeParse({ ...base, text: ' ', screenIds: ['home'] }).success).toBe(false)
     expect(ArtifactCommandReq.safeParse({ command: 'variations', botId: 'b1', count: 9 }).success).toBe(false)
     expect(ArtifactCommandReq.parse({ command: 'regenerate', botId: 'b1', screenIds: ['home'] })).toEqual({
       command: 'regenerate',
@@ -467,7 +474,7 @@ describe('commands and context', () => {
       screenIds: ['home'],
     })
   })
-  it('connect-element needs elements and a description of the new screen', () => {
+  it('connect-element needs a description of the new screen and elements or screens', () => {
     const base = { command: 'connect-element', botId: 'b1' }
     expect(ArtifactCommandReq.safeParse(base).success).toBe(false)
     expect(ArtifactCommandReq.safeParse({ ...base, text: '订单详情' }).success).toBe(false)
@@ -478,6 +485,10 @@ describe('commands and context', () => {
         ggIds: [{ file: 'screens/home.html', ggId: '3' }],
       }).success,
     ).toBe(true)
+    expect(ArtifactCommandReq.safeParse({ ...base, text: '订单详情', screenIds: ['home'] }).success).toBe(
+      true,
+    )
+    expect(ArtifactCommandReq.safeParse({ ...base, screenIds: ['home'] }).success).toBe(false)
     expect(ArtifactCommandReq.safeParse({ command: 'apply-design-system', botId: 'b1' }).success).toBe(true)
   })
   it('the composer may carry the canvas selection', () => {
