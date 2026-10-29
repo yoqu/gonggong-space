@@ -20,7 +20,7 @@ All paths are relative to this skill's directory.
 web-prototype/
 ├── SKILL.md                       ← this file (shared workflow and contract)
 ├── kit/                           ← platform-owned shell and runtime: copy verbatim, never edit
-│   ├── index.html                 ← the shell (device frame, screen switcher)
+│   ├── index.html                 ← the shell: canvas of all screens with link arrows, plus a click-through play view
 │   ├── gg-kit.css                 ← base styles, device variables, .gg-ph / .gg-scroll-x
 │   └── gg-kit.js                  ← data-gg-link / data-gg-back navigation
 ├── templates/<id>/GUIDE.md        ← per-template instructions; templates/<id>/example/ is a finished reference
@@ -98,7 +98,7 @@ Screen skeleton:
 
 ### Step 3 — Check and critique
 
-1. Open every screen through the shell with headless Chrome (serve `design/<slug>/` over a local HTTP server; the shell reads `gg-artifact.json` with `fetch`) and look at the screenshots: nothing under the status bar, capsule or bottom bars; lists full; text not clipped.
+1. Serve `design/<slug>/` over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome: `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Look for: nothing under the status bar, capsule or bottom bars; lists full; text not clipped.
 2. Run the template's checklist in its GUIDE.md (every P0 must pass), then `references/critique.md`, and fix what they find.
 
 ### Step 4 — Publish and reply

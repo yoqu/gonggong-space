@@ -3,7 +3,23 @@
   "device": "miniprogram",
   "entry": "home",
   "screens": [
-    { "id": "home", "title": "探索生活", "file": "screens/home.html", "statusBar": "light" },
-    { "id": "event", "title": "活动详情", "file": "screens/event.html", "statusBar": "dark" }
+    {
+      "id": "home",
+      "title": "探索生活",
+      "file": "screens/home.html",
+      "statusBar": "light"
+    },
+    {
+      "id": "event",
+      "title": "活动详情",
+      "file": "screens/event.html",
+      "statusBar": "dark"
+    },
+    {
+      "id": "signup-done",
+      "title": "报名成功",
+      "file": "screens/signup-done.html",
+      "statusBar": "dark"
+    }
   ]
 }

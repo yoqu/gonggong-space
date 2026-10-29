@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN" data-gg-device="miniprogram">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>报名成功</title>
+<link rel="stylesheet" href="../_gg/gg-kit.css">
+<link rel="stylesheet" href="../tokens.css">
+<script src="../_gg/gg-kit.js" defer></script>
+<style>
+  body { background: var(--color-background); }
+
+  .nav { height: var(--gg-nav-height); padding-top: var(--gg-capsule-top); background: var(--color-surface); }
+  .nav .row { position: relative; height: var(--gg-capsule-height); display: grid; place-items: center; color: var(--color-on-surface-strong); }
+  .nav button { position: absolute; left: 6px; top: 0; width: 32px; height: 32px; display: grid; place-items: center; }
+
+  .result { background: var(--color-surface); padding: var(--space-xxl) var(--space-xl) var(--space-xl); text-align: center; }
+  .result svg { width: 56px; height: 56px; margin: 0 auto; color: var(--color-primary); }
+  .result h1 { margin-top: var(--space-lg); color: var(--color-on-surface); }
+  .result p { margin-top: var(--space-sm); color: var(--color-on-surface-variant); }
+
+  .ticket { margin: var(--space-sm) var(--space-gutter) 0; background: var(--color-surface); padding: var(--space-lg); }
+  .ticket h2 { color: var(--color-on-surface-card); }
+  .ticket dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-sm) var(--space-lg); margin: var(--space-lg) 0 0; }
+  .ticket dt { color: var(--color-on-surface-muted); }
+  .ticket dd { margin: 0; color: var(--color-on-surface-card); }
+  .code { margin: var(--space-xl) auto 0; width: 160px; height: 160px; }
+  .hint { margin-top: var(--space-sm); text-align: center; color: var(--color-on-surface-hint); }
+
+  .actions { display: flex; gap: var(--space-md); padding: var(--space-xl) var(--space-gutter) calc(var(--space-xl) + var(--gg-safe-bottom)); }
+  .actions button { flex: 1; height: 42px; border-radius: var(--rounded-full); }
+  .secondary { background: var(--color-surface); color: var(--color-on-surface-variant); border: 1px solid var(--color-outline); }
+  .primary { background: var(--color-primary); color: var(--color-on-primary); }
+</style>
+</head>
+<body>
+<header class="nav" data-section="nav">
+  <div class="row t-headline-sm">
+    <button type="button" data-gg-back aria-label="返回"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>
+    报名成功
+  </div>
+</header>
+
+<section class="result" data-section="result">
+  <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="28" cy="28" r="26"/><path d="m17 28 8 8 15-16"/></svg>
+  <h1 class="t-headline-sm">报名成功</h1>
+  <p class="t-label-md">活动开始前 2 小时会提醒你</p>
+</section>
+
+<section class="ticket" data-section="ticket">
+  <h2 class="t-title-sm">湖畔草坪音乐会</h2>
+  <dl class="t-body-md">
+    <dt>时间</dt><dd>11.01 周六 19:00</dd>
+    <dt>地点</dt><dd>麓湖·云朵乐园湖畔草坪</dd>
+    <dt>人数</dt><dd>2 人</dd>
+  </dl>
+  <div class="code gg-ph" data-label="入场二维码"></div>
+  <p class="hint t-caption">到场后出示给工作人员扫码</p>
+</section>
+
+<div class="actions t-title-sm" data-section="actions">
+  <button class="secondary" type="button" data-gg-link="home">回到首页</button>
+  <button class="primary" type="button">添加到日历</button>
+</div>
+</body>
+</html>
