@@ -2,7 +2,7 @@ import type { GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Icon, MenuButton, type MenuItem, PopUpButton, Spinner, Tooltip, toast } from '../../ui'
+import { Icon, MenuButton, type MenuItem, Spinner, Tooltip, toast } from '../../ui'
 import { type GitTarget, refreshGit } from './api'
 import { BranchPopup } from './BranchPopup'
 import { gitCommands } from './commands'
@@ -26,8 +26,8 @@ export function BranchName({ status, head }: { status: RepoStatus; head?: string
 }
 
 /**
- * The Git tab's toolbar: its views, then IDEA's main toolbar VCS actions — repo, the branch popup with incoming /
- * outgoing counts, fetch, update, push, and the rest under ⋯.
+ * The Git tab's toolbar: its views, then IDEA's main toolbar VCS actions — the branch popup (which also switches the
+ * repo of a multi-repo workspace) with incoming / outgoing counts, fetch, update, push, and the rest under ⋯.
  */
 export function GitToolbar({
   views,
@@ -46,7 +46,6 @@ export function GitToolbar({
 }) {
   const [fetching, setFetching] = useState(false)
   const cmd = gitCommands(target)
-  const repos = git.repos.length ? repoOptions(git) : []
   const head = target.repo ? (changes?.head?.shortHash ?? null) : (git.head ?? null)
   const last = changes?.head ?? null
   const pushLabel = status.ahead == null && status.branch ? t('推送…（未发布）') : t('推送…')
@@ -91,17 +90,9 @@ export function GitToolbar({
     <div className="wb-git__bar" role="toolbar" aria-label={t('Git 工具栏')}>
       {views}
       <span className="spacer" />
-      {repos.length ? (
-        <PopUpButton
-          size="small"
-          aria-label={t('仓库')}
-          value={target.repo ?? ''}
-          onChange={(v) => onRepo(v || null)}
-          options={repos}
-        />
-      ) : null}
-      <BranchPopup target={target} status={status} git={git}>
+      <BranchPopup target={target} status={status} git={git} onRepo={onRepo}>
         <Icon name="git-branch" size={13} />
+        {git.repos.length ? <span className="gb-trigger__repo">{target.repo ?? t('主仓库')}</span> : null}
         <BranchName status={status} head={head} />
       </BranchPopup>
       {status.behind ? (

@@ -380,7 +380,7 @@ describe('branch popup of a multi-repo workspace', () => {
     expect(within(core).getByRole('img', { name: '落后 1 个提交' })).toBeTruthy()
 
     fireEvent.click(core)
-    expect(pop.getByText(CORE, { selector: '.gb__drill-name' })).toBeTruthy()
+    expect(pop.getByText(CORE, { selector: '.gb-side .gb__drill-name' })).toBeTruthy()
     fireEvent.click(await pop.findByTitle('origin/feat/x'))
     fireEvent.click(await pop.findByRole('menuitem', { name: '使用变基拉取到 dev' }))
     await waitFor(() =>
@@ -407,19 +407,73 @@ describe('branch popup of a multi-repo workspace', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: NAME })).toBeNull())
   })
 
-  it('enters a repo with → and leaves it with ←, Esc or 返回, back on its row', async () => {
+  it('opens a repo beside the list with →, keeping the other repos at hand, and closes it with ←, Esc or 收起', async () => {
     mockApi(multi())
     render(<Page />)
     const pop = await popup()
-    let search = searchbox(pop)
+    const search = searchbox(pop)
+    const side = () => document.querySelector<HTMLElement>('.gb-side')
+    const sideSearch = () => within(side() as HTMLElement).getByRole('searchbox', { name: '搜索分支和标签' })
     // 更新… 推送… 新建分支… 检出标签或修订… 获取远程更新 主仓库 libs/core
     for (let i = 0; i < 6; i++) key(search, 'ArrowDown')
     expect(currentRow(search)?.getAttribute('data-repo')).toBe(CORE)
     key(search, 'ArrowRight')
     expect(await pop.findByTitle('origin/feat/x')).toBeTruthy()
+    await waitFor(() => expect(document.activeElement).toBe(sideSearch()))
+    expect(currentRow(sideSearch())?.getAttribute('aria-label')).toBe('在 Git 面板中切换到 libs/core')
+    // The workspace's list stays, its open repo marked.
+    expect(pop.getByRole('button', { name: /^主仓库/ })).toBeTruthy()
+    expect(pop.getByRole('button', { name: /^libs\/core/ }).hasAttribute('data-open')).toBe(true)
+    key(sideSearch(), 'ArrowLeft')
+    await waitFor(() => expect(side()).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(search))
+    expect(currentRow(search)?.getAttribute('data-repo')).toBe(CORE)
+
+    key(search, 'Enter')
+    expect(await pop.findByTitle('origin/feat/x')).toBeTruthy()
+    key(sideSearch(), 'Escape')
+    await waitFor(() => expect(side()).toBeNull())
+    expect(screen.getByRole('dialog', { name: NAME })).toBeTruthy()
+
+    fireEvent.click(pop.getByRole('button', { name: /^libs\/core/ }))
+    fireEvent.click(await pop.findByRole('button', { name: '收起' }))
+    await waitFor(() => expect(side()).toBeNull())
+  })
+
+  it('opens a repo on the left of a popup at the right edge, its branch actions in its own place', async () => {
+    const rect = { top: 0, left: 900, right: 1300, bottom: 26, width: 400, height: 26, x: 900, y: 0 }
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ ...rect, toJSON: () => rect })
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1320 })
+    mockApi(multi())
+    render(<Page />)
+    const pop = await popup()
+    fireEvent.click(pop.getByRole('button', { name: /^libs\/core/ }))
+    const side = document.querySelector<HTMLElement>('.gb-side')
+    expect(side?.hasAttribute('data-left')).toBe(true)
+    expect(side?.style.width).toBe('400px')
+    fireEvent.click(await within(side as HTMLElement).findByTitle('origin/feat/x'))
+    expect(
+      within(side as HTMLElement).getByText('origin/feat/x', { selector: '.gb__drill-name' }),
+    ).toBeTruthy()
+    expect(pop.getByRole('button', { name: /^主仓库/ })).toBeTruthy()
+  })
+
+  it('enters a repo in the list’s place without room beside the popup, and back with ←, Esc or 返回', async () => {
+    const rect = { top: 0, left: 0, right: 400, bottom: 26, width: 400, height: 26, x: 0, y: 0 }
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ ...rect, toJSON: () => rect })
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 600 })
+    mockApi(multi())
+    render(<Page />)
+    const pop = await popup()
+    let search = searchbox(pop)
+    for (let i = 0; i < 6; i++) key(search, 'ArrowDown')
+    key(search, 'ArrowRight')
+    expect(await pop.findByTitle('origin/feat/x')).toBeTruthy()
+    expect(document.querySelector('.gb-side')).toBeNull()
+    expect(pop.getByText(CORE, { selector: '.gb__drill-name' })).toBeTruthy()
+    expect(pop.queryByRole('button', { name: /^主仓库/ })).toBeNull()
     search = searchbox(pop)
     await waitFor(() => expect(document.activeElement).toBe(search))
-    expect(currentRow(search)?.getAttribute('aria-label')).toBe('查看 libs/core 的改动')
     key(search, 'ArrowLeft')
     search = await pop.findByRole('searchbox', { name: '搜索分支和标签' })
     await waitFor(() => expect(document.activeElement).toBe(search))

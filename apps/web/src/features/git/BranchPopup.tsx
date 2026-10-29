@@ -18,17 +18,21 @@ import './branches.css'
  * IDEA's branch popup (the VCS widget): search, the top actions, a multi-repo workspace's repos, then recent, local,
  * remote branches and tags, `/` folders and starred favourites first. The keyboard stays in the search: ↑↓ move the
  * current row, Enter runs it or opens a branch's actions, → and ← (or Esc) go in and out of them. With room beside the
- * popup a branch's actions fly out on the right (on hover too), else they take the list's place.
+ * popup a branch's actions and a repo's branches open on the right (actions on hover too), else they take the list's
+ * place, so several repos can be looked through without leaving the list.
  */
 export function BranchPopup({
   target,
   status,
   git,
+  onRepo,
   children,
 }: {
   target: GitTarget
   status: RepoStatus
   git: GitStatus
+  /** Switches the Git tab to another repo of the workspace. */
+  onRepo?: (repo: string | null) => void
   /** The trigger's content. */
   children: ReactNode
 }) {
@@ -47,24 +51,27 @@ export function BranchPopup({
         </button>
       }
     >
-      {(close) => <BranchPanel target={target} status={status} git={git} close={close} />}
+      {(close) => <BranchPanel target={target} status={status} git={git} onRepo={onRepo} close={close} />}
     </Popover>
   )
 }
 
-/** The popup's levels: the workspace's list, or that of one of its repos picked there. */
+/** The popup's levels: the workspace's list, with one of its repos beside it or in its place. */
 export function BranchPanel({
   target,
   status,
   git,
+  onRepo,
   close,
 }: {
   target: GitTarget
   status: RepoStatus
   git: GitStatus
+  onRepo?: (repo: string | null) => void
   close: () => void
 }) {
   const [repo, setRepo] = useState<RepoStatus | null>(null)
+  const [side, setSide] = useState<({ repo: RepoStatus } & Beside) | null>(null)
   // Back from a repo, its row is the current one again.
   const [left, setLeft] = useState<string | null>(null)
   const leave = () => {
@@ -72,18 +79,26 @@ export function BranchPanel({
     setLeft(repoKey(repo))
     setRepo(null)
   }
+  const shut = () => setSide(null)
   useEscape(leave, !!repo)
-  if (repo) {
-    const label = repo.path || t('主仓库')
+  useEscape(shut, !!side)
+  const repoPanel = (r: RepoStatus, back: () => void, closing: boolean, fly = true) => {
+    const label = r.path || t('主仓库')
     return (
       <RefsPanel
-        key={repo.path}
-        target={{ ...target, repo: repo.path || null }}
-        status={repo}
+        key={r.path}
+        target={{ ...target, repo: r.path || null }}
+        status={r}
         close={close}
         focus
-        header={<Drill title={label} meta={<RepoNote repo={repo} />} onBack={leave} />}
-        onBack={leave}
+        fly={fly}
+        header={<Drill title={label} meta={<RepoNote repo={r} />} onBack={back} closing={closing} />}
+        onBack={back}
+        use={
+          onRepo && (target.repo ?? '') !== r.path
+            ? { label: t('在 Git 面板中切换到 {repo}', { repo: label }), run: () => onRepo(r.path || null) }
+            : undefined
+        }
         diff={{
           label: t('查看 {repo} 的改动', { repo: label }),
           // Uncommitted work first; a clean repo shows what its branch holds against main.
@@ -91,27 +106,42 @@ export function BranchPanel({
             openTab({
               kind: 'diff',
               botId: target.botId,
-              scope: repo.dirty ? 'uncommitted' : 'base',
+              scope: r.dirty ? 'uncommitted' : 'base',
               file: null,
-              ...(repo.path && { repo: repo.path }),
+              ...(r.path && { repo: r.path }),
             }),
         }}
       />
     )
   }
+  if (repo) return repoPanel(repo, leave, false)
   return (
-    <RefsPanel
-      target={target}
-      status={status}
-      close={close}
-      focus={left !== null}
-      start={left}
-      repos={
-        git.repos.length
-          ? { list: workspaceRepos(git), dirtyCount: git.dirtyCount ?? null, onOpen: setRepo }
-          : undefined
-      }
-    />
+    <>
+      <RefsPanel
+        target={target}
+        status={status}
+        close={close}
+        focus={left !== null}
+        start={left}
+        fly={!side}
+        repos={
+          git.repos.length
+            ? {
+                list: workspaceRepos(git),
+                dirtyCount: git.dirtyCount ?? null,
+                beside: side?.repo.path ?? null,
+                onOpen: (r, at) => (at ? setSide({ repo: r, ...at }) : setRepo(r)),
+              }
+            : undefined
+        }
+      />
+      {side ? (
+        <div className="gb-side" data-left={side.left || undefined} style={{ width: side.width }}>
+          {/* On the left, its actions would fly out over the popup. */}
+          {repoPanel(side.repo, shut, true, !side.left)}
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -155,6 +185,13 @@ const HOVER_MS = 200
 /** The least room beside the popup for a branch's actions to fly out, and the most they take. */
 const FLY_MIN = 240
 const FLY_MAX = 360
+/** The same for a repo's branches beside the workspace's list, on the right or else on the left. */
+const SIDE_MIN = 300
+const SIDE_MAX = 400
+interface Beside {
+  width: number
+  left: boolean
+}
 
 const coarsePointer = () =>
   typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
@@ -166,8 +203,10 @@ function RefsPanel({
   close,
   focus = false,
   start = null,
+  fly: canFly = true,
   header,
   onBack,
+  use,
   diff,
   repos,
 }: {
@@ -178,12 +217,21 @@ function RefsPanel({
   focus?: boolean
   /** The row to start on. */
   start?: string | null
+  /** Whether a branch's actions may fly out beside the popup, else they take the list's place. */
+  fly?: boolean
   /** A repo's level: its title with the way back (← in an empty search too), and its changes. */
   header?: ReactNode
   onBack?: () => void
+  /** A repo's level: switching the Git tab to it. */
+  use?: { label: string; run: () => void }
   diff?: { label: string; run: () => void }
-  /** The workspace's level when it has several repos: a row each, opening it. */
-  repos?: { list: RepoStatus[]; dirtyCount: number | null; onOpen: (r: RepoStatus) => void }
+  /** The workspace's level when it has several repos: a row each, opening it beside the popup (`beside`) or in its place (null). */
+  repos?: {
+    list: RepoStatus[]
+    dirtyCount: number | null
+    beside: string | null
+    onOpen: (r: RepoStatus, at: Beside | null) => void
+  }
 }) {
   const stamp = useGitStamp(target.groupId, target.botId)
   const { refs, error } = useGitRefs(target.groupId, target.botId, target.repo, stamp)
@@ -237,6 +285,18 @@ function RefsPanel({
   const top: Row[] = q
     ? []
     : [
+        ...(use
+          ? [
+              {
+                kind: 'action' as const,
+                key: 'use',
+                icon: 'folder-git' as const,
+                label: t('切换到此仓库'),
+                aria: use.label,
+                run: then(use.run),
+              },
+            ]
+          : []),
         ...(diff
           ? [
               {
@@ -308,15 +368,28 @@ function RefsPanel({
     if (over > 0) el.style.top = `${opened.top - over}px`
   }, [opened])
   useLayoutEffect(() => () => clearTimeout(hover.current), [])
+  // Back from the repo beside, the keys are on this list again.
+  const sideOpen = repos?.beside != null
+  const hadSide = useRef(sideOpen)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only when the repo beside closes
+  useLayoutEffect(() => {
+    if (hadSide.current && !sideOpen && !coarsePointer()) search()?.focus()
+    hadSide.current = sideOpen
+  }, [sideOpen])
   useEscape(() => back(), !!opened)
 
-  /** Where a row's actions fly out, or null without room for them beside the popup. */
-  const place = (key: string) => {
+  /** The popup's own panel, which what opens beside it is placed against, and the room to its right. */
+  const beside = () => {
     const gb = root.current
     if (!gb) return null
-    // The popup's own panel, which the flyout is placed against.
     const panel = ((gb.offsetParent as HTMLElement | null) ?? gb).getBoundingClientRect()
-    const room = document.documentElement.clientWidth - panel.right - 12
+    return { panel, room: document.documentElement.clientWidth - panel.right - 12 }
+  }
+  /** Where a row's actions fly out, or null without room for them beside the popup. */
+  const place = (key: string) => {
+    const at = canFly ? beside() : null
+    if (!at) return null
+    const { panel, room } = at
     if (room < FLY_MIN) return null
     const row = document.getElementById(rowId(key))?.getBoundingClientRect().top ?? panel.top
     return { top: row - panel.top - 5, room }
@@ -331,11 +404,27 @@ function RefsPanel({
     setOpened(null)
     refocus.current = true
   }
+  const openRepo = (r: RepoStatus) => {
+    clearTimeout(hover.current)
+    setOpened(null)
+    setActiveKey(repoKey(r))
+    const at = beside()
+    const right = at?.room ?? 0
+    const left = (at?.panel.left ?? 0) - 12
+    repos?.onOpen(
+      r,
+      right >= SIDE_MIN
+        ? { width: Math.min(right, SIDE_MAX), left: false }
+        : left >= SIDE_MIN
+          ? { width: Math.min(left, SIDE_MAX), left: true }
+          : null,
+    )
+  }
   const pick = (r: Item, how: Opened['focus']) => {
     if (r.kind === 'action') {
       if (!r.busy) r.run()
     } else if (r.kind === 'folder') toggle(r.path)
-    else if (r.kind === 'repo') repos?.onOpen(r.repo)
+    else if (r.kind === 'repo') openRepo(r.repo)
     else openRef(r, how)
   }
   const onHover = (r: Item) => {
@@ -479,7 +568,8 @@ function RefsPanel({
           title={r.repo.path || undefined}
           data-repo={r.repo.path}
           data-current={r.current || undefined}
-          onClick={() => repos?.onOpen(r.repo)}
+          data-open={repos?.beside === r.repo.path || undefined}
+          onClick={() => openRepo(r.repo)}
         >
           <span className="gb__icon">
             <Icon name={r.current ? 'check' : 'folder-git'} size={13} weight={r.current ? 2 : undefined} />
@@ -596,12 +686,27 @@ function RefsPanel({
   )
 }
 
-/** A level's title above it, with the way back. */
-function Drill({ title, meta, onBack }: { title: string; meta: ReactNode; onBack: () => void }) {
+/** A level's title above it, with the way back (or, beside the popup, closing it). */
+function Drill({
+  title,
+  meta,
+  onBack,
+  closing = false,
+}: {
+  title: string
+  meta: ReactNode
+  onBack: () => void
+  closing?: boolean
+}) {
   return (
     <div className="gb__drill">
-      <button type="button" className="gb__back" aria-label={t('返回')} onClick={onBack}>
-        <Icon name="chevron-left" size={12} weight={2} />
+      <button
+        type="button"
+        className="gb__back"
+        aria-label={closing ? t('收起') : t('返回')}
+        onClick={onBack}
+      >
+        <Icon name={closing ? 'xmark' : 'chevron-left'} size={12} weight={2} />
       </button>
       <div className="gb__drill-title">
         <span className="gb__drill-name">{title}</span>

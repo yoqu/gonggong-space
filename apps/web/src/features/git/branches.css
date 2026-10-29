@@ -273,3 +273,33 @@
 .gb__drill-meta .gb__note {
   max-width: none;
 }
+.gb__row--repo[data-open]:not([data-active]) {
+  background: var(--quote-fill);
+}
+/*
+ * A repo's branches beside the workspace's list, in a panel of their own; positioned, so its actions fly out beside it.
+ * Opaque: a backdrop blur inside the popup's own does not reach the page behind.
+ */
+.gb-side {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 4px);
+  z-index: 1;
+  border-radius: var(--radius-menu);
+  background: linear-gradient(var(--glass-fill), var(--glass-fill)), var(--window-bg);
+  box-shadow: var(--shadow-menu);
+  animation: var(--fade-in) ui-fade-in;
+}
+.gb-trigger > .gb-trigger__repo {
+  flex: 0 1 auto;
+  color: var(--label-secondary);
+  font-weight: 400;
+}
+.gb-trigger__repo::after {
+  content: " /";
+  color: var(--label-tertiary);
+}
+.gb-side[data-left] {
+  right: calc(100% + 4px);
+  left: auto;
+}

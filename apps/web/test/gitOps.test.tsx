@@ -250,13 +250,19 @@ describe('Git tab toolbar', () => {
     )
     render(<Page />)
     const tab = await openGit()
-    fireEvent.click(tab.getByRole('button', { name: '仓库' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'libs/core' }))
+    // No repo picker of its own: the branch popup switches the repo.
+    expect(tab.queryByRole('button', { name: '仓库' })).toBeNull()
+    expect(tab.getByRole('button', { name: '切换 小王的 Claude 的分支' }).textContent).toBe(
+      '主仓库feat/refund-v2',
+    )
+    const pop = await popup()
+    fireEvent.click(pop.getByRole('button', { name: /^libs\/core/ }))
+    fireEvent.click(await pop.findByRole('button', { name: '在 Git 面板中切换到 libs/core' }))
     await waitFor(() =>
       expect(benchTabs()).toEqual([{ kind: 'git', botId: 'b1', repo: 'libs/core', file: null }]),
     )
     expect(await tab.findByText('没有未提交的改动')).toBeTruthy()
-    expect(tab.getByRole('button', { name: '切换 小王的 Claude 的分支' }).textContent).toBe('dev')
+    expect(tab.getByRole('button', { name: '切换 小王的 Claude 的分支' }).textContent).toBe('libs/coredev')
     fireEvent.click(tab.getByRole('button', { name: '更新…' }))
     fireEvent.click((await dialog('更新 dev')).getByRole('button', { name: '更新' }))
     await waitFor(() =>

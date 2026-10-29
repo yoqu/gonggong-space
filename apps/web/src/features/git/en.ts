@@ -58,6 +58,8 @@ export default {
   主仓库: 'Main repo',
   '拉取 {repo}': 'Pull {repo}',
   '查看 {repo} 的改动': 'View changes of {repo}',
+  切换到此仓库: 'Switch to this repo',
+  '在 Git 面板中切换到 {repo}': 'Switch the Git panel to {repo}',
   '{name} 的工作区': "{name}'s workspace",
   浏览文件: 'Browse files',
   'Git 面板': 'Git panel',
