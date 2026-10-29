@@ -6,6 +6,7 @@ import { artifacts, bots, previewShares, previews } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
+import { open, seal } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { openPortListener } from '../previews/gateway.js'
 import { previewOrigin } from '../previews/routes.js'
@@ -45,23 +46,24 @@ export async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: stri
   return { ...preview, publicPort: await openPortListener(ctx, preview.id) }
 }
 
-/** The artifact's own share: the one its `shareToken` opens, while valid and its preview is open. */
+/** The artifact's own share: the one its (sealed) `shareToken` opens, while valid and its preview is open. */
 async function liveShare(ctx: Ctx, a: Artifact) {
   if (!a.shareToken) return null
+  const token = open(a.shareToken)
   const [row] = await ctx.db
     .select({ s: previewShares, p: previews })
     .from(previewShares)
     .innerJoin(previews, eq(previews.id, previewShares.previewId))
     .where(
       and(
-        eq(previewShares.tokenHash, sha256(a.shareToken)),
+        eq(previewShares.tokenHash, sha256(token)),
         eq(previews.artifactId, a.id),
         isNull(previewShares.revokedAt),
         gt(previewShares.expiresAt, ctx.now()),
         isNull(previews.closedAt),
       ),
     )
-  return row ?? null
+  return row ? { ...row, token } : null
 }
 
 /** GET /api/artifacts/:id/share. */
@@ -70,7 +72,7 @@ export async function shareState(ctx: Ctx, a: Artifact, req: FastifyRequest): Pr
   if (!live || (await sysParams(ctx.db)).demoMode) return OFF
   return {
     enabled: true,
-    url: `${previewOrigin(ctx, live.p, req)}/__gg/share/${a.shareToken}`,
+    url: `${previewOrigin(ctx, live.p, req)}/__gg/share/${live.token}`,
     expiresAt: live.s.expiresAt.toISOString(),
   }
 }
@@ -118,7 +120,10 @@ export async function setShare(
       expiresAt: new Date(ctx.now().getTime() + days * DAY),
     })
     .returning({ id: previewShares.id })
-  await ctx.db.update(artifacts).set({ shareToken: token }).where(eq(artifacts.id, a.id))
+  await ctx.db
+    .update(artifacts)
+    .set({ shareToken: seal(token) })
+    .where(eq(artifacts.id, a.id))
   await audit(ctx, {
     category: 'preview',
     actorUserId: me.id,

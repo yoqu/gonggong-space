@@ -6,7 +6,7 @@ import type { ArtifactShareDto, ArtifactSubmitRes } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { strFromU8, unzipSync } from 'fflate'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { plugins, previewShares } from '../src/db/schema.js'
+import { artifacts, plugins, previewShares } from '../src/db/schema.js'
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
@@ -142,6 +142,11 @@ describe('artifact sharing', () => {
     expect((await s.req('POST', url, s.wangCookie, { enabled: true })).json()).toEqual(share)
     expect((await s.req('GET', url, s.liCookie)).json()).toEqual(share)
     expect(await t.db.select().from(previewShares)).toHaveLength(1)
+    // The link's secret is stored sealed, never as written.
+    const [row] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
+    const token = share.url!.split('/__gg/share/')[1]!
+    expect(row!.shareToken).toMatch(/^v1:/)
+    expect(row!.shareToken).not.toContain(token)
 
     // Visitors see the head's stored source, with no element ids and no bridge.
     const link = new URL(share.url!)
