@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.6 — 2026-10-29
+
+- 新增「我的机器管理」，按机器分组管理 Bot，支持工作区清理、daemon 日志和版本提示；机器主人可在任意目录创建独立终端会话 / Add machine management with Bots grouped by machine, workspace cleanup, daemon logs and version notices; owners can create standalone terminal sessions in machine directories
+- 群聊与私聊合并为按最新消息排序的列表，顶部「+」按所选成员创建群聊或私聊 / Combine groups and direct chats in a latest-message list; the top plus button creates the right conversation type from selected members
+- HTML 页面可直接嵌入 Bot 回复，图片点击后使用宿主查看器打开 / Embed HTML pages directly in Bot replies and open images in the host viewer
+- 群 Bot 的附加目录改为在所在机器上直接选择，不再手输路径 / Choose extra Bot directories on its machine instead of entering paths manually
+- 客户端发布支持 Jenkins 分机构建与统一发布，内部环境配置移出公开仓库 / Support distributed Jenkins builds and unified client publication, with internal environment settings kept out of the public repository
+
 ## v0.4.5 — 2026-10-28
 
 - 定时任务支持立即执行，不受启停与时间影响；审批卡新增「本次运行免审批」，本次运行临时切为完全访问，结束后自动恢复 / Scheduled tasks can run immediately regardless of enabled state or timing; approval cards add "allow for this run", which temporarily switches to full access and restores when the run ends
