@@ -76,6 +76,8 @@ export type WorkbenchTab =
   /** A third-party page pinned in the group's tab bar (群标签栏). */
   | { kind: 'link'; url: string; title: string }
   | { kind: 'knowledge'; knowledgeId: string; title: string }
+  /** A hosted artifact's canvas (docs/plan/原型编辑器-Stitch对标-开发计划.md); `title` until its details load. */
+  | { kind: 'artifact'; artifactId: string; title: string }
   /** A daemon-owned shell; closing this tab only detaches its browser socket. */
   | { kind: 'terminal'; botId: string; sessionId?: string }
 
@@ -171,6 +173,8 @@ export function tabKey(t: WorkbenchTab): string {
       return `link:${t.url}`
     case 'knowledge':
       return `kb:${t.knowledgeId}`
+    case 'artifact':
+      return `artifact:${t.artifactId}`
     case 'terminal':
       return `terminal:${t.botId}`
   }
@@ -233,8 +237,8 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
       const tabs = (groupId && benches[groupId]?.tabs) || []
       if (!groupId || (tabs.length >= WORKBENCH_MAX_TABS && !tabs.some((t) => tabKey(t) === key)))
         return false
-      // A web page needs the room: it folds the conversation list (design §10.1).
-      const page = tab.kind === 'web' || tab.kind === 'link'
+      // A web page or a canvas needs the room: it folds the conversation list (design §10.1).
+      const page = tab.kind === 'web' || tab.kind === 'link' || tab.kind === 'artifact'
       const nextMode = page && mode === 'split' ? 'focus' : mode
       update(
         (b) => {
