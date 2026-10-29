@@ -40,7 +40,7 @@ export function useArtifactBot(groupId: string) {
 }
 
 /** `connect-element` comes with the server's R3 contract (Imagine new screen); local until it is merged. */
-export type CanvasCommand = ArtifactCommand | 'connect-element'
+export type CanvasCommand = ArtifactCommand
 export type CanvasCommandReq = Omit<ArtifactCommandReq, 'command'> & { command: CanvasCommand }
 
 /** POST /api/artifacts/:id/commands: the server posts the @bot message as the member. */

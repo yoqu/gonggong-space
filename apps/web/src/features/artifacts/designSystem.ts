@@ -1,25 +1,19 @@
-import { type ArtifactEditOp, tokenValueOk } from '@gonggong/protocol'
+import {
+  type ArtifactDesignSystem,
+  type ArtifactEditOp,
+  type ArtifactWholeFile,
+  tokenValueOk,
+} from '@gonggong/protocol'
 import { api } from '../../lib/api'
 import { syncDesignMd } from './designMd'
 import { loadArtifact } from './store'
 import { parseTokens, writeTokens } from './tokens'
 
-// TODO(R4 merge): the server adds `file` and `design-system` to ArtifactEditOp and `apply-design-system` to
-// ArtifactCommand in packages/protocol; switch to those types once merged.
-export type DesignFile = 'DESIGN.md' | 'tokens.css'
-export type DesignEditOp =
-  | ArtifactEditOp
-  | { kind: 'file'; path: DesignFile; content: string }
-  | { kind: 'design-system'; id: string }
+export type DesignFile = ArtifactWholeFile
+export type DesignEditOp = ArtifactEditOp
 
 /** GET /api/artifacts/:id/design-systems — the plugin's presets. */
-export interface DesignSystemPreset {
-  id: string
-  title: string
-  description: string
-  swatches: string[]
-  category: string
-}
+export type DesignSystemPreset = ArtifactDesignSystem
 
 /** The shown version's design files; `md` null when it has no DESIGN.md. */
 export interface DesignFiles {
