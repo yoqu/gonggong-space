@@ -10,6 +10,10 @@
 # it on the space in one go. Every step checks what is already done, so a failed run can simply be started again.
 # scripts/release.sh reads its usual environment (TAURI_SIGNING_PRIVATE_KEY, APPLE_NOTARY_PROFILE,
 # GONGGONG_SKIP_DOCKER_CAST…) and needs Docker running.
+# With a Jenkins API token in the keychain (`security add-generic-password -s gonggong-jenkins -a <user> -w <token>`),
+# a full release instead starts the Jenkins job gonggong-client-release on the pushed tag: it builds on the Mac agent
+# and on Linux, publishes the GitHub release, uploads to GONGGONG_RELEASE_SERVER (default https://ai.ludoukj.com) and
+# verifies it. GONGGONG_RELEASE_LOCAL=1 keeps the local build.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -110,6 +114,18 @@ git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git tag "$tag"
 step "push main and $tag"
 direct git push -q gitlab HEAD:main
 direct git push -q origin HEAD:main "$tag"
+
+jenkins="https://jenkins.crm.luxelakes.com"
+if [ -z "$daemon_only" ] && [ "${GONGGONG_RELEASE_LOCAL:-}" != 1 ] &&
+  token="$(security find-generic-password -s gonggong-jenkins -w 2>/dev/null)"; then
+  user="$(security find-generic-password -s gonggong-jenkins | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p')"
+  step "start the Jenkins release of $tag"
+  direct curl -sS --fail-with-body -u "$user:$token" -o /dev/null "$jenkins/job/gonggong-client-release/buildWithParameters" \
+    --data-urlencode "REF=$tag" --data PUBLISH_GITHUB=true --data PUBLISH_SERVER=true \
+    --data-urlencode "SERVER=${GONGGONG_RELEASE_SERVER:-https://ai.ludoukj.com}"
+  echo "building, publishing and verifying on $jenkins/job/gonggong-client-release/"
+  exit
+fi
 
 if [ -n "$daemon_only" ]; then
   step "build daemon fast channel (scripts/release.sh --daemon-only)"
