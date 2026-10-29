@@ -40,7 +40,10 @@ async function request<T>(
     signal,
   }
   if (body instanceof FormData) init.body = body
-  else if (body !== undefined) {
+  else if (body instanceof Blob) {
+    init.headers = { ...init.headers, 'content-type': body.type }
+    init.body = body
+  } else if (body !== undefined) {
     init.headers = { ...init.headers, 'content-type': 'application/json' }
     init.body = JSON.stringify(body)
   }
