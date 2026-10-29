@@ -15,6 +15,9 @@
 - HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `GONGGONG_TLS_CERT/GONGGONG_TLS_KEY`，daemon 用 `gg login --server https://127.0.0.1:<port>`（不校验证书，见 `docs/plan/安全说明.md`）
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @gonggong/server db:generate`
 
+## 发版与部署
+- 步骤见 `docs/发版手册.md`（服务端推 `gitlab main` 由 Jenkins 自动测试并部署 ai.ludoukj.com；客户端 `scripts/release/ship.sh <版本>` 触发 Jenkins 构建、发布、校验）。发版和带数据库迁移的改动先确认。
+
 ## 规则
 - **TDD**：先写失败测试（验收 → 集成 → 单元），再实现。切片完成 = 本切片测试全绿 + 全量不回归 + typecheck + lint。
 - 服务端测试用 `test/support/db.ts` 的 `createTestDb()`（每个文件独立数据库），用 `test/support/app.ts` 的种子助手造数据，不要依赖其他切片的 HTTP 流程。

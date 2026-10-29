@@ -23,6 +23,9 @@
 - Rust：`gonggong::t!("中文 {x}", x = v)`，词条在 `crates/gonggong/src/i18n/en.rs`，测试扫描保证全覆盖；语言取 `GG_LANG` → `LC_ALL` → `LC_MESSAGES` → `LANG`。
 - 给 AI agent 看的文本（提示词、工具描述与结果）不翻译。测试默认中文（web/desktop setup 固定 `gg.locale=zh`，e2e `locale: 'zh-CN'`）。
 
+## 发版与部署
+- 步骤见 `docs/发版手册.md`（服务端推 `gitlab main` 由 Jenkins 自动测试并部署 ai.ludoukj.com；客户端 `scripts/release/ship.sh <版本>` 触发 Jenkins 构建、发布、校验）。发版和带数据库迁移的改动先确认。
+
 ## 规则
 - **TDD**：先写失败测试（验收 → 集成 → 单元），再实现。切片完成 = 本切片测试全绿 + 全量不回归 + typecheck + lint。
 - **铁律：小改动默认直接推**（姜维川 2026-10-19 定）：反馈单、小 bug、小需求这类小改动，`pnpm check` 全绿后直接提交并推送 `gitlab main` 与 `origin main`，不用再问。涉及数据库迁移、发版、跨多端的大功能，推送前仍先确认。
