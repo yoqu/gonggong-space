@@ -117,6 +117,7 @@ function dto(a: Artifact, head: VersionRow | undefined, running: boolean): Artif
     archivedAt: a.archivedAt?.toISOString() ?? null,
     running,
     favorites: a.favorites,
+    botId: a.botId,
   }
 }
 

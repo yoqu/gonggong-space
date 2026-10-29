@@ -37,7 +37,7 @@ async function setup() {
   const req = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, cookie = li, payload?: object) =>
     t.app.inject({ method, url, headers: { cookie }, payload })
   const annotate = (
-    o: Partial<{ ggId: string | null; note: string; versionId: string; file: string }> = {},
+    o: Partial<{ ggId: string | null; note: string; versionId: string; file: string; snippet: string }> = {},
   ) =>
     req('POST', `/api/artifacts/${a.id}/annotations`, li, {
       versionId: v1.versionId,
@@ -75,6 +75,27 @@ describe('annotations', () => {
     expect((await s.req('DELETE', `/api/annotations/${n.id}`, s.wangCookie)).statusCode).toBe(403)
     expect((await s.req('DELETE', `/api/annotations/${n.id}`)).statusCode).toBe(204)
     expect((await s.req('GET', `/api/artifacts/${s.a.id}/annotations`)).json()).toEqual([])
+  })
+
+  it('take the snippet from the version source when the client sends none', async () => {
+    const s = await setup()
+    const cut = (o: Parameters<typeof s.annotate>[0]) =>
+      s.annotate({ snippet: undefined, ...o }).then((r) => (r.json() as AnnotationDto).snippet)
+    expect(await cut({})).toBe('<h1 class="t">报名</h1>')
+    expect(await cut({ ggId: null })).toBe('')
+    expect(await cut({ ggId: '99999' })).toBe('')
+    const section = HOME.slice(HOME.indexOf('<section'), HOME.indexOf('</section>') + '</section>'.length)
+    expect(await cut({ ggId: String(HOME.indexOf('<section')) })).toBe(section)
+    const html = String(HOME.indexOf('<html'))
+    const big = `<!doctype html>\n<html><body><p>${'字'.repeat(400)}</p></body></html>\n`
+    const run = await s.run([s.a.id], { status: 'succeeded' })
+    const v2 = (
+      await s.submit(run.id, s.a.id, { ...L1, 'screens/home.html': big }, { parent: s.v1.versionId })
+    ).json() as ArtifactSubmitRes
+    const long = await cut({ versionId: v2.versionId, ggId: html })
+    expect(long).toBe(big.slice(Number(html), Number(html) + 300))
+    // A client's own snippet stays as sent.
+    expect(await cut({ snippet: '<h1>自带</h1>' })).toBe('<h1>自带</h1>')
   })
 
   it('refuse files outside the version, and outsiders', async () => {

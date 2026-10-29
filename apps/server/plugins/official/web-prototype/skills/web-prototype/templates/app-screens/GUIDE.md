@@ -41,6 +41,7 @@ All sizes are CSS px on the device width (miniprogram 375, mobile 390). The kit 
 ## Checklist (P0 = must pass)
 
 - P0 `gg-artifact.json` lists every screen; ids are kebab-case and each `file` is `screens/<id>.html`.
+- P1 Every screen in `gg-artifact.json` has a `prompt` (its design brief) that matches what the screen shows.
 - P0 Every `data-gg-link` points at an existing screen id; the entry screen exists.
 - P0 No hex, `rgb()` or named colours in screen files; no font sizes or radii outside the tokens.
 - P0 Nothing hidden under the status bar, capsule, tab bar or home indicator.

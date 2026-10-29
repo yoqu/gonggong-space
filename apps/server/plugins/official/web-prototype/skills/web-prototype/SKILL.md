@@ -53,7 +53,8 @@ The creation message says which:
 ```
 design/<slug>/
 ├── gg-artifact.json        ← { "title", "device": "miniprogram" | "mobile" | "desktop", "entry": "<screen id>",
-│                               "screens": [{ "id", "title", "file": "screens/<id>.html", "statusBar"?: "light" | "dark" }] }
+│                               "screens": [{ "id", "title", "file": "screens/<id>.html", "statusBar"?: "light" | "dark",
+│                                             "prompt": "<设计说明, ≤ 4000 chars>" }] }
 ├── DESIGN.md               ← copied verbatim from the design system (the artifact's design source of truth)
 ├── tokens.css              ← copied verbatim from the design system
 ├── screens/<id>.html       ← one full HTML document per screen (skeleton below)
@@ -96,7 +97,7 @@ Screen skeleton:
 ### Step 1 — Build
 
 1. Copy the design system's `DESIGN.md` and `tokens.css` to `design/<slug>/`. Not hosted only: also copy `kit/index.html` to `design/<slug>/index.html` and `kit/gg-kit.css`, `kit/gg-kit.js` to `design/<slug>/_gg/`.
-2. Write `gg-artifact.json`, then each screen following the template guide. Links may carry `data-gg-transition` (`push`, `push-back`, `slide-up`, `fade`, `none`; the default is `push`) for the play view.
+2. Write `gg-artifact.json`, then each screen following the template guide. Give every screen a `prompt`: its design brief in the request's language, one paragraph — what the screen is for, its sections in order, the key copy and where its links go (see the example's manifest). People read it in the screen's details and you read it when changing the screen later; when you change a screen, update its `prompt` to match. Links may carry `data-gg-transition` (`push`, `push-back`, `slide-up`, `fade`, `none`; the default is `push`) for the play view.
 
 ### Step 2 — Visual directions (only when asked)
 

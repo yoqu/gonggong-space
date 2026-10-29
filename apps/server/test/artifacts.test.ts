@@ -334,8 +334,11 @@ describe('members', () => {
     const get = (url: string) => t.app.inject({ url, headers: { cookie } })
 
     const list = json<ArtifactDto[]>(await get(`/api/groups/${w.g.id}/artifacts`))
-    expect(list).toMatchObject([{ id: a.id, headVersionId: v2.versionId, head: { n: 2 }, running: false }])
+    expect(list).toMatchObject([
+      { id: a.id, headVersionId: v2.versionId, head: { n: 2 }, running: false, botId: w.bot.id },
+    ])
     const detail = json<ArtifactDto>(await get(`/api/artifacts/${a.id}`))
+    expect(detail.botId).toBe(w.bot.id)
     expect(detail.manifest).toEqual(JSON.parse(MANIFEST))
     expect(detail.head).toMatchObject({
       n: 2,

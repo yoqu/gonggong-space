@@ -9,6 +9,8 @@ import {
   ArtifactEditReq,
   ArtifactFavoritesReq,
   type ArtifactManifestRes,
+  type ArtifactShareDto,
+  ArtifactShareReq,
   ArtifactSubmitReq,
   type ArtifactSubmitRes,
   type ArtifactUploadRes,
@@ -23,25 +25,24 @@ import {
   type SyncMissingRes,
   UpdateAnnotationReq,
 } from '@gonggong/protocol'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { artifacts, artifactVersions, bots, previews, runs } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, runs } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
-import { openPortListener } from '../previews/gateway.js'
 import { previewOrigin } from '../previews/routes.js'
-import { newSlug } from '../previews/service.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, uploadImage } from './edits.js'
+import { exportZip } from './export.js'
 import { pluginDesignSystems } from './kit.js'
 import {
   type Artifact,
@@ -56,6 +57,7 @@ import {
   submitVersion,
   versionDetail,
 } from './service.js'
+import { openArtifactPreview, setShare, shareState } from './share.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
@@ -115,36 +117,6 @@ const quotaFull = (reply: FastifyReply) =>
   })
 
 const PreviewReq = z.object({ versionId: z.string().nullable().optional() })
-
-/** Opens the artifact's preview (one following the head, one per pinned version), reusing an open one. */
-async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: string | null) {
-  const v = versionId ? await requireVersion(ctx.db, a, versionId) : null
-  const pinned = v ? eq(previews.artifactVersionId, v.id) : isNull(previews.artifactVersionId)
-  const [open] = await ctx.db
-    .select()
-    .from(previews)
-    .where(and(eq(previews.artifactId, a.id), pinned, isNull(previews.closedAt)))
-    .limit(1)
-  if (open) return open
-  const [bot] = a.botId ? await ctx.db.select().from(bots).where(eq(bots.id, a.botId)) : []
-  if (!bot?.machineId) return fail('conflict', '产物所属的 Bot 没有绑定机器')
-  const [p] = await ctx.db
-    .insert(previews)
-    .values({
-      slug: newSlug(),
-      kind: 'artifact',
-      machineId: bot.machineId,
-      groupId: a.groupId,
-      botId: bot.id,
-      title: v ? `${a.title} v${v.n}` : a.title,
-      artifactId: a.id,
-      artifactVersionId: v?.id ?? null,
-    })
-    .returning()
-  const preview = p as typeof previews.$inferSelect
-  if (ctx.config.preview.domain) return preview
-  return { ...preview, publicPort: await openPortListener(ctx, preview.id) }
-}
 
 /** Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md S1): daemon checkout / upload, members' reads. */
 export function artifactRoutes(ctx: Ctx) {
@@ -341,6 +313,39 @@ export function artifactRoutes(ctx: Ctx) {
       const p = await openArtifactPreview(ctx, a, versionId)
       return { previewId: p.id, origin: previewOrigin(ctx, p, req), url: `/api/previews/${p.id}/open` }
     })
+
+    app.get<{ Params: { id: string }; Querystring: { version?: string } }>(
+      '/api/artifacts/:id/export.zip',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const out = await exportZip(ctx, a, await requireVersion(ctx.db, a, req.query.version || null))
+        return reply
+          .headers({
+            'content-type': 'application/zip',
+            'content-disposition': `attachment; filename="${out.name}"`,
+            'cache-control': 'private, no-cache',
+          })
+          .send(out.body)
+      },
+    )
+
+    app.get<{ Params: { id: string } }>(
+      '/api/artifacts/:id/share',
+      async (req): Promise<ArtifactShareDto> => {
+        const me = await requireUser(ctx, req)
+        return shareState(ctx, await requireArtifact(ctx, req.params.id, me.id), req)
+      },
+    )
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/share',
+      async (req): Promise<ArtifactShareDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return setShare(ctx, me, a, ArtifactShareReq.parse(req.body).enabled, req)
+      },
+    )
 
     // ── editing (S2) ──
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/edits', async (req, reply) => {

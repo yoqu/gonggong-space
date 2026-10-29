@@ -244,6 +244,7 @@ describe('creations', () => {
     for (const s of [
       `${a!.dir}/`,
       'gg-artifact.json',
+      '每屏写 prompt：一段设计说明',
       'screens/<id>.html',
       '不需要 preview_static',
       'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）',

@@ -174,6 +174,44 @@ describe('gg-bridge', () => {
     expect(s.last()).toMatchObject({ type: 'nav' })
   })
 
+  it('reports the transition and a clean, truncated snippet of the selected element', () => {
+    const long = '很长的文字'.repeat(100)
+    const s = screen(
+      PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-transition="slide-up"').replace(
+        '<button id="go">提交</button>',
+        `<button id="go">提交</button><p id="long">${long}</p>`,
+      ),
+    )
+    s.send({ type: 'mode', mode: 'mark' })
+    s.send({ type: 'highlight', ggIds: [s.$('a').getAttribute('data-gg-id')] })
+    s.$('a').dispatchEvent(new s.w.MouseEvent('mouseover', { bubbles: true }))
+    s.click('a')
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'select',
+      transition: 'slide-up',
+      snippet: '<a data-gg-link="done" data-gg-transition="slide-up" href="other.html">去报名</a>',
+    })
+    s.click('h1')
+    expect(s.last()).toMatchObject({
+      transition: null,
+      snippet: '<h1 id="t" style="color: var(--c)">报名</h1>',
+    })
+    s.click('section')
+    const section = BridgeFromShell.parse(s.last())
+    const snippet = section.type === 'select' ? section.snippet : ''
+    expect(snippet).toHaveLength(300)
+    expect(snippet.startsWith('<section data-section="hero"><h1 id="t"')).toBe(true)
+    expect(snippet).not.toContain('data-gg-id')
+    expect(snippet).not.toMatch(/data-gg-(selected|hover|mark)/)
+
+    const bad = screen(
+      PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-transition="spin"'),
+    )
+    bad.send({ type: 'mode', mode: 'edit' })
+    bad.click('a')
+    expect(bad.last()).toMatchObject({ type: 'select', transition: null })
+  })
+
   it('reports hovered elements with outlines that leave the layout alone', () => {
     const s = screen()
     s.send({ type: 'mode', mode: 'mark' })

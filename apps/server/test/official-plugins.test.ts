@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  GgArtifactManifest,
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
   PLUGIN_MAX_FILES,
@@ -92,6 +93,7 @@ describe('official plugin web-prototype', () => {
     expect(skill).toContain('├── DESIGN.md')
     expect(skill).toMatch(/Hosted.*Do \*\*not\*\* copy `index.html` or `_gg\/`/)
     expect(skill).toMatch(/Not hosted.*copy `kit\/index.html`/)
+    expect(skill).toContain('Give every screen a `prompt`')
     for (const ds of manifest.designSystems)
       expect(tokensCssOk(readFileSync(join(skillDir, ds.dir, 'tokens.css'), 'utf8')), ds.id).toBe(true)
   })
@@ -102,6 +104,7 @@ describe('official plugin web-prototype', () => {
         readFileSync(join(skillDir, 'design-systems/luke-plus', f), 'utf8'),
       )
     expect(ids.has(app.entry)).toBe(true)
+    expect(GgArtifactManifest.parse(app).screens.every((s) => s.prompt)).toBe(true)
     for (const s of app.screens) {
       expect(s.file).toBe(`screens/${s.id}.html`)
       const html = readFileSync(join(example, s.file), 'utf8')

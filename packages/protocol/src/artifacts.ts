@@ -26,6 +26,8 @@ export const GgArtifactScreen = z.object({
   title: z.string().min(1).max(80),
   file: z.string(),
   statusBar: z.enum(['light', 'dark']).optional(),
+  /** The screen's design prompt (what it is for, its sections, key copy), shown in its details like Stitch's. */
+  prompt: z.string().max(4000).optional(),
 })
 export type GgArtifactScreen = z.infer<typeof GgArtifactScreen>
 export const GG_ARTIFACT_MANIFEST = 'gg-artifact.json'
@@ -161,6 +163,8 @@ export const ArtifactDto = z.object({
   running: z.boolean(),
   /** Starred screen ids (PUT /api/artifacts/:id/favorites); not versioned. */
   favorites: z.array(z.string()),
+  /** The bot it was created for: the canvas hands AI instructions to it by default. */
+  botId: z.string().nullable(),
 })
 export type ArtifactDto = z.infer<typeof ArtifactDto>
 
@@ -404,8 +408,8 @@ export const CreateAnnotationReq = z.object({
   ggId: GgId.nullable(),
   selector: z.string().max(500),
   rect: Rect,
-  /** The element's outer HTML, truncated. */
-  snippet: z.string().max(2000),
+  /** The element's outer HTML, truncated; absent: the server cuts it from the version's source by `ggId`. */
+  snippet: z.string().max(2000).optional(),
   note: z.string().min(1).max(2000),
 })
 export type CreateAnnotationReq = z.infer<typeof CreateAnnotationReq>
@@ -416,6 +420,7 @@ export const UpdateAnnotationReq = z.object({
 })
 export type UpdateAnnotationReq = z.infer<typeof UpdateAnnotationReq>
 export const AnnotationDto = CreateAnnotationReq.extend({
+  snippet: z.string(),
   id: z.string(),
   artifactId: z.string(),
   authorId: z.string(),
@@ -457,6 +462,7 @@ export const BridgeToShell = z.discriminatedUnion('type', [
   z.object({ type: z.literal('reload') }),
 ])
 export type BridgeToShell = z.infer<typeof BridgeToShell>
+export const BRIDGE_SNIPPET_MAX = 300
 const FromScreen = { source: z.literal('gg-bridge'), file: ArtifactHtmlFile }
 /** Where the screen's `data-gg-link` elements are, in document coordinates (for the canvas's link arrows). */
 export const BridgeLinkRect = z.object({ ggId: GgId.nullable(), screen: z.string(), rect: Rect })
@@ -495,6 +501,10 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
     href: z.string().nullable(),
     /** `data-gg-link`. */
     link: z.string().nullable(),
+    /** `data-gg-transition`, when valid. */
+    transition: ArtifactTransition.nullable(),
+    /** Its outer HTML without the injected `data-gg-*` attributes, cut to BRIDGE_SNIPPET_MAX characters. */
+    snippet: z.string().max(BRIDGE_SNIPPET_MAX),
   }),
   /** Preview mode: a `data-gg-link` element was clicked; `transition`: its `data-gg-transition`, when valid. */
   z.object({
@@ -537,6 +547,19 @@ export const ArtifactSubmitRes = z.object({
   stale: z.boolean(),
 })
 export type ArtifactSubmitRes = z.infer<typeof ArtifactSubmitRes>
+
+// ── Export / share ──────────────────────────────────────────────────────────
+// GET /api/artifacts/:id/export.zip?version= — the version's files plus the plugin's shell (index.html, _gg/) and a
+// README.txt; the shell fetches gg-artifact.json, so it opens over any static HTTP server.
+/** POST /api/artifacts/:id/share — turns the public link to the head preview on or off (GET reads it). */
+export const ArtifactShareReq = z.object({ enabled: z.boolean() })
+export type ArtifactShareReq = z.infer<typeof ArtifactShareReq>
+export const ArtifactShareDto = z.object({
+  enabled: z.boolean(),
+  url: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+})
+export type ArtifactShareDto = z.infer<typeof ArtifactShareDto>
 
 /** Instruction templates turned into @bot messages with the selection as context (R3). */
 export const ArtifactCommand = z.enum([
