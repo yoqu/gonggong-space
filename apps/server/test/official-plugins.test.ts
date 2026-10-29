@@ -1,6 +1,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { PLUGIN_MANIFEST, PLUGIN_MAX_BYTES, PLUGIN_MAX_FILES, PluginManifest } from '@gonggong/protocol'
+import {
+  PLUGIN_MANIFEST,
+  PLUGIN_MAX_BYTES,
+  PLUGIN_MAX_FILES,
+  PluginManifest,
+  tokensCssOk,
+} from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
 import { frontmatter } from '../src/modules/skills/service.js'
 
@@ -81,10 +87,20 @@ describe('official plugin web-prototype', () => {
     expect(manifest.designSystems.map((d) => d.id)).toEqual(['luke-plus'])
   })
 
+  it('tells the agent to bring DESIGN.md along and to copy the kit only without hosting', () => {
+    const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('├── DESIGN.md')
+    expect(skill).toMatch(/Hosted.*Do \*\*not\*\* copy `index.html` or `_gg\/`/)
+    expect(skill).toMatch(/Not hosted.*copy `kit\/index.html`/)
+    for (const ds of manifest.designSystems)
+      expect(tokensCssOk(readFileSync(join(skillDir, ds.dir, 'tokens.css'), 'utf8')), ds.id).toBe(true)
+  })
+
   it('has an example that keeps the screen contract', () => {
-    expect(readFileSync(join(example, 'tokens.css'), 'utf8')).toBe(
-      readFileSync(join(skillDir, 'design-systems/luke-plus/tokens.css'), 'utf8'),
-    )
+    for (const f of ['DESIGN.md', 'tokens.css'])
+      expect(readFileSync(join(example, f), 'utf8'), f).toBe(
+        readFileSync(join(skillDir, 'design-systems/luke-plus', f), 'utf8'),
+      )
     expect(ids.has(app.entry)).toBe(true)
     for (const s of app.screens) {
       expect(s.file).toBe(`screens/${s.id}.html`)

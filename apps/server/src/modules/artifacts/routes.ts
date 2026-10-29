@@ -4,6 +4,7 @@ import {
   type AnnotationDto,
   ARTIFACT_UPLOAD_MAX_BYTES,
   ArtifactCommandReq,
+  type ArtifactDesignSystem,
   type ArtifactDto,
   ArtifactEditReq,
   ArtifactFavoritesReq,
@@ -41,6 +42,7 @@ import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation }
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, uploadImage } from './edits.js'
+import { pluginDesignSystems } from './kit.js'
 import {
   type Artifact,
   artifactDetail,
@@ -353,6 +355,15 @@ export function artifactRoutes(ctx: Ctx) {
       }
       return artifactDetail(ctx, (await findArtifact(ctx.db, a.id)) as Artifact)
     })
+
+    app.get<{ Params: { id: string } }>(
+      '/api/artifacts/:id/design-systems',
+      async (req): Promise<ArtifactDesignSystem[]> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return pluginDesignSystems(ctx.db, a.pluginVersionId)
+      },
+    )
 
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/uploads', async (req, reply) => {
       const body = req.body as Readable | undefined

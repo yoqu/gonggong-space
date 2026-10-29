@@ -251,7 +251,8 @@ export function tokenValueOk(value: string) {
   )
 }
 
-export const ArtifactTransition = z.enum(['none', 'push', 'slide-up', 'fade'])
+/** How the prototype view moves to a link's target: `push-back` slides in from the left. */
+export const ArtifactTransition = z.enum(['none', 'push', 'push-back', 'slide-up', 'fade'])
 export type ArtifactTransition = z.infer<typeof ArtifactTransition>
 export const EditableAttr = z.enum(['src', 'href', 'alt', 'data-gg-link', 'data-gg-transition'])
 export type EditableAttr = z.infer<typeof EditableAttr>
@@ -265,12 +266,44 @@ export function attrValueOk(name: EditableAttr, value: string) {
       return value.length <= 2000 && (RELATIVE_URL.test(value) || HTTP_URL.test(value))
     case 'alt':
       return value.length <= 500
+    // Empty: removes the attribute.
     case 'data-gg-link':
-      return ArtifactScreenId.safeParse(value).success
+      return value === '' || ArtifactScreenId.safeParse(value).success
     case 'data-gg-transition':
-      return ArtifactTransition.safeParse(value).success
+      return value === '' || ArtifactTransition.safeParse(value).success
   }
 }
+
+/**
+ * A tokens.css a member may save whole: comments, `:root` rules of custom properties and `.t-*` type rules only — no
+ * at-rules, `url(`, `expression`, `<` or escapes, so it cannot load anything or leave the stylesheet.
+ */
+export function tokensCssOk(css: string) {
+  if (/@|url\(|expression|[<\\]/i.test(css)) return false
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  if (body.includes('/*')) return false
+  const rule = /\s*([^{}]+?)\s*\{([^{}]*)\}/y
+  let at = 0
+  for (let m = rule.exec(body); m; m = rule.exec(body)) {
+    at = rule.lastIndex
+    const selectors = (m[1] ?? '').split(',').map((x) => x.trim())
+    const root = selectors.every((x) => x === ':root')
+    if (!root && !selectors.every((x) => /^\.t-[a-z0-9-]+$/.test(x))) return false
+    for (const decl of (m[2] ?? '').split(';')) {
+      if (!decl.trim()) continue
+      const i = decl.indexOf(':')
+      const name = decl.slice(0, i).trim()
+      if (i < 0 || !(root ? /^--[a-z0-9-]+$/i : /^-?[a-z][a-z0-9-]*$/).test(name)) return false
+      if (!tokenValueOk(decl.slice(i + 1))) return false
+    }
+  }
+  return body.slice(at).trim() === ''
+}
+
+/** Files of an artifact a member may replace whole (the design system panel). */
+export const ArtifactWholeFile = z.enum(['DESIGN.md', 'tokens.css'])
+export type ArtifactWholeFile = z.infer<typeof ArtifactWholeFile>
+export const ARTIFACT_WHOLE_FILE_MAX_BYTES = 200 * 1024
 
 const At = { file: ArtifactHtmlFile, ggId: GgId }
 export const ArtifactEditOp = z.discriminatedUnion('kind', [
@@ -300,6 +333,24 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('delete'), ...At }),
   /** An uploaded image copied into `assets/`; the element's `src` points at it. */
   z.object({ kind: z.literal('asset'), ...At, uploadId: z.string() }),
+  /** Replaces DESIGN.md (stored as plain text; clients escape it) or tokens.css (see tokensCssOk). */
+  z
+    .object({ kind: z.literal('file'), path: ArtifactWholeFile, content: z.string() })
+    .superRefine((o, ctx) => {
+      if (new TextEncoder().encode(o.content).length > ARTIFACT_WHOLE_FILE_MAX_BYTES)
+        ctx.addIssue({ code: 'custom', path: ['content'], message: '文件不能超过 200 KB' })
+      else if (o.path === 'tokens.css' && !tokensCssOk(o.content))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['content'],
+          message: 'tokens.css 只能包含令牌声明、注释和 .t-* 文字样式',
+        })
+    }),
+  /**
+   * Copies DESIGN.md and tokens.css of the design system `id` of the artifact's plugin version over the artifact's,
+   * and makes it the artifact's design system.
+   */
+  z.object({ kind: z.literal('design-system'), id: z.string().regex(KEBAB).max(64) }),
   /** Screen operations on gg-artifact.json (`duplicate` also copies the screen file). */
   z
     .object({
@@ -407,11 +458,23 @@ export const BridgeToShell = z.discriminatedUnion('type', [
 ])
 export type BridgeToShell = z.infer<typeof BridgeToShell>
 const FromScreen = { source: z.literal('gg-bridge'), file: ArtifactHtmlFile }
-/** Element rects are in the screen's viewport (its iframe), in CSS pixels. */
+/** Where the screen's `data-gg-link` elements are, in document coordinates (for the canvas's link arrows). */
+export const BridgeLinkRect = z.object({ ggId: GgId.nullable(), screen: z.string(), rect: Rect })
+export type BridgeLinkRect = z.infer<typeof BridgeLinkRect>
+export const BridgeBackRect = z.object({ ggId: GgId.nullable(), rect: Rect })
+export type BridgeBackRect = z.infer<typeof BridgeBackRect>
+const Layout = {
+  width: z.number(),
+  height: z.number(),
+  links: z.array(BridgeLinkRect).max(500).optional(),
+  /** `data-gg-back` elements. */
+  back: z.array(BridgeBackRect).max(500).optional(),
+}
+/** Element rects are in the screen's viewport (its iframe), in CSS pixels, except `links` / `back`. */
 export const BridgeFromShell = z.discriminatedUnion('type', [
-  /** On load, then `size` whenever the document's size changes (the canvas sizes the iframe to it). */
-  z.object({ ...FromScreen, type: z.literal('ready'), width: z.number(), height: z.number() }),
-  z.object({ ...FromScreen, type: z.literal('size'), width: z.number(), height: z.number() }),
+  /** On load, then `size` whenever the document's size or its links' layout changes (the canvas sizes the iframe to it). */
+  z.object({ ...FromScreen, type: z.literal('ready'), ...Layout }),
+  z.object({ ...FromScreen, type: z.literal('size'), ...Layout }),
   /** `ggId` and `rect` null when the pointer leaves the elements. */
   z.object({ ...FromScreen, type: z.literal('hover'), ggId: GgId.nullable(), rect: Rect.nullable() }),
   z.object({
@@ -433,8 +496,13 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
     /** `data-gg-link`. */
     link: z.string().nullable(),
   }),
-  /** Preview mode: a `data-gg-link` element was clicked. */
-  z.object({ ...FromScreen, type: z.literal('nav'), screen: z.string() }),
+  /** Preview mode: a `data-gg-link` element was clicked; `transition`: its `data-gg-transition`, when valid. */
+  z.object({
+    ...FromScreen,
+    type: z.literal('nav'),
+    screen: z.string(),
+    transition: ArtifactTransition.optional(),
+  }),
   /** Preview mode: a `data-gg-back` element was clicked. */
   z.object({ ...FromScreen, type: z.literal('back') }),
 ])
@@ -487,6 +555,10 @@ export const ArtifactCommand = z.enum([
   'diagram',
   'project-brief',
   'edit-with-ai',
+  /** Restyles every screen to the artifact's current DESIGN.md / tokens.css, keeping content and structure. */
+  'apply-design-system',
+  /** Imagine new screen: a new screen as `text` describes, linked from the selected elements. */
+  'connect-element',
 ])
 export type ArtifactCommand = z.infer<typeof ArtifactCommand>
 
@@ -497,7 +569,7 @@ export type ArtifactElementRef = z.infer<typeof ArtifactElementRef>
 /**
  * POST /api/artifacts/:id/commands — posts an @bot message as the user with the instruction for `command` and the
  * selection (answers its MessageDto). `count`: how many variations (default 3); `text`: the request (needed by
- * `edit-with-ai`, which also needs `ggIds`).
+ * `edit-with-ai` and `connect-element`, which also need `ggIds`).
  */
 export const ArtifactCommandReq = z
   .object({
@@ -509,11 +581,21 @@ export const ArtifactCommandReq = z
     count: z.number().int().min(1).max(5).optional(),
   })
   .superRefine((r, ctx) => {
-    if (r.command !== 'edit-with-ai') return
+    if (r.command !== 'edit-with-ai' && r.command !== 'connect-element') return
     if (!r.text?.trim()) ctx.addIssue({ code: 'custom', path: ['text'], message: '缺少修改要求' })
     if (!r.ggIds?.length) ctx.addIssue({ code: 'custom', path: ['ggIds'], message: '没有选中元素' })
   })
 export type ArtifactCommandReq = z.infer<typeof ArtifactCommandReq>
+
+/** GET /api/artifacts/:id/design-systems — the design systems of the artifact's plugin version (the panel's presets). */
+export const ArtifactDesignSystem = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string().nullable(),
+  swatches: z.array(z.string()),
+})
+export type ArtifactDesignSystem = z.infer<typeof ArtifactDesignSystem>
 
 /**
  * SendMessageReq.artifactContext — what the canvas has selected when a member sends from the group composer: the

@@ -1,8 +1,9 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type {
   ArtifactCard,
+  ArtifactDesignSystem,
   ArtifactDto,
   ArtifactEditOp,
   ArtifactSubmitRes,
@@ -12,7 +13,8 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifacts, artifactVersions, messages } from '../src/db/schema.js'
+import { artifacts, artifactVersions, messages, plugins } from '../src/db/schema.js'
+import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -41,9 +43,15 @@ const PNG = Buffer.concat([
   Buffer.from('pixels'),
 ])
 
-async function setup() {
+async function setup(o: { plugin?: boolean } = {}) {
   const w = await artifactWorld(t)
-  const a = await w.artifact()
+  let plugin = {}
+  if (o.plugin) {
+    await syncBuiltinPlugins(t.ctx, BUILTIN_PLUGINS)
+    const [p] = await t.db.select().from(plugins).where(eq(plugins.name, 'web-prototype'))
+    plugin = { pluginId: p!.id, pluginVersionId: p!.versionId, designSystemId: null }
+  }
+  const a = await w.artifact(plugin)
   const [card] = await t.db
     .insert(messages)
     .values({
@@ -241,6 +249,121 @@ describe('direct edits', () => {
       },
     })
     expect(res.statusCode).toBe(404)
+  })
+})
+
+const LUKE = join(BUILTIN_PLUGINS, 'web-prototype/skills/web-prototype/design-systems/luke-plus')
+
+describe('design system edits', () => {
+  it('replaces DESIGN.md and tokens.css whole, and lint leaves DESIGN.md alone', async () => {
+    const s = await setup()
+    const md = '# 品牌\n\n<script>alert(1)</script> 只是文字\n'
+    const css =
+      '/* 主题 */\n:root { --color-primary: #0071e3; --font-sans: "PingFang SC", sans-serif; }\n.t-title { font-size: 20px; }\n'
+    const res = await s.edit([
+      { kind: 'file', path: 'DESIGN.md', content: md },
+      { kind: 'file', path: 'tokens.css', content: css },
+      { kind: 'token', name: '--color-primary', value: '#111111' },
+    ])
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as ArtifactDto).head?.issues).toEqual([])
+    expect(await s.file('DESIGN.md')).toBe(md)
+    expect(await s.file('tokens.css')).toBe(css.replace('#0071e3', '#111111'))
+  })
+
+  it('refuses a tokens.css that could load or break out, and oversized files', async () => {
+    const s = await setup()
+    for (const content of [
+      '@import url("https://evil.test/x.css");',
+      ':root { --a: url(https://evil.test/x.png); }',
+      'body { display: none; }',
+      ':root { --a: 1px; } </style><script>alert(1)</script>',
+    ]) {
+      const res = await s.edit([{ kind: 'file', path: 'tokens.css', content }])
+      expect([content, res.statusCode]).toEqual([content, 400])
+    }
+    expect(
+      (await s.edit([{ kind: 'file', path: 'DESIGN.md', content: 'x'.repeat(200 * 1024 + 1) }])).statusCode,
+    ).toBe(400)
+    expect((await s.edit([{ kind: 'file', path: 'index.html', content: '<p>' }])).statusCode).toBe(400)
+    expect(await s.versions()).toBe(1)
+  })
+
+  it('lists the plugin design systems as presets and applies one', async () => {
+    const s = await setup({ plugin: true })
+    const list = await t.app.inject({
+      url: `/api/artifacts/${s.a.id}/design-systems`,
+      headers: { cookie: s.cookie },
+    })
+    expect(list.statusCode).toBe(200)
+    expect(list.json() as ArtifactDesignSystem[]).toEqual([
+      {
+        id: 'luke-plus',
+        title: '麓客+',
+        description: expect.stringContaining('麓湖'),
+        category: '品牌',
+        swatches: ['#155332', '#F5F5F7', '#FFFFFF', '#000000', '#FEE70F'],
+      },
+    ])
+    const res = await s.edit([{ kind: 'design-system', id: 'luke-plus' }])
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as ArtifactDto).designSystemId).toBe('luke-plus')
+    expect(await s.file('DESIGN.md')).toBe(readFileSync(join(LUKE, 'DESIGN.md'), 'utf8'))
+    expect(await s.file('tokens.css')).toBe(readFileSync(join(LUKE, 'tokens.css'), 'utf8'))
+    const [row] = await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id))
+    expect(row!.designSystemId).toBe('luke-plus')
+  })
+
+  it('refuses unknown design systems and artifacts without a plugin', async () => {
+    const s = await setup({ plugin: true })
+    expect((await s.edit([{ kind: 'design-system', id: 'nope' }])).statusCode).toBe(400)
+    const bare = await setup()
+    expect((await bare.edit([{ kind: 'design-system', id: 'luke-plus' }])).statusCode).toBe(400)
+    const list = await t.app.inject({
+      url: `/api/artifacts/${bare.a.id}/design-systems`,
+      headers: { cookie: bare.cookie },
+    })
+    expect(list.json()).toEqual([])
+    const outsider = await t.app.inject({
+      url: `/api/artifacts/${s.a.id}/design-systems`,
+      headers: { cookie: await t.seed.cookie(s.outsider.id) },
+    })
+    expect(outsider.statusCode).toBe(404)
+  })
+})
+
+describe('prototype links', () => {
+  it('links to existing screens with a transition, and an empty value removes them', async () => {
+    const s = await setup()
+    const a = { file: 'screens/home.html', ggId: id(HOME, '<a ') }
+    const h1 = { file: 'screens/home.html', ggId: id(HOME, '<h1') }
+    const res = await s.edit([
+      { kind: 'attr', ...a, name: 'data-gg-link', value: '' },
+      { kind: 'attr', ...h1, name: 'data-gg-link', value: 'done' },
+      { kind: 'attr', ...h1, name: 'data-gg-transition', value: 'push-back' },
+    ])
+    expect(res.statusCode).toBe(200)
+    expect(await s.file('screens/home.html')).toBe(
+      HOME.replace(
+        '<h1 class="t">',
+        '<h1 class="t" data-gg-link="done" data-gg-transition="push-back">',
+      ).replace('<a data-gg-link="done" ', '<a '),
+    )
+  })
+
+  it('refuses a link to a screen the manifest does not list', async () => {
+    const s = await setup()
+    const h1 = { file: 'screens/home.html', ggId: id(HOME, '<h1') }
+    expect((await s.edit([{ kind: 'attr', ...h1, name: 'data-gg-link', value: 'nope' }])).statusCode).toBe(
+      400,
+    )
+    // A screen deleted in the same save is gone too.
+    const gone = await s.edit([
+      { kind: 'attr', ...h1, name: 'data-gg-link', value: 'done' },
+      { kind: 'manifest', op: 'delete', screenId: 'done' },
+    ])
+    expect(gone.statusCode).toBe(400)
+    expect(await s.versions()).toBe(1)
   })
 })
 

@@ -1,6 +1,6 @@
 {
   "name": "web-prototype",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "title": "产品原型",
   "description": "小程序、App 的多屏可点击原型：AI 只写业务页面，平台外壳负责设备框、状态栏和屏间跳转，按设计系统生成到工作区 design/<slug>/ 并发布预览。",
   "category": "web",

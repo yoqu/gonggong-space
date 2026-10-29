@@ -59,7 +59,21 @@
 
   /* device */
   .device { position: relative; overflow: hidden; background: #fff; width: var(--w); height: var(--h); }
-  .device iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .device iframe { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+  .status, .capsule { z-index: 2; }
+  .device iframe.over { z-index: 1; }
+
+  /* transitions between screens in play view (data-gg-transition) */
+  @keyframes gg-push-in { from { transform: translateX(100%); } }
+  @keyframes gg-push-out { to { transform: translateX(-30%); filter: brightness(0.85); } }
+  @keyframes gg-push-back-in { from { transform: translateX(-30%); filter: brightness(0.85); } }
+  @keyframes gg-push-back-out { to { transform: translateX(100%); } }
+  @keyframes gg-slide-up-in { from { transform: translateY(100%); } }
+  @keyframes gg-slide-up-out { to { filter: brightness(0.85); } }
+  @keyframes gg-slide-down-in { from { filter: brightness(0.85); } }
+  @keyframes gg-slide-down-out { to { transform: translateY(100%); } }
+  @keyframes gg-fade-in { from { opacity: 0; } }
+  @keyframes gg-fade-out { to { opacity: 0; } }
   .status {
     position: absolute; inset: 0 0 auto; height: var(--status); display: flex; align-items: center;
     justify-content: space-between; padding: 4px 28px 0 34px; pointer-events: none;
@@ -179,7 +193,7 @@
     const play = document.createElement('button')
     play.type = 'button'
     play.textContent = '演示'
-    play.onclick = () => { setView('play'); go(s.id) }
+    play.onclick = () => { setView('play'); go(s.id, 'none') }
     label.append(play)
     const { el, iframe } = makeDevice(s)
     frame.append(label, el)
@@ -298,7 +312,7 @@
     b.type = 'button'
     b.textContent = s.title
     b.dataset.id = s.id
-    b.onclick = () => go(s.id)
+    b.onclick = () => go(s.id, 'none')
     list.append(b)
   }
   const fitStage = () => {
@@ -306,25 +320,64 @@
     const pad = device.framed ? 68 : 48
     stage.style.transform = `scale(${Math.min(1, (box.width - pad) / device.w, (box.height - pad) / device.h)})`
   }
+  // Each entry: the screen and how it was entered, so going back plays the reverse.
   const stack = []
-  const show = (id) => {
+  const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
+  const REVERSE = { push: 'push-back', 'push-back': 'push', 'slide-up': 'slide-down', fade: 'fade', none: 'none' }
+  const still = matchMedia('(prefers-reduced-motion: reduce)')
+  const show = (id, transition = 'none') => {
     const s = screens.get(id)
-    player.iframe.src = s.file
-    player.iframe.title = s.title
+    for (const f of player.el.querySelectorAll('iframe')) if (f !== player.iframe) f.remove()
+    const old = player.iframe
+    old.style.animation = ''
+    old.classList.remove('over')
+    if (transition === 'none' || still.matches) {
+      old.src = s.file
+      old.title = s.title
+    } else {
+      const next = document.createElement('iframe')
+      next.title = s.title
+      next.style.visibility = 'hidden'
+      old.after(next)
+      // Pushing back and sliding down move the old screen away on top of the new one.
+      const leaving = transition === 'push-back' || transition === 'slide-down'
+      ;(leaving ? old : next).classList.add('over')
+      next.addEventListener(
+        'load',
+        () => {
+          next.style.visibility = ''
+          next.style.animation = `gg-${transition}-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both`
+          old.style.animation = `gg-${transition}-out 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both`
+          next.addEventListener(
+            'animationend',
+            () => {
+              old.remove()
+              next.style.animation = ''
+              next.classList.remove('over')
+            },
+            { once: true },
+          )
+        },
+        { once: true },
+      )
+      next.src = s.file
+      player.iframe = next
+    }
     player.el.classList.toggle('light', s.statusBar === 'light')
     for (const b of list.children) b.toggleAttribute('aria-current', b.dataset.id === id)
     back.disabled = stack.length < 2
     history.replaceState(null, '', `#play:${id}`)
   }
-  const go = (id) => {
-    if (!screens.has(id) || stack.at(-1) === id) return
-    stack.push(id)
-    show(id)
+  const go = (id, transition = 'none') => {
+    if (!screens.has(id) || stack.at(-1)?.id === id) return
+    const t = TRANSITIONS.includes(transition) ? transition : 'push'
+    stack.push({ id, t })
+    show(id, t)
   }
   back.onclick = () => {
     if (stack.length < 2) return
-    stack.pop()
-    show(stack.at(-1))
+    const { t } = stack.pop()
+    show(stack.at(-1).id, REVERSE[t])
   }
 
   // ---- views ----
@@ -340,8 +393,8 @@
       fit()
     } else {
       fitStage()
-      if (!stack.length) go(manifest.entry)
-      else show(stack.at(-1))
+      if (!stack.length) go(manifest.entry, 'none')
+      else show(stack.at(-1).id)
     }
   }
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view)
@@ -351,7 +404,8 @@
     if (e.origin !== location.origin || e.data?.type !== 'gg:nav') return
     if (current === 'play') {
       if (e.source !== player.iframe.contentWindow) return
-      if (e.data.screen) go(e.data.screen)
+      // A link without data-gg-transition pushes.
+      if (e.data.screen) go(e.data.screen, e.data.transition ?? 'push')
       else back.onclick()
       return
     }
@@ -361,7 +415,7 @@
   const hash = decodeURIComponent(location.hash.slice(1))
   if (hash.startsWith('play:')) {
     const id = hash.slice(5)
-    stack.push(screens.has(id) ? id : manifest.entry)
+    stack.push({ id: screens.has(id) ? id : manifest.entry, t: 'none' })
     setView('play')
   } else setView('canvas')
 })()

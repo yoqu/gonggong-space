@@ -74,6 +74,12 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await expect(card).toContainText('就绪')
         await expect(card).not.toContainText('规范问题')
         expect((await replies()).at(-1)).toContain('before: none')
+        // The daemon screenshots the shell after the upload; the card shows it once it lands.
+        const shot = card.getByRole('img', { name: 'e2e 原型 缩略图' })
+        await expect(shot).toBeVisible({ timeout: 60_000 })
+        await expect
+          .poll(() => shot.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 30_000 })
+          .toBeGreaterThan(0)
       })
 
       const artifact = (await api.call<ArtifactDto[]>('get', `/api/groups/${group.id}/artifacts`))[0]!

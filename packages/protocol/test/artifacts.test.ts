@@ -28,6 +28,7 @@ import {
   SendMessageReq,
   STYLE_PROPS,
   styleValueOk,
+  tokensCssOk,
   tokenValueOk,
 } from '../src/index.js'
 
@@ -142,6 +143,48 @@ describe('attr values', () => {
     expect(attrValueOk('data-gg-link', 'x" onload="')).toBe(false)
     expect(attrValueOk('data-gg-transition', 'push')).toBe(true)
     expect(attrValueOk('data-gg-transition', 'spin')).toBe(false)
+    for (const v of ['none', 'push', 'push-back', 'slide-up', 'fade'])
+      expect(attrValueOk('data-gg-transition', v)).toBe(true)
+  })
+  it('an empty data-gg-link or data-gg-transition removes it', () => {
+    expect(attrValueOk('data-gg-link', '')).toBe(true)
+    expect(attrValueOk('data-gg-transition', '')).toBe(true)
+    expect(attrValueOk('alt', '')).toBe(true)
+    expect(attrValueOk('src', '')).toBe(false)
+  })
+})
+
+describe('tokens.css', () => {
+  const LUKE = readFileSync(
+    join(
+      import.meta.dirname,
+      '../../../apps/server/plugins/official/web-prototype/skills/web-prototype/design-systems/luke-plus/tokens.css',
+    ),
+    'utf8',
+  )
+  it('takes custom properties under :root, .t-* rules and comments', () => {
+    expect(tokensCssOk(LUKE)).toBe(true)
+    expect(tokensCssOk('')).toBe(true)
+    expect(tokensCssOk(':root{--a:1px}.t-x,.t-y{font-size:var(--a);}/* c */')).toBe(true)
+  })
+  it.each([
+    ['@import', '@import "x.css"; :root { --a: 1px; }'],
+    ['@media', '@media (min-width: 1px) { :root { --a: 1px; } }'],
+    ['url(', ':root { --a: url(x.png); }'],
+    ['expression', '.t-x { width: expression(alert(1)); }'],
+    ['<', ':root { --a: 1px; } </style><script>'],
+    ['backslash', ':root { --a: "\\3c"; }'],
+    ['other selectors', 'body { --a: 1px; }'],
+    ['mixed selectors', ':root, body { --a: 1px; }'],
+    ['plain property under :root', ':root { color: red; }'],
+    ['custom-looking class', '.title { font-size: 1px; }'],
+    ['unbalanced brace', ':root { --a: 1px; '],
+    ['nested braces', ':root { --a: { x }; }'],
+    ['text outside rules', 'x :root { --a: 1px; }'],
+    ['unterminated comment', ':root { --a: 1px; } /* x'],
+    ['declaration without colon', ':root { --a; }'],
+  ])('rejects %s', (_, css) => {
+    expect(tokensCssOk(css)).toBe(false)
   })
 })
 
@@ -160,8 +203,24 @@ describe('edits', () => {
       { kind: 'manifest', op: 'duplicate', screenId: 'home' },
       { kind: 'manifest', op: 'delete', screenId: 'home' },
       { kind: 'manifest', op: 'reorder', screenId: 'home', index: 2 },
+      { kind: 'file', path: 'DESIGN.md', content: '# 设计 <b>' },
+      { kind: 'file', path: 'tokens.css', content: ':root { --color-primary: #000; }' },
+      { kind: 'design-system', id: 'luke-plus' },
+      { kind: 'attr', file, ggId: '10', name: 'data-gg-link', value: '' },
+      { kind: 'attr', file, ggId: '10', name: 'data-gg-transition', value: 'push-back' },
     ]
     expect(ArtifactEditReq.parse({ baseVersionId: 'v1', ops }).ops).toHaveLength(ops.length)
+  })
+  it('file ops take DESIGN.md or a safe tokens.css up to 200 KB', () => {
+    const op = (path: string, content: string) =>
+      ArtifactEditOp.safeParse({ kind: 'file', path, content }).success
+    expect(op('DESIGN.md', 'x'.repeat(200 * 1024))).toBe(true)
+    expect(op('DESIGN.md', 'x'.repeat(200 * 1024 + 1))).toBe(false)
+    expect(op('DESIGN.md', '设'.repeat(70 * 1024))).toBe(false)
+    expect(op('tokens.css', '@import "x.css";')).toBe(false)
+    expect(op('index.html', '<p>')).toBe(false)
+    expect(op('screens/home.html', '<p>')).toBe(false)
+    expect(ArtifactEditOp.safeParse({ kind: 'design-system', id: '../x' }).success).toBe(false)
   })
   it.each([
     ['file outside screens', { kind: 'text', file: '../x.html', ggId: '1', text: 'x' }],
@@ -314,7 +373,24 @@ describe('bridge', () => {
       { ...at, type: 'hover', ggId: null, rect: null },
       select,
       { ...at, type: 'nav', screen: 'home' },
+      { ...at, type: 'nav', screen: 'home', transition: 'push-back' },
       { ...at, type: 'back' },
+      {
+        ...at,
+        type: 'ready',
+        width: 390,
+        height: 900,
+        links: [{ ggId: '3', screen: 'detail', rect: { x: 0, y: 1200, w: 100, h: 40 } }],
+        back: [{ ggId: '9', rect: { x: 0, y: 0, w: 44, h: 44 } }],
+      },
+      {
+        ...at,
+        type: 'size',
+        width: 390,
+        height: 900,
+        links: [{ ggId: null, screen: 'x', rect: { x: 0, y: 0, w: 1, h: 1 } }],
+        back: [],
+      },
     ])
       expect(BridgeFromShell.parse(m)).toEqual(m)
     expect(BridgeFromShell.safeParse({ ...select, source: 'x' }).success).toBe(false)
@@ -339,6 +415,19 @@ describe('commands and context', () => {
       botId: 'b1',
       screenIds: ['home'],
     })
+  })
+  it('connect-element needs elements and a description of the new screen', () => {
+    const base = { command: 'connect-element', botId: 'b1' }
+    expect(ArtifactCommandReq.safeParse(base).success).toBe(false)
+    expect(ArtifactCommandReq.safeParse({ ...base, text: '订单详情' }).success).toBe(false)
+    expect(
+      ArtifactCommandReq.safeParse({
+        ...base,
+        text: '订单详情',
+        ggIds: [{ file: 'screens/home.html', ggId: '3' }],
+      }).success,
+    ).toBe(true)
+    expect(ArtifactCommandReq.safeParse({ command: 'apply-design-system', botId: 'b1' }).success).toBe(true)
   })
   it('the composer may carry the canvas selection', () => {
     const ctx = {

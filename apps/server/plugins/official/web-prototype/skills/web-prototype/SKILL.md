@@ -3,7 +3,8 @@ name: web-prototype
 description: >-
   Build a clickable multi-screen product prototype (WeChat mini program, mobile app or web app screens) on the
   platform's fixed shell: you write only gg-artifact.json, one HTML file per screen and the design system's
-  tokens.css into design/<slug>/, then publish it with preview_static. Use when a creation request names this
+  DESIGN.md and tokens.css into design/<slug>/; the platform hosts and previews it (without hosting, publish it with
+  preview_static). Use when a creation request names this
   plugin, or when someone asks for app screens, a mini program page, a mobile mockup, a UI prototype or a
   clickable flow.
 ---
@@ -19,7 +20,7 @@ All paths are relative to this skill's directory.
 ```
 web-prototype/
 ├── SKILL.md                       ← this file (shared workflow and contract)
-├── kit/                           ← platform-owned shell and runtime: copy verbatim, never edit
+├── kit/                           ← platform-owned shell and runtime: never edit (copied only without hosting)
 │   ├── index.html                 ← the shell: canvas of all screens with link arrows, plus a click-through play view
 │   ├── gg-kit.css                 ← base styles, device variables, .gg-ph / .gg-scroll-x
 │   └── gg-kit.js                  ← data-gg-link / data-gg-back navigation
@@ -40,20 +41,28 @@ A creation message @-mentions you and names the template id, the design system d
 
 A plain chat request (no creation message) is confirmed first: pick the template and design system (gonggong's `plugin_catalog` with `plugin: web-prototype` lists them), fill in what the conversation says, and post a 创作确认卡 with `creation_propose`. Build nothing until the creation message arrives. Without those tools, build directly with `app-screens` and the only design system.
 
+## Hosted or not
+
+The creation message says which:
+
+- **Hosted** (it names the artifact directory and says no `preview_static` is needed): gonggong checked the folder out before your turn and uploads it as a new version afterwards; the server serves `index.html` and `_gg/` from this plugin's `kit/`. Do **not** copy `index.html` or `_gg/` into the folder and do not call `preview_static`. People may edit the folder between turns (texts, styles, links, DESIGN.md, tokens.css): start from what is there.
+- **Not hosted** (older daemons; the message asks you to publish with `preview_static`): copy `kit/index.html` to `index.html` and `kit/gg-kit.css`, `kit/gg-kit.js` to `_gg/` verbatim so the folder previews on its own, then publish with `preview_static`.
+
 ## Output contract
 
 ```
 design/<slug>/
 ├── gg-artifact.json        ← { "title", "device": "miniprogram" | "mobile" | "desktop", "entry": "<screen id>",
 │                               "screens": [{ "id", "title", "file": "screens/<id>.html", "statusBar"?: "light" | "dark" }] }
+├── DESIGN.md               ← copied verbatim from the design system (the artifact's design source of truth)
 ├── tokens.css              ← copied verbatim from the design system
 ├── screens/<id>.html       ← one full HTML document per screen (skeleton below)
 ├── assets/                 ← images you were given or fetched, referenced relatively
-├── index.html              ← copied verbatim from kit/index.html (platform shell)
-└── _gg/                    ← copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
+├── index.html              ← not hosted only: copied verbatim from kit/index.html (platform shell)
+└── _gg/                    ← not hosted only: copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
 ```
 
-`index.html` and `_gg/` belong to the platform: copy them, never edit them, never put your own files there. The platform may replace them when it renders.
+`index.html` and `_gg/` belong to the platform: never edit them and never put your own files there; the platform replaces them when it renders. Once `DESIGN.md` and `tokens.css` are in the folder they are the artifact's own: later turns read and follow those copies (people may have changed them), not the plugin's originals.
 
 Screen skeleton:
 
@@ -86,8 +95,8 @@ Screen skeleton:
 
 ### Step 1 — Build
 
-1. Copy `kit/index.html` to `design/<slug>/index.html`, `kit/gg-kit.css` and `kit/gg-kit.js` to `design/<slug>/_gg/`, the design system's `tokens.css` to `design/<slug>/tokens.css`.
-2. Write `gg-artifact.json`, then each screen following the template guide.
+1. Copy the design system's `DESIGN.md` and `tokens.css` to `design/<slug>/`. Not hosted only: also copy `kit/index.html` to `design/<slug>/index.html` and `kit/gg-kit.css`, `kit/gg-kit.js` to `design/<slug>/_gg/`.
+2. Write `gg-artifact.json`, then each screen following the template guide. Links may carry `data-gg-transition` (`push`, `push-back`, `slide-up`, `fade`, `none`; the default is `push`) for the play view.
 
 ### Step 2 — Visual directions (only when asked)
 
@@ -98,12 +107,12 @@ Screen skeleton:
 
 ### Step 3 — Check and critique
 
-1. Serve `design/<slug>/` over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome: `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Look for: nothing under the status bar, capsule or bottom bars; lists full; text not clipped.
+1. Serve the folder over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome. Hosted folders have no `index.html` or `_gg/`: copy the folder to a temporary directory outside the workspace, add the kit there (`index.html`, `_gg/`) and serve that copy — never add them to `design/<slug>/`. `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Look for: nothing under the status bar, capsule or bottom bars; lists full; text not clipped.
 2. Run the template's checklist in its GUIDE.md (every P0 must pass), then `references/critique.md`, and fix what they find.
 
 ### Step 4 — Publish and reply
 
-1. Call the gonggong `preview_static` tool with `dir` = `design/<slug>` and `title` = the prototype title.
+1. Not hosted only: call the gonggong `preview_static` tool with `dir` = `design/<slug>` and `title` = the prototype title. Hosted folders are uploaded and previewed by the platform after your turn.
 2. Reply briefly: the folder, template and design system, the screens and how they link in one line, what the critique fixed, and remaining placeholders or assumptions. Do not paste HTML into chat.
 
 ## Hard rules
@@ -114,3 +123,4 @@ Screen skeleton:
 - **Real content, real images or labelled placeholders** (`.gg-ph`), never hotlinks, never invented logos, testimonials or awards.
 - **`data-section` on every top-level region** so people can point at a part. When asked to change one part, edit only that region and leave the rest byte-for-byte.
 - **Keep the split.** Never edit `index.html` or `_gg/`; never draw the status bar, capsule or home indicator.
+- **The folder's design system rules.** Follow the folder's own `DESIGN.md` and `tokens.css`; when asked to restyle, change them first and keep screens on the tokens.

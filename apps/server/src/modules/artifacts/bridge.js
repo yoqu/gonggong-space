@@ -18,6 +18,7 @@
     'width',
     'height',
   ]
+  const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
   let mode = 'preview'
   let hovered = null
   let selected = null
@@ -28,7 +29,10 @@
     const r = el.getBoundingClientRect()
     return { x: r.left, y: r.top, w: r.width, h: r.height }
   }
-  const ggIdOf = (el) => el.getAttribute('data-gg-id')
+  const ggIdOf = (el) => {
+    const id = el.getAttribute('data-gg-id')
+    return id && /^\d{1,9}$/.test(id) ? id : null
+  }
   const byGgId = (id) => (/^\d+$/.test(String(id)) ? document.querySelector(`[data-gg-id="${id}"]`) : null)
 
   const style = document.createElement('style')
@@ -111,7 +115,12 @@
       e.preventDefault()
       e.stopImmediatePropagation()
       const screen = link.getAttribute('data-gg-link')
-      post(screen !== null ? { type: 'nav', screen } : { type: 'back' })
+      const transition = link.getAttribute('data-gg-transition')
+      post(
+        screen === null
+          ? { type: 'back' }
+          : { type: 'nav', screen, ...(TRANSITIONS.includes(transition) && { transition }) },
+      )
     },
     true,
   )
@@ -165,20 +174,37 @@
     }
   })
 
-  const size = () => {
+  // Links and back buttons in document coordinates, for the canvas's arrows.
+  const docRect = (el) => {
+    const r = rectOf(el)
+    return { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
+  }
+  const layout = () => {
     const d = document.documentElement
-    return { width: d.scrollWidth, height: d.scrollHeight }
+    return {
+      width: d.scrollWidth,
+      height: d.scrollHeight,
+      links: [...document.querySelectorAll('[data-gg-link]')].slice(0, 500).map((el) => ({
+        ggId: ggIdOf(el),
+        screen: el.getAttribute('data-gg-link'),
+        rect: docRect(el),
+      })),
+      back: [...document.querySelectorAll('[data-gg-back]')]
+        .slice(0, 500)
+        .map((el) => ({ ggId: ggIdOf(el), rect: docRect(el) })),
+    }
   }
   let last = ''
   const report = () => {
-    const s = size()
-    const key = `${s.width}x${s.height}`
+    const l = layout()
+    const key = JSON.stringify(l)
     if (key === last) return
     last = key
-    post({ type: 'size', ...s })
+    post({ type: 'size', ...l })
   }
-  post({ type: 'ready', ...size() })
-  last = `${size().width}x${size().height}`
+  const first = layout()
+  last = JSON.stringify(first)
+  post({ type: 'ready', ...first })
   window.addEventListener('load', report)
   if (window.ResizeObserver) new ResizeObserver(report).observe(document.documentElement)
 })()

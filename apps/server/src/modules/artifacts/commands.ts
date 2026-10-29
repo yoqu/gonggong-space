@@ -104,6 +104,8 @@ export function commandInstruction(r: Pick<ArtifactCommandReq, 'command' | 'text
     diagram: `按要求画图表或流程图：作为新屏（id 以 diagram- 开头）用 HTML / SVG 绘制，登记进 gg-artifact.json。${ask}`,
     'project-brief': `根据当前产物写一份产品需求文档（PRD）到 ${dir}/brief.md：背景、目标用户、核心流程、每屏的功能与字段、交互与状态、待定问题。回复里用几句话总结。${ask}`,
     'edit-with-ai': `只修改下面选中的元素，${ask || '按说明修改'}。不要改动其他元素和屏幕。`,
+    'apply-design-system': `按产物当前的 ${dir}/DESIGN.md 和 ${dir}/tokens.css 统一所有屏幕的视觉：颜色、字体、圆角、间距、组件样式改用其中的令牌和规范，不改内容和结构（文案、区块、屏幕、跳转都保持不变）。${ask}`,
+    'connect-element': `新建一屏：${r.text?.trim() ?? ''}。新屏用新 id（文件 screens/<id>.html），登记进 gg-artifact.json，内容与风格和现有屏幕一致、带 data-gg-back 返回按钮；再给下面选中的元素加 data-gg-link="<新屏 id>"，其他元素和屏幕不要改。`,
   }
   return by[r.command]
 }

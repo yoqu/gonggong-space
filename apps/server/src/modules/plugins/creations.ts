@@ -107,17 +107,30 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
   return { m, card, missing, versionId: found.version.id, features: bot.state.features }
 }
 
-/** Where a hosted artifact goes (agent-facing): L1 when the plugin ships a shell, else a single page. */
-const hostedLines = (dir: string, l1: boolean) => [
-  `产物目录：${dir}/（由共工空间托管：运行前已检出到工作区，跑完自动上传为新版本并更新群里的产物卡片，不需要 preview_static）。`,
-  l1
-    ? '按 SKILL.md 的多屏结构写：gg-artifact.json（清单）、tokens.css（从设计系统原样复制）、screens/<id>.html（每屏一个完整 HTML）、assets/（图片等）；index.html 和 _gg/ 由平台外壳提供，不要复制也不要修改。'
-    : `以 ${dir}/index.html 为入口。`,
-  '完成后简短说明做了什么。',
-]
+const L1_FILES =
+  '按 SKILL.md 的多屏结构写：gg-artifact.json（清单）、DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）、screens/<id>.html（每屏一个完整 HTML）、assets/（图片等）'
+
+/** Where the artifact goes (agent-facing): hosted ones are uploaded by the daemon, others published with preview_static. */
+function outputLines(hosted: { dir: string } | null, l1: boolean) {
+  if (hosted)
+    return [
+      `产物目录：${hosted.dir}/（由共工空间托管：运行前已检出到工作区，跑完自动上传为新版本并更新群里的产物卡片，不需要 preview_static）。`,
+      l1
+        ? `${L1_FILES}；index.html 和 _gg/ 由平台托管提供，不要复制也不要修改。`
+        : `以 ${hosted.dir}/index.html 为入口。`,
+      '完成后简短说明做了什么。',
+    ]
+  return l1
+    ? [
+        `产物写到 design/<slug>/（slug 用简短的英文小写和连字符）。${L1_FILES}；没有平台托管，预览要用外壳：把 skill 目录的 kit/index.html 复制为 index.html、kit/gg-kit.css 和 kit/gg-kit.js 复制到 _gg/（原样复制，不要修改）。完成后用 preview_static 发布，再简短说明做了什么。`,
+      ]
+    : [
+        '产物写到 design/<slug>/index.html（slug 用简短的英文小写和连字符），完成后用 preview_static 发布，再简短说明做了什么。',
+      ]
+}
 
 /** What the agent is asked to do (agent-facing: not translated). */
-function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: string; l1: boolean } | null) {
+function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: string } | null, l1: boolean) {
   const ds = card.designSystem && m.designSystems.find((d) => d.id === card.designSystem?.id)
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
@@ -130,11 +143,7 @@ function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: stri
       : []),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,
     ...(card.inputs.length ? ['参数：', ...card.inputs.map((i) => `- ${i.label}：${i.value}`)] : []),
-    ...(hosted
-      ? hostedLines(hosted.dir, hosted.l1)
-      : [
-          '产物写到 design/<slug>/index.html（slug 用简短的英文小写和连字符），完成后用 preview_static 发布，再简短说明做了什么。',
-        ]),
+    ...outputLines(hosted, l1),
   ].join('\n')
 }
 
@@ -186,7 +195,7 @@ export async function createCreation(
   const { m, card, versionId, features } = await resolve(ctx, group.id, me.id, req, false)
   // A daemon that checks artifacts out and uploads them gets one made up front (§2); older ones publish themselves.
   const hosted = features.includes('artifacts')
-  const l1 = hosted && !!(await pluginKit(ctx.db, versionId))
+  const l1 = !!(await pluginKit(ctx.db, versionId))
   const { row, artifact } = await ctx.db.transaction(async (tx) => {
     const id = randomUUID()
     const files = await claimAttachments(tx, req.attachmentIds, {
@@ -215,7 +224,7 @@ export async function createCreation(
       ...(files.length > 0 && { attachments: files }),
       ...(artifact && { artifactRefs: [artifact.id] }),
     }
-    const body = instructions(m, card, artifact ? { dir: artifact.dir, l1 } : null)
+    const body = instructions(m, card, artifact ? { dir: artifact.dir } : null, l1)
     const [inserted] = await tx
       .insert(messages)
       .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body, meta })

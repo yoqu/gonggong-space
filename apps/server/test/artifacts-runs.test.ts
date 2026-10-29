@@ -241,7 +241,14 @@ describe('creations', () => {
     })
     expect(a!.dir).toMatch(/^design\/app-screens-[a-z0-9]{4}$/)
     expect(a!.pluginVersionId).not.toBeNull()
-    for (const s of [`${a!.dir}/`, 'gg-artifact.json', 'screens/<id>.html', '不需要 preview_static'])
+    for (const s of [
+      `${a!.dir}/`,
+      'gg-artifact.json',
+      'screens/<id>.html',
+      '不需要 preview_static',
+      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）',
+      'index.html 和 _gg/ 由平台托管提供，不要复制',
+    ])
       expect(res.body.body).toContain(s)
     expect(res.body.body).not.toContain('design/<slug>/index.html')
 
@@ -274,7 +281,13 @@ describe('creations', () => {
     const w = await creationWorld(['plugins'])
     const res = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, w.req)
     expect(res.status).toBe(200)
-    expect(res.body.body).toContain('preview_static')
+    for (const s of [
+      'preview_static',
+      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）',
+      'kit/index.html 复制为 index.html',
+    ])
+      expect(res.body.body).toContain(s)
+    expect(res.body.body).not.toContain('design/<slug>/index.html')
     expect(await t.db.select().from(artifacts)).toEqual([])
     const start = (await w.next()) as RunStart
     expect(start.artifacts).toEqual([])

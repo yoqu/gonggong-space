@@ -62,6 +62,53 @@ describe('gg-bridge', () => {
     })
   })
 
+  it('reports where its links and back buttons are, in document coordinates', () => {
+    const s = screen()
+    const ready = BridgeFromShell.parse(s.posts[0]?.data)
+    const a = s.$('[data-gg-link]').getAttribute('data-gg-id')
+    const back = s.$('[data-gg-back]').getAttribute('data-gg-id')
+    const zero = { x: 0, y: 0, w: 0, h: 0 }
+    expect(ready).toMatchObject({
+      links: [{ ggId: a, screen: 'done', rect: zero }],
+      back: [{ ggId: back, rect: zero }],
+    })
+    // jsdom has no layout: a scrolled document shifts viewport rects back to document ones.
+    Object.defineProperty(s.w, 'scrollY', { value: 300 })
+    s.$('[data-gg-link]').getBoundingClientRect = () =>
+      ({ left: 10, top: -200, width: 80, height: 20 }) as DOMRect
+    s.w.dispatchEvent(new s.w.Event('load'))
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'size',
+      links: [{ ggId: a, screen: 'done', rect: { x: 10, y: 100, w: 80, h: 20 } }],
+    })
+    // Nothing moved: no new report.
+    const n = s.posts.length
+    s.w.dispatchEvent(new s.w.Event('load'))
+    expect(s.posts).toHaveLength(n)
+  })
+
+  it('sends the transition of a link with nav', () => {
+    const s = screen(
+      PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-transition="push-back"'),
+    )
+    s.click('[data-gg-link]')
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'nav',
+      screen: 'done',
+      transition: 'push-back',
+    })
+    const bad = screen(
+      PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-transition="spin"'),
+    )
+    bad.click('[data-gg-link]')
+    expect(bad.last()).toEqual({
+      source: 'gg-bridge',
+      file: 'screens/home.html',
+      type: 'nav',
+      screen: 'done',
+    })
+  })
+
   it('stays silent without a parent origin', () => {
     expect(screen(PAGE, '').posts).toEqual([])
   })

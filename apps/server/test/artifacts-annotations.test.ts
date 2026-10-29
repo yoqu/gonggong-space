@@ -178,6 +178,40 @@ describe('AI commands', () => {
     })
     expect(missing.statusCode).toBe(400)
   })
+
+  it('apply the design system to every screen and connect an element to a new screen', async () => {
+    const s = await setup()
+    const apply = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
+      command: 'apply-design-system',
+      botId: s.bot.id,
+    })
+    expect(apply.statusCode).toBe(200)
+    const body = (apply.json() as MessageDto).body
+    expect(body).toContain('DESIGN.md')
+    expect(body).toContain('tokens.css')
+    expect(body).toContain('所有屏幕')
+    expect(body).toContain('不改内容和结构')
+
+    const connect = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
+      command: 'connect-element',
+      botId: s.bot.id,
+      ggIds: [{ file: 'screens/home.html', ggId: H1 }],
+      text: '活动详情页',
+    })
+    expect(connect.statusCode).toBe(200)
+    const c = (connect.json() as MessageDto).body
+    expect(c).toContain('新建一屏')
+    expect(c).toContain('活动详情页')
+    expect(c).toContain('data-gg-link')
+    expect(c).toContain('gg-artifact.json')
+    expect(c).toContain('- screens/home.html 第 4 行')
+    const missing = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
+      command: 'connect-element',
+      botId: s.bot.id,
+      text: '活动详情页',
+    })
+    expect(missing.statusCode).toBe(400)
+  })
 })
 
 describe('composer context', () => {

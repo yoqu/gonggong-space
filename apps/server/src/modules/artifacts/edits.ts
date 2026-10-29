@@ -11,10 +11,13 @@ import {
   GG_ARTIFACT_MANIFEST,
   GgArtifactManifest,
 } from '@gonggong/protocol'
+import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
+import { artifacts } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { type ElementEdit, editHtml, editToken } from './html.js'
+import { designSystemFiles } from './kit.js'
 import { parseManifest } from './lint.js'
 import { type Artifact, isRunning, requireVersion, submitVersion } from './service.js'
 
@@ -86,14 +89,19 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   const element = (file: string, e: ElementEdit) => byFile.set(file, [...(byFile.get(file) ?? []), e])
   const tokens: Extract<ArtifactEditOp, { kind: 'token' }>[] = []
   const screens: ManifestOp[] = []
+  const links = new Set<string>()
+  let designSystemId: string | null = null
   for (const op of req.ops) {
     switch (op.kind) {
       case 'text':
         element(op.file, { ggId: op.ggId, kind: 'text', text: op.text })
         break
-      case 'attr':
-        element(op.file, { ggId: op.ggId, kind: 'attr', name: op.name, value: op.value })
+      case 'attr': {
+        const value = op.value === '' && op.name.startsWith('data-gg-') ? null : op.value
+        if (op.name === 'data-gg-link' && value) links.add(value)
+        element(op.file, { ggId: op.ggId, kind: 'attr', name: op.name, value })
         break
+      }
       case 'style':
         element(op.file, { ggId: op.ggId, kind: 'style', props: op.props })
         break
@@ -119,6 +127,17 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
       case 'manifest':
         screens.push(op)
         break
+      case 'file':
+        changed.set(op.path, Buffer.from(op.content))
+        break
+      case 'design-system': {
+        const ds =
+          (await designSystemFiles(ctx.db, a.pluginVersionId, op.id)) ??
+          fail('invalid', '设计系统不存在：{id}', { id: op.id })
+        for (const [path, content] of Object.entries(ds)) changed.set(path, content)
+        designSystemId = op.id
+        break
+      }
     }
   }
 
@@ -133,10 +152,14 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   }
 
   const removed = new Set<string>()
+  const manifest = async () => {
+    const parsed = files.has(GG_ARTIFACT_MANIFEST)
+      ? parseManifest((await read(GG_ARTIFACT_MANIFEST)).toString('utf8'))
+      : null
+    return parsed && 'manifest' in parsed ? parsed.manifest : null
+  }
   if (screens.length) {
-    const parsed = parseManifest((await read(GG_ARTIFACT_MANIFEST)).toString('utf8'))
-    if (!('manifest' in parsed)) return fail('invalid', '清单无效，不能调整屏幕')
-    const m = parsed.manifest
+    const m = (await manifest()) ?? fail('invalid', '清单无效，不能调整屏幕')
     for (const op of screens) {
       const i = m.screens.findIndex((s) => s.id === op.screenId)
       const screen = m.screens[i] ?? fail('invalid', '屏幕不存在：{id}', { id: op.screenId })
@@ -172,6 +195,12 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
     if (!valid.success) fail('invalid', '清单无效，不能调整屏幕')
     changed.set(GG_ARTIFACT_MANIFEST, Buffer.from(`${JSON.stringify(m, null, 2)}\n`))
   }
+  if (links.size) {
+    const ids = new Set(
+      ((await manifest()) ?? fail('invalid', '清单无效，不能设置跳转')).screens.map((x) => x.id),
+    )
+    for (const to of links) if (!ids.has(to)) fail('invalid', '跳转目标屏幕不存在：{id}', { id: to })
+  }
 
   for (const path of removed) files.delete(path)
   for (const [path, content] of changed) {
@@ -182,7 +211,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   }
   const list = ArtifactFiles.safeParse([...files.values()])
   if (!list.success) fail('invalid', '超出单版大小上限')
-  return submitVersion(ctx, a, {
+  const out = await submitVersion(ctx, a, {
     parent: base.id,
     submitKey: null,
     files: [...files.values()],
@@ -191,4 +220,6 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
     userId,
     onlyHead: true,
   })
+  if (designSystemId) await ctx.db.update(artifacts).set({ designSystemId }).where(eq(artifacts.id, a.id))
+  return out
 }
