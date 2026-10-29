@@ -1,4 +1,7 @@
+import design from './en-design'
+
 export default {
+  ...design,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',
@@ -126,5 +129,4 @@ export default {
   设计屏幕: 'Design screen',
   还没有收藏: 'No favourites yet',
   '选中屏幕按 ⇧F 收藏': 'Select a screen and press ⇧F to star it',
-  '在这里调整配色、字体与组件样式': 'Adjust colours, fonts and components here',
 }

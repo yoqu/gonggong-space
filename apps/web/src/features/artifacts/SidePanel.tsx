@@ -96,17 +96,3 @@ export function FavouritesPanel({
     </Panel>
   )
 }
-
-/** The design-system panel comes with R4 (docs/plan/原型编辑器-Stitch对标-开发计划.md §2). */
-export function DesignSystemPanel({ onClose }: { onClose: () => void }) {
-  return (
-    <Panel title={t('设计系统')} onClose={onClose}>
-      <EmptyState
-        compact
-        icon="palette"
-        title={t('即将支持')}
-        description={t('在这里调整配色、字体与组件样式')}
-      />
-    </Panel>
-  )
-}

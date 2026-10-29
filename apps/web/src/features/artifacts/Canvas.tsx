@@ -4,6 +4,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactElement,
+  type ReactNode,
+  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -64,7 +66,7 @@ import {
   zoomItems,
 } from './menus'
 import { ShortcutsDialog } from './ShortcutsDialog'
-import { DesignSystemPanel, DetailsPanel, FavouritesPanel } from './SidePanel'
+import { DetailsPanel, FavouritesPanel } from './SidePanel'
 import type { ArtifactLink } from './store'
 import type { DesignTokens } from './tokens'
 
@@ -97,6 +99,10 @@ export interface CanvasProps {
   onFavourites: (screenIds: string[]) => void
   onPresent: () => void
   readFile: (file: string) => Promise<string>
+  /** The design-system panel (DesignSystemPanel.tsx); `close` hides it. */
+  designPanel: (close: () => void) => ReactNode
+  /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
+  guardDesign: (proceed: () => void) => void
 }
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
@@ -142,6 +148,8 @@ export function Canvas({
   onFavourites,
   onPresent,
   readFile,
+  designPanel,
+  guardDesign,
 }: CanvasProps) {
   const root = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
@@ -158,7 +166,12 @@ export function Canvas({
   const [content, setContent] = useState<Record<string, number>>({})
   const [systemH, setSystemH] = useState(SYSTEM_HEIGHT)
   const [allLinks, setAllLinks] = useState(false)
-  const [panel, setPanel] = useState<Panel | null>(null)
+  const [panel, setPanelNow] = useState<Panel | null>(null)
+  const setPanel = (next: SetStateAction<Panel | null>) => {
+    const p = typeof next === 'function' ? next(panel) : next
+    if (panel === 'design' && p !== 'design') guardDesign(() => setPanelNow(p))
+    else setPanelNow(p)
+  }
   const [code, setCode] = useState<CanvasNode | null>(null)
   const [removing, setRemoving] = useState<string[] | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -605,7 +618,7 @@ export function Canvas({
               const fav = favourites.includes(n.id)
               const label =
                 n.kind === 'system'
-                  ? t('设计系统')
+                  ? [t('设计系统'), tokens?.name].filter(Boolean).join(' · ')
                   : n.kind === 'prototype'
                     ? `${t('原型')} · ${n.title}`
                     : n.title
@@ -772,7 +785,7 @@ export function Canvas({
           onClose={() => setPanel(null)}
         />
       ) : panel === 'design' ? (
-        <DesignSystemPanel onClose={() => setPanel(null)} />
+        designPanel(() => setPanel(null))
       ) : null}
 
       <div className="art-corner">

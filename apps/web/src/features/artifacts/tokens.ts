@@ -4,6 +4,8 @@
  * inline custom properties, never as a stylesheet, so the artifact cannot style the main site.
  */
 export interface DesignTokens {
+  /** DESIGN.md's front-matter `name`, when there is one. */
+  name?: string
   /** Every `:root` custom property, in source order. */
   vars: [string, string][]
   /** Colours grouped by role: `primary` holds --color-primary and --color-on-primary. */
@@ -49,4 +51,29 @@ export function parseTokens(css: string): DesignTokens {
     radii: scale('--rounded-'),
     spacing: scale('--space-'),
   }
+}
+
+/** Comments blanked to spaces, so offsets into it are offsets into the source. */
+const masked = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length))
+
+/**
+ * tokens.css with the `:root` values of `changes` (keyed `--x`) replaced in place: comments, order, formatting and
+ * the rest of the file stay as they were. Names not declared are ignored (a token op only changes existing ones).
+ */
+export function writeTokens(css: string, changes: Record<string, string>) {
+  const src = masked(css)
+  const root = /:root\s*\{([^}]*)\}/i.exec(src)
+  if (!root) return css
+  const start = root.index + root[0].indexOf('{') + 1
+  const spans: [number, number, string][] = []
+  for (const m of (root[1] ?? '').matchAll(DECL)) {
+    const value = changes[m[1] as string]
+    if (value === undefined) continue
+    const raw = m[2] as string
+    const at = start + (m.index ?? 0) + m[0].length - 1 - raw.length
+    spans.push([at, at + raw.trimEnd().length, value])
+  }
+  let out = css
+  for (const [from, to, value] of spans.reverse()) out = out.slice(0, from) + value + out.slice(to)
+  return out
 }
