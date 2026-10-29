@@ -17,6 +17,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
+import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { usePluginStore } from '../src/features/plugins/store'
 import type { Call } from './mockApi'
@@ -777,7 +778,7 @@ describe('插件 · 创作请求卡片', () => {
       chatRoutes(
         [plugin({ enabledInGroup: false })],
         [
-          msg({ seq: 1, body: '产物 v2 已生成', card: { type: 'artifact' } as unknown as CreationCard }),
+          msg({ seq: 1, body: '产物 v2 已生成', card: { type: 'future-card' } as unknown as CreationCard }),
           msg({ seq: 2, id: 'm2', body: 'x', card }),
         ],
       ),
@@ -943,5 +944,45 @@ describe('插件 · 管理', () => {
     fireEvent.click(await screen.findByRole('button', { name: '管理插件' }))
     expect(await screen.findByText('网页原型')).toBeTruthy()
     expect(screen.getByRole('tab', { name: '插件' }).getAttribute('aria-selected')).toBe('true')
+  })
+})
+
+describe('插件 · 产物卡片', () => {
+  it('shows the artifact card in the timeline; 打开 opens its canvas tab', async () => {
+    mockApi({
+      ...chatRoutes(
+        [plugin()],
+        [
+          msg({
+            seq: 2,
+            id: 'a1m',
+            kind: 'event',
+            authorId: null,
+            authorName: '',
+            body: '产物 读书会小程序',
+            card: {
+              type: 'artifact',
+              artifactId: 'a1',
+              title: '读书会小程序',
+              versionN: 2,
+              status: 'ready',
+              thumbnailUrl: null,
+              issueCount: 1,
+            },
+          }),
+        ],
+      ),
+    })
+    renderAt('/g/g1')
+    const c = within(await screen.findByTestId('artifact-card'))
+    expect(c.getByText('1 项规范问题')).toBeTruthy()
+    fireEvent.click(c.getByRole('button', { name: '打开' }))
+    await waitFor(() =>
+      expect(useWorkbench.getState().benches.g1?.tabs).toContainEqual({
+        kind: 'artifact',
+        artifactId: 'a1',
+        title: '读书会小程序',
+      }),
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from 'react'
 import { tabKey, type WorkbenchTab } from '../../app/workbench'
+import { ArtifactTab, useArtifactTabMeta } from '../artifacts/ArtifactTab'
 import { DiffTab, useDiffTabMeta } from './tabs/DiffTab'
 import { FilesTab, useFilesTabMeta } from './tabs/FilesTab'
 import { FileTab, useFileTabMeta } from './tabs/FileTab'
@@ -48,6 +49,8 @@ export const TabContent = memo(function TabContent({ tab, active }: { tab: Workb
       return <KnowledgeTab tab={tab} tabKey={key} active={active} />
     case 'terminal':
       return <TerminalTab tab={tab} tabKey={key} active={active} />
+    case 'artifact':
+      return <ArtifactTab tab={tab} tabKey={key} active={active} />
   }
 })
 
@@ -84,6 +87,8 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
       return <KnowledgeMeta tab={tab}>{children}</KnowledgeMeta>
     case 'terminal':
       return <TerminalMeta tab={tab}>{children}</TerminalMeta>
+    case 'artifact':
+      return <ArtifactMeta tab={tab}>{children}</ArtifactMeta>
   }
 }
 
@@ -102,3 +107,4 @@ const GitMergeMeta = ({ tab, children }: MetaProps<'git-merge'>) => children(use
 const LinkMeta = ({ tab, children }: MetaProps<'link'>) => children(useLinkTabMeta(tab))
 const KnowledgeMeta = ({ tab, children }: MetaProps<'knowledge'>) => children(useKnowledgeTabMeta(tab))
 const TerminalMeta = ({ tab, children }: MetaProps<'terminal'>) => children(useTerminalTabMeta(tab))
+const ArtifactMeta = ({ tab, children }: MetaProps<'artifact'>) => children(useArtifactTabMeta(tab))

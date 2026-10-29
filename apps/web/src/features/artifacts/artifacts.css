@@ -1,0 +1,440 @@
+/* Artifact card (chat) and canvas tab (docs/plan/原型编辑器-Stitch对标-开发计划.md). Tokens only, so both themes work. */
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+.art-card {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-width: 100%;
+  border-radius: var(--radius-menu);
+  background: var(--content-bg);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  overflow: hidden;
+}
+.art-card__shot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  background:
+    radial-gradient(var(--art-dot) 1px, transparent 1px) 0 0 / 14px 14px,
+    var(--art-plane);
+  cursor: pointer;
+  overflow: hidden;
+}
+.art-card__shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.art-card__shot .ui-skeleton {
+  width: 100%;
+  height: 100%;
+}
+.art-card__placeholder {
+  color: var(--label-tertiary);
+}
+.art-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
+}
+.art-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--label-secondary);
+}
+.art-card__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--label);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-card__ver {
+  font-size: var(--text-footnote-size);
+  font-variant-numeric: tabular-nums;
+}
+.art-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-card__state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.art-card__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--system-green);
+}
+.art-card__open {
+  margin-left: auto;
+}
+
+/* ── Tab ────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme="light"],
+[data-theme="hc-light"] {
+  --art-plane: #f2f2f4;
+  --art-dot: #0000001f;
+}
+[data-theme="dark"],
+[data-theme="hc-dark"] {
+  --art-plane: #121214;
+  --art-dot: #ffffff1c;
+}
+.art {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--window-bg);
+}
+.art-bar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 40px;
+  padding: 0 var(--space-8) 0 var(--space-12);
+  border-bottom: 1px solid var(--separator);
+  background: var(--window-bg);
+}
+.art-bar__icon {
+  flex: none;
+  color: var(--label-secondary);
+}
+.art-bar__title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-bar__version {
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.art-bar__version + .ui-menu {
+  min-width: 300px;
+}
+.art-bar__fill {
+  flex: 1;
+}
+.art-past {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+  font-size: var(--text-footnote-size);
+}
+.art-past > span {
+  flex: 1;
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+.art-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  outline: none;
+}
+.art-plane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--art-plane);
+  background-image: radial-gradient(var(--art-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
+  cursor: default;
+  touch-action: none;
+}
+.art-plane--hand {
+  cursor: grab;
+}
+.art-plane--dragging {
+  cursor: grabbing;
+}
+.art-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.art-node {
+  position: absolute;
+  background: var(--content-bg);
+  box-shadow:
+    0 0 0 1px var(--separator),
+    0 8px 28px #0000001f;
+}
+/* Screens are looked at here, not used: the canvas keeps the pointer. */
+.art-node__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+  pointer-events: none;
+}
+.art-node .ui-skeleton,
+.art-node .ui-skel--block {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+.art-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.art-title {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+}
+.art-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.art-title:hover {
+  color: var(--label);
+}
+.art-title--on {
+  color: var(--accent-text);
+}
+.art-select {
+  position: absolute;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.art-select__handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: var(--content-bg);
+}
+.art-select__handle--nw {
+  top: -5px;
+  left: -5px;
+}
+.art-select__handle--ne {
+  top: -5px;
+  right: -5px;
+}
+.art-select__handle--sw {
+  bottom: -5px;
+  left: -5px;
+}
+.art-select__handle--se {
+  right: -5px;
+  bottom: -5px;
+}
+.art-select__size {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* Floating glass: selection menus (top), tools (right), view controls (bottom right). */
+.art-float,
+.art-tools,
+.art-corner {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+.art-float {
+  top: var(--space-12);
+  left: 50%;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+}
+.art-float__btn {
+  gap: 5px;
+  padding: 0 10px;
+}
+.art-float .ui-menu {
+  min-width: 220px;
+}
+.art-tools {
+  top: 50%;
+  right: var(--space-12);
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+  transform: translateY(-50%);
+}
+.art-tools .ui-tip-anchor {
+  display: flex;
+}
+.art-tools .ui-tip {
+  white-space: nowrap;
+}
+.art-tools__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--label);
+}
+.art-tools__btn:hover:not(:disabled) {
+  background: var(--selection-fill);
+}
+.art-tools__btn[aria-pressed="true"] {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+.art-tools__btn:disabled {
+  color: var(--label-tertiary);
+}
+.art-tools__btn:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.art-tools__sep {
+  width: 18px;
+  margin: 3px 0;
+  border: 0;
+  border-top: 1px solid var(--separator);
+}
+.art-corner {
+  right: var(--space-12);
+  bottom: var(--space-12);
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+}
+.art-corner__zoom {
+  min-width: 56px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.art-corner .ui-menu {
+  min-width: 200px;
+}
+.art-corner__help {
+  width: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Before the first version. */
+.art-wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-20);
+}
+.art-wait__screens {
+  display: flex;
+  gap: var(--space-32);
+}
+.art-wait__screens .ui-skeleton {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--separator);
+}
+.art-wait__note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--label-secondary);
+}
+
+/* Shortcut sheet. */
+.art-keys {
+  columns: 2;
+  column-gap: var(--space-32);
+}
+.art-keys__group {
+  break-inside: avoid;
+  margin-bottom: var(--space-16);
+}
+.art-keys__group h3 {
+  margin: 0 0 var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+  font-weight: 600;
+}
+.art-keys__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 24px;
+}
+.art-keys__row small {
+  margin-left: var(--space-6);
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+.art-keys__row--soon > span {
+  color: var(--label-secondary);
+}
+
+/* Menus of the canvas chrome read as labels, not links. */
+.art-bar__version,
+.art-float__btn,
+.art-corner__zoom {
+  color: var(--label);
+}

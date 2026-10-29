@@ -25,6 +25,8 @@ export type MenuItem =
       /** Defined (true or false) makes the item a checkbox item with a check column. */
       checked?: boolean
       disabled?: boolean
+      /** Help tag, e.g. why the item is disabled. */
+      title?: string
       destructive?: boolean
       /** One level only; opens to the right on hover, → or Enter. */
       submenu?: MenuItem[]
@@ -185,6 +187,7 @@ export function Menu({
             aria-haspopup={sub ? 'menu' : undefined}
             aria-expanded={sub ? openSub === i : undefined}
             disabled={it.disabled}
+            title={it.title}
             tabIndex={-1}
             data-index={i}
             data-value={value}
