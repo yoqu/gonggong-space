@@ -43,4 +43,5 @@ export const GONGGONG_TOOL_TITLES = {
   secret_request: '请求填写密钥',
   plugin_catalog: '插件目录',
   creation_propose: '发起创作确认',
+  artifact_checkout: '检出产物',
 } as const

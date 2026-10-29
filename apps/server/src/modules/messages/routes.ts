@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   AnswerActionsReq,
+  type ArtifactContext,
   type BranchMessageRes,
   EditMessageReq,
   parseMentions,
@@ -13,6 +14,8 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, messages, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
+import { artifactContextNote } from '../artifacts/commands.js'
+import { requireArtifact } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
@@ -30,6 +33,13 @@ import { memberMentions, notifyMentions } from './mentions.js'
 import { resolveQuote } from './quote.js'
 import { hideMessage, notHiddenBy, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
+
+/** The artifact a composer message is about, in this group, with the selection as the agent reads it. */
+async function canvasContext(ctx: Ctx, groupId: string, userId: string, c: ArtifactContext) {
+  const a = await requireArtifact(ctx, c.artifactId, userId)
+  if (a.groupId !== groupId) return fail('not_found', '产物不存在')
+  return { id: a.id, note: await artifactContextNote(ctx, a, c) }
+}
 
 export function messageRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -73,9 +83,11 @@ export function messageRoutes(ctx: Ctx) {
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const { body, clientId, attachmentIds, quote, appendTo, runOptions } = SendMessageReq.parse(req.body)
+      const { body, clientId, attachmentIds, quote, appendTo, runOptions, artifactContext } =
+        SendMessageReq.parse(req.body)
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
+      const canvas = artifactContext ? await canvasContext(ctx, group.id, me.id, artifactContext) : null
       const [target, inGroup, quoted, userMentions] = await Promise.all([
         appendTo ? appendTarget(ctx, group.id, me.id, appendTo) : null,
         bots,
@@ -125,6 +137,7 @@ export function messageRoutes(ctx: Ctx) {
           ...(agent && { command: parsed?.name, agentCommand: agent.text }),
           ...(target && { appendTo: target.runId }),
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
+          ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note }),
         }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted

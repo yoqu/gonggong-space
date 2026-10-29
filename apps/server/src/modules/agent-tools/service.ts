@@ -30,6 +30,7 @@ import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.j
 import { answerText } from '../questions/dto.js'
 import { redactDeep } from '../runs/redact.js'
 import { runRedactors } from '../secrets/resolve.js'
+import { artifactCheckout } from './artifacts.js'
 import { listFeishuMessages } from './feishu.js'
 import { kbCreate, kbDelete, kbGet, kbList, kbSearch, kbUpdate } from './knowledge.js'
 import { mcpCreate, mcpDelete, mcpGet, mcpList, mcpToggle, mcpUpdate } from './mcp.js'
@@ -425,6 +426,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   progress_card: (ctx, s, a) => progressCard(ctx, s.run, a),
   plugin_catalog: (ctx, s, a) => pluginCatalog(ctx, s.run, a),
   creation_propose: (ctx, s, a) => creationPropose(ctx, s.run, a),
+  artifact_checkout: (ctx, s, a) => artifactCheckout(ctx, s.run, a),
 }
 
 export async function callTool(

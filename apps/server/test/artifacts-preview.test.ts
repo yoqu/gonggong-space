@@ -21,6 +21,9 @@ beforeEach(async () => {
 afterEach(() => t.close())
 
 const KIT = join(BUILTIN_PLUGINS, 'web-prototype/skills/web-prototype/kit')
+const BRIDGE_TAG = /<script src="\/__gg\/bridge\.js" data-gg-parent="[^"]*"><\/script>/
+/** A member's screen without what the server injects into it. */
+const plain = (html: string) => html.replace(/ data-gg-id="\d+"/g, '').replace(BRIDGE_TAG, '')
 
 type Res = { status: number; headers: Record<string, string | string[] | undefined>; text: string }
 function get(host: string, path: string, headers: Record<string, string> = {}, method = 'GET') {
@@ -84,7 +87,7 @@ describe('artifact previews', () => {
     expect((await p.fetch('/_gg/gg-kit.js')).headers['content-type']).toBe('text/javascript; charset=utf-8')
 
     const screen = await p.fetch('/screens/home.html')
-    expect(screen.text).toBe(L1['screens/home.html'])
+    expect(plain(screen.text)).toBe(L1['screens/home.html'])
     expect(screen.headers['x-content-type-options']).toBe('nosniff')
     expect((await p.fetch('/tokens.css')).headers['content-type']).toBe('text/css; charset=utf-8')
     expect((await p.fetch('/gg-artifact.json')).headers['content-type']).toBe(
@@ -106,11 +109,11 @@ describe('artifact previews', () => {
       { ...L1, 'screens/home.html': '<p>v2</p>' },
       { parent: s.v1.versionId },
     )
-    expect((await head.fetch('/screens/home.html')).text).toBe('<p>v2</p>')
+    expect(plain((await head.fetch('/screens/home.html')).text)).toBe('<p>v2</p>')
 
     const pinned = await s.open(s.v1.versionId)
     expect(pinned.previewId).not.toBe(head.previewId)
-    expect((await pinned.fetch('/screens/home.html')).text).toBe(L1['screens/home.html'])
+    expect(plain((await pinned.fetch('/screens/home.html')).text)).toBe(L1['screens/home.html'])
     expect((await s.open(s.v1.versionId)).previewId).toBe(pinned.previewId)
 
     // Not a card of the previews panel: the artifact tab opens it.
@@ -124,7 +127,64 @@ describe('artifact previews', () => {
     const run = await s.run([l0.id])
     await s.submit(run.id, l0.id, { 'index.html': '<h1>single page</h1>' })
     const p = await s.open(undefined, l0.id)
-    expect((await p.fetch('/')).text).toBe('<h1>single page</h1>')
+    expect((await p.fetch('/')).text).toBe(
+      '<h1 data-gg-id="0">single page</h1><script src="/__gg/bridge.js" data-gg-parent="http://localhost"></script>',
+    )
+  })
+
+  it("injects element ids and the bridge into a member's screens only, never the shell or a shared link", async () => {
+    const s = await setup()
+    const html =
+      '<!doctype html>\n<html><head><title>x</title></head><body>\n<main data-section="hero"><h1 class="t">报名</h1><img src="a.png"></main>\n</body></html>'
+    await s.submit(s.firstRun.id, s.a.id, { ...L1, 'screens/home.html': html }, { parent: s.v1.versionId })
+    const p = await s.open()
+    const screen = (await p.fetch('/screens/home.html')).text
+    const at = (needle: string) => String(html.indexOf(needle))
+    expect(screen).toBe(
+      html
+        .replace('<html>', `<html data-gg-id="${at('<html>')}">`)
+        .replace('<head>', `<head data-gg-id="${at('<head>')}">`)
+        .replace('<title>', `<title data-gg-id="${at('<title>')}">`)
+        .replace('<body>', `<body data-gg-id="${at('<body>')}">`)
+        .replace('<main ', `<main data-gg-id="${at('<main ')}" `)
+        .replace('<h1 ', `<h1 data-gg-id="${at('<h1 ')}" `)
+        .replace('<img ', `<img data-gg-id="${at('<img ')}" `)
+        .replace(
+          '</body>',
+          '<script src="/__gg/bridge.js" data-gg-parent="http://localhost"></script></body>',
+        ),
+    )
+    // The shell, other files and the platform's own scripts stay as they are.
+    expect((await p.fetch('/')).text).toBe(readFileSync(join(KIT, 'index.html'), 'utf8'))
+    expect((await p.fetch('/tokens.css')).text).toBe(L1['tokens.css'])
+    const bridge = await p.fetch('/__gg/bridge.js')
+    expect(bridge.headers['content-type']).toBe('text/javascript; charset=utf-8')
+    expect(bridge.text).toBe(
+      readFileSync(new URL('../src/modules/artifacts/bridge.js', import.meta.url), 'utf8'),
+    )
+
+    // A public link shows the stored source as is, and has no bridge to load.
+    const share = await t.app.inject({
+      method: 'POST',
+      url: `/api/previews/${p.previewId}/shares`,
+      headers: { cookie: await t.seed.cookie(s.wang.id) },
+      payload: { days: 1 },
+    })
+    expect(share.statusCode).toBe(200)
+    const link = new URL((share.json() as { url: string }).url)
+    const visit = await get(link.host, link.pathname)
+    const cookie = (visit.headers['set-cookie'] as string[])[0]!.split(';')[0]!
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe(html)
+    expect((await get(link.host, '/__gg/bridge.js', { cookie })).status).toBe(404)
+  })
+
+  it("tells the bridge the main site's public origin when one is configured", async () => {
+    const s = await setup()
+    t.ctx.config.preview.publicUrl = 'https://gg.example.com'
+    const p = await s.open()
+    expect((await p.fetch('/screens/done.html')).text).toContain(
+      '<script src="/__gg/bridge.js" data-gg-parent="https://gg.example.com"></script>',
+    )
   })
 
   it('lets only members open one, and has nothing to show before the first version', async () => {

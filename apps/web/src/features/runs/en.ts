@@ -235,6 +235,7 @@ export default {
   请求填写密钥: 'Request secrets',
   插件目录: 'Plugin catalog',
   发起创作确认: 'Propose a creation',
+  检出产物: 'Check out an artifact',
   'Skill 版本历史': 'Skill version history',
   '回滚 Skill': 'Roll back skill',
   '子 agent {n} 个运行中': '{n} {n:subagent|subagents} running',

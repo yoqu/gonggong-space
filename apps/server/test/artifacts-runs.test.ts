@@ -122,6 +122,61 @@ describe('RunStart.artifacts', () => {
     expect(note?.body).toContain(`${a.dir}/screens/home.html（v1）[hardcoded-color]`)
   })
 
+  it('appends the canvas selection a message was sent with to the prompt', async () => {
+    const w = await artifactWorld(t)
+    const { start } = await dispatch(w, { mentions: [w.bot.id], artifactNote: '[画布上下文] 选中 h1' })
+    expect(start.prompt.text).toBe('@小王的 Claude 改一下\n\n[画布上下文] 选中 h1')
+  })
+
+  it('checks out first, on its next run, an artifact the bot asked for with artifact_checkout', async () => {
+    const w = await artifactWorld(t)
+    const wanted = await w.artifact({ botId: null, title: '会员卡' })
+    await w.artifact({ botId: null, title: '重名' })
+    await w.artifact({ botId: null, title: '重名' })
+    const own = await w.artifact()
+    const live = await w.run([own.id])
+    const call = async (artifact: string) =>
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: `/api/daemon/runs/${live.id}/tools/artifact_checkout`,
+          headers: w.auth(),
+          payload: { arguments: { artifact } },
+        })
+      ).json() as { text: string; isError: boolean }
+    expect(await call('没有这个')).toMatchObject({ isError: true })
+    expect((await call('重名')).text).toContain('请用 id 指定')
+    expect((await call(own.id)).text).toContain('本轮已经检出')
+    const res = await call('会员卡')
+    expect(res).toMatchObject({ isError: false })
+    expect(res.text).toContain(`目录 ${wanted.dir}/`)
+    expect(res.text).toContain('下一轮开跑前会检出')
+    await call(wanted.id)
+    expect(
+      (await t.db.select().from(artifacts).where(eq(artifacts.id, wanted.id)))[0]!.checkoutBotIds,
+    ).toEqual([w.bot.id])
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, live.id))
+
+    const { start } = await dispatch(w, { mentions: [w.bot.id] })
+    expect(start.artifacts.map((a) => a.id)).toEqual([wanted.id, own.id])
+    expect(
+      (await t.db.select().from(artifacts).where(eq(artifacts.id, wanted.id)))[0]!.checkoutBotIds,
+    ).toEqual([])
+    // Asked once: the run after that leaves it out again.
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.botId, w.bot.id))
+    const again = await dispatch(w, { mentions: [w.bot.id] })
+    expect(again.start.artifacts.map((a) => a.id)).toEqual([own.id])
+  })
+
+  it('hides artifact_checkout from a daemon without the artifacts feature', async () => {
+    const w = await artifactWorld(t)
+    expect((await dispatch(w, { mentions: [w.bot.id] }, ['plugins'])).start.hiddenTools).toContain(
+      'artifact_checkout',
+    )
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.botId, w.bot.id))
+    expect((await dispatch(w, { mentions: [w.bot.id] })).start.hiddenTools).not.toContain('artifact_checkout')
+  })
+
   it('sends none to a daemon without the artifacts feature', async () => {
     const w = await artifactWorld(t)
     const a = await w.artifact()

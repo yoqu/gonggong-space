@@ -1,11 +1,14 @@
+import { readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname } from 'node:path'
-import { GG_ARTIFACT_MANIFEST } from '@gonggong/protocol'
+import { ArtifactHtmlFile, BRIDGE_SCRIPT_PATH, GG_ARTIFACT_MANIFEST } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { artifactVersions, type previews } from '../../db/schema.js'
 import type { MessageKey } from '../../i18n/index.js'
-import { artifactBlobs } from './blobs.js'
+import type { Visitor } from '../previews/access.js'
+import { artifactBlobs, readBlob } from './blobs.js'
+import { injectBridge } from './html.js'
 import { kitName, pluginKit } from './kit.js'
 import { findArtifact } from './service.js'
 
@@ -37,17 +40,25 @@ const MIME: Record<string, string> = {
 }
 export const mimeOf = (path: string) => MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
 
+const BRIDGE = readFileSync(new URL('./bridge.js', import.meta.url))
+
 type Preview = typeof previews.$inferSelect
 export type Refusal = { status: number; key: MessageKey }
+
+/** The files the bridge goes into: an L1 artifact's screens, an L0 artifact's page. */
+const bridged = (path: string, l1: boolean) =>
+  ArtifactHtmlFile.safeParse(path).success && path.startsWith('screens/') === l1
 
 /**
  * An artifact preview (§3.4), read from the server's copy so it works with the bot offline: an L1 artifact's `/` and
  * `/_gg/*` come from its plugin version's shell, everything else from the version's files (the head when the preview
- * follows it). Returns what to refuse with instead of answering.
+ * follows it). A member's view of a screen carries `data-gg-id`s and the bridge (talking to `visitor.parent`); a
+ * shared link's does not. Returns what to refuse with instead of answering.
  */
 export async function serveArtifact(
   ctx: Ctx,
   preview: Preview,
+  visitor: Visitor,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<Refusal | null> {
@@ -78,16 +89,26 @@ export async function serveArtifact(
     'cache-control': 'no-cache',
     ...extra,
   })
-  const shell = v.files.some((f) => f.path === GG_ARTIFACT_MANIFEST) ? kitName(path) : null
-  const kit = shell ? await pluginKit(ctx.db, a.pluginVersionId) : null
-  const fromKit = shell && kit?.get(shell)
-  if (fromKit) {
-    res.writeHead(200, head(mimeOf(path), { 'content-length': String(fromKit.length) }))
-    res.end(req.method === 'HEAD' ? undefined : fromKit)
+  const send = (type: string, body: Buffer) => {
+    res.writeHead(200, head(type, { 'content-length': String(body.length) }))
+    res.end(req.method === 'HEAD' ? undefined : body)
     return null
   }
+  const parent = 'userId' in visitor ? visitor.parent : undefined
+  if (`/${path}` === BRIDGE_SCRIPT_PATH)
+    return parent ? send(mimeOf(path), BRIDGE) : { status: 404, key: '文件不存在' }
+  const l1 = v.files.some((f) => f.path === GG_ARTIFACT_MANIFEST)
+  const shell = l1 ? kitName(path) : null
+  const kit = shell ? await pluginKit(ctx.db, a.pluginVersionId) : null
+  const fromKit = shell && kit?.get(shell)
+  if (fromKit) return send(mimeOf(path), fromKit)
   const file = v.files.find((f) => f.path === path)
   if (!file) return { status: 404, key: '文件不存在' }
+  if (parent && bridged(path, l1))
+    return send(
+      mimeOf(path),
+      Buffer.from(injectBridge((await readBlob(a.groupId, file.hash)).toString('utf8'), parent)),
+    )
   const etag = `"${file.hash}"`
   if (req.headers['if-none-match'] === etag) {
     res.writeHead(304, { etag }).end()

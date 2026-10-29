@@ -1363,5 +1363,22 @@
       },
       "required": ["plugin"]
     }
+  },
+  {
+    "name": "artifact_checkout",
+    "title": "检出产物",
+    "description": "检出本群一个托管产物（design/<slug>/ 目录，服务端为准）：本轮开跑时没有下发、需要读或改它时用。产物在下一轮开跑前检出到工作区，本轮之内不会出现；返回产物目录、当前版本和屏幕清单。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "产物 id，或标题（本群内按标题匹配）"
+        }
+      },
+      "required": ["artifact"]
+    }
   }
 ]

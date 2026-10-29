@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AgentSettings, AgentSettingValues, RunSettingsSnapshot } from './agent-settings.js'
+import { ArtifactContext } from './artifacts.js'
 import {
   AgentKind,
   Allowlist,
@@ -1707,6 +1708,8 @@ export const SendMessageReq = z.object({
   appendTo: z.string().nullable().default(null),
   /** One-shot model / thought level per mentioned bot id (bot owner or group admin; anyone in a DM). */
   runOptions: z.record(z.string(), RunConfigPick).default({}),
+  /** The artifact canvas selection the message is about (plan 原型编辑器 R3). */
+  artifactContext: ArtifactContext.optional(),
 })
 
 // ── Composer candidates (spec §8.7) ────────────────────────────────────────

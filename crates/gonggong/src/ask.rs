@@ -1167,6 +1167,7 @@ mod tests {
                 "secret_request",
                 "plugin_catalog",
                 "creation_propose",
+                "artifact_checkout",
                 "send_attachments",
                 "service_start",
                 "service_list",

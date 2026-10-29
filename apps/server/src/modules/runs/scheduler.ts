@@ -205,6 +205,7 @@ export async function schedule(ctx: Ctx, botId: string) {
 /** Tools left out of a session's list where they cannot work (still refused by the server if called). */
 const FEISHU_TOOLS = ['list_feishu_messages', 'feishu_send_card']
 const PLUGIN_TOOLS = ['plugin_catalog', 'creation_propose']
+const ARTIFACT_TOOLS = ['artifact_checkout']
 
 /** 禁止直推基准分支, for the agent (the daemon also asks the owner before any push to it). */
 const branchHint = (base: string) =>
@@ -356,7 +357,7 @@ export async function buildRunStart(
     resumeSessionId,
     newSessionReason: detached ? 'schedule' : gb.newSessionReason,
     prompt: {
-      text: trigger.body,
+      text: meta.artifactNote ? `${trigger.body}\n\n${meta.artifactNote}` : trigger.body,
       triggeredBy: trigger.author ?? trigger.bot ?? '',
       context: [...kbNow, ...context, ...note],
       omitted,
@@ -369,7 +370,13 @@ export async function buildRunStart(
     skills: skills.map(({ name, versionId, digest }) => ({ name, versionId, digest })),
     plugins,
     // An agent command may open the session, so it hides nothing.
-    hiddenTools: command ? [] : [...(feishu ? [] : FEISHU_TOOLS), ...(plugins.length ? [] : PLUGIN_TOOLS)],
+    hiddenTools: command
+      ? []
+      : [
+          ...(feishu ? [] : FEISHU_TOOLS),
+          ...(plugins.length ? [] : PLUGIN_TOOLS),
+          ...(features.includes('artifacts') ? [] : ARTIFACT_TOOLS),
+        ],
     command,
     sync,
     artifacts: hosted?.refs ?? [],

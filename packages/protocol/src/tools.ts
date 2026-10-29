@@ -366,6 +366,9 @@ export const SecretRequestArgs = z.object({
     .describe('要填写的密钥名称，须已在本群可见的定义里（secret_list 列出）'),
   forceNewSession,
 })
+export const ArtifactCheckoutArgs = z.object({
+  artifact: z.string().min(1).max(80).describe('产物 id，或标题（本群内按标题匹配）'),
+})
 export const PluginCatalogArgs = z.object({
   plugin: z.string().max(40).describe('插件 name；省略时列出本群启用的插件').optional(),
 })
@@ -636,6 +639,13 @@ export const GONGGONG_TOOLS = {
       '在群里发一张「创作确认卡」：写明插件、模板、设计系统和参数，群成员点「开始」后会以该成员的名义发出正式的创作请求并 @ 你，' +
       '也可以先「改参数」或「不用了」。工具立即返回；在收到正式的创作请求之前不要开始出稿。',
     input: CreationProposeArgs,
+  },
+  artifact_checkout: {
+    title: GONGGONG_TOOL_TITLES.artifact_checkout,
+    description:
+      '检出本群一个托管产物（design/<slug>/ 目录，服务端为准）：本轮开跑时没有下发、需要读或改它时用。' +
+      '产物在下一轮开跑前检出到工作区，本轮之内不会出现；返回产物目录、当前版本和屏幕清单。',
+    input: ArtifactCheckoutArgs,
   },
 } as const
 

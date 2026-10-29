@@ -8,6 +8,8 @@ import {
   ARTIFACT_MAX_FILES,
   ArtifactCard,
   ArtifactCommand,
+  ArtifactCommandReq,
+  ArtifactContext,
   ArtifactDto,
   ArtifactEditOp,
   ArtifactEditReq,
@@ -23,6 +25,7 @@ import {
   PluginManifest,
   RunStart,
   SendAnnotationsReq,
+  SendMessageReq,
   STYLE_PROPS,
   styleValueOk,
   tokenValueOk,
@@ -233,6 +236,7 @@ describe('versions and submit', () => {
       updatedAt: '2026-10-29T00:00:00Z',
       archivedAt: null,
       running: false,
+      favorites: ['home'],
     }
     expect(ArtifactDto.parse(dto)).toEqual(dto)
     expect(ArtifactDto.safeParse({ ...dto, dir: '../x' }).success).toBe(false)
@@ -274,20 +278,23 @@ describe('annotations', () => {
 })
 
 describe('bridge', () => {
-  it('parent → shell', () => {
+  it('main site → screen', () => {
     for (const m of [
-      { t: 'mode', mode: 'mark' },
-      { t: 'highlight', file: 'screens/home.html', ggId: '3' },
-      { t: 'reload' },
-      { t: 'select-clear' },
+      { type: 'mode', mode: 'mark' },
+      { type: 'highlight', ggIds: ['3', '40'] },
+      { type: 'select-clear' },
+      { type: 'scroll-to', ggId: '3' },
+      { type: 'reload' },
     ])
       expect(BridgeToShell.parse(m)).toEqual(m)
-    expect(BridgeToShell.safeParse({ t: 'mode', mode: 'draw' }).success).toBe(false)
+    expect(BridgeToShell.safeParse({ type: 'mode', mode: 'draw' }).success).toBe(false)
+    expect(BridgeToShell.safeParse({ type: 'highlight', ggIds: ['x'] }).success).toBe(false)
   })
-  it('shell → parent', () => {
+  it('screen → main site', () => {
+    const at = { source: 'gg-bridge', file: 'screens/home.html' }
     const select = {
-      t: 'select',
-      file: 'screens/home.html',
+      ...at,
+      type: 'select',
       ggId: '3',
       selector: 'h1',
       rect: { x: 0, y: 0, w: 10, h: 10 },
@@ -296,16 +303,54 @@ describe('bridge', () => {
       textOnly: true,
       computed: { color: 'rgb(0, 0, 0)' },
       inlineStyle: '',
+      src: null,
+      href: null,
       link: 'member-card',
     }
     for (const m of [
-      { t: 'ready' },
-      { t: 'hover', file: 'screens/home.html', ggId: '3', rect: { x: 0, y: 0, w: 1, h: 1 } },
-      { t: 'hover', file: null, ggId: null, rect: null },
+      { ...at, type: 'ready', width: 390, height: 900 },
+      { ...at, type: 'size', width: 390, height: 1200 },
+      { ...at, type: 'hover', ggId: '3', rect: { x: 0, y: 0, w: 1, h: 1 } },
+      { ...at, type: 'hover', ggId: null, rect: null },
       select,
-      { t: 'nav', screenId: 'home' },
+      { ...at, type: 'nav', screen: 'home' },
+      { ...at, type: 'back' },
     ])
       expect(BridgeFromShell.parse(m)).toEqual(m)
+    expect(BridgeFromShell.safeParse({ ...select, source: 'x' }).success).toBe(false)
+    expect(BridgeFromShell.safeParse({ ...select, file: '../x.html' }).success).toBe(false)
+  })
+})
+
+describe('commands and context', () => {
+  it('edit-with-ai needs elements and a request', () => {
+    const base = { command: 'edit-with-ai', botId: 'b1' }
+    expect(ArtifactCommandReq.safeParse(base).success).toBe(false)
+    expect(
+      ArtifactCommandReq.safeParse({
+        ...base,
+        text: '更醒目',
+        ggIds: [{ file: 'screens/home.html', ggId: '3' }],
+      }).success,
+    ).toBe(true)
+    expect(ArtifactCommandReq.safeParse({ command: 'variations', botId: 'b1', count: 9 }).success).toBe(false)
+    expect(ArtifactCommandReq.parse({ command: 'regenerate', botId: 'b1', screenIds: ['home'] })).toEqual({
+      command: 'regenerate',
+      botId: 'b1',
+      screenIds: ['home'],
+    })
+  })
+  it('the composer may carry the canvas selection', () => {
+    const ctx = {
+      artifactId: 'a1',
+      screenIds: ['home'],
+      elements: [{ file: 'screens/home.html', ggId: '3', label: 'h1' }],
+    }
+    expect(
+      SendMessageReq.parse({ body: 'x', clientId: '12345678', artifactContext: ctx }).artifactContext,
+    ).toEqual(ctx)
+    expect(SendMessageReq.parse({ body: 'x', clientId: '12345678' }).artifactContext).toBeUndefined()
+    expect(ArtifactContext.safeParse({ ...ctx, screenIds: ['../x'] }).success).toBe(false)
   })
 })
 

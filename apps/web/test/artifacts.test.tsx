@@ -50,6 +50,7 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   updatedAt: at,
   archivedAt: null,
   running: false,
+  favorites: [],
   ...o,
 })
 const card = (o: Partial<ArtifactCard> = {}): ArtifactCard => ({

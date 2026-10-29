@@ -4,7 +4,8 @@ import type { Ctx } from '../../context.js'
 import { SESSION_COOKIE } from '../auth/session.js'
 
 /** Who a preview cookie lets in: a group member, or a visitor through a public link (plan P7/P8). */
-export type Visitor = { userId: string } | { shareId: string }
+/** `parent`: the main site's origin as the member reached it, the only one an artifact screen's bridge talks to. */
+export type Visitor = { userId: string; parent?: string } | { shareId: string }
 
 // Per process: a restart only costs visitors one silent trip through the main site.
 const SECRET = randomBytes(32)

@@ -1581,6 +1581,10 @@ export const artifacts = pgTable(
     createdBy: uuid('created_by').references(() => users.id),
     /** The artifact card. */
     messageId: uuid('message_id'),
+    /** Starred screen ids (not versioned). */
+    favorites: jsonb('favorites').$type<string[]>().notNull().default([]),
+    /** Bots that asked for it with artifact_checkout: their next run checks it out first, then they leave the list. */
+    checkoutBotIds: jsonb('checkout_bot_ids').$type<string[]>().notNull().default([]),
     archivedAt: ts('archived_at'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

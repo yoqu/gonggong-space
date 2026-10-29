@@ -154,7 +154,9 @@ export function previewRoutes(ctx: Ctx) {
       const { path = '/' } = z.object({ path: z.string().startsWith('/').optional() }).parse(req.query)
       const preview = await requireWebPreview(ctx, id)
       await requireMember(ctx, preview.groupId, user.id)
-      const code = issueCode(ctx, preview.id, { userId: user.id })
+      const { publicUrl } = ctx.config.preview
+      const parent = new URL(publicUrl ?? `${req.protocol}://${req.host}`).origin
+      const code = issueCode(ctx, preview.id, { userId: user.id, parent })
       const target = `${previewOrigin(ctx, preview, req)}/__gg/auth?code=${code}&return=${encodeURIComponent(path)}`
       return reply.redirect(target, 302)
     })

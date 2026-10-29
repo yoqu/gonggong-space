@@ -1,23 +1,33 @@
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
+  type AnnotationDto,
+  ARTIFACT_UPLOAD_MAX_BYTES,
+  ArtifactCommandReq,
   type ArtifactDto,
+  ArtifactEditReq,
+  ArtifactFavoritesReq,
   type ArtifactManifestRes,
   ArtifactSubmitReq,
   type ArtifactSubmitRes,
+  type ArtifactUploadRes,
   type ArtifactVersionDetail,
   type ArtifactVersionSummary,
+  CreateAnnotationReq,
+  type MessageDto,
+  SendAnnotationsReq,
   SYNC_BLOB_CONTENT_TYPE,
   SyncHash,
   SyncMissingReq,
   type SyncMissingRes,
+  UpdateAnnotationReq,
 } from '@gonggong/protocol'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { artifactVersions, bots, previews, runs } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, previews, runs } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { QuotaExceeded } from '../../lib/blob-store.js'
 import { fail } from '../../lib/errors.js'
@@ -27,7 +37,10 @@ import { requireMember } from '../groups/service.js'
 import { openPortListener } from '../previews/gateway.js'
 import { previewOrigin } from '../previews/routes.js'
 import { newSlug } from '../previews/service.js'
+import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
+import { sendAnnotations, sendCommand } from './commands.js'
+import { applyEdits, uploadImage } from './edits.js'
 import {
   type Artifact,
   artifactDetail,
@@ -82,12 +95,12 @@ async function referenced(ctx: Ctx, a: Artifact, hash: string) {
   return !!hit
 }
 
-async function readAll(body: Readable, max: number) {
+async function readAll(body: Readable, max: number, tooLarge: () => never) {
   const chunks: Buffer[] = []
   let n = 0
   for await (const c of body) {
     n += (c as Buffer).length
-    if (n > max) fail('invalid', '缩略图不能超过 {mb} MB', { mb: max / 1024 / 1024 })
+    if (n > max) tooLarge()
     chunks.push(c as Buffer)
   }
   return Buffer.concat(chunks)
@@ -135,8 +148,10 @@ async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: string | nu
 export function artifactRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     // Raw (optionally gzip) bytes streamed to disk; the store enforces the size limit.
-    app.addContentTypeParser([SYNC_BLOB_CONTENT_TYPE, 'image/png'], (_req, payload, done) =>
-      done(null, payload),
+    // Images are read by the routes (uploads refuse SVG themselves).
+    app.addContentTypeParser(
+      [SYNC_BLOB_CONTENT_TYPE, 'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'],
+      (_req, payload, done) => done(null, payload),
     )
 
     // ── daemon (machine token) ──
@@ -222,7 +237,9 @@ export function artifactRoutes(ctx: Ctx) {
         try {
           const { a } = await requireRunArtifact(ctx, req)
           const v = await requireVersion(ctx.db, a, req.params.vid)
-          const png = await readAll(body, THUMBNAIL_MAX_BYTES)
+          const png = await readAll(body, THUMBNAIL_MAX_BYTES, () =>
+            fail('invalid', '缩略图不能超过 {mb} MB', { mb: THUMBNAIL_MAX_BYTES / 1024 / 1024 }),
+          )
           const hash = createHash('sha256').update(png).digest('hex')
           if ((await artifactBlobs.touch(a.groupId, hash)) === null)
             await artifactBlobs.write(a.groupId, hash, Readable.from([png]), false)
@@ -321,6 +338,108 @@ export function artifactRoutes(ctx: Ctx) {
       const { versionId = null } = PreviewReq.parse(req.body ?? {})
       const p = await openArtifactPreview(ctx, a, versionId)
       return { previewId: p.id, origin: previewOrigin(ctx, p, req), url: `/api/previews/${p.id}/open` }
+    })
+
+    // ── editing (S2) ──
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/edits', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const body = ArtifactEditReq.parse(req.body)
+      try {
+        await applyEdits(ctx, a, me.id, body)
+      } catch (e) {
+        if (!(e instanceof QuotaExceeded)) throw e
+        return quotaFull(reply)
+      }
+      return artifactDetail(ctx, (await findArtifact(ctx.db, a.id)) as Artifact)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/uploads', async (req, reply) => {
+      const body = req.body as Readable | undefined
+      try {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        if (!body || typeof body.pipe !== 'function')
+          return fail('invalid', '只能上传 PNG、JPG、WebP 或 GIF 图片')
+        const bytes = await readAll(body, ARTIFACT_UPLOAD_MAX_BYTES, () =>
+          fail('invalid', '图片不能超过 {mb} MB', { mb: ARTIFACT_UPLOAD_MAX_BYTES / 1024 / 1024 }),
+        )
+        const out: ArtifactUploadRes = await uploadImage(a, req.headers['content-type'], bytes)
+        return out
+      } catch (e) {
+        if (!(e instanceof QuotaExceeded)) throw e
+        return quotaFull(reply)
+      } finally {
+        body?.resume?.()
+      }
+    })
+
+    app.put<{ Params: { id: string } }>('/api/artifacts/:id/favorites', async (req): Promise<ArtifactDto> => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const { screenIds } = ArtifactFavoritesReq.parse(req.body)
+      const [updated] = await ctx.db
+        .update(artifacts)
+        .set({ favorites: [...new Set(screenIds)] })
+        .where(eq(artifacts.id, a.id))
+        .returning()
+      return artifactDetail(ctx, updated as Artifact)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/archive', async (req): Promise<ArtifactDto> => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const [updated] = await ctx.db
+        .update(artifacts)
+        .set({ archivedAt: a.archivedAt ?? ctx.now() })
+        .where(eq(artifacts.id, a.id))
+        .returning()
+      return artifactDetail(ctx, updated as Artifact)
+    })
+
+    app.post<{ Params: { id: string } }>('/api/artifacts/:id/commands', async (req): Promise<MessageDto> => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      return sendCommand(ctx, me, a, ArtifactCommandReq.parse(req.body))
+    })
+
+    // ── annotations ──
+    app.get<{ Params: { id: string }; Querystring: { version?: string } }>(
+      '/api/artifacts/:id/annotations',
+      async (req): Promise<AnnotationDto[]> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return listAnnotations(ctx, a, req.query.version || undefined)
+      },
+    )
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/annotations',
+      async (req): Promise<AnnotationDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return createAnnotation(ctx, me, a, CreateAnnotationReq.parse(req.body))
+      },
+    )
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/annotations/send',
+      async (req): Promise<MessageDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return sendAnnotations(ctx, me, a, SendAnnotationsReq.parse(req.body))
+      },
+    )
+
+    app.patch<{ Params: { id: string } }>('/api/annotations/:id', async (req): Promise<AnnotationDto> => {
+      const me = await requireUser(ctx, req)
+      return updateAnnotation(ctx, me, req.params.id, UpdateAnnotationReq.parse(req.body))
+    })
+
+    app.delete<{ Params: { id: string } }>('/api/annotations/:id', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      await deleteAnnotation(ctx, me.id, req.params.id)
+      return reply.status(204).send()
     })
   }
 }

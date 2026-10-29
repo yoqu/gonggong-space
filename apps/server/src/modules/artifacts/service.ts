@@ -4,6 +4,7 @@ import {
   type ArtifactCard,
   type ArtifactDto,
   type ArtifactFile,
+  type ArtifactLink,
   type ArtifactVersionDetail,
   type ArtifactVersionDto,
   type ArtifactVersionSource,
@@ -22,6 +23,7 @@ import { isUuid } from '../../lib/ids.js'
 import { requireMember } from '../groups/service.js'
 import { authorName, type MessageMeta, type MessageRow, memberIds, messageDto } from '../messages/service.js'
 import { artifactBlobs, readBlob } from './blobs.js'
+import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
 import { lintVersion, parseManifest } from './lint.js'
 
@@ -90,7 +92,7 @@ export async function isRunning(db: Read, a: Artifact) {
   return (await runningIds(db, a.groupId)).has(a.id)
 }
 
-async function manifestOf(a: Artifact, v: Version | undefined): Promise<GgArtifactManifest | null> {
+export async function manifestOf(a: Artifact, v: Version | undefined): Promise<GgArtifactManifest | null> {
   const f = v?.files.find((x) => x.path === GG_ARTIFACT_MANIFEST)
   if (!f) return null
   const parsed = parseManifest(
@@ -114,6 +116,7 @@ function dto(a: Artifact, head: VersionRow | undefined, running: boolean): Artif
     updatedAt: a.updatedAt.toISOString(),
     archivedAt: a.archivedAt?.toISOString() ?? null,
     running,
+    favorites: a.favorites,
   }
 }
 
@@ -194,7 +197,20 @@ export async function versionDetail(
 ): Promise<ArtifactVersionDetail> {
   const v = await requireVersion(ctx.db, a, versionId)
   const [row] = await versionRows(ctx.db, eq(artifactVersions.id, v.id))
-  return { ...versionDto(row as VersionRow), manifest: await manifestOf(a, v) }
+  const manifest = await manifestOf(a, v)
+  return { ...versionDto(row as VersionRow), manifest, links: await screenLinks(a, v, manifest) }
+}
+
+/** The `data-gg-link`s of every screen the manifest lists. */
+async function screenLinks(a: Artifact, v: Version, manifest: GgArtifactManifest | null) {
+  const out: ArtifactLink[] = []
+  for (const s of manifest?.screens ?? []) {
+    const f = v.files.find((x) => x.path === s.file)
+    if (!f) continue
+    const html = (await readBlob(a.groupId, f.hash)).toString('utf8')
+    for (const l of linksOf(html)) out.push({ from: s.id, ...l })
+  }
+  return out
 }
 
 export type SubmitInput = {
@@ -204,6 +220,8 @@ export type SubmitInput = {
   source: ArtifactVersionSource
   runId: string | null
   userId: string | null
+  /** Refuse (409) instead of keeping a stale candidate when the parent is not the head: the panel's edits. */
+  onlyHead?: boolean
 }
 
 /** Every file's content was uploaded to the artifact store with its declared size. */
@@ -248,6 +266,7 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
       if (!p) fail('invalid', '父版本不属于该产物')
     }
     const head = parent === locked.headVersionId
+    if (!head && input.onlyHead) fail('conflict', '产物已有新版本，请刷新后重做')
     const [last] = await tx
       .select({ n: artifactVersions.n })
       .from(artifactVersions)
@@ -350,11 +369,17 @@ async function referenced(tx: Tx, meta: MessageMeta) {
 }
 
 /**
- * RunStart.artifacts (§3.2): the ones the trigger points at always, then the bot's own (made for it or changed by
+ * RunStart.artifacts (§3.2): the ones the trigger points at or the bot asked for (artifact_checkout) always, then the bot's own (made for it or changed by
  * its runs), most recently updated first, up to RUN_ARTIFACTS_MAX; `exclude` is every artifact directory of the group.
  */
 export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta: MessageMeta) {
-  const targets = await referenced(tx, meta)
+  const wanted = sql`${artifacts.checkoutBotIds} @> ${JSON.stringify([botId])}::jsonb`
+  const asked = await tx
+    .update(artifacts)
+    .set({ checkoutBotIds: sql`${artifacts.checkoutBotIds} - ${botId}::text` })
+    .where(and(eq(artifacts.groupId, groupId), wanted))
+    .returning({ id: artifacts.id })
+  const targets = [...new Set([...(await referenced(tx, meta)), ...asked.map((r) => r.id)])]
   const cols = { a: artifacts, head: artifactVersions }
   const base = () =>
     tx
