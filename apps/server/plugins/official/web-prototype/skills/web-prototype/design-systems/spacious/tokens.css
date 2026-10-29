@@ -1,0 +1,63 @@
+/* design-systems/spacious/tokens.css
+ * Structured token bindings for Spacious.
+ * spacious interface with airy sections, soft surfaces, and generous layout rhythm.
+ */
+
+:root {
+  --bg: #f7f3ec;
+  --surface: #ffffff;
+  --surface-warm: var(--surface);
+  --fg: #1f1a14;
+  --fg-2: var(--fg);
+  --muted: #5f5647;
+  --meta: var(--muted);
+  --border: #e6ddcf;
+  --border-soft: var(--border);
+  --accent: #0e7490;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #15803d;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --font-display: "DM Sans", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "DM Sans", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 17px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 42px;
+  --text-3xl: 64px;
+  --text-4xl: 88px;
+  --leading-body: 1.62;
+  --leading-tight: 1;
+  --tracking-display: -0.025em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 112px;
+  --section-y-tablet: 80px;
+  --section-y-phone: 56px;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 16px 40px rgba(31, 26, 20, 0.10);
+  --focus-ring: 0 0 0 3px rgba(14, 116, 144, 0.35);
+  --motion-fast: 150ms;
+  --motion-base: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1180px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

@@ -1,0 +1,81 @@
+/* design-systems/shadcn/tokens.css
+ * Monochrome open-source component-library baseline: slate neutrals,
+ * near-black primary, 8px default radius, layered focus ring
+ * (2px bg offset + 2px accent). The accent is black, so hover/active
+ * mix toward white instead of black.
+ */
+
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-warm: var(--surface);     /* alias — this system has no warm tier */
+
+  --fg: #09090b;                       /* slate-900 — body text (DESIGN.md §2 Text) */
+  --fg-2: var(--fg);                   /* alias — this system has no secondary fg tier */
+  --muted: #71717a;                    /* slate-500 — captions, subtext, descriptions */
+  --meta: var(--muted);                /* alias — this system has no metadata tier */
+
+  --border: #e4e4e7;                   /* slate-200 — card edge, input edge, dividers */
+  --border-soft: var(--border);        /* alias — this system has no soft tier */
+
+  --accent: #18181b;                   /* DESIGN.md §2 Primary — CTA fill */
+  --accent-on: #fafafa;                /* white label on black */
+  --accent-hover: color-mix(in oklab, var(--accent), white 10%);   /* ~#1a1a1a — lift, don't press */
+  --accent-active: color-mix(in oklab, var(--accent), white 18%);  /* ~#2e2e2e — clear pressed delta */
+
+  --success: #16a34a;
+  --warn: #d97706;                     /* DESIGN.md §2 Warning — amber-600, not yellow */
+  --danger: #dc2626;
+
+  --font-display: "Geist", "Geist Sans", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "Geist", "Geist Sans", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "Fira Code", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs: 12px;                     /* caption, meta, badge */
+  --text-sm: 14px;                     /* button, input, secondary body */
+  --text-base: 16px;                   /* body baseline */
+  --text-lg: 20px;                     /* lede, featured paragraph */
+  --text-xl: 24px;                     /* card title, H3 */
+  --text-2xl: 32px;                    /* section title, H2 */
+  --text-3xl: 40px;                    /* H1 */
+  --text-4xl: 48px;                    /* display hero (marketing only) */
+
+  --leading-body: 1.5;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 96px;
+  --section-y-tablet: 64px;
+  --section-y-phone: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised:
+    0 1px 2px 0 color-mix(in oklab, var(--fg), transparent 92%),
+    0 1px 3px 0 color-mix(in oklab, var(--fg), transparent 88%);
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1280px;
+  --container-gutter-desktop: 24px;
+  --container-gutter-tablet: 16px;
+  --container-gutter-phone: 16px;
+}

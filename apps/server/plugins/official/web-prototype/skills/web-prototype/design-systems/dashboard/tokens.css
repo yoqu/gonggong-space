@@ -1,0 +1,63 @@
+/* design-systems/dashboard/tokens.css
+ * Structured token bindings for Dashboard.
+ * analytics dashboard with compact cards, cool surfaces, and status-first information design.
+ */
+
+:root {
+  --bg: #09090b;
+  --surface: #131316;
+  --surface-warm: var(--surface);
+  --fg: #fafafa;
+  --fg-2: var(--fg);
+  --muted: #a1a1aa;
+  --meta: var(--muted);
+  --border: #27272a;
+  --border-soft: var(--border);
+  --accent: #0c5cab;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --font-display: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 30px;
+  --text-3xl: 42px;
+  --text-4xl: 56px;
+  --leading-body: 1.48;
+  --leading-tight: 1.1;
+  --tracking-display: -0.015em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 84px;
+  --section-y-tablet: 60px;
+  --section-y-phone: 42px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(12, 92, 171, 0.35);
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1280px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

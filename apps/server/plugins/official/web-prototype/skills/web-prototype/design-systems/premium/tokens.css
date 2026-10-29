@@ -1,0 +1,63 @@
+/* design-systems/premium/tokens.css
+ * Structured token bindings for Premium.
+ * premium marketing system with warm white canvas, graphite type, and muted bronze signal.
+ */
+
+:root {
+  --bg: #1d1d1f;
+  --surface: #2a2a2d;
+  --surface-warm: var(--surface);
+  --fg: #f5f5f7;
+  --fg-2: var(--fg);
+  --muted: #a1a1a6;
+  --meta: var(--muted);
+  --border: #3a3a3d;
+  --border-soft: var(--border);
+  --accent: #d6c3a1;
+  --accent-on: #1d1d1f;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --font-display: "Fraunces", "Noto Serif SC", "Songti SC", "PingFang SC", serif;
+  --font-body: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 19px;
+  --text-xl: 26px;
+  --text-2xl: 40px;
+  --text-3xl: 60px;
+  --text-4xl: 84px;
+  --leading-body: 1.58;
+  --leading-tight: 1.02;
+  --tracking-display: -0.02em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 112px;
+  --section-y-tablet: 80px;
+  --section-y-phone: 56px;
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(214, 195, 161, 0.35);
+  --motion-fast: 170ms;
+  --motion-base: 280ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --container-max: 1160px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

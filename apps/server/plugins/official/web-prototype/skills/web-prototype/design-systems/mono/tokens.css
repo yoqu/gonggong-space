@@ -1,0 +1,63 @@
+/* design-systems/mono/tokens.css
+ * Structured token bindings for Mono.
+ * monochrome interface with black ink, white surfaces, and severe component discipline.
+ */
+
+:root {
+  --bg: #e7e5e4;
+  --surface: #f5f5f4;
+  --surface-warm: var(--surface);
+  --fg: #1c1917;
+  --fg-2: var(--fg);
+  --muted: #57534e;
+  --meta: #78716b;
+  --border: #c9c5c2;
+  --border-soft: var(--border);
+  --accent: #37f712;
+  --accent-on: #0c0a09;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #00a63d;
+  --warn: #fe9900;
+  --danger: #ff2157;
+  --font-display: "IBM Plex Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-body: "IBM Plex Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 40px;
+  --text-4xl: 56px;
+  --leading-body: 1.45;
+  --leading-tight: 1.06;
+  --tracking-display: -0.025em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 80px;
+  --section-y-tablet: 60px;
+  --section-y-phone: 42px;
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: none;
+  --focus-ring: 0 0 0 3px rgba(55, 247, 18, 0.35);
+  --motion-fast: 100ms;
+  --motion-base: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1280px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

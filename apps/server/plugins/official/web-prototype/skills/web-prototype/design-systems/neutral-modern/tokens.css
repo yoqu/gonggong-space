@@ -1,0 +1,98 @@
+/* design-systems/neutral-modern/tokens.css
+ *
+ * Structured token bindings for "Neutral Modern" — the starter design
+ * system and the default when no design system is chosen. This file is
+ * the machine-readable form of the values described in DESIGN.md. Copy
+ * the colour and font values into the seed's `:root` block, then
+ * reference tokens via `var(--name)` from then on.
+ *
+ * Standard token names follow references/craft/color.md
+ * (--bg / --surface / --fg / --muted / --border / --accent
+ *  / --success / --warn / --danger) and the display-face contract in
+ * references/craft/anti-ai-slop.md (--font-display, used via var()).
+ *
+ * The shallow tokens (`--fg-2`, `--meta`, `--surface-warm`,
+ * `--border-soft`) alias their richer siblings so components can
+ * reference the full set uniformly across design systems.
+ */
+
+:root {
+  /* Surface — never pure black, never pure white for the page. */
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-warm: var(--surface);
+
+  /* Foreground ramp — only two real levels here. */
+  --fg: #111111;
+  --fg-2: var(--fg);
+  --muted: #6b6b6b;
+  --meta: var(--muted);
+
+  --border: #e5e5e5;
+  --border-soft: var(--border);
+
+  /* Cobalt — primary CTAs, links, ONE hero element per screen; at most 2 visible uses per screen. */
+  --accent: #2f6feb;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+
+  /* Semantic — state only, under 5% of the surface. */
+  --success: #17a34a;
+  --warn: #eab308;
+  --danger: #dc2626;
+
+  /* Sans display is this system's deliberate "modern minimal" choice; other systems should bind a serif. */
+  --font-display: "Inter", -apple-system, system-ui, sans-serif;
+  --font-body: "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;
+  --text-4xl: 64px;
+
+  --leading-body: 1.5;
+  --leading-tight: 1.2;
+  --tracking-display: -0.01em; /* display sizes ≥32px */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-20: 80px;
+
+  --section-y-desktop: 80px;
+  --section-y-tablet: 48px;
+  --section-y-phone: 32px;
+
+  /* Small for buttons/inputs, medium for cards/modals; pill only for chips and avatars. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 2px 8px color-mix(in oklab, var(--fg), transparent 92%);
+
+  /* Every :focus-visible uses this ring. */
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--accent), transparent 70%);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1200px;
+  --container-gutter-desktop: 24px;
+  --container-gutter-tablet: 16px;
+  --container-gutter-phone: 12px;
+}

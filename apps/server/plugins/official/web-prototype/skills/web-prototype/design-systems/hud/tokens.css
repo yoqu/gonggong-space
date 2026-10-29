@@ -1,0 +1,63 @@
+/* design-systems/hud/tokens.css
+ * Structured token bindings for HUD.
+ * HUD interface language with dark transparent panels, cyan telemetry, and compact status readouts.
+ */
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111316;
+  --surface-warm: var(--surface);
+  --fg: #00ff41;
+  --fg-2: #7fff00;
+  --muted: #5a9a5a;
+  --meta: #5a9a5a;
+  --border: #1e2328;
+  --border-soft: var(--border);
+  --accent: #00ff41;
+  --accent-on: #0a0a0a;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #00ff41;
+  --warn: #ffb800;
+  --danger: #ff3b3b;
+  --font-display: "JetBrains Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-body: "JetBrains Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 40px;
+  --text-4xl: 56px;
+  --leading-body: 1.45;
+  --leading-tight: 1.06;
+  --tracking-display: -0.025em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 80px;
+  --section-y-tablet: 60px;
+  --section-y-phone: 42px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 2px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 0 0 1px rgba(0, 255, 65, 0.25), 0 0 32px rgba(0, 255, 65, 0.30);
+  --focus-ring: 0 0 0 3px rgba(0, 255, 65, 0.35);
+  --motion-fast: 100ms;
+  --motion-base: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1280px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

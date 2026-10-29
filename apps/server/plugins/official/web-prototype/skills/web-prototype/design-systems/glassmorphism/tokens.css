@@ -1,0 +1,63 @@
+/* design-systems/glassmorphism/tokens.css
+ * Structured token bindings for Glassmorphism.
+ * glass interface language with translucent panels, airy borders, and luminous cyan-violet action.
+ */
+
+:root {
+  --bg: #e9eefc;
+  --surface: #ffffff;
+  --surface-warm: var(--surface);
+  --fg: #141414;
+  --fg-2: var(--fg);
+  --muted: #575468;
+  --meta: var(--muted);
+  --border: #d5dbf0;
+  --border-soft: var(--border);
+  --accent: #1856ff;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #07ca6b;
+  --warn: #e89558;
+  --danger: #ea2143;
+  --font-display: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 36px;
+  --text-3xl: 54px;
+  --text-4xl: 76px;
+  --leading-body: 1.55;
+  --leading-tight: 1.04;
+  --tracking-display: -0.025em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 104px;
+  --section-y-tablet: 72px;
+  --section-y-phone: 52px;
+  --radius-sm: 16px;
+  --radius-md: 24px;
+  --radius-lg: 36px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 8px 32px rgba(24, 86, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --focus-ring: 0 0 0 3px rgba(24, 86, 255, 0.35);
+  --motion-fast: 180ms;
+  --motion-base: 280ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --container-max: 1180px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

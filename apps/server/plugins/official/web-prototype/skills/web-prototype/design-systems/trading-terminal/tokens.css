@@ -1,0 +1,63 @@
+/* design-systems/trading-terminal/tokens.css
+ * Structured token bindings for Trading Terminal.
+ * professional trading terminal with dark market panels, green-red status, and compact data density.
+ */
+
+:root {
+  --bg: #0d0d0d;
+  --surface: #141414;
+  --surface-warm: #1a1a1a;
+  --fg: #ffffff;
+  --fg-2: #aaaaaa;
+  --muted: #aaaaaa;
+  --meta: #828282;
+  --border: #2a2a2a;
+  --border-soft: var(--border);
+  --accent: #00d4aa;
+  --accent-on: #0d0d0d;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #00d4aa;
+  --warn: #ffb800;
+  --danger: #ff4757;
+  --font-display: "JetBrains Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-body: "JetBrains Mono", ui-monospace, Menlo, "PingFang SC", "Noto Sans SC", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 40px;
+  --text-4xl: 56px;
+  --leading-body: 1.45;
+  --leading-tight: 1.08;
+  --tracking-display: -0.01em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 80px;
+  --section-y-tablet: 60px;
+  --section-y-phone: 42px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: none;
+  --focus-ring: 0 0 0 3px rgba(0, 212, 170, 0.35);
+  --motion-fast: 90ms;
+  --motion-base: 160ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1320px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

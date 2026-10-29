@@ -1,0 +1,63 @@
+/* design-systems/neon/tokens.css
+ * Structured token bindings for Neon.
+ * neon visual language with dark backgrounds, glowing accents, and high-energy controls.
+ */
+
+:root {
+  --bg: #0b0b10;
+  --surface: #15151d;
+  --surface-warm: var(--surface);
+  --fg: #f4f6ee;
+  --fg-2: var(--fg);
+  --muted: #a3a7b5;
+  --meta: var(--muted);
+  --border: #2c2d3a;
+  --border-soft: var(--border);
+  --accent: #bbf351;
+  --accent-on: #0b0b10;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #4ade80;
+  --warn: #fbbf24;
+  --danger: #ff4d8d;
+  --font-display: "Unbounded", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "Inter", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 36px;
+  --text-3xl: 54px;
+  --text-4xl: 76px;
+  --leading-body: 1.52;
+  --leading-tight: 1.06;
+  --tracking-display: -0.025em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 96px;
+  --section-y-tablet: 68px;
+  --section-y-phone: 48px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 0 0 1px rgba(187, 243, 81, 0.25), 0 0 32px rgba(187, 243, 81, 0.30);
+  --focus-ring: 0 0 0 3px rgba(187, 243, 81, 0.35);
+  --motion-fast: 150ms;
+  --motion-base: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1180px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}

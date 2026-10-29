@@ -1,0 +1,63 @@
+/* design-systems/publication/tokens.css
+ * Structured token bindings for Publication.
+ * news publication system with white pages, black editorial type, and crisp red section signals.
+ */
+
+:root {
+  --bg: #f4f1ea;
+  --surface: #fbfaf6;
+  --surface-warm: var(--surface);
+  --fg: #0a1829;
+  --fg-2: var(--fg);
+  --muted: #4d5868;
+  --meta: var(--muted);
+  --border: #d9d3c5;
+  --border-soft: var(--border);
+  --accent: #b45309;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #15803d;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --font-display: "Libre Franklin", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-body: "Literata", Georgia, "Noto Serif SC", "Songti SC", "PingFang SC", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 17px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 42px;
+  --text-3xl: 64px;
+  --text-4xl: 88px;
+  --leading-body: 1.58;
+  --leading-tight: 0.98;
+  --tracking-display: -0.018em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --section-y-desktop: 88px;
+  --section-y-tablet: 64px;
+  --section-y-phone: 44px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-pill: 9999px;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: none;
+  --focus-ring: 0 0 0 3px rgba(180, 83, 9, 0.35);
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 1180px;
+  --container-gutter-desktop: 36px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}
