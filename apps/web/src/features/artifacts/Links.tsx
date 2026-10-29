@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import type { LinkSpot } from './bridge'
 import type { CanvasNode, View } from './geometry'
 import type { ArtifactLink } from './store'
 
@@ -14,9 +15,15 @@ export interface LinkPath {
 
 /**
  * Connections between screens in viewport pixels (Stitch's Show Connections; curves from the web-prototype kit's
- * canvas): forward links arc across, links back swing below the screens in between. One per screen pair.
+ * canvas): forward links arc across, links back swing below the screens in between. One per screen pair. A link
+ * starts at its element when the screen reported where it is (`spots`, by file), else at a staggered point.
  */
-export function linkPaths(nodes: CanvasNode[], links: ArtifactLink[], v: View): LinkPath[] {
+export function linkPaths(
+  nodes: CanvasNode[],
+  links: ArtifactLink[],
+  v: View,
+  spots: Record<string, LinkSpot[]> = {},
+): LinkPath[] {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const bottom = Math.max(0, ...nodes.map((n) => n.y + n.h))
   const seen = new Set<string>()
@@ -31,8 +38,12 @@ export function linkPaths(nodes: CanvasNode[], links: ArtifactLink[], v: View): 
     const k = outgoing.get(f.id) ?? 0
     outgoing.set(f.id, k + 1)
     const forward = to.x > f.x
-    const sx = forward ? f.x + f.w : f.x
-    const sy = f.y + Math.min(96 + k * 48, Math.max(24, f.h - 24))
+    const fileSpots = spots[f.file] ?? []
+    const spot = fileSpots.find((s) => s.ggId === l.ggId) ?? fileSpots.find((s) => s.screen === l.to)
+    const sx = spot ? f.x + spot.rect.x + (forward ? spot.rect.w : 0) : forward ? f.x + f.w : f.x
+    const sy = spot
+      ? f.y + Math.min(spot.rect.y + spot.rect.h / 2, Math.max(8, f.h - 8))
+      : f.y + Math.min(96 + k * 48, Math.max(24, f.h - 24))
     const tx = forward ? to.x : to.x + to.w
     const ty = to.y + Math.min(64, to.h / 2)
     const bend = Math.max(60, Math.abs(tx - sx) / 2)

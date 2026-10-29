@@ -34,30 +34,58 @@ export const CMD = {
   fit: 'fit',
   fullHeight: 'full-height',
   frame: 'frame:',
+  addToChat: 'add-to-chat',
+  /** `gen:<ArtifactCommand>`: POST …/commands for the selected screens. */
+  generate: 'gen:',
+  /** `var:<dimension>`: variations along one dimension; `var:custom` asks for the direction. */
+  variations: 'var:',
 } as const
 
-/** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕); generating comes with R3. */
-export const GENERATE_ITEMS: MenuItem[] = [
-  soon(t('即时原型')),
-  soon(t('变体'), '⇧V'),
-  soon(t('重新生成'), '⇧R'),
-  soon(t('桌面网页版')),
-  soon(t('补全状态')),
-  soon(t('动效')),
+/** Variation dimensions (Stitch's Variations submenu); `ai` goes into the agent's instruction (never translated). */
+export const VARIATION_DIMENSIONS: Record<string, { label: string; ai: string }> = {
+  layout: { label: t('布局'), ai: '布局' },
+  color: { label: t('配色'), ai: '配色' },
+  images: { label: t('图片'), ai: '图片' },
+  font: { label: t('字体'), ai: '字体' },
+  copy: { label: t('文案'), ai: '文案' },
+}
+export const VARIATION_CUSTOM = 'custom'
+
+const noBotTitle = (noBot: boolean) => (noBot ? { disabled: true, title: t('群里没有 Bot') } : {})
+const gen = (label: string, command: string, noBot: boolean, shortcut?: string): MenuItem => ({
+  label,
+  value: `${CMD.generate}${command}`,
+  ...(shortcut ? { shortcut } : {}),
+  ...noBotTitle(noBot),
+})
+
+/** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕); each item becomes an @bot message. */
+export const generateItems = (noBot: boolean): MenuItem[] => [
+  gen(t('即时原型'), 'instant-prototype', noBot),
+  gen(t('变体'), 'variations', noBot),
+  gen(t('重新生成'), 'regenerate', noBot, '⇧R'),
+  gen(t('桌面网页版'), 'desktop-version', noBot),
+  gen(t('补全状态'), 'missing-states', noBot),
+  gen(t('动效'), 'animate', noBot),
   { separator: true },
-  soon(t('应用商店素材')),
-  soon(t('网页素材')),
-  soon(t('营销物料')),
-  soon(t('无障碍检查')),
+  gen(t('应用商店素材'), 'app-store-assets', noBot),
+  gen(t('网页素材'), 'web-assets', noBot),
+  gen(t('营销物料'), 'marketing-kit', noBot),
+  gen(t('无障碍检查'), 'accessibility-audit', noBot),
 ]
 
-const VARIATION_ITEMS: MenuItem[] = [
-  soon(t('布局')),
-  soon(t('配色')),
-  soon(t('图片')),
-  soon(t('字体')),
-  soon(t('文案')),
-  soon(t('自定义…'), '⇧V'),
+const variationItems = (noBot: boolean): MenuItem[] => [
+  ...Object.entries(VARIATION_DIMENSIONS).map(([k, d]) => ({
+    label: d.label,
+    value: `${CMD.variations}${k}`,
+    ...noBotTitle(noBot),
+  })),
+  {
+    label: t('自定义…'),
+    value: `${CMD.variations}${VARIATION_CUSTOM}`,
+    shortcut: '⇧V',
+    ...noBotTitle(noBot),
+  },
 ]
 
 const readOnlyTitle = (readOnly: boolean) => (readOnly ? { disabled: true, title: t('AI 正在修改') } : {})
@@ -111,10 +139,11 @@ export function screenContextItems(o: {
   favourite: boolean
   showAllLinks: boolean
   frame: ScreenFrame | null
+  noBot: boolean
 }): MenuItem[] {
   const ro = readOnlyTitle(o.readOnly)
   return [
-    soon(t('添加到对话'), '⌘L'),
+    { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
     { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
     { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', ...ro },
     { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: o.readOnly || !o.canPaste },
@@ -126,9 +155,9 @@ export function screenContextItems(o: {
     { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
     { separator: true },
     { header: t('生成') },
-    { label: t('生成'), value: 'generate', submenu: GENERATE_ITEMS },
-    { label: t('变体'), value: 'variations', submenu: VARIATION_ITEMS },
-    soon(t('重新生成'), '⇧R'),
+    { label: t('生成'), value: 'generate', submenu: generateItems(o.noBot) },
+    { label: t('变体'), value: 'variations', submenu: variationItems(o.noBot) },
+    gen(t('重新生成'), 'regenerate', o.noBot, '⇧R'),
     { separator: true },
     { header: t('编辑') },
     ...modifyItems(o.readOnly),
@@ -191,7 +220,9 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('下载所选'), keys: ['⇧', 'D'] },
       { label: t('删除'), keys: ['⌫'] },
       { label: t('收藏'), keys: ['⇧', 'F'] },
-      { label: t('添加到对话'), keys: ['⌘', 'L'], soon: true },
+      { label: t('添加到对话'), keys: ['⌘', 'L'] },
+      { label: t('自定义变体'), keys: ['⇧', 'V'] },
+      { label: t('重新生成'), keys: ['⇧', 'R'] },
       { label: t('微移所选'), keys: ['⇧', '↑↓←→'], soon: true },
     ],
   },

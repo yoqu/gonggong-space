@@ -161,6 +161,8 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
         <EmptyState icon="grid" title={t('打不开产物预览')} description={previewError} />
       ) : (
         <Canvas
+          artifactId={a.id}
+          groupId={a.groupId}
           title={a.title}
           manifest={viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest}
           tokens={tokens}

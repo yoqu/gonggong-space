@@ -14,6 +14,8 @@ import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Composer } from '../../ui'
+import { ContextChips } from '../artifacts/ContextChips'
+import { artifactContextOf, clearContext, useCanvasContext } from '../artifacts/context'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
 import { openCreation, useEnabledPlugins } from '../plugins/store'
@@ -61,6 +63,7 @@ interface SendBody {
   quote: { kind: 'message' | 'run'; id: string } | null
   appendTo: string | null
   runOptions?: Picks
+  artifactContext?: ReturnType<typeof artifactContextOf>
 }
 
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
@@ -107,6 +110,8 @@ export const MessageComposer = memo(function MessageComposer({
     if (dropFiles) dropFiles.current = uploads.add
   })
   const quote = useQuote((s) => (s.quote?.groupId === group.id ? s.quote : null))
+  const canvas = useCanvasContext((s) => (s.context?.groupId === group.id ? s.context : null))
+  const canvasFocus = useCanvasContext((s) => s.focus)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -123,6 +128,16 @@ export const MessageComposer = memo(function MessageComposer({
       // Storage can be unavailable (private mode, quota); the draft then lives only in memory.
     }
   }, [group.id, draft])
+
+  // The canvas selection belongs to its group: switching groups drops it.
+  useEffect(() => {
+    const c = useCanvasContext.getState().context
+    if (c && c.groupId !== group.id) clearContext()
+  }, [group.id])
+  // Add to Chat (⌘L) hands the focus over.
+  useEffect(() => {
+    if (canvasFocus && useCanvasContext.getState().context?.groupId === group.id) input.current?.focus()
+  }, [canvasFocus, group.id])
 
   useLayoutEffect(() => {
     const pos = pendingCaret.current
@@ -240,6 +255,7 @@ export const MessageComposer = memo(function MessageComposer({
       }
       const req: SendBody = { body, clientId: uuid(), attachmentIds, quote: q, appendTo }
       if (Object.keys(runOptions).length) req.runOptions = runOptions
+      if (canvas) req.artifactContext = artifactContextOf(canvas)
       onSent(await postMessage(group.id, req))
       setSent((n) => n + 1)
       if (appendTo) useAppend.getState().clear()
@@ -247,6 +263,7 @@ export const MessageComposer = memo(function MessageComposer({
       setPicks({})
       uploads.clear()
       if (q) useQuote.getState().clear()
+      if (canvas) clearContext()
     } catch (e) {
       toastError(e)
     } finally {
@@ -255,7 +272,7 @@ export const MessageComposer = memo(function MessageComposer({
     }
   }
 
-  const chips = appending || quote || uploads.items.length > 0
+  const chips = appending || quote || canvas || uploads.items.length > 0
   return (
     <div className="composer">
       <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
@@ -308,6 +325,7 @@ export const MessageComposer = memo(function MessageComposer({
           chips ? (
             <div className="composer__chips" data-testid="composer-chips">
               <AppendBanner groupId={group.id} />
+              {canvas ? <ContextChips context={canvas} /> : null}
               {quote ? <QuoteChip quote={quote} /> : null}
               <AttachmentChips uploads={uploads} />
             </div>

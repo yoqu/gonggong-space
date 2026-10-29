@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react'
 import { t } from '../../i18n'
+import { ago } from '../../lib/time'
 import { Button, CloseButton, EmptyState, Icon } from '../../ui'
 import type { CanvasNode } from './geometry'
+import { useScreenNotes } from './notes'
 
 /** A panel docked to the right of the canvas (Stitch's View Details, Favourites, DESIGN.md). */
-function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Panel({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
   return (
     <aside className="art-panel" aria-label={title}>
       <header className="art-panel__head">
@@ -16,8 +26,10 @@ function Panel({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-/** View Details (I): what the screen is, its size, its design system and its source. */
+/** View Details (I): what the screen is, its size, its design system, its source and where it comes from. */
 export function DetailsPanel({
+  artifactId,
+  versionId,
   node,
   thumbnailUrl,
   hasSystem,
@@ -25,6 +37,8 @@ export function DetailsPanel({
   onDesignSystem,
   onClose,
 }: {
+  artifactId: string
+  versionId: string
   node: CanvasNode
   thumbnailUrl: string | null
   hasSystem: boolean
@@ -32,6 +46,7 @@ export function DetailsPanel({
   onDesignSystem: () => void
   onClose: () => void
 }) {
+  const { origin, note } = useScreenNotes(artifactId, versionId, node)
   return (
     <Panel title={node.title} onClose={onClose}>
       <div className="art-panel__shot">
@@ -63,7 +78,23 @@ export function DetailsPanel({
         <dd>
           <code>{node.file}</code>
         </dd>
+        {origin ? (
+          <>
+            <dt>{t('来源版本')}</dt>
+            <dd data-testid="art-details-origin">
+              {[`v${origin.n}`, origin.authorName, ago(origin.createdAt)].filter(Boolean).join(' · ')}
+            </dd>
+          </>
+        ) : null}
       </dl>
+      {note ? (
+        <>
+          <h4 className="art-panel__label">{t('设计说明')}</h4>
+          <p className="art-panel__note" data-testid="art-details-note">
+            {note}
+          </p>
+        </>
+      ) : null}
     </Panel>
   )
 }

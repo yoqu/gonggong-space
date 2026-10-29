@@ -1,4 +1,4 @@
-import type { ArtifactDevice, ArtifactEditOp, GgArtifactManifest } from '@gonggong/protocol'
+import type { AnnotationDto, ArtifactDevice, ArtifactEditOp, GgArtifactManifest } from '@gonggong/protocol'
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -10,9 +10,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { attempt } from '../../lib/errors'
+import { attempt, toastError } from '../../lib/errors'
 import {
   ConfirmActionDialog,
   ContextMenu,
@@ -24,11 +25,29 @@ import {
   Presence,
   Skeleton,
   Tooltip,
+  toast,
 } from '../../ui'
 import { openUrl } from '../previews/store'
-import { type BridgeMode, type FromScreen, postToScreen, useBridge } from './bridge'
+import { AnnotationsPanel } from './AnnotationsPanel'
+import {
+  type CanvasCommand,
+  type CanvasCommandReq,
+  createAnnotation,
+  deleteAnnotation,
+  saveEdits,
+  sendAnnotations,
+  sendCommand,
+  updateAnnotation,
+  useAnnotations,
+  useArtifactBot,
+} from './actions'
+import { type BridgeMode, type FromScreen, type LinkSpot, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
+import { dropSelectionContext, elementItem, pinContext, screenItem, setSelectionContext } from './context'
 import { DesignSystemNode } from './DesignSystemNode'
+import { ElementPanel } from './ElementPanel'
+import { EditPopover, MarkPopover } from './ElementPopover'
+import { elementBox, elementLabel, type PickedElement } from './elements'
 import {
   type CanvasNode,
   type Direction,
@@ -51,11 +70,13 @@ import { Links, linkPaths } from './Links'
 import {
   CMD,
   canvasContextItems,
-  GENERATE_ITEMS,
+  generateItems,
   modifyItems,
   moreItems,
   previewItems,
   screenContextItems,
+  VARIATION_CUSTOM,
+  VARIATION_DIMENSIONS,
   ZOOM_100,
   ZOOM_FIT,
   ZOOM_IN,
@@ -67,9 +88,10 @@ import { ShortcutsDialog } from './ShortcutsDialog'
 import { DesignSystemPanel, DetailsPanel, FavouritesPanel } from './SidePanel'
 import type { ArtifactLink } from './store'
 import type { DesignTokens } from './tokens'
+import { VariationsDialog } from './VariationsDialog'
 
 type Tool = 'select' | 'hand' | 'mark' | 'edit'
-type Panel = 'details' | 'favourites' | 'design'
+type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations'
 
 /** Pointer travel (px) after which a press pans instead of clicking. */
 const DRAG = 4
@@ -77,6 +99,8 @@ const DRAG = 4
 const NUDGE = 40
 
 export interface CanvasProps {
+  artifactId: string
+  groupId: string
   title: string
   manifest: GgArtifactManifest | null | undefined
   /** The shown version's tokens.css, parsed; null when it has none. */
@@ -127,6 +151,8 @@ const manifestOp = (
  * and direct edit the screens get it and talk back over the bridge.
  */
 export function Canvas({
+  artifactId,
+  groupId,
   title,
   manifest,
   tokens,
@@ -165,6 +191,16 @@ export function Canvas({
   const [clip, setClip] = useState<{ ids: string[]; cut: boolean } | null>(null)
   const [moving, setMoving] = useState<{ id: string; x: number; dx: number } | null>(null)
   const [ctxOnScreen, setCtxOnScreen] = useState(false)
+  /** The element a screen reported clicked with mark or direct edit; `pop` shows its popover. */
+  const [element, setElement] = useState<PickedElement | null>(null)
+  const [pop, setPop] = useState(false)
+  const [deleting, setDeleting] = useState<PickedElement | null>(null)
+  const [variations, setVariations] = useState(false)
+  /** Where each screen's link elements are (by file), as the screens report them. */
+  const [spots, setSpots] = useState<Record<string, LinkSpot[]>>({})
+  const { bots, bot, pick: pickBot } = useArtifactBot(groupId)
+  const annotations = useAnnotations(artifactId, versionKey || null)
+  const meId = useSession((s) => s.user?.id ?? null)
   const press = useRef<{ id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null>(
     null,
   )
@@ -250,15 +286,101 @@ export function Canvas({
     if (m.type === 'ready' || m.type === 'size') {
       const h = m.height
       if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
+      const found = linkSpots(m.links)
+      if (found) setSpots((s) => ({ ...s, [m.file]: found }))
     } else if (m.type === 'select') {
       const s = screens.find((n) => n.file === m.file)
-      if (s) setSelected([s.id])
+      if (!s) return
+      setSelected([s.id])
+      if (!live) return
+      setElement({ ...m, screenId: s.id, screenTitle: s.title })
+      // With the element panel open, a click just moves the panel to the new element.
+      setPop(!(panel === 'element' && tool === 'edit'))
     }
   }
   useBridge(origin, frameEls, fromScreen)
   useEffect(() => {
     for (const f of frameEls.values()) postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
+    setElement(null)
   }, [tool, origin, frameEls])
+  // Element positions belong to one version.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
+  useEffect(() => {
+    setElement(null)
+    setDeleting(null)
+  }, [versionKey])
+  // With the mark tool the annotated elements are outlined in their screens; leaving it clears them.
+  const outlined = useRef(false)
+  useEffect(() => {
+    if (tool !== 'mark' && !outlined.current) return
+    outlined.current = tool === 'mark'
+    for (const [file, f] of frameEls) {
+      const ggIds =
+        tool === 'mark' ? annotations.list.flatMap((a) => (a.file === file && a.ggId ? [a.ggId] : [])) : []
+      postToScreen(f, origin, { type: 'highlight', ggIds })
+    }
+  }, [tool, origin, frameEls, annotations.list])
+  const dropElement = () => {
+    if (element) postToScreen(frameEls.get(element.file), origin, { type: 'select-clear' })
+    setElement(null)
+    setPop(false)
+    if (panel === 'element') setPanel(null)
+  }
+
+  // ── selection as chat context (Stitch's Add to Chat) ──
+  const contextBase = { groupId, artifactId, title }
+  const selectionItems = () =>
+    element?.ggId
+      ? [
+          elementItem(element.screenId, element.screenTitle, {
+            file: element.file,
+            ggId: element.ggId,
+            label: elementLabel(element),
+          }),
+        ]
+      : picked.map((n) => screenItem(n.id, n.title))
+  const selectionKey = `${selected.join(',')}|${element?.file ?? ''}#${element?.ggId ?? ''}`
+  // biome-ignore lint/correctness/useExhaustiveDependencies: follows the selection, by its key
+  useEffect(() => {
+    if (manifest) setSelectionContext(contextBase, selectionItems())
+  }, [selectionKey, manifest])
+  useEffect(() => () => dropSelectionContext(artifactId), [artifactId])
+
+  // ── AI commands (Stitch's Generate and Variations menus) ──
+  /** About the selected screens, or with `ggIds` about elements only. */
+  const ask = (command: CanvasCommand, extra: Partial<CanvasCommandReq> = {}) => {
+    if (!bot) return Promise.resolve(false)
+    const req: CanvasCommandReq = {
+      command,
+      botId: bot.id,
+      ...(manifest && picked.length && !extra.ggIds ? { screenIds: picked.map((n) => n.id) } : {}),
+      ...extra,
+    }
+    return sendCommand(artifactId, req, bot.name)
+  }
+  const askAboutElement = (command: CanvasCommand, el: PickedElement, text: string) =>
+    el.ggId ? ask(command, { ggIds: [{ file: el.file, ggId: el.ggId }], text }) : Promise.resolve(false)
+  const saveOps = (ops: ArtifactEditOp[]) => saveEdits(onEdit, ops)
+  const annotate = async (el: PickedElement, note: string) => {
+    try {
+      await createAnnotation(artifactId, {
+        versionId: versionKey,
+        file: el.file,
+        ggId: el.ggId,
+        selector: el.selector.slice(0, 500),
+        rect: el.rect,
+        snippet: `<${el.tag}> ${el.text}`.slice(0, 2000),
+        note,
+      })
+      annotations.reload()
+      dropElement()
+      return true
+    } catch (e) {
+      toastError(e)
+      return false
+    }
+  }
+  const annotationAction = (f: () => Promise<unknown>) => void attempt(f).then(() => annotations.reload())
 
   // ── commands ──
   const edit = (ops: ArtifactEditOp[]) => {
@@ -296,6 +418,18 @@ export function Canvas({
 
   const command = (value: string) => {
     const ids = picked.map((n) => n.id)
+    if (value.startsWith(CMD.generate)) {
+      if (picked.length) void ask(value.slice(CMD.generate.length) as CanvasCommand)
+      return
+    }
+    if (value.startsWith(CMD.variations)) {
+      const k = value.slice(CMD.variations.length)
+      const d = VARIATION_DIMENSIONS[k]
+      if (!picked.length || !bot) return
+      if (k === VARIATION_CUSTOM) setVariations(true)
+      else if (d) void ask('variations', { count: 3, text: `维度：${d.ai}` })
+      return
+    }
     if (value.startsWith(CMD.frame)) {
       const p = FRAME_PRESETS[value.slice(CMD.frame.length) as FramePreset]
       if (p) reframe((f) => ({ ...f, w: p.w, h: p.h }))
@@ -345,6 +479,9 @@ export function Canvas({
         return
       case CMD.links:
         return setAllLinks((on) => !on)
+      case CMD.addToChat:
+        if (manifest && (picked.length || element)) pinContext(contextBase, selectionItems())
+        return
       case CMD.selectAll:
         return setSelected(nodes.map((n) => n.id))
       case CMD.fit:
@@ -392,6 +529,7 @@ export function Canvas({
       else if (key === 'v') run(() => command(CMD.paste))
       else if (key === 'd') run(() => command(CMD.duplicate))
       else if (key === 'r') run(() => command(CMD.reload))
+      else if (key === 'l') run(() => command(CMD.addToChat))
       else if (arrow) run(() => go(arrow))
       return
     }
@@ -404,10 +542,13 @@ export function Canvas({
       else if (key === 'd') run(() => command(CMD.download))
       else if (key === 'c') run(() => command(CMD.code))
       else if (key === 'p') run(() => command(CMD.newTab))
+      else if (key === 'v') run(() => command(`${CMD.variations}${VARIATION_CUSTOM}`))
+      else if (key === 'r') run(() => command(`${CMD.generate}regenerate`))
       else if (arrow) run(() => pan(arrow, NUDGE * 10))
       return
     }
     if (arrow) run(() => pan(arrow, NUDGE))
+    else if (e.key === 'Escape' && element) run(dropElement)
     else if (e.key === 'Escape' && (selected.length || panel))
       run(() => (selected.length ? setSelected([]) : setPanel(null)))
     else if (e.key === ' ') run(() => setSpace(true))
@@ -492,7 +633,7 @@ export function Canvas({
   const shownLinks = allLinks
     ? links
     : links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
-  const paths = linkPaths(nodes, shownLinks, view)
+  const paths = linkPaths(nodes, shownLinks, view, spots)
   const favNodes = favourites
     .map((id) => screens.find((s) => s.id === id))
     .filter((n): n is CanvasNode => !!n)
@@ -506,6 +647,7 @@ export function Canvas({
           favourite: picked.every((n) => favourites.includes(n.id)),
           showAllLinks: allLinks,
           frame: sharedFrame,
+          noBot: !bot,
         })
       : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
 
@@ -691,7 +833,7 @@ export function Canvas({
 
       {picked.length ? (
         <div className="art-float" role="toolbar" aria-label={t('所选屏幕')}>
-          <FloatMenu icon="sparkle" label={t('生成')} items={GENERATE_ITEMS} onSelect={command} />
+          <FloatMenu icon="sparkle" label={t('生成')} items={generateItems(!bot)} onSelect={command} />
           <FloatMenu
             icon="pencil"
             label={t('修改#modify')}
@@ -705,6 +847,14 @@ export function Canvas({
             onSelect={command}
           />
           <FloatMenu icon="more" label={t('更多')} items={moreItems(!canEdit)} onSelect={command} />
+          {bots.length > 1 && bot ? (
+            <FloatMenu
+              icon="bot"
+              label={`@${bot.name}`}
+              items={bots.map((b) => ({ label: `@${b.name}`, value: b.id, checked: b.id === bot.id }))}
+              onSelect={pickBot}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -751,10 +901,125 @@ export function Canvas({
           on={panel === 'favourites'}
           onClick={() => setPanel((p) => (p === 'favourites' ? null : 'favourites'))}
         />
+        <ToolButton
+          icon="bubble"
+          label={t('批注')}
+          on={panel === 'annotations'}
+          onClick={() => setPanel((p) => (p === 'annotations' ? null : 'annotations'))}
+        />
       </div>
 
-      {panel === 'details' && one ? (
+      {(tool === 'mark' || panel === 'annotations') && annotations.list.length ? (
+        <div className="art-bubbles">
+          {annotations.list.map((a, i) => {
+            const n = screens.find((s) => s.file === a.file)
+            if (!n) return null
+            const b = elementBox(n, a.rect, view)
+            return (
+              <button
+                key={a.id}
+                type="button"
+                className={cx('art-bubble', `art-bubble--${a.status}`)}
+                data-testid={`art-bubble-${a.id}`}
+                style={{ left: b.left + b.width, top: b.top }}
+                title={`${a.authorName}：${a.note}`}
+                onClick={() => setPanel('annotations')}
+              >
+                {i + 1}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
+      {element && pop
+        ? (() => {
+            const n = screens.find((s) => s.id === element.screenId)
+            if (!n) return null
+            const box = elementBox(n, element.rect, view)
+            return tool === 'mark' ? (
+              <MarkPopover
+                key={`${element.file}#${element.selector}`}
+                el={element}
+                box={box}
+                room={room}
+                onSave={(note) => annotate(element, note)}
+                onClose={dropElement}
+              />
+            ) : (
+              <EditPopover
+                key={`${element.file}#${element.selector}`}
+                el={element}
+                box={box}
+                room={room}
+                readOnly={!canEdit}
+                bots={bots}
+                bot={bot}
+                onPickBot={pickBot}
+                onText={(text) =>
+                  element.ggId
+                    ? saveOps([{ kind: 'text', file: element.file, ggId: element.ggId, text }])
+                    : Promise.resolve(false)
+                }
+                onAi={(text) => askAboutElement('edit-with-ai', element, text)}
+                onConnect={(text) => askAboutElement('connect-element', element, text)}
+                onProps={() => {
+                  setPop(false)
+                  setPanel('element')
+                }}
+                onDelete={() => {
+                  setPop(false)
+                  setDeleting(element)
+                }}
+                onClose={dropElement}
+              />
+            )
+          })()
+        : null}
+
+      {panel === 'element' && element && tool === 'edit' ? (
+        <ElementPanel
+          key={`${element.file}#${element.ggId}`}
+          el={element}
+          artifactId={artifactId}
+          screens={screens}
+          tokens={tokens}
+          readOnly={!canEdit}
+          onSave={saveOps}
+          onClose={dropElement}
+        />
+      ) : panel === 'annotations' ? (
+        <AnnotationsPanel
+          list={annotations.list}
+          meId={meId}
+          screenTitle={(file) => screens.find((s) => s.file === file)?.title ?? file}
+          bots={bots}
+          bot={bot}
+          onPickBot={pickBot}
+          onSend={async (annotationIds, extra) => {
+            if (!bot) return false
+            const ok = await attempt(() =>
+              sendAnnotations(artifactId, { annotationIds, botId: bot.id, ...(extra ? { extra } : {}) }),
+            )
+            if (ok) toast({ type: 'success', message: t('已交给 @{name}', { name: bot.name }) })
+            annotations.reload()
+            return ok
+          }}
+          onStatus={(id, status) => annotationAction(() => updateAnnotation(id, { status }))}
+          onDelete={(id) => annotationAction(() => deleteAnnotation(id))}
+          onFocus={(a: AnnotationDto) => {
+            const n = screens.find((s) => s.file === a.file)
+            if (!n) return
+            setSelected([n.id])
+            fitTo([n.id])
+            if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
+          }}
+          onClose={() => setPanel(null)}
+        />
+      ) : panel === 'details' && one ? (
         <DetailsPanel
+          artifactId={artifactId}
+          versionId={versionKey}
           node={one}
           thumbnailUrl={thumbnailUrl}
           hasSystem={!!tokens}
@@ -799,6 +1064,35 @@ export function Canvas({
       </div>
 
       <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
+      <Presence>
+        {deleting?.ggId ? (
+          <ConfirmActionDialog
+            title={t('删除这个元素？')}
+            message={`${deleting.screenTitle} › ${elementLabel(deleting)}`}
+            consequences={[t('元素从源码中删除，生成一个新版本'), t('可以用撤销恢复')]}
+            label={t('删除')}
+            done={t('已删除')}
+            run={() => onEdit([{ kind: 'delete', file: deleting.file, ggId: deleting.ggId as string }])}
+            onDone={() => {
+              setDeleting(null)
+              dropElement()
+            }}
+            onClose={() => setDeleting(null)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {variations ? (
+          <VariationsDialog
+            screens={picked.map((n) => n.title)}
+            bots={bots}
+            bot={bot}
+            onPickBot={pickBot}
+            onSend={(text, count) => ask('variations', { count, text })}
+            onClose={() => setVariations(false)}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {code ? (
           <CodeDialog title={code.title} load={() => readFile(code.file)} onClose={() => setCode(null)} />

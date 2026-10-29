@@ -16,7 +16,11 @@ export function mockApi(routes: Record<string, Reply>) {
       const method = init?.method ?? 'GET'
       const path = input.replace(/^\/api/, '')
       const body =
-        init?.body instanceof FormData ? init.body : init?.body ? JSON.parse(String(init.body)) : undefined
+        init?.body instanceof FormData || init?.body instanceof Blob
+          ? init.body
+          : init?.body
+            ? JSON.parse(String(init.body))
+            : undefined
       calls.push({ method, path, body })
       const key = `${method} ${path}`
       if (!(key in routes))

@@ -1,0 +1,48 @@
+/* Canvas selection as context above the group composer. */
+.art-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+.art-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 0 3px 0 var(--space-8);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--quote-fill);
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+}
+.art-chip__icon {
+  flex: none;
+  color: var(--accent);
+}
+.art-chip__text {
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-chip__x {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--label-secondary);
+  cursor: pointer;
+}
+.art-chip__x:hover {
+  background: var(--control-track);
+  color: var(--label);
+}

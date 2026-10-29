@@ -15,9 +15,16 @@ export interface BridgeRect {
   h: number
 }
 
+/** A `data-gg-link` element of a screen, in document coordinates (where the canvas starts its link arrow). */
+export interface LinkSpot {
+  ggId: string | null
+  screen: string
+  rect: BridgeRect
+}
+
 export type FromScreen =
-  | { type: 'ready'; file: string; width?: number; height?: number }
-  | { type: 'size'; file: string; width: number; height: number }
+  | { type: 'ready'; file: string; width?: number; height?: number; links?: unknown }
+  | { type: 'size'; file: string; width: number; height: number; links?: unknown }
   | { type: 'hover'; file: string; ggId: string | null; rect: BridgeRect | null }
   | {
       type: 'select'
@@ -34,7 +41,7 @@ export type FromScreen =
       href: string | null
       link: string | null
     }
-  | { type: 'nav'; file: string; screen: string }
+  | { type: 'nav'; file: string; screen: string; transition?: string }
   | { type: 'back'; file: string }
 
 export type ToScreen =
@@ -61,6 +68,22 @@ export function acceptBridge(
   if (d.type === 'size' && !(isNum(d.width) && isNum(d.height))) return null
   if (d.type === 'nav' && typeof d.screen !== 'string') return null
   return d as unknown as FromScreen
+}
+
+const isRect = (r: unknown): r is BridgeRect => {
+  const o = r as Record<string, unknown> | null
+  return !!o && typeof o === 'object' && isNum(o.x) && isNum(o.y) && isNum(o.w) && isNum(o.h)
+}
+
+/** The well-formed link spots of a `ready` / `size` message; undefined when it reports none. */
+export function linkSpots(links: unknown): LinkSpot[] | undefined {
+  if (!Array.isArray(links)) return undefined
+  return links.flatMap((l) => {
+    const o = l as Record<string, unknown> | null
+    if (!o || typeof o.screen !== 'string' || !isRect(o.rect)) return []
+    const ggId = typeof o.ggId === 'string' && /^\d{1,9}$/.test(o.ggId) ? o.ggId : null
+    return [{ ggId, screen: o.screen, rect: o.rect }]
+  })
 }
 
 export function postToScreen(frame: HTMLIFrameElement | undefined, origin: string | null, msg: ToScreen) {
