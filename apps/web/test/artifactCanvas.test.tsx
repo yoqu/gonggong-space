@@ -57,8 +57,9 @@ const manifest = {
   ],
 }
 const { files: _, ...head } = version(2)
-const artifact = (o: Partial<ArtifactDto> & { favorites?: string[] } = {}): ArtifactDto => ({
+const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   id: 'a1',
+  favorites: [],
   groupId: 'g1',
   title: '读书会小程序',
   dir: 'design/app-screens-ab12',

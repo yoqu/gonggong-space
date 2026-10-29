@@ -1,6 +1,7 @@
 import type {
   ArtifactDto,
   ArtifactEditOp,
+  ArtifactLink,
   ArtifactVersionDetail,
   ArtifactVersionDto,
   WebEvent,
@@ -13,7 +14,7 @@ import { openTab } from '../workbench/open'
 
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
-  artifact: ArtifactWithFavorites | null
+  artifact: ArtifactDto | null
   versions: ArtifactVersionDto[]
   error: string
 }
@@ -83,7 +84,7 @@ export async function setFavorites(artifactId: string, screenIds: string[]) {
     return e?.artifact ? { [artifactId]: { ...e, artifact: { ...e.artifact, favorites: screenIds } } } : {}
   })
   try {
-    const artifact = await api.put<ArtifactWithFavorites>(`/artifacts/${artifactId}/favorites`, { screenIds })
+    const artifact = await api.put<ArtifactDto>(`/artifacts/${artifactId}/favorites`, { screenIds })
     useStore.setState((s) => (s[artifactId] ? { [artifactId]: { ...s[artifactId], artifact } } : {}))
   } catch (e) {
     await loadArtifact(artifactId)
@@ -91,28 +92,18 @@ export async function setFavorites(artifactId: string, screenIds: string[]) {
   }
 }
 
-/** A `data-gg-link` of a version: the element of screen `from` with text `text` goes to screen `to`. */
-export interface ArtifactLink {
-  from: string
-  to: string
-  ggId: string
-  text: string
-}
-
-/** Server R2 fields (feat/artifacts-server); drop once the protocol here has them. */
-export type ArtifactWithFavorites = ArtifactDto & { favorites?: string[] }
-export type VersionWithLinks = ArtifactVersionDetail & { links?: ArtifactLink[] }
+export type { ArtifactLink }
 
 /** A version's files and links (GET …/versions/:vid), the version's tokens.css when it has one. */
 export function useVersionDetail(artifactId: string, versionId: string | null) {
-  const [state, setState] = useState<{ detail: VersionWithLinks | null; tokens: string | null }>({
+  const [state, setState] = useState<{ detail: ArtifactVersionDetail | null; tokens: string | null }>({
     detail: null,
     tokens: null,
   })
   useEffect(() => {
     if (!versionId) return
     let live = true
-    api.get<VersionWithLinks>(`/artifacts/${artifactId}/versions/${versionId}`).then(
+    api.get<ArtifactVersionDetail>(`/artifacts/${artifactId}/versions/${versionId}`).then(
       async (detail) => {
         const tokens = detail.files.some((f) => f.path === 'tokens.css')
           ? await readArtifactFile(artifactId, 'tokens.css', versionId).catch(() => null)
