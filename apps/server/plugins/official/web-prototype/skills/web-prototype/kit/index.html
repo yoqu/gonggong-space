@@ -1,0 +1,163 @@
+<!doctype html>
+<!-- gg-kit shell: platform-owned. Copied verbatim to design/<slug>/index.html; never edit. -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; flex-direction: column; background: #e9e9ec; color: #1d1d1f;
+    font: 13px/1.4 -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft Yahei", sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: #fff;
+    border-bottom: 1px solid #dcdce0; flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button, .back {
+    border: 1px solid #d2d2d7; background: #fff; border-radius: 999px; padding: 3px 12px;
+    font: inherit; color: inherit; cursor: pointer;
+  }
+  nav button[aria-current] { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
+  .back:disabled { opacity: 0.4; cursor: default; }
+  main { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; padding: 24px; }
+  .stage { position: relative; transform-origin: center; }
+  .device {
+    position: relative; overflow: hidden; background: #fff;
+    width: var(--w); height: var(--h);
+  }
+  .framed .device { border-radius: 44px; box-shadow: 0 0 0 10px #1d1d1f, 0 24px 60px rgba(0, 0, 0, 0.25); }
+  iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .status {
+    position: absolute; inset: 0 0 auto; height: var(--status); display: flex; align-items: center;
+    justify-content: space-between; padding: 4px 28px 0 34px; pointer-events: none;
+    font: 600 15px/1 -apple-system, "SF Pro Text", sans-serif; color: #000;
+  }
+  .status.light { color: #fff; }
+  .status svg { display: block; }
+  .capsule {
+    position: absolute; top: 48px; right: 7px; width: 87px; height: 32px; border-radius: 16px;
+    display: flex; align-items: center; pointer-events: none;
+    background: rgba(255, 255, 255, 0.6); border: 0.5px solid rgba(0, 0, 0, 0.12);
+  }
+  .capsule.light { background: rgba(0, 0, 0, 0.15); border-color: rgba(255, 255, 255, 0.35); }
+  .capsule span { flex: 1; display: grid; place-items: center; }
+  .capsule i { width: 0.5px; height: 18px; background: rgba(0, 0, 0, 0.2); }
+  .capsule.light i { background: rgba(255, 255, 255, 0.4); }
+  .capsule svg { color: #000; }
+  .capsule.light svg { color: #fff; }
+  .error { max-width: 420px; color: #86868b; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <button class="back" type="button" disabled>返回</button>
+  <h1></h1>
+  <nav aria-label="屏幕"></nav>
+</header>
+<main>
+  <div class="stage" hidden>
+    <div class="device">
+      <iframe title="屏幕"></iframe>
+      <div class="status" hidden>
+        <span>9:41</span>
+        <svg width="68" height="12" viewBox="0 0 68 12" fill="currentColor" aria-hidden="true">
+          <rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="6" width="3" height="6" rx="1"/>
+          <rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/>
+          <path d="M30 3.2a8.6 8.6 0 0 1 11.6 0l-1.3 1.4a6.7 6.7 0 0 0-9 0zm2.6 2.8a4.8 4.8 0 0 1 6.4 0l-1.3 1.4a3 3 0 0 0-3.8 0zm3.2 2.4 1.5 1.6-1.5 1.6-1.5-1.6z"/>
+          <rect x="44.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" opacity="0.4"/>
+          <rect x="46" y="2" width="18" height="8" rx="2"/><rect x="66.5" y="4" width="1.5" height="4" rx="0.7" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="capsule" hidden>
+        <span><svg width="20" height="6" viewBox="0 0 20 6" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="2.2"/><circle cx="10" cy="3" r="3"/><circle cx="17" cy="3" r="2.2"/></svg></span>
+        <i></i>
+        <span><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="9" cy="9" r="7.2"/><circle cx="9" cy="9" r="2.6" fill="currentColor" stroke="none"/></svg></span>
+      </div>
+    </div>
+  </div>
+  <p class="error" hidden></p>
+</main>
+<script>
+;(async () => {
+  const DEVICES = {
+    miniprogram: { w: 375, h: 812, status: 44, capsule: true, framed: true },
+    mobile: { w: 390, h: 844, status: 47, capsule: false, framed: true },
+    desktop: { w: 1440, h: 900, status: 0, capsule: false, framed: false },
+  }
+  const $ = (s) => document.querySelector(s)
+  const stage = $('.stage'), frame = $('iframe'), nav = $('nav'), back = $('.back')
+  const fail = (text) => { $('.error').hidden = false; $('.error').textContent = text }
+
+  let manifest
+  try {
+    manifest = await (await fetch('gg-artifact.json', { cache: 'no-store' })).json()
+  } catch {
+    return fail('读不到 gg-artifact.json。请通过预览链接打开，不要直接双击文件。')
+  }
+  const device = DEVICES[manifest.device] ?? DEVICES.miniprogram
+  const screens = new Map(manifest.screens.map((s) => [s.id, s]))
+  document.title = manifest.title
+  $('h1').textContent = manifest.title
+  stage.hidden = false
+  stage.classList.toggle('framed', device.framed)
+  stage.style.setProperty('--w', `${device.w}px`)
+  stage.style.setProperty('--h', `${device.h}px`)
+  stage.style.setProperty('--status', `${device.status}px`)
+  $('.status').hidden = !device.status
+  $('.capsule').hidden = !device.capsule
+
+  const fit = () => {
+    const box = $('main').getBoundingClientRect()
+    const pad = device.framed ? 68 : 48
+    stage.style.transform = `scale(${Math.min(1, (box.width - pad) / device.w, (box.height - pad) / device.h)})`
+  }
+  addEventListener('resize', fit)
+  fit()
+
+  for (const s of manifest.screens) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = s.title
+    b.dataset.id = s.id
+    b.onclick = () => go(s.id)
+    nav.append(b)
+  }
+
+  const stack = []
+  const show = (id) => {
+    const s = screens.get(id)
+    if (!s) return
+    frame.src = s.file
+    const light = s.statusBar === 'light'
+    $('.status').classList.toggle('light', light)
+    $('.capsule').classList.toggle('light', light)
+    for (const b of nav.children) b.toggleAttribute('aria-current', b.dataset.id === id)
+    if (b2id() !== id) history.replaceState(null, '', `#${id}`)
+    back.disabled = stack.length < 2
+  }
+  const b2id = () => decodeURIComponent(location.hash.slice(1))
+  const go = (id) => {
+    if (!screens.has(id) || stack.at(-1) === id) return
+    stack.push(id)
+    show(id)
+  }
+  back.onclick = () => {
+    if (stack.length < 2) return
+    stack.pop()
+    show(stack.at(-1))
+  }
+  addEventListener('message', (e) => {
+    if (e.origin !== location.origin || e.source !== frame.contentWindow || e.data?.type !== 'gg:nav') return
+    if (e.data.screen) go(e.data.screen)
+    else back.onclick()
+  })
+  go(screens.has(b2id()) ? b2id() : manifest.entry)
+})()
+</script>
+</body>
+</html>

@@ -5,14 +5,6 @@ import { describe, expect, it } from 'vitest'
 import { frontmatter } from '../src/modules/skills/service.js'
 
 const OFFICIAL = join(import.meta.dirname, '../plugins/official')
-/** Templates that share another template's guide. */
-const SHARED_GUIDES: Record<string, string> = {
-  saas: 'web-prototype',
-  event: 'web-prototype',
-  brand: 'web-prototype',
-  docs: 'web-prototype',
-}
-
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
@@ -37,8 +29,7 @@ describe.each(readdirSync(OFFICIAL).sort())('official plugin %s', (name) => {
 
   it('has a guide for every template and every preview file', () => {
     for (const t of manifest.templates) {
-      const guide = SHARED_GUIDES[t.id] ?? t.id
-      expect(existsSync(join(skillDir, 'templates', guide, 'GUIDE.md')), t.id).toBe(true)
+      expect(existsSync(join(skillDir, 'templates', t.id, 'GUIDE.md')), t.id).toBe(true)
       if (t.preview) expect(existsSync(join(root, t.preview)), t.preview).toBe(true)
     }
   })
@@ -75,11 +66,34 @@ describe.each(readdirSync(OFFICIAL).sort())('official plugin %s', (name) => {
 })
 
 describe('official plugin web-prototype', () => {
-  const { manifest } = load('web-prototype')
+  const { manifest, skillDir } = load('web-prototype')
+  const example = join(skillDir, 'templates/app-screens/example')
+  const app = JSON.parse(readFileSync(join(example, 'gg-artifact.json'), 'utf8')) as {
+    entry: string
+    screens: { id: string; file: string }[]
+  }
+  const ids = new Set(app.screens.map((s) => s.id))
 
-  it('leads with the four classic templates and the neutral design system', () => {
-    expect(manifest.templates.slice(0, 4).map((t) => t.id)).toEqual(['saas', 'event', 'brand', 'docs'])
-    expect(manifest.designSystems[0]?.id).toBe('neutral-modern')
+  it('ships the platform kit and the app-screens template on the luke-plus design system', () => {
+    for (const f of ['index.html', 'gg-kit.css', 'gg-kit.js'])
+      expect(existsSync(join(skillDir, 'kit', f)), f).toBe(true)
+    expect(manifest.templates.map((t) => t.id)).toEqual(['app-screens'])
+    expect(manifest.designSystems.map((d) => d.id)).toEqual(['luke-plus'])
+  })
+
+  it('has an example that keeps the screen contract', () => {
+    expect(readFileSync(join(example, 'tokens.css'), 'utf8')).toBe(
+      readFileSync(join(skillDir, 'design-systems/luke-plus/tokens.css'), 'utf8'),
+    )
+    expect(ids.has(app.entry)).toBe(true)
+    for (const s of app.screens) {
+      expect(s.file).toBe(`screens/${s.id}.html`)
+      const html = readFileSync(join(example, s.file), 'utf8')
+      expect(html).toContain('href="../_gg/gg-kit.css"')
+      expect(html).toContain('href="../tokens.css"')
+      for (const [, id] of html.matchAll(/data-gg-link="([^"]+)"/g)) expect(ids.has(id ?? ''), id).toBe(true)
+      expect(html.replaceAll('href="#"', ''), s.file).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
+    }
   })
 })
 

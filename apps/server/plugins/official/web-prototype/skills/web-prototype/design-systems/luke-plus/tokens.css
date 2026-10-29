@@ -1,0 +1,96 @@
+/* 麓客+ 小程序（探索生活） — generated from DESIGN.md front matter; do not hand-edit the names.
+ * Naming: colors.x → --color-x, rounded.x → --rounded-x, spacing.x → --space-x,
+ * typography.x → --text-x-{size,weight,leading} plus the class .t-x; one family, --font-sans. */
+:root {
+  --color-primary: #155332;
+  --color-on-primary: #FFFFFF;
+  --color-accent-green: #23AC4C;
+  --color-accent-green-legacy: #20B454;
+  --color-background: #F5F5F7;
+  --color-background-legacy: #F1F1F1;
+  --color-surface: #FFFFFF;
+  --color-surface-placeholder: #F6F6F6;
+  --color-on-surface: #000000;
+  --color-on-surface-strong: #151515;
+  --color-on-surface-card: #282828;
+  --color-on-surface-variant: #737374;
+  --color-on-surface-muted: #7A7A7A;
+  --color-on-surface-hint: #999999;
+  --color-tab-label: #212121;
+  --color-outline: #D8D8D8;
+  --color-tag-highlight: #FEE70F;
+  --color-on-tag-highlight: #000000;
+  --color-error: #FF4D4F;
+  --color-badge-new: #FF5E1F;
+  --color-scrim: rgba(0, 0, 0, 0.55);
+  --color-top-bar-frost: rgba(255, 255, 255, 0.82);
+
+  --rounded-none: 0px;
+  --rounded-xs: 1px;
+  --rounded-sm: 8px;
+  --rounded-md: 16px;
+  --rounded-lg: 18px;
+  --rounded-full: 9999px;
+
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 11px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-xxl: 40px;
+  --space-gutter: 13px;
+  --space-gutter-inner: 6px;
+  --space-top-bar-padding: 17px;
+
+  --font-sans: "PingFang SC", -apple-system, "Helvetica Neue", "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
+  --text-headline-sm-size: 16px;
+  --text-headline-sm-weight: 600;
+  --text-headline-sm-leading: 22px;
+  --text-title-md-size: 15px;
+  --text-title-md-weight: 400;
+  --text-title-md-leading: 21px;
+  --text-title-md-active-size: 15px;
+  --text-title-md-active-weight: 600;
+  --text-title-md-active-leading: 21px;
+  --text-title-sm-size: 14px;
+  --text-title-sm-weight: 600;
+  --text-title-sm-leading: 18px;
+  --text-body-md-size: 14px;
+  --text-body-md-weight: 400;
+  --text-body-md-leading: 16px;
+  --text-card-title-size: 13px;
+  --text-card-title-weight: 600;
+  --text-card-title-leading: 16px;
+  --text-label-lg-size: 12px;
+  --text-label-lg-weight: 500;
+  --text-label-lg-leading: 13px;
+  --text-label-md-size: 12px;
+  --text-label-md-weight: 400;
+  --text-label-md-leading: 17px;
+  --text-label-sm-size: 11px;
+  --text-label-sm-weight: 400;
+  --text-label-sm-leading: 11px;
+  --text-caption-size: 10px;
+  --text-caption-weight: 400;
+  --text-caption-leading: 16px;
+  --text-button-sm-size: 10px;
+  --text-button-sm-weight: 600;
+  --text-button-sm-leading: 22px;
+  --text-tag-size: 9px;
+  --text-tag-weight: 500;
+  --text-tag-leading: 14px;
+}
+
+.t-headline-sm { font-family: var(--font-sans); font-size: var(--text-headline-sm-size); font-weight: var(--text-headline-sm-weight); line-height: var(--text-headline-sm-leading); }
+.t-title-md { font-family: var(--font-sans); font-size: var(--text-title-md-size); font-weight: var(--text-title-md-weight); line-height: var(--text-title-md-leading); }
+.t-title-md-active { font-family: var(--font-sans); font-size: var(--text-title-md-active-size); font-weight: var(--text-title-md-active-weight); line-height: var(--text-title-md-active-leading); }
+.t-title-sm { font-family: var(--font-sans); font-size: var(--text-title-sm-size); font-weight: var(--text-title-sm-weight); line-height: var(--text-title-sm-leading); }
+.t-body-md { font-family: var(--font-sans); font-size: var(--text-body-md-size); font-weight: var(--text-body-md-weight); line-height: var(--text-body-md-leading); }
+.t-card-title { font-family: var(--font-sans); font-size: var(--text-card-title-size); font-weight: var(--text-card-title-weight); line-height: var(--text-card-title-leading); }
+.t-label-lg { font-family: var(--font-sans); font-size: var(--text-label-lg-size); font-weight: var(--text-label-lg-weight); line-height: var(--text-label-lg-leading); }
+.t-label-md { font-family: var(--font-sans); font-size: var(--text-label-md-size); font-weight: var(--text-label-md-weight); line-height: var(--text-label-md-leading); }
+.t-label-sm { font-family: var(--font-sans); font-size: var(--text-label-sm-size); font-weight: var(--text-label-sm-weight); line-height: var(--text-label-sm-leading); }
+.t-caption { font-family: var(--font-sans); font-size: var(--text-caption-size); font-weight: var(--text-caption-weight); line-height: var(--text-caption-leading); }
+.t-button-sm { font-family: var(--font-sans); font-size: var(--text-button-sm-size); font-weight: var(--text-button-sm-weight); line-height: var(--text-button-sm-leading); }
+.t-tag { font-family: var(--font-sans); font-size: var(--text-tag-size); font-weight: var(--text-tag-weight); line-height: var(--text-tag-leading); }

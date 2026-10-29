@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN" data-gg-device="miniprogram">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>探索生活</title>
+<link rel="stylesheet" href="../_gg/gg-kit.css">
+<link rel="stylesheet" href="../tokens.css">
+<script src="../_gg/gg-kit.js" defer></script>
+<style>
+  body { background: var(--color-background); padding-bottom: calc(75px + var(--gg-safe-bottom)); }
+
+  .top { position: absolute; inset: 0 0 auto; z-index: 2; padding: var(--gg-capsule-top) var(--space-top-bar-padding) 0; color: var(--color-on-primary); }
+  .tabs { display: flex; gap: 20px; height: var(--gg-capsule-height); align-items: center; }
+  .tab { position: relative; }
+  .tab[aria-current] { font-weight: var(--text-title-md-active-weight); }
+  .tab[aria-current]::after {
+    content: ''; position: absolute; left: 50%; bottom: -7px; width: 24px; height: 3px; margin-left: -12px;
+    border-radius: 1.5px; background: currentColor;
+  }
+  .site { display: inline-flex; align-items: center; gap: var(--space-xs); margin-top: 14px; }
+
+  .banner { position: relative; height: 282px; }
+  .banner::before {
+    content: ''; position: absolute; inset: 0 0 auto; height: 140px; z-index: 1;
+    background: linear-gradient(color-mix(in srgb, var(--color-on-surface) 35%, transparent), transparent);
+  }
+  .banner .gg-ph { height: 100%; }
+
+  .module { margin-top: var(--space-xxl); padding: 0 var(--space-gutter); }
+  .module:first-of-type { margin-top: 20px; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 var(--space-gutter-inner); margin-bottom: var(--space-lg); }
+  .head h2 { color: var(--color-on-surface); }
+  .more { color: var(--color-on-surface-variant); display: inline-flex; align-items: center; gap: 2px; }
+
+  .kingkong { display: grid; grid-template-columns: repeat(4, 1fr); row-gap: var(--space-lg); color: var(--color-on-surface-variant); }
+  .kingkong a { display: flex; flex-direction: column; align-items: center; gap: 7px; position: relative; }
+  .kingkong svg { width: 30px; height: 30px; color: var(--color-on-surface-card); }
+  .dot { position: absolute; top: -2px; left: calc(50% + 12px); width: 6px; height: 6px; border-radius: var(--rounded-full); background: var(--color-error); }
+
+  .events { gap: 15px; margin: 0 calc(-1 * var(--space-gutter)); padding: 0 var(--space-gutter); scroll-padding: 0 var(--space-gutter); }
+  .event { flex: 0 0 105px; background: var(--color-surface); scroll-snap-align: start; }
+  .event .cover { position: relative; height: 140px; }
+  .event .cover .gg-ph { height: 100%; }
+  .promo {
+    position: absolute; top: 0; left: 0; z-index: 1; height: 14px; padding: 0 4px; border-radius: var(--rounded-xs);
+    background: var(--color-tag-highlight); color: var(--color-on-tag-highlight);
+  }
+  .event .info { padding: var(--space-gutter-inner); }
+  .event h3 { color: var(--color-on-surface-card); }
+  .event time { color: var(--color-on-surface-muted); }
+
+  .courtesy { display: grid; grid-template-columns: 166fr 173fr; gap: 10px 11px; }
+  .card { position: relative; overflow: hidden; background: var(--color-surface); color: var(--color-on-surface); }
+  .card.large { grid-row: span 2; height: 174px; padding: 14px 12px 12px; }
+  .card.small { height: 82px; padding: 8px 10px 6px; }
+  .card p { margin-top: var(--space-xxs); color: var(--color-on-surface-variant); }
+  .card b { color: var(--color-primary); font-weight: 600; }
+  .card .gg-ph { position: absolute; right: 0; bottom: 0; }
+  .card.large .gg-ph { width: 96px; height: 80px; }
+  .card.small .gg-ph { width: 56px; height: 56px; }
+  .pill {
+    position: relative; z-index: 1; display: inline-grid; place-items: center; width: 54px; height: 22px; margin-top: var(--space-sm);
+    border-radius: var(--rounded-full); color: color-mix(in srgb, var(--color-on-primary) 90%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 90%, transparent);
+  }
+
+  .experiences { gap: var(--space-md); margin: 0 calc(-1 * var(--space-gutter)); padding: 0 var(--space-gutter); scroll-padding: 0 var(--space-gutter); }
+  .experience { position: relative; flex: 0 0 300px; height: 172px; scroll-snap-align: start; }
+  .experience .gg-ph { height: 100%; }
+  .experience::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(transparent 50%, color-mix(in srgb, var(--color-on-surface) 80%, transparent));
+  }
+  .experience span { position: absolute; left: 12px; bottom: 12px; z-index: 1; color: var(--color-on-primary); font-weight: 500; }
+
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(5, 1fr);
+    height: calc(58px + var(--gg-safe-bottom)); padding: 8px 0 var(--gg-safe-bottom);
+    background: var(--color-surface); border-radius: var(--rounded-lg) var(--rounded-lg) 0 0;
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-on-surface) 10%, transparent); color: var(--color-tab-label);
+  }
+  .tabbar a { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .tabbar svg { width: 24px; height: 24px; }
+  .tabbar a[aria-current] { color: var(--color-primary); }
+  .scan { position: relative; top: -22px; display: grid; place-items: center; }
+  .scan svg { width: 58px; height: 58px; color: var(--color-primary); }
+  .scan .qr { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; color: var(--color-on-primary); }
+</style>
+</head>
+<body>
+<div class="top" data-section="top-bar">
+  <div class="tabs t-title-md" role="tablist">
+    <span class="tab" role="tab">住在这里</span>
+    <span class="tab" role="tab" aria-current="page">探索生活</span>
+  </div>
+  <div class="site t-label-lg">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+    成都·麓湖
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+  </div>
+</div>
+
+<section class="banner" data-section="banner">
+  <div class="gg-ph" data-tone="dark" data-label="Banner 摄影：麓湖湖景（运营配置）"></div>
+</section>
+
+<section class="module" data-section="kingkong">
+  <nav class="kingkong t-label-md" aria-label="服务入口">
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v8a3 3 0 0 0 3 3v11M12 4v6M15 4v8a3 3 0 0 1-3 3"/><path d="M21 26V4c-2.5 1.5-3.5 5-3.5 9h3.5"/></svg>用餐</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10h18l-1.5 16h-15z"/><path d="M11 13V8a4 4 0 0 1 8 0v5"/></svg>购物</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 26V5M7 6h15l-3 5 3 5H7"/></svg>活动<span class="dot" aria-label="有新活动"></span></a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h22v4a2.5 2.5 0 0 0 0 5v4H4v-4a2.5 2.5 0 0 0 0-5z"/><path d="M18 9v13" stroke-dasharray="2 2"/></svg>买票</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="20" height="20" rx="3"/><path d="M12 21V9h4a3.5 3.5 0 0 1 0 7h-4"/></svg>停车</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4a11 11 0 1 0 0 22c1.7 0 2.2-1.3 1.4-2.5-.9-1.3-.2-3 1.6-3H21a5 5 0 0 0 5-5C26 9 21 4 15 4z"/><circle cx="9.5" cy="13" r="1"/><circle cx="13" cy="9" r="1"/><circle cx="18" cy="9" r="1"/></svg>艺术</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 26h20M8 26V12l7-5 7 5v14"/><path d="M13 26v-6h4v6M12 15h2M16 15h2"/></svg>置业</a>
+    <a href="#"><svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="8" height="8" rx="1"/><rect x="17" y="5" width="8" height="8" rx="1"/><rect x="5" y="17" width="8" height="8" rx="1"/><rect x="17" y="17" width="8" height="8" rx="1"/></svg>全部</a>
+  </nav>
+</section>
+
+<section class="module" data-section="events">
+  <div class="head">
+    <h2 class="t-headline-sm">麓湖本周重磅事件</h2>
+    <a class="more t-label-md" href="#">更多<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+  </div>
+  <div class="events gg-scroll-x">
+    <a class="event" data-gg-link="event">
+      <div class="cover"><span class="promo t-tag">限时免费</span><div class="gg-ph" data-label="海报 3:4"></div></div>
+      <div class="info"><h3 class="t-card-title gg-ellipsis">湖畔草坪音乐会</h3><time class="t-caption">10.30–11.29</time></div>
+    </a>
+    <a class="event" data-gg-link="event">
+      <div class="cover"><div class="gg-ph" data-label="海报 3:4"></div></div>
+      <div class="info"><h3 class="t-card-title gg-ellipsis">A4 美术馆秋季展</h3><time class="t-caption">11.02–12.15</time></div>
+    </a>
+    <a class="event" data-gg-link="event">
+      <div class="cover"><span class="promo t-tag">新</span><div class="gg-ph" data-label="海报 3:4"></div></div>
+      <div class="info"><h3 class="t-card-title gg-ellipsis">桨板入门体验课</h3><time class="t-caption">11.08–11.09</time></div>
+    </a>
+    <a class="event" data-gg-link="event">
+      <div class="cover"><div class="gg-ph" data-label="海报 3:4"></div></div>
+      <div class="info"><h3 class="t-card-title gg-ellipsis">湖区夜跑</h3><time class="t-caption">每周六</time></div>
+    </a>
+  </div>
+</section>
+
+<section class="module" data-section="courtesy">
+  <div class="head"><h2 class="t-headline-sm">麓湖生活礼遇</h2></div>
+  <div class="courtesy">
+    <a class="card large" href="#">
+      <h3 class="t-title-sm">有券，去体验</h3>
+      <p class="t-label-md">已为你准备 <b>3</b> 张体验券</p>
+      <span class="pill t-button-sm">去使用</span>
+      <div class="gg-ph" data-label="券叠放插画"></div>
+    </a>
+    <a class="card small" href="#">
+      <h3 class="t-title-sm">麓豆</h3>
+      <p class="t-label-md">当前 <b>287</b> 豆</p>
+      <div class="gg-ph" data-label="麓豆 IP"></div>
+    </a>
+    <a class="card small" href="#">
+      <h3 class="t-title-sm">兑换商城</h3>
+      <p class="t-label-md">本周上新 <b>1</b> 件</p>
+      <div class="gg-ph" data-label="礼盒"></div>
+    </a>
+  </div>
+</section>
+
+<section class="module" data-section="experiences">
+  <div class="head"><h2 class="t-headline-sm">只在麓湖的独特体验</h2></div>
+  <div class="experiences gg-scroll-x">
+    <a class="experience" href="#"><div class="gg-ph" data-tone="dark" data-label="体验大图"></div><span class="t-title-md">湖上日落游船</span></a>
+    <a class="experience" href="#"><div class="gg-ph" data-tone="dark" data-label="体验大图"></div><span class="t-title-md">岛屿森林徒步</span></a>
+  </div>
+</section>
+
+<nav class="tabbar t-label-sm" aria-label="底部导航" data-section="tabbar">
+  <a href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z"/></svg>首页</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>目的地</a>
+  <a class="scan" href="#" aria-label="扫码">
+    <svg viewBox="0 0 58 58" fill="currentColor" aria-hidden="true"><path d="M29 3l22.5 13v26L29 55 6.5 42V16z"/></svg>
+    <svg class="qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M4 12h16"/></svg>
+  </a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13M12 7c-1-3-5-3.5-5-1s5 1 5 1 5 1.5 5-1-4-2-5 1"/></svg>福利</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>我的</a>
+</nav>
+</body>
+</html>

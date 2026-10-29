@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN" data-gg-device="miniprogram">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>活动详情</title>
+<link rel="stylesheet" href="../_gg/gg-kit.css">
+<link rel="stylesheet" href="../tokens.css">
+<script src="../_gg/gg-kit.js" defer></script>
+<style>
+  body { background: var(--color-background); padding-bottom: calc(66px + var(--gg-safe-bottom)); }
+
+  .nav {
+    position: sticky; top: 0; z-index: 2; height: var(--gg-nav-height); padding-top: var(--gg-capsule-top);
+    background: var(--color-top-bar-frost); backdrop-filter: blur(12px);
+  }
+  .nav .row { position: relative; height: var(--gg-capsule-height); display: grid; place-items: center; color: var(--color-on-surface-strong); }
+  .nav button { position: absolute; left: 6px; top: 0; width: 32px; height: 32px; display: grid; place-items: center; }
+
+  .cover { height: 300px; }
+  .cover .gg-ph { height: 100%; }
+
+  .main { background: var(--color-surface); padding: var(--space-lg) var(--space-lg) var(--space-xl); }
+  .main h1 { color: var(--color-on-surface); }
+  .tags { display: flex; gap: var(--space-xs); margin-top: var(--space-sm); }
+  .tags span { height: 14px; padding: 0 4px; border-radius: var(--rounded-xs); background: var(--color-tag-highlight); color: var(--color-on-tag-highlight); }
+  .facts { margin-top: var(--space-lg); display: grid; gap: var(--space-md); color: var(--color-on-surface-card); }
+  .facts li { display: flex; gap: var(--space-sm); align-items: flex-start; }
+  .facts svg { flex: none; width: 16px; height: 16px; color: var(--color-on-surface-variant); }
+  .facts small { display: block; color: var(--color-on-surface-muted); }
+
+  .block { margin-top: var(--space-sm); background: var(--color-surface); padding: var(--space-lg); }
+  .block h2 { color: var(--color-on-surface); margin-bottom: var(--space-sm); }
+  .block p { color: var(--color-on-surface-card); line-height: 22px; }
+  .block p + p { margin-top: var(--space-sm); }
+
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: var(--space-md);
+    padding: 12px var(--space-lg) calc(12px + var(--gg-safe-bottom)); background: var(--color-surface);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  }
+  .bar .price { flex: 1; color: var(--color-on-surface-variant); }
+  .bar .price b { color: var(--color-primary); font-size: var(--text-headline-sm-size); }
+  .cta {
+    width: 160px; height: 42px; border-radius: var(--rounded-full);
+    background: var(--color-primary); color: var(--color-on-primary);
+  }
+</style>
+</head>
+<body>
+<header class="nav" data-section="nav">
+  <div class="row t-headline-sm">
+    <button type="button" data-gg-back aria-label="返回"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>
+    活动详情
+  </div>
+</header>
+
+<div class="cover" data-section="cover"><div class="gg-ph" data-label="活动主视觉"></div></div>
+
+<section class="main" data-section="summary">
+  <h1 class="t-headline-sm">湖畔草坪音乐会</h1>
+  <div class="tags"><span class="t-tag">限时免费</span></div>
+  <ul class="facts t-body-md">
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="5" width="16" height="15"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>10.30–11.29 每周六 19:00<small class="t-caption">每场约 90 分钟</small></span></li>
+    <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>麓湖·云朵乐园湖畔草坪<small class="t-caption">距你 1.2km</small></span></li>
+  </ul>
+</section>
+
+<section class="block" data-section="about">
+  <h2 class="t-title-sm">活动介绍</h2>
+  <p class="t-body-md">日落后的湖畔草坪，乐队现场演出，邻居们自带野餐垫围坐。现场提供热饮，雨天顺延。</p>
+  <p class="t-body-md">每场限 200 人，报名后凭码入场。</p>
+</section>
+
+<div class="bar" data-section="cta">
+  <span class="price t-label-md"><b>免费</b> · 剩余 46 位</span>
+  <button class="cta t-title-sm" type="button">立即报名</button>
+</div>
+</body>
+</html>

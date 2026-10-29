@@ -14,7 +14,7 @@ These are P0 (must-fix):
 
 1. **Default Tailwind indigo as accent** — exactly `#6366f1`, `#4f46e5`,
    `#4338ca`, `#3730a3`, `#8b5cf6`, `#7c3aed`, `#a855f7`. The active
-   design system's `tokens.css` provides `--accent`; use it. Indigo is the
+   design system's `tokens.css` provides the brand colour (`--color-primary`); use it. Indigo is the
    textbook AI tell.
 2. **Two-stop "trust" gradient on the hero** — purple→blue, blue→cyan,
    indigo→pink. A flat surface + intentional type beats this every
@@ -48,8 +48,8 @@ These are P0 (must-fix):
   `design/<slug>/` and reference it relatively.
 - **More than ~12 raw hex values outside `:root`.** Tokens were not
   honoured.
-- **`var(--accent)` used 6+ times in the rendered body.** Cap at 2
-  visible uses per screen.
+- **The brand colour (`--color-primary`) spread beyond what `DESIGN.md` assigns it.** Use it only
+  where the design system says (e.g. primary buttons, highlighted numbers), nowhere decorative.
 
 ## Polish tells (P2 — nice to fix)
 
