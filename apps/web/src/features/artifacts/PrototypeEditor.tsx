@@ -7,6 +7,7 @@ import type {
   BridgeLinkRect,
   BridgeMode,
   GgArtifactManifest,
+  Rect,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useReducer, useRef, useState } from 'react'
 import { t } from '../../i18n'
@@ -26,7 +27,7 @@ import {
   toast,
 } from '../../ui'
 import { openUrl } from '../previews/store'
-import { askInChat, saveEdits, sendCommand, useArtifactBot } from './actions'
+import { saveEdits, sendCommand, useArtifactBot } from './actions'
 import { linkSpots, postToScreen, useBridge } from './bridge'
 import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
@@ -67,6 +68,7 @@ const TRANSITIONS: { value: ArtifactTransition; label: string }[] = [
 const isTransition = (v: unknown): v is ArtifactTransition => TRANSITIONS.some((x) => x.value === v)
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
+const NO_SCROLL = { x: 0, y: 0 }
 /** The popover's width on screen. */
 const MENU_W = 248
 /** A thumbnail's width in the screen list (px). */
@@ -116,9 +118,11 @@ export function PrototypeEditor({
   const [reload, setReload] = useState(0)
   const [hotspots, setHotspots] = useState(false)
   const [qr, setQr] = useState(false)
-  const [content, setContent] = useState<Record<string, number>>({})
+  /** Each screen's latest `scroll` (0, 0 before any): the frame scrolls itself, the overlays follow. */
+  const [scrolls, setScrolls] = useState<Record<string, { x: number; y: number }>>({})
   const [spots, setSpots] = useState<Record<string, BridgeLinkRect[]>>({})
   const [backs, setBacks] = useState<Record<string, BridgeBackRect[]>>({})
+  /** The selected element, its rect in document coordinates (the scroll when it was picked added). */
   const [element, setElement] = useState<PickedElement | null>(null)
   const [menu, setMenu] = useState(false)
   const [connect, setConnect] = useState(false)
@@ -166,8 +170,6 @@ export function PrototypeEditor({
   useBridge(origin, frames, (m: BridgeFromShell) => {
     if (m.type === 'ready' || m.type === 'size') {
       if (m.type === 'ready') postToScreen(frames.get(m.file), origin, { type: 'mode', mode: bridgeMode })
-      const h = m.height
-      if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
       const found = linkSpots(m.links)
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
       setBacks((b) => ({ ...b, [m.file]: backRects(m.back) }))
@@ -182,8 +184,12 @@ export function PrototypeEditor({
       })
     } else if (m.type === 'back') {
       if (!edit) go({ type: 'back' })
+    } else if (m.type === 'scroll') {
+      setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
     } else if (m.type === 'select' && edit && cur) {
-      setElement({ ...m, screenId: cur.id, screenTitle: cur.title })
+      const at = scrolls[m.file] ?? NO_SCROLL
+      const rect = { ...m.rect, x: m.rect.x + at.x, y: m.rect.y + at.y }
+      setElement({ ...m, rect, screenId: cur.id, screenTitle: cur.title })
       setMenu(true)
       setConnect(false)
     }
@@ -191,7 +197,9 @@ export function PrototypeEditor({
 
   if (!cur) return null
   const size = PROTO_DEVICES[device]
-  const fullH = Math.max(size.h, Math.round(content[cur.file] ?? size.h))
+  const scrolled = scrolls[cur.file] ?? NO_SCROLL
+  /** A document rect where it shows in the device now. */
+  const inView = (r: Rect): Rect => ({ ...r, x: r.x - scrolled.x, y: r.y - scrolled.y })
   const side = listOpen ? 260 : 72
   const scale = room.width
     ? Math.max(
@@ -219,7 +227,11 @@ export function PrototypeEditor({
     askBot((b) =>
       located && edit
         ? sendCommand(artifactId, { command: 'connect-element', botId: b.id, ggIds: [located], text }, b.name)
-        : askInChat(groupId, artifactId, b, t('新建一屏：{text}', { text }), [cur.id]),
+        : sendCommand(
+            artifactId,
+            { command: 'connect-element', botId: b.id, screenIds: [cur.id], text },
+            b.name,
+          ),
     )
 
   return (
@@ -346,7 +358,7 @@ export function PrototypeEditor({
                 data-testid="proto-screen"
                 data-screen={cur.id}
               >
-                <div className="proto-content" style={{ width: size.w, height: fullH }}>
+                <div className="proto-content" style={{ width: size.w, height: size.h }}>
                   {preview ? (
                     <iframe
                       key={`${versionKey}:${reload}`}
@@ -357,7 +369,7 @@ export function PrototypeEditor({
                       className="proto-frame"
                       title={cur.title}
                       src={src(cur.file)}
-                      style={{ height: fullH }}
+                      style={{ height: size.h }}
                     />
                   ) : null}
                   <div className="proto-hots" data-testid="proto-hots">
@@ -366,7 +378,7 @@ export function PrototypeEditor({
                           <Hot
                             // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
                             key={i}
-                            rect={h.rect}
+                            rect={inView(h.rect)}
                             tag={edit ? t('已连接') : null}
                             title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
                           />
@@ -377,17 +389,17 @@ export function PrototypeEditor({
                           <Hot
                             // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
                             key={`b${i}`}
-                            rect={h.rect}
+                            rect={inView(h.rect)}
                             tag={edit ? t('返回') : null}
                             title={t('返回上一屏')}
                           />
                         ))
                       : null}
-                    {edit && element ? <Hot rect={element.rect} tag={t('已选中')} selected /> : null}
+                    {edit && element ? <Hot rect={inView(element.rect)} tag={t('已选中')} selected /> : null}
                   </div>
                   {edit && element && menu ? (
                     <ElementMenu
-                      el={element}
+                      el={{ ...element, rect: inView(element.rect) }}
                       scale={scale}
                       width={size.w}
                       readOnly={readOnly}
@@ -427,7 +439,15 @@ export function PrototypeEditor({
               bots={bots}
               bot={bot}
               onPickBot={pickBot}
-              onSend={(text) => askBot((b) => askInChat(groupId, artifactId, b, text, [cur.id]))}
+              onSend={(text) =>
+                askBot((b) =>
+                  sendCommand(
+                    artifactId,
+                    { command: 'edit-with-ai', botId: b.id, screenIds: [cur.id], text },
+                    b.name,
+                  ),
+                )
+              }
               onClose={() => setChange(false)}
             />
           ) : (

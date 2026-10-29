@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
  * A message counts only when it comes from the preview's exact origin and from one of the canvas's screen frames, and
  * names that frame's own file.
  */
-const TYPES = new Set(['ready', 'size', 'hover', 'select', 'nav', 'back'])
+const TYPES = new Set(['ready', 'size', 'hover', 'select', 'nav', 'back', 'scroll'])
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
 /** The message, when `e` is a bridge message of the frame showing its file; null for anything else. */
@@ -23,6 +23,7 @@ export function acceptBridge(
   if (!frame || frame.contentWindow !== e.source) return null
   if (d.type === 'size' && !(isNum(d.width) && isNum(d.height))) return null
   if (d.type === 'nav' && typeof d.screen !== 'string') return null
+  if (d.type === 'scroll' && !(isNum(d.scrollX) && isNum(d.scrollY))) return null
   return d as unknown as BridgeFromShell
 }
 

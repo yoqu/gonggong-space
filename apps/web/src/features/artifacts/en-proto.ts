@@ -11,7 +11,6 @@ export default {
   构想新屏: 'Imagine a new screen',
   '描述要新建的屏幕…': 'Describe the new screen…',
   '描述点所选元素后打开的新屏…': 'Describe the screen the selected element should open…',
-  '新建一屏：{text}': 'Create a new screen: {text}',
   '没有屏幕「{id}」': 'No screen “{id}”',
   已选中: 'Selected',
   '跳转到「{title}」': 'Goes to “{title}”',

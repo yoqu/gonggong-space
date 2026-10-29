@@ -266,8 +266,26 @@ describe('prototype editor', () => {
     editMode()
     expect(within(hots()).getByText('已连接')).toBeTruthy()
     expect(within(hots()).getByText('返回')).toBeTruthy()
-    // The screen's document height sizes the frame.
-    expect((screen.getByTitle('首页') as HTMLElement).style.height).toBe('1200px')
+    // The frame keeps the device's height and scrolls itself; the overlays follow its scroll.
+    expect((screen.getByTitle('首页') as HTMLElement).style.height).toBe('844px')
+    fromScreen({ type: 'scroll', scrollX: 0, scrollY: 120 })
+    expect((hots().children[0] as HTMLElement).style.top).toBe('180px')
+    expect((hots().children[1] as HTMLElement).style.top).toBe('-120px')
+  })
+
+  it('keeps a selected element on its spot as the screen scrolls', async () => {
+    mockApi(routes())
+    await openEditor()
+    editMode()
+    fromScreen({ type: 'scroll', scrollX: 0, scrollY: 100 })
+    // Picked in viewport coordinates at scroll 100…
+    select({ rect: { x: 10, y: 50, w: 200, h: 40 } })
+    const picked = () =>
+      within(screen.getByTestId('proto-hots')).getByText('已选中').parentElement as HTMLElement
+    expect(picked().style.top).toBe('50px')
+    // …and moved up by the next 60px of scroll.
+    fromScreen({ type: 'scroll', scrollX: 0, scrollY: 160 })
+    expect(picked().style.top).toBe('-10px')
   })
 
   it('switches devices', async () => {
@@ -375,15 +393,18 @@ describe('prototype editor', () => {
       ]),
     )
 
-    // The pencil: a request about the whole screen goes out as an @bot message about it.
+    // The pencil: Edit With AI on the whole screen.
     fireEvent.click(screen.getByRole('button', { name: '用 AI 修改这屏' }))
     fireEvent.change(screen.getByRole('textbox', { name: '修改要求' }), { target: { value: '整体换成深色' } })
     fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手' }))
-    await waitFor(() => expect(bodies(calls, 'POST', '/groups/g1/messages')).toHaveLength(1))
-    expect(bodies(calls, 'POST', '/groups/g1/messages')[0]).toMatchObject({
-      body: '@设计助手 整体换成深色',
-      artifactContext: { artifactId: 'a1', screenIds: ['home'] },
+    await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toHaveLength(2))
+    expect(bodies(calls, 'POST', '/artifacts/a1/commands')[1]).toEqual({
+      command: 'edit-with-ai',
+      botId: 'b1',
+      screenIds: ['home'],
+      text: '整体换成深色',
     })
+    expect(bodies(calls, 'POST', '/groups/g1/messages')).toHaveLength(0)
   })
 
   it('imagines a new screen from the list without a selection', async () => {
@@ -393,11 +414,11 @@ describe('prototype editor', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '新屏描述' }), { target: { value: '个人中心' } })
     fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手' }))
     await waitFor(() =>
-      expect(bodies(calls, 'POST', '/groups/g1/messages')[0]).toMatchObject({
-        body: '@设计助手 新建一屏：个人中心',
-        artifactContext: { artifactId: 'a1', screenIds: ['home'] },
-      }),
+      expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toEqual([
+        { command: 'connect-element', botId: 'b1', screenIds: ['home'], text: '个人中心' },
+      ]),
     )
+    expect(bodies(calls, 'POST', '/groups/g1/messages')).toHaveLength(0)
   })
 
   it('asks to turn sharing on before showing a QR code', async () => {

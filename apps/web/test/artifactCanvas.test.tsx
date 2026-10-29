@@ -163,6 +163,9 @@ describe('bridge', () => {
     expect(acceptBridge(ev({ data: { ...msg, source: 'gg-host' } }), ORIGIN, frames)).toBeNull()
     expect(acceptBridge(ev({ data: { ...msg, height: 'tall' } }), ORIGIN, frames)).toBeNull()
     expect(acceptBridge(ev({ data: { ...msg, file: 'screens/nope.html' } }), ORIGIN, frames)).toBeNull()
+    const scroll = { source: 'gg-bridge', type: 'scroll', file: 'screens/home.html', scrollX: 0, scrollY: 40 }
+    expect(acceptBridge(ev({ data: scroll }), ORIGIN, frames)).toEqual(scroll)
+    expect(acceptBridge(ev({ data: { ...scroll, scrollY: 'far' } }), ORIGIN, frames)).toBeNull()
   })
 
   it('renders a screen at its full height once it reports it, and back to the device height on demand', async () => {

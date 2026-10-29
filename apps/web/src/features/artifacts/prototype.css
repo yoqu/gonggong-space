@@ -231,17 +231,13 @@
 .proto-device--desktop {
   border-radius: 16px;
 }
+/* The screen scrolls inside its own frame (fixed bars stay at the device's bottom); overlays follow its `scroll`. */
 .proto-scroll {
   width: 100%;
   height: 100%;
   border-radius: 36px;
   background: var(--content-bg);
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-}
-.proto-scroll::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 .proto-device--tablet .proto-scroll {
   border-radius: 20px;
@@ -305,10 +301,11 @@
   }
 }
 
-/* Hotspots: link and back elements in document coordinates; clicks go through to the screen. */
+/* Hotspots: link and back elements, moved by the screen's scroll; clicks go through to the screen. */
 .proto-hots {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 .proto-hot {
