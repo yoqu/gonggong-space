@@ -1,7 +1,9 @@
 import design from './en-design'
+import proto from './en-proto'
 
 export default {
   ...design,
+  ...proto,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',

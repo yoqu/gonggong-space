@@ -26,12 +26,13 @@ export function Panel({
   )
 }
 
-/** View Details (I): what the screen is, its size, its design system, its source and where it comes from. */
+/** View Details (I): what the screen is, its size, its design system, its source, where it comes from and its prompt. */
 export function DetailsPanel({
   artifactId,
   versionId,
   node,
   thumbnailUrl,
+  prompt,
   hasSystem,
   onCode,
   onDesignSystem,
@@ -41,12 +42,16 @@ export function DetailsPanel({
   versionId: string
   node: CanvasNode
   thumbnailUrl: string | null
+  /** The manifest's design prompt of the screen; else its section of brief.md or DESIGN.md. */
+  prompt?: string
   hasSystem: boolean
   onCode: () => void
   onDesignSystem: () => void
   onClose: () => void
 }) {
-  const { origin, note } = useScreenNotes(artifactId, versionId, node)
+  const notes = useScreenNotes(artifactId, versionId, node)
+  const origin = notes.origin
+  const note = prompt?.trim() || notes.note
   return (
     <Panel title={node.title} onClose={onClose}>
       <div className="art-panel__shot">

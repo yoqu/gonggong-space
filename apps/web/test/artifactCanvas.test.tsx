@@ -217,7 +217,6 @@ describe('nodes', () => {
   })
 
   it('puts the design system first and the prototype last', async () => {
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     mockApi(routes())
     await renderTab()
     const ds = await screen.findByTestId('art-design-system')
@@ -233,10 +232,12 @@ describe('nodes', () => {
     expect(node('home').style.left).toBe('840px')
     expect(node('detail').style.left).toBe('1350px')
     expect(node('@prototype').style.left).toBe('1860px')
-    fireEvent.doubleClick(node('@prototype'))
-    expect(open).toHaveBeenCalledWith('/api/previews/pw1/open?path=%2F#play:home', '_blank', 'noopener')
     fireEvent.doubleClick(node('@system'))
     expect(screen.getByRole('complementary', { name: '设计系统' })).toBeTruthy()
+    // Double-clicking the prototype opens the prototype editor on the entry screen.
+    fireEvent.doubleClick(node('@prototype'))
+    expect(screen.getByRole('region', { name: '原型编辑器' })).toBeTruthy()
+    expect(screen.getByTestId('proto-screen').dataset.screen).toBe('home')
   })
 
   it('has no design-system node without tokens.css', async () => {

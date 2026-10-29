@@ -196,15 +196,13 @@ describe('artifact tab', () => {
     expect(screen.queryByTestId('art-select-home')).toBeNull()
   })
 
-  it('lists planned commands disabled, as coming soon', async () => {
+  it('lists planned tools disabled, as coming soon', async () => {
     mockApi(routes())
     renderTab()
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByTestId('art-node-home'))
     fireEvent.click(screen.getByRole('button', { name: '预览' }))
-    const item = screen.getByRole('menuitem', { name: /显示二维码/ })
-    expect(item.hasAttribute('disabled')).toBe(true)
-    expect(item.getAttribute('title')).toBe('即将支持')
+    expect(screen.getByRole('menuitem', { name: /显示二维码/ }).hasAttribute('disabled')).toBe(false)
     expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(true)
   })
 

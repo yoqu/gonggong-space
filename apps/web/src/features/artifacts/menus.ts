@@ -2,16 +2,6 @@ import { t } from '../../i18n'
 import type { MenuItem } from '../../ui'
 import { FRAME_PRESETS, type FramePreset, type ScreenFrame } from './geometry'
 
-/** Planned for a later round (docs/plan/原型编辑器-Stitch对标-开发计划.md §3): listed, disabled, with a help tag. */
-const soon = (label: string, shortcut?: string, extra: Partial<MenuItem> = {}): MenuItem => ({
-  label,
-  value: label,
-  ...(shortcut ? { shortcut } : {}),
-  disabled: true,
-  title: t('即将支持'),
-  ...extra,
-})
-
 /** Commands of the selection toolbar, the context menu and the keyboard. */
 export const CMD = {
   newTab: 'new-tab',
@@ -35,6 +25,8 @@ export const CMD = {
   fullHeight: 'full-height',
   frame: 'frame:',
   addToChat: 'add-to-chat',
+  qr: 'qr',
+  export: 'export',
   /** `gen:<ArtifactCommand>`: POST …/commands for the selected screens. */
   generate: 'gen:',
   /** `var:<dimension>`: variations along one dimension; `var:custom` asks for the direction. */
@@ -110,7 +102,7 @@ export const previewItems = (single: boolean, frame: ScreenFrame | null): MenuIt
     disabled: !single,
     ...(single ? {} : { title: t('选中一个屏幕') }),
   },
-  soon(t('显示二维码')),
+  { label: t('显示二维码'), value: CMD.qr },
   { separator: true },
   ...(Object.keys(FRAME_PRESETS) as FramePreset[]).map((p) => ({
     label: PRESET_LABEL[p],
@@ -124,7 +116,7 @@ export const previewItems = (single: boolean, frame: ScreenFrame | null): MenuIt
 export const moreItems = (readOnly: boolean): MenuItem[] => [
   { label: t('查看详情'), value: CMD.details, shortcut: 'I' },
   { label: t('查看代码'), value: CMD.code, shortcut: '⇧C' },
-  soon(t('导出'), '⌘⇧E'),
+  { label: t('导出'), value: CMD.export, shortcut: '⌘⇧E' },
   { label: t('下载'), value: CMD.download, shortcut: '⇧D' },
   { label: t('重新加载'), value: CMD.reload, shortcut: '⌘R' },
   { separator: true },
