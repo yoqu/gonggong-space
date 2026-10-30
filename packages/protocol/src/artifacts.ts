@@ -583,6 +583,21 @@ export const BridgeToShell = z.discriminatedUnion('type', [
   z.object({ type: z.literal('select-clear') }),
   z.object({ type: z.literal('scroll-to'), ggId: GgId }),
   z.object({ type: z.literal('reload') }),
+  /**
+   * Live preview of unsaved style edits on one element: puts its own `style` back, then sets these properties (an
+   * empty value removes one); `null` only puts it back. One element at a time: another `ggId` restores the previous.
+   */
+  z
+    .object({
+      type: z.literal('preview-style'),
+      ggId: GgId,
+      props: z.partialRecord(StyleProp, z.string()).nullable(),
+    })
+    .superRefine((o, ctx) => {
+      for (const [k, v] of Object.entries(o.props ?? {}))
+        if (v !== '' && !styleValueOk(v ?? '', k))
+          ctx.addIssue({ code: 'custom', path: ['props', k], message: '样式值不合法' })
+    }),
 ])
 export type BridgeToShell = z.infer<typeof BridgeToShell>
 export const BRIDGE_SNIPPET_MAX = 300

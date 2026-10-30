@@ -565,7 +565,13 @@ export function PrototypeEditor({
   )
 }
 
-/** A hotspot box in the screen's document coordinates; `tag` labels it in edit mode. */
+/** Room a hotspot tag takes above its element (prototype.css `.proto-hot__tag`: 15px line + 2px gap). */
+const TAG_ROOM = 17
+
+/**
+ * A hotspot box in the screen's viewport coordinates; `tag` labels it in edit mode, outside the box so it covers none
+ * of the element: above it, or below when the screen's top leaves no room.
+ */
 function Hot({
   rect,
   tag,
@@ -583,7 +589,9 @@ function Hot({
       style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       title={title}
     >
-      {tag ? <span className="proto-hot__tag">{tag}</span> : null}
+      {tag ? (
+        <span className={cx('proto-hot__tag', rect.y < TAG_ROOM && 'proto-hot__tag--below')}>{tag}</span>
+      ) : null}
     </div>
   )
 }

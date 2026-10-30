@@ -266,6 +266,9 @@ describe('prototype editor', () => {
     editMode()
     expect(within(hots()).getByText('已连接')).toBeTruthy()
     expect(within(hots()).getByText('返回')).toBeTruthy()
+    // Tags sit outside the element (P2-21): above it, or below when the screen's top leaves no room.
+    expect(within(hots()).getByText('已连接').classList.contains('proto-hot__tag--below')).toBe(false)
+    expect(within(hots()).getByText('返回').classList.contains('proto-hot__tag--below')).toBe(true)
     // The frame keeps the device's height and scrolls itself; the overlays follow its scroll.
     expect((screen.getByTitle('首页') as HTMLElement).style.height).toBe('844px')
     fromScreen({ type: 'scroll', scrollX: 0, scrollY: 120 })

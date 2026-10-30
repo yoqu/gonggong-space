@@ -7,6 +7,7 @@ import type {
   MessageDto,
   UserDto,
 } from '@gonggong/protocol'
+import { BridgeToShell } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -467,6 +468,7 @@ describe('element panel', () => {
     expect(previews().at(-1)?.props).toEqual({ 'font-size': '18px', padding: '' })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(previews().at(-1)?.props).toBeNull()
+    for (const m of previews()) expect(BridgeToShell.safeParse(m).success).toBe(true)
   })
 
   it('pans the element out from under the panel when the panel opens (P2-08)', async () => {

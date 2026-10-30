@@ -62,7 +62,7 @@ export function ElementPanel({
   readOnly: boolean
   onSave: (ops: ArtifactEditOp[]) => Promise<boolean>
   /** The style to show on the element for now (changed properties only, '' removes one); null restores it. */
-  onPreview?: (props: Record<string, string> | null) => void
+  onPreview?: (props: Partial<Record<StyleProp, string>> | null) => void
   onClose: () => void
 }) {
   const inline = useMemo(() => parseInlineStyle(el.inlineStyle), [el.inlineStyle])
@@ -115,7 +115,7 @@ export function ElementPanel({
   useEffect(() => {
     if (shownStyle === previewed.current) return
     previewed.current = shownStyle
-    preview.current?.(JSON.parse(shownStyle) as Record<string, string>)
+    preview.current?.(JSON.parse(shownStyle) as Partial<Record<StyleProp, string>>)
   }, [shownStyle])
   useEffect(
     () => () => {

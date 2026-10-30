@@ -345,6 +345,11 @@
   line-height: 15px;
   white-space: nowrap;
 }
+.proto-hot__tag--below {
+  top: 100%;
+  bottom: auto;
+  margin: 2px 0 0;
+}
 .proto-hot--selected .proto-hot__tag {
   background: var(--accent);
 }

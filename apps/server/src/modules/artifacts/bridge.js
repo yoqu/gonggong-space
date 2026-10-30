@@ -19,12 +19,63 @@
     'height',
   ]
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
+  // STYLE_PROPS in the contract: what the element panel edits.
+  const STYLE_PROPS = new Set([
+    'color',
+    'background',
+    'background-color',
+    'border-color',
+    'font-size',
+    'font-weight',
+    'line-height',
+    'letter-spacing',
+    'text-align',
+    'margin',
+    'margin-top',
+    'margin-right',
+    'margin-bottom',
+    'margin-left',
+    'padding',
+    'padding-top',
+    'padding-right',
+    'padding-bottom',
+    'padding-left',
+    'gap',
+    'border',
+    'border-width',
+    'border-style',
+    'border-radius',
+    'width',
+    'height',
+    'opacity',
+  ])
   // What the server and this script add to the stored source.
   const INJECTED = / data-gg-(?:id|selected|hover|mark)(?:="[^"]*")?/g
   let mode = 'preview'
   let hovered = null
   let selected = null
   let marked = []
+  // The element under a style preview and its own `style` attribute (null: it had none).
+  let previewing = null
+
+  const restorePreview = () => {
+    if (!previewing) return
+    const { el, own } = previewing
+    if (own === null) el.removeAttribute('style')
+    else el.setAttribute('style', own)
+    previewing = null
+  }
+  const previewStyle = (id, props) => {
+    restorePreview()
+    const el = byGgId(id)
+    if (!el || !props || typeof props !== 'object') return
+    previewing = { el, own: el.getAttribute('style') }
+    for (const [k, v] of Object.entries(props)) {
+      if (!STYLE_PROPS.has(k) || typeof v !== 'string') continue
+      if (v === '') el.style.removeProperty(k)
+      else el.style.setProperty(k, v)
+    }
+  }
 
   const post = (msg) => window.parent.postMessage({ source: 'gg-bridge', file: FILE, ...msg }, PARENT)
   const rectOf = (el) => {
@@ -260,6 +311,9 @@
         return
       case 'scroll-to':
         byGgId(m.ggId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        return
+      case 'preview-style':
+        previewStyle(m.ggId, m.props)
         return
       case 'reload':
         location.reload()

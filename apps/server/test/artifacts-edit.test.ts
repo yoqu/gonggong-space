@@ -255,7 +255,9 @@ const LUKE = join(BUILTIN_PLUGINS, 'web-prototype/skills/web-prototype/design-sy
 describe('design system edits', () => {
   it('replaces DESIGN.md and tokens.css whole, and lint leaves DESIGN.md alone', async () => {
     const s = await setup()
-    const md = '# 品牌\n\n<script>alert(1)</script> 只是文字\n'
+    // The web panel's `seed` (the picked seed colour) is metadata: no token, no lint finding.
+    const md =
+      '---\nname: 品牌\nseed: "#0071e3"\ncolors:\n  primary: "#0071e3"\n---\n\n# 品牌\n\n<script>alert(1)</script> 只是文字\n'
     const css =
       '/* 主题 */\n:root { --color-primary: #0071e3; --font-sans: "PingFang SC", sans-serif; }\n.t-title { font-size: 20px; }\n'
     const res = await s.edit([

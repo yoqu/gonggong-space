@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { BridgeFromShell } from '@gonggong/protocol'
+import { BridgeFromShell, STYLE_PROPS } from '@gonggong/protocol'
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import { injectBridge } from '../src/modules/artifacts/html.js'
@@ -320,6 +320,40 @@ describe('gg-bridge', () => {
     expect([...s.w.document.querySelectorAll('[data-gg-mark]')].map((e) => e.tagName)).toEqual(['H1', 'A'])
     s.send({ type: 'highlight', ggIds: [] })
     expect(s.w.document.querySelectorAll('[data-gg-mark]')).toHaveLength(0)
+  })
+
+  it('previews style on one element at a time and puts its own style back', () => {
+    const s = screen()
+    const h1 = s.$('h1')
+    const a = s.$('a')
+    const own = h1.getAttribute('style')
+    s.send({ type: 'preview-style', ggId: h1.getAttribute('data-gg-id'), props: { 'font-size': '20px' } })
+    expect(h1.style.getPropertyValue('font-size')).toBe('20px')
+    expect(h1.style.getPropertyValue('color')).toBe('var(--c)')
+    // Each message is the whole preview: earlier values go, an empty value removes the element's own property.
+    s.send({
+      type: 'preview-style',
+      ggId: h1.getAttribute('data-gg-id'),
+      props: { color: '', width: '10px' },
+    })
+    expect(h1.style.getPropertyValue('font-size')).toBe('')
+    expect(h1.style.getPropertyValue('color')).toBe('')
+    expect(h1.style.getPropertyValue('width')).toBe('10px')
+    // Another element: the previous one gets its own style back first.
+    s.send({ type: 'preview-style', ggId: a.getAttribute('data-gg-id'), props: { opacity: '0.5' } })
+    expect(h1.getAttribute('style')).toBe(own)
+    expect(a.style.getPropertyValue('opacity')).toBe('0.5')
+    s.send({ type: 'preview-style', ggId: a.getAttribute('data-gg-id'), props: null })
+    expect(a.hasAttribute('style')).toBe(false)
+    // Unknown elements and properties outside the editable set change nothing.
+    s.send({ type: 'preview-style', ggId: '"]x', props: { color: 'var(--c)' } })
+    s.send({ type: 'preview-style', ggId: h1.getAttribute('data-gg-id'), props: { position: 'fixed' } })
+    expect(h1.getAttribute('style')).toBe(own)
+    // Every property the element panel edits can be previewed.
+    for (const p of STYLE_PROPS) {
+      s.send({ type: 'preview-style', ggId: h1.getAttribute('data-gg-id'), props: { [p]: 'inherit' } })
+      expect(h1.style.getPropertyValue(p), p).toBe('inherit')
+    }
   })
 
   it('takes orders only from the exact main-site origin through its parent', () => {

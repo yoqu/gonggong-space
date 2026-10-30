@@ -171,6 +171,7 @@ describe('official plugin web-prototype', () => {
     expect(skill).toMatch(/Hosted.*Do \*\*not\*\* copy `index.html` or `_gg\/`/)
     expect(skill).toMatch(/Not hosted.*copy `kit\/index.html`/)
     expect(skill).toContain('Give every screen a `prompt`')
+    expect(skill).toMatch(/`seed`.*optional metadata.*not a token/)
     for (const ds of manifest.designSystems)
       expect(tokensCssOk(readFileSync(join(skillDir, ds.dir, 'tokens.css'), 'utf8')), ds.id).toBe(true)
   })

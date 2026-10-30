@@ -9,18 +9,8 @@ import { useEffect, useRef } from 'react'
 /** What a screen may post. */
 export type BridgeMessage = BridgeFromShell
 
-/**
- * `preview-style` (not in the protocol yet, needs the server's bridge.js): sets these inline style properties on the
- * element for a live preview of the element panel's unsaved values; `props: null` puts its own style back. A
- * screen whose bridge does not know it ignores it, and the change shows once saved, as before.
- */
-export interface BridgePreviewStyle {
-  type: 'preview-style'
-  ggId: string
-  props: Record<string, string> | null
-}
 /** What the canvas may post to a screen. */
-export type HostMessage = BridgeToShell | BridgePreviewStyle
+export type HostMessage = BridgeToShell
 
 /**
  * The bridge between the canvas and the screens of an artifact preview (产物托管 plan 3.4, R2 contract): every screen

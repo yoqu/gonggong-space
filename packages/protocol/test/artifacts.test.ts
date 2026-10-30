@@ -391,6 +391,22 @@ describe('bridge', () => {
     expect(BridgeToShell.safeParse({ type: 'mode', mode: 'draw' }).success).toBe(false)
     expect(BridgeToShell.safeParse({ type: 'highlight', ggIds: ['x'] }).success).toBe(false)
   })
+  it('previews inline style on one element: token values or empty (removed); null restores', () => {
+    for (const m of [
+      { type: 'preview-style', ggId: '3', props: { color: 'var(--color-primary)', 'padding-top': '' } },
+      { type: 'preview-style', ggId: '3', props: {} },
+      { type: 'preview-style', ggId: '3', props: null },
+    ])
+      expect(BridgeToShell.parse(m)).toEqual(m)
+    for (const m of [
+      { type: 'preview-style', ggId: '3', props: { color: 'red' } },
+      { type: 'preview-style', ggId: '3', props: { width: '1px;position:fixed' } },
+      { type: 'preview-style', ggId: '3', props: { position: 'fixed' } },
+      { type: 'preview-style', ggId: 'x', props: null },
+      { type: 'preview-style', ggId: '3' },
+    ])
+      expect(BridgeToShell.safeParse(m).success).toBe(false)
+  })
   it('screen → main site', () => {
     const at = { source: 'gg-bridge', file: 'screens/home.html' }
     const select = {
