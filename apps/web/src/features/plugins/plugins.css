@@ -433,7 +433,19 @@
 .plg-req__head .plg-tile {
   border-radius: 6px;
 }
+/* A narrow chat column (the canvas open beside it) cuts the title short instead of breaking it. */
+.plg-req__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .plg-req__to {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-left: auto;
   padding: 0 var(--space-6);
   border-radius: var(--radius-capsule);

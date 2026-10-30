@@ -276,6 +276,26 @@ describe('design-system panel', () => {
     expect((value(p, '--color-on-primary') as HTMLInputElement).value).toBe('#EEEEEE')
   })
 
+  it('keeps the seed picked in DESIGN.md and shows it again, not the primary it derived (P2-05)', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1/files/DESIGN.md?version=v2': () =>
+          new Response(DESIGN.replace('name: 麓客+ 小程序', 'name: 麓客+ 小程序\nseed: "#7C3AED"')),
+      }),
+    )
+    const p = await openPanel()
+    const seed = p.getByRole('textbox', { name: '种子色十六进制' }) as HTMLInputElement
+    expect(seed.value).toBe('#7C3AED')
+    fireEvent.change(seed, { target: { value: '#8C5835' } })
+    fireEvent.click(p.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(edits(calls)).toHaveLength(1))
+    const md = (edits(calls)[0] as { ops: { path?: string; content?: string }[] }).ops.find(
+      (o) => o.path === 'DESIGN.md',
+    )
+    expect(md?.content).toContain('seed: "#8C5835"')
+    expect(md?.content).not.toContain('#7C3AED')
+  })
+
   it('applies a preset only after confirming', async () => {
     const calls = mockApi(routes())
     const p = await openPanel()

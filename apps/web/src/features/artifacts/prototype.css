@@ -231,19 +231,31 @@
 .proto-device--desktop {
   border-radius: 16px;
 }
-/* The screen scrolls inside its own frame (fixed bars stay at the device's bottom); overlays follow its `scroll`. */
-.proto-scroll {
+/*
+ * The clip stays put while the screen inside it slides (transitions animate .proto-scroll), so a screen on its way in
+ * never shows outside the device. The screen scrolls inside its own frame (fixed bars stay at the device's bottom);
+ * overlays follow its `scroll`.
+ */
+.proto-clip {
   width: 100%;
   height: 100%;
   border-radius: 36px;
   background: var(--content-bg);
   overflow: hidden;
+  /* Safari clips transformed children to a rounded overflow only with its own layer. */
+  isolation: isolate;
 }
-.proto-device--tablet .proto-scroll {
+.proto-device--tablet .proto-clip {
   border-radius: 20px;
 }
-.proto-device--desktop .proto-scroll {
+.proto-device--desktop .proto-clip {
   border-radius: 6px;
+}
+.proto-scroll {
+  width: 100%;
+  height: 100%;
+  background: var(--content-bg);
+  overflow: hidden;
 }
 .proto-content {
   position: relative;

@@ -10,6 +10,19 @@ import { useEffect, useRef } from 'react'
 export type BridgeMessage = BridgeFromShell
 
 /**
+ * `preview-style` (not in the protocol yet, needs the server's bridge.js): sets these inline style properties on the
+ * element for a live preview of the element panel's unsaved values; `props: null` puts its own style back. A
+ * screen whose bridge does not know it ignores it, and the change shows once saved, as before.
+ */
+export interface BridgePreviewStyle {
+  type: 'preview-style'
+  ggId: string
+  props: Record<string, string> | null
+}
+/** What the canvas may post to a screen. */
+export type HostMessage = BridgeToShell | BridgePreviewStyle
+
+/**
  * The bridge between the canvas and the screens of an artifact preview (产物托管 plan 3.4, R2 contract): every screen
  * page carries a script that posts `{source:'gg-bridge', …}` to this window and listens for `{source:'gg-host', …}`.
  * A message counts only when it comes from the preview's exact origin and from one of the canvas's screen frames, and
@@ -67,9 +80,9 @@ export function linkSpots(links: unknown): BridgeLinkRect[] | undefined {
  * origin), so posting to it would only log an origin mismatch and be dropped: messages wait in `pending` instead.
  */
 const ready = new WeakMap<HTMLIFrameElement, string>()
-const pending = new WeakMap<HTMLIFrameElement, Map<BridgeToShell['type'], BridgeToShell>>()
+const pending = new WeakMap<HTMLIFrameElement, Map<HostMessage['type'], HostMessage>>()
 
-const send = (frame: HTMLIFrameElement, origin: string, msg: BridgeToShell) =>
+const send = (frame: HTMLIFrameElement, origin: string, msg: HostMessage) =>
   frame.contentWindow?.postMessage({ source: 'gg-host', ...msg }, origin)
 
 /** `frame` said `ready` from `origin`: it takes messages from now on, the latest queued one of each type first. */
@@ -81,11 +94,7 @@ export function markReady(frame: HTMLIFrameElement, origin: string) {
 }
 
 /** Posts to a screen that said `ready` from `origin`; until it does, keeps the latest message of each type. */
-export function postToScreen(
-  frame: HTMLIFrameElement | undefined,
-  origin: string | null,
-  msg: BridgeToShell,
-) {
+export function postToScreen(frame: HTMLIFrameElement | undefined, origin: string | null, msg: HostMessage) {
   if (!frame || !origin) return
   if (ready.get(frame) === origin) return send(frame, origin, msg)
   const queued = pending.get(frame) ?? new Map()

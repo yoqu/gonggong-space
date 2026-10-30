@@ -56,7 +56,9 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
     <div className="plg-req" data-testid="creation-card">
       <div className="plg-req__head">
         <PluginTile m={card} size={22} />
-        <b>{t('创作请求 · {title}', { title: card.pluginTitle })}</b>
+        <b className="plg-req__title" title={t('创作请求 · {title}', { title: card.pluginTitle })}>
+          {t('创作请求 · {title}', { title: card.pluginTitle })}
+        </b>
         <span className="plg-req__to">{t('已交给 @{bot}', { bot: card.botName })}</span>
       </div>
       <div className="plg-req__body">
@@ -136,7 +138,9 @@ export function CreationDraftView({ m, card }: { m: MessageDto; card: CreationDr
     <div className="plg-req" data-testid="creation-draft">
       <div className="plg-req__head">
         <PluginTile m={card} size={22} />
-        <b>{t('创作确认 · {title}', { title: card.pluginTitle })}</b>
+        <b className="plg-req__title" title={t('创作确认 · {title}', { title: card.pluginTitle })}>
+          {t('创作确认 · {title}', { title: card.pluginTitle })}
+        </b>
         <span className="plg-req__to">{t('{bot} 提议', { bot: card.botName })}</span>
       </div>
       <div className="plg-req__body">

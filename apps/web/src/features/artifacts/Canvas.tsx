@@ -26,7 +26,7 @@ import {
 } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { copyWithToast } from '../../lib/clipboard'
+import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import {
@@ -96,6 +96,7 @@ import {
 import {
   boundsKey,
   type CanvasNode,
+  clearOfPanel,
   type Direction,
   DOC_HEIGHT,
   defaultFrame,
@@ -104,6 +105,7 @@ import {
   type FramePreset,
   fitView,
   framePreset,
+  keepZoomBeside,
   layoutNodes,
   neighbour,
   nodesInRect,
@@ -130,6 +132,7 @@ import {
   generateItems,
   modifyItems,
   moreItems,
+  nodeContextItems,
   previewItems,
   refContextItems,
   screenContextItems,
@@ -203,6 +206,8 @@ const TIPS = [
 ]
 const TIPS_KEY = 'gg.art.tips'
 const TIP_MS = 8000
+/** How long the canvas's own notice (copied…) stays. */
+const NOTICE_MS = 2400
 
 /** Room (px) an open side panel takes at the right, with the tools: its width plus its 60px offset. */
 const PANEL_SIDE = 360
@@ -268,6 +273,12 @@ export interface CanvasProps {
 }
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
+
+/** Marks the design-system, DESIGN.md and prototype nodes (and their titles) for their context menu. */
+const nodeKind = (n: CanvasNode) =>
+  n.kind === 'system' || n.kind === 'doc' || n.kind === 'prototype'
+    ? { 'data-node-kind': n.kind, 'data-node-id': n.id }
+    : {}
 
 const editable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
@@ -363,7 +374,15 @@ export function Canvas({
     null,
   )
   /** What the context menu opened on. */
-  const [ctxOn, setCtxOn] = useState<'screen' | 'ref' | null>(null)
+  const [ctxOn, setCtxOn] = useState<'screen' | 'ref' | 'system' | 'doc' | 'prototype' | null>(null)
+  /** The canvas's notice (bottom centre, over the canvas): what a copy just did, where it was done. */
+  const [notice, setNotice] = useState<{ text: string; n: number } | null>(null)
+  const say = (text: string) => setNotice((p) => ({ text, n: (p?.n ?? 0) + 1 }))
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [notice])
   /** Where references were just dragged, until the version with their new place arrives. */
   const [refMoves, setRefMoves] = useState<Record<string, { x: number; y: number }>>({})
   /** The element a screen reported clicked with mark or direct edit; `pop` shows its popover. */
@@ -396,16 +415,22 @@ export function Canvas({
   const botState: BotState = bot ? offlineHint(bot) : 'none'
   const annotations = useAnnotations(artifactId, versionKey || null)
   const [panel, setPanelNow] = useState<Panel | null>(null)
-  const openElsewhere = useOpenElsewhere(
+  const otherNotes = useOpenElsewhere(
     artifactId,
     versionKey || null,
-    panel === 'annotations' && !annotations.list.length,
+    panel === 'annotations',
     annotations.tick,
   )
   const elsewhere = versions
-    .filter((v) => openElsewhere[v.id])
-    .map((v) => ({ versionId: v.id, n: v.n, count: openElsewhere[v.id] ?? 0 }))
+    .filter((v) => otherNotes.counts[v.id])
+    .map((v) => ({ versionId: v.id, n: v.n, count: otherNotes.counts[v.id] ?? 0 }))
     .sort((a, b) => b.n - a.n)
+  /** Notes handed to the AI on versions before the shown one: their results are in this one, to be checked. */
+  const shownN = versions.find((v) => v.id === versionKey)?.n ?? 0
+  const sentEarlier = otherNotes.sent.flatMap((a) => {
+    const n = versions.find((v) => v.id === a.versionId)?.n ?? 0
+    return n && n < shownN ? [{ ...a, n }] : []
+  })
   const meId = useSession((s) => s.user?.id ?? null)
   const press = useRef<{
     id: number
@@ -488,7 +513,8 @@ export function Canvas({
   useEffect(() => {
     if (!auto.current || !room.width) return
     const v = fitView(nodes, room, Math.max(side, TOOLS))
-    if (v) setView(v)
+    const next = v && keepZoomBeside(v, view, side)
+    if (next) setView(next)
   }, [bounds, room.width, room.height])
   useEffect(() => {
     if (selected.length) auto.current = false
@@ -663,7 +689,7 @@ export function Canvas({
   useEffect(() => {
     if (!focusAsk || !manifest) return
     if (focusAsk.versionId && focusAsk.versionId !== versionKey) return
-    const ids = focusAsk.screenIds.filter((id) => screens.some((s) => s.id === id))
+    const ids = focusAsk.screenIds.filter((id) => nodes.some((s) => s.id === id))
     if (ids.length) setSelected(ids)
     // Fitting waits for the plane's size; the ask stays until then.
     if (!room.width && ids.length) return
@@ -865,7 +891,7 @@ export function Canvas({
         return
       case CMD.copyPng: {
         const thumb = one && screenThumbs.find((s) => s.screenId === one.id)
-        if (thumb) void copyPng(thumb.url)
+        if (thumb) void copyPng(thumb.url, say)
         else if (one) toast({ type: 'info', message: t('缩略图生成后才能复制为 PNG') })
         return
       }
@@ -880,14 +906,21 @@ export function Canvas({
         // The canvas keeps the screens to paste as copies; the system clipboard gets their code.
         if (!ids.length) return
         setClip({ ids, cut: false })
-        void copyScreensCode(picked, readFile)
+        void copyScreensCode(picked, readFile, say)
         return
       case CMD.copyCode:
-        void copyScreensCode(picked, readFile)
+        void copyScreensCode(picked, readFile, say)
         return
       case CMD.copyLink:
-        void copyWithToast(artifactLink(groupId, artifactId, ids), t('链接已复制'))
+        void attempt(() => copyText(artifactLink(groupId, artifactId, ids))).then(
+          (ok) => ok && say(t('链接已复制')),
+        )
         return
+      case CMD.copyMd:
+        if (designMd) void attempt(() => copyText(designMd)).then((ok) => ok && say(t('DESIGN.md 已复制')))
+        return
+      case CMD.present:
+        return onPresent()
       case CMD.cut:
         if (canEdit && ids.length) setClip({ ids, cut: true })
         return
@@ -1139,7 +1172,7 @@ export function Canvas({
   const shownLinks = allLinks
     ? links
     : links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
-  const paths = linkPaths(nodes, shownLinks, view, spots)
+  const paths = linkPaths(nodes, shownLinks, view, spots, allLinks ? undefined : picked.map((n) => n.id))
   const favNodes = favourites
     .map((id) => screens.find((s) => s.id === id))
     .filter((n): n is CanvasNode => !!n)
@@ -1160,6 +1193,15 @@ export function Canvas({
         tokens={tokens}
         readOnly={!canEdit}
         onSave={saveOps}
+        onPreview={(props) =>
+          element.ggId
+            ? postToScreen(frameEls.get(element.file), origin, {
+                type: 'preview-style',
+                ggId: element.ggId,
+                props,
+              })
+            : undefined
+        }
         onClose={dropElement}
       />
     ) : panel === 'annotations' ? (
@@ -1189,6 +1231,7 @@ export function Canvas({
           if (a.ggId) postToScreen(frameEls.get(a.file), origin, { type: 'scroll-to', ggId: a.ggId })
         }}
         elsewhere={elsewhere}
+        sent={sentEarlier}
         onView={onViewVersion}
         onClose={() => setPanel(null)}
       />
@@ -1240,6 +1283,25 @@ export function Canvas({
     const v = revealView(n, view, { width: room.width - Math.max(side, TOOLS), height: room.height })
     if (v) moveView(v)
   }
+
+  // A side panel opening over what is being edited (the element, else the one selected screen) pans it into the room
+  // left of the panel; only when the panel or the target changes, so the member can still pan it under the panel.
+  const editedBox = (() => {
+    if (!side) return null
+    const n = element ? screens.find((s) => s.id === element.screenId) : one
+    if (!n) return null
+    return element
+      ? elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
+      : onScreen(n, view)
+  })()
+  const clearKey =
+    side && editedBox ? `${side}|${element?.file ?? ''}#${element?.ggId ?? ''}|${one?.id ?? ''}` : ''
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a new panel or target only
+  useEffect(() => {
+    if (!clearKey || !editedBox) return
+    const dx = clearOfPanel(editedBox, room.width, side)
+    if (dx) moveView((v) => ({ ...v, x: v.x - dx }))
+  }, [clearKey])
 
   const hasThumb = !!one && screenThumbs.some((s) => s.screenId === one.id)
   const openNotes = annotations.list.filter((a) => a.status === 'open').length
@@ -1313,21 +1375,23 @@ export function Canvas({
   }
 
   const contextItems: MenuItem[] =
-    ctxOn === 'ref' && pickedRefs.length && !picked.length
-      ? refContextItems({ readOnly: !canEdit, single: pickedRefs.length === 1 })
-      : ctxOn === 'screen' && picked.length
-        ? screenContextItems({
-            readOnly: !canEdit,
-            single: !!one,
-            canPaste: !!clip,
-            favourite: picked.every((n) => favourites.includes(n.id)),
-            showAllLinks: allLinks,
-            frame: sharedFrame,
-            bot: botState,
-            device,
-            png: hasThumb,
-          })
-        : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
+    ctxOn === 'system' || ctxOn === 'doc' || ctxOn === 'prototype'
+      ? nodeContextItems(ctxOn)
+      : ctxOn === 'ref' && pickedRefs.length && !picked.length
+        ? refContextItems({ readOnly: !canEdit, single: pickedRefs.length === 1 })
+        : ctxOn === 'screen' && picked.length
+          ? screenContextItems({
+              readOnly: !canEdit,
+              single: !!one,
+              canPaste: !!clip,
+              favourite: picked.every((n) => favourites.includes(n.id)),
+              showAllLinks: allLinks,
+              frame: sharedFrame,
+              bot: botState,
+              device,
+              png: hasThumb,
+            })
+          : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
 
   return (
     <div
@@ -1391,14 +1455,19 @@ export function Canvas({
             // A screen's title gets the screen's menu, as the screen itself does.
             const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
             const refTitled = target.closest<HTMLElement>('[data-ref-title]')?.dataset.refTitle
-            const hit = titled ?? refTitled
+            // The design system, DESIGN.md and the prototype have menus of their own.
+            const other = target.closest<HTMLElement>('[data-node-kind]')
+            const kind = other?.dataset.nodeKind as 'system' | 'doc' | 'prototype' | undefined
+            const hit = titled ?? refTitled ?? other?.dataset.nodeId
             if (hit && !selected.includes(hit)) setSelected([hit])
             setCtxOn(
-              refTitled || target.closest('.art-node--ref')
-                ? 'ref'
-                : titled || target.closest('.art-node--screen')
-                  ? 'screen'
-                  : null,
+              kind
+                ? kind
+                : refTitled || target.closest('.art-node--ref')
+                  ? 'ref'
+                  : titled || target.closest('.art-node--screen')
+                    ? 'screen'
+                    : null,
             )
           }}
           onClick={(e) => {
@@ -1423,6 +1492,7 @@ export function Canvas({
                   n.kind === 'ref' && canEdit && tool === 'select' && 'art-node--movable',
                 )}
                 data-testid={`art-node-${n.id}`}
+                {...nodeKind(n)}
                 style={{
                   left: n.x,
                   top: n.y,
@@ -1552,6 +1622,7 @@ export function Canvas({
                       )}
                       data-screen-title={n.kind === 'screen' ? n.id : undefined}
                       data-ref-title={n.kind === 'ref' ? n.id : undefined}
+                      {...nodeKind(n)}
                       style={{
                         left: r.left + shift.dx,
                         top: r.top - 26 + shift.dy,
@@ -1879,6 +1950,13 @@ export function Canvas({
             <strong>{t('松开即可上传到画布')}</strong>
             <span>{t('图片、PDF、文本文件，单个不超过 5 MB')}</span>
           </div>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div key={notice.n} className="art-notice" role="status" data-testid="art-notice">
+          <Icon name="check" size={13} weight={2} />
+          {notice.text}
         </div>
       ) : null}
 

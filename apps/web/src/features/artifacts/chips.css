@@ -24,7 +24,7 @@
 }
 .art-chip__text {
   min-width: 0;
-  max-width: 320px;
+  max-width: min(320px, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -136,9 +136,12 @@
   color: var(--label);
 }
 
-/* A sent message's canvas context, and a run's artifact versions. */
+/* A sent message's canvas context, and a run's artifact versions: never wider than the (narrow) chat column. */
 .art-chips--sent {
+  max-width: 100%;
+  min-width: 0;
   margin-top: var(--space-4);
+  justify-content: flex-end;
 }
 .art-chip--link {
   padding-right: var(--space-8);
@@ -150,9 +153,11 @@
   border-color: var(--accent);
 }
 .art-run {
-  display: inline-flex;
+  display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
   min-width: 0;
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
@@ -162,8 +167,12 @@
   color: var(--accent);
 }
 .art-run__text {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.art-run__open {
+  flex: none;
 }

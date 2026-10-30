@@ -19,6 +19,7 @@ import { cx } from '../../lib/cx'
 import { named } from '../../lib/lazy'
 import { realtime } from '../../lib/realtime'
 import { useHeightVar } from '../../lib/useHeightVar'
+import { useStickOnResize } from '../../lib/useStickOnResize'
 import {
   Button,
   ChatHeader,
@@ -175,6 +176,7 @@ export function ChatView({
   // The day separator sticks just below however many prompts are pinned above the messages.
   useHeightVar(banners, box, '--banners-h')
   const stick = useRef(true)
+  useStickOnResize(box, stick)
   const olderAnchor = useRef<{ id: string; height: number } | null>(null)
   /** What the view had shown at the last render, to count arrivals while scrolled up. */
   const seen = useRef({ first: '', seq: 0, runs: 0 })

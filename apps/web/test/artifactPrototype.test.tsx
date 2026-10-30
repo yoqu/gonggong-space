@@ -640,3 +640,41 @@ describe('R5 contract on the canvas', () => {
     })
   })
 })
+
+describe('Stitch round 4 fixes (prototype)', () => {
+  it('moves the device clear of the connect panel while it is open (P1-03)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(2000)
+    mockApi(routes())
+    await openEditor()
+    const stage = screen.getByTestId('proto-stage')
+    const width = () => Number.parseFloat(screen.getByTestId('proto-device').style.transform.slice(6))
+    const before = width()
+    expect(stage.style.paddingRight).toBe('')
+    editMode()
+    select()
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', { name: /连到屏幕/ }),
+    )
+    expect(screen.getByTestId('proto-connect')).toBeTruthy()
+    expect(stage.style.paddingRight).toBe('380px')
+    expect(stage.style.paddingLeft).toBe('260px')
+    // The device shrinks to the room left between the screen list and the panel.
+    expect(width()).toBeLessThan(before)
+    fireEvent.click(
+      within(screen.getByRole('complementary', { name: '连接元素' })).getByRole('button', { name: '关闭' }),
+    )
+    expect(stage.style.paddingRight).toBe('')
+  })
+
+  it('slides screens inside a fixed clip, so a transition never shows past the device (P1-04)', async () => {
+    mockApi(routes())
+    await openEditor()
+    ready([{ ggId: '120', screen: 'detail', rect: { x: 0, y: 0, w: 10, h: 10 } }])
+    fromScreen({ type: 'nav', screen: 'detail', transition: 'slide-up' })
+    const moving = shown()
+    expect(moving.className).toContain('proto-enter--slide-up')
+    expect(moving.parentElement).toBe(screen.getByTestId('proto-clip'))
+    expect(screen.getByTestId('proto-clip').className).toBe('proto-clip')
+  })
+})
