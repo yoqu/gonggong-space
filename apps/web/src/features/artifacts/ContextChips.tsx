@@ -2,12 +2,14 @@ import type { BotDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { Icon, MenuButton } from '../../ui'
 import { offlineHint } from './actions'
-import { type CanvasContext, removeContextItem, requestDesignPanel } from './context'
+import { type CanvasContext, isScreenItem, removeContextItem, requestDesignPanel } from './context'
 import { selectedScreenIds } from './slash'
 import './chips.css'
 
 export const VARIATION_COUNTS = [1, 2, 3, 4, 5]
 export const DEFAULT_VARIATIONS = 3
+/** More whole screens than this fold into one 「N 个屏幕」 chip: a marquee of many screens keeps the input in view. */
+export const SCREEN_CHIPS_MAX = 2
 
 /**
  * The canvas selection above the group composer: `产物 · 屏` or `屏 › 元素`, each removable. `bot`: who a message
@@ -32,9 +34,31 @@ export function ContextChips({
   const offline = offlineHint(bot)
   const noScreens = !selectedScreenIds(context).length
   const count = variations ?? DEFAULT_VARIATIONS
+  const screens = context.items.filter(isScreenItem)
+  const folded = screens.length > SCREEN_CHIPS_MAX
   return (
     <div className="art-chips" data-testid="art-context-chips">
-      {context.items.map((i) => {
+      {folded ? (
+        <span
+          className="art-chip"
+          title={`${context.title} · ${screens.map((i) => i.screenTitle).join('、')}`}
+          data-testid="art-context-screens"
+        >
+          <Icon name="smartphone" size={13} className="art-chip__icon" />
+          <span className="art-chip__text">{t('{n} 个屏幕', { n: screens.length })}</span>
+          <button
+            type="button"
+            className="art-chip__x"
+            aria-label={t('移除 {name}', { name: t('{n} 个屏幕', { n: screens.length }) })}
+            onClick={() => {
+              for (const i of screens) removeContextItem(i.key)
+            }}
+          >
+            <Icon name="xmark" size={10} weight={2} />
+          </button>
+        </span>
+      ) : null}
+      {(folded ? context.items.filter((i) => !isScreenItem(i)) : context.items).map((i) => {
         const label = i.ref
           ? t('参考 · {name}', { name: i.ref.title })
           : i.element

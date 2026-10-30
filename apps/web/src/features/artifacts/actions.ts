@@ -136,8 +136,9 @@ export function useAnnotations(artifactId: string, versionId: string | null) {
 }
 
 /**
- * Annotations still to do on other versions than `versionId`, by version (they stay with the version they were made
- * on, so a new version, a local one too, seems to drop them). Asked only while `enabled`.
+ * Annotations on other versions than `versionId` (they stay with the version they were made on, so a new version, a
+ * local one too, seems to drop them): how many are still open, by version, and the ones handed to the AI, whose
+ * results show in a newer version. Asked only while `enabled`.
  */
 export function useOpenElsewhere(
   artifactId: string,
@@ -145,28 +146,34 @@ export function useOpenElsewhere(
   enabled: boolean,
   tick: number,
 ) {
-  const [counts, setCounts] = useState<Record<string, number>>({})
+  const [state, setState] = useState<{ counts: Record<string, number>; sent: AnnotationDto[] }>(
+    NONE_ELSEWHERE,
+  )
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` reloads with the shown version's list
   useEffect(() => {
-    if (!enabled) return setCounts({})
+    if (!enabled) return setState(NONE_ELSEWHERE)
     let live = true
     api.get<AnnotationDto[]>(`/artifacts/${artifactId}/annotations`).then(
       (l) => {
         if (!live) return
-        const next: Record<string, number> = {}
-        for (const a of l)
-          if (a.status === 'open' && a.versionId !== versionId)
-            next[a.versionId] = (next[a.versionId] ?? 0) + 1
-        setCounts(next)
+        const counts: Record<string, number> = {}
+        const sent: AnnotationDto[] = []
+        for (const a of l) {
+          if (a.versionId === versionId) continue
+          if (a.status === 'open') counts[a.versionId] = (counts[a.versionId] ?? 0) + 1
+          else if (a.status === 'sent') sent.push(a)
+        }
+        setState({ counts, sent })
       },
-      () => live && setCounts({}),
+      () => live && setState(NONE_ELSEWHERE),
     )
     return () => {
       live = false
     }
   }, [artifactId, versionId, enabled, tick])
-  return counts
+  return state
 }
+const NONE_ELSEWHERE = { counts: {}, sent: [] }
 
 export const createAnnotation = (artifactId: string, req: CreateAnnotationReq) =>
   api.post<AnnotationDto>(`/artifacts/${artifactId}/annotations`, req)
@@ -182,15 +189,20 @@ export async function screensCode(screens: { file: string }[], readFile: (file: 
   return parts.join('\n\n')
 }
 
-/** Copies the screens' code to the system clipboard, with a toast either way. */
+/** Says an action went through; the canvas shows it over itself, where the action was. */
+export type Notify = (message: string) => void
+const toastDone: Notify = (message) => toast({ type: 'success', message })
+
+/** Copies the screens' code to the system clipboard; `done` says so, a failure toasts. */
 export async function copyScreensCode(
   screens: { file: string }[],
   readFile: (file: string) => Promise<string>,
+  done: Notify = toastDone,
 ) {
   if (!screens.length) return false
   try {
     await copyText(await screensCode(screens, readFile))
-    toast({ type: 'success', message: t('已复制 {n} 个屏幕的代码', { n: screens.length }) })
+    done(t('已复制 {n} 个屏幕的代码', { n: screens.length }))
     return true
   } catch (e) {
     toastError(e)
@@ -211,7 +223,7 @@ async function asPng(blob: Blob): Promise<Blob> {
 }
 
 /** Copy as PNG (⌘⇧C): the screen's thumbnail to the system clipboard. */
-export async function copyPng(url: string) {
+export async function copyPng(url: string, done: Notify = toastDone) {
   try {
     // The item takes a promise so the copy still counts as part of the click (Safari).
     const png = fetch(url, { credentials: 'include' }).then(async (res) => {
@@ -219,7 +231,7 @@ export async function copyPng(url: string) {
       return asPng(await res.blob())
     })
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
-    toast({ type: 'success', message: t('已复制为 PNG') })
+    done(t('已复制为 PNG'))
     return true
   } catch (e) {
     toastError(e)

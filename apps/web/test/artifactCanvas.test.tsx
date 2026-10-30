@@ -392,8 +392,12 @@ describe('connections', () => {
     await renderTab()
     await waitFor(() => expect(screen.getByTestId('art-node-@system')).toBeTruthy())
     expect(screen.queryByText('查看详情')).toBeNull()
-    fireEvent.click(node('detail'))
+    fireEvent.click(node('home'))
     expect(screen.getByTestId('art-link-home>detail').textContent).toBe('查看详情')
+    // A link into the selection from another screen is drawn faint, without its label (P2-09).
+    fireEvent.click(node('detail'))
+    expect(screen.queryByTestId('art-link-home>detail')).toBeNull()
+    expect(screen.getByTestId('art-path-home>detail').getAttribute('class')).toBe('art-links__in')
     key('Escape')
     expect(screen.queryByTestId('art-link-home>detail')).toBeNull()
     key('x')

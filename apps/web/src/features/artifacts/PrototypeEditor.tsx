@@ -71,6 +71,8 @@ const BEZEL = 10
 const NO_SCROLL = { x: 0, y: 0 }
 /** Room the whole-screen change bar takes under the device while open. */
 const CHANGE_ROOM = 200
+/** Room the connect panel takes at the right while open (its 300px, 60px off the edge, and a gap). */
+export const CONNECT_ROOM = 380
 /** The popover's width on screen. */
 const MENU_W = 248
 /** A thumbnail's width in the screen list (px). */
@@ -203,12 +205,15 @@ export function PrototypeEditor({
   /** A document rect where it shows in the device now. */
   const inView = (r: Rect): Rect => ({ ...r, x: r.x - scrolled.x, y: r.y - scrolled.y })
   const side = listOpen ? 260 : 72
+  const connecting = connect && !!element && edit
+  /** The device keeps clear of the connect panel: the stage's right edge moves in by its width. */
+  const right = connecting ? CONNECT_ROOM : side
   const scale = room.width
     ? Math.max(
         0.2,
         Math.min(
           1,
-          (room.width - side * 2) / (size.w + BEZEL * 2),
+          (room.width - side - right) / (size.w + BEZEL * 2),
           (room.height - 96 - (change ? CHANGE_ROOM : 0)) / (size.h + BEZEL * 2),
         ),
       )
@@ -339,7 +344,15 @@ export function PrototypeEditor({
           </button>
         )}
 
-        <div ref={stage} className="proto-stage" style={change ? { paddingBottom: CHANGE_ROOM } : undefined}>
+        <div
+          ref={stage}
+          className="proto-stage"
+          data-testid="proto-stage"
+          style={{
+            ...(change ? { paddingBottom: CHANGE_ROOM } : {}),
+            ...(connecting ? { paddingLeft: side, paddingRight: right } : {}),
+          }}
+        >
           <div
             className="proto-device-box"
             style={{ width: (size.w + BEZEL * 2) * scale, height: (size.h + BEZEL * 2) * scale }}
@@ -350,91 +363,96 @@ export function PrototypeEditor({
               data-device={device}
               style={{ width: size.w + BEZEL * 2, height: size.h + BEZEL * 2, transform: `scale(${scale})` }}
             >
-              <div
-                key={nav.step}
-                className={cx('proto-scroll', enterClass(nav.enter))}
-                data-testid="proto-screen"
-                data-screen={cur.id}
-              >
-                <div className="proto-content" style={{ width: size.w, height: size.h }}>
-                  {preview ? (
-                    <iframe
-                      key={`${versionKey}:${reload}`}
-                      ref={(el) => {
-                        if (el) frames.set(cur.file, el)
-                        else frames.delete(cur.file)
-                      }}
-                      className="proto-frame"
-                      title={cur.title}
-                      src={src(cur.file)}
-                      style={{ height: size.h }}
-                    />
-                  ) : null}
-                  <div className="proto-hots" data-testid="proto-hots">
-                    {showHots
-                      ? fileSpots.map((h, i) => (
-                          <Hot
-                            // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
-                            key={i}
-                            rect={inView(h.rect)}
-                            tag={edit ? t('已连接') : null}
-                            title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
-                          />
-                        ))
-                      : null}
-                    {showHots
-                      ? fileBacks.map((h, i) => (
-                          <Hot
-                            // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
-                            key={`b${i}`}
-                            rect={inView(h.rect)}
-                            tag={edit ? t('返回') : null}
-                            title={t('返回上一屏')}
-                          />
-                        ))
-                      : null}
-                    {edit && element ? <Hot rect={inView(element.rect)} tag={t('已选中')} selected /> : null}
-                  </div>
-                  {edit && element && menu ? (
-                    <ElementMenu
-                      el={{ ...element, rect: inView(element.rect) }}
-                      scale={scale}
-                      width={size.w}
-                      readOnly={readOnly}
-                      bots={bots}
-                      bot={bot}
-                      onPickBot={pickBot}
-                      onConnect={() => {
-                        setMenu(false)
-                        setConnect(true)
-                      }}
-                      onText={(text) =>
-                        located
-                          ? saveEdits(onEdit, [{ kind: 'text', ...located, text }])
-                          : Promise.resolve(false)
-                      }
-                      onAi={(text) =>
-                        askBot((b) =>
+              {/* A fixed clip around the moving screen: transitions slide inside the device, never over its bezel. */}
+              <div className="proto-clip" data-testid="proto-clip">
+                <div
+                  key={nav.step}
+                  className={cx('proto-scroll', enterClass(nav.enter))}
+                  data-testid="proto-screen"
+                  data-screen={cur.id}
+                >
+                  <div className="proto-content" style={{ width: size.w, height: size.h }}>
+                    {preview ? (
+                      <iframe
+                        key={`${versionKey}:${reload}`}
+                        ref={(el) => {
+                          if (el) frames.set(cur.file, el)
+                          else frames.delete(cur.file)
+                        }}
+                        className="proto-frame"
+                        title={cur.title}
+                        src={src(cur.file)}
+                        style={{ height: size.h }}
+                      />
+                    ) : null}
+                    <div className="proto-hots" data-testid="proto-hots">
+                      {showHots
+                        ? fileSpots.map((h, i) => (
+                            <Hot
+                              // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
+                              key={i}
+                              rect={inView(h.rect)}
+                              tag={edit ? t('已连接') : null}
+                              title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
+                            />
+                          ))
+                        : null}
+                      {showHots
+                        ? fileBacks.map((h, i) => (
+                            <Hot
+                              // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
+                              key={`b${i}`}
+                              rect={inView(h.rect)}
+                              tag={edit ? t('返回') : null}
+                              title={t('返回上一屏')}
+                            />
+                          ))
+                        : null}
+                      {edit && element ? (
+                        <Hot rect={inView(element.rect)} tag={t('已选中')} selected />
+                      ) : null}
+                    </div>
+                    {edit && element && menu ? (
+                      <ElementMenu
+                        el={{ ...element, rect: inView(element.rect) }}
+                        scale={scale}
+                        width={size.w}
+                        readOnly={readOnly}
+                        bots={bots}
+                        bot={bot}
+                        onPickBot={pickBot}
+                        onConnect={() => {
+                          setMenu(false)
+                          setConnect(true)
+                        }}
+                        onText={(text) =>
                           located
-                            ? sendCommand(
-                                artifactId,
-                                { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
-                                b,
-                              )
-                            : Promise.resolve(false),
-                        )
-                      }
-                      onImagine={newScreen}
-                      onClose={dropElement}
-                    />
-                  ) : null}
+                            ? saveEdits(onEdit, [{ kind: 'text', ...located, text }])
+                            : Promise.resolve(false)
+                        }
+                        onAi={(text) =>
+                          askBot((b) =>
+                            located
+                              ? sendCommand(
+                                  artifactId,
+                                  { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
+                                  b,
+                                )
+                              : Promise.resolve(false),
+                          )
+                        }
+                        onImagine={newScreen}
+                        onClose={dropElement}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           {change ? (
             <ChangeBar
-              beside={connect && !!element && edit}
+              beside={connecting}
               bots={bots}
               bot={bot}
               onPickBot={pickBot}
@@ -506,7 +524,7 @@ export function PrototypeEditor({
           />
         </div>
 
-        {connect && element && edit ? (
+        {connecting && element ? (
           <ConnectPanel
             key={`${element.file}#${element.ggId}`}
             el={element}

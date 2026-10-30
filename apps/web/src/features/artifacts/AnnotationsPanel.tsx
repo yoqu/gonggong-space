@@ -14,8 +14,9 @@ const STATUS: Record<AnnotationStatus, { label: string; tone: TagTone }> = {
 }
 
 /**
- * The annotations of the shown version (Mark M): tick some and send them to a bot as one @ message; anyone resolves
- * or reopens one, its author deletes it.
+ * The annotations of the shown version (Mark M): the open ones are ticked to send to a bot as one @ message (untick
+ * to leave some out); anyone resolves or reopens one, its author deletes it. Notes handed to the AI on an earlier
+ * version head the panel once a newer one is shown, to be checked against it and resolved or reopened.
  */
 export function AnnotationsPanel({
   list,
@@ -29,6 +30,7 @@ export function AnnotationsPanel({
   onDelete,
   onFocus,
   elsewhere,
+  sent = [],
   onView,
   onClose,
 }: {
@@ -36,6 +38,8 @@ export function AnnotationsPanel({
   /** Open annotations on other versions, newest version first. */
   elsewhere: { versionId: string; n: number; count: number }[]
   onView: (versionId: string) => void
+  /** Notes sent to the AI on earlier versions than the shown one, with their version's number. */
+  sent?: (AnnotationDto & { n: number })[]
   meId: string | null
   screenTitle: (file: string) => string
   bots: BotDto[]
@@ -47,22 +51,69 @@ export function AnnotationsPanel({
   onFocus: (a: AnnotationDto) => void
   onClose: () => void
 }) {
-  const [ticked, setTicked] = useState<string[]>([])
+  /** Notes whose tick differs from the default (open ones ticked, sent ones not). */
+  const [flipped, setFlipped] = useState<string[]>([])
   const [extra, setExtra] = useState('')
   const [busy, setBusy] = useState(false)
-  const chosen = ticked.filter((id) => list.some((a) => a.id === id))
+  const chosen = list
+    .filter((a) => a.status !== 'resolved' && (a.status === 'open') !== flipped.includes(a.id))
+    .map((a) => a.id)
   const send = async () => {
     setBusy(true)
     const ok = await onSend(chosen, extra.trim())
     setBusy(false)
     if (ok) {
-      setTicked([])
+      setFlipped([])
       setExtra('')
     }
   }
+  const sentBy = [...new Set(sent.map((a) => a.n))].sort((a, b) => b - a)
 
   return (
     <Panel title={t('批注')} onClose={onClose}>
+      {sentBy.map((n) => {
+        const notes = sent.filter((a) => a.n === n)
+        return (
+          <section
+            key={n}
+            className="art-notes__sent"
+            data-testid="art-notes-sent"
+            aria-label={t('已发给 AI')}
+          >
+            <header className="art-notes__sent-head">
+              <Icon name="sparkle" size={12} />
+              <span>{t('v{n} 上发给 AI 的 {k} 条批注，看看新版本改好了没有', { n, k: notes.length })}</span>
+            </header>
+            <ul>
+              {notes.map((a) => (
+                <li key={a.id} className="art-notes__sent-item">
+                  <p>
+                    <strong>{screenTitle(a.file)}</strong>
+                    {a.note}
+                  </p>
+                  <Button size="small" variant="plain" onClick={() => onStatus(a.id, 'resolved')}>
+                    {t('标为已解决')}
+                  </Button>
+                  <Button size="small" variant="plain" onClick={() => onStatus(a.id, 'open')}>
+                    {t('重新打开')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {notes.length > 1 ? (
+              <Button
+                size="small"
+                variant="plain"
+                onClick={() => {
+                  for (const a of notes) onStatus(a.id, 'resolved')
+                }}
+              >
+                {t('全部标为已解决')}
+              </Button>
+            ) : null}
+          </section>
+        )
+      })}
       {list.length ? (
         <ol className="art-notes" data-testid="art-annotations">
           {list.map((a, i) => {
@@ -73,7 +124,9 @@ export function AnnotationsPanel({
                   label={<span className="art-note__no">{i + 1}</span>}
                   checked={on}
                   disabled={a.status === 'resolved'}
-                  onChange={() => setTicked((s) => (on ? s.filter((x) => x !== a.id) : [...s, a.id]))}
+                  onChange={() =>
+                    setFlipped((s) => (s.includes(a.id) ? s.filter((x) => x !== a.id) : [...s, a.id]))
+                  }
                 />
                 <div className="art-note__body">
                   <button type="button" className="art-note__head" onClick={() => onFocus(a)}>
@@ -107,7 +160,7 @@ export function AnnotationsPanel({
             )
           })}
         </ol>
-      ) : (
+      ) : sent.length ? null : (
         <EmptyState
           compact
           icon="marquee"

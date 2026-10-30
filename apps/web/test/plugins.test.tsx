@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type {
   BotDto,
   CreationCard,
@@ -731,6 +732,12 @@ describe('插件 · 创作请求卡片', () => {
     const c = await screen.findByTestId('creation-card')
     expect(c.textContent).toContain('创作请求 · 网页原型')
     expect(c.textContent).toContain('已交给 @设计助手')
+    // A narrow chat column cuts the title short on one line instead of breaking it (P2-20).
+    const title = c.querySelector('.plg-req__title') as HTMLElement
+    expect(title.title).toBe('创作请求 · 网页原型')
+    expect(readFileSync(`${process.cwd()}/src/features/plugins/plugins.css`, 'utf8')).toMatch(
+      /\.plg-req__title \{[^}]*white-space: nowrap;[^}]*\}/,
+    )
     expect(c.textContent).toContain('活动报名页 · 温暖编辑 ·「共工」')
     // The agent-facing instructions are not shown.
     expect(c.textContent).not.toContain('请用插件')

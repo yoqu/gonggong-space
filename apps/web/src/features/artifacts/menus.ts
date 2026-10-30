@@ -41,6 +41,10 @@ export const CMD = {
   shortcuts: 'shortcuts',
   /** The DESIGN.md page of the design-system panel. */
   designMd: 'design-md',
+  /** DESIGN.md's text to the system clipboard. */
+  copyMd: 'copy-md',
+  /** The prototype editor (the prototype node's 打开). */
+  present: 'present',
   /** `gen:<ArtifactCommand>`: POST …/commands for the selected screens. */
   generate: 'gen:',
   /** `var:<dimension>`: variations along one dimension; `var:custom` asks for the direction. */
@@ -221,6 +225,24 @@ export const refContextItems = (o: { readOnly: boolean; single: boolean }): Menu
     { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
   ]
 }
+
+/** Right-click on the design-system, DESIGN.md or prototype node: open it, focus it, link to the artifact. */
+export const nodeContextItems = (kind: 'system' | 'doc' | 'prototype'): MenuItem[] => [
+  ...(kind === 'system'
+    ? [{ label: t('打开设计系统'), value: CMD.designSystem }]
+    : kind === 'doc'
+      ? [
+          { label: t('打开 DESIGN.md'), value: CMD.designMd },
+          { label: t('复制 Markdown'), value: CMD.copyMd },
+        ]
+      : [
+          { label: t('打开原型编辑器'), value: CMD.present },
+          { label: t('扫码查看'), value: CMD.qr },
+        ]),
+  { separator: true },
+  { label: t('聚焦'), value: CMD.focus, shortcut: 'F' },
+  { label: t('复制链接'), value: CMD.copyLink },
+]
 
 /** Right-click on the empty canvas. */
 export const canvasContextItems = (o: {

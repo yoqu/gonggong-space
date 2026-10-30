@@ -22,7 +22,7 @@ import {
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { ROLE_LABEL } from './DesignSystemNode'
-import { frontMatterName, renderableMd, setFrontMatter } from './designMd'
+import { frontMatterName, frontMatterValue, renderableMd, SEED_KEY, setFrontMatter } from './designMd'
 import {
   applyDesignSystem,
   applyTokens,
@@ -269,7 +269,14 @@ function DesignSystemPanel({
   const colors = colorsOf(files.css)
   const baseMode = modeOf(baseColors)
   const mode = draft?.mode ?? baseMode
-  const seed = draft?.seed ?? (isHex(baseColors.primary ?? '') ? (baseColors.primary as string) : '#0088ff')
+  const savedSeed = frontMatterValue(base.md, SEED_KEY)
+  const seed =
+    draft?.seed ??
+    (isHex(savedSeed)
+      ? savedSeed
+      : isHex(baseColors.primary ?? '')
+        ? (baseColors.primary as string)
+        : '#0088ff')
   const invalid = invalidTokens(files.css)
   const dirty = isDirty(draft)
   const locked = readOnly || busy
@@ -306,7 +313,12 @@ function DesignSystemPanel({
         ([k]) => k in colors && (same(colors[k], baseColors[k]) || same(colors[k], before[k])),
       ),
     )
-    update({ seed: next, files: applyTokens(files, asTokens(changes)) })
+    const derived = applyTokens(files, asTokens(changes))
+    // Kept in DESIGN.md: reopened, the panel shows the seed picked, not the primary it derived.
+    update({
+      seed: next,
+      files: derived.md === null ? derived : { ...derived, md: setFrontMatter(derived.md, [SEED_KEY], next) },
+    })
   }
 
   const fail = (e: unknown) =>

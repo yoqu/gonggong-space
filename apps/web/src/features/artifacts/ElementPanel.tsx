@@ -5,7 +5,7 @@ import {
   type StyleProp,
   styleValueOk,
 } from '@gonggong/protocol'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Alert, Button, Input, PopUpButton, Textarea } from '../../ui'
@@ -42,7 +42,8 @@ function Swatch({ value }: { value: string }) {
 
 /**
  * The element page of the side panel (产物托管 plan §4, 共工's addition to Stitch's Direct Edit): text, image, link,
- * the screen it opens and its inline style, colours from the tokens only. 保存 makes one version, 取消 drops it all.
+ * the screen it opens and its inline style, colours from the tokens only. Style values preview on the element as
+ * they are set (`onPreview`); 保存 makes one version, 取消 drops it all and puts the element's style back.
  */
 export function ElementPanel({
   el,
@@ -51,6 +52,7 @@ export function ElementPanel({
   tokens,
   readOnly,
   onSave,
+  onPreview,
   onClose,
 }: {
   el: PickedElement
@@ -59,6 +61,8 @@ export function ElementPanel({
   tokens: DesignTokens | null
   readOnly: boolean
   onSave: (ops: ArtifactEditOp[]) => Promise<boolean>
+  /** The style to show on the element for now (changed properties only, '' removes one); null restores it. */
+  onPreview?: (props: Record<string, string> | null) => void
   onClose: () => void
 }) {
   const inline = useMemo(() => parseInlineStyle(el.inlineStyle), [el.inlineStyle])
@@ -93,6 +97,33 @@ export function ElementPanel({
   if (Object.keys(props).length) ops.push({ kind: 'style', ...where, props })
   const invalid = badStyle.length > 0 || badHref
 
+  // Live preview: every valid changed value, a cleared one as removed; leaving without saving restores the element.
+  const preview = useRef(onPreview)
+  preview.current = onPreview
+  const saved = useRef(false)
+  const shownStyle = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(style).flatMap(([k, v]) => {
+        const want = v.trim()
+        if (want === (inline[k] ?? '')) return []
+        if (want && !styleValueOk(want, k)) return []
+        return [[k, want]]
+      }),
+    ),
+  )
+  const previewed = useRef('{}')
+  useEffect(() => {
+    if (shownStyle === previewed.current) return
+    previewed.current = shownStyle
+    preview.current?.(JSON.parse(shownStyle) as Record<string, string>)
+  }, [shownStyle])
+  useEffect(
+    () => () => {
+      if (!saved.current && previewed.current !== '{}') preview.current?.(null)
+    },
+    [],
+  )
+
   const pickImage = async (file: File | undefined) => {
     if (!file) return
     setUploading(true)
@@ -114,7 +145,10 @@ export function ElementPanel({
     setBusy(true)
     const ok = await onSave(ops)
     setBusy(false)
-    if (ok) onClose()
+    if (ok) {
+      saved.current = true
+      onClose()
+    }
   }
   const setProp = (p: StyleProp, v: string) => setStyle((s) => ({ ...s, [p]: v }))
 

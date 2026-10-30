@@ -3,6 +3,7 @@ import design from './en-design'
 import proto from './en-proto'
 import r3 from './en-r3'
 import r4 from './en-r4'
+import r5 from './en-r5'
 
 export default {
   ...composer,
@@ -10,6 +11,7 @@ export default {
   ...proto,
   ...r3,
   ...r4,
+  ...r5,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',

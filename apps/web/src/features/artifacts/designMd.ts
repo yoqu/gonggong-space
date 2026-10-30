@@ -47,13 +47,19 @@ function* keyLines(lines: string[], end: number) {
   }
 }
 
-export function frontMatterName(md: string | null) {
+/** A top-level front-matter value; '' when there is none. */
+export function frontMatterValue(md: string | null, key: string) {
   const fm = md ? frontMatter(md) : null
   if (!fm) return ''
   for (const k of keyLines(fm.lines, fm.end))
-    if (k.path.length === 1 && k.path[0] === 'name') return unquote(k.value)
+    if (k.path.length === 1 && k.path[0] === key) return unquote(k.value)
   return ''
 }
+
+export const frontMatterName = (md: string | null) => frontMatterValue(md, 'name')
+
+/** The seed colour the member picked (the panel keeps it as `seed:`, the tokens hold only what it derived). */
+export const SEED_KEY = 'seed'
 
 const samePath = (path: string[], want: string[]) =>
   path.length === want.length && want.every((w, i) => w === '*' || w === path[i])

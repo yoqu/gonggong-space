@@ -149,6 +149,64 @@
 .art-bar__version + .ui-menu {
   min-width: 300px;
 }
+.art-bar__issues {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: 6px;
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+  font: inherit;
+  font-size: var(--text-caption-size);
+  font-weight: 500;
+  cursor: pointer;
+}
+.art-bar__issues:hover {
+  filter: brightness(0.96);
+}
+.art-issues {
+  width: 320px;
+}
+.art-issues__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.art-issues__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-6) var(--space-8);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  text-align: left;
+  cursor: pointer;
+}
+.art-issues__item:hover:not(:disabled) {
+  background: var(--selection-fill);
+}
+.art-issues__item:disabled {
+  cursor: default;
+}
+.art-issues__where {
+  color: var(--label-secondary);
+  font-size: var(--text-caption-size);
+  font-weight: 600;
+}
 .art-bar__fill {
   flex: 1;
 }
@@ -239,6 +297,15 @@
     0 0 0 6px #2a2a2e,
     0 0 0 7px var(--separator),
     0 12px 36px #00000033;
+}
+/* On the dark plane the black device needs a lighter bezel and rim to stand out (Stitch outlines it in grey). */
+[data-theme="dark"] .art-node--prototype,
+[data-theme="hc-dark"] .art-node--prototype {
+  background: #1c1c20;
+  box-shadow:
+    0 0 0 6px #3a3a40,
+    0 0 0 7px #ffffff3d,
+    0 12px 36px #00000066;
 }
 .art-proto {
   display: flex;
@@ -396,7 +463,11 @@
   transform: translateX(-50%);
 }
 
-/* Floating glass: selection menus (top), tools (right), view controls (bottom right). */
+/*
+ * Floating glass: selection menus (top), tools (right), view controls (bottom right). The blur sits on a ::before
+ * layer: a container with its own backdrop-filter becomes the Backdrop Root of the menus it holds, which then blur
+ * only the bar behind them and show the screens through their translucent fill.
+ */
 .art-float,
 .art-tools,
 .art-corner {
@@ -404,10 +475,20 @@
   z-index: 2;
   display: flex;
   border-radius: var(--radius-capsule);
+  box-shadow: var(--shadow-glass);
+}
+.art-float::before,
+.art-tools::before,
+.art-corner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-glass);
+  pointer-events: none;
 }
 .art-float {
   top: var(--space-12);
@@ -594,6 +675,9 @@
   fill: none;
   stroke: var(--accent);
   stroke-width: 1.75;
+}
+.art-links path.art-links__in {
+  opacity: 0.3;
 }
 .art-links marker path {
   fill: var(--accent);
@@ -1215,6 +1299,49 @@
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
 }
+.art-notes__sent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: 0 var(--space-12) var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-radius: 8px;
+  background: var(--tint-blue);
+  font-size: var(--text-footnote-size);
+}
+.art-notes__sent-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--tint-blue-text);
+  font-weight: 600;
+}
+.art-notes__sent ul {
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-notes__sent-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.art-notes__sent-item p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-notes__sent-item strong {
+  margin-right: var(--space-6);
+  color: var(--label-secondary);
+  font-weight: 500;
+}
 .art-notes {
   display: flex;
   flex-direction: column;
@@ -1358,6 +1485,10 @@
 .art-cmdk__item {
   height: 30px;
 }
+/* Group titles line up with the entries (the menu's header keeps room for a check column the palette has not). */
+.art-cmdk .ui-menu__header {
+  padding-left: var(--space-6);
+}
 .art-cmdk__item[aria-disabled] {
   color: var(--label-tertiary);
 }
@@ -1411,6 +1542,34 @@
   height: 120px;
   background: linear-gradient(transparent, var(--content-bg));
   content: "";
+}
+
+/* ── Notice (bottom centre of the room the side panel leaves): what a canvas action just did ── */
+.art-notice {
+  position: absolute;
+  bottom: 64px;
+  left: calc((100% - var(--art-side, 0px)) / 2);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 6px 14px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-menu);
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+  pointer-events: none;
+  translate: -50% 0;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.art-notice svg {
+  color: var(--system-green);
 }
 
 /* ── Tips (bottom left) ── */

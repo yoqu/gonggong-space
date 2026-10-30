@@ -442,6 +442,73 @@ describe('element panel', () => {
     expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
   })
 
+  it('previews style values on the element as they are set, and puts its style back on 取消 (P2-07)', async () => {
+    mockApi(routes())
+    await renderTab()
+    fromScreen({ type: 'ready', width: 390, height: 800 })
+    const frame = (screen.getByTitle('首页') as HTMLIFrameElement).contentWindow as Window
+    const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
+    key('e')
+    select({ inlineStyle: 'padding: 8px' })
+    fireEvent.click(action(/属性/))
+    const previews = () =>
+      post.mock.calls
+        .map(([m]) => m as { type: string; ggId: string; props: unknown })
+        .filter((m) => m.type === 'preview-style')
+    fireEvent.change(screen.getByRole('textbox', { name: '字号' }), { target: { value: '18px' } })
+    fireEvent.change(screen.getByRole('textbox', { name: '外边距' }), { target: { value: 'url(x)' } })
+    expect(previews().at(-1)).toEqual({
+      source: 'gg-host',
+      type: 'preview-style',
+      ggId: '120',
+      props: { 'font-size': '18px' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: '内边距' }), { target: { value: '' } })
+    expect(previews().at(-1)?.props).toEqual({ 'font-size': '18px', padding: '' })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(previews().at(-1)?.props).toBeNull()
+  })
+
+  it('pans the element out from under the panel when the panel opens (P2-08)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+    mockApi(routes())
+    await renderTab()
+    const world = () => {
+      const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(
+        (document.querySelector('.art-world') as HTMLElement).style.transform,
+      )
+      return { x: Number(m?.[1]), z: Number(m?.[3]) }
+    }
+    const right = () => {
+      const { x, z } = world()
+      return x + (Number.parseFloat(node('detail').style.left) + 300 + 60) * z
+    }
+    key('e')
+    fromScreen(
+      {
+        type: 'select',
+        ggId: '130',
+        selector: 'body > button',
+        rect: { x: 300, y: 20, w: 60, h: 30 },
+        tag: 'button',
+        text: '加入',
+        textOnly: true,
+        computed: {},
+        inlineStyle: '',
+        src: null,
+        href: null,
+        link: null,
+        file: 'screens/detail.html',
+      },
+      '书籍详情',
+    )
+    expect(right()).toBeGreaterThan(900 - 360 - 24)
+    fireEvent.click(action(/属性/))
+    expect(screen.getByTestId('art-element-panel')).toBeTruthy()
+    expect(right()).toBeLessThanOrEqual(900 - 360 - 24 + 0.5)
+  })
+
   it('keeps only changed style props', () => {
     expect(styleChanges({ color: 'var(--color-a)' }, { color: 'var(--color-a)', padding: '' })).toEqual({})
     expect(styleChanges({ padding: '4px' }, { padding: ' 8px ' })).toEqual({ padding: '8px' })
@@ -499,7 +566,7 @@ describe('mark (M)', () => {
     })
   })
 
-  it('lists the annotations, sends the ticked ones to the bot, resolves, and deletes the author’s own', async () => {
+  it('lists the annotations, sends the ticked ones (all open by default) to the bot, resolves, and deletes the author’s own', async () => {
     const calls = mockApi(
       routes({
         'GET /artifacts/a1/annotations?version=v2': [
@@ -519,7 +586,9 @@ describe('mark (M)', () => {
     expect(rows[0]?.textContent).toContain('标题再大一点')
     expect(rows[0]?.textContent).toContain('待处理')
     expect(within(rows[1] as HTMLElement).queryByRole('button', { name: '删除' })).toBeNull()
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole('checkbox'))
+    // Every open note starts ticked (P2-03); unticking leaves one out.
+    expect(screen.getByRole('button', { name: '发给 @设计助手（2）' })).toBeTruthy()
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('checkbox'))
     fireEvent.change(screen.getByRole('textbox', { name: '补充说明' }), { target: { value: '尽快' } })
     fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手（1）' }))
     await waitFor(() =>

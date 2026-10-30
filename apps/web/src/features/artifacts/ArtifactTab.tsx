@@ -13,7 +13,6 @@ import {
   Presence,
   Skeleton,
   Spinner,
-  Tag,
   toast,
 } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
@@ -21,6 +20,7 @@ import { useGroupBots } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
+import { IssuesButton } from './IssuesButton'
 import { PrototypeEditor } from './PrototypeEditor'
 import { ShareDialog } from './share'
 import {
@@ -258,9 +258,14 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           </MenuButton>
         ) : null}
         {current?.issues.length ? (
-          <Tag tone="orange" icon="warning">
-            {t('{n} 项规范问题', { n: current.issues.length })}
-          </Tag>
+          <IssuesButton
+            artifactId={a.id}
+            versionId={current.id}
+            issues={current.issues}
+            manifest={shownManifest}
+            bot={groupBots.find((b) => b.id === a.botId) ?? groupBots[0] ?? null}
+            readOnly={readOnly}
+          />
         ) : null}
         <span className="art-bar__fill" />
         <Button

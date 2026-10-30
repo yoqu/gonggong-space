@@ -235,6 +235,28 @@ export const onScreen = (n: CanvasNode, v: View) => ({
   height: n.h * v.z,
 })
 
+/** Space kept between what is being edited and the panel's edge (px). */
+const PANEL_GAP = 24
+
+/**
+ * How far (px) to pan the view left so that `box` (viewport pixels: what is being edited) clears a side panel taking
+ * `side` px at the right of a `width` wide canvas; 0 when it already does. A box too wide for the room left keeps
+ * its left edge in view.
+ */
+export function clearOfPanel(box: { left: number; width: number }, width: number, side: number) {
+  if (!side) return 0
+  const over = box.left + box.width - (width - side - PANEL_GAP)
+  if (over <= 0) return 0
+  return Math.max(0, Math.min(over, box.left - PANEL_GAP))
+}
+
+/**
+ * The auto-fit (the layout settling) with a side panel open: never zooms out for the panel's sake, only a member's
+ * fit does (the canvas would shrink each time a version arrives while the design-system panel is open).
+ */
+export const keepZoomBeside = (fitted: View, current: View, side: number) =>
+  side > 0 && fitted.z < current.z ? null : fitted
+
 /**
  * The view panned (not zoomed) to bring `n`'s title into `room`, or null when it is already there. A node wider than
  * the room starts at its left padding; otherwise it is centred across.
