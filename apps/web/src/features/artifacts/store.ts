@@ -119,6 +119,10 @@ export function useVersionDetail(artifactId: string, versionId: string | null) {
   return state
 }
 
+/** A file of a version as a URL the page can load (images on the canvas; the session cookie goes along). */
+export const artifactFileUrl = (artifactId: string, path: string, versionId: string) =>
+  `/api/artifacts/${artifactId}/files/${path}?version=${encodeURIComponent(versionId)}`
+
 /** A file of a version as text (the source view; never rendered on the main site). */
 export const readArtifactFile = (artifactId: string, path: string, versionId: string) =>
   api.text(`/artifacts/${artifactId}/files/${path}?version=${encodeURIComponent(versionId)}`)

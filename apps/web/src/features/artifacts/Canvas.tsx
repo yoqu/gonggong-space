@@ -4,13 +4,15 @@ import type {
   ArtifactCommandReq,
   ArtifactDevice,
   ArtifactEditOp,
-  BridgeFromShell,
   BridgeLinkRect,
   BridgeMode,
+  CreateAnnotationReq,
   GgArtifactManifest,
+  GgArtifactRef,
 } from '@gonggong/protocol'
 import {
   type CSSProperties,
+  Fragment,
   type KeyboardEvent,
   type PointerEvent,
   type ReactElement,
@@ -28,6 +30,7 @@ import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import {
+  Button,
   ConfirmActionDialog,
   ContextMenu,
   hasOpenOverlay,
@@ -40,31 +43,36 @@ import {
   Presence,
   Skeleton,
   Tooltip,
+  toast,
 } from '../../ui'
 import { openUrl } from '../previews/store'
 import { AnnotationsPanel } from './AnnotationsPanel'
 import {
-  copyScreenPng,
+  copyPng,
   copyScreensCode,
   createAnnotation,
   deleteAnnotation,
   handedTo,
   offlineHint,
+  REF_ACCEPT,
+  refUpload,
   saveEdits,
   sendAnnotations,
   sendCommand,
   updateAnnotation,
+  uploadImage,
   useAnnotations,
   useArtifactBot,
   useOpenElsewhere,
 } from './actions'
-import { linkSpots, postToScreen, useBridge } from './bridge'
+import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
 import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
 import {
   dropSelectionContext,
   elementItem,
   pinContext,
+  refItem,
   screenItem,
   setSelectionContext,
   useCanvasContext,
@@ -75,7 +83,16 @@ import type { DesignTab } from './DesignSystemPanel'
 import { ElementPanel } from './ElementPanel'
 import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
-import { elementBox, elementLabel, type PickedElement } from './elements'
+import {
+  elementBox,
+  elementLabel,
+  inDocument,
+  isRegion,
+  NO_SCROLL,
+  type PickedElement,
+  type Scroll,
+  scrolledBy,
+} from './elements'
 import {
   boundsKey,
   type CanvasNode,
@@ -91,8 +108,10 @@ import {
   neighbour,
   nodesInRect,
   onScreen,
+  REF_PREFIX,
   type Rect,
   rectOf,
+  refNodeId,
   revealView,
   type ScreenFrame,
   SYSTEM_HEIGHT,
@@ -107,10 +126,12 @@ import {
   type BotState,
   CMD,
   canvasContextItems,
+  copyPngItem,
   generateItems,
   modifyItems,
   moreItems,
   previewItems,
+  refContextItems,
   screenContextItems,
   VARIATION_CUSTOM,
   VARIATION_DIMENSIONS,
@@ -122,6 +143,7 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
+import { RefNode } from './RefNode'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
 import { QrDialog, useShareAccess } from './share'
@@ -141,6 +163,8 @@ export interface CanvasRequest {
 const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'hand']
 /** Command-menu values beyond the menus' own commands. */
 const RUN = { tool: 'tool:', zoom: 'zoom:', screen: 'screen:', panel: 'panel:' } as const
+/** Commands that take selected references as well as screens. */
+const REF_COMMANDS: string[] = [CMD.addToChat, CMD.remove, CMD.rename, CMD.download]
 
 /** Commands about the selected screens: the command menu greys them out with nothing selected. */
 const needsSelection = (v: string) =>
@@ -221,6 +245,10 @@ export interface CanvasProps {
   onFavourites: (screenIds: string[]) => void
   onPresent: () => void
   readFile: (file: string) => Promise<string>
+  /** A file of the shown version as a URL (reference images). */
+  fileUrl: (file: string) => string
+  /** The shown version's per-screen thumbnails (Copy as PNG); empty until the server renders them. */
+  screenThumbs: { screenId: string; url: string }[]
   /** The artifact's directory in the workspace (`design/<slug>`), for the implementation prompt. */
   dir: string
   /** The shown version's DESIGN.md; null when it has none. */
@@ -237,8 +265,6 @@ export interface CanvasProps {
   request: CanvasRequest | null
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
   onPrototypeAsked: () => void
-  /** The shown version's screenshot per screen id (ArtifactVersionDto.screenThumbs): 复制为 PNG. */
-  screenThumbs?: Record<string, string>
 }
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
@@ -248,12 +274,16 @@ const editable = (el: EventTarget | null) =>
 
 const bridgeMode = (tool: Tool): BridgeMode => (tool === 'mark' || tool === 'edit' ? tool : 'preview')
 
-function saveFile(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/html' }))
+function saveUrl(name: string, url: string) {
   const a = document.createElement('a')
   a.href = url
   a.download = name
   a.click()
+}
+
+function saveFile(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/html' }))
+  saveUrl(name, url)
   URL.revokeObjectURL(url)
 }
 
@@ -286,13 +316,14 @@ export function Canvas({
   onFavourites,
   onPresent,
   readFile,
+  fileUrl,
+  screenThumbs,
   dir,
   designMd,
   designPanel,
   guardDesign,
   request,
   onPrototypeAsked,
-  screenThumbs = {},
   versions,
   onViewVersion,
 }: CanvasProps) {
@@ -331,7 +362,10 @@ export function Canvas({
   const [moving, setMoving] = useState<{ id: string; x: number; y: number; dx: number; dy: number } | null>(
     null,
   )
-  const [ctxOnScreen, setCtxOnScreen] = useState(false)
+  /** What the context menu opened on. */
+  const [ctxOn, setCtxOn] = useState<'screen' | 'ref' | null>(null)
+  /** Where references were just dragged, until the version with their new place arrives. */
+  const [refMoves, setRefMoves] = useState<Record<string, { x: number; y: number }>>({})
   /** The element a screen reported clicked with mark or direct edit; `pop` shows its popover. */
   const [element, setElement] = useState<PickedElement | null>(null)
   const [pop, setPop] = useState(false)
@@ -341,6 +375,22 @@ export function Canvas({
   const [qr, setQr] = useState<string | null>(null)
   /** Where each screen's link elements are (by file), as the screens report them. */
   const [spots, setSpots] = useState<Record<string, BridgeLinkRect[]>>({})
+  /** Each screen's latest `scroll` (0, 0 before any): element popovers and annotation bubbles follow it. */
+  const [scrolls, setScrolls] = useState<Record<string, Scroll>>({})
+  /** A box dragged in a screen with the mark tool (G08), in the screen's document, waiting for its note. */
+  const [region, setRegion] = useState<{
+    file: string
+    screenId: string
+    screenTitle: string
+    rect: Rect
+    ggIds: string[]
+  } | null>(null)
+  /** Measured heights of image references. */
+  const [refHeights, setRefHeights] = useState<Record<string, number>>({})
+  /** Files dragged over the canvas. */
+  const [dropping, setDropping] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const filePicker = useRef<HTMLInputElement>(null)
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const shareDenied = useShareAccess(groupId, botId)
   const botState: BotState = bot ? offlineHint(bot) : 'none'
@@ -374,6 +424,13 @@ export function Canvas({
   const live = tool === 'mark' || tool === 'edit'
   const canEdit = !readOnly && !!manifest
 
+  const savedRefs = useMemo(() => manifest?.refs ?? [], [manifest])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved references in place
+  useEffect(() => setRefMoves({}), [savedRefs])
+  const refs = useMemo<GgArtifactRef[]>(
+    () => savedRefs.map((r) => (refMoves[r.id] ? { ...r, ...refMoves[r.id] } : r)),
+    [savedRefs, refMoves],
+  )
   const { device, nodes } = useMemo(
     () =>
       layoutNodes({
@@ -383,11 +440,16 @@ export function Canvas({
         doc: designMd ? docH : null,
         frames,
         content,
+        refs,
+        refHeights,
       }),
-    [title, manifest, tokens, systemH, designMd, docH, frames, content],
+    [title, manifest, tokens, systemH, designMd, docH, frames, content, refs, refHeights],
   )
   const screens = useMemo(() => nodes.filter((n) => n.kind === 'screen'), [nodes])
   const picked = screens.filter((n) => selected.includes(n.id))
+  /** The selected references (G04). */
+  const pickedRefs = refs.filter((r) => selected.includes(refNodeId(r.id)))
+  const refOf = (n: CanvasNode) => (n.kind === 'ref' ? refs.find((r) => refNodeId(r.id) === n.id) : undefined)
   const one = picked.length === 1 ? picked[0] : undefined
   const frameOf = (n: CanvasNode) => frames[n.id] ?? defaultFrame(device)
   const sharedFrame = picked.length
@@ -482,7 +544,7 @@ export function Canvas({
 
   // ── bridge ──
   const origin = preview?.origin ?? null
-  const fromScreen = (m: BridgeFromShell) => {
+  const fromScreen = (m: BridgeMessage) => {
     if (m.type === 'ready') {
       const f = frameEls.get(m.file)
       postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
@@ -493,12 +555,33 @@ export function Canvas({
       if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
       const found = linkSpots(m.links)
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
+    } else if (m.type === 'scroll') {
+      setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
+    } else if (m.type === 'mark-rect') {
+      const s = screens.find((n) => n.file === m.file)
+      if (!s || tool !== 'mark') return
+      setSelected([s.id])
+      setElement(null)
+      setRegion({
+        file: m.file,
+        screenId: s.id,
+        screenTitle: s.title,
+        rect: inDocument(m.rect, scrolls[m.file] ?? NO_SCROLL),
+        ggIds: m.ggIds,
+      })
     } else if (m.type === 'select') {
       const s = screens.find((n) => n.file === m.file)
       if (!s) return
       setSelected([s.id])
       if (!live) return
-      setElement({ ...m, screenId: s.id, screenTitle: s.title })
+      setRegion(null)
+      // Kept in document coordinates: the popover follows the screen's own scrolling.
+      setElement({
+        ...m,
+        rect: inDocument(m.rect, scrolls[m.file] ?? NO_SCROLL),
+        screenId: s.id,
+        screenTitle: s.title,
+      })
       // With the element panel open, a click just moves the panel to the new element.
       setPop(!(panel === 'element' && tool === 'edit'))
     }
@@ -507,12 +590,15 @@ export function Canvas({
   useEffect(() => {
     for (const f of frameEls.values()) postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
     setElement(null)
+    setRegion(null)
   }, [tool, origin, frameEls])
   // Element positions belong to one version.
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
   useEffect(() => {
     setElement(null)
     setDeleting(null)
+    setRegion(null)
+    setScrolls({})
   }, [versionKey])
   // With the mark tool the annotated elements are outlined in their screens; leaving it clears them.
   const markedIn = (file: string) =>
@@ -543,7 +629,7 @@ export function Canvas({
             label: elementLabel(element),
           }),
         ]
-      : picked.map((n) => screenItem(n.id, n.title))
+      : [...picked.map((n) => screenItem(n.id, n.title)), ...pickedRefs.map(refItem)]
   const selectionKey = `${selected.join(',')}|${element?.file ?? ''}#${element?.ggId ?? ''}`
   // biome-ignore lint/correctness/useExhaustiveDependencies: follows the selection, by its key
   useEffect(() => {
@@ -603,30 +689,70 @@ export function Canvas({
   const askAboutElement = (command: ArtifactCommand, el: PickedElement, text: string) =>
     el.ggId ? ask(command, { ggIds: [{ file: el.file, ggId: el.ggId }], text }) : Promise.resolve(false)
   const saveOps = (ops: ArtifactEditOp[]) => saveEdits(onEdit, ops)
-  const annotate = async (el: PickedElement, note: string) => {
+  const annotate = async (req: Omit<CreateAnnotationReq, 'versionId' | 'note'>, note: string) => {
     try {
-      await createAnnotation(artifactId, {
-        versionId: versionKey,
-        file: el.file,
-        ggId: el.ggId,
-        selector: el.selector.slice(0, 500),
-        rect: el.rect,
-        snippet: (el.snippet || `<${el.tag}> ${el.text}`).slice(0, 2000),
-        note,
-      })
+      await createAnnotation(artifactId, { versionId: versionKey, ...req, note })
       annotations.reload()
       dropElement()
+      setRegion(null)
       return true
     } catch (e) {
       toastError(e)
       return false
     }
   }
+  const annotateElement = (el: PickedElement, note: string) =>
+    annotate(
+      {
+        file: el.file,
+        ggId: el.ggId,
+        selector: el.selector.slice(0, 500),
+        rect: el.rect,
+        snippet: (el.snippet || `<${el.tag}> ${el.text}`).slice(0, 2000),
+      },
+      note,
+    )
+  /** A region has no element: no selector; the snippet names the elements inside it for the AI (never translated). */
+  const annotateRegion = (r: NonNullable<typeof region>, note: string) =>
+    annotate(
+      {
+        file: r.file,
+        ggId: null,
+        selector: '',
+        rect: r.rect,
+        snippet: r.ggIds.length
+          ? `区域内的元素：${r.ggIds.map((id) => `[data-gg-id="${id}"]`).join(', ')}`.slice(0, 2000)
+          : '',
+      },
+      note,
+    )
   const annotationAction = (f: () => Promise<unknown>) => void attempt(f).then(() => annotations.reload())
 
   // ── commands ──
-  const edit = (ops: ArtifactEditOp[]) => {
-    if (canEdit && ops.length) void attempt(() => onEdit(ops))
+  const edit = (ops: ArtifactEditOp[], failed?: () => void) => {
+    if (canEdit && ops.length) void attempt(() => onEdit(ops)).then((ok) => ok || failed?.())
+  }
+  /** G04: the files become reference nodes, in one new version. */
+  const upload = async (files: File[]) => {
+    if (!canEdit || !files.length) return
+    const ready: { blob: Blob; title: string }[] = []
+    for (const f of files) {
+      const blob = refUpload(f)
+      if (typeof blob === 'string') toast({ type: 'warning', message: blob })
+      else ready.push({ blob, title: f.name.slice(0, 80) })
+    }
+    if (!ready.length) return
+    setUploading(true)
+    await attempt(async () => {
+      const ops: ArtifactEditOp[] = []
+      for (const f of ready) {
+        const { uploadId } = await uploadImage(artifactId, f.blob)
+        ops.push({ kind: 'ref', uploadId, title: f.title })
+      }
+      await onEdit(ops)
+      toast({ type: 'success', message: t('已上传 {n} 个文件到画布', { n: ops.length }) })
+    })
+    setUploading(false)
   }
   const toggleFavourite = () => {
     if (!picked.length) return
@@ -732,12 +858,24 @@ export function Canvas({
       case CMD.download:
         for (const n of picked)
           void attempt(async () => saveFile(n.file.split('/').pop() ?? n.file, await readFile(n.file)))
+        for (const r of pickedRefs) saveUrl(r.file.split('/').pop() ?? r.title, fileUrl(r.file))
         return
+      case CMD.upload:
+        if (canEdit) filePicker.current?.click()
+        return
+      case CMD.copyPng: {
+        const thumb = one && screenThumbs.find((s) => s.screenId === one.id)
+        if (thumb) void copyPng(thumb.url)
+        else if (one) toast({ type: 'info', message: t('缩略图生成后才能复制为 PNG') })
+        return
+      }
       case CMD.reload:
         return setReloads((r) => ({ ...r, ...Object.fromEntries(ids.map((id) => [id, (r[id] ?? 0) + 1])) }))
-      case CMD.remove:
-        if (canEdit && ids.length) setRemoving(ids)
+      case CMD.remove: {
+        const all = [...ids, ...pickedRefs.map((r) => refNodeId(r.id))]
+        if (canEdit && all.length) setRemoving(all)
         return
+      }
       case CMD.copy:
         // The canvas keeps the screens to paste as copies; the system clipboard gets their code.
         if (!ids.length) return
@@ -747,11 +885,6 @@ export function Canvas({
       case CMD.copyCode:
         void copyScreensCode(picked, readFile)
         return
-      case CMD.copyPng: {
-        const url = one && screenThumbs[one.id]
-        if (url) void copyScreenPng(url)
-        return
-      }
       case CMD.copyLink:
         void copyWithToast(artifactLink(groupId, artifactId, ids), t('链接已复制'))
         return
@@ -767,13 +900,16 @@ export function Canvas({
         return
       case CMD.favourite:
         return toggleFavourite()
-      case CMD.rename:
-        if (canEdit && one) setRenaming(one.id)
+      case CMD.rename: {
+        const ref = !picked.length && pickedRefs.length === 1 ? pickedRefs[0] : undefined
+        if (canEdit && (one || ref)) setRenaming(one?.id ?? refNodeId((ref as GgArtifactRef).id))
         return
+      }
       case CMD.links:
         return setAllLinks((on) => !on)
       case CMD.addToChat:
-        if (manifest && (picked.length || element)) pinContext(contextBase, selectionItems())
+        if (manifest && (picked.length || pickedRefs.length || element))
+          pinContext(contextBase, selectionItems())
         return
       case CMD.selectAll:
         return setSelected(nodes.map((n) => n.id))
@@ -822,7 +958,7 @@ export function Canvas({
       else if (key === '-') run(() => zoom(ZOOM_OUT))
       else if (key === 'a') run(() => command(CMD.selectAll))
       else if (key === 'z') run(() => (e.shiftKey ? redo : undo)?.())
-      else if (key === 'c' && !e.shiftKey) run(() => command(CMD.copy))
+      else if (key === 'c') run(() => command(e.shiftKey ? CMD.copyPng : CMD.copy))
       else if (key === 'x') run(() => command(CMD.cut))
       else if (key === 'v') run(() => command(CMD.paste))
       else if (key === 'd') run(() => command(CMD.duplicate))
@@ -849,7 +985,11 @@ export function Canvas({
     // A menu or popover over the canvas takes Escape (the shared overlay stack closes it), and only it.
     if (e.key === 'Escape' && hasOpenOverlay(escapeFrom.current)) return
     if (arrow) run(() => pan(arrow, NUDGE))
-    else if (e.key === 'Escape' && element) run(dropElement)
+    else if (e.key === 'Escape' && (element || region))
+      run(() => {
+        dropElement()
+        setRegion(null)
+      })
     else if (e.key === 'Escape' && (selected.length || panel))
       run(() => (selected.length ? setSelected([]) : setPanel(null)))
     else if (e.key === ' ') run(() => setSpace(true))
@@ -950,7 +1090,8 @@ export function Canvas({
     setSelected([])
   }
   const open = (n: CanvasNode) => {
-    if (n.kind === 'prototype') onPresent()
+    if (n.kind === 'ref') window.open(fileUrl(n.file), '_blank', 'noopener')
+    else if (n.kind === 'prototype') onPresent()
     else if (n.kind === 'system') openDesign('theme')
     else if (n.kind === 'doc') openDesign('md')
     else fitTo([n.id])
@@ -965,15 +1106,35 @@ export function Canvas({
   }
   const gripMove = (e: PointerEvent<HTMLSpanElement>) =>
     setMoving((m) => (m ? { ...m, dx: e.clientX - m.x, dy: e.clientY - m.y } : m))
+  // A reference is dragged by its body to wherever the member wants it (ref-move, G04).
+  const refDown = (e: PointerEvent<HTMLDivElement>, n: CanvasNode) => {
+    if (n.kind !== 'ref' || !canEdit || tool !== 'select' || panning || zoomHold) return
+    if (e.button !== 0 || e.shiftKey) return
+    e.stopPropagation()
+    root.current?.focus({ preventScroll: true })
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    setMoving({ id: n.id, x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
+  }
   const gripUp = () => {
     const m = moving
     setMoving(null)
-    const n = m && screens.find((s) => s.id === m.id)
+    const n = m && nodes.find((s) => s.id === m.id)
     if (!m || !n || Math.hypot(m.dx, m.dy) < DRAG) return
+    if (n.kind === 'ref') {
+      const id = n.id.slice(REF_PREFIX.length)
+      const to = { x: Math.round(n.x + m.dx / view.z), y: Math.round(n.y + m.dy / view.z) }
+      setRefMoves((r) => ({ ...r, [id]: to }))
+      return edit([{ kind: 'ref-move', id, ...to }], () => setRefMoves(({ [id]: _, ...rest }) => rest))
+    }
     const index = dropIndex(screens, n.id, n.x + n.w / 2 + m.dx / view.z, n.y + m.dy / view.z)
     if (index !== screens.indexOf(n)) edit([manifestOp('reorder', n.id, { index })])
   }
 
+  /** A document rect of a screen where its frame shows it now; null once scrolled out of the frame. */
+  const inFrame = (n: CanvasNode, r: Rect, file: string) => {
+    const at = scrolledBy(r, scrolls[file] ?? NO_SCROLL)
+    return at.y + at.h < 0 || at.y > n.h ? null : at
+  }
   const src = (n: CanvasNode) => (preview ? openUrl(preview.previewId, `/${n.file}`) : null)
   const shownLinks = allLinks
     ? links
@@ -1080,26 +1241,37 @@ export function Canvas({
     if (v) moveView(v)
   }
 
+  const hasThumb = !!one && screenThumbs.some((s) => s.screenId === one.id)
+  const openNotes = annotations.list.filter((a) => a.status === 'open').length
+
   const commandEntries = (): CommandEntry[] => {
     const none = { disabled: true, title: t('先选中屏幕') }
     const gate = (e: CommandEntry): CommandEntry =>
-      !picked.length && needsSelection(e.value) ? { ...e, ...none } : e
+      !picked.length && needsSelection(e.value) && !(pickedRefs.length && REF_COMMANDS.includes(e.value))
+        ? { ...e, ...none }
+        : e
     const single = !!one && !!preview
     const all: CommandEntry[] = [
       ...screens.map((n) => ({ group: t('屏幕'), label: n.title, value: `${RUN.screen}${n.id}` })),
+      ...refs.map((r) => ({
+        group: t('参考文件'),
+        label: r.title,
+        value: `${RUN.screen}${refNodeId(r.id)}`,
+      })),
       ...entriesOf(t('选择'), [
         { label: t('全选'), value: CMD.selectAll, shortcut: '⌘A' },
         { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
         { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
         { label: t('复制代码'), value: CMD.copyCode },
-        { label: t('复制为 PNG'), value: CMD.copyPng, disabled: !one || !screenThumbs[one.id] },
         { label: t('复制选区链接'), value: CMD.copyLink },
+        copyPngItem(hasThumb),
         { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', disabled: !canEdit },
         { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: !canEdit || !clip },
         { label: t('创建副本'), value: CMD.duplicate, shortcut: '⌘D', disabled: !canEdit },
         { label: t('聚焦'), value: CMD.focus, shortcut: 'F' },
         { label: t('收藏'), value: CMD.favourite, shortcut: '⇧F' },
-        { label: t('重命名'), value: CMD.rename, disabled: !canEdit || !one },
+        { label: t('重命名'), value: CMD.rename, disabled: !canEdit || (!one && pickedRefs.length !== 1) },
+        { label: t('删除'), value: CMD.remove, shortcut: '⌫', disabled: !canEdit },
       ]),
       ...entriesOf(t('生成'), generateItems(botState)),
       ...entriesOf(t('生成'), variationItems(botState), `${t('变体')} › `),
@@ -1122,6 +1294,13 @@ export function Canvas({
           ...(id === 'edit' && !canEdit ? { disabled: true, title: t('AI 正在修改') } : {}),
         })),
       ),
+      ...entriesOf(t('工具'), [
+        {
+          label: t('上传到画布'),
+          value: CMD.upload,
+          ...(canEdit ? {} : { disabled: true, title: t('AI 正在修改') }),
+        },
+      ]),
       ...entriesOf(t('面板'), [
         { label: t('设计系统'), value: CMD.designSystem },
         ...(designMd ? [{ label: 'DESIGN.md', value: CMD.designMd }] : []),
@@ -1134,19 +1313,21 @@ export function Canvas({
   }
 
   const contextItems: MenuItem[] =
-    ctxOnScreen && picked.length
-      ? screenContextItems({
-          readOnly: !canEdit,
-          single: !!one,
-          canPaste: !!clip,
-          favourite: picked.every((n) => favourites.includes(n.id)),
-          showAllLinks: allLinks,
-          frame: sharedFrame,
-          bot: botState,
-          device,
-          png: !!one && !!screenThumbs[one.id],
-        })
-      : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
+    ctxOn === 'ref' && pickedRefs.length && !picked.length
+      ? refContextItems({ readOnly: !canEdit, single: pickedRefs.length === 1 })
+      : ctxOn === 'screen' && picked.length
+        ? screenContextItems({
+            readOnly: !canEdit,
+            single: !!one,
+            canPaste: !!clip,
+            favourite: picked.every((n) => favourites.includes(n.id)),
+            showAllLinks: allLinks,
+            frame: sharedFrame,
+            bot: botState,
+            device,
+            png: hasThumb,
+          })
+        : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
 
   return (
     <div
@@ -1168,6 +1349,21 @@ export function Canvas({
       onBlur={() => {
         setSpace(false)
         setZoomHold(null)
+      }}
+      onDragOver={(e) => {
+        if (!canEdit || !e.dataTransfer.types.includes('Files')) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setDropping(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false)
+      }}
+      onDrop={(e) => {
+        if (!canEdit || !e.dataTransfer.files.length) return
+        e.preventDefault()
+        setDropping(false)
+        void upload([...e.dataTransfer.files])
       }}
     >
       <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
@@ -1194,8 +1390,16 @@ export function Canvas({
             const target = e.target as Element
             // A screen's title gets the screen's menu, as the screen itself does.
             const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
-            if (titled && !selected.includes(titled)) setSelected([titled])
-            setCtxOnScreen(!!(titled || target.closest('.art-node--screen')))
+            const refTitled = target.closest<HTMLElement>('[data-ref-title]')?.dataset.refTitle
+            const hit = titled ?? refTitled
+            if (hit && !selected.includes(hit)) setSelected([hit])
+            setCtxOn(
+              refTitled || target.closest('.art-node--ref')
+                ? 'ref'
+                : titled || target.closest('.art-node--screen')
+                  ? 'screen'
+                  : null,
+            )
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('art-world'))
@@ -1213,7 +1417,11 @@ export function Canvas({
               // biome-ignore lint/a11y/noStaticElementInteractions: a node is picked by pointer; its title is the button
               <div
                 key={n.id}
-                className={cx('art-node', `art-node--${n.kind}`)}
+                className={cx(
+                  'art-node',
+                  `art-node--${n.kind}`,
+                  n.kind === 'ref' && canEdit && tool === 'select' && 'art-node--movable',
+                )}
                 data-testid={`art-node-${n.id}`}
                 style={{
                   left: n.x,
@@ -1229,9 +1437,30 @@ export function Canvas({
                 onContextMenu={() => {
                   if (!selected.includes(n.id)) setSelected([n.id])
                 }}
+                {...(n.kind === 'ref'
+                  ? {
+                      onPointerDown: (e: PointerEvent<HTMLDivElement>) => refDown(e, n),
+                      onPointerMove: gripMove,
+                      onPointerUp: gripUp,
+                      onPointerCancel: () => setMoving(null),
+                    }
+                  : {})}
                 ref={n.kind === 'system' ? measureSystem : n.kind === 'doc' ? measureDoc : undefined}
               >
-                {n.kind === 'system' && tokens ? (
+                {n.kind === 'ref' ? (
+                  (() => {
+                    const r = refOf(n)
+                    return r ? (
+                      <RefNode
+                        key={`${versionKey}:${r.file}`}
+                        value={r}
+                        src={fileUrl(r.file)}
+                        readFile={readFile}
+                        onHeight={(h) => setRefHeights((m) => (m[r.id] === h ? m : { ...m, [r.id]: h }))}
+                      />
+                    ) : null
+                  })()
+                ) : n.kind === 'system' && tokens ? (
                   <DesignSystemNode tokens={tokens} />
                 ) : n.kind === 'doc' && designMd ? (
                   <DesignMdNode md={designMd} />
@@ -1284,13 +1513,17 @@ export function Canvas({
                     ? `${t('原型')} · ${n.title}`
                     : n.title
               const icon: IconName =
-                n.kind === 'system'
-                  ? 'palette'
-                  : n.kind === 'doc'
-                    ? 'doc-text'
-                    : n.kind === 'prototype'
-                      ? 'play'
-                      : deviceIcon(device)
+                n.kind === 'ref'
+                  ? refOf(n)?.kind === 'image'
+                    ? 'image'
+                    : 'doc-text'
+                  : n.kind === 'system'
+                    ? 'palette'
+                    : n.kind === 'doc'
+                      ? 'doc-text'
+                      : n.kind === 'prototype'
+                        ? 'play'
+                        : deviceIcon(device)
               const shift = moving?.id === n.id ? moving : { dx: 0, dy: 0 }
               return (
                 <div key={n.id}>
@@ -1300,7 +1533,12 @@ export function Canvas({
                       style={{ left: r.left, top: r.top - 26, width: Math.max(r.width, 160) }}
                       onDone={(next) => {
                         setRenaming(null)
-                        if (next && next !== n.title) edit([manifestOp('rename', n.id, { title: next })])
+                        if (next && next !== n.title)
+                          edit([
+                            n.kind === 'ref'
+                              ? { kind: 'ref-rename', id: n.id.slice(REF_PREFIX.length), title: next }
+                              : manifestOp('rename', n.id, { title: next }),
+                          ])
                         root.current?.focus({ preventScroll: true })
                       }}
                     />
@@ -1313,6 +1551,7 @@ export function Canvas({
                         tiny && 'art-title--tiny',
                       )}
                       data-screen-title={n.kind === 'screen' ? n.id : undefined}
+                      data-ref-title={n.kind === 'ref' ? n.id : undefined}
                       style={{
                         left: r.left + shift.dx,
                         top: r.top - 26 + shift.dy,
@@ -1349,7 +1588,9 @@ export function Canvas({
                         title={tiny ? label : undefined}
                         onFocus={() => reveal(n)}
                         onClick={(e) => pick(n.id, e.shiftKey)}
-                        onDoubleClick={() => (n.kind === 'screen' && canEdit ? setRenaming(n.id) : open(n))}
+                        onDoubleClick={() =>
+                          (n.kind === 'screen' || n.kind === 'ref') && canEdit ? setRenaming(n.id) : open(n)
+                        }
                       >
                         {tiny ? <Icon name={icon} size={13} /> : <span>{label}</span>}
                       </button>
@@ -1427,6 +1668,33 @@ export function Canvas({
             />
           ) : null}
         </div>
+      ) : pickedRefs.length ? (
+        <div className="art-float" role="toolbar" aria-label={t('所选参考文件')}>
+          <Button size="small" variant="plain" icon="at" onClick={() => command(CMD.addToChat)}>
+            {t('添加到对话')}
+          </Button>
+          <Button
+            size="small"
+            variant="plain"
+            icon="pencil"
+            disabled={!canEdit || pickedRefs.length !== 1}
+            onClick={() => command(CMD.rename)}
+          >
+            {t('重命名')}
+          </Button>
+          <Button size="small" variant="plain" icon="download" onClick={() => command(CMD.download)}>
+            {t('下载')}
+          </Button>
+          <Button
+            size="small"
+            variant="plain"
+            icon="trash"
+            disabled={!canEdit}
+            onClick={() => command(CMD.remove)}
+          >
+            {t('删除')}
+          </Button>
+        </div>
       ) : null}
 
       <div className="art-tools" role="toolbar" aria-orientation="vertical" aria-label={t('画布工具')}>
@@ -1458,7 +1726,25 @@ export function Canvas({
           on={tool === 'hand'}
           onClick={() => setTool('hand')}
         />
-        <ToolButton icon="upload" label={t('上传到画布')} />
+        <ToolButton
+          icon="upload"
+          label={t('上传到画布')}
+          off={canEdit ? (uploading ? t('正在上传…') : undefined) : t('AI 正在修改')}
+          onClick={() => command(CMD.upload)}
+        />
+        <input
+          ref={filePicker}
+          type="file"
+          multiple
+          hidden
+          accept={REF_ACCEPT}
+          data-testid="art-upload-input"
+          onChange={(e) => {
+            const files = [...(e.target.files ?? [])]
+            e.target.value = ''
+            void upload(files)
+          }}
+        />
         <hr className="art-tools__sep" />
         <ToolButton
           icon="palette"
@@ -1475,46 +1761,82 @@ export function Canvas({
         <ToolButton
           icon="bubble"
           label={t('批注')}
+          badge={openNotes}
           on={panel === 'annotations'}
           onClick={() => setPanel((p) => (p === 'annotations' ? null : 'annotations'))}
         />
       </div>
 
-      {(tool === 'mark' || panel === 'annotations') && annotations.list.length ? (
+      {(tool === 'mark' || panel === 'annotations') && (annotations.list.length || region) ? (
         <div className="art-bubbles">
           {annotations.list.map((a, i) => {
             const n = screens.find((s) => s.file === a.file)
-            if (!n) return null
-            const b = elementBox(n, a.rect, view)
+            const r = n && inFrame(n, a.rect, a.file)
+            if (!n || !r) return null
+            const b = elementBox(n, r, view)
             return (
-              <button
-                key={a.id}
-                type="button"
-                className={cx('art-bubble', `art-bubble--${a.status}`)}
-                data-testid={`art-bubble-${a.id}`}
-                style={{ left: b.left + b.width, top: b.top }}
-                title={`${a.authorName}：${a.note}`}
-                onClick={() => setPanel('annotations')}
-              >
-                {i + 1}
-              </button>
+              <Fragment key={a.id}>
+                {isRegion(a) ? (
+                  <div
+                    className={cx('art-region', `art-region--${a.status}`)}
+                    data-testid={`art-region-${a.id}`}
+                    style={b}
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  className={cx('art-bubble', `art-bubble--${a.status}`)}
+                  data-testid={`art-bubble-${a.id}`}
+                  style={{ left: b.left + b.width, top: b.top }}
+                  title={`${a.authorName}：${a.note}`}
+                  onClick={() => setPanel('annotations')}
+                >
+                  {i + 1}
+                </button>
+              </Fragment>
             )
           })}
+          {region
+            ? (() => {
+                const n = screens.find((s) => s.id === region.screenId)
+                const r = n && inFrame(n, region.rect, region.file)
+                return n && r ? (
+                  <div className="art-region art-region--draft" style={elementBox(n, r, view)} />
+                ) : null
+              })()
+            : null}
         </div>
       ) : null}
+
+      {region && tool === 'mark'
+        ? (() => {
+            const n = screens.find((s) => s.id === region.screenId)
+            if (!n) return null
+            return (
+              <MarkPopover
+                key={`${region.file}@${region.rect.x},${region.rect.y}`}
+                title={t('{screen} › 区域', { screen: region.screenTitle })}
+                box={elementBox(n, scrolledBy(region.rect, scrolls[region.file] ?? NO_SCROLL), view)}
+                room={{ ...room, right: side }}
+                onSave={(note) => annotateRegion(region, note)}
+                onClose={() => setRegion(null)}
+              />
+            )
+          })()
+        : null}
 
       {element && pop
         ? (() => {
             const n = screens.find((s) => s.id === element.screenId)
             if (!n) return null
-            const box = elementBox(n, element.rect, view)
+            const box = elementBox(n, scrolledBy(element.rect, scrolls[element.file] ?? NO_SCROLL), view)
             return tool === 'mark' ? (
               <MarkPopover
                 key={`${element.file}#${element.selector}`}
-                el={element}
+                title={`${element.screenTitle} › ${element.tag}`}
                 box={box}
                 room={{ ...room, right: side }}
-                onSave={(note) => annotate(element, note)}
+                onSave={(note) => annotateElement(element, note)}
                 onClose={dropElement}
               />
             ) : (
@@ -1549,6 +1871,16 @@ export function Canvas({
         : null}
 
       {sidePanel}
+
+      {dropping ? (
+        <div className="art-drop" data-testid="art-drop">
+          <div className="art-drop__card">
+            <Icon name="upload" size={28} />
+            <strong>{t('松开即可上传到画布')}</strong>
+            <span>{t('图片、PDF、文本文件，单个不超过 5 MB')}</span>
+          </div>
+        </div>
+      ) : null}
 
       {tip >= 0 ? (
         <div className="art-tip" role="status" data-testid="art-tip">
@@ -1654,12 +1986,31 @@ export function Canvas({
       <Presence>
         {removing ? (
           <ConfirmActionDialog
-            title={t('删除 {n} 个屏幕？', { n: removing.length })}
-            message={removing.map((id) => screens.find((s) => s.id === id)?.title ?? id).join('、')}
-            consequences={[t('屏幕从产物中移除，生成一个新版本'), t('可以用撤销恢复')]}
+            title={
+              removing.every((id) => id.startsWith(REF_PREFIX))
+                ? t('删除 {n} 个参考文件？', { n: removing.length })
+                : removing.some((id) => id.startsWith(REF_PREFIX))
+                  ? t('删除所选的 {n} 项？', { n: removing.length })
+                  : t('删除 {n} 个屏幕？', { n: removing.length })
+            }
+            message={removing.map((id) => nodes.find((s) => s.id === id)?.title ?? id).join('、')}
+            consequences={[
+              removing.every((id) => id.startsWith(REF_PREFIX))
+                ? t('参考文件从画布移除，生成一个新版本')
+                : t('屏幕从产物中移除，生成一个新版本'),
+              t('可以用撤销恢复'),
+            ]}
             label={t('删除')}
             done={t('已删除')}
-            run={() => onEdit(removing.map((id) => manifestOp('delete', id)))}
+            run={() =>
+              onEdit(
+                removing.map((id) =>
+                  id.startsWith(REF_PREFIX)
+                    ? { kind: 'ref-delete', id: id.slice(REF_PREFIX.length) }
+                    : manifestOp('delete', id),
+                ),
+              )
+            }
             onClose={() => {
               setRemoving(null)
               root.current?.focus({ preventScroll: true })
@@ -1746,23 +2097,39 @@ function FloatMenu({
   )
 }
 
-/** A tool of the right-hand toolbar; tools without `onClick` are not available (yet). */
+/**
+ * A tool of the right-hand toolbar; tools without `onClick` are not available (yet), `off` says why one is not right
+ * now. `badge`: a count on its corner (open annotations).
+ */
 function ToolButton({
   icon,
   label,
   shortcut,
   on,
+  off,
+  badge = 0,
   onClick,
 }: {
   icon: IconName
   label: string
   shortcut?: string
   on?: boolean
+  off?: string
+  badge?: number
   onClick?: () => void
 }): ReactElement {
+  const usable = !!onClick && !off
   return (
     <Tooltip
-      content={onClick ? label : t('{name}（即将支持）', { name: label })}
+      content={
+        off
+          ? `${label} · ${off}`
+          : onClick
+            ? badge
+              ? t('{name}（{n} 条待处理）', { name: label, n: badge })
+              : label
+            : t('{name}（即将支持）', { name: label })
+      }
       shortcut={shortcut}
       placement="left"
     >
@@ -1770,11 +2137,16 @@ function ToolButton({
         type="button"
         className="art-tools__btn"
         aria-label={label}
-        aria-pressed={onClick ? !!on : undefined}
-        disabled={!onClick}
+        aria-pressed={usable && on !== undefined ? !!on : undefined}
+        disabled={!usable}
         onClick={onClick}
       >
         <Icon name={icon} size={16} />
+        {badge ? (
+          <span className="art-tools__badge" data-testid="art-tool-badge">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        ) : null}
       </button>
     </Tooltip>
   )

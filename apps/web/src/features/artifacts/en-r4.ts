@@ -1,0 +1,27 @@
+// Canvas round 4: files on the canvas, region marks, queued banner, annotation badge, stale thumbnails, Copy as PNG.
+export default {
+  '不支持的文件类型：{name}': 'Unsupported file type: {name}',
+  '{name} 超过 {mb} MB': '{name} is over {mb} MB',
+  图片转换失败: 'Could not convert the image',
+  读取缩略图失败: 'Could not read the thumbnail',
+  '已复制为 PNG': 'Copied as PNG',
+  区域: 'Region',
+  缩略图为旧版本: 'Thumbnail is from an earlier version',
+  '@{name} 离线，{n} 个指令排队中，上线后自动执行':
+    '@{name} is offline: {n} {n:request|requests} queued, they run once it is back',
+  '已上传 {n} 个文件到画布': 'Uploaded {n} {n:file|files} to the canvas',
+  '缩略图生成后才能复制为 PNG': 'Copy as PNG works once the thumbnail is ready',
+  参考文件: 'Reference files',
+  所选参考文件: 'Selected reference files',
+  '正在上传…': 'Uploading…',
+  '{screen} › 区域': '{screen} › Region',
+  松开即可上传到画布: 'Drop to upload to the canvas',
+  '图片、PDF、文本文件，单个不超过 5 MB': 'Images, PDFs and text files, up to 5 MB each',
+  '删除 {n} 个参考文件？': 'Delete {n} reference {n:file|files}?',
+  '删除所选的 {n} 项？': 'Delete the {n} selected {n:item|items}?',
+  '参考文件从画布移除，生成一个新版本': 'The reference files leave the canvas in a new version',
+  '{name}（{n} 条待处理）': '{name} ({n} open)',
+  '参考 · {name}': 'Reference · {name}',
+  '复制为 PNG': 'Copy as PNG',
+  'PDF 文档': 'PDF document',
+}

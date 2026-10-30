@@ -1,5 +1,13 @@
-import type { BridgeFromShell, BridgeLinkRect, BridgeToShell, Rect } from '@gonggong/protocol'
+import {
+  BRIDGE_MARK_RECT_MAX,
+  type BridgeFromShell,
+  type BridgeLinkRect,
+  type BridgeToShell,
+  type Rect,
+} from '@gonggong/protocol'
 import { useEffect, useRef } from 'react'
+/** What a screen may post. */
+export type BridgeMessage = BridgeFromShell
 
 /**
  * The bridge between the canvas and the screens of an artifact preview (产物托管 plan 3.4, R2 contract): every screen
@@ -7,7 +15,7 @@ import { useEffect, useRef } from 'react'
  * A message counts only when it comes from the preview's exact origin and from one of the canvas's screen frames, and
  * names that frame's own file.
  */
-const TYPES = new Set(['ready', 'size', 'hover', 'select', 'nav', 'back', 'scroll'])
+const TYPES = new Set(['ready', 'size', 'hover', 'select', 'nav', 'back', 'scroll', 'mark-rect'])
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
 /** The message, when `e` is a bridge message of the frame showing its file; null for anything else. */
@@ -15,7 +23,7 @@ export function acceptBridge(
   e: Pick<MessageEvent, 'data' | 'origin' | 'source'>,
   origin: string | null,
   frames: ReadonlyMap<string, HTMLIFrameElement>,
-): BridgeFromShell | null {
+): BridgeMessage | null {
   if (!origin || e.origin !== origin || !e.source) return null
   const d = e.data as Record<string, unknown> | null
   if (!d || typeof d !== 'object' || d.source !== 'gg-bridge' || !TYPES.has(String(d.type))) return null
@@ -24,10 +32,21 @@ export function acceptBridge(
   if (d.type === 'size' && !(isNum(d.width) && isNum(d.height))) return null
   if (d.type === 'nav' && typeof d.screen !== 'string') return null
   if (d.type === 'scroll' && !(isNum(d.scrollX) && isNum(d.scrollY))) return null
+  if (d.type === 'mark-rect') {
+    if (!isRect(d.rect) || !Array.isArray(d.ggIds)) return null
+    const ggIds = d.ggIds.filter((id): id is string => typeof id === 'string' && /^\d{1,9}$/.test(id))
+    return {
+      source: 'gg-bridge',
+      type: 'mark-rect',
+      file: d.file as string,
+      rect: d.rect,
+      ggIds: ggIds.slice(0, BRIDGE_MARK_RECT_MAX),
+    }
+  }
   return d as unknown as BridgeFromShell
 }
 
-const isRect = (r: unknown): r is Rect => {
+function isRect(r: unknown): r is Rect {
   const o = r as Record<string, unknown> | null
   return !!o && typeof o === 'object' && isNum(o.x) && isNum(o.y) && isNum(o.w) && isNum(o.h)
 }
@@ -78,7 +97,7 @@ export function postToScreen(
 export function useBridge(
   origin: string | null,
   frames: ReadonlyMap<string, HTMLIFrameElement>,
-  onMessage: (m: BridgeFromShell) => void,
+  onMessage: (m: BridgeMessage) => void,
 ) {
   const handler = useRef(onMessage)
   handler.current = onMessage

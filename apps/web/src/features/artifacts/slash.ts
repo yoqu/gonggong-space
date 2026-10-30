@@ -1,6 +1,6 @@
 import type { ArtifactCommand, ArtifactCommandReq } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import type { CanvasContext } from './context'
+import { type CanvasContext, isScreenItem } from './context'
 
 /** The composer's `/` artifact commands (Stitch's `/` menu), mapped to POST …/commands. */
 export interface ArtifactSlash {
@@ -49,12 +49,12 @@ export function parseArtifactSlash(draft: string) {
 /** What of the canvas selection a command is about: whole screens, and elements by their source position. */
 export function commandSelection(c: CanvasContext | null): Pick<ArtifactCommandReq, 'screenIds' | 'ggIds'> {
   if (!c) return {}
-  const screenIds = [...new Set(c.items.filter((i) => !i.element).map((i) => i.screenId))]
+  const screenIds = [...new Set(c.items.filter(isScreenItem).map((i) => i.screenId))]
   const ggIds = c.items.flatMap((i) => (i.element ? [{ file: i.element.file, ggId: i.element.ggId }] : []))
   return { ...(screenIds.length ? { screenIds } : {}), ...(ggIds.length ? { ggIds } : {}) }
 }
 
 /** The screens a selection touches (an element's screen too): what variations are made of. */
 export const selectedScreenIds = (c: CanvasContext | null) => [
-  ...new Set((c?.items ?? []).map((i) => i.screenId)),
+  ...new Set((c?.items ?? []).flatMap((i) => (i.screenId ? [i.screenId] : []))),
 ]

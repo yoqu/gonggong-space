@@ -35,12 +35,21 @@ export function ContextChips({
   return (
     <div className="art-chips" data-testid="art-context-chips">
       {context.items.map((i) => {
-        const label = i.element
-          ? `${i.screenTitle} › ${i.element.label}`
-          : `${context.title} · ${i.screenTitle}`
+        const label = i.ref
+          ? t('参考 · {name}', { name: i.ref.title })
+          : i.element
+            ? `${i.screenTitle} › ${i.element.label}`
+            : `${context.title} · ${i.screenTitle}`
+        const icon = i.ref
+          ? i.ref.kind === 'image'
+            ? 'image'
+            : 'doc-text'
+          : i.element
+            ? 'cursor'
+            : 'smartphone'
         return (
           <span key={i.key} className="art-chip" title={label}>
-            <Icon name={i.element ? 'cursor' : 'smartphone'} size={13} className="art-chip__icon" />
+            <Icon name={icon} size={13} className="art-chip__icon" />
             <span className="art-chip__text">{label}</span>
             <button
               type="button"

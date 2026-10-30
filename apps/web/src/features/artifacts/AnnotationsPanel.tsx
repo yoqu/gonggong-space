@@ -2,8 +2,9 @@ import type { AnnotationDto, AnnotationStatus, BotDto } from '@gonggong/protocol
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { Button, Checkbox, EmptyState, Tag, type TagTone, Textarea } from '../../ui'
+import { Button, Checkbox, EmptyState, Icon, Tag, type TagTone, Textarea } from '../../ui'
 import { BotChoice } from './ElementPopover'
+import { isRegion } from './elements'
 import { Panel } from './SidePanel'
 
 const STATUS: Record<AnnotationStatus, { label: string; tone: TagTone }> = {
@@ -78,6 +79,10 @@ export function AnnotationsPanel({
                   <button type="button" className="art-note__head" onClick={() => onFocus(a)}>
                     <strong>{a.authorName}</strong>
                     <span className="art-note__where">{screenTitle(a.file)}</span>
+                    <span className="art-note__kind">
+                      <Icon name={isRegion(a) ? 'marquee' : 'cursor'} size={11} />
+                      {isRegion(a) ? t('区域') : t('元素')}
+                    </span>
                     <Tag tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Tag>
                   </button>
                   <p className="art-note__text">{a.note}</p>
@@ -107,7 +112,7 @@ export function AnnotationsPanel({
           compact
           icon="marquee"
           title={t('还没有批注')}
-          description={t('按 M 切到标记，点屏幕里的元素写意见')}
+          description={t('按 M 切到标记，点屏幕里的元素或拖框圈出区域写意见')}
         />
       )}
       {list.length

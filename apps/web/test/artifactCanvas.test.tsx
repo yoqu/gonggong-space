@@ -998,7 +998,8 @@ describe('G01 copy as PNG', () => {
     mockApi(
       routes({
         'GET /artifacts/a1/versions/v2': detail({ screenThumbs: [{ screenId: 'home', url }] }),
-        'GET /artifacts/a1/versions/v2/screens/home/thumbnail': () => new Response(png),
+        'GET /artifacts/a1/versions/v2/screens/home/thumbnail': () =>
+          new Response(png, { headers: { 'content-type': 'image/png' } }),
       }),
     )
     await renderTab()

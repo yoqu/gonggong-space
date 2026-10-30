@@ -2,12 +2,14 @@ import composer from './en-composer'
 import design from './en-design'
 import proto from './en-proto'
 import r3 from './en-r3'
+import r4 from './en-r4'
 
 export default {
   ...composer,
   ...design,
   ...proto,
   ...r3,
+  ...r4,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',
@@ -164,7 +166,8 @@ export default {
     'Which direction? E.g. livelier colours, cards as a list',
   意见: 'Note',
   批注: 'Annotations',
-  '按 M 切到标记，点屏幕里的元素写意见': 'Press M to mark, then click an element in a screen',
+  '按 M 切到标记，点屏幕里的元素或拖框圈出区域写意见':
+    'Press M to mark, then click an element or drag a box in a screen',
   '描述要怎么改这个元素…': 'Describe how to change this element…',
   数量: 'Count',
   文字: 'Text',

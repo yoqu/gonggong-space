@@ -62,3 +62,16 @@ export function styleChanges(before: Record<string, string>, draft: Record<strin
   }
   return out
 }
+
+/** An annotation of a dragged box, not of an element (G08): no source position, no selector. */
+export const isRegion = (a: { ggId: string | null; selector: string }) => !a.ggId && !a.selector
+
+export interface Scroll {
+  x: number
+  y: number
+}
+export const NO_SCROLL: Scroll = { x: 0, y: 0 }
+/** A rect in the screen's document where its frame shows it now, scrolled by `s`. */
+export const scrolledBy = (r: Rect, s: Scroll): Rect => ({ ...r, x: r.x - s.x, y: r.y - s.y })
+/** A rect the screen posted in its viewport, in its document (the scroll it had added). */
+export const inDocument = (r: Rect, s: Scroll): Rect => ({ ...r, x: r.x + s.x, y: r.y + s.y })

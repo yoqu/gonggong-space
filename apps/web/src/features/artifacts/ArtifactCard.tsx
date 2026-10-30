@@ -15,7 +15,14 @@ export function ArtifactCardView({ card }: { card: ArtifactCard }) {
     <div className="art-card" data-testid="artifact-card">
       <button type="button" className="art-card__shot" tabIndex={-1} onClick={open}>
         {card.thumbnailUrl ? (
-          <img src={card.thumbnailUrl} alt={t('{title} 缩略图', { title: card.title })} loading="lazy" />
+          <>
+            <img src={card.thumbnailUrl} alt={t('{title} 缩略图', { title: card.title })} loading="lazy" />
+            {card.thumbnailStale ? (
+              <span className="art-card__stale" data-testid="art-thumb-stale">
+                {t('缩略图为旧版本')}
+              </span>
+            ) : null}
+          </>
         ) : generating ? (
           <Skeleton variant="block" count={1} width="100%" height="100%" label={t('正在生成')} />
         ) : (

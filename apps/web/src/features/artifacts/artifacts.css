@@ -995,7 +995,7 @@
 .art-pop__action small {
   grid-column: 2;
   color: var(--label-tertiary);
-  font-size: var(--text-caption-size, 11px);
+  font-size: var(--text-caption-size);
 }
 .art-pop__action:hover:not(:disabled) {
   background: var(--menu-highlight);
@@ -1451,4 +1451,198 @@
 }
 .art-plane--zoom-out {
   cursor: zoom-out;
+}
+
+/* ── Round 4: reference files (G04), region marks (G08), queued banner (R04), badges ── */
+.art-node--ref {
+  overflow: hidden;
+  border-radius: 12px;
+}
+.art-node--movable {
+  cursor: grab;
+}
+.art-plane--dragging .art-node--movable,
+.art-node--movable:active {
+  cursor: grabbing;
+}
+.art-ref__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+.art-ref__file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: 100%;
+  padding: var(--space-16);
+  text-align: center;
+}
+.art-ref__name {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-ref__type {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+.art-ref__text {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.art-ref__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+}
+.art-ref__lines {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  overflow: hidden;
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+
+/* Files dragged over the canvas. */
+.art-drop {
+  position: absolute;
+  inset: var(--space-12);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  pointer-events: none;
+}
+.art-drop__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-20) var(--space-32);
+  border-radius: 14px;
+  background: var(--content-bg);
+  box-shadow:
+    0 0 0 1px var(--separator),
+    0 12px 32px #00000029;
+  color: var(--accent);
+  font-size: var(--text-body-size);
+}
+.art-drop span {
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+
+/* A region annotation: the box it was dragged around, in the annotation's status colour. */
+.art-region {
+  position: absolute;
+  border: 1.5px dashed var(--system-orange);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--system-orange) 8%, transparent);
+  pointer-events: none;
+}
+.art-region--sent {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.art-region--resolved {
+  border-color: var(--system-green);
+  background: transparent;
+  opacity: 0.7;
+}
+.art-region--draft {
+  border-style: solid;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.art-note__kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--tint-gray);
+  color: var(--tint-gray-text);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* The bot is offline: commands wait for it (R04). */
+.art-queued {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--separator);
+  background: var(--tint-gray);
+  color: var(--tint-gray-text);
+  font-size: var(--text-footnote-size);
+}
+.art-queued__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--system-gray);
+}
+
+.art-tools__btn {
+  position: relative;
+}
+.art-tools__badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 2px solid var(--content-bg);
+  border-radius: 8px;
+  background: var(--system-orange);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* The card's thumbnail is from an earlier version while the new one renders. */
+.art-card__shot {
+  position: relative;
+}
+.art-card__stale {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--content-bg) 88%, transparent);
+  color: var(--label-secondary);
+  font-size: 11px;
+  line-height: 18px;
+  box-shadow: 0 0 0 1px var(--separator);
 }
