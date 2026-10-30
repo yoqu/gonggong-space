@@ -14,6 +14,10 @@ export const CMD = {
   reload: 'reload',
   remove: 'delete',
   copy: 'copy',
+  /** Copy as › code: the screens' HTML to the system clipboard. */
+  copyCode: 'copy-code',
+  /** Copy as › link to selection: the page link opening the artifact on these screens. */
+  copyLink: 'copy-link',
   cut: 'cut',
   paste: 'paste',
   duplicate: 'duplicate',
@@ -28,6 +32,11 @@ export const CMD = {
   addToChat: 'add-to-chat',
   qr: 'qr',
   export: 'export',
+  /** The command menu (⌘K). */
+  commands: 'commands',
+  shortcuts: 'shortcuts',
+  /** The DESIGN.md page of the design-system panel. */
+  designMd: 'design-md',
   /** `gen:<ArtifactCommand>`: POST …/commands for the selected screens. */
   generate: 'gen:',
   /** `var:<dimension>`: variations along one dimension; `var:custom` asks for the direction. */
@@ -77,7 +86,7 @@ export const generateItems = (bot: BotState): MenuItem[] => [
   gen(t('无障碍检查'), 'accessibility-audit', bot),
 ]
 
-const variationItems = (bot: BotState): MenuItem[] => [
+export const variationItems = (bot: BotState): MenuItem[] => [
   ...botHeader(bot),
   ...Object.entries(VARIATION_DIMENSIONS).map(([k, d]) => ({
     label: d.label,
@@ -153,6 +162,14 @@ export function screenContextItems(o: {
   return [
     { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
     { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
+    {
+      label: t('复制为'),
+      value: 'copy-as',
+      submenu: [
+        { label: t('复制代码'), value: CMD.copyCode },
+        { label: t('复制选区链接'), value: CMD.copyLink },
+      ],
+    },
     { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', ...ro },
     { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: o.readOnly || !o.canPaste },
     { label: t('创建副本'), value: CMD.duplicate, shortcut: '⌘D', ...ro },
@@ -207,13 +224,14 @@ export const zoomItems = (hasSelection: boolean): MenuItem[] => [
   { label: t('适应选中'), value: ZOOM_SELECTION, shortcut: '⇧2', disabled: !hasSelection },
 ]
 
-/** The shortcut sheet (Stitch capability list §9); `soon` ones are listed but not wired yet. */
+/** The shortcut sheet (Stitch capability list §9); `soon` ones are listed but not wired yet. ⌘S is left out: every
+ * change is a version at once, nothing waits to be saved. */
 export const SHORTCUTS: { title: string; items: { label: string; keys: string[]; soon?: boolean }[] }[] = [
   {
     title: t('通用'),
     items: [
       { label: t('快捷键'), keys: ['?'] },
-      { label: t('保存'), keys: ['⌘', 'S'], soon: true },
+      { label: t('命令菜单'), keys: ['⌘', 'K'] },
     ],
   },
   {
@@ -224,7 +242,7 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('全选'), keys: ['⌘', 'A'] },
       { label: t('取消选择'), keys: ['Esc'] },
       { label: t('剪切'), keys: ['⌘', 'X'] },
-      { label: t('复制'), keys: ['⌘', 'C'] },
+      { label: t('复制（含代码）'), keys: ['⌘', 'C'] },
       { label: t('粘贴'), keys: ['⌘', 'V'] },
       { label: t('创建副本'), keys: ['⌘', 'D'] },
       { label: t('下载所选'), keys: ['⇧', 'D'] },
@@ -233,7 +251,6 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('添加到对话'), keys: ['⌘', 'L'] },
       { label: t('自定义变体'), keys: ['⇧', 'V'] },
       { label: t('重新生成'), keys: ['⇧', 'R'] },
-      { label: t('微移所选'), keys: ['⇧', '↑↓←→'], soon: true },
     ],
   },
   {
@@ -244,7 +261,8 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('平移（按住）'), keys: ['Space'] },
       { label: t('标记#mark'), keys: ['M'] },
       { label: t('直接编辑'), keys: ['E'] },
-      { label: t('缩放（按住）'), keys: ['Z'], soon: true },
+      { label: t('框选'), keys: ['⇧', t('拖动')] },
+      { label: t('缩放（按住，⌥ 缩小）'), keys: ['Z'] },
       { label: t('显示连线'), keys: ['X'] },
     ],
   },
@@ -257,6 +275,7 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('适应画布'), keys: ['⇧', '1'] },
       { label: t('适应选中'), keys: ['⇧', '2'] },
       { label: t('移动视图'), keys: ['↑', '↓', '←', '→'] },
+      { label: t('大步移动视图'), keys: ['⇧', '↑↓←→'] },
       { label: t('查看详情'), keys: ['I'] },
       { label: t('查看代码'), keys: ['⇧', 'C'] },
       { label: t('新标签页打开'), keys: ['⇧', 'P'] },

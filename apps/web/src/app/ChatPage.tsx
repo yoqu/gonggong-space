@@ -2,6 +2,7 @@ import type { GroupDto, GroupPreviewsDto } from '@gonggong/protocol'
 import { Suspense, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useShallow } from 'zustand/react/shallow'
+import { useLinkedArtifact } from '../features/artifacts/link'
 import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
@@ -171,6 +172,7 @@ export function ChatPage() {
   // The group must be loaded, so the workbench has switched to it for good.
   useLinkedRun(group?.id)
   useLinkedPreview(group?.id)
+  useLinkedArtifact(group?.id)
   useLinkedBot()
   const viewed = useGroupOutsideList(groupId, groupsState === 'ready' && !group)
   const benchGroup = botId || machineId || spaceId ? null : (group?.id ?? null)

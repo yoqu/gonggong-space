@@ -75,3 +75,95 @@
 .art-chips__switch:hover {
   background: var(--selection-fill);
 }
+
+/* Variations ×n toggle and the design-system entry. */
+.art-var {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  overflow: hidden;
+}
+.art-var--on {
+  border-color: var(--accent);
+  background: var(--selection-fill);
+  color: var(--accent-text);
+}
+.art-var__toggle,
+.art-var__count,
+.art-chips__ds {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding: 0 var(--space-8);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.art-var__count {
+  padding: 0 var(--space-8) 0 var(--space-6);
+  border-left: 1px solid var(--separator);
+  font-variant-numeric: tabular-nums;
+}
+.art-var--on .art-var__count {
+  border-left-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.art-var__toggle:hover:not(:disabled),
+.art-var__count:hover:not(:disabled) {
+  background: var(--control-track);
+}
+.art-var__toggle:disabled,
+.art-var__count:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.art-chips__ds {
+  height: 26px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-chips__ds:hover {
+  background: var(--control-track);
+  color: var(--label);
+}
+
+/* A sent message's canvas context, and a run's artifact versions. */
+.art-chips--sent {
+  margin-top: var(--space-4);
+}
+.art-chip--link {
+  padding-right: var(--space-8);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-footnote-size);
+}
+.art-chip--link:hover {
+  border-color: var(--accent);
+}
+.art-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-run__icon {
+  flex: none;
+  color: var(--accent);
+}
+.art-run__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

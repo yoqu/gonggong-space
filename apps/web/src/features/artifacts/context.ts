@@ -32,9 +32,15 @@ interface ContextState {
   context: CanvasContext | null
   /** Bumped by Add to Chat: the composer of the group takes the focus. */
   focus: number
+  /** Bumped by the composer's 设计系统 chip: the canvas of `artifactId` opens its design-system panel. */
+  design: { artifactId: string; n: number } | null
 }
 
-export const useCanvasContext = create<ContextState>()(() => ({ context: null, focus: 0 }))
+export const useCanvasContext = create<ContextState>()(() => ({ context: null, focus: 0, design: null }))
+
+/** The composer asks the canvas of `artifactId` to open its design-system panel. */
+export const requestDesignPanel = (artifactId: string) =>
+  useCanvasContext.setState((s) => ({ design: { artifactId, n: (s.design?.n ?? 0) + 1 } }))
 
 const sameArtifact = (c: CanvasContext | null, b: Base) =>
   c && c.artifactId === b.artifactId && c.groupId === b.groupId ? c : null

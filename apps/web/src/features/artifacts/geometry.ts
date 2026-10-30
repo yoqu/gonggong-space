@@ -26,12 +26,16 @@ export const ZOOM_MIN = 0.05
 export const ZOOM_MAX = 4
 export const ZOOM_STEP = 1.25
 export const SYSTEM_ID = '@system'
+export const DOC_ID = '@design-md'
 export const PROTOTYPE_ID = '@prototype'
 export const SYSTEM_WIDTH = 720
 /** Until the design-system card is measured. */
 export const SYSTEM_HEIGHT = 640
+export const DOC_WIDTH = 560
+/** Until the DESIGN.md card is measured. */
+export const DOC_HEIGHT = 640
 
-export type NodeKind = 'system' | 'screen' | 'prototype'
+export type NodeKind = 'system' | 'doc' | 'screen' | 'prototype'
 
 export interface CanvasNode {
   id: string
@@ -68,6 +72,8 @@ export interface LayoutInput {
   manifest: GgArtifactManifest | null | undefined
   /** Height of the design-system card; null when the version has no tokens.css. */
   system: number | null
+  /** Height of the DESIGN.md card; null (or absent) when the version has no DESIGN.md. */
+  doc?: number | null
   frames: Record<string, ScreenFrame>
   /** Content heights the screens reported, by file. */
   content: Record<string, number>
@@ -87,16 +93,32 @@ export const perRow = (device: ArtifactDevice) =>
  * `perRow(device)` (Stitch capability list §3), each row below the tallest node of the one above. An L0 artifact (no
  * manifest) is one desktop page.
  */
-export function layoutNodes({ title, manifest, system, frames, content }: LayoutInput): {
+export function layoutNodes({ title, manifest, system, doc = null, frames, content }: LayoutInput): {
   device: ArtifactDevice
   nodes: CanvasNode[]
 } {
   const device = manifest?.device ?? 'desktop'
   const screens = manifest?.screens ?? [{ id: 'index', title, file: 'index.html' }]
   const nodes: CanvasNode[] = []
-  const left = system !== null ? SYSTEM_WIDTH + NODE_GAP : 0
-  if (system !== null)
+  let left = 0
+  if (system !== null) {
     nodes.push({ id: SYSTEM_ID, kind: 'system', title: '', file: '', x: 0, y: 0, w: SYSTEM_WIDTH, h: system })
+    left += SYSTEM_WIDTH + NODE_GAP
+  }
+  // DESIGN.md sits beside the design system it describes.
+  if (doc !== null) {
+    nodes.push({
+      id: DOC_ID,
+      kind: 'doc',
+      title: 'DESIGN.md',
+      file: 'DESIGN.md',
+      x: left,
+      y: 0,
+      w: DOC_WIDTH,
+      h: doc,
+    })
+    left += DOC_WIDTH + NODE_GAP
+  }
   const cells: Omit<CanvasNode, 'x' | 'y'>[] = screens.map((s) => {
     const f = frames[s.id] ?? defaultFrame(device)
     const h = f.full ? Math.max(1, Math.round(content[s.file] ?? f.h)) : f.h
@@ -231,3 +253,23 @@ export function dropIndex(screens: CanvasNode[], id: string, dropX: number, drop
   const rowTop = tops.filter((y) => y <= dropY).at(-1) ?? tops[0] ?? 0
   return others.filter((s) => s.y < rowTop || (s.y === rowTop && s.x + s.w / 2 < dropX)).length
 }
+
+/** A rectangle in canvas units (a marquee). */
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** The rectangle spanned by two points, whichever way it was dragged. */
+export const rectOf = (ax: number, ay: number, bx: number, by: number): Rect => ({
+  x: Math.min(ax, bx),
+  y: Math.min(ay, by),
+  w: Math.abs(bx - ax),
+  h: Math.abs(by - ay),
+})
+
+/** The nodes a marquee touches (Stitch / Figma select what the box intersects). */
+export const nodesInRect = (nodes: CanvasNode[], r: Rect) =>
+  nodes.filter((n) => n.x < r.x + r.w && n.x + n.w > r.x && n.y < r.y + r.h && n.y + n.h > r.y)

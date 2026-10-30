@@ -77,3 +77,26 @@ export function writeTokens(css: string, changes: Record<string, string>) {
   for (const [from, to, value] of spans.reverse()) out = out.slice(0, from) + value + out.slice(to)
   return out
 }
+
+export type ColorRole = 'primary' | 'accent' | 'neutral' | 'semantic' | 'other'
+
+const ROLE_OF: [ColorRole, RegExp][] = [
+  ['primary', /^(on-)?(primary|brand)\b/],
+  ['accent', /^(on-)?(secondary|tertiary|accent)\b/],
+  ['semantic', /^(on-)?(success|warning|danger|error|info|positive|negative|critical)\b/],
+  [
+    'neutral',
+    /^(on-)?(background|bg|surface|foreground|fg|text|ink|outline|border|divider|separator|neutral|muted|gray|grey|black|white|scrim|shadow|overlay|inverse|disabled)\b/,
+  ],
+]
+
+/** The role a colour token plays, by its name (`on-primary` goes with `primary`). */
+export const colorRole = (name: string): ColorRole => ROLE_OF.find(([, re]) => re.test(name))?.[0] ?? 'other'
+
+/** Colour tokens by role (Stitch's Primary / Secondary / Neutral …), in role order, each in source order. */
+export function colorRoles<T extends { name: string }>(colors: T[]) {
+  const order: ColorRole[] = ['primary', 'accent', 'neutral', 'semantic', 'other']
+  return order
+    .map((role) => ({ role, items: colors.filter((c) => colorRole(c.name) === role) }))
+    .filter((g) => g.items.length)
+}

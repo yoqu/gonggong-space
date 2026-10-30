@@ -2,8 +2,12 @@ import type { BotDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { Icon, MenuButton } from '../../ui'
 import { offlineHint } from './actions'
-import { type CanvasContext, removeContextItem } from './context'
+import { type CanvasContext, removeContextItem, requestDesignPanel } from './context'
+import { selectedScreenIds } from './slash'
 import './chips.css'
+
+export const VARIATION_COUNTS = [1, 2, 3, 4, 5]
+export const DEFAULT_VARIATIONS = 3
 
 /**
  * The canvas selection above the group composer: `产物 · 屏` or `屏 › 元素`, each removable. `bot`: who a message
@@ -14,13 +18,20 @@ export function ContextChips({
   bot,
   others,
   onSwitch,
+  variations,
+  onVariations,
 }: {
   context: CanvasContext
   bot: BotDto | null
   others: BotDto[]
   onSwitch: (name: string) => void
+  /** Stitch's Variations ×3: the next message asks for this many variations of the selected screens; null = off. */
+  variations: number | null
+  onVariations: (count: number | null) => void
 }) {
   const offline = offlineHint(bot)
+  const noScreens = !selectedScreenIds(context).length
+  const count = variations ?? DEFAULT_VARIATIONS
   return (
     <div className="art-chips" data-testid="art-context-chips">
       {context.items.map((i) => {
@@ -42,6 +53,38 @@ export function ContextChips({
           </span>
         )
       })}
+      <span className={variations ? 'art-var art-var--on' : 'art-var'} data-testid="art-variations">
+        <button
+          type="button"
+          className="art-var__toggle"
+          aria-pressed={!!variations}
+          disabled={noScreens}
+          title={noScreens ? t('先在画布上选屏') : t('开启后，发送的描述会生成所选屏幕的变体')}
+          onClick={() => onVariations(variations ? null : count)}
+        >
+          <Icon name="sparkle" size={12} />
+          {t('变体')}
+        </button>
+        <MenuButton
+          className="art-var__count"
+          aria-label={t('变体数量')}
+          disabled={noScreens}
+          items={VARIATION_COUNTS.map((n) => ({ label: `×${n}`, value: String(n), checked: n === count }))}
+          onSelect={(v) => onVariations(Number(v))}
+          placement="above"
+        >
+          {`×${count}`}
+        </MenuButton>
+      </span>
+      <button
+        type="button"
+        className="art-chips__ds"
+        title={t('打开画布的设计系统')}
+        onClick={() => requestDesignPanel(context.artifactId)}
+      >
+        <Icon name="palette" size={12} />
+        {t('设计系统')}
+      </button>
       {bot ? (
         <span
           className={offline ? 'art-chips__to art-chips__to--offline' : 'art-chips__to'}

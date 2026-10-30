@@ -192,3 +192,28 @@
   grid-template-columns: 1fr 1.6fr;
   gap: var(--space-8);
 }
+.art-dsp__role + .art-dsp__role {
+  margin-top: var(--space-12);
+}
+.art-dsp__rolehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  color: var(--label-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.art-dsp__more {
+  padding: 1px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--quote-fill);
+  color: var(--label-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.art-dsp__more:hover {
+  background: var(--selection-fill);
+  color: var(--label);
+}

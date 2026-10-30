@@ -63,6 +63,17 @@
 .mention-pop__item:hover .pn-mentionpicker__sub {
   color: var(--on-accent);
 }
+.mention-pop__item--off {
+  opacity: 0.45;
+  cursor: default;
+}
+.mention-pop__item--off:hover {
+  background: transparent;
+  color: inherit;
+}
+.mention-pop__item--off:hover .pn-mentionpicker__sub {
+  color: var(--label-secondary);
+}
 .mention-pop__lead {
   display: inline-flex;
   flex: none;

@@ -1,6 +1,15 @@
 import type { CSSProperties } from 'react'
 import { t } from '../../i18n'
-import type { DesignTokens } from './tokens'
+import { type ColorRole, colorRoles, type DesignTokens } from './tokens'
+
+/** Section heads of the palette by role (G13). */
+export const ROLE_LABEL: Record<ColorRole, string> = {
+  primary: t('主色'),
+  accent: t('辅助色'),
+  neutral: t('中性色'),
+  semantic: t('功能色'),
+  other: t('其他'),
+}
 
 /** The artifact's tokens as `--a-*` custom properties, so they never shadow the site's own tokens. */
 const scope = (tokens: DesignTokens) =>
@@ -18,23 +27,31 @@ export function DesignSystemNode({ tokens }: { tokens: DesignTokens }) {
       {tokens.name ? <h3 className="art-ds__name">{tokens.name}</h3> : null}
       <section className="art-ds__section">
         <h4>{t('色彩')}</h4>
-        <div className="art-ds__colors">
-          {tokens.colors.map((g) => (
-            <div key={g.group} className="art-ds__group">
-              <div className="art-ds__swatch" style={{ background: `var(--a-color-${g.items[0]?.name})` }} />
-              {g.items.slice(0, COLOR_PREVIEW_MAX).map((c) => (
-                <div key={c.name} className="art-ds__color">
-                  <i style={{ background: `var(--a-color-${c.name})` }} />
-                  <span>{c.name}</span>
-                  <code>{c.value}</code>
+        {colorRoles(tokens.colors.map((g) => ({ ...g, name: g.group }))).map((r) => (
+          <div key={r.role} className="art-ds__role" data-testid={`art-ds-role-${r.role}`}>
+            <h5>{ROLE_LABEL[r.role]}</h5>
+            <div className="art-ds__colors">
+              {r.items.map((g) => (
+                <div key={g.group} className="art-ds__group">
+                  <div
+                    className="art-ds__swatch"
+                    style={{ background: `var(--a-color-${g.items[0]?.name})` }}
+                  />
+                  {g.items.slice(0, COLOR_PREVIEW_MAX).map((c) => (
+                    <div key={c.name} className="art-ds__color">
+                      <i style={{ background: `var(--a-color-${c.name})` }} />
+                      <span>{c.name}</span>
+                      <code>{c.value}</code>
+                    </div>
+                  ))}
+                  {g.items.length > COLOR_PREVIEW_MAX ? (
+                    <div className="art-ds__more">{`+${g.items.length - COLOR_PREVIEW_MAX}`}</div>
+                  ) : null}
                 </div>
               ))}
-              {g.items.length > COLOR_PREVIEW_MAX ? (
-                <div className="art-ds__more">{`+${g.items.length - COLOR_PREVIEW_MAX}`}</div>
-              ) : null}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </section>
       {tokens.type.length ? (
         <section className="art-ds__section">
