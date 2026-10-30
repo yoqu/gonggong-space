@@ -1683,10 +1683,22 @@ export const RunDetailDto = z.object({
   /** System param runRetentionDays: how long the full process is kept. */
   retentionDays: z.number().int(),
   events: z.array(z.object({ id: z.number().int(), at: z.string(), event: RunEvent })),
+  /** What people said to the run: its trigger message, then the messages 打断并追加 into it, oldest first. */
+  prompts: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(['trigger', 'append']),
+        author: z.string(),
+        body: z.string(),
+        at: z.string(),
+      }),
+    )
+    .optional(),
 })
 export type RunDetailDto = z.infer<typeof RunDetailDto>
 /** GET /api/runs/:id/events — only the process, for refreshes of an open run (its card arrives by realtime). */
-export const RunEventsDto = RunDetailDto.pick({ events: true, purged: true })
+export const RunEventsDto = RunDetailDto.pick({ events: true, purged: true, prompts: true })
 export type RunEventsDto = z.infer<typeof RunEventsDto>
 
 /** GET /api/runs/:id/session — earlier rounds of the run's agent session (oldest first), with their trigger text. */

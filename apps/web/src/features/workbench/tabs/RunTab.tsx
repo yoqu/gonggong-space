@@ -144,7 +144,9 @@ function useRunDetail(runId: string, active: boolean) {
           setDetail((prev) => {
             const events =
               since && prev ? [...prev.events.filter((e) => e.id < since), ...d.events] : d.events
-            return 'run' in d ? { ...d, events } : prev && { ...prev, purged: d.purged, events }
+            return 'run' in d
+              ? { ...d, events }
+              : prev && { ...prev, purged: d.purged, prompts: d.prompts ?? prev.prompts, events }
           })
         },
         (e: Error) => alive && mine === seq && setError(e.message),
@@ -587,7 +589,8 @@ function EarlierRounds({ runId, root }: { runId: string; root: string | null }) 
 function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: string | null }) {
   const [open, setOpen] = useState(true)
   const { detail, error } = useRunDetail(run.id, true)
-  const steps = useMemo(() => (detail ? buildSteps(detail) : []), [detail])
+  // The round's head shows its trigger already.
+  const steps = useMemo(() => (detail ? buildSteps(detail, { trigger: false }) : []), [detail])
   const worked = workedMs(run)
   return (
     <section className="run-round">

@@ -147,6 +147,8 @@ export default {
   '关闭子 agent': 'Closed a subagent',
   '、': ', ',
   '调度了子 agent': 'Directed subagents',
+  '{name} · 打断并追加': '{name} · interrupted and added',
+  查看提问: 'Show questions',
   调用了工具: 'Called tools',
   自动批准: 'Auto-approved',
   '{n} 条命令': '{n} {n:command|commands}',

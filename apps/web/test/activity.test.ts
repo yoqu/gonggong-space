@@ -195,6 +195,31 @@ describe('buildItems', () => {
     expect(items.map((i) => (i.kind === 'action' ? i.family : i.kind))).toEqual(['work', 'task', 'text'])
   })
 
+  it('keeps what people said outside 已工作: the trigger on top, an append splitting the work it came into', () => {
+    const at = (s: number) => new Date(Date.UTC(2026, 9, 30, 2, 0, s)).toISOString()
+    const steps = [
+      step('prompt', { label: '王磊', body: '@bot 改标题', at: at(0) }),
+      step('context'),
+      exec('ls', { at: at(1), end: at(4) }),
+      step('prompt', { label: '陈晨 · 打断并追加', body: '顺便改副标题', at: at(5) }),
+      exec('pnpm test', { at: at(6), end: at(8) }),
+      step('text', { body: '好了', at: at(9) }),
+    ]
+    const shape = (items: ReturnType<typeof buildItems>) =>
+      items.map((i) => (i.kind === 'action' ? i.family : i.kind))
+    const items = buildItems(steps, ROOT, false, 5000)
+    expect(shape(items)).toEqual(['prompt', 'work', 'prompt', 'work', 'text'])
+    // Each part says how long it took.
+    expect(items.filter((i) => i.kind === 'work').map((i) => [i.key, i.title])).toEqual([
+      ['work', '已工作 3 秒'],
+      ['work2', '已工作 2 秒'],
+    ])
+    // Nothing done after it: the append follows the one part, which took the whole turn.
+    const early = buildItems([...steps.slice(0, 4), ...steps.slice(5)], ROOT, false, 5000)
+    expect(shape(early)).toEqual(['prompt', 'work', 'prompt', 'text'])
+    expect(early[1]).toMatchObject({ title: '已工作 5 秒' })
+  })
+
   it('keeps decided requests and questions outside 已工作, in their order', () => {
     const ask = step('approval', { label: '权限请求', mono: 'rm -rf dist', body: '已批准' })
     const q = step('question', { label: '提问', mono: '继续吗？', body: '已回答' })
