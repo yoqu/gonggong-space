@@ -15,6 +15,7 @@ export type Family =
   | 'thought'
   | 'status'
   | 'text'
+  | 'prompt'
   | 'approval'
   | 'context'
   | 'subagent'
@@ -52,7 +53,7 @@ export interface Group {
 }
 
 export interface Work {
-  key: 'work'
+  key: string
   kind: 'work'
   items: Item[]
   /** 已工作 1 分 5 秒 */
@@ -160,6 +161,8 @@ export function classify(s: Step, root: string | null): Action {
       return { ...base, family: s.kind, verb: s.label, target: s.body }
     case 'question':
       return { ...base, family: 'approval', verb: s.label, target: s.body }
+    case 'prompt':
+      return { ...base, family: 'prompt', verb: s.label, target: s.body }
     case 'read':
       return { ...base, family: 'explore', bucket: 'file', verb: verbOf('file', s), target: rel(s, root) }
     case 'search': {
@@ -230,9 +233,9 @@ const named = (title?: string) => (title && !PLACEHOLDER.test(title) ? title : u
 const rel = (s: Step, root: string | null) =>
   s.mono && s.mono !== s.title ? relative(s.mono, root) : named(s.title)
 
-/** Text, approvals, the context, subagents, background tasks and compactions stay on their own lines; everything
- * else between them is one segment. */
-const BOUNDARY = new Set<Family>(['text', 'approval', 'context', 'subagent', 'task', 'compaction'])
+/** Text, people's messages, approvals, the context, subagents, background tasks and compactions stay on their own
+ * lines; everything else between them is one segment. */
+const BOUNDARY = new Set<Family>(['text', 'prompt', 'approval', 'context', 'subagent', 'task', 'compaction'])
 /** Carried along inside a segment but not counted as its calls. */
 const PASSIVE = new Set<Family>(['thought', 'status'])
 
@@ -362,11 +365,12 @@ function entries(steps: Step[], root: string | null): Entry[] {
     const time = s.at ? stamp(s.at, ref) : ''
     switch (a.family) {
       case 'approval':
-        return { time, verb: s.label, code: s.mono, note: `· ${s.body ?? ''}` }
+        return { time, verb: s.label, code: s.mono, note: `· ${s.body ?? ''}`, quote: s.out }
       case 'context':
         return { time, verb: s.label, note: s.meta, quote: s.body }
       case 'text':
       case 'thought':
+      case 'prompt':
         return { time, verb: a.verb, quote: s.body }
       case 'subagent':
         return {
@@ -496,20 +500,32 @@ export function buildItems(
   const last = actions.at(-1)
   if (live || last?.family !== 'text' || actions.length < 2 || workedMs === null)
     return groupActions(actions, live)
-  // Background tasks still running outlive the turn: they stay in sight, stop button included. Decided requests
-  // and questions are what people look for afterwards, so they stay in sight too.
-  const outside = (a: Action) => a.family === 'approval' || (a.family === 'task' && !!a.step.running)
-  const before = actions.slice(0, -1)
-  const done = before.filter((a) => !outside(a))
-  return [
-    {
-      key: 'work',
-      kind: 'work',
-      items: groupActions(done, false),
-      title: t('已工作 {time}', { time: fmtWorked(workedMs) }),
-      summary: workSummary(done),
-    },
-    ...before.filter(outside).map((a) => ({ kind: 'action' as const, ...a })),
-    { kind: 'action', ...last },
-  ]
+  // Background tasks still running outlive the turn: they stay in sight, stop button included. Decided requests,
+  // questions and what people said are what they look for afterwards, so they stay in sight too. A message
+  // 打断并追加 mid-turn splits the work in two, each part folded on its own; the trigger stays on top.
+  const outside = (a: Action) =>
+    a.family === 'approval' || a.family === 'prompt' || (a.family === 'task' && !!a.step.running)
+  const lead = actions[0]?.family === 'prompt' ? actions.slice(0, 1) : []
+  const parts: Action[][] = [[]]
+  for (const a of actions.slice(lead.length, -1)) {
+    if (a.family === 'prompt') parts.push([a], [])
+    else parts.at(-1)?.push(a)
+  }
+  const split = parts.filter((p) => p.some((a) => !outside(a))).length > 1
+  const items: Item[] = lead.map((a) => ({ kind: 'action' as const, ...a }))
+  parts.forEach((part, i) => {
+    const done = part.filter((a) => !outside(a))
+    const span = timeRange(done.map((a) => a.step))
+    const ms = split ? (span ? Date.parse(span.to) - Date.parse(span.from) : 0) : workedMs
+    if (done.length)
+      items.push({
+        key: i ? `work${i}` : 'work',
+        kind: 'work',
+        items: groupActions(done, false),
+        title: t('已工作 {time}', { time: fmtWorked(ms) }),
+        summary: workSummary(done),
+      })
+    items.push(...part.filter(outside).map((a) => ({ kind: 'action' as const, ...a })))
+  })
+  return [...items, { kind: 'action', ...last }]
 }

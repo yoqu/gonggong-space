@@ -311,6 +311,17 @@ function ActionRow({
         <Markdown text={s.body ?? ''} />
       </li>
     )
+  if (a.family === 'prompt')
+    return (
+      <li className="act-item act-prompt" data-step={a.key}>
+        <div className="act-row">
+          <Icon name="person" size={14} className="act-row__icon" />
+          <span className="act-row__verb">{s.label}</span>
+          <When steps={[s]} day={day} />
+        </div>
+        <div className="act-prompt__body">{s.body}</div>
+      </li>
+    )
   if (a.family === 'context')
     return (
       <li className="act-item">
@@ -344,6 +355,7 @@ function ActionRow({
           <When steps={[s]} day={day} />
         </div>
         <div className="act-approval__state">{s.body}</div>
+        {s.out ? <div className="act-approval__answers">{s.out}</div> : null}
       </li>
     )
   }

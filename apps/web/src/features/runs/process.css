@@ -405,3 +405,21 @@ button.act-row:hover .act-row__target--file {
     margin-left: 0;
   }
 }
+/* What people said to the run: its trigger and the messages 打断并追加 into it. */
+.act-prompt__body {
+  margin: 0 0 var(--space-4) 20px;
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-check);
+  background: var(--quote-fill);
+  font-size: var(--text-callout-size);
+  line-height: var(--text-body-line);
+  color: var(--label);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.act-approval__answers {
+  margin: var(--space-2) 0 0 20px;
+  font-size: var(--text-subheadline-size);
+  color: var(--label);
+  white-space: pre-wrap;
+}

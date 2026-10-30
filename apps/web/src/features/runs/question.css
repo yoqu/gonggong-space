@@ -155,6 +155,35 @@
   color: var(--label-secondary);
 }
 
+.question__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+/* A settled question: what was answered, one line a question. */
+.question__answers {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-callout-size);
+  color: var(--label);
+}
+.question__answers > li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 打断并追加 strip inside the composer, above the text */
 .append-banner {
   display: flex;
@@ -262,4 +291,8 @@
 }
 .qopt__lean-btn:disabled {
   color: var(--label-tertiary);
+}
+.question--brief {
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12);
 }

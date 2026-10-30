@@ -245,6 +245,62 @@ describe('process steps', () => {
     ])
   })
 
+  it('shows what people said: the trigger first, appends and question answers where they happened', () => {
+    const steps = buildSteps({
+      run: run({
+        questions: [
+          {
+            id: 'q1',
+            runId: 'r1',
+            questions: [
+              { id: 'k1', type: 'single', title: '用哪个方案', options: ['A', 'B'], recommended: 0 },
+              {
+                id: 'k2',
+                type: 'multi',
+                title: '覆盖哪些端',
+                options: ['web', '桌面', 'CLI'],
+                recommended: null,
+              },
+              { id: 'k3', type: 'text', title: '备注', options: [], recommended: null },
+            ],
+            status: 'answered',
+            answers: [
+              { questionId: 'k1', choices: [], text: '都不要，用 C' },
+              { questionId: 'k2', choices: [0, 1], text: null },
+              { questionId: 'k3', choices: [], text: null },
+            ],
+            attachments: [],
+            answeredBy: 'u1',
+            answeredByName: '王磊',
+            answeredAt: at(12),
+            expiresAt: at(59),
+            createdAt: at(9),
+            leanings: [],
+          },
+        ],
+      }),
+      patch: null,
+      purged: false,
+      settings: null,
+      patchRepos: [],
+      sessionId: 's1',
+      retentionDays: 30,
+      events: [{ id: 1, at: at(1), event: { kind: 'text', delta: '开始' } }],
+      prompts: [
+        { id: 'm1', kind: 'trigger', author: '王磊', body: '@bot 改标题', at: at(0) },
+        { id: 'm2', kind: 'append', author: '陈晨', body: '顺便改副标题', at: at(15) },
+      ],
+    })
+    expect(steps.map((s) => [s.kind, s.label, s.body])).toEqual([
+      ['prompt', '王磊', '@bot 改标题'],
+      ['context', '本轮上下文', '续用上次会话，补送上次被 @ 以来的群消息'],
+      ['text', '回复', '开始'],
+      ['question', '向群成员提问', '王磊 已回答'],
+      ['prompt', '陈晨 · 打断并追加', '顺便改副标题'],
+    ])
+    expect(steps[3]?.out).toBe('用哪个方案：都不要，用 C\n覆盖哪些端：web、桌面\n备注：—')
+  })
+
   it('folds session config echoes into the context step', () => {
     const steps = buildSteps({
       run: run(),

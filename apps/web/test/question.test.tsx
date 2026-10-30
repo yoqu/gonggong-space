@@ -234,10 +234,21 @@ describe('QuestionBlock', () => {
       render(<QuestionBlock run={run({ status: 'completed', questions: [q] })} />)
       expect(screen.getByText('运行已结束，提问作废')).toBeTruthy()
     }
+    // Settled: only what was decided shows, the questions one click away.
+    expect(screen.queryByRole('button', { name: 'Go' })).toBeNull()
     if (q.status === 'answered') {
+      expect([...document.querySelectorAll('.question__answers li')].map((l) => l.textContent)).toEqual([
+        '用哪种语言？：Go',
+        '覆盖哪些渠道？：微信',
+        '允许改 fixture 吗？：是',
+        '还有什么要注意？：注意幂等',
+      ])
+      fireEvent.click(button('查看提问'))
       expect(button('Go').getAttribute('aria-pressed')).toBe('true')
       expect(button('Go').disabled).toBe(true)
       expect((screen.getByPlaceholderText('自由作答') as HTMLTextAreaElement).value).toBe('注意幂等')
+      fireEvent.click(button('收起'))
+      expect(screen.queryByRole('button', { name: 'Go' })).toBeNull()
     }
   })
 })

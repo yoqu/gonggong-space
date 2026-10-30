@@ -36,6 +36,18 @@ export function questionText(q: QuestionSetDto) {
   }
 }
 
+/** Each question with what was answered, one per line: options picked and 「其他」 text, — when left empty. */
+export function answerLines(q: QuestionSetDto) {
+  return q.questions
+    .map((x) => {
+      const a = q.answers?.find((y) => y.questionId === x.id)
+      const other = a?.text?.replace(/\s+/g, ' ')
+      const said = [...(a?.choices.map((i) => x.options[i]) ?? []), other].filter(Boolean)
+      return `${x.title}：${said.join(t('、')) || '—'}`
+    })
+    .join('\n')
+}
+
 /** Daemon statuses that only mirror an approval's lifecycle; its 权限请求 row carries the outcome. */
 const APPROVAL_ECHO = /^(等待审批|已批准)：|^请求被拒绝，|^(Awaiting approval|Approved): |^Request denied; /
 
@@ -57,9 +69,10 @@ function contextStep(d: RunDetailDto, gitStep: string | undefined, configs: stri
   }
 }
 
-/** Side-panel 过程 steps: this turn's context, then thoughts / replies / tool calls / statuses / approvals / questions
- * in time order. */
-export function buildSteps(d: RunDetailDto): Step[] {
+/** Side-panel 过程 steps: the trigger message and this turn's context, then thoughts / replies / tool calls /
+ * statuses / approvals / questions / appended messages in time order. `trigger: false` leaves out the trigger, shown
+ * elsewhere. */
+export function buildSteps(d: RunDetailDto, { trigger = true } = {}): Step[] {
   const firstReal = d.events.findIndex((e) => e.event.kind !== 'status')
   const opening = d.events.slice(0, firstReal < 0 ? d.events.length : firstReal)
   const gitEvent = opening.find((e) => e.event.kind === 'status' && e.event.step.startsWith('git '))
@@ -87,11 +100,24 @@ export function buildSteps(d: RunDetailDto): Step[] {
         label: t('向群成员提问'),
         mono: q.questions.map((x) => x.title).join(' / '),
         body: questionText(q),
+        ...(q.status === 'answered' && { out: answerLines(q) }),
         running: q.status === 'pending',
         at: q.createdAt,
         end: q.answeredAt ?? undefined,
       },
     })
+  const prompts = (d.prompts ?? []).map(
+    (p): Step => ({
+      key: `m${p.id}`,
+      kind: 'prompt',
+      label: p.kind === 'append' ? t('{name} · 打断并追加', { name: p.author }) : p.author,
+      body: p.body,
+      at: p.at,
+    }),
+  )
+  // The trigger opens the list; appends go where they came in.
+  const [head, ...appends] = d.prompts?.[0]?.kind === 'trigger' ? prompts : [undefined, ...prompts]
+  for (const p of appends) if (p) timed.push({ at: p.at ?? '', step: p })
   const configs = d.events.map(statusOf).filter((s): s is string => !!s && CONFIG_ECHO.test(s))
   const events = d.events.filter((e) => {
     const s = statusOf(e)
@@ -99,5 +125,5 @@ export function buildSteps(d: RunDetailDto): Step[] {
   })
   const steps = processSteps(events, parsePatch(d.patch ?? ''), d.run.status === 'running', timed)
   const gitStep = gitEvent?.event.kind === 'status' ? gitEvent.event.step : undefined
-  return [contextStep(d, gitStep, configs), ...steps]
+  return [...(head && trigger ? [head] : []), contextStep(d, gitStep, configs), ...steps]
 }

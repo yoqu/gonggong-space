@@ -12,6 +12,7 @@ import { workspacePath } from '../attachments/api'
 import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { Swatches } from '../plugins/PluginTile'
 import { QUESTION_TYPE } from './mcp'
+import { answerLines } from './process'
 import { useMemberName } from './RunActions'
 import './question.css'
 import { t } from '../../i18n'
@@ -73,6 +74,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const uploads = useUploads(run.groupId)
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const canAnswer = pending && !!me && (me === run.originUserId || me === bot?.ownerId)
   const locked = !canAnswer || busy
@@ -141,6 +143,42 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
       ? t('{name}（触发人兼 Bot 主人）可回答', { name: trigger })
       : t('触发人 {trigger} 或 Bot 主人 {owner} 可回答', { trigger, owner })
   const ready = set.questions.every((question) => answered(question, draftOf(question)))
+  const done = (
+    <div className="question__done">
+      <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
+        {set.status === 'answered' ? t('已回答') : set.status === 'expired' ? t('已超时') : t('已作废')}
+      </Tag>
+      <span>{outcome(set, run)}</span>
+      <button type="button" className="question__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? t('收起') : t('查看提问')}
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={10} />
+      </button>
+    </div>
+  )
+
+  // Once settled, the card shrinks to what was decided; the questions stay one click away.
+  if (!pending && !open)
+    return (
+      <div className="question question--brief">
+        <div className="question__title">
+          <Icon name="bubble-question" size={14} />
+          <span>{t('向群成员提问 · {n} 个问题', { n: set.questions.length })}</span>
+        </div>
+        {set.status === 'answered' ? (
+          <ul className="question__answers">
+            {answerLines(set)
+              .split('\n')
+              .map((line, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: one line per question, in order
+                <li key={i} title={line}>
+                  {line}
+                </li>
+              ))}
+          </ul>
+        ) : null}
+        {done}
+      </div>
+    )
 
   return (
     <div className="question" data-pending-id={pending ? set.id : undefined}>
@@ -315,12 +353,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
           </Button>
         </div>
       ) : (
-        <div className="question__done">
-          <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
-            {set.status === 'answered' ? t('已回答') : set.status === 'expired' ? t('已超时') : t('已作废')}
-          </Tag>
-          <span>{outcome(set, run)}</span>
-        </div>
+        done
       )}
     </div>
   )

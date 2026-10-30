@@ -431,6 +431,45 @@ describe('run process', () => {
     ])
   })
 
+  it('serves what people said to the run: its trigger, then the appends it applied, recalled ones left out', async () => {
+    const w = await world()
+    const runId = await w.mention('@bot 改一下标题')
+    const append = async (body: string, o: Partial<typeof messages.$inferInsert> = {}) => {
+      const row = {
+        groupId: w.group.id,
+        kind: 'user',
+        authorUserId: w.bob.id,
+        body,
+        meta: { appendTo: runId },
+      }
+      await t.db.insert(messages).values({ ...row, ...o })
+    }
+    await append('顺便改副标题')
+    await append('撤回的', { recalledAt: new Date() })
+    const prompts = [
+      {
+        id: expect.any(String),
+        kind: 'trigger',
+        author: '王磊',
+        body: '@bot 改一下标题',
+        at: expect.any(String),
+      },
+      {
+        id: expect.any(String),
+        kind: 'append',
+        author: '陈晨',
+        body: '顺便改副标题',
+        at: expect.any(String),
+      },
+    ]
+    expect((await w.detail(runId)).prompts).toEqual(prompts)
+    // Appends that came after the agent finished became runs of their own.
+    await append('来晚了')
+    w.done(runId, { appendsApplied: 1 })
+    await w.ended(runId)
+    expect((await w.detail(runId)).prompts).toEqual(prompts)
+  })
+
   it('serves only the process on /events: since a known event, streams joined and flushed, no patch', async () => {
     const w = await world()
     const runId = await w.mention()
@@ -459,11 +498,14 @@ describe('run process', () => {
     await w.ended(runId)
 
     const res = await events(`?since=${text!.id}`)
-    expect(Object.keys(res.json()).sort()).toEqual(['events', 'purged'])
+    expect(Object.keys(res.json()).sort()).toEqual(['events', 'prompts', 'purged'])
     expect(res.json<RunEventsDto>()).toEqual({
       events: [
         { id: text!.id, at: expect.any(String), event: { kind: 'text', delta: `${long}尾` } },
         { id: expect.any(Number), at: expect.any(String), event: tool },
+      ],
+      prompts: [
+        { id: expect.any(String), kind: 'trigger', author: '王磊', body: '@bot go', at: expect.any(String) },
       ],
       purged: false,
     })

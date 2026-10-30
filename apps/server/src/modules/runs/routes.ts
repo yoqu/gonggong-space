@@ -5,7 +5,7 @@ import {
   type RunEventsDto,
   type RunSessionDto,
 } from '@gonggong/protocol'
-import { and, asc, desc, eq, gte, isNotNull, lt, lte, max } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, lt, lte, max, or, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
@@ -14,6 +14,7 @@ import { fail } from '../../lib/errors.js'
 import { open } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
+import { authorName } from '../messages/service.js'
 import { runDtoLoader } from './dto.js'
 import { flushStream } from './engine.js'
 import { openEvent } from './sealed.js'
@@ -71,6 +72,30 @@ export function runRoutes(ctx: Ctx) {
       })),
     )
   }
+  /** The trigger, then the appends the agent took in (a live run may still take all; later ones became runs). */
+  const promptsOf = async (
+    run: Pick<typeof runs.$inferSelect, 'id' | 'triggerMessageId' | 'endedAt' | 'appendsApplied'>,
+  ) => {
+    const rows = await ctx.db
+      .select()
+      .from(messages)
+      .where(or(eq(messages.id, run.triggerMessageId), sql`${messages.meta}->>'appendTo' = ${run.id}`))
+      .orderBy(asc(messages.seq))
+    const trigger = rows.filter((m) => m.id === run.triggerMessageId)
+    const appends = rows.filter((m) => m.id !== run.triggerMessageId)
+    const kept = [...trigger, ...(run.endedAt ? appends.slice(0, run.appendsApplied) : appends)]
+    return Promise.all(
+      kept
+        .filter((m) => !m.recalledAt)
+        .map(async (m) => ({
+          id: m.id,
+          kind: m.id === run.triggerMessageId ? ('trigger' as const) : ('append' as const),
+          author: await authorName(ctx, m),
+          body: m.body,
+          at: m.createdAt.toISOString(),
+        })),
+    )
+  }
   return async (app: FastifyInstance) => {
     app.get('/api/runs/:id', async (req): Promise<RunDetailDto> => {
       const row = await visibleRun(req)
@@ -89,6 +114,7 @@ export function runRoutes(ctx: Ctx) {
         settings: row.run.settings,
         retentionDays: (await sysParams(ctx.db)).runRetentionDays,
         events,
+        prompts: await promptsOf(row.run),
       }
     })
 
@@ -96,13 +122,20 @@ export function runRoutes(ctx: Ctx) {
     app.get('/api/runs/:id/events', async (req): Promise<RunEventsDto> => {
       const { id, member } = await access(req)
       const [row] = await ctx.db
-        .select({ id: runs.id, purgedAt: runs.purgedAt })
+        .select({
+          id: runs.id,
+          purgedAt: runs.purgedAt,
+          triggerMessageId: runs.triggerMessageId,
+          endedAt: runs.endedAt,
+          appendsApplied: runs.appendsApplied,
+        })
         .from(runs)
         .innerJoin(groupMembers, member)
         .where(eq(runs.id, id))
       const run = row ?? fail('not_found', '运行不存在')
       return {
         events: await eventsSince(run.id, RunDetailQuery.parse(req.query).since),
+        prompts: await promptsOf(run),
         purged: run.purgedAt !== null,
       }
     })
