@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.7 — 2026-10-30
+
+- 群支持一个主仓库和多个附加仓库，各自指定默认分支；daemon 将附加仓库克隆到主仓库旁并交给 Bot，Git 状态、提交、推送与基准分支保护按仓库执行 / Groups support a primary repository and extra repositories with individual default branches; the daemon clones extras beside the primary for Bots, with per-repository Git status, commits, pushes and base-branch protection
+- 新增托管产物与多屏画布：版本、批注、参考素材、设计系统、原型连接与直接编辑，可交给 AI 修改整屏或元素，并导出或分享 / Add hosted artifacts and a multi-screen canvas with versions, annotations, references, design systems, prototype links and direct editing, AI screen or element edits, export and sharing
+- 运行过程显示触发消息、打断追加和提问回答；已处理的提问卡片默认折叠为简要结果 / Show trigger messages, interruptions and question answers in run details; handled question cards collapse to concise results
+- Git 仓库切换并入分支弹窗，子仓库分支按可用空间在旁边展开 / Merge repository switching into the branch popup and expand subrepository branches beside it when space allows
+
 ## v0.4.6 — 2026-10-29
 
 - 新增「我的机器管理」，按机器分组管理 Bot，支持工作区清理、daemon 日志和版本提示；机器主人可在任意目录创建独立终端会话 / Add machine management with Bots grouped by machine, workspace cleanup, daemon logs and version notices; owners can create standalone terminal sessions in machine directories
