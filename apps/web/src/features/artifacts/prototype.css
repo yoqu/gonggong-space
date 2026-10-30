@@ -353,9 +353,6 @@
 .proto-hot--selected .proto-hot__tag {
   background: var(--accent);
 }
-.proto-pop {
-  transform-origin: 0 0;
-}
 
 /* The pencil under the device, and its request bar. */
 .proto-pencil {

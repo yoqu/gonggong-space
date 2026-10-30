@@ -1,4 +1,5 @@
 import {
+  ArtifactTransition,
   BRIDGE_MARK_RECT_MAX,
   type BridgeFromShell,
   type BridgeLinkRect,
@@ -61,7 +62,10 @@ export function linkSpots(links: unknown): BridgeLinkRect[] | undefined {
     const o = l as Record<string, unknown> | null
     if (!o || typeof o.screen !== 'string' || !isRect(o.rect)) return []
     const ggId = typeof o.ggId === 'string' && /^\d{1,9}$/.test(o.ggId) ? o.ggId : null
-    return [{ ggId, screen: o.screen, rect: o.rect }]
+    const transition = ArtifactTransition.safeParse(o.transition)
+    return [
+      { ggId, screen: o.screen, rect: o.rect, ...(transition.success && { transition: transition.data }) },
+    ]
   })
 }
 

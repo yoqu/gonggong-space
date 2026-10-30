@@ -6,7 +6,7 @@ import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { clearContext } from '../src/features/artifacts/context'
-import { GUIDE_KEY, navReducer, startNav } from '../src/features/artifacts/prototype'
+import { GUIDE_KEY, linkHost, menuPlace, navReducer, startNav } from '../src/features/artifacts/prototype'
 import { resetShares } from '../src/features/artifacts/share'
 import { loadArtifact, resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
@@ -199,6 +199,28 @@ describe('navigation', () => {
   })
 })
 
+describe('placing the element menu', () => {
+  const pop = { w: 248, h: 190 }
+  const room = { width: 1000, height: 600 }
+  const edges = { left: 236, right: 68 }
+  it('goes under the element, above it when short of room, else as low as fits', () => {
+    expect(menuPlace({ x: 400, y: 100, w: 50, h: 20 }, pop, room, edges)).toEqual({ left: 400, top: 128 })
+    expect(menuPlace({ x: 400, y: 500, w: 50, h: 20 }, pop, room, edges)).toEqual({ left: 400, top: 302 })
+    expect(menuPlace({ x: 400, y: 100, w: 50, h: 450 }, pop, room, edges).top).toBe(402)
+    expect(menuPlace({ x: 900, y: 100, w: 50, h: 20 }, pop, room, edges).left).toBe(1000 - 68 - 248)
+    expect(menuPlace({ x: 0, y: 100, w: 50, h: 20 }, pop, room, edges).left).toBe(236)
+  })
+  it('finds the smallest connected element holding a rect', () => {
+    const spots = [
+      { ggId: '1', screen: 'a', rect: { x: 0, y: 0, w: 390, h: 800 } },
+      { ggId: '2', screen: 'b', rect: { x: 0, y: 100, w: 390, h: 100 } },
+      { ggId: null, screen: 'c', rect: { x: 0, y: 120, w: 390, h: 20 } },
+    ]
+    expect(linkHost(spots, { x: 10, y: 120, w: 50, h: 20 })?.ggId).toBe('2')
+    expect(linkHost(spots.slice(1), { x: 10, y: 300, w: 50, h: 20 })).toBeNull()
+  })
+})
+
 describe('prototype editor', () => {
   it('opens on the entry screen; preview follows nav and back with transitions', async () => {
     mockApi(routes())
@@ -246,7 +268,7 @@ describe('prototype editor', () => {
     expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
   })
 
-  it('highlights hotspots on demand, and labels them connected in edit mode', async () => {
+  it('highlights hotspots by default (G19) and on demand, and labels them connected in edit mode', async () => {
     mockApi(routes())
     await openEditor()
     ready(
@@ -254,14 +276,13 @@ describe('prototype editor', () => {
       [{ ggId: '80', rect: { x: 0, y: 0, w: 40, h: 40 } }],
     )
     const hots = () => screen.getByTestId('proto-hots')
-    expect(hots().children).toHaveLength(0)
     const toggle = screen.getByRole('button', { name: '高亮热点' })
-    fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
     expect(hots().children).toHaveLength(2)
     expect((hots().children[0] as HTMLElement).style.top).toBe('300px')
     expect(within(hots()).queryByText('已连接')).toBeNull()
     fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
     expect(hots().children).toHaveLength(0)
     editMode()
     expect(within(hots()).getByText('已连接')).toBeTruthy()
@@ -345,7 +366,7 @@ describe('prototype editor', () => {
     // A linked element starts from its link and transition, and can be disconnected.
     select({ link: 'detail', transition: 'fade' })
     fireEvent.click(
-      within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', { name: /连到屏幕/ }),
+      within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', { name: /编辑连接/ }),
     )
     expect(
       within(screen.getByTestId('proto-connect')).getByRole('button', { name: '转场' }).textContent,
@@ -469,6 +490,87 @@ describe('prototype editor', () => {
     await act(() => loadArtifact('a1'))
     await screen.findByRole('region', { name: '原型编辑器' })
   })
+
+  describe('the element menu on the stage (P1-N1)', () => {
+    const sized = (width: number, height: number) => {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(height)
+    }
+    const menu = () => screen.getByRole('dialog', { name: '编辑元素' })
+    const px = (v: string) => Number.parseFloat(v)
+
+    it('opens above a tab bar at the device’s bottom, outside the device’s clip', async () => {
+      sized(1200, 900)
+      mockApi(routes())
+      await openEditor()
+      editMode()
+      select({ rect: { x: 0, y: 790, w: 390, h: 54 }, text: '我的' })
+      expect(menu().closest('[data-testid="proto-clip"]')).toBeNull()
+      expect(menu().parentElement).toBe(screen.getByTestId('proto-stage'))
+      // Mobile 390×844 in a 10px bezel, scaled to the stage's height less its 96px.
+      const scale = Math.min(1, (1200 - 520) / 410, (900 - 96) / 864)
+      const tabTop = (900 - 864 * scale) / 2 + (10 + 790) * scale
+      expect(px(menu().style.top) + 190 + 8).toBeCloseTo(tabTop)
+      expect(px(menu().style.top)).toBeGreaterThanOrEqual(8)
+      // An element high on the screen keeps its menu under it.
+      select({ rect: { x: 0, y: 100, w: 390, h: 40 } })
+      expect(px(menu().style.top)).toBeCloseTo((900 - 864 * scale) / 2 + (10 + 140) * scale + 8)
+    })
+
+    it('keeps clear of the screen list and the rail', async () => {
+      sized(700, 900)
+      mockApi(routes())
+      await openEditor()
+      editMode()
+      select({ rect: { x: 380, y: 100, w: 10, h: 20 } })
+      expect(px(menu().style.left) + 248).toBeLessThanOrEqual(700 - 68)
+      select({ rect: { x: 0, y: 100, w: 10, h: 20 } })
+      expect(px(menu().style.left)).toBeGreaterThanOrEqual(236)
+    })
+  })
+
+  it('picks the connected element a click lands in, to edit or remove its connection (G19)', async () => {
+    const calls = mockApi(routes())
+    await openEditor()
+    editMode()
+    ready([{ ggId: '200', screen: 'detail', rect: { x: 0, y: 280, w: 390, h: 120 }, transition: 'fade' }])
+    // The card's title, inside the card that links to 书籍详情.
+    select({ ggId: '201', rect: { x: 16, y: 300, w: 200, h: 20 }, tag: 'h3', text: '本周共读' })
+    const picked = within(screen.getByTestId('proto-hots')).getByText('已选中').parentElement as HTMLElement
+    expect(picked.style.top).toBe('280px')
+    expect(picked.style.height).toBe('120px')
+    const m = screen.getByRole('dialog', { name: '编辑元素' })
+    expect(within(m).queryByRole('button', { name: /连到屏幕/ })).toBeNull()
+    fireEvent.click(within(m).getByRole('button', { name: /编辑连接/ }))
+    expect(
+      within(screen.getByTestId('proto-connect')).getByRole('button', { name: '转场' }).textContent,
+    ).toMatch('淡入')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    select({ ggId: '201', rect: { x: 16, y: 300, w: 200, h: 20 }, tag: 'h3', text: '本周共读' })
+    const remove = within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', {
+      name: /移除连接/,
+    })
+    expect(remove.className).toContain('art-pop__action--danger')
+    fireEvent.click(remove)
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [
+            { kind: 'attr', file: 'screens/home.html', ggId: '200', name: 'data-gg-link', value: null },
+            { kind: 'attr', file: 'screens/home.html', ggId: '200', name: 'data-gg-transition', value: null },
+          ],
+        },
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull())
+    // Elements outside any link connect as before.
+    select({ rect: { x: 10, y: 600, w: 100, h: 20 } })
+    expect(
+      within(screen.getByRole('dialog', { name: '编辑元素' })).getByRole('button', { name: /连到屏幕/ }),
+    ).toBeTruthy()
+  })
 })
 
 describe('export', () => {
@@ -487,6 +589,8 @@ describe('export', () => {
     const panel = screen.getByTestId('art-export')
     // Nothing selected: the whole artifact.
     expect(panel.textContent).toMatch('未选择屏幕时导出整个产物（全部 3 个屏幕）')
+    // The zip plays from file:// (P2-13): no server needed.
+    expect(panel.textContent).toMatch('解压后双击 index.html 即可演示')
     // The panel's primary button is the last 导出.
     const primary = screen.getAllByRole('button', { name: '导出' }).at(-1) as HTMLElement
     fireEvent.click(primary)
@@ -503,6 +607,8 @@ describe('export', () => {
     expect(screen.getByTestId('art-export').textContent).toMatch('所选的 1 个屏幕')
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('<!-- screens/home.html -->\n<h1>首页</h1>'))
+    // Said over the canvas, like the canvas's own copies (P2-18).
+    expect((await screen.findByTestId('art-notice')).textContent).toBe('已复制 1 个屏幕的代码')
 
     fireEvent.click(screen.getByRole('radio', { name: '项目简报' }))
     fireEvent.click(screen.getByRole('button', { name: '生成项目简报' }))
@@ -515,6 +621,8 @@ describe('export', () => {
     fireEvent.click(screen.getByRole('radio', { name: '分享链接' }))
     fireEvent.click(screen.getByRole('button', { name: '开启并复制链接' }))
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(ON.url))
+    await waitFor(() => expect(screen.getByTestId('art-notice').textContent).toBe('链接已复制'))
+    expect(useToasts.getState().items.map((i) => i.message)).not.toContain('链接已复制')
     expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([{ enabled: true }])
   })
 })

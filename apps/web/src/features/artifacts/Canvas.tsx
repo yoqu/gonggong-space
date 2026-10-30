@@ -53,6 +53,7 @@ import {
   createAnnotation,
   deleteAnnotation,
   handedTo,
+  type Notify,
   offlineHint,
   REF_ACCEPT,
   refUpload,
@@ -259,7 +260,7 @@ export interface CanvasProps {
   /** The shown version's DESIGN.md; null when it has none. */
   designMd: string | null
   /** The design-system panel (DesignSystemPanel.tsx) on `tab`; `close` hides it. */
-  designPanel: (close: () => void, tab?: DesignTab) => ReactNode
+  designPanel: (close: () => void, tab: DesignTab, notify: Notify) => ReactNode
   /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
   guardDesign: (proceed: () => void) => void
   /** The artifact's versions, to name the ones with open annotations. */
@@ -776,7 +777,7 @@ export function Canvas({
         ops.push({ kind: 'ref', uploadId, title: f.title })
       }
       await onEdit(ops)
-      toast({ type: 'success', message: t('已上传 {n} 个文件到画布', { n: ops.length }) })
+      say(t('已上传 {n} 个文件到画布', { n: ops.length }))
     })
     setUploading(false)
   }
@@ -1257,9 +1258,10 @@ export function Canvas({
         onClose={() => setPanel(null)}
       />
     ) : panel === 'design' ? (
-      designPanel(() => setPanel(null), designTab)
+      designPanel(() => setPanel(null), designTab, say)
     ) : panel === 'export' ? (
       <ExportPanel
+        notify={say}
         artifactId={artifactId}
         versionId={versionKey}
         screens={screens}

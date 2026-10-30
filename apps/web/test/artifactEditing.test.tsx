@@ -216,6 +216,41 @@ describe('direct edit (E)', () => {
     expect(popover()).toBeTruthy()
   })
 
+  it('keeps the popover inside the free canvas at every step of a pan, or hides it (T07)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+    mockApi(routes())
+    await renderTab()
+    key('e')
+    select()
+    const inside = () => {
+      const pop = screen.queryByRole('dialog', { name: '编辑元素' })
+      if (!pop) return 'hidden'
+      const left = Number.parseFloat(pop.style.left)
+      const top = Number.parseFloat(pop.style.top)
+      // Clear of the tools (64px) at the right, under the selection toolbar (56px), and above the bottom edge.
+      expect(left).toBeGreaterThanOrEqual(12)
+      expect(left + 272).toBeLessThanOrEqual(900 - 64)
+      expect(top).toBeGreaterThanOrEqual(56)
+      expect(top).toBeLessThanOrEqual(700 - 240)
+      return 'shown'
+    }
+    const seen = new Set<string>()
+    for (const [dir, n] of [
+      ['ArrowLeft', 8],
+      ['ArrowRight', 16],
+      ['ArrowLeft', 8],
+      ['ArrowUp', 8],
+      ['ArrowDown', 16],
+    ] as const)
+      for (let i = 0; i < n; i++) {
+        key(dir, { shiftKey: true })
+        seen.add(inside())
+      }
+    // The walk took it both off screen and back.
+    expect([...seen].sort()).toEqual(['hidden', 'shown'])
+  })
+
   it('edits the text of a text-only element in place: one text op', async () => {
     const calls = mockApi(routes())
     await renderTab()

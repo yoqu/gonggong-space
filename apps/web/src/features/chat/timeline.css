@@ -397,7 +397,9 @@
 }
 .run-card__tags {
   gap: var(--space-8) var(--space-12);
-  max-width: 560px;
+  /* The column's width, not the facts' unwrapped one: a long artifact line shrinks and cuts its text short. */
+  min-width: 0;
+  max-width: min(560px, 100%);
 }
 .run-card__tags .run-card__session {
   font-size: inherit;

@@ -8,7 +8,7 @@ import type {
   GgArtifactManifest,
   Rect,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useReducer, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import {
@@ -38,6 +38,8 @@ import {
   disconnectOps,
   enterClass,
   GUIDE_KEY,
+  linkHost,
+  menuPlace,
   navReducer,
   PROTO_DEVICES,
   type ProtoDevice,
@@ -75,6 +77,14 @@ const CHANGE_ROOM = 200
 export const CONNECT_ROOM = 380
 /** The popover's width on screen. */
 const MENU_W = 248
+/** The popover's height before it is measured (its four actions). */
+const MENU_H = 190
+/** What the screen list takes of the stage's left edge (prototype.css `.proto-screens`: 12 + 212 + 12). */
+const LIST_ROOM = 236
+/** What the rail takes of the stage's right edge (its 44px, 12px off the edge, and a gap). */
+const RAIL_ROOM = 68
+/** The stage's margin where nothing sits. */
+const EDGE = 12
 /** A thumbnail's width in the screen list (px). */
 const THUMB_W = 188
 
@@ -120,7 +130,7 @@ export function PrototypeEditor({
   const [device, setDevice] = useState<ProtoDevice>(manifest.device === 'desktop' ? 'desktop' : 'mobile')
   const [listOpen, setListOpen] = useState(true)
   const [reload, setReload] = useState(0)
-  const [hotspots, setHotspots] = useState(false)
+  const [hotspots, setHotspots] = useState(true)
   const [qr, setQr] = useState(false)
   /** Each screen's latest `scroll` (0, 0 before any): the frame scrolls itself, the overlays follow. */
   const [scrolls, setScrolls] = useState<Record<string, { x: number; y: number }>>({})
@@ -193,7 +203,21 @@ export function PrototypeEditor({
     } else if (m.type === 'select' && edit && cur) {
       const at = scrolls[m.file] ?? NO_SCROLL
       const rect = { ...m.rect, x: m.rect.x + at.x, y: m.rect.y + at.y }
-      setElement({ ...m, rect, screenId: cur.id, screenTitle: cur.title })
+      // A click inside a connected element (a card's title) picks the connection.
+      const host = m.link ? null : linkHost(spots[m.file] ?? [], rect)
+      setElement({
+        ...m,
+        ...(host && {
+          ggId: host.ggId,
+          rect: host.rect,
+          link: host.screen,
+          transition: host.transition ?? null,
+          textOnly: false,
+        }),
+        ...(!host && { rect }),
+        screenId: cur.id,
+        screenTitle: cur.title,
+      })
       setMenu(true)
       setConnect(false)
     }
@@ -218,6 +242,14 @@ export function PrototypeEditor({
         ),
       )
     : 1
+  /** A screen rect (in its viewport) on the stage: the device box sits centred between the stage's paddings. */
+  const onStage = (r: Rect): Rect => {
+    const padLeft = connecting ? side : 0
+    const padRight = connecting ? right : 0
+    const x = padLeft + (room.width - padLeft - padRight - (size.w + BEZEL * 2) * scale) / 2
+    const y = (room.height - (change ? CHANGE_ROOM : 0) - (size.h + BEZEL * 2) * scale) / 2
+    return { x: x + (BEZEL + r.x) * scale, y: y + (BEZEL + r.y) * scale, w: r.w * scale, h: r.h * scale }
+  }
   const src = (file: string) => (preview ? openUrl(preview.previewId, `/${file}`) : undefined)
   const titleOf = (id: string) => screens.find((s) => s.id === id)?.title ?? id
   const fileSpots = spots[cur.file] ?? []
@@ -412,44 +444,49 @@ export function PrototypeEditor({
                         <Hot rect={inView(element.rect)} tag={t('已选中')} selected />
                       ) : null}
                     </div>
-                    {edit && element && menu ? (
-                      <ElementMenu
-                        el={{ ...element, rect: inView(element.rect) }}
-                        scale={scale}
-                        width={size.w}
-                        readOnly={readOnly}
-                        bots={bots}
-                        bot={bot}
-                        onPickBot={pickBot}
-                        onConnect={() => {
-                          setMenu(false)
-                          setConnect(true)
-                        }}
-                        onText={(text) =>
-                          located
-                            ? saveEdits(onEdit, [{ kind: 'text', ...located, text }])
-                            : Promise.resolve(false)
-                        }
-                        onAi={(text) =>
-                          askBot((b) =>
-                            located
-                              ? sendCommand(
-                                  artifactId,
-                                  { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
-                                  b,
-                                )
-                              : Promise.resolve(false),
-                          )
-                        }
-                        onImagine={newScreen}
-                        onClose={dropElement}
-                      />
-                    ) : null}
                   </div>
                 </div>
               </div>
             </div>
           </div>
+          {/* On the stage, outside the device's clip: a tab bar's menu opens above it, whole. */}
+          {edit && element && menu ? (
+            <ElementMenu
+              el={element}
+              anchor={onStage(inView(element.rect))}
+              room={room}
+              edges={{ left: listOpen ? LIST_ROOM : EDGE, right: RAIL_ROOM }}
+              readOnly={readOnly}
+              bots={bots}
+              bot={bot}
+              onPickBot={pickBot}
+              onConnect={() => {
+                setMenu(false)
+                setConnect(true)
+              }}
+              onText={(text) =>
+                located ? saveEdits(onEdit, [{ kind: 'text', ...located, text }]) : Promise.resolve(false)
+              }
+              onAi={(text) =>
+                askBot((b) =>
+                  located
+                    ? sendCommand(
+                        artifactId,
+                        { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
+                        b,
+                      )
+                    : Promise.resolve(false),
+                )
+              }
+              onImagine={newScreen}
+              onDisconnect={() =>
+                located
+                  ? saveEdits(onEdit, disconnectOps({ ...located, transition: element.transition }))
+                  : Promise.resolve(false)
+              }
+              onClose={dropElement}
+            />
+          ) : null}
           {change ? (
             <ChangeBar
               beside={connecting}
@@ -721,8 +758,9 @@ function ChangeBar({
 /** Edit mode's element menu (Stitch: Connect to screen, Edit text, Change with AI, Imagine new screen). */
 function ElementMenu({
   el,
-  scale,
-  width,
+  anchor,
+  room,
+  edges,
   readOnly,
   bots,
   bot,
@@ -731,11 +769,15 @@ function ElementMenu({
   onText,
   onAi,
   onImagine,
+  onDisconnect,
   onClose,
 }: {
   el: PickedElement
-  scale: number
-  width: number
+  /** The element on the stage. */
+  anchor: Rect
+  room: { width: number; height: number }
+  /** What the screen list and the rail take of the stage's sides. */
+  edges: { left: number; right: number }
   readOnly: boolean
   bots: BotDto[]
   bot: BotDto | null
@@ -744,8 +786,16 @@ function ElementMenu({
   onText: (text: string) => Promise<boolean>
   onAi: (text: string) => Promise<boolean>
   onImagine: (text: string) => Promise<boolean>
+  onDisconnect: () => Promise<boolean>
   onClose: () => void
 }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(MENU_H)
+  // Each step (the actions, a form) has its own height: placed by the one it has now.
+  useLayoutEffect(() => {
+    const h = box.current?.offsetHeight
+    if (h && h !== height) setHeight(h)
+  })
   const [step, setStep] = useState<'menu' | 'text' | 'ai' | 'imagine'>('menu')
   const [text, setText] = useState(el.text)
   const [busy, setBusy] = useState(false)
@@ -754,10 +804,7 @@ function ElementMenu({
   const noBot = bot ? undefined : t('群里没有 Bot')
   const offline = offlineHint(bot) ?? undefined
   const ro = readOnly ? t('AI 正在修改') : undefined
-  // Inside the scaled screen, scaled back to its real size.
-  const span = MENU_W / scale
-  const left = Math.max(8, Math.min(el.rect.x, width - span - 8))
-  const top = el.rect.y + el.rect.h + 8
+  const at = menuPlace(anchor, { w: MENU_W, h: height }, room, edges)
   /** `hint` says why it is off; `note` (an offline bot) only informs. */
   const action = (
     icon: IconName,
@@ -765,10 +812,11 @@ function ElementMenu({
     hint: string | undefined,
     onClick: () => void,
     note?: string,
+    danger?: boolean,
   ) => (
     <button
       type="button"
-      className="art-pop__action"
+      className={cx('art-pop__action', danger && 'art-pop__action--danger')}
       disabled={!!hint}
       title={hint ?? note}
       onClick={onClick}
@@ -780,10 +828,11 @@ function ElementMenu({
   )
   return (
     <div
+      ref={box}
       className="art-pop proto-pop"
       role="dialog"
       aria-label={t('编辑元素')}
-      style={{ left, top, width: MENU_W, transform: `scale(${1 / scale})` }}
+      style={{ ...at, width: MENU_W }}
       onKeyDown={(e) => {
         e.stopPropagation()
         if (e.key === 'Escape') onClose()
@@ -795,7 +844,7 @@ function ElementMenu({
       </header>
       {step === 'menu' ? (
         <div className="art-pop__actions">
-          {action('link', t('连到屏幕'), ro ?? noSource, onConnect)}
+          {action('link', el.link ? t('编辑连接') : t('连到屏幕'), ro ?? noSource, onConnect)}
           {action(
             'textformat',
             t('编辑文字'),
@@ -804,6 +853,21 @@ function ElementMenu({
           )}
           {action('sparkle', t('用 AI 修改'), noSource ?? noBot, () => setStep('ai'), offline)}
           {action('plus', t('构想新屏'), noSource ?? noBot, () => setStep('imagine'), offline)}
+          {el.link
+            ? action(
+                'xmark-circle',
+                t('移除连接'),
+                ro ?? noSource,
+                async () => {
+                  setBusy(true)
+                  const ok = await onDisconnect()
+                  setBusy(false)
+                  if (ok) onClose()
+                },
+                undefined,
+                true,
+              )
+            : null}
         </div>
       ) : step === 'text' ? (
         <form
