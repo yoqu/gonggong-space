@@ -88,7 +88,7 @@ test('the built-in plugin is installed at startup; a group turns it on, creates 
       })
 
       await test.step('a bot proposes a creation from the chat and a member starts it', async () => {
-        const args = { plugin: 'web-prototype', template: 'saas', inputs: { title: '共工二版' } }
+        const args = { plugin: 'web-prototype', template: 'app-screens', inputs: { title: '共工二版' } }
         await page
           .getByPlaceholder(composer)
           .fill(`@${botName} mock:tool creation_propose ${JSON.stringify(args)}`)

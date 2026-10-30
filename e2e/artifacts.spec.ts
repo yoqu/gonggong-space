@@ -73,7 +73,8 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await expect(card.getByText('v1')).toBeVisible({ timeout: 90_000 })
         await expect(card).toContainText('就绪')
         await expect(card).not.toContainText('规范问题')
-        expect((await replies()).at(-1)).toContain('before: none')
+        // The version can land before the turn's reply does.
+        await expect.poll(async () => (await replies()).at(-1), { timeout: 30_000 }).toContain('before: none')
         // The daemon screenshots the shell after the upload; the card shows it once it lands.
         const shot = card.getByRole('img', { name: 'e2e 原型 缩略图' })
         await expect(shot).toBeVisible({ timeout: 60_000 })
@@ -100,7 +101,9 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
       await test.step('a second turn starts from v1 and its change becomes v2', async () => {
         await say(`mock:sh ${WRITE} 首页第二版`)
         await expect(card.getByText('v2')).toBeVisible({ timeout: 90_000 })
-        expect((await replies()).at(-1)).toContain('before: 首页第一版')
+        await expect
+          .poll(async () => (await replies()).at(-1), { timeout: 30_000 })
+          .toContain('before: 首页第一版')
         await expect(screen(page, 'home').getByRole('heading', { name: '首页第二版' })).toBeVisible({
           timeout: 30_000,
         })
@@ -137,7 +140,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await pop.getByRole('button', { name: '保存' }).click()
         await expect(pop).toBeHidden()
         await expect(card.getByText('v3')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('button', { name: '版本' })).toHaveText(/v3/)
+        await expect(page.getByRole('button', { name: '版本', exact: true })).toHaveText(/v3/)
         await expect(screen(page, 'home').getByRole('heading', { name: '首页直接改' })).toBeVisible({
           timeout: 30_000,
         })
