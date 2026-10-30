@@ -1,8 +1,9 @@
 //! Hosted artifacts on the daemon side (docs/plan/产物托管与编辑-开发计划.md §3.2, slice D): the server holds each
 //! `design/<slug>/` folder as versions. Before a turn, changes made here since the version last known (offline, a failed
 //! upload, a hand edit) go up first, and only then is the head checked out: a folder whose changes could not go up is
-//! left as it is. After the turn the folder goes up as a new version, with a first-screen thumbnail and one PNG per
-//! screen of its gg-artifact.json (the canvas copies those as images).
+//! left as it is. After the turn the folder goes up as a new version, with one PNG per screen of its gg-artifact.json
+//! (the canvas copies those as images), the entry screen's also as the thumbnail. A version made elsewhere (a canvas
+//! edit) is screenshot on artifact.snapshot from a temporary copy.
 //! Each (artifact, folder) keeps its state in `<home>/artifacts/<id>/<folder key>/state.json`, never in the workspace:
 //! the version it last matched with that version's files, the stat cache, the submit on its way (resent with the same
 //! key until answered) and the version being written (a checkout a crash cut off is finished, not taken for edits).
@@ -63,6 +64,14 @@ impl From<std::io::Error> for Failure {
     }
 }
 
+/// Whose routes a request goes through: a run that was sent the artifact, or the machine of the artifact's bot
+/// (artifact.snapshot, outside any run).
+#[derive(Clone, Copy)]
+enum Scope<'a> {
+    Run(&'a str),
+    Machine,
+}
+
 /// `/api/daemon/…` artifact routes over the machine token.
 struct Client {
     http: reqwest::Client,
@@ -77,7 +86,14 @@ impl Client {
     }
 
     fn run_url(&self, run: &str, id: &str, rest: &str) -> String {
-        format!("{}/api/daemon/runs/{run}/artifacts/{id}/{rest}", self.server)
+        self.url(Scope::Run(run), id, rest)
+    }
+
+    fn url(&self, scope: Scope, id: &str, rest: &str) -> String {
+        match scope {
+            Scope::Run(run) => format!("{}/api/daemon/runs/{run}/artifacts/{id}/{rest}", self.server),
+            Scope::Machine => format!("{}/api/daemon/artifacts/{id}/{rest}", self.server),
+        }
     }
 
     async fn send(&self, req: reqwest::RequestBuilder, timeout: Duration) -> Result<reqwest::Response, Failure> {
@@ -122,8 +138,8 @@ impl Client {
         self.send(req, transfer(len)).await.map(drop)
     }
 
-    async fn download_to(&self, run: &str, id: &str, hash: &str, size: u64, to: &Path) -> Result<(), Failure> {
-        let req = self.http.get(self.run_url(run, id, &format!("blobs/{hash}")));
+    async fn download_to(&self, scope: Scope<'_>, id: &str, hash: &str, size: u64, to: &Path) -> Result<(), Failure> {
+        let req = self.http.get(self.url(scope, id, &format!("blobs/{hash}")));
         let mut body = self.send(req, transfer(size)).await?.bytes_stream();
         let mut file = tokio::fs::File::create(to).await?;
         while let Some(chunk) = body.next().await {
@@ -137,19 +153,26 @@ impl Client {
         Ok(self.send(req, META_TIMEOUT).await?.json().await?)
     }
 
-    async fn thumbnail(&self, run: &str, id: &str, version: &str, png: Vec<u8>) -> Result<(), Failure> {
+    async fn thumbnail(&self, scope: Scope<'_>, id: &str, version: &str, png: Vec<u8>) -> Result<(), Failure> {
         let req = self
             .http
-            .put(self.run_url(run, id, &format!("versions/{version}/thumbnail")))
+            .put(self.url(scope, id, &format!("versions/{version}/thumbnail")))
             .header(reqwest::header::CONTENT_TYPE, "image/png")
             .body(png);
         self.send(req, META_TIMEOUT).await.map(drop)
     }
 
-    async fn screen_thumbnail(&self, run: &str, id: &str, version: &str, screen: &str, png: Vec<u8>) -> Result<(), Failure> {
+    async fn screen_thumbnail(
+        &self,
+        scope: Scope<'_>,
+        id: &str,
+        version: &str,
+        screen: &str,
+        png: Vec<u8>,
+    ) -> Result<(), Failure> {
         let req = self
             .http
-            .put(self.run_url(run, id, &format!("versions/{version}/screens/{screen}/thumbnail")))
+            .put(self.url(scope, id, &format!("versions/{version}/screens/{screen}/thumbnail")))
             .header(reqwest::header::CONTENT_TYPE, "image/png")
             .body(png);
         self.send(req, META_TIMEOUT).await.map(drop)
@@ -363,8 +386,8 @@ impl Artifacts {
         self.submit(run, &f, &mut state, &local, ArtifactSubmitSource::Run).await.map(Some)
     }
 
-    /// Screenshots the folder's shell (the canvas view) and uploads it as `version`'s thumbnail, then each screen of
-    /// its manifest in the device's window; false when the machine has no browser to take them with.
+    /// Screenshots each screen of the folder's manifest in its device's window and uploads them, the entry screen
+    /// also as `version`'s thumbnail (an L0 page: the page itself); false when the machine has no browser.
     pub async fn thumbnail(
         &self,
         run: &str,
@@ -374,20 +397,83 @@ impl Artifacts {
         kit: Option<&Path>,
     ) -> Result<bool, String> {
         let f = Folder::new(&self.home, cwd, r)?;
-        let (port, server) = serve_shell(&f.dir, kit).await.map_err(|e| e.to_string())?;
-        let result = self.shoot(run, &f, port, version).await;
+        self.shoot_dir(Scope::Run(run), &f.id, &f.dir, version, kit).await
+    }
+
+    /// artifact.snapshot: a version this machine did not make (a canvas edit), fetched into a temporary folder and
+    /// screenshot there like a run's. One at a time: each screen starts a browser.
+    pub async fn snapshot(&self, id: &str, version: &str, kit: Option<&Path>) -> Result<bool, String> {
+        static ONE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(1);
+        let _turn = ONE.acquire().await.map_err(|e| e.to_string())?;
+        if id.is_empty() || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+            return Err(t!("产物目录不合法：{dir}", dir = id));
+        }
+        let m = self.client.manifest(id, version).await.map_err(|e| e.message)?;
+        if m.version_id != version {
+            return Err(t!("产物版本清单不匹配：{version}", version = version));
+        }
+        within_limits(&m.files)?;
+        let tmp = std::env::temp_dir().join(format!("gg-artifact-{}", uuid::Uuid::new_v4()));
+        let err = |e: std::io::Error| -> String { t!("无法检出产物 {dir}：{e}", dir = id, e = e) };
+        std::fs::create_dir_all(&tmp).map_err(err)?;
+        let result = async {
+            for file in &m.files {
+                check_file(&tmp, file)?;
+            }
+            stream::iter(m.files.iter().map(Ok))
+                .try_for_each_concurrent(TRANSFERS, |w| {
+                    let to = tmp.join(&w.path);
+                    async move {
+                        std::fs::create_dir_all(to.parent().expect("has a parent")).map_err(err)?;
+                        let scope = Scope::Machine;
+                        self.client.download_to(scope, id, &w.hash, w.size, &to).await.map_err(|e| e.message)?;
+                        if hash_file(&to).map_err(err)? != w.hash {
+                            return Err(t!("下载内容校验失败：{hash}", hash = w.hash));
+                        }
+                        Ok::<_, String>(())
+                    }
+                })
+                .await?;
+            self.shoot_dir(Scope::Machine, id, &tmp, version, kit).await
+        }
+        .await;
+        let _ = std::fs::remove_dir_all(&tmp);
+        result
+    }
+
+    async fn shoot_dir(
+        &self,
+        scope: Scope<'_>,
+        id: &str,
+        dir: &Path,
+        version: &str,
+        kit: Option<&Path>,
+    ) -> Result<bool, String> {
+        let (port, server) = serve_shell(dir, kit).await.map_err(|e| e.to_string())?;
+        let result = self.shoot(scope, id, dir, port, version).await;
         server.abort();
         result
     }
 
-    async fn shoot(&self, run: &str, f: &Folder, port: u16, version: &str) -> Result<bool, String> {
-        let shot = snapshot::capture(port, "/").await;
-        let Some(png) = shot.map_err(|e| format!("{e:#}"))? else { return Ok(false) };
-        self.client.thumbnail(run, &f.id, version, png).await.map_err(|e| e.message)?;
-        for s in screen_shots(&f.dir) {
+    async fn shoot(&self, scope: Scope<'_>, id: &str, dir: &Path, port: u16, version: &str) -> Result<bool, String> {
+        let mut shots = screen_shots(dir);
+        if shots.is_empty() {
+            let shot = snapshot::capture(port, "/").await;
+            let Some(png) = shot.map_err(|e| format!("{e:#}"))? else { return Ok(false) };
+            self.client.thumbnail(scope, id, version, png).await.map_err(|e| e.message)?;
+            return Ok(true);
+        }
+        // The card shows the entry screen, so it goes first.
+        let entry = shots.iter().position(|s| s.entry).unwrap_or(0);
+        let first = shots.remove(entry);
+        shots.insert(0, first);
+        for (i, s) in shots.iter().enumerate() {
             let shot = snapshot::capture_sized(port, &format!("/{}", s.file), s.window).await;
             let Some(png) = shot.map_err(|e| format!("{e:#}"))? else { return Ok(false) };
-            self.client.screen_thumbnail(run, &f.id, version, &s.id, png).await.map_err(|e| e.message)?;
+            if i == 0 {
+                self.client.thumbnail(scope, id, version, png.clone()).await.map_err(|e| e.message)?;
+            }
+            self.client.screen_thumbnail(scope, id, version, &s.id, png).await.map_err(|e| e.message)?;
         }
         Ok(true)
     }
@@ -463,11 +549,7 @@ impl Artifacts {
         }
         within_limits(&m.files)?;
         for file in &m.files {
-            let hidden = file.path.split('/').any(|s| s.starts_with('.') || s == "node_modules");
-            if hidden || file.hash.len() != 64 || !file.hash.bytes().all(|b| b.is_ascii_hexdigit()) {
-                return Err(t!("产物版本含有不安全的路径，已拒绝：{path}", path = file.path));
-            }
-            safe_path(&f.dir, &file.path)?;
+            check_file(&f.dir, file)?;
         }
         let head: Files = m.files.iter().map(|f| (f.path.clone(), f.hash.clone())).collect();
         let writes: Vec<(usize, &ArtifactFile)> =
@@ -481,7 +563,8 @@ impl Artifacts {
                 .try_for_each_concurrent(TRANSFERS, |(i, w)| {
                     let to = staging.join(i.to_string());
                     async move {
-                        self.client.download_to(run, &f.id, &w.hash, w.size, &to).await.map_err(|e| e.message)?;
+                        let scope = Scope::Run(run);
+                        self.client.download_to(scope, &f.id, &w.hash, w.size, &to).await.map_err(|e| e.message)?;
                         if hash_file(&to).map_err(err)? != w.hash {
                             return Err(t!("下载内容校验失败：{hash}", hash = w.hash));
                         }
@@ -511,6 +594,15 @@ impl Artifacts {
         (state.version, state.files, state.applying) = (Some(version.into()), head, None);
         f.save(state)
     }
+}
+
+/// A version's file is safe to write under `dir`: no dot or node_modules segment, a plain hash, a path inside.
+fn check_file(dir: &Path, file: &ArtifactFile) -> Result<(), String> {
+    let hidden = file.path.split('/').any(|s| s.starts_with('.') || s == "node_modules");
+    if hidden || file.hash.len() != 64 || !file.hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(t!("产物版本含有不安全的路径，已拒绝：{path}", path = file.path));
+    }
+    safe_path(dir, &file.path).map(drop)
 }
 
 /// Removes the directories above `path` under `root` left empty.
@@ -556,6 +648,8 @@ pub struct ScreenShot {
     pub id: String,
     pub file: String,
     pub window: (u32, u32),
+    /// The manifest's `entry`: the card's thumbnail.
+    pub entry: bool,
 }
 
 /// The screens of `dir`'s gg-artifact.json whose id is valid and whose file exists (none for L0 or an unreadable one).
@@ -568,6 +662,8 @@ pub fn screen_shots(dir: &Path) -> Vec<ScreenShot> {
     #[derive(Deserialize)]
     struct Manifest {
         device: String,
+        #[serde(default)]
+        entry: String,
         screens: Vec<Screen>,
     }
     let Ok(text) = std::fs::read(dir.join("gg-artifact.json")) else { return vec![] };
@@ -584,7 +680,7 @@ pub fn screen_shots(dir: &Path) -> Vec<ScreenShot> {
     m.screens
         .into_iter()
         .filter(|s| kebab(&s.id) && s.file == format!("screens/{}.html", s.id) && dir.join(&s.file).is_file())
-        .map(|s| ScreenShot { id: s.id, file: s.file, window })
+        .map(|s| ScreenShot { entry: s.id == m.entry, id: s.id, file: s.file, window })
         .collect()
 }
 
@@ -740,7 +836,12 @@ mod tests {
             .to_string()
         };
         std::fs::write(dir.path().join("gg-artifact.json"), manifest("miniprogram")).unwrap();
-        let shot = |id: &str, window| ScreenShot { id: id.into(), file: format!("screens/{id}.html"), window };
+        let shot = |id: &str, window| ScreenShot {
+            id: id.into(),
+            file: format!("screens/{id}.html"),
+            window,
+            entry: id == "home",
+        };
         assert_eq!(screen_shots(dir.path()), vec![shot("home", (375, 812)), shot("detail", (375, 812))]);
         std::fs::write(dir.path().join("gg-artifact.json"), manifest("desktop")).unwrap();
         assert_eq!(screen_shots(dir.path())[0].window, (1440, 900));

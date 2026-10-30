@@ -145,15 +145,18 @@ export const ArtifactVersionDto = z.object({
   digest: SyncHash,
   thumbnailUrl: z.string().nullable(),
   /**
-   * `thumbnailUrl` is an ancestor's: a `local` version gets none of its own (it is uploaded before the turn), so it
-   * shows the latest ancestor's that has one.
+   * `thumbnailUrl` is an ancestor's: a version without one of its own yet (a `local` one is uploaded before the turn,
+   * an `edit` one waits for the bot's machine to take it) shows the nearest ancestor's that has one.
    */
   thumbnailStale: z.boolean().optional(),
   /**
    * One PNG per screen of the manifest, taken by the daemon after the version (the canvas copies them as PNG): PUT
-   * /api/daemon/runs/:runId/artifacts/:id/versions/:vid/screens/:screenId/thumbnail, read at `url`.
+   * /api/daemon/…/artifacts/:id/versions/:vid/screens/:screenId/thumbnail, read at `url`. A screen without its own
+   * shows the nearest ancestor's of the same screen, `stale`.
    */
-  screenThumbs: z.array(z.object({ screenId: ArtifactScreenId, url: z.string() })).optional(),
+  screenThumbs: z
+    .array(z.object({ screenId: ArtifactScreenId, url: z.string(), stale: z.boolean().optional() }))
+    .optional(),
   /** Its parent was not the head when it was submitted: a candidate a member adopts or hands to the AI to merge. */
   stale: z.boolean(),
   issues: z.array(LintIssue),

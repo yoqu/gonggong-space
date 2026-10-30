@@ -17,6 +17,7 @@ import { artifacts, artifactVersions, messages, plugins } from '../src/db/schema
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
+import { png } from './support/images.js'
 
 let t: TestApp
 beforeAll(() => {
@@ -38,10 +39,7 @@ const HOME = `<!doctype html>
 const FILES = { ...L1, 'screens/home.html': HOME, 'tokens.css': ':root {\n  --color-primary: #155332;\n}\n' }
 const id = (html: string, needle: string) => String(html.indexOf(needle))
 
-const PNG = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.from('pixels'),
-])
+const PNG = png()
 
 async function setup(o: { plugin?: boolean } = {}) {
   const w = await artifactWorld(t)

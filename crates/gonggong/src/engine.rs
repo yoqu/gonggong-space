@@ -857,6 +857,21 @@ impl Handler for Engine {
             }
             ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
             ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
+            ServerToDaemon::ArtifactSnapshot { artifact_id, version_id } => {
+                let Some(api) = self.0.config.api.clone() else { return };
+                let home = self.0.config.home.clone();
+                tokio::spawn(async move {
+                    let shot = match crate::artifacts::Artifacts::new(&api, &home) {
+                        Ok(a) => {
+                            a.snapshot(&artifact_id, &version_id, crate::artifacts::kit(&[], &home).as_deref()).await
+                        }
+                        Err(e) => Err(format!("{e:#}")),
+                    };
+                    if let Err(e) = shot {
+                        tracing::warn!("snapshot of artifact {artifact_id} {version_id} failed: {e}");
+                    }
+                });
+            }
             ServerToDaemon::ToolsCmd(cmd) => self.0.manage.tools(cmd, out),
             ServerToDaemon::ProvidersCmd(cmd) => self.0.manage.providers(*cmd, out),
             ServerToDaemon::CcSwitchRead { request_id } => self.0.manage.ccswitch_read(request_id, out),

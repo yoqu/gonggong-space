@@ -153,11 +153,15 @@
   const $ = (s, root = document) => root.querySelector(s)
   const fail = (text) => { $('.error').hidden = false; $('.error').textContent = text }
 
+  // An exported zip carries the manifest inline: opened from disk (file://) the shell cannot fetch it.
   let manifest
   try {
-    manifest = await (await fetch('gg-artifact.json', { cache: 'no-store' })).json()
+    const inline = document.getElementById('gg-manifest')
+    manifest = inline
+      ? JSON.parse(inline.textContent)
+      : await (await fetch('gg-artifact.json', { cache: 'no-store' })).json()
   } catch {
-    return fail('读不到 gg-artifact.json。请通过预览链接打开，不要直接双击文件。')
+    return fail('读不到 gg-artifact.json。请通过预览链接打开。')
   }
   const device = DEVICES[manifest.device] ?? DEVICES.miniprogram
   const screens = new Map(manifest.screens.map((s) => [s.id, s]))
@@ -401,7 +405,8 @@
   addEventListener('resize', () => (current === 'canvas' ? fit() : fitStage()))
 
   addEventListener('message', (e) => {
-    if (e.origin !== location.origin || e.data?.type !== 'gg:nav') return
+    const local = location.protocol === 'file:' && (e.origin === 'null' || e.origin === 'file://')
+    if ((e.origin !== location.origin && !local) || e.data?.type !== 'gg:nav') return
     if (current === 'play') {
       if (e.source !== player.iframe.contentWindow) return
       // A link without data-gg-transition pushes.

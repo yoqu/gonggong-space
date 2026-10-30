@@ -1172,6 +1172,8 @@ export const DaemonFeature = z.enum([
   'machineAdmin',
   /** Hosted artifacts: RunStart.artifacts / artifactExclude and the artifact version routes. */
   'artifacts',
+  /** artifact.snapshot: screenshots of versions the daemon did not make. */
+  'artifactSnapshot',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1891,6 +1893,17 @@ export const CastSync = z.object({ t: z.literal('cast.sync'), casts: z.array(Cas
 /** A viewer asks to try a failed live preview again now, e.g. once its window shows. */
 export const CastRetry = z.object({ t: z.literal('cast.retry'), previewId: z.string() })
 
+/**
+ * Screenshot a version of an artifact whose bot runs here but which this machine did not make (a canvas edit, a
+ * restore): the daemon fetches its files from the server into a temporary folder and uploads the thumbnail and the
+ * screen PNGs (PUT /api/daemon/artifacts/:id/versions/:vid/…), as after a run. Feature `artifactSnapshot`.
+ */
+export const ArtifactSnapshot = z.object({
+  t: z.literal('artifact.snapshot'),
+  artifactId: z.string(),
+  versionId: z.string(),
+})
+
 /** Status, install / upgrade (answered by tools.progress lines then tools.result) or mirror settings. */
 export const ToolsCmd = z.object({
   t: z.literal('tools.cmd'),
@@ -1998,6 +2011,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   PreviewsSync,
   CastSync,
   CastRetry,
+  ArtifactSnapshot,
   ToolsCmd,
   ProvidersCmd,
   CcSwitchRead,

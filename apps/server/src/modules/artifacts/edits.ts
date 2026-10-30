@@ -20,6 +20,7 @@ import { artifacts } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { type ElementEdit, editHtml, editToken } from './html.js'
+import { readableImage } from './images.js'
 import { designSystemFiles } from './kit.js'
 import { parseManifest } from './lint.js'
 import { type Artifact, isRunning, requireVersion, submitVersion } from './service.js'
@@ -68,6 +69,7 @@ export async function uploadFile(
   const max = ext === 'pdf' ? ARTIFACT_UPLOAD_PDF_MAX_BYTES : ARTIFACT_UPLOAD_MAX_BYTES
   if (body.length > max) return fail('invalid', '文件不能超过 {mb} MB', { mb: max / 1024 / 1024 })
   if (!SIGNATURES[ext]?.(body)) return fail('invalid', '文件内容与类型不符')
+  if (!readableImage(ext, body)) return fail('invalid', '图片无法读取，文件可能已损坏')
   const hash = sha256(body)
   if ((await artifactBlobs.touch(a.groupId, hash)) === null)
     await artifactBlobs.write(a.groupId, hash, Readable.from([body]), false)

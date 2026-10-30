@@ -84,6 +84,12 @@ async function elementLabel(source: ReturnType<typeof sources>, file: string, gg
   return el ? cut(textOf(el)) || `<${el.tagName}>` : `#${ggId}`
 }
 
+/** One per element (`file#ggId`), the first kept: several annotations on one element name it once. */
+const uniqueElements = <T extends ArtifactElementRef>(list: T[]) => {
+  const seen = new Set<string>()
+  return list.filter((e) => !seen.has(`${e.file}#${e.ggId}`) && !!seen.add(`${e.file}#${e.ggId}`))
+}
+
 type Selection = {
   screenIds: string[]
   elements: (ArtifactElementRef & { label?: string })[]
@@ -102,7 +108,7 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   const elements: MessageCanvas['elements'] = []
   if (sel.elements.length) {
     lines.push('选中的元素：')
-    for (const e of sel.elements) {
+    for (const e of uniqueElements(sel.elements)) {
       lines.push(`- ${await elementLine(source, e.file, e.ggId)}${e.label ? `（${e.label}）` : ''}`)
       elements.push({
         file: e.file,
@@ -304,8 +310,8 @@ export async function sendAnnotations(
       id,
       title: m?.screens.find((x) => x.id === id)?.title ?? id,
     })),
-    elements: rows.flatMap((n) =>
-      n.ggId === null ? [] : [{ file: n.file, ggId: n.ggId, label: cut(n.note) }],
+    elements: uniqueElements(
+      rows.flatMap((n) => (n.ggId === null ? [] : [{ file: n.file, ggId: n.ggId, label: cut(n.note) }])),
     ),
   }
   const dto = await postAsMember(ctx, me, a, r.botId, {

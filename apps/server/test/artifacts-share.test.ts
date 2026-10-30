@@ -60,7 +60,7 @@ describe('artifact export', () => {
       await s.submit(
         s.firstRun.id,
         s.a.id,
-        { ...s.files, 'screens/home.html': '<p>v2</p>' },
+        { ...s.files, 'screens/home.html': '<img src="../assets/a.png"><p>v2</p>', 'assets/old.png': 'old' },
         { parent: s.v1.versionId },
       )
     ).json() as ArtifactSubmitRes
@@ -84,12 +84,16 @@ describe('artifact export', () => {
         'tokens.css',
       ].map((p) => `${slug}/${p}`),
     )
-    expect(text('screens/home.html')).toBe('<p>v2</p>')
+    expect(text('screens/home.html')).toBe('<img src="../assets/a.png"><p>v2</p>')
     expect(text('screens/done.html')).toBe(L1['screens/done.html'])
     expect(text('assets/a.png')).toBe('png-bytes')
-    expect(text('index.html')).toBe(readFileSync(join(KIT, 'index.html'), 'utf8'))
+    // The manifest inline ahead of the shell's script: a double-click (file://) opens it without fetching.
+    const shell = readFileSync(join(KIT, 'index.html'), 'utf8')
+    const inline = `<script type="application/json" id="gg-manifest">${L1['gg-artifact.json']}</script>\n`
+    const at = shell.indexOf('<script')
+    expect(text('index.html')).toBe(shell.slice(0, at) + inline + shell.slice(at))
     expect(text('_gg/gg-kit.js')).toBe(readFileSync(join(KIT, 'gg-kit.js'), 'utf8'))
-    expect(text('README.txt')).toContain('npx serve')
+    expect(text('README.txt')).toContain('双击 index.html')
 
     const old = await s.req(
       'GET',

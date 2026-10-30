@@ -19,6 +19,7 @@ import { artifacts, messages, runs } from '../src/db/schema.js'
 import type { MessageMeta } from '../src/modules/messages/service.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
+import { png } from './support/images.js'
 
 let t: TestApp
 beforeAll(() => {
@@ -39,7 +40,7 @@ const HOME = `<!doctype html>
 `
 const H1 = String(HOME.indexOf('<h1'))
 const P = String(HOME.indexOf('<p>'))
-const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('px')])
+const PNG = png()
 const PDF = Buffer.from('%PDF-1.7\n需求文档')
 
 async function setup(files: Record<string, string> = { ...L1, 'screens/home.html': HOME }) {

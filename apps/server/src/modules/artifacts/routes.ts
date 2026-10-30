@@ -63,6 +63,7 @@ import {
   versionDetail,
 } from './service.js'
 import { openArtifactPreview, setShare, shareState } from './share.js'
+import { snapshotPending } from './snapshots.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
@@ -84,6 +85,32 @@ async function requireRunArtifact(ctx: Ctx, req: RunArtifactReq) {
   if (!a || a.groupId !== row.run.groupId || !row.run.artifacts.includes(a.id))
     return fail('forbidden', '本轮没有下发这个产物')
   return { run: row.run, a }
+}
+
+/** The artifact's bot runs on this machine, or a run of a bot on it was sent the artifact. */
+async function requireMachineArtifact(ctx: Ctx, req: FastifyRequest<{ Params: { id: string } }>) {
+  const machine = await requireMachine(ctx, req)
+  const a = (await findArtifact(ctx.db, req.params.id)) ?? fail('not_found', '产物不存在')
+  const [own] = a.botId
+    ? await ctx.db
+        .select({ id: bots.id })
+        .from(bots)
+        .where(and(eq(bots.id, a.botId), eq(bots.machineId, machine.id)))
+    : []
+  if (own) return a
+  const [sent] = await ctx.db
+    .select({ id: runs.id })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(
+      and(
+        eq(bots.machineId, machine.id),
+        eq(runs.groupId, a.groupId),
+        sql`${runs.artifacts} @> ${JSON.stringify([a.id])}::jsonb`,
+      ),
+    )
+    .limit(1)
+  return sent ? a : fail('forbidden', '本轮没有下发这个产物')
 }
 
 const hashParam = (hash: string | undefined) => {
@@ -164,25 +191,24 @@ export function artifactRoutes(ctx: Ctx) {
       (_req, payload, done) => done(null, payload),
     )
 
+    const pending = new Set<Promise<unknown>>()
+    const onMachine = (machineId: string) => {
+      const p = snapshotPending(ctx, eq(bots.machineId, machineId))
+        .catch((err) => app.log.error(err))
+        .finally(() => pending.delete(p))
+      pending.add(p)
+    }
+    ctx.hub.on('online', onMachine)
+    app.addHook('onClose', async () => {
+      ctx.hub.off('online', onMachine)
+      await Promise.all(pending)
+    })
+
     // ── daemon (machine token) ──
     app.get<{ Params: { id: string; vid: string } }>(
       '/api/daemon/artifacts/:id/versions/:vid',
       async (req): Promise<ArtifactManifestRes> => {
-        const machine = await requireMachine(ctx, req)
-        const a = (await findArtifact(ctx.db, req.params.id)) ?? fail('not_found', '产物不存在')
-        const [sent] = await ctx.db
-          .select({ id: runs.id })
-          .from(runs)
-          .innerJoin(bots, eq(bots.id, runs.botId))
-          .where(
-            and(
-              eq(bots.machineId, machine.id),
-              eq(runs.groupId, a.groupId),
-              sql`${runs.artifacts} @> ${JSON.stringify([a.id])}::jsonb`,
-            ),
-          )
-          .limit(1)
-        if (!sent) return fail('forbidden', '本轮没有下发这个产物')
+        const a = await requireMachineArtifact(ctx, req)
         const v = await requireVersion(ctx.db, a, req.params.vid)
         return { versionId: v.id, files: v.files }
       },
@@ -204,14 +230,19 @@ export function artifactRoutes(ctx: Ctx) {
       return reply.status(204).send()
     })
 
-    app.get('/api/daemon/runs/:runId/artifacts/:id/blobs/:hash', async (req: RunArtifactReq, reply) => {
-      const { a } = await requireRunArtifact(ctx, req)
-      const hash = hashParam(req.params.hash)
-      if (!(await referenced(ctx, a, hash))) return fail('not_found', '文件内容不存在')
-      return reply
-        .header('content-type', SYNC_BLOB_CONTENT_TYPE)
-        .send(await artifactBlobs.open(a.groupId, hash))
-    })
+    const sendBlob = async (a: Artifact, hash: string | undefined, reply: FastifyReply) => {
+      const h = hashParam(hash)
+      if (!(await referenced(ctx, a, h))) return fail('not_found', '文件内容不存在')
+      return reply.header('content-type', SYNC_BLOB_CONTENT_TYPE).send(await artifactBlobs.open(a.groupId, h))
+    }
+    app.get('/api/daemon/runs/:runId/artifacts/:id/blobs/:hash', async (req: RunArtifactReq, reply) =>
+      sendBlob((await requireRunArtifact(ctx, req)).a, req.params.hash, reply),
+    )
+    // artifact.snapshot: the machine fetches a version it did not make, outside any run.
+    app.get<{ Params: { id: string; hash: string } }>(
+      '/api/daemon/artifacts/:id/blobs/:hash',
+      async (req, reply) => sendBlob(await requireMachineArtifact(ctx, req), req.params.hash, reply),
+    )
 
     app.post(
       '/api/daemon/runs/:runId/artifacts/:id/blobs/missing',
@@ -242,59 +273,55 @@ export function artifactRoutes(ctx: Ctx) {
       },
     )
 
+    type ShotReq = FastifyRequest<{
+      Params: { runId?: string; id: string; vid: string; screenId?: string }
+    }>
+    /** Stores a screenshot PUT by `auth`'s machine (a run's or the artifact's bot's). */
+    const shot =
+      (
+        auth: (req: ShotReq) => Promise<Artifact>,
+        save: (a: Artifact, req: ShotReq, png: Readable) => Promise<void>,
+      ) =>
+      async (req: ShotReq, reply: FastifyReply) => {
+        const body = req.body as Readable
+        try {
+          await save(await auth(req), req, body)
+        } catch (e) {
+          if (!(e instanceof QuotaExceeded)) throw e
+          return quotaFull(reply)
+        } finally {
+          body.resume()
+        }
+        return reply.status(204).send()
+      }
     // One PNG per screen of the version's manifest (the canvas's 复制为 PNG); a retake replaces the screen's.
-    app.put(
-      '/api/daemon/runs/:runId/artifacts/:id/versions/:vid/screens/:screenId/thumbnail',
-      async (req: RunArtifactReq, reply) => {
-        const body = req.body as Readable
-        try {
-          const { a } = await requireRunArtifact(ctx, req)
-          const v = await requireVersion(ctx.db, a, req.params.vid)
-          const screenId = ArtifactScreenId.safeParse(req.params.screenId)
-          const manifest = await manifestOf(a, v)
-          if (!screenId.success || !manifest?.screens.some((s) => s.id === screenId.data))
-            return fail('not_found', '屏幕不存在')
-          const hash = await storePng(a, body)
-          const thumbs = [
-            ...v.screenThumbs.filter((x) => x.screenId !== screenId.data),
-            { screenId: screenId.data, hash },
-          ]
-          await ctx.db
-            .update(artifactVersions)
-            .set({ screenThumbs: thumbs })
-            .where(eq(artifactVersions.id, v.id))
-        } catch (e) {
-          if (!(e instanceof QuotaExceeded)) throw e
-          return quotaFull(reply)
-        } finally {
-          body.resume()
-        }
-        return reply.status(204).send()
-      },
-    )
-
-    app.put(
-      '/api/daemon/runs/:runId/artifacts/:id/versions/:vid/thumbnail',
-      async (req: RunArtifactReq, reply) => {
-        const body = req.body as Readable
-        try {
-          const { a } = await requireRunArtifact(ctx, req)
-          const v = await requireVersion(ctx.db, a, req.params.vid)
-          const hash = await storePng(a, body)
-          await ctx.db
-            .update(artifactVersions)
-            .set({ thumbnailHash: hash })
-            .where(eq(artifactVersions.id, v.id))
-          if (v.id === a.headVersionId) await refreshCard(ctx, a.id)
-        } catch (e) {
-          if (!(e instanceof QuotaExceeded)) throw e
-          return quotaFull(reply)
-        } finally {
-          body.resume()
-        }
-        return reply.status(204).send()
-      },
-    )
+    const saveScreen = async (a: Artifact, req: ShotReq, body: Readable) => {
+      const v = await requireVersion(ctx.db, a, req.params.vid)
+      const screenId = ArtifactScreenId.safeParse(req.params.screenId)
+      const manifest = await manifestOf(a, v)
+      if (!screenId.success || !manifest?.screens.some((s) => s.id === screenId.data))
+        return fail('not_found', '屏幕不存在')
+      const hash = await storePng(a, body)
+      const thumbs = [
+        ...v.screenThumbs.filter((x) => x.screenId !== screenId.data),
+        { screenId: screenId.data, hash },
+      ]
+      await ctx.db.update(artifactVersions).set({ screenThumbs: thumbs }).where(eq(artifactVersions.id, v.id))
+    }
+    const saveThumbnail = async (a: Artifact, req: ShotReq, body: Readable) => {
+      const v = await requireVersion(ctx.db, a, req.params.vid)
+      const hash = await storePng(a, body)
+      await ctx.db.update(artifactVersions).set({ thumbnailHash: hash }).where(eq(artifactVersions.id, v.id))
+      if (v.id === a.headVersionId) await refreshCard(ctx, a.id)
+    }
+    const byRun = async (req: ShotReq) => (await requireRunArtifact(ctx, req as RunArtifactReq)).a
+    const byMachine = (req: ShotReq) => requireMachineArtifact(ctx, req)
+    const runBase = '/api/daemon/runs/:runId/artifacts/:id/versions/:vid'
+    const machineBase = '/api/daemon/artifacts/:id/versions/:vid'
+    app.put(`${runBase}/screens/:screenId/thumbnail`, shot(byRun, saveScreen))
+    app.put(`${runBase}/thumbnail`, shot(byRun, saveThumbnail))
+    app.put(`${machineBase}/screens/:screenId/thumbnail`, shot(byMachine, saveScreen))
+    app.put(`${machineBase}/thumbnail`, shot(byMachine, saveThumbnail))
 
     // ── members ──
     app.get<{ Params: { id: string } }>('/api/groups/:id/artifacts', async (req): Promise<ArtifactDto[]> => {

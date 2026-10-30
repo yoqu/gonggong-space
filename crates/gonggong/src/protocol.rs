@@ -1760,6 +1760,8 @@ pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
 pub const FEATURE_ARTIFACTS: &str = "artifacts";
+/// `artifact.snapshot`: screenshots of artifact versions this machine did not make.
+pub const FEATURE_ARTIFACT_SNAPSHOT: &str = "artifactSnapshot";
 /// 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete.
 pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 pub const FEATURE_GIT_OPS: &str = "gitOps";
@@ -2569,6 +2571,9 @@ pub enum ServerToDaemon {
     CastSync { casts: Vec<CastTarget> },
     #[serde(rename = "cast.retry", rename_all = "camelCase")]
     CastRetry { preview_id: String },
+    /// Screenshot a version this machine did not make (needs [`FEATURE_ARTIFACT_SNAPSHOT`]).
+    #[serde(rename = "artifact.snapshot", rename_all = "camelCase")]
+    ArtifactSnapshot { artifact_id: String, version_id: String },
     #[serde(rename = "tools.cmd")]
     ToolsCmd(ToolsCmd),
     #[serde(rename = "providers.cmd")]

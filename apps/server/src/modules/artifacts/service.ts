@@ -37,6 +37,7 @@ import { artifactBlobs, readBlob } from './blobs.js'
 import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
 import { lintVersion, parseManifest } from './lint.js'
+import { snapshotPending } from './snapshots.js'
 
 export type Artifact = typeof artifacts.$inferSelect
 export type Version = typeof artifactVersions.$inferSelect
@@ -57,13 +58,29 @@ type Thumb = Pick<Version, 'id' | 'artifactId' | 'thumbnailHash'>
 export const thumbnailUrl = (v: Thumb) =>
   v.thumbnailHash ? `/api/artifacts/${v.artifactId}/versions/${v.id}/thumbnail` : null
 
+const SCREEN_FILE = /^screens\/([a-z0-9]+(?:-[a-z0-9]+)*)\.html$/
+/** The screens a version's files hold (`screens/<id>.html`), without reading its manifest. */
+const screenIdsOf = (v: Pick<Version, 'files'>) =>
+  v.files.flatMap((f) => {
+    const id = SCREEN_FILE.exec(f.path)?.[1]
+    return id ? [id] : []
+  })
+
+/** An ancestor's thumbnail, and the ancestor whose PNG each screen without its own shows. */
+type Fallback = { thumb?: Thumb; screens: Map<string, string> }
+
 /**
- * The nearest ancestor with a thumbnail of each `local` version without one: the daemon uploads those before the
- * turn and screenshots only after it, so cards and the version list show the ancestor's, marked stale.
+ * For each version without a thumbnail (or a screen PNG) of its own yet: the nearest ancestor's, shown marked stale.
+ * The daemon screenshots a run's version after the turn, a `local` one never (it is uploaded before the turn) and an
+ * `edit` one when the bot's machine is online (artifact.snapshot). A screen no ancestor shot gets none.
  */
-async function staleThumbs(db: Read, vs: Version[]) {
-  const out = new Map<string, Thumb>()
-  const need = vs.filter((v) => v.source === 'local' && !v.thumbnailHash)
+async function fallbacks(db: Read, vs: Version[]) {
+  const out = new Map<string, Fallback>()
+  const need = vs.flatMap((v) => {
+    const own = new Set(v.screenThumbs.map((x) => x.screenId))
+    const screens = screenIdsOf(v).filter((id) => !own.has(id))
+    return !v.thumbnailHash || screens.length ? [{ v, screens }] : []
+  })
   if (!need.length) return out
   const all = await db
     .select({
@@ -71,15 +88,25 @@ async function staleThumbs(db: Read, vs: Version[]) {
       artifactId: artifactVersions.artifactId,
       parentVersionId: artifactVersions.parentVersionId,
       thumbnailHash: artifactVersions.thumbnailHash,
+      screenThumbs: artifactVersions.screenThumbs,
     })
     .from(artifactVersions)
-    .where(inArray(artifactVersions.artifactId, [...new Set(need.map((v) => v.artifactId))]))
+    .where(inArray(artifactVersions.artifactId, [...new Set(need.map(({ v }) => v.artifactId))]))
   const byId = new Map(all.map((r) => [r.id, r]))
-  for (const v of need) {
-    let p = v.parentVersionId ? byId.get(v.parentVersionId) : undefined
-    for (let hops = 0; p && !p.thumbnailHash && hops < all.length; hops++)
-      p = p.parentVersionId ? byId.get(p.parentVersionId) : undefined
-    if (p?.thumbnailHash) out.set(v.id, p)
+  const parent = (v: { parentVersionId: string | null }) =>
+    v.parentVersionId ? byId.get(v.parentVersionId) : undefined
+  for (const { v, screens } of need) {
+    const f: Fallback = { screens: new Map() }
+    const want = new Set(screens)
+    let thumb = !v.thumbnailHash
+    for (let p = parent(v), hops = 0; p && (thumb || want.size) && hops < all.length; p = parent(p), hops++) {
+      if (thumb && p.thumbnailHash) {
+        f.thumb = p
+        thumb = false
+      }
+      for (const x of p.screenThumbs) if (want.delete(x.screenId)) f.screens.set(x.screenId, p.id)
+    }
+    if (f.thumb || f.screens.size) out.set(v.id, f)
   }
   return out
 }
@@ -98,7 +125,21 @@ const versionRows = (db: Read, where: SQL | undefined) =>
 
 type VersionRow = Awaited<ReturnType<typeof versionRows>>[number]
 
-function summary({ v, bot, user }: VersionRow, stale?: Thumb): ArtifactVersionSummary {
+const screenThumbUrl = (artifactId: string, versionId: string, screenId: string) =>
+  `/api/artifacts/${artifactId}/versions/${versionId}/screens/${screenId}/thumbnail`
+
+function summary({ v, bot, user }: VersionRow, fb?: Fallback): ArtifactVersionSummary {
+  const screens = [
+    ...v.screenThumbs.map((x) => ({
+      screenId: x.screenId,
+      url: screenThumbUrl(v.artifactId, v.id, x.screenId),
+    })),
+    ...[...(fb?.screens ?? [])].map(([screenId, from]) => ({
+      screenId,
+      url: screenThumbUrl(v.artifactId, from, screenId),
+      stale: true,
+    })),
+  ]
   return {
     id: v.id,
     artifactId: v.artifactId,
@@ -108,14 +149,9 @@ function summary({ v, bot, user }: VersionRow, stale?: Thumb): ArtifactVersionSu
     runId: v.runId,
     userId: v.userId,
     digest: v.digest,
-    thumbnailUrl: thumbnailUrl(stale ?? v),
-    ...(stale && { thumbnailStale: true }),
-    ...(v.screenThumbs.length > 0 && {
-      screenThumbs: v.screenThumbs.map((x) => ({
-        screenId: x.screenId,
-        url: `/api/artifacts/${v.artifactId}/versions/${v.id}/screens/${x.screenId}/thumbnail`,
-      })),
-    }),
+    thumbnailUrl: thumbnailUrl(fb?.thumb ?? v),
+    ...(fb?.thumb && { thumbnailStale: true }),
+    ...(screens.length > 0 && { screenThumbs: screens }),
     stale: v.stale,
     issues: v.issues,
     createdAt: v.createdAt.toISOString(),
@@ -123,8 +159,8 @@ function summary({ v, bot, user }: VersionRow, stale?: Thumb): ArtifactVersionSu
   }
 }
 
-export const versionDto = (row: VersionRow, stale?: Thumb): ArtifactVersionDto => ({
-  ...summary(row, stale),
+export const versionDto = (row: VersionRow, fb?: Fallback): ArtifactVersionDto => ({
+  ...summary(row, fb),
   files: row.v.files,
 })
 
@@ -160,7 +196,7 @@ export async function manifestOf(a: Artifact, v: Version | undefined): Promise<G
   return 'manifest' in parsed ? parsed.manifest : null
 }
 
-type Live = { running: boolean; waits: Map<string, number>; stale?: Thumb }
+type Live = { running: boolean; waits: Map<string, number>; fb?: Fallback }
 
 function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto {
   const queuedRunCount = (a.botId && live.waits.get(a.botId)) || 0
@@ -173,7 +209,7 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     pluginVersionId: a.pluginVersionId,
     designSystemId: a.designSystemId,
     headVersionId: a.headVersionId,
-    head: head ? summary(head, live.stale) : null,
+    head: head ? summary(head, live.fb) : null,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     archivedAt: a.archivedAt?.toISOString() ?? null,
@@ -198,13 +234,13 @@ export async function listArtifacts(ctx: Ctx, groupId: string): Promise<Artifact
     offlineWaits(ctx.db, groupId),
   ])
   const byId = new Map(rows.map((r) => [r.v.id, r]))
-  const stale = await staleThumbs(
+  const fb = await fallbacks(
     ctx.db,
     rows.map((r) => r.v),
   )
   return list.map((a) => {
     const head = a.headVersionId ? byId.get(a.headVersionId) : undefined
-    return dto(a, head, { running: running.has(a.id), waits, stale: head && stale.get(head.v.id) })
+    return dto(a, head, { running: running.has(a.id), waits, fb: head && fb.get(head.v.id) })
   })
 }
 
@@ -224,8 +260,8 @@ export async function artifactDetail(ctx: Ctx, a: Artifact): Promise<ArtifactDto
         .orderBy(desc(artifactVersions.n))
         .limit(1)
     : []
-  const stale = head ? (await staleThumbs(ctx.db, [head.v])).get(head.v.id) : undefined
-  const live = { running: await isRunning(ctx.db, a), waits: await offlineWaits(ctx.db, a.groupId), stale }
+  const fb = head ? (await fallbacks(ctx.db, [head.v])).get(head.v.id) : undefined
+  const live = { running: await isRunning(ctx.db, a), waits: await offlineWaits(ctx.db, a.groupId), fb }
   return {
     ...dto(a, head, live),
     manifest: await manifestOf(a, head?.v),
@@ -238,11 +274,11 @@ export async function listVersions(ctx: Ctx, a: Artifact) {
   const rows = await versionRows(ctx.db, eq(artifactVersions.artifactId, a.id)).orderBy(
     desc(artifactVersions.n),
   )
-  const stale = await staleThumbs(
+  const fb = await fallbacks(
     ctx.db,
     rows.map((r) => r.v),
   )
-  return rows.map((r) => summary(r, stale.get(r.v.id)))
+  return rows.map((r) => summary(r, fb.get(r.v.id)))
 }
 
 export async function findArtifact(db: Read, id: string) {
@@ -277,8 +313,8 @@ export async function versionDetail(
   const v = await requireVersion(ctx.db, a, versionId)
   const [row] = await versionRows(ctx.db, eq(artifactVersions.id, v.id))
   const manifest = await manifestOf(a, v)
-  const stale = (await staleThumbs(ctx.db, [v])).get(v.id)
-  return { ...versionDto(row as VersionRow, stale), manifest, links: await screenLinks(a, v, manifest) }
+  const fb = (await fallbacks(ctx.db, [v])).get(v.id)
+  return { ...versionDto(row as VersionRow, fb), manifest, links: await screenLinks(a, v, manifest) }
 }
 
 /** The `data-gg-link`s of every screen the manifest lists. */
@@ -376,6 +412,7 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
     return { version: version as Version, head, retried: false }
   })
   if (!out.retried) await refreshCard(ctx, a.id)
+  if (!out.retried && out.head && input.source === 'edit') await snapshotPending(ctx, eq(artifacts.id, a.id))
   return { version: out.version, head: out.head, stale: out.version.stale }
 }
 
@@ -396,6 +433,7 @@ export async function restoreVersion(ctx: Ctx, a: Artifact, versionId: string) {
       .where(eq(artifacts.id, a.id))
   })
   await refreshCard(ctx, a.id)
+  await snapshotPending(ctx, eq(artifacts.id, a.id))
 }
 
 export async function cardOf(db: Read, a: Artifact): Promise<ArtifactCard> {
@@ -410,7 +448,7 @@ export async function cardOf(db: Read, a: Artifact): Promise<ArtifactCard> {
     : latest?.id === a.headVersionId
       ? latest
       : (await db.select().from(artifactVersions).where(eq(artifactVersions.id, a.headVersionId)))[0]
-  const stale = head ? (await staleThumbs(db, [head])).get(head.id) : undefined
+  const stale = head ? (await fallbacks(db, [head])).get(head.id)?.thumb : undefined
   return {
     type: 'artifact',
     artifactId: a.id,
@@ -460,7 +498,8 @@ export async function refreshRunArtifacts(
 ) {
   for (const run of rows) {
     if (seenStatus.get(run.id) === run.status) continue
-    if (TERMINAL_RUN_STATUS.includes(run.status as RunStatus)) seenStatus.delete(run.id)
+    const ended = TERMINAL_RUN_STATUS.includes(run.status as RunStatus)
+    if (ended) seenStatus.delete(run.id)
     else seenStatus.set(run.id, run.status)
     const checkedOut = sql`${artifacts.id}::text in (select jsonb_array_elements_text(${runs.artifacts}) from ${runs} where ${runs.id} = ${run.id})`
     const list = await ctx.db
@@ -474,6 +513,11 @@ export async function refreshRunArtifacts(
         ),
       )
     for (const a of list) await refreshCard(ctx, a.id)
+    if (ended)
+      await snapshotPending(
+        ctx,
+        and(eq(artifacts.groupId, run.groupId), eq(artifacts.botId, run.botId)) as SQL,
+      )
   }
 }
 

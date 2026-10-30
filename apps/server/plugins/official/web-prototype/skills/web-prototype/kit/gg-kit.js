@@ -11,7 +11,9 @@
       e.preventDefault()
       const screen = el.getAttribute('data-gg-link')
       const transition = el.getAttribute('data-gg-transition')
-      if (inShell) window.parent.postMessage({ type: 'gg:nav', screen, transition }, location.origin)
+      // From disk (file://) every file is its own opaque origin: no origin to name.
+      const origin = location.protocol === 'file:' ? '*' : location.origin
+      if (inShell) window.parent.postMessage({ type: 'gg:nav', screen, transition }, origin)
       else if (screen) location.href = `./${encodeURIComponent(screen)}.html`
       else history.back()
     },
