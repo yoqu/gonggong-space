@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
 import { Button, Icon, RadioGroup, toast } from '../../ui'
-import { copyScreensCode } from './actions'
+import { copyScreensCode, type Notify } from './actions'
 import { Panel } from './SidePanel'
 import { screenLink, useArtifactShare } from './share'
 
@@ -34,6 +34,7 @@ export function ExportPanel({
   readFile,
   prompt,
   onBrief,
+  notify,
   onClose,
 }: {
   artifactId: string
@@ -49,6 +50,8 @@ export function ExportPanel({
   /** 实现提示词: the prompt for a coding agent (implPrompt.ts). */
   prompt: string
   onBrief: () => Promise<boolean>
+  /** Says a copy went through, over the canvas. */
+  notify: Notify
   onClose: () => void
 }) {
   const [format, setFormat] = useState<Format>('zip')
@@ -61,14 +64,14 @@ export function ExportPanel({
 
   const copyCode = async () => {
     setBusy(true)
-    await copyScreensCode(picked, readFile)
+    await copyScreensCode(picked, readFile, notify)
     setBusy(false)
   }
   const copyLink = async () => {
     const s = share?.enabled ? share : await set(true)
     if (!s?.url) return
     await copyText(screenLink(s.url)).then(
-      () => toast({ type: 'success', message: t('链接已复制') }),
+      () => notify(t('链接已复制')),
       () => toast({ type: 'error', message: t('复制失败') }),
     )
   }
@@ -77,7 +80,7 @@ export function ExportPanel({
     if (format === 'code') return copyCode()
     if (format === 'prompt')
       return copyText(prompt).then(
-        () => toast({ type: 'success', message: t('实现提示词已复制') }),
+        () => notify(t('实现提示词已复制')),
         () => toast({ type: 'error', message: t('复制失败') }),
       )
     if (format === 'share') return copyLink()
@@ -89,7 +92,7 @@ export function ExportPanel({
   const FORMATS: Record<Format, { label: string; note: string; action: string }> = {
     zip: {
       label: '.zip',
-      note: t('下载这个版本的全部文件和原型外壳，解压后用任意静态服务器打开 index.html 即可演示。'),
+      note: t('下载这个版本的全部文件和原型外壳，解压后双击 index.html 即可演示。'),
       action: t('导出'),
     },
     code: {

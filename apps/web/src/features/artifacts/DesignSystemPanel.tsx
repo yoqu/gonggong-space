@@ -18,9 +18,9 @@ import {
   Tabs,
   Tag,
   Textarea,
-  toast,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import type { Notify } from './actions'
 import { ROLE_LABEL } from './DesignSystemNode'
 import { frontMatterName, frontMatterValue, renderableMd, SEED_KEY, setFrontMatter } from './designMd'
 import {
@@ -137,9 +137,10 @@ export function useDesignSystem(o: {
     dirty,
     /** Runs `proceed` now, or after the member agrees to drop the unsaved changes. */
     guard: (proceed: () => void) => (isDirty(draft) ? setLeaving(() => proceed) : proceed()),
-    panel: (close: () => void, tab: DesignTab = 'theme') => (
+    panel: (close: () => void, tab: DesignTab, notify: Notify) => (
       <DesignSystemPanel
         key={tab}
+        notify={notify}
         initialTab={tab}
         artifactId={o.artifactId}
         base={base}
@@ -210,6 +211,7 @@ function DesignSystemPanel({
   setDraft,
   readOnly,
   bot,
+  notify,
   onClose,
 }: {
   initialTab: DesignTab
@@ -220,6 +222,8 @@ function DesignSystemPanel({
   setDraft: (d: Draft | null) => void
   readOnly: boolean
   bot: { id: string; name: string } | null
+  /** Says it saved, over the canvas (where it was done). */
+  notify: Notify
   onClose: () => void
 }) {
   const [tab, setTab] = useState<DesignTab>(initialTab)
@@ -340,8 +344,8 @@ function DesignSystemPanel({
       }
       if (andApply && bot) {
         await applyDesignSystem(artifactId, bot.id)
-        toast({ type: 'success', message: t('已让 {bot} 按设计系统统一所有屏幕', { bot: bot.name }) })
-      } else toast({ type: 'success', message: t('设计系统已保存') })
+        notify(t('已让 {bot} 按设计系统统一所有屏幕', { bot: bot.name }))
+      } else notify(t('设计系统已保存'))
     } catch (e) {
       fail(e)
     }

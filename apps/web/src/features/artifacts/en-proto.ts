@@ -40,8 +40,8 @@ export default {
   '所选的 {n} 个屏幕': 'the {n} selected {n:screen|screens}',
   '全部 {n} 个屏幕': 'all {n} {n:screen|screens}',
   '已复制 {n} 个屏幕的代码': 'Copied the code of {n} {n:screen|screens}',
-  '下载这个版本的全部文件和原型外壳，解压后用任意静态服务器打开 index.html 即可演示。':
-    'Downloads every file of this version with the prototype shell; unzip it and open index.html over any static server to play it.',
+  '下载这个版本的全部文件和原型外壳，解压后双击 index.html 即可演示。':
+    'Downloads every file of this version with the prototype shell; unzip it and double-click index.html to play it.',
   '把{scope}的 HTML 源码复制到剪贴板。': 'Copies the HTML source of {scope} to the clipboard.',
   项目简报: 'Project brief',
   '让 @{name} 根据产物写一份产品需求文档（PRD），保存为 brief.md，屏幕详情里的设计说明也会读它。':

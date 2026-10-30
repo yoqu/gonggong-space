@@ -331,11 +331,15 @@
     return {
       width: d.scrollWidth,
       height: d.scrollHeight,
-      links: [...document.querySelectorAll('[data-gg-link]')].slice(0, 500).map((el) => ({
-        ggId: ggIdOf(el),
-        screen: el.getAttribute('data-gg-link'),
-        rect: docRect(el),
-      })),
+      links: [...document.querySelectorAll('[data-gg-link]')].slice(0, 500).map((el) => {
+        const transition = el.getAttribute('data-gg-transition')
+        return {
+          ggId: ggIdOf(el),
+          screen: el.getAttribute('data-gg-link'),
+          rect: docRect(el),
+          ...(TRANSITIONS.includes(transition) && { transition }),
+        }
+      }),
       back: [...document.querySelectorAll('[data-gg-back]')]
         .slice(0, 500)
         .map((el) => ({ ggId: ggIdOf(el), rect: docRect(el) })),

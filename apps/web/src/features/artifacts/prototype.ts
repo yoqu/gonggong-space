@@ -1,4 +1,10 @@
-import type { ArtifactEditOp, ArtifactTransition, BridgeBackRect, Rect } from '@gonggong/protocol'
+import type {
+  ArtifactEditOp,
+  ArtifactTransition,
+  BridgeBackRect,
+  BridgeLinkRect,
+  Rect,
+} from '@gonggong/protocol'
 
 // The prototype editor (Stitch capability list §7): playing the screens' links with transitions, and editing them.
 
@@ -98,6 +104,43 @@ export function backRects(back: unknown): BridgeBackRect[] {
     const ggId = typeof o?.ggId === 'string' && /^\d{1,9}$/.test(o.ggId) ? o.ggId : null
     return [{ ggId, rect: r as unknown as Rect }]
   })
+}
+
+/**
+ * The connected element a click inside it landed in (Stitch selects the link, not the text in it): the smallest
+ * `data-gg-link` with a source id that holds the picked rect. Rects in document coordinates.
+ */
+export function linkHost(spots: BridgeLinkRect[], r: Rect): BridgeLinkRect | null {
+  const holds = (q: Rect) =>
+    r.x >= q.x - 0.5 && r.y >= q.y - 0.5 && r.x + r.w <= q.x + q.w + 0.5 && r.y + r.h <= q.y + q.h + 0.5
+  let best: BridgeLinkRect | null = null
+  for (const s of spots)
+    if (s.ggId && holds(s.rect) && (!best || s.rect.w * s.rect.h < best.rect.w * best.rect.h)) best = s
+  return best
+}
+
+const POP_GAP = 8
+
+/**
+ * Where the element menu goes on the stage: under the element, above it when the room below is short (a tab bar at
+ * the device's bottom), else as low as fits; horizontally inside `edges` (the screen list and the rail).
+ */
+export function menuPlace(
+  anchor: Rect,
+  pop: { w: number; h: number },
+  room: { width: number; height: number },
+  edges: { left: number; right: number },
+) {
+  const left = Math.max(edges.left, Math.min(anchor.x, room.width - edges.right - pop.w))
+  const below = anchor.y + anchor.h + POP_GAP
+  const above = anchor.y - POP_GAP - pop.h
+  const top =
+    below + pop.h <= room.height - POP_GAP
+      ? below
+      : above >= POP_GAP
+        ? above
+        : Math.max(POP_GAP, room.height - POP_GAP - pop.h)
+  return { left, top }
 }
 
 export const GUIDE_KEY = 'gg.art.protoGuide'

@@ -196,7 +196,9 @@ describe('design-system panel', () => {
         },
       ],
     })
-    await waitFor(() => expect(toasts()).toContain('设计系统已保存'))
+    // Over the canvas where it was done, not in the app's corner over the chat (P2-18).
+    await waitFor(() => expect(screen.getByTestId('art-notice').textContent).toBe('设计系统已保存'))
+    expect(toasts()).not.toContain('设计系统已保存')
   })
 
   it('writes the name into the front matter and edits DESIGN.md as a file op', async () => {
@@ -322,7 +324,11 @@ describe('design-system panel', () => {
     const posts = calls.filter((c) => c.method === 'POST' && c.path !== '/artifacts/a1/preview')
     expect(posts.map((c) => c.path)).toEqual(['/artifacts/a1/edits', '/artifacts/a1/commands'])
     expect(posts[1]?.body).toEqual({ command: 'apply-design-system', botId: 'b1' })
-    await waitFor(() => expect(toasts()).toContain('已让 设计助手 按设计系统统一所有屏幕'))
+    // Over the canvas where it was done, not in the app's corner over the chat (P2-18).
+    await waitFor(() =>
+      expect(screen.getByTestId('art-notice').textContent).toBe('已让 设计助手 按设计系统统一所有屏幕'),
+    )
+    expect(toasts()).not.toContain('已让 设计助手 按设计系统统一所有屏幕')
   })
 
   it('keeps the draft on a 409 and lets the member discard it', async () => {

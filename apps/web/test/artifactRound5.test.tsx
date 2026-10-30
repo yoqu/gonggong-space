@@ -225,6 +225,38 @@ describe('chat column chips (P1-05, P2-01, P2-02, P2-16)', () => {
     expect(rule(chips, '.art-chip__text')).toContain('max-width: min(320px, 100%)')
   })
 
+  it('folds a long run line to 改了 N 屏 within the column, the names on hover (P1-05)', () => {
+    render(
+      <RunArtifactsLine
+        artifacts={[
+          {
+            artifactId: 'a1',
+            title: '麓客+ 探索生活',
+            versionId: 'v1',
+            n: 1,
+            changedScreens: ['活动详情', '探索生活', '发现体验', '我的', '设置'].map((title, i) => ({
+              id: `s${i}`,
+              title,
+            })),
+          },
+        ]}
+      />,
+    )
+    const line = screen.getByTestId('run-artifact')
+    const text = line.querySelector('.art-run__text') as HTMLElement
+    expect(text.textContent).toBe('麓客+ 探索生活 · v1 · 改了 5 屏')
+    expect(text.title).toBe('麓客+ 探索生活 · v1 · 改了 活动详情、探索生活、发现体验、我的、设置')
+    expect(within(line).getByRole('button', { name: '在画布中查看' })).toBeTruthy()
+    // The facts row is as wide as the message column at most, so the line shrinks instead of overflowing it.
+    const tags = rule(
+      readFileSync(`${process.cwd()}/src/features/chat/timeline.css`, 'utf8'),
+      '.run-card__tags',
+    )
+    expect(tags).toContain('min-width: 0')
+    expect(tags).toContain('max-width: min(560px, 100%)')
+    expect(rule(css('artifacts/chips.css'), '.art-run__text')).toContain('text-overflow: ellipsis')
+  })
+
   it('shows the reference files a message took along, and opens the canvas on one', () => {
     render(
       <>

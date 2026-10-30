@@ -606,7 +606,13 @@ const FromScreen = { source: z.literal('gg-bridge'), file: ArtifactHtmlFile }
  * Where the screen's `data-gg-link` elements are, in document coordinates (for the canvas's link arrows): the
  * viewport position is `rect.x - scrollX`, `rect.y - scrollY` with the latest `scroll` (0, 0 before any).
  */
-export const BridgeLinkRect = z.object({ ggId: GgId.nullable(), screen: z.string(), rect: Rect })
+export const BridgeLinkRect = z.object({
+  ggId: GgId.nullable(),
+  screen: z.string(),
+  rect: Rect,
+  /** `data-gg-transition`, when valid. */
+  transition: ArtifactTransition.optional(),
+})
 export type BridgeLinkRect = z.infer<typeof BridgeLinkRect>
 export const BridgeBackRect = z.object({ ggId: GgId.nullable(), rect: Rect })
 export type BridgeBackRect = z.infer<typeof BridgeBackRect>

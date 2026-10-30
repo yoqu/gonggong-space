@@ -65,7 +65,7 @@ export function RunArtifactsLine({ artifacts }: { artifacts: RunArtifact[] }) {
         <span key={a.versionId} className="art-run" data-testid="run-artifact">
           <Icon name="grid" size={12} className="art-run__icon" />
           <span className="art-run__text" title={runText(a)}>
-            {runText(a)}
+            {runText(a, true)}
           </span>
           <Button
             size="small"
@@ -87,13 +87,18 @@ export function RunArtifactsLine({ artifacts }: { artifacts: RunArtifact[] }) {
   )
 }
 
-const runText = (a: RunArtifact) =>
+/** Screens a run line names before it says just how many (all of them on hover). */
+const NAMED_SCREENS = 2
+
+const runText = (a: RunArtifact, short = false) =>
   [
     a.title,
     `v${a.n}`,
-    a.changedScreens.length
-      ? t('改了 {screens}', { screens: a.changedScreens.map((s) => s.title).join('、') })
-      : '',
+    !a.changedScreens.length
+      ? ''
+      : short && a.changedScreens.length > NAMED_SCREENS
+        ? t('改了 {n} 屏', { n: a.changedScreens.length })
+        : t('改了 {screens}', { screens: a.changedScreens.map((s) => s.title).join('、') }),
   ]
     .filter(Boolean)
     .join(' · ')

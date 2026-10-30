@@ -13,4 +13,8 @@ export default {
   整个产物: 'Whole artifact',
   '让 @{name} 修复': 'Ask @{name} to fix',
   '让 AI 修复': 'Ask AI to fix',
+  // Round 5 acceptance fixes: connected elements, the run line.
+  编辑连接: 'Edit connection',
+  移除连接: 'Remove connection',
+  '改了 {n} 屏': 'changed {n} {n:screen|screens}',
 }

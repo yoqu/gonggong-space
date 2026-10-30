@@ -87,6 +87,17 @@ describe('gg-bridge', () => {
     expect(s.posts).toHaveLength(n)
   })
 
+  it('reports a link’s valid transition with it', () => {
+    const s = screen(
+      '<!doctype html><html><head></head><body><a data-gg-link="a" data-gg-transition="fade">A</a><a data-gg-link="b" data-gg-transition="spin">B</a></body></html>',
+    )
+    const ready = BridgeFromShell.parse(s.posts[0]?.data)
+    expect(ready.type === 'ready' && ready.links?.map((l) => [l.screen, l.transition])).toEqual([
+      ['a', 'fade'],
+      ['b', undefined],
+    ])
+  })
+
   it('reports scrolling at most every 100 ms, ending with the last position', async () => {
     const s = screen()
     const scrollTo = (y: number) => {
