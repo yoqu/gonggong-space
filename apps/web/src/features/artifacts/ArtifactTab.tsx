@@ -17,6 +17,7 @@ import {
   toast,
 } from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
+import { useGroupBots } from './actions'
 import { Canvas, type CanvasRequest } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
 import { downloadUrl, exportZipUrl } from './ExportPanel'
@@ -24,6 +25,7 @@ import { PrototypeEditor } from './PrototypeEditor'
 import { ShareDialog } from './share'
 import {
   archiveArtifact,
+  artifactFileUrl,
   duplicateArtifact,
   editArtifact,
   loadArtifact,
@@ -38,6 +40,7 @@ import {
   useArtifactPreview,
   useVersionDetail,
 } from './store'
+import { queuedOf, screenThumbsOf, thumbnailStale } from './upcoming'
 import './artifacts.css'
 import './prototype.css'
 
@@ -48,7 +51,15 @@ const SOURCE: Record<ArtifactVersionDto['source'], string> = {
 }
 
 const versionNote = (v: ArtifactVersionDto) =>
-  [SOURCE[v.source], v.authorName, ago(v.createdAt), v.stale ? t('候选') : ''].filter(Boolean).join(' · ')
+  [
+    SOURCE[v.source],
+    v.authorName,
+    ago(v.createdAt),
+    v.stale ? t('候选') : '',
+    thumbnailStale(v) ? t('缩略图为旧版本') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
 /**
  * A hosted artifact in the workbench (docs/plan/原型编辑器-Stitch对标-开发计划.md, B3): its versions on top, its screens on
@@ -76,6 +87,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
   const ask = (what: CanvasRequest['what']) => setRequest((r) => ({ what, n: (r?.n ?? 0) + 1 }))
   const [renaming, setRenaming] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const groupBots = useGroupBots(a?.groupId ?? '')
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
@@ -275,6 +287,17 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           <small>{t('完成前画布只读')}</small>
         </div>
       ) : null}
+      {!a.running && queuedOf(a) ? (
+        <div className="art-queued" role="status" data-testid="art-queued">
+          <i className="art-queued__dot" aria-hidden="true" />
+          <span>
+            {t('@{name} 离线，{n} 个指令排队中，上线后自动执行', {
+              name: groupBots.find((b) => b.id === a.botId)?.name ?? 'Bot',
+              n: queuedOf(a),
+            })}
+          </span>
+        </div>
+      ) : null}
       {viewing && current ? (
         <div className="art-past" role="status">
           <Icon name="clock" size={14} />
@@ -310,6 +333,8 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
           onPresent={present}
           readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
+          fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
+          screenThumbs={detail?.id === shown ? screenThumbsOf(detail) : []}
           dir={a.dir}
           designMd={design.md}
           designPanel={design.panel}

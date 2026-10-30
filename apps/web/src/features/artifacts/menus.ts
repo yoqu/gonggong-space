@@ -18,6 +18,10 @@ export const CMD = {
   copyCode: 'copy-code',
   /** Copy as › link to selection: the page link opening the artifact on these screens. */
   copyLink: 'copy-link',
+  /** Copy as › PNG (⌘⇧C): the screen's thumbnail as an image. */
+  copyPng: 'copy-png',
+  /** Upload to canvas (G04): pick files that become reference nodes. */
+  upload: 'upload',
   cut: 'cut',
   paste: 'paste',
   duplicate: 'duplicate',
@@ -157,6 +161,8 @@ export function screenContextItems(o: {
   frame: ScreenFrame | null
   bot: BotState
   device: ArtifactDevice
+  /** The one selected screen has a thumbnail to copy as PNG. */
+  png: boolean
 }): MenuItem[] {
   const ro = readOnlyTitle(o.readOnly)
   return [
@@ -168,6 +174,7 @@ export function screenContextItems(o: {
       submenu: [
         { label: t('复制代码'), value: CMD.copyCode },
         { label: t('复制选区链接'), value: CMD.copyLink },
+        copyPngItem(o.png),
       ],
     },
     { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', ...ro },
@@ -195,6 +202,26 @@ export function screenContextItems(o: {
   ]
 }
 
+/** Copy as › PNG: off (with the reason) until the server has the screen's thumbnail. */
+export const copyPngItem = (png: boolean): MenuItem => ({
+  label: t('复制为 PNG'),
+  value: CMD.copyPng,
+  shortcut: '⌘⇧C',
+  ...(png ? {} : { disabled: true, title: t('缩略图生成后才能复制为 PNG') }),
+})
+
+/** Right-click on selected references (G04). */
+export const refContextItems = (o: { readOnly: boolean; single: boolean }): MenuItem[] => {
+  const ro = readOnlyTitle(o.readOnly)
+  return [
+    { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
+    { label: t('下载'), value: CMD.download, shortcut: '⇧D' },
+    { separator: true },
+    { label: t('重命名'), value: CMD.rename, disabled: o.readOnly || !o.single },
+    { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
+  ]
+}
+
 /** Right-click on the empty canvas. */
 export const canvasContextItems = (o: {
   readOnly: boolean
@@ -207,6 +234,7 @@ export const canvasContextItems = (o: {
   { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
   { label: t('适应画布'), value: CMD.fit, shortcut: '⇧1' },
   { separator: true },
+  { label: t('上传到画布'), value: CMD.upload, ...readOnlyTitle(o.readOnly) },
   { label: t('设计系统'), value: CMD.designSystem },
 ]
 
@@ -243,6 +271,7 @@ export const SHORTCUTS: { title: string; items: { label: string; keys: string[];
       { label: t('取消选择'), keys: ['Esc'] },
       { label: t('剪切'), keys: ['⌘', 'X'] },
       { label: t('复制（含代码）'), keys: ['⌘', 'C'] },
+      { label: t('复制为 PNG'), keys: ['⌘', '⇧', 'C'] },
       { label: t('粘贴'), keys: ['⌘', 'V'] },
       { label: t('创建副本'), keys: ['⌘', 'D'] },
       { label: t('下载所选'), keys: ['⇧', 'D'] },

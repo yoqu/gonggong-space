@@ -1,4 +1,5 @@
 import type { ArtifactDevice, GgArtifactManifest } from '@gonggong/protocol'
+import type { ArtifactRef, RefKind } from './upcoming'
 
 /** Screen sizes per device (the web-prototype kit's DEVICES). */
 export const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
@@ -35,7 +36,17 @@ export const DOC_WIDTH = 560
 /** Until the DESIGN.md card is measured. */
 export const DOC_HEIGHT = 640
 
-export type NodeKind = 'system' | 'doc' | 'screen' | 'prototype'
+/** A reference node's id: the ref's own id under this prefix, apart from screen ids. */
+export const REF_PREFIX = '@ref:'
+export const refNodeId = (id: string) => `${REF_PREFIX}${id}`
+/** Reference cards: an image as wide as this and as tall as its ratio makes it (measured), files a fixed card. */
+export const REF_SIZE: Record<RefKind, { w: number; h: number }> = {
+  image: { w: 360, h: 240 },
+  pdf: { w: 240, h: 300 },
+  text: { w: 320, h: 240 },
+}
+
+export type NodeKind = 'system' | 'doc' | 'screen' | 'prototype' | 'ref'
 
 export interface CanvasNode {
   id: string
@@ -77,6 +88,10 @@ export interface LayoutInput {
   frames: Record<string, ScreenFrame>
   /** Content heights the screens reported, by file. */
   content: Record<string, number>
+  /** Files uploaded to the canvas. */
+  refs?: ArtifactRef[]
+  /** Measured heights of image references, by ref id. */
+  refHeights?: Record<string, number>
 }
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
@@ -93,7 +108,16 @@ export const perRow = (device: ArtifactDevice) =>
  * `perRow(device)` (Stitch capability list §3), each row below the tallest node of the one above. An L0 artifact (no
  * manifest) is one desktop page.
  */
-export function layoutNodes({ title, manifest, system, doc = null, frames, content }: LayoutInput): {
+export function layoutNodes({
+  title,
+  manifest,
+  system,
+  doc = null,
+  frames,
+  content,
+  refs = [],
+  refHeights = {},
+}: LayoutInput): {
   device: ArtifactDevice
   nodes: CanvasNode[]
 } {
@@ -139,6 +163,25 @@ export function layoutNodes({ title, manifest, system, doc = null, frames, conte
       tallest = Math.max(tallest, c.h)
     }
     y += tallest + NODE_GAP + TITLE_ROOM
+  }
+  // References the member has not placed go in a row below everything else (G04).
+  let refX = 0
+  const refY = nodes.length ? Math.max(...nodes.map((n) => n.y + n.h)) + NODE_GAP + TITLE_ROOM : 0
+  for (const r of refs) {
+    const size = REF_SIZE[r.kind] ?? REF_SIZE.text
+    const h = r.kind === 'image' ? (refHeights[r.id] ?? size.h) : size.h
+    const placed = r.x !== undefined && r.y !== undefined
+    nodes.push({
+      id: refNodeId(r.id),
+      kind: 'ref',
+      title: r.title,
+      file: r.file,
+      x: placed ? (r.x as number) : refX,
+      y: placed ? (r.y as number) : refY,
+      w: size.w,
+      h,
+    })
+    if (!placed) refX += size.w + NODE_GAP
   }
   return { device, nodes }
 }

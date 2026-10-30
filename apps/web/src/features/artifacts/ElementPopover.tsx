@@ -295,13 +295,14 @@ export function EditPopover({
 
 /** Mark (M): a note on the clicked element, kept with the version for the AI. */
 export function MarkPopover({
-  el,
+  title,
   box,
   room,
   onSave,
   onClose,
 }: {
-  el: PickedElement
+  /** What is annotated: `首页 › h1`, or a region of a screen. */
+  title: string
   box: Box
   room: PopRoom
   onSave: (note: string) => Promise<boolean>
@@ -320,7 +321,7 @@ export function MarkPopover({
     <Floating
       box={box}
       room={room}
-      title={<span className="art-pop__el">{`${el.screenTitle} › ${el.tag}`}</span>}
+      title={<span className="art-pop__el">{title}</span>}
       label={t('批注')}
       onClose={onClose}
     >

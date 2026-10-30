@@ -196,14 +196,14 @@ describe('artifact tab', () => {
     expect(screen.queryByTestId('art-select-home')).toBeNull()
   })
 
-  it('lists planned tools disabled, as coming soon', async () => {
+  it('opens the preview menu, and offers upload to canvas on an editable version', async () => {
     mockApi(routes())
     renderTab()
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByTestId('art-node-home'))
     fireEvent.click(screen.getByRole('button', { name: '预览' }))
     expect(screen.getByRole('menuitem', { name: /显示二维码/ }).hasAttribute('disabled')).toBe(false)
-    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(false)
   })
 
   it('switches tools with V and H; the hand does not select', async () => {

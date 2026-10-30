@@ -1,12 +1,13 @@
-import type {
-  AnnotationDto,
-  ArtifactCommandReq,
-  ArtifactEditOp,
-  ArtifactUploadRes,
-  BotDto,
-  CreateAnnotationReq,
-  SendAnnotationsReq,
-  UpdateAnnotationReq,
+import {
+  type AnnotationDto,
+  ARTIFACT_UPLOAD_MAX_BYTES,
+  type ArtifactCommandReq,
+  type ArtifactEditOp,
+  type ArtifactUploadRes,
+  type BotDto,
+  type CreateAnnotationReq,
+  type SendAnnotationsReq,
+  type UpdateAnnotationReq,
 } from '@gonggong/protocol'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
@@ -16,6 +17,7 @@ import { ApiError, api, errorText } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
+import { REF_TYPES } from './upcoming'
 
 // R3 of docs/plan/原型编辑器-Stitch对标-开发计划.md: direct edits, annotations and AI commands from the canvas.
 
@@ -88,6 +90,19 @@ export async function saveEdits(run: (ops: ArtifactEditOp[]) => Promise<void>, o
 /** POST /api/artifacts/:id/uploads: the image as the raw body; the `asset` op then puts it in place. */
 export const uploadImage = (artifactId: string, file: Blob) =>
   api.post<ArtifactUploadRes>(`/artifacts/${artifactId}/uploads`, file)
+
+/**
+ * A file dropped or picked for the canvas as the uploads route takes it (typed by its extension), or the reason it
+ * cannot go: not an image, PDF or text file, or over the size limit.
+ */
+export function refUpload(file: File): Blob | string {
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+  const type = file.name.includes('.') ? REF_TYPES[ext] : undefined
+  if (!type) return t('不支持的文件类型：{name}', { name: file.name })
+  if (file.size > ARTIFACT_UPLOAD_MAX_BYTES)
+    return t('{name} 超过 {mb} MB', { name: file.name, mb: ARTIFACT_UPLOAD_MAX_BYTES / 1024 / 1024 })
+  return new Blob([file], { type })
+}
 
 /** The annotations of one version of the artifact (oldest first). */
 export function useAnnotations(artifactId: string, versionId: string | null) {
@@ -167,6 +182,35 @@ export async function copyScreensCode(
   try {
     await copyText(await screensCode(screens, readFile))
     toast({ type: 'success', message: t('已复制 {n} 个屏幕的代码', { n: screens.length }) })
+    return true
+  } catch (e) {
+    toastError(e)
+    return false
+  }
+}
+
+async function asPng(blob: Blob): Promise<Blob> {
+  if (blob.type === 'image/png') return blob
+  const bitmap = await createImageBitmap(blob)
+  const c = document.createElement('canvas')
+  c.width = bitmap.width
+  c.height = bitmap.height
+  c.getContext('2d')?.drawImage(bitmap, 0, 0)
+  return new Promise((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error(t('图片转换失败')))), 'image/png'),
+  )
+}
+
+/** Copy as PNG (⌘⇧C): the screen's thumbnail to the system clipboard. */
+export async function copyPng(url: string) {
+  try {
+    // The item takes a promise so the copy still counts as part of the click (Safari).
+    const png = fetch(url, { credentials: 'include' }).then(async (res) => {
+      if (!res.ok) throw new Error(t('读取缩略图失败'))
+      return asPng(await res.blob())
+    })
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+    toast({ type: 'success', message: t('已复制为 PNG') })
     return true
   } catch (e) {
     toastError(e)

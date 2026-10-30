@@ -3,7 +3,6 @@ import type {
   ArtifactTransition,
   BotDto,
   BridgeBackRect,
-  BridgeFromShell,
   BridgeLinkRect,
   BridgeMode,
   GgArtifactManifest,
@@ -29,7 +28,7 @@ import {
 } from '../../ui'
 import { openUrl } from '../previews/store'
 import { offlineHint, saveEdits, sendCommand, useArtifactBot } from './actions'
-import { linkSpots, postToScreen, useBridge } from './bridge'
+import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
 import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
 import {
@@ -170,7 +169,7 @@ export function PrototypeEditor({
     setConnect(false)
   }, [versionKey, cur?.id])
 
-  useBridge(origin, frames, (m: BridgeFromShell) => {
+  useBridge(origin, frames, (m: BridgeMessage) => {
     if (m.type === 'ready' || m.type === 'size') {
       if (m.type === 'ready') postToScreen(frames.get(m.file), origin, { type: 'mode', mode: bridgeMode })
       const found = linkSpots(m.links)

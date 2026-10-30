@@ -1,6 +1,5 @@
 import type {
   ArtifactDto,
-  ArtifactEditOp,
   ArtifactLink,
   ArtifactVersionDetail,
   ArtifactVersionDto,
@@ -11,6 +10,7 @@ import { create } from 'zustand'
 import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { openTab } from '../workbench/open'
+import type { EditOp } from './upcoming'
 
 /** An artifact's details and versions (oldest first), loaded per open tab and refreshed when its card changes. */
 export interface ArtifactEntry {
@@ -69,7 +69,7 @@ export async function restoreVersion(artifactId: string, versionId: string) {
 }
 
 /** POST /api/artifacts/:id/edits: one new version from `ops` on top of `baseVersionId` (409 when it is not the head). */
-export async function editArtifact(artifactId: string, baseVersionId: string, ops: ArtifactEditOp[]) {
+export async function editArtifact(artifactId: string, baseVersionId: string, ops: EditOp[]) {
   try {
     await api.post(`/artifacts/${artifactId}/edits`, { baseVersionId, ops })
   } finally {
@@ -118,6 +118,10 @@ export function useVersionDetail(artifactId: string, versionId: string | null) {
   }, [artifactId, versionId])
   return state
 }
+
+/** A file of a version as a URL the page can load (images on the canvas; the session cookie goes along). */
+export const artifactFileUrl = (artifactId: string, path: string, versionId: string) =>
+  `/api/artifacts/${artifactId}/files/${path}?version=${encodeURIComponent(versionId)}`
 
 /** A file of a version as text (the source view; never rendered on the main site). */
 export const readArtifactFile = (artifactId: string, path: string, versionId: string) =>
