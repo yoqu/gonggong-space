@@ -50,6 +50,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   updatedAt: at,
   archivedAt: null,
   running: false,
+  queued: false,
+  queuedRunCount: 0,
   favorites: [],
   botId: null,
   undoVersionId: 'v1',

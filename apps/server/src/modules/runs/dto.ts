@@ -21,7 +21,7 @@ import {
   users,
 } from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
-import { manifestOf } from '../artifacts/service.js'
+import { manifestOf, refreshRunArtifacts } from '../artifacts/service.js'
 import { mirrorRun } from '../feishu/mirror.js'
 import { cachedGroupParams } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
@@ -296,4 +296,5 @@ export async function publishRuns(ctx: Ctx, rows: CardRow[]) {
     ctx.bus.publish(await memberIds(ctx, run.groupId), { t: 'run.updated', run: toDto(run) })
     await mirrorRun(ctx, run)
   }
+  await refreshRunArtifacts(ctx, rows)
 }

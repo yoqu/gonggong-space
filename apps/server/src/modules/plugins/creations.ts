@@ -132,15 +132,24 @@ function outputLines(hosted: { dir: string } | null, l1: boolean) {
 /** What the agent is asked to do (agent-facing: not translated). */
 function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: string } | null, l1: boolean) {
   const ds = card.designSystem && m.designSystems.find((d) => d.id === card.designSystem?.id)
+  // Filled-in design sources (PluginInput.designSource) win over the picked preset.
+  const sourceLabels = new Set(m.inputs.filter((i) => i.designSource).map((i) => i.label))
+  const sources = card.inputs.filter((i) => sourceLabels.has(i.label)).map((i) => `「${i.label}」`)
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
     `Skill：Claude 用 ${m.name}:${m.entry}；Codex 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
     ...(card.template ? [`模板：${card.template.title}（${card.template.id}）`] : []),
-    ...(ds
+    ...(sources.length
       ? [
-          `设计系统：${ds.title}（${ds.id}），先读取 skill 目录下的 ${ds.dir}/DESIGN.md 和 ${ds.dir}/tokens.css。`,
+          `设计系统：以参数里的${sources.join('、')}为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css${
+            ds ? `；所选预设「${ds.title}」（skill 目录下的 ${ds.dir}/）只在设计来源没有覆盖的地方作参考` : ''
+          }。`,
         ]
-      : []),
+      : ds
+        ? [
+            `设计系统：${ds.title}（${ds.id}），先读取 skill 目录下的 ${ds.dir}/DESIGN.md 和 ${ds.dir}/tokens.css。`,
+          ]
+        : []),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,
     ...(card.inputs.length ? ['参数：', ...card.inputs.map((i) => `- ${i.label}：${i.value}`)] : []),
     ...outputLines(hosted, l1),

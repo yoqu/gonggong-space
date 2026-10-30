@@ -16,6 +16,8 @@ export const CMD = {
   copy: 'copy',
   /** Copy as › code: the screens' HTML to the system clipboard. */
   copyCode: 'copy-code',
+  /** Copy as › PNG: the screen's screenshot (ArtifactVersionDto.screenThumbs). */
+  copyPng: 'copy-png',
   /** Copy as › link to selection: the page link opening the artifact on these screens. */
   copyLink: 'copy-link',
   cut: 'cut',
@@ -157,6 +159,8 @@ export function screenContextItems(o: {
   frame: ScreenFrame | null
   bot: BotState
   device: ArtifactDevice
+  /** The single selected screen has a screenshot to copy. */
+  png: boolean
 }): MenuItem[] {
   const ro = readOnlyTitle(o.readOnly)
   return [
@@ -167,6 +171,11 @@ export function screenContextItems(o: {
       value: 'copy-as',
       submenu: [
         { label: t('复制代码'), value: CMD.copyCode },
+        {
+          label: t('复制为 PNG'),
+          value: CMD.copyPng,
+          ...(!o.png && { disabled: true, title: t('这一屏还没有截图') }),
+        },
         { label: t('复制选区链接'), value: CMD.copyLink },
       ],
     },

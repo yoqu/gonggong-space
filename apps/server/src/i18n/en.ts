@@ -777,10 +777,14 @@ export const en = {
   '设计系统不存在：{id}': 'No such design system: {id}',
   '屏幕不存在：{id}': 'No such screen: {id}',
   不能删除最后一屏: 'The last screen cannot be deleted',
-  上传的图片不存在: 'The uploaded image does not exist',
-  '只能上传 PNG、JPG、WebP 或 GIF 图片': 'Only PNG, JPG, WebP or GIF images can be uploaded',
-  '图片不能超过 {mb} MB': 'An image cannot exceed {mb} MB',
-  图片内容与类型不符: "The image content doesn't match its type",
+  上传的文件不存在: 'The uploaded file does not exist',
+  '只能上传图片（PNG、JPG、WebP、GIF）、PDF 或文本文件':
+    'Only images (PNG, JPG, WebP, GIF), PDFs or text files can be uploaded',
+  '文件不能超过 {mb} MB': 'A file cannot exceed {mb} MB',
+  文件内容与类型不符: "The file content doesn't match its type",
+  '参考不存在：{id}': 'Reference not found: {id}',
+  参考太多或无效: 'Too many references, or an invalid one',
+  屏幕不存在: 'Screen not found',
   批注不存在: 'Annotation not found',
   只能修改自己的批注: 'You can only change your own annotations',
   // ArtifactFiles' own messages (packages/protocol), answered by the ZodError handler

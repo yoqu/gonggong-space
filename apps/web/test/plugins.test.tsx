@@ -113,6 +113,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
       options: [],
       default: null,
       placeholder: null,
+      designSource: false,
     },
     {
       id: 'points',
@@ -122,6 +123,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
       options: [],
       default: null,
       placeholder: null,
+      designSource: false,
     },
     {
       id: 'tone',
@@ -131,6 +133,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
       options: ['专业', '亲切', '活泼'],
       default: '专业',
       placeholder: null,
+      designSource: false,
     },
   ],
   secrets: [],

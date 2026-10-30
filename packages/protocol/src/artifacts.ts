@@ -30,6 +30,33 @@ export const GgArtifactScreen = z.object({
   prompt: z.string().max(4000).optional(),
 })
 export type GgArtifactScreen = z.infer<typeof GgArtifactScreen>
+/** Reference files members put on the canvas (images, PDFs, text): AI context, not part of the prototype. */
+export const ArtifactRefKind = z.enum(['image', 'pdf', 'text'])
+export type ArtifactRefKind = z.infer<typeof ArtifactRefKind>
+export const ARTIFACT_REF_EXT = {
+  png: 'image',
+  jpg: 'image',
+  webp: 'image',
+  gif: 'image',
+  pdf: 'pdf',
+  txt: 'text',
+  md: 'text',
+} as const satisfies Record<string, ArtifactRefKind>
+export const ARTIFACT_REFS_MAX = 50
+export const ArtifactRefFile = z
+  .string()
+  .regex(/^refs\/[a-z0-9]+(-[a-z0-9]+)*\.(png|jpg|webp|gif|pdf|txt|md)$/)
+/** A reference node: its file sits in `refs/` and travels with the version (the agent reads it in its checkout). */
+export const GgArtifactRef = z.object({
+  id: ArtifactScreenId,
+  title: z.string().min(1).max(120),
+  file: ArtifactRefFile,
+  kind: ArtifactRefKind,
+  /** Its place on the canvas; absent: the canvas lays it out. */
+  x: z.number().finite().optional(),
+  y: z.number().finite().optional(),
+})
+export type GgArtifactRef = z.infer<typeof GgArtifactRef>
 export const GG_ARTIFACT_MANIFEST = 'gg-artifact.json'
 export const GgArtifactManifest = z
   .object({
@@ -37,6 +64,7 @@ export const GgArtifactManifest = z
     device: ArtifactDevice,
     entry: ArtifactScreenId,
     screens: z.array(GgArtifactScreen).min(1).max(100),
+    refs: z.array(GgArtifactRef).max(ARTIFACT_REFS_MAX).optional(),
   })
   .superRefine((m, ctx) => {
     const ids = new Set<string>()
@@ -48,6 +76,15 @@ export const GgArtifactManifest = z
       ids.add(s.id)
     }
     if (!ids.has(m.entry)) ctx.addIssue({ code: 'custom', path: ['entry'], message: `没有屏幕 ${m.entry}` })
+    const refIds = new Set<string>()
+    for (const [i, r] of (m.refs ?? []).entries()) {
+      if (refIds.has(r.id))
+        ctx.addIssue({ code: 'custom', path: ['refs', i, 'id'], message: `参考 id 重复：${r.id}` })
+      refIds.add(r.id)
+      const ext = r.file.slice(r.file.lastIndexOf('.') + 1) as keyof typeof ARTIFACT_REF_EXT
+      if (ARTIFACT_REF_EXT[ext] !== r.kind)
+        ctx.addIssue({ code: 'custom', path: ['refs', i, 'kind'], message: `与文件类型不符：${r.file}` })
+    }
   })
 export type GgArtifactManifest = z.infer<typeof GgArtifactManifest>
 
@@ -107,6 +144,16 @@ export const ArtifactVersionDto = z.object({
   files: z.array(ArtifactFile),
   digest: SyncHash,
   thumbnailUrl: z.string().nullable(),
+  /**
+   * `thumbnailUrl` is an ancestor's: a `local` version gets none of its own (it is uploaded before the turn), so it
+   * shows the latest ancestor's that has one.
+   */
+  thumbnailStale: z.boolean().optional(),
+  /**
+   * One PNG per screen of the manifest, taken by the daemon after the version (the canvas copies them as PNG): PUT
+   * /api/daemon/runs/:runId/artifacts/:id/versions/:vid/screens/:screenId/thumbnail, read at `url`.
+   */
+  screenThumbs: z.array(z.object({ screenId: ArtifactScreenId, url: z.string() })).optional(),
   /** Its parent was not the head when it was submitted: a candidate a member adopts or hands to the AI to merge. */
   stale: z.boolean(),
   issues: z.array(LintIssue),
@@ -161,6 +208,9 @@ export const ArtifactDto = z.object({
   archivedAt: z.string().nullable(),
   /** A run is working on it: the panel is read-only until it ends. */
   running: z.boolean(),
+  /** Its bot has triggered runs waiting for its machine to come online (offline_wait); they run once it does. */
+  queued: z.boolean(),
+  queuedRunCount: z.number().int().min(0),
   /** Starred screen ids (PUT /api/artifacts/:id/favorites); not versioned. */
   favorites: z.array(z.string()),
   /** The bot it was created for: the canvas hands AI instructions to it by default. */
@@ -185,6 +235,8 @@ export const MessageCanvas = z.object({
   title: z.string(),
   screens: z.array(ScreenRef),
   elements: z.array(z.object({ file: ArtifactHtmlFile, ggId: GgId, label: z.string() })),
+  /** Reference nodes sent along (ArtifactContext.refs). */
+  refs: z.array(ScreenRef).optional(),
 })
 export type MessageCanvas = z.infer<typeof MessageCanvas>
 /**
@@ -209,6 +261,8 @@ export const ArtifactCard = z.object({
   versionN: z.number().int().nullable(),
   status: z.enum(['generating', 'ready', 'stale-candidate']),
   thumbnailUrl: z.string().nullable(),
+  /** See ArtifactVersionDto.thumbnailStale. */
+  thumbnailStale: z.boolean().optional(),
   issueCount: z.number().int().min(0),
 })
 export type ArtifactCard = z.infer<typeof ArtifactCard>
@@ -403,6 +457,18 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
       if (o.op === 'reorder' && o.index === undefined)
         ctx.addIssue({ code: 'custom', path: ['index'], message: '缺少位置' })
     }),
+  /** An upload (ARTIFACT_REF_TYPES) added as a reference node: `refs/<new id>.<ext>` plus its manifest entry. */
+  z.object({ kind: z.literal('ref'), uploadId: z.string(), title: z.string().trim().min(1).max(120) }),
+  /** Removes the reference node and its file. */
+  z.object({ kind: z.literal('ref-delete'), id: ArtifactScreenId }),
+  z.object({ kind: z.literal('ref-rename'), id: ArtifactScreenId, title: z.string().trim().min(1).max(80) }),
+  /** Places the reference node on the canvas. */
+  z.object({
+    kind: z.literal('ref-move'),
+    id: ArtifactScreenId,
+    x: z.number().finite(),
+    y: z.number().finite(),
+  }),
 ])
 export type ArtifactEditOp = z.infer<typeof ArtifactEditOp>
 /** POST /api/artifacts/:id/edits — 409 when `baseVersionId` is not the head. */
@@ -416,24 +482,46 @@ export type ArtifactEditReq = z.infer<typeof ArtifactEditReq>
 export const ArtifactFavoritesReq = z.object({ screenIds: z.array(ArtifactScreenId).max(100) })
 export type ArtifactFavoritesReq = z.infer<typeof ArtifactFavoritesReq>
 
-/** POST /api/artifacts/:id/uploads takes one image as the raw body (Content-Type below); SVG is refused. */
+/**
+ * POST /api/artifacts/:id/uploads takes one file as the raw body (Content-Type one of ARTIFACT_REF_TYPES); SVG is
+ * refused. Images (ARTIFACT_UPLOAD_TYPES) go into `asset` or `ref` ops, PDFs and text into `ref` ops only.
+ */
 export const ARTIFACT_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+export const ARTIFACT_UPLOAD_PDF_MAX_BYTES = 10 * 1024 * 1024
 export const ARTIFACT_UPLOAD_TYPES = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
   'image/gif': 'gif',
 } as const
-/** `uploadId` goes into an `asset` op, which writes the image to `path` and points the element's `src` at it. */
-export const ArtifactUploadRes = z.object({ uploadId: z.string(), path: z.string() })
+export const ARTIFACT_REF_TYPES = {
+  ...ARTIFACT_UPLOAD_TYPES,
+  'application/pdf': 'pdf',
+  'text/plain': 'txt',
+  'text/markdown': 'md',
+} as const
+/**
+ * `uploadId` goes into an `asset` op (images: written to `path`, the element's `src` points at it; null for PDFs and
+ * text) or a `ref` op.
+ */
+export const ArtifactUploadRes = z.object({
+  uploadId: z.string(),
+  path: z.string().nullable(),
+  kind: ArtifactRefKind,
+})
 export type ArtifactUploadRes = z.infer<typeof ArtifactUploadRes>
 
 // ── Annotations ─────────────────────────────────────────────────────────────
+export const BRIDGE_MARK_RECT_MAX = 200
 export const Rect = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
 export type Rect = z.infer<typeof Rect>
 export const AnnotationStatus = z.enum(['open', 'sent', 'resolved'])
 export type AnnotationStatus = z.infer<typeof AnnotationStatus>
-/** POST /api/artifacts/:id/annotations (GET …?version=<id> lists them) — `ggId` null: an element scripts generated (annotate only, no edits). */
+/**
+ * POST /api/artifacts/:id/annotations (GET …?version=<id> lists them) — `ggId` null: an element scripts generated
+ * (annotate only, no edits); with `selector` empty too, a dragged region (bridge `mark-rect`): `rect` the region in
+ * page coordinates, `snippet` the `data-gg-id`s inside it.
+ */
 export const CreateAnnotationReq = z.object({
   versionId: z.string(),
   file: ArtifactHtmlFile,
@@ -550,6 +638,17 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
     type: z.literal('nav'),
     screen: z.string(),
     transition: ArtifactTransition.optional(),
+  }),
+  /**
+   * Mark mode: a region was dragged (a click without dragging posts `select`). `rect` in the viewport, like `select`;
+   * `ggIds`: the outermost elements (with a `data-gg-id`) wholly inside it, in document order, at most
+   * BRIDGE_MARK_RECT_MAX.
+   */
+  z.object({
+    ...FromScreen,
+    type: z.literal('mark-rect'),
+    rect: Rect,
+    ggIds: z.array(GgId).max(BRIDGE_MARK_RECT_MAX),
   }),
   /** Preview mode: a `data-gg-back` element was clicked. */
   z.object({ ...FromScreen, type: z.literal('back') }),
@@ -678,5 +777,7 @@ export const ArtifactContext = z.object({
     .array(ArtifactElementRef.extend({ label: z.string().max(200) }))
     .max(20)
     .optional(),
+  /** Reference nodes by file (`refs/…` of the head's GgArtifactRef): the agent is told where they are. */
+  refs: z.array(ArtifactRefFile).max(20).optional(),
 })
 export type ArtifactContext = z.infer<typeof ArtifactContext>

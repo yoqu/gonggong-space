@@ -105,19 +105,22 @@
       "id": "design_md",
       "label": "粘贴 DESIGN.md",
       "type": "text",
-      "placeholder": "粘贴现成的 DESIGN.md，留空则用所选设计系统"
+      "placeholder": "粘贴现成的 DESIGN.md，留空则用所选设计系统",
+      "designSource": true
     },
     {
       "id": "reference_url",
       "label": "参考网站",
       "type": "string",
-      "placeholder": "https://…，AI 会抓取页面并提取配色、字体和组件风格"
+      "placeholder": "https://…，AI 会抓取页面并提取配色、字体和组件风格",
+      "designSource": true
     },
     {
       "id": "reference_repo",
       "label": "参考仓库",
       "type": "string",
-      "placeholder": "仓库地址或工作区路径，AI 会从样式代码里提取设计系统"
+      "placeholder": "仓库地址或工作区路径，AI 会从样式代码里提取设计系统",
+      "designSource": true
     }
   ],
   "license": "Apache-2.0",

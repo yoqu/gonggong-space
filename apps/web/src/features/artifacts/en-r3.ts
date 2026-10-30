@@ -39,4 +39,8 @@ export default {
   '从群里移除，群成员不再看到它': 'It leaves the group; members no longer see it.',
   '文件和版本保留，可以恢复': 'Its files and versions are kept and can be restored',
   '已创建副本「{title}」': 'Created a copy “{title}”',
+  '复制为 PNG': 'Copy as PNG',
+  已复制为图片: 'Copied as an image',
+  这一屏还没有截图: 'This screen has no screenshot yet',
+  浏览器不支持复制图片: "This browser can't copy images",
 }

@@ -227,7 +227,7 @@ describe('direct edits', () => {
     const res = await s.edit([{ kind: 'asset', file: 'screens/home.html', ggId: id(HOME, '<img'), uploadId }])
     expect(res.statusCode).toBe(200)
     expect(await s.file('screens/home.html')).toBe(HOME.replace('src="x.png"', `src="../assets/${uploadId}"`))
-    expect(await s.file(path)).toBe(PNG.toString())
+    expect(await s.file(path!)).toBe(PNG.toString())
   })
 
   it('lets only members edit', async () => {

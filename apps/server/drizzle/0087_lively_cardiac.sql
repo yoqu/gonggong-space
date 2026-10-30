@@ -1,0 +1,1 @@
+ALTER TABLE "artifact_versions" ADD COLUMN "screen_thumbs" jsonb DEFAULT '[]'::jsonb NOT NULL;

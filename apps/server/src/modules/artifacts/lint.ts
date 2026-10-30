@@ -53,7 +53,8 @@ export async function lintVersion(
 
   const l1 = !!manifestFile
   for (const f of files) {
-    if (!f.path.endsWith('.html') || (l1 && kitName(f.path))) continue
+    // refs/ holds members' reference files, not the prototype.
+    if (!f.path.endsWith('.html') || f.path.startsWith('refs/') || (l1 && kitName(f.path))) continue
     const html = (await read(f)).toString('utf8')
     if (screens) {
       const missing = new Set(

@@ -195,6 +195,74 @@ describe('gg-bridge', () => {
     expect(s.last()).toMatchObject({ type: 'nav' })
   })
 
+  it('in mark mode, dragging posts the region (viewport) and the outermost elements wholly inside it; a click still selects', () => {
+    const s = screen()
+    s.send({ type: 'mode', mode: 'mark' })
+    // jsdom has no layout: place the elements by hand (viewport = document, no scroll).
+    const at = (sel: string, left: number, top: number, width: number, height: number) => {
+      s.$(sel).getBoundingClientRect = () => ({ left, top, width, height }) as DOMRect
+    }
+    at('section', 0, 0, 390, 300)
+    at('h1', 10, 10, 200, 40)
+    at('[data-gg-link]', 10, 60, 80, 20)
+    at('[data-gg-back]', 10, 260, 80, 20)
+    const mouse = (type: string, x: number, y: number, sel = 'h1') =>
+      s
+        .$(sel)
+        .dispatchEvent(new s.w.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y }))
+    const before = s.posts.length
+    expect(mouse('mousedown', 220, 90)).toBe(false)
+    mouse('mousemove', 100, 50)
+    mouse('mousemove', 5, 5)
+    expect(s.w.document.getElementById('gg-mark-rect')).not.toBeNull()
+    mouse('mouseup', 5, 5)
+    expect(s.click('h1')).toBe(false)
+    expect(s.posts.slice(before).map((p) => p.data.type)).toEqual(['mark-rect'])
+    expect(BridgeFromShell.parse(s.last())).toEqual({
+      source: 'gg-bridge',
+      file: 'screens/home.html',
+      type: 'mark-rect',
+      rect: { x: 5, y: 5, w: 215, h: 85 },
+      ggIds: [s.$('h1').getAttribute('data-gg-id'), s.$('[data-gg-link]').getAttribute('data-gg-id')],
+    })
+    expect(s.$('h1').hasAttribute('data-gg-selected')).toBe(false)
+
+    // A press without dragging is a click: it selects, and the region box goes.
+    mouse('mousedown', 20, 20)
+    mouse('mousemove', 21, 21)
+    mouse('mouseup', 21, 21)
+    expect(s.w.document.getElementById('gg-mark-rect')).toBeNull()
+    s.click('h1')
+    expect(s.last()).toMatchObject({ type: 'select', ggId: s.$('h1').getAttribute('data-gg-id') })
+
+    // The outermost element covers what is inside it; edit mode draws nothing.
+    mouse('mousedown', 0, 0)
+    mouse('mousemove', 400, 400)
+    mouse('mouseup', 400, 400)
+    expect(s.last()).toMatchObject({ type: 'mark-rect', ggIds: [s.$('section').getAttribute('data-gg-id')] })
+    s.send({ type: 'select-clear' })
+    expect(s.w.document.getElementById('gg-mark-rect')).toBeNull()
+
+    // Scrolled: the region is posted in the viewport, while elements are matched in the document.
+    Object.defineProperty(s.w, 'scrollY', { value: 100, configurable: true })
+    at('h1', 10, -90, 200, 40)
+    at('[data-gg-link]', 10, -40, 80, 20)
+    mouse('mousedown', 5, -95)
+    mouse('mousemove', 220, -10)
+    mouse('mouseup', 220, -10)
+    expect(s.last()).toMatchObject({
+      type: 'mark-rect',
+      rect: { x: 5, y: -95, w: 215, h: 85 },
+      ggIds: [s.$('h1').getAttribute('data-gg-id'), s.$('[data-gg-link]').getAttribute('data-gg-id')],
+    })
+    s.send({ type: 'mode', mode: 'edit' })
+    const n = s.posts.length
+    mouse('mousedown', 0, 0)
+    mouse('mousemove', 300, 300)
+    mouse('mouseup', 300, 300)
+    expect(s.posts.length).toBe(n)
+  })
+
   it('reports the transition and a clean, truncated snippet of the selected element', () => {
     const long = '很长的文字'.repeat(100)
     const s = screen(

@@ -26,6 +26,14 @@ import { type Artifact, manifestOf, requireVersion, type Version } from './servi
 // Everything here is read by agents (not translated), except the short message bodies members see.
 
 const SNIPPET_MAX = 300
+/** Elements of a region annotation listed for the agent. */
+const REGION_LINES = 10
+
+/** The `data-gg-id`s a region annotation's snippet lists (the web writes them separated by commas or spaces). */
+function regionIds(snippet: string) {
+  const parts = snippet.split(/[\s,，、]+/).filter(Boolean)
+  return parts.every((p) => /^\d{1,9}$/.test(p)) ? parts : []
+}
 
 /** Reads a version's HTML files once each, with their located elements. */
 function sources(a: Artifact, v: Version) {
@@ -76,7 +84,13 @@ async function elementLabel(source: ReturnType<typeof sources>, file: string, gg
   return el ? cut(textOf(el)) || `<${el.tagName}>` : `#${ggId}`
 }
 
-type Selection = { screenIds: string[]; elements: (ArtifactElementRef & { label?: string })[] }
+type Selection = {
+  screenIds: string[]
+  elements: (ArtifactElementRef & { label?: string })[]
+  refs?: string[]
+}
+
+const REF_KIND = { image: '图片', pdf: 'PDF', text: '文本' } as const
 
 /** The agent's context lines for a selection, and the selection as the message bubble shows it. */
 async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
@@ -97,18 +111,32 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
       })
     }
   }
+  const refs = (sel.refs ?? []).map(
+    (file) => m?.refs?.find((r) => r.file === file) ?? fail('invalid', '参考不存在：{id}', { id: file }),
+  )
+  if (refs.length)
+    lines.push(
+      '参考文件（成员放到画布上的资料，已随产物检出，请先查看再按要求处理）：',
+      ...refs.map((r) => `- ${a.dir}/${r.file}（${REF_KIND[r.kind]}：${r.title}）`),
+    )
   const canvas: MessageCanvas = {
     artifactId: a.id,
     title: a.title,
     screens: sel.screenIds.map((id) => ({ id, title: m?.screens.find((x) => x.id === id)?.title ?? id })),
     elements,
+    ...(refs.length && { refs: refs.map((r) => ({ id: r.id, title: r.title })) }),
   }
   return { v, lines, canvas }
 }
 
 /** `「产物」 › 首页、详情 › 标题`: the selection in one line, under the short message. */
 const summaryLine = (c: MessageCanvas) =>
-  [`「${c.title}」`, c.screens.map((s) => s.title).join('、'), c.elements.map((e) => e.label).join('、')]
+  [
+    `「${c.title}」`,
+    c.screens.map((s) => s.title).join('、'),
+    c.elements.map((e) => e.label).join('、'),
+    (c.refs ?? []).map((r) => r.title).join('、'),
+  ]
     .filter(Boolean)
     .join(' › ')
 
@@ -248,9 +276,21 @@ export async function sendAnnotations(
     const v = await requireVersion(ctx.db, a, n.versionId)
     const source = byVersion.get(v.id) ?? sources(a, v)
     byVersion.set(v.id, source)
+    const region = n.ggId === null && n.selector === ''
+    const ids = region ? regionIds(n.snippet) : []
+    const r = [n.rect.x, n.rect.y, n.rect.w, n.rect.h].map(Math.round).join(',')
+    const target = region
+      ? [
+          `${n.file} 区域 (${r})（x,y,w,h，屏幕 CSS 像素）内：${n.snippet || '（没有元素，指这块空白区域）'}`,
+          ...(await Promise.all(
+            ids.slice(0, REGION_LINES).map(async (id) => `   - ${await elementLine(source, n.file, id)}`),
+          )),
+          ...(ids.length > REGION_LINES ? [`   - …另有 ${ids.length - REGION_LINES} 个元素`] : []),
+        ].join('\n')
+      : await elementLine(source, n.file, n.ggId)
     lines.push(
-      `${i + 1}. ${await elementLine(source, n.file, n.ggId)}`,
-      `   选择器：${n.selector}${v.id === head.id ? '' : `（批注于 v${v.n}，当前是 v${head.n}，位置可能已变）`}`,
+      `${i + 1}. ${target}`,
+      `   ${n.selector ? `选择器：${n.selector}` : '框选区域'}${v.id === head.id ? '' : `（批注于 v${v.n}，当前是 v${head.n}，位置可能已变）`}`,
       `   意见：${n.note}`,
     )
   }
@@ -298,6 +338,7 @@ export async function artifactContextNote(ctx: Ctx, a: Artifact, c: ArtifactCont
   const { lines, canvas } = await contextLines(ctx, a, {
     screenIds: c.screenIds ?? [],
     elements: c.elements ?? [],
+    refs: c.refs ?? [],
   })
   return { note: ['[画布上下文：这条消息针对下面的产物和选中内容]', ...lines].join('\n'), canvas }
 }

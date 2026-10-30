@@ -1,7 +1,8 @@
 //! Hosted artifacts on the daemon side (docs/plan/产物托管与编辑-开发计划.md §3.2, slice D): the server holds each
 //! `design/<slug>/` folder as versions. Before a turn, changes made here since the version last known (offline, a failed
 //! upload, a hand edit) go up first, and only then is the head checked out: a folder whose changes could not go up is
-//! left as it is. After the turn the folder goes up as a new version, with a first-screen thumbnail.
+//! left as it is. After the turn the folder goes up as a new version, with a first-screen thumbnail and one PNG per
+//! screen of its gg-artifact.json (the canvas copies those as images).
 //! Each (artifact, folder) keeps its state in `<home>/artifacts/<id>/<folder key>/state.json`, never in the workspace:
 //! the version it last matched with that version's files, the stat cache, the submit on its way (resent with the same
 //! key until answered) and the version being written (a checkout a crash cut off is finished, not taken for edits).
@@ -140,6 +141,15 @@ impl Client {
         let req = self
             .http
             .put(self.run_url(run, id, &format!("versions/{version}/thumbnail")))
+            .header(reqwest::header::CONTENT_TYPE, "image/png")
+            .body(png);
+        self.send(req, META_TIMEOUT).await.map(drop)
+    }
+
+    async fn screen_thumbnail(&self, run: &str, id: &str, version: &str, screen: &str, png: Vec<u8>) -> Result<(), Failure> {
+        let req = self
+            .http
+            .put(self.run_url(run, id, &format!("versions/{version}/screens/{screen}/thumbnail")))
             .header(reqwest::header::CONTENT_TYPE, "image/png")
             .body(png);
         self.send(req, META_TIMEOUT).await.map(drop)
@@ -353,8 +363,8 @@ impl Artifacts {
         self.submit(run, &f, &mut state, &local, ArtifactSubmitSource::Run).await.map(Some)
     }
 
-    /// Screenshots the folder's shell (the canvas view) and uploads it as `version`'s thumbnail; false when the
-    /// machine has no browser to take it with.
+    /// Screenshots the folder's shell (the canvas view) and uploads it as `version`'s thumbnail, then each screen of
+    /// its manifest in the device's window; false when the machine has no browser to take them with.
     pub async fn thumbnail(
         &self,
         run: &str,
@@ -365,10 +375,20 @@ impl Artifacts {
     ) -> Result<bool, String> {
         let f = Folder::new(&self.home, cwd, r)?;
         let (port, server) = serve_shell(&f.dir, kit).await.map_err(|e| e.to_string())?;
-        let shot = snapshot::capture(port, "/").await;
+        let result = self.shoot(run, &f, port, version).await;
         server.abort();
+        result
+    }
+
+    async fn shoot(&self, run: &str, f: &Folder, port: u16, version: &str) -> Result<bool, String> {
+        let shot = snapshot::capture(port, "/").await;
         let Some(png) = shot.map_err(|e| format!("{e:#}"))? else { return Ok(false) };
         self.client.thumbnail(run, &f.id, version, png).await.map_err(|e| e.message)?;
+        for s in screen_shots(&f.dir) {
+            let shot = snapshot::capture_sized(port, &format!("/{}", s.file), s.window).await;
+            let Some(png) = shot.map_err(|e| format!("{e:#}"))? else { return Ok(false) };
+            self.client.screen_thumbnail(run, &f.id, version, &s.id, png).await.map_err(|e| e.message)?;
+        }
         Ok(true)
     }
 
@@ -530,6 +550,44 @@ pub fn kit(plugins: &[PathBuf], home: &Path) -> Option<PathBuf> {
     })
 }
 
+/// A screen of a folder's gg-artifact.json to screenshot, and the window its device shows it in.
+#[derive(Debug, PartialEq)]
+pub struct ScreenShot {
+    pub id: String,
+    pub file: String,
+    pub window: (u32, u32),
+}
+
+/// The screens of `dir`'s gg-artifact.json whose id is valid and whose file exists (none for L0 or an unreadable one).
+pub fn screen_shots(dir: &Path) -> Vec<ScreenShot> {
+    #[derive(Deserialize)]
+    struct Screen {
+        id: String,
+        file: String,
+    }
+    #[derive(Deserialize)]
+    struct Manifest {
+        device: String,
+        screens: Vec<Screen>,
+    }
+    let Ok(text) = std::fs::read(dir.join("gg-artifact.json")) else { return vec![] };
+    let Ok(m) = serde_json::from_slice::<Manifest>(&text) else { return vec![] };
+    let window = match m.device.as_str() {
+        "miniprogram" => (375, 812),
+        "mobile" => (390, 844),
+        _ => (1440, 900),
+    };
+    let kebab = |id: &str| {
+        (1..=40).contains(&id.len())
+            && id.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+    };
+    m.screens
+        .into_iter()
+        .filter(|s| kebab(&s.id) && s.file == format!("screens/{}.html", s.id) && dir.join(&s.file).is_file())
+        .map(|s| ScreenShot { id: s.id, file: s.file, window })
+        .collect()
+}
+
 /// Serves `dir` on a loopback port, with `/` and `/_gg/*` from `kit` when given (else the folder's own copies), the
 /// way the server renders it. Returns the port and the task to abort.
 pub async fn serve_shell(dir: &Path, kit: Option<&Path>) -> std::io::Result<(u16, tokio::task::JoinHandle<()>)> {
@@ -657,6 +715,38 @@ fn status(out: &Outbox, run_id: &str, step: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screen_shots_lists_valid_existing_screens_in_their_device_window() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(screen_shots(dir.path()), vec![]);
+        std::fs::create_dir_all(dir.path().join("screens")).unwrap();
+        for f in ["home", "Bad", "gone-file", "detail"] {
+            if f != "gone-file" {
+                std::fs::write(dir.path().join(format!("screens/{f}.html")), "<p>").unwrap();
+            }
+        }
+        let manifest = |device: &str| {
+            serde_json::json!({
+                "title": "t", "device": device, "entry": "home",
+                "screens": [
+                    { "id": "home", "title": "首页", "file": "screens/home.html" },
+                    { "id": "Bad", "title": "x", "file": "screens/Bad.html" },
+                    { "id": "gone-file", "title": "x", "file": "screens/gone-file.html" },
+                    { "id": "detail", "title": "x", "file": "screens/home.html" },
+                    { "id": "detail", "title": "详情", "file": "screens/detail.html" },
+                ],
+            })
+            .to_string()
+        };
+        std::fs::write(dir.path().join("gg-artifact.json"), manifest("miniprogram")).unwrap();
+        let shot = |id: &str, window| ScreenShot { id: id.into(), file: format!("screens/{id}.html"), window };
+        assert_eq!(screen_shots(dir.path()), vec![shot("home", (375, 812)), shot("detail", (375, 812))]);
+        std::fs::write(dir.path().join("gg-artifact.json"), manifest("desktop")).unwrap();
+        assert_eq!(screen_shots(dir.path())[0].window, (1440, 900));
+        std::fs::write(dir.path().join("gg-artifact.json"), "{").unwrap();
+        assert_eq!(screen_shots(dir.path()), vec![]);
+    }
 
     async fn get(port: u16, path: &str) -> (u16, String) {
         let res = reqwest::Client::builder().no_proxy().build().unwrap().get(format!("http://127.0.0.1:{port}{path}"));

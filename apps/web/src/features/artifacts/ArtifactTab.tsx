@@ -300,6 +300,11 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           manifest={shownManifest}
           tokens={design.tokens}
           links={detail?.id === shown ? (detail.links ?? []) : []}
+          screenThumbs={
+            detail?.id === shown
+              ? Object.fromEntries((detail.screenThumbs ?? []).map((x) => [x.screenId, x.url]))
+              : {}
+          }
           favourites={a.favorites ?? []}
           preview={preview}
           versionKey={shown ?? ''}

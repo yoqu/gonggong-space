@@ -39,6 +39,11 @@ pub(crate) fn browser() -> Option<PathBuf> {
 
 /// The page at `http://localhost:{port}{path}` as a 1280×800 PNG; None when the machine has no such browser.
 pub async fn capture(port: u16, path: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    capture_sized(port, path, (1280, 800)).await
+}
+
+/// `capture` in a `width`×`height` window.
+pub async fn capture_sized(port: u16, path: &str, (width, height): (u32, u32)) -> anyhow::Result<Option<Vec<u8>>> {
     let Some(bin) = browser() else { return Ok(None) };
     let dir = std::env::temp_dir().join(format!("gg-snapshot-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&dir).await?;
@@ -46,7 +51,8 @@ pub async fn capture(port: u16, path: &str) -> anyhow::Result<Option<Vec<u8>>> {
     let mut child = crate::proc::async_command(&bin)
         .current_dir(&dir)
         .args(["--headless", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check"])
-        .args(["--virtual-time-budget=5000", "--window-size=1280,800", "--screenshot"])
+        .args(["--virtual-time-budget=5000", "--screenshot"])
+        .arg(format!("--window-size={width},{height}"))
         .arg(format!("--user-data-dir={}", dir.join("profile").display()))
         .arg(format!("http://localhost:{port}{path}"))
         .stdout(Stdio::null())

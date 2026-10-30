@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import {
   type AnnotationDto,
-  ARTIFACT_UPLOAD_MAX_BYTES,
   ArtifactCommandReq,
   type ArtifactDesignSystem,
   type ArtifactDto,
@@ -10,6 +9,7 @@ import {
   ArtifactFavoritesReq,
   type ArtifactManifestRes,
   ArtifactPatchReq,
+  ArtifactScreenId,
   type ArtifactShareDto,
   ArtifactShareReq,
   ArtifactSubmitReq,
@@ -43,7 +43,7 @@ import { publishRun } from '../runs/dto.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
-import { applyEdits, uploadImage } from './edits.js'
+import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
 import { pluginDesignSystems } from './kit.js'
 import {
@@ -53,6 +53,7 @@ import {
   findArtifact,
   listArtifacts,
   listVersions,
+  manifestOf,
   refreshCard,
   renameArtifact,
   requireArtifact,
@@ -65,7 +66,9 @@ import { openArtifactPreview, setShare, shareState } from './share.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
-type RunArtifactReq = FastifyRequest<{ Params: { runId: string; id: string; hash?: string; vid?: string } }>
+type RunArtifactReq = FastifyRequest<{
+  Params: { runId: string; id: string; hash?: string; vid?: string; screenId?: string }
+}>
 
 /** The run is of a bot on this machine and its run.start sent the artifact. */
 async function requireRunArtifact(ctx: Ctx, req: RunArtifactReq) {
@@ -120,15 +123,44 @@ const quotaFull = (reply: FastifyReply) =>
     message: t('群的产物存储已超过 {gb} GB 上限', { gb: artifactQuota.bytes / 1024 ** 3 }),
   })
 
+/** A daemon's screenshot into the group's artifact store; its hash. */
+async function storePng(a: Artifact, body: Readable) {
+  const png = await readAll(body, THUMBNAIL_MAX_BYTES, () =>
+    fail('invalid', '缩略图不能超过 {mb} MB', { mb: THUMBNAIL_MAX_BYTES / 1024 / 1024 }),
+  )
+  const hash = createHash('sha256').update(png).digest('hex')
+  if ((await artifactBlobs.touch(a.groupId, hash)) === null)
+    await artifactBlobs.write(a.groupId, hash, Readable.from([png]), false)
+  return hash
+}
+
+const PNG_HEADERS = {
+  'content-type': 'image/png',
+  'x-content-type-options': 'nosniff',
+  'cache-control': 'private, no-cache',
+}
+
 const PreviewReq = z.object({ versionId: z.string().nullable().optional() })
 
 /** Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md S1): daemon checkout / upload, members' reads. */
 export function artifactRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     // Raw (optionally gzip) bytes streamed to disk; the store enforces the size limit.
-    // Images are read by the routes (uploads refuse SVG themselves).
+    // Uploads are read by the routes (they refuse SVG themselves). Text uploads too: none of these routes takes
+    // text/plain otherwise (this plugin's scope only).
+    app.removeContentTypeParser('text/plain')
     app.addContentTypeParser(
-      [SYNC_BLOB_CONTENT_TYPE, 'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'],
+      [
+        SYNC_BLOB_CONTENT_TYPE,
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+        'image/svg+xml',
+        'application/pdf',
+        'text/plain',
+        'text/markdown',
+      ],
       (_req, payload, done) => done(null, payload),
     )
 
@@ -210,6 +242,37 @@ export function artifactRoutes(ctx: Ctx) {
       },
     )
 
+    // One PNG per screen of the version's manifest (the canvas's 复制为 PNG); a retake replaces the screen's.
+    app.put(
+      '/api/daemon/runs/:runId/artifacts/:id/versions/:vid/screens/:screenId/thumbnail',
+      async (req: RunArtifactReq, reply) => {
+        const body = req.body as Readable
+        try {
+          const { a } = await requireRunArtifact(ctx, req)
+          const v = await requireVersion(ctx.db, a, req.params.vid)
+          const screenId = ArtifactScreenId.safeParse(req.params.screenId)
+          const manifest = await manifestOf(a, v)
+          if (!screenId.success || !manifest?.screens.some((s) => s.id === screenId.data))
+            return fail('not_found', '屏幕不存在')
+          const hash = await storePng(a, body)
+          const thumbs = [
+            ...v.screenThumbs.filter((x) => x.screenId !== screenId.data),
+            { screenId: screenId.data, hash },
+          ]
+          await ctx.db
+            .update(artifactVersions)
+            .set({ screenThumbs: thumbs })
+            .where(eq(artifactVersions.id, v.id))
+        } catch (e) {
+          if (!(e instanceof QuotaExceeded)) throw e
+          return quotaFull(reply)
+        } finally {
+          body.resume()
+        }
+        return reply.status(204).send()
+      },
+    )
+
     app.put(
       '/api/daemon/runs/:runId/artifacts/:id/versions/:vid/thumbnail',
       async (req: RunArtifactReq, reply) => {
@@ -217,12 +280,7 @@ export function artifactRoutes(ctx: Ctx) {
         try {
           const { a } = await requireRunArtifact(ctx, req)
           const v = await requireVersion(ctx.db, a, req.params.vid)
-          const png = await readAll(body, THUMBNAIL_MAX_BYTES, () =>
-            fail('invalid', '缩略图不能超过 {mb} MB', { mb: THUMBNAIL_MAX_BYTES / 1024 / 1024 }),
-          )
-          const hash = createHash('sha256').update(png).digest('hex')
-          if ((await artifactBlobs.touch(a.groupId, hash)) === null)
-            await artifactBlobs.write(a.groupId, hash, Readable.from([png]), false)
+          const hash = await storePng(a, body)
           await ctx.db
             .update(artifactVersions)
             .set({ thumbnailHash: hash })
@@ -283,13 +341,19 @@ export function artifactRoutes(ctx: Ctx) {
         const a = await requireArtifact(ctx, req.params.id, me.id)
         const v = await requireVersion(ctx.db, a, req.params.vid)
         if (!v.thumbnailHash) return fail('not_found', '还没有截图')
-        return reply
-          .headers({
-            'content-type': 'image/png',
-            'x-content-type-options': 'nosniff',
-            'cache-control': 'private, no-cache',
-          })
-          .send(await artifactBlobs.open(a.groupId, v.thumbnailHash))
+        return reply.headers(PNG_HEADERS).send(await artifactBlobs.open(a.groupId, v.thumbnailHash))
+      },
+    )
+
+    app.get<{ Params: { id: string; vid: string; screenId: string } }>(
+      '/api/artifacts/:id/versions/:vid/screens/:screenId/thumbnail',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const v = await requireVersion(ctx.db, a, req.params.vid)
+        const shot =
+          v.screenThumbs.find((x) => x.screenId === req.params.screenId) ?? fail('not_found', '还没有截图')
+        return reply.headers(PNG_HEADERS).send(await artifactBlobs.open(a.groupId, shot.hash))
       },
     )
 
@@ -382,11 +446,11 @@ export function artifactRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const a = await requireArtifact(ctx, req.params.id, me.id)
         if (!body || typeof body.pipe !== 'function')
-          return fail('invalid', '只能上传 PNG、JPG、WebP 或 GIF 图片')
-        const bytes = await readAll(body, ARTIFACT_UPLOAD_MAX_BYTES, () =>
-          fail('invalid', '图片不能超过 {mb} MB', { mb: ARTIFACT_UPLOAD_MAX_BYTES / 1024 / 1024 }),
+          return fail('invalid', '只能上传图片（PNG、JPG、WebP、GIF）、PDF 或文本文件')
+        const bytes = await readAll(body, UPLOAD_READ_MAX, () =>
+          fail('invalid', '文件不能超过 {mb} MB', { mb: UPLOAD_READ_MAX / 1024 / 1024 }),
         )
-        const out: ArtifactUploadRes = await uploadImage(a, req.headers['content-type'], bytes)
+        const out: ArtifactUploadRes = await uploadFile(a, req.headers['content-type'], bytes)
         return out
       } catch (e) {
         if (!(e instanceof QuotaExceeded)) throw e

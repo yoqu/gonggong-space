@@ -6,6 +6,8 @@ import {
   AnnotationDto,
   ARTIFACT_FILE_MAX_BYTES,
   ARTIFACT_MAX_FILES,
+  ARTIFACT_REF_TYPES,
+  ARTIFACT_UPLOAD_TYPES,
   ArtifactCard,
   ArtifactCommand,
   ArtifactCommandReq,
@@ -17,6 +19,8 @@ import {
   ArtifactShareDto,
   ArtifactShareReq,
   ArtifactSubmitReq,
+  ArtifactUploadRes,
+  ArtifactVersionDto,
   artifactDigestText,
   attrValueOk,
   BridgeFromShell,
@@ -27,6 +31,7 @@ import {
   MessageCanvas,
   MessageCard,
   MessageDto,
+  PluginInput,
   PluginManifest,
   RunArtifact,
   RunDto,
@@ -313,6 +318,8 @@ describe('versions and submit', () => {
       updatedAt: '2026-10-29T00:00:00Z',
       archivedAt: null,
       running: false,
+      queued: false,
+      queuedRunCount: 0,
       favorites: ['home'],
       botId: 'b1',
     }
@@ -592,5 +599,145 @@ describe('artifact rename (G18)', () => {
     expect(ArtifactPatchReq.parse({ title: '  新标题 ' })).toEqual({ title: '新标题' })
     expect(ArtifactPatchReq.safeParse({ title: '  ' }).success).toBe(false)
     expect(ArtifactPatchReq.safeParse({ title: 'x'.repeat(81) }).success).toBe(false)
+  })
+})
+
+describe('stitch round 3: refs, region marks, queue, stale thumbnails, design sources', () => {
+  const refs = [
+    { id: 'ref-1a2b', title: '竞品首页.png', file: 'refs/ref-1a2b.png', kind: 'image', x: 10, y: -20 },
+    { id: 'ref-brief', title: '需求.pdf', file: 'refs/ref-brief.pdf', kind: 'pdf' },
+    { id: 'ref-notes', title: 'notes.md', file: 'refs/ref-notes.md', kind: 'text' },
+  ]
+  it('the manifest lists reference nodes in refs/ with a kind matching the file and an optional place', () => {
+    expect(GgArtifactManifest.parse({ ...manifest, refs }).refs).toEqual(refs)
+    const bad = (r: object) =>
+      GgArtifactManifest.safeParse({ ...manifest, refs: [{ ...refs[0], ...r }] }).success
+    expect(bad({ file: 'assets/x.png' })).toBe(false)
+    expect(bad({ file: 'refs/../x.png' })).toBe(false)
+    expect(bad({ file: 'refs/x.svg' })).toBe(false)
+    expect(bad({ kind: 'pdf' })).toBe(false)
+    expect(bad({ x: Number.POSITIVE_INFINITY })).toBe(false)
+    expect(GgArtifactManifest.safeParse({ ...manifest, refs: [refs[0], refs[0]] }).success).toBe(false)
+  })
+  it('uploads take PDFs and text for refs; images stay the only asset uploads; ref ops', () => {
+    expect(Object.values(ARTIFACT_UPLOAD_TYPES)).toEqual(['png', 'jpg', 'webp', 'gif'])
+    expect(ARTIFACT_REF_TYPES).toMatchObject({
+      'application/pdf': 'pdf',
+      'text/plain': 'txt',
+      'text/markdown': 'md',
+    })
+    expect(Object.keys(ARTIFACT_REF_TYPES)).not.toContain('image/svg+xml')
+    expect(ArtifactUploadRes.parse({ uploadId: `${H}.pdf`, path: null, kind: 'pdf' }).path).toBeNull()
+    for (const op of [
+      { kind: 'ref', uploadId: `${H}.png`, title: '截图.png' },
+      { kind: 'ref-delete', id: 'ref-1a2b' },
+      { kind: 'ref-move', id: 'ref-1a2b', x: 1.5, y: -3 },
+      { kind: 'ref-rename', id: 'ref-1a2b', title: '竞品' },
+    ])
+      expect(ArtifactEditOp.parse(op)).toEqual(op)
+    expect(ArtifactEditOp.safeParse({ kind: 'ref', uploadId: 'u', title: ' ' }).success).toBe(false)
+    expect(ArtifactEditOp.safeParse({ kind: 'ref-delete', id: '../x' }).success).toBe(false)
+    expect(ArtifactEditOp.safeParse({ kind: 'ref-move', id: 'r', x: Number.NaN, y: 0 }).success).toBe(false)
+    expect(ArtifactEditOp.safeParse({ kind: 'ref-rename', id: 'r', title: 'x'.repeat(81) }).success).toBe(
+      false,
+    )
+  })
+  it('a message may carry reference nodes as context, and its bubble lists them', () => {
+    expect(ArtifactContext.parse({ artifactId: 'a1', refs: ['refs/ref-1a2b.png'] }).refs).toEqual([
+      'refs/ref-1a2b.png',
+    ])
+    expect(ArtifactContext.safeParse({ artifactId: 'a1', refs: ['ref-1a2b'] }).success).toBe(false)
+    expect(ArtifactContext.safeParse({ artifactId: 'a1', refs: ['refs/../x.png'] }).success).toBe(false)
+    const many = Array(21).fill('refs/r.png')
+    expect(ArtifactContext.safeParse({ artifactId: 'a1', refs: many }).success).toBe(false)
+    const canvas = {
+      artifactId: 'a1',
+      title: 't',
+      screens: [],
+      elements: [],
+      refs: [{ id: 'r', title: 'x.png' }],
+    }
+    expect(MessageCanvas.parse(canvas)).toEqual(canvas)
+  })
+  it('the bridge posts dragged regions and annotations may be a region without ggId', () => {
+    const m = {
+      source: 'gg-bridge',
+      file: 'screens/home.html',
+      type: 'mark-rect',
+      rect: { x: 0, y: 40, w: 200, h: 120 },
+      ggIds: ['12', '40'],
+    }
+    expect(BridgeFromShell.parse(m)).toEqual(m)
+    expect(BridgeFromShell.safeParse({ ...m, ggIds: ['x'] }).success).toBe(false)
+    const region = {
+      versionId: 'v1',
+      file: 'screens/home.html',
+      ggId: null,
+      selector: '',
+      rect: m.rect,
+      snippet: '12,40',
+      note: '这块换成轮播',
+    }
+    expect(CreateAnnotationReq.parse(region)).toEqual(region)
+  })
+  it('versions may show an ancestor thumbnail and carry per-screen PNGs; cards mark stale thumbnails', () => {
+    const v = {
+      id: 'v3',
+      artifactId: 'a1',
+      n: 3,
+      parentVersionId: 'v2',
+      source: 'local',
+      runId: 'r1',
+      userId: null,
+      files: [],
+      digest: H,
+      thumbnailUrl: '/api/artifacts/a1/versions/v2/thumbnail',
+      thumbnailStale: true,
+      screenThumbs: [{ screenId: 'home', url: '/api/artifacts/a1/versions/v3/screens/home/thumbnail' }],
+      stale: false,
+      issues: [],
+      createdAt: 'x',
+      authorName: null,
+    }
+    expect(ArtifactVersionDto.parse(v)).toEqual(v)
+    const card = {
+      type: 'artifact',
+      artifactId: 'a1',
+      title: 't',
+      versionN: 3,
+      status: 'ready',
+      thumbnailUrl: v.thumbnailUrl,
+      thumbnailStale: true,
+      issueCount: 0,
+    }
+    expect(ArtifactCard.parse(card)).toEqual(card)
+  })
+  it('ArtifactDto says whether runs of its bot wait for the machine', () => {
+    const dto = {
+      id: 'a1',
+      groupId: 'g1',
+      title: 't',
+      dir: 'design/x',
+      pluginId: null,
+      pluginVersionId: null,
+      designSystemId: null,
+      headVersionId: null,
+      createdAt: 'x',
+      updatedAt: 'x',
+      archivedAt: null,
+      running: false,
+      queued: true,
+      queuedRunCount: 2,
+      favorites: [],
+      botId: 'b1',
+    }
+    expect(ArtifactDto.parse(dto)).toMatchObject({ queued: true, queuedRunCount: 2 })
+    const { queued: _, ...old } = dto
+    expect(ArtifactDto.safeParse(old).success).toBe(false)
+  })
+  it('plugin inputs may be marked as a design source', () => {
+    const input = { id: 'design_md', label: '粘贴 DESIGN.md', type: 'text' }
+    expect(PluginInput.parse(input).designSource).toBe(false)
+    expect(PluginInput.parse({ ...input, designSource: true }).designSource).toBe(true)
   })
 })

@@ -14,8 +14,10 @@ import {
   GG_ARTIFACT_MANIFEST,
   type GgArtifactManifest,
   type ProtocolKey,
+  type RunStatus,
+  TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { artifacts, artifactVersions, bots, messages, runs, users } from '../../db/schema.js'
@@ -51,8 +53,36 @@ const SLUG = 'abcdefghijklmnopqrstuvwxyz0123456789'
 export const newArtifactDir = (base: string) =>
   `design/${base}-${[...randomBytes(4)].map((b) => SLUG[b % SLUG.length]).join('')}`
 
-export const thumbnailUrl = (v: Pick<Version, 'id' | 'artifactId' | 'thumbnailHash'>) =>
+type Thumb = Pick<Version, 'id' | 'artifactId' | 'thumbnailHash'>
+export const thumbnailUrl = (v: Thumb) =>
   v.thumbnailHash ? `/api/artifacts/${v.artifactId}/versions/${v.id}/thumbnail` : null
+
+/**
+ * The nearest ancestor with a thumbnail of each `local` version without one: the daemon uploads those before the
+ * turn and screenshots only after it, so cards and the version list show the ancestor's, marked stale.
+ */
+async function staleThumbs(db: Read, vs: Version[]) {
+  const out = new Map<string, Thumb>()
+  const need = vs.filter((v) => v.source === 'local' && !v.thumbnailHash)
+  if (!need.length) return out
+  const all = await db
+    .select({
+      id: artifactVersions.id,
+      artifactId: artifactVersions.artifactId,
+      parentVersionId: artifactVersions.parentVersionId,
+      thumbnailHash: artifactVersions.thumbnailHash,
+    })
+    .from(artifactVersions)
+    .where(inArray(artifactVersions.artifactId, [...new Set(need.map((v) => v.artifactId))]))
+  const byId = new Map(all.map((r) => [r.id, r]))
+  for (const v of need) {
+    let p = v.parentVersionId ? byId.get(v.parentVersionId) : undefined
+    for (let hops = 0; p && !p.thumbnailHash && hops < all.length; hops++)
+      p = p.parentVersionId ? byId.get(p.parentVersionId) : undefined
+    if (p?.thumbnailHash) out.set(v.id, p)
+  }
+  return out
+}
 
 const digestOf = (files: ArtifactFile[]) =>
   createHash('sha256').update(artifactDigestText(files)).digest('hex')
@@ -68,7 +98,7 @@ const versionRows = (db: Read, where: SQL | undefined) =>
 
 type VersionRow = Awaited<ReturnType<typeof versionRows>>[number]
 
-function summary({ v, bot, user }: VersionRow): ArtifactVersionSummary {
+function summary({ v, bot, user }: VersionRow, stale?: Thumb): ArtifactVersionSummary {
   return {
     id: v.id,
     artifactId: v.artifactId,
@@ -78,7 +108,14 @@ function summary({ v, bot, user }: VersionRow): ArtifactVersionSummary {
     runId: v.runId,
     userId: v.userId,
     digest: v.digest,
-    thumbnailUrl: thumbnailUrl(v),
+    thumbnailUrl: thumbnailUrl(stale ?? v),
+    ...(stale && { thumbnailStale: true }),
+    ...(v.screenThumbs.length > 0 && {
+      screenThumbs: v.screenThumbs.map((x) => ({
+        screenId: x.screenId,
+        url: `/api/artifacts/${v.artifactId}/versions/${v.id}/screens/${x.screenId}/thumbnail`,
+      })),
+    }),
     stale: v.stale,
     issues: v.issues,
     createdAt: v.createdAt.toISOString(),
@@ -86,7 +123,10 @@ function summary({ v, bot, user }: VersionRow): ArtifactVersionSummary {
   }
 }
 
-export const versionDto = (row: VersionRow): ArtifactVersionDto => ({ ...summary(row), files: row.v.files })
+export const versionDto = (row: VersionRow, stale?: Thumb): ArtifactVersionDto => ({
+  ...summary(row, stale),
+  files: row.v.files,
+})
 
 /** Ids of `ids` a live run has checked out. */
 async function runningIds(db: Read, groupId: string) {
@@ -101,6 +141,16 @@ export async function isRunning(db: Read, a: Artifact) {
   return (await runningIds(db, a.groupId)).has(a.id)
 }
 
+/** Runs per bot of the group waiting for their machine (offline_wait): ArtifactDto.queued. */
+async function offlineWaits(db: Read, groupId: string) {
+  const rows = await db
+    .select({ botId: runs.botId, n: count() })
+    .from(runs)
+    .where(and(eq(runs.groupId, groupId), eq(runs.status, 'offline_wait')))
+    .groupBy(runs.botId)
+  return new Map(rows.map((r) => [r.botId, r.n]))
+}
+
 export async function manifestOf(a: Artifact, v: Version | undefined): Promise<GgArtifactManifest | null> {
   const f = v?.files.find((x) => x.path === GG_ARTIFACT_MANIFEST)
   if (!f) return null
@@ -110,7 +160,10 @@ export async function manifestOf(a: Artifact, v: Version | undefined): Promise<G
   return 'manifest' in parsed ? parsed.manifest : null
 }
 
-function dto(a: Artifact, head: VersionRow | undefined, running: boolean): ArtifactDto {
+type Live = { running: boolean; waits: Map<string, number>; stale?: Thumb }
+
+function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto {
+  const queuedRunCount = (a.botId && live.waits.get(a.botId)) || 0
   return {
     id: a.id,
     groupId: a.groupId,
@@ -120,11 +173,13 @@ function dto(a: Artifact, head: VersionRow | undefined, running: boolean): Artif
     pluginVersionId: a.pluginVersionId,
     designSystemId: a.designSystemId,
     headVersionId: a.headVersionId,
-    head: head ? summary(head) : null,
+    head: head ? summary(head, live.stale) : null,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     archivedAt: a.archivedAt?.toISOString() ?? null,
-    running,
+    running: live.running,
+    queued: queuedRunCount > 0,
+    queuedRunCount,
     favorites: a.favorites,
     botId: a.botId,
   }
@@ -137,12 +192,20 @@ export async function listArtifacts(ctx: Ctx, groupId: string): Promise<Artifact
     .where(and(eq(artifacts.groupId, groupId), isNull(artifacts.archivedAt)))
     .orderBy(desc(artifacts.updatedAt))
   const heads = list.flatMap((a) => (a.headVersionId ? [a.headVersionId] : []))
-  const [rows, running] = await Promise.all([
+  const [rows, running, waits] = await Promise.all([
     heads.length ? versionRows(ctx.db, inArray(artifactVersions.id, heads)) : [],
     runningIds(ctx.db, groupId),
+    offlineWaits(ctx.db, groupId),
   ])
   const byId = new Map(rows.map((r) => [r.v.id, r]))
-  return list.map((a) => dto(a, a.headVersionId ? byId.get(a.headVersionId) : undefined, running.has(a.id)))
+  const stale = await staleThumbs(
+    ctx.db,
+    rows.map((r) => r.v),
+  )
+  return list.map((a) => {
+    const head = a.headVersionId ? byId.get(a.headVersionId) : undefined
+    return dto(a, head, { running: running.has(a.id), waits, stale: head && stale.get(head.v.id) })
+  })
 }
 
 export async function artifactDetail(ctx: Ctx, a: Artifact): Promise<ArtifactDto> {
@@ -161,8 +224,10 @@ export async function artifactDetail(ctx: Ctx, a: Artifact): Promise<ArtifactDto
         .orderBy(desc(artifactVersions.n))
         .limit(1)
     : []
+  const stale = head ? (await staleThumbs(ctx.db, [head.v])).get(head.v.id) : undefined
+  const live = { running: await isRunning(ctx.db, a), waits: await offlineWaits(ctx.db, a.groupId), stale }
   return {
-    ...dto(a, head, await isRunning(ctx.db, a)),
+    ...dto(a, head, live),
     manifest: await manifestOf(a, head?.v),
     undoVersionId: head?.v.parentVersionId ?? null,
     redoVersionId: redo?.id ?? null,
@@ -173,7 +238,11 @@ export async function listVersions(ctx: Ctx, a: Artifact) {
   const rows = await versionRows(ctx.db, eq(artifactVersions.artifactId, a.id)).orderBy(
     desc(artifactVersions.n),
   )
-  return rows.map(summary)
+  const stale = await staleThumbs(
+    ctx.db,
+    rows.map((r) => r.v),
+  )
+  return rows.map((r) => summary(r, stale.get(r.v.id)))
 }
 
 export async function findArtifact(db: Read, id: string) {
@@ -208,7 +277,8 @@ export async function versionDetail(
   const v = await requireVersion(ctx.db, a, versionId)
   const [row] = await versionRows(ctx.db, eq(artifactVersions.id, v.id))
   const manifest = await manifestOf(a, v)
-  return { ...versionDto(row as VersionRow), manifest, links: await screenLinks(a, v, manifest) }
+  const stale = (await staleThumbs(ctx.db, [v])).get(v.id)
+  return { ...versionDto(row as VersionRow, stale), manifest, links: await screenLinks(a, v, manifest) }
 }
 
 /** The `data-gg-link`s of every screen the manifest lists. */
@@ -340,13 +410,15 @@ export async function cardOf(db: Read, a: Artifact): Promise<ArtifactCard> {
     : latest?.id === a.headVersionId
       ? latest
       : (await db.select().from(artifactVersions).where(eq(artifactVersions.id, a.headVersionId)))[0]
+  const stale = head ? (await staleThumbs(db, [head])).get(head.id) : undefined
   return {
     type: 'artifact',
     artifactId: a.id,
     title: a.title,
     versionN: head?.n ?? null,
     status: !head ? 'generating' : latest && latest.n > head.n && latest.stale ? 'stale-candidate' : 'ready',
-    thumbnailUrl: head ? thumbnailUrl(head) : null,
+    thumbnailUrl: head ? thumbnailUrl(stale ?? head) : null,
+    ...(stale && { thumbnailStale: true }),
     issueCount: head?.issues.length ?? 0,
   }
 }
@@ -373,6 +445,36 @@ export async function refreshCard(ctx: Ctx, artifactId: string) {
     .returning()
   const dto = messageDto(updated as MessageRow, await authorName(ctx, updated as MessageRow))
   ctx.bus.publish(await memberIds(ctx, dto.groupId), { t: 'message.edited', message: dto })
+}
+
+/** Last status each run's artifacts were refreshed for (this process): only changes push their cards again. */
+const seenStatus = new Map<string, string>()
+
+/**
+ * A run's status changed: the cards of the artifacts it has checked out and of its bot's artifacts follow, so open
+ * canvases reload `running` / `queued` (R04).
+ */
+export async function refreshRunArtifacts(
+  ctx: Ctx,
+  rows: { id: string; groupId: string; botId: string; status: string }[],
+) {
+  for (const run of rows) {
+    if (seenStatus.get(run.id) === run.status) continue
+    if (TERMINAL_RUN_STATUS.includes(run.status as RunStatus)) seenStatus.delete(run.id)
+    else seenStatus.set(run.id, run.status)
+    const checkedOut = sql`${artifacts.id}::text in (select jsonb_array_elements_text(${runs.artifacts}) from ${runs} where ${runs.id} = ${run.id})`
+    const list = await ctx.db
+      .select({ id: artifacts.id })
+      .from(artifacts)
+      .where(
+        and(
+          eq(artifacts.groupId, run.groupId),
+          isNull(artifacts.archivedAt),
+          or(eq(artifacts.botId, run.botId), checkedOut),
+        ),
+      )
+    for (const a of list) await refreshCard(ctx, a.id)
+  }
 }
 
 /** Artifacts a message points at: its `artifactRefs`, or the artifact card it quotes. */
@@ -494,6 +596,7 @@ export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
         files: head.files,
         digest: head.digest,
         thumbnailHash: head.thumbnailHash,
+        screenThumbs: head.screenThumbs,
         stale: false,
         issues: head.issues,
       })

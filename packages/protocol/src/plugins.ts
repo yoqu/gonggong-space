@@ -34,6 +34,11 @@ export const PluginInput = z.object({
     .nullable()
     .default(null),
   placeholder: z.string().max(80).nullable().default(null),
+  /**
+   * A design source (pasted DESIGN.md, reference site or repository): when filled in, the creation panel greys out
+   * the preset and the agent is told to build the design system from it.
+   */
+  designSource: z.boolean().default(false),
 })
 export type PluginInput = z.infer<typeof PluginInput>
 

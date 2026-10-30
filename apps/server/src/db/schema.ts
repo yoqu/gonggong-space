@@ -1613,6 +1613,8 @@ export const artifactVersions = pgTable(
     files: jsonb('files').$type<ArtifactFile[]>().notNull(),
     digest: text('digest').notNull(),
     thumbnailHash: text('thumbnail_hash'),
+    /** One PNG per screen, uploaded by the daemon after the version (the canvas's 复制为 PNG). */
+    screenThumbs: jsonb('screen_thumbs').$type<{ screenId: string; hash: string }[]>().notNull().default([]),
     /** Its parent was not the head when it was submitted. */
     stale: boolean('stale').notNull().default(false),
     issues: jsonb('issues').$type<LintIssue[]>().notNull().default([]),

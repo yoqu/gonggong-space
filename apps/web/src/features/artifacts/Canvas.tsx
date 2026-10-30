@@ -44,6 +44,7 @@ import {
 import { openUrl } from '../previews/store'
 import { AnnotationsPanel } from './AnnotationsPanel'
 import {
+  copyScreenPng,
   copyScreensCode,
   createAnnotation,
   deleteAnnotation,
@@ -156,6 +157,7 @@ const needsSelection = (v: string) =>
       CMD.remove,
       CMD.copy,
       CMD.copyCode,
+      CMD.copyPng,
       CMD.cut,
       CMD.duplicate,
       CMD.focus,
@@ -235,6 +237,8 @@ export interface CanvasProps {
   request: CanvasRequest | null
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
   onPrototypeAsked: () => void
+  /** The shown version's screenshot per screen id (ArtifactVersionDto.screenThumbs): 复制为 PNG. */
+  screenThumbs?: Record<string, string>
 }
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
@@ -288,6 +292,7 @@ export function Canvas({
   guardDesign,
   request,
   onPrototypeAsked,
+  screenThumbs = {},
   versions,
   onViewVersion,
 }: CanvasProps) {
@@ -742,6 +747,11 @@ export function Canvas({
       case CMD.copyCode:
         void copyScreensCode(picked, readFile)
         return
+      case CMD.copyPng: {
+        const url = one && screenThumbs[one.id]
+        if (url) void copyScreenPng(url)
+        return
+      }
       case CMD.copyLink:
         void copyWithToast(artifactLink(groupId, artifactId, ids), t('链接已复制'))
         return
@@ -1082,6 +1092,7 @@ export function Canvas({
         { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
         { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
         { label: t('复制代码'), value: CMD.copyCode },
+        { label: t('复制为 PNG'), value: CMD.copyPng, disabled: !one || !screenThumbs[one.id] },
         { label: t('复制选区链接'), value: CMD.copyLink },
         { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', disabled: !canEdit },
         { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: !canEdit || !clip },
@@ -1133,6 +1144,7 @@ export function Canvas({
           frame: sharedFrame,
           bot: botState,
           device,
+          png: !!one && !!screenThumbs[one.id],
         })
       : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
 

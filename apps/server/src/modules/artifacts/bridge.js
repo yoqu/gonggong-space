@@ -41,7 +41,9 @@
   style.textContent =
     '[data-gg-mark]{outline:2px dashed #f5a524 !important;outline-offset:-2px}' +
     '[data-gg-hover]{outline:2px solid rgba(79,124,255,.6) !important;outline-offset:-2px;cursor:pointer}' +
-    '[data-gg-selected]{outline:2px solid #4f7cff !important;outline-offset:-2px}'
+    '[data-gg-selected]{outline:2px solid #4f7cff !important;outline-offset:-2px}' +
+    '#gg-mark-rect{position:absolute;z-index:2147483647;pointer-events:none;' +
+    'outline:2px dashed #4f7cff;outline-offset:-2px;background:rgba(79,124,255,.08)}'
   document.head.appendChild(style)
 
   const flag = (el, name, on) => {
@@ -102,12 +104,96 @@
   const target = (e) => (e.target instanceof Element ? e.target : null)
   const picking = () => mode === 'mark' || mode === 'edit'
 
+  // Mark mode: dragging draws a region and posts it (in the viewport, like `select`) with the outermost elements fully
+  // inside it; a press without dragging stays a click that selects.
+  const DRAG = 4
+  let press = null
+  let dragged = false
+  let box = null
+  const clearBox = () => {
+    box?.remove()
+    box = null
+  }
+  const regionOf = (e) => {
+    const x = e.clientX + window.scrollX
+    const y = e.clientY + window.scrollY
+    return {
+      x: Math.min(x, press.x),
+      y: Math.min(y, press.y),
+      w: Math.abs(x - press.x),
+      h: Math.abs(y - press.y),
+    }
+  }
+  const inside = (r) => {
+    const out = []
+    for (const el of document.querySelectorAll('[data-gg-id]')) {
+      if (out.length >= 200) break
+      if (out.some((o) => o.contains(el))) continue
+      const d = docRect(el)
+      if (d.w > 0 && d.h > 0 && d.x >= r.x && d.y >= r.y && d.x + d.w <= r.x + r.w && d.y + d.h <= r.y + r.h)
+        out.push(el)
+    }
+    return out.map(ggIdOf).filter(Boolean)
+  }
+  window.addEventListener(
+    'mousedown',
+    (e) => {
+      if (mode !== 'mark' || e.button !== 0) return
+      // No text selection or native image drag while marking.
+      e.preventDefault()
+      clearBox()
+      press = { x: e.clientX + window.scrollX, y: e.clientY + window.scrollY }
+      dragged = false
+    },
+    true,
+  )
+  window.addEventListener(
+    'mousemove',
+    (e) => {
+      if (!press) return
+      const r = regionOf(e)
+      if (!dragged && r.w < DRAG && r.h < DRAG) return
+      dragged = true
+      if (!box) {
+        box = document.createElement('div')
+        box.id = 'gg-mark-rect'
+        document.body.appendChild(box)
+      }
+      Object.assign(box.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` })
+    },
+    true,
+  )
+  window.addEventListener(
+    'mouseup',
+    (e) => {
+      if (!press) return
+      if (dragged) {
+        const r = regionOf(e)
+        setSelected(null)
+        post({
+          type: 'mark-rect',
+          rect: { x: r.x - window.scrollX, y: r.y - window.scrollY, w: r.w, h: r.h },
+          ggIds: inside(r),
+        })
+      }
+      press = null
+    },
+    true,
+  )
+
   // Capture on window runs before the page's own listeners (gg-kit's navigation included).
   window.addEventListener(
     'click',
     (e) => {
       const el = target(e)
       if (!el) return
+      if (dragged) {
+        // The click ending a drawn region selects nothing.
+        dragged = false
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        return
+      }
       if (picking()) {
         e.preventDefault()
         e.stopImmediatePropagation()
@@ -157,6 +243,7 @@
       case 'mode':
         if (!['preview', 'mark', 'edit'].includes(m.mode)) return
         mode = m.mode
+        if (mode !== 'mark') clearBox()
         if (!picking()) {
           setHover(null)
           setSelected(null)
@@ -169,6 +256,7 @@
         return
       case 'select-clear':
         setSelected(null)
+        clearBox()
         return
       case 'scroll-to':
         byGgId(m.ggId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })

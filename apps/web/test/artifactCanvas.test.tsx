@@ -95,6 +95,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   updatedAt: at,
   archivedAt: null,
   running: false,
+  queued: false,
+  queuedRunCount: 0,
   ...o,
 })
 const file = (path: string) => ({ path, hash: 'b'.repeat(64), size: 10 })
@@ -975,6 +977,42 @@ describe('G01 copy as', () => {
     key('c', { metaKey: true })
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(3))
     expect(writeText.mock.calls[2]?.[0]).toContain('<body>首页</body>')
+  })
+})
+
+describe('G01 copy as PNG', () => {
+  it('copies the daemon screenshot of the screen as an image, greyed out until there is one', async () => {
+    const write = vi.fn(async (_items: unknown[]) => {})
+    vi.stubGlobal(
+      'ClipboardItem',
+      class {
+        constructor(readonly items: Record<string, Promise<Blob>>) {}
+      },
+    )
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write, writeText: vi.fn() },
+      configurable: true,
+    })
+    const png = new Blob(['png'], { type: 'image/png' })
+    const url = '/api/artifacts/a1/versions/v2/screens/home/thumbnail'
+    mockApi(
+      routes({
+        'GET /artifacts/a1/versions/v2': detail({ screenThumbs: [{ screenId: 'home', url }] }),
+        'GET /artifacts/a1/versions/v2/screens/home/thumbnail': () => new Response(png),
+      }),
+    )
+    await renderTab()
+    fireEvent.click(item(openContext('detail'), /复制为/))
+    const off = item(screen.getAllByRole('menu').at(-1) as HTMLElement, /复制为 PNG/)
+    expect(off.getAttribute('aria-disabled') === 'true' || off.hasAttribute('disabled')).toBe(true)
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryAllByRole('menu')).toHaveLength(0))
+    fireEvent.click(item(openContext('home'), /复制为/))
+    fireEvent.click(item(screen.getAllByRole('menu').at(-1) as HTMLElement, /复制为 PNG/))
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1))
+    const clip = (write.mock.calls[0]?.[0] as { items: Record<string, Promise<Blob>> }[] | undefined)?.[0]
+    expect(await clip?.items['image/png']).toBeInstanceOf(Blob)
+    vi.unstubAllGlobals()
   })
 })
 

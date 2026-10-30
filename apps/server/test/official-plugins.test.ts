@@ -106,6 +106,11 @@ describe('official plugin web-prototype', () => {
     expect(inputs.get('design_md')).toMatchObject({ label: '粘贴 DESIGN.md', type: 'text' })
     expect(inputs.get('reference_url')).toMatchObject({ label: '参考网站', type: 'string' })
     expect(inputs.get('reference_repo')).toMatchObject({ label: '参考仓库', type: 'string' })
+    expect([...inputs.values()].filter((i) => i.designSource).map((i) => i.id)).toEqual([
+      'design_md',
+      'reference_url',
+      'reference_repo',
+    ])
     expect(manifest.templates[0]?.inputs).toEqual(
       expect.arrayContaining(['device', 'design_md', 'reference_url', 'reference_repo']),
     )

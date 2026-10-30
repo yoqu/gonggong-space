@@ -297,8 +297,15 @@ describe('creations', () => {
       `- 粘贴 DESIGN.md：${md}`,
       '- 参考网站：https://example.com',
       '- 参考仓库：apps/web',
+      '设计系统：以参数里的「粘贴 DESIGN.md」、「参考网站」、「参考仓库」为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css；所选预设「麓客+」',
     ])
       expect(res.body.body).toContain(s)
+    expect(res.body.body).not.toContain('先读取 skill 目录下的')
+    const plain = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, {
+      ...w.req,
+      inputs: { title: '麓客活动报名', reference_url: '  ' },
+    })
+    expect(plain.body.body).toContain('设计系统：麓客+（luke-plus），先读取 skill 目录下的')
     const bad = await w.wang.post(`/api/groups/${w.g.id}/creations`, {
       ...w.req,
       inputs: { title: 'x', device: '手表' },

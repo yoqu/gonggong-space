@@ -61,9 +61,12 @@ design/<slug>/
 ├── tokens.css              ← copied verbatim from the design system
 ├── screens/<id>.html       ← one full HTML document per screen (skeleton below)
 ├── assets/                 ← images you were given or fetched, referenced relatively
+├── refs/                   ← reference files people put on the canvas (images, PDFs, text); read them, don't edit
 ├── index.html              ← not hosted only: copied verbatim from kit/index.html (platform shell)
 └── _gg/                    ← not hosted only: copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
 ```
+
+People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone.
 
 `index.html` and `_gg/` belong to the platform: never edit them and never put your own files there; the platform replaces them when it renders. Once `DESIGN.md` and `tokens.css` are in the folder they are the artifact's own: later turns read and follow those copies (people may have changed them), not the plugin's originals.
 

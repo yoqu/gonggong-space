@@ -159,6 +159,23 @@ export async function screensCode(screens: { file: string }[], readFile: (file: 
 }
 
 /** Copies the screens' code to the system clipboard, with a toast either way. */
+/** 复制为 PNG: the daemon's screenshot of a screen (ArtifactVersionDto.screenThumbs) to the system clipboard. */
+export async function copyScreenPng(url: string) {
+  try {
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined')
+      throw new Error(t('浏览器不支持复制图片'))
+    // The blob as a promise keeps the click's user activation (Safari).
+    const png = fetch(url).then((r) => {
+      if (!r.ok) throw new Error(t('这一屏还没有截图'))
+      return r.blob()
+    })
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+    toast({ type: 'success', message: t('已复制为图片') })
+  } catch (e) {
+    toastError(e)
+  }
+}
+
 export async function copyScreensCode(
   screens: { file: string }[],
   readFile: (file: string) => Promise<string>,
