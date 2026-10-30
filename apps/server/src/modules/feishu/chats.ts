@@ -110,8 +110,35 @@ async function botsInChat(ctx: Ctx, teamId: string, chatId: string) {
   return apps.filter((_, i) => inChat[i]).map((a) => a.botId)
 }
 
-/** `added`: a bot app just added to the chat, which Feishu's chat list may not show yet. */
-async function view(ctx: Ctx, groupId: string, userId: string, added?: string): Promise<GroupFeishuView> {
+/** Whether a bot app is in the chat (Feishu leaves bots out of chat members, so the app itself is asked). */
+const appInChat = async (ctx: Ctx, app: Parameters<typeof credsOf>[0], chatId: string) =>
+  (await ctx.feishu.api.listChats(credsOf(app)).catch(() => [])).some((c) => c.chatId === chatId)
+
+/**
+ * Adds the group's bot apps missing from the chat through the main app, one by one; one that cannot join (the chat
+ * allows no bots, the app is unpublished…) is left to 拉入飞书群. Returns the app ids added.
+ */
+async function addMissingBots(ctx: Ctx, groupId: string, main: FeishuAppRow, chatId: string) {
+  const added: string[] = []
+  for (const b of await activeBots(ctx, groupId)) {
+    const app = await botApp(ctx, b.id)
+    if (!app || (await appInChat(ctx, app, chatId))) continue
+    const ok = await ctx.feishu.api.addBot(credsOf(main), chatId, app.appId).then(
+      () => true,
+      () => false,
+    )
+    if (ok) added.push(app.appId)
+  }
+  return added
+}
+
+/** `added`: bot apps just added to the chat, which Feishu's chat list may not show yet. */
+async function view(
+  ctx: Ctx,
+  groupId: string,
+  userId: string,
+  added: string[] = [],
+): Promise<GroupFeishuView> {
   const main = await mainApp(ctx)
   if (!main) return { available: false, chat: null, chats: [], bots: [], members: [] }
   let chat = await boundChat(ctx.db, groupId)
@@ -133,12 +160,7 @@ async function view(ctx: Ctx, groupId: string, userId: string, added?: string): 
     (await activeBots(ctx, groupId)).map(async (b) => {
       const app = await botApp(ctx, b.id)
       const inChat =
-        !!chat &&
-        !!app &&
-        (app.appId === added ||
-          (await ctx.feishu.api.listChats(credsOf(app)).catch(() => [])).some(
-            (c) => c.chatId === chat.chatId,
-          ))
+        !!chat && !!app && (added.includes(app.appId) || (await appInChat(ctx, app, chat.chatId)))
       return { botId: b.id, name: b.name, appId: app?.appId ?? null, inChat }
     }),
   )
@@ -237,7 +259,7 @@ export function feishuChatRoutes(ctx: Ctx) {
       const { user, group } = await admin(req, req.params.id)
       const { chatId } = BindFeishuChatReq.parse(req.body)
       if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已绑定飞书群，请先解绑')
-      const { chat, members } = await checkBindable(ctx, user.id, chatId)
+      const { main, chat, members } = await checkBindable(ctx, user.id, chatId)
       const [row] = await ctx.db
         .insert(feishuChats)
         .values({ groupId: group.id, chatId, name: chat.name, boundBy: user.id, createdAt: ctx.now() })
@@ -246,6 +268,7 @@ export function feishuChatRoutes(ctx: Ctx) {
       if (!row) return fail('conflict', '该飞书群已绑定其他群')
       markBound(ctx, group.id)
       await joinFromFeishu(ctx, group, members)
+      const added = await addMissingBots(ctx, group.id, main, chatId)
       await publishGroup(ctx, group.id)
       await audit(ctx, {
         category: 'admin',
@@ -255,7 +278,7 @@ export function feishuChatRoutes(ctx: Ctx) {
         action: 'feishu.chat.bind',
         detail: { chatId, name: chat.name },
       })
-      return view(ctx, group.id, user.id)
+      return view(ctx, group.id, user.id, added)
     })
 
     app.patch<Params>('/api/groups/:id/feishu', async (req) => {
@@ -363,7 +386,7 @@ export function feishuChatRoutes(ctx: Ctx) {
       if (!app) return fail('invalid', '该 Bot 没有绑定飞书应用')
       const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
       await feishu(ctx.feishu.api.addBot(credsOf(main), chat.chatId, app.appId))
-      return view(ctx, group.id, user.id, app.appId)
+      return view(ctx, group.id, user.id, [app.appId])
     })
   }
 }

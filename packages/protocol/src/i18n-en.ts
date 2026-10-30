@@ -19,6 +19,8 @@ export const protocolEn = {
   '{user} 将附加仓库 {url} 的默认分支改为 {branch}':
     '{user} set the default branch of the extra repo {url} to {branch}',
   '{user} 移除了附加仓库 {url}': '{user} removed the extra repo {url}',
+  '{bot} 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」':
+    '{bot}\'s replies did not reach Feishu: its Feishu app is not in the chat. A group admin can click "Add to chat" in group settings · Feishu',
   '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式':
     "No repo bound · each Bot uses its owner's directory, partition mode only",
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',

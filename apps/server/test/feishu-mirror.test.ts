@@ -171,6 +171,50 @@ describe('群设置 · 飞书 binding', () => {
     expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: BOT_APP }])
   })
 
+  it('binding an existing chat adds the bot apps missing from it, a refused one left to 拉入飞书群', async () => {
+    const { ownerHttp, group, bot } = await setup({ bind: false })
+    t.feishu.chats.set(BOT_APP, [])
+    const bound = await ownerHttp.put<GroupFeishuView>(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
+    expect(bound.status).toBe(200)
+    expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: BOT_APP }])
+    expect(bound.body.bots).toEqual([{ botId: bot.id, name: 'codex', appId: BOT_APP, inChat: true }])
+
+    // Already in the chat: nothing to add. Refused: the binding stands and the bot shows as outside.
+    await ownerHttp.del(`/api/groups/${group.id}/feishu`)
+    t.feishu.botsAdded.length = 0
+    t.feishu.chats.set(BOT_APP, [{ chatId: CHAT, name: '研发群', avatar: null }])
+    await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
+    expect(t.feishu.botsAdded).toEqual([])
+    await ownerHttp.del(`/api/groups/${group.id}/feishu`)
+    t.feishu.chats.set(BOT_APP, [])
+    t.feishu.addBotError = '群设置不允许添加机器人'
+    const refused = await ownerHttp.put<GroupFeishuView>(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
+    expect(refused.status).toBe(200)
+    expect(refused.body.chat).toMatchObject({ chatId: CHAT })
+    expect(refused.body.bots[0]?.inChat).toBe(false)
+  })
+
+  it("tells the group once when a bot's replies cannot reach Feishu because its app is not in the chat", async () => {
+    const { ownerHttp, group } = await setup()
+    t.feishu.chats.set(BOT_APP, [])
+    t.feishu.strictChats = true
+    const say = (clientId: string) =>
+      ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 你好', clientId })
+    const notices = async () =>
+      (await t.db.select().from(messages).where(eq(messages.groupId, group.id)))
+        .filter((m) => m.kind === 'event')
+        .map((m) => m.body)
+        .filter((b) => b.includes('飞书应用不在飞书群'))
+    await say('client-1')
+    await feishuIdle(t.ctx)
+    expect(await notices()).toEqual([
+      'codex 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」',
+    ])
+    await say('client-2')
+    await feishuIdle(t.ctx)
+    expect(await notices()).toHaveLength(1)
+  })
+
   it('is unavailable until the main app is configured', async () => {
     const owner = await t.seed.user()
     const group = await t.seed.group({ createdBy: owner.id })

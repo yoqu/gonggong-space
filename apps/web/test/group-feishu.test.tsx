@@ -51,9 +51,18 @@ describe('群设置 · 飞书', () => {
     fireEvent.click(screen.getByRole('button', { name: '绑定' }))
     expect(await screen.findByText('未绑定飞书应用')).toBeTruthy()
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ chatId: 'oc_1' })
+    // A bot the binding could not add is pointed out, with why it matters and what to check.
+    await waitFor(() =>
+      expect(useToasts.getState().items.map((x) => x.message)).toContain(
+        '已绑定飞书群 · 1 个 Bot 未入群，请在下方点「拉入飞书群」',
+      ),
+    )
+    expect(screen.getByText('未在飞书群 · 回复不会同步到飞书')).toBeTruthy()
+    expect(screen.getByText(/未入群的 Bot 回复不会同步到飞书群/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '拉入飞书群' }))
     expect(await screen.findByText('已在群中')).toBeTruthy()
+    expect(screen.queryByText('未在飞书群 · 回复不会同步到飞书')).toBeNull()
   })
 
   it('creates a Feishu chat after listing who can and cannot be pulled in', async () => {

@@ -20,7 +20,7 @@ import {
 } from '../../db/schema.js'
 import { remember } from '../../lib/lru.js'
 import { sysParams } from '../admin/params.js'
-import type { MessageMeta } from '../messages/service.js'
+import { type MessageMeta, postEvent } from '../messages/service.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
 import {
@@ -58,6 +58,8 @@ const SEQUENCE_EPOCH = Date.UTC(2026, 0, 1)
 /** Cards and snapshots remembered; a forgotten one is only sent or uploaded once more. */
 const RENDERED_MAX = 2000
 const IMAGES_MAX = 500
+/** Feishu: the app (bot) is not in the chat it sends to. */
+const OUT_OF_CHAT = 230002
 
 type Row = typeof runs.$inferSelect
 type Link = typeof feishuMessageLinks.$inferSelect
@@ -79,6 +81,8 @@ interface Mirror {
   everBound: Map<string, Promise<boolean>>
   /** Per run: a sync deferred because its card was busy with a click. */
   retries: Map<string, { groupId: string; timer: NodeJS.Timeout }>
+  /** `group:bot` pairs already told their bot's app is not in the chat; cleared once a card gets through again. */
+  outOfChat: Set<string>
 }
 
 interface Stream {
@@ -113,6 +117,7 @@ function state(ctx: Ctx) {
       noReaction: new Set(),
       everBound: new Map(),
       retries: new Map(),
+      outOfChat: new Set(),
     }
     mirrors.set(ctx, m)
   }
@@ -469,8 +474,25 @@ async function syncRun(ctx: Ctx, runId: string) {
     console.error('feishu reaction:', `${err.code} ${err.message}`)
   })
   const { items, legacy } = await interactionsOf(ctx, run.id)
-  await syncRunCard(ctx, app, trigger, row.bot, run, items)
-  await syncLegacyCards(ctx, app, trigger, row.bot, legacy)
+  const key = `${run.groupId}:${run.botId}`
+  const { outOfChat } = state(ctx)
+  try {
+    await syncRunCard(ctx, app, trigger, row.bot, run, items)
+    await syncLegacyCards(ctx, app, trigger, row.bot, legacy)
+    outOfChat.delete(key)
+  } catch (err) {
+    // The bot's own app was never added to the chat: say so in the group once rather than only in the server log.
+    if (!(err instanceof FeishuError) || err.code !== OUT_OF_CHAT || app.botId !== run.botId) throw err
+    state(ctx).streams.delete(run.id)
+    if (outOfChat.has(key)) return
+    outOfChat.add(key)
+    await postEvent(
+      ctx,
+      run.groupId,
+      '{bot} 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」',
+      { bot: row.bot },
+    )
+  }
 }
 
 async function cardLink(

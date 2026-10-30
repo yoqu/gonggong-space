@@ -80,6 +80,11 @@ export default {
   已在群中: 'In the chat',
   拉入飞书群: 'Add to chat',
   已拉入飞书群: 'Added to the Feishu chat',
+  '已绑定飞书群 · {n} 个 Bot 未入群，请在下方点「拉入飞书群」':
+    'Feishu chat bound · {n} {n:Bot is|Bots are} not in it; click "Add to chat" below',
+  '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。':
+    'Replies of Bots not in the chat do not reach Feishu; click "Add to chat". If that fails, check that the main app has chat member permissions, the chat allows adding bots, and the Bot\'s Feishu app is published.',
+  '未在飞书群 · 回复不会同步到飞书': 'Not in the chat · replies do not reach Feishu',
   解绑飞书群: 'Unbind Feishu chat',
   '确定解绑飞书群 {name}？': 'Unbind Feishu chat {name}?',
   '飞书群里 @Bot 将不再触发运行': '@ mentions of bots in the Feishu chat no longer start runs',

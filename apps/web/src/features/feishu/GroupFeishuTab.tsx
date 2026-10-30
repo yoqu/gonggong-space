@@ -53,6 +53,28 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
     }
   }
 
+  // Bots that could not be added on binding are left to 拉入飞书群 below: say so instead of a plain success.
+  const bind = async () => {
+    setBusy(true)
+    try {
+      const v = await api.put<GroupFeishuView>(path, { chatId })
+      reload()
+      const out = v.bots.filter((b) => b.appId && !b.inChat).length
+      toast(
+        out
+          ? {
+              type: 'info',
+              message: t('已绑定飞书群 · {n} 个 Bot 未入群，请在下方点「拉入飞书群」', { n: out }),
+            }
+          : { type: 'success', message: t('已绑定飞书群') },
+      )
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const syncMembers = async () => {
     setBusy(true)
     try {
@@ -169,11 +191,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
               options={data.chats.map((c) => ({ value: c.chatId, label: c.name }))}
               onChange={setChatId}
             />
-            <Button
-              variant="primary"
-              disabled={!chatId || busy}
-              onClick={() => void run(() => api.put(path, { chatId }), t('已绑定飞书群'))}
-            >
+            <Button variant="primary" disabled={!chatId || busy} onClick={() => void bind()}>
               {t('绑定#verb')}
             </Button>
           </GroupRow>
@@ -192,10 +210,21 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       {data.chat ? null : (
         <div className="gs-note">{t('找不到群？请先把主应用拉进飞书群；已被其他群绑定的不显示')}</div>
       )}
+      {data.chat && data.bots.some((b) => b.appId && !b.inChat) ? (
+        <div className="gs-note">
+          {t(
+            '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。',
+          )}
+        </div>
+      ) : null}
       {data.chat && data.bots.length ? (
         <GroupBox>
           {data.bots.map((b) => (
-            <GroupRow key={b.botId} label={b.name}>
+            <GroupRow
+              key={b.botId}
+              label={b.name}
+              description={b.appId && !b.inChat ? t('未在飞书群 · 回复不会同步到飞书') : undefined}
+            >
               {!b.appId ? (
                 <Tag tone="gray">{t('未绑定飞书应用')}</Tag>
               ) : b.inChat ? (

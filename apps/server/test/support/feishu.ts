@@ -58,6 +58,10 @@ export class FakeFeishu {
   createChatError: number | null = null
   /** `addUsers` fails with this message when set (e.g. only owners and admins may add members). */
   addUsersError: string | null = null
+  /** `addBot` fails with this message when set (e.g. the chat does not allow adding bots). */
+  addBotError: string | null = null
+  /** Sends to a chat the app is not in (per `chats`) fail as Feishu does (230002); off by default. */
+  strictChats = false
   /** Images uploaded per app; the key is `img_<n>`. */
   readonly images: { appId: string; key: string; data: Buffer }[] = []
   /** Emoji reactions added through the API; `removed` once taken back. */
@@ -357,6 +361,8 @@ export class FakeFeishu {
     verify: async (app) => this.check(app.appId),
     send: async (app, chatId, body, opts = {}) => {
       this.check(app.appId)
+      if (this.strictChats && !(this.chats.get(app.appId) ?? []).some((c) => c.chatId === chatId))
+        throw new FeishuError(230002, 'Bot/User can NOT be out of the chat.')
       if (opts.userToken) this.userOf(opts.userToken)
       const messageId = this.next('om')
       this.sent.push({
@@ -471,6 +477,7 @@ export class FakeFeishu {
     },
     addBot: async (app, chatId, botAppId) => {
       this.check(app.appId)
+      if (this.addBotError) throw new FeishuError(232024, this.addBotError)
       this.botsAdded.push({ appId: app.appId, chatId, botAppId })
     },
     createChat: async (app, o) => {
