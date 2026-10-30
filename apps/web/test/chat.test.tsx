@@ -1448,6 +1448,47 @@ describe('repo and workspaces', () => {
     expect(await within(main).findByText('new · dev')).toBeTruthy()
   })
 
+  it('lets a group admin add and remove extra repos beside the main one', async () => {
+    const web = { id: 'r9', url: 'https://git.corp/pay/web.git', branch: 'develop' }
+    const calls = mockApi({
+      ...baseRoutes([group({ extraRepos: [] })]),
+      'GET /groups/g1/bot-states': () => states,
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
+      'POST /repos/probe': () => probeRes([{ botId: 'b1', ok: true, usedUrl: web.url }], ['develop']),
+      'POST /groups/g1/repos': () => group({ extraRepos: [web] }),
+      'DELETE /groups/g1/repos/r9': () => group({ extraRepos: [] }),
+    })
+    renderAt('/g/g1')
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与工作区/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与工作区 · 退款 v2 迁移' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加附加仓库…' }))
+    const panel = await openRepoPanel(dialog)
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), { target: { value: web.url } })
+    fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
+    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'develop' } })
+    expect(await within(dialog).findByText(/1 个 Bot 可访问/)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/groups/g1/repos')?.body).toEqual({
+        url: web.url,
+        branch: 'develop',
+      }),
+    )
+    expect(await within(dialog).findByText('pay/web')).toBeTruthy()
+    expect(within(dialog).getByText('develop')).toBeTruthy()
+    // With an extra repo the main one cannot be unbound.
+    expect(within(dialog).queryByRole('button', { name: '解绑…' })).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '移除附加仓库 pay/web' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '移除附加仓库' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
+    await waitFor(() => expect(within(dialog).queryByText('pay/web')).toBeNull())
+  })
+
   it('shows every member where each bot works; only the owner can move it', async () => {
     const calls = mockApi({
       ...baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }] })]),

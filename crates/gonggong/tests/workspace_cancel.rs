@@ -138,6 +138,7 @@ async fn cd_cancels_a_blocked_clone_and_ignores_its_late_result() {
             group_id: "g1".into(),
             bot_id: "b1".into(),
             repo: Some(repo.clone()),
+            extra_repos: vec![],
         }),
         &out,
     );

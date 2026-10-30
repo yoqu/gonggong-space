@@ -7,6 +7,14 @@ import { type GitTarget, refreshGit } from './api'
 import { BranchPopup } from './BranchPopup'
 import { gitCommands } from './commands'
 
+/** How a repo of the workspace is named: an additional directory or extra repo (absolute) by its last segment. */
+export const repoLabel = (path: string | null) =>
+  !path
+    ? t('主仓库')
+    : /^([a-z]:)?[\\/]/i.test(path)
+      ? (path.split(/[\\/]/).filter(Boolean).at(-1) ?? path)
+      : path
+
 /** The repos of a workspace to pick from: the root (when it is one) first, then submodules, nested and extra ones. */
 export function repoOptions(git: GitStatus) {
   const root = git.branch != null || git.head != null || !git.repos.length
@@ -92,7 +100,7 @@ export function GitToolbar({
       <span className="spacer" />
       <BranchPopup target={target} status={status} git={git} onRepo={onRepo}>
         <Icon name="git-branch" size={13} />
-        {git.repos.length ? <span className="gb-trigger__repo">{target.repo ?? t('主仓库')}</span> : null}
+        {git.repos.length ? <span className="gb-trigger__repo">{repoLabel(target.repo)}</span> : null}
         <BranchName status={status} head={head} />
       </BranchPopup>
       {status.behind ? (

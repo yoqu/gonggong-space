@@ -6,6 +6,7 @@ import {
   MarkReadReq,
   publicRepoUrl,
   RepoReq,
+  repoKey,
 } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, max, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
@@ -192,20 +193,23 @@ export function groupRoutes(ctx: Ctx) {
       return groupDto(ctx, me.id, group.id)
     })
 
-    // P1: exactly one repo per group, never unbound. Old workspaces belong to the previous repo: every bot re-clones.
+    // The main repo. Old workspaces belong to the previous repo: every bot re-clones (extra repos stay as they are).
     app.patch<{ Params: { id: string } }>('/api/groups/:id/repo', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
       const body = RepoReq.parse(req.body)
       const url = body.url.trim()
       const branch = body.branch.trim()
-      const [old] = await ctx.db.select().from(groupRepos).where(eq(groupRepos.groupId, group.id))
+      const all = await ctx.db.select().from(groupRepos).where(eq(groupRepos.groupId, group.id))
+      const old = all.find((r) => r.isPrimary)
+      const primary = and(eq(groupRepos.groupId, group.id), eq(groupRepos.isPrimary, true))
       if (!url) {
         if (!old) return groupDto(ctx, me.id, group.id)
         if (group.mode === 'force') return fail('conflict', '强制同步群不能解绑仓库，请先切回分区模式')
+        if (all.length > 1) return fail('conflict', '请先移除附加仓库')
         // /cd directories stay; managed clones stay on disk, their bots move to a default directory or wait.
         const moved = await ctx.db.transaction(async (tx) => {
-          await tx.delete(groupRepos).where(eq(groupRepos.groupId, group.id))
+          await tx.delete(groupRepos).where(primary)
           return tx
             .update(groupBots)
             .set({
@@ -232,9 +236,11 @@ export function groupRoutes(ctx: Ctx) {
       assertBindable(ctx, url, branch)
       if (old?.url === url && old.baseBranch === branch) return groupDto(ctx, me.id, group.id)
       if (group.mode === 'force') return fail('conflict', '强制同步群不能更换仓库，请先切回分区模式')
+      if (all.some((r) => !r.isPrimary && repoKey(r.url) === repoKey(url)))
+        return fail('conflict', '该仓库已是本群的附加仓库')
 
       await ctx.db.transaction(async (tx) => {
-        await tx.delete(groupRepos).where(eq(groupRepos.groupId, group.id))
+        await tx.delete(groupRepos).where(primary)
         await tx.insert(groupRepos).values({ groupId: group.id, url, baseBranch: branch })
         // Old clones, /cd bindings and sessions belong to the previous repo.
         await tx

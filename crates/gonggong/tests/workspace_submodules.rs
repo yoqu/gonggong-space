@@ -55,7 +55,8 @@ async fn managed_clones_check_out_submodules() {
         protocol: GitProtocol::Auto,
     };
     let dir = managed_path(home.path(), "g1", "b1", Some(&repo));
-    let msg = WorkspaceEnsure { request_id: "e1".into(), group_id: "g1".into(), bot_id: "b1".into(), repo: Some(repo) };
+    let (request_id, group_id, bot_id) = ("e1".into(), "g1".into(), "b1".into());
+    let msg = WorkspaceEnsure { request_id, group_id, bot_id, repo: Some(repo), extra_repos: vec![] };
     engine.handle(ServerToDaemon::WorkspaceEnsure(msg), &out);
     let state = loop {
         match tokio::time::timeout(Duration::from_secs(30), rx.recv()).await.expect("quiet").unwrap() {

@@ -11,6 +11,7 @@ import { openTab } from '../workbench/open'
 import { type GitTarget, refreshGit, refreshGitQuietly, repoStatus, useGitRefs } from './api'
 import { actionItems, type PickedRef, refActions, runAction } from './branchActions'
 import { gitCommands } from './commands'
+import { repoLabel } from './GitToolbar'
 import { type BranchNode, branchTree, loadFavorites, remoteGroups, saveFavorites } from './refs'
 import './branches.css'
 
@@ -83,7 +84,7 @@ export function BranchPanel({
   useEscape(leave, !!repo)
   useEscape(shut, !!side)
   const repoPanel = (r: RepoStatus, back: () => void, closing: boolean, fly = true) => {
-    const label = r.path || t('主仓库')
+    const label = repoLabel(r.path)
     return (
       <RefsPanel
         key={r.path}
@@ -330,7 +331,7 @@ function RefsPanel({
         { kind: 'head', key: 'sep', label: '' },
       ]
   const repoRows: Row[] = (repos?.list ?? [])
-    .filter((r) => !q || (r.path || t('主仓库')).toLowerCase().includes(q))
+    .filter((r) => !q || repoLabel(r.path).toLowerCase().includes(q))
     .map((r) => ({
       kind: 'repo',
       key: repoKey(r),
@@ -574,7 +575,7 @@ function RefsPanel({
           <span className="gb__icon">
             <Icon name={r.current ? 'check' : 'folder-git'} size={13} weight={r.current ? 2 : undefined} />
           </span>
-          <span className="gb__name gb__repo-path">{r.repo.path || t('主仓库')}</span>
+          <span className="gb__name gb__repo-path">{repoLabel(r.repo.path)}</span>
           <RepoNote repo={r.repo} changes={r.changes} />
           <Icon name="chevron-right" size={10} className="gb__more" />
         </button>

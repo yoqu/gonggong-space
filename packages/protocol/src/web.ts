@@ -1032,7 +1032,10 @@ export const GroupDto = z.object({
   notice: z.string(),
   /** The caller closed the current notice for themselves; a newer notice shows again. */
   noticeHidden: z.boolean(),
+  /** The main repo: the bots work in it. */
   repo: z.object({ url: z.string(), branch: z.string() }).nullable(),
+  /** Extra repos, cloned beside the main one and added to each bot's session (partition groups only). */
+  extraRepos: z.array(z.object({ id: z.string(), url: z.string(), branch: z.string() })).optional(),
   members: z.array(
     z.object({ userId: z.string(), name: z.string(), avatar: z.string().nullable(), isAdmin: z.boolean() }),
   ),
@@ -1088,6 +1091,8 @@ export const GroupBotReq = z.object({ botId: z.string() })
 /** Moves the read cursor forward; omit `seq` to mark everything read. */
 export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
 export const RepoReq = z.object({ url: z.string(), branch: z.string() })
+/** POST /api/groups/:id/repos adds an extra repo (RepoReq); PATCH …/repos/:repoId changes its branch. */
+export const RepoBranchReq = z.object({ branch: z.string().min(1) })
 
 // ── Repos (team-wide history, access probes) ────────────────────────────────
 export const RepoDto = z.object({

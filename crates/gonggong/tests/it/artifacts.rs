@@ -427,6 +427,7 @@ fn run_start(run_id: &str, cwd: &Path, text: &str, artifacts: Vec<DaemonArtifact
             cd_path: Some(cwd.to_string_lossy().into_owned()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         resume_session_id: None,
         new_session_reason: None,

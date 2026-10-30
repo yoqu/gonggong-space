@@ -19,7 +19,7 @@ export async function adminGroupDtos(ctx: Ctx, where?: SQL): Promise<AdminGroupD
     ctx.db
       .select({ groupId: groupRepos.groupId, url: groupRepos.url })
       .from(groupRepos)
-      .where(inArray(groupRepos.groupId, ids)),
+      .where(and(inArray(groupRepos.groupId, ids), eq(groupRepos.isPrimary, true))),
     ctx.db
       .select({ groupId: groupMembers.groupId, n: count() })
       .from(groupMembers)

@@ -180,7 +180,11 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       .innerJoin(bots, eq(bots.id, groupBots.botId))
       .where(and(inArray(groupBots.groupId, gids), isNull(groupBots.removedAt), isNull(bots.deletedAt)))
       .orderBy(asc(groupBots.addedAt)),
-    ctx.db.select().from(groupRepos).where(inArray(groupRepos.groupId, gids)),
+    ctx.db
+      .select()
+      .from(groupRepos)
+      .where(inArray(groupRepos.groupId, gids))
+      .orderBy(asc(groupRepos.createdAt)),
     lastIds.length
       ? ctx.db
           .select({
@@ -273,7 +277,10 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
     )
 
   const views = rows.map(({ group: g, title, me, lastSeq, unread, mentioned }) => {
-    const repo = reposOf.get(g.id)?.[0]
+    const repo = reposOf.get(g.id)?.find((r) => r.isPrimary)
+    const extraRepos = (reposOf.get(g.id) ?? [])
+      .filter((r) => !r.isPrimary)
+      .map((r) => ({ id: r.id, url: r.url, branch: r.baseBranch }))
     const chat = chatsOf.get(g.id)?.[0]
     const gbots = botsOf.get(g.id) ?? []
     const last = lastsOf.get(g.id)?.[0]
@@ -294,6 +301,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       notice: g.notice,
       noticeHidden: !!g.noticeId && me.hiddenNoticeId === g.noticeId,
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,
+      extraRepos,
       members: (membersOf.get(g.id) ?? []).map(({ userId, name, avatar, isAdmin }) => ({
         userId,
         name,

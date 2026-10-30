@@ -408,6 +408,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("工作区不是 git 仓库", "The workspace isn't a git repository"),
     ("本轮改动仅支持 git 工作区", "This turn's changes are only tracked in git workspaces"),
     ("附加目录不存在或不是目录：{path}", "Additional directory is missing or not a directory: {path}"),
+    ("附加仓库 {name}：{e}", "Extra repo {name}: {e}"),
     ("{from} 打断并追加", "{from} interrupted & appended"),
     ("群成员", "Group member"),
     ("{who} 已回答", "{who} answered"),

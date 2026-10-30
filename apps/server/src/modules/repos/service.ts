@@ -123,7 +123,7 @@ export async function groupLocalPaths(ctx: Ctx, userId: string, groupId: string)
     .select({ url: groupRepos.url, teamId: groups.teamId })
     .from(groupRepos)
     .innerJoin(groups, eq(groups.id, groupRepos.groupId))
-    .where(eq(groupRepos.groupId, groupId))
+    .where(and(eq(groupRepos.groupId, groupId), eq(groupRepos.isPrimary, true)))
   const key = bound && repoKey(bound.url)
   if (!key) return []
   const [repo] = await ctx.db

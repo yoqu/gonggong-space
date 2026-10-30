@@ -33,8 +33,8 @@ pub struct Rules {
     pub allowlist: Vec<String>,
     /// Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode (plan A4).
     pub always_allow: Vec<String>,
-    /// The group's base branch when its 禁止直推基准分支 policy is on: pushing to it always asks.
-    pub protect: Option<String>,
+    /// The base branches of the group's repos when its 禁止直推基准分支 policy is on: pushing to one always asks.
+    pub protect: Vec<String>,
     /// The session's additional directories: within the workspace too, like `cwd`.
     pub extra_dirs: Vec<PathBuf>,
 }
@@ -45,7 +45,7 @@ impl From<&RunBot> for Rules {
             approval: bot.approval,
             allowlist: bot.allowlist.clone(),
             always_allow: bot.always_allow.clone(),
-            protect: None,
+            protect: vec![],
             extra_dirs: vec![],
         }
     }
@@ -53,7 +53,11 @@ impl From<&RunBot> for Rules {
 
 impl From<&RunStart> for Rules {
     fn from(start: &RunStart) -> Self {
-        let protect = start.workspace.repo.as_ref().filter(|_| start.workspace.protect_base).map(|r| r.branch.clone());
+        let w = &start.workspace;
+        let protect = match w.protect_base {
+            true => w.repo.iter().chain(&w.extra_repos).map(|r| r.branch.clone()).collect(),
+            false => vec![],
+        };
         let extra_dirs = start.workspace.extra_dirs.iter().map(PathBuf::from).collect();
         Self { protect, extra_dirs, ..Self::from(&start.bot) }
     }
@@ -208,7 +212,10 @@ impl Rules {
     /// A `git push` that may update the protected base branch: named as a destination, `--all`/`--mirror`, or a
     /// bare / `HEAD` push while the workspace is on it. Lines too complex to parse count if they push at all.
     fn pushes_base(&self, command: &str, cwd: &Path) -> bool {
-        let Some(base) = self.protect.as_deref() else { return false };
+        if self.protect.is_empty() {
+            return false;
+        }
+        let protected = |b: &str| self.protect.iter().any(|p| p == b);
         let Some(all) = segments(command) else { return normalize(command).contains("git push") };
         let current = || current_branch(cwd);
         all.iter().any(|Segment { words, .. }| {
@@ -230,8 +237,8 @@ impl Rules {
                 }
             }
             let is_base = |dst: &str| match dst {
-                "HEAD" => current().is_none_or(|c| c == base),
-                _ => dst.strip_prefix("refs/heads/").unwrap_or(dst) == base,
+                "HEAD" => current().is_none_or(|c| protected(&c)),
+                _ => protected(dst.strip_prefix("refs/heads/").unwrap_or(dst)),
             };
             match positional.get(1..).filter(|specs| !specs.is_empty()) {
                 None => is_base("HEAD"),
@@ -827,7 +834,7 @@ mod tests {
     }
 
     fn bot(approval: Approval, allowlist: &[&str]) -> Rules {
-        Rules { approval, allowlist: strings(allowlist), always_allow: vec![], protect: None, extra_dirs: vec![] }
+        Rules { approval, allowlist: strings(allowlist), always_allow: vec![], protect: vec![], extra_dirs: vec![] }
     }
 
     #[test]
@@ -1123,13 +1130,15 @@ mod tests {
             std::fs::write(dir.path().join(".git/HEAD"), format!("ref: refs/heads/{branch}\n")).unwrap();
             dir
         };
-        let rules = Rules { protect: Some("main".into()), ..bot(Approval::All, &[]) };
+        let rules = Rules { protect: vec!["main".into(), "develop".into()], ..bot(Approval::All, &[]) };
         let (main, feat) = (on("main"), on("feat/x"));
         let cases: &[(&Path, &str, Decision)] = &[
             (feat.path(), "git push -u origin feat/x", Local),
             (feat.path(), "git push", Local),
             (feat.path(), "git push origin HEAD", Local),
             (feat.path(), "git push origin main", Ask),
+            // An extra repo's base branch is protected as well.
+            (feat.path(), "git push origin develop", Ask),
             (feat.path(), "git push origin HEAD:main", Ask),
             (feat.path(), "git push origin feat/x:refs/heads/main", Ask),
             (feat.path(), "git push --all origin", Ask),

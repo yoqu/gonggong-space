@@ -223,12 +223,12 @@ async function searchMessages(ctx: Ctx, s: Scope, a: Args<'search_messages'>): P
 
 async function getGroupInfo(ctx: Ctx, s: Scope, a: Args<'get_group_info'>): Promise<ToolOutput> {
   const g = s.pick(a.group)
-  const [repo] = await ctx.db
+  const repos = await ctx.db
     .select()
     .from(groupRepos)
     .where(eq(groupRepos.groupId, g.id))
     .orderBy(asc(groupRepos.createdAt))
-    .limit(1)
+  const repo = repos.find((r) => r.isPrimary)
   const members = await ctx.db
     .select({ name: users.name, isAdmin: groupMembers.isAdmin })
     .from(groupMembers)
@@ -247,6 +247,7 @@ async function getGroupInfo(ctx: Ctx, s: Scope, a: Args<'get_group_info'>): Prom
     `群「${g.name}」（${g.kind === 'dm' ? '私聊' : '群聊'} · ${MODE[g.mode] ?? g.mode}）`,
     g.notice ? `公告：${g.notice}` : null,
     repo ? `仓库：${repo.url}（${repo.baseBranch}）` : '仓库：未绑定',
+    ...repos.filter((r) => !r.isPrimary).map((r) => `附加仓库：${r.url}（${r.baseBranch}）`),
     '成员：',
     ...members.map((m) => `- ${m.name}${m.isAdmin ? '（管理员）' : ''}`),
     'bot：',

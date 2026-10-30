@@ -51,6 +51,15 @@ describe('GET /api/daemon/workspaces', () => {
       originUserId: w.wang.id,
       status: 'awaiting_approval',
     })
+    const [web] = await t.db
+      .insert(groupRepos)
+      .values({
+        groupId: w.pay.id,
+        url: 'git@example.com:team/web.git',
+        baseBranch: 'main',
+        isPrimary: false,
+      })
+      .returning()
     const res = await t.app.inject({ url: '/api/daemon/workspaces', headers: w.auth() })
     expect(res.statusCode).toBe(200)
     const list = res.json<DaemonWorkspaceDto[]>()
@@ -65,6 +74,7 @@ describe('GET /api/daemon/workspaces', () => {
       kind: 'managed',
       cdPath: null,
       repoId: w.repo.id,
+      extraRepoIds: [web!.id],
       removed: false,
       running: true,
     })
@@ -74,7 +84,7 @@ describe('GET /api/daemon/workspaces', () => {
       removed: false,
       running: false,
     })
-    expect(by(w.old.id)).toMatchObject({ removed: true, repoId: null })
+    expect(by(w.old.id)).toMatchObject({ removed: true, repoId: null, extraRepoIds: [] })
     expect(by(w.dm.id)).toMatchObject({ groupKind: 'dm', removed: false })
   })
 

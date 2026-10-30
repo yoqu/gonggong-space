@@ -9,6 +9,7 @@ import { Button, ConfirmActionDialog, GroupBox, GroupRow, Icon, Presence, toast 
 import { BotAvatar } from '../bots/avatars'
 import { groupsApi } from '../groups/api'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
+import { ExtraRepos } from './ExtraRepos'
 import { RepoPicker, repoPath } from './RepoPicker'
 import { AccessResult, emptyRepo, type RepoDraft, repoBody, repoIcon, repoValidated } from './repo-access'
 
@@ -101,7 +102,7 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
                       {group.repo ? t('更换…') : t('绑定仓库…')}
                     </Button>
                   ) : null}
-                  {isAdmin && group.repo && group.mode === 'partition' ? (
+                  {isAdmin && group.repo && group.mode === 'partition' && !group.extraRepos?.length ? (
                     <Button size="small" onClick={() => setUnbinding(true)}>
                       {t('解绑…')}
                     </Button>
@@ -135,6 +136,8 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
           </div>
         ) : null}
       </section>
+
+      {draft ? null : <ExtraRepos group={group} isAdmin={isAdmin} />}
 
       <section className="rw-section">
         <h3 className="rw-section__title">{t('各 Bot 的工作区')}</h3>

@@ -44,6 +44,7 @@ import { gitRoutes } from './modules/git/routes.js'
 import { startGitOperationSweep } from './modules/git/service.js'
 import { gitAccountRoutes } from './modules/git-accounts/routes.js'
 import { groupTabRoutes } from './modules/group-tabs/routes.js'
+import { extraRepoRoutes } from './modules/groups/extra-repos.js'
 import { groupRoutes } from './modules/groups/routes.js'
 import { groupSettingsRoutes } from './modules/groups/settings.js'
 import { knowledgeRoutes } from './modules/knowledge/routes.js'
@@ -126,6 +127,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   })
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
   await app.register(groupRoutes(ctx))
+  await app.register(extraRepoRoutes(ctx))
   await app.register(groupSettingsRoutes(ctx))
   await app.register(messageRoutes(ctx))
   await app.register(reactionRoutes(ctx))

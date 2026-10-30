@@ -32,6 +32,8 @@ export interface Pending {
   botId: string
   /** The group's repo when sent; null for repo-less groups. */
   repoId: string | null
+  /** ensure: the ids of the group's extra repos when sent. */
+  extras?: string
   /** cd target; null = back to managed. */
   cdPath: string | null
   /** The request was part of the bot joining the group (event wording). */
@@ -71,16 +73,24 @@ export const reasonText = (r: RepoAccessReason) => REASON_TEXT[r]
 
 const joinedName = (bot: string, joined: boolean) => (joined ? { key: '{bot} 加入', params: { bot } } : bot)
 
-/** The group's repo as sent to daemons; `protocol` is the bot owner's preference when a bot is given. */
+/** The group's main repo as sent to daemons; `protocol` is the bot owner's preference when a bot is given. */
 export async function currentRepo(ctx: Ctx, groupId: string, botId?: string) {
   const [repo] = await ctx.db
     .select({ id: groupRepos.id, url: groupRepos.url, branch: groupRepos.baseBranch })
     .from(groupRepos)
-    .where(eq(groupRepos.groupId, groupId))
-    .orderBy(asc(groupRepos.createdAt))
-    .limit(1)
+    .where(and(eq(groupRepos.groupId, groupId), eq(groupRepos.isPrimary, true)))
   if (!repo) return null
   return { ...repo, protocol: botId ? await ownerProtocol(ctx, botId) : ('auto' as const) }
+}
+
+/** The group's extra repos as sent to daemons, oldest first (see currentRepo). */
+export async function extraRepos(ctx: Pick<Ctx, 'db'>, groupId: string, protocol: GitProtocol = 'auto') {
+  const rows = await ctx.db
+    .select({ id: groupRepos.id, url: groupRepos.url, branch: groupRepos.baseBranch })
+    .from(groupRepos)
+    .where(and(eq(groupRepos.groupId, groupId), eq(groupRepos.isPrimary, false)))
+    .orderBy(asc(groupRepos.createdAt))
+  return rows.map((r) => ({ ...r, protocol }))
 }
 
 export async function ownerProtocol(ctx: Ctx, botId: string) {
@@ -269,6 +279,8 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
   }
   const repo = await currentRepo(ctx, groupId, bot.id)
   if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }))
+  const extras = await extraRepos(ctx, groupId, repo.protocol)
+  const extrasKey = extras.map((r) => `${r.id}@${r.branch}`).join()
   const machineId = onlineMachine(ctx, bot.machineId)
   // Written before sending so a fast answer can't be overwritten by this state.
   await updateBotState(ctx, groupId, bot.id, { workspaceState: machineId ? 'cloning' : 'pending' })
@@ -276,7 +288,7 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
   for (const [id, p] of pending)
     if (p.kind === 'ensure' && p.groupId === groupId && p.botId === bot.id) {
       // Already asked on this connection (going offline clears pending): a reconnect catch-up can race a join.
-      if (p.machineId === machineId && p.repoId === repo.id) return
+      if (p.machineId === machineId && p.repoId === repo.id && p.extras === extrasKey) return
       pending.delete(id)
     }
   const requestId = track({
@@ -285,10 +297,12 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
     groupId,
     botId: bot.id,
     repoId: repo.id,
+    extras: extrasKey,
     cdPath: null,
     joined: false,
   })
-  if (!ctx.hub.send(machineId, { t: 'workspace.ensure', requestId, groupId, botId: bot.id, repo })) {
+  const msg = { t: 'workspace.ensure' as const, requestId, groupId, botId: bot.id, repo, extraRepos: extras }
+  if (!ctx.hub.send(machineId, msg)) {
     forget(requestId)
     await updateBotState(ctx, groupId, bot.id, { workspaceState: 'pending' })
   }

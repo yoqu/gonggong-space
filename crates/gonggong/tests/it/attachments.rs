@@ -140,6 +140,7 @@ fn start(run_id: &str, cwd: &Path, attachments: Vec<Attachment>, context: Vec<At
             cd_path: Some(cwd.to_string_lossy().into_owned()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         resume_session_id: None,
         new_session_reason: None,

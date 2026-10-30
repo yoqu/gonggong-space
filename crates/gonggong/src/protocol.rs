@@ -609,6 +609,9 @@ pub struct WorkspaceSpec {
     /// Absolute paths the session may also work in (ACP additionalDirectories); not shared by sync.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_dirs: Vec<String>,
+    /// The group's extra repos: each cloned to its own managed path, and added to the session like `extra_dirs`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_repos: Vec<RepoSpec>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1578,6 +1581,8 @@ pub struct WorkspaceEnsure {
     pub group_id: String,
     pub bot_id: String,
     pub repo: Option<RepoSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_repos: Vec<RepoSpec>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -143,6 +143,7 @@ fn start(run_id: &str, kind: AgentKind, cwd: &Path, skills: Vec<SkillRef>, resum
             cd_path: Some(cwd.to_string_lossy().into_owned()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         resume_session_id: resume.and_then(|d| d.session_id.clone()),
         new_session_reason: None,

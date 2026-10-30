@@ -8,7 +8,7 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { auditLogs, groups, notifications } from '../src/db/schema.js'
+import { auditLogs, groupRepos, groups, notifications } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { gitBranch, gitDaemon, gitWorld, groupEvents } from './support/git-daemon.js'
 
@@ -381,6 +381,27 @@ describe('the protected base branch', () => {
     expect((await away).body).toMatchObject({ status: 'succeeded', pushesBase: false })
     const asked = await w.members.post<GitOperationDto>(`${w.base}/actions`, toBase)
     expect(asked.body).toMatchObject({ status: 'pending_approval', pushesBase: true })
+  })
+
+  it("judges a push in an extra repo by that repo's own base branch", async () => {
+    const w = await gitWorld(t)
+    await protect(w)
+    const [web] = await t.db
+      .insert(groupRepos)
+      .values({
+        groupId: w.group.id,
+        url: 'git@git.corp:pay/web.git',
+        baseBranch: 'develop',
+        isPrimary: false,
+      })
+      .returning()
+    const d = await gitDaemon(t, w.token, ALL)
+    const repo = `/home/wl/.gonggong/workspaces/${w.group.id}/${w.bot.id}/${web!.id}/web`
+    const post = (input: GitActionInput) => w.owners.post<GitOperationDto>(`${w.base}/actions`, input)
+    expect(await post({ action: 'push', branch: 'feat', target: 'develop', repo })).toMatchObject(confirm)
+    const toMain = post({ action: 'push', branch: 'feat', target: 'main', repo })
+    expect((await d.act()).repo).toBe(repo)
+    expect((await toMain).body).toMatchObject({ status: 'succeeded', pushesBase: false })
   })
 
   it('takes a push without a target to the upstream branch the daemon reports, and pins it', async () => {

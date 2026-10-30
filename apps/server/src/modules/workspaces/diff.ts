@@ -11,7 +11,7 @@ import { open } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
-import { currentRepo, onlineMachine } from './provision.js'
+import { currentRepo, extraRepos, onlineMachine } from './provision.js'
 
 /** Large repos take a while to write a tree and diff it. */
 const DIFF_TIMEOUT_MS = 10_000
@@ -67,7 +67,12 @@ export function workspaceDiffRoutes(ctx: Ctx) {
           requestId: randomUUID(),
           groupId: group.id,
           botId: bot.id,
-          workspace: { repo, cdPath: gb?.cdPath ?? null, extraDirs: gb?.extraDirs ?? [] },
+          workspace: {
+            repo,
+            cdPath: gb?.cdPath ?? null,
+            extraDirs: gb?.extraDirs ?? [],
+            extraRepos: await extraRepos(ctx, group.id),
+          },
           scope,
           runId: runId ?? null,
         } as const

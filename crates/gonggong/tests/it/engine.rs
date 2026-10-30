@@ -78,7 +78,13 @@ fn start(run_id: &str, text: &str) -> RunStart {
             git: None,
             agent_settings: Default::default(),
         },
-        workspace: WorkspaceSpec { repo: None, cd_path: None, protect_base: false, extra_dirs: vec![] },
+        workspace: WorkspaceSpec {
+            repo: None,
+            cd_path: None,
+            protect_base: false,
+            extra_dirs: vec![],
+            extra_repos: vec![],
+        },
         resume_session_id: None,
         new_session_reason: None,
         mcp_servers: vec![],
@@ -249,6 +255,7 @@ async fn session_fork_copies_a_turns_session_into_a_new_one() {
             cd_path: Some(r.workspace().display().to_string()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         session_id: parent.clone(),
     }));
@@ -580,6 +587,22 @@ async fn additional_directories_reach_the_session_and_their_changes_are_reported
 }
 
 #[tokio::test]
+async fn extra_repos_are_cloned_before_the_turn_and_reach_the_session_as_additional_directories() {
+    let mut r = rig(Duration::from_secs(60));
+    let remote = repo_workspace(&r);
+    let url = format!("file://{}", remote.path().join("remote.git").display());
+    let web = RepoSpec { id: "rw".into(), url, branch: "main".into(), protocol: GitProtocol::Auto };
+    let mut s = start("r1", "mock:echo");
+    s.workspace.extra_repos = vec![web.clone()];
+    r.run(s);
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.outcome, RunOutcome::Completed, "{:?}", done.error);
+    let dir = gonggong::workspace::managed_path(r.home.path(), "g1", "b1", Some(&web));
+    assert!(dir.join("later.txt").is_file());
+    assert_eq!(echo(&done)["additionalDirectories"], serde_json::json!([dir.to_string_lossy()]));
+}
+
+#[tokio::test]
 async fn reports_the_live_turns_diff_and_the_workspaces_uncommitted_changes() {
     let mut r = rig(Duration::from_secs(60));
     let _remote = repo_workspace(&r);
@@ -588,7 +611,13 @@ async fn reports_the_live_turns_diff_and_the_workspaces_uncommitted_changes() {
             request_id: format!("{scope:?}"),
             group_id: "g1".into(),
             bot_id: "b1".into(),
-            workspace: WorkspaceSpec { repo: None, cd_path: None, protect_base: false, extra_dirs: vec![] },
+            workspace: WorkspaceSpec {
+                repo: None,
+                cd_path: None,
+                protect_base: false,
+                extra_dirs: vec![],
+                extra_repos: vec![],
+            },
             scope,
             run_id: run_id.map(String::from),
         })
@@ -952,7 +981,13 @@ async fn lists_files_of_the_bot_workspace() {
             request_id: request_id.into(),
             group_id: "g1".into(),
             bot_id: "b1".into(),
-            workspace: WorkspaceSpec { repo: None, cd_path, protect_base: false, extra_dirs: vec![] },
+            workspace: WorkspaceSpec {
+                repo: None,
+                cd_path,
+                protect_base: false,
+                extra_dirs: vec![],
+                extra_repos: vec![],
+            },
             query: "".into(),
             limit: 10,
         })
@@ -981,7 +1016,8 @@ async fn browses_and_reads_the_bot_workspace_read_only() {
     let mut r = rig(Duration::from_secs(60));
     let _remote = repo_workspace(&r);
     std::fs::write(r.workspace().join("notes.md"), "# 笔记\n").unwrap();
-    let workspace = WorkspaceSpec { repo: None, cd_path: None, protect_base: false, extra_dirs: vec![] };
+    let workspace =
+        WorkspaceSpec { repo: None, cd_path: None, protect_base: false, extra_dirs: vec![], extra_repos: vec![] };
     r.send(ServerToDaemon::FilesTree(FilesTree {
         request_id: "t1".into(),
         group_id: "g1".into(),

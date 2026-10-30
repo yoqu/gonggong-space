@@ -400,16 +400,22 @@ export const groupNotices = pgTable('group_notices', {
   createdAt: createdAt(),
 })
 
-/** One group → many repos (P1 enforces at most one). */
-export const groupRepos = pgTable('group_repos', {
-  id: id(),
-  groupId: uuid('group_id')
-    .notNull()
-    .references(() => groups.id),
-  url: text('url').notNull(),
-  baseBranch: text('base_branch').notNull(),
-  createdAt: createdAt(),
-})
+/** One group → a main repo plus extra repos. */
+export const groupRepos = pgTable(
+  'group_repos',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    url: text('url').notNull(),
+    baseBranch: text('base_branch').notNull(),
+    /** The repo the bots work in; the others are extra repos cloned beside it. Rows before extra repos are primary. */
+    isPrimary: boolean('is_primary').notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('group_repos_primary').on(t.groupId).where(sql`${t.isPrimary}`)],
+)
 
 /** Team-wide history of remote repos bound to groups or found in /cd directories, one row per team and `repoKey`. */
 export const repos = pgTable(

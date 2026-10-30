@@ -172,6 +172,8 @@ export const DaemonWorkspaceDto = z.object({
   kind: z.enum(['managed', 'cd']),
   cdPath: z.string().nullable(),
   repoId: z.string().nullable(),
+  /** The group's extra repos, cloned beside the repo: in use too. */
+  extraRepoIds: z.array(z.string()).optional(),
   removed: z.boolean(),
   running: z.boolean(),
 })
@@ -258,6 +260,11 @@ export const WorkspaceSpec = z.object({
    * the agent may read and write them; their git changes are reported as `extra` repos. Not shared by sync.
    */
   extraDirs: z.array(z.string()).optional(),
+  /**
+   * The group's extra repos besides `repo`: each cloned to its own managed path (as `repo` would be), and added to the
+   * session like `extraDirs`. Older daemons ignore them.
+   */
+  extraRepos: z.array(RepoSpec).optional(),
 })
 
 export const RunStart = z.object({
@@ -1490,6 +1497,8 @@ export const WorkspaceEnsure = z.object({
   groupId: z.string(),
   botId: z.string(),
   repo: RepoSpec.nullable(),
+  /** The group's extra repos, cloned beside `repo` (see WorkspaceSpec.extraRepos). */
+  extraRepos: z.array(RepoSpec).optional(),
 })
 
 /**

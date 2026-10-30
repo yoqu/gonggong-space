@@ -67,4 +67,19 @@ export default {
   '已绑定本机目录的 Bot 不变': 'Bots bound to a local directory are unchanged',
   '托管克隆保留在各自机器上，不会删除': 'Managed clones stay on their machines and are not deleted',
   已解绑仓库: 'Repo unbound',
+  附加仓库: 'Extra repos',
+  '已保存附加仓库 · 各 Bot 将克隆并从下一轮起使用':
+    'Extra repos saved · Bots clone them and use them from the next turn',
+  '更改附加仓库 {repo}': 'Change the extra repo {repo}',
+  '移除附加仓库 {repo}': 'Remove the extra repo {repo}',
+  '移除…': 'Remove…',
+  未添加: 'None',
+  '添加附加仓库…': 'Add extra repo…',
+  '附加仓库克隆在主仓库旁边，作为附加目录提供给各 Bot，每个仓库按自己的默认分支提交和推送。':
+    'Extra repos are cloned beside the main repo and given to each Bot as additional directories; each commits and pushes against its own default branch.',
+  移除附加仓库: 'Remove extra repo',
+  '确定移除附加仓库 {repo}？': 'Remove the extra repo {repo}?',
+  '各 Bot 从下一轮起不再使用它，并开始新会话': 'Bots stop using it from the next turn and start new sessions',
+  '已有克隆保留在各自机器上，不会删除': 'Existing clones stay on their machines and are not deleted',
+  已移除附加仓库: 'Extra repo removed',
 } satisfies Record<string, string>

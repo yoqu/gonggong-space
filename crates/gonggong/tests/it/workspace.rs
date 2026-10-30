@@ -83,7 +83,12 @@ fn rig() -> Rig {
 
 impl Rig {
     fn ensure(&self, id: &str, repo: Option<RepoSpec>) {
-        let msg = WorkspaceEnsure { request_id: id.into(), group_id: "g1".into(), bot_id: "b1".into(), repo };
+        self.ensure_with(id, repo, vec![]);
+    }
+
+    fn ensure_with(&self, id: &str, repo: Option<RepoSpec>, extra_repos: Vec<RepoSpec>) {
+        let (request_id, group_id, bot_id) = (id.into(), "g1".into(), "b1".into());
+        let msg = WorkspaceEnsure { request_id, group_id, bot_id, repo, extra_repos };
         self.engine.handle(ServerToDaemon::WorkspaceEnsure(msg), &self.out);
     }
 
@@ -186,6 +191,55 @@ fn managed_paths_are_isolated_per_group_bot_and_repo_and_named_after_the_repo() 
     ] {
         assert_eq!(repo_name(url), name, "{url}");
     }
+}
+
+#[tokio::test]
+async fn ensure_clones_the_extra_repos_beside_the_repo_and_reports_them_as_extra_repos() {
+    let (main, web) = (Remote::new(), Remote::new());
+    web.commit("web.txt", "web\n");
+    let mut r = rig();
+    r.ensure_with("e1", Some(main.spec("rp")), vec![RepoSpec { branch: "main".into(), ..web.spec("rw") }]);
+    let (s, cloned) = r.settled("e1").await;
+    assert!(cloned);
+    assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
+    // The bot works in the repo; the extra repo is its own clone beside it.
+    assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
+    let extra = r.managed(Some("rw"));
+    assert!(extra.join("web.txt").is_file());
+    let repos = s.git.expect("status").repos;
+    assert_eq!(repos.len(), 1, "{repos:?}");
+    assert_eq!(
+        (repos[0].path.as_str(), repos[0].kind, repos[0].branch.as_deref()),
+        (&*extra.to_string_lossy(), RepoKind::Extra, Some("main"))
+    );
+
+    // Git messages see it too: the server sends only the repo spec, the daemon knows where it is cloned.
+    std::fs::write(extra.join("web.txt"), "changed\n").unwrap();
+    let workspace = WorkspaceSpec {
+        repo: Some(main.spec("rp")),
+        cd_path: None,
+        protect_base: false,
+        extra_dirs: vec![],
+        extra_repos: vec![web.spec("rw")],
+    };
+    let msg =
+        GitRefresh { request_id: "f1".into(), group_id: "g1".into(), bot_id: "b1".into(), workspace, fetch: false };
+    r.engine.handle(ServerToDaemon::GitRefresh(msg), &r.out);
+    let s = r.state().await;
+    match r.rx.recv().await.unwrap() {
+        DaemonToServer::GitRefreshResult { error, .. } => assert_eq!(error, None),
+        other => panic!("unexpected {other:?}"),
+    }
+    let repos = s.git.expect("status").repos;
+    assert_eq!((repos[0].path.as_str(), repos[0].dirty), (&*extra.to_string_lossy(), true));
+
+    // An extra repo that cannot be cloned fails the workspace, naming it.
+    let mut broken = web.spec("rx");
+    broken.branch = "nope".into();
+    r.ensure_with("e2", Some(main.spec("rp")), vec![broken]);
+    let (s, _) = r.settled("e2").await;
+    assert_eq!(s.state, WorkspaceStateKind::Failed);
+    assert!(s.error.as_deref().unwrap_or_default().starts_with("附加仓库 remote："), "{:?}", s.error);
 }
 
 #[tokio::test]
@@ -499,6 +553,7 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
             cd_path: cd.map(|p| p.to_string_lossy().into_owned()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         resume_session_id: None,
         new_session_reason: Some("requested".into()),
@@ -583,6 +638,7 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
             cd_path: Some(cd.to_string_lossy().into_owned()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         },
         resume_session_id: None,
         new_session_reason: None,

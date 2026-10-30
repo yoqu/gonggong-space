@@ -27,7 +27,7 @@ export function daemonWorkspaceRoutes(ctx: Ctx) {
       if (!rows.length) return []
       const groupIds = [...new Set(rows.map((r) => r.g.id))]
       const repos = await ctx.db
-        .select({ id: groupRepos.id, groupId: groupRepos.groupId })
+        .select({ id: groupRepos.id, groupId: groupRepos.groupId, isPrimary: groupRepos.isPrimary })
         .from(groupRepos)
         .where(inArray(groupRepos.groupId, groupIds))
         .orderBy(asc(groupRepos.createdAt))
@@ -45,7 +45,10 @@ export function daemonWorkspaceRoutes(ctx: Ctx) {
           botName: bot.name,
           kind: gb.workspaceKind as DaemonWorkspaceDto['kind'],
           cdPath: gb.cdPath,
-          repoId: removed ? null : (repos.find((r) => r.groupId === g.id)?.id ?? null),
+          repoId: removed ? null : (repos.find((r) => r.groupId === g.id && r.isPrimary)?.id ?? null),
+          extraRepoIds: removed
+            ? []
+            : repos.filter((r) => r.groupId === g.id && !r.isPrimary).map((r) => r.id),
           removed,
           running: live.some((r) => r.groupId === g.id && r.botId === bot.id),
         }

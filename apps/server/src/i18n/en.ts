@@ -676,6 +676,13 @@ export const en = {
   该副本已参与强制同步: 'This replica already takes part in force sync',
   '强制同步群不能更换仓库，请先切回分区模式':
     'A force-sync group cannot change its repo; switch back to partition mode first',
+  '强制同步群不支持附加仓库，请先切回分区模式':
+    'A force-sync group cannot have extra repos; switch back to partition mode first',
+  请先绑定主仓库: 'Bind a main repo first',
+  该仓库已在本群: 'This repo is already in the group',
+  附加仓库不存在: 'No such extra repo',
+  请先移除附加仓库: 'Remove the extra repos first',
+  该仓库已是本群的附加仓库: 'This repo is already an extra repo of the group',
   'Bot 所在机器离线，上线后再处理': "The Bot's machine is offline; try again once it connects",
   该副本没有待处理的本地改动: 'This replica has no local changes to settle',
   '该 Bot 已不在强制同步中，本轮改动留在工作区':

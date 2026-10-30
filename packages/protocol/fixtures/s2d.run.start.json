@@ -32,7 +32,15 @@
     },
     "cdPath": null,
     "protectBase": true,
-    "extraDirs": ["/Users/wl/pay-sdk"]
+    "extraDirs": ["/Users/wl/pay-sdk"],
+    "extraRepos": [
+      {
+        "id": "r_web",
+        "url": "git@git.corp:pay/pay-web.git",
+        "branch": "develop",
+        "protocol": "auto"
+      }
+    ]
   },
   "resumeSessionId": "sess-0",
   "prompt": {

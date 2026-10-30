@@ -287,7 +287,8 @@ fn repo_in(dir: &Path, workspace: &WorkspaceSpec, repo: Option<&str>) -> Result<
 }
 
 impl Handler for Engine {
-    fn handle(&self, msg: ServerToDaemon, out: &Outbox) {
+    fn handle(&self, mut msg: ServerToDaemon, out: &Outbox) {
+        self.0.workspaces.expand(&mut msg);
         match msg {
             ServerToDaemon::RunStart(start) => {
                 // A start the server sent again (it never gets an ack) must not run the turn twice.
@@ -1066,6 +1067,8 @@ impl Inner {
             AgentKind::Claude => base
                 .env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
                 .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
+                // The CLAUDE.md of additional directories (extra repos, the owner's extra dirs); their skills load anyway.
+                .env("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "1")
                 .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
             AgentKind::Codex => {
                 let mut config = serde_json::Map::new();

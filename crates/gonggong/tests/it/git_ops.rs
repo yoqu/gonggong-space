@@ -113,6 +113,7 @@ impl Rig {
             cd_path: Some(self.work.to_string_lossy().into()),
             protect_base: false,
             extra_dirs: vec![],
+            extra_repos: vec![],
         }
     }
 

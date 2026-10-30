@@ -34,6 +34,7 @@ impl RealShell {
                 cd_path: Some(workspace.path().to_string_lossy().into_owned()),
                 protect_base: false,
                 extra_dirs: vec![],
+                extra_repos: vec![],
             },
             cols: 80,
             rows: 24,

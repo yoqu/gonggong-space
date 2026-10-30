@@ -24,7 +24,7 @@ import { memberIds, postEvent } from '../messages/service.js'
 import { resolveNotifications } from '../notifications/notify.js'
 import { MASK, redactDeep } from '../runs/redact.js'
 import { groupRedactor } from '../secrets/resolve.js'
-import { currentRepo, onlineMachine } from '../workspaces/provision.js'
+import { currentRepo, extraRepos, onlineMachine } from '../workspaces/provision.js'
 
 export type GitOperation = typeof gitOperations.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -115,7 +115,12 @@ export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, featur
     group,
     bot: row.bot,
     workspacePath: row.path,
-    workspace: { repo, cdPath: row.cdPath, extraDirs: row.extraDirs },
+    workspace: {
+      repo,
+      cdPath: row.cdPath,
+      extraDirs: row.extraDirs,
+      extraRepos: await extraRepos(ctx, group.id, repo?.protocol),
+    },
   }
 }
 
@@ -407,7 +412,11 @@ export function assertValid(req: GitActionReq) {
  */
 export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
   if (!t.group.protectBase || !t.workspace.repo) return { op, pushesBase: false }
-  const base = t.workspace.repo.branch
+  // An extra repo is cloned under its own id (`…/<repoId>/<name>`) and has its own base branch.
+  const extra = op.repo
+    ? t.workspace.extraRepos.find((r) => op.repo?.split(/[\\/]/).includes(r.id))
+    : undefined
+  const base = extra?.branch ?? t.workspace.repo.branch
   if (op.action === 'push') {
     const pinned = await pinTarget(ctx, op, t)
     const pushesBase = (pinned.args?.target ?? pinned.branch) === base

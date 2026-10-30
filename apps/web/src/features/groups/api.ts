@@ -25,6 +25,12 @@ export const groupsApi = {
   notices: (id: string) => api.get<GroupNoticeDto[]>(`/groups/${id}/notices`),
   setRepo: (id: string, body: { url: string; branch: string }) =>
     api.patch<GroupDto>(`/groups/${id}/repo`, body).then(apply),
+  addExtraRepo: (id: string, body: { url: string; branch: string }) =>
+    api.post<GroupDto>(`/groups/${id}/repos`, body).then(apply),
+  setExtraRepoBranch: (id: string, repoId: string, branch: string) =>
+    api.patch<GroupDto>(`/groups/${id}/repos/${repoId}`, { branch }).then(apply),
+  removeExtraRepo: (id: string, repoId: string) =>
+    api.del<GroupDto>(`/groups/${id}/repos/${repoId}`).then(apply),
   prefs: (id: string, body: GroupPrefsReq) => api.put<GroupDto>(`/groups/${id}/prefs`, body).then(apply),
   params: (id: string) => api.get<GroupParams>(`/groups/${id}/params`),
   saveParams: (id: string, body: GroupParams) => api.put<GroupParams>(`/groups/${id}/params`, body),

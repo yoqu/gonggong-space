@@ -4,8 +4,8 @@ use crate::config::{Config, user_home};
 use crate::git::{self, git};
 use crate::protocol::{
     Answer, DaemonToServer, DirEntry, DirGit, DirResult, GitStatus, Question, QuestionType, RepoAccessReason, RepoFind,
-    RepoFound, RepoSpec, RunStart, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec, WorkspaceState,
-    WorkspaceStateKind,
+    RepoFound, RepoSpec, RunStart, ServerToDaemon, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec,
+    WorkspaceState, WorkspaceStateKind,
 };
 use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
@@ -264,7 +264,8 @@ impl Workspaces {
             guard = lock.lock() => guard,
         };
         let reply = |outcome| report(out, &req.group_id, &req.bot_id, &req.request_id, outcome);
-        let outcome = self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None), &mut cancel).await;
+        let (group, bot, extras) = (&req.group_id, &req.bot_id, &req.extra_repos);
+        let outcome = self.managed(group, bot, req.repo.as_ref(), extras, || reply(None), &mut cancel).await;
         reply(Some(outcome));
     }
 
@@ -279,7 +280,7 @@ impl Workspaces {
                     _ = cancelled(&mut cancel) => return,
                     guard = lock.lock() => guard,
                 };
-                self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), || reply(None), &mut cancel).await
+                self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), &[], || reply(None), &mut cancel).await
             }
             Some(path) => {
                 let dir = PathBuf::from(path);
@@ -314,17 +315,20 @@ impl Workspaces {
         workspace_dir(&self.home, group, bot, spec)
     }
 
-    /// A run's cwd: the /cd directory, else the managed clone (re-cloned if it went missing), else `_empty`.
+    /// A run's cwd: the /cd directory, else the managed clone (re-cloned if it went missing), else `_empty`. The
+    /// group's extra repos are cloned too where they went missing.
     pub async fn resolve(&self, start: &RunStart) -> Result<PathBuf, String> {
-        if let Some(path) = &start.workspace.cd_path {
+        let (group, bot, spec) = (&start.group_id, &start.bot.id, &start.workspace);
+        let lock = self.lock(group, bot);
+        let _guard = lock.lock().await;
+        let (_cancel, mut cancelled) = watch::channel(false);
+        self.extras(group, bot, &spec.extra_repos, &mut || {}, &mut cancelled).await.map_err(|f| f.message)?;
+        if let Some(path) = &spec.cd_path {
             let dir = PathBuf::from(path);
             return if dir.is_dir() { Ok(dir) } else { Err(t!("/cd 目录不存在：{path}", path = path)) };
         }
-        let lock = self.lock(&start.group_id, &start.bot.id);
-        let _guard = lock.lock().await;
-        let dir = self.settle(&start.group_id, &start.bot.id, start.workspace.repo.as_ref()).await?;
-        let (_cancel, mut cancelled) = watch::channel(false);
-        prepare(&dir, start.workspace.repo.as_ref(), || {}, &mut cancelled).await.map_err(|f| f.message)?;
+        let dir = self.settle(group, bot, spec.repo.as_ref()).await?;
+        prepare(&dir, spec.repo.as_ref(), || {}, &mut cancelled).await.map_err(|f| f.message)?;
         Ok(dir)
     }
 
@@ -333,16 +337,69 @@ impl Workspaces {
         group: &str,
         bot: &str,
         repo: Option<&RepoSpec>,
-        on_clone: impl FnOnce(),
+        extra_repos: &[RepoSpec],
+        on_clone: impl Fn() + Send + Sync,
         cancel: &mut watch::Receiver<bool>,
     ) -> Outcome {
         let dir = self.settle(group, bot, repo).await?;
-        prepare(&dir, repo, on_clone, cancel).await?;
+        prepare(&dir, repo, &on_clone, cancel).await?;
+        let extras = self.extras(group, bot, extra_repos, &mut || on_clone(), cancel).await?;
         let git = match repo {
-            Some(_) => git::status(&dir, &[], WorkspaceKind::Managed).await.ok(),
+            Some(_) => git::status(&dir, &extras, WorkspaceKind::Managed).await.ok(),
             None => None,
         };
         Ok((dir, git, vec![]))
+    }
+
+    /// Clones the group's extra repos that are missing (existing clones are kept as they are), each to its own
+    /// managed path beside the repo's.
+    async fn extras(
+        &self,
+        group: &str,
+        bot: &str,
+        repos: &[RepoSpec],
+        on_clone: &mut (dyn FnMut() + Send),
+        cancel: &mut watch::Receiver<bool>,
+    ) -> Result<Vec<PathBuf>, Failed> {
+        let mut dirs = vec![];
+        for repo in repos {
+            let dir = managed_path(&self.home, group, bot, Some(repo));
+            prepare(&dir, Some(repo), &mut *on_clone, cancel).await.map_err(|f| Failed {
+                message: t!("附加仓库 {name}：{e}", name = repo_name(&repo.url), e = f.message),
+                ..f
+            })?;
+            dirs.push(dir);
+        }
+        Ok(dirs)
+    }
+
+    /// Adds the managed clones of the group's extra repos to the additional directories of a message that uses them,
+    /// so everything downstream (the session, git, diffs, permission rules) treats them like the owner's own.
+    pub fn expand(&self, msg: &mut ServerToDaemon) {
+        let (group, bot, spec) = match msg {
+            ServerToDaemon::RunStart(s) => (&s.group_id, &s.bot.id, &mut s.workspace),
+            ServerToDaemon::GitRefs(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitLog(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitShow(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitChanges(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitBlame(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitStashes(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitConflict(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitTree(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitRead(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitCompare(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitDiff(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitRefresh(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::GitAction(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            ServerToDaemon::WorkspaceDiff(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
+            _ => return,
+        };
+        for repo in &spec.extra_repos {
+            let dir = managed_path(&self.home, group, bot, Some(repo)).to_string_lossy().into_owned();
+            if !spec.extra_dirs.contains(&dir) {
+                spec.extra_dirs.push(dir);
+            }
+        }
     }
 }
 
@@ -391,7 +448,8 @@ pub(crate) async fn report_git(out: &Outbox, group: &str, bot: &str, spec: &Work
         Some(_) => (WorkspaceKind::Cd, remotes(dir).await),
         None => (WorkspaceKind::Managed, vec![]),
     };
-    let status = git::status(dir, &[], kind).await.ok();
+    let extras: Vec<PathBuf> = spec.extra_dirs.iter().map(PathBuf::from).filter(|d| d.is_dir()).collect();
+    let status = git::status(dir, &extras, kind).await.ok();
     send_state(out, group, bot, None, Some(Ok((dir.to_path_buf(), status, remotes))));
 }
 
@@ -707,6 +765,9 @@ pub struct Pair {
     pub kind: WorkspaceKind,
     pub cd_path: Option<String>,
     pub repo_id: Option<String>,
+    /// The group's extra repos, cloned beside the repo.
+    #[serde(default)]
+    pub extra_repo_ids: Vec<String>,
     pub removed: bool,
     pub running: bool,
 }
@@ -824,6 +885,12 @@ pub fn list(home: &Path, pairs: &[Pair]) -> Vec<Entry> {
         let size = (kind != EntryKind::Cd).then(|| dir_size(&path, SIZE_MAX_ENTRIES));
         let state = if p.running { EntryState::Running } else { EntryState::Idle };
         entries.push(entry(&p.group_id, &p.bot_id, Some(p), kind, path, size, state));
+        for id in &p.extra_repo_ids {
+            let path = managed_root(home, &p.group_id, &p.bot_id, Some(id));
+            claimed.insert(real(&path));
+            let size = Some(dir_size(&path, SIZE_MAX_ENTRIES));
+            entries.push(entry(&p.group_id, &p.bot_id, Some(p), EntryKind::Managed, path, size, state));
+        }
     }
     for (group, bot, path) in managed_dirs(&home.join("workspaces")) {
         if claimed.contains(&real(&path)) {
@@ -1044,6 +1111,7 @@ mod tests {
             kind,
             cd_path: None,
             repo_id: repo.map(Into::into),
+            extra_repo_ids: vec![],
             removed: false,
             running: false,
         }
@@ -1054,7 +1122,7 @@ mod tests {
         std::fs::write(path, vec![b'x'; bytes]).unwrap();
     }
 
-    /// pay: managed + running; data: /cd bound with its old managed clone left; old: removed; dm: repo-less, never
+    /// pay: managed + running, with an extra repo r9; data: /cd bound with its old managed clone left; old: removed; dm: repo-less, never
     /// run; gx: a dir the server no longer knows.
     fn fixture() -> (tempfile::TempDir, tempfile::TempDir, Vec<Pair>) {
         let home = tempfile::tempdir().unwrap();
@@ -1062,6 +1130,7 @@ mod tests {
         let ws = home.path().join("workspaces");
         file(&ws.join("pay/bw/r1/src/main.go"), 1000);
         file(&ws.join("pay/bw/r1.partial/x"), 5);
+        file(&ws.join("pay/bw/r9/web/x"), 40);
         file(&ws.join("data/bw/r2/a"), 300);
         file(&ws.join("old/bw/r3/a"), 2000);
         file(&ws.join("old/bw/r3/b/c"), 500);
@@ -1069,6 +1138,7 @@ mod tests {
         file(&cd.path().join("mine.go"), 10);
         let mut pay = pair("pay", WorkspaceKind::Managed, Some("r1"));
         pay.running = true;
+        pay.extra_repo_ids = vec!["r9".into()];
         let mut data = pair("data", WorkspaceKind::Cd, Some("r2"));
         data.cd_path = Some(cd.path().to_string_lossy().into_owned());
         let mut old = pair("old", WorkspaceKind::Managed, None);
@@ -1092,6 +1162,7 @@ mod tests {
             rows,
             vec![
                 ("pay".into(), Managed, ws.join("pay/bw/r1"), Some(1000), Running, false),
+                ("pay".into(), Managed, ws.join("pay/bw/r9"), Some(40), Running, false),
                 ("data".into(), Cd, cd.path().to_path_buf(), None, Idle, false),
                 ("dm".into(), Empty, ws.join("dm/bw/_empty"), Some(0), Idle, false),
                 ("data".into(), Managed, ws.join("data/bw/r2"), Some(300), Unused, true),
@@ -1104,11 +1175,11 @@ mod tests {
         assert_eq!((old.group_name.as_deref(), old.state_label()), (Some("群 old"), "已移出 · 2.5 KB".into()));
         assert_eq!(entries.iter().find(|e| e.group_id == "gx").unwrap().bot_name, None);
         assert!(entries.iter().find(|e| e.group_id == "dm").unwrap().dm);
-        assert_eq!(entries[1].kind_label(), "本机目录");
+        assert_eq!(entries[2].kind_label(), "本机目录");
         assert!(old.matches("old/bw") && old.matches("群 old/小王的 Claude") && !old.matches("old"));
         let gx = entries.iter().find(|e| e.group_id == "gx").unwrap();
         assert_eq!((gx.group_label(), gx.bot_label()), ("gx".into(), "by"));
-        assert_eq!(entries[2].group_label(), "私聊");
+        assert_eq!(entries[3].group_label(), "私聊");
     }
 
     #[test]

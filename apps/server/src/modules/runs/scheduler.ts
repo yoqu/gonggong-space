@@ -211,6 +211,21 @@ const ARTIFACT_TOOLS = ['artifact_checkout']
 const branchHint = (base: string) =>
   `本群开启了「禁止直推基准分支」：不要直接提交或推送到基准分支 ${base}。当前在 ${base} 上时，改代码前先新建一个分支（名字不限）；已经在其他分支上就直接在该分支开发、提交并推送，不用另建分支。需要合并时告诉触发人发起合并请求。推送到 ${base} 需要 Bot 主人审批。`
 
+/** The group's extra repos, which the agent's own files may not tell it about (Codex reads no AGENTS.md outside cwd). */
+const extraReposHint = (repos: { url: string; branch: string }[], protectBase: boolean) =>
+  [
+    '本群除主仓库外还有附加仓库，已克隆好并作为附加目录提供给你（目录名即仓库名）：',
+    ...repos.map(
+      (r) =>
+        `- ${r.url
+          .replace(/\.git\/?$/, '')
+          .split(/[/:]/)
+          .at(-1)}：${r.url}（默认分支 ${r.branch}）`,
+    ),
+    '改动某个附加仓库前，先读它根目录的 AGENTS.md 和 CLAUDE.md（它们不一定会自动加载）；在附加仓库里执行 git 命令要先 cd 到该目录。',
+    ...(protectBase ? ['「禁止直推基准分支」对附加仓库同样适用，各以其默认分支为基准。'] : []),
+  ].join('\n')
+
 /** `features`: the bot's daemon's (it is online). */
 export async function buildRunStart(
   tx: Tx,
@@ -221,7 +236,7 @@ export async function buildRunStart(
   features: string[],
 ) {
   // Reads issued together are pipelined on the transaction's connection: one round trip per batch, not per read.
-  const [[trigger], [group], [gb], [repo], [owner], params, catalog, mcpServers, skills, secrets] =
+  const [[trigger], [group], [gb], repoRows, [owner], params, catalog, mcpServers, skills, secrets] =
     await Promise.all([
       tx
         .select({
@@ -248,8 +263,7 @@ export async function buildRunStart(
         .select()
         .from(groupRepos)
         .where(eq(groupRepos.groupId, run.groupId))
-        .orderBy(asc(groupRepos.createdAt))
-        .limit(1),
+        .orderBy(asc(groupRepos.createdAt)),
       tx.select({ protocol: users.gitProtocol }).from(users).where(eq(users.id, bot.ownerId)),
       effectiveParams(tx, run.groupId),
       botCatalog(tx, bot),
@@ -258,6 +272,9 @@ export async function buildRunStart(
       resolveSecrets(tx, { groupId: run.groupId, botId: bot.id, originUserId: run.originUserId }, now),
     ])
   if (!trigger || !gb || !group) throw new Error(`run ${run.id} lost its trigger message or group membership`)
+  const repo = repoRows.find((r) => r.isPrimary)
+  const extras = repo ? repoRows.filter((r) => !r.isPrimary) : []
+  const protocol = (owner?.protocol ?? 'auto') as GitProtocol
   const meta = trigger.meta as MessageMeta
   const at = trigger.at.toISOString()
   // An agent command carries no group context, so it leaves the context cursor where it was.
@@ -327,6 +344,14 @@ export async function buildRunStart(
       systemPrompt: [
         ...(feishuHinted ? [feishuHint(feishuHinted.syncAll)] : []),
         ...(protectBase && repo ? [branchHint(repo.baseBranch)] : []),
+        ...(extras.length
+          ? [
+              extraReposHint(
+                extras.map((r) => ({ url: r.url, branch: r.baseBranch })),
+                protectBase,
+              ),
+            ]
+          : []),
         ...(command ? [] : [UI_BLOCKS_GUIDE]),
         ...(command || !plugins.length ? [] : [pluginHint(plugins.map((p) => p.name))]),
         bot.systemPrompt,
@@ -347,12 +372,13 @@ export async function buildRunStart(
             id: repo.id,
             url: repo.url,
             branch: repo.baseBranch,
-            protocol: (owner?.protocol ?? 'auto') as GitProtocol,
+            protocol,
           }
         : null,
       cdPath: gb.cdPath,
       protectBase,
       extraDirs: gb.extraDirs,
+      extraRepos: extras.map((r) => ({ id: r.id, url: r.url, branch: r.baseBranch, protocol })),
     },
     resumeSessionId,
     newSessionReason: detached ? 'schedule' : gb.newSessionReason,

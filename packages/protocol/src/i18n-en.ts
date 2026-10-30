@@ -14,6 +14,11 @@ export const protocolEn = {
     'Group bound to repo {url} · base branch {branch} · partition mode',
   '群更换仓库 {url} · 基准分支 {branch} · 各 Bot 重建托管工作区':
     'Group switched to repo {url} · base branch {branch} · Bots are rebuilding managed workspaces',
+  '{user} 添加了附加仓库 {url} · 默认分支 {branch}':
+    '{user} added the extra repo {url} · default branch {branch}',
+  '{user} 将附加仓库 {url} 的默认分支改为 {branch}':
+    '{user} set the default branch of the extra repo {url} to {branch}',
+  '{user} 移除了附加仓库 {url}': '{user} removed the extra repo {url}',
   '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式':
     "No repo bound · each Bot uses its owner's directory, partition mode only",
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',
