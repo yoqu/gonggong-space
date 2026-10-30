@@ -3,7 +3,7 @@
 日期：2026-10-30。前两轮查的是已做功能的交互和 bug，这一轮对照 `stitch-能力清单.md` 逐条核对能力是否齐全，找出缺失或做得浅的能力，并给出可以直接开发的方案。
 
 证据：
-- Stitch：沿用 `/tmp/stitch/*.png`；本轮补拍的原型编辑器、Export、画布快捷键截图在 `/tmp/stitch/r3/`（见文末「Stitch 补拍记录」）。
+- Stitch：沿用 `/tmp/stitch/*.png`；本轮补拍 76 张在 `/tmp/stitch/r3/`（a 画布与右键、b Export、c 原型编辑器、d ⌘K/框选/对齐/微移/工具栏、e 输入框），见文末「Stitch 补拍记录」。
 - 共工：R5 截图 `/tmp/art-shots/r5-*`；本轮在 mock 入口（`/tmp/mock-fix1-web` 复制到 `apps/web/mock-r3`，端口 5392，用完已删）逐个按键实测，脚本 `/tmp/compare/scripts/r3-keys.mjs`、`r3-keys2.mjs`，截图 `/tmp/compare/r3/`。
 - 代码：`apps/web/src/features/artifacts/`（`menus.ts` 菜单与快捷键表、`Canvas.tsx` 键盘与指针、`geometry.ts` 节点类型）、`apps/server/src/modules/artifacts/`（`commands.ts` 指令模板、`routes.ts`）、`packages/protocol/src/artifacts.ts`、群输入框 `features/chat/MessageComposer.tsx`、创作入口 `features/plugins/CreationSheet.tsx` 与 `apps/server/plugins/official/web-prototype/gonggong-plugin.json`。
 
@@ -78,7 +78,8 @@
 | ⌘→ ⌘← ⌘↑ ⌘↓ | 下一屏 / 上一屏 / 上方 / 下方 | 切换选中并聚焦 | 已有 |
 | I / ⇧C / ⇧P / ⇧V / ⇧R / ⇧F / ⌘L / ⌘⇧E / ⌘R | 菜单里的快捷键 | 都生效 | 已有 |
 | ⌘⇧C | Copy as PNG | 无反应 | **缺失**（G01） |
-| ⌘K | Command menu | 画布里无反应；在完整应用里会被 `AppShell` 的全局 ⌘K 拿去打开搜索 | **缺失**（G03） |
+| ⌘K | Command menu（`d1*`，全文见文末） | 画布里无反应；在完整应用里会被 `AppShell` 的全局 ⌘K 拿去打开搜索 | **缺失**（G03） |
+| ⌘\\ | Toggle Zen Mode（只在 ⌘K 里看到） | — | 缺失（G03 顺带：隐藏面板与工具栏，S） |
 | Enter（选中屏幕） | — | 无反应 | 第 1 轮 K04（键盘进入屏幕内元素），保持 P2 |
 
 ### 1.4 右侧工具栏（7 个工具）
@@ -88,8 +89,9 @@
 | Select V | 选择 V | 已有 | |
 | Mark M（框选区域标记给 AI） | 标记 M：点选元素 + 批注列表 + 发给 AI | 部分 | 不能拖框圈一块区域（第 1 轮 T05），G08 |
 | Direct Edit E | 直接编辑 E | 已有 | 共工多「连到新屏」「属性」 |
-| Hand H | 抓手 H | 已有 | |
-| Upload files to canvas | 上传到画布：按钮置灰「即将支持」 | **缺失** | G04：上传的图片/文件成为画布节点，并能作为 AI 上下文 |
+| Comment - C（本轮新发现，Stitch 新增的第 8 个工具） | 批注（工具栏「批注」+ 标记 M） | 已有 | 共工批注带状态和「发给 AI」 |
+| Pan - H | 抓手 H | 已有 | |
+| Upload files to canvas（点后只是工具激活，再到画布上放置） | 上传到画布：按钮置灰「即将支持」 | **缺失** | G04：上传的图片/文件成为画布节点，并能作为 AI 上下文 |
 | DESIGN.md | 设计系统 | 已有 | |
 | Favourites | 收藏 | 已有 | |
 | — | 批注 | 共工更好 | |
@@ -98,8 +100,9 @@
 
 | Stitch | 共工 | 结论 | 说明 |
 |---|---|---|---|
-| 框选多选（空白处拖框） | 空白处拖动 = 平移；⇧拖动也是平移；只有 ⇧点选和 ⌘A | **缺失** | G05 |
-| Nudge / Align（自由摆放节点） | 只能拖标题手柄横向重排 | 不做（取舍） | 屏幕顺序由 gg-artifact.json 决定；G10 给出方向键的替代语义 |
+| 框选多选（选择工具下空白处拖动即框选，`d3a/d3b`） | 空白处拖动 = 平移；⇧拖动也是平移；只有 ⇧点选和 ⌘A | **缺失** | G05 |
+| 多选浮动工具条：Generate / DESIGN.md / 对齐 / 间距 / More（`d3c/d3f`） | 多选时仍是单选那套四个菜单 | 部分 | 对齐（Align Left…Normalize Height）、间距（Tidy Horizontal/Vertical Space）依赖自由坐标，见下一行 |
+| Nudge（方向键移动节点，⇧ 大步，`d4*`；实测 ⌘Z 撤不回移动） | 方向键平移视图 | 不做（取舍） | 屏幕位置由 gg-artifact.json 的顺序决定；G10 给出替代语义。若以后要自由摆放，需在产物上存画布坐标（L） |
 | 节点：设计系统 | 设计系统节点 | 已有 | |
 | 节点：屏幕 | 屏幕节点 | 已有 | |
 | 节点：Prototype | 原型节点（双击打开） | 已有 | |
@@ -193,27 +196,29 @@
 | Share（右上） | 分享 | 已有 | |
 | Screens in prototype（可折叠 —） | 原型中的屏幕（收起） | 已有 | |
 | + Add Screen › Add existing screen / Create with AI | 添加屏幕 › 用 AI 新建屏 / 复制当前屏 | 已有（取舍） | 共工所有屏都在原型里，没有「现有屏」可加 |
+| 屏幕卡片悬停：Edit Screen / Replace this screen with another / Remove this screen from the prototype（`c9`） | 卡片只能点选 | 部分（取舍） | 共工原型 = 产物全部屏幕，替换/移出不适用；「Edit Screen」可做成卡片悬停的「用 AI 修改这屏」（S，并入 G14） |
 | ✦ Imagine a new screen | 构想新屏 | 已有 | |
-| 右侧 •• Agent | — | 不做（取舍） | 对话在左侧群聊 |
+| 右侧 •• Agent messages | — | 不做（取舍） | 对话在左侧群聊 |
 | 设备切换 | 设备（手机 / 平板 / 桌面） | 已有 | |
 | 重载（Preparing） | 重新加载 | 已有 | |
-| 热点高亮开关 | 高亮热点 | 已有 | |
+| 热点高亮开关（tooltip `Hide hotspots`，默认开） | 高亮热点（默认关） | 已有 | 默认值不同，P2 |
 | 二维码 Scan QR Code | 扫码查看 | 已有 | |
 | 新标签打开 | 新标签页打开 | 已有 | |
 | 首次引导 Welcome … Let's go! | 原型编辑器引导「开始体验」 | 已有 | |
 | Edit：Connected 标签 + 虚线框 | 已连接 / 返回 标签 | 已有（共工更好） | |
 | 元素浮层：Connect to screen / Edit text / Change with AI / Imagine new screen | 连到屏幕 / 编辑文字 / 用 AI 修改 / 构想新屏 | 已有 | |
+| 已连接元素的浮层：Edit connection / Change with AI / Imagine new screen / Remove connection（`c5b`） | 同一套浮层，「断开连接」在连接面板里 | 部分 | G19：已连接元素的浮层第一项改「编辑连接」，加红色「移除连接」 |
 | Connect Element：Connect to Screen | 连到屏幕（选择屏幕） | 已有 | |
 | Connect on state + Add State | — | **缺失** | G16（第 2 轮 P05），需要原型支持多状态，本轮只做设计不实现 |
 | Transition：None / Push / Push Back / Slide Up | 无转场 / 推入 / 推回 / 上滑 / 淡入 | 已有（共工多淡入） | |
 | Apply Connection | 应用连接；另有断开连接 | 已有 | |
-| 底部铅笔「Describe how to change this screen…」Esc 关闭 | 用 AI 修改这屏（Esc 关闭） | 已有 | |
+| 底部铅笔（tooltip `Edit screen with AI · Click an element for more options`）「Describe how to change this screen…」Esc 关闭 | 用 AI 修改这屏（Esc 关闭） | 已有 | |
 
 ### 1.12 Export / Share
 
 | Stitch | 共工 | 结论 | 说明 |
 |---|---|---|---|
-| 未选中空态「No screens selected … ⌘A」 | 未选中导出整个产物 | 已有（共工更好） | |
+| 未选中空态「No screens selected / Select screens on the canvas to see export options.」+ QUICK TIPS ⌘A，Export 置灰（`b1`） | 未选中导出整个产物 | 已有（共工更好） | |
 | AI Studio / Figma / Netlify / Lovable / Bolt | — | 不做 | B2 |
 | MCP（Setup MCP + Copy Prompt） | — | **部分** | G17：共工的 Bot 本身就在工作区，不需要 MCP；但缺「复制给编码 Agent 的提示词」（把产物路径、屏幕、DESIGN.md 要点拼成一段可粘贴的实现提示） |
 | .zip | .zip（整版 + 原型外壳） | 已有 | |
@@ -241,9 +246,10 @@
 
 ### 1.14 统计
 
-- **缺失**：14 项 —— Copy as Code / PNG / link（3）、⌘K 命令菜单、上传到画布、上传图片节点、框选多选、DESIGN.md 节点、Variations 3x 开关、按住 Z 缩放、粘贴 DESIGN.md / 网站 URL 提取设计系统（2）、运行卡片的产物上下文与聚焦画布、用户消息不显示所选上下文、复制产物、重命名产物、Connect on state、Tip 轮播（按 G 编号合并后见下表）。
-- **部分**：13 项 —— ⌘C 不进系统剪贴板、右键标题拿不到屏幕菜单、Mark 只能点选不能框区域、/ 命令（Image/Logo/Diagram 等）无 web 入口、Website URL 芯片、上传 DESIGN.md 未被当作设计系统、GitHub 仓库输入、Presets 只有 1 套、App/Web 设备选择、色板未按角色分组、菜单指令消息正文过长、阶段文案、导出缺「复制实现提示词」、删除产物无入口。
-- 不计入：B2 不做项（第三方导出、Live 语音、热力图、六种配色方案、首页项目列表）与平台取舍项（Agent 面板复用群聊、一个产物一个设计系统、自由摆放节点）。
+按开发方案编号合并：
+- **缺失**（9 组）：G01 复制为代码/PNG/选区链接；G03 ⌘K 命令菜单（含专注模式）；G04 上传到画布与图片节点；G05 框选多选；G06 DESIGN.md 节点；G07 输入框 3x 变体开关；G11 运行卡片关联产物与聚焦画布、消息显示所选上下文；G15 按住 Z 缩放；G18 重命名 / 复制产物。另有 G16 Connect on state（只出设计）。
+- **部分**（11 组）：G01 ⌘C 不写系统剪贴板；G02 右键标题拿不到屏幕菜单；G07 `/` 产物命令无 web 入口（服务端 image/logo/diagram 已有）；G08 Mark 不能框区域；G09 粘贴/上传 DESIGN.md、网站 URL、参考仓库；G11 指令消息正文过长；G12 阶段文案；G13 预设只有 1 套、设备选择、色板未分组；G17 导出缺实现提示词；G18 删除产物无入口；G19 已连接元素浮层。
+- 不计入：B2 不做项（第三方导出含 Copy to Figma、Live 语音、热力图、六种配色方案、首页项目列表）与平台取舍（Agent 面板复用群聊、一个产物一个设计系统、节点自由摆放 / 对齐 / 间距、原型屏幕替换移出）。
 
 ---
 
@@ -268,7 +274,7 @@
 
 ### G03 ⌘K 命令菜单 + 产物深链 —— M，web
 - 入口：画布获得焦点时 ⌘K（`Canvas.tsx` keyDown 里 `e.stopPropagation()`，不让 `AppShell` 的全局搜索拿走；画布外 ⌘K 仍是全局搜索）；项目菜单（G18）里也放「命令菜单 ⌘K」。
-- 交互：居中弹窗 + 搜索框 + 分组列表（选择 / 生成 / 修改 / 预览 / 视图 / 工具 / 面板），每项带快捷键，↑↓ 选、Enter 执行、Esc 关；不适用的项（没选屏时的单屏命令）置灰并写原因。数据直接由 `menus.ts` 的 `generateItems / modifyItems / previewItems / moreItems / zoomItems` 和工具列表展平得到，执行走现有 `command()` / `zoom()` / `setTool()`，不新增命令实现。
+- 交互：居中弹窗 + 搜索框 + 分组列表（选择 / 生成 / 修改 / 预览 / 视图 / 工具 / 面板），每项带快捷键，↑↓ 选、Enter 执行、Esc 关；不适用的项（没选屏时的单屏命令）置灰并写原因。Stitch 的列表（见文末）除菜单命令外还有「Go to <每个节点>」「Toggle Zen Mode ⌘\\」「Switch to Dark Mode」「Show Offscreen Indicators」，共工至少做「前往 <屏幕/设计系统/原型>」和「专注模式」（隐藏面板、工具栏、浮动工具条）。数据直接由 `menus.ts` 的 `generateItems / modifyItems / previewItems / moreItems / zoomItems` 和工具列表展平得到，执行走现有 `command()` / `zoom()` / `setTool()`，不新增命令实现。
 - 文件：新建 `features/artifacts/CommandMenu.tsx`（用 `ui` 的 Dialog + Input + 列表，参考 `ComposerCandidates` 的键盘处理）；`menus.ts` 加 `commandMenuItems(...)`；快捷键表「通用」加 ⌘K。
 - 深链（给 G01 复制链接、G11 聚焦画布共用）：`app/ChatPage.tsx` 读 `?artifact=<id>&screens=<ids>&version=<vid>`，调用 `openArtifact` 并写入 `store.ts` 新增的 `pendingFocus`；`Canvas.tsx` 拿到后选中并 `fitTo`。
 - 测试：CommandMenu 单测（过滤、Enter 执行、置灰原因）；Canvas 单测（⌘K 打开且不冒泡）；ChatPage 深链单测。
@@ -288,7 +294,8 @@
 - 测试：协议单测（新 op 校验、路径限制）；服务端集成（上传 → ref op → 新版本含 refs/、上下文 note 含路径）；web geometry/Canvas 单测（ref 节点布局、芯片）。e2e 补一条「拖图到画布 → 选中 → 发消息，Agent 收到路径」。
 
 ### G05 框选多选 —— M，web
-- 交互（对齐 Stitch / Figma）：选择工具下，在空白处按下拖动 = 画框选矩形，选中与之相交的节点（⇧ 时追加）；平移改为 Space 拖、抓手工具、中键拖、双指滚动（已有）。为了不破坏老用户习惯，第一版用「⇧ + 拖动 = 框选」，同时在快捷键表写明；之后看反馈再切默认。（以 Stitch 补拍结论为准，见文末。）
+- 交互（与 Stitch 实测一致，`d3a/d3b`）：选择工具下，在空白处按下拖动 = 画框选矩形，选中与之相交的节点（⇧ 时追加）；平移改为 Space 拖、抓手工具 H、中键拖、触控板双指滚动（后三者已有）。多选后输入框芯片一次带上全部所选屏（已有）。
+- 多选浮动工具条：两屏以上选中时把「修改」「预览」换成「设计系统」，其余不变；对齐/间距不做（无自由坐标）。
 - 文件：`Canvas.tsx` 的 `pointerDown/Move/Up` 增加 `marquee` 状态，`.art-overlay` 里画矩形；`geometry.ts` 加 `nodesInRect(nodes, rect)`。
 - 测试：geometry 单测（相交判定）；Canvas 单测（⇧拖框选中两屏、普通拖动仍平移）。
 
@@ -358,6 +365,9 @@
 ### G16 Connect on state（多状态）—— 设计，暂不实现
 - 现有原型一屏一状态。要支持就要在 manifest 屏幕下加 `states`（每个状态一份 HTML 或同文件内 `data-gg-state` 片段），连线加 `state`。涉及 L1 契约、kit 外壳、bridge、Agent 约定，L。建议先由「补全状态」生成的 `-empty / -loading / -error` 屏覆盖需求，等有真实诉求再立项。
 
+### G19 原型编辑器：已连接元素的浮层 —— S，web
+- `PrototypeEditor.tsx` 的元素浮层：元素已有 `data-gg-link` 时第一项显示「编辑连接」（打开连接面板并带出当前目标与转场），末尾加红色「移除连接」（直接发 `attr` op 把 `data-gg-link`、`data-gg-transition` 置 null）。热点高亮默认改为开启（与 Stitch 一致）。
+
 ### G17 导出「复制实现提示词」—— S，web
 - ExportPanel 加格式「实现提示词」：拼一段给编码 Agent 的提示（产物目录 `design/<slug>/`、屏幕列表与 id、入口屏、跳转关系、DESIGN.md 要点（front matter 的颜色和字体）、「按这个原型在 <技术栈> 中实现」占位），按钮「复制」。对应 Stitch Export › MCP 的 Copy Prompt；共工的 Bot 已在工作区，不需要 MCP 配置。
 
@@ -385,6 +395,7 @@
 | P1 | G15 快捷键表补齐（按住 Z、删 ⌘S、加 ⌘K） | S |
 | P1 | G13 色板按角色分组 | S |
 | P1 | G17 导出「实现提示词」 | S |
+| P1 | G19 已连接元素浮层「编辑连接 / 移除连接」、热点默认开 | S |
 | P2 | G14 Tip、输入框设计系统入口 | S |
 | P2 | G10 方向键换位（待确认取舍） | S |
 | P2 | G09 输入框「网址」芯片 | S |
@@ -408,4 +419,16 @@
 | P2 ★ | G09 `PluginInput.designSource`（创作单识别设计来源输入） | S |
 | 暂缓 | G16 Connect on state | L |
 
-建议拆分：web 一个子 agent（G02/G03/G05/G06/G07/G01 部分/G13 分组/G15/G17），server+插件一个子 agent（G11 精简、G09、G12、G13 预设与设备），协议项 G11/G18 由集成者先改协议再分给两边；G04 单独一轮。
+建议拆分：web 一个子 agent（G02/G03/G05/G06/G07/G01 部分/G13 分组/G15/G17/G19），server+插件一个子 agent（G11 精简、G09、G12、G13 预设与设备），协议项 G11/G18 由集成者先改协议再分给两边；G04 单独一轮。
+
+---
+
+## Stitch 补拍记录（2026-10-30，`/tmp/stitch/r3/`）
+
+- 只在「共工对标测试」项目内操作；未提交生成，未开 MCP、Share。实测方向键移动节点后 ⌘Z 撤不回，已用反向方向键还原（`d4d`）。
+- 右侧工具栏现为 8 个：`Select - V`、`Mark - M`、`Direct Edit - E`、`Comment - C`（新）、`Pan - H`、`Upload files to canvas`、`DESIGN.md`、`Favourites`。
+- 输入框：+ 菜单 `Upload Files / Website URL / Variations`（+ 的提示 `Attach a screenshot, sketch or visual inspiration`）；`/` 提示 `Tools`，8 个命令同能力清单；方框图标即 Variations（`Click to generate multiple variations`，开后显示 `3x`）；模型 `Speed / Balanced`。
+- 原型编辑器：右侧竖条 `Agent messages`、设备循环（Mobile/Tablet/Desktop）、`Reload`、`Hide hotspots`、`QR Code`、`Open in new tab`；卡片悬停 `Edit Screen / Replace this screen with another / Remove this screen from the prototype`；已连接元素浮层 `Edit connection / Change with AI / Imagine new screen / Remove connection`；Connect Element 含 `Connect on state + Add State`。
+- Export：格式与说明原文见 `b4-*`；.zip、Code to Clipboard 无说明文字。
+- ⌘K（选中一屏时）：Paste、Generate Variations ⇧V、Generate Instant Prototype、Generate Predictive Heatmap、Generate Missing States、Animate screen、App Store Assets、Web Assets、Marketing Kit、Accessibility Audit、Generate Desktop Web Version、Add to Chat ⌘L、Favourite ⇧F、Show Mobile/Tablet/Desktop Preview、Resize to Full Height、Select Tool V、Pan Tool H、Zoom Mode Z、Edit E、Zoom In/Out、Zoom to 100% ⇧0、Zoom to Fit ⇧1、Focus F、Zoom to Selection ⇧2、Share、Select All ⌘A、Toggle Zen Mode ⌘\\、Switch to Dark Mode、Show Offscreen Indicators、Format ⌘⇧F、Go to <各节点>、Delete、Regenerate ⇧R、DESIGN.md、New Tab ⇧P、Show QR Code、View Details I、View Code ⇧C、Copy to Figma、Export ⌘⇧E、Download ⇧D、Reload ⌘R、Copy ⌘C、Copy as Code、Copy as PNG ⌘⇧C、Copy link to selection、Cut ⌘X、Duplicate ⌘D、Rename、Generate Layout/Color Scheme/Images/Text Font/Text Content/Custom Variant、Show Connections X。未选中时只有通用项。
+- 未测：⌘→/⌘← 切屏、⇧2、F、⇧方向键对齐（Align 只在多选工具条菜单里）。
