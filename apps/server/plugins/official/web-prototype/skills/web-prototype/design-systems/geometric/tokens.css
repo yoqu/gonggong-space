@@ -1,0 +1,67 @@
+/* 几何构成（高对比） — generated from DESIGN.md front matter; do not hand-edit the names.
+ * Naming: colors.x → --color-x, rounded.x → --rounded-x, spacing.x → --space-x,
+ * typography.x → --text-x-{size,weight,leading} plus the class .t-x; one family, --font-sans. */
+:root {
+  --color-primary: #D62828;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #1D4E89;
+  --color-on-secondary: #FFFFFF;
+  --color-tertiary: #F2B705;
+  --color-on-tertiary: #111111;
+  --color-background: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-variant: #F2F2EE;
+  --color-on-surface: #111111;
+  --color-on-surface-variant: #4A4A4A;
+  --color-on-surface-muted: #7A7A7A;
+  --color-outline: #111111;
+  --color-outline-soft: #D9D9D4;
+  --color-success: #2E7D32;
+  --color-warning: #F2B705;
+  --color-error: #D62828;
+  --color-scrim: rgba(17, 17, 17, 0.6);
+
+  --rounded-none: 0px;
+  --rounded-sm: 2px;
+  --rounded-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 48px;
+  --space-page: 16px;
+  --space-border: 2px;
+
+  --font-sans: "PingFang SC", -apple-system, "Helvetica Neue", "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
+  --text-display-size: 34px;
+  --text-display-weight: 800;
+  --text-display-leading: 38px;
+  --text-headline-size: 24px;
+  --text-headline-weight: 800;
+  --text-headline-leading: 30px;
+  --text-title-size: 17px;
+  --text-title-weight: 700;
+  --text-title-leading: 22px;
+  --text-body-size: 15px;
+  --text-body-weight: 400;
+  --text-body-leading: 22px;
+  --text-label-size: 13px;
+  --text-label-weight: 700;
+  --text-label-leading: 16px;
+  --text-caption-size: 12px;
+  --text-caption-weight: 500;
+  --text-caption-leading: 16px;
+  --text-number-size: 40px;
+  --text-number-weight: 800;
+  --text-number-leading: 44px;
+}
+
+.t-display { font-family: var(--font-sans); font-size: var(--text-display-size); font-weight: var(--text-display-weight); line-height: var(--text-display-leading); }
+.t-headline { font-family: var(--font-sans); font-size: var(--text-headline-size); font-weight: var(--text-headline-weight); line-height: var(--text-headline-leading); }
+.t-title { font-family: var(--font-sans); font-size: var(--text-title-size); font-weight: var(--text-title-weight); line-height: var(--text-title-leading); }
+.t-body { font-family: var(--font-sans); font-size: var(--text-body-size); font-weight: var(--text-body-weight); line-height: var(--text-body-leading); }
+.t-label { font-family: var(--font-sans); font-size: var(--text-label-size); font-weight: var(--text-label-weight); line-height: var(--text-label-leading); }
+.t-caption { font-family: var(--font-sans); font-size: var(--text-caption-size); font-weight: var(--text-caption-weight); line-height: var(--text-caption-leading); }
+.t-number { font-family: var(--font-sans); font-size: var(--text-number-size); font-weight: var(--text-number-weight); line-height: var(--text-number-leading); }

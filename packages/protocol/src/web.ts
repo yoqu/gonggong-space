@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AgentSettings, AgentSettingValues, RunSettingsSnapshot } from './agent-settings.js'
-import { ArtifactContext } from './artifacts.js'
+import { ArtifactContext, MessageCanvas, RunArtifact } from './artifacts.js'
 import {
   AgentKind,
   Allowlist,
@@ -1338,6 +1338,8 @@ export const MessageDto = z.object({
   htmlRender: HtmlRenderRef.optional(),
   /** A final reply's pages its run published with html_render: at their ```html-page blocks, the rest after it. */
   htmlRenders: z.array(HtmlRenderRef).optional(),
+  /** The canvas selection it was sent with (a member's message about an artifact). */
+  canvas: MessageCanvas.optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
@@ -1653,6 +1655,8 @@ export const RunDto = z.object({
   secrets: z.array(RunSecret).optional(),
   /** Pages published with html_render so far; the final reply carries them once it is posted. */
   htmlRenders: z.array(HtmlRenderRef).optional(),
+  /** Artifact versions the run made; absent when none. */
+  artifacts: z.array(RunArtifact).optional(),
 })
 export type RunDto = z.infer<typeof RunDto>
 

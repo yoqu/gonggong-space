@@ -168,6 +168,38 @@ export const ArtifactDto = z.object({
 })
 export type ArtifactDto = z.infer<typeof ArtifactDto>
 
+/** PATCH /api/artifacts/:id — renames it (its card follows); answers its ArtifactDto. */
+export const ArtifactPatchReq = z.object({ title: z.string().trim().min(1).max(80) })
+export type ArtifactPatchReq = z.infer<typeof ArtifactPatchReq>
+// POST /api/artifacts/:id/duplicate — a new artifact in the group whose v1 is a copy of the head (new `dir`, its own
+// card); answers the new ArtifactDto. POST /api/artifacts/:id/archive deletes one: archived artifacts leave the
+// group's list and are no longer checked out by runs.
+
+const ScreenRef = z.object({ id: z.string(), title: z.string() })
+/**
+ * MessageDto.canvas — what the canvas had selected when the message was sent (composer context, a menu command or
+ * sent annotations), for its bubble; screen titles are as of then.
+ */
+export const MessageCanvas = z.object({
+  artifactId: z.string(),
+  title: z.string(),
+  screens: z.array(ScreenRef),
+  elements: z.array(z.object({ file: ArtifactHtmlFile, ggId: GgId, label: z.string() })),
+})
+export type MessageCanvas = z.infer<typeof MessageCanvas>
+/**
+ * RunDto.artifacts — a version the run made (`source` run), with the screens whose file it added or changed against
+ * its parent: the run card's 「在画布中查看」.
+ */
+export const RunArtifact = z.object({
+  artifactId: z.string(),
+  title: z.string(),
+  versionId: z.string(),
+  n: z.number().int().min(1),
+  changedScreens: z.array(ScreenRef),
+})
+export type RunArtifact = z.infer<typeof RunArtifact>
+
 /** The artifact card (message `card`), updated in place as versions arrive. */
 export const ArtifactCard = z.object({
   type: z.literal('artifact'),

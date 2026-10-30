@@ -1,6 +1,6 @@
 {
   "name": "web-prototype",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "title": "产品原型",
   "description": "小程序、App 的多屏可点击原型：AI 只写业务页面，平台外壳负责设备框、状态栏和屏间跳转，按设计系统生成到工作区 design/<slug>/ 并发布预览。",
   "category": "web",
@@ -14,7 +14,16 @@
       "description": "小程序或 App 的多屏可点击原型：每屏一个文件，平台外壳负责设备框与跳转",
       "group": "移动应用",
       "preview": "previews/app-screens.png",
-      "inputs": ["title", "points", "screens", "audience"]
+      "inputs": [
+        "title",
+        "device",
+        "points",
+        "screens",
+        "audience",
+        "design_md",
+        "reference_url",
+        "reference_repo"
+      ]
     }
   ],
   "designSystems": [
@@ -25,6 +34,38 @@
       "category": "品牌",
       "swatches": ["#155332", "#F5F5F7", "#FFFFFF", "#000000", "#FEE70F"],
       "dir": "design-systems/luke-plus"
+    },
+    {
+      "id": "warm-paper",
+      "title": "暖纸",
+      "description": "米色纸感底、衬线标题、赭石点睛，适合资讯、读书与生活方式内容",
+      "category": "风格",
+      "swatches": ["#8A4B2A", "#F7F1E6", "#FFFDF8", "#2B2520", "#5E6B3A"],
+      "dir": "design-systems/warm-paper"
+    },
+    {
+      "id": "geometric",
+      "title": "几何构成",
+      "description": "白底黑线、红蓝黄块面与直角，高对比，适合活动、展览与工具",
+      "category": "风格",
+      "swatches": ["#D62828", "#1D4E89", "#F2B705", "#FFFFFF", "#111111"],
+      "dir": "design-systems/geometric"
+    },
+    {
+      "id": "glacier",
+      "title": "冰川",
+      "description": "冷灰蓝底、半透明玻璃卡片与清透蓝，适合工具、健康与数据类产品",
+      "category": "风格",
+      "swatches": ["#2F6FED", "#EEF4F8", "#FFFFFF", "#14202B", "#4FA3C7"],
+      "dir": "design-systems/glacier"
+    },
+    {
+      "id": "neon-night",
+      "title": "霓虹夜",
+      "description": "深墨蓝底、荧光青与洋红点缀，适合音乐、游戏、潮流活动与夜间场景",
+      "category": "风格",
+      "swatches": ["#3DF5C8", "#0B0D17", "#151827", "#F2F4FF", "#FF4FD8"],
+      "dir": "design-systems/neon-night"
     }
   ],
   "inputs": [
@@ -34,6 +75,13 @@
       "type": "string",
       "required": true,
       "placeholder": "产品、页面或活动名，一句话说清是什么"
+    },
+    {
+      "id": "device",
+      "label": "设备",
+      "type": "select",
+      "options": ["小程序", "手机 App", "桌面 Web"],
+      "default": "小程序"
     },
     {
       "id": "points",
@@ -52,6 +100,24 @@
       "label": "目标受众",
       "type": "string",
       "placeholder": "例如：中小团队的产品经理"
+    },
+    {
+      "id": "design_md",
+      "label": "粘贴 DESIGN.md",
+      "type": "text",
+      "placeholder": "粘贴现成的 DESIGN.md，留空则用所选设计系统"
+    },
+    {
+      "id": "reference_url",
+      "label": "参考网站",
+      "type": "string",
+      "placeholder": "https://…，AI 会抓取页面并提取配色、字体和组件风格"
+    },
+    {
+      "id": "reference_repo",
+      "label": "参考仓库",
+      "type": "string",
+      "placeholder": "仓库地址或工作区路径，AI 会从样式代码里提取设计系统"
     }
   ],
   "license": "Apache-2.0",

@@ -169,13 +169,14 @@ export type GroupPluginDto = z.infer<typeof GroupPluginDto>
 /** PUT /api/groups/:id/plugins/:pluginId */
 export const TogglePluginReq = z.object({ enabled: z.boolean() })
 
+export const CREATION_INPUT_MAX = 20000
 /** POST /api/groups/:id/creations — the creation panel's 「交给 AI」. Posts a creation card @-ing the bot. */
 export const CreationReq = z.object({
   pluginId: z.string(),
   templateId: z.string().nullable(),
   designSystemId: z.string().nullable(),
-  /** Input id → value; checked against the manifest's inputs. */
-  inputs: z.record(z.string(), z.union([z.string().max(2000), z.boolean()])),
+  /** Input id → value; checked against the manifest's inputs. Long enough for a pasted DESIGN.md. */
+  inputs: z.record(z.string(), z.union([z.string().max(CREATION_INPUT_MAX), z.boolean()])),
   /** 「先出 2–3 个视觉方向」: the agent asks the group to pick one before the full draft. */
   directions: z.boolean().default(false),
   botId: z.string(),

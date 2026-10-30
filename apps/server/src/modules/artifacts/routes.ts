@@ -9,6 +9,7 @@ import {
   ArtifactEditReq,
   ArtifactFavoritesReq,
   type ArtifactManifestRes,
+  ArtifactPatchReq,
   type ArtifactShareDto,
   ArtifactShareReq,
   ArtifactSubmitReq,
@@ -38,6 +39,7 @@ import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { previewOrigin } from '../previews/routes.js'
+import { publishRun } from '../runs/dto.js'
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from './annotations.js'
 import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
@@ -47,10 +49,12 @@ import { pluginDesignSystems } from './kit.js'
 import {
   type Artifact,
   artifactDetail,
+  duplicateArtifact,
   findArtifact,
   listArtifacts,
   listVersions,
   refreshCard,
+  renameArtifact,
   requireArtifact,
   requireVersion,
   restoreVersion,
@@ -200,6 +204,8 @@ export function artifactRoutes(ctx: Ctx) {
           runId: run.id,
           userId: null,
         })
+        // The run card shows the versions it made (RunDto.artifacts); they may arrive after it ended.
+        if (out.version.source === 'run') await publishRun(ctx, run)
         return { versionId: out.version.id, n: out.version.n, head: out.head, stale: out.stale }
       },
     )
@@ -389,6 +395,21 @@ export function artifactRoutes(ctx: Ctx) {
         body?.resume?.()
       }
     })
+
+    app.patch<{ Params: { id: string } }>('/api/artifacts/:id', async (req): Promise<ArtifactDto> => {
+      const me = await requireUser(ctx, req)
+      const a = await requireArtifact(ctx, req.params.id, me.id)
+      return artifactDetail(ctx, await renameArtifact(ctx, a, ArtifactPatchReq.parse(req.body).title))
+    })
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/duplicate',
+      async (req): Promise<ArtifactDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return artifactDetail(ctx, await duplicateArtifact(ctx, a, me.id))
+      },
+    )
 
     app.put<{ Params: { id: string } }>('/api/artifacts/:id/favorites', async (req): Promise<ArtifactDto> => {
       const me = await requireUser(ctx, req)

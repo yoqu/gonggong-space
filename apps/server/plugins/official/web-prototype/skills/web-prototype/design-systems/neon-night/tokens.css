@@ -1,0 +1,64 @@
+/* 霓虹夜（深色荧光） — generated from DESIGN.md front matter; do not hand-edit the names.
+ * Naming: colors.x → --color-x, rounded.x → --rounded-x, spacing.x → --space-x,
+ * typography.x → --text-x-{size,weight,leading} plus the class .t-x; one family, --font-sans. */
+:root {
+  --color-primary: #3DF5C8;
+  --color-on-primary: #06121A;
+  --color-secondary: #FF4FD8;
+  --color-on-secondary: #1A0616;
+  --color-tertiary: #7C5CFF;
+  --color-on-tertiary: #FFFFFF;
+  --color-background: #0B0D17;
+  --color-surface: #151827;
+  --color-surface-high: #1E2236;
+  --color-surface-variant: #262B44;
+  --color-on-surface: #F2F4FF;
+  --color-on-surface-variant: #A3A9C7;
+  --color-on-surface-muted: #6E7494;
+  --color-outline: #2A2F4A;
+  --color-outline-glow: rgba(61, 245, 200, 0.45);
+  --color-success: #3DF5C8;
+  --color-warning: #FFC24D;
+  --color-error: #FF5C7A;
+  --color-scrim: rgba(5, 6, 12, 0.7);
+
+  --rounded-sm: 6px;
+  --rounded-md: 12px;
+  --rounded-lg: 20px;
+  --rounded-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 36px;
+  --space-page: 16px;
+
+  --font-sans: "PingFang SC", -apple-system, "Helvetica Neue", "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
+  --text-display-size: 32px;
+  --text-display-weight: 800;
+  --text-display-leading: 38px;
+  --text-headline-size: 22px;
+  --text-headline-weight: 700;
+  --text-headline-leading: 28px;
+  --text-title-size: 16px;
+  --text-title-weight: 600;
+  --text-title-leading: 22px;
+  --text-body-size: 14px;
+  --text-body-weight: 400;
+  --text-body-leading: 21px;
+  --text-label-size: 13px;
+  --text-label-weight: 600;
+  --text-label-leading: 18px;
+  --text-caption-size: 11px;
+  --text-caption-weight: 500;
+  --text-caption-leading: 16px;
+}
+
+.t-display { font-family: var(--font-sans); font-size: var(--text-display-size); font-weight: var(--text-display-weight); line-height: var(--text-display-leading); }
+.t-headline { font-family: var(--font-sans); font-size: var(--text-headline-size); font-weight: var(--text-headline-weight); line-height: var(--text-headline-leading); }
+.t-title { font-family: var(--font-sans); font-size: var(--text-title-size); font-weight: var(--text-title-weight); line-height: var(--text-title-leading); }
+.t-body { font-family: var(--font-sans); font-size: var(--text-body-size); font-weight: var(--text-body-weight); line-height: var(--text-body-leading); }
+.t-label { font-family: var(--font-sans); font-size: var(--text-label-size); font-weight: var(--text-label-weight); line-height: var(--text-label-leading); }
+.t-caption { font-family: var(--font-sans); font-size: var(--text-caption-size); font-weight: var(--text-caption-weight); line-height: var(--text-caption-leading); }

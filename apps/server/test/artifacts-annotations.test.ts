@@ -51,7 +51,14 @@ async function setup() {
     })
   const trigger = async (messageId: string) =>
     t.db.select().from(runs).where(eq(runs.triggerMessageId, messageId))
-  return { ...w, a, v1, li: w.li, liCookie: li, wangCookie: wang, req, annotate, trigger }
+  /** What the agent reads after the message body (its full instruction). */
+  const note = async (messageId: string) =>
+    (
+      (await t.db.select().from(messages).where(eq(messages.id, messageId)))[0]!.meta as {
+        artifactNote: string
+      }
+    ).artifactNote
+  return { ...w, a, v1, li: w.li, liCookie: li, wangCookie: wang, req, annotate, trigger, note }
 }
 
 describe('annotations', () => {
@@ -124,16 +131,16 @@ describe('annotations', () => {
     expect(res.statusCode).toBe(200)
     const msg = res.json() as MessageDto
     expect(msg).toMatchObject({ authorId: s.li.id, mentions: [s.bot.id] })
-    expect(msg.body).toContain(
-      `@小王的 Claude 请按以下批注修改产物「活动报名」（目录 ${s.a.dir}/，当前版本 v1）`,
-    )
-    expect(msg.body).toContain(
+    expect(msg.body).toMatch(/^@小王的 Claude 按 2 条批注修改：整体更活泼/)
+    const note = await s.note(msg.id)
+    expect(note).toContain(`请按以下批注修改产物「活动报名」（目录 ${s.a.dir}/，当前版本 v1）`)
+    expect(note).toContain(
       '1. screens/home.html 第 4 行（区块 data-section="hero"）：<h1 class="t">报名</h1>',
     )
-    expect(msg.body).toContain('选择器：section > h1')
-    expect(msg.body).toContain('意见：字大一点')
-    expect(msg.body).toContain('2. screens/home.html（脚本生成的元素，源码里没有对应位置）')
-    expect(msg.body).toContain('补充说明：整体更活泼')
+    expect(note).toContain('选择器：section > h1')
+    expect(note).toContain('意见：字大一点')
+    expect(note).toContain('2. screens/home.html（脚本生成的元素，源码里没有对应位置）')
+    expect(note).toContain('补充说明：整体更活泼')
     const [row] = await t.db.select().from(messages).where(eq(messages.id, msg.id))
     expect(row!.meta).toMatchObject({ artifactRefs: [s.a.id], mentions: [s.bot.id] })
     expect(await s.trigger(msg.id)).toHaveLength(1)
@@ -172,10 +179,12 @@ describe('AI commands', () => {
     })
     expect(res.statusCode).toBe(200)
     const msg = res.json() as MessageDto
-    expect(msg.body).toMatch(/^@小王的 Claude 为选中的每个屏幕各出 2 个变体/)
-    expect(msg.body).toContain('gg-artifact.json')
-    expect(msg.body).toContain(`产物「活动报名」，目录 ${s.a.dir}/，当前版本 v1。`)
-    expect(msg.body).toContain('- home（首页，screens/home.html）')
+    expect(msg.body).toMatch(/^@小王的 Claude 生成 2 个变体/)
+    const note = await s.note(msg.id)
+    expect(note).toMatch(/为选中的每个屏幕各出 2 个变体/)
+    expect(note).toContain('gg-artifact.json')
+    expect(note).toContain(`产物「活动报名」，目录 ${s.a.dir}/，当前版本 v1。`)
+    expect(note).toContain('- home（首页，screens/home.html）')
     expect(await s.trigger(msg.id)).toHaveLength(1)
 
     const edit = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
@@ -184,7 +193,7 @@ describe('AI commands', () => {
       ggIds: [{ file: 'screens/home.html', ggId: H1 }],
       text: '改成渐变标题',
     })
-    const body = (edit.json() as MessageDto).body
+    const body = await s.note((edit.json() as MessageDto).id)
     expect(body).toContain('只修改下面选中的元素，要求：改成渐变标题')
     expect(body).toContain('- screens/home.html 第 4 行（区块 data-section="hero"）：<h1 class="t">报名</h1>')
 
@@ -192,7 +201,7 @@ describe('AI commands', () => {
       command: 'project-brief',
       botId: s.bot.id,
     })
-    expect((brief.json() as MessageDto).body).toContain(`${s.a.dir}/brief.md`)
+    expect(await s.note((brief.json() as MessageDto).id)).toContain(`${s.a.dir}/brief.md`)
     const missing = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
       command: 'edit-with-ai',
       botId: s.bot.id,
@@ -207,7 +216,7 @@ describe('AI commands', () => {
       botId: s.bot.id,
     })
     expect(apply.statusCode).toBe(200)
-    const body = (apply.json() as MessageDto).body
+    const body = await s.note((apply.json() as MessageDto).id)
     expect(body).toContain('DESIGN.md')
     expect(body).toContain('tokens.css')
     expect(body).toContain('所有屏幕')
@@ -220,7 +229,7 @@ describe('AI commands', () => {
       text: '活动详情页',
     })
     expect(connect.statusCode).toBe(200)
-    const c = (connect.json() as MessageDto).body
+    const c = await s.note((connect.json() as MessageDto).id)
     expect(c).toContain('新建一屏')
     expect(c).toContain('活动详情页')
     expect(c).toContain('data-gg-link')
@@ -241,8 +250,9 @@ describe('AI commands', () => {
 
     const edit = await post({ command: 'edit-with-ai', screenIds: ['home'], text: '换成深色主题' })
     expect(edit.statusCode).toBe(200)
-    const e = (edit.json() as MessageDto).body
-    expect(e).toMatch(/^@小王的 Claude 按要求修改下面选中的整屏，要求：换成深色主题/)
+    expect((edit.json() as MessageDto).body).toMatch(/^@小王的 Claude 修改：换成深色主题/)
+    const e = await s.note((edit.json() as MessageDto).id)
+    expect(e).toContain('按要求修改下面选中的整屏，要求：换成深色主题')
     expect(e).toContain('保留屏幕 id、文件名和进出跳转')
     expect(e).not.toContain('只修改下面选中的元素')
     expect(e).toContain('- home（首页，screens/home.html）')
@@ -250,7 +260,7 @@ describe('AI commands', () => {
 
     const connect = await post({ command: 'connect-element', screenIds: ['home'], text: '活动详情页' })
     expect(connect.statusCode).toBe(200)
-    const c = (connect.json() as MessageDto).body
+    const c = await s.note((connect.json() as MessageDto).id)
     expect(c).toContain('新建一屏：活动详情页')
     expect(c).toContain('在下面选中的屏幕里找合适的位置加一个进入新屏的入口')
     expect(c).toContain('data-gg-link="<新屏 id>"')

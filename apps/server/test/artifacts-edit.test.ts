@@ -296,14 +296,20 @@ describe('design system edits', () => {
       headers: { cookie: s.cookie },
     })
     expect(list.statusCode).toBe(200)
-    expect(list.json() as ArtifactDesignSystem[]).toEqual([
-      {
-        id: 'luke-plus',
-        title: '麓客+',
-        description: expect.stringContaining('麓湖'),
-        category: '品牌',
-        swatches: ['#155332', '#F5F5F7', '#FFFFFF', '#000000', '#FEE70F'],
-      },
+    const presets = list.json() as ArtifactDesignSystem[]
+    expect(presets[0]).toEqual({
+      id: 'luke-plus',
+      title: '麓客+',
+      description: expect.stringContaining('麓湖'),
+      category: '品牌',
+      swatches: ['#155332', '#F5F5F7', '#FFFFFF', '#000000', '#FEE70F'],
+    })
+    expect(presets.map((d) => d.id)).toEqual([
+      'luke-plus',
+      'warm-paper',
+      'geometric',
+      'glacier',
+      'neon-night',
     ])
     const res = await s.edit([{ kind: 'design-system', id: 'luke-plus' }])
     expect(res.statusCode).toBe(200)

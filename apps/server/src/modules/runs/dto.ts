@@ -1,8 +1,27 @@
-import type { ApprovalDto, GroupParams, QuestionSetDto, RunDto, RunStatus, Usage } from '@gonggong/protocol'
+import type {
+  ApprovalDto,
+  GroupParams,
+  QuestionSetDto,
+  RunArtifact,
+  RunDto,
+  RunStatus,
+  Usage,
+} from '@gonggong/protocol'
 import { and, asc, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { approvals, attachments, questionSets, runEvents, runs, statusIn, users } from '../../db/schema.js'
+import {
+  approvals,
+  artifacts,
+  artifactVersions,
+  attachments,
+  questionSets,
+  runEvents,
+  runs,
+  statusIn,
+  users,
+} from '../../db/schema.js'
 import { PARAM_DEFAULTS } from '../admin/params.js'
+import { manifestOf } from '../artifacts/service.js'
 import { mirrorRun } from '../feishu/mirror.js'
 import { cachedGroupParams } from '../groups/params.js'
 import { memberIds } from '../messages/service.js'
@@ -52,6 +71,7 @@ export const runDto = (
     hopMax?: number
     offlineWaitMin?: number
     lastActivityAt?: Date
+    artifacts?: RunArtifact[]
   } = {},
 ): RunDto => ({
   id: r.id,
@@ -92,6 +112,7 @@ export const runDto = (
   sync: r.sync ?? null,
   secrets: r.secrets,
   ...(r.htmlRenders.length > 0 && { htmlRenders: r.htmlRenders }),
+  ...(extra.artifacts?.length && { artifacts: extra.artifacts }),
 })
 
 export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }
@@ -123,12 +144,49 @@ export const approvalDto = (a: ApprovalRow, decidedByName: string | null): Appro
   createdAt: a.createdAt.toISOString(),
 })
 
+/**
+ * The artifact versions each run made (one per artifact, its latest), with the screens whose file it added or changed
+ * against its parent, titled by its own manifest.
+ */
+async function runArtifactsOf(ctx: Ctx, runIds: string[]) {
+  const rows = await ctx.db
+    .select({ v: artifactVersions, a: artifacts })
+    .from(artifactVersions)
+    .innerJoin(artifacts, eq(artifacts.id, artifactVersions.artifactId))
+    .where(and(inArray(artifactVersions.runId, runIds), eq(artifactVersions.source, 'run')))
+    .orderBy(asc(artifactVersions.n))
+  const parentIds = rows.flatMap((r) => (r.v.parentVersionId ? [r.v.parentVersionId] : []))
+  const parents = parentIds.length
+    ? await ctx.db
+        .select({ id: artifactVersions.id, files: artifactVersions.files })
+        .from(artifactVersions)
+        .where(inArray(artifactVersions.id, parentIds))
+    : []
+  const parentFiles = new Map(parents.map((p) => [p.id, new Map(p.files.map((f) => [f.path, f.hash]))]))
+  const byRun = new Map<string, Map<string, RunArtifact>>()
+  for (const { v, a } of rows) {
+    const before = v.parentVersionId ? parentFiles.get(v.parentVersionId) : undefined
+    const changed = v.files.filter(
+      (f) => /^screens\/[^/]+\.html$/.test(f.path) && before?.get(f.path) !== f.hash,
+    )
+    const manifest = changed.length ? await manifestOf(a, v) : null
+    const changedScreens = changed.map((f) => {
+      const id = f.path.slice('screens/'.length, -'.html'.length)
+      return { id, title: manifest?.screens.find((s) => s.id === id)?.title ?? id }
+    })
+    const made = byRun.get(v.runId as string) ?? new Map<string, RunArtifact>()
+    made.set(a.id, { artifactId: a.id, title: a.title, versionId: v.id, n: v.n, changedScreens })
+    byRun.set(v.runId as string, made)
+  }
+  return new Map([...byRun].map(([id, m]) => [id, [...m.values()]]))
+}
+
 /** Loads what cards need beyond the row (approval records, the group's hop limit) for `rows`, then maps them. */
 export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardRow) => RunDto> {
   if (!rows.length) return (r) => runDto(r)
   const ids = rows.map((r) => r.id)
   const groupIds = [...new Set(rows.map((r) => r.groupId))]
-  const [aps, qs, paramsByGroup, activity] = await Promise.all([
+  const [aps, qs, paramsByGroup, activity, made] = await Promise.all([
     ctx.db
       .select({ a: approvals, name: users.name })
       .from(approvals)
@@ -150,6 +208,7 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
       .from(runEvents)
       .where(inArray(runEvents.runId, ids))
       .groupBy(runEvents.runId),
+    runArtifactsOf(ctx, ids),
   ])
   const fileIds = qs.flatMap((x) => x.q.attachmentIds)
   const [files, leanings] = await Promise.all([
@@ -177,6 +236,7 @@ export async function runDtoLoader(ctx: Ctx, rows: CardRow[]): Promise<(r: CardR
       hopMax: p.chainMaxHops,
       offlineWaitMin: p.offlineWaitMin,
       lastActivityAt: activityByRun.get(r.id),
+      artifacts: made.get(r.id),
     })
   }
 }

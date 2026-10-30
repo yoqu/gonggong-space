@@ -38,7 +38,7 @@ import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '.
 async function canvasContext(ctx: Ctx, groupId: string, userId: string, c: ArtifactContext) {
   const a = await requireArtifact(ctx, c.artifactId, userId)
   if (a.groupId !== groupId) return fail('not_found', '产物不存在')
-  return { id: a.id, botId: a.botId, note: await artifactContextNote(ctx, a, c) }
+  return { id: a.id, botId: a.botId, ...(await artifactContextNote(ctx, a, c)) }
 }
 
 export function messageRoutes(ctx: Ctx) {
@@ -140,7 +140,7 @@ export function messageRoutes(ctx: Ctx) {
           ...(agent && { command: parsed?.name, agentCommand: agent.text }),
           ...(target && { appendTo: target.runId }),
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
-          ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note }),
+          ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note, canvas: canvas.canvas }),
         }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted

@@ -9,6 +9,7 @@ import {
   tokensCssOk,
 } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
+import { parse as parseYaml } from 'yaml'
 import { frontmatter } from '../src/modules/skills/service.js'
 
 const OFFICIAL = join(import.meta.dirname, '../plugins/official')
@@ -81,11 +82,82 @@ describe('official plugin web-prototype', () => {
   }
   const ids = new Set(app.screens.map((s) => s.id))
 
-  it('ships the platform kit and the app-screens template on the luke-plus design system', () => {
+  it('ships the platform kit, the app-screens template and five design systems', () => {
     for (const f of ['index.html', 'gg-kit.css', 'gg-kit.js'])
       expect(existsSync(join(skillDir, 'kit', f)), f).toBe(true)
+    expect(manifest.version).toBe('0.6.0')
     expect(manifest.templates.map((t) => t.id)).toEqual(['app-screens'])
-    expect(manifest.designSystems.map((d) => d.id)).toEqual(['luke-plus'])
+    expect(manifest.designSystems.map((d) => d.id)).toEqual([
+      'luke-plus',
+      'warm-paper',
+      'geometric',
+      'glacier',
+      'neon-night',
+    ])
+  })
+
+  it('asks for the device and the design sources (DESIGN.md, website, repository)', () => {
+    const inputs = new Map(manifest.inputs.map((i) => [i.id, i]))
+    expect(inputs.get('device')).toMatchObject({
+      type: 'select',
+      options: ['小程序', '手机 App', '桌面 Web'],
+      default: '小程序',
+    })
+    expect(inputs.get('design_md')).toMatchObject({ label: '粘贴 DESIGN.md', type: 'text' })
+    expect(inputs.get('reference_url')).toMatchObject({ label: '参考网站', type: 'string' })
+    expect(inputs.get('reference_repo')).toMatchObject({ label: '参考仓库', type: 'string' })
+    expect(manifest.templates[0]?.inputs).toEqual(
+      expect.arrayContaining(['device', 'design_md', 'reference_url', 'reference_repo']),
+    )
+    const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+    for (const s of [
+      '`小程序` → `miniprogram`, `手机 App` → `mobile`, `桌面 Web` → `desktop`',
+      '`粘贴 DESIGN.md` is given, or an attachment is named `DESIGN.md`',
+      '`参考网站` is given: fetch the page',
+      '`参考仓库`: read its style sources',
+    ])
+      expect(skill).toContain(s)
+  })
+
+  it('reports Stitch-like stages on a progress card', () => {
+    const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('`progress_card`')
+    for (const stage of ['`搭建设计系统`', '`搭建应用骨架`', '`生成 <屏幕标题>（<i>/<n>）`', '`自检与连线`'])
+      expect(skill).toContain(stage)
+  })
+
+  it('generates every tokens.css from its DESIGN.md front matter', () => {
+    for (const ds of manifest.designSystems) {
+      const md = readFileSync(join(skillDir, ds.dir, 'DESIGN.md'), 'utf8')
+      const css = readFileSync(join(skillDir, ds.dir, 'tokens.css'), 'utf8')
+      const fm = parseYaml(md.split(/^---$/m)[1] ?? '') as {
+        name: string
+        colors: Record<string, string>
+        rounded: Record<string, string>
+        spacing: Record<string, string>
+        typography: Record<string, { fontSize: string; fontWeight: number; lineHeight: string }>
+      }
+      expect(css.startsWith(`/* ${fm.name} — generated from DESIGN.md front matter`), ds.id).toBe(true)
+      for (const [k, v] of Object.entries(fm.colors))
+        expect(css, `${ds.id} ${k}`).toContain(`--color-${k}: ${v};`)
+      for (const [k, v] of Object.entries(fm.rounded)) expect(css).toContain(`--rounded-${k}: ${v};`)
+      for (const [k, v] of Object.entries(fm.spacing)) expect(css).toContain(`--space-${k}: ${v};`)
+      for (const [k, ty] of Object.entries(fm.typography)) {
+        expect(css).toContain(`--text-${k}-size: ${ty.fontSize};`)
+        expect(css).toContain(`--text-${k}-weight: ${ty.fontWeight};`)
+        expect(css).toContain(`--text-${k}-leading: ${ty.lineHeight};`)
+        expect(css).toContain(`.t-${k} { font-family: var(--font-sans);`)
+      }
+      for (const sw of ds.swatches) expect(Object.values(fm.colors), `${ds.id} ${sw}`).toContain(sw)
+      for (const section of [
+        '## Overview',
+        '## Colors',
+        '## Typography',
+        '## Components',
+        "## Do's and Don'ts",
+      ])
+        expect(md, `${ds.id} ${section}`).toContain(section)
+    }
   })
 
   it('tells the agent to bring DESIGN.md along and to copy the kit only without hosting', () => {

@@ -13,15 +13,24 @@ import {
   type DaemonArtifactRef,
   GG_ARTIFACT_MANIFEST,
   type GgArtifactManifest,
+  type ProtocolKey,
 } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { artifacts, artifactVersions, bots, messages, runs, users } from '../../db/schema.js'
+import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { requireMember } from '../groups/service.js'
-import { authorName, type MessageMeta, type MessageRow, memberIds, messageDto } from '../messages/service.js'
+import {
+  authorName,
+  type MessageMeta,
+  type MessageRow,
+  memberIds,
+  messageDto,
+  postEvent,
+} from '../messages/service.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { linksOf } from './html.js'
 import { pluginKit } from './kit.js'
@@ -125,7 +134,7 @@ export async function listArtifacts(ctx: Ctx, groupId: string): Promise<Artifact
   const list = await ctx.db
     .select()
     .from(artifacts)
-    .where(eq(artifacts.groupId, groupId))
+    .where(and(eq(artifacts.groupId, groupId), isNull(artifacts.archivedAt)))
     .orderBy(desc(artifacts.updatedAt))
   const heads = list.flatMap((a) => (a.headVersionId ? [a.headVersionId] : []))
   const [rows, running] = await Promise.all([
@@ -342,16 +351,24 @@ export async function cardOf(db: Read, a: Artifact): Promise<ArtifactCard> {
   }
 }
 
-/** The artifact's card follows its versions in place. */
+/** The artifact's card follows its versions and title in place. */
 export async function refreshCard(ctx: Ctx, artifactId: string) {
   const a = await findArtifact(ctx.db, artifactId)
   if (!a?.messageId) return
   const [row] = await ctx.db.select().from(messages).where(eq(messages.id, a.messageId))
   if (!row) return
+  const meta = row.meta as MessageMeta
   const card = await cardOf(ctx.db, a)
+  const i18n = meta.i18n?.params?.title !== undefined && {
+    ...meta.i18n,
+    params: { ...meta.i18n.params, title: a.title },
+  }
   const [updated] = await ctx.db
     .update(messages)
-    .set({ meta: { ...(row.meta as MessageMeta), card } })
+    .set({
+      meta: { ...meta, card, ...(i18n && { i18n }) },
+      ...(i18n && { body: zh(i18n.key as ProtocolKey, i18n.params) }),
+    })
     .where(eq(messages.id, row.id))
     .returning()
   const dto = messageDto(updated as MessageRow, await authorName(ctx, updated as MessageRow))
@@ -389,7 +406,9 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
       .leftJoin(artifactVersions, eq(artifactVersions.id, artifacts.headVersionId))
   const [first, all] = await Promise.all([
     targets.length
-      ? base().where(and(eq(artifacts.groupId, groupId), inArray(artifacts.id, targets)))
+      ? base().where(
+          and(eq(artifacts.groupId, groupId), inArray(artifacts.id, targets), isNull(artifacts.archivedAt)),
+        )
       : Promise.resolve([]),
     tx.select({ dir: artifacts.dir }).from(artifacts).where(eq(artifacts.groupId, groupId)),
   ])
@@ -432,4 +451,71 @@ function issuesNote(picked: { a: Artifact; head: Version | null }[]) {
       if (lines.length < ARTIFACT_CONTEXT_ISSUES_MAX)
         lines.push(`- ${a.dir}/${i.file ?? ''}（v${head?.n}）[${i.code}] ${i.message}`)
   return lines.length ? `以下产物的当前版本有规范问题，动手前先修复：\n${lines.join('\n')}` : null
+}
+
+/** PATCH /api/artifacts/:id — the card follows. */
+export async function renameArtifact(ctx: Ctx, a: Artifact, title: string) {
+  await ctx.db.update(artifacts).set({ title, updatedAt: ctx.now() }).where(eq(artifacts.id, a.id))
+  await refreshCard(ctx, a.id)
+  return (await findArtifact(ctx.db, a.id)) as Artifact
+}
+
+/**
+ * POST /api/artifacts/:id/duplicate — a new artifact in the group whose v1 lists the head's files (same blobs, same
+ * group store), in a new folder, with its own card.
+ */
+export async function duplicateArtifact(ctx: Ctx, a: Artifact, userId: string) {
+  const head = await requireVersion(ctx.db, a, null)
+  const copy = await ctx.db.transaction(async (tx) => {
+    const [made] = await tx
+      .insert(artifacts)
+      .values({
+        groupId: a.groupId,
+        pluginId: a.pluginId,
+        pluginVersionId: a.pluginVersionId,
+        designSystemId: a.designSystemId,
+        title: t('{title}（副本）', { title: a.title }).slice(0, 80),
+        dir: newArtifactDir(`${a.dir.slice('design/'.length, 'design/'.length + 50)}-copy`),
+        botId: a.botId,
+        createdBy: userId,
+        favorites: a.favorites,
+      })
+      .returning()
+    const [v1] = await tx
+      .insert(artifactVersions)
+      .values({
+        artifactId: (made as Artifact).id,
+        n: 1,
+        parentVersionId: null,
+        source: 'edit',
+        runId: null,
+        userId,
+        submitKey: null,
+        files: head.files,
+        digest: head.digest,
+        thumbnailHash: head.thumbnailHash,
+        stale: false,
+        issues: head.issues,
+      })
+      .returning()
+    const [withHead] = await tx
+      .update(artifacts)
+      .set({ headVersionId: (v1 as Version).id })
+      .where(eq(artifacts.id, (made as Artifact).id))
+      .returning()
+    return withHead as Artifact
+  })
+  const posted = await postEvent(
+    ctx,
+    copy.groupId,
+    '产物「{title}」',
+    { title: copy.title },
+    { card: await cardOf(ctx.db, copy) },
+  )
+  const [withCard] = await ctx.db
+    .update(artifacts)
+    .set({ messageId: posted.id })
+    .where(eq(artifacts.id, copy.id))
+    .returning()
+  return withCard as Artifact
 }

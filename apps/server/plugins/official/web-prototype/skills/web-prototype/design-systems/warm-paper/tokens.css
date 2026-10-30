@@ -1,0 +1,70 @@
+/* 暖纸（阅读与内容） — generated from DESIGN.md front matter; do not hand-edit the names.
+ * Naming: colors.x → --color-x, rounded.x → --rounded-x, spacing.x → --space-x,
+ * typography.x → --text-x-{size,weight,leading} plus the class .t-x; one family, --font-sans. */
+:root {
+  --color-primary: #8A4B2A;
+  --color-on-primary: #FFFDF8;
+  --color-primary-container: #F1E0D2;
+  --color-on-primary-container: #5A2E17;
+  --color-secondary: #5E6B3A;
+  --color-on-secondary: #FFFDF8;
+  --color-tertiary: #B7832F;
+  --color-on-tertiary: #FFFDF8;
+  --color-background: #F7F1E6;
+  --color-surface: #FFFDF8;
+  --color-surface-variant: #EFE6D6;
+  --color-on-surface: #2B2520;
+  --color-on-surface-variant: #6B6158;
+  --color-on-surface-muted: #8F857A;
+  --color-outline: #E3D8C6;
+  --color-outline-strong: #CDBFA8;
+  --color-success: #4F7A3A;
+  --color-warning: #B7832F;
+  --color-error: #B3402F;
+  --color-scrim: rgba(43, 37, 32, 0.5);
+
+  --rounded-none: 0px;
+  --rounded-sm: 4px;
+  --rounded-md: 8px;
+  --rounded-lg: 12px;
+  --rounded-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 40px;
+  --space-page: 20px;
+
+  --font-sans: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  --text-display-size: 28px;
+  --text-display-weight: 700;
+  --text-display-leading: 36px;
+  --text-headline-size: 22px;
+  --text-headline-weight: 700;
+  --text-headline-leading: 30px;
+  --text-title-size: 17px;
+  --text-title-weight: 600;
+  --text-title-leading: 24px;
+  --text-body-lg-size: 16px;
+  --text-body-lg-weight: 400;
+  --text-body-lg-leading: 28px;
+  --text-body-size: 14px;
+  --text-body-weight: 400;
+  --text-body-leading: 24px;
+  --text-label-size: 13px;
+  --text-label-weight: 500;
+  --text-label-leading: 18px;
+  --text-caption-size: 12px;
+  --text-caption-weight: 400;
+  --text-caption-leading: 18px;
+}
+
+.t-display { font-family: var(--font-sans); font-size: var(--text-display-size); font-weight: var(--text-display-weight); line-height: var(--text-display-leading); }
+.t-headline { font-family: var(--font-sans); font-size: var(--text-headline-size); font-weight: var(--text-headline-weight); line-height: var(--text-headline-leading); }
+.t-title { font-family: var(--font-sans); font-size: var(--text-title-size); font-weight: var(--text-title-weight); line-height: var(--text-title-leading); }
+.t-body-lg { font-family: var(--font-sans); font-size: var(--text-body-lg-size); font-weight: var(--text-body-lg-weight); line-height: var(--text-body-lg-leading); }
+.t-body { font-family: var(--font-sans); font-size: var(--text-body-size); font-weight: var(--text-body-weight); line-height: var(--text-body-leading); }
+.t-label { font-family: var(--font-sans); font-size: var(--text-label-size); font-weight: var(--text-label-weight); line-height: var(--text-label-leading); }
+.t-caption { font-family: var(--font-sans); font-size: var(--text-caption-size); font-weight: var(--text-caption-weight); line-height: var(--text-caption-leading); }

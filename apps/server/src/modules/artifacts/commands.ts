@@ -5,12 +5,14 @@ import type {
   ArtifactContext,
   ArtifactElementRef,
   GgArtifactManifest,
+  MessageCanvas,
   MessageDto,
   SendAnnotationsReq,
 } from '@gonggong/protocol'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { artifactAnnotations, messages } from '../../db/schema.js'
+import { type MessageKey, t } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { mirrorUserMessage } from '../feishu/mirror.js'
@@ -18,10 +20,10 @@ import { activeBots } from '../groups/service.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { readBlob } from './blobs.js'
-import { type Element, elementsOf, lineOf, sectionOf } from './html.js'
+import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
 import { type Artifact, manifestOf, requireVersion, type Version } from './service.js'
 
-// Everything here is read by agents: not translated.
+// Everything here is read by agents (not translated), except the short message bodies members see.
 
 const SNIPPET_MAX = 300
 
@@ -62,24 +64,53 @@ const screenLine = (m: GgArtifactManifest | null, id: string) => {
   return s ? `${s.id}（${s.title}，${s.file}）` : `${id}（清单里没有这一屏）`
 }
 
-async function contextLines(
-  ctx: Ctx,
-  a: Artifact,
-  screenIds: string[],
-  elements: (ArtifactElementRef & { label?: string })[],
-) {
+const LABEL_MAX = 40
+const cut = (text: string) => {
+  const one = text.replace(/\s+/g, ' ').trim()
+  return one.length > LABEL_MAX ? `${one.slice(0, LABEL_MAX)}…` : one
+}
+
+/** An element's label for the message bubble: its text, else its tag. */
+async function elementLabel(source: ReturnType<typeof sources>, file: string, ggId: string) {
+  const el = (await source(file))?.els.get(Number(ggId))
+  return el ? cut(textOf(el)) || `<${el.tagName}>` : `#${ggId}`
+}
+
+type Selection = { screenIds: string[]; elements: (ArtifactElementRef & { label?: string })[] }
+
+/** The agent's context lines for a selection, and the selection as the message bubble shows it. */
+async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
   const v = await requireVersion(ctx.db, a, null)
   const source = sources(a, v)
-  const m = screenIds.length ? await manifestOf(a, v) : null
+  const m = await manifestOf(a, v)
   const lines = [`产物「${a.title}」，目录 ${a.dir}/，当前版本 v${v.n}。`]
-  if (screenIds.length) lines.push('选中的屏幕：', ...screenIds.map((id) => `- ${screenLine(m, id)}`))
-  if (elements.length) {
+  if (sel.screenIds.length) lines.push('选中的屏幕：', ...sel.screenIds.map((id) => `- ${screenLine(m, id)}`))
+  const elements: MessageCanvas['elements'] = []
+  if (sel.elements.length) {
     lines.push('选中的元素：')
-    for (const e of elements)
+    for (const e of sel.elements) {
       lines.push(`- ${await elementLine(source, e.file, e.ggId)}${e.label ? `（${e.label}）` : ''}`)
+      elements.push({
+        file: e.file,
+        ggId: e.ggId,
+        label: e.label || (await elementLabel(source, e.file, e.ggId)),
+      })
+    }
   }
-  return { v, lines }
+  const canvas: MessageCanvas = {
+    artifactId: a.id,
+    title: a.title,
+    screens: sel.screenIds.map((id) => ({ id, title: m?.screens.find((x) => x.id === id)?.title ?? id })),
+    elements,
+  }
+  return { v, lines, canvas }
 }
+
+/** `「产物」 › 首页、详情 › 标题`: the selection in one line, under the short message. */
+const summaryLine = (c: MessageCanvas) =>
+  [`「${c.title}」`, c.screens.map((s) => s.title).join('、'), c.elements.map((e) => e.label).join('、')]
+    .filter(Boolean)
+    .join(' › ')
 
 const RULES =
   '新增、删除屏幕时同步更新 gg-artifact.json；遵守产品原型插件 SKILL.md 的约定（颜色、圆角、字号只用令牌，不引入外部资源，不改 index.html 和 _gg/）。'
@@ -120,20 +151,54 @@ export function commandInstruction(
   return by[r.command]
 }
 
-/** Posts a message as the member @-ing the bot about the artifact: its run checks the artifact out first. */
+/** What members see of each command (the message body); the agent gets commandInstruction in the note. */
+const COMMAND_LABEL: Record<ArtifactCommand, MessageKey> = {
+  variations: '生成 {n} 个变体',
+  regenerate: '重新生成',
+  'desktop-version': '生成桌面网页版',
+  'missing-states': '补全状态',
+  animate: '添加动效',
+  'accessibility-audit': '无障碍检查',
+  'instant-prototype': '连成可点击原型',
+  'app-store-assets': '生成应用商店素材',
+  'web-assets': '生成网页素材',
+  'marketing-kit': '生成营销物料',
+  logo: '设计 Logo',
+  image: '绘制插图',
+  diagram: '绘制图表',
+  'project-brief': '撰写产品需求文档',
+  'edit-with-ai': '修改#edit',
+  'apply-design-system': '套用设计系统',
+  'connect-element': '新建一屏并连接',
+}
+
+const withText = (action: string, text: string | undefined) =>
+  text?.trim() ? t('{action}：{text}', { action, text: text.trim() }) : action
+
+/**
+ * Posts a message as the member @-ing the bot about the artifact: a short sentence and the selection for people, the
+ * full instruction in `artifactNote` for the agent. Its run checks the artifact out first.
+ */
 async function postAsMember(
   ctx: Ctx,
   me: { id: string; name: string },
   a: Artifact,
   botId: string,
-  body: (botName: string) => string,
+  say: { action: string; canvas: MessageCanvas; note: string[] },
 ) {
   const bot =
     (await activeBots(ctx, a.groupId)).find((b) => b.id === botId) ?? fail('invalid', 'Bot 不在本群')
-  const meta: MessageMeta = { mentions: [bot.id], artifactRefs: [a.id], clientId: randomUUID() }
+  const meta: MessageMeta = {
+    mentions: [bot.id],
+    artifactRefs: [a.id],
+    artifactNote: say.note.join('\n'),
+    canvas: say.canvas,
+    clientId: randomUUID(),
+  }
+  const body = `@${bot.name} ${say.action}\n${summaryLine(say.canvas)}`
   const [row] = (await ctx.db
     .insert(messages)
-    .values({ groupId: a.groupId, kind: 'user', authorUserId: me.id, body: body(bot.name), meta })
+    .values({ groupId: a.groupId, kind: 'user', authorUserId: me.id, body, meta })
     .returning()) as [MessageRow]
   const dto = messageDto(row, me.name)
   await publishMessage(ctx, dto)
@@ -149,10 +214,15 @@ export async function sendCommand(
   a: Artifact,
   r: ArtifactCommandReq,
 ): Promise<MessageDto> {
-  const { lines } = await contextLines(ctx, a, r.screenIds ?? [], r.ggIds ?? [])
-  return postAsMember(ctx, me, a, r.botId, (bot) =>
-    [`@${bot} ${commandInstruction(r, a.dir)}`, '', ...lines, '', RULES].join('\n'),
-  )
+  const { lines, canvas } = await contextLines(ctx, a, {
+    screenIds: r.screenIds ?? [],
+    elements: r.ggIds ?? [],
+  })
+  return postAsMember(ctx, me, a, r.botId, {
+    action: withText(t(COMMAND_LABEL[r.command], { n: r.count ?? 3 }), r.text),
+    canvas,
+    note: ['[画布指令：上面这条消息的完整要求]', commandInstruction(r, a.dir), '', ...lines, '', RULES],
+  })
 }
 
 /** POST /api/artifacts/:id/annotations/send — the open annotations become `sent` with the message. */
@@ -171,6 +241,7 @@ export async function sendAnnotations(
     : []
   if (rows.length !== new Set(r.annotationIds).size) fail('not_found', '批注不存在')
   const head = await requireVersion(ctx.db, a, null)
+  const m = await manifestOf(a, head)
   const byVersion = new Map<string, ReturnType<typeof sources>>()
   const lines: string[] = []
   for (const [i, n] of rows.entries()) {
@@ -183,16 +254,33 @@ export async function sendAnnotations(
       `   意见：${n.note}`,
     )
   }
-  const dto = await postAsMember(ctx, me, a, r.botId, (bot) =>
-    [
-      `@${bot} 请按以下批注修改产物「${a.title}」（目录 ${a.dir}/，当前版本 v${head.n}）：`,
+  const screenIds = [
+    ...new Set(rows.map((n) => /^screens\/(.+)\.html$/.exec(n.file)?.[1]).filter((x) => !!x)),
+  ]
+  const canvas: MessageCanvas = {
+    artifactId: a.id,
+    title: a.title,
+    screens: (screenIds as string[]).map((id) => ({
+      id,
+      title: m?.screens.find((x) => x.id === id)?.title ?? id,
+    })),
+    elements: rows.flatMap((n) =>
+      n.ggId === null ? [] : [{ file: n.file, ggId: n.ggId, label: cut(n.note) }],
+    ),
+  }
+  const dto = await postAsMember(ctx, me, a, r.botId, {
+    action: withText(t('按 {n} 条批注修改', { n: rows.length }), r.extra),
+    canvas,
+    note: [
+      '[批注：上面这条消息的完整要求]',
+      `请按以下批注修改产物「${a.title}」（目录 ${a.dir}/，当前版本 v${head.n}）：`,
       ...lines,
       ...(r.extra?.trim() ? ['', `补充说明：${r.extra.trim()}`] : []),
       '',
       RULES,
       '改完后简短说明每条批注是怎么处理的。',
-    ].join('\n'),
-  )
+    ],
+  })
   await ctx.db
     .update(artifactAnnotations)
     .set({ status: 'sent', sentMessageId: dto.id })
@@ -205,8 +293,11 @@ export async function sendAnnotations(
   return dto
 }
 
-/** SendMessageReq.artifactContext: what the agent reads after the member's text (meta.artifactNote). */
+/** SendMessageReq.artifactContext: what the agent reads after the member's text (meta.artifactNote) and the bubble shows. */
 export async function artifactContextNote(ctx: Ctx, a: Artifact, c: ArtifactContext) {
-  const { lines } = await contextLines(ctx, a, c.screenIds ?? [], c.elements ?? [])
-  return ['[画布上下文：这条消息针对下面的产物和选中内容]', ...lines].join('\n')
+  const { lines, canvas } = await contextLines(ctx, a, {
+    screenIds: c.screenIds ?? [],
+    elements: c.elements ?? [],
+  })
+  return { note: ['[画布上下文：这条消息针对下面的产物和选中内容]', ...lines].join('\n'), canvas }
 }

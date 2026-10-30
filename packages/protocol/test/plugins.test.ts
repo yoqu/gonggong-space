@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CREATION_INPUT_MAX,
+  CreationReq,
   creationSteps,
   PLUGIN_MAX_FILES,
   PluginFiles,
@@ -93,5 +95,14 @@ describe('creation steps', () => {
     expect(creationSteps(m, all, 1)).toEqual(['template', 'design', 'content'])
     // No usable bot: the step stays to show why.
     expect(creationSteps(m, own, 0)).toEqual(['template', 'content', 'bot'])
+  })
+})
+
+describe('creation request', () => {
+  it('takes inputs long enough for a pasted DESIGN.md', () => {
+    const req = { pluginId: 'p', templateId: null, designSystemId: null, botId: 'b' }
+    const md = 'x'.repeat(CREATION_INPUT_MAX)
+    expect(CreationReq.parse({ ...req, inputs: { design_md: md } }).inputs.design_md).toBe(md)
+    expect(CreationReq.safeParse({ ...req, inputs: { design_md: `${md}x` } }).success).toBe(false)
   })
 })

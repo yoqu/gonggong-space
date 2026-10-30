@@ -1,0 +1,70 @@
+/* 冰川（冷蓝玻璃） — generated from DESIGN.md front matter; do not hand-edit the names.
+ * Naming: colors.x → --color-x, rounded.x → --rounded-x, spacing.x → --space-x,
+ * typography.x → --text-x-{size,weight,leading} plus the class .t-x; one family, --font-sans. */
+:root {
+  --color-primary: #2F6FED;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #DCE7FD;
+  --color-on-primary-container: #123A8C;
+  --color-secondary: #4FA3C7;
+  --color-on-secondary: #FFFFFF;
+  --color-tertiary: #8B7FE8;
+  --color-on-tertiary: #FFFFFF;
+  --color-background: #EEF4F8;
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-surface-solid: #FFFFFF;
+  --color-surface-variant: #E3EBF2;
+  --color-on-surface: #14202B;
+  --color-on-surface-variant: #5B6B7A;
+  --color-on-surface-muted: #8796A5;
+  --color-outline: rgba(20, 32, 43, 0.10);
+  --color-outline-strong: #C5D2DE;
+  --color-success: #1F9D74;
+  --color-warning: #E0A030;
+  --color-error: #E5484D;
+  --color-scrim: rgba(20, 32, 43, 0.4);
+
+  --rounded-sm: 10px;
+  --rounded-md: 16px;
+  --rounded-lg: 24px;
+  --rounded-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+  --space-page: 16px;
+
+  --font-sans: "PingFang SC", -apple-system, "Helvetica Neue", "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
+  --text-display-size: 30px;
+  --text-display-weight: 600;
+  --text-display-leading: 38px;
+  --text-headline-size: 22px;
+  --text-headline-weight: 600;
+  --text-headline-leading: 30px;
+  --text-title-size: 16px;
+  --text-title-weight: 600;
+  --text-title-leading: 22px;
+  --text-body-size: 15px;
+  --text-body-weight: 400;
+  --text-body-leading: 22px;
+  --text-label-size: 13px;
+  --text-label-weight: 500;
+  --text-label-leading: 18px;
+  --text-caption-size: 12px;
+  --text-caption-weight: 400;
+  --text-caption-leading: 16px;
+  --text-metric-size: 32px;
+  --text-metric-weight: 600;
+  --text-metric-leading: 38px;
+}
+
+.t-display { font-family: var(--font-sans); font-size: var(--text-display-size); font-weight: var(--text-display-weight); line-height: var(--text-display-leading); }
+.t-headline { font-family: var(--font-sans); font-size: var(--text-headline-size); font-weight: var(--text-headline-weight); line-height: var(--text-headline-leading); }
+.t-title { font-family: var(--font-sans); font-size: var(--text-title-size); font-weight: var(--text-title-weight); line-height: var(--text-title-leading); }
+.t-body { font-family: var(--font-sans); font-size: var(--text-body-size); font-weight: var(--text-body-weight); line-height: var(--text-body-leading); }
+.t-label { font-family: var(--font-sans); font-size: var(--text-label-size); font-weight: var(--text-label-weight); line-height: var(--text-label-leading); }
+.t-caption { font-family: var(--font-sans); font-size: var(--text-caption-size); font-weight: var(--text-caption-weight); line-height: var(--text-caption-leading); }
+.t-metric { font-family: var(--font-sans); font-size: var(--text-metric-size); font-weight: var(--text-metric-weight); line-height: var(--text-metric-leading); }

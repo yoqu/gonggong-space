@@ -247,7 +247,7 @@ describe('creations', () => {
       '每屏写 prompt：一段设计说明',
       'screens/<id>.html',
       '不需要 preview_static',
-      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）',
+      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录；参数给了 DESIGN.md、参考网站或参考仓库时按 SKILL.md 生成）',
       'index.html 和 _gg/ 由平台托管提供，不要复制',
     ])
       expect(res.body.body).toContain(s)
@@ -278,13 +278,42 @@ describe('creations', () => {
     w.ws.close()
   })
 
+  it('passes the device and a pasted DESIGN.md or reference to the agent', async () => {
+    const w = await creationWorld(['plugins', 'artifacts'])
+    const md = '---\nname: 自带\ncolors:\n  primary: "#123456"\n---\n\n## Overview\n\n自带的设计系统'
+    const res = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, {
+      ...w.req,
+      inputs: {
+        title: '麓客活动报名',
+        device: '桌面 Web',
+        design_md: md,
+        reference_url: 'https://example.com',
+        reference_repo: 'apps/web',
+      },
+    })
+    expect(res.status).toBe(200)
+    for (const s of [
+      '- 设备：桌面 Web',
+      `- 粘贴 DESIGN.md：${md}`,
+      '- 参考网站：https://example.com',
+      '- 参考仓库：apps/web',
+    ])
+      expect(res.body.body).toContain(s)
+    const bad = await w.wang.post(`/api/groups/${w.g.id}/creations`, {
+      ...w.req,
+      inputs: { title: 'x', device: '手表' },
+    })
+    expect(bad.status).toBe(400)
+    w.ws.close()
+  })
+
   it('keeps the old instructions for a daemon without the artifacts feature', async () => {
     const w = await creationWorld(['plugins'])
     const res = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, w.req)
     expect(res.status).toBe(200)
     for (const s of [
       'preview_static',
-      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录）',
+      'DESIGN.md 和 tokens.css（从所选设计系统原样复制到产物根目录；参数给了 DESIGN.md、参考网站或参考仓库时按 SKILL.md 生成）',
       'kit/index.html 复制为 index.html',
     ])
       expect(res.body.body).toContain(s)

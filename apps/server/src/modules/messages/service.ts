@@ -5,6 +5,7 @@ import type {
   I18nParams,
   I18nText,
   McpSecretCard,
+  MessageCanvas,
   MessageCard,
   MessageDto,
   ProgressCard,
@@ -64,6 +65,8 @@ export type MessageMeta = {
   artifactRefs?: string[]
   /** The canvas selection it was sent with (SendMessageReq.artifactContext): appended to the agent's prompt. */
   artifactNote?: string
+  /** That selection as its bubble shows it (MessageDto.canvas). */
+  canvas?: MessageCanvas
   /** A bot reply's answered ```actions blocks, by block id (plan 富交互消息). */
   actions?: Record<string, ActionAnswer>
   /** Legacy: a page published with html_render as its own message. */
@@ -108,6 +111,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).actions && { actions: (m.meta as MessageMeta).actions }),
     ...((m.meta as MessageMeta).htmlRender && { htmlRender: (m.meta as MessageMeta).htmlRender }),
     ...((m.meta as MessageMeta).htmlRenders && { htmlRenders: (m.meta as MessageMeta).htmlRenders }),
+    ...((m.meta as MessageMeta).canvas && !recalled && { canvas: (m.meta as MessageMeta).canvas }),
   }
 }
 

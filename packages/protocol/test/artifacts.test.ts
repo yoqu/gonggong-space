@@ -13,6 +13,7 @@ import {
   ArtifactDto,
   ArtifactEditOp,
   ArtifactEditReq,
+  ArtifactPatchReq,
   ArtifactShareDto,
   ArtifactShareReq,
   ArtifactSubmitReq,
@@ -23,8 +24,12 @@ import {
   CreateAnnotationReq,
   DaemonFeature,
   GgArtifactManifest,
+  MessageCanvas,
   MessageCard,
+  MessageDto,
   PluginManifest,
+  RunArtifact,
+  RunDto,
   RunStart,
   SendAnnotationsReq,
   SendMessageReq,
@@ -550,5 +555,42 @@ describe('card, commands, features', () => {
       editable: true,
       tokens: 'tokens.css',
     })
+  })
+})
+
+describe('canvas context on messages and runs (G11)', () => {
+  const canvas = {
+    artifactId: 'a1',
+    title: '活动报名',
+    screens: [{ id: 'home', title: '首页' }],
+    elements: [{ file: 'screens/home.html', ggId: '12', label: '报名' }],
+  }
+  it('a message carries the canvas selection it was sent with', () => {
+    expect(MessageCanvas.parse(canvas)).toEqual(canvas)
+    expect(
+      MessageCanvas.safeParse({ ...canvas, elements: [{ file: 'x.js', ggId: '1', label: '' }] }).success,
+    ).toBe(false)
+    expect(MessageDto.shape.canvas.safeParse(undefined).success).toBe(true)
+    expect(MessageDto.shape.canvas.parse(canvas)).toEqual(canvas)
+  })
+  it('a run lists the artifact versions it made and the screens they changed', () => {
+    const made = {
+      artifactId: 'a1',
+      title: '活动报名',
+      versionId: 'v3',
+      n: 3,
+      changedScreens: [{ id: 'home', title: '首页' }],
+    }
+    expect(RunArtifact.parse(made)).toEqual(made)
+    expect(RunDto.shape.artifacts.parse([made])).toEqual([made])
+    expect(RunDto.shape.artifacts.safeParse(undefined).success).toBe(true)
+  })
+})
+
+describe('artifact rename (G18)', () => {
+  it('takes a trimmed title of 1..80 characters', () => {
+    expect(ArtifactPatchReq.parse({ title: '  新标题 ' })).toEqual({ title: '新标题' })
+    expect(ArtifactPatchReq.safeParse({ title: '  ' }).success).toBe(false)
+    expect(ArtifactPatchReq.safeParse({ title: 'x'.repeat(81) }).success).toBe(false)
   })
 })
