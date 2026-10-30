@@ -9,6 +9,30 @@ import { PluginTile } from './PluginTile'
 import { createInGroup, dismissDraft, openCreation, useEnabledPlugins } from './store'
 import './plugins.css'
 
+/** Lines of a parameter shown before 展开 (a pasted DESIGN.md runs to hundreds). */
+const FOLD_LINES = 3
+
+/** The summary line quotes a parameter's first line, cut short. */
+const brief = (v: string) => {
+  const line = v.split('\n')[0] ?? ''
+  return line.length > 60 || v.includes('\n') ? `${line.slice(0, 60)}…` : line
+}
+
+/** One parameter: a long one is folded to its first lines until expanded. */
+function InputLine({ label, value }: { label: string; value: string }) {
+  const lines = value.split('\n')
+  const [open, setOpen] = useState(false)
+  if (lines.length <= FOLD_LINES) return <div>{`${label}：${value}`}</div>
+  return (
+    <div className="plg-req__long" data-testid="creation-input-long">
+      <div>{`${label}：${open ? value : `${lines.slice(0, FOLD_LINES).join('\n')}…`}`}</div>
+      <button type="button" className="plg-req__more" onClick={() => setOpen(!open)}>
+        {open ? t('收起') : t('展开（共 {n} 行）', { n: lines.length })}
+      </button>
+    </div>
+  )
+}
+
 /**
  * The 创作请求 card (prototype #result): a summary of what was asked instead of the agent-facing body, the full
  * parameters on demand, and 再来一版 / 改参数重做… while the plugin is still on in the group.
@@ -37,12 +61,12 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
       </div>
       <div className="plg-req__body">
         <div className="plg-req__line">
-          {[summary, head ? `「${head.value}」` : ''].filter(Boolean).join(' ·')}
+          {[summary, head ? `「${brief(head.value)}」` : ''].filter(Boolean).join(' ·')}
         </div>
         {all ? (
           <div className="plg-req__all">
             {card.inputs.map((i) => (
-              <div key={i.label}>{`${i.label}：${i.value}`}</div>
+              <InputLine key={i.label} label={i.label} value={i.value} />
             ))}
             <div>{card.directions ? t('先出视觉方向：是') : t('先出视觉方向：否')}</div>
             <MessageAttachments list={m.attachments} from={m.authorName} />
@@ -117,12 +141,12 @@ export function CreationDraftView({ m, card }: { m: MessageDto; card: CreationDr
       </div>
       <div className="plg-req__body">
         <div className="plg-req__line">
-          {[summary, head ? `「${head.value}」` : ''].filter(Boolean).join(' ·')}
+          {[summary, head ? `「${brief(head.value)}」` : ''].filter(Boolean).join(' ·')}
         </div>
         {card.note ? <div className="plg-req__muted">{card.note}</div> : null}
         <div className="plg-req__all">
           {card.inputs.map((i) => (
-            <div key={i.label}>{`${i.label}：${i.value}`}</div>
+            <InputLine key={i.label} label={i.label} value={i.value} />
           ))}
           {card.directions ? <div>{t('先出视觉方向：是')}</div> : null}
         </div>

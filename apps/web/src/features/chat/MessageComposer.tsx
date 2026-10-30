@@ -10,12 +10,16 @@ import {
   useState,
 } from 'react'
 import { useIsMobile } from '../../app/viewport'
+import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Composer } from '../../ui'
+import { sendCommand } from '../artifacts/actions'
 import { ContextChips } from '../artifacts/ContextChips'
 import { artifactContextOf, clearContext, useCanvasContext } from '../artifacts/context'
+import { ARTIFACT_SLASH, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
+import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
 import { openCreation, useEnabledPlugins } from '../plugins/store'
@@ -36,6 +40,16 @@ const MAX_INPUT_PX = 240
 const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
 
 const RETRIES = 2
+
+/** The artifact the composer works on: the canvas selection's, else the group's active artifact tab's. */
+function useArtifactTarget(groupId: string) {
+  const canvas = useCanvasContext((s) => (s.context?.groupId === groupId ? s.context : null))
+  const active = useWorkbench((s) => s.benches[groupId]?.active ?? null)
+  const tabId = active?.startsWith('artifact:') ? active.slice('artifact:'.length) : ''
+  const entry = useArtifactEntry(canvas?.artifactId ?? tabId)
+  if (canvas) return { artifactId: canvas.artifactId, botId: canvas.botId }
+  return tabId ? { artifactId: tabId, botId: entry?.artifact?.botId ?? null } : null
+}
 
 /** sessionStorage key of a group's unsent draft. */
 export const draftKey = (groupId: string) => `gonggong:draft:${groupId}`
@@ -97,6 +111,8 @@ export const MessageComposer = memo(function MessageComposer({
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(0)
   const [picks, setPicks] = useState<Picks>({})
+  /** Variations ×n: the next message asks for n variations of the selected screens. */
+  const [variations, setVariations] = useState<number | null>(null)
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const plugins = useEnabledPlugins(group.id)
   const appending = useAppend((s) => s.target?.groupId === group.id)
@@ -111,6 +127,23 @@ export const MessageComposer = memo(function MessageComposer({
       ? (groupBots.find((b) => b.id === canvas.botId) ?? null)
       : null
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
+  const artifact = useArtifactTarget(group.id)
+  const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
+  const hasScreens = selectedScreenIds(canvas).length > 0
+  const artifactCandidates: Candidate[] = artifact
+    ? ARTIFACT_SLASH.map((c) => {
+        const off = c.needsScreen && !hasScreens
+        return {
+          key: `artifact:${c.command}`,
+          icon: 'grid',
+          label: `/${c.label}`,
+          mono: false,
+          hint: off ? t('先在画布上选屏') : c.hint,
+          insert: `/${c.label}`,
+          ...(off ? { disabled: true } : {}),
+        }
+      })
+    : []
   const sending = useRef(false)
   const uploads = useUploads(group.id)
   useEffect(() => {
@@ -140,6 +173,9 @@ export const MessageComposer = memo(function MessageComposer({
     const c = useCanvasContext.getState().context
     if (c && c.groupId !== group.id) clearContext()
   }, [group.id])
+  useEffect(() => {
+    if (!canvas) setVariations(null)
+  }, [canvas])
   // Add to Chat (⌘L) hands the focus over.
   useEffect(() => {
     if (canvasFocus && useCanvasContext.getState().context?.groupId === group.id) input.current?.focus()
@@ -158,7 +194,7 @@ export const MessageComposer = memo(function MessageComposer({
     names,
     sections,
     items: candidates,
-  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins)
+  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates)
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
 
@@ -237,14 +273,51 @@ export const MessageComposer = memo(function MessageComposer({
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
       const c = candidates[current]
-      if (c) pick(c)
+      if (c && !c.disabled) pick(c)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       setDismissed(true)
     }
   }
 
+  /** Variations ×n, or a leading artifact command: POST …/commands instead of a message. */
+  const artifactRequest = () => {
+    if (!artifact || !artifactBot) return null
+    if (variations && canvas)
+      return {
+        command: 'variations' as const,
+        count: variations,
+        text: draft.trim(),
+        screenIds: selectedScreenIds(canvas),
+      }
+    const slash = parseArtifactSlash(draft)
+    if (!slash || (slash.slash.needsScreen && !hasScreens)) return null
+    return {
+      command: slash.slash.command,
+      ...(slash.text ? { text: slash.text } : {}),
+      ...commandSelection(canvas),
+    }
+  }
+
+  const sendArtifactCommand = async (req: NonNullable<ReturnType<typeof artifactRequest>>) => {
+    if (!artifact || !artifactBot || sending.current) return
+    sending.current = true
+    setBusy(true)
+    const body = draft
+    const ok = await sendCommand(artifact.artifactId, { ...req, botId: artifactBot.id }, artifactBot)
+    sending.current = false
+    setBusy(false)
+    if (!ok) return
+    setSent((n) => n + 1)
+    setDraft((d) => (d === body ? '' : d))
+    setVariations(null)
+    if (canvas) clearContext()
+  }
+
   const send = async () => {
+    const req = artifactRequest()
+    if (req) return sendArtifactCommand(req)
+    if (variations) return
     const body = draft
     const attachmentIds = uploads.ids
     if (sending.current || uploads.uploading || (!body.trim() && !attachmentIds.length)) return
@@ -286,17 +359,21 @@ export const MessageComposer = memo(function MessageComposer({
         value={draft}
         onChange={change}
         onSend={() => void send()}
-        canSend={(hasText(draft) || uploads.items.length > 0) && !uploads.uploading}
+        canSend={
+          variations ? hasText(draft) : (hasText(draft) || uploads.items.length > 0) && !uploads.uploading
+        }
         busy={busy}
         sent={sent}
         onFiles={uploads.add}
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
         placeholder={
-          canvasBot
-            ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
-            : mobile
-              ? t('发消息，@ 触发 Bot')
-              : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+          variations
+            ? t('描述变体方向，生成 {n} 个变体', { n: variations })
+            : canvasBot
+              ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
+              : mobile
+                ? t('发消息，@ 触发 Bot')
+                : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
         }
         tools={[
           {
@@ -344,6 +421,8 @@ export const MessageComposer = memo(function MessageComposer({
                   bot={canvasBot}
                   others={canvasBot ? groupBots.filter((b) => b.id !== canvasBot.id) : []}
                   onSwitch={(name) => change(`@${name} ${draft}`, name.length + 2)}
+                  variations={variations}
+                  onVariations={setVariations}
                 />
               ) : null}
               {quote ? <QuoteChip quote={quote} /> : null}

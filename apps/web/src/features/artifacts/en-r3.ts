@@ -1,0 +1,42 @@
+// Canvas round 3: command menu, copy as, marquee, DESIGN.md node, palette roles, implementation prompt, project menu.
+export default {
+  复制为: 'Copy as',
+  复制选区链接: 'Copy link to selection',
+  '复制（含代码）': 'Copy (with code)',
+  命令菜单: 'Command menu',
+  搜索命令: 'Search commands',
+  '搜索命令、屏幕、工具…': 'Search commands, screens, tools…',
+  没有匹配的命令: 'No matching commands',
+  先选中屏幕: 'Select a screen first',
+  屏幕: 'Screens',
+  面板: 'Panels',
+  框选: 'Marquee select',
+  拖动: 'Drag',
+  '缩放（按住，⌥ 缩小）': 'Zoom (hold, ⌥ to zoom out)',
+  大步移动视图: 'Move view further',
+  主色: 'Primary',
+  辅助色: 'Secondary',
+  中性色: 'Neutral',
+  功能色: 'Semantic',
+  实现提示词: 'Implementation prompt',
+  实现提示词已复制: 'Implementation prompt copied',
+  '一段可以直接交给编码 Agent 的实现说明：产物目录、每屏说明、跳转关系和设计系统要点。':
+    'A brief to hand straight to a coding agent: the artifact folder, each screen, the flows and the design system.',
+  双击屏幕放大查看: 'Double-click a screen to zoom in',
+  '选中屏幕后在左侧对话里描述修改，不用 @':
+    'Select screens, then describe changes in the chat on the left — no @ needed',
+  '可以说「点 X 时打开下一屏」，AI 会连好跳转':
+    'Say “tapping X opens the next screen” and the AI wires up the link',
+  '按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕':
+    'Press ⌘K to search every command; ⇧-drag to select several screens',
+  下一条: 'Next',
+  不再显示提示: "Don't show tips",
+  产物菜单: 'Artifact menu',
+  产物名称: 'Artifact name',
+  '下载 .zip': 'Download .zip',
+  删除产物: 'Delete artifact',
+  '删除产物「{title}」？': 'Delete “{title}”?',
+  '从群里移除，群成员不再看到它': 'It leaves the group; members no longer see it.',
+  '文件和版本保留，可以恢复': 'Its files and versions are kept and can be restored',
+  '已创建副本「{title}」': 'Created a copy “{title}”',
+}

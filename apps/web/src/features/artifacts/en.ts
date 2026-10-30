@@ -1,9 +1,13 @@
+import composer from './en-composer'
 import design from './en-design'
 import proto from './en-proto'
+import r3 from './en-r3'
 
 export default {
+  ...composer,
   ...design,
   ...proto,
+  ...r3,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',

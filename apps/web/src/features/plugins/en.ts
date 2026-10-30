@@ -115,4 +115,5 @@ export default {
   不用了: 'Dismiss',
   '{name} 已开始创作': '{name} started it',
   '{name} 选了不用': '{name} dismissed it',
+  '展开（共 {n} 行）': 'Show all ({n} {n:line|lines})',
 }

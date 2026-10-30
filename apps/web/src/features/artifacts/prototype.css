@@ -453,6 +453,19 @@
   font-size: var(--text-footnote-size);
   line-height: 1.5;
 }
+.art-export__prompt {
+  max-height: 320px;
+  margin: var(--space-12) 0 0;
+  padding: var(--space-8) var(--space-12);
+  overflow: auto;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: var(--quote-fill);
+  color: var(--label);
+  font: 11px / 1.6 var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* ── Share and QR dialogs ── */
 .art-share {

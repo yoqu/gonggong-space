@@ -24,6 +24,7 @@ import {
 } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
+import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { attempt, toastError } from '../../lib/errors'
 import {
@@ -43,6 +44,7 @@ import {
 import { openUrl } from '../previews/store'
 import { AnnotationsPanel } from './AnnotationsPanel'
 import {
+  copyScreensCode,
   createAnnotation,
   deleteAnnotation,
   handedTo,
@@ -57,8 +59,18 @@ import {
 } from './actions'
 import { linkSpots, postToScreen, useBridge } from './bridge'
 import { CodeDialog } from './CodeDialog'
-import { dropSelectionContext, elementItem, pinContext, screenItem, setSelectionContext } from './context'
+import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
+import {
+  dropSelectionContext,
+  elementItem,
+  pinContext,
+  screenItem,
+  setSelectionContext,
+  useCanvasContext,
+} from './context'
+import { DesignMdNode } from './DesignMdNode'
 import { DesignSystemNode } from './DesignSystemNode'
+import type { DesignTab } from './DesignSystemPanel'
 import { ElementPanel } from './ElementPanel'
 import { EditPopover, MarkPopover, TOOLS } from './ElementPopover'
 import { ExportPanel } from './ExportPanel'
@@ -67,6 +79,7 @@ import {
   boundsKey,
   type CanvasNode,
   type Direction,
+  DOC_HEIGHT,
   defaultFrame,
   dropIndex,
   FRAME_PRESETS,
@@ -75,7 +88,10 @@ import {
   framePreset,
   layoutNodes,
   neighbour,
+  nodesInRect,
   onScreen,
+  type Rect,
+  rectOf,
   revealView,
   type ScreenFrame,
   SYSTEM_HEIGHT,
@@ -84,6 +100,7 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from './geometry'
+import { implementationPrompt } from './implPrompt'
 import { Links, linkPaths } from './Links'
 import {
   type BotState,
@@ -96,6 +113,7 @@ import {
   screenContextItems,
   VARIATION_CUSTOM,
   VARIATION_DIMENSIONS,
+  variationItems,
   ZOOM_100,
   ZOOM_FIT,
   ZOOM_IN,
@@ -106,12 +124,59 @@ import {
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
 import { QrDialog, useShareAccess } from './share'
-import type { ArtifactLink } from './store'
+import { type ArtifactLink, artifactLink, takeArtifactFocus, useArtifactFocus } from './store'
 import type { DesignTokens } from './tokens'
 import { VariationsDialog } from './VariationsDialog'
 
 type Tool = 'select' | 'hand' | 'mark' | 'edit'
 type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | 'export'
+
+/** What the tab's bar asks the canvas for (its 导出 button and project menu); `n` makes each ask a new one. */
+export interface CanvasRequest {
+  what: 'export' | 'commands' | 'shortcuts'
+  n: number
+}
+
+const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'hand']
+/** Command-menu values beyond the menus' own commands. */
+const RUN = { tool: 'tool:', zoom: 'zoom:', screen: 'screen:', panel: 'panel:' } as const
+
+/** Commands about the selected screens: the command menu greys them out with nothing selected. */
+const needsSelection = (v: string) =>
+  v.startsWith(CMD.generate) ||
+  v.startsWith(CMD.variations) ||
+  v.startsWith(CMD.frame) ||
+  (
+    [
+      CMD.edit,
+      CMD.details,
+      CMD.code,
+      CMD.download,
+      CMD.reload,
+      CMD.remove,
+      CMD.copy,
+      CMD.copyCode,
+      CMD.cut,
+      CMD.duplicate,
+      CMD.focus,
+      CMD.favourite,
+      CMD.rename,
+      CMD.addToChat,
+      CMD.newTab,
+      CMD.fullHeight,
+      `${RUN.zoom}${ZOOM_SELECTION}`,
+    ] as string[]
+  ).includes(v)
+
+/** The canvas's tips (bottom left), one at a time; closing them is remembered. */
+const TIPS = [
+  t('双击屏幕放大查看'),
+  t('选中屏幕后在左侧对话里描述修改，不用 @'),
+  t('可以说「点 X 时打开下一屏」，AI 会连好跳转'),
+  t('按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕'),
+]
+const TIPS_KEY = 'gg.art.tips'
+const TIP_MS = 8000
 
 /** Room (px) an open side panel takes at the right, with the tools: its width plus its 60px offset. */
 const PANEL_SIDE = 360
@@ -154,16 +219,20 @@ export interface CanvasProps {
   onFavourites: (screenIds: string[]) => void
   onPresent: () => void
   readFile: (file: string) => Promise<string>
-  /** The design-system panel (DesignSystemPanel.tsx); `close` hides it. */
-  designPanel: (close: () => void) => ReactNode
+  /** The artifact's directory in the workspace (`design/<slug>`), for the implementation prompt. */
+  dir: string
+  /** The shown version's DESIGN.md; null when it has none. */
+  designMd: string | null
+  /** The design-system panel (DesignSystemPanel.tsx) on `tab`; `close` hides it. */
+  designPanel: (close: () => void, tab?: DesignTab) => ReactNode
   /** Leaving the design-system panel goes through this (it asks first when there are unsaved changes). */
   guardDesign: (proceed: () => void) => void
   /** The artifact's versions, to name the ones with open annotations. */
   versions: { id: string; n: number }[]
   /** Shows a version (read-only unless it is the head). */
   onViewVersion: (versionId: string) => void
-  /** Bumped by the tab's 导出 button: opens the export panel. */
-  exportRequest: number
+  /** The tab bar's asks: the export panel, the command menu, the shortcuts. */
+  request: CanvasRequest | null
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
   onPrototypeAsked: () => void
 }
@@ -213,9 +282,11 @@ export function Canvas({
   onFavourites,
   onPresent,
   readFile,
+  dir,
+  designMd,
   designPanel,
   guardDesign,
-  exportRequest,
+  request,
   onPrototypeAsked,
   versions,
   onViewVersion,
@@ -234,6 +305,14 @@ export function Canvas({
   const [frames, setFrames] = useState<Record<string, ScreenFrame>>({})
   const [content, setContent] = useState<Record<string, number>>({})
   const [systemH, setSystemH] = useState(SYSTEM_HEIGHT)
+  const [docH, setDocH] = useState(DOC_HEIGHT)
+  const [designTab, setDesignTab] = useState<DesignTab>('theme')
+  const [cmdk, setCmdk] = useState(false)
+  /** Z held: clicks zoom in (with ⌥ out). */
+  const [zoomHold, setZoomHold] = useState<'in' | 'out' | null>(null)
+  /** ⇧ drag: the marquee in plane pixels, and the selection it adds to. */
+  const [marquee, setMarquee] = useState<{ rect: Rect; base: string[] } | null>(null)
+  const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
   const [allLinks, setAllLinks] = useState(false)
   const setPanel = (next: SetStateAction<Panel | null>) => {
     const p = typeof next === 'function' ? next(panel) : next
@@ -273,9 +352,15 @@ export function Canvas({
     .map((v) => ({ versionId: v.id, n: v.n, count: openElsewhere[v.id] ?? 0 }))
     .sort((a, b) => b.n - a.n)
   const meId = useSession((s) => s.user?.id ?? null)
-  const press = useRef<{ id: number; x: number; y: number; vx: number; vy: number; moved: boolean } | null>(
-    null,
-  )
+  const press = useRef<{
+    id: number
+    x: number
+    y: number
+    vx: number
+    vy: number
+    moved: boolean
+    kind: 'pan' | 'marquee' | 'zoom'
+  } | null>(null)
   /** Until the member moves the view or selects, the view follows the layout as it grows and settles. */
   const auto = useRef(true)
   /** Overlays opened after this (menus over the canvas) take Escape before the canvas does. */
@@ -285,8 +370,16 @@ export function Canvas({
   const canEdit = !readOnly && !!manifest
 
   const { device, nodes } = useMemo(
-    () => layoutNodes({ title, manifest, system: tokens ? systemH : null, frames, content }),
-    [title, manifest, tokens, systemH, frames, content],
+    () =>
+      layoutNodes({
+        title,
+        manifest,
+        system: tokens ? systemH : null,
+        doc: designMd ? docH : null,
+        frames,
+        content,
+      }),
+    [title, manifest, tokens, systemH, designMd, docH, frames, content],
   )
   const screens = useMemo(() => nodes.filter((n) => n.kind === 'screen'), [nodes])
   const picked = screens.filter((n) => selected.includes(n.id))
@@ -338,6 +431,12 @@ export function Canvas({
     auto.current = false
     setView(next)
   }
+  // Tips turn over by themselves until closed.
+  useEffect(() => {
+    if (tip < 0) return
+    const timer = setTimeout(() => setTip((i) => (i < 0 ? i : i + 1)), TIP_MS)
+    return () => clearTimeout(timer)
+  }, [tip])
   // Screens gone from the manifest leave the selection.
   useEffect(() => setSelected((s) => s.filter((id) => nodes.some((n) => n.id === id))), [nodes])
 
@@ -358,11 +457,19 @@ export function Canvas({
     return () => el.removeEventListener('wheel', wheel)
   }, [])
 
-  // The design-system card is as tall as its content.
+  // The design-system and DESIGN.md cards are as tall as their content.
   const measureSystem = useCallback((el: HTMLDivElement | null) => {
     if (!el) return
     const ro = new ResizeObserver(() => {
       if (el.offsetHeight) setSystemH(el.offsetHeight)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const measureDoc = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      if (el.offsetHeight) setDocH(el.offsetHeight)
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -439,15 +546,39 @@ export function Canvas({
   }, [selectionKey, manifest])
   useEffect(() => () => dropSelectionContext(artifactId), [artifactId])
   // A request made before this canvas mounted (it was away for the prototype editor) is not a new one.
-  const exportSeen = useRef(exportRequest)
+  const requestSeen = useRef(request?.n)
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a new request only
   useEffect(() => {
-    if (exportRequest === exportSeen.current) return
-    exportSeen.current = exportRequest
-    setPanel('export')
+    if (!request || request.n === requestSeen.current) return
+    requestSeen.current = request.n
+    if (request.what === 'export') setPanel('export')
+    else if (request.what === 'commands') setCmdk(true)
+    else setHelp(true)
     // The tab's button keeps the focus otherwise, outside the canvas: its shortcuts (? and all) would stop working.
     root.current?.focus({ preventScroll: true })
-  }, [exportRequest])
+  }, [request])
+  // The composer's 设计系统 chip opens the panel here.
+  const designAsk = useCanvasContext((s) => (s.design?.artifactId === artifactId ? s.design.n : 0))
+  const designSeen = useRef(designAsk)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a new ask only
+  useEffect(() => {
+    if (designAsk === designSeen.current) return
+    designSeen.current = designAsk
+    openDesign('theme')
+  }, [designAsk])
+  // A deep link, a message's context or a run card asks for screens: select them and bring them into view.
+  const focusAsk = useArtifactFocus(artifactId)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once the asked version shows and the plane is measured
+  useEffect(() => {
+    if (!focusAsk || !manifest) return
+    if (focusAsk.versionId && focusAsk.versionId !== versionKey) return
+    const ids = focusAsk.screenIds.filter((id) => screens.some((s) => s.id === id))
+    if (ids.length) setSelected(ids)
+    // Fitting waits for the plane's size; the ask stays until then.
+    if (!room.width && ids.length) return
+    takeArtifactFocus(artifactId)
+    if (ids.length) fitTo(ids)
+  }, [focusAsk, room.width, manifest, versionKey])
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
   /** About the selected screens, or with `ggIds` about elements only. */
@@ -514,6 +645,10 @@ export function Canvas({
     edit(present.map((id) => manifestOp('reorder', id, { index: at++ })))
     setClip(null)
   }
+  const openDesign = (tab: DesignTab) => {
+    setDesignTab(tab)
+    setPanel('design')
+  }
   const go = (dir: Direction) => {
     const from = one ?? screens[0]
     const next = from && neighbour(screens, from, dir)
@@ -524,6 +659,18 @@ export function Canvas({
 
   const command = (value: string) => {
     const ids = picked.map((n) => n.id)
+    if (value.startsWith(RUN.tool)) {
+      const next = value.slice(RUN.tool.length) as Tool
+      if (next !== 'edit' || canEdit) setTool(next)
+      return
+    }
+    if (value.startsWith(RUN.zoom)) return zoom(value.slice(RUN.zoom.length))
+    if (value.startsWith(RUN.screen)) {
+      const id = value.slice(RUN.screen.length)
+      setSelected([id])
+      return fitTo([id])
+    }
+    if (value.startsWith(RUN.panel)) return setPanel(value.slice(RUN.panel.length) as Panel)
     if (value.startsWith(CMD.generate)) {
       if (picked.length) void ask(value.slice(CMD.generate.length) as ArtifactCommand)
       return
@@ -564,7 +711,13 @@ export function Canvas({
       case CMD.export:
         return setPanel('export')
       case CMD.designSystem:
-        return setPanel('design')
+        return openDesign('theme')
+      case CMD.designMd:
+        return openDesign('md')
+      case CMD.commands:
+        return setCmdk(true)
+      case CMD.shortcuts:
+        return setHelp(true)
       case CMD.details:
         if (one) setPanel('details')
         return
@@ -581,7 +734,16 @@ export function Canvas({
         if (canEdit && ids.length) setRemoving(ids)
         return
       case CMD.copy:
-        if (ids.length) setClip({ ids, cut: false })
+        // The canvas keeps the screens to paste as copies; the system clipboard gets their code.
+        if (!ids.length) return
+        setClip({ ids, cut: false })
+        void copyScreensCode(picked, readFile)
+        return
+      case CMD.copyCode:
+        void copyScreensCode(picked, readFile)
+        return
+      case CMD.copyLink:
+        void copyWithToast(artifactLink(groupId, artifactId, ids), t('链接已复制'))
         return
       case CMD.cut:
         if (canEdit && ids.length) setClip({ ids, cut: true })
@@ -641,6 +803,11 @@ export function Canvas({
       f()
     }
     if (mod) {
+      // ⌘K on the canvas is its command menu, not the app's search.
+      if (key === 'k') {
+        e.stopPropagation()
+        return run(() => setCmdk(true))
+      }
       if (key === '=' || key === '+') run(() => zoom(ZOOM_IN))
       else if (key === '-') run(() => zoom(ZOOM_OUT))
       else if (key === 'a') run(() => command(CMD.selectAll))
@@ -684,6 +851,7 @@ export function Canvas({
     else if (key === 'f') run(() => command(CMD.focus))
     else if (key === 'i') run(() => command(CMD.details))
     else if (key === 'x') run(() => command(CMD.links))
+    else if (key === 'z') run(() => setZoomHold(e.altKey ? 'out' : 'in'))
   }
   const pan = (dir: Direction, by: number) =>
     moveView((v) => ({
@@ -693,27 +861,69 @@ export function Canvas({
     }))
 
   // ── pointer ──
+  /** A pointer position in plane pixels. */
+  const local = (e: { clientX: number; clientY: number }) => {
+    const box = plane.current?.getBoundingClientRect()
+    return { x: e.clientX - (box?.left ?? 0), y: e.clientY - (box?.top ?? 0) }
+  }
   const pointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.button !== 1) return
     root.current?.focus({ preventScroll: true })
-    press.current = { id: e.pointerId, x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false }
+    const kind =
+      zoomHold && e.button === 0 ? 'zoom' : e.shiftKey && !panning && e.button === 0 ? 'marquee' : 'pan'
+    press.current = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      vx: view.x,
+      vy: view.y,
+      moved: false,
+      kind,
+    }
+    // ⇧ would extend the page's text selection over the canvas.
+    if (kind === 'marquee') {
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
+    }
+    if (kind === 'zoom') {
+      // The click that zooms selects nothing.
+      press.current.moved = true
+      const at = local(e)
+      const out = zoomHold === 'out' || e.altKey
+      moveView((v) => zoomAt(v, out ? v.z / ZOOM_STEP : v.z * ZOOM_STEP, at.x, at.y))
+    }
   }
   const pointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const p = press.current
-    if (p?.id !== e.pointerId) return
+    if (p?.id !== e.pointerId || p.kind === 'zoom') return
     const dx = e.clientX - p.x
     const dy = e.clientY - p.y
     if (!p.moved) {
       if (Math.hypot(dx, dy) < DRAG) return
-      // Captured only once it pans, so a plain click still lands on the screen under it.
+      // Captured only once it drags, so a plain click still lands on the screen under it.
       p.moved = true
       e.currentTarget.setPointerCapture?.(e.pointerId)
-      setDragging(true)
+      if (p.kind === 'pan') setDragging(true)
     }
-    moveView((v) => ({ ...v, x: p.vx + dx, y: p.vy + dy }))
+    if (p.kind === 'pan') return moveView((v) => ({ ...v, x: p.vx + dx, y: p.vy + dy }))
+    window.getSelection()?.removeAllRanges()
+    const a = local({ clientX: p.x, clientY: p.y })
+    const b = local(e)
+    setMarquee((m) => ({ rect: rectOf(a.x, a.y, b.x, b.y), base: m?.base ?? selected }))
   }
   const pointerUp = () => {
     setDragging(false)
+    if (marquee) {
+      const r = marquee.rect
+      const hit = nodesInRect(nodes, {
+        x: (r.x - view.x) / view.z,
+        y: (r.y - view.y) / view.z,
+        w: r.w / view.z,
+        h: r.h / view.z,
+      }).map((n) => n.id)
+      setSelected([...new Set([...marquee.base, ...hit])])
+      setMarquee(null)
+    }
     // The click that follows a pan is not a selection.
     setTimeout(() => {
       press.current = null
@@ -722,16 +932,17 @@ export function Canvas({
   const panned = () => !!press.current?.moved
 
   const pick = (id: string, shift: boolean) => {
-    if (panned() || panning) return
+    if (panned() || panning || zoomHold) return
     setSelected((s) => (shift ? (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]) : [id]))
   }
   const clickPlane = (shift: boolean) => {
-    if (panned() || panning || shift) return
+    if (panned() || panning || zoomHold || shift) return
     setSelected([])
   }
   const open = (n: CanvasNode) => {
     if (n.kind === 'prototype') onPresent()
-    else if (n.kind === 'system') setPanel('design')
+    else if (n.kind === 'system') openDesign('theme')
+    else if (n.kind === 'doc') openDesign('md')
     else fitTo([n.id])
   }
 
@@ -832,7 +1043,7 @@ export function Canvas({
         onClose={() => setPanel(null)}
       />
     ) : panel === 'design' ? (
-      designPanel(() => setPanel(null))
+      designPanel(() => setPanel(null), designTab)
     ) : panel === 'export' ? (
       <ExportPanel
         artifactId={artifactId}
@@ -842,6 +1053,7 @@ export function Canvas({
         bot={bot}
         shareDenied={shareDenied}
         readFile={readFile}
+        prompt={implementationPrompt({ title, dir, manifest, links, designMd, tokens: tokens?.vars ?? [] })}
         onBrief={() =>
           bot
             ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot)
@@ -856,6 +1068,58 @@ export function Canvas({
   const reveal = (n: CanvasNode) => {
     const v = revealView(n, view, { width: room.width - Math.max(side, TOOLS), height: room.height })
     if (v) moveView(v)
+  }
+
+  const commandEntries = (): CommandEntry[] => {
+    const none = { disabled: true, title: t('先选中屏幕') }
+    const gate = (e: CommandEntry): CommandEntry =>
+      !picked.length && needsSelection(e.value) ? { ...e, ...none } : e
+    const single = !!one && !!preview
+    const all: CommandEntry[] = [
+      ...screens.map((n) => ({ group: t('屏幕'), label: n.title, value: `${RUN.screen}${n.id}` })),
+      ...entriesOf(t('选择'), [
+        { label: t('全选'), value: CMD.selectAll, shortcut: '⌘A' },
+        { label: t('添加到对话'), value: CMD.addToChat, shortcut: '⌘L' },
+        { label: t('复制'), value: CMD.copy, shortcut: '⌘C' },
+        { label: t('复制代码'), value: CMD.copyCode },
+        { label: t('复制选区链接'), value: CMD.copyLink },
+        { label: t('剪切'), value: CMD.cut, shortcut: '⌘X', disabled: !canEdit },
+        { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: !canEdit || !clip },
+        { label: t('创建副本'), value: CMD.duplicate, shortcut: '⌘D', disabled: !canEdit },
+        { label: t('聚焦'), value: CMD.focus, shortcut: 'F' },
+        { label: t('收藏'), value: CMD.favourite, shortcut: '⇧F' },
+        { label: t('重命名'), value: CMD.rename, disabled: !canEdit || !one },
+      ]),
+      ...entriesOf(t('生成'), generateItems(botState)),
+      ...entriesOf(t('生成'), variationItems(botState), `${t('变体')} › `),
+      ...entriesOf(t('修改#modify'), modifyItems(!canEdit)),
+      ...entriesOf(t('预览'), previewItems(single, sharedFrame, device)),
+      ...entriesOf(t('更多'), moreItems(!canEdit)),
+      ...entriesOf(
+        t('视图'),
+        zoomItems(selected.length > 0).map((it) =>
+          'value' in it ? { ...it, value: `${RUN.zoom}${it.value}` } : it,
+        ),
+      ),
+      ...entriesOf(t('视图'), [{ label: t('显示连线'), value: CMD.links, shortcut: 'X' }]),
+      ...entriesOf(
+        t('工具'),
+        TOOL_IDS.map((id) => ({
+          label: { select: t('选择'), mark: t('标记#mark'), edit: t('直接编辑'), hand: t('抓手') }[id],
+          value: `${RUN.tool}${id}`,
+          shortcut: { select: 'V', mark: 'M', edit: 'E', hand: 'H' }[id],
+          ...(id === 'edit' && !canEdit ? { disabled: true, title: t('AI 正在修改') } : {}),
+        })),
+      ),
+      ...entriesOf(t('面板'), [
+        { label: t('设计系统'), value: CMD.designSystem },
+        ...(designMd ? [{ label: 'DESIGN.md', value: CMD.designMd }] : []),
+        { label: t('收藏'), value: `${RUN.panel}favourites` },
+        { label: t('批注'), value: `${RUN.panel}annotations` },
+        { label: t('快捷键'), value: CMD.shortcuts, shortcut: '?' },
+      ]),
+    ]
+    return all.map(gate)
   }
 
   const contextItems: MenuItem[] =
@@ -887,15 +1151,24 @@ export function Canvas({
       }}
       onKeyUp={(e) => {
         if (e.key === ' ') setSpace(false)
+        if (e.key.toLowerCase() === 'z') setZoomHold(null)
       }}
-      onBlur={() => setSpace(false)}
+      onBlur={() => {
+        setSpace(false)
+        setZoomHold(null)
+      }}
     >
       <ContextMenu items={contextItems} onSelect={command} className="art-ctx">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer panning; the keyboard pans with the arrows */}
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: Esc clears the selection */}
         <div
           ref={plane}
-          className={cx('art-plane', panning && 'art-plane--hand', dragging && 'art-plane--dragging')}
+          className={cx(
+            'art-plane',
+            panning && 'art-plane--hand',
+            dragging && 'art-plane--dragging',
+            zoomHold && `art-plane--zoom-${zoomHold}`,
+          )}
           data-testid="art-plane"
           style={{
             backgroundPosition: `${view.x}px ${view.y}px`,
@@ -905,7 +1178,13 @@ export function Canvas({
           onPointerMove={pointerMove}
           onPointerUp={pointerUp}
           onPointerCancel={pointerUp}
-          onContextMenu={(e) => setCtxOnScreen(!!(e.target as Element).closest('.art-node--screen'))}
+          onContextMenu={(e) => {
+            const target = e.target as Element
+            // A screen's title gets the screen's menu, as the screen itself does.
+            const titled = target.closest<HTMLElement>('[data-screen-title]')?.dataset.screenTitle
+            if (titled && !selected.includes(titled)) setSelected([titled])
+            setCtxOnScreen(!!(titled || target.closest('.art-node--screen')))
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('art-world'))
               clickPlane(e.shiftKey)
@@ -928,7 +1207,7 @@ export function Canvas({
                   left: n.x,
                   top: n.y,
                   width: n.w,
-                  height: n.kind === 'system' ? undefined : n.h,
+                  height: n.kind === 'system' || n.kind === 'doc' ? undefined : n.h,
                   ...(moving?.id === n.id
                     ? { translate: `${moving.dx / view.z}px ${moving.dy / view.z}px`, zIndex: 1 }
                     : {}),
@@ -938,10 +1217,12 @@ export function Canvas({
                 onContextMenu={() => {
                   if (!selected.includes(n.id)) setSelected([n.id])
                 }}
-                ref={n.kind === 'system' ? measureSystem : undefined}
+                ref={n.kind === 'system' ? measureSystem : n.kind === 'doc' ? measureDoc : undefined}
               >
                 {n.kind === 'system' && tokens ? (
                   <DesignSystemNode tokens={tokens} />
+                ) : n.kind === 'doc' && designMd ? (
+                  <DesignMdNode md={designMd} />
                 ) : n.kind === 'prototype' ? (
                   <div className="art-proto">
                     <Icon name="play" size={28} />
@@ -968,6 +1249,18 @@ export function Canvas({
           </div>
           <div className="art-overlay">
             <Links paths={paths} />
+            {marquee ? (
+              <div
+                className="art-marquee"
+                data-testid="art-marquee"
+                style={{
+                  left: marquee.rect.x,
+                  top: marquee.rect.y,
+                  width: marquee.rect.w,
+                  height: marquee.rect.h,
+                }}
+              />
+            ) : null}
             {nodes.map((n) => {
               const r = onScreen(n, view)
               const on = selected.includes(n.id)
@@ -979,7 +1272,13 @@ export function Canvas({
                     ? `${t('原型')} · ${n.title}`
                     : n.title
               const icon: IconName =
-                n.kind === 'system' ? 'palette' : n.kind === 'prototype' ? 'play' : deviceIcon(device)
+                n.kind === 'system'
+                  ? 'palette'
+                  : n.kind === 'doc'
+                    ? 'doc-text'
+                    : n.kind === 'prototype'
+                      ? 'play'
+                      : deviceIcon(device)
               const shift = moving?.id === n.id ? moving : { dx: 0, dy: 0 }
               return (
                 <div key={n.id}>
@@ -1001,6 +1300,7 @@ export function Canvas({
                         canEdit && n.kind === 'screen' && 'art-title--movable',
                         tiny && 'art-title--tiny',
                       )}
+                      data-screen-title={n.kind === 'screen' ? n.id : undefined}
                       style={{
                         left: r.left + shift.dx,
                         top: r.top - 26 + shift.dy,
@@ -1152,7 +1452,7 @@ export function Canvas({
           icon="palette"
           label={t('设计系统')}
           on={panel === 'design'}
-          onClick={() => setPanel((p) => (p === 'design' ? null : 'design'))}
+          onClick={() => (panel === 'design' ? setPanel(null) : openDesign('theme'))}
         />
         <ToolButton
           icon="star"
@@ -1238,6 +1538,26 @@ export function Canvas({
 
       {sidePanel}
 
+      {tip >= 0 ? (
+        <div className="art-tip" role="status" data-testid="art-tip">
+          <Icon name="sparkle" size={14} />
+          <span>{TIPS[tip % TIPS.length]}</span>
+          <button type="button" className="art-tip__next" onClick={() => setTip((i) => i + 1)}>
+            {t('下一条')}
+          </button>
+          <IconButton
+            size="small"
+            title={t('不再显示提示')}
+            onClick={() => {
+              localStorage.setItem(TIPS_KEY, 'off')
+              setTip(-1)
+            }}
+          >
+            {'xmark' as const}
+          </IconButton>
+        </div>
+      ) : null}
+
       <div className="art-corner">
         <IconButton size="regular" title={t('撤销#undo')} disabled={!undo} onClick={() => undo?.()}>
           {'undo' as const}
@@ -1262,6 +1582,18 @@ export function Canvas({
       </div>
 
       <Presence>{help ? <ShortcutsDialog onClose={() => setHelp(false)} /> : null}</Presence>
+      <Presence>
+        {cmdk ? (
+          <CommandMenu
+            entries={commandEntries()}
+            onRun={command}
+            onClose={() => {
+              setCmdk(false)
+              root.current?.focus({ preventScroll: true })
+            }}
+          />
+        ) : null}
+      </Presence>
       <Presence>
         {qr !== null ? (
           <QrDialog

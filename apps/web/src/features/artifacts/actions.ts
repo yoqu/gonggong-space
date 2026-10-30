@@ -13,6 +13,7 @@ import { create } from 'zustand'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ApiError, api, errorText } from '../../lib/api'
+import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
@@ -150,3 +151,25 @@ export const updateAnnotation = (id: string, req: UpdateAnnotationReq) =>
 export const deleteAnnotation = (id: string) => api.del(`/annotations/${id}`)
 export const sendAnnotations = (artifactId: string, req: SendAnnotationsReq) =>
   api.post(`/artifacts/${artifactId}/annotations/send`, req)
+
+/** The screens' HTML, one after the other under a comment naming each file (Copy as code, ⌘C, Export › code). */
+export async function screensCode(screens: { file: string }[], readFile: (file: string) => Promise<string>) {
+  const parts = await Promise.all(screens.map(async (s) => `<!-- ${s.file} -->\n${await readFile(s.file)}`))
+  return parts.join('\n\n')
+}
+
+/** Copies the screens' code to the system clipboard, with a toast either way. */
+export async function copyScreensCode(
+  screens: { file: string }[],
+  readFile: (file: string) => Promise<string>,
+) {
+  if (!screens.length) return false
+  try {
+    await copyText(await screensCode(screens, readFile))
+    toast({ type: 'success', message: t('已复制 {n} 个屏幕的代码', { n: screens.length }) })
+    return true
+  } catch (e) {
+    toastError(e)
+    return false
+  }
+}

@@ -151,11 +151,67 @@ export function useArtifactPreview(artifactId: string, versionId: string | null,
   return state
 }
 
+/** PATCH /api/artifacts/:id — renames the artifact (its card follows). */
+export async function renameArtifact(artifactId: string, title: string) {
+  const artifact = await api.patch<ArtifactDto>(`/artifacts/${artifactId}`, { title })
+  useStore.setState((s) => (s[artifactId] ? { [artifactId]: { ...s[artifactId], artifact } } : {}))
+  return artifact
+}
+
+/** POST /api/artifacts/:id/duplicate — a new artifact in the group from the head version. */
+export const duplicateArtifact = (artifactId: string) =>
+  api.post<ArtifactDto>(`/artifacts/${artifactId}/duplicate`)
+
+/** POST /api/artifacts/:id/archive — gone from the group; its files stay and it can be restored. */
+export const archiveArtifact = (artifactId: string) =>
+  api.post<ArtifactDto>(`/artifacts/${artifactId}/archive`)
+
 /** Opens the artifact's canvas in the workbench; false (and a toast) when the workbench is full. */
 export const openArtifact = (artifactId: string, title = '') =>
   openTab({ kind: 'artifact', artifactId, title })
 
+/** Where the canvas goes once it shows: these screens selected and in view, on `versionId` (null: the head). */
+export interface ArtifactFocus {
+  screenIds: string[]
+  versionId: string | null
+  /** Bumped per request, so asking for the same place again still moves the canvas there. */
+  seq: number
+}
+
+const useFocus = create<Record<string, ArtifactFocus>>()(() => ({}))
+let focusSeq = 0
+
+/** The canvas's pending focus request, if any; it clears it with `takeArtifactFocus` once done. */
+export const useArtifactFocus = (artifactId: string) => useFocus((s) => s[artifactId])
+export const takeArtifactFocus = (artifactId: string) =>
+  useFocus.setState((s) => {
+    const { [artifactId]: _, ...rest } = s
+    return rest
+  }, true)
+
+/**
+ * Opens the artifact's canvas on `screenIds` (a deep link, a message's context, a run's changed screens); a past
+ * `versionId` is shown read-only.
+ */
+export function focusArtifact(
+  artifactId: string,
+  o: { screenIds?: string[]; versionId?: string | null; title?: string } = {},
+) {
+  useFocus.setState({
+    [artifactId]: { screenIds: o.screenIds ?? [], versionId: o.versionId ?? null, seq: ++focusSeq },
+  })
+  return openArtifact(artifactId, o.title)
+}
+
+/** The page link that opens the artifact on these screens: `/g/<group>?artifact=<id>&screens=<a,b>`. */
+export const artifactLink = (groupId: string, artifactId: string, screenIds: string[] = []) =>
+  `${location.origin}/g/${groupId}?${new URLSearchParams({
+    artifact: artifactId,
+    ...(screenIds.length ? { screens: screenIds.join(',') } : {}),
+  })}`
+
 /** Tests: forget loaded artifacts. */
 export function resetArtifacts() {
   useStore.setState({}, true)
+  useFocus.setState({}, true)
 }

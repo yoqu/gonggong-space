@@ -21,6 +21,7 @@ import {
   toast,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import { ROLE_LABEL } from './DesignSystemNode'
 import { frontMatterName, renderableMd, setFrontMatter } from './designMd'
 import {
   applyDesignSystem,
@@ -34,7 +35,7 @@ import {
 } from './designSystem'
 import { isHex, type Mode, modeOf, neutralRole, neutralScheme, seedScheme } from './palette'
 import { readArtifactFile } from './store'
-import { type DesignTokens, parseTokens } from './tokens'
+import { type ColorRole, colorRoles, type DesignTokens, parseTokens } from './tokens'
 import './design-system-panel.css'
 
 interface Draft {
@@ -131,11 +132,15 @@ export function useDesignSystem(o: {
 
   return {
     tokens,
+    /** The shown DESIGN.md (the draft's while editing); null when there is none or while it loads. */
+    md: shown?.md ?? null,
     dirty,
     /** Runs `proceed` now, or after the member agrees to drop the unsaved changes. */
     guard: (proceed: () => void) => (isDirty(draft) ? setLeaving(() => proceed) : proceed()),
-    panel: (close: () => void) => (
+    panel: (close: () => void, tab: DesignTab = 'theme') => (
       <DesignSystemPanel
+        key={tab}
+        initialTab={tab}
         artifactId={o.artifactId}
         base={base}
         loading={o.css !== null && !base}
@@ -189,9 +194,15 @@ const FONT_STACKS = [
 const CUSTOM = 'custom'
 const squash = (v: string) => v.replace(/\s+/g, ' ').trim()
 
+/** Colours a role shows before its 「+n」. */
+const ROLE_PREVIEW = 3
+
 const NUMBER = /^(-?\d*\.?\d+)([a-z%]*)$/i
 
+export type DesignTab = 'theme' | 'md'
+
 function DesignSystemPanel({
+  initialTab,
   artifactId,
   base,
   loading,
@@ -201,6 +212,7 @@ function DesignSystemPanel({
   bot,
   onClose,
 }: {
+  initialTab: DesignTab
   artifactId: string
   base: DesignFiles | null
   loading: boolean
@@ -210,7 +222,8 @@ function DesignSystemPanel({
   bot: { id: string; name: string } | null
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<'theme' | 'md'>('theme')
+  const [tab, setTab] = useState<DesignTab>(initialTab)
+  const [expanded, setExpanded] = useState<ColorRole[]>([])
   const [presets, setPresets] = useState<DesignSystemPreset[]>([])
   const [preset, setPreset] = useState<DesignSystemPreset | null>(null)
   const [busy, setBusy] = useState(false)
@@ -426,29 +439,52 @@ function DesignSystemPanel({
             </Section>
 
             <Section title={t('色板')}>
-              <ul className="art-dsp__list">
-                {Object.entries(colors).map(([k, v]) => (
-                  <li key={k} className="art-dsp__color">
-                    {isHex(v) ? (
-                      <ColorWell
-                        aria-label={k}
-                        value={v}
-                        onChange={(c) => !locked && setTokens({ [`--color-${k}`]: c })}
-                      />
-                    ) : (
-                      <span className="art-dsp__swatch" style={{ background: v }} />
-                    )}
-                    <span className="art-dsp__label">{k}</span>
-                    <TokenInput
-                      name={`--color-${k}`}
-                      value={v}
-                      invalid={invalid}
-                      locked={locked}
-                      onSet={setTokens}
-                    />
-                  </li>
-                ))}
-              </ul>
+              {colorRoles(Object.entries(colors).map(([name, value]) => ({ name, value }))).map((g) => {
+                const all = expanded.includes(g.role)
+                const extra = g.items.length - ROLE_PREVIEW
+                return (
+                  <div key={g.role} className="art-dsp__role" data-testid={`art-dsp-role-${g.role}`}>
+                    <div className="art-dsp__rolehead">
+                      <span>{ROLE_LABEL[g.role]}</span>
+                      {extra > 0 ? (
+                        <button
+                          type="button"
+                          className="art-dsp__more"
+                          aria-expanded={all}
+                          onClick={() =>
+                            setExpanded((x) => (all ? x.filter((r) => r !== g.role) : [...x, g.role]))
+                          }
+                        >
+                          {all ? t('收起') : `+${extra}`}
+                        </button>
+                      ) : null}
+                    </div>
+                    <ul className="art-dsp__list">
+                      {(all ? g.items : g.items.slice(0, ROLE_PREVIEW)).map(({ name: k, value: v }) => (
+                        <li key={k} className="art-dsp__color">
+                          {isHex(v) ? (
+                            <ColorWell
+                              aria-label={k}
+                              value={v}
+                              onChange={(c) => !locked && setTokens({ [`--color-${k}`]: c })}
+                            />
+                          ) : (
+                            <span className="art-dsp__swatch" style={{ background: v }} />
+                          )}
+                          <span className="art-dsp__label">{k}</span>
+                          <TokenInput
+                            name={`--color-${k}`}
+                            value={v}
+                            invalid={invalid}
+                            locked={locked}
+                            onSet={setTokens}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
             </Section>
 
             {fontVars.length || tk.type.length ? (

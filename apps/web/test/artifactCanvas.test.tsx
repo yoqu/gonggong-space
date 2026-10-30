@@ -1,9 +1,11 @@
 import type { ArtifactDto, ArtifactVersionDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
 import { acceptBridge, markReady, postToScreen } from '../src/features/artifacts/bridge'
+import { requestDesignPanel } from '../src/features/artifacts/context'
 import { besideBox } from '../src/features/artifacts/ElementPopover'
 import {
   type CanvasNode,
@@ -11,10 +13,19 @@ import {
   fitView,
   layoutNodes,
   neighbour,
+  nodesInRect,
+  rectOf,
   revealView,
 } from '../src/features/artifacts/geometry'
-import { resetArtifacts } from '../src/features/artifacts/store'
-import { parseTokens } from '../src/features/artifacts/tokens'
+import { implementationPrompt } from '../src/features/artifacts/implPrompt'
+import { useLinkedArtifact } from '../src/features/artifacts/link'
+import {
+  artifactLink,
+  focusArtifact,
+  resetArtifacts,
+  useArtifactFocus,
+} from '../src/features/artifacts/store'
+import { colorRole, colorRoles, parseTokens } from '../src/features/artifacts/tokens'
 import { realtime } from '../src/lib/realtime'
 import { mockApi } from './mockApi'
 
@@ -201,6 +212,8 @@ describe('bridge', () => {
   it('tells the screens the tool, and lets them take the pointer only for mark and edit', async () => {
     mockApi(routes())
     await renderTab()
+    // The frame can show before the bridge's listener is in: let the effects of that render run first.
+    await act(async () => {})
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
@@ -430,7 +443,11 @@ describe('shortcuts', () => {
     const row = (name: string) => within(dialog).getByText(name).closest('.art-keys__row') as HTMLElement
     for (const name of ['聚焦所选', '下一屏', '创建副本', '显示连线', '下载所选'])
       expect(row(name).classList.contains('art-keys__row--soon')).toBe(false)
-    expect(row('保存').classList.contains('art-keys__row--soon')).toBe(true)
+    // Every change is a version at once: there is no ⌘S. ⌘K, hold Z and ⇧ drag are in the sheet and work.
+    expect(within(dialog).queryByText('保存')).toBeNull()
+    for (const name of ['命令菜单', '缩放（按住，⌥ 缩小）', '框选'])
+      expect(row(name).classList.contains('art-keys__row--soon')).toBe(false)
+    expect(dialog.querySelector('.art-keys__row--soon')).toBeNull()
   })
 })
 
@@ -743,5 +760,364 @@ describe('Stitch round 2 fixes', () => {
     expect(document.activeElement).toBe(canvas())
     key('?', { shiftKey: true, code: 'Slash' })
     expect(await screen.findByRole('dialog', { name: '快捷键' })).toBeTruthy()
+  })
+})
+
+// Round 3 of docs/plan/stitch-对比-第3轮.md (§3 web P1).
+const DESIGN_MD = `---
+name: 阅境
+colors:
+  primary: "#155332"
+  surface: "#FFFFFF"
+---
+
+# 阅境设计系统
+
+正文用宋体，强调克制的留白。
+`
+const withDesignMd = () =>
+  routes({
+    'GET /artifacts/a1/versions/v2': detail({
+      files: [file('gg-artifact.json'), file('tokens.css'), file('DESIGN.md'), file('screens/home.html')],
+    }),
+    'GET /artifacts/a1/files/DESIGN.md?version=v2': () => new Response(DESIGN_MD),
+  })
+const stubClipboard = () => {
+  const writeText = vi.fn(async (_: string) => {})
+  vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+  return writeText
+}
+const zoomText = () => screen.getByRole('button', { name: '缩放' }).textContent
+const selectedIds = () =>
+  [...document.querySelectorAll('[data-testid^="art-select-"]')].map((el) =>
+    (el as HTMLElement).dataset.testid?.slice('art-select-'.length),
+  )
+
+describe('G02 right-click on a screen title', () => {
+  it('gives the screen menu and selects the screen', async () => {
+    mockApi(routes())
+    await renderTab()
+    const title = screen.getByRole('button', { name: '书籍详情' })
+    fireEvent.contextMenu(title)
+    const menu = screen.getByRole('menu')
+    expect(item(menu, /添加到对话/)).toBeTruthy()
+    expect(selectedIds()).toEqual(['detail'])
+  })
+})
+
+describe('G03 command menu and deep links', () => {
+  it('opens on ⌘K inside the canvas without reaching the app search, and runs the picked entry', async () => {
+    mockApi(routes())
+    await renderTab()
+    const appSearch = vi.fn()
+    document.addEventListener('keydown', appSearch)
+    key('k', { metaKey: true })
+    document.removeEventListener('keydown', appSearch)
+    expect(appSearch).not.toHaveBeenCalled()
+    const menu = await screen.findByTestId('art-command-menu')
+    const input = within(menu).getByRole('combobox', { name: '搜索命令' })
+    // Single-screen commands say why they cannot run yet.
+    fireEvent.change(input, { target: { value: '重新生成' } })
+    const regen = within(menu).getByRole('option', { name: /重新生成/ })
+    expect(regen.getAttribute('aria-disabled')).toBe('true')
+    expect(regen.textContent).toContain('先选中屏幕')
+    // A screen jumps there.
+    fireEvent.change(input, { target: { value: '书籍' } })
+    expect(within(menu).getAllByRole('option')[0]?.textContent).toContain('书籍详情')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(screen.queryByTestId('art-command-menu')).toBeNull())
+    expect(selectedIds()).toEqual(['detail'])
+  })
+
+  it('lists tools and view commands, and runs them', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('k', { metaKey: true })
+    const menu = await screen.findByTestId('art-command-menu')
+    const input = within(menu).getByRole('combobox', { name: '搜索命令' })
+    fireEvent.change(input, { target: { value: '抓手' } })
+    fireEvent.click(within(menu).getByRole('option', { name: /抓手/ }))
+    expect(screen.getByRole('button', { name: '抓手' }).getAttribute('aria-pressed')).toBe('true')
+    key('k', { metaKey: true })
+    const again = await screen.findByTestId('art-command-menu')
+    fireEvent.change(within(again).getByRole('combobox'), { target: { value: '缩放到 100%' } })
+    fireEvent.keyDown(within(again).getByRole('combobox'), { key: 'Enter' })
+    await waitFor(() => expect(zoomText()).toBe('100%'))
+  })
+
+  it('opens from the artifact menu in the tab bar', async () => {
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(screen.getByRole('button', { name: '产物菜单' }))
+    fireEvent.click(item(screen.getByRole('menu'), /命令菜单/))
+    expect(await screen.findByTestId('art-command-menu')).toBeTruthy()
+  })
+
+  it('focuses the screens a link or a card asks for', async () => {
+    mockApi(routes())
+    await renderTab()
+    act(() => {
+      focusArtifact('a1', { screenIds: ['detail'] })
+    })
+    await waitFor(() => expect(selectedIds()).toEqual(['detail']))
+    expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
+      { kind: 'artifact', artifactId: 'a1', title: '' },
+    ])
+  })
+
+  it('shows the past version a run card asks for, read-only', async () => {
+    mockApi(routes({ 'GET /artifacts/a1/versions/v1': detail({ id: 'v1', n: 1 }) }))
+    await renderTab()
+    act(() => {
+      focusArtifact('a1', { screenIds: ['home'], versionId: 'v1' })
+    })
+    expect(await screen.findByText('正在查看 v1（只读）')).toBeTruthy()
+    await waitFor(() => expect(selectedIds()).toEqual(['home']))
+  })
+
+  it('reads ?artifact=&screens= from the page link', async () => {
+    const link = artifactLink('g1', 'a1', ['home', 'detail'])
+    expect(link).toBe(`${location.origin}/g/g1?artifact=a1&screens=home%2Cdetail`)
+    let focus: ReturnType<typeof useArtifactFocus>
+    function Probe() {
+      useLinkedArtifact('g1')
+      focus = useArtifactFocus('a1')
+      return null
+    }
+    render(
+      <MemoryRouter initialEntries={[link.slice(location.origin.length)]}>
+        <Probe />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(focus?.screenIds).toEqual(['home', 'detail']))
+    expect(useWorkbench.getState().benches.g1?.active).toBe('artifact:a1')
+  })
+})
+
+describe('G05 marquee', () => {
+  it('finds the nodes a rectangle touches', () => {
+    const n = (id: string, x: number): CanvasNode => ({
+      id,
+      kind: 'screen',
+      title: id,
+      file: '',
+      x,
+      y: 0,
+      w: 100,
+      h: 100,
+    })
+    const nodes = [n('a', 0), n('b', 200), n('c', 400)]
+    expect(rectOf(250, 50, 50, 10)).toEqual({ x: 50, y: 10, w: 200, h: 40 })
+    expect(nodesInRect(nodes, rectOf(50, 10, 250, 50)).map((x) => x.id)).toEqual(['a', 'b'])
+    expect(nodesInRect(nodes, rectOf(110, 10, 190, 50))).toEqual([])
+  })
+
+  it('selects with ⇧ drag, and a plain drag still pans', async () => {
+    mockApi(routes())
+    await renderTab()
+    const plane = screen.getByTestId('art-plane')
+    const drag = (shiftKey: boolean, to: number) => {
+      fireEvent.pointerDown(plane, { button: 0, pointerId: 1, clientX: 0, clientY: 0, shiftKey })
+      fireEvent.pointerMove(plane, { pointerId: 1, clientX: to, clientY: to, shiftKey })
+      if (shiftKey) expect(screen.getByTestId('art-marquee')).toBeTruthy()
+      fireEvent.pointerUp(plane, { pointerId: 1 })
+    }
+    const world = () => (canvas().querySelector('.art-world') as HTMLElement).style.transform
+    const before = world()
+    drag(false, 50)
+    expect(world()).not.toBe(before)
+    expect(selectedIds()).toEqual([])
+    const moved = world()
+    drag(true, 4000)
+    expect(world()).toBe(moved)
+    expect(screen.queryByTestId('art-marquee')).toBeNull()
+    expect(selectedIds()).toEqual(expect.arrayContaining(['home', 'detail']))
+  })
+})
+
+describe('G06 DESIGN.md node', () => {
+  it('sits beside the design system when the version has DESIGN.md', () => {
+    const base = { title: 't', manifest, frames: {}, content: {} }
+    const without = layoutNodes({ ...base, system: 400 }).nodes
+    const withDoc = layoutNodes({ ...base, system: 400, doc: 500 }).nodes
+    expect(without.map((n) => n.kind)).toEqual(['system', 'screen', 'screen', 'prototype'])
+    expect(withDoc.map((n) => n.kind)).toEqual(['system', 'doc', 'screen', 'screen', 'prototype'])
+    const doc = withDoc[1] as CanvasNode
+    expect(doc.x).toBe(720 + 120)
+    expect((withDoc[2] as CanvasNode).x).toBe(doc.x + doc.w + 120)
+  })
+
+  it('renders the prose and opens the panel on its DESIGN.md page on double-click', async () => {
+    mockApi(withDesignMd())
+    await renderTab()
+    const card = await screen.findByTestId('art-design-md')
+    expect(within(card).getByText('阅境设计系统')).toBeTruthy()
+    expect(card.textContent).not.toContain('colors:')
+    fireEvent.doubleClick(node('@design-md'))
+    const panel = await screen.findByRole('complementary', { name: '设计系统' })
+    expect(within(panel).getByRole('tab', { name: 'DESIGN.md' }).getAttribute('aria-selected')).toBe('true')
+  })
+})
+
+describe('G01 copy as', () => {
+  it('copies a screen’s code and a link to the selection, and ⌘C puts the code on the clipboard', async () => {
+    const writeText = stubClipboard()
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(item(openContext('home'), /复制为/))
+    fireEvent.click(item(screen.getAllByRole('menu').at(-1) as HTMLElement, /复制代码/))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    expect(writeText.mock.calls[0]?.[0]).toContain('<!-- screens/home.html -->\n<!doctype html>')
+    fireEvent.click(item(openContext('home'), /复制为/))
+    fireEvent.click(item(screen.getAllByRole('menu').at(-1) as HTMLElement, /复制选区链接/))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2))
+    expect(writeText.mock.calls[1]?.[0]).toBe(`${location.origin}/g/g1?artifact=a1&screens=home`)
+    key('c', { metaKey: true })
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(3))
+    expect(writeText.mock.calls[2]?.[0]).toContain('<body>首页</body>')
+  })
+})
+
+describe('G15 hold Z to zoom', () => {
+  it('zooms in where clicked while Z is held, out with ⌥, and stops on release', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('0', { shiftKey: true, code: 'Digit0' })
+    expect(zoomText()).toBe('100%')
+    const plane = screen.getByTestId('art-plane')
+    key('z')
+    expect(plane.classList.contains('art-plane--zoom-in')).toBe(true)
+    fireEvent.pointerDown(plane, { button: 0, pointerId: 1, clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(plane, { pointerId: 1 })
+    expect(zoomText()).toBe('125%')
+    fireEvent.pointerDown(plane, { button: 0, pointerId: 2, clientX: 10, clientY: 10, altKey: true })
+    fireEvent.pointerUp(plane, { pointerId: 2 })
+    expect(zoomText()).toBe('100%')
+    fireEvent.keyUp(canvas(), { key: 'z' })
+    expect(plane.classList.contains('art-plane--zoom-in')).toBe(false)
+  })
+})
+
+describe('G13 palette by role', () => {
+  it('sorts colour tokens into roles by name', () => {
+    expect(colorRole('on-primary')).toBe('primary')
+    expect(colorRole('tertiary-container')).toBe('accent')
+    expect(colorRole('on-surface-variant')).toBe('neutral')
+    expect(colorRole('danger')).toBe('semantic')
+    expect(colorRole('evil')).toBe('other')
+    const roles = colorRoles(parseTokens(TOKENS).colors.map((g) => ({ ...g, name: g.group })))
+    expect(roles.map((r) => r.role)).toEqual(['primary', 'neutral'])
+  })
+
+  it('groups the node’s and the panel’s palette, folding long groups behind +n', async () => {
+    const css = TOKENS.replace('--rounded-sm', '--color-outline: #DDDDDD;\n  --rounded-sm')
+    mockApi(routes({ 'GET /artifacts/a1/files/tokens.css?version=v2': () => new Response(css) }))
+    await renderTab()
+    await screen.findByTestId('art-ds-role-primary')
+    expect(within(screen.getByTestId('art-ds-role-neutral')).getByText('中性色')).toBeTruthy()
+    fireEvent.contextMenu(screen.getByTestId('art-plane'))
+    fireEvent.click(item(screen.getByRole('menu'), /设计系统/))
+    const neutral = await screen.findByTestId('art-dsp-role-neutral')
+    expect(within(neutral).getAllByRole('listitem')).toHaveLength(3)
+    fireEvent.click(within(neutral).getByRole('button', { name: '+1' }))
+    expect(within(neutral).getAllByRole('listitem')).toHaveLength(4)
+    expect(within(screen.getByTestId('art-dsp-role-primary')).getAllByRole('listitem')).toHaveLength(2)
+  })
+})
+
+describe('G17 implementation prompt', () => {
+  it('writes the folder, screens, flows and design tokens for a coding agent', () => {
+    const text = implementationPrompt({
+      title: '读书会小程序',
+      dir: 'design/app',
+      manifest: {
+        ...manifest,
+        screens: [{ ...manifest.screens[0], prompt: '首页：金句与共读' }, manifest.screens[1]],
+      } as never,
+      links: [{ from: 'home', to: 'detail', ggId: '1', text: '查看详情' }],
+      designMd: DESIGN_MD,
+      tokens: [],
+    })
+    expect(text).toContain('design/app/')
+    expect(text).toContain('- home「首页」：design/app/screens/home.html')
+    expect(text).toContain('说明：首页：金句与共读')
+    expect(text).toContain('- 首页 → 书籍详情（点「查看详情」）')
+    expect(text).toContain('- colors.primary: #155332')
+    expect(text).toContain('- name: 阅境')
+  })
+
+  it('is a format of the export panel, copied to the clipboard', async () => {
+    const writeText = stubClipboard()
+    mockApi(routes())
+    await renderTab()
+    key('e', { metaKey: true, shiftKey: true })
+    const panel = await screen.findByTestId('art-export')
+    fireEvent.click(within(panel).getByRole('radio', { name: '实现提示词' }))
+    expect(screen.getByTestId('art-export-prompt').textContent).toContain(
+      'design/app-screens-ab12/screens/home.html',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
+    expect(writeText.mock.calls[0]?.[0]).toContain('--color-primary: #155332')
+  })
+})
+
+describe('G14 tips and the composer’s design-system entry', () => {
+  it('turns tips over and remembers closing them', async () => {
+    mockApi(routes())
+    await renderTab()
+    const tip = screen.getByTestId('art-tip')
+    const first = tip.textContent
+    fireEvent.click(within(tip).getByRole('button', { name: '下一条' }))
+    expect(screen.getByTestId('art-tip').textContent).not.toBe(first)
+    fireEvent.click(within(tip).getByRole('button', { name: '不再显示提示' }))
+    expect(screen.queryByTestId('art-tip')).toBeNull()
+    expect(localStorage.getItem('gg.art.tips')).toBe('off')
+  })
+
+  it('opens the design-system panel when the composer asks', async () => {
+    mockApi(routes())
+    await renderTab()
+    act(() => requestDesignPanel('a1'))
+    expect(await screen.findByRole('complementary', { name: '设计系统' })).toBeTruthy()
+  })
+})
+
+describe('G18 artifact menu', () => {
+  it('renames in the bar, duplicates into a new tab and deletes after confirming', async () => {
+    const calls = mockApi(
+      routes({
+        'PATCH /artifacts/a1': (body: unknown) => artifact({ title: (body as { title: string }).title }),
+        'POST /artifacts/a1/duplicate': artifact({ id: 'a2', title: '读书会小程序（副本）' }),
+        'POST /artifacts/a1/archive': artifact({ archivedAt: at }),
+      }),
+    )
+    useWorkbench.getState().show(tab)
+    await renderTab()
+    const menu = () => {
+      fireEvent.click(screen.getByRole('button', { name: '产物菜单' }))
+      return screen.getByRole('menu')
+    }
+    fireEvent.click(item(menu(), /重命名/))
+    const input = screen.getByRole('textbox', { name: '产物名称' })
+    fireEvent.change(input, { target: { value: '共读小程序' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ title: '共读小程序' }),
+    )
+    expect(await screen.findByRole('heading', { name: '共读小程序' })).toBeTruthy()
+
+    fireEvent.click(item(menu(), /创建副本/))
+    await waitFor(() => expect(useWorkbench.getState().benches.g1?.active).toBe('artifact:a2'))
+
+    fireEvent.click(item(menu(), /删除产物/))
+    const dialog = await screen.findByRole('alertdialog', { name: '删除产物「共读小程序」？' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '删除' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/artifacts/a1/archive')).toBe(true))
+    await waitFor(() =>
+      expect(
+        useWorkbench.getState().benches.g1?.tabs.map((x) => x.kind === 'artifact' && x.artifactId),
+      ).toEqual(['a2']),
+    )
   })
 })

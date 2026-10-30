@@ -1,22 +1,40 @@
 import type { ArtifactVersionDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
+import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
 import { ago } from '../../lib/time'
-import { Button, EmptyState, Icon, MenuButton, Presence, Skeleton, Spinner, Tag } from '../../ui'
+import {
+  Button,
+  ConfirmActionDialog,
+  EmptyState,
+  Icon,
+  MenuButton,
+  Presence,
+  Skeleton,
+  Spinner,
+  Tag,
+  toast,
+} from '../../ui'
 import type { TabMeta, TabProps } from '../workbench/types'
-import { Canvas } from './Canvas'
+import { Canvas, type CanvasRequest } from './Canvas'
 import { useDesignSystem } from './DesignSystemPanel'
+import { downloadUrl, exportZipUrl } from './ExportPanel'
 import { PrototypeEditor } from './PrototypeEditor'
 import { ShareDialog } from './share'
 import {
+  archiveArtifact,
+  duplicateArtifact,
   editArtifact,
   loadArtifact,
+  openArtifact,
   readArtifactFile,
+  renameArtifact,
   restoreVersion,
   setFavorites,
   useArtifact,
   useArtifactEntry,
+  useArtifactFocus,
   useArtifactPreview,
   useVersionDetail,
 } from './store'
@@ -36,7 +54,16 @@ const versionNote = (v: ArtifactVersionDto) =>
  * A hosted artifact in the workbench (docs/plan/原型编辑器-Stitch对标-开发计划.md, B3): its versions on top, its screens on
  * the canvas. The server hosts it, so it opens whether or not the bot's machine is online.
  */
-export function ArtifactTab({ tab }: TabProps<'artifact'>) {
+const PROJECT = {
+  rename: 'rename',
+  duplicate: 'duplicate',
+  download: 'download',
+  commands: 'commands',
+  shortcuts: 'shortcuts',
+  archive: 'archive',
+} as const
+
+export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
   const entry = useArtifact(tab.artifactId)
   const a = entry?.artifact
   /** A past version looked at, read-only; null = the head. */
@@ -45,7 +72,10 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
   /** The prototype editor, on the screen it opened on; null: the canvas. */
   const [proto, setProto] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
-  const [exportRequest, setExportRequest] = useState(0)
+  const [request, setRequest] = useState<CanvasRequest | null>(null)
+  const ask = (what: CanvasRequest['what']) => setRequest((r) => ({ what, n: (r?.n ?? 0) + 1 }))
+  const [renaming, setRenaming] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const head = a?.headVersionId ?? null
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
@@ -60,6 +90,15 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
     readOnly,
     author: entry?.versions.findLast((v) => v.source === 'run')?.authorName ?? null,
   })
+
+  // A focus request on a past version (a run card's 在画布中查看) shows that version; the canvas then focuses.
+  const focusAsk = useArtifactFocus(tab.artifactId)
+  useEffect(() => {
+    if (!focusAsk || !head) return
+    setProto(null)
+    const want = focusAsk.versionId && focusAsk.versionId !== head ? focusAsk.versionId : null
+    if (focusAsk.versionId || viewing) setViewing(want)
+  }, [focusAsk, head, viewing])
 
   // Instant Prototype opens the editor once the bot's run on it ends (Stitch: Generate Prototype → the editor).
   const awaitProto = useRef<'asked' | 'running' | null>(null)
@@ -104,6 +143,24 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
       />
     )
 
+  const projectAction = async (value: string) => {
+    if (value === PROJECT.rename) return setRenaming(true)
+    if (value === PROJECT.commands) return ask('commands')
+    if (value === PROJECT.shortcuts) return ask('shortcuts')
+    if (value === PROJECT.archive) return setArchiving(true)
+    if (value === PROJECT.download) return head ? downloadUrl(exportZipUrl(a.id, head)) : undefined
+    if (value === PROJECT.duplicate)
+      await attempt(async () => {
+        const copy = await duplicateArtifact(a.id)
+        toast({ type: 'success', message: t('已创建副本「{title}」', { title: copy.title }) })
+        openArtifact(copy.id, copy.title)
+      })
+  }
+  const rename = (next: string | null) => {
+    setRenaming(false)
+    if (next && next !== a.title) void attempt(() => renameArtifact(a.id, next))
+  }
+
   const versions = [...entry.versions].reverse()
   const current = entry.versions.find((v) => v.id === shown)
   const shownManifest = viewing ? (detail?.id === viewing ? detail.manifest : null) : a.manifest
@@ -147,10 +204,32 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
   return (
     <div className="art">
       <header className="art-bar">
-        <Icon name="grid" size={15} className="art-bar__icon" />
-        <h2 className="art-bar__title" title={a.title}>
-          {a.title}
-        </h2>
+        <MenuButton
+          className="ui-btn ui-btn--plain ui-btn--small art-bar__menu"
+          aria-label={t('产物菜单')}
+          items={[
+            { label: t('重命名'), value: PROJECT.rename },
+            { label: t('创建副本'), value: PROJECT.duplicate },
+            { label: t('下载 .zip'), value: PROJECT.download, disabled: !head },
+            { separator: true },
+            { label: t('命令菜单'), value: PROJECT.commands, shortcut: '⌘K', disabled: !head },
+            { label: t('快捷键'), value: PROJECT.shortcuts, shortcut: '?', disabled: !head },
+            { separator: true },
+            { label: t('删除产物'), value: PROJECT.archive, destructive: true },
+          ]}
+          onSelect={(v) => void projectAction(v)}
+        >
+          <Icon name="grid" size={15} className="art-bar__icon" />
+          <Icon name="chevron-down" size={10} weight={2} />
+        </MenuButton>
+        {renaming ? (
+          <TitleField title={a.title} onDone={rename} />
+        ) : (
+          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: a shortcut; the menu renames from the keyboard
+          <h2 className="art-bar__title" title={a.title} onDoubleClick={() => setRenaming(true)}>
+            {a.title}
+          </h2>
+        )}
         {versions.length ? (
           <MenuButton
             className="ui-btn ui-btn--plain ui-btn--small art-bar__version"
@@ -182,7 +261,7 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
         >
           {t('演示')}
         </Button>
-        <Button size="small" icon="download" disabled={!head} onClick={() => setExportRequest((n) => n + 1)}>
+        <Button size="small" icon="download" disabled={!head} onClick={() => ask('export')}>
           {t('导出')}
         </Button>
         <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
@@ -231,9 +310,11 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
           onFavourites={(ids) => void attempt(() => setFavorites(tab.artifactId, ids))}
           onPresent={present}
           readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
+          dir={a.dir}
+          designMd={design.md}
           designPanel={design.panel}
           guardDesign={design.guard}
-          exportRequest={exportRequest}
+          request={request}
           versions={entry.versions}
           onViewVersion={(id) => setViewing(id === head ? null : id)}
           onPrototypeAsked={() => {
@@ -243,7 +324,52 @@ export function ArtifactTab({ tab }: TabProps<'artifact'>) {
       )}
       {design.dialog}
       {shareDialog}
+      <Presence>
+        {archiving ? (
+          <ConfirmActionDialog
+            title={t('删除产物「{title}」？', { title: a.title })}
+            message={t('从群里移除，群成员不再看到它')}
+            consequences={[t('文件和版本保留，可以恢复')]}
+            label={t('删除')}
+            done={t('已删除')}
+            run={() => archiveArtifact(a.id)}
+            onDone={() => useWorkbench.getState().closeTab(tabKey)}
+            onClose={() => setArchiving(false)}
+          />
+        ) : null}
+      </Presence>
     </div>
+  )
+}
+
+/** The artifact's title, renamed in place: Enter saves, Esc or leaving cancels. */
+function TitleField({ title, onDone }: { title: string; onDone: (title: string | null) => void }) {
+  const [value, setValue] = useState(title)
+  const done = useRef(false)
+  const finish = (next: string | null) => {
+    if (done.current) return
+    done.current = true
+    onDone(next)
+  }
+  return (
+    <input
+      className="ui-input art-bar__rename"
+      aria-label={t('产物名称')}
+      value={value}
+      maxLength={80}
+      // biome-ignore lint/a11y/noAutofocus: opened on purpose by Rename
+      autoFocus
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) finish(value.trim() || null)
+        else if (e.key === 'Escape') {
+          e.stopPropagation()
+          finish(null)
+        }
+      }}
+      onBlur={() => finish(null)}
+    />
   )
 }
 

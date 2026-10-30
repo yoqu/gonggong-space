@@ -761,6 +761,23 @@ describe('插件 · 创作请求卡片', () => {
     expect(within(dialog).getByLabelText('将交给 AI 的内容').textContent).toContain('模板：活动报名页')
   })
 
+  it('folds a long parameter such as a pasted DESIGN.md to its first lines until expanded', async () => {
+    const md = ['---', 'name: 阅境', '---', '# 阅境', '正文用宋体', '留白克制'].join('\n')
+    const long = { ...card, inputs: [{ label: '粘贴 DESIGN.md', value: md }, ...card.inputs] }
+    mockApi(chatRoutes([plugin()], [msg({ seq: 1, body: 'x', card: long })]))
+    renderAt('/g/g1')
+    const c = await screen.findByTestId('creation-card')
+    // The summary quotes only its first line.
+    expect(c.textContent).toContain('「---…」')
+    fireEvent.click(within(c).getByRole('button', { name: '查看全部' }))
+    const folded = within(c).getByTestId('creation-input-long')
+    expect(folded.textContent).not.toContain('留白克制')
+    fireEvent.click(within(folded).getByRole('button', { name: '展开（共 6 行）' }))
+    expect(folded.textContent).toContain('留白克制')
+    fireEvent.click(within(folded).getByRole('button', { name: '收起' }))
+    expect(folded.textContent).not.toContain('留白克制')
+  })
+
   it("改参数重做… opens on the group of the card's template", async () => {
     mockApi(chatRoutes([catalogue], [msg({ seq: 1, body: 'x', card: { ...card, designSystem: null } })]))
     renderAt('/g/g1')

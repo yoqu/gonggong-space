@@ -67,6 +67,8 @@ import { reedit, useRecalled } from './recalled'
 import './recall.css'
 import { t } from '../../i18n'
 import { Linkified } from '../../lib/links'
+import { MessageCanvasChips, RunArtifactsLine } from '../artifacts/CanvasRefs'
+import { messageCanvas, runArtifacts } from '../artifacts/runContext'
 import { usePins } from './PinnedMessages'
 
 const TONE: Record<RunStatus, TagTone> = {
@@ -408,6 +410,7 @@ export const UserMessage = memo(function UserMessage({
     (s) => s.groups.find((g) => g.id === m.groupId)?.members.find((x) => x.userId === m.authorId)?.avatar,
   )
   const unnamed = useUnnamedTargets(m)
+  const canvas = messageCanvas(m)
   return (
     <MessageMenu
       {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns)}
@@ -437,9 +440,10 @@ export const UserMessage = memo(function UserMessage({
           bare={!text}
           actionBar={bar}
           footer={
-            text || fanOut.length > 1 ? (
+            text || fanOut.length > 1 || canvas ? (
               <>
                 {text ? <MessageAttachments list={m.attachments} from={m.authorName} /> : null}
+                {canvas ? <MessageCanvasChips canvas={canvas} /> : null}
                 {fanOut.length > 1 ? <FanOut bots={fanOut} /> : null}
               </>
             ) : null
@@ -694,6 +698,7 @@ export const RunCard = memo(function RunCard({
       {t('查看过程')}
     </Button>
   )
+  const made = runArtifacts(run)
   const continued = run.continuationOf ? <Tag tone="purple">{t('后台任务完成后继续')}</Tag> : null
   const sub = t('{agent} · {name} 触发', { agent, name: trigger })
   const meta = (
@@ -712,6 +717,7 @@ export const RunCard = memo(function RunCard({
         <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
         <DelegationFacts d={run.delegation} />
         <RunSyncLine run={run} />
+        {made.length ? <RunArtifactsLine artifacts={made} /> : null}
         {sessionNote ? (
           <span className="run-card__session">
             <Icon name="arrow-clockwise" size={12} />
@@ -800,6 +806,7 @@ export const RunCard = memo(function RunCard({
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
                           <DelegationFacts d={run.delegation} />
                           <RunSyncLine run={run} />
+                          {made.length ? <RunArtifactsLine artifacts={made} /> : null}
                         </div>
                       ) : null}
                       {sessionNote ? (

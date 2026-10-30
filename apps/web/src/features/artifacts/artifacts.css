@@ -120,6 +120,19 @@
   flex: none;
   color: var(--label-secondary);
 }
+.art-bar__menu {
+  flex: none;
+  gap: 2px;
+  margin-left: -6px;
+  padding: 0 6px;
+}
+.art-bar__rename {
+  min-width: 0;
+  max-width: 320px;
+  height: 26px;
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+}
 .art-bar__title {
   min-width: 0;
   margin: 0;
@@ -164,6 +177,10 @@
   overflow: clip;
   outline: none;
 }
+/* The plane's selection shows where the keyboard is; a ring round the whole canvas would only frame the tab. */
+.art-canvas:focus-visible {
+  outline: none;
+}
 .art-plane {
   position: absolute;
   inset: 0;
@@ -173,6 +190,7 @@
   background-size: 24px 24px;
   cursor: default;
   touch-action: none;
+  user-select: none;
 }
 .art-plane--hand {
   cursor: grab;
@@ -776,6 +794,16 @@
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
 }
+.art-ds__role + .art-ds__role {
+  margin-top: 14px;
+}
+.art-ds__role h5 {
+  margin: 0 0 8px;
+  color: var(--a-color-on-surface-variant, #6e6e73);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 .art-ds__group {
   border-radius: 12px;
   background: var(--a-color-surface, #fff);
@@ -1281,4 +1309,146 @@
 }
 .art-el__transition {
   margin-top: var(--space-8);
+}
+
+/* ── Command menu (⌘K) ── */
+.art-cmdk {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(480px, 70vh);
+  padding: 0;
+  overflow: hidden;
+}
+.art-cmdk__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-8);
+  border-bottom: 1px solid var(--separator);
+  color: var(--label-secondary);
+}
+.art-cmdk__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-headline-size);
+}
+.art-cmdk__input:focus,
+.art-cmdk__input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.art-cmdk__input::placeholder {
+  color: var(--label-tertiary);
+}
+.art-cmdk__list {
+  flex: 1;
+  padding: 5px;
+  overflow-y: auto;
+}
+.art-cmdk__group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.art-cmdk__item {
+  height: 30px;
+}
+.art-cmdk__item[aria-disabled] {
+  color: var(--label-tertiary);
+}
+.art-cmdk__item[aria-disabled][data-active] {
+  background: var(--quote-fill);
+  color: var(--label-tertiary);
+}
+.art-cmdk__why {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+.art-cmdk__empty {
+  margin: 0;
+  padding: var(--space-12);
+  color: var(--label-tertiary);
+  text-align: center;
+}
+
+/* ── Marquee (⇧ drag) ── */
+.art-marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  pointer-events: none;
+}
+
+/* ── DESIGN.md node ── */
+.art-doc {
+  position: relative;
+  max-height: 960px;
+  padding: 24px 28px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--content-bg);
+  box-shadow: 0 0 0 1px var(--separator);
+  color: var(--label);
+}
+.art-doc__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+}
+.art-doc--clipped::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 120px;
+  background: linear-gradient(transparent, var(--content-bg));
+  content: "";
+}
+
+/* ── Tips (bottom left) ── */
+.art-tip {
+  user-select: none;
+  position: absolute;
+  bottom: var(--space-12);
+  left: var(--space-12);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: min(420px, calc(100% - 320px));
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--radius-capsule);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-tip > span {
+  flex: 1;
+  min-width: 0;
+}
+.art-tip__next {
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Hold Z: the plane zooms where clicked. */
+.art-plane--zoom-in {
+  cursor: zoom-in;
+}
+.art-plane--zoom-out {
+  cursor: zoom-out;
 }

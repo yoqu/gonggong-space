@@ -24,9 +24,11 @@ export interface Candidate {
   skill?: boolean
   /** A plugin enabled in the group: picking it opens the 创作 panel instead of inserting text. */
   plugin?: string
+  /** Listed but not pickable; `hint` says why. */
+  disabled?: boolean
 }
 
-interface Section {
+export interface Section {
   label: string
   src: string
   items: Candidate[]
@@ -101,7 +103,13 @@ function fileHint(e: FileCandidatesDto['entries'][number]) {
 }
 
 /** @ and / candidates of the composer (spec §8.7): grouped, with file sources and agent commands from the server. */
-export function useCandidates(group: GroupDto, before: string | null, plugins: GroupPluginDto[] = []) {
+export function useCandidates(
+  group: GroupDto,
+  before: string | null,
+  plugins: GroupPluginDto[] = [],
+  /** The artifact commands, listed first under `/` while the composer works on an artifact. */
+  artifact: Candidate[] = [],
+) {
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const people = [
     ...bots.map((b) => ({
@@ -172,6 +180,11 @@ export function useCandidates(group: GroupDto, before: string | null, plugins: G
           },
         ]
       : [
+          {
+            label: t('产物'),
+            src: '',
+            items: artifact.filter((c) => has(c.label) || has(c.key)),
+          },
           {
             label: t('系统命令'),
             src: '',
@@ -330,9 +343,13 @@ export function CandidatePopover({
               role="option"
               tabIndex={-1}
               aria-selected={active === c}
-              className="pn-mentionpicker__item mention-pop__item"
+              aria-disabled={c.disabled || undefined}
+              className={cx(
+                'pn-mentionpicker__item mention-pop__item',
+                c.disabled && 'mention-pop__item--off',
+              )}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onPick(c)}
+              onClick={() => !c.disabled && onPick(c)}
             >
               <Lead c={c} />
               <span className={cx('pn-mentionpicker__name', c.mono && 'mention-pop__mono')} title={c.label}>

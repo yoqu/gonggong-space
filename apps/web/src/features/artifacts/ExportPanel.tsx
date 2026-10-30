@@ -2,18 +2,18 @@ import type { BotDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { copyText } from '../../lib/clipboard'
-import { toastError } from '../../lib/errors'
 import { Button, Icon, RadioGroup, toast } from '../../ui'
+import { copyScreensCode } from './actions'
 import { Panel } from './SidePanel'
 import { screenLink, useArtifactShare } from './share'
 
-type Format = 'zip' | 'code' | 'brief' | 'share'
+type Format = 'zip' | 'code' | 'prompt' | 'brief' | 'share'
 
 /** GET /api/artifacts/:id/export.zip — the version's files and the prototype shell, as `<slug>-v<n>.zip`. */
 export const exportZipUrl = (artifactId: string, versionId: string) =>
   `/api/artifacts/${artifactId}/export.zip?version=${encodeURIComponent(versionId)}`
 
-function download(url: string) {
+export function downloadUrl(url: string) {
   const a = document.createElement('a')
   a.href = url
   a.download = ''
@@ -32,6 +32,7 @@ export function ExportPanel({
   bot,
   shareDenied,
   readFile,
+  prompt,
   onBrief,
   onClose,
 }: {
@@ -45,6 +46,8 @@ export function ExportPanel({
   /** Why this member cannot turn sharing on; null when they can. */
   shareDenied: string | null
   readFile: (file: string) => Promise<string>
+  /** 实现提示词: the prompt for a coding agent (implPrompt.ts). */
+  prompt: string
   onBrief: () => Promise<boolean>
   onClose: () => void
 }) {
@@ -58,17 +61,8 @@ export function ExportPanel({
 
   const copyCode = async () => {
     setBusy(true)
-    try {
-      const parts = await Promise.all(
-        picked.map(async (s) => `<!-- ${s.file} -->\n${await readFile(s.file)}`),
-      )
-      await copyText(parts.join('\n\n'))
-      toast({ type: 'success', message: t('已复制 {n} 个屏幕的代码', { n: picked.length }) })
-    } catch (e) {
-      toastError(e)
-    } finally {
-      setBusy(false)
-    }
+    await copyScreensCode(picked, readFile)
+    setBusy(false)
   }
   const copyLink = async () => {
     const s = share?.enabled ? share : await set(true)
@@ -79,8 +73,13 @@ export function ExportPanel({
     )
   }
   const run = async () => {
-    if (format === 'zip') return download(exportZipUrl(artifactId, versionId))
+    if (format === 'zip') return downloadUrl(exportZipUrl(artifactId, versionId))
     if (format === 'code') return copyCode()
+    if (format === 'prompt')
+      return copyText(prompt).then(
+        () => toast({ type: 'success', message: t('实现提示词已复制') }),
+        () => toast({ type: 'error', message: t('复制失败') }),
+      )
     if (format === 'share') return copyLink()
     setBusy(true)
     await onBrief()
@@ -96,6 +95,11 @@ export function ExportPanel({
     code: {
       label: t('复制代码'),
       note: t('把{scope}的 HTML 源码复制到剪贴板。', { scope }),
+      action: t('复制'),
+    },
+    prompt: {
+      label: t('实现提示词'),
+      note: t('一段可以直接交给编码 Agent 的实现说明：产物目录、每屏说明、跳转关系和设计系统要点。'),
       action: t('复制'),
     },
     brief: {
@@ -142,6 +146,11 @@ export function ExportPanel({
           options={(Object.keys(FORMATS) as Format[]).map((k) => ({ value: k, label: FORMATS[k].label }))}
         />
         <p className="art-export__note">{f.note}</p>
+        {format === 'prompt' ? (
+          <pre className="art-export__prompt" data-testid="art-export-prompt">
+            {prompt}
+          </pre>
+        ) : null}
       </div>
       <div className="art-el__foot">
         <Button variant="primary" loading={busy || sharing} disabled={disabled} onClick={() => void run()}>
