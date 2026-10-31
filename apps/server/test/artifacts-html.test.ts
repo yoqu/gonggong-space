@@ -129,6 +129,15 @@ describe('source edits', () => {
     )
   })
 
+  it('edits the one text run beside icon-only children and keeps the icons and the whitespace', () => {
+    const html = '<div>\n  <svg class="i"><use href="#i-shower"/></svg>热水淋浴\n</div>'
+    expect(editHtml(html, [{ ggId: '0', kind: 'text', text: '冷热 & 淋浴' }])).toBe(
+      '<div>\n  <svg class="i"><use href="#i-shower"/></svg>冷热 &amp; 淋浴\n</div>',
+    )
+    const icon = '<p>价格<i></i><br>¥268</p>'
+    expect(refused(() => editHtml(icon, [{ ggId: '0', kind: 'text', text: 'x' }]))).toContain('子元素')
+  })
+
   it('refuses text edits of elements with children, unknown ids and overlapping ranges', () => {
     expect(refused(() => editHtml(PAGE, [{ ggId: p, kind: 'text', text: 'x' }]))).toContain('子元素')
     expect(refused(() => editHtml(PAGE, [{ ggId: '3', kind: 'text', text: 'x' }]))).toContain('找不到')

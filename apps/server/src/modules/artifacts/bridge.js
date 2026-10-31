@@ -129,6 +129,12 @@
     return parts.join(' > ')
   }
 
+  // Mirrors the server's text edit: no child elements, or one text run beside children that show no text (icons).
+  const textEditable = (el) => {
+    if (el.children.length === 0) return true
+    const runs = [...el.childNodes].filter((n) => n.nodeType === 3 && n.nodeValue.trim() !== '')
+    return runs.length === 1 && [...el.children].every((c) => (c.textContent || '').trim() === '')
+  }
   const describe = (el) => {
     const cs = getComputedStyle(el)
     const transition = el.getAttribute('data-gg-transition')
@@ -141,7 +147,7 @@
       rect: rectOf(el),
       tag: el.tagName.toLowerCase(),
       text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 500),
-      textOnly: el.children.length === 0,
+      textOnly: textEditable(el),
       computed,
       inlineStyle: el.getAttribute('style') || '',
       src: el.getAttribute('src'),

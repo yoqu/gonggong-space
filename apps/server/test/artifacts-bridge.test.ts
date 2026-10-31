@@ -159,6 +159,17 @@ describe('gg-bridge', () => {
     expect(pageSaw).toBe(1)
   })
 
+  it('lets the text beside icon-only children be edited, not text spread over children', () => {
+    const s = screen(`<!doctype html><html><body>
+<div id="f"><svg class="i"><use href="#i-shower"/></svg>热水淋浴</div><p id="m">说明 <b>重点</b></p>
+</body></html>`)
+    s.send({ type: 'mode', mode: 'edit' })
+    s.click('#f')
+    expect(s.last()).toMatchObject({ type: 'select', text: '热水淋浴', textOnly: true })
+    s.click('#m')
+    expect(s.last()).toMatchObject({ type: 'select', text: '说明 重点', textOnly: false })
+  })
+
   it('selects in mark and edit mode without following links or submitting forms', () => {
     const s = screen()
     s.send({ type: 'mode', mode: 'edit' })

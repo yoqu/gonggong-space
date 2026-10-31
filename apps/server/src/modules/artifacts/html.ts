@@ -50,6 +50,16 @@ export function sectionOf(el: Element) {
   return null
 }
 
+/** An element's only text beside children that show no text (icons, line breaks): editable without touching them. */
+function textRun(el: Element) {
+  const runs = el.childNodes.filter(
+    (c): c is DefaultTreeAdapterMap['textNode'] =>
+      c.nodeName === '#text' && (c as DefaultTreeAdapterMap['textNode']).value.trim() !== '',
+  )
+  const quiet = el.childNodes.every((c) => !isElement(c) || textOf(c).trim() === '')
+  return runs.length === 1 && quiet ? runs[0] : null
+}
+
 /** One-based line of an offset. */
 export const lineOf = (html: string, offset: number) => html.slice(0, offset).split('\n').length
 
@@ -234,9 +244,17 @@ export function editHtml(html: string, edits: ElementEdit[]) {
     if (m.style) m.attrs.set('style', mergeStyle(attr(el, 'style'), m.style))
     if (m.attrs.size) splices.push(rewriteStartTag(html, el, ggId, m.attrs))
     if (m.text !== undefined) {
-      if (el.childNodes.some(isElement)) fail('invalid', '元素包含子元素，不能直接改文字，请交给 AI')
       const end = loc.endTag ?? fail('invalid', '元素没有结束标签，不能直接修改，请交给 AI')
-      splices.push({ start: tag.endOffset, end: end.startOffset, text: escText(m.text) })
+      if (!el.childNodes.some(isElement)) {
+        splices.push({ start: tag.endOffset, end: end.startOffset, text: escText(m.text) })
+      } else {
+        const run = textRun(el) ?? fail('invalid', '元素包含子元素，不能直接改文字，请交给 AI')
+        const at = run.sourceCodeLocation ?? missing()
+        const raw = html.slice(at.startOffset, at.endOffset)
+        const lead = raw.length - raw.trimStart().length
+        const trail = raw.length - raw.trimEnd().length
+        splices.push({ start: at.startOffset + lead, end: at.endOffset - trail, text: escText(m.text) })
+      }
     }
   }
   splices.sort((a, b) => a.start - b.start)
