@@ -196,7 +196,6 @@ export default {
   'v{n} 上还有 {k} 条未处理批注': 'v{n} has {k} open {k:annotation|annotations}',
   重新打开: 'Reopen',
   链接: 'Link',
-  '连到新屏…': 'Link to new screen…',
   新屏描述: 'New screen',
   '描述点它之后打开的新屏…': 'Describe the screen it should open…',
   转场: 'Transition',

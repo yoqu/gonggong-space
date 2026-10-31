@@ -324,13 +324,44 @@ describe('direct edit (E)', () => {
     expect(useToasts.getState().items.map((x) => x.message)).toContain('已交给 @设计助手')
   })
 
+  it('connects the element to a screen picked by hand: link ops, no AI', async () => {
+    const calls = mockApi(routes())
+    await renderTab()
+    key('e')
+    select()
+    fireEvent.click(action(/^连到屏幕/))
+    fireEvent.click(within(popover()).getByRole('button', { name: '连到屏幕' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '书籍详情' }))
+    fireEvent.click(within(popover()).getByRole('button', { name: '应用连接' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [
+            { kind: 'attr', file: 'screens/home.html', ggId: '120', name: 'data-gg-link', value: 'detail' },
+            {
+              kind: 'attr',
+              file: 'screens/home.html',
+              ggId: '120',
+              name: 'data-gg-transition',
+              value: 'push',
+            },
+          ],
+        },
+      ]),
+    )
+    expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toEqual([])
+    select({ link: 'detail' })
+    expect(action(/编辑连接/).hasAttribute('disabled')).toBe(false)
+  })
+
   it('asks for a new screen linked from the element, with the bot picked among several', async () => {
     setBots(['b1', 'b2'])
     const calls = mockApi(routes())
     await renderTab()
     key('e')
     select()
-    fireEvent.click(action(/连到新屏/))
+    fireEvent.click(action(/构想新屏/))
     fireEvent.change(within(popover()).getByRole('textbox', { name: '新屏描述' }), {
       target: { value: '书评列表' },
     })

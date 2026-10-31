@@ -157,6 +157,8 @@ export function EditPopover({
   onPickBot,
   onText,
   onAi,
+  screens,
+  onLink,
   onConnect,
   onProps,
   onDelete,
@@ -171,14 +173,19 @@ export function EditPopover({
   onPickBot: (id: string) => void
   onText: (text: string) => Promise<boolean>
   onAi: (text: string) => Promise<boolean>
+  /** The screens a link can open, besides the element's own. */
+  screens: { id: string; title: string }[]
+  /** Connect to screen: by hand, no AI. */
+  onLink: (to: string) => Promise<boolean>
   /** Imagine new screen: a screen the AI makes from `text`, linked from this element. */
   onConnect: (text: string) => Promise<boolean>
   onProps: () => void
   onDelete: () => void
   onClose: () => void
 }) {
-  const [step, setStep] = useState<'menu' | 'text' | 'ai' | 'connect'>('menu')
+  const [step, setStep] = useState<'menu' | 'text' | 'link' | 'ai' | 'connect'>('menu')
   const [text, setText] = useState(el.text)
+  const [to, setTo] = useState<string | null>(el.link)
   const [ask, setAsk] = useState('')
   const [busy, setBusy] = useState(false)
   const located = el.ggId !== null
@@ -204,6 +211,13 @@ export function EditPopover({
             onClick={() => setStep('text')}
           />
           <Action
+            icon="link"
+            label={el.link ? t('编辑连接') : t('连到屏幕')}
+            hint={ro ?? noSource}
+            disabled={readOnly || !located}
+            onClick={() => setStep('link')}
+          />
+          <Action
             icon="sparkle"
             label={t('用 AI 修改')}
             hint={aiHint}
@@ -211,8 +225,8 @@ export function EditPopover({
             onClick={() => setStep('ai')}
           />
           <Action
-            icon="link"
-            label={t('连到新屏…')}
+            icon="plus"
+            label={t('构想新屏')}
             hint={aiHint}
             disabled={!located || !bot}
             onClick={() => setStep('connect')}
@@ -255,6 +269,30 @@ export function EditPopover({
             </Button>
             <Button size="small" variant="primary" type="submit" disabled={busy || text === el.text}>
               {t('保存')}
+            </Button>
+          </div>
+        </form>
+      ) : step === 'link' ? (
+        <form
+          className="art-pop__form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (to && to !== el.link) void run(() => onLink(to))
+          }}
+        >
+          <Select
+            label={t('连到屏幕')}
+            placeholder={t('选择屏幕')}
+            value={to}
+            onChange={setTo}
+            options={screens.map((x) => ({ value: x.id, label: x.title }))}
+          />
+          <div className="art-pop__row">
+            <Button size="small" variant="plain" onClick={() => setStep('menu')}>
+              {t('返回')}
+            </Button>
+            <Button size="small" variant="primary" type="submit" disabled={busy || !to || to === el.link}>
+              {t('应用连接')}
             </Button>
           </div>
         </form>

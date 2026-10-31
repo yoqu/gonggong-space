@@ -147,6 +147,7 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
+import { connectOps } from './prototype'
 import { RefNode } from './RefNode'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
@@ -1928,6 +1929,18 @@ export function Canvas({
                     : Promise.resolve(false)
                 }
                 onAi={(text) => askAboutElement('edit-with-ai', element, text)}
+                screens={screens.filter((x) => x.id !== element.screenId)}
+                onLink={(to) =>
+                  element.ggId
+                    ? saveOps(
+                        connectOps(
+                          { file: element.file, ggId: element.ggId },
+                          to,
+                          element.transition ?? 'push',
+                        ),
+                      )
+                    : Promise.resolve(false)
+                }
                 onConnect={(text) => askAboutElement('connect-element', element, text)}
                 onProps={() => {
                   setPop(false)
