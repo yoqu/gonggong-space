@@ -164,7 +164,8 @@ function designLines(m: PluginManifest, card: CreationCard, design: Design) {
         : `设计系统：本群导入的设计系统「${title}」，按 SKILL.md 从下面的参考来源提取 DESIGN.md 和 tokens.css。`,
       ...(url ? [`参考网站：${url}`] : []),
       ...(repo ? [`参考仓库：${repo}`] : []),
-      ...(designMd ? ['DESIGN.md 原文：', '```markdown', designMd, '```'] : []),
+      // Four backticks: a DESIGN.md may hold ``` blocks of its own.
+      ...(designMd ? ['DESIGN.md 原文：', '````markdown', designMd, '````'] : []),
     ]
   }
   return sources.length
