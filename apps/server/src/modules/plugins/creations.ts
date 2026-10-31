@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import {
+  AUTO_DESIGN_SYSTEM,
   type CreationCard,
   type CreationDraftCard,
   type CreationReq,
+  groupDesignSystemId,
   type PluginInput,
   type PluginManifest,
   templateInputs,
@@ -30,6 +32,7 @@ import {
   publishMessage,
 } from '../messages/service.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { designSystemDto, findDesignSystem } from './designSystems.js'
 import { botStates, groupPluginList, pluginBlocker, requirePluginsOn } from './service.js'
 
 /** The picked one of `list`; null only when the plugin offers none. */
@@ -41,6 +44,18 @@ function pick<T extends { id: string }>(
 ) {
   if (id === null) return list.length ? fail('invalid', missing) : null
   return list.find((x) => x.id === id) ?? fail('invalid', unknown)
+}
+
+/** The design system a creation uses: a preset of the plugin, 自动 (the agent picks a preset) or one the group imported. */
+async function designSource(ctx: Ctx, groupId: string, m: PluginManifest, key: string | null) {
+  if (key === AUTO_DESIGN_SYSTEM) return { kind: 'auto' as const, key, title: '自动选择', swatches: [] }
+  const imported = groupDesignSystemId(key)
+  if (imported !== null) {
+    const row = (await findDesignSystem(ctx, groupId, imported)) ?? fail('invalid', '设计系统不存在')
+    return { kind: 'group' as const, key: key as string, row, ...designSystemDto(row) }
+  }
+  const preset = pick(m.designSystems, key, '请选择设计系统', '设计系统不存在')
+  return preset && { kind: 'preset' as const, key: preset.id, ...preset }
 }
 
 /**
@@ -83,7 +98,7 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
   const m = found.version.manifest
   const template = pick(m.templates, req.templateId, '请选择模板', '模板不存在')
   const ds = usesDesignSystem(m, template)
-    ? pick(m.designSystems, req.designSystemId, '请选择设计系统', '设计系统不存在')
+    ? await designSource(ctx, groupId, m, req.designSystemId)
     : req.designSystemId === null
       ? null
       : fail('invalid', '这个模板不用设计系统')
@@ -98,13 +113,13 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
     category: m.category,
     pluginVersion: m.version,
     template: template && { id: template.id, title: template.title },
-    designSystem: ds && { id: ds.id, title: ds.title, swatches: ds.swatches },
+    designSystem: ds && { id: ds.key, title: ds.title, swatches: ds.swatches },
     inputs: lines,
     directions: req.directions,
     botId: bot.id,
     botName: bot.name,
   }
-  return { m, card, missing, versionId: found.version.id, features: bot.state.features }
+  return { m, card, design: ds, missing, versionId: found.version.id, features: bot.state.features }
 }
 
 const L1_FILES =
@@ -129,37 +144,62 @@ function outputLines(hosted: { dir: string } | null, l1: boolean) {
       ]
 }
 
-/** What the agent is asked to do (agent-facing: not translated). */
-function instructions(m: PluginManifest, card: CreationCard, hosted: { dir: string } | null, l1: boolean) {
-  const ds = card.designSystem && m.designSystems.find((d) => d.id === card.designSystem?.id)
-  // Filled-in design sources (PluginInput.designSource) win over the picked preset.
+type Design = Awaited<ReturnType<typeof designSource>>
+
+/** The design-system lines (agent-facing). Filled-in design sources (PluginInput.designSource) win over a preset. */
+function designLines(m: PluginManifest, card: CreationCard, design: Design) {
   const sourceLabels = new Set(m.inputs.filter((i) => i.designSource).map((i) => i.label))
   const sources = card.inputs.filter((i) => sourceLabels.has(i.label)).map((i) => `「${i.label}」`)
+  if (!design) return []
+  if (design.kind === 'auto')
+    return [
+      '设计系统：未指定，按需求从 skill 目录下的预设里挑最合适的一个（先读它的 DESIGN.md 和 tokens.css），回复里说明选了哪个、为什么：',
+      ...m.designSystems.map((d) => `- ${d.dir}/ ${d.title}：${d.description}`),
+    ]
+  if (design.kind === 'group') {
+    const { title, designMd, url, repo } = design.row
+    return [
+      designMd
+        ? `设计系统：本群导入的设计系统「${title}」，按 SKILL.md 当作「粘贴 DESIGN.md」处理（原文见下），并生成 tokens.css。`
+        : `设计系统：本群导入的设计系统「${title}」，按 SKILL.md 从下面的参考来源提取 DESIGN.md 和 tokens.css。`,
+      ...(url ? [`参考网站：${url}`] : []),
+      ...(repo ? [`参考仓库：${repo}`] : []),
+      ...(designMd ? ['DESIGN.md 原文：', '```markdown', designMd, '```'] : []),
+    ]
+  }
+  return sources.length
+    ? [
+        `设计系统：以参数里的${sources.join('、')}为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css；所选预设「${design.title}」（skill 目录下的 ${design.dir}/）只在设计来源没有覆盖的地方作参考。`,
+      ]
+    : [`设计系统：${design.title}（${design.id}），先读取 skill 目录下的 ${design.dir}/DESIGN.md 和 ${design.dir}/tokens.css。`]
+}
+
+/** What the agent is asked to do (agent-facing: not translated). */
+function instructions(
+  m: PluginManifest,
+  card: CreationCard,
+  design: Design,
+  hosted: { dir: string } | null,
+  l1: boolean,
+) {
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
     `Skill：Claude 用 ${m.name}:${m.entry}；Codex 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
     ...(card.template ? [`模板：${card.template.title}（${card.template.id}）`] : []),
-    ...(sources.length
-      ? [
-          `设计系统：以参数里的${sources.join('、')}为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css${
-            ds ? `；所选预设「${ds.title}」（skill 目录下的 ${ds.dir}/）只在设计来源没有覆盖的地方作参考` : ''
-          }。`,
-        ]
-      : ds
-        ? [
-            `设计系统：${ds.title}（${ds.id}），先读取 skill 目录下的 ${ds.dir}/DESIGN.md 和 ${ds.dir}/tokens.css。`,
-          ]
-        : []),
+    ...designLines(m, card, design),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,
     ...(card.inputs.length ? ['参数：', ...card.inputs.map((i) => `- ${i.label}：${i.value}`)] : []),
     ...outputLines(hosted, l1),
   ].join('\n')
 }
 
-/** The artifact's title: the creation's 主题 input, else the template or the plugin. */
-function creationTitle(req: CreationReq, card: CreationCard) {
-  const title = typeof req.inputs.title === 'string' ? req.inputs.title.trim() : ''
-  return (title || card.template?.title || card.pluginTitle).slice(0, 80)
+const textOf = (v: string | boolean | undefined) => (typeof v === 'string' ? v.trim() : '')
+
+/** The artifact's title: the creation's 主题 input, else the prompt's first phrase, the template or the plugin. */
+function creationTitle(m: PluginManifest, req: CreationReq, card: CreationCard) {
+  const prompt = m.composer ? (textOf(req.inputs[m.composer.prompt]).split(/[\n，。,.:：；;！!？?]/)[0] ?? '') : ''
+  const lead = prompt.length > 24 ? `${prompt.slice(0, 24)}…` : prompt
+  return (textOf(req.inputs.title) || lead || card.template?.title || card.pluginTitle).slice(0, 80)
 }
 
 /** A pending 创作确认卡 of the group. */
@@ -201,7 +241,7 @@ export async function createCreation(
 ) {
   const { group } = await requireMember(ctx, groupId, me.id)
   const draft = req.fromDraft ? await pendingDraft(ctx, group.id, req.fromDraft) : null
-  const { m, card, versionId, features } = await resolve(ctx, group.id, me.id, req, false)
+  const { m, card, design, versionId, features } = await resolve(ctx, group.id, me.id, req, false)
   // A daemon that checks artifacts out and uploads them gets one made up front (§2); older ones publish themselves.
   const hosted = features.includes('artifacts')
   const l1 = !!(await pluginKit(ctx.db, versionId))
@@ -219,8 +259,8 @@ export async function createCreation(
             groupId: group.id,
             pluginId: card.pluginId,
             pluginVersionId: versionId,
-            designSystemId: card.designSystem?.id ?? null,
-            title: creationTitle(req, card),
+            designSystemId: design?.kind === 'auto' ? null : (card.designSystem?.id ?? null),
+            title: creationTitle(m, req, card),
             dir: newArtifactDir(card.template?.id ?? m.name),
             botId: card.botId,
             createdBy: me.id,
@@ -233,7 +273,7 @@ export async function createCreation(
       ...(files.length > 0 && { attachments: files }),
       ...(artifact && { artifactRefs: [artifact.id] }),
     }
-    const body = instructions(m, card, artifact ? { dir: artifact.dir } : null, l1)
+    const body = instructions(m, card, design, artifact ? { dir: artifact.dir } : null, l1)
     const [inserted] = await tx
       .insert(messages)
       .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body, meta })

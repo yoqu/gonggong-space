@@ -1,6 +1,6 @@
 {
   "name": "web-prototype",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "title": "产品原型",
   "description": "小程序、App 的多屏可点击原型：AI 只写业务页面，平台外壳负责设备框、状态栏和屏间跳转，按设计系统生成到工作区 design/<slug>/ 并发布预览。",
   "category": "web",
@@ -14,16 +14,7 @@
       "description": "小程序或 App 的多屏可点击原型：每屏一个文件，平台外壳负责设备框与跳转",
       "group": "移动应用",
       "preview": "previews/app-screens.png",
-      "inputs": [
-        "title",
-        "device",
-        "points",
-        "screens",
-        "audience",
-        "design_md",
-        "reference_url",
-        "reference_repo"
-      ]
+      "inputs": ["prompt", "device"]
     }
   ],
   "designSystems": [
@@ -70,11 +61,11 @@
   ],
   "inputs": [
     {
-      "id": "title",
-      "label": "主题",
-      "type": "string",
+      "id": "prompt",
+      "label": "需求",
+      "type": "text",
       "required": true,
-      "placeholder": "产品、页面或活动名，一句话说清是什么"
+      "placeholder": "想做个什么？给谁用、有哪些页面、要突出什么，一句话或一段话都行"
     },
     {
       "id": "device",
@@ -82,47 +73,9 @@
       "type": "select",
       "options": ["小程序", "手机 App", "桌面 Web"],
       "default": "小程序"
-    },
-    {
-      "id": "points",
-      "label": "内容要点",
-      "type": "text",
-      "placeholder": "要展示的功能、页面、数据或卖点，每行一条"
-    },
-    {
-      "id": "screens",
-      "label": "页面清单",
-      "type": "text",
-      "placeholder": "要画哪几屏或哪几页，每行一个，如：首页、详情、个人页"
-    },
-    {
-      "id": "audience",
-      "label": "目标受众",
-      "type": "string",
-      "placeholder": "例如：中小团队的产品经理"
-    },
-    {
-      "id": "design_md",
-      "label": "粘贴 DESIGN.md",
-      "type": "text",
-      "placeholder": "粘贴现成的 DESIGN.md，留空则用所选设计系统",
-      "designSource": true
-    },
-    {
-      "id": "reference_url",
-      "label": "参考网站",
-      "type": "string",
-      "placeholder": "https://…，AI 会抓取页面并提取配色、字体和组件风格",
-      "designSource": true
-    },
-    {
-      "id": "reference_repo",
-      "label": "参考仓库",
-      "type": "string",
-      "placeholder": "仓库地址或工作区路径，AI 会从样式代码里提取设计系统",
-      "designSource": true
     }
   ],
+  "composer": { "prompt": "prompt" },
   "license": "Apache-2.0",
   "source": {
     "name": "open-design",

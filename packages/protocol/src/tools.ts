@@ -378,7 +378,9 @@ export const CreationProposeArgs = z.object({
   designSystem: z
     .string()
     .max(40)
-    .describe('设计系统 id；模板不用设计系统时省略，需要但省略时用第一个')
+    .describe(
+      '设计系统 id、auto（按需求自动挑预设）或 group:<id>（本群导入的，plugin_catalog 列出）；模板不用设计系统时省略，需要但省略时：输入框式插件用 auto，其余用第一个',
+    )
     .optional(),
   inputs: z
     .record(z.string(), z.union([z.string().max(2000), z.boolean()]))

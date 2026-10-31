@@ -4,7 +4,9 @@ import { dirname, join } from 'node:path'
 import {
   type CreationCard,
   type CreationDraftCard,
+  type GroupDesignSystemDto,
   type GroupPluginDto,
+  groupDesignSystemKey,
   type MeDto,
   type MessageDto,
   PLUGIN_MAX_BYTES,
@@ -707,11 +709,127 @@ describe('per-template steps', () => {
   })
 })
 
-describe('creation from the chat', () => {
-  async function chatWorld() {
+describe('group design systems and 自动', () => {
+  const MD = '---\nname: 麓湖夜航\ncolors:\n  primary: "#155332"\n  surface: "#FFFFFF"\n---\n\n# 夜航\n按钮用湖绿。\n'
+  const composer = manifest({
+    composer: { prompt: 'prompt' },
+    inputs: [
+      { id: 'prompt', label: '需求', type: 'text', required: true },
+      { id: 'device', label: '设备', type: 'select', options: ['小程序', '手机 App'], default: '小程序' },
+    ],
+    designSystems: [
+      { id: 'neutral-modern', title: '中性现代', description: '黑白灰', swatches: ['#111111', '#ffffff'], dir: 'systems/neutral-modern' },
+      { id: 'warm', title: '暖纸', description: '米色纸感', swatches: ['#8A4B2A', '#F7F1E6'], dir: 'systems/warm' },
+    ],
+  })
+
+  async function dsWorld() {
     const w = await world()
     await switchOn(w)
-    const p = await upload(w)
+    const p = await upload(w, pkg(composer))
+    await (await w.as(w.eve)).put(`/api/groups/${w.group.id}/plugins/${p.id}`, { enabled: true })
+    const ready = await groupBot(w, { name: '小原' })
+    const conn = await daemon(ready.token)
+    const base = `/api/groups/${w.group.id}/design-systems`
+    const req = {
+      pluginId: p.id,
+      templateId: 'saas',
+      designSystemId: 'auto',
+      inputs: { prompt: '滴滴打船：乘客叫船、船长接单' },
+      botId: ready.bot.id,
+    }
+    return { ...w, p, ready, conn, base, req, url: `/api/groups/${w.group.id}/creations` }
+  }
+
+  it('lets members import, list and delete them; only the importer or an admin deletes', async () => {
+    const w = await dsWorld()
+    const mia = await w.as(w.mia)
+    const res = await mia.post<GroupDesignSystemDto>(w.base, { designMd: MD })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({
+      groupId: w.group.id,
+      title: '麓湖夜航',
+      swatches: ['#155332', '#FFFFFF'],
+      designMd: MD.trim(),
+      url: null,
+      repo: null,
+      createdBy: w.mia.id,
+    })
+    const site = await mia.post<GroupDesignSystemDto>(w.base, { url: 'https://www.example.com/shop' })
+    expect(site.body).toMatchObject({ title: 'www.example.com', swatches: [], designMd: null })
+    const repo = await mia.post<GroupDesignSystemDto>(w.base, { repo: 'https://github.com/acme/ui-kit.git' })
+    expect(repo.body.title).toBe('ui-kit')
+    expect((await mia.post(w.base, {})).status).toBe(400)
+
+    const list = await (await w.as(w.eve)).get<GroupDesignSystemDto[]>(w.base)
+    expect(list.body.map((d) => d.title)).toEqual(['ui-kit', 'www.example.com', '麓湖夜航'])
+    const outsider = await w.as(await t.seed.user({ name: '路人' }))
+    expect((await outsider.get(w.base)).status).toBe(404)
+    expect((await outsider.post(w.base, { designMd: MD })).status).toBe(404)
+
+    expect((await outsider.del(`${w.base}/${res.body.id}`)).status).toBe(404)
+    const mine = (await (await w.as(w.eve)).post<GroupDesignSystemDto>(w.base, { url: 'https://eve.example' })).body
+    expect((await mia.del(`${w.base}/${mine.id}`)).status).toBe(403)
+    const eve = await w.as(w.eve)
+    expect((await eve.del(`${w.base}/${site.body.id}`)).status).toBe(204)
+    expect((await mia.del(`${w.base}/${res.body.id}`)).status).toBe(204)
+    expect((await mia.del(`${w.base}/nope`)).status).toBe(404)
+    expect((await eve.get<GroupDesignSystemDto[]>(w.base)).body.map((d) => d.title)).toEqual([
+      'eve.example',
+      'ui-kit',
+    ])
+    await switchOn(w, false)
+    expect((await mia.get(w.base)).status).toBe(403)
+    w.conn.ws.close()
+  })
+
+  it('hands an imported DESIGN.md, site or repository to the agent as the design source', async () => {
+    const w = await dsWorld()
+    const mia = await w.as(w.mia)
+    const ds = (await mia.post<GroupDesignSystemDto>(w.base, { designMd: MD })).body
+    const res = await mia.post<MessageDto>(w.url, { ...w.req, designSystemId: groupDesignSystemKey(ds.id) })
+    expect(res.status).toBe(200)
+    expect((res.body.card as CreationCard).designSystem).toEqual({
+      id: `group:${ds.id}`,
+      title: '麓湖夜航',
+      swatches: ['#155332', '#FFFFFF'],
+    })
+    expect(res.body.body).toContain('本群导入的设计系统「麓湖夜航」')
+    expect(res.body.body).toContain('按钮用湖绿。')
+    expect(res.body.body).not.toContain('systems/neutral-modern')
+    expect(res.body.body).toContain('需求：滴滴打船')
+
+    const site = (await mia.post<GroupDesignSystemDto>(w.base, { url: 'https://example.com', repo: 'acme/ui' })).body
+    const res2 = await mia.post<MessageDto>(w.url, { ...w.req, designSystemId: groupDesignSystemKey(site.id) })
+    expect(res2.body.body).toContain('参考网站：https://example.com')
+    expect(res2.body.body).toContain('参考仓库：acme/ui')
+
+    const elsewhere = await t.seed.group({ createdBy: w.eve.id, name: '别的群' })
+    const foreign = (await (await w.as(w.eve)).post<GroupDesignSystemDto>(
+      `/api/groups/${elsewhere.id}/design-systems`,
+      { designMd: MD },
+    )).body
+    expect((await mia.post(w.url, { ...w.req, designSystemId: groupDesignSystemKey(foreign.id) })).status).toBe(400)
+    expect((await mia.post(w.url, { ...w.req, designSystemId: 'group:nope' })).status).toBe(400)
+    w.conn.ws.close()
+  })
+
+  it('lets the agent pick a preset for 自动', async () => {
+    const w = await dsWorld()
+    const res = await (await w.as(w.mia)).post<MessageDto>(w.url, w.req)
+    expect(res.status).toBe(200)
+    expect((res.body.card as CreationCard).designSystem).toEqual({ id: 'auto', title: '自动选择', swatches: [] })
+    for (const s of ['按需求从 skill 目录下的预设里挑', 'systems/neutral-modern', '中性现代：黑白灰', 'systems/warm', '暖纸：米色纸感'])
+      expect(res.body.body).toContain(s)
+    w.conn.ws.close()
+  })
+})
+
+describe('creation from the chat', () => {
+  async function chatWorld(m = manifest()) {
+    const w = await world()
+    await switchOn(w)
+    const p = await upload(w, pkg(m))
     await (await w.as(w.eve)).put(`/api/groups/${w.group.id}/plugins/${p.id}`, { enabled: true })
     const { bot, token } = await groupBot(w, { name: '小原' })
     const conn = await daemon(token)
@@ -761,6 +879,30 @@ describe('creation from the chat', () => {
     expect((await w.call('plugin_catalog', { plugin: 'nope' })).isError).toBe(true)
     await switchOn(w, false)
     expect((await w.call('plugin_catalog', {})).text).toContain('插件功能未开启')
+    w.conn.ws.close()
+  })
+
+  it('offers 自动 and the group\'s imported design systems for a prompt-first plugin', async () => {
+    const w = await chatWorld(
+      manifest({
+        composer: { prompt: 'prompt' },
+        inputs: [{ id: 'prompt', label: '需求', type: 'text', required: true }],
+      }),
+    )
+    const ds = (
+      await (await w.as(w.mia)).post<GroupDesignSystemDto>(`/api/groups/${w.group.id}/design-systems`, {
+        url: 'https://example.com',
+      })
+    ).body
+    const one = await w.call('plugin_catalog', { plugin: 'web-prototype' })
+    for (const s of ['也可以用 auto', `group:${ds.id}｜example.com｜https://example.com`]) expect(one.text).toContain(s)
+    const res = await w.call('creation_propose', {
+      plugin: 'web-prototype',
+      template: 'saas',
+      inputs: { prompt: '打船' },
+    })
+    expect(res.isError).toBe(false)
+    expect((await w.draftOf(res)).card.designSystem).toMatchObject({ id: 'auto' })
     w.conn.ws.close()
   })
 

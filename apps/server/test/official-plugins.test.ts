@@ -32,7 +32,8 @@ describe.each(readdirSync(OFFICIAL).sort())('official plugin %s', (name) => {
     expect(manifest.name).toBe(name)
     expect(manifest.templates.every((t) => t.group)).toBe(true)
     expect(manifest.designSystems.every((d) => d.category)).toBe(true)
-    expect(manifest.inputs.find((i) => i.id === 'title')?.required).toBe(true)
+    const lead = manifest.composer?.prompt ?? 'title'
+    expect(manifest.inputs.find((i) => i.id === lead)?.required).toBe(true)
   })
 
   it('has a guide for every template and every preview file', () => {
@@ -85,7 +86,7 @@ describe('official plugin web-prototype', () => {
   it('ships the platform kit, the app-screens template and five design systems', () => {
     for (const f of ['index.html', 'gg-kit.css', 'gg-kit.js'])
       expect(existsSync(join(skillDir, 'kit', f)), f).toBe(true)
-    expect(manifest.version).toBe('0.6.1')
+    expect(manifest.version).toBe('0.7.0')
     expect(manifest.templates.map((t) => t.id)).toEqual(['app-screens'])
     expect(manifest.designSystems.map((d) => d.id)).toEqual([
       'luke-plus',
@@ -96,28 +97,23 @@ describe('official plugin web-prototype', () => {
     ])
   })
 
-  it('asks for the device and the design sources (DESIGN.md, website, repository)', () => {
+  it('asks for the request in one box and the device; design sources come from the group\'s imports', () => {
+    expect(manifest.composer).toEqual({ prompt: 'prompt' })
+    expect(manifest.templates[0]?.inputs).toEqual(['prompt', 'device'])
     const inputs = new Map(manifest.inputs.map((i) => [i.id, i]))
+    expect(inputs.get('prompt')).toMatchObject({ label: '需求', type: 'text', required: true })
     expect(inputs.get('device')).toMatchObject({
       type: 'select',
       options: ['小程序', '手机 App', '桌面 Web'],
       default: '小程序',
     })
-    expect(inputs.get('design_md')).toMatchObject({ label: '粘贴 DESIGN.md', type: 'text' })
-    expect(inputs.get('reference_url')).toMatchObject({ label: '参考网站', type: 'string' })
-    expect(inputs.get('reference_repo')).toMatchObject({ label: '参考仓库', type: 'string' })
-    expect([...inputs.values()].filter((i) => i.designSource).map((i) => i.id)).toEqual([
-      'design_md',
-      'reference_url',
-      'reference_repo',
-    ])
-    expect(manifest.templates[0]?.inputs).toEqual(
-      expect.arrayContaining(['device', 'design_md', 'reference_url', 'reference_repo']),
-    )
     const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
     for (const s of [
       '`小程序` → `miniprogram`, `手机 App` → `mobile`, `桌面 Web` → `desktop`',
-      '`粘贴 DESIGN.md` is given, or an attachment is named `DESIGN.md`',
+      '`需求` (the request',
+      '自动: `设计系统：未指定…`',
+      '`设计系统：本群导入的设计系统「<title>」`',
+      '`粘贴 DESIGN.md` or a `DESIGN.md 原文` block is given',
       '`参考网站` is given: fetch the page',
       '`参考仓库`: read its style sources',
     ])

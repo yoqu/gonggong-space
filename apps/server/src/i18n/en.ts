@@ -466,6 +466,8 @@ export const en = {
   模板不存在: 'Template not found',
   请选择设计系统: 'Pick a design system',
   设计系统不存在: 'Design system not found',
+  '请粘贴 DESIGN.md，或填写参考网站、参考仓库': 'Paste a DESIGN.md, or give a reference site or repository',
+  只有导入的人或群管理员可以删除: 'Only the member who imported it or a group admin can delete it',
   '参数格式不对：{label}': 'Invalid value: {label}',
   '请填写{label}': 'Please fill in {label}',
   '{label}的取值不在选项里': '{label} is not one of the options',

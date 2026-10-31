@@ -6,7 +6,7 @@ Reference: `example/` is a finished three-screen 麓客+ prototype (home, event 
 
 ## What to build
 
-- One screen per item in `页面清单` (screens). Without a list, decide the smallest flow that covers the brief (usually 2–4 screens: entry, list or feed, detail, one action result) and say so in the reply.
+- One screen per page the request names (`需求`, or `页面清单` in older messages). When it names none, decide the smallest flow that covers it (usually 3–5 screens: entry, list or feed, detail, one action result) and say so in the reply.
 - `device`: `miniprogram` for WeChat mini programs (the default when the design system or brief says 小程序), `mobile` for a native app, `desktop` only when the brief is clearly a web app.
 - Every tap that leads somewhere drawn gets `data-gg-link="<screen id>"`; every back arrow gets `data-gg-back`. Taps that lead nowhere drawn stay inert (`href="#"` or a plain `button`).
 

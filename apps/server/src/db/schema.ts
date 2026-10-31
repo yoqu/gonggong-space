@@ -1172,6 +1172,26 @@ export const groupPlugins = pgTable(
   (t) => [primaryKey({ columns: [t.groupId, t.pluginId] })],
 )
 
+/** Design systems a group imported for prompt-first creations (「导入我的设计」): a DESIGN.md, a site or a repository. */
+export const groupDesignSystems = pgTable(
+  'group_design_systems',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    designMd: text('design_md'),
+    url: text('url'),
+    repo: text('repo'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('group_design_systems_group').on(t.groupId, t.createdAt)],
+)
+
 /** Scheduled tasks (plan 定时任务): at each firing the first available bot of `botIds` is @-ed in the owner's name. */
 export const schedules = pgTable(
   'schedules',

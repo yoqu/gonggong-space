@@ -1,5 +1,7 @@
 import {
+  AUTO_DESIGN_SYSTEM,
   type GONGGONG_TOOLS,
+  groupDesignSystemKey,
   type PluginBlocker,
   type PluginManifest,
   templateInputs,
@@ -8,6 +10,7 @@ import {
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { proposeCreation } from '../plugins/creations.js'
+import { type GroupDesignSystem, listDesignSystems } from '../plugins/designSystems.js'
 import { botStates, groupPluginList, pluginBlocker, pluginsOn } from '../plugins/service.js'
 import type { Run } from './layers.js'
 import { asTool, refuse, type ToolOutput } from './service.js'
@@ -42,7 +45,7 @@ const named = async (ctx: Ctx, run: Run, name: string) =>
   (await enabled(ctx, run)).find((p) => p.m.name === name) ??
   refuse(`本群没有启用插件 ${name}，先用 plugin_catalog 查看`)
 
-function detail(m: PluginManifest) {
+function detail(m: PluginManifest, imported: GroupDesignSystem[]) {
   const input = (i: PluginManifest['inputs'][number]) =>
     `- ${i.id}｜${i.label}｜${i.type}${i.required ? '｜必填' : ''}${i.options.length ? `｜可选：${i.options.join(' / ')}` : ''}${i.default === null ? '' : `｜默认：${i.default}`}`
   return [
@@ -63,13 +66,30 @@ function detail(m: PluginManifest) {
           ),
         ]
       : ['没有设计系统。']),
+    ...(m.composer && m.designSystems.length
+      ? [
+          '也可以用 auto（按需求自动挑预设）。',
+          ...(imported.length
+            ? [
+                `本群导入的设计系统（${imported.length}）：id｜标题｜来源`,
+                ...imported.map(
+                  (d) =>
+                    `- ${groupDesignSystemKey(d.id)}｜${d.title}｜${[d.designMd && 'DESIGN.md', d.url, d.repo].filter(Boolean).join(' / ')}`,
+                ),
+              ]
+            : []),
+        ]
+      : []),
     '输入项：id｜名称｜类型',
     ...m.inputs.map(input),
   ].join('\n')
 }
 
 export async function pluginCatalog(ctx: Ctx, run: Run, a: Args<'plugin_catalog'>): Promise<ToolOutput> {
-  if (a.plugin) return { text: detail((await named(ctx, run, a.plugin)).m), groups: [] }
+  if (a.plugin) {
+    const { m } = await named(ctx, run, a.plugin)
+    return { text: detail(m, await listDesignSystems(ctx, run.groupId)), groups: [] }
+  }
   const lines = (await enabled(ctx, run)).map(
     ({ m, blocker }) =>
       `- ${m.name}（${m.title}）：${m.description} 模板 ${m.templates.length} 个，设计系统 ${m.designSystems.length} 套；${blocker ? `本 Bot 现在用不了：${BLOCKER[blocker]}` : '可用'}`,
@@ -81,7 +101,9 @@ export async function creationPropose(ctx: Ctx, run: Run, a: Args<'creation_prop
   const p = await named(ctx, run, a.plugin)
   if (p.blocker) return refuse(`本 Bot 现在用不了插件 ${a.plugin}：${BLOCKER[p.blocker]}`)
   const tpl = a.template ? p.m.templates.find((x) => x.id === a.template) : undefined
-  const ds = a.designSystem ?? (usesDesignSystem(p.m, tpl) ? p.m.designSystems[0]?.id : undefined)
+  const ds =
+    a.designSystem ??
+    (usesDesignSystem(p.m, tpl) ? (p.m.composer ? AUTO_DESIGN_SYSTEM : p.m.designSystems[0]?.id) : undefined)
   const { id, missing } = await asTool(() =>
     proposeCreation(
       ctx,

@@ -1,4 +1,5 @@
 import {
+  CreateGroupDesignSystemReq,
   CreationReq,
   type GroupPluginDto,
   type SkillFile,
@@ -6,7 +7,7 @@ import {
   UploadPluginReq,
 } from '@gonggong/protocol'
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { bots, plugins, pluginVersions, runs } from '../../db/schema.js'
@@ -18,6 +19,7 @@ import { type Authorize, eachLayer } from '../mcp/routes.js'
 import { ACTIVE } from '../runs/scheduler.js'
 import { requireTeam } from '../teams/service.js'
 import { createCreation, dismissDraft } from './creations.js'
+import { createDesignSystem, deleteDesignSystem, designSystemDto, listDesignSystems } from './designSystems.js'
 import {
   botStates,
   deletePlugin,
@@ -106,6 +108,28 @@ function groupRoutes(ctx: Ctx, app: FastifyInstance) {
   app.post<P>('/api/groups/:id/creations', async (req) => {
     const me = await requireUser(ctx, req)
     return createCreation(ctx, me, req.params.id, CreationReq.parse(req.body))
+  })
+
+  type D = { Params: { id: string; dsId?: string } }
+  const member = async (req: FastifyRequest<D>) => {
+    const me = await requireUser(ctx, req)
+    const row = await requireMember(ctx, req.params.id, me.id)
+    await requirePluginsOn(ctx.db)
+    return { me, ...row }
+  }
+  app.get<D>('/api/groups/:id/design-systems', async (req) => {
+    const { group } = await member(req)
+    return (await listDesignSystems(ctx, group.id)).map(designSystemDto)
+  })
+  app.post<D>('/api/groups/:id/design-systems', async (req, reply) => {
+    const { me, group } = await member(req)
+    const row = await createDesignSystem(ctx, group.id, me.id, CreateGroupDesignSystemReq.parse(req.body))
+    return reply.status(201).send(designSystemDto(row))
+  })
+  app.delete<D>('/api/groups/:id/design-systems/:dsId', async (req, reply) => {
+    const { me, group, member: m } = await member(req)
+    await deleteDesignSystem(ctx, group.id, req.params.dsId ?? '', { id: me.id, isAdmin: m.isAdmin })
+    return reply.status(204).send()
   })
 
   app.post<{ Params: { id: string; messageId: string } }>(

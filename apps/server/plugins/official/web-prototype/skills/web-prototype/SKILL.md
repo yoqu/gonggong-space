@@ -37,7 +37,12 @@ web-prototype/
 
 ## What the creation message gives you
 
-A creation message @-mentions you and names the template id, the design system directory (e.g. `design-systems/luke-plus`), whether to explore visual directions first (`先出 2–3 个视觉方向：是` / `否`), and parameters as `label：value` lines: `主题` (title, required), `设备` (device), `内容要点` (points), `页面清单` (screens, one per line), `目标受众` (audience), and the design sources `粘贴 DESIGN.md` (a whole DESIGN.md, possibly several lines), `参考网站` (a URL) and `参考仓库` (a repository URL or a workspace path). Attachments (logos, screenshots, photos, copy, data) beat anything you would invent.
+A creation message @-mentions you and names the template id, the design system, whether to explore visual directions first (`先出 2–3 个视觉方向：是` / `否`), and parameters as `label：value` lines: `需求` (the request in the requester's own words — product, users, screens, what to stress; required) and `设备` (device). Older messages may instead carry `主题`, `内容要点`, `页面清单`, `目标受众` and the design sources `粘贴 DESIGN.md`, `参考网站`, `参考仓库`. Attachments (logos, screenshots, photos, copy, data) beat anything you would invent.
+
+The design system line is one of:
+- a preset: `设计系统：<title>（<id>）` with its directory under `design-systems/`;
+- 自动: `设计系统：未指定…` with the presets listed — pick the one whose mood fits the request best and say which and why in your reply;
+- one the group imported: `设计系统：本群导入的设计系统「<title>」` followed by its `DESIGN.md 原文` (treat it as `粘贴 DESIGN.md`) and/or `参考网站` / `参考仓库` lines (extract from them as below).
 
 `设备` sets `device` in gg-artifact.json and `data-gg-device` on every screen: `小程序` → `miniprogram`, `手机 App` → `mobile`, `桌面 Web` → `desktop`. Without it, follow the template guide.
 
@@ -94,12 +99,12 @@ Screen skeleton:
 
 ### Step 0 — Pre-flight
 
-1. **Folder.** If the creation message names a directory, use it. Otherwise `slug` = short kebab-case ASCII from the title; if `design/<slug>/` exists and is not this prototype, append `-2`, `-3`…
+1. **Folder.** If the creation message names a directory, use it. Otherwise `slug` = short kebab-case ASCII from the product name; if `design/<slug>/` exists and is not this prototype, append `-2`, `-3`…
 2. **Template.** Read `templates/<id>/GUIDE.md`, then open `templates/<id>/example/` (manifest and every screen) to see the expected finish.
 3. **Design system.** Pick its source, first match wins:
-   1. `粘贴 DESIGN.md` is given, or an attachment is named `DESIGN.md`: that is the design system. Use it as the artifact's `DESIGN.md` (keep its wording; add the front matter sections the naming rule below needs if it lacks them) and generate `tokens.css` from its front matter.
+   1. `粘贴 DESIGN.md` or a `DESIGN.md 原文` block is given, or an attachment is named `DESIGN.md`: that is the design system. Use it as the artifact's `DESIGN.md` (keep its wording; add the front matter sections the naming rule below needs if it lacks them) and generate `tokens.css` from its front matter.
    2. `参考网站` is given: fetch the page (WebFetch, or a headless browser for script-rendered sites) and extract its palette, font families and sizes, radii, spacing and component styles (buttons, cards, inputs, navigation). `参考仓库`: read its style sources (CSS variables, theme or Tailwind config, design tokens) the same way. Write what you found as `DESIGN.md` in the same format as this plugin's design systems (front matter tokens, then Overview, Colors, Typography, Layout, Components, Do's and Don'ts), generate `tokens.css` from it, and say in your reply what you extracted and from where. Do not copy logos, images or wording from the source.
-   3. Otherwise the design system the creation message names.
+   3. Otherwise the preset the creation message names, or under 自动 the one you picked.
 
    Read the resulting `DESIGN.md` fully (front matter tokens, components, Do's and Don'ts) and `tokens.css`. A top-level `seed` (the seed colour picked in the design system panel) is optional metadata, not a token: keep it as is, generate nothing from it. Token names follow the front matter: `colors.x` → `--color-x`, `rounded.x` → `--rounded-x`, `spacing.x` → `--space-x`, `typography.x` → class `.t-x` (and `--text-x-size/-weight/-leading`). Generating `tokens.css`: one `:root` rule with those custom properties in front-matter order (colours, then radii, then spacing), `--font-sans` from the first typography family plus system fallbacks, and one `.t-x { font-family: var(--font-sans); font-size: …; font-weight: …; line-height: … }` rule per typography entry using its variables; open with a comment naming the system — see any `design-systems/*/tokens.css`. Only custom properties, comments and `.t-*` rules: no `@import`, `url(` or other selectors.
 4. **Craft.** Read `craft/imagery.md` and skim `craft/anti-ai-slop.md`; for forms read `craft/form-validation.md`, for empty/loading/error states `craft/state-coverage.md`.
@@ -112,7 +117,7 @@ Screen skeleton:
 
 ### Progress card
 
-Report the stages with gonggong's `progress_card` so the group sees where you are (skip it only when the tool is not available). Create the card when you start — title `生成「<主题>」`, stages `搭建设计系统`, `搭建应用骨架`, one `生成 <屏幕标题>（<i>/<n>）` per screen, then `自检与连线` — and update the same card (pass its `id`, send the whole `stages` list) as each stage starts (`running`) and ends (`done`, or `failed` with the reason in `detail`). 搭建设计系统 covers Step 0's design system and copying or writing `DESIGN.md` / `tokens.css`; 搭建应用骨架 is the images in `assets/` and `gg-artifact.json` with every screen's `prompt`; 自检与连线 is Step 3. A card holds at most 12 stages: past nine screens, group them (`生成 首页等 3 屏（1/4）`). Changing an existing prototype: one stage per screen you touch plus `自检与连线`.
+Report the stages with gonggong's `progress_card` so the group sees where you are (skip it only when the tool is not available). Create the card when you start — title `生成「<产品名>」` (a short name for what `需求` asks for), stages `搭建设计系统`, `搭建应用骨架`, one `生成 <屏幕标题>（<i>/<n>）` per screen, then `自检与连线` — and update the same card (pass its `id`, send the whole `stages` list) as each stage starts (`running`) and ends (`done`, or `failed` with the reason in `detail`). 搭建设计系统 covers Step 0's design system and copying or writing `DESIGN.md` / `tokens.css`; 搭建应用骨架 is the images in `assets/` and `gg-artifact.json` with every screen's `prompt`; 自检与连线 is Step 3. A card holds at most 12 stages: past nine screens, group them (`生成 首页等 3 屏（1/4）`). Changing an existing prototype: one stage per screen you touch plus `自检与连线`.
 
 ### Step 1 — Build
 

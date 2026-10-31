@@ -2,8 +2,11 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  AUTO_DESIGN_SYSTEM,
   type ArtifactCard,
   type ArtifactSubmitRes,
+  type GroupDesignSystemDto,
+  groupDesignSystemKey,
   type MessageDto,
   PROTOCOL_VERSION,
   type RunStart,
@@ -221,7 +224,7 @@ describe('creations', () => {
       pluginId: p!.id,
       templateId: 'app-screens',
       designSystemId: 'luke-plus',
-      inputs: { title: '麓客活动报名' },
+      inputs: { prompt: '麓客活动报名：会员报名周末湖畔活动' },
       directions: false,
       botId: w.bot.id,
     }
@@ -278,38 +281,27 @@ describe('creations', () => {
     w.ws.close()
   })
 
-  it('passes the device and a pasted DESIGN.md or reference to the agent', async () => {
+  it('passes the request, the device and an imported or automatic design system to the agent', async () => {
     const w = await creationWorld(['plugins', 'artifacts'])
+    const url = `/api/groups/${w.g.id}/creations`
     const md = '---\nname: 自带\ncolors:\n  primary: "#123456"\n---\n\n## Overview\n\n自带的设计系统'
-    const res = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, {
+    const ds = await w.wang.post<GroupDesignSystemDto>(`/api/groups/${w.g.id}/design-systems`, { designMd: md })
+    const res = await w.wang.post<MessageDto>(url, {
       ...w.req,
-      inputs: {
-        title: '麓客活动报名',
-        device: '桌面 Web',
-        design_md: md,
-        reference_url: 'https://example.com',
-        reference_repo: 'apps/web',
-      },
+      designSystemId: groupDesignSystemKey(ds.body.id),
+      inputs: { prompt: '麓客活动报名', device: '桌面 Web' },
     })
     expect(res.status).toBe(200)
-    for (const s of [
-      '- 设备：桌面 Web',
-      `- 粘贴 DESIGN.md：${md}`,
-      '- 参考网站：https://example.com',
-      '- 参考仓库：apps/web',
-      '设计系统：以参数里的「粘贴 DESIGN.md」、「参考网站」、「参考仓库」为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css；所选预设「麓客+」',
-    ])
+    for (const s of ['- 需求：麓客活动报名', '- 设备：桌面 Web', '本群导入的设计系统「自带」', '自带的设计系统'])
       expect(res.body.body).toContain(s)
     expect(res.body.body).not.toContain('先读取 skill 目录下的')
-    const plain = await w.wang.post<MessageDto>(`/api/groups/${w.g.id}/creations`, {
-      ...w.req,
-      inputs: { title: '麓客活动报名', reference_url: '  ' },
-    })
+    const auto = await w.wang.post<MessageDto>(url, { ...w.req, designSystemId: AUTO_DESIGN_SYSTEM })
+    expect(auto.body.body).toContain('design-systems/neon-night/ 霓虹夜')
+    const rows = await t.db.select().from(artifacts)
+    expect(rows.map((a) => a.designSystemId).sort()).toEqual([`group:${ds.body.id}`, null].sort())
+    const plain = await w.wang.post<MessageDto>(url, w.req)
     expect(plain.body.body).toContain('设计系统：麓客+（luke-plus），先读取 skill 目录下的')
-    const bad = await w.wang.post(`/api/groups/${w.g.id}/creations`, {
-      ...w.req,
-      inputs: { title: 'x', device: '手表' },
-    })
+    const bad = await w.wang.post(url, { ...w.req, inputs: { prompt: 'x', device: '手表' } })
     expect(bad.status).toBe(400)
     w.ws.close()
   })

@@ -92,6 +92,11 @@ export const PluginManifest = z
       .max(10)
       .default([]),
     license: z.string().min(1).max(40),
+    /**
+     * Prompt-first creation (Stitch style): one box fills the `prompt` text input; the template's select inputs sit in
+     * its toolbar, the design system is a preset, 自动 or one the group imported. Null = the step-by-step panel.
+     */
+    composer: z.object({ prompt: z.string() }).nullable().default(null),
     /** Hosted-artifact features: `editable` shows direct editing, `tokens` (e.g. `tokens.css`) the theme panel. */
     artifact: z.object({ editable: z.boolean().optional(), tokens: PkgPath.optional() }).optional(),
     /** Where it came from, shown with the license (e.g. an open-design template at a pinned commit). */
@@ -110,6 +115,8 @@ export const PluginManifest = z
       for (const id of tpl.inputs ?? [])
         if (!ids.has(id))
           ctx.addIssue({ code: 'custom', path: ['templates', k, 'inputs'], message: `没有输入项 ${id}` })
+    if (m.composer && m.inputs.find((i) => i.id === m.composer?.prompt)?.type !== 'text')
+      ctx.addIssue({ code: 'custom', path: ['composer', 'prompt'], message: '必须是一个 text 输入项' })
   })
 export type PluginManifest = z.infer<typeof PluginManifest>
 
@@ -175,6 +182,50 @@ export type GroupPluginDto = z.infer<typeof GroupPluginDto>
 export const TogglePluginReq = z.object({ enabled: z.boolean() })
 
 export const CREATION_INPUT_MAX = 20000
+
+/** CreationReq.designSystemId: the agent picks a preset that fits the request. */
+export const AUTO_DESIGN_SYSTEM = 'auto'
+const GROUP_DS = 'group:'
+/** CreationReq.designSystemId of a design system the group imported. */
+export const groupDesignSystemKey = (id: string) => `${GROUP_DS}${id}`
+export const groupDesignSystemId = (key: string | null) =>
+  key?.startsWith(GROUP_DS) ? key.slice(GROUP_DS.length) : null
+
+const frontMatter = (md: string) => /^---\r?\n([\s\S]*?)\r?\n---/.exec(md)?.[1] ?? ''
+/** A DESIGN.md's name: the front matter `name`, else its first `#` heading. */
+export function designMdTitle(md: string) {
+  const name = /^name:\s*["']?(.+?)["']?\s*$/m.exec(frontMatter(md))?.[1]
+  return (name ?? /^#\s+(.+?)\s*$/m.exec(md)?.[1])?.slice(0, 40) ?? null
+}
+/** Up to five hex colours of the front matter, in order: the picker's swatches. */
+export const designMdSwatches = (md: string) =>
+  (frontMatter(md).match(/#[0-9a-fA-F]{6}\b/g) ?? []).slice(0, 5)
+
+/**
+ * A design system the group imported (「导入我的设计」): a DESIGN.md, or a site or repository the agent extracts one
+ * from at each creation. Offered by prompt-first plugins next to their presets.
+ */
+export const GroupDesignSystemDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  title: z.string(),
+  swatches: z.array(z.string()),
+  designMd: z.string().nullable(),
+  url: z.string().nullable(),
+  repo: z.string().nullable(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+})
+export type GroupDesignSystemDto = z.infer<typeof GroupDesignSystemDto>
+/** POST /api/groups/:id/design-systems */
+export const CreateGroupDesignSystemReq = z
+  .object({
+    designMd: z.string().trim().min(1).max(CREATION_INPUT_MAX).optional(),
+    url: z.string().trim().url().max(500).optional(),
+    repo: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine((r) => r.designMd || r.url || r.repo, '请粘贴 DESIGN.md，或填写参考网站、参考仓库')
+export type CreateGroupDesignSystemReq = z.infer<typeof CreateGroupDesignSystemReq>
 /** POST /api/groups/:id/creations — the creation panel's 「交给 AI」. Posts a creation card @-ing the bot. */
 export const CreationReq = z.object({
   pluginId: z.string(),
