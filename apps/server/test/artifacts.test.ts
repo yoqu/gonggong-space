@@ -213,6 +213,13 @@ describe('lint', () => {
       'external-resource',
     ])
     expect(await codes(page('<script src="../_gg/gg-kit.js"></script>'))).toEqual([])
+    expect(await codes(page('<img src="https://images.example.com/a.jpg" alt="">'))).toEqual([
+      'external-resource',
+    ])
+    expect(await codes(page('<div style="background-image: url(\'//x.example/a.jpg\')"></div>'))).toEqual([
+      'external-resource',
+    ])
+    expect(await codes(page('<img src="../assets/boat.jpg" alt="">'))).toEqual([])
   })
 
   it('flags a shell file that differs from the plugin kit', async () => {

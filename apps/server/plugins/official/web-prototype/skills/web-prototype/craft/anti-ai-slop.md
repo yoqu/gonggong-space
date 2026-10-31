@@ -43,9 +43,9 @@ These are P0 (must-fix):
   wall as full-bleed quote, pricing as comparison-against-status-quo,
   an inline mini-product-demo).
 - **External placeholder image CDNs** (`unsplash.com`, `placehold.co`,
-  `placekitten.com`, `picsum.photos`). Fragile and obvious. Use the
-  shipped `.ph-img` placeholder class, or copy a real image into
-  `design/<slug>/` and reference it relatively.
+  `placekitten.com`, `picsum.photos`). Fragile and obvious. Download a
+  real photo into `assets/` and reference it relatively
+  (`craft/imagery.md`); a labelled `.gg-ph` only when nothing fits.
 - **More than ~12 raw hex values outside `:root`.** Tokens were not
   honoured.
 - **The brand colour (`--color-primary`) spread beyond what `DESIGN.md` assigns it.** Use it only

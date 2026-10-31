@@ -26,7 +26,7 @@ web-prototype/
 │   └── gg-kit.js                  ← data-gg-link / data-gg-back navigation
 ├── templates/<id>/GUIDE.md        ← per-template instructions; templates/<id>/example/ is a finished reference
 ├── design-systems/<id>/           ← DESIGN.md (source of truth) + tokens.css (generated from its front matter)
-├── craft/                         ← cross-template rules (anti-ai-slop, accessibility, states, forms, UX laws)
+├── craft/                         ← cross-template rules (imagery, anti-ai-slop, accessibility, states, forms, UX laws)
 └── references/critique.md         ← five-dimension self-review before publishing
 ```
 
@@ -102,16 +102,23 @@ Screen skeleton:
    3. Otherwise the design system the creation message names.
 
    Read the resulting `DESIGN.md` fully (front matter tokens, components, Do's and Don'ts) and `tokens.css`. A top-level `seed` (the seed colour picked in the design system panel) is optional metadata, not a token: keep it as is, generate nothing from it. Token names follow the front matter: `colors.x` → `--color-x`, `rounded.x` → `--rounded-x`, `spacing.x` → `--space-x`, `typography.x` → class `.t-x` (and `--text-x-size/-weight/-leading`). Generating `tokens.css`: one `:root` rule with those custom properties in front-matter order (colours, then radii, then spacing), `--font-sans` from the first typography family plus system fallbacks, and one `.t-x { font-family: var(--font-sans); font-size: …; font-weight: …; line-height: … }` rule per typography entry using its variables; open with a comment naming the system — see any `design-systems/*/tokens.css`. Only custom properties, comments and `.t-*` rules: no `@import`, `url(` or other selectors.
-4. **Craft.** Skim `craft/anti-ai-slop.md`; for forms read `craft/form-validation.md`, for empty/loading/error states `craft/state-coverage.md`.
+4. **Craft.** Read `craft/imagery.md` and skim `craft/anti-ai-slop.md`; for forms read `craft/form-validation.md`, for empty/loading/error states `craft/state-coverage.md`.
+5. **Design brief.** Before writing any file, expand the request into a brief the way a product designer would — the request is a starting point, not a spec:
+   - One line on the product and its mood, in the words of the folder's `DESIGN.md` Overview.
+   - Per screen: its job, its sections top to bottom, and its **signature module** — the one thing that makes it this product rather than a generic list (a live map with boats on the lake, a countdown order card, a ticket stub). Give it the most space and the strongest visual.
+   - The domain details a shipped product would have and the request did not spell out: statuses, prices and how they add up, times and distances, safety or trust notes, empty and edge states. Keep the numbers consistent across screens.
+   - The image slots and where each image comes from (`craft/imagery.md`).
+   The brief becomes the screens' `prompt` in `gg-artifact.json`.
 
 ### Progress card
 
-Report the stages with gonggong's `progress_card` so the group sees where you are (skip it only when the tool is not available). Create the card when you start — title `生成「<主题>」`, stages `搭建设计系统`, `搭建应用骨架`, one `生成 <屏幕标题>（<i>/<n>）` per screen, then `自检与连线` — and update the same card (pass its `id`, send the whole `stages` list) as each stage starts (`running`) and ends (`done`, or `failed` with the reason in `detail`). 搭建设计系统 covers Step 0's design system and copying or writing `DESIGN.md` / `tokens.css`; 搭建应用骨架 is `gg-artifact.json` with every screen's `prompt`; 自检与连线 is Step 3. A card holds at most 12 stages: past nine screens, group them (`生成 首页等 3 屏（1/4）`). Changing an existing prototype: one stage per screen you touch plus `自检与连线`.
+Report the stages with gonggong's `progress_card` so the group sees where you are (skip it only when the tool is not available). Create the card when you start — title `生成「<主题>」`, stages `搭建设计系统`, `搭建应用骨架`, one `生成 <屏幕标题>（<i>/<n>）` per screen, then `自检与连线` — and update the same card (pass its `id`, send the whole `stages` list) as each stage starts (`running`) and ends (`done`, or `failed` with the reason in `detail`). 搭建设计系统 covers Step 0's design system and copying or writing `DESIGN.md` / `tokens.css`; 搭建应用骨架 is the images in `assets/` and `gg-artifact.json` with every screen's `prompt`; 自检与连线 is Step 3. A card holds at most 12 stages: past nine screens, group them (`生成 首页等 3 屏（1/4）`). Changing an existing prototype: one stage per screen you touch plus `自检与连线`.
 
 ### Step 1 — Build
 
 1. Copy the design system's `DESIGN.md` and `tokens.css` to `design/<slug>/` (or write the ones you made in Step 0). Not hosted only: also copy `kit/index.html` to `design/<slug>/index.html` and `kit/gg-kit.css`, `kit/gg-kit.js` to `design/<slug>/_gg/`.
-2. Write `gg-artifact.json`, then each screen following the template guide. Give every screen a `prompt`: its design brief in the request's language, one paragraph — what the screen is for, its sections in order, the key copy and where its links go (see the example's manifest). People read it in the screen's details and you read it when changing the screen later; when you change a screen, update its `prompt` to match. Links may carry `data-gg-transition` (`push`, `push-back`, `slide-up`, `fade`, `none`; the default is `push`) for the play view.
+2. Fetch or make the images planned in the brief into `assets/` (`craft/imagery.md`) and write `assets/CREDITS.md`.
+3. Write `gg-artifact.json`, then each screen following the template guide. Give every screen a `prompt`: its design brief in the request's language, one paragraph — what the screen is for, its sections in order, the key copy and where its links go (see the example's manifest). People read it in the screen's details and you read it when changing the screen later; when you change a screen, update its `prompt` to match. Links may carry `data-gg-transition` (`push`, `push-back`, `slide-up`, `fade`, `none`; the default is `push`) for the play view.
 
 ### Step 2 — Visual directions (only when asked)
 
@@ -122,7 +129,7 @@ Report the stages with gonggong's `progress_card` so the group sees where you ar
 
 ### Step 3 — Check and critique
 
-1. Serve the folder over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome. Hosted folders have no `index.html` or `_gg/`: copy the folder to a temporary directory outside the workspace, add the kit there (`index.html`, `_gg/`) and serve that copy — never add them to `design/<slug>/`. `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Look for: nothing under the status bar, capsule or bottom bars; lists full; text not clipped.
+1. Serve the folder over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome. Hosted folders have no `index.html` or `_gg/`: copy the folder to a temporary directory outside the workspace, add the kit there (`index.html`, `_gg/`) and serve that copy — never add them to `design/<slug>/`. `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Screenshot each screen at the device size too (375×812 miniprogram, 390×844 mobile) to judge the first view. Look for: nothing under the status bar, capsule or bottom bars; no empty band above a fixed bar; floating labels clear of pins and of each other; lists full; text not clipped; every image loads and fits its slot; no screen is a stack of same-looking grey rows — each has its signature module and visual anchor from the brief.
 2. Run the template's checklist in its GUIDE.md (every P0 must pass), then `references/critique.md`, and fix what they find.
 
 ### Step 4 — Publish and reply
@@ -135,7 +142,7 @@ Report the stages with gonggong's `progress_card` so the group sees where you ar
 - **Tokens only.** No hex, `rgb()`, named colours, font sizes or radii in screen files except through the tokens; tints via `color-mix()` on a token.
 - **Static first.** Write content as static HTML. JavaScript in a screen is allowed only for in-screen interaction (tabs, toggles) and never to generate content: generated elements cannot be edited later.
 - **No external code.** No frameworks, CDNs or web fonts; the kit and tokens are all the CSS and JS you get besides your own inline `<style>` (and inline `<script>` when needed).
-- **Real content, real images or labelled placeholders** (`.gg-ph`), never hotlinks, never invented logos, testimonials or awards.
+- **Real content and real images** (`craft/imagery.md`): attachments, generated images or free photos downloaded into `assets/`, SVG illustrations for maps and diagrams; a labelled `.gg-ph` only for a slot nothing can fill. Never hotlinks, never invented logos, testimonials or awards.
 - **`data-section` on every top-level region** so people can point at a part. When asked to change one part, edit only that region and leave the rest byte-for-byte.
 - **Keep the split.** Never edit `index.html` or `_gg/`; never draw the status bar, capsule or home indicator.
 - **The folder's design system rules.** Follow the folder's own `DESIGN.md` and `tokens.css`; when asked to restyle, change them first and keep screens on the tokens.

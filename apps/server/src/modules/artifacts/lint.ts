@@ -22,6 +22,8 @@ const EXTERNAL = [
   /<script\b[^>]*\bsrc\s*=\s*["']?((?:https?:)?\/\/[^"'\s>]+)/gi,
   /<link\b[^>]*\bhref\s*=\s*["']?((?:https?:)?\/\/[^"'\s>]+)/gi,
   /@import\s+(?:url\()?\s*["']?((?:https?:)?\/\/[^"')\s;]+)/gi,
+  /<(?:img|source|video|audio)\b[^>]*\b(?:src|srcset)\s*=\s*["']?((?:https?:)?\/\/[^"'\s>]+)/gi,
+  /url\(\s*["']?((?:https?:)?\/\/[^"')\s]+)/gi,
 ]
 
 const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex')
