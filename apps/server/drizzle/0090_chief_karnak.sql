@@ -1,0 +1,1 @@
+ALTER TABLE "artifacts" ADD COLUMN "visibility" text DEFAULT 'group' NOT NULL;

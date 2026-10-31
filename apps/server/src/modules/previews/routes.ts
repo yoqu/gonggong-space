@@ -9,6 +9,7 @@ import { requireMachine } from '../../daemon/auth.js'
 import { previews, services } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
+import { viewArtifact } from '../artifacts/service.js'
 import { requireUser } from '../auth/session.js'
 import { requireMember } from '../groups/service.js'
 import { issueCode } from './access.js'
@@ -153,7 +154,8 @@ export function previewRoutes(ctx: Ctx) {
       const { id } = req.params as { id: string }
       const { path = '/' } = z.object({ path: z.string().startsWith('/').optional() }).parse(req.query)
       const preview = await requireWebPreview(ctx, id)
-      await requireMember(ctx, preview.groupId, user.id)
+      if (preview.artifactId) await viewArtifact(ctx, preview.artifactId, user.id)
+      else await requireMember(ctx, preview.groupId, user.id)
       const { publicUrl } = ctx.config.preview
       const parent = new URL(publicUrl ?? `${req.protocol}://${req.host}`).origin
       const code = issueCode(ctx, preview.id, { userId: user.id, parent })

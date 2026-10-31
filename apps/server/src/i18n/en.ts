@@ -352,6 +352,10 @@ export const en = {
   'LiveKit 未运行': 'LiveKit is not running',
   没有人在看这个实时画面: 'Nobody is watching this live view',
   '仅 Bot 主人或群管理员可操作': "Only the Bot's owner or a group admin can do this",
+  仅创建人可见: 'Only its creator can open this',
+  '只能查看，进群后才能修改': 'View only: join the group to change it',
+  '只有创建人、Bot 主人或群管理员能修改可见范围':
+    "Only its creator, the Bot's owner or a group admin can change who sees it",
   没有这个控制请求: 'No such control request',
 
   // Machines, tools and providers

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import {
   ARTIFACT_CONTEXT_ISSUES_MAX,
+  type ArtifactAccess,
   type ArtifactCard,
   type ArtifactDto,
   type ArtifactFile,
@@ -9,6 +10,7 @@ import {
   type ArtifactVersionDto,
   type ArtifactVersionSource,
   type ArtifactVersionSummary,
+  type ArtifactVisibility,
   artifactDigestText,
   type DaemonArtifactRef,
   GG_ARTIFACT_MANIFEST,
@@ -24,7 +26,7 @@ import { artifacts, artifactVersions, bots, messages, runs, users } from '../../
 import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { requireMember } from '../groups/service.js'
+import { findMember, inTeamOfGroup } from '../groups/service.js'
 import {
   authorName,
   type MessageMeta,
@@ -218,15 +220,29 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     queuedRunCount,
     favorites: a.favorites,
     botId: a.botId,
+    visibility: a.visibility as ArtifactVisibility,
+    createdBy: a.createdBy,
   }
 }
 
-export async function listArtifacts(ctx: Ctx, groupId: string): Promise<ArtifactDto[]> {
-  const list = await ctx.db
-    .select()
+/** The group's artifacts, without the private ones `viewer` may not open. */
+export async function listArtifacts(
+  ctx: Ctx,
+  groupId: string,
+  viewer: { userId: string; isAdmin: boolean },
+): Promise<ArtifactDto[]> {
+  const all = await ctx.db
+    .select({ a: artifacts, owner: bots.ownerId })
     .from(artifacts)
+    .leftJoin(bots, eq(bots.id, artifacts.botId))
     .where(and(eq(artifacts.groupId, groupId), isNull(artifacts.archivedAt)))
     .orderBy(desc(artifacts.updatedAt))
+  const list = all
+    .filter(
+      (r) =>
+        r.a.visibility !== 'private' || viewer.isAdmin || [r.a.createdBy, r.owner].includes(viewer.userId),
+    )
+    .map((r) => r.a)
   const heads = list.flatMap((a) => (a.headVersionId ? [a.headVersionId] : []))
   const [rows, running, waits] = await Promise.all([
     heads.length ? versionRows(ctx.db, inArray(artifactVersions.id, heads)) : [],
@@ -287,11 +303,41 @@ export async function findArtifact(db: Read, id: string) {
   return a
 }
 
-/** An artifact of a group `userId` is a member of. */
-export async function requireArtifact(ctx: Ctx, id: string, userId: string) {
+/** Who may open a private artifact or change an artifact's visibility: its creator, its bot's owner, a group admin. */
+export async function isArtifactManager(ctx: Ctx, a: Artifact, userId: string, isAdmin: boolean) {
+  if (isAdmin || a.createdBy === userId) return true
+  if (!a.botId) return false
+  const [bot] = await ctx.db.select({ ownerId: bots.ownerId }).from(bots).where(eq(bots.id, a.botId))
+  return bot?.ownerId === userId
+}
+
+/** The caller's access to `a` (ArtifactDto.visibility); `private`: a member it is hidden from. */
+export async function artifactAccess(
+  ctx: Ctx,
+  a: Artifact,
+  userId: string,
+): Promise<ArtifactAccess | 'private' | null> {
+  const m = await findMember(ctx, a.groupId, userId)
+  if (m)
+    return a.visibility !== 'private' || (await isArtifactManager(ctx, a, userId, m.member.isAdmin))
+      ? 'edit'
+      : 'private'
+  return a.visibility === 'team' && (await inTeamOfGroup(ctx, a.groupId, userId)) ? 'view' : null
+}
+
+/** An artifact `userId` may look at and present. */
+export async function viewArtifact(ctx: Ctx, id: string, userId: string) {
   const a = (await findArtifact(ctx.db, id)) ?? fail('not_found', '产物不存在')
-  await requireMember(ctx, a.groupId, userId)
-  return a
+  const access = await artifactAccess(ctx, a, userId)
+  if (access === 'private') return fail('forbidden', '仅创建人可见')
+  if (!access) return fail('not_found', '群不存在或你已不在群内')
+  return { a, access }
+}
+
+/** An artifact `userId` may change (and annotate, export, hand to a bot): a member of its group it is not hidden from. */
+export async function requireArtifact(ctx: Ctx, id: string, userId: string) {
+  const { a, access } = await viewArtifact(ctx, id, userId)
+  return access === 'edit' ? a : fail('forbidden', '只能查看，进群后才能修改')
 }
 
 export async function requireVersion(db: Read, a: Artifact, versionId: string | null | undefined) {
@@ -458,6 +504,8 @@ export async function cardOf(db: Read, a: Artifact): Promise<ArtifactCard> {
     thumbnailUrl: head ? thumbnailUrl(stale ?? head) : null,
     ...(stale && { thumbnailStale: true }),
     issueCount: head?.issues.length ?? 0,
+    visibility: a.visibility as ArtifactVisibility,
+    createdBy: a.createdBy,
   }
 }
 

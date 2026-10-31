@@ -33,6 +33,7 @@ import teams from '../features/teams/en'
 import usage from '../features/usage/en'
 import users from '../features/users/en'
 import workbench from '../features/workbench/en'
+import works from '../features/works/en'
 import workspaces from '../features/workspaces/en'
 import lib from '../lib/en'
 import ui from '../ui/en'
@@ -75,5 +76,6 @@ export const en = {
   ...usage,
   ...users,
   ...workbench,
+  ...works,
   ...workspaces,
 }

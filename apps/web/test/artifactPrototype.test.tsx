@@ -63,6 +63,8 @@ const artifact = (o: Record<string, unknown> = {}) => ({
   archivedAt: null,
   running: false,
   botId: 'b1',
+  visibility: 'group',
+  createdBy: null,
   ...o,
 })
 const file = (path: string) => ({ path, hash: 'b'.repeat(64), size: 10 })
@@ -669,6 +671,40 @@ describe('share', () => {
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
     expect(within(dialog).queryByText('只有 Bot 主人或群管理员能开关分享')).toBeNull()
+  })
+})
+
+describe('visibility', () => {
+  it('lets its creator choose who sees it', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ botId: 'b2', createdBy: 'u1' }),
+        'PUT /artifacts/a1/visibility': artifact({ botId: 'b2', createdBy: 'u1', visibility: 'team' }),
+      }),
+    )
+    setGroup(['b1', 'b2'])
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const scope = within(dialog).getByRole('radiogroup', { name: '可见范围' })
+    expect(within(scope).getByRole('radio', { name: '本群' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(within(scope).getByRole('radio', { name: '团队' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'PUT', '/artifacts/a1/visibility')).toEqual([{ visibility: 'team' }]),
+    )
+    await within(dialog).findByText('团队成员都能查看和演示，进群后才能修改')
+  })
+
+  it('is fixed for members who did not create it and do not manage it', async () => {
+    mockApi(routes({ 'GET /artifacts/a1': artifact({ botId: 'b2', createdBy: 'u9' }) }))
+    setGroup(['b1', 'b2'])
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const scope = within(dialog).getByRole('radiogroup', { name: '可见范围' })
+    for (const r of within(scope).getAllByRole('radio')) expect(r.hasAttribute('disabled')).toBe(true)
   })
 })
 

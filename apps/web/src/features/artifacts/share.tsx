@@ -1,4 +1,4 @@
-import type { ArtifactShareDto } from '@gonggong/protocol'
+import type { ArtifactShareDto, ArtifactVisibility } from '@gonggong/protocol'
 import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useState } from 'react'
 import { create } from 'zustand'
@@ -8,8 +8,9 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
-import { Button, Dialog, Icon, Switch } from '../../ui'
+import { Button, Dialog, Icon, SegmentedControl, Switch } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
+import { setArtifactVisibility } from './store'
 
 // Stitch's Share (capability list §9) on 共工's preview shares: one public link to the artifact's head, read-only.
 
@@ -64,6 +65,20 @@ export function useShareAccess(groupId: string, botId: string | null | undefined
   return t('只有 Bot 主人或群管理员能开关分享')
 }
 
+/** Who may set who sees it: its creator, the owner of its bot or a group admin. */
+function useCanSetVisibility(groupId: string, botId: string | null | undefined, createdBy: string | null) {
+  const me = useSession((s) => s.user?.id)
+  const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
+  const owner = useWorkspace((s) => s.bots.find((b) => b.id === botId)?.ownerId)
+  return !!me && (createdBy === me || owner === me || (!!group && isGroupAdmin(group, me)))
+}
+
+const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
+  private: t('只有创建人、Bot 主人和群管理员能打开'),
+  group: t('群成员都能查看和修改'),
+  team: t('团队成员都能查看和演示，进群后才能修改'),
+}
+
 const expiry = (at: string | null) =>
   at ? t('链接 {date} 到期', { date: new Date(at).toLocaleDateString() }) : ''
 
@@ -75,19 +90,56 @@ export function ShareDialog({
   artifactId,
   groupId,
   botId,
+  visibility,
+  createdBy,
   onClose,
 }: {
   artifactId: string
   groupId: string
   botId: string | null | undefined
+  visibility: ArtifactVisibility
+  createdBy: string | null
   onClose: () => void
 }) {
   const { share, busy, set } = useArtifactShare(artifactId)
   const denied = useShareAccess(groupId, botId)
+  const canScope = useCanSetVisibility(groupId, botId, createdBy)
+  const [scope, setScope] = useState(visibility)
+  const [saving, setSaving] = useState(false)
+  const changeScope = async (next: ArtifactVisibility) => {
+    const was = scope
+    setScope(next)
+    setSaving(true)
+    try {
+      await setArtifactVisibility(artifactId, next)
+    } catch (e) {
+      setScope(was)
+      toastError(e)
+    } finally {
+      setSaving(false)
+    }
+  }
   const on = !!share?.enabled
   return (
     <Dialog open onClose={onClose} title={t('分享产物')} width={440}>
       <div className="art-share">
+        <div className="art-share__scope">
+          <strong>{t('可见范围')}</strong>
+          <SegmentedControl<ArtifactVisibility>
+            aria-label={t('可见范围')}
+            size="small"
+            value={scope}
+            onChange={(v) => void changeScope(v)}
+            items={[
+              { value: 'private', label: t('仅自己'), disabled: !canScope || saving },
+              { value: 'group', label: t('本群'), disabled: !canScope || saving },
+              { value: 'team', label: t('团队'), disabled: !canScope || saving },
+            ]}
+          />
+          <small>
+            {canScope ? VISIBILITY_NOTE[scope] : t('只有创建人、Bot 主人或群管理员能修改可见范围')}
+          </small>
+        </div>
         <div className="art-share__row">
           <div>
             <strong>{t('开启分享')}</strong>

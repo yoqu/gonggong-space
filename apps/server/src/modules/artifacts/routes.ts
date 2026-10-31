@@ -17,6 +17,7 @@ import {
   type ArtifactUploadRes,
   type ArtifactVersionDetail,
   type ArtifactVersionSummary,
+  ArtifactVisibilityReq,
   CreateAnnotationReq,
   type MessageDto,
   SendAnnotationsReq,
@@ -25,6 +26,8 @@ import {
   SyncMissingReq,
   type SyncMissingRes,
   UpdateAnnotationReq,
+  type WorkDto,
+  type WorkGroupDto,
 } from '@gonggong/protocol'
 import { and, eq, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -61,9 +64,11 @@ import {
   restoreVersion,
   submitVersion,
   versionDetail,
+  viewArtifact,
 } from './service.js'
 import { openArtifactPreview, setShare, shareState } from './share.js'
 import { snapshotPending } from './snapshots.js'
+import { listWorks, setVisibility, workGroups } from './works.js'
 
 const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
 
@@ -326,20 +331,37 @@ export function artifactRoutes(ctx: Ctx) {
     // ── members ──
     app.get<{ Params: { id: string } }>('/api/groups/:id/artifacts', async (req): Promise<ArtifactDto[]> => {
       const me = await requireUser(ctx, req)
-      await requireMember(ctx, req.params.id, me.id)
-      return listArtifacts(ctx, req.params.id)
+      const { member } = await requireMember(ctx, req.params.id, me.id)
+      return listArtifacts(ctx, req.params.id, { userId: me.id, isAdmin: member.isAdmin })
     })
+
+    app.get('/api/works', async (req): Promise<WorkDto[]> => listWorks(ctx, (await requireUser(ctx, req)).id))
+    app.get(
+      '/api/works/groups',
+      async (req): Promise<WorkGroupDto[]> => workGroups(ctx, (await requireUser(ctx, req)).id),
+    )
 
     app.get<{ Params: { id: string } }>('/api/artifacts/:id', async (req): Promise<ArtifactDto> => {
       const me = await requireUser(ctx, req)
-      return artifactDetail(ctx, await requireArtifact(ctx, req.params.id, me.id))
+      const { a, access } = await viewArtifact(ctx, req.params.id, me.id)
+      return { ...(await artifactDetail(ctx, a)), access }
     })
+
+    app.put<{ Params: { id: string } }>(
+      '/api/artifacts/:id/visibility',
+      async (req): Promise<ArtifactDto> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const { visibility } = ArtifactVisibilityReq.parse(req.body)
+        return artifactDetail(ctx, await setVisibility(ctx, me, a, visibility))
+      },
+    )
 
     app.get<{ Params: { id: string } }>(
       '/api/artifacts/:id/versions',
       async (req): Promise<ArtifactVersionSummary[]> => {
         const me = await requireUser(ctx, req)
-        return listVersions(ctx, await requireArtifact(ctx, req.params.id, me.id))
+        return listVersions(ctx, (await viewArtifact(ctx, req.params.id, me.id)).a)
       },
     )
 
@@ -347,7 +369,7 @@ export function artifactRoutes(ctx: Ctx) {
       '/api/artifacts/:id/versions/:vid',
       async (req): Promise<ArtifactVersionDetail> => {
         const me = await requireUser(ctx, req)
-        return versionDetail(ctx, await requireArtifact(ctx, req.params.id, me.id), req.params.vid)
+        return versionDetail(ctx, (await viewArtifact(ctx, req.params.id, me.id)).a, req.params.vid)
       },
     )
 
@@ -365,7 +387,7 @@ export function artifactRoutes(ctx: Ctx) {
       '/api/artifacts/:id/versions/:vid/thumbnail',
       async (req, reply) => {
         const me = await requireUser(ctx, req)
-        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
         const v = await requireVersion(ctx.db, a, req.params.vid)
         if (!v.thumbnailHash) return fail('not_found', '还没有截图')
         return reply.headers(PNG_HEADERS).send(await artifactBlobs.open(a.groupId, v.thumbnailHash))
@@ -376,7 +398,7 @@ export function artifactRoutes(ctx: Ctx) {
       '/api/artifacts/:id/versions/:vid/screens/:screenId/thumbnail',
       async (req, reply) => {
         const me = await requireUser(ctx, req)
-        const a = await requireArtifact(ctx, req.params.id, me.id)
+        const { a } = await viewArtifact(ctx, req.params.id, me.id)
         const v = await requireVersion(ctx.db, a, req.params.vid)
         const shot =
           v.screenThumbs.find((x) => x.screenId === req.params.screenId) ?? fail('not_found', '还没有截图')
@@ -405,7 +427,7 @@ export function artifactRoutes(ctx: Ctx) {
 
     app.post<{ Params: { id: string } }>('/api/artifacts/:id/preview', async (req) => {
       const me = await requireUser(ctx, req)
-      const a = await requireArtifact(ctx, req.params.id, me.id)
+      const { a } = await viewArtifact(ctx, req.params.id, me.id)
       const { versionId = null } = PreviewReq.parse(req.body ?? {})
       const p = await openArtifactPreview(ctx, a, versionId)
       return { previewId: p.id, origin: previewOrigin(ctx, p, req), url: `/api/previews/${p.id}/open` }

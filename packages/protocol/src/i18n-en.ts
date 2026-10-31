@@ -301,6 +301,9 @@ export const protocolEn = {
   '{bot} 提议用「{plugin}」创作，等群成员确认':
     '{bot} proposes a {plugin} creation, waiting for a member to confirm',
   '{user} 置顶了一条消息：{text}': '{user} pinned a message: {text}',
+  '{user} 把「{title}」设为仅创建人可见': '{user} made "{title}" visible to its creator only',
+  '{user} 把「{title}」设为本群可见': '{user} made "{title}" visible to this group',
+  '{user} 把「{title}」设为团队可见': '{user} made "{title}" visible to the team',
   '{user} 取消置顶了一条消息：{text}': '{user} unpinned a message: {text}',
   '{user} 添加了标签：{title}': '{user} added the tab: {title}',
   '{user} 删除了标签：{title}': '{user} deleted the tab: {title}',

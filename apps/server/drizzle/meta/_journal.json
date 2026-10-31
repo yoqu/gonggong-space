@@ -631,6 +631,13 @@
       "when": 1793418577000,
       "tag": "0089_lying_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793447018754,
+      "tag": "0090_chief_karnak",
+      "breakpoints": true
     }
   ]
 }

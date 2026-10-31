@@ -37,7 +37,12 @@ import { groupTitle } from './title.js'
 
 /** Non-members (of the group or of its live team) get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
-  if (!isUuid(groupId)) return fail('not_found', '群不存在或你已不在群内')
+  return (await findMember(ctx, groupId, userId)) ?? fail('not_found', '群不存在或你已不在群内')
+}
+
+/** `userId`'s membership of a live group of a live team they are in. */
+export async function findMember(ctx: Ctx, groupId: string, userId: string) {
+  if (!isUuid(groupId)) return undefined
   const [row] = await ctx.db
     .select({ group: groups, member: groupMembers })
     .from(groups)
@@ -45,7 +50,18 @@ export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
     .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
     .innerJoin(teams, eq(teams.id, groups.teamId))
     .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNull(teams.archivedAt)))
-  return row ?? fail('not_found', '群不存在或你已不在群内')
+  return row
+}
+
+/** `userId` is in the live team of the live group, member of the group or not. */
+export async function inTeamOfGroup(ctx: Ctx, groupId: string, userId: string) {
+  const [row] = await ctx.db
+    .select({ id: groups.id })
+    .from(groups)
+    .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
+    .innerJoin(teams, eq(teams.id, groups.teamId))
+    .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNull(teams.archivedAt)))
+  return !!row
 }
 
 /**

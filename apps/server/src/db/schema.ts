@@ -1613,6 +1613,8 @@ export const artifacts = pgTable(
     checkoutBotIds: jsonb('checkout_bot_ids').$type<string[]>().notNull().default([]),
     /** The secret of its public link (a preview share of the head preview), sealed (lib/seal.ts) so members can copy it again. */
     shareToken: text('share_token'),
+    /** ArtifactVisibility: 'private' | 'group' | 'team'. */
+    visibility: text('visibility').notNull().default('group'),
     archivedAt: ts('archived_at'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

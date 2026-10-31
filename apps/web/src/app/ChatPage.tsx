@@ -12,12 +12,13 @@ import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
 import { loadTerminalSpaces, useTerminalSpaces } from '../features/terminal/spaces'
 import { openTab } from '../features/workbench/open'
+import { WorksPage } from '../features/works/WorksPage'
 import { t } from '../i18n'
 import { api } from '../lib/api'
 import { named } from '../lib/lazy'
 import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence } from '../ui'
-import { AppRail } from './AppRail'
+import { AppRail, isWorksPath } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
 import { useInspector } from './inspector'
@@ -145,7 +146,9 @@ export function ChatPage() {
   const { groupId, botId, machineId, spaceId } = useParams()
   const navigate = useNavigate()
   // 我的机器管理: its tree replaces the conversation list; /machines alone opens nothing yet.
-  const managing = isMachinesPath(useLocation().pathname)
+  const { pathname } = useLocation()
+  const managing = isMachinesPath(pathname)
+  const works = isWorksPath(pathname)
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
   const { groups, bots, machines, workspaceLoaded } = useWorkspace(
@@ -183,15 +186,15 @@ export function ChatPage() {
   }, [group])
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
-    if (groupId || spaceId || managing || mobile || groupsState !== 'ready' || !groups.length) return
+    if (groupId || spaceId || managing || works || mobile || groupsState !== 'ready' || !groups.length) return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, spaceId, managing, mobile, groupsState, groups, navigate])
+  }, [groupId, spaceId, managing, works, mobile, groupsState, groups, navigate])
 
   return (
     <>
       <ChatLayout
-        mobileView={groupId || botId || machineId || spaceId ? 'chat' : 'list'}
+        mobileView={groupId || botId || machineId || spaceId || works ? 'chat' : 'list'}
         sidebarLabel={managing ? t('我的机器管理') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
@@ -233,7 +236,9 @@ export function ChatPage() {
           )
         }
       >
-        {machineId ? (
+        {works ? (
+          <WorksPage />
+        ) : machineId ? (
           openMachine ? (
             <Suspense fallback={null}>
               <MachinePage

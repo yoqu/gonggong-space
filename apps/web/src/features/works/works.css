@@ -1,0 +1,110 @@
+/* 作品: the artifacts I may open, across my groups */
+.works {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--content-bg);
+}
+.works__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-24);
+  border-bottom: 1px solid var(--separator);
+}
+.works__title {
+  margin: 0;
+  margin-right: auto;
+  font-size: var(--text-title-2-size);
+  font-weight: 600;
+}
+.works__search {
+  width: 220px;
+}
+.works__note {
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.works__center {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--label-secondary);
+}
+.works__grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  align-content: start;
+  gap: var(--space-16);
+  margin: 0;
+  padding: var(--space-20) var(--space-24) var(--space-32);
+  list-style: none;
+}
+.works__card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-menu);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  overflow: hidden;
+}
+.works__shot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  background: var(--control-track);
+  color: var(--label-tertiary);
+  cursor: pointer;
+  overflow: hidden;
+}
+.works__shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.works__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-12) var(--space-12);
+}
+.works__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.works__meta {
+  overflow: hidden;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.works__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.works__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+}
+@media (max-width: 640px) {
+  .works__head,
+  .works__grid {
+    padding-inline: var(--space-16);
+  }
+  .works__search {
+    width: 100%;
+  }
+}

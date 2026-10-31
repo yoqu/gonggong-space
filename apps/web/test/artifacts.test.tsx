@@ -56,6 +56,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   botId: null,
   undoVersionId: 'v1',
   redoVersionId: null,
+  visibility: 'group',
+  createdBy: null,
   ...o,
 })
 const card = (o: Partial<ArtifactCard> = {}): ArtifactCard => ({

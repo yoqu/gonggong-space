@@ -487,6 +487,18 @@
   flex-direction: column;
   gap: var(--space-12);
 }
+.art-share__scope {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding-bottom: var(--space-12);
+  border-bottom: 1px solid var(--separator);
+}
+.art-share__scope small {
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
 .art-share__row {
   display: flex;
   align-items: center;

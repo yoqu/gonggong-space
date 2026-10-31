@@ -322,8 +322,11 @@ describe('versions and submit', () => {
       queuedRunCount: 0,
       favorites: ['home'],
       botId: 'b1',
+      visibility: 'team',
+      createdBy: 'u1',
     }
     expect(ArtifactDto.parse(dto)).toEqual(dto)
+    expect(ArtifactDto.safeParse({ ...dto, visibility: 'public' }).success).toBe(false)
     expect(ArtifactDto.parse({ ...dto, botId: null }).botId).toBeNull()
     expect(ArtifactDto.safeParse({ ...dto, dir: '../x' }).success).toBe(false)
   })
@@ -746,6 +749,8 @@ describe('stitch round 3: refs, region marks, queue, stale thumbnails, design so
       queuedRunCount: 2,
       favorites: [],
       botId: 'b1',
+      visibility: 'group',
+      createdBy: null,
     }
     expect(ArtifactDto.parse(dto)).toMatchObject({ queued: true, queuedRunCount: 2 })
     const { queued: _, ...old } = dto

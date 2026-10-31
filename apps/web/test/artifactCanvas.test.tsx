@@ -97,6 +97,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   running: false,
   queued: false,
   queuedRunCount: 0,
+  visibility: 'group',
+  createdBy: null,
   ...o,
 })
 const file = (path: string) => ({ path, hash: 'b'.repeat(64), size: 10 })

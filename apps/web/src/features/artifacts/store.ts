@@ -4,6 +4,7 @@ import type {
   ArtifactLink,
   ArtifactVersionDetail,
   ArtifactVersionDto,
+  ArtifactVisibility,
   WebEvent,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
@@ -158,6 +159,13 @@ export function useArtifactPreview(artifactId: string, versionId: string | null,
 /** PATCH /api/artifacts/:id — renames the artifact (its card follows). */
 export async function renameArtifact(artifactId: string, title: string) {
   const artifact = await api.patch<ArtifactDto>(`/artifacts/${artifactId}`, { title })
+  useStore.setState((s) => (s[artifactId] ? { [artifactId]: { ...s[artifactId], artifact } } : {}))
+  return artifact
+}
+
+/** PUT /api/artifacts/:id/visibility — who may open it (its card follows). */
+export async function setArtifactVisibility(artifactId: string, visibility: ArtifactVisibility) {
+  const artifact = await api.put<ArtifactDto>(`/artifacts/${artifactId}/visibility`, { visibility })
   useStore.setState((s) => (s[artifactId] ? { [artifactId]: { ...s[artifactId], artifact } } : {}))
   return artifact
 }

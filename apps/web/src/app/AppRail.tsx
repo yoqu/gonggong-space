@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router'
 import { AccountMenu } from '../features/auth/AccountMenu'
+import { useWorksShown } from '../features/works/WorksPage'
 import { t } from '../i18n'
 import { NavRail, type NavRailItem } from '../ui'
 import { useShellOverlay } from './AppShell'
@@ -7,10 +8,13 @@ import { isMachinesPath } from './MachineSidebar'
 import { useSession } from './session'
 import { useWorkspace } from './workspace'
 
-/** Chat window NavRail (D12): 消息 / 我的机器管理 / 通知 / 管理后台 (sysadmin) and the account menu at its foot. */
+/** Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 我的机器管理 / 通知 / 管理后台 (sysadmin) and the account menu. */
 export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const navigate = useNavigate()
-  const machines = isMachinesPath(useLocation().pathname)
+  const { pathname } = useLocation()
+  const machines = isMachinesPath(pathname)
+  const works = isWorksPath(pathname)
+  const worksShown = useWorksShown()
   const admin = useSession((s) => s.user?.role === 'sysadmin')
   const unread = useWorkspace((s) => s.groups.reduce((n, g) => n + (g.muted ? 0 : g.unread), 0))
   const notifCount = useWorkspace((s) => s.notifCount)
@@ -18,6 +22,7 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const bar = orientation === 'horizontal'
   const items: NavRailItem[] = [
     { id: 'chat', label: t('消息'), icon: 'message', badge: unread },
+    ...(worksShown ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
     { id: 'machines', label: t('我的机器管理'), icon: 'server' },
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
@@ -28,7 +33,8 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
     else {
       set(null)
       if (id === 'machines' && !machines) navigate('/machines')
-      else if (id === 'chat' && machines) navigate('/')
+      else if (id === 'works' && !works) navigate('/works')
+      else if (id === 'chat' && (machines || works)) navigate('/')
     }
   }
   return (
@@ -36,9 +42,11 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
       orientation={orientation}
       items={bar ? [...items, ...adminItems] : items}
       footer={!bar && admin ? adminItems : undefined}
-      selected={overlay === 'notif' ? 'notif' : machines ? 'machines' : 'chat'}
+      selected={overlay === 'notif' ? 'notif' : machines ? 'machines' : works ? 'works' : 'chat'}
       onSelect={select}
       trailing={<AccountMenu size={bar ? 24 : 32} align={bar ? 'end' : 'start'} placement="above" />}
     />
   )
 }
+
+export const isWorksPath = (pathname: string) => /^\/works(\/|$)/.test(pathname)

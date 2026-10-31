@@ -1,4 +1,5 @@
 import type { ArtifactCard } from '@gonggong/protocol'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { Button, Icon, Skeleton, Spinner, Tag } from '../../ui'
 import { openArtifact } from './store'
@@ -9,12 +10,16 @@ import './artifacts.css'
  * 打开 shows its canvas in the workbench.
  */
 export function ArtifactCardView({ card }: { card: ArtifactCard }) {
+  const me = useSession((s) => s.user?.id)
   const open = () => openArtifact(card.artifactId, card.title)
   const generating = card.status === 'generating'
+  const hidden = card.visibility === 'private' && !!card.createdBy && card.createdBy !== me
   return (
     <div className="art-card" data-testid="artifact-card">
       <button type="button" className="art-card__shot" tabIndex={-1} onClick={open}>
-        {card.thumbnailUrl ? (
+        {hidden ? (
+          <Icon name="lock" size={28} className="art-card__placeholder" />
+        ) : card.thumbnailUrl ? (
           <>
             <img src={card.thumbnailUrl} alt={t('{title} 缩略图', { title: card.title })} loading="lazy" />
             {card.thumbnailStale ? (
@@ -51,6 +56,9 @@ export function ArtifactCardView({ card }: { card: ArtifactCard }) {
               {t('就绪')}
             </span>
           )}
+          {card.visibility === 'private' ? (
+            <Tag icon="lock">{hidden ? t('仅创建人可见') : t('仅自己可见')}</Tag>
+          ) : null}
           {card.issueCount ? (
             <Tag tone="orange" icon="warning">
               {t('{n} 项规范问题', { n: card.issueCount })}

@@ -185,6 +185,8 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           artifactId={a.id}
           groupId={a.groupId}
           botId={a.botId}
+          visibility={a.visibility}
+          createdBy={a.createdBy}
           onClose={() => setSharing(false)}
         />
       ) : null}

@@ -187,6 +187,16 @@ export const ArtifactVersionDetail = ArtifactVersionDto.extend({
 })
 export type ArtifactVersionDetail = z.infer<typeof ArtifactVersionDetail>
 
+/**
+ * Who may open an artifact: `private` its creator, its bot's owner and the group admins; `group` the group's members;
+ * `team` also the members of the group's team, read-only (view and present) unless they are in the group.
+ */
+export const ArtifactVisibility = z.enum(['private', 'group', 'team'])
+export type ArtifactVisibility = z.infer<typeof ArtifactVisibility>
+/** What the caller may do with an artifact: `view` only looks and presents (a team member outside the group). */
+export const ArtifactAccess = z.enum(['edit', 'view'])
+export type ArtifactAccess = z.infer<typeof ArtifactAccess>
+
 export const ArtifactDto = z.object({
   id: z.string(),
   groupId: z.string(),
@@ -218,6 +228,11 @@ export const ArtifactDto = z.object({
   favorites: z.array(z.string()),
   /** The bot it was created for: the canvas hands AI instructions to it by default. */
   botId: z.string().nullable(),
+  visibility: ArtifactVisibility,
+  /** The member who started its creation. */
+  createdBy: z.string().nullable(),
+  /** The caller's access; sent by GET /api/artifacts/:id. */
+  access: ArtifactAccess.optional(),
 })
 export type ArtifactDto = z.infer<typeof ArtifactDto>
 
@@ -267,6 +282,9 @@ export const ArtifactCard = z.object({
   /** See ArtifactVersionDto.thumbnailStale. */
   thumbnailStale: z.boolean().optional(),
   issueCount: z.number().int().min(0),
+  /** Absent on cards written before visibility existed: `group`. */
+  visibility: ArtifactVisibility.optional(),
+  createdBy: z.string().nullable().optional(),
 })
 export type ArtifactCard = z.infer<typeof ArtifactCard>
 
@@ -719,6 +737,30 @@ export type ArtifactSubmitRes = z.infer<typeof ArtifactSubmitRes>
 // GET /api/artifacts/:id/export.zip?version= — the version's files plus the plugin's shell (index.html, _gg/) and a
 // README.txt; the shell fetches gg-artifact.json, so it opens over any static HTTP server.
 /** POST /api/artifacts/:id/share — turns the public link to the head preview on or off (GET reads it). */
+/** PUT /api/artifacts/:id/visibility — its creator, its bot's owner or a group admin; answers its ArtifactDto. */
+export const ArtifactVisibilityReq = z.object({ visibility: ArtifactVisibility })
+export type ArtifactVisibilityReq = z.infer<typeof ArtifactVisibilityReq>
+
+/** GET /api/works — every artifact the caller may open, across their groups (作品), latest first. */
+export const WorkDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  groupTitle: z.string(),
+  title: z.string(),
+  /** The plugin's title (产品原型, 幻灯片…). */
+  pluginTitle: z.string().nullable(),
+  visibility: ArtifactVisibility,
+  createdBy: z.string().nullable(),
+  creatorName: z.string().nullable(),
+  thumbnailUrl: z.string().nullable(),
+  updatedAt: z.string(),
+  access: ArtifactAccess,
+})
+export type WorkDto = z.infer<typeof WorkDto>
+/** GET /api/works/groups — the caller's groups with a creation plugin on: 作品 shows when there is one. */
+export const WorkGroupDto = z.object({ id: z.string(), title: z.string() })
+export type WorkGroupDto = z.infer<typeof WorkGroupDto>
+
 export const ArtifactShareReq = z.object({ enabled: z.boolean() })
 export type ArtifactShareReq = z.infer<typeof ArtifactShareReq>
 export const ArtifactShareDto = z.object({

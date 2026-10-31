@@ -70,4 +70,13 @@ export default {
   '二维码打开的是分享链接，开启分享后才能扫码查看':
     'The QR code opens the share link, so sharing must be on to scan it',
   用手机扫码打开原型: 'Scan with a phone to open the prototype',
+  可见范围: 'Who can see it',
+  仅自己: 'Only me',
+  '只有创建人、Bot 主人和群管理员能打开': "Only its creator, the Bot's owner and group admins can open it",
+  群成员都能查看和修改: 'Group members can view and change it',
+  '团队成员都能查看和演示，进群后才能修改':
+    'Team members can view and present it; joining the group lets them change it',
+  '只有创建人、Bot 主人或群管理员能修改可见范围':
+    "Only its creator, the Bot's owner or a group admin can change who sees it",
+  仅创建人可见: 'Only its creator can open it',
 }

@@ -266,6 +266,8 @@ describe('creations', () => {
       status: 'generating',
       thumbnailUrl: null,
       issueCount: 0,
+      visibility: 'group',
+      createdBy: a!.createdBy,
     })
 
     const start = (await w.next()) as RunStart

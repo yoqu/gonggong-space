@@ -85,6 +85,8 @@ const artifact = (o: Partial<ArtifactDto> = {}): ArtifactDto => ({
   running: false,
   queued: false,
   queuedRunCount: 0,
+  visibility: 'group',
+  createdBy: null,
   ...o,
 })
 const detail = (o: Record<string, unknown> = {}) => ({
