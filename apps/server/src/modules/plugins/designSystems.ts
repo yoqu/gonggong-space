@@ -29,7 +29,11 @@ function titleOf(req: CreateGroupDesignSystemReq) {
   const md = req.designMd && designMdTitle(req.designMd)
   if (md) return md
   if (req.url) return new URL(req.url).host
-  const repo = req.repo?.replace(/\.git$/, '').replace(/\/+$/, '').split(/[/:]/).pop()
+  const repo = req.repo
+    ?.replace(/\.git$/, '')
+    .replace(/\/+$/, '')
+    .split(/[/:]/)
+    .pop()
   return repo || '我的设计'
 }
 

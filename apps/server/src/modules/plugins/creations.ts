@@ -172,7 +172,9 @@ function designLines(m: PluginManifest, card: CreationCard, design: Design) {
     ? [
         `设计系统：以参数里的${sources.join('、')}为准，按 SKILL.md 生成 DESIGN.md 和 tokens.css；所选预设「${design.title}」（skill 目录下的 ${design.dir}/）只在设计来源没有覆盖的地方作参考。`,
       ]
-    : [`设计系统：${design.title}（${design.id}），先读取 skill 目录下的 ${design.dir}/DESIGN.md 和 ${design.dir}/tokens.css。`]
+    : [
+        `设计系统：${design.title}（${design.id}），先读取 skill 目录下的 ${design.dir}/DESIGN.md 和 ${design.dir}/tokens.css。`,
+      ]
 }
 
 /** What the agent is asked to do (agent-facing: not translated). */
@@ -198,7 +200,9 @@ const textOf = (v: string | boolean | undefined) => (typeof v === 'string' ? v.t
 
 /** The artifact's title: the creation's 主题 input, else the prompt's first phrase, the template or the plugin. */
 function creationTitle(m: PluginManifest, req: CreationReq, card: CreationCard) {
-  const prompt = m.composer ? (textOf(req.inputs[m.composer.prompt]).split(/[\n，。,.:：；;！!？?]/)[0] ?? '') : ''
+  const prompt = m.composer
+    ? (textOf(req.inputs[m.composer.prompt]).split(/[\n，。,.:：；;！!？?]/)[0] ?? '')
+    : ''
   const lead = prompt.length > 24 ? `${prompt.slice(0, 24)}…` : prompt
   return (textOf(req.inputs.title) || lead || card.template?.title || card.pluginTitle).slice(0, 80)
 }

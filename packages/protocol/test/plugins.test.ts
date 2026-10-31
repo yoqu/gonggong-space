@@ -159,9 +159,9 @@ describe('group design systems', () => {
     expect(CreateGroupDesignSystemReq.safeParse({}).success).toBe(false)
     expect(CreateGroupDesignSystemReq.safeParse({ designMd: '  ' }).success).toBe(false)
     expect(CreateGroupDesignSystemReq.safeParse({ url: 'example' }).success).toBe(false)
-    expect(CreateGroupDesignSystemReq.safeParse({ designMd: 'x'.repeat(CREATION_INPUT_MAX + 1) }).success).toBe(
-      false,
-    )
+    expect(
+      CreateGroupDesignSystemReq.safeParse({ designMd: 'x'.repeat(CREATION_INPUT_MAX + 1) }).success,
+    ).toBe(false)
   })
 
   it('keys a group design system apart from presets and 自动', () => {

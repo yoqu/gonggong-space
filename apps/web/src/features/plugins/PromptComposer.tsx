@@ -220,11 +220,7 @@ export function PromptComposer({
                 items={dsItems}
                 onSelect={pickDs}
               >
-                {dsSwatches.length ? (
-                  <Dots colors={dsSwatches} />
-                ) : (
-                  <Icon name="palette" size={14} />
-                )}
+                {dsSwatches.length ? <Dots colors={dsSwatches} /> : <Icon name="palette" size={14} />}
                 <span className="plg-compose__pill-text">{dsTitle}</span>
                 <Icon name="chevron-down" size={10} />
               </PopMenu>

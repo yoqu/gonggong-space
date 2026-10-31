@@ -2,9 +2,9 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  AUTO_DESIGN_SYSTEM,
   type ArtifactCard,
   type ArtifactSubmitRes,
+  AUTO_DESIGN_SYSTEM,
   type GroupDesignSystemDto,
   groupDesignSystemKey,
   type MessageDto,
@@ -285,14 +285,21 @@ describe('creations', () => {
     const w = await creationWorld(['plugins', 'artifacts'])
     const url = `/api/groups/${w.g.id}/creations`
     const md = '---\nname: 自带\ncolors:\n  primary: "#123456"\n---\n\n## Overview\n\n自带的设计系统'
-    const ds = await w.wang.post<GroupDesignSystemDto>(`/api/groups/${w.g.id}/design-systems`, { designMd: md })
+    const ds = await w.wang.post<GroupDesignSystemDto>(`/api/groups/${w.g.id}/design-systems`, {
+      designMd: md,
+    })
     const res = await w.wang.post<MessageDto>(url, {
       ...w.req,
       designSystemId: groupDesignSystemKey(ds.body.id),
       inputs: { prompt: '麓客活动报名', device: '桌面 Web' },
     })
     expect(res.status).toBe(200)
-    for (const s of ['- 需求：麓客活动报名', '- 设备：桌面 Web', '本群导入的设计系统「自带」', '自带的设计系统'])
+    for (const s of [
+      '- 需求：麓客活动报名',
+      '- 设备：桌面 Web',
+      '本群导入的设计系统「自带」',
+      '自带的设计系统',
+    ])
       expect(res.body.body).toContain(s)
     expect(res.body.body).not.toContain('先读取 skill 目录下的')
     const auto = await w.wang.post<MessageDto>(url, { ...w.req, designSystemId: AUTO_DESIGN_SYSTEM })

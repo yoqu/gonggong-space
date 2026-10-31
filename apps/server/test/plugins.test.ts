@@ -710,7 +710,8 @@ describe('per-template steps', () => {
 })
 
 describe('group design systems and 自动', () => {
-  const MD = '---\nname: 麓湖夜航\ncolors:\n  primary: "#155332"\n  surface: "#FFFFFF"\n---\n\n# 夜航\n按钮用湖绿。\n'
+  const MD =
+    '---\nname: 麓湖夜航\ncolors:\n  primary: "#155332"\n  surface: "#FFFFFF"\n---\n\n# 夜航\n按钮用湖绿。\n'
   const composer = manifest({
     composer: { prompt: 'prompt' },
     inputs: [
@@ -718,8 +719,20 @@ describe('group design systems and 自动', () => {
       { id: 'device', label: '设备', type: 'select', options: ['小程序', '手机 App'], default: '小程序' },
     ],
     designSystems: [
-      { id: 'neutral-modern', title: '中性现代', description: '黑白灰', swatches: ['#111111', '#ffffff'], dir: 'systems/neutral-modern' },
-      { id: 'warm', title: '暖纸', description: '米色纸感', swatches: ['#8A4B2A', '#F7F1E6'], dir: 'systems/warm' },
+      {
+        id: 'neutral-modern',
+        title: '中性现代',
+        description: '黑白灰',
+        swatches: ['#111111', '#ffffff'],
+        dir: 'systems/neutral-modern',
+      },
+      {
+        id: 'warm',
+        title: '暖纸',
+        description: '米色纸感',
+        swatches: ['#8A4B2A', '#F7F1E6'],
+        dir: 'systems/warm',
+      },
     ],
   })
 
@@ -768,7 +781,9 @@ describe('group design systems and 自动', () => {
     expect((await outsider.post(w.base, { designMd: MD })).status).toBe(404)
 
     expect((await outsider.del(`${w.base}/${res.body.id}`)).status).toBe(404)
-    const mine = (await (await w.as(w.eve)).post<GroupDesignSystemDto>(w.base, { url: 'https://eve.example' })).body
+    const mine = (
+      await (await w.as(w.eve)).post<GroupDesignSystemDto>(w.base, { url: 'https://eve.example' })
+    ).body
     expect((await mia.del(`${w.base}/${mine.id}`)).status).toBe(403)
     const eve = await w.as(w.eve)
     expect((await eve.del(`${w.base}/${site.body.id}`)).status).toBe(204)
@@ -799,17 +814,25 @@ describe('group design systems and 自动', () => {
     expect(res.body.body).not.toContain('systems/neutral-modern')
     expect(res.body.body).toContain('需求：滴滴打船')
 
-    const site = (await mia.post<GroupDesignSystemDto>(w.base, { url: 'https://example.com', repo: 'acme/ui' })).body
-    const res2 = await mia.post<MessageDto>(w.url, { ...w.req, designSystemId: groupDesignSystemKey(site.id) })
+    const site = (
+      await mia.post<GroupDesignSystemDto>(w.base, { url: 'https://example.com', repo: 'acme/ui' })
+    ).body
+    const res2 = await mia.post<MessageDto>(w.url, {
+      ...w.req,
+      designSystemId: groupDesignSystemKey(site.id),
+    })
     expect(res2.body.body).toContain('参考网站：https://example.com')
     expect(res2.body.body).toContain('参考仓库：acme/ui')
 
     const elsewhere = await t.seed.group({ createdBy: w.eve.id, name: '别的群' })
-    const foreign = (await (await w.as(w.eve)).post<GroupDesignSystemDto>(
-      `/api/groups/${elsewhere.id}/design-systems`,
-      { designMd: MD },
-    )).body
-    expect((await mia.post(w.url, { ...w.req, designSystemId: groupDesignSystemKey(foreign.id) })).status).toBe(400)
+    const foreign = (
+      await (
+        await w.as(w.eve)
+      ).post<GroupDesignSystemDto>(`/api/groups/${elsewhere.id}/design-systems`, { designMd: MD })
+    ).body
+    expect(
+      (await mia.post(w.url, { ...w.req, designSystemId: groupDesignSystemKey(foreign.id) })).status,
+    ).toBe(400)
     expect((await mia.post(w.url, { ...w.req, designSystemId: 'group:nope' })).status).toBe(400)
     w.conn.ws.close()
   })
@@ -818,8 +841,18 @@ describe('group design systems and 自动', () => {
     const w = await dsWorld()
     const res = await (await w.as(w.mia)).post<MessageDto>(w.url, w.req)
     expect(res.status).toBe(200)
-    expect((res.body.card as CreationCard).designSystem).toEqual({ id: 'auto', title: '自动选择', swatches: [] })
-    for (const s of ['按需求从 skill 目录下的预设里挑', 'systems/neutral-modern', '中性现代：黑白灰', 'systems/warm', '暖纸：米色纸感'])
+    expect((res.body.card as CreationCard).designSystem).toEqual({
+      id: 'auto',
+      title: '自动选择',
+      swatches: [],
+    })
+    for (const s of [
+      '按需求从 skill 目录下的预设里挑',
+      'systems/neutral-modern',
+      '中性现代：黑白灰',
+      'systems/warm',
+      '暖纸：米色纸感',
+    ])
       expect(res.body.body).toContain(s)
     w.conn.ws.close()
   })
@@ -882,7 +915,7 @@ describe('creation from the chat', () => {
     w.conn.ws.close()
   })
 
-  it('offers 自动 and the group\'s imported design systems for a prompt-first plugin', async () => {
+  it("offers 自动 and the group's imported design systems for a prompt-first plugin", async () => {
     const w = await chatWorld(
       manifest({
         composer: { prompt: 'prompt' },
@@ -890,12 +923,15 @@ describe('creation from the chat', () => {
       }),
     )
     const ds = (
-      await (await w.as(w.mia)).post<GroupDesignSystemDto>(`/api/groups/${w.group.id}/design-systems`, {
+      await (
+        await w.as(w.mia)
+      ).post<GroupDesignSystemDto>(`/api/groups/${w.group.id}/design-systems`, {
         url: 'https://example.com',
       })
     ).body
     const one = await w.call('plugin_catalog', { plugin: 'web-prototype' })
-    for (const s of ['也可以用 auto', `group:${ds.id}｜example.com｜https://example.com`]) expect(one.text).toContain(s)
+    for (const s of ['也可以用 auto', `group:${ds.id}｜example.com｜https://example.com`])
+      expect(one.text).toContain(s)
     const res = await w.call('creation_propose', {
       plugin: 'web-prototype',
       template: 'saas',

@@ -97,7 +97,7 @@ describe('official plugin web-prototype', () => {
     ])
   })
 
-  it('asks for the request in one box and the device; design sources come from the group\'s imports', () => {
+  it("asks for the request in one box and the device; design sources come from the group's imports", () => {
     expect(manifest.composer).toEqual({ prompt: 'prompt' })
     expect(manifest.templates[0]?.inputs).toEqual(['prompt', 'device'])
     const inputs = new Map(manifest.inputs.map((i) => [i.id, i]))
