@@ -116,4 +116,41 @@ export default {
   '{name} 已开始创作': '{name} started it',
   '{name} 选了不用': '{name} dismissed it',
   '展开（共 {n} 行）': 'Show all ({n} {n:line|lines})',
+  'DESIGN.md 是描述产品外观的开放格式文档。导入后保存到本群，之后的创作都能选用。':
+    "DESIGN.md is an open format describing your product's look and feel. Imports are saved to this group for later creations too.",
+  'SaaS 客户看板：数据总览、客户列表、客户详情':
+    'SaaS customer dashboard: overview, customer list, customer detail',
+  'https://github.com/owner/repo 或工作区路径': 'https://github.com/owner/repo or a workspace path',
+  '上传 DESIGN.md 文件': 'Upload a DESIGN.md file',
+  '不指定时由 AI 按需求自动选择': 'Unless you pick one, AI chooses to fit the request',
+  '二手书交易 App：首页推荐、书籍详情、聊天议价':
+    'Used-book marketplace app: picks, book detail, chat to bargain',
+  '先出 2–3 个视觉方向': 'Sketch 2–3 visual directions first',
+  删除导入的设计: 'Delete an imported design',
+  参考仓库: 'Reference repository',
+  参考网站: 'Reference website',
+  '团队周报系统：填写周报、团队汇总、个人历史':
+    'Team weekly reports: write a report, team summary, my history',
+  '在线课程官网：首页、课程详情、报名结算': 'Online course site: home, course detail, checkout',
+  '宠物寄养小程序：寄养师列表、预约寄养、每日照片日报':
+    'Pet boarding mini program: sitters, booking, daily photo report',
+  '家庭记账 App：本月概览、记一笔、分类统计': 'Family budget app: this month, add an entry, by category',
+  导入我的设计: 'Import my design',
+  '导入我的设计…': 'Import my design…',
+  '想做个什么样的产品？': 'What shall we design?',
+  '把 DESIGN.md 的内容粘贴到这里…': 'Paste a DESIGN.md here…',
+  '拖入 DESIGN.md 文件': 'Drop a DESIGN.md file',
+  本群导入: 'Imported in this group',
+  '湖畔露营地预约：选营位和日期、确认订单、入园码':
+    'Lakeside campsite booking: pick a pitch and dates, confirm, entry code',
+  '示例：{text}': 'Example: {text}',
+  '社区食堂点餐小程序：今日菜单、下单取餐、会员积分':
+    "Community canteen ordering: today's menu, order and pick up, member points",
+  '粘贴 DESIGN.md': 'Paste DESIGN.md',
+  '网站和仓库由 Bot 在每次创作时提取配色、字体和组件风格。':
+    'For a site or repository, the bot extracts colors, fonts and component styles at each creation.',
+  自动选择: 'Auto',
+  '跑步 App：今日计划、实时跑步、月度报告': "Running app: today's plan, live run, monthly report",
+  '选择 Bot': 'Choose a bot',
+  预设: 'Presets',
 }

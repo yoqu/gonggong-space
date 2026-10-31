@@ -32,6 +32,7 @@ import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
 import { blockerText, CATEGORY, type CreationDraft, newDraft, previewUrl, requestOf } from './model'
 import { PluginTile, Swatches } from './PluginTile'
+import { PromptComposer } from './PromptComposer'
 import { type CreationOpen, closeCreation, createInGroup } from './store'
 import './plugins.css'
 
@@ -101,7 +102,11 @@ export function CreationSheet({
   const step = steps.includes(stepKey) ? stepKey : 'content'
   const at = steps.indexOf(step)
   const asksBot = steps.includes('bot')
-  const bot = asksBot ? bots.find((b) => b.id === draft.botId) : usable[0]
+  const bot = m.composer
+    ? (usable.find((b) => b.id === draft.botId) ?? usable[0])
+    : asksBot
+      ? bots.find((b) => b.id === draft.botId)
+      : usable[0]
   const asked = templateInputs(m, template)
   const set = (patch: Partial<CreationDraft>) => setDraft((d) => ({ ...d, ...patch }))
   const pickTemplate = (id: string) => {
@@ -154,6 +159,24 @@ export function CreationSheet({
       setBusy(false)
     }
   }
+
+  if (m.composer)
+    return (
+      <PromptComposer
+        group={group}
+        plugins={plugins}
+        plugin={plugin}
+        draft={draft}
+        onDraft={set}
+        onPickPlugin={pickPlugin}
+        usable={usable}
+        bot={bot}
+        uploads={uploads}
+        busy={busy}
+        problems={problems}
+        onSubmit={() => void submit()}
+      />
+    )
 
   const subtitles: Record<CreationStep, string> = {
     template: [m.title, template?.title].filter(Boolean).join(' · '),

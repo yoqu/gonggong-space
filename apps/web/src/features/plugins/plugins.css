@@ -523,3 +523,148 @@
 .ui-dialog:has(.plg-sheet) {
   min-width: 0;
 }
+
+/* Prompt-first 创作 (Stitch's home box): heading, one request box with its toolbar, example chips */
+.plg-compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-8) 0 var(--space-4);
+}
+.plg-compose__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.plg-compose__title {
+  margin: 0;
+  font-size: var(--text-title-1-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.plg-compose__box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-8);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  transition: box-shadow 0.2s;
+}
+.plg-compose__box:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 8px 28px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.plg-compose__input {
+  min-height: 112px;
+  padding: var(--space-4);
+  border: 0;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-headline-size);
+  line-height: 1.5;
+}
+.plg-compose__input:focus,
+.plg-compose__input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.plg-compose__input::placeholder {
+  color: var(--label-tertiary);
+}
+.plg-compose__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.plg-compose__spacer {
+  flex: 1;
+}
+.plg-compose__icon,
+.plg-compose__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: var(--control-regular);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  color: var(--label);
+  font: inherit;
+}
+.plg-compose__icon {
+  justify-content: center;
+  width: var(--control-regular);
+}
+.plg-compose__pill {
+  max-width: 220px;
+  padding: 0 var(--space-12);
+}
+.plg-compose__pill-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plg-compose__ds {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.plg-compose__warn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--tint-orange-text);
+  font-size: var(--text-footnote-size);
+}
+.plg-compose__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.plg-compose__examples .plg-chip {
+  height: var(--control-regular);
+  padding: 0 var(--space-12);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label-secondary);
+}
+.plg-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.plg-import__sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.plg-dots {
+  display: inline-flex;
+}
+.plg-dots > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1.5px var(--content-bg),
+    inset 0 0 0 0.5px var(--separator);
+}
+.plg-dots > span + span {
+  margin-left: -4px;
+}
+.ui-popover:has(> .ui-menu) {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border: 0;
+}

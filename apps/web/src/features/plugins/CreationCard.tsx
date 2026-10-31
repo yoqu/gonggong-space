@@ -1,4 +1,9 @@
-import type { CreationCard as Card, CreationDraftCard, MessageDto } from '@gonggong/protocol'
+import {
+  AUTO_DESIGN_SYSTEM,
+  type CreationCard as Card,
+  type CreationDraftCard,
+  type MessageDto,
+} from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
@@ -8,6 +13,10 @@ import { draftOfCard, requestOf } from './model'
 import { PluginTile } from './PluginTile'
 import { createInGroup, dismissDraft, openCreation, useEnabledPlugins } from './store'
 import './plugins.css'
+
+/** 自动选择 is stored in Chinese on the card; show it in the reader's language. */
+const dsTitle = (card: Pick<Card, 'designSystem'>) =>
+  card.designSystem?.id === AUTO_DESIGN_SYSTEM ? t('自动选择') : card.designSystem?.title
 
 /** Lines of a parameter shown before 展开 (a pasted DESIGN.md runs to hundreds). */
 const FOLD_LINES = 3
@@ -43,7 +52,7 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
   const plugin = useEnabledPlugins(m.groupId).find((p) => p.id === card.pluginId)
   const draft = plugin && draftOfCard(card, plugin)
   const [head, ...rest] = card.inputs
-  const summary = [card.template?.title, card.designSystem?.title].filter(Boolean).join(' · ')
+  const summary = [card.template?.title, dsTitle(card)].filter(Boolean).join(' · ')
   const files = m.attachments.length
   const again = async () => {
     const req = draft && plugin && requestOf(draft, [], plugin.manifest)
@@ -123,7 +132,7 @@ export function CreationDraftView({ m, card }: { m: MessageDto; card: CreationDr
   const plugin = useEnabledPlugins(m.groupId).find((p) => p.id === card.pluginId)
   const draft = plugin && { ...draftOfCard(card, plugin), fromDraft: m.id }
   const [head] = card.inputs
-  const summary = [card.template?.title, card.designSystem?.title].filter(Boolean).join(' · ')
+  const summary = [card.template?.title, dsTitle(card)].filter(Boolean).join(' · ')
   const run = async (f: () => Promise<unknown>) => {
     setBusy(true)
     await attempt(f)

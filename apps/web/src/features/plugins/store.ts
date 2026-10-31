@@ -1,4 +1,10 @@
-import type { CreationStep, GroupPluginDto, MessageDto } from '@gonggong/protocol'
+import type {
+  CreateGroupDesignSystemReq,
+  CreationStep,
+  GroupDesignSystemDto,
+  GroupPluginDto,
+  MessageDto,
+} from '@gonggong/protocol'
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { api } from '../../lib/api'
@@ -63,3 +69,35 @@ export interface CreationOpen {
 export const useCreation = create<{ open: CreationOpen | null }>()(() => ({ open: null }))
 export const openCreation = (open: CreationOpen) => useCreation.setState({ open })
 export const closeCreation = () => useCreation.setState({ open: null })
+
+/** Design systems the group imported (「导入我的设计」), loaded when a prompt-first composer opens. */
+export const useDesignSystems = create<{ lists: Record<string, GroupDesignSystemDto[]> }>()(() => ({
+  lists: {},
+}))
+const setDesignSystems = (groupId: string, list: GroupDesignSystemDto[]) =>
+  useDesignSystems.setState((s) => ({ lists: { ...s.lists, [groupId]: list } }))
+
+export function useGroupDesignSystems(groupId: string) {
+  const list = useDesignSystems((s) => s.lists[groupId])
+  useEffect(() => {
+    api.get<GroupDesignSystemDto[]>(`/groups/${groupId}/design-systems`).then(
+      (l) => setDesignSystems(groupId, l),
+      () => setDesignSystems(groupId, []),
+    )
+  }, [groupId])
+  return list ?? []
+}
+
+export async function importDesignSystem(groupId: string, body: CreateGroupDesignSystemReq) {
+  const ds = await api.post<GroupDesignSystemDto>(`/groups/${groupId}/design-systems`, body)
+  setDesignSystems(groupId, [ds, ...(useDesignSystems.getState().lists[groupId] ?? [])])
+  return ds
+}
+
+export async function deleteDesignSystem(groupId: string, id: string) {
+  await api.del(`/groups/${groupId}/design-systems/${id}`)
+  setDesignSystems(
+    groupId,
+    (useDesignSystems.getState().lists[groupId] ?? []).filter((d) => d.id !== id),
+  )
+}

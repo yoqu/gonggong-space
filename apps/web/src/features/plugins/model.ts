@@ -1,4 +1,5 @@
 import {
+  AUTO_DESIGN_SYSTEM,
   type CreationCard,
   type CreationReq,
   type GroupPluginDto,
@@ -92,7 +93,11 @@ export function newDraft(p: GroupPluginDto, botId: string | null): CreationDraft
   return {
     pluginId: p.id,
     templateId: tpl?.id ?? null,
-    designSystemId: usesDesignSystem(p.manifest, tpl) ? (p.manifest.designSystems[0]?.id ?? null) : null,
+    designSystemId: !usesDesignSystem(p.manifest, tpl)
+      ? null
+      : p.manifest.composer
+        ? AUTO_DESIGN_SYSTEM
+        : (p.manifest.designSystems[0]?.id ?? null),
     inputs,
     directions: false,
     botId,

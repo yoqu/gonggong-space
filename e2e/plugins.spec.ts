@@ -52,12 +52,29 @@ test('the built-in plugin is installed at startup; a group turns it on, creates 
       await test.step('the creation panel posts a creation card @-ing the bot', async () => {
         await page.getByRole('button', { name: '创作' }).click()
         const sheet = page.getByRole('dialog', { name: '创作' })
-        await expect(sheet.getByText('选一个模板')).toBeVisible()
-        await sheet.getByRole('button', { name: '下一步' }).click()
-        await sheet.getByRole('button', { name: '下一步' }).click()
-        await sheet.getByLabel('主题').fill('mock:echo 共工落地页')
-        // The group's only bot: 交给谁 folds into this last step.
-        await expect(sheet.getByText(`交给：${botName}`)).toBeVisible()
+        await expect(sheet.getByRole('heading', { name: '想做个什么样的产品？' })).toBeVisible()
+        await expect(sheet.getByRole('button', { name: '设计系统：自动选择' })).toBeVisible()
+        await sheet.getByRole('button', { name: '导入我的设计' }).click()
+        const imp = page.getByRole('dialog', { name: '导入我的设计' })
+        // GG_E2E_SHOTS=<dir> keeps screenshots of the composer for design review.
+        const shot = async (name: string) => {
+          if (!process.env.GG_E2E_SHOTS) return
+          await page.waitForTimeout(500)
+          await page.screenshot({ path: join(process.env.GG_E2E_SHOTS, name) })
+        }
+        await imp
+          .getByRole('textbox', { name: '粘贴 DESIGN.md' })
+          .fill('---\nname: 共工蓝\ncolors:\n  primary: "#0071e3"\n---\n\n# 共工蓝\n按钮用共工蓝。')
+        await shot('import.png')
+        await imp.getByRole('button', { name: '继续' }).click()
+        await expect(imp).toBeHidden()
+        await expect(sheet.getByRole('button', { name: '设计系统：共工蓝' })).toBeVisible()
+        await sheet.getByRole('textbox', { name: '需求' }).fill('mock:echo 共工落地页')
+        await sheet.getByRole('button', { name: '设计系统：共工蓝' }).click()
+        await shot('ds-menu.png')
+        await page.keyboard.press('Escape')
+        await shot('composer.png')
+        // The group's only bot: the send button names it.
         await sheet.getByRole('button', { name: `交给 ${botName}` }).click()
         await expect(sheet).toBeHidden()
         await expect(page.getByText('创作请求 · 产品原型')).toBeVisible()
@@ -79,6 +96,7 @@ test('the built-in plugin is installed at startup; a group turns it on, creates 
           .toBeTruthy()
         const got = JSON.parse(reply!.body) as { plugins: { path: string }[] | null; prompt: string }
         expect(got.prompt).toContain('Claude 用 web-prototype:web-prototype')
+        expect(got.prompt).toContain('本群导入的设计系统「共工蓝」')
         const dir = got.plugins?.map((p) => p.path).find((p) => p.includes('plugin-sets'))
         expect(dir).toBeTruthy()
         expect(readFileSync(join(dir!, '.claude-plugin/plugin.json'), 'utf8')).toContain('"web-prototype"')
@@ -88,7 +106,7 @@ test('the built-in plugin is installed at startup; a group turns it on, creates 
       })
 
       await test.step('a bot proposes a creation from the chat and a member starts it', async () => {
-        const args = { plugin: 'web-prototype', template: 'app-screens', inputs: { title: '共工二版' } }
+        const args = { plugin: 'web-prototype', template: 'app-screens', inputs: { prompt: '共工二版' } }
         await page
           .getByPlaceholder(composer)
           .fill(`@${botName} mock:tool creation_propose ${JSON.stringify(args)}`)

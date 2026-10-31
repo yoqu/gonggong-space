@@ -3,6 +3,7 @@ import type {
   BotDto,
   CreationCard,
   CreationDraftCard,
+  GroupDesignSystemDto,
   GroupDto,
   GroupPluginDto,
   MessageDto,
@@ -140,6 +141,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
   secrets: [],
   license: 'Apache-2.0',
   source: { name: 'open-design', url: 'https://github.com/nexu-io/open-design', revision: '4f69a42' },
+  composer: null,
   ...o,
 })
 
@@ -452,6 +454,160 @@ describe('插件 · 创作入口', () => {
     )
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
     expect(await screen.findByText('创作请求 · 网页原型')).toBeTruthy()
+  })
+})
+
+describe('插件 · 输入框式创作（产品原型）', () => {
+  const input = (o: Partial<PluginManifest['inputs'][number]>): PluginManifest['inputs'][number] => ({
+    id: 'x',
+    label: 'x',
+    type: 'string',
+    required: false,
+    options: [],
+    default: null,
+    placeholder: null,
+    designSource: false,
+    ...o,
+  })
+  const proto = plugin({
+    manifest: manifest({
+      title: '产品原型',
+      composer: { prompt: 'prompt' },
+      templates: [
+        {
+          ...manifest().templates[0]!,
+          id: 'app-screens',
+          title: '多屏应用原型',
+          inputs: ['prompt', 'device'],
+        },
+      ],
+      inputs: [
+        input({ id: 'prompt', label: '需求', type: 'text', required: true, placeholder: '想做个什么？' }),
+        input({
+          id: 'device',
+          label: '设备',
+          type: 'select',
+          options: ['小程序', '手机 App', '桌面 Web'],
+          default: '小程序',
+        }),
+      ],
+    }),
+  })
+  const imported: GroupDesignSystemDto = {
+    id: 'ds1',
+    groupId: 'g1',
+    title: '麓湖夜航',
+    swatches: ['#155332', '#ffffff'],
+    designMd: '---\nname: 麓湖夜航\n---',
+    url: null,
+    repo: null,
+    createdBy: 'u1',
+    createdAt: now,
+  }
+  const created: GroupDesignSystemDto = { ...imported, id: 'ds2', title: '我的品牌', swatches: ['#123456'] }
+
+  async function openComposer(routes: Record<string, unknown> = {}) {
+    const calls = mockApi({
+      ...chatRoutes([proto]),
+      'GET /groups/g1/design-systems': [imported],
+      'POST /groups/g1/design-systems': created,
+      'POST /groups/g1/creations': msg({
+        seq: 2,
+        id: 'm2',
+        body: '@设计助手 请用插件',
+        mentions: ['b1'],
+        card,
+      }),
+      ...routes,
+    })
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: '创作' }))
+    const dialog = await screen.findByRole('dialog', { name: '创作' })
+    return { calls, d: within(dialog) }
+  }
+
+  it('starts from one box: the request, the device and 自动 for the design system', async () => {
+    const { calls, d } = await openComposer()
+    expect(d.getByRole('heading', { name: '想做个什么样的产品？' })).toBeTruthy()
+    expect(d.queryByText('1 / 3')).toBeNull()
+    const prompt = d.getByRole('textbox', { name: '需求' }) as HTMLTextAreaElement
+    expect(prompt.placeholder).toBe('想做个什么？')
+    const send = d.getByRole('button', { name: '交给 设计助手' })
+    expect((send as HTMLButtonElement).disabled).toBe(true)
+    // An example chip fills the box.
+    fireEvent.click(d.getAllByRole('button', { name: /^示例：/ })[0]!)
+    expect(prompt.value).not.toBe('')
+    fireEvent.change(prompt, { target: { value: '滴滴打船：乘客叫船、船长接单' } })
+    fireEvent.click(d.getByRole('radio', { name: '手机 App' }))
+    expect(d.getByRole('button', { name: '设计系统：自动选择' })).toBeTruthy()
+    fireEvent.click(send)
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/groups/g1/creations',
+        body: {
+          pluginId: 'p1',
+          templateId: 'app-screens',
+          designSystemId: 'auto',
+          inputs: { prompt: '滴滴打船：乘客叫船、船长接单', device: '手机 App' },
+          directions: false,
+          botId: 'b1',
+          attachmentIds: [],
+        },
+      }),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创作' })).toBeNull())
+  })
+
+  it('picks a preset or one the group imported from the design system menu', async () => {
+    const { calls, d } = await openComposer()
+    fireEvent.change(d.getByRole('textbox', { name: '需求' }), { target: { value: '打船' } })
+    fireEvent.click(d.getByRole('button', { name: '设计系统：自动选择' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByRole('menuitemcheckbox', { name: /自动选择/, checked: true })).toBeTruthy()
+    expect(within(menu).getByText('本群导入')).toBeTruthy()
+    expect(within(menu).getByText('预设')).toBeTruthy()
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: /麓湖夜航/ }))
+    fireEvent.click(d.getByRole('button', { name: '交给 设计助手' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/creations')?.body).toMatchObject({
+        designSystemId: 'group:ds1',
+      }),
+    )
+  })
+
+  it('imports a DESIGN.md (pasted or a file), a site or a repository and picks it', async () => {
+    const { calls, d } = await openComposer()
+    fireEvent.click(d.getByRole('button', { name: '导入我的设计' }))
+    const dlg = within(await screen.findByRole('dialog', { name: '导入我的设计' }))
+    const go = dlg.getByRole('button', { name: '继续' }) as HTMLButtonElement
+    expect(go.disabled).toBe(true)
+    const file = new File(['---\nname: 我的品牌\n---\n# 我的品牌'], 'DESIGN.md', { type: 'text/markdown' })
+    const upload = dlg.getByRole('group', { name: '上传 DESIGN.md 文件' }).querySelector('input[type=file]')!
+    fireEvent.change(upload, { target: { files: [file] } })
+    await waitFor(() =>
+      expect((dlg.getByRole('textbox', { name: '粘贴 DESIGN.md' }) as HTMLTextAreaElement).value).toContain(
+        '我的品牌',
+      ),
+    )
+    fireEvent.change(dlg.getByRole('textbox', { name: '参考网站' }), {
+      target: { value: 'https://example.com' },
+    })
+    fireEvent.change(dlg.getByRole('textbox', { name: '参考仓库' }), { target: { value: 'acme/ui' } })
+    fireEvent.click(go)
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/groups/g1/design-systems',
+        body: {
+          designMd: '---\nname: 我的品牌\n---\n# 我的品牌',
+          url: 'https://example.com',
+          repo: 'acme/ui',
+        },
+      }),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '导入我的设计' })).toBeNull())
+    expect(d.getByRole('button', { name: '设计系统：我的品牌' })).toBeTruthy()
   })
 })
 
