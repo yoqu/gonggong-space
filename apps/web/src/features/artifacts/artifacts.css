@@ -1805,3 +1805,19 @@
   line-height: 18px;
   box-shadow: 0 0 0 1px var(--separator);
 }
+.art-pop__action--on:not(:disabled) {
+  background: var(--selection-fill);
+}
+.art-pop__status {
+  margin: var(--space-4) var(--space-8) 0;
+  padding: var(--space-6) var(--space-8);
+  border-radius: 8px;
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-footnote-size);
+}
+.art-pop__note {
+  margin: 0;
+  color: var(--system-red);
+  font-size: var(--text-caption-size);
+}

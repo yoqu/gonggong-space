@@ -258,7 +258,8 @@ Setup MCP 子页：`← Back`，"Connect your IDE or CLI to Stitch via the Model
 - **Live Mode 语音对话**：需要浏览器麦克风授权（浏览器自有弹窗，需用户处理），只看到点击后新建项目并进入连接中状态。
 - **Mark（圈画批注）提交给 AI 的完整流程**：只点亮了工具，未完成圈画和提交。
 - **Variations / Regenerate / Desktop Web Version / Missing States / Predictive Heatmap / Animate / 各类 Assets / Accessibility Audit 的实际产出**：时间所限未提交（每次消耗额度且耗时 1~2 分钟）。
-- **Edit Text / Edit With AI 的实际编辑与换图、属性面板**：只看到 Edit Element 浮层三个入口，未改内容；未见独立的属性（颜色/间距）面板。
+- **Edit With AI 的实际编辑、属性面板**：未提交；未见独立的属性（颜色/间距）面板。
+- **Edit Text 与换图（2026-11-01 实测补记）**：进 Edit 工具时屏内所有可编辑元素都描蓝框；点元素出 Edit Element（Edit Text / Edit With AI / Delete），点 Edit Text 后该元素就地变成可编辑（contenteditable、全文选中），直接打字，Esc 或点别处提交，回车只是换行，可撤销；点图片出 Edit Image（Enter URL / Upload Image / Edit With AI / Delete），Enter URL 是预填当前地址的输入框加勾选按钮。共工对应：桥接 `edit-text` / `text-edit`，回车提交、Esc 取消，另加双击直接改、点不中文字时全屏描框点选。
 - **Theme 改动后 Save & Apply 的全屏重刷效果**：未提交；DESIGN.md Tab 原文编辑与设计系统列表页因面板被关闭未截到。
 - **Upload files to canvas、+ Upload Files 图片输入、Website URL 提取**：未上传文件、未提交 URL。
 - **Export 各格式的实际执行**（AI Studio、Figma、Netlify、Lovable、Bolt 按约束不授权；.zip / Clipboard / Project Brief 未点执行）。

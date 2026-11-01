@@ -65,7 +65,7 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
           pluginId: plugin.id,
           templateId: 'app-screens',
           designSystemId: 'luke-plus',
-          inputs: { title: 'e2e 原型', points: `mock:sh ${WRITE} 首页第一版 <<'EOF'` },
+          inputs: { prompt: `e2e 原型\nmock:sh ${WRITE} 首页第一版 <<'EOF'` },
           directions: false,
           botId: bot.id,
         })
@@ -136,8 +136,12 @@ test('a creation is hosted as versions: the canvas shows its screens from the se
         await screen(page, 'home').getByRole('heading', { name: '首页第一版' }).click()
         const pop = page.getByRole('dialog', { name: '编辑元素' })
         await pop.getByRole('button', { name: '编辑文字' }).click()
-        await pop.getByRole('textbox', { name: '文字' }).fill('首页直接改')
-        await pop.getByRole('button', { name: '保存' }).click()
+        // Typed in the screen itself, all of the old text selected first (Stitch's Edit Text).
+        const typing = screen(page, 'home').locator('[data-gg-editing]')
+        await expect(typing).toHaveAttribute('contenteditable', 'plaintext-only')
+        await expect(pop.getByRole('status')).toHaveText('直接输入，回车保存，Esc 取消')
+        await page.keyboard.type('首页直接改')
+        await page.keyboard.press('Enter')
         await expect(pop).toBeHidden()
         await expect(card.getByText('v3')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('button', { name: '版本', exact: true })).toHaveText(/v3/)

@@ -1,9 +1,10 @@
-import type { BotDto } from '@gonggong/protocol'
+import type { ArtifactEditOp, BotDto } from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
 import { Button, CloseButton, Icon, type IconName, Select, Textarea } from '../../ui'
 import { offlineHint } from './actions'
 import type { PickedElement } from './elements'
+import { ImageUrlForm, isImage, type TextEditing, textEditingHint, useImageUpload } from './inPlace'
 
 const WIDTH = 272
 const GAP = 12
@@ -118,6 +119,7 @@ function Action({
   label,
   hint,
   destructive,
+  active,
   disabled,
   onClick,
 }: {
@@ -125,13 +127,15 @@ function Action({
   label: string
   hint?: string
   destructive?: boolean
+  active?: boolean
   disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      className={`art-pop__action${destructive ? ' art-pop__action--danger' : ''}`}
+      className={`art-pop__action${destructive ? ' art-pop__action--danger' : ''}${active ? ' art-pop__action--on' : ''}`}
+      aria-pressed={active}
       disabled={disabled}
       title={hint}
       onClick={onClick}
@@ -144,8 +148,9 @@ function Action({
 }
 
 /**
- * Stitch's Edit Element (Direct Edit, capability list §4): edit the text in place, have the AI change the element, or
- * delete it; 属性 opens the element panel.
+ * Stitch's Edit Element (Direct Edit, capability list §4): edit the text in place in the screen (or pick a text inside
+ * the element), replace an image by its address or a file, have the AI change the element, or delete it; 属性 opens
+ * the element panel.
  */
 export function EditPopover({
   el,
@@ -155,7 +160,10 @@ export function EditPopover({
   bots,
   bot,
   onPickBot,
-  onText,
+  texting,
+  onEditText,
+  artifactId,
+  onApply,
   onAi,
   screens,
   onLink,
@@ -171,7 +179,11 @@ export function EditPopover({
   bots: BotDto[]
   bot: BotDto | null
   onPickBot: (id: string) => void
-  onText: (text: string) => Promise<boolean>
+  /** Whether the element's text is being picked or typed in the screen. */
+  texting: TextEditing
+  onEditText: () => void
+  artifactId: string
+  onApply: (ops: ArtifactEditOp[]) => Promise<boolean>
   onAi: (text: string) => Promise<boolean>
   /** The screens a link can open, besides the element's own. */
   screens: { id: string; title: string }[]
@@ -183,8 +195,7 @@ export function EditPopover({
   onDelete: () => void
   onClose: () => void
 }) {
-  const [step, setStep] = useState<'menu' | 'text' | 'link' | 'ai' | 'connect'>('menu')
-  const [text, setText] = useState(el.text)
+  const [step, setStep] = useState<'menu' | 'image' | 'link' | 'ai' | 'connect'>('menu')
   const [to, setTo] = useState<string | null>(el.link)
   const [ask, setAsk] = useState('')
   const [busy, setBusy] = useState(false)
@@ -198,18 +209,53 @@ export function EditPopover({
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const ro = readOnly ? t('AI 正在修改') : undefined
   const aiHint = noSource ?? (bot ? (offlineHint(bot) ?? undefined) : t('群里没有 Bot'))
+  const image = isImage(el)
+  const upload = useImageUpload(artifactId, el, (ops) => run(() => onApply(ops)))
+  const status = textEditingHint(texting)
 
   return (
-    <Floating box={box} room={room} title={t('编辑元素')} label={t('编辑元素')} onClose={onClose}>
+    <Floating
+      box={box}
+      room={room}
+      title={image ? t('编辑图片') : t('编辑元素')}
+      label={t('编辑元素')}
+      onClose={onClose}
+    >
       {step === 'menu' ? (
         <div className="art-pop__actions">
-          <Action
-            icon="textformat"
-            label={t('编辑文字')}
-            hint={ro ?? noSource ?? (el.textOnly ? undefined : t('含子元素，交给 AI 修改'))}
-            disabled={readOnly || !located || !el.textOnly}
-            onClick={() => setStep('text')}
-          />
+          {image ? (
+            <>
+              <Action
+                icon="globe"
+                label={t('输入图片地址')}
+                hint={ro ?? noSource}
+                disabled={readOnly || !located}
+                onClick={() => setStep('image')}
+              />
+              <Action
+                icon="upload"
+                label={t('上传图片')}
+                hint={ro ?? noSource ?? (upload.busy ? t('上传中…') : undefined)}
+                disabled={readOnly || !located || upload.busy}
+                onClick={upload.open}
+              />
+              {upload.input}
+            </>
+          ) : (
+            <Action
+              icon="textformat"
+              label={t('编辑文字')}
+              hint={ro ?? noSource}
+              active={texting !== null}
+              disabled={readOnly || !located}
+              onClick={onEditText}
+            />
+          )}
+          {status ? (
+            <p className="art-pop__status" role="status">
+              {status}
+            </p>
+          ) : null}
           <Action
             icon="link"
             label={el.link ? t('编辑连接') : t('连到屏幕')}
@@ -247,31 +293,13 @@ export function EditPopover({
             onClick={onDelete}
           />
         </div>
-      ) : step === 'text' ? (
-        <form
-          className="art-pop__form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (text !== el.text) void run(() => onText(text))
-          }}
-        >
-          <Textarea
-            aria-label={t('文字')}
-            value={text}
-            rows={3}
-            maxLength={5000}
-            autoFocus
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div className="art-pop__row">
-            <Button size="small" variant="plain" onClick={() => setStep('menu')}>
-              {t('返回')}
-            </Button>
-            <Button size="small" variant="primary" type="submit" disabled={busy || text === el.text}>
-              {t('保存')}
-            </Button>
-          </div>
-        </form>
+      ) : step === 'image' ? (
+        <ImageUrlForm
+          el={el}
+          readOnly={readOnly}
+          onApply={(ops) => run(() => onApply(ops))}
+          onBack={() => setStep('menu')}
+        />
       ) : step === 'link' ? (
         <form
           className="art-pop__form"

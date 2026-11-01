@@ -253,16 +253,24 @@ describe('direct edit (E)', () => {
     expect([...seen].sort()).toEqual(['hidden', 'shown'])
   })
 
-  it('edits the text of a text-only element in place: one text op', async () => {
+  it('edits text in the screen itself: 编辑文字 asks the screen, what it posts back is one text op', async () => {
     const calls = mockApi(routes())
     await renderTab()
+    fromScreen({ type: 'ready', width: 390, height: 800 })
+    const frame = (screen.getByTitle('首页') as HTMLIFrameElement).contentWindow as Window
+    const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
     key('e')
     select()
     fireEvent.click(action(/编辑文字/))
-    fireEvent.change(within(popover()).getByRole('textbox', { name: '文字' }), {
-      target: { value: '本月共读' },
+    expect(post.mock.calls.map(([m]) => m).at(-1)).toEqual({
+      source: 'gg-host',
+      type: 'edit-text',
+      ggId: '120',
     })
-    fireEvent.click(within(popover()).getByRole('button', { name: '保存' }))
+    fromScreen({ type: 'text-edit', state: 'editing', ggId: '120', text: null })
+    expect(within(popover()).getByRole('status').textContent).toBe('直接输入，回车保存，Esc 取消')
+    expect(action(/编辑文字/).getAttribute('aria-pressed')).toBe('true')
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '120', text: '本月共读' })
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
         {
@@ -274,14 +282,99 @@ describe('direct edit (E)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull())
   })
 
-  it('leaves an element with children to the AI, and a script-made one to annotations', async () => {
-    mockApi(routes())
+  it('an element with children has its texts picked in the screen; unchanged or cancelled text saves nothing', async () => {
+    const calls = mockApi(routes())
     await renderTab()
     key('e')
     select({ textOnly: false })
-    expect(action(/编辑文字/).hasAttribute('disabled')).toBe(true)
-    expect(action(/编辑文字/).textContent).toContain('含子元素，交给 AI 修改')
-    expect(action(/用 AI 修改/).hasAttribute('disabled')).toBe(false)
+    expect(action(/编辑文字/).hasAttribute('disabled')).toBe(false)
+    fireEvent.click(action(/编辑文字/))
+    fromScreen({ type: 'text-edit', state: 'picking', ggId: null, text: null })
+    expect(within(popover()).getByRole('status').textContent).toBe('点选要改的文字，Esc 退出')
+    fromScreen({ type: 'text-edit', state: 'done', ggId: null, text: null })
+    expect(within(popover()).queryByRole('status')).toBeNull()
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '120', text: null })
+    expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
+    // Junk from a screen is dropped.
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '../x', text: 'x' })
+    expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([])
+  })
+
+  it('a double click in the screen edits without the menu', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('e')
+    select()
+    fromScreen({ type: 'text-edit', state: 'editing', ggId: '120', text: null })
+    expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull()
+  })
+
+  it('reloads the screen when its typed text cannot be saved', async () => {
+    mockApi(routes({ 'POST /artifacts/a1/edits': () => apiError(400, 'invalid', '元素包含子元素') }))
+    await renderTab()
+    fromScreen({ type: 'ready', width: 390, height: 800 })
+    const frame = (screen.getByTitle('首页') as HTMLIFrameElement).contentWindow as Window
+    const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
+    key('e')
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '120', text: 'x' })
+    await waitFor(() =>
+      expect(post.mock.calls.map(([m]) => m).at(-1)).toEqual({ source: 'gg-host', type: 'reload' }),
+    )
+  })
+
+  it('replaces an image by its address or an uploaded file', async () => {
+    const calls = mockApi(
+      routes({ 'POST /artifacts/a1/uploads': { uploadId: 'u'.repeat(64), path: 'assets/u.png' } }),
+    )
+    await renderTab()
+    key('e')
+    select({ tag: 'img', text: '', src: '../assets/cover.png' })
+    expect(screen.getByRole('dialog', { name: '编辑元素' }).textContent).toContain('编辑图片')
+    expect(within(popover()).queryByRole('button', { name: /编辑文字/ })).toBeNull()
+    fireEvent.click(action(/输入图片地址/))
+    const url = within(popover()).getByRole('textbox', { name: '图片地址' }) as HTMLInputElement
+    expect(url.value).toBe('../assets/cover.png')
+    const apply = () => within(popover()).getByRole('button', { name: '应用' })
+    expect(apply().hasAttribute('disabled')).toBe(true)
+    fireEvent.change(url, { target: { value: 'http://x.test/a.png' } })
+    expect(apply().hasAttribute('disabled')).toBe(true)
+    expect(popover().textContent).toContain('只支持 https 地址或产物里的文件路径')
+    fireEvent.change(url, { target: { value: 'https://x.test/a.png' } })
+    fireEvent.click(apply())
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
+        {
+          baseVersionId: 'v2',
+          ops: [
+            {
+              kind: 'attr',
+              file: 'screens/home.html',
+              ggId: '120',
+              name: 'src',
+              value: 'https://x.test/a.png',
+            },
+          ],
+        },
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑元素' })).toBeNull())
+
+    select({ tag: 'img', text: '', src: '../assets/cover.png' })
+    fireEvent.change(screen.getByTestId('art-pop-image'), {
+      target: { files: [new File(['png'], 'b.png', { type: 'image/png' })] },
+    })
+    await waitFor(() =>
+      expect(bodies(calls, 'POST', '/artifacts/a1/edits').at(-1)).toEqual({
+        baseVersionId: 'v2',
+        ops: [{ kind: 'asset', file: 'screens/home.html', ggId: '120', uploadId: 'u'.repeat(64) }],
+      }),
+    )
+  })
+
+  it('leaves a script-made element to annotations', async () => {
+    mockApi(routes())
+    await renderTab()
+    key('e')
     select({ ggId: null })
     for (const name of [/编辑文字/, /用 AI 修改/, /属性/, /删除/])
       expect(action(name).hasAttribute('disabled')).toBe(true)
@@ -390,10 +483,7 @@ describe('direct edit (E)', () => {
     const loads = () => calls.filter((c) => c.method === 'GET' && c.path === '/artifacts/a1').length
     const before = loads()
     key('e')
-    select()
-    fireEvent.click(action(/编辑文字/))
-    fireEvent.change(within(popover()).getByRole('textbox', { name: '文字' }), { target: { value: 'x' } })
-    fireEvent.click(within(popover()).getByRole('button', { name: '保存' }))
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '120', text: 'x' })
     await waitFor(() =>
       expect(useToasts.getState().items).toEqual([
         expect.objectContaining({

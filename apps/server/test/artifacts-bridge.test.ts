@@ -393,3 +393,157 @@ describe('gg-bridge', () => {
     }
   })
 })
+
+describe('gg-bridge in-place text editing', () => {
+  const PAGE2 = `<!doctype html><html><body>
+<h1 id="h">本周共读</h1>
+<a id="btn" data-gg-link="join"><svg class="i"><use href="#i-book"/></svg>加入本周共读</a>
+<section id="card"><h2 id="t">悉达多</h2><p id="m">说明 <b id="b">重点</b></p></section>
+<div id="solo"><span id="only">唯一</span><i class="icon"></i></div>
+</body></html>`
+  const edit = () => {
+    const s = screen(PAGE2)
+    s.send({ type: 'mode', mode: 'edit' })
+    const id = (sel: string) => s.$(sel).getAttribute('data-gg-id') as string
+    const key = (key: string) =>
+      s.w.document.activeElement?.dispatchEvent(
+        new s.w.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+      ) ?? s.w.dispatchEvent(new s.w.KeyboardEvent('keydown', { key, cancelable: true }))
+    const textEdits = () =>
+      s.posts
+        .map((p) => p.data)
+        .filter((d) => d.type === 'text-edit')
+        .map((d) => BridgeFromShell.parse(d))
+    return { ...s, id, key, textEdits }
+  }
+  const type = (el: HTMLElement, text: string) => {
+    el.textContent = text
+  }
+
+  it('makes a text element editable with all its text selected; Enter keeps the new text and posts it', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#h') })
+    const h = s.$('#h')
+    expect(h.getAttribute('contenteditable')).toBe('plaintext-only')
+    expect(h.hasAttribute('data-gg-editing')).toBe(true)
+    expect(s.w.getSelection()?.toString()).toBe('本周共读')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'editing', ggId: s.id('#h'), text: null })
+    type(h, '  本月\n共读 ')
+    expect(h.textContent).toContain('\n')
+    s.key('Enter')
+    expect(h.hasAttribute('contenteditable')).toBe(false)
+    expect(h.hasAttribute('data-gg-editing')).toBe(false)
+    expect(h.textContent).toBe('本月 共读')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: s.id('#h'), text: '本月 共读' })
+  })
+
+  it('Escape puts the text back; an unchanged text posts no text', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#h') })
+    type(s.$('#h'), '改了')
+    s.key('Escape')
+    expect(s.$('#h').textContent).toBe('本周共读')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', text: null })
+    s.send({ type: 'edit-text', ggId: s.id('#h') })
+    s.key('Enter')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: s.id('#h'), text: null })
+  })
+
+  it('edits only the text beside an icon, leaving the icon in place', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#btn') })
+    const host = s.$('[data-gg-editing]')
+    expect(host.tagName).toBe('SPAN')
+    expect(host.textContent).toBe('加入本周共读')
+    type(host, '立即加入')
+    s.key('Enter')
+    expect(s.$('#btn').querySelector('svg')).toBeTruthy()
+    expect(s.$('#btn').querySelector('span')).toBeNull()
+    expect(s.$('#btn').textContent).toBe('立即加入')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: s.id('#btn'), text: '立即加入' })
+  })
+
+  it('outlines every editable text on the screen for picking; a click on one edits it', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#card') })
+    const outlined = [...s.w.document.querySelectorAll('[data-gg-pick]')].map((e) => e.id)
+    expect(outlined).toEqual(['h', 'btn', 't', 'b', 'only'])
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'picking', ggId: null })
+    const selects = s.posts.filter((p) => p.data.type === 'select').length
+    s.click('#b')
+    expect(s.posts.filter((p) => p.data.type === 'select')).toHaveLength(selects)
+    expect(s.w.document.querySelectorAll('[data-gg-pick]')).toHaveLength(0)
+    expect(s.$('#b').getAttribute('contenteditable')).toBe('plaintext-only')
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'editing', ggId: s.id('#b') })
+    // Clicks inside the text being edited move the caret, nothing else.
+    s.click('#b')
+    expect(s.posts.filter((p) => p.data.type === 'select')).toHaveLength(selects)
+  })
+
+  it('edits the only text inside at once, and picks over the whole screen otherwise', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#solo') })
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'editing', ggId: s.id('#only') })
+    s.key('Escape')
+    s.$('#card').insertAdjacentHTML('beforeend', '<div id="empty" data-gg-id="999"><i></i><i></i></div>')
+    s.send({ type: 'edit-text', ggId: '999' })
+    expect([...s.w.document.querySelectorAll('[data-gg-pick]')].map((e) => e.id)).toEqual([
+      'h',
+      'btn',
+      't',
+      'b',
+      'only',
+    ])
+  })
+
+  it('a click beside the outlined texts, Escape or select-clear ends picking', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#card') })
+    s.click('#m')
+    expect(s.w.document.querySelectorAll('[data-gg-pick]')).toHaveLength(0)
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: null, text: null })
+    expect(s.last()).toMatchObject({ type: 'select', ggId: s.id('#m') })
+    s.send({ type: 'edit-text', ggId: s.id('#card') })
+    s.key('Escape')
+    expect(s.w.document.querySelectorAll('[data-gg-pick]')).toHaveLength(0)
+    s.send({ type: 'edit-text', ggId: s.id('#card') })
+    s.send({ type: 'select-clear' })
+    expect(s.w.document.querySelectorAll('[data-gg-pick]')).toHaveLength(0)
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: null })
+  })
+
+  it('select-clear and leaving edit mode keep the text being edited', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#t') })
+    type(s.$('#t'), '流浪者之歌')
+    s.send({ type: 'select-clear' })
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: s.id('#t'), text: '流浪者之歌' })
+    s.send({ type: 'edit-text', ggId: s.id('#h') })
+    type(s.$('#h'), '新标题')
+    s.send({ type: 'mode', mode: 'preview' })
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'done', ggId: s.id('#h'), text: '新标题' })
+    expect(s.$('#h').hasAttribute('contenteditable')).toBe(false)
+    // Only edit mode edits.
+    s.send({ type: 'edit-text', ggId: s.id('#h') })
+    expect(s.$('#h').hasAttribute('contenteditable')).toBe(false)
+  })
+
+  it('a double click in edit mode edits the text under the pointer, an icon’s too', () => {
+    const s = edit()
+    s.$('#btn svg').dispatchEvent(new s.w.MouseEvent('dblclick', { bubbles: true, cancelable: true }))
+    expect(s.textEdits().at(-1)).toMatchObject({ state: 'editing', ggId: s.id('#btn') })
+    s.key('Escape')
+    s.send({ type: 'mode', mode: 'mark' })
+    s.$('#h').dispatchEvent(new s.w.MouseEvent('dblclick', { bubbles: true, cancelable: true }))
+    expect(s.$('#h').hasAttribute('contenteditable')).toBe(false)
+  })
+
+  it('leaves the editing marks out of the snippet', () => {
+    const s = edit()
+    s.send({ type: 'edit-text', ggId: s.id('#card') })
+    s.send({ type: 'select-clear' })
+    s.click('#card')
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({ type: 'select' })
+    expect(String(s.last()?.snippet)).not.toMatch(/data-gg-(pick|editing)|contenteditable/)
+  })
+})

@@ -407,9 +407,18 @@ describe('prototype editor', () => {
     editMode()
     select()
     const menu = () => screen.getByRole('dialog', { name: '编辑元素' })
+    ready()
+    const frame = (screen.getByTitle('首页') as HTMLIFrameElement).contentWindow as Window
+    const post = vi.spyOn(frame, 'postMessage').mockImplementation(() => {})
     fireEvent.click(within(menu()).getByRole('button', { name: /编辑文字/ }))
-    fireEvent.change(within(menu()).getByRole('textbox', { name: '文字' }), { target: { value: '立即加入' } })
-    fireEvent.click(within(menu()).getByRole('button', { name: '保存' }))
+    expect(post.mock.calls.map(([m]) => m).at(-1)).toEqual({
+      source: 'gg-host',
+      type: 'edit-text',
+      ggId: '120',
+    })
+    fromScreen({ type: 'text-edit', state: 'editing', ggId: '120', text: null })
+    expect(within(menu()).getByRole('status').textContent).toBe('直接输入，回车保存，Esc 取消')
+    fromScreen({ type: 'text-edit', state: 'done', ggId: '120', text: '立即加入' })
     await waitFor(() =>
       expect(bodies(calls, 'POST', '/artifacts/a1/edits')).toEqual([
         {

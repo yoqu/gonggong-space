@@ -124,6 +124,7 @@ import {
   zoomAt,
 } from './geometry'
 import { implementationPrompt } from './implPrompt'
+import { useTextEdit } from './inPlace'
 import { Links, linkPaths } from './Links'
 import {
   type BotState,
@@ -572,6 +573,18 @@ export function Canvas({
 
   // ── bridge ──
   const origin = preview?.origin ?? null
+  const textEdit = useTextEdit({
+    frames: frameEls,
+    origin,
+    canEdit,
+    save: (ops) => saveOps(ops),
+    onSaved: () => {
+      setElement(null)
+      setPop(false)
+    },
+    onDirect: () => setPop(false),
+  })
+  const resetText = textEdit.reset
   const fromScreen = (m: BridgeMessage) => {
     if (m.type === 'ready') {
       const f = frameEls.get(m.file)
@@ -585,6 +598,8 @@ export function Canvas({
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
     } else if (m.type === 'scroll') {
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
+    } else if (m.type === 'text-edit') {
+      textEdit.onMessage(m)
     } else if (m.type === 'mark-rect') {
       const s = screens.find((n) => n.file === m.file)
       if (!s || tool !== 'mark') return
@@ -619,7 +634,8 @@ export function Canvas({
     for (const f of frameEls.values()) postToScreen(f, origin, { type: 'mode', mode: bridgeMode(tool) })
     setElement(null)
     setRegion(null)
-  }, [tool, origin, frameEls])
+    resetText()
+  }, [tool, origin, frameEls, resetText])
   // Element positions belong to one version.
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
   useEffect(() => {
@@ -627,6 +643,7 @@ export function Canvas({
     setDeleting(null)
     setRegion(null)
     setScrolls({})
+    resetText()
   }, [versionKey])
   // With the mark tool the annotated elements are outlined in their screens; leaving it clears them.
   const markedIn = (file: string) =>
@@ -1923,11 +1940,10 @@ export function Canvas({
                 bots={bots}
                 bot={bot}
                 onPickBot={pickBot}
-                onText={(text) =>
-                  element.ggId
-                    ? saveOps([{ kind: 'text', file: element.file, ggId: element.ggId, text }])
-                    : Promise.resolve(false)
-                }
+                texting={textEdit.state}
+                onEditText={() => textEdit.start(element)}
+                artifactId={artifactId}
+                onApply={saveOps}
                 onAi={(text) => askAboutElement('edit-with-ai', element, text)}
                 screens={screens.filter((x) => x.id !== element.screenId)}
                 onLink={(to) =>

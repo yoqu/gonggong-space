@@ -172,7 +172,7 @@ export function ElementPanel({
           disabled={readOnly || !el.textOnly}
           onChange={(e) => setText(e.target.value)}
         />
-        {el.textOnly ? null : <p className="art-el__hint">{t('含子元素，交给 AI 修改')}</p>}
+        {el.textOnly ? null : <p className="art-el__hint">{t('含子元素：在屏幕里双击要改的文字')}</p>}
 
         {isImage ? (
           <>

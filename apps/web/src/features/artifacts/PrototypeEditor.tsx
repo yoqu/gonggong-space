@@ -32,6 +32,14 @@ import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge
 import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
 import {
+  ImageUrlForm,
+  isImage,
+  type TextEditing,
+  textEditingHint,
+  useImageUpload,
+  useTextEdit,
+} from './inPlace'
+import {
   backRects,
   connectOps,
   currentScreen,
@@ -161,6 +169,18 @@ export function PrototypeEditor({
   }, [])
 
   const bridgeMode: BridgeMode = edit ? 'edit' : 'preview'
+  const textEdit = useTextEdit({
+    frames,
+    origin,
+    canEdit: !readOnly,
+    save: (ops) => saveEdits(onEdit, ops),
+    onSaved: () => {
+      setElement(null)
+      setMenu(false)
+    },
+    onDirect: () => setMenu(false),
+  })
+  const resetText = textEdit.reset
   const dropElement = () => {
     if (element) postToScreen(frames.get(element.file), origin, { type: 'select-clear' })
     setElement(null)
@@ -172,13 +192,15 @@ export function PrototypeEditor({
     setElement(null)
     setMenu(false)
     setConnect(false)
-  }, [bridgeMode, origin, frames])
+    resetText()
+  }, [bridgeMode, origin, frames, resetText])
   // Element positions belong to one version and one screen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a version or screen change only
   useEffect(() => {
     setElement(null)
     setMenu(false)
     setConnect(false)
+    resetText()
   }, [versionKey, cur?.id])
 
   useBridge(origin, frames, (m: BridgeMessage) => {
@@ -200,6 +222,8 @@ export function PrototypeEditor({
       if (!edit) go({ type: 'back' })
     } else if (m.type === 'scroll') {
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
+    } else if (m.type === 'text-edit') {
+      textEdit.onMessage(m)
     } else if (m.type === 'select' && edit && cur) {
       const at = scrolls[m.file] ?? NO_SCROLL
       const rect = { ...m.rect, x: m.rect.x + at.x, y: m.rect.y + at.y }
@@ -440,7 +464,7 @@ export function PrototypeEditor({
                             />
                           ))
                         : null}
-                      {edit && element ? (
+                      {edit && element && !textEdit.state ? (
                         <Hot rect={inView(element.rect)} tag={t('已选中')} selected />
                       ) : null}
                     </div>
@@ -464,9 +488,10 @@ export function PrototypeEditor({
                 setMenu(false)
                 setConnect(true)
               }}
-              onText={(text) =>
-                located ? saveEdits(onEdit, [{ kind: 'text', ...located, text }]) : Promise.resolve(false)
-              }
+              texting={textEdit.state}
+              onEditText={() => textEdit.start(element)}
+              artifactId={artifactId}
+              onApply={(ops) => saveEdits(onEdit, ops)}
               onAi={(text) =>
                 askBot((b) =>
                   located
@@ -766,7 +791,10 @@ function ElementMenu({
   bot,
   onPickBot,
   onConnect,
-  onText,
+  texting,
+  onEditText,
+  artifactId,
+  onApply,
   onAi,
   onImagine,
   onDisconnect,
@@ -783,7 +811,11 @@ function ElementMenu({
   bot: BotDto | null
   onPickBot: (id: string) => void
   onConnect: () => void
-  onText: (text: string) => Promise<boolean>
+  /** Whether the element's text is being picked or typed in the screen. */
+  texting: TextEditing
+  onEditText: () => void
+  artifactId: string
+  onApply: (ops: ArtifactEditOp[]) => Promise<boolean>
   onAi: (text: string) => Promise<boolean>
   onImagine: (text: string) => Promise<boolean>
   onDisconnect: () => Promise<boolean>
@@ -796,14 +828,16 @@ function ElementMenu({
     const h = box.current?.offsetHeight
     if (h && h !== height) setHeight(h)
   })
-  const [step, setStep] = useState<'menu' | 'text' | 'ai' | 'imagine'>('menu')
-  const [text, setText] = useState(el.text)
+  const [step, setStep] = useState<'menu' | 'image' | 'ai' | 'imagine'>('menu')
   const [busy, setBusy] = useState(false)
   const located = el.ggId !== null
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const noBot = bot ? undefined : t('群里没有 Bot')
   const offline = offlineHint(bot) ?? undefined
   const ro = readOnly ? t('AI 正在修改') : undefined
+  const status = textEditingHint(texting)
+  const apply = async (ops: ArtifactEditOp[]) => (await onApply(ops)) && onClose()
+  const upload = useImageUpload(artifactId, el, apply)
   const at = menuPlace(anchor, { w: MENU_W, h: height }, room, edges)
   /** `hint` says why it is off; `note` (an offline bot) only informs. */
   const action = (
@@ -813,10 +847,12 @@ function ElementMenu({
     onClick: () => void,
     note?: string,
     danger?: boolean,
+    on?: boolean,
   ) => (
     <button
       type="button"
-      className={cx('art-pop__action', danger && 'art-pop__action--danger')}
+      className={cx('art-pop__action', danger && 'art-pop__action--danger', on && 'art-pop__action--on')}
+      aria-pressed={on}
       disabled={!!hint}
       title={hint ?? note}
       onClick={onClick}
@@ -845,12 +881,33 @@ function ElementMenu({
       {step === 'menu' ? (
         <div className="art-pop__actions">
           {action('link', el.link ? t('编辑连接') : t('连到屏幕'), ro ?? noSource, onConnect)}
-          {action(
-            'textformat',
-            t('编辑文字'),
-            ro ?? noSource ?? (el.textOnly ? undefined : t('含子元素，交给 AI 修改')),
-            () => setStep('text'),
+          {isImage(el) ? (
+            <>
+              {action('globe', t('输入图片地址'), ro ?? noSource, () => setStep('image'))}
+              {action(
+                'upload',
+                t('上传图片'),
+                ro ?? noSource ?? (upload.busy ? t('上传中…') : undefined),
+                upload.open,
+              )}
+              {upload.input}
+            </>
+          ) : (
+            action(
+              'textformat',
+              t('编辑文字'),
+              ro ?? noSource,
+              onEditText,
+              undefined,
+              false,
+              texting !== null,
+            )
           )}
+          {status ? (
+            <p className="art-pop__status" role="status">
+              {status}
+            </p>
+          ) : null}
           {action('sparkle', t('用 AI 修改'), noSource ?? noBot, () => setStep('ai'), offline)}
           {action('plus', t('构想新屏'), noSource ?? noBot, () => setStep('imagine'), offline)}
           {el.link
@@ -869,35 +926,8 @@ function ElementMenu({
               )
             : null}
         </div>
-      ) : step === 'text' ? (
-        <form
-          className="art-pop__form"
-          onSubmit={async (e) => {
-            e.preventDefault()
-            if (text === el.text) return
-            setBusy(true)
-            const ok = await onText(text)
-            setBusy(false)
-            if (ok) onClose()
-          }}
-        >
-          <Textarea
-            aria-label={t('文字')}
-            value={text}
-            rows={3}
-            maxLength={5000}
-            autoFocus
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div className="art-pop__row">
-            <Button size="small" variant="plain" onClick={() => setStep('menu')}>
-              {t('返回')}
-            </Button>
-            <Button size="small" variant="primary" type="submit" disabled={busy || text === el.text}>
-              {t('保存')}
-            </Button>
-          </div>
-        </form>
+      ) : step === 'image' ? (
+        <ImageUrlForm el={el} readOnly={readOnly} onApply={apply} onBack={() => setStep('menu')} />
       ) : (
         <AskForm
           label={step === 'ai' ? t('修改要求') : t('新屏描述')}

@@ -155,10 +155,13 @@ describe('attr values', () => {
     expect(attrValueOk('href', 'javascript:alert(1)')).toBe(false)
     expect(attrValueOk('href', '//evil.com')).toBe(false)
   })
-  it('src takes a relative path inside the artifact', () => {
+  it('src takes a relative path inside the artifact or an https URL', () => {
     expect(attrValueOk('src', '../assets/a.png')).toBe(true)
+    expect(attrValueOk('src', 'https://cdn.example.com/a.png')).toBe(true)
     expect(attrValueOk('src', 'data:image/png;base64,xx')).toBe(false)
-    expect(attrValueOk('src', 'https://cdn.example.com/a.png')).toBe(false)
+    expect(attrValueOk('src', 'http://cdn.example.com/a.png')).toBe(false)
+    expect(attrValueOk('src', 'javascript:alert(1)')).toBe(false)
+    expect(attrValueOk('src', '//cdn.example.com/a.png')).toBe(false)
     expect(attrValueOk('src', '/etc/passwd')).toBe(false)
   })
   it('data-gg-link names a screen, data-gg-transition a known transition', () => {

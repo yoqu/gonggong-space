@@ -1,5 +1,6 @@
 import composer from './en-composer'
 import design from './en-design'
+import inplace from './en-inplace'
 import proto from './en-proto'
 import r3 from './en-r3'
 import r4 from './en-r4'
@@ -8,6 +9,7 @@ import r5 from './en-r5'
 export default {
   ...composer,
   ...design,
+  ...inplace,
   ...proto,
   ...r3,
   ...r4,
@@ -152,7 +154,7 @@ export default {
   变体方向: 'Variation direction',
   '只能填数值加单位（如 16px）、令牌 var(--…) 或关键字':
     'Use a number with a unit (16px), a token var(--…) or a keyword',
-  '含子元素，交给 AI 修改': 'Has child elements: ask the AI',
+  '含子元素：在屏幕里双击要改的文字': 'Has child elements: double-click the text to change in the screen',
   外边距: 'Margin',
   字号: 'Font size',
   字重: 'Font weight',

@@ -369,10 +369,12 @@ export const EditableAttr = z.enum(['src', 'href', 'alt', 'data-gg-link', 'data-
 export type EditableAttr = z.infer<typeof EditableAttr>
 const RELATIVE_URL = /^(?![a-z][a-z0-9+.-]*:)(?![/\\])[^\s"'<>\\`]+$/i
 const HTTP_URL = /^https?:\/\/[^\s"'<>\\`]+$/i
+const HTTPS_URL = /^https:\/\/[^\s"'<>\\`]+$/i
 export function attrValueOk(name: EditableAttr, value: string) {
   switch (name) {
+    // A file of the artifact, or an image on the web (Stitch's Edit Image › Enter URL); https only, as previews are.
     case 'src':
-      return value.length <= 500 && RELATIVE_URL.test(value)
+      return value.length <= 2000 && (RELATIVE_URL.test(value) || HTTPS_URL.test(value))
     case 'href':
       return value.length <= 2000 && (RELATIVE_URL.test(value) || HTTP_URL.test(value))
     case 'alt':
@@ -598,8 +600,15 @@ export const BridgeToShell = z.discriminatedUnion('type', [
   z.object({ type: z.literal('mode'), mode: BridgeMode }),
   /** Outlines these elements (annotated ones, say); an empty list clears them. */
   z.object({ type: z.literal('highlight'), ggIds: z.array(GgId).max(500) }),
+  /** Also ends picking text and commits text being edited (`text-edit`). */
   z.object({ type: z.literal('select-clear') }),
   z.object({ type: z.literal('scroll-to'), ggId: GgId }),
+  /**
+   * Edit mode, Stitch's Edit Text: the element's text becomes editable in place (all of it selected). For an element
+   * whose text cannot be edited directly (see `select.textOnly`) the one editable text inside it is, or, when it holds
+   * none or several, every editable text on the screen is outlined for the member to click one.
+   */
+  z.object({ type: z.literal('edit-text'), ggId: GgId }),
   z.object({ type: z.literal('reload') }),
   /**
    * Live preview of unsaved style edits on one element: puts its own `style` back, then sets these properties (an
@@ -694,6 +703,18 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   }),
   /** Preview mode: a `data-gg-back` element was clicked. */
   z.object({ ...FromScreen, type: z.literal('back') }),
+  /**
+   * In-place text editing (`edit-text`, or a double click in edit mode): `picking` while editable text is outlined,
+   * `editing` once an element's text is editable, `done` when it ends — `text` the new text (Enter or leaving it),
+   * null when unchanged or cancelled (Escape; `ggId` null too when picking ended without a pick).
+   */
+  z.object({
+    ...FromScreen,
+    type: z.literal('text-edit'),
+    state: z.enum(['picking', 'editing', 'done']),
+    ggId: GgId.nullable(),
+    text: z.string().max(5000).nullable(),
+  }),
   /**
    * The screen scrolled (at most every 100 ms, the last position always sent): its `window.scrollX` / `scrollY`, in
    * CSS pixels. Turns document coordinates into viewport ones; rects posted earlier in viewport coordinates move by
