@@ -1,1 +1,5 @@
-{ "extends": "../../tsconfig.base.json", "include": ["src", "test", "drizzle.config.ts", "vitest.config.ts"] }
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "incremental": true, "tsBuildInfoFile": "node_modules/.cache/tsc.tsbuildinfo" },
+  "include": ["src", "test", "drizzle.config.ts", "vitest.config.ts"]
+}
