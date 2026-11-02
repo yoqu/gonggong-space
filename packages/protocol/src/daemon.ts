@@ -1185,6 +1185,8 @@ export const DaemonFeature = z.enum([
   'claudeArgs',
   /** A provider's `configDir` / `executablePath` (a local Claude profile): a daemon without it would demand a key. */
   'claudeProfile',
+  /** A provider's `args` (Claude Code command-line arguments): a daemon without it would drop them. */
+  'providerArgs',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1264,6 +1266,8 @@ export const ProviderView = z.object({
   env: z.record(z.string(), z.string()),
   /** Password masked; null = direct. */
   proxy: z.string().nullable(),
+  /** Claude Code command-line arguments, one per line. */
+  args: z.array(z.string()).default([]),
   wireApi: z.string().nullable(),
   effort: z.string().nullable(),
   source: z.object({ kind: z.enum(['cc-switch', 'link']), id: z.string().optional() }).nullable(),
@@ -1317,6 +1321,8 @@ export const ProviderInput = z.object({
   env: z.record(z.string(), z.string()).optional(),
   /** '' = direct; the masked one from the view = unchanged. */
   proxy: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
+  /** Claude only; absent = unchanged. The daemon refuses flags 共工 manages itself. */
+  args: z.array(z.string()).optional(),
   effort: z.string().max(32).optional(),
 })
 export type ProviderInput = z.infer<typeof ProviderInput>

@@ -106,6 +106,7 @@ const kimi: ProviderView = {
   models: null,
   env: {},
   proxy: 'http://bob:****@10.0.0.2:3128',
+  args: [],
   wireApi: null,
   effort: null,
   source: null,
@@ -512,6 +513,27 @@ describe('供应商', () => {
     })
   })
 
+  it("sets a Claude provider's command-line arguments above the other variables", async () => {
+    const { calls, claude } = await openProviders(
+      { 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } },
+      { ...VIEW, providers: [{ ...kimi, args: ['--debug'] }] },
+    )
+    expect(within(claude).getByText(/1 个命令行参数/)).toBeTruthy()
+    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const form = await screen.findByRole('form', { name: '编辑供应商' })
+    fireEvent.click(within(form).getByRole('button', { name: '高级' }))
+    const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
+    const env = within(form).getByRole('textbox', { name: '其他环境变量' })
+    expect(args.compareDocumentPosition(env) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(args.value).toBe('--debug')
+    fireEvent.change(args, { target: { value: '--debug\n --settings ~/team.json ' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      args: ['--debug', '--settings ~/team.json'],
+    })
+  })
+
   it('shows the stored proxy masked and sends it back untouched', async () => {
     const { calls, claude } = await openProviders({
       'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
@@ -550,6 +572,7 @@ describe('供应商', () => {
     expect((env as HTMLTextAreaElement).value).toBe('DISABLE_TELEMETRY=1')
     fireEvent.change(env, { target: { value: 'DISABLE_TELEMETRY=1\nNO_PROXY=.corp' } })
     const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
+    expect(args.compareDocumentPosition(env) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(args.value).toBe('--debug')
     fireEvent.change(args, { target: { value: '--debug\n\n  --settings ~/team.json  ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))

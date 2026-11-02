@@ -101,6 +101,7 @@ const provider = (id: string, name: string, agent: 'claude' | 'codex' = 'claude'
   models: null,
   env: {},
   proxy: null,
+  args: [],
   wireApi: null,
   effort: null,
   source: null,

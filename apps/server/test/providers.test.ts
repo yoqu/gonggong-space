@@ -114,6 +114,7 @@ const masked = {
   models: null,
   env: {},
   proxy: null,
+  args: [],
   wireApi: null,
   effort: null,
   source: null,
@@ -147,6 +148,38 @@ async function world() {
 }
 
 describe('agent tools and providers relayed to the machine', () => {
+  it("relays a provider's command-line arguments only to a daemon that keeps them", async () => {
+    const w = await world()
+    const provider = {
+      agent: 'claude',
+      name: 'Team',
+      baseUrl: 'https://x.test/anthropic',
+      apiKey: 'sk-x',
+      args: ['--debug'],
+    }
+    const url = `/api/machines/${w.a.machine.id}/providers`
+    const old = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'claudeArgs'])
+    const refused = await w.asWang.post<{ message: string }>(url, provider)
+    expect([refused.status, refused.body.message]).toEqual([
+      409,
+      '请先升级该机器的 daemon 才能使用命令行参数',
+    ])
+    await old.close()
+    const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'providerArgs'])
+    const pending = w.asWang.post<ProviderSavedDto>(url, provider)
+    const cmd = await d.next()
+    expect(cmd).toMatchObject({ action: 'save', provider: { args: ['--debug'] } })
+    d.send({
+      t: 'providers.result',
+      requestId: cmd.requestId,
+      ok: true,
+      error: null,
+      view: view({}),
+      id: 'p',
+    })
+    expect((await pending).status).toBe(200)
+  })
+
   it('relays a local Claude profile without requiring an API key', async () => {
     const w = await world()
     const profile = {

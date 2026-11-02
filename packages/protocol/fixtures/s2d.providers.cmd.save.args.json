@@ -1,0 +1,12 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-args",
+  "action": "save",
+  "provider": {
+    "agent": "claude",
+    "name": "Team Claude",
+    "baseUrl": "https://api.example.com/anthropic",
+    "apiKey": "sk-ant-xxxx",
+    "args": ["--settings ~/.claude/team.json", "--debug"]
+  }
+}

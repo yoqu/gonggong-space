@@ -68,6 +68,7 @@ interface Fields extends EnvFields {
   model: string
   models: Record<(typeof TIERS)[number], string>
   proxy: string
+  args: string
 }
 
 const fieldsOf = (
@@ -82,6 +83,7 @@ const fieldsOf = (
   models: { haiku: p.models?.haiku ?? '', sonnet: p.models?.sonnet ?? '', opus: p.models?.opus ?? '' },
   ...envFields(p.agent, p.env),
   proxy: '',
+  args: '',
 })
 
 const empty = (agent: AgentKind) =>
@@ -131,6 +133,7 @@ export function ProviderEditor({
           configDir: editing.configDir ?? '',
           executablePath: editing.executablePath ?? '',
           proxy: editing.proxy ?? '',
+          args: editing.args.join('\n'),
         }
       : empty(agent),
   )
@@ -197,7 +200,7 @@ export function ProviderEditor({
       model: f.model.trim(),
       env,
       proxy: f.proxy.trim(),
-      ...(agent === 'claude' && { models }),
+      ...(agent === 'claude' && { models, args: argLines(f.args) }),
     }
     setSaving(true)
     try {
@@ -242,7 +245,7 @@ export function ProviderEditor({
         editing && preset ? (
           <Button
             variant="plain"
-            onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey, proxy: f.proxy })}
+            onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey, proxy: f.proxy, args: f.args })}
           >
             {t('恢复为预设值')}
           </Button>
@@ -381,6 +384,7 @@ export function ProviderEditor({
             <ExtraRows
               proxy={f.proxy}
               env={f.env}
+              args={agent === 'claude' ? f.args : undefined}
               envLabel={fields.length ? t('其他环境变量') : t('环境变量')}
               proxyHint={t('Agent 经此代理访问供应商，留空为直连')}
               onChange={set}
@@ -419,18 +423,27 @@ export function ProviderEditor({
   )
 }
 
+const argLines = (text: string) =>
+  text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+/** `args`: Claude Code's command-line arguments; undefined for other agents. */
 function ExtraRows({
   proxy,
   env,
+  args,
   envLabel,
   proxyHint,
   onChange,
 }: {
   proxy: string
   env: string
+  args?: string
   envLabel: string
   proxyHint: string
-  onChange: (patch: { proxy?: string; env?: string }) => void
+  onChange: (patch: { proxy?: string; env?: string; args?: string }) => void
 }) {
   return (
     <>
@@ -442,6 +455,24 @@ function ExtraRows({
           onChange={(e) => onChange({ proxy: e.target.value })}
         />
       </FormRow>
+      {args === undefined ? null : (
+        <FormRow
+          label={t('命令行参数')}
+          align="top"
+          hint={t(
+            '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置',
+          )}
+        >
+          <TextField
+            multiline
+            aria-label={t('命令行参数')}
+            rows={2}
+            placeholder="--settings ~/team.json"
+            value={args}
+            onChange={(e) => onChange({ args: e.target.value })}
+          />
+        </FormRow>
+      )}
       <FormRow label={envLabel} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
         <TextField
           multiline
@@ -486,15 +517,11 @@ export function OfficialEditor({
     } catch (e) {
       return setError((e as Error).message)
     }
-    const args = f.args
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
     const body: OfficialProviderReq = {
       agent,
       env,
       proxy: f.proxy.trim(),
-      ...(agent === 'claude' && { args }),
+      ...(agent === 'claude' && { args: argLines(f.args) }),
     }
     setSaving(true)
     try {
@@ -527,28 +554,11 @@ export function OfficialEditor({
         <ExtraRows
           proxy={f.proxy}
           env={f.env}
+          args={agent === 'claude' ? f.args : undefined}
           envLabel={fields.length ? t('其他环境变量') : t('环境变量')}
           proxyHint={t('Agent 经此代理联网，留空为直连')}
           onChange={(patch) => setF((x) => ({ ...x, ...patch }))}
         />
-        {agent === 'claude' ? (
-          <FormRow
-            label={t('命令行参数')}
-            align="top"
-            hint={t(
-              '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置',
-            )}
-          >
-            <TextField
-              multiline
-              aria-label={t('命令行参数')}
-              rows={2}
-              placeholder="--settings ~/team.json"
-              value={f.args}
-              onChange={(e) => setF((x) => ({ ...x, args: e.target.value }))}
-            />
-          </FormRow>
-        ) : null}
         {error ? (
           <FormRow>
             <span className="mx-danger" role="alert">

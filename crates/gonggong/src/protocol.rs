@@ -1765,6 +1765,8 @@ pub const FEATURE_AGENT_SETTINGS: &str = "agentSettings";
 pub const FEATURE_CLAUDE_ARGS: &str = "claudeArgs";
 /// A provider's `configDir` / `executablePath`: a local Claude profile.
 pub const FEATURE_CLAUDE_PROFILE: &str = "claudeProfile";
+/// A provider's `args`: Claude Code command-line arguments.
+pub const FEATURE_PROVIDER_ARGS: &str = "providerArgs";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
@@ -1966,6 +1968,9 @@ pub struct ProviderInput {
     /// Empty = direct; the masked one from the view = unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy: Option<String>,
+    /// Claude Code command-line arguments, one per line; absent = unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
 }

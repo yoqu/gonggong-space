@@ -7,9 +7,9 @@ use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
     FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_GIT_OPS,
     FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS,
-    FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap,
-    ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd,
-    ToolsSettings,
+    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS,
+    ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult,
+    ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -66,6 +66,7 @@ impl Manage {
             FEATURE_MACHINE_ADMIN.to_string(),
             FEATURE_CLAUDE_ARGS.to_string(),
             FEATURE_CLAUDE_PROFILE.to_string(),
+            FEATURE_PROVIDER_ARGS.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -342,7 +343,7 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
                     set_proxy(&mut o.proxy, proxy);
                 }
                 if let Some(args) = input.args {
-                    o.args = args.into_iter().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+                    o.args = arg_lines(args);
                 }
                 s.set_official(agent, o)?;
                 Ok(s.view())
@@ -440,9 +441,16 @@ fn apply(p: &mut Provider, input: ProviderInput) {
     if let Some(proxy) = input.proxy {
         set_proxy(&mut p.proxy, proxy);
     }
+    if let Some(args) = input.args {
+        p.args = arg_lines(args);
+    }
     if let Some(effort) = input.effort {
         p.effort = text(effort);
     }
+}
+
+fn arg_lines(args: Vec<String>) -> Vec<String> {
+    args.into_iter().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect()
 }
 
 /// '' = direct; the masked one from the view = unchanged.
@@ -517,8 +525,36 @@ mod tests {
             models: None,
             env: None,
             proxy: None,
+            args: None,
             effort: None,
         }
+    }
+
+    #[test]
+    fn saves_a_claude_providers_command_line_arguments() {
+        let home = tempfile::tempdir().unwrap();
+        let save = |provider: ProviderInput| {
+            let mut c = cmd(ProvidersAction::Save);
+            c.provider = Some(provider);
+            providers_op(home.path(), home.path(), c, &[])
+        };
+        let new = |agent: AgentKind, args: &[&str]| ProviderInput {
+            name: Some("K".into()),
+            base_url: Some("https://k.example".into()),
+            api_key: Some(KEY.into()),
+            args: Some(args.iter().map(|a| a.to_string()).collect()),
+            ..input(agent)
+        };
+        let r = save(new(AgentKind::Claude, &["--debug", " ", " --settings ~/team.json "])).unwrap();
+        assert_eq!(r.view.unwrap().providers[0].args, ["--debug", "--settings ~/team.json"]);
+        assert!(save(new(AgentKind::Claude, &["--permission-mode bypassPermissions"])).is_err());
+        assert!(save(new(AgentKind::Codex, &["--debug"])).is_err());
+        let id = r.id.unwrap();
+        let args = |home: &Path| Store::load(home).unwrap().get(&id).unwrap().args.clone();
+        save(ProviderInput { id: Some(id.clone()), ..input(AgentKind::Claude) }).unwrap();
+        assert_eq!(args(home.path()).len(), 2, "absent = unchanged");
+        save(ProviderInput { id: Some(id.clone()), args: Some(vec![]), ..input(AgentKind::Claude) }).unwrap();
+        assert!(args(home.path()).is_empty(), "cleared");
     }
 
     #[test]
@@ -875,7 +911,8 @@ mod tests {
                 "gitOps4",
                 "machineAdmin",
                 "claudeArgs",
-                "claudeProfile"
+                "claudeProfile",
+                "providerArgs"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -899,6 +936,7 @@ mod tests {
                 "machineAdmin",
                 "claudeArgs",
                 "claudeProfile",
+                "providerArgs",
                 "ccSwitch"
             ]
         );

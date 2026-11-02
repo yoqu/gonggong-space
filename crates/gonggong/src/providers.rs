@@ -145,6 +145,9 @@ pub struct Provider {
     /// `http(s)://[user:pass@]host:port` the agent reaches the provider through; `None` = direct.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy: Option<String>,
+    /// Claude Code command-line arguments as typed, one per line ([`ClaudeArgs`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
     /// Codex only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_api: Option<String>,
@@ -187,6 +190,7 @@ impl Provider {
             models: None,
             env: BTreeMap::new(),
             proxy: None,
+            args: vec![],
             wire_api: (agent == AgentKind::Codex).then(|| WIRE_RESPONSES.into()),
             effort: None,
             source: None,
@@ -198,6 +202,7 @@ impl Provider {
         if self.name.trim().is_empty() {
             bail!(t!("供应商名称不能为空"));
         }
+        validate_args(self.agent, &self.args)?;
         if let Some(dir) = self.claude_profile() {
             if self.agent != AgentKind::Claude || !dir.is_absolute() || !dir.is_dir() {
                 bail!(t!("Claude 配置目录必须是存在的绝对路径"));
@@ -228,6 +233,11 @@ impl Provider {
         process_env(&self.env, self.proxy.as_deref())
     }
 
+    /// The parsed arguments; the stored lines were validated when saved.
+    pub fn claude_args(&self) -> Result<ClaudeArgs> {
+        ClaudeArgs::parse(&self.args)
+    }
+
     /// A local Claude profile: its own `CLAUDE_CONFIG_DIR` (with its own login) instead of a URL and key.
     pub fn claude_profile(&self) -> Option<&Path> {
         self.config_dir.as_deref().map(Path::new)
@@ -256,6 +266,7 @@ impl Provider {
             models: self.models.clone(),
             env: mask_env(&self.env),
             proxy: self.proxy.as_deref().map(mask_proxy),
+            args: self.args.clone(),
             wire_api: self.wire_api.clone(),
             effort: self.effort.clone(),
             source: self.source.clone(),
@@ -277,6 +288,13 @@ fn process_env(vars: &BTreeMap<String, String>, proxy: Option<&str>) -> BTreeMap
         env.insert("no_proxy".into(), bypass.join(","));
     }
     env
+}
+
+fn validate_args(agent: AgentKind, args: &[String]) -> Result<()> {
+    if !args.is_empty() && agent != AgentKind::Claude {
+        bail!(t!("命令行参数仅支持 Claude Code"));
+    }
+    ClaudeArgs::parse(args).map(drop)
 }
 
 fn validate_extras(
@@ -395,6 +413,8 @@ pub struct ProviderView {
     pub models: Option<ModelMap>,
     pub env: BTreeMap<String, String>,
     pub proxy: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
     pub wire_api: Option<String>,
     pub effort: Option<String>,
     pub source: Option<Source>,
@@ -668,10 +688,7 @@ impl Store {
     pub fn set_official(&mut self, agent: AgentKind, official: Official) -> Result<()> {
         let before = self.official.get(&agent).map(|o| &o.env);
         validate_extras(agent, &official.env, official.proxy.as_deref(), before)?;
-        if !official.args.is_empty() && agent != AgentKind::Claude {
-            bail!(t!("命令行参数仅支持 Claude Code"));
-        }
-        official.claude_args()?;
+        validate_args(agent, &official.args)?;
         if official.is_empty() {
             self.official.remove(&agent);
         } else {

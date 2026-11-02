@@ -164,9 +164,14 @@ function ProviderBox({
           row(
             p.id,
             p.name,
-            p.configDir
-              ? [t('本机 Claude 配置目录'), p.configDir].join(' · ')
-              : [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`].filter(Boolean).join(' · '),
+            [
+              ...(p.configDir
+                ? [t('本机 Claude 配置目录'), p.configDir]
+                : [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`]),
+              p.args.length ? t('{n} 个命令行参数', { n: p.args.length }) : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
             <>
               <Button size="small" onClick={() => setOpen({ kind: 'editor', editing: p })}>
                 {t('编辑…')}

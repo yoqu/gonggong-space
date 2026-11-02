@@ -51,7 +51,7 @@ pub struct ClaudeLaunch {
     /// None: nothing to set (the official login without extras or agent settings).
     pub file: Option<(PathBuf, Value)>,
     pub inherit_cli: bool,
-    /// The official login's command-line arguments for the adapter's `extraArgs` (`--settings` merged into `file`).
+    /// The official login's or provider's command-line arguments for the adapter's `extraArgs` (`--settings` merged into `file`).
     pub args: Map<String, Value>,
     /// Display only: it follows the CLI's config, which the user may edit any time.
     pub snapshot: RunSettingsSnapshot,
@@ -120,7 +120,10 @@ impl ClaudeLaunch {
         let file = match selection {
             Selection::Official(o) if o.is_empty() && overlay.is_none() => None,
             Selection::Provider(p)
-                if p.claude_profile().is_some() && p.process_env().is_empty() && overlay.is_none() =>
+                if p.claude_profile().is_some()
+                    && p.process_env().is_empty()
+                    && p.args.is_empty()
+                    && overlay.is_none() =>
             {
                 None
             }
@@ -172,10 +175,10 @@ impl ClaudeLaunch {
             from_cli,
             from_bot,
         };
-        // The official login's own `--settings` go under everything 共工 sets.
+        // The user's own `--settings` go under everything 共工 sets.
         let args = match selection {
             Selection::Official(o) => o.claude_args()?,
-            Selection::Provider(_) => Default::default(),
+            Selection::Provider(p) => p.claude_args()?,
         };
         if let Some(mut user) = args.settings()? {
             if let Some(Value::Object(e)) = user.remove("env") {
@@ -365,6 +368,32 @@ mod tests {
         )
         .unwrap();
         assert!(launch.file.is_none(), "a local profile must not clear its OAuth credentials");
+    }
+
+    #[test]
+    fn a_providers_arguments_go_to_the_cli_and_its_settings_under_ours() {
+        let home = tempfile::tempdir().unwrap();
+        let file = home.path().join("team.json");
+        std::fs::write(&file, r#"{"language":"french","includeCoAuthoredBy":false}"#).unwrap();
+        let mut p = custom();
+        p.args = vec![format!("--settings {}", file.display()), "--debug".into()];
+        let lang = defaults(&[("language", "english")], true);
+        let l = launch(home.path(), &Selection::Provider(Box::new(p.clone())), &lang, &bot(None, &[]));
+        let written = read(l.settings_path().unwrap());
+        assert_eq!(
+            (written["language"].as_str(), written["includeCoAuthoredBy"].as_bool()),
+            (Some("english"), Some(false))
+        );
+        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "https://x.test");
+        assert_eq!(Value::Object(l.args), json!({ "debug": null }));
+
+        // A local profile otherwise needs no settings file, but its `--settings` must still be written.
+        p.base_url.clear();
+        p.api_key.clear();
+        p.config_dir = Some(home.path().display().to_string());
+        let none = AgentSettings::default();
+        let l = launch(home.path(), &Selection::Provider(Box::new(p)), &none, &bot(None, &[]));
+        assert_eq!(read(l.settings_path().unwrap())["includeCoAuthoredBy"], false);
     }
 
     fn bot(model: Option<&str>, overrides: &[(&str, &str)]) -> RunBot {
