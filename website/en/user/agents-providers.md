@@ -94,7 +94,7 @@ When editing an existing provider, leaving the API Key field empty keeps the sav
 
 ### Use a local Claude configuration directory
 
-To reuse a Claude configuration already on this machine, choose Custom, select “Use a local Claude configuration directory”, and enter its absolute path. Optionally enter an absolute path to the Claude executable; otherwise the Agent page's configured executable is used. The provider can be set as the machine default or assigned to a bot.
+To reuse a Claude configuration directory already on this machine (`CLAUDE_CONFIG_DIR`) with its own login and settings.json, so no API key is needed, choose “Local Claude configuration directory” under Add…. Pick one of the `.claude*` directories in your home from the list, use Browse… (hidden directories are listed), or enter an absolute path; the name defaults to the directory name. Optionally enter an absolute path to the Claude executable; otherwise the Agent page's configured executable is used. Model mappings come from the directory's own settings, so Advanced only offers environment variables and the proxy. The provider can be set as the machine default or assigned to a bot.
 
 For example, an existing qorz setup can use `/Users/username/.qorz-claude` and the absolute path to its `claude-qorz` executable. Gonggong stores the paths without copying the key; Claude may write session data to that directory. Existing sessions keep their provider until a new session starts. This type uses the directory's model settings rather than API provider presets.
 

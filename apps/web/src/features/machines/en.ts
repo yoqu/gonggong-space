@@ -1,9 +1,13 @@
 export default {
   '本机 Claude 配置目录': 'Local Claude configuration directory',
-  '使用本机 Claude 配置目录': 'Use a local Claude configuration directory',
   请填写配置目录: 'Enter a configuration directory',
   配置目录: 'Configuration directory',
-  '本机绝对路径，可点「浏览…」选择': 'An absolute path on this machine, or pick one with Browse…',
+  'Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」':
+    'The agent uses this directory’s own login and settings.json. Pick one from the list or Browse…',
+  本机绝对路径: 'Absolute path on this machine',
+  进入配置目录后选择: 'Open the configuration directory, then choose it',
+  '使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key':
+    'Use the login and settings of another Claude configuration directory on this machine; no API key needed',
   选择配置目录: 'Choose the configuration directory',
   'Claude 可执行文件': 'Claude executable',
   '可选；留空使用本机 Agent 路径': 'Optional; leave empty to use the local Agent path',

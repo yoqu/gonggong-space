@@ -25,6 +25,7 @@ export function DirPicker({
   title,
   start = null,
   hidden = false,
+  hint = t('进入具体项目目录后选择'),
   extra,
   onPick,
   onClose,
@@ -34,6 +35,8 @@ export function DirPicker({
   start?: string | null
   /** List dot-directories too. */
   hidden?: boolean
+  /** Shown where the listed directory cannot be picked (the home it starts at). */
+  hint?: string
   extra?: ReactNode
   onPick: (path: string) => void
   onClose: () => void
@@ -123,7 +126,7 @@ export function DirPicker({
           </div>
         ) : null}
         {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
-        {dir?.unusable ? <p className="dirpick__hint">{t('进入具体项目目录后选择')}</p> : null}
+        {dir?.unusable ? <p className="dirpick__hint">{hint}</p> : null}
         {error ? <Alert variant="error" title={error} /> : null}
         <div className="dirpick__list">
           {!dir && !error ? (

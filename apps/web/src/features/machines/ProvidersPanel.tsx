@@ -202,6 +202,7 @@ function ProviderBox({
             key={seq}
             machineId={machine.id}
             agent={agent}
+            profiles={machine.features.includes('claudeProfile')}
             editing={open.editing}
             onClose={close}
             onSaved={({ id, view: v }, setDefault) => {

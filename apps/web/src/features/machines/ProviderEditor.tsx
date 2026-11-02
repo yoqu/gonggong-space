@@ -1,6 +1,7 @@
 import {
   type AgentKind,
   type AgentSettingValues,
+  type DirListingDto,
   fieldsFor,
   type ModelMap,
   type OfficialProviderReq,
@@ -45,6 +46,15 @@ const FORM_ID = 'provider-form'
 const OFFICIAL_FORM_ID = 'official-form'
 
 const SMALL_FAST = 'ANTHROPIC_SMALL_FAST_MODEL'
+
+/** 「pp」 for `/Users/me/.pp/`: the name a profile gets until one is typed. */
+const profileName = (dir: string) =>
+  (
+    dir
+      .replace(/[\\/]+$/, '')
+      .split(/[\\/]/)
+      .pop() ?? ''
+  ).replace(/^\./, '')
 
 /** Provider-layer settings as controls, the other variables as text; `base` is what each control started from. */
 interface EnvFields {
@@ -112,12 +122,15 @@ const withoutVar = (text: string, name: string) =>
 export function ProviderEditor({
   machineId,
   agent,
+  profiles,
   editing,
   onClose,
   onSaved,
 }: {
   machineId: string
   agent: AgentKind
+  /** The daemon can run a local Claude config directory (`claudeProfile`). */
+  profiles: boolean
   /** null = a new provider. */
   editing: ProviderView | null
   onClose: () => void
@@ -143,6 +156,27 @@ export function ProviderEditor({
   const [saving, setSaving] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const [browsing, setBrowsing] = useState(false)
+  const [suggested, setSuggested] = useState<string[]>([])
+
+  // The home's `~/.claude*` directories, offered in the 配置目录 list; browsing still reaches any other.
+  useEffect(() => {
+    if (!localProfile) return
+    let live = true
+    api.get<DirListingDto>(`/machines/${machineId}/dirs?hidden=1`).then(
+      (d) =>
+        live &&
+        setSuggested(
+          d.entries
+            .filter((e) => /claude/i.test(e.name))
+            .map((e) => `${d.path.replace(/[\\/]+$/, '')}${d.path.includes('\\') ? '\\' : '/'}${e.name}`),
+        ),
+      // Suggestions only: 浏览… shows why the machine cannot be read.
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [machineId, localProfile])
 
   useEffect(() => {
     api.get<ProviderPreset[]>(`/machines/${machineId}/providers/presets?agent=${agent}`).then(
@@ -154,12 +188,19 @@ export function ProviderEditor({
     )
   }, [machineId, agent, editing])
 
-  const pick = (p: ProviderPreset | null) => {
+  const pick = (p: ProviderPreset | null, profile = false) => {
     setPreset(p)
+    setLocalProfile(profile)
     setF(p ? fieldsOf(p) : empty(agent))
     setError(null)
   }
   const set = (patch: Partial<Fields>) => setF((x) => ({ ...x, ...patch }))
+  const setConfigDir = (configDir: string) =>
+    setF((x) => ({
+      ...x,
+      configDir,
+      ...((!x.name.trim() || x.name === profileName(x.configDir)) && { name: profileName(configDir) }),
+    }))
   const fields = fieldsFor(agent, 'provider')
   const presetEnv = preset ? envFields(agent, preset.env) : null
   const modelWindow = preset?.modelContext?.[f.model.trim()]
@@ -189,19 +230,28 @@ export function ProviderEditor({
     const models: ModelMap = Object.fromEntries(
       TIERS.flatMap((tier) => (f.models[tier].trim() ? [[tier, f.models[tier].trim()]] : [])),
     )
-    const body: SaveProviderReq = {
-      agent,
-      ...(!editing && preset && { presetId: preset.id }),
-      name: f.name.trim(),
-      ...(localProfile
-        ? { configDir: f.configDir.trim(), executablePath: f.executablePath.trim() }
-        : { baseUrl: f.baseUrl.trim() }),
-      ...(f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
-      model: f.model.trim(),
-      env,
-      proxy: f.proxy.trim(),
-      ...(agent === 'claude' && { models, args: argLines(f.args) }),
-    }
+    // A profile's login and models come from its own directory: never send a key or URL a field once held.
+    const body: SaveProviderReq = localProfile
+      ? {
+          agent,
+          name: f.name.trim(),
+          configDir: f.configDir.trim(),
+          executablePath: f.executablePath.trim(),
+          env,
+          proxy: f.proxy.trim(),
+          args: argLines(f.args),
+        }
+      : {
+          agent,
+          ...(!editing && preset && { presetId: preset.id }),
+          name: f.name.trim(),
+          baseUrl: f.baseUrl.trim(),
+          ...(f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
+          model: f.model.trim(),
+          env,
+          proxy: f.proxy.trim(),
+          ...(agent === 'claude' && { models, args: argLines(f.args) }),
+        }
     setSaving(true)
     try {
       const saved = editing
@@ -219,7 +269,11 @@ export function ProviderEditor({
     return (
       <Dialog open onClose={onClose} title={title} message={t('选择厂商，之后只需填写 API Key')} width={520}>
         {error ? <p className="mx-danger">{error}</p> : null}
-        <VendorPicker presets={presets} onPick={pick} />
+        <VendorPicker
+          presets={presets}
+          onPick={pick}
+          onProfile={agent === 'claude' && profiles ? () => pick(null, true) : undefined}
+        />
       </Dialog>
     )
 
@@ -259,7 +313,7 @@ export function ProviderEditor({
       <Form id={FORM_ID} aria-label={title} onSubmit={() => void save()}>
         <FormRow label={t('厂商')}>
           <span className="mx-inline">
-            <span>{preset ? preset.name : t('自定义')}</span>
+            <span>{preset ? preset.name : localProfile ? t('本机 Claude 配置目录') : t('自定义')}</span>
             {editing ? null : (
               <Button size="small" variant="plain" onClick={() => setPreset(undefined)}>
                 {t('更换…')}
@@ -270,23 +324,20 @@ export function ProviderEditor({
         <FormRow label={t('名称')}>
           <TextField aria-label={t('名称')} value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </FormRow>
-        {agent === 'claude' && !preset && !editing ? (
-          <FormRow>
-            <Checkbox
-              label={t('使用本机 Claude 配置目录')}
-              checked={localProfile}
-              onChange={setLocalProfile}
-            />
-          </FormRow>
-        ) : null}
         {localProfile ? (
           <>
-            <FormRow label={t('配置目录')} hint={t('本机绝对路径，可点「浏览…」选择')}>
+            <FormRow
+              label={t('配置目录')}
+              hint={t('Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」')}
+            >
               <span className="mx-inline mx-field-row">
-                <TextField
+                <ComboBox
                   aria-label={t('配置目录')}
+                  options={suggested}
                   value={f.configDir}
-                  onChange={(e) => set({ configDir: e.target.value })}
+                  placeholder={t('本机绝对路径')}
+                  onInput={setConfigDir}
+                  onChange={setConfigDir}
                 />
                 <Button size="small" onClick={() => setBrowsing(true)}>
                   {t('浏览…')}
@@ -299,8 +350,9 @@ export function ProviderEditor({
                 title={t('选择配置目录')}
                 start={f.configDir.trim() || null}
                 hidden
+                hint={t('进入配置目录后选择')}
                 onPick={(configDir) => {
-                  set({ configDir })
+                  setConfigDir(configDir)
                   setBrowsing(false)
                 }}
                 onClose={() => setBrowsing(false)}
@@ -359,7 +411,7 @@ export function ProviderEditor({
         {advanced ? (
           <>
             {preset ? baseUrl : null}
-            {agent === 'claude'
+            {agent === 'claude' && !localProfile
               ? TIERS.map((tier) => (
                   <FormRow
                     key={tier}
@@ -574,9 +626,12 @@ export function OfficialEditor({
 function VendorPicker({
   presets,
   onPick,
+  onProfile,
 }: {
   presets: ProviderPreset[] | null
   onPick: (p: ProviderPreset | null) => void
+  /** Offers 本机 Claude 配置目录; absent when the agent or daemon cannot run one. */
+  onProfile?: () => void
 }) {
   const [q, setQ] = useState('')
   const text = q.trim().toLowerCase()
@@ -602,7 +657,17 @@ function VendorPicker({
           </div>
         ) : null
       })}
-      <GroupBox>{row('custom', t('自定义'), t('手动填写 Base URL'), () => onPick(null))}</GroupBox>
+      <GroupBox>
+        {row('custom', t('自定义'), t('手动填写 Base URL'), () => onPick(null))}
+        {onProfile
+          ? row(
+              'profile',
+              t('本机 Claude 配置目录'),
+              t('使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key'),
+              onProfile,
+            )
+          : null}
+      </GroupBox>
     </div>
   )
 }

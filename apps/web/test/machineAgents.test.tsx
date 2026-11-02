@@ -40,7 +40,7 @@ const mbp: MachineDto = {
   online: true,
   agents: [],
   daemonVersion: '0.9.0',
-  features: ['tools', 'providers', 'ccSwitch', 'agentSettings'],
+  features: ['tools', 'providers', 'ccSwitch', 'agentSettings', 'claudeProfile'],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,
@@ -399,26 +399,62 @@ describe('供应商', () => {
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 
-  it('adds a local Claude profile without an API key', async () => {
-    const { calls, claude } = await openProviders()
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
-    fireEvent.click(await screen.findByRole('button', { name: /自定义/ }))
-    const form = await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
-    fireEvent.click(within(form).getByLabelText('使用本机 Claude 配置目录'))
-    fireEvent.change(within(form).getByLabelText('名称'), { target: { value: 'Qorz' } })
-    fireEvent.change(within(form).getByLabelText('配置目录'), {
+  const listing = (path: string, entries: string[]) => ({
+    path,
+    entries: entries.map((name) => ({ name, git: false })),
+    git: null,
+    unusable: path === '/Users/test' ? '目录范围过大，请选择具体的项目目录' : null,
+    roots: ['/'],
+  })
+  const HOME_DIRS = {
+    'GET /machines/m1/dirs?hidden=1': listing('/Users/test', ['.claude', '.qorz-claude', 'code']),
+  }
+  const openProfile = async (routes: Record<string, unknown> = {}) => {
+    const opened = await openProviders({ ...HOME_DIRS, ...routes })
+    fireEvent.click(within(opened.claude).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /本机 Claude 配置目录/ }))
+    return { ...opened, form: await screen.findByRole('form', { name: '新增 Claude Code 供应商' }) }
+  }
+
+  it('adds a local Claude profile from its own entry, picking a suggested directory', async () => {
+    const { calls, form } = await openProfile({ 'POST /machines/m1/providers': { id: 'p2', view: VIEW } })
+    expect(within(form).queryByLabelText('API Key')).toBeNull()
+    expect(within(form).queryByRole('checkbox', { name: '使用本机 Claude 配置目录' })).toBeNull()
+    fireEvent.click(within(form).getByRole('button', { name: '显示选项' }))
+    const options = await screen.findAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['/Users/test/.claude', '/Users/test/.qorz-claude'])
+    fireEvent.mouseDown(options[1] as HTMLElement)
+    expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe(
+      'qorz-claude',
+    )
+    fireEvent.click(within(form).getByRole('button', { name: '高级' }))
+    expect(within(form).queryByLabelText('haiku 模型')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
+    const body = calls.find((c) => c.method === 'POST' && c.path === '/machines/m1/providers')?.body
+    expect(body).toMatchObject({
+      agent: 'claude',
+      name: 'qorz-claude',
+      configDir: '/Users/test/.qorz-claude',
+    })
+    for (const key of ['apiKey', 'baseUrl', 'presetId', 'model', 'models'])
+      expect(body).not.toHaveProperty(key)
+  })
+
+  it('keeps a typed name and an executable for a local profile', async () => {
+    const { calls, form } = await openProfile()
+    fireEvent.change(within(form).getByRole('textbox', { name: '名称' }), { target: { value: 'Qorz' } })
+    fireEvent.change(within(form).getByRole('combobox', { name: '配置目录' }), {
       target: { value: '/Users/test/.qorz-claude' },
     })
     fireEvent.change(within(form).getByLabelText('Claude 可执行文件'), {
       target: { value: '/Users/test/bin/claude-qorz' },
     })
-    expect(within(form).queryByLabelText('API Key')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(
         calls.find((c) => c.method === 'POST' && c.path === '/machines/m1/providers')?.body,
       ).toMatchObject({
-        agent: 'claude',
         name: 'Qorz',
         configDir: '/Users/test/.qorz-claude',
         executablePath: '/Users/test/bin/claude-qorz',
@@ -427,33 +463,35 @@ describe('供应商', () => {
   })
 
   it("browses the machine's directories, hidden ones included, for the config directory", async () => {
-    const listing = (path: string, entries: string[]) => ({
-      path,
-      entries: entries.map((name) => ({ name, git: false })),
-      git: null,
-      unusable: path === '/Users/test' ? '目录范围过大，请选择具体的项目目录' : null,
-      roots: ['/'],
-    })
-    const { claude } = await openProviders({
-      'GET /machines/m1/dirs?hidden=1': listing('/Users/test', ['.claude', '.qorz-claude', 'code']),
+    const { form } = await openProfile({
       [`GET /machines/m1/dirs?path=${encodeURIComponent('/Users/test/.qorz-claude')}&hidden=1`]: listing(
         '/Users/test/.qorz-claude',
         [],
       ),
     })
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
-    fireEvent.click(await screen.findByRole('button', { name: /自定义/ }))
-    const form = await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
-    fireEvent.click(within(form).getByLabelText('使用本机 Claude 配置目录'))
     fireEvent.click(within(form).getByRole('button', { name: '浏览…' }))
     const picker = await screen.findByRole('dialog', { name: '选择配置目录' })
+    expect(await within(picker).findByText('进入配置目录后选择')).toBeTruthy()
     fireEvent.click(await within(picker).findByRole('button', { name: /\.qorz-claude/ }))
     await within(picker).findByText('没有子目录')
     fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择配置目录' })).toBeNull())
-    expect((within(form).getByLabelText('配置目录') as HTMLInputElement).value).toBe(
+    expect((within(form).getByRole('combobox', { name: '配置目录' }) as HTMLInputElement).value).toBe(
       '/Users/test/.qorz-claude',
     )
+  })
+
+  it('offers a local profile only when the daemon supports it', async () => {
+    mockApi({
+      'GET /machines/m1/providers': VIEW,
+      'GET /machines/m1/providers/presets?agent=claude': PRESETS,
+    })
+    open({ ...mbp, features: ['providers'] })
+    fireEvent.click(tab('供应商'))
+    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
+    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    await screen.findByRole('button', { name: /自定义/ })
+    expect(screen.queryByRole('button', { name: /本机 Claude 配置目录/ })).toBeNull()
   })
 
   it('edits without the key when it is left empty, and restores preset values', async () => {
