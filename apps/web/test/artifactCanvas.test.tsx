@@ -125,6 +125,8 @@ const tab = { kind: 'artifact' as const, artifactId: 'a1', title: '读书会小�
 const renderTab = async () => {
   render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
   await screen.findByTitle('首页')
+  // The frame can show before the bridge's listener is in: let the effects of that render run first.
+  await act(async () => {})
 }
 const canvas = () => screen.getByRole('application', { name: '画布' })
 const node = (id: string) => screen.getByTestId(`art-node-${id}`)
@@ -216,8 +218,6 @@ describe('bridge', () => {
   it('tells the screens the tool, and lets them take the pointer only for mark and edit', async () => {
     mockApi(routes())
     await renderTab()
-    // The frame can show before the bridge's listener is in: let the effects of that render run first.
-    await act(async () => {})
     const iframe = screen.getByTitle('首页') as HTMLIFrameElement
     const sent = vi.spyOn(iframe.contentWindow as Window, 'postMessage')
     expect(iframe.classList.contains('art-node__frame--live')).toBe(false)
