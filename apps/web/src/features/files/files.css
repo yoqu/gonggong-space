@@ -83,6 +83,59 @@
 .fv__md {
   min-width: 0;
 }
+.fv-office {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 60vh;
+}
+.fv-office__wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.fv-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-height: 0;
+}
+.fv-sheet__grid {
+  overflow: auto;
+  max-height: 70vh;
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-field);
+}
+.fv-sheet table {
+  border-collapse: collapse;
+  font-size: var(--text-footnote-size);
+  font-variant-numeric: tabular-nums;
+}
+.fv-sheet th,
+.fv-sheet td {
+  padding: 2px var(--space-8);
+  border: 0.5px solid var(--separator);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.fv-sheet th {
+  position: sticky;
+  top: 0;
+  background: var(--group-bg);
+  color: var(--label-secondary);
+  font-weight: 500;
+}
+.fv-sheet tbody th {
+  left: 0;
+  text-align: right;
+}
+.fv-sheet td[data-num] {
+  text-align: right;
+}
 .fv__note,
 .fv__none {
   font-size: var(--text-subheadline-size);

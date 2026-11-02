@@ -33,11 +33,22 @@ import { type LineMark, lineMarks } from '../diff/hunk'
 import { useGitStamp } from '../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
+import { type OfficeKind, OfficeView } from './OfficeView'
 import './files.css'
 import { t } from '../../i18n'
 
 /** How the viewer shows a file (design §4.6); `unknown` is decided by what the text read reports. */
-export type ViewKind = 'image' | 'video' | 'audio' | 'pdf' | 'md' | 'html' | 'text' | 'binary' | 'unknown'
+export type ViewKind =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'pdf'
+  | OfficeKind
+  | 'md'
+  | 'html'
+  | 'text'
+  | 'binary'
+  | 'unknown'
 
 export type TextRead = Pick<FileTextDto, 'text' | 'binary' | 'size'>
 
@@ -52,11 +63,12 @@ const BY_TYPE: Partial<Record<FileType, ViewKind>> = {
   other: 'unknown',
 }
 
-/** By extension: html shows its source, csv/tsv are text though their icon is a sheet. */
+/** By extension: html shows its source, csv/tsv are text though their icon is a sheet; of office only OOXML renders. */
 export function viewKind(name: string): ViewKind {
   const ext = name.includes('.') ? (name.split('.').pop() ?? '').toLowerCase() : ''
   if (ext === 'html' || ext === 'htm') return 'html'
   if (ext === 'csv' || ext === 'tsv') return 'text'
+  if (ext === 'docx' || ext === 'xlsx' || ext === 'pptx') return ext
   return BY_TYPE[fileType(name)] ?? 'binary'
 }
 
@@ -499,6 +511,17 @@ export function FileViewer({
         )
       case 'pdf':
         return <iframe className="fv__pdf" title={name} src={url} />
+      case 'docx':
+      case 'xlsx':
+      case 'pptx':
+        return url ? (
+          <OfficeView
+            kind={kind}
+            url={url}
+            name={name}
+            download={(message) => <Download url={url} name={name} message={message} />}
+          />
+        ) : null
       case 'binary':
         return <Download url={url} name={name} message={t('该类型暂不支持预览，可下载查看')} />
     }

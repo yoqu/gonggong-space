@@ -1,10 +1,10 @@
 import { type Attachment, FILE_TEXT_MAX_BYTES } from '@gonggong/protocol'
 import { useCallback } from 'react'
 import { t } from '../../i18n'
-import { FileViewer, type ViewKind } from '../files/FileViewer'
+import { FileViewer, type ViewKind, viewKind } from '../files/FileViewer'
 import { attachmentUrl, type FileKind, fmtSize, kindOf, workspacePath } from './api'
 
-/** The attachment route serves only images, video and text inline; anything else is a download. */
+/** The attachment route serves only images, video and text inline; office documents render from their bytes. */
 const VIEW: Record<FileKind, ViewKind> = {
   image: 'image',
   video: 'video',
@@ -22,6 +22,8 @@ const SEND_NOTE: Partial<Record<FileKind, string>> = {
 /** A message attachment in the shared file viewer, with where it lives and how the bot gets it. */
 export function AttachmentViewer({ attachment: a, from }: { attachment: Attachment; from: string }) {
   const kind = kindOf(a)
+  const byName = viewKind(a.name)
+  const view = byName === 'docx' || byName === 'xlsx' || byName === 'pptx' ? byName : VIEW[kind]
   const url = attachmentUrl(a.id)
   const read = useCallback(async () => {
     if (a.size > FILE_TEXT_MAX_BYTES) return { text: null, binary: false, size: a.size }
@@ -34,7 +36,7 @@ export function AttachmentViewer({ attachment: a, from }: { attachment: Attachme
       name={a.name}
       path={workspacePath(a)}
       url={url}
-      kind={VIEW[kind]}
+      kind={view}
       read={read}
       details={[
         [t('来源#from'), from],

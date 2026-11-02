@@ -8,6 +8,34 @@ import { TabContent, TabLabel } from '../src/features/workbench/TabContent'
 import { copyText } from '../src/lib/clipboard'
 import { useToasts } from '../src/ui'
 
+const office = vi.hoisted(() => ({
+  docx: vi.fn(async (_data: ArrayBuffer, body: HTMLElement) => {
+    body.innerHTML = '<p>周报正文</p>'
+  }),
+  pptx: vi.fn(),
+  sheets: vi.fn(async () => [
+    {
+      sheet: '销量',
+      data: [
+        ['城市', '数量', '日期', '达标'],
+        ['上海', 0.1 + 0.2, new Date(Date.UTC(2026, 10, 2)), true],
+      ],
+    },
+    { sheet: '备注', data: [['只看第一页']] },
+  ]),
+}))
+vi.mock('docx-preview', () => ({ renderAsync: office.docx }))
+vi.mock('pptx-preview', () => ({
+  init: (dom: HTMLElement, options: unknown) => ({
+    preview: async (data: ArrayBuffer) => {
+      office.pptx(dom, options, data)
+      dom.innerHTML = '<section>第一页幻灯片</section>'
+    },
+    destroy: () => {},
+  }),
+}))
+vi.mock('read-excel-file/universal', () => ({ default: office.sheets }))
+
 const entry = (name: string, o: Partial<FileTreeEntry> = {}): FileTreeEntry => ({
   name,
   dir: false,
@@ -76,6 +104,10 @@ beforeEach(() => {
           entries: [{ path: 'src/main.ts', dir: false, uncommitted: true, notInWorkspace: false }],
         })
       if (u.pathname === '/api/attachments/a1') return new Response('line one\nERROR boom\n')
+      if (u.pathname === '/api/attachments/a2' || u.pathname === '/api/groups/g1/bots/b1/files/raw') {
+        const size = path === 'huge.docx' ? 99 * 1024 * 1024 : 3
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-length': String(size) } })
+      }
       return new Response('{}', { status: 404 })
     }),
   )
@@ -306,6 +338,57 @@ describe('file viewer', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '看看' } })
     fireEvent.click(screen.getByRole('button', { name: '在聊天中引用' }))
     expect((screen.getByRole('combobox') as HTMLTextAreaElement).value).toBe('看看 @src/main.ts ')
+  })
+})
+
+describe('office documents', () => {
+  beforeEach(() => vi.clearAllMocks())
+  const frame = (name: string) => document.querySelector<HTMLIFrameElement>(`iframe[title="${name}"]`)
+  const frameText = (name: string) => frame(name)?.contentDocument?.body.textContent
+
+  it('renders a word document from the raw bytes in a script-free frame', async () => {
+    openFile('docs/周报.docx')
+    await waitFor(() => expect(frameText('周报.docx')).toContain('周报正文'))
+    expect(frame('周报.docx')?.getAttribute('sandbox')).not.toContain('allow-scripts')
+    expect(calls).toContain(raw('docs/周报.docx'))
+    expect(office.docx.mock.calls[0]?.[0]).toBeInstanceOf(ArrayBuffer)
+  })
+
+  it('renders slides as a list', async () => {
+    openFile('deck.pptx')
+    await waitFor(() => expect(frameText('deck.pptx')).toContain('第一页幻灯片'))
+    expect(office.pptx.mock.calls[0]?.[1]).toMatchObject({ mode: 'list' })
+  })
+
+  it('shows each sheet of a workbook as a table', async () => {
+    openFile('sales.xlsx')
+    expect(await screen.findByRole('cell', { name: '上海' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '0.3' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '2026-11-02' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: 'TRUE' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'D' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '备注' }))
+    expect(screen.getByRole('cell', { name: '只看第一页' })).toBeTruthy()
+  })
+
+  it('offers a download for old formats and files too large to render', async () => {
+    openFile('old.doc', 'huge.docx')
+    expect(screen.getByText('该类型暂不支持预览，可下载查看')).toBeTruthy()
+    expect(await screen.findByText(/文件过大（99\.0 MB/)).toBeTruthy()
+    expect(office.docx).not.toHaveBeenCalled()
+  })
+
+  it('previews an office attachment', async () => {
+    const a: Attachment = {
+      id: 'a2',
+      messageId: 'm1',
+      name: '方案.docx',
+      size: 3,
+      mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }
+    open({ kind: 'file', source: { attachment: a, from: '李建国' } })
+    await waitFor(() => expect(frameText('方案.docx')).toContain('周报正文'))
+    expect(calls).toContain('/api/attachments/a2')
   })
 })
 

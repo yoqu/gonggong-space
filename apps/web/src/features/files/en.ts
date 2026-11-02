@@ -5,6 +5,9 @@ export default {
   已复制路径: 'Path copied',
   '该类型暂不支持预览，可下载查看': "This file type can't be previewed yet; download it to view",
   无法读取文件: "Couldn't read the file",
+  无法预览文件: "Couldn't preview the file",
+  '仅显示前 {rows} 行、{cols} 列，完整内容请下载':
+    'Showing the first {rows} rows and {cols} columns; download for the full file',
   重试: 'Retry',
   '二进制文件（{size}），无法预览，可下载查看':
     "Binary file ({size}); can't be previewed, download it to view",
