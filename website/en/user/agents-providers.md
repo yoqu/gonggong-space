@@ -92,6 +92,12 @@ Expand 「高级」 (Advanced) for more settings (Claude Code only): mappings fo
 
 When editing an existing provider, leaving the API Key field empty keeps the saved key. Providers created from a preset can use 「恢复为预设值」 (Reset to preset).
 
+### Use a local Claude configuration directory
+
+To reuse a Claude configuration already on this machine, choose Custom, select “Use a local Claude configuration directory”, and enter its absolute path. Optionally enter an absolute path to the Claude executable; otherwise the Agent page's configured executable is used. The provider can be set as the machine default or assigned to a bot.
+
+For example, an existing qorz setup can use `/Users/username/.qorz-claude` and the absolute path to its `claude-qorz` executable. Gonggong stores the paths without copying the key; Claude may write session data to that directory. Existing sessions keep their provider until a new session starts. This type uses the directory's model settings rather than API provider presets.
+
 ### Import from CC Switch
 
 If you've managed providers on this machine with CC Switch, click 「从 CC Switch 导入…」 (Import from CC Switch…) at the bottom of the section to import them directly (if nothing is usable you'll see 「CC Switch 里没有可直接使用的 … 供应商」 — "no usable … providers in CC Switch"):

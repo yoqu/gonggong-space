@@ -3,10 +3,41 @@
 mod provider_rig;
 
 use gonggong::protocol::*;
-use gonggong::providers::{OFFICIAL, Store};
+use gonggong::providers::{OFFICIAL, Provider, Store};
 use provider_rig::*;
 use serde_json::{Value, json};
 use std::time::Duration;
+
+#[tokio::test]
+async fn local_profile_is_selected_and_pinned_without_provider_settings() {
+    let mut r = rig(Duration::from_secs(60));
+    let dir = r.home().join("profile");
+    std::fs::create_dir(&dir).unwrap();
+    let exe = r.home().join("claude-wrapper");
+    std::fs::write(&exe, "fake").unwrap();
+    let id = Store::update(r.home(), |s| {
+        let mut p = Provider::custom(AgentKind::Claude, "Local".into(), String::new(), String::new());
+        p.config_dir = Some(dir.to_string_lossy().into());
+        p.executable_path = Some(exe.to_string_lossy().into());
+        let id = s.add(p)?;
+        s.use_machine(AgentKind::Claude, &id)?;
+        Ok(id)
+    })
+    .unwrap();
+    let mut first_run = start("profile-1", AgentKind::Claude);
+    first_run.env.0.insert("ANTHROPIC_API_KEY".into(), "synthetic-inherited-key".into());
+    r.run(first_run);
+    let first = r.finish("profile-1").await;
+    let result = echo(&first);
+    assert_eq!(result["claudeConfigDir"], dir.to_str().unwrap());
+    assert_eq!(result["claudeExecutable"], exe.to_str().unwrap());
+    assert_eq!(result["settings"], Value::Null);
+    assert_eq!(result["claudeAmbientCleared"], true);
+    assert_eq!(r.pinned(first.session_id.as_deref().unwrap()), id);
+    Store::update(r.home(), |s| s.use_machine(AgentKind::Claude, OFFICIAL)).unwrap();
+    r.run(follow_up("profile-2", &first, AgentKind::Claude));
+    assert_eq!(echo(&r.finish("profile-2").await)["claudeConfigDir"], dir.to_str().unwrap());
+}
 
 #[tokio::test]
 async fn claude_gets_a_private_settings_file_named_in_meta_on_new_and_resume() {

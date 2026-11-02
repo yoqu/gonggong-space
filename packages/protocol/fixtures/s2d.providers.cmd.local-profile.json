@@ -1,0 +1,11 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-local",
+  "action": "save",
+  "provider": {
+    "agent": "claude",
+    "name": "Local Claude",
+    "configDir": "/home/user/.claude-profile",
+    "executablePath": "/home/user/bin/claude-wrapper"
+  }
+}

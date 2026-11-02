@@ -5,10 +5,11 @@ use crate::config::{Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
-    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3,
-    FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS, FEATURE_PROVIDERS, FEATURE_REPROBE,
-    FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput, ProviderStateItem,
-    ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_GIT_OPS,
+    FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS,
+    FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap,
+    ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd,
+    ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -64,6 +65,7 @@ impl Manage {
             FEATURE_GIT_OPS4.to_string(),
             FEATURE_MACHINE_ADMIN.to_string(),
             FEATURE_CLAUDE_ARGS.to_string(),
+            FEATURE_CLAUDE_PROFILE.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -381,7 +383,11 @@ fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
         store.edit(&id, |p| apply(p, input))?;
         return Ok(id);
     }
-    let key = input.api_key.clone().context(t!("新增供应商需要填写 API Key"))?;
+    let key = if input.config_dir.is_some() {
+        String::new()
+    } else {
+        input.api_key.clone().context(t!("新增供应商需要填写 API Key"))?
+    };
     let mut p = match &input.preset_id {
         Some(preset) => Provider::from_preset(
             providers::preset(input.agent, preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
@@ -390,7 +396,11 @@ fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
         None => Provider::custom(
             input.agent,
             input.name.clone().unwrap_or_default(),
-            input.base_url.clone().context(t!("自定义供应商需要填写 Base URL"))?,
+            if input.config_dir.is_some() {
+                String::new()
+            } else {
+                input.base_url.clone().context(t!("自定义供应商需要填写 Base URL"))?
+            },
             key,
         ),
     };
@@ -400,6 +410,12 @@ fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
 
 fn apply(p: &mut Provider, input: ProviderInput) {
     let text = |s: String| Some(s.trim().to_string()).filter(|s| !s.is_empty());
+    if let Some(dir) = input.config_dir {
+        p.config_dir = text(dir);
+    }
+    if let Some(exe) = input.executable_path {
+        p.executable_path = text(exe);
+    }
     if let Some(name) = input.name {
         p.name = name.trim().into();
     }
@@ -488,6 +504,8 @@ mod tests {
 
     fn input(agent: AgentKind) -> ProviderInput {
         ProviderInput {
+            config_dir: None,
+            executable_path: None,
             id: None,
             agent,
             preset_id: None,
@@ -501,6 +519,61 @@ mod tests {
             proxy: None,
             effort: None,
         }
+    }
+
+    #[test]
+    fn creates_a_local_claude_profile_without_a_key() {
+        let home = tempfile::tempdir().unwrap();
+        let mut store = Store::default();
+        let mut profile = input(AgentKind::Claude);
+        profile.name = Some("Local".into());
+        profile.config_dir = Some(home.path().to_string_lossy().into());
+        let id = save(&mut store, profile).unwrap();
+        let p = store.get(&id).unwrap();
+        assert_eq!(p.config_dir.as_deref(), home.path().to_str());
+        assert!(p.api_key.is_empty());
+        let mut invalid = input(AgentKind::Codex);
+        invalid.name = Some("Bad".into());
+        invalid.config_dir = Some(home.path().to_string_lossy().into());
+        assert!(save(&mut store, invalid).is_err());
+    }
+
+    #[test]
+    fn a_local_claude_profile_excludes_url_key_and_preset() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().to_string_lossy().to_string();
+        let mut store = Store::default();
+        let profile = |f: &dyn Fn(&mut ProviderInput)| {
+            let mut i = input(AgentKind::Claude);
+            i.name = Some("Local".into());
+            i.config_dir = Some(dir.clone());
+            f(&mut i);
+            i
+        };
+        for mixed in [
+            profile(&|i| i.base_url = Some("https://x.test".into())),
+            profile(&|i| i.api_key = Some("sk-x".into())),
+            profile(&|i| {
+                i.preset_id = Some(providers::presets(Some(AgentKind::Claude)).next().unwrap().id.to_string())
+            }),
+        ] {
+            assert!(save(&mut store, mixed).is_err());
+        }
+        let mut stray = input(AgentKind::Claude);
+        stray.name = Some("Stray".into());
+        stray.base_url = Some("https://x.test".into());
+        stray.api_key = Some("sk-x".into());
+        stray.executable_path = Some("/bin/sh".into());
+        assert!(save(&mut store, stray).is_err(), "an executable without a profile would be ignored");
+
+        let mut keyed = input(AgentKind::Claude);
+        keyed.name = Some("Keyed".into());
+        keyed.base_url = Some("https://x.test".into());
+        keyed.api_key = Some("sk-x".into());
+        let id = save(&mut store, keyed).unwrap();
+        let mut convert = profile(&|_| {});
+        convert.id = Some(id);
+        assert!(save(&mut store, convert).is_err(), "a keyed provider is not silently turned into a profile");
     }
 
     #[test]
@@ -801,7 +874,8 @@ mod tests {
                 "gitOps3",
                 "gitOps4",
                 "machineAdmin",
-                "claudeArgs"
+                "claudeArgs",
+                "claudeProfile"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -824,6 +898,7 @@ mod tests {
                 "gitOps4",
                 "machineAdmin",
                 "claudeArgs",
+                "claudeProfile",
                 "ccSwitch"
             ]
         );

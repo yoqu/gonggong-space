@@ -58,7 +58,14 @@ export function ProviderBox({
       </div>
       {row(OFFICIAL, OFFICIAL_NAME, t('使用本机 CLI 自己的登录与配置'), data.official?.[agent]?.env)}
       {list.map((p) =>
-        row(p.id, p.name, [p.baseUrl, p.model, `Key ${p.apiKey}`].filter(Boolean).join(' · '), p.env),
+        row(
+          p.id,
+          p.name,
+          p.configDir
+            ? [t('本机 Claude 配置目录'), p.configDir].join(' · ')
+            : [p.baseUrl, p.model, `Key ${p.apiKey}`].filter(Boolean).join(' · '),
+          p.env,
+        ),
       )}
     </GroupBox>
   )

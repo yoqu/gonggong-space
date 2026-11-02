@@ -60,6 +60,8 @@ function envFields(agent: AgentKind, env: Record<string, string>): EnvFields {
 
 interface Fields extends EnvFields {
   name: string
+  configDir: string
+  executablePath: string
   baseUrl: string
   apiKey: string
   model: string
@@ -71,6 +73,8 @@ const fieldsOf = (
   p: Pick<ProviderPreset, 'agent' | 'name' | 'baseUrl' | 'model' | 'models' | 'env'>,
 ): Fields => ({
   name: p.name,
+  configDir: '',
+  executablePath: '',
   baseUrl: p.baseUrl,
   apiKey: '',
   model: p.model ?? '',
@@ -120,8 +124,16 @@ export function ProviderEditor({
   /** undefined while picking the vendor; null = 自定义. */
   const [preset, setPreset] = useState<ProviderPreset | null | undefined>(editing ? null : undefined)
   const [f, setF] = useState<Fields>(
-    editing ? { ...fieldsOf(editing), proxy: editing.proxy ?? '' } : empty(agent),
+    editing
+      ? {
+          ...fieldsOf(editing),
+          configDir: editing.configDir ?? '',
+          executablePath: editing.executablePath ?? '',
+          proxy: editing.proxy ?? '',
+        }
+      : empty(agent),
   )
+  const [localProfile, setLocalProfile] = useState(Boolean(editing?.configDir))
   const [setDefault, setSetDefault] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -160,8 +172,9 @@ export function ProviderEditor({
 
   const save = async () => {
     if (!f.name.trim()) return setError(t('请填写名称'))
-    if (!f.baseUrl.trim()) return setError(t('请填写 Base URL'))
-    if (!editing && !f.apiKey.trim()) return setError(t('请填写 API Key'))
+    if (localProfile && !f.configDir.trim()) return setError(t('请填写配置目录'))
+    if (!localProfile && !f.baseUrl.trim()) return setError(t('请填写 Base URL'))
+    if (!localProfile && !editing && !f.apiKey.trim()) return setError(t('请填写 API Key'))
     let env: Record<string, string>
     try {
       env = joinProviderEnv({ fields, texts: f.settings, initial: f.base, other: f.env, modelWindow })
@@ -175,7 +188,9 @@ export function ProviderEditor({
       agent,
       ...(!editing && preset && { presetId: preset.id }),
       name: f.name.trim(),
-      baseUrl: f.baseUrl.trim(),
+      ...(localProfile
+        ? { configDir: f.configDir.trim(), executablePath: f.executablePath.trim() }
+        : { baseUrl: f.baseUrl.trim() }),
       ...(f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
       model: f.model.trim(),
       env,
@@ -250,33 +265,66 @@ export function ProviderEditor({
         <FormRow label={t('名称')}>
           <TextField aria-label={t('名称')} value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </FormRow>
-        {preset ? null : baseUrl}
-        <FormRow label="API Key" hint={editing ? t('留空则保留已保存的 Key') : t('Key 只保存在这台机器上')}>
-          <span className="mx-inline mx-field-row">
-            <SecureField
-              aria-label="API Key"
-              autoComplete="off"
-              value={f.apiKey}
-              placeholder={editing ? editing.apiKey : t('必填')}
-              onChange={(e) => set({ apiKey: e.target.value })}
+        {agent === 'claude' && !preset && !editing ? (
+          <FormRow>
+            <Checkbox
+              label={t('使用本机 Claude 配置目录')}
+              checked={localProfile}
+              onChange={setLocalProfile}
             />
-            {keyUrl ? (
-              <Link external href={keyUrl}>
-                {t('获取 Key')}
-              </Link>
-            ) : null}
-          </span>
-        </FormRow>
-        <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
-          <ComboBox
-            aria-label={t('模型')}
-            options={preset?.modelOptions ?? []}
-            value={f.model}
-            placeholder={t('默认')}
-            onInput={(model) => set({ model })}
-            onChange={(model) => set({ model })}
-          />
-        </FormRow>
+          </FormRow>
+        ) : null}
+        {localProfile ? (
+          <>
+            <FormRow label={t('配置目录')} hint={t('请输入本机绝对路径')}>
+              <TextField
+                aria-label={t('配置目录')}
+                value={f.configDir}
+                onChange={(e) => set({ configDir: e.target.value })}
+              />
+            </FormRow>
+            <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用本机 Agent 路径')}>
+              <TextField
+                aria-label={t('Claude 可执行文件')}
+                value={f.executablePath}
+                onChange={(e) => set({ executablePath: e.target.value })}
+              />
+            </FormRow>
+          </>
+        ) : (
+          <>
+            {preset ? null : baseUrl}
+            <FormRow
+              label="API Key"
+              hint={editing ? t('留空则保留已保存的 Key') : t('Key 只保存在这台机器上')}
+            >
+              <span className="mx-inline mx-field-row">
+                <SecureField
+                  aria-label="API Key"
+                  autoComplete="off"
+                  value={f.apiKey}
+                  placeholder={editing ? editing.apiKey : t('必填')}
+                  onChange={(e) => set({ apiKey: e.target.value })}
+                />
+                {keyUrl ? (
+                  <Link external href={keyUrl}>
+                    {t('获取 Key')}
+                  </Link>
+                ) : null}
+              </span>
+            </FormRow>
+            <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
+              <ComboBox
+                aria-label={t('模型')}
+                options={preset?.modelOptions ?? []}
+                value={f.model}
+                placeholder={t('默认')}
+                onInput={(model) => set({ model })}
+                onChange={(model) => set({ model })}
+              />
+            </FormRow>
+          </>
+        )}
         {editing ? null : (
           <FormRow>
             <Checkbox label={t('设为本机默认')} checked={setDefault} onChange={setSetDefault} />

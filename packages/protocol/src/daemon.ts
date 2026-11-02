@@ -1183,6 +1183,8 @@ export const DaemonFeature = z.enum([
   'artifactSnapshot',
   /** `args` of the official login (Claude Code command-line arguments): a daemon without it would drop them. */
   'claudeArgs',
+  /** A provider's `configDir` / `executablePath` (a local Claude profile): a daemon without it would demand a key. */
+  'claudeProfile',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1251,6 +1253,8 @@ export const ProviderView = z.object({
   name: z.string(),
   presetId: z.string().nullable(),
   revision: z.number().int(),
+  configDir: z.string().nullable().optional(),
+  executablePath: z.string().nullable().optional(),
   baseUrl: z.string(),
   apiKey: z.string(),
   apiKeyField: z.string().nullable(),
@@ -1303,6 +1307,8 @@ export const ProviderInput = z.object({
   agent: AgentKind,
   presetId: z.string().optional(),
   name: z.string().trim().min(1).max(64).optional(),
+  configDir: z.string().trim().min(1).max(4096).optional(),
+  executablePath: z.string().trim().max(4096).optional(),
   baseUrl: z.url({ protocol: /^https?$/ }).optional(),
   apiKey: z.string().trim().min(1).max(4096).optional(),
   apiKeyField: z.enum(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']).optional(),

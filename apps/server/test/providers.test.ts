@@ -147,6 +147,46 @@ async function world() {
 }
 
 describe('agent tools and providers relayed to the machine', () => {
+  it('relays a local Claude profile without requiring an API key', async () => {
+    const w = await world()
+    const profile = {
+      agent: 'claude',
+      name: 'Local',
+      configDir: '/home/user/.qorz-claude',
+      executablePath: '/home/user/bin/claude-qorz',
+    }
+    const old = await daemon(w.a.token, w.a.machine.id)
+    const refused = await w.asWang.post<{ message: string }>(
+      `/api/machines/${w.a.machine.id}/providers`,
+      profile,
+    )
+    expect([refused.status, refused.body.message]).toEqual([
+      409,
+      '请先升级该机器的 daemon 才能使用本机 Claude 配置目录',
+    ])
+    await old.close()
+    const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'claudeProfile'])
+    const pending = w.asWang.post<ProviderSavedDto>(`/api/machines/${w.a.machine.id}/providers`, profile)
+    const cmd = await d.next()
+    expect(cmd).toMatchObject({
+      action: 'save',
+      provider: {
+        agent: 'claude',
+        name: 'Local',
+        configDir: '/home/user/.qorz-claude',
+        executablePath: '/home/user/bin/claude-qorz',
+      },
+    })
+    d.send({
+      t: 'providers.result',
+      requestId: cmd.requestId,
+      ok: true,
+      error: null,
+      view: view({}),
+      id: 'local',
+    })
+    expect((await pending).status).toBe(200)
+  })
   it('only the owner of an online machine with a new enough daemon may use them', async () => {
     const w = await world()
     const url = `/api/machines/${w.a.machine.id}/providers`

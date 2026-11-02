@@ -127,6 +127,10 @@ pub struct Provider {
     pub preset_id: Option<String>,
     /// Bumped on every change so running adapters can tell they must restart.
     pub revision: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_path: Option<String>,
     pub base_url: String,
     pub api_key: String,
     /// Claude only: which variable carries the key ([`AUTH_TOKEN`] or [`API_KEY`]).
@@ -174,6 +178,8 @@ impl Provider {
             name,
             preset_id: None,
             revision: 0,
+            config_dir: None,
+            executable_path: None,
             base_url,
             api_key,
             api_key_field: (agent == AgentKind::Claude).then(|| AUTH_TOKEN.into()),
@@ -192,6 +198,23 @@ impl Provider {
         if self.name.trim().is_empty() {
             bail!(t!("供应商名称不能为空"));
         }
+        if let Some(dir) = self.claude_profile() {
+            if self.agent != AgentKind::Claude || !dir.is_absolute() || !dir.is_dir() {
+                bail!(t!("Claude 配置目录必须是存在的绝对路径"));
+            }
+            if !self.base_url.is_empty() || !self.api_key.is_empty() || self.preset_id.is_some() {
+                bail!(t!("本机 Claude 配置目录不能与 Base URL、API Key 或预设同时使用"));
+            }
+            if let Some(exe) = &self.executable_path
+                && (!Path::new(exe).is_absolute() || !Path::new(exe).is_file())
+            {
+                bail!(t!("Claude 可执行文件必须是存在的绝对路径"));
+            }
+            return validate_extras(self.agent, &self.env, self.proxy.as_deref(), before.map(|b| &b.env));
+        }
+        if self.executable_path.is_some() {
+            bail!(t!("Claude 可执行文件只能与本机配置目录一起使用"));
+        }
         if !(self.base_url.starts_with("https://") || self.base_url.starts_with("http://")) {
             bail!(t!("Base URL 必须以 http:// 或 https:// 开头"));
         }
@@ -205,8 +228,14 @@ impl Provider {
         process_env(&self.env, self.proxy.as_deref())
     }
 
+    /// A local Claude profile: its own `CLAUDE_CONFIG_DIR` (with its own login) instead of a URL and key.
+    pub fn claude_profile(&self) -> Option<&Path> {
+        self.config_dir.as_deref().map(Path::new)
+    }
+
     fn same_connection(&self, other: &Provider) -> bool {
         self.agent == other.agent
+            && self.config_dir == other.config_dir
             && self.base_url.trim_end_matches('/') == other.base_url.trim_end_matches('/')
             && self.api_key == other.api_key
     }
@@ -218,6 +247,8 @@ impl Provider {
             name: self.name.clone(),
             preset_id: self.preset_id.clone(),
             revision: self.revision,
+            config_dir: self.config_dir.clone(),
+            executable_path: self.executable_path.clone(),
             base_url: self.base_url.clone(),
             api_key: mask_key(&self.api_key),
             api_key_field: self.api_key_field.clone(),
@@ -353,6 +384,10 @@ pub struct ProviderView {
     pub name: String,
     pub preset_id: Option<String>,
     pub revision: u32,
+    #[serde(default)]
+    pub config_dir: Option<String>,
+    #[serde(default)]
+    pub executable_path: Option<String>,
     pub base_url: String,
     pub api_key: String,
     pub api_key_field: Option<String>,
@@ -425,6 +460,13 @@ impl Selection {
         match self {
             Selection::Official(_) => OFFICIAL_NAME,
             Selection::Provider(p) => &p.name,
+        }
+    }
+
+    pub fn claude_profile(&self) -> Option<&Path> {
+        match self {
+            Selection::Official(_) => None,
+            Selection::Provider(p) => p.claude_profile(),
         }
     }
 }

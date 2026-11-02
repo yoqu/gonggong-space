@@ -398,6 +398,33 @@ describe('供应商', () => {
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 
+  it('adds a local Claude profile without an API key', async () => {
+    const { calls, claude } = await openProviders()
+    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /自定义/ }))
+    const form = await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
+    fireEvent.click(within(form).getByLabelText('使用本机 Claude 配置目录'))
+    fireEvent.change(within(form).getByLabelText('名称'), { target: { value: 'Qorz' } })
+    fireEvent.change(within(form).getByLabelText('配置目录'), {
+      target: { value: '/Users/test/.qorz-claude' },
+    })
+    fireEvent.change(within(form).getByLabelText('Claude 可执行文件'), {
+      target: { value: '/Users/test/bin/claude-qorz' },
+    })
+    expect(within(form).queryByLabelText('API Key')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.method === 'POST' && c.path === '/machines/m1/providers')?.body,
+      ).toMatchObject({
+        agent: 'claude',
+        name: 'Qorz',
+        configDir: '/Users/test/.qorz-claude',
+        executablePath: '/Users/test/bin/claude-qorz',
+      }),
+    )
+  })
+
   it('edits without the key when it is left empty, and restores preset values', async () => {
     const { calls, claude } = await openProviders({
       'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },

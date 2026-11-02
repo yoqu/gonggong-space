@@ -1052,7 +1052,13 @@ impl Inner {
                 .env("GIT_COMMITTER_EMAIL", &g.email),
             None => base,
         };
-        let cli = agents::locate(&self.config.home, bot.agent_kind, local);
+        let pinned_cli = match selection {
+            Selection::Provider(p) => p.executable_path.as_deref(),
+            Selection::Official(_) => None,
+        };
+        let cli = pinned_cli
+            .map(std::path::PathBuf::from)
+            .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         if let (AgentKind::Codex, Some(path)) = (bot.agent_kind, &cli)
             && let Some(problem) = agents::codex_problem(path)
         {
@@ -1064,12 +1070,26 @@ impl Inner {
             Selection::Provider(p) => (Some(p.as_ref()), p.process_env()),
         };
         Ok(match bot.agent_kind {
-            AgentKind::Claude => base
-                .env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
-                .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
-                // The CLAUDE.md of additional directories (extra repos, the owner's extra dirs); their skills load anyway.
-                .env("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "1")
-                .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p))),
+            AgentKind::Claude => {
+                let base = match selection.claude_profile() {
+                    Some(dir) => {
+                        if !dir.is_dir() {
+                            anyhow::bail!(t!("Claude 配置目录不可用：{dir}", dir = dir.display()));
+                        }
+                        base.env("ANTHROPIC_API_KEY", "")
+                            .env("ANTHROPIC_AUTH_TOKEN", "")
+                            .env("ANTHROPIC_BASE_URL", "")
+                            .env("CLAUDE_CODE_OAUTH_TOKEN", "")
+                            .env("CLAUDE_CONFIG_DIR", dir.to_string_lossy())
+                    }
+                    None => base,
+                };
+                base.env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS)
+                    .env("CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT", ASK_TIMEOUT_MS)
+                    // The CLAUDE.md of additional directories (extra repos, the owner's extra dirs); their skills load anyway.
+                    .env("CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD", "1")
+                    .envs(cli.map(|p| ("CLAUDE_CODE_EXECUTABLE", p)))
+            }
             AgentKind::Codex => {
                 let mut config = serde_json::Map::new();
                 config.insert("developer_instructions".into(), system_prompt(bot).into());

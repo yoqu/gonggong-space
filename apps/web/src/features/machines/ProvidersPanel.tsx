@@ -164,7 +164,9 @@ function ProviderBox({
           row(
             p.id,
             p.name,
-            [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`].filter(Boolean).join(' · '),
+            p.configDir
+              ? [t('本机 Claude 配置目录'), p.configDir].join(' · ')
+              : [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`].filter(Boolean).join(' · '),
             <>
               <Button size="small" onClick={() => setOpen({ kind: 'editor', editing: p })}>
                 {t('编辑…')}

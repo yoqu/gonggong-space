@@ -263,6 +263,8 @@ export interface ModelMap {
 
 /** A local provider as the page sees it: `apiKey` is masked (`****abcd`). */
 export interface ProviderView {
+  configDir?: string | null
+  executablePath?: string | null
   id: string
   agent: AgentKind
   name: string

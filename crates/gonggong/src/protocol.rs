@@ -1763,6 +1763,8 @@ pub const FEATURE_SESSION_FORK: &str = "sessionFork";
 pub const FEATURE_AGENT_SETTINGS: &str = "agentSettings";
 /// `args` of the official login: Claude Code command-line arguments.
 pub const FEATURE_CLAUDE_ARGS: &str = "claudeArgs";
+/// A provider's `configDir` / `executablePath`: a local Claude profile.
+pub const FEATURE_CLAUDE_PROFILE: &str = "claudeProfile";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
@@ -1945,6 +1947,10 @@ pub struct ProviderInput {
     pub preset_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2607,6 +2613,16 @@ pub enum ServerToDaemon {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_profile_fixture_round_trips() {
+        let raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../packages/protocol/fixtures/s2d.providers.cmd.local-profile.json"
+        ))
+        .unwrap();
+        let parsed: ServerToDaemon = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), raw);
+    }
 
     #[test]
     fn files_find_fixtures_parse() {

@@ -102,8 +102,12 @@ async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Plann
         let launch = match bot.agent_kind {
             AgentKind::Claude => {
                 let defaults = store.agent_settings(AgentKind::Claude);
-                let cli = defaults.inherit_cli.then(|| agent_settings::read_cli(&user_home, None));
-                let launch = inject::ClaudeLaunch::new(&home, &selection, &defaults, &bot, cli.flatten().as_ref())?;
+                let cli = match selection.claude_profile() {
+                    Some(dir) => agent_settings::read_claude_dir(dir, None),
+                    None if defaults.inherit_cli => agent_settings::read_cli(&user_home, None),
+                    None => None,
+                };
+                let launch = inject::ClaudeLaunch::new(&home, &selection, &defaults, &bot, cli.as_ref())?;
                 launch.write()?;
                 Some(launch)
             }
@@ -1763,6 +1767,7 @@ impl Conversation<'_> {
         // adapter's catalog may not list it.
         let (model, injected) = match &self.selection {
             Selection::Official(_) => (bot.model.clone(), None),
+            Selection::Provider(p) if p.claude_profile().is_some() => (bot.model.clone(), None),
             Selection::Provider(p) => {
                 let model = inject::model(p, bot.model.as_deref());
                 let injected = model.clone().filter(|m| p.model.as_ref() == Some(m));

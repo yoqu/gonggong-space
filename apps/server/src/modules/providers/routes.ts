@@ -53,6 +53,15 @@ export function providerRoutes(ctx: Ctx) {
     const trail = (userId: string, action: string, detail: { machineId: string; botId?: string }) =>
       audit(ctx, { category: 'admin', actorUserId: userId, action, detail })
     const owned = async (req: { params: Params }, userId: string) => ownMachine(ctx, userId, req.params.id)
+    const requireProfileFeature = (machineId: string, p: { configDir?: string; executablePath?: string }) => {
+      if (p.configDir !== undefined || p.executablePath !== undefined)
+        requireFeature(
+          ctx,
+          machineId,
+          'claudeProfile',
+          '请先升级该机器的 daemon 才能使用本机 Claude 配置目录',
+        )
+    }
 
     app.get<{ Params: Params }>('/api/machines/:id/providers', async (req): Promise<ProviderStoreView> => {
       const me = await requireUser(ctx, req)
@@ -74,7 +83,9 @@ export function providerRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const m = await owned(req, me.id)
       const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
-      if (!provider.apiKey) fail('invalid', '请填写 API Key')
+      if (!provider.apiKey && !(provider.agent === 'claude' && provider.configDir))
+        fail('invalid', '请填写 API Key')
+      requireProfileFeature(m.id, provider)
       const res = saved(await providersCmd(ctx, m.id, { action: 'save', provider, setDefault }))
       await trail(me.id, 'machine.providers.save', { machineId: m.id })
       return res
@@ -86,6 +97,7 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
+        requireProfileFeature(m.id, provider)
         const res = saved(
           await providersCmd(ctx, m.id, {
             action: 'save',

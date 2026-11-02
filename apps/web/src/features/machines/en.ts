@@ -1,4 +1,11 @@
 export default {
+  '本机 Claude 配置目录': 'Local Claude configuration directory',
+  '使用本机 Claude 配置目录': 'Use a local Claude configuration directory',
+  请填写配置目录: 'Enter a configuration directory',
+  配置目录: 'Configuration directory',
+  请输入本机绝对路径: 'Enter an absolute path on this machine',
+  'Claude 可执行文件': 'Claude executable',
+  '可选；留空使用本机 Agent 路径': 'Optional; leave empty to use the local Agent path',
   接入链接: 'Connect link',
   '一次性接入链接 · {time} 后失效': 'One-time connect link · Expires in {time}',
   接入链接已失效: 'Connect link expired',

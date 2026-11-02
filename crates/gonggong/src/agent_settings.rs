@@ -268,7 +268,11 @@ pub struct CliSettingsSnapshot {
 /// Claude's `<user_home>/.claude/settings.json`, reduced to the known fields, conflicting variables and the number
 /// of hooks and permission rules; None when there is none (or it is unreadable).
 pub fn read_cli(user_home: &Path, version: Option<String>) -> Option<CliSettingsSnapshot> {
-    let raw = std::fs::read_to_string(user_home.join(".claude/settings.json")).ok()?;
+    read_claude_dir(&user_home.join(".claude"), version)
+}
+
+pub fn read_claude_dir(dir: &Path, version: Option<String>) -> Option<CliSettingsSnapshot> {
+    let raw = std::fs::read_to_string(dir.join("settings.json")).ok()?;
     let doc: Value = serde_json::from_str(&raw).ok()?;
     let env = doc.get("env").and_then(Value::as_object);
     let values = fields(AgentKind::Claude, None)

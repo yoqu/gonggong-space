@@ -111,6 +111,14 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         systemPrompt: s.systemPrompt,
         settings: s.settings,
         plugins: s.plugins,
+        claudeConfigDir: process.env.CLAUDE_CONFIG_DIR ?? null,
+        claudeExecutable: process.env.CLAUDE_CODE_EXECUTABLE ?? null,
+        claudeAmbientCleared: [
+          'ANTHROPIC_API_KEY',
+          'ANTHROPIC_AUTH_TOKEN',
+          'ANTHROPIC_BASE_URL',
+          'CLAUDE_CODE_OAUTH_TOKEN',
+        ].every((key) => !process.env[key]),
         env: {
           MODEL_PROVIDER: process.env.MODEL_PROVIDER ?? null,
           GG_PROVIDER_KEY: process.env.GG_PROVIDER_KEY ?? null,

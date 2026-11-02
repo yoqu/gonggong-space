@@ -97,6 +97,17 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("{kind} 的路径必须是绝对路径：{p}", "The path for {kind} must be absolute: {p}"),
     ("测速下载不完整：{got} / {total} 字节", "Speed test download incomplete: {got} / {total} bytes"),
     ("供应商 {name} 的 Key 字段 {field} 不受支持", "Provider {name}: unsupported key field {field}"),
+    ("Claude 配置目录必须是存在的绝对路径", "Claude configuration directory must be an existing absolute path"),
+    ("Claude 可执行文件必须是存在的绝对路径", "Claude executable must be an existing absolute path"),
+    ("Claude 配置目录不可用：{dir}", "Claude configuration directory is unavailable: {dir}"),
+    (
+        "本机 Claude 配置目录不能与 Base URL、API Key 或预设同时使用",
+        "A local Claude configuration directory cannot be combined with a Base URL, API key or preset",
+    ),
+    (
+        "Claude 可执行文件只能与本机配置目录一起使用",
+        "A Claude executable can only be set with a local configuration directory",
+    ),
     ("接入链接格式错误", "Malformed connect link"),
     ("不是共工空间的接入链接", "Not a Gonggong Space connect link"),
     ("无法识别：请粘贴接入链接或 gg login 命令", "Not recognized: paste a connect link or a gg login command"),

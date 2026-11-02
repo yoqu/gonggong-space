@@ -97,6 +97,7 @@ impl ClaudeLaunch {
             }
         }
         let base = match selection {
+            Selection::Provider(p) if p.claude_profile().is_some() => json!({ "env": p.process_env() }),
             Selection::Provider(p) => {
                 let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
                 let window = model(p, bot.model.as_deref()).and_then(|m| preset?.model_context.get(&m).copied());
@@ -118,9 +119,14 @@ impl ClaudeLaunch {
         top.extend(base);
         let file = match selection {
             Selection::Official(o) if o.is_empty() && overlay.is_none() => None,
+            Selection::Provider(p)
+                if p.claude_profile().is_some() && p.process_env().is_empty() && overlay.is_none() =>
+            {
+                None
+            }
             _ => Some(claude_settings_path(home, selection.key(), overlay.as_deref())),
         };
-        let inherit_cli = defaults.inherit_cli;
+        let inherit_cli = defaults.inherit_cli || selection.claude_profile().is_some();
         let cli = cli.filter(|_| inherit_cli);
         let sets = |id: &str| {
             agent_settings::by_id(id).is_some_and(|f| match f.target {
@@ -334,6 +340,31 @@ mod tests {
         assert_eq!((env["ENABLE_TOOL_SEARCH"].as_str(), env["ANTHROPIC_MODEL"].as_str()), (Some("1"), Some("")));
         p.api_key_field = Some("OTHER".into());
         assert!(!claude_settings(&p).unwrap_err().to_string().contains("sk-x"));
+    }
+
+    #[test]
+    fn provider_extra_env_can_override_the_oauth_reset() {
+        let mut p = custom();
+        assert_eq!(claude_settings(&p).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "");
+        p.env.insert("CLAUDE_CODE_OAUTH_TOKEN".into(), "synthetic-token".into());
+        assert_eq!(claude_settings(&p).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "synthetic-token");
+    }
+
+    #[test]
+    fn local_claude_profile_inherits_its_own_credentials() {
+        let mut value = serde_json::to_value(custom()).unwrap();
+        value["configDir"] = "/tmp/claude-profile".into();
+        let p: Provider = serde_json::from_value(value).unwrap();
+        let home = tempfile::tempdir().unwrap();
+        let launch = ClaudeLaunch::new(
+            home.path(),
+            &Selection::Provider(Box::new(p)),
+            &AgentSettings::default(),
+            &bot(None, &[]),
+            None,
+        )
+        .unwrap();
+        assert!(launch.file.is_none(), "a local profile must not clear its OAuth credentials");
     }
 
     fn bot(model: Option<&str>, overrides: &[(&str, &str)]) -> RunBot {

@@ -1,4 +1,5 @@
 export const en = {
+  '本机 Claude 配置目录': 'Local Claude configuration directory',
   关闭窗口后隐藏程序坞图标: 'Hide the Dock icon when the window closes',
   '保留菜单栏图标，可从菜单栏重新打开；后台服务继续运行':
     'Keep the menu-bar icon to reopen the window; background services keep running',

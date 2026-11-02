@@ -365,6 +365,8 @@ export const en = {
   '请先升级该机器的 daemon': "Upgrade this machine's daemon first",
   '请先升级该机器的 daemon 才能使用 Agent 设置': "Upgrade this machine's daemon to use Agent settings",
   '请先升级该机器的 daemon 才能使用命令行参数': "Upgrade this machine's daemon to use command-line arguments",
+  '请先升级该机器的 daemon 才能使用本机 Claude 配置目录':
+    "Upgrade this machine's daemon to use a local Claude configuration directory",
   机器离线: 'Machine offline',
   '机器未响应，请稍后重试': 'The machine is not responding, try again later',
   '绑定码尝试次数过多，请 10 分钟后再试': 'Too many binding code attempts, try again in 10 minutes',
