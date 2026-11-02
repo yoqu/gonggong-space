@@ -2549,7 +2549,13 @@ pub enum ServerToDaemon {
     #[serde(rename = "workspace.diff")]
     WorkspaceDiff(WorkspaceDiff),
     #[serde(rename = "dir.list", rename_all = "camelCase")]
-    DirList { request_id: String, path: Option<String> },
+    DirList {
+        request_id: String,
+        path: Option<String>,
+        /// Older servers leave it out.
+        #[serde(default)]
+        hidden: bool,
+    },
     #[serde(rename = "apps.list", rename_all = "camelCase")]
     AppsList { request_id: String },
     /// 我的机器管理 → 日志 (needs [`FEATURE_MACHINE_ADMIN`]).

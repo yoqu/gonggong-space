@@ -715,6 +715,12 @@ describe('directory picker and default workspace', () => {
     d.send(dirResult(homeReq, { error: '目录不存在' }))
     expect(await home).toMatchObject({ status: 400, body: { message: '目录不存在' } })
 
+    const hidden = w.asAlice.get<DirListingDto>(`${dirs}?hidden=1`)
+    const hiddenReq = await d.next()
+    expect(hiddenReq).toMatchObject({ t: 'dir.list', path: null, hidden: true })
+    d.send(dirResult(hiddenReq))
+    expect((await hidden).status).toBe(200)
+
     expect((await w.asBob.get(dirs)).status).toBe(403)
     const offline = await w.asBob.get<{ message: string }>(`/api/machines/${w.b.machine.id}/dirs`)
     expect([offline.status, offline.body.message]).toEqual([409, `${w.b.machine.name} 离线，无法浏览目录`])

@@ -712,7 +712,7 @@ fn fs_roots() -> Vec<String> {
 }
 
 /// dir.list for the workspace picker: subdirectories of `path` (home when None) and the repo containing it.
-pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
+pub async fn browse(request_id: String, path: Option<String>, hidden: bool) -> DirResult {
     let dir = path.map(drive_root).map(PathBuf::from).unwrap_or_else(user_home);
     let mut result = DirResult {
         request_id,
@@ -728,7 +728,7 @@ pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
         return result;
     }
     let listed = dir.clone();
-    result.entries = tokio::task::spawn_blocking(move || picker_entries(&listed)).await.unwrap_or_default();
+    result.entries = tokio::task::spawn_blocking(move || picker_entries(&listed, hidden)).await.unwrap_or_default();
     if let Ok(root) = git(&dir, &["rev-parse", "--show-toplevel"]).await {
         let branch = git(&dir, &["symbolic-ref", "--short", "-q", "HEAD"]).await.ok().map(|b| b.trim().to_string());
         result.git = Some(DirGit { root: root.trim().into(), remotes: remotes(&dir).await, branch });
@@ -737,14 +737,14 @@ pub async fn browse(request_id: String, path: Option<String>) -> DirResult {
     result
 }
 
-/// The first DIR_LIST_MAX visible subdirectories by name; only those are probed for a repo. The entry type comes with
+/// The first DIR_LIST_MAX subdirectories by name (dot-directories only when `hidden`); only those are probed for a repo. The entry type comes with
 /// the listing on most file systems, so only symlinks cost a stat to tell whether they lead to a directory.
-fn picker_entries(dir: &Path) -> Vec<DirEntry> {
+fn picker_entries(dir: &Path, hidden: bool) -> Vec<DirEntry> {
     let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
     let mut dirs: Vec<(String, PathBuf)> = rd
         .flatten()
         .filter_map(|e| Some((e.file_name().into_string().ok()?, e)))
-        .filter(|(name, _)| !name.starts_with('.'))
+        .filter(|(name, _)| hidden || !name.starts_with('.'))
         .filter(|(_, e)| e.file_type().is_ok_and(|t| t.is_dir() || t.is_symlink() && e.path().is_dir()))
         .map(|(name, e)| (name, e.path()))
         .collect();

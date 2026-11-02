@@ -31,6 +31,7 @@ import {
   TextField,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { DirPicker } from '../workspaces/DirPicker'
 import { envText, fieldTexts, joinProviderEnv, parseEnv, splitEnv, textOf } from './agentSettings'
 import { ProviderSettingRows } from './ProviderSettings'
 
@@ -138,6 +139,7 @@ export function ProviderEditor({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [advanced, setAdvanced] = useState(false)
+  const [browsing, setBrowsing] = useState(false)
 
   useEffect(() => {
     api.get<ProviderPreset[]>(`/machines/${machineId}/providers/presets?agent=${agent}`).then(
@@ -276,13 +278,31 @@ export function ProviderEditor({
         ) : null}
         {localProfile ? (
           <>
-            <FormRow label={t('配置目录')} hint={t('请输入本机绝对路径')}>
-              <TextField
-                aria-label={t('配置目录')}
-                value={f.configDir}
-                onChange={(e) => set({ configDir: e.target.value })}
-              />
+            <FormRow label={t('配置目录')} hint={t('本机绝对路径，可点「浏览…」选择')}>
+              <span className="mx-inline mx-field-row">
+                <TextField
+                  aria-label={t('配置目录')}
+                  value={f.configDir}
+                  onChange={(e) => set({ configDir: e.target.value })}
+                />
+                <Button size="small" onClick={() => setBrowsing(true)}>
+                  {t('浏览…')}
+                </Button>
+              </span>
             </FormRow>
+            {browsing ? (
+              <DirPicker
+                machineId={machineId}
+                title={t('选择配置目录')}
+                start={f.configDir.trim() || null}
+                hidden
+                onPick={(configDir) => {
+                  set({ configDir })
+                  setBrowsing(false)
+                }}
+                onClose={() => setBrowsing(false)}
+              />
+            ) : null}
             <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用本机 Agent 路径')}>
               <TextField
                 aria-label={t('Claude 可执行文件')}

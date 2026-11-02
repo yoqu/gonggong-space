@@ -24,6 +24,7 @@ export function DirPicker({
   machineId,
   title,
   start = null,
+  hidden = false,
   extra,
   onPick,
   onClose,
@@ -31,6 +32,8 @@ export function DirPicker({
   machineId: string
   title: string
   start?: string | null
+  /** List dot-directories too. */
+  hidden?: boolean
   extra?: ReactNode
   onPick: (path: string) => void
   onClose: () => void
@@ -44,9 +47,9 @@ export function DirPicker({
     let live = true
     setDir(null)
     setError(null)
-    const q = path ? `?path=${encodeURIComponent(path)}` : ''
+    const q = [path && `path=${encodeURIComponent(path)}`, hidden && 'hidden=1'].filter(Boolean).join('&')
     api
-      .get<DirListingDto>(`/machines/${machineId}/dirs${q}`)
+      .get<DirListingDto>(`/machines/${machineId}/dirs${q && `?${q}`}`)
       .then((d) => {
         if (!live) return
         setDir(d)
@@ -56,7 +59,7 @@ export function DirPicker({
     return () => {
       live = false
     }
-  }, [machineId, path])
+  }, [machineId, path, hidden])
 
   const up = dir && parentOf(dir.path)
   const roots = dir?.roots ?? []

@@ -447,10 +447,11 @@ async fn dir_list_shows_subdirectories_with_git_info() {
         std::os::unix::fs::symlink(root.join("seed"), root.join("linked")).unwrap();
         std::os::unix::fs::symlink(root.join("file.txt"), root.join("linked.txt")).unwrap();
     }
-    let list = |r: &Rig, id: &str, path: Option<&Path>| {
-        let msg = ServerToDaemon::DirList { request_id: id.into(), path: path.map(|p| p.to_string_lossy().into()) };
-        r.engine.handle(msg, &r.out);
+    let list_with = |r: &Rig, id: &str, path: Option<&Path>, hidden: bool| {
+        let path = path.map(|p| p.to_string_lossy().into());
+        r.engine.handle(ServerToDaemon::DirList { request_id: id.into(), path, hidden }, &r.out);
     };
+    let list = |r: &Rig, id: &str, path: Option<&Path>| list_with(r, id, path, false);
     list(&r, "d1", Some(root));
     let d = dir_result(&mut r.rx).await;
     assert_eq!(d.request_id, "d1");
@@ -466,6 +467,10 @@ async fn dir_list_shows_subdirectories_with_git_info() {
     } else {
         assert_eq!(d.roots, ["/"]);
     }
+
+    list_with(&r, "d1h", Some(root), true);
+    let d = dir_result(&mut r.rx).await;
+    assert_eq!(d.entries.first().map(|e| e.name.as_str()), Some(".hidden"));
 
     let seed = root.join("seed");
     list(&r, "d2", Some(&seed));

@@ -365,11 +365,11 @@ impl Handler for Engine {
                     shared.append(&run_id, &from, &text, attachments.clone())
                 });
             }
-            ServerToDaemon::DirList { request_id, path } => {
+            ServerToDaemon::DirList { request_id, path, hidden } => {
                 let out = out.clone();
-                tokio::spawn(
-                    async move { out.send(DaemonToServer::DirResult(workspace::browse(request_id, path).await)) },
-                );
+                tokio::spawn(async move {
+                    out.send(DaemonToServer::DirResult(workspace::browse(request_id, path, hidden).await))
+                });
             }
             ServerToDaemon::LogsGet { request_id, level, limit } => {
                 let (home, out) = (self.0.config.home.clone(), out.clone());

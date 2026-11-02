@@ -1859,6 +1859,8 @@ export const DirList = z.object({
   t: z.literal('dir.list'),
   requestId: z.string(),
   path: z.string().nullable(),
+  /** List dot-directories too (a Claude config dir is usually `~/.claude*`); older daemons ignore it. */
+  hidden: z.boolean(),
 })
 
 /** answers null → nobody answered in time: the tool tells the agent to proceed with recommendations (spec §8.8). */

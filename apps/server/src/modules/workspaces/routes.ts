@@ -47,10 +47,11 @@ export function workspaceRoutes(ctx: Ctx) {
       m: { name: string; machineId: string | null },
       path: string | null,
       offline: MessageKey,
+      hidden = false,
     ) => {
       const machineId = onlineMachine(ctx, m.machineId)
       if (!machineId) return fail('conflict', offline, { name: m.name })
-      const ask = { t: 'dir.list', requestId: randomUUID(), path } as const
+      const ask = { t: 'dir.list', requestId: randomUUID(), path, hidden } as const
       const res =
         (await ctx.hub.request(machineId, ask, 'dir.result', DIR_TIMEOUT_MS)) ??
         fail('conflict', '{name} 未响应，请稍后重试', { name: m.name })
@@ -64,7 +65,7 @@ export function workspaceRoutes(ctx: Ctx) {
       return listBotStates(ctx, req.params.id)
     })
 
-    app.get<{ Params: { id: string }; Querystring: { path?: string } }>(
+    app.get<{ Params: { id: string }; Querystring: { path?: string; hidden?: string } }>(
       '/api/machines/:id/dirs',
       async (req): Promise<DirListingDto> => {
         const me = await requireUser(ctx, req)
@@ -79,6 +80,7 @@ export function workspaceRoutes(ctx: Ctx) {
           at,
           req.query.path || null,
           '{name} 离线，无法浏览目录',
+          req.query.hidden === '1',
         )
         return { path, entries, git, unusable, roots }
       },

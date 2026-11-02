@@ -425,6 +425,36 @@ describe('供应商', () => {
     )
   })
 
+  it("browses the machine's directories, hidden ones included, for the config directory", async () => {
+    const listing = (path: string, entries: string[]) => ({
+      path,
+      entries: entries.map((name) => ({ name, git: false })),
+      git: null,
+      unusable: path === '/Users/test' ? '目录范围过大，请选择具体的项目目录' : null,
+      roots: ['/'],
+    })
+    const { claude } = await openProviders({
+      'GET /machines/m1/dirs?hidden=1': listing('/Users/test', ['.claude', '.qorz-claude', 'code']),
+      [`GET /machines/m1/dirs?path=${encodeURIComponent('/Users/test/.qorz-claude')}&hidden=1`]: listing(
+        '/Users/test/.qorz-claude',
+        [],
+      ),
+    })
+    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /自定义/ }))
+    const form = await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
+    fireEvent.click(within(form).getByLabelText('使用本机 Claude 配置目录'))
+    fireEvent.click(within(form).getByRole('button', { name: '浏览…' }))
+    const picker = await screen.findByRole('dialog', { name: '选择配置目录' })
+    fireEvent.click(await within(picker).findByRole('button', { name: /\.qorz-claude/ }))
+    await within(picker).findByText('没有子目录')
+    fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择配置目录' })).toBeNull())
+    expect((within(form).getByLabelText('配置目录') as HTMLInputElement).value).toBe(
+      '/Users/test/.qorz-claude',
+    )
+  })
+
   it('edits without the key when it is left empty, and restores preset values', async () => {
     const { calls, claude } = await openProviders({
       'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
