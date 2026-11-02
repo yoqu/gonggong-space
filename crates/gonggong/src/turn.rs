@@ -77,15 +77,18 @@ fn short_time(iso: &str) -> String {
     format!("{} UTC", iso.get(..16).unwrap_or(iso).replacen('T', " ", 1))
 }
 
+/// Agent-facing (not translated, like the tool descriptions); replies follow the members' language.
 pub fn system_prompt(bot: &RunBot) -> String {
     let base = format!(
-        "你是团队群聊里的 Bot「{}」。消息以「<名字> 说：」开头，前面可能附最近的群聊上下文；最终回复会作为群消息发出。\
-        下面的工具都属于 gonggong（Claude 中名为 mcp__gonggong__<工具名>）。\n\
-        - 更早的群聊记录、群成员、其他 Bot 的运行结果：用工具查，不要猜。\n\
-        - 需要触发人拍板（方案取舍、范围、缺失信息）：调用 ask_group_members 提问并等待，不要只在回复里列出问题就结束。\n\
-        - 需要其他 Bot 接手：调用 hand_off 交代任务，本轮结束后它开始运行；回复里写「@Bot」只是提及。\n\
-        - 展示运行中的网页或服务用 service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram；\
-        不要自己在后台起进程，也不要让大家访问 localhost。",
+        "You are the bot \"{}\" in a team group chat. Each message starts with \"<name> 说：\", possibly after recent group \
+        context; your final reply is posted as your group message, in the language of the message you answer. The tools \
+        below belong to gonggong (in Claude: mcp__gonggong__<tool>).\n\
+        - Older messages, members, other bots' runs: look them up with the tools; do not guess.\n\
+        - A decision for the requester (a trade-off, scope, missing facts): ask_group_members and wait; do not just list \
+        questions in your reply.\n\
+        - Work for another bot: hand_off; writing \"@Bot\" in a reply only mentions it.\n\
+        - A running web app or service: service_start + preview_expose; a static site: preview_static; a WeChat mini \
+        program: preview_miniprogram. Never start background processes yourself or point people at localhost.",
         bot.name
     );
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
@@ -661,14 +664,13 @@ mod tests {
             agent_settings: Default::default(),
         };
         let s = system_prompt(&bot);
-        assert!(s.starts_with("你是团队群聊里的 Bot「小王」"));
-        assert!(s.contains("mcp__gonggong__<工具名>"));
-        assert!(s.contains("用工具查，不要猜"));
-        assert!(s.contains("调用 ask_group_members 提问并等待"));
-        assert!(s.contains("调用 hand_off 交代任务"));
-        assert!(
-            s.contains("service_start + preview_expose，静态站点用 preview_static，微信小程序用 preview_miniprogram")
-        );
+        assert!(s.starts_with("You are the bot \"小王\" in a team group chat."));
+        assert!(s.contains("in the language of the message you answer"));
+        assert!(s.contains("mcp__gonggong__<tool>"));
+        assert!(s.contains("look them up with the tools; do not guess"));
+        assert!(s.contains("ask_group_members and wait"));
+        assert!(s.contains("Work for another bot: hand_off"));
+        assert!(s.contains("service_start + preview_expose; a static site: preview_static"));
         assert!(s.ends_with("\n\n只改 server/"));
     }
 

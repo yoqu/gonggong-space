@@ -132,4 +132,11 @@ async fn uploads_the_checked_page_with_its_title_height_and_heights() {
         assert!(result["content"][0]["text"].as_str().unwrap().contains(error), "{result}");
     }
     assert_eq!(seen.lock().unwrap().len(), 1);
+
+    // No height: the page's own at the reply column, as measured (a default without a browser).
+    let result = call(&http.url, json!({ "html": r#"<div style="height:300px"></div>"#, "title": "x" })).await;
+    assert_eq!(result["isError"], false, "{result}");
+    let req = seen.lock().unwrap()[1].clone();
+    let expected = if field(&req, "heights").is_some() { "300" } else { "480" };
+    assert_eq!(field(&req, "height"), Some(expected));
 }

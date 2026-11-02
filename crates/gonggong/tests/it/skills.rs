@@ -150,7 +150,8 @@ fn start(run_id: &str, kind: AgentKind, cwd: &Path, skills: Vec<SkillRef>, resum
         mcp_servers: vec![],
         skills,
         plugins: vec![],
-        hidden_tools: vec![],
+        // As for a group not bound to Feishu, which leaves the built-in feishu-card skill out.
+        hidden_tools: vec!["feishu_send_card".into()],
         artifacts: vec![],
         artifact_exclude: vec![],
         command: None,
@@ -271,4 +272,45 @@ async fn codex_finds_linked_skills_in_the_workspace_kept_out_of_git() {
     let (_, d2) = r.run(start("r2", AgentKind::Codex, cwd.path(), vec![], Some(&d1))).await;
     echo(&d2);
     assert!(link.symlink_metadata().is_err());
+}
+
+#[tokio::test]
+async fn a_changed_tool_list_restarts_the_adapter_on_the_same_session() {
+    let mut r = rig().await;
+    let cwd = repo();
+    let (_, d1) = r.run(start("r1", AgentKind::Claude, cwd.path(), vec![], None)).await;
+    let e1 = echo(&d1);
+    let mut s2 = start("r2", AgentKind::Claude, cwd.path(), vec![], Some(&d1));
+    s2.hidden_tools.push("mcp_create".into());
+    let (_, d2) = r.run(s2.clone()).await;
+    let e2 = echo(&d2);
+    assert_ne!(e2["pid"], e1["pid"], "agents read the tool list once per process");
+    assert_eq!(d2.session_id, d1.session_id);
+    s2.run_id = "r3".into();
+    s2.resume_session_id = d2.session_id.clone();
+    let (_, d3) = r.run(s2).await;
+    assert_eq!(echo(&d3)["pid"], e2["pid"]);
+}
+
+#[tokio::test]
+async fn a_built_in_skill_comes_with_its_tool_and_yields_to_a_team_skill_of_its_name() {
+    let mut r = rig().await;
+    let cwd = repo();
+    let (_, d1) = r.run(start("r1", AgentKind::Claude, cwd.path(), vec![], None)).await;
+    assert_eq!(echo(&d1)["plugins"], serde_json::Value::Null);
+
+    let feishu = |mut s: RunStart| {
+        s.hidden_tools.clear();
+        s
+    };
+    let (_, d2) = r.run(feishu(start("r2", AgentKind::Claude, cwd.path(), vec![], Some(&d1)))).await;
+    assert_eq!(echo(&d2)["plugins"], serde_json::json!([{ "type": "local", "path": r.set() }]));
+    assert!(skill_md(&r.set(), "feishu-card").contains("name: feishu-card"));
+    assert!(r.hits().is_empty(), "shipped with the daemon");
+
+    let ours = r.publish("feishu-card", "v1", "our cards");
+    let (_, d3) = r.run(feishu(start("r3", AgentKind::Claude, cwd.path(), vec![ours], Some(&d2)))).await;
+    echo(&d3);
+    assert!(skill_md(&r.set(), "feishu-card").contains("our cards"));
+    assert_eq!(r.hits(), ["v1"]);
 }

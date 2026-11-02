@@ -174,7 +174,8 @@ fn start(t: Turn) -> RunStart {
         mcp_servers: vec![],
         skills: t.skills,
         plugins: t.plugins,
-        hidden_tools: vec![],
+        // As for a group not bound to Feishu, which leaves the built-in feishu-card skill out.
+        hidden_tools: vec!["feishu_send_card".into()],
         artifacts: vec![],
         artifact_exclude: vec![],
         command: None,

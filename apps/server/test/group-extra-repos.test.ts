@@ -102,7 +102,7 @@ describe('extra repos of a group', () => {
       { id: extra!.id, url: WEB, branch: 'develop', protocol: 'auto' },
     ])
     expect(start.bot.systemPrompt).toContain(
-      '- pay-web：https://git.corp/pay/pay-web.git（默认分支 develop）',
+      '- pay-web: https://git.corp/pay/pay-web.git (default branch develop)',
     )
   })
 

@@ -137,7 +137,7 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
     let (home, kind, cwd) = (&engine.config.home, s.bot.agent_kind, &turn.req.cwd);
     let dir = skills::set_dir(home, &s.group_id, &s.bot.id);
     let installed = async {
-        let skills = skills::install(api, &dir, kind, cwd, &s.skills).await?;
+        let skills = skills::install(api, &dir, kind, cwd, &s.skills, &s.hidden_tools).await?;
         let plugins = plugins::install(api, home, (&s.group_id, &s.bot.id), kind, cwd, &s.plugins).await?;
         Ok::<_, String>((skills, plugins))
     };
@@ -1505,6 +1505,7 @@ async fn connect(
                 applied: HashMap::new(),
             };
             let secrets = env_digest(&first.req.start.env);
+            let hidden = first.req.start.hidden_tools.clone();
             let mut turn = first;
             loop {
                 match engine.workspaces.occupy(&turn.req, shared).await {
@@ -1531,12 +1532,13 @@ async fn connect(
                     }
                 };
                 // Claude only sees the plugins' skill lists and its settings as they were when the process started;
-                // secrets are its process env.
+                // secrets are its process env, and agents list the gonggong tools once per process.
                 if turn.selection != conv.selection
                     || turn.launch != conv.launch
                     || turn.skills.names != conv.skills.names
                     || turn.plugins != conv.plugins
                     || env_digest(&turn.req.start.env) != secrets
+                    || turn.req.start.hidden_tools != hidden
                 {
                     return Ok(Some(turn));
                 }

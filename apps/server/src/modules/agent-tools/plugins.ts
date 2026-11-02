@@ -19,7 +19,7 @@ type Args<N extends 'plugin_catalog' | 'creation_propose'> = z.infer<(typeof GON
 
 /** In the system prompt of a turn that got plugins (agent-facing: not translated). */
 export const pluginHint = (names: string[]) =>
-  `本群启用了创作插件：${names.join('、')}。群成员在对话里提出这类创作需求（不是「请用插件…创作」的正式创作请求）时，先用 gonggong 的 plugin_catalog 挑模板和设计系统，再用 creation_propose 发创作确认卡，等成员点「开始」后会收到正式的创作请求，再按插件的 skill 出稿；没有这两个工具时直接按 skill 出稿。`
+  `Creation plugins enabled here: ${names.join(', ')}. When members ask for such work in the chat (not a formal 「请用插件…创作」 request), pick a template and design system with plugin_catalog, then post a confirmation card with creation_propose; a member clicking 「开始」 sends you the formal request, and you create it following the plugin's skill. Without those two tools, follow the skill directly.`
 
 const BLOCKER: Record<PluginBlocker, string> = {
   agent: '不支持本 Bot 的 agent',

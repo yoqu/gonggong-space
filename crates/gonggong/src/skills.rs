@@ -1,6 +1,7 @@
 //! Team skills (plan 团队Skill): one Claude plugin folder per (group, bot) under the daemon home, holding the run's
 //! merged skills. Claude loads it through `_meta.claudeCode.options.plugins`; Codex finds each skill through a link
-//! in `<cwd>/.agents/skills/`, kept out of git. Both list them as `gonggong-team:<name>`.
+//! in `<cwd>/.agents/skills/`, kept out of git. Both list them as `gonggong-team:<name>`. The daemon's own skills join
+//! them while their tool is listed: long how-tos read only when needed, instead of in every turn's tool list.
 use crate::config::Config;
 use crate::git;
 use crate::protocol::{AgentKind, DaemonSkillRes, SkillEncoding, SkillRef};
@@ -8,11 +9,29 @@ use crate::t;
 use crate::tls;
 use base64::prelude::{BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 
 pub const PLUGIN: &str = "gonggong-team";
 const STATE: &str = "state.json";
+/// (name, the tool it explains, SKILL.md); a team skill of the same name replaces one.
+const BUILTIN: [(&str, &str, &str); 1] =
+    [("feishu-card", "feishu_send_card", include_str!("../skills/feishu-card/SKILL.md"))];
+const BUILTIN_VERSION: &str = "builtin";
+
+/// The built-in skills whose tool the turn lists, as refs installed from the daemon itself.
+fn builtins(refs: &[SkillRef], hidden: &[String]) -> Vec<SkillRef> {
+    BUILTIN
+        .iter()
+        .filter(|(name, tool, _)| !hidden.iter().any(|h| h == tool) && !refs.iter().any(|r| r.name == *name))
+        .map(|(name, _, md)| SkillRef {
+            name: name.to_string(),
+            version_id: BUILTIN_VERSION.into(),
+            digest: format!("builtin-{}", crate::sync::hex(&Sha256::digest(md))),
+        })
+        .collect()
+}
 
 /// The skills in effect for a turn.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -36,14 +55,17 @@ pub fn set_dir(home: &Path, group_id: &str, bot_id: &str) -> PathBuf {
     home.join("skill-sets").join(format!("{group_id}-{bot_id}"))
 }
 
-/// Brings the (group, bot) plugin folder and, for Codex, the workspace links in line with `refs`.
+/// Brings the (group, bot) plugin folder and, for Codex, the workspace links in line with `refs` and the built-in
+/// skills of the tools not `hidden`.
 pub async fn install(
     api: &Config,
     dir: &Path,
     kind: AgentKind,
     cwd: &Path,
     refs: &[SkillRef],
+    hidden: &[String],
 ) -> Result<Installed, String> {
+    let own = builtins(refs, hidden);
     let e = |e: std::io::Error| t!("无法安装团队 skill：{e}", e = e);
     let skills = dir.join("skills");
     tokio::fs::create_dir_all(&skills).await.map_err(e)?;
@@ -51,7 +73,7 @@ pub async fn install(
         tokio::fs::read(dir.join(STATE)).await.ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     let roots = roots(cwd);
     let (mut kept, mut skipped) = (vec![], vec![]);
-    for r in refs {
+    for r in refs.iter().chain(&own) {
         let ours = |p: &PathBuf| state.links.contains(p);
         if roots.iter().any(|root| baseline(root, kind, &r.name).is_some_and(|p| !ours(&p))) {
             skipped.push(r.name.clone());
@@ -66,12 +88,20 @@ pub async fn install(
             continue;
         }
         let tmp = skills.join(format!(".{}.partial", r.name));
-        fetch(api, r, &tmp).await?;
+        if r.version_id == BUILTIN_VERSION {
+            let md = BUILTIN.iter().find(|(name, ..)| *name == r.name).map(|(.., md)| md).expect("a built-in skill");
+            let _ = tokio::fs::remove_dir_all(&tmp).await;
+            tokio::fs::create_dir_all(&tmp).await.map_err(e)?;
+            tokio::fs::write(tmp.join("SKILL.md"), md).await.map_err(e)?;
+        } else {
+            fetch(api, r, &tmp).await?;
+        }
         let _ = tokio::fs::remove_dir_all(&target).await;
         tokio::fs::rename(&tmp, &target).await.map_err(e)?;
         state.digests.insert(r.name.clone(), r.digest.clone());
     }
-    let names: Vec<String> = kept.iter().map(|r| r.name.clone()).collect();
+    let mut names: Vec<String> = kept.iter().map(|r| r.name.clone()).collect();
+    names.sort();
     let mut entries = tokio::fs::read_dir(&skills).await.map_err(e)?;
     while let Some(entry) = entries.next_entry().await.map_err(e)? {
         let name = entry.file_name().to_string_lossy().into_owned();

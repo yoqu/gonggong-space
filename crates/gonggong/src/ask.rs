@@ -432,6 +432,10 @@ struct HtmlArgs {
 const HTML_MAX: usize = 512_000;
 const HTML_TITLE_MAX: usize = 200;
 const HTML_HEIGHTS: std::ops::RangeInclusive<i64> = 80..=2000;
+/// `HTML_RENDER_COLUMN_WIDTH`: a page published without a height gets its own at the reply column.
+const HTML_COLUMN_WIDTH: u32 = 720;
+/// The frame's first height when nothing measured the page; clients fit it to the live page.
+const HTML_UNMEASURED_HEIGHT: i64 = 480;
 
 fn html_args(args: &Value) -> Result<HtmlArgs, String> {
     let a = HtmlArgs::deserialize(args).map_err(|e| format!("参数无效：{e}"))?;
@@ -467,11 +471,13 @@ async fn html_render(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> R
     if title.is_empty() {
         return Err("参数无效：title 不能为空".into());
     }
-    let height = a.height.ok_or("参数无效：缺少 height")?.clamp(*HTML_HEIGHTS.start(), *HTML_HEIGHTS.end());
     let api = api.ok_or("未连接服务器，无法展示")?;
     let (run_id, _) = asker.active_run().ok_or(NOT_RUNNING)?;
     let html = crate::html_render::prepare(a.html).await?;
     let heights = crate::html_render::heights(&html).await;
+    let measured = || heights.as_ref()?.iter().find(|(w, _)| *w == HTML_COLUMN_WIDTH).map(|&(_, h)| i64::from(h));
+    let height = a.height.or_else(measured).unwrap_or(HTML_UNMEASURED_HEIGHT);
+    let height = height.clamp(*HTML_HEIGHTS.start(), *HTML_HEIGHTS.end());
     let mut form = reqwest::multipart::Form::new().text("title", title.clone()).text("height", height.to_string());
     if let Some(heights) = heights {
         form = form.text("heights", json!(heights).to_string());

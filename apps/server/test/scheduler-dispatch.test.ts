@@ -1,7 +1,7 @@
 import type { RunStart, ServerToDaemon } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { groupBots, messages, runs } from '../src/db/schema.js'
+import { groupBots, messages, runs, teamMembers, users } from '../src/db/schema.js'
 import { schedule } from '../src/modules/runs/scheduler.js'
 import { createTestApp, type TestApp } from './support/app.js'
 
@@ -20,11 +20,11 @@ async function world() {
   // Online without hub.register: its 'online' event schedules in the background, racing each test's own schedule().
   vi.spyOn(t.ctx.hub, 'isOnline').mockImplementation((id) => id === machine.id)
   vi.spyOn(t.ctx.hub, 'send').mockImplementation((id, m) => id === machine.id && (conn.send(m), true))
-  const queued = async () => {
-    const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })
+  const queued = async (origin = alice.id) => {
+    const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id], memberIds: [origin] })
     const [m] = await t.db
       .insert(messages)
-      .values({ groupId: group.id, kind: 'user', authorUserId: alice.id, body: '@Claude go' })
+      .values({ groupId: group.id, kind: 'user', authorUserId: origin, body: '@Claude go' })
       .returning()
     const [run] = await t.db
       .insert(runs)
@@ -32,8 +32,8 @@ async function world() {
         groupId: group.id,
         botId: bot.id,
         triggerMessageId: m!.id,
-        triggerUserId: alice.id,
-        originUserId: alice.id,
+        triggerUserId: origin,
+        originUserId: origin,
         status: 'queued',
       })
       .returning()
@@ -114,5 +114,40 @@ describe('dispatch', () => {
       .from(groupBots)
       .where(and(eq(groupBots.groupId, a.group.id), eq(groupBots.botId, w.bot.id)))
     expect(gb?.contextSeq).toBe(a.message.seq)
+  })
+})
+
+describe('management tools', () => {
+  const WRITES = ['mcp_create', 'mcp_update', 'mcp_toggle', 'mcp_delete', 'skill_create', 'skill_update']
+  const RELEASE = ['client_release_publish', 'client_release_notes']
+
+  async function startFor(w: Awaited<ReturnType<typeof world>>, origin: string) {
+    const a = await w.queued(origin)
+    await schedule(t.ctx, w.bot.id)
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, a.run.id))
+    return (w.sent as RunStart[]).find((m) => m.runId === a.run.id)!
+  }
+
+  it('hides layer and release writes from a turn whose originator administers nothing', async () => {
+    const w = await world()
+    const bob = await t.seed.user({ name: '赵敏' })
+    const start = await startFor(w, bob.id)
+    expect(start.hiddenTools).toEqual(expect.arrayContaining([...WRITES, ...RELEASE]))
+    expect(start.hiddenTools).not.toContain('mcp_list')
+    expect(start.hiddenTools).not.toContain('skill_list')
+  })
+
+  it('gives a group or team admin the layer writes, and only a sysadmin the release tools', async () => {
+    const w = await world()
+    const groupAdmin = await startFor(w, w.alice.id)
+    expect(groupAdmin.hiddenTools).not.toContain('mcp_create')
+    expect(groupAdmin.hiddenTools).toEqual(expect.arrayContaining(RELEASE))
+
+    const lead = await t.seed.user({ name: '周芷若' })
+    await t.db.update(teamMembers).set({ role: 'admin' }).where(eq(teamMembers.userId, lead.id))
+    expect((await startFor(w, lead.id)).hiddenTools).not.toContain('skill_create')
+
+    await t.db.update(users).set({ role: 'sysadmin' }).where(eq(users.id, w.alice.id))
+    expect((await startFor(w, w.alice.id)).hiddenTools).not.toContain('client_release_publish')
   })
 })

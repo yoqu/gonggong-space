@@ -22,6 +22,7 @@ import {
   users,
 } from '../../db/schema.js'
 import { feishuHint } from '../agent-tools/feishu.js'
+import { originAdmin } from '../agent-tools/layers.js'
 import { pluginHint } from '../agent-tools/plugins.js'
 import { runArtifacts } from '../artifacts/service.js'
 import { botCatalog, resolveConfig } from '../bots/config.js'
@@ -206,24 +207,40 @@ export async function schedule(ctx: Ctx, botId: string) {
 const FEISHU_TOOLS = ['list_feishu_messages', 'feishu_send_card']
 const PLUGIN_TOOLS = ['plugin_catalog', 'creation_propose']
 const ARTIFACT_TOOLS = ['artifact_checkout']
+/** Writes refused unless the run's originator administers some layer (sysadmin, team or group admin). */
+const LAYER_WRITE_TOOLS = [
+  'mcp_create',
+  'mcp_update',
+  'mcp_toggle',
+  'mcp_delete',
+  'skill_create',
+  'skill_update',
+  'skill_delete',
+  'skill_toggle',
+  'skill_rollback',
+]
+/** Refused unless the run's originator is a sysadmin. */
+const RELEASE_TOOLS = ['client_release_publish', 'client_release_notes']
 
 /** 禁止直推基准分支, for the agent (the daemon also asks the owner before any push to it). */
 const branchHint = (base: string) =>
-  `本群开启了「禁止直推基准分支」：不要直接提交或推送到基准分支 ${base}。当前在 ${base} 上时，改代码前先新建一个分支（名字不限）；已经在其他分支上就直接在该分支开发、提交并推送，不用另建分支。需要合并时告诉触发人发起合并请求。推送到 ${base} 需要 Bot 主人审批。`
+  `This group has 「禁止直推基准分支」 on: never commit or push to the base branch ${base}. On ${base}, create a branch (any name) before changing code; already on another branch, work, commit and push there. For a merge, ask the requester to open a merge request. Pushing to ${base} needs the bot owner's approval.`
 
 /** The group's extra repos, which the agent's own files may not tell it about (Codex reads no AGENTS.md outside cwd). */
 const extraReposHint = (repos: { url: string; branch: string }[], protectBase: boolean) =>
   [
-    '本群除主仓库外还有附加仓库，已克隆好并作为附加目录提供给你（目录名即仓库名）：',
+    'Besides the main repo, this group has extra repos, cloned and given to you as additional directories (named after the repo):',
     ...repos.map(
       (r) =>
         `- ${r.url
           .replace(/\.git\/?$/, '')
           .split(/[/:]/)
-          .at(-1)}：${r.url}（默认分支 ${r.branch}）`,
+          .at(-1)}: ${r.url} (default branch ${r.branch})`,
     ),
-    '改动某个附加仓库前，先读它根目录的 AGENTS.md 和 CLAUDE.md（它们不一定会自动加载）；在附加仓库里执行 git 命令要先 cd 到该目录。',
-    ...(protectBase ? ['「禁止直推基准分支」对附加仓库同样适用，各以其默认分支为基准。'] : []),
+    'Before changing an extra repo, read its root AGENTS.md and CLAUDE.md (they may not load by themselves); cd into it before running git there.',
+    ...(protectBase
+      ? ['「禁止直推基准分支」 applies to the extra repos too, each with its default branch as base.']
+      : []),
   ].join('\n')
 
 /** `features`: the bot's daemon's (it is online). */
@@ -236,7 +253,7 @@ export async function buildRunStart(
   features: string[],
 ) {
   // Reads issued together are pipelined on the transaction's connection: one round trip per batch, not per read.
-  const [[trigger], [group], [gb], repoRows, [owner], params, catalog, mcpServers, skills, secrets] =
+  const [[trigger], [group], [gb], repoRows, [owner], params, catalog, mcpServers, skills, secrets, admin] =
     await Promise.all([
       tx
         .select({
@@ -270,6 +287,7 @@ export async function buildRunStart(
       enabledMcpServers(tx, run.groupId),
       enabledSkills(tx, run.groupId),
       resolveSecrets(tx, { groupId: run.groupId, botId: bot.id, originUserId: run.originUserId }, now),
+      originAdmin(tx, run),
     ])
   if (!trigger || !gb || !group) throw new Error(`run ${run.id} lost its trigger message or group membership`)
   const repo = repoRows.find((r) => r.isPrimary)
@@ -402,6 +420,8 @@ export async function buildRunStart(
           ...(feishu ? [] : FEISHU_TOOLS),
           ...(plugins.length ? [] : PLUGIN_TOOLS),
           ...(features.includes('artifacts') ? [] : ARTIFACT_TOOLS),
+          ...(admin.any ? [] : LAYER_WRITE_TOOLS),
+          ...(admin.sysadmin ? [] : RELEASE_TOOLS),
         ],
     command,
     sync,

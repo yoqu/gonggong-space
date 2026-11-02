@@ -27,18 +27,18 @@ import {
  * stays in the daemon). `gonggong-tools.json` is generated from these for the daemon's `tools/list`.
  */
 const seq = z.number().int().min(1)
-const group = z.string().describe('群 id（get_group_info 列出）；省略 = 当前会话').optional()
-const author = z.string().describe('只看该作者（人或 bot 名字，包含匹配）').optional()
-const since = z.string().describe('起始时间，ISO 8601').optional()
-const until = z.string().describe('截止时间，ISO 8601').optional()
+const group = z.string().describe('Group id (from get_group_info); default: this conversation').optional()
+const author = z.string().describe('Only this author (person or bot name, substring match)').optional()
+const since = z.string().describe('From, ISO 8601').optional()
+const until = z.string().describe('Until, ISO 8601').optional()
 
 export const ListMessagesArgs = z
   .object({
     group,
-    before: seq.describe('取 #seq 之前的消息').optional(),
-    after: seq.describe('取 #seq 之后的消息').optional(),
-    around: seq.describe('取 #seq 前后的消息（含它本身）').optional(),
-    limit: z.number().int().min(1).max(50).describe('条数，默认 20').optional(),
+    before: seq.describe('Messages before #seq').optional(),
+    after: seq.describe('Messages after #seq').optional(),
+    around: seq.describe('Messages around #seq, itself included').optional(),
+    limit: z.number().int().min(1).max(50).describe('Default 20').optional(),
     author,
     since,
     until,
@@ -48,21 +48,24 @@ export const ListMessagesArgs = z
   })
 
 export const SearchMessagesArgs = z.object({
-  query: z.string().min(1).max(200).describe('关键词（不区分大小写的包含匹配）'),
-  group: z.string().describe('群 id，或 all = 所有可读的群；省略 = 当前会话').optional(),
+  query: z.string().min(1).max(200).describe('Keyword (case-insensitive substring)'),
+  group: z
+    .string()
+    .describe('Group id, or all = every group you can read; default: this conversation')
+    .optional(),
   author,
   since,
   until,
-  limit: z.number().int().min(1).max(20).describe('条数，默认 10').optional(),
+  limit: z.number().int().min(1).max(20).describe('Default 10').optional(),
 })
 
 export const GetGroupInfoArgs = z.object({ group })
 
 export const GetRunArgs = z
   .object({
-    message: seq.describe('bot 回复消息的 #seq').optional(),
-    run: z.string().describe('运行 id').optional(),
-    include_patch: z.boolean().describe('附带本轮 diff').optional(),
+    message: seq.describe('#seq of the bot reply').optional(),
+    run: z.string().describe('Run id').optional(),
+    include_patch: z.boolean().describe('Include the run diff').optional(),
   })
   .refine((a) => (a.message === undefined) !== (a.run === undefined), {
     message: 'message 与 run 需要且只能给一个',
@@ -70,47 +73,45 @@ export const GetRunArgs = z
 
 export const ListQuestionsArgs = z.object({
   group,
-  limit: z.number().int().min(1).max(20).describe('条数，默认 10').optional(),
+  limit: z.number().int().min(1).max(20).describe('Default 10').optional(),
 })
 
-export const FetchAttachmentsArgs = z.object({ message: seq.describe('消息 #seq') })
+export const FetchAttachmentsArgs = z.object({ message: seq.describe('Message #seq') })
 
 export const SendAttachmentsArgs = z.object({
   paths: z
-    .array(z.string().min(1).max(500).describe('工作区内的相对路径'))
+    .array(z.string().min(1).max(500).describe('Workspace-relative path'))
     .min(1)
     .max(10)
-    .describe('要发送的工作区文件，1 至 10 个'),
-  text: z.string().max(20000).describe('随附件发送的说明，可省略').optional(),
+    .describe('Workspace files to send, 1 to 10'),
+  text: z.string().max(20000).describe('Text sent with the files').optional(),
 })
 
 export const ListFeishuMessagesArgs = z.object({
-  limit: z.number().int().min(1).max(50).describe('条数，默认 20').optional(),
-  before: z.string().describe('取该时间之前的消息，ISO 8601（上一页末尾给出）').optional(),
+  limit: z.number().int().min(1).max(50).describe('Default 20').optional(),
+  before: z
+    .string()
+    .describe('Messages before this time, ISO 8601 (given at the end of the previous page)')
+    .optional(),
 })
 
 const serviceName = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{0,31}$/)
-  .describe('服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一')
+  .describe('Service name (lowercase letters, digits, hyphens, up to 32), unique per group and bot')
 const port = z.number().int().min(1).max(65535)
 
 export const PreviewExposeArgs = z
   .object({
-    port: port.describe('本机端口').optional(),
-    service: serviceName.describe('service_start 启动的服务名，使用它的端口').optional(),
-    miniprogram: z
-      .string()
-      .min(1)
-      .max(1000)
-      .describe('小程序项目在本机的绝对路径；由 preview_miniprogram 填写，不要直接使用')
-      .optional(),
-    title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+    port: port.describe('Local port').optional(),
+    service: serviceName.describe('A service_start service; uses its port').optional(),
+    miniprogram: z.string().min(1).max(1000).describe('Set by preview_miniprogram; do not use').optional(),
+    title: z.string().min(1).max(60).describe('Card title: what this is'),
     path: z
       .string()
       .regex(/^\//)
       .max(500)
-      .describe('打开时的路径（以 / 开头，可带查询串），默认 /')
+      .describe('Path to open (starts with /, may have a query), default /')
       .optional(),
   })
   .refine((a) => [a.port, a.service, a.miniprogram].filter((x) => x !== undefined).length === 1, {
@@ -118,43 +119,57 @@ export const PreviewExposeArgs = z
   })
 
 export const PreviewGuiArgs = z.object({
-  service: serviceName.describe('service_start 启动的桌面应用服务名，推送它的窗口'),
-  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+  service: serviceName.describe('A desktop app started with service_start; its windows are streamed'),
+  title: z.string().min(1).max(60).describe('Card title: what this is'),
 })
 
-export const PreviewCloseArgs = z.object({ preview: z.string().describe('preview_expose 返回的预览 id') })
+export const PreviewCloseArgs = z.object({
+  preview: z.string().describe('Preview id returned by preview_expose'),
+})
 
 const progressStage = z.object({
-  name: z.string().min(1).max(40).describe('阶段名，如 排队、构建、部署、完成'),
-  status: z
-    .enum(['pending', 'running', 'done', 'failed', 'skipped'])
-    .describe('等待 / 进行中 / 完成 / 失败 / 跳过'),
+  name: z.string().min(1).max(40).describe('Stage name, e.g. 构建, 部署'),
+  status: z.enum(['pending', 'running', 'done', 'failed', 'skipped']),
 })
 export const ProgressCardArgs = z.object({
-  id: z.string().describe('要更新的卡片 id（上次 progress_card 返回）；不传则新建一张').optional(),
-  title: z.string().min(1).max(80).describe('标题，如「部署 luke-server 到 test」；新建时必填').optional(),
+  id: z.string().describe('Card id to update (from progress_card); omit to create one').optional(),
+  title: z
+    .string()
+    .min(1)
+    .max(80)
+    .describe('Title, e.g. 「部署 luke-server 到 test」; required to create')
+    .optional(),
   stages: z
     .array(progressStage)
     .min(1)
     .max(12)
-    .describe('全部阶段及当前状态（整体替换）；新建时必填')
+    .describe('All stages with their status (replaces them); required to create')
     .optional(),
-  percent: z.number().int().min(0).max(100).nullable().describe('总进度百分比；null 清除').optional(),
-  detail: z.string().max(500).nullable().describe('一行说明，如构建号、失败原因；null 清除').optional(),
+  percent: z.number().int().min(0).max(100).nullable().describe('Overall percent; null clears').optional(),
+  detail: z
+    .string()
+    .max(500)
+    .nullable()
+    .describe('One line, e.g. build number or failure reason; null clears')
+    .optional(),
   link: z
     .object({ label: z.string().min(1).max(40), url: z.string().url() })
     .nullable()
-    .describe('一个链接，如构建日志、预览二维码；null 清除')
+    .describe('One link, e.g. build log; null clears')
     .optional(),
 })
 
 export const HandOffArgs = z.object({
-  bot: z.string().min(1).max(64).describe('接手的 Bot 名字（get_group_info 列出的目标群 Bot）'),
-  task: z.string().min(1).max(2000).describe('交代给它的任务：要做什么、需要的上下文、做到什么程度算完成'),
+  bot: z.string().min(1).max(64).describe('Bot to take over (a bot of the target group, see get_group_info)'),
+  task: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe('The task: what to do, the context it needs, and when it is done'),
   group: z
     .string()
     .describe(
-      '交给其他群的 Bot 时填该群 id（get_group_info 的「其他可读的群」列出，你和它都要在该群）；省略 = 本群',
+      'Group id when the bot is in another group (listed by get_group_info; you must both be in it); default: this group',
     )
     .optional(),
 })
@@ -167,8 +182,8 @@ const scheduleRunOptions = z
   .array(
     z.object({
       bot: z.string().min(1).max(64),
-      model: z.string().max(100).optional().describe('如 opus、sonnet；省略 = 默认'),
-      effort: z.string().max(40).optional().describe('如 low、medium、high；省略 = 默认'),
+      model: z.string().max(100).optional().describe('e.g. opus, sonnet; default if omitted'),
+      effort: z.string().max(40).optional().describe('e.g. low, medium, high; default if omitted'),
     }),
   )
   .max(10)
@@ -177,24 +192,30 @@ const atMostOneTiming = (a: { cron?: unknown; at?: unknown }) => !(a.cron !== un
 
 export const ScheduleCreateArgs = z
   .object({
-    name: z.string().min(1).max(60).describe('任务名称，简短说明做什么'),
+    name: z.string().min(1).max(60).describe('Short name of what it does'),
     prompt: z
       .string()
       .min(1)
       .max(4000)
-      .describe('到点发给执行 Bot 的完整指令：它看不到本轮对话，写清要做什么、范围和产出'),
+      .describe(
+        'Full instruction sent to the bot when due; it does not see this conversation, so state the task, scope and output',
+      ),
     cron: scheduleCron
       .describe(
-        '5 段 cron：分 时 日 月 周（0=周日），按 timezone 解释；如 0 9 * * 1-5 = 工作日 9:00。间隔不小于 5 分钟',
+        '5-field cron: min hour day month weekday (0=Sunday), in timezone; e.g. 0 9 * * 1-5 = weekdays 9:00. At least 5 minutes apart',
       )
       .optional(),
-    at: scheduleAt.describe('只执行一次的时刻，带时区偏移，如 2026-10-05T09:00:00+08:00').optional(),
-    timezone: scheduleTz.describe('IANA 时区，默认 Asia/Shanghai').optional(),
+    at: scheduleAt.describe('One-off time with offset, e.g. 2026-10-05T09:00:00+08:00').optional(),
+    timezone: scheduleTz.describe('IANA time zone, default Asia/Shanghai').optional(),
     bots: scheduleBots
-      .describe('候选 Bot 名字（本群），按擅长程度排序；到点由第一个在线空闲的执行。默认只有你自己')
+      .describe(
+        'Candidate bots of this group, best first; the first online and idle one runs it. Default: only you',
+      )
       .optional(),
     run_options: scheduleRunOptions
-      .describe('按候选 Bot 指定模型与推理强度，用户明确要求时才填；修改时给完整列表，[] = 全部恢复默认')
+      .describe(
+        'Model and effort per candidate, only when the user asks; give the full list when changing, [] = all default',
+      )
       .optional(),
   })
   .refine((a) => atMostOneTiming(a) && (a.cron !== undefined || a.at !== undefined), {
@@ -203,7 +224,7 @@ export const ScheduleCreateArgs = z
 export const ScheduleListArgs = z.object({})
 export const ScheduleUpdateArgs = z
   .object({
-    id: z.string().describe('schedule_list 列出的任务 id'),
+    id: z.string().describe('Task id from schedule_list'),
     name: z.string().min(1).max(60).optional(),
     prompt: z.string().min(1).max(4000).optional(),
     cron: scheduleCron.optional(),
@@ -211,32 +232,30 @@ export const ScheduleUpdateArgs = z
     timezone: scheduleTz.optional(),
     bots: scheduleBots.optional(),
     run_options: scheduleRunOptions.optional(),
-    enabled: z.boolean().describe('false = 暂停，true = 恢复').optional(),
+    enabled: z.boolean().describe('false = pause, true = resume').optional(),
   })
   .refine(atMostOneTiming, { message: 'cron 与 at 最多给一个' })
-export const ScheduleDeleteArgs = z.object({ id: z.string().describe('schedule_list 列出的任务 id') })
+export const ScheduleDeleteArgs = z.object({ id: z.string().describe('Task id from schedule_list') })
 
-const skillName = z
-  .string()
-  .min(1)
-  .max(64)
-  .describe('Skill 名称（SKILL.md frontmatter 的 name，skill_list 可查）')
-const skillLayer = z.enum(['group', 'team']).describe('group 仅本群（默认）/ team 本团队所有群')
+const skillName = z.string().min(1).max(64).describe('Skill name (frontmatter name, see skill_list)')
+const skillLayer = z
+  .enum(['group', 'team'])
+  .describe('group: this group (default) / team: all groups of the team')
 const skillFiles = z
   .array(SkillFile)
   .min(1)
   .max(SKILL_MAX_FILES)
   .describe(
-    '文件列表：path 为相对路径（SKILL.md、scripts/run.sh、references/api.md），二进制文件用 encoding=base64',
+    'Files: relative paths (SKILL.md, scripts/run.sh, references/api.md); binary files with encoding=base64',
   )
 export const SkillListArgs = z.object({})
 export const SkillGetArgs = z.object({
   name: skillName,
   layer: z
     .enum(['platform', 'team', 'group'])
-    .describe('读哪一层的同名 Skill，默认本群实际生效的那一个')
+    .describe('Layer to read; default: the one in effect here')
     .optional(),
-  version: z.number().int().min(1).describe('读历史版本，默认当前版本').optional(),
+  version: z.number().int().min(1).describe('Past version; default current').optional(),
 })
 export const SkillCreateArgs = z.object({ layer: skillLayer.optional(), files: skillFiles })
 export const SkillUpdateArgs = z.object({
@@ -244,9 +263,9 @@ export const SkillUpdateArgs = z.object({
   layer: skillLayer.optional(),
   files: skillFiles
     .min(0)
-    .describe('新增或覆盖的文件（未列出的保留）；改 SKILL.md 的 name 即重命名')
+    .describe('Files to add or overwrite (others are kept); renaming the SKILL.md name renames it')
     .optional(),
-  remove: z.array(z.string().min(1).max(255)).max(SKILL_MAX_FILES).describe('要删除的文件路径').optional(),
+  remove: z.array(z.string().min(1).max(255)).max(SKILL_MAX_FILES).describe('Paths to delete').optional(),
 })
 export const SkillDeleteArgs = z.object({ name: skillName, layer: skillLayer.optional() })
 export const SkillToggleArgs = z.object({
@@ -254,34 +273,47 @@ export const SkillToggleArgs = z.object({
   layer: skillLayer.optional(),
   enabled: z
     .boolean()
-    .describe('false = 停用（保留内容）。layer=group 且本群无同名群层 Skill 时，只在本群开关继承的 Skill'),
+    .describe(
+      'false = disable (content kept). With layer=group and no group-layer skill of that name, turns the inherited one on or off here only',
+    ),
 })
 export const SkillVersionsArgs = z.object({ name: skillName, layer: skillLayer.optional() })
 export const SkillRollbackArgs = z.object({
   name: skillName,
   layer: skillLayer.optional(),
-  version: z.number().int().min(1).describe('skill_versions 列出的版本号；当前版本切回该版本，不新增版本'),
+  version: z
+    .number()
+    .int()
+    .min(1)
+    .describe('Version from skill_versions; becomes current without a new version'),
 })
 
-const kbId = z.string().describe('条目 id（kb_list / kb_search 列出）')
-const kbTitle = z.string().trim().min(1).max(KNOWLEDGE_TITLE_MAX).describe('标题，一眼能看出讲什么')
-const kbBody = z.string().max(KNOWLEDGE_BODY_MAX).describe('Markdown 正文，写清事实本身，不写聊天过程')
+const kbId = z.string().describe('Entry id (from kb_list / kb_search)')
+const kbTitle = z.string().trim().min(1).max(KNOWLEDGE_TITLE_MAX).describe('Title that says what it is about')
+const kbBody = z
+  .string()
+  .max(KNOWLEDGE_BODY_MAX)
+  .describe('Markdown body: the facts, not the chat that led to them')
 const kbTags = z
   .array(z.string().trim().min(1).max(30))
   .max(KNOWLEDGE_TAGS_MAX)
-  .describe('标签，如 约定、环境、部署；修改时给完整列表')
-export const KbListArgs = z.object({ tag: z.string().describe('只看带该标签的条目').optional() })
+  .describe('Tags, e.g. 约定, 环境, 部署; the full list when changing')
+export const KbListArgs = z.object({ tag: z.string().describe('Only entries with this tag').optional() })
 export const KbGetArgs = z.object({ id: kbId })
 export const KbSearchArgs = z.object({
-  query: z.string().min(1).max(200).describe('关键词，匹配标题、正文与标签'),
-  limit: z.number().int().min(1).max(50).describe('最多返回几条，默认 10').optional(),
+  query: z.string().min(1).max(200).describe('Keyword matched against title, body and tags'),
+  limit: z.number().int().min(1).max(50).describe('Default 10').optional(),
 })
 export const KbCreateArgs = z.object({ title: kbTitle, body: kbBody, tags: kbTags.optional() })
 export const KbUpdateArgs = z.object({
   id: kbId,
-  base_version: z.number().int().min(1).describe('你读到的版本号（kb_get 返回）；条目已被改过时修改失败'),
+  base_version: z
+    .number()
+    .int()
+    .min(1)
+    .describe('Version you read (from kb_get); fails if the entry changed since'),
   title: kbTitle.optional(),
-  body: kbBody.describe('完整的新正文（整体替换）').optional(),
+  body: kbBody.describe('Full new body (replaces it)').optional(),
   tags: kbTags.optional(),
 })
 export const KbDeleteArgs = z.object({ id: kbId })
@@ -290,61 +322,63 @@ export const TabListArgs = z.object({})
 export const TabCreateArgs = z.object({
   kind: z
     .enum(['link', 'knowledge', 'file'])
-    .describe('link 网页链接；knowledge 知识库条目；file 你工作区里的文件'),
-  url: z.string().max(GROUP_TAB_URL_MAX).describe('kind=link 时必填，http/https 地址').optional(),
-  knowledge_id: z.string().describe('kind=knowledge 时必填，条目 id（kb_list 列出）').optional(),
-  path: z.string().max(500).describe('kind=file 时必填，工作区内的相对路径').optional(),
+    .describe('link: a web page; knowledge: a knowledge base entry; file: a file in your workspace'),
+  url: z.string().max(GROUP_TAB_URL_MAX).describe('Required for link: http(s) URL').optional(),
+  knowledge_id: z.string().describe('Required for knowledge: entry id (from kb_list)').optional(),
+  path: z.string().max(500).describe('Required for file: workspace-relative path').optional(),
   title: z
     .string()
     .trim()
     .min(1)
     .max(GROUP_TAB_TITLE_MAX)
-    .describe('标签名，简短；不填时取网页标题、条目标题或文件名')
+    .describe('Short tab name; default: the page title, entry title or file name')
     .optional(),
 })
 
-const mcpName = z.string().min(1).max(64).describe('MCP 名称（mcp_list 可查）')
+const mcpName = z.string().min(1).max(64).describe('MCP name (see mcp_list)')
 const mcpLayer = z
   .enum(['platform', 'team', 'group'])
-  .describe('group 仅本群（默认）/ team 本团队所有群 / platform 全平台')
+  .describe('group: this group (default) / team: all groups of the team / platform: everywhere')
 const forceNewSession = z
   .boolean()
-  .describe('true = 相关 Bot 下一轮开新会话立即生效（丢失会话上下文）；默认沿用旧会话')
+  .describe(
+    'true = affected bots start a new session next turn so it applies at once (loses session context); default keeps sessions',
+  )
   .optional()
 const secretValues = z
   .record(z.string(), z.string())
-  .describe('值只能写 ${secret:名称} 引用密钥（secret_list 列出），运行时替换为实值')
+  .describe('Values may only be ${secret:NAME} references (see secret_list), filled in at run time')
 const McpConfigArg = z.discriminatedUnion('transport', [
   z.object({
     transport: z.literal('stdio'),
     name: mcpName,
-    command: z.string().min(1).describe('启动命令，如 npx'),
-    args: z.array(z.string()).describe('命令参数，不要写密钥').default([]),
-    env: secretValues.describe('环境变量；值只能写占位符 ${secret:名称}').default({}),
+    command: z.string().min(1).describe('Command, e.g. npx'),
+    args: z.array(z.string()).describe('Arguments; no secrets').default([]),
+    env: secretValues.describe('Env vars; values only ${secret:NAME}').default({}),
   }),
   z.object({
     transport: z.literal('http'),
     name: mcpName,
-    url: z.string().min(1).describe('MCP 服务地址，不要把密钥写进地址'),
-    headers: secretValues.describe('请求头；值只能写占位符 ${secret:名称}').default({}),
+    url: z.string().min(1).describe('Server URL; no secrets in it'),
+    headers: secretValues.describe('Headers; values only ${secret:NAME}').default({}),
   }),
 ])
 export const McpListArgs = z.object({})
 export const McpGetArgs = z.object({
   name: mcpName,
-  layer: mcpLayer.describe('读哪一层的同名 MCP，默认本群实际生效的那一个').optional(),
+  layer: mcpLayer.describe('Layer to read; default: the one in effect here').optional(),
 })
 export const McpCreateArgs = z.object({
   layer: mcpLayer.optional(),
   config: McpConfigArg,
-  enabled: z.boolean().describe('默认 true').optional(),
+  enabled: z.boolean().describe('Default true').optional(),
   forceNewSession,
 })
 export const McpUpdateArgs = z.object({
   name: mcpName,
   layer: mcpLayer.optional(),
   config: McpConfigArg.describe(
-    '完整的新配置（整体替换；改 name 即重命名）。已有的 env / headers 键写占位符即保留原值',
+    'Full new config (replaces it; a new name renames it). Existing env / headers keys keep their values when given their placeholder',
   ),
   forceNewSession,
 })
@@ -353,7 +387,9 @@ export const McpToggleArgs = z.object({
   layer: mcpLayer.optional(),
   enabled: z
     .boolean()
-    .describe('false = 停用（保留配置）。layer=group 且本群无同名群层 MCP 时，只在本群开关继承的 MCP'),
+    .describe(
+      'false = disable (config kept). With layer=group and no group-layer MCP of that name, turns the inherited one on or off here only',
+    ),
   forceNewSession,
 })
 export const McpDeleteArgs = z.object({ name: mcpName, layer: mcpLayer.optional(), forceNewSession })
@@ -363,297 +399,307 @@ export const SecretRequestArgs = z.object({
     .array(z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/))
     .min(1)
     .max(20)
-    .describe('要填写的密钥名称，须已在本群可见的定义里（secret_list 列出）'),
+    .describe('Secrets to fill, defined and visible here (see secret_list)'),
   forceNewSession,
 })
 export const ArtifactCheckoutArgs = z.object({
-  artifact: z.string().min(1).max(80).describe('产物 id，或标题（本群内按标题匹配）'),
+  artifact: z.string().min(1).max(80).describe('Artifact id, or its title in this group'),
 })
 export const PluginCatalogArgs = z.object({
-  plugin: z.string().max(40).describe('插件 name；省略时列出本群启用的插件').optional(),
+  plugin: z.string().max(40).describe('Plugin name; omit to list the enabled plugins').optional(),
 })
 export const CreationProposeArgs = z.object({
-  plugin: z.string().max(40).describe('插件 name（plugin_catalog 列出）'),
-  template: z.string().max(40).describe('模板 id；插件没有模板时省略').optional(),
+  plugin: z.string().max(40).describe('Plugin name (from plugin_catalog)'),
+  template: z.string().max(40).describe('Template id; omit when the plugin has none').optional(),
   designSystem: z
     .string()
     .max(40)
     .describe(
-      '设计系统 id、auto（按需求自动挑预设）或 group:<id>（本群导入的，plugin_catalog 列出）；模板不用设计系统时省略，需要但省略时：输入框式插件用 auto，其余用第一个',
+      'Design system id, auto (picks a preset for the request) or group:<id> (imported here, see plugin_catalog); omit when the template uses none (then input-box plugins use auto, others the first)',
     )
     .optional(),
   inputs: z
     .record(z.string(), z.union([z.string().max(2000), z.boolean()]))
-    .describe('输入项 id → 值，只填该模板的输入项；拿不准的必填项留空，卡片会提示成员补充')
+    .describe(
+      "Input id → value, only the template's inputs; leave unsure required ones empty and the card asks members",
+    )
     .optional(),
-  directions: z.boolean().describe('是否先出 2–3 个视觉方向让大家选，默认否').optional(),
-  note: z.string().max(200).describe('给群成员的一句话说明，如为什么选这个模板').optional(),
+  directions: z
+    .boolean()
+    .describe('Offer 2–3 visual directions to choose from first; default false')
+    .optional(),
+  note: z.string().max(200).describe('One line for members, e.g. why this template').optional(),
 })
 
-const MCP_WRITE = '需发起本轮的人是该层管理员（群/团队/系统）；下一轮新会话生效。'
+const MCP_WRITE =
+  ' Needs the turn initiator to administer the layer (group/team/system); applies to new sessions from the next turn.'
 const MCP_SECRET =
-  'env / headers 的值只能写 ${secret:名称}（secret_list 列出），不接受明文；缺值时用 secret_request 请人填写，不要在对话里索要。'
+  ' env / headers values may only be ${secret:NAME} (see secret_list), never plain text; when a value is missing, secret_request it instead of asking in the chat.'
 
-const SKILL_WRITE = '需发起本轮的人是该层管理员（群/团队；平台层只读）；下一轮生效。'
+const SKILL_WRITE =
+  ' Needs the turn initiator to administer the layer (group/team; platform is read-only); applies from the next turn.'
 const SKILL_FORMAT =
-  'Skill 是一个文件夹，须有 SKILL.md，开头 YAML frontmatter：name（小写字母、数字、连字符，≤64，同层唯一）' +
-  '与 description（≤1024，写清做什么、何时用，agent 靠它决定是否加载）；正文写操作步骤，保持精简，' +
-  '细节放 references/ 按需读取，脚本放 scripts/。整个文件夹 ≤5 MB、200 个文件。'
+  ' A skill is a folder with SKILL.md starting with YAML frontmatter: name (lowercase letters, digits, hyphens, ≤64, unique in the layer) ' +
+  'and description (≤1024: what it does and when to use it; agents load it by this). The body gives the steps, kept short; ' +
+  'details go in references/ read on demand, scripts in scripts/. At most 5 MB and 200 files.'
 
 export const GONGGONG_TOOLS = {
   list_messages: {
     title: GONGGONG_TOOL_TITLES.list_messages,
     description:
-      '按时间顺序读取群聊记录（人的发言与 bot 的最终回复）。消息以 #seq 标识；用 before / after / around 翻页或定位。',
+      'Read the group chat in time order (people and bot final replies). Messages are #seq; page or jump with before / after / around.',
     input: ListMessagesArgs,
   },
   search_messages: {
     title: GONGGONG_TOOL_TITLES.search_messages,
-    description: '按关键词检索聊天记录，返回命中片段（从新到旧）；group=all 检索你所在的所有群。',
+    description: 'Search the chat by keyword, newest first; group=all searches every group you are in.',
     input: SearchMessagesArgs,
   },
   get_group_info: {
     title: GONGGONG_TOOL_TITLES.get_group_info,
-    description: '群名、公告、模式、绑定仓库、成员（人与 bot 及其状态），以及你还能读取的其他群。',
+    description:
+      'Group name, notice, mode, repos, members (people and bots with status) and other groups you can read.',
     input: GetGroupInfoArgs,
   },
   get_run: {
     title: GONGGONG_TOOL_TITLES.get_run,
-    description: 'bot 某一轮的触发消息、状态、摘要、改动文件、用量、提问与回答；include_patch 附带 diff。',
+    description:
+      "A bot run's trigger, status, summary, changed files, usage, questions and answers; include_patch adds the diff.",
     input: GetRunArgs,
   },
   list_questions: {
     title: GONGGONG_TOOL_TITLES.list_questions,
-    description: '群里过往的提问卡片与群成员的回答，复用已拍板的决策。',
+    description: 'Past question cards and their answers: reuse decisions already made.',
     input: ListQuestionsArgs,
   },
   fetch_attachments: {
     title: GONGGONG_TOOL_TITLES.fetch_attachments,
-    description: '把某条消息的附件下载到工作区 .gonggong/attachments/ 下，返回相对路径。',
+    description: "Download a message's attachments into .gonggong/attachments/ and return their paths.",
     input: FetchAttachmentsArgs,
   },
   list_feishu_messages: {
     title: GONGGONG_TOOL_TITLES.list_feishu_messages,
     description:
-      '实时读取当前群绑定的飞书群的近期消息（以触发人的飞书身份读取，结果不保存）。' +
-      '飞书里只有与 Bot 交互的消息会同步到共工，需要了解飞书群里此前的讨论时用它。',
+      'Read recent messages of the bound Feishu chat live, as the requester (nothing stored). ' +
+      'Only messages to bots sync here: use it for earlier discussion in Feishu.',
     input: ListFeishuMessagesArgs,
   },
   preview_expose: {
     title: GONGGONG_TOOL_TITLES.preview_expose,
     description:
-      '把本机端口上的网页或服务发布给群成员：返回预览链接，并在群里发一张可内嵌打开的预览卡片。服务请先用 service_start 启动。',
+      'Publish a web page or service on a local port to members: returns a preview link and posts a preview card. Start the service with service_start first.',
     input: PreviewExposeArgs,
   },
   preview_gui: {
     title: GONGGONG_TOOL_TITLES.preview_gui,
     description:
-      '把 service_start 启动的桌面应用（如 Electron、Tauri 应用）的窗口实时推给群成员：群里出现一张预览卡片，' +
-      '成员打开后看到实时画面，经 Bot 主人同意可以远程操作。只推这个服务进程的窗口，不推整个屏幕。',
+      'Stream the windows of a desktop app started with service_start (e.g. Electron, Tauri) to members through a preview card; ' +
+      "with the bot owner's consent they can control it. Only that process's windows, never the whole screen.",
     input: PreviewGuiArgs,
   },
   preview_close: {
     title: GONGGONG_TOOL_TITLES.preview_close,
-    description: '关闭一个预览链接（服务本身不停止）。',
+    description: 'Close a preview link (the service keeps running).',
     input: PreviewCloseArgs,
   },
   progress_card: {
     title: GONGGONG_TOOL_TITLES.progress_card,
     description:
-      '在群里发一张可实时更新的进度卡片（如构建、部署），之后传 id 更新同一张（后续轮次也可以）；只更新传入的字段。' +
-      '适合轮询外部状态的长任务，结束时把阶段标为完成或失败并写明原因。',
+      'Post a live progress card (build, deploy…); pass its id to update the same card, also in later turns (only given fields change). ' +
+      'For long tasks polling outside state; at the end mark stages done or failed with the reason.',
     input: ProgressCardArgs,
   },
   hand_off: {
     title: GONGGONG_TOOL_TITLES.hand_off,
     description:
-      '让另一个 Bot 接手：本轮结束后群里发出一条你 @ 它并交代任务的消息，它随即开始运行。' +
-      '传 group 可交给你所在其他群的 Bot。回复里写 @名字 不会让对方开始工作。',
+      'Hand work to another bot: after this turn a message from you @-mentions it with the task and it starts. ' +
+      'group hands to a bot of another group you are in. Writing @name in a reply does not start it.',
     input: HandOffArgs,
   },
   schedule_create: {
     title: GONGGONG_TOOL_TITLES.schedule_create,
     description:
-      '在本群建定时任务：到点以发起本轮的人的名义 @ 一个 Bot 执行 prompt。用户要求定期或将来某时做某事时用它，' +
-      '不要自己 sleep 等待。返回接下来几次执行时间，请回报给用户核对。',
+      'Schedule a task here: when due, a bot is @-mentioned with prompt on behalf of the turn initiator. Use it for recurring or later work ' +
+      'instead of sleeping. Returns the next run times: report them for the user to check.',
     input: ScheduleCreateArgs,
   },
   schedule_list: {
     title: GONGGONG_TOOL_TITLES.schedule_list,
-    description: '本群的定时任务：id、名称、候选 Bot、执行时间、启用状态、下次执行与最近结果。',
+    description: "This group's scheduled tasks: id, name, bots, timing, enabled, next run and last result.",
     input: ScheduleListArgs,
   },
   schedule_update: {
     title: GONGGONG_TOOL_TITLES.schedule_update,
     description:
-      '修改本群的定时任务，只给要改的字段（含义同 schedule_create）。只能改你创建或候选里有你的任务。',
+      'Change a scheduled task, only the fields to change (as in schedule_create). Only tasks you created or are a candidate of.',
     input: ScheduleUpdateArgs,
   },
   schedule_delete: {
     title: GONGGONG_TOOL_TITLES.schedule_delete,
     description:
-      '删除本群的定时任务。由定时任务触发的一轮里，任务已完成使命（如等待的条件已满足）时可删除它自己。',
+      'Delete a scheduled task. A scheduled turn may delete its own task once it is no longer needed (e.g. the awaited condition is met).',
     input: ScheduleDeleteArgs,
   },
   skill_list: {
     title: GONGGONG_TOOL_TITLES.skill_list,
     description:
-      '本群可见的团队 Skill（平台、团队、群三层，含已停用和本群已关闭的）：名称、层级、说明、版本、是否生效（同名时下层覆盖上层）、发起人能否修改。',
+      'Team skills visible here (platform, team, group layers, disabled ones too): name, layer, description, version, in effect (lower layers override same names), editable by the initiator.',
     input: SkillListArgs,
   },
   skill_get: {
     title: GONGGONG_TOOL_TITLES.skill_get,
-    description: '读取 Skill 的全部文件内容，可指定层级与历史版本。',
+    description: "Read all of a skill's files, optionally of a layer or past version.",
     input: SkillGetArgs,
   },
   skill_create: {
     title: GONGGONG_TOOL_TITLES.skill_create,
-    description: `新建团队 Skill。${SKILL_FORMAT}${SKILL_WRITE}`,
+    description: `Create a team skill.${SKILL_FORMAT}${SKILL_WRITE}`,
     input: SkillCreateArgs,
   },
   skill_update: {
     title: GONGGONG_TOOL_TITLES.skill_update,
-    description: `修改 Skill 的文件，每次修改生成一个新版本，格式要求同 skill_create。${SKILL_WRITE}`,
+    description: `Change a skill's files; each change is a new version, format as in skill_create.${SKILL_WRITE}`,
     input: SkillUpdateArgs,
   },
   skill_delete: {
     title: GONGGONG_TOOL_TITLES.skill_delete,
-    description: `删除 Skill 及其全部版本，不可恢复；只想暂时不用时用 skill_toggle 停用。${SKILL_WRITE}`,
+    description: `Delete a skill with all its versions for good; skill_toggle disables it instead.${SKILL_WRITE}`,
     input: SkillDeleteArgs,
   },
   skill_toggle: {
     title: GONGGONG_TOOL_TITLES.skill_toggle,
-    description: `启用或停用 Skill。${SKILL_WRITE}`,
+    description: `Enable or disable a skill.${SKILL_WRITE}`,
     input: SkillToggleArgs,
   },
   skill_versions: {
     title: GONGGONG_TOOL_TITLES.skill_versions,
-    description: 'Skill 的版本历史：版本号、大小、修改人、时间，标出当前版本。',
+    description: "A skill's versions: number, size, editor, time; the current one marked.",
     input: SkillVersionsArgs,
   },
   skill_rollback: {
     title: GONGGONG_TOOL_TITLES.skill_rollback,
-    description: `把 Skill 回滚到某个历史版本。${SKILL_WRITE}`,
+    description: `Roll a skill back to a past version.${SKILL_WRITE}`,
     input: SkillRollbackArgs,
   },
   kb_list: {
     title: GONGGONG_TOOL_TITLES.kb_list,
-    description: '本群知识库的条目：标题、id、版本、标签、是否置顶（不含正文）。',
+    description: 'Knowledge base entries of this group: title, id, version, tags, pinned (no body).',
     input: KbListArgs,
   },
   kb_get: {
     title: GONGGONG_TOOL_TITLES.kb_get,
-    description: '读取知识库条目的全文与当前版本号。',
+    description: 'Read a knowledge base entry with its version.',
     input: KbGetArgs,
   },
   kb_search: {
     title: GONGGONG_TOOL_TITLES.kb_search,
-    description: '按关键词检索本群知识库（标题、正文、标签），返回命中条目与片段。',
+    description: "Search this group's knowledge base (title, body, tags) by keyword.",
     input: KbSearchArgs,
   },
   kb_create: {
     title: GONGGONG_TOOL_TITLES.kb_create,
     description:
-      '在本群知识库新建一条 Markdown 条目，本群所有 Bot 都能读到。用来记下值得长期记住的本群事实（约定、环境、决策、踩过的坑）；' +
-      '先用 kb_search 查有没有相关条目，有就用 kb_update 补充，不要重复新建。不要写入密钥、密码。',
+      'Add a Markdown entry to the knowledge base every bot here reads: lasting facts of this group (conventions, environments, decisions, pitfalls). ' +
+      'kb_search first and extend a related entry with kb_update instead of duplicating it. Never store secrets or passwords.',
     input: KbCreateArgs,
   },
   kb_update: {
     title: GONGGONG_TOOL_TITLES.kb_update,
     description:
-      '修改知识库条目（只给要改的字段），每次修改生成新版本，群成员可回滚。base_version 填你 kb_get 读到的版本；' +
-      '条目已被别人改过时修改失败，按提示重新读取、合并后再改。',
+      'Change an entry (only the fields to change); each change is a version members can roll back. base_version is the one kb_get gave you; ' +
+      'if someone changed it since, the call fails: read it again, merge, retry.',
     input: KbUpdateArgs,
   },
   kb_delete: {
     title: GONGGONG_TOOL_TITLES.kb_delete,
-    description: '删除知识库条目。需要发起本轮的人是本群管理员；内容过时优先用 kb_update 修正。',
+    description:
+      'Delete an entry. Needs the turn initiator to be a group admin; prefer fixing outdated content with kb_update.',
     input: KbDeleteArgs,
   },
   tab_list: {
     title: GONGGONG_TOOL_TITLES.tab_list,
-    description: '本群顶部标签栏的标签：标题、类型、指向（链接、知识库条目、文件、内置入口）。',
+    description: "The group's top tab bar: title, kind and target (link, knowledge entry, file, built-in).",
     input: TabListArgs,
   },
   tab_create: {
     title: GONGGONG_TOOL_TITLES.tab_create,
     description:
-      '把链接、知识库条目或你工作区里的文件钉到本群顶部标签栏，群成员一键打开。用于需要长期反复查看的报告、文档、看板；' +
-      '先用 tab_list 看是否已经有了，不要重复添加，一次性内容不要钉。',
+      'Pin a link, knowledge entry or workspace file to the top tab bar for reports, docs and dashboards people return to; ' +
+      'check tab_list first, never duplicate, never pin one-off content.',
     input: TabCreateArgs,
   },
   mcp_list: {
     title: GONGGONG_TOOL_TITLES.mcp_list,
     description:
-      '本群可见的 MCP（平台、团队、群三层，含已停用和本群已关闭的）：名称、层级、类型、启动命令或地址、是否生效（同名时下层覆盖上层）、发起人能否修改；密钥只显示是否已填写。',
+      'MCP servers visible here (platform, team, group layers, disabled ones too): name, layer, transport, command or URL, in effect (lower layers override same names), editable by the initiator; secrets only as filled or not.',
     input: McpListArgs,
   },
   mcp_get: {
     title: GONGGONG_TOOL_TITLES.mcp_get,
-    description: '查看一个 MCP 的配置，密钥打码，只显示是否已填写。',
+    description: "An MCP server's config, secrets masked.",
     input: McpGetArgs,
   },
   mcp_create: {
     title: GONGGONG_TOOL_TITLES.mcp_create,
-    description: `新建 MCP（stdio：command/args/env；http：url/headers）。${MCP_SECRET}${MCP_WRITE}`,
+    description: `Create an MCP server (stdio: command/args/env; http: url/headers).${MCP_SECRET}${MCP_WRITE}`,
     input: McpCreateArgs,
   },
   mcp_update: {
     title: GONGGONG_TOOL_TITLES.mcp_update,
-    description: `修改 MCP 的配置，密钥规则同 mcp_create。${MCP_WRITE}`,
+    description: `Change an MCP server's config, secrets as in mcp_create.${MCP_WRITE}`,
     input: McpUpdateArgs,
   },
   mcp_toggle: {
     title: GONGGONG_TOOL_TITLES.mcp_toggle,
-    description: `启用或停用 MCP。${MCP_WRITE}`,
+    description: `Enable or disable an MCP server.${MCP_WRITE}`,
     input: McpToggleArgs,
   },
   mcp_delete: {
     title: GONGGONG_TOOL_TITLES.mcp_delete,
-    description: `删除 MCP，不可恢复；只想暂时不用时用 mcp_toggle 停用。${MCP_WRITE}`,
+    description: `Delete an MCP server for good; mcp_toggle disables it instead.${MCP_WRITE}`,
     input: McpDeleteArgs,
   },
   secret_list: {
     title: GONGGONG_TOOL_TITLES.secret_list,
     description:
-      '列出本群可用的密钥：名称、用途、模式（shared 统一值 / shared_overridable 统一值可个人覆盖 / personal 每人自填）、来源层、是否已填写、本轮是否注入。' +
-      '已注入的密钥在你的进程环境变量里（同名），直接用 $名称 读取；永远不要把值打印、写进文件、消息或提交。',
+      'Secrets usable here: name, purpose, mode (shared / shared_overridable: shared, personal override allowed / personal), layer, filled, injected this turn. ' +
+      'Injected ones are env vars of the same name: read $NAME; never print values or put them in files, messages or commits.',
     input: SecretListArgs,
   },
   secret_request: {
     title: GONGGONG_TOOL_TITLES.secret_request,
     description:
-      '在群里发一张「填写密钥」卡片：personal / 可覆盖的密钥请发起本轮的人填写自己的值，shared 密钥请该层管理员填写；值不经过你，也不进聊天记录和日志。' +
-      '工具立即返回，不等待填写；填写后下一轮注入。不要在对话里索要密钥。',
+      'Post a 「填写密钥」 card: the initiator fills personal / overridable secrets, a layer admin shared ones; values never pass through you, the chat or logs. ' +
+      'Returns at once; filled values are injected from the next turn. Never ask for secrets in the chat.',
     input: SecretRequestArgs,
   },
   plugin_catalog: {
     title: GONGGONG_TOOL_TITLES.plugin_catalog,
     description:
-      '本群启用的创作插件（幻灯片、产品原型等）。不传 plugin：列出插件、模板数、设计系统数和本 Bot 能否使用；' +
-      '传 plugin：列出它的模板（id、标题、分组、要填的输入项、是否用设计系统）、设计系统（id、标题、分类、色板）和输入项定义。' +
-      '群成员在对话里提出创作需求时先用它挑模板，再用 creation_propose 发确认卡。',
+      'Creation plugins enabled here (slides, prototypes…). Without plugin: plugins, template and design system counts, whether you can use each. ' +
+      'With plugin: its templates (id, title, group, inputs, uses a design system), design systems (id, title, category, palette) and inputs. ' +
+      'When members ask for such work in the chat, pick a template here, then creation_propose.',
     input: PluginCatalogArgs,
   },
   creation_propose: {
     title: GONGGONG_TOOL_TITLES.creation_propose,
     description:
-      '在群里发一张「创作确认卡」：写明插件、模板、设计系统和参数，群成员点「开始」后会以该成员的名义发出正式的创作请求并 @ 你，' +
-      '也可以先「改参数」或「不用了」。工具立即返回；在收到正式的创作请求之前不要开始出稿。',
+      'Post a creation card with plugin, template, design system and inputs; a member clicking 「开始」 sends you the formal request on their behalf ' +
+      '(or 「改参数」 / 「不用了」). Returns at once; do not start before the formal request arrives.',
     input: CreationProposeArgs,
   },
   artifact_checkout: {
     title: GONGGONG_TOOL_TITLES.artifact_checkout,
     description:
-      '检出本群一个托管产物（design/<slug>/ 目录，服务端为准）：本轮开跑时没有下发、需要读或改它时用。' +
-      '产物在下一轮开跑前检出到工作区，本轮之内不会出现；返回产物目录、当前版本和屏幕清单。',
+      'Check out a hosted artifact of this group (design/<slug>/, the server copy wins) that this turn did not get and you need to read or change. ' +
+      'It arrives in the workspace before the next turn, not this one; returns its dir, version and screens.',
     input: ArtifactCheckoutArgs,
   },
 } as const
 
 export type GonggongToolName = keyof typeof GONGGONG_TOOLS
 
-type ToolDefs = Record<string, { title: string; description: string; input: z.ZodType }>
+type ToolDefs = Record<string, { title: string; description: string; input: z.ZodType; alwaysLoad?: true }>
 const toolList = (tools: ToolDefs) =>
   Object.entries(tools).map(([name, t]) => {
     const { $schema: _, ...inputSchema } = z.toJSONSchema(t.input, {
@@ -663,7 +709,9 @@ const toolList = (tools: ToolDefs) =>
         if (s.format) delete s.pattern
       },
     })
-    return { name, title: t.title, description: t.description, inputSchema }
+    // Claude Code otherwise defers MCP tools behind ToolSearch, where the agent sees only their names.
+    const meta = t.alwaysLoad ? { _meta: { 'anthropic/alwaysLoad': true } } : {}
+    return { name, title: t.title, description: t.description, inputSchema, ...meta }
   })
 
 /** MCP `tools/list` entries (what `gonggong-tools.json` holds). */
@@ -671,31 +719,31 @@ export const gonggongToolList = () => toolList(GONGGONG_TOOLS)
 
 export const ServiceStartArgs = z.object({
   name: serviceName,
-  command: z.string().min(1).max(2000).describe('在工作区里用 shell 执行的启动命令'),
-  cwd: z.string().max(500).describe('工作区内的相对目录，默认工作区根目录').optional(),
-  port: port.describe('服务监听的本机端口；给出时等待端口就绪（最多 60 秒）').optional(),
-  env: z.record(z.string(), z.string()).describe('额外的环境变量').optional(),
+  command: z.string().min(1).max(2000).describe('Shell command run in the workspace'),
+  cwd: z.string().max(500).describe('Workspace-relative dir, default the root').optional(),
+  port: port.describe('Port it listens on; waits until ready (up to 60 s)').optional(),
+  env: z.record(z.string(), z.string()).describe('Extra env vars').optional(),
   display: z
     .enum(['virtual'])
     .describe(
-      '桌面应用的显示位置：virtual 表示在本机新建的虚拟显示（Xvfb）上运行，不占用机器主人的屏幕，preview_gui 推送整块虚拟屏幕；仅 Linux',
+      "Desktop apps: virtual runs on a new virtual display (Xvfb), not the owner's screen, and preview_gui streams all of it; Linux only",
     )
     .optional(),
 })
 export const ServiceListArgs = z.object({})
 export const ServiceLogsArgs = z.object({
   name: serviceName,
-  tail: z.number().int().min(1).max(1000).describe('最后多少行，默认 100').optional(),
+  tail: z.number().int().min(1).max(1000).describe('Last lines, default 100').optional(),
 })
 export const ServiceStopArgs = z.object({ name: serviceName })
 export const PreviewStaticArgs = z.object({
   dir: z
     .string()
     .max(500)
-    .describe('工作区内要发布的目录（如 dist、docs/report），默认工作区根目录')
+    .describe('Workspace dir to publish (e.g. dist, docs/report), default the root')
     .optional(),
-  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
-  path: z.string().regex(/^\//).max(500).describe('打开时的路径，默认 /（目录下的 index.html）').optional(),
+  title: z.string().min(1).max(60).describe('Card title: what this is'),
+  path: z.string().regex(/^\//).max(500).describe('Path to open, default / (index.html)').optional(),
 })
 
 const page = z.string().min(1).max(HTML_RENDER_HTML_MAX).describe('A complete, self-contained HTML document.')
@@ -721,8 +769,9 @@ export const HtmlRenderArgs = z.object({
     .min(HTML_RENDER_MIN_HEIGHT)
     .max(HTML_RENDER_MAX_HEIGHT)
     .describe(
-      `Frame height in CSS pixels, ${HTML_RENDER_MIN_HEIGHT} to ${HTML_RENDER_MAX_HEIGHT}. Use the contentHeight from html_preview.`,
-    ),
+      `Frame height in CSS pixels, ${HTML_RENDER_MIN_HEIGHT} to ${HTML_RENDER_MAX_HEIGHT}. Default: the page's own, measured; set it only to cut a long page short.`,
+    )
+    .optional(),
 })
 
 const PAGE_RULES =
@@ -732,16 +781,16 @@ export const PreviewMiniprogramArgs = z.object({
   dir: z
     .string()
     .max(500)
-    .describe('工作区内小程序项目的目录（含 project.config.json），默认工作区根目录')
+    .describe('Workspace dir of the mini program (with project.config.json), default the root')
     .optional(),
   page: z
     .string()
     .regex(/^[^/?]/)
     .max(300)
-    .describe('打开的页面路径，如 pages/goods/detail，默认首页')
+    .describe('Page to open, e.g. pages/goods/detail, default the home page')
     .optional(),
-  query: z.string().regex(/^[^?]/).max(500).describe('页面参数，如 id=42&from=share').optional(),
-  title: z.string().min(1).max(60).describe('卡片标题，说明这是什么'),
+  query: z.string().regex(/^[^?]/).max(500).describe('Page query, e.g. id=42&from=share').optional(),
+  title: z.string().min(1).max(60).describe('Card title: what this is'),
 })
 
 export const ClientReleasePublishArgs = z
@@ -751,7 +800,7 @@ export const ClientReleasePublishArgs = z
       .min(1)
       .max(500)
       .describe(
-        '要发布的一个产物路径（工作区内的相对路径，如 dist/0.3.1/gonggong-0.3.1-macos-aarch64）；文件名须是 scripts/release.sh 的产物名',
+        'One build output, workspace-relative (e.g. dist/0.3.1/gonggong-0.3.1-macos-aarch64), named as scripts/release.sh names it',
       )
       .optional(),
     dir: z
@@ -759,12 +808,12 @@ export const ClientReleasePublishArgs = z
       .min(1)
       .max(500)
       .describe(
-        '要整体发布的目录（工作区内的相对路径，如 dist/0.3.1）：上传其中所有发布产物与 RELEASE_NOTES.md，SHA256SUMS、manifest.json 与子目录跳过',
+        'A whole dir, workspace-relative (e.g. dist/0.3.1): uploads every release file and RELEASE_NOTES.md, skipping SHA256SUMS, manifest.json and subdirs',
       )
       .optional(),
     kind: z
       .literal('daemon')
-      .describe('仅发布 daemon 与 gg-cast（不包含桌面端）；dir 需有全部平台产物，桌面端沿用原发布流程')
+      .describe('Only gg and gg-cast (no desktop app); dir needs every platform')
       .optional(),
   })
   .refine((a) => (a.file === undefined) !== (a.dir === undefined), {
@@ -775,9 +824,9 @@ export const ClientReleasePublishArgs = z
     path: ['kind'],
   })
 export const ClientReleaseNotesArgs = z.object({
-  version: DaemonRelease.shape.version.describe('要更新说明的已发布版本，如 0.3.5；必须与当前发布版本一致'),
+  version: DaemonRelease.shape.version.describe('The current release version, e.g. 0.3.5'),
   releaseNotes: ReleaseNotesReq.shape.releaseNotes.describe(
-    '完整的 Markdown 版本说明，会展示在桌面端和 daemon 升级提示里',
+    'Full Markdown release notes, shown in desktop and daemon update prompts',
   ),
 })
 
@@ -787,12 +836,12 @@ export const FeishuSendCardArgs = z.object({
   card: z
     .record(z.string(), z.unknown())
     .describe(
-      '飞书卡片 JSON 2.0：{"schema":"2.0","header":{…},"body":{"elements":[…]}}；本地图片的位置（如 img 元素的 img_key）写占位符，如 "chart"',
+      'Feishu card JSON 2.0 (see the feishu-card skill); a local image goes in as a placeholder img_key such as "chart"',
     ),
   images: z
     .record(z.string().regex(/^[\w-]{1,40}$/), z.string().min(1).max(500))
     .describe(
-      `占位符 → 工作区内图片的相对路径，如 {"chart": "out/chart.png"}；至多 ${FEISHU_CARD_IMAGES_MAX} 张，png/jpg/gif/webp 等，单张不超过 10 MB`,
+      `Placeholder → workspace image path, e.g. {"chart": "out/chart.png"}; up to ${FEISHU_CARD_IMAGES_MAX}, 10 MB each`,
     )
     .optional(),
 })
@@ -805,74 +854,76 @@ export const DAEMON_TOOLS = {
   send_attachments: {
     title: '发送文件到群聊',
     description:
-      '把工作区里的图片、视频或其他文件作为本 Bot 的群消息发送，成员可直接在聊天中预览。' +
-      'paths 使用工作区相对路径，一次 1 至 10 个文件；需要成员查看本次生成的媒体文件时主动使用。',
+      'Send workspace images, videos or other files as your group message, previewable in the chat. ' +
+      'Use it whenever members should see media you produced.',
     input: SendAttachmentsArgs,
   },
   service_start: {
     title: '启动托管服务',
     description:
-      '在工作区启动由 gonggong 托管的长期服务（如 dev server），本轮结束后仍运行，再用 preview_expose 发布。' +
-      '同名服务先停再启，已有预览卡片自动接上，不必重新发布。',
+      'Start a long-running service managed by gonggong (e.g. a dev server) that outlives the turn; then preview_expose it. ' +
+      'Restarting a name keeps its preview cards working, no need to publish again.',
     input: ServiceStartArgs,
   },
   service_list: {
     title: '托管服务列表',
-    description: '你在本群托管的服务：名字、状态、端口、运行时长。',
+    description: 'Your managed services here: name, state, port, uptime.',
     input: ServiceListArgs,
   },
   service_logs: {
     title: '托管服务日志',
-    description: '查看托管服务的输出（stdout 与 stderr 合并）末尾若干行。',
+    description: "Tail of a managed service's output (stdout and stderr).",
     input: ServiceLogsArgs,
   },
   service_stop: {
     title: '停止托管服务',
     description:
-      '停止托管服务及其子进程。它的预览卡片保留并显示服务已停止，重新启动同名服务或成员在卡片上点启动即可恢复。',
+      'Stop a managed service and its children. Its preview cards stay and show it stopped until it is started again.',
     input: ServiceStopArgs,
   },
   preview_static: {
     title: '发布静态页面',
     description:
-      '把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。',
+      'Publish workspace static files (HTML reports, builds…) as a site with a preview card; no server needed.',
     input: PreviewStaticArgs,
   },
   html_preview: {
     title: '预览 HTML',
-    description: `Check a page before html_render: returns a PNG, contentHeight and console output. ${PAGE_RULES} Rules are in html_render.`,
+    description: `Optional check before html_render: returns a PNG, contentHeight and console output. ${PAGE_RULES} Rules are in html_render.`,
     input: HtmlPreviewArgs,
+    alwaysLoad: true,
   },
   html_render: {
     title: '在群聊中展示 HTML',
     description: `Show a finished HTML page inline in your final reply; the result gives its id to place it there; do not restate it. Height fits the page up to ${HTML_RENDER_MAX_FIT_HEIGHT}px. ${PAGE_RULES} ${HTML_RENDER_LAYOUT_GUIDE} ${HTML_RENDER_THEME_GUIDE}`,
     input: HtmlRenderArgs,
+    alwaysLoad: true,
   },
   client_release_publish: {
     title: '发布客户端到当前空间',
     description:
-      '把 scripts/release.sh 构建的客户端产物（gg daemon、gg-cast、桌面端安装包与更新包）上传到当前空间，' +
-      '成员的 daemon 与桌面端随后从这里更新。推荐用 dir 发布整个 dist/<版本>（只审批一次），补传单个文件用 file；' +
-      '只发 daemon 用 dir 加 kind="daemon"。仅限系统管理员发起的对话。',
+      'Upload client builds from scripts/release.sh (gg, gg-cast, desktop installers and updates) to this space; members update from here. ' +
+      'Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind="daemon" for gg only. Sysadmin turns only.',
     input: ClientReleasePublishArgs,
   },
   client_release_notes: {
     title: '更新客户端版本说明',
-    description: '写入当前发布版本的 Markdown 更新说明，客户端下次检查更新时展示。仅限系统管理员发起的对话。',
+    description:
+      'Write the Markdown notes of the current release, shown at the next update check. Sysadmin turns only.',
     input: ClientReleaseNotesArgs,
   },
   feishu_send_card: {
     title: GONGGONG_TOOL_TITLES.feishu_send_card,
     description:
-      '以本 Bot 的飞书应用身份，往本群绑定的飞书群发一张自定义消息卡片，回复在触发本轮的消息下；' +
-      '卡片引用的工作区图片会自动上传并换成 img_key。本群未绑定飞书群时不可用。普通回复不需要它，最终回复会自动同步到飞书。',
+      "Send a custom card to the bound Feishu chat as this bot's Feishu app, replying to the message that started the turn. " +
+      'Read the feishu-card skill first. Ordinary replies sync to Feishu by themselves.',
     input: FeishuSendCardArgs,
   },
   preview_miniprogram: {
     title: '发布小程序预览',
     description:
-      '在本机微信开发者工具里打开工作区的小程序并跳到指定页面，群里发一张带模拟器截图的预览卡片；同一项目再调用会切换页面。' +
-      '启动、登录（卡片上显示二维码）和信任项目都由它处理，不要自己用 cli 等命令操作开发者工具或另发二维码。',
+      'Open the workspace mini program in WeChat DevTools on this machine at a page and post a card with a simulator screenshot; call again to switch pages. ' +
+      'It handles launch, login (QR code on the card) and trust: never drive DevTools yourself or send QR codes.',
     input: PreviewMiniprogramArgs,
   },
 } as const

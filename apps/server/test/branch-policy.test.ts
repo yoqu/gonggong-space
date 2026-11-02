@@ -94,9 +94,9 @@ describe('禁止直推基准分支', () => {
     await t.db.update(groups).set({ protectBase: true }).where(eq(groups.id, g.id))
     const on = await runStart(w, g.id)
     expect(on.workspace).toMatchObject({ protectBase: true, repo: { branch: 'release' } })
-    expect(on.bot.systemPrompt).toContain('不要直接提交或推送到基准分支 release')
+    expect(on.bot.systemPrompt).toContain('never commit or push to the base branch release')
     // Only the base branch is off limits: an existing branch (e.g. feature-756) is worked on as is, names are free.
-    expect(on.bot.systemPrompt).toContain('已经在其他分支上就直接在该分支开发、提交并推送')
+    expect(on.bot.systemPrompt).toContain('already on another branch, work, commit and push there')
     expect(on.bot.systemPrompt).not.toContain('feat/')
   })
 })

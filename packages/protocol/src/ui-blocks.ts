@@ -126,7 +126,14 @@ export type AnswerActionsReq = z.infer<typeof AnswerActionsReq>
 
 /** Agent-facing guide to the blocks and inline pages (not translated), added to every bot's system prompt. */
 export const UI_BLOCKS_GUIDE = `Replies are chat Markdown. These fenced blocks render as components (not for ordinary code; invalid JSON shows as code):
-- \`\`\`mermaid: flowchart, sequence, architecture or gantt diagrams.
+- \`\`\`mermaid: diagrams that are only nodes and edges (flowchart, sequence, architecture, gantt).
 - \`\`\`actions: JSON {"id"?,"prompt"?,"options":[{"label","value"?,"style"?:"primary|default|danger"}],"multiple"?} — buttons for a choice you need; a click returns as "@you 选择了「label」". End your turn after it.
 - \`\`\`html-page: JSON {"id"} — places a page you published with html_render this turn at that point of your reply; pages you do not place follow your reply.
-Visuals (a chart for data with a trend or comparison; any diagram, dashboard, mockup or report asked for): one self-contained HTML page (a file: pass its HTML), \`html_preview\`, then \`html_render\`. Not a screenshot, text description or server.`
+
+Visuals: the chat shows inline HTML pages. When a picture says it better than text, publish one self-contained page with html_render (html_preview first if unsure of the layout):
+- comparing 3 or more options, versions or approaches: a table or cards
+- data such as metrics, test, benchmark or coverage results, timings, trends: a chart
+- UI changes, design directions, palettes: a mockup; several screenshots: a collage
+- summaries such as reports, investigations, research findings: a one-page report
+- any request to draw, chart, visualize or make a page
+Not for an answer of a sentence or two, notes on a code change, a single number, or midway through a coding task. At most one page per reply; your text gives the conclusion and does not restate the page. Never a screenshot, a text description or a server instead.`

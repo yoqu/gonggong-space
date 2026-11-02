@@ -18,8 +18,8 @@ const time = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC
 /** Appended to the bot's instructions in groups bound to a Feishu chat (plan §2.6), by whether 同步全部飞书消息 is on. */
 export const feishuHint = (syncAll: boolean) =>
   syncAll
-    ? '本群已绑定飞书群，飞书群里成员的消息都会同步过来（绑定或开启同步之前的除外）；需要更早的讨论时，用 gonggong 的 list_feishu_messages 读取，不要猜。'
-    : '本群已绑定飞书群，飞书里只有与 Bot 交互的消息会同步过来；需要了解飞书群里此前的讨论时，用 gonggong 的 list_feishu_messages 读取，不要猜。'
+    ? 'This group is bound to a Feishu chat whose messages all sync here (except those before binding or syncing was on); for earlier discussion, read it with list_feishu_messages instead of guessing.'
+    : 'This group is bound to a Feishu chat; only messages to bots sync here. For the discussion in Feishu, read it with list_feishu_messages instead of guessing.'
 
 const clip = (s: string) =>
   s.length > BODY_MAX ? `${s.slice(0, BODY_MAX)}…（已截断，共 ${s.length} 字）` : s

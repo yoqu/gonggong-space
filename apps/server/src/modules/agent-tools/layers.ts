@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { groups, type runs, users } from '../../db/schema.js'
+import type { Db } from '../../db/client.js'
+import { groupMembers, groups, type runs, teamMembers, teams, users } from '../../db/schema.js'
 import { HttpError } from '../../lib/errors.js'
 import { requireAdmin } from '../groups/service.js'
 import type { Layer, Scope } from '../mcp/service.js'
@@ -50,4 +51,33 @@ export async function editable(ctx: Ctx, run: Run) {
     team: await canEdit(ctx, run, { scope: 'team', teamId: team, groupId: null }),
     group: await canEdit(ctx, run, { scope: 'group', teamId: team, groupId: run.groupId }),
   }
+}
+
+/** What the run's originator administers, as `isLayerAdmin` decides it: any layer, and the platform (sysadmin). */
+export async function originAdmin(db: Pick<Db, 'select'>, run: Pick<Run, 'groupId' | 'originUserId'>) {
+  const [[user], [member], [lead]] = await Promise.all([
+    db
+      .select({ role: users.role, disabledAt: users.disabledAt })
+      .from(users)
+      .where(eq(users.id, run.originUserId)),
+    db
+      .select({ isAdmin: groupMembers.isAdmin })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, run.groupId), eq(groupMembers.userId, run.originUserId))),
+    db
+      .select({ role: teamMembers.role })
+      .from(groups)
+      .innerJoin(teamMembers, eq(teamMembers.teamId, groups.teamId))
+      .innerJoin(teams, eq(teams.id, groups.teamId))
+      .where(
+        and(
+          eq(groups.id, run.groupId),
+          eq(teamMembers.userId, run.originUserId),
+          inArray(teamMembers.role, ['owner', 'admin']),
+          isNull(teams.archivedAt),
+        ),
+      ),
+  ])
+  const sysadmin = user?.role === 'sysadmin' && !user.disabledAt
+  return { sysadmin, any: sysadmin || !!member?.isAdmin || !!lead }
 }

@@ -7,6 +7,7 @@ import {
   daemonToolList,
   GetRunArgs,
   gonggongToolList,
+  HtmlRenderArgs,
   ListMessagesArgs,
   PreviewExposeArgs,
   PreviewMiniprogramArgs,
@@ -23,6 +24,12 @@ describe('gonggong tools', () => {
 
   it('gonggong-daemon-tools.json (answered by the daemon) matches the zod definitions', () => {
     expect(read('gonggong-daemon-tools.json')).toEqual(daemonToolList())
+  })
+
+  it('keeps the HTML tools loaded and lets a page publish at its measured height', () => {
+    const loaded = daemonToolList().filter((t) => '_meta' in t && t._meta?.['anthropic/alwaysLoad'])
+    expect(loaded.map((t) => t.name)).toEqual(['html_preview', 'html_render'])
+    expect(HtmlRenderArgs.safeParse({ html: '<p>x</p>', title: '看板' }).success).toBe(true)
   })
 
   it('rejects ambiguous cursors and run references', () => {

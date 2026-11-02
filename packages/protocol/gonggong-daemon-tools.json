@@ -2,7 +2,7 @@
   {
     "name": "send_attachments",
     "title": "发送文件到群聊",
-    "description": "把工作区里的图片、视频或其他文件作为本 Bot 的群消息发送，成员可直接在聊天中预览。paths 使用工作区相对路径，一次 1 至 10 个文件；需要成员查看本次生成的媒体文件时主动使用。",
+    "description": "Send workspace images, videos or other files as your group message, previewable in the chat. Use it whenever members should see media you produced.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -14,14 +14,14 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500,
-            "description": "工作区内的相对路径"
+            "description": "Workspace-relative path"
           },
-          "description": "要发送的工作区文件，1 至 10 个"
+          "description": "Workspace files to send, 1 to 10"
         },
         "text": {
           "type": "string",
           "maxLength": 20000,
-          "description": "随附件发送的说明，可省略"
+          "description": "Text sent with the files"
         }
       },
       "required": ["paths"]
@@ -30,31 +30,31 @@
   {
     "name": "service_start",
     "title": "启动托管服务",
-    "description": "在工作区启动由 gonggong 托管的长期服务（如 dev server），本轮结束后仍运行，再用 preview_expose 发布。同名服务先停再启，已有预览卡片自动接上，不必重新发布。",
+    "description": "Start a long-running service managed by gonggong (e.g. a dev server) that outlives the turn; then preview_expose it. Restarting a name keeps its preview cards working, no need to publish again.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
-          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+          "description": "Service name (lowercase letters, digits, hyphens, up to 32), unique per group and bot"
         },
         "command": {
           "type": "string",
           "minLength": 1,
           "maxLength": 2000,
-          "description": "在工作区里用 shell 执行的启动命令"
+          "description": "Shell command run in the workspace"
         },
         "cwd": {
           "type": "string",
           "maxLength": 500,
-          "description": "工作区内的相对目录，默认工作区根目录"
+          "description": "Workspace-relative dir, default the root"
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
-          "description": "服务监听的本机端口；给出时等待端口就绪（最多 60 秒）"
+          "description": "Port it listens on; waits until ready (up to 60 s)"
         },
         "env": {
           "type": "object",
@@ -64,12 +64,12 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "额外的环境变量"
+          "description": "Extra env vars"
         },
         "display": {
           "type": "string",
           "enum": ["virtual"],
-          "description": "桌面应用的显示位置：virtual 表示在本机新建的虚拟显示（Xvfb）上运行，不占用机器主人的屏幕，preview_gui 推送整块虚拟屏幕；仅 Linux"
+          "description": "Desktop apps: virtual runs on a new virtual display (Xvfb), not the owner's screen, and preview_gui streams all of it; Linux only"
         }
       },
       "required": ["name", "command"]
@@ -78,7 +78,7 @@
   {
     "name": "service_list",
     "title": "托管服务列表",
-    "description": "你在本群托管的服务：名字、状态、端口、运行时长。",
+    "description": "Your managed services here: name, state, port, uptime.",
     "inputSchema": {
       "type": "object",
       "properties": {}
@@ -87,20 +87,20 @@
   {
     "name": "service_logs",
     "title": "托管服务日志",
-    "description": "查看托管服务的输出（stdout 与 stderr 合并）末尾若干行。",
+    "description": "Tail of a managed service's output (stdout and stderr).",
     "inputSchema": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
-          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+          "description": "Service name (lowercase letters, digits, hyphens, up to 32), unique per group and bot"
         },
         "tail": {
           "type": "integer",
           "minimum": 1,
           "maximum": 1000,
-          "description": "最后多少行，默认 100"
+          "description": "Last lines, default 100"
         }
       },
       "required": ["name"]
@@ -109,14 +109,14 @@
   {
     "name": "service_stop",
     "title": "停止托管服务",
-    "description": "停止托管服务及其子进程。它的预览卡片保留并显示服务已停止，重新启动同名服务或成员在卡片上点启动即可恢复。",
+    "description": "Stop a managed service and its children. Its preview cards stay and show it stopped until it is started again.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
-          "description": "服务名（小写字母、数字、连字符，最长 32），在本群本 bot 内唯一"
+          "description": "Service name (lowercase letters, digits, hyphens, up to 32), unique per group and bot"
         }
       },
       "required": ["name"]
@@ -125,26 +125,26 @@
   {
     "name": "preview_static",
     "title": "发布静态页面",
-    "description": "把工作区里的静态文件（HTML 报告、构建产物等）作为站点发布给群成员，并在群里发一张预览卡片；无需自己起服务。",
+    "description": "Publish workspace static files (HTML reports, builds…) as a site with a preview card; no server needed.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "dir": {
           "type": "string",
           "maxLength": 500,
-          "description": "工作区内要发布的目录（如 dist、docs/report），默认工作区根目录"
+          "description": "Workspace dir to publish (e.g. dist, docs/report), default the root"
         },
         "title": {
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
-          "description": "卡片标题，说明这是什么"
+          "description": "Card title: what this is"
         },
         "path": {
           "type": "string",
           "maxLength": 500,
           "pattern": "^\\/",
-          "description": "打开时的路径，默认 /（目录下的 index.html）"
+          "description": "Path to open, default / (index.html)"
         }
       },
       "required": ["title"]
@@ -153,7 +153,7 @@
   {
     "name": "html_preview",
     "title": "预览 HTML",
-    "description": "Check a page before html_render: returns a PNG, contentHeight and console output. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Rules are in html_render.",
+    "description": "Optional check before html_render: returns a PNG, contentHeight and console output. Inline <style> and <script>. Local images given as absolute paths are inlined. Remote URLs load as-is. Rules are in html_render.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -176,6 +176,9 @@
         }
       },
       "required": ["html"]
+    },
+    "_meta": {
+      "anthropic/alwaysLoad": true
     }
   },
   {
@@ -201,16 +204,19 @@
           "type": "integer",
           "minimum": 80,
           "maximum": 2000,
-          "description": "Frame height in CSS pixels, 80 to 2000. Use the contentHeight from html_preview."
+          "description": "Frame height in CSS pixels, 80 to 2000. Default: the page's own, measured; set it only to cut a long page short."
         }
       },
-      "required": ["html", "title", "height"]
+      "required": ["html", "title"]
+    },
+    "_meta": {
+      "anthropic/alwaysLoad": true
     }
   },
   {
     "name": "client_release_publish",
     "title": "发布客户端到当前空间",
-    "description": "把 scripts/release.sh 构建的客户端产物（gg daemon、gg-cast、桌面端安装包与更新包）上传到当前空间，成员的 daemon 与桌面端随后从这里更新。推荐用 dir 发布整个 dist/<版本>（只审批一次），补传单个文件用 file；只发 daemon 用 dir 加 kind=\"daemon\"。仅限系统管理员发起的对话。",
+    "description": "Upload client builds from scripts/release.sh (gg, gg-cast, desktop installers and updates) to this space; members update from here. Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind=\"daemon\" for gg only. Sysadmin turns only.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -218,18 +224,18 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 500,
-          "description": "要发布的一个产物路径（工作区内的相对路径，如 dist/0.3.1/gonggong-0.3.1-macos-aarch64）；文件名须是 scripts/release.sh 的产物名"
+          "description": "One build output, workspace-relative (e.g. dist/0.3.1/gonggong-0.3.1-macos-aarch64), named as scripts/release.sh names it"
         },
         "dir": {
           "type": "string",
           "minLength": 1,
           "maxLength": 500,
-          "description": "要整体发布的目录（工作区内的相对路径，如 dist/0.3.1）：上传其中所有发布产物与 RELEASE_NOTES.md，SHA256SUMS、manifest.json 与子目录跳过"
+          "description": "A whole dir, workspace-relative (e.g. dist/0.3.1): uploads every release file and RELEASE_NOTES.md, skipping SHA256SUMS, manifest.json and subdirs"
         },
         "kind": {
           "type": "string",
           "const": "daemon",
-          "description": "仅发布 daemon 与 gg-cast（不包含桌面端）；dir 需有全部平台产物，桌面端沿用原发布流程"
+          "description": "Only gg and gg-cast (no desktop app); dir needs every platform"
         }
       }
     }
@@ -237,20 +243,20 @@
   {
     "name": "client_release_notes",
     "title": "更新客户端版本说明",
-    "description": "写入当前发布版本的 Markdown 更新说明，客户端下次检查更新时展示。仅限系统管理员发起的对话。",
+    "description": "Write the Markdown notes of the current release, shown at the next update check. Sysadmin turns only.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "version": {
           "type": "string",
           "pattern": "^\\d+\\.\\d+\\.\\d+$",
-          "description": "要更新说明的已发布版本，如 0.3.5；必须与当前发布版本一致"
+          "description": "The current release version, e.g. 0.3.5"
         },
         "releaseNotes": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100000,
-          "description": "完整的 Markdown 版本说明，会展示在桌面端和 daemon 升级提示里"
+          "description": "Full Markdown release notes, shown in desktop and daemon update prompts"
         }
       },
       "required": ["version", "releaseNotes"]
@@ -259,7 +265,7 @@
   {
     "name": "feishu_send_card",
     "title": "发送飞书卡片",
-    "description": "以本 Bot 的飞书应用身份，往本群绑定的飞书群发一张自定义消息卡片，回复在触发本轮的消息下；卡片引用的工作区图片会自动上传并换成 img_key。本群未绑定飞书群时不可用。普通回复不需要它，最终回复会自动同步到飞书。",
+    "description": "Send a custom card to the bound Feishu chat as this bot's Feishu app, replying to the message that started the turn. Read the feishu-card skill first. Ordinary replies sync to Feishu by themselves.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -269,7 +275,7 @@
             "type": "string"
           },
           "additionalProperties": {},
-          "description": "飞书卡片 JSON 2.0：{\"schema\":\"2.0\",\"header\":{…},\"body\":{\"elements\":[…]}}；本地图片的位置（如 img 元素的 img_key）写占位符，如 \"chart\""
+          "description": "Feishu card JSON 2.0 (see the feishu-card skill); a local image goes in as a placeholder img_key such as \"chart\""
         },
         "images": {
           "type": "object",
@@ -282,7 +288,7 @@
             "minLength": 1,
             "maxLength": 500
           },
-          "description": "占位符 → 工作区内图片的相对路径，如 {\"chart\": \"out/chart.png\"}；至多 10 张，png/jpg/gif/webp 等，单张不超过 10 MB"
+          "description": "Placeholder → workspace image path, e.g. {\"chart\": \"out/chart.png\"}; up to 10, 10 MB each"
         }
       },
       "required": ["card"]
@@ -291,32 +297,32 @@
   {
     "name": "preview_miniprogram",
     "title": "发布小程序预览",
-    "description": "在本机微信开发者工具里打开工作区的小程序并跳到指定页面，群里发一张带模拟器截图的预览卡片；同一项目再调用会切换页面。启动、登录（卡片上显示二维码）和信任项目都由它处理，不要自己用 cli 等命令操作开发者工具或另发二维码。",
+    "description": "Open the workspace mini program in WeChat DevTools on this machine at a page and post a card with a simulator screenshot; call again to switch pages. It handles launch, login (QR code on the card) and trust: never drive DevTools yourself or send QR codes.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "dir": {
           "type": "string",
           "maxLength": 500,
-          "description": "工作区内小程序项目的目录（含 project.config.json），默认工作区根目录"
+          "description": "Workspace dir of the mini program (with project.config.json), default the root"
         },
         "page": {
           "type": "string",
           "maxLength": 300,
           "pattern": "^[^/?]",
-          "description": "打开的页面路径，如 pages/goods/detail，默认首页"
+          "description": "Page to open, e.g. pages/goods/detail, default the home page"
         },
         "query": {
           "type": "string",
           "maxLength": 500,
           "pattern": "^[^?]",
-          "description": "页面参数，如 id=42&from=share"
+          "description": "Page query, e.g. id=42&from=share"
         },
         "title": {
           "type": "string",
           "minLength": 1,
           "maxLength": 60,
-          "description": "卡片标题，说明这是什么"
+          "description": "Card title: what this is"
         }
       },
       "required": ["title"]
