@@ -152,6 +152,7 @@ function ProviderBox({
             t('使用这台机器上 CLI 自己的登录与配置'),
             official?.proxy,
             envCount ? t('{n} 个环境变量', { n: envCount }) : '',
+            official?.args.length ? t('{n} 个命令行参数', { n: official.args.length }) : '',
           ]
             .filter(Boolean)
             .join(' · '),

@@ -1,0 +1,9 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-4",
+  "action": "official",
+  "agent": "claude",
+  "official": {
+    "args": ["--settings ~/.claude/team.json", "--debug"]
+  }
+}

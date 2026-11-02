@@ -231,7 +231,7 @@ describe('agent tools and providers relayed to the machine', () => {
     const off = w.asWang.put<ProviderStoreView>(`${base}/official`, { agent: 'codex', ...official })
     const offCmd = await d.next()
     expect(offCmd).toMatchObject({ action: 'official', agent: 'codex', official })
-    const offView = view({ official: { codex: official } })
+    const offView = view({ official: { codex: { ...official, args: [] } } })
     d.send({ t: 'providers.result', requestId: offCmd.requestId, ok: true, error: null, view: offView })
     expect((await off).body).toEqual(offView)
 

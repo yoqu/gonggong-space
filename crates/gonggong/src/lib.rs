@@ -7,6 +7,7 @@ pub mod bind;
 pub mod bots;
 pub mod cast;
 pub mod ccswitch;
+pub mod claude_args;
 pub mod coalesce;
 pub mod config;
 pub mod configure;

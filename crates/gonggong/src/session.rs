@@ -1873,6 +1873,9 @@ fn claude_options(
     if launch.is_some_and(|l| !l.inherit_cli) {
         options.insert("settingSources".into(), serde_json::json!(["project", "local"]));
     }
+    if let Some(args) = launch.map(|l| &l.args).filter(|a| !a.is_empty()) {
+        options.insert("extraArgs".into(), serde_json::Value::Object(args.clone()));
+    }
     let team = (!skills.names.is_empty()).then_some(&skills.dir);
     let local: Vec<_> =
         team.into_iter().chain(&plugins.dirs).map(|p| serde_json::json!({ "type": "local", "path": p })).collect();
@@ -1911,6 +1914,7 @@ mod tests {
         inject::ClaudeLaunch {
             file: settings.map(|p| (PathBuf::from(p), serde_json::json!({}))),
             inherit_cli,
+            args: Default::default(),
             snapshot: RunSettingsSnapshot {
                 provider: None,
                 context_window: None,
@@ -1931,5 +1935,9 @@ mod tests {
         let isolated = claude_options(Some(&launch(false, Some("/h/run/claude-x.json"))), &none, &no);
         assert_eq!(isolated["settingSources"], serde_json::json!(["project", "local"]));
         assert_eq!(isolated["settings"], "/h/run/claude-x.json");
+        let mut with_args = launch(true, None);
+        with_args.args.insert("debug".into(), serde_json::Value::Null);
+        let options = claude_options(Some(&with_args), &none, &no);
+        assert_eq!(options["extraArgs"], serde_json::json!({ "debug": null }));
     }
 }

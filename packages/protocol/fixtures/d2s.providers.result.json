@@ -13,7 +13,8 @@
         "env": {
           "DISABLE_TELEMETRY": "1"
         },
-        "proxy": "http://user:****@10.0.0.2:3128"
+        "proxy": "http://user:****@10.0.0.2:3128",
+        "args": ["--settings ~/.claude/team.json"]
       }
     },
     "bots": {

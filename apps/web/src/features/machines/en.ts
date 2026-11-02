@@ -282,4 +282,8 @@ export default {
   这台机器上还没有工作区: 'No workspaces on this machine yet',
   'daemon 会自动升级到最新版本': 'The daemon upgrades itself to the latest version',
   '可升级到 {version}': 'Update to {version} available',
+  '{n} 个命令行参数': '{n} command-line {n:argument|arguments}',
+  命令行参数: 'Command-line arguments',
+  '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置':
+    "Added when Claude Code starts, one per line, e.g. --settings ~/team.json; --settings is merged into Gonggong's settings, and flags Gonggong manages (permissions, model, session, MCP…) cannot be set",
 } satisfies Record<string, string>

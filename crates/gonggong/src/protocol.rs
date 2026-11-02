@@ -1761,6 +1761,8 @@ pub const FEATURE_CC_SWITCH: &str = "ccSwitch";
 pub const FEATURE_SYNC: &str = "sync";
 pub const FEATURE_SESSION_FORK: &str = "sessionFork";
 pub const FEATURE_AGENT_SETTINGS: &str = "agentSettings";
+/// `args` of the official login: Claude Code command-line arguments.
+pub const FEATURE_CLAUDE_ARGS: &str = "claudeArgs";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
@@ -1997,6 +1999,9 @@ pub struct OfficialInput {
     /// Empty = direct; the masked one from the view = unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy: Option<String>,
+    /// Claude Code command-line arguments, one per line; absent = unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

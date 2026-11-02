@@ -181,6 +181,35 @@ describe('machine agent settings', () => {
   })
 })
 
+describe("official login's command-line arguments", () => {
+  it('are relayed to a daemon that knows them, refused before an upgrade, and never logged', async () => {
+    const w = await world()
+    const url = `/api/machines/${w.machine.id}/providers/official`
+    const body = { agent: 'claude', proxy: '', args: ['--settings ~/secret-team.json', '--debug'] }
+    const old = await daemon(w, ['providers'])
+    const stale = await w.owners.put<{ message: string }>(url, body)
+    expect([stale.status, stale.body.message]).toEqual([409, '请先升级该机器的 daemon 才能使用命令行参数'])
+    old.close()
+    await expect.poll(() => t.ctx.hub.isOnline(w.machine.id)).toBe(false)
+    const d = await daemon(w, ['providers', 'claudeArgs'])
+
+    const pending = w.owners.put<ProviderStoreView>(url, body)
+    const cmd = await d.next()
+    expect(cmd).toMatchObject({
+      t: 'providers.cmd',
+      action: 'official',
+      agent: 'claude',
+      official: { args: body.args },
+    })
+    const official = { claude: { env: {}, proxy: null } }
+    const view = { machine: {}, official, bots: {}, providers: [], agentSettings: {}, cli: {}, sessions: [] }
+    d.send({ t: 'providers.result', requestId: cmd.requestId, ok: true, error: null, view })
+    // An older daemon's view without them reads as none.
+    expect((await pending).body.official.claude).toEqual({ env: {}, proxy: null, args: [] })
+    expect(log).not.toContain('secret-team')
+  })
+})
+
 describe('run settings snapshot', () => {
   it('stores what session.config reported and returns it with the run detail', async () => {
     const w = await world()

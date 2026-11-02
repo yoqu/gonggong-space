@@ -127,6 +127,8 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { agent, ...official } = OfficialProviderReq.parse(req.body)
+        if (official.args?.length)
+          requireFeature(ctx, m.id, 'claudeArgs', '请先升级该机器的 daemon 才能使用命令行参数')
         const res = view((await providersCmd(ctx, m.id, { action: 'official', agent, official })).view)
         await trail(me.id, 'machine.providers.official', { machineId: m.id })
         return res

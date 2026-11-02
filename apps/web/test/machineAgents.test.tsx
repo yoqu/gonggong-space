@@ -473,7 +473,9 @@ describe('供应商', () => {
   })
 
   it("sets the official login's proxy and environment, showing the stored ones masked", async () => {
-    const official = { claude: { env: { DISABLE_TELEMETRY: '1' }, proxy: 'http://bob:****@10.0.0.2:3128' } }
+    const official = {
+      claude: { env: { DISABLE_TELEMETRY: '1' }, proxy: 'http://bob:****@10.0.0.2:3128', args: ['--debug'] },
+    }
     const { calls, claude } = await openProviders(
       { 'PUT /machines/m1/providers/official': { ...VIEW, official } },
       { ...VIEW, official },
@@ -482,7 +484,7 @@ describe('供应商', () => {
       within(claude)
         .getByRole('radio', { name: /官方登录/ })
         .closest('label')?.textContent,
-    ).toContain('http://bob:****@10.0.0.2:3128')
+    ).toContain('http://bob:****@10.0.0.2:3128 · 1 个环境变量 · 1 个命令行参数')
     fireEvent.click(within(claude).getByRole('button', { name: '设置…' }))
     const form = await screen.findByRole('form', { name: 'Claude Code 官方登录设置' })
     const proxy = within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement
@@ -490,6 +492,9 @@ describe('供应商', () => {
     const env = within(form).getByRole('textbox', { name: '其他环境变量' })
     expect((env as HTMLTextAreaElement).value).toBe('DISABLE_TELEMETRY=1')
     fireEvent.change(env, { target: { value: 'DISABLE_TELEMETRY=1\nNO_PROXY=.corp' } })
+    const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
+    expect(args.value).toBe('--debug')
+    fireEvent.change(args, { target: { value: '--debug\n\n  --settings ~/team.json  ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
     expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
@@ -498,6 +503,7 @@ describe('供应商', () => {
         agent: 'claude',
         proxy: 'http://bob:****@10.0.0.2:3128',
         env: { DISABLE_TELEMETRY: '1', NO_PROXY: '.corp' },
+        args: ['--debug', '--settings ~/team.json'],
       },
     })
   })
@@ -793,7 +799,7 @@ describe('供应商 · 高级设置', () => {
 
   it('gives the official login the same controls, without a model window', async () => {
     const official = {
-      claude: { env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000', NO_PROXY: '.corp' }, proxy: null },
+      claude: { env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000', NO_PROXY: '.corp' }, proxy: null, args: [] },
     }
     const calls = mockApi({
       'GET /machines/m1/providers': { ...VIEW, official },
@@ -813,6 +819,7 @@ describe('供应商 · 高级设置', () => {
       agent: 'claude',
       proxy: '',
       env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '32000', NO_PROXY: '.corp' },
+      args: [],
     })
   })
 

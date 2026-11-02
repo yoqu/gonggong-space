@@ -5,8 +5,8 @@ use crate::config::{Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
-    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4,
-    FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS, FEATURE_PROVIDERS, FEATURE_REPROBE,
+    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3,
+    FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS, FEATURE_PROVIDERS, FEATURE_REPROBE,
     FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput, ProviderStateItem,
     ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
@@ -63,6 +63,7 @@ impl Manage {
             FEATURE_GIT_OPS3.to_string(),
             FEATURE_GIT_OPS4.to_string(),
             FEATURE_MACHINE_ADMIN.to_string(),
+            FEATURE_CLAUDE_ARGS.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -338,6 +339,9 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
                 if let Some(proxy) = input.proxy {
                     set_proxy(&mut o.proxy, proxy);
                 }
+                if let Some(args) = input.args {
+                    o.args = args.into_iter().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
+                }
                 s.set_official(agent, o)?;
                 Ok(s.view())
             })?);
@@ -536,6 +540,7 @@ mod tests {
             c.official = Some(OfficialInput {
                 env: env.map(|e| e.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
                 proxy: proxy.map(String::from),
+                args: None,
             });
             providers_op(home.path(), home.path(), c, &[])
         };
@@ -561,6 +566,28 @@ mod tests {
         let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
         assert_eq!(stored.env["MY_API_KEY"], "sk-official-0123456789", "masked = unchanged");
         assert!(set(Some(&[("CLAUDE_CODE_DISABLE_THINKING", "0")]), None).is_err(), "a flag is '1' or absent");
+    }
+
+    #[test]
+    fn sets_the_official_logins_command_line_arguments_for_claude_only() {
+        let home = tempfile::tempdir().unwrap();
+        let set = |agent: AgentKind, args: &[&str]| {
+            let mut c = cmd(ProvidersAction::Official);
+            c.agent = Some(agent);
+            c.official = Some(OfficialInput {
+                env: None,
+                proxy: None,
+                args: Some(args.iter().map(|a| a.to_string()).collect()),
+            });
+            providers_op(home.path(), home.path(), c, &[])
+        };
+        let view = set(AgentKind::Claude, &["--debug", "  ", " --settings ~/team.json "]).unwrap().view.unwrap();
+        assert_eq!(view.official[&AgentKind::Claude].args, ["--debug", "--settings ~/team.json"]);
+        assert!(set(AgentKind::Claude, &["--permission-mode bypassPermissions"]).is_err());
+        assert!(set(AgentKind::Codex, &["--debug"]).is_err());
+        let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
+        assert_eq!(stored.args.len(), 2, "a refused change keeps what was saved");
+        assert!(set(AgentKind::Claude, &[]).unwrap().view.unwrap().official.is_empty(), "cleared");
     }
 
     #[test]
@@ -773,7 +800,8 @@ mod tests {
                 "gitRepos",
                 "gitOps3",
                 "gitOps4",
-                "machineAdmin"
+                "machineAdmin",
+                "claudeArgs"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -795,6 +823,7 @@ mod tests {
                 "gitOps3",
                 "gitOps4",
                 "machineAdmin",
+                "claudeArgs",
                 "ccSwitch"
             ]
         );

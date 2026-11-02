@@ -51,6 +51,8 @@ pub struct ClaudeLaunch {
     /// None: nothing to set (the official login without extras or agent settings).
     pub file: Option<(PathBuf, Value)>,
     pub inherit_cli: bool,
+    /// The official login's command-line arguments for the adapter's `extraArgs` (`--settings` merged into `file`).
+    pub args: Map<String, Value>,
     /// Display only: it follows the CLI's config, which the user may edit any time.
     pub snapshot: RunSettingsSnapshot,
     /// For the context meter; like the snapshot, a guess at what the CLI's config says.
@@ -59,7 +61,7 @@ pub struct ClaudeLaunch {
 
 impl PartialEq for ClaudeLaunch {
     fn eq(&self, other: &Self) -> bool {
-        self.file == other.file && self.inherit_cli == other.inherit_cli
+        self.file == other.file && self.inherit_cli == other.inherit_cli && self.args == other.args
     }
 }
 
@@ -164,8 +166,24 @@ impl ClaudeLaunch {
             from_cli,
             from_bot,
         };
+        // The official login's own `--settings` go under everything 共工 sets.
+        let args = match selection {
+            Selection::Official(o) => o.claude_args()?,
+            Selection::Provider(_) => Default::default(),
+        };
+        if let Some(mut user) = args.settings()? {
+            if let Some(Value::Object(e)) = user.remove("env") {
+                for (k, v) in e {
+                    env.entry(k).or_insert(v);
+                }
+            }
+            for (k, v) in user {
+                top.entry(k).or_insert(v);
+            }
+        }
         top.insert("env".into(), Value::Object(env));
-        Ok(ClaudeLaunch { file: file.map(|f| (f, Value::Object(top))), inherit_cli, snapshot, compact })
+        let file = file.map(|f| (f, Value::Object(top)));
+        Ok(ClaudeLaunch { file, inherit_cli, args: args.extra_args(), snapshot, compact })
     }
 
     pub fn settings_path(&self) -> Option<&Path> {
@@ -365,7 +383,7 @@ mod tests {
             }
         }
         std::fs::write(home.path().join("run/other.json"), "{}").unwrap();
-        let official = Official { env: Default::default(), proxy: Some("http://p.test:1".into()) };
+        let official = Official { proxy: Some("http://p.test:1".into()), ..Default::default() };
         let o = launch(home.path(), &Selection::Official(official), &none, &bot(None, &[]));
         prune(home.path(), &store, None);
         let official = read(o.settings_path().unwrap());
@@ -377,6 +395,35 @@ mod tests {
         assert!(files[0].exists() && files[1].exists());
         assert!(!files[2].exists() && !files[3].exists(), "both files of the removed provider");
         assert!(home.path().join("run/other.json").exists());
+    }
+
+    #[test]
+    fn the_official_logins_settings_go_under_ours_and_its_other_arguments_to_the_cli() {
+        let home = tempfile::tempdir().unwrap();
+        let file = home.path().join("team.json");
+        let team = r#"{"includeCoAuthoredBy":false,"language":"french","env":{"HTTPS_PROXY":"http://x:2","TEAM":"1"}}"#;
+        std::fs::write(&file, team).unwrap();
+        let official = Official {
+            proxy: Some("http://p.test:1".into()),
+            args: vec![format!("--settings {}", file.display()), "--debug".into()],
+            ..Default::default()
+        };
+        let lang = defaults(&[("language", "english")], true);
+        let l = launch(home.path(), &Selection::Official(official.clone()), &lang, &bot(None, &[]));
+        let written = read(l.settings_path().unwrap());
+        assert_eq!(written["includeCoAuthoredBy"], false);
+        assert_eq!(written["language"], "english", "共工's own settings win");
+        assert_eq!(written["env"]["HTTPS_PROXY"], "http://p.test:1");
+        assert_eq!(written["env"]["TEAM"], "1");
+        assert_eq!(Value::Object(l.args.clone()), json!({ "debug": null }));
+
+        // A changed settings file is a changed launch: the adapter restarts with it.
+        std::fs::write(&file, r#"{"includeCoAuthoredBy":true}"#).unwrap();
+        let again = launch(home.path(), &Selection::Official(official.clone()), &lang, &bot(None, &[]));
+        assert!(again != l);
+        std::fs::remove_file(&file).unwrap();
+        let gone = ClaudeLaunch::new(home.path(), &Selection::Official(official), &lang, &bot(None, &[]), None);
+        assert!(gone.is_err(), "a missing file fails the run, naming it");
     }
 
     fn age(path: &Path, by: Duration) {

@@ -401,7 +401,11 @@ export function OfficialEditor({
   onClose: () => void
   onSaved: (view: ProviderStoreView) => void
 }) {
-  const [f, setF] = useState({ proxy: official?.proxy ?? '', ...envFields(agent, official?.env ?? {}) })
+  const [f, setF] = useState({
+    proxy: official?.proxy ?? '',
+    args: official?.args.join('\n') ?? '',
+    ...envFields(agent, official?.env ?? {}),
+  })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const title = t('{agent} 官方登录设置', { agent: AGENT_LABEL[agent] })
@@ -414,7 +418,16 @@ export function OfficialEditor({
     } catch (e) {
       return setError((e as Error).message)
     }
-    const body: OfficialProviderReq = { agent, env, proxy: f.proxy.trim() }
+    const args = f.args
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    const body: OfficialProviderReq = {
+      agent,
+      env,
+      proxy: f.proxy.trim(),
+      ...(agent === 'claude' && { args }),
+    }
     setSaving(true)
     try {
       onSaved(await api.put<ProviderStoreView>(`/machines/${machineId}/providers/official`, body))
@@ -450,6 +463,24 @@ export function OfficialEditor({
           proxyHint={t('Agent 经此代理联网，留空为直连')}
           onChange={(patch) => setF((x) => ({ ...x, ...patch }))}
         />
+        {agent === 'claude' ? (
+          <FormRow
+            label={t('命令行参数')}
+            align="top"
+            hint={t(
+              '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置',
+            )}
+          >
+            <TextField
+              multiline
+              aria-label={t('命令行参数')}
+              rows={2}
+              placeholder="--settings ~/team.json"
+              value={f.args}
+              onChange={(e) => setF((x) => ({ ...x, args: e.target.value }))}
+            />
+          </FormRow>
+        ) : null}
         {error ? (
           <FormRow>
             <span className="mx-danger" role="alert">

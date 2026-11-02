@@ -1181,6 +1181,8 @@ export const DaemonFeature = z.enum([
   'artifacts',
   /** artifact.snapshot: screenshots of versions the daemon did not make. */
   'artifactSnapshot',
+  /** `args` of the official login (Claude Code command-line arguments): a daemon without it would drop them. */
+  'claudeArgs',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1270,6 +1272,8 @@ export const INHERIT_PROVIDER = 'inherit'
 export const OfficialSettings = z.object({
   env: z.record(z.string(), z.string()),
   proxy: z.string().nullable(),
+  /** Extra Claude Code command-line arguments, one per line (`--flag value`, `--flag=value` or `--flag`). */
+  args: z.array(z.string()).default([]),
 })
 export type OfficialSettings = z.infer<typeof OfficialSettings>
 export const ProviderStoreView = z.object({
@@ -1314,6 +1318,8 @@ export type ProviderInput = z.infer<typeof ProviderInput>
 export const OfficialInput = z.object({
   env: ProviderInput.shape.env,
   proxy: ProviderInput.shape.proxy,
+  /** Claude only; absent = unchanged. The daemon refuses flags 共工 manages itself. */
+  args: z.array(z.string()).optional(),
 })
 export type OfficialInput = z.infer<typeof OfficialInput>
 /** CC Switch import preview row: `key` is what ccswitch.apply takes; `existing` = the local provider it updates. */

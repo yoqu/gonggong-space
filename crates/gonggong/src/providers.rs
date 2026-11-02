@@ -2,6 +2,7 @@
 //! `<home>/providers.json` (0600), the machine default per agent, per-bot overrides and the provider each ACP session
 //! was started with. Never sent anywhere unmasked: whatever leaves the machine goes through [`Store::view`].
 use crate::agent_settings::{self, AgentSettings, CliSettingsSnapshot};
+use crate::claude_args::ClaudeArgs;
 use crate::protocol::AgentKind;
 use crate::t;
 use anyhow::{Context, Result, bail};
@@ -270,11 +271,19 @@ pub struct Official {
     pub env: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy: Option<String>,
+    /// Claude Code command-line arguments as typed, one per line ([`ClaudeArgs`]).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
 }
 
 impl Official {
     pub fn is_empty(&self) -> bool {
-        self.env.is_empty() && self.proxy.is_none()
+        self.env.is_empty() && self.proxy.is_none() && self.args.is_empty()
+    }
+
+    /// The parsed arguments; the stored lines were validated when saved.
+    pub fn claude_args(&self) -> Result<ClaudeArgs> {
+        ClaudeArgs::parse(&self.args)
     }
 
     pub fn process_env(&self) -> BTreeMap<String, String> {
@@ -283,7 +292,7 @@ impl Official {
 
     /// Password masked, as for a provider.
     pub fn view(&self) -> OfficialView {
-        OfficialView { env: mask_env(&self.env), proxy: self.proxy.as_deref().map(mask_proxy) }
+        OfficialView { env: mask_env(&self.env), proxy: self.proxy.as_deref().map(mask_proxy), args: self.args.clone() }
     }
 }
 
@@ -291,6 +300,7 @@ impl Official {
 pub struct OfficialView {
     pub env: BTreeMap<String, String>,
     pub proxy: Option<String>,
+    pub args: Vec<String>,
 }
 
 /// Keys leave the machine as their last 4 characters at most; short ones not at all.
@@ -616,6 +626,10 @@ impl Store {
     pub fn set_official(&mut self, agent: AgentKind, official: Official) -> Result<()> {
         let before = self.official.get(&agent).map(|o| &o.env);
         validate_extras(agent, &official.env, official.proxy.as_deref(), before)?;
+        if !official.args.is_empty() && agent != AgentKind::Claude {
+            bail!(t!("命令行参数仅支持 Claude Code"));
+        }
+        official.claude_args()?;
         if official.is_empty() {
             self.official.remove(&agent);
         } else {
@@ -907,7 +921,11 @@ mod tests {
     #[test]
     fn the_official_selection_carries_the_agents_extras() {
         let mut store = Store::default();
-        let o = Official { env: BTreeMap::from([("A".into(), "1".into())]), proxy: Some("http://p.test:1".into()) };
+        let o = Official {
+            env: BTreeMap::from([("A".into(), "1".into())]),
+            proxy: Some("http://p.test:1".into()),
+            ..Default::default()
+        };
         store.set_official(Claude, o.clone()).unwrap();
         assert_eq!(store.effective(Claude, "b").unwrap(), Selection::Official(o.clone()));
         assert_eq!(store.effective(Codex, "b").unwrap(), Selection::Official(Official::default()));

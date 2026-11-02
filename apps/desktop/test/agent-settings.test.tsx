@@ -51,7 +51,7 @@ describe('providerSummary', () => {
 const DATA: Providers = {
   machine: {},
   bots: {},
-  official: { claude: { env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '180000' }, proxy: null } },
+  official: { claude: { env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '180000' }, proxy: null, args: [] } },
   providers: [
     provider({
       id: 'kimi-1',
