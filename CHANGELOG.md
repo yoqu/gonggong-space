@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.9 — 2026-11-02
+
+- 所有 Claude Code 供应商都可设置命令行参数，输入框移到「其他环境变量」前面 / All Claude Code providers accept command-line arguments, now placed above the other environment variables
+- 本机 Claude 配置目录可通过「浏览…」选择，支持隐藏目录 / Pick the local Claude config directory with Browse…, including hidden directories
+- 按发起人身份精简 Bot 的管理类工具，新增飞书卡片内置 Skill / Trim Bot management tools by the requester's role and add a built-in Feishu card Skill
+
 ## v0.4.8 — 2026-11-02
 
 - Claude Code 供应商可使用本机 Claude 配置目录，沿用目录自己的登录与 settings.json，并可选指定 Claude 可执行文件 / Claude Code providers can use a local Claude config directory, reusing its own login and settings.json, with an optional Claude executable
