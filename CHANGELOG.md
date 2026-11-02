@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.8 — 2026-11-02
+
+- Claude Code 供应商可使用本机 Claude 配置目录，沿用目录自己的登录与 settings.json，并可选指定 Claude 可执行文件 / Claude Code providers can use a local Claude config directory, reusing its own login and settings.json, with an optional Claude executable
+- Claude Code 官方登录设置支持自定义命令行参数；--settings 与共工生成的设置合并，冲突时共工管理项优先 / Claude Code official-login settings accept custom CLI arguments; --settings is merged with Gonggong-generated settings, with Gonggong-managed values taking precedence
+
 ## v0.4.7 — 2026-10-30
 
 - 群支持一个主仓库和多个附加仓库，各自指定默认分支；daemon 将附加仓库克隆到主仓库旁并交给 Bot，Git 状态、提交、推送与基准分支保护按仓库执行 / Groups support a primary repository and extra repositories with individual default branches; the daemon clones extras beside the primary for Bots, with per-repository Git status, commits, pushes and base-branch protection
