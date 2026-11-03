@@ -407,7 +407,12 @@ describe('供应商', () => {
     roots: ['/'],
   })
   const HOME_DIRS = {
-    'GET /machines/m1/dirs?hidden=1': listing('/Users/test', ['.claude', '.qorz-claude', 'code']),
+    'GET /machines/m1/dirs?hidden=1': listing('/Users/test', [
+      '.claude',
+      '.qorz-claude',
+      'claude-code',
+      'code',
+    ]),
   }
   const openProfile = async (routes: Record<string, unknown> = {}) => {
     const opened = await openProviders({ ...HOME_DIRS, ...routes })
@@ -422,8 +427,9 @@ describe('供应商', () => {
     expect(within(form).queryByRole('checkbox', { name: '使用本机 Claude 配置目录' })).toBeNull()
     fireEvent.click(within(form).getByRole('button', { name: '显示选项' }))
     const options = await screen.findAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['/Users/test/.claude', '/Users/test/.qorz-claude'])
-    fireEvent.mouseDown(options[1] as HTMLElement)
+    // Not the official login's own ~/.claude, nor a mere name match like a claude-code checkout.
+    expect(options.map((o) => o.textContent)).toEqual(['/Users/test/.qorz-claude'])
+    fireEvent.mouseDown(options[0] as HTMLElement)
     expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe(
       'qorz-claude',
     )
@@ -436,9 +442,38 @@ describe('供应商', () => {
       agent: 'claude',
       name: 'qorz-claude',
       configDir: '/Users/test/.qorz-claude',
+      model: '',
+      models: {},
     })
-    for (const key of ['apiKey', 'baseUrl', 'presetId', 'model', 'models'])
-      expect(body).not.toHaveProperty(key)
+    for (const key of ['apiKey', 'baseUrl', 'presetId']) expect(body).not.toHaveProperty(key)
+  })
+
+  it("clears a profile's stale model mapping and leaves its small fast model alone", async () => {
+    const profile: ProviderView = {
+      ...kimi,
+      presetId: null,
+      baseUrl: '',
+      apiKey: '',
+      configDir: '/Users/test/.qorz-claude',
+      model: 'old',
+      models: { haiku: 'old-haiku' },
+      env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' },
+    }
+    const { calls, claude } = await openProviders(
+      { ...HOME_DIRS, 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } },
+      { ...VIEW, providers: [profile] },
+    )
+    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const form = await screen.findByRole('form', { name: '编辑供应商' })
+    fireEvent.click(within(form).getByRole('button', { name: '高级' }))
+    expect(within(form).queryByRole('button', { name: '改用 Haiku 映射' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      model: '',
+      models: {},
+      env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' },
+    })
   })
 
   it('keeps a typed name and an executable for a local profile', async () => {

@@ -32,7 +32,7 @@ import {
   TextField,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
-import { DirPicker } from '../workspaces/DirPicker'
+import { DirPicker, join } from '../workspaces/DirPicker'
 import { envText, fieldTexts, joinProviderEnv, parseEnv, splitEnv, textOf } from './agentSettings'
 import { ProviderSettingRows } from './ProviderSettings'
 
@@ -158,7 +158,8 @@ export function ProviderEditor({
   const [browsing, setBrowsing] = useState(false)
   const [suggested, setSuggested] = useState<string[]>([])
 
-  // The home's `~/.claude*` directories, offered in the 配置目录 list; browsing still reaches any other.
+  // The home's hidden Claude directories (`~/.claude-work`, `~/.qorz-claude`), not the official login's own
+  // `~/.claude`; browsing still reaches any other.
   useEffect(() => {
     if (!localProfile) return
     let live = true
@@ -167,8 +168,8 @@ export function ProviderEditor({
         live &&
         setSuggested(
           d.entries
-            .filter((e) => /claude/i.test(e.name))
-            .map((e) => `${d.path.replace(/[\\/]+$/, '')}${d.path.includes('\\') ? '\\' : '/'}${e.name}`),
+            .filter((e) => /^\..*claude/i.test(e.name) && e.name !== '.claude')
+            .map((e) => join(d.path, e.name)),
         ),
       // Suggestions only: 浏览… shows why the machine cannot be read.
       () => {},
@@ -214,7 +215,8 @@ export function ProviderEditor({
       base: { ...x.base, [id]: raw },
     }))
   }
-  const smallFast = agent === 'claude' ? otherValue(f.env, SMALL_FAST) : undefined
+  // A profile has no model mapping to move it to.
+  const smallFast = agent === 'claude' && !localProfile ? otherValue(f.env, SMALL_FAST) : undefined
 
   const save = async () => {
     if (!f.name.trim()) return setError(t('请填写名称'))
@@ -230,13 +232,16 @@ export function ProviderEditor({
     const models: ModelMap = Object.fromEntries(
       TIERS.flatMap((tier) => (f.models[tier].trim() ? [[tier, f.models[tier].trim()]] : [])),
     )
-    // A profile's login and models come from its own directory: never send a key or URL a field once held.
+    // A profile's login and models come from its own directory: never send a key or URL a field once held, and
+    // clear a model mapping an older editor stored.
     const body: SaveProviderReq = localProfile
       ? {
           agent,
           name: f.name.trim(),
           configDir: f.configDir.trim(),
           executablePath: f.executablePath.trim(),
+          model: '',
+          models: {},
           env,
           proxy: f.proxy.trim(),
           args: argLines(f.args),

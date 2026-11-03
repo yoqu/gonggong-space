@@ -16,7 +16,7 @@ const parentOf = (path: string) => {
 /** The root `path` lives on; compared case-insensitively since Windows drives are. */
 const rootOf = (path: string, roots: string[]) =>
   roots.find((r) => path.toLowerCase().startsWith(r.toLowerCase())) ?? null
-const join = (dir: string, name: string) =>
+export const join = (dir: string, name: string) =>
   `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${name}`
 
 /** Browse the machine's directories (via its daemon) and pick one as a workspace; `extra` adds other choices. */
