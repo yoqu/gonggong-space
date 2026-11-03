@@ -36,15 +36,17 @@ afterAll(async () => {
 })
 
 describe('scripts/backup.sh + restore.sh', () => {
-  it('backs up the database and attachments, keeps the newest 7, and restores them into another place', async () => {
+  it('backs up the database and attachments, keeps the newest of each of the last 7 days, and restores them into another place', async () => {
     const data = join(work, 'data')
     mkdirSync(join(data, 'attachments/ab'), { recursive: true })
     writeFileSync(join(data, 'attachments/ab/file.txt'), 'attachment')
     mkdirSync(backups)
     for (let d = 1; d <= 8; d++) {
-      const stamp = `2026010${d}-000000`
-      writeFileSync(join(backups, `gonggong-${stamp}.dump`), '')
-      writeFileSync(join(backups, `attachments-${stamp}.tar.gz`), '')
+      for (const time of ['000000', '120000']) {
+        const stamp = `2026010${d}-${time}`
+        writeFileSync(join(backups, `gonggong-${stamp}.dump`), '')
+        writeFileSync(join(backups, `attachments-${stamp}.tar.gz`), '')
+      }
     }
 
     const out = execFileSync('bash', [join(scripts, 'backup.sh')], {
@@ -54,10 +56,9 @@ describe('scripts/backup.sh + restore.sh', () => {
     const stamp = /gonggong-(\d{8}-\d{6})\.dump/.exec(out)?.[1]
     expect(stamp).toBeTruthy()
     const files = readdirSync(backups).sort()
-    expect(files.filter((f) => f.endsWith('.dump'))).toHaveLength(7)
-    expect(files.filter((f) => f.endsWith('.tar.gz'))).toHaveLength(7)
-    expect(files).toContain(`gonggong-${stamp}.dump`)
-    expect(files).not.toContain('gonggong-20260101-000000.dump')
+    const kept = [3, 4, 5, 6, 7, 8].map((d) => `2026010${d}-120000`).concat(stamp!)
+    expect(files.filter((f) => f.endsWith('.dump'))).toEqual(kept.map((s) => `gonggong-${s}.dump`))
+    expect(files.filter((f) => f.endsWith('.tar.gz'))).toEqual(kept.map((s) => `attachments-${s}.tar.gz`))
 
     const restored = join(work, 'restored')
     execFileSync('bash', [join(scripts, 'restore.sh'), stamp!], { env: env(target, restored), stdio: 'pipe' })

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest 7 of each kept.
+# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest of each of the last 7 days kept.
 #   GONGGONG_BACKUP_DIR   where backups go (required)
 #   GONGGONG_DATABASE_URL or GONGGONG_DB / GONGGONG_PG_PORT   same resolution as the server
 #   GONGGONG_DATA_DIR     server data dir holding attachments/ (default .gonggong-dev/data)
@@ -20,10 +20,19 @@ if [ -d "$DATA/attachments" ]; then
   mv "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz.part" "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz"
 fi
 
-# Stamps sort chronologically; drop everything but the newest $KEEP of each kind.
+# Deploys also take backups, so several can land on one day; keep the newest of each of the last $KEEP days.
+# Stamps sort chronologically.
 for pattern in 'gonggong-*.dump' 'attachments-*.tar.gz'; do
-  find "$GONGGONG_BACKUP_DIR" -maxdepth 1 -name "$pattern" | sort -r | tail -n +$((KEEP + 1)) | while read -r old; do
-    rm -f "$old"
+  days=0
+  last=''
+  find "$GONGGONG_BACKUP_DIR" -maxdepth 1 -name "$pattern" | sort -r | while read -r file; do
+    day="$(basename "$file" | grep -oE '[0-9]{8}-' | head -1)"
+    if [ "$day" != "$last" ] && [ "$days" -lt "$KEEP" ]; then
+      last="$day"
+      days=$((days + 1))
+    else
+      rm -f "$file"
+    fi
   done
 done
 echo "backup written: $GONGGONG_BACKUP_DIR/gonggong-$STAMP.dump"
