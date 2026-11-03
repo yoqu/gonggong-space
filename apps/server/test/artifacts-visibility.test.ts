@@ -96,6 +96,43 @@ describe('artifact visibility', () => {
     ])
   })
 
+  it('all: everyone signed in, any team or none, views and presents, read-only', async () => {
+    const s = await setup()
+    const stranger = await t.seed.user({ name: '路人', teamId: null })
+    const cookie = await t.seed.cookie(stranger.id)
+    const as = (method: 'GET' | 'POST', url: string, payload?: object) =>
+      t.app.inject({ method, url, headers: { cookie }, payload })
+    const strangerWorks = async () => (await as('GET', '/api/works')).json() as WorkDto[]
+    await s.setVisibility('li', 'team')
+    expect((await as('GET', `/api/artifacts/${s.a.id}`)).statusCode).toBe(404)
+    expect(await strangerWorks()).toEqual([])
+
+    expect((await s.setVisibility('li', 'all')).statusCode).toBe(200)
+    expect((await as('GET', `/api/artifacts/${s.a.id}`)).json()).toMatchObject({
+      visibility: 'all',
+      access: 'view',
+    })
+    const opened = await as('POST', `/api/artifacts/${s.a.id}/preview`, {})
+    expect(opened.statusCode).toBe(200)
+    expect((await as('GET', (opened.json() as { url: string }).url)).statusCode).toBe(302)
+    const edit = await as('POST', `/api/artifacts/${s.a.id}/edits`, {
+      baseVersionId: s.v1.versionId,
+      ops: [],
+    })
+    expect(edit.statusCode).toBe(403)
+    expect((await as('GET', `/api/artifacts/${s.a.id}/annotations`)).statusCode).toBe(403)
+    expect((await as('GET', `/api/artifacts/${s.a.id}/export.zip`)).statusCode).toBe(403)
+    expect((await as('POST', `/api/artifacts/${s.a.id}/share`, { enabled: true })).statusCode).toBe(403)
+    expect((await strangerWorks()).map((x) => [x.title, x.access, x.visibility, x.groupTitle])).toEqual([
+      ['活动报名', 'view', 'all', '设计群'],
+    ])
+    expect((await s.works('outsider')).map((x) => [x.access, x.visibility])).toEqual([['view', 'all']])
+    // Members keep editing.
+    expect((await s.req('zhao', 'GET', `/api/artifacts/${s.a.id}`)).json()).toMatchObject({ access: 'edit' })
+    const events = await t.db.select().from(messages).where(eq(messages.groupId, s.g.id))
+    expect(events.map((m) => m.body)).toContain('李建国 把「活动报名」设为全员可见')
+  })
+
   it('private: only the creator, the bot owner and group admins open it; the card says so', async () => {
     const s = await setup()
     expect((await s.setVisibility('li', 'private')).statusCode).toBe(200)

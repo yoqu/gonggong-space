@@ -304,6 +304,7 @@ export const protocolEn = {
   '{user} 把「{title}」设为仅创建人可见': '{user} made "{title}" visible to its creator only',
   '{user} 把「{title}」设为本群可见': '{user} made "{title}" visible to this group',
   '{user} 把「{title}」设为团队可见': '{user} made "{title}" visible to the team',
+  '{user} 把「{title}」设为全员可见': '{user} made "{title}" visible to everyone',
   '{user} 取消置顶了一条消息：{text}': '{user} unpinned a message: {text}',
   '{user} 添加了标签：{title}': '{user} added the tab: {title}',
   '{user} 删除了标签：{title}': '{user} deleted the tab: {title}',

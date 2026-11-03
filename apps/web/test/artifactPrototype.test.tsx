@@ -703,6 +703,11 @@ describe('visibility', () => {
       expect(bodies(calls, 'PUT', '/artifacts/a1/visibility')).toEqual([{ visibility: 'team' }]),
     )
     await within(dialog).findByText('团队成员都能查看和演示，进群后才能修改')
+    fireEvent.click(within(scope).getByRole('radio', { name: '全员' }))
+    await waitFor(() =>
+      expect(bodies(calls, 'PUT', '/artifacts/a1/visibility').at(-1)).toEqual({ visibility: 'all' }),
+    )
+    await within(dialog).findByText('所有登录用户都能查看和演示，只有群成员能修改')
   })
 
   it('is fixed for members who did not create it and do not manage it', async () => {

@@ -5,7 +5,7 @@ import type {
   WorkDto,
   WorkGroupDto,
 } from '@gonggong/protocol'
-import { and, desc, eq, isNull, or } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
   artifacts,
@@ -29,6 +29,7 @@ const EVENT: Record<ArtifactVisibility, ProtocolKey> = {
   private: '{user} 把「{title}」设为仅创建人可见',
   group: '{user} 把「{title}」设为本群可见',
   team: '{user} 把「{title}」设为团队可见',
+  all: '{user} 把「{title}」设为全员可见',
 }
 
 /** Its creator, its bot's owner or a group admin sets who may open it; the group hears of it. */
@@ -52,7 +53,7 @@ export async function setVisibility(
   return updated as Artifact
 }
 
-/** Every artifact `userId` may open, across the live groups of their live teams (作品). */
+/** Every artifact `userId` may open, across the live groups of their live teams, plus those open to all (作品). */
 export async function listWorks(ctx: Ctx, userId: string): Promise<WorkDto[]> {
   const rows = await ctx.db
     .select({
@@ -72,7 +73,7 @@ export async function listWorks(ctx: Ctx, userId: string): Promise<WorkDto[]> {
     .from(artifacts)
     .innerJoin(groups, and(eq(groups.id, artifacts.groupId), isNull(groups.archivedAt)))
     .innerJoin(teams, and(eq(teams.id, groups.teamId), isNull(teams.archivedAt)))
-    .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
+    .leftJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
     .leftJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
     .leftJoin(bots, eq(bots.id, artifacts.botId))
     .leftJoin(users, eq(users.id, artifacts.createdBy))
@@ -81,7 +82,13 @@ export async function listWorks(ctx: Ctx, userId: string): Promise<WorkDto[]> {
     .where(
       and(
         isNull(artifacts.archivedAt),
-        or(eq(artifacts.visibility, 'team'), eq(groupMembers.userId, userId)),
+        or(
+          eq(artifacts.visibility, 'all'),
+          and(
+            isNotNull(teamMembers.userId),
+            or(eq(artifacts.visibility, 'team'), eq(groupMembers.userId, userId)),
+          ),
+        ),
       ),
     )
     .orderBy(desc(artifacts.updatedAt))

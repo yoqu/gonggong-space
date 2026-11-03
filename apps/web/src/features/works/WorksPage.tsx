@@ -37,19 +37,22 @@ async function loadWorks() {
   }
 }
 
-/** 作品 shows in the app rail once one of my groups has a creation plugin on. */
+/** 作品 shows in the app rail once one of my groups has a creation plugin on, or a work is shared with me. */
 export function useWorksShown() {
   const groups = useWorks((s) => s.groups)
+  const list = useWorks((s) => s.list)
   useEffect(() => {
     if (useWorks.getState().groups === null) void loadWorkGroups()
+    if (useWorks.getState().list === null) void loadWorks()
   }, [])
-  return !!groups?.length
+  return !!groups?.length || !!list?.length
 }
 
 export const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
   private: t('仅自己可见'),
   group: t('本群可见'),
   team: t('团队可见'),
+  all: t('全员可见'),
 }
 
 type Scope = 'all' | 'mine' | 'team'
@@ -80,7 +83,8 @@ export function WorksPage() {
   const q = query.trim().toLowerCase()
   const shown = (list ?? []).filter(
     (w) =>
-      (scope === 'all' || (scope === 'mine' ? w.createdBy === me : w.visibility === 'team')) &&
+      (scope === 'all' ||
+        (scope === 'mine' ? w.createdBy === me : w.visibility === 'team' || w.visibility === 'all')) &&
       (!q || `${w.title} ${w.groupTitle}`.toLowerCase().includes(q)),
   )
   const open = (w: WorkDto) =>
@@ -102,7 +106,7 @@ export function WorksPage() {
           items={[
             { value: 'all', label: t('全部') },
             { value: 'mine', label: t('我创建的') },
-            { value: 'team', label: t('团队共享') },
+            { value: 'team', label: t('已共享') },
           ]}
         />
         <SearchField
@@ -159,7 +163,7 @@ export function WorksPage() {
                 <span className="works__tags">
                   {w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
                   <Tag
-                    tone={w.visibility === 'team' ? 'blue' : 'gray'}
+                    tone={w.visibility === 'team' || w.visibility === 'all' ? 'blue' : 'gray'}
                     icon={w.visibility === 'private' ? 'lock' : undefined}
                   >
                     {VISIBILITY_LABEL[w.visibility]}
@@ -191,7 +195,11 @@ function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
           {t('作品')}
         </Button>
         <h1 className="works__title">{work.title}</h1>
-        <span className="works__note">{t('只读 · 进入「{group}」后可修改', { group: work.groupTitle })}</span>
+        <span className="works__note">
+          {work.visibility === 'all'
+            ? t('只读 · 来自「{group}」', { group: work.groupTitle })
+            : t('只读 · 进入「{group}」后可修改', { group: work.groupTitle })}
+        </span>
       </header>
       {preview ? (
         <iframe className="works__frame" title={work.title} src={preview.url} />

@@ -30,6 +30,16 @@ const work = (o: Partial<WorkDto>): WorkDto => ({
 const WORKS = [
   work({}),
   work({
+    id: 'a3',
+    groupId: 'g4',
+    groupTitle: '市场群',
+    title: '品牌官网',
+    visibility: 'all',
+    createdBy: 'u3',
+    creatorName: '王芳',
+    access: 'view',
+  }),
+  work({
     id: 'a2',
     groupId: 'g2',
     groupTitle: '运营群',
@@ -91,11 +101,19 @@ describe('作品 in the app rail', () => {
     await waitFor(() => expect(where()).toContain('/works'))
   })
 
-  it('stays hidden without one', async () => {
-    const calls = mockApi({ 'GET /works/groups': [] })
-    renderAt('/')
-    await waitFor(() => expect(calls.some((c) => c.path === '/works/groups')).toBe(true))
+  it('stays hidden without one, unless a work is shared with me', async () => {
+    const calls = mockApi({ 'GET /works/groups': [], 'GET /works': [] })
+    const { unmount } = renderAt('/')
+    await waitFor(() => expect(calls.some((c) => c.path === '/works')).toBe(true))
     expect(screen.queryByRole('button', { name: '作品' })).toBeNull()
+    unmount()
+    resetWorks()
+    mockApi({
+      'GET /works/groups': [],
+      'GET /works': [work({ visibility: 'all', access: 'view', createdBy: 'u2' })],
+    })
+    renderAt('/')
+    expect(await screen.findByRole('button', { name: '作品' })).toBeTruthy()
   })
 })
 
@@ -108,18 +126,23 @@ describe('作品 page', () => {
       within(grid)
         .getAllByRole('listitem')
         .map((x) => x.textContent),
-    ).toEqual([expect.stringContaining('湖畔露营地预约'), expect.stringContaining('双十一活动汇报')])
-    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('团队可见')
-    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('只读')
+    ).toEqual([
+      expect.stringContaining('湖畔露营地预约'),
+      expect.stringContaining('品牌官网'),
+      expect.stringContaining('双十一活动汇报'),
+    ])
+    expect(within(grid).getAllByRole('listitem')[1]!.textContent).toContain('全员可见')
+    expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('团队可见')
+    expect(within(grid).getAllByRole('listitem')[2]!.textContent).toContain('只读')
 
     fireEvent.click(screen.getByRole('radio', { name: '我创建的' }))
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)
-    fireEvent.click(screen.getByRole('radio', { name: '团队共享' }))
+    fireEvent.click(screen.getByRole('radio', { name: '已共享' }))
     expect(
       within(grid)
         .getAllByRole('listitem')
         .map((x) => x.textContent),
-    ).toEqual([expect.stringContaining('双十一活动汇报')])
+    ).toEqual([expect.stringContaining('品牌官网'), expect.stringContaining('双十一活动汇报')])
     fireEvent.click(screen.getByRole('radio', { name: '全部' }))
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索作品' }), { target: { value: '露营' } })
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)

@@ -26,7 +26,7 @@ import { artifacts, artifactVersions, bots, messages, runs, users } from '../../
 import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
-import { findMember, inTeamOfGroup } from '../groups/service.js'
+import { findMember, groupLive, inTeamOfGroup } from '../groups/service.js'
 import {
   authorName,
   type MessageMeta,
@@ -322,6 +322,7 @@ export async function artifactAccess(
     return a.visibility !== 'private' || (await isArtifactManager(ctx, a, userId, m.member.isAdmin))
       ? 'edit'
       : 'private'
+  if (a.visibility === 'all') return (await groupLive(ctx, a.groupId)) ? 'view' : null
   return a.visibility === 'team' && (await inTeamOfGroup(ctx, a.groupId, userId)) ? 'view' : null
 }
 

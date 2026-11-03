@@ -74,6 +74,9 @@ export default {
   仅自己: 'Only me',
   '只有创建人、Bot 主人和群管理员能打开': "Only its creator, the Bot's owner and group admins can open it",
   群成员都能查看和修改: 'Group members can view and change it',
+  全员: 'Everyone',
+  '所有登录用户都能查看和演示，只有群成员能修改':
+    'Everyone signed in can view and present it; only group members can change it',
   '团队成员都能查看和演示，进群后才能修改':
     'Team members can view and present it; joining the group lets them change it',
   '只有创建人、Bot 主人或群管理员能修改可见范围':

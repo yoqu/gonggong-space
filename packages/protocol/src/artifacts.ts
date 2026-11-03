@@ -189,11 +189,12 @@ export type ArtifactVersionDetail = z.infer<typeof ArtifactVersionDetail>
 
 /**
  * Who may open an artifact: `private` its creator, its bot's owner and the group admins; `group` the group's members;
- * `team` also the members of the group's team, read-only (view and present) unless they are in the group.
+ * `team` also the members of the group's team, read-only (view and present) unless they are in the group; `all`
+ * everyone signed in, any team or none, read-only likewise.
  */
-export const ArtifactVisibility = z.enum(['private', 'group', 'team'])
+export const ArtifactVisibility = z.enum(['private', 'group', 'team', 'all'])
 export type ArtifactVisibility = z.infer<typeof ArtifactVisibility>
-/** What the caller may do with an artifact: `view` only looks and presents (a team member outside the group). */
+/** What the caller may do with an artifact: `view` only looks and presents (anyone outside the group). */
 export const ArtifactAccess = z.enum(['edit', 'view'])
 export type ArtifactAccess = z.infer<typeof ArtifactAccess>
 

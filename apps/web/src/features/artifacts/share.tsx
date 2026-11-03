@@ -77,6 +77,7 @@ const VISIBILITY_NOTE: Record<ArtifactVisibility, string> = {
   private: t('只有创建人、Bot 主人和群管理员能打开'),
   group: t('群成员都能查看和修改'),
   team: t('团队成员都能查看和演示，进群后才能修改'),
+  all: t('所有登录用户都能查看和演示，只有群成员能修改'),
 }
 
 const expiry = (at: string | null) =>
@@ -134,6 +135,7 @@ export function ShareDialog({
               { value: 'private', label: t('仅自己'), disabled: !canScope || saving },
               { value: 'group', label: t('本群'), disabled: !canScope || saving },
               { value: 'team', label: t('团队'), disabled: !canScope || saving },
+              { value: 'all', label: t('全员'), disabled: !canScope || saving },
             ]}
           />
           <small>
