@@ -50,7 +50,7 @@ const TAB_NAME = {
   tools: t('Agent 工具'),
   providers: t('供应商#nav'),
   agent: t('Agent 设置'),
-  workspaces: t('工作区'),
+  workspaces: t('空间'),
   logs: t('日志'),
 }
 const FEATURE = {

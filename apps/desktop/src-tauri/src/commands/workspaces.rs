@@ -139,6 +139,8 @@ mod tests {
             path: "/x".into(),
             size,
             state,
+            last_used_at: None,
+            changes: None,
         }
     }
 

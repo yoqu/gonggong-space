@@ -386,18 +386,32 @@ impl Handler for Engine {
             ServerToDaemon::WorkspacesList { request_id } => {
                 let (home, config, out) = (self.0.config.home.clone(), self.0.config.api.clone(), out.clone());
                 tokio::spawn(async move {
-                    let (entries, error) = match workspace::list_for_web(home, config).await {
-                        Ok(entries) => (entries, None),
-                        Err(e) => (vec![], Some(e)),
+                    let (entries, disk, error) = match workspace::list_for_web(home, config).await {
+                        Ok((entries, disk)) => (entries, disk, None),
+                        Err(e) => (vec![], None, Some(e)),
                     };
-                    out.send(DaemonToServer::WorkspacesResult { request_id, entries, error });
+                    out.send(DaemonToServer::WorkspacesResult { request_id, entries, disk, error });
                 });
             }
             ServerToDaemon::WorkspaceDelete { request_id, group_id, bot_id, path } => {
-                let (home, config, out) = (self.0.config.home.clone(), self.0.config.api.clone(), out.clone());
+                let (inner, out) = (self.0.clone(), out.clone());
                 tokio::spawn(async move {
-                    let error = workspace::delete_for_web(home, config, group_id, bot_id, path).await.err();
+                    let row = (group_id, bot_id, path);
+                    let error =
+                        inner.workspaces.delete_for_web(inner.config.api.clone(), &inner.services, row).await.err();
                     out.send(DaemonToServer::WorkspaceDeleteResult { request_id, error });
+                });
+            }
+            ServerToDaemon::WorkspaceGc { request_id, group_id, bot_id, path } => {
+                let (inner, out) = (self.0.clone(), out.clone());
+                tokio::spawn(async move {
+                    let row = (group_id, bot_id, path);
+                    let (before, after, error) = match inner.workspaces.gc_for_web(inner.config.api.clone(), row).await
+                    {
+                        Ok((before, after)) => (before, after, None),
+                        Err(e) => (0, 0, Some(e)),
+                    };
+                    out.send(DaemonToServer::WorkspaceGcResult { request_id, before, after, error });
                 });
             }
             ServerToDaemon::AppsList { request_id } => {

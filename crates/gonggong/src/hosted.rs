@@ -389,6 +389,17 @@ impl Services {
         Ok(format!("服务 {name} 已停止"))
     }
 
+    /// Ends the live services started in `dir` or below it, before the directory is deleted.
+    pub async fn stop_in(&self, dir: &Path) {
+        let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+        let dir = real(dir);
+        let inside: Vec<Hosted> = {
+            let list = self.0.list.lock().unwrap();
+            list.iter().filter(|h| h.live() && real(&h.origin.root).starts_with(&dir)).cloned().collect()
+        };
+        futures_util::future::join_all(inside.into_iter().map(|h| self.end(h))).await;
+    }
+
     /// Daemon shutdown: services never outlive it.
     pub async fn stop_all(&self) {
         let all: Vec<Hosted> = self.0.list.lock().unwrap().clone();

@@ -1775,6 +1775,8 @@ pub const FEATURE_ARTIFACTS: &str = "artifacts";
 pub const FEATURE_ARTIFACT_SNAPSHOT: &str = "artifactSnapshot";
 /// 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete.
 pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
+/// 空间: workspace.gc, `lastUsedAt` / `changes` / `disk` in workspaces.result, and deletes that skip busy dirs.
+pub const FEATURE_STORAGE_ADMIN: &str = "storageAdmin";
 pub const FEATURE_GIT_OPS: &str = "gitOps";
 /// git.diff, git.refresh and commit `paths`: without it a server must not send paths, or everything gets committed.
 pub const FEATURE_GIT_OPS2: &str = "gitOps2";
@@ -2266,9 +2268,18 @@ pub enum DaemonToServer {
     #[serde(rename = "logs.result", rename_all = "camelCase")]
     LogsResult { request_id: String, lines: Vec<crate::logs::LogLine>, error: Option<String> },
     #[serde(rename = "workspaces.result", rename_all = "camelCase")]
-    WorkspacesResult { request_id: String, entries: Vec<crate::workspace::Entry>, error: Option<String> },
+    WorkspacesResult {
+        request_id: String,
+        entries: Vec<crate::workspace::Entry>,
+        /// The volume holding the daemon home ([`FEATURE_STORAGE_ADMIN`]).
+        #[serde(default)]
+        disk: Option<crate::workspace::Disk>,
+        error: Option<String>,
+    },
     #[serde(rename = "workspace.delete.result", rename_all = "camelCase")]
     WorkspaceDeleteResult { request_id: String, error: Option<String> },
+    #[serde(rename = "workspace.gc.result", rename_all = "camelCase")]
+    WorkspaceGcResult { request_id: String, before: u64, after: u64, error: Option<String> },
     #[serde(rename = "workspace.open.result", rename_all = "camelCase")]
     WorkspaceOpenResult { request_id: String, error: Option<String> },
     #[serde(rename = "session.fork.result", rename_all = "camelCase")]
@@ -2570,6 +2581,9 @@ pub enum ServerToDaemon {
     WorkspacesList { request_id: String },
     #[serde(rename = "workspace.delete", rename_all = "camelCase")]
     WorkspaceDelete { request_id: String, group_id: String, bot_id: String, path: String },
+    /// 空间 → 瘦身 (needs [`FEATURE_STORAGE_ADMIN`]).
+    #[serde(rename = "workspace.gc", rename_all = "camelCase")]
+    WorkspaceGc { request_id: String, group_id: String, bot_id: String, path: String },
     #[serde(rename = "workspace.open")]
     WorkspaceOpen(WorkspaceOpen),
     #[serde(rename = "session.fork")]

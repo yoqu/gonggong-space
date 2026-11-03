@@ -570,7 +570,7 @@
   color: var(--system-blue);
 }
 
-/* 我的机器管理 → 工作区 / 日志 */
+/* 我的机器管理 → 空间 / 日志 */
 .machine-admin {
   display: flex;
   flex-direction: column;
@@ -590,6 +590,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
+}
+.machine-admin__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.machine-admin__group-name {
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  color: var(--label-secondary);
 }
 .machine-admin__size {
   font-variant-numeric: tabular-nums;

@@ -11,6 +11,8 @@ import { OFFLINE, ownMachine, requireFeature } from './relay.js'
 const LOGS_TIMEOUT_MS = 10_000
 /** Sizes are walked over every workspace on the machine. */
 const WORKSPACES_TIMEOUT_MS = 60_000
+/** git gc --prune=now on a large repo can run for minutes. */
+const GC_TIMEOUT_MS = 10 * 60_000
 
 const LogsQuery = z.object({
   level: LogLevelName.default('info'),
@@ -43,12 +45,13 @@ export function machineAdminRoutes(ctx: Ctx) {
 
     app.get<{ Params: { id: string } }>(
       '/api/machines/:id/workspaces',
-      async (req): Promise<{ entries: MachineWorkspace[] }> => {
+      async (req): Promise<{ entries: MachineWorkspace[]; disk: { free: number; total: number } | null }> => {
         const me = await requireUser(ctx, req)
         const m = await owned(me.id, req.params.id)
         const msg = { t: 'workspaces.list', requestId: randomUUID() } as const
         const res = await ctx.hub.request(m.id, msg, 'workspaces.result', WORKSPACES_TIMEOUT_MS)
-        return { entries: answered(m.id, res).entries }
+        const { entries, disk } = answered(m.id, res)
+        return { entries, disk }
       },
     )
 
@@ -66,6 +69,26 @@ export function machineAdminRoutes(ctx: Ctx) {
         detail: { machineId: m.id, ...target },
       })
       return reply.status(204).send()
+    })
+
+    app.post<{ Params: { id: string } }>('/api/machines/:id/workspaces/gc', async (req) => {
+      const me = await requireUser(ctx, req)
+      const m = await owned(me.id, req.params.id)
+      requireFeature(ctx, m.id, 'storageAdmin')
+      const target = DeleteReq.parse(req.body)
+      const msg = { t: 'workspace.gc', requestId: randomUUID(), ...target } as const
+      const { before, after } = answered(
+        m.id,
+        await ctx.hub.request(m.id, msg, 'workspace.gc.result', GC_TIMEOUT_MS),
+      )
+      await audit(ctx, {
+        category: 'machine',
+        actorUserId: me.id,
+        groupId: null,
+        action: 'workspace.gc',
+        detail: { machineId: m.id, ...target, before, after },
+      })
+      return { before, after }
     })
   }
 }

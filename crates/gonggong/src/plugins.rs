@@ -56,6 +56,8 @@ pub async fn install(
         if !dir.is_dir() {
             fetch(api, r, &sets, &dir).await?;
         }
+        // Last use, for the janitor: a version no turn takes for a month is removed.
+        let _ = tokio::fs::write(sets.join(format!(".{}-{}.used", r.name, r.digest)), b"").await;
         dirs.push(dir);
     }
 

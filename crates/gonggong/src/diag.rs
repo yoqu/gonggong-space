@@ -331,6 +331,8 @@ mod tests {
             path,
             size: Some(1_000_000),
             state,
+            last_used_at: None,
+            changes: None,
         }
     }
 

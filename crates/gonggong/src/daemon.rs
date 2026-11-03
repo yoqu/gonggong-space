@@ -89,6 +89,7 @@ impl Daemon {
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
             tokio::spawn(tunnel),
+            tokio::spawn(crate::janitor::run(opts.home.clone(), opts.config.clone())),
         ];
         if let Some(up) = &upgrader
             && let Some(source) = GithubSource::from_env()

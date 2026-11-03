@@ -24,6 +24,7 @@ pub mod hosted;
 pub mod html_render;
 pub mod i18n;
 pub mod inject;
+pub mod janitor;
 pub mod local;
 pub mod lock;
 pub mod logs;

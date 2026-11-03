@@ -58,14 +58,7 @@ fn current_path(home: &Path, group: &str, bot: &str, repo: Option<&RepoSpec>) ->
 /// its one clone below.
 pub fn managed_clone(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) -> PathBuf {
     let root = managed_root(home, group, bot, repo_id);
-    if repo_id.is_none() || legacy_clone(&root) {
-        return root;
-    }
-    let mut clones: Vec<PathBuf> = subdirs(&root)
-        .filter(|(name, p)| !name.ends_with(".partial") && p.join(".git").exists())
-        .map(|(_, p)| p)
-        .collect();
-    if clones.len() == 1 { clones.remove(0) } else { root }
+    if repo_id.is_none() { root } else { clone_in(&root) }
 }
 
 /// The directory a (group, bot) works in: the /cd directory, else the managed workspace.
@@ -198,6 +191,7 @@ impl Workspaces {
                 if let Ask::Pending(request_id, _) = &ask {
                     shared.withdraw(request_id, t!("工作区已空闲，开始运行"));
                 }
+                touch_used(&self.home, &req.cwd);
                 return Some(DirGuard { dir, run_id: me.run_id });
             }
             if let Ask::Unasked = ask
@@ -819,6 +813,26 @@ pub struct Entry {
     /// Bytes on disk; `None` for /cd dirs, which are the owner's own checkout.
     pub size: Option<u64>,
     pub state: EntryState,
+    /// When a turn last started in it (ms since epoch), see [`touch_used`]; `None` when never recorded or a /cd dir.
+    #[serde(default)]
+    pub last_used_at: Option<u64>,
+    /// Filled in by [`changes`]; `None` without a repo or for /cd dirs.
+    #[serde(default)]
+    pub changes: Option<Changes>,
+}
+
+/// Work in a clone that is on no remote yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Changes {
+    pub uncommitted: u64,
+    pub unpushed: u64,
+}
+
+/// The volume holding the daemon home.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Disk {
+    pub free: u64,
+    pub total: u64,
 }
 
 impl Entry {
@@ -921,10 +935,67 @@ fn entry(
         bot_id: bot.into(),
         bot_name: pair.map(|p| p.bot_name.clone()),
         kind,
+        last_used_at: (kind != EntryKind::Cd).then(|| last_used(&path)).flatten(),
         path,
         size,
         state,
+        changes: None,
     }
+}
+
+/// `<home>/workspaces/<group>/<bot>/.<leaf>.used`, beside the workspace so neither git nor the agent sees it; None
+/// when `dir` is not inside a managed workspace.
+fn used_marker(home: &Path, dir: &Path) -> Option<PathBuf> {
+    let rel = dir.strip_prefix(home.join("workspaces")).ok()?;
+    let parts: Vec<_> = rel.components().take(3).collect();
+    let [Component::Normal(g), Component::Normal(b), Component::Normal(leaf)] = parts[..] else { return None };
+    Some(home.join("workspaces").join(g).join(b).join(format!(".{}.used", leaf.to_string_lossy())))
+}
+
+/// Records that a turn starts in `dir` (a managed workspace or its clone); /cd dirs are left alone.
+pub fn touch_used(home: &Path, dir: &Path) {
+    if let Some(marker) = used_marker(home, dir) {
+        let _ = std::fs::write(marker, b"");
+    }
+}
+
+fn last_used(path: &Path) -> Option<u64> {
+    let marker = path.parent()?.join(format!(".{}.used", path.file_name()?.to_string_lossy()));
+    let at = std::fs::metadata(marker).ok()?.modified().ok()?;
+    Some(at.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_millis() as u64)
+}
+
+/// The clone a managed workspace dir holds: the dir itself in the old layout and for `_empty`, else its one clone.
+fn clone_in(root: &Path) -> PathBuf {
+    if legacy_clone(root) {
+        return root.to_path_buf();
+    }
+    let mut clones: Vec<PathBuf> = subdirs(root)
+        .filter(|(name, p)| !name.ends_with(".partial") && p.join(".git").exists())
+        .map(|(_, p)| p)
+        .collect();
+    if clones.len() == 1 { clones.remove(0) } else { root.to_path_buf() }
+}
+
+/// Uncommitted files and commits on no remote of a managed workspace's clone; None without a repo.
+pub async fn changes(entry: &Entry) -> Option<Changes> {
+    if entry.kind != EntryKind::Managed {
+        return None;
+    }
+    let dir = clone_in(&entry.path);
+    if !git::is_repo(&dir) {
+        return None;
+    }
+    let status = git(&dir, &["status", "--porcelain"]).await.ok()?;
+    // An unborn HEAD has no commits to lose.
+    let unpushed = git(&dir, &["rev-list", "--count", "HEAD", "--not", "--remotes"]).await.unwrap_or_default();
+    Some(Changes { uncommitted: status.lines().count() as u64, unpushed: unpushed.trim().parse().unwrap_or(0) })
+}
+
+/// The volume holding `home`.
+pub fn disk(home: &Path) -> Option<Disk> {
+    let volume = home.ancestors().find(|p| p.exists())?;
+    Some(Disk { free: fs4::available_space(volume).ok()?, total: fs4::total_space(volume).ok()? })
 }
 
 fn real(path: &Path) -> PathBuf {
@@ -987,6 +1058,9 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
         return Err(t!("不是托管工作区目录：{path}", path = entry.path.display()));
     }
     std::fs::remove_dir_all(&entry.path).map_err(|e| t!("删除失败：{e}", e = e))?;
+    if let Some(marker) = used_marker(home, &entry.path) {
+        let _ = std::fs::remove_file(marker);
+    }
     for dir in entry.path.ancestors().skip(1).take(2) {
         if std::fs::remove_dir(dir).is_err() {
             break;
@@ -996,27 +1070,83 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
 }
 
 /// The 工作区 page for the web's 我的机器管理: the server's pairs as the desktop app gets them, sizes walked off the
-/// async runtime.
-pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<Vec<Entry>, String> {
+/// async runtime, each clone's unpushed work and the free space.
+pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<(Vec<Entry>, Option<Disk>), String> {
     let config = config.ok_or_else(|| t!("daemon 未登录服务器").to_string())?;
     let pairs = fetch_pairs(&config).await.map_err(|e| t!("读取工作区失败：{e}", e = e))?;
-    tokio::task::spawn_blocking(move || list(&home, &pairs)).await.map_err(|e| e.to_string())
+    let (mut entries, disk) = tokio::task::spawn_blocking(move || {
+        let entries = list(&home, &pairs);
+        (entries, disk(&home))
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    for e in &mut entries {
+        e.changes = changes(e).await;
+    }
+    Ok((entries, disk))
 }
 
-/// Deletes the web's chosen workspace if it is still that row and still deletable (see [`delete`]).
-pub async fn delete_for_web(
-    home: PathBuf,
-    config: Option<Config>,
-    group_id: String,
-    bot_id: String,
-    path: String,
-) -> Result<(), String> {
-    let entry = list_for_web(home.clone(), config)
-        .await?
-        .into_iter()
-        .find(|e| e.group_id == group_id && e.bot_id == bot_id && e.path == Path::new(&path))
-        .ok_or_else(|| t!("工作区不存在或已变化，请刷新").to_string())?;
-    tokio::task::spawn_blocking(move || delete(&home, &entry)).await.map_err(|e| e.to_string())?
+impl Workspaces {
+    /// The web's chosen row if it is still that row.
+    async fn row(&self, config: Option<Config>, group_id: &str, bot_id: &str, path: &str) -> Result<Entry, String> {
+        list_for_web(self.home.clone(), config)
+            .await?
+            .0
+            .into_iter()
+            .find(|e| e.group_id == group_id && e.bot_id == bot_id && e.path == Path::new(path))
+            .ok_or_else(|| t!("工作区不存在或已变化，请刷新").to_string())
+    }
+
+    /// Holds the clone of `entry` so no turn or git action starts in it meanwhile.
+    fn hold_clone(&self, entry: &Entry, id: &str) -> Result<DirGuard, String> {
+        self.hold(&clone_in(&entry.path), id).ok_or_else(|| t!("工作区正在使用中，请稍后再试").to_string())
+    }
+
+    /// Deletes the web's chosen workspace if it is still that row, still deletable (see [`delete`]) and no turn or
+    /// git action is in it; services still running in it are stopped first.
+    pub async fn delete_for_web(
+        &self,
+        config: Option<Config>,
+        services: &crate::hosted::Services,
+        (group_id, bot_id, path): (String, String, String),
+    ) -> Result<(), String> {
+        let entry = self.row(config, &group_id, &bot_id, &path).await?;
+        self.delete_entry(entry, services).await
+    }
+
+    async fn delete_entry(&self, entry: Entry, services: &crate::hosted::Services) -> Result<(), String> {
+        if !entry.deletable() {
+            return Err(t!("只能删除已移出或未使用的托管工作区").into());
+        }
+        let _guard = self.hold_clone(&entry, &format!("delete:{}", entry.path.display()))?;
+        services.stop_in(&entry.path).await;
+        let home = self.home.clone();
+        tokio::task::spawn_blocking(move || delete(&home, &entry)).await.map_err(|e| e.to_string())?
+    }
+
+    /// 瘦身: `git gc --prune=now` in a managed clone no turn is in; its size before and after.
+    pub async fn gc_for_web(
+        &self,
+        config: Option<Config>,
+        (group_id, bot_id, path): (String, String, String),
+    ) -> Result<(u64, u64), String> {
+        let entry = self.row(config, &group_id, &bot_id, &path).await?;
+        self.gc_entry(&entry).await
+    }
+
+    async fn gc_entry(&self, entry: &Entry) -> Result<(u64, u64), String> {
+        let dir = clone_in(&entry.path);
+        if entry.kind != EntryKind::Managed || entry.state == EntryState::Running || !git::is_repo(&dir) {
+            return Err(t!("只能整理未在运行的托管仓库").into());
+        }
+        let _guard = self.hold_clone(entry, &format!("gc:{}", entry.path.display()))?;
+        let size = |p: PathBuf| async move {
+            tokio::task::spawn_blocking(move || dir_size(&p, SIZE_MAX_ENTRIES)).await.map_err(|e| e.to_string())
+        };
+        let before = size(entry.path.clone()).await?;
+        git(&dir, &["gc", "--prune=now", "--quiet"]).await.map_err(|e| t!("整理失败：{e}", e = e))?;
+        Ok((before, size(entry.path.clone()).await?))
+    }
 }
 
 /// A local backup under `<home>/backups` (overwritten local edits, interrupted leftovers); never uploaded.
@@ -1259,6 +1389,74 @@ mod tests {
         file(&home.path().join("backups/g1/old.patch"), 12);
         let names: Vec<_> = backups(home.path()).into_iter().map(|b| (b.name, b.size)).collect();
         assert_eq!(names, vec![("g1/old.patch".into(), 12), ("web-site/0921-1540".into(), 40)]);
+    }
+
+    fn git_in(dir: &Path, args: &[&str]) {
+        let ok = std::process::Command::new("git").arg("-C").arg(dir).args(args).output().unwrap().status.success();
+        assert!(ok, "git {args:?}");
+    }
+
+    /// A clone at `<root>/app` with one local-only commit and one changed file.
+    fn repo_at(root: &Path) -> PathBuf {
+        let dir = root.join("app");
+        std::fs::create_dir_all(&dir).unwrap();
+        git_in(&dir, &["init", "-q"]);
+        file(&dir.join("a.txt"), 10);
+        git_in(&dir, &["add", "."]);
+        git_in(&dir, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "one"]);
+        file(&dir.join("b.txt"), 10);
+        dir
+    }
+
+    #[test]
+    fn records_when_a_turn_last_used_a_managed_workspace() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        file(&h.join("workspaces/g/b/r1/pay/a"), 10);
+        file(&h.join("workspaces/g/b/r2/pay/a"), 10);
+        touch_used(h, &h.join("workspaces/g/b/r1/pay"));
+        touch_used(h, Path::new("/elsewhere/mine"));
+        let entries = list(h, &[]);
+        assert_eq!(entries.len(), 2, "the marker is not a workspace");
+        let used = entries[0].last_used_at.unwrap();
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        assert!(now.abs_diff(used) < 60_000);
+        assert_eq!(entries[1].last_used_at, None);
+        delete(h, &entries[0]).unwrap();
+        assert!(!h.join("workspaces/g/b/.r1.used").exists());
+    }
+
+    #[tokio::test]
+    async fn counts_uncommitted_files_and_commits_on_no_remote() {
+        let home = tempfile::tempdir().unwrap();
+        let root = home.path().join("workspaces/g/b/r1");
+        repo_at(&root);
+        let mut entry = list(home.path(), &[]).remove(0);
+        assert_eq!(changes(&entry).await, Some(Changes { uncommitted: 1, unpushed: 1 }));
+        entry.kind = EntryKind::Empty;
+        assert_eq!(changes(&entry).await, None);
+    }
+
+    #[tokio::test]
+    async fn deletes_and_gcs_only_workspaces_nothing_is_in() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        let clone = repo_at(&h.join("workspaces/g/b/r1"));
+        let ws = Workspaces::new(h.to_path_buf());
+        let services = crate::hosted::Services::new(h);
+        let entry = list(h, &[]).remove(0);
+
+        let busy = ws.hold(&clone, "manual").unwrap();
+        assert!(ws.gc_entry(&entry).await.unwrap_err().contains("正在使用"));
+        assert!(ws.delete_entry(entry.clone(), &services).await.unwrap_err().contains("正在使用"));
+        drop(busy);
+
+        let (before, after) = ws.gc_entry(&entry).await.unwrap();
+        assert!(before > 0 && after > 0);
+        let running = Entry { state: EntryState::Running, ..entry.clone() };
+        assert!(ws.gc_entry(&running).await.is_err());
+        ws.delete_entry(entry, &services).await.unwrap();
+        assert!(!h.join("workspaces/g").exists());
     }
 
     #[test]

@@ -104,7 +104,7 @@ fn node_exe(root: &Path) -> PathBuf {
 
 /// The active managed Node, resolved so a process started on it keeps its version across a switch. `current` is a
 /// symlink on unix and a file naming the version dir on Windows.
-fn current_runtime(home: &Path) -> Option<PathBuf> {
+pub(crate) fn current_runtime(home: &Path) -> Option<PathBuf> {
     let current = runtime_dir(home).join("current");
     let dir = if cfg!(windows) {
         runtime_dir(home).join(std::fs::read_to_string(&current).ok()?.trim())

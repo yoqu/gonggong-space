@@ -201,7 +201,7 @@ describe('machine dialog tabs', () => {
   it('names every outdated tab in one note', () => {
     open({ ...mbp, features: [] })
     expect(
-      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、工作区与日志'),
+      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、空间与日志'),
     ).toBeTruthy()
   })
 })

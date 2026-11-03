@@ -79,7 +79,11 @@ describe('我的机器管理: logs and workspaces through the daemon', () => {
     const listing = w.asWang.get(`/api/machines/${w.machine.id}/workspaces`)
     const list = await w.next()
     w.send({ t: 'workspaces.result', requestId: list.requestId, entries: [entry], error: null })
-    expect(await listing).toEqual({ status: 200, body: { entries: [entry] } })
+    // An older daemon sends none of the 空间 fields; they come back null.
+    expect(await listing).toEqual({
+      status: 200,
+      body: { entries: [{ ...entry, lastUsedAt: null, changes: null }], disk: null },
+    })
 
     const target = { groupId: 'g', botId: 'b', path: entry.path }
     const refused = w.asWang.post<{ message: string }>(
@@ -104,6 +108,59 @@ describe('我的机器管理: logs and workspaces through the daemon', () => {
     expect((await deleting).status).toBe(204)
     const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'workspace.delete'))
     expect(log?.detail).toMatchObject({ machineId: w.machine.id, ...target })
+  })
+
+  it("passes the daemon's last use, unpushed work and disk through", async () => {
+    const w = await world(['machineAdmin', 'storageAdmin'])
+    const entry = {
+      groupId: 'g',
+      groupName: '退款',
+      dm: false,
+      botId: 'b',
+      botName: '小王',
+      kind: 'managed',
+      path: '/h/.gonggong/workspaces/g/b/refund',
+      size: 4096,
+      state: 'idle',
+      lastUsedAt: 1_700_000_000_000,
+      changes: { uncommitted: 2, unpushed: 1 },
+    }
+    const disk = { free: 10_000, total: 50_000 }
+    const listing = w.asWang.get(`/api/machines/${w.machine.id}/workspaces`)
+    const list = await w.next()
+    w.send({ t: 'workspaces.result', requestId: list.requestId, entries: [entry], disk, error: null })
+    expect(await listing).toEqual({ status: 200, body: { entries: [entry], disk } })
+  })
+
+  it('slims a workspace with git gc and records it, only on daemons that can', async () => {
+    const w = await world(['machineAdmin', 'storageAdmin'])
+    const target = { groupId: 'g', botId: 'b', path: '/h/.gonggong/workspaces/g/b/refund' }
+    const refused = w.asWang.post<{ message: string }>(`/api/machines/${w.machine.id}/workspaces/gc`, target)
+    const first = await w.next()
+    expect(first).toMatchObject({ t: 'workspace.gc', ...target })
+    w.send({
+      t: 'workspace.gc.result',
+      requestId: first.requestId,
+      before: 0,
+      after: 0,
+      error: '工作区正在运行',
+    })
+    expect(await refused).toMatchObject({ status: 400, body: { message: '工作区正在运行' } })
+
+    const gc = w.asWang.post(`/api/machines/${w.machine.id}/workspaces/gc`, target)
+    const second = await w.next()
+    w.send({ t: 'workspace.gc.result', requestId: second.requestId, before: 9000, after: 3000, error: null })
+    expect(await gc).toEqual({ status: 200, body: { before: 9000, after: 3000 } })
+    const [log] = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'workspace.gc'))
+    expect(log?.detail).toMatchObject({ machineId: w.machine.id, ...target, before: 9000, after: 3000 })
+
+    expect((await w.asLi.post(`/api/machines/${w.machine.id}/workspaces/gc`, target)).status).toBe(403)
+    const old = await world()
+    const res = await old.asWang.post<{ message: string }>(
+      `/api/machines/${old.machine.id}/workspaces/gc`,
+      target,
+    )
+    expect(res).toMatchObject({ status: 409, body: { message: '请先升级该机器的 daemon' } })
   })
 
   it('asks for a daemon upgrade when the machine cannot answer', async () => {

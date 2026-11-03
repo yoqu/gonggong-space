@@ -3,10 +3,12 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
+import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
+  Checkbox,
   Dialog,
   EmptyState,
   GroupBox,
@@ -15,6 +17,7 @@ import {
   Select,
   Skeleton,
   Tag,
+  toast,
 } from '../../ui'
 
 type Level = 'error' | 'warn' | 'info' | 'debug'
@@ -76,6 +79,14 @@ const STATE: Record<MachineWorkspace['state'], string> = {
   unused: t('未使用'),
 }
 const deletable = (w: MachineWorkspace) => w.kind !== 'cd' && (w.state === 'removed' || w.state === 'unused')
+const STALE_MS = 30 * 24 * 3600_000
+/** Worth freeing: deletable now, or a hosted workspace no turn has touched in 30 days (only flagged, never deleted). */
+const freeable = (w: MachineWorkspace, now: number) =>
+  deletable(w) ||
+  (w.kind !== 'cd' && w.state !== 'running' && w.lastUsedAt !== null && now - w.lastUsedAt > STALE_MS)
+const hasChanges = (w: MachineWorkspace) => !!w.changes && w.changes.uncommitted + w.changes.unpushed > 0
+const keyOf = (w: MachineWorkspace) => `${w.groupId}/${w.botId}/${w.path}`
+const sum = (ws: MachineWorkspace[]) => ws.reduce((n, w) => n + (w.size ?? 0), 0)
 
 export const sizeText = (bytes: number) => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -88,67 +99,165 @@ export const sizeText = (bytes: number) => {
   return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`
 }
 
-/** Every workspace on the machine with its size; removed or unused managed ones can be deleted to free space. */
+type Listing = { entries: MachineWorkspace[]; disk: { free: number; total: number } | null }
+
+/** 空间: every workspace on the machine by group and bot; removed or unused hosted ones can be deleted, idle ones slimmed. */
 export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
-  const { data, error, reload } = useGet<{ entries: MachineWorkspace[] }>(
-    `/machines/${machine.id}/workspaces`,
-  )
-  const [confirm, setConfirm] = useState<MachineWorkspace | null>(null)
+  const { data, error, reload } = useGet<Listing>(`/machines/${machine.id}/workspaces`)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [confirm, setConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const remove = async (w: MachineWorkspace) => {
+  const [slimming, setSlimming] = useState<string | null>(null)
+  const canGc = machine.features.includes('storageAdmin')
+  const entries = data?.entries ?? []
+  const selected = entries.filter((w) => deletable(w) && picked.has(keyOf(w)))
+  const target = (w: MachineWorkspace) => ({ groupId: w.groupId, botId: w.botId, path: w.path })
+
+  const removeSelected = async () => {
     setDeleting(true)
+    for (const w of selected) {
+      try {
+        await api.post(`/machines/${machine.id}/workspaces/delete`, target(w))
+      } catch (e) {
+        toastError(e)
+      }
+    }
+    setDeleting(false)
+    setConfirm(false)
+    setPicked(new Set())
+    reload()
+  }
+  const slim = async (w: MachineWorkspace) => {
+    setSlimming(keyOf(w))
     try {
-      await api.post(`/machines/${machine.id}/workspaces/delete`, {
-        groupId: w.groupId,
-        botId: w.botId,
-        path: w.path,
+      const r = await api.post<{ before: number; after: number }>(
+        `/machines/${machine.id}/workspaces/gc`,
+        target(w),
+      )
+      toast({
+        type: 'success',
+        message: t('已释放 {size}', { size: sizeText(Math.max(0, r.before - r.after)) }),
       })
-      setConfirm(null)
       reload()
     } catch (e) {
       toastError(e)
     } finally {
-      setDeleting(false)
+      setSlimming(null)
     }
   }
-  const freeable = data?.entries.filter(deletable).reduce((n, w) => n + (w.size ?? 0), 0) ?? 0
+  const toggle = (w: MachineWorkspace, on: boolean) =>
+    setPicked((p) => {
+      const next = new Set(p)
+      if (on) next.add(keyOf(w))
+      else next.delete(keyOf(w))
+      return next
+    })
+
+  const now = Date.now()
+  const used = sum(entries.filter((w) => w.kind !== 'cd'))
+  const free = sum(entries.filter((w) => freeable(w, now)))
+  const groups = new Map<string, MachineWorkspace[]>()
+  for (const w of entries) groups.set(w.groupId, [...(groups.get(w.groupId) ?? []), w])
+  const risky = selected.filter(hasChanges)
   return (
-    <section className="machine-admin" aria-label={t('工作区')}>
+    <section className="machine-admin" aria-label={t('空间')}>
       <div className="machine-admin__bar">
         <Button size="small" icon="arrow-clockwise" onClick={reload}>
           {t('刷新')}
         </Button>
-        {freeable ? (
-          <span className="machine-admin__hint">{t('可清理 {size}', { size: sizeText(freeable) })}</span>
+        <Button
+          size="small"
+          variant="destructive"
+          disabled={!selected.length}
+          onClick={() => setConfirm(true)}
+        >
+          {t('删除所选')}
+        </Button>
+        {data ? (
+          <span className="machine-admin__hint">{t('合计占用 {size}', { size: sizeText(used) })}</span>
+        ) : null}
+        {data?.disk ? (
+          <span className="machine-admin__hint">
+            {t('磁盘剩余 {free} / 共 {total}', {
+              free: sizeText(data.disk.free),
+              total: sizeText(data.disk.total),
+            })}
+          </span>
+        ) : null}
+        {free ? (
+          <span className="machine-admin__hint">{t('可释放 {size}', { size: sizeText(free) })}</span>
         ) : null}
       </div>
       {error ? (
         <Alert variant="error" title={error} />
       ) : !data ? (
         <Skeleton count={4} />
-      ) : data.entries.length ? (
-        <GroupBox>
-          {data.entries.map((w) => (
-            <GroupRow
-              key={`${w.groupId}/${w.botId}/${w.path}`}
-              label={`${w.dm ? t('私聊') : (w.groupName ?? w.groupId)} · ${w.botName ?? w.botId}`}
-              description={w.path}
-            >
-              <span className="machine-admin__row">
-                <Tag tone="gray">{KIND[w.kind]}</Tag>
-                <Tag tone={w.state === 'running' ? 'blue' : w.state === 'idle' ? 'green' : 'orange'}>
-                  {STATE[w.state]}
-                </Tag>
-                {w.size !== null ? <span className="machine-admin__size">{sizeText(w.size)}</span> : null}
-                {deletable(w) ? (
-                  <Button size="small" variant="plain" onClick={() => setConfirm(w)}>
-                    {t('删除')}
-                  </Button>
-                ) : null}
+      ) : entries.length ? (
+        [...groups.values()].map((ws) => {
+          const g = ws[0] as MachineWorkspace
+          return (
+            <div key={g.groupId} className="machine-admin__group">
+              <span className="machine-admin__group-name">
+                {g.dm ? t('私聊') : (g.groupName ?? g.groupId)}
               </span>
-            </GroupRow>
-          ))}
-        </GroupBox>
+              <GroupBox>
+                {ws.map((w) => {
+                  const name = w.botName ?? w.botId
+                  return (
+                    <GroupRow
+                      key={keyOf(w)}
+                      label={
+                        deletable(w) ? (
+                          <Checkbox
+                            label={name}
+                            checked={picked.has(keyOf(w))}
+                            onChange={(on) => toggle(w, on)}
+                          />
+                        ) : (
+                          name
+                        )
+                      }
+                      description={w.path}
+                    >
+                      <span className="machine-admin__row">
+                        <Tag tone="gray">{KIND[w.kind]}</Tag>
+                        <Tag tone={w.state === 'running' ? 'blue' : w.state === 'idle' ? 'green' : 'orange'}>
+                          {STATE[w.state]}
+                        </Tag>
+                        {hasChanges(w) && w.changes ? (
+                          <Tag tone="orange">
+                            {t('{a} 个未提交 · {b} 个未推送', {
+                              a: w.changes.uncommitted,
+                              b: w.changes.unpushed,
+                            })}
+                          </Tag>
+                        ) : null}
+                        {w.size !== null ? (
+                          <span className="machine-admin__size">{sizeText(w.size)}</span>
+                        ) : null}
+                        {w.lastUsedAt !== null ? (
+                          <span className="machine-admin__size">
+                            {t('{when}使用', { when: ago(new Date(w.lastUsedAt).toISOString(), now) })}
+                          </span>
+                        ) : null}
+                        {canGc && w.kind === 'managed' && w.state !== 'running' ? (
+                          <Button
+                            size="small"
+                            variant="plain"
+                            disabled={slimming !== null}
+                            onClick={() => void slim(w)}
+                          >
+                            {slimming === keyOf(w) ? t('正在瘦身…') : t('瘦身')}
+                          </Button>
+                        ) : null}
+                      </span>
+                    </GroupRow>
+                  )
+                })}
+              </GroupBox>
+            </div>
+          )
+        })
       ) : (
         <EmptyState compact title={t('这台机器上还没有工作区')} />
       )}
@@ -157,19 +266,36 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
           <Dialog
             open
             role="alertdialog"
-            title={t('删除这个工作区？')}
-            message={t('会删除机器上的 {path}，不可恢复。', { path: confirm.path })}
-            onClose={() => setConfirm(null)}
+            title={t('删除所选的 {n} 个工作区？', { n: selected.length })}
+            message={t('会删除机器上的这些目录，不可恢复。')}
+            onClose={() => setConfirm(false)}
             actions={[
-              { label: t('取消'), onClick: () => setConfirm(null), autoFocus: true },
+              { label: t('取消'), onClick: () => setConfirm(false), autoFocus: true },
               {
                 label: deleting ? t('正在删除…') : t('删除'),
                 variant: 'destructive',
                 disabled: deleting,
-                onClick: () => void remove(confirm),
+                onClick: () => void removeSelected(),
               },
             ]}
-          />
+          >
+            <ul className="ui-consequences">
+              {selected.map((w) => (
+                <li key={keyOf(w)}>{w.path}</li>
+              ))}
+            </ul>
+            {risky.length ? (
+              <Alert variant="warning" title={t('这些工作区还有没推送的改动，删除后会丢失')}>
+                <ul className="ui-consequences">
+                  {risky.map((w) => (
+                    <li key={keyOf(w)}>
+                      {`${w.path}（${t('{a} 个未提交 · {b} 个未推送', { a: w.changes?.uncommitted ?? 0, b: w.changes?.unpushed ?? 0 })}）`}
+                    </li>
+                  ))}
+                </ul>
+              </Alert>
+            ) : null}
+          </Dialog>
         ) : null}
       </Presence>
     </section>

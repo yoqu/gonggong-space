@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { buildDaemon, memberWithMachine } from './helpers'
@@ -10,9 +11,15 @@ test('我的机器管理: the daemon log and its workspaces, read and cleaned th
 }) => {
   test.setTimeout(3 * 60_000)
   const { m, api } = await memberWithMachine(page, `madm${Date.now().toString(36)}`)
-  // A leftover managed workspace of a group the server never heard of: removed, so it can be cleaned.
-  const leftover = join(m.home, 'workspaces', 'gone-group', 'gone-bot', '_empty')
-  mkdirSync(leftover, { recursive: true })
+  // A leftover managed clone of a group the server never heard of: removed, so it can be slimmed and deleted.
+  const leftover = join(m.home, 'workspaces', 'gone-group', 'gone-bot', 'r1')
+  const clone = join(leftover, 'app')
+  mkdirSync(clone, { recursive: true })
+  writeFileSync(join(clone, 'a.txt'), 'a')
+  const git = (...args: string[]) => execFileSync('git', ['-C', clone, ...args])
+  git('init', '-q')
+  git('add', '.')
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'one')
   m.start()
   try {
     const id = await api.machineId()
@@ -23,15 +30,18 @@ test('我的机器管理: the daemon log and its workspaces, read and cleaned th
     await details.getByRole('tab', { name: '日志' }).click()
     await expect(details.locator('.machine-logs')).toContainText('INFO', { timeout: 15_000 })
 
-    await details.getByRole('tab', { name: '工作区' }).click()
-    const list = details.getByRole('region', { name: '工作区' })
+    await details.getByRole('tab', { name: '空间' }).click()
+    const list = details.getByRole('region', { name: '空间' })
     await expect(list).toContainText(leftover)
     await expect(list).toContainText('已移出')
-    await list.getByRole('button', { name: '删除' }).click()
-    await page
-      .getByRole('alertdialog', { name: '删除这个工作区？' })
-      .getByRole('button', { name: '删除' })
-      .click()
+    await expect(list).toContainText('1 个未推送')
+    await list.getByRole('button', { name: '瘦身' }).click()
+    await expect(page.getByText(/已释放/)).toBeVisible({ timeout: 30_000 })
+    await list.getByRole('checkbox', { name: 'gone-bot' }).locator('..').locator('.ui-check__box').click()
+    await list.getByRole('button', { name: '删除所选' }).click()
+    const confirm = page.getByRole('alertdialog', { name: '删除所选的 1 个工作区？' })
+    await expect(confirm).toContainText('没推送的改动')
+    await confirm.getByRole('button', { name: '删除' }).click()
     await expect(list).toContainText('这台机器上还没有工作区')
   } finally {
     m.stop()

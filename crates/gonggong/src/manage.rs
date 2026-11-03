@@ -7,9 +7,9 @@ use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
     FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_GIT_OPS,
     FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS,
-    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_SYNC, FEATURE_TOOLS,
-    ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult,
-    ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN,
+    FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction,
+    ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -64,6 +64,7 @@ impl Manage {
             FEATURE_GIT_OPS3.to_string(),
             FEATURE_GIT_OPS4.to_string(),
             FEATURE_MACHINE_ADMIN.to_string(),
+            FEATURE_STORAGE_ADMIN.to_string(),
             FEATURE_CLAUDE_ARGS.to_string(),
             FEATURE_CLAUDE_PROFILE.to_string(),
             FEATURE_PROVIDER_ARGS.to_string(),
@@ -910,6 +911,7 @@ mod tests {
                 "gitOps3",
                 "gitOps4",
                 "machineAdmin",
+                "storageAdmin",
                 "claudeArgs",
                 "claudeProfile",
                 "providerArgs"
@@ -934,6 +936,7 @@ mod tests {
                 "gitOps3",
                 "gitOps4",
                 "machineAdmin",
+                "storageAdmin",
                 "claudeArgs",
                 "claudeProfile",
                 "providerArgs",

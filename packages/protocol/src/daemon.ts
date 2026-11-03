@@ -1063,6 +1063,13 @@ export const MachineWorkspace = z.object({
   /** Bytes on disk (a lower bound on huge trees); null for /cd dirs, the owner's own checkout. */
   size: z.number().int().nonnegative().nullable(),
   state: z.enum(['running', 'idle', 'removed', 'unused']),
+  /** When a turn last worked in it (ms since epoch); null when never recorded or a /cd dir, absent from older daemons. */
+  lastUsedAt: z.number().int().nullable().default(null),
+  /** Work not on any remote yet: changed files and local-only commits; null without a repo or for /cd dirs. */
+  changes: z
+    .object({ uncommitted: z.number().int().nonnegative(), unpushed: z.number().int().nonnegative() })
+    .nullable()
+    .default(null),
 })
 export type MachineWorkspace = z.infer<typeof MachineWorkspace>
 
@@ -1071,6 +1078,11 @@ export const WorkspacesResult = z.object({
   t: z.literal('workspaces.result'),
   requestId: z.string(),
   entries: z.array(MachineWorkspace),
+  /** The volume holding the daemon home, in bytes; null when unreadable, absent from older daemons. */
+  disk: z
+    .object({ free: z.number().int().nonnegative(), total: z.number().int().nonnegative() })
+    .nullable()
+    .default(null),
   error: z.string().nullable(),
 })
 
@@ -1078,6 +1090,15 @@ export const WorkspacesResult = z.object({
 export const WorkspaceDeleteResult = z.object({
   t: z.literal('workspace.delete.result'),
   requestId: z.string(),
+  error: z.string().nullable(),
+})
+
+/** Answer to workspace.gc: the workspace's bytes on disk before and after. */
+export const WorkspaceGcResult = z.object({
+  t: z.literal('workspace.gc.result'),
+  requestId: z.string(),
+  before: z.number().int().nonnegative(),
+  after: z.number().int().nonnegative(),
   error: z.string().nullable(),
 })
 
@@ -1177,6 +1198,8 @@ export const DaemonFeature = z.enum([
   'terminal-dir',
   /** 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete. */
   'machineAdmin',
+  /** 空间: workspace.gc, lastUsedAt / changes / disk in workspaces.result, and deletes that skip busy dirs. */
+  'storageAdmin',
   /** Hosted artifacts: RunStart.artifacts / artifactExclude and the artifact version routes. */
   'artifacts',
   /** artifact.snapshot: screenshots of versions the daemon did not make. */
@@ -1412,6 +1435,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   LogsResult,
   WorkspacesResult,
   WorkspaceDeleteResult,
+  WorkspaceGcResult,
   WorkspaceOpenResult,
   SessionForkResult,
   CommandsUpdate,
@@ -1860,6 +1884,15 @@ export const WorkspaceDelete = z.object({
   path: z.string(),
 })
 
+/** 空间 → 瘦身: `git gc --prune=now` in a managed workspace no turn is in (needs storageAdmin). */
+export const WorkspaceGc = z.object({
+  t: z.literal('workspace.gc'),
+  requestId: z.string(),
+  groupId: z.string(),
+  botId: z.string(),
+  path: z.string(),
+})
+
 /** Browse the machine's directories for the workspace picker; `path` null → the home dir. */
 export const DirList = z.object({
   t: z.literal('dir.list'),
@@ -2000,6 +2033,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   LogsGet,
   WorkspacesList,
   WorkspaceDelete,
+  WorkspaceGc,
   WorkspaceOpen,
   SessionFork,
   RepoFind,

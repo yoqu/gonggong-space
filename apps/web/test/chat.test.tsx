@@ -1607,36 +1607,57 @@ describe('machine terminals', () => {
 describe('machine admin tabs', () => {
   const admin: MachineDto = { ...machine, features: ['machineAdmin'], daemonVersion: '0.4.4' }
 
-  it("shows the machine's workspaces with sizes, deletes a removed one, and reads its masked logs", async () => {
+  it("shows the machine's 空间 by group, deletes the picked ones after warning of unpushed work, and reads its logs", async () => {
+    const day = 24 * 3600_000
+    const ws = (o: Record<string, unknown>) => ({
+      groupId: 'g1',
+      groupName: '退款 v2 迁移',
+      dm: false,
+      botId: 'b1',
+      botName: '小王的 Claude',
+      kind: 'managed',
+      size: 1024,
+      state: 'idle',
+      lastUsedAt: null,
+      changes: null,
+      ...o,
+    })
     const entries = [
-      {
-        groupId: 'g1',
-        groupName: '退款 v2 迁移',
-        dm: false,
-        botId: 'b1',
-        botName: '小王的 Claude',
-        kind: 'managed',
-        path: '/h/.gonggong/workspaces/g1/b1/refund',
-        size: 5 * 1024 * 1024,
-        state: 'running',
-      },
-      {
+      ws({ path: '/h/.gonggong/workspaces/g1/b1/refund', size: 5 * 1024 * 1024, state: 'running' }),
+      ws({
+        botId: 'b2',
+        botName: '小李的 Codex',
+        path: '/h/.gonggong/workspaces/g1/b2/refund',
+        lastUsedAt: Date.now() - 40 * day,
+        changes: { uncommitted: 0, unpushed: 0 },
+      }),
+      ws({
         groupId: 'g0',
         groupName: null,
-        dm: false,
-        botId: 'b1',
+        botName: null,
+        path: '/h/.gonggong/workspaces/g0/b1/refund',
+        state: 'removed',
+        changes: { uncommitted: 2, unpushed: 1 },
+      }),
+      ws({
+        groupId: 'g0',
+        groupName: null,
+        botId: 'b3',
         botName: null,
         kind: 'empty',
-        path: '/h/.gonggong/workspaces/g0/b1/_empty',
-        size: 2048,
-        state: 'removed',
-      },
+        path: '/h/.gonggong/workspaces/g0/b3/_empty',
+        state: 'unused',
+      }),
+      ws({ groupId: 'dm1', dm: true, kind: 'cd', path: '/Users/w/code', size: null }),
     ]
     const calls = mockApi({
       ...baseRoutes([]),
       'GET /machines': () => [admin],
       'GET /client-downloads': () => ({ version: '0.4.5', builds: [], desktop: [] }),
-      'GET /machines/mc1/workspaces': () => ({ entries }),
+      'GET /machines/mc1/workspaces': () => ({
+        entries,
+        disk: { free: 20 * 1024 ** 3, total: 100 * 1024 ** 3 },
+      }),
       'POST /machines/mc1/workspaces/delete': () => null,
       'GET /machines/mc1/logs': () => ({
         lines: [{ level: 'warn', text: '10:23:01 WARN  tunnel token [REDACTED]' }],
@@ -1646,24 +1667,83 @@ describe('machine admin tabs', () => {
     const page = await screen.findByRole('region', { name: '机器详情' })
     expect(await within(page).findByText('可升级到 0.4.5')).toBeTruthy()
 
-    fireEvent.click(within(page).getByRole('tab', { name: '工作区' }))
-    const list = await within(page).findByRole('region', { name: '工作区' })
+    fireEvent.click(within(page).getByRole('tab', { name: '空间' }))
+    const list = await within(page).findByRole('region', { name: '空间' })
     expect(await within(list).findByText('5.0 MB')).toBeTruthy()
-    expect(within(list).getByText('可清理 2.0 KB')).toBeTruthy()
-    // Only the removed one can go; a running workspace is never offered.
-    fireEvent.click(within(list).getByRole('button', { name: '删除' }))
-    const confirm = await screen.findByRole('alertdialog', { name: '删除这个工作区？' })
+    expect(within(list).getByText('合计占用 5.0 MB')).toBeTruthy()
+    expect(within(list).getByText('磁盘剩余 20 GB / 共 100 GB')).toBeTruthy()
+    // Removed, unused and the one idle for 40 days; the running one and the /cd dir are never counted.
+    expect(within(list).getByText('可释放 3.0 KB')).toBeTruthy()
+    expect(within(list).getByText('退款 v2 迁移')).toBeTruthy()
+    expect(within(list).getByText('g0')).toBeTruthy()
+    expect(within(list).getByText('私聊')).toBeTruthy()
+    expect(within(list).getByText('40 天前使用')).toBeTruthy()
+    expect(within(list).getByText('2 个未提交 · 1 个未推送')).toBeTruthy()
+    expect(within(list).queryByText('0 个未提交 · 0 个未推送')).toBeNull()
+    // Slimming needs storageAdmin.
+    expect(within(list).queryByRole('button', { name: '瘦身' })).toBeNull()
+    // Only removed and unused hosted workspaces can be picked.
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(2)
+
+    fireEvent.click(within(list).getByRole('checkbox', { name: 'b1' }))
+    fireEvent.click(within(list).getByRole('checkbox', { name: 'b3' }))
+    fireEvent.click(within(list).getByRole('button', { name: '删除所选' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '删除所选的 2 个工作区？' })
+    expect(
+      within(confirm).getByText('/h/.gonggong/workspaces/g0/b1/refund（2 个未提交 · 1 个未推送）'),
+    ).toBeTruthy()
     fireEvent.click(within(confirm).getByRole('button', { name: '删除' }))
     await waitFor(() =>
-      expect(calls.find((c) => c.path === '/machines/mc1/workspaces/delete')?.body).toEqual({
-        groupId: 'g0',
-        botId: 'b1',
-        path: '/h/.gonggong/workspaces/g0/b1/_empty',
-      }),
+      expect(calls.filter((c) => c.path === '/machines/mc1/workspaces/delete').map((c) => c.body)).toEqual([
+        { groupId: 'g0', botId: 'b1', path: '/h/.gonggong/workspaces/g0/b1/refund' },
+        { groupId: 'g0', botId: 'b3', path: '/h/.gonggong/workspaces/g0/b3/_empty' },
+      ]),
     )
 
     fireEvent.click(within(page).getByRole('tab', { name: '日志' }))
     expect(await within(page).findByText(/tunnel token \[REDACTED\]/)).toBeTruthy()
     expect(calls.map((c) => c.path)).toContain('/machines/mc1/logs?level=info&limit=300')
+  })
+
+  it('slims an idle hosted workspace with git gc when the daemon has storageAdmin', async () => {
+    const entry = {
+      groupId: 'g1',
+      groupName: '退款 v2 迁移',
+      dm: false,
+      botId: 'b1',
+      botName: '小王的 Claude',
+      kind: 'managed',
+      path: '/h/.gonggong/workspaces/g1/b1/refund',
+      size: 9 * 1024 * 1024,
+      state: 'idle',
+      lastUsedAt: null,
+      changes: null,
+    }
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /machines': () => [{ ...admin, features: ['machineAdmin', 'storageAdmin'] }],
+      'GET /client-downloads': () => ({ version: '0.4.4', builds: [], desktop: [] }),
+      'GET /machines/mc1/workspaces': () => ({
+        entries: [
+          entry,
+          { ...entry, botId: 'b2', path: '/h/.gonggong/workspaces/g1/b2/refund', state: 'running' },
+        ],
+        disk: null,
+      }),
+      'POST /machines/mc1/workspaces/gc': () => ({ before: 9 * 1024 * 1024, after: 3 * 1024 * 1024 }),
+    })
+    renderAt('/machine/mc1')
+    const page = await screen.findByRole('region', { name: '机器详情' })
+    fireEvent.click(await within(page).findByRole('tab', { name: '空间' }))
+    const list = await within(page).findByRole('region', { name: '空间' })
+    // A running workspace is never slimmed.
+    fireEvent.click(await within(list).findByRole('button', { name: '瘦身' }))
+    await waitFor(() => expect(useToasts.getState().items.map((i) => i.message)).toContain('已释放 6.0 MB'))
+    expect(calls.find((c) => c.path === '/machines/mc1/workspaces/gc')?.body).toEqual({
+      groupId: 'g1',
+      botId: 'b1',
+      path: entry.path,
+    })
+    expect(calls.filter((c) => c.path === '/machines/mc1/workspaces').length).toBe(2)
   })
 })
