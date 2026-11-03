@@ -162,6 +162,22 @@ describe('uploads', () => {
     expect((await get()).status).toBe(401)
   })
 
+  it('serves audio inline, typed by its extension when the upload had no type', async () => {
+    const w = await world()
+    const got = async (name: string, mime: string) => {
+      const { body } = await upload(w.cookies.wang, w.g.id, name, Buffer.from('ID3'), mime)
+      const res = await fetch(t.url(`/api/attachments/${body.id}`), { headers: { cookie: w.cookies.wang } })
+      await res.arrayBuffer()
+      return [res.headers.get('content-type'), res.headers.get('content-disposition')?.split(';')[0]]
+    }
+    expect(await got('song.mp3', 'audio/mpeg')).toEqual(['audio/mpeg', 'inline'])
+    expect(await got('voice.m4a', 'application/octet-stream')).toEqual(['audio/mp4', 'inline'])
+    expect(await got('blob.bin', 'application/octet-stream')).toEqual([
+      'application/octet-stream',
+      'attachment',
+    ])
+  })
+
   it('supports byte ranges for inline video playback', async () => {
     const w = await world()
     const video = Buffer.from('0123456789')

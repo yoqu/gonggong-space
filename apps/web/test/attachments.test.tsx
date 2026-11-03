@@ -152,6 +152,7 @@ const timeline = {
         att({ id: 'a3', name: 'spec.md', mime: 'text/markdown', size: 2048 }),
         att({ id: 'a4', name: 'dump.bin', mime: 'application/octet-stream', size: 1024 }),
         att({ id: 'v1', name: 'demo.mp4', mime: 'video/mp4', size: 2048 }),
+        att({ id: 'au1', name: 'song.mp3', mime: 'audio/mpeg', size: 2048 }),
       ],
       quote: { kind: 'message', id: 'm0', who: '小王的 Claude', text: '上次的结论' },
     }),
@@ -428,5 +429,17 @@ describe('message attachments and preview', () => {
       'file',
     ])
     expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull()
+  })
+
+  it('plays audio in the workbench', async () => {
+    mockApi()
+    renderChat()
+    const main = screen.getByRole('main')
+    const card = await within(main).findByRole('button', { name: /song\.mp3/ })
+    expect(card.textContent).toContain('音频 · 2 KB · 点击预览')
+    fireEvent.click(card)
+    const pane = await screen.findByRole('region', { name: '工作台' })
+    await waitFor(() => expect(pane.querySelector('audio')?.getAttribute('src')).toBe('/api/attachments/au1'))
+    expect(pane.textContent).toContain('音频不直接发送，agent 按路径读取')
   })
 })

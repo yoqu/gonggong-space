@@ -4,10 +4,11 @@ import { t } from '../../i18n'
 import { FileViewer, type ViewKind, viewKind } from '../files/FileViewer'
 import { attachmentUrl, type FileKind, fmtSize, kindOf, workspacePath } from './api'
 
-/** The attachment route serves only images, video and text inline; office documents render from their bytes. */
+/** The attachment route serves only images, video, audio and text inline; office documents render from their bytes. */
 const VIEW: Record<FileKind, ViewKind> = {
   image: 'image',
   video: 'video',
+  audio: 'audio',
   md: 'md',
   text: 'text',
   code: 'text',
@@ -17,6 +18,7 @@ const VIEW: Record<FileKind, ViewKind> = {
 const SEND_NOTE: Partial<Record<FileKind, string>> = {
   image: t('agent 声明支持图片时以 ACP 图片内容直接发送，同时落盘供按路径读取'),
   video: t('视频不直接发送，agent 按路径读取'),
+  audio: t('音频不直接发送，agent 按路径读取'),
 }
 
 /** A message attachment in the shared file viewer, with where it lives and how the bot gets it. */

@@ -2,6 +2,7 @@ export default {
   'agent 声明支持图片时以 ACP 图片内容直接发送，同时落盘供按路径读取':
     'Sent as ACP image content when the agent supports images, and saved to disk to read by path',
   '视频不直接发送，agent 按路径读取': "Videos aren't sent directly; the agent reads them by path",
+  '音频不直接发送，agent 按路径读取': "Audio isn't sent directly; the agent reads it by path",
   附件加载失败: "Couldn't load the attachment",
   '来源#from': 'From',
   大小: 'Size',
@@ -32,6 +33,7 @@ export default {
   '上传失败，请检查网络': 'Upload failed; check your network',
   图片: 'Image',
   视频: 'Video',
+  音频: 'Audio',
   文本日志: 'Text log',
   代码: 'Code',
 } satisfies Record<string, string>

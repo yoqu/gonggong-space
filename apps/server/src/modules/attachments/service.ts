@@ -23,11 +23,24 @@ export function safeName(raw: string, r: (text: string) => string = redact) {
   return (base === '.' || base === '..' ? '' : base).slice(0, 200) || 'file'
 }
 
+/** Browsers often upload audio untyped, and nosniff keeps an untyped file from playing. */
+const AUDIO_BY_EXT: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg',
+}
+
 /** Content-Type to serve inline, or null → download. Nothing that a browser could run as a page is inline. */
-export function inlineType(mime: string) {
+export function inlineType(mime: string, name = '') {
   if (mime.startsWith('text/')) return mime === 'text/html' ? null : 'text/plain; charset=utf-8'
-  if (mime.startsWith('video/') || (mime.startsWith('image/') && mime !== 'image/svg+xml')) return mime
-  return null
+  if (mime.startsWith('video/') || mime.startsWith('audio/')) return mime
+  if (mime.startsWith('image/') && mime !== 'image/svg+xml') return mime
+  if (mime !== 'application/octet-stream' && mime !== '') return null
+  return AUDIO_BY_EXT[name.split('.').pop()?.toLowerCase() ?? ''] ?? null
 }
 
 export const uploadDto = (r: AttachmentRow): Upload => ({

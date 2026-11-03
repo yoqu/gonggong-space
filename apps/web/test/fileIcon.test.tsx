@@ -36,6 +36,8 @@ describe('kindOf keeps preview kinds', () => {
     ['shot.png', 'image/png', 'image'],
     ['logo.svg', 'image/svg+xml', 'file'],
     ['clip.mp4', 'video/mp4', 'video'],
+    ['song.mp3', 'audio/mpeg', 'audio'],
+    ['voice.m4a', 'application/octet-stream', 'audio'],
     ['spec.md', 'text/markdown', 'md'],
     ['page.html', 'text/html', 'code'],
     ['ci.log', 'text/plain', 'text'],

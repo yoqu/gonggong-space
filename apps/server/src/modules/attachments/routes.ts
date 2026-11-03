@@ -38,7 +38,7 @@ async function findAttachment(ctx: Ctx, id: string) {
 }
 
 async function sendFile(req: FastifyRequest, reply: FastifyReply, a: AttachmentRow) {
-  const inline = inlineType(a.mime)
+  const inline = inlineType(a.mime, a.name)
   reply
     .header('content-type', inline ?? 'application/octet-stream')
     .header(
