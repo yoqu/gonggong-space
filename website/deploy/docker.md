@@ -104,6 +104,10 @@ git pull && docker compose up -d --build
 | `NPM_REGISTRY`（构建参数） | `https://registry.npmmirror.com` | 安装 Claude Code、Codex 的 npm 源 |
 | `CLAUDE_CODE_VERSION` / `CODEX_VERSION`（构建参数） | `latest` | 固定 Agent 版本 |
 
+::: warning 旧版 Docker
+Docker 20.10.10 以下的默认 seccomp 规则不认识 Debian 12 用到的新系统调用，镜像里的 apt、git 等会报错。请升级 Docker；暂时不能升级时，在本机构建镜像（`docker build --platform linux/amd64`）后用 `docker save` / `docker load` 传过去，并给 `daemon` 服务加 `security_opt: [seccomp:unconfined]`。
+:::
+
 要在一台服务器上跑多台机器，在 `compose.yml` 里复制 `daemon` 服务，各自换 `hostname`、`GONGGONG_MACHINE_ID` 和卷。
 
 ### 升级

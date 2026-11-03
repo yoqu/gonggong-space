@@ -104,6 +104,10 @@ A new SSH host's key is trusted on first connection.
 | `NPM_REGISTRY` (build arg) | `https://registry.npmmirror.com` | npm registry for Claude Code and Codex |
 | `CLAUDE_CODE_VERSION` / `CODEX_VERSION` (build args) | `latest` | Pin the Agent versions |
 
+::: warning Old Docker
+The default seccomp profile of Docker before 20.10.10 does not know newer system calls used by Debian 12, so apt, git and others fail in the image. Upgrade Docker; until you can, build the image elsewhere (`docker build --platform linux/amd64`), move it with `docker save` / `docker load`, and add `security_opt: [seccomp:unconfined]` to the `daemon` service.
+:::
+
 To run several machines on one server, copy the `daemon` service in `compose.yml` with its own `hostname`, `GONGGONG_MACHINE_ID` and volume.
 
 ### Upgrade
