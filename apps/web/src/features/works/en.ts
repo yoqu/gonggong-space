@@ -28,4 +28,7 @@ export default {
   清除筛选: 'Clear filters',
   全屏演示: 'Present full screen',
   在新窗口打开: 'Open in new window',
+  去市场找插件: 'Find plugins in the market',
+  '创作要在开启了创作插件（如产品原型、幻灯片）的群里进行：请群管理员在「群设置 · 插件」里开启；还没有合适的插件，可以去市场挑选并引入到群。':
+    'Creating happens in a group with a creation plugin (such as prototypes or slides) on: ask a group admin to turn one on under Group settings · Plugins, or pick a plugin in the market and install it into the group.',
 }

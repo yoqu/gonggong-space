@@ -207,6 +207,17 @@ describe('作品 page', () => {
     await waitFor(() => expect(where()).toContain('/g/g3'))
     expect(useCreation.getState().open).toEqual({ groupId: 'g3' })
   })
+
+  it('explains how to turn creation on when no group has a creation plugin, with a way to the market', async () => {
+    mockApi({ 'GET /works/groups': [], 'GET /works': WORKS })
+    renderAt('/works')
+    await screen.findByText('湖畔露营地预约')
+    fireEvent.click(screen.getByRole('button', { name: '新建' }))
+    const dialog = await screen.findByRole('dialog', { name: '还没有开启创作插件的群' })
+    expect(within(dialog).getByText(/群管理员在「群设置 · 插件」里开启/)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '去市场找插件' }))
+    await waitFor(() => expect(where()).toContain('/market'))
+  })
 })
 
 describe('a private artifact card', () => {

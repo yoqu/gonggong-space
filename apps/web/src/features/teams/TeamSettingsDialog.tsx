@@ -30,6 +30,7 @@ import {
   TeamAuditTab,
   TeamConversationStatsTab,
   TeamGroupsTab,
+  TeamInstallsView,
   TeamMcpTab,
   TeamParamsTab,
   TeamPluginsTab,
@@ -116,7 +117,15 @@ export function TeamSettingsDialog({
           { value: 'usage', label: t('用量'), icon: 'chart-bar', body: <TeamUsageTab team={team} /> },
           { value: 'audit', label: t('审计'), icon: 'doc-text', body: <TeamAuditTab team={team} /> },
         ] as const)
-      : []),
+      : ([
+          { value: 'skill', label: 'Skill', icon: 'star', body: <TeamInstallsView team={team} /> },
+          {
+            value: 'repos',
+            label: t('仓库'),
+            icon: 'folder-git',
+            body: <TeamReposTab team={team} readOnly />,
+          },
+        ] as const)),
   ]
   const current = tabs.find((x) => x.value === tab) ?? tabs[0]
   return (

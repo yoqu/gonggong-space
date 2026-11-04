@@ -927,6 +927,8 @@ describe('chat view', () => {
         .getAllByRole('group')
         .map((g) => g.getAttribute('aria-label')),
     ).toEqual(['系统命令', '团队 Skill', 'AGENT 命令'])
+    // Shown without the plugin prefix the agents need; picking it still inserts the full name.
+    expect(within(skills).getByRole('option').textContent).toBe('/review-pr按团队规范审查 diff')
     fireEvent.change(box, { target: { value: '/review', selectionStart: 7 } })
     fireEvent.keyDown(box, { key: 'Enter' })
     expect(box.value).toBe('/gonggong-team:review-pr ')
@@ -968,7 +970,7 @@ describe('chat view', () => {
       within(personal)
         .getAllByRole('option')
         .map((o) => o.textContent),
-    ).toEqual(['/gonggong-team:notes整理我的笔记'])
+    ).toEqual(['/notes整理我的笔记'])
     expect(
       within(list)
         .getAllByRole('group')

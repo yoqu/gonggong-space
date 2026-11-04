@@ -3,6 +3,7 @@ import {
   type InstallRequestDto,
   InstallRequestReq,
   type InstallRequestStatus,
+  type RequestedTarget,
 } from '@gonggong/protocol'
 import { and, desc, eq, exists, inArray, or, type SQL, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -28,7 +29,16 @@ import { requireUser, type SessionUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { requireTeam } from '../teams/service.js'
-import { ADMIN_ROLES, inScope, installable, listingSummary, putInstall, type Target } from './service.js'
+import {
+  ADMIN_ROLES,
+  byScope,
+  inScope,
+  installable,
+  listingSummary,
+  ofMine,
+  putInstall,
+  type Target,
+} from './service.js'
 
 type Read = Pick<Db, 'select'>
 type ScopeTarget = Extract<Target, { teamId: string }>
@@ -179,6 +189,32 @@ export const listRequests = (db: Read, userId: string, view: 'mine' | 'todo') =>
       : and(eq(installRequests.status, 'pending'), decidableBy(db, userId)),
   )
 
+/** Pending requests for the listing on targets `userId` belongs to, user → group → team → repo. */
+export async function requestedIn(db: Read, userId: string, listingId: string): Promise<RequestedTarget[]> {
+  const rows = await db
+    .select({
+      scope: installRequests.scope,
+      scopeId: installRequests.scopeId,
+      requesterId: installRequests.requesterId,
+      requester: users.name,
+    })
+    .from(installRequests)
+    .innerJoin(users, eq(users.id, installRequests.requesterId))
+    .where(
+      and(
+        eq(installRequests.listingId, listingId),
+        eq(installRequests.status, 'pending'),
+        ofMine(db, userId, installRequests.scope, sql`${installRequests.scopeId}`),
+      ),
+    )
+  return rows.sort(byScope).map((r) => ({
+    scope: r.scope as RequestedTarget['scope'],
+    scopeId: r.scopeId,
+    requester: r.requester,
+    mine: r.requesterId === userId,
+  }))
+}
+
 export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallRequestReq) {
   const { target, label } = await resolveTarget(ctx, req.scope, req.scopeId, me.id, false)
   const listingId = idParam(req.listingId, '条目不存在')
@@ -215,7 +251,21 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
     })
     .onConflictDoNothing()
     .returning({ id: installRequests.id })
-  if (!row) return fail('conflict', '已有待处理的申请')
+  if (!row) {
+    const [pending] = await ctx.db
+      .select({ name: users.name })
+      .from(installRequests)
+      .innerJoin(users, eq(users.id, installRequests.requesterId))
+      .where(
+        and(
+          eq(installRequests.listingId, listingId),
+          eq(installRequests.scope, target.scope),
+          eq(installRequests.scopeId, target.scopeId),
+          eq(installRequests.status, 'pending'),
+        ),
+      )
+    return fail('conflict', '{name} 已经申请过了，正在等管理员处理', { name: pending?.name ?? '' })
+  }
   for (const userId of await adminIds(ctx.db, target))
     if (userId !== me.id)
       await notify(

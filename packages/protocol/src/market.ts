@@ -58,8 +58,11 @@ export const InstallReq = z.object({
 })
 export type InstallReq = z.infer<typeof InstallReq>
 
-/** GET …/installable — listings visible to the scope (platform, its team, its group) not installed there yet. */
-export const InstallableDto = ListingSummary
+/**
+ * GET …/installable — listings visible to the scope (platform, its team, its group) not installed there yet;
+ * `nameTaken`: a skill whose name another skill of the scope already has, so installing it would be a 409.
+ */
+export const InstallableDto = ListingSummary.extend({ nameTaken: z.boolean().optional() })
 export type InstallableDto = z.infer<typeof InstallableDto>
 
 // ── M2: market page, authoring, import and minimal review ────
@@ -90,6 +93,12 @@ export type ListingSource = z.infer<typeof ListingSource>
  */
 export const InstalledTarget = z.object({ scope: InstallScope, scopeId: z.string(), label: z.string() })
 export type InstalledTarget = z.infer<typeof InstalledTarget>
+/** A target among those of `InstalledTarget`, by scope and id. */
+export const TargetRef = InstalledTarget.pick({ scope: true, scopeId: true })
+export type TargetRef = z.infer<typeof TargetRef>
+/** A pending install request for the listing on a target the caller belongs to; `mine`: the caller asked. */
+export const RequestedTarget = TargetRef.extend({ requester: z.string(), mine: z.boolean() })
+export type RequestedTarget = z.infer<typeof RequestedTarget>
 
 /**
  * GET /api/market?q=&type=&source= — listings with an approved version the caller may see, newest first.
@@ -131,6 +140,10 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   /** The caller reviews it: may ban / unban (M4). */
   canReview: z.boolean().optional(),
   banReason: z.string().nullable().optional(),
+  /** Pending install requests on targets the caller belongs to, user → group → team → repo. */
+  requestedIn: z.array(RequestedTarget).optional(),
+  /** Targets the caller belongs to where another skill already has this skill's name (installing there is a 409). */
+  nameTakenIn: z.array(TargetRef).optional(),
   readme: z.string(),
   files: z.array(z.object({ path: z.string(), size: z.number().int() })),
   versions: z.array(ListingVersionDto),

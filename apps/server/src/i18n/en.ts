@@ -509,7 +509,7 @@ export const en = {
   条目没有被封禁: 'This listing is not banned',
   // Install requests
   该条目已经引入: 'This listing is already installed there',
-  已有待处理的申请: 'A request for this is already pending',
+  '{name} 已经申请过了，正在等管理员处理': '{name} has already asked; waiting for an admin',
   只有申请人可以撤回: 'Only the requester can cancel it',
   申请已处理: 'This request was already handled',
   不能审核自己发布的版本: 'You cannot review your own version',

@@ -165,4 +165,18 @@ export default {
   需申请: 'Request',
   '标「需申请」的目标你不是管理员，引入会先提交给管理员审批。':
     "You don't administer targets marked Request; installing there asks their admins first.",
+  同名冲突: 'Name taken',
+  你已申请: 'You asked',
+  已申请: 'Requested',
+  '{name} 申请中': '{name} asked',
+  '{name} 已申请，等管理员处理': '{name} asked; waiting for an admin',
+  '你的个人 Skill 里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它':
+    'Your personal skills already have one named "{name}"; remove it under Settings · My skills first',
+  '标「同名冲突」的目标里已有同名的 Skill「{name}」，先在那里的设置中移除它再引入。':
+    'Targets marked Name taken already have a skill named "{name}"; remove it in their settings before installing.',
+  '标「已申请」的目标已有待处理的申请，等管理员处理即可；你的申请可在「引入申请」里撤回。':
+    'Targets marked Requested already have a pending request; wait for an admin. You can withdraw yours under Install requests.',
+  '标「同名冲突」的条目与这里已有的 Skill 同名，先移除那个再引入。':
+    'Listings marked Name taken share a name with a skill already here; remove that one first.',
+  在市场中查看详情: 'View in the market',
 }

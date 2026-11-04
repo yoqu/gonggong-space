@@ -65,7 +65,7 @@ function scopeRoutes(ctx: Ctx, app: FastifyInstance, base: string, resolve: Reso
   })
 }
 
-/** Group admins change the group's installs (members read them); team admins the team's and its repos'. */
+/** Members read a group's, team's or repo's installs; group admins change the group's, team admins the team's and its repos'. */
 export function marketRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     scopeRoutes(ctx, app, '/api/groups/:id', async (req, read) => {
@@ -82,17 +82,17 @@ export function marketRoutes(ctx: Ctx) {
       return { actorId: me.id, target: { scope: 'user', scopeId: me.id, teamId: null, groupId: null } }
     })
 
-    const teamAdmin = async (req: FastifyRequest<P>) => {
+    const teamOf = async (req: FastifyRequest<P>, read: boolean) => {
       const me = await requireUser(ctx, req)
-      const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
+      const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', read ? 'member' : 'admin')
       return { actorId: me.id, teamId: team.id }
     }
-    scopeRoutes(ctx, app, '/api/teams/:id', async (req) => {
-      const { actorId, teamId } = await teamAdmin(req)
+    scopeRoutes(ctx, app, '/api/teams/:id', async (req, read) => {
+      const { actorId, teamId } = await teamOf(req, read)
       return { actorId, target: { scope: 'team', scopeId: teamId, teamId, groupId: null } }
     })
-    scopeRoutes(ctx, app, '/api/teams/:id/repos/:repoId', async (req) => {
-      const { actorId, teamId } = await teamAdmin(req)
+    scopeRoutes(ctx, app, '/api/teams/:id/repos/:repoId', async (req, read) => {
+      const { actorId, teamId } = await teamOf(req, read)
       const [repo] = await ctx.db
         .select({ id: repos.id })
         .from(repos)

@@ -517,4 +517,62 @@ describe('install requests', () => {
     expect(repoNotices.map((n) => [n.resolvedAt !== null, n.payload.cancelled])).toEqual([[true, true]])
     expect((await ask(w.api.mia, { listingId: wiki.id, scope: 'repo', scopeId: w.repo.id })).status).toBe(201)
   })
+
+  it('shows pending requests on the detail to members of their target, and who asked on a repeat', async () => {
+    const w = await world()
+    const pub = await approved(w.api.dan, w.api.root, w.teamB.id, skill('pub'), 'public')
+    const requested = async (api: Api) =>
+      (await api.get<MarketListingDetailDto>(`/api/market/${pub.id}`)).body.requestedIn
+    const g = await ask(w.api.mia, { listingId: pub.id, scope: 'group', scopeId: w.groupA.id })
+    await ask(w.api.mia, { listingId: pub.id, scope: 'repo', scopeId: w.repo.id })
+
+    expect(await requested(w.api.mia)).toEqual([
+      { scope: 'group', scopeId: w.groupA.id, requester: '米娅', mine: true },
+      { scope: 'repo', scopeId: w.repo.id, requester: '米娅', mine: true },
+    ])
+    expect(await requested(w.api.eve)).toEqual([
+      { scope: 'group', scopeId: w.groupA.id, requester: '米娅', mine: false },
+      { scope: 'repo', scopeId: w.repo.id, requester: '米娅', mine: false },
+    ])
+    expect(await requested(w.api.bob)).toEqual([
+      { scope: 'repo', scopeId: w.repo.id, requester: '米娅', mine: false },
+    ])
+    expect(await requested(w.api.dan)).toEqual([])
+
+    const repeat = await ask(w.api.bob, { listingId: pub.id, scope: 'repo', scopeId: w.repo.id })
+    expect(repeat.status).toBe(409)
+    expect(repeat.body).toMatchObject({ message: '米娅 已经申请过了，正在等管理员处理' })
+
+    await w.api.mia.del(`/api/install-requests/${g.body.id}`)
+    expect((await requested(w.api.eve))?.map((r) => r.scope)).toEqual(['repo'])
+  })
+})
+
+describe('same-named skills', () => {
+  it('lists where the caller could install the listing but a same-named skill is already there', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, skill('wiki'))
+    const pub = await approved(w.api.dan, w.api.root, w.teamB.id, skill('wiki'), 'public')
+    const taken = async (api: Api, id = wiki.id) =>
+      (await api.get<MarketListingDetailDto>(`/api/market/${id}`)).body.nameTakenIn
+    expect(await taken(w.api.mia)).toEqual([])
+
+    await w.api.eve.put(`/api/groups/${w.groupA.id}/installs/${pub.id}`, { enabled: true })
+    await w.api.mia.put(`/api/me/installs/${pub.id}`, { enabled: true })
+    await w.api.bob.post(`/api/teams/${w.teamA}/skills`, { files: skill('wiki') })
+    expect(await taken(w.api.mia)).toEqual([
+      { scope: 'user', scopeId: w.mia.id },
+      { scope: 'group', scopeId: w.groupA.id },
+      { scope: 'team', scopeId: w.teamA },
+    ])
+    expect(await taken(w.api.bob)).toEqual([{ scope: 'team', scopeId: w.teamA }])
+    expect(await taken(w.api.mia, pub.id)).toEqual([{ scope: 'team', scopeId: w.teamA }])
+
+    const installable = async (path: string) =>
+      (await w.api.bob.get<(ListingSummary & { nameTaken?: boolean })[]>(`${path}/installable`)).body.find(
+        (l) => l.id === wiki.id,
+      )?.nameTaken
+    expect(await installable(`/api/teams/${w.teamA}`)).toBe(true)
+    expect(await installable(`/api/teams/${w.teamA}/repos/${w.repo.id}`)).toBe(false)
+  })
 })

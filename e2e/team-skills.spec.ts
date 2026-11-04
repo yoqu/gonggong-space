@@ -71,7 +71,7 @@ test('a group admin adds a skill; Claude gets the plugin, Codex a git-excluded l
       const box = page.getByPlaceholder(composer)
       await box.fill('/review')
       const skills = page.getByRole('listbox', { name: '/ 命令' }).getByRole('group', { name: '团队 Skill' })
-      await expect(skills.getByRole('option', { name: /gonggong-team:review-pr/ })).toBeVisible()
+      await expect(skills.getByRole('option', { name: /\/review-pr/ })).toBeVisible()
       await box.fill('')
     })
 

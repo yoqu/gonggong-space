@@ -216,6 +216,35 @@ describe('InstallList', () => {
     expect(await within(dialog).findByText('同名 Skill 已存在')).toBeTruthy()
   })
 
+  it('marks importable listings whose name is taken here, and opens one in the market', async () => {
+    mockApi({
+      'GET /groups/g1/installs': [],
+      'GET /groups/g1/installable': [{ ...installable[0]!, nameTaken: true }, installable[1]!],
+    })
+    const onLeave = vi.fn()
+    function At() {
+      const l = useLocation()
+      return <div data-testid="at">{l.pathname + l.search}</div>
+    }
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <InstallList base="/groups/g1" onLeave={onLeave} />
+        <At />
+      </MemoryRouter>,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '从已有条目引入…' }))
+    const dialog = await screen.findByRole('dialog', { name: '从已有条目引入' })
+    const lint = (await within(dialog).findByRole('radio', { name: /lint-fix/ })) as HTMLButtonElement
+    expect(lint.disabled).toBe(true)
+    expect(within(dialog).getByText('同名冲突')).toBeTruthy()
+    expect(within(dialog).getByText(/标「同名冲突」的条目与这里已有的 Skill 同名/)).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: /演示文稿/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '在市场中查看详情' }))
+    expect(screen.getByTestId('at').textContent).toBe('/market?listing=l5')
+    expect(onLeave).toHaveBeenCalled()
+  })
+
   it('is read-only: no switch, remove or import', async () => {
     mockApi({ 'GET /groups/g1/installs': installs })
     render(<InstallList base="/groups/g1" readOnly />)
@@ -281,6 +310,36 @@ describe('team settings · repos', () => {
     fireEvent.click(screen.getByRole('button', { name: '打开市场' }))
     expect(screen.getByTestId('where').textContent).toBe('/market')
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('team settings · a member', () => {
+  it('reads the team and repo installs without changing them', async () => {
+    mockApi({
+      'GET /teams/t1/installs': installs,
+      'GET /teams/t1/repos': [{ id: 'r1', name: 'core', key: 'git.example.com/pay/core' }],
+      'GET /teams/t1/repos/r1/installs': [install({ listing: listing({ id: 'l7', title: 'repo-only' }) })],
+    })
+    const team: TeamDto = {
+      id: 't1',
+      name: '支付组',
+      avatar: null,
+      role: 'member',
+      archivedAt: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      unread: 0,
+    }
+    render(<TeamSettingsDialog team={team} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
+    expect(await screen.findByText('review-pr')).toBeTruthy()
+    expect(screen.queryByRole('switch')).toBeNull()
+    expect(screen.queryByRole('button', { name: '从已有条目引入…' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '待审核' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '仓库' }))
+    fireEvent.click(await screen.findByRole('button', { name: '展开 core' }))
+    expect(await screen.findByText('repo-only')).toBeTruthy()
+    expect(screen.queryByRole('switch')).toBeNull()
   })
 })
 

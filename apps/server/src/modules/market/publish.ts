@@ -51,7 +51,8 @@ import { idParam, isUuid } from '../../lib/ids.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { type ListingSnapshot, listingSnapshot } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
-import { ADMIN_ROLES, listingSummary, listVersion, maintainedBy } from './service.js'
+import { requestedIn } from './requests.js'
+import { ADMIN_ROLES, byScope, listingSummary, listVersion, maintainedBy, nameTakenIn } from './service.js'
 
 type Read = Pick<Db, 'select'>
 type ListingRow = typeof plugins.$inferSelect
@@ -282,7 +283,6 @@ function marketScope(mine: Set<string>) {
   }
 }
 
-const SCOPE_ORDER = ['user', 'group', 'team', 'repo']
 const installedTeam = alias(teams, 'installed_team')
 
 /** Where the caller sees each listing installed: their personal layer, groups they are in, their teams and repos. */
@@ -330,11 +330,7 @@ async function installedIn(db: Read, userId: string, listingIds: string[]) {
         ),
       ),
     )
-  rows.sort(
-    (a, b) =>
-      SCOPE_ORDER.indexOf(a.scope) - SCOPE_ORDER.indexOf(b.scope) ||
-      (a.group ?? a.team ?? '').localeCompare(b.group ?? b.team ?? ''),
-  )
+  rows.sort((a, b) => byScope(a, b) || (a.group ?? a.team ?? '').localeCompare(b.group ?? b.team ?? ''))
   for (const r of rows) {
     const label = r.group ?? (r.repo ? `${r.team} / ${r.repo}` : (r.team ?? ''))
     out.set(r.listingId, [
@@ -432,6 +428,8 @@ export async function marketDetail(
   return {
     ...cardDto(card!, mine),
     installedIn: where.get(listing.id) ?? [],
+    requestedIn: await requestedIn(ctx.db, me.id, listing.id),
+    nameTakenIn: await nameTakenIn(ctx.db, me.id, listing),
     canReview,
     banReason: listing.banReason,
     readme,

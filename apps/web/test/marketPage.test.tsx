@@ -378,6 +378,43 @@ describe('引入到… dialog', () => {
     expect(within(dialog).getByText('插件不能引入到个人')).toBeTruthy()
   })
 
+  it('blocks targets with a same-named skill or a request already waiting, and says what to do', async () => {
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail({
+        requestedIn: [{ scope: 'group', scopeId: 'g2', requester: '米娅', mine: false }],
+        nameTakenIn: [
+          { scope: 'user', scopeId: 'u1' },
+          { scope: 'group', scopeId: 'g1' },
+        ],
+      }),
+      'GET /teams/t1/repos': [],
+      'GET /teams/t2/repos': [],
+    })
+    renderPage()
+    const dialog = await open()
+    const radio = (name: string) => within(dialog).getByRole('radio', { name }) as HTMLButtonElement
+    expect(radio('支付核心群').disabled).toBe(true)
+    expect(radio('闲聊群').disabled).toBe(true)
+    expect(within(dialog).getByText('同名冲突')).toBeTruthy()
+    expect(within(dialog).getByText('已申请')).toBeTruthy()
+    expect(within(dialog).getByTitle('米娅 已申请，等管理员处理')).toBeTruthy()
+    expect(
+      within(dialog).getByText(
+        '标「同名冲突」的目标里已有同名的 Skill「review-pr」，先在那里的设置中移除它再引入。',
+      ),
+    ).toBeTruthy()
+    expect(within(dialog).getByText(/标「已申请」的目标已有待处理的申请/)).toBeTruthy()
+
+    fireEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
+        name: '我的个人',
+      }),
+    )
+    expect(within(dialog).getByText(/你的个人 Skill 里已有同名的「review-pr」/)).toBeTruthy()
+    expect((within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
   it('shows the server message on a 409 conflict', async () => {
     mockApi({
       'GET /market': LISTINGS,

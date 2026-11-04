@@ -67,8 +67,18 @@ export function TeamSkillTab({ team, onClose }: { team: TeamDto; onClose: () => 
   )
 }
 
+/** 团队设置 · Skill for a member: what the team installed, read-only (changes go through 申请引入 in the market). */
+export function TeamInstallsView({ team }: { team: TeamDto }) {
+  return (
+    <>
+      <div className="gs-note">{t('对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。')}</div>
+      <InstalledSection base={`/teams/${team.id}`} readOnly />
+    </>
+  )
+}
+
 /** 团队设置 · 仓库: the team's repos, each opening what is installed for groups working in it. */
-export function TeamReposTab({ team }: { team: TeamDto }) {
+export function TeamReposTab({ team, readOnly = false }: { team: TeamDto; readOnly?: boolean }) {
   const { data, error } = useGet<RepoDto[]>(`/teams/${team.id}/repos`)
   const [open, setOpen] = useState<string | null>(null)
   if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
@@ -100,7 +110,7 @@ export function TeamReposTab({ team }: { team: TeamDto }) {
           <div className="cfg__eyebrow">
             {t('「{name}」已引入', { name: data.find((r) => r.id === open)?.name ?? '' })}
           </div>
-          <InstallList base={`/teams/${team.id}/repos/${open}`} />
+          <InstallList base={`/teams/${team.id}/repos/${open}`} readOnly={readOnly} />
         </>
       ) : null}
     </>

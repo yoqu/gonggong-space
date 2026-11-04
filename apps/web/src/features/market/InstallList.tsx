@@ -20,6 +20,7 @@ import {
   Tag,
 } from '../../ui'
 import '../config/config.css'
+import './market.css'
 
 export const TYPE_LABEL: Record<ListingSummary['type'], string> = { skill: 'Skill', plugin: t('插件#type') }
 const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
@@ -159,6 +160,7 @@ export function InstallList({
         {importing ? (
           <ImportDialog
             base={base}
+            onLeave={onLeave}
             onClose={() => setImporting(false)}
             onDone={() => {
               setImporting(false)
@@ -185,7 +187,8 @@ export function InstallList({
   )
 }
 
-function OpenMarket({ onLeave }: { onLeave: () => void }) {
+/** Opens the market, or one listing's detail there (`?listing=`), after closing the caller's dialog. */
+function OpenMarket({ onLeave, listingId }: { onLeave: () => void; listingId?: string }) {
   const navigate = useNavigate()
   return (
     <Button
@@ -193,10 +196,10 @@ function OpenMarket({ onLeave }: { onLeave: () => void }) {
       icon="tag"
       onClick={() => {
         onLeave()
-        navigate('/market')
+        navigate(listingId ? `/market?listing=${listingId}` : '/market')
       }}
     >
-      {t('打开市场')}
+      {listingId ? t('在市场中查看详情') : t('打开市场')}
     </Button>
   )
 }
@@ -253,7 +256,17 @@ export function VersionPolicy({
   )
 }
 
-function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => void; onDone: () => void }) {
+function ImportDialog({
+  base,
+  onLeave,
+  onClose,
+  onDone,
+}: {
+  base: string
+  onLeave?: () => void
+  onClose: () => void
+  onDone: () => void
+}) {
   const { data, error: loadError } = useGet<InstallableDto[]>(`${base}/installable`)
   const [picked, setPicked] = useState<string | null>(null)
   const [q, setQ] = useState('')
@@ -312,9 +325,15 @@ function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => 
                 onChange={setPicked}
                 options={shown.map((l) => ({
                   value: l.id,
+                  disabled: l.nameTaken,
                   label: (
                     <>
                       {`${l.title} · ${TYPE_LABEL[l.type]} · ${LAYER_LABEL[l.layer]} · r${l.revision}`}
+                      {l.nameTaken ? (
+                        <span className="mkt-targets__ask" aria-hidden="true">
+                          <Tag tone="red">{t('同名冲突')}</Tag>
+                        </span>
+                      ) : null}
                       {l.description ? (
                         <span className="cfg__hint cfg__pick-desc">{l.description}</span>
                       ) : null}
@@ -326,6 +345,12 @@ function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => 
           ) : (
             <div className="gs-note">{t('没有匹配的条目')}</div>
           )}
+          {shown?.some((l) => l.nameTaken) ? (
+            <div className="gs-note">
+              {t('标「同名冲突」的条目与这里已有的 Skill 同名，先移除那个再引入。')}
+            </div>
+          ) : null}
+          {listing && onLeave ? <OpenMarket onLeave={onLeave} listingId={listing.id} /> : null}
           <VersionPolicy value={policy} onChange={setPolicy} revision={listing?.revision} />
         </>
       ) : null}

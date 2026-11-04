@@ -112,4 +112,6 @@ export default {
   团队里还没有群: 'The team has no groups yet',
   '「{name}」的成员': 'Members of "{name}"',
   审计: 'Audit',
+  '对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。':
+    'Applies to every group of the team; team admins maintain it, and you can request installs in the market.',
 }

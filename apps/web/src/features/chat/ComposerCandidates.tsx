@@ -1,4 +1,10 @@
-import type { CommandCandidatesDto, FileCandidatesDto, GroupDto, GroupPluginDto } from '@gonggong/protocol'
+import {
+  type CommandCandidatesDto,
+  type FileCandidatesDto,
+  type GroupDto,
+  type GroupPluginDto,
+  SKILL_PLUGIN,
+} from '@gonggong/protocol'
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -227,7 +233,8 @@ export function useCandidates(
               .map((c) => ({
                 key: `skill:${c.name}`,
                 icon: 'star' as const,
-                label: `/${c.name}`,
+                // The agents need the plugin prefix (inserted below); people read the skill's own name.
+                label: `/${c.name.replace(`${SKILL_PLUGIN}:`, '')}`,
                 mono: true,
                 hint: c.hint,
                 insert: `${sigil}${c.name}`,

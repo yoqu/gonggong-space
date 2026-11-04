@@ -1,4 +1,5 @@
 import {
+  type InstallableDto,
   type InstallDto,
   type InstallReq,
   type ListingStatus,
@@ -7,11 +8,13 @@ import {
   type PluginManifest,
   type SkillFile,
   type SkillListingManifest,
+  type TargetRef,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
 import {
   and,
   asc,
+  type Column,
   eq,
   exists,
   inArray,
@@ -30,6 +33,7 @@ import type { Db } from '../../db/client.js'
 import {
   bots,
   groupBots,
+  groupMembers,
   groups,
   installs,
   plugins,
@@ -187,7 +191,7 @@ export async function listInstalls(db: Read, t: Target, where?: SQL) {
   )
 }
 
-export async function installable(db: Read, t: Target, where?: SQL) {
+export async function installable(db: Read, t: Target, where?: SQL): Promise<InstallableDto[]> {
   const rows = await db
     .select({ listing: plugins, current: versionOf(current) })
     .from(plugins)
@@ -202,31 +206,96 @@ export async function installable(db: Read, t: Target, where?: SQL) {
       ),
     )
     .orderBy(asc(plugins.name))
-  return rows.map((r) => listingSummary(r.listing, r.current))
+  const taken = await takenSkillNames(db, t)
+  return rows.map((r) => ({
+    ...listingSummary(r.listing, r.current),
+    nameTaken: r.listing.type === 'skill' && taken.has(r.listing.name),
+  }))
 }
 
-/** Same-layer names must be unique: another skill install of the scope, or the layer's own skill. */
-async function skillNameFree(db: Read, t: Target, name: string, listingId: string) {
-  const [installed] = await db
-    .select({ id: installs.id })
+/** Skill names the scope already has: its skill installs (but `exceptListingId`'s) and the layer's own skills. */
+async function takenSkillNames(db: Read, t: Target, exceptListingId?: string) {
+  const installed = await db
+    .select({ name: plugins.name })
     .from(installs)
     .innerJoin(plugins, eq(plugins.id, installs.listingId))
-    .where(and(inScope(t), eq(plugins.type, 'skill'), eq(plugins.name, name), ne(plugins.id, listingId)))
-  const [own] =
+    .where(
+      and(
+        inScope(t),
+        eq(plugins.type, 'skill'),
+        exceptListingId ? ne(plugins.id, exceptListingId) : undefined,
+      ),
+    )
+  const own =
     t.scope === 'repo' || t.scope === 'user'
       ? []
       : await db
-          .select({ id: skills.id })
+          .select({ name: skills.name })
           .from(skills)
           .where(
             and(
               eq(skills.scope, t.scope),
               eq(skills.teamId, t.teamId),
               t.scope === 'group' ? eq(skills.groupId, t.groupId!) : isNull(skills.groupId),
-              eq(skills.name, name),
             ),
           )
-  if (installed || own) fail('conflict', '这里已经有同名的 Skill「{name}」，先移除它再引入', { name })
+  return new Set([...installed, ...own].map((r) => r.name))
+}
+
+/** Same-layer names must be unique: another skill install of the scope, or the layer's own skill. */
+async function skillNameFree(db: Read, t: Target, name: string, listingId: string) {
+  if ((await takenSkillNames(db, t, listingId)).has(name))
+    fail('conflict', '这里已经有同名的 Skill「{name}」，先移除它再引入', { name })
+}
+
+/** Targets `userId` belongs to: their personal layer, their groups, their teams and those teams' repos. */
+export function ofMine(db: Read, userId: string, scope: Column, scopeId: SQL) {
+  const myTeams = db
+    .select({ id: teamMembers.teamId })
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, userId))
+  const myGroups = db
+    .select({ id: groupMembers.groupId })
+    .from(groupMembers)
+    .where(eq(groupMembers.userId, userId))
+  const myRepos = db.select({ id: repos.id }).from(repos).where(inArray(repos.teamId, myTeams))
+  return or(
+    and(eq(scope, 'user'), eq(scopeId, userId)),
+    and(eq(scope, 'group'), inArray(scopeId, myGroups)),
+    and(eq(scope, 'team'), inArray(scopeId, myTeams)),
+    and(eq(scope, 'repo'), inArray(scopeId, myRepos)),
+  )
+}
+
+const SCOPE_ORDER = ['user', 'group', 'team', 'repo']
+export const byScope = (a: { scope: string }, b: { scope: string }) =>
+  SCOPE_ORDER.indexOf(a.scope) - SCOPE_ORDER.indexOf(b.scope)
+
+/** Where `userId` could install the skill listing but another skill of the same name already is (a 409 there). */
+export async function nameTakenIn(db: Read, userId: string, listing: ListingRow): Promise<TargetRef[]> {
+  if (listing.type !== 'skill') return []
+  const installed = await db
+    .select({ scope: installs.scope, scopeId: installs.scopeId })
+    .from(installs)
+    .innerJoin(plugins, eq(plugins.id, installs.listingId))
+    .where(
+      and(
+        eq(plugins.type, 'skill'),
+        eq(plugins.name, listing.name),
+        ne(plugins.id, listing.id),
+        ofMine(db, userId, installs.scope, sql`${installs.scopeId}`),
+      ),
+    )
+  const skillScopeId = sql<string>`case when ${skills.scope} = 'group' then ${skills.groupId} else ${skills.teamId} end`
+  const own = await db
+    .select({ scope: skills.scope, scopeId: skillScopeId })
+    .from(skills)
+    .where(and(eq(skills.name, listing.name), ofMine(db, userId, skills.scope, skillScopeId)))
+  const seen = new Set<string>()
+  return [...installed, ...own]
+    .filter((x) => !seen.has(x.scopeId) && !!seen.add(x.scopeId))
+    .sort(byScope)
+    .map((x) => ({ scope: x.scope as TargetRef['scope'], scopeId: x.scopeId }))
 }
 
 /** Whether a group or team layer has a skill listing called `name` installed (its own skills may not take it). */

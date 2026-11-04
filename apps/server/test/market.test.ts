@@ -175,13 +175,16 @@ describe('installs', () => {
     ])
 
     for (const path of [team, repo]) {
-      expect((await w.api.eve.get(`${path}/installs`)).status).toBe(403)
       expect((await install(w.api.eve, path, l.id)).status).toBe(403)
+      expect((await w.api.eve.del(`${path}/installs/${l.id}`)).status).toBe(403)
       expect((await install(w.api.bob, path, l.id, { enabled: false })).body).toMatchObject({
         enabled: false,
       })
       expect((await w.api.bob.get<InstallDto[]>(`${path}/installs`)).body).toHaveLength(1)
+      expect((await w.api.eve.get<InstallDto[]>(`${path}/installs`)).body).toHaveLength(1)
+      expect((await w.api.eve.get(`${path}/installable`)).status).toBe(200)
     }
+    expect((await (await w.as(w.carol)).get(`${team}/installs`)).status).toBe(404)
     expect((await w.api.bob.get(`${team}/repos/${w.repoB.id}/installs`)).status).toBe(404)
 
     expect((await w.api.mia.del(`${group}/installs/${l.id}`)).status).toBe(403)

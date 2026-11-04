@@ -8,10 +8,12 @@ import { api, errorText } from '../../lib/api'
 import { ago, fullTime } from '../../lib/time'
 import {
   Button,
+  Dialog,
   EmptyState,
   Icon,
   MenuButton,
   PopUpButton,
+  Presence,
   SearchField,
   SegmentedControl,
   Spinner,
@@ -83,6 +85,7 @@ export function WorksPage() {
   const [group, setGroup] = useState('all')
   const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
+  const [noCreation, setNoCreation] = useState(false)
   useEffect(() => {
     void loadWorks()
     if (useWorks.getState().groups === null) void loadWorkGroups()
@@ -143,18 +146,24 @@ export function WorksPage() {
         <h1 className="works__title">{t('作品')}</h1>
         {list?.length ? <span className="works__count">{list.length}</span> : null}
         <span className="spacer" />
-        <MenuButton
-          className="ui-btn ui-btn--primary ui-btn--small"
-          aria-label={t('新建')}
-          title={groups?.length ? t('选一个群，在群聊里创作') : t('还没有开启创作插件的群')}
-          disabled={!groups?.length}
-          align="end"
-          items={(groups ?? []).map((g) => ({ label: g.title, value: g.id, icon: 'message' as const }))}
-          onSelect={create}
-        >
-          <Icon name="plus" size={14} />
-          {t('新建')}
-        </MenuButton>
+        {groups && !groups.length ? (
+          <Button size="small" variant="primary" icon="plus" onClick={() => setNoCreation(true)}>
+            {t('新建')}
+          </Button>
+        ) : (
+          <MenuButton
+            className="ui-btn ui-btn--primary ui-btn--small"
+            aria-label={t('新建')}
+            title={t('选一个群，在群聊里创作')}
+            disabled={!groups}
+            align="end"
+            items={(groups ?? []).map((g) => ({ label: g.title, value: g.id, icon: 'message' as const }))}
+            onSelect={create}
+          >
+            <Icon name="plus" size={14} />
+            {t('新建')}
+          </MenuButton>
+        )}
       </header>
       {list?.length ? (
         <div className="works__bar">
@@ -282,6 +291,26 @@ export function WorksPage() {
           />
         </div>
       )}
+      <Presence>
+        {noCreation ? (
+          <Dialog
+            open
+            title={t('还没有开启创作插件的群')}
+            width={440}
+            onClose={() => setNoCreation(false)}
+            actions={[
+              { label: t('知道了'), onClick: () => setNoCreation(false) },
+              { label: t('去市场找插件'), variant: 'primary', onClick: () => navigate('/market') },
+            ]}
+          >
+            <div className="gs-note">
+              {t(
+                '创作要在开启了创作插件（如产品原型、幻灯片）的群里进行：请群管理员在「群设置 · 插件」里开启；还没有合适的插件，可以去市场挑选并引入到群。',
+              )}
+            </div>
+          </Dialog>
+        ) : null}
+      </Presence>
     </section>
   )
 }
