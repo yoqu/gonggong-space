@@ -270,6 +270,20 @@ describe('配置中心', () => {
     expect(screen.getByRole('button', { name: '新建密钥…' })).toBeTruthy()
   })
 
+  it('lists the public listings waiting for review in the 待审核 tab', async () => {
+    const calls = mockApi({
+      'GET /admin/mcp': [],
+      'GET /market/reviews': [],
+      'GET /bots': [],
+      'GET /machines': [],
+      'GET /notifications/unread': { n: 0 },
+    })
+    renderConfig()
+    fireEvent.click(await screen.findByRole('tab', { name: '待审核' }))
+    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/market/reviews')).toBe(true)
+  })
+
   it('shows a failed load inline with one message and retries', async () => {
     let down = true
     mockApi({

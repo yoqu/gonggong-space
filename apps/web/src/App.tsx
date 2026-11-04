@@ -45,6 +45,7 @@ export function App() {
             <Route path="machines" element={<ChatPage />} />
             <Route path="works" element={<ChatPage />} />
             <Route path="works/:artifactId" element={<ChatPage />} />
+            <Route path="market" element={<ChatPage />} />
             <Route path="t/:spaceId" element={<ChatPage />} />
           </Route>
           <Route path="admin/*" element={later(<AdminRoutes />)} />

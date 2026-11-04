@@ -33,6 +33,7 @@ import {
   UnsupportedArt,
 } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
+import { MarketReviewList } from '../market/ReviewList'
 import { PluginLayerList } from '../plugins/PluginLayer'
 import { SecretLayerList } from '../secrets/SecretLayer'
 import { InheritedList } from './InheritedList'
@@ -50,7 +51,7 @@ const BUILTIN_TOOLS = [
   ...Object.values(GONGGONG_TOOLS).map((tool) => t.text({ key: tool.title })),
 ].join(t('、'))
 
-type CType = 'mcp' | 'skill' | 'plugin' | 'prompt' | 'secret'
+type CType = 'mcp' | 'skill' | 'plugin' | 'prompt' | 'secret' | 'review'
 const LAYERS = [
   { value: 'platform' as const, label: t('平台层') },
   { value: 'team' as const, label: t('团队层'), disabled: true },
@@ -62,6 +63,7 @@ const CTYPES: { value: CType; label: string }[] = [
   { value: 'plugin', label: t('插件') },
   { value: 'prompt', label: t('指令') },
   { value: 'secret', label: t('密钥') },
+  { value: 'review', label: t('待审核') },
 ]
 
 interface Item {
@@ -318,6 +320,8 @@ export function ConfigPage() {
             <SkillLayerList base="/admin/skills" tag={t('平台层')} />
           ) : ctype === 'plugin' ? (
             <PluginLayerList base="/admin/plugins" />
+          ) : ctype === 'review' ? (
+            <MarketReviewList path="/market/reviews" />
           ) : ctype === 'secret' ? (
             <SecretLayerList base="/admin/secrets" scope="platform" bots={bots} />
           ) : ctype !== 'mcp' ? (

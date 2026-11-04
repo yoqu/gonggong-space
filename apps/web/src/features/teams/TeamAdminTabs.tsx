@@ -19,6 +19,7 @@ import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { SkillLayerList } from '../config/SkillLayer'
 import { ConversationStatsPanel } from '../conversation-stats/ConversationStatsPanel'
 import { InstalledSection, InstallList } from '../market/InstallList'
+import { MarketReviewList } from '../market/ReviewList'
 import { PluginLayerList } from '../plugins/PluginLayer'
 import { SecretLayerList } from '../secrets/SecretLayer'
 import { UsagePanel } from '../usage/UsagePage'
@@ -68,7 +69,7 @@ export function TeamSkillTab({ team }: { team: TeamDto }) {
 
 /** 团队设置 · 仓库: the team's repos, each opening what is installed for groups working in it. */
 export function TeamReposTab({ team }: { team: TeamDto }) {
-  const { data, error } = useGet<RepoDto[]>('/repos')
+  const { data, error } = useGet<RepoDto[]>(`/teams/${team.id}/repos`)
   const [open, setOpen] = useState<string | null>(null)
   if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
   return (
@@ -104,6 +105,11 @@ export function TeamReposTab({ team }: { team: TeamDto }) {
       ) : null}
     </>
   )
+}
+
+/** 团队设置 · 待审核: the team's market versions waiting for an admin's review. */
+export function TeamReviewsTab({ team }: { team: TeamDto }) {
+  return <MarketReviewList path={`/market/reviews?teamId=${team.id}`} />
 }
 
 /** 团队设置 · 插件: the team layer, over the platform one and under each group's; groups turn them on. */

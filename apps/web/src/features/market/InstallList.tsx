@@ -19,7 +19,7 @@ import {
 } from '../../ui'
 import '../config/config.css'
 
-const TYPE_LABEL: Record<ListingSummary['type'], string> = { skill: 'Skill', plugin: t('插件#type') }
+export const TYPE_LABEL: Record<ListingSummary['type'], string> = { skill: 'Skill', plugin: t('插件#type') }
 const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
   platform: t('平台层'),
   team: t('团队层'),
@@ -144,7 +144,36 @@ export function InstalledSection({ base, readOnly }: { base: string; readOnly?: 
   )
 }
 
-type Policy = 'follow' | 'pin'
+export type Policy = 'follow' | 'pin'
+
+/** 跟随最新 (default) or pin the version current at install time. */
+export function VersionPolicy({
+  value,
+  onChange,
+  revision,
+}: {
+  value: Policy
+  onChange: (p: Policy) => void
+  revision?: number
+}) {
+  return (
+    <>
+      <div className="cfg__eyebrow">{t('版本')}</div>
+      <RadioGroup<Policy>
+        aria-label={t('版本')}
+        value={value}
+        onChange={onChange}
+        options={[
+          { value: 'follow', label: t('跟随最新') },
+          {
+            value: 'pin',
+            label: revision === undefined ? t('锁定当前版本') : t('锁定当前版本 r{n}', { n: revision }),
+          },
+        ]}
+      />
+    </>
+  )
+}
 
 function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => void; onDone: () => void }) {
   const { data, error: loadError } = useGet<InstallableDto[]>(`${base}/installable`)
@@ -195,19 +224,7 @@ function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => 
               label: `${l.title} · ${TYPE_LABEL[l.type]} · ${LAYER_LABEL[l.layer]} · r${l.revision}`,
             }))}
           />
-          <div className="cfg__eyebrow">{t('版本')}</div>
-          <RadioGroup<Policy>
-            aria-label={t('版本')}
-            value={policy}
-            onChange={setPolicy}
-            options={[
-              { value: 'follow', label: t('跟随最新') },
-              {
-                value: 'pin',
-                label: listing ? t('锁定当前版本 r{n}', { n: listing.revision }) : t('锁定当前版本'),
-              },
-            ]}
-          />
+          <VersionPolicy value={policy} onChange={setPolicy} revision={listing?.revision} />
         </>
       ) : null}
     </Dialog>
