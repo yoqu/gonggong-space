@@ -45,6 +45,31 @@ type Dialogs =
   | { kind: 'history'; skill: SkillDto }
   | { kind: 'delete'; skill: SkillDto }
 
+/** One layer's skills under `base`, read-only: what a plain team member sees of the team layer. */
+export function SkillLayerView({ base }: { base: string }) {
+  const { data, error } = useGet<SkillDto[]>(base)
+  if (error) return <Alert variant="error" title={t('配置加载失败')} description={error} />
+  if (!data?.length) return null
+  return (
+    <GroupBox>
+      {data.map((s) => (
+        <GroupRow
+          key={s.id}
+          className="cfg__item"
+          label={
+            <span className="cfg__name-line">
+              <span className="cfg__name">{s.name}</span>
+              <Tag tone="gray">{`v${s.version}`}</Tag>
+            </span>
+          }
+          description={s.description}
+          value={s.enabled ? t('已开启') : t('已关闭#off')}
+        />
+      ))}
+    </GroupBox>
+  )
+}
+
 /** One layer's skills under `base` (`/admin/skills`, `/teams/:id/skills`, `/groups/:id/skills`); every change saves at once. */
 export function SkillLayerList({ base, tag }: { base: string; tag: string }) {
   const { data, error, reload } = useGet<SkillDto[]>(base)

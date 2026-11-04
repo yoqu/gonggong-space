@@ -17,12 +17,12 @@ import {
   Tabs,
   Tag,
 } from '../../ui'
-import { TYPE_LABEL } from './InstallList'
 import { InstallRequests } from './InstallRequests'
 import { InstallTargetDialog } from './InstallTargetDialog'
 import { byline, installedText, ListingDetail, ListingIcon, SOURCE_LABEL } from './ListingDetail'
 import { MyListings } from './MyListings'
 import { MarketReviewList } from './ReviewList'
+import { TYPE_LABEL } from './status'
 import '../works/works.css'
 import './market.css'
 

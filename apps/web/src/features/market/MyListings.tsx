@@ -32,8 +32,8 @@ import {
 } from '../../ui'
 import { FolderInput } from '../config/SkillLayer'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
-import { TYPE_LABEL } from './InstallList'
 import { ListingIcon, ReviewTag } from './ListingDetail'
+import { TYPE_LABEL } from './status'
 import '../config/config.css'
 import '../groups/groups.css'
 

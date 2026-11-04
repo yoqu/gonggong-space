@@ -195,7 +195,9 @@ function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
 
 export function skillRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    eachLayer(ctx, 'skills', (base, authorize) => layerRoutes(ctx, app, base, authorize))
+    eachLayer(ctx, 'skills', (base, authorize) => layerRoutes(ctx, app, base, authorize), {
+      teamMembersRead: true,
+    })
     inheritedRoutes(ctx, app)
     daemonRoutes(ctx, app)
   }

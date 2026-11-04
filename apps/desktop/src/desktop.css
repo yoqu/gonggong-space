@@ -227,6 +227,24 @@ code,
 .dk-row--button:hover {
   background: var(--quote-fill);
 }
+.dk-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+}
+.dk-search__field {
+  flex: 1;
+}
+.dk-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+.dk-detail > .ui-group {
+  align-self: stretch;
+}
 .dk-detail__head {
   padding: 0 0 var(--space-12);
 }

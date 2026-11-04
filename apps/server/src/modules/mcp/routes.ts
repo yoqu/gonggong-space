@@ -98,18 +98,32 @@ export type Authorize = (
 
 /**
  * Platform layer for sysadmins, team layer for team admins, group layer for group admins (plan D8); group members
- * may read the group layer.
+ * may read the group layer, and with `teamMembersRead` team members the team layer (skills hold no secrets).
  */
-export function eachLayer(ctx: Ctx, segment: string, routes: (base: string, authorize: Authorize) => void) {
+export function eachLayer(
+  ctx: Ctx,
+  segment: string,
+  routes: (base: string, authorize: Authorize) => void,
+  { teamMembersRead = false } = {},
+) {
   routes(`/api/admin/${segment}`, async (req) => ({
     actorId: (await requireSysadmin(ctx, req)).id,
     layer: { scope: 'platform', teamId: null, groupId: null },
     admin: true,
   }))
-  routes(`/api/teams/:id/${segment}`, async (req) => {
+  routes(`/api/teams/:id/${segment}`, async (req, read) => {
     const me = await requireUser(ctx, req)
-    const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
-    return { actorId: me.id, layer: { scope: 'team', teamId: team.id, groupId: null }, admin: true }
+    const { team, role } = await requireTeam(
+      ctx,
+      me.id,
+      req.params.id ?? '',
+      read && teamMembersRead ? 'member' : 'admin',
+    )
+    return {
+      actorId: me.id,
+      layer: { scope: 'team', teamId: team.id, groupId: null },
+      admin: role !== 'member',
+    }
   })
   routes(`/api/groups/:id/${segment}`, async (req, read) => {
     const me = await requireUser(ctx, req)

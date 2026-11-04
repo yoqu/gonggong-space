@@ -23,7 +23,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
   const mine = `/market?tab=mine&listing=${p('listingId')}`
   /** Where an installer has the listing: group, team or 「团队 / 仓库」 labels, '' for their personal layer. */
   const targets = Array.isArray(n.payload.targets)
-    ? (n.payload.targets as string[]).map((l) => l || say('我的个人')).join(say('、'))
+    ? (n.payload.targets as string[]).map((l) => l || say('我的 Skill')).join(say('、'))
     : ''
   const listing = `/market?listing=${p('listingId')}`
   switch (n.type) {

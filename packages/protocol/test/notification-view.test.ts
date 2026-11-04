@@ -187,7 +187,7 @@ describe('notificationView', () => {
       ),
     ).toEqual({
       label: '版本更新',
-      text: 'A 群、我的个人 引入的 wiki 已自动升级到 r3：修复链接',
+      text: 'A 群、我的 Skill 引入的 wiki 已自动升级到 r3：修复链接',
       group: '',
       href: '/market?listing=l1',
     })
@@ -217,7 +217,7 @@ describe('notificationView', () => {
           targets: [''],
         }),
       ).text,
-    ).toBe('我的个人 引入的 wiki 已解除封禁，恢复加载')
+    ).toBe('我的 Skill 引入的 wiki 已解除封禁，恢复加载')
   })
 
   it('says a cancelled install request was withdrawn', () => {

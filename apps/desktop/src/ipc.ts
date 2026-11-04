@@ -377,8 +377,8 @@ export const ipc = {
   /** The owner's personal Skill installs; read-only here, managed on the Web (plan Skill市场-M4 D14). */
   marketInstalls: () => invoke<InstallDto[]>('market_installs'),
   marketListings: () => invoke<MarketListingDto[]>('market_listings'),
-  /** 在网页中打开: the bound server's `/market`. */
-  openMarketInWeb: () => invoke<void>('open_market_in_web'),
+  /** 在网页中打开: the bound server's `/market`, or the listing's detail there (`/market?listing=<id>`). */
+  openMarketInWeb: (listing?: string) => invoke<void>('open_market_in_web', { listing: listing ?? null }),
   tunnels: () => invoke<Tunnels>('tunnels'),
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),

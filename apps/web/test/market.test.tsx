@@ -314,8 +314,32 @@ describe('team settings · repos', () => {
 })
 
 describe('team settings · a member', () => {
-  it('reads the team and repo installs without changing them', async () => {
+  it('reads the team skills, team and repo installs without changing them', async () => {
     mockApi({
+      'GET /teams/t1/skills': [
+        {
+          id: 's1',
+          name: 'team-wiki',
+          description: '查团队知识库',
+          enabled: true,
+          versionId: 'sv2',
+          version: 2,
+          size: 120,
+          updatedBy: '陈晨',
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 's2',
+          name: 'old-deploy',
+          description: '旧部署脚本',
+          enabled: false,
+          versionId: 'sv1',
+          version: 1,
+          size: 80,
+          updatedBy: '陈晨',
+          updatedAt: new Date().toISOString(),
+        },
+      ],
       'GET /teams/t1/installs': installs,
       'GET /teams/t1/repos': [{ id: 'r1', name: 'core', key: 'git.example.com/pay/core' }],
       'GET /teams/t1/repos/r1/installs': [install({ listing: listing({ id: 'l7', title: 'repo-only' }) })],
@@ -332,7 +356,14 @@ describe('team settings · a member', () => {
     render(<TeamSettingsDialog team={team} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
     expect(await screen.findByText('review-pr')).toBeTruthy()
+    const wiki = (await screen.findByText('team-wiki')).closest('.cfg__item') as HTMLElement
+    expect(within(wiki).getByText('查团队知识库')).toBeTruthy()
+    expect(within(wiki).getByText('v2')).toBeTruthy()
+    expect(within(wiki).getByText('已开启')).toBeTruthy()
+    const old = screen.getByText('old-deploy').closest('.cfg__item') as HTMLElement
+    expect(within(old).getByText('已关闭')).toBeTruthy()
     expect(screen.queryByRole('switch')).toBeNull()
+    expect(screen.queryByRole('button', { name: '添加 Skill…' })).toBeNull()
     expect(screen.queryByRole('button', { name: '从已有条目引入…' })).toBeNull()
     expect(screen.queryByRole('button', { name: '待审核' })).toBeNull()
 

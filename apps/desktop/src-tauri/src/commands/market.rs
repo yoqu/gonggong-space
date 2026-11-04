@@ -39,20 +39,29 @@ pub async fn market_listings() -> Result<Value> {
     get("/api/daemon/market").await
 }
 
-fn web_url(server: &str) -> String {
-    format!("{}/market", server.trim_end_matches('/'))
+fn web_url(server: &str, listing: Option<&str>) -> String {
+    let base = format!("{}/market", server.trim_end_matches('/'));
+    match listing {
+        Some(id) => format!("{base}?listing={id}"),
+        None => base,
+    }
 }
 
-/// 在网页中打开: the market on the bound server, in the default browser.
+/// 在网页中打开: the market on the bound server, or one listing's detail there, in the default browser.
 #[tauri::command]
-pub fn open_market_in_web(app: AppHandle) -> Result<()> {
-    app.opener().open_url(web_url(&config()?.server), None::<&str>).map_err(|e| e.to_string())
+pub fn open_market_in_web(listing: Option<String>, app: AppHandle) -> Result<()> {
+    let url = web_url(&config()?.server, listing.as_deref());
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn opens_the_market_of_the_bound_server() {
-        assert_eq!(super::web_url("https://gg.example.com/"), "https://gg.example.com/market");
+        assert_eq!(super::web_url("https://gg.example.com/", None), "https://gg.example.com/market");
+        assert_eq!(
+            super::web_url("https://gg.example.com", Some("l1")),
+            "https://gg.example.com/market?listing=l1"
+        );
     }
 }

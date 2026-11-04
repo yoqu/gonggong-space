@@ -92,7 +92,7 @@ export function InstallTargetDialog({
   const [error, setError] = useState('')
   const targets: Target[] | null =
     kind === 'me'
-      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', label: t('我的个人') }]
+      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', label: t('我的 Skill') }]
       : kind === 'group'
         ? groups.map((g) => ({
             base: `/groups/${g.id}`,
@@ -164,7 +164,7 @@ export function InstallTargetDialog({
           setPicked(k === 'me' ? PERSONAL_BASE : null)
         }}
         items={[
-          { value: 'me', label: t('我的个人'), disabled: listing.type === 'plugin' },
+          { value: 'me', label: t('我的 Skill'), disabled: listing.type === 'plugin' },
           { value: 'group', label: t('群') },
           { value: 'team', label: t('团队') },
           { value: 'repo', label: t('仓库') },

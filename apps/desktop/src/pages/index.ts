@@ -95,10 +95,10 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
       },
       {
         key: 'market',
-        label: 'Skill',
+        label: t('市场'),
         icon: 'tag',
         color: 'var(--system-pink)',
-        desc: t('个人 Skill 与市场，只读；引入、发布与审核请在 Web 端操作'),
+        desc: t('我的 Skill 与市场条目，只读；引入、发布与审核请在网页端操作'),
         Component: MarketPage,
       },
     ],

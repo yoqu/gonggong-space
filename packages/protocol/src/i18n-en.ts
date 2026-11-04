@@ -394,7 +394,7 @@ export const protocolEn = {
   '{by} 撤回了把 {listing} 引入到 {target} 的申请':
     '{by} withdrew the request to install {listing} into {target}',
   版本更新: 'New version',
-  我的个人: 'My personal',
+  '我的 Skill': 'My Skills',
   '、': ', ',
   '{targets} 引入的 {listing} 已自动升级到 r{revision}':
     '{listing} installed in {targets} was upgraded to r{revision}',

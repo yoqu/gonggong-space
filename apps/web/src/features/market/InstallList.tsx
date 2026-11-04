@@ -21,35 +21,12 @@ import {
 } from '../../ui'
 import '../config/config.css'
 import './market.css'
+import { newerFor, statusNote, TYPE_LABEL, VersionTags } from './status'
 
-export const TYPE_LABEL: Record<ListingSummary['type'], string> = { skill: 'Skill', plugin: t('插件#type') }
 const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
   platform: t('平台层'),
   team: t('团队层'),
   group: t('群层'),
-}
-
-function StatusTag({ status }: { status: ListingSummary['status'] }) {
-  if (status === 'unlisted') return <Tag tone="orange">{t('已下架')}</Tag>
-  if (status === 'banned') return <Tag tone="red">{t('已封禁')}</Tag>
-  return null
-}
-
-/** A pinned install whose listing has a newer version (a maintainer's self-test may run ahead of it). */
-const newerFor = (i: InstallDto) =>
-  i.pinVersionId && i.listing.status !== 'banned' && i.listing.revision > i.resolvedRevision
-    ? i.listing.revision
-    : null
-
-/** What a banned or unlisted listing means for this install. */
-function statusNote(i: InstallDto) {
-  if (i.listing.status === 'banned')
-    return i.banReason
-      ? t('封禁原因：{reason}。下一轮起停止加载，建议移除', { reason: i.banReason })
-      : t('已封禁，下一轮起停止加载，建议移除')
-  if (i.listing.status === 'unlisted')
-    return t('已下架：继续使用 r{n}，不会再有新版本', { n: i.resolvedRevision })
-  return null
 }
 
 /**
@@ -93,13 +70,7 @@ export function InstallList({
                     <span className="cfg__name">{i.listing.title}</span>
                     <Tag tone="blue">{TYPE_LABEL[i.listing.type]}</Tag>
                     <Tag tone="gray">{LAYER_LABEL[i.listing.layer]}</Tag>
-                    <Tag tone="gray">
-                      {i.pinVersionId
-                        ? t('锁定 r{n}', { n: i.resolvedRevision })
-                        : t('跟随最新 · r{n}', { n: i.resolvedRevision })}
-                    </Tag>
-                    {newer ? <Tag tone="green">{t('有新版本 r{n}', { n: newer })}</Tag> : null}
-                    <StatusTag status={i.listing.status} />
+                    <VersionTags install={i} />
                   </span>
                 }
                 description={

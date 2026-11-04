@@ -26,8 +26,8 @@ import {
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { hasOfficialIcon, OfficialIcon } from '../plugins/OfficialIcon'
-import { TYPE_LABEL } from './InstallList'
 import { ListingFiles } from './ListingFiles'
+import { TYPE_LABEL, targetLabels } from './status'
 import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
 import './market.css'
@@ -78,11 +78,9 @@ export const stripFrontMatter = (md: string) =>
 export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source'>) =>
   [l.author, l.teamName].filter(Boolean).join(' · ') || SOURCE_LABEL[l.source]
 
-/** 已引入到：我的个人、支付核心群 */
+/** 已引入到：我的 Skill、支付核心群 */
 export const installedText = (where: NonNullable<MarketListingDto['installedIn']>) =>
-  t('已引入到：{targets}', {
-    targets: where.map((x) => (x.scope === 'user' ? t('我的个人') : x.label)).join(t('、')),
-  })
+  t('已引入到：{targets}', { targets: targetLabels(where) })
 
 /**
  * One listing: meta, README, files, version history and the GitHub source. `versionId` asks for that version's

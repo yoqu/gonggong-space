@@ -143,7 +143,6 @@ export default {
   驳回时必填: 'Required to reject',
   驳回: 'Reject',
   通过: 'Approve',
-  我的个人: 'Just me',
   插件不能引入到个人: 'Plugins cannot be installed just for you',
   '只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。':
     'Applies only to runs you start and follows you into every group; overrides same-named Skills of the group, repo and team.',

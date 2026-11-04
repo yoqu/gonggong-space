@@ -347,7 +347,7 @@ describe('引入到… dialog', () => {
     const dialog = await open()
     fireEvent.click(
       within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的个人',
+        name: '我的 Skill',
       }),
     )
     fireEvent.click(within(dialog).getByRole('radio', { name: '锁定当前版本 r3' }))
@@ -372,7 +372,7 @@ describe('引入到… dialog', () => {
     fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
     const dialog = await screen.findByRole('dialog', { name: '引入「幻灯片」' })
     const personal = within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-      name: '我的个人',
+      name: '我的 Skill',
     }) as HTMLButtonElement
     expect(personal.disabled).toBe(true)
     expect(within(dialog).getByText('插件不能引入到个人')).toBeTruthy()
@@ -408,7 +408,7 @@ describe('引入到… dialog', () => {
 
     fireEvent.click(
       within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的个人',
+        name: '我的 Skill',
       }),
     )
     expect(within(dialog).getByText(/你的个人 Skill 里已有同名的「review-pr」/)).toBeTruthy()
@@ -986,7 +986,7 @@ describe('体验迭代第 1 轮', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '查看 review-pr' }))
     const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
-    expect(await within(drawer).findByText('已引入到：我的个人、支付核心群')).toBeTruthy()
+    expect(await within(drawer).findByText('已引入到：我的 Skill、支付核心群')).toBeTruthy()
     fireEvent.click(within(drawer).getByRole('button', { name: '引入到…' }))
     const dialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
     expect((within(dialog).getByRole('radio', { name: '支付核心群' }) as HTMLInputElement).disabled).toBe(
@@ -995,7 +995,7 @@ describe('体验迭代第 1 轮', () => {
     expect((within(dialog).getByRole('radio', { name: '闲聊群' }) as HTMLInputElement).disabled).toBe(false)
     fireEvent.click(
       within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
-        name: '我的个人',
+        name: '我的 Skill',
       }),
     )
     expect(within(dialog).getByText('已经引入到这里了')).toBeTruthy()

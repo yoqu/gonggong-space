@@ -16,7 +16,7 @@ import { useGet } from '../../lib/useGet'
 import { Avatar, Button, Dialog, GroupBox, GroupRow, Presence, Spinner, Stepper, Tag, toast } from '../../ui'
 import { AuditPanel } from '../admin/AuditPage'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
-import { SkillLayerList } from '../config/SkillLayer'
+import { SkillLayerList, SkillLayerView } from '../config/SkillLayer'
 import { ConversationStatsPanel } from '../conversation-stats/ConversationStatsPanel'
 import { InstalledSection, InstallList } from '../market/InstallList'
 import { MarketReviewList } from '../market/ReviewList'
@@ -67,11 +67,15 @@ export function TeamSkillTab({ team, onClose }: { team: TeamDto; onClose: () => 
   )
 }
 
-/** 团队设置 · Skill for a member: what the team installed, read-only (changes go through 申请引入 in the market). */
+/**
+ * 团队设置 · Skill for a member: the team's own skills and what it installed, read-only (changes go through 申请引入
+ * in the market).
+ */
 export function TeamInstallsView({ team }: { team: TeamDto }) {
   return (
     <>
       <div className="gs-note">{t('对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。')}</div>
+      <SkillLayerView base={`/teams/${team.id}/skills`} />
       <InstalledSection base={`/teams/${team.id}`} readOnly />
     </>
   )

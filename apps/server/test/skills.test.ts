@@ -214,6 +214,26 @@ describe('skill layers', () => {
     expect((await (await w.as(w.bob)).get(groupUrl)).status).toBe(404)
   })
 
+  it('lets plain team members read the team layer but not change it; other teams and team MCP stay closed', async () => {
+    const w = await world()
+    const teamUrl = `/api/teams/${w.teamA}/skills`
+    const made = await (await w.as(w.bob)).post<SkillDetailDto>(teamUrl, { files: skill('wiki') })
+    const eve = await w.as(w.eve)
+    const one = `${teamUrl}/${made.body.id}`
+
+    expect((await eve.get<SkillDto[]>(teamUrl)).body.map((s) => [s.name, s.enabled])).toEqual([
+      ['wiki', true],
+    ])
+    expect((await eve.get<SkillDetailDto>(one)).body.files).toEqual(made.body.files)
+    expect((await eve.get<SkillVersionDto[]>(`${one}/versions`)).body).toHaveLength(1)
+    expect((await eve.post(teamUrl, { files: skill('x') })).status).toBe(403)
+    expect((await eve.patch(one, { enabled: false })).status).toBe(403)
+    expect((await eve.del(one)).status).toBe(403)
+    expect((await eve.get(`/api/teams/${w.teamA}/mcp`)).status).toBe(403)
+    const outsider = await t.seed.user({ name: '外人', teamId: null })
+    expect((await (await w.as(outsider)).get(teamUrl)).status).toBe(404)
+  })
+
   it('merges enabled skills for a group: group over team over platform by name', async () => {
     const w = await world()
     const root = await w.as(w.root)
