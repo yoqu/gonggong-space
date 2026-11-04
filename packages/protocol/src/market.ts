@@ -183,3 +183,11 @@ export type ReviewReq = z.infer<typeof ReviewReq>
 /** Answer of POST /api/market and /api/market/import/github: the saved draft and hints (secrets, absolute paths). */
 export const PublishRes = z.object({ listing: MyListingDto, warnings: z.array(z.string()) })
 export type PublishRes = z.infer<typeof PublishRes>
+
+// ── M3: the personal layer ────
+/**
+ * GET|PUT|DELETE /api/me/installs[/:listingId], GET /api/me/installable — the caller's `user` installs (skills only).
+ * They apply to runs the caller originates, above the group layer. A listing the caller maintains may be installed
+ * before approval and then follows its latest upload (self-test); others follow `listedVersionId`.
+ */
+export const PERSONAL_BASE = '/me'

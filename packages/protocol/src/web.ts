@@ -1646,6 +1646,8 @@ export const RunDto = z.object({
   offlineWaitMin: z.number().int(),
   /** Human whose @ started the chain; every hop is authorized and answerable by them. */
   originUserId: z.string(),
+  /** Skills from the origin user's personal layer delivered with the turn (Skill 市场 M3); only the count is shown. */
+  personalSkills: z.number().int().optional(),
   approvals: z.array(ApprovalDto),
   questions: z.array(QuestionSetDto),
   /** Partition-mode /stop leftovers (plan D7): pending = edits kept, discard still possible. */
