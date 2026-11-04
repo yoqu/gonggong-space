@@ -58,7 +58,7 @@ flowchart LR
 | 12 | 封禁/下架的引入在列表里只有标签，不显示原因、不引导移除 | `InstallList.tsx:29-33`；`InstallDto` 无 `banReason` | 中 | S | 第 2 轮 ✅ |
 | 13 | 「从已有条目引入…」是光秃秃的单选列表：无描述、搜索、详情；与市场「引入到…」两套流程 | `InstallList.tsx:178-231` | 中 | M | 第 2 轮部分 ✅（搜索 + 描述）；第 3 轮 ✅（同名预检 + 「在市场中查看详情」直达条目）；完全合并成一个组件 → 第 5 轮评估：不合并（见第 5 轮） |
 | 14 | 申请引入前看不到「别人已申请」；团队/仓库引入列表对普通成员不可读 | `market/routes.ts:85-102`、`requests.ts:218` | 中 | M | 第 3 轮 ✅ |
-| 15 | 解封总是恢复为 `listed`，原先 `unlisted` 的条目被意外重新上架 | `publish.ts` `setBan`（`status: 'listed'`） | 中 | L（需记录封禁前状态） | 待迁移 |
+| 15 | 解封总是恢复为 `listed`，原先 `unlisted` 的条目被意外重新上架 | `publish.ts` `setBan`（`status: 'listed'`） | 中 | L（需记录封禁前状态） | ✅ 迁移 0096（`plugins.status_before_ban`） |
 | 16 | 市场 3 类通知都不推送浏览器/飞书；且无 teamId，在所有团队都显示 | `protocol/web.ts` `PUSHED_NOTIFICATION_TYPES`；`notify.ts:45-49` | 中 | S | 第 2 轮 ✅ |
 | 17 | 术语不一：Skill/插件/条目；引入/安装；市场/Skill（桌面侧栏）；我的 Skill/我的个人 Skill/我的个人 | 桌面 `pages/index.ts:96-103`、`Market.tsx:104`；`InstallTargetDialog.tsx:78` | 低 | S | 第 1 轮部分（桌面「次安装」→「次引入」）；第 4 轮 ✅（见术语表） |
 | 18 | 桌面 Skill 页：无搜索、无详情、行不可点、「在网页中打开」只到 `/market`、错误原样 `String(e)`、不刷新 | `apps/desktop/src/pages/Market.tsx:19-110`、`src-tauri/src/commands/market.rs:43-48` | 中 | M（深链需改 tauri 命令） | 第 4 轮 ✅（深链随下次客户端发版） |
@@ -242,7 +242,7 @@ flowchart LR
 剩余事项与建议优先级：
 
 需迁移：
-1. **P1 解封恢复封禁前状态**（#15）：`plugins.status_before_ban`。现在解封会把原先下架的条目重新上架，属于行为错误。
+1. **P1 解封恢复封禁前状态**（#15）：`plugins.status_before_ban`。现在解封会把原先下架的条目重新上架，属于行为错误。 ✅ 已修（迁移 0096）。
 2. **P2 运行详情列出所用 Skill**（#22）：`runs.skills jsonb`，`buildRunStart` 已有完整列表，写入即可。
 3. **P3 上游变更主动通知**：记录已提醒的提交（如 `plugins.gh_notified_commit`）并加定时检查，作者不打开「我的发布」也能知道。
 4. **P3 已看过的版本**（`installs.seen_version_id`）、引入者与引入时间（`installs.created_at/installed_by`）、审核时间（`plugin_versions.reviewed_at`）、按群/团队全部管理员通知或退订（订阅表）。

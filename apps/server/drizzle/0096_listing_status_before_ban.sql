@@ -1,0 +1,1 @@
+ALTER TABLE "plugins" ADD COLUMN "status_before_ban" text;

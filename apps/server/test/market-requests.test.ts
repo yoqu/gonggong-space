@@ -223,6 +223,19 @@ describe('ban', () => {
     expect((await w.api.eve.get<InstallDto[]>(`${group}/installs`)).body[0]!.banReason).toBeNull()
   })
 
+  it('restores the status it had before the ban, across a changed reason', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, skill('wiki'))
+    const ban = `/api/market/${wiki.id}/ban`
+    const status = async () =>
+      (await w.api.ann.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body.status
+    expect((await w.api.ann.patch(`/api/market/${wiki.id}`, { status: 'unlisted' })).status).toBe(200)
+    expect((await w.api.bob.post(ban, { reason: '恶意' })).status).toBe(204)
+    expect((await w.api.bob.post(ban, { reason: '含恶意脚本' })).status).toBe(204)
+    expect((await w.api.bob.del(ban)).status).toBe(204)
+    expect(await status()).toBe('unlisted')
+  })
+
   it('leaves public and platform listings to sysadmins', async () => {
     const w = await world()
     const pub = await approved(w.api.ann, w.api.root, w.teamA, skill('pub'), 'public')

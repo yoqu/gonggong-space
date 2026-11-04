@@ -862,7 +862,13 @@ export async function setBan(ctx: Ctx, me: Me, id: string, reason: string | null
   if (!reason && listing.status !== 'banned') fail('conflict', '条目没有被封禁')
   await ctx.db
     .update(plugins)
-    .set({ status: reason ? 'banned' : 'listed', banReason: reason, updatedBy: me.id, updatedAt: ctx.now() })
+    .set({
+      status: reason ? 'banned' : (listing.statusBeforeBan ?? 'listed'),
+      banReason: reason,
+      statusBeforeBan: reason ? (listing.statusBeforeBan ?? listing.status) : null,
+      updatedBy: me.id,
+      updatedAt: ctx.now(),
+    })
     .where(eq(plugins.id, listing.id))
   await log(ctx, me, listing, reason ? 'market.ban' : 'market.unban', reason ? { reason } : {})
   const [shown] = await ctx.db

@@ -1148,6 +1148,8 @@ export const plugins = pgTable(
     ghSource: jsonb('gh_source').$type<ListingSource>(),
     /** Set while `status` is 'banned'. */
     banReason: text('ban_reason'),
+    /** ListingStatus to restore on unban; set while `status` is 'banned'. */
+    statusBeforeBan: text('status_before_ban'),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

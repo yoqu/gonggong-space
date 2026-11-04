@@ -673,6 +673,13 @@
       "when": 1793784825998,
       "tag": "0095_bot_repo_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1793799444756,
+      "tag": "0096_listing_status_before_ban",
+      "breakpoints": true
     }
   ]
 }
