@@ -267,6 +267,47 @@ describe('引入到… dialog', () => {
     await waitFor(() => expect(calls.some((c) => c.path === '/teams/t1/repos/r1/installs/l1')).toBe(true))
   })
 
+  it('installs into my personal layer, open to anyone', async () => {
+    useWorkspace.setState({ groups: [] })
+    useSession.setState({
+      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
+    })
+    const calls = mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail(), 'PUT /me/installs/l1': {} })
+    render(<MarketPage />)
+    const dialog = await open()
+    fireEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
+        name: '我的个人',
+      }),
+    )
+    fireEvent.click(within(dialog).getByRole('radio', { name: '锁定当前版本 r3' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/me/installs/l1')?.body).toEqual({
+        enabled: true,
+        pinVersionId: 'pv3',
+      }),
+    )
+  })
+
+  it('disables the personal target for a plugin', async () => {
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l2': detail({ id: 'l2', type: 'plugin', name: 'slides', title: '幻灯片' }),
+      'GET /teams/t1/repos': [],
+    })
+    render(<MarketPage />)
+    fireEvent.click(await screen.findByRole('button', { name: '查看 幻灯片' }))
+    const drawer = await screen.findByRole('dialog', { name: '幻灯片' })
+    fireEvent.click(await within(drawer).findByRole('button', { name: '引入到…' }))
+    const dialog = await screen.findByRole('dialog', { name: '引入「幻灯片」' })
+    const personal = within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
+      name: '我的个人',
+    }) as HTMLButtonElement
+    expect(personal.disabled).toBe(true)
+    expect(within(dialog).getByText('插件不能引入到个人')).toBeTruthy()
+  })
+
   it('shows the server message on a 409 conflict', async () => {
     mockApi({
       'GET /market': LISTINGS,

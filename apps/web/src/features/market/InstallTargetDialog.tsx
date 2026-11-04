@@ -1,4 +1,4 @@
-import type { MarketListingDto, RepoDto } from '@gonggong/protocol'
+import { type MarketListingDto, PERSONAL_BASE, type RepoDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -8,7 +8,7 @@ import { Alert, Dialog, RadioGroup, SegmentedControl, Spinner, toast } from '../
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { type Policy, VersionPolicy } from './InstallList'
 
-type Kind = 'group' | 'team' | 'repo'
+type Kind = 'me' | 'group' | 'team' | 'repo'
 interface Target {
   /** The install scope's API base, e.g. `/groups/:id`. */
   base: string
@@ -41,12 +41,15 @@ function useAdminRepos(teams: { id: string; name: string }[]) {
   return { repos, error }
 }
 
-/** 引入到…: install a market listing into a group, team or repo I administer, following or pinning its version. */
+/**
+ * 引入到…: install a market listing into my personal layer (skills only) or a group, team or repo I administer,
+ * following or pinning its version.
+ */
 export function InstallTargetDialog({
   listing,
   onClose,
 }: {
-  listing: Pick<MarketListingDto, 'id' | 'title' | 'listedVersionId' | 'listedRevision'>
+  listing: Pick<MarketListingDto, 'id' | 'type' | 'title' | 'listedVersionId' | 'listedRevision'>
   onClose: () => void
 }) {
   const me = useSession((s) => s.user?.id)
@@ -59,11 +62,13 @@ export function InstallTargetDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const targets: Target[] | null =
-    kind === 'group'
-      ? groups.map((g) => ({ base: `/groups/${g.id}`, label: g.name }))
-      : kind === 'team'
-        ? adminTeams.map((x) => ({ base: `/teams/${x.id}`, label: x.name }))
-        : repos
+    kind === 'me'
+      ? [{ base: PERSONAL_BASE, label: t('我的个人') }]
+      : kind === 'group'
+        ? groups.map((g) => ({ base: `/groups/${g.id}`, label: g.name }))
+        : kind === 'team'
+          ? adminTeams.map((x) => ({ base: `/teams/${x.id}`, label: x.name }))
+          : repos
   const target = targets?.find((x) => x.base === picked)
   const submit = async () => {
     if (!target) return
@@ -99,16 +104,24 @@ export function InstallTargetDialog({
         value={kind}
         onChange={(k) => {
           setKind(k)
-          setPicked(null)
+          setPicked(k === 'me' ? PERSONAL_BASE : null)
         }}
         items={[
+          { value: 'me', label: t('我的个人'), disabled: listing.type === 'plugin' },
           { value: 'group', label: t('群') },
           { value: 'team', label: t('团队') },
           { value: 'repo', label: t('仓库') },
         ]}
       />
-      <div className="cfg__eyebrow">{t('只列出你是管理员的群与团队')}</div>
-      {kind === 'repo' && reposError ? (
+      {listing.type === 'plugin' ? <div className="gs-note">{t('插件不能引入到个人')}</div> : null}
+      {kind === 'me' ? (
+        <div className="gs-note">
+          {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
+        </div>
+      ) : (
+        <div className="cfg__eyebrow">{t('只列出你是管理员的群与团队')}</div>
+      )}
+      {kind === 'me' ? null : kind === 'repo' && reposError ? (
         <Alert variant="error" title={reposError} />
       ) : !targets ? (
         <Spinner />

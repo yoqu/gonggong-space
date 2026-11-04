@@ -202,6 +202,16 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
   )
 }
 
+/** Skills from the originator's personal layer; names stay private to them. */
+export function PersonalSkillsFact({ n }: { n?: number }) {
+  if (!n) return null
+  return (
+    <Fact label={t('使用了 {n} 个个人 Skill', { n })} value={n}>
+      <Icon name="star" size={12} />
+    </Fact>
+  )
+}
+
 /** Duration as a clock face; while live, a ring fills once per minute (a bare ring would read as a spinner). */
 export function ClockFact({ ms, text, live }: { ms: number; text: string; live: boolean }) {
   const p = ((ms / 1000) % 60) / 60

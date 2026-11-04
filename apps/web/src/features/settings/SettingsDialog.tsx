@@ -1,5 +1,13 @@
-import type { FeishuIdentityView, GitAccountDto, GitProvider, Locale, UserDto } from '@gonggong/protocol'
+import {
+  type FeishuIdentityView,
+  type GitAccountDto,
+  type GitProvider,
+  type Locale,
+  PERSONAL_BASE,
+  type UserDto,
+} from '@gonggong/protocol'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
@@ -28,6 +36,7 @@ import {
 } from '../../ui'
 import { ChangePasswordDialog } from '../auth/ChangePasswordPage'
 import { FeishuIdentityRow } from '../feishu/FeishuIdentityRow'
+import { InstallList } from '../market/InstallList'
 import { NotificationSettings } from '../notifications/NotificationSettings'
 import { MySecrets } from '../secrets/MySecrets'
 import '../groups/groups.css'
@@ -40,6 +49,7 @@ const PAGES: { value: SettingsPage; label: string; icon: IconName }[] = [
   { value: 'notifications', label: t('通知'), icon: 'bell' },
   { value: 'git', label: t('Git 与仓库'), icon: 'git-branch' },
   { value: 'secrets', label: t('我的密钥'), icon: 'lock' },
+  { value: 'skills', label: t('我的 Skill'), icon: 'star' },
   { value: 'account', label: t('账户'), icon: 'person' },
 ]
 
@@ -97,6 +107,8 @@ export function SettingsDialog({ page: initial, onClose }: { page: SettingsPage;
             <GitPage />
           ) : page === 'secrets' ? (
             <MySecrets />
+          ) : page === 'skills' ? (
+            <MySkillsPage onClose={onClose} />
           ) : (
             <AccountPage />
           )}
@@ -144,6 +156,28 @@ function AppearancePage() {
         />
       </GroupRow>
     </GroupBox>
+  )
+}
+
+function MySkillsPage({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
+  return (
+    <>
+      <div className="gs-note">
+        {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
+      </div>
+      <InstallList base={PERSONAL_BASE} />
+      <Button
+        size="small"
+        variant="plain"
+        onClick={() => {
+          onClose()
+          navigate('/market')
+        }}
+      >
+        {t('打开市场')}
+      </Button>
+    </>
   )
 }
 
