@@ -399,7 +399,7 @@ describe('我的发布', () => {
     expect(await within(dialog).findByRole('button', { name: '提交审核' })).toBeTruthy()
   })
 
-  it('submits a draft, checks upstream, unlists and changes visibility', async () => {
+  it('submits a draft, checks upstream, unlists, and locks the visibility once listed', async () => {
     const gh = mine({
       listedVersionId: 'v8',
       ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' },
@@ -430,10 +430,7 @@ describe('我的发布', () => {
 
     fireEvent.click(within(row).getByRole('button', { name: '下架' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'unlisted' }))
-    fireEvent.click(within(row).getByRole('button', { name: '设为公开' }))
-    await waitFor(() =>
-      expect(calls.filter((c) => c.method === 'PATCH').at(-1)?.body).toEqual({ visibility: 'public' }),
-    )
+    expect(within(row).queryByRole('button', { name: '设为公开' })).toBeNull()
   })
 
   it('reports a changed upstream as a new draft', async () => {

@@ -445,17 +445,12 @@ export async function importGithub(
 }
 
 /** The GitHub URL of a recorded source, at its ref and sub-directory. */
-const sourceUrl = (s: ListingSource) => {
-  const repo = s.url.replace(/\/tree\/.*$/, '').replace(/\.git$/, '')
-  return s.ref || s.path ? `${repo}/tree/${s.ref ?? 'HEAD'}${s.path ? `/${s.path}` : ''}` : repo
-}
-
 export async function checkUpstream(ctx: Ctx, me: Me, id: string) {
   const listing = await requireMaintained(ctx, me, id)
   const source = listing.ghSource ?? fail('invalid', '该条目不是从 GitHub 导入的')
   const commit = await upstreamCommit(source)
   if (commit === source.commit) return { changed: false, commit }
-  const fetched = await fetchGithubSkill(sourceUrl(source))
+  const fetched = await fetchGithubSkill(source.url)
   const s = listingSnapshot(fetched.files)
   if (s.manifest.name !== listing.name || s.type !== listing.type)
     fail('invalid', 'GitHub 上的名称变成了 {name}，请重新导入', { name: s.manifest.name })
@@ -467,6 +462,9 @@ export async function checkUpstream(ctx: Ctx, me: Me, id: string) {
 export async function updateListing(ctx: Ctx, me: Me, id: string, req: UpdateListingReq) {
   const listing = await requireMaintained(ctx, me, id)
   if (listing.status === 'banned') fail('forbidden', '已封禁的条目不能修改')
+  // Approval was given for the old audience: team admins must not be able to make a listing public.
+  if (req.visibility && req.visibility !== listing.visibility && listing.listedVersionId)
+    fail('conflict', '已有版本审核通过，不能再修改可见范围')
   await ctx.db
     .update(plugins)
     .set({ ...req, updatedBy: me.id, updatedAt: ctx.now() })

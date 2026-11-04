@@ -137,6 +137,16 @@ describe('publishing', () => {
     ).toEqual(['lint'])
   })
 
+  it('locks the visibility once a version is approved, so team review cannot publish it', async () => {
+    const w = await world()
+    const draft = (await publish(w.api.ann, w.teamA, skill('draft'))).body.listing
+    const patch = (l: MyListingDto) => w.api.ann.patch(`/api/market/${l.id}`, { visibility: 'public' })
+    expect((await patch(draft)).status).toBe(200)
+    const listed = await approved(w.api.ann, w.api.bob, w.teamA, 'listed')
+    expect((await patch(listed)).status).toBe(409)
+    expect((await w.api.ann.patch(`/api/market/${listed.id}`, { status: 'unlisted' })).status).toBe(200)
+  })
+
   it('warns about secrets and absolute paths without refusing', async () => {
     const w = await world()
     const files = [
@@ -336,14 +346,14 @@ describe('market', () => {
   it('hands a listing to the team admins when its author leaves the team (D13)', async () => {
     const w = await world()
     const l = await approved(w.api.ann, w.api.bob, w.teamA, 'wiki')
-    expect((await w.api.bob.patch(`/api/market/${l.id}`, { visibility: 'public' })).status).toBe(403)
+    expect((await w.api.bob.patch(`/api/market/${l.id}`, { status: 'unlisted' })).status).toBe(403)
     expect(await mine(w.api.bob)).toEqual([])
     await t.db
       .delete(teamMembers)
       .where(and(eq(teamMembers.userId, w.ann.id), eq(teamMembers.teamId, w.teamA)))
-    expect((await w.api.ann.patch(`/api/market/${l.id}`, { visibility: 'public' })).status).toBe(403)
-    expect((await w.api.bob.patch(`/api/market/${l.id}`, { visibility: 'public' })).status).toBe(200)
-    expect((await mine(w.api.bob)).map((m) => [m.name, m.visibility])).toEqual([['wiki', 'public']])
+    expect((await w.api.ann.patch(`/api/market/${l.id}`, { status: 'unlisted' })).status).toBe(403)
+    expect((await w.api.bob.patch(`/api/market/${l.id}`, { status: 'unlisted' })).status).toBe(200)
+    expect((await mine(w.api.bob)).map((m) => [m.name, m.status])).toEqual([['wiki', 'unlisted']])
     expect((await w.api.bob.get<MarketListingDetailDto>(`/api/market/${l.id}`)).body.canEdit).toBe(true)
     expect((await publish(w.api.bob, w.teamA, skill('wiki', 'v2'))).body.listing.latest.revision).toBe(2)
   })
@@ -374,6 +384,7 @@ describe('github import', () => {
       source: source('c2'),
     })
     expect((await check(w.api.ann)).body).toEqual({ changed: true, commit: 'c2' })
+    expect(vi.mocked(fetchGithubSkill).mock.lastCall![0]).toBe('https://github.com/acme/skills')
     expect((await mine(w.api.ann))[0]).toMatchObject({
       ghSource: source('c2'),
       latest: { revision: 2, reviewStatus: 'draft' },

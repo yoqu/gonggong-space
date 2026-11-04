@@ -496,6 +496,8 @@ export const en = {
   只能发布到你所在的团队: 'You can only publish to a team you are in',
   只有维护者可以修改: 'Only its maintainer can change it',
   已封禁的条目不能修改: 'A banned listing cannot be changed',
+  '已有版本审核通过，不能再修改可见范围':
+    'A version is already approved; the visibility can no longer change',
   只能提交草稿或被驳回的版本: 'Only a draft or a rejected version can be submitted',
   版本不在待审核状态: 'This version is not awaiting review',
   你不能审核这个版本: 'You cannot review this version',

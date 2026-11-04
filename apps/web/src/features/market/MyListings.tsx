@@ -122,13 +122,17 @@ export function MyListings() {
                     {l.status === 'listed' ? t('下架') : t('重新上架')}
                   </Button>
                 ) : null}
-                <Button
-                  size="small"
-                  variant="plain"
-                  onClick={() => void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })}
-                >
-                  {l.visibility === 'public' ? t('设为仅本团队') : t('设为公开')}
-                </Button>
+                {l.listedVersionId ? null : (
+                  <Button
+                    size="small"
+                    variant="plain"
+                    onClick={() =>
+                      void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })
+                    }
+                  >
+                    {l.visibility === 'public' ? t('设为仅本团队') : t('设为公开')}
+                  </Button>
+                )}
               </span>
             </GroupRow>
           ))}
