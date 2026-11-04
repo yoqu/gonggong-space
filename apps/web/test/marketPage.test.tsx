@@ -206,7 +206,7 @@ describe('市场 page', () => {
     fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
     const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
     expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
-    expect(within(drawer).getByText('scripts/run.sh')).toBeTruthy()
+    expect(within(drawer).getByRole('treeitem', { name: /run\.sh/ })).toBeTruthy()
     expect(within(drawer).getByText('支持 monorepo')).toBeTruthy()
     expect(within(drawer).getByText('首个版本')).toBeTruthy()
     expect(within(drawer).getByText('待审核')).toBeTruthy()
@@ -214,6 +214,38 @@ describe('市场 page', () => {
     const gh = within(drawer).getByRole('link', { name: /github\.com\/acme\/skills/ })
     expect(gh.getAttribute('href')).toBe('https://github.com/acme/skills')
     expect(within(drawer).getByText(/abc1234/)).toBeTruthy()
+  })
+
+  it('shows its files as a tree and opens one beside it', async () => {
+    const calls = mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail(),
+      'GET /market/l1/files/text?path=scripts%2Frun.sh': {
+        path: 'scripts/run.sh',
+        size: 10,
+        binary: false,
+        mime: 'application/x-sh',
+        text: 'echo hello',
+      },
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
+    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
+    const tree = await within(drawer).findByRole('tree', { name: '文件' })
+    expect(
+      within(tree)
+        .getAllByRole('treeitem')
+        .map((x) => x.textContent),
+    ).toEqual([
+      expect.stringContaining('scripts'),
+      expect.stringContaining('run.sh'),
+      expect.stringContaining('SKILL.md'),
+    ])
+    fireEvent.click(within(tree).getByRole('treeitem', { name: /run\.sh/ }))
+    expect(await within(drawer).findByText(/echo hello/)).toBeTruthy()
+    expect(calls.some((c) => c.path === '/market/l1/files/text?path=scripts%2Frun.sh')).toBe(true)
+    fireEvent.click(within(tree).getByRole('treeitem', { name: /scripts/ }))
+    expect(within(tree).queryByRole('treeitem', { name: /run\.sh/ })).toBeNull()
   })
 
   it("hides SKILL.md's front matter in the readme", async () => {

@@ -249,7 +249,11 @@ export function CreationSheet({
                       aria-pressed={p.id === plugin.id}
                       onClick={() => pickPlugin(p)}
                     >
-                      <PluginTile m={p.manifest} size={20} />
+                      <PluginTile
+                        m={p.manifest}
+                        size={20}
+                        official={p.layer === 'platform' ? p.manifest.name : undefined}
+                      />
                       {p.manifest.title}
                     </button>
                   ))}

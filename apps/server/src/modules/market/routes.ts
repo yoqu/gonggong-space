@@ -1,6 +1,9 @@
 import {
   BanReq,
+  FILE_TEXT_MAX_BYTES,
+  type FileTextDto,
   GithubImportReq,
+  INLINE_FILE_MIMES,
   InstallReq,
   ListingType,
   MarketSource,
@@ -18,6 +21,7 @@ import { requireMachine } from '../../daemon/auth.js'
 import { repos, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { mimeOf } from '../artifacts/serve.js'
 import { requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import { searchRepos } from '../repos/service.js'
@@ -25,6 +29,7 @@ import { requireTeam } from '../teams/service.js'
 import {
   checkUpstream,
   importGithub,
+  listingFile,
   marketDetail,
   marketList,
   myListings,
@@ -118,6 +123,7 @@ const MarketQuery = z.object({
 
 /** Up to 8 MB of base64 in the JSON body, as plugin uploads; the decoded files are capped at 5 MB. */
 const BODY_LIMIT = 8 * 1024 * 1024
+const INLINE = new Set<string>(INLINE_FILE_MIMES)
 
 /** The market page, authors' listings and their review (plan Skill市场-M2). */
 function publishRoutes(ctx: Ctx, app: FastifyInstance) {
@@ -152,6 +158,40 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
   app.get<{ Params: { id: string }; Querystring: { versionId?: string } }>('/api/market/:id', async (req) =>
     marketDetail(ctx, await requireUser(ctx, req), req.params.id, req.query.versionId),
   )
+
+  // 文件 in a listing's detail: a file of the version shown there, as text (FileViewer) or raw bytes (media).
+  type F = { Params: { id: string }; Querystring: { path?: string; versionId?: string } }
+  const file = async (req: FastifyRequest<F>) => {
+    const { path, versionId } = req.query
+    if (!path) return fail('invalid', '缺少文件路径')
+    return listingFile(ctx, await requireUser(ctx, req), req.params.id, path, versionId)
+  }
+  app.get<F>('/api/market/:id/files/text', async (req): Promise<FileTextDto> => {
+    const f = await file(req)
+    const bytes = Buffer.from(f.content, f.encoding === 'base64' ? 'base64' : 'utf8')
+    const binary = f.encoding === 'base64'
+    return {
+      path: f.path,
+      size: bytes.length,
+      binary,
+      mime: mimeOf(f.path).split(';')[0]!,
+      text: binary || bytes.length > FILE_TEXT_MAX_BYTES ? null : f.content,
+    }
+  })
+  app.get<F>('/api/market/:id/files/raw', async (req, reply) => {
+    const f = await file(req)
+    const mime = mimeOf(f.path)
+    const inline = INLINE.has(mime.split(';')[0]!)
+    const name = encodeURIComponent(f.path.split('/').pop() ?? f.path)
+    return reply
+      .headers({
+        'content-type': mime,
+        'content-security-policy': 'sandbox',
+        'x-content-type-options': 'nosniff',
+        'content-disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${name}`,
+      })
+      .send(Buffer.from(f.content, f.encoding === 'base64' ? 'base64' : 'utf8'))
+  })
 
   app.post('/api/market', { bodyLimit: BODY_LIMIT }, async (req, reply) => {
     const me = await requireUser(ctx, req)

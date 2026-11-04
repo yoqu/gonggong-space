@@ -343,6 +343,47 @@ describe('market', () => {
     expect((await w.api.dan.get(url)).status).toBe(404)
   })
 
+  it('reads one file of a listing as text or raw bytes, under the same access as its detail', async () => {
+    const w = await world()
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64')
+    const files = [...skill('wiki', 'one'), { path: 'assets/logo.png', content: png, encoding: 'base64' }]
+    const { listing } = (await publish(w.api.ann, w.teamA, files)).body
+    await submit(w.api.ann, listing)
+    await review(w.api.bob, listing, { approve: true })
+    const v2 = (await publish(w.api.ann, w.teamA, skill('wiki', 'two'))).body.listing
+    const text = (path: string, q = '') =>
+      `/api/market/${listing.id}/files/text?path=${encodeURIComponent(path)}${q}`
+    expect((await w.api.mia.get(text('SKILL.md'))).body).toEqual({
+      path: 'SKILL.md',
+      size: Buffer.byteLength(md('wiki', 'one')),
+      binary: false,
+      mime: 'text/plain',
+      text: md('wiki', 'one'),
+    })
+    expect((await w.api.mia.get(text('assets/logo.png'))).body).toMatchObject({
+      binary: true,
+      size: 4,
+      text: null,
+    })
+    expect((await w.api.ann.get(text('SKILL.md', `&versionId=${v2.latest.id}`))).body).toMatchObject({
+      text: md('wiki', 'two'),
+    })
+    expect((await w.api.mia.get(text('SKILL.md', `&versionId=${v2.latest.id}`))).status).toBe(404)
+    expect((await w.api.mia.get(text('nope.md'))).status).toBe(404)
+    expect((await w.api.dan.get(text('SKILL.md'))).status).toBe(404)
+
+    const raw = await t.app.inject({
+      method: 'GET',
+      url: `/api/market/${listing.id}/files/raw?path=assets%2Flogo.png`,
+      headers: { cookie: await t.seed.cookie(w.mia.id) },
+    })
+    expect(raw.statusCode).toBe(200)
+    expect(raw.headers['content-type']).toBe('image/png')
+    expect(raw.headers['content-security-policy']).toBe('sandbox')
+    expect(raw.headers['content-disposition']).toMatch(/^inline/)
+    expect(raw.rawPayload.equals(Buffer.from(png, 'base64'))).toBe(true)
+  })
+
   it('hands a listing to the team admins when its author leaves the team (D13)', async () => {
     const w = await world()
     const l = await approved(w.api.ann, w.api.bob, w.teamA, 'wiki')

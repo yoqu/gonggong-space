@@ -2,9 +2,20 @@ import type { PluginManifest } from '@gonggong/protocol'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
 import { CATEGORY } from './model'
+import { hasOfficialIcon, OfficialIcon } from './OfficialIcon'
 import './plugins.css'
 
-export function PluginTile({ m, size = 32 }: { m: Pick<PluginManifest, 'category'>; size?: number }) {
+/** `official`: the manifest name of a platform plugin, drawn with its own tile when it has one. */
+export function PluginTile({
+  m,
+  size = 32,
+  official,
+}: {
+  m: Pick<PluginManifest, 'category'>
+  size?: number
+  official?: string
+}) {
+  if (official && hasOfficialIcon(official)) return <OfficialIcon name={official} size={size} />
   const c = CATEGORY[m.category]
   return (
     <span className="plg-tile" style={{ background: c.color, width: size, height: size }} aria-hidden="true">

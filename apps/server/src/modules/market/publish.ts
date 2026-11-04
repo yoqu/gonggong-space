@@ -227,12 +227,8 @@ export async function marketList(
 }
 
 /** One listing at its listed version, or `versionId`; unapproved versions only for its maintainers and reviewers. */
-export async function marketDetail(
-  ctx: Ctx,
-  me: Me,
-  id: string,
-  versionId?: string,
-): Promise<MarketListingDetailDto> {
+/** The listing and the version of it the caller may see: `versionId`, else the listed one; 404 otherwise. */
+async function shownVersion(ctx: Ctx, me: Me, id: string, versionId?: string) {
   const listing = await findListing(ctx.db, id)
   const mine = await myTeamIds(ctx.db, me.id)
   const canEdit = await maintains(ctx.db, me.id, listing.id)
@@ -257,6 +253,16 @@ export async function marketDetail(
     .orderBy(desc(pluginVersions.revision))
   const pick = versionId ?? listing.listedVersionId ?? versions[0]?.shown.id
   if (!pick || !versions.some((v) => v.shown.id === pick)) return fail('not_found', '版本不存在')
+  return { listing, mine, canEdit, canReview, versions, pick }
+}
+
+export async function marketDetail(
+  ctx: Ctx,
+  me: Me,
+  id: string,
+  versionId?: string,
+): Promise<MarketListingDetailDto> {
+  const { listing, mine, canEdit, canReview, versions, pick } = await shownVersion(ctx, me, id, versionId)
   const [card] = await cards(ctx.db, eq(shown.id, pick), eq(plugins.id, listing.id))
   const [v] = await ctx.db
     .select({ files: pluginVersions.files })
@@ -280,6 +286,16 @@ export async function marketDetail(
     ghSource: listing.ghSource,
     canEdit,
   }
+}
+
+/** One file of a listing's shown version (see `shownVersion`), for 文件 in its detail. */
+export async function listingFile(ctx: Ctx, me: Me, id: string, path: string, versionId?: string) {
+  const { pick } = await shownVersion(ctx, me, id, versionId)
+  const [v] = await ctx.db
+    .select({ files: pluginVersions.files })
+    .from(pluginVersions)
+    .where(eq(pluginVersions.id, pick))
+  return (v!.files as SkillFile[]).find((f) => f.path === path) ?? fail('not_found', '文件不存在')
 }
 
 /** Listings the caller maintains, with their latest upload. */

@@ -14,7 +14,6 @@ import {
   Alert,
   Button,
   Dialog,
-  FileIcon,
   GroupBox,
   GroupRow,
   Icon,
@@ -25,9 +24,10 @@ import {
   TextArea,
   toast,
 } from '../../ui'
-import { fmtSize } from '../attachments/api'
 import { Markdown } from '../chat/Markdown'
+import { hasOfficialIcon, OfficialIcon } from '../plugins/OfficialIcon'
 import { TYPE_LABEL } from './InstallList'
+import { ListingFiles } from './ListingFiles'
 import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
 import './market.css'
@@ -50,8 +50,19 @@ export const ReviewTag = ({ status }: { status: ReviewStatus }) => (
   <Tag tone={REVIEW_TONE[status]}>{REVIEW_LABEL[status]}</Tag>
 )
 
-/** A listing's glyph: Skill and 插件 read apart at a glance. */
-export function ListingIcon({ type, size = 36 }: { type: ListingType; size?: number }) {
+/** A listing's glyph: Skill and 插件 read apart at a glance; official plugins have their own drawn tile. */
+export function ListingIcon({
+  type,
+  size = 36,
+  official,
+}: {
+  type: ListingType
+  size?: number
+  /** The listing's name when it is an official one. */
+  official?: string
+}) {
+  if (type === 'plugin' && official && hasOfficialIcon(official))
+    return <OfficialIcon name={official} size={size} />
   return (
     <span className="mkt-icon" data-type={type} style={{ width: size, height: size }} aria-hidden="true">
       <Icon name={type === 'plugin' ? 'plug' : 'sparkle'} size={Math.round(size * 0.5)} />
@@ -94,7 +105,11 @@ export function ListingDetail({
   return (
     <div className="mkt-detail">
       <div className="mkt-detail__hero">
-        <ListingIcon type={data.type} size={44} />
+        <ListingIcon
+          type={data.type}
+          size={44}
+          official={data.source === 'official' ? data.name : undefined}
+        />
         <div className="mkt-detail__summary">
           <div className="mkt-detail__meta">
             <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>
@@ -155,20 +170,7 @@ export function ListingDetail({
         <div className="cfg__eyebrow">
           {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>
         </div>
-        <GroupBox>
-          {data.files.map((f) => (
-            <GroupRow
-              key={f.path}
-              label={
-                <span className="mkt-detail__file">
-                  <FileIcon name={f.path} size={16} />
-                  <code className="gs-mono">{f.path}</code>
-                </span>
-              }
-              value={fmtSize(f.size)}
-            />
-          ))}
-        </GroupBox>
+        <ListingFiles listingId={data.id} versionId={versionId} files={data.files} />
       </section>
       <section className="mkt-detail__section" aria-label={t('版本历史')}>
         <div className="cfg__eyebrow">

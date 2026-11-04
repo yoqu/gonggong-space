@@ -35,7 +35,7 @@ function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
   const m = p.manifest
   return (
     <div className="plg-row">
-      <PluginTile m={m} />
+      <PluginTile m={m} official={p.layer === 'platform' ? m.name : undefined} />
       <div className="plg-row__text">
         <div className="plg-row__title">
           <b>{m.title}</b>

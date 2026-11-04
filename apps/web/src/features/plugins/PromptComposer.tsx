@@ -150,7 +150,11 @@ export function PromptComposer({
                 aria-pressed={p.id === plugin.id}
                 onClick={() => onPickPlugin(p)}
               >
-                <PluginTile m={p.manifest} size={20} />
+                <PluginTile
+                  m={p.manifest}
+                  size={20}
+                  official={p.layer === 'platform' ? p.manifest.name : undefined}
+                />
                 {p.manifest.title}
               </button>
             ))}
