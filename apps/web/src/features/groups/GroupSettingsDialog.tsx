@@ -19,6 +19,7 @@ import {
   toast,
 } from '../../ui'
 import { InheritedMcpList, McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
+import { GroupConfigView } from '../config/GroupConfigView'
 import { InheritedSkillList, SkillLayerList } from '../config/SkillLayer'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { InstalledSection } from '../market/InstallList'
@@ -41,7 +42,7 @@ type Draft = Record<keyof GroupParams, number | null>
 
 const parseDraft = (d: Draft) => GroupParams.safeParse(d)
 
-/** Group settings dialog (prototype ovSettings); admins only. */
+/** Group settings dialog (prototype ovSettings); plain members get it read-only, filling only their own secret values. */
 export function GroupSettingsDialog({
   group,
   tab: initial,
@@ -57,11 +58,13 @@ export function GroupSettingsDialog({
   const [params, setParams] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const dm = group.kind === 'dm'
+  const meId = useSession((s) => s.user?.id)
+  const readOnly = !group.members.some((m) => m.userId === meId && m.isAdmin)
   const pluginsOn = useSession((s) => !!s.tenancy?.pluginsEnabled)
   const tabs: { value: SettingsTab; label: string; icon: IconName }[] = [
     { value: 'basic', label: t('基本信息'), icon: 'info' },
-    { value: 'bots', label: dm ? 'Bot' : t('成员与 Bot'), icon: dm ? 'bot' : 'person-2' },
-    { value: 'repo', label: t('仓库与工作区'), icon: 'folder-git' },
+    ...(dm ? [] : [{ value: 'members' as const, label: t('成员'), icon: 'person-2' as const }]),
+    { value: 'repo', label: t('Bot 与工作区'), icon: 'bot' },
     { value: 'mode', label: t('同步模式'), icon: 'arrow-clockwise' },
     { value: 'params', label: dm ? t('参数#settings') : t('群级参数'), icon: 'slider-horizontal' },
     ...(dm
@@ -70,7 +73,8 @@ export function GroupSettingsDialog({
           { value: 'mcp' as const, label: 'MCP', icon: 'plug' as const },
           { value: 'skill' as const, label: 'Skill', icon: 'star' as const },
           { value: 'secrets' as const, label: t('密钥'), icon: 'lock' as const },
-          { value: 'feishu' as const, label: t('飞书'), icon: 'message' as const },
+          // Its view carries the chat binding and app ids, so the server serves it to admins only.
+          ...(readOnly ? [] : [{ value: 'feishu' as const, label: t('飞书'), icon: 'message' as const }]),
         ]),
     ...(pluginsOn ? [{ value: 'plugins' as const, label: t('插件'), icon: 'apps' as const }] : []),
   ]
@@ -105,9 +109,11 @@ export function GroupSettingsDialog({
       onClose={onClose}
       footer={
         <>
-          <span className="gs-desc">{tab === 'params' ? t('保存后对新会话生效') : ''}</span>
+          <span className="gs-desc">
+            {readOnly ? t('仅群管理员可修改') : tab === 'params' ? t('保存后对新会话生效') : ''}
+          </span>
           <span className="spacer" />
-          {tab === 'params' ? (
+          {tab === 'params' && !readOnly ? (
             <Button variant="primary" disabled={!parsed?.success || saving} onClick={() => void save()}>
               {t('保存')}
             </Button>
@@ -133,11 +139,12 @@ export function GroupSettingsDialog({
         </nav>
         <div className="gs-settings__body">
           {tab === 'basic' ? (
-            <BasicTab group={group} />
-          ) : tab === 'bots' ? (
-            <MembersTab group={group} />
+            <BasicTab group={group} readOnly={readOnly} />
+          ) : tab === 'members' ? (
+            <MembersTab group={group} readOnly={readOnly} />
           ) : tab === 'repo' ? (
             <>
+              <BotsView group={group} isAdmin={!readOnly} member />
               <GroupBox>
                 <GroupRow
                   label={t('禁止直推基准分支')}
@@ -145,12 +152,18 @@ export function GroupSettingsDialog({
                 >
                   <Switch
                     aria-label={t('禁止直推基准分支')}
+                    disabled={readOnly}
                     checked={group.protectBase}
                     onChange={(v) => void attempt(() => groupsApi.update(group.id, { protectBase: v }))}
                   />
                 </GroupRow>
               </GroupBox>
-              <RepoWorkspaceView group={group} isAdmin />
+              <RepoWorkspaceView group={group} isAdmin={!readOnly} />
+            </>
+          ) : readOnly && (tab === 'mcp' || tab === 'skill') ? (
+            <>
+              <GroupConfigView groupId={group.id} kind={tab} />
+              {tab === 'skill' ? <InstalledSection base={`/groups/${group.id}`} readOnly /> : null}
             </>
           ) : tab === 'mcp' ? (
             <GroupMcpTab group={group} />
@@ -162,9 +175,9 @@ export function GroupSettingsDialog({
               <InstalledSection base={`/groups/${group.id}`} />
             </>
           ) : tab === 'secrets' ? (
-            <GroupSecrets group={group} editable />
+            <GroupSecrets group={group} editable={!readOnly} />
           ) : tab === 'plugins' ? (
-            <GroupPluginsTab group={group} />
+            <GroupPluginsTab group={group} readOnly={readOnly} />
           ) : tab === 'feishu' ? (
             <GroupFeishuTab group={group} />
           ) : tab === 'mode' ? (
@@ -175,6 +188,7 @@ export function GroupSettingsDialog({
                 <GroupRow key={p.key} label={p.label}>
                   <Stepper
                     aria-label={p.label}
+                    disabled={readOnly}
                     width={80}
                     value={params[p.key]}
                     onChange={(v) => setParams({ ...params, [p.key]: v })}
@@ -191,7 +205,7 @@ export function GroupSettingsDialog({
   )
 }
 
-function BasicTab({ group }: { group: GroupDto }) {
+function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   const me = useSession((s) => s.user)
   const dm = group.kind === 'dm'
   const [name, setName] = useState(group.name)
@@ -210,27 +224,34 @@ function BasicTab({ group }: { group: GroupDto }) {
             aria-label={dm ? t('私聊名称') : t('群名称')}
             value={name}
             maxLength={60}
+            readOnly={readOnly}
             onChange={(e) => setName(e.target.value)}
           />
-          <Button
-            size="small"
-            disabled={!name.trim() || name.trim() === group.name || saving}
-            onClick={() => void save()}
-          >
-            {t('保存')}
-          </Button>
+          {readOnly ? null : (
+            <Button
+              size="small"
+              disabled={!name.trim() || name.trim() === group.name || saving}
+              onClick={() => void save()}
+            >
+              {t('保存')}
+            </Button>
+          )}
         </span>
       </GroupRow>
       {dm ? null : (
         <GroupRow label={t('群头像')} description={t('未上传时由成员头像拼成')}>
-          <AvatarEditor
-            name={group.name}
-            shape="square"
-            src={group.avatar ?? undefined}
-            preview={<GroupAvatar group={group} size={40} />}
-            onUpload={(image) => groupsApi.uploadAvatar(group.id, image)}
-            onRemove={() => groupsApi.removeAvatar(group.id)}
-          />
+          {readOnly ? (
+            <GroupAvatar group={group} size={40} />
+          ) : (
+            <AvatarEditor
+              name={group.name}
+              shape="square"
+              src={group.avatar ?? undefined}
+              preview={<GroupAvatar group={group} size={40} />}
+              onUpload={(image) => groupsApi.uploadAvatar(group.id, image)}
+              onRemove={() => groupsApi.removeAvatar(group.id)}
+            />
+          )}
         </GroupRow>
       )}
       {dm ? (
@@ -251,9 +272,8 @@ function BasicTab({ group }: { group: GroupDto }) {
   )
 }
 
-/** 成员与 Bot: who may invite, the members, then the Bots (a DM has only its Bots). */
-function MembersTab({ group }: { group: GroupDto }) {
-  if (group.kind === 'dm') return <BotsView group={group} isAdmin member />
+/** 成员: who may invite and the people; the Bots live with the workspaces. */
+function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   return (
     <>
       <GroupBox>
@@ -263,13 +283,18 @@ function MembersTab({ group }: { group: GroupDto }) {
         >
           <Switch
             aria-label={t('仅群管理员可拉人')}
+            disabled={readOnly}
             checked={group.adminOnlyInvite}
             onChange={(v) => void attempt(() => groupsApi.update(group.id, { adminOnlyInvite: v }))}
           />
         </GroupRow>
       </GroupBox>
-      <MembersView group={group} isAdmin canInvite initialAdding={false} />
-      <BotsView group={group} isAdmin member />
+      <MembersView
+        group={group}
+        isAdmin={!readOnly}
+        canInvite={!readOnly || !group.adminOnlyInvite}
+        initialAdding={false}
+      />
     </>
   )
 }

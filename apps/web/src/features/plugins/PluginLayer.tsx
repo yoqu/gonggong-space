@@ -202,7 +202,7 @@ function botAvailability(plugins: GroupPluginDto[], botId: string, botName: stri
 }
 
 /** 群设置 · 插件 (prototype #manage): the group's switch per plugin, its own layer, and each bot's availability. */
-export function GroupPluginsTab({ group }: { group: GroupDto }) {
+export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; readOnly?: boolean }) {
   const list = useGroupPlugins(group.id)
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const base = `/groups/${group.id}/plugins`
@@ -234,8 +234,9 @@ export function GroupPluginsTab({ group }: { group: GroupDto }) {
               }
             >
               <span className="cfg__controls">
-                {p.layer === 'group' ? <DeletePlugin base={base} p={p} onDone={reload} /> : null}
+                {p.layer === 'group' && !readOnly ? <DeletePlugin base={base} p={p} onDone={reload} /> : null}
                 <Switch
+                  disabled={readOnly}
                   ariaLabel={t('在本群启用 {name}', { name: p.manifest.title })}
                   checked={p.enabledInGroup}
                   onChange={(on) => void attempt(() => togglePlugin(group.id, p.id, on))}
@@ -250,7 +251,7 @@ export function GroupPluginsTab({ group }: { group: GroupDto }) {
           {t('上传到本群的插件只对本群生效；与团队层、平台层同名时以群层为准。')}
         </span>
         <span className="spacer" />
-        <PluginUpload base={base} onDone={reload} />
+        {readOnly ? null : <PluginUpload base={base} onDone={reload} />}
       </div>
       {enabled.length && bots.length ? (
         <fieldset aria-label={t('Bot 可用性')} className="plg-section">

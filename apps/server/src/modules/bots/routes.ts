@@ -3,6 +3,7 @@ import {
   type AgentKind,
   type BotOwnerDto,
   type BotPlaceDto,
+  type BotRecentDto,
   BotSharesReq,
   CreateBotReq,
   type DaemonBotDto,
@@ -166,6 +167,23 @@ export function botRoutes(ctx: Ctx) {
         ...o,
         machines: owned.filter((m) => m.ownerId === o.id).map((m) => machineDto(ctx, m)),
       }))
+    })
+
+    app.get('/api/bots/recent', async (req): Promise<BotRecentDto[]> => {
+      const user = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, user.id)
+      // Per group like /activity, so runs_group_bot_started is read instead of every run of the bot.
+      const lastUsedAt = sql<Date | null>`max((select max(r.started_at) from runs r
+        where r.group_id = ${groupBots.groupId} and r.bot_id = ${groupBots.botId}))`.mapWith(runs.startedAt)
+      const rows = await ctx.db
+        .select({ botId: groupBots.botId, lastUsedAt })
+        .from(groupBots)
+        .innerJoin(bots, eq(bots.id, groupBots.botId))
+        .where(and(eq(bots.ownerId, user.id), eq(bots.teamId, teamId), isNull(bots.deletedAt)))
+        .groupBy(groupBots.botId)
+      return rows
+        .flatMap((r) => (r.lastUsedAt ? [{ botId: r.botId, lastUsedAt: r.lastUsedAt.toISOString() }] : []))
+        .sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt))
     })
 
     app.get<IdParams>('/api/bots/:id', async (req) => {

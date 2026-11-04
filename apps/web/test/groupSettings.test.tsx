@@ -216,25 +216,94 @@ describe('group settings inspector', () => {
     expect(tiles(d.querySelector('.pn-info__id') as Element)).toEqual(want)
   })
 
-  it('locks management rows for plain members and hides dissolving', async () => {
-    mockApi(
-      routes([
-        group({
-          members: [
-            { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
-            { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
-          ],
-        }),
-      ]),
-    )
+  it('opens the settings read-only for plain members, hides 飞书 and dissolving', async () => {
+    const plain = group({
+      members: [
+        { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+        { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+      ],
+    })
+    mockApi(routes([plain], { 'GET /groups/g1/secrets': [], 'GET /me/secrets': [] }))
     renderAt('/g/g1')
     const d = await openDrawer()
     expect(within(d).getByText('仅群管理员 · 李建国')).toBeTruthy()
-    for (const name of [/基本信息/, /成员与 Bot/, /同步模式/, /群级参数/, /^飞书/])
-      expect(within(d).getByRole('button', { name }).hasAttribute('disabled')).toBe(true)
-    for (const name of [/仓库与工作区/, /^MCP/, /^Skill/])
+    for (const name of [
+      /基本信息/,
+      /^成员\s*所有成员可拉人/,
+      /Bot 与工作区/,
+      /同步模式/,
+      /群级参数/,
+      /^MCP/,
+      /^Skill/,
+      /^密钥/,
+    ])
       expect(within(d).getByRole('button', { name }).hasAttribute('disabled')).toBe(false)
+    expect(within(d).queryByRole('button', { name: /^飞书/ })).toBeNull()
     expect(within(d).queryByRole('button', { name: '解散群' })).toBeNull()
+
+    fireEvent.click(within(d).getByRole('button', { name: /基本信息/ }))
+    const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    expect(within(dlg).getByText('仅群管理员可修改')).toBeTruthy()
+    expect((within(dlg).getByLabelText('群名称') as HTMLInputElement).readOnly).toBe(true)
+    expect(within(dlg).queryByRole('button', { name: '保存' })).toBeNull()
+    expect(within(dlg).queryByRole('button', { name: /飞书/ })).toBeNull()
+
+    fireEvent.click(within(dlg).getByRole('button', { name: '群级参数' }))
+    expect(((await within(dlg).findByLabelText('接力链长上限（跳）')) as HTMLInputElement).disabled).toBe(
+      true,
+    )
+    expect(within(dlg).queryByRole('button', { name: '保存' })).toBeNull()
+
+    fireEvent.click(within(dlg).getByRole('button', { name: '成员' }))
+    expect((within(dlg).getByRole('switch', { name: '仅群管理员可拉人' }) as HTMLInputElement).disabled).toBe(
+      true,
+    )
+    expect(within(dlg).queryByRole('button', { name: '移出' })).toBeNull()
+
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Bot 与工作区' }))
+    expect((within(dlg).getByRole('switch', { name: '禁止直推基准分支' }) as HTMLInputElement).disabled).toBe(
+      true,
+    )
+    expect(within(dlg).getByRole('button', { name: '拉入 Bot' })).toBeTruthy()
+  })
+
+  it('lets a plain member fill their own value of a group secret from the settings dialog', async () => {
+    const secret = {
+      id: 's1',
+      scope: 'group',
+      teamId: 't1',
+      groupId: 'g1',
+      name: 'JIRA_TOKEN',
+      description: '',
+      mode: 'personal',
+      botIds: null,
+      enabled: true,
+      expiresAt: null,
+      value: null,
+      personalFilled: [],
+      updatedAt: at,
+    }
+    mockApi(
+      routes(
+        [
+          group({
+            members: [
+              { userId: 'u2', name: '李建国', avatar: null, isAdmin: true },
+              { userId: 'u1', name: '王磊', avatar: null, isAdmin: false },
+            ],
+          }),
+        ],
+        {
+          'GET /groups/g1/secrets': [secret],
+          'GET /me/secrets': [{ secret, where: '支付服务重构', mine: null }],
+        },
+      ),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /^密钥/ }))
+    const dlg = await screen.findByRole('dialog', { name: '密钥 · 支付服务重构' })
+    expect(await within(dlg).findByRole('button', { name: '填写我的值…' })).toBeTruthy()
+    expect(within(dlg).queryByRole('button', { name: '新建密钥…' })).toBeNull()
   })
 
   it('shows plain members the MCP and Skill lists read-only', async () => {
@@ -262,6 +331,7 @@ describe('group settings inspector', () => {
             },
           ],
           'GET /groups/g1/skills': [],
+          'GET /groups/g1/installs': [],
           'GET /groups/g1/inherited-skills': [
             { name: 'review', description: '代码评审', scope: 'platform', version: 2, enabledInGroup: false },
           ],
@@ -271,22 +341,23 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: /^MCP/ }))
-    expect(await within(d).findByText('jira')).toBeTruthy()
-    expect(within(d).getByText('仅群管理员可修改')).toBeTruthy()
-    const row = (name: string) => within(d).getByText(name).closest('.ui-group__row') as HTMLElement
+    const dlg = await screen.findByRole('dialog', { name: 'MCP · 支付服务重构' })
+    expect(await within(dlg).findByText('jira')).toBeTruthy()
+    expect(within(dlg).getAllByText('仅群管理员可修改').length).toBeGreaterThan(0)
+    const row = (name: string) => within(dlg).getByText(name).closest('.ui-group__row') as HTMLElement
     expect(within(row('jira')).getByText('本群')).toBeTruthy()
     expect(within(row('jira')).getByText('已关闭')).toBeTruthy()
     expect(within(row('wiki')).getByText('团队')).toBeTruthy()
     expect(within(row('wiki')).getByText('已开启')).toBeTruthy()
-    expect(within(d).queryByRole('switch', { name: /jira|wiki/ })).toBeNull()
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(within(dlg).queryByRole('switch', { name: /jira|wiki/ })).toBeNull()
+    expect(within(dlg).queryByRole('button', { name: /添加/ })).toBeNull()
 
-    fireEvent.click(within(d).getByRole('button', { name: '返回' }))
-    fireEvent.click(within(d).getByRole('button', { name: /^Skill/ }))
-    expect(await within(d).findByText('review')).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Skill' }))
+    expect(await within(dlg).findByText('review')).toBeTruthy()
     expect(within(row('review')).getByText('平台')).toBeTruthy()
     expect(within(row('review')).getByText('已关闭')).toBeTruthy()
-    expect(within(d).queryByRole('switch', { name: /review/ })).toBeNull()
+    expect(within(dlg).queryByRole('switch', { name: /review/ })).toBeNull()
+    expect(within(dlg).queryByRole('button', { name: '从已有条目引入…' })).toBeNull()
   })
 
   it('lets plain members invite people and pull in their own bots, unless only admins may invite', async () => {
@@ -304,7 +375,7 @@ describe('group settings inspector', () => {
     fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
     expect(within(d).getByRole('button', { name: '添加成员' })).toBeTruthy()
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
     const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
     expect(
@@ -336,9 +407,10 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const admin = await openDrawer()
     expect(within(admin).queryByRole('switch', { name: '仅群管理员可拉人' })).toBeNull()
-    fireEvent.click(within(admin).getByRole('button', { name: /成员与 Bot\s*所有成员可拉人/ }))
-    const dlg = await screen.findByRole('dialog', { name: '成员与 Bot · 支付服务重构' })
+    fireEvent.click(within(admin).getByRole('button', { name: /^成员\s*所有成员可拉人/ }))
+    const dlg = await screen.findByRole('dialog', { name: '成员 · 支付服务重构' })
     expect(within(dlg).getByTestId('member-u2')).toBeTruthy()
+    expect(within(dlg).queryByRole('button', { name: '拉入 Bot' })).toBeNull()
     fireEvent.click(within(dlg).getByRole('switch', { name: '仅群管理员可拉人' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ adminOnlyInvite: true }),
@@ -594,7 +666,7 @@ describe('group settings inspector', () => {
     )
 
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
     const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
     expect(
@@ -610,6 +682,47 @@ describe('group settings inspector', () => {
     )
     fireEvent.click(within(pick).getByRole('menuitemcheckbox', { name: /老李的 Codex/ }))
     expect(await screen.findByRole('dialog', { name: '移出 Bot 老李的 Codex' })).toBeTruthy()
+  })
+
+  it('lists my bots first by last use, then the others by name, and filters by search', async () => {
+    mockApi(
+      routes([group({ botIds: [] })], {
+        'GET /bots': [
+          bot({ id: 'b3', name: '小周的 Codex', ownerId: 'u4', ownerName: '周婷', agentKind: 'codex' }),
+          bot({}),
+          bot({ id: 'b2', name: '老李的 Codex', ownerId: 'u2', ownerName: '李建国', agentKind: 'codex' }),
+          bot({ id: 'b5', name: '阿王的备用', ownerId: 'u1' }),
+          bot({ id: 'b4', name: '小王的 Codex', ownerId: 'u1', agentKind: 'codex' }),
+        ],
+        'GET /bots/recent': [
+          { botId: 'b4', lastUsedAt: '2026-11-04T08:00:00.000Z' },
+          { botId: 'b1', lastUsedAt: '2026-11-03T08:00:00.000Z' },
+        ],
+      }),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
+    fireEvent.click(within(d).getByRole('button', { name: '拉入 Bot' }))
+    const pick = await screen.findByRole('dialog', { name: '添加 Bot' })
+    const names = (box: HTMLElement) =>
+      within(box)
+        .getAllByRole('menuitemcheckbox')
+        .map((b) => b.querySelector('.pick__name')?.textContent)
+    await waitFor(() =>
+      expect(names(within(pick).getByRole('group', { name: '我的 Bot' }))).toEqual([
+        '小王的 Codex',
+        '小王的 Claude',
+        '阿王的备用',
+      ]),
+    )
+    expect(names(within(pick).getByRole('group', { name: '其他成员的 Bot' }))).toEqual([
+      '老李的 Codex',
+      '小周的 Codex',
+    ])
+    fireEvent.change(within(pick).getByRole('searchbox', { name: '搜索 Bot' }), { target: { value: '周婷' } })
+    expect(within(pick).queryByRole('group', { name: '我的 Bot' })).toBeNull()
+    expect(names(pick)).toEqual(['小周的 Codex'])
   })
 
   it('the 添加 tile opens 群成员 with the candidates already listed', async () => {
@@ -659,7 +772,7 @@ describe('group settings inspector', () => {
     const calls = mockApi(routes([group()], { 'DELETE /groups/g1/bots/b2': group({ botIds: ['b1'] }) }))
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     const row = within(d).getByText('老李的 Codex').closest('.gs-bot') as HTMLElement
     fireEvent.click(within(row).getByRole('button', { name: '移出' }))
     const confirm = await screen.findByRole('dialog', { name: '移出 Bot 老李的 Codex' })
@@ -698,7 +811,7 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     const mine = within(d).getByText('小王的 Claude').closest('.gs-bot') as HTMLElement
     const theirs = within(d).getByText('老李的 Codex').closest('.gs-bot') as HTMLElement
     expect(within(theirs).queryByRole('button', { name: /附加目录/ })).toBeNull()
@@ -753,7 +866,7 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     const mine = within(d).getByText('小王的 Claude').closest('.gs-bot') as HTMLElement
     fireEvent.click(await within(mine).findByRole('button', { name: '附加目录 1' }))
     const dialog = await screen.findByRole('dialog', { name: '小王的 Claude 的附加目录' })
@@ -823,7 +936,7 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot/ }))
+    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
     const row = (name: string) => within(d).getByText(name).closest('.gs-bot') as HTMLElement
     expect(within(row('小周的 Codex')).queryByRole('button', { name: '本群档位' })).toBeNull()
     await waitFor(() => expect(row('小周的 Codex').textContent).toContain('档位 只读 · 本群'))
@@ -887,8 +1000,9 @@ describe('group settings dialog', () => {
       routes([group()], { 'PATCH /groups/g1': (b: unknown) => group(b as Partial<GroupDto>) }),
     )
     renderAt('/g/g1')
-    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /仓库与工作区/ }))
-    const dlg = await screen.findByRole('dialog', { name: '仓库与工作区 · 支付服务重构' })
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /Bot 与工作区/ }))
+    const dlg = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 支付服务重构' })
+    expect(within(dlg).getByRole('button', { name: '拉入 Bot' })).toBeTruthy()
     const toggle = within(dlg).getByRole('switch', { name: '禁止直推基准分支' }) as HTMLInputElement
     expect(toggle.checked).toBe(false)
     fireEvent.click(toggle)

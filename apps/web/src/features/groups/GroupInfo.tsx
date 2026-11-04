@@ -31,16 +31,13 @@ import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/lazy'
 import { AGENT_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from '../bots/model'
 import { ShareRequestAction } from '../bots/ShareRequest'
-import { GroupConfigView } from '../config/GroupConfigView'
 import { KnowledgeView } from '../knowledge/KnowledgeView'
 import { PreviewsView } from '../previews/PreviewsView'
 import { usePreviews } from '../previews/store'
 import { repoPath } from '../repos/RepoPicker'
-import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
 import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { SchedulesView } from '../schedules/SchedulesView'
 import { useSchedules } from '../schedules/store'
-import { GroupSecrets } from '../secrets/GroupSecrets'
 import { openSyncPanel, useSyncStatus } from '../sync/store'
 import { DirPicker } from '../workspaces/DirPicker'
 import { groupsApi, paramsSummary } from './api'
@@ -51,7 +48,7 @@ import './groups.css'
 
 export type SettingsTab =
   | 'basic'
-  | 'bots'
+  | 'members'
   | 'repo'
   | 'mode'
   | 'params'
@@ -64,15 +61,11 @@ export type InfoView =
   | 'main'
   | 'members'
   | 'bots'
-  | 'repo'
   | 'info'
   | 'notices'
   | 'previews'
   | 'schedules'
   | 'knowledge'
-  | 'mcp'
-  | 'skill'
-  | 'secrets'
 
 type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
 
@@ -167,15 +160,11 @@ export function GroupInfo({
     main: label,
     members: t('群成员 · {n}', { n: group.members.length }),
     bots: `Bot · ${group.botIds.length}`,
-    repo: t('仓库与工作区'),
     info: t('编辑群公告'),
     notices: t('群公告'),
     previews: t('预览与服务'),
     schedules: t('定时任务'),
     knowledge: t('知识库#kb'),
-    mcp: 'MCP',
-    skill: 'Skill',
-    secrets: t('密钥'),
   }[view]
   return (
     <InspectorPanel
@@ -201,8 +190,6 @@ export function GroupInfo({
         <MembersView group={group} isAdmin={isAdmin} canInvite={canInvite} initialAdding={adding} />
       ) : view === 'bots' ? (
         <BotsView group={group} isAdmin={isAdmin} member={!readOnly} />
-      ) : view === 'repo' ? (
-        <RepoWorkspaceView group={group} isAdmin={isAdmin} />
       ) : view === 'notices' ? (
         <NoticesView group={group} isAdmin={isAdmin} onEdit={() => setView('info')} />
       ) : view === 'previews' ? (
@@ -211,10 +198,6 @@ export function GroupInfo({
         <SchedulesView groupId={group.id} />
       ) : view === 'knowledge' ? (
         <KnowledgeView groupId={group.id} />
-      ) : view === 'mcp' || view === 'skill' ? (
-        <GroupConfigView groupId={group.id} kind={view} />
-      ) : view === 'secrets' ? (
-        <GroupSecrets group={group} editable={false} />
       ) : (
         <NoticeForm group={group} onSaved={() => setView('main')} />
       )}
@@ -295,12 +278,11 @@ function MainView({
     void gone(() => groupsApi.dissolve(group.id), dm ? t('已删除私聊') : t('群已解散'))
   }
 
-  /** Admins jump to the settings dialog; members may only read what has a read-only view here. */
-  const manage = (name: string, value: ReactNode, tab: SettingsTab, readView?: InfoView): ChatInfoRow => ({
+  /** The settings dialog, read-only for plain members. */
+  const manage = (name: string, value: ReactNode, tab: SettingsTab): ChatInfoRow => ({
     label: name,
     value,
-    onClick: () => (isAdmin ? onSettings(tab) : readView && setView(readView)),
-    disabled: !isAdmin && !readView,
+    onClick: () => onSettings(tab),
   })
   const danger: ChatInfoDanger[] = [
     ...(canLeave
@@ -353,14 +335,10 @@ function MainView({
       }
       shortcuts={[
         ...(dm ? [] : [{ icon: 'person-2' as const, label: t('成员'), onClick: () => setView('members') }]),
-        ...(isAdmin
-          ? [
-              ...(dm
-                ? []
-                : [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]),
-              { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
-            ]
+        ...(isAdmin && !dm
+          ? [{ icon: 'megaphone' as const, label: t('公告'), onClick: () => setView('info') }]
           : []),
+        { icon: 'gear' as const, label: t('设置'), onClick: () => onSettings('basic') },
       ]}
       members={dm ? [] : group.members.map((m) => ({ name: m.name }))}
       memberCount={group.members.length}
@@ -438,17 +416,16 @@ function MainView({
               ? []
               : [
                   manage(
-                    t('成员与 Bot'),
+                    t('成员'),
                     group.adminOnlyInvite ? t('仅群管理员可拉人') : t('所有成员可拉人'),
-                    'bots',
+                    'members',
                   ),
                 ]),
             manage(
-              t('仓库与工作区'),
+              t('Bot 与工作区'),
               <span className={group.repo ? 'gs-mono' : undefined}>
-                {group.repo ? repoPath(group.repo.url) : t('未绑定')}
+                {group.repo ? repoPath(group.repo.url) : t('未绑定仓库')}
               </span>,
-              'repo',
               'repo',
             ),
             manage(t('同步模式'), GROUP_MODE_LABEL[group.mode], 'mode'),
@@ -461,10 +438,10 @@ function MainView({
             ...(dm
               ? []
               : [
-                  manage('MCP', undefined, 'mcp', 'mcp'),
-                  manage('Skill', undefined, 'skill', 'skill'),
-                  manage(t('密钥'), undefined, 'secrets', 'secrets'),
-                  manage(t('飞书'), undefined, 'feishu'),
+                  manage('MCP', undefined, 'mcp'),
+                  manage('Skill', undefined, 'skill'),
+                  manage(t('密钥'), undefined, 'secrets'),
+                  ...(isAdmin ? [manage(t('飞书'), undefined, 'feishu')] : []),
                 ]),
           ],
         },

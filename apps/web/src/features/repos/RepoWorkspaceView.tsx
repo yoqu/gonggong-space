@@ -36,7 +36,7 @@ function workspaceText(s: GroupBotStateDto | undefined, online: boolean) {
 }
 
 /**
- * 「仓库与工作区」: the group repo (admins can change it) and where each bot works; a bot's owner can move it to
+ * 「Bot 与工作区」: the group repo (admins can change it) and where each bot works; a bot's owner can move it to
  * another workspace at any time. Used by the settings dialog and the chat inspector.
  */
 export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) {

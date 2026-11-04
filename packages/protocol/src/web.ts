@@ -2221,6 +2221,10 @@ export const BotPlaceDto = z.object({
 })
 export type BotPlaceDto = z.infer<typeof BotPlaceDto>
 
+/** GET /api/bots/recent — my bots in the current team that have run, the most recently used first. */
+export const BotRecentDto = z.object({ botId: z.string(), lastUsedAt: z.string() })
+export type BotRecentDto = z.infer<typeof BotRecentDto>
+
 export const UsageQuery = z.object({
   by: z.enum(['bot', 'user', 'group']),
   days: z.coerce.number().int().min(1).max(365).default(30),
