@@ -488,6 +488,14 @@ export const en = {
   插件功能未开启: 'Plugins are turned off',
   该机器上没有正在使用这个插件版本的运行: 'No run on this machine was sent this plugin version',
   '同名的插件或 Skill 已存在': 'A plugin or skill with this name already exists',
+  'SKILL.md 不在根目录（在 {path}），请选择它所在的文件夹':
+    'SKILL.md is not at the root (it is at {path}); pick the folder that holds it',
+  '根目录缺少 SKILL.md（Skill）或 gonggong-plugin.json（插件）':
+    'The root has no SKILL.md (skill) or gonggong-plugin.json (plugin)',
+  '团队里已有自建的同名 Skill「{name}」，请修改 name 后再发布':
+    'The team already has its own skill "{name}"; change the name and publish again',
+  '团队里已有同名的条目「{name}」，它不是你维护的或类型不同，请修改 name 后再发布':
+    'The team already has a listing "{name}" that you do not maintain or of another type; change the name and publish again',
   // Market installs
   条目不存在: 'Listing not found',
   '条目已下架，不能引入': 'This listing is no longer listed and cannot be installed',

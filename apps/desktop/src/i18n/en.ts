@@ -395,7 +395,7 @@ export const en = {
     'Send /compact @{bot} in the group to compact the context, or /new to start a new conversation.',
   // 市场 page
   '我的 Skill 与市场条目，只读；引入、发布与审核请在网页端操作':
-    'My skills and market listings, read-only; install, publish and review on the Web',
+    'My Skills and market listings, read-only; install, publish and review on the Web',
   在网页中打开: 'Open on the Web',
   在网页中查看详情: 'View details on the Web',
   加载失败: 'Failed to load',
@@ -403,8 +403,8 @@ export const en = {
   '搜索 Skill 和插件': 'Search skills and plugins',
   刷新: 'Refresh',
   '我的 Skill': 'My Skills',
-  '还没有个人 Skill': 'No personal skills yet',
-  '没有匹配的个人 Skill': 'No matching personal skills',
+  '「我的 Skill」里还没有条目': 'Nothing in My Skills yet',
+  '「我的 Skill」里没有匹配的条目': 'Nothing in My Skills matches',
   没有匹配的条目: 'No matching listings',
   已启用: 'Enabled',
   已停用: 'Disabled',

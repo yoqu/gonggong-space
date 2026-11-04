@@ -4,9 +4,11 @@ import type {
   MarketListingDetailDto,
   MarketListingDto,
   MyListingDto,
+  PublishPreflightRes,
   PublishRes,
   RepoDto,
   ReviewItemDto,
+  UpstreamMovedDto,
 } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -115,6 +117,7 @@ describe('publishing', () => {
         }),
       }),
       warnings: [],
+      unchanged: false,
     })
     const next = await publish(w.api.ann, w.teamA, skill('wiki', 'v2'))
     expect(next.status).toBe(200)
@@ -145,6 +148,59 @@ describe('publishing', () => {
     const listed = await approved(w.api.ann, w.api.bob, w.teamA, 'listed')
     expect((await patch(listed)).status).toBe(409)
     expect((await w.api.ann.patch(`/api/market/${listed.id}`, { status: 'unlisted' })).status).toBe(200)
+  })
+
+  it('says when a re-upload equals the latest one, saving no version', async () => {
+    const w = await world()
+    expect((await publish(w.api.ann, w.teamA, skill('wiki'))).body.unchanged).toBe(false)
+    const again = await publish(w.api.ann, w.teamA, skill('wiki'))
+    expect(again.body).toMatchObject({ unchanged: true, listing: { latest: { revision: 1 } } })
+    expect((await publish(w.api.ann, w.teamA, skill('wiki', 'v2'))).body.unchanged).toBe(false)
+  })
+
+  it('preflights an upload: new, new version or unchanged, the visibility it gets, and problems', async () => {
+    const w = await world()
+    const pre = (api: Api, files: object[], visibility = 'team') =>
+      api.post<PublishPreflightRes>('/api/market/preflight', { teamId: w.teamA, visibility, files })
+    expect((await pre(w.api.ann, skill('wiki'), 'public')).body).toEqual({
+      type: 'skill',
+      name: 'wiki',
+      title: 'wiki',
+      description: 'wiki helper',
+      kind: 'new',
+      revision: 1,
+      visibility: 'public',
+      warnings: [],
+    })
+    expect(await mine(w.api.ann)).toEqual([])
+
+    await approved(w.api.ann, w.api.bob, w.teamA, 'wiki')
+    expect((await pre(w.api.ann, skill('wiki', 'v2'), 'public')).body).toMatchObject({
+      kind: 'version',
+      revision: 2,
+      visibility: 'team',
+    })
+    expect((await pre(w.api.ann, skill('wiki'))).body).toMatchObject({ kind: 'unchanged', revision: 1 })
+    expect((await pre(w.api.ann, skill('keys', 'sk-abcdefghijklmnopqrstuvwx'))).body.warnings).toHaveLength(1)
+
+    const taken = await pre(w.api.bob, skill('wiki'))
+    expect(taken.status).toBe(409)
+    expect(taken.body).toMatchObject({ message: expect.stringContaining('「wiki」') })
+    await w.api.bob.post(`/api/teams/${w.teamA}/plugins`, { files: skill('lint') })
+    expect((await pre(w.api.ann, skill('lint'))).body).toMatchObject({
+      message: expect.stringContaining('自建的同名 Skill「lint」'),
+    })
+    expect((await pre(w.api.carol, skill('other'))).status).toBe(403)
+
+    const nested = await pre(w.api.ann, [{ path: 'wiki/SKILL.md', content: md('wiki'), encoding: 'utf8' }])
+    expect(nested.status).toBe(400)
+    expect(nested.body).toMatchObject({ message: expect.stringContaining('wiki/SKILL.md') })
+    const none = await pre(w.api.ann, [{ path: 'README.md', content: 'hi', encoding: 'utf8' }])
+    expect(none.body).toMatchObject({ message: expect.stringContaining('SKILL.md') })
+    const bare = await pre(w.api.ann, [
+      { path: 'SKILL.md', content: '---\nname: x\n---\n', encoding: 'utf8' },
+    ])
+    expect(bare.body).toMatchObject({ message: expect.stringContaining('description') })
   })
 
   it('warns about secrets and absolute paths without refusing', async () => {
@@ -417,14 +473,14 @@ describe('github import', () => {
     const check = (api: Api) => api.post(`/api/market/${res.body.listing.id}/check-upstream`)
 
     vi.mocked(upstreamCommit).mockResolvedValue('c1')
-    expect((await check(w.api.ann)).body).toEqual({ changed: false, commit: 'c1' })
+    expect((await check(w.api.ann)).body).toEqual({ changed: false, drafted: false, commit: 'c1' })
     expect((await check(w.api.mia)).status).toBe(403)
     vi.mocked(upstreamCommit).mockResolvedValue('c2')
     vi.mocked(fetchGithubSkill).mockResolvedValue({
       files: skill('gh', 'new') as never,
       source: source('c2'),
     })
-    expect((await check(w.api.ann)).body).toEqual({ changed: true, commit: 'c2' })
+    expect((await check(w.api.ann)).body).toEqual({ changed: true, drafted: true, commit: 'c2' })
     expect(vi.mocked(fetchGithubSkill).mock.lastCall![0]).toBe('https://github.com/acme/skills')
     expect((await mine(w.api.ann))[0]).toMatchObject({
       ghSource: source('c2'),
@@ -433,6 +489,48 @@ describe('github import', () => {
 
     const plain = (await publish(w.api.ann, w.teamA, skill('plain'))).body.listing
     expect((await w.api.ann.post(`/api/market/${plain.id}/check-upstream`)).status).toBe(400)
+
+    vi.mocked(upstreamCommit).mockResolvedValue('c3')
+    vi.mocked(fetchGithubSkill).mockResolvedValue({
+      files: skill('gh', 'new') as never,
+      source: source('c3'),
+    })
+    expect((await check(w.api.ann)).body).toEqual({ changed: true, drafted: false, commit: 'c3' })
+    expect((await mine(w.api.ann)).find((l) => l.name === 'gh')).toMatchObject({
+      ghSource: source('c3'),
+      latest: { revision: 2 },
+    })
+  })
+
+  it('lists my GitHub listings whose upstream moved, asking GitHub once per source for a while', async () => {
+    const w = await world()
+    const gh = async (name: string, url: string) => {
+      vi.mocked(fetchGithubSkill).mockResolvedValue({
+        files: skill(name) as never,
+        source: { url, ref: null, path: '', commit: 'c1' },
+      })
+      return (
+        await w.api.ann.post<PublishRes>('/api/market/import/github', {
+          teamId: w.teamA,
+          visibility: 'team',
+          url,
+        })
+      ).body.listing
+    }
+    const moved = await gh('moved', 'https://github.com/acme/moved')
+    await gh('same', 'https://github.com/acme/same')
+    await gh('broken', 'https://github.com/acme/broken')
+    await publish(w.api.ann, w.teamA, skill('plain'))
+    vi.mocked(upstreamCommit).mockReset()
+    vi.mocked(upstreamCommit).mockImplementation(async (s) => {
+      if (s.url.endsWith('broken')) throw new Error('rate limited')
+      return s.url.endsWith('moved') ? 'c2' : 'c1'
+    })
+    const list = async (api: Api) => (await api.get<UpstreamMovedDto[]>('/api/market/mine/upstream')).body
+    expect(await list(w.api.ann)).toEqual([{ listingId: moved.id, commit: 'c2' }])
+    expect(await list(w.api.mia)).toEqual([])
+    expect(await list(w.api.ann)).toEqual([{ listingId: moved.id, commit: 'c2' }])
+    expect(vi.mocked(upstreamCommit)).toHaveBeenCalledTimes(3)
   })
 })
 

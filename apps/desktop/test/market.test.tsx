@@ -130,7 +130,7 @@ it('filters both lists by the search text', async () => {
   })
   expect(screen.getByText('review')).toBeTruthy()
   expect(screen.queryByText('wiki')).toBeNull()
-  expect(screen.getByText('没有匹配的个人 Skill')).toBeTruthy()
+  expect(screen.getByText('「我的 Skill」里没有匹配的条目')).toBeTruthy()
 
   fireEvent.change(screen.getByRole('searchbox', { name: '搜索 Skill 和插件' }), { target: { value: 'zzz' } })
   expect(screen.getByText('没有匹配的条目')).toBeTruthy()
@@ -175,7 +175,7 @@ it('shows empty states that open the web market', async () => {
   m.marketListings.mockResolvedValue([])
   render(<MarketPage go={go} />)
 
-  expect(await screen.findByText('还没有个人 Skill')).toBeTruthy()
+  expect(await screen.findByText('「我的 Skill」里还没有条目')).toBeTruthy()
   expect(screen.getByText('市场里还没有条目')).toBeTruthy()
   const buttons = screen.getAllByRole('button', { name: '在网页中打开' })
   expect(buttons.length).toBe(3)

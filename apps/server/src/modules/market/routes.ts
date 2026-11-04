@@ -33,12 +33,14 @@ import {
   marketDetail,
   marketList,
   myListings,
+  preflight,
   publish,
   reviewQueue,
   reviewVersion,
   setBan,
   submitVersion,
   updateListing,
+  upstreamMoved,
   versionDiff,
 } from './publish.js'
 import { requestRoutes } from './requests.js'
@@ -151,6 +153,8 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
 
   app.get('/api/market/mine', async (req) => myListings(ctx.db, await requireUser(ctx, req)))
 
+  app.get('/api/market/mine/upstream', async (req) => upstreamMoved(ctx, await requireUser(ctx, req)))
+
   app.get<{ Querystring: { teamId?: string } }>('/api/market/reviews', async (req) =>
     reviewQueue(ctx, await requireUser(ctx, req), req.query.teamId),
   )
@@ -198,6 +202,10 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
     const { created, body } = await publish(ctx, me, PublishReq.parse(req.body))
     return reply.status(created ? 201 : 200).send(body)
   })
+
+  app.post('/api/market/preflight', { bodyLimit: BODY_LIMIT }, async (req) =>
+    preflight(ctx, await requireUser(ctx, req), PublishReq.parse(req.body)),
+  )
 
   app.post('/api/market/import/github', async (req, reply) => {
     const me = await requireUser(ctx, req)

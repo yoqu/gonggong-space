@@ -4,6 +4,7 @@ import type {
   MarketListingDetailDto,
   MarketListingDto,
   MyListingDto,
+  PublishPreflightRes,
   PublishRes,
   RepoDto,
   ReviewItemDto,
@@ -375,7 +376,7 @@ describe('引入到… dialog', () => {
       name: '我的 Skill',
     }) as HTMLButtonElement
     expect(personal.disabled).toBe(true)
-    expect(within(dialog).getByText('插件不能引入到个人')).toBeTruthy()
+    expect(within(dialog).getByText('插件不能引入到「我的 Skill」')).toBeTruthy()
   })
 
   it('blocks targets with a same-named skill or a request already waiting, and says what to do', async () => {
@@ -411,7 +412,7 @@ describe('引入到… dialog', () => {
         name: '我的 Skill',
       }),
     )
-    expect(within(dialog).getByText(/你的个人 Skill 里已有同名的「review-pr」/)).toBeTruthy()
+    expect(within(dialog).getByText(/「我的 Skill」里已有同名的「review-pr」/)).toBeTruthy()
     expect((within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -491,6 +492,7 @@ describe('我的发布', () => {
     const res: PublishRes = {
       listing: mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
       warnings: ['SKILL.md 第 3 行疑似密钥 sk-…'],
+      unchanged: false,
     }
     const calls = mockApi({
       'GET /market': [],
@@ -528,7 +530,8 @@ describe('我的发布', () => {
     const calls = mockApi({
       'GET /market': [],
       'GET /market/mine': [],
-      'POST /market': { listing: mine(), warnings: [] },
+      'POST /market/preflight': pre(),
+      'POST /market': { listing: mine(), warnings: [], unchanged: false },
     })
     await openMine()
     fireEvent.click(await screen.findByRole('button', { name: '发布…' }))
@@ -537,6 +540,7 @@ describe('我的发布', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: '粘贴 SKILL.md' }))
     const text = '---\nname: x\ndescription: y\n---\n正文'
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'SKILL.md' }), { target: { value: text } })
+    await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')
     fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST' && c.path === '/market')?.body).toEqual({
@@ -548,6 +552,105 @@ describe('我的发布', () => {
     expect(await within(dialog).findByRole('button', { name: '提交审核' })).toBeTruthy()
   })
 
+  const openPublish = async (routes: Record<string, unknown>) => {
+    const calls = mockApi({ 'GET /market': [], 'GET /market/mine': [], ...routes })
+    await openMine()
+    fireEvent.click(await screen.findByRole('button', { name: '发布…' }))
+    const dialog = await screen.findByRole('dialog', { name: '发布到市场' })
+    fireEvent.click(within(dialog).getByRole('radio', { name: '粘贴 SKILL.md' }))
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'SKILL.md' }), {
+      target: { value: '---\nname: deploy-check\ndescription: 发布前检查\n---\n' },
+    })
+    return { calls, dialog }
+  }
+  const pre = (o: Partial<PublishPreflightRes> = {}): PublishPreflightRes => ({
+    type: 'skill',
+    name: 'deploy-check',
+    title: 'deploy-check',
+    description: '发布前检查',
+    kind: 'new',
+    revision: 1,
+    visibility: 'team',
+    warnings: [],
+    ...o,
+  })
+
+  it('preflights the files before saving: what it becomes, its description and warnings', async () => {
+    const { calls, dialog } = await openPublish({
+      'POST /market/preflight': pre({ warnings: ['SKILL.md 可能包含密钥：sk-abc…'] }),
+    })
+    expect(await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')).toBeTruthy()
+    expect(within(dialog).getByText('发布前检查')).toBeTruthy()
+    expect(within(dialog).getByText('SKILL.md 可能包含密钥：sk-abc…')).toBeTruthy()
+    expect(calls.find((c) => c.path === '/market/preflight')?.body).toMatchObject({
+      teamId: 't1',
+      visibility: 'team',
+    })
+    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', false)
+  })
+
+  it('preflight: a new version keeps the listing visibility', async () => {
+    const { dialog } = await openPublish({
+      'POST /market/preflight': pre({ kind: 'version', revision: 3, visibility: 'public' }),
+    })
+    expect(await within(dialog).findByText('你已发布过「deploy-check」，将保存为新版本 r3')).toBeTruthy()
+    expect(within(dialog).getByText('可见范围沿用已有条目的「公开」')).toBeTruthy()
+  })
+
+  it('preflight: an unchanged upload cannot be saved', async () => {
+    const { dialog } = await openPublish({
+      'POST /market/preflight': pre({ kind: 'unchanged', revision: 2 }),
+    })
+    expect(await within(dialog).findByText('和最新上传的 r2 完全一样，不会生成新版本')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', true)
+  })
+
+  it('preflight: shows why the files cannot be published and blocks saving', async () => {
+    const { dialog } = await openPublish({
+      'POST /market/preflight': apiError(400, 'invalid', 'SKILL.md 缺少 description（最长 1024 个字符）'),
+    })
+    expect(await within(dialog).findByText('SKILL.md 缺少 description（最长 1024 个字符）')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '保存草稿' })).toHaveProperty('disabled', true)
+  })
+
+  it('says a saved upload changed nothing instead of offering to submit it again', async () => {
+    const { dialog } = await openPublish({
+      'POST /market/preflight': pre(),
+      'POST /market': {
+        listing: mine({ latest: { ...mine().latest, reviewStatus: 'pending' } }),
+        warnings: [],
+        unchanged: true,
+      },
+    })
+    await within(dialog).findByText('将新建 Skill「deploy-check」，保存为草稿 r1')
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存草稿' }))
+    expect(await within(dialog).findByText('和最新上传的 r2 完全一样，没有生成新版本')).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '提交审核' })).toBeNull()
+  })
+
+  it('reminds of a moved upstream on the row and syncs it', async () => {
+    const calls = mockApi({
+      'GET /market': [],
+      'GET /market/mine': [
+        mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
+      ],
+      'GET /market/mine/upstream': [{ listingId: 'l9', commit: 'c2abcdef' }],
+      'POST /market/l9/check-upstream': { changed: true, drafted: false, commit: 'c2abcdef' },
+    })
+    await openMine()
+    const row = (await screen.findByText('deploy-check')).closest('.cfg__item') as HTMLElement
+    expect(await within(row).findByText('上游有更新')).toBeTruthy()
+    fireEvent.click(within(row).getByRole('button', { name: '同步上游更新' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market/l9/check-upstream')).toBe(true))
+    await waitFor(() =>
+      expect(
+        useToasts
+          .getState()
+          .items.some((i) => String(i.message).includes('上游有新提交（c2abcde），但这个目录的文件没有变化')),
+      ).toBe(true),
+    )
+  })
+
   it('submits a draft, checks upstream, unlists, and locks the visibility once listed', async () => {
     const gh = mine({
       listedVersionId: 'v8',
@@ -557,7 +660,7 @@ describe('我的发布', () => {
       'GET /market': [],
       'GET /market/mine': [gh],
       'POST /market/l9/versions/v9/submit': {},
-      'POST /market/l9/check-upstream': { changed: false, commit: 'c1' },
+      'POST /market/l9/check-upstream': { changed: false, drafted: false, commit: 'c1' },
       'PATCH /market/l9': {},
     })
     await openMine()
@@ -612,7 +715,7 @@ describe('我的发布', () => {
       'GET /market/mine': [
         mine({ ghSource: { url: 'https://github.com/acme/s', ref: null, path: '', commit: 'c1' } }),
       ],
-      'POST /market/l9/check-upstream': { changed: true, commit: 'c2abcdef' },
+      'POST /market/l9/check-upstream': { changed: true, drafted: true, commit: 'c2abcdef' },
     })
     await openMine()
     fireEvent.click(await screen.findByRole('button', { name: '检查上游更新' }))

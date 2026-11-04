@@ -112,6 +112,16 @@ export default {
   检查上游更新: 'Check upstream',
   上游没有变化: 'Upstream has not changed',
   '上游有更新（{commit}），已生成新草稿': 'Upstream changed ({commit}); a new draft was saved',
+  '上游有新提交（{commit}），但这个目录的文件没有变化':
+    'Upstream has a new commit ({commit}), but the files in this folder did not change',
+  上游有更新: 'Upstream changed',
+  'GitHub 上有新提交 {commit}': 'New commit on GitHub: {commit}',
+  同步上游更新: 'Sync upstream',
+  '和最新上传的 r{n} 完全一样，没有生成新版本': 'Same as the latest upload r{n}; no new version was saved',
+  '和最新上传的 r{n} 完全一样，不会生成新版本': 'Same as the latest upload r{n}; saving adds no version',
+  '将新建 {type}「{name}」，保存为草稿 r{n}': 'Creates the {type} {name} as draft r{n}',
+  '你已发布过「{name}」，将保存为新版本 r{n}': 'You have published {name}; this saves version r{n}',
+  '可见范围沿用已有条目的「{v}」': 'Keeps the listing’s visibility: {v}',
   下架: 'Unlist',
   重新上架: 'List again',
   设为公开: 'Make public',
@@ -143,7 +153,7 @@ export default {
   驳回时必填: 'Required to reject',
   驳回: 'Reject',
   通过: 'Approve',
-  插件不能引入到个人: 'Plugins cannot be installed just for you',
+  '插件不能引入到「我的 Skill」': 'Plugins cannot be installed to My Skills',
   '只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。':
     'Applies only to runs you start and follows you into every group; overrides same-named Skills of the group, repo and team.',
   引入最多: 'Most installed',
@@ -169,8 +179,8 @@ export default {
   已申请: 'Requested',
   '{name} 申请中': '{name} asked',
   '{name} 已申请，等管理员处理': '{name} asked; waiting for an admin',
-  '你的个人 Skill 里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它':
-    'Your personal skills already have one named "{name}"; remove it under Settings · My skills first',
+  '「我的 Skill」里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它':
+    'My Skills already has one named "{name}"; remove it under Settings · My Skills first',
   '标「同名冲突」的目标里已有同名的 Skill「{name}」，先在那里的设置中移除它再引入。':
     'Targets marked Name taken already have a skill named "{name}"; remove it in their settings before installing.',
   '标「已申请」的目标已有待处理的申请，等管理员处理即可；你的申请可在「引入申请」里撤回。':

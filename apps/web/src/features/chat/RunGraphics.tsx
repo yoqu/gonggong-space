@@ -206,7 +206,7 @@ export function DelegationFacts({ d }: { d: RunDto['delegation'] }) {
 export function PersonalSkillsFact({ n }: { n?: number }) {
   if (!n) return null
   return (
-    <Fact label={t('使用了 {n} 个个人 Skill', { n })} value={n}>
+    <Fact label={t('使用了 {n} 个「我的 Skill」', { n })} value={n}>
       <Icon name="star" size={12} />
     </Fact>
   )

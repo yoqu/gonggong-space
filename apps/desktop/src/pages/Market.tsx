@@ -143,8 +143,8 @@ export function MarketPage(_: PageProps) {
           query={q}
           listing={(i) => i.listing}
           className="dk-mine"
-          empty={t('还没有个人 Skill')}
-          noMatch={t('没有匹配的个人 Skill')}
+          empty={t('「我的 Skill」里还没有条目')}
+          noMatch={t('「我的 Skill」里没有匹配的条目')}
           row={(i) => {
             const note = statusNote(i)
             return (

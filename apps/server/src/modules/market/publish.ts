@@ -9,11 +9,13 @@ import type {
   MarketSource,
   MyListingDto,
   PluginManifest,
+  PublishPreflightRes,
   PublishReq,
   ReviewItemDto,
   ReviewReq,
   SkillFile,
   UpdateListingReq,
+  UpstreamMovedDto,
   VersionDiffDto,
 } from '@gonggong/protocol'
 import {
@@ -25,6 +27,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   notInArray,
   or,
   type SQL,
@@ -568,15 +571,65 @@ export async function publish(ctx: Ctx, me: Me, req: PublishReq, ghSource?: List
           )
           .for('update')
     if (!listing) return fail('conflict', '插件正在被修改，请重试')
-    if (!made && (listing.type !== s.type || !(await maintains(tx, me.id, listing.id))))
-      fail('conflict', '同名的插件或 Skill 已存在')
+    if (!made) await requireOwnName(tx, me, listing, s)
     const added = await addDraft(ctx, tx, listing, s, me.id, ghSource)
     return { listing, created: !!made, added }
   })
   if (saved.added) await log(ctx, me, saved.listing, 'market.publish')
   return {
     created: saved.created,
-    body: { listing: await myListing(ctx.db, me, saved.listing.id), warnings: publishWarnings(s.files) },
+    body: {
+      listing: await myListing(ctx.db, me, saved.listing.id),
+      warnings: publishWarnings(s.files),
+      unchanged: !saved.added,
+    },
+  }
+}
+
+/** The same-named listing in the team may take a new version only from its maintainers, and of the same type. */
+async function requireOwnName(db: Read, me: Me, listing: ListingRow, s: ListingSnapshot) {
+  if (listing.type === s.type && (await maintains(db, me.id, listing.id))) return
+  if (!listing.visibility)
+    fail('conflict', '团队里已有自建的同名 Skill「{name}」，请修改 name 后再发布', { name: listing.name })
+  fail('conflict', '团队里已有同名的条目「{name}」，它不是你维护的或类型不同，请修改 name 后再发布', {
+    name: listing.name,
+  })
+}
+
+/** What `publish` would do with these files, without saving (PublishPreflightRes). */
+export async function preflight(ctx: Ctx, me: Me, req: PublishReq): Promise<PublishPreflightRes> {
+  await requireTeamMember(ctx.db, me.id, req.teamId)
+  const s = listingSnapshot(req.files)
+  const [listing] = await ctx.db
+    .select()
+    .from(plugins)
+    .where(
+      and(
+        eq(plugins.scope, 'team'),
+        eq(plugins.teamId, req.teamId),
+        isNull(plugins.groupId),
+        eq(plugins.name, s.manifest.name),
+      ),
+    )
+  if (listing) await requireOwnName(ctx.db, me, listing, s)
+  const [last] = listing
+    ? await ctx.db
+        .select({ revision: pluginVersions.revision, digest: pluginVersions.digest })
+        .from(pluginVersions)
+        .where(eq(pluginVersions.pluginId, listing.id))
+        .orderBy(desc(pluginVersions.revision))
+        .limit(1)
+    : []
+  const unchanged = !!last && last.digest === s.digest
+  return {
+    type: s.type,
+    name: s.manifest.name,
+    title: 'title' in s.manifest ? s.manifest.title : s.manifest.name,
+    description: s.manifest.description,
+    kind: !listing ? 'new' : unchanged ? 'unchanged' : 'version',
+    revision: unchanged ? last!.revision : (last?.revision ?? 0) + 1,
+    visibility: (listing?.visibility as ListingVisibility | undefined) ?? req.visibility,
+    warnings: publishWarnings(s.files),
   }
 }
 
@@ -595,14 +648,43 @@ export async function checkUpstream(ctx: Ctx, me: Me, id: string) {
   const listing = await requireMaintained(ctx, me, id)
   const source = listing.ghSource ?? fail('invalid', '该条目不是从 GitHub 导入的')
   const commit = await upstreamCommit(source)
-  if (commit === source.commit) return { changed: false, commit }
+  if (commit === source.commit) return { changed: false, drafted: false, commit }
   const fetched = await fetchGithubSkill(source.url)
   const s = listingSnapshot(fetched.files)
   if (s.manifest.name !== listing.name || s.type !== listing.type)
     fail('invalid', 'GitHub 上的名称变成了 {name}，请重新导入', { name: s.manifest.name })
   const added = await ctx.db.transaction((tx) => addDraft(ctx, tx, listing, s, me.id, fetched.source))
   if (added) await log(ctx, me, listing, 'market.publish', { commit: fetched.source.commit })
-  return { changed: true, commit: fetched.source.commit }
+  return { changed: true, drafted: added, commit: fetched.source.commit }
+}
+
+const UPSTREAM_TTL_MS = 10 * 60_000
+/** Upstream commits per source and server, so opening 我的发布 doesn't spend GitHub's 60 requests an hour. */
+const upstreamSeen = new WeakMap<Ctx, Map<string, { at: number; commit: Promise<string> }>>()
+
+/** GitHub-imported listings the caller maintains whose upstream moved past the recorded commit (UpstreamMovedDto). */
+export async function upstreamMoved(ctx: Ctx, me: Me): Promise<UpstreamMovedDto[]> {
+  const seen = upstreamSeen.get(ctx) ?? new Map()
+  upstreamSeen.set(ctx, seen)
+  const now = ctx.now().getTime()
+  const rows = await ctx.db
+    .select({ id: plugins.id, source: plugins.ghSource })
+    .from(plugins)
+    .where(and(maintainedBy(ctx.db, me.id), isNotNull(plugins.ghSource), ne(plugins.status, 'banned')))
+  const moved = await Promise.all(
+    rows.map(async ({ id, source }) => {
+      const key = `${source!.url}#${source!.ref ?? ''}`
+      let hit = seen.get(key)
+      if (!hit || now - hit.at > UPSTREAM_TTL_MS) {
+        hit = { at: now, commit: upstreamCommit(source!) }
+        seen.set(key, hit)
+      }
+      // Only a hint: an unreachable or rate-limited GitHub leaves it out; 检查上游更新 reports the error.
+      const commit = await hit.commit.catch(() => null)
+      return commit && commit !== source!.commit ? [{ listingId: id, commit }] : []
+    }),
+  )
+  return moved.flat()
 }
 
 export async function updateListing(ctx: Ctx, me: Me, id: string, req: UpdateListingReq) {

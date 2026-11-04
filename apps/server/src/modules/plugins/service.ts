@@ -84,7 +84,14 @@ export function pluginSnapshot(input: SkillFile[]) {
 
 /** A bare skill folder (SKILL.md at its root, no plugin manifest) or a plugin folder. */
 export function listingSnapshot(files: SkillFile[]) {
-  if (has(files, PLUGIN_MANIFEST) || !has(files, 'SKILL.md')) return pluginSnapshot(files)
+  if (!has(files, PLUGIN_MANIFEST) && !has(files, 'SKILL.md')) {
+    // Picking the folder above the skill is the usual slip: point at where SKILL.md is.
+    const nested = files.find((f) => /^[^/]+\/SKILL\.md$/.test(f.path))?.path
+    return nested
+      ? fail('invalid', 'SKILL.md 不在根目录（在 {path}），请选择它所在的文件夹', { path: nested })
+      : fail('invalid', '根目录缺少 SKILL.md（Skill）或 gonggong-plugin.json（插件）')
+  }
+  if (has(files, PLUGIN_MANIFEST)) return pluginSnapshot(files)
   const { name, description, ...checked } = snapshot(files)
   const manifest: SkillListingManifest = { name, description }
   return { ...checked, manifest, type: 'skill' as const }

@@ -225,5 +225,5 @@ export default {
   '只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。':
     'Pick just one of your (or shared) Bots and no members to create a direct message.',
   '描述要怎么改，发给 @{name}': 'Describe the change for @{name}',
-  '使用了 {n} 个个人 Skill': 'Used {n} personal {n:Skill|Skills}',
+  '使用了 {n} 个「我的 Skill」': 'Used {n} from My Skills',
 } satisfies Record<string, string>

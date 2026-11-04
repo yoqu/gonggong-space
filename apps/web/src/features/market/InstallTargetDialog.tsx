@@ -170,13 +170,13 @@ export function InstallTargetDialog({
           { value: 'repo', label: t('仓库') },
         ]}
       />
-      {listing.type === 'plugin' ? <div className="gs-note">{t('插件不能引入到个人')}</div> : null}
+      {listing.type === 'plugin' ? <div className="gs-note">{t('插件不能引入到「我的 Skill」')}</div> : null}
       {kind === 'me' ? (
         <div className="gs-note">
           {installed.has(me ?? '')
             ? t('已经引入到这里了')
             : taken.has(me ?? '')
-              ? t('你的个人 Skill 里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它', {
+              ? t('「我的 Skill」里已有同名的「{name}」，先在「设置 · 我的 Skill」里移除它', {
                   name: listing.name,
                 })
               : t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}

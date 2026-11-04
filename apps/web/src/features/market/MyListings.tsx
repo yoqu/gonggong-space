@@ -2,11 +2,13 @@ import type {
   CheckUpstreamRes,
   ListingVisibility,
   MyListingDto,
+  PublishPreflightRes,
   PublishRes,
   SkillFile,
   UpdateListingReq,
+  UpstreamMovedDto,
 } from '@gonggong/protocol'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
@@ -56,6 +58,8 @@ const matches = (l: MyListingDto, f: Filter) =>
 /** 我的发布: the listings I maintain, their latest version's review, and publishing new ones. */
 export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   const { data, error, reload } = useGet<MyListingDto[]>('/market/mine')
+  // A hint only: when GitHub can't be asked, rows keep the plain 检查上游更新.
+  const upstream = useGet<UpstreamMovedDto[]>(data?.some((l) => l.ghSource) ? '/market/mine/upstream' : null)
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
@@ -68,14 +72,21 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
     } catch (e) {
       return toastError(e)
     }
+    const commit = res.commit.slice(0, 7)
     toast({
-      type: res.changed ? 'success' : 'info',
-      message: res.changed
-        ? t('上游有更新（{commit}），已生成新草稿', { commit: res.commit.slice(0, 7) })
-        : t('上游没有变化'),
+      type: res.drafted ? 'success' : 'info',
+      message: res.drafted
+        ? t('上游有更新（{commit}），已生成新草稿', { commit })
+        : res.changed
+          ? t('上游有新提交（{commit}），但这个目录的文件没有变化', { commit })
+          : t('上游没有变化'),
     })
-    if (res.changed) reload()
+    if (res.changed) {
+      reload()
+      upstream.reload()
+    }
   }
+  const movedOf = (l: MyListingDto) => upstream.data?.find((u) => u.listingId === l.id)
   const count = (f: Filter) => data?.filter((l) => matches(l, f)).length ?? 0
   const shown = data?.filter((l) => matches(l, filter)) ?? []
 
@@ -134,6 +145,15 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                         ) : (
                           <Tag tone="orange">{t('已下架')}</Tag>
                         )}
+                        {movedOf(l) ? (
+                          <span
+                            title={t('GitHub 上有新提交 {commit}', {
+                              commit: movedOf(l)?.commit.slice(0, 7) ?? '',
+                            })}
+                          >
+                            <Tag tone="blue">{t('上游有更新')}</Tag>
+                          </span>
+                        ) : null}
                       </span>
                       <span className="mkt-row__meta">
                         {[
@@ -160,7 +180,7 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                 <span className="cfg__controls mkt-row__controls">
                   {l.ghSource ? (
                     <Button size="small" variant="plain" onClick={() => void checkUpstream(l)}>
-                      {t('检查上游更新')}
+                      {movedOf(l) ? t('同步上游更新') : t('检查上游更新')}
                     </Button>
                   ) : null}
                   {l.listedVersionId && l.status !== 'banned' ? (
@@ -323,7 +343,10 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
   const pasted: SkillFile[] | null = skillMd.trim()
     ? [{ path: 'SKILL.md', content: skillMd, encoding: 'utf8' }]
     : null
-  const ready = !!teamId && (source === 'github' ? !!url.trim() : source === 'paste' ? !!pasted : !!files)
+  const upload = source === 'paste' ? pasted : source === 'github' ? null : files
+  const check = usePreflight(teamId, visibility, upload)
+  const ready =
+    !!teamId && (source === 'github' ? !!url.trim() : !!check.result && check.result.kind !== 'unchanged')
   const save = async () => {
     setBusy(true)
     setError('')
@@ -331,11 +354,7 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
       setSaved(
         source === 'github'
           ? await api.post<PublishRes>('/market/import/github', { teamId, visibility, url: url.trim() })
-          : await api.post<PublishRes>('/market', {
-              teamId,
-              visibility,
-              files: source === 'paste' ? pasted : files,
-            }),
+          : await api.post<PublishRes>('/market', { teamId, visibility, files: upload }),
       )
     } catch (e) {
       setError(errorText(e))
@@ -367,32 +386,35 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
       {error ? <Alert variant="error" title={error} /> : null}
       {saved ? (
         <>
-          <Alert
-            variant="success"
-            title={t('已保存「{name}」草稿 r{n}', {
-              name: saved.listing.title,
-              n: saved.listing.latest.revision,
-            })}
-          />
-          {saved.warnings.length ? (
+          {saved.unchanged ? (
             <Alert
-              variant="warning"
-              title={t('请确认没有泄露密钥或本机路径')}
-              description={
-                <ul className="mkt-warnings">
-                  {saved.warnings.map((w) => (
-                    <li key={w}>{w}</li>
-                  ))}
-                </ul>
-              }
+              variant="info"
+              title={t('和最新上传的 r{n} 完全一样，没有生成新版本', { n: saved.listing.latest.revision })}
             />
-          ) : null}
-          <SubmitForm
-            listing={saved.listing}
-            cancelLabel={t('稍后提交')}
-            onCancel={onClose}
-            onDone={onClose}
-          />
+          ) : (
+            <Alert
+              variant="success"
+              title={t('已保存「{name}」草稿 r{n}', {
+                name: saved.listing.title,
+                n: saved.listing.latest.revision,
+              })}
+            />
+          )}
+          <Warnings items={saved.warnings} />
+          {saved.listing.latest.reviewStatus === 'draft' ||
+          saved.listing.latest.reviewStatus === 'rejected' ? (
+            <SubmitForm
+              listing={saved.listing}
+              cancelLabel={t('稍后提交')}
+              onCancel={onClose}
+              onDone={onClose}
+            />
+          ) : (
+            <div className="cfg__foot">
+              <span className="spacer" />
+              <Button onClick={onClose}>{t('关闭')}</Button>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -486,8 +508,85 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
               '文件夹或 ZIP 的根目录要有 SKILL.md（Skill）或 gonggong-plugin.json（插件）；同团队同名即发布新版本。',
             )}
           </div>
+          {check.error ? <Alert variant="error" title={check.error} /> : null}
+          {check.result ? <Preflight result={check.result} visibility={visibility} /> : null}
         </>
       )}
     </Dialog>
   )
+}
+
+/** POST /market/preflight for the files as they are picked or typed; null while there is nothing to check. */
+function usePreflight(teamId: string, visibility: ListingVisibility, files: SkillFile[] | null) {
+  const [state, setState] = useState<{ result: PublishPreflightRes | null; error: string }>({
+    result: null,
+    error: '',
+  })
+  const body = files && teamId ? JSON.stringify({ teamId, visibility, files }) : null
+  useEffect(() => {
+    setState({ result: null, error: '' })
+    if (!body) return
+    let live = true
+    // Typing in 粘贴 SKILL.md settles before it asks.
+    const id = setTimeout(() => {
+      api.post<PublishPreflightRes>('/market/preflight', JSON.parse(body)).then(
+        (result) => live && setState({ result, error: '' }),
+        (e) => live && setState({ result: null, error: errorText(e) }),
+      )
+    }, 300)
+    return () => {
+      live = false
+      clearTimeout(id)
+    }
+  }, [body])
+  return state
+}
+
+/** What saving the picked files will do, before saving them. */
+function Preflight({
+  result: r,
+  visibility,
+}: {
+  result: PublishPreflightRes
+  visibility: ListingVisibility
+}) {
+  const what = TYPE_LABEL[r.type]
+  return (
+    <>
+      <Alert
+        variant={r.kind === 'unchanged' ? 'warning' : 'info'}
+        title={
+          r.kind === 'new'
+            ? t('将新建 {type}「{name}」，保存为草稿 r{n}', { type: what, name: r.title, n: r.revision })
+            : r.kind === 'version'
+              ? t('你已发布过「{name}」，将保存为新版本 r{n}', { name: r.title, n: r.revision })
+              : t('和最新上传的 r{n} 完全一样，不会生成新版本', { n: r.revision })
+        }
+        description={r.description}
+      >
+        {r.kind !== 'new' && r.visibility !== visibility ? (
+          <p className="ui-alert__desc">
+            {t('可见范围沿用已有条目的「{v}」', { v: VISIBILITY_LABEL[r.visibility] })}
+          </p>
+        ) : null}
+      </Alert>
+      <Warnings items={r.warnings} />
+    </>
+  )
+}
+
+function Warnings({ items }: { items: string[] }) {
+  return items.length ? (
+    <Alert
+      variant="warning"
+      title={t('请确认没有泄露密钥或本机路径')}
+      description={
+        <ul className="mkt-warnings">
+          {items.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      }
+    />
+  ) : null
 }

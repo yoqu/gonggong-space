@@ -381,8 +381,8 @@ describe('timeline bubbles', () => {
       runs: [run({ personalSkills: 2 }), run({ id: 'r2' })],
     })
     const [mine, plain] = await screen.findAllByTestId('run-card')
-    expect(within(mine as HTMLElement).getByTitle('使用了 2 个个人 Skill')).toBeTruthy()
-    expect(within(plain as HTMLElement).queryByTitle(/个人 Skill/)).toBeNull()
+    expect(within(mine as HTMLElement).getByTitle('使用了 2 个「我的 Skill」')).toBeTruthy()
+    expect(within(plain as HTMLElement).queryByTitle(/我的 Skill/)).toBeNull()
   })
 
   it('labels the run of an agent going on by itself after a background task, offering no append', async () => {

@@ -181,9 +181,32 @@ export const GithubImportReq = z.object({
   url: z.string().url(),
 })
 export type GithubImportReq = z.infer<typeof GithubImportReq>
-/** POST /api/market/:id/check-upstream — a new draft when the upstream commit moved. */
-export const CheckUpstreamRes = z.object({ changed: z.boolean(), commit: z.string() })
+/**
+ * POST /api/market/preflight (PublishReq) — what saving would do, without saving: invalid files and a name taken by
+ * someone else fail as POST /api/market would. `new` listing, new `version` of mine, or `unchanged` (same files as
+ * the latest upload); `revision` is the one the upload becomes (the latest one when unchanged). `visibility` is the
+ * existing listing's for a new version (the chosen one is ignored then).
+ */
+export const PublishPreflightRes = z.object({
+  type: ListingType,
+  name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  kind: z.enum(['new', 'version', 'unchanged']),
+  revision: z.number().int(),
+  visibility: ListingVisibility,
+  warnings: z.array(z.string()),
+})
+export type PublishPreflightRes = z.infer<typeof PublishPreflightRes>
+/**
+ * POST /api/market/:id/check-upstream — `changed` when the upstream commit moved; `drafted` when that also changed
+ * the files, saving a new draft (the commit is recorded either way).
+ */
+export const CheckUpstreamRes = z.object({ changed: z.boolean(), drafted: z.boolean(), commit: z.string() })
 export type CheckUpstreamRes = z.infer<typeof CheckUpstreamRes>
+/** GET /api/market/mine/upstream — GitHub-imported listings I maintain whose upstream moved past the recorded commit. */
+export const UpstreamMovedDto = z.object({ listingId: z.string(), commit: z.string() })
+export type UpstreamMovedDto = z.infer<typeof UpstreamMovedDto>
 /** PATCH /api/market/:id — by its maintainer; `unlisted` stops new installs. */
 export const UpdateListingReq = z.object({
   visibility: ListingVisibility.optional(),
@@ -211,8 +234,15 @@ export const ReviewReq = z.discriminatedUnion('approve', [
   z.object({ approve: z.literal(false), note: z.string().min(1).max(500) }),
 ])
 export type ReviewReq = z.infer<typeof ReviewReq>
-/** Answer of POST /api/market and /api/market/import/github: the saved draft and hints (secrets, absolute paths). */
-export const PublishRes = z.object({ listing: MyListingDto, warnings: z.array(z.string()) })
+/**
+ * Answer of POST /api/market and /api/market/import/github: the saved draft and hints (secrets, absolute paths);
+ * `unchanged` when the files equal the latest upload, so no new version was saved.
+ */
+export const PublishRes = z.object({
+  listing: MyListingDto,
+  warnings: z.array(z.string()),
+  unchanged: z.boolean(),
+})
 export type PublishRes = z.infer<typeof PublishRes>
 
 // ── M3: the personal layer ────
