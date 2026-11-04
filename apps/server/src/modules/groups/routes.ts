@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import {
   CreateGroupReq,
   GroupBotReq,
@@ -8,29 +7,18 @@ import {
   RepoReq,
   repoKey,
 } from '@gonggong/protocol'
-import { and, eq, inArray, isNull, max, ne, sql } from 'drizzle-orm'
+import { and, eq, max, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import {
-  bots,
-  groupBots,
-  groupMembers,
-  groupRepos,
-  groups,
-  messages,
-  teamMembers,
-  users,
-} from '../../db/schema.js'
+import { groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
-import { isUuid } from '../../lib/ids.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { isSharedWith } from '../bots/shares.js'
 import { pullIntoChat } from '../feishu/members.js'
 import { forgetMembers, postEvent } from '../messages/service.js'
 import { readMentions } from '../notifications/notify.js'
-import { branchKnownMissing } from '../repos/probe.js'
 import { recordRepo } from '../repos/service.js'
 import { leaveReplica } from '../sync/switch.js'
 import { currentTeam } from '../teams/service.js'

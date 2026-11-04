@@ -51,7 +51,14 @@ const installs: InstallDto[] = [
 ]
 
 const installable: InstallableDto[] = [
-  listing({ id: 'l4', name: 'lint-fix', title: 'lint-fix', layer: 'platform', versionId: 'pv9', revision: 2 }),
+  listing({
+    id: 'l4',
+    name: 'lint-fix',
+    title: 'lint-fix',
+    layer: 'platform',
+    versionId: 'pv9',
+    revision: 2,
+  }),
   listing({ id: 'l5', type: 'plugin', name: 'deck', title: '演示文稿', layer: 'group' }),
 ]
 
@@ -98,7 +105,9 @@ describe('InstallList', () => {
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: '移除' }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/groups/g1/installs/l1')).toBe(true))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'DELETE' && c.path === '/groups/g1/installs/l1')).toBe(true),
+    )
   })
 
   it('imports a listing following the latest version by default, or pinned to the current one', async () => {

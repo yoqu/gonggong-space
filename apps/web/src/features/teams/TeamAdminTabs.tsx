@@ -73,9 +73,7 @@ export function TeamReposTab({ team }: { team: TeamDto }) {
   if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
   return (
     <>
-      <div className="gs-note">
-        {t('对主仓库是它的群生效；优先于团队层，群层可再覆盖。')}
-      </div>
+      <div className="gs-note">{t('对主仓库是它的群生效；优先于团队层，群层可再覆盖。')}</div>
       {data.length ? (
         <GroupBox>
           {data.map((r) => (

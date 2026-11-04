@@ -41,9 +41,9 @@ export function InstallList({ base, readOnly = false }: { base: string; readOnly
   const [importing, setImporting] = useState(false)
   const [removing, setRemoving] = useState<InstallDto | null>(null)
   const put = (i: InstallDto, enabled: boolean) =>
-    attempt(() => api.put(`${base}/installs/${i.listing.id}`, { enabled, pinVersionId: i.pinVersionId })).then(
-      reload,
-    )
+    attempt(() =>
+      api.put(`${base}/installs/${i.listing.id}`, { enabled, pinVersionId: i.pinVersionId }),
+    ).then(reload)
 
   return (
     <>
@@ -136,7 +136,9 @@ export function InstalledSection({ base, readOnly }: { base: string; readOnly?: 
   return (
     <>
       <div className="cfg__eyebrow">{t('已引入')}</div>
-      <div className="gs-note">{t('引入平台、团队已有的 Skill 与插件；与这一层已有的同名 Skill 不能同时存在。')}</div>
+      <div className="gs-note">
+        {t('引入平台、团队已有的 Skill 与插件；与这一层已有的同名 Skill 不能同时存在。')}
+      </div>
       <InstallList base={base} readOnly={readOnly} />
     </>
   )
