@@ -1,6 +1,7 @@
 import {
   type InstallDto,
   type ListingSummary,
+  type MarketListingDto,
   PROTOCOL_VERSION,
   type PublishRes,
   type RunDetailDto,
@@ -297,5 +298,26 @@ describe('personal skills for the daemon', () => {
 
     await t.db.update(runs).set({ status: 'completed', endedAt: new Date() }).where(eq(runs.id, run!.id))
     expect((await get()).statusCode).toBe(403)
+  })
+})
+
+describe('desktop read-only Skill page (machine token)', () => {
+  it("lists the machine owner's personal installs and market", async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, 'wiki')
+    await approved(w.api.dan, w.api.carol, w.teamB.id, 'secret')
+    expect((await mine(w.api.own, wiki.id)).status).toBe(200)
+    const get = (url: string, token?: string) =>
+      t.app.inject({ url, headers: token ? { authorization: `Bearer ${token}` } : {} })
+
+    expect((await get('/api/daemon/me/installs')).statusCode).toBe(401)
+    expect((await get('/api/daemon/market')).statusCode).toBe(401)
+    const installs = (await get('/api/daemon/me/installs', w.token)).json<InstallDto[]>()
+    expect(installs.map((i) => [i.listing.id, i.scope])).toEqual([[wiki.id, 'user']])
+    const market = await get('/api/daemon/market?q=wi', w.token)
+    expect(market.json<MarketListingDto[]>().map((l) => l.id)).toEqual([wiki.id])
+
+    const revoked = await t.seed.machine(w.own.id, { revokedAt: new Date() })
+    expect((await get('/api/daemon/me/installs', revoked.token)).statusCode).toBe(401)
   })
 })

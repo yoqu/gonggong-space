@@ -10,7 +10,9 @@ import type {
   CliSettingsSnapshot,
   ContextUsage,
   DevtoolsBlocker,
+  InstallDto,
   Locale,
+  MarketListingDto,
   OfficialSettings,
   Permission,
   RunEvent,
@@ -372,6 +374,11 @@ export const ipc = {
   openProvidersInWeb: () => invoke<void>('open_providers_in_web'),
   /** 已连接 pill: the bound server's web app. */
   openWeb: () => invoke<void>('open_web'),
+  /** The owner's personal Skill installs; read-only here, managed on the Web (plan Skill市场-M4 D14). */
+  marketInstalls: () => invoke<InstallDto[]>('market_installs'),
+  marketListings: () => invoke<MarketListingDto[]>('market_listings'),
+  /** 在网页中打开: the bound server's `/market`. */
+  openMarketInWeb: () => invoke<void>('open_market_in_web'),
   tunnels: () => invoke<Tunnels>('tunnels'),
   /** Closes the tunnel and, with `stopService`, stops the service behind it (same as 停止 on the Web). */
   closeTunnel: (id: string, stopService: boolean) => invoke<void>('close_tunnel', { id, stopService }),

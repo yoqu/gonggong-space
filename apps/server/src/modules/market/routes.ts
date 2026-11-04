@@ -13,7 +13,8 @@ import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import { repos } from '../../db/schema.js'
+import { requireMachine } from '../../daemon/auth.js'
+import { repos, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -119,6 +120,23 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
   app.get('/api/market', async (req) =>
     marketList(ctx, await requireUser(ctx, req), MarketQuery.parse(req.query)),
   )
+
+  // The desktop app's read-only Skill page, as the machine's owner (plan Skill市场-M4 D14).
+  const owner = async (req: FastifyRequest) => {
+    const machine = await requireMachine(ctx, req)
+    const [me] = await ctx.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, machine.ownerId))
+    return me ?? fail('unauthorized', 'machine token revoked')
+  }
+  app.get('/api/daemon/market', async (req) =>
+    marketList(ctx, await owner(req), MarketQuery.parse(req.query)),
+  )
+  app.get('/api/daemon/me/installs', async (req) => {
+    const me = await owner(req)
+    return listInstalls(ctx.db, { scope: 'user', scopeId: me.id, teamId: null, groupId: null })
+  })
 
   app.get('/api/market/mine', async (req) => myListings(ctx.db, await requireUser(ctx, req)))
 
