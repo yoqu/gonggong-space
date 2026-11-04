@@ -37,7 +37,7 @@ import { deleteInstall, installable, listInstalls, putInstall, type Target } fro
 type P = { Params: { id?: string; repoId?: string; listingId?: string } }
 type Resolve = (req: FastifyRequest<P>, read: boolean) => Promise<{ actorId: string; target: Target }>
 
-/** The install list, the listings it may still take and changes to it, under `base` (a group, team or repo). */
+/** The install list, the listings it may still take and changes to it, under `base` (a group, team, repo or the caller). */
 function scopeRoutes(ctx: Ctx, app: FastifyInstance, base: string, resolve: Resolve) {
   app.get<P>(`${base}/installs`, async (req) => listInstalls(ctx.db, (await resolve(req, true)).target))
 
@@ -65,6 +65,11 @@ export function marketRoutes(ctx: Ctx) {
         actorId: me.id,
         target: { scope: 'group', scopeId: group.id, teamId: group.teamId, groupId: group.id },
       }
+    })
+
+    scopeRoutes(ctx, app, '/api/me', async (req) => {
+      const me = await requireUser(ctx, req)
+      return { actorId: me.id, target: { scope: 'user', scopeId: me.id, teamId: null, groupId: null } }
     })
 
     const teamAdmin = async (req: FastifyRequest<P>) => {

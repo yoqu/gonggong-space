@@ -143,6 +143,7 @@ export async function schedule(ctx: Ctx, botId: string) {
             ...start.config,
             secrets: start.secrets,
             plugins: start.msg.plugins,
+            personalSkills: start.personalSkills,
             artifacts: start.msg.artifacts.map((a) => a.id),
             // Known up front so the live round already starts its own session; run.done may refine it.
             newSessionReason: start.msg.resumeSessionId ? null : (start.msg.newSessionReason ?? 'first'),
@@ -285,7 +286,7 @@ export async function buildRunStart(
       effectiveParams(tx, run.groupId),
       botCatalog(tx, bot),
       enabledMcpServers(tx, run.groupId),
-      enabledSkills(tx, run.groupId),
+      enabledSkills(tx, run.groupId, run.originUserId),
       resolveSecrets(tx, { groupId: run.groupId, botId: bot.id, originUserId: run.originUserId }, now),
       originAdmin(tx, run),
     ])
@@ -433,6 +434,7 @@ export async function buildRunStart(
     msg,
     config,
     secrets: secrets.secrets,
+    personalSkills: skills.filter((s) => s.personal).length,
     triggerSeq: command ? 0 : trigger.seq,
     settled: interrupted?.settled,
     detached,

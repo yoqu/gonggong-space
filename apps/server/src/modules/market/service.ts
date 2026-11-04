@@ -1,14 +1,29 @@
-import type {
-  InstallDto,
-  InstallReq,
-  ListingStatus,
-  ListingSummary,
-  ListingType,
-  PluginManifest,
-  SkillFile,
-  SkillListingManifest,
+import {
+  type InstallDto,
+  type InstallReq,
+  type ListingStatus,
+  type ListingSummary,
+  type ListingType,
+  type PluginManifest,
+  type SkillFile,
+  type SkillListingManifest,
+  TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, asc, eq, inArray, isNull, ne, notInArray, or, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  notExists,
+  notInArray,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -20,7 +35,9 @@ import {
   plugins,
   pluginVersions,
   repos,
+  runs,
   skills,
+  teamMembers,
   users,
 } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
@@ -41,13 +58,42 @@ type GroupInstall = {
   version: { id: string; revision: number; manifest: PluginManifest; digest: string; size: number }
 }
 
-/** Where installs go; `teamId` / `groupId` decide which listings it may install. */
-export type Target = {
-  scope: 'group' | 'repo' | 'team'
-  scopeId: string
-  teamId: string
-  groupId: string | null
-}
+/** Where installs go; `teamId` / `groupId` decide which listings it may install (a user's: what they can see). */
+export type Target =
+  | { scope: 'group' | 'repo' | 'team'; scopeId: string; teamId: string; groupId: string | null }
+  | { scope: 'user'; scopeId: string; teamId: null; groupId: null }
+
+export const ADMIN_ROLES = ['admin', 'owner']
+
+const memberOf = (db: Read, userId: SQL | string, roles?: string[]) =>
+  db
+    .select({ one: sql`1` })
+    .from(teamMembers)
+    .where(
+      and(
+        eq(teamMembers.teamId, plugins.teamId),
+        eq(teamMembers.userId, userId),
+        roles ? inArray(teamMembers.role, roles) : undefined,
+      ),
+    )
+
+/** Authored listings `userId` maintains: their own while still in the team, else the team's admins' (D13). */
+export const maintainedBy = (db: Read, userId: SQL | string) =>
+  and(
+    isNotNull(plugins.visibility),
+    or(
+      and(eq(plugins.authorId, userId), exists(memberOf(db, sql`${plugins.authorId}`))),
+      and(notExists(memberOf(db, sql`${plugins.authorId}`)), exists(memberOf(db, userId, ADMIN_ROLES))),
+    ),
+  )
+
+/** A personal install following a listing its user maintains takes its latest upload (self-test, plan M3). */
+const resolvedId = (db: Read) =>
+  sql`case when ${and(
+    eq(installs.scope, 'user'),
+    isNull(installs.pinVersionId),
+    maintainedBy(db, sql`${installs.scopeId}`),
+  )} then ${plugins.versionId} else ${installs.resolvedVersionId} end`
 
 const current = alias(pluginVersions, 'current')
 const resolved = alias(pluginVersions, 'resolved')
@@ -71,16 +117,34 @@ export const listingSummary = (listing: ListingRow, v: Version): ListingSummary 
   revision: v.revision,
 })
 
-const inScope = (t: Pick<Target, 'scope' | 'scopeId'>) =>
+const inScope = (t: { scope: string; scopeId: string }) =>
   and(eq(installs.scope, t.scope), eq(installs.scopeId, t.scopeId))
 
-/** Platform listings, the target's team's, other teams' public ones and, for a group, the group's own. */
-const visibleTo = (t: Target) =>
-  or(
-    eq(plugins.scope, 'platform'),
-    and(eq(plugins.scope, 'team'), or(eq(plugins.teamId, t.teamId), eq(plugins.visibility, 'public'))),
-    t.groupId ? and(eq(plugins.scope, 'group'), eq(plugins.groupId, t.groupId)) : undefined,
+/**
+ * Approved platform listings, the target's team's (a user's: their teams'), other teams' public ones and, for a
+ * group, the group's own; for a user also the listings they maintain, approved or not.
+ */
+function visibleTo(db: Read, t: Target) {
+  const teams =
+    t.scope === 'user'
+      ? inArray(
+          plugins.teamId,
+          db.select({ id: teamMembers.teamId }).from(teamMembers).where(eq(teamMembers.userId, t.scopeId)),
+        )
+      : eq(plugins.teamId, t.teamId)
+  const approved = and(
+    isNotNull(plugins.listedVersionId),
+    or(
+      eq(plugins.scope, 'platform'),
+      and(eq(plugins.scope, 'team'), or(teams, eq(plugins.visibility, 'public'))),
+      t.groupId ? and(eq(plugins.scope, 'group'), eq(plugins.groupId, t.groupId)) : undefined,
+    ),
   )
+  return t.scope === 'user' ? or(approved, maintainedBy(db, t.scopeId)) : approved
+}
+
+/** A listing's current version for the lists: the listed one, else (a maintainer's draft) its latest upload. */
+const currentId = sql`coalesce(${plugins.listedVersionId}, ${plugins.versionId})`
 
 /** Moves the listing's latest approved version to `versionId`, and the installs following it along. */
 export async function listVersion(tx: Pick<Db, 'update'>, listingId: string, versionId: string) {
@@ -97,13 +161,14 @@ export async function listInstalls(db: Read, t: Target, where?: SQL) {
       install: installs,
       listing: plugins,
       current: versionOf(current),
+      resolvedId: resolved.id,
       resolvedRevision: resolved.revision,
       updatedBy: users.name,
     })
     .from(installs)
     .innerJoin(plugins, eq(plugins.id, installs.listingId))
-    .innerJoin(current, eq(current.id, plugins.listedVersionId))
-    .innerJoin(resolved, eq(resolved.id, installs.resolvedVersionId))
+    .innerJoin(current, eq(current.id, currentId))
+    .innerJoin(resolved, eq(resolved.id, resolvedId(db)))
     .leftJoin(users, eq(users.id, installs.updatedBy))
     .where(and(inScope(t), where))
     .orderBy(asc(plugins.name))
@@ -113,7 +178,7 @@ export async function listInstalls(db: Read, t: Target, where?: SQL) {
       scope: t.scope,
       enabled: r.install.enabled,
       pinVersionId: r.install.pinVersionId,
-      resolvedVersionId: r.install.resolvedVersionId,
+      resolvedVersionId: r.resolvedId,
       resolvedRevision: r.resolvedRevision,
       updatedBy: r.updatedBy,
       updatedAt: r.install.updatedAt.toISOString(),
@@ -125,11 +190,12 @@ export async function installable(db: Read, t: Target) {
   const rows = await db
     .select({ listing: plugins, current: versionOf(current) })
     .from(plugins)
-    .innerJoin(current, eq(current.id, plugins.listedVersionId))
+    .innerJoin(current, eq(current.id, currentId))
     .where(
       and(
-        visibleTo(t),
+        visibleTo(db, t),
         eq(plugins.status, 'listed'),
+        t.scope === 'user' ? eq(plugins.type, 'skill') : undefined,
         notInArray(plugins.id, db.select({ id: installs.listingId }).from(installs).where(inScope(t))),
       ),
     )
@@ -145,7 +211,7 @@ async function skillNameFree(db: Read, t: Target, name: string, listingId: strin
     .innerJoin(plugins, eq(plugins.id, installs.listingId))
     .where(and(inScope(t), eq(plugins.type, 'skill'), eq(plugins.name, name), ne(plugins.id, listingId)))
   const [own] =
-    t.scope === 'repo'
+    t.scope === 'repo' || t.scope === 'user'
       ? []
       : await db
           .select({ id: skills.id })
@@ -188,8 +254,18 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
   const [listing] = await ctx.db
     .select()
     .from(plugins)
-    .where(and(eq(plugins.id, idParam(listingId, '条目不存在')), visibleTo(t)))
-  if (!listing?.listedVersionId) return fail('not_found', '条目不存在')
+    .where(and(eq(plugins.id, idParam(listingId, '条目不存在')), visibleTo(ctx.db, t)))
+  if (!listing) return fail('not_found', '条目不存在')
+  if (t.scope === 'user' && listing.type !== 'skill') fail('invalid', '个人只能引入 Skill')
+  const [maintained] =
+    t.scope === 'user'
+      ? await ctx.db
+          .select({ id: plugins.id })
+          .from(plugins)
+          .where(and(eq(plugins.id, listing.id), maintainedBy(ctx.db, t.scopeId)))
+      : []
+  const follow = maintained ? listing.versionId : listing.listedVersionId
+  if (!follow) return fail('not_found', '条目不存在')
   const [existing] = await ctx.db
     .select({ id: installs.id })
     .from(installs)
@@ -204,7 +280,7 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
         and(
           eq(pluginVersions.id, pin),
           eq(pluginVersions.pluginId, listing.id),
-          eq(pluginVersions.reviewStatus, 'approved'),
+          maintained ? undefined : eq(pluginVersions.reviewStatus, 'approved'),
         ),
       )
     if (!v) fail('not_found', '版本不存在')
@@ -213,7 +289,7 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
   const set = {
     enabled: req.enabled,
     pinVersionId: pin || null,
-    resolvedVersionId: pin || listing.listedVersionId,
+    resolvedVersionId: pin || follow,
     updatedBy: actorId,
     updatedAt: ctx.now(),
   }
@@ -296,7 +372,38 @@ export async function groupsInstalls(
 export const groupInstalls = async (db: Read, groupId: string, type: ListingType) =>
   (await groupsInstalls(db, [groupId], type)).get(groupId) ?? []
 
-/** A skill listing version, for a machine hosting a bot in a group one of its enabled installs applies to. */
+/**
+ * `userId`'s enabled personal skill installs that apply in the group (plan Skill市场-M3): platform and public
+ * listings anywhere, team-only ones in their team's groups while the user is still in it; banned ones left out, and
+ * unapproved versions only for the listing's maintainers.
+ */
+export async function personalInstalls(db: Read, groupId: string, userId: string) {
+  const team = db.select({ id: groups.teamId }).from(groups).where(eq(groups.id, groupId))
+  return db
+    .select({ name: plugins.name, version: versionOf(resolved) })
+    .from(installs)
+    .innerJoin(plugins, eq(plugins.id, installs.listingId))
+    .innerJoin(resolved, eq(resolved.id, resolvedId(db)))
+    .where(
+      and(
+        inScope({ scope: 'user', scopeId: userId }),
+        eq(installs.enabled, true),
+        eq(plugins.type, 'skill'),
+        ne(plugins.status, 'banned'),
+        or(
+          eq(plugins.scope, 'platform'),
+          eq(plugins.visibility, 'public'),
+          and(inArray(plugins.teamId, team), exists(memberOf(db, userId))),
+        ),
+        or(eq(resolved.reviewStatus, 'approved'), maintainedBy(db, userId)),
+      ),
+    )
+}
+
+/**
+ * A skill listing version, for a machine hosting a bot in a group one of its enabled installs applies to, or running
+ * a bot for a turn originated by a user whose enabled personal install resolves to it.
+ */
 export async function hostedListingFiles(db: Read, machineId: string, versionId: string) {
   const [v] = await db
     .select({ files: pluginVersions.files, type: plugins.type, status: plugins.status })
@@ -320,6 +427,21 @@ export async function hostedListingFiles(db: Read, machineId: string, versionId:
     .innerJoin(bots, and(eq(bots.id, groupBots.botId), eq(bots.machineId, machineId)))
     .where(and(eq(installs.resolvedVersionId, versionId), eq(installs.enabled, true)))
     .limit(1)
-  if (!hosted || v.status === 'banned') return fail('forbidden', '该机器上没有可使用这个 skill 的 Bot')
+  const [allowed] = hosted
+    ? [hosted]
+    : await db
+        .select({ id: installs.id })
+        .from(installs)
+        .innerJoin(plugins, eq(plugins.id, installs.listingId))
+        .innerJoin(
+          runs,
+          and(eq(runs.originUserId, installs.scopeId), notInArray(runs.status, [...TERMINAL_RUN_STATUS])),
+        )
+        .innerJoin(bots, and(eq(bots.id, runs.botId), eq(bots.machineId, machineId)))
+        .where(
+          and(eq(installs.scope, 'user'), eq(installs.enabled, true), sql`${resolvedId(db)} = ${versionId}`),
+        )
+        .limit(1)
+  if (!allowed || v.status === 'banned') return fail('forbidden', '该机器上没有可使用这个 skill 的 Bot')
   return v.files as SkillFile[]
 }

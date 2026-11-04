@@ -706,6 +706,8 @@ export const runs = pgTable(
     htmlRenders: jsonb('html_renders').$type<HtmlRenderRef[]>().notNull().default([]),
     /** Artifact ids sent in its run.start (RunStart.artifacts): the only ones its machine may read or submit. */
     artifacts: jsonb('artifacts').$type<string[]>().notNull().default([]),
+    /** Skills from the origin user's personal layer in its run.start (Skill 市场 M3); only the count is shown. */
+    personalSkills: integer('personal_skills').notNull().default(0),
   },
   (t) => [
     index('runs_bot_status').on(t.botId, t.status),

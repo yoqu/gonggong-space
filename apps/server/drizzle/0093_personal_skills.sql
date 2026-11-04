@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "personal_skills" integer DEFAULT 0 NOT NULL;

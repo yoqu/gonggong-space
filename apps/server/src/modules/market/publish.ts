@@ -14,21 +14,7 @@ import type {
   SkillFile,
   UpdateListingReq,
 } from '@gonggong/protocol'
-import {
-  and,
-  desc,
-  eq,
-  exists,
-  ilike,
-  inArray,
-  isNotNull,
-  isNull,
-  notExists,
-  notInArray,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -39,13 +25,11 @@ import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { type ListingSnapshot, listingSnapshot } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
-import { listingSummary, listVersion } from './service.js'
+import { ADMIN_ROLES, listingSummary, listVersion, maintainedBy } from './service.js'
 
 type Read = Pick<Db, 'select'>
 type ListingRow = typeof plugins.$inferSelect
 export type Me = { id: string; role: string }
-
-const ADMIN_ROLES = ['admin', 'owner']
 
 // ── Warnings ────
 const SECRET =
@@ -68,28 +52,6 @@ export function publishWarnings(files: SkillFile[]) {
 }
 
 // ── Who may do what ────
-const memberOf = (db: Read, userId: SQL | string, roles?: string[]) =>
-  db
-    .select({ one: sql`1` })
-    .from(teamMembers)
-    .where(
-      and(
-        eq(teamMembers.teamId, plugins.teamId),
-        eq(teamMembers.userId, userId),
-        roles ? inArray(teamMembers.role, roles) : undefined,
-      ),
-    )
-
-/** Authored listings `userId` maintains: their own while still in the team, else the team's admins' (D13). */
-const maintainedBy = (db: Read, userId: string) =>
-  and(
-    isNotNull(plugins.visibility),
-    or(
-      and(eq(plugins.authorId, userId), exists(memberOf(db, sql`${plugins.authorId}`))),
-      and(notExists(memberOf(db, sql`${plugins.authorId}`)), exists(memberOf(db, userId, ADMIN_ROLES))),
-    ),
-  )
-
 async function maintains(db: Read, userId: string, listingId: string) {
   const [row] = await db
     .select({ id: plugins.id })

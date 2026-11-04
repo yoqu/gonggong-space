@@ -652,6 +652,13 @@
       "when": 1793767819253,
       "tag": "0092_market_review",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1793771089880,
+      "tag": "0093_personal_skills",
+      "breakpoints": true
     }
   ]
 }

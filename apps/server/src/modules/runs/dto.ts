@@ -59,6 +59,7 @@ export const cardColumns = {
   sync: runs.sync,
   secrets: runs.secrets,
   htmlRenders: runs.htmlRenders,
+  personalSkills: runs.personalSkills,
 }
 type CardRow = Pick<RunRow, keyof typeof cardColumns>
 
@@ -112,6 +113,7 @@ export const runDto = (
   sync: r.sync ?? null,
   secrets: r.secrets,
   ...(r.htmlRenders.length > 0 && { htmlRenders: r.htmlRenders }),
+  ...(r.personalSkills > 0 && { personalSkills: r.personalSkills }),
   ...(extra.artifacts?.length && { artifacts: extra.artifacts }),
 })
 

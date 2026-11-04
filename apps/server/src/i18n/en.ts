@@ -492,6 +492,7 @@ export const en = {
   条目不存在: 'Listing not found',
   '条目已下架，不能引入': 'This listing is no longer listed and cannot be installed',
   '同名 Skill 已存在': 'A skill with this name is already here',
+  '个人只能引入 Skill': 'Only skills can be installed for yourself',
   // Market publishing and review
   只能发布到你所在的团队: 'You can only publish to a team you are in',
   只有维护者可以修改: 'Only its maintainer can change it',

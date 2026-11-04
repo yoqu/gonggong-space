@@ -15,7 +15,7 @@ import type { MessageKey } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { keptIn, turnedOff as offIn, setInherited as setOverride } from '../../lib/group-overrides.js'
-import { groupInstalls, skillInstalled } from '../market/service.js'
+import { groupInstalls, personalInstalls, skillInstalled } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
 
 export type SkillRow = typeof skills.$inferSelect
@@ -280,7 +280,7 @@ export function visibleIn(db: Pick<Db, 'select'>, groupId: string) {
 }
 
 /** Precedence of the layers a group's skills and plugins come from (plan Skill市场 D8), lowest first. */
-export const LAYER_RANK: Record<string, number> = { platform: 0, team: 1, repo: 2, group: 3 }
+export const LAYER_RANK: Record<string, number> = { platform: 0, team: 1, repo: 2, group: 3, user: 4 }
 
 /** One per name, sorted by name: a lower layer replaces a same-named skill above it. */
 export function mergeSkills<T extends { scope: string; name: string }>(rows: T[]) {
@@ -340,9 +340,16 @@ export async function inheritedInstalls(db: Pick<Db, 'select'>, groupId: string)
     }))
 }
 
-/** Enabled skills and skill installs for a run in the group, merged across layers (as `enabledMcpServers`). */
-export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
-  const [off, installed] = await Promise.all([turnedOff(db, groupId), installedSkills(db, groupId)])
+/**
+ * Enabled skills and skill installs for a run in the group, merged across layers (as `enabledMcpServers`), with the
+ * personal layer of the run's `originUserId` on top; `personal` marks the skills it supplied.
+ */
+export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string, originUserId?: string) {
+  const [off, installed, personal] = await Promise.all([
+    turnedOff(db, groupId),
+    installedSkills(db, groupId),
+    originUserId ? personalInstalls(db, groupId, originUserId) : [],
+  ])
   const own = await db
     .select({
       scope: skills.scope,
@@ -363,11 +370,23 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
       versionId: version.id,
       digest: version.digest,
     })),
+    ...personal.map(({ name, version }) => ({
+      scope: 'user',
+      name,
+      description: (version.manifest as SkillListingManifest).description,
+      versionId: version.id,
+      digest: version.digest,
+    })),
   ]
-  return mergeSkills(rows.filter(keptIn(off))).map(({ name, description, versionId, digest }) => ({
-    name,
-    description,
-    versionId,
-    digest,
-  }))
+  // A group turning an inherited skill off does not reach into its members' personal layers.
+  const kept = keptIn(off)
+  return mergeSkills(rows.filter((r) => r.scope === 'user' || kept(r))).map(
+    ({ scope, name, description, versionId, digest }) => ({
+      name,
+      description,
+      versionId,
+      digest,
+      personal: scope === 'user',
+    }),
+  )
 }
