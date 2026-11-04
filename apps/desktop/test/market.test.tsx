@@ -91,7 +91,7 @@ it('lists personal skills with version, switch state and listing status, and the
     .getByText('wiki', { selector: '.dk-market .dk-strong' })
     .closest('.dk-row') as HTMLElement
   expect(within(card).getByText('查团队知识库')).toBeTruthy()
-  expect(within(card).getByText('安 · 默认团队 · 12 次安装')).toBeTruthy()
+  expect(within(card).getByText('安 · 默认团队 · 12 次引入')).toBeTruthy()
   expect(screen.queryByRole('switch')).toBeNull()
   expect(screen.queryByRole('button', { name: /引入|发布|审核/ })).toBeNull()
 

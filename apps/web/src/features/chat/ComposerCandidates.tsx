@@ -214,21 +214,26 @@ export function useCandidates(
                 plugin: p.id,
               })),
           },
-          {
-            label: t('团队 Skill'),
-            src: t('配置中心'),
+          ...(
+            [
+              [t('我的 Skill'), t('个人引入'), true],
+              [t('团队 Skill'), t('配置中心'), false],
+            ] as const
+          ).map(([label, src, personal]) => ({
+            label,
+            src,
             items: (commands?.value.skill ?? [])
-              .filter((c) => has(c.name))
+              .filter((c) => !!c.personal === personal && has(c.name))
               .map((c) => ({
                 key: `skill:${c.name}`,
-                icon: 'star',
+                icon: 'star' as const,
                 label: `/${c.name}`,
                 mono: true,
                 hint: c.hint,
                 insert: `${sigil}${c.name}`,
                 skill: true,
               })),
-          },
+          })),
           {
             label: t('AGENT 命令'),
             src: t('ACP 上报'),

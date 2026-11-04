@@ -1,4 +1,5 @@
 import type {
+  InstalledTarget,
   ListingSource,
   ListingType,
   ListingVersionDto,
@@ -15,16 +16,39 @@ import type {
   UpdateListingReq,
   VersionDiffDto,
 } from '@gonggong/protocol'
-import { and, desc, eq, ilike, inArray, isNull, lt, notInArray, or, type SQL, sql } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  notInArray,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { installs, plugins, pluginVersions, teamMembers, teams, users } from '../../db/schema.js'
+import {
+  groupMembers,
+  groups,
+  installs,
+  plugins,
+  pluginVersions,
+  repos,
+  teamMembers,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
-import { notify } from '../notifications/notify.js'
+import { notify, resolveNotifications } from '../notifications/notify.js'
 import { type ListingSnapshot, listingSnapshot } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
 import { ADMIN_ROLES, listingSummary, listVersion, maintainedBy } from './service.js'
@@ -98,6 +122,21 @@ async function maintainerIds(db: Read, listingId: string) {
     .from(plugins)
     .innerJoin(member, eq(member.teamId, plugins.teamId))
     .where(and(eq(plugins.id, listingId), maintainedBy(db, sql`${member.userId}`)))
+  return rows.map((r) => r.id)
+}
+
+/** Who reviews the listing's versions, for notices: see `reviews`. */
+async function reviewerIds(db: Read, listing: ListingRow) {
+  const rows =
+    listing.visibility === 'team'
+      ? await db
+          .select({ id: teamMembers.userId })
+          .from(teamMembers)
+          .where(and(eq(teamMembers.teamId, listing.teamId!), inArray(teamMembers.role, ADMIN_ROLES)))
+      : await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.role, 'sysadmin'), isNull(users.disabledAt)))
   return rows.map((r) => r.id)
 }
 
@@ -199,6 +238,69 @@ function marketScope(mine: Set<string>) {
   }
 }
 
+const SCOPE_ORDER = ['user', 'group', 'team', 'repo']
+const installedTeam = alias(teams, 'installed_team')
+
+/** Where the caller sees each listing installed: their personal layer, groups they are in, their teams and repos. */
+async function installedIn(db: Read, userId: string, listingIds: string[]) {
+  const out = new Map<string, InstalledTarget[]>()
+  if (!listingIds.length) return out
+  const rows = await db
+    .select({
+      listingId: installs.listingId,
+      scope: installs.scope,
+      scopeId: installs.scopeId,
+      group: groups.name,
+      team: installedTeam.name,
+      repo: repos.name,
+    })
+    .from(installs)
+    .leftJoin(
+      groupMembers,
+      and(
+        eq(installs.scope, 'group'),
+        eq(groupMembers.groupId, installs.scopeId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .leftJoin(groups, and(eq(groups.id, groupMembers.groupId), isNull(groups.archivedAt)))
+    .leftJoin(repos, and(eq(installs.scope, 'repo'), eq(repos.id, installs.scopeId)))
+    .leftJoin(
+      teamMembers,
+      and(
+        eq(teamMembers.userId, userId),
+        or(
+          and(eq(installs.scope, 'team'), eq(teamMembers.teamId, installs.scopeId)),
+          eq(teamMembers.teamId, repos.teamId),
+        ),
+      ),
+    )
+    .leftJoin(installedTeam, eq(installedTeam.id, teamMembers.teamId))
+    .where(
+      and(
+        inArray(installs.listingId, listingIds),
+        or(
+          and(eq(installs.scope, 'user'), eq(installs.scopeId, userId)),
+          isNotNull(groups.id),
+          isNotNull(installedTeam.id),
+        ),
+      ),
+    )
+  rows.sort(
+    (a, b) =>
+      SCOPE_ORDER.indexOf(a.scope) - SCOPE_ORDER.indexOf(b.scope) ||
+      (a.group ?? a.team ?? '').localeCompare(b.group ?? b.team ?? ''),
+  )
+  for (const r of rows) {
+    const label = r.group ?? (r.repo ? `${r.team} / ${r.repo}` : (r.team ?? ''))
+    out.set(r.listingId, [
+      ...(out.get(r.listingId) ?? []),
+      { scope: r.scope as InstalledTarget['scope'], scopeId: r.scopeId, label },
+    ])
+  }
+  return out
+}
+
 export async function marketList(
   ctx: Ctx,
   me: Me,
@@ -223,7 +325,14 @@ export async function marketList(
         : undefined,
     ),
   ).orderBy(desc(plugins.updatedAt))
-  return rows.map((c) => cardDto(c, mine) as MarketListingDto)
+  const where = await installedIn(
+    ctx.db,
+    me.id,
+    rows.map((c) => c.listing.id),
+  )
+  return rows.map(
+    (c) => ({ ...cardDto(c, mine), installedIn: where.get(c.listing.id) ?? [] }) as MarketListingDto,
+  )
 }
 
 /** One listing at its listed version, or `versionId`; unapproved versions only for its maintainers and reviewers. */
@@ -273,8 +382,10 @@ export async function marketDetail(
   const readmePath =
     listing.type === 'plugin' ? `skills/${(manifest as PluginManifest).entry}/SKILL.md` : 'SKILL.md'
   const readme = files.find((f) => f.path === readmePath && f.encoding === 'utf8')?.content ?? ''
+  const where = await installedIn(ctx.db, me.id, [listing.id])
   return {
     ...cardDto(card!, mine),
+    installedIn: where.get(listing.id) ?? [],
     canReview,
     banReason: listing.banReason,
     readme,
@@ -474,7 +585,13 @@ async function findVersion(db: Read, listing: ListingRow, versionId: string) {
   return v ?? fail('not_found', '版本不存在')
 }
 
-export async function submitVersion(ctx: Ctx, me: Me, id: string, versionId: string, changelog: string) {
+export async function submitVersion(
+  ctx: Ctx,
+  me: Me & { name: string },
+  id: string,
+  versionId: string,
+  changelog: string,
+) {
   const listing = await requireMaintained(ctx, me, id)
   const v = await findVersion(ctx.db, listing, versionId)
   if (v.reviewStatus !== 'draft' && v.reviewStatus !== 'rejected')
@@ -484,6 +601,15 @@ export async function submitVersion(ctx: Ctx, me: Me, id: string, versionId: str
     .set({ reviewStatus: 'pending', changelog })
     .where(eq(pluginVersions.id, v.id))
   await log(ctx, me, listing, 'market.submit', { revision: v.revision })
+  for (const userId of await reviewerIds(ctx.db, listing))
+    if (userId !== me.id)
+      await notify(ctx, userId, 'listing_submitted', {
+        listingId: listing.id,
+        versionId: v.id,
+        listingName: listingSummary(listing, v).title,
+        revision: v.revision,
+        byName: me.name,
+      })
   return myListing(ctx.db, me, listing.id)
 }
 
@@ -518,11 +644,12 @@ export async function reviewVersion(ctx: Ctx, me: Me, id: string, versionId: str
     revision: v.revision,
     note: req.note,
   })
+  await resolveNotifications(ctx, 'listing_submitted', 'versionId', [v.id])
   for (const userId of await maintainerIds(ctx.db, listing.id))
     if (userId !== me.id)
       await notify(ctx, userId, 'listing_reviewed', {
         listingId: listing.id,
-        listingName: listing.name,
+        listingName: listingSummary(listing, v).title,
         revision: v.revision,
         approved: req.approve,
         note: req.note,
@@ -582,4 +709,17 @@ export async function setBan(ctx: Ctx, me: Me, id: string, reason: string | null
     .set({ status: reason ? 'banned' : 'listed', banReason: reason, updatedBy: me.id, updatedAt: ctx.now() })
     .where(eq(plugins.id, listing.id))
   await log(ctx, me, listing, reason ? 'market.ban' : 'market.unban', reason ? { reason } : {})
+  const [shown] = await ctx.db
+    .select({ manifest: pluginVersions.manifest })
+    .from(pluginVersions)
+    .where(eq(pluginVersions.id, (listing.listedVersionId ?? listing.versionId)!))
+  const title = (shown?.manifest as { title?: string } | undefined)?.title ?? listing.name
+  for (const userId of await maintainerIds(ctx.db, listing.id))
+    if (userId !== me.id)
+      await notify(ctx, userId, 'listing_banned', {
+        listingId: listing.id,
+        listingName: title,
+        banned: !!reason,
+        reason: reason ?? '',
+      })
 }

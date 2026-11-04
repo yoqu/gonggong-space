@@ -409,5 +409,5 @@ export const en = {
   已停用: 'Disabled',
   市场: 'Market',
   市场里还没有条目: 'The market has no listings yet',
-  '{n} 次安装': '{n} {n:install|installs}',
+  '{n} 次引入': '{n} {n:install|installs}',
 } satisfies Record<string, string>

@@ -22,7 +22,7 @@ export function candidateRoutes(ctx: Ctx, mirrors: Mirrors) {
       const me = await requireUser(ctx, req)
       await requireMember(ctx, req.params.id, me.id)
       const { botId } = CommandsQuery.parse(req.query)
-      return commandCandidates(ctx, req.params.id, botId.split(',').filter(Boolean))
+      return commandCandidates(ctx, req.params.id, botId.split(',').filter(Boolean), me.id)
     })
   }
 }

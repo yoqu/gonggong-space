@@ -7,7 +7,6 @@ import {
   type UserDto,
 } from '@gonggong/protocol'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
@@ -160,23 +159,12 @@ function AppearancePage() {
 }
 
 function MySkillsPage({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate()
   return (
     <>
       <div className="gs-note">
         {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
       </div>
-      <InstallList base={PERSONAL_BASE} />
-      <Button
-        size="small"
-        variant="plain"
-        onClick={() => {
-          onClose()
-          navigate('/market')
-        }}
-      >
-        {t('打开市场')}
-      </Button>
+      <InstallList base={PERSONAL_BASE} onLeave={onClose} />
     </>
   )
 }

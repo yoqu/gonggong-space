@@ -383,5 +383,12 @@ export const protocolEn = {
   审核结果: 'Review result',
   '{listing} r{revision} 审核通过': '{listing} r{revision} was approved',
   '{listing} r{revision} 被驳回': '{listing} r{revision} was rejected',
+  '{text}：{reason}': '{text}: {reason}',
+  审核请求: 'Review request',
+  待审核: 'Awaiting review',
+  '{by} 提交了 {listing} r{revision}，等你审核': '{by} submitted {listing} r{revision} for your review',
+  封禁通知: 'Ban notice',
+  '{listing} 已被封禁': '{listing} was banned',
+  '{listing} 已解除封禁': '{listing} was unbanned',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

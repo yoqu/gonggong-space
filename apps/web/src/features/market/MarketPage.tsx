@@ -1,6 +1,7 @@
 import type { InstallRequestDto, ListingType, MarketListingDto, MarketSource } from '@gonggong/protocol'
 import { type ComponentProps, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import {
@@ -19,12 +20,13 @@ import {
 import { TYPE_LABEL } from './InstallList'
 import { InstallRequests } from './InstallRequests'
 import { InstallTargetDialog } from './InstallTargetDialog'
-import { byline, ListingDetail, ListingIcon, SOURCE_LABEL } from './ListingDetail'
+import { byline, installedText, ListingDetail, ListingIcon, SOURCE_LABEL } from './ListingDetail'
 import { MyListings } from './MyListings'
+import { MarketReviewList } from './ReviewList'
 import '../works/works.css'
 import './market.css'
 
-const TABS = ['market', 'requests', 'mine'] as const
+const TABS = ['market', 'requests', 'mine', 'reviews'] as const
 type Tab = (typeof TABS)[number]
 type TypeFilter = 'all' | ListingType
 type SourceFilter = 'all' | MarketSource
@@ -50,24 +52,55 @@ function useSettled<T>(value: T, ms = 250) {
   return settled
 }
 
+/** The review queues I work through: each team I administer, and public listings for sysadmins. */
+function useReviewQueues() {
+  const teams = useSession((s) => s.tenancy?.teams) ?? []
+  const sysadmin = useSession((s) => s.user?.role === 'sysadmin')
+  return [
+    ...teams
+      .filter((x) => x.role === 'admin' || x.role === 'owner')
+      .map((x) => ({ path: `/market/reviews?teamId=${x.id}`, label: x.name })),
+    ...(sysadmin ? [{ path: '/market/reviews', label: t('公开条目') }] : []),
+  ]
+}
+
 /**
  * 市场: listings with an approved version I may see, their details and 引入到…; 引入申请 to decide or follow;
- * 我的发布 for authors. `?tab=` opens one (notifications link to it).
+ * 我的发布 for authors; 待审核 for reviewers. `?tab=` opens one and `?listing=` a listing's detail (notifications link
+ * to them).
  */
 export function MarketPage() {
   const [params, setParams] = useSearchParams()
-  const tab = TABS.find((x) => x === params.get('tab')) ?? 'market'
+  const queues = useReviewQueues()
+  const tab = TABS.find((x) => x === params.get('tab') && (x !== 'reviews' || queues.length)) ?? 'market'
   const setTab = (next: Tab) => setParams(next === 'market' ? {} : { tab: next }, { replace: true })
+  const openId = params.get('listing')
+  const [openTitle, setOpenTitle] = useState('')
+  // Bumped after an install so the open detail shows where it now is.
+  const [installedAt, setInstalledAt] = useState(0)
+  const setOpen = (l: { id: string; title: string } | null) => {
+    setOpenTitle(l?.title ?? '')
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (l) next.set('listing', l.id)
+        else next.delete('listing')
+        return next
+      },
+      { replace: true },
+    )
+  }
   const [query, setQuery] = useState('')
   const [type, setType] = useState<TypeFilter>('all')
   const [source, setSource] = useState<SourceFilter>('all')
   const [sort, setSort] = useState<Sort>('recent')
-  const [open, setOpen] = useState<{ id: string; title: string } | null>(null)
   const [installing, setInstalling] = useState<ComponentProps<typeof InstallTargetDialog>['listing'] | null>(
     null,
   )
   const q = useSettled(query)
-  const { data, error } = useGet<MarketListingDto[]>(tab === 'market' ? marketPath(q, type, source) : null)
+  const { data, error, reload } = useGet<MarketListingDto[]>(
+    tab === 'market' ? marketPath(q, type, source) : null,
+  )
   // Keep the last results on screen while the next filter loads, instead of flashing a spinner.
   const last = useRef<MarketListingDto[] | null>(null)
   if (data) last.current = data
@@ -81,6 +114,7 @@ export function MarketPage() {
     setQuery('')
   }
   const sorted = shown && sort === 'installs' ? [...shown].sort((a, b) => b.installs - a.installs) : shown
+  const openName = openTitle || shown?.find((l) => l.id === openId)?.title || t('条目详情')
 
   return (
     <section className="works" aria-label={t('市场')}>
@@ -108,10 +142,22 @@ export function MarketPage() {
               ),
             },
             { value: 'mine', label: t('我的发布') },
+            ...(queues.length ? [{ value: 'reviews' as const, label: t('待审核') }] : []),
           ]}
         />
       </header>
-      {tab === 'mine' ? (
+      {tab === 'reviews' ? (
+        <div className="mkt-body">
+          <div className="mkt-body__inner">
+            {queues.map((x) => (
+              <section key={x.path} className="mkt-queue" aria-label={x.label}>
+                {queues.length > 1 ? <div className="cfg__eyebrow">{x.label}</div> : null}
+                <MarketReviewList path={x.path} />
+              </section>
+            ))}
+          </div>
+        </div>
+      ) : tab === 'mine' ? (
         <div className="mkt-body">
           <div className="mkt-body__inner">
             <MyListings onOpen={(l) => setOpen(l)} />
@@ -199,6 +245,11 @@ export function MarketPage() {
                           {byline(l)}
                         </span>
                       </span>
+                      {l.installedIn?.length ? (
+                        <span title={installedText(l.installedIn)}>
+                          <Tag tone="green">{t('已引入')}</Tag>
+                        </span>
+                      ) : null}
                       <Tag tone="blue">{TYPE_LABEL[l.type]}</Tag>
                     </span>
                     <span className="mkt-card__desc">{l.description || t('（没有描述）')}</span>
@@ -239,10 +290,11 @@ export function MarketPage() {
           )}
         </>
       )}
-      <Drawer open={!!open} title={open?.title ?? ''} width={600} onClose={() => setOpen(null)}>
-        {open ? (
+      <Drawer open={!!openId} title={openName} width={600} onClose={() => setOpen(null)}>
+        {openId ? (
           <ListingDetail
-            id={open.id}
+            key={installedAt}
+            id={openId}
             actions={({ listedVersionId, listedRevision, ...d }) =>
               d.status === 'listed' && listedVersionId && listedRevision !== null ? (
                 <Button
@@ -259,7 +311,16 @@ export function MarketPage() {
         ) : null}
       </Drawer>
       <Presence>
-        {installing ? <InstallTargetDialog listing={installing} onClose={() => setInstalling(null)} /> : null}
+        {installing ? (
+          <InstallTargetDialog
+            listing={installing}
+            onClose={() => setInstalling(null)}
+            onInstalled={() => {
+              setInstalledAt(Date.now())
+              reload()
+            }}
+          />
+        ) : null}
       </Presence>
     </section>
   )

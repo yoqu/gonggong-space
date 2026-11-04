@@ -943,6 +943,39 @@ describe('chat view', () => {
     expect(box.value).toBe('@老李的 Codex 先 $gonggong-team:review-pr ')
   })
 
+  it('lists my personal skills in their own section above the team ones', async () => {
+    mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/candidates/commands': () =>
+        commandCandidates(
+          [],
+          [
+            { name: 'gonggong-team:review-pr', hint: '按团队规范审查 diff' },
+            { name: 'gonggong-team:notes', hint: '整理我的笔记', personal: true },
+          ],
+        ),
+    })
+    renderAt('/g/g1')
+    await screen.findByTestId('bot-reply')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '/', selectionStart: 1 } })
+    const list = await screen.findByRole('listbox', { name: '/ 命令' })
+    const personal = await within(list).findByRole('group', { name: '我的 Skill' })
+    expect(personal.textContent).toContain('个人引入')
+    expect(
+      within(personal)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['/gonggong-team:notes整理我的笔记'])
+    expect(
+      within(list)
+        .getAllByRole('group')
+        .map((g) => g.getAttribute('aria-label')),
+    ).toEqual(['系统命令', '我的 Skill', '团队 Skill'])
+  })
+
   it('shows a not-found state for groups I am not in', async () => {
     mockApi(baseRoutes([]))
     renderAt('/g/zz')

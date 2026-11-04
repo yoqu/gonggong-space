@@ -71,6 +71,10 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
+function Where() {
+  return <div data-testid="where">{useLocation().pathname}</div>
+}
+
 describe('InstallList', () => {
   it('lists the scope installs: type, layer, version policy and status', async () => {
     mockApi({ 'GET /groups/g1/installs': installs })
@@ -208,20 +212,25 @@ describe('team settings · repos', () => {
     expect(calls.some((c) => c.path === '/market/reviews?teamId=t1')).toBe(true)
   })
 
-  it('shows the team installs under the Skill tab', async () => {
+  it('shows the team installs under the Skill tab, with a way to the market', async () => {
     mockApi({ 'GET /teams/t1/skills': [], 'GET /teams/t1/installs': installs })
-    render(<TeamSettingsDialog team={team} onClose={() => {}} />)
+    const onClose = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <TeamSettingsDialog team={team} onClose={onClose} />
+        <Where />
+      </MemoryRouter>,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
     expect(await screen.findByText('已引入')).toBeTruthy()
     expect(await screen.findByText('review-pr')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '打开市场' }))
+    expect(screen.getByTestId('where').textContent).toBe('/market')
+    expect(onClose).toHaveBeenCalled()
   })
 })
 
 describe('settings · 我的 Skill', () => {
-  function Where() {
-    return <div data-testid="where">{useLocation().pathname}</div>
-  }
-
   it('lists my personal installs, imports from /me/installable and opens the market', async () => {
     const calls = mockApi({
       'GET /me/installs': [install({ scope: 'user' })],

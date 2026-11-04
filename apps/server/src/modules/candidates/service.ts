@@ -119,13 +119,15 @@ async function onCommandsUpdate(ctx: Ctx, machineId: string, msg: CommandsUpdate
 }
 
 /**
- * / candidates (spec §8.7): system commands first, then the group's team skills; agent commands of the given bots,
- * a name taken by a system command shown as `/bot名:命令`, the team skills they report back left out.
+ * / candidates (spec §8.7): system commands first, then the group's team skills with the caller's personal ones;
+ * agent commands of the given bots, a name taken by a system command shown as `/bot名:命令`, the team skills they
+ * report back left out.
  */
 export async function commandCandidates(
   ctx: Ctx,
   groupId: string,
   botIds: string[],
+  userId: string,
 ): Promise<CommandCandidatesDto> {
   const system = commands.list()
   const reserved = new Set(system.map((c) => c.name))
@@ -145,9 +147,10 @@ export async function commandCandidates(
         )
     : []
   rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
-  const skill = (await enabledSkills(ctx.db, groupId)).map((s) => ({
+  const skill = (await enabledSkills(ctx.db, groupId, userId)).map((s) => ({
     name: `${SKILL_PLUGIN}:${s.name}`,
     hint: s.description,
+    ...(s.personal && { personal: true as const }),
   }))
   const team = new Set(skill.map((s) => s.name))
   const agent = rows.flatMap((b) =>

@@ -45,6 +45,7 @@ export default {
   'ACP 上报': 'Reported via ACP',
   '团队 Skill': 'Team skills',
   配置中心: 'Configuration',
+  个人引入: 'Installed by you',
   '/ 命令': '/ commands',
   '@ 候选': '@ suggestions',
   '{bot} 的上下文': "{bot}'s context",

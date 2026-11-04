@@ -83,6 +83,13 @@ export const ListingSource = z.object({
 export type ListingSource = z.infer<typeof ListingSource>
 
 /**
+ * An install of a listing the caller can see: their personal layer (`label` ''), a group they are in, a team they
+ * belong to or one of its repos (「团队名 / 仓库名」).
+ */
+export const InstalledTarget = z.object({ scope: InstallScope, scopeId: z.string(), label: z.string() })
+export type InstalledTarget = z.infer<typeof InstalledTarget>
+
+/**
  * GET /api/market?q=&type=&source= — listings with an approved version the caller may see, newest first.
  * Installs follow `listedVersionId` (latest approved), not the author's latest upload.
  */
@@ -97,6 +104,8 @@ export const MarketListingDto = ListingSummary.extend({
   listedVersionId: z.string(),
   listedRevision: z.number().int(),
   installs: z.number().int(),
+  /** Where the caller sees it installed (market list and detail; empty elsewhere), user → group → team → repo. */
+  installedIn: z.array(InstalledTarget).optional(),
   updatedAt: z.string(),
 })
 export type MarketListingDto = z.infer<typeof MarketListingDto>

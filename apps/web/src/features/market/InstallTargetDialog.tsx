@@ -1,4 +1,4 @@
-import { type InstallRequestReq, PERSONAL_BASE, type RepoDto } from '@gonggong/protocol'
+import { type InstalledTarget, type InstallRequestReq, PERSONAL_BASE, type RepoDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -12,6 +12,8 @@ type Kind = 'me' | 'group' | 'team' | 'repo'
 interface Target {
   /** The install scope's API base, e.g. `/groups/:id`. */
   base: string
+  /** The install scope's id, to tell where the listing already is. */
+  scopeId: string
   label: string
   /** Set where I am not an admin: 申请引入 asks the admins of this scope instead. */
   ask?: Pick<InstallRequestReq, 'scope' | 'scopeId'>
@@ -30,6 +32,7 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
         (await api.get<RepoDto[]>(`/teams/${team.id}/repos`)).map(
           (r): Target => ({
             base: `/teams/${team.id}/repos/${r.id}`,
+            scopeId: r.id,
             label: `${team.name} / ${r.name}`,
             ask: team.role === 'member' ? { scope: 'repo', scopeId: r.id } : undefined,
           }),
@@ -53,6 +56,7 @@ function useRepos(teams: { id: string; name: string; role: string }[]) {
 export function InstallTargetDialog({
   listing,
   onClose,
+  onInstalled,
 }: {
   listing: {
     id: string
@@ -60,8 +64,11 @@ export function InstallTargetDialog({
     title: string
     listedVersionId: string
     listedRevision: number
+    installedIn?: InstalledTarget[]
   }
   onClose: () => void
+  /** A direct install went through (a request changes nothing yet). */
+  onInstalled?: () => void
 }) {
   const me = useSession((s) => s.user?.id)
   const teams = useSession((s) => s.tenancy?.teams) ?? []
@@ -75,21 +82,25 @@ export function InstallTargetDialog({
   const [error, setError] = useState('')
   const targets: Target[] | null =
     kind === 'me'
-      ? [{ base: PERSONAL_BASE, label: t('我的个人') }]
+      ? [{ base: PERSONAL_BASE, scopeId: me ?? '', label: t('我的个人') }]
       : kind === 'group'
         ? groups.map((g) => ({
             base: `/groups/${g.id}`,
+            scopeId: g.id,
             label: g.name,
             ask: isGroupAdmin(g, me) ? undefined : { scope: 'group', scopeId: g.id },
           }))
         : kind === 'team'
           ? teams.map((x) => ({
               base: `/teams/${x.id}`,
+              scopeId: x.id,
               label: x.name,
               ask: x.role === 'member' ? { scope: 'team', scopeId: x.id } : undefined,
             }))
           : repos
+  const installed = new Set(listing.installedIn?.map((x) => x.scopeId))
   const target = targets?.find((x) => x.base === picked)
+  const there = !!target && installed.has(target.scopeId)
   const ask = target?.ask
   const pinVersionId = policy === 'pin' ? listing.listedVersionId : null
   const submit = async () => {
@@ -104,6 +115,7 @@ export function InstallTargetDialog({
       } else {
         await api.put(`${target.base}/installs/${listing.id}`, { enabled: true, pinVersionId })
         toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
+        onInstalled?.()
       }
       onClose()
     } catch (e) {
@@ -123,7 +135,7 @@ export function InstallTargetDialog({
         {
           label: ask ? t('申请引入') : t('引入'),
           variant: 'primary',
-          disabled: !target || busy,
+          disabled: !target || there || busy,
           onClick: () => void submit(),
         },
       ]}
@@ -146,7 +158,9 @@ export function InstallTargetDialog({
       {listing.type === 'plugin' ? <div className="gs-note">{t('插件不能引入到个人')}</div> : null}
       {kind === 'me' ? (
         <div className="gs-note">
-          {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
+          {there
+            ? t('已经引入到这里了')
+            : t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
         </div>
       ) : kind === 'repo' && reposError ? (
         <Alert variant="error" title={reposError} />
@@ -162,10 +176,15 @@ export function InstallTargetDialog({
               onChange={setPicked}
               options={targets.map((x) => ({
                 value: x.base,
+                disabled: installed.has(x.scopeId),
                 label: (
                   <>
                     {x.label}
-                    {x.ask ? (
+                    {installed.has(x.scopeId) ? (
+                      <span className="mkt-targets__ask" aria-hidden="true">
+                        <Tag tone="green">{t('已引入')}</Tag>
+                      </span>
+                    ) : x.ask ? (
                       <span className="mkt-targets__ask" aria-hidden="true">
                         <Tag tone="orange">{t('需申请')}</Tag>
                       </span>

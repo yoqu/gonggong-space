@@ -6,6 +6,12 @@ export default {
   '引入平台、团队已有的 Skill 与插件；与这一层已有的同名 Skill 不能同时存在。':
     'Install skills and plugins from the platform or team; a skill of the same name on this layer cannot coexist.',
   还没有引入条目: 'Nothing installed yet',
+  '还没有引入条目，可以去市场挑选 Skill 和插件':
+    'Nothing installed yet; pick skills and plugins from the market',
+  '已引入到：{targets}': 'Installed in: {targets}',
+  已经引入到这里了: 'Already installed here',
+  条目详情: 'Listing details',
+  公开条目: 'Public listings',
   '锁定 r{n}': 'Pinned r{n}',
   跟随最新: 'Follow latest',
   '移除 {name}？': 'Remove {name}?',

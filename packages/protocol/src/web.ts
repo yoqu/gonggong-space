@@ -993,6 +993,8 @@ export const NotificationType = z.enum([
   'install_request',
   'install_request_decided',
   'listing_reviewed',
+  'listing_submitted',
+  'listing_banned',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1768,8 +1770,13 @@ export type FileCandidatesDto = z.infer<typeof FileCandidatesDto>
 
 export const CommandCandidatesDto = z.object({
   system: z.array(z.object({ name: z.string(), hint: z.string() })),
-  /** Team skills merged over the platform, team and group layers, as the agents name them. */
-  skill: z.array(z.object({ name: z.string(), hint: z.string() })).default([]),
+  /**
+   * Team skills merged over the platform, team and group layers, as the agents name them; `personal` marks the
+   * caller's own installs, which apply to the runs they start.
+   */
+  skill: z
+    .array(z.object({ name: z.string(), hint: z.string(), personal: z.literal(true).optional() }))
+    .default([]),
   /** Agent commands reported over ACP (Claude reports repo skills as commands), minus the team skills above. */
   agent: z.array(z.object({ name: z.string(), hint: z.string(), botId: z.string(), botName: z.string() })),
 })

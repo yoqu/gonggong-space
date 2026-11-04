@@ -78,6 +78,12 @@ export const stripFrontMatter = (md: string) =>
 export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source'>) =>
   [l.author, l.teamName].filter(Boolean).join(' · ') || SOURCE_LABEL[l.source]
 
+/** 已引入到：我的个人、支付核心群 */
+export const installedText = (where: NonNullable<MarketListingDto['installedIn']>) =>
+  t('已引入到：{targets}', {
+    targets: where.map((x) => (x.scope === 'user' ? t('我的个人') : x.label)).join(t('、')),
+  })
+
 /**
  * One listing: meta, README, files, version history and the GitHub source. `versionId` asks for that version's
  * content (a reviewer looking at a pending one).
@@ -131,6 +137,12 @@ export function ListingDetail({
         </div>
       </div>
       {data.description ? <p className="mkt-detail__desc">{data.description}</p> : null}
+      {data.installedIn?.length ? (
+        <div className="mkt-detail__installed">
+          <Icon name="check" size={14} />
+          <span>{installedText(data.installedIn)}</span>
+        </div>
+      ) : null}
       {action || data.canReview ? (
         <div className="mkt-detail__actions">
           {action}

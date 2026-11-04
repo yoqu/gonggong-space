@@ -72,8 +72,9 @@ export async function resolveNotifications(
     | 'sync_drift'
     | 'bot_share_request'
     | 'git_operation_request'
-    | 'install_request',
-  key: 'approvalId' | 'questionSetId' | 'conflictId' | 'botId' | 'requestId' | 'operationId',
+    | 'install_request'
+    | 'listing_submitted',
+  key: 'approvalId' | 'questionSetId' | 'conflictId' | 'botId' | 'requestId' | 'operationId' | 'versionId',
   ids: string[],
   groupId?: string,
 ) {

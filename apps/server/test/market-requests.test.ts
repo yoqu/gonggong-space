@@ -241,6 +241,45 @@ describe('review notices and details', () => {
     expect(await noticesOf(w.bob.id, 'listing_reviewed')).toEqual([])
   })
 
+  it('tells the reviewers a version waits for them, and clears it once reviewed', async () => {
+    const w = await world()
+    const l = await publish(w.api.ann, w.teamA, pluginFiles('web'))
+    await submit(w.api.ann, l)
+    const waiting = {
+      listingId: l.id,
+      versionId: l.latest.id,
+      listingName: '插件 web',
+      revision: 1,
+      byName: '安',
+    }
+    expect((await noticesOf(w.bob.id, 'listing_submitted')).map((n) => n.payload)).toEqual([waiting])
+    expect(await noticesOf(w.own.id, 'listing_submitted')).toHaveLength(1)
+    expect(await noticesOf(w.ann.id, 'listing_submitted')).toEqual([])
+    expect(await noticesOf(w.root.id, 'listing_submitted')).toEqual([])
+
+    await review(w.api.bob, l, { approve: true })
+    expect((await noticesOf(w.own.id, 'listing_submitted'))[0]!.resolvedAt).not.toBeNull()
+    expect((await noticesOf(w.ann.id, 'listing_reviewed'))[0]!.payload.listingName).toBe('插件 web')
+
+    const pub = await publish(w.api.ann, w.teamA, skill('pub'), 'public')
+    await submit(w.api.ann, pub)
+    expect((await noticesOf(w.root.id, 'listing_submitted')).map((n) => n.payload)).toEqual([
+      { listingId: pub.id, versionId: pub.latest.id, listingName: 'pub', revision: 1, byName: '安' },
+    ])
+  })
+
+  it('tells the maintainers when their listing is banned or unbanned', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, skill('wiki'))
+    await w.api.bob.post(`/api/market/${wiki.id}/ban`, { reason: '含恶意脚本' })
+    await w.api.bob.del(`/api/market/${wiki.id}/ban`)
+    expect((await noticesOf(w.ann.id, 'listing_banned')).map((n) => n.payload)).toEqual([
+      { listingId: wiki.id, listingName: 'wiki', banned: true, reason: '含恶意脚本' },
+      { listingId: wiki.id, listingName: 'wiki', banned: false, reason: '' },
+    ])
+    expect(await noticesOf(w.bob.id, 'listing_banned')).toEqual([])
+  })
+
   it('gives null as the listed version of a never approved listing', async () => {
     const w = await world()
     const l = await publish(w.api.ann, w.teamA, skill('draft'))
@@ -372,7 +411,9 @@ describe('install requests', () => {
     expect(rejected.status).toBe(200)
     expect(rejected.body).toMatchObject({ status: 'rejected', decidedBy: '伊芙', decisionNote: '已有同名' })
     expect((await noticesOf(w.eve.id, 'install_request'))[0]!.resolvedAt).not.toBeNull()
-    expect((await decide(w.api.eve, g.body.id, { approve: true })).status).toBe(404)
+    const again = await decide(w.api.eve, g.body.id, { approve: true })
+    expect(again.status).toBe(409)
+    expect(again.body).toMatchObject({ message: '这条申请已经处理过了' })
 
     const ok = await decide(w.api.bob, team.body.id, { approve: true })
     expect(ok.status).toBe(200)

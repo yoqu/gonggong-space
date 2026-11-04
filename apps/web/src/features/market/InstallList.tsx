@@ -1,5 +1,6 @@
 import type { InstallableDto, InstallDto, ListingSummary } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
@@ -36,7 +37,16 @@ function StatusTag({ status }: { status: ListingSummary['status'] }) {
  * The listings installed into one scope under `base` (`/groups/:id`, `/teams/:id`, `/teams/:id/repos/:repoId`):
  * switch, remove, and import another visible listing.
  */
-export function InstallList({ base, readOnly = false }: { base: string; readOnly?: boolean }) {
+export function InstallList({
+  base,
+  readOnly = false,
+  onLeave,
+}: {
+  base: string
+  readOnly?: boolean
+  /** Offers 打开市场 to browse for more, closing the caller's dialog on the way. */
+  onLeave?: () => void
+}) {
   const { data, error, reload } = useGet<InstallDto[]>(`${base}/installs`)
   const [importing, setImporting] = useState(false)
   const [removing, setRemoving] = useState<InstallDto | null>(null)
@@ -49,7 +59,9 @@ export function InstallList({ base, readOnly = false }: { base: string; readOnly
     <>
       {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
       {data?.length === 0 ? (
-        <div className="gs-note">{t('还没有引入条目')}</div>
+        <div className="gs-note">
+          {readOnly ? t('还没有引入条目') : t('还没有引入条目，可以去市场挑选 Skill 和插件')}
+        </div>
       ) : (
         <GroupBox>
           {data?.map((i) => (
@@ -96,6 +108,7 @@ export function InstallList({ base, readOnly = false }: { base: string; readOnly
       {readOnly ? null : (
         <div className="cfg__foot">
           <span className="spacer" />
+          {onLeave ? <OpenMarket onLeave={onLeave} /> : null}
           <Button disabled={!data} onClick={() => setImporting(true)}>
             {t('从已有条目引入…')}
           </Button>
@@ -131,15 +144,39 @@ export function InstallList({ base, readOnly = false }: { base: string; readOnly
   )
 }
 
+function OpenMarket({ onLeave }: { onLeave: () => void }) {
+  const navigate = useNavigate()
+  return (
+    <Button
+      variant="plain"
+      icon="tag"
+      onClick={() => {
+        onLeave()
+        navigate('/market')
+      }}
+    >
+      {t('打开市场')}
+    </Button>
+  )
+}
+
 /** 「已引入」 under a Skill tab: the scope's installs below its hand-written skills. */
-export function InstalledSection({ base, readOnly }: { base: string; readOnly?: boolean }) {
+export function InstalledSection({
+  base,
+  readOnly,
+  onLeave,
+}: {
+  base: string
+  readOnly?: boolean
+  onLeave?: () => void
+}) {
   return (
     <>
       <div className="cfg__eyebrow">{t('已引入')}</div>
       <div className="gs-note">
         {t('引入平台、团队已有的 Skill 与插件；与这一层已有的同名 Skill 不能同时存在。')}
       </div>
-      <InstallList base={base} readOnly={readOnly} />
+      <InstallList base={base} readOnly={readOnly} onLeave={onLeave} />
     </>
   )
 }

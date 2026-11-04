@@ -225,7 +225,7 @@ async function skillNameFree(db: Read, t: Target, name: string, listingId: strin
               eq(skills.name, name),
             ),
           )
-  if (installed || own) fail('conflict', '同名 Skill 已存在')
+  if (installed || own) fail('conflict', '这里已经有同名的 Skill「{name}」，先移除它再引入', { name })
 }
 
 /** Whether a group or team layer has a skill listing called `name` installed (its own skills may not take it). */

@@ -205,7 +205,7 @@ describe('notification center', () => {
       'button',
     ) as HTMLElement
     const decided = within(list)
-      .getByText('引入 review-pr 到 闲聊群 的申请被拒绝')
+      .getByText('引入 review-pr 到 闲聊群 的申请被拒绝：已有同类')
       .closest('button') as HTMLElement
     const reviewed = within(list).getByText('review-pr r4 审核通过').closest('button') as HTMLElement
     const color = (el: HTMLElement) => (el.querySelector('.notif__icon') as HTMLElement).style.color

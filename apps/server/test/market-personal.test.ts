@@ -1,6 +1,8 @@
 import {
+  type CommandCandidatesDto,
   type InstallDto,
   type ListingSummary,
+  type MarketListingDetailDto,
   type MarketListingDto,
   PROTOCOL_VERSION,
   type PublishRes,
@@ -131,7 +133,11 @@ describe('personal installs', () => {
     const put = await mine(w.api.mia, wiki.id)
     expect(put.status).toBe(200)
     expect(put.body).toMatchObject({ scope: 'user', enabled: true, resolvedVersionId: wiki.latest.id })
-    expect((await mine(w.api.mia, official.id)).status).toBe(409)
+    const clash = await mine(w.api.mia, official.id)
+    expect([clash.status, clash.body]).toEqual([
+      409,
+      expect.objectContaining({ message: '这里已经有同名的 Skill「wiki」，先移除它再引入' }),
+    ])
     expect((await mine(w.api.mia, plugin.id)).status).toBe(400)
     expect((await mine(w.api.mia, other.id)).status).toBe(404)
 
@@ -264,6 +270,44 @@ describe('personal layer in runs', () => {
     const detail = await w.api.ann.get<RunDetailDto>(`/api/runs/${run!.id}`)
     expect(detail.body.run.personalSkills).toBe(1)
     ws.close()
+  })
+})
+
+describe('personal skills in the / picker', () => {
+  it("lists the caller's own personal skills, marked as theirs", async () => {
+    const w = await world()
+    const x = await approved(w.api.ann, w.api.bob, w.teamA, 'x')
+    await mine(w.api.ann, x.id)
+    const url = `/api/groups/${w.groupA.id}/candidates/commands`
+    expect((await w.api.ann.get<CommandCandidatesDto>(url)).body.skill).toEqual([
+      { name: 'gonggong-team:x', hint: 'x helper', personal: true },
+    ])
+    expect((await w.api.mia.get<CommandCandidatesDto>(url)).body.skill).toEqual([])
+  })
+})
+
+describe('where a listing is installed', () => {
+  it('shows the caller the installs they can see: personal, their groups, teams and repos', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, 'wiki')
+    await mine(w.api.mia, wiki.id)
+    expect(
+      (await w.api.eve.put(`/api/groups/${w.groupA.id}/installs/${wiki.id}`, { enabled: true })).status,
+    ).toBe(200)
+    expect((await w.api.bob.put(`/api/teams/${w.teamA}/installs/${wiki.id}`, { enabled: true })).status).toBe(
+      200,
+    )
+    const listed = async (api: Api) =>
+      (await api.get<MarketListingDto[]>('/api/market')).body.find((l) => l.id === wiki.id)?.installedIn
+    const team = { scope: 'team', scopeId: w.teamA, label: expect.any(String) }
+    const group = { scope: 'group', scopeId: w.groupA.id, label: 'A 群' }
+    expect(await listed(w.api.mia)).toEqual([{ scope: 'user', scopeId: w.mia.id, label: '' }, group, team])
+    expect(await listed(w.api.bob)).toEqual([team])
+    expect((await w.api.mia.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body.installedIn).toEqual([
+      { scope: 'user', scopeId: w.mia.id, label: '' },
+      group,
+      team,
+    ])
   })
 })
 

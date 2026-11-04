@@ -55,14 +55,14 @@ export function TeamSecretsTab({ team }: { team: TeamDto }) {
 }
 
 /** 团队设置 · Skill: the team layer, over the platform one and under each group's. */
-export function TeamSkillTab({ team }: { team: TeamDto }) {
+export function TeamSkillTab({ team, onClose }: { team: TeamDto; onClose: () => void }) {
   return (
     <>
       <div className="gs-note">
         {t('对本团队所有群生效；与平台层同名时以团队层为准，群管理员可在群设置中再覆盖。')}
       </div>
       <SkillLayerList base={`/teams/${team.id}/skills`} tag={t('团队层')} />
-      <InstalledSection base={`/teams/${team.id}`} />
+      <InstalledSection base={`/teams/${team.id}`} onLeave={onClose} />
     </>
   )
 }

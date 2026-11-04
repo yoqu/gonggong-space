@@ -101,7 +101,7 @@ export function MarketPage(_: PageProps) {
                 </span>
                 <span className="dk-sub">{l.description}</span>
                 <span className="dk-sub dk-ellipsis">
-                  {[l.author, l.teamName, t('{n} 次安装', { n: l.installs })].filter(Boolean).join(' · ')}
+                  {[l.author, l.teamName, t('{n} 次引入', { n: l.installs })].filter(Boolean).join(' · ')}
                 </span>
               </div>
             </div>

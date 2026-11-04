@@ -91,7 +91,12 @@ export function TeamSettingsDialog({
             body: <TeamGroupsTab team={team} onClose={onClose} />,
           },
           { value: 'mcp', label: 'MCP', icon: 'plug', body: <TeamMcpTab team={team} /> },
-          { value: 'skill', label: 'Skill', icon: 'star', body: <TeamSkillTab team={team} /> },
+          {
+            value: 'skill',
+            label: 'Skill',
+            icon: 'star',
+            body: <TeamSkillTab team={team} onClose={onClose} />,
+          },
           { value: 'plugins', label: t('插件'), icon: 'apps', body: <TeamPluginsTab team={team} /> },
           { value: 'repos', label: t('仓库'), icon: 'folder-git', body: <TeamReposTab team={team} /> },
           { value: 'reviews', label: t('待审核'), icon: 'checklist', body: <TeamReviewsTab team={team} /> },

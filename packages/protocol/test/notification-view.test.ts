@@ -91,6 +91,83 @@ describe('notificationView', () => {
       '/g/g1?conflict=c1',
     )
   })
+  it('says what happened to a market listing, with the reason, and opens it', () => {
+    expect(
+      notificationView(
+        n('listing_submitted', {
+          listingId: 'l1',
+          versionId: 'v1',
+          listingName: '幻灯片',
+          revision: 2,
+          byName: '安',
+        }),
+      ),
+    ).toEqual({
+      label: '待审核',
+      text: '安 提交了 幻灯片 r2，等你审核',
+      group: '',
+      href: '/market?tab=reviews',
+    })
+    expect(
+      notificationView({
+        ...n('listing_submitted', { listingName: 'x', revision: 1, byName: '安' }),
+        resolvedAt: 'x',
+      }).label,
+    ).toBe('审核请求')
+    expect(
+      notificationView(
+        n('listing_reviewed', {
+          listingId: 'l1',
+          listingName: '幻灯片',
+          revision: 2,
+          approved: false,
+          note: '缺说明',
+        }),
+      ),
+    ).toEqual({
+      label: '审核结果',
+      text: '幻灯片 r2 被驳回：缺说明',
+      group: '',
+      href: '/market?tab=mine&listing=l1',
+    })
+    expect(
+      notificationView(
+        n('listing_reviewed', {
+          listingId: 'l1',
+          listingName: '幻灯片',
+          revision: 2,
+          approved: true,
+          note: '',
+        }),
+      ).text,
+    ).toBe('幻灯片 r2 审核通过')
+    expect(
+      notificationView(
+        n('listing_banned', { listingId: 'l1', listingName: 'wiki', banned: true, reason: '恶意' }),
+      ),
+    ).toEqual({
+      label: '封禁通知',
+      text: 'wiki 已被封禁：恶意',
+      group: '',
+      href: '/market?tab=mine&listing=l1',
+    })
+    expect(
+      notificationView(
+        n('listing_banned', { listingId: 'l1', listingName: 'wiki', banned: false, reason: '' }),
+      ).text,
+    ).toBe('wiki 已解除封禁')
+    expect(
+      notificationView(
+        n('install_request_decided', {
+          listingName: 'wiki',
+          targetLabel: 'A 群',
+          approved: false,
+          note: '已有同名',
+        }),
+      ).text,
+    ).toBe('引入 wiki 到 A 群 的申请被拒绝：已有同名')
+  })
+
   it("renders in the reader's language, nested reasons included", () => {
     const en = createTranslator('en', protocolEn).text
     expect(

@@ -17,6 +17,10 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
   const group = p('groupName')
   const at = (runKey: string) => (p(runKey) ? `/g/${p('groupId')}?run=${p(runKey)}` : `/g/${p('groupId')}`)
   const bot = p('botName')
+  /** A decision with the reviewer's words after it. */
+  const because = (text: string, reason: string) =>
+    reason ? say('{text}：{reason}', { text, reason }) : text
+  const mine = `/market?tab=mine&listing=${p('listingId')}`
   switch (n.type) {
     case 'approval':
       return {
@@ -153,12 +157,12 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
     case 'install_request_decided':
       return {
         label: say('引入申请结果'),
-        text: say(
-          n.payload.approved ? '{listing} 已引入到 {target}' : '引入 {listing} 到 {target} 的申请被拒绝',
-          {
-            listing: p('listingName'),
-            target: p('targetLabel'),
-          },
+        text: because(
+          say(
+            n.payload.approved ? '{listing} 已引入到 {target}' : '引入 {listing} 到 {target} 的申请被拒绝',
+            { listing: p('listingName'), target: p('targetLabel') },
+          ),
+          n.payload.approved ? '' : p('note'),
         ),
         group: '',
         href: '/market?tab=requests',
@@ -166,12 +170,35 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
     case 'listing_reviewed':
       return {
         label: say('审核结果'),
-        text: say(n.payload.approved ? '{listing} r{revision} 审核通过' : '{listing} r{revision} 被驳回', {
+        text: because(
+          say(n.payload.approved ? '{listing} r{revision} 审核通过' : '{listing} r{revision} 被驳回', {
+            listing: p('listingName'),
+            revision: p('revision'),
+          }),
+          n.payload.approved ? '' : p('note'),
+        ),
+        group: '',
+        href: mine,
+      }
+    case 'listing_submitted':
+      return {
+        label: say(n.resolvedAt ? '审核请求' : '待审核'),
+        text: say('{by} 提交了 {listing} r{revision}，等你审核', {
+          by: p('byName'),
           listing: p('listingName'),
           revision: p('revision'),
         }),
         group: '',
-        href: '/market?tab=mine',
+        href: '/market?tab=reviews',
+      }
+    case 'listing_banned':
+      return {
+        label: say('封禁通知'),
+        text: n.payload.banned
+          ? because(say('{listing} 已被封禁', { listing: p('listingName') }), p('reason'))
+          : say('{listing} 已解除封禁', { listing: p('listingName') }),
+        group: '',
+        href: mine,
       }
   }
 }

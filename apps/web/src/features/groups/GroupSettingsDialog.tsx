@@ -172,7 +172,7 @@ export function GroupSettingsDialog({
               <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
               <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
               <InheritedSkillList groupId={group.id} />
-              <InstalledSection base={`/groups/${group.id}`} />
+              <InstalledSection base={`/groups/${group.id}`} onLeave={onClose} />
             </>
           ) : tab === 'secrets' ? (
             <GroupSecrets group={group} editable={!readOnly} />

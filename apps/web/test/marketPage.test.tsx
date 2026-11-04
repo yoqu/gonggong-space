@@ -927,3 +927,70 @@ describe('M4 引入申请 tab', () => {
     expect(calls.some((c) => c.path === '/market')).toBe(false)
   })
 })
+
+describe('体验迭代第 1 轮', () => {
+  const installedIn: MarketListingDto['installedIn'] = [
+    { scope: 'user', scopeId: 'u1', label: '' },
+    { scope: 'group', scopeId: 'g1', label: '支付核心群' },
+  ]
+
+  it('marks listings I see installed, says where, and keeps those targets out of 引入到…', async () => {
+    mockApi({
+      'GET /market': [listing({ installedIn }), LISTINGS[1]!],
+      'GET /market/l1': detail({ installedIn }),
+      'GET /teams/t1/repos': [],
+      'GET /teams/t2/repos': [],
+    })
+    renderPage()
+    const grid = await screen.findByRole('list', { name: '市场' })
+    expect((within(grid).getByText('review-pr').closest('li') as HTMLElement).textContent).toContain('已引入')
+    expect((within(grid).getByText('幻灯片').closest('li') as HTMLElement).textContent).not.toContain(
+      '已引入',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '查看 review-pr' }))
+    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
+    expect(await within(drawer).findByText('已引入到：我的个人、支付核心群')).toBeTruthy()
+    fireEvent.click(within(drawer).getByRole('button', { name: '引入到…' }))
+    const dialog = await screen.findByRole('dialog', { name: '引入「review-pr」' })
+    expect((within(dialog).getByRole('radio', { name: '支付核心群' }) as HTMLInputElement).disabled).toBe(
+      true,
+    )
+    expect((within(dialog).getByRole('radio', { name: '闲聊群' }) as HTMLInputElement).disabled).toBe(false)
+    fireEvent.click(
+      within(within(dialog).getByRole('radiogroup', { name: '引入到' })).getByRole('radio', {
+        name: '我的个人',
+      }),
+    )
+    expect(within(dialog).getByText('已经引入到这里了')).toBeTruthy()
+    expect((within(dialog).getByRole('button', { name: '引入' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('opens a listing straight from a link', async () => {
+    mockApi({ 'GET /market': LISTINGS, 'GET /market/l1': detail() })
+    renderPage('/market?listing=l1')
+    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
+    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
+  })
+
+  it('gives reviewers a 待审核 tab with the queues they review', async () => {
+    const item: ReviewItemDto = {
+      listing: { ...listing(), listedVersionId: null, listedRevision: null },
+      version: detail().versions[0]!,
+    }
+    mockApi({ 'GET /market/reviews?teamId=t1': [item], 'GET /install-requests?view=todo': [] })
+    renderPage('/market?tab=reviews')
+    expect(screen.getByRole('tab', { name: '待审核' })).toBeTruthy()
+    const row = (await screen.findByText('review-pr')).closest('.cfg__item') as HTMLElement
+    expect(within(row).getByRole('button', { name: '审核' })).toBeTruthy()
+  })
+
+  it('hides 待审核 from members who review nothing', async () => {
+    useSession.setState({
+      tenancy: { ...useSession.getState().tenancy!, teams: [team({ role: 'member' })] },
+    })
+    mockApi({ 'GET /market': LISTINGS, 'GET /install-requests?view=todo': [] })
+    renderPage()
+    await screen.findByRole('list', { name: '市场' })
+    expect(screen.queryByRole('tab', { name: '待审核' })).toBeNull()
+  })
+})

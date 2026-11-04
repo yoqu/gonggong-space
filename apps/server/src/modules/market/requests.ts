@@ -221,7 +221,7 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
       await notify(ctx, userId, 'install_request', {
         requestId: row.id,
         requesterName: me.name,
-        listingName: listing.name,
+        listingName: listing.title,
         targetLabel: label,
       })
   return requestDto(ctx.db, row.id)
@@ -229,17 +229,16 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
 
 async function findRequest(db: Read, id: string) {
   const [row] = await db
-    .select({ r: installRequests, listingName: plugins.name })
+    .select({ r: installRequests })
     .from(installRequests)
-    .innerJoin(plugins, eq(plugins.id, installRequests.listingId))
     .where(eq(installRequests.id, idParam(id, '申请不存在')))
   return row ?? fail('not_found', '申请不存在')
 }
 
 /** Approval installs in the same transaction: a conflict leaves the request pending. */
 export async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: DecideInstallRequestReq) {
-  const { r, listingName } = await findRequest(ctx.db, id)
-  if (r.status !== 'pending') fail('not_found', '申请不存在或已处理')
+  const { r } = await findRequest(ctx.db, id)
+  if (r.status !== 'pending') fail('conflict', '这条申请已经处理过了')
   const { target, label } = await resolveTarget(ctx, r.scope as ScopeTarget['scope'], r.scopeId, me.id, true)
   await ctx.db.transaction(async (tx) => {
     const [claimed] = await tx
@@ -264,13 +263,14 @@ export async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: 
       )
   })
   await resolveNotifications(ctx, 'install_request', 'requestId', [r.id])
+  const dto = await requestDto(ctx.db, r.id)
   await notify(ctx, r.requesterId, 'install_request_decided', {
-    listingName,
+    listingName: dto.listing.title,
     targetLabel: label,
     approved: req.approve,
     note: req.note,
   })
-  return requestDto(ctx.db, r.id)
+  return dto
 }
 
 export async function cancelRequest(ctx: Ctx, me: SessionUser, id: string) {

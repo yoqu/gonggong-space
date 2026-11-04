@@ -209,6 +209,16 @@
   font-size: var(--text-body-size);
   line-height: 20px;
 }
+.mkt-detail__installed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--system-green);
+  font-size: var(--text-callout-size);
+}
+.mkt-queue + .mkt-queue {
+  margin-top: var(--space-20);
+}
 .mkt-detail__actions {
   display: flex;
   align-items: center;

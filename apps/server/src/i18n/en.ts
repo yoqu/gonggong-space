@@ -492,6 +492,8 @@ export const en = {
   条目不存在: 'Listing not found',
   '条目已下架，不能引入': 'This listing is no longer listed and cannot be installed',
   '同名 Skill 已存在': 'A skill with this name is already here',
+  '这里已经有同名的 Skill「{name}」，先移除它再引入':
+    'A skill named "{name}" is already here; remove it before installing this one',
   '个人只能引入 Skill': 'Only skills can be installed for yourself',
   // Market publishing and review
   只能发布到你所在的团队: 'You can only publish to a team you are in',
@@ -665,6 +667,7 @@ export const en = {
   请先在个人设置中绑定飞书账号: 'Link your Feishu account in your settings first',
   申请不存在: 'Request not found',
   申请不存在或已处理: 'Request not found or already handled',
+  这条申请已经处理过了: 'This request has already been handled',
   '只有 Bot 主人或系统管理员可以处理共享申请':
     'Only the Bot owner or a system admin can handle share requests',
   '这是你自己的 Bot': 'This is your own Bot',
