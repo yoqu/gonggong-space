@@ -1,0 +1,1 @@
+ALTER TABLE "group_bots" ADD COLUMN "repo_paths" jsonb DEFAULT '{}'::jsonb NOT NULL;

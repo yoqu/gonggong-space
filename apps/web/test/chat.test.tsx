@@ -612,6 +612,7 @@ describe('chat view', () => {
         effort: null,
         context: null,
         extraDirs: [],
+        repoPaths: {},
       },
     })
     expect(within(main).getByTestId('git-b1').textContent).toBe('小王的 Claudemain1未提交')
@@ -1345,6 +1346,7 @@ describe('repo and workspaces', () => {
     effort: null,
     context: null,
     extraDirs: [],
+    repoPaths: {},
     ...s,
   }))
 
@@ -1477,8 +1479,9 @@ describe('repo and workspaces', () => {
         branch: 'develop',
       }),
     )
-    expect(await within(dialog).findByText('pay/web')).toBeTruthy()
-    expect(within(dialog).getByText('develop')).toBeTruthy()
+    // Listed as a group repo, and under each bot as the clone it works in.
+    expect((await within(dialog).findAllByText('pay/web')).length).toBeGreaterThan(1)
+    expect(within(dialog).getByTestId('rw-ws-b1-r9').textContent).toContain('托管克隆 · develop')
     // With an extra repo the main one cannot be unbound.
     expect(within(dialog).queryByRole('button', { name: '解绑…' })).toBeNull()
 
@@ -1486,7 +1489,7 @@ describe('repo and workspaces', () => {
     const confirm = await screen.findByRole('alertdialog', { name: '移除附加仓库' })
     fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
-    await waitFor(() => expect(within(dialog).queryByText('pay/web')).toBeNull())
+    await waitFor(() => expect(within(dialog).queryAllByText('pay/web')).toEqual([]))
   })
 
   it('shows every member where each bot works; only the owner can move it', async () => {

@@ -166,3 +166,34 @@
 .rw-path {
   font-family: var(--font-mono);
 }
+.rw-ws {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 36px;
+  padding: var(--space-2) var(--space-12) var(--space-2) 44px;
+  color: var(--label-secondary);
+}
+.rw-ws--add {
+  min-height: 32px;
+}
+.rw-ws__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rw-ws__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  color: var(--label);
+  font-size: var(--text-subheadline-size);
+}
+.rw-ws__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-footnote-size);
+}

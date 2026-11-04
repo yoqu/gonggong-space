@@ -413,6 +413,7 @@ describe('run engine', () => {
         effort: null,
         context: null,
         extraDirs: [],
+        repoPaths: {},
       },
     })
     const [gb] = await t.db

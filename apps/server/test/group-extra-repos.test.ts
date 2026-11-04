@@ -1,4 +1,9 @@
-import { type GroupDto, PROTOCOL_VERSION, type ServerToDaemon } from '@gonggong/protocol'
+import {
+  type GroupBotStateDto,
+  type GroupDto,
+  PROTOCOL_VERSION,
+  type ServerToDaemon,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupBots, groupRepos, groups, messages } from '../src/db/schema.js'
@@ -74,7 +79,8 @@ async function world() {
     await triggerRuns(t.ctx, m!)
     return next('run.start')
   }
-  return { admin, owner, bot, group, main: main!, admins, owners, add, next, session, trigger }
+  const send = (m: object) => ws.send(JSON.stringify(m))
+  return { admin, owner, bot, group, main: main!, admins, owners, add, next, send, session, trigger }
 }
 
 describe('extra repos of a group', () => {
@@ -106,7 +112,7 @@ describe('extra repos of a group', () => {
     )
   })
 
-  it('refuses duplicates, groups without a main repo and force-sync groups; the main repo cannot be unbound first', async () => {
+  it('refuses duplicates and groups without a main repo; the main repo cannot be unbound first', async () => {
     const w = await world()
     expect((await w.add(w.admins, 'git@git.corp:pay/pay-server')).status).toBe(409)
     expect((await w.add(w.admins, WEB)).status).toBe(200)
@@ -117,9 +123,6 @@ describe('extra repos of a group', () => {
     const swap = await w.admins.patch(`/api/groups/${w.group.id}/repo`, { url: WEB, branch: 'main' })
     expect(swap.status).toBe(409)
 
-    await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.group.id))
-    expect((await w.add(w.admins, 'https://git.corp/pay/pay-sdk.git')).status).toBe(409)
-    await t.db.update(groups).set({ mode: 'partition' }).where(eq(groups.id, w.group.id))
     await t.db.delete(groupRepos).where(eq(groupRepos.groupId, w.group.id))
     expect((await w.add(w.admins, 'https://git.corp/pay/pay-sdk.git')).status).toBe(409)
   })
@@ -143,5 +146,92 @@ describe('extra repos of a group', () => {
     expect(removed.body.extraRepos).toEqual([])
     expect(removed.body.repo).toEqual({ url: MAIN, branch: 'main' })
     expect((await w.next('workspace.ensure')).extraRepos).toEqual([])
+  })
+
+  it('force-sync groups take extra repos too: only the main repo is synced', async () => {
+    const w = await world()
+    await t.db.update(groups).set({ mode: 'force' }).where(eq(groups.id, w.group.id))
+    expect((await w.add(w.admins, WEB)).status).toBe(200)
+  })
+})
+
+describe("a bot's local checkout of an extra repo", () => {
+  const PATH = '/Users/w/code/pay-web'
+  const answer = (req: { requestId: string; path: string | null }, remotes: string[]) => ({
+    t: 'dir.result',
+    requestId: req.requestId,
+    path: req.path,
+    entries: [],
+    git: { root: req.path, remotes, branch: 'develop' },
+    unusable: null,
+    error: null,
+  })
+
+  async function withExtra() {
+    const w = await world()
+    const extra = (await w.add(w.admins, WEB)).body.extraRepos![0]!
+    await w.next('workspace.ensure')
+    const url = `/api/groups/${w.group.id}/bots/${w.bot.id}/repos/${extra.id}`
+    const checkout = async (path: string | null, remotes = ['git@git.corp:pay/pay-web.git']) => {
+      const res = w.owners.put(url, { path })
+      if (path) w.send(answer(await w.next('dir.list'), remotes))
+      return res
+    }
+    return { ...w, extra, url, checkout }
+  }
+
+  it('only the owner points it at a local clone with the same remote; runs get it as a directory, not a clone', async () => {
+    const w = await withExtra()
+    expect((await w.admins.put(w.url, { path: PATH })).status).toBe(403)
+    expect((await w.checkout(PATH, ['git@git.corp:pay/other.git'])).status).toBe(400)
+    expect((await w.checkout(PATH)).status).toBe(204)
+    expect(await w.session()).toEqual({ sessionId: null, reason: 'config_changed' })
+    const states = await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.group.id}/bot-states`)
+    expect(states.body[0]?.repoPaths).toEqual({ [w.extra.id]: PATH })
+    const events = await t.db.select().from(messages).where(eq(messages.groupId, w.group.id))
+    expect(events.map((m) => m.body)).toContain('王磊 让 cc 在本群改用本机的 pay-web：/Users/w/code/pay-web')
+
+    const start = await w.trigger()
+    expect(start.workspace.extraRepos).toEqual([])
+    expect(start.workspace.extraDirs).toEqual([PATH])
+    expect(start.bot.systemPrompt).toContain(`- pay-web: ${WEB} (default branch main) at ${PATH}`)
+  })
+
+  it('back to managed clones it again; a branch change keeps the local clone', async () => {
+    const w = await withExtra()
+    await w.checkout(PATH)
+    const moved = await w.admins.patch<GroupDto>(`/api/groups/${w.group.id}/repos/${w.extra.id}`, {
+      branch: 'develop',
+    })
+    const now = moved.body.extraRepos![0]!
+    expect((await w.next('workspace.ensure')).extraRepos).toEqual([])
+    const states = await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.group.id}/bot-states`)
+    expect(states.body[0]?.repoPaths).toEqual({ [now.id]: PATH })
+
+    const back = `/api/groups/${w.group.id}/bots/${w.bot.id}/repos/${now.id}`
+    expect((await w.owners.put(back, { path: null })).status).toBe(204)
+    expect((await w.next('workspace.ensure')).extraRepos?.map((r) => r.id)).toEqual([now.id])
+    const start = await w.trigger()
+    expect(start.workspace.extraDirs).toEqual([])
+  })
+
+  it('/cd to a clone of the extra repo uses it for that repo; any other directory still rebinds the main one', async () => {
+    const w = await withExtra()
+    const say = (body: string) =>
+      w.owners.post(`/api/groups/${w.group.id}/messages`, { body, clientId: body })
+    const said = say(`/cd @cc ${PATH}`)
+    w.send(answer(await w.next('dir.list'), ['https://git.corp/pay/pay-web']))
+    await said
+    await expect
+      .poll(
+        async () =>
+          (await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.group.id}/bot-states`)).body[0]?.repoPaths,
+      )
+      .toEqual({ [w.extra.id]: PATH })
+
+    const other = say('/cd @cc /Users/w/code/pay-server')
+    w.send(answer(await w.next('dir.list'), [MAIN]))
+    await other
+    expect(await w.next('workspace.cd')).toMatchObject({ path: '/Users/w/code/pay-server' })
   })
 })

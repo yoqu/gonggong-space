@@ -39,7 +39,6 @@ import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { SchedulesView } from '../schedules/SchedulesView'
 import { useSchedules } from '../schedules/store'
 import { openSyncPanel, useSyncStatus } from '../sync/store'
-import { DirPicker } from '../workspaces/DirPicker'
 import { groupsApi, paramsSummary } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
@@ -554,7 +553,6 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
   const allBots = useWorkspace((s) => s.bots)
   const [removing, setRemoving] = useState<BotDto | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [dirsOf, setDirsOf] = useState<BotDto | null>(null)
   const states = useWorkspace((s) => s.botStates[group.id])
   const editing = allBots.find((b) => b.id === editingId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
@@ -612,25 +610,8 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
                 {states?.[b.id]?.tier ? t(' · 本群') : ''}
               </span>
               <span>{t('触发 {scope}', { scope: SCOPE_LABEL(b) })}</span>
-              {b.ownerId !== me?.id && states?.[b.id]?.extraDirs.length ? (
-                <span title={states[b.id]?.extraDirs.join('\n')}>
-                  {t('附加目录 {n}', { n: states[b.id]?.extraDirs.length ?? 0 })}
-                </span>
-              ) : null}
               <span className="spacer" />
               <ShareRequestAction bot={b} />
-              {b.ownerId === me?.id ? (
-                <Button
-                  variant="plain"
-                  size="small"
-                  title={states?.[b.id]?.extraDirs.join('\n') || undefined}
-                  onClick={() => setDirsOf(b)}
-                >
-                  {states?.[b.id]?.extraDirs.length
-                    ? t('附加目录 {n}', { n: states[b.id]?.extraDirs.length ?? 0 })
-                    : t('附加目录')}
-                </Button>
-              ) : null}
               {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
                 <>
                   <GroupTierPicker groupId={group.id} bot={b} tier={states?.[b.id]?.tier ?? null} />
@@ -670,107 +651,6 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
           </Suspense>
         ) : null}
       </Presence>
-      <Presence>
-        {dirsOf ? (
-          <ExtraDirsDialog
-            groupId={group.id}
-            bot={dirsOf}
-            dirs={states?.[dirsOf.id]?.extraDirs ?? []}
-            onClose={() => setDirsOf(null)}
-          />
-        ) : null}
-      </Presence>
-    </>
-  )
-}
-
-/** Machines whose daemon is connected: their directories can be browsed. */
-const BROWSABLE: BotDto['presence'][] = ['online', 'running', 'agent_missing']
-
-/** The directories on the owner's machine the bot also works in here, picked on that machine rather than typed. */
-function ExtraDirsDialog({
-  groupId,
-  bot,
-  dirs,
-  onClose,
-}: {
-  groupId: string
-  bot: BotDto
-  dirs: string[]
-  onClose: () => void
-}) {
-  const [list, setList] = useState(dirs)
-  const [picking, setPicking] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const browsable = !!bot.machineId && BROWSABLE.includes(bot.presence)
-  const save = async () => {
-    setBusy(true)
-    if (await attempt(() => groupsApi.setBotExtraDirs(groupId, bot.id, list))) onClose()
-    else setBusy(false)
-  }
-  return (
-    <>
-      <Dialog
-        open
-        title={t('{bot} 的附加目录', { bot: bot.name })}
-        width={480}
-        onClose={onClose}
-        footer={
-          <>
-            <Button onClick={onClose}>{t('取消')}</Button>
-            <Button variant="primary" disabled={busy} onClick={() => void save()}>
-              {t('保存')}
-            </Button>
-          </>
-        }
-      >
-        {list.length ? (
-          <GroupBox>
-            {list.map((dir) => (
-              <div key={dir} className="gs-dir">
-                <span className="gs-dir__path" title={dir}>
-                  {dir}
-                </span>
-                <IconButton
-                  size="small"
-                  title={t('移除 {name}', { name: dir })}
-                  onClick={() => setList(list.filter((d) => d !== dir))}
-                >
-                  {'minus' as const}
-                </IconButton>
-              </div>
-            ))}
-          </GroupBox>
-        ) : null}
-        <div className="gs-dir-add">
-          <Button size="small" icon="folder" disabled={!browsable} onClick={() => setPicking(true)}>
-            {t('添加目录…')}
-          </Button>
-          {browsable ? null : (
-            <span className="gs-note">
-              {bot.machineId
-                ? t('机器离线，暂时无法浏览目录；已有目录仍可移除')
-                : t('Bot 未绑定机器，无法浏览目录；已有目录仍可移除')}
-            </span>
-          )}
-        </div>
-        <p className="gs-note">
-          {t(
-            '除工作区外，Bot 在本群也可读写这些目录，其中 git 仓库的改动在「改动」里按目录分组显示。附加目录不参与强制同步群的版本同步。修改后下一轮开启新会话。',
-          )}
-        </p>
-      </Dialog>
-      {picking && bot.machineId ? (
-        <DirPicker
-          machineId={bot.machineId}
-          title={t('为 {bot} 选择附加目录', { bot: bot.name })}
-          onPick={(path) => {
-            setList((l) => (l.includes(path) ? l : [...l, path]))
-            setPicking(false)
-          }}
-          onClose={() => setPicking(false)}
-        />
-      ) : null}
     </>
   )
 }

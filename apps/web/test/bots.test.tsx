@@ -804,6 +804,7 @@ describe('bot page', () => {
         groupName: '支付服务重构',
         groupKind: 'group',
         workspacePath: '/Users/wang/pay',
+        dirs: ['/Users/wang/docs'],
         run: { id: 'r1', status: 'running', step: '编辑 src/pay.ts', startedAt: new Date().toISOString() },
         lastRunAt: new Date().toISOString(),
       },
@@ -812,6 +813,7 @@ describe('bot page', () => {
         groupName: '官网改版',
         groupKind: 'group',
         workspacePath: null,
+        dirs: [],
         run: null,
         lastRunAt: null,
       },
@@ -833,6 +835,7 @@ describe('bot page', () => {
     expect(within(live).getByText('编辑 src/pay.ts')).toBeTruthy()
     const places = within(page).getByRole('list', { name: '工作位置' })
     expect(within(places).getByText('~/pay')).toBeTruthy()
+    expect(within(places).getByText('~/docs')).toBeTruthy()
     expect(within(places).getByText('官网改版')).toBeTruthy()
 
     const tile = (label: string) => within(page).getByText(label).closest('.usage-stat')?.textContent
@@ -860,6 +863,7 @@ describe('bot page', () => {
       groupName: '支付服务重构',
       groupKind: 'group',
       workspacePath: null,
+      dirs: [],
       run: { id: 'r1', status: 'running', step, startedAt: new Date().toISOString() },
       lastRunAt: new Date().toISOString(),
     })
@@ -1107,6 +1111,7 @@ describe('bot page ux', () => {
         groupName: '支付服务重构',
         groupKind: 'group',
         workspacePath: '/Users/wang/.gonggong/workspaces/g1/b1/_empty',
+        dirs: [],
         run: null,
         lastRunAt: null,
       },
@@ -1115,6 +1120,7 @@ describe('bot page ux', () => {
         groupName: '官网改版',
         groupKind: 'group',
         workspacePath: '/home/wang/site',
+        dirs: [],
         run: null,
         lastRunAt: null,
       },

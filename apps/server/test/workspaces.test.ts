@@ -241,6 +241,7 @@ describe('joining a repo group', () => {
       effort: null,
       context: null,
       extraDirs: [],
+      repoPaths: {},
     })
     await until(async () => (await w.bodies(g.id)).includes('小王的 Claude · daemon 已 clone 到托管工作区'))
   })

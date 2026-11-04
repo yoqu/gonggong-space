@@ -10,8 +10,8 @@ import { emptyRepo, type RepoDraft, repoBody, repoIcon, repoValidated } from './
 type Extra = NonNullable<GroupDto['extraRepos']>[number]
 
 /**
- * 附加仓库: repos cloned beside the main one and given to every bot's session as additional directories (partition
- * groups with a main repo). Admins add, re-branch and remove them; a change starts new sessions.
+ * 附加仓库: repos besides the main one that every bot also works in, from a managed clone or its owner's own (groups
+ * with a main repo; force sync leaves them out). Admins add, re-branch and remove them; a change starts new sessions.
  */
 export function ExtraRepos({ group, isAdmin }: { group: GroupDto; isAdmin: boolean }) {
   const extras = group.extraRepos ?? []
@@ -19,7 +19,7 @@ export function ExtraRepos({ group, isAdmin }: { group: GroupDto; isAdmin: boole
   const [editing, setEditing] = useState<{ repo: Extra | 'new'; draft: RepoDraft } | null>(null)
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState<Extra | null>(null)
-  if (!group.repo || group.mode !== 'partition' || (!isAdmin && !extras.length)) return null
+  if (!group.repo || (!isAdmin && !extras.length)) return null
 
   const save = async () => {
     if (!editing) return
@@ -117,7 +117,9 @@ export function ExtraRepos({ group, isAdmin }: { group: GroupDto; isAdmin: boole
         </div>
       ) : (
         <div className="rw-note">
-          {t('附加仓库克隆在主仓库旁边，作为附加目录提供给各 Bot，每个仓库按自己的默认分支提交和推送。')}
+          {t(
+            '各 Bot 默认在主仓库旁托管克隆附加仓库，Bot 主人也可改用本机已有的克隆；每个仓库按自己的默认分支提交和推送。',
+          )}
         </div>
       )}
       <Presence>

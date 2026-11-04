@@ -73,7 +73,7 @@ describe('additional directories of a bot in a group', () => {
     expect(states.body[0]!.context).toBeNull()
     const events = await t.db.select().from(messages).where(eq(messages.groupId, w.g1.id))
     expect(events.map((m) => m.body)).toContain(
-      '王磊 将 cc 在本群的附加目录设为 /Users/wl/sdk、C:\\work\\docs',
+      '王磊 将 cc 在本群的自带目录设为 /Users/wl/sdk、C:\\work\\docs',
     )
 
     const s1 = await w.trigger(w.g1.id)
@@ -93,6 +93,6 @@ describe('additional directories of a bot in a group', () => {
     const cleared = await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.g1.id}/bot-states`)
     expect(cleared.body[0]!.extraDirs).toEqual([])
     const last = await t.db.select().from(messages).where(eq(messages.groupId, w.g1.id))
-    expect(last.map((m) => m.body)).toContain('王磊 清空了 cc 在本群的附加目录')
+    expect(last.map((m) => m.body)).toContain('王磊 清空了 cc 在本群的自带目录')
   })
 })

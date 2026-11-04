@@ -533,6 +533,8 @@ export const groupBots = pgTable(
     agentCommands: jsonb('agent_commands').notNull().default([]),
     /** Absolute paths on the owner's machine the session also works in (ACP additionalDirectories); set by the owner. */
     extraDirs: jsonb('extra_dirs').$type<string[]>().notNull().default([]),
+    /** Extra repo id → the owner's local clone of it, used instead of a managed clone (set by the owner). */
+    repoPaths: jsonb('repo_paths').$type<Record<string, string>>().notNull().default({}),
     /** When this bot last got the group knowledge base in a run.start; later changes go to its resumed session. */
     knowledgeAt: ts('knowledge_at'),
     removedAt: ts('removed_at'),

@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import { groupBots, runs } from '../../db/schema.js'
+import { runs } from '../../db/schema.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { open } from '../../lib/seal.js'
@@ -12,6 +12,7 @@ import { requireUser } from '../auth/session.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
 import { currentRepo, extraRepos, onlineMachine } from './provision.js'
+import { botDirs, splitExtras } from './state.js'
 
 /** Large repos take a while to write a tree and diff it. */
 const DIFF_TIMEOUT_MS = 10_000
@@ -57,10 +58,7 @@ export function workspaceDiffRoutes(ctx: Ctx) {
         }
         const machineId = onlineMachine(ctx, bot.machineId)
         if (!machineId) return fail('conflict', OFFLINE)
-        const [gb] = await ctx.db
-          .select({ cdPath: groupBots.cdPath, extraDirs: groupBots.extraDirs })
-          .from(groupBots)
-          .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+        const gb = await botDirs(ctx, group.id, bot.id)
         const repo = await currentRepo(ctx, group.id)
         const ask = {
           t: 'workspace.diff',
@@ -69,9 +67,8 @@ export function workspaceDiffRoutes(ctx: Ctx) {
           botId: bot.id,
           workspace: {
             repo,
-            cdPath: gb?.cdPath ?? null,
-            extraDirs: gb?.extraDirs ?? [],
-            extraRepos: await extraRepos(ctx, group.id),
+            cdPath: gb.cdPath,
+            ...splitExtras(await extraRepos(ctx, group.id), gb),
           },
           scope,
           runId: runId ?? null,

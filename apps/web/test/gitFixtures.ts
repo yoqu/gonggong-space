@@ -69,6 +69,7 @@ export const state = (o: Partial<GroupBotStateDto> = {}): GroupBotStateDto => ({
   effort: null,
   context: null,
   extraDirs: [],
+  repoPaths: {},
   ...o,
 })
 

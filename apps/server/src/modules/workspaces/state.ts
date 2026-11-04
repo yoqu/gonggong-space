@@ -26,6 +26,7 @@ export const botStateDto = (r: Row): GroupBotStateDto => ({
   effort: r.effort,
   context: (r.contextUsage as ContextUsage | null) ?? null,
   extraDirs: r.extraDirs,
+  repoPaths: r.repoPaths,
 })
 
 export async function listBotStates(ctx: Ctx, groupId: string) {
@@ -56,6 +57,7 @@ export async function updateBotState(
       | 'effort'
       | 'contextUsage'
       | 'extraDirs'
+      | 'repoPaths'
       | 'sessionId'
       | 'newSessionReason'
     >
@@ -112,4 +114,28 @@ export async function unreadyGroups(db: Pick<Ctx['db'], 'selectDistinct'>, botId
       ),
     )
   return new Set(rows.map((r) => r.groupId))
+}
+
+/**
+ * Where a bot keeps the group's extra repos: managed clones go to the daemon as `extraRepos`, its local clones join its
+ * own directories as `extraDirs` (what any daemon already gives the session). Paths of removed repos are ignored.
+ */
+export function splitExtras<T extends { id: string }>(
+  extras: T[],
+  gb: { extraDirs: string[]; repoPaths: Record<string, string> },
+) {
+  const local = extras.flatMap((r) => (gb.repoPaths[r.id] ? [gb.repoPaths[r.id] as string] : []))
+  return {
+    extraRepos: extras.filter((r) => !gb.repoPaths[r.id]),
+    extraDirs: [...new Set([...gb.extraDirs, ...local])],
+  }
+}
+
+/** A (group, bot)'s own directories and local clones of extra repos. */
+export async function botDirs(ctx: Pick<Ctx, 'db'>, groupId: string, botId: string) {
+  const [gb] = await ctx.db
+    .select({ cdPath: groupBots.cdPath, extraDirs: groupBots.extraDirs, repoPaths: groupBots.repoPaths })
+    .from(groupBots)
+    .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
+  return gb ?? { cdPath: null, extraDirs: [], repoPaths: {} }
 }

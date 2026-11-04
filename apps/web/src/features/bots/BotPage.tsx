@@ -149,6 +149,9 @@ function Places({ places }: { places: BotPlaceDto[] }) {
             ) : (
               <span className="bot-page__muted">{t('工作区未就绪')}</span>
             )}
+            {p.dirs.map((d) => (
+              <WorkspacePath key={d} path={d} />
+            ))}
           </Link>
         </li>
       ))}

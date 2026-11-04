@@ -1,5 +1,5 @@
 import type { BotDto, BotProbeDto, GroupBotStateDto, GroupDto, RepoAccessReason } from '@gonggong/protocol'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -9,19 +9,24 @@ import { Button, ConfirmActionDialog, GroupBox, GroupRow, Icon, Presence, toast 
 import { BotAvatar } from '../bots/avatars'
 import { groupsApi } from '../groups/api'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
+import { BotWorkspaces } from './BotWorkspaces'
 import { ExtraRepos } from './ExtraRepos'
 import { RepoPicker, repoPath } from './RepoPicker'
-import { AccessResult, emptyRepo, type RepoDraft, repoBody, repoIcon, repoValidated } from './repo-access'
+import {
+  AccessResult,
+  emptyRepo,
+  middle,
+  type RepoDraft,
+  repoBody,
+  repoIcon,
+  repoValidated,
+} from './repo-access'
 
 const PAUSING: Partial<Record<RepoAccessReason, string>> = {
   denied: t('无权限'),
   network: t('网络或证书'),
   timeout: t('超时'),
 }
-
-/** Keeps both ends of a long path: `/Users/w/…/pay/refund`. */
-export const middle = (path: string, max = 40) =>
-  path.length <= max ? path : `${path.slice(0, max / 2 - 1)}…${path.slice(-(max / 2 - 1))}`
 
 function workspaceText(s: GroupBotStateDto | undefined, online: boolean) {
   if (!s || s.state === 'unbound') return t('未选择工作区')
@@ -149,36 +154,42 @@ export function RepoWorkspaceView({ group, isAdmin }: { group: GroupDto; isAdmin
             const paused = s?.state === 'failed' && !!s.reason && !!PAUSING[s.reason]
             const r = results.get(b.id)
             return (
-              <div key={b.id} className="rw-bot" data-testid={`rw-bot-${b.id}`}>
-                <BotAvatar id={b.id} name={b.name} size={24} />
-                <span className="rw-bot__main">
-                  <span className="rw-bot__name">{mine ? b.name : `${b.name} · ${b.ownerName}`}</span>
-                  <span className="rw-bot__sub">{workspaceText(s, online)}</span>
-                </span>
-                {draft ? (
-                  r ? (
-                    <AccessResult result={r} />
-                  ) : null
-                ) : (
-                  <>
-                    {paused && (mine || isAdmin) ? (
-                      <Button size="small" onClick={() => void recheck(b)}>
-                        {t('重新检查')}
-                      </Button>
-                    ) : null}
-                    {mine ? (
-                      <Button
-                        size="small"
-                        disabled={!online || !b.machineId}
-                        title={online ? undefined : t('离线，上线后可更改')}
-                        onClick={() => setPicking(b)}
-                      >
-                        {s?.state === 'confirm' ? t('确认…') : t('更改…')}
-                      </Button>
-                    ) : null}
-                  </>
-                )}
-              </div>
+              <Fragment key={b.id}>
+                <div className="rw-bot" data-testid={`rw-bot-${b.id}`}>
+                  <BotAvatar id={b.id} name={b.name} size={24} />
+                  <span className="rw-bot__main">
+                    <span className="rw-bot__name">{mine ? b.name : `${b.name} · ${b.ownerName}`}</span>
+                    <span className="rw-bot__sub">
+                      {t('主工作区 · ')}
+                      {workspaceText(s, online)}
+                    </span>
+                  </span>
+                  {draft ? (
+                    r ? (
+                      <AccessResult result={r} />
+                    ) : null
+                  ) : (
+                    <>
+                      {paused && (mine || isAdmin) ? (
+                        <Button size="small" onClick={() => void recheck(b)}>
+                          {t('重新检查')}
+                        </Button>
+                      ) : null}
+                      {mine ? (
+                        <Button
+                          size="small"
+                          disabled={!online || !b.machineId}
+                          title={online ? undefined : t('离线，上线后可更改')}
+                          onClick={() => setPicking(b)}
+                        >
+                          {s?.state === 'confirm' ? t('确认…') : t('更改…')}
+                        </Button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+                {draft ? null : <BotWorkspaces group={group} bot={b} state={s} mine={mine} online={online} />}
+              </Fragment>
             )
           })}
           {bots.length ? null : <GroupRow label={<span className="gs-value">{t('本群还没有 Bot')}</span>} />}

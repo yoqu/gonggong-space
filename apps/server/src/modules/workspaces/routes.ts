@@ -5,13 +5,16 @@ import {
   DirCreateReq,
   type DirListingDto,
   GroupBotExtraDirsReq,
+  GroupBotRepoPathReq,
   type RepoAccessReason,
   type RepoCandidatesDto,
+  repoKey,
+  repoName,
 } from '@gonggong/protocol'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groupBots, machines } from '../../db/schema.js'
+import { bots, groupBots, groupRepos, machines } from '../../db/schema.js'
 import type { MessageKey } from '../../i18n/index.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
@@ -23,6 +26,7 @@ import { groupLocalPaths } from '../repos/service.js'
 import { ABSOLUTE, announceCd, requestCd } from './cd.js'
 import { daemonWorkspaceRoutes } from './daemon.js'
 import { workspaceDiffRoutes } from './diff.js'
+import { listDirs, setRepoPath } from './dirs.js'
 import { workspaceFileRoutes } from './files.js'
 import { currentRepo, ensureWorkspace, onlineMachine, PAUSING } from './provision.js'
 import { listBotStates, RESET_SESSION, updateBotState } from './state.js'
@@ -53,23 +57,6 @@ async function ownMachine(ctx: Ctx, userId: string, rawId: string) {
 
 export function workspaceRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
-    /** dir.list on a machine; fails when it is offline, silent or reports an error. */
-    const listDirs = async (
-      m: { name: string; machineId: string | null },
-      path: string | null,
-      offline: MessageKey,
-      hidden = false,
-    ) => {
-      const machineId = onlineMachine(ctx, m.machineId)
-      if (!machineId) return fail('conflict', offline, { name: m.name })
-      const ask = { t: 'dir.list', requestId: randomUUID(), path, hidden } as const
-      const res =
-        (await ctx.hub.request(machineId, ask, 'dir.result', DIR_TIMEOUT_MS)) ??
-        fail('conflict', '{name} 未响应，请稍后重试', { name: m.name })
-      if (res.error) throw new HttpError('invalid', res.error)
-      return res
-    }
-
     app.get<{ Params: { id: string } }>('/api/groups/:id/bot-states', async (req) => {
       const me = await requireUser(ctx, req)
       await requireMember(ctx, req.params.id, me.id)
@@ -81,6 +68,7 @@ export function workspaceRoutes(ctx: Ctx) {
       async (req): Promise<DirListingDto> => {
         const m = await ownMachine(ctx, (await requireUser(ctx, req)).id, req.params.id)
         const { path, entries, git, unusable, roots, places, canCreate } = await listDirs(
+          ctx,
           { name: m.name, machineId: m.id },
           req.query.path || null,
           '{name} 离线，无法浏览目录',
@@ -111,7 +99,7 @@ export function workspaceRoutes(ctx: Ctx) {
       const { path } = DefaultWorkspaceReq.parse(req.body)
       if (path !== null) {
         if (!ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')
-        const { unusable } = await listDirs(bot, path, '{name} 离线，无法设置默认工作区')
+        const { unusable } = await listDirs(ctx, bot, path, '{name} 离线，无法设置默认工作区')
         if (unusable) throw new HttpError('invalid', unusable)
       }
       await ctx.db.update(bots).set({ defaultWorkspace: path }).where(eq(bots.id, bot.id))
@@ -163,10 +151,44 @@ export function workspaceRoutes(ctx: Ctx) {
           ctx,
           group.id,
           extraDirs.length
-            ? '{user} 将 {bot} 在本群的附加目录设为 {dirs}'
-            : '{user} 清空了 {bot} 在本群的附加目录',
+            ? '{user} 将 {bot} 在本群的自带目录设为 {dirs}'
+            : '{user} 清空了 {bot} 在本群的自带目录',
           { user: me.name, bot: bot.name, dirs: extraDirs.join('、') },
         )
+        return reply.status(204).send()
+      },
+    )
+
+    /** Which clone of an extra repo the bot uses here: the owner's own (same remote) or, with null, a managed one. */
+    app.put<{ Params: { id: string; botId: string; repoId: string } }>(
+      '/api/groups/:id/bots/:botId/repos/:repoId',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const { group } = await requireMember(ctx, req.params.id, me.id)
+        const bot = await ownBot(ctx, me.id, req.params.botId)
+        if (!(await activeBots(ctx, group.id)).some((b) => b.id === bot.id))
+          fail('not_found', '该 Bot 不在群内')
+        const [repo] = await ctx.db
+          .select()
+          .from(groupRepos)
+          .where(
+            and(
+              eq(groupRepos.groupId, group.id),
+              eq(groupRepos.id, idParam(req.params.repoId, '附加仓库不存在')),
+              eq(groupRepos.isPrimary, false),
+            ),
+          )
+        if (!repo) return fail('not_found', '附加仓库不存在')
+        const path = GroupBotRepoPathReq.parse(req.body).path
+        if (path !== null) {
+          if (!ABSOLUTE.test(path)) fail('invalid', '需要本机绝对路径')
+          const { git, unusable } = await listDirs(ctx, bot, path, '{name} 离线，无法浏览目录')
+          if (unusable) throw new HttpError('invalid', unusable)
+          if (!git) return fail('invalid', '该目录不是 git 仓库')
+          if (!git.remotes.some((u) => repoKey(u) === repoKey(repo.url)))
+            fail('invalid', '该目录的 remote 与附加仓库 {repo} 不一致', { repo: repoName(repo.url) })
+        }
+        await setRepoPath(ctx, { groupId: group.id, user: me, bot, repo, path })
         return reply.status(204).send()
       },
     )

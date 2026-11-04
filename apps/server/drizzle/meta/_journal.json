@@ -666,6 +666,13 @@
       "when": 1793772819072,
       "tag": "0094_market_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1793784825998,
+      "tag": "0095_bot_repo_paths",
+      "breakpoints": true
     }
   ]
 }

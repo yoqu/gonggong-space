@@ -67,6 +67,12 @@ export const protocolEn = {
   '{user} 将 {bot} 在本群的附加目录设为 {dirs}':
     '{user} set the additional directories of {bot} in this group to {dirs}',
   '{user} 清空了 {bot} 在本群的附加目录': '{user} cleared the additional directories of {bot} in this group',
+  '{user} 将 {bot} 在本群的自带目录设为 {dirs}': "{user} set {bot}'s own directories in this group to {dirs}",
+  '{user} 清空了 {bot} 在本群的自带目录': "{user} cleared {bot}'s own directories in this group",
+  '{user} 让 {bot} 在本群改用本机的 {repo}：{path}':
+    '{user} switched {bot} to the local clone of {repo} in this group: {path}',
+  '{user} 让 {bot} 在本群改回托管克隆的 {repo}':
+    '{user} switched {bot} back to a managed clone of {repo} in this group',
   '{user} 将 {bot} 在本群的模型恢复为跟随 Bot 默认':
     "{user} reset the model of {bot} in this group to follow the Bot's default",
   '{user} /stop · 停止 {bots} 的 {n} 个轮次{chain}':

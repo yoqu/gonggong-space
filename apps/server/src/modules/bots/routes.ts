@@ -26,6 +26,7 @@ import {
   bots,
   feishuApps,
   groupBots,
+  groupRepos,
   groups,
   machines,
   runs,
@@ -46,7 +47,7 @@ import { notify } from '../notifications/notify.js'
 import { stepI18nOf } from '../runs/step.js'
 import { leaveBots } from '../sync/switch.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
-import { updateBotState } from '../workspaces/state.js'
+import { splitExtras, updateBotState } from '../workspaces/state.js'
 import { normalizeAllowlist } from './allowlist.js'
 import { confirmBot } from './binding.js'
 import {
@@ -204,6 +205,8 @@ export function botRoutes(ctx: Ctx) {
           groupName: groups.name,
           groupKind: groups.kind,
           workspacePath: groupBots.workspacePath,
+          extraDirs: groupBots.extraDirs,
+          repoPaths: groupBots.repoPaths,
           // Per group, so runs_group_bot_started reads one row instead of every run of the bot.
           lastRunAt: sql`(select max(r.started_at) from runs r
             where r.group_id = ${groupBots.groupId} and r.bot_id = ${groupBots.botId})`.mapWith(
@@ -225,10 +228,26 @@ export function botRoutes(ctx: Ctx) {
         .from(runs)
         .where(and(eq(runs.botId, bot.id), inArray(runs.status, UNENDED)))
         .orderBy(desc(runs.queuedAt))
-      const dtos = places.map((p): BotPlaceDto => {
+      const extras = places.length
+        ? await ctx.db
+            .select({ id: groupRepos.id, groupId: groupRepos.groupId })
+            .from(groupRepos)
+            .where(
+              and(
+                inArray(
+                  groupRepos.groupId,
+                  places.map((p) => p.groupId),
+                ),
+                eq(groupRepos.isPrimary, false),
+              ),
+            )
+        : []
+      const dtos = places.map(({ extraDirs, repoPaths, ...p }): BotPlaceDto => {
         const run = live.find((r) => r.groupId === p.groupId)
+        const mine = extras.filter((r) => r.groupId === p.groupId)
         return {
           ...p,
+          dirs: splitExtras(mine, { extraDirs, repoPaths }).extraDirs,
           groupKind: p.groupKind as BotPlaceDto['groupKind'],
           lastRunAt: p.lastRunAt?.toISOString() ?? null,
           run: run

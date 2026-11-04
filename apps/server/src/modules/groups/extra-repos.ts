@@ -1,5 +1,5 @@
 import { publicRepoUrl, RepoBranchReq, RepoReq, repoKey } from '@gonggong/protocol'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
@@ -39,10 +39,9 @@ export function extraRepoRoutes(ctx: Ctx) {
     await publishGroup(ctx, groupId)
   }
 
-  /** An admin of a partition group with a main repo, adding `url` that is not in the group yet. */
+  /** An admin of a group with a main repo, adding `url` that is not in the group yet (force sync leaves extras out). */
   async function checkAdd(groupId: string, userId: string, url: string, branch: string, replacing?: string) {
     const { group } = await requireAdmin(ctx, groupId, userId)
-    if (group.mode === 'force') fail('conflict', '强制同步群不支持附加仓库，请先切回分区模式')
     const rows = await reposOf(group.id)
     if (!rows.some((r) => r.isPrimary)) fail('conflict', '请先绑定主仓库')
     assertBindable(ctx, url, branch)
@@ -86,9 +85,17 @@ export function extraRepoRoutes(ctx: Ctx) {
       if (old.baseBranch === branch.trim()) return groupDto(ctx, me.id, group.id)
       await ctx.db.transaction(async (tx) => {
         await tx.delete(groupRepos).where(eq(groupRepos.id, old.id))
-        await tx
+        const [now] = await tx
           .insert(groupRepos)
           .values({ groupId: group.id, url: old.url, baseBranch: branch.trim(), isPrimary: false })
+          .returning({ id: groupRepos.id })
+        // A bot's own clone of the repo stays its clone on the new branch.
+        await tx
+          .update(groupBots)
+          .set({
+            repoPaths: sql`(${groupBots.repoPaths} - ${old.id}::text) || jsonb_build_object(${now!.id}::text, ${groupBots.repoPaths} -> ${old.id}::text)`,
+          })
+          .where(and(eq(groupBots.groupId, group.id), sql`${groupBots.repoPaths} ? ${old.id}::text`))
       })
       await postEvent(ctx, group.id, '{user} 将附加仓库 {url} 的默认分支改为 {branch}', {
         user: me.name,

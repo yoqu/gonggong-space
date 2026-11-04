@@ -916,6 +916,9 @@ export const GroupBotExtraDirsReq = z.object({
   dirs: z.array(z.string().trim().min(1).max(1024)).max(EXTRA_DIRS_MAX),
 })
 
+/** PUT /api/groups/:id/bots/:botId/repos/:repoId (bot owner only): a local clone of that extra repo, null = managed. */
+export const GroupBotRepoPathReq = z.object({ path: z.string().trim().min(1).max(1024).nullable() })
+
 /** GET /api/bots/owners: who the caller may create bots for, with their machines (self only for members). */
 export const BotOwnerDto = z.object({ id: z.string(), name: z.string(), machines: z.array(MachineDto) })
 export type BotOwnerDto = z.infer<typeof BotOwnerDto>
@@ -2207,6 +2210,8 @@ export const BotPlaceDto = z.object({
   groupName: z.string(),
   groupKind: GroupKind,
   workspacePath: z.string().nullable(),
+  /** The bot's other directories there: its own and its local clones of extra repos. */
+  dirs: z.array(z.string()),
   /** Not yet finished: queued, running or waiting on approval / an answer; the newest if several. */
   run: z
     .object({
@@ -2354,8 +2359,10 @@ export const GroupBotStateDto = z.object({
   effort: z.string().nullable(),
   /** Context occupancy of the bot's current session here; null before its first report or after /new. */
   context: ContextUsage.nullable(),
-  /** Additional directories (absolute paths on the owner's machine) the bot also works in here; not shared by sync. */
+  /** The bot's own directories (absolute paths on the owner's machine) it also works in here; not shared by sync. */
   extraDirs: z.array(z.string()),
+  /** Extra repo id → the owner's local clone used instead of a managed one; absent = managed. */
+  repoPaths: z.record(z.string(), z.string()),
 })
 export type GroupBotStateDto = z.infer<typeof GroupBotStateDto>
 

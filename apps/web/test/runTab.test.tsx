@@ -775,6 +775,7 @@ describe('process timeline', () => {
             effort: null,
             context: null,
             extraDirs: [],
+            repoPaths: {},
           },
         },
       },

@@ -25,6 +25,7 @@ import { resolveNotifications } from '../notifications/notify.js'
 import { MASK, redactDeep } from '../runs/redact.js'
 import { groupRedactor } from '../secrets/resolve.js'
 import { currentRepo, extraRepos, onlineMachine } from '../workspaces/provision.js'
+import { splitExtras } from '../workspaces/state.js'
 
 export type GitOperation = typeof gitOperations.$inferSelect
 type Group = typeof groups.$inferSelect
@@ -103,6 +104,7 @@ export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, featur
       state: groupBots.workspaceState,
       path: groupBots.workspacePath,
       extraDirs: groupBots.extraDirs,
+      repoPaths: groupBots.repoPaths,
     })
     .from(groupBots)
     .innerJoin(bots, eq(bots.id, groupBots.botId))
@@ -111,16 +113,16 @@ export async function gitTarget(ctx: Ctx, group: Group, rawBotId: string, featur
   if (row.state === 'unbound' || row.state === 'confirm')
     return fail('conflict', '{bot} 尚未设置工作区', { bot: row.bot.name })
   assertFeature(ctx, row.bot, feature)
+  const extras = await extraRepos(ctx, group.id, repo?.protocol)
   return {
     group,
     bot: row.bot,
     workspacePath: row.path,
-    workspace: {
-      repo,
-      cdPath: row.cdPath,
-      extraDirs: row.extraDirs,
-      extraRepos: await extraRepos(ctx, group.id, repo?.protocol),
-    },
+    workspace: { repo, cdPath: row.cdPath, ...splitExtras(extras, row) },
+    /** Extra repos the bot works on in a local clone (in `workspace.extraDirs`), for their base branch. */
+    localRepos: extras.flatMap((r) =>
+      row.repoPaths[r.id] ? [{ path: row.repoPaths[r.id] as string, branch: r.branch }] : [],
+    ),
   }
 }
 
@@ -412,9 +414,12 @@ export function assertValid(req: GitActionReq) {
  */
 export async function guardBase(ctx: Ctx, op: Columns, t: GitTarget) {
   if (!t.group.protectBase || !t.workspace.repo) return { op, pushesBase: false }
-  // An extra repo is cloned under its own id (`…/<repoId>/<name>`) and has its own base branch.
+  // An extra repo is cloned under its own id (`…/<repoId>/<name>`), or is the owner's clone; it has its own base branch.
   const extra = op.repo
-    ? t.workspace.extraRepos.find((r) => op.repo?.split(/[\\/]/).includes(r.id))
+    ? (t.workspace.extraRepos.find((r) => op.repo?.split(/[\\/]/).includes(r.id)) ??
+      t.localRepos.find(
+        (r) => op.repo === r.path || op.repo?.startsWith(`${r.path}/`) || op.repo?.startsWith(`${r.path}\\`),
+      ))
     : undefined
   const base = extra?.branch ?? t.workspace.repo.branch
   if (op.action === 'push') {

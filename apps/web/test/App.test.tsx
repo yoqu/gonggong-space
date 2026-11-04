@@ -144,6 +144,7 @@ describe('chat shell', () => {
           effort: null,
           context: null,
           extraDirs: [],
+          repoPaths: {},
         },
       }),
     )

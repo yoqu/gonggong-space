@@ -23,7 +23,7 @@ describe('GET /api/bots/:id/activity', () => {
     const left = await t.seed.group({ createdBy: wang.id, name: '已移出', botIds: [bot.id] })
     await t.db
       .update(groupBots)
-      .set({ workspacePath: '/Users/wang/pay', workspaceState: 'ready' })
+      .set({ workspacePath: '/Users/wang/pay', workspaceState: 'ready', extraDirs: ['/Users/wang/docs'] })
       .where(and(eq(groupBots.groupId, busy.id), eq(groupBots.botId, bot.id)))
     await t.db.update(groupBots).set({ removedAt: new Date() }).where(eq(groupBots.groupId, left.id))
     const [m1] = await t.db.insert(messages).values({ groupId: idle.id, kind: 'user', body: 'x' }).returning()
@@ -53,6 +53,7 @@ describe('GET /api/bots/:id/activity', () => {
       groupId: busy.id,
       groupKind: 'group',
       workspacePath: '/Users/wang/pay',
+      dirs: ['/Users/wang/docs'],
       run: { id: live!.id, status: 'running', step: '编辑 src/pay.ts' },
     })
     expect(res.body[1]).toMatchObject({ run: null, workspacePath: null })

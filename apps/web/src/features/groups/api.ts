@@ -46,6 +46,12 @@ export const groupsApi = {
     api.put(`/groups/${id}/bots/${botId}/tier`, { tier }),
   setBotExtraDirs: (id: string, botId: string, dirs: string[]) =>
     api.put(`/groups/${id}/bots/${botId}/extra-dirs`, { dirs }),
+  /** The bot's main workspace: a local directory, or null for the managed one; validated by its daemon. */
+  bindWorkspace: (id: string, botId: string, path: string | null) =>
+    api.put(`/groups/${id}/bots/${botId}/workspace`, { path }),
+  /** The owner's local clone of an extra repo, or null for a managed clone. */
+  setRepoPath: (id: string, botId: string, repoId: string, path: string | null) =>
+    api.put(`/groups/${id}/bots/${botId}/repos/${repoId}`, { path }),
   removeBot: (id: string, botId: string) => api.del<GroupDto>(`/groups/${id}/bots/${botId}`).then(apply),
   /** Partition → force with `baseBotId`'s tree as the first version (§3.5). */
   enableSync: (id: string, baseBotId: string) =>

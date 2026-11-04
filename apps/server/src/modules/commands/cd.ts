@@ -1,13 +1,18 @@
-import type { I18nParams, ProtocolKey, WorkspaceState } from '@gonggong/protocol'
+import { type I18nParams, type ProtocolKey, repoKey, type WorkspaceState } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots } from '../../db/schema.js'
 import { postEvent } from '../messages/service.js'
 import { ABSOLUTE, announceCd, requestCd } from '../workspaces/cd.js'
+import { listDirs, setRepoPath } from '../workspaces/dirs.js'
+import { extraRepos } from '../workspaces/provision.js'
 import type { CommandHandler } from './registry.js'
 import { targets } from './system.js'
 
-/** /cd @bot <absolute path> | --reset (plan D12): only the bot owner, only in partition groups. */
+/**
+ * /cd @bot <absolute path> | --reset (plan D12): only the bot owner, only in partition groups. A clone of an extra repo
+ * is used for that repo (群内多工作区 D7); any other path rebinds the main workspace.
+ */
 export const cd: CommandHandler = async (ctx, input) => {
   const { group, user, command, bots: inGroup } = input
   const say = (key: ProtocolKey, params?: I18nParams) => postEvent(ctx, group.id, key, params)
@@ -29,9 +34,32 @@ export const cd: CommandHandler = async (ctx, input) => {
   if (!reset && !ABSOLUTE.test(command.args))
     return void (await say('/cd 需要本机绝对路径，如 /Users/me/code/repo'))
   const path = reset ? null : command.args
+  if (path && (await toExtraRepo(ctx, { groupId: group.id, user, bot, path }))) return
   if (!(await requestCd(ctx, { groupId: group.id, botId: bot.id, path })))
     return void (await say('{bot} 离线，无法执行 /cd', { bot: bot.name }))
   await announceCd(ctx, { groupId: group.id, userId: user.id, bot, path })
+}
+
+/** A clone of one of the group's extra repos is used for that repo; false when `path` is not one (or can't be told). */
+async function toExtraRepo(
+  ctx: Ctx,
+  o: {
+    groupId: string
+    user: { name: string }
+    bot: Parameters<CommandHandler>[1]['bots'][number]
+    path: string
+  },
+) {
+  const extras = await extraRepos(ctx, o.groupId)
+  if (!extras.length) return false
+  const dir = await listDirs(ctx, o.bot, o.path, '{name} 离线，无法浏览目录').catch(() => null)
+  const repo =
+    dir?.git && !dir.unusable
+      ? extras.find((r) => dir.git?.remotes.some((u) => repoKey(u) === repoKey(r.url)))
+      : undefined
+  if (!repo) return false
+  await setRepoPath(ctx, { groupId: o.groupId, user: o.user, bot: o.bot, repo, path: o.path })
+  return true
 }
 
 /** Called by the workspaces module when the daemon answers a workspace.cd request; `reset` = the request had path null. */

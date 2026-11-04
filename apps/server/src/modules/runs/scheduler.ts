@@ -40,7 +40,7 @@ import { resolveSecrets } from '../secrets/resolve.js'
 import { enabledSkills } from '../skills/service.js'
 import { runSyncStart } from '../sync/store.js'
 import { sendDueInits, syncHeld, syncOutdated } from '../sync/switch.js'
-import { unreadyGroups } from '../workspaces/state.js'
+import { splitExtras, unreadyGroups } from '../workspaces/state.js'
 import { fitBudget } from './context-budget.js'
 import { publishRuns, type RunRow } from './dto.js'
 import { runStep } from './step.js'
@@ -228,15 +228,15 @@ const branchHint = (base: string) =>
   `This group has 「禁止直推基准分支」 on: never commit or push to the base branch ${base}. On ${base}, create a branch (any name) before changing code; already on another branch, work, commit and push there. For a merge, ask the requester to open a merge request. Pushing to ${base} needs the bot owner's approval.`
 
 /** The group's extra repos, which the agent's own files may not tell it about (Codex reads no AGENTS.md outside cwd). */
-const extraReposHint = (repos: { url: string; branch: string }[], protectBase: boolean) =>
+const extraReposHint = (repos: { url: string; branch: string; path?: string }[], protectBase: boolean) =>
   [
-    'Besides the main repo, this group has extra repos, cloned and given to you as additional directories (named after the repo):',
+    'Besides the main repo, this group has extra repos, given to you as additional directories (a clone named after the repo, unless a path is given):',
     ...repos.map(
       (r) =>
         `- ${r.url
           .replace(/\.git\/?$/, '')
           .split(/[/:]/)
-          .at(-1)}: ${r.url} (default branch ${r.branch})`,
+          .at(-1)}: ${r.url} (default branch ${r.branch})${r.path ? ` at ${r.path}` : ''}`,
     ),
     'Before changing an extra repo, read its root AGENTS.md and CLAUDE.md (they may not load by themselves); cd into it before running git there.',
     ...(protectBase
@@ -366,7 +366,7 @@ export async function buildRunStart(
         ...(extras.length
           ? [
               extraReposHint(
-                extras.map((r) => ({ url: r.url, branch: r.baseBranch })),
+                extras.map((r) => ({ url: r.url, branch: r.baseBranch, path: gb.repoPaths[r.id] })),
                 protectBase,
               ),
             ]
@@ -396,8 +396,10 @@ export async function buildRunStart(
         : null,
       cdPath: gb.cdPath,
       protectBase,
-      extraDirs: gb.extraDirs,
-      extraRepos: extras.map((r) => ({ id: r.id, url: r.url, branch: r.baseBranch, protocol })),
+      ...splitExtras(
+        extras.map((r) => ({ id: r.id, url: r.url, branch: r.baseBranch, protocol })),
+        gb,
+      ),
     },
     resumeSessionId,
     newSessionReason: detached ? 'schedule' : gb.newSessionReason,

@@ -48,6 +48,7 @@ const state = (botId: string, o: Partial<GroupBotStateDto> = {}): GroupBotStateD
   effort: null,
   context: null,
   extraDirs: [],
+  repoPaths: {},
   ...o,
 })
 
@@ -385,6 +386,7 @@ describe('git status bar', () => {
                 path: '/Users/w/code/refund',
                 git: git({ branch: 'feat/x', dirty: true, workspace: 'cd' }),
                 extraDirs: ['/Users/w/shared'],
+                repoPaths: {},
               }),
               state('b2', { path: '/w/b2', git: git() }),
             ]),

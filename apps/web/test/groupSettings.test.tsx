@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, RunDto, Tier, UserDto } from '@gonggong/protocol'
+import type { BotDto, GroupBotStateDto, GroupDto, RunDto, Tier, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -781,25 +781,36 @@ describe('group settings inspector', () => {
     expect(calls.find((c) => c.method === 'DELETE')?.path).toBe('/groups/g1/bots/b2')
   })
 
-  it('lets the bot owner set its additional directories in this group', async () => {
-    const state = {
-      botId: 'b1',
-      workspace: 'managed',
-      state: 'ready',
-      path: null,
-      git: null,
-      error: null,
-      reason: null,
-      tier: null,
-      model: null,
-      effort: null,
-      context: null,
-      extraDirs: ['/Users/wl/sdk'],
-    }
+  const wsState = (o: Partial<GroupBotStateDto> = {}): GroupBotStateDto => ({
+    botId: 'b1',
+    workspace: 'managed',
+    state: 'ready',
+    path: null,
+    git: null,
+    error: null,
+    reason: null,
+    tier: null,
+    model: null,
+    effort: null,
+    context: null,
+    extraDirs: ['/Users/wl/sdk'],
+    repoPaths: {},
+    ...o,
+  })
+  const withExtra = group({
+    extraRepos: [{ id: 'x1', url: 'https://git.corp/pay/pay-web.git', branch: 'develop' }],
+  })
+  const openWorkspaces = async () => {
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /Bot 与工作区/ }))
+    return screen.findByRole('dialog', { name: 'Bot 与工作区 · 支付服务重构' })
+  }
+
+  it("lists each bot's extra repo clones and own directories; its owner adds, removes and points a repo at a local clone", async () => {
     const calls = mockApi(
-      routes([group()], {
-        'GET /groups/g1/bot-states': [state],
+      routes([withExtra], {
+        'GET /groups/g1/bot-states': [wsState(), wsState({ botId: 'b2', extraDirs: [] })],
         'PUT /groups/g1/bots/b1/extra-dirs': undefined,
+        'PUT /groups/g1/bots/b1/repos/x1': undefined,
         'GET /machines/mc1/dirs': {
           path: '/Users/wl/docs',
           entries: [],
@@ -810,71 +821,66 @@ describe('group settings inspector', () => {
       }),
     )
     renderAt('/g/g1')
-    const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
-    const mine = within(d).getByText('小王的 Claude').closest('.gs-bot') as HTMLElement
-    const theirs = within(d).getByText('老李的 Codex').closest('.gs-bot') as HTMLElement
-    expect(within(theirs).queryByRole('button', { name: /附加目录/ })).toBeNull()
-    fireEvent.click(await within(mine).findByRole('button', { name: '附加目录 1' }))
-    const dialog = await screen.findByRole('dialog', { name: '小王的 Claude 的附加目录' })
-    expect(within(dialog).getByText(/不参与强制同步/)).toBeTruthy()
-    // Directories are picked on the bot's machine, never typed.
-    expect(within(dialog).queryByRole('textbox')).toBeNull()
-    expect(within(dialog).getByText('/Users/wl/sdk')).toBeTruthy()
-    const pick = async () => {
-      fireEvent.click(within(dialog).getByRole('button', { name: '添加目录…' }))
-      const picker = await screen.findByRole('dialog', { name: '为 小王的 Claude 选择附加目录' })
+    const dlg = await openWorkspaces()
+    const theirs = await within(dlg).findByTestId('rw-ws-b2-x1')
+    expect(theirs.textContent).toContain('托管克隆 · develop')
+    expect(within(theirs).queryByRole('button')).toBeNull()
+    expect(within(dlg).getAllByRole('button', { name: '添加目录…' })).toHaveLength(1)
+    expect(within(dlg).getByTestId('rw-dir-b1').textContent).toContain('自带目录')
+
+    const pick = async (title: RegExp) => {
+      const picker = await screen.findByRole('dialog', { name: title })
       await within(picker).findByDisplayValue('/Users/wl/docs')
       fireEvent.click(within(picker).getByRole('button', { name: '选择此目录' }))
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: /选择附加目录/ })).toBeNull())
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: title })).toBeNull())
     }
-    await pick()
-    await pick()
-    expect(within(dialog).getAllByText('/Users/wl/docs')).toHaveLength(1)
-    fireEvent.click(within(dialog).getByRole('button', { name: '移除 /Users/wl/sdk' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PUT')).toEqual({
-        method: 'PUT',
-        path: '/groups/g1/bots/b1/extra-dirs',
-        body: { dirs: ['/Users/wl/docs'] },
-      }),
+    fireEvent.click(within(dlg).getByRole('button', { name: '添加目录…' }))
+    await pick(/为 小王的 Claude 添加自带目录/)
+    fireEvent.click(within(dlg).getByRole('button', { name: '移除 /Users/wl/sdk' }))
+    fireEvent.click(
+      within(within(dlg).getByTestId('rw-ws-b1-x1')).getByRole('button', { name: '改用本机克隆…' }),
     )
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '小王的 Claude 的附加目录' })).toBeNull())
+    await pick(/在本机的克隆/)
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'PUT').map(({ path, body }) => ({ path, body }))).toEqual([
+        { path: '/groups/g1/bots/b1/extra-dirs', body: { dirs: ['/Users/wl/sdk', '/Users/wl/docs'] } },
+        { path: '/groups/g1/bots/b1/extra-dirs', body: { dirs: [] } },
+        { path: '/groups/g1/bots/b1/repos/x1', body: { path: '/Users/wl/docs' } },
+      ]),
+    )
   })
 
   it("keeps a bot's directories removable but not browsable while its machine is offline", async () => {
-    const state = {
-      botId: 'b1',
-      workspace: 'managed',
-      state: 'ready',
-      path: null,
-      git: null,
-      error: null,
-      reason: null,
-      tier: null,
-      model: null,
-      effort: null,
-      context: null,
-      extraDirs: ['/Users/wl/sdk'],
-    }
-    mockApi(
-      routes([group()], {
+    const calls = mockApi(
+      routes([withExtra], {
         'GET /bots': bots.map((b) => (b.id === 'b1' ? { ...b, presence: 'offline' } : b)),
-        'GET /groups/g1/bot-states': [state],
+        'GET /groups/g1/bot-states': [wsState({ repoPaths: { x1: '/Users/wl/pay-web' } })],
+        'PUT /groups/g1/bots/b1/repos/x1': undefined,
       }),
     )
     renderAt('/g/g1')
-    const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
-    const mine = within(d).getByText('小王的 Claude').closest('.gs-bot') as HTMLElement
-    fireEvent.click(await within(mine).findByRole('button', { name: '附加目录 1' }))
-    const dialog = await screen.findByRole('dialog', { name: '小王的 Claude 的附加目录' })
-    expect(within(dialog).getByRole('button', { name: '添加目录…' }).hasAttribute('disabled')).toBe(true)
-    expect(within(dialog).getByText('机器离线，暂时无法浏览目录；已有目录仍可移除')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '移除 /Users/wl/sdk' }).hasAttribute('disabled')).toBe(
+    const dlg = await openWorkspaces()
+    const repo = await within(dlg).findByTestId('rw-ws-b1-x1')
+    expect(repo.textContent).toContain('/Users/wl/pay-web')
+    expect(within(dlg).getByRole('button', { name: '添加目录…' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dlg).getByRole('button', { name: '移除 /Users/wl/sdk' }).hasAttribute('disabled')).toBe(
       false,
     )
+    fireEvent.click(within(repo).getByRole('button', { name: '改回托管' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+        path: '/groups/g1/bots/b1/repos/x1',
+        body: { path: null },
+      }),
+    )
+  })
+
+  it('marks other workspaces as not synced in a force-sync group', async () => {
+    mockApi(routes([{ ...withExtra, mode: 'force' }], { 'GET /groups/g1/bot-states': [wsState()] }))
+    renderAt('/g/g1')
+    const dlg = await openWorkspaces()
+    expect(within(await within(dlg).findByTestId('rw-ws-b1-x1')).getByText('不参与同步')).toBeTruthy()
+    expect(within(within(dlg).getByTestId('rw-dir-b1')).getByText('不参与同步')).toBeTruthy()
   })
 
   it('flips a pref at once and rolls it back when saving fails', async () => {
@@ -926,6 +932,7 @@ describe('group settings inspector', () => {
       error: null,
       tier,
       extraDirs: [],
+      repoPaths: {},
     })
     const calls = mockApi(
       routes([group({ botIds: ['b1', 'b2', 'b3'] })], {

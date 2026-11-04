@@ -307,6 +307,7 @@ export function GitBar({ group }: { group: GroupDto }) {
       effort: null,
       context: null,
       extraDirs: [],
+      repoPaths: {},
     }
   const operationsFor = (id: string) => gitOps?.filter((op) => op.botId === id) ?? []
   const needsApproval = (id: string) => operationsFor(id).some((op) => op.status === 'pending_approval')

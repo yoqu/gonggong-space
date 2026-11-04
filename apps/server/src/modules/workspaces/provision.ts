@@ -17,7 +17,7 @@ import { notify } from '../notifications/notify.js'
 import { forgetLocalPath, recordRepo } from '../repos/service.js'
 import { schedule } from '../runs/scheduler.js'
 import { autoAlign } from '../sync/switch.js'
-import { updateBotState } from './state.js'
+import { botDirs, splitExtras, updateBotState } from './state.js'
 
 type BotRef = { id: string; name: string; machineId: string | null }
 
@@ -279,7 +279,10 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
   }
   const repo = await currentRepo(ctx, groupId, bot.id)
   if (!repo) return void (await updateBotState(ctx, groupId, bot.id, { workspaceState: 'ready' }))
-  const extras = await extraRepos(ctx, groupId, repo.protocol)
+  const { extraRepos: extras } = splitExtras(
+    await extraRepos(ctx, groupId, repo.protocol),
+    await botDirs(ctx, groupId, bot.id),
+  )
   const extrasKey = extras.map((r) => `${r.id}@${r.branch}`).join()
   const machineId = onlineMachine(ctx, bot.machineId)
   // Written before sending so a fast answer can't be overwritten by this state.
