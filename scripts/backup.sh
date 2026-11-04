@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest of each of the last 7 days kept.
+# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest 7 plus the newest of each of the last 7 backup days kept.
 #   GONGGONG_BACKUP_DIR   where backups go (required)
 #   GONGGONG_DATABASE_URL or GONGGONG_DB / GONGGONG_PG_PORT   same resolution as the server
 #   GONGGONG_DATA_DIR     server data dir holding attachments/ (default .gonggong-dev/data)
@@ -20,19 +20,30 @@ if [ -d "$DATA/attachments" ]; then
   mv "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz.part" "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz"
 fi
 
-# Deploys also take backups, so several can land on one day; keep the newest of each of the last $KEEP days.
-# Stamps sort chronologically.
-for pattern in 'gonggong-*.dump' 'attachments-*.tar.gz'; do
-  days=0
-  last=''
-  find "$GONGGONG_BACKUP_DIR" -maxdepth 1 -name "$pattern" | sort -r | while read -r file; do
-    day="$(basename "$file" | grep -oE '[0-9]{8}-' | head -1)"
-    if [ "$day" != "$last" ] && [ "$days" -lt "$KEEP" ]; then
-      last="$day"
-      days=$((days + 1))
-    else
-      rm -f "$file"
-    fi
-  done
+# Deploys also take backups, so a day can hold several. Keep the newest $KEEP (so recent pre-deploy snapshots
+# survive the same day's later runs) plus the newest of each of the last $KEEP days that have backups.
+# Dumps decide which stamps stay, so a kept dump never loses its attachments; files not named by this script are left alone.
+kept=' '
+n=0
+days=0
+last=''
+while read -r stamp; do
+  n=$((n + 1))
+  newest=0
+  if [ "${stamp%-*}" != "$last" ]; then
+    last="${stamp%-*}"
+    days=$((days + 1))
+    newest=1
+  fi
+  if [ "$n" -le "$KEEP" ] || { [ "$newest" = 1 ] && [ "$days" -le "$KEEP" ]; }; then
+    kept="$kept$stamp "
+  fi
+done < <(find "$GONGGONG_BACKUP_DIR" -maxdepth 1 -name 'gonggong-*.dump' |
+  sed -nE 's#.*/gonggong-([0-9]{8}-[0-9]{6})\.dump$#\1#p' | sort -r)
+find "$GONGGONG_BACKUP_DIR" -maxdepth 1 \( -name 'gonggong-*.dump' -o -name 'attachments-*.tar.gz' \) | while read -r file; do
+  stamp="$(basename "$file" | sed -nE 's/^(gonggong|attachments)-([0-9]{8}-[0-9]{6})\.(dump|tar\.gz)$/\2/p')"
+  if [ -n "$stamp" ] && [[ "$kept" != *" $stamp "* ]]; then
+    rm -f "$file"
+  fi
 done
 echo "backup written: $GONGGONG_BACKUP_DIR/gonggong-$STAMP.dump"

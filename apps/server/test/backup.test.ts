@@ -36,7 +36,7 @@ afterAll(async () => {
 })
 
 describe('scripts/backup.sh + restore.sh', () => {
-  it('backs up the database and attachments, keeps the newest of each of the last 7 days, and restores them into another place', async () => {
+  it('backs up the database and attachments, keeps the newest 7 plus the newest of each of the last 7 days, and restores them into another place', async () => {
     const data = join(work, 'data')
     mkdirSync(join(data, 'attachments/ab'), { recursive: true })
     writeFileSync(join(data, 'attachments/ab/file.txt'), 'attachment')
@@ -48,6 +48,8 @@ describe('scripts/backup.sh + restore.sh', () => {
         writeFileSync(join(backups, `attachments-${stamp}.tar.gz`), '')
       }
     }
+    writeFileSync(join(backups, 'attachments-20260105-130000.tar.gz'), '')
+    writeFileSync(join(backups, 'gonggong-manual.dump'), '')
 
     const out = execFileSync('bash', [join(scripts, 'backup.sh')], {
       env: env(source, data),
@@ -56,8 +58,13 @@ describe('scripts/backup.sh + restore.sh', () => {
     const stamp = /gonggong-(\d{8}-\d{6})\.dump/.exec(out)?.[1]
     expect(stamp).toBeTruthy()
     const files = readdirSync(backups).sort()
-    const kept = [3, 4, 5, 6, 7, 8].map((d) => `2026010${d}-120000`).concat(stamp!)
-    expect(files.filter((f) => f.endsWith('.dump'))).toEqual(kept.map((s) => `gonggong-${s}.dump`))
+    // Newest of days 3–5, every backup of days 6–8 (the newest 7 with this run), and this run.
+    const kept = ['03-12', '04-12', '05-12', '06-00', '06-12', '07-00', '07-12', '08-00', '08-12']
+      .map((s) => `202601${s}0000`)
+      .concat(stamp!)
+    expect(files.filter((f) => f.endsWith('.dump'))).toEqual(
+      kept.map((s) => `gonggong-${s}.dump`).concat('gonggong-manual.dump'),
+    )
     expect(files.filter((f) => f.endsWith('.tar.gz'))).toEqual(kept.map((s) => `attachments-${s}.tar.gz`))
 
     const restored = join(work, 'restored')

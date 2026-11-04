@@ -109,7 +109,7 @@ Admin actions (accounts, managing Bots for others, revoking machines, MCP, syste
 | Public links | The expiry set at creation; 30 days maximum by default |
 | Sessions | 30 days |
 | Audit log, messages | Forever |
-| Server backups | `backup.sh` keeps the latest 7 |
+| Server backups | `backup.sh` keeps the latest 7 plus the newest of each of the last 7 days |
 
 ## Residual risks
 

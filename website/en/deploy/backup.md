@@ -46,7 +46,7 @@ gonggong-20260923-033000.dump
 attachments-20260923-033000.tar.gz
 ```
 
-For each kind, **the newest backup of each of the last 7 days** is kept; other backups from the same day (such as automatic pre-deploy backups) and older ones are deleted automatically (the script hardcodes 7 days and doesn't read the system parameter 「服务器备份（每日）保留」 (Server backups (daily) retention)). Files are first written as `.part` temp files and renamed when complete, so a failure midway never leaves a half-written backup that looks complete.
+The script keeps **the newest 7 backups** plus **the newest backup of each of the last 7 dates that have backups**, and deletes the rest. A pre-deploy backup is therefore not pushed out by later backups on the same day. Attachment tarballs are kept or deleted together with the database backup of the same timestamp, and files with names the script doesn't generate are left alone (the script hardcodes 7 days and doesn't read the system parameter 「服务器备份（每日）保留」 (Server backups (daily) retention)). Files are first written as `.part` temp files and renamed when complete, so a failure midway never leaves a half-written backup that looks complete.
 
 Run it every day at 3:30 a.m. with cron:
 
