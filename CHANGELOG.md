@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.11 — 2026-11-04
+
+- 桌面端「Skill」页改为「市场」：搜索、刷新、只读详情、版本与封禁状态，可在网页中直接打开条目 / The desktop Skill page becomes Market: search, refresh, read-only details, version and ban status, and opening a listing in the web app
+- 市场体验迭代：已引入状态、条目链接、待审核页、新版本与封禁提示、同名冲突与重复申请预警、发布前预检、上游更新提醒、市场通知推送；解封恢复封禁前状态 / Market usability: installed status, listing links, a review queue, update and ban notices, conflict and duplicate-request warnings, pre-publish checks, upstream update hints and pushed notices; unbanning restores the previous status
+- 群内一个 Bot 可用多个仓库与自带目录，附加仓库可改用本机克隆并显示分支与改动状态 / A Bot can use several repositories and its own directories in a group, with local clones for extra repositories and their branch and change status
+- 拉 Bot 分组排序；普通成员可只读查看群设置并填写自己的密钥 / The Bot picker is grouped and sorted; regular members can view group settings read-only and fill in their own secrets
+
 ## v0.4.10 — 2026-11-04
 
 - 新增 Skill 市场：上传或从 ZIP、SKILL.md、GitHub 导入 Skill，审核后引入到个人、群、仓库或团队，可跟随最新或锁定版本；成员可申请引入，审核可看版本差异与封禁 / Add the Skill market: upload or import Skills from ZIP, SKILL.md or GitHub, and after review install them for yourself, a group, a repository or a team, following the latest or pinning a version; members can request installs, and reviewers see version diffs and can ban listings
