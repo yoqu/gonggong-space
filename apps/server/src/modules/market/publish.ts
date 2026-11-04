@@ -13,8 +13,9 @@ import type {
   ReviewReq,
   SkillFile,
   UpdateListingReq,
+  VersionDiffDto,
 } from '@gonggong/protocol'
-import { and, desc, eq, ilike, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, lt, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -23,6 +24,7 @@ import { t } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
+import { notify } from '../notifications/notify.js'
 import { type ListingSnapshot, listingSnapshot } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
 import { ADMIN_ROLES, listingSummary, listVersion, maintainedBy } from './service.js'
@@ -82,10 +84,21 @@ async function teamRole(db: Read, userId: string, teamId: string) {
   return row?.role ?? null
 }
 
-/** Team visibility: the team's admins; public: sysadmins. */
+/** Team visibility: the team's admins; public and layer listings: sysadmins. */
 async function reviews(db: Read, me: Me, listing: ListingRow) {
-  if (listing.visibility === 'public') return me.role === 'sysadmin'
-  return !!listing.visibility && ADMIN_ROLES.includes((await teamRole(db, me.id, listing.teamId!)) ?? '')
+  if (listing.visibility !== 'team') return me.role === 'sysadmin'
+  return ADMIN_ROLES.includes((await teamRole(db, me.id, listing.teamId!)) ?? '')
+}
+
+/** Who maintains the listing now (D13), for notices. */
+async function maintainerIds(db: Read, listingId: string) {
+  const member = alias(teamMembers, 'maintainer')
+  const rows = await db
+    .select({ id: member.userId })
+    .from(plugins)
+    .innerJoin(member, eq(member.teamId, plugins.teamId))
+    .where(and(eq(plugins.id, listingId), maintainedBy(db, sql`${member.userId}`)))
+  return rows.map((r) => r.id)
 }
 
 export async function requireTeamMember(db: Read, userId: string, teamId: string) {
@@ -222,7 +235,8 @@ export async function marketDetail(
   const listing = await findListing(ctx.db, id)
   const mine = await myTeamIds(ctx.db, me.id)
   const canEdit = await maintains(ctx.db, me.id, listing.id)
-  const privileged = canEdit || (await reviews(ctx.db, me, listing))
+  const canReview = await reviews(ctx.db, me, listing)
+  const privileged = canEdit || canReview
   const inMarket =
     !!listing.listedVersionId &&
     listing.status !== 'banned' &&
@@ -252,12 +266,10 @@ export async function marketDetail(
   const readmePath =
     listing.type === 'plugin' ? `skills/${(manifest as PluginManifest).entry}/SKILL.md` : 'SKILL.md'
   const readme = files.find((f) => f.path === readmePath && f.encoding === 'utf8')?.content ?? ''
-  const dto = cardDto(card!, mine)
   return {
-    ...dto,
-    // Never approved: only its maintainers and reviewers get here.
-    listedVersionId: dto.listedVersionId ?? '',
-    listedRevision: dto.listedRevision ?? 0,
+    ...cardDto(card!, mine),
+    canReview,
+    banReason: listing.banReason,
     readme,
     files: files.map((f) => ({
       path: f.path,
@@ -489,4 +501,68 @@ export async function reviewVersion(ctx: Ctx, me: Me, id: string, versionId: str
     revision: v.revision,
     note: req.note,
   })
+  for (const userId of await maintainerIds(ctx.db, listing.id))
+    if (userId !== me.id)
+      await notify(ctx, userId, 'listing_reviewed', {
+        listingId: listing.id,
+        listingName: listing.name,
+        revision: v.revision,
+        approved: req.approve,
+        note: req.note,
+      })
+}
+
+/** Changed files of a version against the latest approved one before it, for maintainers and reviewers. */
+export async function versionDiff(ctx: Ctx, me: Me, id: string, versionId: string): Promise<VersionDiffDto> {
+  const listing = await findListing(ctx.db, id)
+  if (!(await maintains(ctx.db, me.id, listing.id)) && !(await reviews(ctx.db, me, listing)))
+    fail('forbidden', '只有维护者和审核人可以查看改动')
+  const v = await findVersion(ctx.db, listing, versionId)
+  const [base] = await ctx.db
+    .select({ id: pluginVersions.id, revision: pluginVersions.revision, files: pluginVersions.files })
+    .from(pluginVersions)
+    .where(
+      and(
+        eq(pluginVersions.pluginId, listing.id),
+        eq(pluginVersions.reviewStatus, 'approved'),
+        lt(pluginVersions.revision, v.revision),
+      ),
+    )
+    .orderBy(desc(pluginVersions.revision))
+    .limit(1)
+  const byPath = (files: unknown) => new Map((files as SkillFile[]).map((f) => [f.path, f]))
+  const before = byPath(base?.files ?? [])
+  const after = byPath(v.files)
+  const paths = [...new Set([...before.keys(), ...after.keys()])].sort()
+  return {
+    base: base ? { versionId: base.id, revision: base.revision } : null,
+    files: paths.flatMap((path) => {
+      const b = before.get(path)
+      const a = after.get(path)
+      if (b && a && b.content === a.content && b.encoding === a.encoding) return []
+      const binary = b?.encoding === 'base64' || a?.encoding === 'base64'
+      const text = (f?: SkillFile) => (f && !binary ? f.content : null)
+      return [
+        {
+          path,
+          status: !b ? 'added' : !a ? 'removed' : 'modified',
+          binary,
+          before: text(b),
+          after: text(a),
+        } as const,
+      ]
+    }),
+  }
+}
+
+/** A reason bans the listing (no longer delivered, installed or shown); null lifts the ban. */
+export async function setBan(ctx: Ctx, me: Me, id: string, reason: string | null) {
+  const listing = await findListing(ctx.db, id)
+  if (!(await reviews(ctx.db, me, listing))) fail('forbidden', '只有审核人可以封禁或解封')
+  if (!reason && listing.status !== 'banned') fail('conflict', '条目没有被封禁')
+  await ctx.db
+    .update(plugins)
+    .set({ status: reason ? 'banned' : 'listed', banReason: reason, updatedBy: me.id, updatedAt: ctx.now() })
+    .where(eq(plugins.id, listing.id))
+  await log(ctx, me, listing, reason ? 'market.ban' : 'market.unban', reason ? { reason } : {})
 }

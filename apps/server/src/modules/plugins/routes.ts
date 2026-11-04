@@ -6,11 +6,20 @@ import {
   TogglePluginReq,
   UploadPluginReq,
 } from '@gonggong/protocol'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, exists, inArray, or, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
-import { bots, plugins, pluginVersions, runs } from '../../db/schema.js'
+import {
+  bots,
+  groupMembers,
+  installs,
+  plugins,
+  pluginVersions,
+  repos,
+  runs,
+  teamMembers,
+} from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -165,21 +174,53 @@ const MIME: Record<string, string> = {
   json: 'application/json; charset=utf-8',
 }
 
-/** A file of a plugin's current version (template previews), for readers of its layer. */
+/** Installs applying where `userId` is: groups they are in, their teams and those teams' repos, their own. */
+const installedFor = (db: Ctx['db'], userId: string) =>
+  or(
+    and(
+      eq(installs.scope, 'group'),
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(groupMembers)
+          .where(and(eq(groupMembers.groupId, installs.scopeId), eq(groupMembers.userId, userId))),
+      ),
+    ),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(teamMembers)
+        .leftJoin(repos, eq(repos.id, installs.scopeId))
+        .where(
+          and(
+            eq(teamMembers.userId, userId),
+            or(
+              and(eq(installs.scope, 'team'), eq(teamMembers.teamId, installs.scopeId)),
+              and(eq(installs.scope, 'repo'), eq(teamMembers.teamId, repos.teamId)),
+            ),
+          ),
+        ),
+    ),
+    and(eq(installs.scope, 'user'), eq(installs.scopeId, userId)),
+  )
+
+/**
+ * A file of a plugin (template previews): at the version installed where the caller is, which may be another team's
+ * public listing; otherwise its current version, for readers of its layer.
+ */
 function fileRoutes(ctx: Ctx, app: FastifyInstance) {
   app.get<{ Params: { id: string; '*': string } }>('/api/plugins/:id/files/*', async (req, reply) => {
     const me = await requireUser(ctx, req)
-    const [row] = await ctx.db
-      .select({ plugin: plugins, files: pluginVersions.files })
-      .from(plugins)
-      .innerJoin(pluginVersions, eq(pluginVersions.id, plugins.versionId))
-      .where(eq(plugins.id, idParam(req.params.id, '插件不存在')))
-    if (!row) return fail('not_found', '插件不存在')
-    const { scope, teamId, groupId } = row.plugin
-    if (scope === 'team') await requireTeam(ctx, me.id, teamId!)
-    if (scope === 'group') await requireReader(ctx, groupId!, me.id)
+    const id = idParam(req.params.id, '插件不存在')
+    const [installed] = await ctx.db
+      .select({ files: pluginVersions.files })
+      .from(installs)
+      .innerJoin(pluginVersions, eq(pluginVersions.id, installs.resolvedVersionId))
+      .where(and(eq(installs.listingId, id), installedFor(ctx.db, me.id)))
+      .limit(1)
+    const files = installed?.files ?? (await layerFiles(ctx, me.id, id))
     const path = req.params['*']
-    const file = (row.files as SkillFile[]).find((f) => f.path === path) ?? fail('not_found', '文件不存在')
+    const file = (files as SkillFile[]).find((f) => f.path === path) ?? fail('not_found', '文件不存在')
     const ext = path.split('.').pop()?.toLowerCase() ?? ''
     return reply
       .headers({
@@ -189,6 +230,19 @@ function fileRoutes(ctx: Ctx, app: FastifyInstance) {
       })
       .send(Buffer.from(file.content, file.encoding === 'base64' ? 'base64' : 'utf8'))
   })
+}
+
+async function layerFiles(ctx: Ctx, userId: string, id: string) {
+  const [row] = await ctx.db
+    .select({ plugin: plugins, files: pluginVersions.files })
+    .from(plugins)
+    .innerJoin(pluginVersions, eq(pluginVersions.id, plugins.versionId))
+    .where(eq(plugins.id, id))
+  if (!row) return fail('not_found', '插件不存在')
+  const { scope, teamId, groupId } = row.plugin
+  if (scope === 'team') await requireTeam(ctx, userId, teamId!)
+  if (scope === 'group') await requireReader(ctx, groupId!, userId)
+  return row.files
 }
 
 /** A plugin version for a machine one of whose live runs was sent it (RunStart.plugins). */

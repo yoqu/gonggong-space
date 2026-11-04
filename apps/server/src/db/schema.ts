@@ -1144,6 +1144,8 @@ export const plugins = pgTable(
     listedVersionId: uuid('listed_version_id'),
     /** Where a GitHub import came from. */
     ghSource: jsonb('gh_source').$type<ListingSource>(),
+    /** Set while `status` is 'banned'. */
+    banReason: text('ban_reason'),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1200,6 +1202,36 @@ export const installs = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique().on(t.listingId, t.scope, t.scopeId), index('installs_scope').on(t.scope, t.scopeId)],
+)
+
+/** A member asks the target's admins to install a listing (plan Skill市场-M4). */
+export const installRequests = pgTable(
+  'install_requests',
+  {
+    id: id(),
+    listingId: uuid('listing_id')
+      .notNull()
+      .references(() => plugins.id, { onDelete: 'cascade' }),
+    /** 'group' | 'repo' | 'team' */
+    scope: text('scope').notNull(),
+    scopeId: uuid('scope_id').notNull(),
+    pinVersionId: uuid('pin_version_id').references(() => pluginVersions.id),
+    note: text('note').notNull().default(''),
+    /** InstallRequestStatus */
+    status: text('status').notNull().default('pending'),
+    requesterId: uuid('requester_id')
+      .notNull()
+      .references(() => users.id),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decisionNote: text('decision_note'),
+    createdAt: createdAt(),
+    decidedAt: ts('decided_at'),
+  },
+  (t) => [
+    uniqueIndex('install_requests_pending')
+      .on(t.listingId, t.scope, t.scopeId)
+      .where(sql`${t.status} = 'pending'`),
+  ],
 )
 
 /** Design systems a group imported for prompt-first creations (「导入我的设计」): a DESIGN.md, a site or a repository. */

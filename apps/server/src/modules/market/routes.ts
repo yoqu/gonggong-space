@@ -1,4 +1,5 @@
 import {
+  BanReq,
   GithubImportReq,
   InstallReq,
   ListingType,
@@ -29,9 +30,12 @@ import {
   publish,
   reviewQueue,
   reviewVersion,
+  setBan,
   submitVersion,
   updateListing,
+  versionDiff,
 } from './publish.js'
+import { requestRoutes } from './requests.js'
 import { deleteInstall, installable, listInstalls, putInstall, type Target } from './service.js'
 
 type P = { Params: { id?: string; repoId?: string; listingId?: string } }
@@ -101,6 +105,7 @@ export function marketRoutes(ctx: Ctx) {
     )
 
     publishRoutes(ctx, app)
+    requestRoutes(ctx, app)
   }
 }
 
@@ -159,6 +164,21 @@ function publishRoutes(ctx: Ctx, app: FastifyInstance) {
   app.post<V>('/api/market/:id/versions/:versionId/review', async (req, reply) => {
     const me = await requireUser(ctx, req)
     await reviewVersion(ctx, me, req.params.id, req.params.versionId, ReviewReq.parse(req.body))
+    return reply.status(204).send()
+  })
+
+  app.get<V>('/api/market/:id/versions/:versionId/diff', async (req) =>
+    versionDiff(ctx, await requireUser(ctx, req), req.params.id, req.params.versionId),
+  )
+
+  app.post<{ Params: { id: string } }>('/api/market/:id/ban', async (req, reply) => {
+    const me = await requireUser(ctx, req)
+    await setBan(ctx, me, req.params.id, BanReq.parse(req.body).reason)
+    return reply.status(204).send()
+  })
+
+  app.delete<{ Params: { id: string } }>('/api/market/:id/ban', async (req, reply) => {
+    await setBan(ctx, await requireUser(ctx, req), req.params.id, null)
     return reply.status(204).send()
   })
 }

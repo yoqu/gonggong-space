@@ -659,6 +659,13 @@
       "when": 1793771089880,
       "tag": "0093_personal_skills",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1793772819072,
+      "tag": "0094_market_requests",
+      "breakpoints": true
     }
   ]
 }

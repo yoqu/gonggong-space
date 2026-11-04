@@ -117,7 +117,7 @@ export const listingSummary = (listing: ListingRow, v: Version): ListingSummary 
   revision: v.revision,
 })
 
-const inScope = (t: { scope: string; scopeId: string }) =>
+export const inScope = (t: { scope: string; scopeId: string }) =>
   and(eq(installs.scope, t.scope), eq(installs.scopeId, t.scopeId))
 
 /**
@@ -186,7 +186,7 @@ export async function listInstalls(db: Read, t: Target, where?: SQL) {
   )
 }
 
-export async function installable(db: Read, t: Target) {
+export async function installable(db: Read, t: Target, where?: SQL) {
   const rows = await db
     .select({ listing: plugins, current: versionOf(current) })
     .from(plugins)
@@ -197,6 +197,7 @@ export async function installable(db: Read, t: Target) {
         eq(plugins.status, 'listed'),
         t.scope === 'user' ? eq(plugins.type, 'skill') : undefined,
         notInArray(plugins.id, db.select({ id: installs.listingId }).from(installs).where(inScope(t))),
+        where,
       ),
     )
     .orderBy(asc(plugins.name))
