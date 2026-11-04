@@ -172,6 +172,50 @@ describe('notification center', () => {
     expect(calls.some((c) => c.path === '/notifications/n1/read')).toBe(true)
   })
 
+  it('shows market notifications with their icons and opens the market tab they point to', async () => {
+    mockApi({
+      'GET /notifications': [
+        note({
+          type: 'install_request',
+          payload: {
+            requestId: 'q1',
+            requesterName: '陈晨',
+            listingName: 'review-pr',
+            targetLabel: '闲聊群',
+          },
+        }),
+        note({
+          id: 'n2',
+          type: 'install_request_decided',
+          payload: { listingName: 'review-pr', targetLabel: '闲聊群', approved: false, note: '已有同类' },
+        }),
+        note({
+          id: 'n3',
+          type: 'listing_reviewed',
+          payload: { listingId: 'l1', listingName: 'review-pr', revision: 4, approved: true, note: '' },
+        }),
+      ],
+      'POST /notifications/n1/read': undefined,
+      'POST /notifications/n3/read': undefined,
+    })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    const request = (await within(list).findByText('陈晨 申请把 review-pr 引入到 闲聊群')).closest(
+      'button',
+    ) as HTMLElement
+    const decided = within(list)
+      .getByText('引入 review-pr 到 闲聊群 的申请被拒绝')
+      .closest('button') as HTMLElement
+    const reviewed = within(list).getByText('review-pr r4 审核通过').closest('button') as HTMLElement
+    const color = (el: HTMLElement) => (el.querySelector('.notif__icon') as HTMLElement).style.color
+    expect(color(request)).toBe('var(--system-orange)')
+    expect(color(decided)).toBe('var(--system-blue)')
+    expect(color(reviewed)).toBe('var(--system-green)')
+    fireEvent.click(request)
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/market?tab=requests'))
+  })
+
   it('shows handled items as 已处理, follows live resolutions and clamps long text', async () => {
     const done = new Date().toISOString()
     const long = `rm -rf ${'x'.repeat(400)}`

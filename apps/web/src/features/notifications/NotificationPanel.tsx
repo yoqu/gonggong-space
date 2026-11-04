@@ -47,6 +47,9 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   bot_share_request: { icon: 'person-add', color: 'var(--system-orange)' },
   bot_share_decided: { icon: 'bot', color: 'var(--system-blue)' },
   git_operation_request: { icon: 'git-branch', color: 'var(--system-orange)' },
+  install_request: { icon: 'download', color: 'var(--system-orange)' },
+  install_request_decided: { icon: 'download', color: 'var(--system-blue)' },
+  listing_reviewed: { icon: 'shield-check', color: 'var(--system-green)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */

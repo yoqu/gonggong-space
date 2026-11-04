@@ -37,9 +37,12 @@ import '../groups/groups.css'
 
 const VISIBILITY_LABEL: Record<ListingVisibility, string> = { public: t('公开'), team: t('仅本团队') }
 
+// TODO(M4 contract): MyListingDto has no banReason yet; the server sends it for banned listings.
+type Mine = MyListingDto & { banReason?: string | null }
+
 /** 我的发布: the listings I maintain, their latest version's review, and publishing new ones. */
 export function MyListings() {
-  const { data, error, reload } = useGet<MyListingDto[]>('/market/mine')
+  const { data, error, reload } = useGet<Mine[]>('/market/mine')
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
   const patch = (l: MyListingDto, body: UpdateListingReq) =>
@@ -87,7 +90,9 @@ export function MyListings() {
                   <Tag tone="gray">r{l.latest.revision}</Tag>
                   <ReviewTag status={l.latest.reviewStatus} />
                   <Tag tone="gray">{VISIBILITY_LABEL[l.visibility]}</Tag>
-                  {!l.listedVersionId ? (
+                  {l.status === 'banned' ? (
+                    <Tag tone="red">{t('已封禁')}</Tag>
+                  ) : !l.listedVersionId ? (
                     <Tag tone="gray">{t('未上架')}</Tag>
                   ) : l.status === 'listed' ? (
                     <Tag tone="green">{t('已上架')}</Tag>
@@ -97,9 +102,11 @@ export function MyListings() {
                 </span>
               }
               description={
-                l.latest.reviewStatus === 'rejected' && l.latest.reviewNote
-                  ? t('驳回原因：{note}', { note: l.latest.reviewNote })
-                  : l.description
+                l.status === 'banned' && l.banReason
+                  ? t('封禁原因：{reason}', { reason: l.banReason })
+                  : l.latest.reviewStatus === 'rejected' && l.latest.reviewNote
+                    ? t('驳回原因：{note}', { note: l.latest.reviewNote })
+                    : l.description
               }
             >
               <span className="cfg__controls">
@@ -113,7 +120,7 @@ export function MyListings() {
                     {t('检查上游更新')}
                   </Button>
                 ) : null}
-                {l.listedVersionId ? (
+                {l.listedVersionId && l.status !== 'banned' ? (
                   <Button
                     size="small"
                     variant="plain"

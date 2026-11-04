@@ -6,6 +6,7 @@ import { useGet } from '../../lib/useGet'
 import { Alert, Button, Dialog, GroupBox, GroupRow, Presence, Spinner, Tag, TextArea, toast } from '../../ui'
 import { TYPE_LABEL } from './InstallList'
 import { byline, ListingDetail } from './ListingDetail'
+import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
 import '../groups/groups.css'
 
@@ -107,6 +108,8 @@ function ReviewDialog({
       <div className="gs-note">
         {t('更新说明：{text}', { text: item.version.changelog || t('（无更新说明）') })}
       </div>
+      <div className="cfg__eyebrow">{t('变更')}</div>
+      <VersionDiff listingId={item.listing.id} versionId={item.version.id} />
       <ListingDetail id={item.listing.id} versionId={item.version.id} />
       <TextArea
         label={t('审核意见')}

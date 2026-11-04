@@ -1,11 +1,31 @@
-import type { MarketListingDetailDto, MarketListingDto, ReviewStatus } from '@gonggong/protocol'
-import type { ReactNode } from 'react'
+import type {
+  ListingVersionDto,
+  MarketListingDetailDto,
+  MarketListingDto,
+  ReviewStatus,
+} from '@gonggong/protocol'
+import { type ReactNode, useState } from 'react'
 import { t } from '../../i18n'
+import { api, errorText } from '../../lib/api'
+import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Alert, GroupBox, GroupRow, Link, Spinner, Tag } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  GroupBox,
+  GroupRow,
+  Link,
+  Presence,
+  Spinner,
+  Tag,
+  TextArea,
+  toast,
+} from '../../ui'
 import { fmtSize } from '../attachments/api'
 import { Markdown } from '../chat/Markdown'
 import { TYPE_LABEL } from './InstallList'
+import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
 import './market.css'
 
@@ -44,24 +64,51 @@ export function ListingDetail({
   versionId?: string
   actions?: (d: MarketListingDetailDto) => ReactNode
 }) {
-  const { data, error } = useGet<MarketListingDetailDto>(
+  const { data, error, reload } = useGet<MarketListingDetailDto>(
     `/market/${id}${versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''}`,
   )
+  const [banning, setBanning] = useState(false)
+  const [diffOf, setDiffOf] = useState<ListingVersionDto | null>(null)
   if (!data) return error ? <Alert variant="error" title={error} /> : <Spinner />
   const gh = data.ghSource
+  const banned = data.status === 'banned'
+  const unban = () => attempt(() => api.del(`/market/${data.id}/ban`)).then(reload)
   return (
     <div className="mkt-detail">
       <div className="mkt-detail__meta">
         <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>
         <Tag tone="gray">{SOURCE_LABEL[data.source]}</Tag>
+        {banned ? <Tag tone="red">{t('已封禁')}</Tag> : null}
         {data.agents.map((a) => (
           <Tag key={a}>{a}</Tag>
         ))}
         <span className="mkt-detail__by">
-          {t('{by} · {n} 次引入 · r{rev}', { by: byline(data), n: data.installs, rev: data.listedRevision })}
+          {data.listedRevision === null
+            ? t('{by} · {n} 次引入', { by: byline(data), n: data.installs })
+            : t('{by} · {n} 次引入 · r{rev}', {
+                by: byline(data),
+                n: data.installs,
+                rev: data.listedRevision,
+              })}
         </span>
-        {actions ? <span className="mkt-detail__actions">{actions(data)}</span> : null}
+        <span className="mkt-detail__actions">
+          {data.canReview ? (
+            banned ? (
+              <Button size="small" onClick={() => void unban()}>
+                {t('解封')}
+              </Button>
+            ) : (
+              <Button size="small" variant="destructive" onClick={() => setBanning(true)}>
+                {t('封禁')}
+              </Button>
+            )
+          ) : null}
+          {actions?.(data)}
+        </span>
       </div>
+      {banned && data.banReason ? (
+        <Alert variant="error" title={t('封禁原因：{reason}', { reason: data.banReason })} />
+      ) : null}
       {data.description ? <p className="mkt-detail__desc">{data.description}</p> : null}
       {gh ? (
         <div className="mkt-detail__gh">
@@ -102,9 +149,92 @@ export function ListingDetail({
                 {v.reviewNote ? <div>{t('审核意见：{note}', { note: v.reviewNote })}</div> : null}
               </>
             }
-          />
+          >
+            {data.canReview || data.canEdit ? (
+              <Button size="small" variant="plain" onClick={() => setDiffOf(v)}>
+                {t('查看变更')}
+              </Button>
+            ) : null}
+          </GroupRow>
         ))}
       </GroupBox>
+      <Presence>
+        {banning ? (
+          <BanDialog
+            listing={data}
+            onClose={() => setBanning(false)}
+            onDone={() => {
+              setBanning(false)
+              reload()
+            }}
+          />
+        ) : diffOf ? (
+          <Dialog
+            open
+            title={t('{name} r{n} 的变更', { name: data.title, n: diffOf.revision })}
+            width={760}
+            onClose={() => setDiffOf(null)}
+          >
+            <VersionDiff listingId={data.id} versionId={diffOf.id} />
+          </Dialog>
+        ) : null}
+      </Presence>
     </div>
+  )
+}
+
+/** 封禁: stops a listing everywhere from the next turn; the reason shows to its maintainers. */
+function BanDialog({
+  listing,
+  onClose,
+  onDone,
+}: {
+  listing: MarketListingDetailDto
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const ban = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await api.post(`/market/${listing.id}/ban`, { reason: reason.trim() })
+      toast({ type: 'success', message: t('已封禁「{name}」', { name: listing.title }) })
+      onDone()
+    } catch (e) {
+      setError(errorText(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={t('封禁「{name}」', { name: listing.title })}
+      width={480}
+      closeOnScrim={false}
+      onClose={onClose}
+      actions={[
+        { label: t('取消'), onClick: onClose },
+        {
+          label: t('封禁'),
+          variant: 'destructive',
+          disabled: busy || !reason.trim(),
+          onClick: () => void ban(),
+        },
+      ]}
+    >
+      {error ? <Alert variant="error" title={error} /> : null}
+      <div className="gs-note">{t('封禁后所有引入下一轮起停止加载，市场不再显示，也不能新引入。')}</div>
+      <TextArea
+        label={t('封禁原因')}
+        aria-label={t('封禁原因')}
+        placeholder={t('维护者会看到这个原因')}
+        maxLength={500}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
+    </Dialog>
   )
 }
