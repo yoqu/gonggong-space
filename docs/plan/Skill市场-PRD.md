@@ -1,6 +1,6 @@
 # Skill 市场 PRD
 
-> 状态：已定稿（2026-11-04，姜维川），M1 未开工。前置文档：`插件体系-方案.md`（市场原排在 P5）、`团队Skill-开发计划.md`。
+> 状态：已定稿（2026-11-04，姜维川；已按共字君Codex 评审修订），M1 未开工。前置文档：`插件体系-方案.md`（市场原排在 P5）、`团队Skill-开发计划.md`。
 
 ## 1. 背景与目标
 
@@ -18,17 +18,18 @@
 | D1 | 全平台**一个**公共市场。上架时选择可见范围：**公开**（所有登录用户可见）或**仅本团队** |
 | D2 | 个人层 = 「我的 Skill」：只在**我发起的运行**里生效，跟着我进入所有群 |
 | D3 | 项目 = 仓库（`repos`）。引入到仓库后，对所有以它为主仓库的群生效。只在平台侧绑定，不改仓库代码 |
-| D4 | Skill 市场与插件市场**合一**：Skill 是最轻量的插件，用同一套 manifest 和市场页 |
+| D4 | Skill 市场与插件市场**合一**：共用市场页、条目与版本存储；manifest 按 `skill` / `plugin` 分开校验 |
 | D5 | 上架需要审核：公开范围由平台管理员审核，仅本团队范围由团队管理员审核 |
 | D6 | 支持从 GitHub 仓库或子目录、ZIP、单个 `SKILL.md` 导入 |
 | D7 | 引入后订阅更新：默认跟随最新的已审核版本，可以锁定版本；作者发新版后提示升级 |
-| D8 | 同名 Skill 的优先级：**个人 > 群 > 仓库 > 团队 > 平台** |
+| D8 | 同名 Skill 的优先级：**仓库自带文件 > 个人 > 群 > 仓库 > 团队 > 平台**；同一层不允许同名 |
 | D9 | 对应层的管理员可以直接引入；普通成员只能发起「申请引入」，由该层管理员审批 |
 | D10 | 个人 Skill 下发到 Bot 主人的机器，主人可以在磁盘上读到内容，接受此代价，不做加密或限制 |
 | D11 | 上架不要求许可证；GitHub 导入只记录来源（`source`：URL + commit） |
 | D12 | GitHub 导入只做手动「检查上游更新」，不定时同步；拉到的新版本仍走审核 |
 | D13 | 作者离开团队后，其「仅本团队」条目由团队 admin 接管（成为维护者） |
 | D14 | 桌面端只读展示市场与已引入项；上传、引入、审核、申请只在 web 端 |
+| D15 | 个人 Skill 不单独开会话：换发起人时重装 Skill 名单并接续原会话，接受会话历史里残留上一位发起人个人 Skill 的影响 |
 
 ## 3. 概念模型
 
@@ -42,13 +43,16 @@ flowchart LR
   Pub --> Group[群]
   Pub --> Repo[仓库]
   Pub --> Team[团队]
-  Personal & Group & Repo & Team & Platform[平台] --> Merge[合并<br/>个人>群>仓库>团队>平台]
+  Personal & Group & Repo & Team & Platform[平台] --> Merge[合并<br/>仓库文件>个人>群>仓库>团队>平台]
   Merge --> Daemon[daemon 下发给 Bot]
 ```
 
 - **市场条目（Listing）**：一个可分发的包，即现在的 `plugins` 加上作者、可见范围和上架状态。类型分为 `skill`（只有一个或多个 SKILL.md）和 `plugin`（带模板、设计系统、inputs 等，即现有的创作插件）。
+  - `skill` 条目只校验 SKILL.md frontmatter 的 `name/description`，名称规则同现有 Skill，许可证选填；下发名不加前缀。
+  - `plugin` 条目沿用现有 `PluginManifest` 校验（许可证改为选填，不填虚构值）；下发名保留 `<插件>:` 前缀。
 - **版本（Version）**：沿用 `pluginVersions`，是不可变快照。每个版本单独审核。
-- **安装（Install）**：引入记录，字段为 `{listingId, scope, scopeId, pin: versionId | null, enabled}`。`pin = null` 表示跟随最新的已审核版本。
+- **安装（Install）**：引入记录，字段为 `{listingId, scope, scopeId, pin: versionId | null, resolvedVersionId, enabled}`。`pin = null` 表示跟随最新的已审核版本；`resolvedVersionId` 是当前实际生效的版本，升级成功才前移，失败保持原版本。
+- **条目状态**：`listed`（上架）→ `unlisted`（下架：不能新引入，已有安装停在 `resolvedVersionId` 继续用）；`banned`（封禁：发现危险内容，所有安装立即停止下发，界面标红说明）。
 - **本地 Skill**：现在三层中手写的 Skill（`skills` 表）保持不变，参与同样的合并。可以从本地 Skill「发布到市场」。
 
 ## 4. 角色与权限
@@ -63,17 +67,26 @@ flowchart LR
 | 引入到仓库 | 仓库所属团队的 admin 直接引入；团队成员发起申请 |
 | 引入到团队 | 团队 admin 直接引入；团队成员发起申请 |
 | 维护「仅本团队」条目 | 作者；作者离开团队后由团队 admin 接管 |
-| 下架 | 作者（只影响新引入）；审核方可以强制下架（已有安装停止跟随更新，并标记「已下架」） |
+| 下架 | 作者或审核方；只影响新引入 |
+| 封禁 | 审核方（团队范围为团队 admin，公开范围为 sysadmin） |
 
 ## 5. 生效规则
 
-- **合并**：按 D8 从低到高叠加，同名时高层覆盖低层。群管理员仍然可以在群里关掉继承来的项，沿用 `groupSkillOverrides` 和 `groupPlugins`。
+- **合并**：按 D8 从低到高叠加，同名时高层覆盖低层。群管理员仍然可以在群里关掉继承来的项，沿用 `groupSkillOverrides`。
+  - 第 0 层是仓库自带的同名 Skill（`.claude/skills`、`.agents/skills`）：daemon 现有逻辑已会跳过下发，界面提示「被仓库文件覆盖」。
+  - 同一层内，手写 Skill 与市场 Skill、或两个市场条目同名，一律在引入/创建时报冲突，要求先移除或改名；不做同层自动覆盖。
 - **个人层的「我发起的运行」**：
   - 群里 @Bot：发起人是 @ 的那个人；
   - `hand_off` 接力：继承上一棒的发起人；
   - 定时任务：发起人是任务创建者；
   - Bot 自己发起或系统触发：没有个人层。
-- **个人 Skill 只在发起人本人的运行里生效**，群里其他人看不到它的内容。群消息的运行详情里只显示「使用了 N 个个人 Skill」。
+- **个人层的团队边界**：每次下发时按「当前群所在团队」检查，不只在市场列表上过滤。
+  - 「公开」条目：在发起人所在的任何群里加载；
+  - 「仅本团队」条目：只在该团队的群里加载，其他团队的群跳过；
+  - 发起人离开该团队后，这些条目不再下发；
+  - 接力到其他群时按同一规则重新检查。
+- **个人 Skill 只在发起人本人的运行里生效**，界面不主动展示其内容（运行详情只显示「使用了 N 个个人 Skill」）。但 agent 读文件的过程日志和回复可能带出内容，Bot 主人也可在磁盘读到（D10）。
+- **换发起人**（D15）：skill-set 目录仍按「群 + Bot」一个，每轮按发起人重算名单并重装；名单变化时现有逻辑会重启 adapter、清理旧的 Codex 链接并接续会话。会话历史中可能残留上一位发起人个人 Skill 的影响，不另做隔离。
 - **仓库层**：取群的主仓库（`groupRepos.isPrimary`），按 `repos.key` 匹配团队仓库，读取该仓库的安装记录。
 - **生效时机**：与插件一致，下一轮运行生效，不打断正在进行的运行。
 - **兼容性**：沿用插件对 agent 种类和 `minDaemon` 的要求；条件不满足时不下发，并在界面上说明原因。
@@ -92,13 +105,16 @@ flowchart LR
   - 自动生成最小 manifest（`type: skill`）；
   - 大小上限沿用插件；
   - 文件中的密钥、绝对路径给出提示（人工确认，不拦截）。
+- 导入安全校验（属于验收，不是后续增强）：
+  - ZIP：限制解压后总大小和文件数；拒绝路径穿越（`..`、绝对路径）和软链接；
+  - GitHub：只允许 `github.com` / `codeload.github.com`，限制重定向次数，设下载超时与大小上限，失败给出明确原因。
 - 发版：修改后生成新版本，填写更新说明，选择可见范围，提交审核。草稿可以直接引入到「个人」自测。
 - GitHub 来源的条目在「我的发布」里有「检查上游更新」按钮：对比记录的 commit，有变化就生成新草稿版本，由作者提交审核。
 
 ### 6.3 引入弹窗
 - 选择目标：我的个人 / 我管理的群 / 仓库 / 团队（没有权限的目标显示为「申请引入」）。
 - 选择版本策略：跟随最新（默认）或锁定当前版本。
-- 冲突提示：目标层已有同名项时，提示将覆盖哪一层的哪个 Skill。
+- 冲突提示：目标层已有同名项时禁止引入，提示先移除；其他层有同名项时，提示将覆盖哪一层的哪个 Skill。
 
 ### 6.4 管理入口
 - 个人设置新增「我的 Skill」：查看已引入和自己创建的 Skill，可以开关、升级、移除。
@@ -109,31 +125,42 @@ flowchart LR
 - 申请引入：通知该层管理员，在管理入口处理；结果通过站内通知告知申请人。
 
 ### 6.5 更新与通知
-- 跟随最新的安装：新版审核通过后，下一轮运行自动生效，并在设置中留下记录。
-- 锁定版本的安装：显示「有新版 vX」，管理员手动升级。
-- 作者下架或被强制下架：已有安装继续使用当前版本，标记为「已下架」。
+- 跟随最新的安装：新版审核通过后，下一轮运行自动生效（`resolvedVersionId` 前移），并在设置中留下记录；新版下发失败（如 agent 或 daemon 版本不满足）时保持原版本并提示原因。
+- 锁定版本的安装：显示「有新版 vX」，管理员手动升级；可手动回退到任一已审核的旧版本。
+- 下架：已有安装继续使用 `resolvedVersionId`，标记「已下架」。
+- 封禁：所有安装下一轮起停止下发，标记「已封禁」并显示原因。
 
 ## 7. 数据与接口草案
 
-- 扩展 `plugins`：新增 `type (skill|plugin)`、`authorId`、`visibility (public|team)`、`listedVersionId`、`status`。scope 字段保留，用于兼容官方内置条目和团队私有条目。
+- 扩展 `plugins`：新增 `type (skill|plugin)`、`authorId`、`visibility (public|team)`、`listedVersionId`、`status (listed|unlisted|banned)`。scope 字段保留，用于兼容官方内置条目和团队私有条目。
 - 扩展 `pluginVersions`：新增 `reviewStatus (draft|pending|approved|rejected)`、`reviewerId`、`reviewNote`、`changelog`。
-- 新表 `installs`：`listingId, scope (user|group|repo|team|platform), scopeId, pinVersionId?, enabled, installedBy`。现有的 `groupPlugins` 迁移进来。
+- 新表 `installs`：`listingId, scope (user|group|repo|team|platform), scopeId, pinVersionId?, resolvedVersionId, enabled, installedBy`。同一 `scope + scopeId` 下下发名唯一。
+- 迁移 `groupPlugins`：原语义是「没有记录 = 关闭」，只把已有记录迁成安装并保留 `enabled` 原值；没有记录的群不生成安装，迁移后启停状态与迁移前逐群一致（迁移测试覆盖）。
 - 新表 `install_requests`：`listingId, scope, scopeId, requesterId, status, decidedBy`。
 - 接口：
   - `GET /api/market`（列表与搜索）、`GET /api/market/:id`；
   - `POST /api/market/import`；
   - `POST /api/market/:id/versions/:v/submit`、`/review`；
   - `POST /api/installs`、`/api/install-requests`。
-- daemon 下发：合并结果中新增个人层和仓库层。按运行的发起人计算 skill-set，所以 daemon 端的 skill-set 键要从 `<group>-<bot>` 扩展为 `<group>-<bot>-<initiator 摘要>`（发起人没有个人 Skill 时沿用原键，避免目录膨胀）。
+- daemon 下发：服务端按运行的发起人和当前群算出合并后的名单；daemon 端 skill-set 键保持 `<group>-<bot>` 不变，每轮按名单重装（按摘要缓存，未变的不重新拉取）。
 
-## 8. 分期
+## 8. 验收要点
+
+- 迁移前后逐群对比插件启停状态一致；插件总开关关闭时全量测试结果与改动前一致。
+- 同层同名引入被拒；仓库自带同名 Skill 时市场 Skill 不下发且界面有提示。
+- 个人层「A → B → A」切换：B 的运行里没有 A 的个人 Skill 文件和 Codex 链接，A 再次发起时恢复。
+- 「仅本团队」个人 Skill 在其他团队的群里不下发；离队后不下发；跨团队接力重新检查。
+- 下架后已有安装继续用原版本；封禁后下一轮停止下发。
+- ZIP 路径穿越、软链接、超限，GitHub 非白名单域名、超时、重定向过多，均被拒并给出原因。
+
+## 9. 分期
 
 | 期 | 内容 | 迁移 |
 |---|---|---|
-| M1 底座 | Listing、Install 模型；把现有 `groupPlugins` 迁移进来；仓库层；合并规则改为五层 | 有 |
-| M2 市场与发布 | 市场页、详情页、导入（ZIP / SKILL.md / GitHub）、引入弹窗、版本跟随与锁定 | 有 |
-| M3 个人层 | 「我的 Skill」，按发起人下发，hand_off 和定时任务的发起人传递 | 有，daemon 改动 |
-| M4 审核与申请 | 上架审核台、申请引入、通知 | 有 |
+| M1 底座 | Listing、Install 模型（含 `resolvedVersionId`、条目状态）；`groupPlugins` 迁移；仓库层；五层合并与同层冲突规则；`skill/plugin` 分开校验 | 有 |
+| M2 市场与发布 | 市场页、详情页、导入（ZIP / SKILL.md / GitHub，含安全校验）、引入弹窗、版本跟随与锁定、**最小审核**（提交、通过、驳回） | 有 |
+| M3 个人层 | 「我的 Skill」，按发起人下发，团队边界检查，hand_off 和定时任务的发起人传递 | 有，daemon 改动 |
+| M4 审核台与申请 | 审核台（diff 视图）、封禁、申请引入、通知 | 有 |
 
 每期都涉及数据库迁移和三端改动，按约定开工前确认。
 
