@@ -57,6 +57,7 @@ export default {
   '会话#list': 'Conversations',
   发起会话: 'New conversation',
   我的机器管理: 'My machines',
+  '机器与 Bot': 'Machines & Bots',
   '未绑定机器的 Bot': 'Bots without a machine',
   '选择一台机器或 Bot': 'Pick a machine or a Bot',
   '在左侧查看机器与其上的 Bot，管理配置、权限与共享。':

@@ -1,4 +1,4 @@
-import type { MachineDto, MachineWorkspace } from '@gonggong/protocol'
+import { compareVersions, type MachineDto, type MachineWorkspace } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -19,6 +19,32 @@ import {
   Tag,
   toast,
 } from '../../ui'
+import { MirrorPanel } from './ToolsPanel'
+
+/** 诊断: the daemon version, the mirror its tools download from and its log. */
+export function DiagnosticsPanel({ machine, latest }: { machine: MachineDto; latest?: string }) {
+  const version = machine.daemonVersion
+  return (
+    <div className="mx">
+      <GroupBox>
+        <GroupRow
+          label={t('daemon 版本')}
+          wideValue
+          value={
+            <span className="mx-inline">
+              {version ? `v${version}` : '--'}
+              {latest && version && compareVersions(version, latest) < 0 ? (
+                <Tag tone="orange">{t('可升级到 {version}', { version: latest })}</Tag>
+              ) : null}
+            </span>
+          }
+        />
+      </GroupBox>
+      {machine.features.includes('tools') ? <MirrorPanel machine={machine} /> : null}
+      {machine.features.includes('machineAdmin') ? <LogsPanel machine={machine} /> : null}
+    </div>
+  )
+}
 
 type Level = 'error' | 'warn' | 'info' | 'debug'
 const LEVELS: { value: Level; label: string }[] = [
@@ -30,7 +56,7 @@ const LEVELS: { value: Level; label: string }[] = [
 const LOG_LINES = 300
 
 /** The machine's daemon log, newest last; credentials are masked on the machine before they are sent. */
-export function LogsPanel({ machine }: { machine: MachineDto }) {
+function LogsPanel({ machine }: { machine: MachineDto }) {
   const [level, setLevel] = useState<Level>('info')
   const { data, error, reload } = useGet<{ lines: { level: Level; text: string }[] }>(
     `/machines/${machine.id}/logs?level=${level}&limit=${LOG_LINES}`,
@@ -101,7 +127,7 @@ export const sizeText = (bytes: number) => {
 
 type Listing = { entries: MachineWorkspace[]; disk: { free: number; total: number } | null }
 
-/** 空间: every workspace on the machine by group and bot; removed or unused hosted ones can be deleted, idle ones slimmed. */
+/** 工作区: every workspace on the machine by group and bot; removed or unused hosted ones can be deleted, idle ones slimmed. */
 export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
   const { data, error, reload } = useGet<Listing>(`/machines/${machine.id}/workspaces`)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -160,7 +186,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
   for (const w of entries) groups.set(w.groupId, [...(groups.get(w.groupId) ?? []), w])
   const risky = selected.filter(hasChanges)
   return (
-    <section className="machine-admin" aria-label={t('空间')}>
+    <section className="machine-admin" aria-label={t('工作区#tab')}>
       <div className="machine-admin__bar">
         <Button size="small" icon="arrow-clockwise" onClick={reload}>
           {t('刷新')}

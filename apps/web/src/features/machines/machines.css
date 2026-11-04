@@ -68,15 +68,37 @@
   border-radius: var(--radius-capsule);
 }
 /* 机器详情 */
-.machine__rename {
-  display: flex;
+.machine-name {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-8);
-  width: 100%;
-}
-.machine__rename .ui-field {
-  flex: 1;
+  gap: var(--space-4);
   min-width: 0;
+  max-width: 100%;
+}
+.machine-name__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.machine-name__edit {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-field);
+  background: transparent;
+  color: var(--label-secondary);
+}
+.machine-name__edit:hover {
+  background: var(--quote-fill);
+  color: var(--label);
+}
+.machine-name__field {
+  width: min(280px, 100%);
+  font-weight: 400;
 }
 .machine {
   display: flex;
@@ -292,7 +314,7 @@
   text-align: center;
 }
 
-/* Agent 工具 / 供应商 */
+/* Agent 与供应商 / 诊断 */
 .mx {
   display: flex;
   flex-direction: column;
@@ -302,6 +324,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+}
+/* One agent: its tool, providers and agent settings. */
+.mx-agent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-window);
+  box-shadow: inset 0 0 0 1px var(--separator);
 }
 .mx-section__head {
   display: flex;
@@ -570,7 +601,7 @@
   color: var(--system-blue);
 }
 
-/* 我的机器管理 → 空间 / 日志 */
+/* 机器详情 → 工作区 / 诊断 */
 .machine-admin {
   display: flex;
   flex-direction: column;

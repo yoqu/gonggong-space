@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { ChatHeader, Icon, Presence } from '../../ui'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
-import { MachineDetails, OS_ICON, osText } from './MachineDialog'
+import { MachineDetails, MachineName, OS_ICON, osText } from './MachineDialog'
 import { OS_LABEL } from './model'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
 import './machines.css'
@@ -34,7 +34,7 @@ export function MachinePage({
             <Icon name={OS_ICON[machine.os]} size={18} label={OS_LABEL[machine.os]} />
           </span>
         }
-        title={machine.name}
+        title={<MachineName machine={machine} />}
         subtitle={[machine.online ? t('在线') : t('离线'), osText(machine), machine.arch].join(' · ')}
         onBack={onBack}
         actions={[

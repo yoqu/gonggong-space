@@ -8,22 +8,12 @@ import {
   type MachineDto,
   type ProviderStoreView,
 } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import {
-  Alert,
-  Button,
-  GroupBox,
-  GroupRow,
-  SegmentedControl,
-  Skeleton,
-  Switch,
-  TextField,
-  toast,
-} from '../../ui'
-import { AGENT_LABEL, AGENTS } from '../bots/model'
+import { Alert, Button, GroupBox, GroupRow, SegmentedControl, Switch, TextField, toast } from '../../ui'
+import { AGENT_LABEL } from '../bots/model'
 import {
   BOOL_RAW,
   type BoolState,
@@ -35,29 +25,10 @@ import {
 } from './agentSettings'
 import { BOOL_ITEMS } from './ProviderSettings'
 
-/** Machine defaults of the agent-layer settings (design §4.2.2), per agent kind; the machine owner's alone. */
-export function AgentSettingsPanel({ machine }: { machine: MachineDto }) {
-  const [view, setView] = useState<ProviderStoreView | null>(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    api
-      .get<ProviderStoreView>(`/machines/${machine.id}/providers`)
-      .then(setView, (e) => setError(errorText(e)))
-  }, [machine.id])
-  if (error) return <Alert variant="error" description={error} />
-  if (!view) return <Skeleton count={4} />
-  return (
-    <div className="mx">
-      {AGENTS.filter((a) => fieldsFor(a, 'agent').length).map((agent) => (
-        <AgentBox key={agent} machine={machine} agent={agent} view={view} onView={setView} />
-      ))}
-    </div>
-  )
-}
+const SOURCE_LABEL = { default: t('默认'), cli: t('该机器 CLI'), agent: t('Agent 设置') }
 
-const SOURCE_LABEL = { default: t('默认'), cli: t('本机 CLI'), agent: t('Agent 设置') }
-
-function AgentBox({
+/** Machine defaults of one agent's agent-layer settings (design §4.2.2); the machine owner's alone. */
+export function AgentSettingsBox({
   machine,
   agent,
   view,
@@ -102,7 +73,7 @@ function AgentBox({
   const source = (f: AgentSettingField) => {
     const own = texts[f.id] ?? ''
     const fromCli = inheritCli ? cli?.values[f.id] : undefined
-    const cliText = fromCli ? t('本机 CLI：{v}', { v: valueLabel(f, fromCli) }) : null
+    const cliText = fromCli ? t('该机器 CLI：{v}', { v: valueLabel(f, fromCli) }) : null
     if (own)
       return (
         <span className="mx-inline">
@@ -121,7 +92,7 @@ function AgentBox({
     <section aria-label={title} className="mx-section">
       <div className="mx-section__head">
         <span className="mx-row__main">
-          <span className="mx-strong">{title}</span>
+          <span className="mx-strong">{t('Agent 设置')}</span>
           <span className="mx-sub">
             {t('这台机器上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名')}
           </span>
@@ -152,18 +123,18 @@ function AgentBox({
       </GroupBox>
       <GroupBox>
         <GroupRow
-          label={t('继承本机 CLI 配置')}
+          label={t('继承该机器 CLI 配置')}
           description={
             inheritCli
               ? t('同时加载这台机器上 CLI 自己的用户配置')
               : t('已关闭：同时不再加载个人 CLAUDE.md、记忆、hooks 和用户 Skill')
           }
         >
-          <Switch aria-label={t('继承本机 CLI 配置')} checked={inheritCli} onChange={setInheritCli} />
+          <Switch aria-label={t('继承该机器 CLI 配置')} checked={inheritCli} onChange={setInheritCli} />
         </GroupRow>
         {inheritCli && cli && (cli.hooks || cli.permissionRules) ? (
           <GroupRow
-            label={t('本机 CLI')}
+            label={t('该机器 CLI')}
             description={t('{hooks} 个 hooks、{rules} 条权限规则会随继承一起生效', {
               hooks: cli.hooks,
               rules: cli.permissionRules,
@@ -173,7 +144,7 @@ function AgentBox({
         {agent === 'claude' ? (
           <GroupRow
             label={t('由共工管理')}
-            description={t('权限、模型、MCP、插件与密钥由共工统一管理，本机 CLI 中的同名设置不生效')}
+            description={t('权限、模型、MCP、插件与密钥由共工统一管理，该机器 CLI 中的同名设置不生效')}
           >
             <span className="mx-sub mx-mono">{LOCKED_CLAUDE_SETTINGS.join(' · ')}</span>
           </GroupRow>
@@ -182,7 +153,7 @@ function AgentBox({
       {inheritCli && cli?.conflicts.length ? (
         <Alert
           variant="warning"
-          description={t('本机 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置', {
+          description={t('该机器 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置', {
             names: cli.conflicts.join('、'),
           })}
         />
@@ -194,7 +165,7 @@ function AgentBox({
       ) : null}
       <div className="mx-row mx-row--end">
         <Button variant="primary" disabled={saving} onClick={() => void save()}>
-          {t('保存')}
+          {t('保存设置')}
         </Button>
       </div>
     </section>

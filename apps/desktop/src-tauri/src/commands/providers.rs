@@ -26,10 +26,10 @@ pub async fn providers(host: State<'_, Host>) -> Result<StoreView> {
 }
 
 fn web_url(server: &str, machine_id: &str) -> String {
-    format!("{}/machine/{machine_id}?tab=providers", server.trim_end_matches('/'))
+    format!("{}/machine/{machine_id}?tab=agents", server.trim_end_matches('/'))
 }
 
-/// 在 Web 中管理: this machine's 供应商 tab in the default browser.
+/// 在 Web 中管理: this machine's Agent 与供应商 section in the default browser.
 #[tauri::command]
 pub fn open_providers_in_web(app: AppHandle) -> Result<()> {
     let config = Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn web_url_opens_this_machines_providers_tab() {
-        assert_eq!(web_url("https://gg.test/", "m1"), "https://gg.test/machine/m1?tab=providers");
+        assert_eq!(web_url("https://gg.test/", "m1"), "https://gg.test/machine/m1?tab=agents");
     }
 
     #[test]

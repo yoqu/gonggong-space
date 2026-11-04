@@ -415,6 +415,12 @@ body {
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.sidebar__empty--action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
 .sidebar__row {
   display: flex;
   align-items: center;

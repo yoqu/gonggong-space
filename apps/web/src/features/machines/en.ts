@@ -66,8 +66,15 @@ export default {
   '{n} 核': '{n} {n:core|cores}',
   'Agent 工具': 'Agent tools',
   '供应商#nav': 'Providers',
-  '机器离线，上线后才能管理 Agent 工具、供应商与 Agent 设置':
-    'The machine is offline; manage agent tools, providers and agent settings once it is online',
+  '机器离线，上线后才能管理 Agent 与供应商、工作区和诊断':
+    'The machine is offline; manage agents & providers, workspaces and diagnostics once it is online',
+  'Agent 与供应商': 'Agents & providers',
+  '工作区#tab': 'Workspaces',
+  诊断: 'Diagnostics',
+  运行环境: 'Runtime',
+  'daemon 版本': 'Daemon version',
+  '重命名#action': 'Rename',
+  保存设置: 'Save settings',
   '请先升级该机器的 daemon，才能管理{what}': "Upgrade this machine's daemon first to manage {what}",
   与: ' and ',
   '已重命名为 {name}': 'Renamed to {name}',
@@ -86,7 +93,6 @@ export default {
   在线: 'Online',
   离线: 'Offline',
   名称: 'Name',
-  '留空则使用主机名。': 'Leave empty to use the hostname.',
   保存: 'Save',
   已安装: 'Installed',
   '未检测到 Agent': 'No agents detected',
@@ -144,13 +150,13 @@ export default {
   'CC Switch 的供应商分享链接，Key 只保存在这台机器上':
     'A CC Switch provider share link; the key is stored only on this machine',
   导入链接: 'Import link',
-  '{agent} 的本机默认已切换，新会话生效': '{agent} machine default switched; applies to new sessions',
+  '{agent} 在该机器的默认已切换，新会话生效': '{agent} machine default switched; applies to new sessions',
   '{agent} 供应商': '{agent} providers',
   '已删除供应商 {name}': 'Deleted provider {name}',
-  '它是本机默认，删除后本机默认改为官方登录。':
+  '它是该机器的默认，删除后改为官方登录。':
     'It is the machine default; after deletion the default becomes the official login.',
-  '单独设置为它的 Bot 改为继承本机默认。': 'Bots set to it will inherit the machine default.',
-  '选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换':
+  '单独设置为它的 Bot 改为继承该机器的默认。': 'Bots set to it will inherit the machine default.',
+  '选中的是该机器的默认，新会话使用它；进行中的会话开启新会话后才切换':
     'The selected one is the machine default for new sessions; ongoing sessions switch once a new session starts',
   '使用这台机器上 CLI 自己的登录与配置': "Uses the CLI's own login and config on this machine",
   '编辑…': 'Edit…',
@@ -185,7 +191,7 @@ export default {
   安装: 'Install',
   '升级到 {version}': 'Upgrade to {version}',
   升级命令: 'Upgrade command',
-  '升级时按原安装方式运行，也可以在本机终端自己运行':
+  '升级时按原安装方式运行，也可以在该机器的终端自己运行':
     'Run the way it was installed when you upgrade; you can also run it in a terminal on this machine',
   改用共工空间托管安装: 'Switch to the Gonggong Space managed install',
   '正在安装…': 'Installing…',
@@ -251,26 +257,27 @@ export default {
   '{name} 已废弃，请改用 Haiku 模型映射': '{name} is deprecated; use the Haiku model mapping instead',
   '改用 Haiku 映射': 'Use Haiku mapping',
   'Agent 设置': 'Agent settings',
-  '本机 CLI': 'Local CLI',
+  '该机器 CLI': 'Machine CLI',
   '{agent} Agent 设置': '{agent} agent settings',
   'Agent 设置已保存，将在下一轮生效': 'Agent settings saved; they apply from the next turn',
-  '本机 CLI：{v}': 'Local CLI: {v}',
+  '该机器 CLI：{v}': 'Machine CLI: {v}',
   '来源：{s}': 'Source: {s}',
   '来源：{s}（{v}）': 'Source: {s} ({v})',
   '这台机器上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名':
     'Defaults for every Bot on this machine; a Bot may override language, extended thinking and commit attribution',
   '需要 {agent} {v} 及以上': 'Requires {agent} {v} or later',
   '继承本机 CLI 配置': 'Inherit local CLI config',
+  '继承该机器 CLI 配置': 'Inherit the machine CLI config',
   '同时加载这台机器上 CLI 自己的用户配置': "Also loads the CLI's own user config on this machine",
   '已关闭：同时不再加载个人 CLAUDE.md、记忆、hooks 和用户 Skill':
     'Off: personal CLAUDE.md, memory, hooks and user Skills are no longer loaded either',
   '{hooks} 个 hooks、{rules} 条权限规则会随继承一起生效':
     '{hooks} {hooks:hook|hooks} and {rules} permission {rules:rule|rules} apply with it',
   由共工管理: 'Managed by Gonggong',
-  '权限、模型、MCP、插件与密钥由共工统一管理，本机 CLI 中的同名设置不生效':
-    'Permissions, model, MCP, plugins and keys are managed by Gonggong; the same settings in the local CLI have no effect',
-  '本机 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置':
-    'The local CLI sets {names}, which overrides the Bot’s effort, model and similar settings',
+  '权限、模型、MCP、插件与密钥由共工统一管理，该机器 CLI 中的同名设置不生效':
+    'Permissions, model, MCP, plugins and keys are managed by Gonggong; the same settings in the machine CLI have no effect',
+  '该机器 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置':
+    'The machine CLI sets {names}, which overrides the Bot’s effort, model and similar settings',
   是: 'Yes',
   否: 'No',
   '来自本机 CLI': 'From local CLI',
@@ -287,7 +294,6 @@ export default {
   '托管 · 无仓库': 'Managed · no repo',
   空闲: 'Idle',
   未使用: 'Unused',
-  空间: 'Storage',
   删除所选: 'Delete selected',
   '合计占用 {size}': '{size} in use',
   '磁盘剩余 {free} / 共 {total}': '{free} free of {total}',

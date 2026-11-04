@@ -490,8 +490,11 @@ describe('my machines and bots', () => {
     const dialog = await screen.findByRole('region', { name: '机器详情' })
     for (const text of ['Ubuntu 24.04', '6.8.0', 'AMD EPYC · 8 核', '16 GB', 'Claude Code', '2.1.4'])
       expect(within(dialog).getByText(text)).toBeTruthy()
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '名称' }), { target: { value: '旧服务器' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
+    const name = within(dialog).getByRole('textbox', { name: '名称' })
+    fireEvent.change(name, { target: { value: '旧服务器' } })
+    fireEvent.keyDown(name, { key: 'Enter' })
     await waitFor(() =>
       expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/mc2', body: { name: '旧服务器' } }),
     )
@@ -502,6 +505,30 @@ describe('my machines and bots', () => {
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
     await waitFor(() => expect(screen.queryByRole('region', { name: '机器详情' })).toBeNull())
     expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
+  })
+
+  it('leads 机器与 Bot with 绑定新机器, and offers it again while there is no machine', async () => {
+    mockApi({
+      ...baseRoutes([]),
+      'POST /bind-codes': () => ({
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        link: 'gonggong://bind?server=x&code=K7QM-4X2P',
+      }),
+    })
+    renderAt('/machines')
+    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    expect(within(nav).getByRole('heading', { name: '机器与 Bot' })).toBeTruthy()
+    const bar = nav.querySelector('.shellbar') as HTMLElement
+    expect(
+      within(bar)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent),
+    ).toEqual(['绑定新机器', '新建 Bot…'])
+    expect(within(bar).getByRole('button', { name: '绑定新机器' }).textContent).toContain('绑定新机器')
+    const mine = within(nav).getByRole('region', { name: '我的机器' })
+    fireEvent.click(await within(mine).findByRole('button', { name: '绑定新机器' }))
+    expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
   })
 
   it('opens a bot from the sidebar and deletes it after confirmation', async () => {
@@ -1649,7 +1676,7 @@ describe('machine terminals', () => {
 describe('machine admin tabs', () => {
   const admin: MachineDto = { ...machine, features: ['machineAdmin'], daemonVersion: '0.4.4' }
 
-  it("shows the machine's 空间 by group, deletes the picked ones after warning of unpushed work, and reads its logs", async () => {
+  it("shows the machine's 工作区 by group, deletes the picked ones after warning of unpushed work, and reads its logs", async () => {
     const day = 24 * 3600_000
     const ws = (o: Record<string, unknown>) => ({
       groupId: 'g1',
@@ -1709,8 +1736,8 @@ describe('machine admin tabs', () => {
     const page = await screen.findByRole('region', { name: '机器详情' })
     expect(await within(page).findByText('可升级到 0.4.5')).toBeTruthy()
 
-    fireEvent.click(within(page).getByRole('tab', { name: '空间' }))
-    const list = await within(page).findByRole('region', { name: '空间' })
+    fireEvent.click(within(page).getByRole('tab', { name: '工作区' }))
+    const list = await within(page).findByRole('region', { name: '工作区' })
     expect(await within(list).findByText('5.0 MB')).toBeTruthy()
     expect(within(list).getByText('合计占用 5.0 MB')).toBeTruthy()
     expect(within(list).getByText('磁盘剩余 20 GB / 共 100 GB')).toBeTruthy()
@@ -1742,8 +1769,9 @@ describe('machine admin tabs', () => {
       ]),
     )
 
-    fireEvent.click(within(page).getByRole('tab', { name: '日志' }))
+    fireEvent.click(within(page).getByRole('tab', { name: '诊断' }))
     expect(await within(page).findByText(/tunnel token \[REDACTED\]/)).toBeTruthy()
+    expect(within(page).getByText('v0.4.4')).toBeTruthy()
     expect(calls.map((c) => c.path)).toContain('/machines/mc1/logs?level=info&limit=300')
   })
 
@@ -1776,8 +1804,8 @@ describe('machine admin tabs', () => {
     })
     renderAt('/machine/mc1')
     const page = await screen.findByRole('region', { name: '机器详情' })
-    fireEvent.click(await within(page).findByRole('tab', { name: '空间' }))
-    const list = await within(page).findByRole('region', { name: '空间' })
+    fireEvent.click(await within(page).findByRole('tab', { name: '工作区' }))
+    const list = await within(page).findByRole('region', { name: '工作区' })
     // A running workspace is never slimmed.
     fireEvent.click(await within(list).findByRole('button', { name: '瘦身' }))
     await waitFor(() => expect(useToasts.getState().items.map((i) => i.message)).toContain('已释放 6.0 MB'))

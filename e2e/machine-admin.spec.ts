@@ -6,7 +6,7 @@ import { buildDaemon, memberWithMachine } from './helpers'
 
 test.beforeAll(buildDaemon)
 
-test('我的机器管理: the daemon log and its workspaces, read and cleaned through the real daemon', async ({
+test('机器详情: the daemon log and its workspaces, read and cleaned through the real daemon', async ({
   page,
 }) => {
   test.setTimeout(3 * 60_000)
@@ -25,13 +25,13 @@ test('我的机器管理: the daemon log and its workspaces, read and cleaned th
     const id = await api.machineId()
     await page.goto(`/machine/${id}`)
     const details = page.getByRole('region', { name: '机器详情' })
-    await expect(details.getByRole('tab', { name: '日志' })).toBeEnabled({ timeout: 30_000 })
+    await expect(details.getByRole('tab', { name: '诊断' })).toBeEnabled({ timeout: 30_000 })
 
-    await details.getByRole('tab', { name: '日志' }).click()
+    await details.getByRole('tab', { name: '诊断' }).click()
     await expect(details.locator('.machine-logs')).toContainText('INFO', { timeout: 15_000 })
 
-    await details.getByRole('tab', { name: '空间' }).click()
-    const list = details.getByRole('region', { name: '空间' })
+    await details.getByRole('tab', { name: '工作区' }).click()
+    const list = details.getByRole('region', { name: '工作区' })
     await expect(list).toContainText(leftover)
     await expect(list).toContainText('已移出')
     await expect(list).toContainText('1 个未推送')

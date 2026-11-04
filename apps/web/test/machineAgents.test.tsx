@@ -161,13 +161,20 @@ const open = (machine: MachineDto = mbp, url = '/') =>
 
 const tab = (name: string) => screen.getByRole('tab', { name }) as HTMLButtonElement
 
-describe('machine dialog tabs', () => {
-  it('gives the owner Agent 工具 and 供应商 tabs next to 概览', () => {
-    open()
+const AGENTS_TAB = 'Agent 与供应商'
+const LIVE = { 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW }
+
+describe('machine details sections', () => {
+  it('gives the owner 概览, Agent 与供应商, 工作区 and 诊断', () => {
+    open({ ...mbp, features: [...mbp.features, 'machineAdmin'] })
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      '概览',
+      'Agent 与供应商',
+      '工作区',
+      '诊断',
+    ])
     expect(tab('概览').getAttribute('aria-selected')).toBe('true')
-    expect(tab('Agent 工具').disabled).toBe(false)
-    expect(tab('供应商').disabled).toBe(false)
-    expect(tab('Agent 设置').disabled).toBe(false)
+    for (const name of [AGENTS_TAB, '工作区', '诊断']) expect(tab(name).disabled).toBe(false)
   })
 
   it('has no tabs for someone else (a sysadmin looking at a member machine)', () => {
@@ -176,41 +183,111 @@ describe('machine dialog tabs', () => {
     expect(screen.getByText('wanglei-mbp', { selector: '.machine__host' })).toBeTruthy()
   })
 
-  it('disables both tabs with 机器离线 while the machine is offline', () => {
+  it('disables the live sections with 机器离线 while the machine is offline', () => {
     open({ ...mbp, online: false, features: [] })
-    expect(tab('Agent 工具').disabled).toBe(true)
-    expect(tab('供应商').disabled).toBe(true)
-    expect(tab('Agent 设置').disabled).toBe(true)
+    for (const name of [AGENTS_TAB, '工作区', '诊断']) expect(tab(name).disabled).toBe(true)
     expect(screen.getByText(/机器离线/)).toBeTruthy()
   })
 
   it('asks for a daemon upgrade when the daemon predates the features', () => {
     open({ ...mbp, features: [] })
-    expect(tab('Agent 工具').disabled).toBe(true)
+    expect(tab(AGENTS_TAB).disabled).toBe(true)
     expect(screen.getByText(/请先升级该机器的 daemon/)).toBeTruthy()
   })
 
-  it('blocks only Agent 设置 on a daemon without agentSettings', () => {
+  it('leaves out only Agent 设置 on a daemon without agentSettings', async () => {
+    mockApi(LIVE)
     open({ ...mbp, features: ['tools', 'providers', 'ccSwitch', 'machineAdmin'] })
-    expect(tab('Agent 工具').disabled).toBe(false)
-    expect(tab('供应商').disabled).toBe(false)
-    expect(tab('Agent 设置').disabled).toBe(true)
+    expect(tab(AGENTS_TAB).disabled).toBe(false)
     expect(screen.getByText('请先升级该机器的 daemon，才能管理Agent 设置')).toBeTruthy()
+    fireEvent.click(tab(AGENTS_TAB))
+    await screen.findByRole('region', { name: 'Claude Code 供应商' })
+    expect(screen.queryByRole('region', { name: 'Claude Code Agent 设置' })).toBeNull()
   })
 
-  it('names every outdated tab in one note', () => {
+  it('names every outdated part in one note', () => {
     open({ ...mbp, features: [] })
     expect(
-      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、空间与日志'),
+      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、工作区与日志'),
     ).toBeTruthy()
+  })
+
+  it.each(['agents', 'providers', 'agent', 'tools'])(
+    'opens Agent 与供应商 alone from ?tab=%s (old desktop links included)',
+    async (value) => {
+      mockApi(LIVE)
+      open(mbp, `/?tab=${value}`)
+      expect(tab(AGENTS_TAB).getAttribute('aria-selected')).toBe('true')
+      expect(await screen.findByRole('region', { name: 'Claude Code 供应商' })).toBeTruthy()
+      expect(document.querySelector('.machine__host')).toBeNull()
+    },
+  )
+
+  it.each([
+    ['workspaces', '工作区'],
+    ['diagnostics', '诊断'],
+  ])('opens ?tab=%s on %s', (value, name) => {
+    mockApi(LIVE)
+    open({ ...mbp, features: [...mbp.features, 'machineAdmin'] }, `/?tab=${value}`)
+    expect(tab(name).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it("puts each agent's tool, providers and settings in one card, reading the providers once", async () => {
+    const calls = mockApi(LIVE)
+    open()
+    fireEvent.click(tab(AGENTS_TAB))
+    const claude = await screen.findByRole('region', { name: 'Claude Code' })
+    const parts = [
+      within(claude).getByText('自行安装'),
+      within(claude).getByRole('region', { name: 'Claude Code 供应商' }),
+      within(claude).getByRole('region', { name: 'Claude Code Agent 设置' }),
+    ]
+    for (let i = 1; i < parts.length; i++)
+      expect(parts[i - 1]!.compareDocumentPosition(parts[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const codex = screen.getByRole('region', { name: 'Codex' })
+    expect(within(codex).getByRole('region', { name: 'Codex 供应商' })).toBeTruthy()
+    const env = screen.getByRole('region', { name: '运行环境' })
+    expect(within(env).getByRole('region', { name: 'Node.js' })).toBeTruthy()
+    expect(env.compareDocumentPosition(claude) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(calls.filter((c) => c.path === '/machines/m1/providers')).toHaveLength(1)
+  })
+})
+
+describe('重命名', () => {
+  it('renames in place from the title: Enter saves, Esc cancels without closing', async () => {
+    const calls = mockApi({ 'PATCH /machines/m1': { ...mbp, name: '主力机' } })
+    const onClose = vi.fn()
+    render(
+      <MemoryRouter>
+        <MachineDialog machine={mbp} onClose={onClose} />
+      </MemoryRouter>,
+    )
+    const dialog = screen.getByRole('dialog', { name: '机器详情' })
+    expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
+    const draft = within(dialog).getByRole('textbox', { name: '名称' })
+    fireEvent.change(draft, { target: { value: '临时' } })
+    fireEvent.keyDown(draft, { key: 'Escape' })
+    expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
+    const name = within(dialog).getByRole('textbox', { name: '名称' })
+    fireEvent.change(name, { target: { value: '主力机' } })
+    fireEvent.keyDown(name, { key: 'Enter' })
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/m1', body: { name: '主力机' } }),
+    )
+    await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull())
   })
 })
 
 describe('Agent 工具', () => {
   const openTools = async (routes: Record<string, unknown> = {}) => {
-    const calls = mockApi({ 'GET /machines/m1/tools': TOOLS, ...routes })
+    const calls = mockApi({ ...LIVE, ...routes })
     open()
-    fireEvent.click(tab('Agent 工具'))
+    fireEvent.click(tab(AGENTS_TAB))
     await screen.findByRole('region', { name: 'Codex' })
     return calls
   }
@@ -295,9 +372,19 @@ describe('Agent 工具', () => {
     fireEvent.click(within(claude()).getByRole('button', { name: '改用共工空间托管安装' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/claude/install')).toBe(true))
   })
+})
+
+describe('诊断', () => {
+  it('shows the daemon version', () => {
+    mockApi(LIVE)
+    open(mbp, '/?tab=diagnostics')
+    expect(screen.getByText('v0.9.0')).toBeTruthy()
+  })
 
   it('saves a custom mirror with both addresses', async () => {
-    const calls = await openTools({ 'PUT /machines/m1/tools/settings': TOOLS })
+    const calls = mockApi({ ...LIVE, 'PUT /machines/m1/tools/settings': TOOLS })
+    open(mbp, '/?tab=diagnostics')
+    await screen.findByRole('button', { name: '镜像源' })
     fireEvent.click(screen.getByRole('button', { name: '镜像源' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '自定义' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'npm registry' }), {
@@ -318,24 +405,16 @@ describe('Agent 工具', () => {
 describe('供应商', () => {
   const openProviders = async (routes: Record<string, unknown> = {}, view = VIEW) => {
     const calls = mockApi({
+      'GET /machines/m1/tools': TOOLS,
       'GET /machines/m1/providers': view,
       'GET /machines/m1/providers/presets?agent=claude': PRESETS,
       ...routes,
     })
     open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     return { calls, claude: await screen.findByRole('region', { name: 'Claude Code 供应商' }) }
   }
   const keyIn = (calls: Call[]) => calls.filter((c) => JSON.stringify(c.body ?? {}).includes('sk-new'))
-
-  it("opens on the 供应商 tab from ?tab=providers (the desktop app's 在 Web 中管理)", async () => {
-    mockApi({
-      'GET /machines/m1/providers': VIEW,
-      'GET /machines/m1/providers/presets?agent=claude': PRESETS,
-    })
-    open(mbp, '/?tab=providers')
-    expect(await screen.findByRole('region', { name: 'Claude Code 供应商' })).toBeTruthy()
-  })
 
   it('lists official login and the providers with masked keys', async () => {
     const { claude } = await openProviders()
@@ -518,11 +597,12 @@ describe('供应商', () => {
 
   it('offers a local profile only when the daemon supports it', async () => {
     mockApi({
+      'GET /machines/m1/tools': TOOLS,
       'GET /machines/m1/providers': VIEW,
       'GET /machines/m1/providers/presets?agent=claude': PRESETS,
     })
     open({ ...mbp, features: ['providers'] })
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
     await screen.findByRole('button', { name: /自定义/ })
@@ -762,9 +842,9 @@ describe('供应商', () => {
   })
 
   it('has no CC Switch entry when the machine has none', async () => {
-    mockApi({ 'GET /machines/m1/providers': VIEW })
+    mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
     open({ ...mbp, features: ['tools', 'providers'] })
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     expect(within(claude).queryByRole('button', { name: '从 CC Switch 导入…' })).toBeNull()
     expect(within(claude).getByRole('button', { name: '粘贴链接导入…' })).toBeTruthy()
@@ -788,9 +868,9 @@ describe('供应商', () => {
   })
 
   it('shows 机器离线 when the machine goes away while the tab is open', async () => {
-    mockApi({ 'GET /machines/m1/providers': VIEW })
+    mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
     const view = open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     await screen.findByRole('region', { name: 'Claude Code 供应商' })
     view.rerender(
       <MemoryRouter>
@@ -810,12 +890,13 @@ describe('供应商 · 高级设置', () => {
   }
   const openEditor = async (provider: ProviderView, preset = PRESET) => {
     const calls = mockApi({
+      'GET /machines/m1/tools': TOOLS,
       'GET /machines/m1/providers': { ...VIEW, providers: [provider] },
       'GET /machines/m1/providers/presets?agent=claude': [preset],
       'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
     })
     open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
@@ -941,9 +1022,12 @@ describe('供应商 · 高级设置', () => {
 
   it('summarises window and output in the provider list', async () => {
     const env = { CLAUDE_CODE_MAX_CONTEXT_TOKENS: '262144', CLAUDE_CODE_MAX_OUTPUT_TOKENS: '128000' }
-    mockApi({ 'GET /machines/m1/providers': { ...VIEW, providers: [{ ...kimi, env }] } })
+    mockApi({
+      'GET /machines/m1/tools': TOOLS,
+      'GET /machines/m1/providers': { ...VIEW, providers: [{ ...kimi, env }] },
+    })
     open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     expect(within(claude).getByRole('radio', { name: /Kimi/ }).closest('label')?.textContent).toContain(
       '上下文 256K · 输出 128K',
@@ -955,11 +1039,12 @@ describe('供应商 · 高级设置', () => {
       claude: { env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000', NO_PROXY: '.corp' }, proxy: null, args: [] },
     }
     const calls = mockApi({
+      'GET /machines/m1/tools': TOOLS,
       'GET /machines/m1/providers': { ...VIEW, official },
       'PUT /machines/m1/providers/official': { ...VIEW, official },
     })
     open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     fireEvent.click(within(claude).getByRole('button', { name: '设置…' }))
     const form = await screen.findByRole('form', { name: 'Claude Code 官方登录设置' })
@@ -979,11 +1064,12 @@ describe('供应商 · 高级设置', () => {
   it('leaves Codex providers with the plain variables', async () => {
     const codex: ProviderView = { ...kimi, id: 'p2', agent: 'codex', name: 'GLM', presetId: null }
     mockApi({
+      'GET /machines/m1/tools': TOOLS,
       'GET /machines/m1/providers': { ...VIEW, providers: [codex] },
       'GET /machines/m1/providers/presets?agent=codex': [],
     })
     open()
-    fireEvent.click(tab('供应商'))
+    fireEvent.click(tab(AGENTS_TAB))
     const region = await screen.findByRole('region', { name: 'Codex 供应商' })
     fireEvent.click(within(region).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
@@ -1008,14 +1094,14 @@ describe('Agent 设置', () => {
     },
   }
   const openSettings = async (routes: Record<string, unknown> = {}, view = SET_VIEW) => {
-    const calls = mockApi({ 'GET /machines/m1/providers': view, ...routes })
+    const calls = mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': view, ...routes })
     render(
       <MemoryRouter>
         <MachineDialog machine={mbp} onClose={() => {}} />
         <Toaster />
       </MemoryRouter>,
     )
-    fireEvent.click(tab('Agent 设置'))
+    fireEvent.click(tab(AGENTS_TAB))
     return { calls, region: await screen.findByRole('region', { name: 'Claude Code Agent 设置' }) }
   }
   const row = (region: HTMLElement, label: string) =>
@@ -1027,10 +1113,10 @@ describe('Agent 设置', () => {
     const { region } = await openSettings()
     const language = row(region, '语言')
     expect(language.textContent).toContain('来源：Agent 设置')
-    expect(language.querySelector('s')?.textContent).toContain('本机 CLI：english')
-    expect(row(region, '扩展思考').textContent).toContain('来源：本机 CLI（开）')
+    expect(language.querySelector('s')?.textContent).toContain('该机器 CLI：english')
+    expect(row(region, '扩展思考').textContent).toContain('来源：该机器 CLI（开）')
     expect(row(region, 'Bash 默认超时').textContent).toContain('来源：默认')
-    expect(region.textContent).toContain('本机 CLI 设置了 CLAUDE_CODE_EFFORT_LEVEL')
+    expect(region.textContent).toContain('该机器 CLI 设置了 CLAUDE_CODE_EFFORT_LEVEL')
     expect(region.textContent).toContain('2 个 hooks、5 条权限规则')
     expect(row(region, '由共工管理').textContent).toContain('permissions')
   })
@@ -1042,9 +1128,9 @@ describe('Agent 设置', () => {
       target: { value: '10m' },
     })
     expect(region.textContent).not.toContain('个人 CLAUDE.md')
-    fireEvent.click(within(region).getByRole('switch', { name: '继承本机 CLI 配置' }))
+    fireEvent.click(within(region).getByRole('switch', { name: '继承该机器 CLI 配置' }))
     expect(region.textContent).toContain('个人 CLAUDE.md、记忆、hooks 和用户 Skill')
-    fireEvent.click(within(region).getByRole('button', { name: '保存' }))
+    fireEvent.click(within(region).getByRole('button', { name: '保存设置' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
         path: '/machines/m1/agent-settings',
@@ -1062,7 +1148,7 @@ describe('Agent 设置', () => {
     const { region } = await openSettings({}, VIEW)
     expect(row(region, '语言').textContent).toContain('来源：默认')
     expect(
-      (within(region).getByRole('switch', { name: '继承本机 CLI 配置' }) as HTMLInputElement).checked,
+      (within(region).getByRole('switch', { name: '继承该机器 CLI 配置' }) as HTMLInputElement).checked,
     ).toBe(true)
   })
 })

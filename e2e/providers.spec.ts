@@ -32,7 +32,7 @@ function isolated() {
   return { HOME: home, CODEX_HOME: join(home, 'codex'), GONGGONG_ADAPTER_CMD: MOCK }
 }
 
-async function openMachine(page: Page, tab: '供应商' | 'Agent 工具') {
+async function openMachine(page: Page, tab: 'Agent 与供应商' | '诊断') {
   await page.goto('/machines')
   // The machine's row comes before the Bots listed under it.
   await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
@@ -133,7 +133,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
     expect(first.echo.settings).toBeNull()
 
     await test.step('a new machine default from a preset: the running session keeps the official login', async () => {
-      const dialog = await openMachine(page, '供应商')
+      const dialog = await openMachine(page, 'Agent 与供应商')
       const claude = dialog.getByRole('region', { name: 'Claude Code 供应商' })
       await claude.getByRole('button', { name: '新增…' }).click()
       const editor = page.getByRole('dialog', { name: '新增 Claude Code 供应商' })
@@ -185,11 +185,11 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       await renew('官方登录', 'DeepSeek')
       expect((await turn()).echo.settings).toBe(settings)
 
-      const dialog = await openMachine(page, '供应商')
+      const dialog = await openMachine(page, 'Agent 与供应商')
       const claude = dialog.getByRole('region', { name: 'Claude Code 供应商' })
       await claude.getByRole('button', { name: '删除' }).click()
       const confirm = page.getByRole('alertdialog', { name: '要删除供应商 DeepSeek 吗？' })
-      await expect(confirm).toContainText('它是本机默认，删除后本机默认改为官方登录。')
+      await expect(confirm).toContainText('它是该机器的默认，删除后改为官方登录。')
       await expect(confirm).toContainText('1 个群的会话正在使用 DeepSeek，删除后它们下一轮会自动开启新会话')
       await confirm.getByRole('button', { name: '删除' }).click()
       await expect(claude.getByRole('radio', { name: /官方登录/ })).toBeChecked()
@@ -299,7 +299,7 @@ esac
   return { url, state, close: () => server.close() }
 }
 
-test('Agent 工具 installs Node.js and Claude Code from a custom mirror, streaming progress, then upgrades', async ({
+test('Agent 与供应商 installs Node.js and Claude Code from a custom mirror, streaming progress, then upgrades', async ({
   page,
 }) => {
   test.setTimeout(5 * 60_000)
@@ -308,12 +308,15 @@ test('Agent 工具 installs Node.js and Claude Code from a custom mirror, stream
   m.start()
   try {
     await page.goto('/')
-    const dialog = await openMachine(page, 'Agent 工具')
+    // The mirror lives under 诊断, the tools under Agent 与供应商.
+    const dialog = await openMachine(page, '诊断')
     const saveMirror = async (registry: string) => {
+      await dialog.getByRole('tab', { name: '诊断' }).click()
       await dialog.getByRole('textbox', { name: 'npm registry' }).fill(registry)
       await dialog.getByRole('textbox', { name: 'Node.js 下载地址' }).fill(`${mirror.url}/node`)
       await dialog.getByRole('button', { name: '保存', exact: true }).click()
       await expect(page.getByText('镜像源已保存').last()).toBeVisible()
+      await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
     }
     await dialog.getByRole('button', { name: '镜像源' }).click()
     await page.getByRole('menuitemcheckbox', { name: '自定义' }).click()

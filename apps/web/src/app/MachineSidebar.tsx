@@ -61,7 +61,7 @@ function MachineRow({ m, bots }: { m: MachineDto; bots: number }) {
   )
 }
 
-/** 我的机器管理: my machines, each with the bots on it, then my bots without one of my machines and those shared with me. */
+/** 机器与 Bot: my machines, each with the bots on it, then my bots without one of my machines and those shared with me. */
 export function MachineSidebar({
   bots,
   sharedBots,
@@ -99,10 +99,15 @@ export function MachineSidebar({
   return (
     <div className="sidebar">
       <div className="shellbar">
-        <Toolbar title={t('我的机器管理')} scrolled={false}>
+        <Toolbar title={t('机器与 Bot')} scrolled={false}>
           <ToolbarGroup>
+            <ToolbarButton
+              icon="plus"
+              label={t('绑定新机器')}
+              text={t('绑定新机器')}
+              onClick={onBindMachine}
+            />
             <ToolbarButton icon="bot" label={t('新建 Bot…')} onClick={onNewBot} />
-            <ToolbarButton icon="plus" label={t('绑定新机器')} onClick={onBindMachine} />
           </ToolbarGroup>
         </Toolbar>
       </div>
@@ -122,7 +127,12 @@ export function MachineSidebar({
                   )
                 })
               ) : loaded ? (
-                <div className="sidebar__empty">{t('还没有绑定机器')}</div>
+                <div className="sidebar__empty sidebar__empty--action">
+                  {t('还没有绑定机器')}
+                  <Button size="small" variant="primary" icon="plus" onClick={onBindMachine}>
+                    {t('绑定新机器')}
+                  </Button>
+                </div>
               ) : null}
             </div>
           </section>

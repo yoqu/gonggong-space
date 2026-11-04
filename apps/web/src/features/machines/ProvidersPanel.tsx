@@ -5,57 +5,16 @@ import {
   type ProviderStoreView,
   type ProviderView,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { locale, t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Alert, AlertDialog, Button, GroupBox, Presence, Skeleton, toast } from '../../ui'
-import { AGENT_LABEL, AGENTS } from '../bots/model'
+import { AlertDialog, Button, GroupBox, Presence, toast } from '../../ui'
+import { AGENT_LABEL } from '../bots/model'
 import { providerSummary } from './agentSettings'
 import { OfficialEditor, ProviderEditor } from './ProviderEditor'
 import { CcSwitchImport, LinkImport } from './ProviderImports'
-import { OFFICIAL_NAME, removalLines, SessionLines, useProviderSwitch } from './providers'
-
-/** 供应商 of a machine (design §4.2): read and written live on the machine, which alone keeps them. */
-export function ProvidersPanel({ machine }: { machine: MachineDto }) {
-  const [view, setView] = useState<ProviderStoreView | null>(null)
-  const [error, setError] = useState('')
-  const base = `/machines/${machine.id}/providers`
-
-  useEffect(() => {
-    api.get<ProviderStoreView>(base).then(setView, (e) => setError(errorText(e)))
-  }, [base])
-
-  const switcher = useProviderSwitch(async ({ agent, choice }) => {
-    try {
-      setView(await api.put<ProviderStoreView>(`${base}/default`, { agent, choice }))
-      toast({
-        type: 'success',
-        message: t('{agent} 的本机默认已切换，新会话生效', { agent: AGENT_LABEL[agent] }),
-      })
-    } catch (e) {
-      toastError(e)
-    }
-  })
-
-  if (error) return <Alert variant="error" description={error} />
-  if (!view) return <Skeleton count={4} />
-  return (
-    <div className="mx">
-      {AGENTS.map((agent) => (
-        <ProviderBox
-          key={agent}
-          machine={machine}
-          agent={agent}
-          view={view}
-          onView={setView}
-          onSwitch={(a, choice, v = view) => switcher.request({ agent: a, choice }, v)}
-        />
-      ))}
-      {switcher.dialog}
-    </div>
-  )
-}
+import { OFFICIAL_NAME, removalLines, SessionLines } from './providers'
 
 type Open =
   | { kind: 'editor'; editing: ProviderView | null }
@@ -65,8 +24,8 @@ type Open =
   | { kind: 'remove'; provider: ProviderView }
   | null
 
-/** One agent's providers: the machine default (radio), add / edit / remove and the imports. */
-function ProviderBox({
+/** One agent's 供应商 (design §4.2), read and written live on the machine, which alone keeps them: the machine default (radio), add / edit / remove and the imports. */
+export function ProviderBox({
   machine,
   agent,
   view,
@@ -127,8 +86,8 @@ function ProviderBox({
   const removeNote =
     removing &&
     [
-      current === removing.id ? t('它是本机默认，删除后本机默认改为官方登录。') : '',
-      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承本机默认。') : '',
+      current === removing.id ? t('它是该机器的默认，删除后改为官方登录。') : '',
+      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承该机器的默认。') : '',
     ]
       .filter(Boolean)
       .join(locale === 'en' ? ' ' : '')
@@ -138,9 +97,9 @@ function ProviderBox({
     <section aria-label={title} className="mx-section">
       <div className="mx-section__head">
         <span className="mx-row__main">
-          <span className="mx-strong">{title}</span>
+          <span className="mx-strong">{t('供应商#nav')}</span>
           <span className="mx-sub">
-            {t('选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换')}
+            {t('选中的是该机器的默认，新会话使用它；进行中的会话开启新会话后才切换')}
           </span>
         </span>
       </div>

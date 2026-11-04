@@ -27,15 +27,14 @@ import {
 import { canUpgrade, hasUpdate } from './tools'
 
 const MIN_NODE = 22
-const TOOLS: { kind: ToolKind; name: string; sub: string }[] = [
-  {
-    kind: 'node',
+export const TOOL_INFO: Record<ToolKind, { name: string; sub: string }> = {
+  node: {
     name: 'Node.js',
     sub: t('运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ {min}）', { min: MIN_NODE }),
   },
-  { kind: 'claude', name: 'Claude Code', sub: 'Anthropic' },
-  { kind: 'codex', name: 'Codex', sub: 'OpenAI' },
-]
+  claude: { name: 'Claude Code', sub: 'Anthropic' },
+  codex: { name: 'Codex', sub: 'OpenAI' },
+}
 const MIRRORS: { value: Mirror['kind']; label: string }[] = [
   { value: 'npmmirror', label: t('淘宝镜像（npmmirror）') },
   { value: 'official', label: t('官方源') },
@@ -46,7 +45,7 @@ const tooOld = (t: ToolStatus) =>
   t.kind === 'node' && t.installed && !!t.version && compareVersions(t.version, `${MIN_NODE}.0.0`) < 0
 
 /** The install / upgrade in progress or last run; the daemon runs one at a time per machine. */
-interface Op {
+export interface ToolOp {
   kind: ToolKind
   which: 'install' | 'upgrade'
   /** null until the server answers; lines of this machine arriving before that are ours. */
@@ -56,16 +55,16 @@ interface Op {
   failed: boolean
 }
 
-/** Agent 工具 of a machine (design §4.1): versions, install / upgrade with a live log, and the mirror. */
-export function ToolsPanel({ machine }: { machine: MachineDto }) {
+/** Agent 工具 of a machine (design §4.1): their state and the one install / upgrade at a time, with its live log. */
+export function useTools(machine: MachineDto, enabled: boolean) {
   const [state, setState] = useState<ToolsStateDto | null>(null)
   const [error, setError] = useState('')
-  const [op, setOp] = useState<Op | null>(null)
+  const [op, setOp] = useState<ToolOp | null>(null)
   const base = `/machines/${machine.id}/tools`
 
   useEffect(() => {
-    api.get<ToolsStateDto>(base).then(setState, (e) => setError(errorText(e)))
-  }, [base])
+    if (enabled) api.get<ToolsStateDto>(base).then(setState, (e) => setError(errorText(e)))
+  }, [base, enabled])
 
   useEffect(
     () =>
@@ -92,7 +91,72 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
     }
   }
 
-  const saveMirror = async (mirror: Mirror) => {
+  return { state, error, op, run }
+}
+
+/** One tool: version and source, the fitting install / upgrade and its log. */
+export function ToolBox({
+  kind,
+  state,
+  op,
+  onRun,
+}: {
+  kind: ToolKind
+  state: ToolsStateDto
+  op: ToolOp | null
+  onRun: (kind: ToolKind, which: 'install' | 'upgrade') => void
+}) {
+  const { name, sub } = TOOL_INFO[kind]
+  const tool = state.tools.find((x) => x.kind === kind)
+  return (
+    <GroupBox>
+      <div className="mx-row">
+        <span className="mx-row__main">
+          <span className="mx-row__title">
+            <span className="mx-strong">{name}</span>
+            <Badge tool={tool} />
+          </span>
+          <span className="mx-sub">{sub}</span>
+        </span>
+        {tool ? <ToolAction tool={tool} busy={!!op?.running} onRun={(w) => onRun(kind, w)} /> : null}
+      </div>
+      {tool?.installed ? (
+        <>
+          <GroupRow label={t('来源')} wideValue value={tool.managed ? t('共工空间托管') : t('自行安装')} />
+          <GroupRow
+            label={t('最新版本')}
+            wideValue
+            value={
+              <span className="mx-inline">
+                {tool.latest ?? t('无法获取，请检查镜像源')}
+                {hasUpdate(tool) ? <Tag tone="orange">{t('有更新')}</Tag> : null}
+              </span>
+            }
+          />
+          <SelfUpgradeRow tool={tool} />
+        </>
+      ) : null}
+      {op?.kind === kind ? <ToolLog op={op} /> : null}
+      {op?.kind === kind && op.failed && op.which === 'upgrade' && tool && !tool.managed ? (
+        <div className="mx-row mx-row--end">
+          <Button onClick={() => onRun(kind, 'install')}>{t('改用共工空间托管安装')}</Button>
+        </div>
+      ) : null}
+    </GroupBox>
+  )
+}
+
+/** 镜像源 of Node.js and the agent CLIs, kept with the tools on the machine. */
+export function MirrorPanel({ machine }: { machine: MachineDto }) {
+  const [state, setState] = useState<ToolsStateDto | null>(null)
+  const [error, setError] = useState('')
+  const base = `/machines/${machine.id}/tools`
+
+  useEffect(() => {
+    api.get<ToolsStateDto>(base).then(setState, (e) => setError(errorText(e)))
+  }, [base])
+
+  const save = async (mirror: Mirror) => {
     try {
       setState(await api.put<ToolsStateDto>(`${base}/settings`, { mirror }))
       toast({ type: 'success', message: t('镜像源已保存') })
@@ -102,64 +166,11 @@ export function ToolsPanel({ machine }: { machine: MachineDto }) {
   }
 
   if (error) return <Alert variant="error" description={error} />
-  if (!state) return <Skeleton count={3} />
+  if (!state) return <Skeleton count={1} />
   return (
-    <div className="mx">
-      {TOOLS.map(({ kind, name, sub }) => {
-        const tool = state.tools.find((x) => x.kind === kind)
-        return (
-          <section key={kind} aria-label={name}>
-            <GroupBox>
-              <div className="mx-row">
-                <span className="mx-row__main">
-                  <span className="mx-row__title">
-                    <span className="mx-strong">{name}</span>
-                    <Badge tool={tool} />
-                  </span>
-                  <span className="mx-sub">{sub}</span>
-                </span>
-                {tool ? (
-                  <ToolAction tool={tool} busy={!!op?.running} onRun={(w) => void run(kind, w)} />
-                ) : null}
-              </div>
-              {tool?.installed ? (
-                <>
-                  <GroupRow
-                    label={t('来源')}
-                    wideValue
-                    value={tool.managed ? t('共工空间托管') : t('自行安装')}
-                  />
-                  <GroupRow
-                    label={t('最新版本')}
-                    wideValue
-                    value={
-                      <span className="mx-inline">
-                        {tool.latest ?? t('无法获取，请检查镜像源')}
-                        {hasUpdate(tool) ? <Tag tone="orange">{t('有更新')}</Tag> : null}
-                      </span>
-                    }
-                  />
-                  <SelfUpgradeRow tool={tool} />
-                </>
-              ) : null}
-              {op?.kind === kind ? <ToolLog op={op} /> : null}
-              {op?.kind === kind && op.failed && op.which === 'upgrade' && tool && !tool.managed ? (
-                <div className="mx-row mx-row--end">
-                  <Button onClick={() => void run(kind, 'install')}>{t('改用共工空间托管安装')}</Button>
-                </div>
-              ) : null}
-            </GroupBox>
-          </section>
-        )
-      })}
-      <GroupBox>
-        <MirrorRows
-          key={JSON.stringify(state.settings.mirror)}
-          mirror={state.settings.mirror}
-          onSave={saveMirror}
-        />
-      </GroupBox>
-    </div>
+    <GroupBox>
+      <MirrorRows key={JSON.stringify(state.settings.mirror)} mirror={state.settings.mirror} onSave={save} />
+    </GroupBox>
   )
 }
 
@@ -197,14 +208,14 @@ function SelfUpgradeRow({ tool }: { tool: ToolStatus }) {
   return (
     <GroupRow
       label={t('升级命令')}
-      description={t('升级时按原安装方式运行，也可以在本机终端自己运行')}
+      description={t('升级时按原安装方式运行，也可以在该机器的终端自己运行')}
       wideValue
       value={<span className="mx-mono">{tool.upgradeCommand}</span>}
     />
   )
 }
 
-function ToolLog({ op }: { op: Op }) {
+function ToolLog({ op }: { op: ToolOp }) {
   const [open, setOpen] = useState(true)
   const title = op.running ? t('正在安装…') : op.failed ? t('安装失败') : t('安装完成')
   return (
