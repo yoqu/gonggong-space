@@ -59,6 +59,7 @@ import {
   FilesFact,
   HopChain,
   OfflineGlyph,
+  PersonalSkillsFact,
   RunStatusIcon,
   STATUS_LABEL,
   TokenFact,
@@ -715,6 +716,7 @@ export const RunCard = memo(function RunCard({
         <FilesFact n={run.filesChanged} onOpen={diff} />
         {started !== null ? <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={false} /> : null}
         <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+        <PersonalSkillsFact n={run.personalSkills} />
         <DelegationFacts d={run.delegation} />
         <RunSyncLine run={run} />
         {made.length ? <RunArtifactsLine artifacts={made} /> : null}
@@ -804,6 +806,7 @@ export const RunCard = memo(function RunCard({
                           <FilesFact n={run.filesChanged} onOpen={diff} />
                           <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+                          <PersonalSkillsFact n={run.personalSkills} />
                           <DelegationFacts d={run.delegation} />
                           <RunSyncLine run={run} />
                           {made.length ? <RunArtifactsLine artifacts={made} /> : null}

@@ -1,8 +1,10 @@
 import type { InstallableDto, InstallDto, ListingSummary, RepoDto, TeamDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { InstallList } from '../src/features/market/InstallList'
+import { SettingsDialog } from '../src/features/settings/SettingsDialog'
 import { TeamSettingsDialog } from '../src/features/teams/TeamSettingsDialog'
 import { apiError, mockApi } from './mockApi'
 
@@ -212,5 +214,47 @@ describe('team settings · repos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Skill' }))
     expect(await screen.findByText('已引入')).toBeTruthy()
     expect(await screen.findByText('review-pr')).toBeTruthy()
+  })
+})
+
+describe('settings · 我的 Skill', () => {
+  function Where() {
+    return <div data-testid="where">{useLocation().pathname}</div>
+  }
+
+  it('lists my personal installs, imports from /me/installable and opens the market', async () => {
+    const calls = mockApi({
+      'GET /me/installs': [install({ scope: 'user' })],
+      'GET /me/installable': [installable[0]],
+      'PUT /me/installs/l4': install({ scope: 'user', listing: installable[0] }),
+    })
+    const onClose = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <SettingsDialog page="appearance" onClose={onClose} />
+        <Where />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '我的 Skill' }))
+    expect(
+      screen.getByText('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。'),
+    ).toBeTruthy()
+    expect(await screen.findByText('review-pr')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '从已有条目引入…' }))
+    const dialog = await screen.findByRole('dialog', { name: '从已有条目引入' })
+    fireEvent.click(await within(dialog).findByRole('radio', { name: /lint-fix/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/me/installs/l4')?.body).toEqual({
+        enabled: true,
+        pinVersionId: null,
+      }),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '从已有条目引入' })).toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: '打开市场' }))
+    expect(screen.getByTestId('where').textContent).toBe('/market')
+    expect(onClose).toHaveBeenCalled()
   })
 })

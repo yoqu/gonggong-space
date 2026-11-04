@@ -61,4 +61,6 @@ export default {
   留空即清除: 'Leave empty to clear',
   头像: 'Avatar',
   使用飞书头像: 'Use Feishu avatar',
+  '我的 Skill': 'My Skills',
+  打开市场: 'Open market',
 } satisfies Record<string, string>
