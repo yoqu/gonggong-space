@@ -638,6 +638,13 @@
       "when": 1793447018754,
       "tag": "0090_chief_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1793765568517,
+      "tag": "0091_market_installs",
+      "breakpoints": true
     }
   ]
 }

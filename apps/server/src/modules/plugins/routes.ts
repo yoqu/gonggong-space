@@ -15,6 +15,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember, requireReader } from '../groups/service.js'
+import { listingSummary } from '../market/service.js'
 import { type Authorize, eachLayer } from '../mcp/routes.js'
 import { ACTIVE } from '../runs/scheduler.js'
 import { requireTeam } from '../teams/service.js'
@@ -31,9 +32,9 @@ import {
   groupPluginList,
   inLayer,
   listed,
+  listingSnapshot,
   pluginBlocker,
   pluginDto,
-  pluginSnapshot,
   pluginsOn,
   requirePluginsOn,
   savePlugin,
@@ -60,14 +61,19 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
   if (!group)
     app.get<Params>(base, async (req) => {
       const { layer } = await authorize(req, true)
-      return (await listed(ctx.db, inLayer(layer))).map(pluginDto)
+      return (await listed(ctx.db, and(inLayer(layer), eq(plugins.type, 'plugin')))).map(pluginDto)
     })
 
   app.post<Params>(base, { bodyLimit: BODY_LIMIT }, async (req, reply) => {
     const { actorId, layer } = await writer(req)
     const { files } = UploadPluginReq.parse(req.body)
-    const saved = await savePlugin(ctx, layer, pluginSnapshot(files), actorId)
-    return reply.status(saved.created ? 201 : 200).send(pluginDto(await find(layer, saved.plugin.id)))
+    const s = listingSnapshot(files)
+    const saved = await savePlugin(ctx, layer, s, actorId)
+    const row = await find(layer, saved.plugin.id)
+    // A skill listing answers with its market summary: its manifest is not a plugin's.
+    return reply
+      .status(saved.created ? 201 : 200)
+      .send(s.type === 'skill' ? listingSummary(row.plugin, row.version) : pluginDto(row))
   })
 
   app.delete<Params>(`${base}/:pluginId`, async (req, reply) => {

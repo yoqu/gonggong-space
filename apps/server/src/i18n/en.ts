@@ -468,6 +468,11 @@ export const en = {
   内置插件不能删除: 'A built-in plugin cannot be deleted',
   插件功能未开启: 'Plugins are turned off',
   该机器上没有正在使用这个插件版本的运行: 'No run on this machine was sent this plugin version',
+  '同名的插件或 Skill 已存在': 'A plugin or skill with this name already exists',
+  // Market installs
+  条目不存在: 'Listing not found',
+  '条目已下架，不能引入': 'This listing is no longer listed and cannot be installed',
+  '同名 Skill 已存在': 'A skill with this name is already here',
   这个插件没有在本群启用: 'This plugin is not enabled in this group',
   请选择模板: 'Pick a template',
   模板不存在: 'Template not found',

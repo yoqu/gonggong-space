@@ -17,6 +17,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
+import { hostedListingFiles } from '../market/service.js'
 import { type Authorize, eachLayer } from '../mcp/routes.js'
 import type { Layer } from '../mcp/service.js'
 import {
@@ -25,9 +26,11 @@ import {
   detailDto,
   dto,
   findSkill,
+  inheritedInstalls,
   inheritedSkills,
   inLayer,
   listed,
+  mergeSkills,
   rollbackSkill,
   setInherited,
   skillVersion,
@@ -120,14 +123,24 @@ function layerRoutes(ctx: Ctx, app: FastifyInstance, base: string, authorize: Au
 /** Platform / team skills in effect for a group, which its members see and its admins turn on or off for it alone. */
 function inheritedRoutes(ctx: Ctx, app: FastifyInstance) {
   type P = { Params: { id: string; name?: string } }
-  const list = async (groupId: string): Promise<InheritedSkillDto[]> =>
-    (await inheritedSkills(ctx.db, groupId)).map(({ skill, version, enabledInGroup }) => ({
-      name: skill.name,
-      description: skill.description,
-      scope: skill.scope as InheritedSkillDto['scope'],
-      version: version.version,
-      enabledInGroup,
-    }))
+  // Repo installs show as team ones: the repo belongs to the team and the contract has no repo layer.
+  const list = async (groupId: string): Promise<InheritedSkillDto[]> => {
+    const [own, installed] = await Promise.all([
+      inheritedSkills(ctx.db, groupId),
+      inheritedInstalls(ctx.db, groupId),
+    ])
+    const rows = [
+      ...own.map(({ skill, version, enabledInGroup }) => ({
+        name: skill.name,
+        description: skill.description,
+        scope: skill.scope,
+        version: version.version,
+        enabledInGroup,
+      })),
+      ...installed,
+    ]
+    return mergeSkills(rows).map((r) => ({ ...r, scope: r.scope === 'platform' ? 'platform' : 'team' }))
+  }
 
   app.get<P>('/api/groups/:id/inherited-skills', async (req) => {
     const me = await requireUser(ctx, req)
@@ -146,16 +159,17 @@ function inheritedRoutes(ctx: Ctx, app: FastifyInstance) {
   })
 }
 
-/** A skill version for a machine hosting a bot in some group the skill applies to. */
+/** A skill (or skill listing) version for a machine hosting a bot in some group the skill applies to. */
 function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
   app.get<{ Params: { versionId: string } }>('/api/daemon/skills/:versionId', async (req) => {
     const machine = await requireMachine(ctx, req)
+    const versionId = idParam(req.params.versionId, '版本不存在')
     const [found] = await ctx.db
       .select({ skill: skills, files: skillVersions.files })
       .from(skillVersions)
       .innerJoin(skills, eq(skills.id, skillVersions.skillId))
-      .where(eq(skillVersions.id, idParam(req.params.versionId, '版本不存在')))
-    if (!found) return fail('not_found', '版本不存在')
+      .where(eq(skillVersions.id, versionId))
+    if (!found) return { files: await hostedListingFiles(ctx.db, machine.id, versionId) }
     const { scope, teamId, groupId } = found.skill
     const [hosted] = await ctx.db
       .select({ id: groupBots.groupId })

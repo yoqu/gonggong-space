@@ -91,7 +91,8 @@ export const PluginManifest = z
       .array(z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/))
       .max(10)
       .default([]),
-    license: z.string().min(1).max(40),
+    /** Optional (plan Skill市场 D11): left out rather than made up. */
+    license: z.string().min(1).max(40).optional(),
     /**
      * Prompt-first creation (Stitch style): one box fills the `prompt` text input; the template's select inputs sit in
      * its toolbar, the design system is a preset, 自动 or one the group imported. Null = the step-by-step panel.

@@ -51,6 +51,7 @@ import { knowledgeRoutes } from './modules/knowledge/routes.js'
 import { liveRoutes, routeLiveKitUpgrades } from './modules/live/routes.js'
 import { startLiveEngine } from './modules/live/service.js'
 import { machineRoutes } from './modules/machines/routes.js'
+import { marketRoutes } from './modules/market/routes.js'
 import { mcpRoutes } from './modules/mcp/routes.js'
 import { migrateMcpSecrets } from './modules/mcp/secrets.js'
 import { messageRoutes } from './modules/messages/routes.js'
@@ -246,6 +247,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(secretRoutes(ctx))
   await app.register(skillRoutes(ctx))
   await app.register(pluginRoutes(ctx))
+  await app.register(marketRoutes(ctx))
   await app.register(agentToolRoutes(ctx))
   await app.register(searchRoutes(ctx, mirrors))
   await app.register(candidateRoutes(ctx, mirrors))

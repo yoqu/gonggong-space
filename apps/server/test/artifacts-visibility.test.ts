@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { ArtifactCard, ArtifactDto, ArtifactSubmitRes, WorkDto, WorkGroupDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifacts, groupMembers, groupPlugins, messages, plugins } from '../src/db/schema.js'
+import { artifacts, groupMembers, installs, messages, plugins } from '../src/db/schema.js'
 import { saveSysParams } from '../src/modules/admin/params.js'
 import { cardOf } from '../src/modules/artifacts/service.js'
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
@@ -176,13 +176,20 @@ describe('works', () => {
     const s = await setup()
     const groups = async (who: 'zhao' | 'outsider') =>
       (await s.req(who, 'GET', '/api/works/groups')).json() as WorkGroupDto[]
-    await t.db.insert(groupPlugins).values({ groupId: s.g.id, pluginId: s.p.id, enabled: true })
+    const on = {
+      listingId: s.p.id,
+      scope: 'group',
+      scopeId: s.g.id,
+      resolvedVersionId: s.p.versionId!,
+      enabled: true,
+    }
+    await t.db.insert(installs).values(on)
     expect(await groups('zhao')).toEqual([])
     const root = await t.seed.user({ name: '根', role: 'sysadmin', teamId: null })
     await saveSysParams(t.ctx, { pluginsEnabled: true }, root.id)
-    await t.db.delete(groupPlugins)
+    await t.db.delete(installs)
     expect(await groups('zhao')).toEqual([])
-    await t.db.insert(groupPlugins).values({ groupId: s.g.id, pluginId: s.p.id, enabled: true })
+    await t.db.insert(installs).values(on)
     expect(await groups('zhao')).toEqual([{ id: s.g.id, title: '设计群' }])
     expect(await groups('outsider')).toEqual([])
   })

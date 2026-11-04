@@ -12,7 +12,6 @@ import {
   artifactVersions,
   bots,
   groupMembers,
-  groupPlugins,
   groups,
   pluginVersions,
   teamMembers,
@@ -22,7 +21,7 @@ import {
 import { fail } from '../../lib/errors.js'
 import { findMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
-import { pluginsOn } from '../plugins/service.js'
+import { groupPluginList, pluginsOn } from '../plugins/service.js'
 import { type Artifact, isArtifactManager, refreshCard, thumbnailUrl } from './service.js'
 
 const EVENT: Record<ArtifactVisibility, ProtocolKey> = {
@@ -120,7 +119,9 @@ export async function workGroups(ctx: Ctx, userId: string): Promise<WorkGroupDto
     .innerJoin(teams, and(eq(teams.id, groups.teamId), isNull(teams.archivedAt)))
     .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
-    .innerJoin(groupPlugins, and(eq(groupPlugins.groupId, groups.id), eq(groupPlugins.enabled, true)))
     .where(and(isNull(groups.archivedAt), eq(groups.kind, 'group')))
-  return mine.sort((x, y) => x.title.localeCompare(y.title, 'zh'))
+  const on = await Promise.all(
+    mine.map(async (g) => (await groupPluginList(ctx.db, g.id)).some((p) => p.enabledInGroup)),
+  )
+  return mine.filter((_, i) => on[i]).sort((x, y) => x.title.localeCompare(y.title, 'zh'))
 }

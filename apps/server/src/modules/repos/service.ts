@@ -1,6 +1,7 @@
 import { publicRepoUrl, type RepoDto, repoKey, repoName } from '@gonggong/protocol'
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
+import type { Db } from '../../db/client.js'
 import { groupRepos, groups, machineRepos, machines, repos, repoUsers } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 
@@ -117,21 +118,27 @@ export async function localPaths(ctx: Ctx, userId: string, repoIds: string[]) {
     )
 }
 
-/** The caller's local directories holding the group's current repo. */
-export async function groupLocalPaths(ctx: Ctx, userId: string, groupId: string) {
-  const [bound] = await ctx.db
+/** The team repo the group's primary repo is, if any. */
+export async function groupRepoId(db: Pick<Db, 'select'>, groupId: string) {
+  const [bound] = await db
     .select({ url: groupRepos.url, teamId: groups.teamId })
     .from(groupRepos)
     .innerJoin(groups, eq(groups.id, groupRepos.groupId))
     .where(and(eq(groupRepos.groupId, groupId), eq(groupRepos.isPrimary, true)))
   const key = bound && repoKey(bound.url)
-  if (!key) return []
-  const [repo] = await ctx.db
+  if (!key) return null
+  const [repo] = await db
     .select({ id: repos.id })
     .from(repos)
     .where(and(eq(repos.teamId, bound.teamId), eq(repos.key, key)))
-  if (!repo) return []
-  return (await localPaths(ctx, userId, [repo.id])).map(({ machineId, path }) => ({ machineId, path }))
+  return repo?.id ?? null
+}
+
+/** The caller's local directories holding the group's current repo. */
+export async function groupLocalPaths(ctx: Ctx, userId: string, groupId: string) {
+  const repoId = await groupRepoId(ctx.db, groupId)
+  if (!repoId) return []
+  return (await localPaths(ctx, userId, [repoId])).map(({ machineId, path }) => ({ machineId, path }))
 }
 
 /** The picker: the team's visible repos matching `q` (name / host / path), the caller's recently used first. */

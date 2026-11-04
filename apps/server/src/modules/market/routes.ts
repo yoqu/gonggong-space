@@ -1,0 +1,65 @@
+import { InstallReq } from '@gonggong/protocol'
+import { and, eq } from 'drizzle-orm'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { Ctx } from '../../context.js'
+import { repos } from '../../db/schema.js'
+import { fail } from '../../lib/errors.js'
+import { idParam } from '../../lib/ids.js'
+import { requireUser } from '../auth/session.js'
+import { requireAdmin, requireMember } from '../groups/service.js'
+import { requireTeam } from '../teams/service.js'
+import { deleteInstall, installable, listInstalls, putInstall, type Target } from './service.js'
+
+type P = { Params: { id?: string; repoId?: string; listingId?: string } }
+type Resolve = (req: FastifyRequest<P>, read: boolean) => Promise<{ actorId: string; target: Target }>
+
+/** The install list, the listings it may still take and changes to it, under `base` (a group, team or repo). */
+function scopeRoutes(ctx: Ctx, app: FastifyInstance, base: string, resolve: Resolve) {
+  app.get<P>(`${base}/installs`, async (req) => listInstalls(ctx.db, (await resolve(req, true)).target))
+
+  app.get<P>(`${base}/installable`, async (req) => installable(ctx.db, (await resolve(req, true)).target))
+
+  app.put<P>(`${base}/installs/:listingId`, async (req) => {
+    const { actorId, target } = await resolve(req, false)
+    return putInstall(ctx, target, req.params.listingId ?? '', InstallReq.parse(req.body), actorId)
+  })
+
+  app.delete<P>(`${base}/installs/:listingId`, async (req, reply) => {
+    const { actorId, target } = await resolve(req, false)
+    await deleteInstall(ctx, target, req.params.listingId ?? '', actorId)
+    return reply.status(204).send()
+  })
+}
+
+/** Group admins change the group's installs (members read them); team admins the team's and its repos'. */
+export function marketRoutes(ctx: Ctx) {
+  return async (app: FastifyInstance) => {
+    scopeRoutes(ctx, app, '/api/groups/:id', async (req, read) => {
+      const me = await requireUser(ctx, req)
+      const { group } = await (read ? requireMember : requireAdmin)(ctx, req.params.id ?? '', me.id)
+      return {
+        actorId: me.id,
+        target: { scope: 'group', scopeId: group.id, teamId: group.teamId, groupId: group.id },
+      }
+    })
+
+    const teamAdmin = async (req: FastifyRequest<P>) => {
+      const me = await requireUser(ctx, req)
+      const { team } = await requireTeam(ctx, me.id, req.params.id ?? '', 'admin')
+      return { actorId: me.id, teamId: team.id }
+    }
+    scopeRoutes(ctx, app, '/api/teams/:id', async (req) => {
+      const { actorId, teamId } = await teamAdmin(req)
+      return { actorId, target: { scope: 'team', scopeId: teamId, teamId, groupId: null } }
+    })
+    scopeRoutes(ctx, app, '/api/teams/:id/repos/:repoId', async (req) => {
+      const { actorId, teamId } = await teamAdmin(req)
+      const [repo] = await ctx.db
+        .select({ id: repos.id })
+        .from(repos)
+        .where(and(eq(repos.id, idParam(req.params.repoId ?? '', '仓库不存在')), eq(repos.teamId, teamId)))
+      if (!repo) return fail('not_found', '仓库不存在')
+      return { actorId, target: { scope: 'repo', scopeId: repo.id, teamId, groupId: null } }
+    })
+  }
+}

@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto'
-import { SKILL_MAX_BYTES, type SkillDetailDto, type SkillDto, type SkillFile } from '@gonggong/protocol'
+import {
+  SKILL_MAX_BYTES,
+  type SkillDetailDto,
+  type SkillDto,
+  type SkillFile,
+  type SkillListingManifest,
+} from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNull, ne, or, type SQL } from 'drizzle-orm'
 import { parse as parseYaml } from 'yaml'
 import type { Ctx } from '../../context.js'
@@ -9,7 +15,8 @@ import type { MessageKey } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { keptIn, turnedOff as offIn, setInherited as setOverride } from '../../lib/group-overrides.js'
-import { type Layer, RANK, type Scope } from '../mcp/service.js'
+import { groupInstalls, skillInstalled } from '../market/service.js'
+import type { Layer } from '../mcp/service.js'
 
 export type SkillRow = typeof skills.$inferSelect
 type Version = typeof skillVersions.$inferSelect
@@ -116,6 +123,7 @@ async function nameTaken(ctx: Ctx, l: Layer, name: string, except?: string) {
     .from(skills)
     .where(and(inLayer(l), eq(skills.name, name), except ? ne(skills.id, except) : undefined))
   if (taken) fail('conflict', 'Skill 名称已存在')
+  if (await skillInstalled(ctx.db, l, name)) fail('conflict', '同名 Skill 已存在')
 }
 
 const log = (
@@ -271,11 +279,13 @@ export function visibleIn(db: Pick<Db, 'select'>, groupId: string) {
   )
 }
 
+/** Precedence of the layers a group's skills and plugins come from (plan Skill市场 D8), lowest first. */
+export const LAYER_RANK: Record<string, number> = { platform: 0, team: 1, repo: 2, group: 3 }
+
 /** One per name, sorted by name: a lower layer replaces a same-named skill above it. */
 export function mergeSkills<T extends { scope: string; name: string }>(rows: T[]) {
   const merged = new Map<string, T>()
-  for (const r of [...rows].sort((a, b) => RANK[a.scope as Scope] - RANK[b.scope as Scope]))
-    merged.set(r.name, r)
+  for (const r of [...rows].sort((a, b) => LAYER_RANK[a.scope]! - LAYER_RANK[b.scope]!)) merged.set(r.name, r)
   return [...merged.values()].sort((a, b) => (a.name < b.name ? -1 : 1))
 }
 
@@ -304,10 +314,36 @@ export const setInherited = (
 
 export const turnedOff = (db: Pick<Db, 'select'>, groupId: string) => offIn(db, groupSkillOverrides, groupId)
 
-/** Enabled skills for a run in the group, merged across layers (as `enabledMcpServers`). */
+/** Enabled skill installs applying in the group, as merge rows with the install's scope as their layer. */
+async function installedSkills(db: Pick<Db, 'select'>, groupId: string) {
+  return (await groupInstalls(db, groupId, 'skill'))
+    .filter((i) => i.enabled)
+    .map((i) => ({
+      scope: i.layer,
+      name: i.name,
+      description: (i.version.manifest as SkillListingManifest).description,
+      version: i.version,
+    }))
+}
+
+/** Skill installs the group inherits from its repo and team, as `inheritedSkills` would list them. */
+export async function inheritedInstalls(db: Pick<Db, 'select'>, groupId: string) {
+  const [rows, off] = await Promise.all([installedSkills(db, groupId), turnedOff(db, groupId)])
+  return rows
+    .filter((r) => r.scope !== 'group')
+    .map(({ scope, name, description, version }) => ({
+      scope,
+      name,
+      description,
+      version: version.revision,
+      enabledInGroup: !off.has(name),
+    }))
+}
+
+/** Enabled skills and skill installs for a run in the group, merged across layers (as `enabledMcpServers`). */
 export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
-  const off = await turnedOff(db, groupId)
-  const rows = await db
+  const [off, installed] = await Promise.all([turnedOff(db, groupId), installedSkills(db, groupId)])
+  const own = await db
     .select({
       scope: skills.scope,
       name: skills.name,
@@ -318,6 +354,16 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string) {
     .from(skills)
     .innerJoin(skillVersions, eq(skillVersions.id, skills.versionId))
     .where(and(eq(skills.enabled, true), visibleIn(db, groupId)))
+  const rows = [
+    ...own,
+    ...installed.map(({ scope, name, description, version }) => ({
+      scope,
+      name,
+      description,
+      versionId: version.id,
+      digest: version.digest,
+    })),
+  ]
   return mergeSkills(rows.filter(keptIn(off))).map(({ name, description, versionId, digest }) => ({
     name,
     description,

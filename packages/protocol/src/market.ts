@@ -50,10 +50,12 @@ export const InstallDto = z.object({
   updatedAt: z.string(),
 })
 export type InstallDto = z.infer<typeof InstallDto>
-export const InstallReq = z.object({ enabled: z.boolean(), pinVersionId: z.string().nullable().default(null) })
+export const InstallReq = z.object({
+  enabled: z.boolean(),
+  pinVersionId: z.string().nullable().default(null),
+})
 export type InstallReq = z.infer<typeof InstallReq>
 
 /** GET …/installable — listings visible to the scope (platform, its team, its group) not installed there yet. */
 export const InstallableDto = ListingSummary
 export type InstallableDto = z.infer<typeof InstallableDto>
-

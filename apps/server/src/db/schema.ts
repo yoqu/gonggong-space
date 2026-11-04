@@ -1115,7 +1115,10 @@ export const groupSkillOverrides = pgTable(
   (t) => [primaryKey({ columns: [t.groupId, t.name] })],
 )
 
-/** Plugins (plan 插件体系), layered like skills; `name` mirrors the current version's manifest. */
+/**
+ * Market listings (plan 插件体系, Skill市场): plugins and bare skills, layered like skills; `name` mirrors the
+ * current version's manifest.
+ */
 export const plugins = pgTable(
   'plugins',
   {
@@ -1125,6 +1128,13 @@ export const plugins = pgTable(
     teamId: uuid('team_id').references(() => teams.id),
     groupId: uuid('group_id').references(() => groups.id),
     name: text('name').notNull(),
+    /** ListingType */
+    type: text('type').notNull().default('plugin'),
+    authorId: uuid('author_id').references(() => users.id),
+    /** 'public' | 'team' (market M2) */
+    visibility: text('visibility'),
+    /** ListingStatus */
+    status: text('status').notNull().default('listed'),
     /** Not a foreign key: versions reference the plugin, and the first one is inserted after it. */
     versionId: uuid('version_id'),
     updatedBy: uuid('updated_by').references(() => users.id),
@@ -1145,6 +1155,7 @@ export const pluginVersions = pgTable(
     revision: integer('revision').notNull(),
     /** SkillFile[] sorted by path. */
     files: jsonb('files').notNull(),
+    /** A SkillListingManifest for `skill` listings. */
     manifest: jsonb('manifest').$type<PluginManifest>().notNull(),
     /** sha256 over the files: the daemon's cache key. */
     digest: text('digest').notNull(),
@@ -1155,21 +1166,28 @@ export const pluginVersions = pgTable(
   (t) => [unique().on(t.pluginId, t.revision)],
 )
 
-/** A group's switch of a plugin; no row = off. */
-export const groupPlugins = pgTable(
-  'group_plugins',
+/** A listing installed into a group, repo or team (plan Skill市场); no row = not installed (off). */
+export const installs = pgTable(
+  'installs',
   {
-    groupId: uuid('group_id')
-      .notNull()
-      .references(() => groups.id, { onDelete: 'cascade' }),
-    pluginId: uuid('plugin_id')
+    id: id(),
+    listingId: uuid('listing_id')
       .notNull()
       .references(() => plugins.id, { onDelete: 'cascade' }),
+    /** InstallScope */
+    scope: text('scope').notNull(),
+    /** The group, repo, team or user id; not a foreign key as it depends on `scope`. */
+    scopeId: uuid('scope_id').notNull(),
+    /** Null = follow the listing's current version. */
+    pinVersionId: uuid('pin_version_id').references(() => pluginVersions.id),
+    resolvedVersionId: uuid('resolved_version_id')
+      .notNull()
+      .references(() => pluginVersions.id),
     enabled: boolean('enabled').notNull(),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.groupId, t.pluginId] })],
+  (t) => [unique().on(t.listingId, t.scope, t.scopeId), index('installs_scope').on(t.scope, t.scopeId)],
 )
 
 /** Design systems a group imported for prompt-first creations (「导入我的设计」): a DESIGN.md, a site or a repository. */

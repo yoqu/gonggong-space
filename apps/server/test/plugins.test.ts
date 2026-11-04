@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   attachments,
   groupBots,
-  groupPlugins,
+  installs,
   machines,
   messages,
   plugins,
@@ -399,7 +399,7 @@ describe('group plugins', () => {
     expect((await list()).filter((p) => p.enabledInGroup).map((p) => p.id)).toEqual([team.id])
     await eve.put(`${base}/${team.id}`, { enabled: false })
     expect((await list()).some((p) => p.enabledInGroup)).toBe(false)
-    expect(await t.db.select().from(groupPlugins)).toHaveLength(1)
+    expect(await t.db.select().from(installs)).toHaveLength(1)
   })
 
   it('tells per bot why it cannot use a plugin: agent, offline, daemon, secret', async () => {

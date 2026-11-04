@@ -8,15 +8,16 @@ import {
   PluginManifest,
   type PluginRef,
   type SkillFile,
+  type SkillListingManifest,
 } from '@gonggong/protocol'
-import { and, asc, desc, eq, inArray, isNull, or, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, ne, or, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
   bots,
   groupBots,
-  groupPlugins,
   groups,
+  installs,
   machines,
   plugins,
   pluginVersions,
@@ -25,9 +26,10 @@ import {
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
+import { groupInstalls } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
 import { resolveSecrets } from '../secrets/resolve.js'
-import { checkFiles, frontmatter, mergeSkills } from '../skills/service.js'
+import { checkFiles, frontmatter, LAYER_RANK, mergeSkills, snapshot } from '../skills/service.js'
 
 type Read = Pick<Db, 'select'>
 export type PluginRow = typeof plugins.$inferSelect
@@ -77,9 +79,17 @@ export function pluginSnapshot(input: SkillFile[]) {
     ...manifest.templates.flatMap((tp) => (tp.preview ? [tp.preview] : [])),
   ]
   for (const path of required) if (!has(files, path)) fail('invalid', '缺少文件：{path}', { path })
-  return { ...checked, manifest }
+  return { ...checked, manifest, type: 'plugin' as const }
 }
-export type PluginSnapshot = ReturnType<typeof pluginSnapshot>
+
+/** A bare skill folder (SKILL.md at its root, no plugin manifest) or a plugin folder. */
+export function listingSnapshot(files: SkillFile[]) {
+  if (has(files, PLUGIN_MANIFEST) || !has(files, 'SKILL.md')) return pluginSnapshot(files)
+  const { name, description, ...checked } = snapshot(files)
+  const manifest: SkillListingManifest = { name, description }
+  return { ...checked, manifest, type: 'skill' as const }
+}
+export type ListingSnapshot = ReturnType<typeof listingSnapshot>
 
 export const inLayer = (l: Layer) =>
   and(
@@ -123,11 +133,14 @@ const log = (ctx: Ctx, actorId: string | null, l: Layer, action: string, row: Pl
     detail: { id: row.id, layer: l.scope, name: row.name, revision },
   })
 
-/** A new plugin, or a new version of the layer's plugin of the same name unless the content is identical. */
-export async function savePlugin(ctx: Ctx, l: Layer, s: PluginSnapshot, actorId: string | null) {
+/**
+ * A new listing, or a new version of the layer's listing of the same name unless the content is identical; installs
+ * following the listing move to the new version.
+ */
+export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId: string | null) {
   const name = s.manifest.name
   const saved = await ctx.db.transaction(async (tx) => {
-    const values = { ...l, name, updatedBy: actorId, updatedAt: ctx.now() }
+    const values = { ...l, name, type: s.type, authorId: actorId, updatedBy: actorId, updatedAt: ctx.now() }
     const [made] = await tx.insert(plugins).values(values).onConflictDoNothing().returning()
     const [plugin] = made
       ? [made]
@@ -138,6 +151,7 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: PluginSnapshot, actorId:
           .for('update')
     if (!plugin) return fail('conflict', '插件正在被修改，请重试')
     if (actorId && isBuiltin(plugin)) fail('forbidden', '内置插件不能覆盖，可以上传到团队或群里替换')
+    if (plugin.type !== s.type) fail('conflict', '同名的插件或 Skill 已存在')
     const [last] = await tx
       .select({ revision: pluginVersions.revision, digest: pluginVersions.digest, id: pluginVersions.id })
       .from(pluginVersions)
@@ -153,7 +167,7 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: PluginSnapshot, actorId:
         pluginId: plugin.id,
         revision,
         files: s.files,
-        manifest: s.manifest,
+        manifest: s.manifest as PluginManifest,
         digest: s.digest,
         size: s.size,
         createdBy: actorId,
@@ -163,6 +177,10 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: PluginSnapshot, actorId:
       .update(plugins)
       .set({ versionId: v!.id, updatedBy: actorId, updatedAt: ctx.now() })
       .where(eq(plugins.id, plugin.id))
+    await tx
+      .update(installs)
+      .set({ resolvedVersionId: v!.id })
+      .where(and(eq(installs.listingId, plugin.id), isNull(installs.pinVersionId)))
     return { plugin, created: !!made, revision }
   })
   if (saved.revision)
@@ -193,20 +211,24 @@ function visibleIn(db: Read, groupId: string) {
   )
 }
 
-/** One per name across the layers (a lower layer replaces a same-named one above it), with the group's switch. */
+/**
+ * One plugin per name across the layers (a lower layer replaces a same-named one above it), on when the highest scope
+ * that installed it (group > repo > team) has it on, at that install's version.
+ */
 export async function groupPluginList(db: Read, groupId: string) {
-  const [rows, on] = await Promise.all([
-    listed(db, visibleIn(db, groupId)),
-    db
-      .select({ id: groupPlugins.pluginId })
-      .from(groupPlugins)
-      .where(and(eq(groupPlugins.groupId, groupId), eq(groupPlugins.enabled, true))),
+  const [rows, installed] = await Promise.all([
+    listed(db, and(visibleIn(db, groupId), eq(plugins.type, 'plugin'), ne(plugins.status, 'banned'))),
+    groupInstalls(db, groupId, 'plugin'),
   ])
-  const enabled = new Set(on.map((r) => r.id))
-  return mergeSkills(rows.map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name }))).map((r) => ({
-    ...r,
-    enabledInGroup: enabled.has(r.plugin.id),
-  }))
+  const top = new Map<string, (typeof installed)[number]>()
+  for (const i of installed) {
+    const had = top.get(i.listingId)
+    if (!had || LAYER_RANK[i.layer]! > LAYER_RANK[had.layer]!) top.set(i.listingId, i)
+  }
+  return mergeSkills(rows.map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name }))).map((r) => {
+    const install = top.get(r.plugin.id)
+    return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? false }
+  })
 }
 
 export async function setGroupPlugin(
@@ -218,9 +240,15 @@ export async function setGroupPlugin(
 ) {
   const set = { enabled, updatedBy: actorId, updatedAt: ctx.now() }
   await ctx.db
-    .insert(groupPlugins)
-    .values({ groupId, pluginId: plugin.id, ...set })
-    .onConflictDoUpdate({ target: [groupPlugins.groupId, groupPlugins.pluginId], set })
+    .insert(installs)
+    .values({
+      listingId: plugin.id,
+      scope: 'group',
+      scopeId: groupId,
+      resolvedVersionId: plugin.versionId!,
+      ...set,
+    })
+    .onConflictDoUpdate({ target: [installs.listingId, installs.scope, installs.scopeId], set })
   await audit(ctx, {
     category: 'admin',
     actorUserId: actorId,
