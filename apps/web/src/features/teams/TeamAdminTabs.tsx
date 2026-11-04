@@ -1,4 +1,5 @@
 import {
+  type RepoDto,
   SYSTEM_PARAM_VIEW,
   TEAM_PARAM_KEYS,
   type TeamDto,
@@ -17,6 +18,7 @@ import { AuditPanel } from '../admin/AuditPage'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { SkillLayerList } from '../config/SkillLayer'
 import { ConversationStatsPanel } from '../conversation-stats/ConversationStatsPanel'
+import { InstalledSection, InstallList } from '../market/InstallList'
 import { PluginLayerList } from '../plugins/PluginLayer'
 import { SecretLayerList } from '../secrets/SecretLayer'
 import { UsagePanel } from '../usage/UsagePage'
@@ -59,6 +61,49 @@ export function TeamSkillTab({ team }: { team: TeamDto }) {
         {t('对本团队所有群生效；与平台层同名时以团队层为准，群管理员可在群设置中再覆盖。')}
       </div>
       <SkillLayerList base={`/teams/${team.id}/skills`} tag={t('团队层')} />
+      <InstalledSection base={`/teams/${team.id}`} />
+    </>
+  )
+}
+
+/** 团队设置 · 仓库: the team's repos, each opening what is installed for groups working in it. */
+export function TeamReposTab({ team }: { team: TeamDto }) {
+  const { data, error } = useGet<RepoDto[]>('/repos')
+  const [open, setOpen] = useState<string | null>(null)
+  if (!data) return error ? <div className="gs-note">{error}</div> : <Spinner />
+  return (
+    <>
+      <div className="gs-note">
+        {t('对主仓库是它的群生效；优先于团队层，群层可再覆盖。')}
+      </div>
+      {data.length ? (
+        <GroupBox>
+          {data.map((r) => (
+            <GroupRow key={r.id} label={r.name} description={r.key}>
+              <Button
+                variant="plain"
+                size="small"
+                aria-label={
+                  open === r.id ? t('收起 {name}', { name: r.name }) : t('展开 {name}', { name: r.name })
+                }
+                onClick={() => setOpen(open === r.id ? null : r.id)}
+              >
+                {open === r.id ? t('收起') : t('展开')}
+              </Button>
+            </GroupRow>
+          ))}
+        </GroupBox>
+      ) : (
+        <div className="gs-note">{t('团队里还没有仓库')}</div>
+      )}
+      {open ? (
+        <>
+          <div className="cfg__eyebrow">
+            {t('「{name}」已引入', { name: data.find((r) => r.id === open)?.name ?? '' })}
+          </div>
+          <InstallList base={`/teams/${team.id}/repos/${open}`} />
+        </>
+      ) : null}
     </>
   )
 }

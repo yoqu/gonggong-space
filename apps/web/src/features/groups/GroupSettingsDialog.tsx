@@ -20,6 +20,7 @@ import {
 } from '../../ui'
 import { InheritedMcpList, McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { InheritedSkillList, SkillLayerList } from '../config/SkillLayer'
+import { InstalledSection } from '../market/InstallList'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { GroupPluginsTab } from '../plugins/PluginLayer'
 import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
@@ -158,6 +159,7 @@ export function GroupSettingsDialog({
               <div className="gs-note">{t('只对本群生效；与团队层、平台层同名时以群层为准。')}</div>
               <SkillLayerList base={`/groups/${group.id}/skills`} tag={t('群层')} />
               <InheritedSkillList groupId={group.id} />
+              <InstalledSection base={`/groups/${group.id}`} />
             </>
           ) : tab === 'secrets' ? (
             <GroupSecrets group={group} editable />

@@ -17,6 +17,7 @@ import groupTabs from '../features/group-tabs/en'
 import groups from '../features/groups/en'
 import knowledge from '../features/knowledge/en'
 import machines from '../features/machines/en'
+import market from '../features/market/en'
 import notifications from '../features/notifications/en'
 import plugins from '../features/plugins/en'
 import previews from '../features/previews/en'
@@ -60,6 +61,7 @@ export const en = {
   ...groups,
   ...knowledge,
   ...machines,
+  ...market,
   ...notifications,
   ...plugins,
   ...previews,
