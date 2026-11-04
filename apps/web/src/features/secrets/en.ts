@@ -9,12 +9,20 @@ export default {
   '所有人用同一个值，个人不能覆盖，适合团队共用的服务 token':
     'Everyone uses one value that members cannot override; for a service token the team shares',
   '有统一值；成员填了自己的值就用自己的': 'A shared value; a member who fills their own uses theirs',
-  '没有统一值，每人在「我的密钥」里填自己的，适合个人账号的 token':
-    'No shared value; each member fills their own in "My secrets"; for personal account tokens',
+  '没有统一值，每人填自己的（列表里「填写我的值」或「我的密钥」），适合个人账号的 token':
+    'No shared value; each member fills their own (via "Fill in my value" in the list or "My secrets"); for personal account tokens',
   个人: 'Personal',
   '末 4 位 {last4}': 'ends in {last4}',
   已填写: 'Filled in',
   未填写: 'Not filled in',
+  '我的值：{state}': 'My value: {state}',
+  '填写我的值…': 'Fill in my value…',
+  '更新我的值…': 'Update my value…',
+  我的值: 'My value',
+  填写我的值: 'Fill in my value',
+  '可选；只在你触发时注入，其他成员各自填写':
+    'Optional; injected only when you trigger, other members fill their own',
+  '可选；只对你生效，覆盖统一值': 'Optional; applies only to you, overriding the shared value',
   统一值未填写: 'Shared value not filled in',
   '已填个人值：{names}': 'Own values from: {names}',
   '可用 Bot：{bots}': 'Bots: {bots}',

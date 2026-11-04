@@ -33,7 +33,7 @@ export const MODE_LABEL: Record<SecretMode, string> = {
 export const MODE_HINT: Record<SecretMode, string> = {
   shared: t('所有人用同一个值，个人不能覆盖，适合团队共用的服务 token'),
   shared_overridable: t('有统一值；成员填了自己的值就用自己的'),
-  personal: t('没有统一值，每人在「我的密钥」里填自己的，适合个人账号的 token'),
+  personal: t('没有统一值，每人填自己的（列表里「填写我的值」或「我的密钥」），适合个人账号的 token'),
 }
 
 export const SCOPE_LABEL: Record<SecretScope, string> = {

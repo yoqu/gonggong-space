@@ -130,7 +130,15 @@ export function MySecrets() {
   )
 }
 
-function FillMine({ item, onClose, onDone }: { item: MySecretDto; onClose: () => void; onDone: () => void }) {
+export function FillMine({
+  item,
+  onClose,
+  onDone,
+}: {
+  item: MySecretDto
+  onClose: () => void
+  onDone: () => void
+}) {
   const [value, setValue] = useState('')
   const [foreign, setForeign] = useState(item.mine?.allowForeignMachines ?? false)
   const [error, setError] = useState('')

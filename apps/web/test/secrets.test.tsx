@@ -257,6 +257,97 @@ describe('群设置 · 密钥', () => {
     expect(screen.queryByRole('button', { name: '新建密钥…' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^管理/ })).toBeNull()
   })
+
+  const mineOf = (s: SecretDto, mine: MySecretDto['mine'] = null): MySecretDto => ({
+    secret: { ...s, expiresAt: null },
+    where: '支付服务重构',
+    mine,
+  })
+
+  it('lets a member fill their own value right in the list', async () => {
+    const own = secret({
+      id: 's5',
+      scope: 'group',
+      groupId: 'g1',
+      name: 'JIRA_TOKEN',
+      mode: 'personal',
+      value: null,
+    })
+    const calls = mockApi({
+      'GET /groups/g1/secrets': [...inherited, own],
+      'GET /me/secrets': [mineOf(own)],
+      'PUT /me/secrets/s5': {},
+    })
+    render(<SecretLayerList base="/groups/g1/secrets" scope="group" bots={[bot]} editable={false} />)
+    await waitFor(() => expect(row('JIRA_TOKEN').textContent).toContain('我的值：未填写'))
+    expect(within(row('NPM_TOKEN')).queryByRole('button')).toBeNull()
+    fireEvent.click(within(row('JIRA_TOKEN')).getByRole('button', { name: '填写我的值…' }))
+    const dialog = await screen.findByRole('dialog', { name: '填写 JIRA_TOKEN' })
+    fireEvent.change(within(dialog).getByLabelText('值'), { target: { value: 'jira_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'PUT',
+        path: '/me/secrets/s5',
+        body: { value: 'jira_12345678', allowForeignMachines: false },
+      }),
+    )
+    await waitFor(() => expect(calls.filter((c) => c.path === '/me/secrets')).toHaveLength(2))
+  })
+
+  it('shows my filled value and offers to update it', async () => {
+    const own = secret({
+      id: 's5',
+      scope: 'group',
+      groupId: 'g1',
+      name: 'JIRA_TOKEN',
+      mode: 'shared_overridable',
+    })
+    const mine = {
+      last4: 'abcd',
+      updatedBy: null,
+      updatedAt: new Date().toISOString(),
+      allowForeignMachines: false,
+    }
+    mockApi({ 'GET /groups/g1/secrets': [own], 'GET /me/secrets': [mineOf(own, mine)] })
+    render(<SecretLayerList base="/groups/g1/secrets" scope="group" bots={[bot]} editable={false} />)
+    await waitFor(() => expect(row('JIRA_TOKEN').textContent).toContain('我的值：已填写 · 末 4 位 abcd'))
+    expect(within(row('JIRA_TOKEN')).getByRole('button', { name: '更新我的值…' })).toBeTruthy()
+  })
+
+  it('fills my own value while creating a per-member secret', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/secrets': [],
+      'GET /me/secrets': [],
+      'POST /groups/g1/secrets': (b: unknown) =>
+        secret({ ...(b as Partial<SecretDto>), id: 's9', scope: 'group' }),
+      'PUT /me/secrets/s9': {},
+    })
+    render(<GroupSettingsDialog group={group()} tab="secrets" onClose={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: '新建密钥…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建密钥' })
+    fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: 'GITHUB_TOKEN' } })
+    expect(within(dialog).queryByLabelText('填写我的值')).toBeNull()
+    fireEvent.click(within(dialog).getByRole('radio', { name: '每人自填' }))
+    const value = within(dialog).getByLabelText('填写我的值') as HTMLInputElement
+    expect(value.type).toBe('password')
+    fireEvent.change(value, { target: { value: 'short' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(within(dialog).getByText('密钥至少 8 个字符')).toBeTruthy()
+    fireEvent.change(value, { target: { value: 'ghp_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'PUT',
+        path: '/me/secrets/s9',
+        body: { value: 'ghp_12345678', allowForeignMachines: false },
+      }),
+    )
+    const post = calls.find((c) => c.method === 'POST')?.body as Record<string, unknown>
+    expect(post.mode).toBe('personal')
+    expect(post).not.toHaveProperty('value')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新建密钥' })).toBeNull())
+  })
 })
 
 describe('我的密钥', () => {

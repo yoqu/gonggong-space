@@ -1,5 +1,6 @@
 import {
   type BotDto,
+  type MySecretDto,
   SECRET_MIN_LENGTH,
   SECRET_NAME,
   type SecretDto,
@@ -9,6 +10,7 @@ import {
 import { useId, useState } from 'react'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
+import { attempt } from '../../lib/errors'
 import { fullTime } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
@@ -32,10 +34,14 @@ import {
   TextField,
 } from '../../ui'
 import { expired, MODE_HINT, MODE_LABEL, SCOPE_LABEL, secretsApi, valueState } from './api'
+import { FillMine } from './MySecrets'
 import '../config/config.css'
 
 type Bot = Pick<BotDto, 'id' | 'name'>
-type Action = { kind: 'edit' | 'clear' | 'delete'; secret: SecretDto } | { kind: 'create' }
+type Action =
+  | { kind: 'edit' | 'clear' | 'delete'; secret: SecretDto }
+  | { kind: 'create' }
+  | { kind: 'fill'; item: MySecretDto }
 
 const MODES: SecretMode[] = ['shared', 'shared_overridable', 'personal']
 
@@ -56,6 +62,9 @@ export function SecretLayerList({
   editable?: boolean
 }) {
   const { data, error, reload } = useGet<SecretDto[]>(base)
+  // My own values, so a member fills theirs here instead of going to 设置 · 我的密钥; a failure only hides that.
+  const mine = useGet<MySecretDto[]>('/me/secrets')
+  const mineOf = (s: SecretDto) => (s.overridden ? undefined : mine.data?.find((m) => m.secret.id === s.id))
   const [action, setAction] = useState<Action | null>(null)
   const own = data?.filter((s) => s.scope === scope) ?? []
   const inherited = data?.filter((s) => s.scope !== scope) ?? []
@@ -63,45 +72,60 @@ export function SecretLayerList({
   const done = () => {
     close()
     reload()
+    mine.reload()
   }
   const botNames = (ids: string[] | null) =>
     ids === null ? t('全部') : ids.map((id) => bots.find((b) => b.id === id)?.name ?? id).join(t('、'))
   const overriddenBy = (s: SecretDto) =>
     data?.some((x) => x.scope === 'group' && x.name === s.name) ? t('已被本群覆盖') : t('已被团队层覆盖')
 
-  const row = (s: SecretDto, mine: boolean) => (
+  const row = (s: SecretDto, own: boolean, my = mineOf(s)) => (
     <GroupRow
       key={s.id}
       className="cfg__item"
       label={
         <span className="cfg__name-line">
           <span className="cfg__name">{s.name}</span>
-          <Tag tone={mine ? 'blue' : 'gray'}>{SCOPE_LABEL[s.scope]}</Tag>
+          <Tag tone={own ? 'blue' : 'gray'}>{SCOPE_LABEL[s.scope]}</Tag>
           <Tag tone="gray">{MODE_LABEL[s.mode]}</Tag>
           {s.enabled ? null : <Tag tone="gray">{t('已停用')}</Tag>}
           {s.overridden ? <Tag tone="orange">{overriddenBy(s)}</Tag> : null}
         </span>
       }
-      description={<SecretFacts secret={s} bots={botNames(s.botIds)} />}
+      description={
+        <>
+          <SecretFacts secret={s} bots={botNames(s.botIds)} />
+          {my ? (
+            <div>{t('我的值：{state}', { state: my.mine ? valueState(my.mine) : t('未填写') })}</div>
+          ) : null}
+        </>
+      }
     >
-      {mine && editable ? (
-        <PullDownButton
-          variant="plain"
-          size="small"
-          icon="more"
-          indicator={false}
-          aria-label={t('管理 {name}', { name: s.name })}
-          align="end"
-          portal
-          items={[
-            { label: t('编辑…'), value: 'edit' },
-            ...(s.value ? [{ label: t('清除统一值'), value: 'clear' }] : []),
-            { separator: true as const },
-            { label: t('删除'), value: 'delete', destructive: true },
-          ]}
-          onSelect={(v) => setAction({ kind: v as 'edit' | 'clear' | 'delete', secret: s })}
-        />
-      ) : null}
+      <span className="cfg__controls">
+        {my ? (
+          <Button size="small" onClick={() => setAction({ kind: 'fill', item: my })}>
+            {my.mine ? t('更新我的值…') : t('填写我的值…')}
+          </Button>
+        ) : null}
+        {own && editable ? (
+          <PullDownButton
+            variant="plain"
+            size="small"
+            icon="more"
+            indicator={false}
+            aria-label={t('管理 {name}', { name: s.name })}
+            align="end"
+            portal
+            items={[
+              { label: t('编辑…'), value: 'edit' },
+              ...(s.value ? [{ label: t('清除统一值'), value: 'clear' }] : []),
+              { separator: true as const },
+              { label: t('删除'), value: 'delete', destructive: true },
+            ]}
+            onSelect={(v) => setAction({ kind: v as 'edit' | 'clear' | 'delete', secret: s })}
+          />
+        ) : null}
+      </span>
     </GroupRow>
   )
 
@@ -141,6 +165,8 @@ export function SecretLayerList({
             onClose={close}
             onSaved={done}
           />
+        ) : action?.kind === 'fill' ? (
+          <FillMine item={action.item} onClose={close} onDone={done} />
         ) : action?.kind === 'clear' ? (
           <ConfirmActionDialog
             key="clear"
@@ -219,6 +245,7 @@ function SecretDialog({
   const [expires, setExpires] = useState(editing?.expiresAt ? fullTime(editing.expiresAt).slice(0, 10) : '')
   const [enabled, setEnabled] = useState(editing?.enabled ?? true)
   const [value, setValue] = useState('')
+  const [myValue, setMyValue] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const formId = useId()
@@ -231,6 +258,8 @@ function SecretDialog({
     if (botIds?.length === 0) return setError(t('请至少选择一个 Bot'))
     const shared = mode !== 'personal' && value
     if (shared && value.length < SECRET_MIN_LENGTH) return setError(t('密钥至少 8 个字符'))
+    const own = !editing && mode !== 'shared' && myValue
+    if (own && myValue.length < SECRET_MIN_LENGTH) return setError(t('密钥至少 8 个字符'))
     const body = {
       description: description.trim(),
       mode,
@@ -241,7 +270,13 @@ function SecretDialog({
     }
     setBusy(true)
     try {
-      await (editing ? secretsApi.update(editing.id, body) : secretsApi.create(base, { name, ...body }))
+      if (editing) await secretsApi.update(editing.id, body)
+      else {
+        const created = await secretsApi.create(base, { name, ...body })
+        // The definition exists by now: a failed own value is toasted, the row still offers 填写我的值.
+        if (own)
+          await attempt(() => secretsApi.setMine(created.id, { value: myValue, allowForeignMachines: false }))
+      }
       onSaved()
     } catch (e) {
       setError(errorText(e))
@@ -339,6 +374,23 @@ function SecretDialog({
               autoComplete="new-password"
               value={value}
               onChange={(e) => setValue(e.target.value)}
+            />
+          </FormRow>
+        )}
+        {editing || mode === 'shared' ? null : (
+          <FormRow
+            label={t('我的值')}
+            hint={
+              mode === 'personal'
+                ? t('可选；只在你触发时注入，其他成员各自填写')
+                : t('可选；只对你生效，覆盖统一值')
+            }
+          >
+            <SecureField
+              aria-label={t('填写我的值')}
+              autoComplete="new-password"
+              value={myValue}
+              onChange={(e) => setMyValue(e.target.value)}
             />
           </FormRow>
         )}
