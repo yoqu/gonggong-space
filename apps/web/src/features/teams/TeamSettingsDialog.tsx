@@ -34,6 +34,7 @@ import {
   TeamParamsTab,
   TeamPluginsTab,
   TeamReposTab,
+  TeamReviewsTab,
   TeamSecretsTab,
   TeamSkillTab,
   TeamUsageTab,
@@ -50,6 +51,7 @@ type Tab =
   | 'skill'
   | 'plugins'
   | 'repos'
+  | 'reviews'
   | 'secrets'
   | 'params'
   | 'groups'
@@ -92,6 +94,7 @@ export function TeamSettingsDialog({
           { value: 'skill', label: 'Skill', icon: 'star', body: <TeamSkillTab team={team} /> },
           { value: 'plugins', label: t('插件'), icon: 'apps', body: <TeamPluginsTab team={team} /> },
           { value: 'repos', label: t('仓库'), icon: 'folder-git', body: <TeamReposTab team={team} /> },
+          { value: 'reviews', label: t('待审核'), icon: 'checklist', body: <TeamReviewsTab team={team} /> },
           { value: 'secrets', label: t('密钥'), icon: 'lock', body: <TeamSecretsTab team={team} /> },
           {
             value: 'params',

@@ -190,12 +190,20 @@ describe('team settings · repos', () => {
   }
 
   it('lists the team repos and opens one repo installs', async () => {
-    mockApi({ 'GET /repos': [repo], 'GET /teams/t1/repos/r1/installs': installs })
+    mockApi({ 'GET /teams/t1/repos': [repo], 'GET /teams/t1/repos/r1/installs': installs })
     useSession.setState({ status: 'ready' })
     render(<TeamSettingsDialog team={team} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: '仓库' }))
     fireEvent.click(await screen.findByRole('button', { name: '展开 core' }))
     expect(await screen.findByText('review-pr')).toBeTruthy()
+  })
+
+  it('lists the team pending reviews under 待审核', async () => {
+    const calls = mockApi({ 'GET /market/reviews?teamId=t1': [] })
+    render(<TeamSettingsDialog team={team} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '待审核' }))
+    expect(await screen.findByText('没有待审核的版本')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/market/reviews?teamId=t1')).toBe(true)
   })
 
   it('shows the team installs under the Skill tab', async () => {

@@ -179,7 +179,7 @@ export function InheritedSkillList({ groupId }: { groupId: string }) {
 }
 
 /** `webkitdirectory` is not in React's input attributes. */
-function FolderInput({ onFiles }: { onFiles: (files: File[]) => void }) {
+export function FolderInput({ onFiles }: { onFiles: (files: File[]) => void }) {
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => ref.current?.setAttribute('webkitdirectory', ''), [])
   return (
