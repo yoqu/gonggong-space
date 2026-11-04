@@ -1,4 +1,5 @@
 import type {
+  ListingType,
   ListingVersionDto,
   MarketListingDetailDto,
   MarketListingDto,
@@ -13,8 +14,10 @@ import {
   Alert,
   Button,
   Dialog,
+  FileIcon,
   GroupBox,
   GroupRow,
+  Icon,
   Link,
   Presence,
   Spinner,
@@ -47,6 +50,19 @@ export const ReviewTag = ({ status }: { status: ReviewStatus }) => (
   <Tag tone={REVIEW_TONE[status]}>{REVIEW_LABEL[status]}</Tag>
 )
 
+/** A listing's glyph: Skill and 插件 read apart at a glance. */
+export function ListingIcon({ type, size = 36 }: { type: ListingType; size?: number }) {
+  return (
+    <span className="mkt-icon" data-type={type} style={{ width: size, height: size }} aria-hidden="true">
+      <Icon name={type === 'plugin' ? 'plug' : 'sparkle'} size={Math.round(size * 0.5)} />
+    </span>
+  )
+}
+
+/** SKILL.md's YAML header is metadata already shown above; rendered as Markdown it reads as a stray heading. */
+export const stripFrontMatter = (md: string) =>
+  md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
+
 /** `作者 · 团队`, or 官方 for platform listings. */
 export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source'>) =>
   [l.author, l.teamName].filter(Boolean).join(' · ') || SOURCE_LABEL[l.source]
@@ -73,25 +89,37 @@ export function ListingDetail({
   const gh = data.ghSource
   const banned = data.status === 'banned'
   const unban = () => attempt(() => api.del(`/market/${data.id}/ban`)).then(reload)
+  const readme = stripFrontMatter(data.readme)
+  const action = actions?.(data)
   return (
     <div className="mkt-detail">
-      <div className="mkt-detail__meta">
-        <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>
-        <Tag tone="gray">{SOURCE_LABEL[data.source]}</Tag>
-        {banned ? <Tag tone="red">{t('已封禁')}</Tag> : null}
-        {data.agents.map((a) => (
-          <Tag key={a}>{a}</Tag>
-        ))}
-        <span className="mkt-detail__by">
-          {data.listedRevision === null
-            ? t('{by} · {n} 次引入', { by: byline(data), n: data.installs })
-            : t('{by} · {n} 次引入 · r{rev}', {
-                by: byline(data),
-                n: data.installs,
-                rev: data.listedRevision,
-              })}
-        </span>
-        <span className="mkt-detail__actions">
+      <div className="mkt-detail__hero">
+        <ListingIcon type={data.type} size={44} />
+        <div className="mkt-detail__summary">
+          <div className="mkt-detail__meta">
+            <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>
+            <Tag tone={data.source === 'official' ? 'green' : 'gray'}>{SOURCE_LABEL[data.source]}</Tag>
+            {banned ? <Tag tone="red">{t('已封禁')}</Tag> : null}
+            {data.agents.map((a) => (
+              <Tag key={a}>{a}</Tag>
+            ))}
+          </div>
+          <span className="mkt-detail__by">
+            {data.listedRevision === null
+              ? t('{by} · {n} 次引入', { by: byline(data), n: data.installs })
+              : t('{by} · {n} 次引入 · r{rev}', {
+                  by: byline(data),
+                  n: data.installs,
+                  rev: data.listedRevision,
+                })}
+          </span>
+        </div>
+      </div>
+      {data.description ? <p className="mkt-detail__desc">{data.description}</p> : null}
+      {action || data.canReview ? (
+        <div className="mkt-detail__actions">
+          {action}
+          <span className="spacer" />
           {data.canReview ? (
             banned ? (
               <Button size="small" onClick={() => void unban()}>
@@ -103,61 +131,78 @@ export function ListingDetail({
               </Button>
             )
           ) : null}
-          {actions?.(data)}
-        </span>
-      </div>
+        </div>
+      ) : null}
       {banned && data.banReason ? (
         <Alert variant="error" title={t('封禁原因：{reason}', { reason: data.banReason })} />
       ) : null}
-      {data.description ? <p className="mkt-detail__desc">{data.description}</p> : null}
       {gh ? (
         <div className="mkt-detail__gh">
-          {t('来源')}{' '}
+          <Icon name="github" size={14} />
           <Link external href={gh.url}>
             {[gh.url, gh.ref, gh.path].filter(Boolean).join(' · ')}
-          </Link>{' '}
+          </Link>
           <code className="gs-mono">@{gh.commit.slice(0, 7)}</code>
         </div>
       ) : null}
-      <div className="cfg__eyebrow">{t('说明')}</div>
-      <div className="mkt-detail__readme">
-        <Markdown text={data.readme} />
-      </div>
-      <div className="cfg__eyebrow">{t('文件')}</div>
-      <GroupBox>
-        {data.files.map((f) => (
-          <GroupRow key={f.path} label={<code className="gs-mono">{f.path}</code>} value={fmtSize(f.size)} />
-        ))}
-      </GroupBox>
-      <div className="cfg__eyebrow">{t('版本历史')}</div>
-      <GroupBox>
-        {data.versions.map((v) => (
-          <GroupRow
-            key={v.id}
-            label={
-              <span className="cfg__name-line">
-                <span className="cfg__name">r{v.revision}</span>
-                <ReviewTag status={v.reviewStatus} />
-                <span className="mkt-detail__by">
-                  {[v.createdBy, new Date(v.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}
+      <section className="mkt-detail__section" aria-label={t('说明')}>
+        <div className="cfg__eyebrow">{t('说明')}</div>
+        <div className="mkt-detail__readme">
+          {readme.trim() ? <Markdown text={readme} /> : <span className="gs-note">{t('（没有说明）')}</span>}
+        </div>
+      </section>
+      <section className="mkt-detail__section" aria-label={t('文件')}>
+        <div className="cfg__eyebrow">
+          {t('文件')} <span className="mkt-detail__n">{data.files.length}</span>
+        </div>
+        <GroupBox>
+          {data.files.map((f) => (
+            <GroupRow
+              key={f.path}
+              label={
+                <span className="mkt-detail__file">
+                  <FileIcon name={f.path} size={16} />
+                  <code className="gs-mono">{f.path}</code>
                 </span>
-              </span>
-            }
-            description={
-              <>
-                {v.changelog || t('（无更新说明）')}
-                {v.reviewNote ? <div>{t('审核意见：{note}', { note: v.reviewNote })}</div> : null}
-              </>
-            }
-          >
-            {data.canReview || data.canEdit ? (
-              <Button size="small" variant="plain" onClick={() => setDiffOf(v)}>
-                {t('查看变更')}
-              </Button>
-            ) : null}
-          </GroupRow>
-        ))}
-      </GroupBox>
+              }
+              value={fmtSize(f.size)}
+            />
+          ))}
+        </GroupBox>
+      </section>
+      <section className="mkt-detail__section" aria-label={t('版本历史')}>
+        <div className="cfg__eyebrow">
+          {t('版本历史')} <span className="mkt-detail__n">{data.versions.length}</span>
+        </div>
+        <GroupBox>
+          {data.versions.map((v) => (
+            <GroupRow
+              key={v.id}
+              label={
+                <span className="cfg__name-line">
+                  <span className="cfg__name">r{v.revision}</span>
+                  <ReviewTag status={v.reviewStatus} />
+                  <span className="mkt-detail__by">
+                    {[v.createdBy, new Date(v.createdAt).toLocaleDateString()].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+              }
+              description={
+                <>
+                  {v.changelog || t('（无更新说明）')}
+                  {v.reviewNote ? <div>{t('审核意见：{note}', { note: v.reviewNote })}</div> : null}
+                </>
+              }
+            >
+              {data.canReview || data.canEdit ? (
+                <Button size="small" variant="plain" onClick={() => setDiffOf(v)}>
+                  {t('查看变更')}
+                </Button>
+              ) : null}
+            </GroupRow>
+          ))}
+        </GroupBox>
+      </section>
       <Presence>
         {banning ? (
           <BanDialog

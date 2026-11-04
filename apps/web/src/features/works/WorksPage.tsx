@@ -1,11 +1,22 @@
 import type { ArtifactVisibility, WorkDto, WorkGroupDto } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Button, EmptyState, Icon, MenuButton, SearchField, SegmentedControl, Spinner, Tag } from '../../ui'
+import { ago, fullTime } from '../../lib/time'
+import {
+  Button,
+  EmptyState,
+  Icon,
+  MenuButton,
+  PopUpButton,
+  SearchField,
+  SegmentedControl,
+  Spinner,
+  Tag,
+} from '../../ui'
 import { useArtifactPreview } from '../artifacts/store'
 import { openCreation } from '../plugins/store'
 import './works.css'
@@ -56,6 +67,11 @@ export const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
 }
 
 type Scope = 'all' | 'mine' | 'team'
+type Sort = 'recent' | 'title'
+
+const COVERS = 6
+/** A stable cover tint for a work without a thumbnail, so the grid is not a wall of identical gray boxes. */
+const coverOf = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % COVERS
 
 /** 作品: every artifact I may open, across my groups; `/works/:artifactId` views a read-only one. */
 export function WorksPage() {
@@ -64,6 +80,8 @@ export function WorksPage() {
   const me = useSession((s) => s.user?.id)
   const { groups, list, error } = useWorks()
   const [scope, setScope] = useState<Scope>('all')
+  const [group, setGroup] = useState('all')
+  const [sort, setSort] = useState<Sort>('recent')
   const [query, setQuery] = useState('')
   useEffect(() => {
     void loadWorks()
@@ -76,17 +94,42 @@ export function WorksPage() {
       <WorkViewer work={viewing} onBack={() => navigate('/works')} />
     ) : (
       <section className="works" aria-label={t('作品')}>
-        <div className="works__center">{list ? t('作品不存在或你没有权限查看') : <Spinner />}</div>
+        <div className="works__center">
+          {list ? (
+            <EmptyState
+              icon="lock"
+              title={t('作品不存在或你没有权限查看')}
+              action={
+                <Button size="small" onClick={() => navigate('/works')}>
+                  {t('返回作品')}
+                </Button>
+              }
+            />
+          ) : (
+            <Spinner />
+          )}
+        </div>
       </section>
     )
 
+  const all = list ?? []
+  const sources = [...new Map(all.map((w) => [w.groupId, w.groupTitle])).entries()]
   const q = query.trim().toLowerCase()
-  const shown = (list ?? []).filter(
-    (w) =>
-      (scope === 'all' ||
-        (scope === 'mine' ? w.createdBy === me : w.visibility === 'team' || w.visibility === 'all')) &&
-      (!q || `${w.title} ${w.groupTitle}`.toLowerCase().includes(q)),
-  )
+  const shown = all
+    .filter(
+      (w) =>
+        (scope === 'all' ||
+          (scope === 'mine' ? w.createdBy === me : w.visibility === 'team' || w.visibility === 'all')) &&
+        (group === 'all' || w.groupId === group) &&
+        (!q || `${w.title} ${w.groupTitle} ${w.creatorName ?? ''}`.toLowerCase().includes(q)),
+    )
+    .sort((a, b) => (sort === 'title' ? a.title.localeCompare(b.title, 'zh') : 0))
+  const filtered = scope !== 'all' || group !== 'all' || !!q
+  const clear = () => {
+    setScope('all')
+    setGroup('all')
+    setQuery('')
+  }
   const open = (w: WorkDto) =>
     navigate(w.access === 'edit' ? `/g/${w.groupId}?artifact=${w.id}` : `/works/${w.id}`)
   const create = (groupId: string) => {
@@ -98,24 +141,8 @@ export function WorksPage() {
     <section className="works" aria-label={t('作品')}>
       <header className="works__head">
         <h1 className="works__title">{t('作品')}</h1>
-        <SegmentedControl<Scope>
-          aria-label={t('范围')}
-          size="small"
-          value={scope}
-          onChange={setScope}
-          items={[
-            { value: 'all', label: t('全部') },
-            { value: 'mine', label: t('我创建的') },
-            { value: 'team', label: t('已共享') },
-          ]}
-        />
-        <SearchField
-          className="works__search"
-          placeholder={t('搜索作品')}
-          aria-label={t('搜索作品')}
-          value={query}
-          onChange={setQuery}
-        />
+        {list?.length ? <span className="works__count">{list.length}</span> : null}
+        <span className="spacer" />
         <MenuButton
           className="ui-btn ui-btn--primary ui-btn--small"
           aria-label={t('新建')}
@@ -129,8 +156,63 @@ export function WorksPage() {
           {t('新建')}
         </MenuButton>
       </header>
+      {list?.length ? (
+        <div className="works__bar">
+          <SegmentedControl<Scope>
+            aria-label={t('范围')}
+            size="small"
+            value={scope}
+            onChange={setScope}
+            items={[
+              { value: 'all', label: t('全部') },
+              { value: 'mine', label: t('我创建的') },
+              { value: 'team', label: t('已共享') },
+            ]}
+          />
+          {sources.length > 1 ? (
+            <PopUpButton
+              aria-label={t('来自群')}
+              size="small"
+              value={group}
+              onChange={setGroup}
+              options={[
+                { value: 'all', label: t('全部群') },
+                ...sources.map(([id, title]) => ({ value: id, label: title })),
+              ]}
+            />
+          ) : null}
+          <PopUpButton<Sort>
+            aria-label={t('排序')}
+            size="small"
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: 'recent', label: t('最近更新') },
+              { value: 'title', label: t('按名称') },
+            ]}
+          />
+          <span className="spacer" />
+          <SearchField
+            className="works__search"
+            placeholder={t('搜索作品、群或创建人')}
+            aria-label={t('搜索作品')}
+            value={query}
+            onChange={setQuery}
+          />
+        </div>
+      ) : null}
       {error && !list ? (
-        <div className="works__center">{error}</div>
+        <div className="works__center">
+          <EmptyState
+            icon="warning"
+            title={error}
+            action={
+              <Button size="small" onClick={() => void loadWorks()}>
+                {t('重试')}
+              </Button>
+            }
+          />
+        </div>
       ) : !list ? (
         <div className="works__center">
           <Spinner />
@@ -141,45 +223,64 @@ export function WorksPage() {
             <li key={w.id} className="works__card">
               <button
                 type="button"
-                className="works__shot"
+                className="works__open"
                 aria-label={t('打开 {title}', { title: w.title })}
                 onClick={() => open(w)}
               >
-                {w.thumbnailUrl ? (
-                  <img src={w.thumbnailUrl} alt="" loading="lazy" />
-                ) : (
-                  <Icon name="grid" size={28} />
-                )}
+                <span className="works__shot" data-cover={w.thumbnailUrl ? undefined : coverOf(w.id)}>
+                  {w.thumbnailUrl ? (
+                    <img src={w.thumbnailUrl} alt="" loading="lazy" />
+                  ) : (
+                    <span className="works__initial" aria-hidden="true">
+                      {[...w.title][0]}
+                    </span>
+                  )}
+                  {w.access === 'view' ? (
+                    <span className="works__badge">
+                      <Icon name="eye" size={12} />
+                      {t('只读')}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="works__body">
+                  <strong className="works__name" title={w.title}>
+                    {w.title}
+                  </strong>
+                  <span className="works__meta">
+                    {[w.groupTitle, w.creatorName].filter(Boolean).join(' · ')}
+                  </span>
+                  <span className="works__tags">
+                    {w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
+                    <Tag
+                      tone={w.visibility === 'team' || w.visibility === 'all' ? 'blue' : 'gray'}
+                      icon={w.visibility === 'private' ? 'lock' : undefined}
+                    >
+                      {VISIBILITY_LABEL[w.visibility]}
+                    </Tag>
+                    <time className="works__time" dateTime={w.updatedAt} title={fullTime(w.updatedAt)}>
+                      {ago(w.updatedAt)}
+                    </time>
+                  </span>
+                </span>
               </button>
-              <div className="works__body">
-                <strong className="works__name" title={w.title}>
-                  {w.title}
-                </strong>
-                <span className="works__meta">
-                  {[w.groupTitle, w.creatorName, new Date(w.updatedAt).toLocaleDateString()]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                <span className="works__tags">
-                  {w.pluginTitle ? <Tag>{w.pluginTitle}</Tag> : null}
-                  <Tag
-                    tone={w.visibility === 'team' || w.visibility === 'all' ? 'blue' : 'gray'}
-                    icon={w.visibility === 'private' ? 'lock' : undefined}
-                  >
-                    {VISIBILITY_LABEL[w.visibility]}
-                  </Tag>
-                  {w.access === 'view' ? <Tag tone="orange">{t('只读')}</Tag> : null}
-                </span>
-              </div>
             </li>
           ))}
         </ul>
       ) : (
-        <EmptyState
-          icon="grid"
-          title={list.length ? t('没有符合条件的作品') : t('还没有作品')}
-          description={list.length ? undefined : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')}
-        />
+        <div className="works__center">
+          <EmptyState
+            icon="grid"
+            title={list.length ? t('没有符合条件的作品') : t('还没有作品')}
+            description={list.length ? undefined : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')}
+            action={
+              filtered && list.length ? (
+                <Button size="small" onClick={clear}>
+                  {t('清除筛选')}
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       )}
     </section>
   )
@@ -188,21 +289,39 @@ export function WorksPage() {
 /** A work I may only look at (a team member outside its group): its preview, presentable, nothing to edit. */
 function WorkViewer({ work, onBack }: { work: WorkDto; onBack: () => void }) {
   const { preview, error } = useArtifactPreview(work.id, null, true)
+  const frame = useRef<HTMLIFrameElement>(null)
   return (
     <section className="works works--viewer" aria-label={work.title}>
       <header className="works__head">
         <Button size="small" variant="plain" icon="chevron-left" aria-label={t('返回作品')} onClick={onBack}>
           {t('作品')}
         </Button>
-        <h1 className="works__title">{work.title}</h1>
-        <span className="works__note">
-          {work.visibility === 'all'
-            ? t('只读 · 来自「{group}」', { group: work.groupTitle })
-            : t('只读 · 进入「{group}」后可修改', { group: work.groupTitle })}
-        </span>
+        <div className="works__titles">
+          <h1 className="works__title">{work.title}</h1>
+          <span className="works__note">
+            {work.visibility === 'all'
+              ? t('只读 · 来自「{group}」', { group: work.groupTitle })
+              : t('只读 · 进入「{group}」后可修改', { group: work.groupTitle })}
+          </span>
+        </div>
+        {preview ? (
+          <>
+            <Button size="small" icon="expand" onClick={() => void frame.current?.requestFullscreen?.()}>
+              {t('全屏演示')}
+            </Button>
+            <Button
+              size="small"
+              variant="plain"
+              icon="external"
+              aria-label={t('在新窗口打开')}
+              title={t('在新窗口打开')}
+              onClick={() => window.open(preview.url, '_blank', 'noopener')}
+            />
+          </>
+        ) : null}
       </header>
       {preview ? (
-        <iframe className="works__frame" title={work.title} src={preview.url} />
+        <iframe ref={frame} className="works__frame" title={work.title} src={preview.url} allowFullScreen />
       ) : (
         <div className="works__center">{error || <Spinner />}</div>
       )}

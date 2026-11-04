@@ -12,11 +12,13 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { attempt, toastError } from '../../lib/errors'
 import { storedTeam } from '../../lib/team'
+import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
   Dialog,
+  EmptyState,
   GroupBox,
   GroupRow,
   Presence,
@@ -31,17 +33,32 @@ import {
 import { FolderInput } from '../config/SkillLayer'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
 import { TYPE_LABEL } from './InstallList'
-import { ReviewTag } from './ListingDetail'
+import { ListingIcon, ReviewTag } from './ListingDetail'
 import '../config/config.css'
 import '../groups/groups.css'
 
 const VISIBILITY_LABEL: Record<ListingVisibility, string> = { public: t('公开'), team: t('仅本团队') }
 
+type Filter = 'all' | 'listed' | 'pending' | 'todo'
+
+/** Draft, rejected or banned: waits for the author to act. */
+const needsMe = (l: MyListingDto) =>
+  l.status === 'banned' || l.latest.reviewStatus === 'draft' || l.latest.reviewStatus === 'rejected'
+
+const matches = (l: MyListingDto, f: Filter) =>
+  f === 'all' ||
+  (f === 'listed'
+    ? l.status === 'listed' && !!l.listedVersionId
+    : f === 'pending'
+      ? l.latest.reviewStatus === 'pending'
+      : needsMe(l))
+
 /** 我的发布: the listings I maintain, their latest version's review, and publishing new ones. */
-export function MyListings() {
+export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
   const { data, error, reload } = useGet<MyListingDto[]>('/market/mine')
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
   const patch = (l: MyListingDto, body: UpdateListingReq) =>
     attempt(() => api.patch(`/market/${l.id}`, body)).then(reload)
   const checkUpstream = async (l: MyListingDto) => {
@@ -59,13 +76,32 @@ export function MyListings() {
     })
     if (res.changed) reload()
   }
+  const count = (f: Filter) => data?.filter((l) => matches(l, f)).length ?? 0
+  const shown = data?.filter((l) => matches(l, filter)) ?? []
 
   return (
     <div className="mkt-mine">
-      <div className="cfg__foot">
-        <span className="gs-note">{t('发布后先存为草稿，提交审核通过后才会出现在市场。')}</span>
+      <div className="mkt-section-head">
+        {data?.length ? (
+          <SegmentedControl<Filter>
+            aria-label={t('状态')}
+            size="small"
+            value={filter}
+            onChange={setFilter}
+            items={(
+              [
+                ['all', t('全部')],
+                ['listed', t('已上架')],
+                ['pending', t('待审核')],
+                ['todo', t('待处理')],
+              ] as const
+            ).map(([value, label]) => ({ value, label: `${label} ${count(value)}` }))}
+          />
+        ) : (
+          <span className="gs-note">{t('发布后先存为草稿，提交审核通过后才会出现在市场。')}</span>
+        )}
         <span className="spacer" />
-        <Button variant="primary" onClick={() => setPublishing(true)}>
+        <Button variant="primary" size="small" icon="plus" onClick={() => setPublishing(true)}>
           {t('发布…')}
         </Button>
       </div>
@@ -75,74 +111,106 @@ export function MyListings() {
           <Spinner />
         )
       ) : data.length ? (
-        <GroupBox>
-          {data.map((l) => (
-            <GroupRow
-              key={l.id}
-              className="cfg__item"
-              label={
-                <span className="cfg__name-line">
-                  <span className="cfg__name">{l.title}</span>
-                  <Tag tone="blue">{TYPE_LABEL[l.type]}</Tag>
-                  <Tag tone="gray">r{l.latest.revision}</Tag>
-                  <ReviewTag status={l.latest.reviewStatus} />
-                  <Tag tone="gray">{VISIBILITY_LABEL[l.visibility]}</Tag>
-                  {l.status === 'banned' ? (
-                    <Tag tone="red">{t('已封禁')}</Tag>
-                  ) : !l.listedVersionId ? (
-                    <Tag tone="gray">{t('未上架')}</Tag>
-                  ) : l.status === 'listed' ? (
-                    <Tag tone="green">{t('已上架')}</Tag>
+        shown.length ? (
+          <GroupBox>
+            {shown.map((l) => (
+              <GroupRow
+                key={l.id}
+                className="cfg__item mkt-row"
+                label={
+                  <span className="mkt-row__head">
+                    <ListingIcon type={l.type} size={28} />
+                    <span className="mkt-row__titles">
+                      <span className="cfg__name-line">
+                        <strong className="mkt-row__name">{l.title}</strong>
+                        <Tag tone="gray">r{l.latest.revision}</Tag>
+                        <ReviewTag status={l.latest.reviewStatus} />
+                        {l.status === 'banned' ? (
+                          <Tag tone="red">{t('已封禁')}</Tag>
+                        ) : !l.listedVersionId ? (
+                          <Tag tone="gray">{t('未上架')}</Tag>
+                        ) : l.status === 'listed' ? (
+                          <Tag tone="green">{t('已上架')}</Tag>
+                        ) : (
+                          <Tag tone="orange">{t('已下架')}</Tag>
+                        )}
+                      </span>
+                      <span className="mkt-row__meta">
+                        {[
+                          TYPE_LABEL[l.type],
+                          VISIBILITY_LABEL[l.visibility],
+                          t('更新于 {time}', { time: ago(l.latest.createdAt) }),
+                        ].join(' · ')}
+                      </span>
+                    </span>
+                  </span>
+                }
+                description={
+                  l.status === 'banned' && l.banReason ? (
+                    <span className="mkt-row__warn">{t('封禁原因：{reason}', { reason: l.banReason })}</span>
+                  ) : l.latest.reviewStatus === 'rejected' && l.latest.reviewNote ? (
+                    <span className="mkt-row__warn">
+                      {t('驳回原因：{note}', { note: l.latest.reviewNote })}
+                    </span>
                   ) : (
-                    <Tag tone="orange">{t('已下架')}</Tag>
+                    l.description
+                  )
+                }
+              >
+                <span className="cfg__controls mkt-row__controls">
+                  {l.ghSource ? (
+                    <Button size="small" variant="plain" onClick={() => void checkUpstream(l)}>
+                      {t('检查上游更新')}
+                    </Button>
+                  ) : null}
+                  {l.listedVersionId && l.status !== 'banned' ? (
+                    <Button
+                      size="small"
+                      variant="plain"
+                      onClick={() => void patch(l, { status: l.status === 'listed' ? 'unlisted' : 'listed' })}
+                    >
+                      {l.status === 'listed' ? t('下架') : t('重新上架')}
+                    </Button>
+                  ) : null}
+                  {l.listedVersionId ? null : (
+                    <Button
+                      size="small"
+                      variant="plain"
+                      onClick={() =>
+                        void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })
+                      }
+                    >
+                      {l.visibility === 'public' ? t('设为仅本团队') : t('设为公开')}
+                    </Button>
                   )}
+                  {onOpen ? (
+                    <Button size="small" variant="plain" onClick={() => onOpen(l)}>
+                      {t('详情')}
+                    </Button>
+                  ) : null}
+                  {l.latest.reviewStatus === 'draft' || l.latest.reviewStatus === 'rejected' ? (
+                    <Button size="small" variant="primary" onClick={() => setSubmitting(l)}>
+                      {t('提交审核')}
+                    </Button>
+                  ) : null}
                 </span>
-              }
-              description={
-                l.status === 'banned' && l.banReason
-                  ? t('封禁原因：{reason}', { reason: l.banReason })
-                  : l.latest.reviewStatus === 'rejected' && l.latest.reviewNote
-                    ? t('驳回原因：{note}', { note: l.latest.reviewNote })
-                    : l.description
-              }
-            >
-              <span className="cfg__controls">
-                {l.latest.reviewStatus === 'draft' || l.latest.reviewStatus === 'rejected' ? (
-                  <Button size="small" onClick={() => setSubmitting(l)}>
-                    {t('提交审核')}
-                  </Button>
-                ) : null}
-                {l.ghSource ? (
-                  <Button size="small" variant="plain" onClick={() => void checkUpstream(l)}>
-                    {t('检查上游更新')}
-                  </Button>
-                ) : null}
-                {l.listedVersionId && l.status !== 'banned' ? (
-                  <Button
-                    size="small"
-                    variant="plain"
-                    onClick={() => void patch(l, { status: l.status === 'listed' ? 'unlisted' : 'listed' })}
-                  >
-                    {l.status === 'listed' ? t('下架') : t('重新上架')}
-                  </Button>
-                ) : null}
-                {l.listedVersionId ? null : (
-                  <Button
-                    size="small"
-                    variant="plain"
-                    onClick={() =>
-                      void patch(l, { visibility: l.visibility === 'public' ? 'team' : 'public' })
-                    }
-                  >
-                    {l.visibility === 'public' ? t('设为仅本团队') : t('设为公开')}
-                  </Button>
-                )}
-              </span>
-            </GroupRow>
-          ))}
-        </GroupBox>
+              </GroupRow>
+            ))}
+          </GroupBox>
+        ) : (
+          <EmptyState compact icon="tag" title={t('没有这个状态的条目')} />
+        )
       ) : (
-        <div className="gs-note">{t('还没有发布过 Skill 或插件')}</div>
+        <EmptyState
+          icon="upload"
+          title={t('还没有发布过 Skill 或插件')}
+          description={t('支持文件夹、ZIP、粘贴 SKILL.md 或 GitHub 链接；同团队同名即发布新版本。')}
+          action={
+            <Button size="small" variant="primary" onClick={() => setPublishing(true)}>
+              {t('发布…')}
+            </Button>
+          }
+        />
       )}
       <Presence>
         {publishing ? (
@@ -328,14 +396,18 @@ function PublishDialog({ onClose }: { onClose: () => void }) {
         </>
       ) : (
         <>
-          <div className="cfg__eyebrow">{t('团队')}</div>
-          <RadioGroup
-            aria-label={t('团队')}
-            direction="row"
-            value={teamId}
-            onChange={setTeamId}
-            options={teams.map((x) => ({ value: x.id, label: x.name }))}
-          />
+          {teams.length > 1 ? (
+            <>
+              <div className="cfg__eyebrow">{t('团队')}</div>
+              <RadioGroup
+                aria-label={t('团队')}
+                direction="row"
+                value={teamId}
+                onChange={setTeamId}
+                options={teams.map((x) => ({ value: x.id, label: x.name }))}
+              />
+            </>
+          ) : null}
           <div className="cfg__eyebrow">{t('可见范围')}</div>
           <RadioGroup<ListingVisibility>
             aria-label={t('可见范围')}

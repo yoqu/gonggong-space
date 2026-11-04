@@ -19,4 +19,13 @@ export default {
   返回作品: 'Back to works',
   '只读 · 进入「{group}」后可修改': 'Read-only · join "{group}" to change it',
   '只读 · 来自「{group}」': 'Read-only · from "{group}"',
+  来自群: 'Group',
+  全部群: 'All groups',
+  排序: 'Sort',
+  最近更新: 'Recently updated',
+  按名称: 'By name',
+  '搜索作品、群或创建人': 'Search works, groups or creators',
+  清除筛选: 'Clear filters',
+  全屏演示: 'Present full screen',
+  在新窗口打开: 'Open in new window',
 }

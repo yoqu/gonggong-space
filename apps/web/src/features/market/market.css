@@ -1,18 +1,40 @@
-/* 市场: cards reuse the 作品 grid (works.css); these are the market-only parts */
-.mkt-filters {
-  padding-block: var(--space-8);
+/* 市场: the page shell and card grid come from 作品 (works.css); these are the market-only parts */
+.mkt-tab-count {
+  margin-left: var(--space-4);
+  padding: 0 5px;
+  border-radius: var(--radius-capsule);
+  background: var(--badge-fill);
+  color: #fff;
+  font-size: var(--text-footnote-size);
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
 }
-.mkt-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-16) var(--space-24) var(--space-32);
+.mkt-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.mkt-grid[aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity 120ms;
+}
+.mkt-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 28%;
+  background: var(--tint-purple);
+  color: var(--tint-purple-text);
+}
+.mkt-icon[data-type="plugin"] {
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
 }
 .mkt-card {
-  display: flex;
   flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  padding: var(--space-12);
+  gap: var(--space-8);
+  padding: var(--space-16);
   border: 0;
   background: none;
   color: inherit;
@@ -20,60 +42,217 @@
   text-align: start;
   cursor: pointer;
 }
-.mkt-card:hover {
-  background: var(--control-track);
+.mkt-card:focus-visible {
+  outline: none;
 }
 .mkt-card__head {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-12);
   min-width: 0;
+}
+.mkt-card__head > .ui-tag {
+  align-self: flex-start;
+}
+.mkt-card__titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mkt-official {
+  margin-right: 2px;
+  color: var(--tint-green-text);
+  vertical-align: -2px;
 }
 .mkt-card__desc {
   display: -webkit-box;
+  min-height: calc(var(--text-callout-line) * 2);
   overflow: hidden;
   color: var(--label-secondary);
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-callout-size);
+  line-height: var(--text-callout-line);
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+.mkt-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: auto;
+}
 .mkt-card__count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
   margin-left: auto;
   color: var(--label-tertiary);
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-subheadline-size);
+  white-space: nowrap;
 }
-.mkt-detail {
+
+/* 引入申请 · 我的发布 */
+.mkt-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mkt-body__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-20) var(--space-20) var(--space-32);
+}
+.mkt-section,
+.mkt-mine {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+}
+.mkt-mine {
+  gap: var(--space-12);
+}
+.mkt-section .ui-empty--compact {
+  border-radius: var(--radius-menu);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+.mkt-section-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.mkt-row__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+.mkt-row__titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mkt-row__titles .cfg__name-line {
+  flex-wrap: wrap;
+}
+.mkt-row__name {
+  font-weight: 600;
+}
+.mkt-row__meta {
+  display: block;
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+}
+.mkt-row .ui-group__desc {
+  padding-left: 40px;
+}
+.mkt-row__warn {
+  color: var(--tint-red-text);
+}
+.mkt-row__controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* 引入到… */
+.mkt-targets {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-field);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+.mkt-targets__ask {
+  margin-left: var(--space-6);
+}
+
+/* Listing detail (drawer and review dialog) */
+.mkt-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.ui-drawer .mkt-detail {
+  padding: var(--space-16) var(--space-20) var(--space-32);
+}
+.mkt-detail__hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.mkt-detail__summary {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 .mkt-detail__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 .mkt-detail__by {
   color: var(--label-secondary);
-  font-size: var(--text-footnote-size);
-}
-.mkt-detail__actions {
-  margin-left: auto;
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
 }
 .mkt-detail__desc {
   margin: 0;
+  font-size: var(--text-body-size);
+  line-height: 20px;
+}
+.mkt-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-bottom: var(--space-12);
+  border-bottom: 1px solid var(--separator);
 }
 .mkt-detail__gh {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
   color: var(--label-secondary);
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-callout-size);
   overflow-wrap: anywhere;
 }
+.mkt-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.mkt-detail__n {
+  margin-left: var(--space-4);
+  color: var(--label-tertiary);
+  font-weight: 400;
+}
 .mkt-detail__readme {
-  max-height: 360px;
-  overflow-y: auto;
-  padding: var(--space-8) var(--space-12);
+  padding: var(--space-12) var(--space-16);
   border-radius: var(--radius-menu);
   box-shadow: inset 0 0 0 1px var(--separator);
+  overflow-wrap: anywhere;
+}
+.mkt-detail__readme:not(.ui-drawer *) {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.mkt-detail__file {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
 }
 .mkt-source {
   display: flex;
@@ -84,4 +263,21 @@
 .mkt-warnings {
   margin: 0;
   padding-left: var(--space-16);
+}
+@media (max-width: 640px) {
+  .works__grid.mkt-grid {
+    grid-template-columns: 1fr;
+  }
+  .mkt-row {
+    flex-wrap: wrap;
+  }
+  .mkt-row > .mkt-row__controls {
+    width: 100%;
+  }
+  .mkt-body__inner {
+    padding-inline: var(--space-16);
+  }
+  .mkt-row .ui-group__desc {
+    padding-left: 0;
+  }
 }

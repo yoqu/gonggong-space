@@ -4,7 +4,7 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Alert, Dialog, RadioGroup, SegmentedControl, Spinner, TextArea, toast } from '../../ui'
+import { Alert, Dialog, RadioGroup, SegmentedControl, Spinner, Tag, TextArea, toast } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { type Policy, VersionPolicy } from './InstallList'
 
@@ -148,20 +148,37 @@ export function InstallTargetDialog({
         <div className="gs-note">
           {t('只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。')}
         </div>
-      ) : (
-        <div className="cfg__eyebrow">{t('你不是管理员的目标会向管理员提交引入申请')}</div>
-      )}
-      {kind === 'me' ? null : kind === 'repo' && reposError ? (
+      ) : kind === 'repo' && reposError ? (
         <Alert variant="error" title={reposError} />
       ) : !targets ? (
         <Spinner />
       ) : targets.length ? (
-        <RadioGroup
-          aria-label={t('目标')}
-          value={picked ?? undefined}
-          onChange={setPicked}
-          options={targets.map((x) => ({ value: x.base, label: x.label }))}
-        />
+        <>
+          <div className="cfg__eyebrow">{t('目标')}</div>
+          <div className="mkt-targets">
+            <RadioGroup
+              aria-label={t('目标')}
+              value={picked ?? undefined}
+              onChange={setPicked}
+              options={targets.map((x) => ({
+                value: x.base,
+                label: (
+                  <>
+                    {x.label}
+                    {x.ask ? (
+                      <span className="mkt-targets__ask" aria-hidden="true">
+                        <Tag tone="orange">{t('需申请')}</Tag>
+                      </span>
+                    ) : null}
+                  </>
+                ),
+              }))}
+            />
+          </div>
+          {targets.some((x) => x.ask) ? (
+            <div className="gs-note">{t('标「需申请」的目标你不是管理员，引入会先提交给管理员审批。')}</div>
+          ) : null}
+        </>
       ) : (
         <div className="gs-note">{t('没有可引入的目标')}</div>
       )}

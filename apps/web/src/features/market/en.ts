@@ -131,4 +131,22 @@ export default {
   插件不能引入到个人: 'Plugins cannot be installed just for you',
   '只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。':
     'Applies only to runs you start and follows you into every group; overrides same-named Skills of the group, repo and team.',
+  引入最多: 'Most installed',
+  搜索名称或描述: 'Search names or descriptions',
+  '（没有描述）': '(No description)',
+  市场里还没有条目: 'Nothing in the market yet',
+  '在「我的发布」里发布 Skill 或插件，审核通过后会出现在这里':
+    'Publish a skill or plugin under "My listings"; it shows here once approved',
+  去发布: 'Publish',
+  '更新于 {time}': 'Updated {time}',
+  没有这个状态的条目: 'No listings in this state',
+  '支持文件夹、ZIP、粘贴 SKILL.md 或 GitHub 链接；同团队同名即发布新版本。':
+    'From a folder, a ZIP, a pasted SKILL.md or a GitHub link; the same name in a team publishes a new version.',
+  '申请说明：{note}': 'Note: {note}',
+  '在市场里把条目引入到你不是管理员的群、团队或仓库时，会向管理员提交申请。':
+    "Installing into a group, team or repo you don't administer sends a request to its admins.",
+  '（没有说明）': '(No readme)',
+  需申请: 'Request',
+  '标「需申请」的目标你不是管理员，引入会先提交给管理员审批。':
+    "You don't administer targets marked Request; installing there asks their admins first.",
 }

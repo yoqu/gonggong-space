@@ -148,6 +148,33 @@ describe('作品 page', () => {
     expect(within(grid).getAllByRole('listitem')).toHaveLength(1)
   })
 
+  it('filters by group, sorts by name and clears filters from the empty state', async () => {
+    mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [...WORKS].reverse() })
+    renderAt('/works')
+    const grid = await screen.findByRole('list', { name: '作品' })
+    fireEvent.click(screen.getByRole('button', { name: '来自群' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '运营群' }))
+    expect(
+      within(grid)
+        .getAllByRole('listitem')
+        .map((x) => x.textContent),
+    ).toEqual([expect.stringContaining('双十一活动汇报')])
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索作品' }), { target: { value: '露营' } })
+    expect(screen.getByText('没有符合条件的作品')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '清除筛选' }))
+    fireEvent.click(screen.getByRole('button', { name: '排序' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '按名称' }))
+    expect(
+      within(await screen.findByRole('list', { name: '作品' }))
+        .getAllByRole('listitem')
+        .map((x) => x.textContent),
+    ).toEqual([
+      expect.stringContaining('湖畔露营地预约'),
+      expect.stringContaining('品牌官网'),
+      expect.stringContaining('双十一活动汇报'),
+    ])
+  })
+
   it('opens an editable one in its group, a read-only one in the viewer', async () => {
     const calls = mockApi({
       'GET /works/groups': GROUPS,

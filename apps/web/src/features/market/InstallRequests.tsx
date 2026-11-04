@@ -3,8 +3,21 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { attempt } from '../../lib/errors'
+import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { Alert, Button, Dialog, GroupBox, GroupRow, Presence, Spinner, Tag, TextArea, toast } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  EmptyState,
+  GroupBox,
+  GroupRow,
+  Presence,
+  Spinner,
+  Tag,
+  TextArea,
+  toast,
+} from '../../ui'
 import '../config/config.css'
 
 const STATUS: Record<InstallRequestStatus, { label: string; tone: 'orange' | 'green' | 'red' | 'gray' }> = {
@@ -22,23 +35,30 @@ const what = (r: InstallRequestDto) =>
   })
 
 /** 引入申请: requests waiting for me as an admin of their target (通过 / 拒绝), and my own (状态、结果、撤回). */
-export function InstallRequests() {
+export function InstallRequests({ onDecided }: { onDecided?: () => void }) {
   const todo = useGet<InstallRequestDto[]>('/install-requests?view=todo')
+  const decided = () => {
+    todo.reload()
+    onDecided?.()
+  }
   const mine = useGet<InstallRequestDto[]>('/install-requests?view=mine')
   const [rejecting, setRejecting] = useState<InstallRequestDto | null>(null)
   const approve = (r: InstallRequestDto) =>
     attempt(() => api.post(`/install-requests/${r.id}/decide`, { approve: true, note: '' })).then((ok) => {
       if (!ok) return
       toast({ type: 'success', message: t('已引入到「{name}」', { name: r.targetLabel }) })
-      todo.reload()
+      decided()
     })
   const cancel = (r: InstallRequestDto) =>
     attempt(() => api.del(`/install-requests/${r.id}`)).then(mine.reload)
 
   return (
     <>
-      <section aria-label={t('待我处理')}>
-        <div className="cfg__eyebrow">{t('待我处理')}</div>
+      <section className="mkt-section" aria-label={t('待我处理')}>
+        <div className="cfg__eyebrow">
+          {t('待我处理')}
+          {todo.data?.length ? <span className="mkt-detail__n">{todo.data.length}</span> : null}
+        </div>
         {!todo.data ? (
           todo.error ? (
             <Alert variant="error" title={todo.error} />
@@ -48,7 +68,17 @@ export function InstallRequests() {
         ) : todo.data.length ? (
           <GroupBox>
             {todo.data.map((r) => (
-              <GroupRow key={r.id} className="cfg__item" label={what(r)} description={r.note || undefined}>
+              <GroupRow
+                key={r.id}
+                className="cfg__item"
+                label={what(r)}
+                description={
+                  <>
+                    {r.note ? <span>{t('申请说明：{note}', { note: r.note })}</span> : null}
+                    <span className="mkt-row__meta">{ago(r.createdAt)}</span>
+                  </>
+                }
+              >
                 <span className="cfg__controls">
                   <Button size="small" onClick={() => setRejecting(r)}>
                     {t('拒绝')}
@@ -61,10 +91,10 @@ export function InstallRequests() {
             ))}
           </GroupBox>
         ) : (
-          <div className="gs-note">{t('没有待你处理的申请')}</div>
+          <EmptyState compact icon="checkmark-circle" title={t('没有待你处理的申请')} />
         )}
       </section>
-      <section aria-label={t('我的申请')}>
+      <section className="mkt-section" aria-label={t('我的申请')}>
         <div className="cfg__eyebrow">{t('我的申请')}</div>
         {!mine.data ? (
           mine.error ? (
@@ -87,9 +117,14 @@ export function InstallRequests() {
                   </span>
                 }
                 description={
-                  r.decisionNote
-                    ? t('{by}：{note}', { by: r.decidedBy ?? '', note: r.decisionNote })
-                    : r.note || undefined
+                  <>
+                    {r.decisionNote ? (
+                      <span>{t('{by}：{note}', { by: r.decidedBy ?? '', note: r.decisionNote })}</span>
+                    ) : r.note ? (
+                      <span>{t('申请说明：{note}', { note: r.note })}</span>
+                    ) : null}
+                    <span className="mkt-row__meta">{ago(r.createdAt)}</span>
+                  </>
                 }
               >
                 {r.status === 'pending' ? (
@@ -101,7 +136,12 @@ export function InstallRequests() {
             ))}
           </GroupBox>
         ) : (
-          <div className="gs-note">{t('你还没有提交过引入申请')}</div>
+          <EmptyState
+            compact
+            icon="tray"
+            title={t('你还没有提交过引入申请')}
+            description={t('在市场里把条目引入到你不是管理员的群、团队或仓库时，会向管理员提交申请。')}
+          />
         )}
       </section>
       <Presence>
@@ -111,7 +151,7 @@ export function InstallRequests() {
             onClose={() => setRejecting(null)}
             onDone={() => {
               setRejecting(null)
-              todo.reload()
+              decided()
             }}
           />
         ) : null}

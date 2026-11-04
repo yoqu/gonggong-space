@@ -1,5 +1,6 @@
 import {
   type AnimationEvent,
+  type CSSProperties,
   createContext,
   type ReactNode,
   type RefObject,
@@ -495,11 +496,14 @@ export function Drawer({
   leading,
   onClose,
   closeOnBackdrop = true,
+  width,
   children,
 }: {
   open: boolean
   title: ReactNode
   onClose: () => void
+  /** Wider than the default 380px for reading content (README, files); still full width on phones. */
+  width?: number
   children: ReactNode
   closeOnBackdrop?: boolean
   leading?: ReactNode
@@ -530,6 +534,7 @@ export function Drawer({
         aria-labelledby={label ? undefined : titleId}
         tabIndex={-1}
         className="ui-drawer"
+        style={width ? ({ '--drawer-width': `${width}px` } as CSSProperties) : undefined}
         data-state={presence.state}
         onAnimationEnd={presence.onAnimationEnd}
       >

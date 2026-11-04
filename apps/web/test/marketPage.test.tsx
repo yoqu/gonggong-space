@@ -215,6 +215,37 @@ describe('市场 page', () => {
     expect(gh.getAttribute('href')).toBe('https://github.com/acme/skills')
     expect(within(drawer).getByText(/abc1234/)).toBeTruthy()
   })
+
+  it("hides SKILL.md's front matter in the readme", async () => {
+    mockApi({
+      'GET /market': LISTINGS,
+      'GET /market/l1': detail({ readme: '---\nname: review-pr\ndescription: 审查\n---\n\n# 审查 PR\n' }),
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '查看 review-pr' }))
+    const drawer = await screen.findByRole('dialog', { name: 'review-pr' })
+    expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
+    expect(within(drawer).queryByText(/name: review-pr/)).toBeNull()
+  })
+
+  it('sorts by installs and clears filters from the empty state', async () => {
+    mockApi({ 'GET /market': LISTINGS, 'GET /market?type=plugin&source=team': [] })
+    renderPage()
+    const grid = await screen.findByRole('list', { name: '市场' })
+    expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('review-pr')
+    fireEvent.click(screen.getByRole('button', { name: '排序' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '引入最多' }))
+    expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('幻灯片')
+
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', { name: '插件' }),
+    )
+    fireEvent.click(
+      within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: '本团队' }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '清除筛选' }))
+    expect(await screen.findByRole('list', { name: '市场' })).toBeTruthy()
+  })
 })
 
 describe('引入到… dialog', () => {
@@ -480,6 +511,30 @@ describe('我的发布', () => {
     fireEvent.click(within(row).getByRole('button', { name: '下架' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'unlisted' }))
     expect(within(row).queryByRole('button', { name: '设为公开' })).toBeNull()
+  })
+
+  it('filters by status and opens a listing from its row', async () => {
+    mockApi({
+      'GET /market': [],
+      'GET /market/mine': [
+        mine(),
+        mine({
+          id: 'l8',
+          name: 'lint-fix',
+          title: 'lint-fix',
+          latest: { ...mine().latest, reviewStatus: 'pending' },
+        }),
+      ],
+      'GET /market/l9': detail({ id: 'l9', title: 'deploy-check' }),
+    })
+    await openMine()
+    await screen.findByText('lint-fix')
+    fireEvent.click(screen.getByRole('radio', { name: '待审核 1' }))
+    expect(screen.queryByText('deploy-check')).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: '待处理 1' }))
+    const row = screen.getByText('deploy-check').closest('.cfg__item') as HTMLElement
+    fireEvent.click(within(row).getByRole('button', { name: '详情' }))
+    expect(await screen.findByRole('dialog', { name: 'deploy-check' })).toBeTruthy()
   })
 
   it('reports a changed upstream as a new draft', async () => {
