@@ -1,0 +1,31 @@
+export default {
+  '插件#type': 'Plugin',
+  已下架: 'Unlisted',
+  已封禁: 'Banned',
+  已引入: 'Installed',
+  '引入平台、团队已有的 Skill 与插件；与这一层已有的同名 Skill 不能同时存在。':
+    'Install skills and plugins from the platform or team; a skill of the same name on this layer cannot coexist.',
+  还没有引入条目: 'Nothing installed yet',
+  '锁定 r{n}': 'Pinned r{n}',
+  跟随最新: 'Follow latest',
+  '移除 {name}？': 'Remove {name}?',
+  '只移除在这里的引入，条目本身保留，可随时再引入。':
+    'Only removes the install here; the listing stays and can be installed again.',
+  '相关 Bot 下一轮起不再加载它': 'Bots stop loading it from the next run',
+  移除: 'Remove',
+  '已移除 {name}': 'Removed {name}',
+  '从已有条目引入…': 'Install existing…',
+  从已有条目引入: 'Install existing',
+  引入: 'Install',
+  没有可引入的条目: 'Nothing available to install',
+  条目: 'Listing',
+  版本: 'Version',
+  锁定当前版本: 'Pin current version',
+  '锁定当前版本 r{n}': 'Pin current version r{n}',
+  '对主仓库是它的群生效；优先于团队层，群层可再覆盖。':
+    'Applies to groups whose main repo it is; over the team layer, under the group layer.',
+  '展开 {name}': 'Expand {name}',
+  '收起 {name}': 'Collapse {name}',
+  团队里还没有仓库: 'No repositories in the team yet',
+  '「{name}」已引入': 'Installed for {name}',
+}
