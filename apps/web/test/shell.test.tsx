@@ -420,7 +420,7 @@ describe('sidebar rows', () => {
     const bare = { ...machine('m1', true), os: undefined } as unknown as MachineDto
     mockApi(routes([], [bare]))
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     const row = await within(nav).findByRole('link', { name: /^m1/ })
     expect(row.textContent).not.toContain('undefined')
     expect(row.getAttribute('title')).toBe('m1 · 在线')

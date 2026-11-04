@@ -1,5 +1,5 @@
 import { type BotDto, type ClientDownloads, compareVersions, type MachineDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -82,7 +82,11 @@ function blockedNote(m: MachineDto) {
 export function MachineName({ machine, onChanged }: { machine: MachineDto; onChanged?: () => void }) {
   const [draft, setDraft] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Set once Enter or Esc has decided, so the blur that follows does not decide again.
+  const settled = useRef(false)
+  const initial = machine.name === machine.hostname ? '' : machine.name
   const save = async (name: string) => {
+    settled.current = true
     setSaving(true)
     try {
       const m = await api.patch<MachineDto>(`/machines/${machine.id}`, { name: name.trim() })
@@ -90,6 +94,7 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
       setDraft(null)
       onChanged?.()
     } catch (e) {
+      settled.current = false
       toastError(e)
     } finally {
       setSaving(false)
@@ -104,7 +109,10 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
           className="machine-name__edit"
           aria-label={t('重命名#action')}
           title={t('重命名#action')}
-          onClick={() => setDraft(machine.name === machine.hostname ? '' : machine.name)}
+          onClick={() => {
+            settled.current = false
+            setDraft(initial)
+          }}
         >
           <Icon name="pencil" size={14} />
         </button>
@@ -127,8 +135,15 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
         } else if (e.key === 'Escape') {
           // Keeps a surrounding dialog open.
           e.preventDefault()
+          settled.current = true
           setDraft(null)
         }
+      }}
+      onBlur={() => {
+        if (settled.current) return
+        const name = draft.trim()
+        if (!name || name === initial) setDraft(null)
+        else void save(name)
       }}
     />
   )

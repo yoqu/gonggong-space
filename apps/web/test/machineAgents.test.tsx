@@ -281,6 +281,31 @@ describe('重命名', () => {
     )
     await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull())
   })
+
+  it('saves on blur, and treats an unchanged or empty name as cancel', async () => {
+    const calls = mockApi({ 'PATCH /machines/m1': { ...mbp, name: '主力机' } })
+    const named = { ...mbp, name: '旧名' }
+    open(named)
+    const dialog = screen.getByRole('dialog', { name: '机器详情' })
+    const edit = (value?: string) => {
+      fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
+      const field = within(dialog).getByRole('textbox', { name: '名称' })
+      if (value !== undefined) fireEvent.change(field, { target: { value } })
+      fireEvent.blur(field)
+    }
+    edit()
+    edit('  ')
+    expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+
+    edit('主力机')
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'PATCH')).toEqual([
+        { method: 'PATCH', path: '/machines/m1', body: { name: '主力机' } },
+      ]),
+    )
+    await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull())
+  })
 })
 
 describe('Agent 工具', () => {

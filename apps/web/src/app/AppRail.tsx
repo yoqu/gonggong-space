@@ -8,7 +8,7 @@ import { isMachinesPath } from './MachineSidebar'
 import { useSession } from './session'
 import { useWorkspace } from './workspace'
 
-/** Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 我的机器管理 / 通知 / 管理后台 (sysadmin) and the account menu. */
+/** Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 机器与 Bot / 通知 / 管理后台 (sysadmin) and the account menu. */
 export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -25,7 +25,7 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
     { id: 'chat', label: t('消息'), icon: 'message', badge: unread },
     ...(worksShown ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
     { id: 'market', label: t('市场'), icon: 'tag' },
-    { id: 'machines', label: t('我的机器管理'), icon: 'server' },
+    { id: 'machines', label: t('机器与 Bot'), icon: 'server' },
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
   const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: t('管理后台'), icon: 'shield-check' }] : []

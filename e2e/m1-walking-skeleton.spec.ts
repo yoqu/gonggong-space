@@ -40,9 +40,9 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
   m.start()
 
   try {
-    // Create a bot for myself from 我的机器管理: bound directly to the machine.
+    // Create a bot for myself from 机器与 Bot: bound directly to the machine.
     const rail = page.getByRole('navigation', { name: '应用导航' })
-    await rail.getByRole('button', { name: '我的机器管理' }).click()
+    await rail.getByRole('button', { name: '机器与 Bot' }).click()
     await page.getByRole('button', { name: '新建 Bot…', exact: true }).click()
     await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')

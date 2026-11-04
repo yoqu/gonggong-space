@@ -146,7 +146,7 @@ function useLinkedBot() {
 export function ChatPage() {
   const { groupId, botId, machineId, spaceId } = useParams()
   const navigate = useNavigate()
-  // 我的机器管理: its tree replaces the conversation list; /machines alone opens nothing yet.
+  // 机器与 Bot: its tree replaces the conversation list; /machines alone opens nothing yet.
   const { pathname } = useLocation()
   const managing = isMachinesPath(pathname)
   const works = isWorksPath(pathname)
@@ -207,7 +207,7 @@ export function ChatPage() {
     <>
       <ChatLayout
         mobileView={groupId || botId || machineId || spaceId || works || market ? 'chat' : 'list'}
-        sidebarLabel={managing ? t('我的机器管理') : undefined}
+        sidebarLabel={managing ? t('机器与 Bot') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
           benchShown ? (

@@ -431,7 +431,7 @@ body {
 .sidebar__row:hover {
   background: var(--selection-fill);
 }
-/* A bot under its machine in 我的机器管理. */
+/* A bot under its machine in 机器与 Bot. */
 .sidebar__row--nested {
   margin-left: var(--space-16);
 }

@@ -423,10 +423,10 @@ describe('sidebar', () => {
     expect(within(guide).getAllByText('已完成')).toHaveLength(2)
   })
 
-  it('opens the new bot dialog from 我的机器管理', async () => {
+  it('opens the new bot dialog from 机器与 Bot', async () => {
     mockApi({ ...baseRoutes([]), 'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }] })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     fireEvent.click(within(nav).getByRole('button', { name: '新建 Bot…' }))
     expect(await screen.findByRole('dialog', { name: /新建 Bot/ })).toBeTruthy()
   })
@@ -435,16 +435,14 @@ describe('sidebar', () => {
 describe('my machines and bots', () => {
   const oldBox: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux', online: false }
 
-  it('lists my bots under their machine in 我的机器管理, in place of the conversation list', async () => {
+  it('lists my bots under their machine in 机器与 Bot, in place of the conversation list', async () => {
     mockApi({ ...baseRoutes([group()]), 'GET /machines': () => [machine, oldBox] })
     renderAt('/g/g1')
     const rail = screen.getByRole('navigation', { name: '应用导航' })
-    fireEvent.click(within(rail).getByRole('button', { name: '我的机器管理' }))
-    const nav = await screen.findByRole('navigation', { name: '我的机器管理' })
+    fireEvent.click(within(rail).getByRole('button', { name: '机器与 Bot' }))
+    const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
     expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
-    expect(within(rail).getByRole('button', { name: '我的机器管理' }).getAttribute('aria-current')).toBe(
-      'page',
-    )
+    expect(within(rail).getByRole('button', { name: '机器与 Bot' }).getAttribute('aria-current')).toBe('page')
     const mine = within(nav).getByRole('region', { name: '我的机器' })
     const bot = await within(mine).findByRole('link', { name: /小王的 Claude/ })
     expect(bot.closest('.sidebar__machine')?.textContent).toContain('wanglei-mbp')
@@ -484,7 +482,7 @@ describe('my machines and bots', () => {
       'DELETE /machines/mc2': () => null,
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     const section = await within(nav).findByRole('region', { name: '我的机器' })
     fireEvent.click(await within(section).findByRole('link', { name: /old-box/ }))
     const dialog = await screen.findByRole('region', { name: '机器详情' })
@@ -517,7 +515,7 @@ describe('my machines and bots', () => {
       }),
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     expect(within(nav).getByRole('heading', { name: '机器与 Bot' })).toBeTruthy()
     const bar = nav.querySelector('.shellbar') as HTMLElement
     expect(
@@ -539,7 +537,7 @@ describe('my machines and bots', () => {
       'DELETE /bots/b1': () => null,
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     fireEvent.click(await within(nav).findByRole('link', { name: /小王的 Claude/ }))
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
     fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))

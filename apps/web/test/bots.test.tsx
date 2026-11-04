@@ -147,11 +147,11 @@ function renderAt(path: string, user: UserDto) {
   )
 }
 
-/** Members open their bots from 我的机器管理: an overview in the main area, settings in a dialog. */
+/** Members open their bots from 机器与 Bot: an overview in the main area, settings in a dialog. */
 async function openMyBot(name = '小王的 Claude') {
   const rail = screen.getByRole('navigation', { name: '应用导航' })
-  fireEvent.click(within(rail).getByRole('button', { name: '我的机器管理' }))
-  const nav = await screen.findByRole('navigation', { name: '我的机器管理' })
+  fireEvent.click(within(rail).getByRole('button', { name: '机器与 Bot' }))
+  const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
   fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
   const page = await screen.findByRole('region', { name: 'Bot 概况' })
   fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
@@ -237,7 +237,7 @@ describe('sidebar 我的 BOT', () => {
       return bot({ id: 'b2', name: '小王的 Codex', presence: 'agent_missing' })
     }
     renderAt('/machines', wang)
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     expect(await within(nav).findByText('wanglei-mbp · 在线')).toBeTruthy()
     expect(within(nav).queryByText('别人的')).toBeNull()
     const row = within(nav).getByRole('link', { name: /小王的 Claude/ })
@@ -1016,7 +1016,7 @@ describe('bot page profile', () => {
       liveRuns: [],
     })
     renderAt('/machines', li)
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     const shared = await within(nav).findByRole('region', { name: '共享给我' })
     expect(within(shared).getByRole('link', { name: /小王的 Claude/ }).textContent).toContain('王磊 共享')
     expect(within(nav).queryByText('别人的')).toBeNull()
@@ -1154,7 +1154,7 @@ describe('bot page ux', () => {
     ]
     routes['GET /api/machines'] = () => [mbp]
     renderAt('/machines', wang)
-    const nav = screen.getByRole('navigation', { name: '我的机器管理' })
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
     const section = await within(nav).findByRole('region', { name: '我的机器' })
     fireEvent.click(await within(section).findByRole('link', { name: /wanglei-mbp/ }))
     const dialog = await screen.findByRole('region', { name: '机器详情' })

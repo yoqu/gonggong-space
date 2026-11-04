@@ -35,7 +35,7 @@ const CONN = {
 
 export interface SidebarProps {
   groups: GroupDto[]
-  /** My bots and machines: for the 开始使用 guide and the footer (they are managed in 我的机器管理). */
+  /** My bots and machines: for the 开始使用 guide and the footer (they are managed in 机器与 Bot). */
   bots: BotDto[]
   machines: MachineDto[]
   /** My machine terminals, listed among the conversations. */

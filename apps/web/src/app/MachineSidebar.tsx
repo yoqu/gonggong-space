@@ -8,7 +8,7 @@ import { t } from '../i18n'
 import { Button, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { Footer, SectionHead } from './Sidebar'
 
-/** Routes shown with 我的机器管理 in place of the conversation list. */
+/** Routes shown with 机器与 Bot in place of the conversation list. */
 export const isMachinesPath = (pathname: string) => /^\/(machines|machine\/|bot\/)/.test(pathname)
 
 function BotRow({

@@ -92,10 +92,10 @@ describe('session guard', () => {
     expect(within(rail).getByRole('button', { name: '管理后台' })).toBeTruthy()
     expect(within(rail).getByRole('button', { name: '账户菜单' }).textContent).toBe('王磊')
     expect(within(nav).queryByRole('button', { name: '账户菜单' })).toBeNull()
-    // Groups and DMs share one list; bots and machines live in 我的机器管理.
+    // Groups and DMs share one list; bots and machines live in 机器与 Bot.
     expect(within(nav).getByRole('region', { name: '会话' })).toBeTruthy()
     expect(within(nav).queryByText('我的 Bot')).toBeNull()
-    expect(within(rail).getByRole('button', { name: '我的机器管理' })).toBeTruthy()
+    expect(within(rail).getByRole('button', { name: '机器与 Bot' })).toBeTruthy()
     expect(screen.getByRole('main')).toBeTruthy()
     expect(useSession.getState().user?.name).toBe('王磊')
   })

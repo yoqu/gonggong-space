@@ -56,7 +56,6 @@ export default {
   终端不存在或已删除: 'Terminal not found or deleted',
   '会话#list': 'Conversations',
   发起会话: 'New conversation',
-  我的机器管理: 'My machines',
   '机器与 Bot': 'Machines & Bots',
   '未绑定机器的 Bot': 'Bots without a machine',
   '选择一台机器或 Bot': 'Pick a machine or a Bot',
