@@ -1,4 +1,10 @@
-import { type BotDto, EXTRA_DIRS_MAX, type GroupBotStateDto, type GroupDto } from '@gonggong/protocol'
+import {
+  type BotDto,
+  EXTRA_DIRS_MAX,
+  type GroupBotStateDto,
+  type GroupDto,
+  type RepoStatus,
+} from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
@@ -11,6 +17,28 @@ import { middle, repoIcon } from './repo-access'
 type Picking = { kind: 'dir' } | { kind: 'repo'; id: string; name: string }
 
 const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path
+const trimmed = (path: string) => path.replace(/(.)[\\/]+$/, '$1')
+
+/** Branch, ↓incoming ↑outgoing and uncommitted changes of one workspace, as its daemon last reported them. */
+function RepoGit({ s }: { s: RepoStatus | undefined }) {
+  if (!s) return null
+  return (
+    <span className="rw-git">
+      {s.branch ? <span className="rw-git__branch">{s.branch}</span> : null}
+      {s.behind ? (
+        <span className="rw-git__in" role="img" aria-label={t('落后 {n} 个提交', { n: s.behind })}>
+          ↓{s.behind}
+        </span>
+      ) : null}
+      {s.ahead ? (
+        <span className="rw-git__out" role="img" aria-label={t('领先 {n} 个提交', { n: s.ahead })}>
+          ↑{s.ahead}
+        </span>
+      ) : null}
+      {s.dirty ? <Tag tone="orange">{t('未提交')}</Tag> : null}
+    </span>
+  )
+}
 
 /**
  * A bot's workspaces besides the main one: its clone of each extra repo (managed, or the owner's own) and its own
@@ -42,6 +70,10 @@ export function BotWorkspaces({
     const old = state?.workspace === 'cd' && state.path ? [state.path] : []
     await setDirs([...dirs.filter((d) => d !== dir), ...old])
   }
+  // Extra directories are reported as `extra` repos named by their path; a managed clone's path holds its repo id.
+  const extraRepos = state?.git?.repos.filter((r) => r.kind === 'extra') ?? []
+  const atPath = (dir: string) => extraRepos.find((r) => trimmed(r.path) === trimmed(dir))
+  const ofRepo = (id: string) => extraRepos.find((r) => r.path.split(/[\\/]/).includes(id))
   const sync = group.mode === 'force' ? <Tag tone="gray">{t('不参与同步')}</Tag> : null
 
   if (!extras.length && !dirs.length && !mine) return null
@@ -56,6 +88,7 @@ export function BotWorkspaces({
               <span className="rw-ws__name">
                 {repoPath(r.url)}
                 {sync}
+                <RepoGit s={local ? atPath(local) : ofRepo(r.id)} />
               </span>
               <span className="rw-ws__sub">
                 {local ? (
@@ -99,6 +132,7 @@ export function BotWorkspaces({
               {baseName(d)}
               <Tag tone="gray">{t('自带目录')}</Tag>
               {sync}
+              <RepoGit s={atPath(d)} />
             </span>
             <span className="rw-ws__sub rw-path" title={d}>
               {middle(d)}

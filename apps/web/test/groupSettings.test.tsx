@@ -875,6 +875,39 @@ describe('group settings inspector', () => {
     )
   })
 
+  it("shows each workspace's branch, how far it is from upstream and uncommitted changes", async () => {
+    const repo = (path: string, o: object) => ({
+      path,
+      kind: 'extra',
+      ahead: 0,
+      behind: 0,
+      dirty: false,
+      ...o,
+    })
+    const git = {
+      branch: 'main',
+      ahead: 0,
+      behind: 0,
+      dirty: false,
+      workspace: 'managed',
+      repos: [
+        repo('/Users/wl/sdk', { branch: 'feat/x', ahead: 1, behind: 2, dirty: true }),
+        repo('/Users/wl/.gonggong/workspaces/g1/b1/x1/pay-web', { branch: 'develop' }),
+      ],
+    } as GroupBotStateDto['git']
+    mockApi(routes([withExtra], { 'GET /groups/g1/bot-states': [wsState({ git })] }))
+    renderAt('/g/g1')
+    const dlg = await openWorkspaces()
+    const dir = await within(dlg).findByTestId('rw-dir-b1')
+    expect(within(dir).getByText('feat/x')).toBeTruthy()
+    expect(within(dir).getByRole('img', { name: '领先 1 个提交' })).toBeTruthy()
+    expect(within(dir).getByRole('img', { name: '落后 2 个提交' })).toBeTruthy()
+    expect(within(dir).getByText('未提交')).toBeTruthy()
+    const extra = within(dlg).getByTestId('rw-ws-b1-x1')
+    expect(within(extra).getByText('develop', { selector: '.rw-git__branch' })).toBeTruthy()
+    expect(within(extra).queryByText('未提交')).toBeNull()
+  })
+
   it('marks other workspaces as not synced in a force-sync group', async () => {
     mockApi(routes([{ ...withExtra, mode: 'force' }], { 'GET /groups/g1/bot-states': [wsState()] }))
     renderAt('/g/g1')

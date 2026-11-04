@@ -197,3 +197,23 @@
   white-space: nowrap;
   font-size: var(--text-footnote-size);
 }
+.rw-git {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
+.rw-git__branch {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rw-git__in {
+  color: var(--system-blue);
+}
+.rw-git__out {
+  color: var(--system-green);
+}
