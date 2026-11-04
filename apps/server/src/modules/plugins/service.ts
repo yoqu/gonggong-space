@@ -26,7 +26,7 @@ import {
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
-import { groupInstalls } from '../market/service.js'
+import { groupsInstalls, listVersion } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { checkFiles, frontmatter, LAYER_RANK, mergeSkills, snapshot } from '../skills/service.js'
@@ -91,12 +91,15 @@ export function listingSnapshot(files: SkillFile[]) {
 }
 export type ListingSnapshot = ReturnType<typeof listingSnapshot>
 
-export const inLayer = (l: Layer) =>
+const layerSlot = (l: Layer) =>
   and(
     eq(plugins.scope, l.scope),
     l.teamId ? eq(plugins.teamId, l.teamId) : isNull(plugins.teamId),
     l.groupId ? eq(plugins.groupId, l.groupId) : isNull(plugins.groupId),
   )
+
+/** The layer's own listings; authors' market listings (with a visibility) share the team slot but not its lists. */
+export const inLayer = (l: Layer) => and(layerSlot(l), isNull(plugins.visibility))
 
 /** Plugins joined with their current version (without files) and last editor. */
 export const listed = (db: Read, where?: SQL) =>
@@ -134,8 +137,8 @@ const log = (ctx: Ctx, actorId: string | null, l: Layer, action: string, row: Pl
   })
 
 /**
- * A new listing, or a new version of the layer's listing of the same name unless the content is identical; installs
- * following the listing move to the new version.
+ * A new listing, or a new version of the layer's listing of the same name unless the content is identical; admins'
+ * uploads are approved at once, so installs following the listing move to the new version.
  */
 export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId: string | null) {
   const name = s.manifest.name
@@ -147,11 +150,11 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId
       : await tx
           .select()
           .from(plugins)
-          .where(and(inLayer(l), eq(plugins.name, name)))
+          .where(and(layerSlot(l), eq(plugins.name, name)))
           .for('update')
     if (!plugin) return fail('conflict', '插件正在被修改，请重试')
     if (actorId && isBuiltin(plugin)) fail('forbidden', '内置插件不能覆盖，可以上传到团队或群里替换')
-    if (plugin.type !== s.type) fail('conflict', '同名的插件或 Skill 已存在')
+    if (plugin.type !== s.type || plugin.visibility) fail('conflict', '同名的插件或 Skill 已存在')
     const [last] = await tx
       .select({ revision: pluginVersions.revision, digest: pluginVersions.digest, id: pluginVersions.id })
       .from(pluginVersions)
@@ -177,10 +180,7 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId
       .update(plugins)
       .set({ versionId: v!.id, updatedBy: actorId, updatedAt: ctx.now() })
       .where(eq(plugins.id, plugin.id))
-    await tx
-      .update(installs)
-      .set({ resolvedVersionId: v!.id })
-      .where(and(eq(installs.listingId, plugin.id), isNull(installs.pinVersionId)))
+    await listVersion(tx, plugin.id, v!.id)
     return { plugin, created: !!made, revision }
   })
   if (saved.revision)
@@ -201,35 +201,74 @@ export async function deletePlugin(ctx: Ctx, l: Layer, row: PluginRow, actorId: 
   await log(ctx, actorId, l, 'plugin.delete', row)
 }
 
-/** Plugins applying to the group: platform, the group's team and the group itself. */
-function visibleIn(db: Read, groupId: string) {
-  const team = db.select({ id: groups.teamId }).from(groups).where(eq(groups.id, groupId))
-  return or(
-    eq(plugins.scope, 'platform'),
-    and(eq(plugins.scope, 'team'), inArray(plugins.teamId, team)),
-    and(eq(plugins.scope, 'group'), eq(plugins.groupId, groupId)),
+/**
+ * For each group, one plugin per name across the layers' own plugins (platform, its team, itself) and the market
+ * plugins installed for it (a lower layer replaces a same-named one above it); on when the highest scope that
+ * installed it (group > repo > team) has it on, at that install's version.
+ */
+export async function groupPluginLists(db: Read, groupIds: string[]) {
+  const [found, installed] = await Promise.all([
+    groupIds.length
+      ? db.select({ id: groups.id, teamId: groups.teamId }).from(groups).where(inArray(groups.id, groupIds))
+      : [],
+    groupsInstalls(db, groupIds, 'plugin'),
+  ])
+  const installedIds = [...new Set([...installed.values()].flat().map((i) => i.listingId))]
+  const rows = found.length
+    ? await listed(
+        db,
+        and(
+          eq(plugins.type, 'plugin'),
+          ne(plugins.status, 'banned'),
+          or(
+            and(
+              isNull(plugins.visibility),
+              or(
+                eq(plugins.scope, 'platform'),
+                and(
+                  eq(plugins.scope, 'team'),
+                  inArray(
+                    plugins.teamId,
+                    found.map((g) => g.teamId),
+                  ),
+                ),
+                and(eq(plugins.scope, 'group'), inArray(plugins.groupId, groupIds)),
+              ),
+            ),
+            installedIds.length ? inArray(plugins.id, installedIds) : undefined,
+          ),
+        ),
+      )
+    : []
+  return new Map(
+    found.map((g) => {
+      const mine = installed.get(g.id) ?? []
+      const top = new Map<string, (typeof mine)[number]>()
+      for (const i of mine) {
+        const had = top.get(i.listingId)
+        if (!had || LAYER_RANK[i.layer]! > LAYER_RANK[had.layer]!) top.set(i.listingId, i)
+      }
+      const applies = (p: PluginRow) =>
+        top.has(p.id) ||
+        (!p.visibility &&
+          (p.scope === 'platform' ||
+            (p.scope === 'team' && p.teamId === g.teamId) ||
+            (p.scope === 'group' && p.groupId === g.id)))
+      const list = mergeSkills(
+        rows
+          .filter((r) => applies(r.plugin))
+          .map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name })),
+      ).map((r) => {
+        const install = top.get(r.plugin.id)
+        return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? false }
+      })
+      return [g.id, list] as const
+    }),
   )
 }
 
-/**
- * One plugin per name across the layers (a lower layer replaces a same-named one above it), on when the highest scope
- * that installed it (group > repo > team) has it on, at that install's version.
- */
-export async function groupPluginList(db: Read, groupId: string) {
-  const [rows, installed] = await Promise.all([
-    listed(db, and(visibleIn(db, groupId), eq(plugins.type, 'plugin'), ne(plugins.status, 'banned'))),
-    groupInstalls(db, groupId, 'plugin'),
-  ])
-  const top = new Map<string, (typeof installed)[number]>()
-  for (const i of installed) {
-    const had = top.get(i.listingId)
-    if (!had || LAYER_RANK[i.layer]! > LAYER_RANK[had.layer]!) top.set(i.listingId, i)
-  }
-  return mergeSkills(rows.map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name }))).map((r) => {
-    const install = top.get(r.plugin.id)
-    return { ...r, version: install?.version ?? r.version, enabledInGroup: install?.enabled ?? false }
-  })
-}
+export const groupPluginList = async (db: Read, groupId: string) =>
+  (await groupPluginLists(db, [groupId])).get(groupId) ?? []
 
 export async function setGroupPlugin(
   ctx: Ctx,

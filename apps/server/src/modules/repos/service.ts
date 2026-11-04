@@ -118,21 +118,47 @@ export async function localPaths(ctx: Ctx, userId: string, repoIds: string[]) {
     )
 }
 
-/** The team repo the group's primary repo is, if any. */
-export async function groupRepoId(db: Pick<Db, 'select'>, groupId: string) {
-  const [bound] = await db
-    .select({ url: groupRepos.url, teamId: groups.teamId })
-    .from(groupRepos)
-    .innerJoin(groups, eq(groups.id, groupRepos.groupId))
-    .where(and(eq(groupRepos.groupId, groupId), eq(groupRepos.isPrimary, true)))
-  const key = bound && repoKey(bound.url)
-  if (!key) return null
-  const [repo] = await db
-    .select({ id: repos.id })
-    .from(repos)
-    .where(and(eq(repos.teamId, bound.teamId), eq(repos.key, key)))
-  return repo?.id ?? null
+/** The team repo each group's primary repo is, by group id (groups without one left out). */
+export async function groupRepoIds(db: Pick<Db, 'select'>, groupIds: string[]) {
+  const bound = groupIds.length
+    ? await db
+        .select({ groupId: groupRepos.groupId, url: groupRepos.url, teamId: groups.teamId })
+        .from(groupRepos)
+        .innerJoin(groups, eq(groups.id, groupRepos.groupId))
+        .where(and(inArray(groupRepos.groupId, groupIds), eq(groupRepos.isPrimary, true)))
+    : []
+  const keyed = bound.flatMap((b) => {
+    const key = repoKey(b.url)
+    return key ? [{ ...b, key }] : []
+  })
+  const found = keyed.length
+    ? await db
+        .select({ id: repos.id, teamId: repos.teamId, key: repos.key })
+        .from(repos)
+        .where(
+          and(
+            inArray(
+              repos.teamId,
+              keyed.map((b) => b.teamId),
+            ),
+            inArray(
+              repos.key,
+              keyed.map((b) => b.key),
+            ),
+          ),
+        )
+    : []
+  const ids = new Map<string, string>()
+  for (const b of keyed) {
+    const repo = found.find((r) => r.teamId === b.teamId && r.key === b.key)
+    if (repo) ids.set(b.groupId, repo.id)
+  }
+  return ids
 }
+
+/** The team repo the group's primary repo is, if any. */
+export const groupRepoId = async (db: Pick<Db, 'select'>, groupId: string) =>
+  (await groupRepoIds(db, [groupId])).get(groupId) ?? null
 
 /** The caller's local directories holding the group's current repo. */
 export async function groupLocalPaths(ctx: Ctx, userId: string, groupId: string) {

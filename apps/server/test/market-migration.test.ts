@@ -79,3 +79,38 @@ it('turns group plugin switches into group installs, keeping each group on or of
     await t.close()
   }
 })
+
+it('approves existing versions and lists each listing at its current version', async () => {
+  const t = await createTestDb({ migrate: false })
+  try {
+    await migrate(t.db, { migrationsFolder: migrationsBefore('0092_market_review') })
+    await t.db.execute(
+      sql.raw(`
+      insert into plugins (id, scope, name, version_id) values
+        (${q('p1')}, 'platform', 'deck', ${q('v12')}),
+        (${q('p2')}, 'platform', 'empty', null);
+      insert into plugin_versions (id, plugin_id, revision, files, manifest, digest, size) values
+        (${q('v11')}, ${q('p1')}, 1, '[]', '{}', 'd', 0),
+        (${q('v12')}, ${q('p1')}, 2, '[]', '{}', 'd', 0);
+    `),
+    )
+    await migrateDb(t.db)
+
+    expect(
+      await t.db.execute(sql`select id, listed_version_id, gh_source from plugins order by name`),
+    ).toEqual([
+      { id: id('p1'), listed_version_id: id('v12'), gh_source: null },
+      { id: id('p2'), listed_version_id: null, gh_source: null },
+    ])
+    expect(
+      await t.db.execute(
+        sql`select review_status, reviewer_id, review_note, changelog from plugin_versions order by revision`,
+      ),
+    ).toEqual([
+      { review_status: 'approved', reviewer_id: null, review_note: null, changelog: '' },
+      { review_status: 'approved', reviewer_id: null, review_note: null, changelog: '' },
+    ])
+  } finally {
+    await t.close()
+  }
+})

@@ -9,6 +9,7 @@ import {
   type I18nText,
   LIVE_RUN_STATUSES,
   type LintIssue,
+  type ListingSource,
   type PluginManifest,
   type PluginRef,
   type RunConfigPick,
@@ -1135,8 +1136,12 @@ export const plugins = pgTable(
     visibility: text('visibility'),
     /** ListingStatus */
     status: text('status').notNull().default('listed'),
-    /** Not a foreign key: versions reference the plugin, and the first one is inserted after it. */
+    /** Not a foreign key: versions reference the plugin, and the first one is inserted after it. The latest upload. */
     versionId: uuid('version_id'),
+    /** The latest approved version: what the market shows and following installs resolve to. */
+    listedVersionId: uuid('listed_version_id'),
+    /** Where a GitHub import came from. */
+    ghSource: jsonb('gh_source').$type<ListingSource>(),
     updatedBy: uuid('updated_by').references(() => users.id),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1160,6 +1165,11 @@ export const pluginVersions = pgTable(
     /** sha256 over the files: the daemon's cache key. */
     digest: text('digest').notNull(),
     size: integer('size').notNull(),
+    /** ReviewStatus: authors' uploads start as drafts, layer admins' are approved at once. */
+    reviewStatus: text('review_status').notNull().default('approved'),
+    reviewerId: uuid('reviewer_id').references(() => users.id),
+    reviewNote: text('review_note'),
+    changelog: text('changelog').notNull().default(''),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: createdAt(),
   },

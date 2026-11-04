@@ -1,13 +1,37 @@
-import { InstallReq } from '@gonggong/protocol'
+import {
+  GithubImportReq,
+  InstallReq,
+  ListingType,
+  MarketSource,
+  PublishReq,
+  type RepoDto,
+  ReviewReq,
+  SubmitVersionReq,
+  UpdateListingReq,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
+import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { repos } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
+import { searchRepos } from '../repos/service.js'
 import { requireTeam } from '../teams/service.js'
+import {
+  checkUpstream,
+  importGithub,
+  marketDetail,
+  marketList,
+  myListings,
+  publish,
+  reviewQueue,
+  reviewVersion,
+  submitVersion,
+  updateListing,
+} from './publish.js'
 import { deleteInstall, installable, listInstalls, putInstall, type Target } from './service.js'
 
 type P = { Params: { id?: string; repoId?: string; listingId?: string } }
@@ -61,5 +85,75 @@ export function marketRoutes(ctx: Ctx) {
       if (!repo) return fail('not_found', '仓库不存在')
       return { actorId, target: { scope: 'repo', scopeId: repo.id, teamId, groupId: null } }
     })
+
+    app.get<{ Params: { id: string }; Querystring: { q?: string } }>(
+      '/api/teams/:id/repos',
+      async (req): Promise<RepoDto[]> => {
+        const me = await requireUser(ctx, req)
+        const { team } = await requireTeam(ctx, me.id, req.params.id)
+        return searchRepos(ctx, me.id, team.id, req.query.q ?? '')
+      },
+    )
+
+    publishRoutes(ctx, app)
   }
+}
+
+const MarketQuery = z.object({
+  q: z.string().optional(),
+  type: ListingType.optional(),
+  source: MarketSource.optional(),
+})
+
+/** Up to 8 MB of base64 in the JSON body, as plugin uploads; the decoded files are capped at 5 MB. */
+const BODY_LIMIT = 8 * 1024 * 1024
+
+/** The market page, authors' listings and their review (plan Skill市场-M2). */
+function publishRoutes(ctx: Ctx, app: FastifyInstance) {
+  type V = { Params: { id: string; versionId: string } }
+  app.get('/api/market', async (req) =>
+    marketList(ctx, await requireUser(ctx, req), MarketQuery.parse(req.query)),
+  )
+
+  app.get('/api/market/mine', async (req) => myListings(ctx.db, await requireUser(ctx, req)))
+
+  app.get<{ Querystring: { teamId?: string } }>('/api/market/reviews', async (req) =>
+    reviewQueue(ctx, await requireUser(ctx, req), req.query.teamId),
+  )
+
+  app.get<{ Params: { id: string }; Querystring: { versionId?: string } }>('/api/market/:id', async (req) =>
+    marketDetail(ctx, await requireUser(ctx, req), req.params.id, req.query.versionId),
+  )
+
+  app.post('/api/market', { bodyLimit: BODY_LIMIT }, async (req, reply) => {
+    const me = await requireUser(ctx, req)
+    const { created, body } = await publish(ctx, me, PublishReq.parse(req.body))
+    return reply.status(created ? 201 : 200).send(body)
+  })
+
+  app.post('/api/market/import/github', async (req, reply) => {
+    const me = await requireUser(ctx, req)
+    const { created, body } = await importGithub(ctx, me, GithubImportReq.parse(req.body))
+    return reply.status(created ? 201 : 200).send(body)
+  })
+
+  app.post<{ Params: { id: string } }>('/api/market/:id/check-upstream', async (req) =>
+    checkUpstream(ctx, await requireUser(ctx, req), req.params.id),
+  )
+
+  app.patch<{ Params: { id: string } }>('/api/market/:id', async (req) =>
+    updateListing(ctx, await requireUser(ctx, req), req.params.id, UpdateListingReq.parse(req.body)),
+  )
+
+  app.post<V>('/api/market/:id/versions/:versionId/submit', async (req) => {
+    const me = await requireUser(ctx, req)
+    const { changelog } = SubmitVersionReq.parse(req.body)
+    return submitVersion(ctx, me, req.params.id, req.params.versionId, changelog)
+  })
+
+  app.post<V>('/api/market/:id/versions/:versionId/review', async (req, reply) => {
+    const me = await requireUser(ctx, req)
+    await reviewVersion(ctx, me, req.params.id, req.params.versionId, ReviewReq.parse(req.body))
+    return reply.status(204).send()
+  })
 }
