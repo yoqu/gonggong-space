@@ -21,6 +21,11 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
   const because = (text: string, reason: string) =>
     reason ? say('{text}：{reason}', { text, reason }) : text
   const mine = `/market?tab=mine&listing=${p('listingId')}`
+  /** Where an installer has the listing: group, team or 「团队 / 仓库」 labels, '' for their personal layer. */
+  const targets = Array.isArray(n.payload.targets)
+    ? (n.payload.targets as string[]).map((l) => l || say('我的个人')).join(say('、'))
+    : ''
+  const listing = `/market?listing=${p('listingId')}`
   switch (n.type) {
     case 'approval':
       return {
@@ -143,17 +148,17 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: `/bot/${p('botId')}`,
       }
-    case 'install_request':
+    case 'install_request': {
+      const params = { by: p('requesterName'), listing: p('listingName'), target: p('targetLabel') }
       return {
-        label: say(n.resolvedAt ? '引入申请' : '待处理的引入申请'),
-        text: say('{by} 申请把 {listing} 引入到 {target}', {
-          by: p('requesterName'),
-          listing: p('listingName'),
-          target: p('targetLabel'),
-        }),
+        label: say(n.payload.cancelled ? '引入申请已撤回' : n.resolvedAt ? '引入申请' : '待处理的引入申请'),
+        text: n.payload.cancelled
+          ? say('{by} 撤回了把 {listing} 引入到 {target} 的申请', params)
+          : say('{by} 申请把 {listing} 引入到 {target}', params),
         group: '',
         href: '/market?tab=requests',
       }
+    }
     case 'install_request_decided':
       return {
         label: say('引入申请结果'),
@@ -191,14 +196,38 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: '/market?tab=reviews',
       }
-    case 'listing_banned':
+    case 'listing_banned': {
+      const params = { listing: p('listingName'), targets }
+      // With `targets` it went to an installer, else to a maintainer.
       return {
         label: say('封禁通知'),
         text: n.payload.banned
-          ? because(say('{listing} 已被封禁', { listing: p('listingName') }), p('reason'))
-          : say('{listing} 已解除封禁', { listing: p('listingName') }),
+          ? because(
+              targets
+                ? say('{targets} 引入的 {listing} 已被封禁，下一轮起停止加载，建议移除', params)
+                : say('{listing} 已被封禁', params),
+              p('reason'),
+            )
+          : targets
+            ? say('{targets} 引入的 {listing} 已解除封禁，恢复加载', params)
+            : say('{listing} 已解除封禁', params),
         group: '',
-        href: mine,
+        href: targets ? listing : mine,
+      }
+    }
+    case 'listing_upgraded':
+      return {
+        label: say('版本更新'),
+        text: because(
+          say('{targets} 引入的 {listing} 已自动升级到 r{revision}', {
+            targets,
+            listing: p('listingName'),
+            revision: p('revision'),
+          }),
+          p('changelog'),
+        ),
+        group: '',
+        href: listing,
       }
   }
 }

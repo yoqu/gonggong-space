@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createTranslator, type NotificationDto, protocolEn, notificationView as view } from '../src/index.js'
+import {
+  createTranslator,
+  type NotificationDto,
+  PUSHED_NOTIFICATION_TYPES,
+  protocolEn,
+  notificationView as view,
+} from '../src/index.js'
 
 const zh = createTranslator('zh', protocolEn).text
 const notificationView = (n: NotificationDto) => view(n, zh)
@@ -166,6 +172,78 @@ describe('notificationView', () => {
         }),
       ).text,
     ).toBe('引入 wiki 到 A 群 的申请被拒绝：已有同名')
+  })
+
+  it('tells installers about upgrades and bans, linking to the listing', () => {
+    expect(
+      notificationView(
+        n('listing_upgraded', {
+          listingId: 'l1',
+          listingName: 'wiki',
+          revision: 3,
+          changelog: '修复链接',
+          targets: ['A 群', ''],
+        }),
+      ),
+    ).toEqual({
+      label: '版本更新',
+      text: 'A 群、我的个人 引入的 wiki 已自动升级到 r3：修复链接',
+      group: '',
+      href: '/market?listing=l1',
+    })
+    expect(
+      notificationView(
+        n('listing_banned', {
+          listingId: 'l1',
+          listingName: 'wiki',
+          banned: true,
+          reason: '恶意',
+          targets: ['A 群'],
+        }),
+      ),
+    ).toEqual({
+      label: '封禁通知',
+      text: 'A 群 引入的 wiki 已被封禁，下一轮起停止加载，建议移除：恶意',
+      group: '',
+      href: '/market?listing=l1',
+    })
+    expect(
+      notificationView(
+        n('listing_banned', {
+          listingId: 'l1',
+          listingName: 'wiki',
+          banned: false,
+          reason: '',
+          targets: [''],
+        }),
+      ).text,
+    ).toBe('我的个人 引入的 wiki 已解除封禁，恢复加载')
+  })
+
+  it('says a cancelled install request was withdrawn', () => {
+    const asked = n('install_request', {
+      requestId: 'q1',
+      requesterName: '米娅',
+      listingName: 'wiki',
+      targetLabel: 'A 群',
+      cancelled: true,
+    })
+    expect(notificationView({ ...asked, resolvedAt: '2026-09-23T11:00:00Z' })).toMatchObject({
+      label: '引入申请已撤回',
+      text: '米娅 撤回了把 wiki 引入到 A 群 的申请',
+    })
+  })
+
+  it('pushes the market notices people act on', () => {
+    for (const type of [
+      'install_request',
+      'install_request_decided',
+      'listing_submitted',
+      'listing_reviewed',
+      'listing_banned',
+    ] as const)
+      expect(PUSHED_NOTIFICATION_TYPES).toContain(type)
+    expect(PUSHED_NOTIFICATION_TYPES).not.toContain('listing_upgraded')
   })
 
   it("renders in the reader's language, nested reasons included", () => {

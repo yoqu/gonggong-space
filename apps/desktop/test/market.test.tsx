@@ -26,6 +26,7 @@ const install = (over: Partial<InstallDto> & { listing: ListingSummary }): Insta
   pinVersionId: null,
   resolvedVersionId: 'v3',
   resolvedRevision: 3,
+  banReason: null,
   updatedBy: '王磊',
   updatedAt: '2026-11-01T00:00:00Z',
   ...over,

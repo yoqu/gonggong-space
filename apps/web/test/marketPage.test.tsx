@@ -972,6 +972,24 @@ describe('体验迭代第 1 轮', () => {
     expect(await within(drawer).findByRole('heading', { name: '审查 PR' })).toBeTruthy()
   })
 
+  it('shows an installer why a banned listing stopped and where to remove it', async () => {
+    mockApi({
+      'GET /market': [],
+      'GET /market/l1': detail({
+        status: 'banned',
+        banReason: '含恶意脚本',
+        installedIn: [{ scope: 'group', scopeId: 'g1', label: '支付核心群' }],
+      }),
+    })
+    renderPage('/market?listing=l1')
+    const drawer = await screen.findByRole('dialog')
+    expect(await within(drawer).findByText('封禁原因：含恶意脚本')).toBeTruthy()
+    expect(
+      within(drawer).getByText('已引入的地方下一轮起停止加载，可在对应设置的 Skill · 已引入 里移除'),
+    ).toBeTruthy()
+    expect(within(drawer).queryByRole('button', { name: '引入到…' })).toBeNull()
+  })
+
   it('gives reviewers a 待审核 tab with the queues they review', async () => {
     const item: ReviewItemDto = {
       listing: { ...listing(), listedVersionId: null, listedRevision: null },

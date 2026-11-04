@@ -995,6 +995,7 @@ export const NotificationType = z.enum([
   'listing_reviewed',
   'listing_submitted',
   'listing_banned',
+  'listing_upgraded',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1022,6 +1023,11 @@ export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'bot_share_request',
   'bot_share_decided',
   'git_operation_request',
+  'install_request',
+  'install_request_decided',
+  'listing_submitted',
+  'listing_reviewed',
+  'listing_banned',
 ]
 export const PushKeyDto = z.object({ publicKey: z.string() })
 export const PushSubscriptionReq = z.object({

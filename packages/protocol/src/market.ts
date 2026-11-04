@@ -46,6 +46,8 @@ export const InstallDto = z.object({
   /** The version actually delivered; moves forward only when an upgrade succeeds. */
   resolvedVersionId: z.string(),
   resolvedRevision: z.number().int(),
+  /** Why the listing was banned (`listing.status` banned); null otherwise. */
+  banReason: z.string().nullable(),
   updatedBy: z.string().nullable(),
   updatedAt: z.string(),
 })

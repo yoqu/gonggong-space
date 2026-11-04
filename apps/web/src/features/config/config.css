@@ -29,6 +29,17 @@
 .cfg__item .ui-group__desc {
   overflow-wrap: anywhere;
 }
+.cfg__pick {
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: var(--space-8);
+}
+.cfg__pick-desc {
+  display: block;
+}
+.cfg__danger {
+  color: var(--tint-red-text);
+}
 .cfg__controls {
   display: flex;
   align-items: center;

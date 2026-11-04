@@ -125,6 +125,50 @@ async function maintainerIds(db: Read, listingId: string) {
   return rows.map((r) => r.id)
 }
 
+const installTeam = alias(teams, 'install_team')
+
+/**
+ * Who installed the listing, for notices, by team: a personal install's owner (team null), else whoever last set the
+ * install up; `targets` labels where (group, team, 「团队 / 仓库」, '' for personal). Maintainers and `skip` left out.
+ */
+async function installers(db: Read, listingId: string, skip: string, where?: SQL) {
+  const rows = await db
+    .select({
+      scope: installs.scope,
+      scopeId: installs.scopeId,
+      updatedBy: installs.updatedBy,
+      group: groups.name,
+      groupTeam: groups.teamId,
+      repo: repos.name,
+      team: installTeam.name,
+      teamId: installTeam.id,
+    })
+    .from(installs)
+    .leftJoin(groups, and(eq(installs.scope, 'group'), eq(groups.id, installs.scopeId)))
+    .leftJoin(repos, and(eq(installs.scope, 'repo'), eq(repos.id, installs.scopeId)))
+    .leftJoin(
+      installTeam,
+      or(
+        and(eq(installs.scope, 'team'), eq(installTeam.id, installs.scopeId)),
+        eq(installTeam.id, repos.teamId),
+      ),
+    )
+    .where(and(eq(installs.listingId, listingId), where))
+  const left = new Set([skip, ...(await maintainerIds(db, listingId))])
+  const out = new Map<string, { userId: string; teamId: string | null; targets: string[] }>()
+  for (const r of rows) {
+    const userId = r.scope === 'user' ? r.scopeId : r.updatedBy
+    if (!userId || left.has(userId)) continue
+    const teamId = r.groupTeam ?? r.teamId
+    const label = r.group ?? (r.repo ? `${r.team} / ${r.repo}` : (r.team ?? ''))
+    const key = `${userId}:${teamId}`
+    const entry = out.get(key) ?? { userId, teamId, targets: [] }
+    entry.targets.push(label)
+    out.set(key, entry)
+  }
+  return [...out.values()]
+}
+
 /** Who reviews the listing's versions, for notices: see `reviews`. */
 async function reviewerIds(db: Read, listing: ListingRow) {
   const rows =
@@ -345,10 +389,12 @@ async function shownVersion(ctx: Ctx, me: Me, id: string, versionId?: string) {
   const privileged = canEdit || canReview
   const inMarket =
     !!listing.listedVersionId &&
-    listing.status !== 'banned' &&
     (listing.scope === 'platform' ||
       (listing.scope === 'team' && (listing.visibility === 'public' || mine.has(listing.teamId!))))
-  if (!inMarket && !privileged) return fail('not_found', '条目不存在')
+  // A banned listing leaves the market but stays readable where the caller has it installed, to see why.
+  const readable =
+    inMarket && (listing.status !== 'banned' || !!(await installedIn(ctx.db, me.id, [listing.id])).size)
+  if (!readable && !privileged) return fail('not_found', '条目不存在')
   const versions = await ctx.db
     .select({ shown: versionCols(pluginVersions), creator: users.name })
     .from(pluginVersions)
@@ -603,13 +649,19 @@ export async function submitVersion(
   await log(ctx, me, listing, 'market.submit', { revision: v.revision })
   for (const userId of await reviewerIds(ctx.db, listing))
     if (userId !== me.id)
-      await notify(ctx, userId, 'listing_submitted', {
-        listingId: listing.id,
-        versionId: v.id,
-        listingName: listingSummary(listing, v).title,
-        revision: v.revision,
-        byName: me.name,
-      })
+      await notify(
+        ctx,
+        userId,
+        'listing_submitted',
+        {
+          listingId: listing.id,
+          versionId: v.id,
+          listingName: listingSummary(listing, v).title,
+          revision: v.revision,
+          byName: me.name,
+        },
+        listing.visibility === 'team' ? listing.teamId : null,
+      )
   return myListing(ctx.db, me, listing.id)
 }
 
@@ -622,7 +674,7 @@ export async function reviewVersion(ctx: Ctx, me: Me, id: string, versionId: str
   if (own && !(listing.visibility === 'public' && me.role === 'sysadmin'))
     fail('forbidden', '不能审核自己发布的版本')
   if (v.reviewStatus !== 'pending') fail('conflict', '版本不在待审核状态')
-  await ctx.db.transaction(async (tx) => {
+  const moved = await ctx.db.transaction(async (tx) => {
     await tx
       .update(pluginVersions)
       .set({
@@ -631,29 +683,53 @@ export async function reviewVersion(ctx: Ctx, me: Me, id: string, versionId: str
         reviewNote: req.note || null,
       })
       .where(eq(pluginVersions.id, v.id))
-    if (!req.approve) return
+    if (!req.approve) return false
     const [listed] = listing.listedVersionId
       ? await tx
           .select({ revision: pluginVersions.revision })
           .from(pluginVersions)
           .where(eq(pluginVersions.id, listing.listedVersionId))
       : []
-    if (!listed || listed.revision < v.revision) await listVersion(tx, listing.id, v.id)
+    if (listed && listed.revision >= v.revision) return false
+    await listVersion(tx, listing.id, v.id)
+    return true
   })
   await log(ctx, me, listing, req.approve ? 'market.approve' : 'market.reject', {
     revision: v.revision,
     note: req.note,
   })
   await resolveNotifications(ctx, 'listing_submitted', 'versionId', [v.id])
+  const title = listingSummary(listing, v).title
   for (const userId of await maintainerIds(ctx.db, listing.id))
     if (userId !== me.id)
-      await notify(ctx, userId, 'listing_reviewed', {
-        listingId: listing.id,
-        listingName: listingSummary(listing, v).title,
-        revision: v.revision,
-        approved: req.approve,
-        note: req.note,
-      })
+      await notify(
+        ctx,
+        userId,
+        'listing_reviewed',
+        {
+          listingId: listing.id,
+          listingName: title,
+          revision: v.revision,
+          approved: req.approve,
+          note: req.note,
+        },
+        listing.teamId,
+      )
+  if (moved)
+    for (const i of await installers(ctx.db, listing.id, me.id, isNull(installs.pinVersionId)))
+      await notify(
+        ctx,
+        i.userId,
+        'listing_upgraded',
+        {
+          listingId: listing.id,
+          listingName: title,
+          revision: v.revision,
+          changelog: v.changelog,
+          targets: i.targets,
+        },
+        i.teamId,
+      )
 }
 
 /** Changed files of a version against the latest approved one before it, for maintainers and reviewers. */
@@ -714,12 +790,9 @@ export async function setBan(ctx: Ctx, me: Me, id: string, reason: string | null
     .from(pluginVersions)
     .where(eq(pluginVersions.id, (listing.listedVersionId ?? listing.versionId)!))
   const title = (shown?.manifest as { title?: string } | undefined)?.title ?? listing.name
+  const notice = { listingId: listing.id, listingName: title, banned: !!reason, reason: reason ?? '' }
   for (const userId of await maintainerIds(ctx.db, listing.id))
-    if (userId !== me.id)
-      await notify(ctx, userId, 'listing_banned', {
-        listingId: listing.id,
-        listingName: title,
-        banned: !!reason,
-        reason: reason ?? '',
-      })
+    if (userId !== me.id) await notify(ctx, userId, 'listing_banned', notice, listing.teamId)
+  for (const i of await installers(ctx.db, listing.id, me.id))
+    await notify(ctx, i.userId, 'listing_banned', { ...notice, targets: i.targets }, i.teamId)
 }

@@ -390,5 +390,17 @@ export const protocolEn = {
   封禁通知: 'Ban notice',
   '{listing} 已被封禁': '{listing} was banned',
   '{listing} 已解除封禁': '{listing} was unbanned',
+  引入申请已撤回: 'Install request withdrawn',
+  '{by} 撤回了把 {listing} 引入到 {target} 的申请':
+    '{by} withdrew the request to install {listing} into {target}',
+  版本更新: 'New version',
+  我的个人: 'My personal',
+  '、': ', ',
+  '{targets} 引入的 {listing} 已自动升级到 r{revision}':
+    '{listing} installed in {targets} was upgraded to r{revision}',
+  '{targets} 引入的 {listing} 已被封禁，下一轮起停止加载，建议移除':
+    '{listing} installed in {targets} was banned and stops loading from the next turn; consider removing it',
+  '{targets} 引入的 {listing} 已解除封禁，恢复加载':
+    '{listing} installed in {targets} was unbanned and loads again',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

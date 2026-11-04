@@ -14,6 +14,16 @@ export default {
   公开条目: 'Public listings',
   '锁定 r{n}': 'Pinned r{n}',
   跟随最新: 'Follow latest',
+  '跟随最新 · r{n}': 'Follow latest · r{n}',
+  '有新版本 r{n}': 'r{n} available',
+  '升级到 r{n}': 'Upgrade to r{n}',
+  '封禁原因：{reason}。下一轮起停止加载，建议移除':
+    'Banned: {reason}. It stops loading from the next run; consider removing it',
+  '已封禁，下一轮起停止加载，建议移除': 'Banned. It stops loading from the next run; consider removing it',
+  '已下架：继续使用 r{n}，不会再有新版本': 'Unlisted: r{n} keeps working, no newer versions will come',
+  搜索条目: 'Search listings',
+  '已引入的地方下一轮起停止加载，可在对应设置的 Skill · 已引入 里移除':
+    'Where it is installed, it stops loading from the next run; remove it under Skill · Installed in those settings',
   '移除 {name}？': 'Remove {name}?',
   '只移除在这里的引入，条目本身保留，可随时再引入。':
     'Only removes the install here; the listing stays and can be installed again.',

@@ -218,12 +218,18 @@ export async function createRequest(ctx: Ctx, me: SessionUser, req: InstallReque
   if (!row) return fail('conflict', '已有待处理的申请')
   for (const userId of await adminIds(ctx.db, target))
     if (userId !== me.id)
-      await notify(ctx, userId, 'install_request', {
-        requestId: row.id,
-        requesterName: me.name,
-        listingName: listing.title,
-        targetLabel: label,
-      })
+      await notify(
+        ctx,
+        userId,
+        'install_request',
+        {
+          requestId: row.id,
+          requesterName: me.name,
+          listingName: listing.title,
+          targetLabel: label,
+        },
+        target.teamId,
+      )
   return requestDto(ctx.db, row.id)
 }
 
@@ -264,12 +270,18 @@ export async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: 
   })
   await resolveNotifications(ctx, 'install_request', 'requestId', [r.id])
   const dto = await requestDto(ctx.db, r.id)
-  await notify(ctx, r.requesterId, 'install_request_decided', {
-    listingName: dto.listing.title,
-    targetLabel: label,
-    approved: req.approve,
-    note: req.note,
-  })
+  await notify(
+    ctx,
+    r.requesterId,
+    'install_request_decided',
+    {
+      listingName: dto.listing.title,
+      targetLabel: label,
+      approved: req.approve,
+      note: req.note,
+    },
+    target.teamId,
+  )
   return dto
 }
 
@@ -282,7 +294,7 @@ export async function cancelRequest(ctx: Ctx, me: SessionUser, id: string) {
     .where(and(eq(installRequests.id, r.id), eq(installRequests.status, 'pending')))
     .returning({ id: installRequests.id })
   if (!done) fail('conflict', '申请已处理')
-  await resolveNotifications(ctx, 'install_request', 'requestId', [r.id])
+  await resolveNotifications(ctx, 'install_request', 'requestId', [r.id], undefined, { cancelled: true })
 }
 
 const View = z.object({ view: z.enum(['mine', 'todo']) })

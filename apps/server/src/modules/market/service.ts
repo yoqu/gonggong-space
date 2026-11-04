@@ -180,6 +180,7 @@ export async function listInstalls(db: Read, t: Target, where?: SQL) {
       pinVersionId: r.install.pinVersionId,
       resolvedVersionId: r.resolvedId,
       resolvedRevision: r.resolvedRevision,
+      banReason: r.listing.banReason,
       updatedBy: r.updatedBy,
       updatedAt: r.install.updatedAt.toISOString(),
     }),

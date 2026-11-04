@@ -15,6 +15,7 @@ import {
   IconButton,
   Presence,
   RadioGroup,
+  SearchField,
   Switch,
   Tag,
 } from '../../ui'
@@ -30,6 +31,23 @@ const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
 function StatusTag({ status }: { status: ListingSummary['status'] }) {
   if (status === 'unlisted') return <Tag tone="orange">{t('已下架')}</Tag>
   if (status === 'banned') return <Tag tone="red">{t('已封禁')}</Tag>
+  return null
+}
+
+/** A pinned install whose listing has a newer version (a maintainer's self-test may run ahead of it). */
+const newerFor = (i: InstallDto) =>
+  i.pinVersionId && i.listing.status !== 'banned' && i.listing.revision > i.resolvedRevision
+    ? i.listing.revision
+    : null
+
+/** What a banned or unlisted listing means for this install. */
+function statusNote(i: InstallDto) {
+  if (i.listing.status === 'banned')
+    return i.banReason
+      ? t('封禁原因：{reason}。下一轮起停止加载，建议移除', { reason: i.banReason })
+      : t('已封禁，下一轮起停止加载，建议移除')
+  if (i.listing.status === 'unlisted')
+    return t('已下架：继续使用 r{n}，不会再有新版本', { n: i.resolvedRevision })
   return null
 }
 
@@ -50,10 +68,8 @@ export function InstallList({
   const { data, error, reload } = useGet<InstallDto[]>(`${base}/installs`)
   const [importing, setImporting] = useState(false)
   const [removing, setRemoving] = useState<InstallDto | null>(null)
-  const put = (i: InstallDto, enabled: boolean) =>
-    attempt(() =>
-      api.put(`${base}/installs/${i.listing.id}`, { enabled, pinVersionId: i.pinVersionId }),
-    ).then(reload)
+  const put = (i: InstallDto, enabled: boolean, pinVersionId = i.pinVersionId) =>
+    attempt(() => api.put(`${base}/installs/${i.listing.id}`, { enabled, pinVersionId })).then(reload)
 
   return (
     <>
@@ -64,45 +80,70 @@ export function InstallList({
         </div>
       ) : (
         <GroupBox>
-          {data?.map((i) => (
-            <GroupRow
-              key={i.listing.id}
-              className="cfg__item"
-              label={
-                <span className="cfg__name-line">
-                  <span className="cfg__name">{i.listing.title}</span>
-                  <Tag tone="blue">{TYPE_LABEL[i.listing.type]}</Tag>
-                  <Tag tone="gray">{LAYER_LABEL[i.listing.layer]}</Tag>
-                  <Tag tone="gray">
-                    {i.pinVersionId ? t('锁定 r{n}', { n: i.resolvedRevision }) : t('跟随最新')}
-                  </Tag>
-                  <StatusTag status={i.listing.status} />
-                </span>
-              }
-              description={i.listing.description}
-            >
-              {readOnly ? (
-                i.enabled ? null : (
-                  <Tag tone="gray">{t('已停用')}</Tag>
-                )
-              ) : (
-                <span className="cfg__controls">
-                  <IconButton
-                    title={t('移除 {name}', { name: i.listing.title })}
-                    size="regular"
-                    onClick={() => setRemoving(i)}
-                  >
-                    {'trash' as const}
-                  </IconButton>
-                  <Switch
-                    ariaLabel={t('启用 {name}', { name: i.listing.title })}
-                    checked={i.enabled}
-                    onChange={(on) => void put(i, on)}
-                  />
-                </span>
-              )}
-            </GroupRow>
-          ))}
+          {data?.map((i) => {
+            const newer = newerFor(i)
+            const note = statusNote(i)
+            return (
+              <GroupRow
+                key={i.listing.id}
+                className="cfg__item"
+                label={
+                  <span className="cfg__name-line">
+                    <span className="cfg__name">{i.listing.title}</span>
+                    <Tag tone="blue">{TYPE_LABEL[i.listing.type]}</Tag>
+                    <Tag tone="gray">{LAYER_LABEL[i.listing.layer]}</Tag>
+                    <Tag tone="gray">
+                      {i.pinVersionId
+                        ? t('锁定 r{n}', { n: i.resolvedRevision })
+                        : t('跟随最新 · r{n}', { n: i.resolvedRevision })}
+                    </Tag>
+                    {newer ? <Tag tone="green">{t('有新版本 r{n}', { n: newer })}</Tag> : null}
+                    <StatusTag status={i.listing.status} />
+                  </span>
+                }
+                description={
+                  <>
+                    {i.listing.description}
+                    {note ? (
+                      <div className={i.listing.status === 'banned' ? 'cfg__danger' : undefined}>{note}</div>
+                    ) : null}
+                  </>
+                }
+              >
+                {readOnly ? (
+                  i.enabled ? null : (
+                    <Tag tone="gray">{t('已停用')}</Tag>
+                  )
+                ) : (
+                  <span className="cfg__controls">
+                    {newer ? (
+                      <Button size="small" onClick={() => void put(i, i.enabled, i.listing.versionId)}>
+                        {t('升级到 r{n}', { n: newer })}
+                      </Button>
+                    ) : null}
+                    {i.listing.status === 'banned' ? (
+                      <Button size="small" variant="destructive" onClick={() => setRemoving(i)}>
+                        {t('移除')}
+                      </Button>
+                    ) : (
+                      <IconButton
+                        title={t('移除 {name}', { name: i.listing.title })}
+                        size="regular"
+                        onClick={() => setRemoving(i)}
+                      >
+                        {'trash' as const}
+                      </IconButton>
+                    )}
+                    <Switch
+                      ariaLabel={t('启用 {name}', { name: i.listing.title })}
+                      checked={i.enabled}
+                      onChange={(on) => void put(i, on)}
+                    />
+                  </span>
+                )}
+              </GroupRow>
+            )
+          })}
         </GroupBox>
       )}
       {readOnly ? null : (
@@ -215,10 +256,15 @@ export function VersionPolicy({
 function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => void; onDone: () => void }) {
   const { data, error: loadError } = useGet<InstallableDto[]>(`${base}/installable`)
   const [picked, setPicked] = useState<string | null>(null)
+  const [q, setQ] = useState('')
   const [policy, setPolicy] = useState<Policy>('follow')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const listing = data?.find((l) => l.id === picked)
+  const needle = q.trim().toLowerCase()
+  const shown = data?.filter((l) =>
+    [l.title, l.name, l.description].some((x) => x.toLowerCase().includes(needle)),
+  )
   const submit = async () => {
     if (!listing) return
     setBusy(true)
@@ -252,15 +298,34 @@ function ImportDialog({ base, onClose, onDone }: { base: string; onClose: () => 
       ) : data ? (
         <>
           <div className="cfg__eyebrow">{t('条目')}</div>
-          <RadioGroup
-            aria-label={t('条目')}
-            value={picked ?? undefined}
-            onChange={setPicked}
-            options={data.map((l) => ({
-              value: l.id,
-              label: `${l.title} · ${TYPE_LABEL[l.type]} · ${LAYER_LABEL[l.layer]} · r${l.revision}`,
-            }))}
+          <SearchField
+            placeholder={t('搜索名称或描述')}
+            aria-label={t('搜索条目')}
+            value={q}
+            onChange={setQ}
           />
+          {shown?.length ? (
+            <div className="cfg__pick">
+              <RadioGroup
+                aria-label={t('条目')}
+                value={picked ?? undefined}
+                onChange={setPicked}
+                options={shown.map((l) => ({
+                  value: l.id,
+                  label: (
+                    <>
+                      {`${l.title} · ${TYPE_LABEL[l.type]} · ${LAYER_LABEL[l.layer]} · r${l.revision}`}
+                      {l.description ? (
+                        <span className="cfg__hint cfg__pick-desc">{l.description}</span>
+                      ) : null}
+                    </>
+                  ),
+                }))}
+              />
+            </div>
+          ) : (
+            <div className="gs-note">{t('没有匹配的条目')}</div>
+          )}
           <VersionPolicy value={policy} onChange={setPolicy} revision={listing?.revision} />
         </>
       ) : null}

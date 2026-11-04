@@ -161,7 +161,15 @@ export function ListingDetail({
         </div>
       ) : null}
       {banned && data.banReason ? (
-        <Alert variant="error" title={t('封禁原因：{reason}', { reason: data.banReason })} />
+        <Alert
+          variant="error"
+          title={t('封禁原因：{reason}', { reason: data.banReason })}
+          description={
+            data.installedIn?.length
+              ? t('已引入的地方下一轮起停止加载，可在对应设置的 Skill · 已引入 里移除')
+              : undefined
+          }
+        />
       ) : null}
       {gh ? (
         <div className="mkt-detail__gh">

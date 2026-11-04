@@ -34,19 +34,24 @@ export async function withGroupTitles(ctx: Ctx, payloads: NotificationDto['paylo
   })
 }
 
-/** Stores an in-app notification for one user, pushes it live and, for actionable types, to their browsers and Feishu. */
+/**
+ * Stores an in-app notification for one user, pushes it live and, for actionable types, to their browsers and Feishu.
+ * `teamId` files it under that team (null: every team); by default the team of the payload's group or bot.
+ */
 export async function notify(
   ctx: Ctx,
   userId: string,
   type: NotificationDto['type'],
   payload: NotificationDto['payload'],
+  teamId?: string | null,
 ) {
   const [titled] = await withGroupTitles(ctx, [payload])
-  const teamId = payload.groupId
-    ? await teamOfGroup(ctx, String(payload.groupId))
-    : payload.botId
-      ? await teamOfBot(ctx, String(payload.botId))
-      : null
+  if (teamId === undefined)
+    teamId = payload.groupId
+      ? await teamOfGroup(ctx, String(payload.groupId))
+      : payload.botId
+        ? await teamOfBot(ctx, String(payload.botId))
+        : null
   const [row] = (await ctx.db
     .insert(notifications)
     .values({ userId, teamId, type, payload: titled })
@@ -61,7 +66,7 @@ export async function notify(
 
 /**
  * The requests these notifications asked about were settled: mark them handled (and read) for every recipient.
- * `groupId` narrows payloads keyed by something not unique across groups (a bot).
+ * `groupId` narrows payloads keyed by something not unique across groups (a bot); `patch` adds to their payloads.
  */
 export async function resolveNotifications(
   ctx: Ctx,
@@ -77,12 +82,14 @@ export async function resolveNotifications(
   key: 'approvalId' | 'questionSetId' | 'conflictId' | 'botId' | 'requestId' | 'operationId' | 'versionId',
   ids: string[],
   groupId?: string,
+  patch?: Record<string, unknown>,
 ) {
   if (!ids.length) return
   const now = ctx.now()
   const rows = (await ctx.db
     .update(notifications)
     .set({
+      ...(patch ? { payload: sql`${notifications.payload} || ${JSON.stringify(patch)}::jsonb` } : {}),
       resolvedAt: now,
       readAt: sql`coalesce(${notifications.readAt}, ${now.toISOString()}::timestamptz)`,
     })

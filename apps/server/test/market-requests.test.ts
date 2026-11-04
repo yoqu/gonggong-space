@@ -191,7 +191,17 @@ describe('ban', () => {
     expect(await effective(w.groupA.id, w.mia.id)).toEqual({})
     expect(await effective(w.groupA.id)).toEqual({})
     expect((await w.api.mia.get<MarketListingDto[]>('/api/market')).body).toEqual([])
-    expect((await w.api.mia.get(`/api/market/${wiki.id}`)).status).toBe(404)
+    const zoe = client(t, await t.seed.cookie((await t.seed.user({ name: '佐伊' })).id))
+    expect((await zoe.get(`/api/market/${wiki.id}`)).status).toBe(404)
+    expect((await w.api.mia.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body).toMatchObject({
+      status: 'banned',
+      banReason: '含恶意脚本',
+      installedIn: [{ scope: 'user' }, { scope: 'group' }],
+    })
+    expect((await w.api.eve.get<InstallDto[]>(`${group}/installs`)).body[0]).toMatchObject({
+      listing: { status: 'banned' },
+      banReason: '含恶意脚本',
+    })
     expect((await w.api.own.put(`/api/me/installs/${wiki.id}`, { enabled: true })).status).toBe(409)
     expect((await w.api.bob.get<ListingSummary[]>(`/api/teams/${w.teamA}/installable`)).body).toEqual([])
     const seen = (await w.api.ann.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body
@@ -210,6 +220,7 @@ describe('ban', () => {
       status: 'listed',
       banReason: null,
     })
+    expect((await w.api.eve.get<InstallDto[]>(`${group}/installs`)).body[0]!.banReason).toBeNull()
   })
 
   it('leaves public and platform listings to sysadmins', async () => {
@@ -278,6 +289,67 @@ describe('review notices and details', () => {
       { listingId: wiki.id, listingName: 'wiki', banned: false, reason: '' },
     ])
     expect(await noticesOf(w.bob.id, 'listing_banned')).toEqual([])
+  })
+
+  it('tells installers when a following install is upgraded, not pinned ones or maintainers', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, skill('wiki', 'one'))
+    expect(
+      (await w.api.eve.put(`/api/groups/${w.groupA.id}/installs/${wiki.id}`, { enabled: true })).status,
+    ).toBe(200)
+    await w.api.mia.put(`/api/me/installs/${wiki.id}`, { enabled: true })
+    await w.api.ann.put(`/api/me/installs/${wiki.id}`, { enabled: true })
+    await w.api.bob.put(`/api/teams/${w.teamA}/installs/${wiki.id}`, {
+      enabled: true,
+      pinVersionId: wiki.latest.id,
+    })
+    const v2 = await publish(w.api.ann, w.teamA, skill('wiki', 'two'))
+    await submit(w.api.ann, v2)
+    expect((await review(w.api.bob, v2, { approve: true })).status).toBe(204)
+
+    const upgraded = { listingId: wiki.id, listingName: 'wiki', revision: 2, changelog: '更新' }
+    const eve = await noticesOf(w.eve.id, 'listing_upgraded')
+    expect(eve.map((n) => [n.payload, n.teamId])).toEqual([[{ ...upgraded, targets: ['A 群'] }, w.teamA]])
+    const mia = await noticesOf(w.mia.id, 'listing_upgraded')
+    expect(mia.map((n) => [n.payload, n.teamId])).toEqual([[{ ...upgraded, targets: [''] }, null]])
+    expect(await noticesOf(w.bob.id, 'listing_upgraded')).toEqual([])
+    expect(await noticesOf(w.ann.id, 'listing_upgraded')).toEqual([])
+  })
+
+  it('tells installers of a ban and its lifting, with where they installed it', async () => {
+    const w = await world()
+    const wiki = await approved(w.api.ann, w.api.bob, w.teamA, skill('wiki'))
+    await w.api.eve.put(`/api/groups/${w.groupA.id}/installs/${wiki.id}`, { enabled: true })
+    await w.api.own.put(`/api/teams/${w.teamA}/repos/${w.repo.id}/installs/${wiki.id}`, {
+      enabled: true,
+      pinVersionId: wiki.latest.id,
+    })
+    await w.api.bob.post(`/api/market/${wiki.id}/ban`, { reason: '含恶意脚本' })
+    await w.api.bob.del(`/api/market/${wiki.id}/ban`)
+    const banned = { listingId: wiki.id, listingName: 'wiki', banned: true, reason: '含恶意脚本' }
+    const lifted = { listingId: wiki.id, listingName: 'wiki', banned: false, reason: '' }
+    expect((await noticesOf(w.eve.id, 'listing_banned')).map((n) => [n.payload, n.teamId])).toEqual([
+      [{ ...banned, targets: ['A 群'] }, w.teamA],
+      [{ ...lifted, targets: ['A 群'] }, w.teamA],
+    ])
+    const repoLabel = `${(await noticesOf(w.own.id, 'listing_banned'))[0]!.payload.targets}`
+    expect(repoLabel).toMatch(/ \/ app$/)
+    expect((await noticesOf(w.ann.id, 'listing_banned')).map((n) => n.teamId)).toEqual([w.teamA, w.teamA])
+  })
+
+  it('files market notices under the team they concern', async () => {
+    const w = await world()
+    const l = await publish(w.api.ann, w.teamA, skill('wiki'))
+    await submit(w.api.ann, l)
+    expect((await noticesOf(w.bob.id, 'listing_submitted'))[0]!.teamId).toBe(w.teamA)
+    await review(w.api.bob, l, { approve: true })
+    expect((await noticesOf(w.ann.id, 'listing_reviewed'))[0]!.teamId).toBe(w.teamA)
+    const pub = await publish(w.api.ann, w.teamA, skill('pub'), 'public')
+    await submit(w.api.ann, pub)
+    expect((await noticesOf(w.root.id, 'listing_submitted'))[0]!.teamId).toBeNull()
+
+    await w.api.mia.post('/api/install-requests', { listingId: l.id, scope: 'group', scopeId: w.groupA.id })
+    expect((await noticesOf(w.eve.id, 'install_request'))[0]!.teamId).toBe(w.teamA)
   })
 
   it('gives null as the listed version of a never approved listing', async () => {
@@ -442,7 +514,7 @@ describe('install requests', () => {
     const repoNotices = (await noticesOf(w.bob.id, 'install_request')).filter(
       (n) => n.payload.requestId === repo.body.id,
     )
-    expect(repoNotices.map((n) => n.resolvedAt !== null)).toEqual([true])
+    expect(repoNotices.map((n) => [n.resolvedAt !== null, n.payload.cancelled])).toEqual([[true, true]])
     expect((await ask(w.api.mia, { listingId: wiki.id, scope: 'repo', scopeId: w.repo.id })).status).toBe(201)
   })
 })

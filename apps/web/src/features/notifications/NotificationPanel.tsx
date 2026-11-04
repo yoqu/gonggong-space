@@ -52,6 +52,7 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   listing_reviewed: { icon: 'shield-check', color: 'var(--system-green)' },
   listing_submitted: { icon: 'checklist', color: 'var(--system-orange)' },
   listing_banned: { icon: 'shield-warning', color: 'var(--system-red)' },
+  listing_upgraded: { icon: 'arrow-clockwise', color: 'var(--system-blue)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */

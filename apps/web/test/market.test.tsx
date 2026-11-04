@@ -28,6 +28,7 @@ const install = (o: Partial<InstallDto> = {}): InstallDto => ({
   pinVersionId: null,
   resolvedVersionId: 'pv3',
   resolvedRevision: 3,
+  banReason: null,
   updatedBy: '陈晨',
   updatedAt: new Date().toISOString(),
   ...o,
@@ -49,7 +50,16 @@ const installs: InstallDto[] = [
     resolvedRevision: 1,
     enabled: false,
   }),
-  install({ listing: listing({ id: 'l3', name: 'old-skill', title: 'old-skill', status: 'banned' }) }),
+  install({
+    listing: listing({ id: 'l3', name: 'old-skill', title: 'old-skill', status: 'banned' }),
+    banReason: '含恶意脚本',
+  }),
+  install({
+    listing: listing({ id: 'l6', name: 'lint', title: 'lint', versionId: 'pv7', revision: 5 }),
+    pinVersionId: 'pv4',
+    resolvedVersionId: 'pv4',
+    resolvedRevision: 4,
+  }),
 ]
 
 const installable: InstallableDto[] = [
@@ -83,13 +93,18 @@ describe('InstallList', () => {
     const r = review.closest('.cfg__item') as HTMLElement
     expect(within(r).getByText('Skill')).toBeTruthy()
     expect(within(r).getByText('团队层')).toBeTruthy()
-    expect(within(r).getByText('跟随最新')).toBeTruthy()
+    expect(within(r).getByText('跟随最新 · r3')).toBeTruthy()
     const slides = row('幻灯片')
     expect(within(slides).getByText('插件')).toBeTruthy()
     expect(within(slides).getByText('平台层')).toBeTruthy()
     expect(within(slides).getByText('锁定 r1')).toBeTruthy()
     expect(within(slides).getByText('已下架')).toBeTruthy()
-    expect(within(row('old-skill')).getByText('已封禁')).toBeTruthy()
+    expect(within(slides).getByText('已下架：继续使用 r1，不会再有新版本')).toBeTruthy()
+    const old = row('old-skill')
+    expect(within(old).getByText('已封禁')).toBeTruthy()
+    expect(within(old).getByText('封禁原因：含恶意脚本。下一轮起停止加载，建议移除')).toBeTruthy()
+    expect(within(row('lint')).getByText('有新版本 r5')).toBeTruthy()
+    expect(within(r).queryByText(/有新版本/)).toBeNull()
     expect(within(slides).getByRole('switch', { name: '启用 幻灯片' })).toHaveProperty('checked', false)
   })
 
@@ -102,6 +117,45 @@ describe('InstallList', () => {
     fireEvent.click(await screen.findByRole('switch', { name: '启用 幻灯片' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ enabled: true, pinVersionId: 'pv1' })
+  })
+
+  it('upgrades a pinned install to the latest version, staying pinned', async () => {
+    const calls = mockApi({
+      'GET /groups/g1/installs': installs,
+      'PUT /groups/g1/installs/l6': (body: unknown) => ({ ...installs[3], ...(body as object) }),
+    })
+    render(<InstallList base="/groups/g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '升级到 r5' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ enabled: true, pinVersionId: 'pv7' }),
+    )
+  })
+
+  it('offers removing a banned install', async () => {
+    const calls = mockApi({ 'GET /groups/g1/installs': installs, 'DELETE /groups/g1/installs/l3': undefined })
+    render(<InstallList base="/groups/g1" />)
+    await screen.findByText('old-skill')
+    fireEvent.click(within(row('old-skill')).getByRole('button', { name: '移除' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: '移除' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/installs/l3')).toBe(true))
+  })
+
+  it('searches the importable listings by name or description', async () => {
+    mockApi({ 'GET /groups/g1/installs': [], 'GET /groups/g1/installable': installable })
+    render(<InstallList base="/groups/g1" />)
+    fireEvent.click(await screen.findByRole('button', { name: '从已有条目引入…' }))
+    const dialog = await screen.findByRole('dialog', { name: '从已有条目引入' })
+    expect(await within(dialog).findAllByText('按团队规范审查 diff')).toHaveLength(2)
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: '搜索条目' }), {
+      target: { value: '演示' },
+    })
+    expect(within(dialog).queryByRole('radio', { name: /lint-fix/ })).toBeNull()
+    expect(within(dialog).getByRole('radio', { name: /演示文稿/ })).toBeTruthy()
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: '搜索条目' }), {
+      target: { value: '没有这个' },
+    })
+    expect(within(dialog).getByText('没有匹配的条目')).toBeTruthy()
   })
 
   it('removes an install after confirmation', async () => {
