@@ -62,7 +62,7 @@ export function providerRoutes(ctx: Ctx) {
           ctx,
           machineId,
           'claudeProfile',
-          '请先升级该机器的 daemon 才能使用本机 Claude 配置目录',
+          '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录',
         )
       if (p.args?.length)
         requireFeature(ctx, machineId, 'providerArgs', '请先升级该机器的 daemon 才能使用命令行参数')

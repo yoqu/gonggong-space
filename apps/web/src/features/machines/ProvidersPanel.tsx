@@ -86,8 +86,8 @@ export function ProviderBox({
   const removeNote =
     removing &&
     [
-      current === removing.id ? t('它是该机器的默认，删除后改为官方登录。') : '',
-      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承该机器的默认。') : '',
+      current === removing.id ? t('它是该机器默认，删除后改为官方登录。') : '',
+      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承该机器默认。') : '',
     ]
       .filter(Boolean)
       .join(locale === 'en' ? ' ' : '')
@@ -99,7 +99,7 @@ export function ProviderBox({
         <span className="mx-row__main">
           <span className="mx-strong">{t('供应商#nav')}</span>
           <span className="mx-sub">
-            {t('选中的是该机器的默认，新会话使用它；进行中的会话开启新会话后才切换')}
+            {t('选中的是该机器默认，新会话使用它；进行中的会话开启新会话后才切换')}
           </span>
         </span>
       </div>
@@ -125,7 +125,7 @@ export function ProviderBox({
             p.name,
             [
               ...(p.configDir
-                ? [t('本机 Claude 配置目录'), p.configDir]
+                ? [t('该机器 Claude 配置目录'), p.configDir]
                 : [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`]),
               p.args.length ? t('{n} 个命令行参数', { n: p.args.length }) : '',
             ]

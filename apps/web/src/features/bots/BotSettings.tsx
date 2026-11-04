@@ -472,7 +472,7 @@ export function BotDetail({
 
   const advanced = (
     <Form>
-      <FormRow label={t('并发上限')} hint={canEdit ? t('同时运行的轮次，超出的在本机排队') : undefined}>
+      <FormRow label={t('并发上限')} hint={canEdit ? t('同时运行的轮次，超出的在该机器排队') : undefined}>
         {canEdit ? (
           <Stepper
             aria-label={t('并发上限')}

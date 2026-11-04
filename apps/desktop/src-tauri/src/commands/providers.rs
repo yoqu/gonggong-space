@@ -112,7 +112,7 @@ mod tests {
     use gonggong::providers::{self, OFFICIAL, Provider, Selection};
 
     #[test]
-    fn web_url_opens_this_machines_providers_tab() {
+    fn web_url_opens_this_machines_agents_tab() {
         assert_eq!(web_url("https://gg.test/", "m1"), "https://gg.test/machine/m1?tab=agents");
     }
 

@@ -33,7 +33,7 @@ const dto = ({ space, machineName, machineLabel }: Row): TerminalSpaceDto => ({
   lastActiveAt: space.lastActiveAt.toISOString(),
 })
 
-/** 我的机器管理 → 新建终端: machine terminals kept as conversations, each a directory on one of my machines. */
+/** 机器与 Bot → 新建终端: machine terminals kept as conversations, each a directory on one of my machines. */
 export function terminalSpaceRoutes({ ctx, terminals }: { ctx: Ctx; terminals: TerminalService }) {
   const mine = async (userId: string, id: string) => {
     if (!isUuid(id)) return fail('not_found', '终端不存在')

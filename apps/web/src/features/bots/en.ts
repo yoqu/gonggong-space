@@ -95,7 +95,7 @@ export default {
   触发名单: 'Trigger list',
   输入成员姓名: 'Enter member names',
   默认权限档位: 'Default permission tier',
-  '同时运行的轮次，超出的在本机排队': 'Runs at the same time; extra runs queue on the machine',
+  '同时运行的轮次，超出的在该机器排队': 'Runs at the same time; extra runs queue on the machine',
   '{n} 个': '{n}',
   'agent 版本': 'Agent version',
   '近 7 天用量': 'Usage (last 7 days)',
@@ -260,10 +260,10 @@ export default {
   覆盖: 'Overrides',
   '只有 Bot 主人可以修改 Agent 设置': "Only the Bot's owner can change its agent settings",
   '{label}：{v}': '{label}: {v}',
-  跟随本机: 'Follow machine',
-  '跟随本机（当前：{v}）': 'Follow machine (now: {v})',
-  '「跟随本机」使用机器上的 Agent 设置；下次启动 agent 时生效':
-    '"Follow machine" uses the agent settings on the machine; takes effect the next time the agent starts',
+  跟随机器设置: 'Follow machine settings',
+  '跟随机器设置（当前：{v}）': 'Follow machine settings (now: {v})',
+  '「跟随机器设置」使用机器上的 Agent 设置；下次启动 agent 时生效':
+    '"Follow machine settings" uses the agent settings on the machine; takes effect the next time the agent starts',
   '该机器的 daemon 版本过旧，覆盖不会生效':
     "This machine's daemon is too old; the overrides will not take effect",
 } satisfies Record<string, string>

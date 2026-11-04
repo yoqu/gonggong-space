@@ -20,7 +20,7 @@ const LogsQuery = z.object({
 })
 const DeleteReq = z.object({ groupId: z.string(), botId: z.string(), path: z.string().min(1) })
 
-/** 我的机器管理: a machine's daemon logs and its workspaces, for its owner only, live through its daemon. */
+/** 机器与 Bot: a machine's daemon logs and its workspaces, for its owner only, live through its daemon. */
 export function machineAdminRoutes(ctx: Ctx) {
   /** The daemon's answer; offline, silent or its own error (in its words) fails the request. */
   const answered = <R extends { error: string | null }>(machineId: string, res: R | undefined) => {

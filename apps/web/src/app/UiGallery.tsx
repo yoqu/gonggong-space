@@ -243,7 +243,7 @@ export default function UiGallery() {
         <Spinner />
         <StepIndicator
           steps={[
-            { label: '生成绑定码', status: 'completed' },
+            { label: '生成接入链接', status: 'completed' },
             { label: '本机登录', status: 'active' },
             { label: '上报 agent', status: 'pending' },
             { label: '校验失败', status: 'error' },
@@ -288,7 +288,7 @@ export default function UiGallery() {
       <Dialog
         open={dialog}
         title="绑定新机器"
-        subtitle="一次性绑定码"
+        subtitle="一次性接入链接"
         onClose={() => setDialog(false)}
         footer={
           <>

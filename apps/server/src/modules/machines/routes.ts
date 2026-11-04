@@ -113,12 +113,12 @@ export function machineRoutes(ctx: Ctx) {
     })
 
     app.post('/api/daemon/login', async (req): Promise<DaemonLoginRes> => {
-      if (ipThrottle.blocked(req.ip)) return fail('code_locked', '绑定码尝试次数过多，请 10 分钟后再试')
+      if (ipThrottle.blocked(req.ip)) return fail('code_locked', '接入链接尝试次数过多，请 10 分钟后再试')
       const body = DaemonLoginReq.parse(req.body)
       const code = body.code.trim().toUpperCase()
       if (!CODE_FORMAT.test(code)) {
         ipThrottle.fail(req.ip)
-        return fail('invalid', '绑定码格式应为 XXXX-XXXX')
+        return fail('invalid', '接入链接中的代码格式应为 XXXX-XXXX')
       }
       const now = ctx.now()
       const token = newToken('mt')
@@ -170,12 +170,12 @@ export function machineRoutes(ctx: Ctx) {
           .set({ failedAttempts: sql`${bindCodes.failedAttempts} + 1` })
           .where(eq(bindCodes.code, code))
           .returning()
-        if (!row) return fail('unauthorized', '绑定码无效，请核对后重试')
+        if (!row) return fail('unauthorized', '接入链接无效，请核对后重试')
         if (row.failedAttempts > CODE_MAX_FAILURES)
-          return fail('code_locked', '绑定码已作废，请在 Web 端重新生成')
+          return fail('code_locked', '接入链接已作废，请在 Web 端重新生成')
         return fail(
           'code_expired',
-          row.usedAt ? '绑定码已被使用，请在 Web 端重新生成' : '绑定码已过期，请在 Web 端重新生成',
+          row.usedAt ? '接入链接已被使用，请在 Web 端重新生成' : '接入链接已过期，请在 Web 端重新生成',
         )
       }
       const { machine, ownerName, prev } = bound

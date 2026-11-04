@@ -110,7 +110,7 @@ export function OfflineNote({ run }: { run: RunDto }) {
   const left = Date.parse(run.queuedAt) + run.offlineWaitMin * 60_000 - useNow(true)
   return (
     <span>
-      {t('Bot 离线，已进入本机队列 · 上线后自动执行，{time} 后作废并通知 {name}', {
+      {t('Bot 离线，已进入该机器队列 · 上线后自动执行，{time} 后作废并通知 {name}', {
         time: countdown(left),
         name: trigger,
       })}

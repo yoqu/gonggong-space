@@ -78,7 +78,7 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
             ) : null}
             <p className="bind__note">
               {t(
-                '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。',
+                '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。',
               )}
             </p>
             <section className="bind__section">
@@ -106,7 +106,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
                 os: OS_LABEL[machine.os],
                 arch: machine.arch,
               })
-            : t('本机已归属你 · {name}（{os} · {arch}）', {
+            : t('该机器已归属你 · {name}（{os} · {arch}）', {
                 name: machine.name,
                 os: OS_LABEL[machine.os],
                 arch: machine.arch,
@@ -114,7 +114,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
         }
       />
       <Form>
-        <FormRow label={t('本机 agent')} align="top">
+        <FormRow label={t('该机器的 agent')} align="top">
           {machine.agents.length ? (
             <ul className="bind__agents">
               {machine.agents.map((a) => (
@@ -143,7 +143,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
       </Form>
       <p className="bind__note">
         {t(
-          '你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的 Bot，需在通知中确认后才能被触发。',
+          '你自己创建的 Bot 已直接绑定到该机器，无需操作；管理员为你创建并指定到该机器的 Bot，需在通知中确认后才能被触发。',
         )}
       </p>
     </>

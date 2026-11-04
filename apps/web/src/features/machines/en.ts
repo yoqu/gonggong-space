@@ -1,16 +1,16 @@
 export default {
-  '本机 Claude 配置目录': 'Local Claude configuration directory',
+  '该机器 Claude 配置目录': 'Claude configuration directory on the machine',
   请填写配置目录: 'Enter a configuration directory',
   配置目录: 'Configuration directory',
   'Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」':
     'The agent uses this directory’s own login and settings.json. Pick one from the list or Browse…',
-  本机绝对路径: 'Absolute path on this machine',
+  该机器上的绝对路径: 'Absolute path on this machine',
   进入配置目录后选择: 'Open the configuration directory, then choose it',
   '使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key':
     'Use the login and settings of another Claude configuration directory on this machine; no API key needed',
   选择配置目录: 'Choose the configuration directory',
   'Claude 可执行文件': 'Claude executable',
-  '可选；留空使用本机 Agent 路径': 'Optional; leave empty to use the local Agent path',
+  '可选；留空使用该机器的 Agent 路径': "Optional; leave empty to use the machine's Agent path",
   接入链接: 'Connect link',
   '一次性接入链接 · {time} 后失效': 'One-time connect link · Expires in {time}',
   接入链接已失效: 'Connect link expired',
@@ -35,7 +35,7 @@ export default {
   完成: 'Done',
   取消: 'Cancel',
   '等待客户端确认绑定…': 'Waiting for the client to confirm…',
-  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与本机可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。':
+  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。':
     'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex; rebinding the same machine restores its record.',
   '还没安装客户端？': 'No client installed yet?',
   'macOS（Apple 芯片）': 'macOS (Apple silicon)',
@@ -54,14 +54,14 @@ export default {
   绑定成功: 'Bound',
   '{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）':
     '{name} was bound before; its record and Bots are kept ({os} · {arch})',
-  '本机已归属你 · {name}（{os} · {arch}）': 'This machine is now yours · {name} ({os} · {arch})',
-  '本机 agent': 'Agents on this machine',
+  '该机器已归属你 · {name}（{os} · {arch}）': 'This machine is now yours · {name} ({os} · {arch})',
+  '该机器的 agent': 'Agents on this machine',
   未安装: 'Not installed',
   '未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。':
     'No Claude Code / Codex detected. Install one, then re-detect in the client to report it.',
   '等待上报 agent…在机器上打开共工空间客户端':
     'Waiting for agents… Open the Gonggong Space client on the machine',
-  '你自己创建的 Bot 已直接绑定到本机，无需操作；管理员为你创建并指定到本机的 Bot，需在通知中确认后才能被触发。':
+  '你自己创建的 Bot 已直接绑定到该机器，无需操作；管理员为你创建并指定到该机器的 Bot，需在通知中确认后才能被触发。':
     'Bots you created are bound to this machine directly. Bots an admin created for you on this machine need your confirmation in notifications before they can be triggered.',
   '{n} 核': '{n} {n:core|cores}',
   'Agent 工具': 'Agent tools',
@@ -122,7 +122,7 @@ export default {
   模型: 'Model',
   '可从列表选择，也可直接输入': 'Choose from the list or type one',
   默认: 'Default',
-  设为本机默认: 'Set as machine default',
+  设为该机器默认: 'Set as machine default',
   高级: 'Advanced',
   '{tier} 模型': '{tier} model',
   代理地址: 'Proxy',
@@ -145,7 +145,7 @@ export default {
   'CC Switch 里没有可直接使用的 {agent} 供应商': 'CC Switch has no usable {agent} providers',
   'CC Switch 当前': 'Current in CC Switch',
   将更新已有项: 'Updates existing',
-  '将 CC Switch 当前使用的设为本机默认': "Set CC Switch's current provider as machine default",
+  '将 CC Switch 当前使用的设为该机器默认': "Set CC Switch's current provider as machine default",
   粘贴链接导入: 'Import from link',
   'CC Switch 的供应商分享链接，Key 只保存在这台机器上':
     'A CC Switch provider share link; the key is stored only on this machine',
@@ -153,10 +153,10 @@ export default {
   '{agent} 在该机器的默认已切换，新会话生效': '{agent} machine default switched; applies to new sessions',
   '{agent} 供应商': '{agent} providers',
   '已删除供应商 {name}': 'Deleted provider {name}',
-  '它是该机器的默认，删除后改为官方登录。':
+  '它是该机器默认，删除后改为官方登录。':
     'It is the machine default; after deletion the default becomes the official login.',
-  '单独设置为它的 Bot 改为继承该机器的默认。': 'Bots set to it will inherit the machine default.',
-  '选中的是该机器的默认，新会话使用它；进行中的会话开启新会话后才切换':
+  '单独设置为它的 Bot 改为继承该机器默认。': 'Bots set to it will inherit the machine default.',
+  '选中的是该机器默认，新会话使用它；进行中的会话开启新会话后才切换':
     'The selected one is the machine default for new sessions; ongoing sessions switch once a new session starts',
   '使用这台机器上 CLI 自己的登录与配置': "Uses the CLI's own login and config on this machine",
   '编辑…': 'Edit…',
@@ -171,7 +171,7 @@ export default {
   '要吊销机器 {name} 吗？': 'Revoke machine {name}?',
   '吊销后需要重新生成接入链接才能再次使用。': 'After revoking, a new connect link is needed to use it again.',
   '该机器的 daemon 立即断开': "The machine's daemon disconnects immediately",
-  'daemon 会清理本机托管工作区；/cd 目录与备份保留':
+  'daemon 会清理该机器上的托管工作区；/cd 目录与备份保留':
     'The daemon removes managed workspaces; /cd folders and backups are kept',
   吊销: 'Revoke',
   '已吊销 {name}': 'Revoked {name}',
@@ -266,7 +266,6 @@ export default {
   '这台机器上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名':
     'Defaults for every Bot on this machine; a Bot may override language, extended thinking and commit attribution',
   '需要 {agent} {v} 及以上': 'Requires {agent} {v} or later',
-  '继承本机 CLI 配置': 'Inherit local CLI config',
   '继承该机器 CLI 配置': 'Inherit the machine CLI config',
   '同时加载这台机器上 CLI 自己的用户配置': "Also loads the CLI's own user config on this machine",
   '已关闭：同时不再加载个人 CLAUDE.md、记忆、hooks 和用户 Skill':
@@ -280,7 +279,7 @@ export default {
     'The machine CLI sets {names}, which overrides the Bot’s effort, model and similar settings',
   是: 'Yes',
   否: 'No',
-  '来自本机 CLI': 'From local CLI',
+  '来自该机器 CLI': 'From machine CLI',
   'Bot 覆盖': 'Bot overrides',
   日志: 'Logs',
   级别: 'Level',

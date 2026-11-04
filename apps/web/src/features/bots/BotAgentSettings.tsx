@@ -10,7 +10,7 @@ export const cleanOverrides = (v: AgentSettingValues): AgentSettingValues =>
   Object.fromEntries(Object.entries(v).flatMap(([k, x]) => (x.trim() ? [[k, x.trim()]] : [])))
 
 /**
- * The `botOverride` agent settings of a bot: 跟随本机 or its own value; the bot owner's alone. `machine` is the machine's
+ * The `botOverride` agent settings of a bot: 跟随机器设置 or its own value; the bot owner's alone. `machine` is the machine's
  * defaults when known, to name what following means.
  */
 export function BotAgentSettingRows({
@@ -41,7 +41,7 @@ export function BotAgentSettingRows({
             .map((f) =>
               t('{label}：{v}', {
                 label: fieldLabel(f.id),
-                v: value[f.id] ? valueLabel(f, value[f.id] ?? '') : t('跟随本机'),
+                v: value[f.id] ? valueLabel(f, value[f.id] ?? '') : t('跟随机器设置'),
               }),
             )
             .join(' · ')}
@@ -56,8 +56,8 @@ export function BotAgentSettingRows({
         const own = value[f.id] ?? ''
         const current = machine?.[f.id]
         const follow = machine
-          ? t('跟随本机（当前：{v}）', { v: current ? valueLabel(f, current) : t('默认') })
-          : t('跟随本机')
+          ? t('跟随机器设置（当前：{v}）', { v: current ? valueLabel(f, current) : t('默认') })
+          : t('跟随机器设置')
         const set = (v: string) => onChange({ ...value, [f.id]: v })
         const choices = f.type === 'bool' ? ['true', 'false'] : (f.options ?? [])
         return (
@@ -68,7 +68,7 @@ export function BotAgentSettingRows({
               i === fields.length - 1
                 ? outdated
                   ? t('该机器的 daemon 版本过旧，覆盖不会生效')
-                  : t('「跟随本机」使用机器上的 Agent 设置；下次启动 agent 时生效')
+                  : t('「跟随机器设置」使用机器上的 Agent 设置；下次启动 agent 时生效')
                 : undefined
             }
           >

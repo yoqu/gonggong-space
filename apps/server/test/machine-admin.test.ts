@@ -50,7 +50,7 @@ async function world(features = ['machineAdmin']) {
   }
 }
 
-describe('我的机器管理: logs and workspaces through the daemon', () => {
+describe('机器与 Bot: logs and workspaces through the daemon', () => {
   it("relays the owner's log request and answers with the daemon's masked lines", async () => {
     const w = await world()
     const pending = w.asWang.get(`/api/machines/${w.machine.id}/logs?level=warn&limit=50`)

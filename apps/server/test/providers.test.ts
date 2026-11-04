@@ -195,7 +195,7 @@ describe('agent tools and providers relayed to the machine', () => {
     )
     expect([refused.status, refused.body.message]).toEqual([
       409,
-      '请先升级该机器的 daemon 才能使用本机 Claude 配置目录',
+      '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录',
     ])
     await old.close()
     const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'claudeProfile'])

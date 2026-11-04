@@ -109,7 +109,7 @@ export function CcSwitchImport({
           </GroupBox>
           {list.some((c) => c.current) ? (
             <Checkbox
-              label={t('将 CC Switch 当前使用的设为本机默认')}
+              label={t('将 CC Switch 当前使用的设为该机器默认')}
               checked={setDefault}
               onChange={setSetDefault}
               disabled={!current}
@@ -178,7 +178,7 @@ export function LinkImport({
           onChange={(e) => setLink(e.target.value)}
           error={error ?? undefined}
         />
-        <Checkbox label={t('设为本机默认')} checked={setDefault} onChange={setSetDefault} />
+        <Checkbox label={t('设为该机器默认')} checked={setDefault} onChange={setSetDefault} />
       </div>
     </Dialog>
   )

@@ -521,14 +521,14 @@ describe('供应商', () => {
   const openProfile = async (routes: Record<string, unknown> = {}) => {
     const opened = await openProviders({ ...HOME_DIRS, ...routes })
     fireEvent.click(within(opened.claude).getByRole('button', { name: '新增…' }))
-    fireEvent.click(await screen.findByRole('button', { name: /本机 Claude 配置目录/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /该机器 Claude 配置目录/ }))
     return { ...opened, form: await screen.findByRole('form', { name: '新增 Claude Code 供应商' }) }
   }
 
   it('adds a local Claude profile from its own entry, picking a suggested directory', async () => {
     const { calls, form } = await openProfile({ 'POST /machines/m1/providers': { id: 'p2', view: VIEW } })
     expect(within(form).queryByLabelText('API Key')).toBeNull()
-    expect(within(form).queryByRole('checkbox', { name: '使用本机 Claude 配置目录' })).toBeNull()
+    expect(within(form).queryByRole('checkbox', { name: '使用该机器 Claude 配置目录' })).toBeNull()
     fireEvent.click(within(form).getByRole('button', { name: '显示选项' }))
     const options = await screen.findAllByRole('option')
     // Not the official login's own ~/.claude, nor a mere name match like a claude-code checkout.
@@ -631,7 +631,7 @@ describe('供应商', () => {
     const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
     fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
     await screen.findByRole('button', { name: /自定义/ })
-    expect(screen.queryByRole('button', { name: /本机 Claude 配置目录/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /该机器 Claude 配置目录/ })).toBeNull()
   })
 
   it('edits without the key when it is left empty, and restores preset values', async () => {

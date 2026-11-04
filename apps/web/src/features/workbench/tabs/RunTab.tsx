@@ -641,8 +641,8 @@ function RunSettings({ settings: s }: { settings: NonNullable<RunDetailDto['sett
     [t('供应商'), s.provider ?? OFFICIAL_NAME],
     [t('上下文窗口'), s.contextWindow ? tokensLabel(s.contextWindow) : t('默认')],
     [t('自动压缩窗口'), s.autoCompactWindow ? tokensLabel(s.autoCompactWindow) : t('默认')],
-    [t('继承本机 CLI 配置'), s.inheritCli ? t('是') : t('否')],
-    ...(s.fromCli.length ? [[t('来自本机 CLI'), names(s.fromCli)]] : []),
+    [t('继承该机器 CLI 配置'), s.inheritCli ? t('是') : t('否')],
+    ...(s.fromCli.length ? [[t('来自该机器 CLI'), names(s.fromCli)]] : []),
     ...(s.fromBot.length ? [[t('Bot 覆盖'), names(s.fromBot)]] : []),
   ]
   return (

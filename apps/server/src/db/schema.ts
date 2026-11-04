@@ -1631,7 +1631,7 @@ export const feishuMessageLinks = pgTable(
   (t) => [index('feishu_links_message').on(t.messageId), index('feishu_links_run').on(t.runId)],
 )
 
-/** Machine terminals (我的机器管理 → 新建终端): a named directory on the owner's machine, listed among conversations. */
+/** Machine terminals (机器与 Bot → 新建终端): a named directory on the owner's machine, listed among conversations. */
 export const terminalSpaces = pgTable(
   'terminal_spaces',
   {

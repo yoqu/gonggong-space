@@ -211,7 +211,7 @@ describe('display components', () => {
     render(
       <StepIndicator
         steps={[
-          { label: '生成绑定码', status: 'completed' },
+          { label: '生成接入链接', status: 'completed' },
           { label: '本机登录', status: 'active' },
           { label: '完成', status: 'pending' },
         ]}

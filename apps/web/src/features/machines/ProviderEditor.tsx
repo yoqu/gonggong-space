@@ -318,7 +318,7 @@ export function ProviderEditor({
       <Form id={FORM_ID} aria-label={title} onSubmit={() => void save()}>
         <FormRow label={t('厂商')}>
           <span className="mx-inline">
-            <span>{preset ? preset.name : localProfile ? t('本机 Claude 配置目录') : t('自定义')}</span>
+            <span>{preset ? preset.name : localProfile ? t('该机器 Claude 配置目录') : t('自定义')}</span>
             {editing ? null : (
               <Button size="small" variant="plain" onClick={() => setPreset(undefined)}>
                 {t('更换…')}
@@ -340,7 +340,7 @@ export function ProviderEditor({
                   aria-label={t('配置目录')}
                   options={suggested}
                   value={f.configDir}
-                  placeholder={t('本机绝对路径')}
+                  placeholder={t('该机器上的绝对路径')}
                   onInput={setConfigDir}
                   onChange={setConfigDir}
                 />
@@ -363,7 +363,7 @@ export function ProviderEditor({
                 onClose={() => setBrowsing(false)}
               />
             ) : null}
-            <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用本机 Agent 路径')}>
+            <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用该机器的 Agent 路径')}>
               <TextField
                 aria-label={t('Claude 可执行文件')}
                 value={f.executablePath}
@@ -407,7 +407,7 @@ export function ProviderEditor({
         )}
         {editing ? null : (
           <FormRow>
-            <Checkbox label={t('设为本机默认')} checked={setDefault} onChange={setSetDefault} />
+            <Checkbox label={t('设为该机器默认')} checked={setDefault} onChange={setSetDefault} />
           </FormRow>
         )}
         <FormRow>
@@ -635,7 +635,7 @@ function VendorPicker({
 }: {
   presets: ProviderPreset[] | null
   onPick: (p: ProviderPreset | null) => void
-  /** Offers 本机 Claude 配置目录; absent when the agent or daemon cannot run one. */
+  /** Offers 该机器 Claude 配置目录; absent when the agent or daemon cannot run one. */
   onProfile?: () => void
 }) {
   const [q, setQ] = useState('')
@@ -667,7 +667,7 @@ function VendorPicker({
         {onProfile
           ? row(
               'profile',
-              t('本机 Claude 配置目录'),
+              t('该机器 Claude 配置目录'),
               t('使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key'),
               onProfile,
             )

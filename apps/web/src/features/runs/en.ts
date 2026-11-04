@@ -103,7 +103,7 @@ export default {
   终止: 'Stop',
   停止这条接力链上所有未完成的轮次: 'Stops every unfinished turn in this relay chain',
   后续接力不再触发: 'No further relays will start',
-  'Bot 离线，已进入本机队列 · 上线后自动执行，{time} 后作废并通知 {name}':
+  'Bot 离线，已进入该机器队列 · 上线后自动执行，{time} 后作废并通知 {name}':
     "Bot offline, queued on its machine · runs when it's back; expires in {time} and notifies {name}",
   正在读取: 'Reading',
   已读取: 'Read',

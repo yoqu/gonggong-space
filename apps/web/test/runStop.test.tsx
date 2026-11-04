@@ -93,7 +93,7 @@ describe('run actions', () => {
     vi.useFakeTimers({ now: new Date('2026-09-23T10:02:20.000Z') })
     render(<OfflineNote run={run({ status: 'offline_wait', startedAt: null })} />)
     expect(
-      screen.getByText('Bot 离线，已进入本机队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
+      screen.getByText('Bot 离线，已进入该机器队列 · 上线后自动执行，27:40 后作废并通知 王磊'),
     ).toBeTruthy()
   })
 })
