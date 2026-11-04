@@ -4,6 +4,7 @@ mod agents;
 mod bots;
 mod live;
 mod logs;
+mod market;
 mod onboarding;
 mod overview;
 mod permissions;
@@ -59,6 +60,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         providers::open_providers_in_web,
         bots::bots,
         bots::open_bot_in_web,
+        market::market_installs,
+        market::market_listings,
+        market::open_market_in_web,
         tunnels::tunnels,
         tunnels::close_tunnel,
         tunnels::retry_cast,

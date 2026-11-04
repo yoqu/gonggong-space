@@ -5,12 +5,22 @@ import { AgentsPage } from './Agents'
 import { BotsPage } from './Bots'
 import { LivePage } from './Live'
 import { LogsPage } from './Logs'
+import { MarketPage } from './Market'
 import { OverviewPage } from './Overview'
 import { SettingsPage } from './Settings'
 import { TunnelsPage } from './Tunnels'
 import { WorkspacesPage } from './Workspaces'
 
-export type PageKey = 'overview' | 'agents' | 'bots' | 'workspaces' | 'tunnels' | 'live' | 'logs' | 'settings'
+export type PageKey =
+  | 'overview'
+  | 'agents'
+  | 'bots'
+  | 'workspaces'
+  | 'tunnels'
+  | 'live'
+  | 'market'
+  | 'logs'
+  | 'settings'
 
 export interface PageProps {
   go: (page: PageKey) => void
@@ -82,6 +92,14 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         color: 'var(--system-red)',
         desc: t('Bot 推送的桌面应用与小程序画面：推流组件、系统权限与推流状态'),
         Component: LivePage,
+      },
+      {
+        key: 'market',
+        label: 'Skill',
+        icon: 'tag',
+        color: 'var(--system-pink)',
+        desc: t('个人 Skill 与市场，只读；引入、发布与审核请在 Web 端操作'),
+        Component: MarketPage,
       },
     ],
   },

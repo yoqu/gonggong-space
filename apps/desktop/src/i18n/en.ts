@@ -393,4 +393,21 @@ export const en = {
   '{bot} 的上下文': "{bot}'s context",
   '在群里发 /compact @{bot} 压缩上下文，发 /new 开新对话。':
     'Send /compact @{bot} in the group to compact the context, or /new to start a new conversation.',
+  // Skill page
+  '个人 Skill 与市场，只读；引入、发布与审核请在 Web 端操作':
+    'Personal skills and the market, read-only; install, publish and review on the Web',
+  '插件#type': 'Plugin',
+  已下架: 'Unlisted',
+  已封禁: 'Banned',
+  在网页中打开: 'Open on the Web',
+  加载失败: 'Failed to load',
+  '我的个人 Skill': 'My personal skills',
+  '还没有个人 Skill': 'No personal skills yet',
+  '锁定 r{n}': 'Pinned r{n}',
+  跟随最新: 'Follow latest',
+  已启用: 'Enabled',
+  已停用: 'Disabled',
+  市场: 'Market',
+  市场里还没有条目: 'The market has no listings yet',
+  '{n} 次安装': '{n} {n:install|installs}',
 } satisfies Record<string, string>
