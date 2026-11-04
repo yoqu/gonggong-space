@@ -453,6 +453,25 @@ export const en = {
   '该机器上没有可使用这个 skill 的 Bot': 'No Bot on this machine can use this skill',
   '文件路径不合法：{path}': 'Invalid file path: {path}',
 
+  // GitHub import
+  'GitHub 链接格式不对，应为 https://github.com/<owner>/<repo>[/tree/<分支>/<目录>]':
+    'Invalid GitHub link; use https://github.com/<owner>/<repo>[/tree/<branch>/<folder>]',
+  '连接 GitHub 超时': 'Timed out connecting to GitHub',
+  '无法连接 GitHub': "Can't reach GitHub",
+  'GitHub 重定向次数过多': 'Too many redirects from GitHub',
+  'GitHub 重定向到不允许的地址：{host}': 'GitHub redirected to a disallowed address: {host}',
+  'GitHub 仓库或分支不存在': 'GitHub repository or branch not found',
+  'GitHub 请求失败（HTTP {status}）': 'GitHub request failed (HTTP {status})',
+  'GitHub 返回的提交无效': 'GitHub returned an invalid commit',
+  'GitHub 压缩包超过 20 MB': 'The GitHub archive exceeds 20 MB',
+  'GitHub 压缩包无法解析': "Can't read the GitHub archive",
+  'GitHub 目录包含符号链接：{path}': 'The GitHub folder contains a symbolic link: {path}',
+  'GitHub 目录的文件超过 {n} 个': 'The GitHub folder has more than {n} files',
+  'GitHub 目录内容超过 5 MB': 'The GitHub folder exceeds 5 MB',
+  'GitHub 目录 {path} 不存在或为空': 'GitHub folder {path} does not exist or is empty',
+  'GitHub 目录缺少 SKILL.md 或 gonggong-plugin.json':
+    'The GitHub folder has no SKILL.md or gonggong-plugin.json',
+
   // Plugins
   插件不存在: 'Plugin not found',
   '插件不能超过 5 MB': 'A plugin cannot exceed 5 MB',
@@ -485,7 +504,6 @@ export const en = {
   'GitHub 上的名称变成了 {name}，请重新导入': 'The name on GitHub changed to {name}; import it again',
   '{path} 可能包含密钥：{sample}': '{path} may contain a secret: {sample}',
   '{path} 包含本机绝对路径：{sample}': '{path} contains an absolute local path: {sample}',
-  暂不可用: 'Not available yet',
   这个插件没有在本群启用: 'This plugin is not enabled in this group',
   请选择模板: 'Pick a template',
   模板不存在: 'Template not found',
