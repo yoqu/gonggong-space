@@ -368,5 +368,14 @@ export const protocolEn = {
     'Branched from 「{group}」; the conversation before the branch point:\n{summary}',
   '分支自「{group}」，分支点之前没有对话':
     'Branched from 「{group}」; there was no conversation before the branch point',
+  引入申请: 'Install request',
+  待处理的引入申请: 'Install request to handle',
+  '{by} 申请把 {listing} 引入到 {target}': '{by} asks to install {listing} into {target}',
+  引入申请结果: 'Install request decided',
+  '{listing} 已引入到 {target}': '{listing} was installed into {target}',
+  '引入 {listing} 到 {target} 的申请被拒绝': 'Your request to install {listing} into {target} was declined',
+  审核结果: 'Review result',
+  '{listing} r{revision} 审核通过': '{listing} r{revision} was approved',
+  '{listing} r{revision} 被驳回': '{listing} r{revision} was rejected',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

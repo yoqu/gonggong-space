@@ -987,6 +987,9 @@ export const NotificationType = z.enum([
   'bot_share_request',
   'bot_share_decided',
   'git_operation_request',
+  'install_request',
+  'install_request_decided',
+  'listing_reviewed',
 ])
 export const NotificationDto = z.object({
   id: z.string(),

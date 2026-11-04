@@ -139,5 +139,39 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: `/bot/${p('botId')}`,
       }
+    case 'install_request':
+      return {
+        label: say(n.resolvedAt ? '引入申请' : '待处理的引入申请'),
+        text: say('{by} 申请把 {listing} 引入到 {target}', {
+          by: p('requesterName'),
+          listing: p('listingName'),
+          target: p('targetLabel'),
+        }),
+        group: '',
+        href: '/market?tab=requests',
+      }
+    case 'install_request_decided':
+      return {
+        label: say('引入申请结果'),
+        text: say(
+          n.payload.approved ? '{listing} 已引入到 {target}' : '引入 {listing} 到 {target} 的申请被拒绝',
+          {
+            listing: p('listingName'),
+            target: p('targetLabel'),
+          },
+        ),
+        group: '',
+        href: '/market?tab=requests',
+      }
+    case 'listing_reviewed':
+      return {
+        label: say('审核结果'),
+        text: say(n.payload.approved ? '{listing} r{revision} 审核通过' : '{listing} r{revision} 被驳回', {
+          listing: p('listingName'),
+          revision: p('revision'),
+        }),
+        group: '',
+        href: '/market?tab=mine',
+      }
   }
 }

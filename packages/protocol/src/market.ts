@@ -114,6 +114,12 @@ export type ListingVersionDto = z.infer<typeof ListingVersionDto>
 
 /** GET /api/market/:id — one listing; `readme` is the shown version's SKILL.md (entry skill for plugins). */
 export const MarketListingDetailDto = MarketListingDto.extend({
+  /** Null while no version was ever approved (seen by maintainers and reviewers only). */
+  listedVersionId: z.string().nullable(),
+  listedRevision: z.number().int().nullable(),
+  /** The caller reviews it: may ban / unban (M4). */
+  canReview: z.boolean().optional(),
+  banReason: z.string().nullable().optional(),
   readme: z.string(),
   files: z.array(z.object({ path: z.string(), size: z.number().int() })),
   versions: z.array(ListingVersionDto),
@@ -191,3 +197,68 @@ export type PublishRes = z.infer<typeof PublishRes>
  * before approval and then follows its latest upload (self-test); others follow `listedVersionId`.
  */
 export const PERSONAL_BASE = '/me'
+
+// ── M4: review diff, ban, install requests ────
+/**
+ * GET /api/market/:id/versions/:versionId/diff — the version against the listing's latest approved one before it
+ * (`base` null = first version): changed files only; text files carry both sides, binary ones only sizes.
+ */
+export const VersionDiffDto = z.object({
+  base: z.object({ versionId: z.string(), revision: z.number().int() }).nullable(),
+  files: z.array(
+    z.object({
+      path: z.string(),
+      status: z.enum(['added', 'removed', 'modified']),
+      binary: z.boolean(),
+      before: z.string().nullable(),
+      after: z.string().nullable(),
+    }),
+  ),
+})
+export type VersionDiffDto = z.infer<typeof VersionDiffDto>
+
+/**
+ * POST /api/market/:id/ban (BanReq) / DELETE /api/market/:id/ban — by the listing's reviewers (team visibility: that
+ * team's admins; public and platform: sysadmins). Banned listings stop being delivered on the next turn.
+ */
+export const BanReq = z.object({ reason: z.string().min(1).max(500) })
+export type BanReq = z.infer<typeof BanReq>
+
+export const InstallRequestStatus = z.enum(['pending', 'approved', 'rejected', 'cancelled'])
+export type InstallRequestStatus = z.infer<typeof InstallRequestStatus>
+/**
+ * POST /api/install-requests (InstallRequestReq) — a member asks the target's admins to install a listing: group
+ * members for their group, team members for the team or its repos. 409 when installed or already pending.
+ */
+export const InstallRequestReq = z.object({
+  listingId: z.string(),
+  scope: z.enum(['group', 'repo', 'team']),
+  scopeId: z.string(),
+  pinVersionId: z.string().nullable().default(null),
+  note: z.string().max(500).default(''),
+})
+export type InstallRequestReq = z.infer<typeof InstallRequestReq>
+/**
+ * GET /api/install-requests?view=mine|todo — mine: the caller's requests; todo: pending ones the caller may decide.
+ * POST /api/install-requests/:id/decide (DecideInstallRequestReq) installs on approval (a conflict stays pending, 409).
+ * DELETE /api/install-requests/:id — the requester cancels a pending one.
+ */
+export const InstallRequestDto = z.object({
+  id: z.string(),
+  listing: ListingSummary,
+  scope: z.enum(['group', 'repo', 'team']),
+  scopeId: z.string(),
+  /** 「群名」, 「团队名」 or 「团队名 / 仓库名」. */
+  targetLabel: z.string(),
+  pinVersionId: z.string().nullable(),
+  note: z.string(),
+  status: InstallRequestStatus,
+  requester: z.string(),
+  decidedBy: z.string().nullable(),
+  decisionNote: z.string().nullable(),
+  createdAt: z.string(),
+  decidedAt: z.string().nullable(),
+})
+export type InstallRequestDto = z.infer<typeof InstallRequestDto>
+export const DecideInstallRequestReq = ReviewReq
+export type DecideInstallRequestReq = z.infer<typeof DecideInstallRequestReq>
