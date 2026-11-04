@@ -196,6 +196,10 @@ describe('ban', () => {
     expect((await w.api.bob.get<ListingSummary[]>(`/api/teams/${w.teamA}/installable`)).body).toEqual([])
     const seen = (await w.api.ann.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body
     expect(seen).toMatchObject({ status: 'banned', banReason: '含恶意脚本', canReview: false })
+    expect((await w.api.ann.get<MyListingDto[]>('/api/market/mine')).body[0]).toMatchObject({
+      status: 'banned',
+      banReason: '含恶意脚本',
+    })
     expect((await w.api.bob.get<MarketListingDetailDto>(`/api/market/${wiki.id}`)).body.canReview).toBe(true)
 
     expect((await w.api.mia.del(ban)).status).toBe(403)

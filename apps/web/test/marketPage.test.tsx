@@ -353,6 +353,7 @@ const mine = (o: Partial<MyListingDto> = {}): MyListingDto => ({
   },
   listedVersionId: null,
   ghSource: null,
+  banReason: null,
   ...o,
 })
 

@@ -136,6 +136,7 @@ export const MyListingDto = ListingSummary.extend({
   latest: ListingVersionDto,
   listedVersionId: z.string().nullable(),
   ghSource: ListingSource.nullable(),
+  banReason: z.string().nullable(),
 })
 export type MyListingDto = z.infer<typeof MyListingDto>
 

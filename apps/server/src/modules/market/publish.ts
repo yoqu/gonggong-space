@@ -182,6 +182,7 @@ const myDto = (c: Card): MyListingDto => ({
   latest: versionDto(c),
   listedVersionId: c.listing.listedVersionId,
   ghSource: c.listing.ghSource,
+  banReason: c.listing.banReason,
 })
 
 /** Platform listings, the caller's teams' and other teams' public ones, by source. */

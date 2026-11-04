@@ -37,12 +37,9 @@ import '../groups/groups.css'
 
 const VISIBILITY_LABEL: Record<ListingVisibility, string> = { public: t('公开'), team: t('仅本团队') }
 
-// TODO(M4 contract): MyListingDto has no banReason yet; the server sends it for banned listings.
-type Mine = MyListingDto & { banReason?: string | null }
-
 /** 我的发布: the listings I maintain, their latest version's review, and publishing new ones. */
 export function MyListings() {
-  const { data, error, reload } = useGet<Mine[]>('/market/mine')
+  const { data, error, reload } = useGet<MyListingDto[]>('/market/mine')
   const [publishing, setPublishing] = useState(false)
   const [submitting, setSubmitting] = useState<MyListingDto | null>(null)
   const patch = (l: MyListingDto, body: UpdateListingReq) =>
