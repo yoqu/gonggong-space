@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.10 — 2026-11-04
+
+- 新增 Skill 市场：上传或从 ZIP、SKILL.md、GitHub 导入 Skill，审核后引入到个人、群、仓库或团队，可跟随最新或锁定版本；成员可申请引入，审核可看版本差异与封禁 / Add the Skill market: upload or import Skills from ZIP, SKILL.md or GitHub, and after review install them for yourself, a group, a repository or a team, following the latest or pinning a version; members can request installs, and reviewers see version diffs and can ban listings
+- 「我的 Skill」只在自己发起的运行里生效，优先于群、仓库、团队的同名 Skill / Personal Skills apply only to runs you start and take precedence over same-named group, repository and team Skills
+- 桌面端新增只读「Skill」页，查看我的个人 Skill 与市场，可跳转网页操作 / The desktop app adds a read-only Skill page listing your personal Skills and the market, with a link to the web app
+- 本机空间管理：空间 Tab、瘦身、删除加固与自动清理 / Local storage management: a Storage tab, slimming, safer deletion and automatic cleanup
+- 支持在服务器上用容器运行成员机器（daemon） / Run member machines (the daemon) in containers on a server
+- 本机 Claude 配置目录的新增流程更顺，不再残留模型映射 / Smoother setup of the local Claude config directory, with no leftover model mappings
+
 ## v0.4.9 — 2026-11-02
 
 - 所有 Claude Code 供应商都可设置命令行参数，输入框移到「其他环境变量」前面 / All Claude Code providers accept command-line arguments, now placed above the other environment variables
