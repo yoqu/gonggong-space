@@ -1102,6 +1102,30 @@ export const WorkspaceGcResult = z.object({
   error: z.string().nullable(),
 })
 
+/** One subdirectory in a listing; `modified` in ms since epoch, null when unreadable or from an older daemon. */
+export const DirEntry = z.object({
+  name: z.string(),
+  git: z.boolean(),
+  modified: z.number().int().nullable().default(null),
+})
+export type DirEntry = z.infer<typeof DirEntry>
+
+/** A quick location of the picker, like Finder's sidebar; the web names the user folders by `kind`. */
+export const DirPlace = z.object({
+  kind: z.enum(['home', 'desktop', 'documents', 'downloads', 'volume']),
+  name: z.string(),
+  path: z.string(),
+})
+export type DirPlace = z.infer<typeof DirPlace>
+
+/** Answer to dir.create: the new directory's absolute path. */
+export const DirCreateResult = z.object({
+  t: z.literal('dir.create.result'),
+  requestId: z.string(),
+  path: z.string().nullable(),
+  error: z.string().nullable(),
+})
+
 /** Answer to dir.list. */
 export const DirResult = z.object({
   t: z.literal('dir.result'),
@@ -1109,13 +1133,17 @@ export const DirResult = z.object({
   /** Absolute path listed (the home dir when the request had none). */
   path: z.string(),
   /** Immediate subdirectories, hidden ones skipped; `git` = the subdirectory is a work tree root. */
-  entries: z.array(z.object({ name: z.string(), git: z.boolean() })),
+  entries: z.array(DirEntry),
   /** Repo containing `path`, if any. */
   git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
   /** Why `path` cannot be a workspace (root, home, system dir, …); null = usable. */
   unusable: z.string().nullable(),
   /** Filesystem roots to browse from (Windows drives, `/` elsewhere); older daemons omit it. */
   roots: z.array(z.string()).default([]),
+  /** The picker's sidebar: the user's folders and mounted volumes that exist; older daemons omit it. */
+  places: z.array(DirPlace).default([]),
+  /** The daemon answers dir.create; false from older daemons. */
+  canCreate: z.boolean().default(false),
   error: z.string().nullable(),
 })
 export type DirResult = z.infer<typeof DirResult>
@@ -1440,6 +1468,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   SessionForkResult,
   CommandsUpdate,
   DirResult,
+  DirCreateResult,
   RepoFound,
   FilesResult,
   FilesTreeResult,
@@ -1902,6 +1931,14 @@ export const DirList = z.object({
   hidden: z.boolean(),
 })
 
+/** The picker's 新建文件夹: makes `name` (one path segment) in `parent`; only when dir.result said canCreate. */
+export const DirCreate = z.object({
+  t: z.literal('dir.create'),
+  requestId: z.string(),
+  parent: z.string(),
+  name: z.string(),
+})
+
 /** answers null → nobody answered in time: the tool tells the agent to proceed with recommendations (spec §8.8). */
 export const QuestionAnswer = z.object({
   t: z.literal('question.answer'),
@@ -2029,6 +2066,7 @@ export const AgentsReprobe = z.object({
 
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
+  DirCreate,
   AppsList,
   LogsGet,
   WorkspacesList,

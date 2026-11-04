@@ -27,6 +27,8 @@ import {
   AgentInfo,
   CcSwitchCandidate,
   DiffScope,
+  DirEntry,
+  DirPlace,
   FileTreeEntry,
   GitActionArgs,
   GitActionDetail,
@@ -424,14 +426,19 @@ export type DaemonBotDto = z.infer<typeof DaemonBotDto>
 /** GET /api/machines/:id/dirs?path= — a machine's directories for the workspace picker (its owner only). */
 export const DirListingDto = z.object({
   path: z.string(),
-  entries: z.array(z.object({ name: z.string(), git: z.boolean() })),
+  entries: z.array(DirEntry),
   git: z.object({ root: z.string(), remotes: z.array(z.string()), branch: z.string().nullable() }).nullable(),
   /** Why `path` cannot be a workspace; null = selectable. */
   unusable: z.string().nullable(),
   /** Filesystem roots of the machine (Windows drives, `/` elsewhere). */
   roots: z.array(z.string()),
+  places: z.array(DirPlace),
+  /** 新建文件夹 is offered (the daemon answers dir.create). */
+  canCreate: z.boolean(),
 })
 export type DirListingDto = z.infer<typeof DirListingDto>
+/** POST /api/machines/:id/dirs: a new folder in `parent`; answers its absolute path. */
+export const DirCreateReq = z.object({ parent: z.string().min(1), name: z.string().min(1).max(255) })
 /** PUT /api/bots/:id/default-workspace; null clears it. */
 export const DefaultWorkspaceReq = z.object({ path: z.string().min(1).nullable() })
 /** PUT /api/groups/:id/bots/:botId/workspace (bot owner): a local directory, or null = managed workspace. */

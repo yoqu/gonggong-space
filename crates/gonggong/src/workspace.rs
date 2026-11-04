@@ -3,9 +3,9 @@
 use crate::config::{Config, user_home};
 use crate::git::{self, git};
 use crate::protocol::{
-    Answer, DaemonToServer, DirEntry, DirGit, DirResult, GitStatus, Question, QuestionType, RepoAccessReason, RepoFind,
-    RepoFound, RepoSpec, RunStart, ServerToDaemon, WorkspaceCd, WorkspaceEnsure, WorkspaceKind, WorkspaceSpec,
-    WorkspaceState, WorkspaceStateKind,
+    Answer, DaemonToServer, DirEntry, DirGit, DirPlace, DirPlaceKind, DirResult, GitStatus, Question, QuestionType,
+    RepoAccessReason, RepoFind, RepoFound, RepoSpec, RunStart, ServerToDaemon, WorkspaceCd, WorkspaceEnsure,
+    WorkspaceKind, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
 };
 use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
@@ -715,8 +715,11 @@ pub async fn browse(request_id: String, path: Option<String>, hidden: bool) -> D
         git: None,
         unusable: None,
         roots: fs_roots(),
+        places: vec![],
+        can_create: true,
         error: None,
     };
+    result.places = tokio::task::spawn_blocking(places).await.unwrap_or_default();
     if let Err(e) = existing_dir(&dir) {
         result.error = Some(e);
         return result;
@@ -744,7 +747,88 @@ fn picker_entries(dir: &Path, hidden: bool) -> Vec<DirEntry> {
         .collect();
     dirs.sort_by_key(|(name, _)| name.to_lowercase());
     dirs.truncate(DIR_LIST_MAX);
-    dirs.into_iter().map(|(name, path)| DirEntry { git: git::is_repo(&path), name }).collect()
+    dirs.into_iter()
+        .map(|(name, path)| {
+            let modified = path.metadata().and_then(|m| m.modified()).ok().and_then(ms);
+            DirEntry { git: git::is_repo(&path), name, modified }
+        })
+        .collect()
+}
+
+fn ms(at: SystemTime) -> Option<u64> {
+    Some(at.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_millis() as u64)
+}
+
+/// The picker's sidebar: the user's own folders, then mounted volumes, like Finder / Explorer.
+fn places() -> Vec<DirPlace> {
+    let mut out = user_places(&user_home());
+    #[cfg(windows)]
+    out.extend(fs_roots().into_iter().map(|r| place(DirPlaceKind::Volume, r.trim_end_matches('\\').into(), r)));
+    #[cfg(target_os = "macos")]
+    out.extend(volumes(Path::new("/Volumes")));
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        out.extend(volumes(Path::new("/mnt")));
+        let user = user_home().file_name().map(|n| Path::new("/media").join(n));
+        out.extend(user.map(|m| volumes(&m)).unwrap_or_default());
+    }
+    out
+}
+
+fn place(kind: DirPlaceKind, name: String, path: String) -> DirPlace {
+    DirPlace { kind, name, path }
+}
+
+/// Home, Desktop, Documents and Downloads where they exist (on Windows also redirected into OneDrive).
+fn user_places(home: &Path) -> Vec<DirPlace> {
+    let mut out = vec![];
+    if home.is_dir() {
+        let name = home.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        out.push(place(DirPlaceKind::Home, name, home.to_string_lossy().into_owned()));
+    }
+    for (kind, dir) in [
+        (DirPlaceKind::Desktop, "Desktop"),
+        (DirPlaceKind::Documents, "Documents"),
+        (DirPlaceKind::Downloads, "Downloads"),
+    ] {
+        let found = [home.join(dir), home.join("OneDrive").join(dir)].into_iter().find(|p| p.is_dir());
+        if let Some(p) = found {
+            out.push(place(kind, dir.into(), p.to_string_lossy().into_owned()));
+        }
+    }
+    out
+}
+
+/// Mounted volumes under `root`, by name; symlinks (the boot volume in /Volumes points at `/`) are skipped.
+#[cfg(unix)]
+fn volumes(root: &Path) -> Vec<DirPlace> {
+    let mut out: Vec<DirPlace> = subdirs(root)
+        // Time Machine's local snapshots and similar system mounts, hidden by Finder too.
+        .filter(|(name, _)| !name.starts_with('.') && !name.starts_with("com.apple."))
+        .map(|(name, p)| place(DirPlaceKind::Volume, name, p.to_string_lossy().into_owned()))
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// dir.create for the picker's 新建文件夹: `name` must be one plain path segment, made directly in `parent`.
+pub fn create_dir(parent: String, name: &str) -> Result<String, String> {
+    let parent = PathBuf::from(drive_root(parent));
+    existing_dir(&parent)?;
+    let name = name.trim();
+    let bad = name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.chars().any(|c| c == '/' || c == '\\' || c.is_control() || cfg!(windows) && ":*?\"<>|".contains(c));
+    if bad {
+        return Err(t!("文件夹名称不合法").into());
+    }
+    let path = parent.join(name);
+    std::fs::create_dir(&path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => t!("已有同名文件或文件夹").to_string(),
+        _ => t!("无法新建文件夹：{e}", e = e),
+    })?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 /// A (group, bot) pair of this machine as the server knows it (`GET /api/daemon/workspaces`, DaemonWorkspaceDto).
@@ -1457,6 +1541,61 @@ mod tests {
         assert!(ws.gc_entry(&running).await.is_err());
         ws.delete_entry(entry, &services).await.unwrap();
         assert!(!h.join("workspaces/g").exists());
+    }
+
+    #[test]
+    fn lists_subdirectories_with_their_modified_time() {
+        let dir = tempfile::tempdir().unwrap();
+        file(&dir.path().join("app/a"), 1);
+        let entries = picker_entries(dir.path(), false);
+        assert_eq!(entries.len(), 1);
+        let now = ms(SystemTime::now()).unwrap();
+        assert!(now.abs_diff(entries[0].modified.unwrap()) < 60_000);
+    }
+
+    #[test]
+    fn offers_the_user_folders_that_exist() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        std::fs::create_dir_all(h.join("Desktop")).unwrap();
+        std::fs::create_dir_all(h.join("OneDrive/Documents")).unwrap();
+        let got: Vec<_> = user_places(h).into_iter().map(|p| (p.kind, p.path)).collect();
+        let s = |p: PathBuf| p.to_string_lossy().into_owned();
+        assert_eq!(
+            got,
+            vec![
+                (DirPlaceKind::Home, s(h.to_path_buf())),
+                (DirPlaceKind::Desktop, s(h.join("Desktop"))),
+                (DirPlaceKind::Documents, s(h.join("OneDrive/Documents"))),
+            ]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn lists_mounted_volumes_but_not_links_to_the_boot_volume() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(root.path().join("Backup")).unwrap();
+        std::fs::create_dir_all(root.path().join(".hidden")).unwrap();
+        std::fs::create_dir_all(root.path().join("com.apple.TimeMachine.localsnapshots")).unwrap();
+        std::os::unix::fs::symlink("/", root.path().join("Macintosh HD")).unwrap();
+        let names: Vec<_> = volumes(root.path()).into_iter().map(|p| (p.kind, p.name)).collect();
+        assert_eq!(names, vec![(DirPlaceKind::Volume, "Backup".to_string())]);
+    }
+
+    #[test]
+    fn creates_one_plain_folder_in_an_existing_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let parent = dir.path().to_string_lossy().into_owned();
+        let made = create_dir(parent.clone(), " 新项目 ").unwrap();
+        assert_eq!(PathBuf::from(&made), dir.path().join("新项目"));
+        assert!(dir.path().join("新项目").is_dir());
+        assert_eq!(create_dir(parent.clone(), "新项目").unwrap_err(), "已有同名文件或文件夹");
+        for bad in ["", "..", "a/b", "a\\b"] {
+            assert_eq!(create_dir(parent.clone(), bad).unwrap_err(), "文件夹名称不合法", "{bad:?}");
+        }
+        assert!(create_dir(dir.path().join("missing").to_string_lossy().into_owned(), "x").is_err());
+        assert!(create_dir("relative".into(), "x").is_err());
     }
 
     #[test]

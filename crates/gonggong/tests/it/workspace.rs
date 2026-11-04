@@ -668,6 +668,38 @@ fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {
     }
 }
 
+#[tokio::test]
+async fn dir_create_makes_a_folder_and_dir_list_offers_it() {
+    let mut r = rig();
+    let root = tempfile::tempdir().unwrap();
+    let parent = root.path().to_string_lossy().into_owned();
+    let create = |r: &Rig, id: &str, name: &str| {
+        let msg = ServerToDaemon::DirCreate { request_id: id.into(), parent: parent.clone(), name: name.into() };
+        r.engine.handle(msg, &r.out);
+    };
+    create(&r, "c1", "新项目");
+    let (id, path, error) = created(&mut r.rx).await;
+    assert_eq!((id.as_str(), error), ("c1", None));
+    assert_eq!(path.map(PathBuf::from), Some(root.path().join("新项目")));
+    create(&r, "c2", "../x");
+    assert_eq!(created(&mut r.rx).await.2.as_deref(), Some("文件夹名称不合法"));
+
+    r.engine
+        .handle(ServerToDaemon::DirList { request_id: "d".into(), path: Some(parent.clone()), hidden: false }, &r.out);
+    let d = dir_result(&mut r.rx).await;
+    assert!(d.can_create);
+    assert_eq!(d.entries.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["新项目"]);
+    assert!(d.entries[0].modified.is_some());
+    assert!(d.places.iter().any(|p| p.kind == gonggong::protocol::DirPlaceKind::Home), "{:?}", d.places);
+}
+
+async fn created(rx: &mut OutboxRx) -> (String, Option<String>, Option<String>) {
+    match tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.unwrap().unwrap() {
+        DaemonToServer::DirCreateResult { request_id, path, error } => (request_id, path, error),
+        other => panic!("unexpected {other:?}"),
+    }
+}
+
 async fn dir_result(rx: &mut OutboxRx) -> DirResult {
     match tokio::time::timeout(Duration::from_secs(10), rx.recv()).await.unwrap().unwrap() {
         DaemonToServer::DirResult(d) => d,

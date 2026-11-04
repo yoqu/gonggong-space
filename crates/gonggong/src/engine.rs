@@ -371,6 +371,17 @@ impl Handler for Engine {
                     out.send(DaemonToServer::DirResult(workspace::browse(request_id, path, hidden).await))
                 });
             }
+            ServerToDaemon::DirCreate { request_id, parent, name } => {
+                let out = out.clone();
+                tokio::spawn(async move {
+                    let made = tokio::task::spawn_blocking(move || workspace::create_dir(parent, &name)).await;
+                    let (path, error) = match made.map_err(|e| e.to_string()).and_then(|r| r) {
+                        Ok(path) => (Some(path), None),
+                        Err(e) => (None, Some(e)),
+                    };
+                    out.send(DaemonToServer::DirCreateResult { request_id, path, error });
+                });
+            }
             ServerToDaemon::LogsGet { request_id, level, limit } => {
                 let (home, out) = (self.0.config.home.clone(), out.clone());
                 let token = self.0.config.api.as_ref().map(|c| c.token.clone()).unwrap_or_default();

@@ -8,6 +8,7 @@ const panel =
 const node = (x: number, y: number) => `M${x} ${y + 1.7}a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z`
 
 export const DRAWN_PATHS = {
+  house: 'M2.8 8.3L9 3l6.2 5.3 M4.5 7v7c0 .6.4 1 1 1h7c.6 0 1-.4 1-1V7 M7.4 15v-4h3.2v4',
   info: `${circle} M9 8.3v4.2 M9 5.7h.01`,
   'exclamation-circle': `${circle} M9 5.5v4.2 M9 12.4h.01`,
   'checkmark-circle': `${circle} M6.1 9.2l2 2 3.9-4.2`,
@@ -51,6 +52,7 @@ export const DRAWN_PATHS = {
     'M6.2 1.8h5.6c.8 0 1.4.6 1.4 1.4v11.6c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V3.2c0-.8.6-1.4 1.4-1.4z M8 13.7h2',
   'folder-open':
     'M2.5 12.8V5.2c0-.9.7-1.7 1.7-1.7h3l1.6 1.6h4.3c.9 0 1.6.7 1.6 1.6v.7 M2.5 12.8l1.8-4.6c.2-.5.7-.8 1.2-.8h9.2c.6 0 1 .6.8 1.2l-1.6 4.6c-.2.6-.8 1.3-1.5 1.3H4c-.8 0-1.5-.7-1.5-1.7z',
+  'folder-plus': `${PANE_PATHS.folder} M9 9.2v3.6 M7.2 11h3.6`,
   'folder-check': `${PANE_PATHS.folder} M6.6 10.9l1.6 1.6 3.3-3.4`,
   'folder-git': `${PANE_PATHS.folder} M5.5 11h2.2 M10.3 11h2.2 M9 12.3a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z`,
   'doc-text': `${PANE_PATHS.doc} M6.5 9.5h5 M6.5 12.3h5`,

@@ -2,9 +2,38 @@
   "t": "dir.result",
   "requestId": "d1",
   "path": "/Users/w/code",
-  "entries": [{ "name": "pay-server", "git": true }, { "name": "notes", "git": false }],
+  "entries": [
+    {
+      "name": "pay-server",
+      "git": true,
+      "modified": 1793600000000
+    },
+    {
+      "name": "notes",
+      "git": false,
+      "modified": null
+    }
+  ],
   "git": null,
   "unusable": null,
   "roots": ["/"],
+  "places": [
+    {
+      "kind": "home",
+      "name": "w",
+      "path": "/Users/w"
+    },
+    {
+      "kind": "desktop",
+      "name": "Desktop",
+      "path": "/Users/w/Desktop"
+    },
+    {
+      "kind": "volume",
+      "name": "Backup",
+      "path": "/Volumes/Backup"
+    }
+  ],
+  "canCreate": true,
   "error": null
 }

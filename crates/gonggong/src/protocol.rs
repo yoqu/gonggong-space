@@ -472,6 +472,27 @@ pub struct TreeEntry {
 pub struct DirEntry {
     pub name: String,
     pub git: bool,
+    /// ms since epoch.
+    #[serde(default)]
+    pub modified: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirPlaceKind {
+    Home,
+    Desktop,
+    Documents,
+    Downloads,
+    Volume,
+}
+
+/// A quick location of the directory picker's sidebar.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DirPlace {
+    pub kind: DirPlaceKind,
+    pub name: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -508,6 +529,11 @@ pub struct DirResult {
     pub unusable: Option<String>,
     #[serde(default)]
     pub roots: Vec<String>,
+    #[serde(default)]
+    pub places: Vec<DirPlace>,
+    /// This daemon answers dir.create.
+    #[serde(default)]
+    pub can_create: bool,
     pub error: Option<String>,
 }
 
@@ -2263,6 +2289,8 @@ pub enum DaemonToServer {
     CommandsUpdate { group_id: String, bot_id: String, commands: Vec<AgentCommand> },
     #[serde(rename = "dir.result")]
     DirResult(DirResult),
+    #[serde(rename = "dir.create.result", rename_all = "camelCase")]
+    DirCreateResult { request_id: String, path: Option<String>, error: Option<String> },
     #[serde(rename = "apps.list.result", rename_all = "camelCase")]
     AppsListResult { request_id: String, apps: Vec<String> },
     #[serde(rename = "logs.result", rename_all = "camelCase")]
@@ -2572,6 +2600,8 @@ pub enum ServerToDaemon {
         #[serde(default)]
         hidden: bool,
     },
+    #[serde(rename = "dir.create", rename_all = "camelCase")]
+    DirCreate { request_id: String, parent: String, name: String },
     #[serde(rename = "apps.list", rename_all = "camelCase")]
     AppsList { request_id: String },
     /// 我的机器管理 → 日志 (needs [`FEATURE_MACHINE_ADMIN`]).

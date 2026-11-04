@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   BindWorkspaceReq,
   DefaultWorkspaceReq,
+  DirCreateReq,
   type DirListingDto,
   GroupBotExtraDirsReq,
   type RepoAccessReason,
@@ -40,6 +41,16 @@ async function ownBot(ctx: Ctx, userId: string, rawId: string) {
   return bot.ownerId === userId ? bot : fail('forbidden', '只有 Bot 主人可以操作其工作区')
 }
 
+/** Only a machine's owner browses or changes its directories. */
+async function ownMachine(ctx: Ctx, userId: string, rawId: string) {
+  const [m] = await ctx.db
+    .select()
+    .from(machines)
+    .where(and(eq(machines.id, idParam(rawId, '机器不存在')), isNull(machines.revokedAt)))
+  if (!m) return fail('not_found', '机器不存在')
+  return m.ownerId === userId ? m : fail('forbidden', '只能浏览自己机器上的目录')
+}
+
 export function workspaceRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     /** dir.list on a machine; fails when it is offline, silent or reports an error. */
@@ -68,23 +79,31 @@ export function workspaceRoutes(ctx: Ctx) {
     app.get<{ Params: { id: string }; Querystring: { path?: string; hidden?: string } }>(
       '/api/machines/:id/dirs',
       async (req): Promise<DirListingDto> => {
-        const me = await requireUser(ctx, req)
-        const [m] = await ctx.db
-          .select()
-          .from(machines)
-          .where(and(eq(machines.id, idParam(req.params.id, '机器不存在')), isNull(machines.revokedAt)))
-        if (!m) return fail('not_found', '机器不存在')
-        if (m.ownerId !== me.id) return fail('forbidden', '只能浏览自己机器上的目录')
-        const at = { name: m.name, machineId: m.id }
-        const { path, entries, git, unusable, roots } = await listDirs(
-          at,
+        const m = await ownMachine(ctx, (await requireUser(ctx, req)).id, req.params.id)
+        const { path, entries, git, unusable, roots, places, canCreate } = await listDirs(
+          { name: m.name, machineId: m.id },
           req.query.path || null,
           '{name} 离线，无法浏览目录',
           req.query.hidden === '1',
         )
-        return { path, entries, git, unusable, roots }
+        return { path, entries, git, unusable, roots, places, canCreate }
       },
     )
+
+    app.post<{ Params: { id: string } }>('/api/machines/:id/dirs', async (req) => {
+      const m = await ownMachine(ctx, (await requireUser(ctx, req)).id, req.params.id)
+      const { parent, name } = DirCreateReq.parse(req.body)
+      if (!name.trim() || /[\\/]/.test(name) || name === '.' || name === '..')
+        fail('invalid', '文件夹名称不合法')
+      const machineId =
+        onlineMachine(ctx, m.id) ?? fail('conflict', '{name} 离线，无法新建文件夹', { name: m.name })
+      const ask = { t: 'dir.create', requestId: randomUUID(), parent, name } as const
+      const res =
+        (await ctx.hub.request(machineId, ask, 'dir.create.result', DIR_TIMEOUT_MS)) ??
+        fail('conflict', '{name} 未响应，请稍后重试', { name: m.name })
+      if (res.error) throw new HttpError('invalid', res.error)
+      return { path: res.path ?? fail('conflict', '新建文件夹失败') }
+    })
 
     app.put<{ Params: { id: string } }>('/api/bots/:id/default-workspace', async (req) => {
       const me = await requireUser(ctx, req)

@@ -689,6 +689,8 @@ describe('directory picker and default workspace', () => {
     git: null,
     unusable: null,
     roots: ['/'],
+    places: [{ kind: 'home', name: 'w', path: '/Users/w' }],
+    canCreate: true,
     error: null,
     ...o,
   })
@@ -703,10 +705,12 @@ describe('directory picker and default workspace', () => {
     d.send(dirResult(req))
     expect((await pending).body).toEqual({
       path: '/src',
-      entries: [{ name: 'pay', git: true }],
+      entries: [{ name: 'pay', git: true, modified: null }],
       git: null,
       unusable: null,
       roots: ['/'],
+      places: [{ kind: 'home', name: 'w', path: '/Users/w' }],
+      canCreate: true,
     })
 
     const home = w.asAlice.get<DirListingDto>(dirs)
@@ -724,6 +728,31 @@ describe('directory picker and default workspace', () => {
     expect((await w.asBob.get(dirs)).status).toBe(403)
     const offline = await w.asBob.get<{ message: string }>(`/api/machines/${w.b.machine.id}/dirs`)
     expect([offline.status, offline.body.message]).toEqual([409, `${w.b.machine.name} 离线，无法浏览目录`])
+  })
+
+  it("makes a folder on its owner's online machine, naming one path segment", async () => {
+    const w = await world()
+    const d = await daemon(w.a.token)
+    const dirs = `/api/machines/${w.a.machine.id}/dirs`
+    const made = w.asAlice.post<{ path: string }>(dirs, { parent: '/Users/w', name: '新项目' })
+    const req = await d.next()
+    expect(req).toMatchObject({ t: 'dir.create', parent: '/Users/w', name: '新项目' })
+    d.send({ t: 'dir.create.result', requestId: req.requestId, path: '/Users/w/新项目', error: null })
+    expect((await made).body).toEqual({ path: '/Users/w/新项目' })
+
+    const taken = w.asAlice.post(dirs, { parent: '/Users/w', name: 'pay' })
+    const takenReq = await d.next()
+    d.send({ t: 'dir.create.result', requestId: takenReq.requestId, path: null, error: '已存在同名文件夹' })
+    expect(await taken).toMatchObject({ status: 400, body: { message: '已存在同名文件夹' } })
+
+    for (const name of ['a/b', 'a\\b', '.', '..', '  '])
+      expect((await w.asAlice.post(dirs, { parent: '/Users/w', name })).status, name).toBe(400)
+    expect((await w.asBob.post(dirs, { parent: '/', name: 'x' })).status).toBe(403)
+    const offline = await w.asBob.post<{ message: string }>(`/api/machines/${w.b.machine.id}/dirs`, {
+      parent: '/',
+      name: 'x',
+    })
+    expect([offline.status, offline.body.message]).toEqual([409, `${w.b.machine.name} 离线，无法新建文件夹`])
   })
 
   it('stores the default workspace only after the daemon accepts it', async () => {
