@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.12 — 2026-11-05
+
+- Linux 命令行 daemon 可在网页机器管理中一键升级，下载后在空闲时自动重启 / Linux CLI daemons can be upgraded from the web machine page; they restart once idle after downloading
+- 机器管理重组为「机器与 Bot」，新增三步绑定、Git 访问与网页自检 / Machine management reorganized as Machines & Bots, with three-step binding, Git access and web self-checks
+- 支持 Docker 机器首次启动自动绑定 / Docker machines bind automatically on first start
+- 提问中 @ 的群成员也可作答 / Group members @-mentioned in a question can answer it
+
 ## v0.4.11 — 2026-11-04
 
 - 桌面端「Skill」页改为「市场」：搜索、刷新、只读详情、版本与封禁状态，可在网页中直接打开条目 / The desktop Skill page becomes Market: search, refresh, read-only details, version and ban status, and opening a listing in the web app
