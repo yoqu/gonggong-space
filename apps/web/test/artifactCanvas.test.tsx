@@ -588,6 +588,17 @@ describe('Stitch round 1 fixes', () => {
   const titleLeft = (name: string) =>
     Number.parseFloat((screen.getByRole('button', { name }).closest('.art-title') as HTMLElement).style.left)
 
+  it('refreshes the canvas: reloads the artifact and every screen', async () => {
+    const calls = mockApi(routes())
+    await renderTab()
+    const before = screen.getByTitle('首页')
+    const gets = () => calls.filter((c) => c.method === 'GET' && c.path === '/artifacts/a1').length
+    const n = gets()
+    fireEvent.click(tool('刷新'))
+    await waitFor(() => expect(gets()).toBe(n + 1))
+    expect(screen.getByTitle('首页')).not.toBe(before)
+  })
+
   it('puts the vertical toolbar’s tooltips on its left (T03)', async () => {
     mockApi(routes())
     await renderTab()
