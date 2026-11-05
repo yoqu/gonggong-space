@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { MachineDialog } from '../src/features/machines/MachineDialog'
+import { MachinePage } from '../src/features/machines/MachinePage'
 import { realtime } from '../src/lib/realtime'
 import { Toaster } from '../src/ui'
 import { mockApi } from './mockApi'
@@ -68,7 +68,7 @@ afterEach(() => {
 const open = (machine: MachineDto = server, url = '/?tab=git') =>
   render(
     <MemoryRouter initialEntries={[url]}>
-      <MachineDialog machine={machine} onClose={() => {}} />
+      <MachinePage machine={machine} bots={[]} />
       <Toaster />
     </MemoryRouter>,
   )
