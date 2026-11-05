@@ -206,6 +206,18 @@ describe('诊断 self-checks', () => {
     expect(guide.textContent).not.toContain('gg run')
   })
 
+  it('upgrades a container machine from the web once its image keeps gg in the volume', async () => {
+    mockApi({
+      'GET /machines/m1/diag': [],
+      'GET /machines/m1/tools': TOOLS,
+      'GET /client-downloads': { version: '1.0.0', builds: [], desktop: [] },
+    })
+    open({ ...server, features: [...server.features, 'container', 'upgrade'] }, '/?tab=diagnostics')
+    const guide = await screen.findByRole('region', { name: '如何升级' })
+    expect(within(guide).getByRole('button', { name: '立即升级' })).toBeTruthy()
+    expect(guide.textContent).not.toContain('docker compose')
+  })
+
   it('upgrades a Linux daemon from the web and waits for it to be idle', async () => {
     const calls = mockApi({
       'GET /machines/m1/diag': [],

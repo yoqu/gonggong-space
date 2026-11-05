@@ -53,7 +53,7 @@ Database migrations run automatically when the server starts.
 
 The image in `docker/daemon/` turns a server into an always-online member machine. The daemon only connects out to the gonggong-space server, and previews travel over that connection, so no inbound port is needed.
 
-The image ships `gg` and `gg-cast`, Claude Code, Codex, Node.js 24, git (with `gh`), ripgrep, jq, build tools, python3 and `uv` (for MCP servers started with npx / uvx), Chromium with CJK fonts (snapshots, web previews) and Xvfb (desktop app previews). The daemon runs as the unprivileged user `gg`; all its data lives in one volume at `/home/gg`.
+The image ships `gg` (`gg-cast` is downloaded from the server on first use), Claude Code, Codex, Node.js 24, git (with `gh`), ripgrep, jq, build tools, python3 and `uv` (for MCP servers started with npx / uvx), Chromium with CJK fonts (snapshots, web previews) and Xvfb (desktop app previews). The daemon runs as the unprivileged user `gg`; all its data lives in one volume at `/home/gg`.
 
 WeChat DevTools, mini program live view and "open with a local app" are macOS / Windows only and unavailable in the container.
 
@@ -84,7 +84,7 @@ WeChat DevTools, mini program live view and "open with a local app" are macOS / 
 
 5. See the self-checks under Diagnostics on the machine page (the same as `gg doctor`).
 
-A new SSH host's key is trusted on first connection. The daemon in a container never upgrades itself; the machine page's upgrade guide gives the rebuild command.
+A new SSH host's key is trusted on first connection. `gg` lives in the volume (`/home/gg/.local/bin`): like other Linux daemons it upgrades itself, or click Upgrade now on the machine page.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -104,13 +104,15 @@ To run several machines on one server, copy the `daemon` service in `compose.yml
 
 ### Upgrade
 
-Automatic upgrades of `gg` and Claude Code are off in the container; upgrading means a new image. Change `GG_VERSION` in `.env`, then run
+Upgrade `gg` with Upgrade now on the machine page: the new build is written to the volume and survives a rebuilt container. On start, the image's `gg` replaces the volume's only when it is newer.
+
+Claude Code and Codex do not update themselves; they come with the image. Change `GG_VERSION` in `.env` (and the Agent versions if needed), then run
 
 ```bash
 docker compose build --pull && docker compose up -d
 ```
 
-Logins, providers and workspaces stay in the volume.
+Logins, providers and workspaces stay in the volume. Containers built from `docker/daemon` files older than v0.4.13 cannot upgrade from the web: rebuild once as above with the latest `Dockerfile` and `entrypoint.sh`.
 
 ::: warning Do not mount docker.sock
 Bots can run any command in the container. Mounting `/var/run/docker.sock` hands them root on the host.

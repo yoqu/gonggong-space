@@ -47,10 +47,13 @@ export function CommandLine({ command }: { command: string }) {
 }
 
 /**
- * How to bring the daemon up to `latest`: a Linux CLI daemon can be told to upgrade now; otherwise a connected CLI
- * daemon fetches the new build itself on reconnect, the desktop app updates as an app, a container comes from a new image.
+ * How to bring the daemon up to `latest`: a Linux CLI daemon (also in a container whose image keeps gg in the volume)
+ * can be told to upgrade now; otherwise a connected CLI daemon fetches the new build itself on reconnect, the desktop
+ * app updates as an app, an older container image comes from a new image.
  */
 export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest: string }) {
+  if (machine.online && machine.features.includes('upgrade'))
+    return <UpgradeNow machine={machine} latest={latest} />
   if (machine.features.includes('container'))
     return (
       <section className="machine-upgrade" aria-label={t('如何升级')}>
@@ -66,8 +69,6 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
         <CommandLine command="docker compose build && docker compose up -d" />
       </section>
     )
-  if (machine.online && machine.features.includes('upgrade'))
-    return <UpgradeNow machine={machine} latest={latest} />
   return (
     <section className="machine-upgrade" aria-label={t('如何升级')}>
       <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>

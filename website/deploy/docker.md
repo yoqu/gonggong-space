@@ -53,7 +53,7 @@ git pull && docker compose up -d --build
 
 `docker/daemon/` 里的镜像把一台服务器变成常驻在线的成员机器：daemon 只向共工空间服务器发起连接，预览也走这条连接，不需要开放任何入站端口。
 
-镜像内置：`gg` 与 `gg-cast`、Claude Code、Codex、Node.js 24、git（含 `gh`）、ripgrep、jq、编译工具、python3 与 `uv`（供 npx / uvx 启动的 MCP）、Chromium 与中文字体（截图、网页预览）、Xvfb（桌面应用预览）。daemon 以普通用户 `gg` 运行，数据都在 `/home/gg` 一个卷里。
+镜像内置：`gg`（`gg-cast` 首次使用时从服务器下载）、Claude Code、Codex、Node.js 24、git（含 `gh`）、ripgrep、jq、编译工具、python3 与 `uv`（供 npx / uvx 启动的 MCP）、Chromium 与中文字体（截图、网页预览）、Xvfb（桌面应用预览）。daemon 以普通用户 `gg` 运行，数据都在 `/home/gg` 一个卷里。
 
 微信开发者工具、小程序实时画面和「用本机应用打开」只支持 macOS / Windows，容器里不可用。
 
@@ -84,7 +84,7 @@ git pull && docker compose up -d --build
 
 5. 在机器页「诊断」里查看自检结果（等同 `gg doctor`）。
 
-首次连接新的 SSH 主机时自动信任其主机密钥。容器里的 daemon 不会自行升级，机器页的升级指引会给出重建镜像的命令。
+首次连接新的 SSH 主机时自动信任其主机密钥。容器里的 `gg` 放在数据卷（`/home/gg/.local/bin`），和其他 Linux daemon 一样会自动升级，也可在机器页点「立即升级」。
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -104,13 +104,15 @@ Docker 20.10.10 以下的默认 seccomp 规则不认识 Debian 12 用到的新�
 
 ### 升级
 
-容器里关闭了 `gg` 自动升级和 Claude Code 自动更新，升级就是换镜像：改 `.env` 里的 `GG_VERSION` 后执行
+`gg` 在机器页点「立即升级」即可，新版本写进数据卷，重建容器后仍保留；启动时镜像里的 `gg` 比卷里的新才会替换它。
+
+Claude Code、Codex 关闭了自动更新，随镜像升级：改 `.env` 里的 `GG_VERSION`（及需要时的 Agent 版本）后执行
 
 ```bash
 docker compose build --pull && docker compose up -d
 ```
 
-登录状态、供应商、工作区都在卷里，不受影响。
+登录状态、供应商、工作区都在卷里，不受影响。v0.4.13 之前的 `docker/daemon` 文件建的容器不能在网页升级，先换成最新的 `Dockerfile`、`entrypoint.sh` 按上面重建一次。
 
 ::: warning 不要挂载 docker.sock
 Bot 在容器里能执行任意命令。挂载 `/var/run/docker.sock` 等于把宿主机 root 交给 Bot。

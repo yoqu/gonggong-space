@@ -24,7 +24,8 @@ RUN npm install -g --registry="$NPM_REGISTRY" --no-audit --no-fund \
       "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "@openai/codex@$CODEX_VERSION" \
     && npm cache clean --force
 
-# gg and gg-cast of one release, checked against its SHA256SUMS. GG_DOWNLOAD_URL may be a 共工 server's /downloads.
+# gg of one release, checked against its SHA256SUMS. GG_DOWNLOAD_URL may be a 共工 server's /downloads. No gg-cast:
+# gg fetches the server's on first use, so it stays matched after gg upgrades itself.
 ARG GG_VERSION
 ARG GG_DOWNLOAD_URL=https://github.com/yoqu/gonggong-space/releases/download/v${GG_VERSION}
 ARG GG_SUMS_URL=https://github.com/yoqu/gonggong-space/releases/download/v${GG_VERSION}/SHA256SUMS
@@ -33,22 +34,20 @@ RUN test -n "$GG_VERSION" || { echo "GG_VERSION is required" >&2; exit 1; } \
     && arch="$(case "$TARGETARCH" in arm64) echo aarch64 ;; *) echo x86_64 ;; esac)" \
     && mkdir -p /opt/gonggong && cd /opt/gonggong \
     && curl -fsSL --retry 3 -o SHA256SUMS "$GG_SUMS_URL" \
-    && for f in "gonggong-$GG_VERSION-linux-$arch" "gg-cast-$GG_VERSION-linux-$arch"; do \
-         curl -fsSL --retry 3 -o "$f" "$GG_DOWNLOAD_URL/$f" && grep " $f\$" SHA256SUMS | sha256sum -c - ; \
-       done \
-    && mv "gonggong-$GG_VERSION-linux-$arch" gg && mv "gg-cast-$GG_VERSION-linux-$arch" gg-cast \
-    && rm SHA256SUMS && chmod 755 gg gg-cast && ln -s /opt/gonggong/gg /usr/local/bin/gg
+    && f="gonggong-$GG_VERSION-linux-$arch" \
+    && curl -fsSL --retry 3 -o "$f" "$GG_DOWNLOAD_URL/$f" && grep " $f\$" SHA256SUMS | sha256sum -c - \
+    && mv "$f" gg && rm SHA256SUMS && chmod 755 gg && ln -s /opt/gonggong/gg /usr/local/bin/gg
 
 # The node image's uid 1000 user, renamed: Claude Code will not skip permission prompts as root.
 RUN usermod -l gg -d /home/gg -m node && groupmod -n gg node
 COPY entrypoint.sh /usr/local/bin/gg-entrypoint
 USER gg
 WORKDIR /home/gg
-# The image is the upgrade path: a self-upgraded gg or CLI would be lost when the container is recreated.
+# gg runs from the volume (entrypoint) and upgrades itself there; the agent CLIs come with the image.
 ENV LANG=C.UTF-8 \
     TZ=Asia/Shanghai \
     SHELL=/bin/bash \
-    GONGGONG_NO_AUTO_UPGRADE=1 \
+    PATH=/home/gg/.local/bin:$PATH \
     GONGGONG_CONTAINER=1 \
     GONGGONG_BROWSER=/usr/local/bin/chromium-gg \
     DISABLE_AUTOUPDATER=1
