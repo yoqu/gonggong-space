@@ -9,7 +9,6 @@ import { requestDesignPanel } from '../src/features/artifacts/context'
 import { besideBox } from '../src/features/artifacts/ElementPopover'
 import {
   type CanvasNode,
-  dropIndex,
   fitView,
   layoutNodes,
   nearView,
@@ -309,9 +308,6 @@ describe('nodes', () => {
       h: 100,
     })
     const s = [n('a', 0), n('b', 200), n('c', 400)]
-    expect(dropIndex(s, 'a', 330)).toBe(1)
-    expect(dropIndex(s, 'a', 500)).toBe(2)
-    expect(dropIndex(s, 'c', 10)).toBe(0)
     expect(neighbour(s, s[1] as (typeof s)[0], 'right')?.id).toBe('c')
     expect(neighbour(s, s[1] as (typeof s)[0], 'left')?.id).toBe('a')
     expect(neighbour(s, s[1] as (typeof s)[0], 'up')).toBeUndefined()
@@ -334,6 +330,28 @@ describe('context menu and screen operations', () => {
     key('v', { metaKey: true })
     await waitFor(() => expect(edits(calls)).toHaveLength(3))
     expect(edits(calls)[2]).toEqual(manifestOp('reorder', 'home', { index: 1 }))
+  })
+
+  it('drags a selected screen to a new place (screen-move); an unselected one pans', async () => {
+    const calls = mockApi(routes())
+    await renderTab()
+    const drag = (el: HTMLElement) => {
+      fireEvent.pointerDown(el, { button: 0, pointerId: 1, clientX: 10, clientY: 10 })
+      fireEvent.pointerMove(el, { pointerId: 1, clientX: 60, clientY: 40 })
+      fireEvent.pointerUp(el, { pointerId: 1 })
+    }
+    const before = { x: node('home').style.left, y: node('home').style.top }
+    drag(node('home'))
+    expect(edits(calls)).toEqual([])
+    // The click right after a pan is not a selection.
+    await new Promise((r) => setTimeout(r))
+    fireEvent.click(node('home'))
+    expect(screen.getByTestId('art-select-home')).toBeTruthy()
+    drag(node('home'))
+    await waitFor(() => expect(edits(calls)).toHaveLength(1))
+    const op = (edits(calls)[0] as { ops: { kind: string; screenId: string; x: number; y: number }[] }).ops[0]
+    expect(op).toMatchObject({ kind: 'screen-move', screenId: 'home' })
+    expect([op?.x, op?.y]).not.toEqual([Number.parseFloat(before.x), Number.parseFloat(before.y)])
   })
 
   it('renames in place: Enter saves, Esc cancels', async () => {
@@ -729,10 +747,16 @@ describe('Stitch round 2 fixes', () => {
       content: {},
     })
     expect(desktop.nodes.filter((n) => n.y === 0).map((n) => n.id)).toEqual(['s0', 's1'])
-    // Dropped on the second row's left: first of that row.
-    const screensOnly = nodes.filter((n) => n.kind === 'screen')
-    expect(dropIndex(screensOnly, 's0', 800, at('s6').y + 10)).toBe(5)
-    expect(dropIndex(screensOnly, 's11', 1100, 10)).toBe(1)
+    // A placed screen keeps its place; the others keep their cells.
+    const placed = layoutNodes({
+      title: 't',
+      manifest: { ...twelve, screens: twelve.screens.map((s, i) => (i ? s : { ...s, x: -500, y: 2000 })) },
+      system: 640,
+      frames: {},
+      content: {},
+    }).nodes
+    expect(placed.find((n) => n.id === 's0')).toMatchObject({ x: -500, y: 2000 })
+    expect(placed.find((n) => n.id === 's1')).toMatchObject({ x: 1350, y: 0 })
   })
 
   it('fits leaving the tools free, and again as the layout grows until the view is moved (R02)', async () => {

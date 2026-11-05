@@ -28,6 +28,9 @@ export const GgArtifactScreen = z.object({
   statusBar: z.enum(['light', 'dark']).optional(),
   /** The screen's design prompt (what it is for, its sections, key copy), shown in its details like Stitch's. */
   prompt: z.string().max(4000).optional(),
+  /** Its place on the canvas; absent: the canvas lays it out. */
+  x: z.number().finite().optional(),
+  y: z.number().finite().optional(),
 })
 export type GgArtifactScreen = z.infer<typeof GgArtifactScreen>
 /** Reference files members put on the canvas (images, PDFs, text): AI context, not part of the prototype. */
@@ -481,6 +484,13 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
       if (o.op === 'reorder' && o.index === undefined)
         ctx.addIssue({ code: 'custom', path: ['index'], message: '缺少位置' })
     }),
+  /** Places the screen on the canvas. */
+  z.object({
+    kind: z.literal('screen-move'),
+    screenId: ArtifactScreenId,
+    x: z.number().finite(),
+    y: z.number().finite(),
+  }),
   /** An upload (ARTIFACT_REF_TYPES) added as a reference node: `refs/<new id>.<ext>` plus its manifest entry. */
   z.object({ kind: z.literal('ref'), uploadId: z.string(), title: z.string().trim().min(1).max(120) }),
   /** Removes the reference node and its file. */

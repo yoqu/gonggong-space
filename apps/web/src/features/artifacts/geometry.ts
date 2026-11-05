@@ -1,4 +1,10 @@
-import type { ArtifactDevice, ArtifactRefKind, GgArtifactManifest, GgArtifactRef } from '@gonggong/protocol'
+import type {
+  ArtifactDevice,
+  ArtifactRefKind,
+  GgArtifactManifest,
+  GgArtifactRef,
+  GgArtifactScreen,
+} from '@gonggong/protocol'
 
 /** Screen sizes per device (the web-prototype kit's DEVICES). */
 export const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
@@ -121,7 +127,7 @@ export function layoutNodes({
   nodes: CanvasNode[]
 } {
   const device = manifest?.device ?? 'desktop'
-  const screens = manifest?.screens ?? [{ id: 'index', title, file: 'index.html' }]
+  const screens: GgArtifactScreen[] = manifest?.screens ?? [{ id: 'index', title, file: 'index.html' }]
   const nodes: CanvasNode[] = []
   let left = 0
   if (system !== null) {
@@ -142,9 +148,12 @@ export function layoutNodes({
     })
     left += DOC_WIDTH + NODE_GAP
   }
+  /** Where members placed screens; the others keep their cell of the rows. */
+  const placed = new Map<string, { x: number; y: number }>()
   const cells: Omit<CanvasNode, 'x' | 'y'>[] = screens.map((s) => {
     const f = frames[s.id] ?? defaultFrame(device)
     const h = f.full ? Math.max(1, Math.round(content[s.file] ?? f.h)) : f.h
+    if (s.x !== undefined && s.y !== undefined) placed.set(s.id, { x: s.x, y: s.y })
     return { id: s.id, kind: 'screen', title: s.title, file: s.file, w: f.w, h }
   })
   if (manifest) {
@@ -157,7 +166,7 @@ export function layoutNodes({
     let x = left
     let tallest = 0
     for (const c of cells.slice(i, i + row)) {
-      nodes.push({ ...c, x, y })
+      nodes.push({ ...c, x, y, ...placed.get(c.id) })
       x += c.w + NODE_GAP
       tallest = Math.max(tallest, c.h)
     }
@@ -317,17 +326,6 @@ export function neighbour(nodes: CanvasNode[], from: CanvasNode, dir: Direction)
         : Math.abs(pb.y - o.y) + 4 * Math.abs(pb.x - o.x)
       return da - db
     })[0]
-}
-
-/**
- * Where a screen dragged by its title to canvas point (`dropX`, `dropY`) goes among the screens (manifest `reorder`
- * index): after every screen of the rows above the drop's row, and after those of its row left of it.
- */
-export function dropIndex(screens: CanvasNode[], id: string, dropX: number, dropY = 0): number {
-  const others = screens.filter((s) => s.id !== id)
-  const tops = [...new Set(others.map((s) => s.y))].sort((a, b) => a - b)
-  const rowTop = tops.filter((y) => y <= dropY).at(-1) ?? tops[0] ?? 0
-  return others.filter((s) => s.y < rowTop || (s.y === rowTop && s.x + s.w / 2 < dropX)).length
 }
 
 /** A rectangle in canvas units (a marquee). */

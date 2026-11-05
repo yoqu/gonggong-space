@@ -87,7 +87,7 @@ async function uploaded(a: Artifact, uploadId: string, image: boolean) {
 /** `src` of `assets/<name>` as written in `file`. */
 const assetSrc = (file: string, name: string) => (file.includes('/') ? `../assets/${name}` : `assets/${name}`)
 
-type ManifestOp = Extract<ArtifactEditOp, { kind: 'manifest' }>
+type ManifestOp = Extract<ArtifactEditOp, { kind: 'manifest' | 'screen-move' }>
 type RefOp = Extract<ArtifactEditOp, { kind: 'ref' | 'ref-delete' | 'ref-move' | 'ref-rename' }>
 
 /** `<id>-copy`, then `<id>-copy-2`…, within the 40 characters of a screen id. */
@@ -154,6 +154,7 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         tokens.push(op)
         break
       case 'manifest':
+      case 'screen-move':
         screens.push(op)
         break
       case 'ref':
@@ -198,7 +199,8 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
     for (const op of screens) {
       const i = m.screens.findIndex((s) => s.id === op.screenId)
       const screen = m.screens[i] ?? fail('invalid', '屏幕不存在：{id}', { id: op.screenId })
-      if (op.op === 'rename') screen.title = op.title ?? screen.title
+      if (op.kind === 'screen-move') Object.assign(screen, { x: op.x, y: op.y })
+      else if (op.op === 'rename') screen.title = op.title ?? screen.title
       else if (op.op === 'duplicate') {
         const paths = [...files.keys(), ...changed.keys()]
         const taken = new Set([
@@ -209,8 +211,10 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         const file = `screens/${id}.html`
         changed.set(file, await read(screen.file))
         removed.delete(file)
+        // The copy goes back to the layout rather than on top of its original.
+        const { x: _x, y: _y, ...rest } = screen
         m.screens.splice(i + 1, 0, {
-          ...screen,
+          ...rest,
           id,
           title: op.title ?? `${screen.title} 副本`.slice(0, 80),
           file,

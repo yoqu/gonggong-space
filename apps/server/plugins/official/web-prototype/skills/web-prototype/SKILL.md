@@ -71,7 +71,7 @@ design/<slug>/
 └── _gg/                    ← not hosted only: copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
 ```
 
-People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone.
+People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too.
 
 `index.html` and `_gg/` belong to the platform: never edit them and never put your own files there; the platform replaces them when it renders. Once `DESIGN.md` and `tokens.css` are in the folder they are the artifact's own: later turns read and follow those copies (people may have changed them), not the plugin's originals.
 

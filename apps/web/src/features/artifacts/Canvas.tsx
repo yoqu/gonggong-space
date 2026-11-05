@@ -101,7 +101,6 @@ import {
   type Direction,
   DOC_HEIGHT,
   defaultFrame,
-  dropIndex,
   FRAME_PRESETS,
   type FramePreset,
   fitView,
@@ -399,8 +398,8 @@ export function Canvas({
     const timer = setTimeout(() => setNotice(null), NOTICE_MS)
     return () => clearTimeout(timer)
   }, [notice])
-  /** Where references were just dragged, until the version with their new place arrives. */
-  const [refMoves, setRefMoves] = useState<Record<string, { x: number; y: number }>>({})
+  /** Where screens and references were just dragged (by node id), until the version with their new place arrives. */
+  const [moves, setMoves] = useState<Record<string, { x: number; y: number }>>({})
   /** The element a screen reported clicked with mark or direct edit; `pop` shows its popover. */
   const [element, setElement] = useState<PickedElement | null>(null)
   const [pop, setPop] = useState(false)
@@ -465,18 +464,21 @@ export function Canvas({
   const live = tool === 'mark' || tool === 'edit'
   const canEdit = !readOnly && !!manifest
 
-  const savedRefs = useMemo(() => manifest?.refs ?? [], [manifest])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved references in place
-  useEffect(() => setRefMoves({}), [savedRefs])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new manifest has the moved nodes in place
+  useEffect(() => setMoves({}), [manifest])
   const refs = useMemo<GgArtifactRef[]>(
-    () => savedRefs.map((r) => (refMoves[r.id] ? { ...r, ...refMoves[r.id] } : r)),
-    [savedRefs, refMoves],
+    () => (manifest?.refs ?? []).map((r) => ({ ...r, ...moves[refNodeId(r.id)] })),
+    [manifest, moves],
+  )
+  const placedManifest = useMemo(
+    () => manifest && { ...manifest, screens: manifest.screens.map((s) => ({ ...s, ...moves[s.id] })) },
+    [manifest, moves],
   )
   const { device, nodes } = useMemo(
     () =>
       layoutNodes({
         title,
-        manifest,
+        manifest: placedManifest,
         system: tokens ? systemH : null,
         doc: designMd ? docH : null,
         frames,
@@ -484,7 +486,7 @@ export function Canvas({
         refs,
         refHeights,
       }),
-    [title, manifest, tokens, systemH, designMd, docH, frames, content, refs, refHeights],
+    [title, placedManifest, tokens, systemH, designMd, docH, frames, content, refs, refHeights],
   )
   const screens = useMemo(() => nodes.filter((n) => n.kind === 'screen'), [nodes])
   const picked = screens.filter((n) => selected.includes(n.id))
@@ -1165,37 +1167,41 @@ export function Canvas({
     else fitTo([n.id])
   }
 
-  // Dragging a screen by its title's grip reorders the screens (manifest `reorder`).
-  const gripDown = (e: PointerEvent<HTMLSpanElement>, n: CanvasNode) => {
-    if (!canEdit || n.kind !== 'screen' || e.button !== 0) return
-    e.stopPropagation()
-    e.currentTarget.setPointerCapture?.(e.pointerId)
-    setMoving({ id: n.id, x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
-  }
-  const gripMove = (e: PointerEvent<HTMLSpanElement>) =>
-    setMoving((m) => (m ? { ...m, dx: e.clientX - m.x, dy: e.clientY - m.y } : m))
-  // A reference is dragged by its body to wherever the member wants it (ref-move, G04).
-  const refDown = (e: PointerEvent<HTMLDivElement>, n: CanvasNode) => {
-    if (n.kind !== 'ref' || !canEdit || tool !== 'select' || panning || zoomHold) return
-    if (e.button !== 0 || e.shiftKey) return
+  /** Screens and references can be dragged to wherever the member wants them (ref-move G04, screen-move). */
+  const movable = (n: CanvasNode) => canEdit && (n.kind === 'ref' || n.kind === 'screen')
+  const startMove = (e: PointerEvent<HTMLElement>, n: CanvasNode) => {
     e.stopPropagation()
     root.current?.focus({ preventScroll: true })
     e.currentTarget.setPointerCapture?.(e.pointerId)
     setMoving({ id: n.id, x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
   }
+  const gripDown = (e: PointerEvent<HTMLSpanElement>, n: CanvasNode) => {
+    if (n.kind === 'screen' && movable(n) && e.button === 0) startMove(e, n)
+  }
+  // A reference is dragged by its body; a screen by its body once selected (unselected, the drag pans).
+  const bodyDown = (e: PointerEvent<HTMLDivElement>, n: CanvasNode) => {
+    if (!movable(n) || tool !== 'select' || panning || zoomHold || e.button !== 0 || e.shiftKey) return
+    if (n.kind === 'screen' && !selected.includes(n.id)) return
+    startMove(e, n)
+  }
+  const gripMove = (e: PointerEvent<HTMLElement>) =>
+    setMoving((m) => (m ? { ...m, dx: e.clientX - m.x, dy: e.clientY - m.y } : m))
   const gripUp = () => {
     const m = moving
     setMoving(null)
     const n = m && nodes.find((s) => s.id === m.id)
     if (!m || !n || Math.hypot(m.dx, m.dy) < DRAG) return
-    if (n.kind === 'ref') {
-      const id = n.id.slice(REF_PREFIX.length)
-      const to = { x: Math.round(n.x + m.dx / view.z), y: Math.round(n.y + m.dy / view.z) }
-      setRefMoves((r) => ({ ...r, [id]: to }))
-      return edit([{ kind: 'ref-move', id, ...to }], () => setRefMoves(({ [id]: _, ...rest }) => rest))
-    }
-    const index = dropIndex(screens, n.id, n.x + n.w / 2 + m.dx / view.z, n.y + m.dy / view.z)
-    if (index !== screens.indexOf(n)) edit([manifestOp('reorder', n.id, { index })])
+    const to = { x: Math.round(n.x + m.dx / view.z), y: Math.round(n.y + m.dy / view.z) }
+    setMoves((r) => ({ ...r, [n.id]: to }))
+    const undo = () => setMoves(({ [n.id]: _, ...rest }) => rest)
+    edit(
+      [
+        n.kind === 'ref'
+          ? { kind: 'ref-move', id: n.id.slice(REF_PREFIX.length), ...to }
+          : { kind: 'screen-move', screenId: n.id, ...to },
+      ],
+      undo,
+    )
   }
 
   /** A document rect of a screen where its frame shows it now; null once scrolled out of the frame. */
@@ -1534,7 +1540,10 @@ export function Canvas({
                 className={cx(
                   'art-node',
                   `art-node--${n.kind}`,
-                  n.kind === 'ref' && canEdit && tool === 'select' && 'art-node--movable',
+                  movable(n) &&
+                    tool === 'select' &&
+                    (n.kind === 'ref' || selected.includes(n.id)) &&
+                    'art-node--movable',
                 )}
                 data-testid={`art-node-${n.id}`}
                 {...nodeKind(n)}
@@ -1552,9 +1561,9 @@ export function Canvas({
                 onContextMenu={() => {
                   if (!selected.includes(n.id)) setSelected([n.id])
                 }}
-                {...(n.kind === 'ref'
+                {...(movable(n)
                   ? {
-                      onPointerDown: (e: PointerEvent<HTMLDivElement>) => refDown(e, n),
+                      onPointerDown: (e: PointerEvent<HTMLDivElement>) => bodyDown(e, n),
                       onPointerMove: gripMove,
                       onPointerUp: gripUp,
                       onPointerCancel: () => setMoving(null),
