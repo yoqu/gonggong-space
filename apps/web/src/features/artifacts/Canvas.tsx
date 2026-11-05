@@ -154,7 +154,7 @@ import { RefNode } from './RefNode'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
 import { QrDialog, useShareAccess } from './share'
-import { type ArtifactLink, artifactLink, takeArtifactFocus, useArtifactFocus } from './store'
+import { type ArtifactLink, artifactLink, loadArtifact, takeArtifactFocus, useArtifactFocus } from './store'
 import type { DesignTokens } from './tokens'
 import { VariationsDialog } from './VariationsDialog'
 
@@ -1868,6 +1868,17 @@ export function Canvas({
             const files = [...(e.target.files ?? [])]
             e.target.value = ''
             void upload(files)
+          }}
+        />
+        <ToolButton
+          icon="arrow-clockwise"
+          label={t('刷新')}
+          onClick={() => {
+            void loadArtifact(artifactId)
+            setReloads((r) => ({
+              ...r,
+              ...Object.fromEntries(screens.map((n) => [n.id, (r[n.id] ?? 0) + 1])),
+            }))
           }}
         />
         <hr className="art-tools__sep" />
