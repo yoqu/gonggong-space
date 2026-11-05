@@ -26,18 +26,13 @@ export default {
   已复制绑定命令: 'Bind command copied',
   '没有安装客户端时，在机器的终端里执行。':
     "Without the client installed, run this in the machine's terminal.",
-  生成接入链接: 'Generate connect link',
-  客户端绑定: 'Client binds',
-  '上报机器与 agent': 'Machine and agents reported',
   绑定新机器: 'Bind new machine',
   '在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。':
     'Open the connect link in the Gonggong Space client. Once confirmed, the machine is yours and Bots run on it.',
   完成: 'Done',
   取消: 'Cancel',
-  '等待客户端确认绑定…': 'Waiting for the client to confirm…',
   '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。':
     'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex; rebinding the same machine restores its record.',
-  '还没安装客户端？': 'No client installed yet?',
   'macOS（Apple 芯片）': 'macOS (Apple silicon)',
   'macOS（Intel）': 'macOS (Intel)',
   'Linux x86_64（命令行）': 'Linux x86_64 (CLI)',
@@ -328,4 +323,20 @@ export default {
   '最后在线：{time}': 'Last online: {time}',
   '让它上线：在该机器上打开共工空间客户端，或在终端运行':
     'To bring it online, open the Gonggong Space client on the machine, or run in a terminal',
+  安装客户端: 'Install the client',
+  打开接入链接: 'Open the connect link',
+  等待机器上线: 'Wait for the machine',
+  '① 安装客户端': '① Install the client',
+  '② 打开接入链接': '② Open the connect link',
+  '③ 等待机器上线': '③ Wait for the machine to come online',
+  '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
+  '等待机器上线…': 'Waiting for the machine to come online…',
+  机器已上线: 'The machine is online',
+  查看机器: 'View machine',
+  机器总览: 'Machines overview',
+  '在一台装有 Claude Code 或 Codex 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':
+    'Install the Gonggong Space client on a machine with Claude Code or Codex and bind it; Bots run there.',
+  '供应商：{name}': 'Provider: {name}',
+  '{n} 个 Bot · {k} 个运行中': '{n} {n:Bot|Bots} · {k} running',
+  '没有 Bot': 'No Bots',
 } satisfies Record<string, string>

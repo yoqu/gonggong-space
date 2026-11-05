@@ -39,6 +39,8 @@ import { AGENT_LABEL, AGENTS, botsApi, reportedAgent } from './model'
 
 interface Props {
   me: UserDto
+  /** Preselected when it is one of the first owner's machines (opened right after binding it). */
+  machineId?: string
   onClose: () => void
   onCreated?: (bot: BotDto) => void
 }
@@ -194,7 +196,7 @@ function NextStep({ created, self }: { created: BotDto; self: boolean }) {
 }
 
 /** 新建 Bot (管理后台.dc.html): who and what it is, then where it runs, previewing the resulting binding. */
-export function NewBotDialog({ me, onClose, onCreated }: Props) {
+export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   const [owners, setOwners] = useState<BotOwnerDto[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
@@ -217,10 +219,15 @@ export function NewBotDialog({ me, onClose, onCreated }: Props) {
       .then((list) => {
         const sorted = [...list].sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id))
         setOwners(sorted)
-        if (sorted[0]) setDraft(draftFor(sorted[0], sorted[0].machines))
+        const first = sorted[0]
+        if (!first) return
+        const picked = first.machines.find((m) => m.id === machineId)
+        setDraft(
+          draftFor(first, picked ? [picked, ...first.machines.filter((m) => m !== picked)] : first.machines),
+        )
       })
       .catch(toastError)
-  }, [me.id])
+  }, [me.id, machineId])
 
   const owner = owners?.find((o) => o.id === draft?.ownerId)
   if (created)

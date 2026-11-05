@@ -1,8 +1,9 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus } from '../../ui'
+import { Alert, Button, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { BindCodePanel, useBindCode } from './BindCodePanel'
 import { ClientDownload } from './ClientDownload'
@@ -10,8 +11,21 @@ import { OS_LABEL } from './model'
 import './machines.css'
 import { t } from '../../i18n'
 
-/** 绑定新机器 (Web 对话.dc.html ovBind): 接入链接 → desktop app binds → machine/agents reported. */
-export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * 绑定新机器 in three steps: ① install the client (skippable), ② open the 接入链接 in it, ③ wait for the machine to
+ * come online, then go on to 新建 Bot on it or to its page.
+ */
+export function BindMachineDialog({
+  open,
+  onClose,
+  onNewBot,
+}: {
+  open: boolean
+  onClose: () => void
+  /** 新建 Bot on the machine just bound; without it the button is not offered. */
+  onNewBot?: (machineId: string) => void
+}) {
+  const navigate = useNavigate()
   const [bound, setBound] = useState<MachineDto | null>(null)
   /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
   const known = useRef<Map<string, string> | null>(null)
@@ -40,14 +54,14 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
     })
   }, [open])
 
-  const waiting = !!code && !bound && !expired
+  const online = !!bound?.online
   const steps: { label: string; status: StepStatus }[] = [
-    { label: t('生成接入链接'), status: code || bound ? 'completed' : error ? 'error' : 'active' },
+    { label: t('安装客户端'), status: bound ? 'completed' : 'active' },
     {
-      label: t('客户端绑定'),
-      status: bound ? 'completed' : expired ? 'error' : waiting ? 'active' : 'pending',
+      label: t('打开接入链接'),
+      status: bound ? 'completed' : expired || error ? 'error' : code ? 'active' : 'pending',
     },
-    { label: t('上报机器与 agent'), status: bound ? (bound.online ? 'completed' : 'active') : 'pending' },
+    { label: t('等待机器上线'), status: online ? 'completed' : bound ? 'active' : 'pending' },
   ]
 
   return (
@@ -65,28 +79,59 @@ export function BindMachineDialog({ open, onClose }: { open: boolean; onClose: (
     >
       <div className="bind">
         <StepIndicator steps={steps} />
-        {bound ? (
-          <BoundMachine machine={bound} />
-        ) : (
+        {bound ? null : (
           <>
-            <BindCodePanel bind={bind} />
-            {waiting ? (
-              <span className="bind__waiting">
-                <Spinner size={14} />
-                {t('等待客户端确认绑定…')}
-              </span>
-            ) : null}
-            <p className="bind__note">
-              {t(
-                '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。',
-              )}
-            </p>
-            <section className="bind__section">
-              <h3 className="bind__heading">{t('还没安装客户端？')}</h3>
+            <section className="bind__section" aria-label={t('安装客户端')}>
+              <h3 className="bind__heading">{t('① 安装客户端')}</h3>
+              <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
               <ClientDownload open={open} />
+            </section>
+            <section className="bind__section" aria-label={t('打开接入链接')}>
+              <h3 className="bind__heading">{t('② 打开接入链接')}</h3>
+              <BindCodePanel bind={bind} />
             </section>
           </>
         )}
+        <section className="bind__section" aria-label={t('等待机器上线')}>
+          <h3 className="bind__heading">{t('③ 等待机器上线')}</h3>
+          {bound ? (
+            <>
+              <BoundMachine machine={bound} />
+              {online ? (
+                <span className="bind__actions">
+                  <span className="bind__online">{t('机器已上线')}</span>
+                  {onNewBot ? (
+                    <Button variant="primary" onClick={() => onNewBot(bound.id)}>
+                      {t('新建 Bot')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    onClick={() => {
+                      onClose()
+                      navigate(`/machine/${bound.id}`)
+                    }}
+                  >
+                    {t('查看机器')}
+                  </Button>
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {code && !expired ? (
+                <span className="bind__waiting">
+                  <Spinner size={14} />
+                  {t('等待机器上线…')}
+                </span>
+              ) : null}
+              <p className="bind__note">
+                {t(
+                  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。',
+                )}
+              </p>
+            </>
+          )}
+        </section>
       </div>
     </Dialog>
   )

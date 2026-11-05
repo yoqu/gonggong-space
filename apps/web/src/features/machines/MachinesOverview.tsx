@@ -1,0 +1,84 @@
+import { type BotDto, type MachineDto, OFFICIAL_PROVIDER, type ProviderStoreView } from '@gonggong/protocol'
+import { Link } from 'react-router'
+import { t } from '../../i18n'
+import { useGet } from '../../lib/useGet'
+import { Button, EmptyState, Icon, PickChatArt } from '../../ui'
+import { AGENT_LABEL, AGENTS } from '../bots/model'
+import { OS_ICON } from './MachineDialog'
+import { OS_LABEL } from './model'
+import { providerName } from './providers'
+import './machines.css'
+
+/** /machines with nothing picked: a card per machine, or how to bind the first one. */
+export function MachinesOverview({
+  machines,
+  bots,
+  onBindMachine,
+}: {
+  machines: MachineDto[]
+  bots: BotDto[]
+  onBindMachine: () => void
+}) {
+  return (
+    <section className="machines-overview" aria-label={t('机器总览')}>
+      {machines.length ? (
+        <div className="machines-overview__grid">
+          {machines.map((m) => (
+            <MachineCard key={m.id} machine={m} bots={bots.filter((b) => b.machineId === m.id)} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          illustration={<PickChatArt />}
+          title={t('还没有绑定机器')}
+          description={t(
+            '在一台装有 Claude Code 或 Codex 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。',
+          )}
+          action={
+            <Button variant="primary" icon="plus" onClick={onBindMachine}>
+              {t('绑定新机器')}
+            </Button>
+          }
+        />
+      )}
+    </section>
+  )
+}
+
+function MachineCard({ machine: m, bots }: { machine: MachineDto; bots: BotDto[] }) {
+  // Providers live on the machine alone: read live while it is online, never kept.
+  const view = useGet<ProviderStoreView>(
+    m.online && m.features.includes('providers') ? `/machines/${m.id}/providers` : null,
+  ).data
+  const running = bots.filter((b) => b.presence === 'running').length
+  return (
+    <Link to={`/machine/${m.id}`} className="machine-card">
+      <span className="machine-card__head">
+        <Icon name={OS_ICON[m.os]} size={18} />
+        <span className="machine-card__name">{m.name}</span>
+        <span className="machine__status" data-online={m.online}>
+          {m.online ? t('在线') : t('离线')}
+        </span>
+      </span>
+      <span className="mx-sub">{[OS_LABEL[m.os], m.arch].join(' · ')}</span>
+      <span className="machine-card__agents">
+        {AGENTS.map((kind) => {
+          const a = m.agents.find((x) => x.kind === kind)
+          const provider =
+            view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null
+          return (
+            <span key={kind} className="machine__agent" data-available={!!a?.available}>
+              {a?.available
+                ? `${AGENT_LABEL[kind]} ${a.version ?? ''}`.trim()
+                : `${AGENT_LABEL[kind]} ${t('未安装')}`}
+              {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
+            </span>
+          )
+        })}
+      </span>
+      <span className="mx-sub">
+        {bots.length ? t('{n} 个 Bot · {k} 个运行中', { n: bots.length, k: running }) : t('没有 Bot')}
+      </span>
+    </Link>
+  )
+}

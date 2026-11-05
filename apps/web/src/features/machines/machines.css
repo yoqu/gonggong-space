@@ -716,3 +716,74 @@
 .mx-warn {
   color: var(--tint-orange-text);
 }
+
+/* /machines: 机器总览 */
+.machines-overview {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-32);
+}
+.machines-overview:has(.machines-overview__grid) {
+  justify-content: flex-start;
+}
+.machines-overview__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-16);
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.machine-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-window);
+  background: var(--group-bg);
+  box-shadow: var(--shadow-outline);
+  color: inherit;
+  text-decoration: none;
+}
+.machine-card:hover {
+  box-shadow:
+    var(--shadow-outline),
+    0 0 0 2px var(--accent-fill);
+}
+.machine-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.machine-card__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.machine-card__agents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.machine-card__agents .machine__agent {
+  flex-wrap: wrap;
+}
+
+/* 绑定新机器 · ③ */
+.bind__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.bind__online {
+  margin-right: auto;
+  color: var(--tint-green-text);
+  font-weight: 600;
+}

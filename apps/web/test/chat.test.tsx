@@ -375,7 +375,7 @@ describe('sidebar', () => {
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
     expect(within(welcome).getByRole('heading', { name: /欢迎来到共工空间/ })).toBeTruthy()
-    for (const b of ['绑定机器', '新建 Bot', '新建群'])
+    for (const b of ['绑定新机器', '新建 Bot', '新建群'])
       expect(within(welcome).getByRole('button', { name: b })).toBeTruthy()
     // The main area carries the guide, so the sidebar doesn't repeat it.
     expect(
@@ -403,7 +403,7 @@ describe('sidebar', () => {
     renderAt('/')
     const main = screen.getByRole('main')
     const guide = await within(main).findByRole('region', { name: '开始使用' })
-    fireEvent.click(within(guide).getByRole('button', { name: /绑定机器/ }))
+    fireEvent.click(within(guide).getByRole('button', { name: /绑定新机器/ }))
     expect(await screen.findByRole('link', { name: '在客户端中打开' })).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
@@ -447,7 +447,13 @@ describe('my machines and bots', () => {
     const bot = await within(mine).findByRole('link', { name: /小王的 Claude/ })
     expect(bot.closest('.sidebar__machine')?.textContent).toContain('wanglei-mbp')
     expect(bot.closest('.sidebar__machine')?.textContent).not.toContain('old-box')
-    expect(within(screen.getByRole('main')).getByText('选择一台机器或 Bot')).toBeTruthy()
+    const overview = await within(screen.getByRole('main')).findByRole('region', { name: '机器总览' })
+    expect(
+      within(overview)
+        .getByRole('link', { name: /wanglei-mbp/ })
+        .getAttribute('href'),
+    ).toBe('/machine/mc1')
+    expect(within(overview).getByRole('link', { name: /old-box/ })).toBeTruthy()
 
     fireEvent.click(within(rail).getByRole('button', { name: /^消息/ }))
     expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
@@ -527,6 +533,24 @@ describe('my machines and bots', () => {
     const mine = within(nav).getByRole('region', { name: '我的机器' })
     fireEvent.click(await within(mine).findByRole('button', { name: '绑定新机器' }))
     expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
+  })
+
+  it('greets a member without machines on /machines with the same bind dialog', async () => {
+    mockApi({
+      ...baseRoutes([]),
+      'POST /bind-codes': () => ({
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        link: 'gonggong://bind?server=x&code=K7QM-4X2P',
+      }),
+    })
+    renderAt('/machines')
+    const main = screen.getByRole('main')
+    const empty = await within(main).findByRole('region', { name: '机器总览' })
+    expect(empty.textContent).toContain('还没有绑定机器')
+    fireEvent.click(within(empty).getByRole('button', { name: '绑定新机器' }))
+    const dialog = await screen.findByRole('dialog', { name: '绑定新机器' })
+    expect(within(dialog).getByRole('region', { name: '安装客户端' })).toBeTruthy()
   })
 
   it('opens a bot from the sidebar and deletes it after confirmation', async () => {

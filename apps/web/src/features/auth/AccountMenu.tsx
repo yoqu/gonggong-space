@@ -4,6 +4,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { named } from '../../lib/lazy'
 import { Avatar, MenuButton, type MenuItem, Presence } from '../../ui'
+import { NewBotDialog } from '../bots/lazy'
 import { BindMachineDialog } from '../machines/lazy'
 import { useSettings } from '../settings/store'
 import { TeamSettingsDialog } from '../teams/lazy'
@@ -31,6 +32,8 @@ export function AccountMenu({
   // Single-team mode has no team switcher, so 团队设置 lives here (plan D11).
   const soleTeam = useSession((s) => (s.tenancy?.singleTeamMode ? s.tenancy.teams[0] : undefined))
   const [dialog, setDialog] = useState<'bind' | 'usage' | 'team' | 'invite' | null>(null)
+  /** 新建 Bot on the machine just bound from 绑定新机器. */
+  const [newBotOn, setNewBotOn] = useState<string | null>(null)
   const openSettings = useSettings((s) => s.open)
 
   if (!user) return null
@@ -76,7 +79,14 @@ export function AccountMenu({
       <Presence>
         {dialog === 'bind' ? (
           <Suspense fallback={null}>
-            <BindMachineDialog open onClose={() => setDialog(null)} />
+            <BindMachineDialog
+              open
+              onClose={() => setDialog(null)}
+              onNewBot={(machineId) => {
+                setDialog(null)
+                setNewBotOn(machineId)
+              }}
+            />
           </Suspense>
         ) : dialog === 'usage' ? (
           <Suspense fallback={null}>
@@ -89,6 +99,13 @@ export function AccountMenu({
               tab={dialog === 'invite' ? 'invites' : 'overview'}
               onClose={() => setDialog(null)}
             />
+          </Suspense>
+        ) : null}
+      </Presence>
+      <Presence>
+        {newBotOn ? (
+          <Suspense fallback={null}>
+            <NewBotDialog me={user} machineId={newBotOn} onClose={() => setNewBotOn(null)} />
           </Suspense>
         ) : null}
       </Presence>

@@ -7,7 +7,7 @@ import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
-import { BindMachineDialog, MachinePage } from '../features/machines/lazy'
+import { BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
@@ -160,7 +160,8 @@ export function ChatPage() {
   const [creating, setCreating] = useState(false)
   const [fromFeishu, setFromFeishu] = useLinkedFeishuChat()
   const [binding, setBinding] = useState(false)
-  const [newBot, setNewBot] = useState(false)
+  /** The new bot dialog, on `machineId` when opened right after binding it. */
+  const [newBot, setNewBot] = useState<{ machineId?: string } | null>(null)
   const [setting, setSetting] = useState<{ botId: string; tab?: BotTab } | null>(null)
   const myBots = bots.filter((b) => b.ownerId === me?.id)
   const sharedBots = bots.filter((b) => !!me && b.sharedWith.includes(me.id))
@@ -229,7 +230,7 @@ export function ChatPage() {
               machines={myMachines}
               loaded={workspaceLoaded}
               onBindMachine={() => setBinding(true)}
-              onNewBot={() => setNewBot(true)}
+              onNewBot={() => setNewBot({})}
               onConfirmBot={(id) => void confirmBot(id)}
             />
           ) : (
@@ -243,7 +244,7 @@ export function ChatPage() {
               onNewGroup={() => setCreating(true)}
               loaded={workspaceLoaded && groupsState === 'ready'}
               onBindMachine={() => setBinding(true)}
-              onNewBot={() => setNewBot(true)}
+              onNewBot={() => setNewBot({})}
             />
           )
         }
@@ -306,13 +307,15 @@ export function ChatPage() {
             </div>
           )
         ) : managing ? (
-          <div className="chat__placeholder">
-            <EmptyState
-              illustration={<PickChatArt />}
-              title={t('选择一台机器或 Bot')}
-              description={t('在左侧查看机器与其上的 Bot，管理配置、权限与共享。')}
-            />
-          </div>
+          workspaceLoaded ? (
+            <Suspense fallback={null}>
+              <MachinesOverview machines={myMachines} bots={myBots} onBindMachine={() => setBinding(true)} />
+            </Suspense>
+          ) : (
+            <div className="chat__placeholder">
+              <Mascot action="wait" size={72} label={t('加载中')} />
+            </div>
+          )
         ) : group ? (
           <ChatView key={group.id} group={group} onBack={mobile ? () => navigate('/') : undefined} />
         ) : viewed ? (
@@ -342,7 +345,7 @@ export function ChatPage() {
               bound={myMachines.length > 0}
               hasBot={myBots.length > 0}
               onBindMachine={() => setBinding(true)}
-              onNewBot={() => setNewBot(true)}
+              onNewBot={() => setNewBot({})}
               onNewGroup={() => setCreating(true)}
             />
           </div>
@@ -378,14 +381,21 @@ export function ChatPage() {
       <Presence>
         {binding ? (
           <Suspense fallback={null}>
-            <BindMachineDialog open onClose={() => setBinding(false)} />
+            <BindMachineDialog
+              open
+              onClose={() => setBinding(false)}
+              onNewBot={(machineId) => {
+                setBinding(false)
+                setNewBot({ machineId })
+              }}
+            />
           </Suspense>
         ) : null}
       </Presence>
       <Presence>
         {newBot && me ? (
           <Suspense fallback={null}>
-            <NewBotDialog me={me} onClose={() => setNewBot(false)} />
+            <NewBotDialog me={me} machineId={newBot.machineId} onClose={() => setNewBot(null)} />
           </Suspense>
         ) : null}
       </Presence>

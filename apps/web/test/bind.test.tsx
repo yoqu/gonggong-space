@@ -1,5 +1,6 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BindMachineDialog } from '../src/features/machines/BindMachineDialog'
 import { realtime } from '../src/lib/realtime'
@@ -72,19 +73,40 @@ const api = (ttlMs = 10 * 60_000) =>
 
 const openLink = () => screen.findByRole('link', { name: '在客户端中打开' })
 
+const show = (props: { onClose?: () => void; onNewBot?: (machineId: string) => void } = {}) =>
+  render(
+    <MemoryRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<BindMachineDialog open onClose={props.onClose ?? (() => {})} onNewBot={props.onNewBot} />}
+        />
+        <Route path="/machine/:id" element={<p>machine page</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
 describe('bind machine dialog', () => {
   it('opens the 接入链接 in the desktop app and copies it', async () => {
     const writeText = vi.fn(async () => {})
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     api()
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P'))
     expect(await screen.findByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
     expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
-    for (const step of ['生成接入链接', '客户端绑定', '上报机器与 agent'])
-      expect(screen.getByText(step)).toBeTruthy()
-    expect(screen.queryByText('确认 Bot')).toBeNull()
-    expect(screen.getByText('等待客户端确认绑定…')).toBeTruthy()
+    // Three steps, the client download first.
+    const sections = ['安装客户端', '打开接入链接', '等待机器上线'].map((name) =>
+      screen.getByRole('region', { name }),
+    )
+    for (let i = 1; i < sections.length; i++)
+      expect(
+        sections[i - 1]!.compareDocumentPosition(sections[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    expect(sections[0]!.textContent).toContain('已经装好客户端可以跳过这一步')
+    expect(within(sections[1]!).getByRole('link', { name: '在客户端中打开' })).toBeTruthy()
+    expect(screen.queryByText('还没安装客户端？')).toBeNull()
+    expect(within(sections[2]!).getByText('等待机器上线…')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '复制接入链接' }))
     expect(writeText).toHaveBeenCalledWith(linkOf('K7QM-4X2P'))
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
@@ -122,7 +144,7 @@ describe('bind machine dialog', () => {
   it('recommends the installer for the browser system and lets the user pick another one', async () => {
     browser(MAC, 'arm')
     withDownloads(published)
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     const download = await screen.findByRole('link', { name: '下载 macOS（Apple 芯片）' })
     expect(download.getAttribute('href')).toBe('/downloads/Gonggong_0.3.2_aarch64.dmg')
     expect(screen.getByText('桌面客户端 · v0.3.2')).toBeTruthy()
@@ -141,12 +163,12 @@ describe('bind machine dialog', () => {
   it('tells Intel Macs and Windows apart', async () => {
     browser(MAC, 'x86')
     withDownloads(published)
-    const { unmount } = render(<BindMachineDialog open onClose={() => {}} />)
+    const { unmount } = show()
     expect(await screen.findByRole('link', { name: '下载 macOS（Intel）' })).toBeTruthy()
     unmount()
     browser(WIN)
     withDownloads(published)
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     expect((await screen.findByRole('link', { name: '下载 Windows' })).getAttribute('href')).toBe(
       '/downloads/Gonggong_0.3.2_x64-setup.exe',
     )
@@ -155,7 +177,7 @@ describe('bind machine dialog', () => {
   it('points to GitHub before any client is published', async () => {
     browser(WIN)
     withDownloads(null)
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     expect((await screen.findByRole('link', { name: '前往 GitHub 下载' })).getAttribute('href')).toBe(
       'https://github.com/yoqu/gonggong-space/releases/latest',
     )
@@ -163,7 +185,7 @@ describe('bind machine dialog', () => {
 
   it('keeps the gg login command under 使用命令行', async () => {
     api()
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     await openLink()
     const command = `gg login --server ${location.origin} --code K7QM-4X2P`
     expect(screen.queryByText(command)).toBeNull()
@@ -173,7 +195,8 @@ describe('bind machine dialog', () => {
 
   it('shows success with the machine and its agents once a new machine appears', async () => {
     api()
-    render(<BindMachineDialog open onClose={() => {}} />)
+    const onNewBot = vi.fn()
+    show({ onNewBot })
     await openLink()
     emit(old)
     expect(screen.queryByText('绑定成功')).toBeNull()
@@ -199,11 +222,25 @@ describe('bind machine dialog', () => {
     })
     expect(screen.getByText('Claude Code 2.1.4')).toBeTruthy()
     expect(screen.getByText('Codex 未安装')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '新建 Bot' }))
+    expect(onNewBot).toHaveBeenCalledWith('m1')
+  })
+
+  it('opens the new machine from 查看机器', async () => {
+    api()
+    const onClose = vi.fn()
+    show({ onClose })
+    await openLink()
+    emit({ ...fresh, online: true })
+    expect(screen.getByRole('region', { name: '等待机器上线' }).textContent).toContain('机器已上线')
+    fireEvent.click(screen.getByRole('button', { name: '查看机器' }))
+    expect(screen.getByText('machine page')).toBeTruthy()
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('recognizes a known host logging in again as a restored machine', async () => {
     api()
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     await openLink()
     await act(async () => {})
     emit({ ...old, online: false })
@@ -216,7 +253,7 @@ describe('bind machine dialog', () => {
   it('offers a new code once the current one expires', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const calls = api(2_000)
-    render(<BindMachineDialog open onClose={() => {}} />)
+    show()
     await openLink()
     await act(async () => vi.advanceTimersByTime(3_000))
     expect(screen.getByText('接入链接已失效')).toBeTruthy()
