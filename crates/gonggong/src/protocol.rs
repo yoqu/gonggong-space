@@ -1793,6 +1793,14 @@ pub const FEATURE_CLAUDE_ARGS: &str = "claudeArgs";
 pub const FEATURE_CLAUDE_PROFILE: &str = "claudeProfile";
 /// A provider's `args`: Claude Code command-line arguments.
 pub const FEATURE_PROVIDER_ARGS: &str = "providerArgs";
+/// gitaccess.cmd: ssh keys, HTTPS tokens, access tests and host keys from the web.
+pub const FEATURE_GIT_ACCESS: &str = "gitAccess";
+/// diag.run: `gg doctor` from the web.
+pub const FEATURE_DIAG: &str = "diag";
+/// Not a capability: the daemon runs in a container (GONGGONG_CONTAINER=1).
+pub const FEATURE_CONTAINER: &str = "container";
+/// Not a capability: the daemon never upgrades itself.
+pub const FEATURE_NO_AUTO_UPGRADE: &str = "noAutoUpgrade";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
@@ -1922,6 +1930,88 @@ pub enum TerminalDaemonControl {
         exit_code: Option<i32>,
         reason: Option<TerminalEndReason>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GitAccessAction {
+    Status,
+    GenKey,
+    SaveToken,
+    RemoveToken,
+    Test,
+    TrustHost,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitTokenInput {
+    pub host: String,
+    pub username: String,
+    pub secret: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitAccessCmd {
+    pub request_id: String,
+    pub action: GitAccessAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<GitTokenInput>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshKeyView {
+    pub path: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub fingerprint: String,
+    pub public_key: String,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitTokenView {
+    pub host: String,
+    pub username: String,
+    pub masked: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitAccessView {
+    pub ssh_keys: Vec<SshKeyView>,
+    pub tokens: Vec<GitTokenView>,
+    pub helper: Option<String>,
+    pub known_hosts: Vec<String>,
+}
+
+/// One `gg doctor` check as the web sees it (its label comes from the web's own language).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagCheck {
+    pub kind: crate::diag::CheckKind,
+    pub status: crate::diag::Status,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HostKey {
+    pub host: String,
+    pub fingerprints: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitAccessTest {
+    pub url: String,
+    pub ok: bool,
+    pub reason: Option<RepoAccessReason>,
+    pub detail: Option<String>,
+    pub host_key: Option<HostKey>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2478,6 +2568,16 @@ pub enum DaemonToServer {
     },
     #[serde(rename = "agents.reprobe.result", rename_all = "camelCase")]
     AgentsReprobeResult { request_id: String, ok: bool, error: Option<String> },
+    #[serde(rename = "gitaccess.result", rename_all = "camelCase")]
+    GitAccessResult {
+        request_id: String,
+        ok: bool,
+        error: Option<String>,
+        view: Option<GitAccessView>,
+        test: Option<GitAccessTest>,
+    },
+    #[serde(rename = "diag.result", rename_all = "camelCase")]
+    DiagResult { request_id: String, checks: Vec<DiagCheck> },
     #[serde(rename = "bots.providerState")]
     BotsProviderState { items: Vec<ProviderStateItem> },
     #[serde(rename = "sync.submit")]
@@ -2655,6 +2755,10 @@ pub enum ServerToDaemon {
     CcSwitchApply { request_id: String, keys: Vec<String>, set_default: bool },
     #[serde(rename = "agents.reprobe", rename_all = "camelCase")]
     AgentsReprobe { request_id: String, kind: AgentKind },
+    #[serde(rename = "gitaccess.cmd")]
+    GitAccessCmd(GitAccessCmd),
+    #[serde(rename = "diag.run", rename_all = "camelCase")]
+    DiagRun { request_id: String },
     #[serde(rename = "sync.result", rename_all = "camelCase")]
     SyncResult { group_id: String, bot_id: String, submit_id: String, result: SyncSubmitResult },
     #[serde(rename = "sync.available", rename_all = "camelCase")]

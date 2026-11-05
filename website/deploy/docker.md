@@ -67,38 +67,30 @@ git pull && docker compose up -d --build
    docker compose build
    ```
 
-2. 在网页点头像菜单里的「绑定新机器」，复制接入链接，在服务器上绑定：
-
-   ```bash
-   docker compose run --rm daemon gg login '<接入链接>'
-   ```
-
-3. 启动并常驻：
+2. 在网页点头像菜单里的「绑定新机器」，展开「在 Docker 中运行」，把那一行 `GONGGONG_BIND_URL='<接入链接>'` 加到 `.env`，然后启动并常驻（首次启动时自动绑定，接入链接 10 分钟内有效）：
 
    ```bash
    docker compose up -d
    docker compose logs -f daemon
    ```
 
-4. 登录 Agent，二选一：
+   也可以先手动绑定再启动：`docker compose run --rm daemon gg login '<接入链接>'`。
+
+3. 登录 Agent，二选一：
    - 在 Web 上给这台机器配 API Key 类型的 [供应商](/user/agents-providers)，不用在容器里登录；
-   - 用官方账号：`docker compose exec daemon claude` 按提示完成登录；Codex 用 `docker compose exec daemon codex login --device-auth`。
+   - 用官方账号：在机器页「Agent 与供应商」的「官方登录」点「登录…」，按提示打开该机器的终端运行 `claude`（再输入 `/login`）或 `codex login --device-auth`。
 
-5. 配置 git 提交身份与凭据，然后自检：
+4. 配置 git 凭据：在机器页「Git 访问」里生成 SSH 密钥并把公钥加到 Git 托管平台，或按主机添加 HTTPS 令牌，再用「测试连接」检查仓库地址。令牌只保存在容器的数据卷里，服务器不保存。
 
-   ```bash
-   docker compose exec daemon git config --global user.name '王磊'
-   docker compose exec daemon git config --global user.email 'wanglei@example.com'
-   docker compose exec daemon ssh-keygen -t ed25519 -N '' -f /home/gg/.ssh/id_ed25519   # 公钥加到 Git 托管平台
-   docker compose exec daemon gg doctor
-   ```
+5. 在机器页「诊断」里查看自检结果（等同 `gg doctor`）。
 
-首次连接新的 SSH 主机时自动信任其主机密钥。
+首次连接新的 SSH 主机时自动信任其主机密钥。容器里的 daemon 不会自行升级，机器页的升级指引会给出重建镜像的命令。
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `GG_VERSION` | 无 | 打包的 `gg` 版本，也是镜像标签 |
 | `GONGGONG_MACHINE_ID` | 无 | 机器身份。重建容器只要它不变，就还是同一台机器，Bot 不用重新绑定 |
+| `GONGGONG_BIND_URL` | 无 | 「绑定新机器」→「在 Docker 中运行」给出的接入链接，首次启动时自动绑定；已绑定后忽略 |
 | `GG_CPUS` / `GG_MEMORY` | `4` / `8g` | 容器的 CPU 与内存上限 |
 | `GG_DOWNLOAD_URL`（构建参数） | GitHub Releases | `gg` 的下载地址，可改为你们服务器的 `https://<服务器>/downloads`；文件都按 GitHub 发布的 `SHA256SUMS` 校验 |
 | `NPM_REGISTRY`（构建参数） | `https://registry.npmmirror.com` | 安装 Claude Code、Codex 的 npm 源 |

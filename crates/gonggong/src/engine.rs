@@ -899,6 +899,8 @@ impl Handler for Engine {
                 });
             }
             ServerToDaemon::ToolsCmd(cmd) => self.0.manage.tools(cmd, out),
+            ServerToDaemon::GitAccessCmd(cmd) => self.0.manage.git_access(cmd, out),
+            ServerToDaemon::DiagRun { request_id } => self.0.manage.diag(request_id, self.0.config.api.clone(), out),
             ServerToDaemon::ProvidersCmd(cmd) => self.0.manage.providers(*cmd, out),
             ServerToDaemon::CcSwitchRead { request_id } => self.0.manage.ccswitch_read(request_id, out),
             ServerToDaemon::AgentsReprobe { request_id, kind } => {

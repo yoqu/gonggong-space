@@ -169,6 +169,12 @@ pub struct Upgrader {
     server_release: Arc<watch::Sender<Option<bool>>>,
 }
 
+/// Whether the daemon of `home` upgrades itself: not with `GONGGONG_NO_AUTO_UPGRADE=1` or auto upgrade off.
+pub fn auto_upgrade(home: &Path) -> bool {
+    !std::env::var("GONGGONG_NO_AUTO_UPGRADE").is_ok_and(|v| v == "1")
+        && Settings::load(home).is_ok_and(|s| s.auto_upgrade)
+}
+
 impl Upgrader {
     pub fn new(home: PathBuf, server: String, http: reqwest::Client, exe: PathBuf, args: Vec<OsString>) -> Self {
         let server_release = Arc::new(watch::Sender::new(None));

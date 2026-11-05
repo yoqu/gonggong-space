@@ -1,0 +1,6 @@
+{
+  "t": "gitaccess.cmd",
+  "requestId": "req-1",
+  "action": "saveToken",
+  "token": { "host": "gitlab.example.com", "username": "wanglei", "secret": "glpat-xxxxxxxxxxxxxxxx" }
+}

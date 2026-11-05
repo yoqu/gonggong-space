@@ -47,6 +47,7 @@ import {
   GitRemote,
   GitStash,
   GitTag,
+  GitTokenInput,
   GitWorkChange,
   MachineInfo,
   McpServer,
@@ -306,6 +307,18 @@ export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
  */
 export const ToolsStateDto = z.object({ tools: z.array(ToolStatus), settings: ToolsSettings })
 export type ToolsStateDto = z.infer<typeof ToolsStateDto>
+/*
+ * Git access and self-checks of a machine (owner only, relayed live; tokens are never stored server-side):
+ *   GET    /api/machines/:id/git-access                       → GitAccessView
+ *   POST   /api/machines/:id/git-access/ssh-key               → GitAccessView (an ed25519 key, never overwritten)
+ *   PUT    /api/machines/:id/git-access/tokens  GitTokenInput → GitAccessView
+ *   DELETE /api/machines/:id/git-access/tokens/:host          → GitAccessView
+ *   POST   /api/machines/:id/git-access/test    GitAccessTestReq → GitAccessTest
+ *   POST   /api/machines/:id/git-access/known-hosts TrustHostReq → GitAccessView
+ *   GET    /api/machines/:id/diag                             → DiagCheck[]
+ */
+export const GitAccessTestReq = z.object({ url: z.string().trim().min(1).max(2048) })
+export const TrustHostReq = z.object({ host: GitTokenInput.shape.host })
 export const InstallToolReq = z.object({ version: z.string().regex(TOOL_VERSION).optional() })
 /** A started install / upgrade: its lines arrive as machine.tools.progress, its end as machine.tools.result. */
 export const ToolOpDto = z.object({ opId: z.string() })

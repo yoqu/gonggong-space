@@ -182,8 +182,9 @@ export default {
   网络或证书问题: 'network or certificate problem',
   连接超时: 'connection timed out',
   '正在让 {name} 的机器重新 clone…': "Asking {name}'s machine to clone again…",
-  '{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器上配置 git 凭据后重新检查':
-    "{name} is paused: its machine can't reach the repo ({why}). Set up git credentials on that machine, then recheck",
+  '{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器的「Git 访问」里配置后重新检查':
+    "{name} is paused: its machine can't reach the repo ({why}). Set it up in that machine's Git access, then recheck",
+  去配置: 'Set up',
   '{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理':
     "{name} is paused: its machine can't reach the repo ({why}). Waiting for {owner}",
   重新检查: 'Recheck',

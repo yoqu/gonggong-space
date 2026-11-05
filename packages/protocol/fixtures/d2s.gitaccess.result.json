@@ -1,0 +1,27 @@
+{
+  "t": "gitaccess.result",
+  "requestId": "req-2",
+  "ok": true,
+  "error": null,
+  "view": {
+    "sshKeys": [
+      {
+        "path": "/home/gg/.ssh/id_ed25519.pub",
+        "type": "ssh-ed25519",
+        "fingerprint": "SHA256:0bX4d1lY2l3Q8m6e0bX4d1lY2l3Q8m6e0bX4d1lY2l3",
+        "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample gonggong@gg-server-1",
+        "comment": "gonggong@gg-server-1"
+      }
+    ],
+    "tokens": [{ "host": "gitlab.example.com", "username": "wanglei", "masked": "glpa…" }],
+    "helper": null,
+    "knownHosts": ["github.com"]
+  },
+  "test": {
+    "url": "git@github.com:acme/pay.git",
+    "ok": false,
+    "reason": "denied",
+    "detail": "Permission denied (publickey).",
+    "hostKey": null
+  }
+}

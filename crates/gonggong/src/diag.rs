@@ -5,7 +5,7 @@ use crate::protocol::{AgentInfo, PROTOCOL_VERSION, Permission};
 use crate::t;
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -18,7 +18,7 @@ const DISK_LOW: u64 = 5_000_000_000;
 /// Tail of each log file that goes into a bundle.
 const BUNDLE_LOG_MAX: usize = 4 << 20;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckKind {
     Server,
@@ -30,7 +30,7 @@ pub enum CheckKind {
     Accessibility,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     Ok,

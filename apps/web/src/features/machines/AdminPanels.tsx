@@ -1,4 +1,4 @@
-import { compareVersions, type MachineDto, type MachineWorkspace } from '@gonggong/protocol'
+import { compareVersions, type DiagCheck, type MachineDto, type MachineWorkspace } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -20,6 +20,7 @@ import {
   Select,
   Skeleton,
   Tag,
+  type TagTone,
   toast,
 } from '../../ui'
 import { MirrorPanel } from './ToolsPanel'
@@ -41,14 +42,31 @@ export function CommandLine({ command }: { command: string }) {
 
 /**
  * How to bring the daemon up to `latest`. The server cannot start an upgrade: a connected CLI daemon fetches the
- * new build itself and restarts when idle, the desktop app updates as an app.
+ * new build itself and restarts when idle, the desktop app updates as an app, a container comes from a new image.
  */
-export function UpgradeGuide({ latest }: { latest: string }) {
+export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest: string }) {
+  if (machine.features.includes('container'))
+    return (
+      <section className="machine-upgrade" aria-label={t('如何升级')}>
+        <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
+        <span className="mx-sub">
+          {t(
+            '该机器运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：',
+            {
+              version: latest,
+            },
+          )}
+        </span>
+        <CommandLine command="docker compose build && docker compose up -d" />
+      </section>
+    )
   return (
     <section className="machine-upgrade" aria-label={t('如何升级')}>
       <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
       <span className="mx-sub">
-        {t('daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：')}
+        {machine.features.includes('noAutoUpgrade')
+          ? t('该机器关闭了自动升级。升级方式：')
+          : t('daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：')}
       </span>
       <span>{t('桌面端：在该机器上打开共工空间客户端，点「检查更新」')}</span>
       <span>{t('命令行：在该机器上重启 daemon，重连后自动升级')}</span>
@@ -57,8 +75,82 @@ export function UpgradeGuide({ latest }: { latest: string }) {
   )
 }
 
-/** 诊断: the daemon version, the mirror its tools download from and its log. */
-export function DiagnosticsPanel({ machine, latest }: { machine: MachineDto; latest?: string }) {
+const CHECK_LABEL: Record<DiagCheck['kind'], string> = {
+  server: t('服务器连接'),
+  agent: 'Agent',
+  git: t('git 凭据'),
+  disk: t('磁盘'),
+  eol: t('换行符'),
+  screen_recording: t('屏幕录制'),
+  accessibility: t('辅助功能'),
+}
+const CHECK_TONE: Record<DiagCheck['status'], TagTone> = {
+  ok: 'green',
+  warn: 'orange',
+  error: 'red',
+  skipped: 'gray',
+}
+const CHECK_STATUS: Record<DiagCheck['status'], string> = {
+  ok: t('正常'),
+  warn: t('注意'),
+  error: t('异常'),
+  skipped: t('跳过'),
+}
+
+/** `gg doctor` run on the machine; a git problem links to Git 访问. */
+function SelfChecks({ machine, onOpenGit }: { machine: MachineDto; onOpenGit?: () => void }) {
+  const { data, error, reload } = useGet<DiagCheck[]>(`/machines/${machine.id}/diag`)
+  return (
+    <section className="mx-section" aria-label={t('自检')}>
+      <div className="mx-section__head">
+        <span className="mx-row__main mx-strong">{t('自检')}</span>
+        <Button size="small" icon="arrow-clockwise" onClick={reload}>
+          {t('重新检查')}
+        </Button>
+      </div>
+      {error ? (
+        <Alert variant="error" title={error} />
+      ) : !data ? (
+        <Skeleton count={4} />
+      ) : (
+        <GroupBox>
+          {data
+            .filter((c) => c.status !== 'skipped')
+            .map((c) => (
+              <GroupRow
+                key={c.kind}
+                label={
+                  <span className="mx-inline">
+                    {CHECK_LABEL[c.kind]}
+                    <Tag tone={CHECK_TONE[c.status]}>{CHECK_STATUS[c.status]}</Tag>
+                  </span>
+                }
+                description={c.detail}
+                value={
+                  c.kind === 'git' && c.status !== 'ok' && onOpenGit ? (
+                    <Button size="small" onClick={onOpenGit}>
+                      {t('去配置')}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ))}
+        </GroupBox>
+      )}
+    </section>
+  )
+}
+
+/** 诊断: the daemon version, its self-checks, the mirror its tools download from and its log. */
+export function DiagnosticsPanel({
+  machine,
+  latest,
+  onOpenGit,
+}: {
+  machine: MachineDto
+  latest?: string
+  onOpenGit?: () => void
+}) {
   const version = machine.daemonVersion
   return (
     <div className="mx">
@@ -76,7 +168,8 @@ export function DiagnosticsPanel({ machine, latest }: { machine: MachineDto; lat
           }
         />
       </GroupBox>
-      {upgradable(machine, latest) ? <UpgradeGuide latest={latest} /> : null}
+      {upgradable(machine, latest) ? <UpgradeGuide machine={machine} latest={latest} /> : null}
+      {machine.features.includes('diag') ? <SelfChecks machine={machine} onOpenGit={onOpenGit} /> : null}
       {machine.features.includes('tools') ? <MirrorPanel machine={machine} /> : null}
       {machine.features.includes('machineAdmin') ? <LogsPanel machine={machine} /> : null}
     </div>

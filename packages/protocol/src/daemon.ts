@@ -1238,6 +1238,14 @@ export const DaemonFeature = z.enum([
   'claudeProfile',
   /** A provider's `args` (Claude Code command-line arguments): a daemon without it would drop them. */
   'providerArgs',
+  /** gitaccess.cmd: ssh keys, HTTPS tokens, access tests and host keys from the web. */
+  'gitAccess',
+  /** diag.run: `gg doctor` from the web. */
+  'diag',
+  /** Not a capability: the daemon runs in a container (GONGGONG_CONTAINER=1); upgrades come from a new image. */
+  'container',
+  /** Not a capability: the daemon never upgrades itself (GONGGONG_NO_AUTO_UPGRADE or settings). */
+  'noAutoUpgrade',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1451,6 +1459,69 @@ export const AgentsReprobeResult = z.object({
   ok: z.boolean(),
   error: z.string().nullable(),
 })
+/** A public key in the machine's `~/.ssh` (the private key never leaves the machine). */
+export const SshKeyView = z.object({
+  path: z.string(),
+  type: z.string(),
+  fingerprint: z.string(),
+  publicKey: z.string(),
+  comment: z.string().nullable(),
+})
+export type SshKeyView = z.infer<typeof SshKeyView>
+/** An HTTPS token 共工 stored for `host`; only its first characters are shown. */
+export const GitTokenView = z.object({ host: z.string(), username: z.string(), masked: z.string() })
+export type GitTokenView = z.infer<typeof GitTokenView>
+export const GitAccessView = z.object({
+  sshKeys: z.array(SshKeyView),
+  tokens: z.array(GitTokenView),
+  /** The machine's own global `credential.helper` (osxkeychain, manager…); null = none. */
+  helper: z.string().nullable(),
+  /** Hosts in `~/.ssh/known_hosts` (hashed entries are left out). */
+  knownHosts: z.array(z.string()),
+})
+export type GitAccessView = z.infer<typeof GitAccessView>
+/** `git ls-remote` of one URL with the machine's credentials. */
+export const GitAccessTest = z.object({
+  url: z.string(),
+  ok: z.boolean(),
+  reason: RepoAccessReason.nullable(),
+  detail: z.string().nullable(),
+  /** The ssh host whose key is not trusted yet, with the key fingerprints trustHost would add. */
+  hostKey: z.object({ host: z.string(), fingerprints: z.array(z.string()) }).nullable(),
+})
+export type GitAccessTest = z.infer<typeof GitAccessTest>
+export const GitAccessResult = z.object({
+  t: z.literal('gitaccess.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  view: GitAccessView.nullable(),
+  test: GitAccessTest.nullable(),
+})
+export type GitAccessResult = z.infer<typeof GitAccessResult>
+export const DiagCheckKind = z.enum([
+  'server',
+  'agent',
+  'git',
+  'disk',
+  'eol',
+  'screen_recording',
+  'accessibility',
+])
+export type DiagCheckKind = z.infer<typeof DiagCheckKind>
+/** One `gg doctor` check; `detail` is in the daemon's language. */
+export const DiagCheck = z.object({
+  kind: DiagCheckKind,
+  status: z.enum(['ok', 'warn', 'error', 'skipped']),
+  detail: z.string(),
+})
+export type DiagCheck = z.infer<typeof DiagCheck>
+export const DiagResult = z.object({
+  t: z.literal('diag.result'),
+  requestId: z.string(),
+  checks: z.array(DiagCheck),
+})
+export type DiagResult = z.infer<typeof DiagResult>
 /** Replaces the machine's list; sent after welcome, after each run and whenever providers change. */
 export const BotsProviderState = z.object({
   t: z.literal('bots.providerState'),
@@ -1508,6 +1579,8 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   ProvidersResult,
   CcSwitchResult,
   AgentsReprobeResult,
+  GitAccessResult,
+  DiagResult,
   BotsProviderState,
   SyncSubmit,
   SyncApplied,
@@ -2064,6 +2137,33 @@ export const AgentsReprobe = z.object({
   kind: AgentKind,
 })
 
+export const GitTokenInput = z.object({
+  host: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9.-]+(:\d+)?$/, '主机名只能包含字母、数字、点、短横线和端口'),
+  username: z.string().trim().min(1).max(200),
+  secret: z.string().trim().min(1).max(4096),
+})
+export type GitTokenInput = z.infer<typeof GitTokenInput>
+/**
+ * The machine's git access (feature `gitAccess`), answered by gitaccess.result. `saveToken` carries a plaintext
+ * token: the server never persists or logs it.
+ */
+export const GitAccessCmd = z.object({
+  t: z.literal('gitaccess.cmd'),
+  requestId: z.string(),
+  action: z.enum(['status', 'genKey', 'saveToken', 'removeToken', 'test', 'trustHost']),
+  token: GitTokenInput.optional(),
+  /** For removeToken / trustHost. */
+  host: z.string().optional(),
+  /** For test. */
+  url: z.string().optional(),
+})
+export type GitAccessCmd = z.infer<typeof GitAccessCmd>
+/** Run `gg doctor`'s checks (feature `diag`), answered by diag.result. */
+export const DiagRun = z.object({ t: z.literal('diag.run'), requestId: z.string() })
+
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
   DirCreate,
@@ -2118,6 +2218,8 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   CcSwitchRead,
   CcSwitchApply,
   AgentsReprobe,
+  GitAccessCmd,
+  DiagRun,
   SyncResult,
   SyncAvailable,
   SyncAction,

@@ -1,0 +1,6 @@
+{
+  "t": "gitaccess.cmd",
+  "requestId": "req-2",
+  "action": "test",
+  "url": "git@github.com:acme/pay.git"
+}

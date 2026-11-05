@@ -49,6 +49,7 @@ ENV LANG=C.UTF-8 \
     TZ=Asia/Shanghai \
     SHELL=/bin/bash \
     GONGGONG_NO_AUTO_UPGRADE=1 \
+    GONGGONG_CONTAINER=1 \
     GONGGONG_BROWSER=/usr/local/bin/chromium-gg \
     DISABLE_AUTOUPDATER=1
 ENTRYPOINT ["tini", "--", "gg-entrypoint"]

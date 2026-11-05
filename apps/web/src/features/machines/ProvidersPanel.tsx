@@ -11,6 +11,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { AlertDialog, Button, GroupBox, Presence, toast } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { AgentLoginDialog } from './AgentLoginDialog'
 import { providerSummary } from './agentSettings'
 import { OfficialEditor, ProviderEditor } from './ProviderEditor'
 import { CcSwitchImport, LinkImport } from './ProviderImports'
@@ -19,6 +20,7 @@ import { OFFICIAL_NAME, removalLines, SessionLines } from './providers'
 type Open =
   | { kind: 'editor'; editing: ProviderView | null }
   | { kind: 'official' }
+  | { kind: 'login' }
   | { kind: 'ccswitch' }
   | { kind: 'link' }
   | { kind: 'remove'; provider: ProviderView }
@@ -119,9 +121,14 @@ export function ProviderBox({
           ]
             .filter(Boolean)
             .join(' · '),
-          <Button size="small" onClick={() => setOpen({ kind: 'official' })}>
-            {t('设置…')}
-          </Button>,
+          <>
+            <Button size="small" onClick={() => setOpen({ kind: 'login' })}>
+              {t('登录…')}
+            </Button>
+            <Button size="small" onClick={() => setOpen({ kind: 'official' })}>
+              {t('设置…')}
+            </Button>
+          </>,
         )}
         {list.map((p) =>
           row(
@@ -190,6 +197,17 @@ export function ProviderBox({
               onView(v)
               toast({ type: 'success', message: t('官方登录设置已保存') })
             }}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {open?.kind === 'login' ? (
+          <AgentLoginDialog
+            key={seq}
+            machine={machine}
+            agent={agent}
+            onClose={close}
+            onAddProvider={() => setOpen({ kind: 'editor', editing: null })}
           />
         ) : null}
       </Presence>

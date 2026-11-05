@@ -11,6 +11,8 @@ services:
     environment:
       # Stable and unique per container: the server recognises the machine by it across rebuilds.
       GONGGONG_MACHINE_ID: ${GONGGONG_MACHINE_ID:?set GONGGONG_MACHINE_ID, e.g. openssl rand -hex 16}
+      # The 接入链接 from 绑定新机器 → 在 Docker 中运行: binds on the first start (it expires after 10 minutes).
+      GONGGONG_BIND_URL: ${GONGGONG_BIND_URL:-}
     volumes:
       - home:/home/gg
     restart: unless-stopped

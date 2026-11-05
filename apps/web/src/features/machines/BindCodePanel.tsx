@@ -42,6 +42,8 @@ export function useBindCode(open: boolean, done = false): BindCode {
 
 export const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
 
+export const dockerEnv = (code: BindCodeDto) => `GONGGONG_BIND_URL='${code.link}'`
+
 const copy = (text: string, message: string) => void copyWithToast(text, message)
 
 /** 接入链接: open it in the desktop app, or copy it; the gg login command sits under 使用命令行. */
@@ -96,6 +98,25 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
             </IconButton>
           </div>
           <p className="bind__note">{t('没有安装客户端时，在机器的终端里执行。')}</p>
+        </Disclosure>
+      </FormRow>
+      <FormRow align="top">
+        <Disclosure title={t('在 Docker 中运行')}>
+          <div className="bind__cmd">
+            <span className="bind__cmd-text">{code ? dockerEnv(code) : '—'}</span>
+            <IconButton
+              title={t('复制')}
+              disabled={!waiting}
+              onClick={() => code && copy(dockerEnv(code), t('已复制'))}
+            >
+              <Icon name="copy" />
+            </IconButton>
+          </div>
+          <p className="bind__note">
+            {t(
+              '在服务器的 docker/daemon 目录，把这一行加到 .env（另需 GG_VERSION 与 GONGGONG_MACHINE_ID），然后运行 docker compose up -d --build，容器首次启动时自动绑定。',
+            )}
+          </p>
         </Disclosure>
       </FormRow>
     </Form>

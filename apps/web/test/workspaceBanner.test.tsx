@@ -1,10 +1,26 @@
 import type { BotDto, GroupDto, UserDto } from '@gonggong/protocol'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { WorkspaceBanner } from '../src/features/chat/WorkspaceBanner'
 import { mockApi } from './mockApi'
+
+const tree = (ui: ReactNode) => (
+  <MemoryRouter>
+    <Routes>
+      <Route path="/" element={ui} />
+      <Route path="/machine/:id" element={<MachinePath />} />
+    </Routes>
+  </MemoryRouter>
+)
+const render = (ui: ReactNode) => rtlRender(tree(ui))
+function MachinePath() {
+  const at = useLocation()
+  return <span data-testid="machine-path">{`${at.pathname}${at.search}`}</span>
+}
 
 const group = (o: Partial<GroupDto> = {}) =>
   ({ id: 'g1', mode: 'partition', repo: null, botIds: ['b1'], ...o }) as GroupDto
@@ -249,7 +265,7 @@ describe('workspace banner', () => {
     )
     expect(screen.queryByText('绑定工作区')).toBeNull()
     useWorkspace.setState({ botStates: {} })
-    rerender(<WorkspaceBanner group={group()} />)
+    rerender(tree(<WorkspaceBanner group={group()} />))
     expect(screen.queryByTestId('ws-banner-b1')).toBeNull()
   })
 
@@ -296,11 +312,21 @@ describe('workspace banner', () => {
     const calls = mockApi({ 'POST /groups/g1/bots/b1/recheck': undefined })
     render(<WorkspaceBanner group={group({ members: members(false) })} />)
     expect(screen.getByTestId('ws-paused-b1').textContent).toContain(
-      '小王的 Claude 已暂停：所在机器无法访问仓库（无权限或仓库不存在），在这台机器上配置 git 凭据后重新检查',
+      '小王的 Claude 已暂停：所在机器无法访问仓库（无权限或仓库不存在），在这台机器的「Git 访问」里配置后重新检查',
     )
     fireEvent.click(screen.getByText('重新检查'))
     await waitFor(() =>
       expect(calls.at(-1)).toMatchObject({ method: 'POST', path: '/groups/g1/bots/b1/recheck' }),
+    )
+  })
+
+  it("takes the owner to the machine's Git 访问 with the repo to test", () => {
+    useWorkspace.setState({ bots: [bot()], botStates: paused })
+    const repo = { url: 'https://git.corp/pay/pay.git', branch: 'main' }
+    render(<WorkspaceBanner group={group({ repo, members: members(false) })} />)
+    fireEvent.click(screen.getByText('去配置'))
+    expect(screen.getByTestId('machine-path').textContent).toBe(
+      `/machine/${bot().machineId}?tab=git&repo=${encodeURIComponent(repo.url)}`,
     )
   })
 
@@ -310,7 +336,7 @@ describe('workspace banner', () => {
     const { rerender } = render(<WorkspaceBanner group={group({ members: members(false) })} />)
     expect(screen.getByTestId('ws-paused-b1').textContent).toContain('等待 王磊 处理')
     expect(screen.queryByText('重新检查')).toBeNull()
-    rerender(<WorkspaceBanner group={group({ members: members(true) })} />)
+    rerender(tree(<WorkspaceBanner group={group({ members: members(true) })} />))
     expect(screen.getByText('重新检查')).toBeTruthy()
   })
 })

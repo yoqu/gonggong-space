@@ -1,0 +1,9 @@
+{
+  "t": "diag.result",
+  "requestId": "req-3",
+  "checks": [
+    { "kind": "server", "status": "ok", "detail": "HTTPS 正常" },
+    { "kind": "git", "status": "error", "detail": "SSH · Permission denied (publickey). · 支付组 × 小码" },
+    { "kind": "screen_recording", "status": "skipped", "detail": "不适用" }
+  ]
+}

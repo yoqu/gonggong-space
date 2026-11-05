@@ -369,6 +369,10 @@ export const en = {
     "Upgrade this machine's daemon to use a local Claude configuration directory",
   机器离线: 'Machine offline',
   '机器未响应，请稍后重试': 'The machine is not responding, try again later',
+  '只有机器主人可以管理其 Git 访问': "Only the machine's owner can manage its Git access",
+  只有机器主人可以查看其诊断: "Only the machine's owner can view its diagnostics",
+  '主机名只能包含字母、数字、点、短横线和端口':
+    'A host name may only contain letters, digits, dots, hyphens and a port',
   '接入链接尝试次数过多，请 10 分钟后再试': 'Too many connect link attempts, try again in 10 minutes',
   '接入链接中的代码格式应为 XXXX-XXXX': 'The code in the connect link should look like XXXX-XXXX',
   '这台机器已归属 {owner}，其上还有 {n} 个 Bot，需先删除后才能转给你':

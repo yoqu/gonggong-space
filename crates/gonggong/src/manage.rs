@@ -1,15 +1,16 @@
 //! The server side of this machine's agent tools and providers (design §4.6): `tools.cmd`, `providers.cmd` and
 //! `ccswitch.*`, answered through the outbox. Keys only ever arrive (in `save` / `importLink`); what leaves is masked.
 use crate::ccswitch;
-use crate::config::{Mirror, Settings};
+use crate::config::{Config, Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentCatalog, AgentInfo, Choice, DaemonToServer, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
-    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_GIT_OPS,
-    FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_PLUGINS,
-    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN,
-    FEATURE_SYNC, FEATURE_TOOLS, ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction,
-    ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
+    FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_CONTAINER, FEATURE_DIAG,
+    FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS,
+    FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS,
+    FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd,
+    ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult,
+    ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -68,9 +69,17 @@ impl Manage {
             FEATURE_CLAUDE_ARGS.to_string(),
             FEATURE_CLAUDE_PROFILE.to_string(),
             FEATURE_PROVIDER_ARGS.to_string(),
+            FEATURE_GIT_ACCESS.to_string(),
+            FEATURE_DIAG.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
+        }
+        if std::env::var("GONGGONG_CONTAINER").is_ok_and(|v| v == "1") {
+            features.push(FEATURE_CONTAINER.into());
+        }
+        if !crate::upgrade::auto_upgrade(&self.0.home) {
+            features.push(FEATURE_NO_AUTO_UPGRADE.into());
         }
         features
     }
@@ -139,6 +148,42 @@ impl Manage {
                 tools,
                 settings,
             });
+        });
+    }
+
+    pub fn git_access(&self, cmd: GitAccessCmd, out: &Outbox) {
+        let (this, out) = (self.clone(), out.clone());
+        tokio::spawn(async move {
+            let access = crate::git_access::GitAccess::new(this.0.home.clone(), this.0.user_home.clone());
+            let request_id = cmd.request_id.clone();
+            let msg = match access.run(cmd).await {
+                Ok(o) => DaemonToServer::GitAccessResult {
+                    request_id,
+                    ok: true,
+                    error: None,
+                    view: Some(o.view),
+                    test: o.test,
+                },
+                Err(e) => DaemonToServer::GitAccessResult {
+                    request_id,
+                    ok: false,
+                    error: Some(format!("{e:#}")),
+                    view: Some(access.view().await),
+                    test: None,
+                },
+            };
+            out.send(msg);
+        });
+    }
+
+    /// `gg doctor`'s checks; `api` is the machine's server access.
+    pub fn diag(&self, request_id: String, api: Option<Config>, out: &Outbox) {
+        let (home, out) = (self.0.home.clone(), out.clone());
+        tokio::spawn(async move {
+            let checks = crate::diag::run(&home, api.as_ref()).await;
+            let checks =
+                checks.into_iter().map(|c| DiagCheck { kind: c.kind, status: c.status, detail: c.detail }).collect();
+            out.send(DaemonToServer::DiagResult { request_id, checks });
         });
     }
 
@@ -914,7 +959,9 @@ mod tests {
                 "storageAdmin",
                 "claudeArgs",
                 "claudeProfile",
-                "providerArgs"
+                "providerArgs",
+                "gitAccess",
+                "diag"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -940,9 +987,13 @@ mod tests {
                 "claudeArgs",
                 "claudeProfile",
                 "providerArgs",
+                "gitAccess",
+                "diag",
                 "ccSwitch"
             ]
         );
+        std::fs::write(home.path().join("settings.json"), r#"{"autoUpgrade":false}"#).unwrap();
+        assert_eq!(without.features().last().map(String::as_str), Some("noAutoUpgrade"));
     }
 
     #[tokio::test]
@@ -978,6 +1029,42 @@ mod tests {
         manage.tools(bad, &out);
         let DaemonToServer::ToolsResult { ok, error, .. } = rx.recv().await.unwrap() else { panic!() };
         assert!(!ok && error.unwrap().contains("版本号格式不正确"));
+    }
+
+    #[tokio::test]
+    async fn git_access_answers_with_the_view_even_when_the_command_fails() {
+        let home = tempfile::tempdir().unwrap();
+        let manage = Manage::new(home.path().join("gg"), home.path().into());
+        let (out, mut rx) = Outbox::channel();
+        let cmd = |action, host: Option<&str>| GitAccessCmd {
+            request_id: "g1".into(),
+            action,
+            token: None,
+            host: host.map(String::from),
+            url: None,
+        };
+        manage.git_access(cmd(crate::protocol::GitAccessAction::GenKey, None), &out);
+        let DaemonToServer::GitAccessResult { request_id, ok, view, .. } = rx.recv().await.unwrap() else { panic!() };
+        assert_eq!((request_id.as_str(), ok), ("g1", true));
+        assert_eq!(view.unwrap().ssh_keys.len(), 1);
+
+        manage.git_access(cmd(crate::protocol::GitAccessAction::RemoveToken, Some("bad host")), &out);
+        let DaemonToServer::GitAccessResult { ok, error, view, .. } = rx.recv().await.unwrap() else { panic!() };
+        assert!(!ok && error.unwrap().contains("主机名无效"));
+        assert_eq!(view.unwrap().ssh_keys.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn diag_answers_with_every_check() {
+        let home = tempfile::tempdir().unwrap();
+        let manage = Manage::new(home.path().into(), home.path().into());
+        let (out, mut rx) = Outbox::channel();
+        manage.diag("d1".into(), None, &out);
+        let DaemonToServer::DiagResult { request_id, checks } = rx.recv().await.unwrap() else { panic!() };
+        assert_eq!(request_id, "d1");
+        assert_eq!(checks[0].kind, crate::diag::CheckKind::Server);
+        assert_eq!(checks[0].status, crate::diag::Status::Error);
+        assert!(checks.iter().any(|c| c.kind == crate::diag::CheckKind::Git));
     }
 
     #[test]

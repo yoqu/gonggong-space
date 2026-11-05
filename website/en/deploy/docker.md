@@ -67,38 +67,30 @@ WeChat DevTools, mini program live view and "open with a local app" are macOS / 
    docker compose build
    ```
 
-2. On the web, choose 「绑定新机器」 (Bind new machine) in the avatar menu, copy the link and bind on the server:
-
-   ```bash
-   docker compose run --rm daemon gg login '<link>'
-   ```
-
-3. Start it in the background:
+2. On the web, choose 「绑定新机器」 (Bind new machine) in the avatar menu, expand 「在 Docker 中运行」 (Run in Docker), add its `GONGGONG_BIND_URL='<link>'` line to `.env`, then start it in the background (it binds on the first start; the link is valid for 10 minutes):
 
    ```bash
    docker compose up -d
    docker compose logs -f daemon
    ```
 
-4. Sign the Agents in, either way:
+   Or bind by hand first: `docker compose run --rm daemon gg login '<link>'`.
+
+3. Sign the Agents in, either way:
    - configure an API key [provider](/en/user/agents-providers) for this machine on the web, with no login inside the container;
-   - or use the official account: run `docker compose exec daemon claude` and follow the prompts; for Codex run `docker compose exec daemon codex login --device-auth`.
+   - or use the official account: on the machine page, under Agents & providers → official login, choose 「登录…」 (Log in) and run `claude` (then `/login`) or `codex login --device-auth` in the machine's terminal.
 
-5. Set the git identity and credentials, then check:
+4. Set up git credentials: on the machine page under Git access, generate an SSH key and add the public key to your Git host, or add an HTTPS token per host, then check a repository URL with Test access. Tokens stay in the container's volume; the server keeps none.
 
-   ```bash
-   docker compose exec daemon git config --global user.name 'Wang Lei'
-   docker compose exec daemon git config --global user.email 'wanglei@example.com'
-   docker compose exec daemon ssh-keygen -t ed25519 -N '' -f /home/gg/.ssh/id_ed25519   # add the public key to your Git host
-   docker compose exec daemon gg doctor
-   ```
+5. See the self-checks under Diagnostics on the machine page (the same as `gg doctor`).
 
-A new SSH host's key is trusted on first connection.
+A new SSH host's key is trusted on first connection. The daemon in a container never upgrades itself; the machine page's upgrade guide gives the rebuild command.
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `GG_VERSION` | none | The bundled `gg` version, also the image tag |
 | `GONGGONG_MACHINE_ID` | none | Machine identity. As long as it stays the same, a rebuilt container is the same machine and its Bots stay bound |
+| `GONGGONG_BIND_URL` | none | The link from Bind new machine → Run in Docker: binds on the first start; ignored once bound |
 | `GG_CPUS` / `GG_MEMORY` | `4` / `8g` | CPU and memory limits of the container |
 | `GG_DOWNLOAD_URL` (build arg) | GitHub Releases | Where `gg` is downloaded from, e.g. your server's `https://<server>/downloads`; files are always checked against the `SHA256SUMS` published on GitHub |
 | `NPM_REGISTRY` (build arg) | `https://registry.npmmirror.com` | npm registry for Claude Code and Codex |

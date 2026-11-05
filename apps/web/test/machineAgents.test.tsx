@@ -165,16 +165,17 @@ const AGENTS_TAB = 'Agent 与供应商'
 const LIVE = { 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW }
 
 describe('machine details sections', () => {
-  it('gives the owner 概览, Agent 与供应商, 工作区 and 诊断', () => {
-    open({ ...mbp, features: [...mbp.features, 'machineAdmin'] })
+  it('gives the owner 概览, Agent 与供应商, 工作区, Git 访问 and 诊断', () => {
+    open({ ...mbp, features: [...mbp.features, 'machineAdmin', 'gitAccess'] })
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
       '概览',
       'Agent 与供应商',
       '工作区',
+      'Git 访问',
       '诊断',
     ])
     expect(tab('概览').getAttribute('aria-selected')).toBe('true')
-    for (const name of [AGENTS_TAB, '工作区', '诊断']) expect(tab(name).disabled).toBe(false)
+    for (const name of [AGENTS_TAB, '工作区', 'Git 访问', '诊断']) expect(tab(name).disabled).toBe(false)
   })
 
   it('has no tabs for someone else (a sysadmin looking at a member machine), saying whose it is', () => {
@@ -189,8 +190,8 @@ describe('machine details sections', () => {
   it('keeps the live sections open while offline, saying when it was last seen and how to bring it back', () => {
     const calls = mockApi(LIVE)
     const lastSeenAt = '2026-11-01T08:00:00Z'
-    open({ ...mbp, online: false, lastSeenAt, features: [...mbp.features, 'machineAdmin'] })
-    for (const name of [AGENTS_TAB, '工作区', '诊断']) {
+    open({ ...mbp, online: false, lastSeenAt, features: [...mbp.features, 'machineAdmin', 'gitAccess'] })
+    for (const name of [AGENTS_TAB, '工作区', 'Git 访问', '诊断']) {
       expect(tab(name).disabled).toBe(false)
       fireEvent.click(tab(name))
       const note = screen.getByRole('region', { name: '机器离线' })
@@ -214,7 +215,7 @@ describe('machine details sections', () => {
     mockApi(LIVE)
     open({ ...mbp, features: ['tools', 'providers', 'ccSwitch', 'machineAdmin'] })
     expect(tab(AGENTS_TAB).disabled).toBe(false)
-    expect(screen.getByText('请先升级该机器的 daemon，才能管理Agent 设置')).toBeTruthy()
+    expect(screen.getByText('请先升级该机器的 daemon，才能管理Agent 设置与Git 访问')).toBeTruthy()
     fireEvent.click(tab(AGENTS_TAB))
     await screen.findByRole('region', { name: 'Claude Code 供应商' })
     expect(screen.queryByRole('region', { name: 'Claude Code Agent 设置' })).toBeNull()
@@ -223,7 +224,9 @@ describe('machine details sections', () => {
   it('names every outdated part in one note', () => {
     open({ ...mbp, features: [] })
     expect(
-      screen.getByText('请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、工作区与日志'),
+      screen.getByText(
+        '请先升级该机器的 daemon，才能管理Agent 工具、供应商、Agent 设置、工作区、Git 访问与日志',
+      ),
     ).toBeTruthy()
   })
 

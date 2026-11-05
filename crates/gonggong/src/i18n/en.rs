@@ -727,4 +727,12 @@ pub(super) const EN: &[(&str, &str)] = &[
         "产物 {dir} 上传失败，下一轮开跑前重试：{e}",
         "Uploading the artifact {dir} failed; it will be retried before the next run: {e}",
     ),
+    ("主机名无效", "Invalid host name"),
+    ("缺少令牌", "Missing token"),
+    ("仓库地址无效", "Invalid repository URL"),
+    ("已有 SSH 密钥 {path}，不会覆盖", "An SSH key already exists at {path}; it will not be overwritten"),
+    ("无法执行 ssh-keygen，请先安装 OpenSSH", "Couldn't run ssh-keygen; install OpenSSH first"),
+    ("用户名和令牌不能为空", "The username and token must not be empty"),
+    ("无法获取 {host} 的主机密钥", "Couldn't fetch the host key of {host}"),
+    ("无法执行 git", "Couldn't run git"),
 ];

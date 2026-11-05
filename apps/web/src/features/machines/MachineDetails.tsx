@@ -11,6 +11,7 @@ import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
 import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPanel } from './AdminPanels'
 import { AgentsPanel } from './AgentsPanel'
+import { GitAccessPanel } from './GitAccessPanel'
 import { OS_LABEL } from './model'
 
 const GB = 1024 ** 3
@@ -30,13 +31,14 @@ export const OS_ICON: Record<MachineDto['os'], IconName> = {
   windows: 'windows',
 }
 
-type Tab = 'overview' | 'agents' | 'workspaces' | 'diagnostics'
-type Part = 'tools' | 'providers' | 'agent' | 'workspaces' | 'logs'
+type Tab = 'overview' | 'agents' | 'workspaces' | 'git' | 'diagnostics'
+type Part = 'tools' | 'providers' | 'agent' | 'workspaces' | 'git' | 'logs'
 const PART_NAME: Record<Part, string> = {
   tools: t('Agent 工具'),
   providers: t('供应商#nav'),
   agent: t('Agent 设置'),
   workspaces: t('工作区#tab'),
+  git: t('Git 访问'),
   logs: t('日志'),
 }
 const PART_FEATURE = {
@@ -44,11 +46,13 @@ const PART_FEATURE = {
   providers: 'providers',
   agent: 'agentSettings',
   workspaces: 'machineAdmin',
+  git: 'gitAccess',
   logs: 'machineAdmin',
 } as const
 const TAB_PARTS: Record<Exclude<Tab, 'overview'>, Part[]> = {
   agents: ['tools', 'providers', 'agent'],
   workspaces: ['workspaces'],
+  git: ['git'],
   diagnostics: ['tools', 'logs'],
 }
 /** `?tab=` values, old ones included (the desktop app's 在 Web 中管理 links to providers). */
@@ -59,6 +63,7 @@ const TAB_ALIAS: Record<string, Tab> = {
   agent: 'agents',
   tools: 'agents',
   workspaces: 'workspaces',
+  git: 'git',
   diagnostics: 'diagnostics',
 }
 
@@ -69,7 +74,7 @@ const blocked = (m: MachineDto, tab: Exclude<Tab, 'overview'>) =>
   m.online && TAB_PARTS[tab].every((p) => outdated(m, p))
 
 function blockedNote(m: MachineDto) {
-  if (!m.online) return t('机器离线，上线后才能管理 Agent 与供应商、工作区和诊断')
+  if (!m.online) return t('机器离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断')
   const old = (Object.keys(PART_NAME) as Part[]).filter((p) => outdated(m, p)).map((p) => PART_NAME[p])
   const last = old.pop()
   if (!last) return null
@@ -201,6 +206,7 @@ export function MachineDetails({
               { value: 'overview', label: t('概览') },
               { value: 'agents', label: t('Agent 与供应商'), disabled: blocked(machine, 'agents') },
               { value: 'workspaces', label: t('工作区#tab'), disabled: blocked(machine, 'workspaces') },
+              { value: 'git', label: t('Git 访问'), disabled: blocked(machine, 'git') },
               { value: 'diagnostics', label: t('诊断'), disabled: blocked(machine, 'diagnostics') },
             ]}
           />
@@ -219,8 +225,10 @@ export function MachineDetails({
         <AgentsPanel machine={machine} />
       ) : current === 'workspaces' ? (
         <WorkspacesPanel machine={machine} />
+      ) : current === 'git' ? (
+        <GitAccessPanel machine={machine} repo={params.get('repo') ?? undefined} />
       ) : (
-        <DiagnosticsPanel machine={machine} latest={latest} />
+        <DiagnosticsPanel machine={machine} latest={latest} onOpenGit={() => setTab('git')} />
       )}
       {current === 'overview' ? (
         <div className="machine">
@@ -252,7 +260,7 @@ export function MachineDetails({
           </section>
           {upgradable(machine, latest) ? (
             <Disclosure title={t('如何升级')}>
-              <UpgradeGuide latest={latest} />
+              <UpgradeGuide machine={machine} latest={latest} />
             </Disclosure>
           ) : null}
           <div className="machine__specs">

@@ -806,3 +806,7 @@
   color: var(--accent-text);
   font-size: var(--text-subheadline-size);
 }
+.mx-steps {
+  margin: 0;
+  padding-left: var(--space-20);
+}

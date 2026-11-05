@@ -47,6 +47,14 @@ fn parse(url: &str) -> Option<Remote> {
     (!path.is_empty()).then(|| Remote { family: Family::Ssh, host: m[1].to_string(), path, explicit_port: false })
 }
 
+/// The ssh host of an ssh remote, `host:port` with an explicit port; None for https and local remotes.
+pub(crate) fn ssh_host(url: &str) -> Option<String> {
+    let url = url.trim();
+    let r = parse(url).filter(|r| r.family == Family::Ssh)?;
+    let port = SCHEME.captures(url).and_then(|m| m.get(3)).map(|p| p.as_str().to_string());
+    Some(format!("{}{}", r.host, port.unwrap_or_default()))
+}
+
 /// Canonical identity `host/path` (lowercase, port and credentials left out), equal to `repoKey` in
 /// packages/protocol (cases/repo-keys.json). Local paths and `file://` URLs resolve symlinks (macOS `/var`).
 pub fn normalize_remote(url: &str) -> String {
@@ -320,6 +328,14 @@ mod tests {
     struct Case {
         url: String,
         key: String,
+    }
+
+    #[test]
+    fn ssh_host_of_ssh_remotes_only() {
+        assert_eq!(ssh_host("git@github.com:acme/pay.git").as_deref(), Some("github.com"));
+        assert_eq!(ssh_host("ssh://git@git.corp:2222/acme/pay.git").as_deref(), Some("git.corp:2222"));
+        assert_eq!(ssh_host("https://github.com/acme/pay.git"), None);
+        assert_eq!(ssh_host("/srv/repos/pay"), None);
     }
 
     #[test]

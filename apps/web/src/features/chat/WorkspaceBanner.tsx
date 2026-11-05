@@ -1,5 +1,6 @@
 import type { BotDto, GroupDto, RepoAccessReason } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -23,6 +24,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const states = useWorkspace((s) => s.botStates[group.id])
   const bots = useWorkspace((s) => s.bots)
   const [picking, setPicking] = useState<BotDto | null>(null)
+  const navigate = useNavigate()
   const inGroup = bots.filter((b) => group.botIds.includes(b.id))
   const waiting = inGroup.filter((b) => ['unbound', 'confirm'].includes(states?.[b.id]?.state ?? ''))
   const paused = inGroup.filter((b) => {
@@ -52,10 +54,13 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               title={null}
               text={
                 mine
-                  ? t('{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器上配置 git 凭据后重新检查', {
-                      name: b.name,
-                      why: why ?? '',
-                    })
+                  ? t(
+                      '{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器的「Git 访问」里配置后重新检查',
+                      {
+                        name: b.name,
+                        why: why ?? '',
+                      },
+                    )
                   : t('{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理', {
                       name: b.name,
                       why: why ?? '',
@@ -64,9 +69,24 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               }
               action={
                 mine || isAdmin ? (
-                  <Button size="small" onClick={() => void recheck(b)}>
-                    {t('重新检查')}
-                  </Button>
+                  <>
+                    {mine && b.machineId ? (
+                      <Button
+                        size="small"
+                        variant="primary"
+                        onClick={() =>
+                          navigate(
+                            `/machine/${b.machineId}?tab=git${group.repo ? `&repo=${encodeURIComponent(group.repo.url)}` : ''}`,
+                          )
+                        }
+                      >
+                        {t('去配置')}
+                      </Button>
+                    ) : null}
+                    <Button size="small" onClick={() => void recheck(b)}>
+                      {t('重新检查')}
+                    </Button>
+                  </>
                 ) : null
               }
             />
