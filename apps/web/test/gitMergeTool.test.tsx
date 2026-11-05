@@ -65,6 +65,9 @@ const conflictApi = (conflict: GitConflictDto = CONFLICT, changes: GitChangesDto
   )
 const row = (name: string) => within(screen.getByRole('group', { name }))
 const result = (name: string) => (screen.getByRole('textbox', { name }) as HTMLTextAreaElement).value
+const expectResult = (name: string, value: string) => waitFor(() => expect(result(name)).toBe(value))
+const expectResolved = (n: number, done: number) =>
+  waitFor(() => expect(screen.getByText(`${n} 处冲突，已解决 ${done} 处`)).toBeTruthy())
 
 describe('merge tool', () => {
   it('shows yours | result | theirs with the changes of one side taken and the conflict open', async () => {
@@ -89,22 +92,22 @@ describe('merge tool', () => {
     open()
     await screen.findByText('1 处冲突，已解决 0 处')
     fireEvent.click(row('冲突 1').getByRole('button', { name: '接受你的' }))
-    expect(result('冲突 1 的合并结果')).toBe('fee = 2')
-    expect(screen.getByText('1 处冲突，已解决 0 处')).toBeTruthy()
+    await expectResult('冲突 1 的合并结果', 'fee = 2')
+    await expectResolved(1, 0)
     fireEvent.click(row('冲突 1').getByRole('button', { name: '接受他们的' }))
-    expect(result('冲突 1 的合并结果')).toBe('fee = 2\nfee = 3')
-    expect(screen.getByText('1 处冲突，已解决 1 处')).toBeTruthy()
+    await expectResult('冲突 1 的合并结果', 'fee = 2\nfee = 3')
+    await expectResolved(1, 1)
     fireEvent.click(row('冲突 1').getByRole('button', { name: '撤销此处' }))
-    expect(result('冲突 1 的合并结果')).toBe('fee = 1')
+    await expectResult('冲突 1 的合并结果', 'fee = 1')
     fireEvent.click(row('冲突 1').getByRole('button', { name: '忽略你的' }))
     fireEvent.click(row('冲突 1').getByRole('button', { name: '忽略他们的' }))
-    expect(screen.getByText('1 处冲突，已解决 1 处')).toBeTruthy()
+    await expectResolved(1, 1)
     // A non-conflicting change undone, then taken again from the toolbar.
     fireEvent.click(row('改动 1').getByRole('button', { name: '撤销此处' }))
-    expect(result('第 1 行起的合并结果')).toBe('a')
+    await expectResult('第 1 行起的合并结果', 'a')
     fireEvent.click(screen.getByRole('button', { name: '应用非冲突改动' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '应用左侧的非冲突改动' }))
-    expect(result('第 1 行起的合并结果')).toBe('A')
+    await expectResult('第 1 行起的合并结果', 'A')
   })
 
   it('takes typing into a conflict as resolving it, and writes the result, then opens the next file', async () => {
@@ -114,7 +117,7 @@ describe('merge tool', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '冲突 1 的合并结果' }), {
       target: { value: 'fee = 4' },
     })
-    expect(screen.getByText('1 处冲突，已解决 1 处')).toBeTruthy()
+    await expectResolved(1, 1)
     fireEvent.click(screen.getByRole('button', { name: '应用' }))
     await waitFor(() =>
       expect(actionsCalled(calls)).toEqual([
@@ -163,7 +166,7 @@ describe('merge tool', () => {
     open()
     await screen.findByText('1 处冲突，已解决 0 处')
     fireEvent.click(screen.getByRole('button', { name: '解决简单冲突' }))
-    expect(screen.getByText('1 处冲突，已解决 1 处')).toBeTruthy()
+    await expectResolved(1, 1)
     expect((screen.getByRole('button', { name: '解决简单冲突' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: '应用' }))
     await waitFor(() =>
