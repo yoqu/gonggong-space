@@ -204,6 +204,29 @@ describe('direct edits', () => {
     expect(last.statusCode).toBe(400)
   })
 
+  it('places screens on the canvas; a duplicate goes back to the layout', async () => {
+    const s = await setup()
+    const moved = await s.edit([{ kind: 'screen-move', screenId: 'home', x: 300, y: -80 }])
+    expect(moved.statusCode).toBe(200)
+    const head = async () => (await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id)))[0]!
+    const dup = await s.edit(
+      [{ kind: 'manifest', op: 'duplicate', screenId: 'home' }],
+      (await head()).headVersionId!,
+    )
+    expect(dup.statusCode).toBe(200)
+    const m = await s.manifest()
+    expect(m.screens.map((x) => [x.id, x.x, x.y])).toEqual([
+      ['home', 300, -80],
+      ['home-copy', undefined, undefined],
+      ['done', undefined, undefined],
+    ])
+    const nope = await s.edit(
+      [{ kind: 'screen-move', screenId: 'nope', x: 0, y: 0 }],
+      (await head()).headVersionId!,
+    )
+    expect(nope.statusCode).toBe(400)
+  })
+
   it('uploads images for asset ops, refusing SVG, mislabelled content and oversized files', async () => {
     const s = await setup()
     const upload = (body: Buffer, type: string) =>

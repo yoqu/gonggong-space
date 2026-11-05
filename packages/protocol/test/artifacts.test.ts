@@ -655,8 +655,12 @@ describe('stitch round 3: refs, region marks, queue, stale thumbnails, design so
       { kind: 'ref-delete', id: 'ref-1a2b' },
       { kind: 'ref-move', id: 'ref-1a2b', x: 1.5, y: -3 },
       { kind: 'ref-rename', id: 'ref-1a2b', title: '竞品' },
+      { kind: 'screen-move', screenId: 'home', x: 10, y: -20.5 },
     ])
       expect(ArtifactEditOp.parse(op)).toEqual(op)
+    expect(ArtifactEditOp.safeParse({ kind: 'screen-move', screenId: 'h', x: Infinity, y: 0 }).success).toBe(
+      false,
+    )
     expect(ArtifactEditOp.safeParse({ kind: 'ref', uploadId: 'u', title: ' ' }).success).toBe(false)
     expect(ArtifactEditOp.safeParse({ kind: 'ref-delete', id: '../x' }).success).toBe(false)
     expect(ArtifactEditOp.safeParse({ kind: 'ref-move', id: 'r', x: Number.NaN, y: 0 }).success).toBe(false)
