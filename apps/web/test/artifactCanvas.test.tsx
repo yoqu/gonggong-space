@@ -1000,13 +1000,13 @@ describe('G01 copy as PNG', () => {
       value: { write, writeText: vi.fn() },
       configurable: true,
     })
-    const png = new Blob(['png'], { type: 'image/png' })
     const url = '/api/artifacts/a1/versions/v2/screens/home/thumbnail'
     mockApi(
       routes({
         'GET /artifacts/a1/versions/v2': detail({ screenThumbs: [{ screenId: 'home', url }] }),
         'GET /artifacts/a1/versions/v2/screens/home/thumbnail': () =>
-          new Response(png, { headers: { 'content-type': 'image/png' } }),
+          // A string body: undici's Response cannot read jsdom's Blob.
+          new Response('png', { headers: { 'content-type': 'image/png' } }),
       }),
     )
     await renderTab()
@@ -1019,7 +1019,7 @@ describe('G01 copy as PNG', () => {
     fireEvent.click(item(screen.getAllByRole('menu').at(-1) as HTMLElement, /复制为 PNG/))
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1))
     const clip = (write.mock.calls[0]?.[0] as { items: Record<string, Promise<Blob>> }[] | undefined)?.[0]
-    expect(await clip?.items['image/png']).toBeInstanceOf(Blob)
+    expect((await clip?.items['image/png'])?.type).toBe('image/png')
     vi.unstubAllGlobals()
   })
 })
