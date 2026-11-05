@@ -6,7 +6,7 @@ import { Alert, Skeleton } from '../../ui'
 import { AGENT_LABEL, AGENTS } from '../bots/model'
 import { AgentSettingsBox } from './AgentSettingsPanel'
 import { ProviderBox } from './ProvidersPanel'
-import { switchLines } from './providers'
+import { SwitchNote, switchLines } from './providers'
 import { SaveStatus, useSaves } from './save'
 import { ToolBox, useTools } from './ToolsPanel'
 
@@ -27,9 +27,9 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
   // Switches at once; the sessions that keep the old provider until a new session are noted beside it.
   const switchDefault = (agent: AgentKind, choice: string, from: ProviderStoreView) =>
     saves.save(agent, async () => {
-      const n = switchLines(from, { agent, choice }).reduce((k, l) => k + l.groups.length, 0)
+      const lines = switchLines(from, { agent, choice })
       setView(await api.put<ProviderStoreView>(`${base}/default`, { agent, choice }))
-      return n ? t('{n} 个群的会话开启新会话后才切换', { n }) : undefined
+      return lines.length ? <SwitchNote lines={lines} /> : undefined
     })
 
   const failed = [tools.error, error].filter(Boolean).join('\n')

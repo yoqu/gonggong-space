@@ -309,10 +309,12 @@ export default {
   命令行参数: 'Command-line arguments',
   '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置':
     "Added when Claude Code starts, one per line, e.g. --settings ~/team.json; --settings is merged into Gonggong's settings, and flags Gonggong manages (permissions, model, session, MCP…) cannot be set",
-  共工设置: 'Gonggong settings',
+  机器设置: 'Machine settings',
   '改动立即保存，下一轮生效': 'Changes save right away and apply from the next turn',
   '{n} 个群的会话开启新会话后才切换': 'sessions in {n} {n:group|groups} switch once a new session starts',
   已保存: 'Saved',
+  '还需要填写 Node.js 下载地址': 'The Node.js download URL is still needed',
+  '还需要填写 npm registry': 'The npm registry is still needed',
   '{bot}（{v}）': '{bot} ({v})',
   '保存失败：{error}': 'Save failed: {error}',
   已复制命令: 'Command copied',

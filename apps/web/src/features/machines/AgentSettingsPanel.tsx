@@ -27,7 +27,7 @@ import {
 import { BOOL_ITEMS } from './ProviderSettings'
 import { commitOnBlur, SaveStatus, useSaves } from './save'
 
-const SOURCE_LABEL = { default: t('默认'), cli: t('该机器 CLI'), agent: t('共工设置') }
+const SOURCE_LABEL = { default: t('默认'), cli: t('该机器 CLI'), agent: t('机器设置') }
 const INHERIT = 'inheritCli'
 
 /**

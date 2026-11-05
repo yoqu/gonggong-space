@@ -444,9 +444,11 @@ describe('诊断', () => {
     const registry = screen.getByRole('textbox', { name: 'npm registry' })
     fireEvent.change(registry, { target: { value: 'https://r.example.com' } })
     fireEvent.blur(registry)
+    expect(screen.getByText('还需要填写 Node.js 下载地址')).toBeTruthy()
     const node = screen.getByRole('textbox', { name: 'Node.js 下载地址' })
     fireEvent.change(node, { target: { value: 'https://n.example.com' } })
     expect(calls.some((c) => c.method === 'PUT')).toBe(false)
+    expect(screen.queryByText('还需要填写 Node.js 下载地址')).toBeNull()
     fireEvent.keyDown(node, { key: 'Enter' })
     fireEvent.blur(node)
     await waitFor(() =>
@@ -833,9 +835,16 @@ describe('供应商', () => {
     await waitFor(() =>
       expect((within(claude).getByRole('radio', { name: /Kimi/ }) as HTMLInputElement).checked).toBe(true),
     )
-    expect(within(claude).getByRole('status').textContent).toContain(
-      '已保存 · 3 个群的会话开启新会话后才切换',
-    )
+    const status = within(claude).getByRole('status')
+    expect(status.textContent).toContain('已保存 · 3 个群的会话开启新会话后才切换')
+    expect(within(status).queryByRole('link')).toBeNull()
+    fireEvent.click(within(status).getByRole('button', { name: '3 个群的会话开启新会话后才切换' }))
+    const links = within(status).getAllByRole('link')
+    expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['前端组（小王的 Claude）', '/g/g1'],
+      ['后端组（小王的 Claude）', '/g/g2'],
+      ['测试组（审查员）', '/g/g3'],
+    ])
   })
 
   it('says just 已保存 when no session is affected (bots with their own provider)', async () => {
@@ -846,7 +855,9 @@ describe('供应商', () => {
     )
     fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
     await waitFor(() => expect(within(claude).getByRole('status').textContent).toBe('已保存'))
-  })
+    // 已保存 fades after a few seconds.
+    await waitFor(() => expect(within(claude).getByRole('status').textContent).toBe(''), { timeout: 4000 })
+  }, 10_000)
 
   it('keeps the old default when a switch fails, with the reason and a retry', async () => {
     let fail = true
@@ -1194,7 +1205,7 @@ describe('Agent 设置', () => {
   it('shows where each value comes from, striking the CLI value it overrides', async () => {
     const { region } = await openSettings()
     const language = row(region, '语言')
-    expect(language.textContent).toContain('来源：共工设置')
+    expect(language.textContent).toContain('来源：机器设置')
     expect(language.querySelector('s')?.textContent).toContain('该机器 CLI：english')
     expect(row(region, '扩展思考').textContent).toContain('来源：该机器 CLI（开）')
     expect(row(region, 'Bash 默认超时').textContent).toContain('来源：默认')
@@ -1247,11 +1258,14 @@ describe('Agent 设置', () => {
     fireEvent.click(within(row(region, '扩展思考')).getByRole('radio', { name: '关' }))
     const status = () => within(row(region, '扩展思考')).getByRole('status')
     await waitFor(() => expect(status().textContent).toContain('保存失败：机器离线'))
+    // A failure stays until it is retried or changed.
+    await act(() => new Promise((r) => setTimeout(r, 3200)))
+    expect(status().textContent).toContain('保存失败：机器离线')
     fail = false
     fireEvent.click(within(row(region, '扩展思考')).getByRole('button', { name: '重试' }))
     await waitFor(() => expect(status().textContent).toBe('已保存'))
     expect(puts(calls)).toHaveLength(2)
-  })
+  }, 10_000)
 
   it('refuses an invalid value next to its field without saving', async () => {
     const { calls, region } = await openSettings()

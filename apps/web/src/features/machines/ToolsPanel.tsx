@@ -251,6 +251,12 @@ function MirrorRows({
   const [registry, setRegistry] = useState(mirror.kind === 'custom' ? mirror.registry : '')
   const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
   const sent = useRef(mirror.kind === 'custom' ? JSON.stringify(mirror) : '')
+  const missing =
+    registry.trim() && !node.trim()
+      ? t('还需要填写 Node.js 下载地址')
+      : node.trim() && !registry.trim()
+        ? t('还需要填写 npm registry')
+        : null
   // A custom mirror needs both addresses; it is saved once they are in and differ from what was last sent.
   const commit = {
     onBlur: () => {
@@ -301,6 +307,7 @@ function MirrorRows({
               {...commit}
             />
           </GroupRow>
+          {missing ? <div className="mx-row mx-sub mx-warn">{missing}</div> : null}
         </>
       ) : null}
     </>

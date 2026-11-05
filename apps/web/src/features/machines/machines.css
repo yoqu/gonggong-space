@@ -688,3 +688,31 @@
   border-radius: var(--radius-menu);
   background: var(--group-bg);
 }
+.mx-save[data-phase="saved"][data-note="false"] {
+  animation: mx-save-fade 0.3s ease 2.7s forwards;
+}
+@keyframes mx-save-fade {
+  to {
+    opacity: 0;
+  }
+}
+.mx-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.mx-groups {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  margin-left: var(--space-4);
+}
+.mx-save:has(.mx-groups) {
+  white-space: normal;
+}
+.mx-warn {
+  color: var(--tint-orange-text);
+}

@@ -6,6 +6,7 @@ import {
   type ProviderStoreView,
 } from '@gonggong/protocol'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { AlertDialog } from '../../ui'
@@ -70,6 +71,8 @@ const sessionLabel = (s: Session) => {
 export interface SessionLine {
   text: string
   groups: string[]
+  /** The group of each entry of `groups`. */
+  groupIds: string[]
 }
 
 /**
@@ -95,6 +98,7 @@ export function switchLines(view: ProviderStoreView, change: ProviderChange): Se
         to: providerName(after, to),
       }),
       groups: list.map(sessionLabel),
+      groupIds: list.map((x) => x.groupId),
     }
   })
 }
@@ -110,6 +114,7 @@ export function removalLines(view: ProviderStoreView, id: string): SessionLine[]
         name: providerName(view, id),
       }),
       groups: list.map(sessionLabel),
+      groupIds: list.map((x) => x.groupId),
     },
   ]
 }
@@ -166,4 +171,27 @@ export function useProviderSwitch(apply: (change: ProviderChange) => Promise<voi
     />
   )
   return { request, dialog }
+}
+
+/** 「N 个群的会话开启新会话后才切换」 after a switch, opening into links to those groups. */
+export function SwitchNote({ lines }: { lines: SessionLine[] }) {
+  const [open, setOpen] = useState(false)
+  const groups = lines.flatMap((l) => l.groups.map((label, i) => ({ label, id: l.groupIds[i] ?? '' })))
+  return (
+    <>
+      <button type="button" className="mx-link" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {t('{n} 个群的会话开启新会话后才切换', { n: groups.length })}
+      </button>
+      {open ? (
+        <span className="mx-groups">
+          {groups.map((g, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: one group may hold sessions of several bots
+            <Link key={i} to={`/g/${g.id}`}>
+              {g.label}
+            </Link>
+          ))}
+        </span>
+      ) : null}
+    </>
+  )
 }
