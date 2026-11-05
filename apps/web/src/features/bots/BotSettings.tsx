@@ -45,11 +45,11 @@ import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { BotShares } from './BotShares'
 import { DeleteBotDialog } from './DeleteBotDialog'
+import { MachineLink } from './MachineLink'
 import {
   AGENT_LABEL,
   agentCliVersion,
   agentOutdated,
-  BINDING_LABEL,
   type BotPatch,
   botsApi,
   confirmBot,
@@ -329,7 +329,9 @@ export function BotDetail({
   const run = (
     <Form>
       <FormRow label={t('执行机器')}>
-        <span className="bots-detail__mono">{bot.machineName ?? BINDING_LABEL.pending_bind}</span>
+        <span className="bots-detail__mono">
+          <MachineLink id={bot.machineId} name={bot.machineName} />
+        </span>
       </FormRow>
       <FormRow label="Agent">
         <span className="bots-detail__mono">{agentCliVersion(bot)}</span>

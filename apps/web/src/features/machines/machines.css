@@ -793,3 +793,16 @@
   justify-content: space-between;
   gap: var(--space-8);
 }
+
+/* A sysadmin on a member's machine page. */
+.machine-page__admin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  margin: 0;
+  padding: var(--space-6) var(--space-16);
+  background: var(--accent-fill);
+  color: var(--accent-text);
+  font-size: var(--text-subheadline-size);
+}

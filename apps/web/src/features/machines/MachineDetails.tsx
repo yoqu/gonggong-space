@@ -6,24 +6,12 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import {
-  Button,
-  Dialog,
-  Disclosure,
-  EmptyState,
-  Icon,
-  type IconName,
-  Presence,
-  Tabs,
-  TextField,
-  toast,
-} from '../../ui'
+import { Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
 import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPanel } from './AdminPanels'
 import { AgentsPanel } from './AgentsPanel'
 import { OS_LABEL } from './model'
-import { RevokeMachineDialog } from './RevokeMachineDialog'
 
 const GB = 1024 ** 3
 
@@ -336,54 +324,6 @@ export function MachineDetails({
           </dl>
         </div>
       ) : null}
-    </>
-  )
-}
-
-/** A machine opened from the admin list; its owner or a sysadmin can rename or revoke it. */
-export function MachineDialog({
-  machine,
-  ownerName,
-  onChanged,
-  onClose,
-}: {
-  machine: MachineDto
-  ownerName?: string
-  /** Rename or revoke done: machine events reach only the owner, so a sysadmin's list must reload itself. */
-  onChanged?: () => void
-  onClose: () => void
-}) {
-  const [revoking, setRevoking] = useState(false)
-  const owner = useSession((st) => st.user?.id === machine.ownerId)
-  return (
-    <>
-      <Dialog
-        open={!revoking}
-        title={t('机器详情')}
-        message={<MachineName machine={machine} onChanged={onChanged} />}
-        width={owner ? 600 : 520}
-        onClose={onClose}
-        footer={
-          <Button variant="plain" className="machine__revoke" onClick={() => setRevoking(true)}>
-            {t('吊销机器')}
-          </Button>
-        }
-        actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}
-      >
-        <MachineDetails machine={machine} ownerName={ownerName} onLeave={onClose} />
-      </Dialog>
-      <Presence>
-        {revoking ? (
-          <RevokeMachineDialog
-            machine={machine}
-            onRevoked={() => {
-              onChanged?.()
-              onClose()
-            }}
-            onClose={() => setRevoking(false)}
-          />
-        ) : null}
-      </Presence>
     </>
   )
 }

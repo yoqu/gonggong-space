@@ -1,12 +1,13 @@
 import type { Locale } from '@gonggong/protocol'
 import { type GlassPreference, getGlass, setGlass } from '@web/app/glass'
+import { MirrorRows } from '@web/features/machines/MirrorRows'
+import { SaveStatus, useSaves } from '@web/features/machines/save'
 import {
   AlertDialog,
   Button,
   GroupBox,
   GroupRow,
   HelpButton,
-  PopUpButton,
   SegmentedControl,
   Skeleton,
   Switch,
@@ -42,67 +43,6 @@ const GLASS: { value: GlassPreference; label: string }[] = [
   { value: 'standard', label: t('标准') },
   { value: 'tinted', label: t('着色') },
 ]
-
-const MIRRORS: { value: Mirror['kind']; label: string }[] = [
-  { value: 'npmmirror', label: t('淘宝镜像（npmmirror）') },
-  { value: 'official', label: t('官方源') },
-  { value: 'custom', label: t('自定义') },
-]
-
-/** 镜像源 of Node.js and the agent CLIs; a custom one takes both addresses before it is saved. */
-function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) => Promise<void> }) {
-  const [kind, setKind] = useState(mirror.kind)
-  const [registry, setRegistry] = useState(mirror.kind === 'custom' ? mirror.registry : '')
-  const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
-  const changed = mirror.kind !== 'custom' || mirror.registry !== registry || mirror.node !== node
-  return (
-    <>
-      <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js、Claude Code 与 Codex 时从这里下载')}>
-        <PopUpButton
-          aria-label={t('镜像源')}
-          options={MIRRORS}
-          value={kind}
-          onChange={(k) => {
-            setKind(k)
-            if (k !== 'custom') onSave({ kind: k })
-          }}
-        />
-      </GroupRow>
-      {kind === 'custom' ? (
-        <>
-          <GroupRow label="npm registry">
-            <TextField
-              aria-label="npm registry"
-              style={{ width: 320 }}
-              placeholder="https://registry.example.com"
-              value={registry}
-              onChange={(e) => setRegistry(e.target.value)}
-            />
-          </GroupRow>
-          <GroupRow label={t('Node.js 下载地址')} description={t('index.json 所在的目录')}>
-            <TextField
-              aria-label={t('Node.js 下载地址')}
-              style={{ width: 320 }}
-              placeholder="https://example.com/mirrors/node"
-              value={node}
-              onChange={(e) => setNode(e.target.value)}
-            />
-          </GroupRow>
-          <div className="dk-row">
-            <span className="dk-row__main" />
-            <Button
-              variant="primary"
-              disabled={!registry.trim() || !node.trim() || !changed}
-              onClick={() => onSave({ kind: 'custom', registry, node })}
-            >
-              {t('保存')}
-            </Button>
-          </div>
-        </>
-      ) : null}
-    </>
-  )
-}
 
 /** 环境变量 the agents start with, edited as `KEY=VALUE` lines. */
 function EnvRows({
@@ -219,15 +159,15 @@ export function SettingsPage(_: PageProps) {
       }
     }
 
-  const saveMirror = async (mirror: Mirror) => {
-    try {
-      await ipc.setMirror(mirror)
+  const saves = useSaves()
+  const saveMirror = (mirror: Mirror) =>
+    saves.save('mirror', async () => {
+      await ipc.setMirror(mirror).catch((e) => {
+        throw new Error(String(e))
+      })
       setSettings((s) => s && { ...s, mirror })
-      toast({ type: 'success', message: t('镜像源已保存') })
-    } catch (e) {
-      toast({ type: 'error', message: String(e) })
-    }
-  }
+      return undefined
+    })
 
   const saveEnv = async (env: Record<string, string>) => {
     try {
@@ -312,7 +252,12 @@ export function SettingsPage(_: PageProps) {
       </GroupBox>
       <GroupBox>
         {settings ? (
-          <MirrorRows mirror={settings.mirror} onSave={saveMirror} />
+          <MirrorRows
+            key={JSON.stringify(settings.mirror)}
+            mirror={settings.mirror}
+            status={<SaveStatus state={saves.status('mirror')} />}
+            onSave={saveMirror}
+          />
         ) : (
           <GroupRow label={t('镜像源')}>
             <Skeleton count={1} width={160} />

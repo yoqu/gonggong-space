@@ -7,7 +7,7 @@ import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
-import { BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
+import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
@@ -262,6 +262,11 @@ export function ChatPage() {
                 bots={myBots.filter((b) => b.machineId === openMachine.id)}
                 onBack={mobile ? () => navigate('/') : undefined}
               />
+            </Suspense>
+          ) : me?.role === 'sysadmin' ? (
+            // Not one of mine: a sysadmin reads it from the admin list (opened from 机器与网络).
+            <Suspense fallback={null}>
+              <AdminMachinePage id={machineId} onBack={mobile ? () => navigate('/') : undefined} />
             </Suspense>
           ) : (
             <div className="chat__placeholder">

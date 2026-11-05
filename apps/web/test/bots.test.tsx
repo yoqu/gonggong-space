@@ -959,6 +959,7 @@ describe('bot page profile', () => {
 
   it('shows every setting of the editor, grouped like its tabs', async () => {
     routes['GET /api/bots'] = () => [full]
+    routes['GET /api/machines'] = () => [mbp]
     routes['GET /api/bots/b1/feishu'] = () => ({
       app: { appId: 'cli_a1', status: 'connected', error: null, configError: null, updatedAt: '' },
     })
@@ -967,6 +968,11 @@ describe('bot page profile', () => {
     expect(row(page, '基本信息', '角色')).toBe('角色说不 · 果断 × 本分 × 聚焦')
     expect(row(page, '基本信息', '系统提示词')).toBe('系统提示词负责支付服务\n只改 src/pay')
     expect(row(page, '运行配置', '执行机器')).toBe('执行机器wanglei-mbp')
+    // My own machine opens from here.
+    const machine = within(within(page).getByRole('region', { name: '运行配置' })).getByRole('link', {
+      name: 'wanglei-mbp',
+    })
+    expect(machine.getAttribute('href')).toBe('/machine/m1')
     expect(row(page, '运行配置', 'Agent')).toBe('Agentclaude-code 2.1.4')
     expect(row(page, '运行配置', '模型')).toBe('模型Opus · 高')
     expect(row(page, '运行配置', '默认工作区')).toBe('默认工作区~/pay')

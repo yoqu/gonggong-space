@@ -3,17 +3,14 @@ import {
   type BotDto,
   type BotPlaceDto,
   type FeishuAppView,
-  type GroupDto,
   type UsageDayDto,
   type UsageRowDto,
   type UserBriefDto,
   type UserDto,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { useWorkspace } from '../../app/workspace'
+import { Link } from 'react-router'
 import { api } from '../../lib/api'
-import { toastError } from '../../lib/errors'
 import { fmtTokens } from '../../lib/format'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
@@ -26,10 +23,11 @@ import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { APPROVAL_LABEL } from './ApprovalFields'
 import { BotAvatar, ROLES } from './avatars'
 import { type BotTab, BotWarning } from './BotSettings'
-import { agentCliVersion, agentLine, BINDING_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
+import { agentCliVersion, agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import { ShareRequestAction, useDm } from './ShareRequest'
 import './bots.css'
 import { t } from '../../i18n'
+import { MachineLink } from './MachineLink'
 
 /** Coalesces a burst of run updates into one refetch. */
 const REFETCH_MS = 300
@@ -251,7 +249,7 @@ function Profile({
     [
       t('运行配置'),
       [
-        [t('执行机器'), bot.machineName ?? BINDING_LABEL.pending_bind],
+        [t('执行机器'), <MachineLink key="machine" id={bot.machineId} name={bot.machineName} />],
         [
           'Agent',
           <span key="agent" className="bot-page__mono">

@@ -218,16 +218,9 @@ export const en = {
   清透: 'Clear',
   标准: 'Standard',
   着色: 'Tinted',
-  '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
-  官方源: 'Official',
   自定义: 'Custom',
   镜像源: 'Mirror',
-  '安装、升级 Node.js、Claude Code 与 Codex 时从这里下载':
-    'Node.js, Claude Code and Codex are installed and upgraded from here',
-  'Node.js 下载地址': 'Node.js download URL',
-  'index.json 所在的目录': 'The directory containing index.json',
   保存: 'Save',
-  镜像源已保存: 'Mirror saved',
   环境变量: 'Environment variables',
   '启动 Agent 时附加，每行一个 KEY=VALUE；新启动的 Agent 进程生效':
     'Added when an agent starts, one KEY=VALUE per line; applies to newly started agent processes',

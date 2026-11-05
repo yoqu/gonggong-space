@@ -72,18 +72,21 @@ it('switches the download mirror, a custom one only with both addresses', async 
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '官方源' }))
   await waitFor(() => expect(m.setMirror).toHaveBeenCalledWith({ kind: 'official' }))
 
+  await waitFor(() => expect(screen.getByRole('status').textContent).toBe('已保存'))
+
   fireEvent.click(screen.getByRole('button', { name: '镜像源' }))
   fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '自定义' }))
   expect(m.setMirror).toHaveBeenCalledTimes(1)
-  const save = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
-  expect(save.disabled).toBe(true)
-  fireEvent.change(screen.getByRole('textbox', { name: 'npm registry' }), {
-    target: { value: 'https://r.corp.cn' },
-  })
-  fireEvent.change(screen.getByRole('textbox', { name: 'Node.js 下载地址' }), {
-    target: { value: 'https://r.corp.cn/node' },
-  })
-  fireEvent.click(save)
+  // Saved by itself, like on the web, once both addresses are in.
+  expect(screen.queryByRole('button', { name: '保存' })).toBeNull()
+  const registry = screen.getByRole('textbox', { name: 'npm registry' })
+  fireEvent.change(registry, { target: { value: 'https://r.corp.cn' } })
+  fireEvent.blur(registry)
+  expect(screen.getByText('还需要填写 Node.js 下载地址')).toBeTruthy()
+  expect(m.setMirror).toHaveBeenCalledTimes(1)
+  const node = screen.getByRole('textbox', { name: 'Node.js 下载地址' })
+  fireEvent.change(node, { target: { value: 'https://r.corp.cn/node' } })
+  fireEvent.keyDown(node, { key: 'Enter' })
   await waitFor(() =>
     expect(m.setMirror).toHaveBeenLastCalledWith({
       kind: 'custom',

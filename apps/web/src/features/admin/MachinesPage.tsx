@@ -1,5 +1,6 @@
 import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
@@ -18,7 +19,7 @@ import {
   ToolbarGroup,
 } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
-import { hardwareText, MachineDialog, osText } from '../machines/MachineDialog'
+import { hardwareText, osText } from '../machines/MachineDetails'
 import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
 import { hasUpdate } from '../machines/tools'
@@ -45,7 +46,9 @@ function Net({ text, at }: { text: string; at: string | null }) {
 /** 管理后台 · 机器: every machine plus the network quality last measured by each daemon (spec §8.5). */
 export function MachinesPage() {
   const [machines, setMachines] = useState<AdminMachineDto[] | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const navigate = useNavigate()
+  // A machine opens as its own page, the one its owner sees.
+  const open = (id: string) => navigate(`/machine/${id}`)
   const [selected, setSelected] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<AdminMachineDto | null>(null)
   const [error, setError] = useState('')
@@ -81,7 +84,6 @@ export function MachinesPage() {
     }
   }, [load])
   const old = machines?.filter(outdated) ?? []
-  const open = machines?.find((m) => m.id === openId)
   const q = query.trim().toLowerCase()
   const shown = machines?.filter(
     (m) => !q || `${m.name} ${m.hostname} ${m.ownerName}`.toLowerCase().includes(q),
@@ -99,7 +101,7 @@ export function MachinesPage() {
             icon="info"
             label={t('机器详情…')}
             disabled={!selected}
-            onClick={() => setOpenId(selected)}
+            onClick={() => selected && open(selected)}
           />
         </ToolbarGroup>
       }
@@ -115,13 +117,13 @@ export function MachinesPage() {
           selection={selected ? [selected] : []}
           onSelectionChange={(ids) => setSelected(ids[0] ? String(ids[0]) : null)}
           defaultSort={{ key: 'ownerName', dir: 'asc' }}
-          onOpen={(m) => setOpenId(m.id)}
+          onOpen={(m) => open(m.id)}
           rowActions={() => [
             { label: t('机器详情…'), value: 'open' },
             { separator: true },
             { label: t('吊销机器…'), value: 'revoke', destructive: true },
           ]}
-          onRowAction={(action, m) => (action === 'open' ? setOpenId(m.id) : setRevoking(m))}
+          onRowAction={(action, m) => (action === 'open' ? open(m.id) : setRevoking(m))}
           emptyText={
             <EmptyState
               compact
@@ -233,17 +235,6 @@ export function MachinesPage() {
       ) : error ? null : (
         <Spinner size={18} />
       )}
-      <Presence>
-        {open ? (
-          <MachineDialog
-            key={open.id}
-            machine={open}
-            ownerName={open.ownerName}
-            onChanged={() => void load()}
-            onClose={() => setOpenId(null)}
-          />
-        ) : null}
-      </Presence>
       <Presence>
         {revoking ? (
           <RevokeMachineDialog

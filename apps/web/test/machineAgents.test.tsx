@@ -14,7 +14,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { MachineDialog } from '../src/features/machines/MachineDialog'
+import { MachinePage } from '../src/features/machines/MachinePage'
 import { realtime } from '../src/lib/realtime'
 import { Toaster } from '../src/ui'
 import { apiError, type Call, mockApi } from './mockApi'
@@ -155,7 +155,7 @@ afterEach(() => {
 const open = (machine: MachineDto = mbp, url = '/') =>
   render(
     <MemoryRouter initialEntries={[url]}>
-      <MachineDialog machine={machine} onClose={() => {}} />
+      <MachinePage machine={machine} bots={[]} ownerName={machine.ownerId === me.id ? undefined : '周婷'} />
     </MemoryRouter>,
   )
 
@@ -177,9 +177,12 @@ describe('machine details sections', () => {
     for (const name of [AGENTS_TAB, '工作区', '诊断']) expect(tab(name).disabled).toBe(false)
   })
 
-  it('has no tabs for someone else (a sysadmin looking at a member machine)', () => {
+  it('has no tabs for someone else (a sysadmin looking at a member machine), saying whose it is', () => {
     open({ ...mbp, ownerId: 'u2' })
     expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.getByRole('note').textContent).toContain('正在以管理员身份查看 周婷 的机器')
+    expect(screen.getByRole('link', { name: '返回后台' }).getAttribute('href')).toBe('/admin/machines')
+    expect(screen.queryByRole('button', { name: '新建终端' })).toBeNull()
     expect(screen.getByText('wanglei-mbp', { selector: '.machine__host' })).toBeTruthy()
   })
 
@@ -266,22 +269,21 @@ describe('machine details sections', () => {
 })
 
 describe('重命名', () => {
-  it('renames in place from the title: Enter saves, Esc cancels without closing', async () => {
+  it('renames in place from the title: Enter saves, Esc cancels', async () => {
     const calls = mockApi({ 'PATCH /machines/m1': { ...mbp, name: '主力机' } })
-    const onClose = vi.fn()
     render(
       <MemoryRouter>
-        <MachineDialog machine={mbp} onClose={onClose} />
+        <MachinePage machine={mbp} bots={[]} />
       </MemoryRouter>,
     )
-    const dialog = screen.getByRole('dialog', { name: '机器详情' })
+    const dialog = screen.getByRole('region', { name: '机器详情' })
     expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
     const draft = within(dialog).getByRole('textbox', { name: '名称' })
     fireEvent.change(draft, { target: { value: '临时' } })
     fireEvent.keyDown(draft, { key: 'Escape' })
     expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
-    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('region', { name: '机器详情' })).toBeTruthy()
     expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
 
     fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
@@ -298,7 +300,7 @@ describe('重命名', () => {
     const calls = mockApi({ 'PATCH /machines/m1': { ...mbp, name: '主力机' } })
     const named = { ...mbp, name: '旧名' }
     open(named)
-    const dialog = screen.getByRole('dialog', { name: '机器详情' })
+    const dialog = screen.getByRole('region', { name: '机器详情' })
     const edit = (value?: string) => {
       fireEvent.click(within(dialog).getByRole('button', { name: '重命名' }))
       const field = within(dialog).getByRole('textbox', { name: '名称' })
@@ -967,7 +969,7 @@ describe('供应商', () => {
     await screen.findByRole('region', { name: 'Claude Code 供应商' })
     view.rerender(
       <MemoryRouter>
-        <MachineDialog machine={{ ...mbp, online: false }} onClose={() => {}} />
+        <MachinePage machine={{ ...mbp, online: false }} bots={[]} />
       </MemoryRouter>,
     )
     expect(screen.getAllByText(/机器离线/).length).toBeGreaterThan(0)
@@ -1190,7 +1192,7 @@ describe('Agent 设置', () => {
     const calls = mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': view, ...routes })
     render(
       <MemoryRouter>
-        <MachineDialog machine={mbp} onClose={() => {}} />
+        <MachinePage machine={mbp} bots={[]} />
         <Toaster />
       </MemoryRouter>,
     )

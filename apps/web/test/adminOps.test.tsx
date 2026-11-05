@@ -89,6 +89,8 @@ const menuItems = () => screen.getAllByRole('menuitem').map((m) => m.textContent
 
 const rowOf = (text: string) =>
   screen.getByRole('gridcell', { name: text }).closest('[role="row"]') as HTMLElement
+const findRow = async (text: string) =>
+  (await screen.findByRole('gridcell', { name: text })).closest('[role="row"]') as HTMLElement
 
 describe('账号与角色 · 停用 / 启用', () => {
   it('disables an account after confirming the consequences', async () => {
@@ -379,15 +381,23 @@ describe('机器与网络', () => {
     fireEvent.mouseDown(rowOf('zt-desktop'))
     expect(details.disabled).toBe(false)
     fireEvent.keyDown(screen.getByRole('grid', { name: '机器列表' }), { key: 'Enter' })
-    expect(await screen.findByRole('dialog', { name: '机器详情' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '完成' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    // The member's machine page itself, read as a sysadmin: no live sections and no terminal, but rename and revoke.
+    const page = await screen.findByRole('region', { name: '机器详情' })
+    expect(page.textContent).toContain('正在以管理员身份查看 周婷 的机器')
+    expect(within(page).getByRole('heading', { name: /zt-desktop/ })).toBeTruthy()
+    expect(within(page).queryByRole('tab')).toBeNull()
+    expect(within(page).getByRole('button', { name: '重命名' })).toBeTruthy()
+    expect(within(page).getByRole('button', { name: '吊销机器' })).toBeTruthy()
+    expect(within(page).queryByRole('button', { name: '新建终端' })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(within(page).getByRole('link', { name: '返回后台' }))
     // The row's「操作」menu opens the details or revokes the machine.
-    rowAction(rowOf('never-measured'), '机器详情…')
-    expect(await screen.findByRole('dialog', { name: '机器详情' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '完成' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    rowAction(rowOf('never-measured'), '吊销机器…')
+    rowAction(await findRow('never-measured'), '机器详情…')
+    expect((await screen.findByRole('region', { name: '机器详情' })).textContent).toContain(
+      '正在以管理员身份查看 王磊 的机器',
+    )
+    fireEvent.click(screen.getByRole('link', { name: '返回后台' }))
+    rowAction(await findRow('never-measured'), '吊销机器…')
     expect(await screen.findByRole('alertdialog')).toBeTruthy()
     expect(screen.getByText('1 台 daemon 协议版本过旧')).toBeTruthy()
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()

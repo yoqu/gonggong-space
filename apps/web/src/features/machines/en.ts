@@ -332,6 +332,8 @@ export default {
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
   '等待机器上线…': 'Waiting for the machine to come online…',
   机器已上线: 'The machine is online',
+  '正在以管理员身份查看 {owner} 的机器': "Viewing {owner}'s machine as an admin",
+  返回后台: 'Back to admin',
   我已安装: 'Already installed',
   已安装客户端: 'Client installed',
   查看机器: 'View machine',
