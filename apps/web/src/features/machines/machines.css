@@ -656,3 +656,35 @@
 .machine-logs__line[data-level="debug"] {
   color: var(--label-tertiary);
 }
+
+/* Save-on-change status beside a control. */
+.mx-save {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+  white-space: nowrap;
+}
+.mx-save:empty {
+  display: none;
+}
+.mx-save[data-phase="saved"] {
+  color: var(--system-green);
+}
+.mx-save[data-phase="failed"] {
+  color: var(--tint-red-text);
+  white-space: normal;
+}
+
+/* 机器离线 / 如何升级 */
+.machine-offline,
+.machine-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+}

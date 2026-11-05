@@ -1,4 +1,4 @@
-import { type BotDto, type ClientDownloads, compareVersions, type MachineDto } from '@gonggong/protocol'
+import type { BotDto, ClientDownloads, MachineDto } from '@gonggong/protocol'
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -6,10 +6,21 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, EmptyState, Icon, type IconName, Presence, Tabs, TextField, toast } from '../../ui'
+import {
+  Button,
+  Dialog,
+  Disclosure,
+  EmptyState,
+  Icon,
+  type IconName,
+  Presence,
+  Tabs,
+  TextField,
+  toast,
+} from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL, PRESENCE } from '../bots/model'
-import { DiagnosticsPanel, WorkspacesPanel } from './AdminPanels'
+import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPanel } from './AdminPanels'
 import { AgentsPanel } from './AgentsPanel'
 import { OS_LABEL } from './model'
 import { RevokeMachineDialog } from './RevokeMachineDialog'
@@ -65,9 +76,9 @@ const TAB_ALIAS: Record<string, Tab> = {
 
 const outdated = (m: MachineDto, part: Part) => !m.features.includes(PART_FEATURE[part])
 
-/** Why a section cannot be managed live right now, if so: offline, or a daemon too old for all of it. */
+/** An online machine whose daemon is too old for all of a section; offline sections stay open to explain. */
 const blocked = (m: MachineDto, tab: Exclude<Tab, 'overview'>) =>
-  !m.online ? 'offline' : TAB_PARTS[tab].every((p) => outdated(m, p)) ? 'outdated' : null
+  m.online && TAB_PARTS[tab].every((p) => outdated(m, p))
 
 function blockedNote(m: MachineDto) {
   if (!m.online) return t('机器离线，上线后才能管理 Agent 与供应商、工作区和诊断')
@@ -149,6 +160,19 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
   )
 }
 
+/** An offline machine's live sections: when it was last seen and how to bring it back; nothing is kept off it. */
+function OfflineNote({ machine }: { machine: MachineDto }) {
+  return (
+    <section className="machine-offline" aria-label={t('机器离线')}>
+      <span className="mx-strong">{t('机器离线')}</span>
+      <span className="mx-sub">{t('最后在线：{time}', { time: dateText(machine.lastSeenAt) })}</span>
+      <span>{t('供应商、Agent 工具与 Agent 设置只保存在机器上，机器上线后才能查看和修改。')}</span>
+      <span>{t('让它上线：在该机器上打开共工空间客户端，或在终端运行')}</span>
+      <CommandLine command="gg run" />
+    </section>
+  )
+}
+
 /** Sections of one machine, shared by its page and the admin dialog. */
 export function MachineDetails({
   machine,
@@ -171,7 +195,6 @@ export function MachineDetails({
   const owner = useSession((st) => st.user?.id === machine.ownerId)
   const latest = useGet<ClientDownloads | null>('/client-downloads').data?.version
   const current = owner ? tab : 'overview'
-  const why = current === 'overview' ? null : blocked(machine, current)
   const specs: [IconName, string, string | null][] = [
     ['cpu', 'CPU', cpuText(machine)],
     ['activity', t('内存'), memoryText(machine.system?.memoryBytes)],
@@ -188,23 +211,21 @@ export function MachineDetails({
             onChange={setTab}
             items={[
               { value: 'overview', label: t('概览') },
-              { value: 'agents', label: t('Agent 与供应商'), disabled: !!blocked(machine, 'agents') },
-              { value: 'workspaces', label: t('工作区#tab'), disabled: !!blocked(machine, 'workspaces') },
-              { value: 'diagnostics', label: t('诊断'), disabled: !!blocked(machine, 'diagnostics') },
+              { value: 'agents', label: t('Agent 与供应商'), disabled: blocked(machine, 'agents') },
+              { value: 'workspaces', label: t('工作区#tab'), disabled: blocked(machine, 'workspaces') },
+              { value: 'diagnostics', label: t('诊断'), disabled: blocked(machine, 'diagnostics') },
             ]}
           />
           {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
         </div>
       ) : null}
-      {current === 'overview' ? null : why ? (
+      {current === 'overview' ? null : !machine.online ? (
+        <OfflineNote machine={machine} />
+      ) : blocked(machine, current) ? (
         <EmptyState
           compact
-          title={why === 'offline' ? t('机器离线') : t('请先升级该机器的 daemon')}
-          description={
-            why === 'offline'
-              ? t('供应商、Agent 工具与 Agent 设置只保存在机器上，机器上线后才能查看和修改。')
-              : t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')
-          }
+          title={t('请先升级该机器的 daemon')}
+          description={t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')}
         />
       ) : current === 'agents' ? (
         <AgentsPanel machine={machine} />
@@ -227,7 +248,7 @@ export function MachineDetails({
                 {machine.daemonVersion ? (
                   <span className="machine__tag">daemon v{machine.daemonVersion}</span>
                 ) : null}
-                {latest && machine.daemonVersion && compareVersions(machine.daemonVersion, latest) < 0 ? (
+                {upgradable(machine, latest) ? (
                   <span
                     className="machine__tag machine__tag--update"
                     title={t('daemon 会自动升级到最新版本')}
@@ -241,6 +262,11 @@ export function MachineDetails({
               {machine.online ? t('在线') : t('离线')}
             </span>
           </section>
+          {upgradable(machine, latest) ? (
+            <Disclosure title={t('如何升级')}>
+              <UpgradeGuide latest={latest} />
+            </Disclosure>
+          ) : null}
           <div className="machine__specs">
             {specs
               .filter((r): r is [IconName, string, string] => r[2] !== null)

@@ -7,10 +7,9 @@ import {
   type ToolStatus,
   type ToolsStateDto,
 } from '@gonggong/protocol'
-import { useEffect, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import {
   Alert,
@@ -22,8 +21,8 @@ import {
   Skeleton,
   Tag,
   TextField,
-  toast,
 } from '../../ui'
+import { SaveStatus, useSaves } from './save'
 import { canUpgrade, hasUpdate } from './tools'
 
 const MIN_NODE = 22
@@ -156,20 +155,23 @@ export function MirrorPanel({ machine }: { machine: MachineDto }) {
     api.get<ToolsStateDto>(base).then(setState, (e) => setError(errorText(e)))
   }, [base])
 
-  const save = async (mirror: Mirror) => {
-    try {
+  const saves = useSaves()
+  const save = (mirror: Mirror) =>
+    saves.save('mirror', async () => {
       setState(await api.put<ToolsStateDto>(`${base}/settings`, { mirror }))
-      toast({ type: 'success', message: t('镜像源已保存') })
-    } catch (e) {
-      toastError(e)
-    }
-  }
+      return undefined
+    })
 
   if (error) return <Alert variant="error" description={error} />
   if (!state) return <Skeleton count={1} />
   return (
     <GroupBox>
-      <MirrorRows key={JSON.stringify(state.settings.mirror)} mirror={state.settings.mirror} onSave={save} />
+      <MirrorRows
+        key={JSON.stringify(state.settings.mirror)}
+        mirror={state.settings.mirror}
+        status={<SaveStatus state={saves.status('mirror')} />}
+        onSave={save}
+      />
     </GroupBox>
   )
 }
@@ -236,23 +238,46 @@ function ToolLog({ op }: { op: ToolOp }) {
 }
 
 /** 镜像源 of Node.js and the agent CLIs; a custom one takes both addresses before it is saved. */
-function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) => Promise<void> }) {
+function MirrorRows({
+  mirror,
+  status,
+  onSave,
+}: {
+  mirror: Mirror
+  status: ReactNode
+  onSave: (m: Mirror) => void
+}) {
   const [kind, setKind] = useState(mirror.kind)
   const [registry, setRegistry] = useState(mirror.kind === 'custom' ? mirror.registry : '')
   const [node, setNode] = useState(mirror.kind === 'custom' ? mirror.node : '')
-  const changed = mirror.kind !== 'custom' || mirror.registry !== registry || mirror.node !== node
+  const sent = useRef(mirror.kind === 'custom' ? JSON.stringify(mirror) : '')
+  // A custom mirror needs both addresses; it is saved once they are in and differ from what was last sent.
+  const commit = {
+    onBlur: () => {
+      const m: Mirror = { kind: 'custom', registry: registry.trim(), node: node.trim() }
+      if (!m.registry || !m.node || JSON.stringify(m) === sent.current) return
+      sent.current = JSON.stringify(m)
+      onSave(m)
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit.onBlur()
+    },
+  }
   return (
     <>
       <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js、Claude Code 与 Codex 时从这里下载')}>
-        <PopUpButton
-          aria-label={t('镜像源')}
-          options={MIRRORS}
-          value={kind}
-          onChange={(k) => {
-            setKind(k)
-            if (k !== 'custom') void onSave({ kind: k })
-          }}
-        />
+        <span className="mx-inline">
+          {status}
+          <PopUpButton
+            aria-label={t('镜像源')}
+            options={MIRRORS}
+            value={kind}
+            onChange={(k) => {
+              setKind(k)
+              if (k !== 'custom') onSave({ kind: k })
+            }}
+          />
+        </span>
       </GroupRow>
       {kind === 'custom' ? (
         <>
@@ -263,6 +288,7 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
               placeholder="https://registry.example.com"
               value={registry}
               onChange={(e) => setRegistry(e.target.value)}
+              {...commit}
             />
           </GroupRow>
           <GroupRow label={t('Node.js 下载地址')} description={t('index.json 所在的目录')}>
@@ -272,17 +298,9 @@ function MirrorRows({ mirror, onSave }: { mirror: Mirror; onSave: (m: Mirror) =>
               placeholder="https://example.com/mirrors/node"
               value={node}
               onChange={(e) => setNode(e.target.value)}
+              {...commit}
             />
           </GroupRow>
-          <div className="mx-row mx-row--end">
-            <Button
-              variant="primary"
-              disabled={!registry.trim() || !node.trim() || !changed}
-              onClick={() => void onSave({ kind: 'custom', registry: registry.trim(), node: node.trim() })}
-            >
-              {t('保存')}
-            </Button>
-          </div>
         </>
       ) : null}
     </>

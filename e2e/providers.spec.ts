@@ -37,7 +37,8 @@ async function openMachine(page: Page, tab: 'Agent 与供应商' | '诊断') {
   // The machine's row comes before the Bots listed under it.
   await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
   const dialog = page.getByRole('region', { name: '机器详情' })
-  await expect(dialog.getByRole('tab', { name: tab })).toBeEnabled({ timeout: 30_000 })
+  // Offline sections stay clickable (they explain how to bring the machine back): wait until it is online.
+  await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
   await dialog.getByRole('tab', { name: tab }).click()
   return dialog
 }
@@ -142,10 +143,8 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       await editor.getByLabel('API Key').fill(KEY)
       await editor.getByText('设为该机器默认').click()
       await editor.getByRole('button', { name: '保存' }).click()
-      const confirm = page.getByRole('alertdialog')
-      await expect(confirm).toContainText('1 个群的会话仍在使用 官方登录，开启新会话后才会切换到 DeepSeek')
-      await expect(confirm).toContainText('供应商切换（pr1 Bot）')
-      await confirm.getByRole('button', { name: '切换' }).click()
+      // Switched at once; the running session is noted beside it instead of a confirmation.
+      await expect(claude.getByRole('status')).toContainText('已保存 · 1 个群的会话开启新会话后才切换')
       await expect(claude.getByRole('radio', { name: /DeepSeek/ })).toBeChecked()
       await expect(claude).toContainText(`Key ****${KEY.slice(-4)}`)
       await page.goto(`/g/${group.id}`)
@@ -313,9 +312,11 @@ test('Agent 与供应商 installs Node.js and Claude Code from a custom mirror, 
     const saveMirror = async (registry: string) => {
       await dialog.getByRole('tab', { name: '诊断' }).click()
       await dialog.getByRole('textbox', { name: 'npm registry' }).fill(registry)
-      await dialog.getByRole('textbox', { name: 'Node.js 下载地址' }).fill(`${mirror.url}/node`)
-      await dialog.getByRole('button', { name: '保存', exact: true }).click()
-      await expect(page.getByText('镜像源已保存').last()).toBeVisible()
+      const node = dialog.getByRole('textbox', { name: 'Node.js 下载地址' })
+      await node.fill(`${mirror.url}/node`)
+      // Saved by itself once both addresses are in.
+      await node.press('Enter')
+      await expect(dialog.getByRole('status')).toContainText('已保存')
       await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
     }
     await dialog.getByRole('button', { name: '镜像源' }).click()

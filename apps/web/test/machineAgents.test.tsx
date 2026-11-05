@@ -17,7 +17,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { MachineDialog } from '../src/features/machines/MachineDialog'
 import { realtime } from '../src/lib/realtime'
 import { Toaster } from '../src/ui'
-import { type Call, mockApi } from './mockApi'
+import { apiError, type Call, mockApi } from './mockApi'
 
 const me: UserDto = {
   id: 'u1',
@@ -183,10 +183,22 @@ describe('machine details sections', () => {
     expect(screen.getByText('wanglei-mbp', { selector: '.machine__host' })).toBeTruthy()
   })
 
-  it('disables the live sections with 机器离线 while the machine is offline', () => {
-    open({ ...mbp, online: false, features: [] })
-    for (const name of [AGENTS_TAB, '工作区', '诊断']) expect(tab(name).disabled).toBe(true)
-    expect(screen.getByText(/机器离线/)).toBeTruthy()
+  it('keeps the live sections open while offline, saying when it was last seen and how to bring it back', () => {
+    const calls = mockApi(LIVE)
+    const lastSeenAt = '2026-11-01T08:00:00Z'
+    open({ ...mbp, online: false, lastSeenAt, features: [...mbp.features, 'machineAdmin'] })
+    for (const name of [AGENTS_TAB, '工作区', '诊断']) {
+      expect(tab(name).disabled).toBe(false)
+      fireEvent.click(tab(name))
+      const note = screen.getByRole('region', { name: '机器离线' })
+      expect(note.textContent).toContain(new Date(lastSeenAt).toLocaleString())
+      expect(note.textContent).toContain('共工空间客户端')
+      expect(within(note).getByText('gg run')).toBeTruthy()
+    }
+    // Nothing of the machine's live configuration is kept off it: no request while it is away.
+    expect(calls.filter((c) => c.path.startsWith('/machines/m1/'))).toEqual([])
+    fireEvent.click(tab('概览'))
+    expect(screen.getByText('wanglei-mbp', { selector: '.machine__host' })).toBeTruthy()
   })
 
   it('asks for a daemon upgrade when the daemon predates the features', () => {
@@ -404,25 +416,54 @@ describe('诊断', () => {
     mockApi(LIVE)
     open(mbp, '/?tab=diagnostics')
     expect(screen.getByText('v0.9.0')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: '如何升级' })).toBeNull()
   })
 
-  it('saves a custom mirror with both addresses', async () => {
+  it('explains how to upgrade an outdated daemon, with a command to copy, in 诊断 and on the overview', async () => {
+    mockApi({ ...LIVE, 'GET /client-downloads': { version: '1.0.0', builds: [], desktop: [] } })
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    open(mbp, '/?tab=diagnostics')
+    const guide = await screen.findByRole('region', { name: '如何升级' })
+    expect(guide.textContent).toContain('可升级到 1.0.0')
+    expect(guide.textContent).toContain('检查更新')
+    fireEvent.click(within(guide).getByRole('button', { name: '复制命令' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('gg run'))
+    fireEvent.click(tab('概览'))
+    fireEvent.click(screen.getByRole('button', { name: '如何升级' }))
+    expect(screen.getByRole('region', { name: '如何升级' }).textContent).toContain('gg run')
+  })
+
+  it('saves a custom mirror by itself once both addresses are in', async () => {
     const calls = mockApi({ ...LIVE, 'PUT /machines/m1/tools/settings': TOOLS })
     open(mbp, '/?tab=diagnostics')
     await screen.findByRole('button', { name: '镜像源' })
+    expect(screen.queryByRole('button', { name: '保存' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '镜像源' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '自定义' }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'npm registry' }), {
-      target: { value: 'https://r.example.com' },
-    })
-    fireEvent.change(screen.getByRole('textbox', { name: 'Node.js 下载地址' }), {
-      target: { value: 'https://n.example.com' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const registry = screen.getByRole('textbox', { name: 'npm registry' })
+    fireEvent.change(registry, { target: { value: 'https://r.example.com' } })
+    fireEvent.blur(registry)
+    const node = screen.getByRole('textbox', { name: 'Node.js 下载地址' })
+    fireEvent.change(node, { target: { value: 'https://n.example.com' } })
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
+    fireEvent.keyDown(node, { key: 'Enter' })
+    fireEvent.blur(node)
     await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
-        mirror: { kind: 'custom', registry: 'https://r.example.com', node: 'https://n.example.com' },
-      }),
+      expect(calls.filter((c) => c.method === 'PUT').map((c) => c.body)).toEqual([
+        { mirror: { kind: 'custom', registry: 'https://r.example.com', node: 'https://n.example.com' } },
+      ]),
+    )
+    expect(await screen.findByText('已保存')).toBeTruthy()
+  })
+
+  it('saves a listed mirror as soon as it is picked', async () => {
+    const calls = mockApi({ ...LIVE, 'PUT /machines/m1/tools/settings': TOOLS })
+    open(mbp, '/?tab=diagnostics')
+    fireEvent.click(await screen.findByRole('button', { name: '镜像源' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '官方源' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ mirror: { kind: 'official' } }),
     )
   })
 })
@@ -777,17 +818,12 @@ describe('供应商', () => {
     expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe('Kimi')
   })
 
-  it('confirms a machine default switch that leaves sessions on the old provider', async () => {
+  it('switches the machine default at once, noting the sessions that keep the old one', async () => {
     const { calls, claude } = await openProviders({
       'PUT /machines/m1/providers/default': { ...VIEW, machine: { claude: 'p1' } },
     })
     fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
-    const alert = await screen.findByRole('alertdialog')
-    expect(alert.textContent).toContain('3 个群的会话仍在使用 官方登录，开启新会话后才会切换到 Kimi')
-    for (const g of ['前端组（小王的 Claude）', '后端组（小王的 Claude）', '测试组（审查员）'])
-      expect(within(alert).getByText(g)).toBeTruthy()
-    expect(calls.some((c) => c.method === 'PUT')).toBe(false)
-    fireEvent.click(within(alert).getByRole('button', { name: '切换' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
         path: '/machines/m1/providers/default',
@@ -797,17 +833,38 @@ describe('供应商', () => {
     await waitFor(() =>
       expect((within(claude).getByRole('radio', { name: /Kimi/ }) as HTMLInputElement).checked).toBe(true),
     )
+    expect(within(claude).getByRole('status').textContent).toContain(
+      '已保存 · 3 个群的会话开启新会话后才切换',
+    )
   })
 
-  it('switches at once when no session is affected (bots with their own provider)', async () => {
+  it('says just 已保存 when no session is affected (bots with their own provider)', async () => {
     const view = { ...VIEW, bots: { b1: 'official', b2: 'official' } }
-    const { calls, claude } = await openProviders(
+    const { claude } = await openProviders(
       { 'PUT /machines/m1/providers/default': { ...view, machine: { claude: 'p1' } } },
       view,
     )
     fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await waitFor(() => expect(within(claude).getByRole('status').textContent).toBe('已保存'))
+  })
+
+  it('keeps the old default when a switch fails, with the reason and a retry', async () => {
+    let fail = true
+    const { calls, claude } = await openProviders({
+      'PUT /machines/m1/providers/default': () =>
+        fail ? apiError(503, 'machine_offline', '机器离线') : { ...VIEW, machine: { claude: 'p1' } },
+    })
+    fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
+    await waitFor(() =>
+      expect(within(claude).getByRole('status').textContent).toContain('保存失败：机器离线'),
+    )
+    expect((within(claude).getByRole('radio', { name: /官方登录/ }) as HTMLInputElement).checked).toBe(true)
+    fail = false
+    fireEvent.click(within(claude).getByRole('button', { name: '重试' }))
+    await waitFor(() =>
+      expect((within(claude).getByRole('radio', { name: /Kimi/ }) as HTMLInputElement).checked).toBe(true),
+    )
+    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(2)
   })
 
   it('warns that sessions pinned to a deleted provider start over', async () => {
@@ -1137,7 +1194,7 @@ describe('Agent 设置', () => {
   it('shows where each value comes from, striking the CLI value it overrides', async () => {
     const { region } = await openSettings()
     const language = row(region, '语言')
-    expect(language.textContent).toContain('来源：Agent 设置')
+    expect(language.textContent).toContain('来源：共工设置')
     expect(language.querySelector('s')?.textContent).toContain('该机器 CLI：english')
     expect(row(region, '扩展思考').textContent).toContain('来源：该机器 CLI（开）')
     expect(row(region, 'Bash 默认超时').textContent).toContain('来源：默认')
@@ -1146,27 +1203,90 @@ describe('Agent 设置', () => {
     expect(row(region, '由共工管理').textContent).toContain('permissions')
   })
 
-  it('saves the machine defaults and says they apply from the next turn', async () => {
+  const puts = (calls: Call[]) => calls.filter((c) => c.method === 'PUT').map((c) => c.body)
+
+  it('saves each change by itself, next to the control, from the next turn on', async () => {
     const { calls, region } = await openSettings({ 'PUT /machines/m1/agent-settings': SET_VIEW })
+    expect(within(region).queryByRole('button', { name: /保存/ })).toBeNull()
+    expect(region.textContent).toContain('改动立即保存，下一轮生效')
+    const base = { agent: 'claude', values: { language: 'chinese', autoMemory: 'false' }, inheritCli: true }
+
     fireEvent.click(within(row(region, '扩展思考')).getByRole('radio', { name: '关' }))
-    fireEvent.change(within(region).getByRole('textbox', { name: 'Bash 默认超时' }), {
-      target: { value: '10m' },
+    await waitFor(() =>
+      expect(puts(calls)).toEqual([{ ...base, values: { ...base.values, thinking: 'false' } }]),
+    )
+    expect(within(row(region, '扩展思考')).getByRole('status').textContent).toBe('已保存')
+
+    const timeout = within(region).getByRole('textbox', { name: 'Bash 默认超时' })
+    fireEvent.change(timeout, { target: { value: '10m' } })
+    expect(puts(calls)).toHaveLength(1)
+    fireEvent.keyDown(timeout, { key: 'Enter' })
+    fireEvent.blur(timeout)
+    await waitFor(() => expect(puts(calls)).toHaveLength(2))
+    expect(puts(calls)[1]).toEqual({
+      ...base,
+      values: { ...base.values, thinking: 'false', bashTimeout: '600000' },
     })
+    await waitFor(() =>
+      expect(within(row(region, 'Bash 默认超时')).getByRole('status').textContent).toBe('已保存'),
+    )
+
     expect(region.textContent).not.toContain('个人 CLAUDE.md')
     fireEvent.click(within(region).getByRole('switch', { name: '继承该机器 CLI 配置' }))
     expect(region.textContent).toContain('个人 CLAUDE.md、记忆、hooks 和用户 Skill')
-    fireEvent.click(within(region).getByRole('button', { name: '保存设置' }))
+    await waitFor(() => expect(puts(calls)).toHaveLength(3))
+    expect(puts(calls)[2]).toMatchObject({ inheritCli: false })
+  })
+
+  it('shows a failed save with its reason next to the control and retries it', async () => {
+    let fail = true
+    const { calls, region } = await openSettings({
+      'PUT /machines/m1/agent-settings': () =>
+        fail ? apiError(503, 'machine_offline', '机器离线') : SET_VIEW,
+    })
+    fireEvent.click(within(row(region, '扩展思考')).getByRole('radio', { name: '关' }))
+    const status = () => within(row(region, '扩展思考')).getByRole('status')
+    await waitFor(() => expect(status().textContent).toContain('保存失败：机器离线'))
+    fail = false
+    fireEvent.click(within(row(region, '扩展思考')).getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(status().textContent).toBe('已保存'))
+    expect(puts(calls)).toHaveLength(2)
+  })
+
+  it('refuses an invalid value next to its field without saving', async () => {
+    const { calls, region } = await openSettings()
+    const timeout = within(region).getByRole('textbox', { name: 'Bash 默认超时' })
+    fireEvent.change(timeout, { target: { value: 'abc' } })
+    fireEvent.blur(timeout)
     await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
-        path: '/machines/m1/agent-settings',
-        body: {
-          agent: 'claude',
-          values: { language: 'chinese', autoMemory: 'false', thinking: 'false', bashTimeout: '600000' },
-          inheritCli: false,
-        },
-      }),
+      expect(within(row(region, 'Bash 默认超时')).getByRole('status').textContent).toContain('保存失败'),
     )
-    expect(await screen.findByText('Agent 设置已保存，将在下一轮生效')).toBeTruthy()
+    expect(puts(calls)).toEqual([])
+  })
+
+  it('names the bots on this machine that override a setting', async () => {
+    useWorkspace.setState({
+      bots: [
+        {
+          ...bot('b1', '小王的 Claude'),
+          machineId: 'm1',
+          agentKind: 'claude',
+          agentSettings: { thinking: 'true' },
+        },
+        {
+          ...bot('b2', '别处的'),
+          machineId: 'm9',
+          agentKind: 'claude',
+          agentSettings: { thinking: 'false' },
+        },
+      ],
+    })
+    const { region } = await openSettings()
+    const thinking = row(region, '扩展思考').textContent
+    expect(thinking).toContain('来源：该机器 CLI（开）')
+    expect(thinking).toContain('Bot 覆盖：小王的 Claude（开）')
+    expect(thinking).not.toContain('别处的')
+    expect(row(region, '语言').textContent).not.toContain('Bot 覆盖')
   })
 
   it('starts from the defaults with the CLI inherited when nothing is set', async () => {

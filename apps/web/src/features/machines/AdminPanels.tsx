@@ -2,6 +2,7 @@ import { compareVersions, type MachineDto, type MachineWorkspace } from '@gonggo
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
+import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
@@ -13,6 +14,8 @@ import {
   EmptyState,
   GroupBox,
   GroupRow,
+  Icon,
+  IconButton,
   Presence,
   Select,
   Skeleton,
@@ -20,6 +23,39 @@ import {
   toast,
 } from '../../ui'
 import { MirrorPanel } from './ToolsPanel'
+
+export const upgradable = (m: MachineDto, latest: string | undefined): latest is string =>
+  !!latest && !!m.daemonVersion && compareVersions(m.daemonVersion, latest) < 0
+
+/** A command to run on the machine, with a copy button. */
+export function CommandLine({ command }: { command: string }) {
+  return (
+    <div className="bind__cmd">
+      <span className="bind__cmd-text">{command}</span>
+      <IconButton title={t('复制命令')} onClick={() => void copyWithToast(command, t('已复制命令'))}>
+        <Icon name="copy" />
+      </IconButton>
+    </div>
+  )
+}
+
+/**
+ * How to bring the daemon up to `latest`. The server cannot start an upgrade: a connected CLI daemon fetches the
+ * new build itself and restarts when idle, the desktop app updates as an app.
+ */
+export function UpgradeGuide({ latest }: { latest: string }) {
+  return (
+    <section className="machine-upgrade" aria-label={t('如何升级')}>
+      <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
+      <span className="mx-sub">
+        {t('daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：')}
+      </span>
+      <span>{t('桌面端：在该机器上打开共工空间客户端，点「检查更新」')}</span>
+      <span>{t('命令行：在该机器上重启 daemon，重连后自动升级')}</span>
+      <CommandLine command="gg run" />
+    </section>
+  )
+}
 
 /** 诊断: the daemon version, the mirror its tools download from and its log. */
 export function DiagnosticsPanel({ machine, latest }: { machine: MachineDto; latest?: string }) {
@@ -33,13 +69,14 @@ export function DiagnosticsPanel({ machine, latest }: { machine: MachineDto; lat
           value={
             <span className="mx-inline">
               {version ? `v${version}` : '--'}
-              {latest && version && compareVersions(version, latest) < 0 ? (
+              {upgradable(machine, latest) ? (
                 <Tag tone="orange">{t('可升级到 {version}', { version: latest })}</Tag>
               ) : null}
             </span>
           }
         />
       </GroupBox>
+      {upgradable(machine, latest) ? <UpgradeGuide latest={latest} /> : null}
       {machine.features.includes('tools') ? <MirrorPanel machine={machine} /> : null}
       {machine.features.includes('machineAdmin') ? <LogsPanel machine={machine} /> : null}
     </div>

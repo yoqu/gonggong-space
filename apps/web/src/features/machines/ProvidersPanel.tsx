@@ -31,6 +31,7 @@ export function ProviderBox({
   view,
   onView,
   onSwitch,
+  status,
 }: {
   machine: MachineDto
   agent: AgentKind
@@ -38,6 +39,8 @@ export function ProviderBox({
   onView: (view: ProviderStoreView) => void
   /** Asks to make `choice` the default, confirming first when sessions keep the old one; `v` is the view to use. */
   onSwitch: (agent: AgentKind, choice: string, v?: ProviderStoreView) => void
+  /** How the last switch of this agent's default went. */
+  status: ReactNode
 }) {
   const [open, setOpenState] = useState<Open>(null)
   // Presence keeps a closed dialog mounted: a new key makes each opening start fresh.
@@ -102,6 +105,7 @@ export function ProviderBox({
             {t('选中的是该机器默认，新会话使用它；进行中的会话开启新会话后才切换')}
           </span>
         </span>
+        {status}
       </div>
       <GroupBox>
         {row(

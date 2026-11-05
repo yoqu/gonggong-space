@@ -25,7 +25,7 @@ test('机器详情: the daemon log and its workspaces, read and cleaned through 
     const id = await api.machineId()
     await page.goto(`/machine/${id}`)
     const details = page.getByRole('region', { name: '机器详情' })
-    await expect(details.getByRole('tab', { name: '诊断' })).toBeEnabled({ timeout: 30_000 })
+    await expect(details.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
 
     await details.getByRole('tab', { name: '诊断' }).click()
     await expect(details.locator('.machine-logs')).toContainText('INFO', { timeout: 15_000 })

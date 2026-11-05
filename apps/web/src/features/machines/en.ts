@@ -74,7 +74,6 @@ export default {
   运行环境: 'Runtime',
   'daemon 版本': 'Daemon version',
   '重命名#action': 'Rename',
-  保存设置: 'Save settings',
   '请先升级该机器的 daemon，才能管理{what}': "Upgrade this machine's daemon first to manage {what}",
   与: ' and ',
   '已重命名为 {name}': 'Renamed to {name}',
@@ -150,7 +149,6 @@ export default {
   'CC Switch 的供应商分享链接，Key 只保存在这台机器上':
     'A CC Switch provider share link; the key is stored only on this machine',
   导入链接: 'Import link',
-  '{agent} 在该机器的默认已切换，新会话生效': '{agent} machine default switched; applies to new sessions',
   '{agent} 供应商': '{agent} providers',
   '已删除供应商 {name}': 'Deleted provider {name}',
   '它是该机器默认，删除后改为官方登录。':
@@ -179,7 +177,6 @@ export default {
     'Runs the ACP adapter and managed Claude Code / Codex installs (requires ≥ {min})',
   '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
   官方源: 'Official registry',
-  镜像源已保存: 'Mirror saved',
   来源: 'Source',
   共工空间托管: 'Managed by Gonggong Space',
   自行安装: 'Self-installed',
@@ -259,7 +256,6 @@ export default {
   'Agent 设置': 'Agent settings',
   '该机器 CLI': 'Machine CLI',
   '{agent} Agent 设置': '{agent} agent settings',
-  'Agent 设置已保存，将在下一轮生效': 'Agent settings saved; they apply from the next turn',
   '该机器 CLI：{v}': 'Machine CLI: {v}',
   '来源：{s}': 'Source: {s}',
   '来源：{s}（{v}）': 'Source: {s} ({v})',
@@ -313,4 +309,21 @@ export default {
   命令行参数: 'Command-line arguments',
   '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置':
     "Added when Claude Code starts, one per line, e.g. --settings ~/team.json; --settings is merged into Gonggong's settings, and flags Gonggong manages (permissions, model, session, MCP…) cannot be set",
+  共工设置: 'Gonggong settings',
+  '改动立即保存，下一轮生效': 'Changes save right away and apply from the next turn',
+  '{n} 个群的会话开启新会话后才切换': 'sessions in {n} {n:group|groups} switch once a new session starts',
+  已保存: 'Saved',
+  '{bot}（{v}）': '{bot} ({v})',
+  '保存失败：{error}': 'Save failed: {error}',
+  已复制命令: 'Command copied',
+  如何升级: 'How to upgrade',
+  'daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：':
+    'While online, the daemon downloads the new version itself and restarts to finish once no run is active. If it never does:',
+  '桌面端：在该机器上打开共工空间客户端，点「检查更新」':
+    'Desktop: open the Gonggong Space client on the machine and click "Check for updates"',
+  '命令行：在该机器上重启 daemon，重连后自动升级':
+    'Command line: restart the daemon on the machine; it upgrades after reconnecting',
+  '最后在线：{time}': 'Last online: {time}',
+  '让它上线：在该机器上打开共工空间客户端，或在终端运行':
+    'To bring it online, open the Gonggong Space client on the machine, or run in a terminal',
 } satisfies Record<string, string>

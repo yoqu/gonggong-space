@@ -1,13 +1,13 @@
-import { fieldsFor, type MachineDto, type ProviderStoreView } from '@gonggong/protocol'
+import { type AgentKind, fieldsFor, type MachineDto, type ProviderStoreView } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { toastError } from '../../lib/errors'
-import { Alert, Skeleton, toast } from '../../ui'
+import { Alert, Skeleton } from '../../ui'
 import { AGENT_LABEL, AGENTS } from '../bots/model'
 import { AgentSettingsBox } from './AgentSettingsPanel'
 import { ProviderBox } from './ProvidersPanel'
-import { useProviderSwitch } from './providers'
+import { switchLines } from './providers'
+import { SaveStatus, useSaves } from './save'
 import { ToolBox, useTools } from './ToolsPanel'
 
 /** Agent 与供应商: Node.js on top, then one card per agent with its tool, providers and agent settings. */
@@ -23,17 +23,14 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
     if (live) api.get<ProviderStoreView>(base).then(setView, (e) => setError(errorText(e)))
   }, [base, live])
 
-  const switcher = useProviderSwitch(async ({ agent, choice }) => {
-    try {
+  const saves = useSaves()
+  // Switches at once; the sessions that keep the old provider until a new session are noted beside it.
+  const switchDefault = (agent: AgentKind, choice: string, from: ProviderStoreView) =>
+    saves.save(agent, async () => {
+      const n = switchLines(from, { agent, choice }).reduce((k, l) => k + l.groups.length, 0)
       setView(await api.put<ProviderStoreView>(`${base}/default`, { agent, choice }))
-      toast({
-        type: 'success',
-        message: t('{agent} 在该机器的默认已切换，新会话生效', { agent: AGENT_LABEL[agent] }),
-      })
-    } catch (e) {
-      toastError(e)
-    }
-  })
+      return n ? t('{n} 个群的会话开启新会话后才切换', { n }) : undefined
+    })
 
   const failed = [tools.error, error].filter(Boolean).join('\n')
   if (failed) return <Alert variant="error" description={failed} />
@@ -61,7 +58,8 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
               agent={agent}
               view={view}
               onView={setView}
-              onSwitch={(a, choice, v = view) => switcher.request({ agent: a, choice }, v)}
+              status={<SaveStatus state={saves.status(agent)} />}
+              onSwitch={(a, choice, v = view) => switchDefault(a, choice, v)}
             />
           ) : null}
           {view && has('agentSettings') && fieldsFor(agent, 'agent').length ? (
@@ -69,7 +67,6 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
           ) : null}
         </section>
       ))}
-      {switcher.dialog}
     </div>
   )
 }
