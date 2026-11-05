@@ -256,7 +256,7 @@ describe('/stop command', () => {
     w.done(first!.id)
     const stopped = await until(
       () => w.run(first!.id),
-      (r) => r.status === 'interrupted',
+      (r) => r.status === 'interrupted' && r.interrupt === 'pending',
     )
     expect(stopped).toMatchObject({ interrupt: 'pending' })
     await new Promise((r) => setTimeout(r, 350))
