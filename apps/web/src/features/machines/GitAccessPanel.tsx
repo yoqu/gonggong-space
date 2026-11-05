@@ -188,7 +188,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             <span className="mx-strong">{t('HTTPS 令牌')}</span>
             <span className="mx-sub">
               {t(
-                '用于 https:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。',
+                '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。',
               )}
             </span>
           </span>

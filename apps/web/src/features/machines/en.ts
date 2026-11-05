@@ -368,8 +368,8 @@ export default {
   '这台机器还没有 SSH 密钥': 'This machine has no SSH key yet',
   '已信任的主机：{hosts}': 'Trusted hosts: {hosts}',
   'HTTPS 令牌': 'HTTPS tokens',
-  '用于 https:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。':
-    'For https:// URLs, per host. On GitHub use a personal access token; on GitLab a personal or project access token with read_repository and write_repository. Tokens stay on this machine.',
+  '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。':
+    'For https:// and http:// URLs, per host. On GitHub use a personal access token; on GitLab a personal or project access token with read_repository and write_repository. Tokens stay on this machine.',
   '该机器已有凭据助手 {helper}，git 会先使用它保存的账号，再使用这里的令牌':
     'This machine already has the credential helper {helper}: git tries the accounts it keeps before these tokens',
   '删除 {host} 的令牌': 'Delete the token for {host}',

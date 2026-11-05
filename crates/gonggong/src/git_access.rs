@@ -15,6 +15,9 @@ use tokio::io::AsyncWriteExt;
 const TEST_TIMEOUT: Duration = Duration::from_secs(30);
 const KEYSCAN_TIMEOUT: &str = "10";
 const KEY_NAME: &str = "id_ed25519";
+/// A token serves a host's plain-http remotes too (self-hosted GitLab often has `http://` clone URLs): git looks
+/// credentials up by protocol.
+const SCHEMES: [&str; 2] = ["https", "http"];
 
 static HOST: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[A-Za-z0-9.-]+(:\d+)?$").unwrap());
 
@@ -77,7 +80,7 @@ impl GitAccess {
     pub async fn view(&self) -> GitAccessView {
         GitAccessView {
             ssh_keys: self.ssh_keys().await,
-            tokens: read_tokens(&self.token_file()).iter().map(TokenLine::view).collect(),
+            tokens: token_views(&read_tokens(&self.token_file())),
             helper: self.global_helper().await,
             known_hosts: known_hosts(&std::fs::read_to_string(self.ssh_dir().join("known_hosts")).unwrap_or_default()),
         }
@@ -172,11 +175,15 @@ impl GitAccess {
         let file = self.token_file();
         let mut lines: Vec<String> =
             read_tokens(&file).into_iter().filter(|l| !l.host.eq_ignore_ascii_case(host)).map(|l| l.raw).collect();
-        lines.push(format!("https://{}:{}@{host}", percent_encode(username), percent_encode(secret)));
+        for scheme in SCHEMES {
+            lines.push(format!("{scheme}://{}:{}@{host}", percent_encode(username), percent_encode(secret)));
+        }
         write_private(&file, &lines)?;
         // Git runs the helper through sh, also on Windows: forward slashes survive its quoting.
         let helper = format!("store --file \"{}\"", file.display().to_string().replace('\\', "/"));
-        self.git_config(&["--replace-all", &helper_key(host), &helper]).await?;
+        for scheme in SCHEMES {
+            self.git_config(&["--replace-all", &helper_key(scheme, host), &helper]).await?;
+        }
         Ok(())
     }
 
@@ -185,7 +192,9 @@ impl GitAccess {
         let lines: Vec<String> =
             read_tokens(&file).into_iter().filter(|l| !l.host.eq_ignore_ascii_case(host)).map(|l| l.raw).collect();
         write_private(&file, &lines)?;
-        self.git_config(&["--unset-all", &helper_key(host)]).await?;
+        for scheme in SCHEMES {
+            self.git_config(&["--unset-all", &helper_key(scheme, host)]).await?;
+        }
         Ok(())
     }
 
@@ -231,8 +240,8 @@ impl GitAccess {
     }
 }
 
-fn helper_key(host: &str) -> String {
-    format!("credential.https://{host}.helper")
+fn helper_key(scheme: &str, host: &str) -> String {
+    format!("credential.{scheme}://{host}.helper")
 }
 
 struct TokenLine {
@@ -247,6 +256,17 @@ impl TokenLine {
         let shown: String = self.secret.chars().take(4).collect();
         GitTokenView { host: self.host.clone(), username: self.username.clone(), masked: format!("{shown}…") }
     }
+}
+
+/// One per host: the same token is stored for each of [`SCHEMES`].
+fn token_views(lines: &[TokenLine]) -> Vec<GitTokenView> {
+    let mut views: Vec<GitTokenView> = vec![];
+    for line in lines {
+        if !views.iter().any(|v| v.host.eq_ignore_ascii_case(&line.host)) {
+            views.push(line.view());
+        }
+    }
+    views
 }
 
 fn read_tokens(file: &Path) -> Vec<TokenLine> {
@@ -406,6 +426,10 @@ mod tests {
 
     /// What git itself answers for `host` with this home's global config.
     fn credential_fill(home: &Path, host: &str) -> String {
+        credential_fill_with(home, "https", host)
+    }
+
+    fn credential_fill_with(home: &Path, protocol: &str, host: &str) -> String {
         let mut child = std::process::Command::new("git")
             .args(["credential", "fill"])
             .env("HOME", home)
@@ -417,7 +441,7 @@ mod tests {
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
-        child.stdin.take().unwrap().write_all(format!("protocol=https\nhost={host}\n\n").as_bytes()).unwrap();
+        child.stdin.take().unwrap().write_all(format!("protocol={protocol}\nhost={host}\n\n").as_bytes()).unwrap();
         String::from_utf8(child.wait_with_output().unwrap().stdout).unwrap()
     }
 
@@ -455,6 +479,9 @@ mod tests {
         assert!(filled.contains("username=wang lei"), "{filled}");
         assert!(filled.contains("password=glpat-s3cr/et@+%"), "{filled}");
         assert!(!credential_fill(dir.path(), "github.com").contains("password="));
+        // Self-hosted GitLab often clones over plain http: the same token answers there.
+        let http = credential_fill_with(dir.path(), "http", "gitlab.example.com");
+        assert!(http.contains("password=glpat-s3cr/et@+%"), "{http}");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -465,6 +492,7 @@ mod tests {
         let replaced = access.run(token("gitlab.example.com", "wanglei", "new-token")).await.unwrap().view;
         assert_eq!(replaced.tokens.len(), 1);
         assert!(credential_fill(dir.path(), "gitlab.example.com").contains("password=new-token"));
+        assert!(credential_fill_with(dir.path(), "http", "gitlab.example.com").contains("password=new-token"));
 
         let removed = access
             .run(GitAccessCmd { host: Some("gitlab.example.com".into()), ..cmd(GitAccessAction::RemoveToken) })
@@ -473,6 +501,7 @@ mod tests {
             .view;
         assert!(removed.tokens.is_empty());
         assert!(!credential_fill(dir.path(), "gitlab.example.com").contains("password="));
+        assert!(!credential_fill_with(dir.path(), "http", "gitlab.example.com").contains("password="));
         let config = std::fs::read_to_string(dir.path().join(".gitconfig")).unwrap();
         assert!(!config.contains("gitlab.example.com"), "{config}");
     }
