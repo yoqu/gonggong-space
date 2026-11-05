@@ -263,7 +263,7 @@ function SetupGuide({
 }) {
   const steps = [
     {
-      label: t('绑定机器'),
+      label: t('绑定新机器'),
       hint: t('在机器上安装共工空间客户端，打开接入链接关联账号'),
       done: bound,
       onClick: onBindMachine,

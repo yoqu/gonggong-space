@@ -787,3 +787,9 @@
   color: var(--tint-green-text);
   font-weight: 600;
 }
+.bind__step-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}

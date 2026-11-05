@@ -332,6 +332,8 @@ export default {
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
   '等待机器上线…': 'Waiting for the machine to come online…',
   机器已上线: 'The machine is online',
+  我已安装: 'Already installed',
+  已安装客户端: 'Client installed',
   查看机器: 'View machine',
   机器总览: 'Machines overview',
   '在一台装有 Claude Code 或 Codex 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':

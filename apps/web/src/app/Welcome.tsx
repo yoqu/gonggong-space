@@ -31,7 +31,7 @@ export function Welcome({
     {
       icon: 'laptop',
       color: 'var(--system-blue)',
-      title: t('绑定机器'),
+      title: t('绑定新机器'),
       desc: t('在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。'),
       action: t('绑定新机器'),
       done: bound,

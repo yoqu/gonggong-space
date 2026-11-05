@@ -27,6 +27,8 @@ export function BindMachineDialog({
 }) {
   const navigate = useNavigate()
   const [bound, setBound] = useState<MachineDto | null>(null)
+  /** ① is the user's word: there is no telling whether the client is installed until it binds. */
+  const [installed, setInstalled] = useState(false)
   /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
   const known = useRef<Map<string, string> | null>(null)
   const bind = useBindCode(open, !!bound)
@@ -35,6 +37,7 @@ export function BindMachineDialog({
   useEffect(() => {
     if (!open) return
     setBound(null)
+    setInstalled(false)
     known.current = null
     void api.get<MachineDto[]>('/machines').then((list) => {
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
@@ -56,10 +59,10 @@ export function BindMachineDialog({
 
   const online = !!bound?.online
   const steps: { label: string; status: StepStatus }[] = [
-    { label: t('安装客户端'), status: bound ? 'completed' : 'active' },
+    { label: t('安装客户端'), status: bound || installed ? 'completed' : 'active' },
     {
       label: t('打开接入链接'),
-      status: bound ? 'completed' : expired || error ? 'error' : code ? 'active' : 'pending',
+      status: bound ? 'completed' : expired || error ? 'error' : installed && code ? 'active' : 'pending',
     },
     { label: t('等待机器上线'), status: online ? 'completed' : bound ? 'active' : 'pending' },
   ]
@@ -83,8 +86,19 @@ export function BindMachineDialog({
           <>
             <section className="bind__section" aria-label={t('安装客户端')}>
               <h3 className="bind__heading">{t('① 安装客户端')}</h3>
-              <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
-              <ClientDownload open={open} />
+              {installed ? (
+                <span className="bind__note">{t('已安装客户端')}</span>
+              ) : (
+                <>
+                  <span className="bind__step-line">
+                    <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
+                    <Button size="small" onClick={() => setInstalled(true)}>
+                      {t('我已安装')}
+                    </Button>
+                  </span>
+                  <ClientDownload open={open} />
+                </>
+              )}
             </section>
             <section className="bind__section" aria-label={t('打开接入链接')}>
               <h3 className="bind__heading">{t('② 打开接入链接')}</h3>

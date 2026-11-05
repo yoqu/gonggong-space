@@ -39,7 +39,6 @@ export default {
   '连接中…': 'Connecting…',
   '已断开 · 重连中': 'Disconnected · reconnecting',
   '{n} 人 · {mode}': '{n} {n:member|members} · {mode}',
-  绑定机器: 'Bind machine',
   '在机器上安装共工空间客户端，打开接入链接关联账号':
     'Install the Gonggong Space client on a machine and open the connect link to link your account',
   '新建 Bot': 'New Bot',

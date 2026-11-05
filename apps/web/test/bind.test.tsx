@@ -183,6 +183,22 @@ describe('bind machine dialog', () => {
     )
   })
 
+  it('ticks ① once 我已安装 is pressed and moves on to ②', async () => {
+    api()
+    show()
+    await openLink()
+    const step = (name: string) =>
+      screen.getByText(name, { selector: '.ui-step__label' }).closest('li')?.getAttribute('data-status')
+    expect(step('安装客户端')).toBe('active')
+    expect(step('打开接入链接')).toBe('pending')
+    const install = screen.getByRole('region', { name: '安装客户端' })
+    fireEvent.click(within(install).getByRole('button', { name: '我已安装' }))
+    expect(step('安装客户端')).toBe('completed')
+    expect(step('打开接入链接')).toBe('active')
+    expect(within(install).queryByRole('button', { name: '我已安装' })).toBeNull()
+    expect(install.textContent).toContain('已安装客户端')
+  })
+
   it('keeps the gg login command under 使用命令行', async () => {
     api()
     show()
