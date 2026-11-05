@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.13 — 2026-11-05
+
+- 机器「Git 访问」里的 HTTPS 令牌同时用于同主机的 `http://` 仓库地址，修复自建 GitLab 克隆认证失败 / HTTPS tokens in machine Git access settings also work for `http://` repository URLs on the same host, fixing self-hosted GitLab clone authentication
+- 多屏画布仅绘制可视区域，交互时以截图提升流畅度；跳转连线默认隐藏 / Multi-screen canvases render visible screens only and use screenshots during interaction; jump links are hidden by default
+- 数据库备份保留最新 7 份及最近 7 天每天最新一份 / Database backups retain the newest seven plus the newest backup from each of the last seven days
+
 ## v0.4.12 — 2026-11-05
 
 - Linux 命令行 daemon 可在网页机器管理中一键升级，下载后在空闲时自动重启 / Linux CLI daemons can be upgraded from the web machine page; they restart once idle after downloading
