@@ -1799,7 +1799,7 @@ pub const FEATURE_PLUGINS: &str = "plugins";
 pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// `artifact.snapshot`: screenshots of artifact versions this machine did not make.
 pub const FEATURE_ARTIFACT_SNAPSHOT: &str = "artifactSnapshot";
-/// 我的机器管理 on the web: logs.get, workspaces.list and workspace.delete.
+/// 机器与 Bot on the web: logs.get, workspaces.list and workspace.delete.
 pub const FEATURE_MACHINE_ADMIN: &str = "machineAdmin";
 /// 空间: workspace.gc, `lastUsedAt` / `changes` / `disk` in workspaces.result, and deletes that skip busy dirs.
 pub const FEATURE_STORAGE_ADMIN: &str = "storageAdmin";
@@ -2604,7 +2604,7 @@ pub enum ServerToDaemon {
     DirCreate { request_id: String, parent: String, name: String },
     #[serde(rename = "apps.list", rename_all = "camelCase")]
     AppsList { request_id: String },
-    /// 我的机器管理 → 日志 (needs [`FEATURE_MACHINE_ADMIN`]).
+    /// 机器与 Bot → 日志 (needs [`FEATURE_MACHINE_ADMIN`]).
     #[serde(rename = "logs.get", rename_all = "camelCase")]
     LogsGet { request_id: String, level: crate::logs::LogLevel, limit: usize },
     #[serde(rename = "workspaces.list", rename_all = "camelCase")]

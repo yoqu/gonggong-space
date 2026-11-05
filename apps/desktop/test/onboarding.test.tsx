@@ -58,13 +58,13 @@ describe('onboarding', () => {
   })
 
   it('shows why binding failed', async () => {
-    m.login.mockRejectedValue('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
+    m.login.mockRejectedValue('绑定失败：接入链接已失效（已过期或已被使用），请在 Web 端重新生成')
     const onDone = vi.fn()
     render(<Onboarding link={null} onDone={onDone} />)
     paste(LINK)
     await screen.findByText('gonggong.corp.cn')
     fireEvent.click(bindButton())
-    await screen.findByText('绑定失败：绑定码已失效（已过期或已被使用），请在 Web 端重新生成')
+    await screen.findByText('绑定失败：接入链接已失效（已过期或已被使用），请在 Web 端重新生成')
     expect(m.login).toHaveBeenCalledWith(PARSED)
     expect(onDone).not.toHaveBeenCalled()
   })

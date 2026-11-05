@@ -31,7 +31,7 @@ export const en = {
   接入链接: 'Join link',
   '粘贴网页上复制的接入链接或 gg login 命令': 'Paste the join link or gg login command copied from the Web',
   服务器: 'Server',
-  绑定码: 'Binding code',
+  接入代码: 'Connect code',
   '请确认这是你们团队的服务器，再点「绑定」。': 'Make sure this is your team\'s server, then click "Bind".',
   '绑定中…': 'Binding…',
   绑定: 'Bind',

@@ -1153,7 +1153,7 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
     Ok(())
 }
 
-/// The 工作区 page for the web's 我的机器管理: the server's pairs as the desktop app gets them, sizes walked off the
+/// The 工作区 page for the web's 机器与 Bot: the server's pairs as the desktop app gets them, sizes walked off the
 /// async runtime, each clone's unpushed work and the free space.
 pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<(Vec<Entry>, Option<Disk>), String> {
     let config = config.ok_or_else(|| t!("daemon 未登录服务器").to_string())?;

@@ -135,10 +135,10 @@ fn checked(server: Option<String>, code: Option<String>, fingerprint: Option<Str
         bail!(t!("服务器地址不能包含账号、查询参数或 #：{server}", server = server));
     }
     tls::validate_server(server)?;
-    let code = code.context(t!("缺少绑定码"))?.trim().to_uppercase();
+    let code = code.context(t!("缺少接入链接中的代码"))?.trim().to_uppercase();
     let valid = |part: &str| part.len() == 4 && part.chars().all(|c| c.is_ascii_alphanumeric());
     if !code.split_once('-').is_some_and(|(a, b)| valid(a) && valid(b)) {
-        bail!(t!("绑定码格式错误，应为 XXXX-XXXX"));
+        bail!(t!("接入链接中的代码格式应为 XXXX-XXXX"));
     }
     let fingerprint = fingerprint
         .map(|value| Trust::fingerprint(&value).map(|trust| trust.fingerprint_value().unwrap().to_owned()))
@@ -152,7 +152,7 @@ struct ApiError {
     message: String,
 }
 
-/// Exchanges a one-time bind code for this machine's long-lived token.
+/// Exchanges the one-time code of a connect link for this machine's long-lived token.
 /// Returns the config and whether the server restored this host's earlier machine.
 pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust) -> Result<(Config, bool)> {
     let server = server.trim_end_matches('/');
@@ -173,10 +173,10 @@ pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust)
         let status = res.status();
         let reason = match res.json::<ApiError>().await {
             Ok(e) => match e.error.as_str() {
-                "code_expired" => t!("绑定码已失效（已过期或已被使用），请在 Web 端重新生成").into(),
-                "code_locked" => t!("尝试次数过多，绑定码已锁定，请稍后在 Web 端重新生成").into(),
-                "unauthorized" => t!("绑定码无效，请核对后重试").into(),
-                "invalid" => t!("绑定码格式错误，应为 XXXX-XXXX").into(),
+                "code_expired" => t!("接入链接已失效（已过期或已被使用），请在 Web 端重新生成").into(),
+                "code_locked" => t!("接入链接尝试次数过多，已锁定，请稍后在 Web 端重新生成").into(),
+                "unauthorized" => t!("接入链接无效，请核对后重试").into(),
+                "invalid" => t!("接入链接中的代码格式应为 XXXX-XXXX").into(),
                 _ => e.message,
             },
             Err(_) => t!("服务器返回 {status}", status = status),

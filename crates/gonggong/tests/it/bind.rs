@@ -89,7 +89,7 @@ async fn login_explains_rejections_in_chinese() {
     for (status, body, expect) in [
         ("410 Gone", r#"{"error":"code_expired","message":"x"}"#, "已失效"),
         ("423 Locked", r#"{"error":"code_locked","message":"x"}"#, "尝试次数过多"),
-        ("401 Unauthorized", r#"{"error":"unauthorized","message":"x"}"#, "绑定码无效"),
+        ("401 Unauthorized", r#"{"error":"unauthorized","message":"x"}"#, "接入链接无效"),
         ("400 Bad Request", r#"{"error":"invalid","message":"x"}"#, "XXXX-XXXX"),
     ] {
         let (url, _) = serve_once(status, body).await;

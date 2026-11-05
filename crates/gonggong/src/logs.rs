@@ -221,7 +221,7 @@ pub fn read_recent(home: &Path, max: LogLevel, limit: usize) -> Vec<LogLine> {
     out
 }
 
-/// The newest log lines for the web's 我的机器管理, masked like the diagnostics bundle: the machine token, live run
+/// The newest log lines for the web's 机器与 Bot, masked like the diagnostics bundle: the machine token, live run
 /// secrets and credentials by shape never leave the machine.
 pub fn for_web(home: &Path, max: LogLevel, limit: usize, token: &str) -> Vec<LogLine> {
     let live = live_secrets();
