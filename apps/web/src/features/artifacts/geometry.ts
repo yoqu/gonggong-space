@@ -235,6 +235,18 @@ export const onScreen = (n: CanvasNode, v: View) => ({
   height: n.h * v.z,
 })
 
+/** `n` is in `room` or within a room's width or height of it (all are until the room is measured). */
+export function nearView(n: CanvasNode, v: View, room: { width: number; height: number }) {
+  if (!room.width) return true
+  const r = onScreen(n, v)
+  return (
+    r.left + r.width > -room.width &&
+    r.left < 2 * room.width &&
+    r.top + r.height > -room.height &&
+    r.top < 2 * room.height
+  )
+}
+
 /** Space kept between what is being edited and the panel's edge (px). */
 const PANEL_GAP = 24
 

@@ -271,6 +271,7 @@
 }
 /* With the select and hand tools the canvas keeps the pointer; mark and direct edit hand it to the screens. */
 .art-node__frame {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
@@ -280,6 +281,18 @@
 }
 .art-node__frame--live {
   pointer-events: auto;
+}
+/* Shown under the page: it is what shows while the page is not painted. */
+.art-node__thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+/* Far off screen, or many screens while the view moves: not painted, so panning does not composite every screen; the page stays loaded (height, links). */
+.art-node__frame--off {
+  visibility: hidden;
 }
 .art-ctx {
   position: absolute;

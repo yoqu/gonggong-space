@@ -12,6 +12,7 @@ import {
   dropIndex,
   fitView,
   layoutNodes,
+  nearView,
   neighbour,
   nodesInRect,
   rectOf,
@@ -241,6 +242,17 @@ describe('bridge', () => {
 })
 
 describe('nodes', () => {
+  it('tells which nodes are on screen, a screen around, while not yet measured all are', () => {
+    const n = { x: 0, y: 0, w: 375, h: 812 } as CanvasNode
+    const room = { width: 1000, height: 800 }
+    expect(nearView(n, { x: 0, y: 0, z: 1 }, room)).toBe(true)
+    expect(nearView(n, { x: -1000, y: 0, z: 1 }, room)).toBe(true)
+    expect(nearView(n, { x: -2500, y: 0, z: 1 }, room)).toBe(false)
+    expect(nearView(n, { x: 0, y: 2000, z: 1 }, room)).toBe(false)
+    expect(nearView(n, { x: 0, y: 2000, z: 0.5 }, room)).toBe(false)
+    expect(nearView(n, { x: -2500, y: 0, z: 1 }, { width: 0, height: 0 })).toBe(true)
+  })
+
   it('parses tokens.css without anything that loads or escapes', () => {
     const tk = parseTokens(TOKENS)
     expect(tk.colors.map((g) => g.group)).toEqual(['primary', 'surface'])
@@ -408,6 +420,30 @@ describe('connections', () => {
     fireEvent.click(item(screen.getByRole('menu'), /显示连线/))
     expect(screen.queryByTestId('art-path-home>detail')).toBeNull()
     expect(localStorage.getItem('gg.art.links')).toBeNull()
+  })
+})
+
+describe('performance', () => {
+  it('shows thumbnails instead of the pages while a crowded view moves, then the pages again', async () => {
+    const ids = ['home', 'detail', 's3', 's4', 's5', 's6', 's7']
+    const many = { ...manifest, screens: ids.map((id) => ({ id, title: id, file: `screens/${id}.html` })) }
+    const thumbs = ids.map((id) => ({ screenId: id, url: `/thumb/${id}.png` }))
+    const size = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(4000)
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(2000)
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ manifest: many }),
+        'GET /artifacts/a1/versions/v2': detail({ manifest: many, screenThumbs: thumbs }),
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    const frame = await screen.findByTitle('s7')
+    expect(node('s7').querySelector('img')?.getAttribute('src')).toBe('/thumb/s7.png')
+    fireEvent.wheel(canvas(), { deltaX: 0, deltaY: 40 })
+    await waitFor(() => expect(frame.className).toContain('art-node__frame--off'))
+    await waitFor(() => expect(frame.className).not.toContain('art-node__frame--off'))
+    size.mockRestore()
+    height.mockRestore()
   })
 })
 

@@ -108,6 +108,7 @@ import {
   framePreset,
   keepZoomBeside,
   layoutNodes,
+  nearView,
   neighbour,
   nodesInRect,
   onScreen,
@@ -212,6 +213,10 @@ const LINKS_KEY = 'gg.art.links'
 const TIP_MS = 8000
 /** How long the canvas's own notice (copied…) stays. */
 const NOTICE_MS = 2400
+/** More screens than this on screen: while the view moves they show their thumbnails, not the pages. */
+const CROWD = 6
+/** The view counts as moving until it has been still this long. */
+const SETTLE_MS = 200
 
 /** Room (px) an open side panel takes at the right, with the tools: its width plus its 60px offset. */
 const PANEL_SIDE = 360
@@ -347,6 +352,13 @@ export function Canvas({
   const frameEls = useRef(new Map<string, HTMLIFrameElement>()).current
   const [room, setRoom] = useState({ width: 0, height: 0 })
   const [view, setView] = useState<View>({ x: 64, y: 64 + TITLE_ROOM, z: 1 })
+  const [viewMoving, setViewMoving] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every move of the view
+  useEffect(() => {
+    setViewMoving(true)
+    const timer = setTimeout(() => setViewMoving(false), SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [view.x, view.y, view.z])
   const [tool, setTool] = useState<Tool>('select')
   const [space, setSpace] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
@@ -1197,6 +1209,13 @@ export function Canvas({
     : picked.length
       ? links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
       : links
+  const thumbOf = (n: CanvasNode) => screenThumbs.find((s) => s.screenId === n.id)?.url
+  const shownScreens = nodes.filter((n) => {
+    if (n.kind !== 'screen') return false
+    const r = onScreen(n, view)
+    return r.left < room.width && r.left + r.width > 0 && r.top < room.height && r.top + r.height > 0
+  }).length
+  const swapToThumbs = viewMoving && shownScreens > CROWD
   const paths = linkPaths(nodes, shownLinks, view, spots, picked.length ? picked.map((n) => n.id) : undefined)
   const favNodes = favourites
     .map((id) => screens.find((s) => s.id === id))
@@ -1567,17 +1586,26 @@ export function Canvas({
                     <span>{t('双击打开')}</span>
                   </div>
                 ) : src(n) ? (
-                  <iframe
-                    key={`${versionKey}:${reloads[n.id] ?? 0}`}
-                    ref={(el) => {
-                      if (el) frameEls.set(n.file, el)
-                      else frameEls.delete(n.file)
-                    }}
-                    className={cx('art-node__frame', live && 'art-node__frame--live')}
-                    title={n.title}
-                    src={src(n) ?? undefined}
-                    tabIndex={-1}
-                  />
+                  <>
+                    {thumbOf(n) ? (
+                      <img className="art-node__thumb" src={thumbOf(n)} alt="" loading="lazy" />
+                    ) : null}
+                    <iframe
+                      key={`${versionKey}:${reloads[n.id] ?? 0}`}
+                      ref={(el) => {
+                        if (el) frameEls.set(n.file, el)
+                        else frameEls.delete(n.file)
+                      }}
+                      className={cx(
+                        'art-node__frame',
+                        live && 'art-node__frame--live',
+                        (swapToThumbs || !nearView(n, view, room)) && 'art-node__frame--off',
+                      )}
+                      title={n.title}
+                      src={src(n) ?? undefined}
+                      tabIndex={-1}
+                    />
+                  </>
                 ) : (
                   <Skeleton variant="block" count={1} width="100%" height="100%" />
                 )}
