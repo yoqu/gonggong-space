@@ -45,6 +45,7 @@ const set = (o: Partial<QuestionSetDto> = {}): QuestionSetDto => ({
   status: 'pending',
   answers: null,
   attachments: [],
+  assigneeIds: [],
   answeredBy: null,
   answeredByName: null,
   answeredAt: null,
@@ -169,6 +170,22 @@ describe('TaskDock', () => {
     expect(screen.getAllByTestId('task-dock-pending')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
     expect(screen.queryByRole('button', { name: '是' })).toBeNull()
+  })
+
+  it('lists questions that @ me as mine to answer', () => {
+    const ask = (assigneeIds: string[]) =>
+      run({
+        id: 'r2',
+        botId: 'b2',
+        originUserId: 'u2',
+        status: 'awaiting_answer',
+        questions: [set({ assigneeIds })],
+      })
+    const { unmount } = render(<TaskDock runs={[ask(['u1'])]} onLocate={() => {}} />)
+    expect(screen.getAllByTestId('task-dock-pending')).toHaveLength(1)
+    unmount()
+    render(<TaskDock runs={[ask(['u3'])]} onLocate={() => {}} />)
+    expect(screen.queryAllByTestId('task-dock-pending')).toHaveLength(0)
   })
 
   it('keeps every item that needs me visible while collapsing other rows', () => {

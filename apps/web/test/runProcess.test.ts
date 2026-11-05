@@ -270,6 +270,7 @@ describe('process steps', () => {
               { questionId: 'k3', choices: [], text: null },
             ],
             attachments: [],
+            assigneeIds: [],
             answeredBy: 'u1',
             answeredByName: '王磊',
             answeredAt: at(12),

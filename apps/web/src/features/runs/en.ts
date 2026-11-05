@@ -263,6 +263,9 @@ export default {
   重新运行: 'Rerun',
   展开全部: 'Show all',
   '等待触发人或 Bot 主人回答': 'Waiting for the trigger user or the bot owner to answer',
+  '等待触发人、Bot 主人或被 @ 的成员回答':
+    'Waiting for the trigger user, the bot owner or the members @-mentioned to answer',
+  '指定：{names}': 'Assigned: {names}',
   '{name} 已回答': '{name} answered',
   '无人回答，agent 已按推荐项继续': 'No answer; the agent went on with the recommended options',
   提问已作废: 'Question void',

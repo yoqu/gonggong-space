@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   attachments,
   auditLogs,
+  groupMembers,
   groups,
   messages,
   notifications,
@@ -262,6 +263,35 @@ describe('questions', () => {
       },
       { category: 'question', action: 'answered', actorUserId: w.owner.id },
     ])
+  })
+
+  it('lets the group members a question @s answer too and notifies them; others still may not', async () => {
+    const w = await world()
+    await t.seed.user({ name: '韩梅梅' })
+    const other = await t.seed.user({ name: '李雷' })
+    await t.db.insert(groupMembers).values({ groupId: w.group.id, userId: other.id })
+    const runId = await w.start()
+    const asked: Question[] = [
+      { ...QUESTIONS[0]!, title: '@陈晨 用哪种语言？@韩梅梅 也看看' },
+      ...QUESTIONS.slice(1),
+    ]
+    const q = await w.ask(runId, 'r/q1', asked)
+    expect(q.assigneeIds).toEqual([w.viewer.id])
+    const notes = await vi.waitFor(async () => {
+      const rows = await t.db.select().from(notifications)
+      if (rows.length < 3) throw new Error('not yet')
+      return rows
+    })
+    expect(notes.map((n) => n.userId).sort()).toEqual([w.owner.id, w.trigger.id, w.viewer.id].sort())
+
+    expect((await w.answer(client(t, await t.seed.cookie(other.id)), q)).status).toBe(403)
+    expect((await w.answer(w.viewers, q)).body).toMatchObject({ status: 'answered', answeredByName: '陈晨' })
+    expect((await w.answer(w.triggers, q)).status).toBe(409)
+    const rows = await t.db.select().from(notifications)
+    expect(rows.every((n) => n.resolvedAt)).toBe(true)
+
+    // Without an @, the card has no assignees.
+    expect((await w.ask(runId, 'r/q2')).assigneeIds).toEqual([])
   })
 
   it('lets the chain initiator answer a relay hop', async () => {

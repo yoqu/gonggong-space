@@ -183,7 +183,8 @@ export const en = {
   无效的审批选项: 'Invalid approval option',
   本次运行免审批: 'No approvals this run',
   提问不存在: 'Question not found',
-  '仅触发人或 Bot 主人可以回答': "Only the requester or the Bot's owner can answer",
+  '仅触发人、Bot 主人或被 @ 的成员可以回答':
+    "Only the requester, the Bot's owner or the members @-mentioned can answer",
   该提问已处理: 'This question was already handled',
   回答与问题不匹配: "The answers don't match the questions",
   '仅触发人或 Bot 主人可以打断并追加': "Only the requester or the Bot's owner can interrupt & append",

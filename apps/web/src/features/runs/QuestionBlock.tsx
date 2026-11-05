@@ -57,7 +57,10 @@ function outcome(q: QuestionSetDto, run: RunDto) {
   }
 }
 
-/** The run's latest 「向群成员提问」 card (spec §8.8): the trigger user or the bot owner answers, others watch. */
+/**
+ * The run's latest 「向群成员提问」 card (spec §8.8): the trigger user, the bot owner or a member the questions @
+ * answers, others watch.
+ */
 export function QuestionBlock({ run }: { run: RunDto }) {
   const q = run.questions.at(-1)
   // A new card starts with empty drafts.
@@ -67,6 +70,7 @@ export function QuestionBlock({ run }: { run: RunDto }) {
 /** One 「向群成员提问」 card of the run, answerable while pending. */
 export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto }) {
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
+  const members = useWorkspace((s) => s.groups.find((g) => g.id === run.groupId)?.members)
   const me = useSession((s) => s.user?.id)
   const trigger = useMemberName(run.groupId, run.originUserId)
   const pending = set.status === 'pending'
@@ -76,7 +80,9 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
-  const canAnswer = pending && !!me && (me === run.originUserId || me === bot?.ownerId)
+  const assigned = (set.assigneeIds ?? []).map((id) => members?.find((m) => m.userId === id)?.name ?? '—')
+  const canAnswer =
+    pending && !!me && (me === run.originUserId || me === bot?.ownerId || !!set.assigneeIds?.includes(me))
   const locked = !canAnswer || busy
 
   const draftOf = (question: Question): Draft => {
@@ -189,6 +195,9 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
         </div>
         <div className="question__meta">
           <span>{who}</span>
+          {assigned.length ? (
+            <span>{t('指定：{names}', { names: assigned.map((n) => `@${n}`).join(' ') })}</span>
+          ) : null}
           {pending && anyRich ? <span>{t('其他人的倾向仅供参考，不算投票')}</span> : null}
           {pending ? (
             <span className="question__timeout" title={t('超时后 agent 按推荐项继续，并在最终回复列出假设')}>

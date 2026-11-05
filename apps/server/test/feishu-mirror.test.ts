@@ -808,7 +808,7 @@ describe('question and approval cards', () => {
       value: { k: 'answer', q: q!.id },
       formValue: { q0: '0' },
     })) as { toast: { type: string; content: string } }
-    expect(res.toast).toEqual({ type: 'error', content: '仅触发人或 Bot 主人可以回答' })
+    expect(res.toast).toEqual({ type: 'error', content: '仅触发人、Bot 主人或被 @ 的成员可以回答' })
   })
 
   it('approving several times only updates the run card, never sends a new message', async () => {

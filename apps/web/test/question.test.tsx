@@ -35,6 +35,7 @@ const set = (o: Partial<QuestionSetDto> = {}): QuestionSetDto => ({
   status: 'pending',
   answers: null,
   attachments: [],
+  assigneeIds: [],
   answeredBy: null,
   answeredByName: null,
   answeredAt: null,
@@ -200,6 +201,14 @@ describe('QuestionBlock', () => {
     expect(button('提交回答').disabled).toBe(true)
     expect(button('附图片或附件…').disabled).toBe(true)
     expect((screen.getByPlaceholderText('自由作答') as HTMLTextAreaElement).disabled).toBe(true)
+  })
+
+  it('lets the members the questions @ answer too, and names them', () => {
+    me('u-zhao')
+    render(<QuestionBlock run={run({ questions: [set({ assigneeIds: ['u-zhao'] })] })} />)
+    expect(screen.getByText('指定：@赵敏')).toBeTruthy()
+    expect(button('Go').disabled).toBe(false)
+    expect(button('附图片或附件…').disabled).toBe(false)
   })
 
   it('names the chain initiator as the answerer of a relay hop', () => {

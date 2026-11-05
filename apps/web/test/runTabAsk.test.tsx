@@ -44,6 +44,7 @@ const questions = (o: Partial<QuestionSetDto> = {}): QuestionSetDto => ({
   status: 'pending',
   answers: null,
   attachments: [],
+  assigneeIds: [],
   answeredBy: null,
   answeredByName: null,
   answeredAt: null,

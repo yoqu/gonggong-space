@@ -38,6 +38,7 @@ const question: QuestionSetDto = {
   status: 'answered',
   answers: [{ questionId: 'q1', choices: [0], text: null }],
   attachments: [],
+  assigneeIds: [],
   answeredBy: 'u1',
   answeredByName: '王磊',
   answeredAt: local(10, 0, 9),

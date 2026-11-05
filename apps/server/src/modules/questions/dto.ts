@@ -39,6 +39,7 @@ export const questionSetDto = (
   status: q.status as QuestionSetDto['status'],
   answers: (q.answers as Answer[] | null) ?? null,
   attachments: q.attachmentIds.flatMap((id) => files.filter((f) => f.id === id)),
+  assigneeIds: q.assigneeIds,
   answeredBy: q.answeredBy,
   answeredByName,
   answeredAt: q.answeredAt?.toISOString() ?? null,

@@ -26,7 +26,9 @@ export function approvalText(a: ApprovalDto) {
 export function questionText(q: QuestionSetDto) {
   switch (q.status) {
     case 'pending':
-      return t('等待触发人或 Bot 主人回答')
+      return q.assigneeIds?.length
+        ? t('等待触发人、Bot 主人或被 @ 的成员回答')
+        : t('等待触发人或 Bot 主人回答')
     case 'answered':
       return t('{name} 已回答', { name: q.answeredByName ?? '' }).trim()
     case 'expired':

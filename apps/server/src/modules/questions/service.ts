@@ -8,6 +8,7 @@ import { startSweep } from '../../lib/sweep.js'
 import { timeoutMin } from '../approvals/service.js'
 import { claimAttachments } from '../attachments/service.js'
 import { requireMember } from '../groups/service.js'
+import { memberMentions } from '../messages/mentions.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
@@ -36,12 +37,16 @@ export async function onQuestionAsk(ctx: Ctx, machineId: string, ask: QuestionAs
     .innerJoin(groups, eq(groups.id, runs.groupId))
     .where(and(eq(runs.id, ask.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
   if (!row) return
+  const assigneeIds = await memberMentions(ctx, row.group.id, ask.questions.map((q) => q.title).join('\n'), {
+    skipCode: true,
+  })
   const [q] = (await ctx.db
     .insert(questionSets)
     .values({
       runId: ask.runId,
       requestId: ask.requestId,
       questions: ask.questions,
+      assigneeIds,
       expiresAt: new Date(ctx.now().getTime() + (await timeoutMin(ctx, row.group)) * 60_000),
       createdAt: ctx.now(),
     })
@@ -57,7 +62,7 @@ export async function onQuestionAsk(ctx: Ctx, machineId: string, ask: QuestionAs
     count: ask.questions.length,
     title: ask.questions[0]?.title ?? '',
   }
-  for (const userId of new Set([row.run.originUserId, row.bot.ownerId]))
+  for (const userId of new Set([row.run.originUserId, row.bot.ownerId, ...assigneeIds]))
     await notify(ctx, userId, 'question', payload)
 }
 
@@ -83,7 +88,10 @@ function validAnswers(questions: Question[], answers: Answer[]) {
   })
 }
 
-/** POST /api/runs/:runId/questions/:id/answers: the trigger user (chain initiator) or the bot owner answers. */
+/**
+ * POST /api/runs/:runId/questions/:id/answers: the trigger user (chain initiator), the bot owner or a member the
+ * questions @ answers; the first answer settles the card.
+ */
 export async function answerQuestions(
   ctx: Ctx,
   user: { id: string; name: string },
@@ -94,8 +102,8 @@ export async function answerQuestions(
 ) {
   const [row] = await scoped(ctx).where(and(eq(questionSets.id, id), eq(questionSets.runId, runId)))
   if (!row) return fail('not_found', '提问不存在')
-  if (user.id !== row.run.originUserId && user.id !== row.ownerId)
-    return fail('forbidden', '仅触发人或 Bot 主人可以回答')
+  if (user.id !== row.run.originUserId && user.id !== row.ownerId && !row.q.assigneeIds.includes(user.id))
+    return fail('forbidden', '仅触发人、Bot 主人或被 @ 的成员可以回答')
   if (row.q.status !== 'pending') return fail('conflict', '该提问已处理')
   if (!validAnswers(row.q.questions as Question[], answers)) return fail('invalid', '回答与问题不匹配')
   // The card id is the attachments' "message": the daemon writes them to .gonggong/attachments/<card id>/.

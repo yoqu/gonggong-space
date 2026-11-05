@@ -812,6 +812,8 @@ export const questionSets = pgTable(
     answers: jsonb('answers'),
     /** Attachment ids sent with the answer. */
     attachmentIds: jsonb('attachment_ids').$type<string[]>().notNull().default([]),
+    /** Group members the questions @: they may answer too. */
+    assigneeIds: uuid('assignee_ids').array().notNull().default([]),
     answeredBy: uuid('answered_by').references(() => users.id),
     answeredAt: ts('answered_at'),
     expiresAt: ts('expires_at').notNull(),

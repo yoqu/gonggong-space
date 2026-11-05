@@ -1,0 +1,1 @@
+ALTER TABLE "question_sets" ADD COLUMN "assignee_ids" uuid[] DEFAULT '{}' NOT NULL;

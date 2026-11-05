@@ -1624,6 +1624,8 @@ export const QuestionSetDto = z.object({
   status: z.enum(['pending', 'answered', 'expired', 'void']),
   answers: z.array(Answer).nullable(),
   attachments: z.array(Attachment),
+  /** Group members the questions @: they may answer too, besides the trigger user and the bot owner. */
+  assigneeIds: z.array(z.string()).default([]),
   answeredBy: z.string().nullable(),
   answeredByName: z.string().nullable(),
   answeredAt: z.string().nullable(),

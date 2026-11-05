@@ -45,8 +45,13 @@ export function TaskDock({
         ...(me && me === owner(run) ? run.approvals : [])
           .filter((approval) => approval.status === 'pending')
           .map((approval) => ({ key: approval.id, run, at: approval.createdAt, approval })),
-        ...(me && (me === run.originUserId || me === owner(run)) ? run.questions : [])
-          .filter((set) => set.status === 'pending')
+        ...run.questions
+          .filter(
+            (set) =>
+              set.status === 'pending' &&
+              !!me &&
+              (me === run.originUserId || me === owner(run) || !!set.assigneeIds?.includes(me)),
+          )
           .map((set) => ({ key: set.id, run, at: set.createdAt, set })),
       ])
       .sort((a, b) => a.at.localeCompare(b.at))
