@@ -61,6 +61,7 @@ export default {
   '还没有 Bot': 'No Bots yet',
   我的机器: 'My machines',
   绑定新机器: 'Bind new machine',
+  开始绑定: 'Start binding',
   '{n} 个 Bot': '{n} {n:Bot|Bots}',
   在线: 'Online',
   离线: 'Offline',

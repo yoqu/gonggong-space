@@ -375,7 +375,7 @@ describe('sidebar', () => {
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
     expect(within(welcome).getByRole('heading', { name: /欢迎来到共工空间/ })).toBeTruthy()
-    for (const b of ['绑定新机器', '新建 Bot', '新建群'])
+    for (const b of ['开始绑定', '新建 Bot', '新建群'])
       expect(within(welcome).getByRole('button', { name: b })).toBeTruthy()
     // The main area carries the guide, so the sidebar doesn't repeat it.
     expect(
@@ -403,7 +403,7 @@ describe('sidebar', () => {
     renderAt('/')
     const main = screen.getByRole('main')
     const guide = await within(main).findByRole('region', { name: '开始使用' })
-    fireEvent.click(within(guide).getByRole('button', { name: /绑定新机器/ }))
+    fireEvent.click(within(guide).getByRole('button', { name: /开始绑定/ }))
     expect(await screen.findByRole('link', { name: '在客户端中打开' })).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
