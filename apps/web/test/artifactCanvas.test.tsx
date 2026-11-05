@@ -389,24 +389,25 @@ describe('context menu and screen operations', () => {
 })
 
 describe('connections', () => {
-  it('shows a screen’s connections when selected, and all with X', async () => {
+  it('hides connections until X turns them on, then shows the selection’s or all, and remembers', async () => {
     mockApi(routes())
     await renderTab()
     await waitFor(() => expect(screen.getByTestId('art-node-@system')).toBeTruthy())
-    expect(screen.queryByText('查看详情')).toBeNull()
     fireEvent.click(node('home'))
+    expect(screen.queryByTestId('art-path-home>detail')).toBeNull()
+    key('x')
     expect(screen.getByTestId('art-link-home>detail').textContent).toBe('查看详情')
+    expect(localStorage.getItem('gg.art.links')).toBe('on')
     // A link into the selection from another screen is drawn faint, without its label (P2-09).
     fireEvent.click(node('detail'))
     expect(screen.queryByTestId('art-link-home>detail')).toBeNull()
     expect(screen.getByTestId('art-path-home>detail').getAttribute('class')).toBe('art-links__in')
     key('Escape')
-    expect(screen.queryByTestId('art-link-home>detail')).toBeNull()
-    key('x')
     expect(screen.getByTestId('art-link-home>detail')).toBeTruthy()
     fireEvent.contextMenu(screen.getByTestId('art-plane'))
     fireEvent.click(item(screen.getByRole('menu'), /显示连线/))
-    expect(screen.queryByTestId('art-link-home>detail')).toBeNull()
+    expect(screen.queryByTestId('art-path-home>detail')).toBeNull()
+    expect(localStorage.getItem('gg.art.links')).toBeNull()
   })
 })
 

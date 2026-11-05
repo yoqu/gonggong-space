@@ -208,6 +208,7 @@ const TIPS = [
   t('按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕'),
 ]
 const TIPS_KEY = 'gg.art.tips'
+const LINKS_KEY = 'gg.art.links'
 const TIP_MS = 8000
 /** How long the canvas's own notice (copied…) stays. */
 const NOTICE_MS = 2400
@@ -363,7 +364,7 @@ export function Canvas({
   /** ⇧ drag: the marquee in plane pixels, and the selection it adds to. */
   const [marquee, setMarquee] = useState<{ rect: Rect; base: string[] } | null>(null)
   const [tip, setTip] = useState(() => (localStorage.getItem(TIPS_KEY) === 'off' ? -1 : 0))
-  const [allLinks, setAllLinks] = useState(false)
+  const [showLinks, setShowLinks] = useState(() => localStorage.getItem(LINKS_KEY) === 'on')
   const setPanel = (next: SetStateAction<Panel | null>) => {
     const p = typeof next === 'function' ? next(panel) : next
     if (panel === 'design' && p !== 'design') guardDesign(() => setPanelNow(p))
@@ -957,8 +958,11 @@ export function Canvas({
         if (canEdit && (one || ref)) setRenaming(one?.id ?? refNodeId((ref as GgArtifactRef).id))
         return
       }
-      case CMD.links:
-        return setAllLinks((on) => !on)
+      case CMD.links: {
+        if (showLinks) localStorage.removeItem(LINKS_KEY)
+        else localStorage.setItem(LINKS_KEY, 'on')
+        return setShowLinks(!showLinks)
+      }
       case CMD.addToChat:
         if (manifest && (picked.length || pickedRefs.length || element))
           pinContext(contextBase, selectionItems())
@@ -1188,10 +1192,12 @@ export function Canvas({
     return at.y + at.h < 0 || at.y > n.h ? null : at
   }
   const src = (n: CanvasNode) => (preview ? openUrl(preview.previewId, `/${n.file}`) : null)
-  const shownLinks = allLinks
-    ? links
-    : links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
-  const paths = linkPaths(nodes, shownLinks, view, spots, allLinks ? undefined : picked.map((n) => n.id))
+  const shownLinks = !showLinks
+    ? []
+    : picked.length
+      ? links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
+      : links
+  const paths = linkPaths(nodes, shownLinks, view, spots, picked.length ? picked.map((n) => n.id) : undefined)
   const favNodes = favourites
     .map((id) => screens.find((s) => s.id === id))
     .filter((n): n is CanvasNode => !!n)
@@ -1405,13 +1411,13 @@ export function Canvas({
               single: !!one,
               canPaste: !!clip,
               favourite: picked.every((n) => favourites.includes(n.id)),
-              showAllLinks: allLinks,
+              showLinks,
               frame: sharedFrame,
               bot: botState,
               device,
               png: hasThumb,
             })
-          : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showAllLinks: allLinks })
+          : canvasContextItems({ readOnly: !canEdit, canPaste: !!clip, showLinks })
 
   return (
     <div

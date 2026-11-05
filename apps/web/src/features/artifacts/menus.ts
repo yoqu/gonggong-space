@@ -161,7 +161,7 @@ export function screenContextItems(o: {
   single: boolean
   canPaste: boolean
   favourite: boolean
-  showAllLinks: boolean
+  showLinks: boolean
   frame: ScreenFrame | null
   bot: BotState
   device: ArtifactDevice
@@ -201,7 +201,7 @@ export function screenContextItems(o: {
     { header: t('预览') },
     ...previewItems(o.single, o.frame, o.device).filter((it) => !('separator' in it)),
     { separator: true },
-    { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
+    { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showLinks },
     ...moreItems(o.readOnly).filter((it) => 'value' in it && it.value !== CMD.remove && it.disabled !== true),
   ]
 }
@@ -248,12 +248,12 @@ export const nodeContextItems = (kind: 'system' | 'doc' | 'prototype'): MenuItem
 export const canvasContextItems = (o: {
   readOnly: boolean
   canPaste: boolean
-  showAllLinks: boolean
+  showLinks: boolean
 }): MenuItem[] => [
   { label: t('粘贴'), value: CMD.paste, shortcut: '⌘V', disabled: o.readOnly || !o.canPaste },
   { label: t('全选'), value: CMD.selectAll, shortcut: '⌘A' },
   { separator: true },
-  { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showAllLinks },
+  { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showLinks },
   { label: t('适应画布'), value: CMD.fit, shortcut: '⇧1' },
   { separator: true },
   { label: t('上传到画布'), value: CMD.upload, ...readOnlyTitle(o.readOnly) },
