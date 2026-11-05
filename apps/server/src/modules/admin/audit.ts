@@ -259,6 +259,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t(row.action.endsWith('install') ? '安装 {tool}' : '升级 {tool}', {
             tool: TOOL[str(d.kind)] ?? str(d.kind),
           })
+        case 'machine.upgrade':
+          return t('升级 daemon 到 {version}', { version: str(d.version) })
         case 'machine.tools.settings':
           return t('修改 Agent 工具的镜像源')
         case 'bot.provider':

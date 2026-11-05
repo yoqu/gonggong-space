@@ -1246,6 +1246,8 @@ export const DaemonFeature = z.enum([
   'container',
   /** Not a capability: the daemon never upgrades itself (GONGGONG_NO_AUTO_UPGRADE or settings). */
   'noAutoUpgrade',
+  /** upgrade.start: a Linux CLI daemon that upgrades itself, started from the web. */
+  'upgrade',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1522,6 +1524,17 @@ export const DiagResult = z.object({
   checks: z.array(DiagCheck),
 })
 export type DiagResult = z.infer<typeof DiagResult>
+/**
+ * Answer to upgrade.start: `downloading` (restarts once downloaded and idle), `ready` (downloaded, restarts once
+ * idle), `current` (not newer than this build), `refused` (failed verification before).
+ */
+export const UpgradeState = z.enum(['downloading', 'ready', 'current', 'refused'])
+export type UpgradeState = z.infer<typeof UpgradeState>
+export const UpgradeResult = z.object({
+  t: z.literal('upgrade.result'),
+  requestId: z.string(),
+  state: UpgradeState,
+})
 /** Replaces the machine's list; sent after welcome, after each run and whenever providers change. */
 export const BotsProviderState = z.object({
   t: z.literal('bots.providerState'),
@@ -1581,6 +1594,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   AgentsReprobeResult,
   GitAccessResult,
   DiagResult,
+  UpgradeResult,
   BotsProviderState,
   SyncSubmit,
   SyncApplied,
@@ -2163,6 +2177,12 @@ export const GitAccessCmd = z.object({
 export type GitAccessCmd = z.infer<typeof GitAccessCmd>
 /** Run `gg doctor`'s checks (feature `diag`), answered by diag.result. */
 export const DiagRun = z.object({ t: z.literal('diag.run'), requestId: z.string() })
+/** Download `upgrade` now and restart into it once idle (feature `upgrade`), answered by upgrade.result. */
+export const UpgradeStart = z.object({
+  t: z.literal('upgrade.start'),
+  requestId: z.string(),
+  upgrade: UpgradeInfo,
+})
 
 export const ServerToDaemon = z.discriminatedUnion('t', [
   DirList,
@@ -2220,6 +2240,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   AgentsReprobe,
   GitAccessCmd,
   DiagRun,
+  UpgradeStart,
   SyncResult,
   SyncAvailable,
   SyncAction,

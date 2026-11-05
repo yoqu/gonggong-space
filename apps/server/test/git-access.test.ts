@@ -2,7 +2,7 @@ import { Writable } from 'node:stream'
 import { type DiagCheck, type GitAccessTest, type GitAccessView, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
-import { auditLogs } from '../src/db/schema.js'
+import { auditLogs, systemParams } from '../src/db/schema.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -209,5 +209,51 @@ describe("a machine's git access, relayed to its daemon", () => {
     const checks: DiagCheck[] = [{ kind: 'git', status: 'error', detail: 'SSH · Permission denied' }]
     d.send({ t: 'diag.result', requestId: cmd.requestId, checks })
     expect((await pending).body).toEqual(checks)
+  })
+})
+
+describe("upgrading a machine's daemon from the web", () => {
+  const publish = (version: string) =>
+    t.ctx.db.insert(systemParams).values({
+      key: 'daemonRelease',
+      value: {
+        version,
+        builds: {
+          'linux-x86_64': { url: `/downloads/gonggong-${version}-linux-x86_64`, sha256: 'a'.repeat(64) },
+        },
+      },
+    })
+
+  it('sends the published build to the daemon and answers where it stands', async () => {
+    const w = await world()
+    await publish('1.0.0')
+    const d = await daemon(w.a.token, w.a.machine.id, ['upgrade'])
+    const url = `/api/machines/${w.a.machine.id}/upgrade`
+    expect((await w.asLi.post(url, {})).status).toBe(403)
+    const pending = w.asWang.post<{ state: string; version: string }>(url, {})
+    const cmd = await d.next()
+    expect(cmd).toMatchObject({
+      t: 'upgrade.start',
+      upgrade: { version: '1.0.0', url: '/downloads/gonggong-1.0.0-linux-x86_64' },
+    })
+    d.send({ t: 'upgrade.result', requestId: cmd.requestId, state: 'downloading' })
+    expect((await pending).body).toEqual({ state: 'downloading', version: '1.0.0' })
+    const [entry] = await t.ctx.db
+      .select()
+      .from(auditLogs)
+      .where(sql`${auditLogs.action} = 'machine.upgrade'`)
+    expect(entry?.detail).toMatchObject({ machineId: w.a.machine.id, version: '1.0.0' })
+  })
+
+  it('refuses daemons without the feature and machines already up to date', async () => {
+    const w = await world()
+    const url = `/api/machines/${w.a.machine.id}/upgrade`
+    const old = await daemon(w.a.token, w.a.machine.id, [])
+    const res = await w.asWang.post<{ message: string }>(url, {})
+    expect([res.status, res.body.message]).toEqual([409, '请先升级该机器的 daemon'])
+    await old.close()
+    await daemon(w.a.token, w.a.machine.id, ['upgrade'])
+    const none = await w.asWang.post<{ message: string }>(url, {})
+    expect([none.status, none.body.message]).toEqual([409, '已是最新版本'])
   })
 })

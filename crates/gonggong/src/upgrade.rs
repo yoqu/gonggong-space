@@ -2,7 +2,7 @@
 //! sha256, swaps its own executable and re-execs itself once no run is active. When the server publishes no build for
 //! this platform, the daemon looks for one in the latest GitHub release instead (same manifest, absolute URLs).
 use crate::config::{Config, Settings};
-use crate::protocol::UpgradeInfo;
+use crate::protocol::{UpgradeInfo, UpgradeState};
 use anyhow::Context;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -228,6 +228,24 @@ impl Upgrader {
             }
         });
         true
+    }
+
+    /// An upgrade asked for from the web: like `offer`, but says where it stands.
+    pub fn start(&self, info: UpgradeInfo) -> UpgradeState {
+        if !is_newer(&info.version, CURRENT) {
+            return UpgradeState::Current;
+        }
+        {
+            let s = self.state.lock().unwrap();
+            if s.refused.contains(&info.version) {
+                return UpgradeState::Refused;
+            }
+            if s.staged.as_ref().is_some_and(|(v, _)| *v == info.version) {
+                return UpgradeState::Ready;
+            }
+        }
+        self.offer(info);
+        UpgradeState::Downloading
     }
 
     /// The server's welcome said whether it publishes a build for this platform.

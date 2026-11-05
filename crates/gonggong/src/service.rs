@@ -330,6 +330,16 @@ impl<H: Handler> Service<H> {
         }
     }
 
+    /// The handler's, plus `upgrade` for a Linux CLI daemon that upgrades itself (not the desktop app, a container or
+    /// one with auto upgrade off).
+    fn features(&self) -> Vec<String> {
+        let mut features = self.handler.features();
+        if cfg!(target_os = "linux") && self.upgrader.is_some() {
+            features.push(crate::protocol::FEATURE_UPGRADE.into());
+        }
+        features
+    }
+
     fn queue(&self, backlog: &mut Backlog, msg: DaemonToServer) {
         self.monitor.outbound(&msg);
         backlog.push(msg);
@@ -359,7 +369,7 @@ impl<H: Handler> Service<H> {
             agents: agents.borrow_and_update().clone(),
             active_runs,
             services: self.handler.services(),
-            features: self.handler.features(),
+            features: self.features(),
             terminals: self.handler.terminals(),
         };
         let welcome = async {
@@ -424,7 +434,14 @@ impl<H: Handler> Service<H> {
                     Some(Ok(Message::Text(t))) => match serde_json::from_str::<ServerToDaemon>(&t) {
                         Ok(msg) => {
                             self.monitor.inbound(&msg);
-                            self.handler.handle(msg, outbox);
+                            match msg {
+                                ServerToDaemon::UpgradeStart { request_id, upgrade } => {
+                                    if let Some(up) = &self.upgrader {
+                                        outbox.send(DaemonToServer::UpgradeResult { request_id, state: up.start(upgrade) });
+                                    }
+                                }
+                                msg => self.handler.handle(msg, outbox),
+                            }
                         }
                         Err(e) => tracing::warn!("ignoring unknown server message: {e}"),
                     },

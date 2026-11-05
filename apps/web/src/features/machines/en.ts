@@ -314,6 +314,15 @@ export default {
   '保存失败：{error}': 'Save failed: {error}',
   已复制命令: 'Command copied',
   如何升级: 'How to upgrade',
+  立即升级: 'Upgrade now',
+  已是最新版本: 'You are up to date',
+  '下载新版本后，在没有任务运行时自动重启完成升级，不会打断正在运行的任务。':
+    'Downloads the new version, then restarts to finish once no run is active; running tasks are not interrupted.',
+  '正在下载 {version}，没有任务运行时自动重启完成升级':
+    'Downloading {version}; it restarts to finish once no run is active',
+  '{version} 已下载，没有任务运行时自动重启完成升级':
+    '{version} is downloaded; it restarts to finish once no run is active',
+  '{version} 校验失败，已拒绝安装': '{version} failed verification and was not installed',
   'daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：':
     'While online, the daemon downloads the new version itself and restarts to finish once no run is active. If it never does:',
   '桌面端：在该机器上打开共工空间客户端，点「检查更新」':

@@ -6,6 +6,7 @@ import type { Ctx } from '../../context.js'
 import { audit } from '../../lib/audit.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { requireUser } from '../auth/session.js'
+import { daemonRelease, upgradeFor } from '../releases/routes.js'
 import { OFFLINE, ownMachine, requireFeature } from './relay.js'
 
 const LOGS_TIMEOUT_MS = 10_000
@@ -13,6 +14,8 @@ const LOGS_TIMEOUT_MS = 10_000
 const WORKSPACES_TIMEOUT_MS = 60_000
 /** git gc --prune=now on a large repo can run for minutes. */
 const GC_TIMEOUT_MS = 10 * 60_000
+/** The daemon only starts the download before answering. */
+const UPGRADE_TIMEOUT_MS = 10_000
 
 const LogsQuery = z.object({
   level: LogLevelName.default('info'),
@@ -89,6 +92,25 @@ export function machineAdminRoutes(ctx: Ctx) {
         detail: { machineId: m.id, ...target, before, after },
       })
       return { before, after }
+    })
+
+    /** Upgrade now: the daemon downloads the published build and restarts into it once no run is active. */
+    app.post<{ Params: { id: string } }>('/api/machines/:id/upgrade', async (req) => {
+      const me = await requireUser(ctx, req)
+      const m = await ownMachine(ctx, me.id, req.params.id, '只有机器主人可以管理这台机器')
+      requireFeature(ctx, m.id, 'upgrade')
+      const upgrade = upgradeFor(await daemonRelease(ctx), m, m.daemonVersion ?? '0')
+      if (!upgrade) return fail('conflict', '已是最新版本')
+      const msg = { t: 'upgrade.start', requestId: randomUUID(), upgrade } as const
+      const res = await ctx.hub.request(m.id, msg, 'upgrade.result', UPGRADE_TIMEOUT_MS)
+      if (!res) return fail('conflict', ctx.hub.isOnline(m.id) ? '机器未响应，请稍后重试' : OFFLINE)
+      await audit(ctx, {
+        category: 'admin',
+        actorUserId: me.id,
+        action: 'machine.upgrade',
+        detail: { machineId: m.id, version: upgrade.version },
+      })
+      return { state: res.state, version: upgrade.version }
     })
   }
 }

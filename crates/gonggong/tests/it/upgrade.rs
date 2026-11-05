@@ -1,4 +1,4 @@
-use gonggong::protocol::UpgradeInfo;
+use gonggong::protocol::{UpgradeInfo, UpgradeState};
 use gonggong::upgrade::{CURRENT, StageError, Upgrader, is_newer, notes_summary, stage};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
@@ -115,6 +115,30 @@ async fn an_offer_stages_once() {
     .await
     .unwrap();
     assert!(!up.offer(offer), "already staged");
+}
+
+#[tokio::test]
+async fn an_upgrade_from_the_web_says_where_it_stands() {
+    let home = tempfile::tempdir().unwrap();
+    let server = serve(b"new-build").await;
+    let up = Upgrader::new(home.path().into(), server, reqwest::Client::new(), "/nonexistent".into(), vec![]);
+    assert_eq!(up.start(info(CURRENT, "/downloads/gg", sha(b"x"))), UpgradeState::Current);
+    let new = info("9.0.0", "/downloads/gg", sha(b"new-build"));
+    assert_eq!(up.start(new.clone()), UpgradeState::Downloading);
+    assert_eq!(up.start(new.clone()), UpgradeState::Downloading, "still downloading");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while up.staged().is_none() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(up.start(new), UpgradeState::Ready);
+
+    let bad = info("9.1.0", "/downloads/gg", sha(b"genuine"));
+    up.start(bad.clone());
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(up.start(bad), UpgradeState::Refused);
 }
 
 #[tokio::test(start_paused = true)]

@@ -47,7 +47,7 @@ export const hasBuild = (release: DaemonRelease | null, machine: Pick<MachineInf
 /** The build for this machine when it is newer than the daemon it runs; the daemon never downgrades. */
 export function upgradeFor(
   release: DaemonRelease | null,
-  machine: Pick<MachineInfo, 'os' | 'arch'>,
+  machine: { os: string; arch: string },
   daemonVersion: string,
 ): UpgradeInfo | null {
   const build = release?.builds[`${machine.os}-${machine.arch}`]

@@ -119,6 +119,7 @@ export const en = {
   '将 {user} 的机器 {name} 转移到名下': "Took over {user}'s machine {name}",
   '安装 {tool}': 'Installed {tool}',
   '升级 {tool}': 'Upgraded {tool}',
+  '升级 daemon 到 {version}': 'Upgraded the daemon to {version}',
   '修改 Agent 工具的镜像源': 'Changed the mirror for agent tools',
   '设置 Bot {bot} 的供应商': 'Set the provider of Bot {bot}',
   '修改系统参数：{changes}': 'Changed system parameters: {changes}',
@@ -370,6 +371,7 @@ export const en = {
     "Upgrade this machine's daemon to use a local Claude configuration directory",
   机器离线: 'Machine offline',
   '机器未响应，请稍后重试': 'The machine is not responding, try again later',
+  已是最新版本: 'Already up to date',
   '只有机器主人可以管理其 Git 访问': "Only the machine's owner can manage its Git access",
   只有机器主人可以查看其诊断: "Only the machine's owner can view its diagnostics",
   '主机名只能包含字母、数字、点、短横线和端口':

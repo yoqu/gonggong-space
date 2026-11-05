@@ -1,4 +1,10 @@
-import { compareVersions, type DiagCheck, type MachineDto, type MachineWorkspace } from '@gonggong/protocol'
+import {
+  compareVersions,
+  type DiagCheck,
+  type MachineDto,
+  type MachineWorkspace,
+  type UpgradeState,
+} from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -41,8 +47,8 @@ export function CommandLine({ command }: { command: string }) {
 }
 
 /**
- * How to bring the daemon up to `latest`. The server cannot start an upgrade: a connected CLI daemon fetches the
- * new build itself and restarts when idle, the desktop app updates as an app, a container comes from a new image.
+ * How to bring the daemon up to `latest`: a Linux CLI daemon can be told to upgrade now; otherwise a connected CLI
+ * daemon fetches the new build itself on reconnect, the desktop app updates as an app, a container comes from a new image.
  */
 export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest: string }) {
   if (machine.features.includes('container'))
@@ -60,6 +66,8 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
         <CommandLine command="docker compose build && docker compose up -d" />
       </section>
     )
+  if (machine.online && machine.features.includes('upgrade'))
+    return <UpgradeNow machine={machine} latest={latest} />
   return (
     <section className="machine-upgrade" aria-label={t('如何升级')}>
       <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
@@ -71,6 +79,52 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
       <span>{t('桌面端：在该机器上打开共工空间客户端，点「检查更新」')}</span>
       <span>{t('命令行：在该机器上重启 daemon，重连后自动升级')}</span>
       <CommandLine command="gg run" />
+    </section>
+  )
+}
+
+/** A Linux CLI daemon that upgrades itself: downloads now, restarts once no run is active (its version then changes). */
+function UpgradeNow({ machine, latest }: { machine: MachineDto; latest: string }) {
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const start = async () => {
+    setBusy(true)
+    try {
+      const { state, version } = await api.post<{ state: UpgradeState; version: string }>(
+        `/machines/${machine.id}/upgrade`,
+      )
+      if (state === 'refused')
+        toast({ type: 'error', message: t('{version} 校验失败，已拒绝安装', { version }) })
+      else if (state === 'current') toast({ type: 'success', message: t('已是最新版本') })
+      else
+        setStatus(
+          state === 'ready'
+            ? t('{version} 已下载，没有任务运行时自动重启完成升级', { version })
+            : t('正在下载 {version}，没有任务运行时自动重启完成升级', { version }),
+        )
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="machine-upgrade" aria-label={t('如何升级')}>
+      <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
+      {status ? (
+        <span className="mx-sub">{status}</span>
+      ) : (
+        <>
+          <span className="mx-sub">
+            {t('下载新版本后，在没有任务运行时自动重启完成升级，不会打断正在运行的任务。')}
+          </span>
+          <span>
+            <Button size="small" variant="primary" loading={busy} onClick={() => void start()}>
+              {t('立即升级')}
+            </Button>
+          </span>
+        </>
+      )}
     </section>
   )
 }

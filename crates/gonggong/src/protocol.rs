@@ -1801,6 +1801,8 @@ pub const FEATURE_DIAG: &str = "diag";
 pub const FEATURE_CONTAINER: &str = "container";
 /// Not a capability: the daemon never upgrades itself.
 pub const FEATURE_NO_AUTO_UPGRADE: &str = "noAutoUpgrade";
+/// upgrade.start: a Linux CLI daemon that upgrades itself, started from the web.
+pub const FEATURE_UPGRADE: &str = "upgrade";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
@@ -2578,6 +2580,8 @@ pub enum DaemonToServer {
     },
     #[serde(rename = "diag.result", rename_all = "camelCase")]
     DiagResult { request_id: String, checks: Vec<DiagCheck> },
+    #[serde(rename = "upgrade.result", rename_all = "camelCase")]
+    UpgradeResult { request_id: String, state: UpgradeState },
     #[serde(rename = "bots.providerState")]
     BotsProviderState { items: Vec<ProviderStateItem> },
     #[serde(rename = "sync.submit")]
@@ -2595,6 +2599,20 @@ pub enum DaemonToServer {
         #[serde(default)]
         reason_i18n: Option<I18nText>,
     },
+}
+
+/// Answer to upgrade.start.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UpgradeState {
+    /// Downloading; restarts once verified and idle.
+    Downloading,
+    /// Downloaded and verified; restarts once idle.
+    Ready,
+    /// Not newer than this build.
+    Current,
+    /// Failed verification or installation before.
+    Refused,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2759,6 +2777,8 @@ pub enum ServerToDaemon {
     GitAccessCmd(GitAccessCmd),
     #[serde(rename = "diag.run", rename_all = "camelCase")]
     DiagRun { request_id: String },
+    #[serde(rename = "upgrade.start", rename_all = "camelCase")]
+    UpgradeStart { request_id: String, upgrade: UpgradeInfo },
     #[serde(rename = "sync.result", rename_all = "camelCase")]
     SyncResult { group_id: String, bot_id: String, submit_id: String, result: SyncSubmitResult },
     #[serde(rename = "sync.available", rename_all = "camelCase")]

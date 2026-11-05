@@ -1,0 +1,10 @@
+{
+  "t": "upgrade.start",
+  "requestId": "req-9",
+  "upgrade": {
+    "version": "0.9.0",
+    "url": "/downloads/gonggong-0.9.0-linux-x86_64",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "releaseNotes": "修复若干问题"
+  }
+}

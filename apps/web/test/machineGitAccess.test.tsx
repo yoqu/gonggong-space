@@ -205,6 +205,33 @@ describe('诊断 self-checks', () => {
     expect(within(guide).getByText('docker compose build && docker compose up -d')).toBeTruthy()
     expect(guide.textContent).not.toContain('gg run')
   })
+
+  it('upgrades a Linux daemon from the web and waits for it to be idle', async () => {
+    const calls = mockApi({
+      'GET /machines/m1/diag': [],
+      'GET /machines/m1/tools': TOOLS,
+      'GET /client-downloads': { version: '1.0.0', builds: [], desktop: [] },
+      'POST /machines/m1/upgrade': { state: 'downloading', version: '1.0.0' },
+    })
+    open({ ...server, features: [...server.features, 'upgrade'] }, '/?tab=diagnostics')
+    const guide = await screen.findByRole('region', { name: '如何升级' })
+    fireEvent.click(within(guide).getByRole('button', { name: '立即升级' }))
+    expect(await within(guide).findByText('正在下载 1.0.0，没有任务运行时自动重启完成升级')).toBeTruthy()
+    expect(within(guide).queryByRole('button', { name: '立即升级' })).toBeNull()
+    expect(calls.some((c) => c.method === 'POST' && c.path.endsWith('/upgrade'))).toBe(true)
+  })
+
+  it('keeps the manual guide for a daemon that cannot upgrade from the web', async () => {
+    mockApi({
+      'GET /machines/m1/diag': [],
+      'GET /machines/m1/tools': TOOLS,
+      'GET /client-downloads': { version: '1.0.0', builds: [], desktop: [] },
+    })
+    open(server, '/?tab=diagnostics')
+    const guide = await screen.findByRole('region', { name: '如何升级' })
+    expect(within(guide).queryByRole('button', { name: '立即升级' })).toBeNull()
+    expect(within(guide).getByText('gg run')).toBeTruthy()
+  })
 })
 
 describe('official login', () => {
