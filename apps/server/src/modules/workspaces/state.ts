@@ -9,6 +9,7 @@ import { and, eq, isNotNull, isNull, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupRepos } from '../../db/schema.js'
 import { memberIds } from '../messages/service.js'
+import { refreshProviderState } from '../providers/state.js'
 
 type Row = typeof groupBots.$inferSelect
 
@@ -94,6 +95,7 @@ export async function updateContextUsage(ctx: Ctx, groupId: string, botId: strin
 export async function publishBotState(ctx: Ctx, row: Row) {
   const state = botStateDto(row)
   ctx.bus.publish(await memberIds(ctx, row.groupId), { t: 'group.botState', groupId: row.groupId, state })
+  await refreshProviderState(ctx, row.groupId)
   return state
 }
 

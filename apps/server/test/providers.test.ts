@@ -14,7 +14,7 @@ import {
 } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
-import { auditLogs } from '../src/db/schema.js'
+import { auditLogs, groupBots } from '../src/db/schema.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client, events } from './support/http.js'
 
@@ -671,6 +671,7 @@ describe('agent tools and providers relayed to the machine', () => {
 
   it('keeps the provider banner state in memory per machine and pushes it to group members', async () => {
     const w = await world()
+    await t.db.update(groupBots).set({ sessionId: 'sess-old' })
     const d = await daemon(w.a.token, w.a.machine.id)
     const seen = events(t, w.li.id)
     const banners = () => seen.filter((e) => e.t === 'group.providerState')
@@ -694,6 +695,30 @@ describe('agent tools and providers relayed to the machine', () => {
       .map(String)
       .join()
     expect(dump).not.toContain(NAME)
+  })
+
+  it('drops a bot from the banner once its next turn starts a new session (开启新会话 / /new)', async () => {
+    const w = await world()
+    await t.db.update(groupBots).set({ sessionId: 'sess-old' })
+    const d = await daemon(w.a.token, w.a.machine.id)
+    const seen = events(t, w.li.id)
+    const banners = () => seen.filter((e) => e.t === 'group.providerState')
+    const url = `/api/groups/${w.group.id}/provider-state`
+    d.send({
+      t: 'bots.providerState',
+      items: [{ groupId: w.group.id, botId: w.bot.id, session: 'xaix', effective: '官方登录' }],
+    })
+    await until(() => banners().length === 1)
+
+    const sent = await w.asWang.post(`/api/groups/${w.group.id}/messages`, {
+      body: '/new @小王的 Claude',
+      clientId: 'renew-client-1',
+    })
+    expect(sent.status).toBe(200)
+    await until(() => banners().length === 2)
+    expect(banners()[1]).toEqual({ t: 'group.providerState', groupId: w.group.id, items: [] })
+    // The daemon still lists the old session until the new one has run: the server knows better meanwhile.
+    expect((await w.asLi.get<GroupProviderStateDto>(url)).body).toEqual({ items: [] })
   })
 
   it('reports latest and managed agent versions to the admin', async () => {
