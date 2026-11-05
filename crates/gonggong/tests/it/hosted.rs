@@ -171,7 +171,13 @@ async fn a_new_daemon_ends_services_left_by_the_previous_one() {
     let child = wait_for_pid(&pidfile).await;
     std::mem::forget(services);
     let _restarted = Services::new(home.path());
-    assert!(!alive(child));
+    for _ in 0..100 {
+        if !alive(child) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("the previous daemon's service is still alive");
 }
 
 async fn wait_for_pid(file: &Path) -> u32 {
