@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.14 — 2026-11-06
+
+- 托管工作区搬到可见的 `~/gonggong/workspaces/<群名>/<Bot名>/<仓库名>`，旧克隆下次运行或绑定时自动搬迁并保留未提交改动 / Managed workspaces move to a visible `~/gonggong/workspaces/<group>/<bot>/<repo>`; existing clones move on the next run or bind, keeping uncommitted changes
+- 目录选择器可进隐藏文件夹，不再能选共工托管的工作区 / The directory picker can open hidden folders and no longer offers managed workspaces
+- Docker 机器可在网页一键升级，重建容器不丢 / Docker machines can be upgraded from the web, surviving container rebuilds
+- 画布可拖动屏幕自由摆放，工具栏新增刷新 / Screens can be dragged freely on the canvas, and the toolbar adds a refresh button
+
 ## v0.4.13 — 2026-11-05
 
 - 机器「Git 访问」里的 HTTPS 令牌同时用于同主机的 `http://` 仓库地址，修复自建 GitLab 克隆认证失败 / HTTPS tokens in machine Git access settings also work for `http://` repository URLs on the same host, fixing self-hosted GitLab clone authentication
