@@ -63,6 +63,11 @@ const sorted = (entries: Entry[], { by, desc }: Sort) => {
   })
 }
 const DEFAULT_FOLDER = t('未命名文件夹')
+/** 共工's per-group workspaces (`~/.gonggong/workspaces/…`), deleted with their group's Bot or by storage cleanup. */
+const inManaged = (path: string) => /[\\/]\.gonggong[\\/]workspaces([\\/]|$)/.test(path)
+const MANAGED = t(
+  '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。',
+)
 
 /** Browse the machine's directories (via its daemon) and pick one as a workspace; `extra` adds other choices. */
 export function DirPicker({
@@ -70,6 +75,7 @@ export function DirPicker({
   title,
   start = null,
   hidden = false,
+  managed = false,
   hint = t('进入具体项目目录后选择'),
   extra,
   onPick,
@@ -80,6 +86,8 @@ export function DirPicker({
   start?: string | null
   /** List dot-directories too. */
   hidden?: boolean
+  /** Managed workspaces can be picked (a terminal may open one; a workspace must not live in one). */
+  managed?: boolean
   /** Shown where the listed directory cannot be picked (the home it starts at). */
   hint?: string
   extra?: ReactNode
@@ -155,6 +163,7 @@ export function DirPicker({
     }
   }
 
+  const refused = dir && !managed && inManaged(dir.path) ? MANAGED : null
   const up = dir && parentOf(dir.path)
   const roots = dir?.roots ?? []
   const needle = query.trim().toLowerCase()
@@ -194,8 +203,8 @@ export function DirPicker({
           <Button onClick={onClose}>{t('取消')}</Button>
           <Button
             variant="primary"
-            disabled={!dir || !!dir.unusable}
-            title={dir?.unusable ?? undefined}
+            disabled={!dir || !!dir.unusable || !!refused}
+            title={dir?.unusable ?? refused ?? undefined}
             onClick={() => dir && pick(dir.path)}
           >
             {t('选择此目录')}
@@ -287,6 +296,7 @@ export function DirPicker({
             ) : null}
             {/* Browsing starts at home, which is never selectable itself: guide rather than warn. */}
             {dir?.unusable ? <p className="dirpick__hint">{hint}</p> : null}
+            {refused ? <Alert variant="warning" title={refused} /> : null}
             {error ? <Alert variant="error" title={error} /> : null}
             <div className="dirpick__table">
               {dir?.entries.length || editing ? (

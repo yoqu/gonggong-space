@@ -139,6 +139,7 @@ export function NewTerminalDialog({
           machineId={machineId}
           title={t('选择终端目录')}
           start={cwd.trim() || null}
+          managed
           onPick={(path) => {
             setDir(path)
             setBrowsing(false)
