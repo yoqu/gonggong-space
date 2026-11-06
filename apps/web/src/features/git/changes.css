@@ -11,9 +11,6 @@
 .gt:focus-within {
   outline: none;
 }
-.gt-group + .gt-group {
-  margin-top: 2px;
-}
 .gt-list {
   margin: 0;
   padding: 0;

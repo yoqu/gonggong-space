@@ -4,6 +4,10 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -102,13 +106,19 @@ export function folderPaths(groups: ChangeGroup[]): string[] {
   return out
 }
 
-/** A row as the keys walk them: a group, a folder or a file. */
+/** A row, as rendered and as the keys walk them: a group, a folder or a file. */
 interface Row {
   /** As the rendered row's `data-gt-row`. */
   key: string
+  group: ChangeGroup
+  depth: number
   /** The file, or every file under the folder or group. */
   files: TreeChange[]
   file?: TreeChange
+  /** A file of the flat list, shown with its folder. */
+  flat?: boolean
+  /** A folder's node (tree layout). */
+  dir?: DiffNode<TreeChange> & { kind: 'dir' }
   /** The `closed` key folding it (folders and groups). */
   fold?: string
   parent: string | null
@@ -119,38 +129,93 @@ const fileRowKey = (g: ChangeGroup, c: TreeChange) => `f|${g.key}:${c.path}`
 /** The rows shown, top to bottom. */
 function visibleRows(groups: ChangeGroup[], layout: 'tree' | 'list', closed: ReadonlySet<string>): Row[] {
   const out: Row[] = []
-  const file = (g: ChangeGroup, c: TreeChange, parent: string) =>
-    out.push({ key: fileRowKey(g, c), files: [c], file: c, parent })
-  const walk = (g: ChangeGroup, nodes: DiffNode<TreeChange>[], parent: string) => {
+  const file = (group: ChangeGroup, c: TreeChange, parent: string, depth: number) =>
+    out.push({
+      key: fileRowKey(group, c),
+      group,
+      depth,
+      files: [c],
+      file: c,
+      flat: layout === 'list',
+      parent,
+    })
+  const walk = (group: ChangeGroup, nodes: DiffNode<TreeChange>[], parent: string, depth: number) => {
     for (const n of nodes) {
       if (n.kind === 'file') {
-        file(g, n.file, parent)
+        file(group, n.file, parent, depth)
         continue
       }
-      const fold = `${g.key}:${n.path}`
-      out.push({ key: `d|${fold}`, files: filesOf(n), fold, parent })
-      if (!closed.has(fold)) walk(g, n.children, `d|${fold}`)
+      const fold = `${group.key}:${n.path}`
+      out.push({ key: `d|${fold}`, group, depth, files: filesOf(n), dir: n, fold, parent })
+      if (!closed.has(fold)) walk(group, n.children, `d|${fold}`, depth + 1)
     }
   }
   for (const g of groups) {
     if (!g.changes.length) continue
     const key = `g|${g.key}`
-    out.push({ key, files: g.changes, fold: `${g.key}:`, parent: null })
+    out.push({ key, group: g, depth: 0, files: g.changes, fold: `${g.key}:`, parent: null })
     if (closed.has(`${g.key}:`)) continue
-    if (layout === 'list') for (const c of g.changes) file(g, c, key)
-    else walk(g, diffTree(g.changes), key)
+    if (layout === 'list') for (const c of g.changes) file(g, c, key, 1)
+    else walk(g, diffTree(g.changes), key, 1)
   }
   return out
+}
+
+/** Every row is 24px high (changes.css), so a long tree renders only the rows in view. */
+const ROW_HEIGHT = 24
+/** Shorter trees render every row. */
+const WINDOW_FROM = 200
+const OVERSCAN = 30
+
+const scrollParent = (el: HTMLElement) => {
+  for (let p = el.parentElement; p; p = p.parentElement)
+    if (/auto|scroll/.test(getComputedStyle(p).overflowY)) return p
+  return null
+}
+
+/**
+ * The rows `[from, to)` of `count` that the list's scrolling ancestor shows, with some to spare; null renders them all
+ * (a short list, or no layout to measure).
+ */
+function useRowWindow(list: RefObject<HTMLElement | null>, count: number) {
+  const [range, setRange] = useState<[number, number] | null>(null)
+  const scroller = useRef<HTMLElement | null>(null)
+  const windowed = count >= WINDOW_FROM
+  useLayoutEffect(() => {
+    const el = list.current
+    const parent = windowed && el ? scrollParent(el) : null
+    scroller.current = parent
+    if (!el || !parent) return setRange(null)
+    const update = () => {
+      const height = parent.clientHeight
+      if (!height) return setRange(null)
+      const top = parent.getBoundingClientRect().top - el.getBoundingClientRect().top
+      const from = Math.max(0, Math.floor(top / ROW_HEIGHT) - OVERSCAN)
+      const to = Math.ceil((top + height) / ROW_HEIGHT) + OVERSCAN
+      setRange((r) => (r && r[0] === from && r[1] === to ? r : [from, to]))
+    }
+    update()
+    parent.addEventListener('scroll', update, { passive: true })
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
+    resize?.observe(parent)
+    return () => {
+      parent.removeEventListener('scroll', update)
+      resize?.disconnect()
+    }
+  }, [list, windowed])
+  return { range: windowed ? range : null, scroller }
 }
 
 /** Every file in the order the tree lists them, folders unfolded: the order F7 and ⌥⇧→ step through. */
 export const fileOrder = (groups: ChangeGroup[], layout: 'tree' | 'list') =>
   visibleRows(groups, layout, new Set()).flatMap((r) => (r.file ? [r.file] : []))
 
+const rowEl = (tree: HTMLElement, key: string) =>
+  [...tree.querySelectorAll<HTMLElement>('[data-gt-row]')].find((r) => r.dataset.gtRow === key)
+
 /** Moves the keyboard focus to a row's button, scrolled into view. */
 function focusRow(tree: HTMLElement, key: string) {
-  const row = [...tree.querySelectorAll<HTMLElement>('[data-gt-row]')].find((r) => r.dataset.gtRow === key)
-  const button = row?.querySelector<HTMLElement>('button')
+  const button = rowEl(tree, key)?.querySelector<HTMLElement>('button')
   button?.focus()
   button?.scrollIntoView?.({ block: 'nearest' })
 }
@@ -204,19 +269,39 @@ export function ChangeTree({
   const [target, setTarget] = useState<ChangeTarget | null>(null)
   // Where a ⇧ range starts: the file last picked without ⇧.
   const anchor = useRef<string | null>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const shown = useMemo(() => visibleRows(groups, layout, closed), [groups, layout, closed])
+  const { range, scroller } = useRowWindow(listRef, shown.length)
+  // A row the keys moved to while out of view: focused once scrolled in.
+  const pending = useRef<string | null>(null)
+  useEffect(() => {
+    const tree = listRef.current
+    if (pending.current && tree && rowEl(tree, pending.current)) {
+      focusRow(tree, pending.current)
+      pending.current = null
+    }
+  })
   const listed = groups.flatMap((g) => g.changes)
-  const byPath = new Map<string, TreeChange>(
-    groups.flatMap((g) => g.changes.map((c) => [`${g.key}:${c.path}`, c] as const)),
-  )
   const isSelected = (path: string) => path === selected || !!selection?.has(path)
   const selectedFiles = () => listed.filter((c) => isSelected(c.path))
   const indent = (depth: number) => ({ '--depth': depth }) as CSSProperties
+
+  /** Focuses a row, first scrolling it into the rendered window when it is out of it. */
+  const reveal = (tree: HTMLElement, key: string) => {
+    const at = shown.findIndex((r) => r.key === key)
+    const parent = scroller.current
+    const list = listRef.current
+    if (rowEl(tree, key) || !parent || !list || at < 0) return focusRow(tree, key)
+    pending.current = key
+    const offset = list.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop
+    parent.scrollTop = offset + at * ROW_HEIGHT - parent.clientHeight / 2
+  }
 
   /** Selects `c` alone, adds or drops it (⌘), or every file from the anchor to it (⇧). */
   const pick = (c: TreeChange, how: 'one' | 'toggle' | 'range') => {
     const mode = onSelection ? how : 'one'
     if (mode === 'range') {
-      const paths = visibleRows(groups, layout, closed).flatMap((r) => (r.file ? [r.file.path] : []))
+      const paths = shown.flatMap((r) => (r.file ? [r.file.path] : []))
       const from = paths.indexOf(anchor.current ?? selected ?? c.path)
       const to = paths.indexOf(c.path)
       onSelection?.(new Set(from < 0 ? [c.path] : paths.slice(Math.min(from, to), Math.max(from, to) + 1)))
@@ -304,40 +389,52 @@ export function ChangeTree({
     )
   }
 
-  const rows = (g: ChangeGroup, nodes: DiffNode<TreeChange>[], depth: number): ReactNode[] =>
-    nodes.map((n) => {
-      if (n.kind === 'file') return fileRow(g, n.file, depth, false)
-      const key = `${g.key}:${n.path}`
-      const open = !closed.has(key)
-      const files = filesOf(n)
-      const paths = files.map((f) => f.path)
-      return (
-        <li key={key} className="gt-dir" data-gt-dir={key}>
-          <div className="gt-row" style={indent(depth)} data-gt-dir={key} data-gt-row={`d|${key}`}>
-            {check(paths, !!checked && paths.every((p) => checked.has(p)), g, n.path)}
-            <button
-              type="button"
-              className="gt-folder"
-              aria-expanded={open}
-              onClick={() => onToggleFolder(key)}
-            >
-              <span className={cx('ui-disclosure', open && 'ui-disclosure--open')}>
-                <Icon name="chevron-right" weight={2} size={10} />
-              </span>
+  const folderRow = (r: Row): ReactNode => {
+    const fold = r.fold ?? ''
+    const open = !closed.has(fold)
+    const paths = r.files.map((f) => f.path)
+    const all = !!checked && paths.every((p) => checked.has(p))
+    const group = !r.dir
+    return (
+      <li
+        key={r.key}
+        className={cx('gt-row', group && 'gt-row--group')}
+        style={indent(r.depth)}
+        data-gt-group={group ? r.group.key : undefined}
+        data-gt-dir={group ? undefined : fold}
+        data-gt-row={r.key}
+      >
+        {check(paths, all, r.group, r.dir ? r.dir.path : r.group.label)}
+        <button
+          type="button"
+          className={cx('gt-folder', group && 'gt-folder--group')}
+          aria-expanded={open}
+          onClick={() => onToggleFolder(fold)}
+        >
+          <span className={cx('ui-disclosure', open && 'ui-disclosure--open')}>
+            <Icon name="chevron-right" weight={2} size={10} />
+          </span>
+          {r.dir ? (
+            <>
               <Icon name={open ? 'folder-open' : 'folder'} size={14} />
-              <span className="gt-file__name">{n.name}</span>
-              <span className="gt-folder__count">{files.length}</span>
-            </button>
-          </div>
-          {open ? <ul className="gt-list">{rows(g, n.children, depth + 1)}</ul> : null}
-        </li>
-      )
-    })
+              <span className="gt-file__name">{r.dir.name}</span>
+              <span className="gt-folder__count">{r.files.length}</span>
+            </>
+          ) : (
+            <>
+              <span className="gt-group__label">{r.group.label}</span>
+              <span className="gt-folder__count">{t('{n} 个文件', { n: r.files.length })}</span>
+            </>
+          )}
+        </button>
+      </li>
+    )
+  }
 
   const targetOf = (el: HTMLElement): ChangeTarget | null => {
     const fileKey = el.closest<HTMLElement>('[data-gt-file]')?.dataset.gtFile
     if (fileKey) {
-      const c = byPath.get(fileKey)
+      const c = shown.find((r) => r.file && `${r.group.key}:${r.file.path}` === fileKey)?.file
       return c ? { changes: [c], file: c } : null
     }
     const dir = el.closest<HTMLElement>('[data-gt-dir]')?.dataset.gtDir
@@ -356,7 +453,6 @@ export function ChangeTree({
     onKeyDown?.(e)
     if (e.defaultPrevented) return
     const tree = e.currentTarget
-    const shown = visibleRows(groups, layout, closed)
     // The row with the focus (its button or checkbox), else the selected file.
     const own = (e.target as HTMLElement).closest<HTMLElement>('[data-gt-row]')?.dataset.gtRow
     const at = shown.findIndex((r) => (own ? r.key === own : r.file?.path === selected))
@@ -365,7 +461,7 @@ export function ChangeTree({
       const next = shown[Math.max(0, Math.min(shown.length - 1, i))]
       if (!next) return
       if (next.file) pick(next.file, e.shiftKey ? 'range' : 'one')
-      focusRow(tree, next.key)
+      reveal(tree, next.key)
     }
     if (e.key === 'ArrowDown') go(at + 1)
     else if (e.key === 'ArrowUp') go(at < 0 ? 0 : at - 1)
@@ -374,7 +470,7 @@ export function ChangeTree({
       else go(at + 1)
     } else if (e.key === 'ArrowLeft' && row) {
       if (row.fold && !closed.has(row.fold)) onToggleFolder(row.fold)
-      else if (row.parent) focusRow(tree, row.parent)
+      else if (row.parent) reveal(tree, row.parent)
     } else if (e.key === 'Enter' && row) {
       if (row.file) onOpen?.(row.file)
       else if (row.fold) onToggleFolder(row.fold)
@@ -394,6 +490,8 @@ export function ChangeTree({
     e.preventDefault()
   }
 
+  const from = range ? Math.min(range[0], shown.length) : 0
+  const to = range ? Math.min(range[1], shown.length) : shown.length
   const body = (
     <section
       className="gt"
@@ -422,37 +520,15 @@ export function ChangeTree({
         setTarget(tg?.file ? { changes: [tg.file], file: tg.file } : tg)
       }}
     >
-      {groups.map((g) => {
-        if (!g.changes.length) return null
-        const open = !closed.has(`${g.key}:`)
-        const paths = g.changes.map((c) => c.path)
-        return (
-          <section key={g.key} className="gt-group" data-gt-group={g.key}>
-            <div className="gt-row gt-row--group" data-gt-group={g.key} data-gt-row={`g|${g.key}`}>
-              {check(paths, !!checked && paths.every((p) => checked.has(p)), g, g.label)}
-              <button
-                type="button"
-                className="gt-folder gt-folder--group"
-                aria-expanded={open}
-                onClick={() => onToggleFolder(`${g.key}:`)}
-              >
-                <span className={cx('ui-disclosure', open && 'ui-disclosure--open')}>
-                  <Icon name="chevron-right" weight={2} size={10} />
-                </span>
-                <span className="gt-group__label">{g.label}</span>
-                <span className="gt-folder__count">{t('{n} 个文件', { n: g.changes.length })}</span>
-              </button>
-            </div>
-            {open ? (
-              <ul className="gt-list">
-                {layout === 'list'
-                  ? g.changes.map((c) => fileRow(g, c, 1, true))
-                  : rows(g, diffTree(g.changes), 1)}
-              </ul>
-            ) : null}
-          </section>
-        )
-      })}
+      <ul className="gt-list" ref={listRef}>
+        {from > 0 ? <li aria-hidden="true" style={{ height: from * ROW_HEIGHT }} /> : null}
+        {shown
+          .slice(from, to)
+          .map((r) => (r.file ? fileRow(r.group, r.file, r.depth, !!r.flat) : folderRow(r)))}
+        {to < shown.length ? (
+          <li aria-hidden="true" style={{ height: (shown.length - to) * ROW_HEIGHT }} />
+        ) : null}
+      </ul>
     </section>
   )
   if (!menu) return body

@@ -1,5 +1,5 @@
 import type { GitChangesDto } from '@gonggong/protocol'
-import { type KeyboardEvent, useState } from 'react'
+import { type KeyboardEvent, useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { Alert, Button, EmptyState, Icon, type MenuItem, Spinner, Tooltip } from '../../ui'
 import type { GitTarget } from './api'
@@ -67,7 +67,7 @@ export function CommitView({
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set())
   const [several, setSeveral] = useState<ReadonlySet<string>>(new Set())
   const cmd = gitCommands(target)
-  const groups = data ? changeGroups(data) : []
+  const groups = useMemo(() => (data ? changeGroups(data) : []), [data])
   const all = data?.changes ?? []
   const rows = groups.flatMap((g) => g.changes)
   // Unversioned files stay out of a commit until picked (IDEA); what was picked or left out by hand stays so.
