@@ -1648,6 +1648,9 @@ export const TaskStop = z.object({ t: z.literal('task.stop'), runId: z.string(),
 /** The bot's effective tier changed mid-run: permission requests from now on follow it. */
 export const RunTier = z.object({ t: z.literal('run.tier'), runId: z.string(), tier: Tier })
 
+/** Group and Bot names a managed workspace's directory is named after when the daemon first places it. */
+export const WorkspaceNames = z.object({ group: z.string(), bot: z.string() })
+
 /** Create (clone) the managed workspace when a bot joins a group, or re-create it after the group binds a repo. */
 export const WorkspaceEnsure = z.object({
   t: z.literal('workspace.ensure'),
@@ -1657,6 +1660,7 @@ export const WorkspaceEnsure = z.object({
   repo: RepoSpec.nullable(),
   /** The group's extra repos, cloned beside `repo` (see WorkspaceSpec.extraRepos). */
   extraRepos: z.array(RepoSpec).optional(),
+  names: WorkspaceNames.optional(),
 })
 
 /**
@@ -1672,6 +1676,7 @@ export const WorkspaceCd = z.object({
   path: z.string().nullable(),
   /** The owner confirmed `path` although it is not a work tree of `repo`. */
   force: z.boolean(),
+  names: WorkspaceNames.optional(),
 })
 
 /** Can this machine read `url` with its own credentials (`git ls-remote`), and does `branch` exist there? */
@@ -1966,6 +1971,7 @@ export const RepoFind = z.object({
   groupId: z.string(),
   botId: z.string(),
   repo: RepoSpec,
+  names: WorkspaceNames.optional(),
 })
 
 /** Which OPEN_APPS the machine has. */

@@ -48,15 +48,15 @@ async fn managed_clones_check_out_submodules() {
         api: None,
     });
     let (out, mut rx) = Outbox::channel();
-    let repo = RepoSpec {
+    let rp = RepoSpec {
         id: "rp".into(),
         url: format!("file://{}", r.join("app").display()),
         branch: "main".into(),
         protocol: GitProtocol::Auto,
     };
-    let dir = managed_path(home.path(), "g1", "b1", Some(&repo));
     let (request_id, group_id, bot_id) = ("e1".into(), "g1".into(), "b1".into());
-    let msg = WorkspaceEnsure { request_id, group_id, bot_id, repo: Some(repo), extra_repos: vec![] };
+    let msg =
+        WorkspaceEnsure { request_id, group_id, bot_id, repo: Some(rp.clone()), extra_repos: vec![], names: None };
     engine.handle(ServerToDaemon::WorkspaceEnsure(msg), &out);
     let state = loop {
         match tokio::time::timeout(Duration::from_secs(30), rx.recv()).await.expect("quiet").unwrap() {
@@ -66,6 +66,7 @@ async fn managed_clones_check_out_submodules() {
         }
     };
     assert_eq!(state.state, WorkspaceStateKind::Ready, "{:?}", state.error);
+    let dir = managed_path(home.path(), "g1", "b1", Some(&rp));
     assert_eq!(std::fs::read_to_string(dir.join("vendor/lib/a.txt")).unwrap(), "lib");
     assert_eq!(state.git.map(|g| g.dirty), Some(false));
 }

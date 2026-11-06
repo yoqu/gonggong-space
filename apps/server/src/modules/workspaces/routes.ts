@@ -233,6 +233,7 @@ export function workspaceRoutes(ctx: Ctx) {
           groupId: group.id,
           botId: bot.id,
           repo,
+          names: { group: group.name, bot: bot.name },
         } as const
         const res =
           (await ctx.hub.request(machineId, ask, 'repo.found', FIND_TIMEOUT_MS)) ??

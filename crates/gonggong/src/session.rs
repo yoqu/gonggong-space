@@ -1506,6 +1506,7 @@ async fn connect(
             };
             let secrets = env_digest(&first.req.start.env);
             let hidden = first.req.start.hidden_tools.clone();
+            let cwd = first.req.cwd.clone();
             let mut turn = first;
             loop {
                 match engine.workspaces.occupy(&turn.req, shared).await {
@@ -1532,8 +1533,10 @@ async fn connect(
                     }
                 };
                 // Claude only sees the plugins' skill lists and its settings as they were when the process started;
-                // secrets are its process env, and agents list the gonggong tools once per process.
+                // secrets are its process env, and agents list the gonggong tools once per process. A live session
+                // stays in the directory it was opened in, which may have been moved meanwhile (`layout`).
                 if turn.selection != conv.selection
+                    || turn.req.cwd != cwd
                     || turn.launch != conv.launch
                     || turn.skills.names != conv.skills.names
                     || turn.plugins != conv.plugins

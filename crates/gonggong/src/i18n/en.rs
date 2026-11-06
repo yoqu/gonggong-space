@@ -463,7 +463,6 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("已停止，不再等待工作区空闲", "Stopped; no longer waiting for the workspace to be free"),
     ("/cd 目录不存在：{path}", "/cd directory doesn't exist: {path}"),
     ("无法创建工作区 {path}: {e}", "Can't create workspace {path}: {e}"),
-    ("无法移动工作区 {path}: {e}", "Can't move workspace {path}: {e}"),
     ("clone 失败：{detail}", "Clone failed: {detail}"),
     ("不是 git 仓库", "Not a git repository"),
     ("无 remote", "no remote"),

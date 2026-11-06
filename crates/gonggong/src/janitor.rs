@@ -151,6 +151,8 @@ mod tests {
         file(&h.join("sync/g1/b1/work"));
         file(&h.join("sync/g2/b1/work"));
         file(&h.join("workspaces/g2/b1/r/a"));
+        file(&h.join("named/支付组/小码/_empty/a"));
+        file(&h.join("workspaces.json"));
         file(&h.join("backups/g2/0101-1200-b1/a"));
         let active = HashSet::from([("g1".to_string(), "b1".to_string())]);
 
@@ -163,6 +165,7 @@ mod tests {
         assert!(!h.join("sync/g2").exists(), "an emptied group dir goes too");
         assert!(h.join("skill-sets/g1-b1").exists() && h.join("sync/g1/b1/work").exists());
         assert!(h.join("workspaces/g2/b1/r/a").exists() && h.join("backups/g2/0101-1200-b1/a").exists());
+        assert!(h.join("named/支付组/小码/_empty/a").exists() && h.join("workspaces.json").exists());
     }
 
     #[test]

@@ -202,7 +202,13 @@ describe('confirming the workspace of a bot joining a repo group', () => {
     const url = `/api/groups/${g.id}/bots/${w.bot.id}/repo-candidates`
     const pending = w.asAlice.get<RepoCandidatesDto>(url)
     const req = await d.next()
-    expect(req).toMatchObject({ t: 'repo.find', groupId: g.id, botId: w.bot.id, repo: { url: w.repo.url } })
+    expect(req).toMatchObject({
+      t: 'repo.find',
+      groupId: g.id,
+      botId: w.bot.id,
+      repo: { url: w.repo.url },
+      names: { group: '仓库协作', bot: '小王的 Claude' },
+    })
     d.send({ t: 'repo.found', requestId: req.requestId, managedPath: '/h/workspaces/x', paths: ['/src/pay'] })
     expect((await pending).body).toEqual({ managedPath: '/h/workspaces/x', paths: ['/src/pay'] })
     await w.asAlice.post(`/api/groups/${g.id}/members`, { userIds: [w.bob.id] })
@@ -512,6 +518,18 @@ async function updateCd(groupId: string, botId: string) {
     })
     .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
 }
+
+describe('workspace names', () => {
+  it('tells the daemon the group and bot names its managed workspace is named after', async () => {
+    const w = await world()
+    const g = await w.createGroup()
+    const d = await daemon(w.a.token)
+    const names = { group: '仓库协作', bot: '小王的 Claude' }
+    expect(await joinEnsure(d, g.id)).toMatchObject({ names })
+    await requestCd(t.ctx, { groupId: g.id, botId: w.bot.id, path: '/src/app' })
+    expect(await d.next()).toMatchObject({ t: 'workspace.cd', path: '/src/app', names })
+  })
+})
 
 describe('/cd requests', () => {
   it('clears the previous Git status when switching to a non-Git workspace', async () => {

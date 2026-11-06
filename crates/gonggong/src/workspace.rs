@@ -2,10 +2,11 @@
 //! bindings to the owner's existing directories. Also the directory picker and the desktop 工作区 page.
 use crate::config::{Config, user_home};
 use crate::git::{self, git};
+use crate::layout;
 use crate::protocol::{
     Answer, DaemonToServer, DirEntry, DirGit, DirPlace, DirPlaceKind, DirResult, GitStatus, Question, QuestionType,
     RepoAccessReason, RepoFind, RepoFound, RepoSpec, RunStart, ServerToDaemon, WorkspaceCd, WorkspaceEnsure,
-    WorkspaceKind, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
+    WorkspaceKind, WorkspaceNames, WorkspaceSpec, WorkspaceState, WorkspaceStateKind,
 };
 use crate::repo::{self, normalize_remote};
 use crate::service::Outbox;
@@ -18,18 +19,51 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use tokio::sync::{oneshot, watch};
 
-/// `<home>/workspaces/<groupId>/<botId>/<repoId | _empty>/` — isolated per group, bot and repo (a new repo = new dir).
-/// A repo's clone sits one level below, see `managed_path`.
+/// The id layout older daemons placed workspaces in, until moved to their named dir (see `layout`):
+/// `<home>/workspaces/<groupId>/<botId>/<repoId | _empty>/`, a repo's clone one level below (or, oldest, `<repoId>/`
+/// itself).
 pub fn managed_root(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) -> PathBuf {
     home.join("workspaces").join(group).join(bot).join(repo_id.unwrap_or("_empty"))
 }
 
-/// Where the managed workspace goes: `<repoId>/<repo name>/` (named like a clone of one's own), or `_empty/`.
+/// The named dir's last segment: the repo name (named like a clone of one's own), or `_empty`.
+fn leaf(repo: Option<&RepoSpec>) -> String {
+    repo.map_or_else(|| "_empty".into(), |r| repo_name(&r.url))
+}
+
+/// What a workspace is named after when the server sent no names (an older server).
+fn id_names(group: &str, bot: &str) -> WorkspaceNames {
+    WorkspaceNames { group: group.into(), bot: bot.into() }
+}
+
+/// A workspace still in the id layout, waiting to be moved: an older daemon's interrupted move (`<repoId>.moving`),
+/// the clone at or below `<repoId>/`, or `_empty/`.
+fn unplaced(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) -> Option<PathBuf> {
+    let root = managed_root(home, group, bot, repo_id);
+    if repo_id.is_none() {
+        return root.is_dir().then_some(root);
+    }
+    let moving = root.with_extension("moving");
+    if moving.is_dir() {
+        return Some(moving);
+    }
+    let clone = clone_in(&root);
+    clone.join(".git").exists().then_some(clone)
+}
+
+/// Where the managed workspace is now: its named dir once placed, else where it waits in the id layout. Never placed
+/// (only binds and runs know the names to place it by): its id-layout path, where nothing is.
 pub fn managed_path(home: &Path, group: &str, bot: &str, repo: Option<&RepoSpec>) -> PathBuf {
-    let root = managed_root(home, group, bot, repo.map(|r| &*r.id));
-    match repo {
-        Some(r) => root.join(repo_name(&r.url)),
-        None => root,
+    let repo_id = repo.map(|r| &*r.id);
+    let placed = layout::lookup(home, &layout::key(group, bot, repo_id));
+    match (placed, unplaced(home, group, bot, repo_id)) {
+        (Some(dir), Some(old)) if !dir.exists() => old,
+        (Some(dir), _) => dir,
+        (None, Some(old)) => old,
+        (None, None) => {
+            let root = managed_root(home, group, bot, repo_id);
+            if repo.is_some() { root.join(leaf(repo)) } else { root }
+        }
     }
 }
 
@@ -48,24 +82,17 @@ fn legacy_clone(root: &Path) -> bool {
     root.join(".git").exists()
 }
 
-/// The managed workspace as it is on disk now: a clone in the old layout until it is moved (see `migrate`).
-fn current_path(home: &Path, group: &str, bot: &str, repo: Option<&RepoSpec>) -> PathBuf {
-    let root = managed_root(home, group, bot, repo.map(|r| &*r.id));
-    if repo.is_some() && legacy_clone(&root) { root } else { managed_path(home, group, bot, repo) }
-}
-
-/// The clone under `<repoId>/` when only its id is known (force sync): `<repoId>/` itself in the old layout, else
-/// its one clone below.
+/// The clone when only its repo id is known (force sync): its named dir once there, else as in the id layout.
 pub fn managed_clone(home: &Path, group: &str, bot: &str, repo_id: Option<&str>) -> PathBuf {
-    let root = managed_root(home, group, bot, repo_id);
-    if repo_id.is_none() { root } else { clone_in(&root) }
+    let placed = layout::lookup(home, &layout::key(group, bot, repo_id)).filter(|d| d.exists());
+    placed.or_else(|| unplaced(home, group, bot, repo_id)).unwrap_or_else(|| managed_root(home, group, bot, repo_id))
 }
 
 /// The directory a (group, bot) works in: the /cd directory, else the managed workspace.
 pub fn workspace_dir(home: &Path, group: &str, bot: &str, spec: &WorkspaceSpec) -> PathBuf {
     match &spec.cd_path {
         Some(path) => PathBuf::from(path),
-        None => current_path(home, group, bot, spec.repo.as_ref()),
+        None => managed_path(home, group, bot, spec.repo.as_ref()),
     }
 }
 
@@ -259,7 +286,8 @@ impl Workspaces {
         };
         let reply = |outcome| report(out, &req.group_id, &req.bot_id, &req.request_id, outcome);
         let (group, bot, extras) = (&req.group_id, &req.bot_id, &req.extra_repos);
-        let outcome = self.managed(group, bot, req.repo.as_ref(), extras, || reply(None), &mut cancel).await;
+        let names = req.names.clone().unwrap_or_else(|| id_names(group, bot));
+        let outcome = self.managed(group, bot, &names, req.repo.as_ref(), extras, || reply(None), &mut cancel).await;
         reply(Some(outcome));
     }
 
@@ -274,7 +302,9 @@ impl Workspaces {
                     _ = cancelled(&mut cancel) => return,
                     guard = lock.lock() => guard,
                 };
-                self.managed(&req.group_id, &req.bot_id, req.repo.as_ref(), &[], || reply(None), &mut cancel).await
+                let (group, bot) = (&req.group_id, &req.bot_id);
+                let names = req.names.clone().unwrap_or_else(|| id_names(group, bot));
+                self.managed(group, bot, &names, req.repo.as_ref(), &[], || reply(None), &mut cancel).await
             }
             Some(path) => {
                 let dir = PathBuf::from(path);
@@ -294,9 +324,15 @@ impl Workspaces {
 
     /// repo.find: the owner's local clones of the group repo, and where a managed clone would go instead.
     pub async fn find(&self, req: RepoFind) -> RepoFound {
-        let managed = managed_path(&self.home, &req.group_id, &req.bot_id, Some(&req.repo));
+        let (group, bot) = (&req.group_id, &req.bot_id);
+        let key = layout::key(group, bot, Some(&req.repo.id));
+        let names = req.names.clone().unwrap_or_else(|| id_names(group, bot));
+        let managed = layout::lookup(&self.home, &key)
+            .unwrap_or_else(|| layout::preview(&self.home, &key, &names, &leaf(Some(&req.repo))));
         let want = normalize_remote(&req.repo.url);
-        let paths = tokio::task::spawn_blocking(move || find_clones(&user_home(), &want)).await.unwrap_or_default();
+        let skip = layout::root(&self.home);
+        let paths =
+            tokio::task::spawn_blocking(move || find_clones(&user_home(), &want, &skip)).await.unwrap_or_default();
         RepoFound {
             request_id: req.request_id,
             managed_path: managed.to_string_lossy().into_owned(),
@@ -310,34 +346,38 @@ impl Workspaces {
     }
 
     /// A run's cwd: the /cd directory, else the managed clone (re-cloned if it went missing), else `_empty`. The
-    /// group's extra repos are cloned too where they went missing.
-    pub async fn resolve(&self, start: &RunStart) -> Result<PathBuf, String> {
-        let (group, bot, spec) = (&start.group_id, &start.bot.id, &start.workspace);
+    /// group's extra repos are cloned too where they went missing, and added to the run's additional directories.
+    pub async fn resolve(&self, start: &mut RunStart) -> Result<PathBuf, String> {
+        let names = WorkspaceNames { group: start.group_name.clone(), bot: start.bot.name.clone() };
+        let (group, bot, spec) = (&start.group_id, &start.bot.id, &mut start.workspace);
         let lock = self.lock(group, bot);
         let _guard = lock.lock().await;
         let (_cancel, mut cancelled) = watch::channel(false);
-        self.extras(group, bot, &spec.extra_repos, &mut || {}, &mut cancelled).await.map_err(|f| f.message)?;
+        let extras = self.extras(group, bot, &names, &spec.extra_repos, &mut || {}, &mut cancelled).await;
+        add_dirs(spec, extras.map_err(|f| f.message)?);
         if let Some(path) = &spec.cd_path {
             let dir = PathBuf::from(path);
             return if dir.is_dir() { Ok(dir) } else { Err(t!("/cd 目录不存在：{path}", path = path)) };
         }
-        let dir = self.settle(group, bot, spec.repo.as_ref()).await?;
+        let dir = self.settle(group, bot, &names, spec.repo.as_ref()).await?;
         prepare(&dir, spec.repo.as_ref(), || {}, &mut cancelled).await.map_err(|f| f.message)?;
         Ok(dir)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn managed(
         &self,
         group: &str,
         bot: &str,
+        names: &WorkspaceNames,
         repo: Option<&RepoSpec>,
         extra_repos: &[RepoSpec],
         on_clone: impl Fn() + Send + Sync,
         cancel: &mut watch::Receiver<bool>,
     ) -> Outcome {
-        let dir = self.settle(group, bot, repo).await?;
+        let dir = self.settle(group, bot, names, repo).await?;
         prepare(&dir, repo, &on_clone, cancel).await?;
-        let extras = self.extras(group, bot, extra_repos, &mut || on_clone(), cancel).await?;
+        let extras = self.extras(group, bot, names, extra_repos, &mut || on_clone(), cancel).await?;
         let git = match repo {
             Some(_) => git::status(&dir, &extras, WorkspaceKind::Managed).await.ok(),
             None => None,
@@ -351,13 +391,14 @@ impl Workspaces {
         &self,
         group: &str,
         bot: &str,
+        names: &WorkspaceNames,
         repos: &[RepoSpec],
         on_clone: &mut (dyn FnMut() + Send),
         cancel: &mut watch::Receiver<bool>,
     ) -> Result<Vec<PathBuf>, Failed> {
         let mut dirs = vec![];
         for repo in repos {
-            let dir = managed_path(&self.home, group, bot, Some(repo));
+            let dir = self.settle(group, bot, names, Some(repo)).await?;
             prepare(&dir, Some(repo), &mut *on_clone, cancel).await.map_err(|f| Failed {
                 message: t!("附加仓库 {name}：{e}", name = repo_name(&repo.url), e = f.message),
                 ..f
@@ -368,10 +409,10 @@ impl Workspaces {
     }
 
     /// Adds the managed clones of the group's extra repos to the additional directories of a message that uses them,
-    /// so everything downstream (the session, git, diffs, permission rules) treats them like the owner's own.
+    /// so everything downstream (the session, git, diffs, permission rules) treats them like the owner's own. A run
+    /// gets them from `resolve`, which may move them first.
     pub fn expand(&self, msg: &mut ServerToDaemon) {
         let (group, bot, spec) = match msg {
-            ServerToDaemon::RunStart(s) => (&s.group_id, &s.bot.id, &mut s.workspace),
             ServerToDaemon::GitRefs(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
             ServerToDaemon::GitLog(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
             ServerToDaemon::GitShow(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
@@ -388,52 +429,83 @@ impl Workspaces {
             ServerToDaemon::WorkspaceDiff(r) => (&r.group_id, &r.bot_id, &mut r.workspace),
             _ => return,
         };
-        for repo in &spec.extra_repos {
-            let dir = managed_path(&self.home, group, bot, Some(repo)).to_string_lossy().into_owned();
-            if !spec.extra_dirs.contains(&dir) {
-                spec.extra_dirs.push(dir);
-            }
+        let dirs = spec.extra_repos.iter().map(|repo| managed_path(&self.home, group, bot, Some(repo))).collect();
+        add_dirs(spec, dirs);
+    }
+}
+
+fn add_dirs(spec: &mut WorkspaceSpec, dirs: Vec<PathBuf>) {
+    for dir in dirs {
+        let dir = dir.to_string_lossy().into_owned();
+        if !spec.extra_dirs.contains(&dir) {
+            spec.extra_dirs.push(dir);
         }
     }
 }
 
 impl Workspaces {
-    /// The managed workspace to use, under the (group, bot) lock: a clone in the old layout is moved to
-    /// `<repoId>/<repo name>/` first, unless a turn is still running in it (then it is moved by a later one).
-    async fn settle(&self, group: &str, bot: &str, repo: Option<&RepoSpec>) -> Result<PathBuf, String> {
-        let root = managed_root(&self.home, group, bot, repo.map(|r| &*r.id));
-        let dir = managed_path(&self.home, group, bot, repo);
-        if repo.is_none() {
-            return Ok(dir);
-        }
-        let busy = |p: &Path| {
-            let key = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    /// The managed workspace to use, under the (group, bot) lock, named and recorded on first use. One still in the
+    /// id layout is moved to its named dir first, unless a turn or git action is in it (a later run or bind moves
+    /// it); when it cannot be moved it stays where it is, unrecorded.
+    async fn settle(
+        &self,
+        group: &str,
+        bot: &str,
+        names: &WorkspaceNames,
+        repo: Option<&RepoSpec>,
+    ) -> Result<PathBuf, String> {
+        let repo_id = repo.map(|r| &*r.id);
+        let key = layout::key(group, bot, repo_id);
+        let assign = || layout::assign(&self.home, &key, names, &leaf(repo));
+        let placed = layout::lookup(&self.home, &key).filter(|d| d.exists());
+        let Some(old) = unplaced(&self.home, group, bot, repo_id).filter(|_| placed.is_none()) else {
+            return assign()
+                .map_err(|e| t!("无法创建工作区 {path}: {e}", path = layout::root(&self.home).display(), e = e));
+        };
+        let busy = {
+            let key = old.canonicalize().unwrap_or_else(|_| old.clone());
             self.dirs.lock().unwrap().get(&key).is_some_and(|h| !h.borrow().is_empty())
         };
-        if legacy_clone(&root) && busy(&root) {
-            return Ok(root);
+        if busy {
+            return Ok(old);
         }
-        migrate(&root, &dir).await.map_err(|e| t!("无法移动工作区 {path}: {e}", path = root.display(), e = e))?;
-        Ok(dir)
+        let dir = match assign() {
+            Ok(dir) => dir,
+            Err(e) => {
+                tracing::warn!("workspace {} stays where it is, naming it failed: {e}", old.display());
+                return Ok(old);
+            }
+        };
+        match relocate(&self.home, &managed_root(&self.home, group, bot, repo_id), &old, &dir).await {
+            Ok(()) => Ok(dir),
+            Err(e) => {
+                tracing::warn!(
+                    "workspace {} stays where it is, moving it to {} failed: {e}",
+                    old.display(),
+                    dir.display()
+                );
+                let _ = layout::forget(&self.home, &dir);
+                Ok(old)
+            }
+        }
     }
 }
 
-/// Moves a clone in the old layout (`<repoId>/` itself) to `<repoId>/<name>/` by renames only, so local changes,
-/// branches and stashes stay: `<repoId>` → `<repoId>.moving`, a new `<repoId>/`, then `.moving` → `<repoId>/<name>`.
-/// An interrupted move is completed the next time.
-async fn migrate(root: &Path, dir: &Path) -> std::io::Result<()> {
-    let moving = root.with_extension("moving");
-    if !tokio::fs::try_exists(&moving).await? {
-        if !legacy_clone(root) || tokio::fs::try_exists(dir).await? {
-            return Ok(());
+/// Moves a workspace from the id layout to its named dir `dir` by one rename, so local changes, branches and stashes
+/// stay. Its last-used marker goes along; the emptied id-layout dirs above `root` (`<repoId>` or `_empty`) go.
+async fn relocate(home: &Path, root: &Path, old: &Path, dir: &Path) -> std::io::Result<()> {
+    tokio::fs::create_dir_all(dir.parent().expect("named dirs have a parent")).await?;
+    tokio::fs::rename(old, dir).await?;
+    if let (Some(from), Some(to)) = (used_marker(home, root), used_marker(home, dir)) {
+        let _ = tokio::fs::rename(from, to).await;
+    }
+    for emptied in root.ancestors().take(3) {
+        match std::fs::remove_dir(emptied) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => break,
+            _ => {}
         }
-        tokio::fs::rename(root, &moving).await?;
     }
-    tokio::fs::create_dir_all(root).await?;
-    if tokio::fs::try_exists(dir).await? {
-        return Ok(());
-    }
-    tokio::fs::rename(&moving, dir).await
+    Ok(())
 }
 
 /// An unrequested workspace.state with the git status of `dir` as it is now, so the group sees a manual git action.
@@ -633,9 +705,9 @@ const FIND_MAX_DIRS: usize = 20_000;
 const FIND_SKIP: [&str; 9] =
     ["node_modules", "target", "dist", "build", "vendor", "Library", "Applications", "Pictures", "Movies"];
 
-/// Work trees under `root` whose origin is `want` (a normalized remote); hidden dirs (the managed clones under
-/// `~/.gonggong` among them) and other work trees are not descended into.
-fn find_clones(root: &Path, want: &str) -> Vec<PathBuf> {
+/// Work trees under `root` whose origin is `want` (a normalized remote); hidden dirs (the id-layout clones under
+/// `~/.gonggong` among them), the managed workspaces' `skip` and other work trees are not descended into.
+fn find_clones(root: &Path, want: &str, skip: &Path) -> Vec<PathBuf> {
     let mut found = vec![];
     let mut queue = std::collections::VecDeque::from([(root.to_path_buf(), 0)]);
     let mut seen = 0;
@@ -660,7 +732,7 @@ fn find_clones(root: &Path, want: &str) -> Vec<PathBuf> {
             if name.starts_with('.') || FIND_SKIP.contains(&&*name) {
                 continue;
             }
-            if e.file_type().is_ok_and(|t| t.is_dir()) {
+            if e.file_type().is_ok_and(|t| t.is_dir()) && e.path() != skip {
                 queue.push_back((e.path(), depth + 1));
             }
         }
@@ -966,9 +1038,19 @@ impl Entry {
 /// Stops a size walk on huge trees; the result is then a lower bound.
 const SIZE_MAX_ENTRIES: usize = 500_000;
 
-/// Every workspace of this machine: the server's active pairs plus whatever managed dirs are left on disk.
+/// Every workspace of this machine: the server's active pairs plus whatever managed dirs are left on disk, in the
+/// named layout (as recorded) and the id layout.
 pub fn list(home: &Path, pairs: &[Pair]) -> Vec<Entry> {
     let by_pair: HashMap<(&str, &str), &Pair> = pairs.iter().map(|p| ((&*p.group_id, &*p.bot_id), p)).collect();
+    let placed = layout::read(home);
+    // Its named dir once there (or nothing is left to move), else its dir in the id layout.
+    let managed = |group: &str, bot: &str, repo_id: Option<&str>| {
+        let old = managed_root(home, group, bot, repo_id);
+        match placed.get(&layout::key(group, bot, repo_id)) {
+            Some(dir) if dir.exists() || !old.exists() => dir.clone(),
+            _ => old,
+        }
+    };
     let mut claimed = HashSet::new();
     let mut entries = vec![];
     for p in pairs.iter().filter(|p| !p.removed) {
@@ -976,7 +1058,7 @@ pub fn list(home: &Path, pairs: &[Pair]) -> Vec<Entry> {
             (WorkspaceKind::Cd, Some(cd)) => (EntryKind::Cd, PathBuf::from(cd)),
             _ => (
                 if p.repo_id.is_some() { EntryKind::Managed } else { EntryKind::Empty },
-                managed_root(home, &p.group_id, &p.bot_id, p.repo_id.as_deref()),
+                managed(&p.group_id, &p.bot_id, p.repo_id.as_deref()),
             ),
         };
         claimed.insert(real(&path));
@@ -984,13 +1066,17 @@ pub fn list(home: &Path, pairs: &[Pair]) -> Vec<Entry> {
         let state = if p.running { EntryState::Running } else { EntryState::Idle };
         entries.push(entry(&p.group_id, &p.bot_id, Some(p), kind, path, size, state));
         for id in &p.extra_repo_ids {
-            let path = managed_root(home, &p.group_id, &p.bot_id, Some(id));
+            let path = managed(&p.group_id, &p.bot_id, Some(id));
             claimed.insert(real(&path));
             let size = Some(dir_size(&path, SIZE_MAX_ENTRIES));
             entries.push(entry(&p.group_id, &p.bot_id, Some(p), EntryKind::Managed, path, size, state));
         }
     }
-    for (group, bot, path) in managed_dirs(&home.join("workspaces")) {
+    let named = placed.iter().filter(|(_, dir)| dir.is_dir()).filter_map(|(key, dir)| {
+        let (group, bot) = layout::pair(key)?;
+        Some((group.to_string(), bot.to_string(), dir.clone()))
+    });
+    for (group, bot, path) in managed_dirs(&home.join("workspaces")).into_iter().chain(named) {
         if claimed.contains(&real(&path)) {
             continue;
         }
@@ -1027,13 +1113,20 @@ fn entry(
     }
 }
 
-/// `<home>/workspaces/<group>/<bot>/.<leaf>.used`, beside the workspace so neither git nor the agent sees it; None
-/// when `dir` is not inside a managed workspace.
+/// Both layouts' roots: `<root>/<group>/<bot>/<leaf>` is a managed workspace.
+fn trees(home: &Path) -> [PathBuf; 2] {
+    [home.join("workspaces"), layout::root(home)]
+}
+
+/// `<root>/<group>/<bot>/.<leaf>.used`, beside the workspace so neither git nor the agent sees it; None when `dir` is
+/// not inside a managed workspace.
 fn used_marker(home: &Path, dir: &Path) -> Option<PathBuf> {
-    let rel = dir.strip_prefix(home.join("workspaces")).ok()?;
-    let parts: Vec<_> = rel.components().take(3).collect();
-    let [Component::Normal(g), Component::Normal(b), Component::Normal(leaf)] = parts[..] else { return None };
-    Some(home.join("workspaces").join(g).join(b).join(format!(".{}.used", leaf.to_string_lossy())))
+    trees(home).into_iter().find_map(|root| {
+        let rel = dir.strip_prefix(&root).ok()?;
+        let parts: Vec<_> = rel.components().take(3).collect();
+        let [Component::Normal(g), Component::Normal(b), Component::Normal(leaf)] = parts[..] else { return None };
+        Some(root.join(g).join(b).join(format!(".{}.used", leaf.to_string_lossy())))
+    })
 }
 
 /// Records that a turn starts in `dir` (a managed workspace or its clone); /cd dirs are left alone.
@@ -1128,20 +1221,22 @@ pub fn dir_size(path: &Path, max_entries: usize) -> u64 {
 }
 
 /// Deletes a removed / unused managed workspace: never a /cd dir, an active one, or anything but a real dir at
-/// `<home>/workspaces/<group>/<bot>/<leaf>`. Emptied bot and group dirs go too.
+/// `<root>/<group>/<bot>/<leaf>` of either layout. Emptied bot and group dirs go too.
 pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
     if !entry.deletable() {
         return Err(t!("只能删除已移出或未使用的托管工作区").into());
     }
-    let inside = entry
-        .path
-        .strip_prefix(home.join("workspaces"))
-        .is_ok_and(|rel| rel.components().count() == 3 && rel.components().all(|c| matches!(c, Component::Normal(_))));
+    let inside = trees(home).iter().any(|root| {
+        entry.path.strip_prefix(root).is_ok_and(|rel| {
+            rel.components().count() == 3 && rel.components().all(|c| matches!(c, Component::Normal(_)))
+        })
+    });
     let is_dir = std::fs::symlink_metadata(&entry.path).is_ok_and(|m| m.is_dir());
     if !inside || !is_dir {
         return Err(t!("不是托管工作区目录：{path}", path = entry.path.display()));
     }
     std::fs::remove_dir_all(&entry.path).map_err(|e| t!("删除失败：{e}", e = e))?;
+    let _ = layout::forget(home, &entry.path);
     if let Some(marker) = used_marker(home, &entry.path) {
         let _ = std::fs::remove_file(marker);
     }
@@ -1310,7 +1405,10 @@ mod tests {
         clone_at(&h.join("a/b/c/d/e/too-deep"), "git@git.corp:pay/pay-server.git");
         // Not descended into: a clone nested in another work tree is that tree's business.
         clone_at(&h.join("code/other/vendor/pay"), "git@git.corp:pay/pay-server.git");
-        let mut found = find_clones(h, &normalize_remote("git@git.corp:pay/pay-server.git"));
+        // The managed workspaces are not the owner's own clones.
+        clone_at(&h.join("gonggong/workspaces/g/pay"), "git@git.corp:pay/pay-server.git");
+        let skip = h.join("gonggong/workspaces");
+        let mut found = find_clones(h, &normalize_remote("git@git.corp:pay/pay-server.git"), &skip);
         found.sort();
         assert_eq!(found, vec![h.join("Documents/work/pay"), h.join("code/pay-server")]);
     }
@@ -1448,6 +1546,46 @@ mod tests {
         }
         assert!(!ws.join("new").exists() && !ws.join("old").exists());
         assert!(ws.join("mid/bw/r3.moving/.git/HEAD").exists(), "an interrupted move is never offered for deletion");
+    }
+
+    #[test]
+    fn lists_and_deletes_workspaces_in_the_named_layout() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        let names = WorkspaceNames { group: "支付组".into(), bot: "小码".into() };
+        let place = |key: &str, leaf: &str| layout::assign(h, key, &names, leaf).unwrap();
+        // pay: active on r1 (still in the id layout too, left over), r2 dropped since; gone: a group the Bot left.
+        let r1 = place("pay/bw/r1", "pay-server");
+        let r2 = place("pay/bw/r2", "web");
+        let gone = place("gone/bw/_empty", "_empty");
+        file(&r1.join("main.go"), 100);
+        file(&r2.join("index.ts"), 20);
+        file(&gone.join("notes.md"), 7);
+        file(&h.join("workspaces/pay/bw/r1/pay-server/old.go"), 5);
+        touch_used(h, &r1);
+        let rows: Vec<_> = list(h, &[pair("pay", WorkspaceKind::Managed, Some("r1"))])
+            .into_iter()
+            .map(|e| (e.group_id.clone(), e.path.clone(), e.size, e.state, e.last_used_at.is_some()))
+            .collect();
+        use EntryState::*;
+        assert_eq!(
+            rows,
+            vec![
+                ("pay".into(), r1.clone(), Some(100), Idle, true),
+                ("pay".into(), h.join("workspaces/pay/bw/r1"), Some(5), Unused, false),
+                ("gone".into(), gone.clone(), Some(7), Removed, false),
+                ("pay".into(), r2.clone(), Some(20), Unused, false),
+            ]
+        );
+
+        for e in list(h, &[pair("pay", WorkspaceKind::Managed, Some("r1"))]).iter().filter(|e| e.deletable()) {
+            delete(h, e).unwrap();
+        }
+        assert!(r1.join("main.go").exists() && !r2.exists() && !h.join("workspaces/pay").exists());
+        assert!(!gone.parent().unwrap().parent().unwrap().exists(), "the emptied group dir goes too");
+        assert_eq!(layout::read(h).into_keys().collect::<Vec<_>>(), ["pay/bw/r1"]);
+        let outside = Entry { path: layout::root(h).join("支付组"), state: Removed, ..list(h, &[]).remove(0) };
+        assert!(delete(h, &outside).is_err(), "only a workspace, never its group dir");
     }
 
     #[test]

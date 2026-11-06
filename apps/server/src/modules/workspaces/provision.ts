@@ -114,6 +114,16 @@ async function ownerName(ctx: Ctx, botId: string) {
   return row?.name ?? ''
 }
 
+/** What the daemon names the managed workspace's directory after when it first places it. */
+async function workspaceNames(ctx: Ctx, groupId: string, botId: string) {
+  const [row] = await ctx.db
+    .select({ group: groups.name, bot: bots.name })
+    .from(groups)
+    .innerJoin(bots, eq(bots.id, botId))
+    .where(eq(groups.id, groupId))
+  return row
+}
+
 /** Asks the owner's daemon to validate a directory; false when the machine is offline. */
 async function sendCd(
   ctx: Ctx,
@@ -144,6 +154,7 @@ async function sendCd(
     repo,
     path,
     force,
+    names: await workspaceNames(ctx, groupId, bot.id),
   })
   if (!sent) forget(requestId)
   return sent
@@ -304,7 +315,16 @@ export async function ensureWorkspace(ctx: Ctx, groupId: string, bot: BotRef, re
     cdPath: null,
     joined: false,
   })
-  const msg = { t: 'workspace.ensure' as const, requestId, groupId, botId: bot.id, repo, extraRepos: extras }
+  const names = await workspaceNames(ctx, groupId, bot.id)
+  const msg = {
+    t: 'workspace.ensure' as const,
+    requestId,
+    groupId,
+    botId: bot.id,
+    repo,
+    extraRepos: extras,
+    names,
+  }
   if (!ctx.hub.send(machineId, msg)) {
     forget(requestId)
     await updateBotState(ctx, groupId, bot.id, { workspaceState: 'pending' })

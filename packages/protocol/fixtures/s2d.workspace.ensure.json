@@ -8,5 +8,6 @@
     "url": "git@git.corp:pay/pay-server.git",
     "branch": "main",
     "protocol": "ssh"
-  }
+  },
+  "names": { "group": "支付服务重构", "bot": "小王的 Claude" }
 }

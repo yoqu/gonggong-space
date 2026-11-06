@@ -151,8 +151,10 @@ impl Rig {
         }
     }
 
+    /// The repo-less managed workspace, placed (named) up front so tests may set it up before the first run.
     fn workspace(&self) -> PathBuf {
-        self.home.path().join("workspaces/g1/b1/_empty")
+        let names = WorkspaceNames { group: "g1".into(), bot: "b1".into() };
+        gonggong::layout::assign(self.home.path(), "g1/b1/_empty", &names, "_empty").unwrap()
     }
 }
 

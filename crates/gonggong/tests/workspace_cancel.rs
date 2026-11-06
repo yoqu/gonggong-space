@@ -139,6 +139,7 @@ async fn cd_cancels_a_blocked_clone_and_ignores_its_late_result() {
             bot_id: "b1".into(),
             repo: Some(repo.clone()),
             extra_repos: vec![],
+            names: None,
         }),
         &out,
     );
@@ -155,6 +156,7 @@ async fn cd_cancels_a_blocked_clone_and_ignores_its_late_result() {
             repo: Some(repo),
             path: Some(local.path().to_string_lossy().into_owned()),
             force: true,
+            names: None,
         }),
         &out,
     );

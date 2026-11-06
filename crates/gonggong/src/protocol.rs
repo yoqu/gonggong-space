@@ -509,6 +509,8 @@ pub struct RepoFind {
     pub group_id: String,
     pub bot_id: String,
     pub repo: RepoSpec,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub names: Option<WorkspaceNames>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1600,6 +1602,13 @@ pub struct WorkspaceState {
     pub remotes: Vec<String>,
 }
 
+/// Group and Bot names a managed workspace's directory is named after when first placed; older servers omit them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceNames {
+    pub group: String,
+    pub bot: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceEnsure {
@@ -1609,6 +1618,8 @@ pub struct WorkspaceEnsure {
     pub repo: Option<RepoSpec>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_repos: Vec<RepoSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub names: Option<WorkspaceNames>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1622,6 +1633,8 @@ pub struct WorkspaceCd {
     /// The owner confirmed `path` although it is not a work tree of `repo`.
     #[serde(default)]
     pub force: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub names: Option<WorkspaceNames>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

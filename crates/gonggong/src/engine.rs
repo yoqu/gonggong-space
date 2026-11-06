@@ -952,14 +952,14 @@ impl Handler for Engine {
 }
 
 impl Inner {
-    async fn start(self: Arc<Self>, start: RunStart, out: Outbox) {
+    async fn start(self: Arc<Self>, mut start: RunStart, out: Outbox) {
         let _preparing = Preparing(&self, start.run_id.clone());
         // Read per run, so edits from the CLI or the desktop app apply from the next turn on.
         let local = match LocalSettings::load(&self.config.home) {
             Ok(local) => local,
             Err(e) => return out.send(failed(&start.run_id, format!("{e:#}"))),
         };
-        let cwd = match self.workspaces.resolve(&start).await {
+        let cwd = match self.workspaces.resolve(&mut start).await {
             Ok(dir) => dir,
             Err(e) => return out.send(failed(&start.run_id, e)),
         };

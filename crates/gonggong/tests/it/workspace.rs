@@ -1,6 +1,7 @@
 //! Managed clones and /cd validation against local bare repos, driven through the Engine like the server does.
 use gonggong::engine::{Engine, EngineConfig};
 use gonggong::git;
+use gonggong::layout;
 use gonggong::protocol::*;
 use gonggong::service::{Handler, Outbox, OutboxRx};
 use gonggong::workspace::{managed_path, managed_root, repo_name};
@@ -87,8 +88,19 @@ impl Rig {
     }
 
     fn ensure_with(&self, id: &str, repo: Option<RepoSpec>, extra_repos: Vec<RepoSpec>) {
-        let (request_id, group_id, bot_id) = (id.into(), "g1".into(), "b1".into());
-        let msg = WorkspaceEnsure { request_id, group_id, bot_id, repo, extra_repos };
+        self.ensure_named(id, "g1", Some(names("支付组", "小码")), repo, extra_repos);
+    }
+
+    fn ensure_named(
+        &self,
+        id: &str,
+        group: &str,
+        names: Option<WorkspaceNames>,
+        repo: Option<RepoSpec>,
+        extra_repos: Vec<RepoSpec>,
+    ) {
+        let (request_id, group_id, bot_id) = (id.into(), group.into(), "b1".into());
+        let msg = WorkspaceEnsure { request_id, group_id, bot_id, repo, extra_repos, names };
         self.engine.handle(ServerToDaemon::WorkspaceEnsure(msg), &self.out);
     }
 
@@ -104,6 +116,7 @@ impl Rig {
             repo,
             path: path.map(|p| p.to_string_lossy().into_owned()),
             force,
+            names: Some(names("支付组", "小码")),
         };
         self.engine.handle(ServerToDaemon::WorkspaceCd(msg), &self.out);
     }
@@ -129,11 +142,18 @@ impl Rig {
         }
     }
 
-    /// Where the managed workspace of a `Remote` repo (`remote.git`) goes.
+    /// Where the managed workspace of a `Remote` repo (`remote.git`) goes, named after group 支付组 and Bot 小码.
     fn managed(&self, repo_id: Option<&str>) -> PathBuf {
-        let root = managed_root(self.home.path(), "g1", "b1", repo_id);
-        if repo_id.is_some() { root.join("remote") } else { root }
+        self.named().join("支付组/小码").join(if repo_id.is_some() { "remote" } else { "_empty" })
     }
+
+    fn named(&self) -> PathBuf {
+        layout::root(self.home.path())
+    }
+}
+
+fn names(group: &str, bot: &str) -> WorkspaceNames {
+    WorkspaceNames { group: group.into(), bot: bot.into() }
 }
 
 fn clean(branch: &str, workspace: WorkspaceKind) -> Option<GitStatus> {
@@ -204,7 +224,8 @@ async fn ensure_clones_the_extra_repos_beside_the_repo_and_reports_them_as_extra
     assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
     // The bot works in the repo; the extra repo is its own clone beside it.
     assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
-    let extra = r.managed(Some("rw"));
+    // Both repos are named `remote`: the second one placed gets a suffix.
+    let extra = r.named().join("支付组/小码/remote-2");
     assert!(extra.join("web.txt").is_file());
     let repos = s.git.expect("status").repos;
     assert_eq!(repos.len(), 1, "{repos:?}");
@@ -277,7 +298,10 @@ async fn ensure_clones_once_with_autocrlf_off_and_reports_git_status() {
 async fn ensure_replaces_a_broken_leftover_and_reports_clone_failures() {
     let remote = Remote::new();
     let mut r = rig();
+    // Recorded, then left broken (a junk folder already there without a record is someone else's: see `layout`).
     let dir = r.managed(Some("rp"));
+    let key = layout::key("g1", "b1", Some("rp"));
+    assert_eq!(layout::assign(r.home.path(), &key, &names("支付组", "小码"), "remote").unwrap(), dir);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("junk"), "x").unwrap();
     r.ensure("e1", Some(remote.spec("rp")));
@@ -297,7 +321,7 @@ async fn ensure_replaces_a_broken_leftover_and_reports_clone_failures() {
     assert_eq!(s.state, WorkspaceStateKind::Failed);
     assert!(s.error.unwrap().starts_with("clone 失败："));
     assert_eq!(s.reason, Some(RepoAccessReason::Denied));
-    assert!(!r.managed(Some("bad")).exists());
+    assert!(!r.named().join("支付组/小码/gonggong").exists());
 
     let mut wrong = remote.spec("rp2");
     wrong.branch = "nope".into();
@@ -306,42 +330,129 @@ async fn ensure_replaces_a_broken_leftover_and_reports_clone_failures() {
     assert_eq!((s.state, s.reason), (WorkspaceStateKind::Failed, Some(RepoAccessReason::BranchMissing)));
 }
 
+/// A clone of `remote` at `dir` with a branch, a stash, an edited file and an untracked one: everything a move must
+/// keep.
+fn local_work(remote: &Remote, dir: &Path) {
+    std::fs::create_dir_all(dir.parent().unwrap()).unwrap();
+    git(dir.parent().unwrap(), &["clone", "-q", &remote.url(), &dir.file_name().unwrap().to_string_lossy()]);
+    git(dir, &["checkout", "-qb", "feat"]);
+    std::fs::write(dir.join("wip.txt"), "draft").unwrap();
+    git(dir, &["stash", "-q", "--include-untracked"]);
+    std::fs::write(dir.join("README.md"), "# edited\n").unwrap();
+    std::fs::write(dir.join("notes.txt"), "mine").unwrap();
+}
+
+fn kept_local_work(dir: &Path) {
+    assert_eq!(std::fs::read_to_string(dir.join("README.md")).unwrap(), "# edited\n");
+    assert_eq!(std::fs::read_to_string(dir.join("notes.txt")).unwrap(), "mine");
+    assert_eq!(git(dir, &["branch", "--show-current"]), "feat");
+    assert_eq!(git(dir, &["stash", "list"]).lines().count(), 1);
+}
+
 #[tokio::test]
-async fn a_clone_in_the_old_layout_moves_under_its_repo_name_with_local_changes() {
+async fn managed_workspaces_are_named_after_the_group_and_bot_once() {
     let remote = Remote::new();
     let mut r = rig();
-    let root = managed_root(r.home.path(), "g1", "b1", Some("rp"));
-    std::fs::create_dir_all(root.parent().unwrap()).unwrap();
-    git(root.parent().unwrap(), &["clone", "-q", &remote.url(), "rp"]);
-    git(&root, &["checkout", "-qb", "feat"]);
-    std::fs::write(root.join("wip.txt"), "draft").unwrap();
-    git(&root, &["-c", "user.name=t", "-c", "user.email=t@g", "stash", "-q", "--include-untracked"]);
-    std::fs::write(root.join("README.md"), "# edited\n").unwrap();
+    let named = r.named();
+    let ready = async |r: &mut Rig, id: &str| {
+        let (s, _) = r.settled(id).await;
+        assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
+        PathBuf::from(s.path.unwrap())
+    };
+    r.ensure_named("n1", "g1", Some(names("支付组", "小码")), Some(remote.spec("rp")), vec![]);
+    assert_eq!(ready(&mut r, "n1").await, named.join("支付组/小码/remote"));
+    // Renamed since: nothing moves.
+    r.ensure_named("n2", "g1", Some(names("支付二组", "小码 2")), Some(remote.spec("rp")), vec![]);
+    assert_eq!(ready(&mut r, "n2").await, named.join("支付组/小码/remote"));
+    // Another group of the same name, and an older server sending no names.
+    r.ensure_named("n3", "g2", Some(names("支付组", "小码")), Some(remote.spec("rp")), vec![]);
+    assert_eq!(ready(&mut r, "n3").await, named.join("支付组-2/小码/remote"));
+    r.ensure_named("n4", "g3", None, None, vec![]);
+    assert_eq!(ready(&mut r, "n4").await, named.join("g3/b1/_empty"));
+    assert!(named.join("g3/b1/_empty").is_dir());
+    let placed = layout::read(r.home.path());
+    assert_eq!(placed.get("g1/b1/rp"), Some(&named.join("支付组/小码/remote")));
+}
+
+#[tokio::test]
+async fn a_clone_in_an_old_layout_moves_to_its_named_dir_with_local_changes() {
+    let remote = Remote::new();
+    let mut r = rig();
+    let h = r.home.path().to_path_buf();
+    // The oldest layout (the clone is `<repoId>/` itself) and the id layout (`<repoId>/<repo name>/`).
+    local_work(&remote, &managed_root(&h, "g1", "b1", Some("rp")));
+    local_work(&remote, &managed_root(&h, "g2", "b1", Some("rp")).join("remote"));
+    std::fs::write(h.join("workspaces/g1/b1/.rp.used"), "").unwrap();
 
     r.ensure("e1", Some(remote.spec("rp")));
     let (s, cloned) = r.settled("e1").await;
     assert!(!cloned, "moved, not cloned again");
     let dir = r.managed(Some("rp"));
     assert_eq!(s.path.as_deref(), Some(&*dir.to_string_lossy()));
-    assert_eq!(std::fs::read_to_string(dir.join("README.md")).unwrap(), "# edited\n");
-    assert_eq!(git(&dir, &["branch", "--show-current"]), "feat");
-    assert_eq!(git(&dir, &["stash", "list"]).lines().count(), 1);
-    assert!(!root.with_extension("moving").exists() && !root.join(".git").exists());
+    kept_local_work(&dir);
+    assert!(!h.join("workspaces/g1").exists(), "the emptied id-layout dirs go");
+    assert!(dir.parent().unwrap().join(".remote.used").exists(), "when it was last used moves along");
 
-    // Interrupted after the first rename, then after the new `<repoId>/` was made: completed either way.
-    for made_root in [false, true] {
-        std::fs::rename(&dir, root.with_extension("moving")).unwrap();
-        std::fs::remove_dir(&root).unwrap();
-        if made_root {
-            std::fs::create_dir(&root).unwrap();
-        }
-        let id = format!("again-{made_root}");
-        r.ensure(&id, Some(remote.spec("rp")));
-        let (s, cloned) = r.settled(&id).await;
-        assert!(!cloned && s.state == WorkspaceStateKind::Ready, "{:?}", s.error);
-        assert_eq!(std::fs::read_to_string(dir.join("README.md")).unwrap(), "# edited\n");
-        assert!(!root.with_extension("moving").exists());
-    }
+    r.ensure_named("e2", "g2", Some(names("数据组", "小码")), Some(remote.spec("rp")), vec![]);
+    let (s, cloned) = r.settled("e2").await;
+    let dir = r.named().join("数据组/小码/remote");
+    assert_eq!((s.path.as_deref(), cloned), (Some(&*dir.to_string_lossy()), false));
+    kept_local_work(&dir);
+    assert!(!h.join("workspaces/g2").exists());
+}
+
+#[tokio::test]
+async fn an_interrupted_move_is_completed_next_time() {
+    let remote = Remote::new();
+    let mut r = rig();
+    let h = r.home.path().to_path_buf();
+    // Left by an older daemon moving a clone of the oldest layout under its repo name.
+    let root = managed_root(&h, "g1", "b1", Some("rp"));
+    local_work(&remote, &root.with_extension("moving"));
+    std::fs::create_dir(&root).unwrap();
+    r.ensure("e1", Some(remote.spec("rp")));
+    let (s, cloned) = r.settled("e1").await;
+    assert_eq!((s.path.as_deref(), cloned), (Some(&*r.managed(Some("rp")).to_string_lossy()), false));
+    kept_local_work(&r.managed(Some("rp")));
+    assert!(!h.join("workspaces/g1").exists());
+
+    // Named and recorded, then stopped before the rename.
+    local_work(&remote, &managed_root(&h, "g1", "b1", Some("rq")).join("remote"));
+    let dir = layout::assign(&h, &layout::key("g1", "b1", Some("rq")), &names("支付组", "小码"), "remote").unwrap();
+    assert_eq!(dir, r.named().join("支付组/小码/remote-2"));
+    r.ensure("e2", Some(remote.spec("rq")));
+    let (s, cloned) = r.settled("e2").await;
+    assert_eq!((s.path.as_deref(), cloned), (Some(&*dir.to_string_lossy()), false));
+    kept_local_work(&dir);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_workspace_that_cannot_be_moved_stays_where_it_is() {
+    use std::os::unix::fs::PermissionsExt;
+    let remote = Remote::new();
+    let mut r = rig();
+    let h = r.home.path().to_path_buf();
+    let root = managed_root(&h, "g1", "b1", Some("rp"));
+    local_work(&remote, &root);
+    let named = r.named();
+    std::fs::create_dir_all(&named).unwrap();
+    std::fs::set_permissions(&named, std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    r.ensure("e1", Some(remote.spec("rp")));
+    let (s, cloned) = r.settled("e1").await;
+    std::fs::set_permissions(&named, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(s.state, WorkspaceStateKind::Ready, "{:?}", s.error);
+    assert_eq!((s.path.as_deref(), cloned), (Some(&*root.to_string_lossy()), false));
+    kept_local_work(&root);
+    assert_eq!(layout::lookup(&h, &layout::key("g1", "b1", Some("rp"))), None, "the record is forgotten");
+    assert_eq!(managed_path(&h, "g1", "b1", Some(&remote.spec("rp"))), root);
+
+    // Moved on a later bind once it can be.
+    r.ensure("e2", Some(remote.spec("rp")));
+    let (s, _) = r.settled("e2").await;
+    assert_eq!(s.path.as_deref(), Some(&*r.managed(Some("rp")).to_string_lossy()));
+    kept_local_work(&r.managed(Some("rp")));
 }
 
 #[tokio::test]
@@ -538,10 +649,10 @@ async fn runs_use_the_managed_clone_recreating_it_if_deleted_or_the_cd_directory
     let start = |run_id: &str, cd: Option<&Path>| RunStart {
         run_id: run_id.into(),
         group_id: "g1".into(),
-        group_name: "支付服务重构".into(),
+        group_name: "支付组".into(),
         bot: RunBot {
             id: "b1".into(),
-            name: "bot".into(),
+            name: "小码".into(),
             agent_kind: AgentKind::Claude,
             system_prompt: String::new(),
             tier: Tier::Workspace,
@@ -617,6 +728,54 @@ async fn runs_of_different_groups_in_one_directory_take_turns() {
     done(&mut r.rx).await;
     let log = std::fs::read_to_string(dir.path().join("log")).unwrap();
     assert_eq!(log, "start\nend\nstart\nend\n");
+}
+
+fn echoed(d: &RunDone) -> serde_json::Value {
+    serde_json::from_str(&d.reply).unwrap_or_else(|_| panic!("{d:?}"))
+}
+
+#[tokio::test]
+async fn a_run_moves_the_old_workspace_and_its_extra_repos_before_starting() {
+    let (main, web) = (Remote::new(), Remote::new());
+    let mut r = rig();
+    let h = r.home.path().to_path_buf();
+    local_work(&main, &managed_root(&h, "g1", "b1", Some("rp")));
+    local_work(&web, &managed_root(&h, "g1", "b1", Some("rw")).join("remote"));
+    let mut s = run_start("r1", "g1", Path::new("/unused"));
+    (s.group_name, s.bot.name) = ("支付组".into(), "小码".into());
+    s.workspace = WorkspaceSpec {
+        repo: Some(main.spec("rp")),
+        cd_path: None,
+        protect_base: false,
+        extra_dirs: vec![],
+        extra_repos: vec![web.spec("rw")],
+    };
+    r.engine.handle(ServerToDaemon::RunStart(Box::new(s)), &r.out);
+    let v = echoed(&done(&mut r.rx).await);
+    let placed = layout::read(&h);
+    let (dir, extra) = (&placed["g1/b1/rp"], &placed["g1/b1/rw"]);
+    assert!(dir.starts_with(r.named().join("支付组/小码")) && extra.starts_with(r.named().join("支付组/小码")));
+    assert_eq!(PathBuf::from(v["cwd"].as_str().unwrap()), *dir);
+    assert_eq!(v["additionalDirectories"], serde_json::json!([extra]));
+    kept_local_work(dir);
+    kept_local_work(extra);
+    assert!(!h.join("workspaces/g1").exists());
+}
+
+/// A workspace moved since the agent's session was opened: the next turn gets a new adapter process in the new
+/// directory instead of the live session still in the old one.
+#[tokio::test]
+async fn a_turn_in_another_directory_gets_a_new_adapter_process() {
+    let mut r = rig();
+    let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    r.engine.handle(ServerToDaemon::RunStart(Box::new(run_start("r1", "g1", a.path()))), &r.out);
+    let first = done(&mut r.rx).await;
+    let mut next = run_start("r2", "g1", b.path());
+    next.resume_session_id = first.session_id.clone();
+    r.engine.handle(ServerToDaemon::RunStart(Box::new(next)), &r.out);
+    let v = echoed(&done(&mut r.rx).await);
+    assert_eq!(PathBuf::from(v["cwd"].as_str().unwrap()), b.path());
+    assert_ne!(v["pid"], echoed(&first)["pid"]);
 }
 
 fn run_start(run_id: &str, group: &str, cd: &Path) -> RunStart {

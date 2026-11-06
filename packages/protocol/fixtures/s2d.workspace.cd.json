@@ -10,5 +10,6 @@
     "protocol": "auto"
   },
   "path": "/Users/w/code/pay-server",
-  "force": false
+  "force": false,
+  "names": { "group": "支付服务重构", "bot": "小王的 Claude" }
 }
