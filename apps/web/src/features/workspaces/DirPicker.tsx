@@ -4,7 +4,18 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { fullTime } from '../../lib/time'
-import { Alert, Button, Dialog, Icon, type IconName, Input, SearchField, Select, Spinner } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  Icon,
+  type IconName,
+  Input,
+  SearchField,
+  Select,
+  Spinner,
+  Switch,
+} from '../../ui'
 import './workspaces.css'
 
 const parentOf = (path: string) => {
@@ -43,6 +54,9 @@ const placeLabel = (p: DirPlace) => {
 }
 
 const RECENT_MAX = 5
+const HIDDEN_KEY = 'gg.dirpick.hidden'
+/** Hidden folders of home offered in the sidebar when they exist: 共工's own and the agents' config. */
+const HIDDEN_PLACES = ['.gonggong', '.claude', '.codex']
 const recentKey = (machineId: string) => `gg.dirpick.recent.${machineId}`
 const readRecent = (machineId: string): string[] =>
   JSON.parse(localStorage.getItem(recentKey(machineId)) ?? '[]')
@@ -95,6 +109,8 @@ export function DirPicker({
   onClose: () => void
 }) {
   const [path, setPath] = useState<string | null>(start)
+  const [showHidden, setShowHidden] = useState(() => hidden || localStorage.getItem(HIDDEN_KEY) === '1')
+  const [hiddenPlaces, setHiddenPlaces] = useState<string[]>([])
   const [typed, setTyped] = useState(start ?? '')
   const [dir, setDir] = useState<DirListingDto | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -115,7 +131,7 @@ export function DirPicker({
     setError(null)
     setQuery('')
     setDraft(null)
-    const q = [path && `path=${encodeURIComponent(path)}`, hidden && 'hidden=1'].filter(Boolean).join('&')
+    const q = [path && `path=${encodeURIComponent(path)}`, showHidden && 'hidden=1'].filter(Boolean).join('&')
     api
       .get<DirListingDto>(`/machines/${machineId}/dirs${q && `?${q}`}`)
       .then((d) => {
@@ -128,7 +144,25 @@ export function DirPicker({
     return () => {
       live = false
     }
-  }, [machineId, path, hidden])
+  }, [machineId, path, showHidden])
+
+  const home = places.find((p) => p.kind === 'home')?.path
+  useEffect(() => {
+    if (!home) return
+    let live = true
+    const sep = home.includes('\\') ? '\\' : '/'
+    api
+      .get<DirListingDto>(`/machines/${machineId}/dirs?path=${encodeURIComponent(home)}&hidden=1`)
+      .then((d) => {
+        const names = new Set(d.entries.map((e) => e.name))
+        if (live) setHiddenPlaces(HIDDEN_PLACES.filter((n) => names.has(n)).map((n) => `${home}${sep}${n}`))
+      })
+      // The shortcuts are a convenience: without them the picker works as before.
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [machineId, home])
 
   const editing = draft !== null
   useEffect(() => {
@@ -270,22 +304,37 @@ export function DirPicker({
           ) : null}
         </div>
         <div className="dirpick__body">
-          {places.length || recent.length ? (
-            <aside className="dirpick__side">
-              {places.length ? (
-                <nav className="dirpick__group" aria-label={t('位置#places')}>
-                  <div className="dirpick__group-title">{t('位置#places')}</div>
-                  {places.map((p) => sideItem(p.path, PLACE_ICONS[p.kind], placeLabel(p), p.path))}
-                </nav>
-              ) : null}
-              {recent.length ? (
-                <nav className="dirpick__group" aria-label={t('最近使用')}>
-                  <div className="dirpick__group-title">{t('最近使用')}</div>
-                  {recent.map((p) => sideItem(p, 'clock', baseName(p), p))}
-                </nav>
-              ) : null}
-            </aside>
-          ) : null}
+          <aside className="dirpick__side">
+            {places.length ? (
+              <nav className="dirpick__group" aria-label={t('位置#places')}>
+                <div className="dirpick__group-title">{t('位置#places')}</div>
+                {places.map((p) => sideItem(p.path, PLACE_ICONS[p.kind], placeLabel(p), p.path))}
+              </nav>
+            ) : null}
+            {hiddenPlaces.length ? (
+              <nav className="dirpick__group" aria-label={t('隐藏文件夹')}>
+                <div className="dirpick__group-title">{t('隐藏文件夹')}</div>
+                {hiddenPlaces.map((p) => sideItem(p, 'eye-slash', baseName(p), p))}
+              </nav>
+            ) : null}
+            {recent.length ? (
+              <nav className="dirpick__group" aria-label={t('最近使用')}>
+                <div className="dirpick__group-title">{t('最近使用')}</div>
+                {recent.map((p) => sideItem(p, 'clock', baseName(p), p))}
+              </nav>
+            ) : null}
+            <div className="dirpick__hidden">
+              <Switch
+                size="small"
+                label={t('显示隐藏文件夹')}
+                checked={showHidden}
+                onChange={(on) => {
+                  setShowHidden(on)
+                  localStorage.setItem(HIDDEN_KEY, on ? '1' : '0')
+                }}
+              />
+            </div>
+          </aside>
           <div className="dirpick__main">
             {dir?.git ? (
               <div className="dirpick__git" data-testid="dirpick-git">

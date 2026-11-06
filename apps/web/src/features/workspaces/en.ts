@@ -21,6 +21,8 @@ export default {
   修改时间: 'Date modified',
   新建文件夹: 'New folder',
   未命名文件夹: 'untitled folder',
+  隐藏文件夹: 'Hidden folders',
+  显示隐藏文件夹: 'Show hidden folders',
   '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。':
     "This is a workspace 共工 manages for one group: it is deleted when that group's Bot is removed or storage is cleaned up. Clone the repository somewhere else (e.g. ~/code) and pick it there.",
   文件夹名称: 'Folder name',

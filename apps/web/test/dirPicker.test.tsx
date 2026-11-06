@@ -124,6 +124,44 @@ describe('dir picker', () => {
     expect(onPick).toHaveBeenCalledWith(managed)
   })
 
+  it('offers the hidden folders that exist in home as shortcuts', async () => {
+    const calls = mockApi({
+      'GET /machines/m1/dirs': listing('/Users/w'),
+      [`${at('/Users/w')}&hidden=1`]: listing('/Users/w', {
+        entries: ['.cache', '.claude', '.gonggong', 'code'].map((name) => ({
+          name,
+          git: false,
+          modified: null,
+        })),
+      }),
+      [at('/Users/w/.gonggong')]: listing('/Users/w/.gonggong', { entries: [] }),
+    })
+    open()
+    const side = await screen.findByRole('navigation', { name: '隐藏文件夹' })
+    expect(
+      within(side)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['.gonggong', '.claude'])
+    fireEvent.click(within(side).getByRole('button', { name: '.gonggong' }))
+    await waitFor(() => expect(calls.at(-1)?.path).toBe('/machines/m1/dirs?path=%2FUsers%2Fw%2F.gonggong'))
+  })
+
+  it('lists hidden folders while switched on, and remembers it', async () => {
+    const calls = mockApi({
+      'GET /machines/m1/dirs': listing('/Users/w'),
+      'GET /machines/m1/dirs?hidden=1': listing('/Users/w', {
+        entries: [{ name: '.ssh', git: false, modified: null }],
+      }),
+    })
+    open()
+    await screen.findByText('beta')
+    fireEvent.click(screen.getByRole('switch', { name: '显示隐藏文件夹' }))
+    await waitFor(() => expect(rows()).toEqual(['.ssh']))
+    expect(calls.at(-1)?.path).toBe('/machines/m1/dirs?hidden=1')
+    expect(localStorage.getItem('gg.dirpick.hidden')).toBe('1')
+  })
+
   it('opens a recent folder from the sidebar', async () => {
     const calls = mockApi({
       'GET /machines/m1/dirs': listing('/Users/w'),

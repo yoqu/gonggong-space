@@ -39,6 +39,11 @@
   height: 320px;
   overflow-y: auto;
 }
+.dirpick__hidden {
+  margin-top: auto;
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+}
 .dirpick__group {
   display: flex;
   flex-direction: column;
