@@ -104,6 +104,28 @@ describe('dir picker', () => {
     expect(onPick).not.toHaveBeenCalled()
   })
 
+  it('refuses the named managed workspaces beside the home’s .gonggong, but not a project of that name', async () => {
+    const managed = '/Users/w/gonggong/workspaces/支付组/小码/pay-server'
+    const own = '/Users/w/code/gonggong/workspaces'
+    mockApi({
+      [at(managed)]: listing(managed, { entries: [] }),
+      [at(own)]: listing(own, { entries: [] }),
+      [at('/Users/w')]: listing('/Users/w'),
+    })
+    const { unmount } = render(
+      <DirPicker machineId="m1" title="选择目录" start={managed} onPick={vi.fn()} onClose={() => {}} />,
+    )
+    expect(await screen.findByText(/这是共工按群托管的工作区/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '选择此目录' }).hasAttribute('disabled')).toBe(true)
+    unmount()
+    const onPick = vi.fn()
+    render(<DirPicker machineId="m1" title="选择目录" start={own} onPick={onPick} onClose={() => {}} />)
+    await screen.findByText('没有子目录')
+    fireEvent.click(screen.getByRole('button', { name: '选择此目录' }))
+    expect(onPick).toHaveBeenCalledWith(own)
+    expect(screen.queryByText(/这是共工按群托管的工作区/)).toBeNull()
+  })
+
   it('lets a terminal open a managed workspace', async () => {
     const managed = '/home/gg/.gonggong/workspaces/g1/b1/_empty'
     mockApi({ [at(managed)]: listing(managed, { entries: [] }) })

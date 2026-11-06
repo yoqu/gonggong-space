@@ -77,8 +77,14 @@ const sorted = (entries: Entry[], { by, desc }: Sort) => {
   })
 }
 const DEFAULT_FOLDER = t('未命名文件夹')
-/** 共工's per-group workspaces (`~/.gonggong/workspaces/…`), deleted with their group's Bot or by storage cleanup. */
-const inManaged = (path: string) => /[\\/]\.gonggong[\\/]workspaces([\\/]|$)/.test(path)
+/**
+ * 共工's per-group workspaces, deleted with their group's Bot or by storage cleanup: `~/gonggong/workspaces/…`
+ * (anchored at the machine's home, so a project of that name elsewhere stays pickable) and, where older daemons put
+ * them, `~/.gonggong/workspaces/…`.
+ */
+const inManaged = (path: string, home: string | undefined) =>
+  /[\\/]\.gonggong[\\/]workspaces([\\/]|$)/.test(path) ||
+  (!!home && path.startsWith(home) && /^[\\/]gonggong[\\/]workspaces([\\/]|$)/.test(path.slice(home.length)))
 const MANAGED = t(
   '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。',
 )
@@ -197,7 +203,7 @@ export function DirPicker({
     }
   }
 
-  const refused = dir && !managed && inManaged(dir.path) ? MANAGED : null
+  const refused = dir && !managed && inManaged(dir.path, home) ? MANAGED : null
   const up = dir && parentOf(dir.path)
   const roots = dir?.roots ?? []
   const needle = query.trim().toLowerCase()
