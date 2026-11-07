@@ -23,6 +23,7 @@ import { postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
 import { leaveBots } from '../sync/switch.js'
 import { publishMember } from './dto.js'
+import { welcomeToTeam } from './onboarding.js'
 import { teamUserIds } from './service.js'
 
 type User = { id: string; name: string }
@@ -183,6 +184,7 @@ export async function acceptInvite(ctx: Ctx, found: FoundInvite, user: User) {
   })
   if (!joined) return fail('code_expired', '邀请链接已失效')
   await publishMember(ctx, invite.teamId, user.id)
+  await welcomeToTeam(ctx, invite.teamId, user)
   await audit(ctx, {
     category: 'admin',
     actorUserId: user.id,
@@ -198,6 +200,11 @@ export async function onboardUser(ctx: Ctx, user: User, invite: FoundInvite | nu
   if (!(await sysParams(ctx.db)).singleTeamMode) return
   const live = await ctx.db.select({ id: teams.id }).from(teams).where(isNull(teams.archivedAt)).limit(2)
   const [only] = live
-  if (only && live.length === 1)
-    await ctx.db.insert(teamMembers).values({ teamId: only.id, userId: user.id }).onConflictDoNothing()
+  if (!only || live.length !== 1) return
+  const [joined] = await ctx.db
+    .insert(teamMembers)
+    .values({ teamId: only.id, userId: user.id })
+    .onConflictDoNothing()
+    .returning()
+  if (joined) await welcomeToTeam(ctx, only.id, user)
 }

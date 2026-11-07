@@ -4,6 +4,8 @@ import {
   TEAM_PARAM_KEYS,
   type TeamDto,
   type TeamGroupDto,
+  type TeamOnboardingDto,
+  type TeamOnboardingReq,
   type TeamParams,
   type TeamParamsDto,
 } from '@gonggong/protocol'
@@ -11,9 +13,23 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Avatar, Button, Dialog, GroupBox, GroupRow, Presence, Spinner, Stepper, Tag, toast } from '../../ui'
+import {
+  Avatar,
+  Button,
+  Dialog,
+  GroupBox,
+  GroupRow,
+  Presence,
+  Select,
+  Spinner,
+  Stepper,
+  Tag,
+  TextField,
+  toast,
+} from '../../ui'
 import { AuditPanel } from '../admin/AuditPage'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { SkillLayerList, SkillLayerView } from '../config/SkillLayer'
@@ -205,6 +221,87 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
       </div>
       <div className="gs-foot">
         {t('留空沿用平台默认值；群管理员可在群设置中再调整群级参数。保存后对新会话生效。')}
+      </div>
+    </>
+  )
+}
+
+/** 团队设置 · 新手群: where new members land, the bot they are told to @, and the example questions. */
+export function TeamOnboardingTab({ team }: { team: TeamDto }) {
+  const { data } = useGet<TeamOnboardingDto>(`/teams/${team.id}/onboarding`)
+  const [draft, setDraft] = useState<TeamOnboardingReq | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (data) setDraft({ groupId: data.groupId, botId: data.botId, examples: data.examples })
+  }, [data])
+  if (!data || !draft) return <Spinner />
+  const options = data.options ?? []
+  const bots = options.find((g) => g.id === draft.groupId)?.bots ?? []
+  const save = async () => {
+    setBusy(true)
+    if (await attempt(() => api.put(`/teams/${team.id}/onboarding`, draft)))
+      toast({ type: 'success', message: t('新手群设置已保存') })
+    setBusy(false)
+  }
+  return (
+    <>
+      <GroupBox>
+        <GroupRow label={t('新手群')} description={t('新成员加入团队时自动进这个群')}>
+          <Select
+            label={t('新手群')}
+            value={draft.groupId ?? ''}
+            options={[
+              { value: '', label: t('不设置') },
+              ...options.map((g) => ({ value: g.id, label: g.name })),
+            ]}
+            onChange={(id) =>
+              setDraft({
+                ...draft,
+                groupId: id || null,
+                botId: options.find((g) => g.id === id)?.bots[0]?.id ?? null,
+              })
+            }
+          />
+        </GroupRow>
+        <GroupRow label={t('默认助手 Bot')} description={t('欢迎新成员，并请他们有问题 @ 它')}>
+          <Select
+            label={t('默认助手 Bot')}
+            disabled={!draft.groupId}
+            value={draft.botId ?? ''}
+            options={[
+              { value: '', label: t('不设置') },
+              ...bots.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+            onChange={(id) => setDraft({ ...draft, botId: id || null })}
+          />
+        </GroupRow>
+      </GroupBox>
+      <GroupBox>
+        {draft.examples.map((q, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: always three fixed slots
+          <GroupRow key={i} label={t('示例问题 {n}', { n: i + 1 })}>
+            <TextField
+              aria-label={t('示例问题 {n}', { n: i + 1 })}
+              value={q}
+              maxLength={100}
+              onChange={(e) =>
+                setDraft({ ...draft, examples: draft.examples.map((x, j) => (j === i ? e.target.value : x)) })
+              }
+            />
+          </GroupRow>
+        ))}
+      </GroupBox>
+      <div className="team-actions">
+        <Button
+          variant="primary"
+          disabled={busy || draft.examples.some((q) => !q.trim())}
+          onClick={() => void save()}
+        >
+          {t('保存')}
+        </Button>
+      </div>
+      <div className="gs-foot">
+        {t('已关联飞书的新成员会收到默认助手发来的欢迎卡片，点示例问题即在新手群里提问。')}
       </div>
     </>
   )

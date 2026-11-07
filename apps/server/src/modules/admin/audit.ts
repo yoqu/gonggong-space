@@ -203,6 +203,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('新建团队 {name}', { name: str(d.name) })
         case 'team.update':
           return t(d.params === undefined ? '修改团队名称与头像' : '修改团队参数')
+        case 'team.onboarding':
+          return t('修改新手群设置')
         case 'team.archive':
           return t('归档团队 {name}', { name: str(d.name) })
         case 'team.unarchive':

@@ -40,6 +40,7 @@ import {
 import { answerQuestions } from '../questions/service.js'
 import { rerunFor, triggerRuns } from '../runs/trigger.js'
 import { groupRedactor } from '../secrets/resolve.js'
+import { askInGroup } from '../teams/onboarding.js'
 import { approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
 import { credsOf, type FeishuAppRow, type FeishuInbound, onFeishu } from './gateway.js'
 import { publicUrl } from './identity.js'
@@ -507,6 +508,10 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
   if (!user) return toast('error', zt('请先认证共工账号'))
   const own = (await linkOf(ctx, messageId))?.kind !== 'run_card'
   try {
+    if (value.k === 'ask') {
+      await askInGroup(ctx, user, value.g, value.b, value.q)
+      return toast('success', zt('已在群里发出'))
+    }
     if (value.k === 'answer') {
       const [row] = await ctx.db
         .select({ q: questionSets, bot: bots.name })

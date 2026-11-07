@@ -9,6 +9,7 @@ import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
+import { UserGuide } from '../features/onboarding/UserGuide'
 import { openInWorkbench } from '../features/previews/store'
 import { useGroupOutsideList } from '../features/teams/store'
 import { loadTerminalSpaces, useTerminalSpaces } from '../features/terminal/spaces'
@@ -364,6 +365,7 @@ export function ChatPage() {
           </div>
         )}
       </ChatLayout>
+      <UserGuide ready={workspaceLoaded && groupsState === 'ready'} />
       <Presence>
         {creating && me ? (
           <Suspense fallback={null}>

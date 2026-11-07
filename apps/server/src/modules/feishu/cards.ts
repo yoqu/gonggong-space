@@ -270,6 +270,8 @@ export type CardValue =
   | { k: 'answer'; q: string }
   | { k: 'approve'; a: string; o: string }
   | { k: 'full'; a: string }
+  /** 新手群 welcome card example: ask bot `b` question `q` in group `g` as the clicker. */
+  | { k: 'ask'; g: string; b: string; q: string }
 
 const field = (i: number) => `q${i}`
 
@@ -475,5 +477,34 @@ export function noticeCard(message: string, action?: { label: string; url: strin
   return card(zt('共工'), 'blue', [
     markdown(message),
     ...(action ? [linkButton(action.label, action.url, true)] : []),
+  ])
+}
+
+/**
+ * 新手群 welcome in a newcomer's DM. Examples are buttons only when the sending app takes card callbacks (a bot
+ * app; the main app subscribes to none), otherwise lines to copy into the group.
+ */
+export function welcomeCard(o: {
+  team: string
+  bot: string
+  groupId: string
+  botId: string
+  examples: string[]
+  clickable: boolean
+  chatUrl: string | null
+}) {
+  const ask = (q: string): CardValue => ({ k: 'ask', g: o.groupId, b: o.botId, q })
+  return card(zt('欢迎加入 {team}', { team: o.team }), 'blue', [
+    markdown(zt('有问题直接在群里 @{bot}', { bot: o.bot })),
+    ...(o.clickable
+      ? o.examples.map((q) => ({
+          tag: 'button',
+          type: 'default',
+          width: 'fill',
+          text: text(q),
+          behaviors: [{ type: 'callback', value: ask(q) }],
+        }))
+      : [markdown(o.examples.map((q) => `- @${o.bot} ${q}`).join('\n'))]),
+    ...(o.chatUrl ? [linkButton(zt('打开飞书群'), o.chatUrl, true)] : []),
   ])
 }

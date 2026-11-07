@@ -1,0 +1,25 @@
+.guide__title {
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-headline-size);
+  font-weight: 600;
+}
+.guide__lead {
+  margin: 0 0 var(--space-12);
+  color: var(--label-secondary);
+  font-size: var(--text-callout-size);
+}
+.guide__examples {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+.guide__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 140px;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+}

@@ -8,6 +8,7 @@ import { named } from '../../lib/lazy'
 import { Avatar, MenuButton, type MenuItem, Presence } from '../../ui'
 import { NewBotDialog } from '../bots/lazy'
 import { BindMachineDialog } from '../machines/lazy'
+import { useGuide } from '../onboarding/store'
 import { useSettings } from '../settings/store'
 import { TeamSettingsDialog } from '../teams/lazy'
 import { logout } from './logout'
@@ -54,6 +55,7 @@ export function AccountMenu({
     ...(builder ? [] : [{ label: t('搭建自己的 Bot'), value: 'build' }]),
     { label: t('绑定新机器'), value: 'bind' },
     { label: t('我的用量'), value: 'usage' },
+    { label: t('新手指引'), value: 'guide' },
     ...(soleTeam ? [{ label: t('团队设置'), value: 'team' }] : []),
     ...(soleTeam && soleTeam.role !== 'member' ? [{ label: t('邀请成员'), value: 'invite' }] : []),
     { separator: true },
@@ -65,6 +67,7 @@ export function AccountMenu({
   const select = (value: string) => {
     if (value === 'logout') void logout()
     else if (value === 'settings') openSettings()
+    else if (value === 'guide') useGuide.getState().show()
     else if (value === 'build') {
       becomeBuilder()
       navigate('/machines')
