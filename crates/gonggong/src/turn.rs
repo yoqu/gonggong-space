@@ -346,7 +346,10 @@ impl CompactPolicy {
 /// Accumulates one prompt turn: final reply, changed files, usage, and tool call state across patches.
 #[derive(Default)]
 pub struct Turn {
-    pub reply: String,
+    /// The main agent's text of the whole turn; see `reply`.
+    text: String,
+    /// Where in `text` the main agent's last tool call came.
+    after_tool: usize,
     pub files: BTreeSet<String>,
     pub usage: Option<Usage>,
     /// Terminal agent error reported out of band (e.g. invalid model); the turn still ends with `end_turn`.
@@ -371,6 +374,18 @@ pub struct Turn {
 }
 
 impl Turn {
+    /// The final reply: what the main agent said after its last tool call, as text before it is narration of the
+    /// work; the whole text when the turn ends on a tool call.
+    pub fn reply(&self) -> String {
+        let tail = &self.text[self.after_tool..];
+        if tail.trim().is_empty() { self.text.clone() } else { tail.to_string() }
+    }
+
+    pub fn clear_reply(&mut self) {
+        self.text.clear();
+        self.after_tool = 0;
+    }
+
     /// The subagent `session` belongs to; None for the main agent.
     pub fn agent_of(&self, session: &str) -> Option<String> {
         self.subagents.contains_key(session).then(|| session.to_string())
@@ -382,12 +397,17 @@ impl Turn {
         match update {
             SessionUpdate::AgentMessageChunk(c) => text(c.content).map(|delta| {
                 if agent_id.is_none() {
-                    self.reply.push_str(&delta);
+                    self.text.push_str(&delta);
                 }
                 RunEvent::Text { delta, agent_id }
             }),
             SessionUpdate::AgentThoughtChunk(c) => text(c.content).map(|delta| RunEvent::Thought { delta, agent_id }),
-            SessionUpdate::ToolCall(c) => Some(self.tool(agent_id, c.into())),
+            SessionUpdate::ToolCall(c) => {
+                if agent_id.is_none() {
+                    self.after_tool = self.text.len();
+                }
+                Some(self.tool(agent_id, c.into()))
+            }
             SessionUpdate::ToolCallUpdate(u) => Some(self.tool(agent_id, u)),
             SessionUpdate::UsageUpdate(u) if agent_id.is_none() => {
                 let usage =
@@ -739,7 +759,7 @@ mod tests {
             Some(RunEvent::Thought { delta: "想".into(), agent_id: None })
         );
         t.apply("s", SessionUpdate::AgentMessageChunk(chunk("完成")));
-        assert_eq!(t.reply, "好的，完成");
+        assert_eq!(t.reply(), "好的，完成");
 
         let read = ToolCall::new("r1", "Read a").kind(ToolKind::Read).locations(vec![ToolCallLocation::new("/w/a.rs")]);
         t.apply("s", SessionUpdate::ToolCall(read));
@@ -1000,6 +1020,46 @@ mod tests {
     }
 
     #[test]
+    fn reply_keeps_only_text_after_the_last_main_tool_call() {
+        let mut t = Turn::default();
+        let chunk =
+            |s: &str| SessionUpdate::AgentMessageChunk(ContentChunk::new(ContentBlock::Text(TextContent::new(s))));
+        let call = |id: &str| SessionUpdate::ToolCall(ToolCall::new(id.to_string(), "Read").kind(ToolKind::Read));
+        t.apply("root", chunk("Now adapt the script."));
+        t.apply("root", call("c1"));
+        t.apply("root", chunk("Saving to the knowledge base."));
+        t.apply("root", call("c2"));
+        t.apply("root", chunk("会员营业额"));
+        assert_eq!(t.apply("root", chunk("查完了")), Some(RunEvent::Text { delta: "查完了".into(), agent_id: None }));
+        assert_eq!(t.reply(), "会员营业额查完了");
+
+        t.apply("root", call("c3"));
+        assert_eq!(t.reply(), "Now adapt the script.Saving to the knowledge base.会员营业额查完了");
+
+        t.clear_reply();
+        t.apply("root", chunk("下一轮"));
+        assert_eq!(t.reply(), "下一轮");
+    }
+
+    #[test]
+    fn subagent_tool_calls_do_not_cut_the_main_reply() {
+        let mut t = Turn::default();
+        let chunk =
+            |s: &str| SessionUpdate::AgentMessageChunk(ContentChunk::new(ContentBlock::Text(TextContent::new(s))));
+        t.subagent(
+            "root",
+            ext(serde_json::json!({
+                "sessionUpdate": "subagent_spawned", "subagentSessionId": "task-1", "name": "Explore",
+                "task": "t", "capabilities": {}
+            })),
+        );
+        t.apply("root", chunk("开头"));
+        t.apply("task-1", SessionUpdate::ToolCall(ToolCall::new("s1", "Read").kind(ToolKind::Read)));
+        t.apply("root", chunk("结论"));
+        assert_eq!(t.reply(), "开头结论");
+    }
+
+    #[test]
     fn subagent_updates_carry_their_agent_and_stay_out_of_the_reply() {
         let mut t = Turn::default();
         let chunk =
@@ -1023,7 +1083,7 @@ mod tests {
             Some(RunEvent::Text { delta: "子报告".into(), agent_id: Some("task-1".into()) })
         );
         t.apply("root", chunk("主回复"));
-        assert_eq!(t.reply, "主回复");
+        assert_eq!(t.reply(), "主回复");
 
         let same_id = |s| ToolCall::new("x", "Read").kind(ToolKind::Read).locations(vec![ToolCallLocation::new(s)]);
         t.apply("root", SessionUpdate::ToolCall(same_id("/w/a")));
