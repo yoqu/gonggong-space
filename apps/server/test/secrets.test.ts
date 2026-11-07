@@ -464,6 +464,62 @@ describe('secret tools and cards', () => {
   })
 })
 
+describe('filling a card carries the bot on', () => {
+  it("marks a card from a bot on someone else's machine, lists my pending cards and reruns the bot once filled", async () => {
+    const w = await world()
+    const [wang, zhao, li] = await Promise.all([w.as(w.wang), w.as(w.zhao), w.as(w.li)])
+    await wang.post(w.teamUrl, { name: 'JIRA_TOKEN', mode: 'personal' })
+    const own = await w.runOf(w.wang)
+    await own.call('secret_request', { names: ['JIRA_TOKEN'] })
+    const { run, call } = await w.runOf(w.zhao)
+    await call('secret_request', { names: ['JIRA_TOKEN'] })
+    const cards = (await t.db.select().from(messages).where(eq(messages.kind, 'event'))).map(
+      (m) => (m.meta as { secretCard: SecretCard }).secretCard,
+    )
+    expect(cards.map((c) => c.foreign)).toEqual([false, true])
+    const zhaoCard = cards[1]!
+
+    const pending = await zhao.get<SecretCard[]>(`/api/groups/${w.group.id}/secret-requests`)
+    expect(pending.body.map((c) => [c.id, c.foreign])).toEqual([[zhaoCard.id, true]])
+    expect((await li.get<SecretCard[]>(`/api/groups/${w.group.id}/secret-requests`)).body).toEqual([])
+    const outsider = await w.as(await t.seed.user({ name: '路人' }))
+    expect((await outsider.get(`/api/groups/${w.group.id}/secret-requests`)).status).toBe(404)
+
+    const filled = await zhao.post<SecretCard>(`/api/secret-requests/${zhaoCard.id}`, {
+      values: { JIRA_TOKEN: 'zhao-jira-value' },
+      allowForeignMachines: true,
+    })
+    expect(filled.body).toMatchObject({ filled: true, foreign: true })
+    expect((await resolve(w, w.zhao.id)).env.JIRA_TOKEN).toBe('zhao-jira-value')
+    expect((await zhao.get<SecretCard[]>(`/api/groups/${w.group.id}/secret-requests`)).body).toEqual([])
+    const stored = (await t.db.select().from(messages).where(eq(messages.kind, 'event'))).map(
+      (m) => (m.meta as { secretCard?: SecretCard }).secretCard,
+    )
+    expect(stored.find((c) => c?.id === zhaoCard.id)).toMatchObject({ filled: true, foreign: true })
+
+    const again = await t.db.select().from(runs).where(eq(runs.triggerMessageId, run.triggerMessageId))
+    expect(again.map((r) => [r.botId, r.originUserId])).toEqual([
+      [w.bot.id, w.zhao.id],
+      [w.bot.id, w.zhao.id],
+    ])
+    const events = await t.db.select().from(messages).where(eq(messages.kind, 'event'))
+    expect(events.at(-1)!.body).toBe('已填写密钥，Claude 继续处理')
+  })
+
+  it('tells the bot to ask again on a card instead of sending the user to settings', async () => {
+    const w = await world()
+    const [wang, zhao] = await Promise.all([w.as(w.wang), w.as(w.zhao)])
+    await wang.post(w.teamUrl, { name: 'JIRA_TOKEN', mode: 'personal' })
+    const mine = (await zhao.get<MySecretDto[]>('/api/me/secrets')).body[0]!
+    await zhao.put(`/api/me/secrets/${mine.secret.id}`, { value: 'zhao-jira-value' })
+    const { call } = await w.runOf(w.zhao)
+    const text = (await call('secret_list')).text
+    expect(text).toContain('未允许在他人机器上使用')
+    expect(text).toContain('secret_request')
+    expect(text).not.toContain('设置')
+  })
+})
+
 describe('MCP migration', () => {
   it('turns plain values and old placeholders into secrets once', async () => {
     const w = await world()

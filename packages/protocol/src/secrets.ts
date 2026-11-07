@@ -114,9 +114,11 @@ export const SecretCard = z.object({
   audience: z.enum(['origin', 'admins']),
   userId: z.string().nullable(),
   filled: z.boolean(),
+  /** `origin` cards: the asking bot runs on a machine `userId` does not own, so a value needs allowForeignMachines. */
+  foreign: z.boolean().optional(),
 })
 export type SecretCard = z.infer<typeof SecretCard>
-/** POST /api/secret-requests/:id */
+/** POST /api/secret-requests/:id; GET /api/groups/:groupId/secret-requests lists my unfilled `origin` cards there. */
 export const FillSecretReq = z.object({
   values: z.record(SecretName, SecretValue),
   /** `origin` cards: as SetMySecretReq; absent keeps an existing value's setting (false for a new one). */

@@ -18,7 +18,7 @@ function filled(s: SecretState) {
     ? '发起人未填写个人值'
     : s.mineUsable
       ? '发起人已填写个人值'
-      : '发起人已填写个人值（未允许在他人机器上使用）'
+      : '发起人已填写个人值（未允许在他人机器上使用；可用 secret_request 重新发卡片，请发起人在卡片里勾选允许）'
   if (s.def.mode === 'shared') return shared
   if (s.def.mode === 'personal') return mine
   return `${shared} · ${mine}`

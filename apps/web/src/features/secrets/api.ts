@@ -1,5 +1,6 @@
 import type {
   CreateSecretReq,
+  FillSecretReq,
   MySecretDto,
   SecretDto,
   SecretMode,
@@ -20,8 +21,7 @@ export const secretsApi = {
   mine: () => api.get<MySecretDto[]>('/me/secrets'),
   setMine: (id: string, body: Partial<SetMySecretReq>) => api.put(`/me/secrets/${id}`, body),
   clearMine: (id: string) => api.del(`/me/secrets/${id}`),
-  fill: (requestId: string, values: Record<string, string>) =>
-    api.post(`/secret-requests/${requestId}`, { values }),
+  fill: (requestId: string, body: FillSecretReq) => api.post(`/secret-requests/${requestId}`, body),
 }
 
 export const MODE_LABEL: Record<SecretMode, string> = {

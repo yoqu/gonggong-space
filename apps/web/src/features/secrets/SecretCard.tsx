@@ -4,8 +4,9 @@ import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
-import { Alert, Button, ChatNotice, Dialog, Icon, Presence, SecureField, Tag } from '../../ui'
+import { Alert, Button, ChatNotice, Checkbox, Dialog, Icon, Presence, SecureField, Tag } from '../../ui'
 import { secretsApi } from './api'
+import { FOREIGN, FOREIGN_NOTE } from './MySecrets'
 
 /**
  * Who may fill an `admins` card as far as the client knows: a sysadmin, an admin of the group or of its team. The
@@ -62,15 +63,26 @@ export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto;
   )
 })
 
-function FillDialog({ card, onClose, onDone }: { card: Card; onClose: () => void; onDone: () => void }) {
+export function FillDialog({
+  card,
+  onClose,
+  onDone,
+}: {
+  card: Card
+  onClose: () => void
+  onDone: () => void
+}) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Without it the value never reaches a bot on someone else's machine, so the card that asked for it offers it.
+  const askForeign = card.audience === 'origin' && !!card.foreign
+  const [foreign, setForeign] = useState(true)
   const ready = card.names.every((n) => (values[n]?.length ?? 0) >= SECRET_MIN_LENGTH)
   const submit = async () => {
     setBusy(true)
     try {
-      await secretsApi.fill(card.id, values)
+      await secretsApi.fill(card.id, askForeign ? { values, allowForeignMachines: foreign } : { values })
       onDone()
     } catch (e) {
       setError(errorText(e))
@@ -106,6 +118,12 @@ function FillDialog({ card, onClose, onDone }: { card: Card; onClose: () => void
           onChange={(e) => setValues({ ...values, [n]: e.target.value })}
         />
       ))}
+      {askForeign ? (
+        <>
+          <Checkbox label={FOREIGN} checked={foreign} onChange={setForeign} />
+          <div className="gs-desc">{FOREIGN_NOTE}</div>
+        </>
+      ) : null}
     </Dialog>
   )
 }

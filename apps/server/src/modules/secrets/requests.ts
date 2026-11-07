@@ -1,23 +1,26 @@
 import type { FillSecretReq, SecretCard } from '@gonggong/protocol'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bots, groups, messages, secretRequests, users } from '../../db/schema.js'
+import { bots, groups, machines, messages, runs, secretRequests, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isLayerAdmin } from '../agent-tools/layers.js'
+import { requireMember } from '../groups/service.js'
 import { forceNewSessions } from '../mcp/service.js'
 import { authorName, type MessageMeta, memberIds, messageDto, postEvent } from '../messages/service.js'
+import { rerunFor } from '../runs/trigger.js'
 import { RANK, type SecretRow, visibleSecrets } from './resolve.js'
 import { layerOfRow, setPersonal, setSharedValue } from './service.js'
 
 type RequestRow = typeof secretRequests.$inferSelect
 export type Audience = 'origin' | 'admins'
 
-const card = (r: RequestRow): SecretCard => ({
+const card = (r: RequestRow, foreign?: boolean): SecretCard => ({
   id: r.id,
   names: r.names,
   audience: r.audience as Audience,
   userId: r.userId,
   filled: r.filledAt !== null,
+  ...(foreign !== undefined && { foreign }),
 })
 
 /** The definition a value of `name` is filled for: the lowest enabled one the group sees. */
@@ -46,18 +49,45 @@ export async function postSecretCard(
       createdAt: ctx.now(),
     })
     .returning()) as [RequestRow]
-  const [bot] = await ctx.db.select({ name: bots.name }).from(bots).where(eq(bots.id, run.botId))
+  const [bot] = await ctx.db
+    .select({ name: bots.name, machineOwner: machines.ownerId })
+    .from(bots)
+    .leftJoin(machines, eq(machines.id, bots.machineId))
+    .where(eq(bots.id, run.botId))
   const [user] = await ctx.db.select({ name: users.name }).from(users).where(eq(users.id, run.originUserId))
   const params = { bot: bot?.name ?? '', user: user?.name ?? '', names: names.join('、') }
+  const posted = card(req, audience === 'origin' ? bot?.machineOwner !== run.originUserId : undefined)
   const msg = await postEvent(
     ctx,
     run.groupId,
     audience === 'origin' ? '{bot} 请 {user} 填写自己的密钥：{names}' : '{bot} 请管理员填写密钥：{names}',
     params,
-    { secretCard: card(req) },
+    { secretCard: posted },
   )
   await ctx.db.update(secretRequests).set({ messageId: msg.id }).where(eq(secretRequests.id, req.id))
-  return card(req)
+  return posted
+}
+
+/** My unfilled `origin` cards of the group, as posted (so they keep `foreign`). */
+export async function pendingSecretCards(ctx: Ctx, userId: string, groupId: string): Promise<SecretCard[]> {
+  await requireMember(ctx, groupId, userId)
+  const rows = await ctx.db
+    .select({ meta: messages.meta })
+    .from(secretRequests)
+    .innerJoin(messages, eq(messages.id, secretRequests.messageId))
+    .where(
+      and(
+        eq(secretRequests.groupId, groupId),
+        eq(secretRequests.audience, 'origin'),
+        eq(secretRequests.userId, userId),
+        isNull(secretRequests.filledAt),
+      ),
+    )
+    .orderBy(asc(secretRequests.createdAt))
+  return rows.flatMap((r) => {
+    const c = (r.meta as MessageMeta).secretCard
+    return c ? [c] : []
+  })
 }
 
 /**
@@ -110,19 +140,41 @@ export async function fillSecretRequest(ctx: Ctx, userId: string, id: string, bo
   }
   if (req.forceNewSession)
     await forceNewSessions(ctx, { scope: 'group', teamId: group.teamId, groupId: req.groupId })
-  if (req.messageId) await refreshCard(ctx, req.messageId, card(claimed))
-  return card(claimed)
+  const done = (req.messageId ? await refreshCard(ctx, req.messageId) : undefined) ?? card(claimed)
+  await carryOn(ctx, req.runId)
+  return done
 }
 
-async function refreshCard(ctx: Ctx, messageId: string, secretCard: SecretCard) {
+/** The asking bot picks its turn up again with the values in place; relay hops can only be restarted from their source. */
+async function carryOn(ctx: Ctx, runId: string | null) {
+  if (!runId) return
+  const [row] = await ctx.db
+    .select({ run: runs, message: messages, bot: bots.name })
+    .from(runs)
+    .innerJoin(messages, eq(messages.id, runs.triggerMessageId))
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(eq(runs.id, runId))
+  if (!row) return
+  const { run, message } = row
+  if (run.hop === 1 && message.authorUserId && !message.recalledAt) {
+    await postEvent(ctx, run.groupId, '已填写密钥，{bot} 继续处理', { bot: row.bot })
+    await rerunFor(ctx, message, [run.botId])
+  } else await postEvent(ctx, run.groupId, '已填写密钥，重新 @{bot} 即可继续', { bot: row.bot })
+}
+
+async function refreshCard(ctx: Ctx, messageId: string) {
   const [m] = await ctx.db.select().from(messages).where(eq(messages.id, messageId))
   if (!m) return
+  const meta = m.meta as MessageMeta
+  if (!meta.secretCard) return
+  const secretCard = { ...meta.secretCard, filled: true }
   const [row] = await ctx.db
     .update(messages)
-    .set({ meta: { ...(m.meta as MessageMeta), secretCard } })
+    .set({ meta: { ...meta, secretCard } })
     .where(eq(messages.id, messageId))
     .returning()
   if (!row) return
   const dto = messageDto(row, await authorName(ctx, row))
   ctx.bus.publish(await memberIds(ctx, dto.groupId), { t: 'message.edited', message: dto })
+  return secretCard
 }

@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { GroupSettingsDialog } from '../src/features/groups/GroupSettingsDialog'
+import { SecretBanner } from '../src/features/secrets/SecretBanner'
 import { SecretCard } from '../src/features/secrets/SecretCard'
 import { SecretLayerList } from '../src/features/secrets/SecretLayer'
 import { SettingsDialog } from '../src/features/settings/SettingsDialog'
@@ -484,6 +485,56 @@ describe('填写密钥 card', () => {
       }),
     )
     expect(await screen.findByText('已填写')).toBeTruthy()
+  })
+
+  it("lets a card from a bot on someone else's machine allow other machines right away", async () => {
+    const calls = mockApi({ 'POST /secret-requests/q1': {} })
+    const foreign = { ...card, names: ['JIRA_TOKEN'], foreign: true }
+    render(<SecretCard m={m} card={foreign} />)
+    fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
+    const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
+    const allow = within(dialog).getByLabelText('允许在他人机器上的 Bot 使用') as HTMLInputElement
+    expect(allow.checked).toBe(true)
+    expect(within(dialog).getByText(/机器主人能读到 Bot 进程的环境变量/)).toBeTruthy()
+    fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'POST',
+        path: '/secret-requests/q1',
+        body: { values: { JIRA_TOKEN: 'jira_12345678' }, allowForeignMachines: true },
+      }),
+    )
+  })
+
+  it('has no other-machines switch when the bot runs on my own machine', async () => {
+    render(<SecretCard m={m} card={{ ...card, foreign: false }} />)
+    fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
+    const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
+    expect(within(dialog).queryByLabelText('允许在他人机器上的 Bot 使用')).toBeNull()
+  })
+
+  it('keeps my unfilled cards atop the chat until they are filled', async () => {
+    let pending: Card[] = [{ ...card, names: ['JIRA_TOKEN'], foreign: true }]
+    const calls = mockApi({
+      'GET /groups/g1/secret-requests': () => pending,
+      'POST /secret-requests/q1': () => {
+        pending = []
+        return {}
+      },
+    })
+    render(<SecretBanner groupId="g1" />)
+    expect(await screen.findByText('你有 1 个密钥待填写')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
+    const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
+    fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(screen.queryByText('你有 1 个密钥待填写')).toBeNull())
+    expect(calls).toContainEqual({
+      method: 'POST',
+      path: '/secret-requests/q1',
+      body: { values: { JIRA_TOKEN: 'jira_12345678' }, allowForeignMachines: true },
+    })
   })
 
   it('only shows the state to everyone else on an origin card', () => {

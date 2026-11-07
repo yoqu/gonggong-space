@@ -302,6 +302,8 @@ export const protocolEn = {
     '{bot} asks {user} to fill in the secrets of MCP "{name}": {keys}',
   '{bot} 请 {user} 填写自己的密钥：{names}': '{bot} asks {user} to fill in their own secrets: {names}',
   '{bot} 请管理员填写密钥：{names}': '{bot} asks an admin to fill in the secrets: {names}',
+  '已填写密钥，{bot} 继续处理': 'Secrets filled, {bot} carries on',
+  '已填写密钥，重新 @{bot} 即可继续': 'Secrets filled, @{bot} again to carry on',
   '{bot} 的进度：{title}': "{bot}'s progress: {title}",
   '产物「{title}」': 'Artifact "{title}"',
   '{bot} 提议用「{plugin}」创作，等群成员确认':

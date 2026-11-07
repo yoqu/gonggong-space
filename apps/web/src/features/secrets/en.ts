@@ -107,4 +107,5 @@ export default {
     "Fill in the shared values for the layer's bots. Bots use them as environment variables, and the values stay out of chat history and logs.",
   本次注入的密钥: 'Secrets injected',
   '{name}（{source}）': '{name} ({source})',
+  '你有 {n} 个密钥待填写': 'You have {n} {n:secret|secrets} to fill in',
 } as const

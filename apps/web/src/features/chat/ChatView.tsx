@@ -52,6 +52,7 @@ import { useEnabledPlugins, useGroupPlugins } from '../plugins/store'
 import { PreviewTags } from '../previews/PreviewTags'
 import { ScheduleCard } from '../schedules/ScheduleCard'
 import { ScheduleTag } from '../schedules/ScheduleTag'
+import { SecretBanner } from '../secrets/SecretBanner'
 import { SecretCard } from '../secrets/SecretCard'
 import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
@@ -667,6 +668,7 @@ export function ChatView({
               <GroupNotice group={group} readOnly={readOnly} />
               <PinnedMessages groupId={group.id} onLocate={locateMessage} />
               {readOnly ? null : <WorkspaceBanner group={group} />}
+              {readOnly ? null : <SecretBanner groupId={group.id} />}
             </div>
             <MessageList className="chat-scroll__list">
               {tl.older === 'loading' ? (
