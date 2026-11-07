@@ -4,11 +4,15 @@ import { useWorksShown } from '../features/works/WorksPage'
 import { t } from '../i18n'
 import { NavRail, type NavRailItem } from '../ui'
 import { useShellOverlay } from './AppShell'
+import { useIsBuilder } from './builder'
 import { isMachinesPath } from './MachineSidebar'
 import { useSession } from './session'
 import { useWorkspace } from './workspace'
 
-/** Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 机器与 Bot / 通知 / 管理后台 (sysadmin) and the account menu. */
+/**
+ * Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 机器与 Bot / 通知 / 管理后台 (sysadmin)
+ * and the account menu. 市场 and 机器与 Bot are builder tools, hidden from people who only @ bots (their routes stay open).
+ */
 export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -16,6 +20,7 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const works = isWorksPath(pathname)
   const market = isMarketPath(pathname)
   const worksShown = useWorksShown()
+  const builder = useIsBuilder()
   const admin = useSession((s) => s.user?.role === 'sysadmin')
   const unread = useWorkspace((s) => s.groups.reduce((n, g) => n + (g.muted ? 0 : g.unread), 0))
   const notifCount = useWorkspace((s) => s.notifCount)
@@ -24,8 +29,12 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const items: NavRailItem[] = [
     { id: 'chat', label: t('消息'), icon: 'message', badge: unread },
     ...(worksShown ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
-    { id: 'market', label: t('市场'), icon: 'tag' },
-    { id: 'machines', label: t('机器与 Bot'), icon: 'server' },
+    ...(builder
+      ? [
+          { id: 'market', label: t('市场'), icon: 'tag' as const },
+          { id: 'machines', label: t('机器与 Bot'), icon: 'server' as const },
+        ]
+      : []),
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
   const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: t('管理后台'), icon: 'shield-check' }] : []

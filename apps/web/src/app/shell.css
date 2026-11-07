@@ -817,6 +817,22 @@ a.sidebar__open {
   font-weight: 600;
   color: var(--tint-green-text);
 }
+.welcome__examples {
+  margin: 0 0 var(--space-20);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+}
+.welcome__example {
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-control);
+  font-size: var(--text-callout-size);
+}
 @media (max-width: 900px) {
   .welcome__steps {
     grid-template-columns: 1fr;

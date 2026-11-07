@@ -2,6 +2,7 @@ export default {
   系统管理员: 'System admin',
   普通成员: 'Member',
   我的用量: 'My usage',
+  '搭建自己的 Bot': 'Build your own Bot',
   '设置…': 'Settings…',
   退出登录: 'Log out',
   账户菜单: 'Account menu',
