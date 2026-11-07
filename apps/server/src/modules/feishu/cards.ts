@@ -206,6 +206,14 @@ export function replyMarkdown(body: string, url: string | null, pages: HtmlRende
   return text === body || !url ? text : `${text}\n\n[${zt('在共工查看')}](${url})`
 }
 
+/** An html_render page's snapshot (a Feishu image_key), and where the reply shows the live page (null without 对外地址). */
+export type PageShot = { title: string; image: string; url: string | null }
+
+const pageShot = (p: PageShot) => [
+  { tag: 'img', img_key: p.image, alt: text(p.title), scale_type: 'fit_horizontal', preview: true },
+  ...(p.url ? [linkButton(zt('在共工查看完整页面'), p.url)] : []),
+]
+
 /** One card per run: status while it works, then the final reply. `url` (查看过程) is null without 对外地址. */
 export function runCard(o: {
   bot: string
@@ -214,6 +222,7 @@ export function runCard(o: {
   reply: string | null
   url: string | null
   items?: Interaction[]
+  pages?: PageShot[]
 }) {
   const s = STATUS[o.status]
   const body = o.reply ?? o.step
@@ -222,6 +231,7 @@ export function runCard(o: {
     s.template,
     [
       ...(body ? [markdown(truncated(body))] : []),
+      ...(o.pages ?? []).flatMap(pageShot),
       ...interactionElements(o.items ?? []),
       ...(o.url ? [linkButton(zt('查看过程'), o.url)] : []),
     ],

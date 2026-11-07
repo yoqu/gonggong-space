@@ -141,6 +141,20 @@ pub async fn heights(html: &str) -> Option<Vec<(u32, u32)>> {
     }
 }
 
+/// The prepared page as a PNG at the reply column, for the server to show where the page can't run (Feishu cards);
+/// None (logged) without a browser or when capturing fails: the page is published without it.
+pub async fn snapshot(html: &str) -> Option<Vec<u8>> {
+    use base64::Engine;
+    crate::snapshot::browser()?;
+    match preview(html.to_owned(), None, Appearance::Light).await {
+        Ok(shot) => base64::engine::general_purpose::STANDARD.decode(shot.png).ok(),
+        Err(e) => {
+            tracing::warn!("could not screenshot an HTML render, publishing it without one: {e}");
+            None
+        }
+    }
+}
+
 fn browser_error(reason: &str) -> String {
     format!("Headless Chrome could not render the page: {reason}.")
 }

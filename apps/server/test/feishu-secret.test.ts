@@ -41,6 +41,7 @@ async function setup(o: { publicUrl?: boolean } = {}) {
     userId: owner.id,
     unionId: fu.unionId,
     openId: fu.openId,
+    feishuUserId: 'u_wang',
     name: fu.name,
     accessToken: seal(tokens.accessToken),
     expiresAt: tokens.expiresAt,
@@ -79,6 +80,8 @@ describe('secret cards in Feishu', () => {
     expect(card).toMatchObject({ appId: BOT_APP, chatId: CHAT, msgType: 'interactive' })
     const json = JSON.stringify(card!.content)
     expect(json).toContain('部署 Bot 请 王磊 填写自己的密钥：JIRA_TOKEN')
+    // A real Feishu @ of the person asked (tenant-wide user_id: open_id differs per app).
+    expect(json).toContain('<at id=u_wang></at>')
     expect(json).toContain('去填写')
     expect(json).toContain(`${BASE}/secret-requests/${req.id}`)
     // The value is only ever typed in 共工, never into the Feishu card.

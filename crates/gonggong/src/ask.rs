@@ -482,11 +482,20 @@ async fn html_render(api: Option<&Config>, asker: &dyn Asker, args: &Value) -> R
     if let Some(heights) = heights {
         form = form.text("heights", json!(heights).to_string());
     }
+    let snapshot = crate::html_render::snapshot(&html).await;
     let page = reqwest::multipart::Part::bytes(html.into_bytes())
         .file_name("page.html")
         .mime_str("text/html")
         .map_err(|e| e.to_string())?;
-    let page = post_form(api, &format!("/api/daemon/runs/{run_id}/html-renders"), form.part("html", page))
+    form = form.part("html", page);
+    if let Some(png) = snapshot {
+        let png = reqwest::multipart::Part::bytes(png)
+            .file_name("page.png")
+            .mime_str("image/png")
+            .map_err(|e| e.to_string())?;
+        form = form.part("snapshot", png);
+    }
+    let page = post_form(api, &format!("/api/daemon/runs/{run_id}/html-renders"), form)
         .await
         .and_then(|r| r)
         .map_err(|e| format!("页面未展示：{e}"))?;

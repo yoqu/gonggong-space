@@ -656,6 +656,7 @@ export const en = {
   填写密钥: 'Fill in secrets',
   已填写: 'Filled',
   去填写: 'Fill in',
+  在共工查看完整页面: 'View the full page in Gonggong',
   等待填写: 'Waiting to be filled',
   '请到共工群里填写；如需在飞书直接打开，请系统管理员设置对外地址':
     'Fill them in the Gonggong group; to open it from Feishu, ask a system admin to set the public URL',

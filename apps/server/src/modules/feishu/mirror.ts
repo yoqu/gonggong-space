@@ -20,7 +20,9 @@ import {
   users,
 } from '../../db/schema.js'
 import { remember } from '../../lib/lru.js'
+import { openFile } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
+import { htmlRenderSnapshotFile } from '../attachments/html-render.js'
 import { type MessageMeta, postEvent } from '../messages/service.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
@@ -28,6 +30,7 @@ import {
   approvalCard,
   type Interaction,
   isPending,
+  type PageShot,
   type PreviewState,
   previewCard,
   progressCard,
@@ -73,7 +76,7 @@ interface Mirror {
   rendered: Map<string, string>
   /** Per run: when its card last changed, and the deferred update if one is due. */
   throttle: Map<string, { at: number; timer?: NodeJS.Timeout }>
-  /** Per preview: the snapshot uploaded to Feishu (by when it was taken) and its image_key. */
+  /** Per preview (by when it was taken) or html_render page: the snapshot uploaded to Feishu and its image_key. */
   images: Map<string, { at: number; key: string }>
   /** Per live run with a streaming card (or about to get one). */
   streams: Map<string, Stream>
@@ -617,7 +620,7 @@ async function syncRunCard(
       bot,
       status: run.status as RunStatus,
       step: run.step,
-      reply: await replyOf(ctx, run, base),
+      ...(await replyOf(ctx, app, run, base)),
       url,
       items,
     })
@@ -671,20 +674,42 @@ async function syncRunCard(
   scheduleFlush(ctx, run.id, stream)
 }
 
-async function replyOf(ctx: Ctx, run: Row, base: string | null) {
+/** The run's final reply as card markdown, with snapshots of its html_render pages that have one. */
+async function replyOf(ctx: Ctx, app: FeishuAppRow, run: Row, base: string | null) {
   const [reply] = await ctx.db
     .select({ id: messages.id, body: messages.body, meta: messages.meta })
     .from(messages)
     .where(and(eq(messages.runId, run.id), eq(messages.kind, 'bot')))
     .orderBy(asc(messages.seq))
     .limit(1)
-  return reply
-    ? replyMarkdown(
-        reply.body,
-        base && `${base}/g/${run.groupId}?msg=${reply.id}`,
-        (reply.meta as MessageMeta).htmlRenders,
-      )
-    : null
+  if (!reply) return { reply: null }
+  const url = base && `${base}/g/${run.groupId}?msg=${reply.id}`
+  const pages = (reply.meta as MessageMeta).htmlRenders ?? []
+  const shots: PageShot[] = []
+  for (const p of pages) {
+    const image = await pageImage(ctx, app, p.attachmentId)
+    if (image) shots.push({ title: p.title, image, url })
+  }
+  return { reply: replyMarkdown(reply.body, url, pages), pages: shots }
+}
+
+/** An html_render page's snapshot as a Feishu image, uploaded once; null when its daemon sent none or Feishu refuses. */
+async function pageImage(ctx: Ctx, app: FeishuAppRow, attachmentId: string) {
+  const { images } = state(ctx)
+  const cached = images.get(attachmentId)
+  if (cached) return cached.key
+  const png = await openFile(htmlRenderSnapshotFile(attachmentId))
+    .then((s) => s.toArray())
+    .then((chunks) => Buffer.concat(chunks as Buffer[]))
+    .catch(() => null)
+  if (!png) return null
+  const key = await ctx.feishu.api.uploadImage(credsOf(app), png).catch((err) => {
+    if (!(err instanceof FeishuError)) throw err
+    console.error('feishu page snapshot upload:', `${err.code} ${err.message}`)
+    return null
+  })
+  if (key) remember(images, attachmentId, { at: 0, key }, IMAGES_MAX)
+  return key
 }
 
 /** Fallback run card: an ordinary card message patched on change, throttled to CARD_THROTTLE_MS. */
@@ -715,7 +740,7 @@ async function patchedRunCard(
     bot,
     status: run.status as RunStatus,
     step: run.step,
-    reply: terminal ? await replyOf(ctx, run, await publicUrl(ctx)) : null,
+    ...(terminal ? await replyOf(ctx, app, run, await publicUrl(ctx)) : { reply: null }),
     url,
     items,
   })
@@ -932,9 +957,10 @@ async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
       and(eq(feishuMessageLinks.messageId, row.run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
     )
   const base = await publicUrl(ctx)
+  const at = row.req.userId && !row.req.filledAt ? await cardAt(ctx, row.req.userId, app) : ''
   const card = secretCard({
     bot: row.bot,
-    text: row.body,
+    text: at ? `${at} ${row.body}` : row.body,
     filled: row.req.filledAt !== null,
     url: base && `${base}/secret-requests/${requestId}`,
   })
@@ -943,6 +969,18 @@ async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
     kind: 'secret',
     refId: requestId,
   })
+}
+
+/**
+ * A card markdown @ of a linked user: by tenant-wide user_id or email, since open_id is per app; the main app's
+ * open_id only when the card is the main app's own.
+ */
+async function cardAt(ctx: Ctx, userId: string, app: FeishuAppRow) {
+  const [fi] = await ctx.db.select().from(feishuIdentities).where(eq(feishuIdentities.userId, userId))
+  if (!fi) return ''
+  if (fi.feishuUserId) return `<at id=${fi.feishuUserId}></at>`
+  if (fi.email) return `<at email=${fi.email}></at>`
+  return app.botId ? '' : `<at id=${fi.openId}></at>`
 }
 
 /** The preview's latest snapshot as a Feishu image; uploaded once per snapshot, skipped when Feishu refuses. */
