@@ -112,6 +112,15 @@ export default {
   团队里还没有群: 'The team has no groups yet',
   '「{name}」的成员': 'Members of "{name}"',
   审计: 'Audit',
+  新手群: 'Newcomer group',
+  新成员加入团队时自动进这个群: 'New team members join this group automatically',
+  '默认助手 Bot': 'Default assistant Bot',
+  '欢迎新成员，并请他们有问题 @ 它': 'Welcomes new members, who @ it with their questions',
+  不设置: 'None',
+  '示例问题 {n}': 'Example question {n}',
+  新手群设置已保存: 'Newcomer group settings saved',
+  '已关联飞书的新成员会收到默认助手发来的欢迎卡片，点示例问题即在新手群里提问。':
+    'New members linked to Feishu get a welcome card from the default assistant; tapping an example asks it in the newcomer group.',
   '对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。':
     'Applies to every group of the team; team admins maintain it, and you can request installs in the market.',
 }

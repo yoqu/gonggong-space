@@ -54,6 +54,8 @@ export const users = pgTable('users', {
   mustChangePassword: boolean('must_change_password').notNull().default(true),
   /** 'auto' | 'ssh' | 'https': tried first when this user's bots clone or probe a repo (RepoSpec.protocol). */
   gitProtocol: text('git_protocol').notNull().default('auto'),
+  /** UserOnboarding: how the first-login guide was left ({} = not seen yet). */
+  onboarding: jsonb('onboarding').notNull().default({}),
   disabledAt: ts('disabled_at'),
   createdAt: createdAt(),
 })

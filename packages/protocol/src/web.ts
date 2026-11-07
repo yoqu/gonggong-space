@@ -2207,6 +2207,47 @@ export const UpdateTeamReq = z.object({
   params: TeamParams.optional(),
 })
 export const UpdateSystemParamsReq = SystemParams.partial()
+/** 新手群 example questions until a team admin edits them; sent as written, like any message. */
+export const DEFAULT_ONBOARDING_EXAMPLES = [
+  '你能帮我做些什么？',
+  '帮我把这段会议纪要整理成待办清单',
+  '团队最近在做哪些事？',
+]
+/** PUT /api/teams/:id/onboarding (admins): 新手群, its 默认助手 Bot and three example questions. */
+export const TeamOnboardingReq = z.object({
+  groupId: z.string().nullable(),
+  botId: z.string().nullable(),
+  examples: z.array(z.string().trim().min(1).max(100)).length(3),
+})
+export type TeamOnboardingReq = z.infer<typeof TeamOnboardingReq>
+/** GET /api/teams/:id/onboarding (members): the team's 新手群 as newcomers use it; `options` only for admins. */
+export const TeamOnboardingDto = z.object({
+  groupId: z.string().nullable(),
+  groupName: z.string().nullable(),
+  botId: z.string().nullable(),
+  botName: z.string().nullable(),
+  examples: z.array(z.string()),
+  /** Opens the Feishu chat bound to the group; null when unbound. */
+  feishuUrl: z.string().nullable(),
+  /** Groups of the team and their bots, to pick from. */
+  options: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        bots: z.array(z.object({ id: z.string(), name: z.string() })),
+      }),
+    )
+    .optional(),
+})
+export type TeamOnboardingDto = z.infer<typeof TeamOnboardingDto>
+/** GET/PATCH /api/me/onboarding: how the user left the first-login guide; no `guide` = not seen yet. */
+export const UserOnboarding = z.object({
+  guide: z.enum(['done', 'skipped']).optional(),
+  at: z.string().optional(),
+})
+export type UserOnboarding = z.infer<typeof UserOnboarding>
+export const UpdateOnboardingReq = z.object({ guide: z.enum(['done', 'skipped']) })
 /** Display order, labels and units of 系统参数 (also used by audit summaries). */
 export const SYSTEM_PARAM_VIEW: {
   key: Exclude<

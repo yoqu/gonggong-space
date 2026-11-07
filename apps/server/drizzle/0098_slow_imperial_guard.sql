@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "onboarding" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -19,6 +19,7 @@ import knowledge from '../features/knowledge/en'
 import machines from '../features/machines/en'
 import market from '../features/market/en'
 import notifications from '../features/notifications/en'
+import onboarding from '../features/onboarding/en'
 import plugins from '../features/plugins/en'
 import previews from '../features/previews/en'
 import reactions from '../features/reactions/en'
@@ -63,6 +64,7 @@ export const en = {
   ...machines,
   ...market,
   ...notifications,
+  ...onboarding,
   ...plugins,
   ...previews,
   ...reactions,

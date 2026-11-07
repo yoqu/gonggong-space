@@ -141,14 +141,14 @@ export interface FeishuApi {
   /** Fetches a tenant token: proves the App ID / Secret pair. */
   verify(app: FeishuCreds): Promise<void>
   /**
-   * Sends to a chat (or, with `receiveIdType: 'open_id'`, to a user's DM with the app) as the app, or as the user
+   * Sends to a chat (or, with an open_id / union_id `receiveIdType`, to a user's DM with the app) as the app, or as the user
    * when `userToken` is given; `replyTo` replies to that message.
    */
   send(
     app: FeishuCreds,
     receiveId: string,
     body: FeishuBody,
-    opts?: { replyTo?: string; userToken?: string; receiveIdType?: 'chat_id' | 'open_id' },
+    opts?: { replyTo?: string; userToken?: string; receiveIdType?: 'chat_id' | 'open_id' | 'union_id' },
   ): Promise<{ messageId: string }>
   /** Replaces the content of a card message the app sent. */
   updateCard(app: FeishuCreds, messageId: string, card: string): Promise<void>

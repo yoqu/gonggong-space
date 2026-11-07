@@ -8,6 +8,8 @@ import {
   TEAM_PARAM_KEYS,
   type TeamGroupDto,
   type TeamMemberDto,
+  type TeamOnboardingDto,
+  TeamOnboardingReq,
   type TeamParamsDto,
   TransferTeamReq,
   UpdateTeamMemberReq,
@@ -31,6 +33,7 @@ import { groupDto, publishGroup } from '../groups/service.js'
 import { forgetMembers, postEvent } from '../messages/service.js'
 import { inviteDto, memberDtos, myTeam, myTeams, publishMember, publishTeam } from './dto.js'
 import { acceptInvite, archiveTeam, findInvite, removeFromTeam } from './members.js'
+import { onboardingDto, saveOnboarding, welcomeToTeam } from './onboarding.js'
 import { createTeam, requireTeam } from './service.js'
 
 type P = { Params: { id: string } }
@@ -72,9 +75,14 @@ export function teamRoutes(ctx: Ctx) {
       const { team } = await requireTeam(ctx, me.id, req.params.id, 'admin')
       const patch = UpdateTeamReq.parse(req.body)
       if (!Object.keys(patch).length) return myTeam(ctx, me.id, team.id)
+      const { onboarding } = team.params as { onboarding?: unknown }
       await ctx.db
         .update(teams)
-        .set({ ...patch, avatar: patch.avatar === undefined ? undefined : patch.avatar || null })
+        .set({
+          ...patch,
+          avatar: patch.avatar === undefined ? undefined : patch.avatar || null,
+          params: patch.params && { ...patch.params, ...(onboarding !== undefined && { onboarding }) },
+        })
         .where(eq(teams.id, team.id))
       if (patch.avatar !== undefined) await dropAvatar(team.avatar)
       forgetTeamParams(ctx.db, team.id)
@@ -93,6 +101,22 @@ export function teamRoutes(ctx: Ctx) {
           TEAM_PARAM_KEYS.map((k) => [k, platform[k]]),
         ) as TeamParamsDto['platform'],
       }
+    })
+
+    app.get<P>('/api/teams/:id/onboarding', async (req): Promise<TeamOnboardingDto> => {
+      const me = await requireUser(ctx, req)
+      const { team, role } = await requireTeam(ctx, me.id, req.params.id)
+      return onboardingDto(ctx, team, role !== 'member')
+    })
+
+    app.put<P>('/api/teams/:id/onboarding', async (req): Promise<TeamOnboardingDto> => {
+      const me = await requireUser(ctx, req)
+      const { team } = await requireTeam(ctx, me.id, req.params.id, 'admin')
+      const body = TeamOnboardingReq.parse(req.body)
+      await saveOnboarding(ctx, team, body)
+      await auditTeam(me.id, team.id, 'team.onboarding', body)
+      const [fresh] = await ctx.db.select().from(teams).where(eq(teams.id, team.id))
+      return onboardingDto(ctx, fresh ?? team, true)
     })
 
     app.get<P>('/api/teams/:id/groups', async (req): Promise<TeamGroupDto[]> => {
@@ -204,6 +228,7 @@ export function teamRoutes(ctx: Ctx) {
         role: body.role,
       })
       await publishMember(ctx, team.id, user.id)
+      await welcomeToTeam(ctx, team.id, user)
       return reply.status(201).send(await memberOf(team.id, user.id))
     })
 

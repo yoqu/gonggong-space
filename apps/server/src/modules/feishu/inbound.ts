@@ -44,6 +44,7 @@ import { decidedShareCard } from '../notifications/feishu.js'
 import { answerQuestions } from '../questions/service.js'
 import { rerunFor, triggerRuns } from '../runs/trigger.js'
 import { groupRedactor } from '../secrets/resolve.js'
+import { askInGroup } from '../teams/onboarding.js'
 import { ACT_FIELD, approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
 import { credsOf, type FeishuAppRow, type FeishuInbound, onFeishu } from './gateway.js'
 import { publicUrl } from './identity.js'
@@ -527,6 +528,10 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
       await (value.ok ? approveShareRequest : rejectShareRequest)(ctx, me, value.r)
       const card = await decidedShareCard(ctx, value.r, { approved: value.ok, by: user.name })
       return { ...toast('success', zt('已处理')), ...(card && { card: { type: 'raw', data: card } }) }
+    }
+    if (value.k === 'ask') {
+      await askInGroup(ctx, user, value.g, value.b, value.q)
+      return toast('success', zt('已在群里发出'))
     }
     if (value.k === 'answer') {
       const [row] = await ctx.db

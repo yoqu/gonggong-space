@@ -4,6 +4,8 @@ import {
   LoginReq,
   RegisterReq,
   UpdateMeReq,
+  UpdateOnboardingReq,
+  type UserOnboarding,
 } from '@gonggong/protocol'
 import { hash, verify } from '@node-rs/argon2'
 import { and, eq, isNull, ne } from 'drizzle-orm'
@@ -112,6 +114,23 @@ export function authRoutes(ctx: Ctx) {
       const [row] = await ctx.db.update(users).set(set).where(eq(users.id, user.id)).returning()
       if (renamed) await publishProfile(ctx, user.id)
       return meDto(ctx, row ?? user)
+    })
+
+    app.get(
+      '/api/me/onboarding',
+      async (req): Promise<UserOnboarding> => (await requireUser(ctx, req)).onboarding as UserOnboarding,
+    )
+
+    app.patch('/api/me/onboarding', async (req): Promise<UserOnboarding> => {
+      const user = await requireUser(ctx, req)
+      const { guide } = UpdateOnboardingReq.parse(req.body)
+      const onboarding: UserOnboarding = {
+        ...(user.onboarding as UserOnboarding),
+        guide,
+        at: ctx.now().toISOString(),
+      }
+      await ctx.db.update(users).set({ onboarding }).where(eq(users.id, user.id))
+      return onboarding
     })
 
     app.post('/api/auth/password', async (req) => {

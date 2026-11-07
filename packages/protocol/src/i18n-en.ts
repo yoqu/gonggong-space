@@ -66,6 +66,8 @@ export const protocolEn = {
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',
   '{user} 将 {member} 移出群': '{user} removed {member} from the group',
   '{member} 随飞书群加入群': '{member} joined along with the Feishu chat',
+  '欢迎 {member} 加入团队': 'Welcome {member} to the team',
+  '欢迎 {member} 加入团队，有问题直接 @{bot}': 'Welcome {member} to the team. Got a question? Just @{bot}',
   '{member} 已退出飞书群，移出群': '{member} left the Feishu chat and was removed from the group',
   '飞书群里的消息现在会全部同步到本群（不触发 Bot），群管理员可在「群设置 · 飞书」关闭':
     'All messages of the Feishu chat now come into this group (without running bots); group admins can turn this off in Group settings · Feishu',

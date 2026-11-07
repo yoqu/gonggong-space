@@ -32,6 +32,7 @@ import {
   TeamGroupsTab,
   TeamInstallsView,
   TeamMcpTab,
+  TeamOnboardingTab,
   TeamParamsTab,
   TeamPluginsTab,
   TeamReposTab,
@@ -56,6 +57,7 @@ type Tab =
   | 'secrets'
   | 'params'
   | 'groups'
+  | 'onboarding'
   | 'conversations'
   | 'usage'
   | 'audit'
@@ -90,6 +92,12 @@ export function TeamSettingsDialog({
             label: t('群'),
             icon: 'hashtag',
             body: <TeamGroupsTab team={team} onClose={onClose} />,
+          },
+          {
+            value: 'onboarding',
+            label: t('新手群'),
+            icon: 'person-add',
+            body: <TeamOnboardingTab team={team} />,
           },
           { value: 'mcp', label: 'MCP', icon: 'plug', body: <TeamMcpTab team={team} /> },
           {
