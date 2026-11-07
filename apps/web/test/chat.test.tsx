@@ -292,7 +292,10 @@ beforeEach(() => {
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   useTerminalSpaces.setState({ spaces: [] })
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  localStorage.removeItem('gg.builder')
+})
 
 describe('sidebar', () => {
   it('lists groups and DMs with last line and unread badge', async () => {
@@ -371,6 +374,8 @@ describe('sidebar', () => {
   })
 
   it('welcomes a new user in the main area with the three first-run steps', async () => {
+    // Opted in as a builder: without that, a member owning nothing gets the 使用者 welcome (builder.test.tsx).
+    localStorage.setItem('gg.builder', '1')
     mockApi({ ...baseRoutes([]), 'GET /bots': () => [] })
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
@@ -390,6 +395,7 @@ describe('sidebar', () => {
   })
 
   it('guides a new user to bind a machine and create a bot, then hides once both exist', async () => {
+    localStorage.setItem('gg.builder', '1')
     mockApi({
       ...baseRoutes([]),
       'GET /bots': () => [],
@@ -439,7 +445,7 @@ describe('my machines and bots', () => {
     mockApi({ ...baseRoutes([group()]), 'GET /machines': () => [machine, oldBox] })
     renderAt('/g/g1')
     const rail = screen.getByRole('navigation', { name: '应用导航' })
-    fireEvent.click(within(rail).getByRole('button', { name: '机器与 Bot' }))
+    fireEvent.click(await within(rail).findByRole('button', { name: '机器与 Bot' }))
     const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
     expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
     expect(within(rail).getByRole('button', { name: '机器与 Bot' }).getAttribute('aria-current')).toBe('page')

@@ -1,5 +1,7 @@
 import type { UserDto } from '@gonggong/protocol'
 import { Suspense, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { becomeBuilder, useIsBuilder } from '../../app/builder'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { named } from '../../lib/lazy'
@@ -35,6 +37,8 @@ export function AccountMenu({
   /** 新建 Bot on the machine just bound from 绑定新机器. */
   const [newBotOn, setNewBotOn] = useState<string | null>(null)
   const openSettings = useSettings((s) => s.open)
+  const builder = useIsBuilder()
+  const navigate = useNavigate()
 
   if (!user) return null
   const items: MenuItem[] = [
@@ -47,6 +51,7 @@ export function AccountMenu({
       ),
     },
     { separator: true },
+    ...(builder ? [] : [{ label: t('搭建自己的 Bot'), value: 'build' }]),
     { label: t('绑定新机器'), value: 'bind' },
     { label: t('我的用量'), value: 'usage' },
     ...(soleTeam ? [{ label: t('团队设置'), value: 'team' }] : []),
@@ -60,7 +65,10 @@ export function AccountMenu({
   const select = (value: string) => {
     if (value === 'logout') void logout()
     else if (value === 'settings') openSettings()
-    else setDialog(value as 'bind' | 'usage' | 'team' | 'invite')
+    else if (value === 'build') {
+      becomeBuilder()
+      navigate('/machines')
+    } else setDialog(value as 'bind' | 'usage' | 'team' | 'invite')
   }
 
   return (

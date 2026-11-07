@@ -136,7 +136,7 @@ describe('notification center', () => {
       { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
     ]
     const payload = { ...note({}).payload, approvalId: 'a1', options }
-    useWorkspace.setState({ groups: [{ id: 'g2' } as never] })
+    useWorkspace.setState({ groups: [{ id: 'g2', members: [] } as never] })
     const calls = mockApi({
       'GET /notifications': [
         note({ payload }),

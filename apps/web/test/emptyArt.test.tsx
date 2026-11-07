@@ -82,7 +82,11 @@ describe('empty state illustrations', () => {
   })
 
   it('mark pages that are not delivered yet', () => {
-    render(<AdminPlaceholder item={{ path: 'x', label: '占位', icon: 'gear', color: 'red', desc: '说明' }} />)
+    render(
+      <MemoryRouter>
+        <AdminPlaceholder item={{ path: 'x', label: '占位', icon: 'gear', color: 'red', desc: '说明' }} />
+      </MemoryRouter>,
+    )
     expect(emptyArt('即将上线')).toBeTruthy()
   })
 

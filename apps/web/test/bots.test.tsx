@@ -150,7 +150,7 @@ function renderAt(path: string, user: UserDto) {
 /** Members open their bots from 机器与 Bot: an overview in the main area, settings in a dialog. */
 async function openMyBot(name = '小王的 Claude') {
   const rail = screen.getByRole('navigation', { name: '应用导航' })
-  fireEvent.click(within(rail).getByRole('button', { name: '机器与 Bot' }))
+  fireEvent.click(await within(rail).findByRole('button', { name: '机器与 Bot' }))
   const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
   fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
   const page = await screen.findByRole('region', { name: 'Bot 概况' })

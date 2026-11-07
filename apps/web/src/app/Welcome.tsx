@@ -2,8 +2,14 @@ import { m } from 'motion/react'
 import { t } from '../i18n'
 import { SPRING } from '../lib/motion'
 import { Button, Icon, type IconName, Mascot } from '../ui'
+import { becomeBuilder, useIsBuilder } from './builder'
 
-/** Main-area first run for someone in no group yet: the three steps from nothing to a working bot, tied to real state. */
+const EXAMPLES = [t('@Bot 帮我查一下上个月的销售额'), t('@Bot 把这份会议纪要整理成待办清单')]
+
+/**
+ * Main-area first run for someone in no group yet. Builders get the three steps from nothing to a working bot, tied
+ * to real state; everyone else only needs to know they @ a bot once a teammate adds them to a group.
+ */
 export function Welcome({
   name,
   bound,
@@ -19,6 +25,7 @@ export function Welcome({
   onNewBot: () => void
   onNewGroup: () => void
 }) {
+  const builder = useIsBuilder()
   const steps: {
     icon: IconName
     color: string
@@ -57,6 +64,22 @@ export function Welcome({
     },
   ]
   const current = steps.findIndex((s) => !s.done)
+  if (!builder)
+    return (
+      <section className="welcome" aria-label={t('开始使用')}>
+        <Mascot action="wave" size={112} />
+        <h1 className="welcome__title">{t('欢迎来到共工空间，{name}', { name })}</h1>
+        <p className="welcome__lead">{t('等同事把你拉进群，在群里 @ Bot 直接提问就行。')}</p>
+        <ul className="welcome__examples" aria-label={t('提问示例')}>
+          {EXAMPLES.map((x) => (
+            <li key={x} className="welcome__example">
+              {x}
+            </li>
+          ))}
+        </ul>
+        <Button onClick={becomeBuilder}>{t('我想搭自己的 Bot')}</Button>
+      </section>
+    )
   return (
     <section className="welcome" aria-label={t('开始使用')}>
       <Mascot action="wave" size={112} />

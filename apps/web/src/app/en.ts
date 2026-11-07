@@ -76,6 +76,12 @@ export default {
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',
   '三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。':
     'Three steps to get your first Bot working. Or wait for a teammate to add you to a group and jump right in.',
+  '等同事把你拉进群，在群里 @ Bot 直接提问就行。':
+    'Once a teammate adds you to a group, just @ a Bot there and ask.',
+  提问示例: 'Example questions',
+  '@Bot 帮我查一下上个月的销售额': "@Bot what were last month's sales?",
+  '@Bot 把这份会议纪要整理成待办清单': '@Bot turn these meeting notes into a to-do list',
+  '我想搭自己的 Bot': 'I want to build my own Bot',
   共享给我: 'Shared with me',
   '{owner} 共享': 'Shared by {owner}',
   取消置顶: 'Unpin',
