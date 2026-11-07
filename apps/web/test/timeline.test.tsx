@@ -301,6 +301,21 @@ describe('timeline bubbles', () => {
     expect(stamp.getAttribute('title')).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d$/)
   })
 
+  it('keeps 已编辑 and 来自飞书 on a merged row, right after its text', async () => {
+    renderChat({
+      messages: [msg({ seq: 1 }), msg({ seq: 2, editedAt: min(3), fromFeishu: true })],
+      runs: [],
+    })
+    const row = (await screen.findByText('第 2 条')).closest('.pn-msg') as HTMLElement
+    expect(row.classList.contains('pn-msg--cont')).toBe(true)
+    const marks = row.querySelector('.pn-msg__marks') as HTMLElement
+    expect(within(marks).getByText('已编辑')).toBeTruthy()
+    expect(within(marks).getByText('来自飞书')).toBeTruthy()
+    // The head row has none, so no empty slot either.
+    const head = screen.getByText('第 1 条').closest('.pn-msg') as HTMLElement
+    expect(head.querySelector('.pn-msg__marks')).toBeNull()
+  })
+
   it('shows the day as a pill and marks where unread messages start', async () => {
     renderChat(
       {

@@ -225,6 +225,8 @@ export interface MessageProps {
   time?: ReactNode
   /** A continued row's short time, shown in its avatar gutter on hover. */
   stamp?: ReactNode
+  /** A continued row's own marks (edited, pinned…), shown after its content since it has no meta line. */
+  marks?: ReactNode
   /** Own message: marks the row as mine. */
   self?: boolean
   /** Same author as the previous row: no avatar or meta line. */
@@ -281,6 +283,7 @@ export function Message({
   author,
   time,
   stamp,
+  marks,
   self,
   continued,
   bare,
@@ -394,6 +397,7 @@ export function Message({
               {reacts}
             </div>
           )}
+          {continued && marks ? <span className="pn-msg__marks">{marks}</span> : null}
           {side && <span className="pn-msg__side">{side}</span>}
           {actionBar ? (
             <div ref={bar} className="pn-msg__actions">

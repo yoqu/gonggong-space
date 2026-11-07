@@ -131,6 +131,23 @@ function Time({
       <time className="tl-time" dateTime={iso} title={fullTime(new Date(iso))}>
         {fmtTime(iso)}
       </time>
+      <Marks edited={edited} pin={pin} feishu={feishu} />
+    </>
+  )
+}
+
+/** 已编辑, 来自飞书 and the pin: on the meta line, or after the text of a merged row that has none. */
+function Marks({
+  edited,
+  pin,
+  feishu,
+}: {
+  edited?: string | null
+  pin?: Pick<MessageDto, 'id' | 'groupId'>
+  feishu?: boolean
+}) {
+  return (
+    <>
       {edited ? (
         <span className="tl-edited" title={fullTime(new Date(edited))}>
           {t('已编辑')}
@@ -434,6 +451,7 @@ export const UserMessage = memo(function UserMessage({
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           stamp={<Stamp iso={m.createdAt} />}
+          marks={<Marks edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           meta={
             m.scheduledBy || unnamed.length ? (
               <>
@@ -570,6 +588,7 @@ function ReplyMessage({
         continued={continued}
         time={<Time iso={m.createdAt} pin={m} />}
         stamp={<Stamp iso={m.createdAt} />}
+        marks={<Marks pin={m} />}
         meta={meta}
         actionBar={bar}
         footer={

@@ -111,6 +111,18 @@
   gap: var(--space-6);
   min-width: 0;
 }
+.pn-msg__marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex: none;
+  font-size: var(--text-subheadline-size);
+  line-height: 22px;
+  color: var(--label-secondary);
+}
+.pn-msg__marks:empty {
+  display: none;
+}
 .pn-msg__edited {
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
