@@ -64,6 +64,7 @@ import {
   ToolStatus,
   ToolsSettings,
 } from './daemon.js'
+import { FeishuIssueEvent } from './feishu-errors.js'
 import { HtmlRenderRef } from './html-render.js'
 import { I18nText } from './i18n.js'
 import { LiveRun } from './live-run.js'
@@ -1384,6 +1385,8 @@ export const MessageDto = z.object({
   htmlRenders: z.array(HtmlRenderRef).optional(),
   /** The canvas selection it was sent with (a member's message about an artifact). */
   canvas: MessageCanvas.optional(),
+  /** An event about a failed Feishu call (plain words in `i18n`, Feishu's code shown second). */
+  feishuIssue: FeishuIssueEvent.optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 

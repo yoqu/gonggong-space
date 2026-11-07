@@ -60,6 +60,11 @@ export class FakeFeishu {
   addUsersError: string | null = null
   /** `addBot` fails with this message when set (e.g. the chat does not allow adding bots). */
   addBotError: string | null = null
+  addBotErrorCode = 232024
+  /** Sends by these apps fail with the Feishu error (e.g. 230035: the chat is muted). */
+  readonly sendErrors = new Map<string, { code: number; message: string }>()
+  /** Bot names of the apps (bot/v3/info); an app missing here has no name. */
+  readonly appNames = new Map<string, string>()
   /** Sends to a chat the app is not in (per `chats`) fail as Feishu does (230002); off by default. */
   strictChats = false
   /** Images uploaded per app; the key is `img_<n>`. */
@@ -363,6 +368,8 @@ export class FakeFeishu {
       this.check(app.appId)
       if (this.strictChats && !(this.chats.get(app.appId) ?? []).some((c) => c.chatId === chatId))
         throw new FeishuError(230002, 'Bot/User can NOT be out of the chat.')
+      const refused = this.sendErrors.get(app.appId)
+      if (refused) throw new FeishuError(refused.code, refused.message)
       if (opts.userToken) this.userOf(opts.userToken)
       const messageId = this.next('om')
       this.sent.push({
@@ -457,6 +464,12 @@ export class FakeFeishu {
       this.check(app.appId)
       return this.userOf(userToken)
     },
+    appName: async (app) => {
+      this.check(app.appId)
+      const name = this.appNames.get(app.appId)
+      if (!name) throw new FeishuError(99991672, 'Access denied')
+      return name
+    },
     listChats: async (app) => {
       this.check(app.appId)
       return this.chats.get(app.appId) ?? []
@@ -477,7 +490,7 @@ export class FakeFeishu {
     },
     addBot: async (app, chatId, botAppId) => {
       this.check(app.appId)
-      if (this.addBotError) throw new FeishuError(232024, this.addBotError)
+      if (this.addBotError) throw new FeishuError(this.addBotErrorCode, this.addBotError)
       this.botsAdded.push({ appId: app.appId, chatId, botAppId })
     },
     createChat: async (app, o) => {

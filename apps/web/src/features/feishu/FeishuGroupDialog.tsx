@@ -8,13 +8,14 @@ import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import { Button, Dialog, GroupBox, GroupRow, Input, PopUpButton, Spinner, toast } from '../../ui'
 import '../groups/groups.css'
+import { chatListNote } from './GroupFeishuTab'
 
 /**
  * 从飞书群创建: a group of the current team bound to a Feishu chat the main app and I are in, with its users who
  * linked Feishu and the bots whose app is in it. `chatId` preselects the chat (the link on the main app's card).
  */
 export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: string; onClose: () => void }) {
-  const { data } = useGet<FeishuChatChoicesDto>('/feishu/chats')
+  const { data, reload } = useGet<FeishuChatChoicesDto>('/feishu/chats')
   const navigate = useNavigate()
   const [chatId, setChatId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -84,6 +85,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
         <>
           <GroupBox>
             <GroupRow label={t('飞书群')} description={t('列出主应用和你都在、尚未绑定的飞书群')}>
+              <Button onClick={reload}>{t('刷新')}</Button>
               <PopUpButton
                 aria-label={t('飞书群')}
                 placeholder={chats.length ? t('选择飞书群') : t('没有可绑定的飞书群')}
@@ -106,10 +108,9 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
             <div className="gs-note">{t('卡片里的飞书群你不在其中或已绑定其他群')}</div>
           ) : null}
           <div className="gs-note">
-            {t(
-              '你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。找不到群？请先把主应用拉进飞书群；已被其他群绑定的不显示',
-            )}
+            {t('你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。')}
           </div>
+          <div className="gs-note">{chatListNote(data.mainAppName)}</div>
         </>
       )}
     </Dialog>

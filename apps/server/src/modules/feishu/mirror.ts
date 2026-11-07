@@ -40,6 +40,7 @@ import {
 import { type FeishuBody, FeishuError } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
 import { publicUrl, userToken } from './identity.js'
+import { hintParams, issueOf } from './issues.js'
 
 /** Patched (non-streaming) run cards change at most this often; the final state is never held back. */
 export const CARD_THROTTLE_MS = 2000
@@ -58,8 +59,6 @@ const SEQUENCE_EPOCH = Date.UTC(2026, 0, 1)
 /** Cards and snapshots remembered; a forgotten one is only sent or uploaded once more. */
 const RENDERED_MAX = 2000
 const IMAGES_MAX = 500
-/** Feishu: the app (bot) is not in the chat it sends to. */
-const OUT_OF_CHAT = 230002
 
 type Row = typeof runs.$inferSelect
 type Link = typeof feishuMessageLinks.$inferSelect
@@ -81,8 +80,8 @@ interface Mirror {
   everBound: Map<string, Promise<boolean>>
   /** Per run: a sync deferred because its card was busy with a click. */
   retries: Map<string, { groupId: string; timer: NodeJS.Timeout }>
-  /** `group:bot` pairs already told their bot's app is not in the chat; cleared once a card gets through again. */
-  outOfChat: Set<string>
+  /** `group:bot:code` already told to the group; cleared once a card of the bot gets through again. */
+  told: Set<string>
 }
 
 interface Stream {
@@ -117,7 +116,7 @@ function state(ctx: Ctx) {
       noReaction: new Set(),
       everBound: new Map(),
       retries: new Map(),
-      outOfChat: new Set(),
+      told: new Set(),
     }
     mirrors.set(ctx, m)
   }
@@ -475,22 +474,25 @@ async function syncRun(ctx: Ctx, runId: string) {
   })
   const { items, legacy } = await interactionsOf(ctx, run.id)
   const key = `${run.groupId}:${run.botId}`
-  const { outOfChat } = state(ctx)
+  const { told } = state(ctx)
   try {
     await syncRunCard(ctx, app, trigger, row.bot, run, items)
     await syncLegacyCards(ctx, app, trigger, row.bot, legacy)
-    outOfChat.delete(key)
+    for (const k of told) if (k.startsWith(`${key}:`)) told.delete(k)
   } catch (err) {
-    // The bot's own app was never added to the chat: say so in the group once rather than only in the server log.
-    if (!(err instanceof FeishuError) || err.code !== OUT_OF_CHAT || app.botId !== run.botId) throw err
+    // Say why in the group once per cause rather than only in the server log; a busy card is retried instead.
+    if (!(err instanceof FeishuError) || err.code === CARD_INTERACTING) throw err
     state(ctx).streams.delete(run.id)
-    if (outOfChat.has(key)) return
-    outOfChat.add(key)
+    if (told.has(`${key}:${err.code}`)) return
+    told.add(`${key}:${err.code}`)
+    console.error('feishu run card:', `${err.code} ${err.message}`)
+    const issue = issueOf(err)
     await postEvent(
       ctx,
       run.groupId,
-      '{bot} 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」',
-      { bot: row.bot },
+      '{bot} 的回复没有同步到飞书群：{what}{todo}',
+      { bot: row.bot, ...hintParams(issue) },
+      { feishuIssue: { botId: app.botId === run.botId ? run.botId : null, ...issue } },
     )
   }
 }

@@ -97,3 +97,11 @@
   outline: 3px solid var(--focus-ring);
   outline-offset: 0;
 }
+
+.feishu-issue__code {
+  flex: none;
+  color: var(--label-tertiary);
+}
+.ui-group__desc .feishu-issue__code {
+  margin-left: 6px;
+}

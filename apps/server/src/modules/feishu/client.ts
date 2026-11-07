@@ -181,6 +181,8 @@ export interface FeishuApi {
   exchangeCode(app: FeishuCreds, code: string, redirectUri: string): Promise<FeishuTokens>
   refresh(app: FeishuCreds, refreshToken: string): Promise<FeishuTokens>
   userInfo(app: FeishuCreds, userToken: string): Promise<FeishuUser>
+  /** The app's bot name as Feishu users see it (bot/v3/info). */
+  appName(app: FeishuCreds): Promise<string>
   /** Chats the app's bot is in. */
   listChats(app: FeishuCreds): Promise<FeishuChat[]>
   /** Union ids of the chat's users (Feishu leaves bots out); the calling app must be in it. */
@@ -420,6 +422,23 @@ export function larkApi(): FeishuApi {
         email: u.enterprise_email || u.email || null,
         avatar: u.avatar_url ?? null,
       }
+    },
+
+    async appName(app) {
+      // bot/v3/info answers with `bot` beside `code`, not under `data`.
+      let name = ''
+      await call(
+        client(app)
+          .request<Res<unknown> & { bot?: { app_name?: string } }>({
+            url: '/open-apis/bot/v3/info',
+            method: 'GET',
+          })
+          .then((r) => {
+            name = r.bot?.app_name ?? ''
+            return r
+          }),
+      )
+      return name
     },
 
     async listChats(app) {

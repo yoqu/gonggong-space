@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { FeishuIssue } from './feishu-errors.js'
 import { GroupDto } from './web.js'
 
 // ── 飞书联动 (plan 飞书联动-开发计划) ──
@@ -81,12 +82,16 @@ export const GroupFeishuBotDto = z.object({
   /** null: the bot has no Feishu app. */
   appId: z.string().nullable(),
   inChat: z.boolean(),
+  /** Why adding its app to the chat last failed; cleared once it is in. */
+  issue: FeishuIssue.nullable(),
 })
 export type GroupFeishuBotDto = z.infer<typeof GroupFeishuBotDto>
 
 /** GET /api/groups/:id/feishu (group admins). `available` is false until the main app is configured. */
 export const GroupFeishuView = z.object({
   available: z.boolean(),
+  /** The main app's bot name in Feishu: chats are listed only where it is a member. */
+  mainAppName: z.string().nullable(),
   chat: FeishuChatDto.nullable(),
   /** The main app's chats not bound to another group, to pick from. */
   chats: z.array(z.object({ chatId: z.string(), name: z.string() })),
@@ -110,6 +115,7 @@ export type FeishuMemberSyncDto = z.infer<typeof FeishuMemberSyncDto>
 export const FeishuChatChoicesDto = z.object({
   /** false until the main app is configured. */
   available: z.boolean(),
+  mainAppName: z.string().nullable(),
   chats: z.array(z.object({ chatId: z.string(), name: z.string() })),
 })
 export type FeishuChatChoicesDto = z.infer<typeof FeishuChatChoicesDto>

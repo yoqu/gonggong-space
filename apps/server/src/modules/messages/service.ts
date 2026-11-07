@@ -1,6 +1,7 @@
 import type {
   ActionAnswer,
   Attachment,
+  FeishuIssueEvent,
   HtmlRenderRef,
   I18nParams,
   I18nText,
@@ -73,6 +74,8 @@ export type MessageMeta = {
   htmlRender?: HtmlRenderRef
   /** A final reply's pages its run published with html_render. */
   htmlRenders?: HtmlRenderRef[]
+  /** An event about a failed Feishu call. */
+  feishuIssue?: FeishuIssueEvent
 }
 
 /** A user message's author name, a Feishu sender's when they have no 共工 account; needs `users` left-joined. */
@@ -112,6 +115,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).htmlRender && { htmlRender: (m.meta as MessageMeta).htmlRender }),
     ...((m.meta as MessageMeta).htmlRenders && { htmlRenders: (m.meta as MessageMeta).htmlRenders }),
     ...((m.meta as MessageMeta).canvas && !recalled && { canvas: (m.meta as MessageMeta).canvas }),
+    ...((m.meta as MessageMeta).feishuIssue && { feishuIssue: (m.meta as MessageMeta).feishuIssue }),
   }
 }
 

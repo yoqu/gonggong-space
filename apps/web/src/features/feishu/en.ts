@@ -71,8 +71,6 @@ export default {
   一个共工群只能绑定一个飞书群: 'A Gonggong group can be bound to one Feishu chat',
   '解绑#feishu': 'Unbind',
   '列出主应用和你都在、尚未绑定的飞书群': 'Chats both the main app and you are in that are not bound yet',
-  '找不到群？请先把主应用拉进飞书群；已被其他群绑定的不显示':
-    "Can't find a chat? Add the main app to it first; chats bound to another group are not listed",
   选择飞书群: 'Choose a Feishu chat',
   没有可绑定的飞书群: 'No Feishu chat to bind',
   已绑定飞书群: 'Feishu chat bound',
@@ -80,8 +78,6 @@ export default {
   已在群中: 'In the chat',
   拉入飞书群: 'Add to chat',
   已拉入飞书群: 'Added to the Feishu chat',
-  '已绑定飞书群 · {n} 个 Bot 未入群，请在下方点「拉入飞书群」':
-    'Feishu chat bound · {n} {n:Bot is|Bots are} not in it; click "Add to chat" below',
   '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。':
     'Replies of Bots not in the chat do not reach Feishu; click "Add to chat". If that fails, check that the main app has chat member permissions, the chat allows adding bots, and the Bot\'s Feishu app is published.',
   '未在飞书群 · 回复不会同步到飞书': 'Not in the chat · replies do not reach Feishu',
@@ -150,6 +146,16 @@ export default {
   '已创建并绑定飞书群，拉入 {n} 人': 'Group created and bound; {n} joined',
   卡片里的飞书群你不在其中或已绑定其他群:
     "You are not in the card's Feishu chat, or it is bound to another group",
-  '你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。找不到群？请先把主应用拉进飞书群；已被其他群绑定的不显示':
-    "You become the group admin; team members in the chat who linked Feishu and the Bots already in it join too. Can't find a chat? Add the main app to it first; chats bound to another group are not listed",
+  '你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。':
+    'You become the group admin; team members in the chat who linked Feishu and the Bots already in it join too.',
+  '只列出共工机器人「{name}」已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新':
+    'Only chats the Gonggong bot "{name}" is in are listed; for a missing chat, add that bot in its Feishu chat settings, then click Refresh',
+  '只列出共工主应用机器人已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新':
+    "Only chats Gonggong's main app bot is in are listed; for a missing chat, add that bot in its Feishu chat settings, then click Refresh",
+  已被其他群绑定的飞书群不显示: 'Feishu chats bound to another group are not listed',
+  '已绑定飞书群 · {n} 个 Bot 没能拉入，原因见下方':
+    'Bound to the Feishu chat · {n} {n:Bot|Bots} could not be added, see why below',
+  '没能拉入飞书群：{reason}': 'Could not add it to the Feishu chat: {reason}',
+  '飞书错误码 {code}': 'Feishu error {code}',
+  一键拉入: 'Add to chat',
 } satisfies Record<string, string>

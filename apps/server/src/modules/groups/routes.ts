@@ -16,6 +16,7 @@ import { fail } from '../../lib/errors.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { isSharedWith } from '../bots/shares.js'
+import { pullBotIntoChat } from '../feishu/chats.js'
 import { pullIntoChat } from '../feishu/members.js'
 import { forgetMembers, postEvent } from '../messages/service.js'
 import { readMentions } from '../notifications/notify.js'
@@ -178,6 +179,7 @@ export function groupRoutes(ctx: Ctx) {
       await joinWorkspace(ctx, group.id, bot, { joined: true })
       await auditAdmin(me.id, group.id, 'group.bot.add', { botId: bot.id, name: bot.name })
       await publishGroup(ctx, group.id)
+      if (!dm) await pullBotIntoChat(ctx, group.id, bot.id)
       return groupDto(ctx, me.id, group.id)
     })
 

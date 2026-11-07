@@ -21,6 +21,46 @@ export const protocolEn = {
   '{user} 移除了附加仓库 {url}': '{user} removed the extra repo {url}',
   '{bot} 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」':
     '{bot}\'s replies did not reach Feishu: its Feishu app is not in the chat. A group admin can click "Add to chat" in group settings · Feishu',
+  '{bot} 的回复没有同步到飞书群：{what}{todo}': "{bot}'s reply did not reach the Feishu chat: {what} {todo}",
+  '{bot} 没能自动拉入飞书群：{what}{todo}': '{bot} could not be added to the Feishu chat: {what} {todo}',
+  // Feishu errors in plain words (feishu-errors.ts)
+  '机器人不在飞书群里。': 'The bot is not in the Feishu chat.',
+  '请群管理员把它拉入飞书群，或在飞书群设置里添加该机器人。':
+    'A group admin can add it to the chat, or add the bot in the Feishu chat settings.',
+  '共工主应用不在飞书群里，无法替你拉入成员或机器人。':
+    "Gonggong's main app is not in the Feishu chat, so it cannot add members or bots.",
+  '请在飞书群设置 › 群机器人里添加共工主应用后重试。':
+    "Add Gonggong's main app under the Feishu chat's settings › Bots, then try again.",
+  '飞书应用没有开启机器人能力。': 'The Feishu app has no bot capability.',
+  '请应用管理员在飞书开放平台的「应用能力」里添加机器人，并发布新版本。':
+    'Ask the app admin to add the Bot capability on the Feishu open platform and publish a new version.',
+  '飞书应用还没发布，或相关成员不在它的可用范围内。':
+    'The Feishu app is not published yet, or the people involved are outside its availability range.',
+  '请应用管理员在飞书开放平台发布应用版本，并在飞书管理后台把可用范围设为需要的成员。':
+    'Ask the app admin to publish a version on the Feishu open platform and set its availability to the people who need it in the Feishu admin console.',
+  '飞书群设置了仅群主和管理员可添加成员。': 'The Feishu chat only lets its owner and admins add members.',
+  '请飞书群主在群设置里改为所有人可添加，或把共工主应用设为群管理员。':
+    "Ask the chat owner to let everyone add members, or make Gonggong's main app a chat admin.",
+  '飞书群开启了禁言或仅部分成员可发言，机器人发不了消息。':
+    'The Feishu chat is muted or only some members may speak, so the bot cannot post.',
+  '请飞书群主在群设置里允许机器人发言。': 'Ask the chat owner to let the bot speak in the chat settings.',
+  '飞书群已解散。': 'The Feishu chat was disbanded.',
+  '请在群设置 · 飞书里解绑，再绑定或新建飞书群。':
+    'Unbind it in group settings · Feishu, then bind or create another Feishu chat.',
+  '飞书应用缺少所需权限，或新开通的权限还没生效。':
+    'The Feishu app lacks a required permission, or a newly granted one has not taken effect yet.',
+  '请应用管理员在飞书开放平台开通所需权限（或在共工里点「更新权限」扫码确认），并发布版本。':
+    'Ask the app admin to grant the permissions on the Feishu open platform (or click "Update permissions" in Gonggong and scan), then publish a version.',
+  '飞书应用的凭证已失效。': "The Feishu app's credentials are no longer valid.",
+  '请系统管理员检查 App Secret 是否被重置，并在共工里重新填写该飞书应用。':
+    'Ask the system admin to check whether the App Secret was reset and enter the app again in Gonggong.',
+  '你的飞书授权已过期。': 'Your Feishu authorization expired.',
+  '请在个人设置里重新绑定飞书账号。': 'Link your Feishu account again in personal settings.',
+  '调用飞书太频繁，被临时限流。': 'Feishu is rate limiting the calls for now.',
+  '稍等片刻再试。': 'Wait a moment and try again.',
+  '飞书返回了错误。': 'Feishu returned an error.',
+  '请稍后重试；仍然失败时，把错误码发给系统管理员。':
+    'Try again later; if it keeps failing, send the error code to the system admin.',
   '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式':
     "No repo bound · each Bot uses its owner's directory, partition mode only",
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',

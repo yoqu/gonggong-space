@@ -674,7 +674,10 @@ export const en = {
   '仅 Bot 主人 {name} 可以审批': 'Only the bot owner {name} can approve',
   '已处理 {n} 项审批与提问': '{n} approvals and questions handled',
   共工: 'Gonggong',
-  '飞书调用失败：{reason}': 'Feishu call failed: {reason}',
+  '飞书调用失败：{what}{todo}（飞书错误码 {code}：{reason}）':
+    'Feishu call failed: {what} {todo} (Feishu error {code}: {reason})',
+  '拉入飞书群失败：{what}{todo}（飞书错误码 {code}：{reason}）':
+    'Could not add it to the Feishu chat: {what} {todo} (Feishu error {code}: {reason})',
   私聊不能绑定飞书群: "A DM can't be bound to a Feishu chat",
   系统管理员尚未配置飞书主应用: "The system admin hasn't configured the Feishu main app yet",
   '该群已绑定飞书群，请先解绑': 'This group is already bound to a Feishu chat, unbind it first',
