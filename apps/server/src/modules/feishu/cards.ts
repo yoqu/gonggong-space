@@ -424,6 +424,25 @@ export function previewCard(o: {
   )
 }
 
+/**
+ * A bot asking for secrets (secret_request): values are only typed on 共工's page, never into the card. `url` is null
+ * without 对外地址.
+ */
+export function secretCard(o: { bot: string; text: string; filled: boolean; url: string | null }) {
+  if (o.filled) return card(zt('填写密钥'), 'green', [markdown(o.text)], `${o.bot} · ${zt('已填写')}`)
+  return card(
+    zt('填写密钥'),
+    'orange',
+    [
+      markdown(o.text),
+      o.url
+        ? linkButton(zt('去填写'), o.url, true)
+        : markdown(grey(zt('请到共工群里填写；如需在飞书直接打开，请系统管理员设置对外地址'))),
+    ],
+    `${o.bot} · ${zt('等待填写')}`,
+  )
+}
+
 const STAGE_MARK: Record<ProgressStageStatus, string> = {
   pending: '⚪',
   running: '🔵',

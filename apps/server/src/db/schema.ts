@@ -1619,12 +1619,12 @@ export const feishuMessageLinks = pgTable(
     /**
      * 'message' | 'run_card' | 'question' | 'approval' | 'preview' | 'reaction' (a bot's working reaction: its
      * reaction_id is `feishuMessageId`, the message it is on is `feishuRef`) | 'custom_card' (sent by a run's
-     * feishu_send_card).
+     * feishu_send_card) | 'secret' (a 填写密钥 card; `refId` is its secret_requests row).
      */
     kind: text('kind').notNull(),
     messageId: uuid('message_id').references(() => messages.id),
     runId: uuid('run_id').references(() => runs.id),
-    /** question_sets / approvals / previews row a card stands for. */
+    /** question_sets / approvals / previews / secret_requests row a card stands for. */
     refId: uuid('ref_id'),
     /** Feishu id paired with it: a streaming run card's CardKit card_id, a reaction's message. */
     feishuRef: text('feishu_ref'),

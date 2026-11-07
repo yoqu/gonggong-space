@@ -4,6 +4,7 @@ import type {
   MySecretDto,
   SecretDto,
   SecretMode,
+  SecretRequestDto,
   SecretScope,
   SecretSource,
   SecretValueState,
@@ -21,6 +22,7 @@ export const secretsApi = {
   mine: () => api.get<MySecretDto[]>('/me/secrets'),
   setMine: (id: string, body: Partial<SetMySecretReq>) => api.put(`/me/secrets/${id}`, body),
   clearMine: (id: string) => api.del(`/me/secrets/${id}`),
+  request: (requestId: string) => api.get<SecretRequestDto>(`/secret-requests/${requestId}`),
   fill: (requestId: string, body: FillSecretReq) => api.post(`/secret-requests/${requestId}`, body),
 }
 

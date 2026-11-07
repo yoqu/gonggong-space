@@ -16,7 +16,7 @@ import { requireSysadmin, requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import type { Layer } from '../mcp/service.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
-import { fillSecretRequest, pendingSecretCards } from './requests.js'
+import { fillSecretRequest, pendingSecretCards, secretRequestOf } from './requests.js'
 import { RANK, type SecretRow, visibleSecrets } from './resolve.js'
 import {
   clearPersonal,
@@ -145,6 +145,10 @@ export function secretRoutes(ctx: Ctx) {
     app.get<{ Params: { groupId: string } }>('/api/groups/:groupId/secret-requests', async (req) => {
       const me = await requireUser(ctx, req)
       return pendingSecretCards(ctx, me.id, idParam(req.params.groupId, '群不存在或你已不在群内'))
+    })
+    app.get<{ Params: { id: string } }>('/api/secret-requests/:id', async (req) => {
+      const me = await requireUser(ctx, req)
+      return secretRequestOf(ctx, me.id, idParam(req.params.id, '密钥请求不存在'))
     })
     app.post<{ Params: { id: string } }>('/api/secret-requests/:id', async (req) => {
       const me = await requireUser(ctx, req)

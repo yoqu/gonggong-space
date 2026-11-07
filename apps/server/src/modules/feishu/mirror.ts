@@ -16,6 +16,7 @@ import {
   previews,
   questionSets,
   runs,
+  secretRequests,
   users,
 } from '../../db/schema.js'
 import { remember } from '../../lib/lru.js'
@@ -35,6 +36,7 @@ import {
   replyMarkdown,
   runCard,
   runStreamCard,
+  secretCard,
   streamText,
 } from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
@@ -497,7 +499,7 @@ async function syncRun(ctx: Ctx, runId: string) {
 
 async function cardLink(
   ctx: Ctx,
-  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction',
+  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction' | 'secret',
   key: { runId?: string; refId?: string },
 ) {
   const [link] = await ctx.db
@@ -903,6 +905,44 @@ async function syncProgressCard(ctx: Ctx, groupId: string, messageId: string) {
   })
   if (settled) throttle.delete(messageId)
   else throttle.set(messageId, { at: Date.now() })
+}
+
+/** Called when a 填写密钥 card is posted or filled: mirrors it to the bound chat as the asking bot's app. */
+export async function mirrorSecretCard(ctx: Ctx, groupId: string, requestId: string) {
+  if ((await sysParams(ctx.db)).demoMode || !(await boundChat(ctx.db, groupId))?.syncOutbound) return
+  enqueue(ctx, groupId, () => syncSecretCard(ctx, groupId, requestId))
+}
+
+async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
+  const chat = await boundChat(ctx.db, groupId)
+  const [row] = await ctx.db
+    .select({ req: secretRequests, run: runs, bot: bots.name, body: messages.body })
+    .from(secretRequests)
+    .innerJoin(runs, eq(runs.id, secretRequests.runId))
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .innerJoin(messages, eq(messages.id, secretRequests.messageId))
+    .where(eq(secretRequests.id, requestId))
+  if (!chat?.syncOutbound || !row) return
+  const app = await appOfBot(ctx, row.run.botId)
+  if (!app) return
+  const [trigger] = await ctx.db
+    .select({ chatId: feishuMessageLinks.chatId, feishuMessageId: feishuMessageLinks.feishuMessageId })
+    .from(feishuMessageLinks)
+    .where(
+      and(eq(feishuMessageLinks.messageId, row.run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
+    )
+  const base = await publicUrl(ctx)
+  const card = secretCard({
+    bot: row.bot,
+    text: row.body,
+    filled: row.req.filledAt !== null,
+    url: base && `${base}/secret-requests/${requestId}`,
+  })
+  const existing = await cardLink(ctx, 'secret', { refId: requestId })
+  await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {
+    kind: 'secret',
+    refId: requestId,
+  })
 }
 
 /** The preview's latest snapshot as a Feishu image; uploaded once per snapshot, skipped when Feishu refuses. */

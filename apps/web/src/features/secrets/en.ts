@@ -108,4 +108,8 @@ export default {
   本次注入的密钥: 'Secrets injected',
   '{name}（{source}）': '{name} ({source})',
   '你有 {n} 个密钥待填写': 'You have {n} {n:secret|secrets} to fill in',
+  打开群聊: 'Open the group',
+  无法打开密钥卡片: 'Cannot open this secret request',
+  '已填写，可以回到飞书': 'Filled. You can go back to Feishu',
+  只有发起人本人可以填写这些密钥: 'Only the person asked can fill in these secrets',
 } as const
