@@ -27,6 +27,8 @@ export default {
   重试: 'Retry',
   群不存在或你已不在群内: "This group doesn't exist or you're no longer a member",
   选择一个群或私聊开始: 'Pick a group or direct message to start',
+  '它可能已解散，或你已被移出。从左侧打开别的会话。':
+    'It may have been dissolved, or you were removed. Open another conversation on the left.',
   '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。':
     "Pick a conversation on the left; @ a Bot to put Claude Code / Codex to work on a teammate's machine.",
   加载工作区失败: 'Failed to load workspace',

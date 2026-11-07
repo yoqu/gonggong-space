@@ -66,6 +66,9 @@ describe('machines overview', () => {
       </MemoryRouter>,
     )
     const overview = screen.getByRole('region', { name: '机器总览' })
+    // Headed like 市场 and 作品, with the machine count.
+    expect(within(overview).getByRole('heading', { level: 1, name: '机器与 Bot' })).toBeTruthy()
+    expect(within(overview).getByText('2')).toBeTruthy()
     const card = within(overview).getByRole('link', { name: /wanglei-mbp/ })
     expect(card.getAttribute('href')).toBe('/machine/m1')
     for (const text of ['在线', 'macOS', 'Claude Code 2.1.4', 'Codex 未安装', '2 个 Bot · 1 个运行中'])

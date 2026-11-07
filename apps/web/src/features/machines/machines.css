@@ -724,19 +724,17 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: var(--space-32);
 }
-.machines-overview:has(.machines-overview__grid) {
-  justify-content: flex-start;
+.machines-overview > .ui-empty {
+  flex: 1;
 }
+/* Left-aligned under the page head, as 作品 lays out its cards. */
 .machines-overview__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-content: start;
   gap: var(--space-16);
-  width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
+  padding: var(--space-16) var(--space-20) var(--space-32);
 }
 .machine-card {
   display: flex;
@@ -774,6 +772,8 @@
 }
 .machine-card__agents .machine__agent {
   flex-wrap: wrap;
+  /* Plain facts, not links: the card itself is the only thing to click. */
+  color: var(--label-secondary);
 }
 
 /* 绑定新机器 · ③ */

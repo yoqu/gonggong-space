@@ -361,7 +361,11 @@ export function ChatPage() {
             <EmptyState
               illustration={groupId ? <DeniedArt /> : <PickChatArt />}
               title={groupId ? t('群不存在或你已不在群内') : t('选择一个群或私聊开始')}
-              description={t('在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。')}
+              description={
+                groupId
+                  ? t('它可能已解散，或你已被移出。从左侧打开别的会话。')
+                  : t('在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。')
+              }
             />
           </div>
         )}

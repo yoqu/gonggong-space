@@ -34,6 +34,8 @@
 }
 .ui-empty__desc {
   max-width: 280px;
+  /* No lone last character on its own line: it reads as a typo. */
+  text-wrap: pretty;
   font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);

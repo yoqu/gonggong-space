@@ -7,6 +7,7 @@ import { AGENT_LABEL, AGENTS } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
 import { providerName } from './providers'
+import '../works/works.css'
 import './machines.css'
 
 /** /machines with nothing picked: a card per machine, or how to bind the first one. */
@@ -21,6 +22,11 @@ export function MachinesOverview({
 }) {
   return (
     <section className="machines-overview" aria-label={t('机器总览')}>
+      {/* The same page head as 市场 and 作品. */}
+      <header className="works__head">
+        <h1 className="works__title">{t('机器与 Bot')}</h1>
+        {machines.length ? <span className="works__count">{machines.length}</span> : null}
+      </header>
       {machines.length ? (
         <div className="machines-overview__grid">
           {machines.map((m) => (
