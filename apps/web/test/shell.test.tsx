@@ -129,6 +129,24 @@ describe('top bar', () => {
   })
 })
 
+describe('full-width pages', () => {
+  it.each(['/market', '/works'])(
+    'drops the conversation list on %s, which has nothing to do with it',
+    async (path) => {
+      mockApi({
+        ...routes([group('g1', '退款')]),
+        'GET /market': [],
+        'GET /works': [],
+        'GET /works/groups': [],
+      })
+      renderAt(path)
+      await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(path))
+      expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
+      expect(screen.getByRole('navigation', { name: '应用导航' })).toBeTruthy()
+    },
+  )
+})
+
 describe('connection status', () => {
   it('shows machine count once in the sidebar footer, not a 本机 daemon line', async () => {
     mockApi(routes([], [machine('mbp', true), machine('box', false), machine('nuc', true)]))

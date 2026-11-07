@@ -177,6 +177,7 @@ export function ChatLayout({
   mobileView,
   sidebarLabel = t('会话列表'),
 }: {
+  /** Null on full-width pages: no sidebar column at all. */
   sidebar: ReactNode
   /** The sidebar's landmark name: the conversation list, or the machine panel in its place. */
   sidebarLabel?: string
@@ -225,25 +226,28 @@ export function ChatLayout({
     else wb.setMode(wb.previous)
   }, full)
   const railBody = rail && railOpen ? rail : null
-  const list = (
-    <nav
-      aria-label={sidebarLabel}
-      className="chat__sidebar"
-      hidden={(bench && mode !== 'split') || (mobile && mobileView !== 'list')}
-    >
-      {sidebar}
-    </nav>
-  )
+  const list =
+    sidebar == null ? null : (
+      <nav
+        aria-label={sidebarLabel}
+        className="chat__sidebar"
+        hidden={(bench && mode !== 'split') || (mobile && mobileView !== 'list')}
+      >
+        {sidebar}
+      </nav>
+    )
   return (
     <AppFrame
       className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
       rail={mobile ? undefined : nav?.('vertical')}
       sidebar={
-        <>
-          {list}
-          {bench && mode === 'focus' ? strip : null}
-          {mobile && mobileView === 'list' ? nav?.('horizontal') : null}
-        </>
+        list ? (
+          <>
+            {list}
+            {bench && mode === 'focus' ? strip : null}
+            {mobile && mobileView === 'list' ? nav?.('horizontal') : null}
+          </>
+        ) : undefined
       }
       inspector={
         railBody && !bench ? (

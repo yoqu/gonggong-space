@@ -51,11 +51,13 @@
   display: flex;
   flex-direction: column;
 }
-/* Group notice and workspace prompts float over the messages as glass capsules while they scroll under. */
+/* Group notice and workspace prompts stay pinned above the messages on an opaque band of the page colour:
+   messages scrolling underneath would otherwise show through the gaps and the capsules as ghosted text. */
 .chat-view__banners {
   position: sticky;
   top: 0;
   z-index: 3;
+  background: var(--content-bg);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -63,17 +65,13 @@
   flex: none;
   max-height: min(30vh, 220px);
   overflow-y: auto;
-  padding: var(--space-8) var(--space-20) 0;
-  pointer-events: none;
+  padding: var(--space-8) var(--space-20);
 }
 .chat-view__banners > * {
   flex: none;
 }
 .chat-view__banners:empty {
   display: none;
-}
-.chat-view__banners > * {
-  pointer-events: auto;
 }
 .chat-scroll__list {
   flex: 1 0 auto;

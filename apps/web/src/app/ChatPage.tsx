@@ -224,7 +224,8 @@ export function ChatPage() {
         railOpen={!!inspector}
         railKind={inspector === 'group-info' ? 'info' : 'run'}
         sidebar={
-          managing ? (
+          // 市场 and 作品 are pages of their own: the conversation list beside them is noise, so they take the full width.
+          market || works ? null : managing ? (
             <MachineSidebar
               bots={myBots}
               sharedBots={sharedBots}
