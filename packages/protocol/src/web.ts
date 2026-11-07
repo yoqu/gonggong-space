@@ -2387,6 +2387,40 @@ export const ConversationOverviewDto = z.object({
   statuses: z.array(z.object({ status: RunStatus, count: z.number().int() })),
 })
 export type ConversationOverviewDto = z.infer<typeof ConversationOverviewDto>
+/** 运营: GET <base>/ops?days=&teamId=, whether onboarding brings people beyond the builders. */
+export const ConversationOpsDto = z.object({
+  /** People who sent a user message in the previous `days`, and how many of them did again in the last `days`. */
+  retention: z.object({ previous: z.number().int(), retained: z.number().int() }),
+  /**
+   * Team memberships that began in the window (a person joining two teams counts twice); activated = triggered a
+   * run in that team since joining; medianHours = joined → first such run, over the activated.
+   */
+  activation: z.object({
+    joined: z.number().int(),
+    activated: z.number().int(),
+    medianHours: z.number().nullable(),
+  }),
+  /**
+   * Runs ended in the window: all terminal ones, and interrupted/expired/forbidden not stopped by a person, the most
+   * frequent status + step first (at most 10).
+   */
+  failures: z.object({
+    endedRuns: z.number().int(),
+    failedRuns: z.number().int(),
+    reasons: z.array(z.object({ status: RunStatus, step: z.string(), count: z.number().int() })),
+  }),
+  /**
+   * Runs queued in the window by origin: builders (sysadmin, owner/admin of any team, owner of a live machine or bot,
+   * admin of an unarchived group; DMs don't count) vs everyone else (使用者); runs and distinct people.
+   */
+  audience: z.object({
+    userRuns: z.number().int(),
+    builderRuns: z.number().int(),
+    users: z.number().int(),
+    builders: z.number().int(),
+  }),
+})
+export type ConversationOpsDto = z.infer<typeof ConversationOpsDto>
 export const ConversationStatsBy = z.enum(['conversation', 'user', 'bot', 'team'])
 export type ConversationStatsBy = z.infer<typeof ConversationStatsBy>
 export const ConversationStatsRowsQuery = ConversationStatsQuery.omit({ tz: true }).extend({

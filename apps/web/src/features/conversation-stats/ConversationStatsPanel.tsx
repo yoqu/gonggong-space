@@ -1,6 +1,7 @@
 import type {
   ConversationDayDto,
   ConversationMetricsDto,
+  ConversationOpsDto,
   ConversationOverviewDto,
   ConversationStatsBy,
   ConversationStatsRowDto,
@@ -195,6 +196,72 @@ function Statuses({ statuses }: { statuses: ConversationOverviewDto['statuses'] 
   )
 }
 
+type Reason = ConversationOpsDto['failures']['reasons'][number] & { id: string }
+
+/** 运营: whether people beyond the builders take it up, and why their runs fail. */
+function Ops({ ops, days }: { ops: ConversationOpsDto; days: number }) {
+  const { retention: r, activation: a, failures: f, audience: u } = ops
+  const tiles = [
+    {
+      label: t('留存'),
+      value: pct(r.retained, r.previous),
+      foot: t('前 {n} 天活跃 {p} 人，{r} 人回访', { n: days, p: r.previous, r: r.retained }),
+    },
+    {
+      label: t('新成员激活'),
+      value: pct(a.activated, a.joined),
+      foot:
+        t('新加入 {j} 人，{a} 人已发起运行', { j: a.joined, a: a.activated }) +
+        (a.medianHours === null ? '' : t(' · 中位 {h} 小时', { h: a.medianHours })),
+    },
+    {
+      label: t('失败率'),
+      value: pct(f.failedRuns, f.endedRuns),
+      foot: t('已结束 {e} 轮，失败 {f} 轮（不含手动停止）', { e: f.endedRuns, f: f.failedRuns }),
+    },
+    {
+      label: t('使用者占比'),
+      value: pct(u.userRuns, u.userRuns + u.builderRuns),
+      foot: t('使用者 {u} 人 {ur} 轮 · 搭建者 {b} 人 {br} 轮', {
+        u: u.users,
+        ur: u.userRuns,
+        b: u.builders,
+        br: u.builderRuns,
+      }),
+    },
+  ]
+  return (
+    <section className="cstats-ops" aria-labelledby="cstats-ops-title">
+      <span id="cstats-ops-title" className="usage-card__title">
+        {t('运营')}
+      </span>
+      <div className="usage-stats">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="usage-stat">
+            <span className="usage-stat__label">{tile.label}</span>
+            <div className="usage-stat__body">
+              <span className="usage-stat__value">{tile.value}</span>
+            </div>
+            <span className="usage-stat__delta">{tile.foot}</span>
+          </div>
+        ))}
+      </div>
+      {f.reasons.length ? (
+        <Table<Reason>
+          aria-label={t('失败原因')}
+          rows={f.reasons.map((x) => ({ ...x, id: `${x.status}:${x.step}` }))}
+          multiple={false}
+          columns={[
+            { key: 'status', title: t('状态'), width: 96, render: (x) => STATUS_LABEL[x.status] },
+            { key: 'step', title: t('失败原因'), render: (x) => x.step || '—' },
+            { key: 'count', title: t('轮次'), width: 72, align: 'right' },
+          ]}
+        />
+      ) : null}
+    </section>
+  )
+}
+
 const num = (key: keyof ConversationStatsRowDto, title: string): TableColumn<Row> => ({
   key,
   title,
@@ -329,6 +396,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
   const { data: o, error } = useGet<ConversationOverviewDto>(
     path('/overview', `days=${days}&tz=${encodeURIComponent(TZ)}`),
   )
+  const { data: ops } = useGet<ConversationOpsDto>(path('/ops', `days=${days}`))
   return (
     <>
       <SegmentedControl
@@ -343,6 +411,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
           <Tiles o={o} days={days} />
           <Trend daily={o.daily} days={days} />
           <Statuses statuses={o.statuses} />
+          {ops ? <Ops ops={ops} days={days} /> : null}
         </>
       ) : error ? null : (
         <Spinner size={18} />
@@ -350,7 +419,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
       <Details path={path} days={days} platform={platform && !teamId} />
       <p className="usage-note">
         {t(
-          '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束。',
+          '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、机器或 Bot 的主人、群管理员，其余为使用者。',
         )}
       </p>
     </>

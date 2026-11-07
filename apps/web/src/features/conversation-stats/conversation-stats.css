@@ -1,3 +1,8 @@
 .cstats-kind {
   margin-left: var(--space-6);
 }
+.cstats-ops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
