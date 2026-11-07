@@ -1,6 +1,7 @@
 import {
   type ConversationDayDto,
   type ConversationMetricsDto,
+  type ConversationOpsDto,
   type ConversationOverviewDto,
   ConversationStatsQuery,
   type ConversationStatsRowDto,
@@ -8,10 +9,35 @@ import {
   type RunStatus,
   TERMINAL_RUN_STATUS,
 } from '@gonggong/protocol'
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, type SQL, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groups, messages, runs, teams, users } from '../../db/schema.js'
+import {
+  bots,
+  groupMembers,
+  groups,
+  machines,
+  messages,
+  runs,
+  teamMembers,
+  teams,
+  users,
+} from '../../db/schema.js'
 import { idParam } from '../../lib/ids.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { requireTeam } from '../teams/service.js'
@@ -46,14 +72,23 @@ const DIMENSIONS = {
 /** 管理后台 · 会话统计: every team, or the one picked. */
 async function platformScope(ctx: Ctx, req: FastifyRequest, teamId?: string) {
   await requireSysadmin(ctx, req)
-  return teamId ? eq(groups.teamId, idParam(teamId, '团队不存在')) : undefined
+  return teamId ? idParam(teamId, '团队不存在') : undefined
 }
 
 /** 团队设置 · 会话统计: the team's admins. */
 async function teamScope(ctx: Ctx, req: FastifyRequest) {
   const me = await requireUser(ctx, req)
   const { id } = req.params as { id: string }
-  return eq(groups.teamId, (await requireTeam(ctx, me.id, id, 'admin')).team.id)
+  return (await requireTeam(ctx, me.id, id, 'admin')).team.id
+}
+
+const inTeam = (teamId: string | undefined) => (teamId ? eq(groups.teamId, teamId) : undefined)
+const FAILED: RunStatus[] = ['interrupted', 'expired', 'forbidden']
+const median = (xs: number[]) => {
+  if (!xs.length) return null
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = s.length >> 1
+  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2
 }
 
 const dayIn = (at: Date, timeZone: string) =>
@@ -73,11 +108,11 @@ export function conversationStatsRoutes(ctx: Ctx) {
   function stats(
     app: FastifyInstance,
     base: string,
-    scoped: (req: FastifyRequest, teamId?: string) => Promise<SQL | undefined>,
+    scoped: (req: FastifyRequest, teamId?: string) => Promise<string | undefined>,
   ) {
     app.get(`${base}/overview`, async (req): Promise<ConversationOverviewDto> => {
       const q = ConversationStatsQuery.parse(req.query)
-      const scope = await scoped(req, q.teamId)
+      const scope = inTeam(await scoped(req, q.teamId))
       const now = ctx.now().getTime()
       const from = new Date(now - q.days * DAY_MS)
       const [kinds, statuses, current, previous, days] = await Promise.all([
@@ -109,8 +144,168 @@ export function conversationStatsRoutes(ctx: Ctx) {
 
     app.get(base, async (req): Promise<ConversationStatsRowDto[]> => {
       const q = ConversationStatsRowsQuery.parse(req.query)
-      return rows(await scoped(req, q.teamId), q.by, new Date(ctx.now().getTime() - q.days * DAY_MS))
+      return rows(inTeam(await scoped(req, q.teamId)), q.by, new Date(ctx.now().getTime() - q.days * DAY_MS))
     })
+
+    app.get(`${base}/ops`, async (req): Promise<ConversationOpsDto> => {
+      const q = ConversationStatsQuery.parse(req.query)
+      const teamId = await scoped(req, q.teamId)
+      const now = ctx.now().getTime()
+      const from = new Date(now - q.days * DAY_MS)
+      const [retention, activation, failures, audience] = await Promise.all([
+        retained(inTeam(teamId), new Date(now - 2 * q.days * DAY_MS), from),
+        activated(teamId, from),
+        failed(inTeam(teamId), from),
+        byAudience(inTeam(teamId), from),
+      ])
+      return { retention, activation, failures, audience }
+    })
+  }
+
+  async function retained(scope: SQL | undefined, prevFrom: Date, from: Date) {
+    const posters = (since: Date, until?: Date) =>
+      ctx.db
+        .selectDistinct({ id: messages.authorUserId })
+        .from(messages)
+        .innerJoin(groups, eq(groups.id, messages.groupId))
+        .where(
+          and(
+            eq(messages.kind, 'user'),
+            isNotNull(messages.authorUserId),
+            gte(messages.createdAt, since),
+            until && lt(messages.createdAt, until),
+            scope,
+          ),
+        )
+    const [before, now] = await Promise.all([posters(prevFrom, from), posters(from)])
+    const current = new Set(now.map((r) => r.id))
+    return { previous: before.length, retained: before.filter((r) => current.has(r.id)).length }
+  }
+
+  /** Memberships begun since `from`, each with its first run in that team since joining. */
+  async function activated(teamId: string | undefined, from: Date) {
+    const joiners = await ctx.db
+      .select({
+        joinedAt: teamMembers.joinedAt,
+        first:
+          sql<Date | null>`min(${runs.queuedAt}) filter (where ${groups.teamId} = ${teamMembers.teamId})`.mapWith(
+            runs.queuedAt,
+          ),
+      })
+      .from(teamMembers)
+      .leftJoin(
+        runs,
+        and(eq(runs.originUserId, teamMembers.userId), gte(runs.queuedAt, teamMembers.joinedAt)),
+      )
+      .leftJoin(groups, eq(groups.id, runs.groupId))
+      .where(and(gte(teamMembers.joinedAt, from), teamId ? eq(teamMembers.teamId, teamId) : undefined))
+      .groupBy(teamMembers.teamId, teamMembers.userId, teamMembers.joinedAt)
+    const hours = joiners.flatMap((j) =>
+      j.first ? [(j.first.getTime() - j.joinedAt.getTime()) / 3_600_000] : [],
+    )
+    const mid = median(hours)
+    return {
+      joined: joiners.length,
+      activated: hours.length,
+      medianHours: mid === null ? null : Math.round(mid * 10) / 10,
+    }
+  }
+
+  async function failed(scope: SQL | undefined, from: Date) {
+    const failure = and(inArray(runs.status, FAILED), isNull(runs.stoppedBy))
+    const ended = and(gte(runs.endedAt, from), scope)
+    const [[totals], reasons] = await Promise.all([
+      ctx.db
+        .select({
+          endedRuns: count,
+          failedRuns: sql<number>`count(*) filter (where ${failure})`.mapWith(Number),
+        })
+        .from(runs)
+        .innerJoin(groups, eq(groups.id, runs.groupId))
+        .where(and(inArray(runs.status, [...TERMINAL_RUN_STATUS]), ended)),
+      ctx.db
+        .select({ status: sql<RunStatus>`${runs.status}`, step: runs.step, count })
+        .from(runs)
+        .innerJoin(groups, eq(groups.id, runs.groupId))
+        .where(and(failure, ended))
+        .groupBy(runs.status, runs.step)
+        .orderBy(desc(count), asc(runs.status), asc(runs.step))
+        .limit(10),
+    ])
+    return { ...totals!, reasons }
+  }
+
+  /** Runs queued since `from` by builders vs 使用者; see ConversationOpsDto.audience for who builds. */
+  async function byAudience(scope: SQL | undefined, from: Date) {
+    const origins = await ctx.db
+      .select({ id: runs.originUserId, n: count })
+      .from(runs)
+      .innerJoin(groups, eq(groups.id, runs.groupId))
+      .where(and(gte(runs.queuedAt, from), scope))
+      .groupBy(runs.originUserId)
+    const out = { userRuns: 0, builderRuns: 0, users: 0, builders: 0 }
+    if (!origins.length) return out
+    const builders = new Set((await buildersAmong(origins.map((o) => o.id))).map((u) => u.id))
+    for (const o of origins) {
+      if (builders.has(o.id)) {
+        out.builderRuns += o.n
+        out.builders += 1
+      } else {
+        out.userRuns += o.n
+        out.users += 1
+      }
+    }
+    return out
+  }
+
+  /**
+   * Server-side useIsBuilder without the browser opt-in. DMs don't count: their opener is their admin, Feishu DMs
+   * included, which would make every 使用者 a builder.
+   */
+  function buildersAmong(ids: string[]) {
+    return ctx.db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, ids),
+          or(
+            eq(users.role, 'sysadmin'),
+            exists(
+              ctx.db
+                .select({ x: sql`1` })
+                .from(teamMembers)
+                .where(and(eq(teamMembers.userId, users.id), ne(teamMembers.role, 'member'))),
+            ),
+            exists(
+              ctx.db
+                .select({ x: sql`1` })
+                .from(machines)
+                .where(and(eq(machines.ownerId, users.id), isNull(machines.revokedAt))),
+            ),
+            exists(
+              ctx.db
+                .select({ x: sql`1` })
+                .from(bots)
+                .where(and(eq(bots.ownerId, users.id), isNull(bots.deletedAt))),
+            ),
+            exists(
+              ctx.db
+                .select({ x: sql`1` })
+                .from(groupMembers)
+                .innerJoin(groups, eq(groups.id, groupMembers.groupId))
+                .where(
+                  and(
+                    eq(groupMembers.userId, users.id),
+                    eq(groupMembers.isAdmin, true),
+                    eq(groups.kind, 'group'),
+                    isNull(groups.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
   }
 
   async function metrics(scope: SQL | undefined, from: Date, to: Date): Promise<ConversationMetricsDto> {

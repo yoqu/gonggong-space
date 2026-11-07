@@ -1,7 +1,7 @@
-import type { ConversationOverviewDto, ConversationStatsRowDto } from '@gonggong/protocol'
-import { eq } from 'drizzle-orm'
+import type { ConversationOpsDto, ConversationOverviewDto, ConversationStatsRowDto } from '@gonggong/protocol'
+import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { groups, messages, runs } from '../src/db/schema.js'
+import { groups, messages, runs, teamMembers } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 
@@ -232,5 +232,221 @@ describe('conversation stats', () => {
     )
     expect((await alice.get(`/api/teams/${w.teamB.id}/conversation-stats?by=user`)).status).toBe(404)
     expect((await alice.get('/api/admin/conversation-stats/overview')).status).toBe(403)
+  })
+})
+
+describe('conversation stats · 运营', () => {
+  const HOUR = 3_600_000
+  const at = (days: number, hours = 0) => new Date(Date.now() - days * DAY + hours * HOUR)
+  const post = async (groupId: string, userId: string, daysAgo: number, kind: 'user' | 'bot' = 'user') => {
+    const [m] = await t.db
+      .insert(messages)
+      .values({
+        groupId,
+        kind,
+        authorUserId: kind === 'user' ? userId : null,
+        body: 'x',
+        createdAt: at(daysAgo),
+      })
+      .returning()
+    return m!
+  }
+  /** A run of `botId` in `groupId`, queued at `queuedAt`; terminal statuses end an hour later unless told. */
+  const addRun = async (o: {
+    groupId: string
+    botId: string
+    origin: string
+    queuedAt: Date
+    status?: string
+    step?: string
+    endedAt?: Date | null
+    stoppedBy?: string
+  }) => {
+    const trigger = await post(o.groupId, o.origin, 0)
+    const status = o.status ?? 'completed'
+    await t.db.insert(runs).values({
+      groupId: o.groupId,
+      botId: o.botId,
+      triggerMessageId: trigger.id,
+      originUserId: o.origin,
+      status,
+      step: o.step ?? '',
+      queuedAt: o.queuedAt,
+      endedAt: o.endedAt === undefined ? new Date(o.queuedAt.getTime() + HOUR) : o.endedAt,
+      stoppedBy: o.stoppedBy ?? null,
+    })
+  }
+  const joined = (teamId: string, userId: string, when: Date) =>
+    t.db
+      .update(teamMembers)
+      .set({ joinedAt: when })
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+
+  /** Team A (默认团队) owned by alice, team B owned by carol, a sysadmin outside both. */
+  async function teams() {
+    const alice = await t.seed.user({ name: '王磊' })
+    const admin = await t.seed.user({ name: '管理员', role: 'sysadmin', teamId: null })
+    const carol = await t.seed.user({ name: '卡罗', teamId: null })
+    const teamB = await t.seed.team({ ownerId: carol.id, name: 'B 团队' })
+    const bot = await t.seed.bot({ ownerId: alice.id })
+    const botB = await t.seed.bot({ ownerId: carol.id, teamId: teamB.id })
+    const gA = await t.seed.group({ createdBy: alice.id })
+    const gB = await t.seed.group({ createdBy: carol.id, teamId: teamB.id })
+    await t.db.update(teamMembers).set({ joinedAt: at(30) })
+    return { alice, admin, carol, teamA: gA.teamId, teamB: teamB.id, bot, botB, gA, gB }
+  }
+  const ops = async (userId: string, url: string) => {
+    const res = await (await as(userId)).get<ConversationOpsDto>(url)
+    expect(res.status).toBe(200)
+    return res.body
+  }
+
+  it('counts who came back from the previous period, per scope and to admins only', async () => {
+    const w = await teams()
+    const bob = await t.seed.user({ name: '陈晨' })
+    const erin = await t.seed.user({ name: '艾琳' })
+    await post(w.gA.id, w.alice.id, 10)
+    await post(w.gA.id, w.alice.id, 1)
+    await post(w.gA.id, erin.id, 9)
+    await post(w.gA.id, bob.id, 2)
+    await post(w.gB.id, w.carol.id, 8)
+    await post(w.gB.id, w.carol.id, 0)
+    await post(w.gB.id, w.carol.id, 20)
+
+    const all = await ops(w.admin.id, '/api/admin/conversation-stats/ops?days=7')
+    expect(all.retention).toEqual({ previous: 3, retained: 2 })
+    const b = await ops(w.admin.id, `/api/admin/conversation-stats/ops?days=7&teamId=${w.teamB}`)
+    expect(b.retention).toEqual({ previous: 1, retained: 1 })
+    const a = await ops(w.alice.id, `/api/teams/${w.teamA}/conversation-stats/ops?days=7`)
+    expect(a.retention).toEqual({ previous: 2, retained: 1 })
+
+    expect((await (await as(bob.id)).get(`/api/teams/${w.teamA}/conversation-stats/ops`)).status).toBe(403)
+    const alice = await as(w.alice.id)
+    expect((await alice.get(`/api/teams/${w.teamB}/conversation-stats/ops`)).status).toBe(404)
+    expect((await alice.get('/api/admin/conversation-stats/ops')).status).toBe(403)
+  })
+
+  it('tracks members who joined in the window to their first run there', async () => {
+    const w = await teams()
+    const bob = await t.seed.user({ name: '陈晨' })
+    const dan = await t.seed.user({ name: '丹' })
+    const gina = await t.seed.user({ name: '吉娜' })
+    const hank = await t.seed.user({ name: '汉克' })
+    const kim = await t.seed.user({ name: '金', teamId: w.teamB })
+    await joined(w.teamA, bob.id, at(3))
+    await joined(w.teamA, dan.id, at(2))
+    await joined(w.teamA, gina.id, at(5))
+    await joined(w.teamA, hank.id, at(4))
+    await joined(w.teamB, kim.id, at(1))
+    const run = (origin: string, queuedAt: Date, b = false) =>
+      addRun({ groupId: b ? w.gB.id : w.gA.id, botId: b ? w.botB.id : w.bot.id, origin, queuedAt })
+    await run(bob.id, at(3, 2))
+    await run(bob.id, at(1))
+    await run(gina.id, at(5, 6))
+    await run(hank.id, at(6))
+    await run(dan.id, at(0), true)
+    await run(kim.id, at(1, 1), true)
+    await run(w.alice.id, at(0))
+
+    const a = await ops(w.alice.id, `/api/teams/${w.teamA}/conversation-stats/ops?days=7`)
+    expect(a.activation).toEqual({ joined: 4, activated: 2, medianHours: 4 })
+    const all = await ops(w.admin.id, '/api/admin/conversation-stats/ops?days=7')
+    expect(all.activation).toEqual({ joined: 5, activated: 3, medianHours: 2 })
+    const none = await ops(w.admin.id, `/api/admin/conversation-stats/ops?days=7&teamId=${w.teamB}`)
+    expect(none.activation).toEqual({ joined: 1, activated: 1, medianHours: 1 })
+  })
+
+  it('ranks why runs failed, leaving out runs people stopped', async () => {
+    const w = await teams()
+    const fail = (
+      status: string,
+      step: string,
+      endedDaysAgo: number,
+      o: { b?: boolean; stoppedBy?: string } = {},
+    ) =>
+      addRun({
+        groupId: o.b ? w.gB.id : w.gA.id,
+        botId: o.b ? w.botB.id : w.bot.id,
+        origin: w.alice.id,
+        status,
+        step,
+        queuedAt: at(endedDaysAgo, -1),
+        endedAt: at(endedDaysAgo),
+        stoppedBy: o.stoppedBy,
+      })
+    await fail('interrupted', '机器离线', 1)
+    await fail('interrupted', '机器离线', 2)
+    await fail('interrupted', '已停止', 1, { stoppedBy: w.alice.id })
+    await fail('expired', '等待超时', 3)
+    await fail('forbidden', '无权限', 0)
+    await fail('completed', '', 1)
+    await fail('interrupted', '机器离线', 10)
+    await fail('expired', '等待超时', 0, { b: true })
+    await addRun({
+      groupId: w.gA.id,
+      botId: w.bot.id,
+      origin: w.alice.id,
+      queuedAt: at(0),
+      status: 'running',
+      endedAt: null,
+    })
+
+    const a = await ops(w.alice.id, `/api/teams/${w.teamA}/conversation-stats/ops?days=7`)
+    expect(a.failures).toEqual({
+      endedRuns: 6,
+      failedRuns: 4,
+      reasons: [
+        { status: 'interrupted', step: '机器离线', count: 2 },
+        { status: 'expired', step: '等待超时', count: 1 },
+        { status: 'forbidden', step: '无权限', count: 1 },
+      ],
+    })
+    const all = await ops(w.admin.id, '/api/admin/conversation-stats/ops?days=7')
+    expect(all.failures).toEqual({
+      endedRuns: 7,
+      failedRuns: 5,
+      reasons: [
+        { status: 'expired', step: '等待超时', count: 2 },
+        { status: 'interrupted', step: '机器离线', count: 2 },
+        { status: 'forbidden', step: '无权限', count: 1 },
+      ],
+    })
+  })
+
+  it('splits runs between builders and 使用者', async () => {
+    const w = await teams()
+    const bob = await t.seed.user({ name: '陈晨' })
+    const frank = await t.seed.user({ name: '弗兰克' })
+    const ivy = await t.seed.user({ name: '艾薇' })
+    const jay = await t.seed.user({ name: '杰' })
+    const kay = await t.seed.user({ name: '凯' })
+    const lee = await t.seed.user({ name: '李' })
+    const mia = await t.seed.user({ name: '米娅', teamId: w.teamB })
+    await t.seed.machine(frank.id)
+    await t.seed.bot({ ownerId: ivy.id })
+    await t.seed.group({ createdBy: jay.id })
+    await t.seed.group({ createdBy: kay.id, kind: 'dm' })
+    await t.db
+      .update(teamMembers)
+      .set({ role: 'admin' })
+      .where(and(eq(teamMembers.teamId, w.teamA), eq(teamMembers.userId, lee.id)))
+    const run = (origin: string, daysAgo = 1, b = false) =>
+      addRun({
+        groupId: b ? w.gB.id : w.gA.id,
+        botId: b ? w.botB.id : w.bot.id,
+        origin,
+        queuedAt: at(daysAgo),
+      })
+    for (const u of [w.alice, bob, bob, frank, ivy, jay, kay, lee, w.admin]) await run(u.id)
+    await run(bob.id, 10)
+    await run(w.carol.id, 1, true)
+    await run(mia.id, 1, true)
+
+    const a = await ops(w.alice.id, `/api/teams/${w.teamA}/conversation-stats/ops?days=7`)
+    expect(a.audience).toEqual({ userRuns: 3, builderRuns: 6, users: 2, builders: 6 })
+    const b = await ops(w.admin.id, `/api/admin/conversation-stats/ops?days=7&teamId=${w.teamB}`)
+    expect(b.audience).toEqual({ userRuns: 1, builderRuns: 1, users: 1, builders: 1 })
+    const all = await ops(w.admin.id, '/api/admin/conversation-stats/ops?days=7')
+    expect(all.audience).toEqual({ userRuns: 4, builderRuns: 7, users: 3, builders: 7 })
   })
 })

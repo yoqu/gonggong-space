@@ -28,6 +28,19 @@ export default {
   '近 {n} 天没有会话': 'No conversations in the last {n} days',
   时间范围: 'Time range',
   '近 {n} 天': 'Last {n} days',
-  '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束。':
-    'Counts only, no message content · Messages are what members and Bots said, not system events · Runs count by when they were requested · Success rate = completed / ended.',
+  '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、机器或 Bot 的主人、群管理员，其余为使用者。':
+    'Counts only, no message content · Messages are what members and Bots said, not system events · Runs count by when they were requested · Success rate = completed / ended · Builders: sysadmins, team admins, owners of a machine or Bot, group admins; everyone else is a user.',
+  运营: 'Operations',
+  留存: 'Retention',
+  '前 {n} 天活跃 {p} 人，{r} 人回访': '{r} of {p} active in the {n} days before came back',
+  新成员激活: 'New member activation',
+  '新加入 {j} 人，{a} 人已发起运行': '{a} of {j} new {j:member|members} started a run',
+  ' · 中位 {h} 小时': ' · median {h} h',
+  失败率: 'Failure rate',
+  '已结束 {e} 轮，失败 {f} 轮（不含手动停止）':
+    '{f} of {e} ended {e:run|runs} failed (manual stops excluded)',
+  使用者占比: 'User share',
+  '使用者 {u} 人 {ur} 轮 · 搭建者 {b} 人 {br} 轮':
+    'Users: {u} {u:person|people}, {ur} {ur:run|runs} · Builders: {b} {b:person|people}, {br} {br:run|runs}',
+  失败原因: 'Failure reasons',
 } satisfies Record<string, string>

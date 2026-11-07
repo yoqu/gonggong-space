@@ -256,6 +256,19 @@ describe('admin console', () => {
         },
       ],
       'GET /admin/conversation-stats?by=conversation&days=7': [],
+      'GET /admin/conversation-stats/ops?days=30': {
+        retention: { previous: 8, retained: 6 },
+        activation: { joined: 5, activated: 2, medianHours: 3.5 },
+        failures: {
+          endedRuns: 190,
+          failedRuns: 19,
+          reasons: [
+            { status: 'interrupted', step: '机器离线', count: 12 },
+            { status: 'expired', step: '等待超时', count: 7 },
+          ],
+        },
+        audience: { userRuns: 60, builderRuns: 140, users: 5, builders: 4 },
+      },
       'GET /admin/conversation-stats?by=team&days=7': [
         { ...conv, key: 't1', name: '风控组', kind: null, ownerName: null, teamName: null, conversations: 8 },
       ],
@@ -271,6 +284,24 @@ describe('admin console', () => {
     expect(tile('平均耗时').textContent).toContain('1 分 35 秒')
     expect(screen.getByRole('img', { name: '运行状态：已完成 90%，已中断 10%' })).toBeTruthy()
     expect(screen.getByRole('group', { name: /^近 30 天每日用户消息：合计 30/ })).toBeTruthy()
+
+    const ops = await screen.findByRole('region', { name: '运营' })
+    const opsTile = (label: string) =>
+      within(ops).getByText(label, { selector: '.usage-stat__label' }).parentElement!
+    await waitFor(() => expect(opsTile('留存').textContent).toContain('75%'))
+    expect(opsTile('留存').textContent).toContain('前 30 天活跃 8 人，6 人回访')
+    expect(opsTile('新成员激活').textContent).toContain('40%')
+    expect(opsTile('新成员激活').textContent).toContain('新加入 5 人，2 人已发起运行 · 中位 3.5 小时')
+    expect(opsTile('失败率').textContent).toContain('10%')
+    expect(opsTile('使用者占比').textContent).toContain('30%')
+    expect(opsTile('使用者占比').textContent).toContain('使用者 5 人 60 轮 · 搭建者 4 人 140 轮')
+    const reasons = within(ops).getByRole('grid', { name: '失败原因' })
+    expect(
+      within(reasons)
+        .getAllByRole('row')
+        .slice(1)
+        .map((r) => r.textContent),
+    ).toEqual([expect.stringMatching(/^已中断机器离线12/), expect.stringMatching(/^已作废等待超时7/)])
 
     const table = await screen.findByRole('grid', { name: '会话明细' })
     const rows = within(table).getAllByRole('row').slice(1)
