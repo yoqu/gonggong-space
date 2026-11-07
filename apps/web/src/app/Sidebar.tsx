@@ -137,10 +137,13 @@ const GroupRow = memo(function GroupRow({
   g,
   current,
   tabStop,
+  tagged = true,
 }: {
   g: GroupDto
   current: boolean
   tabStop: boolean
+  /** Off under the Bot section head, which already says it. */
+  tagged?: boolean
 }) {
   const dm = g.kind === 'dm'
   const navigate = useNavigate()
@@ -200,7 +203,7 @@ const GroupRow = memo(function GroupRow({
             name: g.name,
             group: true,
             avatarNode: <GroupAvatar group={g} size={40} />,
-            tags: dm ? [{ label: 'Bot', tone: 'blue' }] : undefined,
+            tags: dm && tagged ? [{ label: 'Bot', tone: 'blue' }] : undefined,
             preview,
             draft: current ? undefined : draftOf(g.id),
             unread: g.unread,
@@ -328,6 +331,36 @@ function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
   return [...list].sort((a, b) => place(a) - place(b))
 }
 
+type SectionKey = 'group' | 'dm' | 'space'
+const sectionOf = (r: Row): SectionKey => (isSpace(r) ? 'space' : r.kind === 'dm' ? 'dm' : 'group')
+const SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'group', label: t('群聊#section') },
+  { key: 'dm', label: 'Bot' },
+  { key: 'space', label: t('终端') },
+]
+const FOLDED_KEY = 'gonggong.sidebarFolded'
+
+/** Folded sections, kept in this browser. */
+function useFolded() {
+  const [folded, setFolded] = useState<SectionKey[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]')
+    } catch {
+      return []
+    }
+  })
+  const toggle = (key: SectionKey) => {
+    const next = folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key]
+    setFolded(next)
+    try {
+      localStorage.setItem(FOLDED_KEY, JSON.stringify(next))
+    } catch {
+      // storage unavailable (private mode): the fold lasts for this page only
+    }
+  }
+  return [folded, toggle] as const
+}
+
 /**
  * Positions the selection capsule under the current conversation so it slides between rows.
  * `at` is the current row's place in the list: rows reordering around it move it without resizing anything.
@@ -441,11 +474,28 @@ export function Sidebar({
     byPin<Row>([...shown.filter((g) => !isDone(g)), ...(onlyFlagged ? [] : spaces)]),
     hovered,
   )
+  const [folded, toggleFold] = useFolded()
+  // Group chats, bot chats and terminals each keep the list order; heads appear once there are two kinds to tell apart.
+  const sections = SECTIONS.map((sec) => {
+    const all = open.filter((r) => sectionOf(r) === sec.key)
+    const fold = folded.includes(sec.key)
+    // A folded section still shows what needs reading and the conversation that is open.
+    const shown = fold ? all.filter((r) => pathname === pathOf(r) || (!isSpace(r) && r.unread > 0)) : all
+    return { ...sec, all, fold, shown }
+  }).filter((sec) => sec.all.length)
+  const headed = sections.length > 1
+  const visible = headed ? sections.flatMap((sec) => sec.shown) : open
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
-  const rows: Row[] = [...open, ...(showDone ? done : [])]
+  const rows: Row[] = [...visible, ...(showDone ? done : [])]
   const at = rows.findIndex((r) => pathname === pathOf(r))
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
+  const row = (r: Row) =>
+    isSpace(r) ? (
+      <SpaceRow key={r.id} s={r} tabStop={r.id === stop} />
+    ) : (
+      <GroupRow key={r.id} g={r} current={pathname === pathOf(r)} tabStop={r.id === stop} tagged={!headed} />
+    )
   return (
     <div className="sidebar">
       {header}
@@ -480,17 +530,27 @@ export function Sidebar({
             </div>
           ) : null}
           <section aria-label={t('会话#list')}>
-            <div className="sidebar__list sidebar__list--convs">
-              {open.length
-                ? open.map((r) =>
-                    isSpace(r) ? (
-                      <SpaceRow key={r.id} s={r} tabStop={r.id === stop} />
-                    ) : (
-                      <GroupRow key={r.id} g={r} current={pathname === pathOf(r)} tabStop={r.id === stop} />
-                    ),
-                  )
-                : empty(t('还没有会话'))}
-            </div>
+            {headed ? (
+              sections.map((sec) => (
+                // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
+                <div key={sec.key} role="group" aria-label={sec.label}>
+                  <button
+                    type="button"
+                    className="sidebar__head sidebar__fold"
+                    aria-expanded={!sec.fold}
+                    onClick={() => toggleFold(sec.key)}
+                  >
+                    <Icon name={sec.fold ? 'chevron-right' : 'chevron-down'} size={11} />
+                    {sec.label}
+                  </button>
+                  <div className="sidebar__list sidebar__list--convs">{sec.shown.map(row)}</div>
+                </div>
+              ))
+            ) : (
+              <div className="sidebar__list sidebar__list--convs">
+                {open.length ? open.map(row) : empty(t('还没有会话'))}
+              </div>
+            )}
           </section>
           {done.length ? (
             <section>

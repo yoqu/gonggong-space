@@ -92,4 +92,5 @@ export default {
   标记: 'Flag',
   只看已标记: 'Flagged only',
   '已完成 · {n}': 'Done · {n}',
+  '群聊#section': 'Group chats',
 } satisfies Record<string, string>

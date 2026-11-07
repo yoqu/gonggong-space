@@ -293,6 +293,53 @@ describe('sidebar live runs', () => {
   })
 })
 
+describe('sidebar sections', () => {
+  const rowsIn = (name: string) =>
+    within(screen.getByRole('group', { name }))
+      .queryAllByTestId(/^group-item-/)
+      .map((e) => e.getAttribute('data-testid')?.slice(11))
+
+  it('splits group chats from bot chats once both exist, each keeping its own order', async () => {
+    mockApi(
+      routes([
+        group('g1', '退款', { lastAt: '2026-10-01T00:00:00.000Z' }),
+        group('d1', 'CC专家', { kind: 'dm', botIds: ['b1'], lastAt: '2026-10-03T00:00:00.000Z' }),
+        group('g2', '支付', { lastAt: '2026-10-02T00:00:00.000Z' }),
+      ]),
+    )
+    renderAt('/g/g1')
+    await screen.findByTestId('group-item-d1')
+    expect(rowsIn('群聊')).toEqual(['g2', 'g1'])
+    expect(rowsIn('Bot')).toEqual(['d1'])
+  })
+
+  it('folds a section but keeps its unread and open rows in sight, and remembers the fold', async () => {
+    mockApi(
+      routes([
+        group('g1', '退款'),
+        group('d1', 'CC专家', { kind: 'dm', botIds: ['b1'] }),
+        group('d2', 'Codex', { kind: 'dm', botIds: ['b2'], unread: 2 }),
+      ]),
+    )
+    const { unmount } = renderAt('/g/g1')
+    await screen.findByTestId('group-item-d1')
+    fireEvent.click(screen.getByRole('button', { name: /^Bot/ }))
+    expect(rowsIn('Bot')).toEqual(['d2'])
+    unmount()
+    renderAt('/g/d1')
+    await screen.findByTestId('group-item-d1')
+    expect(screen.getByRole('button', { name: /^Bot/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(rowsIn('Bot').sort()).toEqual(['d1', 'd2'])
+  })
+
+  it('shows no section heads while every conversation is a group chat', async () => {
+    mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
+    renderAt('/g/g1')
+    await screen.findByTestId('group-item-g2')
+    expect(screen.queryByRole('button', { name: /^群聊/ })).toBeNull()
+  })
+})
+
 describe('conversation order', () => {
   const order = () =>
     [...document.querySelectorAll('[data-testid^="group-item-"]')].map((e) =>

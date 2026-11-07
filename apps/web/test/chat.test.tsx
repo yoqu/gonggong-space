@@ -1647,7 +1647,7 @@ describe('machine terminals', () => {
     lastActiveAt: '2026-09-30T00:00:00.000Z',
   }
 
-  it('lists one among the conversations by its last opening, and opens nothing but its terminal', async () => {
+  it('lists one under 终端 beside the conversations, and opens nothing but its terminal', async () => {
     const calls = mockApi({
       ...baseRoutes([group({ lastAt: '2026-09-25T00:00:00.000Z' })]),
       'GET /terminal-spaces': () => [space],
@@ -1657,8 +1657,8 @@ describe('machine terminals', () => {
     const row = await screen.findByTestId('terminal-item-s1')
     expect(row.textContent).toContain('运维脚本')
     expect(row.textContent).toContain('wanglei-mbp · ')
-    const order = [...document.querySelectorAll('[data-testid$="-item-s1"], [data-testid="group-item-g1"]')]
-    expect(order.map((e) => e.getAttribute('data-testid'))).toEqual(['terminal-item-s1', 'group-item-g1'])
+    expect(within(screen.getByRole('group', { name: '终端' })).getByTestId('terminal-item-s1')).toBe(row)
+    expect(within(screen.getByRole('group', { name: '群聊' })).getByTestId('group-item-g1')).toBeTruthy()
 
     fireEvent.click(row)
     const main = screen.getByRole('main')
