@@ -16,6 +16,7 @@ import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { middle } from '../features/repos/repo-access'
 import { t } from '../i18n'
 import { api } from '../lib/api'
+import { cx } from '../lib/cx'
 import { attempt } from '../lib/errors'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
@@ -184,7 +185,8 @@ const GroupRow = memo(function GroupRow({
       <NavLink
         {...press}
         to={`/g/${g.id}`}
-        className="pn-conv"
+        // Its bot was unshared or deleted: history only, so it steps back behind the live conversations.
+        className={cx('pn-conv', dm && !g.botIds.length && 'pn-conv--closed')}
         title={dm ? where : undefined}
         data-testid={`group-item-${g.id}`}
         tabIndex={tabStop ? 0 : -1}

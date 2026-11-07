@@ -358,7 +358,7 @@ export function Message({
       <div className="pn-msg__col">
         {head && (
           <div className="pn-msg__meta">
-            {!self && (author.nameNode ?? <b>{author.name}</b>)}
+            {author.nameNode ?? <b>{author.name}</b>}
             {author.bot && <Tag tone="blue">Bot</Tag>}
             {author.tags?.map((t) => (
               <Tag key={t.label} tone={t.tone}>

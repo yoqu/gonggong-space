@@ -129,6 +129,15 @@ describe('top bar', () => {
   })
 })
 
+describe('conversation rows', () => {
+  it('quiets a bot chat whose bot is gone so it never outshines the live ones', async () => {
+    mockApi(routes([group('g1', '退款'), group('d1', '已删除的 Bot', { kind: 'dm' })]))
+    renderAt('/')
+    expect((await screen.findByTestId('group-item-d1')).classList.contains('pn-conv--closed')).toBe(true)
+    expect(screen.getByTestId('group-item-g1').classList.contains('pn-conv--closed')).toBe(false)
+  })
+})
+
 describe('full-width pages', () => {
   it.each(['/market', '/works'])(
     'drops the conversation list on %s, which has nothing to do with it',

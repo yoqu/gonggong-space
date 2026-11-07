@@ -58,14 +58,14 @@ describe('Message', () => {
     expect(container.querySelector('.pn-msg__meta b')?.textContent).toBe('Mia Chen')
   })
 
-  it('right-aligns self messages without repeating the own name', () => {
+  it('names self messages like everyone else: a group reads as one column (Slack layout)', () => {
     const { container } = render(
       <Message self author={{ name: 'Yoqu' }} time="10:31">
         收到
       </Message>,
     )
     expect(container.querySelector('.pn-msg')?.classList.contains('pn-msg--self')).toBe(true)
-    expect(container.querySelector('.pn-msg__meta b')).toBeNull()
+    expect(container.querySelector('.pn-msg__meta b')?.textContent).toBe('Yoqu')
   })
 
   it('drops avatar and meta for continued messages', () => {

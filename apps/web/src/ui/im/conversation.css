@@ -43,6 +43,13 @@
 .pn-conv[aria-current] {
   box-shadow: inset 0 0 0 1px var(--separator);
 }
+.pn-conv--closed .pn-conv__avatar {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.pn-conv--closed:not([aria-current]) .pn-conv__name {
+  color: var(--label-secondary);
+}
 .pn-conv__avatar {
   display: flex;
   flex: none;

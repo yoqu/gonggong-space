@@ -278,7 +278,7 @@ describe('run status icons', () => {
 })
 
 describe('timeline bubbles', () => {
-  it('puts my messages on the right and merges consecutive messages of one author', async () => {
+  it('names my messages like the others and merges consecutive messages of one author', async () => {
     renderChat({
       messages: [
         msg({ seq: 1 }),
@@ -290,7 +290,7 @@ describe('timeline bubbles', () => {
     })
     const mine = (await screen.findByText('我的消息')).closest('.pn-msg') as HTMLElement
     expect(mine.classList.contains('pn-msg--self')).toBe(true)
-    expect(mine.querySelector('.pn-msg__meta b')).toBeNull()
+    expect(mine.querySelector('.pn-msg__meta b')?.textContent).toBe('王磊')
     const rows = [...document.querySelectorAll<HTMLElement>('.pn-msg')]
     expect(rows.map((r) => r.classList.contains('pn-msg--cont'))).toEqual([false, true, false, false])
     expect(rows[1]!.querySelector('.ui-avatar')).toBeNull()

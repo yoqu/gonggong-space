@@ -241,19 +241,12 @@
   max-width: min(720px, 90%);
 }
 
-/* Messages: names open the user card; rich bot replies widen their bubble. */
+/* Messages: names open the user card. */
 .pn-msg .user-card-trigger {
   color: inherit;
 }
-.tl-msg--wide .pn-msg__col {
-  max-width: min(88%, 760px);
-}
 .pn-bubble .pn-quote {
   max-width: none;
-}
-.pn-msg--self .pn-msg__col > .att-media,
-.pn-msg--self .pn-msg__col > .pn-file {
-  align-self: flex-end;
 }
 
 /* Run card: a bare MessageCard; the header tint follows the run status. */
@@ -261,9 +254,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.run-card .pn-msg__col {
-  max-width: min(88%, 560px);
 }
 /* The card's own gap spaces its reply; the list-level pull-up for continued messages would overlap the card. */
 .run-card .pn-msg--cont {
@@ -293,24 +283,48 @@
   max-width: 100%;
   transition: box-shadow var(--motion-fast);
 }
-.run-mcard--selected {
+.run-mcard.run-mcard--selected {
   box-shadow:
     inset 0 0 0 1.5px var(--accent),
     0 0 0 3px var(--tint-blue);
 }
+/* The status reads from a coloured edge and icon, not a tinted header band: a settled run stays a quiet line. */
+.run-mcard {
+  --run-tone: var(--label-secondary);
+  box-shadow:
+    inset 3px 0 0 var(--run-tone),
+    inset 0 0 0 1px var(--separator);
+}
+.run-mcard.pn-mcard--blue {
+  --run-tone: var(--tint-blue-text);
+}
+.run-mcard.pn-mcard--green {
+  --run-tone: var(--tint-green-text);
+}
+.run-mcard.pn-mcard--orange {
+  --run-tone: var(--tint-orange-text);
+}
+.run-mcard.pn-mcard--red {
+  --run-tone: var(--tint-red-text);
+}
+.run-mcard.pn-mcard--purple {
+  --run-tone: var(--tint-purple-text);
+}
 .run-mcard .pn-mcard__head {
-  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
-  min-height: 36px;
+  padding: var(--space-6) var(--space-8) var(--space-6) var(--space-12);
+  min-height: 32px;
+  background: transparent;
+  color: var(--label);
 }
 .run-mcard .pn-mcard__head .run-status {
-  color: inherit;
+  color: var(--run-tone);
   font-size: var(--text-body-size);
 }
 .run-mcard .pn-mcard__title {
   flex: 1;
 }
 .run-mcard .pn-mcard__body {
-  padding: var(--space-12);
+  padding: 0 var(--space-12) var(--space-12);
   gap: var(--space-8);
 }
 .run-card__fold {
@@ -462,12 +476,7 @@
     padding: var(--space-8) var(--space-12) 0;
   }
   .chat-scroll__list.pn-msglist {
-    padding: var(--space-12);
-  }
-  .pn-msg__col,
-  .tl-msg--wide .pn-msg__col,
-  .run-card .pn-msg__col {
-    max-width: calc(100% - 42px);
+    --pn-list-x: var(--space-12);
   }
   .run-mcard {
     width: 100%;

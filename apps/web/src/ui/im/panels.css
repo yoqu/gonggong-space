@@ -305,16 +305,14 @@
   flex: 1;
   overflow: auto;
   overflow-x: hidden;
-  padding: var(--space-16) var(--space-16) var(--space-8);
+  --pn-list-x: var(--space-16);
+  padding: var(--space-16) var(--pn-list-x) var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
 }
 .pn-threadpanel__root {
   padding-bottom: var(--space-4);
-}
-.pn-threadpanel .pn-msg__col {
-  max-width: calc(100% - 42px);
 }
 .pn-threadpanel .pn-msg__actions {
   top: -14px;
