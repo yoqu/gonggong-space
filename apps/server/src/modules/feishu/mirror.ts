@@ -32,7 +32,7 @@ import {
   progressCard,
   questionCard,
   REPLY_ELEMENT,
-  replyMarkdown,
+  replyElements,
   runCard,
   runStreamCard,
   streamText,
@@ -83,6 +83,8 @@ interface Mirror {
   retries: Map<string, { groupId: string; timer: NodeJS.Timeout }>
   /** `group:bot` pairs already told their bot's app is not in the chat; cleared once a card gets through again. */
   outOfChat: Set<string>
+  /** Per ended run's CardKit card: its last sequence, for a later update (an actions block answered). */
+  endedSeqs: Map<string, number>
 }
 
 interface Stream {
@@ -118,6 +120,7 @@ function state(ctx: Ctx) {
       everBound: new Map(),
       retries: new Map(),
       outOfChat: new Set(),
+      endedSeqs: new Map(),
     }
     mirrors.set(ctx, m)
   }
@@ -610,7 +613,8 @@ async function syncRunCard(
     streams.delete(run.id)
     clearTimeout(s?.timer)
     if (!existing?.feishuRef) return
-    const seq = s ?? { seq: 0 }
+    const { endedSeqs } = state(ctx)
+    const seq = s ?? { seq: endedSeqs.get(existing.feishuRef) ?? 0 }
     const card = runCard({
       bot,
       status: run.status as RunStatus,
@@ -622,6 +626,7 @@ async function syncRunCard(
     const creds = credsOf(app)
     await ctx.feishu.api.updateCardEntity(creds, existing.feishuRef, JSON.stringify(card), nextSeq(seq))
     await ctx.feishu.api.cardSettings(creds, existing.feishuRef, streaming(false), nextSeq(seq))
+    remember(endedSeqs, existing.feishuRef, seq.seq, RENDERED_MAX)
     return
   }
   const stream = s ?? newStream(run.groupId)
@@ -676,13 +681,22 @@ async function replyOf(ctx: Ctx, run: Row, base: string | null) {
     .where(and(eq(messages.runId, run.id), eq(messages.kind, 'bot')))
     .orderBy(asc(messages.seq))
     .limit(1)
-  return reply
-    ? replyMarkdown(
-        reply.body,
-        base && `${base}/g/${run.groupId}?msg=${reply.id}`,
-        (reply.meta as MessageMeta).htmlRenders,
-      )
-    : null
+  if (!reply) return null
+  const meta = reply.meta as MessageMeta
+  return replyElements({
+    id: reply.id,
+    body: reply.body,
+    url: base && `${base}/g/${run.groupId}?msg=${reply.id}`,
+    pages: meta.htmlRenders,
+    answers: meta.actions,
+  })
+}
+
+/** A run's reply changed after the run ended (an actions block answered): its card follows. */
+export async function mirrorReply(ctx: Ctx, reply: { runId: string | null }) {
+  if (!reply.runId) return
+  const [run] = await ctx.db.select().from(runs).where(eq(runs.id, reply.runId))
+  if (run) await mirrorRun(ctx, run)
 }
 
 /** Fallback run card: an ordinary card message patched on change, throttled to CARD_THROTTLE_MS. */

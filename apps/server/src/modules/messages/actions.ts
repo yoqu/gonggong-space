@@ -5,7 +5,7 @@ import { messages } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { mirrorUserMessage } from '../feishu/mirror.js'
+import { mirrorReply, mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { resolveQuote } from './quote.js'
@@ -82,6 +82,7 @@ export async function answerActions(
     action: 'actions.answer',
     detail: { messageId: m.id, blockId: req.blockId, options: req.options },
   })
+  await mirrorReply(ctx, reply)
   await mirrorUserMessage(ctx, sent, user)
   await triggerRuns(ctx, sent)
   return dto

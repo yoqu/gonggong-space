@@ -1,11 +1,14 @@
-import type {
-  Answer,
-  HtmlRenderRef,
-  PermissionOption,
-  ProgressCard,
-  ProgressStageStatus,
-  Question,
-  RunStatus,
+import {
+  type ActionAnswer,
+  type ActionsBlock,
+  type Answer,
+  findUiBlocks,
+  type HtmlRenderRef,
+  type PermissionOption,
+  type ProgressCard,
+  type ProgressStageStatus,
+  type Question,
+  type RunStatus,
 } from '@gonggong/protocol'
 import { translator } from '../../i18n/index.js'
 import { summarizeBlocks } from '../../lib/text.js'
@@ -206,22 +209,110 @@ export function replyMarkdown(body: string, url: string | null, pages: HtmlRende
   return text === body || !url ? text : `${text}\n\n[${zt('在共工查看')}](${url})`
 }
 
+/** Stands in for an actions block while the rest of the reply is summarized; never part of chat text. */
+const slot = (i: number) => `${i}`
+
+/** A bot reply as card elements: its ```actions blocks as buttons in place, the rest as replyMarkdown. */
+export function replyElements(o: {
+  id: string
+  body: string
+  url: string | null
+  pages?: HtmlRenderRef[]
+  answers?: Record<string, ActionAnswer>
+}) {
+  const blocks: ActionsBlock[] = []
+  let body = ''
+  let at = 0
+  for (const b of findUiBlocks(o.body)) {
+    if (b.block.lang !== 'actions') continue
+    body += o.body.slice(at, b.start) + slot(blocks.length)
+    blocks.push(b.block.data)
+    at = b.end
+  }
+  body += o.body.slice(at)
+  return replyMarkdown(body, o.url, o.pages)
+    .split(/(\d+)/)
+    .flatMap((part, i) => {
+      if (i % 2 === 0) return part.trim() ? [markdown(truncated(part.trim()))] : []
+      const block = blocks[Number(part)] as ActionsBlock
+      return actionsElements(o.id, block, o.answers?.[block.id])
+    })
+}
+
+/** One actions block: buttons (a form for multiple), or once answered, disabled buttons and who chose what. */
+function actionsElements(messageId: string, b: ActionsBlock, answer: ActionAnswer | undefined): unknown[] {
+  const head = b.prompt ? [markdown(`**${b.prompt}**`)] : []
+  const button = (opt: ActionsBlock['options'][number], i: number) => {
+    const value: CardValue = { k: 'act', m: messageId, b: b.id, o: i }
+    return {
+      tag: 'button',
+      type: opt.style ?? 'default',
+      text: text(opt.label),
+      ...(answer ? { disabled: true } : { behaviors: [{ type: 'callback', value }] }),
+    }
+  }
+  const row = {
+    tag: 'column_set',
+    horizontal_spacing: 'small',
+    columns: b.options.map((opt, i) => ({ tag: 'column', width: 'auto', elements: [button(opt, i)] })),
+  }
+  if (answer)
+    return [
+      ...head,
+      row,
+      markdown(
+        grey(
+          zt('已选择：{labels}（by {name}）', { labels: answer.labels.join(zt('、')), name: answer.name }),
+        ),
+      ),
+    ]
+  if (!b.multiple) return [...head, row]
+  const value: CardValue = { k: 'act', m: messageId, b: b.id }
+  return [
+    ...head,
+    {
+      tag: 'form',
+      name: `act_${b.id}`,
+      elements: [
+        {
+          tag: 'multi_select_static',
+          name: ACT_FIELD,
+          required: true,
+          placeholder: text(zt('请选择')),
+          options: b.options.map((opt, i) => ({ text: text(opt.label), value: String(i) })),
+        },
+        {
+          tag: 'button',
+          type: 'primary',
+          name: 'submit',
+          text: text(zt('提交选择')),
+          form_action_type: 'submit',
+          behaviors: [{ type: 'callback', value }],
+        },
+      ],
+    },
+  ]
+}
+
+/** Form field of a multiple actions block's picks. */
+export const ACT_FIELD = 'opts'
+
 /** One card per run: status while it works, then the final reply. `url` (查看过程) is null without 对外地址. */
 export function runCard(o: {
   bot: string
   status: RunStatus
   step: string
-  reply: string | null
+  /** The final reply's elements (replyElements). */
+  reply: unknown[] | null
   url: string | null
   items?: Interaction[]
 }) {
   const s = STATUS[o.status]
-  const body = o.reply ?? o.step
   return card(
     o.bot,
     s.template,
     [
-      ...(body ? [markdown(truncated(body))] : []),
+      ...(o.reply ?? (o.step ? [markdown(truncated(o.step))] : [])),
       ...interactionElements(o.items ?? []),
       ...(o.url ? [linkButton(zt('查看过程'), o.url)] : []),
     ],
@@ -270,6 +361,9 @@ export type CardValue =
   | { k: 'answer'; q: string }
   | { k: 'approve'; a: string; o: string }
   | { k: 'full'; a: string }
+  /** An actions block of reply `m`: option `o`, or the ACT_FIELD picks of a multiple one. */
+  | { k: 'act'; m: string; b: string; o?: number }
+  | { k: 'share'; r: string; ok: boolean }
 
 const field = (i: number) => `q${i}`
 
@@ -468,6 +562,44 @@ export function notificationCard(o: { label: string; group: string; text: string
     [markdown(o.text), ...(o.url ? [linkButton(zt('打开共工'), o.url, true)] : [])],
     o.group || undefined,
   )
+}
+
+/** 飞书通知 of a share request: 同意 / 拒绝 while pending, then who decided. */
+export function shareRequestCard(o: {
+  label: string
+  text: string
+  url: string | null
+  requestId: string
+  decided?: { approved: boolean; by: string }
+}) {
+  const open = o.url ? [linkButton(zt('打开共工'), o.url)] : []
+  if (o.decided)
+    return card(o.label, 'grey', [
+      markdown(o.text),
+      markdown(
+        o.decided.approved
+          ? zt('已由 {name} 同意', { name: o.decided.by })
+          : zt('已由 {name} 拒绝', { name: o.decided.by }),
+      ),
+      ...open,
+    ])
+  const button = (label: string, type: string, ok: boolean) => {
+    const value: CardValue = { k: 'share', r: o.requestId, ok }
+    return {
+      tag: 'column',
+      width: 'auto',
+      elements: [{ tag: 'button', type, text: text(label), behaviors: [{ type: 'callback', value }] }],
+    }
+  }
+  return card(o.label, 'blue', [
+    markdown(o.text),
+    {
+      tag: 'column_set',
+      horizontal_spacing: 'small',
+      columns: [button(zt('同意'), 'primary', true), button(zt('拒绝'), 'danger', false)],
+    },
+    ...open,
+  ])
 }
 
 /** Why a Feishu @ did not start anything, with the way out when there is one. */

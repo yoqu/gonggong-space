@@ -713,6 +713,12 @@ export const en = {
   请先认证共工账号: 'Verify your Gonggong account first',
   已提交回答: 'Answers submitted',
   已处理: 'Handled',
+  已选择: 'Chosen',
+  提交选择: 'Submit',
+  '已选择：{labels}（by {name}）': 'Chosen: {labels} (by {name})',
+  同意: 'Approve',
+  拒绝: 'Decline',
+  '已由 {name} 同意': 'Approved by {name}',
   已在飞书中拒绝授权: 'Authorization was declined in Feishu',
   '飞书创建应用失败：{reason}': 'Feishu could not create the app: {reason}',
   '未设置对外地址，重定向 URL 需在飞书开发者后台手动添加':

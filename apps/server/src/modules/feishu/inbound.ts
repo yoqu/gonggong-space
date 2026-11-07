@@ -4,7 +4,7 @@ import { mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type { Attachment, Question } from '@gonggong/protocol'
+import { AnswerActionsReq, type Attachment, type Question } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
@@ -17,6 +17,7 @@ import {
   messages,
   questionSets,
   runs,
+  users,
 } from '../../db/schema.js'
 import { translator } from '../../i18n/index.js'
 import { HttpError } from '../../lib/errors.js'
@@ -24,10 +25,12 @@ import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { decideApproval } from '../approvals/service.js'
 import { dataDir, safeName } from '../attachments/service.js'
+import { approveShareRequest, rejectShareRequest } from '../bots/share-requests.js'
 import { dmsOf, isSharedWith } from '../bots/shares.js'
 import { fullAccessForRun } from '../bots/tier.js'
 import { createGroup } from '../groups/create.js'
 import { activeBots } from '../groups/service.js'
+import { answerActions } from '../messages/actions.js'
 import { resolveQuote } from '../messages/quote.js'
 import { eraseMessage, recallMessage } from '../messages/recall.js'
 import {
@@ -37,10 +40,11 @@ import {
   postEvent,
   publishMessage,
 } from '../messages/service.js'
+import { decidedShareCard } from '../notifications/feishu.js'
 import { answerQuestions } from '../questions/service.js'
 import { rerunFor, triggerRuns } from '../runs/trigger.js'
 import { groupRedactor } from '../secrets/resolve.js'
-import { approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
+import { ACT_FIELD, approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
 import { credsOf, type FeishuAppRow, type FeishuInbound, onFeishu } from './gateway.js'
 import { publicUrl } from './identity.js'
 import { boundChat, enqueue, linkOf, markBound, markRendered, userOfFeishu } from './mirror.js'
@@ -507,6 +511,23 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
   if (!user) return toast('error', zt('请先认证共工账号'))
   const own = (await linkOf(ctx, messageId))?.kind !== 'run_card'
   try {
+    if (value.k === 'act') {
+      const picks = value.o === undefined ? ev.action?.form_value?.[ACT_FIELD] : [value.o]
+      const req = AnswerActionsReq.safeParse({
+        blockId: value.b,
+        options: Array.isArray(picks) ? picks.map(Number) : [],
+      })
+      if (!req.success) return toast('error', zt('请选择'))
+      await answerActions(ctx, user, value.m, req.data)
+      return toast('success', zt('已选择'))
+    }
+    if (value.k === 'share') {
+      const [me] = await ctx.db.select().from(users).where(eq(users.id, user.id))
+      if (!me) return toast('error', zt('请先认证共工账号'))
+      await (value.ok ? approveShareRequest : rejectShareRequest)(ctx, me, value.r)
+      const card = await decidedShareCard(ctx, value.r, { approved: value.ok, by: user.name })
+      return { ...toast('success', zt('已处理')), ...(card && { card: { type: 'raw', data: card } }) }
+    }
     if (value.k === 'answer') {
       const [row] = await ctx.db
         .select({ q: questionSets, bot: bots.name })
