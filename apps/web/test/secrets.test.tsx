@@ -5,10 +5,12 @@ import type {
   MessageDto,
   MySecretDto,
   SecretDto,
+  SecretRequestDto,
   TeamDto,
   UserDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
@@ -16,6 +18,7 @@ import { GroupSettingsDialog } from '../src/features/groups/GroupSettingsDialog'
 import { SecretBanner } from '../src/features/secrets/SecretBanner'
 import { SecretCard } from '../src/features/secrets/SecretCard'
 import { SecretLayerList } from '../src/features/secrets/SecretLayer'
+import { SecretRequestPage } from '../src/features/secrets/SecretRequestPage'
 import { SettingsDialog } from '../src/features/settings/SettingsDialog'
 import { TeamSettingsDialog } from '../src/features/teams/TeamSettingsDialog'
 import { apiError, mockApi } from './mockApi'
@@ -567,5 +570,70 @@ describe('填写密钥 card', () => {
     render(<SecretCard m={m} card={{ ...card, filled: true }} />)
     expect(screen.getByText('已填写')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '填写密钥' })).toBeNull()
+  })
+})
+
+describe('/secret-requests/:id (opened from Feishu)', () => {
+  const req: SecretRequestDto = {
+    id: 'q1',
+    names: ['JIRA_TOKEN'],
+    audience: 'origin',
+    userId: 'u1',
+    filled: false,
+    foreign: true,
+    groupId: 'g1',
+    bot: '构建Bot',
+  }
+  const page = () =>
+    render(
+      <MemoryRouter initialEntries={['/secret-requests/q1']}>
+        <Routes>
+          <Route path="/secret-requests/:id" element={<SecretRequestPage />} />
+          <Route path="/g/:groupId" element={<div>群聊页</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  it('opens the fill dialog at once and says to go back to Feishu once filled', async () => {
+    const calls = mockApi({ 'GET /secret-requests/q1': req, 'POST /secret-requests/q1': {} })
+    page()
+    const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
+    expect(within(dialog).getByLabelText('允许在他人机器上的 Bot 使用')).toBeTruthy()
+    fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(await screen.findByText('已填写，可以回到飞书')).toBeTruthy()
+    expect(calls).toContainEqual({
+      method: 'POST',
+      path: '/secret-requests/q1',
+      body: { values: { JIRA_TOKEN: 'jira_12345678' }, allowForeignMachines: true },
+    })
+  })
+
+  it('shows a filled card as filled without the dialog', async () => {
+    mockApi({ 'GET /secret-requests/q1': { ...req, filled: true } })
+    page()
+    expect(await screen.findByText('已填写，可以回到飞书')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it("does not offer someone else's card", async () => {
+    mockApi({ 'GET /secret-requests/q1': { ...req, userId: 'u2' } })
+    page()
+    expect(await screen.findByText('只有发起人本人可以填写这些密钥')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('goes to the group when the dialog is closed', async () => {
+    mockApi({ 'GET /secret-requests/q1': req })
+    page()
+    const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    expect(await screen.findByText('群聊页')).toBeTruthy()
+  })
+
+  it('shows why the card cannot be opened', async () => {
+    mockApi({ 'GET /secret-requests/q1': apiError(404, 'not_found', '群不存在或你已不在群内') })
+    page()
+    expect(await screen.findByText('群不存在或你已不在群内')).toBeTruthy()
   })
 })

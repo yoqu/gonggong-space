@@ -16,10 +16,13 @@ import {
   previews,
   questionSets,
   runs,
+  secretRequests,
   users,
 } from '../../db/schema.js'
 import { remember } from '../../lib/lru.js'
+import { openFile } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
+import { htmlRenderSnapshotFile } from '../attachments/html-render.js'
 import { type MessageMeta, postEvent } from '../messages/service.js'
 import { snapshotFile } from '../previews/service.js'
 import { botApp, mainApp } from './apps.js'
@@ -27,7 +30,9 @@ import {
   approvalCard,
   type Interaction,
   isPending,
+  type PageShot,
   type PreviewState,
+  pageShot,
   previewCard,
   progressCard,
   questionCard,
@@ -35,6 +40,7 @@ import {
   replyElements,
   runCard,
   runStreamCard,
+  secretCard,
   streamText,
 } from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
@@ -71,7 +77,7 @@ interface Mirror {
   rendered: Map<string, string>
   /** Per run: when its card last changed, and the deferred update if one is due. */
   throttle: Map<string, { at: number; timer?: NodeJS.Timeout }>
-  /** Per preview: the snapshot uploaded to Feishu (by when it was taken) and its image_key. */
+  /** Per preview (by when it was taken) or html_render page: the snapshot uploaded to Feishu and its image_key. */
   images: Map<string, { at: number; key: string }>
   /** Per live run with a streaming card (or about to get one). */
   streams: Map<string, Stream>
@@ -500,7 +506,7 @@ async function syncRun(ctx: Ctx, runId: string) {
 
 async function cardLink(
   ctx: Ctx,
-  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction',
+  kind: 'run_card' | 'question' | 'approval' | 'preview' | 'progress' | 'reaction' | 'secret',
   key: { runId?: string; refId?: string },
 ) {
   const [link] = await ctx.db
@@ -619,7 +625,7 @@ async function syncRunCard(
       bot,
       status: run.status as RunStatus,
       step: run.step,
-      reply: await replyOf(ctx, run, base),
+      reply: await replyOf(ctx, app, run, base),
       url,
       items,
     })
@@ -674,7 +680,8 @@ async function syncRunCard(
   scheduleFlush(ctx, run.id, stream)
 }
 
-async function replyOf(ctx: Ctx, run: Row, base: string | null) {
+/** The run's final reply as card markdown, with snapshots of its html_render pages that have one. */
+async function replyOf(ctx: Ctx, app: FeishuAppRow, run: Row, base: string | null) {
   const [reply] = await ctx.db
     .select({ id: messages.id, body: messages.body, meta: messages.meta })
     .from(messages)
@@ -683,13 +690,16 @@ async function replyOf(ctx: Ctx, run: Row, base: string | null) {
     .limit(1)
   if (!reply) return null
   const meta = reply.meta as MessageMeta
-  return replyElements({
-    id: reply.id,
-    body: reply.body,
-    url: base && `${base}/g/${run.groupId}?msg=${reply.id}`,
-    pages: meta.htmlRenders,
-    answers: meta.actions,
-  })
+  const url = base && `${base}/g/${run.groupId}?msg=${reply.id}`
+  const shots: PageShot[] = []
+  for (const p of meta.htmlRenders ?? []) {
+    const image = await pageImage(ctx, app, p.attachmentId)
+    if (image) shots.push({ title: p.title, image, url })
+  }
+  return [
+    ...replyElements({ id: reply.id, body: reply.body, url, pages: meta.htmlRenders, answers: meta.actions }),
+    ...shots.flatMap(pageShot),
+  ]
 }
 
 /** A run's reply changed after the run ended (an actions block answered): its card follows. */
@@ -697,6 +707,25 @@ export async function mirrorReply(ctx: Ctx, reply: { runId: string | null }) {
   if (!reply.runId) return
   const [run] = await ctx.db.select().from(runs).where(eq(runs.id, reply.runId))
   if (run) await mirrorRun(ctx, run)
+}
+
+/** An html_render page's snapshot as a Feishu image, uploaded once; null when its daemon sent none or Feishu refuses. */
+async function pageImage(ctx: Ctx, app: FeishuAppRow, attachmentId: string) {
+  const { images } = state(ctx)
+  const cached = images.get(attachmentId)
+  if (cached) return cached.key
+  const png = await openFile(htmlRenderSnapshotFile(attachmentId))
+    .then((s) => s.toArray())
+    .then((chunks) => Buffer.concat(chunks as Buffer[]))
+    .catch(() => null)
+  if (!png) return null
+  const key = await ctx.feishu.api.uploadImage(credsOf(app), png).catch((err) => {
+    if (!(err instanceof FeishuError)) throw err
+    console.error('feishu page snapshot upload:', `${err.code} ${err.message}`)
+    return null
+  })
+  if (key) remember(images, attachmentId, { at: 0, key }, IMAGES_MAX)
+  return key
 }
 
 /** Fallback run card: an ordinary card message patched on change, throttled to CARD_THROTTLE_MS. */
@@ -727,7 +756,7 @@ async function patchedRunCard(
     bot,
     status: run.status as RunStatus,
     step: run.step,
-    reply: terminal ? await replyOf(ctx, run, await publicUrl(ctx)) : null,
+    reply: terminal ? await replyOf(ctx, app, run, await publicUrl(ctx)) : null,
     url,
     items,
   })
@@ -917,6 +946,57 @@ async function syncProgressCard(ctx: Ctx, groupId: string, messageId: string) {
   })
   if (settled) throttle.delete(messageId)
   else throttle.set(messageId, { at: Date.now() })
+}
+
+/** Called when a 填写密钥 card is posted or filled: mirrors it to the bound chat as the asking bot's app. */
+export async function mirrorSecretCard(ctx: Ctx, groupId: string, requestId: string) {
+  if ((await sysParams(ctx.db)).demoMode || !(await boundChat(ctx.db, groupId))?.syncOutbound) return
+  enqueue(ctx, groupId, () => syncSecretCard(ctx, groupId, requestId))
+}
+
+async function syncSecretCard(ctx: Ctx, groupId: string, requestId: string) {
+  const chat = await boundChat(ctx.db, groupId)
+  const [row] = await ctx.db
+    .select({ req: secretRequests, run: runs, bot: bots.name, body: messages.body })
+    .from(secretRequests)
+    .innerJoin(runs, eq(runs.id, secretRequests.runId))
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .innerJoin(messages, eq(messages.id, secretRequests.messageId))
+    .where(eq(secretRequests.id, requestId))
+  if (!chat?.syncOutbound || !row) return
+  const app = await appOfBot(ctx, row.run.botId)
+  if (!app) return
+  const [trigger] = await ctx.db
+    .select({ chatId: feishuMessageLinks.chatId, feishuMessageId: feishuMessageLinks.feishuMessageId })
+    .from(feishuMessageLinks)
+    .where(
+      and(eq(feishuMessageLinks.messageId, row.run.triggerMessageId), eq(feishuMessageLinks.kind, 'message')),
+    )
+  const base = await publicUrl(ctx)
+  const at = row.req.userId && !row.req.filledAt ? await cardAt(ctx, row.req.userId, app) : ''
+  const card = secretCard({
+    bot: row.bot,
+    text: at ? `${at} ${row.body}` : row.body,
+    filled: row.req.filledAt !== null,
+    url: base && `${base}/secret-requests/${requestId}`,
+  })
+  const existing = await cardLink(ctx, 'secret', { refId: requestId })
+  await putCard(ctx, app, trigger ?? { chatId: chat.chatId }, existing, card, {
+    kind: 'secret',
+    refId: requestId,
+  })
+}
+
+/**
+ * A card markdown @ of a linked user: by tenant-wide user_id or email, since open_id is per app; the main app's
+ * open_id only when the card is the main app's own.
+ */
+async function cardAt(ctx: Ctx, userId: string, app: FeishuAppRow) {
+  const [fi] = await ctx.db.select().from(feishuIdentities).where(eq(feishuIdentities.userId, userId))
+  if (!fi) return ''
+  if (fi.feishuUserId) return `<at id=${fi.feishuUserId}></at>`
+  if (fi.email) return `<at email=${fi.email}></at>`
+  return app.botId ? '' : `<at id=${fi.openId}></at>`
 }
 
 /** The preview's latest snapshot as a Feishu image; uploaded once per snapshot, skipped when Feishu refuses. */

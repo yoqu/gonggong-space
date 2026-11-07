@@ -121,6 +121,15 @@ async fn uploads_the_checked_page_with_its_title_height_and_heights() {
         let heights: Vec<(u32, u32)> = serde_json::from_str(heights).unwrap();
         assert_eq!(heights.len(), 9);
         assert!(heights.iter().all(|&(_, h)| h == 300), "{heights:?}");
+        // With a browser the page also goes up as a screenshot at the reply column, for cards that can't run it.
+        let at = req.find(r#"name="snapshot""#).expect("snapshot part");
+        let part = &req[at..];
+        assert!(
+            part.contains(r#"filename="page.png""#) && part.to_ascii_lowercase().contains("content-type: image/png")
+        );
+        assert!(part.split_once("\r\n\r\n").unwrap().1.starts_with("\u{fffd}PNG\r\n"), "{}", &part[..200]);
+    } else {
+        assert!(!req.contains(r#"name="snapshot""#));
     }
 
     let gone = format!(r#"<img src="{}">"#, dir.path().join("gone.png").display());

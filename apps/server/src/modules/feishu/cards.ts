@@ -297,6 +297,14 @@ function actionsElements(messageId: string, b: ActionsBlock, answer: ActionAnswe
 /** Form field of a multiple actions block's picks. */
 export const ACT_FIELD = 'opts'
 
+/** An html_render page's snapshot (a Feishu image_key), and where the reply shows the live page (null without 对外地址). */
+export type PageShot = { title: string; image: string; url: string | null }
+
+export const pageShot = (p: PageShot) => [
+  { tag: 'img', img_key: p.image, alt: text(p.title), scale_type: 'fit_horizontal', preview: true },
+  ...(p.url ? [linkButton(zt('在共工查看完整页面'), p.url)] : []),
+]
+
 /** One card per run: status while it works, then the final reply. `url` (查看过程) is null without 对外地址. */
 export function runCard(o: {
   bot: string
@@ -534,6 +542,25 @@ export function previewCard(o: {
     s.template,
     elements.length ? elements : [markdown(note)],
     `${o.bot} · ${PREVIEW_KIND[o.kind] ?? o.kind} · ${s.label}`,
+  )
+}
+
+/**
+ * A bot asking for secrets (secret_request): values are only typed on 共工's page, never into the card. `url` is null
+ * without 对外地址.
+ */
+export function secretCard(o: { bot: string; text: string; filled: boolean; url: string | null }) {
+  if (o.filled) return card(zt('填写密钥'), 'green', [markdown(o.text)], `${o.bot} · ${zt('已填写')}`)
+  return card(
+    zt('填写密钥'),
+    'orange',
+    [
+      markdown(o.text),
+      o.url
+        ? linkButton(zt('去填写'), o.url, true)
+        : markdown(grey(zt('请到共工群里填写；如需在飞书直接打开，请系统管理员设置对外地址'))),
+    ],
+    `${o.bot} · ${zt('等待填写')}`,
   )
 }
 

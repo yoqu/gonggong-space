@@ -1,9 +1,10 @@
-import type { FillSecretReq, SecretCard } from '@gonggong/protocol'
+import type { FillSecretReq, SecretCard, SecretRequestDto } from '@gonggong/protocol'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groups, machines, messages, runs, secretRequests, users } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isLayerAdmin } from '../agent-tools/layers.js'
+import { mirrorSecretCard } from '../feishu/mirror.js'
 import { requireMember } from '../groups/service.js'
 import { forceNewSessions } from '../mcp/service.js'
 import { authorName, type MessageMeta, memberIds, messageDto, postEvent } from '../messages/service.js'
@@ -65,6 +66,7 @@ export async function postSecretCard(
     { secretCard: posted },
   )
   await ctx.db.update(secretRequests).set({ messageId: msg.id }).where(eq(secretRequests.id, req.id))
+  await mirrorSecretCard(ctx, run.groupId, req.id)
   return posted
 }
 
@@ -88,6 +90,21 @@ export async function pendingSecretCards(ctx: Ctx, userId: string, groupId: stri
     const c = (r.meta as MessageMeta).secretCard
     return c ? [c] : []
   })
+}
+
+/** One card for its group's members, as posted (so it keeps `foreign`). */
+export async function secretRequestOf(ctx: Ctx, userId: string, id: string): Promise<SecretRequestDto> {
+  const [row] = await ctx.db
+    .select({ req: secretRequests, meta: messages.meta, bot: bots.name })
+    .from(secretRequests)
+    .leftJoin(messages, eq(messages.id, secretRequests.messageId))
+    .leftJoin(runs, eq(runs.id, secretRequests.runId))
+    .leftJoin(bots, eq(bots.id, runs.botId))
+    .where(eq(secretRequests.id, id))
+  if (!row) return fail('not_found', '密钥请求不存在')
+  await requireMember(ctx, row.req.groupId, userId)
+  const posted = (row.meta as MessageMeta | null)?.secretCard ?? card(row.req)
+  return { ...posted, filled: row.req.filledAt !== null, groupId: row.req.groupId, bot: row.bot ?? '' }
 }
 
 /**
@@ -141,6 +158,7 @@ export async function fillSecretRequest(ctx: Ctx, userId: string, id: string, bo
   if (req.forceNewSession)
     await forceNewSessions(ctx, { scope: 'group', teamId: group.teamId, groupId: req.groupId })
   const done = (req.messageId ? await refreshCard(ctx, req.messageId) : undefined) ?? card(claimed)
+  await mirrorSecretCard(ctx, req.groupId, req.id)
   await carryOn(ctx, req.runId)
   return done
 }

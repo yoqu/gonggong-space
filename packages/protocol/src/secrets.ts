@@ -118,6 +118,9 @@ export const SecretCard = z.object({
   foreign: z.boolean().optional(),
 })
 export type SecretCard = z.infer<typeof SecretCard>
+/** GET /api/secret-requests/:id (the page a Feishu card links to): the card, its group and the asking bot. */
+export const SecretRequestDto = SecretCard.extend({ groupId: z.string(), bot: z.string() })
+export type SecretRequestDto = z.infer<typeof SecretRequestDto>
 /** POST /api/secret-requests/:id; GET /api/groups/:groupId/secret-requests lists my unfilled `origin` cards there. */
 export const FillSecretReq = z.object({
   values: z.record(SecretName, SecretValue),
