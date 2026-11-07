@@ -104,7 +104,9 @@ describe('群设置 · 飞书 binding', () => {
 
     const bound = await ownerHttp.put<GroupFeishuView>(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
     expect(bound.body.chat).toMatchObject({ chatId: CHAT, name: '研发群' })
-    expect(bound.body.bots).toEqual([{ botId: bot.id, name: 'codex', appId: BOT_APP, inChat: true }])
+    expect(bound.body.bots).toEqual([
+      { botId: bot.id, name: 'codex', appId: BOT_APP, inChat: true, issue: null },
+    ])
 
     expect((await ownerHttp.put(`/api/groups/${group.id}/feishu`, { chatId: CHAT })).status).toBe(409)
     expect((await ownerHttp.del(`/api/groups/${group.id}/feishu`)).status).toBe(204)
@@ -177,7 +179,9 @@ describe('群设置 · 飞书 binding', () => {
     const bound = await ownerHttp.put<GroupFeishuView>(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
     expect(bound.status).toBe(200)
     expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: BOT_APP }])
-    expect(bound.body.bots).toEqual([{ botId: bot.id, name: 'codex', appId: BOT_APP, inChat: true }])
+    expect(bound.body.bots).toEqual([
+      { botId: bot.id, name: 'codex', appId: BOT_APP, inChat: true, issue: null },
+    ])
 
     // Already in the chat: nothing to add. Refused: the binding stands and the bot shows as outside.
     await ownerHttp.del(`/api/groups/${group.id}/feishu`)
@@ -191,11 +195,68 @@ describe('群设置 · 飞书 binding', () => {
     const refused = await ownerHttp.put<GroupFeishuView>(`/api/groups/${group.id}/feishu`, { chatId: CHAT })
     expect(refused.status).toBe(200)
     expect(refused.body.chat).toMatchObject({ chatId: CHAT })
-    expect(refused.body.bots[0]?.inChat).toBe(false)
+    expect(refused.body.bots[0]).toMatchObject({
+      inChat: false,
+      issue: { code: 232024, message: '群设置不允许添加机器人' },
+    })
+    // The reason stays on the page until a retry gets the bot in.
+    const later = await ownerHttp.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)
+    expect(later.body.bots[0]?.issue?.code).toBe(232024)
+    const retry = await ownerHttp.post<{ message: string }>(`/api/groups/${group.id}/feishu/bots/${bot.id}`)
+    expect(retry.status).toBe(400)
+    expect(retry.body.message).toBe(
+      '拉入飞书群失败：飞书应用还没发布，或相关成员不在它的可用范围内。请应用管理员在飞书开放平台发布应用版本，并在飞书管理后台把可用范围设为需要的成员。（飞书错误码 232024：群设置不允许添加机器人）',
+    )
+    t.feishu.addBotError = null
+    const fixed = await ownerHttp.post<GroupFeishuView>(`/api/groups/${group.id}/feishu/bots/${bot.id}`)
+    expect(fixed.body.bots[0]).toMatchObject({ inChat: true, issue: null })
+  })
+
+  it('lists chats where the main app is, naming it so a missing chat can be fixed', async () => {
+    const { ownerHttp, group } = await setup({ bind: false })
+    t.feishu.appNames.set(MAIN, '共工助手')
+    const view = await ownerHttp.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)
+    expect(view.body.mainAppName).toBe('共工助手')
+    expect((await ownerHttp.get<{ mainAppName: string }>('/api/feishu/chats')).body.mainAppName).toBe(
+      '共工助手',
+    )
+  })
+
+  it('pulls a bot newly added to a bound group into the Feishu chat, telling the group when it cannot', async () => {
+    const { ownerHttp, group, owner, machine } = await setup()
+    const addBot = async (name: string, appId: string) => {
+      const bot = await t.seed.bot({ ownerId: owner.id, machineId: machine.id, name })
+      expect((await ownerHttp.put(`/api/bots/${bot.id}/feishu`, { appId, appSecret: 's' })).status).toBe(200)
+      expect((await ownerHttp.post(`/api/groups/${group.id}/bots`, { botId: bot.id })).status).toBe(200)
+      return bot
+    }
+    t.feishu.botsAdded.length = 0
+    await addBot('claude', 'cli_bot2')
+    expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: 'cli_bot2' }])
+
+    // Already in the chat: left alone.
+    t.feishu.chats.set('cli_bot3', [{ chatId: CHAT, name: '研发群', avatar: null }])
+    await addBot('gemini', 'cli_bot3')
+    expect(t.feishu.botsAdded).toHaveLength(1)
+
+    t.feishu.addBotError = 'bot not visible'
+    t.feishu.addBotErrorCode = 232025
+    const kimi = await addBot('kimi', 'cli_bot4')
+    const [event] = (await t.db.select().from(messages).where(eq(messages.groupId, group.id))).filter((m) =>
+      m.body.startsWith('kimi 没能自动拉入飞书群'),
+    )
+    expect(event?.body).toBe(
+      'kimi 没能自动拉入飞书群：飞书应用没有开启机器人能力。请应用管理员在飞书开放平台的「应用能力」里添加机器人，并发布新版本。',
+    )
+    expect(event?.meta).toMatchObject({
+      feishuIssue: { botId: kimi.id, code: 232025, message: 'bot not visible' },
+    })
+    const view = await ownerHttp.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)
+    expect(view.body.bots.find((b) => b.botId === kimi.id)?.issue?.code).toBe(232025)
   })
 
   it("tells the group once when a bot's replies cannot reach Feishu because its app is not in the chat", async () => {
-    const { ownerHttp, group } = await setup()
+    const { ownerHttp, group, bot } = await setup()
     t.feishu.chats.set(BOT_APP, [])
     t.feishu.strictChats = true
     const say = (clientId: string) =>
@@ -204,15 +265,52 @@ describe('群设置 · 飞书 binding', () => {
       (await t.db.select().from(messages).where(eq(messages.groupId, group.id)))
         .filter((m) => m.kind === 'event')
         .map((m) => m.body)
-        .filter((b) => b.includes('飞书应用不在飞书群'))
+        .filter((b) => b.startsWith('codex 的回复没有同步到飞书群'))
     await say('client-1')
     await feishuIdle(t.ctx)
     expect(await notices()).toEqual([
-      'codex 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」',
+      'codex 的回复没有同步到飞书群：机器人不在飞书群里。请群管理员把它拉入飞书群，或在飞书群设置里添加该机器人。',
     ])
+    const all = await t.db.select().from(messages).where(eq(messages.groupId, group.id))
+    expect(all.find((m) => m.body.startsWith('codex 的回复'))?.meta).toMatchObject({
+      feishuIssue: { botId: bot.id, code: 230002 },
+    })
     await say('client-2')
     await feishuIdle(t.ctx)
     expect(await notices()).toHaveLength(1)
+  })
+
+  it('tells the group in plain words when Feishu refuses a reply for another reason', async () => {
+    const { ownerHttp, group } = await setup()
+    t.feishu.sendErrors.set(BOT_APP, { code: 230035, message: 'Bot has no permission to send' })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 你好', clientId: 'client-1' })
+    await feishuIdle(t.ctx)
+    const events = (await t.db.select().from(messages).where(eq(messages.groupId, group.id))).filter((m) =>
+      m.body.startsWith('codex 的回复没有同步到飞书群'),
+    )
+    expect(events.map((m) => m.body)).toEqual([
+      'codex 的回复没有同步到飞书群：飞书群开启了禁言或仅部分成员可发言，机器人发不了消息。请飞书群主在群设置里允许机器人发言。',
+    ])
+    expect(events[0]?.meta).toMatchObject({
+      feishuIssue: { code: 230035, message: 'Bot has no permission to send' },
+    })
+  })
+
+  it('only logs a refused reply whose cause it cannot explain (network, unknown codes)', async () => {
+    const { ownerHttp, group } = await setup()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    t.feishu.sendErrors.set(BOT_APP, { code: 0, message: 'timeout of 10000ms exceeded' })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 你好', clientId: 'client-1' })
+    await feishuIdle(t.ctx)
+    t.feishu.sendErrors.set(BOT_APP, { code: 99991400, message: 'request trigger frequency limit' })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 再来', clientId: 'client-2' })
+    await feishuIdle(t.ctx)
+    const events = (await t.db.select().from(messages).where(eq(messages.groupId, group.id))).filter((m) =>
+      m.body.startsWith('codex 的回复没有同步到飞书群'),
+    )
+    expect(events).toEqual([])
+    expect(log).toHaveBeenCalled()
+    log.mockRestore()
   })
 
   it('is unavailable until the main app is configured', async () => {
@@ -221,6 +319,7 @@ describe('群设置 · 飞书 binding', () => {
     const http = client(t, await t.seed.cookie(owner.id))
     expect((await http.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)).body).toEqual({
       available: false,
+      mainAppName: null,
       chat: null,
       chats: [],
       bots: [],

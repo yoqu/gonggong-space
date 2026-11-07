@@ -41,6 +41,7 @@ import { useBotCostume } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
 import { McpSecretCard } from '../config/McpSecretCard'
 import { FeishuChatLink } from '../feishu/FeishuChatLink'
+import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
 import { LinkedGitOperation } from '../git/GitOperations'
 import { GroupTabBar } from '../group-tabs/GroupTabBar'
 import { GroupAvatar } from '../groups/GroupAvatar'
@@ -458,6 +459,7 @@ export function ChatView({
     if (m.progress) return <ProgressCard card={m.progress} />
     if (m.card?.type === 'creation-draft') return <CreationDraftView m={m} card={m.card} />
     if (m.card?.type === 'artifact') return <ArtifactCardView card={m.card} />
+    if (m.feishuIssue) return <FeishuIssueEventRow m={m} issue={m.feishuIssue} />
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />
     if (m.kind === 'bot') return <BotReply m={m} compact={compact} />

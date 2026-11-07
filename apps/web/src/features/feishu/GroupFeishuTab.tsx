@@ -15,6 +15,7 @@ import {
   Tag,
   toast,
 } from '../../ui'
+import { feishuHintText } from './FeishuIssueEvent'
 
 const list = (names: string[]) => names.join(locale === 'en' ? ', ' : '、')
 
@@ -30,6 +31,14 @@ function createConsequences(v: GroupFeishuView) {
     t('你是群主，之后在本群添加的成员也会被拉进飞书群'),
   ]
 }
+
+/** Why the picker may miss a chat: it lists only those the main app's bot is in. */
+export const chatListNote = (mainAppName: string | null) =>
+  mainAppName
+    ? t('只列出共工机器人「{name}」已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新', {
+        name: mainAppName,
+      })
+    : t('只列出共工主应用机器人已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新')
 
 /** 群设置 · 飞书: bind the group to one Feishu chat of the main app; bots need their own app in that chat. */
 export function GroupFeishuTab({ group }: { group: GroupDto }) {
@@ -53,7 +62,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
     }
   }
 
-  // Bots that could not be added on binding are left to 拉入飞书群 below: say so instead of a plain success.
+  // Bots and members are pulled in on binding; a bot Feishu refused is listed below with why and a retry.
   const bind = async () => {
     setBusy(true)
     try {
@@ -64,13 +73,27 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
         out
           ? {
               type: 'info',
-              message: t('已绑定飞书群 · {n} 个 Bot 未入群，请在下方点「拉入飞书群」', { n: out }),
+              message: t('已绑定飞书群 · {n} 个 Bot 没能拉入，原因见下方', { n: out }),
             }
           : { type: 'success', message: t('已绑定飞书群') },
       )
     } catch (e) {
       toastError(e)
     } finally {
+      setBusy(false)
+    }
+  }
+
+  // A failed retry still reloads: the bot's row shows Feishu's latest reason.
+  const pullBot = async (botId: string) => {
+    setBusy(true)
+    try {
+      await api.post(`${path}/bots/${botId}`, {})
+      toast({ type: 'success', message: t('已拉入飞书群') })
+    } catch (e) {
+      toastError(e)
+    } finally {
+      reload()
       setBusy(false)
     }
   }
@@ -104,6 +127,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
   return (
     <>
       <div className="gs-note">{t('绑定后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。')}</div>
+      {data.chat ? null : <div className="gs-note">{chatListNote(data.mainAppName)}</div>}
       <div className="gs-note">
         {t(
           '成员自动同步：飞书群里已绑定飞书账号的团队成员会加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。',
@@ -183,6 +207,9 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </>
         ) : (
           <GroupRow label={t('飞书群')} description={t('列出主应用和你都在、尚未绑定的飞书群')}>
+            <Button disabled={busy} onClick={reload}>
+              {t('刷新')}
+            </Button>
             <PopUpButton
               aria-label={t('飞书群')}
               placeholder={data.chats.length ? t('选择飞书群') : t('没有可绑定的飞书群')}
@@ -207,10 +234,8 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </GroupRow>
         )}
       </GroupBox>
-      {data.chat ? null : (
-        <div className="gs-note">{t('找不到群？请先把主应用拉进飞书群；已被其他群绑定的不显示')}</div>
-      )}
-      {data.chat && data.bots.some((b) => b.appId && !b.inChat) ? (
+      {data.chat ? null : <div className="gs-note">{t('已被其他群绑定的飞书群不显示')}</div>}
+      {data.chat && data.bots.some((b) => b.appId && !b.inChat && !b.issue) ? (
         <div className="gs-note">
           {t(
             '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。',
@@ -223,18 +248,26 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
             <GroupRow
               key={b.botId}
               label={b.name}
-              description={b.appId && !b.inChat ? t('未在飞书群 · 回复不会同步到飞书') : undefined}
+              description={
+                !b.appId || b.inChat ? undefined : b.issue ? (
+                  <>
+                    {t('没能拉入飞书群：{reason}', { reason: feishuHintText(b.issue.code) })}
+                    <span className="feishu-issue__code" title={b.issue.message}>
+                      {t('飞书错误码 {code}', { code: b.issue.code })}
+                    </span>
+                  </>
+                ) : (
+                  t('未在飞书群 · 回复不会同步到飞书')
+                )
+              }
             >
               {!b.appId ? (
                 <Tag tone="gray">{t('未绑定飞书应用')}</Tag>
               ) : b.inChat ? (
                 <Tag tone="green">{t('已在群中')}</Tag>
               ) : (
-                <Button
-                  disabled={busy}
-                  onClick={() => void run(() => api.post(`${path}/bots/${b.botId}`, {}), t('已拉入飞书群'))}
-                >
-                  {t('拉入飞书群')}
+                <Button disabled={busy} onClick={() => void pullBot(b.botId)}>
+                  {b.issue ? t('重试') : t('拉入飞书群')}
                 </Button>
               )}
             </GroupRow>

@@ -55,7 +55,11 @@ describe('从飞书群创建群', () => {
   it('lists only chats I am in, then creates the group bound to it with its users and bots', async () => {
     const s = await setup()
     const choices = await s.http.get<FeishuChatChoicesDto>('/api/feishu/chats')
-    expect(choices.body).toEqual({ available: true, chats: [{ chatId: CHAT, name: '研发群' }] })
+    expect(choices.body).toEqual({
+      available: true,
+      mainAppName: null,
+      chats: [{ chatId: CHAT, name: '研发群' }],
+    })
 
     const res = await s.http.post<GroupFromFeishuDto>('/api/groups/from-feishu', {
       chatId: CHAT,
