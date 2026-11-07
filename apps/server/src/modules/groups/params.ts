@@ -1,4 +1,10 @@
-import { type GroupParams, type SystemParams, TEAM_PARAM_KEYS, TeamParams } from '@gonggong/protocol'
+import {
+  type GroupParams,
+  type ReplyStyle,
+  type SystemParams,
+  TEAM_PARAM_KEYS,
+  TeamParams,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -46,6 +52,10 @@ export async function teamParams(db: Pick<Db, 'select'>, teamId: string): Promis
   }
   return { ...platform, ...(await hit) }
 }
+
+/** Groups from before the setting have none and keep the technical tone. */
+export const replyStyleOf = (own: unknown): ReplyStyle =>
+  (own as { replyStyle?: ReplyStyle }).replyStyle ?? 'tech'
 
 /** A group's own overrides (`groups.params`) over `defaults`. */
 export const withDefaults = (own: unknown, defaults: GroupParams): GroupParams =>

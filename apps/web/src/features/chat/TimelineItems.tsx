@@ -44,6 +44,7 @@ import { OfflineNote, RunActions } from '../runs/RunActions'
 import { RunSyncLine } from '../sync/RunSyncLine'
 import { BotCardTrigger, UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
+import { splitBasis } from './basis'
 import { Clamp } from './Clamp'
 import { citeInChat } from './cite'
 import { useRunDeltas } from './deltas'
@@ -593,9 +594,21 @@ function ReplyMessage({
 function ReplyBody({ m }: { m: MessageDto }) {
   const rich = useMemo(() => findUiBlocks(m.body).length > 0, [m.body])
   const rest = useMemo(() => unplacedHtmlPages(m.body, m.htmlRenders ?? []), [m.body, m.htmlRenders])
+  const split = useMemo(() => splitBasis(m.body), [m.body])
+  const botId = m.authorId ?? undefined
   const body = (
     <RichMessage.Provider value={m}>
-      {m.body.trim() ? <Markdown text={m.body} botId={m.authorId ?? undefined} /> : null}
+      {split ? (
+        <>
+          <Markdown text={split.main} botId={botId} />
+          <details className="md-basis">
+            <summary>{t('依据')}</summary>
+            <Markdown text={split.basis} botId={botId} />
+          </details>
+        </>
+      ) : m.body.trim() ? (
+        <Markdown text={m.body} botId={botId} />
+      ) : null}
       {rest.map((p) => (
         <HtmlRender key={p.attachmentId} page={p} />
       ))}

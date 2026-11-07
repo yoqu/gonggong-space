@@ -1051,6 +1051,9 @@ export type PushSubscriptionReq = z.infer<typeof PushSubscriptionReq>
 
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const GroupKind = z.enum(['group', 'dm'])
+/** 技术 or 业务 (conclusion first, plain words, evidence last); stored in `groups.params`, absent = tech. */
+export const ReplyStyle = z.enum(['tech', 'business'])
+export type ReplyStyle = z.infer<typeof ReplyStyle>
 export const GroupDto = z.object({
   id: z.string(),
   teamId: z.string(),
@@ -1063,6 +1066,8 @@ export const GroupDto = z.object({
   adminOnlyInvite: z.boolean(),
   /** 禁止直推基准分支: agents commit on feature branches; pushing to the base branch asks the bot owner. */
   protectBase: z.boolean(),
+  /** 回复风格: how the bots word their replies; always sent by the server. */
+  replyStyle: ReplyStyle.optional(),
   notice: z.string(),
   /** The caller closed the current notice for themselves; a newer notice shows again. */
   noticeHidden: z.boolean(),
@@ -1975,6 +1980,7 @@ export const UpdateGroupReq = z.object({
   notice: z.string().trim().max(500).optional(),
   adminOnlyInvite: z.boolean().optional(),
   protectBase: z.boolean().optional(),
+  replyStyle: ReplyStyle.optional(),
 })
 export type UpdateGroupReq = z.infer<typeof UpdateGroupReq>
 /** PUT /api/groups/:id/prefs — only for the caller. */
