@@ -66,8 +66,8 @@ describe('machines overview', () => {
       </MemoryRouter>,
     )
     const overview = screen.getByRole('region', { name: '机器总览' })
-    // Headed like 市场 and 作品, with the machine count.
-    expect(within(overview).getByRole('heading', { level: 1, name: '机器与 Bot' })).toBeTruthy()
+    // Headed like 市场 and 作品, with the machine count; the sidebar already says 机器与 Bot.
+    expect(within(overview).getByRole('heading', { level: 1, name: '我的机器' })).toBeTruthy()
     expect(within(overview).getByText('2')).toBeTruthy()
     const card = within(overview).getByRole('link', { name: /wanglei-mbp/ })
     expect(card.getAttribute('href')).toBe('/machine/m1')

@@ -29,6 +29,20 @@
   width: var(--avatar-regular);
   flex: none;
 }
+.pn-msg__stamp {
+  display: block;
+  font-size: 10px;
+  line-height: 22px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--label-tertiary);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+}
+.pn-msg:hover .pn-msg__stamp,
+.pn-msg:focus-within .pn-msg__stamp {
+  opacity: 1;
+}
 .pn-msg__col {
   display: flex;
   flex-direction: column;

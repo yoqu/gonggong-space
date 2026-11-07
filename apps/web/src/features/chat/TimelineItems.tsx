@@ -142,6 +142,16 @@ function Time({
   )
 }
 
+/** Hour and minute only: the gutter of a merged row is avatar-wide, and its group's head already gives the day. */
+function Stamp({ iso }: { iso: string }) {
+  const d = new Date(iso)
+  return (
+    <time dateTime={iso} title={fullTime(d)}>
+      {`${pad(d.getHours())}:${pad(d.getMinutes())}`}
+    </time>
+  )
+}
+
 function PinMark({ message }: { message: Pick<MessageDto, 'id' | 'groupId'> }) {
   const pinned = usePins(message.groupId).some((p) => p.messageId === message.id)
   return pinned ? (
@@ -423,6 +433,7 @@ export const UserMessage = memo(function UserMessage({
           self={mine}
           continued={compact}
           time={<Time iso={m.createdAt} edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
+          stamp={<Stamp iso={m.createdAt} />}
           meta={
             m.scheduledBy || unnamed.length ? (
               <>
@@ -558,6 +569,7 @@ function ReplyMessage({
         author={botAuthor(m.authorName, m.authorId, m.groupId)}
         continued={continued}
         time={<Time iso={m.createdAt} pin={m} />}
+        stamp={<Stamp iso={m.createdAt} />}
         meta={meta}
         actionBar={bar}
         footer={

@@ -295,6 +295,10 @@ describe('timeline bubbles', () => {
     expect(rows.map((r) => r.classList.contains('pn-msg--cont'))).toEqual([false, true, false, false])
     expect(rows[1]!.querySelector('.ui-avatar')).toBeNull()
     expect(within(rows[1]!).queryByText('李建国')).toBeNull()
+    // A merged row keeps its own time in the avatar gutter, shown on hover (Slack).
+    const stamp = rows[1]!.querySelector('.pn-msg__gutter time') as HTMLElement
+    expect(stamp.textContent).toMatch(/^\d\d:\d\d$/)
+    expect(stamp.getAttribute('title')).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d$/)
   })
 
   it('shows the day as a pill and marks where unread messages start', async () => {

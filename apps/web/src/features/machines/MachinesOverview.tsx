@@ -24,7 +24,7 @@ export function MachinesOverview({
     <section className="machines-overview" aria-label={t('机器总览')}>
       {/* The same page head as 市场 and 作品. */}
       <header className="works__head">
-        <h1 className="works__title">{t('机器与 Bot')}</h1>
+        <h1 className="works__title">{t('我的机器')}</h1>
         {machines.length ? <span className="works__count">{machines.length}</span> : null}
       </header>
       {machines.length ? (

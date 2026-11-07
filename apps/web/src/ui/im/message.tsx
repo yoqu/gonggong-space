@@ -223,7 +223,9 @@ export interface MessageAuthor {
 export interface MessageProps {
   author: MessageAuthor
   time?: ReactNode
-  /** Own message: right-aligned, bubble-out. */
+  /** A continued row's short time, shown in its avatar gutter on hover. */
+  stamp?: ReactNode
+  /** Own message: marks the row as mine. */
   self?: boolean
   /** Same author as the previous row: no avatar or meta line. */
   continued?: boolean
@@ -278,6 +280,7 @@ function sideStatus({ status, receipt, onRetry }: Pick<MessageProps, 'status' | 
 export function Message({
   author,
   time,
+  stamp,
   self,
   continued,
   bare,
@@ -353,7 +356,9 @@ export function Message({
           />
         ))
       ) : (
-        <span className="pn-msg__gutter" />
+        <span className="pn-msg__gutter">
+          {continued && stamp ? <span className="pn-msg__stamp">{stamp}</span> : null}
+        </span>
       )}
       <div className="pn-msg__col">
         {head && (
