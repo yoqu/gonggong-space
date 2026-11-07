@@ -8,6 +8,7 @@ import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser, type SessionUser } from '../auth/session.js'
 import { createGroup } from '../groups/create.js'
+import { mirrorShareDecision } from '../notifications/feishu.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
 import { requireTeam } from '../teams/service.js'
 import { publishBot } from './dto.js'
@@ -165,14 +166,18 @@ export function shareRequestRoutes(ctx: Ctx) {
       }))
     })
 
-    app.post<IdParams>(
-      '/api/share-requests/:id/approve',
-      async (req): Promise<ShareApprovedDto> =>
-        approveShareRequest(ctx, await requireUser(ctx, req), req.params.id),
-    )
+    // The Feishu card answers its own click; a web decision updates it here.
+    app.post<IdParams>('/api/share-requests/:id/approve', async (req): Promise<ShareApprovedDto> => {
+      const user = await requireUser(ctx, req)
+      const res = await approveShareRequest(ctx, user, req.params.id)
+      await mirrorShareDecision(ctx, req.params.id, { approved: true, by: user.name })
+      return res
+    })
 
     app.post<IdParams>('/api/share-requests/:id/reject', async (req, reply) => {
-      await rejectShareRequest(ctx, await requireUser(ctx, req), req.params.id)
+      const user = await requireUser(ctx, req)
+      await rejectShareRequest(ctx, user, req.params.id)
+      await mirrorShareDecision(ctx, req.params.id, { approved: false, by: user.name })
       return reply.status(204).send()
     })
   }

@@ -1619,7 +1619,7 @@ export const feishuMessageLinks = pgTable(
     /**
      * 'message' | 'run_card' | 'question' | 'approval' | 'preview' | 'reaction' (a bot's working reaction: its
      * reaction_id is `feishuMessageId`, the message it is on is `feishuRef`) | 'custom_card' (sent by a run's
-     * feishu_send_card).
+     * feishu_send_card) | 'share_request' (a share request's 飞书通知, `refId` the request).
      */
     kind: text('kind').notNull(),
     messageId: uuid('message_id').references(() => messages.id),

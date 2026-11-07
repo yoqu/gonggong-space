@@ -355,7 +355,26 @@ export function runStreamCard(o: {
 }
 
 /** What the reply element shows: the streamed text (cut like the final reply), or a placeholder before any. */
-export const streamText = (s: string) => (s ? truncated(s) : zt('正在处理…'))
+export const streamText = (s: string) => (s ? truncated(hideUiBlocks(s)) : zt('正在处理…'))
+
+const BUILDING: Record<string, string> = {
+  actions: zt('选项生成中…'),
+  'html-page': zt('页面生成中…'),
+  mermaid: zt('流程图生成中…'),
+}
+const UI_LANG = '(actions|html-page|mermaid)\\b[^\\n]*'
+const CLOSED_UI_BLOCK = new RegExp(`^(\`{3,}|~{3,})[ \\t]*${UI_LANG}\\n[\\s\\S]*?\\n\\1[ \\t]*$`, 'gm')
+/** After the closed ones are gone, an opening fence left runs to the end: the block still streaming in. */
+const OPEN_UI_BLOCK = new RegExp(`^(?:\`{3,}|~{3,})[ \\t]*${UI_LANG}(?:\\n[\\s\\S]*)?$`, 'm')
+
+/**
+ * Rich UI blocks as one line while the reply streams (their source is noise until the final card renders them),
+ * whether closed yet or not.
+ */
+const hideUiBlocks = (s: string) =>
+  s
+    .replace(CLOSED_UI_BLOCK, (_m, _fence, lang: string) => BUILDING[lang] ?? '')
+    .replace(OPEN_UI_BLOCK, (_m, lang: string) => BUILDING[lang] ?? '')
 
 export type CardValue =
   | { k: 'answer'; q: string }

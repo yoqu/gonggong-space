@@ -1,7 +1,7 @@
 import { type NotificationDto, notificationView } from '@gonggong/protocol'
 import { and, eq, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { feishuIdentities, notifications } from '../../db/schema.js'
+import { feishuApps, feishuIdentities, feishuMessageLinks, notifications } from '../../db/schema.js'
 import { translator } from '../../i18n/index.js'
 import { mainApp } from '../feishu/apps.js'
 import { notificationCard, shareRequestCard } from '../feishu/cards.js'
@@ -29,16 +29,44 @@ export async function sendFeishuNotice(ctx: Ctx, userId: string, n: Notification
   const app = identity && (await mainApp(ctx))
   if (!app) return
   const view = await viewOf(ctx, n)
-  const card =
-    n.type === 'bot_share_request' && !n.resolvedAt
-      ? shareRequestCard({ ...view, requestId: String(n.payload.requestId) })
-      : notificationCard(view)
-  await ctx.feishu.api.send(
+  const requestId = n.type === 'bot_share_request' && !n.resolvedAt ? String(n.payload.requestId) : null
+  const card = requestId ? shareRequestCard({ ...view, requestId }) : notificationCard(view)
+  const sent = await ctx.feishu.api.send(
     credsOf(app),
     identity.openId,
     { msgType: 'interactive', content: JSON.stringify(card) },
     { receiveIdType: 'open_id' },
   )
+  // Kept so a decision made on the web settles this card too.
+  if (requestId)
+    await ctx.db.insert(feishuMessageLinks).values({
+      feishuMessageId: sent.messageId,
+      chatId: identity.openId,
+      appId: app.appId,
+      direction: 'out',
+      kind: 'share_request',
+      refId: requestId,
+    })
+}
+
+/** A share request decided on the web: its Feishu cards show who decided. Best effort, like every Feishu call. */
+export async function mirrorShareDecision(
+  ctx: Ctx,
+  requestId: string,
+  decided: { approved: boolean; by: string },
+) {
+  const links = await ctx.db
+    .select({ messageId: feishuMessageLinks.feishuMessageId, app: feishuApps })
+    .from(feishuMessageLinks)
+    .innerJoin(feishuApps, eq(feishuApps.appId, feishuMessageLinks.appId))
+    .where(and(eq(feishuMessageLinks.kind, 'share_request'), eq(feishuMessageLinks.refId, requestId)))
+  if (!links.length) return
+  const card = await decidedShareCard(ctx, requestId, decided)
+  if (!card) return
+  for (const l of links)
+    await ctx.feishu.api
+      .updateCard(credsOf(l.app), l.messageId, JSON.stringify(card))
+      .catch((err) => console.warn('feishu share card:', err))
 }
 
 /** The share request's Feishu card once decided there, as the answer to the click. */

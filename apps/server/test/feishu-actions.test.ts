@@ -1,17 +1,18 @@
 import type { MessageDto } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   botShareRequests,
   botShares,
   feishuIdentities,
+  feishuMessageLinks,
   messages,
   runs,
   systemParams,
 } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
-import { feishuIdle } from '../src/modules/feishu/mirror.js'
+import { feishuIdle, mirrorDelta } from '../src/modules/feishu/mirror.js'
 import { publishRun } from '../src/modules/runs/dto.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import type { FakeUser } from './support/feishu.js'
@@ -195,6 +196,33 @@ describe('飞书卡片里的 actions 按钮', () => {
   })
 })
 
+describe('流式运行卡片里的组件代码块', () => {
+  it('shows a one-line placeholder instead of actions / html-page sources, open or closed', async () => {
+    const { ownerFs, bot } = await setup()
+    const { done } = t.feishu.message(BOT_APP, { chatId: CHAT, from: ownerFs, text: '帮我' })
+    await done
+    const [run] = await t.db.select().from(runs).where(eq(runs.botId, bot.id))
+    const [live] = await t.db.update(runs).set({ status: 'running' }).where(eq(runs.id, run!.id)).returning()
+    await publishRun(t.ctx, live!)
+    await feishuIdle(t.ctx)
+    const msg = t.feishu.sent.find((m) => (m.content.data as { card_id?: string } | undefined)?.card_id)!
+    const cardId = (msg.content.data as { card_id: string }).card_id
+    const reply = () => t.feishu.cardText(cardId, 'reply')
+
+    mirrorDelta(t.ctx, run!.id, '选一个：\n\n```actions\n{"options":[{"lab')
+    await feishuIdle(t.ctx)
+    expect(reply()).toBe('选一个：\n\n选项生成中…')
+
+    mirrorDelta(t.ctx, run!.id, 'el":"A"}]}\n```\n\n看页面：\n\n```html-page\n{"id":')
+    await feishuIdle(t.ctx)
+    expect(reply()).toBe('选一个：\n\n选项生成中…\n\n看页面：\n\n页面生成中…')
+
+    mirrorDelta(t.ctx, run!.id, '"x"}\n```\n\n```ts\nconst a = 1\n```')
+    await feishuIdle(t.ctx)
+    expect(reply()).toBe('选一个：\n\n选项生成中…\n\n看页面：\n\n页面生成中…\n\n```ts\nconst a = 1\n```')
+  })
+})
+
 describe('飞书里的共享申请', () => {
   async function requested() {
     const owner = await t.seed.user({ name: '王磊' })
@@ -230,11 +258,25 @@ describe('飞书里的共享申请', () => {
       zhao,
       bot,
       ownerFs,
+      ownerHttp,
       requestId: res.body.id,
+      sentId: sent!.messageId,
       card: JSON.stringify(sent!.content),
       click,
     }
   }
+
+  it('a decision on the web settles the Feishu card too', async () => {
+    const { ownerHttp, requestId, sentId } = await requested()
+    await expect
+      .poll(async () => (await t.db.select().from(feishuMessageLinks)).map((l) => l.feishuMessageId))
+      .toContain(sentId)
+    expect((await ownerHttp.post(`/api/share-requests/${requestId}/reject`)).status).toBe(204)
+    await vi.waitFor(() => expect(t.feishu.cardUpdates.map((u) => u.messageId)).toContain(sentId))
+    const update = t.feishu.cardUpdates.find((u) => u.messageId === sentId)
+    expect(JSON.stringify(update?.card)).toContain('已由 王磊 拒绝')
+    expect(JSON.stringify(update?.card)).not.toContain('"callback"')
+  })
 
   const shares = (botId: string) => t.db.select().from(botShares).where(eq(botShares.botId, botId))
 
