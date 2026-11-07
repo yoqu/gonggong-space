@@ -97,6 +97,11 @@ export default {
   编辑群公告: 'Edit notice',
   所有成员可拉人: 'Anyone can invite',
   禁止直推基准分支: 'No direct pushes to the base branch',
+  回复风格: 'Reply style',
+  技术: 'Technical',
+  业务: 'Business',
+  '先写结论、口语化，不贴表名、代码和 SQL，依据放在末尾':
+    'Conclusion first, in plain words; no table names, code or SQL; the basis goes at the end',
   'Bot 在功能分支上提交，推送到基准分支需要 Bot 主人审批':
     'Bots commit on feature branches; pushing to the base branch needs the Bot owner’s approval',
   名称已保存: 'Name saved',

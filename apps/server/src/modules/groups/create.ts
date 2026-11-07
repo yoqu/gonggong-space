@@ -93,10 +93,16 @@ export async function createGroup(
 
   const group = { id: randomUUID() }
   await ctx.db.transaction(async (tx) => {
-    // New groups protect their base branch; groups from before the policy keep pushing as they did.
-    await tx
-      .insert(groups)
-      .values({ id: group.id, teamId, name, kind: body.kind, createdBy: me.id, protectBase: true })
+    // New groups protect their base branch and reply in business tone; older groups keep what they had.
+    await tx.insert(groups).values({
+      id: group.id,
+      teamId,
+      name,
+      kind: body.kind,
+      createdBy: me.id,
+      protectBase: true,
+      params: { replyStyle: 'business' },
+    })
     await tx
       .insert(groupMembers)
       .values([

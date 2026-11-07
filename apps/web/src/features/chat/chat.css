@@ -514,3 +514,12 @@
 button.chat-view__plugins:hover {
   color: var(--label);
 }
+/* 依据 folded under a business-tone reply */
+.md-basis {
+  margin-top: var(--space-8);
+  color: var(--label-secondary);
+}
+.md-basis > summary {
+  cursor: pointer;
+  font-size: var(--text-subheadline-size);
+}

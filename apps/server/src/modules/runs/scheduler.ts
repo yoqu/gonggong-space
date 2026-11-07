@@ -30,7 +30,7 @@ import { publishBot } from '../bots/dto.js'
 import { gitIdentity } from '../bots/git.js'
 import { runTier } from '../bots/tier.js'
 import { boundChat } from '../feishu/mirror.js'
-import { effectiveParams } from '../groups/params.js'
+import { effectiveParams, replyStyleOf } from '../groups/params.js'
 import { knowledgeContext } from '../knowledge/context.js'
 import { substitute } from '../mcp/secrets.js'
 import { enabledMcpServers } from '../mcp/service.js'
@@ -227,6 +227,10 @@ const RELEASE_TOOLS = ['client_release_publish', 'client_release_notes']
 const branchHint = (base: string) =>
   `This group has 「禁止直推基准分支」 on: never commit or push to the base branch ${base}. On ${base}, create a branch (any name) before changing code; already on another branch, work, commit and push there. For a merge, ask the requester to open a merge request. Pushing to ${base} needs the bot owner's approval.`
 
+/** 回复风格「业务」: colleagues outside engineering read the replies. */
+const BUSINESS_REPLY_HINT =
+  "This group's replies are read by non-technical colleagues. In your final reply, put the conclusion first, in plain everyday language. Keep table names, class names, file paths, code and SQL out of the body. Put the evidence and technical details in a last section headed exactly **依据** (**Basis** when replying in English)."
+
 /** The group's extra repos, which the agent's own files may not tell it about (Codex reads no AGENTS.md outside cwd). */
 const extraReposHint = (repos: { url: string; branch: string; path?: string }[], protectBase: boolean) =>
   [
@@ -270,7 +274,12 @@ export async function buildRunStart(
         .leftJoin(bots, eq(bots.id, messages.authorBotId))
         .where(eq(messages.id, run.triggerMessageId)),
       tx
-        .select({ name: groups.name, kind: groups.kind, protectBase: groups.protectBase })
+        .select({
+          name: groups.name,
+          kind: groups.kind,
+          protectBase: groups.protectBase,
+          params: groups.params,
+        })
         .from(groups)
         .where(eq(groups.id, run.groupId)),
       tx
@@ -363,6 +372,7 @@ export async function buildRunStart(
       systemPrompt: [
         ...(feishuHinted ? [feishuHint(feishuHinted.syncAll)] : []),
         ...(protectBase && repo ? [branchHint(repo.baseBranch)] : []),
+        ...(replyStyleOf(group.params) === 'business' ? [BUSINESS_REPLY_HINT] : []),
         ...(extras.length
           ? [
               extraReposHint(

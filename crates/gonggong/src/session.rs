@@ -425,7 +425,7 @@ impl Shared {
             a.sealed = true;
             return None;
         }
-        a.turn.reply.clear();
+        a.turn.clear_reply();
         a.turn.appends_applied += s.appends.len() as u32;
         let (texts, files): (Vec<_>, Vec<_>) = std::mem::take(&mut s.appends).into_iter().unzip();
         Some((texts.join("\n\n"), files.concat()))
@@ -1190,13 +1190,14 @@ fn done(
     error: Option<String>,
 ) -> DaemonToServer {
     // Shell edits (Codex) carry no tool locations: git sees them.
+    let reply = turn.reply();
     let (git, git_changed) = turn.git.map_or((None, 0), |(g, n)| (Some(g), n));
     DaemonToServer::RunDone(RunDone {
         run_id: run_id.into(),
         outcome,
         files_changed: turn.files.len().max(git_changed) as u32,
         usage: usage.or(turn.usage),
-        reply: turn.reply,
+        reply,
         session_id,
         new_session_reason,
         error,

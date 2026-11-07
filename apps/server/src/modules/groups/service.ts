@@ -33,6 +33,7 @@ import { forgetMembers, type MessageMeta, memberIds, postEvent, userAuthorName }
 import { LIVE } from '../runs/dto.js'
 import { stopRuns } from '../runs/stop.js'
 import { avatarUrl } from '../users/dto.js'
+import { replyStyleOf } from './params.js'
 import { groupTitle } from './title.js'
 
 /** Non-members (of the group or of its live team) get not_found so group ids don't leak. */
@@ -324,6 +325,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       mode: g.mode as GroupDto['mode'],
       adminOnlyInvite: g.adminOnlyInvite,
       protectBase: g.protectBase,
+      replyStyle: replyStyleOf(g.params),
       notice: g.notice,
       noticeHidden: !!g.noticeId && me.hiddenNoticeId === g.noticeId,
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,

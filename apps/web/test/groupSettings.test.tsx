@@ -450,6 +450,22 @@ describe('group settings inspector', () => {
     expect(await within(screen.getByRole('main')).findByRole('heading', { name: '设置后' })).toBeTruthy()
   })
 
+  it('lets an admin switch 回复风格 in 基本信息; a group without one reads as 技术', async () => {
+    const calls = mockApi(
+      routes([group()], { 'PATCH /groups/g1': (b: unknown) => group(b as Partial<GroupDto>) }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /基本信息/ }))
+    const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    const style = within(dlg).getByRole('radiogroup', { name: '回复风格' })
+    expect(within(style).getByRole('radio', { name: '技术' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(dlg).getByText('先写结论、口语化，不贴表名、代码和 SQL，依据放在末尾')).toBeTruthy()
+    fireEvent.click(within(style).getByRole('radio', { name: '业务' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ replyStyle: 'business' }),
+    )
+  })
+
   it('uploads a cropped group avatar from 基本信息 and shows it instead of the mosaic', async () => {
     const image = '/api/avatars/0b7e7c1e-0000-4000-8000-000000000000.png'
     const calls = mockApi(routes([group()], { 'PUT /groups/g1/avatar': group({ avatar: image }) }))

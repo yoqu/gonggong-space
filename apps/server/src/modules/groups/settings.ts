@@ -10,7 +10,7 @@ import { requireUser } from '../auth/session.js'
 import { unbindChat } from '../feishu/mirror.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
-import { forgetGroupParams, groupParams } from './params.js'
+import { forgetGroupParams, groupParams, replyStyleOf } from './params.js'
 import { groupDto, publishGroup, removeMember, requireAdmin, requireMember } from './service.js'
 
 type P = { Params: { id: string } }
@@ -49,7 +49,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.patch<P>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const { notice, adminOnlyInvite, protectBase, ...body } = UpdateGroupReq.parse(req.body)
+      const { notice, adminOnlyInvite, protectBase, replyStyle, ...body } = UpdateGroupReq.parse(req.body)
       if (body.name)
         await ctx.db
           .update(groups)
@@ -60,6 +60,11 @@ export function groupSettingsRoutes(ctx: Ctx) {
       if (inviteChanged) await ctx.db.update(groups).set({ adminOnlyInvite }).where(eq(groups.id, group.id))
       const protectChanged = protectBase !== undefined && protectBase !== group.protectBase
       if (protectChanged) await ctx.db.update(groups).set({ protectBase }).where(eq(groups.id, group.id))
+      if (replyStyle !== undefined && replyStyle !== replyStyleOf(group.params))
+        await ctx.db
+          .update(groups)
+          .set({ params: { ...(group.params as object), replyStyle } })
+          .where(eq(groups.id, group.id))
       await audit(ctx, {
         category: 'admin',
         actorUserId: me.id,
@@ -71,11 +76,13 @@ export function groupSettingsRoutes(ctx: Ctx) {
             notice: group.notice,
             adminOnlyInvite: group.adminOnlyInvite,
             protectBase: group.protectBase,
+            replyStyle: replyStyleOf(group.params),
           },
           ...body,
           notice,
           adminOnlyInvite,
           protectBase,
+          replyStyle,
         },
       })
       if (body.name !== undefined || notice !== undefined)

@@ -232,7 +232,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
     );
     assert!(events.iter().any(|e| matches!(e, RunEvent::Usage { .. })));
     assert_eq!(done.outcome, RunOutcome::Completed);
-    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+    assert_eq!(done.reply, "已写入 hello.txt。");
     assert_eq!(done.files_changed, 1);
     assert_eq!(done.git, None);
     assert_eq!(done.usage.as_ref().and_then(|u| u.cost_usd), Some(0.01));
@@ -285,14 +285,14 @@ async fn a_rejected_or_timed_out_request_lets_the_agent_carry_on() {
         events.first(),
         Some(&RunEvent::Status { status: RunStatus::Running, step: "请求被拒绝，agent 自行绕路".into() })
     );
-    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "好的，权限被拒绝，未写入。"));
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "权限被拒绝，未写入。"));
 
     // No option (timeout without a reject option) answers `cancelled`.
     r.run(follow_up("r2", "写个文件", &done));
     let (_, approval) = until_approval(&mut r).await;
     decide(&r, &approval, None);
     let (_, done) = r.finish("r2").await;
-    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "好的，权限被拒绝，未写入。"));
+    assert_eq!((done.outcome, done.reply.as_str()), (RunOutcome::Completed, "权限被拒绝，未写入。"));
 }
 
 #[tokio::test]
@@ -316,7 +316,7 @@ async fn full_tier_approves_permissions() {
     s.bot.tier = Tier::Full;
     r.run(s);
     let (_, done) = r.finish("r1").await;
-    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+    assert_eq!(done.reply, "已写入 hello.txt。");
 }
 
 #[tokio::test]
@@ -330,7 +330,7 @@ async fn raising_the_tier_to_full_mid_run_approves_pending_requests() {
         status: RunStatus::Running,
         step: "档位已切换为「完全访问」，自动批准：Write hello.txt".into()
     }));
-    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+    assert_eq!(done.reply, "已写入 hello.txt。");
 }
 
 #[tokio::test]
@@ -1173,7 +1173,7 @@ async fn server_sent_approval_rules_answer_permissions_without_the_owner() {
     r.run(with_rules(follow_up("r3", "写个文件", &done), Approval::All, &[]));
     let (events, done) = r.finish("r3").await;
     assert!(events.contains(&running("已按命令审批规则自动批准：Write hello.txt")));
-    assert_eq!(done.reply, "好的，已写入 hello.txt。");
+    assert_eq!(done.reply, "已写入 hello.txt。");
 }
 
 #[tokio::test]
@@ -1411,7 +1411,7 @@ async fn reports_what_the_agent_does_after_a_background_task_under_a_new_run() {
     let first = continued(&mut r, "mock:later").await;
     let (events, done) = r.finish("c1").await;
     assert_eq!(done.outcome, RunOutcome::Completed);
-    assert_eq!(done.reply, "后台任务跑完了，继续收尾。");
+    assert_eq!(done.reply, "继续收尾。");
     assert_eq!(done.session_id, first.session_id);
     assert_eq!(events.first(), Some(&RunEvent::Text { delta: "后台任务跑完了，".into(), agent_id: None }));
     assert!(events.iter().any(|e| matches!(e, RunEvent::Tool { title, .. } if title == "Read log.txt")));
@@ -1431,7 +1431,7 @@ async fn a_continuation_asks_the_owner_for_approval_under_its_run() {
     assert_eq!((approval.run_id.as_str(), approval.title.as_str()), ("c1", "rm -rf dist"));
     decide(&r, &approval, Some("allow"));
     let (_, done) = r.finish("c1").await;
-    assert_eq!(done.reply, "后台任务跑完了，ran");
+    assert_eq!(done.reply, "ran");
 }
 
 #[tokio::test]
@@ -1447,7 +1447,7 @@ async fn a_new_turn_ends_the_continuation_first() {
     r.run(follow_up("r2", "mock:echo", &first));
     let DaemonToServer::RunDone(done) = r.next().await else { panic!("the continuation ends before r2 starts") };
     assert_eq!((done.run_id.as_str(), done.outcome), ("c1", RunOutcome::Completed));
-    assert_eq!(done.reply, "后台任务跑完了，继续收尾。");
+    assert_eq!(done.reply, "继续收尾。");
     let (_, next) = r.finish("r2").await;
     assert_eq!(next.outcome, RunOutcome::Completed);
 }

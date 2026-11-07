@@ -12,6 +12,7 @@ import {
   GroupRow,
   Icon,
   type IconName,
+  SegmentedControl,
   Spinner,
   Stepper,
   Switch,
@@ -254,6 +255,22 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
           )}
         </GroupRow>
       )}
+      <GroupRow label={t('回复风格')} description={t('先写结论、口语化，不贴表名、代码和 SQL，依据放在末尾')}>
+        {readOnly ? (
+          <span className="gs-value">{group.replyStyle === 'business' ? t('业务') : t('技术')}</span>
+        ) : (
+          <SegmentedControl
+            aria-label={t('回复风格')}
+            size="small"
+            items={[
+              { value: 'tech', label: t('技术') },
+              { value: 'business', label: t('业务') },
+            ]}
+            value={group.replyStyle ?? 'tech'}
+            onChange={(replyStyle) => void attempt(() => groupsApi.update(group.id, { replyStyle }))}
+          />
+        )}
+      </GroupRow>
       {dm ? (
         <GroupRow label={t('类型')}>
           <span className="gs-value">{t('私聊 · 仅你和你的 Bot，不能邀请他人')}</span>
