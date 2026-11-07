@@ -138,7 +138,7 @@ describe('confirming the workspace of a bot joining a repo group', () => {
     const g = await w.createGroup()
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'confirm', workspace: 'managed', path: null })
     expect(await w.bodies(g.id)).toContain(
-      '小王的 Claude 加入 · 等待 王磊 确认工作区：托管克隆或使用本机已有目录',
+      '小王的 Claude 加入 · 等待 王磊 确认工作区：自动克隆或使用本机已有目录',
     )
     // The next message is the owner's choice: no workspace.ensure was sent on join.
     expect(
@@ -440,7 +440,7 @@ describe('rebinding the repo', () => {
       state: 'pending',
       context: null,
     })
-    expect(await w.bodies(g.id)).toContain('群解绑仓库 · 各 Bot 改用默认工作区或本机目录，托管克隆保留在本机')
+    expect(await w.bodies(g.id)).toContain('群解绑仓库 · 各 Bot 改用默认工作区或本机目录，自动克隆保留在本机')
     expect((await w.asAlice.patch(`/api/groups/${g.id}/repo`, { url: '', branch: '' })).status).toBe(200)
   })
 

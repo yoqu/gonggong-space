@@ -461,7 +461,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         {more && self && m?.online ? (
           <FormRow
             label={t('默认工作区')}
-            hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认托管克隆。')}
+            hint={t('可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认自动克隆。')}
           >
             <div className="newbot__inline">
               {draft.workspace ? (

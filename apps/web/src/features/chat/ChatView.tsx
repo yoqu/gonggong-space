@@ -638,7 +638,7 @@ export function ChatView({
           group={group}
           isAdmin={isAdmin}
           hidden={readOnly}
-          onSettings={isAdmin ? () => setSettings('mode') : undefined}
+          onSettings={isAdmin ? () => setSettings('repo') : undefined}
         />
         <LinkedConflict groupId={group.id} />
         <LinkedGitOperation groupId={group.id} />

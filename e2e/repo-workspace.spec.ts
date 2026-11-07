@@ -6,7 +6,7 @@ test.beforeAll(buildDaemon)
 /**
  * The repo is picked from 「最近」 (the team history only keeps remote URLs, so the daemon's git maps a fake https
  * host to the local bare repo), checked automatically, and the owner later moves their bot from the managed clone
- * to a local checkout in 「Bot 与工作区」.
+ * to a local checkout in Bot 的「工作区…」.
  */
 test('picks a recent repo and moves my bot to a local checkout', async ({ page }) => {
   test.setTimeout(5 * 60_000)
@@ -79,9 +79,10 @@ test('picks a recent repo and moves my bot to a local checkout', async ({ page }
     const main = page.getByRole('main')
     await main.getByRole('button', { name: '群设置', exact: true }).click()
     const drawer = page.getByRole('complementary', { name: '群设置' })
-    await drawer.getByRole('button', { name: /Bot 与工作区/ }).click()
-    const row = page.getByRole('dialog', { name: /^Bot 与工作区/ }).getByTestId(`rw-bot-${bot.id}`)
-    await expect(row).toContainText('托管克隆 · 就绪')
+    await drawer.getByRole('button', { name: /^Bot/ }).click()
+    await drawer.getByTestId(`bot-${bot.id}`).getByRole('button', { name: '工作区…' }).click()
+    const row = page.getByRole('dialog', { name: `${botName} 的工作区` }).getByTestId(`rw-bot-${bot.id}`)
+    await expect(row).toContainText('自动克隆 · 就绪')
     await row.getByRole('button', { name: '更改…' }).click()
     const picker = page.getByRole('dialog', { name: `为 ${botName} 选择工作区` })
     await expect(picker.getByLabel('目录路径')).not.toHaveValue('')

@@ -5,9 +5,11 @@ import { GROUP_MODE_LABEL } from '../../app/Sidebar'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
   Avatar,
   Button,
   ChatInfoBody,
@@ -16,9 +18,11 @@ import {
   Dialog,
   EmptyState,
   GroupBox,
+  Icon,
   IconButton,
   InspectorPanel,
-  PopUpButton,
+  MenuButton,
+  type MenuItem,
   Presence,
   SearchField,
   Switch,
@@ -34,11 +38,14 @@ import { ShareRequestAction } from '../bots/ShareRequest'
 import { KnowledgeView } from '../knowledge/KnowledgeView'
 import { PreviewsView } from '../previews/PreviewsView'
 import { usePreviews } from '../previews/store'
+import { BotWorkspaceDialog, blocker, botOnline, isPaused, workspaceText } from '../repos/BotWorkspaceDialog'
+import { RepoGit } from '../repos/BotWorkspaces'
 import { repoPath } from '../repos/RepoPicker'
 import { effectiveTier, TIER_LABEL, TIERS } from '../runs/tier'
 import { SchedulesView } from '../schedules/SchedulesView'
 import { useSchedules } from '../schedules/store'
 import { openSyncPanel, useSyncStatus } from '../sync/store'
+import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { groupsApi, paramsSummary } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
@@ -48,8 +55,8 @@ import './groups.css'
 export type SettingsTab =
   | 'basic'
   | 'members'
+  | 'bots'
   | 'repo'
-  | 'mode'
   | 'params'
   | 'mcp'
   | 'skill'
@@ -421,13 +428,15 @@ function MainView({
                   ),
                 ]),
             manage(
-              t('Bot 与工作区'),
-              <span className={group.repo ? 'gs-mono' : undefined}>
-                {group.repo ? repoPath(group.repo.url) : t('未绑定仓库')}
-              </span>,
+              t('仓库与同步'),
+              <>
+                <span className={group.repo ? 'gs-mono' : undefined}>
+                  {group.repo ? repoPath(group.repo.url) : t('未绑定仓库')}
+                </span>
+                {` · ${GROUP_MODE_LABEL[group.mode]}`}
+              </>,
               'repo',
             ),
-            manage(t('同步模式'), GROUP_MODE_LABEL[group.mode], 'mode'),
             paramsFailed
               ? {
                   label: t('群级参数'),
@@ -550,15 +559,34 @@ export function MembersView({
 
 export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin: boolean; member: boolean }) {
   const me = useSession((s) => s.user)
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const allBots = useWorkspace((s) => s.bots)
   const [removing, setRemoving] = useState<BotDto | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+  const [picking, setPicking] = useState<BotDto | null>(null)
   const states = useWorkspace((s) => s.botStates[group.id])
   const editing = allBots.find((b) => b.id === editingId)
+  const inspecting = allBots.find((b) => b.id === workspaceId)
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
   // Members pull in only their own bots; admins anyone's (a DM only takes its owner's).
   const choices = allBots.filter((b) => (group.kind === 'group' && isAdmin) || b.ownerId === me?.id)
   const inGroup = (userId: string) => group.members.some((m) => m.userId === userId)
+  const stuck = bots.flatMap((b) => {
+    const why = blocker(states?.[b.id])
+    return why ? [`${b.name} · ${why}`] : []
+  })
+  const recheck = (bot: BotDto) =>
+    attempt(() => groupsApi.recheckBot(group.id, bot.id)).then(
+      (ok) =>
+        ok && toast({ type: 'info', message: t('正在让 {name} 的机器重新 clone…', { name: bot.name }) }),
+    )
+  const act = (b: BotDto, v: string) => {
+    if (v === 'global') return setEditingId(b.id)
+    if (v === 'remove') return setRemoving(b)
+    const tier = v.slice(TIER_PREFIX.length)
+    void attempt(() => groupsApi.setBotTier(group.id, b.id, tier === FOLLOW ? null : (tier as Tier)))
+  }
 
   return (
     <>
@@ -585,54 +613,112 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
           />
         ) : null}
       </div>
+      {stuck.length ? (
+        <Alert
+          variant="warning"
+          title={t('{n} 个 Bot 需要处理', { n: stuck.length })}
+          description={stuck.join(t('；'))}
+        />
+      ) : null}
       <GroupBox>
-        {bots.map((b) => (
-          <div key={b.id} className="gs-bot">
-            <div className="gs-bot__head">
-              <BotAvatar id={b.id} name={b.name} size={28} />
-              <span className="gs-member__main">
-                <span className="gs-bot__name">
-                  {b.name}
-                  <Tag tone="blue">Bot</Tag>
+        {bots.map((b) => {
+          const s = states?.[b.id]
+          const mine = b.ownerId === me?.id
+          const owns = mine || me?.role === 'sysadmin'
+          const online = botOnline(b)
+          const others = (group.extraRepos?.length ?? 0) + (s?.extraDirs.length ?? 0)
+          const tier = s?.tier ?? null
+          const items: MenuItem[] = [
+            ...(owns
+              ? [
+                  {
+                    label: t('本群档位'),
+                    submenu: [
+                      { value: FOLLOW, label: t('跟随全局（{tier}）', { tier: TIER_LABEL[b.tier] }) },
+                      ...TIERS.filter((x) => !demo || x !== 'full' || tier === 'full').map((x) => ({
+                        value: x,
+                        label: TIER_LABEL[x],
+                      })),
+                    ].map((o) => ({
+                      ...o,
+                      value: TIER_PREFIX + o.value,
+                      checked: (tier ?? FOLLOW) === o.value,
+                    })),
+                  },
+                  { label: t('全局设置'), value: 'global' },
+                ]
+              : []),
+            ...(isAdmin
+              ? [
+                  ...(owns ? [{ separator: true as const }] : []),
+                  { label: t('移出'), value: 'remove', destructive: true },
+                ]
+              : []),
+          ]
+          return (
+            <div key={b.id} className="gs-bot" data-testid={`bot-${b.id}`}>
+              <div className="gs-bot__head">
+                <BotAvatar id={b.id} name={b.name} size={28} />
+                <span className="gs-member__main">
+                  <span className="gs-bot__name">
+                    {b.name}
+                    <Tag tone="blue">Bot</Tag>
+                  </span>
+                  <span className="gs-desc">
+                    {t('{agent} · 主人 {owner}', { agent: AGENT_LABEL[b.agentKind], owner: b.ownerName })}
+                  </span>
                 </span>
-                <span className="gs-desc">
-                  {t('{agent} · 主人 {owner}', { agent: AGENT_LABEL[b.agentKind], owner: b.ownerName })}
+                <span className="gs-bot__state">
+                  <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
+                  {PRESENCE[b.presence].label}
                 </span>
-              </span>
-              <span className="gs-bot__state">
-                <span className="gs-dot" style={{ background: PRESENCE[b.presence].color }} />
-                {PRESENCE[b.presence].label}
-              </span>
-            </div>
-            <div className="gs-bot__meta">
-              <span>
-                {t('档位 {tier}', { tier: TIER_LABEL[effectiveTier(b, states?.[b.id])] })}
-                {states?.[b.id]?.tier ? t(' · 本群') : ''}
-              </span>
-              <span>{t('触发 {scope}', { scope: SCOPE_LABEL(b) })}</span>
-              <span className="spacer" />
-              <ShareRequestAction bot={b} />
-              {b.ownerId === me?.id || me?.role === 'sysadmin' ? (
-                <>
-                  <GroupTierPicker groupId={group.id} bot={b} tier={states?.[b.id]?.tier ?? null} />
-                  <Button variant="plain" size="small" onClick={() => setEditingId(b.id)}>
-                    {t('全局设置')}
+              </div>
+              <div className={cx('gs-bot__ws', blocker(s) && 'gs-bot__ws--warn')}>
+                <Icon name="folder-git" size={13} />
+                {workspaceText(s, online)}
+                <RepoGit s={s?.git} />
+                {others ? <span>{t('· 另 {n} 处', { n: others })}</span> : null}
+              </div>
+              <div className="gs-bot__meta">
+                <span>
+                  {t('档位 {tier}', { tier: TIER_LABEL[effectiveTier(b, s)] })}
+                  {tier ? t(' · 本群') : ''}
+                </span>
+                <span>{t('触发 {scope}', { scope: SCOPE_LABEL(b) })}</span>
+                <span className="spacer" />
+                {isPaused(s) && (mine || isAdmin) ? (
+                  <Button size="small" onClick={() => void recheck(b)}>
+                    {t('重新检查')}
                   </Button>
-                </>
-              ) : null}
-              {isAdmin ? (
-                <Button variant="plain" size="small" onClick={() => setRemoving(b)}>
-                  {t('移出')}
-                </Button>
-              ) : null}
+                ) : null}
+                {mine && (s?.state === 'confirm' || s?.state === 'unbound') && online && b.machineId ? (
+                  <Button size="small" variant="primary" onClick={() => setPicking(b)}>
+                    {t('选择工作区…')}
+                  </Button>
+                ) : (
+                  <Button size="small" onClick={() => setWorkspaceId(b.id)}>
+                    {t('工作区…')}
+                  </Button>
+                )}
+                <ShareRequestAction bot={b} />
+                {items.length ? (
+                  <MenuButton
+                    className="ui-btn ui-btn--plain ui-btn--small"
+                    aria-label={t('{name} 的更多操作', { name: b.name })}
+                    align="end"
+                    items={items}
+                    onSelect={(v) => act(b, v)}
+                  >
+                    <Icon name="more" size={15} />
+                  </MenuButton>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </GroupBox>
       <div className="gs-foot">
-        {t(
-          '档位默认跟随 Bot 全局设置，Bot 主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。 想少审批，Bot 主人可在 Bot 详情的「命令审批」中开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。',
-        )}
+        {t('本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。')}
       </div>
       <Presence>
         {removing ? (
@@ -641,6 +727,20 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
             desc={t('移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。')}
             onClose={() => setRemoving(null)}
             onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
+          />
+        ) : null}
+      </Presence>
+      <Presence>
+        {inspecting ? (
+          <BotWorkspaceDialog group={group} bot={inspecting} onClose={() => setWorkspaceId(null)} />
+        ) : null}
+      </Presence>
+      <Presence>
+        {picking?.machineId ? (
+          <WorkspacePicker
+            group={group}
+            bot={{ ...picking, machineId: picking.machineId }}
+            onClose={() => setPicking(null)}
           />
         ) : null}
       </Presence>
@@ -723,29 +823,7 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
 }
 
 const FOLLOW = 'follow'
-
-/** This group's tier override; 跟随全局 clears it. */
-function GroupTierPicker({ groupId, bot, tier }: { groupId: string; bot: BotDto; tier: Tier | null }) {
-  const demo = useSession((s) => s.tenancy?.demoMode)
-  const options = [
-    { value: FOLLOW, label: t('跟随全局（{tier}）', { tier: TIER_LABEL[bot.tier] }) },
-    ...TIERS.filter((x) => !demo || x !== 'full' || tier === 'full').map((x) => ({
-      value: x,
-      label: TIER_LABEL[x],
-    })),
-  ]
-  return (
-    <PopUpButton
-      aria-label={t('本群档位')}
-      size="small"
-      value={tier ?? FOLLOW}
-      options={options}
-      onChange={(v) =>
-        void attempt(() => groupsApi.setBotTier(groupId, bot.id, v === FOLLOW ? null : (v as Tier)))
-      }
-    />
-  )
-}
+const TIER_PREFIX = 'tier:'
 
 function NoticeForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) {
   const [notice, setNotice] = useState(group.notice)

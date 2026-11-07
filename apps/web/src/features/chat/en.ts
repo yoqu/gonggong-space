@@ -196,8 +196,8 @@ export default {
   '等待 {owner} 为 {name} 绑定工作区': 'Waiting for {owner} to bind a workspace for {name}',
   绑定工作区: 'Bind workspace',
   游离: 'Detached',
-  '为 {name} 确认工作区后才能开始工作：托管克隆或使用本机已有目录':
-    'Choose a workspace for {name} before it can work: a managed clone or an existing local one',
+  '为 {name} 确认工作区后才能开始工作：自动克隆或使用本机已有目录':
+    'Choose a workspace for {name} before it can work: an automatic clone or an existing local one',
   '等待 {owner} 为 {name} 确认工作区': 'Waiting for {owner} to choose a workspace for {name}',
   确认工作区: 'Choose workspace',
   '仅提及，不会让 Bot 开始工作': 'Mention only: it does not start the Bot',

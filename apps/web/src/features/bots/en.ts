@@ -88,8 +88,8 @@ export default {
   系统提示词: 'System prompt',
   '作为 Bot 的角色说明和群内简介，群内可再补充；下一次新开会话时生效':
     "The Bot's role description and group intro; groups can add to it. Applies from the next new session",
-  '未绑定仓库的群和私聊中自动使用；绑定仓库的群默认托管克隆':
-    'Used automatically in groups without a repo and in direct chats; groups with a repo use a managed clone by default',
+  '未绑定仓库的群和私聊中自动使用；绑定仓库的群默认自动克隆':
+    'Used automatically in groups without a repo and in direct chats; groups with a repo use an automatic clone by default',
   '选择…': 'Choose…',
   清除: 'Clear',
   触发名单: 'Trigger list',
@@ -162,8 +162,8 @@ export default {
   名称: 'Name',
   '同时作为群内简介。': 'Also used as its group intro.',
   '后端接口开发，只改 server/ 目录': 'Backend API development; only edits server/',
-  '可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认托管克隆。':
-    'Optional. Used automatically in groups without a repo and in direct chats; groups with a repo use a managed clone by default.',
+  '可选；未绑定仓库的群和私聊中自动使用，绑定仓库的群默认自动克隆。':
+    'Optional. Used automatically in groups without a repo and in direct chats; groups with a repo use an automatic clone by default.',
   '选择目录…': 'Choose folder…',
   共字君: 'Gong',
   默认角色: 'Default role',

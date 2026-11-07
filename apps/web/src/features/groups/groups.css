@@ -124,6 +124,18 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.gs-bot__ws {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+  padding-left: 40px;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
+.gs-bot__ws--warn {
+  color: var(--tint-orange-text);
+}
 .gs-bot__meta {
   display: flex;
   align-items: center;

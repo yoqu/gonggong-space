@@ -119,7 +119,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
         const confirm = states?.[b.id]?.state === 'confirm'
         const text = confirm
           ? mine
-            ? t('为 {name} 确认工作区后才能开始工作：托管克隆或使用本机已有目录', { name: b.name })
+            ? t('为 {name} 确认工作区后才能开始工作：自动克隆或使用本机已有目录', { name: b.name })
             : t('等待 {owner} 为 {name} 确认工作区', { owner: b.ownerName, name: b.name })
           : mine
             ? t('为 {name} 选择工作区后才能开始工作，此前 @ 它不会执行', { name: b.name })

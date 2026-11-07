@@ -83,7 +83,7 @@ describe('workspace banner', () => {
     const repo = { url: 'git@git.corp:pay/pay.git', branch: 'main' }
     render(<WorkspaceBanner group={group({ repo })} />)
     expect(screen.getByTestId('ws-banner-b1').textContent).toContain(
-      '为 小王的 Claude 确认工作区后才能开始工作：托管克隆或使用本机已有目录',
+      '为 小王的 Claude 确认工作区后才能开始工作：自动克隆或使用本机已有目录',
     )
     fireEvent.click(screen.getByText('确认工作区'))
     expect(await screen.findByText('/Users/w/code/pay')).toBeTruthy()
@@ -194,7 +194,7 @@ describe('workspace banner', () => {
     })
     render(<WorkspaceBanner group={group({ repo: { url: 'git@git.corp:team/pay.git', branch: 'main' } })} />)
     fireEvent.click(screen.getByText('绑定工作区'))
-    fireEvent.click(await screen.findByText('托管克隆群仓库'))
+    fireEvent.click(await screen.findByText('自动克隆群仓库'))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ path: null }))
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('使用默认工作区'))

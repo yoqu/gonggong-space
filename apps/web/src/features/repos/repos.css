@@ -104,7 +104,7 @@
   color: var(--label-secondary);
 }
 
-/* RepoWorkspaceView: the group repo and each bot's workspace */
+/* RepoSettings and BotWorkspaceDialog: the group repos and where one bot works */
 .rw {
   display: flex;
   flex-direction: column;
@@ -170,9 +170,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  min-height: 36px;
-  padding: var(--space-2) var(--space-12) var(--space-2) 44px;
+  min-height: 40px;
+  padding: var(--space-4) var(--space-12);
   color: var(--label-secondary);
+}
+.ui-group > * + .rw-ws {
+  border-top: 1px solid var(--separator);
 }
 .rw-ws--add {
   min-height: 32px;

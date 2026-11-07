@@ -1476,13 +1476,8 @@ describe('repo and workspaces', () => {
     renderAt('/g/g1')
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
-    expect(
-      within(dialog).getByText(
-        'Bot 改用本机目录时，目录的 remote 须与群仓库一致；想完全不受仓库约束，请解绑仓库。',
-      ),
-    ).toBeTruthy()
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与同步/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与同步 · 退款 v2 迁移' })
     fireEvent.click(within(dialog).getByRole('button', { name: '解绑…' }))
     const confirm = await screen.findByRole('alertdialog', { name: '解绑仓库' })
     fireEvent.click(within(confirm).getByRole('button', { name: '解绑仓库' }))
@@ -1514,23 +1509,24 @@ describe('repo and workspaces', () => {
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与同步/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与同步 · 退款 v2 迁移' })
     expect(within(dialog).getByText('pay/refund')).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: '更换…' }))
-    const panel = await openRepoPanel(dialog)
+    const edit = await screen.findByRole('dialog', { name: '更换主仓库' })
+    const panel = await openRepoPanel(edit)
     expect(within(panel).queryByRole('button', { name: '不绑定仓库' })).toBeNull()
     fireEvent.change(within(panel).getByLabelText('搜索仓库'), {
       target: { value: 'git@git.corp:pay/new.git' },
     })
     fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
-    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'dev' } })
-    expect(await within(dialog).findByText('可访问 · SSH')).toBeTruthy()
-    expect(within(dialog).getByTestId('rw-bot-b2').textContent).toContain('离线 · 上线后验证')
-    expect(within(dialog).getByText('各 Bot 的托管工作区将重建')).toBeTruthy()
+    fireEvent.change(within(edit).getByLabelText('基准分支'), { target: { value: 'dev' } })
+    expect(await within(edit).findByText('可访问 · SSH')).toBeTruthy()
+    expect(within(edit).getByTestId('repo-check-b2').textContent).toContain('离线 · 上线后验证')
+    expect(within(edit).getByText('各 Bot 的自动克隆将重建')).toBeTruthy()
     expect(calls.find((c) => c.path === '/repos/probe')?.body).toMatchObject({ botIds: ['b1', 'b2'] })
-    fireEvent.click(within(dialog).getByRole('button', { name: '更换仓库' }))
+    fireEvent.click(within(edit).getByRole('button', { name: '更换仓库' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({
         url: 'git@git.corp:pay/new.git',
@@ -1554,29 +1550,28 @@ describe('repo and workspaces', () => {
     renderAt('/g/g1')
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '添加附加仓库…' }))
-    const panel = await openRepoPanel(dialog)
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与同步/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与同步 · 退款 v2 迁移' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '添加仓库…' }))
+    const add = await screen.findByRole('dialog', { name: '添加仓库' })
+    const panel = await openRepoPanel(add)
     fireEvent.change(within(panel).getByLabelText('搜索仓库'), { target: { value: web.url } })
     fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
-    fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'develop' } })
-    expect(await within(dialog).findByText(/1 个 Bot 可访问/)).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    fireEvent.change(within(add).getByLabelText('基准分支'), { target: { value: 'develop' } })
+    expect(await within(add).findByText(/1 个 Bot 可访问/)).toBeTruthy()
+    fireEvent.click(within(add).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST' && c.path === '/groups/g1/repos')?.body).toEqual({
         url: web.url,
         branch: 'develop',
       }),
     )
-    // Listed as a group repo, and under each bot as the clone it works in.
-    expect((await within(dialog).findAllByText('pay/web')).length).toBeGreaterThan(1)
-    expect(within(dialog).getByTestId('rw-ws-b1-r9').textContent).toContain('托管克隆 · develop')
-    // With an extra repo the main one cannot be unbound.
-    expect(within(dialog).queryByRole('button', { name: '解绑…' })).toBeNull()
+    expect(await within(dialog).findByText('pay/web')).toBeTruthy()
+    // With another repo the main one cannot be unbound.
+    expect(within(dialog).getByRole('button', { name: '解绑…' }).hasAttribute('disabled')).toBe(true)
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '移除附加仓库 pay/web' }))
-    const confirm = await screen.findByRole('alertdialog', { name: '移除附加仓库' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '移除仓库 pay/web' }))
+    const confirm = await screen.findByRole('alertdialog', { name: '移除仓库' })
     fireEvent.click(within(confirm).getByRole('button', { name: '移除' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
     await waitFor(() => expect(within(dialog).queryAllByText('pay/web')).toEqual([]))
@@ -1592,17 +1587,21 @@ describe('repo and workspaces', () => {
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
-    expect(within(dialog).queryByRole('button', { name: '更换…' })).toBeNull()
-    const mine = await within(dialog).findByTestId('rw-bot-b1')
-    expect(mine.textContent).toContain('托管克隆 · 就绪')
+    fireEvent.click(within(drawer).getByRole('button', { name: /^Bot/ }))
+    const card = await within(drawer).findByTestId('bot-b2')
+    expect(card.textContent).toContain('主人 李建国')
+    expect(card.textContent).toContain('已暂停 · 无权限')
+    expect(within(card).queryByRole('button', { name: '重新检查' })).toBeNull()
+    expect(within(drawer).getByTestId('bot-b1').textContent).toContain('自动克隆 · 就绪')
+
+    fireEvent.click(within(within(drawer).getByTestId('bot-b1')).getByRole('button', { name: '工作区…' }))
+    const mine = await screen.findByRole('dialog', { name: '小王的 Claude 的工作区' })
     expect(within(mine).getByRole('button', { name: '更改…' })).toBeTruthy()
-    const theirs = within(dialog).getByTestId('rw-bot-b2')
-    expect(theirs.textContent).toContain('老李的 Codex · 李建国')
-    expect(theirs.textContent).toContain('已暂停 · 无权限')
+    fireEvent.click(within(mine).getByRole('button', { name: '完成' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '小王的 Claude 的工作区' })).toBeNull())
+    fireEvent.click(within(card).getByRole('button', { name: '工作区…' }))
+    const theirs = await screen.findByRole('dialog', { name: '老李的 Codex 的工作区' })
     expect(within(theirs).queryByRole('button', { name: '更改…' })).toBeNull()
-    expect(within(theirs).queryByRole('button', { name: '重新检查' })).toBeNull()
     expect(calls.some((c) => c.path.endsWith('/recheck'))).toBe(false)
   })
 
@@ -1616,9 +1615,8 @@ describe('repo and workspaces', () => {
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
-    const theirs = await within(dialog).findByTestId('rw-bot-b2')
+    fireEvent.click(within(drawer).getByRole('button', { name: /^Bot/ }))
+    const theirs = await within(drawer).findByTestId('bot-b2')
     fireEvent.click(within(theirs).getByRole('button', { name: '重新检查' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/bots/b2/recheck')).toBe(true))
   })
@@ -1629,8 +1627,8 @@ describe('repo and workspaces', () => {
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    fireEvent.click(within(drawer).getByRole('button', { name: /Bot 与工作区/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Bot 与工作区 · 退款 v2 迁移' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与同步/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与同步 · 退款 v2 迁移' })
     expect(within(dialog).queryByRole('button', { name: '更换…' })).toBeNull()
     expect(
       (within(dialog).getByRole('switch', { name: '禁止直推基准分支' }) as HTMLInputElement).disabled,

@@ -193,7 +193,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
       return void (await postEvent(
         ctx,
         groupId,
-        '{bot} · 等待 {owner} 确认工作区：托管克隆或使用本机已有目录',
+        '{bot} · 等待 {owner} 确认工作区：自动克隆或使用本机已有目录',
         {
           bot: lead,
           owner: await ownerName(ctx, bot.id),

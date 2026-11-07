@@ -54,7 +54,7 @@ export async function setRepoPath(
     ctx,
     o.groupId,
     path === null
-      ? '{user} 让 {bot} 在本群改回托管克隆的 {repo}'
+      ? '{user} 让 {bot} 在本群改回自动克隆的 {repo}'
       : '{user} 让 {bot} 在本群改用本机的 {repo}：{path}',
     { user: o.user.name, bot: o.bot.name, repo: repoName(o.repo.url), path: path ?? '' },
   )

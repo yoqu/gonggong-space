@@ -113,8 +113,8 @@ export const protocolEn = {
   '{user} 清空了 {bot} 在本群的自带目录': "{user} cleared {bot}'s own directories in this group",
   '{user} 让 {bot} 在本群改用本机的 {repo}：{path}':
     '{user} switched {bot} to the local clone of {repo} in this group: {path}',
-  '{user} 让 {bot} 在本群改回托管克隆的 {repo}':
-    '{user} switched {bot} back to a managed clone of {repo} in this group',
+  '{user} 让 {bot} 在本群改回自动克隆的 {repo}':
+    '{user} switched {bot} back to an automatic clone of {repo} in this group',
   '{user} 将 {bot} 在本群的模型恢复为跟随 Bot 默认':
     "{user} reset the model of {bot} in this group to follow the Bot's default",
   '{user} /stop · 停止 {bots} 的 {n} 个轮次{chain}':
@@ -169,10 +169,10 @@ export const protocolEn = {
   '{bot} · daemon 离线，上线后克隆托管工作区':
     '{bot} · daemon offline, the managed workspace will be cloned once it is back',
   '{bot} · 等待 {owner} 绑定工作区': '{bot} · waiting for {owner} to bind a workspace',
-  '群解绑仓库 · 各 Bot 改用默认工作区或本机目录，托管克隆保留在本机':
-    'The group repo was unbound · Bots switch to their default or local directories; managed clones stay on their machines',
-  '{bot} · 等待 {owner} 确认工作区：托管克隆或使用本机已有目录':
-    '{bot} · waiting for {owner} to choose a workspace: a managed clone or an existing local one',
+  '群解绑仓库 · 各 Bot 改用默认工作区或本机目录，自动克隆保留在本机':
+    'The group repo was unbound · Bots switch to their default or local directories; automatic clones stay on their machines',
+  '{bot} · 等待 {owner} 确认工作区：自动克隆或使用本机已有目录':
+    '{bot} · waiting for {owner} to choose a workspace: an automatic clone or an existing local one',
   '{bot} 等待 {owner} 确认工作区，本次未执行；确认后重新发起即可':
     '{bot} is waiting for {owner} to choose a workspace, so this was not run; ask again once it is chosen',
   '{bot} · daemon 离线，上线后使用默认工作区':

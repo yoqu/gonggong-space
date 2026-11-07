@@ -106,7 +106,7 @@ export function WorkspacePicker({
                   <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
                   <span className="dirpick__choice-text">
                     <span className="dirpick__choice-title">
-                      {t('托管克隆群仓库')}
+                      {t('自动克隆群仓库')}
                       <span className="dirpick__badge">{t('推荐')}</span>
                     </span>
                     <span className="dirpick__choice-desc">
@@ -147,7 +147,7 @@ export function WorkspacePicker({
           detail={
             <ul className="ui-consequences">
               <li>{t('目录 remote：{remote}', { remote: foreign.remote })}</li>
-              <li>{t('群的基准分支与托管克隆对 {bot} 不再生效', { bot: bot.name })}</li>
+              <li>{t('群的基准分支与自动克隆对 {bot} 不再生效', { bot: bot.name })}</li>
               <li>{t('仅影响 {bot}，群内其他 Bot 不变', { bot: bot.name })}</li>
             </ul>
           }

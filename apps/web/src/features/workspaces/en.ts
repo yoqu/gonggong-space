@@ -30,7 +30,7 @@ export default {
   '为 {bot} 选择工作区': 'Choose a workspace for {bot}',
   使用本机已有的仓库目录: 'Use the existing repo folder on this machine',
   '免 clone': 'No clone',
-  托管克隆群仓库: 'Managed clone of the group repo',
+  自动克隆群仓库: 'Automatic clone of the group repo',
   推荐: 'Recommended',
   '在机器上自动克隆到独立目录，互不干扰':
     'Cloned automatically into its own folder on the machine, isolated from others',
@@ -40,8 +40,8 @@ export default {
   '{bot} 将在 {path} 工作，不再使用群仓库 {repo}。':
     '{bot} will work in {path} instead of the group repo {repo}.',
   '目录 remote：{remote}': 'Folder remote: {remote}',
-  '群的基准分支与托管克隆对 {bot} 不再生效':
-    "The group's base branch and managed clone no longer apply to {bot}",
+  '群的基准分支与自动克隆对 {bot} 不再生效':
+    "The group's base branch and automatic clone no longer apply to {bot}",
   '仅影响 {bot}，群内其他 Bot 不变': 'Only affects {bot}; other Bots in the group are unchanged',
   仍然使用: 'Use anyway',
   '克隆 {url} 到 {path}': 'Clone {url} into {path}',

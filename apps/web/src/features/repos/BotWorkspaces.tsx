@@ -20,7 +20,11 @@ const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? 
 const trimmed = (path: string) => path.replace(/(.)[\\/]+$/, '$1')
 
 /** Branch, ↓incoming ↑outgoing and uncommitted changes of one workspace, as its daemon last reported them. */
-function RepoGit({ s }: { s: RepoStatus | undefined }) {
+export function RepoGit({
+  s,
+}: {
+  s: Pick<RepoStatus, 'branch' | 'ahead' | 'behind' | 'dirty'> | null | undefined
+}) {
   if (!s) return null
   return (
     <span className="rw-git">
@@ -41,8 +45,8 @@ function RepoGit({ s }: { s: RepoStatus | undefined }) {
 }
 
 /**
- * A bot's workspaces besides the main one: its clone of each extra repo (managed, or the owner's own) and its own
- * directories. Only the owner changes them; any change starts a new session from the next turn.
+ * A bot's workspaces besides the main one: its clone of each extra repo (automatic, or a local directory) and its
+ * other directories. Only the owner changes them; any change starts a new session from the next turn.
  */
 export function BotWorkspaces({
   group,
@@ -96,7 +100,7 @@ export function BotWorkspaces({
                     {middle(local)}
                   </span>
                 ) : (
-                  t('托管克隆 · {branch}', { branch: r.branch })
+                  t('自动克隆 · {branch}', { branch: r.branch })
                 )}
               </span>
             </span>
@@ -107,7 +111,7 @@ export function BotWorkspaces({
                   variant="plain"
                   onClick={() => void attempt(() => groupsApi.setRepoPath(group.id, bot.id, r.id, null))}
                 >
-                  {t('改回托管')}
+                  {t('改回自动克隆')}
                 </Button>
               ) : (
                 <Button
@@ -117,7 +121,7 @@ export function BotWorkspaces({
                   title={offline}
                   onClick={() => setPicking({ kind: 'repo', id: r.id, name: repoPath(r.url) })}
                 >
-                  {t('改用本机克隆…')}
+                  {t('改用本机目录…')}
                 </Button>
               )
             ) : null}
@@ -130,7 +134,6 @@ export function BotWorkspaces({
           <span className="rw-ws__main">
             <span className="rw-ws__name">
               {baseName(d)}
-              <Tag tone="gray">{t('自带目录')}</Tag>
               {sync}
               <RepoGit s={atPath(d)} />
             </span>
@@ -180,7 +183,7 @@ export function BotWorkspaces({
             machineId={bot.machineId}
             title={
               picking.kind === 'dir'
-                ? t('为 {bot} 添加自带目录', { bot: bot.name })
+                ? t('为 {bot} 添加目录', { bot: bot.name })
                 : t('选择 {repo} 在本机的克隆', { repo: picking.name })
             }
             onPick={(path) => {

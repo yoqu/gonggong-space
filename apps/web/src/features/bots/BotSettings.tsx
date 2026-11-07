@@ -372,7 +372,7 @@ export function BotDetail({
         <FormRow
           label={t('默认工作区')}
           align="top"
-          hint={t('未绑定仓库的群和私聊中自动使用；绑定仓库的群默认托管克隆')}
+          hint={t('未绑定仓库的群和私聊中自动使用；绑定仓库的群默认自动克隆')}
         >
           <div
             className="bots-detail__workspace"

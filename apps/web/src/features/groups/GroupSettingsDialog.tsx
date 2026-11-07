@@ -25,9 +25,8 @@ import { InheritedSkillList, SkillLayerList } from '../config/SkillLayer'
 import { GroupFeishuTab } from '../feishu/GroupFeishuTab'
 import { InstalledSection } from '../market/InstallList'
 import { GroupPluginsTab } from '../plugins/PluginLayer'
-import { RepoWorkspaceView } from '../repos/RepoWorkspaceView'
+import { RepoSettings } from '../repos/RepoSettings'
 import { GroupSecrets } from '../secrets/GroupSecrets'
-import { SyncModeTab } from '../sync/SyncModeTab'
 import { groupsApi } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
@@ -65,8 +64,8 @@ export function GroupSettingsDialog({
   const tabs: { value: SettingsTab; label: string; icon: IconName }[] = [
     { value: 'basic', label: t('基本信息'), icon: 'info' },
     ...(dm ? [] : [{ value: 'members' as const, label: t('成员'), icon: 'person-2' as const }]),
-    { value: 'repo', label: t('Bot 与工作区'), icon: 'bot' },
-    { value: 'mode', label: t('同步模式'), icon: 'arrow-clockwise' },
+    { value: 'bots', label: 'Bot', icon: 'bot' },
+    { value: 'repo', label: t('仓库与同步'), icon: 'git-branch' },
     { value: 'params', label: dm ? t('参数#settings') : t('群级参数'), icon: 'slider-horizontal' },
     ...(dm
       ? []
@@ -143,24 +142,10 @@ export function GroupSettingsDialog({
             <BasicTab group={group} readOnly={readOnly} />
           ) : tab === 'members' ? (
             <MembersTab group={group} readOnly={readOnly} />
+          ) : tab === 'bots' ? (
+            <BotsView group={group} isAdmin={!readOnly} member />
           ) : tab === 'repo' ? (
-            <>
-              <BotsView group={group} isAdmin={!readOnly} member />
-              <GroupBox>
-                <GroupRow
-                  label={t('禁止直推基准分支')}
-                  description={t('Bot 在功能分支上提交，推送到基准分支需要 Bot 主人审批')}
-                >
-                  <Switch
-                    aria-label={t('禁止直推基准分支')}
-                    disabled={readOnly}
-                    checked={group.protectBase}
-                    onChange={(v) => void attempt(() => groupsApi.update(group.id, { protectBase: v }))}
-                  />
-                </GroupRow>
-              </GroupBox>
-              <RepoWorkspaceView group={group} isAdmin={!readOnly} />
-            </>
+            <RepoSettings group={group} isAdmin={!readOnly} />
           ) : readOnly && (tab === 'mcp' || tab === 'skill') ? (
             <>
               <GroupConfigView groupId={group.id} kind={tab} />
@@ -181,8 +166,6 @@ export function GroupSettingsDialog({
             <GroupPluginsTab group={group} readOnly={readOnly} />
           ) : tab === 'feishu' ? (
             <GroupFeishuTab group={group} />
-          ) : tab === 'mode' ? (
-            <SyncModeTab group={group} />
           ) : params ? (
             <GroupBox>
               {PARAMS.map((p) => (

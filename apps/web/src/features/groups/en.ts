@@ -75,8 +75,6 @@ export default {
   ' · 本群': ' · this group',
   '触发 {scope}': 'Trigger {scope}',
   全局设置: 'Global settings',
-  '档位默认跟随 Bot 全局设置，Bot 主人可为本群单独指定，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。 想少审批，Bot 主人可在 Bot 详情的「命令审批」中开启白名单或全部自动。移出后保留工作区，由主人决定是否删除。':
-    'The tier follows the Bot\'s global setting by default; the Bot owner can set one for this group, taking effect on running turns at once. At "Full access" in this group only the listed people can trigger it. For fewer approvals, the owner can enable an allowlist or auto-approve all under "Command approval" in the Bot details. Removing a Bot keeps its workspace for the owner to delete or keep.',
   '移出 Bot {name}': 'Remove Bot {name}',
   '移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。':
     'Its workspace is kept for the owner to delete or keep; a running turn is treated as interrupted.',
@@ -117,7 +115,6 @@ export default {
   '接力链长上限（跳）': 'Max relay chain length (hops)',
   'Bot 离线等待上线（分钟）': 'Wait for offline Bot (minutes)',
   基本信息: 'General',
-  'Bot 与工作区': 'Bots & workspaces',
   '我的 Bot': 'My Bots',
   '其他成员的 Bot': "Others' Bots",
   '搜索 Bot': 'Search Bots',
@@ -140,14 +137,14 @@ export default {
   群头像: 'Group avatar',
   未上传时由成员头像拼成: "Without an upload, it's tiled from the members' avatars",
   附加目录: 'Extra directories',
-  '附加目录 {n}': 'Extra directories {n}',
-  '{bot} 的附加目录': "{bot}'s extra directories",
-  '除工作区外，Bot 在本群也可读写这些目录，其中 git 仓库的改动在「改动」里按目录分组显示。附加目录不参与强制同步群的版本同步。修改后下一轮开启新会话。':
-    'Besides its workspace, the Bot may read and write these directories in this group; changes in their git repos show under Changes, grouped by directory. Extra directories are not synced in force-sync groups. A change starts a new session from the next turn.',
   '添加目录…': 'Add directory…',
-  '机器离线，暂时无法浏览目录；已有目录仍可移除':
-    "The machine is offline, so directories can't be browsed now; existing ones can still be removed",
-  'Bot 未绑定机器，无法浏览目录；已有目录仍可移除':
-    "The Bot has no machine, so directories can't be browsed; existing ones can still be removed",
-  '为 {bot} 选择附加目录': 'Choose an additional directory for {bot}',
+  仓库与同步: 'Repos & sync',
+  '{name} 的更多操作': 'More actions for {name}',
+  '{n} 个 Bot 需要处理': '{n} {n:Bot needs|Bots need} attention',
+  '· 另 {n} 处': '· {n} more',
+  '工作区…': 'Workspaces…',
+  '选择工作区…': 'Choose workspace…',
+  '；': '; ',
+  '本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。':
+    "The group tier follows the Bot's global setting by default and applies to running turns at once; at “Full access” only the listed people can trigger it.",
 } satisfies Record<string, string>

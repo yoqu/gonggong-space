@@ -213,7 +213,7 @@ export function groupRoutes(ctx: Ctx) {
             .where(and(eq(groupBots.groupId, group.id), ne(groupBots.workspaceKind, 'cd')))
             .returning({ botId: groupBots.botId })
         })
-        await postEvent(ctx, group.id, '群解绑仓库 · 各 Bot 改用默认工作区或本机目录，托管克隆保留在本机')
+        await postEvent(ctx, group.id, '群解绑仓库 · 各 Bot 改用默认工作区或本机目录，自动克隆保留在本机')
         await auditAdmin(me.id, group.id, 'group.repo.unbind', {
           previous: { url: publicRepoUrl(old.url), branch: old.baseBranch },
         })
