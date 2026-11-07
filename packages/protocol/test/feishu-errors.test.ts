@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTranslator, feishuErrorHint, protocolEn } from '../src/index.js'
+import { createTranslator, feishuErrorHint, isKnownFeishuError, protocolEn } from '../src/index.js'
 
 describe('feishuErrorHint', () => {
   it('says what happened and what to do; a bot out of the chat can be pulled in', () => {
@@ -7,10 +7,13 @@ describe('feishuErrorHint', () => {
     expect(feishuErrorHint(20010).what).toBe('飞书应用还没发布，或相关成员不在它的可用范围内。')
     expect(feishuErrorHint(232024)).toEqual(feishuErrorHint(20010))
     expect(feishuErrorHint(99991672).what).toContain('权限')
-    expect(feishuErrorHint(99991663).what).toBe('飞书应用的凭证已失效。')
+    expect(feishuErrorHint(10014).what).toBe('飞书应用的凭证已失效。')
     expect(feishuErrorHint(99991668).what).toBe('你的飞书授权已过期。')
     expect(feishuErrorHint(20010).pullIn).toBeUndefined()
     expect(feishuErrorHint(123).what).toBe('飞书返回了错误。')
+    expect(isKnownFeishuError(230035)).toBe(true)
+    // Unconfirmed codes stay out of the table: their failures are only logged.
+    for (const code of [0, 123, 99991663, 99991400]) expect(isKnownFeishuError(code)).toBe(false)
   })
 
   it('renders an event in either language', () => {

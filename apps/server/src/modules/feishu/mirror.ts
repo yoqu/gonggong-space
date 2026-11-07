@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import type { Answer, PermissionOption, Question, RunStatus } from '@gonggong/protocol'
-import { TERMINAL_RUN_STATUS } from '@gonggong/protocol'
+import { isKnownFeishuError, TERMINAL_RUN_STATUS } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -480,8 +480,9 @@ async function syncRun(ctx: Ctx, runId: string) {
     await syncLegacyCards(ctx, app, trigger, row.bot, legacy)
     for (const k of told) if (k.startsWith(`${key}:`)) told.delete(k)
   } catch (err) {
-    // Say why in the group once per cause rather than only in the server log; a busy card is retried instead.
-    if (!(err instanceof FeishuError) || err.code === CARD_INTERACTING) throw err
+    // A known cause is told to the group once; the rest (network, unexplained codes) only reach the log, and a busy
+    // card is retried.
+    if (!(err instanceof FeishuError) || !isKnownFeishuError(err.code)) throw err
     state(ctx).streams.delete(run.id)
     if (told.has(`${key}:${err.code}`)) return
     told.add(`${key}:${err.code}`)

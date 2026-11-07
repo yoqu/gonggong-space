@@ -296,6 +296,23 @@ describe('群设置 · 飞书 binding', () => {
     })
   })
 
+  it('only logs a refused reply whose cause it cannot explain (network, unknown codes)', async () => {
+    const { ownerHttp, group } = await setup()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    t.feishu.sendErrors.set(BOT_APP, { code: 0, message: 'timeout of 10000ms exceeded' })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 你好', clientId: 'client-1' })
+    await feishuIdle(t.ctx)
+    t.feishu.sendErrors.set(BOT_APP, { code: 99991400, message: 'request trigger frequency limit' })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@codex 再来', clientId: 'client-2' })
+    await feishuIdle(t.ctx)
+    const events = (await t.db.select().from(messages).where(eq(messages.groupId, group.id))).filter((m) =>
+      m.body.startsWith('codex 的回复没有同步到飞书群'),
+    )
+    expect(events).toEqual([])
+    expect(log).toHaveBeenCalled()
+    log.mockRestore()
+  })
+
   it('is unavailable until the main app is configured', async () => {
     const owner = await t.seed.user()
     const group = await t.seed.group({ createdBy: owner.id })

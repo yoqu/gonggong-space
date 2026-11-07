@@ -58,7 +58,7 @@ const HINTS = new Map<number, FeishuErrorHint>([
     what: '飞书应用缺少所需权限，或新开通的权限还没生效。',
     todo: '请应用管理员在飞书开放平台开通所需权限（或在共工里点「更新权限」扫码确认），并发布版本。',
   }),
-  ...hint([99991663, 10014], {
+  ...hint([10014], {
     what: '飞书应用的凭证已失效。',
     todo: '请系统管理员检查 App Secret 是否被重置，并在共工里重新填写该飞书应用。',
   }),
@@ -66,7 +66,7 @@ const HINTS = new Map<number, FeishuErrorHint>([
     what: '你的飞书授权已过期。',
     todo: '请在个人设置里重新绑定飞书账号。',
   }),
-  ...hint([99991400, 230020, 232019], {
+  ...hint([230020, 232019], {
     what: '调用飞书太频繁，被临时限流。',
     todo: '稍等片刻再试。',
   }),
@@ -76,6 +76,9 @@ const UNKNOWN: FeishuErrorHint = {
   what: '飞书返回了错误。',
   todo: '请稍后重试；仍然失败时，把错误码发给系统管理员。',
 }
+
+/** Whether 共工 can explain the code (network failures, code 0, and unconfirmed codes are not). */
+export const isKnownFeishuError = (code: number) => HINTS.has(code)
 
 /** What a Feishu error code means for the reader and what they can do about it. */
 export const feishuErrorHint = (code: number): FeishuErrorHint => HINTS.get(code) ?? UNKNOWN
