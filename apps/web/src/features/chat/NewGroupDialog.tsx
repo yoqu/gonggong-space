@@ -5,7 +5,18 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, GroupBox, Icon, IconButton, Input, SegmentedControl, Tabs } from '../../ui'
+import {
+  Button,
+  Dialog,
+  GroupBox,
+  GroupRow,
+  Icon,
+  IconButton,
+  Input,
+  SegmentedControl,
+  Switch,
+  Tabs,
+} from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
@@ -64,6 +75,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   const allBots = useWorkspace((s) => s.bots)
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [isPublic, setPublic] = useState(false)
   const [nameTouched, setNameTouched] = useState(false)
   const [botIds, setBotIds] = useState<string[]>([])
   const [people, setPeople] = useState<string[]>([])
@@ -113,6 +125,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
         memberIds: dm ? [] : manual,
         botIds,
         repo: bound ? repoBody(repo) : null,
+        ...(!dm && { visibility: isPublic ? 'public' : 'private' }),
       })
       useWorkspace.getState().applyEvent({ t: 'group.updated', group })
       onClose()
@@ -183,6 +196,9 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
                   }}
                 />
               </div>
+              <GroupRow label={t('公开频道')} description={t('团队成员可在「浏览频道」中找到并自行加入')}>
+                <Switch aria-label={t('公开频道')} checked={isPublic} onChange={setPublic} />
+              </GroupRow>
             </GroupBox>
           </section>
         )}

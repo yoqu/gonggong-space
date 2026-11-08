@@ -1,9 +1,11 @@
-import type { BotDto, GroupDto, MachineDto, TerminalSpaceDto } from '@gonggong/protocol'
+import type { BotDto, GroupDto, MachineDto, SidebarSectionDto, TerminalSpaceDto } from '@gonggong/protocol'
 import {
+  type DragEvent,
   type MouseEvent,
   memo,
   type PointerEvent,
   type ReactNode,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -13,6 +15,8 @@ import { type PersonaRole, roleCostume } from '../features/bots/avatars'
 import { draftKey } from '../features/chat/MessageComposer'
 import { groupsApi } from '../features/groups/api'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
+import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
+import { sectionsApi, useSections } from '../features/groups/sections'
 import { middle } from '../features/repos/repo-access'
 import { t } from '../i18n'
 import { api } from '../lib/api'
@@ -20,7 +24,15 @@ import { cx } from '../lib/cx'
 import { attempt } from '../lib/errors'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
-import { Badge, Button, ContextMenu, type ConversationActivity, ConversationContent, Icon } from '../ui'
+import {
+  Badge,
+  Button,
+  ContextMenu,
+  type ConversationActivity,
+  ConversationContent,
+  Icon,
+  PullDownButton,
+} from '../ui'
 import { keyNav } from '../ui/im/keynav'
 import { activityOf } from './convActivity'
 import { useInspector } from './inspector'
@@ -138,19 +150,27 @@ const GroupRow = memo(function GroupRow({
   current,
   tabStop,
   tagged = true,
+  onNewSection,
 }: {
   g: GroupDto
   current: boolean
   tabStop: boolean
-  /** Off under the Bot section head, which already says it. */
+  /** Off under 私信, whose head already says it. */
   tagged?: boolean
+  onNewSection: () => void
 }) {
   const dm = g.kind === 'dm'
   const navigate = useNavigate()
   const press = useLongPress()
   const { activity, alert } = useActivity(g)
+  const own = useSections((s) => s.sections)
+  const filed = own.some((x) => x.id === g.sectionId)
   const onMenu = (v: string) => {
-    if (v === 'pin') void attempt(() => groupsApi.prefs(g.id, { pinned: !g.pinned }))
+    if (v === 'section:new') onNewSection()
+    else if (v.startsWith('section:')) {
+      const id = v.slice(8) || null
+      void attempt(() => groupsApi.prefs(g.id, { sectionId: id, ...(id && { pinned: false }) }))
+    } else if (v === 'pin') void attempt(() => groupsApi.prefs(g.id, { pinned: !g.pinned }))
     else if (v === 'mute') void attempt(() => groupsApi.prefs(g.id, { muted: !g.muted }))
     else if (v === 'done') void attempt(() => groupsApi.prefs(g.id, { done: !isDone(g) }))
     else if (v === 'flag') void attempt(() => groupsApi.prefs(g.id, { flagged: !g.flagged }))
@@ -176,7 +196,17 @@ const GroupRow = memo(function GroupRow({
     <ContextMenu
       className="sidebar__ctx"
       items={[
-        { label: g.pinned ? t('取消置顶') : t('置顶'), value: 'pin', icon: 'pin' },
+        { label: g.pinned ? t('取消星标') : t('加星标'), value: 'pin', icon: 'star' },
+        {
+          label: t('移到分区'),
+          icon: 'folder',
+          submenu: [
+            ...own.map((x) => ({ label: x.name, value: `section:${x.id}`, checked: g.sectionId === x.id })),
+            ...(own.length ? [{ separator: true as const }] : []),
+            ...(filed ? [{ label: t('移出分区'), value: 'section:' }] : []),
+            { label: t('新建分区…'), value: 'section:new', icon: 'plus' as const },
+          ],
+        },
         { label: g.muted ? t('取消免打扰') : t('消息免打扰'), value: 'mute', icon: 'bell-slash' },
         { label: t('清除未读'), value: 'read', icon: 'check', disabled: !g.unread },
         { label: isDone(g) ? t('移回列表') : t('完成'), value: 'done', icon: 'checkmark-circle' },
@@ -188,6 +218,11 @@ const GroupRow = memo(function GroupRow({
       <NavLink
         {...press}
         to={`/g/${g.id}`}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(DRAG_TYPE, g.id)
+          e.dataTransfer.effectAllowed = 'move'
+        }}
         // Its bot was unshared or deleted: history only, so it steps back behind the live conversations.
         className={cx('pn-conv', dm && !g.botIds.length && 'pn-conv--closed')}
         title={dm ? where : undefined}
@@ -209,7 +244,6 @@ const GroupRow = memo(function GroupRow({
             unread: g.unread,
             mention: g.mentioned,
             muted: g.muted,
-            pinned: g.pinned,
             flagged: g.flagged,
             activity,
             alert,
@@ -331,25 +365,34 @@ function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
   return [...list].sort((a, b) => place(a) - place(b))
 }
 
-type SectionKey = 'group' | 'dm' | 'space'
-const sectionOf = (r: Row): SectionKey => (isSpace(r) ? 'space' : r.kind === 'dm' ? 'dm' : 'group')
-const SECTIONS: { key: SectionKey; label: string }[] = [
-  { key: 'group', label: t('群聊#section') },
-  { key: 'dm', label: 'Bot' },
-  { key: 'space', label: t('终端') },
-]
+/** 星标 / my own sections / 频道 / 私信 hold the conversations; 终端 sits below them. */
+type BuiltIn = 'star' | 'group' | 'dm'
+type Section = { key: string; label: string; custom?: boolean }
+const BUILT_IN: Record<BuiltIn, string> = { star: t('星标'), group: t('频道'), dm: t('私信') }
+const SPACES = 'space'
+const sectionOf = (g: GroupDto, own: Set<string>) =>
+  g.pinned ? 'star' : g.sectionId && own.has(g.sectionId) ? g.sectionId : g.kind === 'dm' ? 'dm' : 'group'
 const FOLDED_KEY = 'gonggong.sidebarFolded'
+const DRAG_TYPE = 'application/x-gg-group'
+
+/** Dropped on a section: 星标 stars it, my section files it there, 频道 / 私信 take it back to its default place. */
+const fileUnder = (g: GroupDto, key: string) =>
+  attempt(() =>
+    key === 'star'
+      ? groupsApi.prefs(g.id, { pinned: true })
+      : groupsApi.prefs(g.id, { pinned: false, sectionId: key === 'group' || key === 'dm' ? null : key }),
+  )
 
 /** Folded sections, kept in this browser. */
 function useFolded() {
-  const [folded, setFolded] = useState<SectionKey[]>(() => {
+  const [folded, setFolded] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]')
     } catch {
       return []
     }
   })
-  const toggle = (key: SectionKey) => {
+  const toggle = (key: string) => {
     const next = folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key]
     setFolded(next)
     try {
@@ -462,40 +505,139 @@ export function Sidebar({
   // While the main area shows the first-run welcome, "还没有…" in every section would only repeat it.
   const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
   const inGroup = groups.some((g) => g.kind === 'group')
+  const own = useSections((s) => s.sections)
   const [onlyFlagged, setOnlyFlagged] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const [dialog, setDialog] = useState<'browse' | 'section' | { rename: SidebarSectionDto } | null>(null)
+  const [dropAt, setDropAt] = useState('')
+  const newSection = useCallback(() => setDialog('section'), [])
   const anyFlagged = groups.some((g) => g.flagged)
   // Unflagging the last one hides the filter; don't let it silently re-apply when a flag comes back.
   if (onlyFlagged && !anyFlagged) setOnlyFlagged(false)
   const shown = groups.filter((g) => !onlyFlagged || g.flagged)
   const [hovered, setHovered] = useState(false)
   const done = shown.filter(isDone)
-  const open = useHeldOrder(
-    byPin<Row>([...shown.filter((g) => !isDone(g)), ...(onlyFlagged ? [] : spaces)]),
-    hovered,
-  )
+  const open = useHeldOrder(byPin(shown.filter((g) => !isDone(g))), hovered)
+  const terminals = useHeldOrder(byPin(onlyFlagged ? [] : spaces), hovered)
   const [folded, toggleFold] = useFolded()
-  // Group chats, bot chats and terminals each keep the list order; heads appear once there are two kinds to tell apart.
-  const sections = SECTIONS.map((sec) => {
-    const all = open.filter((r) => sectionOf(r) === sec.key)
-    const fold = folded.includes(sec.key)
-    // A folded section still shows what needs reading and the conversation that is open.
-    const shown = fold ? all.filter((r) => pathname === pathOf(r) || (!isSpace(r) && r.unread > 0)) : all
-    return { ...sec, all, fold, shown }
-  }).filter((sec) => sec.all.length)
-  const headed = sections.length > 1
-  const visible = headed ? sections.flatMap((sec) => sec.shown) : open
+  const ownIds = new Set(own.map((x) => x.id))
+  const isOpen = (r: Row) => pathname === pathOf(r)
+  // A folded section still shows what needs reading and the conversation that is open.
+  const fold = <R extends Row>(key: string, all: R[]) =>
+    folded.includes(key) ? all.filter((r) => isOpen(r) || (!isSpace(r) && r.unread > 0)) : all
+  const list: Section[] = [
+    { key: 'star', label: BUILT_IN.star },
+    ...own.map((x) => ({ key: x.id, label: x.name, custom: true })),
+    { key: 'group', label: BUILT_IN.group },
+    { key: 'dm', label: BUILT_IN.dm },
+  ]
+  const sections = list
+    .map((sec) => {
+      const all = open.filter((g) => sectionOf(g, ownIds) === sec.key)
+      return { ...sec, all, fold: folded.includes(sec.key), shown: fold(sec.key, all) }
+    })
+    // My own sections and 频道 stay as places to drop into and to browse from.
+    .filter((sec) => sec.all.length || sec.custom || (sec.key === 'group' && !onlyFlagged))
+  const shownSpaces = fold(SPACES, terminals)
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
-  const rows: Row[] = [...visible, ...(showDone ? done : [])]
-  const at = rows.findIndex((r) => pathname === pathOf(r))
+  const rows: Row[] = [...sections.flatMap((sec) => sec.shown), ...(showDone ? done : []), ...shownSpaces]
+  const at = rows.findIndex(isOpen)
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
-  const row = (r: Row) =>
-    isSpace(r) ? (
-      <SpaceRow key={r.id} s={r} tabStop={r.id === stop} />
-    ) : (
-      <GroupRow key={r.id} g={r} current={pathname === pathOf(r)} tabStop={r.id === stop} tagged={!headed} />
+  const anything = open.length || own.length || terminals.length
+  const dropProps = (key: string) => ({
+    onDragOver: (e: DragEvent) => {
+      if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
+      e.preventDefault()
+      setDropAt(key)
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropAt('')
+    },
+    onDrop: (e: DragEvent) => {
+      setDropAt('')
+      const g = groups.find((x) => x.id === e.dataTransfer.getData(DRAG_TYPE))
+      if (g && sectionOf(g, ownIds) !== key) void fileUnder(g, key)
+    },
+  })
+  const onSectionMenu = (sec: SidebarSectionDto) => (v: string) => {
+    if (v === 'rename') setDialog({ rename: sec })
+    else if (v === 'up' || v === 'down') void attempt(() => sectionsApi.move(sec.id, v === 'up' ? -1 : 1))
+    else if (v === 'delete') void attempt(() => sectionsApi.remove(sec.id))
+  }
+  const head = (key: string, label: ReactNode, collapsed: boolean, actions?: ReactNode) => (
+    <div className="sidebar__sechead">
+      <button
+        type="button"
+        className="sidebar__head sidebar__fold"
+        aria-expanded={!collapsed}
+        onClick={() => toggleFold(key)}
+      >
+        <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={11} />
+        {label}
+      </button>
+      {actions}
+    </div>
+  )
+  const actionsOf = (sec: Section) => {
+    if (sec.key === 'group')
+      return (
+        <>
+          <button
+            type="button"
+            className="sidebar__add"
+            title={t('浏览频道')}
+            aria-label={t('浏览频道')}
+            onClick={() => setDialog('browse')}
+          >
+            <Icon name="globe" size={13} />
+          </button>
+          {onNewGroup ? (
+            <button
+              type="button"
+              className="sidebar__add"
+              title={t('发起会话')}
+              aria-label={t('发起会话')}
+              onClick={onNewGroup}
+            >
+              <Icon name="plus" size={14} />
+            </button>
+          ) : null}
+        </>
+      )
+    const mine = own.find((x) => x.id === sec.key)
+    if (!mine) return null
+    const i = own.indexOf(mine)
+    return (
+      <PullDownButton
+        icon="more"
+        size="small"
+        variant="plain"
+        indicator={false}
+        align="end"
+        portal
+        aria-label={t('{name} 分区操作', { name: mine.name })}
+        items={[
+          { label: t('重命名…'), value: 'rename', icon: 'textformat' },
+          { label: t('上移'), value: 'up', icon: 'chevron-up', disabled: i === 0 },
+          { label: t('下移'), value: 'down', icon: 'chevron-down', disabled: i === own.length - 1 },
+          { separator: true },
+          { label: t('删除分区'), value: 'delete', icon: 'trash', destructive: true },
+        ]}
+        onSelect={onSectionMenu(mine)}
+      />
     )
+  }
+  const row = (g: GroupDto, tagged = true) => (
+    <GroupRow
+      key={g.id}
+      g={g}
+      current={isOpen(g)}
+      tabStop={g.id === stop}
+      tagged={tagged}
+      onNewSection={newSection}
+    />
+  )
   return (
     <div className="sidebar">
       {header}
@@ -530,27 +672,34 @@ export function Sidebar({
             </div>
           ) : null}
           <section aria-label={t('会话#list')}>
-            {headed ? (
+            {anything ? (
               sections.map((sec) => (
                 // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
-                <div key={sec.key} role="group" aria-label={sec.label}>
-                  <button
-                    type="button"
-                    className="sidebar__head sidebar__fold"
-                    aria-expanded={!sec.fold}
-                    onClick={() => toggleFold(sec.key)}
-                  >
-                    <Icon name={sec.fold ? 'chevron-right' : 'chevron-down'} size={11} />
-                    {sec.label}
-                  </button>
-                  <div className="sidebar__list sidebar__list--convs">{sec.shown.map(row)}</div>
+                <div
+                  key={sec.key}
+                  role="group"
+                  aria-label={sec.label}
+                  className={cx('sidebar__section', dropAt === sec.key && 'sidebar__section--drop')}
+                  {...dropProps(sec.key)}
+                >
+                  {head(sec.key, sec.label, sec.fold, actionsOf(sec))}
+                  <div className="sidebar__list sidebar__list--convs">
+                    {sec.shown.map((g) => row(g, sec.key !== 'dm'))}
+                    {sec.custom && !sec.all.length && !sec.fold ? (
+                      <div className="sidebar__drophint">{t('把会话拖到这里')}</div>
+                    ) : null}
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="sidebar__list sidebar__list--convs">
-                {open.length ? open.map(row) : empty(t('还没有会话'))}
-              </div>
+              <div className="sidebar__list sidebar__list--convs">{empty(t('还没有会话'))}</div>
             )}
+            {anything && !onlyFlagged ? (
+              <button type="button" className="sidebar__newsection" onClick={() => setDialog('section')}>
+                <Icon name="plus" size={11} />
+                {t('新建分区')}
+              </button>
+            ) : null}
           </section>
           {done.length ? (
             <section>
@@ -563,18 +712,34 @@ export function Sidebar({
                 <Icon name={showDone ? 'chevron-down' : 'chevron-right'} size={11} />
                 {t('已完成 · {n}', { n: done.length })}
               </button>
-              {showDone ? (
-                <div className="sidebar__list">
-                  {done.map((g) => (
-                    <GroupRow key={g.id} g={g} current={pathname === `/g/${g.id}`} tabStop={g.id === stop} />
-                  ))}
-                </div>
-              ) : null}
+              {showDone ? <div className="sidebar__list">{done.map((g) => row(g))}</div> : null}
             </section>
+          ) : null}
+          {terminals.length ? (
+            // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
+            <div role="group" aria-label={t('终端')} className="sidebar__section">
+              {head(SPACES, t('终端 · {n}', { n: terminals.length }), folded.includes(SPACES))}
+              <div className="sidebar__list sidebar__list--convs">
+                {shownSpaces.map((s) => (
+                  <SpaceRow key={s.id} s={s} tabStop={s.id === stop} />
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
       </div>
       <Footer bots={bots} machines={machines} />
+      {dialog === 'browse' ? <BrowseChannelsDialog onClose={() => setDialog(null)} /> : null}
+      {dialog === 'section' ? (
+        <SectionNameDialog onSave={(name) => sectionsApi.create(name)} onClose={() => setDialog(null)} />
+      ) : null}
+      {dialog && typeof dialog === 'object' ? (
+        <SectionNameDialog
+          initial={dialog.rename.name}
+          onSave={(name) => sectionsApi.rename(dialog.rename.id, name)}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
     </div>
   )
 }

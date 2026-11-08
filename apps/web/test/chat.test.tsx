@@ -323,20 +323,22 @@ describe('sidebar', () => {
     })
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    const row = await within(nav).findByRole('link', { name: /退款 v2 迁移/ })
-    fireEvent.contextMenu(row)
-    fireEvent.click(await screen.findByRole('menuitem', { name: '置顶' }))
+    await within(nav).findByRole('link', { name: /退款 v2 迁移/ })
+    // Starring moves the row under 星标, so look it up each time.
+    const row = () => within(nav).getByRole('link', { name: /退款 v2 迁移/ })
+    fireEvent.contextMenu(row())
+    fireEvent.click(await screen.findByRole('menuitem', { name: '加星标' }))
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/prefs')?.body).toEqual({ pinned: true }),
     )
-    fireEvent.contextMenu(row)
+    fireEvent.contextMenu(row())
     fireEvent.click(await screen.findByRole('menuitem', { name: '消息免打扰' }))
     await waitFor(() =>
       expect(calls.filter((c) => c.path === '/groups/g1/prefs').at(-1)?.body).toEqual({ muted: true }),
     )
-    fireEvent.contextMenu(row)
+    fireEvent.contextMenu(row())
     fireEvent.click(await screen.findByRole('menuitem', { name: '清除未读' }))
-    await waitFor(() => expect(within(row).queryByText('3')).toBeNull())
+    await waitFor(() => expect(within(row()).queryByText('3')).toBeNull())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/read')).toBe(true)
   })
 
@@ -1167,6 +1169,7 @@ describe('new group dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: '添加 1 人' }))
     expect(within(dialog).getByText(/成员 · 3/)).toBeTruthy()
 
+    fireEvent.click(within(dialog).getByRole('switch', { name: '公开频道' }))
     const create = within(dialog).getByRole('button', { name: '创建' })
     fireEvent.click(create)
     await waitFor(() => expect(calls.some((c) => c.path === '/groups' && c.method === 'POST')).toBe(true))
@@ -1176,6 +1179,7 @@ describe('new group dialog', () => {
       memberIds: ['u3'],
       botIds: ['b2'],
       repo: { url: 'git@git.corp:pay/refund.git', branch: 'release' },
+      visibility: 'public',
     })
   })
 
@@ -1650,7 +1654,7 @@ describe('machine terminals', () => {
     lastActiveAt: '2026-09-30T00:00:00.000Z',
   }
 
-  it('lists one under 终端 beside the conversations, and opens nothing but its terminal', async () => {
+  it('lists one under 终端 below the conversations, and opens nothing but its terminal', async () => {
     const calls = mockApi({
       ...baseRoutes([group({ lastAt: '2026-09-25T00:00:00.000Z' })]),
       'GET /terminal-spaces': () => [space],
@@ -1661,7 +1665,7 @@ describe('machine terminals', () => {
     expect(row.textContent).toContain('运维脚本')
     expect(row.textContent).toContain('wanglei-mbp · ')
     expect(within(screen.getByRole('group', { name: '终端' })).getByTestId('terminal-item-s1')).toBe(row)
-    expect(within(screen.getByRole('group', { name: '群聊' })).getByTestId('group-item-g1')).toBeTruthy()
+    expect(within(screen.getByRole('group', { name: '频道' })).getByTestId('group-item-g1')).toBeTruthy()
 
     fireEvent.click(row)
     const main = screen.getByRole('main')

@@ -81,6 +81,7 @@ import { startScheduleEngine } from './modules/schedules/engine.js'
 import { scheduleRoutes } from './modules/schedules/routes.js'
 import { searchRoutes } from './modules/search/routes.js'
 import { secretRoutes } from './modules/secrets/routes.js'
+import { sidebarRoutes } from './modules/sidebar/routes.js'
 import { skillRoutes } from './modules/skills/routes.js'
 import { startSyncEngine } from './modules/sync/engine.js'
 import { syncRoutes } from './modules/sync/routes.js'
@@ -130,6 +131,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(groupRoutes(ctx))
   await app.register(extraRepoRoutes(ctx))
   await app.register(groupSettingsRoutes(ctx))
+  await app.register(sidebarRoutes(ctx))
   await app.register(messageRoutes(ctx))
   await app.register(reactionRoutes(ctx))
   await app.register(attachmentRoutes(ctx))

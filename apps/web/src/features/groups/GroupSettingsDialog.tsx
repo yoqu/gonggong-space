@@ -288,6 +288,16 @@ function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean })
             onChange={(v) => void attempt(() => groupsApi.update(group.id, { adminOnlyInvite: v }))}
           />
         </GroupRow>
+        <GroupRow label={t('公开频道')} description={t('团队成员可在「浏览频道」中找到并自行加入')}>
+          <Switch
+            aria-label={t('公开频道')}
+            disabled={readOnly}
+            checked={group.visibility === 'public'}
+            onChange={(v) =>
+              void attempt(() => groupsApi.update(group.id, { visibility: v ? 'public' : 'private' }))
+            }
+          />
+        </GroupRow>
       </GroupBox>
       <MembersView
         group={group}

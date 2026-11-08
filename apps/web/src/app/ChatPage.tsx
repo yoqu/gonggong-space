@@ -7,6 +7,7 @@ import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
+import { loadSections } from '../features/groups/sections'
 import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
 import { UserGuide } from '../features/onboarding/UserGuide'
@@ -69,17 +70,19 @@ function loadGroups(setState: (s: 'ready' | 'error') => void) {
 const setInspectorHost = (host: HTMLElement | null) => useInspector.setState({ host })
 
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
-const loadSpaces = () =>
+const loadSpaces = () => {
   loadTerminalSpaces().catch((e: Error) => console.warn('terminal spaces failed to load:', e))
+  loadSections().catch((e: Error) => console.warn('sidebar sections failed to load:', e))
+}
 
 function useChatData() {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   useEffect(() => {
     loadGroups(setState)
-    void loadSpaces()
+    loadSpaces()
     return realtime.onReconnect(() => {
       loadGroups(setState)
-      void loadSpaces()
+      loadSpaces()
     })
   }, [])
   const retry = () => {

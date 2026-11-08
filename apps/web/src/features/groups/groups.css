@@ -284,3 +284,14 @@
   gap: var(--space-8);
   margin: var(--space-12) 0;
 }
+
+.browse-channels {
+  margin-top: var(--space-12);
+  max-height: 420px;
+  overflow: auto;
+}
+.browse-channels__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}

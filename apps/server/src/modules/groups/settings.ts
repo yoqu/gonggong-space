@@ -10,6 +10,7 @@ import { requireUser } from '../auth/session.js'
 import { unbindChat } from '../feishu/mirror.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
+import { requireSection } from '../sidebar/routes.js'
 import { forgetGroupParams, groupParams, replyStyleOf } from './params.js'
 import { groupDto, publishGroup, removeMember, requireAdmin, requireMember } from './service.js'
 
@@ -49,7 +50,10 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.patch<P>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const { notice, adminOnlyInvite, protectBase, replyStyle, ...body } = UpdateGroupReq.parse(req.body)
+      const { notice, adminOnlyInvite, protectBase, replyStyle, visibility, ...body } = UpdateGroupReq.parse(
+        req.body,
+      )
+      if (visibility && group.kind === 'dm') return fail('invalid', '私聊不能公开')
       if (body.name)
         await ctx.db
           .update(groups)
@@ -60,6 +64,8 @@ export function groupSettingsRoutes(ctx: Ctx) {
       if (inviteChanged) await ctx.db.update(groups).set({ adminOnlyInvite }).where(eq(groups.id, group.id))
       const protectChanged = protectBase !== undefined && protectBase !== group.protectBase
       if (protectChanged) await ctx.db.update(groups).set({ protectBase }).where(eq(groups.id, group.id))
+      const visibilityChanged = visibility !== undefined && visibility !== group.visibility
+      if (visibilityChanged) await ctx.db.update(groups).set({ visibility }).where(eq(groups.id, group.id))
       if (replyStyle !== undefined && replyStyle !== replyStyleOf(group.params))
         await ctx.db
           .update(groups)
@@ -77,12 +83,14 @@ export function groupSettingsRoutes(ctx: Ctx) {
             adminOnlyInvite: group.adminOnlyInvite,
             protectBase: group.protectBase,
             replyStyle: replyStyleOf(group.params),
+            visibility: group.visibility,
           },
           ...body,
           notice,
           adminOnlyInvite,
           protectBase,
           replyStyle,
+          visibility,
         },
       })
       if (body.name !== undefined || notice !== undefined)
@@ -106,6 +114,13 @@ export function groupSettingsRoutes(ctx: Ctx) {
           ctx,
           group.id,
           protectBase ? '{user} 开启了「禁止直推基准分支」' : '{user} 关闭了「禁止直推基准分支」',
+          { user: me.name },
+        )
+      if (visibilityChanged)
+        await postEvent(
+          ctx,
+          group.id,
+          visibility === 'public' ? '{user} 将本群设为公开频道' : '{user} 将本群设为私有',
           { user: me.name },
         )
       await publishGroup(ctx, group.id)
@@ -180,7 +195,8 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.put<P>('/api/groups/:id/prefs', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const { noticeHidden, done, ...prefs } = GroupPrefsReq.parse(req.body)
+      const { noticeHidden, done, sectionId, ...prefs } = GroupPrefsReq.parse(req.body)
+      if (sectionId) await requireSection(ctx, me.id, group.teamId, sectionId)
       const [last] =
         done === true
           ? await ctx.db
@@ -190,6 +206,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
           : []
       const body = {
         ...prefs,
+        ...(sectionId !== undefined && { sectionId }),
         ...(noticeHidden !== undefined && { hiddenNoticeId: noticeHidden ? group.noticeId : null }),
         ...(done !== undefined && { doneSeq: done ? (last?.seq ?? 0) : null }),
       }

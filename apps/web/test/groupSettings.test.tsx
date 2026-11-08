@@ -417,6 +417,10 @@ describe('group settings inspector', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ adminOnlyInvite: true }),
     )
+    fireEvent.click(within(dlg).getByRole('switch', { name: '公开频道' }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'PATCH').at(-1)?.body).toEqual({ visibility: 'public' }),
+    )
   })
 
   it('edits the notice in the inspector, then shows the notice bar', async () => {
@@ -537,10 +541,10 @@ describe('group settings inspector', () => {
     )
     renderAt('/g/g1')
     const d = await openDrawer()
-    fireEvent.click(within(d).getByRole('switch', { name: '置顶群' }))
+    fireEvent.click(within(d).getByRole('switch', { name: '星标' }))
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     await waitFor(() =>
-      expect(within(screen.getByTestId('group-item-g1')).getByLabelText('已置顶')).toBeTruthy(),
+      expect(within(screen.getByRole('group', { name: '星标' })).getByTestId('group-item-g1')).toBeTruthy(),
     )
     const items = within(nav).getAllByTestId(/^group-item-/)
     expect(items.map((i) => i.dataset.testid)).toEqual(['group-item-g1', 'group-item-g0'])
@@ -973,7 +977,7 @@ describe('group settings inspector', () => {
     mockApi(routes([group()], { 'PUT /groups/g1/prefs': () => apiError(500, 'internal', '保存失败') }))
     renderAt('/g/g1')
     const d = await openDrawer()
-    const pin = within(d).getByRole('switch', { name: '置顶群' }) as HTMLInputElement
+    const pin = within(d).getByRole('switch', { name: '星标' }) as HTMLInputElement
     fireEvent.click(pin)
     expect(pin.checked).toBe(true)
     expect(pin.disabled).toBe(true)

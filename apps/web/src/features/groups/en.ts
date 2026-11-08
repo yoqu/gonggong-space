@@ -38,7 +38,7 @@ export default {
   消息免打扰: 'Mute messages',
   '普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒':
     "No alerts for regular messages; still alerts for @me, my Bots' approvals and questions to me",
-  置顶群: 'Pin group',
+  星标: 'Star',
   运行卡片默认折叠: 'Collapse run cards by default',
   '只对我生效，审批与提问卡片始终展开': 'Only for me; approval and question cards stay expanded',
   群管理: 'Group admin',
@@ -147,4 +147,20 @@ export default {
   '；': '; ',
   '本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。':
     "The group tier follows the Bot's global setting by default and applies to running turns at once; at “Full access” only the listed people can trigger it.",
+  公开频道: 'Public channel',
+  '团队成员可在「浏览频道」中找到并自行加入': 'Anyone in the team can find it in Browse channels and join',
+  重命名分区: 'Rename section',
+  新建分区: 'New section',
+  分区名称: 'Section name',
+  '如：发版与运维': 'e.g. Releases & ops',
+  浏览频道: 'Browse channels',
+  搜索频道: 'Search channels',
+  '加入 {name}': 'Join {name}',
+  加入: 'Join',
+  打开: 'Open',
+  创建: 'Create',
+  没有匹配的频道: 'No matching channels',
+  还没有公开频道: 'No public channels yet',
+  '群管理员可在群设置的「成员」里把群设为公开频道':
+    'Group admins can make a group public under Members in its settings',
 } satisfies Record<string, string>

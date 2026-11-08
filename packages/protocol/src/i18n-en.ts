@@ -64,6 +64,9 @@ export const protocolEn = {
   '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式':
     "No repo bound · each Bot uses its owner's directory, partition mode only",
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',
+  '{user} 加入了频道': '{user} joined the channel',
+  '{user} 将本群设为公开频道': '{user} made this group a public channel',
+  '{user} 将本群设为私有': '{user} made this group private',
   '{user} 将 {member} 移出群': '{user} removed {member} from the group',
   '{member} 随飞书群加入群': '{member} joined along with the Feishu chat',
   '欢迎 {member} 加入团队': 'Welcome {member} to the team',
@@ -283,6 +286,7 @@ export const protocolEn = {
   // Validation
   '请填写 Token': 'Enter a token',
   填写群名称: 'Enter a group name',
+  填写分区名称: 'Enter a section name',
   'sha256 需为 64 位十六进制': 'sha256 must be 64 hex characters',
   '版本号需为 x.y.z': 'Version must be x.y.z',
 

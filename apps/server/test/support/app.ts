@@ -136,6 +136,7 @@ export async function createTestApp(
       createdBy: string
       teamId?: string
       kind?: 'group' | 'dm'
+      visibility?: 'public' | 'private'
       name?: string
       memberIds?: string[]
       botIds?: string[]
@@ -145,6 +146,7 @@ export async function createTestApp(
         .values({
           name: o.name ?? `群${++n}`,
           kind: o.kind ?? 'group',
+          visibility: o.visibility,
           createdBy: o.createdBy,
           teamId: await teamOf(o.teamId),
         })

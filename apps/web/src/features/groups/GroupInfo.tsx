@@ -405,7 +405,7 @@ function MainView({
         {
           rows: [
             pref('muted', t('消息免打扰'), t('普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒')),
-            pref('pinned', t('置顶群')),
+            pref('pinned', t('星标')),
             pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
           ],
         },

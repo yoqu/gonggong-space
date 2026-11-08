@@ -103,7 +103,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
 })
 
 describe('Sidebar rows', () => {
-  it("files Bot DMs under the Bot head, shows their latest message with the workspace path on hover, prefixes another group's unsent draft and keeps it off the open one", () => {
+  it("files Bot DMs under the 私信 head, shows their latest message with the workspace path on hover, prefixes another group's unsent draft and keeps it off the open one", () => {
     sessionStorage.setItem('gonggong:draft:g1', '周报晚点补')
     sessionStorage.setItem('gonggong:draft:g2', '当前草稿')
     try {
@@ -124,7 +124,7 @@ describe('Sidebar rows', () => {
           />
         </MemoryRouter>,
       )
-      expect(within(screen.getByRole('group', { name: 'Bot' })).getByTestId('group-item-d1')).toBeTruthy()
+      expect(within(screen.getByRole('group', { name: '私信' })).getByTestId('group-item-d1')).toBeTruthy()
       // The head says it once; a tag on every row would repeat it.
       expect(within(screen.getByTestId('group-item-d1')).queryByText('Bot')).toBeNull()
       const preview = (id: string) => screen.getByTestId(id).querySelector('.pn-conv__preview')?.textContent

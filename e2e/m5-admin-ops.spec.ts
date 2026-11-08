@@ -100,10 +100,10 @@ test('group settings: name + notice, group params, mute/pin, leaving and dissolv
 
   // The switch input is visually hidden; a pointer toggles it through its track (the wrapping label).
   const toggle = (name: string) => settings.getByRole('switch', { name }).locator('xpath=..').click()
-  await toggle('置顶群')
+  await toggle('星标')
   await toggle('消息免打扰')
   await expect(settings.getByRole('switch', { name: '消息免打扰' })).toBeChecked()
-  await expect(page.getByTestId(`group-item-${group.id}`).getByLabel('已置顶')).toBeVisible()
+  await expect(page.getByRole('group', { name: '星标' }).getByTestId(`group-item-${group.id}`)).toBeVisible()
   await page.getByRole('button', { name: '解散群' }).click()
   await page.getByRole('button', { name: '确认解散' }).click()
   await expect(page.getByTestId(`group-item-${group.id}`)).toHaveCount(0)

@@ -1,4 +1,5 @@
 import {
+  type ChannelDto,
   CreateGroupReq,
   GroupBotReq,
   GroupMemberReq,
@@ -7,12 +8,13 @@ import {
   RepoReq,
   repoKey,
 } from '@gonggong/protocol'
-import { and, eq, max, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, ilike, isNull, max, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
+import { isUuid } from '../../lib/ids.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { isSharedWith } from '../bots/shares.js'
@@ -23,6 +25,7 @@ import { readMentions } from '../notifications/notify.js'
 import { recordRepo } from '../repos/service.js'
 import { leaveReplica } from '../sync/switch.js'
 import { currentTeam } from '../teams/service.js'
+import { avatarUrl } from '../users/dto.js'
 import { joinWorkspace } from '../workspaces/provision.js'
 import { RESET_SESSION } from '../workspaces/state.js'
 import { activeUsers, assertBindable, createGroup, liveBots, uniq } from './create.js'
@@ -122,6 +125,64 @@ export function groupRoutes(ctx: Ctx) {
           await auditAdmin(me.id, group.id, 'group.member.add', { userId: u.id, name: u.name })
         await publishGroup(ctx, group.id)
         for (const u of added) await pullIntoChat(ctx, group.id, u)
+      }
+      return groupDto(ctx, me.id, group.id)
+    })
+
+    app.get<{ Querystring: { q?: string } }>('/api/channels', async (req): Promise<ChannelDto[]> => {
+      const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
+      const q = req.query.q?.trim()
+      const rows = await ctx.db
+        .select({
+          id: groups.id,
+          name: groups.name,
+          avatar: groups.avatar,
+          notice: groups.notice,
+          memberCount: sql<number>`count(${groupMembers.userId})::int`,
+          joined: sql<boolean>`bool_or(${groupMembers.userId} = ${me.id})`,
+        })
+        .from(groups)
+        .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
+        .where(
+          and(
+            eq(groups.teamId, teamId),
+            eq(groups.kind, 'group'),
+            eq(groups.visibility, 'public'),
+            isNull(groups.archivedAt),
+            q ? ilike(groups.name, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined,
+          ),
+        )
+        .groupBy(groups.id)
+        .orderBy(asc(groups.name))
+      return rows.map((r) => ({ ...r, avatar: avatarUrl(r.avatar) }))
+    })
+
+    app.post<{ Params: { id: string } }>('/api/groups/:id/join', async (req) => {
+      const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
+      const [group] = isUuid(req.params.id)
+        ? await ctx.db
+            .select()
+            .from(groups)
+            .where(
+              and(
+                eq(groups.id, req.params.id),
+                eq(groups.teamId, teamId),
+                eq(groups.kind, 'group'),
+                eq(groups.visibility, 'public'),
+                isNull(groups.archivedAt),
+              ),
+            )
+        : []
+      if (!group) return fail('not_found', '频道不存在或不是公开频道')
+      if (!(await isMember(ctx, group.id, me.id))) {
+        await ctx.db.insert(groupMembers).values({ groupId: group.id, userId: me.id }).onConflictDoNothing()
+        forgetMembers(group.id)
+        await postEvent(ctx, group.id, '{user} 加入了频道', { user: me.name })
+        await auditAdmin(me.id, group.id, 'group.member.join', { userId: me.id, name: me.name })
+        await publishGroup(ctx, group.id)
+        await pullIntoChat(ctx, group.id, me)
       }
       return groupDto(ctx, me.id, group.id)
     })

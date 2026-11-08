@@ -847,6 +847,50 @@ a.sidebar__open {
   font-family: inherit;
   cursor: pointer;
 }
+.sidebar__sechead {
+  display: flex;
+  align-items: center;
+  padding-right: var(--space-8);
+}
+.sidebar__sechead .sidebar__fold {
+  flex: 1;
+  min-width: 0;
+}
+/* The head's actions show on hover, as Slack's do; touch screens always show them. */
+@media (hover: hover) {
+  .sidebar__sechead > :not(.sidebar__fold) {
+    opacity: 0;
+  }
+  .sidebar__sechead:hover > *,
+  .sidebar__sechead:focus-within > * {
+    opacity: 1;
+  }
+}
+.sidebar__section--drop {
+  border-radius: var(--radius-field);
+  background: var(--accent-fill);
+}
+.sidebar__drophint {
+  padding: var(--space-4) var(--space-16) var(--space-8) 34px;
+  font-size: var(--text-footnote-size);
+  color: var(--label-tertiary);
+}
+.sidebar__newsection {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-8) 0 0;
+  padding: var(--space-4) var(--space-16);
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-footnote-size);
+  color: var(--label-tertiary);
+  cursor: pointer;
+}
+.sidebar__newsection:hover {
+  color: var(--label);
+}
 .sidebar__filter {
   display: flex;
   padding: var(--space-8) var(--space-12) 0;

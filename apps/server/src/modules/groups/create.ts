@@ -99,6 +99,7 @@ export async function createGroup(
       teamId,
       name,
       kind: body.kind,
+      visibility: dm ? 'private' : (body.visibility ?? 'private'),
       createdBy: me.id,
       protectBase: true,
       params: { replyStyle: 'business' },

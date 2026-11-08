@@ -322,6 +322,10 @@ export const en = {
   '只能拉入你自己的 Bot': 'You can only add your own Bots',
   本群仅群管理员可拉人: 'Only group admins can invite people to this group',
   私聊不能添加成员: "Direct chats can't have more members",
+  私聊不能公开: "Direct chats can't be public",
+  频道不存在或不是公开频道: "This channel doesn't exist or isn't public",
+  分区不存在: "This section doesn't exist",
+  '分区已变化，请刷新后重试': 'Your sections have changed. Refresh and try again',
   该用户不在群内: 'This user is not in the group',
   '唯一的群管理员不能被移出，请先指定继任者':
     "The only group admin can't be removed, appoint another admin first",

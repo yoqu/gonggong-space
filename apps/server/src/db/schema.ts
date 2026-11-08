@@ -340,6 +340,22 @@ export const botShareRequests = pgTable(
   ],
 )
 
+/** 侧栏自建分区: a user's own sidebar sections in a team, in `position` order. */
+export const sidebarSections = pgTable(
+  'sidebar_sections',
+  {
+    id: id(),
+    teamId: teamId(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('sidebar_sections_user').on(t.userId, t.teamId)],
+)
+
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const groups = pgTable('groups', {
   id: id(),
@@ -347,6 +363,8 @@ export const groups = pgTable('groups', {
   name: text('name').notNull(),
   /** 'group' | 'dm' */
   kind: text('kind').notNull(),
+  /** 'public' (found and joined in 浏览频道) | 'private' (invitation only); DMs are private. */
+  visibility: text('visibility').notNull().default('private'),
   /** `avatars/<uuid>` under the data dir; null = tiled from the members. */
   avatar: text('avatar'),
   /** A DM renamed by its owner shows `name`; otherwise it follows its Bot's name. */
@@ -490,6 +508,8 @@ export const groupMembers = pgTable(
     doneSeq: bigint('done_seq', { mode: 'number' }),
     /** 标记 */
     flagged: boolean('flagged').notNull().default(false),
+    /** The member's own sidebar section holding the group; null = its kind's default section. */
+    sectionId: uuid('section_id').references(() => sidebarSections.id, { onDelete: 'set null' }),
     /** The notice this member closed for themselves; a newer notice shows again. */
     hiddenNoticeId: uuid('hidden_notice_id'),
     lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),

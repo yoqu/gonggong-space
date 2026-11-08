@@ -1059,11 +1059,16 @@ export const GroupKind = z.enum(['group', 'dm'])
 /** 技术 or 业务 (conclusion first, plain words, evidence last); stored in `groups.params`, absent = tech. */
 export const ReplyStyle = z.enum(['tech', 'business'])
 export type ReplyStyle = z.infer<typeof ReplyStyle>
+/** 公开 channels can be found in 浏览频道 and joined by anyone in the team; 私有 ones only by invitation. */
+export const GroupVisibility = z.enum(['public', 'private'])
+export type GroupVisibility = z.infer<typeof GroupVisibility>
 export const GroupDto = z.object({
   id: z.string(),
   teamId: z.string(),
   name: z.string(),
   kind: GroupKind,
+  /** Always sent by the server; DMs are private. */
+  visibility: GroupVisibility.optional(),
   /** Uploaded image; null = tiled from the members (a DM shows its bot). */
   avatar: z.string().nullable(),
   mode: z.enum(['partition', 'force']),
@@ -1096,6 +1101,8 @@ export const GroupDto = z.object({
   lastAt: z.string().optional(),
   /** The requesting user's own prefs. */
   pinned: z.boolean(),
+  /** The caller's sidebar section holding it; null = its kind's default section. Always sent by the server. */
+  sectionId: z.string().nullable().optional(),
   /** 完成: the caller marked it done up to this seq; done while `lastSeq` has not passed it. Always sent by the server. */
   doneSeq: z.number().int().nullable().optional(),
   /** 标记 by the caller; always sent by the server. */
@@ -1129,6 +1136,7 @@ export const CreateGroupReq = z.object({
   memberIds: z.array(z.string()).default([]),
   botIds: z.array(z.string()).default([]),
   repo: z.object({ url: z.string(), branch: z.string() }).nullable().default(null),
+  visibility: GroupVisibility.optional(),
 })
 export const GroupMemberReq = z.object({ userIds: z.array(z.string()).min(1).max(200) })
 export const GroupBotReq = z.object({ botId: z.string() })
@@ -1990,6 +1998,7 @@ export const UpdateGroupReq = z.object({
   adminOnlyInvite: z.boolean().optional(),
   protectBase: z.boolean().optional(),
   replyStyle: ReplyStyle.optional(),
+  visibility: GroupVisibility.optional(),
 })
 export type UpdateGroupReq = z.infer<typeof UpdateGroupReq>
 /** PUT /api/groups/:id/prefs — only for the caller. */
@@ -2002,9 +2011,30 @@ export const GroupPrefsReq = z
     /** 完成 up to the latest message, or back to the list. */
     done: z.boolean(),
     flagged: z.boolean(),
+    /** One of the caller's sidebar sections, null back to the default one. */
+    sectionId: z.string().uuid().nullable(),
   })
   .partial()
 export type GroupPrefsReq = z.infer<typeof GroupPrefsReq>
+
+/** 侧栏自建分区: the caller's own sections in the current team, in their order (GET/POST /api/sidebar-sections). */
+export const SidebarSectionDto = z.object({ id: z.string(), name: z.string() })
+export type SidebarSectionDto = z.infer<typeof SidebarSectionDto>
+/** POST /api/sidebar-sections, PATCH /api/sidebar-sections/:id */
+export const SidebarSectionReq = z.object({ name: z.string().trim().min(1, '填写分区名称').max(40) })
+/** PUT /api/sidebar-sections/order: every section of mine, in the new order. */
+export const SidebarSectionOrderReq = z.object({ ids: z.array(z.string().uuid()) })
+
+/** GET /api/channels[?q=]: the team's public channels, joined or not (浏览频道). */
+export const ChannelDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+  notice: z.string(),
+  memberCount: z.number().int(),
+  joined: z.boolean(),
+})
+export type ChannelDto = z.infer<typeof ChannelDto>
 
 // ── Daemon release (plan D17): PUT /api/admin/daemon-release ─────────────────
 export const DaemonBuild = z.object({

@@ -6,6 +6,7 @@ import { App } from '../src/App'
 import { InspectorPortal, useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useSections } from '../src/features/groups/sections'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -101,6 +102,7 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', FakeSocket)
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], loaded: false, notifCount: 0 })
+  useSections.setState({ sections: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -299,18 +301,24 @@ describe('sidebar sections', () => {
       .queryAllByTestId(/^group-item-/)
       .map((e) => e.getAttribute('data-testid')?.slice(11))
 
-  it('splits group chats from bot chats once both exist, each keeping its own order', async () => {
+  it('stars across kinds above 频道 and 私信, each keeping the latest message first', async () => {
     mockApi(
       routes([
         group('g1', '退款', { lastAt: '2026-10-01T00:00:00.000Z' }),
         group('d1', 'CC专家', { kind: 'dm', botIds: ['b1'], lastAt: '2026-10-03T00:00:00.000Z' }),
         group('g2', '支付', { lastAt: '2026-10-02T00:00:00.000Z' }),
+        group('d2', 'Codex', { kind: 'dm', botIds: ['b2'], pinned: true }),
+        group('g3', '发版', { pinned: true }),
       ]),
     )
     renderAt('/g/g1')
     await screen.findByTestId('group-item-d1')
-    expect(rowsIn('群聊')).toEqual(['g2', 'g1'])
-    expect(rowsIn('Bot')).toEqual(['d1'])
+    expect(rowsIn('星标').sort()).toEqual(['d2', 'g3'])
+    expect(rowsIn('频道')).toEqual(['g2', 'g1'])
+    expect(rowsIn('私信')).toEqual(['d1'])
+    // Among other kinds a DM says what it is; under 私信 the head does.
+    expect(within(screen.getByTestId('group-item-d2')).getByText('Bot')).toBeTruthy()
+    expect(within(screen.getByTestId('group-item-d1')).queryByText('Bot')).toBeNull()
   })
 
   it('folds a section but keeps its unread and open rows in sight, and remembers the fold', async () => {
@@ -323,20 +331,115 @@ describe('sidebar sections', () => {
     )
     const { unmount } = renderAt('/g/g1')
     await screen.findByTestId('group-item-d1')
-    fireEvent.click(screen.getByRole('button', { name: /^Bot/ }))
-    expect(rowsIn('Bot')).toEqual(['d2'])
+    fireEvent.click(screen.getByRole('button', { name: /^私信/ }))
+    expect(rowsIn('私信')).toEqual(['d2'])
     unmount()
     renderAt('/g/d1')
     await screen.findByTestId('group-item-d1')
-    expect(screen.getByRole('button', { name: /^Bot/ }).getAttribute('aria-expanded')).toBe('false')
-    expect(rowsIn('Bot').sort()).toEqual(['d1', 'd2'])
+    expect(screen.getByRole('button', { name: /^私信/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(rowsIn('私信').sort()).toEqual(['d1', 'd2'])
   })
 
-  it('shows no section heads while every conversation is a group chat', async () => {
-    mockApi(routes([group('g1', '退款'), group('g2', '支付')]))
+  it('files conversations under my own sections, by menu or by dragging, and a star wins', async () => {
+    const calls = mockApi({
+      ...routes([
+        group('g1', '退款', { sectionId: 's1' }),
+        group('g2', '支付'),
+        group('g3', '告警', { sectionId: 's1', pinned: true }),
+      ]),
+      'GET /sidebar-sections': [
+        { id: 's1', name: '发版' },
+        { id: 's2', name: '运维' },
+      ],
+      'PUT /groups/g2/prefs': (b: unknown) => group('g2', '支付', b as Partial<GroupDto>),
+      'PUT /groups/g1/prefs': (b: unknown) => group('g1', '退款', b as Partial<GroupDto>),
+    })
     renderAt('/g/g1')
-    await screen.findByTestId('group-item-g2')
-    expect(screen.queryByRole('button', { name: /^群聊/ })).toBeNull()
+    await waitFor(() => expect(rowsIn('发版')).toEqual(['g1']))
+    expect(rowsIn('星标')).toEqual(['g3'])
+    expect(within(screen.getByRole('group', { name: '运维' })).getByText('把会话拖到这里')).toBeTruthy()
+
+    fireEvent.contextMenu(screen.getByTestId('group-item-g2'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '移到分区' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '运维' }))
+    await waitFor(() => expect(rowsIn('运维')).toEqual(['g2']))
+    expect(calls.find((c) => c.path === '/groups/g2/prefs')?.body).toEqual({ sectionId: 's2', pinned: false })
+
+    const types = ['application/x-gg-group']
+    fireEvent.drop(screen.getByRole('group', { name: '频道' }), {
+      dataTransfer: { types, getData: () => 'g1' },
+    })
+    await waitFor(() => expect(rowsIn('频道')).toEqual(['g1']))
+    expect(calls.find((c) => c.path === '/groups/g1/prefs')?.body).toEqual({ pinned: false, sectionId: null })
+  })
+
+  it('creates, renames, reorders and deletes my sections', async () => {
+    const calls = mockApi({
+      ...routes([group('g1', '退款', { sectionId: 's1' })]),
+      'GET /sidebar-sections': [{ id: 's1', name: '发版' }],
+      'POST /sidebar-sections': (b: unknown) => ({ id: 's2', ...(b as object) }),
+      'PATCH /sidebar-sections/s1': (b: unknown) => ({ id: 's1', ...(b as object) }),
+      'PUT /sidebar-sections/order': (b: unknown) =>
+        (b as { ids: string[] }).ids.map((id) => ({ id, name: id === 's1' ? '发布' : '运维' })),
+      'DELETE /sidebar-sections/s1': () => undefined,
+    })
+    renderAt('/g/g1')
+    await waitFor(() => expect(rowsIn('发版')).toEqual(['g1']))
+
+    fireEvent.click(screen.getByRole('button', { name: '新建分区' }))
+    let dialog = await screen.findByRole('dialog', { name: '新建分区' })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '分区名称' }), {
+      target: { value: ' 运维 ' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    expect(await screen.findByRole('group', { name: '运维' })).toBeTruthy()
+    expect(calls.find((c) => c.method === 'POST' && c.path === '/sidebar-sections')?.body).toEqual({
+      name: '运维',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '发版 分区操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '重命名…' }))
+    dialog = await screen.findByRole('dialog', { name: '重命名分区' })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '分区名称' }), { target: { value: '发布' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(await screen.findByRole('group', { name: '发布' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '发布 分区操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '下移' }))
+    await waitFor(() =>
+      expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))).toEqual([
+        '运维',
+        '发布',
+        '频道',
+      ]),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '发布 分区操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '删除分区' }))
+    // Its conversations go back to their default section.
+    await waitFor(() => expect(rowsIn('频道')).toEqual(['g1']))
+    expect(screen.queryByRole('group', { name: '发布' })).toBeNull()
+  })
+
+  it('browses the team public channels and joins one', async () => {
+    const joined = group('g9', '公告')
+    const calls = mockApi({
+      ...routes([group('g1', '退款')]),
+      'GET /channels': [
+        { id: 'g1', name: '退款', avatar: null, notice: '', memberCount: 3, joined: true },
+        { id: 'g9', name: '公告', avatar: null, notice: '全员通知', memberCount: 12, joined: false },
+      ],
+      'POST /groups/g9/join': joined,
+    })
+    renderAt('/g/g1')
+    await screen.findByTestId('group-item-g1')
+    fireEvent.click(screen.getByRole('button', { name: '浏览频道' }))
+    const dialog = await screen.findByRole('dialog', { name: '浏览频道' })
+    expect(await within(dialog).findByText('12 人 · 全员通知')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '加入 公告' }))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g9'))
+    expect(rowsIn('频道').sort()).toEqual(['g1', 'g9'])
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g9/join')).toBe(true)
   })
 })
 
