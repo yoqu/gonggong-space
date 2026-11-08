@@ -92,3 +92,28 @@ it('a group with unread only turns bold; its number is the @ of me, a DM’s its
   expect(row('g4').querySelector('.pn-conv__name--bold')).toBeNull()
   expect(badge('g4')?.classList.contains('ui-badge--muted')).toBe(true)
 })
+
+it('marks public channels with # and private groups with a lock; shortcuts share one line', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <Sidebar
+        groups={[
+          { ...groups[0]!, visibility: 'public' },
+          { ...groups[1]!, visibility: 'private' },
+        ]}
+        bots={[]}
+        machines={[]}
+        loaded
+        guide={false}
+      />
+    </MemoryRouter>,
+  )
+  expect(screen.getByTestId('group-item-g1').querySelector('[aria-label="公开频道"]')).toBeTruthy()
+  expect(screen.getByTestId('group-item-g2').querySelector('[aria-label="私有群"]')).toBeTruthy()
+  const shortcuts = screen.getByRole('navigation', { name: '快捷入口' })
+  expect([...shortcuts.querySelectorAll('.pn-shortcut__label')].map((e) => e.textContent)).toEqual([
+    '话题',
+    '全部未读',
+    '稍后处理',
+  ])
+})

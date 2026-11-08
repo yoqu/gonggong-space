@@ -2,6 +2,7 @@ import {
   type BotDto,
   type DirectoryGroupDto,
   type GroupDto,
+  type GroupVisibility,
   type MachineDto,
   type NotifyLevel,
   SECTION_MAX_DEPTH,
@@ -46,6 +47,7 @@ import {
   ConversationContent,
   Icon,
   PullDownButton,
+  ShortcutContent,
 } from '../ui'
 import { keyNav } from '../ui/im/keynav'
 import { activityOf } from './convActivity'
@@ -287,6 +289,7 @@ const GroupRow = memo(function GroupRow({
             name: g.name,
             group: true,
             avatarNode: <GroupAvatar group={g} size={40} />,
+            kind: dm ? undefined : channelKind(g.visibility),
             tags: dm && tagged ? [{ label: 'Bot', tone: 'blue' }] : undefined,
             preview,
             draft: current ? undefined : draftOf(g.id),
@@ -308,23 +311,15 @@ const GroupRow = memo(function GroupRow({
 function ThreadsRow() {
   useThreadUnreadSync()
   const { unread, mentioned } = useThreadUnread()
+  const detail = unread ? t('{n} 个话题有新回复', { n: unread }) : t('我关注的话题')
   return (
-    <NavLink to="/threads" className="pn-conv" data-testid="threads-item" tabIndex={-1}>
-      <ConversationContent
-        item={{
-          id: 'threads',
-          name: t('话题#inbox'),
-          group: true,
-          avatarNode: (
-            <span className="sidebar-terminal">
-              <Icon name="thread" size={18} />
-            </span>
-          ),
-          preview: unread ? t('{n} 个话题有新回复', { n: unread }) : t('我关注的话题'),
-          unread: mentioned || undefined,
-          bold: unread > 0,
-          mention: mentioned > 0,
-        }}
+    <NavLink to="/threads" className="pn-shortcut" data-testid="threads-item" title={detail} tabIndex={-1}>
+      <ShortcutContent
+        icon="thread"
+        label={t('话题#inbox')}
+        detail={detail}
+        count={mentioned}
+        bold={unread > 0}
       />
     </NavLink>
   )
@@ -361,6 +356,12 @@ function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
   )
 }
 
+/** Slack's marks: # for a public channel anyone in the team may join, a lock for a private group. */
+export const channelKind = (visibility: GroupVisibility | undefined) =>
+  visibility === 'public'
+    ? { icon: 'hashtag' as const, label: t('公开频道') }
+    : { icon: 'lock' as const, label: t('私有群') }
+
 /** A group filed under a 团队分区 that I have not joined: opens its preview to join or ask to. */
 function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
   return (
@@ -379,6 +380,7 @@ function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
           name: d.name,
           group: true,
           avatarNode: <Avatar name={d.name} src={d.avatar ?? undefined} shape="square" size={40} />,
+          kind: channelKind(d.visibility),
           tags: [{ label: d.requestId ? t('已申请') : t('未加入'), tone: d.requestId ? 'orange' : 'gray' }],
           preview: d.notice || t('{n} 人', { n: d.memberCount }),
         }}
@@ -910,11 +912,11 @@ export function Sidebar({
             </div>
           ) : null}
           {anything ? (
-            <div className="sidebar__list sidebar__list--convs">
+            <nav className="sidebar__shortcuts" aria-label={t('快捷入口')}>
               <ThreadsRow />
               <UnreadsRow />
               <LaterRow />
-            </div>
+            </nav>
           ) : null}
           <section aria-label={t('会话#list')}>
             {anything ? (

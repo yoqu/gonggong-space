@@ -3,29 +3,17 @@ import { NavLink } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { AlertDialog, ConversationContent, Icon, Presence, toast } from '../../ui'
+import { AlertDialog, Presence, ShortcutContent, toast } from '../../ui'
 import { escFree } from './unreadMark'
 
 /** 全部未读 in the sidebar: bold while any group has unread messages, never a count (plan 未读与通知). */
 export function UnreadsRow() {
   const groups = useWorkspace((s) => s.groups.filter((g) => g.unread > 0 && g.notifyLevel !== 'off').length)
+  const detail = groups ? t('{n} 个群有未读消息', { n: groups }) : t('没有未读消息')
   return (
     <>
-      <NavLink to="/unreads" className="pn-conv" data-testid="unreads-item" tabIndex={-1}>
-        <ConversationContent
-          item={{
-            id: 'unreads',
-            name: t('全部未读'),
-            group: true,
-            avatarNode: (
-              <span className="sidebar-terminal">
-                <Icon name="tray" size={18} />
-              </span>
-            ),
-            preview: groups ? t('{n} 个群有未读消息', { n: groups }) : t('没有未读消息'),
-            bold: groups > 0,
-          }}
-        />
+      <NavLink to="/unreads" className="pn-shortcut" data-testid="unreads-item" title={detail} tabIndex={-1}>
+        <ShortcutContent icon="tray" label={t('全部未读')} detail={detail} bold={groups > 0} />
       </NavLink>
       <ReadAllShortcut />
     </>

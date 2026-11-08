@@ -179,3 +179,62 @@
   flex: none;
   color: var(--system-orange);
 }
+
+.pn-conv__kind {
+  flex: none;
+  color: var(--label-secondary);
+}
+
+/* Sidebar shortcuts: several share one line */
+.pn-shortcut {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 28px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-field);
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pn-shortcut:hover {
+  background: var(--control-track);
+}
+.pn-shortcut[aria-current] {
+  background: var(--control-track);
+  color: var(--label);
+}
+.pn-shortcut__icon {
+  flex: none;
+}
+.pn-shortcut__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pn-shortcut__label--bold {
+  color: var(--label);
+  font-weight: 700;
+}
+.pn-shortcut__detail {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.pn-shortcut .ui-badge {
+  margin-left: auto;
+}
+.pn-shortcut__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent, var(--bubble-link));
+}

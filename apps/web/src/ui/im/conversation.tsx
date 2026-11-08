@@ -3,7 +3,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { dateLocale, pad } from '../../lib/time'
 import { Avatar, type AvatarProps, Badge, Tag, type TagTone } from '../display'
-import { Icon } from '../icon'
+import { Icon, type IconName } from '../icon'
 import { Mascot, type MascotAction, type MascotCostume } from '../mascot'
 import { keyNav } from './keynav'
 import type { TagSpec } from './types'
@@ -37,6 +37,8 @@ export interface Conversation {
   alert?: { flag: string; text: string }
   /** 标记: a flag beside the name. */
   flagged?: boolean
+  /** A mark before the name, e.g. a channel's public / private glyph. */
+  kind?: { icon: IconName; label: string }
 }
 
 export interface ConversationActivity {
@@ -92,6 +94,7 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
       </span>
       <span className="pn-conv__body">
         <span className="pn-conv__line">
+          {it.kind && <Icon name={it.kind.icon} size={12} label={it.kind.label} className="pn-conv__kind" />}
           <span className={cx('pn-conv__name', it.bold && 'pn-conv__name--bold')}>{it.name}</span>
           {it.flagged && <Icon name="flag" size={12} label={t('已标记')} className="pn-conv__flagged" />}
           {it.tags?.map((t) => (
@@ -137,6 +140,37 @@ function ActivityTag({ activity: a }: { activity: ConversationActivity }) {
         {a.label}
       </span>
     </Tag>
+  )
+}
+
+/**
+ * A compact sidebar shortcut (话题, 全部未读, 稍后处理): icon and label on one line, a count only when something
+ * waits on the viewer, otherwise a bold label and a dot. `detail` is kept for screen readers and the tooltip.
+ */
+export function ShortcutContent({
+  icon,
+  label,
+  detail,
+  count,
+  bold,
+}: {
+  icon: IconName
+  label: string
+  detail: string
+  count?: number
+  bold?: boolean
+}) {
+  return (
+    <>
+      <Icon name={icon} size={14} className="pn-shortcut__icon" />
+      <span className={cx('pn-shortcut__label', bold && 'pn-shortcut__label--bold')}>{label}</span>
+      <span className="pn-shortcut__detail">{detail}</span>
+      {count ? (
+        <Badge count={count} />
+      ) : bold ? (
+        <span className="pn-shortcut__dot" aria-hidden="true" />
+      ) : null}
+    </>
   )
 }
 

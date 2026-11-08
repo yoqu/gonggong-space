@@ -651,6 +651,13 @@ export function ChatView({
           group
           avatar={<GroupAvatar group={group} size={32} />}
           title={group.name}
+          tags={
+            dm
+              ? undefined
+              : group.visibility === 'public'
+                ? [{ label: t('公开频道'), tone: 'blue' }]
+                : [{ label: t('私有群'), tone: 'gray' }]
+          }
           onBack={onBack}
           {...(readOnly
             ? {}

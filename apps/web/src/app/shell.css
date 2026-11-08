@@ -926,3 +926,9 @@ a.sidebar__open {
   background: var(--control-track);
   color: var(--label-secondary);
 }
+
+.sidebar__shortcuts {
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--space-8) var(--space-4);
+}

@@ -1,4 +1,6 @@
 export default {
+  快捷入口: 'Shortcuts',
+  私有群: 'Private group',
   待审批: 'Needs approval',
   待回答: 'Needs answer',
   '{n} 个运行中': '{n} running',
