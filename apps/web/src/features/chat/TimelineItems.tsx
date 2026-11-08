@@ -811,7 +811,7 @@ export const RunCard = memo(function RunCard({
     return (
       <MessageMenu {...target}>
         {(bar) => (
-          <div className="run-card" data-testid="run-card" data-status={run.status}>
+          <div className="run-card" data-testid="run-card" data-run-id={run.id} data-status={run.status}>
             <ReplyMessage m={reply} runId={run.id} bar={bar} meta={meta} tags={tags} />
           </div>
         )}
@@ -821,7 +821,7 @@ export const RunCard = memo(function RunCard({
   return (
     <MessageMenu {...target}>
       {(bar) => (
-        <div className="run-card" data-testid="run-card" data-status={run.status}>
+        <div className="run-card" data-testid="run-card" data-run-id={run.id} data-status={run.status}>
           <Message
             className={cx(!reply && !!run.htmlRenders?.length && 'tl-msg--wide')}
             author={botAuthor(botName, run.botId, run.groupId)}

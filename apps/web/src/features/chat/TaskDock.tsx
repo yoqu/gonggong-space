@@ -1,11 +1,12 @@
 import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus } from '@gonggong/protocol'
 import { type RefObject, useEffect, useMemo, useState } from 'react'
+import { useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { useNow } from '../../lib/now'
 import { ago, fullTime } from '../../lib/time'
-import { Button, Icon } from '../../ui'
+import { Button, Icon, Tag } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { stepText, toolTitle } from '../runs/mcp'
 import { openTab } from '../workbench/open'
@@ -32,11 +33,13 @@ export function TaskDock({
 }: {
   runs: RunDto[]
   root?: RefObject<HTMLElement | null>
-  onLocate: (run: RunDto) => void
+  onLocate: (run: RunDto, pendingId?: string) => void
 }) {
   const me = useSession((s) => s.user?.id)
   const bots = useWorkspace((s) => s.bots)
   const [visible, setVisible] = useState<Record<string, boolean> | null>(() => (root ? null : {}))
+  /** The open thread panel lives in the inspector, outside `root`: its cards are watched too. */
+  const threadHost = useInspector((s) => (s.view === 'thread' ? s.host : null))
   const [expanded, setExpanded] = useState(false)
   const pending = useMemo(() => {
     const owner = (run: RunDto) => bots.find((b) => b.id === run.botId)?.ownerId
@@ -58,40 +61,49 @@ export function TaskDock({
   }, [runs, me, bots])
   const pendingKeys = pending.map((item) => item.key).join('\n')
   useEffect(() => {
-    const scope = root?.current
     if (!root) return
-    if (!scope) {
-      setVisible({})
-      return
-    }
-    const next: Record<string, boolean> = {}
-    const nodes = new Map<Element, string>()
-    const io = new IntersectionObserver(
-      (entries) => {
-        const changes: Record<string, boolean> = {}
-        for (const entry of entries) {
-          const key = nodes.get(entry.target)
-          if (key) changes[key] = entry.isIntersecting
-        }
-        setVisible((current) => ({ ...current, ...changes }))
-      },
-      { root: scope },
-    )
+    const scopes = [root.current, threadHost].filter((scope) => !!scope)
+    setVisible({})
     const wanted = new Set(pendingKeys ? pendingKeys.split('\n') : [])
-    for (const node of scope.querySelectorAll<HTMLElement>('[data-pending-id]')) {
-      const key = node.dataset.pendingId
-      if (!key || !wanted.has(key)) continue
-      nodes.set(node, key)
-      next[key] = false
-      io.observe(node)
+    if (!scopes.length || !wanted.size) return
+    const nodes = new Map<Element, string>()
+    const observers = scopes.map(
+      (scope) =>
+        new IntersectionObserver(
+          (entries) => {
+            const changes: Record<string, boolean> = {}
+            for (const entry of entries) {
+              const key = nodes.get(entry.target)
+              if (key) changes[key] = entry.isIntersecting
+            }
+            setVisible((current) => ({ ...current, ...changes }))
+          },
+          { root: scope },
+        ),
+    )
+    // Cards mount later too (a thread loads after it opens).
+    const scan = () =>
+      scopes.forEach((scope, i) => {
+        for (const node of scope.querySelectorAll<HTMLElement>('[data-pending-id]')) {
+          const key = node.dataset.pendingId
+          if (!key || !wanted.has(key) || nodes.has(node)) continue
+          nodes.set(node, key)
+          setVisible((current) => ({ ...current, [key]: current?.[key] ?? false }))
+          observers[i]?.observe(node)
+        }
+      })
+    scan()
+    const mutations = new MutationObserver(scan)
+    for (const scope of scopes) mutations.observe(scope, { childList: true, subtree: true })
+    return () => {
+      mutations.disconnect()
+      for (const io of observers) io.disconnect()
     }
-    setVisible({ ...next })
-    return () => io.disconnect()
-  }, [root, pendingKeys])
+  }, [root, threadHost, pendingKeys])
 
   const rows = useMemo(() => {
     const pendingRows: TaskRow[] = pending
-      .filter((item) => !root || visible?.[item.key] === false)
+      .filter((item) => !root || (visible && visible[item.key] !== true))
       .map((item) => ({ key: item.key, kind: 'pending', section: 'attention', item }))
     const sorted = [...runs].sort((a, b) => a.queuedAt.localeCompare(b.queuedAt))
     const runRows = sorted.flatMap((run): TaskRow[] => {
@@ -120,11 +132,11 @@ export function TaskDock({
   const collapsible = expanded || other.length > COLLAPSED_ROWS
 
   const locatePending = (item: PendingItem) => {
-    const card = [...(root?.current?.querySelectorAll<HTMLElement>('[data-pending-id]') ?? [])].find(
-      (node) => node.dataset.pendingId === item.key,
-    )
+    const card = [root?.current, threadHost]
+      .flatMap((scope) => [...(scope?.querySelectorAll<HTMLElement>('[data-pending-id]') ?? [])])
+      .find((node) => node.dataset.pendingId === item.key)
     if (card) card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
-    else onLocate(item.run)
+    else onLocate(item.run, item.key)
   }
 
   return (
@@ -209,6 +221,11 @@ function RunRow({
       <button type="button" className="task-dock__main" onClick={() => onLocate(run)}>
         <BotAvatar id={run.botId} name={name} size={18} />
         <span className="task-dock__name">{name}</span>
+        {run.threadRootId ? (
+          <Tag tone="gray" icon="thread">
+            {t('话题')}
+          </Tag>
+        ) : null}
         <span className="task-dock__status">
           <span className="task-dock__kind">{waiting ? status : t('运行中')}</span>
           {waiting ? null : <span className="task-dock__text">{status}</span>}

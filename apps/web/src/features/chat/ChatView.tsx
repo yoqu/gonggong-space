@@ -71,7 +71,7 @@ import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
 import { TaskDock } from './TaskDock'
-import { ThreadView } from './ThreadView'
+import { type ThreadFocus, ThreadView } from './ThreadView'
 import {
   BotReply,
   dayLabel,
@@ -225,6 +225,8 @@ export function ChatView({
   /** Run located from the live runs bar: its process opens when the link target can't be found. */
   const linkRun = useRef<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
+  /** A run (or its pending card) to scroll to once its thread shows; see ThreadView. */
+  const [threadFocus, setThreadFocus] = useState<ThreadFocus | null>(null)
   /** Unread count when entering; the divider stays where it was placed while new messages arrive. */
   const [entryUnread] = useState(group.unread)
   const [unreadAt, setUnreadAt] = useState<string | null | undefined>(undefined)
@@ -286,7 +288,7 @@ export function ChatView({
     }
   }
 
-  const runCount = Object.keys(tl.runs).length
+  const runCount = Object.values(tl.runs).filter((r) => !r.threadRootId).length
   // Runs grow cards too, so they must re-pin the view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: tl.runs is an intentional trigger
   useLayoutEffect(() => {
@@ -481,8 +483,11 @@ export function ChatView({
     load()
     return realtime.onReconnect(load)
   }, [group.id])
-  const locate = (r: RunDto) => {
-    if (r.threadRootId) return openThread(r.threadRootId)
+  const locate = (r: RunDto, pendingId?: string) => {
+    if (r.threadRootId) {
+      setThreadFocus({ rootId: r.threadRootId, runId: r.id, pendingId })
+      return openThread(r.threadRootId)
+    }
     linkPages.current = 0
     linkRun.current = r.id
     setParams(
@@ -741,6 +746,8 @@ export function ChatView({
               group={group}
               rootId={threadRoot}
               readOnly={readOnly}
+              focus={threadFocus?.rootId === threadRoot ? threadFocus : null}
+              onFocused={() => setThreadFocus(null)}
               onClose={closeInspector}
             />
           ) : null}

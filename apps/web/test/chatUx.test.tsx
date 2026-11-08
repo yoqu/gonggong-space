@@ -361,6 +361,15 @@ describe('scroll position', () => {
     expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
   })
 
+  it('does not count thread runs as new items in the main channel', async () => {
+    mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
+    renderAt()
+    await screen.findByText('你好')
+    scrollUp(timelineEl())
+    push({ t: 'run.updated', run: run({ triggerMessageId: 'm2', threadRootId: 'm2' }) })
+    expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
+  })
+
   it('offers a jump to the bottom while scrolled up with nothing new', async () => {
     mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
     renderAt()

@@ -149,6 +149,8 @@ export function useTimeline(groupId: string, thread?: string) {
   /**
    * This timeline's runs, kept outside state so a delta right after its run's first update is not dropped.
    * Deltas carry no group: those of other groups' runs would wake every streaming subscriber for nothing.
+   * Streamed text is gathered by the main timeline alone, thread runs' too (it always holds the live ones): an open
+   * thread view would gather each fragment a second time, and closing it would drop what it gathered.
    */
   const runIds = useRef(new Set<string>())
 
@@ -222,8 +224,10 @@ export function useTimeline(groupId: string, thread?: string) {
           return run ? { ...s, runs: mergeRuns(s.runs, [withRunProgress(run, e)]) } : s
         })
       else if (e.t === 'run.delta' && runIds.current.has(e.runId)) {
-        pending.set(e.runId, (pending.get(e.runId) ?? '') + e.text)
-        flushTimer ??= setTimeout(flushDeltas, DELTA_FLUSH_MS)
+        if (!thread) {
+          pending.set(e.runId, (pending.get(e.runId) ?? '') + e.text)
+          flushTimer ??= setTimeout(flushDeltas, DELTA_FLUSH_MS)
+        }
         setState((s) => {
           const run = s.runs[e.runId]
           return run ? { ...s, runs: mergeRuns(s.runs, [withRunDelta(run, e)]) } : s
@@ -235,7 +239,7 @@ export function useTimeline(groupId: string, thread?: string) {
     return () => {
       alive = false
       clearTimeout(flushTimer)
-      useRunDeltas.setState({}, true)
+      if (!thread) useRunDeltas.setState({}, true)
       local.delete(onLocal)
       offEvents()
       offStatus()

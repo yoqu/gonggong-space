@@ -15,6 +15,8 @@ import { App } from '../src/App'
 import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useRunDeltas } from '../src/features/chat/deltas'
+import { fullTime } from '../src/lib/time'
 import { mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -325,5 +327,62 @@ describe('话题 inbox', () => {
     await waitFor(() => expect(within(row).getByText('2 个话题有新回复')).toBeTruthy())
     expect(row.querySelector('.ui-badge')).toBeNull()
     expect(await screen.findByText('还没有关注的话题')).toBeTruthy()
+  })
+})
+
+describe('thread runs', () => {
+  const threadRun = run({ threadRootId: 'm1' })
+  const delta = (runId: string, text: string) => push({ t: 'run.delta', runId, text, lastActivityAt: min(2) })
+  const withRuns = (extra: RunDto[] = []) => ({
+    'GET /groups/g1/timeline?limit=50': { messages: [root], runs: [threadRun, ...extra] },
+    'GET /messages/m1/thread?limit=50': threadDto({ runs: [threadRun] }),
+  })
+  beforeEach(() => useRunDeltas.setState({}, true))
+
+  it('gathers a streamed fragment once while the thread is open', async () => {
+    renderAt('/g/g1?thread=m1', withRuns())
+    await panel()
+    await screen.findByTestId('run-card')
+    delta('r1', '我来看看')
+    await waitFor(() => expect(useRunDeltas.getState().r1).toBe('我来看看'))
+    await new Promise((r) => setTimeout(r, 250))
+    expect(useRunDeltas.getState().r1).toBe('我来看看')
+  })
+
+  it('keeps the main channel stream when the thread closes', async () => {
+    const mainRun = run({ id: 'r2', triggerMessageId: 'm1' })
+    renderAt('/g/g1?thread=m1', withRuns([mainRun]))
+    const rail = await panel()
+    await within(rail).findByTestId('run-card')
+    delta('r2', '主频道文字')
+    await waitFor(() => expect(useRunDeltas.getState().r2).toBe('主频道文字'))
+    fireEvent.click(within(rail).getByRole('button', { name: '关闭话题' }))
+    await waitFor(() => expect(useInspector.getState().view).toBeNull())
+    expect(useRunDeltas.getState().r2).toBe('主频道文字')
+  })
+
+  it('keeps gathering a thread run while its thread is closed, its text shown once it opens', async () => {
+    renderAt('/g/g1', withRuns())
+    const row = await screen.findByTestId('task-dock-row')
+    const time = row.querySelector('.task-dock__time') as HTMLElement
+    delta('r1', '我来看看')
+    await waitFor(() => expect(time.title).toBe(fullTime(min(2))))
+    await waitFor(() => expect(useRunDeltas.getState().r1).toBe('我来看看'))
+    fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    const rail = await panel()
+    expect(await within(rail).findByText(/我来看看/)).toBeTruthy()
+  })
+
+  it('marks a thread run in the task dock and opens its thread from the row', async () => {
+    renderAt('/g/g1', withRuns())
+    const row = await screen.findByTestId('task-dock-row')
+    expect(within(row).getByText('话题')).toBeTruthy()
+    fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    const rail = await panel()
+    await within(rail).findByTestId('run-card')
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled())
+    expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.contexts.at(-1)).toBe(
+      within(rail).getByTestId('run-card'),
+    )
   })
 })

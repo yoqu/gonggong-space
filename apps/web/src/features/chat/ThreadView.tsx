@@ -13,6 +13,14 @@ import { InThread } from './threadSummary'
 import { useTimeline } from './useTimeline'
 
 const STICK_PX = 80
+const FLASH_MS = 2000
+
+/** What to bring into view in a thread: a run's card, or one of its approval / question cards. */
+export interface ThreadFocus {
+  rootId: string
+  runId: string
+  pendingId?: string
+}
 const LOAD_OLDER_PX = 40
 
 /** One thread in the chat's right rail (plan 话题): its root, replies and run cards, and a composer replying in it. */
@@ -20,11 +28,15 @@ export function ThreadView({
   group,
   rootId,
   readOnly = false,
+  focus = null,
+  onFocused,
   onClose,
 }: {
   group: GroupDto
   rootId: string
   readOnly?: boolean
+  focus?: ThreadFocus | null
+  onFocused?: () => void
   onClose: () => void
 }) {
   const tl = useTimeline(group.id, rootId)
@@ -51,6 +63,25 @@ export function ThreadView({
       olderAnchor.current = null
     } else if (stick.current) el.scrollTop = el.scrollHeight
   }, [tl.messages, tl.runs])
+
+  // The card may arrive after the thread loads, so messages and runs re-run this until it is found.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => {
+    const el = scroll.current
+    if (!focus || !el) return
+    const id = CSS.escape(focus.pendingId ?? focus.runId)
+    const card = el.querySelector<HTMLElement>(
+      focus.pendingId ? `[data-pending-id="${id}"]` : `[data-run-id="${id}"]`,
+    )
+    if (!card) return
+    stick.current = false
+    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    card.classList.remove('tl-item--flash')
+    void card.offsetWidth
+    card.classList.add('tl-item--flash')
+    setTimeout(() => card.classList.remove('tl-item--flash'), FLASH_MS)
+    onFocused?.()
+  }, [focus, tl.messages, tl.runs, onFocused])
 
   const onScroll = () => {
     const el = scroll.current

@@ -207,6 +207,42 @@ describe('Bot 回复进话题', () => {
     expect(next.prompt.context.map((c) => c.body)).toEqual(['@小王的 Claude 查下报错', '查到了'])
   })
 
+  it('posts the refusal notice in the thread of the asking message', async () => {
+    const w = await world()
+    const root = await w.say('发版前要不要冻结主干？', { userId: w.bob.id })
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'unbound' })
+      .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
+    await w.mention('@小王的 Claude 看下', root.id)
+    const [notice] = await vi.waitFor(async () => {
+      const rows = await t.db.select().from(messages).where(eq(messages.kind, 'event'))
+      if (!rows.length) throw new Error('no notice yet')
+      return rows
+    })
+    expect(notice).toMatchObject({ threadRootId: root.id })
+    expect(notice?.body).toContain('还没有工作区')
+  })
+
+  it('keeps the refusal notice of a main-timeline @ in the group, not in a new thread nobody sees', async () => {
+    const w = await world()
+    await t.db
+      .update(groups)
+      .set({ params: { botRepliesInThread: true } })
+      .where(eq(groups.id, w.group.id))
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'unbound' })
+      .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
+    await w.mention('@小王的 Claude 看下')
+    const [notice] = await vi.waitFor(async () => {
+      const rows = await t.db.select().from(messages).where(eq(messages.kind, 'event'))
+      if (!rows.length) throw new Error('no notice yet')
+      return rows
+    })
+    expect(notice).toMatchObject({ threadRootId: null })
+  })
+
   it('is a group setting for admins, announced in the group', async () => {
     const w = await world()
     const asAlice = client(t, await t.seed.cookie(w.alice.id))

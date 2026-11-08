@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { createRef } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
@@ -340,5 +341,64 @@ describe('TaskDock', () => {
     fireEvent.click(within(pending).getByRole('button'))
     expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
     expect(onLocate).not.toHaveBeenCalled()
+  })
+
+  it('watches a card in the open thread panel and locates it there', () => {
+    vi.stubGlobal('IntersectionObserver', FakeObserver)
+    const root = createRef<HTMLDivElement>()
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    useInspector.setState({ view: 'thread', payload: 'm1', host })
+    const r = run({ status: 'awaiting_approval', approvals: [approval()] })
+    const onLocate = vi.fn()
+    const { unmount } = render(
+      <MemoryRouter>
+        <div ref={root}>
+          <TaskDock runs={[r]} root={root} onLocate={onLocate} />
+        </div>
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('task-dock-pending')).toBeTruthy()
+    unmount()
+    const card = document.createElement('div')
+    card.dataset.pendingId = 'a1'
+    host.appendChild(card)
+    const scroll = vi.fn()
+    card.scrollIntoView = scroll
+    render(
+      <MemoryRouter>
+        <div ref={root}>
+          <TaskDock runs={[r]} root={root} onLocate={onLocate} />
+        </div>
+      </MemoryRouter>,
+    )
+    const observer = FakeObserver.all.find((o) => o.root === host && o.targets.length) as FakeObserver
+    expect(observer.targets).toEqual([card])
+    act(() => observer.enter())
+    expect(screen.queryByTestId('task-dock-pending')).toBeNull()
+    act(() =>
+      observer.cb(
+        [{ target: card, isIntersecting: false } as unknown as IntersectionObserverEntry],
+        observer as unknown as IntersectionObserver,
+      ),
+    )
+    fireEvent.click(within(screen.getByTestId('task-dock-pending')).getByRole('button'))
+    expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
+    expect(onLocate).not.toHaveBeenCalled()
+    useInspector.setState({ view: null, payload: null, host: null })
+  })
+
+  it('tags a thread run and locates it', () => {
+    const r = run({ threadRootId: 'm1' })
+    const onLocate = vi.fn()
+    render(
+      <MemoryRouter>
+        <TaskDock runs={[r]} onLocate={onLocate} />
+      </MemoryRouter>,
+    )
+    const row = screen.getByTestId('task-dock-row')
+    expect(within(row).getByText('话题')).toBeTruthy()
+    fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    expect(onLocate).toHaveBeenCalledWith(r)
   })
 })

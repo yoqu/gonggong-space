@@ -74,6 +74,8 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         isNull(bots.deletedAt),
       ),
     )
+  // A notice in a new thread under the asking message would show nowhere: those go to the group.
+  const noticeThread = t.threadRootId === t.messageId ? null : t.threadRootId
   await Promise.all(
     targets.map(async (bot) => {
       const refused = refusal(
@@ -85,20 +87,18 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           ctx,
           t.groupId,
           '{bot} 还没有工作区，本次未执行；{owner} 绑定工作区后重新发起即可',
-          {
-            bot: bot.name,
-            owner: bot.ownerName,
-          },
+          { bot: bot.name, owner: bot.ownerName },
+          {},
+          noticeThread,
         ))
       if (!refused && bot.workspaceState === 'confirm')
         return void (await postEvent(
           ctx,
           t.groupId,
           '{bot} 等待 {owner} 确认工作区，本次未执行；确认后重新发起即可',
-          {
-            bot: bot.name,
-            owner: bot.ownerName,
-          },
+          { bot: bot.name, owner: bot.ownerName },
+          {},
+          noticeThread,
         ))
       const reason = bot.workspaceReason as RepoAccessReason | null
       if (!refused && bot.workspaceState === 'failed' && reason && PAUSING.includes(reason))
@@ -107,6 +107,8 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           t.groupId,
           '{bot} 所在机器无法访问仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」',
           { bot: bot.name, reason: { key: reasonText(reason) }, owner: bot.ownerName },
+          {},
+          noticeThread,
         ))
       const [run] = await ctx.db
         .insert(runs)
