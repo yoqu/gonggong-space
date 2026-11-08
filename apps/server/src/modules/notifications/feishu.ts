@@ -29,8 +29,9 @@ export async function sendFeishuNotice(ctx: Ctx, userId: string, n: Notification
   const app = identity && (await mainApp(ctx))
   if (!app) return
   const view = await viewOf(ctx, n)
-  const requestId = n.type === 'bot_share_request' && !n.resolvedAt ? String(n.payload.requestId) : null
-  const card = requestId ? shareRequestCard({ ...view, requestId }) : notificationCard(view)
+  const kind = REQUEST_KIND[n.type]
+  const requestId = kind && !n.resolvedAt ? String(n.payload.requestId) : null
+  const card = kind && requestId ? shareRequestCard({ ...view, requestId, kind }) : notificationCard(view)
   const sent = await ctx.feishu.api.send(
     credsOf(app),
     identity.openId,
@@ -44,24 +45,32 @@ export async function sendFeishuNotice(ctx: Ctx, userId: string, n: Notification
       chatId: identity.openId,
       appId: app.appId,
       direction: 'out',
-      kind: 'share_request',
+      kind: `${kind}_request`,
       refId: requestId,
     })
 }
 
-/** A share request decided on the web: its Feishu cards show who decided. Best effort, like every Feishu call. */
+/** Notifications whose Feishu card carries 同意 / 拒绝, by the card's kind. */
+const REQUEST_KIND: Partial<Record<NotificationDto['type'], 'share' | 'join'>> = {
+  bot_share_request: 'share',
+  join_request: 'join',
+}
+const TYPE_OF = { share: 'bot_share_request', join: 'join_request' } as const
+
+/** A share or join request decided on the web: its Feishu cards show who decided. Best effort, like every Feishu call. */
 export async function mirrorShareDecision(
   ctx: Ctx,
   requestId: string,
   decided: { approved: boolean; by: string },
+  kind: 'share' | 'join' = 'share',
 ) {
   const links = await ctx.db
     .select({ messageId: feishuMessageLinks.feishuMessageId, app: feishuApps })
     .from(feishuMessageLinks)
     .innerJoin(feishuApps, eq(feishuApps.appId, feishuMessageLinks.appId))
-    .where(and(eq(feishuMessageLinks.kind, 'share_request'), eq(feishuMessageLinks.refId, requestId)))
+    .where(and(eq(feishuMessageLinks.kind, `${kind}_request`), eq(feishuMessageLinks.refId, requestId)))
   if (!links.length) return
-  const card = await decidedShareCard(ctx, requestId, decided)
+  const card = await decidedShareCard(ctx, requestId, decided, kind)
   if (!card) return
   for (const l of links)
     await ctx.feishu.api
@@ -69,21 +78,19 @@ export async function mirrorShareDecision(
       .catch((err) => console.warn('feishu share card:', err))
 }
 
-/** The share request's Feishu card once decided there, as the answer to the click. */
+/** The share or join request's Feishu card once decided there, as the answer to the click. */
 export async function decidedShareCard(
   ctx: Ctx,
   requestId: string,
   decided: { approved: boolean; by: string },
+  kind: 'share' | 'join' = 'share',
 ) {
   const [row] = await ctx.db
     .select()
     .from(notifications)
     .where(
-      and(
-        eq(notifications.type, 'bot_share_request'),
-        sql`${notifications.payload}->>'requestId' = ${requestId}`,
-      ),
+      and(eq(notifications.type, TYPE_OF[kind]), sql`${notifications.payload}->>'requestId' = ${requestId}`),
     )
     .limit(1)
-  return row && shareRequestCard({ ...(await viewOf(ctx, notificationDto(row))), requestId, decided })
+  return row && shareRequestCard({ ...(await viewOf(ctx, notificationDto(row))), requestId, kind, decided })
 }

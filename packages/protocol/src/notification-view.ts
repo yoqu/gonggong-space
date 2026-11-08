@@ -113,6 +113,29 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group: '',
         href: `/bot/${p('botId')}`,
       }
+    case 'join_request':
+      return {
+        label: say(n.resolvedAt ? '入群申请' : '待处理入群申请'),
+        text: p('note')
+          ? say('{by} 申请加入群：{reason}', { by: p('byName'), reason: p('note') })
+          : say('{by} 申请加入群', { by: p('byName') }),
+        group,
+        href: at(''),
+      }
+    case 'join_decided':
+      return n.payload.approved
+        ? {
+            label: say('入群申请已通过'),
+            text: say('{by} 同意你加入群', { by: p('byName') }),
+            group,
+            href: at(''),
+          }
+        : {
+            label: say('入群申请被拒绝'),
+            text: say('{by} 拒绝了你的入群申请', { by: p('byName') }),
+            group,
+            href: at(''),
+          }
     case 'git_operation_request':
       return {
         label: say(n.resolvedAt ? 'Git 操作申请' : '待审批 Git 操作'),

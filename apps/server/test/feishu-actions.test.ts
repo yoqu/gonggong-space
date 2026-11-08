@@ -6,6 +6,7 @@ import {
   botShares,
   feishuIdentities,
   feishuMessageLinks,
+  groupMembers,
   messages,
   runs,
   systemParams,
@@ -307,5 +308,59 @@ describe('飞书里的共享申请', () => {
     const [row] = await t.db.select().from(botShareRequests).where(eq(botShareRequests.id, requestId))
     expect(row?.status).toBe('rejected')
     expect(await shares(bot.id)).toEqual([])
+  })
+})
+
+describe('飞书里的入群申请', () => {
+  it('the group admin gets 同意 / 拒绝; 同意 lets the requester in and a web decision settles other cards', async () => {
+    const owner = await t.seed.user({ name: '王磊' })
+    const zhao = await t.seed.user({ name: '赵敏' })
+    const admin = await t.seed.user({ role: 'sysadmin' })
+    expect(
+      (
+        await client(t, await t.seed.cookie(admin.id)).put('/api/admin/feishu', {
+          appId: MAIN,
+          appSecret: 's',
+        })
+      ).status,
+    ).toBe(200)
+    await t.db.insert(systemParams).values({ key: 'publicUrl', value: BASE })
+    forgetSysParams(t.db)
+    const ownerFs = await link(owner.id)
+    const ownerHttp = client(t, await t.seed.cookie(owner.id))
+    expect((await ownerHttp.put('/api/me/feishu/notify', { notify: true })).status).toBe(204)
+    const g = await t.seed.group({ createdBy: owner.id, name: '支付' })
+    const sec = (await ownerHttp.post<{ id: string }>('/api/team-sections', { name: '支付线' })).body
+    await ownerHttp.put(`/api/groups/${g.id}/team-section`, { teamSectionId: sec.id })
+    const zhaoHttp = client(t, await t.seed.cookie(zhao.id))
+    const res = await zhaoHttp.post<{ id: string }>(`/api/groups/${g.id}/join-requests`, { note: '跟进退款' })
+    await expect.poll(() => t.feishu.sent.length).toBe(1)
+    const [sent] = t.feishu.sent
+    const card = JSON.stringify(sent!.content)
+    expect(card).toContain('赵敏 申请加入群：跟进退款')
+    expect(card).toContain(JSON.stringify({ k: 'join', r: res.body.id, ok: true }))
+    const out = (await t.feishu.cardAction(MAIN, {
+      messageId: sent!.messageId,
+      chatId: ownerFs.openId,
+      operator: ownerFs,
+      value: { k: 'join', r: res.body.id, ok: true },
+    })) as Res
+    expect(JSON.stringify(out.card?.data)).toContain('已由 王磊 同意')
+    const members = await t.db.select().from(groupMembers).where(eq(groupMembers.groupId, g.id))
+    expect(members.map((m) => m.userId)).toContain(zhao.id)
+
+    // A second request decided on the web updates its card.
+    const other = await t.seed.user({ name: '钱多' })
+    const again = await client(t, await t.seed.cookie(other.id)).post<{ id: string }>(
+      `/api/groups/${g.id}/join-requests`,
+      {},
+    )
+    await expect.poll(() => t.feishu.sent.length).toBe(2)
+    const second = t.feishu.sent[1]!.messageId
+    await expect
+      .poll(async () => (await t.db.select().from(feishuMessageLinks)).map((l) => l.feishuMessageId))
+      .toContain(second)
+    expect((await ownerHttp.post(`/api/join-requests/${again.body.id}/reject`)).status).toBe(204)
+    await vi.waitFor(() => expect(t.feishu.cardUpdates.map((u) => u.messageId)).toContain(second))
   })
 })

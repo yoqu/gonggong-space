@@ -888,6 +888,18 @@ a.sidebar__open {
   color: var(--label-tertiary);
   cursor: pointer;
 }
+.sidebar__teamtag {
+  margin-left: var(--space-4);
+  padding: 0 var(--space-4);
+  border-radius: 4px;
+  background: var(--control-track);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--label-secondary);
+}
+.sidebar__newsection-menu {
+  margin: var(--space-8) 0 0 var(--space-8);
+}
 .sidebar__newsection:hover {
   color: var(--label);
 }

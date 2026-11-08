@@ -39,6 +39,7 @@ function payloadTag(n: NotificationDto) {
   if (rootRunId) return `task:${rootRunId}`
   if (n.type === 'mention' && value('messageId')) return `mention:${value('messageId')}`
   if (n.type === 'bot_share_request' && value('requestId')) return `bot-share-request:${value('requestId')}`
+  if (n.type === 'join_request' && value('requestId')) return `join-request:${value('requestId')}`
   if (n.type === 'git_operation_request' && value('operationId'))
     return `git-operation:${value('operationId')}`
   return

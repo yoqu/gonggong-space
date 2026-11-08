@@ -1,4 +1,4 @@
-import type { BotDto, GroupDto, LiveRun, MachineDto, UserDto } from '@gonggong/protocol'
+import type { BotDto, DirectoryGroupDto, GroupDto, LiveRun, MachineDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,7 +6,7 @@ import { App } from '../src/App'
 import { InspectorPortal, useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
-import { useSections } from '../src/features/groups/sections'
+import { useSections, useTeamSections } from '../src/features/groups/sections'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -103,6 +103,7 @@ beforeEach(() => {
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], loaded: false, notifCount: 0 })
   useSections.setState({ sections: [] })
+  useTeamSections.setState({ sections: [], canManage: false, directory: [] })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -440,6 +441,123 @@ describe('sidebar sections', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g9'))
     expect(rowsIn('频道').sort()).toEqual(['g1', 'g9'])
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g9/join')).toBe(true)
+  })
+})
+
+describe('team sections', () => {
+  const rowsIn = (name: string) =>
+    within(screen.getByRole('group', { name }))
+      .queryAllByTestId(/^(group|directory)-item-/)
+      .map((e) => e.getAttribute('data-testid'))
+  const dir = (id: string, name: string, o: Partial<DirectoryGroupDto> = {}): DirectoryGroupDto => ({
+    id,
+    name,
+    avatar: null,
+    notice: '',
+    memberCount: 4,
+    visibility: 'private',
+    teamSectionId: 'ts1',
+    admins: ['李建国'],
+    requestId: null,
+    ...o,
+  })
+
+  it('lists my groups and the ones I am not in under each team section, above my own sections', async () => {
+    mockApi({
+      ...routes([group('g1', '退款', { teamSectionId: 'ts1' }), group('g2', '支付', { sectionId: 's1' })]),
+      'GET /sidebar-sections': [{ id: 's1', name: '我的' }],
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /team-directory': [dir('g9', '结算', { notice: '对账与结算' })],
+    })
+    renderAt('/g/g1')
+    await waitFor(() => expect(rowsIn('支付线')).toEqual(['group-item-g1', 'directory-item-g9']))
+    expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-label'))).toEqual([
+      '支付线',
+      '我的',
+      '频道',
+    ])
+    const outside = screen.getByTestId('directory-item-g9')
+    expect(within(outside).getByText('未加入')).toBeTruthy()
+    expect(within(outside).getByText('对账与结算')).toBeTruthy()
+    // Only team admins manage team sections.
+    expect(screen.queryByRole('button', { name: '支付线 分区操作' })).toBeNull()
+  })
+
+  it('opens a group I am not in as a preview and asks to join, then takes it back', async () => {
+    let requested: string | null = null
+    const calls = mockApi({
+      ...routes([group('g1', '退款')]),
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /team-directory': () => [dir('g9', '结算', { requestId: requested })],
+      'POST /groups/g9/join-requests': (b: unknown) => {
+        requested = 'r1'
+        return { id: 'r1', groupId: 'g9', userId: 'u1', userName: '王磊', createdAt: '', ...(b as object) }
+      },
+      'DELETE /join-requests/r1': () => {
+        requested = null
+      },
+    })
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByTestId('directory-item-g9'))
+    const preview = await screen.findByRole('region', { name: '入群预览' })
+    expect(within(preview).getByText('支付线 · 私有 · 4 人')).toBeTruthy()
+    expect(within(preview).getByText('群管理员：李建国')).toBeTruthy()
+    fireEvent.change(within(preview).getByRole('textbox', { name: '申请说明' }), {
+      target: { value: '跟进对账' },
+    })
+    fireEvent.click(within(preview).getByRole('button', { name: '申请加入' }))
+    expect(await within(preview).findByText('已申请，等待群管理员处理')).toBeTruthy()
+    expect(calls.find((c) => c.path === '/groups/g9/join-requests')?.body).toEqual({ note: '跟进对账' })
+    expect(within(screen.getByTestId('directory-item-g9')).getByText('已申请')).toBeTruthy()
+    fireEvent.click(within(preview).getByRole('button', { name: '撤回申请' }))
+    expect(await within(preview).findByRole('button', { name: '申请加入' })).toBeTruthy()
+  })
+
+  it('joins a public one straight from its preview', async () => {
+    const calls = mockApi({
+      ...routes([group('g1', '退款')]),
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /team-directory': [dir('g9', '公告', { visibility: 'public' })],
+      'POST /groups/g9/join': group('g9', '公告', { teamSectionId: 'ts1' }),
+    })
+    renderAt('/g/g9')
+    const preview = await screen.findByRole('region', { name: '入群预览' })
+    fireEvent.click(within(preview).getByRole('button', { name: '加入' }))
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g9/join')).toBe(true),
+    )
+    await waitFor(() => expect(rowsIn('支付线')).toContain('group-item-g9'))
+  })
+
+  it('lets team admins add team sections and file groups under them', async () => {
+    const calls = mockApi({
+      ...routes([group('g2', '支付')]),
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: true },
+      'GET /team-directory': [],
+      'POST /team-sections': (b: unknown) => ({ id: 'ts2', ...(b as object) }),
+      'PUT /groups/g2/team-section': (b: unknown) => group('g2', '支付', b as Partial<GroupDto>),
+    })
+    renderAt('/g/g2')
+    // An empty team section stays for its admins to drop into.
+    expect(await screen.findByRole('group', { name: '支付线' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '支付线 分区操作' })).toBeTruthy()
+
+    fireEvent.contextMenu(screen.getByTestId('group-item-g2'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '归入团队分区' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '支付线' }))
+    await waitFor(() => expect(rowsIn('支付线')).toEqual(['group-item-g2']))
+    expect(calls.find((c) => c.path === '/groups/g2/team-section')?.body).toEqual({ teamSectionId: 'ts1' })
+
+    fireEvent.click(screen.getByRole('button', { name: '新建分区' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '团队分区…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建团队分区' })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '分区名称' }), { target: { value: '平台' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/team-sections')?.body).toEqual({
+        name: '平台',
+      }),
+    )
   })
 })
 

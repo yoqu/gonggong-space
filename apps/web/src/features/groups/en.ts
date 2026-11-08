@@ -163,4 +163,20 @@ export default {
   还没有公开频道: 'No public channels yet',
   '群管理员可在群设置的「成员」里把群设为公开频道':
     'Group admins can make a group public under Members in its settings',
+  入群预览: 'Group preview',
+  '群管理员：{names}': 'Group admins: {names}',
+  '已申请，等待群管理员处理': 'Requested. Waiting for a group admin',
+  撤回申请: 'Withdraw request',
+  申请说明: 'Note',
+  '说明来意（选填），如：负责退款对账，需要跟进':
+    'Why you want to join (optional), e.g. I handle refund reconciliation',
+  申请加入: 'Ask to join',
+  新建团队分区: 'New team section',
+  重命名团队分区: 'Rename team section',
+  '团队所有成员都能看到；群管理员可把自己的群归入其中':
+    'Everyone in the team sees it; group admins can file their groups under it',
+  团队分区: 'Team section',
+  入群申请: 'Join requests',
+  '入群申请 · {n}': 'Join requests · {n}',
+  不归入: 'None',
 } satisfies Record<string, string>

@@ -76,6 +76,7 @@ export async function resolveNotifications(
     | 'sync_conflict'
     | 'sync_drift'
     | 'bot_share_request'
+    | 'join_request'
     | 'git_operation_request'
     | 'install_request'
     | 'listing_submitted',

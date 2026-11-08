@@ -108,4 +108,8 @@ export default {
   删除分区: 'Delete section',
   把会话拖到这里: 'Drag conversations here',
   '终端 · {n}': 'Terminals · {n}',
+  归入团队分区: 'File under team section',
+  移出团队分区: 'Remove from team section',
+  '个人分区…': 'Personal section…',
+  '团队分区…': 'Team section…',
 } satisfies Record<string, string>

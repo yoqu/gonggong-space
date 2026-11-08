@@ -44,6 +44,7 @@ import { decidedShareCard } from '../notifications/feishu.js'
 import { answerQuestions } from '../questions/service.js'
 import { rerunFor, triggerRuns } from '../runs/trigger.js'
 import { groupRedactor } from '../secrets/resolve.js'
+import { approveJoinRequest, rejectJoinRequest } from '../team-sections/join-requests.js'
 import { askInGroup } from '../teams/onboarding.js'
 import { ACT_FIELD, approvalCard, type CardValue, formAnswers, noticeCard, questionCard } from './cards.js'
 import { credsOf, type FeishuAppRow, type FeishuInbound, onFeishu } from './gateway.js'
@@ -527,6 +528,11 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
       if (!me) return toast('error', zt('请先认证共工账号'))
       await (value.ok ? approveShareRequest : rejectShareRequest)(ctx, me, value.r)
       const card = await decidedShareCard(ctx, value.r, { approved: value.ok, by: user.name })
+      return { ...toast('success', zt('已处理')), ...(card && { card: { type: 'raw', data: card } }) }
+    }
+    if (value.k === 'join') {
+      await (value.ok ? approveJoinRequest : rejectJoinRequest)(ctx, user, value.r)
+      const card = await decidedShareCard(ctx, value.r, { approved: value.ok, by: user.name }, 'join')
       return { ...toast('success', zt('已处理')), ...(card && { card: { type: 'raw', data: card } }) }
     }
     if (value.k === 'ask') {

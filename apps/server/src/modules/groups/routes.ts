@@ -24,6 +24,7 @@ import { forgetMembers, postEvent } from '../messages/service.js'
 import { readMentions } from '../notifications/notify.js'
 import { recordRepo } from '../repos/service.js'
 import { leaveReplica } from '../sync/switch.js'
+import { cancelJoinRequests } from '../team-sections/join-requests.js'
 import { currentTeam } from '../teams/service.js'
 import { avatarUrl } from '../users/dto.js'
 import { joinWorkspace } from '../workspaces/provision.js'
@@ -119,6 +120,11 @@ export function groupRoutes(ctx: Ctx) {
       if (added.length) {
         await ctx.db.insert(groupMembers).values(added.map((u) => ({ groupId: group.id, userId: u.id })))
         forgetMembers(group.id)
+        await cancelJoinRequests(
+          ctx,
+          group.id,
+          added.map((u) => u.id),
+        )
         const member = added.map((u) => u.name).join('、')
         await postEvent(ctx, group.id, '{user} 邀请 {member} 加入群', { user: me.name, member })
         for (const u of added)

@@ -53,6 +53,8 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   listing_submitted: { icon: 'checklist', color: 'var(--system-orange)' },
   listing_banned: { icon: 'shield-warning', color: 'var(--system-red)' },
   listing_upgraded: { icon: 'arrow-clockwise', color: 'var(--system-blue)' },
+  join_request: { icon: 'person-add', color: 'var(--system-orange)' },
+  join_decided: { icon: 'person-add', color: 'var(--system-blue)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */
@@ -79,12 +81,13 @@ function FeishuNotifyShortcut({ onClose }: { onClose: () => void }) {
 }
 
 /** 同意 / 拒绝 of a 申请共享 right in the notification; the settled notification arrives over realtime. */
-function ShareRequestActions({ n }: { n: NotificationDto }) {
+/** 同意 / 拒绝 of a bot share request, or (`join`) of a request to join one of my groups. */
+function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }) {
   const [busy, setBusy] = useState(false)
   const decide = async (verb: 'approve' | 'reject') => {
     setBusy(true)
     try {
-      await api.post(`/share-requests/${n.payload.requestId}/${verb}`, {})
+      await api.post(`/${join ? 'join-requests' : 'share-requests'}/${n.payload.requestId}/${verb}`, {})
     } catch (e) {
       toastError(e)
     } finally {
@@ -322,6 +325,7 @@ function Panel({
                     </button>
                     {outside(n) ? <ApprovalActions n={n} /> : null}
                     {n.type === 'bot_share_request' && !n.resolvedAt ? <ShareRequestActions n={n} /> : null}
+                    {n.type === 'join_request' && !n.resolvedAt ? <ShareRequestActions n={n} join /> : null}
                     <IconButton
                       size="small"
                       variant="plain"

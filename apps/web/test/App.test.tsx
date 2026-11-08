@@ -82,7 +82,14 @@ describe('session guard', () => {
   it('loads the current user and renders the chat shell', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/me' ? me : []))),
+      vi.fn(
+        async (url: string) =>
+          new Response(
+            JSON.stringify(
+              url === '/api/me' ? me : url === '/api/team-sections' ? { sections: [], canManage: false } : [],
+            ),
+          ),
+      ),
     )
     renderAt('/')
     const nav = await screen.findByRole('navigation', { name: '会话列表' })
@@ -192,7 +199,14 @@ describe('unknown routes', () => {
   it('shows a not-found page with a way back instead of a blank screen', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/me' ? me : []))),
+      vi.fn(
+        async (url: string) =>
+          new Response(
+            JSON.stringify(
+              url === '/api/me' ? me : url === '/api/team-sections' ? { sections: [], canManage: false } : [],
+            ),
+          ),
+      ),
     )
     renderAt('/admin/nope')
     expect(await screen.findByText('页面不存在')).toBeTruthy()

@@ -325,6 +325,13 @@ export const en = {
   私聊不能公开: "Direct chats can't be public",
   频道不存在或不是公开频道: "This channel doesn't exist or isn't public",
   分区不存在: "This section doesn't exist",
+  团队分区不存在: "This team section doesn't exist",
+  群不存在或未归入团队分区: "This group doesn't exist or isn't in a team section",
+  公开群可直接加入: 'Public groups can be joined directly',
+  你已在群内: "You're already in this group",
+  '已申请，等待群管理员处理': 'Requested. Waiting for a group admin',
+  仅群管理员或团队管理员可操作: 'Only group admins or team admins can do this',
+  私聊不能归入团队分区: "Direct chats can't be filed under a team section",
   '分区已变化，请刷新后重试': 'Your sections have changed. Refresh and try again',
   该用户不在群内: 'This user is not in the group',
   '唯一的群管理员不能被移出，请先指定继任者':

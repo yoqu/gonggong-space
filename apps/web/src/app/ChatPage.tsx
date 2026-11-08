@@ -7,7 +7,8 @@ import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
-import { loadSections } from '../features/groups/sections'
+import { JoinPreview } from '../features/groups/JoinPreview'
+import { loadSections, loadTeamSections, useTeamSections } from '../features/groups/sections'
 import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
 import { UserGuide } from '../features/onboarding/UserGuide'
@@ -70,9 +71,12 @@ function loadGroups(setState: (s: 'ready' | 'error') => void) {
 const setInspectorHost = (host: HTMLElement | null) => useInspector.setState({ host })
 
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
+const loadTeam = () =>
+  loadTeamSections().catch((e: Error) => console.warn('team sections failed to load:', e))
 const loadSpaces = () => {
   loadTerminalSpaces().catch((e: Error) => console.warn('terminal spaces failed to load:', e))
   loadSections().catch((e: Error) => console.warn('sidebar sections failed to load:', e))
+  void loadTeam()
 }
 
 function useChatData() {
@@ -80,10 +84,18 @@ function useChatData() {
   useEffect(() => {
     loadGroups(setState)
     loadSpaces()
-    return realtime.onReconnect(() => {
+    // Leaving a group puts it back in the directory if it is filed under a 团队分区.
+    const off = realtime.subscribe((e) => {
+      if (e.t === 'directory.changed' || e.t === 'group.removed') void loadTeam()
+    })
+    const offReconnect = realtime.onReconnect(() => {
       loadGroups(setState)
       loadSpaces()
     })
+    return () => {
+      off()
+      offReconnect()
+    }
   }, [])
   const retry = () => {
     setState('loading')
@@ -176,6 +188,7 @@ export function ChatPage() {
   const openBot = bots.find((b) => b.id === botId)
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
+  const preview = useTeamSections((s) => s.directory.find((g) => g.id === groupId))
   const inspector = useInspector((s) => s.view)
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
   useEffect(() => () => useInspector.getState().close(), [groupId])
@@ -335,6 +348,8 @@ export function ChatPage() {
             readOnly
             onBack={mobile ? () => navigate('/') : undefined}
           />
+        ) : preview ? (
+          <JoinPreview key={preview.id} group={preview} />
         ) : groupsState === 'loading' && (groupId || groups.length) ? (
           <div className="chat__placeholder">
             <Mascot action="wait" size={72} label={t('加载中')} />

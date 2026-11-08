@@ -391,6 +391,8 @@ export type CardValue =
   /** An actions block of reply `m`: option `o`, or the ACT_FIELD picks of a multiple one. */
   | { k: 'act'; m: string; b: string; o?: number }
   | { k: 'share'; r: string; ok: boolean }
+  /** 入群申请 `r`: approve (ok) or reject. */
+  | { k: 'join'; r: string; ok: boolean }
   /** 新手群 welcome card example: ask bot `b` question `q` in group `g` as the clicker. */
   | { k: 'ask'; g: string; b: string; q: string }
 
@@ -618,6 +620,8 @@ export function shareRequestCard(o: {
   text: string
   url: string | null
   requestId: string
+  /** Bot share request (default) or join request. */
+  kind?: 'share' | 'join'
   decided?: { approved: boolean; by: string }
 }) {
   const open = o.url ? [linkButton(zt('打开共工'), o.url)] : []
@@ -632,7 +636,7 @@ export function shareRequestCard(o: {
       ...open,
     ])
   const button = (label: string, type: string, ok: boolean) => {
-    const value: CardValue = { k: 'share', r: o.requestId, ok }
+    const value: CardValue = { k: o.kind ?? 'share', r: o.requestId, ok }
     return {
       tag: 'column',
       width: 'auto',

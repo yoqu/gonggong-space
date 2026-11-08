@@ -1,4 +1,4 @@
-import { type GroupDto, GroupParams } from '@gonggong/protocol'
+import { type GroupDto, GroupParams, type JoinRequestDto } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -12,6 +12,7 @@ import {
   GroupRow,
   Icon,
   type IconName,
+  PopUpButton,
   SegmentedControl,
   Spinner,
   Stepper,
@@ -30,6 +31,7 @@ import { GroupSecrets } from '../secrets/GroupSecrets'
 import { groupsApi } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
+import { teamSectionsApi, useTeamSections } from './sections'
 
 /** Only the P1 params are adjustable (spec §10). */
 const PARAMS: { key: keyof GroupParams; label: string }[] = [
@@ -272,8 +274,36 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   )
 }
 
+/** 入群申请 waiting on the group's admins. */
+function JoinRequests({ groupId }: { groupId: string }) {
+  const [list, setList] = useState<JoinRequestDto[]>([])
+  const load = () => teamSectionsApi.requests(groupId).then(setList, toastError)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loads once per group
+  useEffect(() => {
+    void load()
+  }, [groupId])
+  if (!list.length) return null
+  const decide = (id: string, ok: boolean) => void attempt(() => teamSectionsApi.decide(id, ok).then(load))
+  return (
+    <GroupBox>
+      <div className="gs-joins__title">{t('入群申请 · {n}', { n: list.length })}</div>
+      {list.map((r) => (
+        <GroupRow key={r.id} label={r.userName} description={r.note || undefined}>
+          <Button size="small" variant="primary" onClick={() => decide(r.id, true)}>
+            {t('同意')}
+          </Button>
+          <Button size="small" onClick={() => decide(r.id, false)}>
+            {t('拒绝#reject')}
+          </Button>
+        </GroupRow>
+      ))}
+    </GroupBox>
+  )
+}
+
 /** 成员: who may invite and the people; the Bots live with the workspaces. */
 function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
+  const teamSections = useTeamSections((s) => s.sections)
   return (
     <>
       <GroupBox>
@@ -298,7 +328,28 @@ function MembersTab({ group, readOnly }: { group: GroupDto; readOnly: boolean })
             }
           />
         </GroupRow>
+        {teamSections.length ? (
+          <GroupRow
+            label={t('团队分区')}
+            description={t('团队所有成员都能看到；群管理员可把自己的群归入其中')}
+          >
+            <PopUpButton<string>
+              aria-label={t('团队分区')}
+              disabled={readOnly}
+              size="small"
+              value={group.teamSectionId ?? ''}
+              options={[
+                { value: '', label: t('不归入') },
+                ...teamSections.map((x) => ({ value: x.id, label: x.name })),
+              ]}
+              onChange={(v) => void attempt(() => teamSectionsApi.file(group.id, v || null))}
+            />
+          </GroupRow>
+        ) : null}
       </GroupBox>
+      {!readOnly && group.teamSectionId && group.visibility !== 'public' ? (
+        <JoinRequests groupId={group.id} />
+      ) : null}
       <MembersView
         group={group}
         isAdmin={!readOnly}

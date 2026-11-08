@@ -10,10 +10,13 @@ import './groups.css'
 /** 新建分区 / 重命名分区: `save` gets the trimmed name. */
 export function SectionNameDialog({
   initial = '',
+  team,
   onSave,
   onClose,
 }: {
   initial?: string
+  /** A 团队分区, seen by everyone in the team. */
+  team?: boolean
   onSave: (name: string) => Promise<unknown>
   onClose: () => void
 }) {
@@ -24,7 +27,9 @@ export function SectionNameDialog({
     <Dialog
       open
       width={400}
-      title={initial ? t('重命名分区') : t('新建分区')}
+      title={
+        team ? (initial ? t('重命名团队分区') : t('新建团队分区')) : initial ? t('重命名分区') : t('新建分区')
+      }
       onClose={onClose}
       footer={
         <>
@@ -35,6 +40,9 @@ export function SectionNameDialog({
         </>
       }
     >
+      {team ? (
+        <p className="section-dialog__hint">{t('团队所有成员都能看到；群管理员可把自己的群归入其中')}</p>
+      ) : null}
       <Input
         aria-label={t('分区名称')}
         value={name}

@@ -1,4 +1,11 @@
-import type { BotDto, GroupDto, MachineDto, SidebarSectionDto, TerminalSpaceDto } from '@gonggong/protocol'
+import type {
+  BotDto,
+  DirectoryGroupDto,
+  GroupDto,
+  MachineDto,
+  SidebarSectionDto,
+  TerminalSpaceDto,
+} from '@gonggong/protocol'
 import {
   type DragEvent,
   type MouseEvent,
@@ -16,7 +23,7 @@ import { draftKey } from '../features/chat/MessageComposer'
 import { groupsApi } from '../features/groups/api'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
-import { sectionsApi, useSections } from '../features/groups/sections'
+import { sectionsApi, teamSectionsApi, useSections, useTeamSections } from '../features/groups/sections'
 import { middle } from '../features/repos/repo-access'
 import { t } from '../i18n'
 import { api } from '../lib/api'
@@ -25,6 +32,7 @@ import { attempt } from '../lib/errors'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
 import {
+  Avatar,
   Badge,
   Button,
   ContextMenu,
@@ -36,6 +44,7 @@ import {
 import { keyNav } from '../ui/im/keynav'
 import { activityOf } from './convActivity'
 import { useInspector } from './inspector'
+import { useSession } from './session'
 import { useWorkbench } from './workbench'
 import { lastText, useWorkspace } from './workspace'
 
@@ -165,8 +174,11 @@ const GroupRow = memo(function GroupRow({
   const { activity, alert } = useActivity(g)
   const own = useSections((s) => s.sections)
   const filed = own.some((x) => x.id === g.sectionId)
+  const teamSections = useTeamSections((s) => s.sections)
+  const canFile = useCanFile(g) && teamSections.length > 0
   const onMenu = (v: string) => {
-    if (v === 'section:new') onNewSection()
+    if (v.startsWith('team:')) void attempt(() => teamSectionsApi.file(g.id, v.slice(5) || null))
+    else if (v === 'section:new') onNewSection()
     else if (v.startsWith('section:')) {
       const id = v.slice(8) || null
       void attempt(() => groupsApi.prefs(g.id, { sectionId: id, ...(id && { pinned: false }) }))
@@ -207,6 +219,24 @@ const GroupRow = memo(function GroupRow({
             { label: t('新建分区…'), value: 'section:new', icon: 'plus' as const },
           ],
         },
+        ...(canFile
+          ? [
+              {
+                label: t('归入团队分区'),
+                icon: 'person' as const,
+                submenu: [
+                  ...teamSections.map((x) => ({
+                    label: x.name,
+                    value: `team:${x.id}`,
+                    checked: g.teamSectionId === x.id,
+                  })),
+                  ...(g.teamSectionId
+                    ? [{ separator: true as const }, { label: t('移出团队分区'), value: 'team:' }]
+                    : []),
+                ],
+              },
+            ]
+          : []),
         { label: g.muted ? t('取消免打扰') : t('消息免打扰'), value: 'mute', icon: 'bell-slash' },
         { label: t('清除未读'), value: 'read', icon: 'check', disabled: !g.unread },
         { label: isDone(g) ? t('移回列表') : t('完成'), value: 'done', icon: 'checkmark-circle' },
@@ -279,6 +309,32 @@ function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
           ),
           tags: [{ label: t('终端'), tone: 'gray' }],
           preview: `${s.machineName} · ${middle(s.cwd)}`,
+        }}
+      />
+    </NavLink>
+  )
+}
+
+/** A group filed under a 团队分区 that I have not joined: opens its preview to join or ask to. */
+function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
+  return (
+    <NavLink
+      to={`/g/${d.id}`}
+      className="pn-conv pn-conv--closed"
+      data-testid={`directory-item-${d.id}`}
+      tabIndex={-1}
+      onKeyDown={(e) =>
+        keyNav(e, e.currentTarget.closest<HTMLElement>('.sidebar__scroll'), '.pn-conv', { select: true })
+      }
+    >
+      <ConversationContent
+        item={{
+          id: d.id,
+          name: d.name,
+          group: true,
+          avatarNode: <Avatar name={d.name} src={d.avatar ?? undefined} shape="square" size={40} />,
+          tags: [{ label: d.requestId ? t('已申请') : t('未加入'), tone: d.requestId ? 'orange' : 'gray' }],
+          preview: d.notice || t('{n} 人', { n: d.memberCount }),
         }}
       />
     </NavLink>
@@ -365,23 +421,46 @@ function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
   return [...list].sort((a, b) => place(a) - place(b))
 }
 
-/** 星标 / my own sections / 频道 / 私信 hold the conversations; 终端 sits below them. */
+/** 星标 / 团队分区 / my own sections / 频道 / 私信 hold the conversations; 终端 sits below them. */
 type BuiltIn = 'star' | 'group' | 'dm'
-type Section = { key: string; label: string; custom?: boolean }
+type Section = { key: string; label: string; custom?: boolean; team?: boolean }
 const BUILT_IN: Record<BuiltIn, string> = { star: t('星标'), group: t('频道'), dm: t('私信') }
 const SPACES = 'space'
-const sectionOf = (g: GroupDto, own: Set<string>) =>
-  g.pinned ? 'star' : g.sectionId && own.has(g.sectionId) ? g.sectionId : g.kind === 'dm' ? 'dm' : 'group'
+/** Team sections' keys, apart from my own sections' ids. */
+const TEAM = 't:'
+const sectionOf = (g: GroupDto, own: Set<string>, team: Set<string>) =>
+  g.pinned
+    ? 'star'
+    : g.sectionId && own.has(g.sectionId)
+      ? g.sectionId
+      : g.teamSectionId && team.has(g.teamSectionId)
+        ? TEAM + g.teamSectionId
+        : g.kind === 'dm'
+          ? 'dm'
+          : 'group'
+/** Group admins file their group under a 团队分区; team admins file any group. */
+const useCanFile = (g: GroupDto) => {
+  const me = useSession((s) => s.user?.id)
+  const manage = useTeamSections((s) => s.canManage)
+  return g.kind === 'group' && (manage || !!g.members.find((m) => m.userId === me)?.isAdmin)
+}
 const FOLDED_KEY = 'gonggong.sidebarFolded'
 const DRAG_TYPE = 'application/x-gg-group'
 
-/** Dropped on a section: 星标 stars it, my section files it there, 频道 / 私信 take it back to its default place. */
+/**
+ * Dropped on a section: 星标 stars it, a 团队分区 files it there for everyone, my section files it there for me,
+ * 频道 / 私信 take it back to its default place.
+ */
 const fileUnder = (g: GroupDto, key: string) =>
-  attempt(() =>
-    key === 'star'
-      ? groupsApi.prefs(g.id, { pinned: true })
-      : groupsApi.prefs(g.id, { pinned: false, sectionId: key === 'group' || key === 'dm' ? null : key }),
-  )
+  attempt(async () => {
+    if (key === 'star') return groupsApi.prefs(g.id, { pinned: true })
+    if (key.startsWith(TEAM)) {
+      await teamSectionsApi.file(g.id, key.slice(TEAM.length))
+      if (g.pinned || g.sectionId) await groupsApi.prefs(g.id, { pinned: false, sectionId: null })
+      return
+    }
+    return groupsApi.prefs(g.id, { pinned: false, sectionId: key === 'group' || key === 'dm' ? null : key })
+  })
 
 /** Folded sections, kept in this browser. */
 function useFolded() {
@@ -506,9 +585,13 @@ export function Sidebar({
   const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
   const inGroup = groups.some((g) => g.kind === 'group')
   const own = useSections((s) => s.sections)
+  const team = useTeamSections()
+  const me = useSession((s) => s.user?.id)
   const [onlyFlagged, setOnlyFlagged] = useState(false)
   const [showDone, setShowDone] = useState(false)
-  const [dialog, setDialog] = useState<'browse' | 'section' | { rename: SidebarSectionDto } | null>(null)
+  const [dialog, setDialog] = useState<
+    'browse' | 'section' | 'teamSection' | { rename: SidebarSectionDto; team: boolean } | null
+  >(null)
   const [dropAt, setDropAt] = useState('')
   const newSection = useCallback(() => setDialog('section'), [])
   const anyFlagged = groups.some((g) => g.flagged)
@@ -521,30 +604,46 @@ export function Sidebar({
   const terminals = useHeldOrder(byPin(onlyFlagged ? [] : spaces), hovered)
   const [folded, toggleFold] = useFolded()
   const ownIds = new Set(own.map((x) => x.id))
+  const teamIds = new Set(team.sections.map((x) => x.id))
   const isOpen = (r: Row) => pathname === pathOf(r)
+  const canFile = (g: GroupDto) =>
+    g.kind === 'group' && (team.canManage || !!g.members.find((m) => m.userId === me)?.isAdmin)
+  const outside = onlyFlagged ? [] : team.directory
   // A folded section still shows what needs reading and the conversation that is open.
   const fold = <R extends Row>(key: string, all: R[]) =>
     folded.includes(key) ? all.filter((r) => isOpen(r) || (!isSpace(r) && r.unread > 0)) : all
   const list: Section[] = [
     { key: 'star', label: BUILT_IN.star },
+    ...team.sections.map((x) => ({ key: TEAM + x.id, label: x.name, team: true })),
     ...own.map((x) => ({ key: x.id, label: x.name, custom: true })),
     { key: 'group', label: BUILT_IN.group },
     { key: 'dm', label: BUILT_IN.dm },
   ]
   const sections = list
     .map((sec) => {
-      const all = open.filter((g) => sectionOf(g, ownIds) === sec.key)
-      return { ...sec, all, fold: folded.includes(sec.key), shown: fold(sec.key, all) }
+      const all = open.filter((g) => sectionOf(g, ownIds, teamIds) === sec.key)
+      const fold_ = folded.includes(sec.key)
+      // Groups I am not in, after mine; a folded section keeps only the one that is open.
+      const others = outside.filter((d) => TEAM + d.teamSectionId === sec.key)
+      const othersShown = fold_ ? others.filter((d) => pathname === `/g/${d.id}`) : others
+      return { ...sec, all, others, fold: fold_, shown: fold(sec.key, all), othersShown }
     })
-    // My own sections and 频道 stay as places to drop into and to browse from.
-    .filter((sec) => sec.all.length || sec.custom || (sec.key === 'group' && !onlyFlagged))
+    // My own sections, 频道 (and 团队分区 for team admins) stay as places to drop into and to browse from.
+    .filter(
+      (sec) =>
+        sec.all.length ||
+        sec.others.length ||
+        sec.custom ||
+        (sec.team && team.canManage) ||
+        (sec.key === 'group' && !onlyFlagged),
+    )
   const shownSpaces = fold(SPACES, terminals)
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
   const rows: Row[] = [...sections.flatMap((sec) => sec.shown), ...(showDone ? done : []), ...shownSpaces]
   const at = rows.findIndex(isOpen)
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
-  const anything = open.length || own.length || terminals.length
+  const anything = open.length || own.length || team.sections.length || terminals.length
   const dropProps = (key: string) => ({
     onDragOver: (e: DragEvent) => {
       if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
@@ -557,13 +656,15 @@ export function Sidebar({
     onDrop: (e: DragEvent) => {
       setDropAt('')
       const g = groups.find((x) => x.id === e.dataTransfer.getData(DRAG_TYPE))
-      if (g && sectionOf(g, ownIds) !== key) void fileUnder(g, key)
+      if (!g || sectionOf(g, ownIds, teamIds) === key || (key.startsWith(TEAM) && !canFile(g))) return
+      void fileUnder(g, key)
     },
   })
-  const onSectionMenu = (sec: SidebarSectionDto) => (v: string) => {
-    if (v === 'rename') setDialog({ rename: sec })
-    else if (v === 'up' || v === 'down') void attempt(() => sectionsApi.move(sec.id, v === 'up' ? -1 : 1))
-    else if (v === 'delete') void attempt(() => sectionsApi.remove(sec.id))
+  const onSectionMenu = (sec: SidebarSectionDto, isTeam: boolean) => (v: string) => {
+    const ops = isTeam ? teamSectionsApi : sectionsApi
+    if (v === 'rename') setDialog({ rename: sec, team: isTeam })
+    else if (v === 'up' || v === 'down') void attempt(() => ops.move(sec.id, v === 'up' ? -1 : 1))
+    else if (v === 'delete') void attempt(() => ops.remove(sec.id))
   }
   const head = (key: string, label: ReactNode, collapsed: boolean, actions?: ReactNode) => (
     <div className="sidebar__sechead">
@@ -605,9 +706,10 @@ export function Sidebar({
           ) : null}
         </>
       )
-    const mine = own.find((x) => x.id === sec.key)
+    const pool = sec.team ? (team.canManage ? team.sections : []) : own
+    const mine = pool.find((x) => (sec.team ? TEAM + x.id : x.id) === sec.key)
     if (!mine) return null
-    const i = own.indexOf(mine)
+    const i = pool.indexOf(mine)
     return (
       <PullDownButton
         icon="more"
@@ -620,11 +722,11 @@ export function Sidebar({
         items={[
           { label: t('重命名…'), value: 'rename', icon: 'textformat' },
           { label: t('上移'), value: 'up', icon: 'chevron-up', disabled: i === 0 },
-          { label: t('下移'), value: 'down', icon: 'chevron-down', disabled: i === own.length - 1 },
+          { label: t('下移'), value: 'down', icon: 'chevron-down', disabled: i === pool.length - 1 },
           { separator: true },
           { label: t('删除分区'), value: 'delete', icon: 'trash', destructive: true },
         ]}
-        onSelect={onSectionMenu(mine)}
+        onSelect={onSectionMenu(mine, !!sec.team)}
       />
     )
   }
@@ -682,10 +784,25 @@ export function Sidebar({
                   className={cx('sidebar__section', dropAt === sec.key && 'sidebar__section--drop')}
                   {...dropProps(sec.key)}
                 >
-                  {head(sec.key, sec.label, sec.fold, actionsOf(sec))}
+                  {head(
+                    sec.key,
+                    sec.team ? (
+                      <>
+                        {sec.label}
+                        <span className="sidebar__teamtag">{t('团队')}</span>
+                      </>
+                    ) : (
+                      sec.label
+                    ),
+                    sec.fold,
+                    actionsOf(sec),
+                  )}
                   <div className="sidebar__list sidebar__list--convs">
                     {sec.shown.map((g) => row(g, sec.key !== 'dm'))}
-                    {sec.custom && !sec.all.length && !sec.fold ? (
+                    {sec.othersShown.map((d) => (
+                      <DirectoryRow key={d.id} d={d} />
+                    ))}
+                    {(sec.custom || sec.team) && !sec.all.length && !sec.others.length && !sec.fold ? (
                       <div className="sidebar__drophint">{t('把会话拖到这里')}</div>
                     ) : null}
                   </div>
@@ -695,10 +812,27 @@ export function Sidebar({
               <div className="sidebar__list sidebar__list--convs">{empty(t('还没有会话'))}</div>
             )}
             {anything && !onlyFlagged ? (
-              <button type="button" className="sidebar__newsection" onClick={() => setDialog('section')}>
-                <Icon name="plus" size={11} />
-                {t('新建分区')}
-              </button>
+              team.canManage ? (
+                <div className="sidebar__newsection-menu">
+                  <PullDownButton
+                    label={t('新建分区')}
+                    icon="plus"
+                    size="small"
+                    variant="plain"
+                    indicator={false}
+                    items={[
+                      { label: t('个人分区…'), value: 'section', icon: 'person' },
+                      { label: t('团队分区…'), value: 'teamSection', icon: 'contacts' },
+                    ]}
+                    onSelect={(v) => setDialog(v as 'section' | 'teamSection')}
+                  />
+                </div>
+              ) : (
+                <button type="button" className="sidebar__newsection" onClick={() => setDialog('section')}>
+                  <Icon name="plus" size={11} />
+                  {t('新建分区')}
+                </button>
+              )
             ) : null}
           </section>
           {done.length ? (
@@ -733,10 +867,18 @@ export function Sidebar({
       {dialog === 'section' ? (
         <SectionNameDialog onSave={(name) => sectionsApi.create(name)} onClose={() => setDialog(null)} />
       ) : null}
+      {dialog === 'teamSection' ? (
+        <SectionNameDialog
+          team
+          onSave={(name) => teamSectionsApi.create(name)}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
       {dialog && typeof dialog === 'object' ? (
         <SectionNameDialog
           initial={dialog.rename.name}
-          onSave={(name) => sectionsApi.rename(dialog.rename.id, name)}
+          team={dialog.team}
+          onSave={(name) => (dialog.team ? teamSectionsApi : sectionsApi).rename(dialog.rename.id, name)}
           onClose={() => setDialog(null)}
         />
       ) : null}

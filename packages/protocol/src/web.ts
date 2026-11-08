@@ -1014,6 +1014,8 @@ export const NotificationType = z.enum([
   'listing_submitted',
   'listing_banned',
   'listing_upgraded',
+  'join_request',
+  'join_decided',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1046,6 +1048,8 @@ export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'listing_submitted',
   'listing_reviewed',
   'listing_banned',
+  'join_request',
+  'join_decided',
 ]
 export const PushKeyDto = z.object({ publicKey: z.string() })
 export const PushSubscriptionReq = z.object({
@@ -1103,6 +1107,8 @@ export const GroupDto = z.object({
   pinned: z.boolean(),
   /** The caller's sidebar section holding it; null = its kind's default section. Always sent by the server. */
   sectionId: z.string().nullable().optional(),
+  /** 团队分区 it is filed under, seen by the whole team; null = none. Always sent by the server. */
+  teamSectionId: z.string().nullable().optional(),
   /** 完成: the caller marked it done up to this seq; done while `lastSeq` has not passed it. Always sent by the server. */
   doneSeq: z.number().int().nullable().optional(),
   /** 标记 by the caller; always sent by the server. */
@@ -2025,6 +2031,43 @@ export const SidebarSectionReq = z.object({ name: z.string().trim().min(1, '填�
 /** PUT /api/sidebar-sections/order: every section of mine, in the new order. */
 export const SidebarSectionOrderReq = z.object({ ids: z.array(z.string().uuid()) })
 
+/** 团队分区: set by team admins, seen by everyone in the team (GET /api/team-sections). */
+export const TeamSectionsDto = z.object({
+  sections: z.array(SidebarSectionDto),
+  /** The caller is a team admin: may add, rename, reorder and delete them, and file any group. */
+  canManage: z.boolean(),
+})
+export type TeamSectionsDto = z.infer<typeof TeamSectionsDto>
+/** PUT /api/groups/:id/team-section (group admins, team admins). */
+export const GroupTeamSectionReq = z.object({ teamSectionId: z.string().uuid().nullable() })
+
+/** A group filed under a 团队分区 that the caller has not joined (GET /api/team-directory, GET /api/groups/:id/preview). */
+export const DirectoryGroupDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+  notice: z.string(),
+  memberCount: z.number().int(),
+  visibility: GroupVisibility,
+  teamSectionId: z.string(),
+  admins: z.array(z.string()),
+  /** The caller's pending join request, null when none. */
+  requestId: z.string().nullable(),
+})
+export type DirectoryGroupDto = z.infer<typeof DirectoryGroupDto>
+/** POST /api/groups/:id/join-requests: asks to join a private group filed under a 团队分区. */
+export const JoinRequestReq = z.object({ note: z.string().trim().max(200).default('') })
+/** GET /api/groups/:id/join-requests (group admins): pending requests, oldest first. */
+export const JoinRequestDto = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  userId: z.string(),
+  userName: z.string(),
+  note: z.string(),
+  createdAt: z.string(),
+})
+export type JoinRequestDto = z.infer<typeof JoinRequestDto>
+
 /** GET /api/channels[?q=]: the team's public channels, joined or not (浏览频道). */
 export const ChannelDto = z.object({
   id: z.string(),
@@ -2519,6 +2562,8 @@ export const RepoCandidatesDto = z.object({ managedPath: z.string(), paths: z.ar
 export type RepoCandidatesDto = z.infer<typeof RepoCandidatesDto>
 
 export const WebEvent = z.discriminatedUnion('t', [
+  /** 团队分区 or what is filed under them changed: refetch them and the directory. */
+  z.object({ t: z.literal('directory.changed') }),
   z.object({ t: z.literal('group.botState'), groupId: z.string(), state: GroupBotStateDto }),
   /** The group's pinned messages changed; replaces the list. */
   GroupPinsDto.extend({ t: z.literal('group.pins'), groupId: z.string() }),

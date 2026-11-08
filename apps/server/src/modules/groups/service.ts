@@ -356,6 +356,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       lastAt: (last?.createdAt ?? g.createdAt).toISOString(),
       pinned: me.pinned,
       sectionId: me.sectionId,
+      teamSectionId: g.teamSectionId,
       doneSeq: me.doneSeq,
       flagged: me.flagged,
       muted: me.muted,

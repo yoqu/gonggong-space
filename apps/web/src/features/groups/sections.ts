@@ -1,4 +1,11 @@
-import type { ChannelDto, GroupDto, SidebarSectionDto } from '@gonggong/protocol'
+import type {
+  ChannelDto,
+  DirectoryGroupDto,
+  GroupDto,
+  JoinRequestDto,
+  SidebarSectionDto,
+  TeamSectionsDto,
+} from '@gonggong/protocol'
 import { create } from 'zustand'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -48,4 +55,65 @@ export const channelsApi = {
     useWorkspace.getState().applyEvent({ t: 'group.updated', group })
     return group
   },
+}
+
+/** 团队分区 and the groups filed under them that I have not joined. */
+export const useTeamSections = create<{
+  sections: SidebarSectionDto[]
+  canManage: boolean
+  directory: DirectoryGroupDto[]
+}>()(() => ({ sections: [], canManage: false, directory: [] }))
+
+export async function loadTeamSections() {
+  const [{ sections, canManage }, directory] = await Promise.all([
+    api.get<TeamSectionsDto>('/team-sections'),
+    api.get<DirectoryGroupDto[]>('/team-directory'),
+  ])
+  useTeamSections.setState({ sections, canManage, directory })
+}
+
+const reloadTeam = () => loadTeamSections()
+
+export const teamSectionsApi = {
+  create: (name: string) => api.post<SidebarSectionDto>('/team-sections', { name }).then(reloadTeam),
+  rename: (id: string, name: string) => api.patch(`/team-sections/${id}`, { name }).then(reloadTeam),
+  async move(id: string, by: -1 | 1) {
+    const ids = useTeamSections.getState().sections.map((s) => s.id)
+    const at = ids.indexOf(id)
+    const to = at + by
+    if (at < 0 || to < 0 || to >= ids.length) return
+    ;[ids[at], ids[to]] = [ids[to] as string, id]
+    await api.put('/team-sections/order', { ids })
+    await reloadTeam()
+  },
+  async remove(id: string) {
+    await api.del<void>(`/team-sections/${id}`)
+    useWorkspace.setState((s) => ({
+      groups: s.groups.map((g) => (g.teamSectionId === id ? { ...g, teamSectionId: null } : g)),
+    }))
+    await reloadTeam()
+  },
+  /** Files a group under a 团队分区 for the whole team, or takes it out (null). */
+  file: (groupId: string, teamSectionId: string | null) =>
+    api.put<GroupDto>(`/groups/${groupId}/team-section`, { teamSectionId }).then((group) => {
+      useWorkspace.getState().applyEvent({ t: 'group.updated', group })
+      return group
+    }),
+  async request(groupId: string, note: string) {
+    await api.post<JoinRequestDto>(`/groups/${groupId}/join-requests`, { note })
+    await reloadTeam()
+  },
+  async cancel(requestId: string) {
+    await api.del<void>(`/join-requests/${requestId}`)
+    await reloadTeam()
+  },
+  /** Joins a public group straight from its preview. */
+  async join(groupId: string) {
+    const group = await channelsApi.join(groupId)
+    await reloadTeam()
+    return group
+  },
+  requests: (groupId: string) => api.get<JoinRequestDto[]>(`/groups/${groupId}/join-requests`),
+  decide: (requestId: string, approve: boolean) =>
+    api.post(`/join-requests/${requestId}/${approve ? 'approve' : 'reject'}`, {}),
 }

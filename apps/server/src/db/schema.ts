@@ -255,6 +255,29 @@ export const botShares = pgTable(
   (t) => [primaryKey({ columns: [t.botId, t.userId] }), index('bot_shares_user').on(t.userId)],
 )
 
+/** 申请入群: a teammate asks to join a private group filed under a 团队分区; any of its admins decides. */
+export const groupJoinRequests = pgTable(
+  'group_join_requests',
+  {
+    id: id(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    note: text('note').notNull().default(''),
+    /** 'pending' | 'approved' | 'rejected' | 'cancelled' */
+    status: text('status').notNull().default('pending'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decidedAt: ts('decided_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('group_join_requests_pending').on(t.groupId, t.userId).where(sql`${t.status} = 'pending'`),
+  ],
+)
+
 /** 消息置顶: a group's pinned messages (MAX_PINS each); a recalled message's pin goes with it. */
 export const groupPinnedMessages = pgTable(
   'group_pinned_messages',
@@ -356,6 +379,22 @@ export const sidebarSections = pgTable(
   (t) => [index('sidebar_sections_user').on(t.userId, t.teamId)],
 )
 
+/** 团队分区: set by team admins; groups filed under one are seen (name, notice, size) by the whole team. */
+export const teamSections = pgTable(
+  'team_sections',
+  {
+    id: id(),
+    teamId: teamId(),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index('team_sections_team').on(t.teamId)],
+)
+
 // ── Groups ──────────────────────────────────────────────────────────────────
 export const groups = pgTable('groups', {
   id: id(),
@@ -365,6 +404,8 @@ export const groups = pgTable('groups', {
   kind: text('kind').notNull(),
   /** 'public' (found and joined in 浏览频道) | 'private' (invitation only); DMs are private. */
   visibility: text('visibility').notNull().default('private'),
+  /** The 团队分区 it is filed under; private ones there can be asked to join. */
+  teamSectionId: uuid('team_section_id').references(() => teamSections.id, { onDelete: 'set null' }),
   /** `avatars/<uuid>` under the data dir; null = tiled from the members. */
   avatar: text('avatar'),
   /** A DM renamed by its owner shows `name`; otherwise it follows its Bot's name. */

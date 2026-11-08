@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useTeamSections } from '../src/features/groups/sections'
 import { mockCrop, uploadAvatar } from './crop'
 import { apiError, mockApi } from './mockApi'
 
@@ -420,6 +421,40 @@ describe('group settings inspector', () => {
     fireEvent.click(within(dlg).getByRole('switch', { name: '公开频道' }))
     await waitFor(() =>
       expect(calls.filter((c) => c.method === 'PATCH').at(-1)?.body).toEqual({ visibility: 'public' }),
+    )
+  })
+
+  it('files the group under a team section and decides its join requests', async () => {
+    useTeamSections.setState({ sections: [{ id: 'ts1', name: '支付线' }], canManage: false, directory: [] })
+    let pending = [
+      { id: 'r1', groupId: 'g1', userId: 'u5', userName: '赵敏', note: '跟进退款', createdAt: '' },
+    ]
+    const calls = mockApi(
+      routes([group({ teamSectionId: 'ts1' })], {
+        'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+        'GET /team-directory': [],
+        'GET /groups/g1/join-requests': () => pending,
+        'POST /join-requests/r1/approve': () => {
+          pending = []
+          return group({ teamSectionId: 'ts1' })
+        },
+        'PUT /groups/g1/team-section': (b: unknown) => group(b as Partial<GroupDto>),
+      }),
+    )
+    renderAt('/g/g1')
+    const admin = await openDrawer()
+    fireEvent.click(within(admin).getByRole('button', { name: /^成员\s*所有成员可拉人/ }))
+    const dlg = await screen.findByRole('dialog', { name: '成员 · 支付服务重构' })
+    expect(await within(dlg).findByText('入群申请 · 1')).toBeTruthy()
+    expect(within(dlg).getByText('跟进退款')).toBeTruthy()
+    fireEvent.click(within(dlg).getByRole('button', { name: '同意' }))
+    await waitFor(() => expect(within(dlg).queryByText('入群申请 · 1')).toBeNull())
+    expect(calls.some((c) => c.path === '/join-requests/r1/approve')).toBe(true)
+
+    fireEvent.click(within(dlg).getByRole('button', { name: '团队分区' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '不归入' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/team-section')?.body).toEqual({ teamSectionId: null }),
     )
   })
 

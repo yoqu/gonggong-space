@@ -85,6 +85,8 @@ import { sidebarRoutes } from './modules/sidebar/routes.js'
 import { skillRoutes } from './modules/skills/routes.js'
 import { startSyncEngine } from './modules/sync/engine.js'
 import { syncRoutes } from './modules/sync/routes.js'
+import { joinRequestRoutes } from './modules/team-sections/join-requests.js'
+import { teamSectionRoutes } from './modules/team-sections/routes.js'
 import { teamRoutes } from './modules/teams/routes.js'
 import { TerminalDaemonTransport } from './modules/terminals/daemon.js'
 import { terminalLinkRoutes } from './modules/terminals/links.js'
@@ -132,6 +134,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(extraRepoRoutes(ctx))
   await app.register(groupSettingsRoutes(ctx))
   await app.register(sidebarRoutes(ctx))
+  await app.register(teamSectionRoutes(ctx))
+  await app.register(joinRequestRoutes(ctx))
   await app.register(messageRoutes(ctx))
   await app.register(reactionRoutes(ctx))
   await app.register(attachmentRoutes(ctx))
