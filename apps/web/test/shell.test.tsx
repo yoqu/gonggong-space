@@ -396,11 +396,13 @@ describe('sidebar sections', () => {
     fireEvent.change(within(dialog).getByRole('textbox', { name: '分区名称' }), {
       target: { value: ' 运维 ' },
     })
+    // A double click creates one section, not two.
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
     expect(await screen.findByRole('group', { name: '运维' })).toBeTruthy()
-    expect(calls.find((c) => c.method === 'POST' && c.path === '/sidebar-sections')?.body).toEqual({
-      name: '运维',
-    })
+    expect(
+      calls.filter((c) => c.method === 'POST' && c.path === '/sidebar-sections').map((c) => c.body),
+    ).toEqual([{ name: '运维' }])
 
     fireEvent.click(screen.getByRole('button', { name: '发版 分区操作' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '重命名…' }))
@@ -470,9 +472,32 @@ describe('sidebar sections', () => {
     expect(names()).toHaveLength(1)
     expect(names()[0]).toContain('公告')
     fireEvent.click(within(dialog).getByRole('button', { name: '加入 公告' }))
+    expect(within(dialog).getByRole('button', { name: '加入 公告' }).getAttribute('aria-busy')).toBe('true')
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g9'))
     expect(rowsIn('频道').sort()).toEqual(['g1', 'g9'])
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g9/join')).toBe(true)
+  })
+
+  it('waits for a pause in typing before searching channels', async () => {
+    const calls = mockApi({
+      ...routes([group('g1', '退款')]),
+      'GET /channels': [],
+      'GET /channels?q=%E5%85%AC%E5%91%8A': [],
+    })
+    renderAt('/g/g1')
+    await screen.findByTestId('group-item-g1')
+    fireEvent.click(screen.getByRole('button', { name: '浏览频道' }))
+    const dialog = await screen.findByRole('dialog', { name: '浏览频道' })
+    await within(dialog).findByText('还没有公开频道')
+    const box = within(dialog).getByRole('textbox', { name: '搜索频道' })
+    fireEvent.change(box, { target: { value: '公' } })
+    fireEvent.change(box, { target: { value: '公告' } })
+    expect(await within(dialog).findByText('没有匹配的频道')).toBeTruthy()
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path.startsWith('/channels?q=')).map((c) => c.path)).toEqual([
+        '/channels?q=%E5%85%AC%E5%91%8A',
+      ]),
+    )
   })
 })
 
@@ -539,6 +564,7 @@ describe('team sections', () => {
     })
     fireEvent.click(within(preview).getByRole('button', { name: '申请加入' }))
     expect(await within(preview).findByText('已申请，等待群管理员处理')).toBeTruthy()
+    expect(await screen.findByText('已发送申请，群管理员同意后即可进入')).toBeTruthy()
     expect(calls.find((c) => c.path === '/groups/g9/join-requests')?.body).toEqual({ note: '跟进对账' })
     expect(within(screen.getByTestId('directory-item-g9')).getByText('已申请')).toBeTruthy()
     fireEvent.click(within(preview).getByRole('button', { name: '撤回申请' }))

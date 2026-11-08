@@ -172,6 +172,13 @@ function renderAt(path: string) {
   )
 }
 
+/** The armed danger row ignores clicks for a beat (no double-click confirming). */
+async function confirmDanger(d: HTMLElement, name: string) {
+  const btn = within(d).getByRole('button', { name })
+  await waitFor(() => expect(btn.getAttribute('aria-disabled')).toBeNull())
+  fireEvent.click(btn)
+}
+
 async function openDrawer() {
   const main = screen.getByRole('main')
   fireEvent.click(await within(main).findByRole('button', { name: '群设置' }))
@@ -451,6 +458,10 @@ describe('group settings inspector', () => {
     expect(await within(dlg).findByText('入群申请 · 1')).toBeTruthy()
     expect(within(dlg).getByText('跟进退款')).toBeTruthy()
     fireEvent.click(within(dlg).getByRole('button', { name: '同意' }))
+    // Only the clicked button spins; the decided row slides out.
+    expect(within(dlg).getByRole('button', { name: '同意' }).getAttribute('aria-busy')).toBe('true')
+    expect(within(dlg).getByRole('button', { name: '拒绝' }).hasAttribute('aria-busy')).toBe(false)
+    expect(await screen.findByText('已同意 赵敏 入群')).toBeTruthy()
     await waitFor(() => expect(within(dlg).queryByText('入群申请 · 1')).toBeNull())
     expect(calls.some((c) => c.path === '/join-requests/r1/approve')).toBe(true)
 
@@ -476,6 +487,7 @@ describe('group settings inspector', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ notice: '每个 Bot 独立分支，走 PR' }),
     )
+    expect(await screen.findByText('群公告已发布')).toBeTruthy()
     expect((await screen.findByTestId('group-notice')).textContent).toContain('每个 Bot 独立分支，走 PR')
   })
 
@@ -488,8 +500,9 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     fireEvent.click(within(await openDrawer()).getByRole('button', { name: /基本信息/ }))
     const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    expect(within(dlg).getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
     fireEvent.change(within(dlg).getByLabelText('群名称'), { target: { value: '设置后' } })
-    fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
+    fireEvent.keyDown(within(dlg).getByLabelText('群名称'), { key: 'Enter' })
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: '设置后' }))
     expect(await within(screen.getByRole('main')).findByRole('heading', { name: '设置后' })).toBeTruthy()
   })
@@ -622,9 +635,25 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '解散群' }))
     expect(within(d).getByText(/解散后群归档，消息与审计记录保留/)).toBeTruthy()
-    fireEvent.click(within(d).getByRole('button', { name: '确认解散' }))
+    await confirmDanger(d, '确认解散')
     await waitFor(() => expect(screen.queryByTestId('group-item-g1')).toBeNull())
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/dissolve')).toBe(true)
+  })
+
+  it('arms dissolving in place: the row keeps focus, turns red, and a double click does not confirm', async () => {
+    const calls = mockApi(routes([group()], { 'POST /groups/g1/dissolve': { ok: true } }))
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    const row = within(d).getByRole('button', { name: '解散群' })
+    row.focus()
+    fireEvent.click(row)
+    fireEvent.click(row)
+    expect(row.textContent).toBe('确认解散')
+    expect(row.hasAttribute('data-armed')).toBe(true)
+    expect(document.activeElement).toBe(row)
+    expect(calls.some((c) => c.path === '/groups/g1/dissolve')).toBe(false)
+    await confirmDanger(d, '确认解散')
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups/g1/dissolve')).toBe(true))
   })
 
   it('calls a DM deletion 删除私聊, offers no leaving', async () => {
@@ -692,7 +721,7 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
     expect(within(d).getByText(/退出后你的 Bot 一并移出本群/)).toBeTruthy()
-    fireEvent.click(within(d).getByRole('button', { name: '确认退出' }))
+    await confirmDanger(d, '确认退出')
     await waitFor(() => expect(screen.queryByTestId('group-item-g1')).toBeNull())
     expect(calls.some((c) => c.path === '/groups/g1/leave')).toBe(true)
   })
@@ -712,14 +741,34 @@ describe('group settings inspector', () => {
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
     expect(within(d).getByText('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')).toBeTruthy()
-    fireEvent.click(within(d).getByRole('button', { name: '退出群' }))
+    await confirmDanger(d, '退出群')
     expect(await within(d).findByRole('heading', { name: '群成员 · 2' })).toBeTruthy()
     const li = within(d).getByTestId('member-u2')
     expect(within(li).getByText('带入 老李的 Codex')).toBeTruthy()
     fireEvent.click(within(li).getByRole('button', { name: '设为管理员' }))
     await waitFor(() => expect(within(within(d).getByTestId('member-u2')).getByText('群管理员')).toBeTruthy())
+    expect(await screen.findByText('已将 李建国 设为管理员')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/admins/u2')).toBe(true)
     expect(within(d).queryByTestId('member-u1')?.querySelector('button')).toBeNull()
+  })
+
+  it('searches members regardless of case and says when nobody matches', async () => {
+    mockApi(
+      routes([
+        group({
+          members: [...group().members, { userId: 'u3', name: 'Alice Wu', avatar: null, isAdmin: false }],
+        }),
+      ]),
+    )
+    renderAt('/g/g1')
+    const d = await openDrawer()
+    fireEvent.click(within(d).getByRole('button', { name: '查看全部' }))
+    const search = within(d).getByPlaceholderText('搜索成员')
+    fireEvent.change(search, { target: { value: 'alice' } })
+    expect(within(d).getByTestId('member-u3')).toBeTruthy()
+    expect(within(d).queryByTestId('member-u2')).toBeNull()
+    fireEvent.change(search, { target: { value: 'zzz' } })
+    expect(within(d).getByText('没有匹配的成员')).toBeTruthy()
   })
 
   it('adds members and pulls in bots from the sub-views', async () => {
@@ -747,6 +796,7 @@ describe('group settings inspector', () => {
         { userIds: ['u3', 'u4'] },
       ]),
     )
+    expect(await screen.findByText('已添加 2 人')).toBeTruthy()
 
     fireEvent.click(within(d).getByRole('button', { name: '返回' }))
     fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
@@ -1146,14 +1196,20 @@ describe('group settings dialog', () => {
     fireEvent.click(await within(await openDrawer()).findByRole('button', { name: /群级参数/ }))
     const dlg = await screen.findByRole('dialog', { name: '群级参数 · 支付服务重构' })
     const hops = await within(dlg).findByLabelText('接力链长上限（跳）')
+    // Out-of-range values clamp to the allowed range.
     fireEvent.change(hops, { target: { value: '0' } })
     fireEvent.blur(hops)
-    expect(within(dlg).getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
+    expect((hops as HTMLInputElement).value).toBe('1')
     fireEvent.change(hops, { target: { value: '11' } })
     fireEvent.blur(hops)
-    expect(within(dlg).getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
+    expect((hops as HTMLInputElement).value).toBe('10')
+    // Back to the saved value: nothing unsaved.
+    fireEvent.change(hops, { target: { value: '3' } })
+    fireEvent.blur(hops)
+    expect(within(dlg).queryByText(/有未保存的更改/)).toBeNull()
     fireEvent.change(hops, { target: { value: '5' } })
     fireEvent.blur(hops)
+    expect(within(dlg).getByText('有未保存的更改 · 保存后对新会话生效')).toBeTruthy()
     fireEvent.click(within(dlg).getByRole('button', { name: '保存' }))
     expect(await screen.findByText('参数超出允许范围')).toBeTruthy()
     expect(screen.getByRole('dialog', { name: '群级参数 · 支付服务重构' })).toBeTruthy()

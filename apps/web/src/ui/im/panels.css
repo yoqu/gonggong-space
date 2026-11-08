@@ -227,8 +227,19 @@
 }
 .pn-info__danger .pn-info__row--danger {
   border-radius: var(--radius-menu);
+  transition: background-color var(--motion-base);
+}
+/* Armed: the second click confirms, so the row reads as the red button it now is. */
+.pn-info__row--danger[data-armed],
+.pn-info__row--danger[data-armed]:hover {
+  background: var(--tint-red);
+  font-weight: 600;
 }
 .pn-info__danger-note {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
+  --enter-y: -4px;
   padding: 0 var(--space-12) var(--space-8);
   font-size: var(--text-subheadline-size);
   line-height: 14px;

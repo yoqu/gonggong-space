@@ -116,7 +116,7 @@ function ConfirmRemove({
       footer={
         <>
           <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="destructive" disabled={busy} onClick={() => void run()}>
+          <Button variant="destructive" loading={busy} onClick={() => void run()}>
             {t('移出')}
           </Button>
         </>
@@ -236,6 +236,14 @@ function MainView({
   const [paramsFailed, setParamsFailed] = useState(false)
   const [pending, setPending] = useState<GroupPrefs | null>(null)
   const [confirm, setConfirm] = useState<'leave' | 'dissolve' | null>(null)
+  // A double click must not arm and confirm at once: the armed row takes clicks only after a beat.
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    setSettled(false)
+    if (!confirm) return
+    const id = setTimeout(() => setSettled(true), CONFIRM_DELAY_MS)
+    return () => clearTimeout(id)
+  }, [confirm])
   const sync = useSyncStatus(group)
   const dm = group.kind === 'dm'
   const admins = group.members.filter((m) => m.isAdmin)
@@ -278,11 +286,13 @@ function MainView({
   }
   const leave = () => {
     if (confirm !== 'leave') return setConfirm('leave')
+    if (!settled) return
     if (onlyAdmin) return setView('members')
     void gone(() => groupsApi.leave(group.id), t('已退出群'))
   }
   const dissolve = () => {
     if (confirm !== 'dissolve') return setConfirm('dissolve')
+    if (!settled) return
     void gone(() => groupsApi.dissolve(group.id), dm ? t('已删除私聊') : t('群已解散'))
   }
 
@@ -297,6 +307,8 @@ function MainView({
       ? [
           {
             label: confirm === 'leave' && !onlyAdmin ? t('确认退出') : t('退出群'),
+            armed: confirm === 'leave' && !onlyAdmin,
+            settling: confirm === 'leave' && !settled,
             onClick: leave,
             note:
               confirm === 'leave'
@@ -317,6 +329,8 @@ function MainView({
               : confirm === 'dissolve'
                 ? t('确认解散')
                 : t('解散群'),
+            armed: confirm === 'dissolve',
+            settling: confirm === 'dissolve' && !settled,
             onClick: dissolve,
             note:
               confirm === 'dissolve'
@@ -503,6 +517,24 @@ export function MembersView({
   const users = usersQ.data ?? []
   const candidates = users.filter((u) => !group.members.some((m) => m.userId === u.id))
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
+  const [promoting, setPromoting] = useState('')
+  const needle = q.trim().toLowerCase()
+  const shown = group.members.filter((m) => !needle || m.name.toLowerCase().includes(needle))
+  const toggleAdmin = async (m: GroupDto['members'][number]) => {
+    setPromoting(m.userId)
+    if (await attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin)))
+      toast({
+        type: 'success',
+        message: m.isAdmin
+          ? t('已取消 {name} 的管理员', { name: m.name })
+          : t('已将 {name} 设为管理员', { name: m.name }),
+      })
+    setPromoting('')
+  }
+  const add = async (ids: string[]) => {
+    if (await attempt(() => groupsApi.addMembers(group.id, ids)))
+      toast({ type: 'success', message: t('已添加 {n} 人', { n: ids.length }) })
+  }
 
   return (
     <>
@@ -515,7 +547,7 @@ export function MembersView({
             users={candidates}
             defaultOpen={initialAdding}
             onOpen={() => (wanted ? usersQ.reload() : setWanted(true))}
-            onAdd={(ids) => void attempt(() => groupsApi.addMembers(group.id, ids))}
+            onAdd={(ids) => void add(ids)}
             status={
               usersQ.error ? (
                 <LoadError text={t('成员列表加载失败')} onRetry={usersQ.reload} />
@@ -526,10 +558,9 @@ export function MembersView({
           />
         ) : null}
       </div>
-      <GroupBox>
-        {group.members
-          .filter((m) => !q || m.name.includes(q))
-          .map((m) => {
+      {shown.length ? (
+        <GroupBox>
+          {shown.map((m) => {
             const theirs = bots.filter((b) => b.ownerId === m.userId).map((b) => b.name)
             return (
               <div key={m.userId} className="gs-member" data-testid={`member-${m.userId}`}>
@@ -549,7 +580,9 @@ export function MembersView({
                     <Button
                       variant="plain"
                       size="small"
-                      onClick={() => void attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin))}
+                      loading={promoting === m.userId}
+                      disabled={!!promoting}
+                      onClick={() => void toggleAdmin(m)}
                     >
                       {m.isAdmin ? t('取消管理员') : t('设为管理员')}
                     </Button>
@@ -561,7 +594,10 @@ export function MembersView({
               </div>
             )
           })}
-      </GroupBox>
+        </GroupBox>
+      ) : (
+        <EmptyState compact icon="search" title={t('没有匹配的成员')} />
+      )}
       <div className="gs-foot">{t('移出成员时，其 Bot 一并移出；运行中的 Bot 按非主动中断处理。')}</div>
       <Presence>
         {removing ? (
@@ -845,14 +881,19 @@ function NoticesView({ group, isAdmin, onEdit }: { group: GroupDto; isAdmin: boo
 }
 
 const FOLLOW = 'follow'
+const CONFIRM_DELAY_MS = 400
 const TIER_PREFIX = 'tier:'
 
 function NoticeForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }) {
   const [notice, setNotice] = useState(group.notice)
   const [saving, setSaving] = useState(false)
+  const unchanged = notice.trim() === group.notice.trim()
   const save = async () => {
     setSaving(true)
-    if (await attempt(() => groupsApi.update(group.id, { notice }))) onSaved()
+    if (await attempt(() => groupsApi.update(group.id, { notice }))) {
+      toast({ type: 'success', message: notice.trim() ? t('群公告已发布') : t('群公告已清空') })
+      onSaved()
+    }
     setSaving(false)
   }
   return (
@@ -865,9 +906,12 @@ function NoticeForm({ group, onSaved }: { group: GroupDto; onSaved: () => void }
         maxLength={500}
         placeholder={t('如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线')}
         onChange={(e) => setNotice(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !saving && !unchanged) void save()
+        }}
       />
       <div className="gs-form__foot">
-        <Button variant="primary" disabled={saving} onClick={() => void save()}>
+        <Button variant="primary" disabled={unchanged} loading={saving} onClick={() => void save()}>
           {t('保存')}
         </Button>
       </div>

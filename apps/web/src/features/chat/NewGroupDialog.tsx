@@ -117,6 +117,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
         : ''
 
   const submit = async () => {
+    if (disabled || checking) return
     setCreating(true)
     try {
       const group = await api.post<GroupDto>('/groups', {
@@ -156,7 +157,12 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
             <span className="ng-foot">{status}</span>
           )}
           <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="primary" disabled={disabled || checking} onClick={() => void submit()}>
+          <Button
+            variant="primary"
+            disabled={disabled || checking}
+            loading={creating}
+            onClick={() => void submit()}
+          >
             {checking ? t('检查中…') : t('创建')}
           </Button>
         </>
@@ -190,6 +196,11 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
                   value={name}
                   maxLength={60}
                   placeholder={t('如：退款 v2 迁移')}
+                  autoFocus
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submit()
+                  }}
                   onChange={(e) => {
                     setNameTouched(true)
                     setName(e.target.value)

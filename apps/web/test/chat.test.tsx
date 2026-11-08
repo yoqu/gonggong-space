@@ -1149,6 +1149,30 @@ describe('new group dialog', () => {
     })
   })
 
+  it('focuses the name and creates the group on Enter, only once while the request is out', async () => {
+    let reply: (g: GroupDto) => void = () => {}
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'POST /groups': () => new Promise<GroupDto>((r) => (reply = r)),
+      'GET /groups/g7/timeline': () => ({ messages: [], runs: [] }),
+      'POST /groups/g7/read': () => group({ id: 'g7', name: '退款' }),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const name = within(dialog).getByLabelText('名称')
+    expect(document.activeElement).toBe(name)
+    fireEvent.change(name, { target: { value: '退款' } })
+    fireEvent.keyDown(name, { key: 'Enter' })
+    fireEvent.keyDown(name, { key: 'Enter' })
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: '创建' }).getAttribute('aria-busy')).toBe('true'),
+    )
+    expect(calls.filter((c) => c.method === 'POST' && c.path === '/groups')).toHaveLength(1)
+    reply(group({ id: 'g7', name: '退款' }))
+    expect(await screen.findByRole('heading', { name: '退款' })).toBeTruthy()
+  })
+
   it('makes a DM with a bot shared with me', async () => {
     mockApi({
       ...baseRoutes([]),

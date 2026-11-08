@@ -29,7 +29,7 @@ export function RemoveNoticeDialog({ groupId, onClose }: { groupId: string; onCl
       footer={
         <>
           <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="destructive" disabled={busy} onClick={() => void run()}>
+          <Button variant="destructive" loading={busy} onClick={() => void run()}>
             {t('移除')}
           </Button>
         </>

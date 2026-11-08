@@ -19,6 +19,7 @@ import {
   Switch,
   TextField,
   toast,
+  useLeaving,
 } from '../../ui'
 import { InheritedMcpList, McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
 import { GroupConfigView } from '../config/GroupConfigView'
@@ -34,15 +35,19 @@ import { BotsView, MembersView, type SettingsTab } from './GroupInfo'
 import { teamSectionsApi, useTeamSections } from './sections'
 
 /** Only the P1 params are adjustable (spec §10). */
-const PARAMS: { key: keyof GroupParams; label: string }[] = [
-  { key: 'approvalTimeoutMin', label: t('权限审批等待（分钟）') },
-  { key: 'chainMaxHops', label: t('接力链长上限（跳）') },
-  { key: 'offlineWaitMin', label: t('Bot 离线等待上线（分钟）') },
+const PARAMS: { key: keyof GroupParams; label: string; max: number }[] = [
+  { key: 'approvalTimeoutMin', label: t('权限审批等待（分钟）'), max: 24 * 60 },
+  { key: 'chainMaxHops', label: t('接力链长上限（跳）'), max: 10 },
+  { key: 'offlineWaitMin', label: t('Bot 离线等待上线（分钟）'), max: 24 * 60 },
 ]
 
 type Draft = Record<keyof GroupParams, number | null>
 
 const parseDraft = (d: Draft) => GroupParams.safeParse(d)
+
+/** On phones the tabs scroll in one row; keep the current one in sight. */
+const revealTab = (el: HTMLButtonElement | null) =>
+  el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
 
 /** Group settings dialog (prototype ovSettings); plain members get it read-only, filling only their own secret values. */
 export function GroupSettingsDialog({
@@ -58,6 +63,7 @@ export function GroupSettingsDialog({
   // Reopened on another tab while still closing, the dialog is reused rather than remounted.
   useEffect(() => setTab(initial), [initial])
   const [params, setParams] = useState<Draft | null>(null)
+  const [savedParams, setSavedParams] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const dm = group.kind === 'dm'
   const meId = useSession((s) => s.user?.id)
@@ -82,13 +88,15 @@ export function GroupSettingsDialog({
   ]
 
   useEffect(() => {
-    groupsApi.params(group.id).then(
-      (p) => setParams(Object.fromEntries(PARAMS.map(({ key }) => [key, p[key]])) as Draft),
-      () => {},
-    )
+    groupsApi.params(group.id).then((p) => {
+      const draft = Object.fromEntries(PARAMS.map(({ key }) => [key, p[key]])) as Draft
+      setParams(draft)
+      setSavedParams(draft)
+    }, toastError)
   }, [group.id])
 
   const parsed = params && parseDraft(params)
+  const dirty = !!params && PARAMS.some(({ key }) => params[key] !== savedParams?.[key])
   const save = async () => {
     if (!parsed?.success) return
     setSaving(true)
@@ -112,11 +120,22 @@ export function GroupSettingsDialog({
       footer={
         <>
           <span className="gs-desc">
-            {readOnly ? t('仅群管理员可修改') : tab === 'params' ? t('保存后对新会话生效') : ''}
+            {readOnly
+              ? t('仅群管理员可修改')
+              : tab === 'params'
+                ? dirty
+                  ? t('有未保存的更改 · 保存后对新会话生效')
+                  : t('保存后对新会话生效')
+                : ''}
           </span>
           <span className="spacer" />
           {tab === 'params' && !readOnly ? (
-            <Button variant="primary" disabled={!parsed?.success || saving} onClick={() => void save()}>
+            <Button
+              variant="primary"
+              disabled={!parsed?.success}
+              loading={saving}
+              onClick={() => void save()}
+            >
               {t('保存')}
             </Button>
           ) : null}
@@ -132,6 +151,7 @@ export function GroupSettingsDialog({
               type="button"
               className={cx('gs-settings__tab', x.value === tab && 'gs-settings__tab--on')}
               aria-current={x.value === tab ? 'page' : undefined}
+              ref={x.value === tab ? revealTab : undefined}
               onClick={() => setTab(x.value)}
             >
               <Icon name={x.icon} size={15} />
@@ -139,7 +159,7 @@ export function GroupSettingsDialog({
             </button>
           ))}
         </nav>
-        <div className="gs-settings__body">
+        <div key={tab} className="gs-settings__body">
           {tab === 'basic' ? (
             <BasicTab group={group} readOnly={readOnly} />
           ) : tab === 'members' ? (
@@ -175,6 +195,8 @@ export function GroupSettingsDialog({
                   <Stepper
                     aria-label={p.label}
                     disabled={readOnly}
+                    min={1}
+                    max={p.max}
                     width={80}
                     value={params[p.key]}
                     onChange={(v) => setParams({ ...params, [p.key]: v })}
@@ -196,7 +218,9 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   const dm = group.kind === 'dm'
   const [name, setName] = useState(group.name)
   const [saving, setSaving] = useState(false)
+  const changed = !!name.trim() && name.trim() !== group.name
   const save = async () => {
+    if (!changed || saving) return
     setSaving(true)
     if (await attempt(() => groupsApi.update(group.id, { name: name.trim() })))
       toast({ type: 'success', message: t('名称已保存') })
@@ -212,13 +236,12 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
             maxLength={60}
             readOnly={readOnly}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void save()
+            }}
           />
           {readOnly ? null : (
-            <Button
-              size="small"
-              disabled={!name.trim() || name.trim() === group.name || saving}
-              onClick={() => void save()}
-            >
+            <Button size="small" disabled={!changed} loading={saving} onClick={() => void save()}>
               {t('保存')}
             </Button>
           )}
@@ -287,27 +310,59 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
   )
 }
 
-/** 入群申请 waiting on the group's admins. */
+/** 入群申请 waiting on the group's admins; a decided one slides out. */
 function JoinRequests({ groupId }: { groupId: string }) {
   const [list, setList] = useState<JoinRequestDto[]>([])
+  const [busy, setBusy] = useState<{ id: string; ok: boolean } | null>(null)
+  const { leaving, leave } = useLeaving()
   const load = () => teamSectionsApi.requests(groupId).then(setList, toastError)
   // biome-ignore lint/correctness/useExhaustiveDependencies: loads once per group
   useEffect(() => {
     void load()
   }, [groupId])
   if (!list.length) return null
-  const decide = (id: string, ok: boolean) => void attempt(() => teamSectionsApi.decide(id, ok).then(load))
+  const decide = async (r: JoinRequestDto, ok: boolean) => {
+    setBusy({ id: r.id, ok })
+    if (await attempt(() => teamSectionsApi.decide(r.id, ok))) {
+      toast({
+        type: 'success',
+        message: ok
+          ? t('已同意 {name} 入群', { name: r.userName })
+          : t('已拒绝 {name}', { name: r.userName }),
+      })
+      leave(r.id, () => setList((l) => l.filter((x) => x.id !== r.id)))
+    }
+    setBusy(null)
+  }
   return (
     <GroupBox>
       <div className="gs-joins__title">{t('入群申请 · {n}', { n: list.length })}</div>
       {list.map((r) => (
-        <GroupRow key={r.id} label={r.userName} description={r.note || undefined}>
-          <Button size="small" variant="primary" onClick={() => decide(r.id, true)}>
-            {t('同意')}
-          </Button>
-          <Button size="small" onClick={() => decide(r.id, false)}>
-            {t('拒绝#reject')}
-          </Button>
+        <GroupRow
+          key={r.id}
+          className={leaving.has(r.id) ? 'ui-leaving' : undefined}
+          label={r.userName}
+          description={r.note || undefined}
+        >
+          <span className="gs-value-line">
+            <Button
+              size="small"
+              variant="primary"
+              loading={busy?.id === r.id && busy.ok}
+              disabled={!!busy}
+              onClick={() => void decide(r, true)}
+            >
+              {t('同意')}
+            </Button>
+            <Button
+              size="small"
+              loading={busy?.id === r.id && !busy.ok}
+              disabled={!!busy}
+              onClick={() => void decide(r, false)}
+            >
+              {t('拒绝#reject')}
+            </Button>
+          </span>
         </GroupRow>
       ))}
     </GroupBox>

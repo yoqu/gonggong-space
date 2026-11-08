@@ -2,7 +2,7 @@ import type { DirectoryGroupDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Avatar, Button, Icon, Textarea } from '../../ui'
+import { Avatar, Button, Icon, Textarea, toast } from '../../ui'
 import { teamSectionsApi, useTeamSections } from './sections'
 import './groups.css'
 
@@ -11,9 +11,10 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
   const section = useTeamSections((s) => s.sections.find((x) => x.id === g.teamSectionId))
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
-  const run = (fn: () => Promise<unknown>) => {
+  const run = async (fn: () => Promise<unknown>, done?: string) => {
     setBusy(true)
-    void attempt(fn).finally(() => setBusy(false))
+    if ((await attempt(fn)) && done) toast({ type: 'success', message: done })
+    setBusy(false)
   }
   const pub = g.visibility === 'public'
   return (
@@ -29,7 +30,7 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
         {g.notice ? <p className="join-preview__notice">{g.notice}</p> : null}
         <div className="join-preview__meta">{t('群管理员：{names}', { names: g.admins.join(t('、')) })}</div>
         {pub ? (
-          <Button variant="primary" disabled={busy} onClick={() => run(() => teamSectionsApi.join(g.id))}>
+          <Button variant="primary" loading={busy} onClick={() => void run(() => teamSectionsApi.join(g.id))}>
             {t('加入')}
           </Button>
         ) : g.requestId ? (
@@ -38,7 +39,10 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
               <Icon name="clock" size={14} />
               {t('已申请，等待群管理员处理')}
             </div>
-            <Button disabled={busy} onClick={() => run(() => teamSectionsApi.cancel(g.requestId as string))}>
+            <Button
+              loading={busy}
+              onClick={() => void run(() => teamSectionsApi.cancel(g.requestId as string), t('已撤回申请'))}
+            >
               {t('撤回申请')}
             </Button>
           </>
@@ -55,8 +59,13 @@ export function JoinPreview({ group: g }: { group: DirectoryGroupDto }) {
             />
             <Button
               variant="primary"
-              disabled={busy}
-              onClick={() => run(() => teamSectionsApi.request(g.id, note.trim()))}
+              loading={busy}
+              onClick={() =>
+                void run(
+                  () => teamSectionsApi.request(g.id, note.trim()),
+                  t('已发送申请，群管理员同意后即可进入'),
+                )
+              }
             >
               {t('申请加入')}
             </Button>

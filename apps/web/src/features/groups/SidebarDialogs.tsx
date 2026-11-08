@@ -39,8 +39,17 @@ export function SectionNameDialog({
   onClose: () => void
 }) {
   const [name, setName] = useState(initial)
+  const [busy, setBusy] = useState(false)
   const ok = !!name.trim() && name.trim() !== initial
-  const save = () => void onSave(name.trim()).then(onClose, toastError)
+  // One request at a time: a double click or Enter repeat must not create two sections.
+  const save = () => {
+    if (!ok || busy) return
+    setBusy(true)
+    onSave(name.trim()).then(onClose, (e) => {
+      toastError(e)
+      setBusy(false)
+    })
+  }
   return (
     <Dialog
       open
@@ -60,7 +69,7 @@ export function SectionNameDialog({
       footer={
         <>
           <Button onClick={onClose}>{t('取消')}</Button>
-          <Button variant="primary" disabled={!ok} onClick={save}>
+          <Button variant="primary" disabled={!ok} loading={busy} onClick={save}>
             {initial ? t('保存') : t('创建')}
           </Button>
         </>
@@ -78,7 +87,7 @@ export function SectionNameDialog({
         autoFocus
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && ok) save()
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) save()
         }}
       />
     </Dialog>
@@ -88,6 +97,8 @@ export function SectionNameDialog({
 /** 浏览频道: the team's public channels; join one, or open one already joined. */
 type Show = 'all' | 'joined' | 'other'
 type Order = 'name' | 'members' | 'active'
+
+const SEARCH_DEBOUNCE_MS = 200
 
 const sorters: Record<Order, (a: ChannelDto, b: ChannelDto) => number> = {
   name: (a, b) => a.name.localeCompare(b.name),
@@ -105,9 +116,14 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
   const [order, setOrder] = useState<Order>('active')
   useEffect(() => {
     let live = true
-    channelsApi.list(q).then((l) => live && setList(l), toastError)
+    // Typing waits for a pause instead of querying on every keystroke.
+    const id = setTimeout(
+      () => channelsApi.list(q).then((l) => live && setList(l), toastError),
+      q ? SEARCH_DEBOUNCE_MS : 0,
+    )
     return () => {
       live = false
+      clearTimeout(id)
     }
   }, [q])
   const open = (id: string) => {
@@ -169,6 +185,7 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
             return (
               <GroupRow
                 key={c.id}
+                className="browse-channels__row"
                 label={
                   <span className="browse-channels__name">
                     <Avatar name={c.name} src={c.avatar ?? undefined} shape="square" size={28} />
@@ -200,6 +217,7 @@ export function BrowseChannelsDialog({ onClose }: { onClose: () => void }) {
                   <Button
                     size="small"
                     variant="primary"
+                    loading={joining === c.id}
                     disabled={!!joining}
                     aria-label={t('加入 {name}', { name: c.name })}
                     onClick={() => void join(c.id)}

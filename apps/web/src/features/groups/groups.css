@@ -208,15 +208,27 @@
   color: var(--label);
   font: inherit;
   text-align: left;
+  white-space: nowrap;
   cursor: default;
+  transition: background-color var(--motion-fast);
 }
 .gs-settings__tab > svg {
+  flex: none;
   color: var(--accent-text);
+}
+@media (hover: hover) {
+  .gs-settings__tab:not(.gs-settings__tab--on):hover {
+    background: var(--selection-fill);
+  }
+}
+.gs-settings__tab:active {
+  background: var(--selection-fill);
 }
 .gs-settings__tab--on {
   background: var(--selection-fill);
   font-weight: 600;
 }
+/* Remounted per tab: the new section settles in instead of snapping. */
 .gs-settings__body {
   flex: 1;
   min-width: 0;
@@ -224,6 +236,10 @@
   flex-direction: column;
   gap: var(--space-16);
   padding: var(--space-16) var(--space-20);
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
+  --enter-y: 6px;
 }
 .gs-value {
   min-width: 0;
@@ -250,12 +266,25 @@
   .gs-settings {
     flex-direction: column;
   }
+  /* One swipeable row instead of three wrapped ones. */
   .gs-settings__nav {
     width: auto;
     flex-direction: row;
-    flex-wrap: wrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--space-8);
     border-right: 0;
     border-bottom: 1px solid var(--separator);
+  }
+  .gs-settings__nav::-webkit-scrollbar {
+    display: none;
+  }
+  .gs-settings__tab {
+    flex: none;
+  }
+  .gs-settings__body {
+    padding: var(--space-12) var(--space-16);
   }
   .gs-settings__heading {
     display: none;
@@ -297,6 +326,10 @@
 }
 
 .join-preview {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-smooth);
+  --enter-y: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -322,6 +355,10 @@
   width: 100%;
 }
 .join-preview__sent {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-bouncy);
+  --enter-scale: 0.9;
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
@@ -344,14 +381,18 @@
   gap: var(--space-8);
   margin-top: var(--space-12);
 }
+.browse-channels__row {
+  animation: ui-fade-in var(--fade-in);
+}
 .browse-channels__meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 .browse-channels__notice {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 360px;
+  max-width: min(360px, 100%);
 }

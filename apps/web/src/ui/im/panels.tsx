@@ -6,6 +6,7 @@ import { Avatar, type AvatarProps, Tag } from '../display'
 import { Icon } from '../icon'
 import { Composer, type ComposerProps, DEFAULT_TOOLS } from './composer'
 import type { TagSpec } from './types'
+import '../motion.css'
 import './panels.css'
 
 export function PanelHead({
@@ -66,6 +67,10 @@ export interface ChatInfoDanger {
   onClick?: () => void
   /** Shown under the row, e.g. what confirming will do. */
   note?: ReactNode
+  /** Waiting for the confirming second click: the row turns red. */
+  armed?: boolean
+  /** Just armed: clicks are ignored for a beat so a double click cannot confirm. */
+  settling?: boolean
 }
 
 function InfoRow({ label, description, value, onClick, control, disabled }: ChatInfoRow) {
@@ -276,11 +281,15 @@ export function ChatInfoBody({
       ) : null}
       {dangers.length > 0 && (
         <div className="pn-info__group pn-info__group--danger">
-          {dangers.map((d) => (
-            <div key={d.label} className="pn-info__danger">
+          {dangers.map((d, i) => (
+            // Keyed by position: the label turns into「确认…」when armed, and remounting would drop focus.
+            // biome-ignore lint/suspicious/noArrayIndexKey: the list is fixed per render
+            <div key={i} className="pn-info__danger">
               <button
                 type="button"
                 className="pn-info__row pn-info__row--button pn-info__row--danger"
+                data-armed={d.armed || undefined}
+                aria-disabled={d.settling || undefined}
                 onClick={d.onClick}
               >
                 {d.label}

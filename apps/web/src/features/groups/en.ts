@@ -193,4 +193,15 @@ export default {
   '关闭#notify': 'Off',
   '「仅@」只提醒 @我 和 @所有人；「关闭」连 @ 也不提醒，待审批和向我提问仍提醒':
     '"Mentions only" alerts you for @you and @everyone; "Off" skips even those, approvals and questions for you still alert',
+  '已取消 {name} 的管理员': 'Removed {name} as admin',
+  '已将 {name} 设为管理员': 'Made {name} an admin',
+  '已添加 {n} 人': 'Added {n:person|people}',
+  没有匹配的成员: 'No matching members',
+  群公告已发布: 'Notice posted',
+  群公告已清空: 'Notice cleared',
+  '已同意 {name} 入群': 'Let {name} in',
+  '已拒绝 {name}': 'Declined {name}',
+  '有未保存的更改 · 保存后对新会话生效': 'Unsaved changes · applies to new sessions once saved',
+  已撤回申请: 'Request withdrawn',
+  '已发送申请，群管理员同意后即可进入': 'Request sent; you can enter once an admin approves',
 } satisfies Record<string, string>
