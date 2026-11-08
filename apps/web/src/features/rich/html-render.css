@@ -4,6 +4,22 @@
   width: 720px;
   max-width: 100%;
 }
+/* Its height is reserved from the publish-time measurement; until the page paints, a shimmer holds the place. */
+.html-render--loading {
+  border-radius: var(--radius-field);
+  background: linear-gradient(90deg, var(--group-bg) 0%, var(--selection-fill) 50%, var(--group-bg) 100%);
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .html-render--loading {
+    animation: none;
+  }
+}
+/* The page paints its own opaque background: a hover band behind it would frame it as a white block. */
+.pn-msg:has(.html-render):hover {
+  background: none;
+}
 .html-render__frame {
   display: block;
   width: 100%;
@@ -30,7 +46,7 @@
 .html-render__full {
   display: block;
   width: 100%;
-  height: min(80vh, 900px);
+  height: min(var(--page-height, 900px), 80vh);
   border: 0;
   border-radius: var(--radius-field);
   background: var(--content-bg);

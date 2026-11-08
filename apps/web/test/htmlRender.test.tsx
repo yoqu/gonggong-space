@@ -100,6 +100,22 @@ describe('html render', () => {
     fireEvent.click(screen.getByRole('button', { name: '全屏查看' }))
     expect(screen.getAllByTitle('CPU 走势')).toHaveLength(2)
   })
+
+  it('shows a placeholder until the page has loaded', () => {
+    const { container } = render(<HtmlRender page={page} />)
+    const box = container.querySelector('.html-render') as HTMLElement
+    expect(box.classList.contains('html-render--loading')).toBe(true)
+    fireEvent.load(frameOf())
+    expect(box.classList.contains('html-render--loading')).toBe(false)
+  })
+
+  it('fits the full-screen frame to its page, up to the viewport', () => {
+    render(<HtmlRender page={page} />)
+    fireEvent.click(screen.getByRole('button', { name: '全屏查看' }))
+    const full = screen.getAllByTitle('CPU 走势')[1] as HTMLIFrameElement
+    post(full.contentWindow, size(420))
+    expect(full.style.getPropertyValue('--page-height')).toBe('420px')
+  })
 })
 
 describe('html render palettes', () => {

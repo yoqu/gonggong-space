@@ -51,15 +51,21 @@
   font-size: var(--text-footnote-size);
 }
 
-/* A reply with UI blocks: the bubble takes its full width so charts get room. */
+/* A reply with UI blocks reaches across the message column (a text row only spans its text) so charts get room. */
+.pn-msg__row:has(> .pn-bubble > .rich-reply) {
+  align-self: stretch;
+}
+.pn-bubble:has(> .rich-reply) {
+  flex: 1;
+}
 .rich-reply {
-  width: min(560px, calc(100vw - 120px));
-  max-width: 100%;
+  width: 100%;
+  max-width: 560px;
 }
 
 /* A reply with html_render pages: room for the reply column they are designed for; text and pages stack. */
 .rich-reply--pages {
-  width: min(720px, calc(100vw - 120px));
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -68,4 +74,13 @@
 .run-mcard .html-render {
   border-radius: var(--radius-field);
   overflow: hidden;
+}
+
+/* Phones: a page also takes the avatar gutter, the ~360px column agents are told to design for. */
+@media (max-width: 767px) {
+  .rich-reply--pages .html-render {
+    width: calc(100% + var(--avatar-regular) + 10px);
+    max-width: none;
+    margin-left: calc(-1 * (var(--avatar-regular) + 10px));
+  }
 }

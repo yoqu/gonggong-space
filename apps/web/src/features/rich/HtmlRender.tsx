@@ -11,8 +11,17 @@ import {
   readHtmlRenderImageRequest,
   readHtmlRenderLinkRequest,
 } from '@gonggong/protocol'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
 import { Dialog, IconButton, Lightbox } from '../../ui'
 import { attachmentUrl } from '../attachments/api'
 import { token } from './theme'
@@ -41,13 +50,17 @@ type PageImage = { src: string; alt: string }
 function PageFrame({
   page,
   className,
+  style,
   onContentHeight,
   onImage,
+  onLoaded,
 }: {
   page: HtmlRenderRef
   className: string
+  style?: CSSProperties
   onContentHeight?: (height: number) => void
   onImage: (image: PageImage) => void
+  onLoaded?: () => void
 }) {
   const theme = usePageTheme()
   const frame = useRef<HTMLIFrameElement>(null)
@@ -85,8 +98,12 @@ function PageFrame({
       sandbox="allow-scripts allow-forms"
       loading="lazy"
       className={className}
-      // Covers a theme switch while the page was loading.
-      onLoad={postTheme}
+      style={style}
+      onLoad={() => {
+        // Covers a theme switch while the page was loading.
+        postTheme()
+        onLoaded?.()
+      }}
     />
   )
 }
@@ -98,6 +115,8 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   // Client fonts can wrap the page taller than it was measured; the live height wins.
   const [contentHeight, setContentHeight] = useState<number>()
   const [full, setFull] = useState(false)
+  const [fullHeight, setFullHeight] = useState<number>()
+  const [loaded, setLoaded] = useState(false)
   const [image, setImage] = useState<PageImage>()
   useLayoutEffect(() => {
     const el = box.current
@@ -112,7 +131,7 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   return (
     <div
       ref={box}
-      className="html-render"
+      className={cx('html-render', !loaded && 'html-render--loading')}
       style={{ height: htmlRenderFrameHeight(page, width, contentHeight) }}
     >
       <PageFrame
@@ -120,6 +139,7 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
         className="html-render__frame"
         onContentHeight={setContentHeight}
         onImage={setImage}
+        onLoaded={() => setLoaded(true)}
       />
       <IconButton
         title={t('全屏查看')}
@@ -132,7 +152,16 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
       </IconButton>
       {full && (
         <Dialog open onClose={() => setFull(false)} title={page.title} width={1200}>
-          <PageFrame page={page} className="html-render__full" onImage={setImage} />
+          <PageFrame
+            page={page}
+            className="html-render__full"
+            // As tall as the page, so a short one leaves no empty sheet; a long one scrolls inside.
+            style={
+              fullHeight ? ({ '--page-height': `${Math.ceil(fullHeight)}px` } as CSSProperties) : undefined
+            }
+            onContentHeight={setFullHeight}
+            onImage={setImage}
+          />
         </Dialog>
       )}
       {image && (
