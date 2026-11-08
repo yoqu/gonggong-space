@@ -137,3 +137,18 @@ describe('html render palettes', () => {
     }
   })
 })
+
+describe('rich reply width', () => {
+  it('lets a reply with UI blocks or pages run as wide as a plain reply; a page keeps its own 720px', () => {
+    const css = readFileSync(join(import.meta.dirname, '../src/features/rich/rich.css'), 'utf8')
+    const rules = (selector: string) =>
+      [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+        .filter(([, sel]) => sel!.split(',').some((s) => s.trim() === selector))
+        .map(([, , body]) => body)
+        .join('')
+    expect(rules('.rich-reply')).not.toContain('max-width')
+    expect(rules('.rich-reply--pages')).not.toContain('max-width')
+    const page = readFileSync(join(import.meta.dirname, '../src/features/rich/html-render.css'), 'utf8')
+    expect(page).toMatch(/\.html-render \{[^}]*width: 720px;[^}]*max-width: 100%;/)
+  })
+})
