@@ -8,6 +8,7 @@ import {
 import { asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { approvals, auditLogs, bots, groups, messages, notifications, runs } from '../src/db/schema.js'
+import { summarize } from '../src/modules/admin/audit.js'
 import { expireApprovals, voidApprovals } from '../src/modules/approvals/service.js'
 import { listRuns } from '../src/modules/runs/dto.js'
 import { MASK } from '../src/modules/runs/redact.js'
@@ -227,6 +228,48 @@ describe('approvals', () => {
       risk: 'high',
       rationale: `sends ${MASK} to a host the user never named`,
     })
+  })
+
+  it('audits what the AI pre-review allowed by itself, secrets masked, only for live runs of the machine', async () => {
+    const w = await world()
+    const { runId } = await w.request()
+    w.d.send({
+      t: 'approval.ai_approved',
+      runId,
+      title: 'pnpm add zod',
+      toolKind: 'execute',
+      detail: 'TOKEN=sk-live-abcdefghijklmnop1234 pnpm add zod',
+      review: { risk: 'medium', rationale: '用户要求安装 zod' },
+    })
+    w.d.send({
+      t: 'approval.ai_approved',
+      runId: '00000000-0000-0000-0000-000000000000',
+      title: 'x',
+      toolKind: 'execute',
+      detail: 'x',
+      review: { risk: 'low', rationale: '' },
+    })
+    await vi.waitFor(async () => expect((await w.audit()).map((a) => a.action)).toContain('ai_approved'))
+    const rows = (await w.audit()).filter((a) => a.action === 'ai_approved')
+    expect(rows).toMatchObject([
+      {
+        category: 'approval',
+        actorUserId: null,
+        groupId: w.group.id,
+        detail: {
+          runId,
+          title: 'pnpm add zod',
+          toolKind: 'execute',
+          detail: `TOKEN=${MASK} pnpm add zod`,
+          risk: 'medium',
+          rationale: '用户要求安装 zod',
+        },
+      },
+    ])
+    const names = { user: () => '', bot: () => '', runBot: () => '小王的 Claude' }
+    expect(summarize(rows[0]!, rows[0]!.detail as Record<string, unknown>, names)).toBe(
+      'AI 预审批准 小王的 Claude 执行 pnpm add zod',
+    )
   })
 
   it('sends the bot AI 预审 switch with run.start', async () => {

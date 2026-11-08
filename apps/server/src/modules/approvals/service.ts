@@ -1,4 +1,9 @@
-import { Allowlist, type ApprovalRequest, type PermissionOption } from '@gonggong/protocol'
+import {
+  Allowlist,
+  type ApprovalAiApproved,
+  type ApprovalRequest,
+  type PermissionOption,
+} from '@gonggong/protocol'
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { approvals, auditLogs, bots, groups, runs } from '../../db/schema.js'
@@ -83,6 +88,32 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
     detail: req.detail,
     // Decided right from the notification when the run is in a DM the owner is not in (a shared bot's).
     options: req.options,
+  })
+}
+
+/** The AI pre-review allowed a request of a live run on this machine by itself: kept in the audit log like a decision. */
+export async function onAiApproved(ctx: Ctx, machineId: string, msg: ApprovalAiApproved) {
+  const [row] = await ctx.db
+    .select({ groupId: runs.groupId })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(and(eq(runs.id, msg.runId), eq(bots.machineId, machineId), inArray(runs.status, LIVE)))
+  if (!row) return
+  const r = (await runRedactors(ctx, msg.runId)).redact
+  await ctx.db.insert(auditLogs).values({
+    category: 'approval',
+    action: 'ai_approved',
+    groupId: row.groupId,
+    teamId: teamOfGroupSql(row.groupId),
+    detail: {
+      runId: msg.runId,
+      title: r(msg.title),
+      toolKind: msg.toolKind,
+      detail: r(msg.detail),
+      risk: msg.review.risk,
+      rationale: r(msg.review.rationale),
+    },
+    createdAt: ctx.now(),
   })
 }
 

@@ -547,6 +547,18 @@ export const ApprovalRequest = z.object({
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 
+/** A request the AI pre-review allowed by itself, without asking the owner: recorded in the audit log. */
+export const ApprovalAiApproved = z.object({
+  t: z.literal('approval.ai_approved'),
+  runId: z.string(),
+  title: z.string(),
+  toolKind: z.string(),
+  /** Command line / path / URL, as an approval.request would show it. */
+  detail: z.string(),
+  review: AiReview,
+})
+export type ApprovalAiApproved = z.infer<typeof ApprovalAiApproved>
+
 /** Result of run.discard (partition /stop → 丢弃本轮改动). */
 export const RunDiscarded = z.object({
   t: z.literal('run.discarded'),
@@ -1580,6 +1592,7 @@ export const DaemonToServer = z.discriminatedUnion('t', [
   QuestionAsk,
   QuestionWithdraw,
   ApprovalRequest,
+  ApprovalAiApproved,
   RunDiscarded,
   RunContinue,
   SessionConfig,

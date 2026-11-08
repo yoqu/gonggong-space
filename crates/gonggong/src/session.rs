@@ -11,9 +11,9 @@ use crate::inject;
 use crate::local::{Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
-    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalReason, ApprovalRequest, Attachment, Choice, DaemonToServer,
-    McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage,
-    WorkspaceKind,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalReason, ApprovalRequest, Attachment,
+    Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus,
+    SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -588,10 +588,17 @@ impl Shared {
                     && let Some(allow) = auto_allow(&s.approvals[&wire.request_id].options) =>
             {
                 let p = s.approvals.remove(&wire.request_id).expect("checked above");
-                let step =
-                    t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = v.review().rationale);
+                let review = v.review();
+                let step = t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = review.rationale);
                 let event = RunEvent::Status { status: RunStatus::Running, step };
-                out.send(DaemonToServer::RunEvent { run_id: wire.run_id, event });
+                out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
+                out.send(DaemonToServer::ApprovalAiApproved(ApprovalAiApproved {
+                    run_id: wire.run_id,
+                    title: wire.title,
+                    tool_kind: wire.tool_kind,
+                    detail: wire.detail,
+                    review,
+                }));
                 let _ = p.tx.send(Some(allow));
             }
             v => {

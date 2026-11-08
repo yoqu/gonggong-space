@@ -1668,7 +1668,26 @@ fn reviewed(run_id: &str, command: &str) -> RunStart {
 async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
     let mut r = rig(Duration::from_secs(60));
     r.run(reviewed("r1", "touch ok.txt mock-review-allow"));
-    let (events, done) = r.finish("r1").await;
+    let mut events = vec![];
+    let audited = loop {
+        match r.next().await {
+            DaemonToServer::RunEvent { event, .. } => events.push(event),
+            DaemonToServer::ApprovalAiApproved(a) => break a,
+            other => panic!("unexpected {other:?}"),
+        }
+    };
+    assert_eq!(
+        audited,
+        ApprovalAiApproved {
+            run_id: "r1".into(),
+            title: "touch ok.txt mock-review-allow".into(),
+            tool_kind: "execute".into(),
+            detail: "$ touch ok.txt mock-review-allow".into(),
+            review: AiReview { risk: ReviewRisk::Low, rationale: "用户要求的只读命令".into() },
+        }
+    );
+    let (rest, done) = r.finish("r1").await;
+    events.extend(rest);
     let steps: Vec<_> = events
         .iter()
         .filter_map(|e| match e {

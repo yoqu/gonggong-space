@@ -19,6 +19,7 @@ export const en = {
 
   // Audit summaries
   '批准 {bot} 执行 {title}': 'Approved {bot} to run {title}',
+  'AI 预审批准 {bot} 执行 {title}': 'AI pre-review approved {bot} to run {title}',
   '拒绝 {bot} 执行 {title}': 'Rejected {bot} running {title}',
   '超时自动拒绝 {bot} 执行 {title}': 'Timed out and rejected {bot} running {title}',
   '已 /stop': 'stopped by /stop',

@@ -1572,6 +1572,17 @@ pub struct ApprovalRequest {
     pub review: Option<AiReview>,
 }
 
+/// A request the AI pre-review allowed by itself, without asking the owner: recorded in the audit log.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalAiApproved {
+    pub run_id: String,
+    pub title: String,
+    pub tool_kind: String,
+    pub detail: String,
+    pub review: AiReview,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewRisk {
@@ -2409,6 +2420,8 @@ pub enum DaemonToServer {
     WorkspaceState(WorkspaceState),
     #[serde(rename = "approval.request")]
     ApprovalRequest(ApprovalRequest),
+    #[serde(rename = "approval.ai_approved")]
+    ApprovalAiApproved(ApprovalAiApproved),
     #[serde(rename = "agents.update")]
     AgentsUpdate { agents: Vec<AgentInfo> },
     #[serde(rename = "commands.update", rename_all = "camelCase")]

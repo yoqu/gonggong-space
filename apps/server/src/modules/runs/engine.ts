@@ -5,7 +5,7 @@ import type { DaemonHub } from '../../daemon/hub.js'
 import { attachments, bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
 import { open, seal } from '../../lib/seal.js'
-import { onApprovalRequest, voidApprovals } from '../approvals/service.js'
+import { onAiApproved, onApprovalRequest, voidApprovals } from '../approvals/service.js'
 import { publishBot } from '../bots/dto.js'
 import { mirrorDelta, mirrorRun } from '../feishu/mirror.js'
 import { requeueAppends } from '../messages/append.js'
@@ -91,6 +91,7 @@ export function startRunEngine(ctx: Ctx) {
     if (msg.t === 'run.event') run(() => onEvent(ctx, machineId, msg.runId, msg.event))
     else if (msg.t === 'run.done') run(() => onDone(ctx, machineId, msg))
     else if (msg.t === 'approval.request') run(() => onApprovalRequest(ctx, machineId, msg))
+    else if (msg.t === 'approval.ai_approved') run(() => onAiApproved(ctx, machineId, msg))
     else if (msg.t === 'question.ask') run(() => onQuestionAsk(ctx, machineId, msg))
     else if (msg.t === 'question.withdraw') run(() => onQuestionWithdraw(ctx, machineId, msg))
     else if (msg.t === 'session.config') run(() => onSessionConfig(ctx, machineId, msg))

@@ -1,0 +1,8 @@
+{
+  "t": "approval.ai_approved",
+  "runId": "r1",
+  "title": "pnpm add zod",
+  "toolKind": "execute",
+  "detail": "pnpm add zod",
+  "review": { "risk": "medium", "rationale": "用户要求安装 zod" }
+}
