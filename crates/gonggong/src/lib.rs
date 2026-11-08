@@ -43,6 +43,7 @@ pub mod provider_cli;
 pub mod providers;
 mod replicas;
 pub mod repo;
+pub mod review;
 pub mod revoke;
 pub mod service;
 mod session;

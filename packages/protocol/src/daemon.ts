@@ -8,6 +8,7 @@ import {
 import { ArtifactDir, DaemonArtifactRef } from './artifacts.js'
 import {
   AgentKind,
+  AiReview,
   Answer,
   Approval,
   Attachment,
@@ -285,6 +286,8 @@ export const RunStart = z.object({
     allowlist: z.array(z.string()).default([]),
     /** Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode: command prefixes or `tool:<title>`. */
     alwaysAllow: z.array(z.string()).default([]),
+    /** AI 预审: requests left to the owner by the rules are first reviewed by a tool-less session of the bot's agent. */
+    aiReview: z.boolean().default(false),
     /** Author and committer of the agent's git commits; null = the machine's git config. */
     git: z.object({ name: z.string(), email: z.string() }).nullable().default(null),
     /** The bot's overrides of `botOverride` agent settings (field id → value). */
@@ -539,6 +542,8 @@ export const ApprovalRequest = z.object({
   options: z.array(PermissionOption),
   /** Rules an allow_always answer adds to the bot's alwaysAllow; empty → the scope can't be shown, so don't offer it. */
   remember: z.array(z.string()).default([]),
+  /** The AI pre-review's assessment when it did not allow the request; null = no review (off, floor, or it failed). */
+  review: AiReview.nullable().default(null),
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 

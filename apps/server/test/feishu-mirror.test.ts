@@ -841,6 +841,7 @@ describe('question and approval cards', () => {
         { optionId: 'ok', name: '允许一次', kind: 'allow_once' },
       ],
       remember: o.remember ?? [],
+      review: null,
     })
 
   it('questions show as a form in the run card, streaming paused; answering folds them into a summary', async () => {

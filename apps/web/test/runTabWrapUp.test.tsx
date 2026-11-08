@@ -21,6 +21,7 @@ const approval: ApprovalDto = {
   reason: 'not_allowed',
   options: [],
   remember: [],
+  review: null,
   status: 'approved',
   voidReason: null,
   decidedBy: 'u1',

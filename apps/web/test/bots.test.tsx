@@ -87,6 +87,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   approval: 'ask',
   allowlist: [],
   alwaysAllow: [],
+  aiReview: false,
   model: null,
   effort: null,
   catalog: null,
@@ -567,6 +568,22 @@ describe('bot detail', () => {
         approval: 'allowlist',
         alwaysAllow: ['tool:Fetch', 'cargo test'],
       }),
+    )
+  })
+
+  it('lets the owner turn on AI 预审 outside 全部自动', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    fireEvent.click(within(detail).getByRole('radio', { name: '全部自动' }))
+    expect(within(detail).queryByRole('switch', { name: 'AI 预审' })).toBeNull()
+    fireEvent.click(within(detail).getByRole('radio', { name: '每次询问' }))
+    fireEvent.click(within(detail).getByRole('switch', { name: 'AI 预审' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ aiReview: true }),
     )
   })
 

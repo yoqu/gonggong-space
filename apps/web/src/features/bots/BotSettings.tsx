@@ -200,6 +200,7 @@ export function BotDetail({
     approval: bot.approval,
     allowlist: bot.allowlist,
     alwaysAllow: bot.alwaysAllow,
+    aiReview: bot.aiReview,
   })
   const [gitName, setGitName] = useState(bot.gitName ?? '')
   const [gitEmail, setGitEmail] = useState(bot.gitEmail ?? '')
@@ -239,6 +240,7 @@ export function BotDetail({
     ...(owner && approval.approval !== bot.approval && { approval: approval.approval }),
     ...(owner && !sameList(approval.allowlist, bot.allowlist) && { allowlist: approval.allowlist }),
     ...(owner && !sameList(approval.alwaysAllow, bot.alwaysAllow) && { alwaysAllow: approval.alwaysAllow }),
+    ...(owner && approval.aiReview !== bot.aiReview && { aiReview: approval.aiReview }),
     ...(owner && (gitName.trim() || null) !== bot.gitName && { gitName: gitName.trim() || null }),
     ...(owner && (gitEmail.trim() || null) !== bot.gitEmail && { gitEmail: gitEmail.trim() || null }),
     ...(owner &&

@@ -73,6 +73,15 @@ describe('bot approval settings', () => {
     })
   })
 
+  it('the owner turns AI 预审 on (off by default), audited with the approval settings', async () => {
+    const w = await world()
+    expect((await w.owners.get<BotDto>(`/api/bots/${w.bot.id}`)).body.aiReview).toBe(false)
+    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, { aiReview: true })
+    expect(res.body.aiReview).toBe(true)
+    const rows = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.approval'))
+    expect(rows[0]?.detail).toMatchObject({ from: { aiReview: false }, to: { aiReview: true } })
+  })
+
   it('rejects empty entries', async () => {
     const w = await world()
     const res = await w.owners.patch(`/api/bots/${w.bot.id}`, { allowlist: ['go build', '   '] })
@@ -81,7 +90,12 @@ describe('bot approval settings', () => {
 
   it('a sysadmin cannot change approval or allowlist of another bot, but can change the rest', async () => {
     const w = await world()
-    for (const body of [{ approval: 'all' }, { allowlist: ['ls'] }, { alwaysAllow: ['ls'] }]) {
+    for (const body of [
+      { approval: 'all' },
+      { allowlist: ['ls'] },
+      { alwaysAllow: ['ls'] },
+      { aiReview: true },
+    ]) {
       const res = await w.admins.patch(`/api/bots/${w.bot.id}`, body)
       expect(res.status).toBe(403)
       expect(res.body.error).toBe('forbidden')

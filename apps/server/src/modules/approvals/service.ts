@@ -66,6 +66,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       reason: req.reason,
       options: req.options,
       remember: rememberable(raw.remember),
+      review: req.review && { ...req.review, rationale: r(req.review.rationale) },
       expiresAt,
       createdAt: ctx.now(),
     })

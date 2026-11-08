@@ -348,7 +348,10 @@ export function botRoutes(ctx: Ctx) {
       assertCanManage(user, bot)
       // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
       if (
-        (body.approval !== undefined || body.allowlist !== undefined || body.alwaysAllow !== undefined) &&
+        (body.approval !== undefined ||
+          body.allowlist !== undefined ||
+          body.alwaysAllow !== undefined ||
+          body.aiReview !== undefined) &&
         user.id !== bot.ownerId
       )
         fail('forbidden', '命令审批只有 Bot 主人能修改')
@@ -386,11 +389,17 @@ export function botRoutes(ctx: Ctx) {
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
-      const from = { approval: bot.approval, allowlist: bot.allowlist, alwaysAllow: bot.alwaysAllow }
+      const from = {
+        approval: bot.approval,
+        allowlist: bot.allowlist,
+        alwaysAllow: bot.alwaysAllow,
+        aiReview: bot.aiReview,
+      }
       const approval = {
         approval: body.approval ?? bot.approval,
         allowlist: body.allowlist ?? bot.allowlist,
         alwaysAllow: body.alwaysAllow ?? bot.alwaysAllow,
+        aiReview: body.aiReview ?? bot.aiReview,
       }
       if (JSON.stringify(approval) !== JSON.stringify(from))
         await audit(ctx, {

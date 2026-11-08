@@ -29,6 +29,10 @@ export default {
   '来自审批卡片上的「始终允许」，在这个 Bot 所在的所有群生效；以这些前缀开头的命令（或 tool:工具名）自动批准。删除后再次需要你审批。':
     'Added from "Always allow" on approval cards and applied in every group this Bot is in; commands starting with these prefixes (or tool:<tool name>) are approved automatically. Remove one to be asked again.',
   '命令前缀或 tool:工具名': 'Command prefix or tool:<tool name>',
+  'AI 预审': 'AI pre-review',
+  已开启: 'On',
+  '规则没放行的请求，先由这个 Bot 的 agent 在不能动手的会话里评估：低风险、且明显是用户要求的就自动批准，其余仍交给你，审批卡片附上风险和理由。高危命令和推送基准分支不经过 AI。会消耗这台机器上 agent 的额度。':
+    "Requests the rules don't allow are first assessed by this Bot's agent in a session that can't act: low-risk ones the user clearly asked for are approved automatically, the rest still come to you with the risk and reasoning on the approval card. Dangerous commands and pushes to the base branch never go to the AI. Uses the agent's quota on this machine.",
   '命令前缀，如 go build': 'Command prefix, e.g. go build',
   'Bot 详情': 'Bot details',
   托管工作区: 'Managed workspace',

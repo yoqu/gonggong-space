@@ -13,7 +13,8 @@
     "effort": null,
     "approval": "ask",
     "allowlist": [],
-    "alwaysAllow": []
+    "alwaysAllow": [],
+    "aiReview": false
   },
   "workspace": { "repo": null, "cdPath": null },
   "resumeSessionId": "sess-0",

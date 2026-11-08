@@ -75,6 +75,7 @@ fn start(run_id: &str, text: &str) -> RunStart {
             approval: Approval::Ask,
             allowlist: vec![],
             always_allow: vec![],
+            ai_review: false,
             git: None,
             agent_settings: Default::default(),
         },
@@ -216,6 +217,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
                 },
             ],
             remember: vec!["tool:Write hello.txt".into()],
+            review: None,
         }
     );
     // Decisions for unknown requests are ignored.
@@ -1654,4 +1656,65 @@ async fn cancelling_a_queued_turn_interrupts_it_while_the_directory_is_busy() {
     assert_eq!(done.outcome, RunOutcome::Interrupted);
     r.send(ServerToDaemon::RunCancel { run_id: "r1".into() });
     assert_eq!(r.finish("r1").await.1.outcome, RunOutcome::Interrupted);
+}
+
+fn reviewed(run_id: &str, command: &str) -> RunStart {
+    let mut s = start(run_id, &format!("mock:exec {command}"));
+    s.bot.ai_review = true;
+    s
+}
+
+#[tokio::test]
+async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(reviewed("r1", "touch ok.txt mock-review-allow"));
+    let (events, done) = r.finish("r1").await;
+    let steps: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            RunEvent::Status { step, .. } => Some(step.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        steps,
+        [
+            "AI 预审中：touch ok.txt mock-review-allow",
+            "AI 预审已批准：touch ok.txt mock-review-allow（用户要求的只读命令）"
+        ]
+    );
+    assert_eq!(done.reply, "ran");
+}
+
+#[tokio::test]
+async fn ai_pre_review_leaves_the_rest_to_the_owner_with_its_assessment() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(reviewed("r1", "touch a.txt"));
+    let (events, approval) = until_approval(&mut r).await;
+    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "AI 预审中：touch a.txt".into() }));
+    assert_eq!(
+        events.last(),
+        Some(&RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：touch a.txt".into() })
+    );
+    assert_eq!(approval.review, Some(AiReview { risk: ReviewRisk::High, rationale: "用户没有要求改动文件".into() }));
+    decide(&r, &approval, Some("allow"));
+    assert_eq!(r.finish("r1").await.1.reply, "ran");
+
+    // No verdict: the owner decides, without an assessment.
+    r.run(reviewed("r2", "touch b.txt mock-review-garbage"));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.review, None);
+    decide(&r, &approval, Some("reject"));
+    assert_eq!(r.finish("r2").await.1.reply, "denied");
+}
+
+#[tokio::test]
+async fn the_floor_never_goes_to_the_ai_pre_review() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(reviewed("r1", "sudo ls mock-review-allow"));
+    let (events, approval) = until_approval(&mut r).await;
+    assert!(!events.iter().any(|e| matches!(e, RunEvent::Status { step, .. } if step.starts_with("AI 预审"))));
+    assert_eq!((approval.reason, &approval.review), (ApprovalReason::HighRisk, &None));
+    decide(&r, &approval, Some("reject"));
+    r.finish("r1").await;
 }

@@ -1,4 +1,4 @@
-import type { ApprovalDto, PermissionOption, RunDto } from '@gonggong/protocol'
+import type { ApprovalDto, PermissionOption, ReviewRisk, RunDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -44,6 +44,13 @@ const REASON: Record<ApprovalDto['reason'], string> = {
   write: t('需要写入或修改文件'),
   unparsed: t('命令较复杂，无法确认是否只读'),
   not_allowed: t('未被只读规则或已保存的允许规则覆盖'),
+}
+
+const RISK: Record<ReviewRisk, [string, TagTone]> = {
+  low: [t('低风险'), 'green'],
+  medium: [t('中风险'), 'orange'],
+  high: [t('高风险'), 'red'],
+  critical: [t('极高风险'), 'solid-red'],
 }
 
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
@@ -134,6 +141,12 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
             })
           : t('{reason} · {tier}', { reason: REASON[a.reason], tier })}
       </div>
+      {a.review ? (
+        <div className="approval__review">
+          <Tag tone={RISK[a.review.risk][1]}>{RISK[a.review.risk][0]}</Tag>
+          <span>{t('AI 预审：{rationale}', { rationale: a.review.rationale })}</span>
+        </div>
+      ) : null}
       {pending ? (
         <div className="approval__actions">
           <Button

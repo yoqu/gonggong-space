@@ -37,6 +37,8 @@ pub struct Rules {
     pub protect: Vec<String>,
     /// The session's additional directories: within the workspace too, like `cwd`.
     pub extra_dirs: Vec<PathBuf>,
+    /// AI 预审 (`review`) before what would be asked goes to the owner.
+    pub ai_review: bool,
 }
 
 impl From<&RunBot> for Rules {
@@ -47,6 +49,7 @@ impl From<&RunBot> for Rules {
             always_allow: bot.always_allow.clone(),
             protect: vec![],
             extra_dirs: vec![],
+            ai_review: bot.ai_review,
         }
     }
 }
@@ -834,7 +837,14 @@ mod tests {
     }
 
     fn bot(approval: Approval, allowlist: &[&str]) -> Rules {
-        Rules { approval, allowlist: strings(allowlist), always_allow: vec![], protect: vec![], extra_dirs: vec![] }
+        Rules {
+            approval,
+            allowlist: strings(allowlist),
+            always_allow: vec![],
+            protect: vec![],
+            extra_dirs: vec![],
+            ai_review: false,
+        }
     }
 
     #[test]

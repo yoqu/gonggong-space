@@ -14,6 +14,7 @@
     "approval": "allowlist",
     "allowlist": ["go build", "npm test"],
     "alwaysAllow": ["npm run build", "tool:mcp__fs__read"],
+    "aiReview": true,
     "git": {
       "name": "小王的 Claude",
       "email": "b1@bots.gonggong.local"

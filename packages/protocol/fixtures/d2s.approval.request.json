@@ -11,5 +11,6 @@
     { "optionId": "always", "name": "Always Allow", "kind": "allow_always" },
     { "optionId": "reject", "name": "Reject", "kind": "reject_once" }
   ],
-  "remember": ["go build", "go vet"]
+  "remember": ["go build", "go vet"],
+  "review": { "risk": "medium", "rationale": "go vet was not asked for by the user" }
 }

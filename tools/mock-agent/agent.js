@@ -17,6 +17,8 @@
 //   "mock:tool <name> <json>" the same for any gonggong tool
 //   "mock:later[-exec|-open]" start a background task and end the turn; once it finishes, go on by itself between
 //                prompts (-exec: asking permission; -open: never reporting the cycle's end)
+//   "Permission review…" (the daemon's AI pre-review, review::HEADING) answer by a word in the prompt: mock-review-allow
+//                allows at low risk, mock-review-garbage gives no verdict, anything else is denied as high risk
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
 import { execSync } from 'node:child_process'
@@ -98,6 +100,13 @@ async function prompt({ sessionId, prompt: blocks }, client) {
   const update = (u) => client.notify(acp.methods.client.session.update, { sessionId, update: u })
   const say = (t) => update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: t } })
 
+  if (text.startsWith('Permission review for a coding agent')) {
+    const verdict = text.includes('mock-review-allow')
+      ? { risk: 'low', user_authorization: 'high', outcome: 'allow', rationale: '用户要求的只读命令' }
+      : { risk: 'high', user_authorization: 'none', outcome: 'deny', rationale: '用户没有要求改动文件' }
+    await say(text.includes('mock-review-garbage') ? '说不好' : `结论：${JSON.stringify(verdict)}`)
+    return { stopReason: 'end_turn' }
+  }
   if (text.includes('mock:echo')) {
     await say(
       JSON.stringify({

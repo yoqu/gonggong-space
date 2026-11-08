@@ -560,6 +560,9 @@ pub struct RunBot {
     /// Rules the owner chose 始终允许 for, applied in `ask` and `allowlist` mode: command prefixes or `tool:<title>`.
     #[serde(default)]
     pub always_allow: Vec<String>,
+    /// AI 预审: requests the rules leave to the owner are first reviewed by a tool-less session of the bot's agent.
+    #[serde(default)]
+    pub ai_review: bool,
     /// Author and committer of the agent's git commits; `None` = the machine's git config.
     #[serde(default)]
     pub git: Option<GitIdentity>,
@@ -1564,6 +1567,24 @@ pub struct ApprovalRequest {
     /// Rules an allow_always answer adds to the bot's `always_allow`; empty → don't offer it.
     #[serde(default)]
     pub remember: Vec<String>,
+    /// The AI pre-review's assessment when it did not allow the request; `None` = not reviewed.
+    #[serde(default)]
+    pub review: Option<AiReview>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewRisk {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiReview {
+    pub risk: ReviewRisk,
+    pub rationale: String,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

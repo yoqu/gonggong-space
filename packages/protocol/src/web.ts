@@ -3,6 +3,7 @@ import { AgentSettings, AgentSettingValues, RunSettingsSnapshot } from './agent-
 import { ArtifactContext, MessageCanvas, RunArtifact } from './artifacts.js'
 import {
   AgentKind,
+  AiReview,
   Allowlist,
   Answer,
   Approval,
@@ -423,6 +424,8 @@ export const BotDto = z.object({
   allowlist: z.array(z.string()),
   /** Rules from 始终允许 (see RunStart.bot.alwaysAllow). */
   alwaysAllow: z.array(z.string()),
+  /** AI 预审 (see RunStart.bot.aiReview). */
+  aiReview: z.boolean(),
   /** Git commit identity; null = the bot name / `gitDefaultEmail`. */
   gitName: z.string().nullable(),
   gitEmail: z.string().nullable(),
@@ -964,6 +967,7 @@ export const UpdateBotReq = z.object({
   approval: Approval.optional(),
   allowlist: Allowlist.optional(),
   alwaysAllow: Allowlist.optional(),
+  aiReview: z.boolean().optional(),
   /** Bot owner only; null = default. */
   gitName: z.string().trim().min(1).max(80).nullable().optional(),
   gitEmail: z.email().max(200).nullable().optional(),
@@ -1600,6 +1604,8 @@ export const ApprovalDto = z.object({
   options: z.array(PermissionOption),
   /** What 始终允许 would add to the bot's alwaysAllow. */
   remember: z.array(z.string()),
+  /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
+  review: AiReview.nullable(),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
   status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
   /** Why a request became void: the run was stopped, its relay chain was stopped, or the run ended first. */

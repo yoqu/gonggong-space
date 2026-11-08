@@ -1,6 +1,6 @@
 import type { Approval } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import { FormRow, Kbd, SegmentedControl, type Token, TokenField } from '../../ui'
+import { FormRow, Kbd, SegmentedControl, Switch, type Token, TokenField } from '../../ui'
 
 export const APPROVAL_LABEL: Record<Approval, string> = {
   ask: t('每次询问'),
@@ -20,6 +20,7 @@ export interface ApprovalValue {
   approval: Approval
   allowlist: string[]
   alwaysAllow: string[]
+  aiReview: boolean
 }
 
 /** 命令审批: editable by the bot owner only (plan J9); everyone else sees the current setting. */
@@ -47,6 +48,11 @@ export function ApprovalFields({
         {remembers && value.alwaysAllow.length ? (
           <FormRow label={t('始终允许')}>
             <span>{value.alwaysAllow.join(t('、'))}</span>
+          </FormRow>
+        ) : null}
+        {remembers && value.aiReview ? (
+          <FormRow label={t('AI 预审')}>
+            <span>{t('已开启')}</span>
           </FormRow>
         ) : null}
       </>
@@ -102,6 +108,21 @@ export function ApprovalFields({
             value={value.alwaysAllow}
             placeholder={t('命令前缀或 tool:工具名')}
             onChange={(tokens) => onChange({ ...value, alwaysAllow: prefixes(tokens) })}
+          />
+        </FormRow>
+      ) : null}
+      {remembers ? (
+        <FormRow
+          label={t('AI 预审')}
+          align="top"
+          hint={t(
+            '规则没放行的请求，先由这个 Bot 的 agent 在不能动手的会话里评估：低风险、且明显是用户要求的就自动批准，其余仍交给你，审批卡片附上风险和理由。高危命令和推送基准分支不经过 AI。会消耗这台机器上 agent 的额度。',
+          )}
+        >
+          <Switch
+            aria-label={t('AI 预审')}
+            checked={value.aiReview}
+            onChange={(aiReview) => onChange({ ...value, aiReview })}
           />
         </FormRow>
       ) : null}

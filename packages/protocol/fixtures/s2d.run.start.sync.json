@@ -13,7 +13,8 @@
     "effort": "high",
     "approval": "allowlist",
     "allowlist": ["go build", "npm test"],
-    "alwaysAllow": []
+    "alwaysAllow": [],
+    "aiReview": false
   },
   "workspace": {
     "repo": {

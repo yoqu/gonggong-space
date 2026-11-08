@@ -96,6 +96,7 @@ const bot: BotDto = {
   approval: 'ask',
   allowlist: [],
   alwaysAllow: [],
+  aiReview: false,
   model: 'sonnet',
   effort: null,
   catalog: CATALOG,

@@ -680,6 +680,7 @@ mod tests {
             approval: Approval::Ask,
             allowlist: vec![],
             always_allow: vec![],
+            ai_review: false,
             git: None,
             agent_settings: Default::default(),
         };

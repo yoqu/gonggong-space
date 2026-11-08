@@ -28,6 +28,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
   remember: [],
+  review: null,
   status: 'pending',
   voidReason: null,
   decidedBy: null,
@@ -72,6 +73,19 @@ describe('ApprovalBlock', () => {
     login('u1', '王磊')
     render(<ApprovalBlock run={run([approval({ reason: 'unparsed' })])} />)
     expect(screen.getByText(/命令较复杂，无法确认是否只读/)).toBeTruthy()
+  })
+
+  it('shows the AI pre-review that left the request to the owner', () => {
+    login('u1', '王磊')
+    const { rerender } = render(<ApprovalBlock run={run([approval()])} />)
+    expect(screen.queryByText(/AI 预审/)).toBeNull()
+    rerender(
+      <ApprovalBlock
+        run={run([approval({ review: { risk: 'high', rationale: '用户没有要求改动文件' } })])}
+      />,
+    )
+    expect(screen.getByText('高风险')).toBeTruthy()
+    expect(screen.getByText('AI 预审：用户没有要求改动文件')).toBeTruthy()
   })
 
   it('uses the generic explanation for a request from an older server', () => {

@@ -811,6 +811,7 @@ pub(super) fn slow_run(r: &Rig, run_id: &str, text: &str) -> RunStart {
             approval: Approval::Ask,
             allowlist: vec![],
             always_allow: vec![],
+            ai_review: false,
             git: None,
             agent_settings: Default::default(),
         },

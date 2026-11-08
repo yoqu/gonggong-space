@@ -11,11 +11,13 @@ use crate::inject;
 use crate::local::{Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
-    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalRequest, Attachment, Choice, DaemonToServer, McpServer,
-    ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalReason, ApprovalRequest, Attachment, Choice, DaemonToServer,
+    McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage,
+    WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
+use crate::review;
 use crate::service::Outbox;
 use crate::skills;
 use crate::t;
@@ -34,7 +36,7 @@ use agent_client_protocol::schema::v1::{
     SessionConfigValueId, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
-use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo, Handled, UntypedMessage};
+use agent_client_protocol::{AcpAgent, AcpAgentConfig, Agent, Client, ConnectionTo, Handled, UntypedMessage};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -189,6 +191,8 @@ struct Active {
     /// Set when this is the agent going on by itself between turns, not a prompt.
     continuation: Option<Cont>,
     hidden_tools: Vec<String>,
+    /// What the agent was asked (`review::request_of`), shown to the AI pre-review.
+    request: String,
 }
 
 /// A run the server opened for output between turns (a background task finished and the agent went on by itself).
@@ -213,6 +217,7 @@ struct Prev {
     compact: Option<CompactPolicy>,
     session: Option<SessionId>,
     hidden_tools: Vec<String>,
+    request: String,
 }
 
 impl Prev {
@@ -229,6 +234,7 @@ impl Prev {
             compact: a.turn.compact,
             session,
             hidden_tools: a.hidden_tools.clone(),
+            request: a.request.clone(),
         }
     }
 }
@@ -282,6 +288,8 @@ struct State {
     tasks: HashMap<String, Task>,
     prev: Option<Prev>,
     adopting: Option<Adopting>,
+    /// The adapter process's launch config and agent while it lives: AI pre-reviews run on a copy of it.
+    reviewer: Option<(AcpAgentConfig, AgentKind)>,
 }
 
 struct Task {
@@ -566,6 +574,33 @@ impl Shared {
         true
     }
 
+    /// The AI pre-review of `wire` is in: an approving verdict allows it, anything else (no verdict included) asks the
+    /// owner. Nothing to do once the request was settled meanwhile (tier raised to full, turn ended).
+    fn reviewed(&self, mut wire: ApprovalRequest, verdict: Option<review::Verdict>) {
+        let mut s = self.0.lock().unwrap();
+        let Some(out) = s.active.as_ref().filter(|a| a.run_id == wire.run_id).map(|a| a.out.clone()) else { return };
+        if !s.approvals.contains_key(&wire.request_id) {
+            return;
+        }
+        match verdict {
+            Some(v)
+                if v.approves()
+                    && let Some(allow) = auto_allow(&s.approvals[&wire.request_id].options) =>
+            {
+                let p = s.approvals.remove(&wire.request_id).expect("checked above");
+                let step =
+                    t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = v.review().rationale);
+                let event = RunEvent::Status { status: RunStatus::Running, step };
+                out.send(DaemonToServer::RunEvent { run_id: wire.run_id, event });
+                let _ = p.tx.send(Some(allow));
+            }
+            v => {
+                wire.review = v.map(|v| v.review());
+                ask_owner(&out, wire);
+            }
+        }
+    }
+
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued. None: a continuation
     /// is active, to be closed first.
     fn begin(&self, req: &mut TurnReq) -> Option<bool> {
@@ -601,6 +636,7 @@ impl Shared {
             kind: if req.start.workspace.cd_path.is_none() { WorkspaceKind::Managed } else { WorkspaceKind::Cd },
             continuation: None,
             hidden_tools: req.start.hidden_tools.clone(),
+            request: review::request_of(&req.start.prompt),
         });
         Some(true)
     }
@@ -711,12 +747,13 @@ impl Shared {
             kind: prev.kind,
             continuation: Some(Cont { session, last: Instant::now(), concluding: false }),
             hidden_tools: prev.hidden_tools,
+            request: prev.request,
         });
         for held in w.held {
             match held {
                 Held::Update(n) => self.update_in(s, n),
                 Held::Ext(session, ext) => ext_in(s, &session, ext),
-                Held::Permission(req, tx) => match permission_in(s, req) {
+                Held::Permission(req, tx) => match permission_in(self, s, req) {
                     Permission::Now(choice) => {
                         let _ = tx.send(choice);
                     }
@@ -964,7 +1001,7 @@ impl Shared {
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
         if s.active.is_some() {
-            return permission_in(s, req);
+            return permission_in(self, s, req);
         }
         if s.adopting.is_none() && s.prev.is_none() {
             return Permission::Now(None);
@@ -1077,7 +1114,7 @@ fn ext_in(s: &mut State, session: &str, ext: ExtUpdate) {
 }
 
 /// A permission request of the active turn.
-fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
+fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequest) -> Permission {
     s.requests += 1;
     let n = s.requests;
     let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
@@ -1113,25 +1150,65 @@ fn permission_in(s: &mut State, req: RequestPermissionRequest) -> Permission {
         }
         _ => {}
     }
-    let (run_id, out) = (a.run_id.clone(), a.out.clone());
-    let event =
-        RunEvent::Status { status: RunStatus::AwaitingApproval, step: t!("等待审批：{title}", title = title) };
-    out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });
-    let request_id = format!("{run_id}/{n}");
+    let request_id = format!("{}/{n}", a.run_id);
     let remember = a.rules.remember(command.as_deref(), &title, &a.cwd);
-    out.send(DaemonToServer::ApprovalRequest(ApprovalRequest {
-        run_id,
+    let reason = a.rules.reason(command.as_deref(), &tool_kind, &a.cwd);
+    // The floor, the protected base branch and client releases are the owner's alone.
+    let reviewer = s
+        .reviewer
+        .clone()
+        .filter(|_| a.rules.ai_review && release.is_none())
+        .filter(|_| !matches!(reason, ApprovalReason::HighRisk | ApprovalReason::ProtectedBase));
+    let detail = release.or(detail).unwrap_or_else(|| title.clone());
+    let reviewer = reviewer.map(|(config, kind)| {
+        let action = command.as_deref().unwrap_or(&detail);
+        let input = review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd };
+        (config, kind, review::prompt(&input))
+    });
+    let wire = ApprovalRequest {
+        run_id: a.run_id.clone(),
         request_id: request_id.clone(),
-        detail: release.or(detail).unwrap_or_else(|| title.clone()),
-        reason: a.rules.reason(command.as_deref(), &tool_kind, &a.cwd),
+        detail,
+        reason,
         title: title.clone(),
         tool_kind,
         options: wire_options(&req.options),
         remember: remember.clone(),
-    }));
+        review: None,
+    };
     let (tx, rx) = oneshot::channel();
     s.approvals.insert(request_id, Approval { title, remember, options: req.options, tx });
+    match reviewer {
+        Some((config, kind, prompt)) => {
+            let event =
+                RunEvent::Status { status: RunStatus::Running, step: t!("AI 预审中：{title}", title = wire.title) };
+            a.out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
+            let (shared, cwd) = (shared.clone(), a.cwd.clone());
+            tokio::spawn(async move {
+                let reply =
+                    tokio::time::timeout(review::TIMEOUT, review::ask(AcpAgent::new(config), kind, &cwd, prompt));
+                let verdict = match reply.await {
+                    Ok(Ok(text)) => review::parse(&text),
+                    Ok(Err(e)) => {
+                        tracing::warn!("AI pre-review failed: {e}");
+                        None
+                    }
+                    Err(_) => None,
+                };
+                shared.reviewed(wire, verdict);
+            });
+        }
+        None => ask_owner(&a.out, wire),
+    }
     Permission::Ask(rx)
+}
+
+/// Forwards a request to the bot owner.
+fn ask_owner(out: &Outbox, wire: ApprovalRequest) {
+    let step = t!("等待审批：{title}", title = wire.title);
+    let event = RunEvent::Status { status: RunStatus::AwaitingApproval, step };
+    out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
+    out.send(DaemonToServer::ApprovalRequest(wire));
 }
 
 fn read_paths(req: &RequestPermissionRequest) -> Vec<PathBuf> {
@@ -1408,13 +1485,17 @@ pub(crate) async fn run(
         let s = &turn.req.start;
         let _secrets = crate::logs::hold_secrets(s.env.0.values().cloned().collect());
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env).await {
-            Ok(config) => connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await,
+            Ok(config) => {
+                shared.0.lock().unwrap().reviewer = Some((config.clone(), s.bot.agent_kind));
+                connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await
+            }
             Err(e) => Err(format!("{e:#}")),
         };
         // Its background tasks went with the adapter process.
         {
             let mut s = shared.0.lock().unwrap();
             s.agent = None;
+            s.reviewer = None;
             s.tasks.clear();
             s.adopting = None;
         }

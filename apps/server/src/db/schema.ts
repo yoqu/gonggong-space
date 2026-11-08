@@ -1,5 +1,6 @@
 import {
   type AgentSettingValues,
+  type AiReview,
   type ArtifactFile,
   type DiffRepo,
   type GitActionArgs,
@@ -217,6 +218,8 @@ export const bots = pgTable('bots', {
   allowlist: jsonb('allowlist').$type<string[]>().notNull().default([]),
   /** Rules the owner chose 始终允许 for (command prefixes or `tool:<title>`), across groups. */
   alwaysAllow: jsonb('always_allow').$type<string[]>().notNull().default([]),
+  /** AI 预审: what the rules leave to the owner is first reviewed by the bot's agent; owner only. */
+  aiReview: boolean('ai_review').notNull().default(false),
   /** Owner's local directory used when a group has no binding of its own. */
   defaultWorkspace: text('default_workspace'),
   /** Default model / thought level as the adapter names them; null = the adapter's default. */
@@ -764,6 +767,8 @@ export const approvals = pgTable(
     options: jsonb('options').notNull(),
     /** What an allow_always answer adds to the bot's alwaysAllow. */
     remember: jsonb('remember').$type<string[]>().notNull().default([]),
+    /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
+    review: jsonb('review').$type<AiReview>(),
     /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */
     status: text('status').notNull().default('pending'),
     /** 'stopped' | 'chain_stopped' | 'ended' when status = 'void'. */

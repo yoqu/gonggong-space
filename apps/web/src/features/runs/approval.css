@@ -29,6 +29,13 @@
   color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
+.approval__review {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+}
 .approval__actions {
   display: flex;
   flex-wrap: wrap;

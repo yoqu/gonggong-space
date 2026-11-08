@@ -124,6 +124,7 @@ const approval = (o: Partial<ApprovalDto>): ApprovalDto => ({
   reason: 'not_allowed',
   options: [],
   remember: [],
+  review: null,
   status: 'pending',
   voidReason: null,
   decidedBy: null,

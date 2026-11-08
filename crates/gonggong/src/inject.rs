@@ -408,6 +408,7 @@ mod tests {
             approval: Default::default(),
             allowlist: vec![],
             always_allow: vec![],
+            ai_review: false,
             git: None,
             agent_settings: overrides.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
         }

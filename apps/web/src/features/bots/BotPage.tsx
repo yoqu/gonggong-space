@@ -284,6 +284,7 @@ function Profile({
             : APPROVAL_LABEL[bot.approval],
         ],
         ...(bot.alwaysAllow.length ? ([[t('始终允许'), bot.alwaysAllow.join(t('、'))]] as Row[]) : []),
+        ...(bot.aiReview && bot.approval !== 'all' ? ([[t('AI 预审'), t('已开启')]] as Row[]) : []),
       ],
     ],
     [

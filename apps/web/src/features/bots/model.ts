@@ -82,6 +82,7 @@ export type BotPatch = Partial<
     | 'approval'
     | 'allowlist'
     | 'alwaysAllow'
+    | 'aiReview'
     | 'gitName'
     | 'gitEmail'
     | 'agentSettings'

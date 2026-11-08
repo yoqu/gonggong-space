@@ -12,6 +12,12 @@ export type Tier = z.infer<typeof Tier>
 export const Approval = z.enum(['ask', 'allowlist', 'all'])
 export type Approval = z.infer<typeof Approval>
 /** Command prefixes auto-approved in `allowlist` mode, e.g. `go build`. */
+/** The AI pre-review's risk estimate of a permission request (命令审批 · AI 预审). */
+export const ReviewRisk = z.enum(['low', 'medium', 'high', 'critical'])
+export type ReviewRisk = z.infer<typeof ReviewRisk>
+/** Why the AI pre-review left a request to the owner: its risk estimate and reasoning. */
+export const AiReview = z.object({ risk: ReviewRisk, rationale: z.string().max(500) })
+export type AiReview = z.infer<typeof AiReview>
 export const Allowlist = z.array(z.string().trim().min(1).max(200)).max(100)
 
 export const TriggerScope = z.enum(['all', 'list', 'self'])
