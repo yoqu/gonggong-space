@@ -1,5 +1,5 @@
 import type { ArtifactVisibility, WorkDto, WorkGroupDto } from '@gonggong/protocol'
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
@@ -16,6 +16,7 @@ import {
   Presence,
   SearchField,
   SegmentedControl,
+  Skeleton,
   Spinner,
   Tag,
 } from '../../ui'
@@ -223,13 +224,11 @@ export function WorksPage() {
           />
         </div>
       ) : !list ? (
-        <div className="works__center">
-          <Spinner />
-        </div>
+        <Skeleton variant="block" count={6} height={220} className="works__grid" />
       ) : shown.length ? (
         <ul className="works__grid" aria-label={t('作品')}>
-          {shown.map((w) => (
-            <li key={w.id} className="works__card">
+          {shown.map((w, i) => (
+            <li key={w.id} className="works__card" style={{ '--i': i } as CSSProperties}>
               <button
                 type="button"
                 className="works__open"

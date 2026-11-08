@@ -227,6 +227,37 @@ describe('使用者首次登录引导', () => {
     )
   })
 
+  it('slides each step in from the side it came from, and spins only the example being sent', async () => {
+    let release = () => {}
+    const held = new Promise<void>((r) => {
+      release = r
+    })
+    mockApi({
+      ...routes(),
+      'POST /groups/g1/messages': async (body: unknown) => {
+        await held
+        return { id: 'm1', ...(body as object) }
+      },
+    })
+    renderApp()
+    const dialog = await guide()
+    const step = () => within(dialog).getByRole('heading', { level: 3 }).parentElement as HTMLElement
+    expect(step().className).toBe('guide__step')
+    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
+    expect(step().hasAttribute('data-back')).toBe(false)
+    fireEvent.click(within(dialog).getByRole('button', { name: '上一步' }))
+    expect(step().hasAttribute('data-back')).toBe(true)
+    fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }))
+    const sent = await within(dialog).findByRole('button', { name: '帮我写周报' })
+    fireEvent.click(sent)
+    expect(sent.getAttribute('aria-busy')).toBe('true')
+    expect(
+      (within(dialog).getByRole('button', { name: '怎么申请服务器？' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    release()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新手指引' })).toBeNull())
+  })
+
   it('records a skip and stays closed', async () => {
     const calls = mockApi(routes())
     renderApp()

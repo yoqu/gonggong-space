@@ -1,6 +1,6 @@
 import type { GitAccountDto, UserDto } from '@gonggong/protocol'
-import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { useSession } from '../src/app/session'
 import { SettingsDialog } from '../src/features/settings/SettingsDialog'
 import { mockApi } from './mockApi'
@@ -42,5 +42,24 @@ describe('Git 与仓库 on a narrow screen', () => {
     )
     expect(row.querySelector('.ui-group__desc [title]')?.getAttribute('title')).toBe(account.baseUrl)
     expect(screen.getByRole('button', { name: '断开' }).closest('.settings-account__ops')).toBeTruthy()
+  })
+})
+
+describe('个人设置 navigation', () => {
+  it('remounts the section per page so it settles in, and keeps the current tab in sight on phones', () => {
+    mockApi({})
+    const reveal = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = reveal
+    onTestFinished(() => {
+      Element.prototype.scrollIntoView = original
+    })
+    render(<SettingsDialog page="appearance" onClose={() => {}} />)
+    const body = () => document.querySelector('.gs-settings__body') as HTMLElement
+    const first = body()
+    expect(reveal).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: '我的密钥' }))
+    expect(body()).not.toBe(first)
+    expect(reveal).toHaveBeenCalledTimes(2)
   })
 })

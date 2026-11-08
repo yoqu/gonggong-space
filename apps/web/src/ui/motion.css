@@ -53,3 +53,13 @@
     color: var(--label);
   }
 }
+/* A live status dot (online machine, running bot): a ring in its own color spreads out and fades. */
+@keyframes ui-live-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}

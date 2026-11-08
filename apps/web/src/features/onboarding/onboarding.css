@@ -1,3 +1,12 @@
+.guide__step {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
+  --enter-x: 16px;
+}
+.guide__step[data-back] {
+  --enter-x: -16px;
+}
 .guide__title {
   margin: 0 0 var(--space-8);
   font-size: var(--text-headline-size);

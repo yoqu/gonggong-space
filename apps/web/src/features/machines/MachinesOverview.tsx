@@ -1,6 +1,8 @@
 import { type BotDto, type MachineDto, OFFICIAL_PROVIDER, type ProviderStoreView } from '@gonggong/protocol'
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { t } from '../../i18n'
+import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, EmptyState, Icon, PickChatArt } from '../../ui'
 import { AGENT_LABEL, AGENTS } from '../bots/model'
@@ -29,8 +31,8 @@ export function MachinesOverview({
       </header>
       {machines.length ? (
         <div className="machines-overview__grid">
-          {machines.map((m) => (
-            <MachineCard key={m.id} machine={m} bots={bots.filter((b) => b.machineId === m.id)} />
+          {machines.map((m, i) => (
+            <MachineCard key={m.id} index={i} machine={m} bots={bots.filter((b) => b.machineId === m.id)} />
           ))}
         </div>
       ) : (
@@ -51,14 +53,19 @@ export function MachinesOverview({
   )
 }
 
-function MachineCard({ machine: m, bots }: { machine: MachineDto; bots: BotDto[] }) {
+function MachineCard({ machine: m, bots, index }: { machine: MachineDto; bots: BotDto[]; index: number }) {
   // Providers live on the machine alone: read live while it is online, never kept.
   const view = useGet<ProviderStoreView>(
     m.online && m.features.includes('providers') ? `/machines/${m.id}/providers` : null,
   ).data
   const running = bots.filter((b) => b.presence === 'running').length
   return (
-    <Link to={`/machine/${m.id}`} className="machine-card">
+    <Link
+      to={`/machine/${m.id}`}
+      className="machine-card"
+      data-online={m.online}
+      style={{ '--i': index } as CSSProperties}
+    >
       <span className="machine-card__head">
         <Icon name={OS_ICON[m.os]} size={18} />
         <span className="machine-card__name">{m.name}</span>
@@ -67,6 +74,9 @@ function MachineCard({ machine: m, bots }: { machine: MachineDto; bots: BotDto[]
         </span>
       </span>
       <span className="mx-sub">{[OS_LABEL[m.os], m.arch].join(' · ')}</span>
+      {!m.online && m.lastSeenAt ? (
+        <span className="mx-sub">{t('最后在线：{time}', { time: ago(m.lastSeenAt) })}</span>
+      ) : null}
       <span className="machine-card__agents">
         {AGENTS.map((kind) => {
           const a = m.agents.find((x) => x.kind === kind)

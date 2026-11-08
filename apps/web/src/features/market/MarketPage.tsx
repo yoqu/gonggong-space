@@ -1,5 +1,5 @@
 import type { InstallRequestDto, ListingType, MarketListingDto, MarketSource } from '@gonggong/protocol'
-import { type ComponentProps, useEffect, useRef, useState } from 'react'
+import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -13,7 +13,7 @@ import {
   Presence,
   SearchField,
   SegmentedControl,
-  Spinner,
+  Skeleton,
   Tabs,
   Tag,
 } from '../../ui'
@@ -216,16 +216,22 @@ export function MarketPage() {
           </div>
           {error && !data ? (
             <div className="works__center">
-              <EmptyState icon="warning" title={error} />
+              <EmptyState
+                icon="warning"
+                title={error}
+                action={
+                  <Button size="small" onClick={reload}>
+                    {t('重试')}
+                  </Button>
+                }
+              />
             </div>
           ) : !sorted ? (
-            <div className="works__center">
-              <Spinner />
-            </div>
+            <Skeleton variant="block" count={6} height={148} className="works__grid mkt-grid" />
           ) : sorted.length ? (
             <ul className="works__grid mkt-grid" aria-label={t('市场')} aria-busy={!data}>
-              {sorted.map((l) => (
-                <li key={l.id} className="works__card">
+              {sorted.map((l, i) => (
+                <li key={l.id} className="works__card" style={{ '--i': i } as CSSProperties}>
                   <button
                     type="button"
                     className="mkt-card"

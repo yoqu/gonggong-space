@@ -35,7 +35,13 @@ const claude = {
   catalog: null,
 } as const
 const mbp = machine({ agents: [claude] })
-const box = machine({ id: 'm2', name: 'old-box', os: 'linux', online: false })
+const box = machine({
+  id: 'm2',
+  name: 'old-box',
+  os: 'linux',
+  online: false,
+  lastSeenAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
+})
 const bot = (id: string, presence: BotDto['presence']) =>
   ({ id, name: id, machineId: 'm1', presence }) as BotDto
 
@@ -74,8 +80,13 @@ describe('machines overview', () => {
     for (const text of ['在线', 'macOS', 'Claude Code 2.1.4', 'Codex 未安装', '2 个 Bot · 1 个运行中'])
       expect(card.textContent).toContain(text)
     await waitFor(() => expect(card.textContent).toContain('供应商：Kimi'))
+    expect(card.dataset.online).toBe('true')
     const old = within(overview).getByRole('link', { name: /old-box/ })
     expect(old.textContent).toContain('离线')
+    // Offline: steps back and says when it was last seen; cards rise in one after another.
+    expect(old.dataset.online).toBe('false')
+    expect(old.textContent).toContain('最后在线：')
+    expect(old.style.getPropertyValue('--i')).toBe('1')
     expect(old.textContent).toContain('没有 Bot')
     // An offline machine keeps its configuration to itself.
     expect(calls.map((c) => c.path)).toEqual(['/machines/m1/providers'])

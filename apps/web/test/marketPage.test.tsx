@@ -1152,3 +1152,32 @@ describe('体验迭代第 1 轮', () => {
     expect(screen.queryByRole('tab', { name: '待审核' })).toBeNull()
   })
 })
+
+describe('市场 page loading', () => {
+  it('holds the grid shape with placeholder cards, staggers the cards in, and retries a failed load', async () => {
+    let fail = true
+    let release = () => {}
+    const held = new Promise<void>((r) => {
+      release = r
+    })
+    mockApi({
+      'GET /market': async () => {
+        await held
+        return fail ? apiError(500, 'internal', '服务暂时不可用') : LISTINGS
+      },
+    })
+    renderPage()
+    const skeleton = screen.getByRole('status', { name: '正在载入' })
+    expect(skeleton.classList.contains('works__grid')).toBe(true)
+    release()
+    expect(await screen.findByText('服务暂时不可用')).toBeTruthy()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    const grid = await screen.findByRole('list', { name: '市场' })
+    expect(
+      within(grid)
+        .getAllByRole('listitem')
+        .map((li) => li.style.getPropertyValue('--i')),
+    ).toEqual(['0', '1'])
+  })
+})

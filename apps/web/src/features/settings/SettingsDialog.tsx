@@ -76,6 +76,10 @@ const LOCALE_OPTIONS: { value: Locale; label: string }[] = [
   { value: 'en', label: 'English' },
 ]
 
+/** On phones the tabs scroll in one row (groups.css); keep the current one in sight. */
+const revealTab = (el: HTMLButtonElement | null) =>
+  el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+
 export function SettingsDialog({ page: initial, onClose }: { page: SettingsPage; onClose: () => void }) {
   const [page, setPage] = useState(initial)
   useEffect(() => setPage(initial), [initial])
@@ -90,6 +94,7 @@ export function SettingsDialog({ page: initial, onClose }: { page: SettingsPage;
               type="button"
               className={cx('gs-settings__tab', p.value === page && 'gs-settings__tab--on')}
               aria-current={p.value === page ? 'page' : undefined}
+              ref={p.value === page ? revealTab : undefined}
               onClick={() => setPage(p.value)}
             >
               <Icon name={p.icon} size={15} />
@@ -97,7 +102,7 @@ export function SettingsDialog({ page: initial, onClose }: { page: SettingsPage;
             </button>
           ))}
         </nav>
-        <div className="gs-settings__body">
+        <div key={page} className="gs-settings__body">
           {page === 'appearance' ? (
             <AppearancePage />
           ) : page === 'notifications' ? (

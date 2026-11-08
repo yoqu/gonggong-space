@@ -43,6 +43,12 @@ export function UserGuide({ ready }: { ready: boolean }) {
 
 function GuideDialog() {
   const [step, setStep] = useState(0)
+  // Which way the last move went, so the next page slides in from that side.
+  const [back, setBack] = useState(false)
+  const go = (next: number) => {
+    setBack(next < step)
+    setStep(next)
+  }
   const me = useSession((s) => s.user)
   const teamId = useSession((s) => storedTeam() ?? s.tenancy?.teams[0]?.id ?? null)
   const { data: starter } = useGet<TeamOnboardingDto>(teamId ? `/teams/${teamId}/onboarding` : null)
@@ -50,7 +56,8 @@ function GuideDialog() {
   const groups = useWorkspace((s) => s.groups).filter((g) => g.kind === 'group')
   const bots = useWorkspace((s) => s.bots)
   const navigate = useNavigate()
-  const [asking, setAsking] = useState(false)
+  // The example being sent: it alone spins, the others wait.
+  const [asking, setAsking] = useState<string | null>(null)
   const hide = useGuide((s) => s.hide)
 
   const leave = (guide: 'done' | 'skipped') => {
@@ -60,7 +67,7 @@ function GuideDialog() {
   const joined = !!starter?.groupId && groups.some((g) => g.id === starter.groupId)
   const ask = async (question: string) => {
     if (!starter?.groupId || !starter.botName) return
-    setAsking(true)
+    setAsking(question)
     try {
       await postMessage(starter.groupId, {
         body: `@${starter.botName} ${question}`,
@@ -70,7 +77,7 @@ function GuideDialog() {
         appendTo: null,
       })
     } catch (e) {
-      setAsking(false)
+      setAsking(null)
       toastError(e)
       return
     }
@@ -94,76 +101,83 @@ function GuideDialog() {
       }
       actions={[
         ...(last ? [] : [{ label: t('跳过#guide'), onClick: () => leave('skipped') }]),
-        ...(step > 0 ? [{ label: t('上一步'), onClick: () => setStep(step - 1) }] : []),
+        ...(step > 0 ? [{ label: t('上一步'), onClick: () => go(step - 1) }] : []),
         last
           ? { label: t('完成'), variant: 'primary' as const, onClick: () => leave('done') }
-          : { label: t('下一步'), variant: 'primary' as const, onClick: () => setStep(step + 1) },
+          : { label: t('下一步'), variant: 'primary' as const, onClick: () => go(step + 1) },
       ]}
     >
-      <h3 className="guide__title">{STEPS[step]}</h3>
-      {step === 0 ? (
-        groups.length ? (
-          <GroupBox>
-            {groups.map((g) => (
-              <GroupRow
-                key={g.id}
-                label={g.name}
-                description={g.botIds
-                  .map((id) => bots.find((b) => b.id === id)?.name)
-                  .filter(Boolean)
-                  .map((name) => `@${name}`)
-                  .join(' ')}
-              />
-            ))}
-          </GroupBox>
+      <div key={step} className="guide__step" data-back={back || undefined}>
+        <h3 className="guide__title">{STEPS[step]}</h3>
+        {step === 0 ? (
+          groups.length ? (
+            <GroupBox>
+              {groups.map((g) => (
+                <GroupRow
+                  key={g.id}
+                  label={g.name}
+                  description={g.botIds
+                    .map((id) => bots.find((b) => b.id === id)?.name)
+                    .filter(Boolean)
+                    .map((name) => `@${name}`)
+                    .join(' ')}
+                />
+              ))}
+            </GroupBox>
+          ) : (
+            <p className="guide__lead">{t('你还没有加入任何群，等管理员或同事把你拉进群。')}</p>
+          )
+        ) : step === 1 ? (
+          !starter ? (
+            <Spinner />
+          ) : joined && starter.botName ? (
+            <>
+              <p className="guide__lead">
+                {t('点一个问题，会以你的名义发到「{group}」，{bot} 会在群里回复。', {
+                  group: starter.groupName ?? '',
+                  bot: starter.botName,
+                })}
+              </p>
+              <div className="guide__examples">
+                {starter.examples.map((q) => (
+                  <Button
+                    key={q}
+                    loading={asking === q}
+                    disabled={!!asking && asking !== q}
+                    onClick={() => void ask(q)}
+                  >
+                    {q}
+                  </Button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="guide__lead">
+              <strong>{t('请管理员把你拉进群')}</strong>
+              <br />
+              {t('进群后在输入框里 @ Bot 再写问题，Bot 就会回复你。')}
+            </p>
+          )
         ) : (
-          <p className="guide__lead">{t('你还没有加入任何群，等管理员或同事把你拉进群。')}</p>
-        )
-      ) : step === 1 ? (
-        !starter ? (
-          <Spinner />
-        ) : joined && starter.botName ? (
           <>
             <p className="guide__lead">
-              {t('点一个问题，会以你的名义发到「{group}」，{bot} 会在群里回复。', {
-                group: starter.groupName ?? '',
-                bot: starter.botName,
-              })}
+              {t('群绑定了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。')}
             </p>
             <div className="guide__examples">
-              {starter.examples.map((q) => (
-                <Button key={q} disabled={asking} onClick={() => void ask(q)}>
-                  {q}
-                </Button>
-              ))}
+              {starter?.feishuUrl ? (
+                <a className="ui-btn" href={starter.feishuUrl} target="_blank" rel="noreferrer">
+                  {t('打开飞书群')}
+                </a>
+              ) : null}
+              {feishu && !feishu.identity && me ? (
+                <a className="ui-btn" href={feishuStartUrl('/', 'link')}>
+                  {t('绑定飞书')}
+                </a>
+              ) : null}
             </div>
           </>
-        ) : (
-          <p className="guide__lead">
-            <strong>{t('请管理员把你拉进群')}</strong>
-            <br />
-            {t('进群后在输入框里 @ Bot 再写问题，Bot 就会回复你。')}
-          </p>
-        )
-      ) : (
-        <>
-          <p className="guide__lead">
-            {t('群绑定了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。')}
-          </p>
-          <div className="guide__examples">
-            {starter?.feishuUrl ? (
-              <a className="ui-btn" href={starter.feishuUrl} target="_blank" rel="noreferrer">
-                {t('打开飞书群')}
-              </a>
-            ) : null}
-            {feishu && !feishu.identity && me ? (
-              <a className="ui-btn" href={feishuStartUrl('/', 'link')}>
-                {t('绑定飞书')}
-              </a>
-            ) : null}
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </Dialog>
   )
 }

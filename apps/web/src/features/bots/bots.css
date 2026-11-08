@@ -280,8 +280,9 @@
 }
 .bot-page__line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-4) var(--space-8);
   min-width: 0;
 }
 .bot-page__role {
@@ -300,6 +301,13 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background: currentColor;
+}
+/* Working: the dot sends out a ring, the same heartbeat as an online machine. */
+@media (prefers-reduced-motion: no-preference) {
+  .bot-page__dot[data-presence="running"] {
+    animation: ui-live-ring 2.4s ease-out infinite;
+  }
 }
 .bot-page__prompt {
   margin: 0;

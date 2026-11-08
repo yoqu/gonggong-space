@@ -218,4 +218,27 @@ describe('motion and touch CSS contract', () => {
     expect(panels).toMatch(/\.pn-info__row--danger\[data-armed\],[^{]*\{\s*background: var\(--tint-red\);/)
     expect(ruleOf(panels, '.pn-info__danger-note')).toContain('ui-enter var(--spring-snappy)')
   })
+  it('round 8: cards rise in one after another, press in, live dots ring, guide steps slide', () => {
+    const works = read('features/works/works.css')
+    expect(works).toMatch(
+      /\.works__card \{\s*animation:\s*ui-fade-in var\(--fade-in\) backwards,\s*ui-enter var\(--spring-smooth\) backwards;\s*animation-delay: calc\(min\(var\(--i, 0\), 12\) \* 30ms\);/,
+    )
+    expect(works).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.works__card:active \{\s*scale: 0\.98;/,
+    )
+    expect(ruleOf(works, '.ui-skeleton.works__grid')).toContain('display: grid')
+    const mx = read('features/machines/machines.css')
+    expect(ruleOf(mx, '.machine-card')).toContain('ui-enter var(--spring-smooth) backwards')
+    expect(mx).toMatch(/@media \(hover: hover\) \{\s*\.machine-card:hover \{/)
+    expect(mx).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.machine__status\[data-online="true"\]::before \{\s*animation: ui-live-ring/,
+    )
+    expect(read('ui/motion.css')).toContain('@keyframes ui-live-ring')
+    expect(read('features/bots/bots.css')).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.bot-page__dot\[data-presence="running"\] \{\s*animation: ui-live-ring/,
+    )
+    const guide = read('features/onboarding/onboarding.css')
+    expect(ruleOf(guide, '.guide__step')).toContain('ui-enter var(--spring-snappy)')
+    expect(ruleOf(guide, '.guide__step[data-back]')).toContain('--enter-x: -16px')
+  })
 })

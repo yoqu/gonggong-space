@@ -86,7 +86,8 @@
   overflow: hidden;
   transition:
     box-shadow var(--fade-in),
-    transform var(--spring-interactive);
+    transform var(--spring-interactive),
+    scale var(--spring-interactive);
 }
 /* Hover lift only where a pointer hovers: on touch it would stick after a tap. */
 @media (hover: hover) {
@@ -100,6 +101,24 @@
     transform: scale(1.02);
   }
 }
+/* Cards rise in one after another (first dozen only, so a long grid is not kept waiting); filters keep their keys,
+   so only cards that newly appear move. */
+.works__card {
+  animation:
+    ui-fade-in var(--fade-in) backwards,
+    ui-enter var(--spring-smooth) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+  --enter-y: 8px;
+}
+/* Loading: placeholder cards in the same grid, so the page keeps its shape when they arrive. */
+.ui-skeleton.works__grid {
+  display: grid;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .works__card:active {
+    scale: 0.98;
+  }
+}
 .works__card:has(:focus-visible) {
   box-shadow:
     inset 0 0 0 1px var(--control-stroke),
@@ -109,6 +128,9 @@
   .works__card,
   .works__shot img {
     transition: none;
+  }
+  .works__card {
+    animation-delay: 0s;
   }
   .works__card:hover,
   .works__card:hover .works__shot img {

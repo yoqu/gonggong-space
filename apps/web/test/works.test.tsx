@@ -243,3 +243,25 @@ describe('a private artifact card', () => {
     expect(screen.getByText('仅自己可见')).toBeTruthy()
   })
 })
+
+describe('作品 page loading', () => {
+  it('shows placeholder cards in the grid until the works arrive, then staggers them in', async () => {
+    let release = () => {}
+    const held = new Promise<void>((r) => {
+      release = r
+    })
+    mockApi({
+      'GET /works/groups': GROUPS,
+      'GET /works': async () => {
+        await held
+        return WORKS
+      },
+    })
+    renderAt('/works')
+    expect(screen.getByRole('status', { name: '正在载入' }).classList.contains('works__grid')).toBe(true)
+    release()
+    const grid = await screen.findByRole('list', { name: '作品' })
+    expect(within(grid).getAllByRole('listitem')[2]!.style.getPropertyValue('--i')).toBe('2')
+    expect(screen.queryByRole('status', { name: '正在载入' })).toBeNull()
+  })
+})

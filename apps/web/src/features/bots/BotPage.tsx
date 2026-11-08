@@ -380,7 +380,11 @@ export function BotPage({
                 {role.name} · {role.mix}
               </span>
               <span className="bot-page__presence">
-                <span className="bot-page__dot" style={{ background: presence.color }} />
+                <span
+                  className="bot-page__dot"
+                  data-presence={bot.presence}
+                  style={{ color: presence.color }}
+                />
                 {presence.label}
               </span>
               {shared ? <Tag tone="blue">{t('{owner} 共享给你', { owner: bot.ownerName })}</Tag> : null}

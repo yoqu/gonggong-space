@@ -188,6 +188,12 @@
   background: var(--tint-green);
   color: var(--tint-green-text);
 }
+/* A live machine's dot sends out a slow ring, the same heartbeat cue as a running bot. */
+@media (prefers-reduced-motion: no-preference) {
+  .machine__status[data-online="true"]::before {
+    animation: ui-live-ring 2.4s ease-out infinite;
+  }
+}
 .machine__specs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -746,11 +752,41 @@
   box-shadow: var(--shadow-outline);
   color: inherit;
   text-decoration: none;
+  transition:
+    box-shadow var(--fade-in),
+    transform var(--spring-interactive),
+    scale var(--spring-interactive);
+  /* Rises in after the one before it, like the 作品 grid. */
+  animation:
+    ui-fade-in var(--fade-in) backwards,
+    ui-enter var(--spring-smooth) backwards;
+  animation-delay: calc(min(var(--i, 0), 12) * 30ms);
+  --enter-y: 8px;
 }
-.machine-card:hover {
+@media (hover: hover) {
+  .machine-card:hover {
+    box-shadow:
+      var(--shadow-outline),
+      0 0 0 2px var(--accent-fill),
+      0 6px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+}
+.machine-card:focus-visible {
+  outline: none;
   box-shadow:
     var(--shadow-outline),
-    0 0 0 2px var(--accent-fill);
+    0 0 0 3px color-mix(in srgb, var(--focus-ring) 40%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .machine-card:active {
+    scale: 0.98;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .machine-card {
+    animation-delay: 0s;
+  }
 }
 .machine-card__head {
   display: flex;
@@ -773,6 +809,11 @@
 .machine-card__agents .machine__agent {
   flex-wrap: wrap;
   /* Plain facts, not links: the card itself is the only thing to click. */
+  color: var(--label-secondary);
+}
+/* Offline: the card steps back so the machines that can work stand out. */
+.machine-card[data-online="false"] .machine-card__head > svg,
+.machine-card[data-online="false"] .machine-card__name {
   color: var(--label-secondary);
 }
 
