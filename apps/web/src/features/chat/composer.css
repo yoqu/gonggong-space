@@ -17,6 +17,23 @@
   }
 }
 
+/* A failed send: a short head-shake (Apple HIG), the toast says why and the draft stays. */
+@media (prefers-reduced-motion: no-preference) {
+  .composer--shake .pn-composer {
+    animation: composer-shake 320ms ease-in-out;
+  }
+}
+@keyframes composer-shake {
+  20%,
+  60% {
+    translate: -6px 0;
+  }
+  40%,
+  80% {
+    translate: 6px 0;
+  }
+}
+
 /* @ / candidates: the Pane MentionPicker anchored above the composer, wide enough for paths. */
 .mention-pop {
   position: absolute;
@@ -146,4 +163,10 @@
 .composer__spark {
   font-size: 13px;
   line-height: 1;
+}
+/* Finger-sized candidate rows on touch screens. */
+@media (pointer: coarse) {
+  .mention-pop .mention-pop__item {
+    height: 40px;
+  }
 }

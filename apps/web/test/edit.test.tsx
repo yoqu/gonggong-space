@@ -1,10 +1,11 @@
 import type { BotDto, CreationDraftCard, GroupDto, MessageDto, UserDto, WebEvent } from '@gonggong/protocol'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useEditing } from '../src/features/chat/editing'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -105,6 +106,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
+  useEditing.setState({ id: null, back: null })
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -244,5 +246,56 @@ describe('edit (编辑)', () => {
       message: { ...proposal, card: { ...draft, status: 'started', by: '李建国' } },
     })
     expect(await screen.findByText('李建国 已开始创作')).toBeTruthy()
+  })
+})
+
+describe('composer keys and feedback', () => {
+  const input = () => screen.getByRole('combobox', { name: '消息输入' }) as HTMLTextAreaElement
+
+  it('↑ in the empty composer edits my latest message; Esc hands the focus back', async () => {
+    renderChat([
+      msg({ seq: 1, body: '更早的话' }),
+      msg({ seq: 2, body: '我的上一条' }),
+      msg({ seq: 3, authorId: 'u2', authorName: '李建国', body: '收到' }),
+    ])
+    await screen.findByText('我的上一条')
+    expect(input().getAttribute('enterkeyhint')).toBe('send')
+    fireEvent.change(input(), { target: { value: '草稿' } })
+    fireEvent.keyDown(input(), { key: 'ArrowUp' })
+    expect(screen.queryByRole('textbox', { name: '编辑消息' })).toBeNull()
+
+    fireEvent.change(input(), { target: { value: '' } })
+    input().focus()
+    fireEvent.keyDown(input(), { key: 'ArrowUp' })
+    const box = screen.getByRole('textbox', { name: '编辑消息' }) as HTMLTextAreaElement
+    expect(box.value).toBe('我的上一条')
+    fireEvent.keyDown(box, { key: 'Escape' })
+    expect(screen.queryByRole('textbox', { name: '编辑消息' })).toBeNull()
+    expect(document.activeElement).toBe(input())
+  })
+
+  it('↑ leaves a command or an old message alone', async () => {
+    renderChat([
+      msg({ seq: 1, body: '旧消息', createdAt: new Date(Date.now() - 25 * HOUR).toISOString() }),
+      msg({ seq: 2, body: '/stop' }),
+    ])
+    await screen.findByText('/stop')
+    fireEvent.keyDown(input(), { key: 'ArrowUp' })
+    expect(screen.queryByRole('textbox', { name: '编辑消息' })).toBeNull()
+  })
+
+  it('shakes the composer when a send fails and keeps the draft', async () => {
+    renderChat([], { 'POST /groups/g1/messages': apiError(400, 'invalid', '消息太长') })
+    await waitFor(() => expect(input()).toBeTruthy())
+    fireEvent.change(input(), { target: { value: '发不出去' } })
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    expect(await screen.findByText('消息太长')).toBeTruthy()
+    const root = document.querySelector('.composer') as HTMLElement
+    expect(root.classList.contains('composer--shake')).toBe(true)
+    expect(input().value).toBe('发不出去')
+    const end = createEvent.animationEnd(root)
+    Object.defineProperty(end, 'animationName', { value: 'composer-shake' })
+    fireEvent(root, end)
+    expect(root.classList.contains('composer--shake')).toBe(false)
   })
 })

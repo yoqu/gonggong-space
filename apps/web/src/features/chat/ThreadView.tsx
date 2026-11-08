@@ -1,5 +1,5 @@
 import type { GroupDto, MessageDto, RunDto, ThreadStateDto } from '@gonggong/protocol'
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -7,6 +7,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
+import { lastEditable } from './editing'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { InThread, ThreadScope } from './threadSummary'
@@ -46,6 +47,9 @@ export function ThreadView({
 }) {
   const tl = useTimeline(group.id, rootId)
   const me = useSession((s) => s.user)
+  const latestMessages = useRef(tl.messages)
+  latestMessages.current = tl.messages
+  const editLast = useCallback(() => lastEditable(latestMessages.current, me?.id), [me?.id])
   const bots = useWorkspace((s) => s.bots)
   const scroll = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
@@ -222,7 +226,9 @@ export function ThreadView({
         }
         composer={false}
         footer={
-          readOnly ? undefined : <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} />
+          readOnly ? undefined : (
+            <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} lastEditable={editLast} />
+          )
         }
       >
         {tl.older === 'loading' ? <Spinner /> : null}

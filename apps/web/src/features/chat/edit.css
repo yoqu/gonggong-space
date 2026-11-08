@@ -3,6 +3,10 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: min(360px, 60vw);
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .msg-edit-hint {
   color: var(--label-tertiary);

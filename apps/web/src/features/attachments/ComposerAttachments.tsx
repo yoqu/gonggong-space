@@ -187,7 +187,12 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           )}
           <span className="att-chip__name">{i.name}</span>
           <span className="att-chip__size">{fmtSize(i.size)}</span>
-          {i.upload ? null : <span className="att-chip__progress">{i.progress}%</span>}
+          {i.upload ? null : (
+            <>
+              <span className="att-chip__progress">{i.progress}%</span>
+              <span className="att-chip__bar" aria-hidden="true" style={{ scale: `${i.progress / 100} 1` }} />
+            </>
+          )}
           <button
             type="button"
             className="att-chip__rm"

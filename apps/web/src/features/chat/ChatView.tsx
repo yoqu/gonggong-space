@@ -63,6 +63,7 @@ import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { openTab } from '../workbench/open'
 import { useRunDeltas } from './deltas'
+import { lastEditable } from './editing'
 import { GitBar } from './GitBar'
 import { GroupThreads } from './GroupThreads'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -183,6 +184,9 @@ export function ChatView({
   const setActiveGroup = useWorkspace((s) => s.setActiveGroup)
   const me = useSession((s) => s.user)
   const meId = me?.id
+  const latestMessages = useRef(tl.messages)
+  latestMessages.current = tl.messages
+  const editLast = useCallback(() => lastEditable(latestMessages.current, meId), [meId])
   const box = useRef<HTMLDivElement>(null)
   const banners = useRef<HTMLDivElement>(null)
   // The day separator sticks just below however many prompts are pinned above the messages.
@@ -964,7 +968,7 @@ export function ChatView({
             </div>
             <TaskDock runs={runList} root={box} onLocate={locate} />
             <ProviderBanner group={group} />
-            <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} />
+            <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} lastEditable={editLast} />
             <CreationHost group={group} onSent={onSent} />
           </>
         )}

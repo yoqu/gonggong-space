@@ -50,6 +50,7 @@ import { splitBasis } from './basis'
 import { Clamp } from './Clamp'
 import { citeInChat } from './cite'
 import { useRunDeltas } from './deltas'
+import { startEditing, stopEditing, useEditing } from './editing'
 import { isRich, replyFiles } from './grouping'
 import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
@@ -481,7 +482,7 @@ export const UserMessage = memo(function UserMessage({
   // Unknown card kinds fall back to the body.
   const creation = m.card?.type === 'creation' ? m.card : null
   const text = !creation && !!(m.body || m.quote)
-  const [editing, setEditing] = useState(false)
+  const editing = useEditing((s) => s.id === m.id)
   const avatar = useWorkspace(
     (s) => s.groups.find((g) => g.id === m.groupId)?.members.find((x) => x.userId === m.authorId)?.avatar,
   )
@@ -491,7 +492,13 @@ export const UserMessage = memo(function UserMessage({
   const scope = useContext(ThreadScope)
   return (
     <MessageMenu
-      {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns, scope)}
+      {...messageTarget(
+        m,
+        mine,
+        mine && !creation ? () => startEditing(m.id) : undefined,
+        startedRuns,
+        scope,
+      )}
     >
       {(bar) => (
         <Message
@@ -539,7 +546,7 @@ export const UserMessage = memo(function UserMessage({
             <MessageAttachments list={m.attachments} from={m.authorName} />
           )}
           {creation ? null : editing ? (
-            <MessageEditor message={m} onDone={() => setEditing(false)} />
+            <MessageEditor message={m} onDone={stopEditing} />
           ) : m.body ? (
             <Text body={m.body} names={names} me={me} />
           ) : null}

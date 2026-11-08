@@ -129,4 +129,26 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(tl, '.chat-scroll__bottom')).toContain('var(--spring-bouncy) ui-enter')
     expect(ruleOf(tl, '.chat-pins')).toContain('var(--spring-snappy) ui-enter')
   })
+  it('moves the composer: springing send button, busy pulse, failure shake, chip pops, finger-sized touch targets', () => {
+    const im = read('ui/im/composer.css')
+    expect(ruleOf(im, '.pn-composer')).toContain('box-shadow var(--fade-in)')
+    expect(ruleOf(im, '.pn-composer__send')).toContain('scale var(--spring-interactive)')
+    expect(im).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{[^@]*\.pn-composer__send\[data-state="ready"\] \{\s*animation: var\(--spring-bouncy\) pn-send-ready;[^@]*pn-send-busy/,
+    )
+    expect(im).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.pn-composer__tool,\s*\.pn-composer__send \{\s*width: 36px;/,
+    )
+    const chat = read('features/chat/composer.css')
+    expect(chat).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.composer--shake \.pn-composer \{\s*animation: composer-shake/,
+    )
+    expect(chat).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.mention-pop \.mention-pop__item \{\s*height: 40px;/,
+    )
+    const att = read('features/attachments/attachments.css')
+    expect(ruleOf(att, '.att-chip')).toContain('var(--spring-bouncy) att-chip-in')
+    expect(ruleOf(att, '.att-chip__bar')).toContain('scale var(--motion-base)')
+    expect(ruleOf(read('features/chat/edit.css'), '.msg-edit')).toContain('var(--spring-snappy) ui-enter')
+  })
 })

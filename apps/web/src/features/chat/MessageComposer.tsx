@@ -13,6 +13,7 @@ import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
@@ -27,6 +28,7 @@ import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
 import { type Candidate, CandidatePopover, placeCommand, useCandidates } from './ComposerCandidates'
 import { useCite } from './cite'
+import { startEditing } from './editing'
 import { mentions, useMention } from './mention'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import { useRecalled } from './recalled'
@@ -107,6 +109,7 @@ export const MessageComposer = memo(function MessageComposer({
   onSent,
   dropFiles,
   thread,
+  lastEditable,
 }: {
   group: GroupDto
   onSent: (m: MessageDto) => void
@@ -117,6 +120,8 @@ export const MessageComposer = memo(function MessageComposer({
    * composer, so this one leaves them alone.
    */
   thread?: string
+  /** ↑ in the empty composer edits this message (my latest, while still editable). */
+  lastEditable?: () => MessageDto | undefined
 }) {
   const mobile = useIsMobile()
   const key = draftKey(group.id, thread)
@@ -129,6 +134,8 @@ export const MessageComposer = memo(function MessageComposer({
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(0)
+  /** A failed send shakes the box (the toast says why; the draft stays for another Enter). */
+  const [shake, setShake] = useState(false)
   const [picks, setPicks] = useState<Picks>({})
   /** Variations ×n: the next message asks for n variations of the selected screens. */
   const [variations, setVariations] = useState<number | null>(null)
@@ -291,6 +298,22 @@ export const MessageComposer = memo(function MessageComposer({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      e.key === 'ArrowUp' &&
+      !draft &&
+      !uploads.items.length &&
+      !e.shiftKey &&
+      !e.altKey &&
+      !e.metaKey &&
+      !e.ctrlKey
+    ) {
+      const m = lastEditable?.()
+      if (m) {
+        e.preventDefault()
+        startEditing(m.id, input.current)
+      }
+      return
+    }
     if (!candidates.length) return
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
@@ -333,7 +356,7 @@ export const MessageComposer = memo(function MessageComposer({
     const ok = await sendCommand(artifact.artifactId, { ...req, botId: artifactBot.id }, artifactBot)
     sending.current = false
     setBusy(false)
-    if (!ok) return
+    if (!ok) return setShake(true)
     setSent((n) => n + 1)
     dropDraft(key, body)
     setDraft((d) => (d === body ? '' : d))
@@ -381,6 +404,7 @@ export const MessageComposer = memo(function MessageComposer({
       if (canvas) clearContext()
     } catch (e) {
       toastError(e)
+      setShake(true)
     } finally {
       sending.current = false
       setBusy(false)
@@ -389,7 +413,10 @@ export const MessageComposer = memo(function MessageComposer({
 
   const chips = appending || quote || canvas || uploads.items.length > 0
   return (
-    <div className="composer">
+    <div
+      className={cx('composer', shake && 'composer--shake')}
+      onAnimationEnd={(e) => e.animationName === 'composer-shake' && setShake(false)}
+    >
       <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
       <Composer
         value={draft}

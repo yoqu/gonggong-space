@@ -351,6 +351,7 @@ export function Composer({
             className={marks.length > 0 ? 'pn-composer__input--marked' : undefined}
             ref={ref}
             rows={1}
+            enterKeyHint="send"
             value={text}
             placeholder={placeholder ?? t('发送给 {name}', { name: recipient ?? '…' })}
             disabled={disabled}

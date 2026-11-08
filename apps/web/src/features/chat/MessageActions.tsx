@@ -15,6 +15,7 @@ import { attachmentUrl } from '../attachments/api'
 import { KnowledgeEditor } from '../knowledge/KnowledgeEditor'
 import { ReactionPicker } from '../reactions'
 import { useSaveMenu } from '../saved/SaveMenu'
+import { canEdit } from './editing'
 import { keepRecalled, type RecalledDraft } from './recalled'
 import { markUnreadFrom } from './unreadMark'
 import { applyLocal } from './useTimeline'
@@ -228,8 +229,7 @@ function useMessageMenu(target: ActionTarget) {
   }
   const mine = target.own && target.message ? target.message : null
   const recallable = !!mine && Date.now() - Date.parse(mine.createdAt) < RECALL_WINDOW_MS
-  // Commands are not editable (the server refuses them too).
-  const editable = recallable && !!target.onEdit && !!mine?.body && !mine.body.trimStart().startsWith('/')
+  const editable = !!mine && !!target.onEdit && canEdit(mine)
   const branchable = !!target.branchable && !!target.message
   const savable = !!target.copyText?.trim() && !!target.message && target.message.kind !== 'event'
   const pinnable = !!target.message && target.message.kind !== 'event' && !target.message.recalled

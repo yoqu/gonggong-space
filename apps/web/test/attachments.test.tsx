@@ -307,23 +307,31 @@ describe('composer attachments', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image.png')
   })
 
-  it('waits for uploads before sending', async () => {
+  it('waits for uploads before sending, filling a progress bar along the chip', async () => {
     mockApi()
     let finish: () => void = () => {}
-    vi.mocked(uploadFile).mockImplementation((_g, f) => ({
-      done: new Promise((r) => {
-        finish = () => r({ id: 'up1', name: f.name, size: f.size, mime: f.type })
-      }),
-      abort: vi.fn(),
-    }))
+    let progress: (p: number) => void = () => {}
+    vi.mocked(uploadFile).mockImplementation((_g, f, onProgress) => {
+      progress = onProgress
+      return {
+        done: new Promise((r) => {
+          finish = () => r({ id: 'up1', name: f.name, size: f.size, mime: f.type })
+        }),
+        abort: vi.fn(),
+      }
+    })
     renderChat()
     await screen.findByTestId('bot-reply')
     pick(document.querySelector('input[type=file]') as HTMLInputElement, [file('a.png', 10, 'image/png')])
     fireEvent.change(box(), { target: { value: 'hi' } })
     const send = screen.getByRole('button', { name: '发送' }) as HTMLButtonElement
     expect(send.disabled).toBe(true)
+    act(() => progress(40))
+    expect(composer().getByText('40%')).toBeTruthy()
+    expect((document.querySelector('.att-chip__bar') as HTMLElement).style.scale).toBe('0.4 1')
     await act(async () => finish())
     expect(send.disabled).toBe(false)
+    expect(document.querySelector('.att-chip__bar')).toBeNull()
   })
 })
 
