@@ -36,7 +36,7 @@ export async function pushToAll(ctx: Ctx, m: MessageRow, byName: string) {
   const push = {
     title,
     body: `${byName}：${text}`,
-    url: inThread ? `/g/${m.groupId}?thread=${m.threadRootId}` : `/g/${m.groupId}`,
+    url: inThread ? `/g/${m.groupId}?thread=${m.threadRootId}&msg=${m.id}` : `/g/${m.groupId}`,
     tag: `message:${m.id}`,
   }
   for (const id of to)

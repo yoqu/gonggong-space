@@ -78,7 +78,7 @@ describe('消息置顶', () => {
       expect.stringContaining('上线窗口：周四 20:00'),
     ])
     fireEvent.click(screen.getByRole('button', { name: /上线窗口/ }))
-    expect(onLocate).toHaveBeenCalledWith('m1')
+    expect(onLocate).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'm1' }))
   })
 
   it('opens a link in a pin by itself; the rest of the line still jumps to the message', () => {
@@ -90,7 +90,7 @@ describe('消息置顶', () => {
     fireEvent.click(link)
     expect(onLocate).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /文档/ }))
-    expect(onLocate).toHaveBeenCalledWith('m1')
+    expect(onLocate).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'm1' }))
   })
 
   it('follows group.pins events and hides when nothing is pinned', () => {

@@ -56,7 +56,7 @@ export function PinnedMessages({
   onLocate,
 }: {
   groupId: string
-  onLocate: (messageId: string) => void
+  onLocate: (pin: PinnedMessageDto) => void
 }) {
   const pins = usePins(groupId)
   const [open, setOpen] = useState(false)
@@ -80,7 +80,7 @@ export function PinnedMessages({
       <PinnedBanner
         icon="pin"
         title={t('置顶')}
-        text={<PinLine pin={first} onLocate={() => onLocate(first.messageId)} />}
+        text={<PinLine pin={first} onLocate={() => onLocate(first)} />}
         action={
           pins.length > 1 ? (
             <Button
@@ -106,7 +106,7 @@ export function PinnedMessages({
                 pin={p}
                 onLocate={() => {
                   setOpen(false)
-                  onLocate(p.messageId)
+                  onLocate(p)
                 }}
               />
               <span className="chat-pins__by">{t('{name} 置顶', { name: p.pinnedBy.name })}</span>

@@ -31,6 +31,7 @@ export async function groupPins(ctx: Ctx, groupId: string): Promise<GroupPinsDto
         authorName: user ?? bot ?? '',
         text: snippet(m.body, (m.meta as MessageMeta).htmlRenders),
         attachments: (m.meta as MessageMeta).attachments?.length ?? 0,
+        ...(m.threadRootId && { threadRootId: m.threadRootId }),
         pinnedBy: { id: pin.pinnedBy, name: by },
         pinnedAt: pin.pinnedAt.toISOString(),
       }),

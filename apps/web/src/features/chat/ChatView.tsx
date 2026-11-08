@@ -1,4 +1,4 @@
-import type { GroupDto, MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
+import type { GroupDto, MessageDto, PinnedMessageDto, RunDto, RunStatus } from '@gonggong/protocol'
 import {
   type DragEvent,
   Fragment,
@@ -197,7 +197,10 @@ export function ChatView({
   const drag = useFileDrag()
   const navigate = useNavigate()
   const infoOpen = useInspector((s) => s.view === 'group-info')
-  const threadsOpen = useInspector((s) => s.view === 'threads')
+  // Opened from the group's thread list, the 话题 button stays lit (its header leads back).
+  const threadsOpen = useInspector(
+    (s) => s.view === 'threads' || (s.view === 'thread' && s.back === 'threads'),
+  )
   const threadBack = useInspector((s) => (s.view === 'thread' ? s.back : null))
   const infoView = useInspector((s) => s.payload as InfoView | null)
   const threadRoot = useInspector((s) => (s.view === 'thread' ? (s.payload as string) : null))
@@ -214,15 +217,18 @@ export function ChatView({
   const linkedThread = params.get('thread')
   useEffect(() => {
     if (!linkedThread) return
+    // `&msg=<reply id>` locates that reply inside the thread; old links carry the thread alone.
+    setThreadFocus(linked ? { rootId: linkedThread, messageId: linked } : null)
     openThread(linkedThread)
     setParams(
       (p) => {
         p.delete('thread')
+        p.delete('msg')
         return p
       },
       { replace: true },
     )
-  }, [linkedThread, setParams])
+  }, [linkedThread, linked, setParams])
   useLinkedSync(group.id)
   const linkPages = useRef(0)
   /** Run located from the live runs bar: its process opens when the link target can't be found. */
@@ -387,7 +393,7 @@ export function ChatView({
 
   // `?msg=<id>` (search hits): page back until the message is loaded, then scroll to and flash it.
   useEffect(() => {
-    if (!linked || !tl.loaded) return
+    if (!linked || linkedThread || !tl.loaded) return
     if (tl.messages.some((m) => m.id === linked)) {
       stick.current = false
       const items = box.current?.querySelectorAll<HTMLElement>('[data-msg-id]') ?? []
@@ -407,7 +413,7 @@ export function ChatView({
       },
       { replace: true },
     )
-  }, [linked, tl.loaded, tl.messages, tl.hasMore, tl.older, tl.loadOlder, setParams])
+  }, [linked, linkedThread, tl.loaded, tl.messages, tl.hasMore, tl.older, tl.loadOlder, setParams])
 
   useEffect(() => {
     if (!flash) return
@@ -472,14 +478,19 @@ export function ChatView({
     [offscreen, botsById],
   )
 
-  const locateMessage = (id: string) =>
+  const locateMessage = (pin: PinnedMessageDto) => {
+    if (pin.threadRootId) {
+      setThreadFocus({ rootId: pin.threadRootId, messageId: pin.messageId })
+      return openThread(pin.threadRootId)
+    }
     setParams(
       (p) => {
-        p.set('msg', id)
+        p.set('msg', pin.messageId)
         return p
       },
       { replace: true },
     )
+  }
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloaded per group and after a reconnect
   useEffect(() => {
     const load = () => void loadPins(group.id).catch(() => {})
@@ -726,7 +737,7 @@ export function ChatView({
               icon: 'thread' as const,
               label: t('话题#inbox'),
               active: threadsOpen,
-              onClick: () => (threadsOpen ? closeInspector() : inspect('threads')),
+              onClick: () => (threadsOpen && !threadBack ? closeInspector() : inspect('threads')),
             },
             {
               icon: 'dashboard' as const,

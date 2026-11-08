@@ -150,16 +150,33 @@ export interface ThreadSummaryProps {
   lastTime?: string
   /** Shown after the summary, e.g. a running bot. */
   extra?: ReactNode
-  /** New replies since the reader last looked: the count is bold. */
-  unread?: boolean
+  /** New replies since the reader last looked: a dot and their count. */
+  unread?: number
+  /** One of the new replies @s the reader. */
+  mentioned?: boolean
   onClick?: () => void
 }
 
-export function ThreadSummary({ count, people = [], lastTime, extra, unread, onClick }: ThreadSummaryProps) {
+export function ThreadSummary({
+  count,
+  people = [],
+  lastTime,
+  extra,
+  unread = 0,
+  mentioned,
+  onClick,
+}: ThreadSummaryProps) {
   return (
-    <button type="button" className={cx('pn-thread', unread && 'pn-thread--unread')} onClick={onClick}>
+    <button type="button" className={cx('pn-thread', unread > 0 && 'pn-thread--unread')} onClick={onClick}>
       <AvatarGroup people={people} size={20} max={3} />
       <span className="pn-thread__count">{count ? t('{n} 条回复', { n: count }) : t('查看话题')}</span>
+      {unread > 0 && (
+        <span className="pn-thread__new">
+          <span className="pn-thread__dot" aria-hidden />
+          {t('{n} 条新回复', { n: unread })}
+        </span>
+      )}
+      {unread > 0 && mentioned && <span className="pn-thread__at">{t('@我')}</span>}
       {lastTime && <span className="pn-thread__last">{t('最后回复 {time}', { time: lastTime })}</span>}
       {extra}
     </button>

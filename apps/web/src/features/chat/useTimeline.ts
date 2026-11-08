@@ -57,11 +57,14 @@ const addLive = (s: TimelineState, m: MessageDto): TimelineState => ({
 type Withdrawn = Extract<WebEvent, { t: 'message.recalled' | 'message.hidden' }>
 
 /** A recalled message keeps only its envelope; quotes of it say so. Deleted ones leave my timeline. */
-const withdraw = (s: TimelineState, e: Withdrawn): TimelineState => ({
+const withdraw = (s: TimelineState, e: Withdrawn, threadRoot?: string): TimelineState => ({
   ...s,
   messages:
     e.t === 'message.hidden'
-      ? s.messages.filter((m) => m.id !== e.messageId)
+      ? threadRoot === e.messageId
+        ? // The open thread stays readable: its root turns into a placeholder.
+          s.messages.map((m) => (m.id === threadRoot ? { ...m, hidden: true, body: '', attachments: [] } : m))
+        : s.messages.filter((m) => m.id !== e.messageId)
       : s.messages.map((m) =>
           m.id === e.messageId
             ? { ...m, recalled: true, body: '', attachments: [], quote: null, mentions: [], reactions: [] }
@@ -182,7 +185,7 @@ export function useTimeline(groupId: string, thread?: string) {
     const onLocal = (e: Withdrawn | Edited) => {
       if (e.t === 'message.edited') {
         if (e.message.groupId === groupId) setState((s) => edit(s, e))
-      } else if (e.groupId === groupId) setState((s) => withdraw(s, e))
+      } else if (e.groupId === groupId) setState((s) => withdraw(s, e, thread))
     }
     local.add(onLocal)
     // Streamed text is applied in batches: each update re-renders its run card and re-pins the scroll.

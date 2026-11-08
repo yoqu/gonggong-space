@@ -16,6 +16,7 @@ import { App } from '../src/App'
 import { useInspector } from '../src/app/inspector'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { useQuote } from '../src/features/attachments/quote'
 import { useRunDeltas } from '../src/features/chat/deltas'
 import { fullTime } from '../src/lib/time'
 import { mockApi } from './mockApi'
@@ -200,6 +201,8 @@ beforeEach(() => {
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   useInspector.setState({ view: null, payload: null, back: null })
+  useQuote.setState({ quote: null })
+  useWorkspace.setState({ pins: {} })
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -511,5 +514,206 @@ describe('reply bar unread', () => {
   it('is regular without unread', async () => {
     renderAt('/g/g1', { 'GET /groups/g1/timeline?limit=50': { messages: [unreadRoot(0)], runs: [] } })
     expect((await bar()).className).not.toContain('unread')
+  })
+})
+
+describe('thread root boundaries', () => {
+  const recalledRoot = { ...root, body: '', recalled: true }
+
+  it('keeps the reply bar on a recalled root and opens its thread with the root marked recalled', async () => {
+    renderAt('/g/g1', {
+      'GET /groups/g1/timeline?limit=50': { messages: [recalledRoot], runs: [] },
+      'GET /messages/m1/thread?limit=50': threadDto({ root: recalledRoot }),
+    })
+    fireEvent.click(await screen.findByRole('button', { name: /2 条回复/ }))
+    const rail = await panel()
+    expect(await within(rail).findByText('要，周四开始')).toBeTruthy()
+    expect(within(rail).getByText('该消息已撤回')).toBeTruthy()
+  })
+
+  it('shows a root I deleted as a placeholder in its thread, and keeps it when the delete event arrives', async () => {
+    renderAt('/g/g1?thread=m1', {
+      'GET /messages/m1/thread?limit=50': threadDto({ root: { ...root, body: '', hidden: true } }),
+    })
+    const rail = await panel()
+    expect(await within(rail).findByText('你已删除这条消息')).toBeTruthy()
+    expect(within(rail).getByText('要，周四开始')).toBeTruthy()
+  })
+
+  it('keeps the open thread when its root is deleted live', async () => {
+    renderAt('/g/g1?thread=m1')
+    const rail = await panel()
+    await within(rail).findByText('发版前要不要冻结主干？')
+    push({ t: 'message.hidden', groupId: 'g1', messageId: 'm1' })
+    expect(await within(rail).findByText('你已删除这条消息')).toBeTruthy()
+    expect(within(rail).getByText('要，周四开始')).toBeTruthy()
+  })
+})
+
+describe('quote in a thread', () => {
+  const mainInput = () => screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+  const threadInput = (rail: HTMLElement) => within(rail).getByPlaceholderText('回复话题，@ 触发 Bot')
+
+  it('goes to the thread composer from the thread, to the main one from the main channel', async () => {
+    renderAt('/g/g1?thread=m1')
+    const rail = await panel()
+    await within(rail).findByText('要，周四开始')
+    const reply = within(rail).getByText('要，周四开始').closest('.pn-msg') as HTMLElement
+    fireEvent.click(within(reply).getByRole('button', { name: '引用回复' }))
+    expect(useQuote.getState().quote).toMatchObject({ id: 'm2', threadRootId: 'm1' })
+    expect(await within(rail).findByText('引用 李建国')).toBeTruthy()
+    expect(mainInput().closest('.composer')?.textContent).not.toContain('引用 李建国')
+    expect(threadInput(rail)).toBeTruthy()
+
+    const main = screen.getByText('发版前要不要冻结主干？', { selector: '.chat-scroll *' })
+    fireEvent.click(within(main.closest('.pn-msg') as HTMLElement).getByRole('button', { name: '引用回复' }))
+    expect(useQuote.getState().quote).toMatchObject({ id: 'm1' })
+    expect(useQuote.getState().quote?.threadRootId).toBeUndefined()
+    await waitFor(() => expect(mainInput().closest('.composer')?.textContent).toContain('引用 李建国'))
+    expect(within(rail).queryByText('引用 李建国')).toBeNull()
+  })
+})
+
+describe('locating a thread reply', () => {
+  const many = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) =>
+      msg({ seq: from + i, id: `r${from + i}`, threadRootId: 'm1' }),
+    )
+  const bigThread = (replies: MessageDto[]) => threadDto({ replies })
+
+  it('opens the thread from a pin of a reply and flashes it', async () => {
+    useWorkspace.setState({
+      pins: {
+        g1: [
+          {
+            messageId: 'm2',
+            seq: 2,
+            authorName: '李建国',
+            text: '要，周四开始',
+            attachments: 0,
+            threadRootId: 'm1',
+            pinnedBy: { id: 'u2', name: '李建国' },
+            pinnedAt: min(5),
+          },
+        ],
+      },
+    })
+    renderAt('/g/g1', { 'GET /groups/g1/pins': { pins: useWorkspace.getState().pins.g1 } })
+    fireEvent.click(await screen.findByRole('button', { name: /李建国：要，周四开始/ }))
+    const rail = await panel()
+    const item = (await within(rail).findByText('要，周四开始')).closest('[data-msg-id]') as HTMLElement
+    await waitFor(() => expect(item.className).toContain('tl-item--flash'))
+  })
+
+  it('pages back to a reply beyond the first page of a ?thread=&msg= link', async () => {
+    const first = many(52, 101)
+    const calls = renderAt('/g/g1?thread=m1&msg=r10', {
+      'GET /messages/m1/thread?limit=50': bigThread(first),
+      'GET /messages/m1/thread?limit=50&before=52': bigThread(many(2, 51)),
+    })
+    const rail = await panel()
+    const item = await waitFor(() => {
+      const el = rail.querySelector<HTMLElement>('[data-msg-id="r10"]')
+      expect(el).toBeTruthy()
+      return el as HTMLElement
+    })
+    await waitFor(() => expect(item.className).toContain('tl-item--flash'))
+    expect(calls.some((c) => c.path === '/messages/m1/thread?limit=50&before=52')).toBe(true)
+  })
+
+  it('tells when the linked reply is not in the thread', async () => {
+    renderAt('/g/g1?thread=m1&msg=gone')
+    await panel()
+    expect(await screen.findByText('没找到这条回复')).toBeTruthy()
+  })
+
+  it('does not look for the reply in the main timeline', async () => {
+    const calls = renderAt('/g/g1?thread=m1&msg=m2')
+    await panel()
+    await waitFor(() => expect(calls.some((c) => c.path.startsWith('/messages/m1/thread'))).toBe(true))
+    expect(calls.filter((c) => c.path.startsWith('/groups/g1/timeline')).length).toBe(1)
+  })
+})
+
+describe('reply bar marks', () => {
+  const marked = (o: { unread: number; mentioned: boolean }) => ({
+    ...root,
+    thread: { ...root.thread!, ...o },
+  })
+
+  it('shows a dot with the new reply count, and @我 when mentioned', async () => {
+    renderAt('/g/g1', {
+      'GET /groups/g1/timeline?limit=50': { messages: [marked({ unread: 2, mentioned: true })], runs: [] },
+    })
+    const bar = (await screen.findByRole('button', { name: /2 条回复/ })) as HTMLElement
+    expect(within(bar).getByText('2 条新回复')).toBeTruthy()
+    expect(within(bar).getByText('@我')).toBeTruthy()
+    expect(bar.querySelector('.pn-thread__dot')).toBeTruthy()
+  })
+
+  it('shows neither without unread', async () => {
+    renderAt('/g/g1', {
+      'GET /groups/g1/timeline?limit=50': { messages: [marked({ unread: 0, mentioned: false })], runs: [] },
+    })
+    const bar = (await screen.findByRole('button', { name: /2 条回复/ })) as HTMLElement
+    expect(bar.querySelector('.pn-thread__dot')).toBeNull()
+    expect(within(bar).queryByText('@我')).toBeNull()
+  })
+})
+
+describe('header thread button', () => {
+  it('stays active in a thread opened from the list, and returns to the list when clicked', async () => {
+    const list: GroupThreadsDto = {
+      threads: [
+        {
+          root,
+          state: {
+            rootId: 'm1',
+            groupId: 'g1',
+            following: true,
+            lastReadSeq: 0,
+            unread: 0,
+            mentioned: false,
+          },
+          live: false,
+        },
+      ],
+      next: null,
+    }
+    renderAt('/g/g1', { 'GET /groups/g1/threads': list })
+    const button = await screen.findByRole('button', { name: '话题' })
+    fireEvent.click(button)
+    fireEvent.click(await screen.findByTestId('group-thread'))
+    await panel()
+    expect(screen.getByRole('button', { name: '话题' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: '话题' }))
+    expect(await screen.findByRole('complementary', { name: '本群话题' })).toBeTruthy()
+  })
+})
+
+describe('thread lists of a root I deleted', () => {
+  it('show it as deleted rather than blank', async () => {
+    const list: GroupThreadsDto = {
+      threads: [
+        {
+          root: { ...root, body: '', hidden: true },
+          state: {
+            rootId: 'm1',
+            groupId: 'g1',
+            following: true,
+            lastReadSeq: 0,
+            unread: 0,
+            mentioned: false,
+          },
+          live: false,
+        },
+      ],
+      next: null,
+    }
+    renderAt('/g/g1', { 'GET /groups/g1/threads': list })
+    fireEvent.click(await screen.findByRole('button', { name: '话题' }))
+    expect(
+      await within(await screen.findByTestId('group-thread')).findByText('你已删除这条消息'),
+    ).toBeTruthy()
   })
 })

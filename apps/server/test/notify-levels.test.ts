@@ -127,11 +127,11 @@ describe('notify levels', () => {
     const root = (await send(s.asLi, s.g.id, '我发起的话题')).body
     // Chen is not a follower: nothing, whatever the level.
     await s.asChen.put(`/api/groups/${s.g.id}/prefs`, { notifyLevel: 'all' })
-    await send(s.asWang, s.g.id, '话题回复', { threadRootId: root.id })
+    const reply = (await send(s.asWang, s.g.id, '话题回复', { threadRootId: root.id })).body
     await vi.waitFor(() => expect(pushedTo(s.li.id)).toHaveLength(1))
     expect(pushedTo(s.li.id)[0]).toMatchObject({
       body: expect.stringContaining('话题回复'),
-      url: `/g/${s.g.id}?thread=${root.id}`,
+      url: `/g/${s.g.id}?thread=${root.id}&msg=${reply.id}`,
     })
     expect(pushedTo(s.chen.id)).toEqual([])
     // Replying again as a follower: no push to oneself; a reply that @s pushes once only.

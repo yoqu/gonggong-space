@@ -306,6 +306,30 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
 .pn-thread--unread .pn-thread__count {
   font-weight: 800;
 }
+.pn-thread__new {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--system-blue);
+  font-weight: 600;
+  font-size: var(--text-subheadline-size);
+}
+.pn-thread__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--system-blue);
+  flex: none;
+}
+.pn-thread__at {
+  padding: 0 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--badge-fill);
+  color: var(--on-accent);
+  font-size: var(--text-caption-size);
+  font-weight: 600;
+  line-height: 16px;
+}
 .pn-thread__last {
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);

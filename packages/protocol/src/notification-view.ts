@@ -106,7 +106,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         group,
         // An @ in a thread opens that thread.
         href: p('threadRootId')
-          ? `/g/${p('groupId')}?thread=${p('threadRootId')}`
+          ? `/g/${p('groupId')}?thread=${p('threadRootId')}&msg=${p('messageId')}`
           : `/g/${p('groupId')}?msg=${p('messageId')}`,
       }
     case 'reminder':
@@ -115,7 +115,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         text: p('byName') ? `${p('byName')}：${p('text')}` : p('text'),
         group,
         href: p('threadRootId')
-          ? `/g/${p('groupId')}?thread=${p('threadRootId')}`
+          ? `/g/${p('groupId')}?thread=${p('threadRootId')}&msg=${p('messageId')}`
           : `/g/${p('groupId')}?msg=${p('messageId')}`,
       }
     case 'bot_share_request':

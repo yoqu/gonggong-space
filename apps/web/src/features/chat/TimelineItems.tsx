@@ -6,7 +6,7 @@ import {
   type RunStatus,
   unplacedHtmlPages,
 } from '@gonggong/protocol'
-import { Fragment, memo, type ReactNode, useMemo, useState } from 'react'
+import { Fragment, memo, type ReactNode, useContext, useMemo, useState } from 'react'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { cx } from '../../lib/cx'
@@ -25,6 +25,7 @@ import {
   splitMentions,
   Tag,
   type TagTone,
+  ThreadSummary,
 } from '../../ui'
 import { usePresence } from '../../ui/presence'
 import { MessageAttachments, MessageQuote } from '../attachments/MessageAttachments'
@@ -68,7 +69,7 @@ import {
 } from './RunGraphics'
 import { reedit, useRecalled } from './recalled'
 import { openThread } from './thread'
-import { useThreadSummary } from './threadSummary'
+import { InThread, ThreadScope, useThreadSummary } from './threadSummary'
 import './recall.css'
 import { t } from '../../i18n'
 import { Linkified } from '../../lib/links'
@@ -294,13 +295,24 @@ export const EventFold = memo(function EventFold({
 /** A recalled message: the Pane recalled notice in place of the content; 重新编辑 while I still hold what I recalled. */
 export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; mine: boolean }) {
   const held = useRecalled((s) => mine && m.id in s.drafts)
+  const inThread = useContext(InThread)
+  const thread = useThreadSummary(m)
   return (
-    <ChatNotice
-      kind="recalled"
-      action={held ? { label: t('重新编辑'), onClick: () => reedit(m.id) } : undefined}
-    >
-      {mine ? t('你撤回了一条消息') : t('{name} 撤回了一条消息', { name: m.authorName })}
-    </ChatNotice>
+    <>
+      <ChatNotice
+        kind="recalled"
+        action={held ? { label: t('重新编辑'), onClick: () => reedit(m.id) } : undefined}
+      >
+        {m.hidden
+          ? t('你已删除这条消息')
+          : inThread
+            ? t('该消息已撤回')
+            : mine
+              ? t('你撤回了一条消息')
+              : t('{name} 撤回了一条消息', { name: m.authorName })}
+      </ChatNotice>
+      {thread ? <ThreadSummary {...thread} /> : null}
+    </>
   )
 })
 
@@ -308,7 +320,7 @@ export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; m
 const quoteLine = (text: string) => (text.split('\n')[0] ?? '').replace(/[`*]/g, '')
 
 /** Quoting a bot also @s it in the composer; deleting the @ leaves a quote that triggers nobody (spec §8.6). */
-const quoteMessage = (m: MessageDto) => {
+const quoteMessage = (m: MessageDto, scope?: string) => {
   const bot = m.kind === 'bot' ? m.authorName : undefined
   useQuote.getState().set({
     groupId: m.groupId,
@@ -317,8 +329,9 @@ const quoteMessage = (m: MessageDto) => {
     who: m.authorName,
     text: quoteLine(m.body),
     bot,
+    threadRootId: scope,
   })
-  if (bot) mentionInChat(m.groupId, bot)
+  if (bot) mentionInChat(m.groupId, bot, scope)
 }
 
 const link = (groupId: string, query: string) => `${location.origin}/g/${groupId}?${query}`
@@ -330,14 +343,15 @@ const messageTarget = (
   own = false,
   onEdit?: () => void,
   startedRuns?: (messageId: string) => string[],
+  scope?: string,
 ): ActionTarget => ({
   message: m,
   own,
   onEdit,
   startedRuns: startedRuns && (() => startedRuns(m.id)),
-  link: link(m.groupId, m.threadRootId ? `thread=${m.threadRootId}` : `msg=${m.id}`),
+  link: link(m.groupId, m.threadRootId ? `thread=${m.threadRootId}&msg=${m.id}` : `msg=${m.id}`),
   quoteTitle: m.kind === 'bot' ? BOT_QUOTE : undefined,
-  onQuote: () => quoteMessage(m),
+  onQuote: () => quoteMessage(m, scope),
   copyText: m.body,
   onThread: threadable(m) ? () => openThread(m.id) : undefined,
 })
@@ -470,9 +484,10 @@ export const UserMessage = memo(function UserMessage({
   const unnamed = useUnnamedTargets(m)
   const canvas = messageCanvas(m)
   const thread = useThreadSummary(m)
+  const scope = useContext(ThreadScope)
   return (
     <MessageMenu
-      {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns)}
+      {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns, scope)}
     >
       {(bar) => (
         <Message
@@ -685,8 +700,9 @@ function ReplyBody({ m }: { m: MessageDto }) {
 
 /** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */
 export const BotReply = memo(function BotReply({ m, compact = false }: { m: MessageDto; compact?: boolean }) {
+  const scope = useContext(ThreadScope)
   return (
-    <MessageMenu {...messageTarget(m)}>
+    <MessageMenu {...messageTarget(m, false, undefined, undefined, scope)}>
       {(bar) => <ReplyMessage m={m} continued={compact} runId={m.runId} bar={bar} />}
     </MessageMenu>
   )
@@ -733,6 +749,7 @@ export const RunCard = memo(function RunCard({
     (s) => s.open && !!s.groupId && s.benches[s.groupId]?.active === `run:${run.id}`,
   )
   const quote = useQuote((s) => s.set)
+  const scope = useContext(ThreadScope)
   const streamed = useRunDeltas((s) =>
     run.status === 'running' ? s[run.id]?.trim().split('\n').at(-1) : undefined,
   )
@@ -752,7 +769,7 @@ export const RunCard = memo(function RunCard({
     link: link(run.groupId, reply ? `msg=${reply.id}` : `run=${run.id}`),
     quoteTitle: BOT_QUOTE,
     onQuote: () => {
-      if (reply) return quoteMessage(reply)
+      if (reply) return quoteMessage(reply, scope)
       quote({
         groupId: run.groupId,
         kind: 'run',
@@ -760,8 +777,9 @@ export const RunCard = memo(function RunCard({
         who: t('{name} 的运行卡片', { name: botName }),
         text: toolTitle(stepText(run)) || STATUS_LABEL[run.status],
         bot: botName,
+        threadRootId: scope,
       })
-      mentionInChat(run.groupId, botName)
+      mentionInChat(run.groupId, botName, scope)
     },
     copyText: reply?.body,
     branchable,

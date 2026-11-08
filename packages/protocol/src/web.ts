@@ -1287,6 +1287,8 @@ export const PinnedMessageDto = z.object({
   /** The message text, cut to a line for the banner ('' when it carries only attachments). */
   text: z.string(),
   attachments: z.number().int(),
+  /** Set when the pinned message is a thread reply: its thread opens to locate it. */
+  threadRootId: z.string().optional(),
   pinnedBy: z.object({ id: z.string(), name: z.string() }),
   pinnedAt: z.string(),
 })
@@ -1444,6 +1446,8 @@ export const MessageDto = z.object({
   threadRootId: z.string().nullable().optional(),
   /** A thread reply also shown in the main timeline (同时发送到群). */
   alsoSent: z.boolean().optional(),
+  /** Deleted by the viewer (删除): only a thread root with replies still comes back, blanked, as a placeholder. */
+  hidden: z.boolean().optional(),
   /** On a root message with replies: their summary. */
   thread: ThreadSummary.optional(),
 })

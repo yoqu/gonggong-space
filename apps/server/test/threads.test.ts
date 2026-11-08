@@ -1,5 +1,7 @@
 import type {
   GroupDto,
+  GroupPinsDto,
+  GroupThreadsDto,
   MessageDto,
   ThreadDto,
   ThreadInboxDto,
@@ -208,5 +210,59 @@ describe('thread inbox', () => {
     expect((await s.asZhao.post(`/api/groups/${s.g.id}/leave`)).status).toBeLessThan(300)
     expect((await s.asZhao.get<ThreadInboxDto>('/api/threads')).body.threads).toEqual([])
     expect((await s.asZhao.get(`/api/messages/${root.id}/thread`)).status).toBe(404)
+  })
+})
+
+describe('thread of a root the viewer deleted', () => {
+  it('stays readable as a placeholder in the thread, the inbox, the group list and the counts', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '我要删掉的根')).body
+    await send(s.asLi, s.g.id, '回复一', { threadRootId: root.id })
+    expect((await s.asWang.post(`/api/messages/${root.id}/hide`)).status).toBeLessThan(300)
+    expect((await timeline(s.asWang, s.g.id)).some((m) => m.id === root.id)).toBe(false)
+
+    const { status, body } = await s.asWang.get<ThreadDto>(`/api/messages/${root.id}/thread`)
+    expect(status).toBe(200)
+    expect(body.root).toMatchObject({ id: root.id, hidden: true, body: '', attachments: [] })
+    expect(body.replies.map((m) => m.body)).toEqual(['回复一'])
+    // Others still see it.
+    expect((await s.asLi.get<ThreadDto>(`/api/messages/${root.id}/thread`)).body.root).toMatchObject({
+      body: '我要删掉的根',
+    })
+    expect((await send(s.asWang, s.g.id, '我还能回复', { threadRootId: root.id })).status).toBe(200)
+
+    const inbox = (await s.asWang.get<ThreadInboxDto>('/api/threads')).body.threads
+    expect(inbox.map((x) => [x.root.id, x.root.hidden])).toEqual([[root.id, true]])
+    const list = (await s.asWang.get<GroupThreadsDto>(`/api/groups/${s.g.id}/threads`)).body
+    expect(list.threads.map((x) => [x.root.id, x.root.hidden, x.root.body])).toEqual([[root.id, true, '']])
+    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body.unread).toBe(0)
+  })
+
+  it('counts and lists agree for an unread thread whose root was deleted', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '根')).body
+    await s.asWang.post(`/api/messages/${root.id}/hide`)
+    await send(s.asLi, s.g.id, '回复', { threadRootId: root.id })
+    expect((await s.asWang.get<ThreadUnreadDto>('/api/threads/unread')).body.unread).toBe(1)
+    expect((await s.asWang.get<ThreadInboxDto>('/api/threads')).body.threads).toHaveLength(1)
+    expect((await s.asWang.get<GroupThreadsDto>(`/api/groups/${s.g.id}/threads`)).body.threads).toHaveLength(
+      1,
+    )
+  })
+})
+
+describe('pins of thread replies', () => {
+  it('carry the thread they belong to', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '根')).body
+    const reply = (await send(s.asLi, s.g.id, '要置顶的回复', { threadRootId: root.id })).body
+    const plain = (await send(s.asWang, s.g.id, '普通消息')).body
+    await s.asWang.post(`/api/groups/${s.g.id}/pins`, { messageId: reply.id })
+    await s.asWang.post(`/api/groups/${s.g.id}/pins`, { messageId: plain.id })
+    const { pins } = (await s.asWang.get<GroupPinsDto>(`/api/groups/${s.g.id}/pins`)).body
+    expect(pins.map((p) => [p.messageId, p.threadRootId])).toEqual([
+      [plain.id, undefined],
+      [reply.id, root.id],
+    ])
   })
 })

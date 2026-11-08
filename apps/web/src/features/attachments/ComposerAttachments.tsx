@@ -139,7 +139,11 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
       {bot ? (
         <>
           <span className="quote-chip__note">{t('已自动 @ Bot，删掉 @ 就只引用、不触发')}</span>
-          <Button variant="plain" size="small" onClick={() => mentionInChat(quote.groupId, bot)}>
+          <Button
+            variant="plain"
+            size="small"
+            onClick={() => mentionInChat(quote.groupId, bot, quote.threadRootId)}
+          >
             {t('@ {name}', { name: bot })}
           </Button>
         </>

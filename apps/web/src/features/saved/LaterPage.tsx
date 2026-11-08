@@ -33,7 +33,7 @@ const snippet = (m: MessageDto) =>
 
 /** Where 跳到原消息 goes: a thread reply opens its thread. */
 export const messageHref = (m: MessageDto) =>
-  m.threadRootId ? `/g/${m.groupId}?thread=${m.threadRootId}` : `/g/${m.groupId}?msg=${m.id}`
+  m.threadRootId ? `/g/${m.groupId}?thread=${m.threadRootId}&msg=${m.id}` : `/g/${m.groupId}?msg=${m.id}`
 
 function Item({ item, tab }: { item: SavedMessageDto; tab: Tab }) {
   const navigate = useNavigate()

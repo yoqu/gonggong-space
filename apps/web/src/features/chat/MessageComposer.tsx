@@ -107,7 +107,7 @@ export const MessageComposer = memo(function MessageComposer({
   /** Filled with the upload entry point, so files dropped anywhere on the chat attach here. */
   dropFiles?: RefObject<((files: File[]) => void) | null>
   /**
-   * Replies in the thread of this root (plan 话题). Quotes, cited text, the canvas and 打断并追加 belong to the main
+   * Replies in the thread of this root (plan 话题). Cited text, the canvas and 打断并追加 belong to the main
    * composer, so this one leaves them alone.
    */
   thread?: string
@@ -116,7 +116,7 @@ export const MessageComposer = memo(function MessageComposer({
   const key = draftKey(group.id, thread)
   const [draft, setDraft] = useState(() => loadDraft(key))
   const [alsoSent, setAlsoSent] = useState(false)
-  /** The group's composer-wide stores (quote, cite, canvas…) speak to the main composer only. */
+  /** The group's composer-wide stores (cite, canvas…) speak to the main composer only; quotes and @s are per thread. */
   const main = thread ? '' : group.id
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)
@@ -162,7 +162,9 @@ export const MessageComposer = memo(function MessageComposer({
   useEffect(() => {
     if (dropFiles) dropFiles.current = uploads.add
   })
-  const quote = useQuote((s) => (s.quote?.groupId === main ? s.quote : null))
+  const quote = useQuote((s) =>
+    s.quote?.groupId === group.id && s.quote.threadRootId === thread ? s.quote : null,
+  )
   const canvasFocus = useCanvasContext((s) => s.focus)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
@@ -233,7 +235,9 @@ export const MessageComposer = memo(function MessageComposer({
     change(`${draft}${draft && !/\s$/.test(draft) ? ' ' : ''}${cited.text} `)
   }, [cited])
 
-  const mention = useMention((s) => (s.pending?.groupId === main ? s.pending : null))
+  const mention = useMention((s) =>
+    s.pending?.groupId === group.id && s.pending.threadRootId === thread ? s.pending : null,
+  )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over name, onto the draft it was rendered with
   useEffect(() => {
     if (!mention) return

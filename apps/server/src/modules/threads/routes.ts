@@ -26,7 +26,16 @@ import {
 } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, groupMembers, groups, messages, runs, threadFollows, users } from '../../db/schema.js'
+import {
+  bots,
+  groupMembers,
+  groups,
+  messageHides,
+  messages,
+  runs,
+  threadFollows,
+  users,
+} from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
@@ -41,26 +50,47 @@ import { readThread, stateColumns, stateDto, threadState, threadStates, threadSu
 const INBOX_LATEST = 2
 const BOT_AT_WORK = ['queued', 'offline_wait', 'running', 'awaiting_approval', 'awaiting_answer']
 
-/** Messages matching `where` as `userId` sees them, newest first, with reactions and thread summaries. */
-export async function loadMessages(ctx: Ctx, userId: string, where: SQL | undefined, limit: number) {
+/**
+ * Messages matching `where` as `userId` sees them, newest first, with reactions and thread summaries. `keepHidden`
+ * (thread roots) returns what the viewer deleted as blanked placeholders instead of dropping it.
+ */
+export async function loadMessages(
+  ctx: Ctx,
+  userId: string,
+  where: SQL | undefined,
+  limit: number,
+  keepHidden = false,
+) {
   const rows = await ctx.db
     .select({ m: messages, userName: userAuthorName, botName: bots.name })
     .from(messages)
     .leftJoin(users, eq(users.id, messages.authorUserId))
     .leftJoin(bots, eq(bots.id, messages.authorBotId))
-    .where(and(where, notHiddenBy(ctx, userId)))
+    .where(and(where, keepHidden ? undefined : notHiddenBy(ctx, userId)))
     .orderBy(desc(messages.seq))
     .limit(limit)
   const ids = rows.map((r) => r.m.id)
-  const [reactions, threads] = await Promise.all([
+  const [reactions, threads, hidden] = await Promise.all([
     reactionsFor(ctx, ids, userId),
     threadSummaries(
       ctx,
       rows.filter((r) => !r.m.threadRootId).map((r) => r.m.id),
       userId,
     ),
+    keepHidden && ids.length
+      ? ctx.db
+          .select({ id: messageHides.messageId })
+          .from(messageHides)
+          .where(and(eq(messageHides.userId, userId), inArray(messageHides.messageId, ids)))
+      : [],
   ])
+  const gone = new Set(hidden.map((h) => h.id))
   return rows.map((r): MessageDto => {
+    if (gone.has(r.m.id)) {
+      const blank = messageDto({ ...r.m, body: '', meta: {} }, r.userName ?? r.botName ?? '')
+      const thread = threads.get(r.m.id)
+      return { ...blank, hidden: true, ...(thread && { thread }) }
+    }
     const dto = messageDto(r.m, r.userName ?? r.botName ?? '', reactions.get(r.m.id))
     const thread = threads.get(r.m.id)
     return thread ? { ...dto, thread } : dto
@@ -89,7 +119,7 @@ export function threadRoutes(ctx: Ctx) {
       const root = await requireRoot(ctx, req.params.id, me.id)
       const { before, limit } = TimelineQuery.parse(req.query)
       const [[rootDto], replies, runRows, state] = await Promise.all([
-        loadMessages(ctx, me.id, eq(messages.id, root.id), 1),
+        loadMessages(ctx, me.id, eq(messages.id, root.id), 1, true),
         loadMessages(
           ctx,
           me.id,
@@ -189,7 +219,13 @@ export function threadRoutes(ctx: Ctx) {
       const ids = [...atWork, ...quiet].map((r) => r.id)
       if (!ids.length) return { threads: [], next: null }
       const [loaded, states] = await Promise.all([
-        loadMessages(ctx, me.id, and(inArray(messages.id, ids), ne(messages.kind, 'event')), ids.length),
+        loadMessages(
+          ctx,
+          me.id,
+          and(inArray(messages.id, ids), ne(messages.kind, 'event')),
+          ids.length,
+          true,
+        ),
         threadStates(ctx, ids, me.id),
       ])
       const liveIds = new Set(atWork.map((r) => r.id))
@@ -235,7 +271,7 @@ export function threadRoutes(ctx: Ctx) {
       const rootIds = rows.map((r) => r.rootId)
       if (!rootIds.length) return { threads: [] }
       const [roots, latest] = await Promise.all([
-        loadMessages(ctx, me.id, inArray(messages.id, rootIds), rootIds.length),
+        loadMessages(ctx, me.id, inArray(messages.id, rootIds), rootIds.length, true),
         loadMessages(
           ctx,
           me.id,

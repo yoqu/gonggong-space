@@ -5,22 +5,25 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel } from '../../ui'
+import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast } from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
 import { MessageComposer } from './MessageComposer'
 import { BotReply, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
-import { InThread } from './threadSummary'
+import { InThread, ThreadScope } from './threadSummary'
 import { useTimeline } from './useTimeline'
 
 const STICK_PX = 80
 const FLASH_MS = 2000
 
-/** What to bring into view in a thread: a run's card, or one of its approval / question cards. */
+/** What to bring into view in a thread: a run's card (or one of its approval / question cards), or a reply. */
 export interface ThreadFocus {
   rootId: string
-  runId: string
+  runId?: string
   pendingId?: string
+  messageId?: string
 }
+/** Older pages a linked reply may be searched through. */
+const LINK_PAGES = 20
 const LOAD_OLDER_PX = 40
 
 /** One thread in the chat's right rail (plan 话题): its root, replies and run cards, and a composer replying in it. */
@@ -47,6 +50,7 @@ export function ThreadView({
   const scroll = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const olderAnchor = useRef<number | null>(null)
+  const focusPages = useRef(0)
   const root = tl.messages.find((m) => m.id === rootId)
   const replies = useMemo(() => tl.messages.filter((m) => m.id !== rootId), [tl.messages, rootId])
   const lastSeq = replies.at(-1)?.seq ?? 0
@@ -70,12 +74,32 @@ export function ThreadView({
   // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   useEffect(() => {
     const el = scroll.current
-    if (!focus || !el) return
-    const id = CSS.escape(focus.pendingId ?? focus.runId)
+    if (!focus || !el || !tl.loaded) return
+    const target = focus.messageId ?? focus.pendingId ?? focus.runId
+    if (!target) return onFocused?.()
+    const id = CSS.escape(target)
     const card = el.querySelector<HTMLElement>(
-      focus.pendingId ? `[data-pending-id="${id}"]` : `[data-run-id="${id}"]`,
+      focus.messageId
+        ? `[data-msg-id="${id}"]`
+        : focus.pendingId
+          ? `[data-pending-id="${id}"]`
+          : `[data-run-id="${id}"]`,
     )
-    if (!card) return
+    if (!card) {
+      // A linked reply may sit on an older page: load back until it shows.
+      if (focus.messageId) {
+        if (tl.hasMore && tl.older === 'idle' && focusPages.current < LINK_PAGES) {
+          focusPages.current++
+          tl.loadOlder().catch(() => {})
+        } else if (tl.older !== 'loading') {
+          focusPages.current = 0
+          toast({ type: 'error', message: t('没找到这条回复') })
+          onFocused?.()
+        }
+      }
+      return
+    }
+    focusPages.current = 0
     stick.current = false
     card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     card.classList.remove('tl-item--flash')
@@ -83,7 +107,7 @@ export function ThreadView({
     card.classList.add('tl-item--flash')
     setTimeout(() => card.classList.remove('tl-item--flash'), FLASH_MS)
     onFocused?.()
-  }, [focus, tl.messages, tl.runs, onFocused])
+  }, [focus, tl.loaded, tl.hasMore, tl.older, tl.loadOlder, tl.messages, tl.runs, onFocused])
 
   const onScroll = () => {
     const el = scroll.current
@@ -137,7 +161,7 @@ export function ThreadView({
       card(run, m)
     ) : m.kind === 'event' ? (
       <EventRow m={m} />
-    ) : m.recalled ? (
+    ) : m.recalled || m.hidden ? (
       <RecallRow m={m} mine={m.authorId === me?.id} />
     ) : m.kind === 'bot' ? (
       <BotReply m={m} />
@@ -162,44 +186,48 @@ export function ThreadView({
   }
 
   return (
-    <ThreadPanel
-      className="thread-view"
-      subtitle={`# ${group.name}`}
-      onClose={onClose}
-      onBack={onBack}
-      scrollRef={scroll}
-      onScroll={onScroll}
-      replyCount={root?.thread?.replyCount ?? replies.length}
-      actions={
-        readOnly || !tl.loaded ? null : (
-          <Button size="small" variant="plain" icon={following ? 'bell-slash' : 'bell'} onClick={follow}>
-            {following ? t('取消关注#thread') : t('关注#thread')}
-          </Button>
-        )
-      }
-      root={
-        tl.failed ? (
-          <EmptyState
-            bare
-            illustration={<FailedArt />}
-            title={t('话题加载失败')}
-            actions={
-              <Button size="small" onClick={tl.retry}>
-                {t('重试')}
-              </Button>
-            }
-          />
-        ) : root ? (
-          <InThread.Provider value>{item(root)}</InThread.Provider>
-        ) : (
-          <Mascot action="wait" size={56} label={t('加载中')} />
-        )
-      }
-      composer={false}
-      footer={readOnly ? undefined : <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} />}
-    >
-      {tl.older === 'loading' ? <Spinner /> : null}
-      {replies.map(item)}
-    </ThreadPanel>
+    <ThreadScope.Provider value={rootId}>
+      <ThreadPanel
+        className="thread-view"
+        subtitle={`# ${group.name}`}
+        onClose={onClose}
+        onBack={onBack}
+        scrollRef={scroll}
+        onScroll={onScroll}
+        replyCount={root?.thread?.replyCount ?? replies.length}
+        actions={
+          readOnly || !tl.loaded ? null : (
+            <Button size="small" variant="plain" icon={following ? 'bell-slash' : 'bell'} onClick={follow}>
+              {following ? t('取消关注#thread') : t('关注#thread')}
+            </Button>
+          )
+        }
+        root={
+          tl.failed ? (
+            <EmptyState
+              bare
+              illustration={<FailedArt />}
+              title={t('话题加载失败')}
+              actions={
+                <Button size="small" onClick={tl.retry}>
+                  {t('重试')}
+                </Button>
+              }
+            />
+          ) : root ? (
+            <InThread.Provider value>{item(root)}</InThread.Provider>
+          ) : (
+            <Mascot action="wait" size={56} label={t('加载中')} />
+          )
+        }
+        composer={false}
+        footer={
+          readOnly ? undefined : <MessageComposer group={group} thread={rootId} onSent={tl.addMessage} />
+        }
+      >
+        {tl.older === 'loading' ? <Spinner /> : null}
+        {replies.map(item)}
+      </ThreadPanel>
+    </ThreadScope.Provider>
   )
 }

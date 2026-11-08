@@ -12,6 +12,8 @@ import { openThread } from './thread'
 export const useThreadLive = create<{ roots: ReadonlySet<string> }>()(() => ({ roots: new Set() }))
 /** Inside its own thread panel a root needs no reply bar. */
 export const InThread = createContext(false)
+/** The root of the thread panel a message is shown in; undefined in the main channel. */
+export const ThreadScope = createContext<string | undefined>(undefined)
 
 /** Avatars of a thread's participants (user or bot ids) as the group and workspace know them. */
 export function useThreadPeople(groupId: string, participants: string[] | undefined): AvatarProps[] {
@@ -40,7 +42,8 @@ export function useThreadSummary(m: MessageDto): ThreadSummaryProps | undefined 
   return {
     count: m.thread?.replyCount ?? 0,
     people,
-    unread: !!m.thread?.unread,
+    unread: m.thread?.unread ?? 0,
+    mentioned: m.thread?.mentioned,
     lastTime: m.thread ? ago(m.thread.lastReplyAt) : undefined,
     extra: live ? (
       <Tag tone="blue" icon="bolt">
