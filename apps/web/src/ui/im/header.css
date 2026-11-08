@@ -50,6 +50,13 @@
 .pn-chathead__back:hover {
   background: var(--control-track);
 }
+/* Touch: a bigger back target, the usual way out of a conversation on a phone. */
+@media (pointer: coarse) {
+  .pn-chathead__back {
+    width: 36px;
+    height: 36px;
+  }
+}
 :root[data-window-inactive] .pn-chathead__title {
   color: var(--label-secondary);
 }

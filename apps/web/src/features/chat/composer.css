@@ -133,8 +133,9 @@
   border-radius: 50%;
 }
 @media (max-width: 767px) {
+  /* Clears the home indicator when the composer sits at the very bottom of a notched phone. */
   .composer {
-    padding: var(--space-8) var(--space-12) var(--space-12);
+    padding: var(--space-8) var(--space-12) max(var(--space-12), env(safe-area-inset-bottom));
   }
   /* Below 16px iOS zooms the page on focus; the @ highlight layer takes the same size. */
   .composer .pn-composer {

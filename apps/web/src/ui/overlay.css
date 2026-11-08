@@ -251,6 +251,21 @@
 @media (max-width: 767px) {
   .ui-drawer {
     width: 100%;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Phones: dialogs are bottom sheets that rise from the bottom edge, thumb-near and clear of the home indicator.
+     Single-class specificity so full-screen dialogs (plugins) keep their own layout. */
+  .ui-overlay:where(:not(.ui-overlay--contained):has(> .ui-dialog:not(.ui-dialog--bare))) {
+    align-items: flex-end;
+    padding: calc(var(--space-32) + env(safe-area-inset-top)) 0 0;
+  }
+  :where(.ui-overlay:not(.ui-overlay--contained)) > .ui-dialog:where(:not(.ui-dialog--bare)) {
+    --enter-y: 100%;
+    --enter-scale: 1;
+    --exit-scale: 1;
+    max-height: 100%;
+    padding-bottom: calc(var(--space-20) + env(safe-area-inset-bottom));
+    border-radius: var(--radius-window) var(--radius-window) 0 0;
   }
 }
 .ui-drawer__header {

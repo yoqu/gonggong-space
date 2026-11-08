@@ -78,3 +78,39 @@ test('on a phone the send button stays inside the composer after @-ing two bots 
   await send.click()
   await expect(input).toHaveValue('')
 })
+
+test('on a phone dialogs rise as bottom sheets with 16px fields and side panels fill the screen', async ({
+  page,
+}) => {
+  const { api } = await memberWithMachine(page, 'mobile3')
+  const group = await api.call<{ id: string }>('post', '/api/groups', {
+    name: 'mobile3',
+    kind: 'group',
+    botIds: [],
+    repo: null,
+  })
+  await page.goto(`/g/${group.id}`)
+  await page.getByRole('button', { name: '群设置' }).first().click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect
+    .poll(async () => {
+      const box = (await dialog.boundingBox())!
+      return [Math.round(box.x), Math.round(box.width), Math.round(box.y + box.height)]
+    })
+    .toEqual([0, 390, 844])
+  const name = dialog.getByRole('textbox').first()
+  expect(await name.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await page.getByRole('button', { name: /^群成员/ }).click()
+  const rail = page.locator('.chat__rail--overlay')
+  await expect
+    .poll(async () => {
+      const box = (await rail.boundingBox())!
+      return [Math.round(box.x), Math.round(box.width)]
+    })
+    .toEqual([0, 390])
+  await rail.getByRole('button', { name: '关闭', exact: true }).click()
+  await expect(rail).toHaveCount(0)
+})

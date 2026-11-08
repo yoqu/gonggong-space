@@ -97,6 +97,17 @@
 .ui-toolbar__btn:disabled {
   opacity: 0.45;
 }
+/* Touch: toolbar capsules stay compact; each button's target reaches 44px tall past the capsule edge. */
+@media (pointer: coarse) {
+  .ui-toolbar__btn {
+    position: relative;
+  }
+  .ui-toolbar__btn::after {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+  }
+}
 :root[data-window-inactive] .ui-toolbar,
 :root[data-window-inactive] .ui-toolbar__btn {
   color: var(--label-secondary);

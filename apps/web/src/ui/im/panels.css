@@ -50,6 +50,19 @@
   width: 9px;
   height: 9px;
 }
+/* Touch: the small round button keeps its look; an invisible ring grows its target to 44px. */
+@media (pointer: coarse) {
+  .pn-info__close {
+    position: relative;
+    width: 28px;
+    height: 28px;
+  }
+  .pn-info__close::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+}
 .pn-info__scroll {
   flex: 1;
   overflow: auto;

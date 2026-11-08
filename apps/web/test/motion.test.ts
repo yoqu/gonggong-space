@@ -241,4 +241,34 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(guide, '.guide__step')).toContain('ui-enter var(--spring-snappy)')
     expect(ruleOf(guide, '.guide__step[data-back]')).toContain('--enter-x: -16px')
   })
+  it('round 9: phones respect safe areas, push one column at a time, raise dialogs as sheets, grow touch targets', () => {
+    const html = readFileSync('index.html', 'utf8')
+    expect(html).toContain('viewport-fit=cover, interactive-widget=resizes-content')
+    const shell = read('app/shell.css')
+    expect(ruleOf(shell, '.app')).toContain(
+      'env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)',
+    )
+    const overlayRail = ruleOf(shell, '.chat__rail--overlay')
+    expect(overlayRail).toContain('--enter-x: 100%')
+    expect(overlayRail).toContain('animation: var(--spring-smooth) ui-enter')
+    expect(shell).toMatch(/\.chat--chat \.chat__center,\s*\.chat--list \.chat__sidebar \{\s*--enter-x: 32px;/)
+    expect(ruleOf(shell, '.chat--list .chat__sidebar')).toContain('width: 100%')
+    expect(shell).toMatch(/\.chat--list \.chat__sidebar \{\s*--enter-x: -32px;/)
+    expect(read('features/chat/composer.css')).toContain('max(var(--space-12), env(safe-area-inset-bottom))')
+    const overlay = read('ui/overlay.css')
+    expect(overlay).toMatch(/:has\(> \.ui-dialog:not\(\.ui-dialog--bare\)\)\) \{\s*align-items: flex-end;/)
+    expect(overlay).toMatch(/\.ui-dialog:where\(:not\(\.ui-dialog--bare\)\) \{\s*--enter-y: 100%;/)
+    expect(read('ui/form.css')).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.ui-input,\s*\.ui-input--mono \{\s*font-size: 16px;/,
+    )
+    expect(read('ui/toolbar.css')).toMatch(
+      /\.ui-toolbar__btn::after \{\s*content: "";\s*position: absolute;\s*inset: -8px 0;/,
+    )
+    expect(read('ui/im/panels.css')).toMatch(
+      /\.pn-info__close::after \{\s*content: "";\s*position: absolute;\s*inset: -8px;/,
+    )
+    expect(read('ui/im/header.css')).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.pn-chathead__back \{\s*width: 36px;/,
+    )
+  })
 })

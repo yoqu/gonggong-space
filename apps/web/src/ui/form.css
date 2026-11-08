@@ -266,3 +266,10 @@
   line-height: 16px;
   color: var(--label-secondary);
 }
+/* Touch: iOS zooms the page into any field under 16px on focus. */
+@media (pointer: coarse) {
+  .ui-input,
+  .ui-input--mono {
+    font-size: 16px;
+  }
+}
