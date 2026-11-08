@@ -186,7 +186,12 @@ export function ThreadView({
       await api.put<ThreadStateDto>(`/messages/${rootId}/thread/follow`, { following: !following })
     } catch (e) {
       toastError(e)
+      return
     }
+    toast({
+      type: 'success',
+      message: following ? t('已取消关注话题') : t('已关注，新回复会出现在「话题」里'),
+    })
   }
 
   return (

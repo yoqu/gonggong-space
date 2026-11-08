@@ -361,6 +361,42 @@ describe('话题 inbox', () => {
     )
   })
 
+  it('marks a card read, all of them from the header, and unfollows with 撤销', async () => {
+    const calls = renderAt('/threads', {
+      'GET /threads': inbox,
+      'PUT /messages/m1/thread/follow': threadDto().state,
+    })
+    const main = await screen.findByRole('region', { name: '话题' })
+    const card = (await within(main).findByText('发版前要不要冻结主干？')).closest('article') as HTMLElement
+    expect(card.hasAttribute('data-unread')).toBe(true)
+    fireEvent.click(within(main).getByRole('button', { name: '全部标为已读' }))
+    expect(card.hasAttribute('data-unread')).toBe(false)
+    expect(within(card).queryByRole('button', { name: '标为已读' })).toBeNull()
+    expect(within(main).queryByRole('button', { name: '全部标为已读' })).toBeNull()
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'PUT' && c.path === '/messages/m1/thread/read')).toBe(true),
+    )
+
+    fireEvent.click(within(card).getByRole('button', { name: '取消关注' }))
+    expect(card.classList.contains('ui-leaving')).toBe(true)
+    await waitFor(() => expect(within(main).queryByText('发版前要不要冻结主干？')).toBeNull())
+    fireEvent.click(await screen.findByRole('button', { name: '撤销' }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === '/messages/m1/thread/follow').map((c) => c.body)).toEqual([
+        { following: false },
+        { following: true },
+      ]),
+    )
+  })
+
+  it('confirms following from the thread rail', async () => {
+    renderAt('/g/g1?thread=m1', {
+      'PUT /messages/m1/thread/follow': { ...threadDto().state, following: false },
+    })
+    fireEvent.click(await within(await panel()).findByRole('button', { name: '取消关注' }))
+    expect(await screen.findByText('已取消关注话题')).toBeTruthy()
+  })
+
   it('shows no count for new replies without an @', async () => {
     renderAt('/threads', {
       'GET /threads': { threads: [] },

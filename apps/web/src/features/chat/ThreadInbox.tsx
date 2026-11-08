@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
+import { cx } from '../../lib/cx'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
-import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot } from '../../ui'
+import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot, toast, useLeaving } from '../../ui'
 import { MessageComposer } from './MessageComposer'
 import './thread-inbox.css'
 
@@ -30,7 +32,19 @@ function Line({ m }: { m: MessageDto }) {
   )
 }
 
-function Card({ item, onSent }: { item: ThreadInboxItemDto; onSent: () => void }) {
+function Card({
+  item,
+  leaving,
+  onSent,
+  onRead,
+  onUnfollow,
+}: {
+  item: ThreadInboxItemDto
+  leaving: boolean
+  onSent: () => void
+  onRead: () => void
+  onUnfollow: () => void
+}) {
   const navigate = useNavigate()
   const group = useWorkspace((s) => s.groups.find((g) => g.id === item.groupId))
   const [replying, setReplying] = useState(false)
@@ -46,7 +60,7 @@ function Card({ item, onSent }: { item: ThreadInboxItemDto; onSent: () => void }
   return (
     <article
       ref={card}
-      className="thread-inbox__card"
+      className={cx('thread-inbox__card', leaving && 'ui-leaving')}
       data-unread={state.unread > 0 || undefined}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && replying && !e.defaultPrevented) {
@@ -89,14 +103,24 @@ function Card({ item, onSent }: { item: ThreadInboxItemDto; onSent: () => void }
             }}
           />
         ) : (
-          <Button
-            size="small"
-            variant="plain"
-            className="thread-inbox__reply"
-            onClick={() => setReplying(true)}
-          >
-            {t('回复')}
-          </Button>
+          <span className="thread-inbox__actions">
+            <Button
+              size="small"
+              variant="plain"
+              className="thread-inbox__reply"
+              onClick={() => setReplying(true)}
+            >
+              {t('回复')}
+            </Button>
+            {state.unread ? (
+              <Button size="small" variant="plain" icon="check" onClick={onRead}>
+                {t('标为已读')}
+              </Button>
+            ) : null}
+            <Button size="small" variant="plain" icon="bell-slash" onClick={onUnfollow}>
+              {t('取消关注#thread')}
+            </Button>
+          </span>
         )
       ) : null}
     </article>
@@ -108,6 +132,7 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
   const [list, setList] = useState<ThreadInboxItemDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [more, setMore] = useState(false)
+  const { leaving, leave } = useLeaving()
 
   const load = useCallback(async () => {
     try {
@@ -147,6 +172,38 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
     }
   }
 
+  const markRead = (ids: string[]) => {
+    const read = new Set(ids)
+    setList(
+      (l) =>
+        l?.map((x) =>
+          read.has(x.root.id) ? { ...x, state: { ...x.state, unread: 0, mentioned: false } } : x,
+        ) ?? null,
+    )
+    Promise.all(ids.map((id) => api.put(`/messages/${id}/thread/read`, {}))).catch((e) => {
+      toastError(e)
+      void load()
+    })
+  }
+  const follow = (id: string, following: boolean) =>
+    api.put(`/messages/${id}/thread/follow`, { following }).then(
+      () => true,
+      (e) => {
+        toastError(e)
+        return false
+      },
+    )
+  const unfollow = async (id: string) => {
+    leave(id, () => setList((l) => l?.filter((x) => x.root.id !== id) ?? null))
+    if (!(await follow(id, false))) return void load()
+    toast({
+      type: 'success',
+      message: t('已取消关注，新回复不会再出现在这里'),
+      action: { label: t('撤销#undo'), onClick: () => void follow(id, true).then(() => load()) },
+    })
+  }
+  const unread = list?.filter((x) => x.state.unread > 0) ?? []
+
   return (
     <section className="works thread-inbox" aria-label={t('话题#inbox')}>
       <header className="works__head">
@@ -154,6 +211,17 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
           <Button size="small" variant="plain" icon="chevron-left" aria-label={t('返回')} onClick={onBack} />
         ) : null}
         <h1 className="works__title">{t('话题#inbox')}</h1>
+        <span className="spacer" />
+        {unread.length ? (
+          <Button
+            size="small"
+            variant="plain"
+            icon="check"
+            onClick={() => markRead(unread.map((x) => x.root.id))}
+          >
+            {t('全部标为已读')}
+          </Button>
+        ) : null}
       </header>
       {failed && !list ? (
         <div className="works__center">
@@ -182,7 +250,14 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
       ) : (
         <div className="thread-inbox__list">
           {list.map((item) => (
-            <Card key={item.root.id} item={item} onSent={() => void load()} />
+            <Card
+              key={item.root.id}
+              item={item}
+              leaving={leaving.has(item.root.id)}
+              onSent={() => void load()}
+              onRead={() => markRead([item.root.id])}
+              onUnfollow={() => void unfollow(item.root.id)}
+            />
           ))}
           {more ? (
             <Button size="small" variant="plain" onClick={() => void older()}>

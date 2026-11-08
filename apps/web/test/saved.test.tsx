@@ -190,6 +190,68 @@ describe('稍后处理 page', () => {
   })
 })
 
+describe('稍后处理 page actions', () => {
+  it('puts fired reminders first', async () => {
+    renderAt('/later', {
+      'GET /saved?state=open': {
+        items: [
+          saved(),
+          saved({
+            message: msg({ seq: 2, body: '提醒到了' }),
+            remindAt: '2026-11-08T03:00:00.000Z',
+            remindedAt: '2026-11-08T03:00:00.000Z',
+          }),
+        ],
+      },
+    })
+    await screen.findByTestId('later-m2')
+    const ids = [...document.querySelectorAll('[data-testid^="later-m"]')].map((e) =>
+      e.getAttribute('data-testid'),
+    )
+    expect(ids).toEqual(['later-m2', 'later-m1'])
+  })
+
+  it('takes a done item off the list at once, with 撤销 in the toast', async () => {
+    const calls = renderAt('/later', {
+      'GET /saved?state=open': { items: [saved()] },
+      'PUT /messages/m1/save/done': { ok: true },
+    })
+    const item = await screen.findByTestId('later-m1')
+    fireEvent.click(within(item).getByRole('button', { name: '完成' }))
+    expect(item.classList.contains('ui-leaving')).toBe(true)
+    await waitFor(() => expect(screen.queryByTestId('later-m1')).toBeNull())
+    fireEvent.click(await screen.findByRole('button', { name: '撤销' }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === '/messages/m1/save/done').map((c) => c.body)).toEqual([
+        { done: true },
+        { done: false },
+      ]),
+    )
+  })
+
+  it('removes an item and brings it back with its reminder on 撤销', async () => {
+    const calls = renderAt('/later', {
+      'GET /saved?state=open': { items: [saved({ remindAt: '2026-11-09T01:00:00.000Z' })] },
+      'DELETE /messages/m1/save': { ok: true },
+      'PUT /messages/m1/save': { ok: true },
+    })
+    const item = await screen.findByTestId('later-m1')
+    fireEvent.click(within(item).getByRole('button', { name: '移除' }))
+    await waitFor(() => expect(screen.queryByTestId('later-m1')).toBeNull())
+    expect(await screen.findByText('已移除')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }))
+    await waitFor(() =>
+      expect(calls).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: '/messages/m1/save',
+          body: { remindAt: '2026-11-09T01:00:00.000Z' },
+        }),
+      ),
+    )
+  })
+})
+
 describe('reminder presets', () => {
   it('offers the next Monday at 9, a week ahead on a Monday', () => {
     const monday = new Date(2026, 10, 9, 15, 0)

@@ -110,6 +110,8 @@ describe('notification center', () => {
     fireEvent.click(bell)
     const list = await screen.findByTestId('notification-list')
     await within(list).findByText('待审批')
+    const dialog = screen.getByRole('dialog', { name: '通知' })
+    expect(within(dialog).getByRole('img', { name: '1 条未读' })).toBeTruthy()
     expect(list.textContent).toContain('小王的 Claude 请求执行 go build ./...')
     expect(list.textContent).toContain('支付服务重构')
     expect(list.textContent).toContain('Bot 离线作废')
@@ -122,6 +124,7 @@ describe('notification center', () => {
     await waitFor(() => expect(useWorkspace.getState().notifCount).toBe(0))
     expect(calls.some((c) => c.method === 'POST' && c.path === '/notifications/read-all')).toBe(true)
     expect(bell.textContent).not.toContain('2')
+    expect(within(dialog).queryByRole('img', { name: /条未读/ })).toBeNull()
 
     fireEvent.click(within(list).getByText('小王的 Claude 请求执行 go build ./...'))
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g1?run=r2'))
@@ -136,13 +139,17 @@ describe('notification center', () => {
       { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
     ]
     const payload = { ...note({}).payload, approvalId: 'a1', options }
+    let release: (v: unknown) => void = () => {}
+    const held = new Promise((r) => {
+      release = r
+    })
     useWorkspace.setState({ groups: [{ id: 'g2', members: [] } as never] })
     const calls = mockApi({
       'GET /notifications': [
         note({ payload }),
         note({ id: 'n2', payload: { ...payload, groupId: 'g2', approvalId: 'a2' } }),
       ],
-      'POST /runs/r2/approvals/a1': { status: 'approved' },
+      'POST /runs/r2/approvals/a1': () => held,
     })
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
@@ -150,10 +157,18 @@ describe('notification center', () => {
     await within(list).findAllByText('待审批')
     // In a chat of mine the card in the chat is where to decide.
     expect(within(list).getAllByRole('button', { name: '批准' })).toHaveLength(1)
-    fireEvent.click(within(list).getByRole('button', { name: '批准' }))
+    const approve = within(list).getByRole('button', { name: '批准' })
+    fireEvent.click(approve)
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/runs/r2/approvals/a1')?.body).toEqual({ optionId: 'allow' }),
     )
+    // Only the clicked decision spins; the other one waits disabled.
+    expect(approve.getAttribute('aria-busy')).toBe('true')
+    const reject = within(list).getByRole('button', { name: '拒绝' })
+    expect(reject.getAttribute('aria-busy')).toBeNull()
+    expect(reject.hasAttribute('disabled')).toBe(true)
+    act(() => release(undefined))
+    await waitFor(() => expect(approve.getAttribute('aria-busy')).toBeNull())
     expect(screen.getByTestId('where').textContent).toBe('/')
   })
 
@@ -260,6 +275,11 @@ describe('notification center', () => {
     })
     await waitFor(() => expect(list.querySelectorAll('.notif__item')).toHaveLength(2))
     expect(within(list.querySelector('.notif__item') as HTMLElement).getByText('Bot 离线作废')).toBeTruthy()
+    // Only the pushed one drops in; the loaded list stays still.
+    expect([...list.querySelectorAll('.notif__row')].map((r) => r.hasAttribute('data-new'))).toEqual([
+      true,
+      false,
+    ])
     expect(calls.filter((c) => c.path === '/notifications')).toHaveLength(1)
     realtime.stop()
   })
@@ -288,7 +308,10 @@ describe('notification center', () => {
     const deletes = within(list).getAllByRole('button', { name: '删除通知' })
     expect(deletes).toHaveLength(3)
 
+    const row = deletes[1]!.closest('.notif__row') as HTMLElement
     fireEvent.click(deletes[1]!)
+    // It slides out before it leaves the list.
+    await waitFor(() => expect(row.classList.contains('ui-leaving')).toBe(true))
     await waitFor(() => expect(within(list).queryByText('Bot 离线作废')).toBeNull())
     expect(useWorkspace.getState().notifCount).toBe(0)
     expect(screen.getByTestId('where').textContent).toBe('/')

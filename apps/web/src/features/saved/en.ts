@@ -26,4 +26,6 @@ export default {
   还没有完成的消息: 'Nothing done yet',
   '在消息的更多菜单里点「稍后处理」，可以设置提醒。':
     'Choose “Later” in a message’s More menu to save it with a reminder.',
+  已移回进行中: 'Moved back to in progress',
+  '已移除#later': 'Removed from Later',
 }

@@ -22,6 +22,17 @@
     transform: translateX(var(--exit-x, 0)) scale(var(--exit-scale, 1));
   }
 }
+/* A list row on its way out (useLeaving): slides aside and fades; clicks no longer land on it. */
+.ui-leaving {
+  pointer-events: none;
+  animation: ui-leave var(--motion-base) forwards;
+}
+@keyframes ui-leave {
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.98);
+  }
+}
 /* Text that is still working: a light sweeps across it (Codex / Claude status lines). */
 .ui-shimmer {
   background:

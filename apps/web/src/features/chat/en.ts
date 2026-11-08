@@ -262,6 +262,11 @@ export default {
   '回复…': 'Reply…',
   发送失败: 'Failed to send',
   标为已读: 'Mark as read',
+  已发送: 'Sent',
+  '所有群的消息都看完了，新消息会出现在这里。': "You're all caught up. New messages will show up here.",
+  '已取消关注，新回复不会再出现在这里': "Unfollowed. New replies won't show up here",
+  已取消关注话题: 'Unfollowed the thread',
+  '已关注，新回复会出现在「话题」里': 'Following. New replies will show up in Threads',
   '还有更多未读，去群里看': 'More unread in the group',
   未读消息加载失败: 'Failed to load unread messages',
   '没有找到这条消息，它可能在话题里或已太久远':

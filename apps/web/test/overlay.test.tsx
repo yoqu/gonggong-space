@@ -1,7 +1,19 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Button, Dialog, Drawer, Input, Presence, Select, Tabs, Toaster, toast, useToasts } from '../src/ui'
+import {
+  Button,
+  Dialog,
+  Drawer,
+  Input,
+  Presence,
+  Select,
+  Tabs,
+  Toaster,
+  toast,
+  useLeaving,
+  useToasts,
+} from '../src/ui'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -263,5 +275,29 @@ describe('Toast behavior', () => {
     const three = screen.getByText('×3')
     expect(three).not.toBe(two)
     expect(two.isConnected).toBe(false)
+  })
+})
+
+describe('useLeaving', () => {
+  it('marks a row while it animates out, then drops it', () => {
+    vi.useFakeTimers()
+    const gone = vi.fn()
+    const { result } = renderHook(() => useLeaving())
+    act(() => result.current.leave('a', gone))
+    expect(result.current.leaving.has('a')).toBe(true)
+    expect(gone).not.toHaveBeenCalled()
+    act(() => vi.advanceTimersByTime(220))
+    expect(gone).toHaveBeenCalledOnce()
+    expect(result.current.leaving.has('a')).toBe(false)
+  })
+
+  it('drops the row at once under reduced motion', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }))
+    const gone = vi.fn()
+    const { result } = renderHook(() => useLeaving())
+    act(() => result.current.leave('a', gone))
+    expect(gone).toHaveBeenCalledOnce()
+    expect(result.current.leaving.size).toBe(0)
+    vi.unstubAllGlobals()
   })
 })

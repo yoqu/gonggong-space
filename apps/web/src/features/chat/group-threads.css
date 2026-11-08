@@ -17,6 +17,7 @@
   padding: var(--space-12) var(--space-16);
 }
 .group-threads__row {
+  position: relative;
   appearance: none;
   display: flex;
   flex-direction: column;
@@ -29,8 +30,14 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--motion-fast);
 }
-.group-threads__row:hover {
+@media (hover: hover) {
+  .group-threads__row:hover {
+    background: var(--quote-fill);
+  }
+}
+.group-threads__row:active {
   background: var(--quote-fill);
 }
 .group-threads__row[data-unread] .group-threads__text,
@@ -64,4 +71,15 @@
   gap: var(--space-8);
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
+}
+/* Unread: the accent bar of the 话题 inbox cards. */
+.group-threads__row[data-unread]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-12);
+  bottom: var(--space-12);
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
 }

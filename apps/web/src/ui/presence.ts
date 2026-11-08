@@ -1,4 +1,4 @@
-import { type AnimationEvent, useEffect, useState } from 'react'
+import { type AnimationEvent, useCallback, useEffect, useState } from 'react'
 import './motion.css'
 
 export type PresenceState = 'open' | 'closed'
@@ -29,4 +29,28 @@ export function usePresence(open: boolean, { timeout = 300 }: { timeout?: number
       if (!open && e.target === e.currentTarget) setLeaving(false)
     },
   }
+}
+
+/**
+ * List rows that leave with an exit animation: `leave(id, gone)` marks the row (render `data-leaving`), then calls
+ * `gone` to drop it after `timeout` ms; at once under reduced motion.
+ */
+export function useLeaving(timeout = 220) {
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set())
+  const leave = useCallback(
+    (id: string, gone: () => void) => {
+      if (reducedMotion()) return gone()
+      setLeaving((s) => new Set(s).add(id))
+      setTimeout(() => {
+        setLeaving((s) => {
+          const next = new Set(s)
+          next.delete(id)
+          return next
+        })
+        gone()
+      }, timeout)
+    },
+    [timeout],
+  )
+  return { leaving, leave }
 }

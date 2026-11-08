@@ -13,6 +13,7 @@ import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { useGet } from '../../lib/useGet'
 import {
+  Badge,
   Button,
   EmptyState,
   Icon,
@@ -24,6 +25,7 @@ import {
   Spinner,
   Tag,
   useEscape,
+  useLeaving,
   usePresence,
 } from '../../ui'
 import { useSettings } from '../settings/store'
@@ -84,23 +86,34 @@ function FeishuNotifyShortcut({ onClose }: { onClose: () => void }) {
 /** 同意 / 拒绝 of a 申请共享 right in the notification; the settled notification arrives over realtime. */
 /** 同意 / 拒绝 of a bot share request, or (`join`) of a request to join one of my groups. */
 function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }) {
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const decide = async (verb: 'approve' | 'reject') => {
-    setBusy(true)
+    setBusy(verb)
     try {
       await api.post(`/${join ? 'join-requests' : 'share-requests'}/${n.payload.requestId}/${verb}`, {})
     } catch (e) {
       toastError(e)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
   return (
     <div className="notif__actions">
-      <Button size="small" variant="primary" disabled={busy} onClick={() => void decide('approve')}>
+      <Button
+        size="small"
+        variant="primary"
+        loading={busy === 'approve'}
+        disabled={!!busy}
+        onClick={() => void decide('approve')}
+      >
         {t('同意')}
       </Button>
-      <Button size="small" disabled={busy} onClick={() => void decide('reject')}>
+      <Button
+        size="small"
+        loading={busy === 'reject'}
+        disabled={!!busy}
+        onClick={() => void decide('reject')}
+      >
         {t('拒绝#reject')}
       </Button>
     </div>
@@ -112,30 +125,41 @@ function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }
  * no card to decide on, so the notification carries the options. The settled notification arrives over realtime.
  */
 function ApprovalActions({ n }: { n: NotificationDto }) {
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
   const options = (n.payload.options ?? []) as PermissionOption[]
   const allow = options.find((o) => o.kind === 'allow_once') ?? options.find((o) => o.kind === 'allow_always')
   const reject =
     options.find((o) => o.kind === 'reject_once') ?? options.find((o) => o.kind === 'reject_always')
   const decide = async (o: PermissionOption) => {
-    setBusy(true)
+    setBusy(o.optionId)
     try {
       await api.post(`/runs/${n.payload.runId}/approvals/${n.payload.approvalId}`, { optionId: o.optionId })
     } catch (e) {
       toastError(e)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
   return (
     <div className="notif__actions">
       {allow ? (
-        <Button size="small" variant="primary" disabled={busy} onClick={() => void decide(allow)}>
+        <Button
+          size="small"
+          variant="primary"
+          loading={busy === allow.optionId}
+          disabled={!!busy}
+          onClick={() => void decide(allow)}
+        >
           {t('批准')}
         </Button>
       ) : null}
       {reject ? (
-        <Button size="small" disabled={busy} onClick={() => void decide(reject)}>
+        <Button
+          size="small"
+          loading={busy === reject.optionId}
+          disabled={!!busy}
+          onClick={() => void decide(reject)}
+        >
           {t('拒绝#reject')}
         </Button>
       ) : null}
@@ -172,6 +196,8 @@ function Panel({
     !!n.payload.options &&
     !groups.some((g) => g.id === n.payload.groupId)
   useEscape(onClose, state === 'open')
+  const { leaving, leave } = useLeaving()
+  const unread = items?.filter((n) => !n.readAt).length ?? 0
 
   const load = useCallback(() => {
     setFailed(false)
@@ -219,7 +245,8 @@ function Panel({
       toastError(e, t('清除已读失败'))
       return
     }
-    setItems((list) => list?.filter((n) => !n.readAt) ?? null)
+    for (const n of items ?? [])
+      if (n.readAt) leave(n.id, () => setItems((list) => list?.filter((x) => x.id !== n.id) ?? null))
   }
 
   const remove = async (n: NotificationDto) => {
@@ -229,7 +256,7 @@ function Panel({
       toastError(e, t('删除通知失败'))
       return
     }
-    setItems((list) => list?.filter((x) => x.id !== n.id) ?? null)
+    leave(n.id, () => setItems((list) => list?.filter((x) => x.id !== n.id) ?? null))
     if (!n.readAt) useWorkspace.setState((s) => ({ notifCount: Math.max(0, s.notifCount - 1) }))
   }
 
@@ -254,6 +281,7 @@ function Panel({
       >
         <div className="notif__head">
           <span className="notif__title">{t('通知')}</span>
+          <Badge count={unread} />
           <span className="spacer" />
           <Button
             size="small"
@@ -298,7 +326,11 @@ function Panel({
                 const v = notificationView(n, t.text)
                 const { icon, color } = ICON[n.type]
                 return (
-                  <div key={n.id} className="notif__row">
+                  <div
+                    key={n.id}
+                    className={cx('notif__row', leaving.has(n.id) && 'ui-leaving')}
+                    data-new={arrived.current.some((x) => x.id === n.id) || undefined}
+                  >
                     <button
                       type="button"
                       className={cx(

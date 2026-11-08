@@ -69,8 +69,17 @@
 .notif__row {
   position: relative;
 }
+/* Pushed while the panel is open: drops in on top of the list. */
+.notif__row[data-new]:not(.ui-leaving) {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-snappy);
+  --enter-y: -8px;
+}
+
 .notif__item {
   position: relative;
+  transition: background-color var(--motion-fast);
   display: flex;
   width: 100%;
   gap: 10px;
@@ -196,4 +205,13 @@
   display: flex;
   gap: var(--space-8);
   padding: 0 var(--space-8) var(--space-8) 54px;
+}
+@media (pointer: coarse) {
+  .notif__delete {
+    min-width: 32px;
+    min-height: 32px;
+  }
+  .notif__row .notif__line {
+    padding-right: var(--space-32);
+  }
 }

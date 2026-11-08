@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
+import { cx } from '../../lib/cx'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import {
@@ -15,6 +16,8 @@ import {
   MenuButton,
   Presence,
   SegmentedControl,
+  toast,
+  useLeaving,
 } from '../../ui'
 import { RemindDialog } from './SaveMenu'
 import { remindLabel, remindPresets, savedApi } from './store'
@@ -35,15 +38,28 @@ const snippet = (m: MessageDto) =>
 export const messageHref = (m: MessageDto) =>
   m.threadRootId ? `/g/${m.groupId}?thread=${m.threadRootId}&msg=${m.id}` : `/g/${m.groupId}?msg=${m.id}`
 
-function Item({ item, tab }: { item: SavedMessageDto; tab: Tab }) {
+const isDue = (item: SavedMessageDto) => !!item.remindedAt && !item.doneAt
+
+function Item({
+  item,
+  tab,
+  leaving,
+  onLeave,
+}: {
+  item: SavedMessageDto
+  tab: Tab
+  leaving: boolean
+  /** Takes the item off this tab at once; 撤销 in the toast runs `undo`. */
+  onLeave: (message: string, act: Promise<boolean>, undo: () => Promise<boolean>) => void
+}) {
   const navigate = useNavigate()
   const [custom, setCustom] = useState(false)
   const m = item.message
-  const due = !!item.remindedAt && !item.doneAt
+  const due = isDue(item)
   const id = m.id
   return (
     <article
-      className="thread-inbox__card later__item"
+      className={cx('thread-inbox__card later__item', leaving && 'ui-leaving')}
       data-due={due || undefined}
       data-testid={`later-${id}`}
     >
@@ -67,7 +83,11 @@ function Item({ item, tab }: { item: SavedMessageDto; tab: Tab }) {
       <span className="later__actions">
         {tab === 'open' ? (
           <>
-            <Button size="small" icon="check" onClick={() => void savedApi.done(id, true)}>
+            <Button
+              size="small"
+              icon="check"
+              onClick={() => onLeave(t('已完成'), savedApi.done(id, true), () => savedApi.done(id, false))}
+            >
               {t('完成')}
             </Button>
             <MenuButton
@@ -82,14 +102,30 @@ function Item({ item, tab }: { item: SavedMessageDto; tab: Tab }) {
             </MenuButton>
           </>
         ) : (
-          <Button size="small" icon="undo" onClick={() => void savedApi.done(id, false)}>
+          <Button
+            size="small"
+            icon="undo"
+            onClick={() =>
+              onLeave(t('已移回进行中'), savedApi.done(id, false), () => savedApi.done(id, true))
+            }
+          >
             {t('移回进行中')}
           </Button>
         )}
         <Button size="small" variant="plain" onClick={() => navigate(messageHref(m))}>
           {t('跳到原消息')}
         </Button>
-        <Button size="small" variant="plain" onClick={() => void savedApi.remove(id)}>
+        <Button
+          size="small"
+          variant="plain"
+          onClick={() =>
+            onLeave(t('已移除#later'), savedApi.remove(id), async () => {
+              const back = await savedApi.save(id, item.remindAt ? new Date(item.remindAt) : null)
+              if (back && item.doneAt) await savedApi.done(id, true)
+              return back
+            })
+          }
+        >
           {t('移除')}
         </Button>
       </span>
@@ -108,6 +144,7 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
   const [list, setList] = useState<SavedMessageDto[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [more, setMore] = useState(false)
+  const { leaving, leave } = useLeaving()
 
   const load = useCallback(async () => {
     try {
@@ -150,6 +187,20 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
       setFailed(true)
     }
   }
+
+  const onLeave = (id: string) => (message: string, act: Promise<boolean>, undo: () => Promise<boolean>) => {
+    leave(id, () => setList((l) => l?.filter((x) => x.message.id !== id) ?? null))
+    void act.then((ok) => {
+      if (!ok) return void load()
+      toast({
+        type: 'success',
+        message,
+        action: { label: t('撤销#undo'), onClick: () => void undo().then(() => load()) },
+      })
+    })
+  }
+  // Fired reminders come first: they are what needs doing now.
+  const shown = list && tab === 'open' ? [...list.filter(isDue), ...list.filter((x) => !isDue(x))] : list
 
   return (
     <section className="works thread-inbox" aria-label={t('稍后处理')}>
@@ -195,8 +246,14 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
         </div>
       ) : (
         <div className="thread-inbox__list">
-          {list.map((item) => (
-            <Item key={item.message.id} item={item} tab={tab} />
+          {shown?.map((item) => (
+            <Item
+              key={item.message.id}
+              item={item}
+              tab={tab}
+              leaving={leaving.has(item.message.id)}
+              onLeave={onLeave(item.message.id)}
+            />
           ))}
           {more ? (
             <Button size="small" variant="plain" onClick={() => void older()}>

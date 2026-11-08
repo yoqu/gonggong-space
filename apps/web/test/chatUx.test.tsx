@@ -971,8 +971,29 @@ describe('未读体验 (plan 未读与通知)', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/groups/g1/messages')?.body).toMatchObject({ body: '收到' }),
     )
+    expect(await screen.findByText('已发送')).toBeTruthy()
     fireEvent.click(within(main).getByRole('button', { name: '标为已读' }))
     await waitFor(() => expect(within(main).queryByText('第 5 条')).toBeNull())
     expect(reads(calls)).toContainEqual({})
+  })
+
+  it('全部未读 reads every group at once from its header, then says all caught up', async () => {
+    const calls = mockApi(
+      { messages: [], runs: [] },
+      {
+        'GET /unreads': () => ({
+          groups: [{ group: group({ unread: 2 }), messages: [theirs(5)], more: false }],
+        }),
+        'POST /groups/read-all': () => null,
+      },
+    )
+    renderAt('/unreads')
+    const main = await screen.findByRole('region', { name: '全部未读' })
+    const card = (await within(main).findByText('第 5 条')).closest('article') as HTMLElement
+    fireEvent.click(within(main).getByRole('button', { name: '全部标为已读' }))
+    await waitFor(() => expect(card.classList.contains('ui-leaving')).toBe(true))
+    expect(await within(main).findByText('所有群的消息都看完了，新消息会出现在这里。')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/groups/read-all')).toBe(true)
+    expect(within(main).queryByRole('button', { name: '全部标为已读' })).toBeNull()
   })
 })

@@ -7,6 +7,7 @@
   padding: var(--space-16) var(--space-20);
 }
 .thread-inbox__card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -19,6 +20,28 @@
   color: var(--label);
   font: inherit;
   text-align: left;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+/* Cards rise in as they arrive (first load, 加载更多, a new thread); a leaving one runs .ui-leaving instead. */
+.thread-inbox__card:not(.ui-leaving) {
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-enter var(--spring-smooth);
+  --enter-y: 6px;
+}
+/* Unread: an accent bar on the leading edge, the same cue as the sidebar's unread rows. */
+.thread-inbox__card[data-unread]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-12);
+  bottom: var(--space-12);
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  animation: ui-fade-in var(--fade-in);
 }
 .thread-inbox__open {
   appearance: none;
@@ -33,11 +56,15 @@
   text-align: left;
   cursor: pointer;
 }
-.thread-inbox__reply {
-  align-self: flex-start;
+.thread-inbox__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
 }
-.thread-inbox__card:hover {
-  background: var(--quote-fill);
+@media (hover: hover) {
+  .thread-inbox__card:hover {
+    background: var(--quote-fill);
+  }
 }
 .thread-inbox__card[data-unread] .thread-inbox__line:last-child b {
   font-weight: 800;
@@ -88,7 +115,8 @@
 .unread-inbox__card {
   cursor: default;
 }
-.unread-inbox__card:hover {
+.unread-inbox__card:hover,
+.unread-inbox__card:active {
   background: var(--content-bg);
 }
 .unread-inbox__head {

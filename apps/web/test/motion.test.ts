@@ -190,4 +190,19 @@ describe('motion and touch CSS contract', () => {
       /@media \(pointer: coarse\) \{\s*\.task-dock__row,\s*\.task-dock__main \{\s*min-height: 40px;/,
     )
   })
+
+  it('round 6: inbox cards rise in and leave aside, unread bars, touch-sized deletes', () => {
+    const motion = read('ui/motion.css')
+    expect(ruleOf(motion, '.ui-leaving')).toContain('ui-leave var(--motion-base) forwards')
+    const inbox = read('features/chat/thread-inbox.css')
+    expect(ruleOf(inbox, '.thread-inbox__card:not(.ui-leaving)')).toContain('ui-enter var(--spring-smooth)')
+    expect(ruleOf(inbox, '.thread-inbox__card[data-unread]::before')).toContain('background: var(--accent)')
+    expect(inbox).toMatch(/@media \(hover: hover\) \{\s*\.thread-inbox__card:hover/)
+    const rail = read('features/chat/group-threads.css')
+    expect(rail).toMatch(/@media \(hover: hover\) \{\s*\.group-threads__row:hover/)
+    expect(ruleOf(rail, '.group-threads__row[data-unread]::before')).toContain('background: var(--accent)')
+    const notif = read('features/notifications/notifications.css')
+    expect(ruleOf(notif, '.notif__row[data-new]:not(.ui-leaving)')).toContain('ui-enter var(--spring-snappy)')
+    expect(notif).toMatch(/@media \(pointer: coarse\) \{\s*\.notif__delete \{\s*min-width: 32px;/)
+  })
 })
