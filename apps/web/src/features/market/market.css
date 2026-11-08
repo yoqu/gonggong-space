@@ -14,7 +14,7 @@
 }
 .mkt-grid[aria-busy="true"] {
   opacity: 0.6;
-  transition: opacity 120ms;
+  transition: opacity var(--fade-in);
 }
 .mkt-icon {
   flex: none;

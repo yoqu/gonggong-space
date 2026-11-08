@@ -175,7 +175,11 @@ function ToastRow({ t, open, onExited }: { t: ToastItem; open: boolean; onExited
         {t.title ? <div className="ui-toast__title">{t.title}</div> : null}
         <div className="ui-toast__message">{t.message}</div>
       </div>
-      {t.count > 1 ? <span className="ui-toast__count">×{t.count}</span> : null}
+      {t.count > 1 ? (
+        <span key={t.count} className="ui-toast__count">
+          ×{t.count}
+        </span>
+      ) : null}
       {actions.map((a) => (
         <button
           key={a.label}

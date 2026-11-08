@@ -145,7 +145,7 @@
   border-radius: var(--radius-field);
   cursor: pointer;
   text-align: center;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--motion-fast);
 }
 .role-card input {
   position: absolute;
@@ -162,7 +162,7 @@
   margin-bottom: 2px;
   border-radius: 28%;
   overflow: hidden;
-  transition: transform 0.12s ease;
+  transition: transform var(--spring-interactive);
 }
 .role-card__art img {
   grid-area: 1 / 1;

@@ -57,8 +57,11 @@
   font-weight: 400;
   color: var(--label-secondary);
 }
+/* Pops on each repeat (keyed by count) so a folded toast still shows it happened again. */
 .ui-toast__count {
+  --enter-scale: 1.4;
   flex: none;
+  animation: var(--spring-bouncy) ui-enter;
   font-size: var(--text-subheadline-size);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -110,6 +113,12 @@
 }
 .ui-toasts:empty {
   display: none;
+}
+/* Phones: clear the bottom tab bar when no composer has lifted the toasts. */
+@media (max-width: 767px) {
+  .ui-toasts {
+    bottom: var(--toast-bottom, calc(64px + env(safe-area-inset-bottom)));
+  }
 }
 
 /* Pane HUD */

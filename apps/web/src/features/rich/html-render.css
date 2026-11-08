@@ -32,7 +32,7 @@
   top: var(--space-6);
   right: var(--space-6);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--fade-in);
 }
 .html-render:hover .html-render__expand,
 .html-render__expand:focus-visible {

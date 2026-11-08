@@ -15,7 +15,7 @@
   line-height: 16px;
   margin-inline: calc(-1 * var(--pn-list-x, 0px));
   padding: var(--space-4) var(--pn-list-x, 0px);
-  transition: background-color var(--motion-fast, 0.12s);
+  transition: background-color var(--motion-fast);
 }
 @media (hover: hover) {
   .pn-msg:hover {
@@ -152,7 +152,7 @@
   right: var(--pn-list-x, 0px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s;
+  transition: opacity var(--fade-in);
   z-index: 2;
 }
 .pn-msg .pn-msg__actions[data-place="flip"] {

@@ -760,9 +760,11 @@ a.sidebar__open {
   background: var(--group-bg);
   box-shadow: none;
 }
-.welcome__step[data-state="todo"]:hover,
-.welcome__step[data-state="current"]:hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .welcome__step[data-state="todo"]:hover,
+  .welcome__step[data-state="current"]:hover {
+    transform: translateY(-2px);
+  }
 }
 .welcome__mark {
   position: absolute;

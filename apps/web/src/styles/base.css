@@ -16,6 +16,19 @@
 }
 html {
   background: var(--window-bg);
+  /* Touch: controls give their own pressed state, so no grey tap flash. */
+  -webkit-tap-highlight-color: transparent;
+}
+/* No double-tap zoom on controls: taps register at once. */
+a,
+button,
+input,
+label,
+select,
+summary,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
 }
 body {
   margin: 0;

@@ -161,7 +161,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--ui-progress-fill, var(--accent));
-  transition: width 0.3s;
+  transition: width var(--motion-base);
 }
 .ui-progress--indeterminate .ui-progress__bar {
   width: 30%;

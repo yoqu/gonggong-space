@@ -85,16 +85,22 @@
   box-shadow: inset 0 0 0 1px var(--separator);
   overflow: hidden;
   transition:
-    box-shadow 160ms var(--ease-apple),
-    transform 160ms var(--ease-apple);
+    box-shadow var(--fade-in),
+    transform var(--spring-interactive);
 }
-.works__card:hover {
-  box-shadow:
-    inset 0 0 0 1px var(--control-stroke),
-    0 6px 20px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+/* Hover lift only where a pointer hovers: on touch it would stick after a tap. */
+@media (hover: hover) {
+  .works__card:hover {
+    box-shadow:
+      inset 0 0 0 1px var(--control-stroke),
+      0 6px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+  .works__card:hover .works__shot img {
+    transform: scale(1.02);
+  }
 }
-.works__card:focus-within {
+.works__card:has(:focus-visible) {
   box-shadow:
     inset 0 0 0 1px var(--control-stroke),
     0 0 0 3px color-mix(in srgb, var(--focus-ring) 40%, transparent);
@@ -104,7 +110,8 @@
   .works__shot img {
     transition: none;
   }
-  .works__card:hover {
+  .works__card:hover,
+  .works__card:hover .works__shot img {
     transform: none;
   }
 }
@@ -139,10 +146,7 @@
   height: 100%;
   object-fit: cover;
   object-position: top;
-  transition: transform 240ms var(--ease-apple);
-}
-.works__card:hover .works__shot img {
-  transform: scale(1.02);
+  transition: transform var(--spring-smooth);
 }
 .works__shot[data-cover="0"] {
   --cover: var(--avatar-1);

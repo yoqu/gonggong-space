@@ -100,7 +100,7 @@ button.act-row:hover {
   flex: none;
   margin-left: auto;
   color: var(--label-tertiary);
-  transition: transform 0.15s ease;
+  transition: transform var(--spring-interactive);
 }
 .act-row[aria-expanded="true"] .act-row__chevron {
   transform: rotate(90deg);

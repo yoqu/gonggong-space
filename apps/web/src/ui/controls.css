@@ -49,10 +49,17 @@
   user-select: none;
   transition:
     background var(--motion-fast),
-    filter var(--motion-fast);
+    filter var(--motion-fast),
+    scale var(--spring-interactive);
 }
 .ui-btn:active {
   background: var(--control-fill-pressed);
+}
+/* Press gives a slight give; `scale` composes with any transform a layout puts on the button. */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-btn:active {
+    scale: 0.97;
+  }
 }
 .ui-btn svg {
   width: 14px;

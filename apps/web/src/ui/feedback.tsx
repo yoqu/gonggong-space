@@ -3,6 +3,7 @@ import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import './feedback.css'
+import './motion.css'
 
 export interface EmptyStateProps {
   /** Say what the state is:「选择一个会话」「没有找到“季度复盘”」. */

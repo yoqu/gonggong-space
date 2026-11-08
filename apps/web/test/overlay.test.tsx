@@ -252,4 +252,16 @@ describe('Toast behavior', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(2)
     expect(screen.getByText('×2')).toBeTruthy()
   })
+
+  it('remounts the count on each repeat so its pop animation replays', () => {
+    render(<Toaster />)
+    const raise = () => act(() => void toast({ type: 'error', message: '同步失败' }))
+    raise()
+    raise()
+    const two = screen.getByText('×2')
+    raise()
+    const three = screen.getByText('×3')
+    expect(three).not.toBe(two)
+    expect(two.isConnected).toBe(false)
+  })
 })

@@ -551,7 +551,7 @@
   border: 1px solid var(--separator);
   border-radius: var(--radius-window);
   background: var(--content-bg);
-  transition: box-shadow 0.2s;
+  transition: box-shadow var(--fade-in);
 }
 .plg-compose__box:focus-within {
   box-shadow:

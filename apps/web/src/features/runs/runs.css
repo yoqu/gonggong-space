@@ -236,7 +236,7 @@
 }
 .run-round__chevron {
   flex: none;
-  transition: transform 0.15s;
+  transition: transform var(--spring-interactive);
 }
 .run-round__head[aria-expanded="true"] .run-round__chevron {
   transform: rotate(90deg);

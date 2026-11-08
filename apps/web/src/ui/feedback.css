@@ -1,5 +1,7 @@
 /* EmptyState */
+/* Rises in softly so a list that turns out empty settles instead of blinking. */
 .ui-empty {
+  --enter-y: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7,6 +9,9 @@
   gap: var(--space-6);
   padding: var(--space-32) var(--space-20);
   text-align: center;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
 }
 .ui-empty__icon {
   display: grid;
@@ -34,8 +39,8 @@
 }
 .ui-empty__desc {
   max-width: 280px;
-  /* No lone last character on its own line: it reads as a typo. */
-  text-wrap: pretty;
+  /* Even lines: a short last line (「这里」) reads as a typo. */
+  text-wrap: balance;
   font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
