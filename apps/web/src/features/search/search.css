@@ -59,9 +59,34 @@
 }
 .search__esc {
   flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
   white-space: nowrap;
+  cursor: default;
+}
+.search__esc-tap {
+  display: none;
+}
+/* Touch: no Esc key to hint at, and iOS zooms into inputs under 16px; a tappable 取消 closes instead. */
+@media (pointer: coarse) {
+  .search__input {
+    font-size: 16px;
+  }
+  .search__esc {
+    min-height: 32px;
+    font-size: var(--text-callout-size);
+    color: var(--accent-text);
+  }
+  .search__esc-key {
+    display: none;
+  }
+  .search__esc-tap {
+    display: inline;
+  }
 }
 .search__tabs {
   display: flex;

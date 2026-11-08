@@ -316,6 +316,9 @@ body {
   text-align: left;
   cursor: default;
 }
+.shellbar__search {
+  transition: background-color var(--motion-fast);
+}
 .shellbar__search:hover {
   background: var(--control-stroke);
 }
@@ -393,6 +396,12 @@ body {
   background: transparent;
   color: var(--label-secondary);
   cursor: default;
+}
+.sidebar__add {
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    opacity var(--fade-in);
 }
 .sidebar__add:hover {
   background: var(--control-track);
@@ -584,6 +593,21 @@ a.sidebar__open {
   width: 6px;
   height: 6px;
   margin: 0;
+}
+/* Not connected: the dot breathes and the words take its colour, so a dropped link is noticed. */
+.sidebar__foot[data-state="closed"] .sidebar__conn {
+  color: var(--tint-red-text);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar__foot:not([data-state="open"]) .sidebar__dot {
+    animation: sidebar-pulse 1.2s ease-in-out infinite;
+  }
+}
+@keyframes sidebar-pulse {
+  50% {
+    opacity: 0.35;
+    scale: 0.7;
+  }
 }
 .sidebar__foot > span + span:not(:nth-child(2))::before {
   content: "·";
@@ -870,9 +894,49 @@ a.sidebar__open {
     opacity: 1;
   }
 }
-.sidebar__section--drop {
+/* Fold chevron turns rather than swapping glyphs; the rows of a section just unfolded ease in. */
+.sidebar__chev {
+  flex: none;
+  transition: rotate var(--spring-interactive);
+}
+.sidebar__fold[aria-expanded="true"] .sidebar__chev {
+  rotate: 90deg;
+}
+.sidebar__reveal {
+  --enter-y: -6px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
+.sidebar__section {
   border-radius: var(--radius-field);
-  background: var(--accent-fill);
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+/* Drop target: a tint and an accent ring keep the section's text legible (a solid fill hid it). */
+.sidebar__section--drop {
+  background: var(--tint-blue);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+/* The row being dragged stays in place, faded, so the eye keeps where it came from. */
+.sidebar .pn-conv[data-dragging] {
+  opacity: 0.4;
+}
+/* Touch: rows answer the press, and the small head controls grow to a fingertip. */
+@media (hover: none) {
+  .sidebar .pn-conv:active {
+    background: var(--selection-fill);
+  }
+}
+@media (pointer: coarse) {
+  .sidebar__add {
+    width: 32px;
+    height: 32px;
+  }
+  .sidebar__fold.sidebar__head {
+    height: 36px;
+  }
 }
 .sidebar__drophint {
   padding: var(--space-4) var(--space-16) var(--space-8) 34px;

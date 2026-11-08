@@ -577,6 +577,46 @@ describe('⌘K search', () => {
     expect(screen.getByTestId('where').textContent).toBe('/g/g2')
   })
 
+  it('offers the latest conversations before typing, without the open one, as a quick switcher', async () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    const conv = (id: string, name: string, lastAt: string) =>
+      ({ id, name, kind: 'group', avatar: null, members: [], botIds: [], lastAt }) as unknown as GroupDto
+    useWorkspace.setState({
+      groups: [
+        conv('g1', '退款', '2026-09-23T01:00:00.000Z'),
+        conv('g2', '支付', '2026-09-23T03:00:00.000Z'),
+        conv('g3', '发版', '2026-09-23T02:00:00.000Z'),
+      ],
+    })
+    mockApi({})
+    renderShell()
+    fireEvent.keyDown(document, { key: 'k', metaKey: true })
+    const input = await screen.findByPlaceholderText('搜索会话、消息、文件、运行')
+    const results = screen.getByTestId('search-results')
+    expect(within(results).getByText('最近')).toBeTruthy()
+    expect(
+      within(results)
+        .getAllByRole('option')
+        .map((r) => r.textContent),
+    ).toEqual([
+      expect.stringContaining('支付'),
+      expect.stringContaining('发版'),
+      expect.stringContaining('退款'),
+    ])
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByTestId('where').textContent).toBe('/g/g2')
+
+    fireEvent.keyDown(document, { key: 'k', metaKey: true })
+    await screen.findByPlaceholderText('搜索会话、消息、文件、运行')
+    expect(
+      within(screen.getByTestId('search-results'))
+        .getAllByRole('option')
+        .map((r) => r.textContent),
+    ).toEqual([expect.stringContaining('发版'), expect.stringContaining('退款')])
+    fireEvent.click(screen.getByRole('button', { name: '关闭搜索' }))
+    expect(screen.queryByPlaceholderText('搜索会话、消息、文件、运行')).toBeNull()
+  })
+
   it('opens from the sidebar search field', async () => {
     mockApi({})
     renderShell()

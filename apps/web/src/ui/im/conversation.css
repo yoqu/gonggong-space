@@ -35,6 +35,9 @@
   border-radius: var(--radius-menu);
   text-decoration: none;
   cursor: default;
+  transition:
+    background-color var(--motion-fast),
+    opacity var(--fade-in);
 }
 .pn-conv:hover,
 .pn-conv[aria-current] {
@@ -200,6 +203,14 @@
   font-size: var(--text-subheadline-size);
   text-decoration: none;
   white-space: nowrap;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+@media (pointer: coarse) {
+  .pn-shortcut {
+    height: 36px;
+  }
 }
 .pn-shortcut:hover {
   background: var(--control-track);

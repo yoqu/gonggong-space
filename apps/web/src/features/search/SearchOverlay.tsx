@@ -1,6 +1,6 @@
 import type { GroupDto, SearchResultDto } from '@gonggong/protocol'
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
@@ -30,13 +30,18 @@ const ICON: Record<Tab, IconName> = { msg: 'bubble', file: 'doc-code', run: 'pla
 const DEBOUNCE_MS = 200
 const MAX_CONVERSATIONS = 5
 
-/** Conversations whose name (a DM's is its bot's) contains every term, matched locally as you type. */
-const matchConversations = (groups: GroupDto[], query: string) => {
+/**
+ * Conversations whose name (a DM's is its bot's) contains every term, matched locally as you type;
+ * before any typing, the latest active ones other than the open one, as a quick switcher.
+ */
+const matchConversations = (groups: GroupDto[], query: string, open: string) => {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-  if (!terms.length) return []
-  return groups
-    .filter((g) => terms.every((w) => g.name.toLowerCase().includes(w)))
-    .slice(0, MAX_CONVERSATIONS)
+  const list = terms.length
+    ? groups.filter((g) => terms.every((w) => g.name.toLowerCase().includes(w)))
+    : groups
+        .filter((g) => `/g/${g.id}` !== open)
+        .sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? ''))
+  return list.slice(0, MAX_CONVERSATIONS)
 }
 
 const hrefOf = (r: SearchResultDto) => {
@@ -73,6 +78,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 /** ⌘K overlay (Web 对话.dc.html `ovSearch`): my conversations by name, then messages, files and runs of my groups. */
 export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const listId = useId()
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Tab>('msg')
@@ -88,7 +94,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const settled = !!key && found.key === key
   const results = settled ? found.list : []
   const groups = useWorkspace((s) => s.groups)
-  const convs = matchConversations(groups, q)
+  const convs = matchConversations(groups, q, pathname)
   const count = convs.length + results.length
   useEscape(onClose)
 
@@ -174,7 +180,10 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             }}
             onKeyDown={onKeyDown}
           />
-          <span className="search__esc">{t('esc 关闭')}</span>
+          <button type="button" className="search__esc" aria-label={t('关闭搜索')} onClick={onClose}>
+            <span className="search__esc-key">{t('esc 关闭')}</span>
+            <span className="search__esc-tap">{t('取消')}</span>
+          </button>
         </div>
         <div className="search__tabs">
           <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
@@ -184,7 +193,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
             <div id={listId} role="listbox" aria-label={t('搜索结果')} className="search__list">
               {convs.length ? (
                 <div className="search__section" role="presentation">
-                  {t('会话#conversations')}
+                  {q.trim() ? t('会话#conversations') : t('最近')}
                 </div>
               ) : null}
               {convs.map((g, i) =>

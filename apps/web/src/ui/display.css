@@ -59,6 +59,13 @@
   font-size: var(--text-subheadline-size);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  animation: var(--spring-bouncy) ui-badge-pop;
+}
+/* A badge pops in when it appears and again on each new count, like a tick of the counter. */
+@keyframes ui-badge-pop {
+  from {
+    scale: 0.4;
+  }
 }
 .ui-badge--muted {
   background: var(--badge-muted);

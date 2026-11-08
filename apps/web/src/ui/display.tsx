@@ -61,6 +61,7 @@ export function Badge(props: BadgeProps) {
   const n = unreadCount(props.count)
   return (
     <span
+      key={n}
       className={cx('ui-badge', props.muted && 'ui-badge--muted')}
       role="img"
       aria-label={t('{n} 条未读', { n })}

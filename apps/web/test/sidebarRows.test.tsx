@@ -1,8 +1,8 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Sidebar } from '../src/app/Sidebar'
+import { Sidebar, useLongPress } from '../src/app/Sidebar'
 
 const group = (id: string, lastAt: string): GroupDto => ({
   id,
@@ -116,4 +116,59 @@ it('marks public channels with # and private groups with a lock; shortcuts share
     '全部未读',
     '稍后处理',
   ])
+})
+
+it('opens the menu on a long press despite a finger’s drift, but not when the press turns into a scroll', () => {
+  vi.useFakeTimers()
+  const onMenu = vi.fn()
+  function Row() {
+    return (
+      <button type="button" data-testid="row" onContextMenu={onMenu} {...useLongPress()}>
+        row
+      </button>
+    )
+  }
+  render(<Row />)
+  const row = screen.getByTestId('row')
+  const press = (moveY: number) => {
+    fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(row, { pointerType: 'touch', clientX: 12, clientY: 10 + moveY })
+    act(() => vi.advanceTimersByTime(600))
+    fireEvent.pointerUp(row)
+  }
+  press(4)
+  expect(onMenu).toHaveBeenCalledTimes(1)
+  press(30)
+  expect(onMenu).toHaveBeenCalledTimes(1)
+  vi.useRealTimers()
+})
+
+it('fades the row being dragged until the drag ends', () => {
+  renderList()
+  const row = screen.getByTestId('group-item-g1')
+  fireEvent.dragStart(row, { dataTransfer: { setData: () => {}, effectAllowed: '' } })
+  expect(row.hasAttribute('data-dragging')).toBe(true)
+  fireEvent.dragEnd(row)
+  expect(row.hasAttribute('data-dragging')).toBe(false)
+})
+
+it('turns one chevron to fold a section and eases the rows in when it unfolds', () => {
+  renderList()
+  const head = screen.getByRole('button', { name: /^频道/ })
+  expect(head.querySelectorAll('svg')).toHaveLength(1)
+  expect(head.querySelector('.sidebar__chev')).toBeTruthy()
+  const list = () => screen.getByRole('group', { name: '频道' }).querySelector('.sidebar__list')!
+  expect(list().classList.contains('sidebar__reveal')).toBe(false)
+  fireEvent.click(head)
+  expect(head.getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(head)
+  expect(head.getAttribute('aria-expanded')).toBe('true')
+  expect(list().classList.contains('sidebar__reveal')).toBe(true)
+})
+
+it('marks the footer with the connection state so a dropped link can pulse', () => {
+  renderList()
+  const foot = document.querySelector('.sidebar__foot')!
+  expect(foot.getAttribute('data-state')).toMatch(/^(open|connecting|closed)$/)
+  expect(foot.querySelector('[aria-live="polite"]')?.textContent).toBeTruthy()
 })

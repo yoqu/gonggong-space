@@ -44,9 +44,29 @@
   border-radius: var(--radius-capsule);
   color: var(--label);
 }
+.ui-rail__tile {
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    scale var(--spring-interactive);
+}
 .ui-rail__tile > svg {
   width: 20px;
   height: 20px;
+}
+/* Switching modules: the tile sinks under the finger, and the new module's icon pops in. */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-rail__item:active .ui-rail__tile {
+    scale: 0.9;
+  }
+}
+.ui-rail__item[aria-current="page"] .ui-rail__tile > svg {
+  animation: var(--spring-bouncy) ui-rail-pop;
+}
+@keyframes ui-rail-pop {
+  from {
+    scale: 0.7;
+  }
 }
 .ui-rail__item:hover .ui-rail__tile {
   background: var(--selection-fill);

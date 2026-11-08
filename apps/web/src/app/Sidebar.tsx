@@ -116,25 +116,32 @@ const draftOf = (groupId: string) => {
 }
 
 const LONG_PRESS_MS = 500
+/** A finger resting on the glass drifts a few pixels; only moving further (a scroll) cancels the press. */
+const LONG_PRESS_SLOP = 10
 
 /** A touch long-press opens the row's context menu, as a right-click does; the tap that follows is swallowed. */
-function useLongPress() {
+export function useLongPress() {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const fired = useRef(false)
+  const from = useRef({ x: 0, y: 0 })
   const cancel = () => clearTimeout(timer.current)
   return {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       fired.current = false
       if (e.pointerType !== 'touch') return
       const { currentTarget: el, clientX, clientY } = e
+      from.current = { x: clientX, y: clientY }
       timer.current = setTimeout(() => {
         fired.current = true
+        navigator.vibrate?.(10)
         el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY }))
       }, LONG_PRESS_MS)
     },
     onPointerUp: cancel,
     onPointerCancel: cancel,
-    onPointerMove: cancel,
+    onPointerMove: (e: PointerEvent<HTMLElement>) => {
+      if (Math.hypot(e.clientX - from.current.x, e.clientY - from.current.y) > LONG_PRESS_SLOP) cancel()
+    },
     onClickCapture: (e: MouseEvent<HTMLElement>) => {
       if (fired.current) e.preventDefault()
     },
@@ -306,7 +313,9 @@ const GroupRow = memo(function GroupRow({
         onDragStart={(e) => {
           e.dataTransfer.setData(DRAG_TYPE, g.id)
           e.dataTransfer.effectAllowed = 'move'
+          e.currentTarget.dataset.dragging = ''
         }}
+        onDragEnd={(e) => delete e.currentTarget.dataset.dragging}
         // Its bot was unshared or deleted: history only, so it steps back behind the live conversations.
         className={cx('pn-conv', dm && !g.botIds.length && 'pn-conv--closed')}
         title={dm ? where : undefined}
@@ -663,13 +672,16 @@ export function ChatStrip({ group }: { group: GroupDto }) {
 
 /** Connection, my bots online and my machines online, in place of a window status bar. */
 export function Footer({ bots, machines }: { bots: BotDto[]; machines: MachineDto[] }) {
-  const conn = CONN[useRealtimeStatus()]
+  const status = useRealtimeStatus()
+  const conn = CONN[status]
   const live = bots.filter((b) => b.presence === 'online' || b.presence === 'running').length
   const online = machines.filter((m) => m.online).length
   return (
-    <footer className="sidebar__foot">
+    <footer className="sidebar__foot" data-state={status}>
       <span className="sidebar__dot" style={{ background: conn.color }} />
-      <span>{conn.label}</span>
+      <span className="sidebar__conn" aria-live="polite">
+        {conn.label}
+      </span>
       <span>{t('{n} 个 Bot 在线', { n: live })}</span>
       {machines.length ? <span>{t('{n} 台机器在线', { n: online })}</span> : null}
     </footer>
@@ -712,6 +724,12 @@ export function Sidebar({
   const open = useHeldOrder(byPin(shown.filter((g) => !isDone(g))), hovered)
   const terminals = useHeldOrder(byPin(onlyFlagged ? [] : spaces), hovered)
   const [folded, toggleFold] = useFolded()
+  /** The section just unfolded: its rows ease in once. */
+  const [revealed, setRevealed] = useState('')
+  const unfold = (key: string) => {
+    setRevealed(folded.includes(key) ? key : '')
+    toggleFold(key)
+  }
   const ownIds = new Set(own.map((x) => x.id))
   const teamIds = new Set(team.sections.map((x) => x.id))
   const isOpen = (r: Row) => pathname === pathOf(r)
@@ -820,9 +838,9 @@ export function Sidebar({
         type="button"
         className="sidebar__head sidebar__fold"
         aria-expanded={!collapsed}
-        onClick={() => toggleFold(key)}
+        onClick={() => unfold(key)}
       >
-        <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={11} />
+        <Icon name="chevron-right" size={11} className="sidebar__chev" />
         {label}
       </button>
       {actions}
@@ -901,7 +919,7 @@ export function Sidebar({
         sec.fold,
         actionsOf(sec),
       )}
-      <div className="sidebar__list sidebar__list--convs">
+      <div className={cx('sidebar__list sidebar__list--convs', revealed === sec.key && 'sidebar__reveal')}>
         {sec.rows.map((g) => row(g, sec.key !== 'dm'))}
         {sec.others.map((d) => (
           <DirectoryRow key={d.id} d={d} />
@@ -1005,17 +1023,21 @@ export function Sidebar({
                 aria-expanded={showDone}
                 onClick={() => setShowDone(!showDone)}
               >
-                <Icon name={showDone ? 'chevron-down' : 'chevron-right'} size={11} />
+                <Icon name="chevron-right" size={11} className="sidebar__chev" />
                 {t('已完成 · {n}', { n: done.length })}
               </button>
-              {showDone ? <div className="sidebar__list">{done.map((g) => row(g))}</div> : null}
+              {showDone ? (
+                <div className="sidebar__list sidebar__reveal">{done.map((g) => row(g))}</div>
+              ) : null}
             </section>
           ) : null}
           {terminals.length ? (
             // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
             <div role="group" aria-label={t('终端')} className="sidebar__section">
               {head(SPACES, t('终端 · {n}', { n: terminals.length }), folded.includes(SPACES))}
-              <div className="sidebar__list sidebar__list--convs">
+              <div
+                className={cx('sidebar__list sidebar__list--convs', revealed === SPACES && 'sidebar__reveal')}
+              >
                 {shownSpaces.map((s) => (
                   <SpaceRow key={s.id} s={s} tabStop={s.id === stop} />
                 ))}

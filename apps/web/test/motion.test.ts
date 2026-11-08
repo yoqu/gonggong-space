@@ -86,4 +86,31 @@ describe('motion and touch CSS contract', () => {
     )
     expect(ruleOf(css, '.ui-toast__count')).toContain('ui-enter')
   })
+
+  it('animates the sidebar: turning fold chevron, tinted drop target, breathing offline dot, roomy touch targets', () => {
+    const shell = read('app/shell.css')
+    expect(ruleOf(shell, '.sidebar__chev')).toContain('rotate var(--spring-interactive)')
+    expect(ruleOf(shell, '.sidebar__reveal')).toContain('var(--spring-smooth) ui-enter')
+    const drop = ruleOf(shell, '.sidebar__section--drop')
+    expect(drop).toContain('var(--tint-blue)')
+    expect(drop).not.toContain('--accent-fill')
+    expect(shell).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\) \{\s*\.sidebar__foot:not\(\[data-state="open"\]\) \.sidebar__dot \{\s*animation: sidebar-pulse/,
+    )
+    expect(shell).toMatch(/@media \(pointer: coarse\) \{\s*\.sidebar__add \{\s*width: 32px;/)
+    expect(read('ui/im/conversation.css')).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.pn-shortcut \{\s*height: 36px;/,
+    )
+    expect(read('features/search/search.css')).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.search__input \{\s*font-size: 16px;/,
+    )
+  })
+
+  it('pops the current rail icon and unread badges with a spring', () => {
+    const rail = read('ui/nav-rail.css')
+    expect(ruleOf(rail, '.ui-rail__item[aria-current="page"] .ui-rail__tile > svg')).toContain(
+      'var(--spring-bouncy) ui-rail-pop',
+    )
+    expect(ruleOf(read('ui/display.css'), '.ui-badge')).toContain('var(--spring-bouncy) ui-badge-pop')
+  })
 })
