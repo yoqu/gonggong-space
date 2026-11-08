@@ -64,6 +64,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       sub: `${bot ? t('{bot} 最终回复', { bot }) : (author ?? '')} · ${group}`,
       groupId: m.groupId,
       messageId: m.id,
+      ...(m.threadRootId && { threadRootId: m.threadRootId }),
       runId: m.runId,
       at: m.createdAt.toISOString(),
     }))

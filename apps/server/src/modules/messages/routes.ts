@@ -9,10 +9,10 @@ import {
   type TimelineDto,
   TimelineQuery,
 } from '@gonggong/protocol'
-import { and, desc, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, lt, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { bots, messages, users } from '../../db/schema.js'
+import { messages } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { artifactContextNote } from '../artifacts/commands.js'
 import { requireArtifact } from '../artifacts/service.js'
@@ -22,9 +22,10 @@ import { checkPicks } from '../bots/config.js'
 import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
 import { mirrorEdit, mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots, requireMember, requireReader } from '../groups/service.js'
-import { reactionsFor } from '../reactions/service.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { loadMessages } from '../threads/routes.js'
+import { followOnReply, inMainTimeline, publishThread, threadRoot } from '../threads/service.js'
 import { answerActions } from './actions.js'
 import { appendTarget, sendAppend } from './append.js'
 import { branchMessage } from './branch.js'
@@ -47,28 +48,18 @@ export function messageRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       await requireReader(ctx, req.params.id, me.id)
       const { before, limit } = TimelineQuery.parse(req.query)
-      const rows = await ctx.db
-        .select({ m: messages, userName: users.name, botName: bots.name })
-        .from(messages)
-        .leftJoin(users, eq(users.id, messages.authorUserId))
-        .leftJoin(bots, eq(bots.id, messages.authorBotId))
-        .where(
+      const page = (
+        await loadMessages(
+          ctx,
+          me.id,
           and(
             eq(messages.groupId, req.params.id),
             before ? lt(messages.seq, before) : undefined,
-            notHiddenBy(ctx, me.id),
+            inMainTimeline,
           ),
+          limit,
         )
-        .orderBy(desc(messages.seq))
-        .limit(limit)
-      const reactions = await reactionsFor(
-        ctx,
-        rows.map((r) => r.m.id),
-        me.id,
-      )
-      const page = rows
-        .reverse()
-        .map((r) => messageDto(r.m, r.userName ?? r.botName ?? '', reactions.get(r.m.id)))
+      ).reverse()
       return {
         messages: page,
         runs: await listRuns(
@@ -83,12 +74,22 @@ export function messageRoutes(ctx: Ctx) {
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireMember(ctx, req.params.id, me.id)
-      const { body, clientId, attachmentIds, quote, appendTo, runOptions, artifactContext } =
-        SendMessageReq.parse(req.body)
+      const {
+        body,
+        clientId,
+        attachmentIds,
+        quote,
+        appendTo,
+        runOptions,
+        artifactContext,
+        threadRootId,
+        alsoSent,
+      } = SendMessageReq.parse(req.body)
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
       const canvas = artifactContext ? await canvasContext(ctx, group.id, me.id, artifactContext) : null
-      const [target, inGroup, quoted, userMentions] = await Promise.all([
+      const [root, target, inGroup, quoted, userMentions] = await Promise.all([
+        threadRootId ? threadRoot(ctx, group.id, threadRootId) : null,
         appendTo ? appendTarget(ctx, group.id, me.id, appendTo) : null,
         bots,
         quote ? resolveQuote(ctx, group.id, quote) : null,
@@ -141,19 +142,30 @@ export function messageRoutes(ctx: Ctx) {
           ...(target && { appendTo: target.runId }),
           ...(Object.keys(picks).length > 0 && { runOptions: picks }),
           ...(canvas && { artifactRefs: [canvas.id], artifactNote: canvas.note, canvas: canvas.canvas }),
+          ...(root && alsoSent && { alsoSent: true }),
         }
         if (files.length) meta.attachments = files
         if (quoted) meta.quote = quoted
         const [inserted] = (await tx
           .insert(messages)
-          .values({ id, groupId: group.id, kind: 'user', authorUserId: me.id, body, meta })
+          .values({
+            id,
+            groupId: group.id,
+            kind: 'user',
+            authorUserId: me.id,
+            body,
+            meta,
+            threadRootId: root?.id,
+          })
           .returning()) as [MessageRow]
+        if (root) await followOnReply(tx, root, inserted, userMentions)
         return { row: inserted, created: true }
       })
 
       const dto = messageDto(row, me.name)
       if (created) {
         await publishMessage(ctx, dto)
+        if (root) await publishThread(ctx, root)
         await notifyMentions(ctx, row, me.name)
         if (target) await sendAppend(ctx, target, dto)
         else if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })

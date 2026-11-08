@@ -204,6 +204,8 @@ export interface ActionTarget {
   startedRuns?: () => string[]
   /** A bot reply on its owner's latest completed run: 分支到新聊天 (see branchableRuns). */
   branchable?: boolean
+  /** A message that may start a thread: 回复话题 opens it. */
+  onThread?: () => void
 }
 
 /**
@@ -241,6 +243,7 @@ function useMessageMenu(target: ActionTarget) {
     ...(mine ? [{ value: 'delete', label: t('删除'), icon: 'trash' as const, destructive: true }] : []),
   ]
   const all: MenuItem[] = [
+    ...(target.onThread ? [{ value: 'thread', label: t('回复话题'), icon: 'thread' as const }] : []),
     ...(target.message ? [{ value: 'react', label: t('表情回应'), icon: 'smile' as const }] : []),
     { value: 'quote', label: t('引用回复'), icon: 'quote' },
     ...(target.copyText !== undefined ? [{ value: 'copy', label: t('复制'), icon: 'copy' as const }] : []),
@@ -248,7 +251,8 @@ function useMessageMenu(target: ActionTarget) {
     ...more,
   ]
   const select = (value: string) => {
-    if (value === 'react') setPicking(true)
+    if (value === 'thread') target.onThread?.()
+    else if (value === 'react') setPicking(true)
     else if (value === 'quote') target.onQuote()
     else if (value === 'copy' && target.copyText !== undefined) {
       const part = picked.current || selectedIn(bar.current?.closest('.pn-msg'))
@@ -302,6 +306,11 @@ function Bar({ menu }: { menu: MessageMenuState }) {
     >
       {target.message ? (
         <ReactionPicker message={target.message} open={menu.picking} onOpenChange={menu.setPicking} />
+      ) : null}
+      {target.onThread ? (
+        <button type="button" aria-label={t('回复话题')} title={t('回复话题')} onClick={target.onThread}>
+          <Icon name="thread" />
+        </button>
       ) : null}
       <button
         type="button"

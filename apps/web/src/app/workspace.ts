@@ -123,6 +123,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
     } else if (e.t === 'group.removed') set((s) => ({ groups: s.groups.filter((g) => g.id !== e.groupId) }))
     else if (e.t === 'message.new') {
       const s = get()
+      // A thread reply lives in its thread: neither the last line nor unread (plan 话题).
+      if (e.message.threadRootId && !e.message.alsoSent) return
       if (!s.groups.some((g) => g.id === e.message.groupId)) refreshTeamsSoon()
       else {
         const groups = mapGroups(s.groups, (g) =>

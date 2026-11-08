@@ -569,6 +569,23 @@ describe('共工 → 飞书', () => {
     expect(await t.db.select().from(runs)).toHaveLength(1)
   })
 
+  it('a thread reply replies to its mirrored root in Feishu (plan 话题)', async () => {
+    const { ownerHttp, group } = await setup()
+    const root = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {
+      body: '@codex 你好',
+      clientId: 'client-1',
+    })
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, {
+      body: '@codex 再看看',
+      clientId: 'client-2',
+      threadRootId: root.body.id,
+    })
+    await feishuIdle(t.ctx)
+    const [first, second] = t.feishu.sent.filter((s) => s.msgType === 'text')
+    expect(first?.replyTo).toBeUndefined()
+    expect(second).toMatchObject({ content: { text: '@codex 再看看' }, replyTo: first?.messageId })
+  })
+
   it('an author without Feishu is sent as 「名字：…」; plain messages are not mirrored', async () => {
     const { member, group } = await setup()
     const http = client(t, await t.seed.cookie(member.id))

@@ -34,7 +34,7 @@ import { forgetMembers, type MessageMeta, memberIds, postEvent, userAuthorName }
 import { LIVE } from '../runs/dto.js'
 import { stopRuns } from '../runs/stop.js'
 import { avatarUrl } from '../users/dto.js'
-import { replyStyleOf } from './params.js'
+import { botRepliesInThreadOf, replyStyleOf } from './params.js'
 import { groupTitle } from './title.js'
 
 /** Non-members (of the group or of its live team) get not_found so group ids don't leak. */
@@ -141,9 +141,11 @@ export async function groupDtos(ctx: Ctx, userId: string, where?: SQL): Promise<
  */
 const inGroupAfter = (after: string) =>
   `(m.group_id, m.seq) > ("groups"."id", ${after}) and (m.group_id, m.seq) < ("groups"."id", ${Number.MAX_SAFE_INTEGER})`
+// Thread replies not also sent to the group live in their thread only (plan 话题).
+const MAIN = `(m.thread_root_id is null or m.meta->>'alsoSent' is not null)`
 const latest = (col: string) =>
   sql.raw(
-    `(select m.${col} from messages m where ${inGroupAfter('0')} order by m.group_id desc, m.seq desc limit 1)`,
+    `(select m.${col} from messages m where ${inGroupAfter('0')} and ${MAIN} order by m.group_id desc, m.seq desc limit 1)`,
   )
 const lastSeq = sql<number | null>`${latest('seq')}`
 const lastId = sql<string | null>`${latest('id')}`
@@ -152,13 +154,13 @@ const lastId = sql<string | null>`${latest('id')}`
 // sequential scan it hopes to stop early, reading every group's messages per row; ordering by the index rules that out.
 export const unread =
   sql<number>`${sql.raw(`(select count(*) from (select 1 from messages m where ${inGroupAfter('"group_members"."last_read_seq"')}
-  and m.kind <> 'event' and m.author_user_id is distinct from "group_members"."user_id"
+  and m.kind <> 'event' and m.author_user_id is distinct from "group_members"."user_id" and ${MAIN}
   order by m.group_id, m.seq limit 100) u)`)}`.mapWith(Number)
 
 // Not EXISTS: the planner drops ORDER BY inside it. Served by the messages_user_mentions partial index.
 export const mentioned = sql<boolean>`${sql.raw(`coalesce((select true from messages m where ${inGroupAfter('"group_members"."last_read_seq"')}
   and m.meta->'userMentions' @> jsonb_build_array("group_members"."user_id")
-  and m.author_user_id is distinct from "group_members"."user_id" and m.recalled_at is null
+  and m.author_user_id is distinct from "group_members"."user_id" and m.recalled_at is null and ${MAIN}
   order by m.group_id, m.seq limit 1), false)`)}`
 
 /** `userId`'s unread messages per team, over the live groups they are in. */
@@ -328,6 +330,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       adminOnlyInvite: g.adminOnlyInvite,
       protectBase: g.protectBase,
       replyStyle: replyStyleOf(g.params),
+      botRepliesInThread: botRepliesInThreadOf(g.params),
       notice: g.notice,
       noticeHidden: !!g.noticeId && me.hiddenNoticeId === g.noticeId,
       repo: repo ? { url: repo.url, branch: repo.baseBranch } : null,

@@ -2,6 +2,8 @@ import {
   type MessageDto,
   RECALLED_QUOTE,
   type RunDto,
+  type ThreadDto,
+  type ThreadStateDto,
   type TimelineDto,
   type WebEvent,
   withRunDelta,
@@ -107,17 +109,41 @@ const mergeRuns = (runs: Record<string, RunDto>, list: RunDto[]) => {
   return next
 }
 
-/** Messages + run cards of one group, kept live from realtime events. */
-export function useTimeline(groupId: string) {
+/** A page and whether older ones remain (a thread's first page also holds its root). */
+type Page = TimelineDto & { more: boolean }
+
+/**
+ * Messages + run cards of one group's main timeline, or of the thread of `thread` (plan 话题), kept live from
+ * realtime events. The main timeline leaves out thread replies not also sent to the group.
+ */
+export function useTimeline(groupId: string, thread?: string) {
   const [state, setState] = useState<TimelineState>(EMPTY)
+  const [threadState, setThreadState] = useState<ThreadStateDto | null>(null)
   const [older, setOlder] = useState<'idle' | 'loading' | 'failed'>('idle')
   const [attempt, setAttempt] = useState(0)
   const loadingOlder = useRef(false)
 
   const fetchPage = useCallback(
-    (before?: number) =>
-      api.get<TimelineDto>(`/groups/${groupId}/timeline?limit=${PAGE}${before ? `&before=${before}` : ''}`),
-    [groupId],
+    async (before?: number): Promise<Page> => {
+      const query = `limit=${PAGE}${before ? `&before=${before}` : ''}`
+      if (!thread) {
+        const page = await api.get<TimelineDto>(`/groups/${groupId}/timeline?${query}`)
+        return { ...page, more: page.messages.length === PAGE }
+      }
+      const page = await api.get<ThreadDto>(`/messages/${thread}/thread?${query}`)
+      if (!before) setThreadState(page.state)
+      return {
+        messages: before ? page.replies : [page.root, ...page.replies],
+        runs: page.runs,
+        more: page.replies.length === PAGE,
+      }
+    },
+    [groupId, thread],
+  )
+  const belongs = useCallback(
+    (m: MessageDto) =>
+      thread ? m.id === thread || m.threadRootId === thread : !m.threadRootId || !!m.alsoSent,
+    [thread],
   )
 
   /**
@@ -126,13 +152,13 @@ export function useTimeline(groupId: string) {
    */
   const runIds = useRef(new Set<string>())
 
-  const applyPage = useCallback((page: TimelineDto, older: boolean) => {
+  const applyPage = useCallback((page: Page, older: boolean) => {
     for (const r of page.runs) runIds.current.add(r.id)
     setState((s) => ({
       ...s,
       messages: mergeMessages(s.messages, page.messages),
       runs: mergeRuns(s.runs, page.runs),
-      hasMore: older || !s.loaded ? page.messages.length === PAGE : s.hasMore,
+      hasMore: older || !s.loaded ? page.more : s.hasMore,
       loaded: true,
       failed: false,
     }))
@@ -141,6 +167,7 @@ export function useTimeline(groupId: string) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the first load on retry
   useEffect(() => {
     setState(EMPTY)
+    setThreadState(null)
     runIds.current = new Set()
     let alive = true
     const latest = () =>
@@ -168,9 +195,20 @@ export function useTimeline(groupId: string) {
       useRunDeltas.setState(next)
     }
     const offEvents = realtime.subscribe((e) => {
-      if (e.t === 'message.new' && e.message.groupId === groupId) setState((s) => addLive(s, e.message))
+      if (e.t === 'message.new' && e.message.groupId === groupId) {
+        if (belongs(e.message)) setState((s) => addLive(s, e.message))
+      } else if (e.t === 'thread.updated' && e.groupId === groupId)
+        setState((s) => ({
+          ...s,
+          messages: s.messages.map((m) => (m.id === e.rootId ? { ...m, thread: e.thread ?? undefined } : m)),
+        }))
+      else if (e.t === 'thread.state' && e.rootId === thread) setThreadState(e)
       else if (e.t === 'message.recalled' || e.t === 'message.hidden' || e.t === 'message.edited') onLocal(e)
-      else if (e.t === 'run.updated' && e.run.groupId === groupId) {
+      else if (
+        e.t === 'run.updated' &&
+        e.run.groupId === groupId &&
+        (!thread || e.run.threadRootId === thread)
+      ) {
         runIds.current.add(e.run.id)
         setState((s) => ({ ...s, runs: mergeRuns(s.runs, [e.run]) }))
       } else if (e.t === 'run.step' && e.groupId === groupId)
@@ -202,10 +240,11 @@ export function useTimeline(groupId: string) {
       offEvents()
       offStatus()
     }
-  }, [groupId, fetchPage, applyPage, attempt])
+  }, [groupId, fetchPage, applyPage, belongs, thread, attempt])
 
   const loadOlder = useCallback(async () => {
-    const first = state.messages[0]
+    // A thread pages its replies: its root always comes first.
+    const first = state.messages.find((m) => m.id !== thread)
     if (!state.hasMore || !first || loadingOlder.current) return
     loadingOlder.current = true
     setOlder('loading')
@@ -218,11 +257,11 @@ export function useTimeline(groupId: string) {
     } finally {
       loadingOlder.current = false
     }
-  }, [state.hasMore, state.messages, fetchPage, applyPage])
+  }, [state.hasMore, state.messages, fetchPage, applyPage, thread])
 
   const addMessage = useCallback((m: MessageDto) => setState((s) => addLive(s, m)), [])
 
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
-  return { ...state, older, loadOlder, addMessage, retry }
+  return { ...state, threadState, older, loadOlder, addMessage, retry }
 }

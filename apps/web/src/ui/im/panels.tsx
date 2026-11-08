@@ -1,4 +1,4 @@
-import { Children, type CSSProperties, Fragment, type ReactNode } from 'react'
+import { Children, type CSSProperties, Fragment, type ReactNode, type Ref, type UIEventHandler } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, type ButtonVariant, Checkbox, type Glyph, renderGlyph } from '../controls'
@@ -312,6 +312,12 @@ export interface ThreadPanelProps {
   alsoSend?: boolean
   alsoSendDefault?: boolean
   onAlsoSendChange?: (checked: boolean) => void
+  /** Replaces the built-in thread composer (an app's own). */
+  footer?: ReactNode
+  /** Beside the title, e.g. 关注. */
+  actions?: ReactNode
+  scrollRef?: Ref<HTMLDivElement>
+  onScroll?: UIEventHandler<HTMLDivElement>
   className?: string
   style?: CSSProperties
 }
@@ -329,6 +335,10 @@ export function ThreadPanel({
   alsoSend = true,
   alsoSendDefault = false,
   onAlsoSendChange,
+  footer,
+  actions,
+  scrollRef,
+  onScroll,
   className,
   style,
 }: ThreadPanelProps) {
@@ -340,8 +350,9 @@ export function ThreadPanel({
           <span>{title}</span>
           {subtitle && <span className="pn-threadpanel__sub">{subtitle}</span>}
         </div>
+        {actions && <div className="pn-threadpanel__actions">{actions}</div>}
       </PanelHead>
-      <div className="pn-threadpanel__scroll">
+      <div className="pn-threadpanel__scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="pn-threadpanel__root">{root}</div>
         {/* biome-ignore lint/a11y/useSemanticElements: a labelled divider; <hr> cannot hold text */}
         <div className="pn-threadpanel__count" role="separator">
@@ -349,7 +360,8 @@ export function ThreadPanel({
         </div>
         <div className="pn-threadpanel__replies">{replies}</div>
       </div>
-      {composer !== false && (
+      {footer ? <div className="pn-threadpanel__composer">{footer}</div> : null}
+      {!footer && composer !== false && (
         <div className="pn-threadpanel__composer">
           <Composer
             placeholder={t('回复话题')}

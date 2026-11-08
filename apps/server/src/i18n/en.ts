@@ -571,6 +571,8 @@ export const en = {
   引用的消息不存在: 'Quoted message not found',
   引用的运行不存在: 'Quoted run not found',
   消息不存在: 'Message not found',
+  只能在群里的普通消息下回复话题: 'Only a regular message of the group can start a thread',
+  该消息是话题回复: 'This message is a thread reply',
   按钮已失效: 'These buttons are no longer available',
   只能选择一项: 'Only one option can be chosen',
   已有人作答: 'Someone has already answered',

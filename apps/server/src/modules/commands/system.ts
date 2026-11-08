@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { groupBots } from '../../db/schema.js'
+import { groupBots, threadSessions } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { postEvent } from '../messages/service.js'
 import { publishBotState, RESET_SESSION } from '../workspaces/state.js'
@@ -19,13 +19,25 @@ export const newSession: CommandHandler = async (ctx, input) => {
     })
     return
   }
+  // Asked in a thread, /new starts over the thread's session only (plan 话题).
+  const thread = input.message.threadRootId
   for (const bot of picked) {
-    const [row] = await ctx.db
-      .update(groupBots)
-      .set({ ...RESET_SESSION, newSessionReason: 'requested' })
-      .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
-      .returning()
-    if (row) await publishBotState(ctx, row)
+    if (thread)
+      await ctx.db
+        .insert(threadSessions)
+        .values({ rootMessageId: thread, botId: bot.id, newSessionReason: 'requested' })
+        .onConflictDoUpdate({
+          target: [threadSessions.rootMessageId, threadSessions.botId],
+          set: { sessionId: null, newSessionReason: 'requested' },
+        })
+    else {
+      const [row] = await ctx.db
+        .update(groupBots)
+        .set({ ...RESET_SESSION, newSessionReason: 'requested' })
+        .where(and(eq(groupBots.groupId, group.id), eq(groupBots.botId, bot.id)))
+        .returning()
+      if (row) await publishBotState(ctx, row)
+    }
     await audit(ctx, {
       category: 'run',
       actorUserId: user.id,
@@ -33,6 +45,6 @@ export const newSession: CommandHandler = async (ctx, input) => {
       groupId: group.id,
       detail: { botId: bot.id },
     })
-    await postEvent(ctx, group.id, '{bot} 下一轮将开新会话', { bot: bot.name })
+    await postEvent(ctx, group.id, '{bot} 下一轮将开新会话', { bot: bot.name }, {}, thread)
   }
 }

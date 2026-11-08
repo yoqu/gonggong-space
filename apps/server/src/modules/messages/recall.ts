@@ -10,6 +10,7 @@ import { dropPin } from '../pins/service.js'
 import { publishRun } from '../runs/dto.js'
 import { runStep } from '../runs/step.js'
 import { notifyChainDone } from '../runs/stop.js'
+import { publishThread } from '../threads/service.js'
 import { type MessageRow, memberIds, messageDto } from './service.js'
 
 /** Only the author may recall or delete, and only their own user messages (not bot replies or events). */
@@ -79,6 +80,7 @@ export async function eraseMessage(ctx: Ctx, m: MessageRow) {
     groupId: m.groupId,
     messageId: m.id,
   })
+  if (m.threadRootId) await publishThread(ctx, { id: m.threadRootId, groupId: m.groupId })
   return row
 }
 

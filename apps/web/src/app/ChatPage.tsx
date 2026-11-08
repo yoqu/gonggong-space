@@ -7,6 +7,7 @@ import type { BotTab } from '../features/bots/BotSettings'
 import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
+import { ThreadInbox } from '../features/chat/ThreadInbox'
 import { JoinPreview } from '../features/groups/JoinPreview'
 import { loadSections, loadTeamSections, useTeamSections } from '../features/groups/sections'
 import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
@@ -166,6 +167,7 @@ export function ChatPage() {
   const { pathname } = useLocation()
   const managing = isMachinesPath(pathname)
   const works = isWorksPath(pathname)
+  const threads = pathname === '/threads'
   const market = isMarketPath(pathname)
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
@@ -211,6 +213,7 @@ export function ChatPage() {
       spaceId ||
       managing ||
       works ||
+      threads ||
       market ||
       mobile ||
       groupsState !== 'ready' ||
@@ -219,12 +222,12 @@ export function ChatPage() {
       return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, spaceId, managing, works, market, mobile, groupsState, groups, navigate])
+  }, [groupId, spaceId, managing, works, threads, market, mobile, groupsState, groups, navigate])
 
   return (
     <>
       <ChatLayout
-        mobileView={groupId || botId || machineId || spaceId || works || market ? 'chat' : 'list'}
+        mobileView={groupId || botId || machineId || spaceId || works || market || threads ? 'chat' : 'list'}
         sidebarLabel={managing ? t('机器与 Bot') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
@@ -238,7 +241,7 @@ export function ChatPage() {
         chatStrip={group ? <ChatStrip key={group.id} group={group} /> : null}
         rail={inspector ? <div ref={setInspectorHost} className="chat__inspector" /> : undefined}
         railOpen={!!inspector}
-        railKind={inspector === 'group-info' ? 'info' : 'run'}
+        railKind={inspector === 'group-info' ? 'info' : inspector === 'thread' ? 'thread' : 'run'}
         sidebar={
           // 市场 and 作品 are pages of their own: the conversation list beside them is noise, so they take the full width.
           market || works ? null : managing ? (
@@ -269,6 +272,8 @@ export function ChatPage() {
       >
         {market ? (
           <MarketPage />
+        ) : threads ? (
+          <ThreadInbox onBack={mobile ? () => navigate('/') : undefined} />
         ) : works ? (
           <WorksPage />
         ) : machineId ? (

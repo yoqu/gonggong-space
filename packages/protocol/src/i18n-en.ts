@@ -105,6 +105,8 @@ export const protocolEn = {
   '{user} 关闭了「仅群管理员可拉人」': '{user} turned off “Only admins can invite”',
   '{user} 开启了「禁止直推基准分支」': '{user} turned on “No direct pushes to the base branch”',
   '{user} 关闭了「禁止直推基准分支」': '{user} turned off “No direct pushes to the base branch”',
+  '{user} 开启了「Bot 回复进话题」': '{user} turned on "Bot replies in threads"',
+  '{user} 关闭了「Bot 回复进话题」': '{user} turned off "Bot replies in threads"',
   '{user} 移除了群公告': '{user} removed the group notice',
   '{user} 将 {member} 设为群管理员': '{user} made {member} a group admin',
   '{user} 取消了 {member} 的群管理员': '{user} revoked group admin from {member}',

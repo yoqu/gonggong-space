@@ -1,5 +1,5 @@
 import { GroupParams, GroupPrefsReq, UpdateGroupReq } from '@gonggong/protocol'
-import { and, desc, eq, isNull, max } from 'drizzle-orm'
+import { and, desc, eq, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { groupMembers, groupNotices, groups, messages, users } from '../../db/schema.js'
@@ -11,7 +11,7 @@ import { unbindChat } from '../feishu/mirror.js'
 import { memberIds, postEvent } from '../messages/service.js'
 import { stopRuns } from '../runs/stop.js'
 import { requireSection } from '../sidebar/routes.js'
-import { forgetGroupParams, groupParams, replyStyleOf } from './params.js'
+import { botRepliesInThreadOf, forgetGroupParams, groupParams, replyStyleOf } from './params.js'
 import { groupDto, publishGroup, removeMember, requireAdmin, requireMember } from './service.js'
 
 type P = { Params: { id: string } }
@@ -50,9 +50,8 @@ export function groupSettingsRoutes(ctx: Ctx) {
     app.patch<P>('/api/groups/:id', async (req) => {
       const me = await requireUser(ctx, req)
       const { group } = await requireAdmin(ctx, req.params.id, me.id)
-      const { notice, adminOnlyInvite, protectBase, replyStyle, visibility, ...body } = UpdateGroupReq.parse(
-        req.body,
-      )
+      const { notice, adminOnlyInvite, protectBase, replyStyle, botRepliesInThread, visibility, ...body } =
+        UpdateGroupReq.parse(req.body)
       if (visibility && group.kind === 'dm') return fail('invalid', '私聊不能公开')
       if (body.name)
         await ctx.db
@@ -69,7 +68,14 @@ export function groupSettingsRoutes(ctx: Ctx) {
       if (replyStyle !== undefined && replyStyle !== replyStyleOf(group.params))
         await ctx.db
           .update(groups)
-          .set({ params: { ...(group.params as object), replyStyle } })
+          .set({ params: sql`${groups.params} || ${JSON.stringify({ replyStyle })}::jsonb` })
+          .where(eq(groups.id, group.id))
+      const threadChanged =
+        botRepliesInThread !== undefined && botRepliesInThread !== botRepliesInThreadOf(group.params)
+      if (threadChanged)
+        await ctx.db
+          .update(groups)
+          .set({ params: sql`${groups.params} || ${JSON.stringify({ botRepliesInThread })}::jsonb` })
           .where(eq(groups.id, group.id))
       await audit(ctx, {
         category: 'admin',
@@ -83,6 +89,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
             adminOnlyInvite: group.adminOnlyInvite,
             protectBase: group.protectBase,
             replyStyle: replyStyleOf(group.params),
+            botRepliesInThread: botRepliesInThreadOf(group.params),
             visibility: group.visibility,
           },
           ...body,
@@ -90,6 +97,7 @@ export function groupSettingsRoutes(ctx: Ctx) {
           adminOnlyInvite,
           protectBase,
           replyStyle,
+          botRepliesInThread,
           visibility,
         },
       })
@@ -114,6 +122,13 @@ export function groupSettingsRoutes(ctx: Ctx) {
           ctx,
           group.id,
           protectBase ? '{user} 开启了「禁止直推基准分支」' : '{user} 关闭了「禁止直推基准分支」',
+          { user: me.name },
+        )
+      if (threadChanged)
+        await postEvent(
+          ctx,
+          group.id,
+          botRepliesInThread ? '{user} 开启了「Bot 回复进话题」' : '{user} 关闭了「Bot 回复进话题」',
           { user: me.name },
         )
       if (visibilityChanged)

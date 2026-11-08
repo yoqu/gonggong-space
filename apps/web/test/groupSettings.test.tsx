@@ -511,6 +511,21 @@ describe('group settings inspector', () => {
     )
   })
 
+  it('lets an admin put bot replies into threads in 基本信息 (plan 话题)', async () => {
+    const calls = mockApi(
+      routes([group()], { 'PATCH /groups/g1': (b: unknown) => group(b as Partial<GroupDto>) }),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(within(await openDrawer()).getByRole('button', { name: /基本信息/ }))
+    const dlg = await screen.findByRole('dialog', { name: '基本信息 · 支付服务重构' })
+    const toggle = within(dlg).getByRole('switch', { name: 'Bot 回复进话题' })
+    expect(toggle.getAttribute('aria-checked') ?? String((toggle as HTMLInputElement).checked)).toBe('false')
+    fireEvent.click(toggle)
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ botRepliesInThread: true }),
+    )
+  })
+
   it('uploads a cropped group avatar from 基本信息 and shows it instead of the mosaic', async () => {
     const image = '/api/avatars/0b7e7c1e-0000-4000-8000-000000000000.png'
     const calls = mockApi(routes([group()], { 'PUT /groups/g1/avatar': group({ avatar: image }) }))

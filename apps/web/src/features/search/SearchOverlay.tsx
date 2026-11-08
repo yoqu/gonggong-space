@@ -41,7 +41,9 @@ const matchConversations = (groups: GroupDto[], query: string) => {
 
 const hrefOf = (r: SearchResultDto) => {
   const q = new URLSearchParams()
-  if (r.kind === 'msg' && r.messageId) q.set('msg', r.messageId)
+  // A thread reply opens in its thread (plan 话题).
+  if (r.kind === 'msg' && r.threadRootId) q.set('thread', r.threadRootId)
+  else if (r.kind === 'msg' && r.messageId) q.set('msg', r.messageId)
   if (r.kind !== 'msg' && r.runId) q.set('run', r.runId)
   if (r.kind === 'file') q.set('file', r.title)
   return `/g/${r.groupId}${q.size ? `?${q}` : ''}`

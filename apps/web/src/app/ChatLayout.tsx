@@ -18,9 +18,9 @@ export function useRailOpen() {
   return [open, setOpen] as const
 }
 
-export type RailKind = 'run' | 'info'
+export type RailKind = 'run' | 'info' | 'thread'
 
-const RAIL_DEFAULT: Record<RailKind, number> = { run: 320, info: 320 }
+const RAIL_DEFAULT: Record<RailKind, number> = { run: 320, info: 320, thread: 400 }
 const RAIL_MIN_WIDTH = 280
 const RAIL_MAX_SHARE = 0.6
 const CHAT_DEFAULT = 380

@@ -32,5 +32,11 @@ export async function notifyMentions(ctx: Ctx, m: MessageRow, byName: string) {
   const text = m.body.replace(/\s+/g, ' ').trim().slice(0, 80)
   for (const userId of (m.meta as MessageMeta).userMentions ?? [])
     if (userId !== m.authorUserId)
-      await notify(ctx, userId, 'mention', { groupId: m.groupId, messageId: m.id, byName, text })
+      await notify(ctx, userId, 'mention', {
+        groupId: m.groupId,
+        messageId: m.id,
+        ...(m.threadRootId && { threadRootId: m.threadRootId }),
+        byName,
+        text,
+      })
 }

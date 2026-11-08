@@ -8,6 +8,7 @@ import { idParam } from '../../lib/ids.js'
 import { mirrorReply, mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots, requireMember } from '../groups/service.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { publishThread } from '../threads/service.js'
 import { resolveQuote } from './quote.js'
 import { type MessageMeta, type MessageRow, memberIds, messageDto, publishMessage } from './service.js'
 
@@ -67,7 +68,16 @@ export async function answerActions(
     const meta: MessageMeta = { mentions: [bot.id], quote }
     const [sent] = (await tx
       .insert(messages)
-      .values({ groupId: m.groupId, kind: 'user', authorUserId: user.id, body, meta, createdAt: ctx.now() })
+      .values({
+        groupId: m.groupId,
+        kind: 'user',
+        authorUserId: user.id,
+        body,
+        meta,
+        createdAt: ctx.now(),
+        // Answered in the thread the reply is in.
+        threadRootId: m.threadRootId,
+      })
       .returning()) as [MessageRow]
     return { reply, sent }
   })
@@ -75,6 +85,7 @@ export async function answerActions(
   const dto = messageDto(reply, bot.name)
   ctx.bus.publish(await memberIds(ctx, m.groupId), { t: 'message.edited', message: dto })
   await publishMessage(ctx, messageDto(sent, user.name))
+  if (m.threadRootId) await publishThread(ctx, { id: m.threadRootId, groupId: m.groupId })
   await audit(ctx, {
     category: 'question',
     actorUserId: user.id,

@@ -256,6 +256,19 @@ function BasicTab({ group, readOnly }: { group: GroupDto; readOnly: boolean }) {
           />
         )}
       </GroupRow>
+      {dm ? null : (
+        <GroupRow
+          label={t('Bot 回复进话题')}
+          description={t('在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏')}
+        >
+          <Switch
+            aria-label={t('Bot 回复进话题')}
+            disabled={readOnly}
+            checked={!!group.botRepliesInThread}
+            onChange={(v) => void attempt(() => groupsApi.update(group.id, { botRepliesInThread: v }))}
+          />
+        </GroupRow>
+      )}
       {dm ? (
         <GroupRow label={t('类型')}>
           <span className="gs-value">{t('私聊 · 仅你和你的 Bot，不能邀请他人')}</span>

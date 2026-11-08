@@ -539,3 +539,15 @@
 .chat-pins__link a {
   color: var(--accent);
 }
+
+.tl-also {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.thread-view.pn-threadpanel {
+  width: 100%;
+}

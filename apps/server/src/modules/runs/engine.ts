@@ -2,7 +2,7 @@ import type { RunDone, RunEvent } from '@gonggong/protocol'
 import { and, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
-import { attachments, bots, groupBots, messages, runEvents, runs } from '../../db/schema.js'
+import { attachments, bots, groupBots, messages, runEvents, runs, threadSessions } from '../../db/schema.js'
 import { isUuid } from '../../lib/ids.js'
 import { open, seal } from '../../lib/seal.js'
 import { onAiApproved, onApprovalRequest, voidApprovals } from '../approvals/service.js'
@@ -22,6 +22,7 @@ import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/s
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
 import { pauseStopped, requeueRun } from '../sync/resolve.js'
+import { followOnReply, publishThread } from '../threads/service.js'
 import { publishBotState, updateContextUsage } from '../workspaces/state.js'
 import { cardColumns, publishRun, publishStep, type RunRow } from './dto.js'
 import { redactDeep } from './redact.js'
@@ -324,6 +325,7 @@ async function onContinue(ctx: Ctx, machineId: string, msg: Extract<DaemonMsg, {
       triggerMessageId: run.triggerMessageId,
       triggerUserId: run.triggerUserId,
       originUserId: run.originUserId,
+      threadRootId: run.threadRootId,
       continuationOf: run.id,
       status: 'running',
       startedAt: ctx.now(),
@@ -646,15 +648,25 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
     if (!run) return null
     // A scheduled turn's session is its own (see buildRunStart): the group keeps resuming its conversation.
     const [trigger] = done.sessionId
-      ? await tx.select({ meta: messages.meta }).from(messages).where(eq(messages.id, run.triggerMessageId))
+      ? await tx
+          .select({ meta: messages.meta, threadRootId: messages.threadRootId })
+          .from(messages)
+          .where(eq(messages.id, run.triggerMessageId))
       : []
     const sessionId = (trigger?.meta as MessageMeta | undefined)?.scheduleOf ? null : done.sessionId
+    // Asked in a thread: the session is the thread's (plan 话题).
+    const thread = sessionId ? trigger?.threadRootId : null
+    if (thread && sessionId)
+      await tx
+        .update(threadSessions)
+        .set({ sessionId })
+        .where(and(eq(threadSessions.rootMessageId, thread), eq(threadSessions.botId, run.botId)))
     const [state] =
-      sessionId || done.git
+      (sessionId && !thread) || done.git
         ? await tx
             .update(groupBots)
             .set({
-              ...(sessionId && { sessionId }),
+              ...(sessionId && !thread && { sessionId }),
               ...(done.git && { gitStatus: done.git }),
             })
             .where(and(eq(groupBots.groupId, run.groupId), eq(groupBots.botId, run.botId)))
@@ -677,9 +689,15 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
                 ...(pages.length > 0 && { htmlRenders: pages }),
               } satisfies MessageMeta,
               runId: run.id,
+              threadRootId: run.threadRootId,
             })
             .returning()
         : []
+    const [root] =
+      message && run.threadRootId
+        ? await tx.select().from(messages).where(eq(messages.id, run.threadRootId))
+        : []
+    if (message && root) await followOnReply(tx, root, message, userMentions)
     if (message && pages.length)
       await tx
         .update(attachments)
@@ -690,12 +708,13 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
             pages.map((p) => p.attachmentId),
           ),
         )
-    return { run, state, message }
+    return { run, state, message, root }
   })
   if (!ended) return
   if (ended.message) {
     const name = await authorName(ctx, ended.message)
     await publishMessage(ctx, messageDto(ended.message, name))
+    if (ended.root) await publishThread(ctx, ended.root)
     await notifyMentions(ctx, ended.message, name)
   }
   if (ended.state && done.git) await publishBotState(ctx, ended.state)

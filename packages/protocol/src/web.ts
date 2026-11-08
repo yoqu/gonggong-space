@@ -1082,6 +1082,8 @@ export const GroupDto = z.object({
   protectBase: z.boolean(),
   /** 回复风格: how the bots word their replies; always sent by the server. */
   replyStyle: ReplyStyle.optional(),
+  /** Bot回复进话题: replies to an @ in the main timeline go into a thread of the trigger message (plan 话题). */
+  botRepliesInThread: z.boolean().optional(),
   notice: z.string(),
   /** The caller closed the current notice for themselves; a newer notice shows again. */
   noticeHidden: z.boolean(),
@@ -1351,6 +1353,13 @@ export const ProgressCard = z.object({
   updatedAt: z.string(),
 })
 export type ProgressCard = z.infer<typeof ProgressCard>
+/** A thread root's replies (plan 话题): count, latest reply, and its first three distinct authors (user or bot ids). */
+export const ThreadSummary = z.object({
+  replyCount: z.number().int(),
+  lastReplyAt: z.string(),
+  participants: z.array(z.string()),
+})
+export type ThreadSummary = z.infer<typeof ThreadSummary>
 export const MessageDto = z.object({
   id: z.string(),
   seq: z.number().int(),
@@ -1405,6 +1414,12 @@ export const MessageDto = z.object({
   canvas: MessageCanvas.optional(),
   /** An event about a failed Feishu call (plain words in `i18n`, Feishu's code shown second). */
   feishuIssue: FeishuIssueEvent.optional(),
+  /** A reply in the thread of this root message (plan 话题); null/absent in the main timeline. */
+  threadRootId: z.string().nullable().optional(),
+  /** A thread reply also shown in the main timeline (同时发送到群). */
+  alsoSent: z.boolean().optional(),
+  /** On a root message with replies: their summary. */
+  thread: ThreadSummary.optional(),
 })
 export type MessageDto = z.infer<typeof MessageDto>
 
@@ -1681,6 +1696,8 @@ export const RunDto = z.object({
   botId: z.string(),
   triggerMessageId: z.string(),
   triggerUserId: z.string().nullable(),
+  /** The thread the run answers in (plan 话题); its card shows there, not in the main timeline. */
+  threadRootId: z.string().nullable().optional(),
   hop: z.number().int(),
   status: RunStatus,
   step: z.string(),
@@ -1779,6 +1796,50 @@ export type RunSessionDto = z.infer<typeof RunSessionDto>
 export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
 export type TimelineDto = z.infer<typeof TimelineDto>
 
+/**
+ * Threads (plan 话题). GET /api/messages/:rootId/thread?before= → ThreadDto: the root, a page of replies (oldest first)
+ * and their runs. PUT …/thread/read (ThreadReadReq) and …/thread/follow (ThreadFollowReq) → ThreadStateDto.
+ */
+export const ThreadStateDto = z.object({
+  rootId: z.string(),
+  groupId: z.string(),
+  following: z.boolean(),
+  lastReadSeq: z.number().int(),
+  /** Replies after lastReadSeq by others. */
+  unread: z.number().int(),
+  /** One of them @s the viewer. */
+  mentioned: z.boolean(),
+})
+export type ThreadStateDto = z.infer<typeof ThreadStateDto>
+export const ThreadDto = z.object({
+  root: MessageDto,
+  replies: z.array(MessageDto),
+  runs: z.array(RunDto),
+  state: ThreadStateDto,
+})
+export type ThreadDto = z.infer<typeof ThreadDto>
+export const ThreadReadReq = z.object({ seq: z.number().int().min(0).optional() })
+export const ThreadFollowReq = z.object({ following: z.boolean() })
+/** GET /api/threads?before=<last reply seq> → ThreadInboxDto: followed threads, latest reply first. */
+export const ThreadInboxItemDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  root: MessageDto,
+  /** The latest replies, oldest first (at most 2). */
+  latest: z.array(MessageDto),
+  state: ThreadStateDto,
+})
+export type ThreadInboxItemDto = z.infer<typeof ThreadInboxItemDto>
+export const ThreadInboxQuery = z.object({
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+export const ThreadInboxDto = z.object({ threads: z.array(ThreadInboxItemDto) })
+export type ThreadInboxDto = z.infer<typeof ThreadInboxDto>
+/** GET /api/threads/unread → followed threads with unread replies, and how many of them @ the viewer. */
+export const ThreadUnreadDto = z.object({ unread: z.number().int(), mentioned: z.number().int() })
+export type ThreadUnreadDto = z.infer<typeof ThreadUnreadDto>
+
 export const SendMessageReq = z.object({
   /** May be empty when the message carries attachments. */
   body: z.string().max(20000),
@@ -1797,6 +1858,10 @@ export const SendMessageReq = z.object({
   runOptions: z.record(z.string(), RunConfigPick).default({}),
   /** The artifact canvas selection the message is about (plan 原型编辑器 R3). */
   artifactContext: ArtifactContext.optional(),
+  /** Reply in the thread of this root message of the group (plan 话题). */
+  threadRootId: z.string().nullable().default(null),
+  /** With threadRootId: also show the reply in the main timeline. */
+  alsoSent: z.boolean().default(false),
 })
 
 // ── Composer candidates (spec §8.7) ────────────────────────────────────────
@@ -1976,6 +2041,8 @@ export const SearchResultDto = z.object({
   sub: z.string(),
   groupId: z.string(),
   messageId: z.string().nullable(),
+  /** A thread reply's root: the hit opens in its thread. */
+  threadRootId: z.string().nullable().optional(),
   runId: z.string().nullable(),
   /** When the message was sent / the run was queued; null for base-branch files. */
   at: z.string().nullable(),
@@ -2004,6 +2071,7 @@ export const UpdateGroupReq = z.object({
   adminOnlyInvite: z.boolean().optional(),
   protectBase: z.boolean().optional(),
   replyStyle: ReplyStyle.optional(),
+  botRepliesInThread: z.boolean().optional(),
   visibility: GroupVisibility.optional(),
 })
 export type UpdateGroupReq = z.infer<typeof UpdateGroupReq>
@@ -2602,6 +2670,15 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** Force groups: the replicas' sync status changed; replaces it. */
   SyncStatusDto.extend({ t: z.literal('group.sync') }),
   z.object({ t: z.literal('message.new'), message: MessageDto }),
+  /** A thread got a reply or lost one; replaces the root's summary (null: no replies left). */
+  z.object({
+    t: z.literal('thread.updated'),
+    groupId: z.string(),
+    rootId: z.string(),
+    thread: ThreadSummary.nullable(),
+  }),
+  /** The receiving user's state of a thread changed (followed, read, a new reply). */
+  ThreadStateDto.extend({ t: z.literal('thread.state') }),
   /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
   ReactionsDto.extend({ t: z.literal('message.reactions') }),
   /** Sent to every member; quotes of it now read RECALLED_QUOTE. */

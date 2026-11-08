@@ -57,6 +57,10 @@ export async function teamParams(db: Pick<Db, 'select'>, teamId: string): Promis
 export const replyStyleOf = (own: unknown): ReplyStyle =>
   (own as { replyStyle?: ReplyStyle }).replyStyle ?? 'tech'
 
+/** Bot回复进话题 (plan 话题): off unless turned on. */
+export const botRepliesInThreadOf = (own: unknown) =>
+  (own as { botRepliesInThread?: boolean }).botRepliesInThread === true
+
 /** A group's own overrides (`groups.params`) over `defaults`. */
 export const withDefaults = (own: unknown, defaults: GroupParams): GroupParams =>
   Object.fromEntries(KEYS.map((k) => [k, (own as Partial<GroupParams>)[k] ?? defaults[k]])) as GroupParams

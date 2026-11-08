@@ -70,6 +70,7 @@ import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
 import { repoName } from './repo'
 import { TaskDock } from './TaskDock'
+import { ThreadView } from './ThreadView'
 import {
   BotReply,
   dayLabel,
@@ -80,6 +81,8 @@ import {
   RunCard,
   UserMessage,
 } from './TimelineItems'
+import { openThread } from './thread'
+import { useThreadLive } from './threadSummary'
 import { useMarkRead } from './useMarkRead'
 import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
@@ -190,6 +193,7 @@ export function ChatView({
   const navigate = useNavigate()
   const infoOpen = useInspector((s) => s.view === 'group-info')
   const infoView = useInspector((s) => s.payload as InfoView | null)
+  const threadRoot = useInspector((s) => (s.view === 'thread' ? (s.payload as string) : null))
   const { open: inspect, close: closeInspector } = useInspector.getState()
   const benchTabs = useWorkbench((s) => s.benches[group.id]?.tabs.length ?? 0)
   const benchOpen = useWorkbench((s) => s.open)
@@ -199,6 +203,19 @@ export function ChatView({
   const isAdmin = group.members.some((m) => m.userId === me?.id && m.isAdmin)
   const [params, setParams] = useSearchParams()
   const linked = params.get('msg')
+  // `?thread=<root id>` (links, notifications, search hits): opens that thread in the rail.
+  const linkedThread = params.get('thread')
+  useEffect(() => {
+    if (!linkedThread) return
+    openThread(linkedThread)
+    setParams(
+      (p) => {
+        p.delete('thread')
+        return p
+      },
+      { replace: true },
+    )
+  }, [linkedThread, setParams])
   useLinkedSync(group.id)
   const linkPages = useRef(0)
   /** Run located from the live runs bar: its process opens when the link target can't be found. */
@@ -319,10 +336,25 @@ export function ChatView({
     const replies = new Map<string, MessageDto>()
     for (const m of tl.messages) if (m.kind === 'bot' && m.runId && tl.runs[m.runId]) replies.set(m.runId, m)
     const runsByTrigger = new Map<string, RunDto[]>()
+    // A thread's runs show in the thread; its root says a bot is at work (ThreadLive).
     for (const r of Object.values(tl.runs).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt)))
-      runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
+      if (!r.threadRootId)
+        runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
     return { runsByTrigger, replies, byId }
   }, [tl.messages, tl.runs])
+  const threadLiveKey = JSON.stringify(
+    [
+      ...new Set(
+        Object.values(tl.runs).flatMap((r) =>
+          r.threadRootId && [...STARTED, 'queued', 'offline_wait'].includes(r.status) ? [r.threadRootId] : [],
+        ),
+      ),
+    ].sort(),
+  )
+  useEffect(() => {
+    useThreadLive.setState({ roots: new Set<string>(JSON.parse(threadLiveKey)) })
+    return () => useThreadLive.setState({ roots: new Set() })
+  }, [threadLiveKey])
 
   /**
    * Bot names per fan-out message (two or more runs). Keyed by content: runs and bots are replaced on every update,
@@ -341,7 +373,8 @@ export function ChatView({
   const offscreen = useMemo(
     () =>
       Object.values(tl.runs).filter(
-        (r) => r.status === 'running' && !byId.has(r.triggerMessageId) && !replies.has(r.id),
+        (r) =>
+          r.status === 'running' && !r.threadRootId && !byId.has(r.triggerMessageId) && !replies.has(r.id),
       ),
     [tl.runs, byId, replies],
   )
@@ -368,6 +401,7 @@ export function ChatView({
     return realtime.onReconnect(load)
   }, [group.id])
   const locate = (r: RunDto) => {
+    if (r.threadRootId) return openThread(r.threadRootId)
     linkPages.current = 0
     linkRun.current = r.id
     setParams(
@@ -442,6 +476,8 @@ export function ChatView({
     !!prev &&
     !prev.recalled &&
     !m.recalled &&
+    // Says which thread it answered.
+    !m.alsoSent &&
     m.id !== unreadAt &&
     continues(prev, m) &&
     !replyRun(prev) &&
@@ -617,6 +653,17 @@ export function ChatView({
           ]}
         />
         {dm || readOnly ? null : <GroupTabBar group={group} />}
+        <InspectorPortal view="thread">
+          {threadRoot ? (
+            <ThreadView
+              key={threadRoot}
+              group={group}
+              rootId={threadRoot}
+              readOnly={readOnly}
+              onClose={closeInspector}
+            />
+          ) : null}
+        </InspectorPortal>
         <InspectorPortal view="group-info">
           <GroupInfo
             key={String(infoView)}

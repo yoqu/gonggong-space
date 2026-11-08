@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 
-export type InspectorView = 'group-info' | 'run'
+export type InspectorView = 'group-info' | 'run' | 'thread'
 
 interface InspectorState {
   view: InspectorView | null

@@ -300,16 +300,30 @@ export async function mirrorUserMessage(
     const app = credsOf(from)
     const token = dm ? null : await userToken(ctx, author.id)
     const body = await withFeishuAts(ctx, message.body, (message.meta as MessageMeta).userMentions ?? [])
+    // A thread reply quotes its root in the chat, when the root went there (Feishu threads are not mapped).
+    const [root] = message.threadRootId
+      ? await ctx.db
+          .select({ id: feishuMessageLinks.feishuMessageId })
+          .from(feishuMessageLinks)
+          .where(
+            and(
+              eq(feishuMessageLinks.messageId, message.threadRootId),
+              eq(feishuMessageLinks.chatId, chat.chatId),
+            ),
+          )
+          .limit(1)
+      : []
+    const replyTo = root?.id
     let sent: { messageId: string } | null = null
     if (token)
       sent = await ctx.feishu.api
-        .send(app, chat.chatId, textBody(body), { userToken: token })
+        .send(app, chat.chatId, textBody(body), { userToken: token, replyTo })
         .catch((err) => {
           if (!(err instanceof FeishuError)) throw err
           return null
         })
     const byUser = !!sent
-    sent ??= await ctx.feishu.api.send(app, chat.chatId, textBody(`${author.name}：${body}`))
+    sent ??= await ctx.feishu.api.send(app, chat.chatId, textBody(`${author.name}：${body}`), { replyTo })
     await ctx.db.insert(feishuMessageLinks).values({
       feishuMessageId: sent.messageId,
       chatId: chat.chatId,

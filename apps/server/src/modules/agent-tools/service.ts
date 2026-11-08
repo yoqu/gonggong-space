@@ -30,6 +30,7 @@ import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.j
 import { answerText } from '../questions/dto.js'
 import { redactDeep } from '../runs/redact.js'
 import { runRedactors } from '../secrets/resolve.js'
+import { inMainTimeline, threadSummaries } from '../threads/service.js'
 import { artifactCheckout } from './artifacts.js'
 import { listFeishuMessages } from './feishu.js'
 import { kbCreate, kbDelete, kbGet, kbList, kbSearch, kbUpdate } from './knowledge.js'
@@ -132,6 +133,7 @@ function messageRows(
 ) {
   return ctx.db
     .select({
+      id: messages.id,
       seq: messages.seq,
       groupId: messages.groupId,
       body: messages.body,
@@ -160,15 +162,24 @@ type MessageRow = Awaited<ReturnType<typeof messageRows>>[number]
 
 const attachmentsOf = (m: Pick<MessageRow, 'meta'>) => (m.meta as MessageMeta).attachments ?? []
 
-function line(m: MessageRow) {
+function line(m: MessageRow, replies = 0) {
   const files = attachmentsOf(m).map((a) => a.name)
-  return `[#${m.seq} ${time(m.at)}] ${m.author}: ${clip(m.body)}${files.length ? `（附件：${files.join('、')}）` : ''}`
+  return `[#${m.seq} ${time(m.at)}] ${m.author}: ${clip(m.body)}${files.length ? `（附件：${files.join('、')}）` : ''}${replies ? `（话题 ${replies} 条回复：thread=${m.seq}）` : ''}`
 }
 
 async function listMessages(ctx: Ctx, s: Scope, a: Args<'list_messages'>): Promise<ToolOutput> {
   const g = s.pick(a.group)
   const limit = a.limit ?? 20
-  const rows = (where?: SQL) => messageRows(ctx, and(eq(messages.groupId, g.id), where), a)
+  const [root] =
+    a.thread === undefined
+      ? []
+      : await ctx.db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(and(eq(messages.groupId, g.id), eq(messages.seq, a.thread), isNull(messages.threadRootId)))
+  if (a.thread !== undefined && !root) return refuse(`没有这个话题：#${a.thread}`)
+  const scope = root ? or(eq(messages.id, root.id), eq(messages.threadRootId, root.id)) : inMainTimeline
+  const rows = (where?: SQL) => messageRows(ctx, and(eq(messages.groupId, g.id), scope, where), a)
   let list: MessageRow[]
   if (a.after !== undefined)
     list = await rows(gt(messages.seq, a.after)).orderBy(asc(messages.seq)).limit(limit)
@@ -189,7 +200,16 @@ async function listMessages(ctx: Ctx, s: Scope, a: Args<'list_messages'>): Promi
   const first = list[0]
   const last = list.at(-1)
   if (!first || !last) return { text: '没有符合条件的消息', groups: [] }
-  const out = [`群「${g.name}」#${first.seq}–#${last.seq}（${list.length} 条）`, ...list.map(line)]
+  const threads = root
+    ? new Map()
+    : await threadSummaries(
+        ctx,
+        list.map((m) => m.id),
+      )
+  const out = [
+    `群「${g.name}」${root ? `话题 #${a.thread} ` : ''}#${first.seq}–#${last.seq}（${list.length} 条）`,
+    ...list.map((m) => line(m, threads.get(m.id)?.replyCount)),
+  ]
   if (list.length === limit && a.around === undefined)
     out.push(a.after === undefined ? `更早：before=${first.seq}` : `更新：after=${last.seq}`)
   return { text: out.join('\n'), groups: [g.id] }

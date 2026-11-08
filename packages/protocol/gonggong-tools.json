@@ -2,7 +2,7 @@
   {
     "name": "list_messages",
     "title": "读取聊天记录",
-    "description": "Read the group chat in time order (people and bot final replies). Messages are #seq; page or jump with before / after / around.",
+    "description": "Read the group chat in time order (people and bot final replies). Messages are #seq; page or jump with before / after / around. Thread replies are not in the main chat: a root shows its reply count; read them with thread.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -33,6 +33,12 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Default 20"
+        },
+        "thread": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Read the thread of root message #seq instead of the main chat"
         },
         "author": {
           "type": "string",

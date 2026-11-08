@@ -123,7 +123,26 @@ export async function readMentions(ctx: Ctx, userId: string, groupId: string, se
         eq(notifications.type, 'mention'),
         isNull(notifications.readAt),
         sql`${notifications.payload}->>'groupId' = ${groupId}`,
-        sql`exists (select 1 from ${messages} where ${messages.id}::text = ${notifications.payload}->>'messageId' and ${messages.groupId} = ${groupId} and ${messages.seq} <= ${seq})`,
+        // An @ in a thread is settled by reading the thread (readThreadMentions).
+        sql`exists (select 1 from ${messages} where ${messages.id}::text = ${notifications.payload}->>'messageId' and ${messages.groupId} = ${groupId} and ${messages.seq} <= ${seq}
+          and (${messages.threadRootId} is null or ${messages.meta}->>'alsoSent' is not null))`,
+      ),
+    )
+    .returning()) as Row[]
+  if (rows.length) await publishResolved(ctx, userId, rows)
+}
+
+/** Marks `userId`'s 被 @ notifications for replies of the thread up to `seq` read. */
+export async function readThreadMentions(ctx: Ctx, userId: string, rootId: string, seq: number) {
+  const rows = (await ctx.db
+    .update(notifications)
+    .set({ readAt: ctx.now() })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.type, 'mention'),
+        isNull(notifications.readAt),
+        sql`exists (select 1 from ${messages} where ${messages.id}::text = ${notifications.payload}->>'messageId' and ${messages.threadRootId} = ${rootId} and ${messages.seq} <= ${seq})`,
       ),
     )
     .returning()) as Row[]

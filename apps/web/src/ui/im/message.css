@@ -303,6 +303,9 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
   color: var(--bubble-link);
   font-weight: 600;
 }
+.pn-thread--unread .pn-thread__count {
+  font-weight: 800;
+}
 .pn-thread__last {
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);

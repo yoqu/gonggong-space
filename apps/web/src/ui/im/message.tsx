@@ -148,15 +148,20 @@ export interface ThreadSummaryProps {
   count: number
   people?: AvatarProps[]
   lastTime?: string
+  /** Shown after the summary, e.g. a running bot. */
+  extra?: ReactNode
+  /** New replies since the reader last looked: the count is bold. */
+  unread?: boolean
   onClick?: () => void
 }
 
-export function ThreadSummary({ count, people = [], lastTime, onClick }: ThreadSummaryProps) {
+export function ThreadSummary({ count, people = [], lastTime, extra, unread, onClick }: ThreadSummaryProps) {
   return (
-    <button type="button" className="pn-thread" onClick={onClick}>
+    <button type="button" className={cx('pn-thread', unread && 'pn-thread--unread')} onClick={onClick}>
       <AvatarGroup people={people} size={20} max={3} />
-      <span className="pn-thread__count">{t('{n} 条回复', { n: count })}</span>
+      <span className="pn-thread__count">{count ? t('{n} 条回复', { n: count }) : t('查看话题')}</span>
       {lastTime && <span className="pn-thread__last">{t('最后回复 {time}', { time: lastTime })}</span>}
+      {extra}
     </button>
   )
 }

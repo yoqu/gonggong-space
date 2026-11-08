@@ -632,6 +632,8 @@ export const messages = pgTable(
     /** { mentions: string[] (bot ids), quote?: {...}, attachments?: [...], event?: {...} } */
     meta: jsonb('meta').notNull().default({}),
     runId: uuid('run_id'),
+    /** A reply in the thread of this root message (plan 话题); the main timeline shows only `meta.alsoSent` ones. */
+    threadRootId: uuid('thread_root_id').references((): AnyPgColumn => messages.id),
     createdAt: createdAt(),
     editedAt: ts('edited_at'),
     /** Recalled by its author: body and meta attachments/quote are erased at that moment. */
@@ -639,6 +641,7 @@ export const messages = pgTable(
   },
   (t) => [
     index('messages_group_seq').on(t.groupId, t.seq),
+    index('messages_thread').on(t.threadRootId, t.seq).where(sql`${t.threadRootId} is not null`),
     // Unread @ of the viewer in the conversation list (groups/service.ts `mentioned`).
     index('messages_user_mentions').on(t.groupId, t.seq).where(sql`(${t.meta}->'userMentions') is not null`),
     index('messages_run').on(t.runId).where(sql`${t.runId} is not null`),
@@ -656,6 +659,51 @@ export const messages = pgTable(
       .where(sql`(${t.meta}->>'scheduleOf') is not null`),
     // Search (⌘K and the agent tool): `body ilike '%q%'` for terms of 3+ characters.
     index('messages_body_trgm').using('gin', t.body.op('gin_trgm_ops')),
+  ],
+)
+
+/**
+ * A bot's agent session in a thread (plan 话题), apart from its group session (`group_bots.session_id`); its context
+ * cursor covers the thread's replies only.
+ */
+export const threadSessions = pgTable(
+  'thread_sessions',
+  {
+    rootMessageId: uuid('root_message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    sessionId: text('session_id'),
+    contextSeq: bigint('context_seq', { mode: 'number' }).notNull().default(0),
+    /** A /new in the thread: its next turn starts a fresh session. */
+    newSessionReason: text('new_session_reason'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.rootMessageId, t.botId] })],
+)
+
+/** Who follows a thread and how far they read it (plan 话题 收件箱). */
+export const threadFollows = pgTable(
+  'thread_follows',
+  {
+    rootMessageId: uuid('root_message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    following: boolean('following').notNull().default(true),
+    lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.rootMessageId, t.userId] }),
+    index('thread_follows_user').on(t.userId).where(sql`${t.following}`),
   ],
 )
 
@@ -711,6 +759,8 @@ export const runs = pgTable(
       .notNull()
       .references(() => messages.id),
     triggerUserId: uuid('trigger_user_id').references(() => users.id),
+    /** The thread it answers in (plan 话题): its reply goes there, and a thread-started run uses the thread's session. */
+    threadRootId: uuid('thread_root_id').references(() => messages.id),
     /** Human who started the chain; every hop is authorized against this user. */
     originUserId: uuid('origin_user_id')
       .notNull()
@@ -789,6 +839,7 @@ export const runs = pgTable(
     index('runs_group_bot_started').on(t.groupId, t.botId, t.startedAt),
     index('runs_parent').on(t.parentRunId),
     index('runs_trigger').on(t.triggerMessageId),
+    index('runs_thread').on(t.threadRootId).where(sql`${t.threadRootId} is not null`),
     index('runs_started').on(t.startedAt),
     index('runs_queued').on(t.queuedAt),
     index('runs_waiting').on(t.queuedAt).where(sql`${t.status} = 'offline_wait'`),

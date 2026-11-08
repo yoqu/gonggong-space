@@ -39,6 +39,7 @@ export const ListMessagesArgs = z
     after: seq.describe('Messages after #seq').optional(),
     around: seq.describe('Messages around #seq, itself included').optional(),
     limit: z.number().int().min(1).max(50).describe('Default 20').optional(),
+    thread: seq.describe('Read the thread of root message #seq instead of the main chat').optional(),
     author,
     since,
     until,
@@ -447,7 +448,7 @@ export const GONGGONG_TOOLS = {
   list_messages: {
     title: GONGGONG_TOOL_TITLES.list_messages,
     description:
-      'Read the group chat in time order (people and bot final replies). Messages are #seq; page or jump with before / after / around.',
+      'Read the group chat in time order (people and bot final replies). Messages are #seq; page or jump with before / after / around. Thread replies are not in the main chat: a root shows its reply count; read them with thread.',
     input: ListMessagesArgs,
   },
   search_messages: {

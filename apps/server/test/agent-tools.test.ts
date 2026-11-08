@@ -47,7 +47,14 @@ async function world() {
   const say = async (
     groupId: string,
     body: string,
-    o: { userId?: string; botId?: string; meta?: object; kind?: string; runId?: string } = {},
+    o: {
+      userId?: string
+      botId?: string
+      meta?: object
+      kind?: string
+      runId?: string
+      threadRootId?: string
+    } = {},
   ) => {
     const [m] = await t.db
       .insert(messages)
@@ -59,6 +66,7 @@ async function world() {
         body,
         meta: o.meta ?? {},
         runId: o.runId ?? null,
+        threadRootId: o.threadRootId ?? null,
         createdAt: at(minute++),
       })
       .returning()
@@ -151,6 +159,28 @@ describe('gonggong tool calls', () => {
 
     const empty = (await w.call(live.id, 'list_messages', { after: last + 1000 })).body
     expect(empty).toEqual({ isError: false, text: '没有符合条件的消息', attachments: [] })
+  })
+
+  it('list_messages keeps thread replies out of the main chat and reads a thread by its root', async () => {
+    const w = await world()
+    const root = await w.say(w.pay.id, '要不要拆退款接口', { userId: w.li.id })
+    await w.say(w.pay.id, '要拆', { userId: w.li.id, threadRootId: root.id })
+    await w.say(w.pay.id, '同意', { botId: w.codex.id, threadRootId: root.id })
+    const live = await w.run(w.pay.id, w.claude.id)
+
+    const main = (await w.call(live.id, 'list_messages', {})).body.text
+    expect(main).toContain(`李建国: 要不要拆退款接口（话题 2 条回复：thread=${root.seq}）`)
+    expect(main).not.toContain('同意')
+
+    const thread = (await w.call(live.id, 'list_messages', { thread: root.seq })).body.text
+    expect(thread.split('\n')[0]).toMatch(
+      new RegExp(`^群「支付服务重构」话题 #${root.seq} #${root.seq}–#\\d+（3 条）$`),
+    )
+    expect(thread).toContain('李建国: 要拆')
+    expect(thread).toContain('老李的 Codex: 同意')
+
+    const missing = (await w.call(live.id, 'list_messages', { thread: root.seq + 1 })).body
+    expect(missing).toMatchObject({ isError: true, text: `没有这个话题：#${root.seq + 1}` })
   })
 
   it('reads the groups the bot is in, never removed, archived, foreign or other private chats', async () => {

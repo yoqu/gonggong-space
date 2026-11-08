@@ -450,7 +450,7 @@ describe('hover action bar', () => {
     const names = within(bar)
       .getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'))
-    expect(names).toEqual(['添加表情回应', '引用回复', '复制', '更多'])
+    expect(names).toEqual(['添加表情回应', '回复话题', '引用回复', '复制', '更多'])
     for (const b of within(bar).getAllByRole('button')) expect(b.tabIndex).toBe(0)
     const writeText = vi.fn(() => Promise.resolve())
     vi.stubGlobal('navigator', { clipboard: { writeText } })
@@ -478,7 +478,7 @@ describe('hover action bar', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['表情回应', '引用回复', '复制', '复制链接', '置顶', '存入知识库'])
+    ).toEqual(['回复话题', '表情回应', '引用回复', '复制', '复制链接', '置顶', '存入知识库'])
     fireEvent.click(within(menu).getByRole('menuitem', { name: '表情回应' }))
     const row = bubble.closest('.pn-msg') as HTMLElement
     expect(within(row).getByRole('button', { name: '添加表情回应' }).getAttribute('aria-expanded')).toBe(

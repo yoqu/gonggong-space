@@ -294,6 +294,13 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  flex: 1;
+}
+.pn-threadpanel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-right: var(--space-4);
 }
 .pn-threadpanel__sub {
   font-size: var(--text-subheadline-size);

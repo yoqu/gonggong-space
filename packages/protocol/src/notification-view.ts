@@ -102,7 +102,10 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
         label: say('有人@我'),
         text: `${p('byName')}：${p('text')}`,
         group,
-        href: `/g/${p('groupId')}?msg=${p('messageId')}`,
+        // An @ in a thread opens that thread.
+        href: p('threadRootId')
+          ? `/g/${p('groupId')}?thread=${p('threadRootId')}`
+          : `/g/${p('groupId')}?msg=${p('messageId')}`,
       }
     case 'bot_share_request':
       return {

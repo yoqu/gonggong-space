@@ -14,7 +14,7 @@ import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { ApiError, api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Composer } from '../../ui'
+import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips } from '../artifacts/ContextChips'
 import { artifactContextOf, clearContext, useCanvasContext } from '../artifacts/context'
@@ -51,11 +51,12 @@ function useArtifactTarget(groupId: string) {
   return tabId ? { artifactId: tabId, botId: entry?.artifact?.botId ?? null } : null
 }
 
-/** sessionStorage key of a group's unsent draft. */
-export const draftKey = (groupId: string) => `gonggong:draft:${groupId}`
-function loadDraft(groupId: string) {
+/** sessionStorage key of a group's (or one of its threads') unsent draft. */
+export const draftKey = (groupId: string, thread?: string) =>
+  `gonggong:draft:${groupId}${thread ? `:${thread}` : ''}`
+function loadDraft(key: string) {
   try {
-    return sessionStorage.getItem(draftKey(groupId)) ?? ''
+    return sessionStorage.getItem(key) ?? ''
   } catch {
     return ''
   }
@@ -78,6 +79,8 @@ interface SendBody {
   appendTo: string | null
   runOptions?: Picks
   artifactContext?: ReturnType<typeof artifactContextOf>
+  threadRootId?: string
+  alsoSent?: boolean
 }
 
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
@@ -97,14 +100,24 @@ export const MessageComposer = memo(function MessageComposer({
   group,
   onSent,
   dropFiles,
+  thread,
 }: {
   group: GroupDto
   onSent: (m: MessageDto) => void
   /** Filled with the upload entry point, so files dropped anywhere on the chat attach here. */
   dropFiles?: RefObject<((files: File[]) => void) | null>
+  /**
+   * Replies in the thread of this root (plan 话题). Quotes, cited text, the canvas and 打断并追加 belong to the main
+   * composer, so this one leaves them alone.
+   */
+  thread?: string
 }) {
   const mobile = useIsMobile()
-  const [draft, setDraft] = useState(() => loadDraft(group.id))
+  const key = draftKey(group.id, thread)
+  const [draft, setDraft] = useState(() => loadDraft(key))
+  const [alsoSent, setAlsoSent] = useState(false)
+  /** The group's composer-wide stores (quote, cite, canvas…) speak to the main composer only. */
+  const main = thread ? '' : group.id
   const [caret, setCaret] = useState(0)
   const [active, setActive] = useState(0)
   const [dismissed, setDismissed] = useState(false)
@@ -115,19 +128,19 @@ export const MessageComposer = memo(function MessageComposer({
   const [variations, setVariations] = useState<number | null>(null)
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
   const plugins = useEnabledPlugins(group.id)
-  const appending = useAppend((s) => s.target?.groupId === group.id)
+  const appending = useAppend((s) => s.target?.groupId === main)
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
   const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
   const command = draft.trimStart().startsWith('/')
-  const canvas = useCanvasContext((s) => (s.context?.groupId === group.id ? s.context : null))
+  const canvas = useCanvasContext((s) => (s.context?.groupId === main ? s.context : null))
   // …and a plain message sent with the canvas selected goes to the artifact's bot.
   const canvasBot =
     canvas && !appending && !command && !mentioned.length && !soleDm
       ? (groupBots.find((b) => b.id === canvas.botId) ?? null)
       : null
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
-  const artifact = useArtifactTarget(group.id)
+  const artifact = useArtifactTarget(main)
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0
   const artifactCandidates: Candidate[] = artifact
@@ -149,7 +162,7 @@ export const MessageComposer = memo(function MessageComposer({
   useEffect(() => {
     if (dropFiles) dropFiles.current = uploads.add
   })
-  const quote = useQuote((s) => (s.quote?.groupId === group.id ? s.quote : null))
+  const quote = useQuote((s) => (s.quote?.groupId === main ? s.quote : null))
   const canvasFocus = useCanvasContext((s) => s.focus)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
@@ -161,12 +174,12 @@ export const MessageComposer = memo(function MessageComposer({
   // Drafts survive switching groups (ChatView remounts per group) and reloads of the tab.
   useEffect(() => {
     try {
-      if (draft) sessionStorage.setItem(draftKey(group.id), draft)
-      else sessionStorage.removeItem(draftKey(group.id))
+      if (draft) sessionStorage.setItem(key, draft)
+      else sessionStorage.removeItem(key)
     } catch {
       // Storage can be unavailable (private mode, quota); the draft then lives only in memory.
     }
-  }, [group.id, draft])
+  }, [key, draft])
 
   // The canvas selection belongs to its group: switching groups drops it.
   useEffect(() => {
@@ -178,8 +191,9 @@ export const MessageComposer = memo(function MessageComposer({
   }, [canvas])
   // Add to Chat (⌘L) hands the focus over.
   useEffect(() => {
-    if (canvasFocus && useCanvasContext.getState().context?.groupId === group.id) input.current?.focus()
-  }, [canvasFocus, group.id])
+    if (canvasFocus && !thread && useCanvasContext.getState().context?.groupId === group.id)
+      input.current?.focus()
+  }, [canvasFocus, group.id, thread])
 
   useLayoutEffect(() => {
     const pos = pendingCaret.current
@@ -211,7 +225,7 @@ export const MessageComposer = memo(function MessageComposer({
     setActive(0)
   }
 
-  const cited = useCite((s) => (s.pending?.groupId === group.id ? s.pending : null))
+  const cited = useCite((s) => (s.pending?.groupId === main ? s.pending : null))
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over text, onto the draft it was rendered with
   useEffect(() => {
     if (!cited) return
@@ -219,7 +233,7 @@ export const MessageComposer = memo(function MessageComposer({
     change(`${draft}${draft && !/\s$/.test(draft) ? ' ' : ''}${cited.text} `)
   }, [cited])
 
-  const mention = useMention((s) => (s.pending?.groupId === group.id ? s.pending : null))
+  const mention = useMention((s) => (s.pending?.groupId === main ? s.pending : null))
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over name, onto the draft it was rendered with
   useEffect(() => {
     if (!mention) return
@@ -231,7 +245,7 @@ export const MessageComposer = memo(function MessageComposer({
     change(draft.slice(0, c) + insert + draft.slice(c), c + insert.length)
   }, [mention])
 
-  const recalled = useRecalled((s) => (s.pending?.groupId === group.id ? s.pending : null))
+  const recalled = useRecalled((s) => (s.pending?.groupId === main ? s.pending : null))
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over message, onto the draft it was rendered with
   useEffect(() => {
     if (!recalled) return
@@ -326,13 +340,20 @@ export const MessageComposer = memo(function MessageComposer({
     try {
       const q = quote && { kind: quote.kind, id: quote.id }
       const target = useAppend.getState().target
-      const appendTo = target?.groupId === group.id ? target.runId : null
+      const appendTo = !thread && target?.groupId === group.id ? target.runId : null
       const runOptions: Picks = {}
       for (const b of targets) {
         const pick = picks[b.id]
         if (pick) runOptions[b.id] = pick
       }
-      const req: SendBody = { body, clientId: uuid(), attachmentIds, quote: q, appendTo }
+      const req: SendBody = {
+        body,
+        clientId: uuid(),
+        attachmentIds,
+        quote: q,
+        appendTo,
+        ...(thread && { threadRootId: thread, alsoSent }),
+      }
       if (Object.keys(runOptions).length) req.runOptions = runOptions
       if (canvas) req.artifactContext = artifactContextOf(canvas)
       onSent(await postMessage(group.id, req))
@@ -340,6 +361,7 @@ export const MessageComposer = memo(function MessageComposer({
       if (appendTo) useAppend.getState().clear()
       setDraft((d) => (d === body ? '' : d))
       setPicks({})
+      setAlsoSent(false)
       uploads.clear()
       if (q) useQuote.getState().clear()
       if (canvas) clearContext()
@@ -367,13 +389,15 @@ export const MessageComposer = memo(function MessageComposer({
         onFiles={uploads.add}
         maxInputHeight={Math.min(MAX_INPUT_PX, window.innerHeight * 0.4)}
         placeholder={
-          variations
-            ? t('描述变体方向，生成 {n} 个变体', { n: variations })
-            : canvasBot
-              ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
-              : mobile
-                ? t('发消息，@ 触发 Bot')
-                : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+          thread
+            ? t('回复话题，@ 触发 Bot')
+            : variations
+              ? t('描述变体方向，生成 {n} 个变体', { n: variations })
+              : canvasBot
+                ? t('描述要怎么改，发给 @{name}', { name: canvasBot.name })
+                : mobile
+                  ? t('发消息，@ 触发 Bot')
+                  : t('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
         }
         tools={[
           {
@@ -402,13 +426,20 @@ export const MessageComposer = memo(function MessageComposer({
         ]}
         hint={
           // With the canvas selected, the chips say who the message goes to.
-          mobile || targets.length || soleDm
+          mobile || thread || targets.length || soleDm
             ? false
             : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
         }
         accessory={
-          targets.length ? (
-            <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
+          targets.length || thread ? (
+            <>
+              {thread ? (
+                <Checkbox label={t('同时发送到群')} checked={alsoSent} onChange={setAlsoSent} />
+              ) : null}
+              {targets.length ? (
+                <RunConfigChips group={group} bots={targets} picks={picks} onChange={setPicks} />
+              ) : null}
+            </>
           ) : undefined
         }
         above={

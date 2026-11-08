@@ -2,9 +2,10 @@ import type { ProtocolKey, RepoAccessReason } from '@gonggong/protocol'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupBots, groups, messages, runs, users } from '../../db/schema.js'
-import { groupParams } from '../groups/params.js'
+import { botRepliesInThreadOf, groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { postEvent, postMessage } from '../messages/service.js'
+import { publishThread } from '../threads/service.js'
 import { PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
@@ -33,6 +34,8 @@ interface Trigger {
   triggerUserId: string | null
   hop: number
   parentRunId: string | null
+  /** The thread the run answers in (plan 话题). */
+  threadRootId: string | null
   /** The origin was authorized otherwise (a sync merge turn's decider): only the binding is checked. */
   anyScope?: boolean
 }
@@ -114,6 +117,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
           triggerUserId: t.triggerUserId,
           originUserId: t.originUserId,
           parentRunId: t.parentRunId,
+          threadRootId: t.threadRootId,
           hop: t.hop,
           status: refused ? 'forbidden' : 'queued',
           ...(refused ? runStep(refused) : { step: '' }),
@@ -147,7 +151,18 @@ export async function triggerRuns(
     triggerUserId: author,
     hop: 1,
     parentRunId: null,
+    threadRootId: await replyThread(ctx, message),
   })
+}
+
+/** Where a run for `message` answers: its thread, or a new one under it when the group puts bot replies in threads. */
+async function replyThread(ctx: Ctx, message: typeof messages.$inferSelect) {
+  if (message.threadRootId) return message.threadRootId
+  const [group] = await ctx.db
+    .select({ kind: groups.kind, params: groups.params })
+    .from(groups)
+    .where(eq(groups.id, message.groupId))
+  return group?.kind === 'group' && botRepliesInThreadOf(group.params) ? message.id : null
 }
 
 /** A fresh hop-1 run of `botIds` for the (edited) user message `message` (plan F8). */
@@ -162,6 +177,7 @@ export async function rerunFor(ctx: Ctx, message: typeof messages.$inferSelect, 
     triggerUserId: author,
     hop: 1,
     parentRunId: null,
+    threadRootId: await replyThread(ctx, message),
   })
 }
 
@@ -204,6 +220,8 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
       .where(and(eq(messages.groupId, groupId), sql`${messages.meta}->>'relayOf' = ${relayOf}`))
     if (prior && (await hasRun(ctx, groupId, prior.id))) continue
     const from = h.groupId ? `来自「${group.name}」群：` : ''
+    // A hop in the same group goes on in the parent's thread.
+    const threadRootId = h.groupId ? null : parent.threadRootId
     const messageId =
       prior?.id ??
       (
@@ -213,8 +231,10 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
           authorBotId: parent.botId,
           body: `@${name} ${from}${h.task}`,
           meta: { mentions: [h.botId], relayOf },
+          threadRootId,
         })
       ).id
+    if (!prior && threadRootId) await publishThread(ctx, { id: threadRootId, groupId })
     await createRuns(ctx, {
       groupId,
       messageId,
@@ -223,6 +243,7 @@ export async function triggerChain(ctx: Ctx, parent: RunRow): Promise<void> {
       triggerUserId: null,
       hop,
       parentRunId: parent.id,
+      threadRootId,
     })
   }
 }

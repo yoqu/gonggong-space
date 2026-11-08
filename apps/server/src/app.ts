@@ -93,6 +93,7 @@ import { terminalLinkRoutes } from './modules/terminals/links.js'
 import { terminalRoutes } from './modules/terminals/routes.js'
 import { TerminalService } from './modules/terminals/sessions.js'
 import { terminalSpaceRoutes } from './modules/terminals/spaces.js'
+import { threadRoutes } from './modules/threads/routes.js'
 import { usageRoutes } from './modules/usage/routes.js'
 import { userRoutes } from './modules/users/routes.js'
 import { currentRepo, startWorkspaceEngine } from './modules/workspaces/provision.js'
@@ -137,6 +138,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(teamSectionRoutes(ctx))
   await app.register(joinRequestRoutes(ctx))
   await app.register(messageRoutes(ctx))
+  await app.register(threadRoutes(ctx))
   await app.register(reactionRoutes(ctx))
   await app.register(attachmentRoutes(ctx))
   await app.register(webGateway(ctx))

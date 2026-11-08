@@ -66,6 +66,8 @@ import {
   TokenFact,
 } from './RunGraphics'
 import { reedit, useRecalled } from './recalled'
+import { openThread } from './thread'
+import { useThreadSummary } from './threadSummary'
 import './recall.css'
 import { t } from '../../i18n'
 import { Linkified } from '../../lib/links'
@@ -322,11 +324,15 @@ const messageTarget = (
   own,
   onEdit,
   startedRuns: startedRuns && (() => startedRuns(m.id)),
-  link: link(m.groupId, `msg=${m.id}`),
+  link: link(m.groupId, m.threadRootId ? `thread=${m.threadRootId}` : `msg=${m.id}`),
   quoteTitle: m.kind === 'bot' ? BOT_QUOTE : undefined,
   onQuote: () => quoteMessage(m),
   copyText: m.body,
+  onThread: threadable(m) ? () => openThread(m.id) : undefined,
 })
+
+/** A message of the main timeline may start a thread (plan 话题); replies and events may not. */
+const threadable = (m: MessageDto) => m.kind !== 'event' && !m.threadRootId && !m.recalled
 
 /** Another member: avatar and name open their user card. */
 function person(m: MessageDto, avatar?: string): MessageAuthor {
@@ -365,6 +371,18 @@ const botAuthor = (name: string, botId: string | null, groupId: string): Message
     </BotCardTrigger>
   ) : undefined,
 })
+
+/** A thread reply also sent to the group: where it was answered. */
+function AlsoSent({ m }: { m: MessageDto }) {
+  const root = m.threadRootId
+  return root ? (
+    <button type="button" className="tl-also" onClick={() => openThread(root)}>
+      <Tag tone="gray" icon="thread">
+        {t('回复了话题')}
+      </Tag>
+    </button>
+  ) : null
+}
 
 function Text({ body, names, me }: { body: string; names: string[]; me?: string }) {
   return (
@@ -440,6 +458,7 @@ export const UserMessage = memo(function UserMessage({
   )
   const unnamed = useUnnamedTargets(m)
   const canvas = messageCanvas(m)
+  const thread = useThreadSummary(m)
   return (
     <MessageMenu
       {...messageTarget(m, mine, mine && !creation ? () => setEditing(true) : undefined, startedRuns)}
@@ -453,8 +472,9 @@ export const UserMessage = memo(function UserMessage({
           stamp={<Stamp iso={m.createdAt} />}
           marks={<Marks edited={m.editedAt} pin={m} feishu={m.fromFeishu} />}
           meta={
-            m.scheduledBy || unnamed.length ? (
+            m.scheduledBy || unnamed.length || m.alsoSent ? (
               <>
+                {m.alsoSent ? <AlsoSent m={m} /> : null}
                 {m.scheduledBy ? (
                   <Tag tone="gray" icon="clock">
                     {t('定时任务')}
@@ -470,6 +490,7 @@ export const UserMessage = memo(function UserMessage({
           }
           bare={!text}
           actionBar={bar}
+          thread={thread}
           footer={
             text || fanOut.length > 1 || canvas ? (
               <>
@@ -579,9 +600,11 @@ function ReplyMessage({
   /** Facts of the run the reply finished, under the body. */
   tags?: ReactNode
 }) {
+  const thread = useThreadSummary(m)
   return (
     <div data-testid="bot-reply">
       <Message
+        thread={thread}
         className={cx((isRich(m) || !!m.htmlRender || !!m.htmlRenders?.length) && 'tl-msg--wide')}
         bare={!!m.htmlRender}
         author={botAuthor(m.authorName, m.authorId, m.groupId)}
@@ -731,6 +754,7 @@ export const RunCard = memo(function RunCard({
     },
     copyText: reply?.body,
     branchable,
+    onThread: reply && threadable(reply) ? () => openThread(reply.id) : undefined,
   }
   const diff = () => openTab({ kind: 'run', runId: run.id, view: 'diff', file: null })
   const process = (

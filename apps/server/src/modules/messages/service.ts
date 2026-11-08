@@ -76,6 +76,8 @@ export type MessageMeta = {
   htmlRenders?: HtmlRenderRef[]
   /** An event about a failed Feishu call. */
   feishuIssue?: FeishuIssueEvent
+  /** A thread reply also shown in the main timeline (同时发送到群). */
+  alsoSent?: boolean
 }
 
 /** A user message's author name, a Feishu sender's when they have no 共工 account; needs `users` left-joined. */
@@ -116,6 +118,8 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     ...((m.meta as MessageMeta).htmlRenders && { htmlRenders: (m.meta as MessageMeta).htmlRenders }),
     ...((m.meta as MessageMeta).canvas && !recalled && { canvas: (m.meta as MessageMeta).canvas }),
     ...((m.meta as MessageMeta).feishuIssue && { feishuIssue: (m.meta as MessageMeta).feishuIssue }),
+    ...(m.threadRootId && { threadRootId: m.threadRootId }),
+    ...((m.meta as MessageMeta).alsoSent && { alsoSent: true }),
   }
 }
 
@@ -174,10 +178,12 @@ export const postEvent = (
   key: ProtocolKey,
   params?: I18nParams,
   meta: Omit<MessageMeta, 'i18n'> = {},
+  threadRootId: string | null = null,
 ) =>
   postMessage(ctx, {
     groupId,
     kind: 'event',
     body: zh(key, params),
     meta: { ...meta, i18n: { key, params } },
+    threadRootId,
   })

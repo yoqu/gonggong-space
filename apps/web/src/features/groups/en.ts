@@ -1,4 +1,7 @@
 export default {
+  'Bot 回复进话题': 'Bot replies in threads',
+  '在群里 @ Bot 时，它的回复放进这条消息的话题，不刷屏':
+    "A Bot @-ed in the group replies in that message's thread, keeping the group tidy",
   重试: 'Retry',
   取消: 'Cancel',
   移出: 'Remove',

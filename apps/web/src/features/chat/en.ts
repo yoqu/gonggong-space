@@ -1,4 +1,18 @@
 export default {
+  'Bot 回复中': 'Bot replying',
+  回复了话题: 'Replied in thread',
+  '关注#thread': 'Follow',
+  '取消关注#thread': 'Unfollow',
+  话题加载失败: 'Failed to load the thread',
+  '话题#inbox': 'Threads',
+  '[附件]': '[Attachment]',
+  '还有 {n} 条回复': '{n} more {n:reply|replies}',
+  还没有关注的话题: 'No followed threads yet',
+  '在消息上点「回复话题」，或在话题里被 @，就会出现在这里。':
+    'Reply in a thread on any message, or get @-ed in one, and it shows up here.',
+  我关注的话题: 'Threads I follow',
+  '{n} 个话题有新回复': '{n} {n:thread has|threads have} new replies',
+  '回复话题，@ 触发 Bot': 'Reply in thread, @ to run a Bot',
   '消息免打扰#muted': 'Muted',
   '仅你和你的 Bot · ': 'Only you and your Bot · ',
   '{owner} 共享的 Bot · ': 'Bot shared by {owner} · ',

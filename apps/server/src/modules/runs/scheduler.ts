@@ -19,6 +19,7 @@ import {
   runs,
   schedules,
   teams,
+  threadSessions,
   users,
 } from '../../db/schema.js'
 import { feishuHint } from '../agent-tools/feishu.js'
@@ -40,6 +41,7 @@ import { resolveSecrets } from '../secrets/resolve.js'
 import { enabledSkills } from '../skills/service.js'
 import { runSyncStart } from '../sync/store.js'
 import { sendDueInits, syncHeld, syncOutdated } from '../sync/switch.js'
+import { inMainTimeline } from '../threads/service.js'
 import { splitExtras, unreadyGroups } from '../workspaces/state.js'
 import { fitBudget } from './context-budget.js'
 import { publishRuns, type RunRow } from './dto.js'
@@ -99,6 +101,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       triggerSeq: number
       knowledgeAt: Date | null
       detached: boolean
+      thread: string | null
     }[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
@@ -162,6 +165,7 @@ export async function schedule(ctx: Ctx, botId: string) {
             // An agent command got no knowledge base either.
             knowledgeAt: start.msg.command ? null : at,
             detached: start.detached,
+            thread: start.thread,
           })
         }
         continue
@@ -174,11 +178,23 @@ export async function schedule(ctx: Ctx, botId: string) {
     return { out, dispatches }
   })
   const unsent = new Map<string, RunRow>()
-  for (const { run, machineId, msg, triggerSeq, knowledgeAt, detached } of changed.dispatches) {
+  for (const { run, machineId, msg, triggerSeq, knowledgeAt, detached, thread } of changed.dispatches) {
     if (ctx.hub.send(machineId, msg)) {
       // After the send: a cursor advanced for a start that never went out would drop that context for good.
       // A detached (scheduled) turn moves none of the conversation's cursors, nor uses up a pending /new.
-      if (!detached)
+      if (thread && !detached)
+        await ctx.db
+          .insert(threadSessions)
+          .values({ rootMessageId: thread, botId, contextSeq: triggerSeq, updatedAt: ctx.now() })
+          .onConflictDoUpdate({
+            target: [threadSessions.rootMessageId, threadSessions.botId],
+            set: {
+              contextSeq: sql`greatest(${threadSessions.contextSeq}, ${triggerSeq})`,
+              newSessionReason: null,
+              updatedAt: ctx.now(),
+            },
+          })
+      else if (!detached)
         await ctx.db
           .update(groupBots)
           .set({
@@ -227,6 +243,10 @@ const RELEASE_TOOLS = ['client_release_publish', 'client_release_notes']
 const branchHint = (base: string) =>
   `This group has 「禁止直推基准分支」 on: never commit or push to the base branch ${base}. On ${base}, create a branch (any name) before changing code; already on another branch, work, commit and push there. For a merge, ask the requester to open a merge request. Pushing to ${base} needs the bot owner's approval.`
 
+/** Asked in a thread (plan 话题): its own session, apart from the group's main conversation. */
+const THREAD_HINT =
+  "This turn comes from a thread of the group: your context is the thread (its root message and replies), and your reply goes into it. The group's main conversation is outside this session; read it with the gonggong tools if needed."
+
 /** 回复风格「业务」: colleagues outside engineering read the replies. */
 const BUSINESS_REPLY_HINT =
   "This group's replies are read by non-technical colleagues. In your final reply, put the conclusion first, in plain everyday language. Keep table names, class names, file paths, code and SQL out of the body. Put the evidence and technical details in a last section headed exactly **依据** (**Basis** when replying in English)."
@@ -265,6 +285,7 @@ export async function buildRunStart(
           seq: messages.seq,
           body: messages.body,
           meta: messages.meta,
+          threadRootId: messages.threadRootId,
           at: messages.createdAt,
           author: userAuthorName,
           bot: bots.name,
@@ -307,16 +328,33 @@ export async function buildRunStart(
   const at = trigger.at.toISOString()
   // An agent command carries no group context, so it leaves the context cursor where it was.
   const command = meta.agentCommand ?? null
-  const since = and(
-    eq(messages.groupId, run.groupId),
-    gt(messages.seq, gb.contextSeq),
-    lt(messages.seq, trigger.seq),
-    or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id)),
-  )
+  const notOwn = or(isNull(messages.authorBotId), ne(messages.authorBotId, bot.id))
+  // Asked in a thread: the bot's session of that thread, whose context is the thread alone (plan 话题).
+  const thread = trigger.threadRootId
+  const [ts] = thread
+    ? await tx
+        .select()
+        .from(threadSessions)
+        .where(and(eq(threadSessions.rootMessageId, thread), eq(threadSessions.botId, bot.id)))
+    : []
+  const inThread = thread ? or(eq(messages.id, thread), eq(messages.threadRootId, thread)) : undefined
+  const since = thread
+    ? // A new thread session sees all of it, its root and the bot's own replies included.
+      and(inThread, lt(messages.seq, trigger.seq), ts && gt(messages.seq, ts.contextSeq), ts && notOwn)
+    : and(
+        eq(messages.groupId, run.groupId),
+        gt(messages.seq, gb.contextSeq),
+        lt(messages.seq, trigger.seq),
+        notOwn,
+        inMainTimeline,
+      )
   // A scheduled turn runs in a session of its own and leaves the group's conversation as it was (see detached).
   const detached = !!meta.scheduleOf
+  const session = thread
+    ? { id: ts?.sessionId ?? null, newReason: ts?.newSessionReason ?? null }
+    : { id: gb.sessionId, newReason: gb.newSessionReason }
   // A /new request wins over any session id a still-running turn reported after the request.
-  const resumeSessionId = detached || gb.newSessionReason ? null : gb.sessionId
+  const resumeSessionId = detached || session.newReason ? null : session.id
   const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, plugins, hosted] =
     await Promise.all([
       // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
@@ -324,7 +362,9 @@ export async function buildRunStart(
       resumeSessionId && !command
         ? contextMessages(
             tx,
-            and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq)),
+            thread
+              ? and(inThread, lt(messages.seq, trigger.seq))
+              : and(eq(messages.groupId, run.groupId), lt(messages.seq, trigger.seq), inMainTimeline),
             params.sessionReplayTokens,
           )
         : null,
@@ -335,7 +375,14 @@ export async function buildRunStart(
       runTier(tx, (gb.tier ?? bot.tier) as Tier),
       synced ? runSyncStart(tx, run.groupId, bot.id, meta.syncResolve?.decisions ?? null) : null,
       // A resumed session that already got the knowledge base only hears what changed since.
-      command ? null : knowledgeContext(tx, run.groupId, bot.id, resumeSessionId ? gb.knowledgeAt : null),
+      command
+        ? null
+        : knowledgeContext(
+            tx,
+            run.groupId,
+            bot.id,
+            resumeSessionId ? (thread ? (ts?.updatedAt ?? null) : gb.knowledgeAt) : null,
+          ),
       params.pluginsEnabled && bot.machineId
         ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env)
         : [],
@@ -358,7 +405,7 @@ export async function buildRunStart(
     body ? [{ seq: 0, author: '共工空间', kind: 'user', body, at, attachments: [] }] : []
   // A DM's single chat with the bot app is synced whole: nothing to read from Feishu.
   const feishuHinted = group.kind === 'group' && feishu
-  const kbNow = kbNote(resumeSessionId && gb.knowledgeAt ? kb?.changes : kb?.full)
+  const kbNow = kbNote(resumeSessionId && (thread ? ts : gb.knowledgeAt) ? kb?.changes : kb?.full)
   const protectBase = group.protectBase && !!repo
   const msg: RunStart = {
     t: 'run.start',
@@ -370,6 +417,7 @@ export async function buildRunStart(
       name: bot.name,
       agentKind: bot.agentKind as AgentKind,
       systemPrompt: [
+        ...(thread ? [THREAD_HINT] : []),
         ...(feishuHinted ? [feishuHint(feishuHinted.syncAll)] : []),
         ...(protectBase && repo ? [branchHint(repo.baseBranch)] : []),
         ...(replyStyleOf(group.params) === 'business' ? [BUSINESS_REPLY_HINT] : []),
@@ -413,7 +461,7 @@ export async function buildRunStart(
       ),
     },
     resumeSessionId,
-    newSessionReason: detached ? 'schedule' : gb.newSessionReason,
+    newSessionReason: detached ? 'schedule' : session.newReason,
     prompt: {
       text: meta.artifactNote ? `${trigger.body}\n\n${meta.artifactNote}` : trigger.body,
       triggeredBy: trigger.author ?? trigger.bot ?? '',
@@ -451,6 +499,7 @@ export async function buildRunStart(
     triggerSeq: command ? 0 : trigger.seq,
     settled: interrupted?.settled,
     detached,
+    thread,
   }
 }
 

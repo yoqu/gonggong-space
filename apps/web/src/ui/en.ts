@@ -84,6 +84,7 @@ export default {
   话题: 'Thread',
   关闭话题: 'Close thread',
   '{n} 条回复': '{n} {n:reply|replies}',
+  查看话题: 'View thread',
   同时发送到群: 'Also send to group',
   '{names} 等 {n} 人': '{names} and {more} {more:other|others}',
   添加表情回复: 'Add reaction',

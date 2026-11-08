@@ -21,6 +21,7 @@ import {
 import { NavLink, useLocation, useNavigate } from 'react-router'
 import { type PersonaRole, roleCostume } from '../features/bots/avatars'
 import { draftKey } from '../features/chat/MessageComposer'
+import { useThreadUnread, useThreadUnreadSync } from '../features/chat/threadUnread'
 import { groupsApi } from '../features/groups/api'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
@@ -288,6 +289,31 @@ const GroupRow = memo(function GroupRow({
     </ContextMenu>
   )
 })
+
+/** 话题: the threads I follow. Only an @ in one shows a count; new replies alone just say so (plan 话题). */
+function ThreadsRow() {
+  useThreadUnreadSync()
+  const { unread, mentioned } = useThreadUnread()
+  return (
+    <NavLink to="/threads" className="pn-conv" data-testid="threads-item" tabIndex={-1}>
+      <ConversationContent
+        item={{
+          id: 'threads',
+          name: t('话题#inbox'),
+          group: true,
+          avatarNode: (
+            <span className="sidebar-terminal">
+              <Icon name="thread" size={18} />
+            </span>
+          ),
+          preview: unread ? t('{n} 个话题有新回复', { n: unread }) : t('我关注的话题'),
+          unread: mentioned || undefined,
+          mention: mentioned > 0,
+        }}
+      />
+    </NavLink>
+  )
+}
 
 /** A machine terminal in the conversation list: its machine and directory under its name. */
 function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
@@ -866,6 +892,11 @@ export function Sidebar({
                 <Icon name="flag" size={12} />
                 {t('只看已标记')}
               </Button>
+            </div>
+          ) : null}
+          {anything ? (
+            <div className="sidebar__list sidebar__list--convs">
+              <ThreadsRow />
             </div>
           ) : null}
           <section aria-label={t('会话#list')}>
