@@ -213,6 +213,12 @@ function PendingRow({ item, onLocate }: { item: PendingItem; onLocate: () => voi
   )
 }
 
+/** A leaf, so the per-second tick re-renders only this text and not the row. */
+function Ago({ iso }: { iso: string }) {
+  const now = useNow(true)
+  return ago(iso, now)
+}
+
 function RunRow({
   run,
   waiting,
@@ -223,9 +229,7 @@ function RunRow({
   onLocate: (run: RunDto) => void
 }) {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === run.botId)?.name ?? 'Bot')
-  const now = useNow(true)
   const status = waiting ? STATUS_LABEL[run.status] : toolTitle(stepText(run)) || STATUS_LABEL.running
-  const lastActivity = ago(run.lastActivityAt, now)
   return (
     <li className="task-dock__row" data-testid="task-dock-row">
       <button type="button" className="task-dock__main" onClick={() => onLocate(run)}>
@@ -241,7 +245,7 @@ function RunRow({
           {waiting ? null : <span className="task-dock__text">{status}</span>}
         </span>
         <span className="task-dock__time" title={fullTime(run.lastActivityAt)}>
-          {lastActivity}
+          <Ago iso={run.lastActivityAt} />
         </span>
       </button>
       <Button

@@ -132,6 +132,31 @@ describe('top bar', () => {
   })
 })
 
+describe('page chrome', () => {
+  it('puts the unread total in the tab title and restores it on leaving', async () => {
+    mockApi({
+      ...routes([group('g1', '李建国', { kind: 'dm', unread: 2 }), group('g2', '退款', { mentionCount: 1 })]),
+      'GET /notifications/unread': { n: 3 },
+    })
+    const view = renderAt('/')
+    await waitFor(() => expect(document.title).toBe('(6) 共工空间'))
+    view.unmount()
+    expect(document.title).toBe('共工空间')
+  })
+
+  it('offers a skip link that moves focus to the page, focusable only for that jump', async () => {
+    mockApi(routes([]))
+    renderAt('/')
+    const skip = screen.getByRole('button', { name: '跳到主要内容' })
+    const main = screen.getByRole('main')
+    expect(main.hasAttribute('tabindex')).toBe(false)
+    fireEvent.click(skip)
+    expect(document.activeElement).toBe(main)
+    act(() => main.blur())
+    expect(main.hasAttribute('tabindex')).toBe(false)
+  })
+})
+
 describe('conversation rows', () => {
   it('quiets a bot chat whose bot is gone so it never outshines the live ones', async () => {
     mockApi(routes([group('g1', '退款'), group('d1', '已删除的 Bot', { kind: 'dm' })]))

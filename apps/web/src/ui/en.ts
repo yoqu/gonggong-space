@@ -14,7 +14,7 @@ export default {
   在线: 'Online',
   忙碌: 'Busy',
   离开: 'Away',
-  正在载入: 'Loading',
+  加载中: 'Loading',
   应用导航: 'App navigation',
   '{label}（{n} 条未读）': '{label} ({n} unread)',
   '{label}（有新内容）': '{label} (new activity)',

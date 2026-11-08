@@ -16,6 +16,7 @@ export default {
   '[待审批] ': '[Needs approval] ',
   '[待回答] ': '[Needs answer] ',
   共工空间: 'Gonggong Space',
+  跳到主要内容: 'Skip to main content',
   消息: 'Messages',
   通知: 'Notifications',
   管理后台: 'Admin console',

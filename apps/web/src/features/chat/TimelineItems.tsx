@@ -733,6 +733,13 @@ const NOTE: RunStatus[] = ['forbidden', 'offline_wait']
  * One run as a bare MessageCard whose header colour follows its status; once it has settled with a final reply, the
  * card gives way to the reply bubble at the reply's place, with the run's facts as tags under it.
  */
+/** A leaf, so the per-second tick of a live run re-renders only the clock and not the whole card. */
+function RunClock({ from, to, live }: { from: number; to: number | null; live: boolean }) {
+  const now = useNow(live && to === null)
+  const ms = (to ?? now) - from
+  return <ClockFact ms={ms} text={fmtDuration(ms)} live={live} />
+}
+
 export const RunCard = memo(function RunCard({
   run,
   reply,
@@ -755,7 +762,6 @@ export const RunCard = memo(function RunCard({
   /** null until the user toggles, so the fold animation never plays on first render. */
   const [expanded, setExpanded] = useState<boolean | null>(null)
   const live = LIVE.includes(run.status)
-  const now = useNow(live && !!run.startedAt)
   const selected = useWorkbench(
     (s) => s.open && !!s.groupId && s.benches[s.groupId]?.active === `run:${run.id}`,
   )
@@ -770,7 +776,7 @@ export const RunCard = memo(function RunCard({
   const mascot = runMascot(run.status, !!streamed)
   const costume = useBotCostume(run.botId)
   const started = run.startedAt ? Date.parse(run.startedAt) : null
-  const elapsed = started === null ? 0 : (run.endedAt ? Date.parse(run.endedAt) : now) - started
+  const ended = run.endedAt ? Date.parse(run.endedAt) : null
   const sessionNote = newSessionNote(run.newSessionReason)
   const canFold = foldable && !AWAITING.includes(run.status) && run.interrupt !== 'pending'
   const folded = canFold && !expanded
@@ -822,7 +828,7 @@ export const RunCard = memo(function RunCard({
         {continued}
         {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
         <FilesFact n={run.filesChanged} onOpen={diff} />
-        {started !== null ? <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={false} /> : null}
+        {started !== null ? <RunClock from={started} to={ended} live={false} /> : null}
         <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
         <PersonalSkillsFact n={run.personalSkills} />
         <DelegationFacts d={run.delegation} />
@@ -918,7 +924,7 @@ export const RunCard = memo(function RunCard({
                       {started !== null ? (
                         <div className="run-card__meta">
                           <FilesFact n={run.filesChanged} onOpen={diff} />
-                          <ClockFact ms={elapsed} text={fmtDuration(elapsed)} live={live} />
+                          <RunClock from={started} to={ended} live={live} />
                           <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
                           <PersonalSkillsFact n={run.personalSkills} />
                           <DelegationFacts d={run.delegation} />

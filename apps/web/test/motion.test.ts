@@ -271,4 +271,12 @@ describe('motion and touch CSS contract', () => {
       /@media \(pointer: coarse\) \{\s*\.pn-chathead__back \{\s*width: 36px;/,
     )
   })
+  it('round 10: the skip link hides off screen and springs in on focus', () => {
+    const shell = read('app/shell.css')
+    const skip = ruleOf(shell, '.app__skip')
+    expect(skip).toContain('position: fixed')
+    expect(skip).toContain('translate: 0 calc(-100% - 16px)')
+    expect(skip).toContain('transition: translate var(--spring-snappy)')
+    expect(ruleOf(shell, '.app__skip:focus')).toContain('translate: 0 0')
+  })
 })

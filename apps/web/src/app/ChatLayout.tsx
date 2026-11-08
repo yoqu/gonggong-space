@@ -308,6 +308,7 @@ export function ChatLayout({
       {!mobile || mobileView === 'chat' ? (
         <main
           ref={setMain}
+          id="main"
           className={cx('chat__center', bench && 'chat__center--narrow', over && 'chat__center--over')}
           style={bench ? { width: chat.width } : undefined}
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.

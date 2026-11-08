@@ -60,7 +60,7 @@ export function Skeleton({
   count = 3,
   width = '100%',
   height = 120,
-  label = t('正在载入'),
+  label = t('加载中'),
   className,
   style,
 }: {

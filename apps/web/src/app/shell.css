@@ -17,6 +17,28 @@ body {
   background: var(--content-bg);
   font-size: var(--text-body-size);
 }
+/* Skip link: off screen until focused by Tab, then drops in above everything. */
+.app__skip {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: calc(env(safe-area-inset-left) + 8px);
+  z-index: var(--z-toast);
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  translate: 0 calc(-100% - 16px);
+  transition: translate var(--spring-snappy);
+}
+.app__skip:focus {
+  translate: 0 0;
+}
+#main:focus {
+  outline: none;
+}
 .app__body {
   flex: 1;
   min-height: 0;

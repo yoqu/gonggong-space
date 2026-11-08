@@ -339,7 +339,7 @@ export function ProgressIndicator({
   ...aria
 }: ProgressIndicatorProps) {
   if (variant === 'spinner')
-    return <SpinnerGlyph role="progressbar" label={aria['aria-label'] ?? t('正在载入')} style={style} />
+    return <SpinnerGlyph role="progressbar" label={aria['aria-label'] ?? t('加载中')} style={style} />
   return (
     <div
       className={cx('ui-progress', value == null && 'ui-progress--indeterminate', className)}
@@ -391,7 +391,7 @@ export function Progress({
 
 /** Inline wait indicator announced as a live status. */
 export function Spinner({ size = 16, color }: { size?: number; color?: string }) {
-  return <SpinnerGlyph role="status" label={t('正在载入')} style={{ width: size, height: size, color }} />
+  return <SpinnerGlyph role="status" label={t('加载中')} style={{ width: size, height: size, color }} />
 }
 
 export function GroupBox({

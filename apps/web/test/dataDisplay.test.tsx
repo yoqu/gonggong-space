@@ -360,7 +360,7 @@ describe('EmptyState', () => {
 describe('Skeleton', () => {
   it('announces loading and repeats the requested shape', () => {
     const { container } = render(<Skeleton variant="conversation" count={4} />)
-    const status = screen.getByRole('status', { name: '正在载入' })
+    const status = screen.getByRole('status', { name: '加载中' })
     expect(status.getAttribute('aria-busy')).toBe('true')
     expect(container.querySelectorAll('.ui-skel__conv')).toHaveLength(4)
   })

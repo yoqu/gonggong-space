@@ -33,8 +33,14 @@ const systemTheme = (): ResolvedTheme => {
 export const resolveTheme = (preference: ThemePreference = getTheme()): ResolvedTheme =>
   preference === 'system' ? systemTheme() : preference
 
+// Browser chrome (mobile status bar, tab strip) matches the app's theme, not the OS one; values from index.html.
+const CHROME_COLOR: Record<ResolvedTheme, string> = { light: '#ececec', dark: '#262626' }
+
 const applyDataset = (theme: ResolvedTheme) => {
   document.documentElement.dataset.theme = theme
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    meta.setAttribute('content', CHROME_COLOR[theme])
+  }
 }
 
 let mediaQueryList: MediaQueryList | null = null

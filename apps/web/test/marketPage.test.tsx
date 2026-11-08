@@ -1167,7 +1167,7 @@ describe('市场 page loading', () => {
       },
     })
     renderPage()
-    const skeleton = screen.getByRole('status', { name: '正在载入' })
+    const skeleton = screen.getByRole('status', { name: '加载中' })
     expect(skeleton.classList.contains('works__grid')).toBe(true)
     release()
     expect(await screen.findByText('服务暂时不可用')).toBeTruthy()

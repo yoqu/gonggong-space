@@ -151,3 +151,18 @@ describe('view transition', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })
+
+describe('browser chrome color', () => {
+  it('follows the app theme instead of the OS scheme', () => {
+    document.head.innerHTML =
+      '<meta name="theme-color" content="#ececec" media="(prefers-color-scheme: light)">' +
+      '<meta name="theme-color" content="#262626" media="(prefers-color-scheme: dark)">'
+    const colors = () =>
+      [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => m.getAttribute('content'))
+    setTheme('dark')
+    expect(colors()).toEqual(['#262626', '#262626'])
+    setTheme('light')
+    expect(colors()).toEqual(['#ececec', '#ececec'])
+    document.head.innerHTML = ''
+  })
+})

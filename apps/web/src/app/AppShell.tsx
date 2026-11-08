@@ -9,6 +9,7 @@ import { named } from '../lib/lazy'
 import { useRealtimeStatus } from '../lib/realtime'
 import { Icon, Logo, Toaster, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { useIsMobile } from './viewport'
+import { alertCount, useWorkspace } from './workspace'
 
 const NotificationPanel = named(
   () => import('../features/notifications/NotificationPanel'),
@@ -70,6 +71,38 @@ function usePushSync() {
   }, [])
 }
 
+/** Unread total (the 消息 and 通知 badges) in the tab title, so a background tab shows there is something new. */
+function useTitleCount() {
+  const n = useWorkspace((s) => s.groups.reduce((n, g) => n + alertCount(g), 0) + s.notifCount)
+  useEffect(() => {
+    const base = t('共工空间')
+    document.title = n > 0 ? `(${n > 99 ? '99+' : n}) ${base}` : base
+    return () => {
+      document.title = base
+    }
+  }, [n])
+}
+
+/** First tab stop: skips the rail and the conversation list straight to the open page. */
+function SkipLink() {
+  return (
+    <button
+      type="button"
+      className="app__skip"
+      onClick={() => {
+        const main = document.getElementById('main')
+        if (!main) return
+        // Focusable only for this jump, so clicks inside the page never land focus on it.
+        main.tabIndex = -1
+        main.focus()
+        main.addEventListener('blur', () => main.removeAttribute('tabindex'), { once: true })
+      }}
+    >
+      {t('跳到主要内容')}
+    </button>
+  )
+}
+
 export function AppShell() {
   const mobile = useIsMobile()
   const { overlay, set } = useShellOverlay()
@@ -78,6 +111,7 @@ export function AppShell() {
   const [notifUsed, setNotifUsed] = useState(false)
   if (overlay === 'notif' && !notifUsed) setNotifUsed(true)
   usePushSync()
+  useTitleCount()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -94,6 +128,7 @@ export function AppShell() {
   const close = () => set(null)
   return (
     <div className="app">
+      <SkipLink />
       {mobile && lost ? (
         <div className="app__offline" role="status">
           {t('连接已断开，正在重连…')}

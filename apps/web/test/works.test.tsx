@@ -258,10 +258,10 @@ describe('作品 page loading', () => {
       },
     })
     renderAt('/works')
-    expect(screen.getByRole('status', { name: '正在载入' }).classList.contains('works__grid')).toBe(true)
+    expect(screen.getByRole('status', { name: '加载中' }).classList.contains('works__grid')).toBe(true)
     release()
     const grid = await screen.findByRole('list', { name: '作品' })
     expect(within(grid).getAllByRole('listitem')[2]!.style.getPropertyValue('--i')).toBe('2')
-    expect(screen.queryByRole('status', { name: '正在载入' })).toBeNull()
+    expect(screen.queryByRole('status', { name: '加载中' })).toBeNull()
   })
 })
