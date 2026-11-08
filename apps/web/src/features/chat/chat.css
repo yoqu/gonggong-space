@@ -523,3 +523,19 @@ button.chat-view__plugins:hover {
   cursor: pointer;
   font-size: var(--text-subheadline-size);
 }
+
+.chat-view__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.chat-view__title > svg {
+  flex: none;
+  color: var(--label-secondary);
+}
+.chat-view__topic {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

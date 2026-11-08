@@ -338,3 +338,20 @@
   padding: var(--space-8) var(--space-12) 0;
   font-weight: 600;
 }
+.browse-channels__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}
+.browse-channels__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.browse-channels__notice {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360px;
+}

@@ -431,8 +431,28 @@ describe('sidebar sections', () => {
     const calls = mockApi({
       ...routes([group('g1', '退款')]),
       'GET /channels': [
-        { id: 'g1', name: '退款', avatar: null, notice: '', memberCount: 3, joined: true },
-        { id: 'g9', name: '公告', avatar: null, notice: '全员通知', memberCount: 12, joined: false },
+        {
+          id: 'g1',
+          name: '退款',
+          avatar: null,
+          notice: '',
+          memberCount: 3,
+          joined: true,
+          visibility: 'private',
+          createdByName: '王磊',
+          lastActivityAt: '2026-09-23T02:00:00.000Z',
+        },
+        {
+          id: 'g9',
+          name: '公告',
+          avatar: null,
+          notice: '全员通知',
+          memberCount: 12,
+          joined: false,
+          visibility: 'public',
+          createdByName: '李建国',
+          lastActivityAt: null,
+        },
       ],
       'POST /groups/g9/join': joined,
     })
@@ -440,7 +460,15 @@ describe('sidebar sections', () => {
     await screen.findByTestId('group-item-g1')
     fireEvent.click(screen.getByRole('button', { name: '浏览频道' }))
     const dialog = await screen.findByRole('dialog', { name: '浏览频道' })
-    expect(await within(dialog).findByText('12 人 · 全员通知')).toBeTruthy()
+    expect(await within(dialog).findByText('12 人 · 李建国 创建')).toBeTruthy()
+    expect(within(dialog).getByText('全员通知')).toBeTruthy()
+    expect(within(dialog).getByLabelText('私有群')).toBeTruthy()
+    // 未加入 leaves my own groups out; 最近活跃 puts the active one first.
+    const names = () => [...dialog.querySelectorAll('.browse-channels__name')].map((e) => e.textContent)
+    expect(names()[0]).toContain('已加入')
+    fireEvent.click(within(dialog).getByRole('radio', { name: '未加入' }))
+    expect(names()).toHaveLength(1)
+    expect(names()[0]).toContain('公告')
     fireEvent.click(within(dialog).getByRole('button', { name: '加入 公告' }))
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/g/g9'))
     expect(rowsIn('频道').sort()).toEqual(['g1', 'g9'])

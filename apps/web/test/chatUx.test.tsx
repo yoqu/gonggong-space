@@ -605,11 +605,12 @@ describe('read marks and timestamps', () => {
 })
 
 describe('chat header', () => {
-  it('labels member and bot counts', async () => {
+  it('labels member and bot counts on the members button; the subtitle is the repo without a topic', async () => {
     mockApi({ messages: [], runs: [] })
     renderAt()
-    expect(await screen.findByRole('button', { name: '群成员：2 人，2 个 Bot' })).toBeTruthy()
-    expect(document.querySelector('.pn-chathead__sub')?.textContent).toContain('2 人 · 2 Bot')
+    const members = await screen.findByRole('button', { name: '群成员：2 人，2 个 Bot' })
+    expect(members.textContent).toContain('2')
+    expect(document.querySelector('.pn-chathead__sub')?.textContent).not.toContain('2 人')
   })
 })
 

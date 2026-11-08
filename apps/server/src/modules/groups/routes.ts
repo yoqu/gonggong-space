@@ -3,6 +3,7 @@ import {
   CreateGroupReq,
   GroupBotReq,
   GroupMemberReq,
+  type GroupVisibility,
   MarkReadReq,
   MarkUnreadReq,
   publicRepoUrl,
@@ -204,6 +205,9 @@ export function groupRoutes(ctx: Ctx) {
           notice: groups.notice,
           memberCount: sql<number>`count(${groupMembers.userId})::int`,
           joined: sql<boolean>`bool_or(${groupMembers.userId} = ${me.id})`,
+          visibility: groups.visibility,
+          createdByName: sql<string>`(select ${users.name} from ${users} where ${users.id} = ${groups.createdBy})`,
+          lastActivityAt: sql<Date | null>`(select m.created_at from messages m where m.group_id = ${groups.id} order by m.seq desc limit 1)`,
         })
         .from(groups)
         .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
@@ -211,14 +215,20 @@ export function groupRoutes(ctx: Ctx) {
           and(
             eq(groups.teamId, teamId),
             eq(groups.kind, 'group'),
-            eq(groups.visibility, 'public'),
             isNull(groups.archivedAt),
             q ? ilike(groups.name, `%${q.replace(/[\\%_]/g, '\\$&')}%`) : undefined,
           ),
         )
         .groupBy(groups.id)
+        // Private groups only for their members.
+        .having(sql`${groups.visibility} = 'public' or bool_or(${groupMembers.userId} = ${me.id})`)
         .orderBy(asc(groups.name))
-      return rows.map((r) => ({ ...r, avatar: avatarUrl(r.avatar) }))
+      return rows.map((r) => ({
+        ...r,
+        visibility: r.visibility as GroupVisibility,
+        avatar: avatarUrl(r.avatar),
+        lastActivityAt: r.lastActivityAt ? new Date(r.lastActivityAt).toISOString() : null,
+      }))
     })
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/join', async (req) => {

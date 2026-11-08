@@ -2247,7 +2247,7 @@ export const JoinRequestDto = z.object({
 })
 export type JoinRequestDto = z.infer<typeof JoinRequestDto>
 
-/** GET /api/channels[?q=]: the team's public channels, joined or not (浏览频道). */
+/** GET /api/channels[?q=]: the team's public channels, joined or not, and the private groups I am in (浏览频道). */
 export const ChannelDto = z.object({
   id: z.string(),
   name: z.string(),
@@ -2255,6 +2255,10 @@ export const ChannelDto = z.object({
   notice: z.string(),
   memberCount: z.number().int(),
   joined: z.boolean(),
+  visibility: GroupVisibility,
+  createdByName: z.string(),
+  /** Its latest message; null when it has none. */
+  lastActivityAt: z.string().nullable(),
 })
 export type ChannelDto = z.infer<typeof ChannelDto>
 

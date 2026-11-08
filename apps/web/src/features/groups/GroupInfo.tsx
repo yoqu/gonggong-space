@@ -337,7 +337,16 @@ function MainView({
     <ChatInfoBody
       avatar={<GroupAvatar group={group} size={56} />}
       name={group.name}
-      tags={[{ label: GROUP_MODE_LABEL[group.mode], tone: 'gray' }]}
+      tags={[
+        ...(dm
+          ? []
+          : [
+              group.visibility === 'public'
+                ? { label: t('公开频道'), tone: 'blue' as const }
+                : { label: t('私有群'), tone: 'gray' as const },
+            ]),
+        { label: GROUP_MODE_LABEL[group.mode], tone: 'gray' },
+      ]}
       description={
         group.repo ? `${group.repo.url} · ${group.repo.branch}` : t('未绑定仓库 · 各 Bot 使用本机目录')
       }

@@ -151,6 +151,11 @@ export default {
   '本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。':
     "The group tier follows the Bot's global setting by default and applies to running turns at once; at “Full access” only the listed people can trigger it.",
   公开频道: 'Public channel',
+  私有群: 'Private group',
+  显示: 'Show',
+  人数最多: 'Most members',
+  '{name} 创建': 'Created by {name}',
+  '最近活跃 {time}': 'Active {time}',
   '团队成员可在「浏览频道」中找到并自行加入': 'Anyone in the team can find it in Browse channels and join',
   重命名分区: 'Rename section',
   新建分区: 'New section',

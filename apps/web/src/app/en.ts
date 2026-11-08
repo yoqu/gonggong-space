@@ -1,6 +1,14 @@
 export default {
   快捷入口: 'Shortcuts',
-  私有群: 'Private group',
+  复制频道链接: 'Copy channel link',
+  离开频道: 'Leave channel',
+  '离开「{name}」？': 'Leave "{name}"?',
+  '已离开 {name}': 'Left {name}',
+  '你的 Bot 会一并移出；这是公开频道，之后可在「浏览频道」重新加入。':
+    'Your Bots leave with you. It is a public channel: rejoin any time from Browse channels.',
+  '你的 Bot 会一并移出；这是私有群，之后需要成员重新邀请。':
+    'Your Bots leave with you. It is a private group: a member has to invite you back.',
+  '离开#leave': 'Leave',
   待审批: 'Needs approval',
   待回答: 'Needs answer',
   '{n} 个运行中': '{n} running',

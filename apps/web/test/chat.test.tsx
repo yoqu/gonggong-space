@@ -608,7 +608,8 @@ describe('chat view', () => {
     const main = screen.getByRole('main')
     expect(await within(main).findByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
     expect(within(main).getByText('refund · main').getAttribute('title')).toBe('git@git.corp:pay/refund.git')
-    expect(within(main).getByText('周五前合入 v2')).toBeTruthy()
+    // The notice: its banner, and its first line as the channel topic in the header.
+    expect(within(main).getAllByText('周五前合入 v2')).toHaveLength(2)
 
     expect(await within(main).findByText('王磊 创建了群 · 成为群管理员')).toBeTruthy()
     expect(within(main).getByText('@小王的 Claude').className).toContain('mention')
@@ -732,7 +733,7 @@ describe('chat view', () => {
     mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/bot-states': () => [] })
     renderAt('/g/g1')
     const main = screen.getByRole('main')
-    fireEvent.click(await within(main).findByRole('button', { name: '2 人' }))
+    fireEvent.click(await within(main).findByRole('button', { name: /^群成员：2 人/ }))
     await screen.findByRole('complementary', { name: '群设置' })
     const setState = vi.spyOn(useInspector, 'setState')
     push({ t: 'group.updated', group: group({ name: '退款 v3' }) })
@@ -1473,16 +1474,19 @@ describe('repo and workspaces', () => {
     ...s,
   }))
 
-  it('opens settings from the header avatar for admins, the info panel otherwise, and members or bots from the subtitle', async () => {
-    mockApi({ ...baseRoutes([group()]), 'GET /groups/g1/bot-states': () => states })
+  it('opens settings from the header avatar for admins, the info panel otherwise, and members from the header', async () => {
+    mockApi({
+      ...baseRoutes([group({ notice: '本周冻结主干\n周五发版' })]),
+      'GET /groups/g1/bot-states': () => states,
+    })
     const { unmount } = renderAt('/g/g1')
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '打开群设置' }))
     expect(await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })).toBeTruthy()
-    fireEvent.click(within(main).getByRole('button', { name: '2 Bot' }))
-    const drawer = await screen.findByRole('complementary', { name: '群设置' })
-    expect(await within(drawer).findByText('Bot · 2')).toBeTruthy()
-    fireEvent.click(within(main).getByRole('button', { name: '2 人' }))
+    // The notice's first line is the channel topic.
+    fireEvent.click(within(main).getByRole('button', { name: '本周冻结主干' }))
+    expect(await screen.findByRole('complementary', { name: '群设置' })).toBeTruthy()
+    fireEvent.click(within(main).getByRole('button', { name: /^群成员：2 人/ }))
     expect(
       await within(screen.getByRole('complementary', { name: '群设置' })).findByText('群成员 · 2'),
     ).toBeTruthy()

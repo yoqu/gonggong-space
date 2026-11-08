@@ -106,6 +106,22 @@ describe('public channels', () => {
     expect((await w.as.li.post(`/api/groups/${pub.id}/join`)).status).toBe(200)
   })
 
+  it('lists my private groups too, with who created each and when it was last active', async () => {
+    const w = await world()
+    const pub = await t.seed.group({ createdBy: w.wang.id, name: '公告', visibility: 'public' })
+    const mine = await t.seed.group({ createdBy: w.wang.id, name: '机密', memberIds: [w.li.id] })
+    await t.seed.group({ createdBy: w.wang.id, name: '别人的机密' })
+    await w.as.wang.post(`/api/groups/${pub.id}/messages`, { body: '早', clientId: 'client-ch-0001' })
+    const list = (await w.as.li.get<ChannelDto[]>('/api/channels')).body
+    expect(list.map((c) => [c.name, c.visibility, c.joined, c.createdByName])).toEqual([
+      ['公告', 'public', false, '王磊'],
+      ['机密', 'private', true, '王磊'],
+    ])
+    expect(list[0]?.lastActivityAt).toEqual(expect.any(String))
+    expect(list[1]?.lastActivityAt).toBeNull()
+    expect(mine.id).toBe(list[1]?.id)
+  })
+
   it('keeps private groups and other teams out of reach', async () => {
     const w = await world()
     const priv = await t.seed.group({ createdBy: w.wang.id, name: '机密' })

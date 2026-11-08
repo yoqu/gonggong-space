@@ -45,6 +45,7 @@ import { FeishuChatLink } from '../feishu/FeishuChatLink'
 import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
 import { LinkedGitOperation } from '../git/GitOperations'
 import { GroupTabBar } from '../group-tabs/GroupTabBar'
+import { channelKind } from '../groups/channel'
 import { GroupAvatar } from '../groups/GroupAvatar'
 import { GroupInfo, type InfoView, type SettingsTab } from '../groups/GroupInfo'
 import { GroupNotice } from '../groups/GroupNotice'
@@ -644,19 +645,23 @@ export function ChatView({
   const sharer = dm ? bots.find((b) => b.id === group.botIds[0] && b.ownerId !== meId)?.ownerName : undefined
   // Its bot was unshared or deleted: the history stays, nothing can be asked any more.
   const closed = dm && !botCount
+  const kind = channelKind(group.visibility)
+  const topic = dm ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
   return (
     <MentionNames.Provider value={mentionNames}>
       <div className="chat-view" {...(readOnly ? {} : drag.handlers)}>
         <ChatHeader
           group
           avatar={<GroupAvatar group={group} size={32} />}
-          title={group.name}
-          tags={
-            dm
-              ? undefined
-              : group.visibility === 'public'
-                ? [{ label: t('公开频道'), tone: 'blue' }]
-                : [{ label: t('私有群'), tone: 'gray' }]
+          title={
+            dm ? (
+              group.name
+            ) : (
+              <span className="chat-view__title">
+                <Icon name={kind.icon} size={14} />
+                {group.name}
+              </span>
+            )
           }
           onBack={onBack}
           {...(readOnly
@@ -690,42 +695,37 @@ export function ChatView({
                 />
               ) : null}
               {dm ? (
-                sharer ? (
-                  t('{owner} 共享的 Bot · ', { owner: sharer })
-                ) : (
-                  t('仅你和你的 Bot · ')
-                )
+                <>
+                  {sharer ? t('{owner} 共享的 Bot · ', { owner: sharer }) : t('仅你和你的 Bot · ')}
+                  <span title={group.repo?.url}>
+                    {group.repo
+                      ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                      : t('未绑定仓库 · Bot 使用本机目录')}
+                  </span>
+                </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="pn-chathead__link"
-                    onClick={() => inspect('group-info', 'members')}
-                  >
-                    {t('{n} 人', { n: group.members.length })}
-                  </button>
-                  {' · '}
-                  {botCount ? (
+                  {topic ? (
+                    // Slack's channel topic: the notice's first line; the whole notice is one click away.
                     <>
                       <button
                         type="button"
-                        className="pn-chathead__link"
-                        onClick={() => inspect('group-info', 'bots')}
+                        className="pn-chathead__link chat-view__topic"
+                        title={group.notice}
+                        onClick={() => inspect('group-info', 'main')}
                       >
-                        {t('{n} Bot', { n: botCount })}
+                        {topic}
                       </button>
                       {' · '}
                     </>
                   ) : null}
+                  <span title={group.repo?.url}>
+                    {group.repo
+                      ? `${repoName(group.repo.url)} · ${group.repo.branch}`
+                      : t('未绑定仓库 · 各 Bot 使用本机目录')}
+                  </span>
                 </>
               )}
-              <span title={group.repo?.url}>
-                {group.repo
-                  ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                  : dm
-                    ? t('未绑定仓库 · Bot 使用本机目录')
-                    : t('未绑定仓库 · 各 Bot 使用本机目录')}
-              </span>
             </>
           }
           actions={[
@@ -736,6 +736,7 @@ export function ChatView({
                     label: botCount
                       ? t('群成员：{n} 人，{bots} 个 Bot', { n: group.members.length, bots: botCount })
                       : t('群成员：{n} 人', { n: group.members.length }),
+                    text: String(group.members.length),
                     onClick: () => inspect('group-info', 'members'),
                   },
                 ]

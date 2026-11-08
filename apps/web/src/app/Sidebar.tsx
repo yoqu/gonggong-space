@@ -2,7 +2,6 @@ import {
   type BotDto,
   type DirectoryGroupDto,
   type GroupDto,
-  type GroupVisibility,
   type MachineDto,
   type NotifyLevel,
   SECTION_MAX_DEPTH,
@@ -26,6 +25,7 @@ import { draftKey } from '../features/chat/MessageComposer'
 import { useThreadUnread, useThreadUnreadSync } from '../features/chat/threadUnread'
 import { UnreadsRow } from '../features/chat/UnreadsRow'
 import { groupsApi } from '../features/groups/api'
+import { channelKind } from '../features/groups/channel'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
 import { NOTIFY_LEVELS } from '../features/groups/notify'
 import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
@@ -34,11 +34,13 @@ import { middle } from '../features/repos/repo-access'
 import { LaterRow } from '../features/saved/LaterRow'
 import { t } from '../i18n'
 import { api } from '../lib/api'
+import { copyWithToast } from '../lib/clipboard'
 import { cx } from '../lib/cx'
 import { attempt } from '../lib/errors'
 import { plainText } from '../lib/plain'
 import { useRealtimeStatus } from '../lib/realtime'
 import {
+  AlertDialog,
   Avatar,
   Badge,
   Button,
@@ -46,8 +48,10 @@ import {
   type ConversationActivity,
   ConversationContent,
   Icon,
+  Presence,
   PullDownButton,
   ShortcutContent,
+  toast,
 } from '../ui'
 import { keyNav } from '../ui/im/keynav'
 import { activityOf } from './convActivity'
@@ -184,6 +188,18 @@ const GroupRow = memo(function GroupRow({
   const filed = own.some((x) => x.id === g.sectionId)
   const teamSections = useTeamSections((s) => s.sections)
   const canFile = useCanFile(g) && teamSections.length > 0
+  const me = useSession((s) => s.user?.id)
+  const [leaving, setLeaving] = useState(false)
+  const admins = g.members.filter((m) => m.isAdmin)
+  // The group's only admin hands the role over first (as 群信息 asks).
+  const onlyAdmin = admins.length === 1 && admins[0]?.userId === me && g.members.length > 1
+  const leave = async () => {
+    setLeaving(false)
+    if (await attempt(() => groupsApi.leave(g.id))) {
+      if (current) navigate('/')
+      toast({ type: 'success', message: t('已离开 {name}', { name: g.name }) })
+    }
+  }
   const onMenu = (v: string) => {
     if (v.startsWith('team:')) void attempt(() => teamSectionsApi.file(g.id, v.slice(5) || null))
     else if (v === 'section:new') onNewSection()
@@ -204,6 +220,12 @@ const GroupRow = memo(function GroupRow({
     else if (v === 'info') {
       navigate(`/g/${g.id}`)
       useInspector.getState().open('group-info', 'main')
+    } else if (v === 'link') void copyWithToast(`${location.origin}/g/${g.id}`, t('链接已复制'))
+    else if (v === 'leave') {
+      if (!onlyAdmin) return setLeaving(true)
+      toast({ type: 'warning', message: t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。') })
+      navigate(`/g/${g.id}`)
+      useInspector.getState().open('group-info', 'members')
     }
   }
   // The mode lives in the chat header; the second line is the latest message, else what the chat is.
@@ -263,6 +285,17 @@ const GroupRow = memo(function GroupRow({
         { label: isDone(g) ? t('移回列表') : t('完成'), value: 'done', icon: 'checkmark-circle' },
         { label: g.flagged ? t('取消标记') : t('标记'), value: 'flag', icon: 'flag' },
         { label: dm ? t('私聊设置') : t('打开群信息'), value: 'info', icon: 'info' },
+        ...(dm
+          ? []
+          : [
+              { label: t('复制频道链接'), value: 'link', icon: 'link' as const },
+              ...(g.members.length > 1
+                ? [
+                    { separator: true as const },
+                    { label: t('离开频道'), value: 'leave', icon: 'arrow-left' as const, destructive: true },
+                  ]
+                : []),
+            ]),
       ]}
       onSelect={onMenu}
     >
@@ -303,6 +336,24 @@ const GroupRow = memo(function GroupRow({
           }}
         />
       </NavLink>
+      <Presence>
+        {leaving ? (
+          <AlertDialog
+            open
+            title={t('离开「{name}」？', { name: g.name })}
+            message={
+              g.visibility === 'public'
+                ? t('你的 Bot 会一并移出；这是公开频道，之后可在「浏览频道」重新加入。')
+                : t('你的 Bot 会一并移出；这是私有群，之后需要成员重新邀请。')
+            }
+            onClose={() => setLeaving(false)}
+            actions={[
+              { label: t('取消'), onClick: () => setLeaving(false) },
+              { label: t('离开#leave'), variant: 'destructive', onClick: () => void leave() },
+            ]}
+          />
+        ) : null}
+      </Presence>
     </ContextMenu>
   )
 })
@@ -355,12 +406,6 @@ function SpaceRow({ s, tabStop }: { s: TerminalSpaceDto; tabStop: boolean }) {
     </NavLink>
   )
 }
-
-/** Slack's marks: # for a public channel anyone in the team may join, a lock for a private group. */
-export const channelKind = (visibility: GroupVisibility | undefined) =>
-  visibility === 'public'
-    ? { icon: 'hashtag' as const, label: t('公开频道') }
-    : { icon: 'lock' as const, label: t('私有群') }
 
 /** A group filed under a 团队分区 that I have not joined: opens its preview to join or ask to. */
 function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
