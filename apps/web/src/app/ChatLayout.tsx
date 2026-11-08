@@ -28,6 +28,14 @@ const CHAT_MIN = 320
 const CHAT_MAX = 560
 const STEP = 16
 const TOAST_GAP = 12
+/** The workbench is never squeezed under this by a docked rail; the rail takes the chat's place instead. */
+export const BENCH_MIN = 400
+// Laid-out widths (separators included) of the columns left of the content, so the dock is decided in the
+// same render instead of a frame later from a ResizeObserver.
+const NAV_WIDTH = 77
+const SIDEBAR_WIDTH = 281
+const STRIP_WIDTH = 57
+const CHAT_STRIP_WIDTH = 40
 
 const storedWidth = (key: string, fallback: number) => {
   try {
@@ -198,26 +206,47 @@ export function ChatLayout({
 }) {
   const width = useViewportWidth()
   const mobile = width < MOBILE_MAX
-  const resize = useSplitWidth(
-    `gonggong.railWidth.${railKind}`,
-    RAIL_DEFAULT[railKind],
-    RAIL_MIN_WIDTH,
-    width * RAIL_MAX_SHARE,
-    -1,
-  )
   const [main, setMain] = useState<HTMLElement | null>(null)
   const bench = !mobile && !!workbench
   const phoneBench = mobile && mobileView === 'chat' && !!workbench
   useToastAboveComposer(phoneBench ? null : main)
-  const mode = useBenchMode()
-  const full = bench && mode === 'full'
-  const chat = useSplitWidth(
-    `gonggong.chatWidth.${mode === 'split' ? 'split' : 'focus'}`,
-    CHAT_DEFAULT,
-    CHAT_MIN,
-    CHAT_MAX,
-    1,
+  const stored = useBenchMode()
+  const railBody = rail && railOpen ? rail : null
+  const docked = bench && !!railBody
+  // Width right of the nav and the conversation list (or its icon strip): chat, docked rail and workbench share it.
+  const roomIn = (m: WorkbenchMode) =>
+    width -
+    (nav ? NAV_WIDTH : 0) -
+    (sidebar != null && m === 'split' ? SIDEBAR_WIDTH : 0) -
+    (sidebar != null && strip && m === 'focus' ? STRIP_WIDTH : 0)
+  const chatKey = (m: WorkbenchMode) => `gonggong.chatWidth.${m === 'split' ? 'split' : 'focus'}`
+  const clampTo = (w: number, min: number, max: number) => Math.round(Math.min(Math.max(w, min), max))
+  const railNeed = clampTo(
+    storedWidth(`gonggong.railWidth.${railKind}`, RAIL_DEFAULT[railKind]),
+    RAIL_MIN_WIDTH,
+    width * RAIL_MAX_SHARE,
   )
+  const fits = (m: WorkbenchMode) =>
+    roomIn(m) - (clampTo(storedWidth(chatKey(m), CHAT_DEFAULT), CHAT_MIN, CHAT_MAX) + 1) - railNeed >=
+    BENCH_MIN
+  // A docked rail that would squeeze the chat away first folds the list to its icon strip; the stored mode is kept.
+  const mode: WorkbenchMode =
+    docked && stored === 'split' && strip && !fits('split') && fits('focus') ? 'focus' : stored
+  const full = bench && mode === 'full'
+  const room = roomIn(mode)
+  const resize = useSplitWidth(
+    `gonggong.railWidth.${railKind}`,
+    RAIL_DEFAULT[railKind],
+    RAIL_MIN_WIDTH,
+    docked
+      ? Math.max(
+          RAIL_MIN_WIDTH,
+          Math.min(width * RAIL_MAX_SHARE, room - (full ? CHAT_STRIP_WIDTH : 0) - BENCH_MIN),
+        )
+      : width * RAIL_MAX_SHARE,
+    -1,
+  )
+  const chat = useSplitWidth(chatKey(mode), CHAT_DEFAULT, CHAT_MIN, CHAT_MAX, 1)
   const [over, setOver] = useState(false)
   if (over && !full) setOver(false)
   useEscape(() => {
@@ -225,7 +254,6 @@ export function ChatLayout({
     if (over) setOver(false)
     else wb.setMode(wb.previous)
   }, full)
-  const railBody = rail && railOpen ? rail : null
   const list =
     sidebar == null ? null : (
       <nav
@@ -236,6 +264,7 @@ export function ChatLayout({
         {sidebar}
       </nav>
     )
+  const railTakesChat = docked && !full && room - (chat.width + 1) - resize.width < BENCH_MIN
   return (
     <AppFrame
       className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
@@ -282,19 +311,21 @@ export function ChatLayout({
           className={cx('chat__center', bench && 'chat__center--narrow', over && 'chat__center--over')}
           style={bench ? { width: chat.width } : undefined}
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.
-          hidden={(full && !over) || phoneBench}
+          hidden={(full && !over) || phoneBench || railTakesChat}
         >
           {children}
         </main>
       ) : null}
-      {bench && !full ? <Splitter label={t('调整聊天栏宽度')} resize={chat} className="chat__split" /> : null}
-      {bench || phoneBench ? workbench : null}
-      {/* Over the workbench rather than beside it, so its frames never remount when the inspector toggles. */}
-      {bench && railBody ? (
-        <aside aria-label={t('侧栏')} className="chat__drawer" style={{ width: resize.width }}>
+      {bench && !full && !railTakesChat ? (
+        <Splitter label={t('调整聊天栏宽度')} resize={chat} className="chat__split" />
+      ) : null}
+      {docked ? (
+        <aside aria-label={t('侧栏')} className="chat__dock" style={{ width: resize.width }}>
+          <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
           {railBody}
         </aside>
       ) : null}
+      {bench || phoneBench ? workbench : null}
     </AppFrame>
   )
 }

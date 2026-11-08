@@ -28,7 +28,7 @@ import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence
 import { AppRail, isMarketPath, isWorksPath } from './AppRail'
 import { ShellBar } from './AppShell'
 import { ChatLayout } from './ChatLayout'
-import { useInspector } from './inspector'
+import { InspectorSlot, useInspector } from './inspector'
 import { isMachinesPath, MachineSidebar } from './MachineSidebar'
 import { ChatStrip, ConversationStrip, Sidebar } from './Sidebar'
 import { useSession } from './session'
@@ -69,9 +69,6 @@ function loadGroups(setState: (s: 'ready' | 'error') => void) {
     () => setState('error'),
   )
 }
-
-/** Module-level so re-renders don't detach and re-attach the inspector host (a new ref callback is called twice). */
-const setInspectorHost = (host: HTMLElement | null) => useInspector.setState({ host })
 
 /** Loads my groups; reloads after a realtime reconnect to catch up. */
 const loadTeam = () =>
@@ -262,7 +259,7 @@ export function ChatPage() {
         }
         strip={<ConversationStrip groups={groups} />}
         chatStrip={group ? <ChatStrip key={group.id} group={group} /> : null}
-        rail={inspector ? <div ref={setInspectorHost} className="chat__inspector" /> : undefined}
+        rail={inspector ? <InspectorSlot /> : undefined}
         railOpen={!!inspector}
         railKind={inspector === 'group-info' ? 'info' : inspector === 'thread' ? 'thread' : 'run'}
         sidebar={

@@ -132,7 +132,7 @@ describe('chat header 工作台 button', () => {
     expect(screen.queryByRole('region', { name: '工作台' })).toBeNull()
   })
 
-  it('opens 群设置 as a drawer over the open workbench', async () => {
+  it('docks 群设置 beside the open workbench', async () => {
     renderAt('/g/g1')
     await screen.findByRole('heading', { name: '退款' })
     act(() => {
@@ -140,7 +140,7 @@ describe('chat header 工作台 button', () => {
     })
     fireEvent.click(within(header()).getByRole('button', { name: '群设置' }))
     const drawer = await screen.findByRole('complementary', { name: '侧栏' })
-    expect(drawer.className).toContain('chat__drawer')
+    expect(drawer.className).toContain('chat__dock')
     expect(await screen.findByRole('region', { name: '工作台' })).toBeTruthy()
   })
 })

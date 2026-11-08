@@ -204,19 +204,17 @@ body {
   z-index: 24;
   box-shadow: var(--shadow-menu);
 }
-/* The inspector floats over the workbench's right edge so the workbench (and its frames) stays mounted. */
-.chat__drawer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 25;
+/* With the workbench open the rail docks between the chat and the workbench (width set inline). */
+.chat__dock {
+  position: relative;
+  flex: none;
   display: flex;
   flex-direction: column;
-  max-width: 60%;
-  background: var(--content-bg);
   border-left: 1px solid var(--separator);
-  box-shadow: var(--shadow-menu);
+  background: var(--content-bg);
+}
+.chat__inspector-slot {
+  display: contents;
 }
 /* 专注: the conversation list folded to avatars. */
 .conv-strip {

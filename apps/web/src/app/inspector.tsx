@@ -7,7 +7,7 @@ export type InspectorView = 'group-info' | 'run' | 'thread'
 interface InspectorState {
   view: InspectorView | null
   payload: unknown
-  /** The chat page's inspector `<aside>` body, mounted while `view` is set. */
+  /** The stable node `<InspectorPortal>` renders into, once an `<InspectorSlot>` has mounted. */
   host: HTMLElement | null
   open: (view: InspectorView, payload?: unknown) => void
   close: () => void
@@ -23,6 +23,21 @@ export const useInspector = create<InspectorState>()((set) => ({
   open: (view, payload = null) => set({ view, payload }),
   close: () => set({ view: null, payload: null }),
 }))
+
+/** Created once: the same node is re-parented when the rail moves, so the portalled body is never remounted. */
+const hostEl = document.createElement('div')
+hostEl.className = 'chat__inspector'
+
+const attachHost = (slot: HTMLElement | null) => {
+  if (!slot) return
+  slot.appendChild(hostEl)
+  if (useInspector.getState().host !== hostEl) useInspector.setState({ host: hostEl })
+}
+
+/** The rail's body: wherever the layout renders it, it holds the one stable inspector host. */
+export function InspectorSlot() {
+  return <div ref={attachHost} className="chat__inspector-slot" />
+}
 
 /** Renders `children` into the inspector while `view` is the open one. */
 export function InspectorPortal({ view, children }: { view: InspectorView; children: ReactNode }) {
