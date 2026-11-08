@@ -1,10 +1,11 @@
-import type {
-  BotDto,
-  DirectoryGroupDto,
-  GroupDto,
-  MachineDto,
-  SidebarSectionDto,
-  TerminalSpaceDto,
+import {
+  type BotDto,
+  type DirectoryGroupDto,
+  type GroupDto,
+  type MachineDto,
+  SECTION_MAX_DEPTH,
+  type SidebarSectionDto,
+  type TerminalSpaceDto,
 } from '@gonggong/protocol'
 import {
   type DragEvent,
@@ -213,7 +214,11 @@ const GroupRow = memo(function GroupRow({
           label: t('移到分区'),
           icon: 'folder',
           submenu: [
-            ...own.map((x) => ({ label: x.name, value: `section:${x.id}`, checked: g.sectionId === x.id })),
+            ...own.map((x) => ({
+              label: pathOfSection(own, x),
+              value: `section:${x.id}`,
+              checked: g.sectionId === x.id,
+            })),
             ...(own.length ? [{ separator: true as const }] : []),
             ...(filed ? [{ label: t('移出分区'), value: 'section:' }] : []),
             { label: t('新建分区…'), value: 'section:new', icon: 'plus' as const },
@@ -226,7 +231,7 @@ const GroupRow = memo(function GroupRow({
                 icon: 'person' as const,
                 submenu: [
                   ...teamSections.map((x) => ({
-                    label: x.name,
+                    label: pathOfSection(teamSections, x),
                     value: `team:${x.id}`,
                     checked: g.teamSectionId === x.id,
                   })),
@@ -423,7 +428,16 @@ function useHeldOrder<R extends { id: string }>(list: R[], held: boolean) {
 
 /** 星标 / 团队分区 / my own sections / 频道 / 私信 hold the conversations; 终端 sits below them. */
 type BuiltIn = 'star' | 'group' | 'dm'
-type Section = { key: string; label: string; custom?: boolean; team?: boolean }
+type Section = {
+  key: string
+  label: string
+  custom?: boolean
+  team?: boolean
+  /** My own or a team section; absent for 星标 / 频道 / 私信. */
+  sec?: SidebarSectionDto
+  depth: number
+  children: Section[]
+}
 const BUILT_IN: Record<BuiltIn, string> = { star: t('星标'), group: t('频道'), dm: t('私信') }
 const SPACES = 'space'
 /** Team sections' keys, apart from my own sections' ids. */
@@ -438,6 +452,12 @@ const sectionOf = (g: GroupDto, own: Set<string>, team: Set<string>) =>
         : g.kind === 'dm'
           ? 'dm'
           : 'group'
+/** 研发 › 支付线 › 结算: where a nested section sits, for the 移到分区 menus. */
+const pathOfSection = (list: SidebarSectionDto[], sec: SidebarSectionDto): string => {
+  const parent = sec.parentId && list.find((x) => x.id === sec.parentId)
+  return parent ? `${pathOfSection(list, parent)} › ${sec.name}` : sec.name
+}
+
 /** Group admins file their group under a 团队分区; team admins file any group. */
 const useCanFile = (g: GroupDto) => {
   const me = useSession((s) => s.user?.id)
@@ -589,11 +609,12 @@ export function Sidebar({
   const me = useSession((s) => s.user?.id)
   const [onlyFlagged, setOnlyFlagged] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  /** 浏览频道, or a section to create (under `parent`) or rename. */
   const [dialog, setDialog] = useState<
-    'browse' | 'section' | 'teamSection' | { rename: SidebarSectionDto; team: boolean } | null
+    'browse' | { team: boolean; parent?: SidebarSectionDto; rename?: SidebarSectionDto } | null
   >(null)
   const [dropAt, setDropAt] = useState('')
-  const newSection = useCallback(() => setDialog('section'), [])
+  const newSection = useCallback(() => setDialog({ team: false }), [])
   const anyFlagged = groups.some((g) => g.flagged)
   // Unflagging the last one hides the filter; don't let it silently re-apply when a flag comes back.
   if (onlyFlagged && !anyFlagged) setOnlyFlagged(false)
@@ -612,34 +633,70 @@ export function Sidebar({
   // A folded section still shows what needs reading and the conversation that is open.
   const fold = <R extends Row>(key: string, all: R[]) =>
     folded.includes(key) ? all.filter((r) => isOpen(r) || (!isSpace(r) && r.unread > 0)) : all
-  const list: Section[] = [
-    { key: 'star', label: BUILT_IN.star },
-    ...team.sections.map((x) => ({ key: TEAM + x.id, label: x.name, team: true })),
-    ...own.map((x) => ({ key: x.id, label: x.name, custom: true })),
-    { key: 'group', label: BUILT_IN.group },
-    { key: 'dm', label: BUILT_IN.dm },
+  const keyOf = (sec: SidebarSectionDto, isTeam: boolean) => (isTeam ? TEAM + sec.id : sec.id)
+  const tree = (
+    list: SidebarSectionDto[],
+    isTeam: boolean,
+    parentId: string | null,
+    depth: number,
+  ): Section[] =>
+    list
+      .filter((x) => x.parentId === parentId)
+      .map((x) => ({
+        key: keyOf(x, isTeam),
+        label: x.name,
+        team: isTeam || undefined,
+        custom: !isTeam || undefined,
+        sec: x,
+        depth,
+        children: tree(list, isTeam, x.id, depth + 1),
+      }))
+  const roots: Section[] = [
+    { key: 'star', label: BUILT_IN.star, depth: 1, children: [] },
+    ...tree(team.sections, true, null, 1),
+    ...tree(own, false, null, 1),
+    { key: 'group', label: BUILT_IN.group, depth: 1, children: [] },
+    { key: 'dm', label: BUILT_IN.dm, depth: 1, children: [] },
   ]
-  const sections = list
-    .map((sec) => {
-      const all = open.filter((g) => sectionOf(g, ownIds, teamIds) === sec.key)
-      const fold_ = folded.includes(sec.key)
-      // Groups I am not in, after mine; a folded section keeps only the one that is open.
-      const others = outside.filter((d) => TEAM + d.teamSectionId === sec.key)
-      const othersShown = fold_ ? others.filter((d) => pathname === `/g/${d.id}`) : others
-      return { ...sec, all, others, fold: fold_, shown: fold(sec.key, all), othersShown }
-    })
-    // My own sections, 频道 (and 团队分区 for team admins) stay as places to drop into and to browse from.
-    .filter(
-      (sec) =>
-        sec.all.length ||
-        sec.others.length ||
-        sec.custom ||
-        (sec.team && team.canManage) ||
-        (sec.key === 'group' && !onlyFlagged),
-    )
+  const keysUnder = (sec: Section): string[] => [sec.key, ...sec.children.flatMap(keysUnder)]
+  /** Rows filed right here, and the groups I am not in after them. */
+  const direct = (key: string) => open.filter((g) => sectionOf(g, ownIds, teamIds) === key)
+  const outsideIn = (key: string) => outside.filter((d) => TEAM + d.teamSectionId === key)
+  /** Groups in the section and the ones nested under it: joined, and (团队分区) all of them. */
+  const countOf = (sec: Section) => {
+    const keys = new Set(keysUnder(sec))
+    if (sec.team) {
+      const joined = groups.filter((g) => g.teamSectionId && keys.has(TEAM + g.teamSectionId)).length
+      return `${joined}/${joined + outside.filter((d) => keys.has(TEAM + d.teamSectionId)).length}`
+    }
+    return String(groups.filter((g) => g.sectionId && keys.has(g.sectionId)).length)
+  }
+  // 频道 and my own sections stay as places to drop into and to browse from; 团队分区 too for team admins.
+  const kept = (sec: Section): boolean =>
+    (sec.key === 'group' && !onlyFlagged) ||
+    !!sec.custom ||
+    (!!sec.team && team.canManage) ||
+    keysUnder(sec).some((k) => direct(k).length || outsideIn(k).length)
+  type Shown = Section & { rows: GroupDto[]; others: DirectoryGroupDto[]; fold: boolean; nested: Shown[] }
+  /** What each section shows; a folded one keeps its whole subtree's unread and open rows, without the heads. */
+  const view = (sec: Section): Shown => {
+    const fold_ = folded.includes(sec.key)
+    const keys = fold_ ? keysUnder(sec) : [sec.key]
+    const rows = keys.flatMap(direct)
+    const others = keys.flatMap(outsideIn)
+    return {
+      ...sec,
+      fold: fold_,
+      rows: fold_ ? rows.filter((g) => isOpen(g) || g.unread > 0) : rows,
+      others: fold_ ? others.filter((d) => pathname === `/g/${d.id}`) : others,
+      nested: fold_ ? [] : sec.children.filter(kept).map(view),
+    }
+  }
+  const sections = roots.filter(kept).map(view)
+  const flat = (sec: Shown): GroupDto[] => [...sec.rows, ...sec.nested.flatMap(flat)]
   const shownSpaces = fold(SPACES, terminals)
   // One tab stop for all conversation rows (the open one, else the first); ↑↓ Home End move and open.
-  const rows: Row[] = [...sections.flatMap((sec) => sec.shown), ...(showDone ? done : []), ...shownSpaces]
+  const rows: Row[] = [...sections.flatMap(flat), ...(showDone ? done : []), ...shownSpaces]
   const at = rows.findIndex(isOpen)
   const stop = rows[at]?.id ?? rows[0]?.id
   const scroll = useSelectionCapsule(pathname, at)
@@ -648,12 +705,14 @@ export function Sidebar({
     onDragOver: (e: DragEvent) => {
       if (!e.dataTransfer.types.includes(DRAG_TYPE)) return
       e.preventDefault()
+      e.stopPropagation()
       setDropAt(key)
     },
     onDragLeave: (e: DragEvent) => {
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropAt('')
     },
     onDrop: (e: DragEvent) => {
+      e.stopPropagation()
       setDropAt('')
       const g = groups.find((x) => x.id === e.dataTransfer.getData(DRAG_TYPE))
       if (!g || sectionOf(g, ownIds, teamIds) === key || (key.startsWith(TEAM) && !canFile(g))) return
@@ -663,6 +722,7 @@ export function Sidebar({
   const onSectionMenu = (sec: SidebarSectionDto, isTeam: boolean) => (v: string) => {
     const ops = isTeam ? teamSectionsApi : sectionsApi
     if (v === 'rename') setDialog({ rename: sec, team: isTeam })
+    else if (v === 'child') setDialog({ parent: sec, team: isTeam })
     else if (v === 'up' || v === 'down') void attempt(() => ops.move(sec.id, v === 'up' ? -1 : 1))
     else if (v === 'delete') void attempt(() => ops.remove(sec.id))
   }
@@ -706,10 +766,10 @@ export function Sidebar({
           ) : null}
         </>
       )
-    const pool = sec.team ? (team.canManage ? team.sections : []) : own
-    const mine = pool.find((x) => (sec.team ? TEAM + x.id : x.id) === sec.key)
-    if (!mine) return null
-    const i = pool.indexOf(mine)
+    const mine = sec.sec
+    if (!mine || (sec.team && !team.canManage)) return null
+    const siblings = (sec.team ? team.sections : own).filter((x) => x.parentId === mine.parentId)
+    const i = siblings.indexOf(mine)
     return (
       <PullDownButton
         icon="more"
@@ -721,8 +781,11 @@ export function Sidebar({
         aria-label={t('{name} 分区操作', { name: mine.name })}
         items={[
           { label: t('重命名…'), value: 'rename', icon: 'textformat' },
+          ...(sec.depth < SECTION_MAX_DEPTH
+            ? [{ label: t('新建子分区…'), value: 'child', icon: 'plus' as const }]
+            : []),
           { label: t('上移'), value: 'up', icon: 'chevron-up', disabled: i === 0 },
-          { label: t('下移'), value: 'down', icon: 'chevron-down', disabled: i === pool.length - 1 },
+          { label: t('下移'), value: 'down', icon: 'chevron-down', disabled: i === siblings.length - 1 },
           { separator: true },
           { label: t('删除分区'), value: 'delete', icon: 'trash', destructive: true },
         ]}
@@ -730,6 +793,38 @@ export function Sidebar({
       />
     )
   }
+  const renderSection = (sec: Shown): ReactNode => (
+    // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
+    <div
+      key={sec.key}
+      role="group"
+      aria-label={sec.label}
+      className={cx('sidebar__section', dropAt === sec.key && 'sidebar__section--drop')}
+      style={sec.depth > 1 ? { paddingLeft: (sec.depth - 1) * 12 } : undefined}
+      {...dropProps(sec.key)}
+    >
+      {head(
+        sec.key,
+        <>
+          {sec.label}
+          {sec.team && sec.depth === 1 ? <span className="sidebar__teamtag">{t('团队')}</span> : null}
+          {sec.sec ? <span className="sidebar__count">{countOf(sec)}</span> : null}
+        </>,
+        sec.fold,
+        actionsOf(sec),
+      )}
+      <div className="sidebar__list sidebar__list--convs">
+        {sec.rows.map((g) => row(g, sec.key !== 'dm'))}
+        {sec.others.map((d) => (
+          <DirectoryRow key={d.id} d={d} />
+        ))}
+        {sec.sec && !sec.fold && !keysUnder(sec).some((k) => direct(k).length || outsideIn(k).length) ? (
+          <div className="sidebar__drophint">{t('把会话拖到这里')}</div>
+        ) : null}
+      </div>
+      {sec.nested.map(renderSection)}
+    </div>
+  )
   const row = (g: GroupDto, tagged = true) => (
     <GroupRow
       key={g.id}
@@ -775,39 +870,7 @@ export function Sidebar({
           ) : null}
           <section aria-label={t('会话#list')}>
             {anything ? (
-              sections.map((sec) => (
-                // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups links
-                <div
-                  key={sec.key}
-                  role="group"
-                  aria-label={sec.label}
-                  className={cx('sidebar__section', dropAt === sec.key && 'sidebar__section--drop')}
-                  {...dropProps(sec.key)}
-                >
-                  {head(
-                    sec.key,
-                    sec.team ? (
-                      <>
-                        {sec.label}
-                        <span className="sidebar__teamtag">{t('团队')}</span>
-                      </>
-                    ) : (
-                      sec.label
-                    ),
-                    sec.fold,
-                    actionsOf(sec),
-                  )}
-                  <div className="sidebar__list sidebar__list--convs">
-                    {sec.shown.map((g) => row(g, sec.key !== 'dm'))}
-                    {sec.othersShown.map((d) => (
-                      <DirectoryRow key={d.id} d={d} />
-                    ))}
-                    {(sec.custom || sec.team) && !sec.all.length && !sec.others.length && !sec.fold ? (
-                      <div className="sidebar__drophint">{t('把会话拖到这里')}</div>
-                    ) : null}
-                  </div>
-                </div>
-              ))
+              sections.map(renderSection)
             ) : (
               <div className="sidebar__list sidebar__list--convs">{empty(t('还没有会话'))}</div>
             )}
@@ -824,11 +887,15 @@ export function Sidebar({
                       { label: t('个人分区…'), value: 'section', icon: 'person' },
                       { label: t('团队分区…'), value: 'teamSection', icon: 'contacts' },
                     ]}
-                    onSelect={(v) => setDialog(v as 'section' | 'teamSection')}
+                    onSelect={(v) => setDialog({ team: v === 'teamSection' })}
                   />
                 </div>
               ) : (
-                <button type="button" className="sidebar__newsection" onClick={() => setDialog('section')}>
+                <button
+                  type="button"
+                  className="sidebar__newsection"
+                  onClick={() => setDialog({ team: false })}
+                >
                   <Icon name="plus" size={11} />
                   {t('新建分区')}
                 </button>
@@ -864,21 +931,15 @@ export function Sidebar({
       </div>
       <Footer bots={bots} machines={machines} />
       {dialog === 'browse' ? <BrowseChannelsDialog onClose={() => setDialog(null)} /> : null}
-      {dialog === 'section' ? (
-        <SectionNameDialog onSave={(name) => sectionsApi.create(name)} onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === 'teamSection' ? (
-        <SectionNameDialog
-          team
-          onSave={(name) => teamSectionsApi.create(name)}
-          onClose={() => setDialog(null)}
-        />
-      ) : null}
       {dialog && typeof dialog === 'object' ? (
         <SectionNameDialog
-          initial={dialog.rename.name}
+          initial={dialog.rename?.name}
           team={dialog.team}
-          onSave={(name) => (dialog.team ? teamSectionsApi : sectionsApi).rename(dialog.rename.id, name)}
+          parent={dialog.parent?.name}
+          onSave={(name) => {
+            const ops = dialog.team ? teamSectionsApi : sectionsApi
+            return dialog.rename ? ops.rename(dialog.rename.id, name) : ops.create(name, dialog.parent?.id)
+          }}
           onClose={() => setDialog(null)}
         />
       ) : null}

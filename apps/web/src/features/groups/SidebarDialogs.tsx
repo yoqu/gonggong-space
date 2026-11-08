@@ -11,12 +11,15 @@ import './groups.css'
 export function SectionNameDialog({
   initial = '',
   team,
+  parent,
   onSave,
   onClose,
 }: {
   initial?: string
   /** A 团队分区, seen by everyone in the team. */
   team?: boolean
+  /** Name of the section a new one nests under. */
+  parent?: string
   onSave: (name: string) => Promise<unknown>
   onClose: () => void
 }) {
@@ -28,7 +31,15 @@ export function SectionNameDialog({
       open
       width={400}
       title={
-        team ? (initial ? t('重命名团队分区') : t('新建团队分区')) : initial ? t('重命名分区') : t('新建分区')
+        initial
+          ? team
+            ? t('重命名团队分区')
+            : t('重命名分区')
+          : parent
+            ? t('新建子分区')
+            : team
+              ? t('新建团队分区')
+              : t('新建分区')
       }
       onClose={onClose}
       footer={
@@ -40,6 +51,7 @@ export function SectionNameDialog({
         </>
       }
     >
+      {parent ? <p className="section-dialog__hint">{t('放在「{name}」下', { name: parent })}</p> : null}
       {team ? (
         <p className="section-dialog__hint">{t('团队所有成员都能看到；群管理员可把自己的群归入其中')}</p>
       ) : null}

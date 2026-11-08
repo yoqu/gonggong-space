@@ -172,6 +172,8 @@ export default {
     'Why you want to join (optional), e.g. I handle refund reconciliation',
   申请加入: 'Ask to join',
   新建团队分区: 'New team section',
+  新建子分区: 'New subsection',
+  '放在「{name}」下': 'Inside “{name}”',
   重命名团队分区: 'Rename team section',
   '团队所有成员都能看到；群管理员可把自己的群归入其中':
     'Everyone in the team sees it; group admins can file their groups under it',

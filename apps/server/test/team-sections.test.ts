@@ -54,8 +54,8 @@ describe('team sections', () => {
     const seen = await w.as.zhao.get<TeamSectionsDto>('/api/team-sections')
     expect(seen.body).toEqual({
       sections: [
-        { id: a.body.id, name: '支付线' },
-        { id: b.body.id, name: '平台' },
+        { id: a.body.id, name: '支付线', parentId: null },
+        { id: b.body.id, name: '平台', parentId: null },
       ],
       canManage: false,
     })
@@ -118,6 +118,25 @@ describe('team sections', () => {
     expect((await w.as.zhao.get<DirectoryGroupDto[]>('/api/team-directory')).body).toEqual([])
     const g = await w.as.li.get<GroupDto>(`/api/groups/${w.g.id}`)
     expect(g.body.teamSectionId).toBeNull()
+  })
+})
+
+describe('nested sections', () => {
+  it('nests team sections three deep, and deleting one takes its subsections and unfiles their groups', async () => {
+    const w = await world()
+    const post = (name: string, parentId?: string) =>
+      w.as.wang.post<{ id: string; parentId: string | null }>('/api/team-sections', { name, parentId })
+    const rd = (await post('研发')).body
+    const pay = (await post('支付线', rd.id)).body
+    const settle = (await post('结算', pay.id)).body
+    expect(settle.parentId).toBe(pay.id)
+    expect((await post('太深', settle.id)).status).toBe(400)
+    await w.as.li.put(`/api/groups/${w.g.id}/team-section`, { teamSectionId: settle.id })
+    const r = (await w.as.zhao.post<JoinRequestDto>(`/api/groups/${w.g.id}/join-requests`, {})).body
+    expect((await w.as.wang.del(`/api/team-sections/${rd.id}`)).status).toBe(204)
+    expect((await w.as.wang.get<TeamSectionsDto>('/api/team-sections')).body.sections).toEqual([])
+    expect((await w.as.li.get<GroupDto>(`/api/groups/${w.g.id}`)).body.teamSectionId).toBeNull()
+    expect((await w.as.li.post(`/api/join-requests/${r.id}/approve`)).status).toBe(404)
   })
 })
 

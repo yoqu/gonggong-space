@@ -1,8 +1,10 @@
 import {
   type DirectoryGroupDto,
   GroupTeamSectionReq,
+  SidebarSectionCreateReq,
   SidebarSectionOrderReq,
   SidebarSectionReq,
+  sectionSubtree,
   type TeamSectionsDto,
 } from '@gonggong/protocol'
 import { and, asc, eq, inArray, isNotNull, isNull, max, notExists, sql } from 'drizzle-orm'
@@ -15,6 +17,7 @@ import { isUuid } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
 import { groupDto, publishGroup, requireMember } from '../groups/service.js'
 import { postEvent } from '../messages/service.js'
+import { assertParent } from '../sidebar/routes.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
 import { avatarUrl } from '../users/dto.js'
 import { cancelJoinRequests } from './join-requests.js'
@@ -25,7 +28,7 @@ const isTeamAdmin = (role: string) => role !== 'member'
 
 async function sectionsOf(ctx: Ctx, teamId: string) {
   return ctx.db
-    .select({ id: teamSections.id, name: teamSections.name })
+    .select({ id: teamSections.id, name: teamSections.name, parentId: teamSections.parentId })
     .from(teamSections)
     .where(eq(teamSections.teamId, teamId))
     .orderBy(asc(teamSections.position), asc(teamSections.createdAt))
@@ -122,15 +125,16 @@ export function teamSectionRoutes(ctx: Ctx) {
     app.post('/api/team-sections', async (req) => {
       const me = await requireUser(ctx, req)
       const { team } = await requireTeam(ctx, me.id, await currentTeam(ctx, req, me.id), 'admin')
-      const { name } = SidebarSectionReq.parse(req.body)
+      const { name, parentId = null } = SidebarSectionCreateReq.parse(req.body)
+      if (parentId) assertParent(await sectionsOf(ctx, team.id), parentId)
       const [last] = await ctx.db
         .select({ position: max(teamSections.position) })
         .from(teamSections)
         .where(eq(teamSections.teamId, team.id))
       const [row] = await ctx.db
         .insert(teamSections)
-        .values({ teamId: team.id, name, position: (last?.position ?? -1) + 1, createdBy: me.id })
-        .returning({ id: teamSections.id, name: teamSections.name })
+        .values({ teamId: team.id, name, parentId, position: (last?.position ?? -1) + 1, createdBy: me.id })
+        .returning({ id: teamSections.id, name: teamSections.name, parentId: teamSections.parentId })
       await audit(ctx, {
         category: 'admin',
         actorUserId: me.id,
@@ -156,7 +160,7 @@ export function teamSectionRoutes(ctx: Ctx) {
         detail: { before: sec.name, name },
       })
       await publishDirectory(ctx, team.id)
-      return { id: sec.id, name }
+      return { id: sec.id, name, parentId: sec.parentId }
     })
 
     app.put('/api/team-sections/order', async (req) => {
@@ -181,7 +185,7 @@ export function teamSectionRoutes(ctx: Ctx) {
       const filed = await ctx.db
         .select({ id: groups.id })
         .from(groups)
-        .where(eq(groups.teamSectionId, sec.id))
+        .where(inArray(groups.teamSectionId, sectionSubtree(await sectionsOf(ctx, team.id), sec.id)))
       await ctx.db.delete(teamSections).where(eq(teamSections.id, sec.id))
       for (const g of filed) await cancelJoinRequests(ctx, g.id)
       await audit(ctx, {

@@ -326,6 +326,7 @@ export const en = {
   频道不存在或不是公开频道: "This channel doesn't exist or isn't public",
   分区不存在: "This section doesn't exist",
   团队分区不存在: "This team section doesn't exist",
+  '分区最多 {n} 级': 'Sections nest at most {n} levels deep',
   群不存在或未归入团队分区: "This group doesn't exist or isn't in a team section",
   公开群可直接加入: 'Public groups can be joined directly',
   你已在群内: "You're already in this group",

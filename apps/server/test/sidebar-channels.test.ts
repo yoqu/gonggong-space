@@ -51,6 +51,24 @@ describe('sidebar sections', () => {
     )
   })
 
+  it('nests my sections three deep, only under my own, and deletes a subtree at once', async () => {
+    const w = await world()
+    const post = (name: string, parentId?: string) =>
+      w.as.wang.post<SidebarSectionDto>('/api/sidebar-sections', { name, parentId })
+    const a = (await post('研发')).body
+    const b = (await post('支付线', a.id)).body
+    const c = (await post('结算', b.id)).body
+    expect(c.parentId).toBe(b.id)
+    expect((await post('太深', c.id)).status).toBe(400)
+    expect((await w.as.li.post('/api/sidebar-sections', { name: 'x', parentId: a.id })).status).toBe(404)
+    const g = await t.seed.group({ createdBy: w.wang.id })
+    await w.as.wang.put(`/api/groups/${g.id}/prefs`, { sectionId: c.id })
+    await w.as.wang.del(`/api/sidebar-sections/${a.id}`)
+    expect((await w.as.wang.get<SidebarSectionDto[]>('/api/sidebar-sections')).body).toEqual([])
+    const mine = await w.as.wang.get<GroupDto[]>('/api/groups')
+    expect(mine.body.find((x) => x.id === g.id)?.sectionId).toBeNull()
+  })
+
   it('files a conversation under my section for me only, and deleting the section sends it back', async () => {
     const w = await world()
     const g = await t.seed.group({ createdBy: w.wang.id, memberIds: [w.li.id] })

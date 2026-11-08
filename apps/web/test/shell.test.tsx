@@ -349,8 +349,8 @@ describe('sidebar sections', () => {
         group('g3', '告警', { sectionId: 's1', pinned: true }),
       ]),
       'GET /sidebar-sections': [
-        { id: 's1', name: '发版' },
-        { id: 's2', name: '运维' },
+        { id: 's1', name: '发版', parentId: null },
+        { id: 's2', name: '运维', parentId: null },
       ],
       'PUT /groups/g2/prefs': (b: unknown) => group('g2', '支付', b as Partial<GroupDto>),
       'PUT /groups/g1/prefs': (b: unknown) => group('g1', '退款', b as Partial<GroupDto>),
@@ -377,11 +377,15 @@ describe('sidebar sections', () => {
   it('creates, renames, reorders and deletes my sections', async () => {
     const calls = mockApi({
       ...routes([group('g1', '退款', { sectionId: 's1' })]),
-      'GET /sidebar-sections': [{ id: 's1', name: '发版' }],
-      'POST /sidebar-sections': (b: unknown) => ({ id: 's2', ...(b as object) }),
-      'PATCH /sidebar-sections/s1': (b: unknown) => ({ id: 's1', ...(b as object) }),
+      'GET /sidebar-sections': [{ id: 's1', name: '发版', parentId: null }],
+      'POST /sidebar-sections': (b: unknown) => ({ id: 's2', parentId: null, ...(b as object) }),
+      'PATCH /sidebar-sections/s1': (b: unknown) => ({ id: 's1', parentId: null, ...(b as object) }),
       'PUT /sidebar-sections/order': (b: unknown) =>
-        (b as { ids: string[] }).ids.map((id) => ({ id, name: id === 's1' ? '发布' : '运维' })),
+        (b as { ids: string[] }).ids.map((id) => ({
+          id,
+          name: id === 's1' ? '发布' : '运维',
+          parentId: null,
+        })),
       'DELETE /sidebar-sections/s1': () => undefined,
     })
     renderAt('/g/g1')
@@ -465,8 +469,8 @@ describe('team sections', () => {
   it('lists my groups and the ones I am not in under each team section, above my own sections', async () => {
     mockApi({
       ...routes([group('g1', '退款', { teamSectionId: 'ts1' }), group('g2', '支付', { sectionId: 's1' })]),
-      'GET /sidebar-sections': [{ id: 's1', name: '我的' }],
-      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /sidebar-sections': [{ id: 's1', name: '我的', parentId: null }],
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线', parentId: null }], canManage: false },
       'GET /team-directory': [dir('g9', '结算', { notice: '对账与结算' })],
     })
     renderAt('/g/g1')
@@ -487,7 +491,7 @@ describe('team sections', () => {
     let requested: string | null = null
     const calls = mockApi({
       ...routes([group('g1', '退款')]),
-      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线', parentId: null }], canManage: false },
       'GET /team-directory': () => [dir('g9', '结算', { requestId: requested })],
       'POST /groups/g9/join-requests': (b: unknown) => {
         requested = 'r1'
@@ -516,7 +520,7 @@ describe('team sections', () => {
   it('joins a public one straight from its preview', async () => {
     const calls = mockApi({
       ...routes([group('g1', '退款')]),
-      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线', parentId: null }], canManage: false },
       'GET /team-directory': [dir('g9', '公告', { visibility: 'public' })],
       'POST /groups/g9/join': group('g9', '公告', { teamSectionId: 'ts1' }),
     })
@@ -532,7 +536,7 @@ describe('team sections', () => {
   it('lets team admins add team sections and file groups under them', async () => {
     const calls = mockApi({
       ...routes([group('g2', '支付')]),
-      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: true },
+      'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线', parentId: null }], canManage: true },
       'GET /team-directory': [],
       'POST /team-sections': (b: unknown) => ({ id: 'ts2', ...(b as object) }),
       'PUT /groups/g2/team-section': (b: unknown) => group('g2', '支付', b as Partial<GroupDto>),
@@ -558,6 +562,104 @@ describe('team sections', () => {
         name: '平台',
       }),
     )
+  })
+})
+
+describe('nested sections', () => {
+  const rowsIn = (name: string) =>
+    [...screen.getByRole('group', { name }).querySelectorAll(':scope > .sidebar__list [data-testid]')].map(
+      (e) => e.getAttribute('data-testid'),
+    )
+
+  it('nests sections under their parents and counts the groups in each subtree', async () => {
+    mockApi({
+      ...routes([
+        group('g1', '退款', { teamSectionId: 'rd' }),
+        group('g2', '对账', { teamSectionId: 'settle' }),
+        group('g3', '周报', { sectionId: 'mine' }),
+        group('g4', '复盘', { sectionId: 'sub' }),
+      ]),
+      'GET /sidebar-sections': [
+        { id: 'mine', name: '我的', parentId: null },
+        { id: 'sub', name: '复盘类', parentId: 'mine' },
+      ],
+      'GET /team-sections': {
+        sections: [
+          { id: 'rd', name: '研发', parentId: null },
+          { id: 'pay', name: '支付线', parentId: 'rd' },
+          { id: 'settle', name: '结算', parentId: 'pay' },
+        ],
+        canManage: true,
+      },
+      'GET /team-directory': [
+        {
+          id: 'g9',
+          name: '清分',
+          avatar: null,
+          notice: '',
+          memberCount: 3,
+          visibility: 'private',
+          teamSectionId: 'settle',
+          admins: [],
+          requestId: null,
+        },
+      ],
+    })
+    renderAt('/g/g1')
+    await waitFor(() => expect(rowsIn('结算')).toEqual(['group-item-g2', 'directory-item-g9']))
+    const rd = screen.getByRole('group', { name: '研发' })
+    expect(within(rd).getByRole('group', { name: '支付线' })).toBeTruthy()
+    expect(rowsIn('研发')).toEqual(['group-item-g1'])
+    const count = (name: string) =>
+      screen.getByRole('group', { name }).querySelector(':scope > .sidebar__sechead .sidebar__count')
+        ?.textContent
+    expect(count('研发')).toBe('2/3')
+    expect(count('支付线')).toBe('1/2')
+    expect(count('我的')).toBe('2')
+    expect(count('复盘类')).toBe('1')
+
+    // Three deep is the limit: the deepest section offers no subsection.
+    fireEvent.click(screen.getByRole('button', { name: '结算 分区操作' }))
+    expect(await screen.findByRole('menuitem', { name: '重命名…' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '新建子分区…' })).toBeNull()
+  })
+
+  it('folds a parent with its subsections, keeping their unread rows', async () => {
+    mockApi({
+      ...routes([
+        group('g1', '退款', { sectionId: 'sub', unread: 2 }),
+        group('g2', '周报', { sectionId: 'sub' }),
+      ]),
+      'GET /sidebar-sections': [
+        { id: 'mine', name: '我的', parentId: null },
+        { id: 'sub', name: '复盘类', parentId: 'mine' },
+      ],
+    })
+    renderAt('/g/g0')
+    await waitFor(() => expect(rowsIn('复盘类').length).toBe(2))
+    fireEvent.click(screen.getByRole('button', { name: /^我的\d/ }))
+    expect(screen.queryByRole('group', { name: '复盘类' })).toBeNull()
+    expect(rowsIn('我的')).toEqual(['group-item-g1'])
+  })
+
+  it('adds a subsection from the section menu', async () => {
+    const calls = mockApi({
+      ...routes([group('g1', '退款')]),
+      'GET /sidebar-sections': [{ id: 'mine', name: '我的', parentId: null }],
+      'POST /sidebar-sections': (b: unknown) => ({ id: 'sub', ...(b as object) }),
+    })
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: '我的 分区操作' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '新建子分区…' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建子分区' })
+    expect(within(dialog).getByText('放在「我的」下')).toBeTruthy()
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '分区名称' }), {
+      target: { value: '复盘类' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    const parent = await screen.findByRole('group', { name: '我的' })
+    expect(await within(parent).findByRole('group', { name: '复盘类' })).toBeTruthy()
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ name: '复盘类', parentId: 'mine' })
   })
 })
 

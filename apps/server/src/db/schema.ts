@@ -20,6 +20,7 @@ import {
 } from '@gonggong/protocol'
 import { type AnyColumn, sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   bigserial,
   boolean,
@@ -373,6 +374,8 @@ export const sidebarSections = pgTable(
       .notNull()
       .references(() => users.id),
     name: text('name').notNull(),
+    /** Nests under another of the same user's sections (at most SECTION_MAX_DEPTH deep); deleted with it. */
+    parentId: uuid('parent_id').references((): AnyPgColumn => sidebarSections.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     createdAt: createdAt(),
   },
@@ -386,6 +389,8 @@ export const teamSections = pgTable(
     id: id(),
     teamId: teamId(),
     name: text('name').notNull(),
+    /** Nests under another section of the team (at most SECTION_MAX_DEPTH deep); deleted with it. */
+    parentId: uuid('parent_id').references((): AnyPgColumn => teamSections.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
     createdBy: uuid('created_by')
       .notNull()

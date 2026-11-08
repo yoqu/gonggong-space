@@ -111,5 +111,6 @@ export default {
   归入团队分区: 'File under team section',
   移出团队分区: 'Remove from team section',
   '个人分区…': 'Personal section…',
+  '新建子分区…': 'New subsection…',
   '团队分区…': 'Team section…',
 } satisfies Record<string, string>

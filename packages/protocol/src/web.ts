@@ -2024,10 +2024,33 @@ export const GroupPrefsReq = z
 export type GroupPrefsReq = z.infer<typeof GroupPrefsReq>
 
 /** 侧栏自建分区: the caller's own sections in the current team, in their order (GET/POST /api/sidebar-sections). */
-export const SidebarSectionDto = z.object({ id: z.string(), name: z.string() })
+export const SidebarSectionDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** The section it nests under; null at the top. */
+  parentId: z.string().nullable(),
+})
 export type SidebarSectionDto = z.infer<typeof SidebarSectionDto>
-/** POST /api/sidebar-sections, PATCH /api/sidebar-sections/:id */
+/** Sections nest at most this deep (研发 › 支付线 › 结算). */
+export const SECTION_MAX_DEPTH = 3
+/** PATCH /api/sidebar-sections/:id, /api/team-sections/:id */
 export const SidebarSectionReq = z.object({ name: z.string().trim().min(1, '填写分区名称').max(40) })
+/** POST /api/sidebar-sections, /api/team-sections: under `parentId`, else at the top. */
+export const SidebarSectionCreateReq = SidebarSectionReq.extend({
+  parentId: z.string().uuid().nullable().optional(),
+})
+
+/** Depth of section `id` (1 at the top) in `list`, following parents. */
+export function sectionDepth(list: { id: string; parentId: string | null }[], id: string) {
+  let depth = 0
+  for (let at = list.find((s) => s.id === id); at && depth <= list.length; depth++)
+    at = at.parentId ? list.find((s) => s.id === at?.parentId) : undefined
+  return depth
+}
+/** `id` and every section nested under it. */
+export function sectionSubtree(list: { id: string; parentId: string | null }[], id: string): string[] {
+  return [id, ...list.filter((s) => s.parentId === id).flatMap((s) => sectionSubtree(list, s.id))]
+}
 /** PUT /api/sidebar-sections/order: every section of mine, in the new order. */
 export const SidebarSectionOrderReq = z.object({ ids: z.array(z.string().uuid()) })
 

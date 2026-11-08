@@ -425,13 +425,17 @@ describe('group settings inspector', () => {
   })
 
   it('files the group under a team section and decides its join requests', async () => {
-    useTeamSections.setState({ sections: [{ id: 'ts1', name: '支付线' }], canManage: false, directory: [] })
+    useTeamSections.setState({
+      sections: [{ id: 'ts1', name: '支付线', parentId: null }],
+      canManage: false,
+      directory: [],
+    })
     let pending = [
       { id: 'r1', groupId: 'g1', userId: 'u5', userName: '赵敏', note: '跟进退款', createdAt: '' },
     ]
     const calls = mockApi(
       routes([group({ teamSectionId: 'ts1' })], {
-        'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线' }], canManage: false },
+        'GET /team-sections': { sections: [{ id: 'ts1', name: '支付线', parentId: null }], canManage: false },
         'GET /team-directory': [],
         'GET /groups/g1/join-requests': () => pending,
         'POST /join-requests/r1/approve': () => {

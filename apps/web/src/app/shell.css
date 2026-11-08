@@ -897,6 +897,12 @@ a.sidebar__open {
   font-weight: 500;
   color: var(--label-secondary);
 }
+.sidebar__count {
+  margin-left: var(--space-6);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--label-tertiary);
+}
 .sidebar__newsection-menu {
   margin: var(--space-8) 0 0 var(--space-8);
 }
