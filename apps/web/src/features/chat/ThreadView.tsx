@@ -30,6 +30,7 @@ export function ThreadView({
   readOnly = false,
   focus = null,
   onFocused,
+  onBack,
   onClose,
 }: {
   group: GroupDto
@@ -37,6 +38,7 @@ export function ThreadView({
   readOnly?: boolean
   focus?: ThreadFocus | null
   onFocused?: () => void
+  onBack?: () => void
   onClose: () => void
 }) {
   const tl = useTimeline(group.id, rootId)
@@ -164,6 +166,7 @@ export function ThreadView({
       className="thread-view"
       subtitle={`# ${group.name}`}
       onClose={onClose}
+      onBack={onBack}
       scrollRef={scroll}
       onScroll={onScroll}
       replyCount={root?.thread?.replyCount ?? replies.length}

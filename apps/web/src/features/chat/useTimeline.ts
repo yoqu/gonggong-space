@@ -202,10 +202,30 @@ export function useTimeline(groupId: string, thread?: string) {
       } else if (e.t === 'thread.updated' && e.groupId === groupId)
         setState((s) => ({
           ...s,
-          messages: s.messages.map((m) => (m.id === e.rootId ? { ...m, thread: e.thread ?? undefined } : m)),
+          // The event is the shared summary; my own unread stays as thread.state last set it.
+          messages: s.messages.map((m) =>
+            m.id === e.rootId
+              ? {
+                  ...m,
+                  thread: e.thread
+                    ? { ...e.thread, unread: m.thread?.unread, mentioned: m.thread?.mentioned }
+                    : undefined,
+                }
+              : m,
+          ),
         }))
-      else if (e.t === 'thread.state' && e.rootId === thread) setThreadState(e)
-      else if (e.t === 'message.recalled' || e.t === 'message.hidden' || e.t === 'message.edited') onLocal(e)
+      else if (e.t === 'thread.state') {
+        if (e.rootId === thread) setThreadState(e)
+        setState((s) => ({
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === e.rootId && m.thread
+              ? { ...m, thread: { ...m.thread, unread: e.unread, mentioned: e.mentioned } }
+              : m,
+          ),
+        }))
+      } else if (e.t === 'message.recalled' || e.t === 'message.hidden' || e.t === 'message.edited')
+        onLocal(e)
       else if (
         e.t === 'run.updated' &&
         e.run.groupId === groupId &&

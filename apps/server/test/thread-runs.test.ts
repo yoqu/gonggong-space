@@ -1,7 +1,21 @@
-import { type MessageDto, PROTOCOL_VERSION, type RunStart } from '@gonggong/protocol'
+import {
+  type MessageDto,
+  type NotificationDto,
+  PROTOCOL_VERSION,
+  type RunStart,
+  type ThreadUnreadDto,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { groupBots, groups, messages, runs, threadSessions } from '../src/db/schema.js'
+import {
+  groupBots,
+  groupMembers,
+  groups,
+  messages,
+  runs,
+  threadFollows,
+  threadSessions,
+} from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
@@ -257,5 +271,63 @@ describe('Bot 回复进话题', () => {
       .from(messages)
       .where(and(eq(messages.groupId, w.group.id), eq(messages.kind, 'event')))
     expect(events.map((e) => e.body)).toEqual(['王磊 开启了「Bot 回复进话题」'])
+  })
+})
+
+describe('a bot answering in a thread', () => {
+  async function asked() {
+    const w = await world()
+    const d = await daemon(w.token)
+    const root = await w.say('退款接口要不要拆？', { userId: w.bob.id })
+    await t.db
+      .insert(threadFollows)
+      .values({ rootMessageId: root.id, userId: w.alice.id, groupId: w.group.id })
+    await w.mention('@小王的 Claude 你看呢', root.id)
+    const start = await d.next()
+    const asAlice = client(t, await t.seed.cookie(w.alice.id))
+    const finish = async () => {
+      d.send(done(start.runId, { reply: '建议拆' }))
+      await w.replyOf(start.runId)
+    }
+    return { w, root, asAlice, finish }
+  }
+  const notes = async (c: ReturnType<typeof client>) =>
+    (await c.get<NotificationDto[]>('/api/notifications')).body
+
+  it('alerts the one who asked: a @ on the thread, a notification opening it', async () => {
+    const { w, root, asAlice, finish } = await asked()
+    await finish()
+    await vi.waitFor(async () => expect(await notes(asAlice)).toHaveLength(1))
+    expect((await notes(asAlice))[0]).toMatchObject({
+      type: 'mention',
+      payload: { groupId: w.group.id, threadRootId: root.id, byName: '小王的 Claude', botReply: true },
+    })
+    expect((await asAlice.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
+      unread: 1,
+      mentioned: 1,
+    })
+    // Reading the thread settles it.
+    await asAlice.put(`/api/messages/${root.id}/thread/read`, {})
+    expect((await notes(asAlice))[0]?.readAt).not.toBeNull()
+  })
+
+  it('does not notify with 通知 「关闭」, but still counts the @', async () => {
+    const { w, asAlice, finish } = await asked()
+    await t.db.update(groupMembers).set({ notifyLevel: 'off' }).where(eq(groupMembers.userId, w.alice.id))
+    await finish()
+    expect(await notes(asAlice)).toEqual([])
+    expect((await asAlice.get<ThreadUnreadDto>('/api/threads/unread')).body.mentioned).toBe(1)
+  })
+
+  it('does not alert someone who did not ask', async () => {
+    const { w, root, finish } = await asked()
+    await finish()
+    const asBob = client(t, await t.seed.cookie(w.bob.id))
+    await t.db
+      .insert(threadFollows)
+      .values({ rootMessageId: root.id, userId: w.bob.id, groupId: w.group.id })
+      .onConflictDoNothing()
+    expect(await notes(asBob)).toEqual([])
+    expect((await asBob.get<ThreadUnreadDto>('/api/threads/unread')).body.mentioned).toBe(0)
   })
 })

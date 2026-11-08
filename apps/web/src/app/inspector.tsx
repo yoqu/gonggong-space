@@ -2,14 +2,16 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 
-export type InspectorView = 'group-info' | 'run' | 'thread'
+export type InspectorView = 'group-info' | 'run' | 'thread' | 'threads'
 
 interface InspectorState {
   view: InspectorView | null
   payload: unknown
+  /** The view this one was opened from and can return to. */
+  back: InspectorView | null
   /** The stable node `<InspectorPortal>` renders into, once an `<InspectorSlot>` has mounted. */
   host: HTMLElement | null
-  open: (view: InspectorView, payload?: unknown) => void
+  open: (view: InspectorView, payload?: unknown, back?: InspectorView) => void
   close: () => void
 }
 
@@ -19,9 +21,10 @@ interface InspectorState {
 export const useInspector = create<InspectorState>()((set) => ({
   view: null,
   payload: null,
+  back: null,
   host: null,
-  open: (view, payload = null) => set({ view, payload }),
-  close: () => set({ view: null, payload: null }),
+  open: (view, payload = null, back) => set({ view, payload, back: back ?? null }),
+  close: () => set({ view: null, payload: null, back: null }),
 }))
 
 /** Created once: the same node is re-parented when the rail moves, so the portalled body is never remounted. */

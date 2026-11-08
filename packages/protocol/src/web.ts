@@ -1381,6 +1381,9 @@ export const ThreadSummary = z.object({
   replyCount: z.number().int(),
   lastReplyAt: z.string(),
   participants: z.array(z.string()),
+  /** The viewer's own state, only on roots of a timeline they load (thread.updated carries the shared part alone). */
+  unread: z.number().int().optional(),
+  mentioned: z.boolean().optional(),
 })
 export type ThreadSummary = z.infer<typeof ThreadSummary>
 export const MessageDto = z.object({
@@ -1867,6 +1870,28 @@ export const ThreadInboxQuery = z.object({
 })
 export const ThreadInboxDto = z.object({ threads: z.array(ThreadInboxItemDto) })
 export type ThreadInboxDto = z.infer<typeof ThreadInboxDto>
+/**
+ * GET /api/groups/:id/threads?cursor=<last reply seq>&limit= → GroupThreadsDto: the group's threads (replies or a bot at
+ * work), bots at work first, then latest reply first. `next` is the cursor of the following page; threads with a bot at
+ * work come with the first page only.
+ */
+export const GroupThreadItemDto = z.object({
+  root: MessageDto,
+  /** The viewer's state; unread counts nothing while they do not follow. */
+  state: ThreadStateDto,
+  /** A bot is at work in it (queued, running or waiting for an answer). */
+  live: z.boolean(),
+})
+export type GroupThreadItemDto = z.infer<typeof GroupThreadItemDto>
+export const GroupThreadsQuery = z.object({
+  cursor: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+export const GroupThreadsDto = z.object({
+  threads: z.array(GroupThreadItemDto),
+  next: z.number().int().nullable(),
+})
+export type GroupThreadsDto = z.infer<typeof GroupThreadsDto>
 /** GET /api/threads/unread → followed threads with unread replies, and how many of them @ the viewer. */
 export const ThreadUnreadDto = z.object({ unread: z.number().int(), mentioned: z.number().int() })
 export type ThreadUnreadDto = z.infer<typeof ThreadUnreadDto>

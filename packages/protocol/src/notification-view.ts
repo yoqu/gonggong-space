@@ -99,8 +99,10 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
       }
     case 'mention':
       return {
-        label: say('有人@我'),
-        text: `${p('byName')}：${p('text')}`,
+        label: say(p('botReply') ? 'Bot 回复了我' : '有人@我'),
+        text: p('botReply')
+          ? say('{bot} 在话题里回复了你：{text}', { bot: p('byName'), text: p('text') })
+          : `${p('byName')}：${p('text')}`,
         group,
         // An @ in a thread opens that thread.
         href: p('threadRootId')

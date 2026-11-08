@@ -261,7 +261,13 @@ export function ChatPage() {
         chatStrip={group ? <ChatStrip key={group.id} group={group} /> : null}
         rail={inspector ? <InspectorSlot /> : undefined}
         railOpen={!!inspector}
-        railKind={inspector === 'group-info' ? 'info' : inspector === 'thread' ? 'thread' : 'run'}
+        railKind={
+          inspector === 'group-info'
+            ? 'info'
+            : inspector === 'thread' || inspector === 'threads'
+              ? 'thread'
+              : 'run'
+        }
         sidebar={
           // 市场 and 作品 are pages of their own: the conversation list beside them is noise, so they take the full width.
           market || works ? null : managing ? (

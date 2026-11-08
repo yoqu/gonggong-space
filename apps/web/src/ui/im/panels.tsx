@@ -8,7 +8,7 @@ import { Composer, type ComposerProps, DEFAULT_TOOLS } from './composer'
 import type { TagSpec } from './types'
 import './panels.css'
 
-function PanelHead({
+export function PanelHead({
   children,
   onClose,
   closeLabel,
@@ -316,6 +316,8 @@ export interface ThreadPanelProps {
   footer?: ReactNode
   /** Beside the title, e.g. 关注. */
   actions?: ReactNode
+  /** Shows a back button in the header. */
+  onBack?: () => void
   scrollRef?: Ref<HTMLDivElement>
   onScroll?: UIEventHandler<HTMLDivElement>
   className?: string
@@ -337,6 +339,7 @@ export function ThreadPanel({
   onAlsoSendChange,
   footer,
   actions,
+  onBack,
   scrollRef,
   onScroll,
   className,
@@ -345,7 +348,7 @@ export function ThreadPanel({
   const replies = Children.toArray(children)
   return (
     <aside className={cx('pn-threadpanel', className)} style={style} aria-label={title}>
-      <PanelHead onClose={onClose} closeLabel={t('关闭话题')}>
+      <PanelHead onClose={onClose} closeLabel={t('关闭话题')} onBack={onBack}>
         <div className="pn-threadpanel__titles">
           <span>{title}</span>
           {subtitle && <span className="pn-threadpanel__sub">{subtitle}</span>}

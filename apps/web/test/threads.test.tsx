@@ -1,6 +1,7 @@
 import type {
   BotDto,
   GroupDto,
+  GroupThreadsDto,
   MessageDto,
   RunDto,
   ThreadDto,
@@ -198,7 +199,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   useSession.setState({ user: me, status: 'ready' })
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
-  useInspector.setState({ view: null, payload: null })
+  useInspector.setState({ view: null, payload: null, back: null })
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -384,5 +385,131 @@ describe('thread runs', () => {
     expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.contexts.at(-1)).toBe(
       within(rail).getByTestId('run-card'),
     )
+  })
+})
+
+describe('群内话题列表', () => {
+  const second = msg({
+    seq: 6,
+    id: 'm6',
+    body: '另一个话题',
+    authorName: '赵敏',
+    thread: { replyCount: 4, lastReplyAt: min(8), participants: ['u2'] },
+  })
+  const quiet = msg({
+    seq: 7,
+    id: 'm7',
+    body: '安静的话题',
+    thread: { replyCount: 1, lastReplyAt: min(5), participants: ['u2'] },
+  })
+  const state = (rootId: string, o: Partial<ThreadDto['state']> = {}): ThreadDto['state'] => ({
+    rootId,
+    groupId: 'g1',
+    following: true,
+    lastReadSeq: 0,
+    unread: 0,
+    mentioned: false,
+    ...o,
+  })
+  const list: GroupThreadsDto = {
+    threads: [
+      { root, state: state('m1'), live: true },
+      { root: second, state: state('m6', { unread: 3, mentioned: true }), live: false },
+      { root: quiet, state: state('m7'), live: false },
+    ],
+    next: 5,
+  }
+  const openList = async (routes: Record<string, unknown> = {}) => {
+    const calls = renderAt('/g/g1', { 'GET /groups/g1/threads': list, ...routes })
+    fireEvent.click(await screen.findByRole('button', { name: '话题' }))
+    return { calls, rail: await screen.findByRole('complementary', { name: '本群话题' }) }
+  }
+
+  it('lists threads: a bot at work marked, unread and @ shown, then back from a thread', async () => {
+    const { rail } = await openList()
+    const rows = await within(rail).findAllByTestId('group-thread')
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringContaining('发版前要不要冻结主干？'),
+      expect.stringContaining('另一个话题'),
+      expect.stringContaining('安静的话题'),
+    ])
+    expect(within(rows[0]!).getByText('Bot 回复中')).toBeTruthy()
+    expect(within(rows[1]!).getByText('[有人@我]')).toBeTruthy()
+    expect(within(rows[1]!).getByText('3')).toBeTruthy()
+    expect(within(rows[1]!).getByText('4 条回复')).toBeTruthy()
+    expect(rows[1]!.getAttribute('data-unread')).toBe('true')
+    expect(rows[2]!.getAttribute('data-unread')).toBeNull()
+
+    fireEvent.click(rows[2]!)
+    const thread = await panel()
+    fireEvent.click(within(thread).getByRole('button', { name: '返回' }))
+    expect(await screen.findByRole('complementary', { name: '本群话题' })).toBeTruthy()
+  })
+
+  it('shows no back button for a thread opened from a message', async () => {
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: /2 条回复/ }))
+    expect(within(await panel()).queryByRole('button', { name: '返回' })).toBeNull()
+  })
+
+  it('says so when there are no threads', async () => {
+    const { rail } = await openList({ 'GET /groups/g1/threads': { threads: [], next: null } })
+    expect(await within(rail).findByText('还没有话题')).toBeTruthy()
+    expect(within(rail).getByText('在任意消息上选择「回复话题」即可开始')).toBeTruthy()
+  })
+
+  it('loads more when scrolled to the end, and refreshes on thread events', async () => {
+    const { calls, rail } = await openList({
+      'GET /groups/g1/threads?cursor=5': {
+        threads: [{ root: msg({ seq: 9, id: 'm9', body: '更早的话题' }), state: state('m9'), live: false }],
+        next: null,
+      },
+    })
+    await within(rail).findAllByTestId('group-thread')
+    fireEvent.scroll(rail.querySelector('.group-threads__list') as HTMLElement)
+    expect(await within(rail).findByText('更早的话题')).toBeTruthy()
+    const before = calls.filter((c) => c.path === '/groups/g1/threads').length
+    push({ t: 'thread.state', ...state('m6', { unread: 4 }) })
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === '/groups/g1/threads').length).toBeGreaterThan(before),
+    )
+  })
+})
+
+describe('reply bar unread', () => {
+  const unreadRoot = (n: number) => ({
+    ...root,
+    thread: { ...root.thread!, unread: n, mentioned: false },
+  })
+  const bar = async () => (await screen.findByRole('button', { name: /条回复/ })) as HTMLElement
+
+  it('is bold while the thread has unread replies, and follows my thread state', async () => {
+    renderAt('/g/g1', { 'GET /groups/g1/timeline?limit=50': { messages: [unreadRoot(2)], runs: [] } })
+    expect((await bar()).className).toContain('pn-thread--unread')
+    // A new reply keeps my own count until my state says otherwise.
+    push({
+      t: 'thread.updated',
+      groupId: 'g1',
+      rootId: 'm1',
+      thread: { replyCount: 3, lastReplyAt: min(4), participants: ['u2', 'b1'] },
+    })
+    expect((await screen.findByRole('button', { name: /3 条回复/ })).className).toContain('pn-thread--unread')
+    push({
+      t: 'thread.state',
+      rootId: 'm1',
+      groupId: 'g1',
+      following: true,
+      lastReadSeq: 4,
+      unread: 0,
+      mentioned: false,
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /3 条回复/ }).className).not.toContain('unread'),
+    )
+  })
+
+  it('is regular without unread', async () => {
+    renderAt('/g/g1', { 'GET /groups/g1/timeline?limit=50': { messages: [unreadRoot(0)], runs: [] } })
+    expect((await bar()).className).not.toContain('unread')
   })
 })

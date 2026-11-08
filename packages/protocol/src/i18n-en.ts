@@ -270,6 +270,8 @@ export const protocolEn = {
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you, please confirm the binding',
   '共享 Bot': 'Shared Bot',
   '有人@我': 'Mentioned',
+  'Bot 回复了我': 'Bot replied to me',
+  '{bot} 在话题里回复了你：{text}': '{bot} replied to you in a thread: {text}',
   稍后处理提醒: 'Reminder',
   共享申请: 'Share request',
   待处理共享申请: 'Share request to review',

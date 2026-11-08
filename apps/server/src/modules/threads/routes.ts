@@ -1,4 +1,6 @@
 import {
+  type GroupThreadsDto,
+  GroupThreadsQuery,
   type MessageDto,
   type ThreadDto,
   ThreadFollowReq,
@@ -8,7 +10,20 @@ import {
   type ThreadUnreadDto,
   TimelineQuery,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNull, lt, max, type SQL, sql } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  max,
+  ne,
+  notInArray,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groups, messages, runs, threadFollows, users } from '../../db/schema.js'
@@ -21,9 +36,10 @@ import { messageDto, userAuthorName } from '../messages/service.js'
 import { readThreadMentions } from '../notifications/notify.js'
 import { reactionsFor } from '../reactions/service.js'
 import { cardColumns, runDtoLoader } from '../runs/dto.js'
-import { readThread, stateColumns, stateDto, threadState, threadSummaries } from './service.js'
+import { readThread, stateColumns, stateDto, threadState, threadStates, threadSummaries } from './service.js'
 
 const INBOX_LATEST = 2
+const BOT_AT_WORK = ['queued', 'offline_wait', 'running', 'awaiting_approval', 'awaiting_answer']
 
 /** Messages matching `where` as `userId` sees them, newest first, with reactions and thread summaries. */
 export async function loadMessages(ctx: Ctx, userId: string, where: SQL | undefined, limit: number) {
@@ -41,6 +57,7 @@ export async function loadMessages(ctx: Ctx, userId: string, where: SQL | undefi
     threadSummaries(
       ctx,
       rows.filter((r) => !r.m.threadRootId).map((r) => r.m.id),
+      userId,
     ),
   ])
   return rows.map((r): MessageDto => {
@@ -128,6 +145,70 @@ export function threadRoutes(ctx: Ctx) {
       const state = await threadState(ctx, root, me.id)
       ctx.bus.publish([me.id], { t: 'thread.state', ...state })
       return state
+    })
+
+    app.get<{ Params: { id: string } }>('/api/groups/:id/threads', async (req): Promise<GroupThreadsDto> => {
+      const me = await requireUser(ctx, req)
+      const groupId = req.params.id
+      await requireReader(ctx, groupId, me.id)
+      const { cursor, limit } = GroupThreadsQuery.parse(req.query)
+      // Both start from the few thread rows (runs_thread / messages_thread), not from every root of the group.
+      const live = await ctx.db
+        .select({ id: sql<string>`${runs.threadRootId}` })
+        .from(runs)
+        .where(
+          and(eq(runs.groupId, groupId), isNotNull(runs.threadRootId), inArray(runs.status, BOT_AT_WORK)),
+        )
+        .groupBy(runs.threadRootId)
+        .orderBy(desc(max(runs.queuedAt)))
+        .limit(200)
+      const lastSeq = max(messages.seq)
+      // Bots at work come with the first page, whatever its size; the pages after it hold the quiet threads.
+      const quiet = await ctx.db
+        .select({ id: sql<string>`${messages.threadRootId}`, lastSeq })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.groupId, groupId),
+            isNotNull(messages.threadRootId),
+            isNull(messages.recalledAt),
+            ne(messages.kind, 'event'),
+            live.length
+              ? notInArray(
+                  messages.threadRootId,
+                  live.map((r) => r.id),
+                )
+              : undefined,
+          ),
+        )
+        .groupBy(messages.threadRootId)
+        .having(cursor ? lt(lastSeq, cursor) : undefined)
+        .orderBy(desc(lastSeq))
+        .limit(limit)
+      const atWork = cursor ? [] : live
+      const ids = [...atWork, ...quiet].map((r) => r.id)
+      if (!ids.length) return { threads: [], next: null }
+      const [loaded, states] = await Promise.all([
+        loadMessages(ctx, me.id, and(inArray(messages.id, ids), ne(messages.kind, 'event')), ids.length),
+        threadStates(ctx, ids, me.id),
+      ])
+      const liveIds = new Set(atWork.map((r) => r.id))
+      return {
+        threads: ids.flatMap((id) => {
+          const root = loaded.find((m) => m.id === id)
+          if (!root) return []
+          const state = states.get(id) ?? {
+            rootId: id,
+            groupId,
+            following: false,
+            lastReadSeq: 0,
+            unread: 0,
+            mentioned: false,
+          }
+          return [{ root, state, live: liveIds.has(id) }]
+        }),
+        next: quiet.length === limit ? (quiet.at(-1)?.lastSeq ?? null) : null,
+      }
     })
 
     app.get('/api/threads', async (req): Promise<ThreadInboxDto> => {

@@ -115,10 +115,36 @@ describe('notify levels', () => {
     )
     expect(await notes(s.asLi)).toEqual([])
     expect(pushedTo(s.chen.id)).toEqual([])
-    // Own messages and thread-only replies never push.
-    const root = (await send(s.asLi, s.g.id, '我自己说的')).body
-    await send(s.asWang, s.g.id, '话题回复', { threadRootId: root.id })
+    // Own messages never push.
+    await send(s.asLi, s.g.id, '我自己说的')
     expect(pushedTo(s.li.id)).toHaveLength(1)
+  })
+
+  it('「全部」 pushes thread replies to followers once, 「仅@」 only what @s them', async () => {
+    const s = await setup()
+    for (const id of [s.li.id, s.chen.id]) await subscribe(id)
+    await s.asLi.put(`/api/groups/${s.g.id}/prefs`, { notifyLevel: 'all' })
+    const root = (await send(s.asLi, s.g.id, '我发起的话题')).body
+    // Chen is not a follower: nothing, whatever the level.
+    await s.asChen.put(`/api/groups/${s.g.id}/prefs`, { notifyLevel: 'all' })
+    await send(s.asWang, s.g.id, '话题回复', { threadRootId: root.id })
+    await vi.waitFor(() => expect(pushedTo(s.li.id)).toHaveLength(1))
+    expect(pushedTo(s.li.id)[0]).toMatchObject({
+      body: expect.stringContaining('话题回复'),
+      url: `/g/${s.g.id}?thread=${root.id}`,
+    })
+    expect(pushedTo(s.chen.id)).toEqual([])
+    // Replying again as a follower: no push to oneself; a reply that @s pushes once only.
+    await send(s.asLi, s.g.id, '我也回复', { threadRootId: root.id })
+    await send(s.asWang, s.g.id, '@李建国 看下', { threadRootId: root.id })
+    await vi.waitFor(() => expect(pushedTo(s.li.id)).toHaveLength(2))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(pushedTo(s.li.id)).toHaveLength(2)
+    // 仅@: the plain reply stays silent.
+    await s.asLi.put(`/api/groups/${s.g.id}/prefs`, { notifyLevel: 'mentions' })
+    await send(s.asWang, s.g.id, '又一条', { threadRootId: root.id })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(pushedTo(s.li.id)).toHaveLength(2)
   })
 
   it('a DM notifies everything by default', async () => {

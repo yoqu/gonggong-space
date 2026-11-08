@@ -24,7 +24,12 @@ export async function threadRoot(ctx: Ctx, groupId: string, rootId: string) {
 }
 
 /** Reply summaries of the roots among `rootIds` that have replies. */
-export async function threadSummaries(ctx: Ctx, rootIds: string[]): Promise<Map<string, ThreadSummary>> {
+export async function threadSummaries(
+  ctx: Ctx,
+  rootIds: string[],
+  /** Adds this user's unread and @ to each summary. */
+  viewerId?: string,
+): Promise<Map<string, ThreadSummary>> {
   const out = new Map<string, ThreadSummary>()
   if (!rootIds.length) return out
   const author = sql<string>`coalesce(${messages.authorUserId}, ${messages.authorBotId})`
@@ -50,12 +55,33 @@ export async function threadSummaries(ctx: Ctx, rootIds: string[]): Promise<Map<
       .groupBy(messages.threadRootId, author)
       .orderBy(sql`min(${messages.seq})`),
   ])
+  const states = viewerId ? await threadStates(ctx, rootIds, viewerId) : new Map<string, ThreadStateDto>()
   for (const t of totals)
-    if (t.rootId) out.set(t.rootId, { replyCount: t.n, lastReplyAt: t.last.toISOString(), participants: [] })
+    if (t.rootId) {
+      const mine = states.get(t.rootId)
+      out.set(t.rootId, {
+        replyCount: t.n,
+        lastReplyAt: t.last.toISOString(),
+        participants: [],
+        ...(viewerId && { unread: mine?.unread ?? 0, mentioned: mine?.mentioned ?? false }),
+      })
+    }
   for (const a of authors) {
     const s = a.rootId ? out.get(a.rootId) : undefined
     if (s && s.participants.length < PARTICIPANTS) s.participants.push(a.author)
   }
+  return out
+}
+
+/** `userId`'s state of each of the threads `rootIds`; threads they never followed are absent. */
+export async function threadStates(ctx: Ctx, rootIds: string[], userId: string) {
+  const out = new Map<string, ThreadStateDto>()
+  if (!rootIds.length) return out
+  const rows = await ctx.db
+    .select(stateColumns)
+    .from(threadFollows)
+    .where(and(inArray(threadFollows.rootMessageId, rootIds), eq(threadFollows.userId, userId)))
+  for (const r of rows) out.set(r.rootId, stateDto(r))
   return out
 }
 
@@ -90,14 +116,16 @@ export async function readThread(db: Tx | Db, rootId: string, userId: string, se
     .where(and(eq(threadFollows.rootMessageId, rootId), eq(threadFollows.userId, userId)))
 }
 
-// Replies by others after the follower's read mark; an unfollowed thread counts nothing.
+// Replies by others after the follower's read mark; an unfollowed thread counts nothing. A bot's reply to a run the
+// follower started counts as an @ to them.
 const unreadSql =
   sql<number>`(select count(*) from messages m where m.thread_root_id = ${threadFollows.rootMessageId}
   and m.seq > ${threadFollows.lastReadSeq} and m.author_user_id is distinct from ${threadFollows.userId}
   and m.recalled_at is null and m.kind <> 'event')`.mapWith(Number)
 const mentionedSql = sql<boolean>`coalesce((select true from messages m where m.thread_root_id = ${threadFollows.rootMessageId}
   and m.seq > ${threadFollows.lastReadSeq} and m.author_user_id is distinct from ${threadFollows.userId}
-  and m.recalled_at is null and m.meta->'userMentions' @> jsonb_build_array(${threadFollows.userId}) limit 1), false)`
+  and m.recalled_at is null and (m.meta->'userMentions' @> jsonb_build_array(${threadFollows.userId})
+    or exists (select 1 from runs r where r.id = m.run_id and r.trigger_user_id = ${threadFollows.userId})) limit 1), false)`
 
 export const stateColumns = {
   rootId: threadFollows.rootMessageId,

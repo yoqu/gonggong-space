@@ -62,6 +62,7 @@ import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { openTab } from '../workbench/open'
 import { useRunDeltas } from './deltas'
 import { GitBar } from './GitBar'
+import { GroupThreads } from './GroupThreads'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
 import { MentionNames } from './Markdown'
 import { branchableRuns } from './MessageActions'
@@ -196,6 +197,8 @@ export function ChatView({
   const drag = useFileDrag()
   const navigate = useNavigate()
   const infoOpen = useInspector((s) => s.view === 'group-info')
+  const threadsOpen = useInspector((s) => s.view === 'threads')
+  const threadBack = useInspector((s) => (s.view === 'thread' ? s.back : null))
   const infoView = useInspector((s) => s.payload as InfoView | null)
   const threadRoot = useInspector((s) => (s.view === 'thread' ? (s.payload as string) : null))
   const { open: inspect, close: closeInspector } = useInspector.getState()
@@ -720,6 +723,12 @@ export function ChatView({
                 ]
               : []),
             {
+              icon: 'thread' as const,
+              label: t('话题#inbox'),
+              active: threadsOpen,
+              onClick: () => (threadsOpen ? closeInspector() : inspect('threads')),
+            },
+            {
               icon: 'dashboard' as const,
               label: t('工作台'),
               text: benchTabs || undefined,
@@ -748,9 +757,13 @@ export function ChatView({
               readOnly={readOnly}
               focus={threadFocus?.rootId === threadRoot ? threadFocus : null}
               onFocused={() => setThreadFocus(null)}
+              onBack={threadBack ? () => inspect(threadBack) : undefined}
               onClose={closeInspector}
             />
           ) : null}
+        </InspectorPortal>
+        <InspectorPortal view="threads">
+          <GroupThreads group={group} onClose={closeInspector} />
         </InspectorPortal>
         <InspectorPortal view="group-info">
           <GroupInfo
