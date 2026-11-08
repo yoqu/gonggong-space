@@ -361,7 +361,9 @@ describe('timeline bubbles', () => {
   it('applies a pushed step and usage to the run card', async () => {
     renderChat({ messages: [msg({ seq: 1, authorId: 'u1', authorName: '王磊' })], runs: [run()] })
     const card = await screen.findByTestId('run-card')
-    expect(within(card).getByText('读取 server/refund.go')).toBeTruthy()
+    const before = within(card).getByText('读取 server/refund.go')
+    // The working step shimmers; each new step mounts afresh so it rises in.
+    expect(before.className).toContain('ui-shimmer')
     push({
       t: 'run.step',
       runId: 'r1',
@@ -371,7 +373,9 @@ describe('timeline bubbles', () => {
       usage: { totalTokens: 2500 },
       lastActivityAt: min(2),
     })
-    expect(await within(card).findByText('运行 go test ./...')).toBeTruthy()
+    const after = await within(card).findByText('运行 go test ./...')
+    expect(after).not.toBe(before)
+    expect(after.className).toContain('ui-shimmer')
     expect(within(card).getByTitle('2.5k tokens')).toBeTruthy()
     expect(within(card).getByTitle('运行中')).toBeTruthy()
   })

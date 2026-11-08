@@ -7,6 +7,13 @@
   border-radius: var(--radius-field);
   background: var(--quote-fill);
 }
+.question:where([data-pending-id]) {
+  --enter-y: 6px;
+  --enter-scale: 0.98;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
+}
 .question__head {
   display: flex;
   flex-direction: column;
@@ -71,9 +78,21 @@
   line-height: 1.45;
   text-align: left;
   cursor: default;
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    scale var(--spring-interactive);
 }
-.question__opt:not(:disabled):hover {
-  box-shadow: inset 0 0 0 1px var(--accent);
+@media (hover: hover) {
+  .question__opt:not(:disabled):hover {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .question__opt:not(:disabled):active,
+  .qopt__pick:not(:disabled):active {
+    scale: 0.98;
+  }
 }
 .question__opt--on {
   background: var(--tint-blue);
@@ -91,6 +110,17 @@
   border-radius: 50%;
   box-shadow: inset 0 0 0 1.5px var(--label-tertiary);
   color: var(--on-accent);
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+/* The tick pops in when an option is picked. */
+.question__mark > svg,
+.qopt__check {
+  --enter-scale: 0.4;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
 }
 .question__opt--multi .question__mark {
   border-radius: var(--radius-check);
@@ -212,6 +242,9 @@
   border-radius: var(--radius-menu);
   background: var(--content-bg);
   box-shadow: inset 0 0 0 1px var(--separator);
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .qopt--on {
   background: var(--tint-blue);
@@ -219,6 +252,7 @@
 }
 .qopt__pick {
   position: relative;
+  transition: scale var(--spring-interactive);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -295,4 +329,9 @@
 .question--brief {
   gap: var(--space-6);
   padding: var(--space-8) var(--space-12);
+}
+@media (pointer: coarse) {
+  .question__opt {
+    min-height: 40px;
+  }
 }

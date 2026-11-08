@@ -280,8 +280,11 @@ describe('TaskDock', () => {
     render(<TaskDock runs={runs} onLocate={() => {}} />)
 
     expect(screen.getAllByTestId('task-dock-row')).toHaveLength(2)
+    const chevron = document.querySelector('.task-dock__chevron')
     fireEvent.click(screen.getByRole('button', { name: /展开/ }))
     expect(screen.getAllByTestId('task-dock-row')).toHaveLength(4)
+    // One chevron turns (CSS on aria-expanded) instead of swapping glyphs.
+    expect(document.querySelector('.task-dock__chevron')).toBe(chevron)
     fireEvent.click(screen.getByRole('button', { name: '收起' }))
     expect(screen.getAllByTestId('task-dock-row')).toHaveLength(2)
   })
@@ -341,6 +344,12 @@ describe('TaskDock', () => {
     fireEvent.click(within(pending).getByRole('button'))
     expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
     expect(onLocate).not.toHaveBeenCalled()
+    // The located card rings once; a tick popping inside it does not end the ring early.
+    expect(target.dataset.flash).toBe('')
+    fireEvent.animationEnd(target.querySelector('button') as HTMLElement)
+    expect(target.dataset.flash).toBe('')
+    fireEvent.animationEnd(target)
+    expect(target.dataset.flash).toBeUndefined()
   })
 
   it('watches a card in the open thread panel and locates it there', () => {

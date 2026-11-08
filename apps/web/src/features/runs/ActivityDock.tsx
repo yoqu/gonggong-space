@@ -38,7 +38,7 @@ export function ActivityDock({
               <div className="act-line">
                 <button type="button" className="act-row act-row--head" onClick={() => onLocate?.(s.key)}>
                   <Icon name={s.kind === 'task' ? 'bolt' : 'bot'} size={14} className="act-row__icon" />
-                  <span className="act-row__verb act-shimmer">{s.title ?? s.label}</span>
+                  <span className="act-row__verb ui-shimmer">{s.title ?? s.label}</span>
                   <span className="act-row__target" title={s.body}>
                     {s.body}
                   </span>

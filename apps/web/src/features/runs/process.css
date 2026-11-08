@@ -31,9 +31,15 @@
   font: inherit;
   font-size: var(--text-callout-size);
   text-align: left;
+  transition: background-color var(--motion-fast);
 }
-button.act-row:hover {
+button.act-row:active {
   background: var(--quote-fill);
+}
+@media (hover: hover) {
+  button.act-row:hover {
+    background: var(--quote-fill);
+  }
 }
 .act-row__icon {
   flex: none;
@@ -115,27 +121,20 @@ button.act-row:hover {
 .act-item[data-state="running"] > .act-row .act-row__icon {
   color: var(--accent);
 }
-.act-shimmer {
-  background:
-    linear-gradient(90deg, var(--label) 30%, var(--label-tertiary) 50%, var(--label) 70%) 0 0 / 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: act-shimmer 1.6s linear infinite;
-}
-@keyframes act-shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .act-shimmer {
-    animation: none;
-    color: var(--label);
-  }
-}
 .act-detail {
   margin: var(--space-2) 0 var(--space-6) 20px;
+}
+/* Opened details and groups drop in from their row; a live run's newest line rises into place. */
+.act-detail,
+.act-row[aria-expanded="true"] + .act,
+.act-root[data-live] > .act-item:last-child {
+  --enter-y: -4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+.act-root[data-live] > .act-item:last-child {
+  --enter-y: 6px;
 }
 .act-detail--text {
   font-size: var(--text-callout-size);
@@ -336,6 +335,22 @@ button.act-row:hover .act-row__target--file {
   color: var(--label-secondary);
   font: inherit;
   font-size: var(--text-subheadline-size);
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast),
+    scale var(--spring-interactive);
+}
+@media (hover: hover) {
+  .act-filter[aria-pressed="false"]:hover {
+    border-color: var(--label-tertiary);
+    color: var(--label);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .act-filter:active {
+    scale: 0.94;
+  }
 }
 .act-filter__n {
   margin-left: var(--space-4);
@@ -422,4 +437,13 @@ button.act-row:hover .act-row__target--file {
   font-size: var(--text-subheadline-size);
   color: var(--label);
   white-space: pre-wrap;
+}
+@media (pointer: coarse) {
+  .act-row {
+    min-height: 36px;
+  }
+  .act-filter {
+    min-height: 32px;
+    padding: 0 var(--space-12);
+  }
 }

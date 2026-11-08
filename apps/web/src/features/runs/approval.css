@@ -6,6 +6,15 @@
   padding: var(--space-12);
   border-radius: var(--radius-field);
   background: var(--tint-orange);
+  transition: background-color var(--motion-base);
+}
+/* A request that arrives while you watch slides in; deciding it fades it to history in place. */
+.approval:where([data-pending-id]) {
+  --enter-y: 6px;
+  --enter-scale: 0.98;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
 }
 .approval__title {
   display: flex;
@@ -13,6 +22,7 @@
   gap: var(--space-6);
   font-weight: 600;
   color: var(--tint-orange-text);
+  transition: color var(--motion-base);
 }
 .approval__cmd {
   padding: var(--space-8) var(--space-12);

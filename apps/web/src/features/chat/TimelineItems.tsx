@@ -881,7 +881,7 @@ export const RunCard = memo(function RunCard({
                     title={folded ? t('展开') : t('收起')}
                     onClick={() => setExpanded(folded)}
                   >
-                    <Icon name={folded ? 'chevron-right' : 'chevron-down'} size={14} />
+                    <Icon name="chevron-right" size={14} className="run-card__chevron" />
                   </button>
                 ) : null}
               </div>
@@ -906,7 +906,13 @@ export const RunCard = memo(function RunCard({
                           ) : (
                             <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
                           )}
-                          <span>{step || `${mascot?.label}…`}</span>
+                          {/* A new tool step rises in; streamed text grows in place. */}
+                          <span
+                            key={streamed ? 'stream' : step}
+                            className={cx('run-card__steptext', working && !streamed && 'ui-shimmer')}
+                          >
+                            {step || `${mascot?.label}…`}
+                          </span>
                         </div>
                       ) : null}
                       {started !== null ? (

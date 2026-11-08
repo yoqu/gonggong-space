@@ -86,7 +86,8 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
   const me = useSession((s) => s.user)
   const pending = a.status === 'pending'
   const now = useNow(pending)
-  const [busy, setBusy] = useState(false)
+  /** The action in flight, so its own button spins. */
+  const [busy, setBusy] = useState<string | null>(null)
   const mine = !!me && me.id === bot?.ownerId
   const demo = useSession((s) => s.tenancy?.demoMode)
   const allow = pick(a.options, ['allow_once', 'allow_always'])
@@ -98,18 +99,18 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
   const tier = t('超出「{tier}」档位', { tier: TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace'] })
   const left = Date.parse(a.expiresAt) - now
 
-  const send = async (path: string, body: unknown) => {
-    setBusy(true)
+  const send = async (path: string, body: unknown, action: string) => {
+    setBusy(action)
     try {
       await api.post(path, body)
     } catch (e) {
       toastError(e)
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
   const decide = (option: PermissionOption) =>
-    send(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId })
+    send(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId }, option.optionId)
 
   return (
     <div
@@ -152,27 +153,39 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
           <Button
             variant="primary"
             size="small"
-            disabled={!mine || busy || !allow}
+            disabled={!mine || !!busy || !allow}
+            loading={!!allow && busy === allow.optionId}
             onClick={() => allow && decide(allow)}
           >
             {t('批准')}
           </Button>
           {always && (
-            <Button size="small" disabled={!mine || busy} onClick={() => decide(always)}>
+            <Button
+              size="small"
+              disabled={!mine || !!busy}
+              loading={busy === always.optionId}
+              onClick={() => decide(always)}
+            >
               {t('始终允许')}
             </Button>
           )}
           {!demo && (
             <Button
               size="small"
-              disabled={!mine || busy}
+              disabled={!mine || !!busy}
+              loading={busy === 'full-access'}
               title={t('本次运行切为「完全访问」，后续请求不再询问；本次运行结束后恢复原档位')}
-              onClick={() => send(`/runs/${run.id}/full-access`, {})}
+              onClick={() => send(`/runs/${run.id}/full-access`, {}, 'full-access')}
             >
               {t('本次运行免审批')}
             </Button>
           )}
-          <Button size="small" disabled={!mine || busy || !reject} onClick={() => reject && decide(reject)}>
+          <Button
+            size="small"
+            disabled={!mine || !!busy || !reject}
+            loading={!!reject && busy === reject.optionId}
+            onClick={() => reject && decide(reject)}
+          >
             {t('拒绝#reject')}
           </Button>
           {always && (

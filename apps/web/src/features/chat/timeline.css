@@ -388,6 +388,18 @@
 .run-card__fold:hover {
   background: var(--control-track);
 }
+.run-card__chevron {
+  transition: transform var(--spring-interactive);
+}
+.run-card__fold[aria-expanded="true"] .run-card__chevron {
+  transform: rotate(90deg);
+}
+@media (pointer: coarse) {
+  .run-card__fold {
+    width: 32px;
+    height: 32px;
+  }
+}
 .run-card__body {
   display: grid;
   grid-template-rows: 1fr;
@@ -432,6 +444,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.run-card__steptext {
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
+}
+/* The shimmer owns the animation list; keep the rise as well. */
+.run-card__steptext.ui-shimmer {
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter,
+    ui-shimmer 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-card__steptext.ui-shimmer {
+    animation: var(--fade-in) ui-fade-in;
+    color: var(--label);
+  }
 }
 .run-card__meta {
   display: flex;

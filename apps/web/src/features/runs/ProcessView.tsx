@@ -108,7 +108,7 @@ export function ProcessView({
           })}
         </fieldset>
       ) : null}
-      <ol className="act act-root" aria-label={t('运行过程')}>
+      <ol className="act act-root" data-live={live || undefined} aria-label={t('运行过程')}>
         {items.map((item) => (
           <ItemRow key={item.key} item={item} {...ctx} />
         ))}
@@ -116,7 +116,7 @@ export function ProcessView({
         {idle ? (
           <li className="act-item act-working" aria-live="polite">
             <Mascot className="act-working__mascot" action="think" costume={costume} size={32} />
-            <span className="act-shimmer">{t('正在处理')}</span>
+            <span className="ui-shimmer">{t('正在处理')}</span>
             {startedAt ? (
               <span className="act-row__meta">
                 <Elapsed from={Date.parse(startedAt)} ticking={active} format={fmtWorked} />
@@ -246,7 +246,7 @@ function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
         onClick={() => ctx.toggle(a.key, expanded)}
       >
         <Icon name="bot" size={14} className="act-row__icon" />
-        <span className={cx('act-row__verb', state === 'running' && 'act-shimmer')}>{a.verb}</span>
+        <span className={cx('act-row__verb', state === 'running' && 'ui-shimmer')}>{a.verb}</span>
         <span className="act-row__target" title={a.target}>
           {a.target}
         </span>
@@ -375,7 +375,7 @@ function ActionRow({
   const head = (
     <>
       <Icon name={ACTION_ICON[a.bucket ?? a.family] ?? 'gear'} size={14} className="act-row__icon" />
-      <span className={cx('act-row__verb', state === 'running' && 'act-shimmer')}>{a.verb}</span>
+      <span className={cx('act-row__verb', state === 'running' && 'ui-shimmer')}>{a.verb}</span>
       {target ? (
         <span
           className={cx(

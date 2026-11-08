@@ -151,4 +151,43 @@ describe('motion and touch CSS contract', () => {
     expect(ruleOf(att, '.att-chip__bar')).toContain('scale var(--motion-base)')
     expect(ruleOf(read('features/chat/edit.css'), '.msg-edit')).toContain('var(--spring-snappy) ui-enter')
   })
+  it('moves runs: shimmering steps, turning fold, sliding requests, popping ticks, a ringing dock, roomy touch rows', () => {
+    const motion = read('ui/motion.css')
+    expect(ruleOf(motion, '.ui-shimmer')).toContain('ui-shimmer 1.6s linear infinite')
+    expect(motion).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.ui-shimmer \{\s*animation: none;/)
+    const tl = read('features/chat/timeline.css')
+    expect(ruleOf(tl, '.run-card__steptext')).toContain('var(--spring-snappy) ui-enter')
+    expect(tl).toMatch(
+      /prefers-reduced-motion: reduce\) \{\s*\.run-card__steptext\.ui-shimmer \{\s*animation: var\(--fade-in\) ui-fade-in;/,
+    )
+    expect(ruleOf(tl, '.run-card__chevron')).toContain('transform var(--spring-interactive)')
+    expect(read('features/chat/run-graphics.css')).toMatch(
+      /prefers-reduced-motion: reduce\) \{\s*\.run-status__pulse,/,
+    )
+    const approval = read('features/runs/approval.css')
+    expect(ruleOf(approval, '.approval:where([data-pending-id])')).toContain('var(--spring-smooth) ui-enter')
+    expect(ruleOf(approval, '.approval')).toContain('background-color var(--motion-base)')
+    const q = read('features/runs/question.css')
+    expect(ruleOf(q, '.question:where([data-pending-id])')).toContain('var(--spring-smooth) ui-enter')
+    expect(q).toMatch(/\.question__mark > svg,\s*\.qopt__check \{[^}]*var\(--spring-bouncy\) ui-enter/)
+    expect(q).toMatch(/@media \(pointer: coarse\) \{\s*\.question__opt \{\s*min-height: 40px;/)
+    const proc = read('features/runs/process.css')
+    expect(proc).toMatch(
+      /\.act-root\[data-live\] > \.act-item:last-child \{[^}]*var\(--spring-snappy\) ui-enter/,
+    )
+    expect(ruleOf(proc, '.act-filter')).toContain('scale var(--spring-interactive)')
+    expect(proc).toMatch(/@media \(pointer: coarse\) \{\s*\.act-row \{\s*min-height: 36px;/)
+    expect(ruleOf(read('features/runs/runs.css'), '.run-tab__follow')).toContain(
+      'var(--spring-bouncy) ui-enter',
+    )
+    const dock = read('features/chat/task-dock.css')
+    expect(ruleOf(dock, '.task-dock__row')).toContain('var(--spring-snappy) ui-enter')
+    expect(ruleOf(dock, '[data-pending-id][data-flash]')).toContain('task-dock-flash')
+    expect(dock).toMatch(
+      /prefers-reduced-motion: no-preference\) \{\s*\.task-dock__row--attention \.task-dock__main::before \{\s*animation: task-dock-breathe/,
+    )
+    expect(dock).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.task-dock__row,\s*\.task-dock__main \{\s*min-height: 40px;/,
+    )
+  })
 })

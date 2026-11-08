@@ -1,5 +1,9 @@
 .task-dock {
   flex: none;
+  --enter-y: -6px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-smooth) ui-enter;
   margin: var(--space-8) var(--space-16) 0;
   padding: var(--space-2);
   border: 1px solid var(--separator);
@@ -64,6 +68,12 @@
   background: var(--control-fill);
   color: var(--label);
 }
+.task-dock__chevron {
+  transition: transform var(--spring-interactive);
+}
+.task-dock__toggle[aria-expanded="true"] .task-dock__chevron {
+  transform: rotate(180deg);
+}
 .task-dock__rows {
   margin: 0;
   padding: 0;
@@ -75,9 +85,59 @@
   min-width: 0;
   min-height: 32px;
   border-radius: var(--radius-field);
+  transition: background-color var(--motion-fast);
+  --enter-y: 4px;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
-.task-dock__row:hover {
+.task-dock__row:active {
   background: var(--control-fill);
+}
+@media (hover: hover) {
+  .task-dock__row:hover {
+    background: var(--control-fill);
+  }
+}
+/* An item that needs me gets a dot that breathes, so a glance at the dock tells it from a mere status. */
+.task-dock__row--attention .task-dock__main::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: calc(-1 * var(--space-2));
+  border-radius: 50%;
+  background: var(--system-orange);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .task-dock__row--attention .task-dock__main::before {
+    animation: task-dock-breathe 1.6s ease-in-out infinite;
+  }
+}
+@keyframes task-dock-breathe {
+  50% {
+    opacity: 0.3;
+    scale: 0.7;
+  }
+}
+/* The located card rings once so the eye lands on it after the scroll. */
+[data-pending-id][data-flash] {
+  animation: task-dock-flash 1.4s ease-out;
+}
+@keyframes task-dock-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 3px var(--accent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+@media (pointer: coarse) {
+  .task-dock__row,
+  .task-dock__main {
+    min-height: 40px;
+  }
 }
 .task-dock__main {
   flex: 1;

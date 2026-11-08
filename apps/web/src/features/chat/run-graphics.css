@@ -195,6 +195,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .run-status__pulse,
   .offline-glyph__link,
   .countdown-ring__arc {
     animation: none;

@@ -135,8 +135,18 @@ export function TaskDock({
     const card = [root?.current, threadHost]
       .flatMap((scope) => [...(scope?.querySelectorAll<HTMLElement>('[data-pending-id]') ?? [])])
       .find((node) => node.dataset.pendingId === item.key)
-    if (card) card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
-    else onLocate(item.run, item.key)
+    if (!card) return onLocate(item.run, item.key)
+    card.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    // Restart the ring on a repeat click; it clears itself once played.
+    delete card.dataset.flash
+    void card.offsetWidth
+    card.dataset.flash = ''
+    const done = (e: AnimationEvent) => {
+      if (e.target !== card) return
+      delete card.dataset.flash
+      card.removeEventListener('animationend', done)
+    }
+    card.addEventListener('animationend', done)
   }
 
   return (
@@ -167,7 +177,7 @@ export function TaskDock({
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? t('收起') : t('展开 {n}', { n: remaining })}
-            <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={12} />
+            <Icon name="chevron-down" size={12} className="task-dock__chevron" />
           </button>
         ) : null}
       </div>

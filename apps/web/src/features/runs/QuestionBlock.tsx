@@ -356,6 +356,7 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
             size="small"
             className="question__submit"
             disabled={locked || !ready || uploads.uploading}
+            loading={busy}
             onClick={() => void submit()}
           >
             {t('提交回答')}

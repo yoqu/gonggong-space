@@ -121,6 +121,23 @@ describe('ApprovalBlock', () => {
     })
   })
 
+  it('spins only the button whose decision is in flight, and locks the rest', async () => {
+    login('u1', '王磊')
+    let reply: (v: unknown) => void = () => {}
+    mockApi({ 'POST /runs/r1/approvals/a1': new Promise((resolve) => (reply = resolve)) })
+    render(<ApprovalBlock run={run([approval()])} />)
+    fireEvent.click(screen.getByRole('button', { name: '批准' }))
+    const approve = await screen.findByRole('button', { name: /批准/, busy: true })
+    expect(approve.className).toContain('ui-btn--loading')
+    const reject = screen.getByRole('button', { name: '拒绝' }) as HTMLButtonElement
+    expect(reject.disabled).toBe(true)
+    expect(reject.getAttribute('aria-busy')).toBeNull()
+    await act(async () => reply(approval({ status: 'approved' })))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '批准' }).getAttribute('aria-busy')).toBeNull(),
+    )
+  })
+
   it('lets the owner waive approvals for the rest of this run, except in demo mode', async () => {
     login('u1', '王磊')
     const calls = mockApi({ 'POST /runs/r1/full-access': null })

@@ -317,6 +317,11 @@
   bottom: 0;
   align-self: center;
   box-shadow: var(--shadow-control);
+  --enter-y: 8px;
+  --enter-scale: 0.9;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
 }
 .run-tab__facts {
   flex-wrap: wrap;

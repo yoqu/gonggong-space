@@ -643,6 +643,12 @@ describe('chat view', () => {
     push({ t: 'run.delta', runId: 'r1', text: '的字段', lastActivityAt: new Date().toISOString() })
     expect(card.textContent).not.toContain('正在对比')
     await waitFor(() => expect(card.textContent).toContain('正在对比 v1 与 v2 的字段'))
+    // Streamed text is the reply itself: it reads plainly and grows in place, no shimmer.
+    const streamed = within(card).getByText('正在对比 v1 与 v2 的字段')
+    expect(streamed.className).not.toContain('ui-shimmer')
+    push({ t: 'run.delta', runId: 'r1', text: '差异', lastActivityAt: new Date().toISOString() })
+    await waitFor(() => expect(card.textContent).toContain('的字段差异'))
+    expect(within(card).getByText('正在对比 v1 与 v2 的字段差异')).toBe(streamed)
     push({
       t: 'run.updated',
       run: run({ status: 'completed', usage: null, endedAt: at, newSessionReason: 'resume_failed' }),
