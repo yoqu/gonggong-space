@@ -36,4 +36,5 @@ export default {
   音频: 'Audio',
   文本日志: 'Text log',
   代码: 'Code',
+  跳到原消息: 'Jump to original message',
 } satisfies Record<string, string>

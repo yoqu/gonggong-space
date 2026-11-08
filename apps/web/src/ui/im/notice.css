@@ -36,6 +36,22 @@
   height: 1px;
   background: var(--accent);
   opacity: 0.5;
+  /* The rules draw outward from the label when the divider appears. */
+  animation: var(--spring-smooth) pn-rule-draw;
+}
+.pn-notice--unread::before {
+  transform-origin: right;
+}
+.pn-notice--unread::after {
+  transform-origin: left;
+}
+.pn-notice--unread {
+  animation: var(--fade-in) ui-fade-in;
+}
+@keyframes pn-rule-draw {
+  from {
+    transform: scaleX(0);
+  }
 }
 .pn-notice--urgent span {
   display: inline-flex;

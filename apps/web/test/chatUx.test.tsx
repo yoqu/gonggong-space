@@ -361,6 +361,51 @@ describe('scroll position', () => {
     expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
   })
 
+  it('bumps the new-message count on every arrival', async () => {
+    mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
+    renderAt()
+    await screen.findByText('你好')
+    scrollUp(timelineEl())
+    push({ t: 'message.new', message: msg({ seq: 3, authorId: 'u2', authorName: '李建国', body: '在吗' }) })
+    const first = document.querySelector('.chat-scroll__count')
+    push({ t: 'message.new', message: msg({ seq: 4, authorId: 'u2', authorName: '李建国', body: '人呢' }) })
+    const second = document.querySelector('.chat-scroll__count')
+    expect(second?.textContent).toBe('2 条新消息')
+    expect(second).not.toBe(first)
+  })
+
+  it('jumps from a quote to its original message and flashes it', async () => {
+    mockApi({
+      messages: [
+        msg({ seq: 2, body: '先合 v2' }),
+        msg({
+          seq: 3,
+          authorId: 'u2',
+          authorName: '李建国',
+          body: '同意',
+          quote: { kind: 'message', id: 'm2', who: '王磊', text: '先合 v2' },
+        }),
+      ],
+      runs: [],
+    })
+    renderAt()
+    fireEvent.click(await screen.findByRole('button', { name: /引用 王磊/ }))
+    const item = document.querySelector('[data-msg-id="m2"]') as HTMLElement
+    await waitFor(() => expect(item.className).toContain('tl-item--flash'))
+    await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe(''))
+  })
+
+  it('says so when a linked message is not in the loaded history', async () => {
+    mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
+    renderAt('/g/g1?msg=gone')
+    await screen.findByText('你好')
+    await waitFor(() =>
+      expect(useToasts.getState().items.map((t) => t.message)).toContain(
+        '没有找到这条消息，它可能在话题里或已太久远',
+      ),
+    )
+  })
+
   it('does not count thread runs as new items in the main channel', async () => {
     mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
     renderAt()

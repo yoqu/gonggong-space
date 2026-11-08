@@ -94,6 +94,12 @@
   color: var(--label-secondary);
 }
 .chat-scroll__pill {
+  --enter-y: 12px;
+  --enter-scale: 0.9;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
+  transition: scale var(--spring-interactive);
   position: sticky;
   bottom: var(--space-8);
   flex: none;
@@ -116,8 +122,23 @@
   cursor: default;
 }
 
+/* Each new arrival bumps the count (re-keyed by ChatView). */
+.chat-scroll__count {
+  display: inline-block;
+  animation: var(--spring-bouncy) chat-count-bump;
+}
+@keyframes chat-count-bump {
+  from {
+    transform: scale(1.25);
+  }
+}
+.chat-scroll__pill:active,
+.chat-scroll__bottom:active {
+  scale: 0.92;
+}
 /* 跳到首条未读: floats under the pinned prompts, over the messages rather than taking a row. */
 .chat-scroll__pill--top {
+  --enter-y: -12px;
   top: calc(var(--banners-h, 0px) + var(--space-8));
   bottom: auto;
   z-index: 3;
@@ -143,9 +164,24 @@
   box-shadow: var(--shadow-glass);
   color: var(--label-secondary);
   cursor: default;
+  --enter-y: 8px;
+  --enter-scale: 0.8;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-bouncy) ui-enter;
+  transition:
+    color var(--motion-fast),
+    scale var(--spring-interactive);
 }
 .chat-scroll__bottom:hover {
   color: var(--label);
+}
+@media (pointer: coarse) {
+  .chat-scroll__bottom {
+    width: 40px;
+    height: 40px;
+    margin-top: -40px;
+  }
 }
 
 /* Rows */
@@ -271,6 +307,8 @@
 .run-card:hover .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;
+  translate: none;
+  scale: none;
 }
 /* In a narrow column the author name stays on one line; the secondary meta truncates first. */
 .chat-view .pn-msg__meta > * {
@@ -522,6 +560,12 @@
   background: var(--content-bg);
   box-shadow: var(--shadow-menu);
   pointer-events: auto;
+  transform-origin: top center;
+  --enter-y: -4px;
+  --enter-scale: 0.98;
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-enter;
 }
 .chat-pins__item {
   display: flex;
@@ -529,7 +573,14 @@
   gap: var(--space-6);
   min-width: 0;
   padding: 2px var(--space-6);
+  border-radius: var(--radius-field);
   color: var(--label);
+  transition: background-color var(--motion-fast);
+}
+@media (hover: hover) {
+  .chat-pins__item:hover {
+    background: var(--group-bg);
+  }
 }
 .chat-pins__item > .chat-pins__link {
   flex: 1;

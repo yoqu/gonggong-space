@@ -152,7 +152,14 @@
   right: var(--pn-list-x, 0px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--fade-in);
+  /* Rises into place from just below its corner; springs collapse to 0s under reduced motion. */
+  translate: 0 4px;
+  scale: 0.96;
+  transform-origin: bottom right;
+  transition:
+    opacity var(--fade-in),
+    translate var(--spring-interactive),
+    scale var(--spring-interactive);
   z-index: 2;
 }
 .pn-msg .pn-msg__actions[data-place="flip"] {
@@ -163,12 +170,16 @@
 .pn-msg--show-actions .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;
+  translate: none;
+  scale: none;
 }
 /* Touch screens keep :hover after a tap; there the bar opens by long-press only, leaving the text selectable. */
 @media (hover: hover) {
   .pn-msg:hover .pn-msg__actions {
     opacity: 1;
     pointer-events: auto;
+    translate: none;
+    scale: none;
   }
 }
 .pn-msg:focus-within .pn-msg__actions,
@@ -176,6 +187,8 @@
 .pn-msg[data-actions="open"] .pn-msg__actions {
   opacity: 1;
   pointer-events: auto;
+  translate: none;
+  scale: none;
 }
 /* A context menu supersedes the hover bar; showing both stacks two menus on the same message. */
 body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
@@ -219,6 +232,23 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
 .pn-quote b {
   font-weight: 600;
 }
+/* A sent quote leads back to its original. */
+.pn-quote--link {
+  cursor: default;
+  transition: background-color var(--motion-fast);
+}
+@media (hover: hover) {
+  .pn-quote--link:hover {
+    background: var(--control-track);
+  }
+}
+.pn-quote--link:active {
+  background: var(--control-track);
+}
+.pn-quote--link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 .pn-reactions {
   display: flex;
@@ -240,6 +270,12 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
   font-size: var(--text-subheadline-size);
   cursor: default;
   box-shadow: var(--shadow-outline, none);
+}
+/* A fingertip needs more than the 22px pill a cursor gets. */
+@media (pointer: coarse) {
+  .pn-reaction {
+    height: 28px;
+  }
 }
 .pn-reaction__emoji {
   font-size: 14px;

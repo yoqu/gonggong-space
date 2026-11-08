@@ -264,4 +264,6 @@ export default {
   标为已读: 'Mark as read',
   '还有更多未读，去群里看': 'More unread in the group',
   未读消息加载失败: 'Failed to load unread messages',
+  '没有找到这条消息，它可能在话题里或已太久远':
+    "Couldn't find this message. It may be in a thread or too far back",
 } satisfies Record<string, string>

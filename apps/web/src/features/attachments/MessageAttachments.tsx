@@ -1,5 +1,6 @@
 import type { Attachment, MessageDto } from '@gonggong/protocol'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
 import { Button, FileAttachment, Icon, Lightbox } from '../../ui'
 import { openTab } from '../workbench/open'
@@ -7,11 +8,35 @@ import { attachmentUrl, fmtSize, KIND_LABEL, kindOf } from './api'
 import './attachments.css'
 import { t } from '../../i18n'
 
-/** The quoted bot reply / run card / message shown inside the sent message. */
+/** The quoted bot reply / run card / message shown inside the sent message; clicking it jumps to the original. */
 export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
+  const [, setParams] = useSearchParams()
   if (!quote) return null
+  const { kind, id } = quote
+  const jump = () =>
+    setParams(
+      (p) => {
+        // A message scrolls into view and flashes; a run card opens its process.
+        p.set(kind === 'message' ? 'msg' : 'run', id)
+        return p
+      },
+      { replace: true },
+    )
   return (
-    <div className="pn-quote">
+    // biome-ignore lint/a11y/useSemanticElements: a <button> can't line-clamp its text
+    <div
+      role="button"
+      tabIndex={0}
+      className="pn-quote pn-quote--link"
+      title={t('跳到原消息')}
+      onClick={jump}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          jump()
+        }
+      }}
+    >
       <b>{t('引用 {who}', { who: quote.who })}</b>
       {t('：')}
       <span>{quote.text}</span>

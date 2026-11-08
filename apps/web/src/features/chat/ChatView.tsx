@@ -36,6 +36,7 @@ import {
   Presence,
   Spinner,
   TypingIndicator,
+  toast,
 } from '../../ui'
 import { ArtifactCardView } from '../artifacts/ArtifactCard'
 import { useBotCostume } from '../bots/avatars'
@@ -392,7 +393,12 @@ export function ChatView({
     return () => window.removeEventListener('keydown', onKey)
   }, [group.id, readOnly])
 
-  // `?msg=<id>` (search hits): page back until the message is loaded, then scroll to and flash it.
+  // Each link pages back afresh: a later one (pin, quote) must not inherit an earlier link's spent budget.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset per link
+  useEffect(() => {
+    linkPages.current = 0
+  }, [linked])
+  // `?msg=<id>` (search hits, pins, quotes): page back until the message is loaded, then scroll to and flash it.
   useEffect(() => {
     if (!linked || linkedThread || !tl.loaded) return
     if (tl.messages.some((m) => m.id === linked)) {
@@ -406,6 +412,7 @@ export function ChatView({
       return
     } else if (tl.older === 'loading') return
     else if (linkRun.current) openTab({ kind: 'run', runId: linkRun.current, view: 'process', file: null })
+    else toast({ message: t('没有找到这条消息，它可能在话题里或已太久远') })
     linkRun.current = null
     setParams(
       (p) => {
@@ -646,7 +653,8 @@ export function ChatView({
   // Its bot was unshared or deleted: the history stays, nothing can be asked any more.
   const closed = dm && !botCount
   const kind = channelKind(group.visibility)
-  const topic = dm ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
+  // The notice banner already shows it; once hidden, its first line stays in the header as the channel topic.
+  const topic = dm || !group.noticeHidden ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
   return (
     <MentionNames.Provider value={mentionNames}>
       <div className="chat-view" {...(readOnly ? {} : drag.handlers)}>
@@ -931,7 +939,9 @@ export function ChatView({
             {unseen ? (
               <button type="button" className="chat-scroll__pill" onClick={toBottom}>
                 <Icon name="chevron-down" size={13} />
-                {t('{n} 条新消息', { n: unseen })}
+                <span key={unseen} className="chat-scroll__count">
+                  {t('{n} 条新消息', { n: unseen })}
+                </span>
               </button>
             ) : away ? (
               <button

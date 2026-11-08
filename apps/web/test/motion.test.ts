@@ -113,4 +113,20 @@ describe('motion and touch CSS contract', () => {
     )
     expect(ruleOf(read('ui/display.css'), '.ui-badge')).toContain('var(--spring-bouncy) ui-badge-pop')
   })
+  it('moves the timeline: rising hover bar, drawn unread rules, springing pills, roomy touch targets', () => {
+    const msg = read('ui/im/message.css')
+    const bar = ruleOf(msg, '.pn-msg__actions')
+    expect(bar).toContain('translate var(--spring-interactive)')
+    expect(bar).toContain('translate: 0 4px')
+    expect(msg).toMatch(/\.pn-msg:hover \.pn-msg__actions \{[^}]*translate: none;/)
+    expect(msg).toMatch(/@media \(pointer: coarse\) \{\s*\.pn-reaction \{\s*height: 28px;/)
+    expect(ruleOf(read('ui/im/notice.css'), '.pn-notice--unread::after')).toContain(
+      'var(--spring-smooth) pn-rule-draw',
+    )
+    const tl = read('features/chat/timeline.css')
+    expect(ruleOf(tl, '.chat-scroll__pill')).toContain('var(--spring-bouncy) ui-enter')
+    expect(ruleOf(tl, '.chat-scroll__count')).toContain('var(--spring-bouncy) chat-count-bump')
+    expect(ruleOf(tl, '.chat-scroll__bottom')).toContain('var(--spring-bouncy) ui-enter')
+    expect(ruleOf(tl, '.chat-pins')).toContain('var(--spring-snappy) ui-enter')
+  })
 })

@@ -608,8 +608,9 @@ describe('chat view', () => {
     const main = screen.getByRole('main')
     expect(await within(main).findByRole('heading', { name: '退款 v2 迁移' })).toBeTruthy()
     expect(within(main).getByText('refund · main').getAttribute('title')).toBe('git@git.corp:pay/refund.git')
-    // The notice: its banner, and its first line as the channel topic in the header.
-    expect(within(main).getAllByText('周五前合入 v2')).toHaveLength(2)
+    // The notice shows once, on its banner; the header leaves it out rather than repeat it.
+    expect(within(main).getAllByText('周五前合入 v2')).toHaveLength(1)
+    expect(within(main).getByTestId('group-notice').textContent).toContain('周五前合入 v2')
 
     expect(await within(main).findByText('王磊 创建了群 · 成为群管理员')).toBeTruthy()
     expect(within(main).getByText('@小王的 Claude').className).toContain('mention')
@@ -1476,14 +1477,15 @@ describe('repo and workspaces', () => {
 
   it('opens settings from the header avatar for admins, the info panel otherwise, and members from the header', async () => {
     mockApi({
-      ...baseRoutes([group({ notice: '本周冻结主干\n周五发版' })]),
+      ...baseRoutes([group({ notice: '本周冻结主干\n周五发版', noticeHidden: true })]),
       'GET /groups/g1/bot-states': () => states,
     })
     const { unmount } = renderAt('/g/g1')
     const main = screen.getByRole('main')
     fireEvent.click(await within(main).findByRole('button', { name: '打开群设置' }))
     expect(await screen.findByRole('dialog', { name: '基本信息 · 退款 v2 迁移' })).toBeTruthy()
-    // The notice's first line is the channel topic.
+    // Once its banner is hidden, the notice's first line stays in the header as the channel topic.
+    expect(within(main).queryByTestId('group-notice')).toBeNull()
     fireEvent.click(within(main).getByRole('button', { name: '本周冻结主干' }))
     expect(await screen.findByRole('complementary', { name: '群设置' })).toBeTruthy()
     fireEvent.click(within(main).getByRole('button', { name: /^群成员：2 人/ }))
