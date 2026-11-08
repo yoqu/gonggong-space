@@ -143,6 +143,10 @@ body {
   z-index: 25;
   width: 100%;
 }
+/* The 360px panels fill the phone, whatever its width. */
+.chat__rail--overlay .pn-threadpanel {
+  width: 100%;
+}
 /* With the workbench open the chat is a fixed-width column left of it (width set inline). */
 .chat--bench > .ui-frame__main > .ui-frame__content {
   position: relative;

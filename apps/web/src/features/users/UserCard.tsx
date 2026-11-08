@@ -1,5 +1,13 @@
 import type { UserCardDto } from '@gonggong/protocol'
-import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useSession } from '../../app/session'
@@ -8,6 +16,7 @@ import { cx } from '../../lib/cx'
 import { Float, ProfileCard, Spinner } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
 import { mentionInChat } from '../chat/mention'
+import { ThreadScope } from '../chat/threadSummary'
 import { useHoverCard } from './useHoverCard'
 import './users.css'
 import { t } from '../../i18n'
@@ -120,10 +129,10 @@ export function HoverCardTrigger({
 }
 
 /** The @TA action of a card shown in a group: hands the name to that group's composer and closes the card. */
-export const mentionAction = (groupId: string, name: string, close: () => void) => ({
+export const mentionAction = (groupId: string, name: string, close: () => void, scope?: string) => ({
   label: t('@TA'),
   onClick: () => {
-    mentionInChat(groupId, name)
+    mentionInChat(groupId, name, scope)
     close()
   },
 })
@@ -143,6 +152,7 @@ export function UserCardTrigger({
   children: ReactNode
 }) {
   const hover = useHoverCard()
+  const scope = useContext(ThreadScope)
   const me = useSession((s) => s.user?.id)
   const [wanted, setWanted] = useState(false)
   if (hover.open && !wanted) setWanted(true)
@@ -164,7 +174,9 @@ export function UserCardTrigger({
             title={card.account}
             tags={card.groupAdmin ? [{ label: t('群管理员'), tone: 'blue' }] : undefined}
             fields={[{ label: t('角色'), value: ROLE_LABEL[card.role] }]}
-            actions={groupId && userId !== me ? [mentionAction(groupId, card.name, hover.close)] : undefined}
+            actions={
+              groupId && userId !== me ? [mentionAction(groupId, card.name, hover.close, scope)] : undefined
+            }
           />
         ) : (
           <div className="user-card__status">{error ?? <Spinner />}</div>

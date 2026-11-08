@@ -562,3 +562,8 @@
 .thread-view.pn-threadpanel {
   width: 100%;
 }
+
+/* The reply bar of a recalled root lines up with the one under a regular message: past the avatar column. */
+.tl-recalled-thread {
+  padding-inline-start: calc(var(--avatar-regular) + 10px);
+}

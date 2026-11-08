@@ -1,11 +1,13 @@
 import type { MessageDto, ThreadInboxDto, ThreadInboxItemDto } from '@gonggong/protocol'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import { Badge, Button, EmptyChatArt, EmptyState, FailedArt, Icon, Mascot } from '../../ui'
+import { MessageComposer } from './MessageComposer'
 import './thread-inbox.css'
 
 const SNIPPET = 140
@@ -28,34 +30,76 @@ function Line({ m }: { m: MessageDto }) {
   )
 }
 
-function Card({ item }: { item: ThreadInboxItemDto }) {
+function Card({ item, onSent }: { item: ThreadInboxItemDto; onSent: () => void }) {
   const navigate = useNavigate()
+  const group = useWorkspace((s) => s.groups.find((g) => g.id === item.groupId))
+  const [replying, setReplying] = useState(false)
+  const card = useRef<HTMLElement>(null)
+  const opened = useRef(false)
+  // Keyboard users land in the composer when it opens, and back on 回复 when Esc closes it.
+  useEffect(() => {
+    if (replying) card.current?.querySelector('textarea')?.focus()
+    else if (opened.current) card.current?.querySelector<HTMLElement>('.thread-inbox__reply')?.focus()
+    opened.current ||= replying
+  }, [replying])
   const { state } = item
   return (
-    <button
-      type="button"
+    <article
+      ref={card}
       className="thread-inbox__card"
       data-unread={state.unread > 0 || undefined}
-      onClick={() => navigate(`/g/${item.groupId}?thread=${item.root.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && replying && !e.defaultPrevented) {
+          e.preventDefault()
+          setReplying(false)
+        }
+      }}
     >
-      <span className="thread-inbox__where">
-        <Icon name="thread" size={12} />
-        {item.groupName}
-        {state.mentioned ? <span className="thread-inbox__at">{t('[有人@我] ')}</span> : null}
-        {state.unread ? <Badge count={state.unread} /> : null}
-      </span>
-      <Line m={item.root} />
-      {item.root.thread && item.root.thread.replyCount > item.latest.length ? (
-        <span className="thread-inbox__more">
-          {t('还有 {n} 条回复', { n: item.root.thread.replyCount - item.latest.length })}
+      <button
+        type="button"
+        className="thread-inbox__open"
+        onClick={() => navigate(`/g/${item.groupId}?thread=${item.root.id}`)}
+      >
+        <span className="thread-inbox__where">
+          <Icon name="thread" size={12} />
+          {item.groupName}
+          {state.mentioned ? <span className="thread-inbox__at">{t('[有人@我] ')}</span> : null}
+          {state.unread ? <Badge count={state.unread} /> : null}
         </span>
+        <Line m={item.root} />
+        {item.root.thread && item.root.thread.replyCount > item.latest.length ? (
+          <span className="thread-inbox__more">
+            {t('还有 {n} 条回复', { n: item.root.thread.replyCount - item.latest.length })}
+          </span>
+        ) : null}
+        <span className="thread-inbox__replies">
+          {item.latest.map((m) => (
+            <Line key={m.id} m={m} />
+          ))}
+        </span>
+      </button>
+      {group ? (
+        replying ? (
+          <MessageComposer
+            group={group}
+            thread={item.root.id}
+            onSent={() => {
+              setReplying(false)
+              onSent()
+            }}
+          />
+        ) : (
+          <Button
+            size="small"
+            variant="plain"
+            className="thread-inbox__reply"
+            onClick={() => setReplying(true)}
+          >
+            {t('回复')}
+          </Button>
+        )
       ) : null}
-      <span className="thread-inbox__replies">
-        {item.latest.map((m) => (
-          <Line key={m.id} m={m} />
-        ))}
-      </span>
-    </button>
+    </article>
   )
 }
 
@@ -138,7 +182,7 @@ export function ThreadInbox({ onBack }: { onBack?: () => void }) {
       ) : (
         <div className="thread-inbox__list">
           {list.map((item) => (
-            <Card key={item.root.id} item={item} />
+            <Card key={item.root.id} item={item} onSent={() => void load()} />
           ))}
           {more ? (
             <Button size="small" variant="plain" onClick={() => void older()}>

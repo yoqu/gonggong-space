@@ -61,6 +61,12 @@ function loadDraft(key: string) {
     return ''
   }
 }
+/** After a send: drops the stored draft unless it was edited meanwhile, also when the composer is already gone. */
+function dropDraft(key: string, sent: string) {
+  try {
+    if (sessionStorage.getItem(key) === sent) sessionStorage.removeItem(key)
+  } catch {}
+}
 
 /** UUID v4 without crypto.randomUUID, which only exists in secure contexts (plain-http LAN access lacks it). */
 export function uuid() {
@@ -249,7 +255,9 @@ export const MessageComposer = memo(function MessageComposer({
     change(draft.slice(0, c) + insert + draft.slice(c), c + insert.length)
   }, [mention])
 
-  const recalled = useRecalled((s) => (s.pending?.groupId === main ? s.pending : null))
+  const recalled = useRecalled((s) =>
+    s.pending?.groupId === group.id && s.pending.threadRootId === thread ? s.pending : null,
+  )
   // biome-ignore lint/correctness/useExhaustiveDependencies: once per handed-over message, onto the draft it was rendered with
   useEffect(() => {
     if (!recalled) return
@@ -327,6 +335,7 @@ export const MessageComposer = memo(function MessageComposer({
     setBusy(false)
     if (!ok) return
     setSent((n) => n + 1)
+    dropDraft(key, body)
     setDraft((d) => (d === body ? '' : d))
     setVariations(null)
     if (canvas) clearContext()
@@ -363,6 +372,7 @@ export const MessageComposer = memo(function MessageComposer({
       onSent(await postMessage(group.id, req))
       setSent((n) => n + 1)
       if (appendTo) useAppend.getState().clear()
+      dropDraft(key, body)
       setDraft((d) => (d === body ? '' : d))
       setPicks({})
       setAlsoSent(false)

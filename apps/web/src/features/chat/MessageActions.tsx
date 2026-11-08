@@ -41,8 +41,9 @@ async function snapshot(m: MessageDto): Promise<RecalledDraft> {
     })
   return {
     groupId: m.groupId,
+    threadRootId: m.threadRootId ?? undefined,
     body: m.body,
-    quote: m.quote ? { ...m.quote, groupId: m.groupId } : null,
+    quote: m.quote ? { ...m.quote, groupId: m.groupId, threadRootId: m.threadRootId ?? undefined } : null,
     files: read.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : [])),
   }
 }

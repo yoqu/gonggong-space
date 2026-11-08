@@ -18,6 +18,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { useQuote } from '../src/features/attachments/quote'
 import { useRunDeltas } from '../src/features/chat/deltas'
+import { useRecalled } from '../src/features/chat/recalled'
 import { fullTime } from '../src/lib/time'
 import { mockApi } from './mockApi'
 
@@ -315,11 +316,49 @@ describe('话题 inbox', () => {
     const row = await screen.findByTestId('threads-item')
     await waitFor(() => expect(within(row).getByText('3 个话题有新回复')).toBeTruthy())
     expect(within(row).getByText('1')).toBeTruthy()
-    const card = (await screen.findByText('发版前要不要冻结主干？')).closest('button') as HTMLElement
+    const card = (await screen.findByText('发版前要不要冻结主干？')).closest('article') as HTMLElement
     expect(within(card).getByText('[有人@我]')).toBeTruthy()
     expect(within(card).getByText('要，周四开始')).toBeTruthy()
-    fireEvent.click(card)
+    fireEvent.click(within(card).getByRole('button', { name: /发版前要不要冻结主干/ }))
     expect(await panel()).toBeTruthy()
+  })
+
+  it('replies from the card without leaving the page, then collapses and reloads', async () => {
+    const sent: unknown[] = []
+    let loads = 0
+    renderAt('/threads', {
+      'GET /threads': () => {
+        loads++
+        return inbox
+      },
+      'POST /groups/g1/messages': (body: unknown) => {
+        sent.push(body)
+        return msg({ seq: 9, body: '收到', threadRootId: 'm1', authorId: 'u1', authorName: '王磊' })
+      },
+    })
+    const card = (await screen.findByText('发版前要不要冻结主干？')).closest('article') as HTMLElement
+    fireEvent.click(within(card).getByRole('button', { name: '回复' }))
+    const input = within(card).getByPlaceholderText('回复话题，@ 触发 Bot')
+    fireEvent.click(input)
+    expect(screen.queryByRole('complementary', { name: '话题' })).toBeNull()
+    fireEvent.change(input, { target: { value: '收到' } })
+    fireEvent.click(within(card).getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toMatchObject({ body: '收到', threadRootId: 'm1' })
+    await waitFor(() => expect(within(card).queryByPlaceholderText('回复话题，@ 触发 Bot')).toBeNull())
+    await waitFor(() => expect(loads).toBe(2))
+  })
+
+  it('focuses the card composer when it opens and closes it on Esc, back on 回复', async () => {
+    renderAt('/threads', { 'GET /threads': inbox })
+    const card = (await screen.findByText('发版前要不要冻结主干？')).closest('article') as HTMLElement
+    fireEvent.click(within(card).getByRole('button', { name: '回复' }))
+    const input = within(card).getByPlaceholderText('回复话题，@ 触发 Bot')
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(card).getByRole('button', { name: '回复' })),
+    )
   })
 
   it('shows no count for new replies without an @', async () => {
@@ -525,7 +564,9 @@ describe('thread root boundaries', () => {
       'GET /groups/g1/timeline?limit=50': { messages: [recalledRoot], runs: [] },
       'GET /messages/m1/thread?limit=50': threadDto({ root: recalledRoot }),
     })
-    fireEvent.click(await screen.findByRole('button', { name: /2 条回复/ }))
+    const bar = await screen.findByRole('button', { name: /2 条回复/ })
+    expect(bar.closest('.tl-recalled-thread')).toBeTruthy()
+    fireEvent.click(bar)
     const rail = await panel()
     expect(await within(rail).findByText('要，周四开始')).toBeTruthy()
     expect(within(rail).getByText('该消息已撤回')).toBeTruthy()
@@ -715,5 +756,37 @@ describe('thread lists of a root I deleted', () => {
     expect(
       await within(await screen.findByTestId('group-thread')).findByText('你已删除这条消息'),
     ).toBeTruthy()
+  })
+})
+
+describe('re-editing a recalled thread reply', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it('puts the content back into the thread composer, not the main one', async () => {
+    const mine = msg({
+      seq: 2,
+      id: 'm2',
+      authorId: 'u1',
+      authorName: '王磊',
+      recalled: true,
+      body: '',
+      threadRootId: 'm1',
+    })
+    useRecalled.setState({
+      drafts: { m2: { groupId: 'g1', threadRootId: 'm1', body: '撤回前的话', quote: null, files: [] } },
+      pending: null,
+    })
+    renderAt('/g/g1?thread=m1', { 'GET /messages/m1/thread?limit=50': threadDto({ replies: [mine] }) })
+    const rail = await panel()
+    fireEvent.click(await within(rail).findByRole('button', { name: '重新编辑' }))
+    await waitFor(() =>
+      expect((within(rail).getByPlaceholderText('回复话题，@ 触发 Bot') as HTMLTextAreaElement).value).toBe(
+        '撤回前的话',
+      ),
+    )
+    expect(
+      (screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement)
+        .value,
+    ).toBe('')
   })
 })

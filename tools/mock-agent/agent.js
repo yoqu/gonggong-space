@@ -8,6 +8,7 @@
 //   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:sh <command>" run the rest of the prompt (from its last "mock:sh") with sh in the session cwd (like Codex
 //                editing via shell)
+//   "mock:delay <ms>" wait that long first (the last one in the prompt), then behave as the rest of the prompt says
 //   "mock:say <text>" reply with the rest of the prompt (from its last "mock:say") verbatim
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
 //   "mock:read <path>" ask permission for a read tool call at <path>, reply "read" or "denied"
@@ -107,6 +108,8 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await say(text.includes('mock-review-garbage') ? '说不好' : `结论：${JSON.stringify(verdict)}`)
     return { stopReason: 'end_turn' }
   }
+  const delays = [...text.matchAll(/mock:delay (\d+)/g)]
+  if (delays.length) await sleep(Number(delays.at(-1)[1]))
   if (text.includes('mock:echo')) {
     await say(
       JSON.stringify({

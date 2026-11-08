@@ -8,6 +8,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { mentionInChat, useMention } from '../src/features/chat/mention'
 import { BotReply } from '../src/features/chat/TimelineItems'
+import { ThreadScope } from '../src/features/chat/threadSummary'
 import { UserCardTrigger } from '../src/features/users'
 import { mockApi } from './mockApi'
 
@@ -93,6 +94,20 @@ describe('@TA on a hover card', () => {
     await hover(wang!)
     expect(screen.getAllByRole('dialog', { name: '用户名片' }).at(-1)?.textContent).toContain('王磊')
     expect(screen.queryByRole('button', { name: '@TA' })).toBeNull()
+  })
+
+  it('hands the name to the thread composer from a card inside a thread', async () => {
+    mockApi({ 'GET /users/u2/card?groupId=g1': card('u2', '李建国') })
+    render(
+      <ThreadScope.Provider value="m9">
+        <UserCardTrigger userId="u2" groupId="g1">
+          李建国
+        </UserCardTrigger>
+      </ThreadScope.Provider>,
+    )
+    await hover(document.querySelector('.user-card-trigger')!)
+    fireEvent.click(screen.getByRole('button', { name: '@TA' }))
+    expect(useMention.getState().pending).toEqual({ groupId: 'g1', name: '李建国', threadRootId: 'm9' })
   })
 
   it("shows a bot's card from its name in the timeline, with owner, agent and state", async () => {

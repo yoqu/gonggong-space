@@ -6,6 +6,8 @@ export const REEDIT_WINDOW_MS = 5 * 60_000
 
 export interface RecalledDraft {
   groupId: string
+  /** Recalled inside that thread: its composer takes it back, not the main one. */
+  threadRootId?: string
   body: string
   quote: QuoteDraft | null
   /** The attachments' content: their uploads stay bound to the recalled message, so they are uploaded anew. */

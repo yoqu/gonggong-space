@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useContext } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { ProfileCard } from '../../ui'
 import { botFace } from '../bots/avatars'
 import { agentLine, PRESENCE } from '../bots/model'
+import { ThreadScope } from '../chat/threadSummary'
 import { HoverCardTrigger, mentionAction } from './UserCard'
 import { useHoverCard } from './useHoverCard'
 
@@ -22,6 +23,7 @@ export function BotCardTrigger({
   children: ReactNode
 }) {
   const hover = useHoverCard()
+  const scope = useContext(ThreadScope)
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === botId))
   const inGroup = useWorkspace((s) => !!s.groups.find((g) => g.id === groupId)?.botIds.includes(botId))
   if (!bot) return children
@@ -41,7 +43,7 @@ export function BotCardTrigger({
           title={agentLine(bot)}
           tags={[{ label: 'Bot', tone: 'blue' }]}
           fields={[{ label: t('主人'), value: bot.ownerName }]}
-          actions={inGroup ? [mentionAction(groupId, bot.name, hover.close)] : undefined}
+          actions={inGroup ? [mentionAction(groupId, bot.name, hover.close, scope)] : undefined}
         />
       }
     >

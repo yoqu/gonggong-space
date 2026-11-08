@@ -158,7 +158,7 @@ export function threadRoutes(ctx: Ctx) {
         .select({ seq: max(messages.seq) })
         .from(messages)
         .where(eq(messages.threadRootId, root.id))
-      // Following from here on: what came before counts as read.
+      // Following from here on: what came before counts as read, also when following again after a pause.
       await ctx.db
         .insert(threadFollows)
         .values({
@@ -170,7 +170,10 @@ export function threadRoutes(ctx: Ctx) {
         })
         .onConflictDoUpdate({
           target: [threadFollows.rootMessageId, threadFollows.userId],
-          set: { following },
+          set: {
+            following,
+            lastReadSeq: sql`case when ${threadFollows.following} then ${threadFollows.lastReadSeq} else excluded.last_read_seq end`,
+          },
         })
       const state = await threadState(ctx, root, me.id)
       ctx.bus.publish([me.id], { t: 'thread.state', ...state })
@@ -276,7 +279,7 @@ export function threadRoutes(ctx: Ctx) {
           ctx,
           me.id,
           sql`${messages.id} in (select id from (select m.id, row_number() over (partition by m.thread_root_id order by m.seq desc) n
-            from messages m where m.thread_root_id in ${rootIds}) x where x.n <= ${INBOX_LATEST})`,
+            from messages m where m.thread_root_id in ${rootIds} and m.kind <> 'event') x where x.n <= ${INBOX_LATEST})`,
           rootIds.length * INBOX_LATEST,
         ),
       ])

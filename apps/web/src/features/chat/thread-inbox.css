@@ -7,7 +7,6 @@
   padding: var(--space-16) var(--space-20);
 }
 .thread-inbox__card {
-  appearance: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -20,7 +19,22 @@
   color: var(--label);
   font: inherit;
   text-align: left;
+}
+.thread-inbox__open {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+}
+.thread-inbox__reply {
+  align-self: flex-start;
 }
 .thread-inbox__card:hover {
   background: var(--quote-fill);
@@ -37,7 +51,8 @@
   font-weight: 600;
 }
 .thread-inbox__at {
-  color: var(--accent, var(--bubble-link));
+  color: var(--tint-red-text);
+  font-weight: 600;
 }
 .thread-inbox__line {
   display: flex;

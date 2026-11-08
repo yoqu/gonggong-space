@@ -175,9 +175,42 @@ describe('thread unread', () => {
     })
     expect((await s.asWang.get<ThreadInboxDto>('/api/threads')).body.threads).toEqual([])
   })
+
+  it('counts only replies after following again as unread', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '根')).body
+    const url = `/api/messages/${root.id}/thread/follow`
+    await s.asWang.put(url, { following: false })
+    await send(s.asLi, s.g.id, '取消关注期间', { threadRootId: root.id })
+    const on = await s.asWang.put<ThreadStateDto>(url, { following: true })
+    expect(on.body).toMatchObject({ following: true, unread: 0 })
+    await send(s.asLi, s.g.id, '之后', { threadRootId: root.id })
+    expect((await s.asWang.put<ThreadStateDto>(url, { following: true })).body.unread).toBe(1)
+  })
+
+  it('counts from the reply that @s them back into a thread they had left', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '根')).body
+    await s.asZhao.put(`/api/messages/${root.id}/thread/follow`, { following: false })
+    await send(s.asLi, s.g.id, '取消关注期间一', { threadRootId: root.id })
+    await send(s.asLi, s.g.id, '取消关注期间二', { threadRootId: root.id })
+    await send(s.asLi, s.g.id, '@赵敏 回来看下', { threadRootId: root.id })
+    await send(s.asLi, s.g.id, '之后', { threadRootId: root.id })
+    const zhao = (await s.asZhao.get<ThreadDto>(`/api/messages/${root.id}/thread`)).body.state
+    expect(zhao).toMatchObject({ following: true, unread: 2, mentioned: true })
+  })
 })
 
 describe('thread inbox', () => {
+  it('keeps group events out of the latest replies', async () => {
+    const s = await setup()
+    const root = (await send(s.asWang, s.g.id, '根')).body
+    await send(s.asLi, s.g.id, '真回复', { threadRootId: root.id })
+    await postEvent(t.ctx, s.g.id, '{user} 修改了群名称与公告', { user: '王磊' }, {}, root.id)
+    const { body } = await s.asWang.get<ThreadInboxDto>('/api/threads')
+    expect(body.threads[0]!.latest.map((m) => m.body)).toEqual(['真回复'])
+  })
+
   it('lists followed threads, latest reply first, with their last two replies', async () => {
     const s = await setup()
     const a = (await send(s.asWang, s.g.id, '话题 A')).body

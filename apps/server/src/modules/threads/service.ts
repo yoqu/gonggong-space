@@ -104,7 +104,12 @@ export async function followOnReply(tx: Tx, root: MessageRow, reply: MessageRow,
       .values(values(joining))
       .onConflictDoUpdate({
         target: [threadFollows.rootMessageId, threadFollows.userId],
-        set: { following: true },
+        // Back from a pause: what came in meanwhile counts as read, from this reply on is new.
+        set: {
+          following: true,
+          lastReadSeq: sql`case when ${threadFollows.following} then ${threadFollows.lastReadSeq}
+            else greatest(${threadFollows.lastReadSeq}, ${reply.seq - 1}) end`,
+        },
       })
   if (reply.authorUserId) await readThread(tx, root.id, reply.authorUserId, reply.seq)
 }

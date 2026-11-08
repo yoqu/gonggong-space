@@ -710,6 +710,23 @@ describe('composer', () => {
     await waitFor(() => expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull())
   })
 
+  it('clears the draft of a send that completes after the composer is gone', async () => {
+    let reply: (m: MessageDto) => void = () => {}
+    mockApi(
+      { messages: [], runs: [] },
+      { 'POST /groups/g1/messages': () => new Promise<MessageDto>((r) => (reply = r)) },
+    )
+    const view = renderAt()
+    await screen.findByText('还没有消息')
+    fireEvent.change(box(), { target: { value: '草稿' } })
+    fireEvent.click(sendButton())
+    await waitFor(() => expect(sendButton().dataset.state).toBe('busy'))
+    view.unmount()
+    expect(sessionStorage.getItem('gonggong:draft:g1')).toBe('草稿')
+    await act(async () => reply(msg({ seq: 9, body: '草稿' })))
+    expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull()
+  })
+
   it('ignores Enter while an IME composition is active or just ended', async () => {
     const calls = mockApi(
       { messages: [], runs: [] },

@@ -311,7 +311,11 @@ export const RecallRow = memo(function RecallRow({ m, mine }: { m: MessageDto; m
               ? t('你撤回了一条消息')
               : t('{name} 撤回了一条消息', { name: m.authorName })}
       </ChatNotice>
-      {thread ? <ThreadSummary {...thread} /> : null}
+      {thread ? (
+        <div className="tl-recalled-thread">
+          <ThreadSummary {...thread} />
+        </div>
+      ) : null}
     </>
   )
 })
