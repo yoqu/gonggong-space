@@ -1,0 +1,34 @@
+.later__item {
+  cursor: default;
+}
+.later__item:hover {
+  background: var(--content-bg);
+}
+.later__item[data-due] {
+  border-color: var(--system-orange);
+}
+.later__body {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.later__remind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  font-weight: 400;
+}
+.later__remind[data-due] {
+  color: var(--system-orange);
+}
+.later__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}

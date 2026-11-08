@@ -4,11 +4,12 @@ import {
   GroupBotReq,
   GroupMemberReq,
   MarkReadReq,
+  MarkUnreadReq,
   publicRepoUrl,
   RepoReq,
   repoKey,
 } from '@gonggong/protocol'
-import { and, asc, eq, ilike, isNull, max, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, ilike, inArray, isNull, max, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, groupRepos, groups, messages, users } from '../../db/schema.js'
@@ -103,6 +104,62 @@ export function groupRoutes(ctx: Ctx) {
       const group = await groupDto(ctx, me.id, req.params.id)
       if (target > member.lastReadSeq) ctx.bus.publish([me.id], { t: 'group.updated', group })
       return group
+    })
+
+    // 从这里标为未读: unlike reading, the cursor may move back.
+    app.put<{ Params: { id: string } }>('/api/groups/:id/unread', async (req) => {
+      const me = await requireUser(ctx, req)
+      await requireMember(ctx, req.params.id, me.id)
+      const { seq } = MarkUnreadReq.parse(req.body)
+      const [row] = await ctx.db
+        .select({ lastSeq: max(messages.seq) })
+        .from(messages)
+        .where(eq(messages.groupId, req.params.id))
+      if (seq > (row?.lastSeq ?? 0)) return fail('invalid', '消息不存在')
+      await ctx.db
+        .update(groupMembers)
+        .set({ lastReadSeq: seq - 1 })
+        .where(and(eq(groupMembers.groupId, req.params.id), eq(groupMembers.userId, me.id)))
+      const group = await groupDto(ctx, me.id, req.params.id)
+      ctx.bus.publish([me.id], { t: 'group.updated', group })
+      return group
+    })
+
+    // 全部已读 (Shift+Esc): every live group of the caller in the current team.
+    app.post('/api/groups/read-all', async (req, reply) => {
+      const me = await requireUser(ctx, req)
+      const teamId = await currentTeam(ctx, req, me.id)
+      const rows = await ctx.db
+        .select({
+          groupId: groupMembers.groupId,
+          lastReadSeq: groupMembers.lastReadSeq,
+          lastSeq: sql<
+            number | null
+          >`(select max(m.seq) from messages m where m.group_id = ${groups.id})`.mapWith(Number),
+        })
+        .from(groupMembers)
+        .innerJoin(groups, eq(groups.id, groupMembers.groupId))
+        .where(and(eq(groupMembers.userId, me.id), eq(groups.teamId, teamId), isNull(groups.archivedAt)))
+      const behind = rows.filter((r) => r.lastSeq && r.lastSeq > r.lastReadSeq)
+      for (const r of behind) {
+        const seq = r.lastSeq as number
+        await ctx.db
+          .update(groupMembers)
+          .set({ lastReadSeq: sql`greatest(${groupMembers.lastReadSeq}, ${seq})` })
+          .where(and(eq(groupMembers.groupId, r.groupId), eq(groupMembers.userId, me.id)))
+        await readMentions(ctx, me.id, r.groupId, seq)
+      }
+      if (behind.length)
+        for (const group of await groupDtos(
+          ctx,
+          me.id,
+          inArray(
+            groups.id,
+            behind.map((r) => r.groupId),
+          ),
+        ))
+          ctx.bus.publish([me.id], { t: 'group.updated', group })
+      return reply.code(204).send()
     })
 
     app.post<{ Params: { id: string } }>('/api/groups/:id/members', async (req) => {

@@ -208,7 +208,7 @@ export const MessageComposer = memo(function MessageComposer({
     names,
     sections,
     items: candidates,
-  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates)
+  } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates, !!thread)
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
 

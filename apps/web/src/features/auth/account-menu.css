@@ -26,3 +26,16 @@
   font-weight: var(--text-headline-weight);
   color: var(--label);
 }
+.account__trigger {
+  position: relative;
+}
+/* 暂停通知 in effect. */
+.account__paused {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--window-bg);
+  color: var(--label-secondary);
+}

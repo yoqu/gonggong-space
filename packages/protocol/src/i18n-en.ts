@@ -270,6 +270,7 @@ export const protocolEn = {
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you, please confirm the binding',
   '共享 Bot': 'Shared Bot',
   '有人@我': 'Mentioned',
+  稍后处理提醒: 'Reminder',
   共享申请: 'Share request',
   待处理共享申请: 'Share request to review',
   'Git 操作申请': 'Git request',

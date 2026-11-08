@@ -107,11 +107,29 @@ export const UserDto = z.object({
   avatar: z.string().nullable(),
 })
 export type UserDto = z.infer<typeof UserDto>
+/** 通知 per member and conversation: everything, only @ (incl. @所有人), or nothing (plan 未读与通知). */
+export const NotifyLevel = z.enum(['all', 'mentions', 'off'])
+export type NotifyLevel = z.infer<typeof NotifyLevel>
+/** 勿扰: push is held back while paused or inside the daily quiet hours (HH:mm in `timezone`, may cross midnight). */
+export const NotifyPrefs = z.object({
+  pausedUntil: z.string().nullable().optional(),
+  quietHours: z
+    .object({
+      start: z.string().regex(/^\d{2}:\d{2}$/),
+      end: z.string().regex(/^\d{2}:\d{2}$/),
+      timezone: z.string().min(1),
+    })
+    .nullable()
+    .optional(),
+})
+export type NotifyPrefs = z.infer<typeof NotifyPrefs>
 /** PATCH /api/me: the caller's own preferences and profile (same name rule as sign-up); `email: ''` clears it. */
 export const UpdateMeReq = z.object({
   gitProtocol: GitProtocol.optional(),
   name: z.string().trim().min(1).max(40).optional(),
   email: z.union([z.literal(''), z.string().trim().toLowerCase().pipe(z.email().max(120))]).optional(),
+  /** Merged into the stored prefs; null clears a field. */
+  notifyPrefs: NotifyPrefs.optional(),
 })
 /** PUT /api/{me,teams/:id,bots/:id,groups/:id}/avatar (multipart `file`): raster images only, SVG could carry script. */
 export const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
@@ -191,6 +209,7 @@ export const MeDto = UserDto.extend({
   demoMode: z.boolean(),
   /** 系统参数 · the plugin master switch: group settings offer the 插件 tab while it is on. */
   pluginsEnabled: z.boolean(),
+  notifyPrefs: NotifyPrefs,
 })
 export type MeDto = z.infer<typeof MeDto>
 const TeamName = z.string().trim().min(1).max(40)
@@ -1016,6 +1035,7 @@ export const NotificationType = z.enum([
   'listing_upgraded',
   'join_request',
   'join_decided',
+  'reminder',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1035,6 +1055,7 @@ export type NotificationUnreadDto = z.infer<typeof NotificationUnreadDto>
 
 /** Also sent as browser push, only to the people who can act (spec §8.11); others stay in the in-app center. */
 export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
+  'reminder',
   'approval',
   'question',
   'offline_expired',
@@ -1096,8 +1117,8 @@ export const GroupDto = z.object({
   ),
   botIds: z.array(z.string()),
   unread: z.number().int(),
-  /** An unread message @s the caller ([有人@我]); always sent by the server. */
-  mentioned: z.boolean().optional(),
+  /** Unread messages that @ the caller (or @所有人), up to 99; always sent by the server. */
+  mentionCount: z.number().int().optional(),
   lastSeq: z.number().int(),
   /** One-line preview of the latest message, '' when empty. */
   last: z.string(),
@@ -1115,7 +1136,7 @@ export const GroupDto = z.object({
   doneSeq: z.number().int().nullable().optional(),
   /** 标记 by the caller; always sent by the server. */
   flagged: z.boolean().optional(),
-  muted: z.boolean(),
+  notifyLevel: NotifyLevel,
   foldRuns: z.boolean(),
   /** Bot turns live here (running, or waiting on an approval or answer); non-empty tags the conversation. */
   liveRunIds: z.array(z.string()),
@@ -1150,6 +1171,8 @@ export const GroupMemberReq = z.object({ userIds: z.array(z.string()).min(1).max
 export const GroupBotReq = z.object({ botId: z.string() })
 /** Moves the read cursor forward; omit `seq` to mark everything read. */
 export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
+/** PUT /api/groups/:id/unread: 从这里标为未读, the read cursor moves back to just before `seq`. */
+export const MarkUnreadReq = z.object({ seq: z.number().int().min(1) })
 export const RepoReq = z.object({ url: z.string(), branch: z.string() })
 /** POST /api/groups/:id/repos adds an extra repo (RepoReq); PATCH …/repos/:repoId changes its branch. */
 export const RepoBranchReq = z.object({ branch: z.string().min(1) })
@@ -1795,6 +1818,14 @@ export type RunSessionDto = z.infer<typeof RunSessionDto>
 
 export const TimelineDto = z.object({ messages: z.array(MessageDto), runs: z.array(RunDto) })
 export type TimelineDto = z.infer<typeof TimelineDto>
+/**
+ * GET /api/unreads → 全部未读: the caller's groups with unread messages, latest first; each with its first unread
+ * main-timeline messages (oldest first, up to 20, `more` when there are others).
+ */
+export const UnreadsDto = z.object({
+  groups: z.array(z.object({ group: GroupDto, messages: z.array(MessageDto), more: z.boolean() })),
+})
+export type UnreadsDto = z.infer<typeof UnreadsDto>
 
 /**
  * Threads (plan 话题). GET /api/messages/:rootId/thread?before= → ThreadDto: the root, a page of replies (oldest first)
@@ -1839,6 +1870,34 @@ export type ThreadInboxDto = z.infer<typeof ThreadInboxDto>
 /** GET /api/threads/unread → followed threads with unread replies, and how many of them @ the viewer. */
 export const ThreadUnreadDto = z.object({ unread: z.number().int(), mentioned: z.number().int() })
 export type ThreadUnreadDto = z.infer<typeof ThreadUnreadDto>
+
+/** 稍后处理: PUT /api/messages/:id/save — save (or re-save) a message, with a reminder or none. */
+export const SaveMessageReq = z.object({ remindAt: z.string().datetime({ offset: true }).nullable() })
+export type SaveMessageReq = z.infer<typeof SaveMessageReq>
+/** PUT /api/messages/:id/save/done — 完成 a saved message, or back to 进行中. */
+export const SaveDoneReq = z.object({ done: z.boolean() })
+export const SavedMessageDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  message: MessageDto,
+  remindAt: z.string().nullable(),
+  /** The reminder fired: due until done or re-scheduled. */
+  remindedAt: z.string().nullable(),
+  doneAt: z.string().nullable(),
+  createdAt: z.string(),
+})
+export type SavedMessageDto = z.infer<typeof SavedMessageDto>
+/** GET /api/saved?state=&before= — 进行中 newest saved first, 已完成 newest done first; `before` = the last item's cursor. */
+export const SavedListQuery = z.object({
+  state: z.enum(['open', 'done']).default('open'),
+  before: z.string().datetime({ offset: true }).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(30),
+})
+export const SavedListDto = z.object({ items: z.array(SavedMessageDto) })
+export type SavedListDto = z.infer<typeof SavedListDto>
+/** GET /api/saved/state: the caller's open saved message ids (for the 已收藏 mark) and how many reminders are due. */
+export const SavedStateDto = z.object({ ids: z.array(z.string()), due: z.number().int() })
+export type SavedStateDto = z.infer<typeof SavedStateDto>
 
 export const SendMessageReq = z.object({
   /** May be empty when the message carries attachments. */
@@ -2078,7 +2137,7 @@ export type UpdateGroupReq = z.infer<typeof UpdateGroupReq>
 /** PUT /api/groups/:id/prefs — only for the caller. */
 export const GroupPrefsReq = z
   .object({
-    muted: z.boolean(),
+    notifyLevel: NotifyLevel,
     pinned: z.boolean(),
     foldRuns: z.boolean(),
     noticeHidden: z.boolean(),
@@ -2679,6 +2738,8 @@ export const WebEvent = z.discriminatedUnion('t', [
   }),
   /** The receiving user's state of a thread changed (followed, read, a new reply). */
   ThreadStateDto.extend({ t: z.literal('thread.state') }),
+  /** The receiving user's 稍后处理 changed (saved, done, removed, a reminder fired): refetch. */
+  z.object({ t: z.literal('saved.changed') }),
   /** A message's reactions changed; replaces its list (`mine` is per receiving user). */
   ReactionsDto.extend({ t: z.literal('message.reactions') }),
   /** Sent to every member; quotes of it now read RECALLED_QUOTE. */

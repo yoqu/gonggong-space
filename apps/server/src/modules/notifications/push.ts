@@ -5,7 +5,7 @@ import type { Ctx } from '../../context.js'
 import { pushSubscriptions, runs, systemParams } from '../../db/schema.js'
 import { translator } from '../../i18n/index.js'
 import { isUuid } from '../../lib/ids.js'
-import { isNotificationSuppressed } from './suppress.js'
+import { pushSuppressed } from './suppress.js'
 
 interface VapidKeys {
   publicKey: string
@@ -75,12 +75,9 @@ export async function notificationTag(ctx: Ctx, n: NotificationDto) {
 
 /** Sends a notification to every browser the user subscribed; failures never affect the caller. */
 export async function sendPush(ctx: Ctx, userId: string, n: NotificationDto) {
-  if (isNotificationSuppressed((id, groupId) => ctx.bus.isReading(id, groupId), userId, n)) return
-  const subs = await ctx.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
-  if (!subs.length) return
-  const keys = await vapidKeys(ctx)
+  if (await pushSuppressed(ctx, userId, n)) return
   const tag = await notificationTag(ctx, n)
-  const payload = (locale: string) => {
+  await deliver(ctx, userId, (locale) => {
     const view = notificationView(n, translator(resolveLocale(locale)).text)
     return JSON.stringify({
       title: view.group ? `${view.label} · ${view.group}` : view.label,
@@ -88,7 +85,24 @@ export async function sendPush(ctx: Ctx, userId: string, n: NotificationDto) {
       url: view.href,
       ...(tag && { tag }),
     })
-  }
+  })
+}
+
+/** A browser push that is not a stored notification (通知「全部」 messages); same suppression as notifications. */
+export async function sendMessagePush(
+  ctx: Ctx,
+  userId: string,
+  groupId: string,
+  push: { title: string; body: string; url: string; tag: string },
+) {
+  if (await pushSuppressed(ctx, userId, { payload: { groupId } })) return
+  await deliver(ctx, userId, () => JSON.stringify(push))
+}
+
+async function deliver(ctx: Ctx, userId: string, payload: (locale: string) => string) {
+  const subs = await ctx.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
+  if (!subs.length) return
+  const keys = await vapidKeys(ctx)
   const gone: string[] = []
   await Promise.all(
     subs.map((s) =>

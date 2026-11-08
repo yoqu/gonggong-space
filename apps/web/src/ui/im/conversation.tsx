@@ -20,7 +20,10 @@ export interface Conversation {
   tags?: TagSpec[]
   time?: string
   preview?: ReactNode
+  /** The count badge; group rows pass their @ count, DMs their unread (plan 未读与通知). */
   unread?: number
+  /** Something unread: the name and preview stand out without a number. */
+  bold?: boolean
   /** Muted rows may show a grey dot instead of a count. */
   unreadDot?: boolean
   muted?: boolean
@@ -89,7 +92,7 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
       </span>
       <span className="pn-conv__body">
         <span className="pn-conv__line">
-          <span className="pn-conv__name">{it.name}</span>
+          <span className={cx('pn-conv__name', it.bold && 'pn-conv__name--bold')}>{it.name}</span>
           {it.flagged && <Icon name="flag" size={12} label={t('已标记')} className="pn-conv__flagged" />}
           {it.tags?.map((t) => (
             <Tag key={t.label} tone={t.tone}>
@@ -103,7 +106,7 @@ export function ConversationContent({ item: it }: { item: Conversation }) {
           </span>
         </span>
         <span className="pn-conv__line">
-          <span className="pn-conv__preview">
+          <span className={cx('pn-conv__preview', it.bold && 'pn-conv__preview--bold')}>
             {flag && <span className="pn-conv__flag">{flag}</span>}
             {it.alert ? it.alert.text : it.draft || it.preview}
           </span>

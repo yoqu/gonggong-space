@@ -53,7 +53,7 @@ const group: GroupDto = {
   lastSeq: 2,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],

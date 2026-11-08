@@ -55,6 +55,7 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   listing_upgraded: { icon: 'arrow-clockwise', color: 'var(--system-blue)' },
   join_request: { icon: 'person-add', color: 'var(--system-orange)' },
   join_decided: { icon: 'person-add', color: 'var(--system-blue)' },
+  reminder: { icon: 'bookmark', color: 'var(--system-indigo)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */

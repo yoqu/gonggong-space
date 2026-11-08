@@ -93,6 +93,8 @@ describe('create group', () => {
     expect(res.status).toBe(200)
     expect(res.body.members).toEqual([{ userId: p.wang.id, name: '王磊', avatar: null, isAdmin: true }])
     expect(res.body.repo).toBeNull()
+    // DMs notify everything by default, groups only @.
+    expect(res.body.notifyLevel).toBe('all')
     expect(await bodies(p.asWang, res.body.id)).toEqual([
       '王磊 创建了私聊 · 仅你和你的 Bot',
       '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
@@ -189,8 +191,8 @@ describe('reading groups', () => {
     )
 
     const [mine] = (await p.asWang.get<GroupDto[]>('/api/groups')).body
-    expect(mine).toMatchObject({ unread: 100, mentioned: true })
-    expect((await p.asLi.get<GroupDto[]>('/api/groups')).body[0]).toMatchObject({ mentioned: false })
+    expect(mine).toMatchObject({ unread: 100, mentionCount: 1 })
+    expect((await p.asLi.get<GroupDto[]>('/api/groups')).body[0]).toMatchObject({ mentionCount: 0 })
     expect((await unreadByTeam(t.ctx, p.wang.id)).get(g.teamId)).toBe(100)
   })
 

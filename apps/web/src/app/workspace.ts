@@ -56,7 +56,7 @@ function withMessage(g: GroupDto, m: MessageDto, activeGroupId: string | null): 
   const me = useSession.getState().user?.id
   const counts = m.kind !== 'event' && m.authorId !== me && g.id !== activeGroupId
   const lastI18n = m.kind === 'event' ? m.i18n : undefined
-  const mentioned = g.mentioned || (counts && !!me && !!m.userMentions?.includes(me))
+  const mentioned = counts && !!me && !!m.userMentions?.includes(me)
   return {
     ...g,
     lastSeq: m.seq,
@@ -64,9 +64,17 @@ function withMessage(g: GroupDto, m: MessageDto, activeGroupId: string | null): 
     lastI18n,
     lastAt: m.createdAt,
     unread: g.unread + (counts ? 1 : 0),
-    mentioned,
+    mentionCount: Math.min(99, (g.mentionCount ?? 0) + (mentioned ? 1 : 0)),
   }
 }
+
+/** A row's number: a group's unread @ of me, a DM's unread messages (plan 未读与通知). */
+export const rowCount = (g: Pick<GroupDto, 'kind' | 'unread' | 'mentionCount'>) =>
+  g.kind === 'dm' ? g.unread : (g.mentionCount ?? 0)
+
+/** What adds to the totals: rows whose 通知 is off only show theirs, greyed. */
+export const alertCount = (g: Pick<GroupDto, 'kind' | 'unread' | 'mentionCount' | 'notifyLevel'>) =>
+  g.notifyLevel === 'off' ? 0 : rowCount(g)
 
 export const lastText = (g: Pick<GroupDto, 'last' | 'lastI18n'>) => (g.lastI18n ? t.text(g.lastI18n) : g.last)
 

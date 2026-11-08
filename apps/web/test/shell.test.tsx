@@ -39,7 +39,7 @@ const group = (id: string, name: string, o: Partial<GroupDto> = {}): GroupDto =>
   lastSeq: 0,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -231,7 +231,7 @@ describe('sidebar', () => {
   })
 
   it('labels unread badges and keeps full bot info in a title', async () => {
-    mockApi(routes([group('g1', '退款 v2 迁移', { unread: 3 })]))
+    mockApi(routes([group('g1', '退款 v2 迁移', { unread: 3, mentionCount: 3 })]))
     renderAt('/g/g1')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     expect(await within(nav).findByLabelText('3 条未读')).toBeTruthy()
@@ -265,8 +265,8 @@ describe('sidebar live runs', () => {
     ]
     mockApi(
       routes([
-        group('g1', '闲聊', { mentioned: true, unread: 1 }),
-        group('g2', '退款 v2 迁移', { liveRuns: runs, mentioned: true }),
+        group('g1', '闲聊', { mentionCount: 1, unread: 1 }),
+        group('g2', '退款 v2 迁移', { liveRuns: runs, mentionCount: 1 }),
         group('g3', '置顶群', { pinned: true }),
         group('g4', '别人审批', { liveRuns: [live('r5', 'awaiting_approval')] }),
       ]),
@@ -757,13 +757,13 @@ describe('home route', () => {
 })
 
 describe('nav rail', () => {
-  it('shows total unread on 消息, toggles the notification popover and sends sysadmins to the admin console', async () => {
+  it('totals @ of me and DM unread on 消息, toggles the notification popover and sends sysadmins to the admin console', async () => {
     useSession.setState({ user: { ...me, role: 'sysadmin' }, status: 'ready' })
     mockApi(
       routes([
-        group('g1', '退款', { unread: 2 }),
-        group('g2', '支付', { unread: 3 }),
-        group('g3', '静音', { unread: 9, muted: true }),
+        group('g1', '退款', { unread: 7, mentionCount: 2 }),
+        group('g2', '支付', { kind: 'dm', unread: 3 }),
+        group('g3', '静音', { unread: 9, mentionCount: 9, notifyLevel: 'off' }),
       ]),
     )
     renderAt('/')

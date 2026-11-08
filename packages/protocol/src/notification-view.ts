@@ -107,6 +107,15 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
           ? `/g/${p('groupId')}?thread=${p('threadRootId')}`
           : `/g/${p('groupId')}?msg=${p('messageId')}`,
       }
+    case 'reminder':
+      return {
+        label: say('稍后处理提醒'),
+        text: p('byName') ? `${p('byName')}：${p('text')}` : p('text'),
+        group,
+        href: p('threadRootId')
+          ? `/g/${p('groupId')}?thread=${p('threadRootId')}`
+          : `/g/${p('groupId')}?msg=${p('messageId')}`,
+      }
     case 'bot_share_request':
       return {
         label: say(n.resolvedAt ? '共享申请' : '待处理共享申请'),

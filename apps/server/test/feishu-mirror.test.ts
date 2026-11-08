@@ -569,6 +569,15 @@ describe('共工 → 飞书', () => {
     expect(await t.db.select().from(runs)).toHaveLength(1)
   })
 
+  it('an owner’s @所有人 becomes Feishu’s @all', async () => {
+    const { ownerHttp, group } = await setup()
+    await ownerHttp.post(`/api/groups/${group.id}/messages`, { body: '@所有人 发版', clientId: 'client-1' })
+    await feishuIdle(t.ctx)
+    expect(t.feishu.sent.filter((s) => s.msgType === 'text').map((s) => s.content)).toEqual([
+      { text: '<at user_id="all">所有人</at> 发版' },
+    ])
+  })
+
   it('a thread reply replies to its mirrored root in Feishu (plan 话题)', async () => {
     const { ownerHttp, group } = await setup()
     const root = await ownerHttp.post<MessageDto>(`/api/groups/${group.id}/messages`, {

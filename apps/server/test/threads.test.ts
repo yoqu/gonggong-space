@@ -152,7 +152,7 @@ describe('thread unread', () => {
     const root = (await send(s.asWang, s.g.id, '根')).body
     await send(s.asLi, s.g.id, '@赵敏 看下', { threadRootId: root.id })
     await s.asZhao.post(`/api/groups/${s.g.id}/read`, {})
-    expect(await groupOf(s.asZhao, s.g.id)).toMatchObject({ mentioned: false })
+    expect(await groupOf(s.asZhao, s.g.id)).toMatchObject({ mentionCount: 0 })
     expect((await s.asZhao.get<ThreadUnreadDto>('/api/threads/unread')).body).toEqual({
       unread: 1,
       mentioned: 1,

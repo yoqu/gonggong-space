@@ -7,7 +7,7 @@ import { useShellOverlay } from './AppShell'
 import { useIsBuilder } from './builder'
 import { isMachinesPath } from './MachineSidebar'
 import { useSession } from './session'
-import { useWorkspace } from './workspace'
+import { alertCount, useWorkspace } from './workspace'
 
 /**
  * Chat window NavRail (D12): 消息 / 作品 (with a creation plugin on) / 市场 / 机器与 Bot / 通知 / 管理后台 (sysadmin)
@@ -22,7 +22,7 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const worksShown = useWorksShown()
   const builder = useIsBuilder()
   const admin = useSession((s) => s.user?.role === 'sysadmin')
-  const unread = useWorkspace((s) => s.groups.reduce((n, g) => n + (g.muted ? 0 : g.unread), 0))
+  const unread = useWorkspace((s) => s.groups.reduce((n, g) => n + alertCount(g), 0))
   const notifCount = useWorkspace((s) => s.notifCount)
   const { overlay, set } = useShellOverlay()
   const bar = orientation === 'horizontal'

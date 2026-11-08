@@ -77,6 +77,8 @@ import { runRoutes } from './modules/runs/routes.js'
 import { startRunSearchText } from './modules/runs/search-text.js'
 import { startOfflineExpiry } from './modules/runs/stop.js'
 import { stopRoutes } from './modules/runs/stop-routes.js'
+import { savedRoutes } from './modules/saved/routes.js'
+import { startReminderEngine } from './modules/saved/service.js'
 import { startScheduleEngine } from './modules/schedules/engine.js'
 import { scheduleRoutes } from './modules/schedules/routes.js'
 import { searchRoutes } from './modules/search/routes.js'
@@ -139,6 +141,8 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
   await app.register(joinRequestRoutes(ctx))
   await app.register(messageRoutes(ctx))
   await app.register(threadRoutes(ctx))
+  await app.register(savedRoutes(ctx))
+  app.addHook('onClose', startReminderEngine(ctx))
   await app.register(reactionRoutes(ctx))
   await app.register(attachmentRoutes(ctx))
   await app.register(webGateway(ctx))

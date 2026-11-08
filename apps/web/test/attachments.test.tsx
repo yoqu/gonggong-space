@@ -47,7 +47,7 @@ const group: GroupDto = {
   lastSeq: 4,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],

@@ -60,7 +60,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   lastSeq: 4,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -302,7 +302,7 @@ describe('sidebar', () => {
   it('lists groups and DMs with last line and unread badge', async () => {
     mockApi(
       baseRoutes([
-        group({ unread: 3, last: '李建国：好的' }),
+        group({ unread: 5, mentionCount: 3, last: '李建国：好的' }),
         group({ id: 'd1', kind: 'dm', name: '脚本实验' }),
       ]),
     )
@@ -310,7 +310,7 @@ describe('sidebar', () => {
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     const row = await within(nav).findByRole('link', { name: /退款 v2 迁移/ })
     // The second line is the latest message; the mode is shown in the chat header instead.
-    expect(row.querySelector('.pn-conv__preview')?.textContent).toBe('李建国：好的')
+    expect(row.querySelector('.pn-conv__preview')?.textContent).toBe('[有人@我] 李建国：好的')
     expect(within(row).getByText('3')).toBeTruthy()
     expect(within(nav).getByRole('link', { name: /脚本实验/ })).toBeTruthy()
   })
@@ -332,9 +332,10 @@ describe('sidebar', () => {
       expect(calls.find((c) => c.path === '/groups/g1/prefs')?.body).toEqual({ pinned: true }),
     )
     fireEvent.contextMenu(row())
-    fireEvent.click(await screen.findByRole('menuitem', { name: '消息免打扰' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '通知' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '关闭' }))
     await waitFor(() =>
-      expect(calls.filter((c) => c.path === '/groups/g1/prefs').at(-1)?.body).toEqual({ muted: true }),
+      expect(calls.filter((c) => c.path === '/groups/g1/prefs').at(-1)?.body).toEqual({ notifyLevel: 'off' }),
     )
     fireEvent.contextMenu(row())
     fireEvent.click(await screen.findByRole('menuitem', { name: '清除未读' }))
@@ -822,6 +823,31 @@ describe('chat view', () => {
 
     push({ t: 'message.new', message: sent })
     expect(within(screen.getByRole('main')).getAllByText('跑一下', { exact: false })).toHaveLength(1)
+  })
+
+  it('offers @所有人 to group admins only', async () => {
+    mockApi(baseRoutes([group()]))
+    const { unmount } = renderAt('/g/g1')
+    const box = (await screen.findByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    )) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '@', selectionStart: 1 } })
+    fireEvent.click(
+      within(screen.getByRole('listbox', { name: '@ 候选' })).getByRole('option', { name: /^所有人/ }),
+    )
+    expect(box.value).toBe('@所有人 ')
+    unmount()
+
+    const members = group().members.map((m) => ({ ...m, isAdmin: m.userId !== me.id }))
+    mockApi(baseRoutes([group({ members })]))
+    renderAt('/g/g1')
+    const other = (await screen.findByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    )) as HTMLTextAreaElement
+    fireEvent.change(other, { target: { value: '@', selectionStart: 1 } })
+    const list = screen.getByRole('listbox', { name: '@ 候选' })
+    expect(within(list).getByRole('option', { name: /^李建国/ })).toBeTruthy()
+    expect(within(list).queryByRole('option', { name: /^所有人/ })).toBeNull()
   })
 
   it('suggests system commands after a leading / with keyboard navigation', async () => {

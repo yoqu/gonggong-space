@@ -6,6 +6,7 @@ import {
   SKILL_PLUGIN,
 } from '@gonggong/protocol'
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
@@ -115,9 +116,24 @@ export function useCandidates(
   plugins: GroupPluginDto[] = [],
   /** The artifact commands, listed first under `/` while the composer works on an artifact. */
   artifact: Candidate[] = [],
+  inThread = false,
 ) {
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
+  const me = useSession((s) => s.user?.id)
+  // @所有人: group admins, in the main timeline only; the server reads the Chinese word whatever the language.
+  const everyone =
+    group.kind === 'group' && !inThread && !!group.members.find((m) => m.userId === me)?.isAdmin
   const people = [
+    ...(everyone
+      ? [
+          {
+            key: 'everyone',
+            icon: 'person' as const,
+            name: '所有人',
+            hint: t('{n} 人', { n: group.members.length }),
+          },
+        ]
+      : []),
     ...bots.map((b) => ({
       key: `bot:${b.id}`,
       icon: 'bot' as const,

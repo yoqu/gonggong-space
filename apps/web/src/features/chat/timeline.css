@@ -116,6 +116,14 @@
   cursor: default;
 }
 
+/* 跳到首条未读: floats under the pinned prompts, over the messages rather than taking a row. */
+.chat-scroll__pill--top {
+  top: calc(var(--banners-h, 0px) + var(--space-8));
+  bottom: auto;
+  z-index: 3;
+  margin-bottom: calc(-1 * var(--control-large));
+}
+
 /* Overlaps the messages (negative margin) rather than taking a row under them. */
 .chat-scroll__bottom {
   position: sticky;
@@ -535,6 +543,9 @@
   display: inline-flex;
   margin-left: var(--space-4);
   color: var(--system-orange);
+}
+.tl-saved {
+  color: var(--system-indigo);
 }
 .chat-pins__link a {
   color: var(--accent);

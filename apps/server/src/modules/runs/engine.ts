@@ -18,6 +18,7 @@ import {
   postEvent,
   publishMessage,
 } from '../messages/service.js'
+import { pushToAll } from '../notifications/message-push.js'
 import { onQuestionAsk, onQuestionWithdraw, voidQuestions } from '../questions/service.js'
 import { settleSchedule } from '../schedules/engine.js'
 import { forgetRedactors, runRedactors } from '../secrets/resolve.js'
@@ -716,6 +717,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
     await publishMessage(ctx, messageDto(ended.message, name))
     if (ended.root) await publishThread(ctx, ended.root)
     await notifyMentions(ctx, ended.message, name)
+    await pushToAll(ctx, ended.message, name)
   }
   if (ended.state && done.git) await publishBotState(ctx, ended.state)
   // The sealed patch just written may be large and nothing after the end reads it, so it is not sent back.

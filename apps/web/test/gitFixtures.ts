@@ -36,7 +36,7 @@ export const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   lastSeq: 0,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],

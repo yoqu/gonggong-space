@@ -49,7 +49,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   lastSeq: 4,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -782,5 +782,125 @@ describe('markdown code blocks', () => {
     render(<Markdown text={'run `pnpm test` now'} />)
     expect(document.querySelector('.pn-code')).toBeNull()
     expect(screen.getByText('pnpm test').tagName).toBe('CODE')
+  })
+})
+
+describe('未读体验 (plan 未读与通知)', () => {
+  const theirs = (seq: number) => msg({ seq, authorId: 'u2', authorName: '李建国', body: `第 ${seq} 条` })
+  const reads = (calls: Call[]) => calls.filter((c) => c.path === '/groups/g1/read').map((c) => c.body)
+  const arrive = (seq: number) => push({ t: 'message.new', message: theirs(seq) })
+  const msgRow = (body: string) => screen.getByText(body).closest('[data-msg-id]') as HTMLElement
+
+  it('does not mark arrivals read while scrolled up, and does once back at the end', async () => {
+    const calls = mockApi({ messages: [theirs(1), theirs(2)], runs: [] })
+    renderAt()
+    await screen.findByText('第 2 条')
+    await waitFor(() => expect(reads(calls)).toEqual([{ seq: 2 }]))
+    scrollUp(timelineEl())
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      arrive(3)
+      await screen.findByText('第 3 条')
+      await act(() => vi.advanceTimersByTimeAsync(1500))
+      expect(reads(calls)).toEqual([{ seq: 2 }])
+      fireEvent.click(screen.getByRole('button', { name: /1 条新消息/ }))
+      await act(() => vi.advanceTimersByTimeAsync(1500))
+      expect(reads(calls)).toEqual([{ seq: 2 }, { seq: 3 }])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('从这里标为未读 moves the divider and holds reads until Esc', async () => {
+    const calls = mockApi(
+      { messages: [theirs(1), theirs(2), theirs(3)], runs: [] },
+      { 'PUT /groups/g1/unread': () => group({ unread: 2 }) },
+    )
+    renderAt()
+    await screen.findByText('第 3 条')
+    await waitFor(() => expect(reads(calls)).toEqual([{ seq: 3 }]))
+    fireEvent.contextMenu(screen.getByText('第 2 条'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '从这里标为未读' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path === '/groups/g1/unread')?.body).toEqual({
+        seq: 2,
+      }),
+    )
+    const divider = screen.getByText('以下为新消息')
+    expect(precedes(divider, msgRow('第 2 条'))).toBe(true)
+    expect(precedes(msgRow('第 1 条'), divider)).toBe(true)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      arrive(4)
+      await screen.findByText('第 4 条')
+      await act(() => vi.advanceTimersByTimeAsync(1500))
+      expect(reads(calls)).toEqual([{ seq: 3 }])
+    } finally {
+      vi.useRealTimers()
+    }
+    act(() => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    await waitFor(() => expect(reads(calls)).toContainEqual({}))
+  })
+
+  it('Esc leaves a draft alone', async () => {
+    const calls = mockApi({ messages: [theirs(1)], runs: [] })
+    renderAt()
+    await screen.findByText('第 1 条')
+    await waitFor(() => expect(reads(calls)).toEqual([{ seq: 1 }]))
+    fireEvent.change(box(), { target: { value: '还没写完' } })
+    box().focus()
+    fireEvent.keyDown(box(), { key: 'Escape' })
+    expect(reads(calls)).toEqual([{ seq: 1 }])
+  })
+
+  it('Shift+Esc marks every group read after confirming', async () => {
+    const calls = mockApi({ messages: [theirs(1)], runs: [] }, { 'POST /groups/read-all': () => null })
+    renderAt()
+    await screen.findByText('第 1 条')
+    act(() => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', shiftKey: true }))
+    })
+    fireEvent.click(await screen.findByRole('button', { name: '全部标为已读' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/groups/read-all')).toBe(true))
+  })
+
+  it('pages back on entry until the first unread message is loaded', async () => {
+    const span = (from: number, n: number) => Array.from({ length: n }, (_, i) => theirs(from + i))
+    const calls = mockApi(
+      (path) => ({ messages: path.includes('before=11') ? span(1, 10) : span(11, 50), runs: [] }),
+      { 'GET /groups': () => [group({ unread: 60, lastSeq: 60 })] },
+    )
+    renderAt()
+    await screen.findByText('第 1 条')
+    expect(calls.some((c) => c.path.includes('before=11'))).toBe(true)
+    expect(precedes(await screen.findByText('以下为新消息'), msgRow('第 1 条'))).toBe(true)
+  })
+
+  it('全部未读 lists unread groups, reads one and replies inline', async () => {
+    const calls = mockApi(
+      { messages: [], runs: [] },
+      {
+        'GET /unreads': () => ({
+          groups: [{ group: group({ unread: 25 }), messages: [theirs(5)], more: true }],
+        }),
+        'POST /groups/g1/messages': () => theirs(9),
+      },
+    )
+    renderAt('/unreads')
+    const main = await screen.findByRole('region', { name: '全部未读' })
+    await within(main).findByText('第 5 条')
+    expect(within(main).getByText('还有更多未读，去群里看')).toBeTruthy()
+    fireEvent.change(within(main).getByRole('textbox', { name: '回复…' }), { target: { value: '收到' } })
+    fireEvent.click(within(main).getByRole('button', { name: '发送' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/groups/g1/messages')?.body).toMatchObject({ body: '收到' }),
+    )
+    fireEvent.click(within(main).getByRole('button', { name: '标为已读' }))
+    await waitFor(() => expect(within(main).queryByText('第 5 条')).toBeNull())
+    expect(reads(calls)).toContainEqual({})
   })
 })

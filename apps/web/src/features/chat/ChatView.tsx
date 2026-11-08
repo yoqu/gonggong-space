@@ -15,6 +15,7 @@ import { InspectorPortal, useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
 import { useWorkbench } from '../../app/workbench'
 import { loadPins, useWorkspace } from '../../app/workspace'
+import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { named } from '../../lib/lazy'
 import { realtime } from '../../lib/realtime'
@@ -83,6 +84,7 @@ import {
 } from './TimelineItems'
 import { openThread } from './thread'
 import { useThreadLive } from './threadSummary'
+import { escFree, releaseUnreadMark, useUnreadMark } from './unreadMark'
 import { useMarkRead } from './useMarkRead'
 import { useTimeline } from './useTimeline'
 import { WorkspaceBanner } from './WorkspaceBanner'
@@ -97,6 +99,8 @@ const STICK_PX = 80
 const LOAD_OLDER_PX = 40
 /** Older pages loaded at most while looking for a `?msg=` target. */
 const LINK_PAGES = 10
+/** Older pages loaded on entry to reach the first unread message (unread is counted up to 100). */
+const UNREAD_PAGES = 3
 const FLASH_MS = 2000
 /** Run states a recall of its trigger message stops (unstarted ones the server voids itself). */
 const STARTED: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -224,7 +228,28 @@ export function ChatView({
   /** Unread count when entering; the divider stays where it was placed while new messages arrive. */
   const [entryUnread] = useState(group.unread)
   const [unreadAt, setUnreadAt] = useState<string | null | undefined>(undefined)
-  if (unreadAt === undefined && tl.loaded) setUnreadAt(unreadStart(tl.messages, entryUnread, meId))
+  const unreadPages = useRef(0)
+  // The first unread message must be loaded to place the divider: page back a little for it.
+  useEffect(() => {
+    if (unreadAt !== undefined || !tl.loaded || tl.older === 'loading') return
+    const counted = tl.messages.filter((m) => m.kind !== 'event' && m.authorId !== meId).length
+    if (counted < entryUnread && tl.hasMore && tl.older === 'idle' && unreadPages.current < UNREAD_PAGES) {
+      unreadPages.current++
+      tl.loadOlder().catch(() => {})
+      return
+    }
+    setUnreadAt(unreadStart(tl.messages, entryUnread, meId))
+  }, [unreadAt, tl.loaded, tl.older, tl.messages, tl.hasMore, tl.loadOlder, entryUnread, meId])
+  /** 从这里标为未读: reads stop for the rest of the visit, and the divider moves to that message. */
+  const held = useUnreadMark((s) => s.held[group.id])
+  const dividerAt = held ?? unreadAt
+  useEffect(() => () => releaseUnreadMark(group.id), [group.id])
+  /** Entering past one screen of unread lands on the divider once; the top bar then leads back to it. */
+  const landed = useRef(false)
+  const [pastDivider, setPastDivider] = useState(false)
+  const [dividerDone, setDividerDone] = useState(false)
+  /** The last message scrolled into view: only what was seen is marked read. */
+  const [seenSeq, setSeenSeq] = useState(0)
 
   // The workbench (run tabs, diffs) follows the shown group too, so it is the one to stream.
   useEffect(() => {
@@ -237,7 +262,29 @@ export function ChatView({
   }, [group.id, setActiveGroup])
 
   const lastSeq = tl.messages.at(-1)?.seq ?? 0
-  useMarkRead(group.id, lastSeq, !readOnly)
+  useMarkRead(group.id, seenSeq, !readOnly && !held)
+
+  const divider = () => box.current?.querySelector<HTMLElement>('.pn-notice--unread') ?? null
+  /** Seen up to the last message whose top is above the view's bottom; all of them while pinned to the end. */
+  const measure = () => {
+    const el = box.current
+    if (!el) return
+    const bottom = el.getBoundingClientRect().bottom
+    const d = divider()
+    setPastDivider(!!d && !stick.current && d.getBoundingClientRect().bottom < el.getBoundingClientRect().top)
+    if (stick.current) {
+      setSeenSeq((s) => Math.max(s, lastSeq))
+      return
+    }
+    const items = el.querySelectorAll<HTMLElement>('[data-msg-id]')
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i] as HTMLElement
+      if (item.getBoundingClientRect().top >= bottom) continue
+      const seq = tl.messages.find((m) => m.id === item.dataset.msgId)?.seq ?? 0
+      setSeenSeq((s) => Math.max(s, seq))
+      return
+    }
+  }
 
   const runCount = Object.keys(tl.runs).length
   // Runs grow cards too, so they must re-pin the view.
@@ -250,14 +297,23 @@ export function ChatView({
     if (anchor && first !== anchor.id) {
       el.scrollTop += el.scrollHeight - anchor.height
       olderAnchor.current = null
-    } else if (stick.current) el.scrollTop = el.scrollHeight
-    else if (first === seen.current.first) {
+    } else if (stick.current) {
+      el.scrollTop = el.scrollHeight
+      const d = unreadAt ? divider() : null
+      if (!landed.current && d && !linked && d.getBoundingClientRect().top < el.getBoundingClientRect().top) {
+        d.scrollIntoView?.({ block: 'start' })
+        stick.current = false
+        setAway(true)
+      }
+    } else if (first === seen.current.first) {
       const added =
         tl.messages.filter((m) => m.seq > seen.current.seq).length + Math.max(0, runCount - seen.current.runs)
       if (added) setUnseen((n) => n + added)
     }
+    if (unreadAt !== undefined) landed.current = true
     seen.current = { first, seq: lastSeq, runs: runCount }
-  }, [tl.messages, tl.runs])
+    measure()
+  }, [tl.messages, tl.runs, unreadAt])
 
   // Streamed text grows run cards without re-rendering this view: re-pin once the cards have committed.
   useEffect(
@@ -286,7 +342,11 @@ export function ChatView({
     if (!el) return
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
     setAway(!stick.current)
-    if (stick.current) setUnseen(0)
+    if (stick.current) {
+      setUnseen(0)
+      if (landed.current) setDividerDone(true)
+    }
+    measure()
     // After a failure only the retry row loads again, so scrolling doesn't hammer a failing server.
     if (el.scrollTop < LOAD_OLDER_PX && tl.hasMore && tl.older === 'idle') loadOlder()
   }
@@ -297,7 +357,28 @@ export function ChatView({
     stick.current = true
     setAway(false)
     setUnseen(0)
+    measure()
   }
+
+  const toDivider = () => {
+    divider()?.scrollIntoView?.({ block: 'start' })
+    setDividerDone(true)
+  }
+
+  const latestSeq = useRef(lastSeq)
+  latestSeq.current = lastSeq
+  // Esc: everything here is read (also after 标为未读). Overlays and a draft in the composer keep Esc for themselves.
+  useEffect(() => {
+    if (readOnly) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.shiftKey || e.defaultPrevented || !escFree()) return
+      releaseUnreadMark(group.id)
+      setSeenSeq((s) => Math.max(s, latestSeq.current))
+      api.post(`/groups/${group.id}/read`, {}).catch(() => {})
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [group.id, readOnly])
 
   // `?msg=<id>` (search hits): page back until the message is loaded, then scroll to and flash it.
   useEffect(() => {
@@ -464,12 +545,12 @@ export function ChatView({
   const { folds, folded } = useMemo(() => {
     const folds = new Map<number, MessageDto[]>()
     const folded = new Set<number>()
-    for (const [start, end] of eventFolds(tl.messages, unreadAt)) {
+    for (const [start, end] of eventFolds(tl.messages, dividerAt)) {
       folds.set(start, tl.messages.slice(start, end + 1))
       for (let i = start + 1; i <= end; i++) folded.add(i)
     }
     return { folds, folded }
-  }, [tl.messages, unreadAt])
+  }, [tl.messages, dividerAt])
   const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
   /** Merged under the previous message: nothing (run card, divider) is drawn between them. */
   const isCompact = (prev: MessageDto | undefined, m: MessageDto) =>
@@ -478,7 +559,7 @@ export function ChatView({
     !m.recalled &&
     // Says which thread it answered.
     !m.alsoSent &&
-    m.id !== unreadAt &&
+    m.id !== dividerAt &&
     continues(prev, m) &&
     !replyRun(prev) &&
     !replyRun(m) &&
@@ -574,7 +655,7 @@ export function ChatView({
           }
           subtitle={
             <>
-              {group.muted ? (
+              {group.notifyLevel === 'off' ? (
                 <Icon
                   name="bell-slash"
                   size={11}
@@ -719,6 +800,12 @@ export function ChatView({
               {readOnly ? null : <WorkspaceBanner group={group} />}
               {readOnly ? null : <SecretBanner groupId={group.id} />}
             </div>
+            {pastDivider && !dividerDone && entryUnread > 0 && !held ? (
+              <button type="button" className="chat-scroll__pill chat-scroll__pill--top" onClick={toDivider}>
+                <Icon name="chevron-up" size={13} />
+                {t('{n} 条新消息 · 跳到首条', { n: entryUnread >= 100 ? '99+' : entryUnread })}
+              </button>
+            ) : null}
             <MessageList className="chat-scroll__list">
               {tl.older === 'loading' ? (
                 <div className="chat-scroll__older" data-testid="older-loading">
@@ -758,7 +845,7 @@ export function ChatView({
                       {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
                         <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
                       )}
-                      {m.id === unreadAt ? <ChatNotice kind="unread" /> : null}
+                      {m.id === dividerAt ? <ChatNotice kind="unread" /> : null}
                       {fold === undefined ? (
                         <div
                           inert={readOnly}

@@ -53,7 +53,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   lastSeq: 9,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -478,7 +478,17 @@ describe('hover action bar', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['回复话题', '表情回应', '引用回复', '复制', '复制链接', '置顶', '存入知识库'])
+    ).toEqual([
+      '回复话题',
+      '表情回应',
+      '引用回复',
+      '复制',
+      '稍后处理',
+      '复制链接',
+      '从这里标为未读',
+      '置顶',
+      '存入知识库',
+    ])
     fireEvent.click(within(menu).getByRole('menuitem', { name: '表情回应' }))
     const row = bubble.closest('.pn-msg') as HTMLElement
     expect(within(row).getByRole('button', { name: '添加表情回应' }).getAttribute('aria-expanded')).toBe(

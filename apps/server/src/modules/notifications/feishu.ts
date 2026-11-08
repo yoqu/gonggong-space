@@ -8,7 +8,7 @@ import { notificationCard, shareRequestCard } from '../feishu/cards.js'
 import { credsOf } from '../feishu/gateway.js'
 import { publicUrl } from '../feishu/identity.js'
 import { notificationDto } from './notify.js'
-import { isNotificationSuppressed } from './suppress.js'
+import { pushSuppressed } from './suppress.js'
 
 async function viewOf(ctx: Ctx, n: NotificationDto) {
   const view = notificationView(n, translator('zh').text)
@@ -21,13 +21,12 @@ async function viewOf(ctx: Ctx, n: NotificationDto) {
  * user is reading its group in the app: they already see it there.
  */
 export async function sendFeishuNotice(ctx: Ctx, userId: string, n: NotificationDto) {
-  if (isNotificationSuppressed((id, groupId) => ctx.bus.isReading(id, groupId), userId, n)) return
   const [identity] = await ctx.db
     .select({ openId: feishuIdentities.openId })
     .from(feishuIdentities)
     .where(and(eq(feishuIdentities.userId, userId), eq(feishuIdentities.notify, true)))
   const app = identity && (await mainApp(ctx))
-  if (!app) return
+  if (!app || (await pushSuppressed(ctx, userId, n))) return
   const view = await viewOf(ctx, n)
   const kind = REQUEST_KIND[n.type]
   const requestId = kind && !n.resolvedAt ? String(n.payload.requestId) : null

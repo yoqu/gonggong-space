@@ -25,6 +25,7 @@ import {
   type MenuItem,
   Presence,
   SearchField,
+  Select,
   Switch,
   Tag,
   TextField,
@@ -49,6 +50,7 @@ import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { groupsApi, paramsSummary } from './api'
 import { GroupAvatar } from './GroupAvatar'
 import { hideNotice, RemoveNoticeDialog } from './GroupNotice'
+import { NOTIFY_LEVELS } from './notify'
 import { BotPicker, MemberPicker } from './pickers'
 import './groups.css'
 
@@ -73,7 +75,7 @@ export type InfoView =
   | 'schedules'
   | 'knowledge'
 
-type GroupPrefs = Partial<Pick<GroupDto, 'muted' | 'pinned' | 'foldRuns'>>
+type GroupPrefs = Partial<Pick<GroupDto, 'pinned' | 'foldRuns'>>
 
 /** Inline replacement for a failed load: one line plus 重试. */
 function LoadError({ text, onRetry }: { text: string; onRetry: () => void }) {
@@ -404,7 +406,18 @@ function MainView({
         },
         {
           rows: [
-            pref('muted', t('消息免打扰'), t('普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒')),
+            {
+              label: t('通知'),
+              description: t('「仅@」只提醒 @我 和 @所有人；「关闭」连 @ 也不提醒，待审批和向我提问仍提醒'),
+              control: (
+                <Select
+                  label={t('通知')}
+                  options={NOTIFY_LEVELS}
+                  value={group.notifyLevel}
+                  onChange={(notifyLevel) => void attempt(() => groupsApi.prefs(group.id, { notifyLevel }))}
+                />
+              ),
+            },
             pref('pinned', t('星标')),
             pref('foldRuns', t('运行卡片默认折叠'), t('只对我生效，审批与提问卡片始终展开')),
           ],

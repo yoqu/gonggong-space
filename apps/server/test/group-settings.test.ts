@@ -239,15 +239,19 @@ describe('group params', () => {
 })
 
 describe('personal prefs', () => {
-  it('mute / pin / fold are per user', async () => {
+  it('notify level / pin / fold are per user', async () => {
     const w = await world()
-    const res = await w.as.li.put<GroupDto>(`/api/groups/${w.g.id}/prefs`, { pinned: true, muted: true })
-    expect(res.body).toMatchObject({ pinned: true, muted: true, foldRuns: false })
+    const res = await w.as.li.put<GroupDto>(`/api/groups/${w.g.id}/prefs`, {
+      pinned: true,
+      notifyLevel: 'off',
+    })
+    expect(res.body).toMatchObject({ pinned: true, notifyLevel: 'off', foldRuns: false })
     await w.as.li.put(`/api/groups/${w.g.id}/prefs`, { foldRuns: true })
     const li = (await w.as.li.get<GroupDto>(`/api/groups/${w.g.id}`)).body
-    expect(li).toMatchObject({ pinned: true, muted: true, foldRuns: true })
+    expect(li).toMatchObject({ pinned: true, notifyLevel: 'off', foldRuns: true })
     const wang = (await w.as.wang.get<GroupDto>(`/api/groups/${w.g.id}`)).body
-    expect(wang).toMatchObject({ pinned: false, muted: false, foldRuns: false })
+    expect(wang).toMatchObject({ pinned: false, notifyLevel: 'mentions', foldRuns: false })
+    expect((await w.as.li.put(`/api/groups/${w.g.id}/prefs`, { notifyLevel: 'loud' })).status).toBe(400)
     expect((await w.as.outsider.put(`/api/groups/${w.g.id}/prefs`, { pinned: true })).status).toBe(404)
     expect((await w.as.li.put(`/api/groups/${w.g.id}/prefs`, { pinned: 'yes' })).status).toBe(400)
   })

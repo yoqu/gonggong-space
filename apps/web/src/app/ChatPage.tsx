@@ -8,12 +8,14 @@ import { BotDialog, BotPage, NewBotDialog } from '../features/bots/lazy'
 import { confirmBot } from '../features/bots/model'
 import { ChatView } from '../features/chat/ChatView'
 import { ThreadInbox } from '../features/chat/ThreadInbox'
+import { UnreadInbox } from '../features/chat/UnreadInbox'
 import { JoinPreview } from '../features/groups/JoinPreview'
 import { loadSections, loadTeamSections, useTeamSections } from '../features/groups/sections'
 import { AdminMachinePage, BindMachineDialog, MachinePage, MachinesOverview } from '../features/machines/lazy'
 import { MarketPage } from '../features/market/MarketPage'
 import { UserGuide } from '../features/onboarding/UserGuide'
 import { openInWorkbench } from '../features/previews/store'
+import { LaterPage } from '../features/saved/LaterPage'
 import { useGroupOutsideList } from '../features/teams/store'
 import { loadTerminalSpaces, useTerminalSpaces } from '../features/terminal/spaces'
 import { openTab } from '../features/workbench/open'
@@ -168,6 +170,8 @@ export function ChatPage() {
   const managing = isMachinesPath(pathname)
   const works = isWorksPath(pathname)
   const threads = pathname === '/threads'
+  const unreads = pathname === '/unreads'
+  const later = pathname === '/later'
   const market = isMarketPath(pathname)
   const mobile = useIsMobile()
   const me = useSession((s) => s.user)
@@ -214,6 +218,8 @@ export function ChatPage() {
       managing ||
       works ||
       threads ||
+      unreads ||
+      later ||
       market ||
       mobile ||
       groupsState !== 'ready' ||
@@ -222,12 +228,29 @@ export function ChatPage() {
       return
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
-  }, [groupId, spaceId, managing, works, threads, market, mobile, groupsState, groups, navigate])
+  }, [
+    groupId,
+    spaceId,
+    managing,
+    works,
+    threads,
+    unreads,
+    later,
+    market,
+    mobile,
+    groupsState,
+    groups,
+    navigate,
+  ])
 
   return (
     <>
       <ChatLayout
-        mobileView={groupId || botId || machineId || spaceId || works || market || threads ? 'chat' : 'list'}
+        mobileView={
+          groupId || botId || machineId || spaceId || works || market || threads || unreads || later
+            ? 'chat'
+            : 'list'
+        }
         sidebarLabel={managing ? t('机器与 Bot') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
@@ -274,6 +297,10 @@ export function ChatPage() {
           <MarketPage />
         ) : threads ? (
           <ThreadInbox onBack={mobile ? () => navigate('/') : undefined} />
+        ) : unreads ? (
+          <UnreadInbox onBack={mobile ? () => navigate('/') : undefined} />
+        ) : later ? (
+          <LaterPage onBack={mobile ? () => navigate('/') : undefined} />
         ) : works ? (
           <WorksPage />
         ) : machineId ? (

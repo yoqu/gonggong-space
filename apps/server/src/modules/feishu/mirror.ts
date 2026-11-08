@@ -299,7 +299,12 @@ export async function mirrorUserMessage(
     if (!from) return
     const app = credsOf(from)
     const token = dm ? null : await userToken(ctx, author.id)
-    const body = await withFeishuAts(ctx, message.body, (message.meta as MessageMeta).userMentions ?? [])
+    const meta = message.meta as MessageMeta
+    const body = await withFeishuAts(
+      ctx,
+      meta.mentionsAll ? message.body.split('@所有人').join('<at user_id="all">所有人</at>') : message.body,
+      meta.userMentions ?? [],
+    )
     // A thread reply quotes its root in the chat, when the root went there (Feishu threads are not mapped).
     const [root] = message.threadRootId
       ? await ctx.db

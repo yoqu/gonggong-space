@@ -1,13 +1,15 @@
-import type { FeishuIdentityView } from '@gonggong/protocol'
+import type { FeishuIdentityView, NotifyPrefs } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useLocation } from 'react-router'
+import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { toastError } from '../../lib/errors'
+import { attempt, toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, GroupBox, GroupRow, Switch, toast } from '../../ui'
+import { Button, GroupBox, GroupRow, Input, Switch, toast } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { feishuStartUrl } from '../feishu/login'
+import { saveNotifyPrefs } from './dnd'
 import { enablePush, type PushState, pushState } from './push'
 
 /** 「开启浏览器通知」, or where this browser's permission stands. */
@@ -41,7 +43,50 @@ export function NotificationSettings() {
         </GroupRow>
       )}
       <FeishuNotifyRow />
+      <QuietHoursRow />
     </GroupBox>
+  )
+}
+
+/** 免打扰时段: every day in this window nothing is pushed; notifications still wait in the list. */
+function QuietHoursRow() {
+  const quiet = useSession((s) => s.tenancy?.notifyPrefs?.quietHours ?? null)
+  const save = (quietHours: NotifyPrefs['quietHours']) => void attempt(() => saveNotifyPrefs({ quietHours }))
+  const set = (patch: { start?: string; end?: string }) =>
+    quiet && save({ ...quiet, ...patch, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+  return (
+    <GroupRow label={t('免打扰时段')} description={t('每天这段时间不推送浏览器和飞书通知，通知列表照常记录')}>
+      <span className="gs-value-line">
+        {quiet ? (
+          <>
+            <Input
+              aria-label={t('开始时间')}
+              type="time"
+              value={quiet.start}
+              onChange={(e) => e.target.value && set({ start: e.target.value })}
+            />
+            <span>{t('至')}</span>
+            <Input
+              aria-label={t('结束时间')}
+              type="time"
+              value={quiet.end}
+              onChange={(e) => e.target.value && set({ end: e.target.value })}
+            />
+          </>
+        ) : null}
+        <Switch
+          aria-label={t('免打扰时段')}
+          checked={!!quiet}
+          onChange={(on) =>
+            save(
+              on
+                ? { start: '22:00', end: '08:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+                : null,
+            )
+          }
+        />
+      </span>
+    </GroupRow>
   )
 }
 

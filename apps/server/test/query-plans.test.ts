@@ -28,7 +28,7 @@ import {
   users,
 } from '../src/db/schema.js'
 import { likePattern } from '../src/lib/text.js'
-import { mentioned, unread } from '../src/modules/groups/service.js'
+import { mentionCount, unread } from '../src/modules/groups/service.js'
 import { knownNotification } from '../src/modules/notifications/notify.js'
 import { runMatches } from '../src/modules/runs/search-text.js'
 import { createTestDb } from './support/db.js'
@@ -109,7 +109,7 @@ it('a bot’s group memberships and sync replicas are found by bot', async () =>
 
 const conversationList = (userId: string) =>
   t.db
-    .select({ unread, mentioned })
+    .select({ unread, mentionCount })
     .from(groups)
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)))
 

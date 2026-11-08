@@ -26,4 +26,18 @@ export default {
   删除通知: 'Delete notification',
   '只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。':
     'Only things that need you are pushed; group events such as mode changes or outdated machines appear in the group only.',
+  '30 分钟': '30 minutes',
+  '1 小时': '1 hour',
+  '2 小时': '2 hours',
+  '到明天 9 点': 'Until 9 AM tomorrow',
+  暂停通知: 'Pause notifications',
+  暂停到: 'Pause until',
+  '恢复通知（已暂停到 {time}）': 'Resume notifications (paused until {time})',
+  通知已暂停: 'Notifications paused',
+  免打扰时段: 'Quiet hours',
+  '每天这段时间不推送浏览器和飞书通知，通知列表照常记录':
+    'No browser or Feishu notifications during these hours every day; the notification list still records them',
+  开始时间: 'Start time',
+  至: 'to',
+  结束时间: 'End time',
 } satisfies Record<string, string>

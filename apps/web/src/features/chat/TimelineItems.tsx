@@ -41,6 +41,7 @@ import { runMascot } from '../runs/mascot'
 import { stepText, toolTitle } from '../runs/mcp'
 import { QuestionBlock } from '../runs/QuestionBlock'
 import { OfflineNote, RunActions } from '../runs/RunActions'
+import { useSaved } from '../saved/store'
 import { RunSyncLine } from '../sync/RunSyncLine'
 import { BotCardTrigger, UserCardTrigger } from '../users'
 import { openTab } from '../workbench/open'
@@ -157,6 +158,7 @@ function Marks({
       ) : null}
       {feishu ? <span className="tl-edited">{t('来自飞书')}</span> : null}
       {pin ? <PinMark message={pin} /> : null}
+      {pin ? <SavedMark id={pin.id} /> : null}
     </>
   )
 }
@@ -176,6 +178,15 @@ function PinMark({ message }: { message: Pick<MessageDto, 'id' | 'groupId'> }) {
   return pinned ? (
     <span className="tl-pinned" role="img" title={t('已置顶')} aria-label={t('已置顶')}>
       <Icon name="pin" size={11} />
+    </span>
+  ) : null
+}
+
+function SavedMark({ id }: { id: string }) {
+  const saved = useSaved((s) => s.ids.has(id))
+  return saved ? (
+    <span className="tl-pinned tl-saved" role="img" title={t('稍后处理')} aria-label={t('稍后处理')}>
+      <Icon name="bookmark" size={11} />
     </span>
   ) : null
 }

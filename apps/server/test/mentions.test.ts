@@ -51,10 +51,10 @@ describe('被 @ 提醒', () => {
     })
     expect(await notes(s.asWang)).toEqual([])
     expect(await notes(s.asChen)).toEqual([])
-    expect((await groupOf(s.asLi, s.g.id))?.mentioned).toBe(true)
-    expect((await groupOf(s.asChen, s.g.id))?.mentioned).toBe(false)
+    expect((await groupOf(s.asLi, s.g.id))?.mentionCount).toBe(1)
+    expect((await groupOf(s.asChen, s.g.id))?.mentionCount).toBe(0)
     await s.asLi.post(`/api/groups/${s.g.id}/read`, {})
-    expect((await groupOf(s.asLi, s.g.id))?.mentioned).toBe(false)
+    expect((await groupOf(s.asLi, s.g.id))?.mentionCount).toBe(0)
   })
 
   it('marks the @ notifications read once the group is read up to them, and tells the user live', async () => {

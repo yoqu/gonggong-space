@@ -3,6 +3,7 @@ import {
   type DirectoryGroupDto,
   type GroupDto,
   type MachineDto,
+  type NotifyLevel,
   SECTION_MAX_DEPTH,
   type SidebarSectionDto,
   type TerminalSpaceDto,
@@ -22,11 +23,14 @@ import { NavLink, useLocation, useNavigate } from 'react-router'
 import { type PersonaRole, roleCostume } from '../features/bots/avatars'
 import { draftKey } from '../features/chat/MessageComposer'
 import { useThreadUnread, useThreadUnreadSync } from '../features/chat/threadUnread'
+import { UnreadsRow } from '../features/chat/UnreadsRow'
 import { groupsApi } from '../features/groups/api'
 import { GroupAvatar } from '../features/groups/GroupAvatar'
+import { NOTIFY_LEVELS } from '../features/groups/notify'
 import { BrowseChannelsDialog, SectionNameDialog } from '../features/groups/SidebarDialogs'
 import { sectionsApi, teamSectionsApi, useSections, useTeamSections } from '../features/groups/sections'
 import { middle } from '../features/repos/repo-access'
+import { LaterRow } from '../features/saved/LaterRow'
 import { t } from '../i18n'
 import { api } from '../lib/api'
 import { cx } from '../lib/cx'
@@ -48,7 +52,7 @@ import { activityOf } from './convActivity'
 import { useInspector } from './inspector'
 import { useSession } from './session'
 import { useWorkbench } from './workbench'
-import { lastText, useWorkspace } from './workspace'
+import { alertCount, lastText, rowCount, useWorkspace } from './workspace'
 
 export const GROUP_MODE_LABEL = { partition: t('分区模式'), force: t('强制同步') }
 const CONN = {
@@ -185,7 +189,8 @@ const GroupRow = memo(function GroupRow({
       const id = v.slice(8) || null
       void attempt(() => groupsApi.prefs(g.id, { sectionId: id, ...(id && { pinned: false }) }))
     } else if (v === 'pin') void attempt(() => groupsApi.prefs(g.id, { pinned: !g.pinned }))
-    else if (v === 'mute') void attempt(() => groupsApi.prefs(g.id, { muted: !g.muted }))
+    else if (v.startsWith('notify:'))
+      void attempt(() => groupsApi.prefs(g.id, { notifyLevel: v.slice(7) as NotifyLevel }))
     else if (v === 'done') void attempt(() => groupsApi.prefs(g.id, { done: !isDone(g) }))
     else if (v === 'flag') void attempt(() => groupsApi.prefs(g.id, { flagged: !g.flagged }))
     else if (v === 'read')
@@ -243,7 +248,15 @@ const GroupRow = memo(function GroupRow({
               },
             ]
           : []),
-        { label: g.muted ? t('取消免打扰') : t('消息免打扰'), value: 'mute', icon: 'bell-slash' },
+        {
+          label: t('通知'),
+          icon: g.notifyLevel === 'off' ? 'bell-slash' : 'bell',
+          submenu: NOTIFY_LEVELS.map((x) => ({
+            label: x.label,
+            value: `notify:${x.value}`,
+            checked: g.notifyLevel === x.value,
+          })),
+        },
         { label: t('清除未读'), value: 'read', icon: 'check', disabled: !g.unread },
         { label: isDone(g) ? t('移回列表') : t('完成'), value: 'done', icon: 'checkmark-circle' },
         { label: g.flagged ? t('取消标记') : t('标记'), value: 'flag', icon: 'flag' },
@@ -277,9 +290,10 @@ const GroupRow = memo(function GroupRow({
             tags: dm && tagged ? [{ label: 'Bot', tone: 'blue' }] : undefined,
             preview,
             draft: current ? undefined : draftOf(g.id),
-            unread: g.unread,
-            mention: g.mentioned,
-            muted: g.muted,
+            unread: rowCount(g),
+            bold: g.unread > 0 && g.notifyLevel !== 'off',
+            mention: !!g.mentionCount,
+            muted: g.notifyLevel === 'off',
             flagged: g.flagged,
             activity,
             alert,
@@ -308,6 +322,7 @@ function ThreadsRow() {
           ),
           preview: unread ? t('{n} 个话题有新回复', { n: unread }) : t('我关注的话题'),
           unread: mentioned || undefined,
+          bold: unread > 0,
           mention: mentioned > 0,
         }}
       />
@@ -574,7 +589,7 @@ export function ConversationStrip({ groups }: { groups: GroupDto[] }) {
       {rows.map((g) => (
         <NavLink key={g.id} to={`/g/${g.id}`} className="conv-strip__item" title={g.name} aria-label={g.name}>
           <GroupAvatar group={g} size={32} />
-          <Badge count={g.unread} muted={g.muted} />
+          <Badge count={rowCount(g)} muted={g.notifyLevel === 'off'} />
         </NavLink>
       ))}
     </nav>
@@ -585,7 +600,7 @@ export function ConversationStrip({ groups }: { groups: GroupDto[] }) {
 export function ChatStrip({ group }: { group: GroupDto }) {
   const [seen] = useState(group.lastSeq)
   const others = useWorkspace((s) =>
-    s.groups.reduce((n, g) => (g.id === group.id || g.muted ? n : n + g.unread), 0),
+    s.groups.reduce((n, g) => (g.id === group.id ? n : n + alertCount(g)), 0),
   )
   const fresh = group.lastSeq - seen
   return (
@@ -897,6 +912,8 @@ export function Sidebar({
           {anything ? (
             <div className="sidebar__list sidebar__list--convs">
               <ThreadsRow />
+              <UnreadsRow />
+              <LaterRow />
             </div>
           ) : null}
           <section aria-label={t('会话#list')}>

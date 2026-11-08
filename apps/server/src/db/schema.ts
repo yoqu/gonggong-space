@@ -11,6 +11,8 @@ import {
   LIVE_RUN_STATUSES,
   type LintIssue,
   type ListingSource,
+  type NotifyLevel,
+  type NotifyPrefs,
   type PluginManifest,
   type PluginRef,
   type RunConfigPick,
@@ -58,6 +60,8 @@ export const users = pgTable('users', {
   gitProtocol: text('git_protocol').notNull().default('auto'),
   /** UserOnboarding: how the first-login guide was left ({} = not seen yet). */
   onboarding: jsonb('onboarding').notNull().default({}),
+  /** NotifyPrefs: 暂停通知 and 免打扰时段; push is held back meanwhile, notifications still land in the list. */
+  notifyPrefs: jsonb('notify_prefs').$type<NotifyPrefs>().notNull().default({}),
   disabledAt: ts('disabled_at'),
   createdAt: createdAt(),
 })
@@ -547,7 +551,8 @@ export const groupMembers = pgTable(
       .notNull()
       .references(() => users.id),
     isAdmin: boolean('is_admin').notNull().default(false),
-    muted: boolean('muted').notNull().default(false),
+    /** 'all' | 'mentions' | 'off': what pushes and notifies this member (plan 未读与通知). */
+    notifyLevel: text('notify_level').$type<NotifyLevel>().notNull().default('mentions'),
     pinned: boolean('pinned').notNull().default(false),
     foldRuns: boolean('fold_runs').notNull().default(false),
     /** 完成: the group's last seq when this member marked it done; a later message brings it back. */
@@ -704,6 +709,32 @@ export const threadFollows = pgTable(
   (t) => [
     primaryKey({ columns: [t.rootMessageId, t.userId] }),
     index('thread_follows_user').on(t.userId).where(sql`${t.following}`),
+  ],
+)
+
+/** 稍后处理: a user's saved messages, with an optional reminder. */
+export const savedMessages = pgTable(
+  'saved_messages',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    remindAt: ts('remind_at'),
+    remindedAt: ts('reminded_at'),
+    doneAt: ts('done_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.messageId] }),
+    index('saved_messages_due')
+      .on(t.remindAt)
+      .where(sql`${t.doneAt} is null and ${t.remindedAt} is null and ${t.remindAt} is not null`),
   ],
 )
 

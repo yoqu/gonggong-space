@@ -2,6 +2,7 @@ import {
   type AuthOptionsDto,
   ChangePasswordReq,
   LoginReq,
+  type NotifyPrefs,
   RegisterReq,
   UpdateMeReq,
   UpdateOnboardingReq,
@@ -106,10 +107,14 @@ export function authRoutes(ctx: Ctx) {
 
     app.patch('/api/me', async (req) => {
       const user = await requireUser(ctx, req)
-      const { email, ...patch } = UpdateMeReq.parse(req.body)
+      const { email, notifyPrefs, ...patch } = UpdateMeReq.parse(req.body)
       const renamed = patch.name !== undefined && patch.name !== user.name
       if (renamed || email !== undefined) await assertNotDemo(ctx, user)
-      const set = { ...patch, ...(email !== undefined && { email: email || null }) }
+      const set = {
+        ...patch,
+        ...(email !== undefined && { email: email || null }),
+        ...(notifyPrefs && { notifyPrefs: mergePrefs(user.notifyPrefs, notifyPrefs) }),
+      }
       if (!Object.keys(set).length) return meDto(ctx, user)
       const [row] = await ctx.db.update(users).set(set).where(eq(users.id, user.id)).returning()
       if (renamed) await publishProfile(ctx, user.id)
@@ -158,4 +163,9 @@ export function authRoutes(ctx: Ctx) {
       return meDto(ctx, { ...user, mustChangePassword: false })
     })
   }
+}
+
+/** A null field clears it. */
+function mergePrefs(stored: NotifyPrefs, patch: NotifyPrefs): NotifyPrefs {
+  return Object.fromEntries(Object.entries({ ...stored, ...patch }).filter(([, v]) => v != null))
 }

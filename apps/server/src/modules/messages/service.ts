@@ -33,6 +33,8 @@ export type MessageMeta = {
   feishu?: { name?: string }
   /** Members it @s (被 @ notifications). */
   userMentions?: string[]
+  /** @所有人 by a group owner or admin: `userMentions` then holds every other member. */
+  mentionsAll?: boolean
   clientId?: string
   command?: string
   /** An agent command sent verbatim to the mentioned bots (RunStart.command). */

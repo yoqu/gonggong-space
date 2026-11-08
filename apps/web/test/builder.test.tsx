@@ -143,7 +143,7 @@ describe('使用者 / 搭建者', () => {
             lastSeq: 0,
             last: '',
             pinned: false,
-            muted: false,
+            notifyLevel: 'mentions',
             foldRuns: false,
             liveRunIds: [],
             liveRuns: [],

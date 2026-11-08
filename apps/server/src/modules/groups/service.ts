@@ -157,11 +157,12 @@ export const unread =
   and m.kind <> 'event' and m.author_user_id is distinct from "group_members"."user_id" and ${MAIN}
   order by m.group_id, m.seq limit 100) u)`)}`.mapWith(Number)
 
-// Not EXISTS: the planner drops ORDER BY inside it. Served by the messages_user_mentions partial index.
-export const mentioned = sql<boolean>`${sql.raw(`coalesce((select true from messages m where ${inGroupAfter('"group_members"."last_read_seq"')}
+// Unread messages that @ the viewer (@所有人 lists every member), up to 99. Served by the messages_user_mentions partial index.
+export const mentionCount =
+  sql<number>`${sql.raw(`(select count(*) from (select 1 from messages m where ${inGroupAfter('"group_members"."last_read_seq"')}
   and m.meta->'userMentions' @> jsonb_build_array("group_members"."user_id")
   and m.author_user_id is distinct from "group_members"."user_id" and m.recalled_at is null and ${MAIN}
-  order by m.group_id, m.seq limit 1), false)`)}`
+  order by m.group_id, m.seq limit 99) u)`)}`.mapWith(Number)
 
 /** `userId`'s unread messages per team, over the live groups they are in. */
 export async function unreadByTeam(ctx: Ctx, userId: string) {
@@ -182,7 +183,7 @@ export async function unreadByTeam(ctx: Ctx, userId: string) {
 async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
   if (!userIds.length) return []
   const rows = await ctx.db
-    .select({ group: groups, title: groupTitle, me: groupMembers, lastSeq, lastId, unread, mentioned })
+    .select({ group: groups, title: groupTitle, me: groupMembers, lastSeq, lastId, unread, mentionCount })
     .from(groups)
     .innerJoin(groupMembers, and(eq(groupMembers.groupId, groups.id), inArray(groupMembers.userId, userIds)))
     .where(and(isNull(groups.archivedAt), where))
@@ -306,7 +307,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       ),
     )
 
-  const views = rows.map(({ group: g, title, me, lastSeq, unread, mentioned }) => {
+  const views = rows.map(({ group: g, title, me, lastSeq, unread, mentionCount }) => {
     const repo = reposOf.get(g.id)?.find((r) => r.isPrimary)
     const extraRepos = (reposOf.get(g.id) ?? [])
       .filter((r) => !r.isPrimary)
@@ -343,7 +344,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       })),
       botIds: gbots.map((b) => b.botId),
       unread,
-      mentioned,
+      mentionCount,
       lastSeq: Number(lastSeq ?? 0),
       last: !last
         ? ''
@@ -362,7 +363,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
       teamSectionId: g.teamSectionId,
       doneSeq: me.doneSeq,
       flagged: me.flagged,
-      muted: me.muted,
+      notifyLevel: me.notifyLevel,
       foldRuns: me.foldRuns,
       liveRunIds: (liveOf.get(g.id) ?? []).filter((r) => LIVE.includes(r.status)).map((r) => r.id),
       liveRuns: liveRuns(g.id, me.userId),
@@ -392,13 +393,13 @@ export async function readerGroupDto(ctx: Ctx, userId: string, groupId: string):
     ...group,
     last: '',
     unread: 0,
-    mentioned: false,
+    mentionCount: 0,
     noticeHidden: false,
     pinned: false,
     sectionId: null,
     doneSeq: null,
     flagged: false,
-    muted: false,
+    notifyLevel: 'mentions',
     foldRuns: false,
   }
 }

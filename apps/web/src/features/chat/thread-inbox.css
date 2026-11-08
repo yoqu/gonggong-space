@@ -69,3 +69,31 @@
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
 }
+/* 全部未读 reuses the thread inbox cards; its card holds links and a reply box, so it is not a button. */
+.unread-inbox__card {
+  cursor: default;
+}
+.unread-inbox__card:hover {
+  background: var(--content-bg);
+}
+.unread-inbox__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.unread-inbox__where {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--label);
+  font-weight: 600;
+  text-decoration: none;
+}
+.unread-inbox__reply {
+  display: flex;
+  gap: var(--space-8);
+}
+.unread-inbox__reply > .ui-input {
+  flex: 1;
+}

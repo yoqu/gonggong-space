@@ -77,7 +77,7 @@
   /* Keeps up to about half the line before the tags give way. */
   flex: 0 0 auto;
   max-width: 55%;
-  font-weight: 600;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -140,6 +140,12 @@
   flex: none;
   margin-right: 2px;
   font-variant-numeric: tabular-nums;
+}
+.pn-conv__name.pn-conv__name--bold {
+  font-weight: 700;
+}
+.pn-conv__preview.pn-conv__preview--bold {
+  color: var(--label);
 }
 .pn-conv__preview {
   flex: 1;

@@ -42,7 +42,7 @@ const group = (o: Partial<GroupDto> = {}): GroupDto => ({
   lastSeq: 1,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -194,8 +194,7 @@ describe('group settings inspector', () => {
     expect(within(d).getByText('git@git.corp:pay/pay-server.git · main')).toBeTruthy()
     expect(within(within(d).getByRole('region', { name: '群成员' })).getByText('2')).toBeTruthy()
     expect(within(d).getByRole('button', { name: /^Bot.*2 个$/ })).toBeTruthy()
-    expect(within(d).getByRole('switch', { name: /消息免打扰/ })).toBeTruthy()
-    expect(within(d).getByText('普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒')).toBeTruthy()
+    expect(within(d).getByRole('button', { name: '通知' }).textContent).toContain('仅@')
     expect(within(d).getByText('只对我生效，审批与提问卡片始终展开')).toBeTruthy()
     expect(within(d).getByText('你是群管理员')).toBeTruthy()
     expect(await within(d).findByRole('button', { name: /群级参数\s*审批 30 分 · 接力 3 跳/ })).toBeTruthy()
@@ -585,7 +584,7 @@ describe('group settings inspector', () => {
     expect(calls.filter((c) => c.method === 'PUT').at(-1)?.body).toEqual({ noticeHidden: false })
   })
 
-  it('toggles personal prefs; pinned groups sort first and muted badges turn grey', async () => {
+  it('toggles personal prefs; pinned groups sort first and badges of groups with 通知 off turn grey', async () => {
     const other = group({ id: 'g0', name: '官网改版', unread: 2 })
     const calls = mockApi(
       routes([other, group()], {
@@ -604,7 +603,15 @@ describe('group settings inspector', () => {
     expect(items.map((i) => i.dataset.testid)).toEqual(['group-item-g1', 'group-item-g0'])
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ pinned: true })
 
-    useWorkspace.getState().applyEvent({ t: 'group.updated', group: { ...other, muted: true } })
+    fireEvent.click(within(d).getByRole('button', { name: '通知' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '全部' }))
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === 'PUT').at(-1)?.body).toEqual({ notifyLevel: 'all' }),
+    )
+
+    useWorkspace
+      .getState()
+      .applyEvent({ t: 'group.updated', group: { ...other, mentionCount: 2, notifyLevel: 'off' } })
     const badge = await within(screen.getByTestId('group-item-g0')).findByText('2')
     expect(badge.className).toContain('ui-badge--muted')
   })

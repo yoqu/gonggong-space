@@ -1,5 +1,5 @@
 import type { GroupDto } from '@gonggong/protocol'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Sidebar } from '../src/app/Sidebar'
@@ -23,7 +23,7 @@ const group = (id: string, lastAt: string): GroupDto => ({
   last: '',
   lastAt,
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],
@@ -64,4 +64,31 @@ it('re-measures the selection capsule only when the open conversation moves', ()
   expect(measure).not.toHaveBeenCalled()
   rerender([groups[0]!, groups[1]!, { ...groups[2]!, lastAt: '2026-09-23T04:00:00.000Z' }])
   expect(measure).toHaveBeenCalled()
+})
+
+it('a group with unread only turns bold; its number is the @ of me, a DM’s its unread; 关闭 greys it', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <Sidebar
+        groups={[
+          { ...groups[0]!, unread: 5 },
+          { ...groups[1]!, unread: 5, mentionCount: 2 },
+          { ...groups[2]!, kind: 'dm', unread: 3 },
+          { ...group('g4', '2026-09-22T01:00:00.000Z'), unread: 4, mentionCount: 1, notifyLevel: 'off' },
+        ]}
+        bots={[]}
+        machines={[]}
+        loaded
+        guide={false}
+      />
+    </MemoryRouter>,
+  )
+  const row = (id: string) => screen.getByTestId(`group-item-${id}`)
+  const badge = (id: string) => row(id).querySelector('.ui-badge')
+  expect(row('g1').querySelector('.pn-conv__name--bold')).toBeTruthy()
+  expect(badge('g1')).toBeNull()
+  expect(badge('g2')?.textContent).toBe('2')
+  expect(badge('g3')?.textContent).toBe('3')
+  expect(row('g4').querySelector('.pn-conv__name--bold')).toBeNull()
+  expect(badge('g4')?.classList.contains('ui-badge--muted')).toBe(true)
 })

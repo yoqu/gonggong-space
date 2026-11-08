@@ -104,12 +104,11 @@ export async function createGroup(
       protectBase: true,
       params: { replyStyle: 'business' },
     })
-    await tx
-      .insert(groupMembers)
-      .values([
-        { groupId: group.id, userId: me.id, isAdmin: true },
-        ...invited.map((u) => ({ groupId: group.id, userId: u.id })),
-      ])
+    await tx.insert(groupMembers).values([
+      // DMs notify everything by default, groups only @.
+      { groupId: group.id, userId: me.id, isAdmin: true, ...(dm && { notifyLevel: 'all' as const }) },
+      ...invited.map((u) => ({ groupId: group.id, userId: u.id })),
+    ])
     if (picked.length)
       await tx.insert(groupBots).values(picked.map((b) => ({ groupId: group.id, botId: b.id })))
     if (repo)

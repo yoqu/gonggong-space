@@ -14,7 +14,9 @@ import { Button, ContextMenu, Dialog, Icon, MenuButton, type MenuItem, Presence,
 import { attachmentUrl } from '../attachments/api'
 import { KnowledgeEditor } from '../knowledge/KnowledgeEditor'
 import { ReactionPicker } from '../reactions'
+import { useSaveMenu } from '../saved/SaveMenu'
 import { keepRecalled, type RecalledDraft } from './recalled'
+import { markUnreadFrom } from './unreadMark'
 import { applyLocal } from './useTimeline'
 import './recall.css'
 import { t } from '../../i18n'
@@ -231,8 +233,13 @@ function useMessageMenu(target: ActionTarget) {
   const savable = !!target.copyText?.trim() && !!target.message && target.message.kind !== 'event'
   const pinnable = !!target.message && target.message.kind !== 'event' && !target.message.recalled
   const pinned = usePins(target.message?.groupId ?? '').some((p) => p.messageId === target.message?.id)
+  // Main-timeline messages only: the group's read cursor does not cover thread replies.
+  const unreadable = !!target.message && !target.message.threadRootId && target.message.kind !== 'event'
+  const later = useSaveMenu(target.message)
   const more: MenuItem[] = [
+    ...later.item,
     { value: 'link', label: t('复制链接'), icon: 'link' },
+    ...(unreadable ? [{ value: 'unread', label: t('从这里标为未读'), icon: 'eye-slash' as const }] : []),
     ...(pinnable
       ? [{ value: pinned ? 'unpin' : 'pin', label: pinned ? t('取消置顶') : t('置顶'), icon: 'pin' as const }]
       : []),
@@ -251,6 +258,7 @@ function useMessageMenu(target: ActionTarget) {
     ...more,
   ]
   const select = (value: string) => {
+    if (later.select(value)) return
     if (value === 'thread') target.onThread?.()
     else if (value === 'react') setPicking(true)
     else if (value === 'quote') target.onQuote()
@@ -259,6 +267,7 @@ function useMessageMenu(target: ActionTarget) {
       picked.current = ''
       void copyWithToast(part || target.copyText, t('已复制'))
     } else if (value === 'link') void copyWithToast(target.link, t('链接已复制'))
+    else if (value === 'unread' && target.message) void markUnreadFrom(target.message)
     else if (value === 'branch' && target.message)
       void branch(target.message, (groupId) => navigate(`/g/${groupId}`))
     else if (value === 'pin' && target.message) void pinsApi.pin(target.message.groupId, target.message.id)
@@ -271,6 +280,7 @@ function useMessageMenu(target: ActionTarget) {
   }
   const dialog = (
     <>
+      {later.dialog}
       <Presence>
         {mine && deleting ? <DeleteDialog message={mine} onClose={() => setDeleting(false)} /> : null}
       </Presence>

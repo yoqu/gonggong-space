@@ -96,7 +96,7 @@ const group = (id: string, name: string, kind: GroupDto['kind'] = 'group'): Grou
   lastSeq: 0,
   last: '',
   pinned: false,
-  muted: false,
+  notifyLevel: 'mentions',
   foldRuns: false,
   liveRunIds: [],
   liveRuns: [],

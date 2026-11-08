@@ -8,11 +8,12 @@ import {
   SendMessageReq,
   type TimelineDto,
   TimelineQuery,
+  type UnreadsDto,
 } from '@gonggong/protocol'
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { messages } from '../../db/schema.js'
+import { groupMembers, groups, messages } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { artifactContextNote } from '../artifacts/commands.js'
 import { requireArtifact } from '../artifacts/service.js'
@@ -21,16 +22,18 @@ import { requireUser } from '../auth/session.js'
 import { checkPicks } from '../bots/config.js'
 import { agentCommand, commands, parseCommand, runCommand } from '../commands/index.js'
 import { mirrorEdit, mirrorUserMessage } from '../feishu/mirror.js'
-import { activeBots, requireMember, requireReader } from '../groups/service.js'
+import { activeBots, groupDtos, requireMember, requireReader } from '../groups/service.js'
+import { pushToAll } from '../notifications/message-push.js'
 import { listRuns } from '../runs/dto.js'
 import { triggerRuns } from '../runs/trigger.js'
+import { currentTeam } from '../teams/service.js'
 import { loadMessages } from '../threads/routes.js'
 import { followOnReply, inMainTimeline, publishThread, threadRoot } from '../threads/service.js'
 import { answerActions } from './actions.js'
 import { appendTarget, sendAppend } from './append.js'
 import { branchMessage } from './branch.js'
 import { editMessage } from './edit.js'
-import { memberMentions, notifyMentions } from './mentions.js'
+import { everyoneBut, memberMentions, mentionsAll, notifyMentions } from './mentions.js'
 import { resolveQuote } from './quote.js'
 import { hideMessage, notHiddenBy, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
@@ -41,6 +44,9 @@ async function canvasContext(ctx: Ctx, groupId: string, userId: string, c: Artif
   if (a.groupId !== groupId) return fail('not_found', '产物不存在')
   return { id: a.id, botId: a.botId, ...(await artifactContextNote(ctx, a, c)) }
 }
+
+/** 全部未读 shows a group's first unread messages up to this many; the rest are read in the group. */
+const UNREADS_SHOWN = 20
 
 export function messageRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
@@ -71,9 +77,59 @@ export function messageRoutes(ctx: Ctx) {
       }
     })
 
+    app.get('/api/unreads', async (req): Promise<UnreadsDto> => {
+      const me = await requireUser(ctx, req)
+      const unread = (
+        await groupDtos(ctx, me.id, eq(groups.teamId, await currentTeam(ctx, req, me.id)))
+      ).filter((g) => g.unread > 0)
+      if (!unread.length) return { groups: [] }
+      const cursors = new Map(
+        (
+          await ctx.db
+            .select({ groupId: groupMembers.groupId, seq: groupMembers.lastReadSeq })
+            .from(groupMembers)
+            .where(
+              and(
+                eq(groupMembers.userId, me.id),
+                inArray(
+                  groupMembers.groupId,
+                  unread.map((g) => g.id),
+                ),
+              ),
+            )
+        ).map((r) => [r.groupId, r.seq]),
+      )
+      const out = await Promise.all(
+        unread.map(async (group) => {
+          // Counted like `unread`: no events, not mine, main timeline only.
+          const ids = await ctx.db
+            .select({ id: messages.id })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.groupId, group.id),
+                gt(messages.seq, cursors.get(group.id) ?? 0),
+                ne(messages.kind, 'event'),
+                sql`${messages.authorUserId} is distinct from ${me.id}`,
+                inMainTimeline,
+              ),
+            )
+            .orderBy(asc(messages.seq))
+            .limit(UNREADS_SHOWN + 1)
+          const shown = ids.slice(0, UNREADS_SHOWN).map((r) => r.id)
+          const list = shown.length
+            ? await loadMessages(ctx, me.id, inArray(messages.id, shown), UNREADS_SHOWN)
+            : []
+          return { group, messages: list.reverse(), more: ids.length > UNREADS_SHOWN }
+        }),
+      )
+      out.sort((a, b) => (b.group.lastAt ?? '').localeCompare(a.group.lastAt ?? ''))
+      return { groups: out.filter((x) => x.messages.length) }
+    })
+
     app.post<{ Params: { id: string } }>('/api/groups/:id/messages', async (req) => {
       const me = await requireUser(ctx, req)
-      const { group } = await requireMember(ctx, req.params.id, me.id)
+      const { group, member } = await requireMember(ctx, req.params.id, me.id)
       const {
         body,
         clientId,
@@ -87,13 +143,15 @@ export function messageRoutes(ctx: Ctx) {
       } = SendMessageReq.parse(req.body)
       if (!body.trim() && !attachmentIds.length) return fail('invalid', '消息不能为空')
       const bots = activeBots(ctx, group.id).execute()
+      // @所有人: group owner or admins, in the main timeline only.
+      const everyone = !threadRootId && (group.createdBy === me.id || member.isAdmin) && mentionsAll(body)
       const canvas = artifactContext ? await canvasContext(ctx, group.id, me.id, artifactContext) : null
       const [root, target, inGroup, quoted, userMentions] = await Promise.all([
         threadRootId ? threadRoot(ctx, group.id, threadRootId) : null,
         appendTo ? appendTarget(ctx, group.id, me.id, appendTo) : null,
         bots,
         quote ? resolveQuote(ctx, group.id, quote) : null,
-        memberMentions(ctx, group.id, body, { bots }),
+        everyone ? everyoneBut(ctx, group.id, me.id) : memberMentions(ctx, group.id, body, { bots }),
       ])
       const explicit = parseMentions(body, inGroup)
       // A dm with a single bot needs no @: plain messages and commands are addressed to it.
@@ -135,6 +193,7 @@ export function messageRoutes(ctx: Ctx) {
         const meta: MessageMeta = {
           mentions,
           ...(userMentions.length > 0 && { userMentions }),
+          ...(everyone && { mentionsAll: true }),
           clientId,
           ...(command && !target && { command: command.name }),
           // `command` also keeps it out of later group context.
@@ -167,6 +226,7 @@ export function messageRoutes(ctx: Ctx) {
         await publishMessage(ctx, dto)
         if (root) await publishThread(ctx, root)
         await notifyMentions(ctx, row, me.name)
+        await pushToAll(ctx, row, me.name)
         if (target) await sendAppend(ctx, target, dto)
         else if (command) await runCommand(ctx, { group, user: me, message: row, command, bots: inGroup })
         else if (mentions.length) {

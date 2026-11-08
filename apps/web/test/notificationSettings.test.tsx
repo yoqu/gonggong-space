@@ -1,7 +1,9 @@
-import type { FeishuIdentityView } from '@gonggong/protocol'
+import type { FeishuIdentityView, MeDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useSession } from '../src/app/session'
+import { AccountMenu } from '../src/features/auth/AccountMenu'
 import { NotificationSettings } from '../src/features/notifications/NotificationSettings'
 import { mockApi } from './mockApi'
 
@@ -48,5 +50,74 @@ describe('设置 · 通知', () => {
       true,
     )
     screen.getByText('绑定飞书')
+  })
+})
+
+const me = (notifyPrefs: MeDto['notifyPrefs']): MeDto => ({
+  id: 'u1',
+  account: 'wanglei',
+  name: '王磊',
+  role: 'member',
+  mustChangePassword: false,
+  disabled: false,
+  gitProtocol: 'auto',
+  email: null,
+  avatar: null,
+  teams: [],
+  singleTeamMode: false,
+  canCreateTeam: false,
+  demoMode: false,
+  pluginsEnabled: false,
+  notifyPrefs,
+})
+
+describe('勿扰', () => {
+  it('turns 免打扰时段 on in the browser’s time zone and edits its end', async () => {
+    useSession.getState().setUser(me({}))
+    const calls = mockApi({
+      'GET /auth/options': { registrationOpen: false, feishuLogin: false },
+      'GET /me/feishu': { identity: null },
+      'PATCH /me': (body: unknown) => me((body as { notifyPrefs: MeDto['notifyPrefs'] }).notifyPrefs),
+    })
+    show()
+    fireEvent.click(await screen.findByRole('switch', { name: '免打扰时段' }))
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    await waitFor(() =>
+      expect(calls.at(-1)).toEqual({
+        method: 'PATCH',
+        path: '/me',
+        body: { notifyPrefs: { quietHours: { start: '22:00', end: '08:00', timezone } } },
+      }),
+    )
+    fireEvent.change(await screen.findByLabelText('结束时间'), { target: { value: '07:30' } })
+    await waitFor(() =>
+      expect(calls.at(-1)?.body).toEqual({
+        notifyPrefs: { quietHours: { start: '22:00', end: '07:30', timezone } },
+      }),
+    )
+  })
+
+  it('pauses notifications from the account menu and resumes them', async () => {
+    useSession.getState().setUser(me({}))
+    const calls = mockApi({
+      'PATCH /me': (body: unknown) => me((body as { notifyPrefs: MeDto['notifyPrefs'] }).notifyPrefs),
+    })
+    render(
+      <MemoryRouter>
+        <AccountMenu />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '暂停通知' }))
+    const before = Date.now()
+    fireEvent.click(await screen.findByRole('menuitem', { name: '1 小时' }))
+    await waitFor(() => expect(screen.getByLabelText('通知已暂停')).toBeTruthy())
+    const patch = calls.at(-1)?.body as { notifyPrefs: { pausedUntil: string } }
+    const until = Date.parse(patch.notifyPrefs.pausedUntil)
+    expect(until - before).toBeGreaterThanOrEqual(3600_000 - 1000)
+
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^恢复通知/ }))
+    await waitFor(() => expect(calls.at(-1)?.body).toEqual({ notifyPrefs: { pausedUntil: null } }))
   })
 })

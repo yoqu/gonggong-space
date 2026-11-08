@@ -184,4 +184,8 @@ export default {
   入群申请: 'Join requests',
   '入群申请 · {n}': 'Join requests · {n}',
   不归入: 'None',
+  '仅@': 'Mentions only',
+  '关闭#notify': 'Off',
+  '「仅@」只提醒 @我 和 @所有人；「关闭」连 @ 也不提醒，待审批和向我提问仍提醒':
+    '"Mentions only" alerts you for @you and @everyone; "Off" skips even those, approvals and questions for you still alert',
 } satisfies Record<string, string>
