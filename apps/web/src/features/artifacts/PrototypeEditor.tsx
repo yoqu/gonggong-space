@@ -8,7 +8,7 @@ import type {
   GgArtifactManifest,
   Rect,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import {
@@ -49,8 +49,9 @@ import {
   linkHost,
   menuPlace,
   navReducer,
-  PROTO_DEVICES,
   type ProtoDevice,
+  type ProtoFrame,
+  protoDevices,
   startNav,
 } from './prototype'
 import { Panel } from './SidePanel'
@@ -79,6 +80,8 @@ const isTransition = (v: unknown): v is ArtifactTransition => TRANSITIONS.some((
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
 const NO_SCROLL = { x: 0, y: 0 }
+/** How long a click beside the hotspots shows them (prototype.css `proto-hots-flash`). */
+const FLASH_MS = 800
 /** Room the whole-screen change bar takes under the device while open. */
 const CHANGE_ROOM = 200
 /** Room the connect panel takes at the right while open (its 300px, 60px off the edge, and a gap). */
@@ -95,6 +98,8 @@ const RAIL_ROOM = 68
 const EDGE = 12
 /** A thumbnail's width in the screen list (px). */
 const THUMB_W = 188
+/** A stage narrower than this opens with the screen list collapsed, leaving the device the room. */
+const NARROW_STAGE = 720
 
 export interface PrototypeEditorProps {
   artifactId: string
@@ -136,9 +141,12 @@ export function PrototypeEditor({
   const [nav, go] = useReducer(navReducer, start, startNav)
   const cur = screens.find((s) => s.id === currentScreen(nav)) ?? screens[0]
   const [device, setDevice] = useState<ProtoDevice>(manifest.device === 'desktop' ? 'desktop' : 'mobile')
+  const devices = protoDevices(manifest.device)
   const [listOpen, setListOpen] = useState(true)
   const [reload, setReload] = useState(0)
-  const [hotspots, setHotspots] = useState(true)
+  const [hotspots, setHotspots] = useState(false)
+  /** Counts preview clicks beside the hotspots; non-zero while they flash. */
+  const [flash, setFlash] = useState(0)
   const [qr, setQr] = useState(false)
   /** Each screen's latest `scroll` (0, 0 before any): the frame scrolls itself, the overlays follow. */
   const [scrolls, setScrolls] = useState<Record<string, { x: number; y: number }>>({})
@@ -158,11 +166,34 @@ export function PrototypeEditor({
   const origin = preview?.origin ?? null
   const edit = mode === 'edit'
 
+  const closeGuide = useCallback(() => {
+    localStorage.setItem(GUIDE_KEY, '1')
+    setGuide(false)
+  }, [])
+  useEffect(() => {
+    if (!guide) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeGuide()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [guide, closeGuide])
+  useEffect(() => {
+    if (!flash) return
+    const id = setTimeout(() => setFlash(0), FLASH_MS)
+    return () => clearTimeout(id)
+  }, [flash])
+  const switchMode = (m: Mode) => {
+    if (guide) closeGuide()
+    setMode(m)
+  }
+
   useEffect(() => {
     const el = stage.current
     if (!el) return
     const measure = () => setRoom({ width: el.clientWidth, height: el.clientHeight })
     measure()
+    if (el.clientWidth && el.clientWidth < NARROW_STAGE) setListOpen(false)
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
@@ -211,6 +242,7 @@ export function PrototypeEditor({
       setBacks((b) => ({ ...b, [m.file]: backRects(m.back) }))
     } else if (m.type === 'nav') {
       if (edit) return
+      if (guide) closeGuide()
       if (!screens.some((s) => s.id === m.screen))
         return toast({ type: 'warning', message: t('没有屏幕「{id}」', { id: m.screen }) })
       go({
@@ -219,7 +251,11 @@ export function PrototypeEditor({
         ...(isTransition(m.transition) ? { transition: m.transition } : {}),
       })
     } else if (m.type === 'back') {
-      if (!edit) go({ type: 'back' })
+      if (edit) return
+      if (guide) closeGuide()
+      go({ type: 'back' })
+    } else if (m.type === 'miss') {
+      if (!edit && !hotspots) setFlash((n) => n + 1)
     } else if (m.type === 'scroll') {
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
     } else if (m.type === 'text-edit') {
@@ -248,29 +284,27 @@ export function PrototypeEditor({
   })
 
   if (!cur) return null
-  const size = PROTO_DEVICES[device]
+  const size = devices[device]
   const scrolled = scrolls[cur.file] ?? NO_SCROLL
   /** A document rect where it shows in the device now. */
   const inView = (r: Rect): Rect => ({ ...r, x: r.x - scrolled.x, y: r.y - scrolled.y })
-  const side = listOpen ? 260 : 72
   const connecting = connect && !!element && edit
-  /** The device keeps clear of the connect panel: the stage's right edge moves in by its width. */
-  const right = connecting ? CONNECT_ROOM : side
+  /** The device sits centred between the screen list (when open) and the rail, or the connect panel while it is open. */
+  const left = listOpen ? LIST_ROOM : EDGE
+  const right = connecting ? CONNECT_ROOM : RAIL_ROOM
   const scale = room.width
     ? Math.max(
         0.2,
         Math.min(
           1,
-          (room.width - side - right) / (size.w + BEZEL * 2),
+          (room.width - left - right) / (size.w + BEZEL * 2),
           (room.height - 96 - (change ? CHANGE_ROOM : 0)) / (size.h + BEZEL * 2),
         ),
       )
     : 1
   /** A screen rect (in its viewport) on the stage: the device box sits centred between the stage's paddings. */
   const onStage = (r: Rect): Rect => {
-    const padLeft = connecting ? side : 0
-    const padRight = connecting ? right : 0
-    const x = padLeft + (room.width - padLeft - padRight - (size.w + BEZEL * 2) * scale) / 2
+    const x = left + (room.width - left - right - (size.w + BEZEL * 2) * scale) / 2
     const y = (room.height - (change ? CHANGE_ROOM : 0) - (size.h + BEZEL * 2) * scale) / 2
     return { x: x + (BEZEL + r.x) * scale, y: y + (BEZEL + r.y) * scale, w: r.w * scale, h: r.h * scale }
   }
@@ -278,14 +312,11 @@ export function PrototypeEditor({
   const titleOf = (id: string) => screens.find((s) => s.id === id)?.title ?? id
   const fileSpots = spots[cur.file] ?? []
   const fileBacks = backs[cur.file] ?? []
-  const showHots = edit || hotspots
+  const flashing = flash > 0 && !edit && !hotspots
+  const showHots = edit || hotspots || flashing
   const askBot = (f: (b: BotDto) => Promise<boolean>) => (bot ? f(bot) : Promise.resolve(false))
   const located = element?.ggId ? { file: element.file, ggId: element.ggId } : null
 
-  const closeGuide = () => {
-    localStorage.setItem(GUIDE_KEY, '1')
-    setGuide(false)
-  }
   const newScreen = (text: string) =>
     askBot((b) =>
       located && edit
@@ -306,7 +337,7 @@ export function PrototypeEditor({
             aria-label={t('原型模式')}
             size="small"
             value={mode}
-            onChange={setMode}
+            onChange={switchMode}
             items={[
               { value: 'preview', label: t('预览'), icon: 'play' },
               { value: 'edit', label: t('编辑'), icon: 'pencil' },
@@ -406,7 +437,8 @@ export function PrototypeEditor({
           data-testid="proto-stage"
           style={{
             ...(change ? { paddingBottom: CHANGE_ROOM } : {}),
-            ...(connecting ? { paddingLeft: side, paddingRight: right } : {}),
+            paddingLeft: left,
+            paddingRight: right,
           }}
         >
           <div
@@ -441,7 +473,11 @@ export function PrototypeEditor({
                         style={{ height: size.h }}
                       />
                     ) : null}
-                    <div className="proto-hots" data-testid="proto-hots">
+                    <div
+                      key={flashing ? flash : 0}
+                      className={cx('proto-hots', flashing && 'proto-hots--flash')}
+                      data-testid="proto-hots"
+                    >
                       {showHots
                         ? fileSpots.map((h, i) => (
                             <Hot
@@ -470,9 +506,19 @@ export function PrototypeEditor({
                     </div>
                   </div>
                 </div>
+                {size.status ? <DeviceChrome frame={size} light={cur.statusBar === 'light'} /> : null}
               </div>
             </div>
           </div>
+          {guide ? (
+            <div className="proto-guide" role="status" aria-label={t('原型编辑器引导')}>
+              <Icon name="play" size={14} />
+              <span>{t('点屏幕里的按钮就能跳转体验；切到「编辑」可连线、改字或让 AI 改')}</span>
+              <IconButton size="small" title={t('知道了')} onClick={closeGuide}>
+                {'xmark' as const}
+              </IconButton>
+            </div>
+          ) : null}
           {/* On the stage, outside the device's clip: a tab bar's menu opens above it, whole. */}
           {edit && element && menu ? (
             <ElementMenu
@@ -557,8 +603,8 @@ export function PrototypeEditor({
             aria-label={t('设备：{name}', { name: DEVICE_LABEL[device] })}
             title={t('设备')}
             align="end"
-            items={(Object.keys(PROTO_DEVICES) as ProtoDevice[]).map((d) => ({
-              label: `${DEVICE_LABEL[d]} ${PROTO_DEVICES[d].w}×${PROTO_DEVICES[d].h}`,
+            items={(Object.keys(devices) as ProtoDevice[]).map((d) => ({
+              label: `${DEVICE_LABEL[d]} ${devices[d].w}×${devices[d].h}`,
               value: d,
               icon: DEVICE_ICON[d],
               checked: d === device,
@@ -596,20 +642,6 @@ export function PrototypeEditor({
             onClose={dropElement}
           />
         ) : null}
-
-        {guide ? (
-          <div className="proto-guide" role="dialog" aria-label={t('原型编辑器引导')}>
-            <Icon name="play" size={18} />
-            <p>
-              {t(
-                '欢迎使用原型编辑器！屏幕已经按跳转连好，可以直接点击体验。切到「编辑」可以连接元素、改文字，或让 AI 修改和新建屏幕。',
-              )}
-            </p>
-            <Button size="small" variant="primary" onClick={closeGuide}>
-              {t('开始体验')}
-            </Button>
-          </div>
-        ) : null}
       </div>
 
       <Presence>
@@ -624,6 +656,69 @@ export function PrototypeEditor({
         ) : null}
       </Presence>
     </section>
+  )
+}
+
+/**
+ * The phone's status bar (and a mini program's capsule) and home indicator, drawn over the screen like the
+ * web-prototype kit's shell: screens leave `--gg-status-bar` free for it. Clicks go through to the screen.
+ */
+function DeviceChrome({ frame, light }: { frame: ProtoFrame; light: boolean }) {
+  return (
+    <div
+      className={cx('proto-chrome', light && 'proto-chrome--light')}
+      data-testid="proto-chrome"
+      aria-hidden="true"
+    >
+      <div className="proto-chrome__status" style={{ height: frame.status }}>
+        <span>9:41</span>
+        <svg width="68" height="12" viewBox="0 0 68 12" fill="currentColor" aria-hidden="true">
+          <rect x="0" y="8" width="3" height="4" rx="1" />
+          <rect x="5" y="6" width="3" height="6" rx="1" />
+          <rect x="10" y="3" width="3" height="9" rx="1" />
+          <rect x="15" y="0" width="3" height="12" rx="1" />
+          <path d="M30 3.2a8.6 8.6 0 0 1 11.6 0l-1.3 1.4a6.7 6.7 0 0 0-9 0zm2.6 2.8a4.8 4.8 0 0 1 6.4 0l-1.3 1.4a3 3 0 0 0-3.8 0zm3.2 2.4 1.5 1.6-1.5 1.6-1.5-1.6z" />
+          <rect
+            x="44.5"
+            y="0.5"
+            width="21"
+            height="11"
+            rx="3.2"
+            fill="none"
+            stroke="currentColor"
+            opacity="0.4"
+          />
+          <rect x="46" y="2" width="18" height="8" rx="2" />
+          <rect x="66.5" y="4" width="1.5" height="4" rx="0.7" opacity="0.4" />
+        </svg>
+      </div>
+      {frame.capsule ? (
+        <div className="proto-chrome__capsule" data-testid="proto-capsule">
+          <span>
+            <svg width="20" height="6" viewBox="0 0 20 6" fill="currentColor" aria-hidden="true">
+              <circle cx="3" cy="3" r="2.2" />
+              <circle cx="10" cy="3" r="3" />
+              <circle cx="17" cy="3" r="2.2" />
+            </svg>
+          </span>
+          <i />
+          <span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              aria-hidden="true"
+            >
+              <circle cx="9" cy="9" r="7.2" />
+              <circle cx="9" cy="9" r="2.6" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

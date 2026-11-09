@@ -53,8 +53,7 @@
 
 /* ── Screens in prototype (left) ── */
 .proto-screens,
-.proto-screens-pill,
-.proto-guide {
+.proto-screens-pill {
   position: absolute;
   z-index: 2;
   border-radius: 16px;
@@ -237,6 +236,7 @@
  * overlays follow its `scroll`.
  */
 .proto-clip {
+  position: relative;
   width: 100%;
   height: 100%;
   border-radius: 36px;
@@ -264,6 +264,65 @@
   display: block;
   width: 100%;
   border: 0;
+}
+
+/*
+ * The phone's chrome over the screen, as the web-prototype kit's shell draws it (kit/index.html `.status`, `.capsule`):
+ * it stays put while screens slide under it, and lets clicks through. `--light` follows the screen's `statusBar`.
+ */
+.proto-chrome {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  color: #000;
+  pointer-events: none;
+}
+.proto-chrome--light {
+  color: #fff;
+}
+.proto-chrome__status {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 28px 0 34px;
+  font:
+    600 15px / 1 -apple-system,
+    "SF Pro Text",
+    sans-serif;
+}
+.proto-chrome__status svg {
+  display: block;
+}
+.proto-chrome__capsule {
+  position: absolute;
+  top: 48px;
+  right: 7px;
+  display: flex;
+  align-items: center;
+  width: 87px;
+  height: 32px;
+  border: 0.5px solid #0000001f;
+  border-radius: 16px;
+  background: #ffffff99;
+}
+.proto-chrome__capsule span {
+  display: grid;
+  flex: 1;
+  place-items: center;
+}
+.proto-chrome__capsule i {
+  width: 0.5px;
+  height: 18px;
+  background: #0003;
+}
+.proto-chrome--light .proto-chrome__capsule {
+  border-color: #ffffff59;
+  background: #00000026;
+}
+.proto-chrome--light .proto-chrome__capsule i {
+  background: #fff6;
 }
 
 /* Transitions (data-gg-transition); going back reverses them. */
@@ -325,6 +384,25 @@
   border: 1.5px dashed var(--system-blue);
   border-radius: 4px;
   background: color-mix(in srgb, var(--system-blue) 8%, transparent);
+}
+/* Preview: a click beside the hotspots shows where they are, for a moment (FLASH_MS in PrototypeEditor.tsx). */
+.proto-hots--flash .proto-hot {
+  animation: proto-hots-flash 800ms ease-in-out both;
+}
+@keyframes proto-hots-flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  25%,
+  70% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proto-hots--flash .proto-hot {
+    animation: none;
+  }
 }
 .proto-hot--selected {
   border-style: solid;
@@ -413,28 +491,35 @@
 .proto-rail .ui-menu-anchor {
   display: flex;
 }
+/* A one-line hint above the device, under the mode switch: it covers none of the screen, and stays under dialogs. */
 .proto-guide {
-  top: 50%;
-  right: 64px;
+  position: absolute;
+  z-index: 1;
+  top: var(--space-8);
+  left: 50%;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-8);
-  width: 280px;
-  padding: var(--space-16);
-  color: var(--label);
-  transform: translateY(-50%);
-  animation:
-    var(--fade-in) ui-fade-in,
-    var(--spring-snappy) ui-enter;
+  align-items: center;
+  gap: var(--space-6);
+  max-width: calc(100% - 160px);
+  padding: 2px 4px 2px var(--space-12);
+  border-radius: 999px;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  translate: -50% 0;
+  animation: var(--fade-in) ui-fade-in;
 }
-.proto-guide svg {
+.proto-guide > svg {
+  flex: none;
   color: var(--accent-text);
 }
-.proto-guide p {
-  margin: 0;
-  font-size: var(--text-callout-size);
-  line-height: 1.5;
+.proto-guide > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .proto-connect {

@@ -19,7 +19,18 @@ export type HostMessage = BridgeToShell
  * A message counts only when it comes from the preview's exact origin and from one of the canvas's screen frames, and
  * names that frame's own file.
  */
-const TYPES = new Set(['ready', 'size', 'hover', 'select', 'nav', 'back', 'scroll', 'mark-rect', 'text-edit'])
+const TYPES = new Set([
+  'ready',
+  'size',
+  'hover',
+  'select',
+  'nav',
+  'back',
+  'miss',
+  'scroll',
+  'mark-rect',
+  'text-edit',
+])
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
 /** The message, when `e` is a bridge message of the frame showing its file; null for anything else. */

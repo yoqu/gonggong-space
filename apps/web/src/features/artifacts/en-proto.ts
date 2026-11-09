@@ -28,9 +28,8 @@ export default {
   高亮热点: 'Highlight hotspots',
   扫码查看: 'Scan QR code',
   原型编辑器引导: 'Prototype editor guide',
-  '欢迎使用原型编辑器！屏幕已经按跳转连好，可以直接点击体验。切到「编辑」可以连接元素、改文字，或让 AI 修改和新建屏幕。':
-    'Welcome to the prototype editor! Your screens are connected and ready to interact with. Switch to Edit to connect elements, change text, or have the AI change and add screens.',
-  开始体验: "Let's go",
+  '点屏幕里的按钮就能跳转体验；切到「编辑」可连线、改字或让 AI 改':
+    'Tap buttons on the screen to try the flow; switch to Edit to connect, change text or ask the AI',
   连到屏幕: 'Connect to screen',
   连接元素: 'Connect element',
   选择屏幕: 'Choose a screen',

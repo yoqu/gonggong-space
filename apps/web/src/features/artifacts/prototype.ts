@@ -1,4 +1,5 @@
 import type {
+  ArtifactDevice,
   ArtifactEditOp,
   ArtifactTransition,
   BridgeBackRect,
@@ -56,13 +57,28 @@ export const currentScreen = (s: ProtoNav) => s.stack[s.stack.length - 1]?.scree
 /** The class that animates the screen in; none for an instant change. */
 export const enterClass = (e: Enter) => (e === 'none' ? '' : `proto-enter--${e}`)
 
-/** Device frames of the editor's device switch (Stitch's Mobile / Tablet / Desktop). */
-export const PROTO_DEVICES = {
-  mobile: { w: 390, h: 844 },
-  tablet: { w: 768, h: 1024 },
-  desktop: { w: 1280, h: 800 },
-} as const
-export type ProtoDevice = keyof typeof PROTO_DEVICES
+export type ProtoDevice = 'mobile' | 'tablet' | 'desktop'
+export interface ProtoFrame {
+  w: number
+  h: number
+  /** The status bar the shell draws over the screen (0: none). */
+  status: number
+  /** WeChat's capsule at the top right. */
+  capsule: boolean
+}
+
+/**
+ * Device frames of the editor's device switch (Stitch's Mobile / Tablet / Desktop), sized like the web-prototype kit's
+ * shell (`kit/gg-kit.css`): the phone is the manifest's mini program or mobile app, so the editor shows what a share does.
+ */
+export const protoDevices = (kind: ArtifactDevice): Record<ProtoDevice, ProtoFrame> => ({
+  mobile:
+    kind === 'miniprogram'
+      ? { w: 375, h: 812, status: 44, capsule: true }
+      : { w: 390, h: 844, status: 47, capsule: false },
+  tablet: { w: 768, h: 1024, status: 0, capsule: false },
+  desktop: { w: 1440, h: 900, status: 0, capsule: false },
+})
 
 /** Connect Element's Apply Connection: the element opens `to` with `transition`. */
 export const connectOps = (

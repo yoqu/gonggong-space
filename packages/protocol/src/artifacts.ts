@@ -724,6 +724,8 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   }),
   /** Preview mode: a `data-gg-back` element was clicked. */
   z.object({ ...FromScreen, type: z.literal('back') }),
+  /** Preview mode: a click hit neither a link nor a back element nor a form field (the canvas shows the hotspots). */
+  z.object({ ...FromScreen, type: z.literal('miss') }),
   /**
    * In-place text editing (`edit-text`, or a double click in edit mode): `picking` while editable text is outlined,
    * `editing` once an element's text is editable, `done` when it ends — `text` the new text (Enter or leaving it),

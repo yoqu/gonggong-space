@@ -154,9 +154,14 @@ describe('gg-bridge', () => {
     expect(s.click('[data-gg-back]')).toBe(false)
     expect(s.last()).toEqual({ source: 'gg-bridge', file: 'screens/home.html', type: 'back' })
     expect(pageSaw).toBe(0)
-    // Other clicks are the page's own.
+    // Other clicks are the page's own; the canvas hears of the miss to show where the hotspots are.
     s.click('h1')
     expect(pageSaw).toBe(1)
+    expect(BridgeFromShell.parse(s.last())).toEqual({
+      source: 'gg-bridge',
+      file: 'screens/home.html',
+      type: 'miss',
+    })
   })
 
   it('lets the text beside icon-only children be edited, not text spread over children', () => {
@@ -202,6 +207,7 @@ describe('gg-bridge', () => {
     ])
     expect(s.$('[data-gg-link]').hasAttribute('data-gg-selected')).toBe(true)
     s.click('h1')
+    expect(s.posts.some((p) => p.data.type === 'miss')).toBe(false)
     expect(s.last()).toMatchObject({ type: 'select', selector: '[id="t"]', inlineStyle: 'color: var(--c)' })
     expect(s.$('[data-gg-link]').hasAttribute('data-gg-selected')).toBe(false)
     expect(s.$('section').hasAttribute('data-gg-id')).toBe(true)

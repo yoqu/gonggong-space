@@ -260,17 +260,36 @@ describe('prototype editor', () => {
     expect(shown().dataset.screen).toBe('home')
   })
 
-  it('shows the guide once', async () => {
+  it('shows the guide once as a hint over the stage, gone once a hotspot is used', async () => {
     localStorage.removeItem(GUIDE_KEY)
     mockApi(routes())
     await openEditor()
-    const guide = screen.getByRole('dialog', { name: '原型编辑器引导' })
-    fireEvent.click(within(guide).getByRole('button', { name: '开始体验' }))
-    expect(screen.queryByRole('dialog', { name: '原型编辑器引导' })).toBeNull()
+    const hint = () => screen.queryByRole('status', { name: '原型编辑器引导' })
+    // Inside the stage, above the device, not a dialog over it.
+    expect(screen.getByTestId('proto-stage').contains(hint())).toBe(true)
+    expect(hint()?.textContent).toMatch(/点屏幕里的按钮就能跳转体验/)
+    fromScreen({ type: 'nav', screen: 'detail' })
+    expect(hint()).toBeNull()
     expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
   })
 
-  it('highlights hotspots by default (G19) and on demand, and labels them connected in edit mode', async () => {
+  it('closes the guide on a mode switch or Escape', async () => {
+    localStorage.removeItem(GUIDE_KEY)
+    mockApi(routes())
+    await openEditor()
+    editMode()
+    expect(screen.queryByRole('status', { name: '原型编辑器引导' })).toBeNull()
+    expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
+    localStorage.removeItem(GUIDE_KEY)
+    fireEvent.click(screen.getByRole('button', { name: /读书会小程序/ }))
+    fireEvent.click(screen.getByRole('button', { name: '演示' }))
+    await screen.findByRole('status', { name: '原型编辑器引导' })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('status', { name: '原型编辑器引导' })).toBeNull()
+    expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
+  })
+
+  it('keeps the design clean in preview, flashes hotspots on a miss, and labels them connected in edit mode', async () => {
     mockApi(routes())
     await openEditor()
     ready(
@@ -279,12 +298,23 @@ describe('prototype editor', () => {
     )
     const hots = () => screen.getByTestId('proto-hots')
     const toggle = screen.getByRole('button', { name: '高亮热点' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(hots().children).toHaveLength(0)
+    // A click beside the hotspots flashes them for a moment.
+    vi.useFakeTimers()
+    fromScreen({ type: 'miss' })
+    expect(hots().children).toHaveLength(2)
+    expect(hots().classList.contains('proto-hots--flash')).toBe(true)
+    act(() => vi.advanceTimersByTime(800))
+    expect(hots().children).toHaveLength(0)
+    vi.useRealTimers()
+    fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
     expect(hots().children).toHaveLength(2)
+    expect(hots().classList.contains('proto-hots--flash')).toBe(false)
     expect((hots().children[0] as HTMLElement).style.top).toBe('300px')
     expect(within(hots()).queryByText('已连接')).toBeNull()
     fireEvent.click(toggle)
-    expect(toggle.getAttribute('aria-pressed')).toBe('false')
     expect(hots().children).toHaveLength(0)
     editMode()
     expect(within(hots()).getByText('已连接')).toBeTruthy()
@@ -519,7 +549,7 @@ describe('prototype editor', () => {
       expect(menu().closest('[data-testid="proto-clip"]')).toBeNull()
       expect(menu().parentElement).toBe(screen.getByTestId('proto-stage'))
       // Mobile 390×844 in a 10px bezel, scaled to the stage's height less its 96px.
-      const scale = Math.min(1, (1200 - 520) / 410, (900 - 96) / 864)
+      const scale = Math.min(1, (1200 - 236 - 68) / 410, (900 - 96) / 864)
       const tabTop = (900 - 864 * scale) / 2 + (10 + 790) * scale
       expect(px(menu().style.top) + 190 + 8).toBeCloseTo(tabTop)
       expect(px(menu().style.top)).toBeGreaterThanOrEqual(8)
@@ -529,12 +559,12 @@ describe('prototype editor', () => {
     })
 
     it('keeps clear of the screen list and the rail', async () => {
-      sized(700, 900)
+      sized(800, 900)
       mockApi(routes())
       await openEditor()
       editMode()
       select({ rect: { x: 380, y: 100, w: 10, h: 20 } })
-      expect(px(menu().style.left) + 248).toBeLessThanOrEqual(700 - 68)
+      expect(px(menu().style.left) + 248).toBeLessThanOrEqual(800 - 68)
       select({ rect: { x: 0, y: 100, w: 10, h: 20 } })
       expect(px(menu().style.left)).toBeGreaterThanOrEqual(236)
     })
@@ -811,7 +841,7 @@ describe('Stitch round 4 fixes (prototype)', () => {
     const stage = screen.getByTestId('proto-stage')
     const width = () => Number.parseFloat(screen.getByTestId('proto-device').style.transform.slice(6))
     const before = width()
-    expect(stage.style.paddingRight).toBe('')
+    expect(stage.style.paddingRight).toBe('68px')
     editMode()
     select()
     fireEvent.click(
@@ -819,13 +849,75 @@ describe('Stitch round 4 fixes (prototype)', () => {
     )
     expect(screen.getByTestId('proto-connect')).toBeTruthy()
     expect(stage.style.paddingRight).toBe('380px')
-    expect(stage.style.paddingLeft).toBe('260px')
+    expect(stage.style.paddingLeft).toBe('236px')
     // The device shrinks to the room left between the screen list and the panel.
     expect(width()).toBeLessThan(before)
     fireEvent.click(
       within(screen.getByRole('complementary', { name: '连接元素' })).getByRole('button', { name: '关闭' }),
     )
-    expect(stage.style.paddingRight).toBe('')
+    expect(stage.style.paddingRight).toBe('68px')
+  })
+
+  it('matches the shell’s device: a mini program at 375×812 with its status bar, capsule and home indicator', async () => {
+    const mini = {
+      ...manifest,
+      device: 'miniprogram' as const,
+      screens: manifest.screens.map((s) => (s.id === 'home' ? { ...s, statusBar: 'light' as const } : s)),
+    }
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ manifest: mini }),
+        'GET /artifacts/a1/versions/v2': { ...detail, manifest: mini },
+      }),
+    )
+    await openEditor()
+    const device = screen.getByTestId('proto-device')
+    expect(device.style.width).toBe('395px')
+    expect(device.style.height).toBe('832px')
+    const chrome = screen.getByTestId('proto-chrome')
+    expect(within(chrome).getByText('9:41')).toBeTruthy()
+    expect(within(chrome).getByTestId('proto-capsule')).toBeTruthy()
+    // Drawn over the screen, never under the hotspots' coordinates: the screen's content keeps its place.
+    expect(chrome.closest('[data-testid="proto-screen"]')).toBeNull()
+    expect(chrome.className).toContain('proto-chrome--light')
+    fromScreen({ type: 'nav', screen: 'detail' })
+    expect(screen.getByTestId('proto-chrome').className).not.toContain('proto-chrome--light')
+    fireEvent.click(screen.getByRole('button', { name: '设备：手机' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: '手机 375×812' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '桌面 1440×900' }))
+    expect(device.style.width).toBe('1460px')
+    expect(screen.queryByTestId('proto-chrome')).toBeNull()
+  })
+
+  it('frames a mobile app at 390×844 with a status bar but no capsule', async () => {
+    mockApi(routes())
+    await openEditor()
+    expect(screen.getByTestId('proto-device').style.width).toBe('410px')
+    const chrome = screen.getByTestId('proto-chrome')
+    expect(within(chrome).getByText('9:41')).toBeTruthy()
+    expect(within(chrome).queryByTestId('proto-capsule')).toBeNull()
+  })
+
+  it('fills a narrow stage: the list starts as a pill, only the rail is kept clear (P0 layout)', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(660)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(900)
+    mockApi(routes())
+    await openEditor()
+    expect(screen.queryByRole('complementary', { name: '原型中的屏幕' })).toBeNull()
+    expect(screen.getByRole('button', { name: /原型中的屏幕/ })).toBeTruthy()
+    const stage = screen.getByTestId('proto-stage')
+    expect(stage.style.paddingLeft).toBe('12px')
+    expect(stage.style.paddingRight).toBe('68px')
+    const scale = Number.parseFloat(screen.getByTestId('proto-device').style.transform.slice(6))
+    expect(scale).toBeCloseTo((900 - 96) / 864)
+    // The element menu follows the device where it now sits.
+    editMode()
+    select({ rect: { x: 0, y: 100, w: 10, h: 20 } })
+    const left = Number.parseFloat(screen.getByRole('dialog', { name: '编辑元素' }).style.left)
+    expect(left).toBeCloseTo(12 + (660 - 12 - 68 - 410 * scale) / 2 + 10 * scale)
+    // Opening the list makes room for it on the left.
+    fireEvent.click(screen.getByRole('button', { name: /原型中的屏幕/ }))
+    expect(stage.style.paddingLeft).toBe('236px')
   })
 
   it('slides screens inside a fixed clip, so a transition never shows past the device (P1-04)', async () => {

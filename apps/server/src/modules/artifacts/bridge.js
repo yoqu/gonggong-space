@@ -354,7 +354,10 @@
         return
       }
       const link = el.closest('[data-gg-link],[data-gg-back]')
-      if (!link) return
+      if (!link) {
+        if (mode === 'preview' && !el.closest('input,textarea,select,label')) post({ type: 'miss' })
+        return
+      }
       e.preventDefault()
       e.stopImmediatePropagation()
       const screen = link.getAttribute('data-gg-link')
