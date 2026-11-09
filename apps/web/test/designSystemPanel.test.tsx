@@ -350,6 +350,37 @@ describe('design-system panel', () => {
     )
   })
 
+  it('imports a design from the preset menu, then offers to hand it to the bot', async () => {
+    const ds = {
+      id: 'ds2',
+      groupId: 'g1',
+      title: 'ai.example.com',
+      swatches: [],
+      designMd: null,
+      url: 'https://ai.example.com',
+      repo: null,
+      createdBy: 'u1',
+      createdAt: '2026-11-09T00:00:00Z',
+    }
+    const calls = mockApi(
+      routes({ 'GET /groups/g1/design-systems': [], 'POST /groups/g1/design-systems': ds }),
+    )
+    const p = await openPanel()
+    fireEvent.click(p.getByRole('button', { name: '预设' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /导入我的设计/ }))
+    const dialog = screen.getByRole('dialog', { name: '导入我的设计' })
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /参考网站/ }), {
+      target: { value: 'https://ai.example.com' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '继续' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/groups/g1/design-systems')?.body).toEqual({
+        url: 'https://ai.example.com',
+      }),
+    )
+    expect(await screen.findByRole('alertdialog')).toBeTruthy()
+  })
+
   it('saves, then asks the bot that made the screens to apply the design system', async () => {
     const calls = mockApi(routes())
     const p = await openPanel()

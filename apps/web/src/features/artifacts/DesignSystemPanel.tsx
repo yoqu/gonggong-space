@@ -22,6 +22,7 @@ import {
   Textarea,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import { ImportDesignDialog } from '../plugins/ImportDesignDialog'
 import { useGroupDesignSystems } from '../plugins/store'
 import type { Notify } from './actions'
 import { ROLE_LABEL } from './DesignSystemNode'
@@ -207,6 +208,7 @@ const NUMBER = /^(-?\d*\.?\d+)([a-z%]*)$/i
 export type DesignTab = 'theme' | 'md'
 
 const GROUP = 'group:'
+const IMPORT = '__import'
 
 function DesignSystemPanel({
   initialTab,
@@ -240,6 +242,7 @@ function DesignSystemPanel({
   const [preset, setPreset] = useState<DesignSystemPreset | null>(null)
   const imported = useGroupDesignSystems(groupId)
   const [importedPick, setImportedPick] = useState<GroupDesignSystemDto | null>(null)
+  const [importing, setImporting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ text: string; conflict: boolean } | null>(null)
 
@@ -382,7 +385,7 @@ function DesignSystemPanel({
           <MenuButton
             className="ui-btn ui-btn--plain ui-btn--small"
             aria-label={t('预设')}
-            disabled={locked || !(presets.length || imported.length)}
+            disabled={locked}
             align="end"
             items={[
               ...presets.map((p) => ({
@@ -406,11 +409,15 @@ function DesignSystemPanel({
                     })),
                   ]
                 : []),
+              { separator: true as const },
+              { label: t('导入我的设计…'), value: IMPORT, icon: 'plus' as const },
             ]}
             onSelect={(id) =>
-              id.startsWith(GROUP)
-                ? setImportedPick(imported.find((d) => `${GROUP}${d.id}` === id) ?? null)
-                : setPreset(presets.find((p) => p.id === id) ?? null)
+              id === IMPORT
+                ? setImporting(true)
+                : id.startsWith(GROUP)
+                  ? setImportedPick(imported.find((d) => `${GROUP}${d.id}` === id) ?? null)
+                  : setPreset(presets.find((p) => p.id === id) ?? null)
             }
           >
             {t('预设')}
@@ -681,6 +688,17 @@ function DesignSystemPanel({
             setDraft(null)
           }}
           onClose={() => setPreset(null)}
+        />
+      ) : null}
+      {importing ? (
+        <ImportDesignDialog
+          groupId={groupId}
+          onClose={() => setImporting(false)}
+          onImported={(ds) => {
+            setImporting(false)
+            if (bot) setImportedPick(ds)
+            else notify(t('已导入「{name}」，群里加入 Bot 后可以套用', { name: ds.title }))
+          }}
         />
       ) : null}
       {importedPick && bot ? (

@@ -59,4 +59,5 @@ export default {
   '会覆盖当前主题，完成后生成新版本': 'It replaces the current theme as a new version',
   '已交给 AI': 'Handed to the AI',
   '已让 {bot} 套用「{name}」': '{bot} is applying "{name}"',
+  '已导入「{name}」，群里加入 Bot 后可以套用': 'Imported "{name}"; add a Bot to the group to apply it',
 }
