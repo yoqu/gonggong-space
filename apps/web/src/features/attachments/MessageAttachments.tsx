@@ -160,6 +160,7 @@ function AudioCard({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
  * in place, the rest open a workbench file tab. */
 export function MessageAttachments({ list, from }: { list: Attachment[]; from: string }) {
   const [zoomed, setZoomed] = useState<Attachment | null>(null)
+  const tiles = useRef(new Map<string, HTMLElement>())
   if (!list.length) return null
   const media = list.filter((a) => ['image', 'video'].includes(kindOf(a)))
   const images = media.filter((a) => kindOf(a) === 'image')
@@ -174,7 +175,14 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
             kindOf(a) === 'video' ? (
               <VideoTile key={a.id} a={a} onOpen={() => open(a)} />
             ) : (
-              <figure key={a.id} className="pn-image att-tile">
+              <figure
+                key={a.id}
+                ref={(el) => {
+                  if (el) tiles.current.set(a.id, el)
+                  else tiles.current.delete(a.id)
+                }}
+                className="pn-image att-tile"
+              >
                 <img src={attachmentUrl(a.id)} alt={a.name} loading="lazy" />
                 <figcaption className="att-tile__bar">
                   <span className="att-tile__name">{a.name}</span>
@@ -197,6 +205,7 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
           items={images.map((a) => ({ src: attachmentUrl(a.id), alt: a.name }))}
           index={images.indexOf(zoomed)}
           onIndexChange={(n) => setZoomed(images[n] ?? null)}
+          origin={(n) => tiles.current.get(images[n]?.id ?? '')}
           onClose={() => setZoomed(null)}
           actions={
             <>

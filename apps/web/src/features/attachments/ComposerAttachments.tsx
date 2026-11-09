@@ -1,8 +1,9 @@
-import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
+import { FILE_TEXT_MAX_BYTES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
 import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
-import { Button, FileIcon, Icon, Lightbox, toast } from '../../ui'
+import { Button, Dialog, FileIcon, Icon, Lightbox, Presence, toast } from '../../ui'
 import { mentionInChat } from '../chat/mention'
+import { FileViewer, viewKind } from '../files/FileViewer'
 import { fmtSize, type Upload, uploadFile } from './api'
 import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
@@ -10,6 +11,7 @@ import { t } from '../../i18n'
 
 interface Pending {
   key: number
+  file: File
   name: string
   size: number
   image: boolean
@@ -62,6 +64,7 @@ export function useUploads(groupId: string) {
       const image = file.type.startsWith('image/')
       added.push({
         key,
+        file,
         name: file.name,
         size: file.size,
         image,
@@ -162,8 +165,30 @@ export function QuoteChip({ quote }: { quote: QuoteDraft }) {
   )
 }
 
+/** A picked file in the shared viewer before it is sent, read from the local copy rather than the upload. */
+function LocalPreview({ file }: { file: File }) {
+  const [url, setUrl] = useState<string>()
+  useEffect(() => {
+    const u = URL.createObjectURL(file)
+    setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [file])
+  const read = useCallback(async () => {
+    if (file.size > FILE_TEXT_MAX_BYTES) return { text: null, binary: false, size: file.size }
+    const text = await file.text()
+    const binary = text.includes('\0')
+    return { text: binary ? null : text, binary, size: file.size }
+  }, [file])
+  return url ? (
+    <div className="att-preview">
+      <FileViewer local name={file.name} path={file.name} url={url} kind={viewKind(file.name)} read={read} />
+    </div>
+  ) : null
+}
+
 export function AttachmentChips({ uploads }: { uploads: Uploads }) {
   const [viewKey, setViewKey] = useState<number | null>(null)
+  const thumbs = useRef(new Map<number, HTMLElement>())
   if (!uploads.items.length) return null
   const viewing = uploads.items.find((i) => i.key === viewKey)
   const viewable = uploads.items.filter((i) => i.thumb)
@@ -174,6 +199,10 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
         <span key={i.key} className={cx('att-chip', i.thumb && 'att-chip--image')}>
           {i.thumb ? (
             <button
+              ref={(el) => {
+                if (el) thumbs.current.set(i.key, el)
+                else thumbs.current.delete(i.key)
+              }}
               type="button"
               className="att-chip__thumb"
               aria-label={t('预览 {name}', { name: i.name })}
@@ -182,10 +211,25 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
             >
               <img src={i.thumb} alt={i.name} />
             </button>
+          ) : viewKind(i.name) === 'binary' ? (
+            <>
+              <FileIcon name={i.name} size={18} />
+              <span className="att-chip__name">{i.name}</span>
+            </>
           ) : (
-            <FileIcon name={i.name} size={18} />
+            // Icon and name are one target: a thumbnail-sized icon alone would be too small to tap.
+            <button
+              type="button"
+              className="att-chip__open"
+              aria-label={t('预览 {name}', { name: i.name })}
+              title={t('点击预览')}
+              onClick={() => setViewKey(i.key)}
+            >
+              <FileIcon name={i.name} size={18} />
+              <span className="att-chip__name">{i.name}</span>
+            </button>
           )}
-          <span className="att-chip__name">{i.name}</span>
+          {i.thumb ? <span className="att-chip__name">{i.name}</span> : null}
           <span className="att-chip__size">{fmtSize(i.size)}</span>
           {i.upload ? null : (
             <>
@@ -208,9 +252,17 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
           items={viewable.map((i) => ({ src: i.thumb as string, alt: i.name }))}
           index={viewable.indexOf(viewing)}
           onIndexChange={(n) => setViewKey(viewable[n]?.key ?? null)}
+          origin={(n) => thumbs.current.get(viewable[n]?.key ?? -1)}
           onClose={() => setViewKey(null)}
         />
       ) : null}
+      <Presence>
+        {viewing && !viewing.thumb ? (
+          <Dialog open width={920} title={t('发送前预览')} onClose={() => setViewKey(null)}>
+            <LocalPreview file={viewing.file} />
+          </Dialog>
+        ) : null}
+      </Presence>
       <span className="att-chips__note">
         {`${t('{n} / {max} · 写入工作区 .gonggong/attachments/，不进 git', { n: uploads.items.length, max: MAX_ATTACHMENTS })}${image ? t(' · 图片：agent 支持时同时以 ACP 图片发送') : ''}`}
       </span>

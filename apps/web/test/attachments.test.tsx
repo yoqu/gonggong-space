@@ -315,6 +315,36 @@ describe('composer attachments', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image.png')
   })
 
+  it('previews other files before sending from the local copy, freeing it on closing', async () => {
+    mockApi()
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    const files = document.querySelectorAll('input[type=file]')[1] as HTMLInputElement
+    pick(files, [
+      new File(['# 标题\n\n正文段落'], 'notes.md', { type: 'text/markdown' }),
+      new File(['%PDF'], 'report.pdf', { type: 'application/pdf' }),
+      new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
+    ])
+    await composer().findByText('bundle.zip')
+    expect(composer().queryByRole('button', { name: '预览 bundle.zip' })).toBeNull()
+
+    fireEvent.click(composer().getByRole('button', { name: '预览 notes.md' }))
+    const sheet = screen.getByRole('dialog', { name: '发送前预览' })
+    expect(await within(sheet).findByText('正文段落')).toBeTruthy()
+    expect(within(sheet).queryByRole('button', { name: '复制路径' })).toBeNull()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '发送前预览' })).toBeNull())
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:notes.md')
+
+    // A local PDF has no server to ask with HEAD: it is framed straight away.
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    fireEvent.click(composer().getByRole('button', { name: '预览 report.pdf' }))
+    const pdf = screen.getByRole('dialog', { name: '发送前预览' })
+    expect(pdf.querySelector('iframe')?.getAttribute('src')).toBe('blob:report.pdf')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('waits for uploads before sending, filling a progress bar along the chip', async () => {
     mockApi()
     let finish: () => void = () => {}

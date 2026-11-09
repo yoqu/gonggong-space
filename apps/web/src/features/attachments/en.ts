@@ -42,4 +42,6 @@ export default {
   'Word 文档': 'Word document',
   'Excel 表格': 'Excel workbook',
   'PowerPoint 演示文稿': 'PowerPoint presentation',
+  点击预览: 'Click to preview',
+  发送前预览: 'Preview before sending',
 } satisfies Record<string, string>

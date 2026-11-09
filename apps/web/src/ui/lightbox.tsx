@@ -4,6 +4,7 @@ import {
   type ReactNode,
   type TouchEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -27,6 +28,37 @@ const DRAG_PX = 4
 
 type View = { s: number; x: number; y: number }
 const FIT: View = { s: 1, x: 0, y: 0 }
+const REST = 'translate(0px, 0px) scale(1)'
+
+/** A motion token as Web Animations timing; null when it is 0s (reduced motion collapses the springs). */
+function timing(token: string) {
+  const m = /^(\d+)ms\s+(.+)$/.exec(getComputedStyle(document.documentElement).getPropertyValue(token).trim())
+  return m ? { duration: Number(m[1]), easing: m[2] } : null
+}
+
+/**
+ * The fitted image laid over the thumbnail: scaled to cover it, centred on it, cropped to its shape (thumbnails
+ * are object-fit: cover), so growing out of it looks like the thumbnail itself opening.
+ */
+function over(thumb: Element, image: DOMRect) {
+  const r = thumb.getBoundingClientRect()
+  const k = Math.max(r.width / image.width, r.height / image.height)
+  const dx = r.left + r.width / 2 - (image.left + image.width / 2)
+  const dy = r.top + r.height / 2 - (image.top + image.height / 2)
+  const ix = (image.width - r.width / k) / 2
+  const iy = (image.height - r.height / k) / 2
+  const round = (Number.parseFloat(getComputedStyle(thumb).borderTopLeftRadius) || 0) / k
+  return {
+    transform: `translate(${dx}px, ${dy}px) scale(${k})`,
+    clipPath: `inset(${iy}px ${ix}px round ${round}px)`,
+  }
+}
+
+/** On screen and laid out: a thumbnail scrolled away or removed is no place to fly to. */
+function seen(el: Element | null | undefined): el is Element {
+  const r = el?.getBoundingClientRect()
+  return !!r && r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth
+}
 
 type Source =
   | { src: string; alt: string; items?: undefined; index?: undefined; onIndexChange?: undefined }
@@ -46,11 +78,14 @@ type Source =
 export function Lightbox({
   onClose,
   actions,
+  origin,
   ...source
 }: Source & {
   onClose: () => void
   /** Extra toolbar items left of the close button, e.g. 下载. */
   actions?: ReactNode
+  /** The thumbnail of item `index`: the image grows out of it and shrinks back into it (Quick Look). */
+  origin?: (index: number) => Element | null | undefined
 }) {
   const items = source.items ?? [{ src: source.src as string, alt: source.alt as string }]
   const index = source.index ?? 0
@@ -65,7 +100,51 @@ export function Lightbox({
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const moved = useRef(false)
   const touch = useRef<{ x: number; y: number } | null>(null)
-  useEscape(onClose)
+  const [closing, setClosing] = useState(false)
+  // Only the image it was opened on flies; paging shows the others with the plain entrance.
+  const flying = useRef(origin ? item.src : null)
+  const flyIn = () => {
+    const el = img.current
+    const from = origin?.(index)
+    const spring = timing('--spring-snappy')
+    if (flying.current !== item.src || !el?.animate || !spring || !seen(from)) return
+    flying.current = null
+    // The flight is the entrance: the CSS fade and grow-in would run on top of it.
+    for (const a of el.getAnimations()) a.cancel()
+    el.animate(
+      [over(from, el.getBoundingClientRect()), { transform: REST, clipPath: 'inset(0px 0px round 0px)' }],
+      spring,
+    )
+  }
+  // A cached image (the thumbnail's own source) is complete before its load event could be listened for.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, for the image it opened on
+  useLayoutEffect(() => {
+    if (img.current?.complete && img.current.naturalWidth) flyIn()
+  }, [])
+  const close = () => {
+    if (closing) return
+    const el = img.current
+    const root = ref.current
+    const from = origin?.(index)
+    const spring = timing('--spring-snappy')
+    const fade = timing('--fade-out')
+    if (!root?.animate) return onClose()
+    setClosing(true)
+    let run: Animation
+    if (el && spring && viewRef.current.s === 1 && seen(from)) {
+      for (const a of el.getAnimations()) a.cancel()
+      run = el.animate(
+        [{ transform: REST, clipPath: 'inset(0px 0px round 0px)' }, over(from, el.getBoundingClientRect())],
+        {
+          ...spring,
+          fill: 'forwards',
+        },
+      )
+    } else
+      run = root.animate([{ opacity: 1 }, { opacity: 0 }], { ...(fade ?? { duration: 0 }), fill: 'forwards' })
+    run.finished.then(onClose, onClose)
+  }
+  useEscape(close)
   useFocusTrap(ref, true)
   /** Scales to `to`, keeping the point at client (cx, cy) (default: the image centre) where it is. */
   const zoomTo = (to: number, cx?: number, cy?: number) => {
@@ -170,6 +249,7 @@ export function Lightbox({
     <div
       ref={ref}
       className="ui-lightbox"
+      data-closing={closing || undefined}
       role="dialog"
       aria-modal="true"
       aria-label={item.alt}
@@ -177,7 +257,7 @@ export function Lightbox({
       onTouchStart={paged ? onTouchStart : undefined}
       onTouchEnd={paged ? onTouchEnd : undefined}
     >
-      <div className="ui-lightbox__scrim" onClick={onClose} aria-hidden="true" />
+      <div className="ui-lightbox__scrim" onClick={close} aria-hidden="true" />
       <div className="ui-lightbox__bar">
         <span className="ui-lightbox__title">{item.alt}</span>
         {paged ? <span className="ui-lightbox__count">{`${index + 1} / ${items.length}`}</span> : null}
@@ -209,7 +289,7 @@ export function Lightbox({
           </button>
         </div>
         {actions}
-        <CloseButton onClick={onClose} />
+        <CloseButton onClick={close} />
       </div>
       <div className="ui-lightbox__stage">
         <div className={cx('ui-lightbox__img', zoomed && 'ui-lightbox__img--zoomed')}>
@@ -225,6 +305,7 @@ export function Lightbox({
               transition: dragging ? 'none' : undefined,
             }}
             onClick={onImageClick}
+            onLoad={flyIn}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}

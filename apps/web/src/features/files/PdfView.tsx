@@ -13,6 +13,8 @@ const SLOW_MS = 8000
  * The HEAD has no body, so a failure reads the GET for the reason.
  */
 async function check(url: string): Promise<number | null> {
+  // A local file (blob:) is there for sure, and fetch allows only GET on it.
+  if (url.startsWith('blob:')) return null
   let res: Response
   try {
     res = await fetch(url, { method: 'HEAD', credentials: 'include' })

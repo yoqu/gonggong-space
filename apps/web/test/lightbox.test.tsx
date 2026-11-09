@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { Attachment } from '@gonggong/protocol'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MessageAttachments } from '../src/features/attachments/MessageAttachments'
 import { Lightbox } from '../src/ui'
 
@@ -131,5 +131,123 @@ describe('Lightbox', () => {
     fireEvent.keyDown(document, { key: 'ArrowRight' })
     const box = screen.getByRole('dialog', { name: 'two.png' })
     expect(within(box).getByRole('link', { name: '下载' }).getAttribute('href')).toContain('/attachments/a2')
+  })
+})
+
+describe('Lightbox flight from the thumbnail', () => {
+  type Frame = Record<string, string | number>
+  let calls: { el: Element; frames: Frame[]; finish: () => void }[] = []
+  const rect = (left: number, top: number, width: number, height: number) =>
+    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }) as DOMRect
+  const stub = (spring: string) => {
+    calls = []
+    document.documentElement.style.setProperty('--spring-snappy', spring)
+    document.documentElement.style.setProperty('--fade-out', '110ms ease-out')
+    // jsdom has no Web Animations.
+    Element.prototype.animate = function (
+      this: Element,
+      frames: Keyframe[] | PropertyIndexedKeyframes | null,
+    ) {
+      let finish = () => {}
+      const finished = new Promise<void>((r) => {
+        finish = r
+      })
+      calls.push({ el: this, frames: frames as Frame[], finish })
+      return { finished, cancel() {} } as unknown as Animation
+    }
+    Element.prototype.getAnimations = () => []
+  }
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).animate
+    delete (Element.prototype as Partial<Element>).getAnimations
+    document.documentElement.removeAttribute('style')
+  })
+  const thumb = () => {
+    const el = document.createElement('button')
+    el.getBoundingClientRect = () => rect(10, 500, 100, 50)
+    document.body.append(el)
+    return el
+  }
+  const loaded = () => {
+    const img = screen.getByRole('dialog').querySelector('.ui-lightbox__img img') as HTMLImageElement
+    img.getBoundingClientRect = () => rect(100, 100, 400, 400)
+    fireEvent.load(img)
+    return img
+  }
+
+  it('grows from the thumbnail on opening and shrinks back into it on closing', async () => {
+    stub('300ms linear(0, 1)')
+    const origin = thumb()
+    const onClose = vi.fn()
+    render(<Lightbox src="/a.png" alt="a.png" origin={() => origin} onClose={onClose} />)
+    const img = loaded()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.el).toBe(img)
+    // Cover scale (max of 100/400, 50/400), centres 60,525 → 300,300, cropped to the thumbnail's 2:1.
+    expect(calls[0]!.frames[0]).toMatchObject({
+      transform: 'translate(-240px, 225px) scale(0.25)',
+      clipPath: 'inset(100px 0px round 0px)',
+    })
+    expect(calls[0]!.frames.at(-1)).toMatchObject({ transform: 'translate(0px, 0px) scale(1)' })
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog').hasAttribute('data-closing')).toBe(true)
+    expect(calls[1]!.frames.at(-1)).toMatchObject({ transform: 'translate(-240px, 225px) scale(0.25)' })
+    calls[1]!.finish()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    origin.remove()
+  })
+
+  it('fades out instead when the thumbnail is gone or the image is zoomed', async () => {
+    stub('300ms linear(0, 1)')
+    const onClose = vi.fn()
+    render(<Lightbox src="/a.png" alt="a.png" origin={() => null} onClose={onClose} />)
+    loaded()
+    expect(calls).toHaveLength(0)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(calls[0]!.el).toBe(screen.getByRole('dialog'))
+    expect(calls[0]!.frames.at(-1)).toMatchObject({ opacity: 0 })
+    calls[0]!.finish()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  it('only fades under reduced motion, where the springs are 0s', async () => {
+    stub('0s linear')
+    const origin = thumb()
+    const onClose = vi.fn()
+    render(<Lightbox src="/a.png" alt="a.png" origin={() => origin} onClose={onClose} />)
+    loaded()
+    expect(calls).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(calls[0]!.frames.at(-1)).toMatchObject({ opacity: 0 })
+    origin.remove()
+  })
+
+  it('flies from the tile of a message image', () => {
+    stub('300ms linear(0, 1)')
+    const tiles = new Set<Element>()
+    const measure = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.matches('.att-tile')) tiles.add(this)
+      return rect(10, 10, 100, 100)
+    })
+    render(
+      <MessageAttachments
+        from="李建国"
+        list={[{ id: 'a1', name: 'one.png', mime: 'image/png', size: 1, messageId: 'm1' } as Attachment]}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '查看大图 one.png' }))
+    loaded()
+    expect(calls).toHaveLength(1)
+    expect([...tiles][0]?.querySelector('img')?.getAttribute('alt')).toBe('one.png')
+    measure.mockRestore()
+  })
+
+  it('eases zoom and pan with a motion token, so reduced motion makes them instant', () => {
+    const css = readFileSync(join(import.meta.dirname, '../src/ui/lightbox.css'), 'utf8')
+    expect(css).toMatch(/transition: transform var\(--spring-interactive\)/)
   })
 })

@@ -506,6 +506,8 @@ export interface FileViewerProps {
   links?: Omit<MdDoc, 'path'>
   /** The other files of its folder, paged with the bar's buttons and ←/→. */
   nav?: FileNav | null
+  /** Not in any workspace yet (a file picked in the composer): no path to copy or cite lines by. */
+  local?: boolean
 }
 
 /** One file by type (design §4.6): shared by the files tab, file tabs and attachments. */
@@ -526,6 +528,7 @@ export function FileViewer({
   changes,
   links,
   nav,
+  local,
 }: FileViewerProps) {
   const root = useRef<HTMLDivElement>(null)
   const bar = useRef<HTMLDivElement>(null)
@@ -791,7 +794,7 @@ export function FileViewer({
           lang={langOf(name)}
           line={line}
           picked={picked}
-          onPickLine={pickLine}
+          onPickLine={local ? undefined : pickLine}
           wrap={wrap}
           download={cutDownload}
           blame={annotate?.lines ?? undefined}
@@ -833,7 +836,7 @@ export function FileViewer({
         ]
       : []),
     ...(git ? [{ key: 'history', label: t('显示历史'), icon: 'clock' as const, run: git.onHistory }] : []),
-    { key: 'copy', label: t('复制路径'), icon: 'link', run: copy },
+    ...(local ? [] : [{ key: 'copy', label: t('复制路径'), icon: 'link' as const, run: copy }]),
     ...(onOpenTab
       ? [{ key: 'tab', label: t('在新标签页打开'), icon: 'external' as const, run: onOpenTab }]
       : []),
@@ -1019,6 +1022,7 @@ export function FileViewer({
         <Lightbox
           src={url}
           alt={name}
+          origin={() => root.current?.querySelector('.fv-img')}
           onClose={() => setZoom(false)}
           actions={
             <a className="ui-btn ui-btn--small" href={url} download={name}>

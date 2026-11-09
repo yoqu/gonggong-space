@@ -139,7 +139,8 @@
   touch-action: none;
   user-select: none;
   cursor: zoom-in;
-  transition: transform 0.15s ease-out;
+  /* The interactive spring: settles like a 150ms ease-out and is instant under reduced motion. */
+  transition: transform var(--spring-interactive);
   /* Each image grows in slightly (scale, not transform: that one carries zoom and pan); reduced motion only fades. */
   animation:
     var(--fade-in) ui-fade-in,
@@ -155,4 +156,11 @@
 }
 .ui-lightbox__img--zoomed > img:active {
   cursor: grabbing;
+}
+/* Shrinking back into the thumbnail: the scrim and controls fade around the image; nothing takes clicks. */
+.ui-lightbox[data-closing] {
+  pointer-events: none;
+}
+.ui-lightbox[data-closing] > :not(.ui-lightbox__stage) {
+  animation: var(--fade-out) ui-fade-out forwards;
 }
