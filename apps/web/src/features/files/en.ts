@@ -42,4 +42,10 @@ export default {
   '正在加载 PDF…': 'Loading PDF…',
   '加载较慢，可在浏览器中打开或下载': 'Taking a while; open it in your browser or download it',
   '在浏览器自带的阅读器中翻页、缩放与搜索': "Page through, zoom and search in your browser's own reader",
+  '正在读取…': 'Reading…',
+  '正在读取… {pct}%': 'Reading… {pct}%',
+  '正在解析…': 'Parsing…',
+  此工作表为空: 'This sheet is empty',
+  '文件可能已损坏或格式不受支持，可下载后用本机应用打开':
+    'The file may be damaged or in an unsupported format; download it and open it in an app',
 } satisfies Record<string, string>

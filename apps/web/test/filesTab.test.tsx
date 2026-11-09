@@ -22,6 +22,7 @@ const office = vi.hoisted(() => ({
       ],
     },
     { sheet: '备注', data: [['只看第一页']] },
+    { sheet: '空表', data: [] },
   ]),
 }))
 vi.mock('docx-preview', () => ({ renderAsync: office.docx }))
@@ -118,7 +119,7 @@ beforeEach(() => {
           entries: [{ path: 'src/main.ts', dir: false, uncommitted: true, notInWorkspace: false }],
         })
       if (u.pathname === '/api/attachments/a1') return new Response('line one\nERROR boom\n')
-      if (u.pathname === '/api/groups/g1/bots/b1/files/raw' && path === 'gone.pdf')
+      if (u.pathname === '/api/groups/g1/bots/b1/files/raw' && path.startsWith('gone.'))
         return new Response(
           JSON.stringify({ error: 'conflict', message: '小王的 Claude 离线，无法读取文件' }),
           { status: 409 },
@@ -646,6 +647,59 @@ describe('office documents', () => {
     expect(screen.getByRole('columnheader', { name: 'D' })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: '备注' }))
     expect(screen.getByRole('cell', { name: '只看第一页' })).toBeTruthy()
+  })
+
+  it('says it is parsing until the document is drawn, then shows the frame', async () => {
+    let done = () => {}
+    office.docx.mockImplementationOnce(
+      (_data: ArrayBuffer, body: HTMLElement) =>
+        new Promise<void>((resolve) => {
+          done = () => {
+            body.innerHTML = '<p>周报正文</p>'
+            resolve()
+          }
+        }),
+    )
+    openFile('docs/周报.docx')
+    expect((await screen.findByRole('status')).textContent).toContain('正在解析…')
+    const box = frame('周报.docx')?.parentElement as HTMLElement
+    expect(box.dataset.loaded).toBeUndefined()
+    await act(async () => done())
+    await waitFor(() => expect(box.dataset.loaded).toBe('true'))
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('renders slides at one width and scales them to the panel', async () => {
+    openFile('deck.pptx')
+    const root = frame('deck.pptx')?.contentDocument?.documentElement as HTMLElement
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 })
+    await waitFor(() => expect(frameText('deck.pptx')).toContain('第一页幻灯片'))
+    expect(office.pptx.mock.calls[0]?.[1]).toMatchObject({ width: 960 })
+    expect(root.style.getPropertyValue('--fit')).toBe(String(520 / 992))
+  })
+
+  it('marks the current sheet and says when one is empty', async () => {
+    openFile('sales.xlsx')
+    await screen.findByRole('cell', { name: '上海' })
+    expect(screen.getByRole('tab', { name: '销量' }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(screen.getByRole('tab', { name: '空表' }))
+    expect(screen.getByText('此工作表为空')).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('explains a file it cannot parse and still offers the download', async () => {
+    office.docx.mockRejectedValueOnce(new Error('end of central directory not found'))
+    openFile('bad.docx')
+    const box = within((await screen.findByText('无法预览文件')).parentElement as HTMLElement)
+    expect(box.getByText('文件可能已损坏或格式不受支持，可下载后用本机应用打开')).toBeTruthy()
+    expect(box.getByRole('link', { name: '下载' }).getAttribute('href')).toBe(raw('bad.docx'))
+    expect(box.getByRole('button', { name: '重试' })).toBeTruthy()
+  })
+
+  it("shows the server's reason when the file cannot be read", async () => {
+    openFile('gone.xlsx')
+    expect(await screen.findByText('小王的 Claude 离线，无法读取文件')).toBeTruthy()
+    expect(office.sheets).not.toHaveBeenCalled()
   })
 
   it('offers a download for old formats and files too large to render', async () => {

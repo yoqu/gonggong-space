@@ -348,55 +348,109 @@
     min-height: 44px;
   }
 }
+/* Pages and slides sit on the panel's grouped canvas; the frame is transparent and fades in once drawn. */
 .fv-office {
   position: relative;
   flex: 1;
   display: flex;
   min-height: 60vh;
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
+  overflow: hidden;
+}
+.fv-office__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  opacity: 0;
+  transition: opacity var(--fade-in);
+}
+.fv-office[data-loaded] .fv-office__frame {
+  opacity: 1;
 }
 .fv-office__wait {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
 }
+.fv-office__progress {
+  width: min(200px, 60%);
+}
+/* A workbook fills the panel: the grid scrolls both ways under its frozen header row and row numbers. */
 .fv-sheet {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
   min-height: 0;
+  animation: var(--fade-in) ui-fade-in;
+}
+.fv-sheet__tabs {
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.fv-sheet__tabs .ui-seg {
+  width: max-content;
+}
+@media (pointer: coarse) {
+  .fv-sheet__tabs .ui-seg {
+    height: 36px;
+  }
 }
 .fv-sheet__grid {
+  flex: 1 1 auto;
+  min-height: 160px;
   overflow: auto;
-  max-height: 70vh;
+  overscroll-behavior: contain;
   border: 0.5px solid var(--separator);
   border-radius: var(--radius-field);
 }
+/* Separate borders: collapsed ones are painted by the table and scroll away from sticky headers. */
 .fv-sheet table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--text-footnote-size);
   font-variant-numeric: tabular-nums;
 }
 .fv-sheet th,
 .fv-sheet td {
-  padding: 2px var(--space-8);
-  border: 0.5px solid var(--separator);
+  padding: 3px var(--space-8);
+  border-right: 0.5px solid var(--separator);
+  border-bottom: 0.5px solid var(--separator);
   white-space: nowrap;
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: left;
 }
+/* --group-bg is a tint: laid over the page colour so frozen headers hide the cells under them. */
 .fv-sheet th {
   position: sticky;
-  top: 0;
-  background: var(--group-bg);
+  z-index: 1;
+  background: linear-gradient(var(--group-bg), var(--group-bg)), var(--content-bg);
   color: var(--label-secondary);
   font-weight: 500;
 }
+.fv-sheet thead th {
+  top: 0;
+  text-align: center;
+}
 .fv-sheet tbody th {
   left: 0;
+  min-width: 2.5em;
   text-align: right;
+}
+.fv-sheet thead th:first-child {
+  left: 0;
+  z-index: 2;
 }
 .fv-sheet td[data-num] {
   text-align: right;
