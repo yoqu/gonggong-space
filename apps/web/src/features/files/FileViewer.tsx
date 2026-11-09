@@ -49,6 +49,7 @@ import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
 import { openTab } from '../workbench/open'
 import { type OfficeKind, OfficeView } from './OfficeView'
+import { PdfView } from './PdfView'
 import './files.css'
 import { t } from '../../i18n'
 
@@ -591,6 +592,15 @@ export function FileViewer({
   const copy = () => copyWithToast(path, t('已复制路径'))
   const copyText = () => text?.text != null && copyWithToast(text.text, t('已复制全文'))
 
+  // Known for a PDF from its HEAD when nothing else told it (a path opened from chat).
+  const [headSize, setHeadSize] = useState<{ url?: string; size: number }>()
+  const onHeadSize = useCallback((n: number) => setHeadSize({ url, size: n }), [url])
+  const shownSize = text?.size ?? size ?? (headSize?.url === url ? headSize?.size : undefined)
+  const shownDim = vector ? null : dim
+  const meta = [typeLabel(name), shownSize == null ? null : fmtSize(shownSize), shownDim]
+    .filter(Boolean)
+    .join(' · ')
+
   const body = (() => {
     const failedText = url && failed === url ? MEDIA_FAILED[kind] : undefined
     if (failedText) return <Download url={url} name={name} message={failedText} />
@@ -639,7 +649,7 @@ export function FileViewer({
           </div>
         )
       case 'pdf':
-        return <iframe className="fv__pdf" title={name} src={url} />
+        return url ? <PdfView url={url} name={name} meta={meta} onSize={onHeadSize} /> : null
       case 'docx':
       case 'xlsx':
       case 'pptx':
@@ -771,12 +781,6 @@ export function FileViewer({
       ...(a.pressed === undefined ? {} : { checked: a.pressed }),
     })),
   ]
-  const shownSize = text?.size ?? size
-  const shownDim = vector ? null : dim
-  const meta = [typeLabel(name), shownSize == null ? null : fmtSize(shownSize), shownDim]
-    .filter(Boolean)
-    .join(' · ')
-
   const rows =
     details && shownDim
       ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), shownDim] as [string, string]]

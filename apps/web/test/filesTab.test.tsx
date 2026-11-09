@@ -118,6 +118,11 @@ beforeEach(() => {
           entries: [{ path: 'src/main.ts', dir: false, uncommitted: true, notInWorkspace: false }],
         })
       if (u.pathname === '/api/attachments/a1') return new Response('line one\nERROR boom\n')
+      if (u.pathname === '/api/groups/g1/bots/b1/files/raw' && path === 'gone.pdf')
+        return new Response(
+          JSON.stringify({ error: 'conflict', message: '小王的 Claude 离线，无法读取文件' }),
+          { status: 409 },
+        )
       if (u.pathname === '/api/attachments/a2' || u.pathname === '/api/groups/g1/bots/b1/files/raw') {
         const size = path === 'huge.docx' ? 99 * 1024 * 1024 : 3
         return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-length': String(size) } })
@@ -350,6 +355,60 @@ describe('file viewer', () => {
     expect(link.getAttribute('href')).toBe(raw('src/assets/doc.pdf'))
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toContain('noopener')
+  })
+
+  it('shows a page skeleton until the pdf frame loads, and its size from a HEAD', async () => {
+    openFile('src/assets/doc.pdf')
+    const frame = screen.getByTitle('doc.pdf')
+    expect(screen.getByRole('status', { name: '正在加载 PDF…' })).toBeTruthy()
+    expect(frame.closest('.fv-pdf')?.hasAttribute('data-loaded')).toBe(false)
+    expect(await screen.findByText('PDF 文档 · 3 B')).toBeTruthy()
+    expect(calls).toContain(raw('src/assets/doc.pdf'))
+    fireEvent.load(frame)
+    expect(screen.queryByRole('status', { name: '正在加载 PDF…' })).toBeNull()
+    expect(frame.closest('.fv-pdf')?.hasAttribute('data-loaded')).toBe(true)
+  })
+
+  it('offers the browser and the download when a pdf is slow to load', () => {
+    vi.useFakeTimers()
+    try {
+      openFile('src/assets/doc.pdf')
+      expect(screen.queryByText('加载较慢，可在浏览器中打开或下载')).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(8000)
+      })
+      const wait = within(document.querySelector('.fv-pdf__wait') as HTMLElement)
+      expect(wait.getByText('加载较慢，可在浏览器中打开或下载')).toBeTruthy()
+      expect(wait.getByRole('link', { name: '在浏览器中打开' }).getAttribute('href')).toBe(
+        raw('src/assets/doc.pdf'),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says why a pdf cannot load instead of framing the error, and retries', async () => {
+    openFile('gone.pdf')
+    expect(await screen.findByText('无法加载 PDF')).toBeTruthy()
+    expect(screen.getByText('小王的 Claude 离线，无法读取文件')).toBeTruthy()
+    expect(document.querySelector('iframe')).toBeNull()
+    const before = calls.length
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(calls.length).toBeGreaterThan(before))
+  })
+
+  it('on touch screens gives a pdf card led by opening it in the browser', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(pointer: coarse)', media: q }))
+    openFile('src/assets/doc.pdf')
+    expect(screen.queryByTitle('doc.pdf')).toBeNull()
+    const card = within(document.querySelector('.fv-pdf-card') as HTMLElement)
+    expect(card.getByText('doc.pdf')).toBeTruthy()
+    expect(await card.findByText('PDF 文档 · 3 B')).toBeTruthy()
+    const open = card.getByRole('link', { name: '在浏览器中打开' })
+    expect(open.className).toContain('ui-btn--primary')
+    expect(open.getAttribute('href')).toBe(raw('src/assets/doc.pdf'))
+    expect(open.getAttribute('target')).toBe('_blank')
+    expect(card.getByRole('link', { name: '下载' }).getAttribute('download')).toBe('doc.pdf')
   })
 
   it('shows audio as a card with its name', () => {

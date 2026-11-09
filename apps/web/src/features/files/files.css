@@ -159,13 +159,103 @@
 .fv__audio > audio {
   width: 100%;
 }
+/* The frame stays clear until the viewer has drawn, so a dark theme never flashes a white box; a page stands in. */
+.fv-pdf {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 60vh;
+}
 .fv__pdf {
   flex: 1;
-  min-height: 60vh;
   width: 100%;
-  border: 0;
+  border: 1px solid var(--separator);
   border-radius: var(--radius-field);
-  background: #fff;
+  background: var(--group-bg);
+  opacity: 0;
+  transition: opacity var(--fade-in);
+}
+.fv-pdf[data-loaded] .fv__pdf {
+  opacity: 1;
+}
+.fv-pdf__wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-20) var(--space-16);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--group-bg);
+  overflow: hidden;
+}
+.fv-pdf__page {
+  flex: none;
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1.414;
+  max-height: 100%;
+  padding: var(--space-32) var(--space-20);
+  border-radius: var(--radius-check);
+  background: var(--content-bg);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--label) 12%, transparent);
+}
+.fv-pdf__slow {
+  position: absolute;
+  inset: auto var(--space-16) var(--space-20);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--content-bg);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--label) 12%, transparent);
+  text-align: center;
+  color: var(--label-secondary);
+  animation: var(--fade-in) ui-fade-in;
+}
+.fv-pdf__slow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-8);
+}
+.fv-pdf-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: 420px;
+  margin: var(--space-16) auto 0;
+  padding: var(--space-20) var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+  text-align: center;
+}
+.fv-pdf-card__name {
+  max-width: 100%;
+  margin-top: var(--space-4);
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.fv-pdf-card__meta,
+.fv-pdf-card__hint {
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+}
+.fv-pdf-card > .ui-btn {
+  width: 100%;
+  max-width: 280px;
+  min-height: 44px;
+  justify-content: center;
+  text-decoration: none;
+}
+.fv-pdf-card > .ui-btn--primary {
+  margin-top: var(--space-8);
 }
 .fv__md {
   min-width: 0;

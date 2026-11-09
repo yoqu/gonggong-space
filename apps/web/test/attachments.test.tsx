@@ -498,7 +498,7 @@ describe('message attachments and preview', () => {
   })
 
   it('previews a PDF attachment in place', async () => {
-    mockApi()
+    mockApi({ 'HEAD /attachments/p1': () => new Response(null) })
     renderChat()
     fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: /spec\.pdf/ }))
     const pane = await screen.findByRole('region', { name: '工作台' })

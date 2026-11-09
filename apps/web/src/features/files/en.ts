@@ -38,4 +38,8 @@ export default {
   '修改：第 {range} 行': 'Modified: {n:line|lines} {range}',
   '删除：{n} 行': 'Deleted: {n} {n:line|lines}',
   大纲: 'Outline',
+  '无法加载 PDF': "Couldn't load the PDF",
+  '正在加载 PDF…': 'Loading PDF…',
+  '加载较慢，可在浏览器中打开或下载': 'Taking a while; open it in your browser or download it',
+  '在浏览器自带的阅读器中翻页、缩放与搜索': "Page through, zoom and search in your browser's own reader",
 } satisfies Record<string, string>
