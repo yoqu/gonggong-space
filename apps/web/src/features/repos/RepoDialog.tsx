@@ -43,7 +43,7 @@ export function RepoDialog({
     try {
       if (main) await groupsApi.setRepo(group.id, body)
       else if (old && repoKey(old.url) === repoKey(body.url))
-        await groupsApi.setExtraRepoBranch(group.id, old.id, body.branch)
+        await groupsApi.updateExtraRepo(group.id, old.id, body)
       else {
         // Another repo in its place: added first, so a refused one leaves the old in place.
         await groupsApi.addExtraRepo(group.id, body)

@@ -27,8 +27,9 @@ export const groupsApi = {
     api.patch<GroupDto>(`/groups/${id}/repo`, body).then(apply),
   addExtraRepo: (id: string, body: { url: string; branch: string }) =>
     api.post<GroupDto>(`/groups/${id}/repos`, body).then(apply),
-  setExtraRepoBranch: (id: string, repoId: string, branch: string) =>
-    api.patch<GroupDto>(`/groups/${id}/repos/${repoId}`, { branch }).then(apply),
+  /** The branch, or another URL of the same repo. */
+  updateExtraRepo: (id: string, repoId: string, body: { url: string; branch: string }) =>
+    api.patch<GroupDto>(`/groups/${id}/repos/${repoId}`, body).then(apply),
   removeExtraRepo: (id: string, repoId: string) =>
     api.del<GroupDto>(`/groups/${id}/repos/${repoId}`).then(apply),
   prefs: (id: string, body: GroupPrefsReq) => api.put<GroupDto>(`/groups/${id}/prefs`, body).then(apply),

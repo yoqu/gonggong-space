@@ -1174,8 +1174,11 @@ export const MarkReadReq = z.object({ seq: z.number().int().min(0).optional() })
 /** PUT /api/groups/:id/unread: 从这里标为未读, the read cursor moves back to just before `seq`. */
 export const MarkUnreadReq = z.object({ seq: z.number().int().min(1) })
 export const RepoReq = z.object({ url: z.string(), branch: z.string() })
-/** POST /api/groups/:id/repos adds an extra repo (RepoReq); PATCH …/repos/:repoId changes its branch. */
-export const RepoBranchReq = z.object({ branch: z.string().min(1) })
+/**
+ * POST /api/groups/:id/repos adds an extra repo (RepoReq); PATCH …/repos/:repoId changes its branch, or its URL to
+ * another one of the same repo (ssh ↔ http).
+ */
+export const RepoBranchReq = z.object({ branch: z.string().min(1), url: z.string().optional() })
 
 // ── Repos (team-wide history, access probes) ────────────────────────────────
 export const RepoDto = z.object({

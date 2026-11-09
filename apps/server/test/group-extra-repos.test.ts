@@ -215,6 +215,28 @@ describe("a bot's local checkout of an extra repo", () => {
     expect(start.workspace.extraDirs).toEqual([])
   })
 
+  it('another URL of the same repo (ssh → http) replaces it and keeps the local clone; another repo is refused', async () => {
+    const w = await withExtra()
+    await w.checkout(PATH)
+    const http = 'http://git.corp/pay/pay-web.git'
+    const res = await w.admins.patch<GroupDto>(`/api/groups/${w.group.id}/repos/${w.extra.id}`, {
+      url: ` ${http} `,
+      branch: 'main',
+    })
+    expect(res.status).toBe(200)
+    const now = res.body.extraRepos![0]!
+    expect(now).toEqual({ id: expect.any(String), url: http, branch: 'main' })
+    expect(now.id).not.toBe(w.extra.id)
+    const states = await w.owners.get<GroupBotStateDto[]>(`/api/groups/${w.group.id}/bot-states`)
+    expect(states.body[0]?.repoPaths).toEqual({ [now.id]: PATH })
+
+    const other = await w.admins.patch(`/api/groups/${w.group.id}/repos/${now.id}`, {
+      url: 'http://git.corp/pay/other.git',
+      branch: 'main',
+    })
+    expect(other.status).toBe(409)
+  })
+
   it('/cd to a clone of the extra repo uses it for that repo; any other directory still rebinds the main one', async () => {
     const w = await withExtra()
     const say = (body: string) =>

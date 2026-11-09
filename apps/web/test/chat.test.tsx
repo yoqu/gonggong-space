@@ -1646,6 +1646,35 @@ describe('repo and workspaces', () => {
     await waitFor(() => expect(within(dialog).queryAllByText('pay/web')).toEqual([]))
   })
 
+  it('changes an extra repo to another URL of the same repo (ssh → http)', async () => {
+    const web = { id: 'r9', url: 'git@git.corp:pay/web.git', branch: 'develop' }
+    const http = 'http://git.corp/pay/web.git'
+    const calls = mockApi({
+      ...baseRoutes([group({ extraRepos: [web] })]),
+      'GET /groups/g1/bot-states': () => states,
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
+      'POST /repos/probe': () => probeRes([{ botId: 'b1', ok: true, usedUrl: http }], ['develop']),
+      'PATCH /groups/g1/repos/r9': () => group({ extraRepos: [{ ...web, id: 'r10', url: http }] }),
+    })
+    renderAt('/g/g1')
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: '群设置' }))
+    const drawer = await screen.findByRole('complementary', { name: '群设置' })
+    fireEvent.click(within(drawer).getByRole('button', { name: /仓库与同步/ }))
+    const dialog = await screen.findByRole('dialog', { name: '仓库与同步 · 退款 v2 迁移' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '更改仓库 pay/web' }))
+    const edit = await screen.findByRole('dialog', { name: '更改仓库 pay/web' })
+    const panel = await openRepoPanel(edit)
+    fireEvent.change(within(panel).getByLabelText('搜索仓库'), { target: { value: http } })
+    fireEvent.mouseDown(await within(panel).findByRole('option', { name: /使用地址/ }))
+    expect(await within(edit).findByText(/1 个 Bot 可访问/)).toBeTruthy()
+    fireEvent.click(within(edit).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ url: http, branch: 'develop' }),
+    )
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/repos')).toBe(false)
+  })
+
   it('shows every member where each bot works; only the owner can move it', async () => {
     const calls = mockApi({
       ...baseRoutes([group({ members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }] })]),

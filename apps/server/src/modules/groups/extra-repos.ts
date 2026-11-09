@@ -76,20 +76,24 @@ export function extraRepoRoutes(ctx: Ctx) {
 
     app.patch<{ Params: { id: string; repoId: string } }>('/api/groups/:id/repos/:repoId', async (req) => {
       const me = await requireUser(ctx, req)
-      const { branch } = RepoBranchReq.parse(req.body)
+      const body = RepoBranchReq.parse(req.body)
+      const branch = body.branch.trim()
       const repoId = idParam(req.params.repoId, '附加仓库不存在')
       const { group: g } = await requireAdmin(ctx, req.params.id, me.id)
       const [old] = (await reposOf(g.id)).filter((r) => r.id === repoId && !r.isPrimary)
       if (!old) return fail('not_found', '附加仓库不存在')
-      const group = await checkAdd(g.id, me.id, old.url, branch.trim(), old.id)
-      if (old.baseBranch === branch.trim()) return groupDto(ctx, me.id, group.id)
+      const url = body.url?.trim() || old.url
+      if (repoKey(url) !== repoKey(old.url))
+        fail('conflict', '只能改为同一仓库的其他地址（如 SSH 改为 HTTP）')
+      const group = await checkAdd(g.id, me.id, url, branch, old.id)
+      if (old.url === url && old.baseBranch === branch) return groupDto(ctx, me.id, group.id)
       await ctx.db.transaction(async (tx) => {
         await tx.delete(groupRepos).where(eq(groupRepos.id, old.id))
         const [now] = await tx
           .insert(groupRepos)
-          .values({ groupId: group.id, url: old.url, baseBranch: branch.trim(), isPrimary: false })
+          .values({ groupId: group.id, url, baseBranch: branch, isPrimary: false })
           .returning({ id: groupRepos.id })
-        // A bot's own clone of the repo stays its clone on the new branch.
+        // A bot's own clone of the repo stays its clone on the new branch or URL.
         await tx
           .update(groupBots)
           .set({
@@ -97,11 +101,21 @@ export function extraRepoRoutes(ctx: Ctx) {
           })
           .where(and(eq(groupBots.groupId, group.id), sql`${groupBots.repoPaths} ? ${old.id}::text`))
       })
-      await postEvent(ctx, group.id, '{user} 将附加仓库 {url} 的默认分支改为 {branch}', {
-        user: me.name,
-        url: publicRepoUrl(old.url),
-        branch: branch.trim(),
-      })
+      if (old.url === url)
+        await postEvent(ctx, group.id, '{user} 将附加仓库 {url} 的默认分支改为 {branch}', {
+          user: me.name,
+          url: publicRepoUrl(url),
+          branch,
+        })
+      else {
+        await recordRepo(ctx, { url, branch, teamId: group.teamId, userId: me.id })
+        await postEvent(ctx, group.id, '{user} 将附加仓库地址 {old} 改为 {url} · 默认分支 {branch}', {
+          user: me.name,
+          old: publicRepoUrl(old.url),
+          url: publicRepoUrl(url),
+          branch,
+        })
+      }
       await changed(group.id)
       return groupDto(ctx, me.id, group.id)
     })

@@ -18,6 +18,8 @@ export const protocolEn = {
     '{user} added the extra repo {url} · default branch {branch}',
   '{user} 将附加仓库 {url} 的默认分支改为 {branch}':
     '{user} set the default branch of the extra repo {url} to {branch}',
+  '{user} 将附加仓库地址 {old} 改为 {url} · 默认分支 {branch}':
+    '{user} changed the extra repo URL {old} to {url} · default branch {branch}',
   '{user} 移除了附加仓库 {url}': '{user} removed the extra repo {url}',
   '{bot} 的回复未同步到飞书：它的飞书应用不在飞书群，请群管理员在群设置 · 飞书中点「拉入飞书群」':
     '{bot}\'s replies did not reach Feishu: its Feishu app is not in the chat. A group admin can click "Add to chat" in group settings · Feishu',
