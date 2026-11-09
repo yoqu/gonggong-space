@@ -61,9 +61,12 @@ export async function saveDesign(artifactId: string, baseVersionId: string, ops:
   }
 }
 
-/** POST …/commands apply-design-system: the bot restyles every screen to the saved design system. */
-export const applyDesignSystem = (artifactId: string, botId: string) =>
-  api.post(`/artifacts/${artifactId}/commands`, { command: 'apply-design-system', botId })
+/**
+ * POST …/commands apply-design-system: the bot restyles every screen to the saved design system, or first rewrites it
+ * from a design system the group imported (`designSystemId`).
+ */
+export const applyDesignSystem = (artifactId: string, botId: string, designSystemId?: string) =>
+  api.post(`/artifacts/${artifactId}/commands`, { command: 'apply-design-system', botId, designSystemId })
 
 export const loadPresets = (artifactId: string) =>
   api.get<DesignSystemPreset[]>(`/artifacts/${artifactId}/design-systems`)

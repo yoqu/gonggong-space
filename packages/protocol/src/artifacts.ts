@@ -855,6 +855,8 @@ export const ArtifactCommandReq = z
     ggIds: z.array(ArtifactElementRef).max(50).optional(),
     text: z.string().max(2000).optional(),
     count: z.number().int().min(1).max(5).optional(),
+    /** apply-design-system: a design system the group imported, rewritten into DESIGN.md and tokens.css first. */
+    designSystemId: z.string().optional(),
   })
   .superRefine((r, ctx) => {
     if (r.command !== 'edit-with-ai' && r.command !== 'connect-element') return

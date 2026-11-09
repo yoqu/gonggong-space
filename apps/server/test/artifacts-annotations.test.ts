@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { AnnotationDto, ArtifactSubmitRes, MessageDto } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifactAnnotations, groupBots, messages, runs } from '../src/db/schema.js'
+import { artifactAnnotations, groupBots, groupDesignSystems, messages, runs } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -221,6 +221,35 @@ describe('AI commands', () => {
     expect(body).toContain('tokens.css')
     expect(body).toContain('所有屏幕')
     expect(body).toContain('不改内容和结构')
+
+    const [ds] = await t.db
+      .insert(groupDesignSystems)
+      .values({
+        groupId: s.g.id,
+        title: 'AI Design',
+        designMd: '# AI Design\n主色 #FF5500',
+        url: 'https://ai.example.com',
+        createdBy: s.li.id,
+      })
+      .returning()
+    const imported = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
+      command: 'apply-design-system',
+      botId: s.bot.id,
+      designSystemId: ds!.id,
+    })
+    expect(imported.statusCode).toBe(200)
+    expect((imported.json() as MessageDto).body).toContain('套用设计系统：AI Design')
+    const note = await s.note((imported.json() as MessageDto).id)
+    expect(note).toContain('「AI Design」')
+    expect(note).toContain('主色 #FF5500')
+    expect(note).toContain('参考网站：https://ai.example.com')
+    expect(note).toContain('所有屏幕')
+    const other = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
+      command: 'apply-design-system',
+      botId: s.bot.id,
+      designSystemId: crypto.randomUUID(),
+    })
+    expect(other.statusCode).toBe(404)
 
     const connect = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
       command: 'connect-element',

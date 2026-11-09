@@ -1,3 +1,4 @@
+import type { GroupDesignSystemDto } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -10,6 +11,7 @@ import {
   ColorWell,
   ConfirmActionDialog,
   EmptyState,
+  Icon,
   Input,
   MenuButton,
   SegmentedControl,
@@ -20,6 +22,7 @@ import {
   Textarea,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import { useGroupDesignSystems } from '../plugins/store'
 import type { Notify } from './actions'
 import { ROLE_LABEL } from './DesignSystemNode'
 import { frontMatterName, frontMatterValue, renderableMd, SEED_KEY, setFrontMatter } from './designMd'
@@ -143,6 +146,7 @@ export function useDesignSystem(o: {
         notify={notify}
         initialTab={tab}
         artifactId={o.artifactId}
+        groupId={o.groupId ?? ''}
         base={base}
         loading={o.css !== null && !base}
         draft={draft}
@@ -202,9 +206,12 @@ const NUMBER = /^(-?\d*\.?\d+)([a-z%]*)$/i
 
 export type DesignTab = 'theme' | 'md'
 
+const GROUP = 'group:'
+
 function DesignSystemPanel({
   initialTab,
   artifactId,
+  groupId,
   base,
   loading,
   draft,
@@ -216,6 +223,7 @@ function DesignSystemPanel({
 }: {
   initialTab: DesignTab
   artifactId: string
+  groupId: string
   base: DesignFiles | null
   loading: boolean
   draft: Draft | null
@@ -230,6 +238,8 @@ function DesignSystemPanel({
   const [expanded, setExpanded] = useState<ColorRole[]>([])
   const [presets, setPresets] = useState<DesignSystemPreset[]>([])
   const [preset, setPreset] = useState<DesignSystemPreset | null>(null)
+  const imported = useGroupDesignSystems(groupId)
+  const [importedPick, setImportedPick] = useState<GroupDesignSystemDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ text: string; conflict: boolean } | null>(null)
 
@@ -372,21 +382,36 @@ function DesignSystemPanel({
           <MenuButton
             className="ui-btn ui-btn--plain ui-btn--small"
             aria-label={t('预设')}
-            disabled={locked || !presets.length}
+            disabled={locked || !(presets.length || imported.length)}
             align="end"
-            items={presets.map((p) => ({
-              label: p.title,
-              value: p.id,
-              title: p.description,
-              icon: (
-                <span className="art-dsp__chips">
-                  {p.swatches.slice(0, 4).map((c) => (
-                    <i key={c} style={{ background: c }} />
-                  ))}
-                </span>
-              ),
-            }))}
-            onSelect={(id) => setPreset(presets.find((p) => p.id === id) ?? null)}
+            items={[
+              ...presets.map((p) => ({
+                label: p.title,
+                value: p.id,
+                title: p.description,
+                icon: <Chips colors={p.swatches} />,
+              })),
+              ...(imported.length
+                ? [
+                    ...(presets.length ? [{ separator: true as const }] : []),
+                    { header: t('本群导入') },
+                    ...imported.map((d) => ({
+                      label: d.title,
+                      value: `${GROUP}${d.id}`,
+                      title: bot
+                        ? t('让 {bot} 按它重写设计系统并统一所有屏幕', { bot: bot.name })
+                        : t('群里没有 Bot'),
+                      disabled: !bot,
+                      icon: <Chips colors={d.swatches} />,
+                    })),
+                  ]
+                : []),
+            ]}
+            onSelect={(id) =>
+              id.startsWith(GROUP)
+                ? setImportedPick(imported.find((d) => `${GROUP}${d.id}` === id) ?? null)
+                : setPreset(presets.find((p) => p.id === id) ?? null)
+            }
           >
             {t('预设')}
           </MenuButton>
@@ -658,7 +683,34 @@ function DesignSystemPanel({
           onClose={() => setPreset(null)}
         />
       ) : null}
+      {importedPick && bot ? (
+        <ConfirmActionDialog
+          title={t('让 {bot} 套用「{name}」？', { bot: bot.name, name: importedPick.title })}
+          message={t('AI 按它重写 DESIGN.md 和 tokens.css，再统一所有屏幕的视觉')}
+          consequences={[t('会覆盖当前主题，完成后生成新版本'), t('可以用撤销恢复')]}
+          label={t('交给 AI')}
+          done={t('已交给 AI')}
+          run={() => applyDesignSystem(artifactId, bot.id, importedPick.id)}
+          onDone={() => {
+            notify(t('已让 {bot} 套用「{name}」', { bot: bot.name, name: importedPick.title }))
+            setImportedPick(null)
+          }}
+          onClose={() => setImportedPick(null)}
+        />
+      ) : null}
     </aside>
+  )
+}
+
+/** A design system's colours in a strip; none (an import from a site or repo): its icon. */
+function Chips({ colors }: { colors: string[] }) {
+  if (!colors.length) return <Icon name="palette" size={14} />
+  return (
+    <span className="art-dsp__chips">
+      {colors.slice(0, 4).map((c) => (
+        <i key={c} style={{ background: c }} />
+      ))}
+    </span>
   )
 }
 

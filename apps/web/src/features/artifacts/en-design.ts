@@ -50,4 +50,13 @@ export default {
     'DESIGN.md and tokens.css are replaced by the preset’s, as a new version',
   套用: 'Apply',
   已套用预设: 'Preset applied',
+  本群导入: 'Imported to this group',
+  '让 {bot} 按它重写设计系统并统一所有屏幕':
+    '{bot} rewrites the design system from it and restyles every screen',
+  '让 {bot} 套用「{name}」？': 'Have {bot} apply "{name}"?',
+  'AI 按它重写 DESIGN.md 和 tokens.css，再统一所有屏幕的视觉':
+    'The AI rewrites DESIGN.md and tokens.css from it, then restyles every screen',
+  '会覆盖当前主题，完成后生成新版本': 'It replaces the current theme as a new version',
+  '已交给 AI': 'Handed to the AI',
+  '已让 {bot} 套用「{name}」': '{bot} is applying "{name}"',
 }

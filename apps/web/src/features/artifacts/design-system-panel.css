@@ -28,6 +28,10 @@
 .art-dsp__chips i {
   flex: 1;
 }
+/* The menu's icon column is 16px wide; the strip needs its own width or it runs under the name. */
+.ui-menu__icon:has(> .art-dsp__chips) {
+  width: auto;
+}
 .art-dsp__tabs {
   display: flex;
   justify-content: center;

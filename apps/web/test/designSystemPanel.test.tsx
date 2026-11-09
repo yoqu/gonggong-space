@@ -317,6 +317,39 @@ describe('design-system panel', () => {
     )
   })
 
+  it('lists the design systems the group imported and hands one to the bot after confirming', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /groups/g1/design-systems': [
+          {
+            id: 'ds1',
+            groupId: 'g1',
+            title: 'AI Design',
+            swatches: [],
+            designMd: null,
+            url: 'https://ai.example.com',
+            repo: null,
+            createdBy: 'u1',
+            createdAt: '2026-11-09T00:00:00Z',
+          },
+        ],
+      }),
+    )
+    const p = await openPanel()
+    fireEvent.click(p.getByRole('button', { name: '预设' }))
+    expect(screen.getByText('本群导入')).toBeTruthy()
+    fireEvent.click(await screen.findByRole('menuitem', { name: /AI Design/ }))
+    const dialog = screen.getByRole('alertdialog')
+    expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(false)
+    fireEvent.click(within(dialog).getByRole('button', { name: '交给 AI' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/artifacts/a1/commands')?.body).toMatchObject({
+        command: 'apply-design-system',
+        designSystemId: 'ds1',
+      }),
+    )
+  })
+
   it('saves, then asks the bot that made the screens to apply the design system', async () => {
     const calls = mockApi(routes())
     const p = await openPanel()

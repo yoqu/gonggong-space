@@ -18,6 +18,7 @@ import { isUuid } from '../../lib/ids.js'
 import { mirrorUserMessage } from '../feishu/mirror.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from '../messages/service.js'
+import { findDesignSystem } from '../plugins/designSystems.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { readBlob } from './blobs.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
@@ -248,15 +249,42 @@ export async function sendCommand(
   a: Artifact,
   r: ArtifactCommandReq,
 ): Promise<MessageDto> {
+  const ds =
+    r.command === 'apply-design-system' && r.designSystemId
+      ? ((await findDesignSystem(ctx, a.groupId, r.designSystemId)) ?? fail('not_found', '设计系统不存在'))
+      : null
   const { lines, canvas } = await contextLines(ctx, a, {
     screenIds: r.screenIds ?? [],
     elements: r.ggIds ?? [],
   })
   return postAsMember(ctx, me, a, r.botId, {
-    action: withText(t(COMMAND_LABEL[r.command], { n: r.count ?? 3 }), r.text),
+    action: withText(t(COMMAND_LABEL[r.command], { n: r.count ?? 3 }), ds?.title ?? r.text),
     canvas,
-    note: ['[画布指令：上面这条消息的完整要求]', commandInstruction(r, a.dir), '', ...lines, '', RULES],
+    note: [
+      '[画布指令：上面这条消息的完整要求]',
+      ...(ds ? importedDesignLines(ds, a.dir) : []),
+      commandInstruction(r, a.dir),
+      '',
+      ...lines,
+      '',
+      RULES,
+    ],
   })
+}
+
+/** A design system the group imported, for apply-design-system (agent-facing: not translated). */
+function importedDesignLines(
+  ds: { title: string; designMd: string | null; url: string | null; repo: string | null },
+  dir: string,
+) {
+  return [
+    `先套用本群导入的设计系统「${ds.title}」：按 SKILL.md ${ds.designMd ? '当作「粘贴 DESIGN.md」处理（原文见下）' : '从下面的参考来源提取'}，重写 ${dir}/DESIGN.md 和 ${dir}/tokens.css。tokens.css 保留现有的变量名、只改取值，缺的令牌再补。`,
+    ...(ds.url ? [`参考网站：${ds.url}`] : []),
+    ...(ds.repo ? [`参考仓库：${ds.repo}`] : []),
+    // Four backticks: a DESIGN.md may hold ``` blocks of its own.
+    ...(ds.designMd ? ['DESIGN.md 原文：', '````markdown', ds.designMd, '````'] : []),
+    '然后：',
+  ]
 }
 
 /** POST /api/artifacts/:id/annotations/send — the open annotations become `sent` with the message. */
