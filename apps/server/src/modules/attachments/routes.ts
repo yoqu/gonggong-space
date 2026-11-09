@@ -12,7 +12,7 @@ import { requireMachine } from '../../daemon/auth.js'
 import { attachments, bots, groupBots, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { FILE_OVERHEAD, openFileRange, sealStream } from '../../lib/seal.js'
+import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { effectiveParams } from '../groups/params.js'
@@ -27,7 +27,15 @@ import {
 import { LIVE } from '../runs/dto.js'
 import { groupRedactor, runRedactors } from '../secrets/resolve.js'
 import { publishHtmlRender, serveHtmlRender } from './html-render.js'
-import { type AttachmentRow, dataDir, inlineType, safeName, type Upload, uploadDto } from './service.js'
+import {
+  type AttachmentRow,
+  dataDir,
+  inlineType,
+  openStored,
+  safeName,
+  type Upload,
+  uploadDto,
+} from './service.js'
 
 async function findAttachment(ctx: Ctx, id: string) {
   const [row] = await ctx.db
@@ -60,9 +68,9 @@ async function sendFile(req: FastifyRequest, reply: FastifyReply, a: AttachmentR
       .code(206)
       .header('content-range', `bytes ${start}-${end}/${a.size}`)
       .header('content-length', end - start + 1)
-      .send(await openFileRange(join(dataDir(), a.storageKey), { start, end }))
+      .send(await openStored(a, { start, end }))
   }
-  return reply.header('content-length', a.size).send(await openFileRange(join(dataDir(), a.storageKey)))
+  return reply.header('content-length', a.size).send(await openStored(a))
 }
 
 async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { runId: string } }>) {

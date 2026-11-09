@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
-import { ChatHeader, DeniedArt, EmptyState, FailedArt, Icon, Presence } from '../../ui'
+import { Button, ChatHeader, DeniedArt, EmptyState, FailedArt, Icon, Presence } from '../../ui'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
 import { MachineDetails, MachineName, OS_ICON, osText } from './MachineDetails'
 import { OS_LABEL } from './model'
@@ -93,6 +93,7 @@ export function MachinePage({
 export function AdminMachinePage({ id, onBack }: { id: string; onBack?: () => void }) {
   const { data, error, reload } = useAdminMachines()
   const machine = data?.find((m) => m.id === id)
+  const navigate = useNavigate()
   if (error)
     return (
       <div className="chat__placeholder">
@@ -103,7 +104,12 @@ export function AdminMachinePage({ id, onBack }: { id: string; onBack?: () => vo
   if (!machine)
     return (
       <div className="chat__placeholder">
-        <EmptyState illustration={<DeniedArt />} title={t('机器不存在或已吊销')} />
+        <EmptyState
+          illustration={<DeniedArt />}
+          title={t('机器不存在或已吊销')}
+          description={t('可能已被删除，或你没有访问权限。')}
+          action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+        />
       </div>
     )
   return (

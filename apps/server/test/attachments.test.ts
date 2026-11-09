@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -91,6 +91,17 @@ describe('uploads', () => {
       headers: { cookie: w.cookies.outsider },
     })
     expect(denied.status).toBe(404)
+  })
+
+  it('answers 404 with a readable message when the stored file is gone', async () => {
+    const w = await world()
+    const res = await upload(w.cookies.li, w.g.id, 'shot.png', PNG)
+    const [row] = await t.db.select().from(attachments).where(eq(attachments.id, res.body.id))
+    unlinkSync(join(process.env.GONGGONG_DATA_DIR as string, row!.storageKey))
+    const got = await fetch(t.url(`/api/attachments/${res.body.id}`), { headers: { cookie: w.cookies.wang } })
+    expect(got.status).toBe(404)
+    expect(got.headers.get('content-type')).toMatch(/^application\/json/)
+    expect(await got.json()).toEqual({ error: 'not_found', message: '文件已不存在' })
   })
 
   it('downloads anything that could run as a page, and strips paths from names', async () => {

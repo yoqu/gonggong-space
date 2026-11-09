@@ -1075,7 +1075,7 @@ describe('chat view', () => {
     renderAt('/g/zz')
     expect(await screen.findByText('群不存在或你已不在群内')).toBeTruthy()
     // Says why it may be gone, not the generic "pick a conversation" line.
-    expect(screen.getByText('它可能已解散，或你已被移出。从左侧打开别的会话。')).toBeTruthy()
+    expect(screen.getByText('它可能已解散，或你已被移出。')).toBeTruthy()
   })
 })
 

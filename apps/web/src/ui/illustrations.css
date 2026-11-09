@@ -6,7 +6,7 @@
 .art-wash {
   fill: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-.art-card {
+.art-frame {
   fill: var(--content-bg);
   stroke: var(--control-stroke);
   stroke-width: 1.5;

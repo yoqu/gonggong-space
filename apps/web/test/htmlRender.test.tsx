@@ -20,6 +20,7 @@ const link = (url: string) => ({ jsonrpc: '2.0', id: 'gg-link-1', method: 'ui/op
 beforeEach(() => {
   document.documentElement.dataset.theme = 'light'
   document.documentElement.style.setProperty('--content-bg', '#fefefe')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null)))
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -107,6 +108,41 @@ describe('html render', () => {
     expect(box.classList.contains('html-render--loading')).toBe(true)
     fireEvent.load(frameOf())
     expect(box.classList.contains('html-render--loading')).toBe(false)
+  })
+
+  it('checks the loaded page and shows a readable state instead of the error body when its file is gone', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
+    vi.stubGlobal('fetch', fetch)
+    const { container } = render(<HtmlRender page={page} />)
+    await act(async () => {
+      fireEvent.load(frameOf())
+    })
+    expect(fetch).toHaveBeenCalledWith('/api/attachments/a1/render', { method: 'HEAD' })
+    expect(screen.queryByTitle('CPU 走势')).toBeNull()
+    expect(screen.getByText('页面内容已不存在')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '全屏查看' })).toBeNull()
+    const box = container.querySelector('.html-render') as HTMLElement
+    expect(box.style.height).toBe('')
+    expect(box.classList.contains('html-render--loading')).toBe(false)
+  })
+
+  it('offers a retry when the page failed to load for another reason', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValue(new Response(null, { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+    render(<HtmlRender page={page} />)
+    await act(async () => {
+      fireEvent.load(frameOf())
+    })
+    expect(screen.getByText('页面加载失败')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await act(async () => {
+      fireEvent.load(frameOf())
+    })
+    expect(screen.queryByText('页面加载失败')).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('fits the full-screen frame to its page, up to the viewport', () => {

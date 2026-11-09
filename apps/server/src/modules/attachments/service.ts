@@ -1,10 +1,11 @@
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { Attachment } from '@gonggong/protocol'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Db } from '../../db/client.js'
 import { attachments } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
+import { openFileRange } from '../../lib/seal.js'
 import { effectiveParams } from '../groups/params.js'
 import { redact } from '../runs/redact.js'
 
@@ -13,6 +14,14 @@ export type AttachmentRow = typeof attachments.$inferSelect
 export type Upload = Omit<Attachment, 'messageId'>
 
 export const dataDir = () => resolve(process.env.GONGGONG_DATA_DIR ?? '.gonggong-dev/data')
+
+/** A file lost from storage is a 404 the reader can understand, not a 500. */
+export function openStored(a: AttachmentRow, range?: { start: number; end: number }) {
+  return openFileRange(join(dataDir(), a.storageKey), range).catch((e: NodeJS.ErrnoException) => {
+    if (e.code === 'ENOENT') fail('not_found', '文件已不存在')
+    throw e
+  })
+}
 
 /** Base name only: the daemon writes it under `.gonggong/attachments/<messageId>/`. Names are shown to the group, so
  * secrets in them are masked like run output. */

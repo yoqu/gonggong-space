@@ -107,8 +107,14 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   .admin__role {
     display: none;
   }
+  /* The tab row scrolls sideways: keep the way out first and pinned so it never scrolls off. */
   .admin__back {
+    order: -1;
+    position: sticky;
+    left: 0;
+    z-index: 1;
     margin: 0;
+    background: var(--sidebar-bg);
   }
   .admin__toolbar,
   .admin__page {

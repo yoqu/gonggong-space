@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -121,5 +123,21 @@ describe('empty state illustrations', () => {
     renderAt('/admin/bots')
     await screen.findByText('还没有 Bot')
     expect(emptyArt('还没有 Bot')).toBeTruthy()
+  })
+
+  it('use class names no other stylesheet styles, so their shapes keep their own size', () => {
+    const src = 'src'
+    const sheets = Object.fromEntries(
+      readdirSync(src, { recursive: true, encoding: 'utf8' })
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => [f, readFileSync(join(src, f), 'utf8')]),
+    )
+    const classes = (css: string) => new Set(css.match(/\.art-[\w-]+/g))
+    const own = classes(sheets['ui/illustrations.css'] ?? '')
+    expect(own.size).toBeGreaterThan(0)
+    const clashes = Object.entries(sheets)
+      .filter(([path]) => path !== 'ui/illustrations.css')
+      .flatMap(([path, css]) => [...classes(css)].filter((c) => own.has(c)).map((c) => `${path} ${c}`))
+    expect(clashes).toEqual([])
   })
 })

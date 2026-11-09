@@ -776,6 +776,7 @@ export const en = {
   上次运行尚未结束: 'The last run has not finished yet',
   '候选 Bot 都不可用（{bots}）': 'No candidate Bot is available ({bots})',
   文件内容不存在: 'File content not found',
+  文件已不存在: 'The file no longer exists',
   文件内容与哈希不符: 'The content does not match its hash',
   哈希无效: 'Invalid hash',
   '该机器上没有这个强制同步群的 Bot': 'This machine hosts no Bot of this force-sync group',

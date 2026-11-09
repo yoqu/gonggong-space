@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type HtmlRenderRef, type MessageDto, PROTOCOL_VERSION, type TimelineDto } from '@gonggong/protocol'
@@ -213,6 +213,17 @@ describe('html renders', () => {
     expect((await render()).status).toBe(404)
     await t.db.update(attachments).set({ messageId: legacy!.id })
     expect((await render()).status).toBe(200)
+  })
+
+  it('answers 404 with a readable message when the page file is gone', async () => {
+    const w = await world()
+    const id = (await publish((await liveRun(w)).id, w.token, { title: '图', height: '300', html: PAGE }))
+      .body.attachmentId
+    const [row] = await t.db.select().from(attachments).where(eq(attachments.id, id))
+    unlinkSync(join(process.env.GONGGONG_DATA_DIR as string, row!.storageKey))
+    const res = await fetch(t.url(`/api/attachments/${id}/render`), { headers: { cookie: w.cookies.li } })
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'not_found', message: '文件已不存在' })
   })
 
   it('renders only pages published with html_render', async () => {

@@ -22,7 +22,7 @@ import {
 } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import { Dialog, IconButton, Lightbox } from '../../ui'
+import { Button, Dialog, EmptyState, IconButton, Lightbox } from '../../ui'
 import { attachmentUrl } from '../attachments/api'
 import { token } from './theme'
 import './html-render.css'
@@ -117,6 +117,8 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   const [full, setFull] = useState(false)
   const [fullHeight, setFullHeight] = useState<number>()
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState<'gone' | 'error'>()
+  const [attempt, setAttempt] = useState(0)
   const [image, setImage] = useState<PageImage>()
   useLayoutEffect(() => {
     const el = box.current
@@ -128,28 +130,63 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  // The opaque-origin frame hides its HTTP status, so an error body would show as the page; ask once it loaded.
+  const check = () => {
+    setLoaded(true)
+    fetch(`${attachmentUrl(page.attachmentId)}/render`, { method: 'HEAD' }).then(
+      (res) => !res.ok && setFailed(res.status === 404 ? 'gone' : 'error'),
+      () => setFailed('error'),
+    )
+  }
   return (
     <div
       ref={box}
-      className={cx('html-render', !loaded && 'html-render--loading')}
-      style={{ height: htmlRenderFrameHeight(page, width, contentHeight) }}
+      className={cx('html-render', !loaded && !failed && 'html-render--loading')}
+      style={failed ? undefined : { height: htmlRenderFrameHeight(page, width, contentHeight) }}
     >
-      <PageFrame
-        page={page}
-        className="html-render__frame"
-        onContentHeight={setContentHeight}
-        onImage={setImage}
-        onLoaded={() => setLoaded(true)}
-      />
-      <IconButton
-        title={t('全屏查看')}
-        variant="glass"
-        size="small"
-        className="html-render__expand"
-        onClick={() => setFull(true)}
-      >
-        {'expand' as const}
-      </IconButton>
+      {failed ? (
+        <EmptyState
+          compact
+          icon="warning"
+          title={failed === 'gone' ? t('页面内容已不存在') : t('页面加载失败')}
+          description={
+            failed === 'gone' ? t('「{title}」的文件已被清理或丢失', { title: page.title }) : undefined
+          }
+          action={
+            failed === 'error' && (
+              <Button
+                onClick={() => {
+                  setFailed(undefined)
+                  setLoaded(false)
+                  setAttempt((n) => n + 1)
+                }}
+              >
+                {t('重试')}
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <>
+          <PageFrame
+            key={attempt}
+            page={page}
+            className="html-render__frame"
+            onContentHeight={setContentHeight}
+            onImage={setImage}
+            onLoaded={check}
+          />
+          <IconButton
+            title={t('全屏查看')}
+            variant="glass"
+            size="small"
+            className="html-render__expand"
+            onClick={() => setFull(true)}
+          >
+            {'expand' as const}
+          </IconButton>
+        </>
+      )}
       {full && (
         <Dialog open onClose={() => setFull(false)} title={page.title} width={1200}>
           <PageFrame

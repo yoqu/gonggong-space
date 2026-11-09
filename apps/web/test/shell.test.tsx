@@ -835,6 +835,31 @@ describe('home route', () => {
   })
 })
 
+describe('not-found pages', () => {
+  it.each([
+    ['/bot/zz', 'Bot 不存在或已删除', '返回机器与 Bot', '/machines'],
+    ['/machine/zz', '机器不存在或已吊销', '返回机器与 Bot', '/machines'],
+    ['/t/zz', '终端不存在或已删除', '返回消息', '/'],
+    ['/g/zz', '群不存在或你已不在群内', '返回消息', '/'],
+  ])('%s offers a way out, also on a phone', async (path, title, action, target) => {
+    for (const width of [1440, 390]) {
+      setWidth(width)
+      mockApi(routes([]))
+      const view = renderAt(path)
+      expect(await screen.findByText(title)).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(target))
+      view.unmount()
+    }
+  })
+
+  it('says why a bot or machine may be missing', async () => {
+    mockApi(routes([]))
+    renderAt('/bot/zz')
+    expect(await screen.findByText('可能已被删除，或你没有访问权限。')).toBeTruthy()
+  })
+})
+
 describe('nav rail', () => {
   it('totals @ of me and DM unread on 消息, toggles the notification popover and sends sysadmins to the admin console', async () => {
     useSession.setState({ user: { ...me, role: 'sysadmin' }, status: 'ready' })

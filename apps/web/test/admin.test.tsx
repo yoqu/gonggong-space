@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type { AdminUserDto, UserDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -69,6 +70,17 @@ describe('admin console', () => {
       expect(within(nav).getByText(t)).toBeTruthy()
     expect(screen.getByRole('link', { name: /返回消息/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: '账户菜单' })).toBeTruthy()
+  })
+
+  it('keeps 返回消息 first and pinned in the phone tab row, not scrolled off its far end', () => {
+    const css = readFileSync('src/features/admin/admin.css', 'utf8')
+    const phone = css.slice(css.indexOf('@media (max-width: 767px)'))
+    const back = phone.slice(
+      phone.indexOf('.admin__back {'),
+      phone.indexOf('}', phone.indexOf('.admin__back {')),
+    )
+    expect(back).toContain('order: -1')
+    expect(back).toContain('position: sticky')
   })
 
   it('lists accounts with role, machines and status', async () => {

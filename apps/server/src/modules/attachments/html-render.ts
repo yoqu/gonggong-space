@@ -11,12 +11,12 @@ import { requireMachine } from '../../daemon/auth.js'
 import { attachments, bots, messages, runs } from '../../db/schema.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
-import { FILE_OVERHEAD, openFileRange, sealStream } from '../../lib/seal.js'
+import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { requireUser } from '../auth/session.js'
 import { requireReader } from '../groups/service.js'
 import { cardColumns, LIVE, publishRun } from '../runs/dto.js'
 import { runRedactors } from '../secrets/resolve.js'
-import { dataDir, safeName } from './service.js'
+import { dataDir, openStored, safeName } from './service.js'
 
 /** The daemon inlines local images, up to 25 MiB a page. */
 const PAGE_MAX_BYTES = 26 * 1024 * 1024
@@ -173,5 +173,5 @@ export async function serveHtmlRender(
     .header('content-security-policy', PAGE_CSP)
     .header('x-content-type-options', 'nosniff')
     .header('cache-control', 'private, max-age=86400')
-    .send(await openFileRange(join(dataDir(), a.storageKey)))
+    .send(await openStored(a))
 }

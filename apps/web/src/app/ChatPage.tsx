@@ -324,7 +324,12 @@ export function ChatPage() {
           ) : (
             <div className="chat__placeholder">
               {workspaceLoaded ? (
-                <EmptyState illustration={<DeniedArt />} title={t('机器不存在或已吊销')} />
+                <EmptyState
+                  illustration={<DeniedArt />}
+                  title={t('机器不存在或已吊销')}
+                  description={t('可能已被删除，或你没有访问权限。')}
+                  action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+                />
               ) : (
                 <Mascot action="wait" size={72} label={t('加载中')} />
               )}
@@ -344,7 +349,12 @@ export function ChatPage() {
           ) : (
             <div className="chat__placeholder">
               {workspaceLoaded ? (
-                <EmptyState illustration={<DeniedArt />} title={t('Bot 不存在或已删除')} />
+                <EmptyState
+                  illustration={<DeniedArt />}
+                  title={t('Bot 不存在或已删除')}
+                  description={t('可能已被删除，或你没有访问权限。')}
+                  action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+                />
               ) : (
                 <Mascot action="wait" size={72} label={t('加载中')} />
               )}
@@ -361,7 +371,11 @@ export function ChatPage() {
             </Suspense>
           ) : (
             <div className="chat__placeholder">
-              <EmptyState illustration={<DeniedArt />} title={t('终端不存在或已删除')} />
+              <EmptyState
+                illustration={<DeniedArt />}
+                title={t('终端不存在或已删除')}
+                action={<Button onClick={() => navigate('/')}>{t('返回消息')}</Button>}
+              />
             </div>
           )
         ) : managing ? (
@@ -416,9 +430,10 @@ export function ChatPage() {
               title={groupId ? t('群不存在或你已不在群内') : t('选择一个群或私聊开始')}
               description={
                 groupId
-                  ? t('它可能已解散，或你已被移出。从左侧打开别的会话。')
+                  ? t('它可能已解散，或你已被移出。')
                   : t('在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。')
               }
+              action={groupId ? <Button onClick={() => navigate('/')}>{t('返回消息')}</Button> : undefined}
             />
           </div>
         )}
