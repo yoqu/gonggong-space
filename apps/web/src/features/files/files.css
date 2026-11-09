@@ -81,6 +81,53 @@
   padding-bottom: max(var(--space-16), env(safe-area-inset-bottom));
   animation: var(--fade-in) ui-fade-in;
 }
+/* Paged in from a neighbour (上一个/下一个): a short slide from that side; reduced motion keeps the plain fade. */
+@media (prefers-reduced-motion: no-preference) {
+  .fv__body[data-enter] {
+    animation: var(--spring-snappy) fv-slide;
+  }
+  .fv__body[data-enter="prev"] {
+    --fv-from: -24px;
+  }
+}
+@keyframes fv-slide {
+  from {
+    opacity: 0;
+    transform: translateX(var(--fv-from, 24px));
+  }
+}
+.fv-nav {
+  display: flex;
+  margin-left: calc(var(--space-4) * -1);
+}
+/* Phones page from the bottom bar, in the thumb's reach and clear of the home indicator. */
+.fv-pager {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--separator);
+  background: var(--content-bg);
+}
+.fv:has(> .fv-pager) > .fv__body {
+  padding-bottom: var(--space-16);
+}
+.fv-pager .ui-btn {
+  gap: var(--space-4);
+}
+@media (pointer: coarse) {
+  .fv-pager .ui-btn {
+    --btn-h: 44px;
+  }
+}
+.fv-pager__at {
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+  font-variant-numeric: tabular-nums;
+}
 .fv__state {
   display: grid;
   place-items: center;
@@ -510,6 +557,12 @@
 .pv-line__t {
   white-space: pre;
 }
+.pv-lines[data-pick] .pv-line__n {
+  cursor: pointer;
+}
+.pv-lines[data-pick] .pv-line__n:hover {
+  color: var(--label);
+}
 /* 自动换行: a long line folds under itself, its number staying on the first row. */
 .pv-lines[data-wrap] .pv-line__t {
   min-width: 0;
@@ -666,8 +719,12 @@
   display: flex;
   gap: var(--space-6);
 }
+/* A soft tint: the highlighted code stays readable in its own colours. */
 .pv-line--hit {
-  background: var(--accent-fill);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pv-line--hit .pv-line__n {
+  color: var(--accent);
 }
 .pv-line--error {
   color: var(--tint-red-text);

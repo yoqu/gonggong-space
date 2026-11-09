@@ -48,6 +48,7 @@ import { useGitStamp } from '../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
 import { openTab } from '../workbench/open'
+import { arrowsFree, clearEntering, enteringOf, type FileNav, scrollerAt } from './nav'
 import { type OfficeKind, OfficeView } from './OfficeView'
 import { PdfView } from './PdfView'
 import './files.css'
@@ -256,11 +257,18 @@ function ChangeMark({ mark, count, changes }: { mark?: LineMark; count: number; 
   )
 }
 
+const inRange = (r: LineRange | null | undefined, n: number) => !!r && n >= r.from && n <= r.to
+const numberOf = (target: EventTarget) =>
+  target instanceof Element && target.classList.contains('pv-line__n') ? Number(target.textContent) : 0
+const pickTitle = t('复制带行号的引用，按住 Shift 选范围')
+
 const Lines = memo(function Lines({
   text,
   colored,
   lang,
   line,
+  picked,
+  onPickLine,
   wrap,
   download,
   blame,
@@ -273,6 +281,9 @@ const Lines = memo(function Lines({
   colored: boolean
   lang: Lang | null
   line?: LineRange
+  /** Lines picked by their numbers: marked, not scrolled to. */
+  picked?: LineRange | null
+  onPickLine?: (n: number, extend: boolean) => void
   wrap: boolean
   /** Offered beside the note when the file is cut. */
   download?: ReactNode
@@ -308,11 +319,24 @@ const Lines = memo(function Lines({
           {download}
         </div>
       ) : null}
-      <div className="pv-lines" data-wrap={wrap || undefined}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: a pointer shortcut; keys have 复制路径 */}
+      <div
+        className="pv-lines"
+        data-wrap={wrap || undefined}
+        data-pick={onPickLine ? '' : undefined}
+        onMouseDown={(e) => {
+          // Shift-click picks a range of lines, not a text selection.
+          if (onPickLine && e.shiftKey && numberOf(e.target)) e.preventDefault()
+        }}
+        onClick={(e) => {
+          const n = onPickLine && numberOf(e.target)
+          if (n) onPickLine(n, e.shiftKey)
+        }}
+      >
         {shown.map((l, i) => {
           const lv = colored ? level(l) : null
           const lineTokens = tokens?.[i]
-          const hit = from !== undefined && to !== undefined && i + 1 >= from && i + 1 <= to
+          const hit = inRange(line, i + 1) || inRange(picked, i + 1)
           return (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional
@@ -328,7 +352,9 @@ const Lines = memo(function Lines({
                   previousRevision={previousRevision}
                 />
               ) : null}
-              <span className="pv-line__n">{i + 1}</span>
+              <span className="pv-line__n" title={onPickLine ? pickTitle : undefined}>
+                {i + 1}
+              </span>
               {changes ? <ChangeMark mark={marks.get(i + 1)} count={count} changes={changes} /> : null}
               <span className={lv ? `pv-line__t pv-line--${lv}` : 'pv-line__t'}>
                 {lineTokens?.length ? <Tokens tokens={lineTokens} /> : l || ' '}
@@ -478,6 +504,8 @@ export interface FileViewerProps {
   changes?: FileChanges
   /** Where a markdown file's relative images and links lead; must be stable across renders. */
   links?: Omit<MdDoc, 'path'>
+  /** The other files of its folder, paged with the bar's buttons and ←/→. */
+  nav?: FileNav | null
 }
 
 /** One file by type (design §4.6): shared by the files tab, file tabs and attachments. */
@@ -497,9 +525,51 @@ export function FileViewer({
   stamp,
   changes,
   links,
+  nav,
 }: FileViewerProps) {
+  const root = useRef<HTMLDivElement>(null)
   const bar = useRef<HTMLDivElement>(null)
   const wide = useWide(bar, BAR_WIDE_PX)
+  const [enter] = useState(() => enteringOf(path))
+  useEffect(clearEntering, [])
+  const navRef = useRef(nav)
+  navRef.current = nav
+  const paged = !!nav
+  useEffect(() => {
+    if (!paged) return
+    let held: Element | null = null
+    const onPress = (e: PointerEvent) => {
+      held = scrollerAt(e.target)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      const n = navRef.current
+      if (!n || !root.current || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey)
+        return
+      const to = e.key === 'ArrowLeft' ? n.prev : e.key === 'ArrowRight' ? n.next : null
+      if (!to || !arrowsFree(root.current, e.target, held)) return
+      e.preventDefault()
+      n.go(to)
+    }
+    document.addEventListener('pointerdown', onPress)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPress)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [paged])
+  const [picked, setPicked] = useState<LineRange | null>(null)
+  const anchor = useRef(0)
+  const pickLine = useCallback(
+    (n: number, extend: boolean) => {
+      const from = extend && anchor.current ? anchor.current : n
+      if (!extend) anchor.current = n
+      const r = { from: Math.min(from, n), to: Math.max(from, n) }
+      setPicked(r)
+      const ref = `${path}:${r.from === r.to ? r.from : `${r.from}-${r.to}`}`
+      copyWithToast(ref, t('已复制 {ref}', { ref }))
+    },
+    [path],
+  )
   const textual = TEXTUAL.includes(kind)
   const [annotate, setAnnotate] = useState<{ lines: BlameLine[] | null; error: string | null } | null>(null)
   const previousRevisions = useRef<{
@@ -720,6 +790,8 @@ export function FileViewer({
           colored={fileType(name) === 'text'}
           lang={langOf(name)}
           line={line}
+          picked={picked}
+          onPickLine={pickLine}
           wrap={wrap}
           download={cutDownload}
           blame={annotate?.lines ?? undefined}
@@ -786,8 +858,14 @@ export function FileViewer({
       ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), shownDim] as [string, string]]
       : details
   return (
-    <div className="fv">
+    <div ref={root} className="fv">
       <div ref={bar} className="fv__bar">
+        {nav && wide ? (
+          <div className="fv-nav">
+            <NavButton nav={nav} dir="prev" />
+            <NavButton nav={nav} dir="next" />
+          </div>
+        ) : null}
         <FileIcon name={name} size={24} />
         <div className="fv__title">
           <span className="fv__name" title={path}>
@@ -918,7 +996,7 @@ export function FileViewer({
           </MenuButton>
         )}
       </div>
-      <div className="fv__body">
+      <div className="fv__body" data-enter={enter}>
         {body}
         {rows ? (
           <GroupBox>
@@ -930,6 +1008,13 @@ export function FileViewer({
           </GroupBox>
         ) : null}
       </div>
+      {nav && !wide ? (
+        <nav className="fv-pager" aria-label={t('同目录文件')}>
+          <NavButton nav={nav} dir="prev" text />
+          <span className="fv-pager__at">{`${nav.index + 1} / ${nav.total}`}</span>
+          <NavButton nav={nav} dir="next" text />
+        </nav>
+      ) : null}
       {zoom && url ? (
         <Lightbox
           src={url}
@@ -946,6 +1031,45 @@ export function FileViewer({
   )
 }
 
+const NAV = {
+  prev: { icon: 'chevron-left', label: t('上一个文件'), text: t('上一个'), key: '←' },
+  next: { icon: 'chevron-right', label: t('下一个文件'), text: t('下一个'), key: '→' },
+} as const
+
+/** 上一个/下一个: an icon in a wide bar, labelled in a phone's bottom bar. */
+function NavButton({ nav, dir, text }: { nav: FileNav; dir: 'prev' | 'next'; text?: boolean }) {
+  const to = nav[dir]
+  const d = NAV[dir]
+  return (
+    <Button
+      size="small"
+      variant="plain"
+      icon={text && dir === 'next' ? undefined : d.icon}
+      aria-label={d.label}
+      title={
+        to
+          ? dir === 'prev'
+            ? t('上一个：{name}（←）', { name: baseName(to) })
+            : t('下一个：{name}（→）', { name: baseName(to) })
+          : d.label
+      }
+      disabled={!to}
+      onClick={() => to && nav.go(to)}
+    >
+      {text ? (
+        dir === 'next' ? (
+          <>
+            {d.text}
+            <Icon name={d.icon} size={14} />
+          </>
+        ) : (
+          d.text
+        )
+      ) : undefined}
+    </Button>
+  )
+}
+
 /**
  * A file of a bot's workspace in the current group, read through the files routes; `rev` (a branch or commit)
  * reads that version through the git routes, which serve text only.
@@ -958,6 +1082,7 @@ export function BotFileViewer({
   annotate,
   size,
   onOpenTab,
+  nav,
 }: {
   botId: string
   path: string
@@ -967,6 +1092,7 @@ export function BotFileViewer({
   /** Known from the tree listing; the text read reports its own. */
   size?: number
   onOpenTab?: () => void
+  nav?: FileNav | null
 }) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
   const status = useWorkspace((s) => s.botStates[groupId]?.[botId]?.git ?? null)
@@ -1045,6 +1171,7 @@ export function BotFileViewer({
       annotate={annotate}
       stamp={rev ? undefined : stamp}
       changes={changes}
+      nav={nav}
     />
   )
 }

@@ -53,7 +53,7 @@ const TREES: Record<string, { entries: FileTreeEntry[]; truncated: boolean }> = 
     truncated: false,
   },
   src: {
-    entries: [entry('main.ts', { uncommitted: true }), entry('assets', { dir: true })],
+    entries: [entry('main.ts', { uncommitted: true }), entry('util.ts'), entry('assets', { dir: true })],
     truncated: true,
   },
   'src/assets': {
@@ -66,6 +66,7 @@ const IGNORED = entry('node_modules', { dir: true, ignored: true })
 const TEXTS: Record<string, { text: string | null; binary: boolean; size: number; mime: string }> = {
   'README.md': { text: '# 标题\n\n正文', binary: false, size: 14, mime: 'text/markdown' },
   'src/main.ts': { text: 'const a = 1\nconsole.log(a)\n', binary: false, size: 27, mime: 'text/plain' },
+  'src/util.ts': { text: 'export {}\n', binary: false, size: 10, mime: 'text/plain' },
   'big.log': { text: null, binary: false, size: 3 * 1024 * 1024, mime: 'text/plain' },
   'data.bin': { text: null, binary: true, size: 2048, mime: 'application/octet-stream' },
   'index.html': { text: '<h1>hi</h1>', binary: false, size: 11, mime: 'text/html' },
@@ -720,6 +721,117 @@ describe('office documents', () => {
     open({ kind: 'file', source: { attachment: a, from: '李建国' } })
     await waitFor(() => expect(frameText('方案.docx')).toContain('周报正文'))
     expect(calls).toContain('/api/attachments/a2')
+  })
+})
+
+describe('browsing between files', () => {
+  // Sorted as the tree shows them: demo.mp4, doc.pdf, logo.png, song.mp3.
+  const assets = (name: string) => `src/assets/${name}`
+
+  it('steps through the folder from the files tab with the bar buttons and ←/→', async () => {
+    openFiles({ dir: 'src/assets', selected: assets('doc.pdf') })
+    await tree().findByRole('treeitem', { name: /doc\.pdf/ })
+    const prev = files().getByRole('button', { name: '上一个文件' })
+    expect(prev.getAttribute('title')).toBe('上一个：demo.mp4（←）')
+    fireEvent.click(files().getByRole('button', { name: '下一个文件' }))
+    expect(filesTab().selected).toBe(assets('logo.png'))
+    expect(document.querySelector('.fv__body')?.getAttribute('data-enter')).toBe('next')
+
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    expect(filesTab().selected).toBe(assets('song.mp3'))
+    expect(files().getByRole('button', { name: '下一个文件' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    expect(filesTab().selected).toBe(assets('song.mp3'))
+
+    fireEvent.keyDown(document.body, { key: 'ArrowLeft' })
+    expect(filesTab().selected).toBe(assets('logo.png'))
+    expect(document.querySelector('.fv__body')?.getAttribute('data-enter')).toBe('prev')
+  })
+
+  it('leaves ←/→ to inputs, the tree, selections and modified keys', async () => {
+    openFiles({ dir: 'src/assets', selected: assets('doc.pdf') })
+    const search = files().getByRole('searchbox', { name: '搜索文件' })
+    fireEvent.keyDown(search, { key: 'ArrowRight' })
+    fireEvent.keyDown(await tree().findByRole('treeitem', { name: /doc\.pdf/ }), { key: 'ArrowRight' })
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', altKey: true })
+    fireEvent.keyDown(document.body, { key: 'ArrowRight', shiftKey: true })
+    expect(filesTab().selected).toBe(assets('doc.pdf'))
+  })
+
+  it('pages a file tab through its folder, replacing the tab', async () => {
+    openFile(assets('doc.pdf'))
+    const next = await screen.findByRole('button', { name: '下一个文件' })
+    expect(calls).toContain('/api/groups/g1/bots/b1/files/tree?path=src%2Fassets')
+    fireEvent.click(next)
+    expect(current()).toEqual([fileTab(assets('logo.png'))])
+  })
+
+  it('offers no paging for the only file of a folder', async () => {
+    openFile('README.md')
+    await screen.findByText('正文')
+    await waitFor(() => expect(calls).toContain('/api/groups/g1/bots/b1/files/tree?path='))
+    expect(screen.queryByRole('button', { name: '下一个文件' })).toBeNull()
+  })
+
+  it('leaves ←/→ to code wider than the panel once it is clicked', async () => {
+    openFile('src/main.ts')
+    await screen.findByRole('button', { name: '下一个文件' })
+    const lines = document.querySelector('.pv-lines') as HTMLElement
+    Object.defineProperty(lines, 'scrollWidth', { configurable: true, get: () => 900 })
+    fireEvent.pointerDown(lines)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    expect(current()).toEqual([fileTab('src/main.ts')])
+    fireEvent.pointerDown(document.body)
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+    expect(current()).toEqual([fileTab('src/util.ts')])
+  })
+
+  it('moves paging to a bottom bar with the position when narrow', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    openFile(assets('doc.pdf'))
+    const pager = await screen.findByRole('navigation', { name: '同目录文件' })
+    expect(pager.textContent).toContain('2 / 4')
+    fireEvent.click(within(pager).getByRole('button', { name: '上一个文件' }))
+    expect(current()).toEqual([fileTab(assets('demo.mp4'))])
+  })
+
+  it('walks the tree with the arrow keys, one row in the tab order', async () => {
+    openFiles()
+    const src = await tree().findByRole('treeitem', { name: /^src/ })
+    const tabbable = () =>
+      tree()
+        .getAllByRole('treeitem')
+        .filter((r) => r.tabIndex === 0)
+    expect(tabbable()).toEqual([src])
+    src.focus()
+    fireEvent.keyDown(src, { key: 'ArrowRight' })
+    expect(src.getAttribute('aria-expanded')).toBe('true')
+    const assetsRow = await tree().findByRole('treeitem', { name: /^assets/ })
+    fireEvent.keyDown(src, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(assetsRow)
+    expect(tabbable()).toEqual([assetsRow])
+    fireEvent.keyDown(assetsRow, { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(src)
+    fireEvent.keyDown(src, { key: 'End' })
+    expect(document.activeElement).toBe(row(/README/))
+    fireEvent.keyDown(row(/README/), { key: 'Home' })
+    fireEvent.keyDown(src, { key: 'ArrowLeft' })
+    expect(src.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('copies a reference with line numbers from a click or shift-click on them', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    openFile('src/main.ts')
+    await screen.findByText('console.log(a)')
+    const n = (i: number) => document.querySelectorAll<HTMLElement>('.pv-line__n')[i - 1] as HTMLElement
+    expect(n(1).title).toBe('复制带行号的引用，按住 Shift 选范围')
+    fireEvent.click(n(2))
+    expect(writeText).toHaveBeenLastCalledWith('src/main.ts:2')
+    await waitFor(() => expect(useToasts.getState().items[0]?.message).toBe('已复制 src/main.ts:2'))
+    fireEvent.click(n(1), { shiftKey: true })
+    expect(writeText).toHaveBeenLastCalledWith('src/main.ts:1-2')
+    expect(document.querySelectorAll('.pv-line--hit')).toHaveLength(2)
   })
 })
 

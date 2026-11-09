@@ -6,7 +6,7 @@ import {
   type GitChange,
   type GitCompareDto,
 } from '@gonggong/protocol'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useWorkbench } from '../../../app/workbench'
 import { useWorkspace } from '../../../app/workspace'
 import { t } from '../../../i18n'
@@ -28,6 +28,7 @@ import { useWide } from '../../diff/DiffPane'
 import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
 import { BotFileViewer, baseName } from '../../files/FileViewer'
+import { fileNav, filesOf, sortEntries } from '../../files/nav'
 import { gitBase, gitUrls, shortRev, useGitRefs } from '../../git/api'
 import { ChangeList, ChangeMark } from '../../git/changes'
 import { RefList } from '../../git/RefList'
@@ -46,9 +47,6 @@ const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name)
 /** 'a/b' → ['a', 'a/b']. */
 const chain = (dir: string) => (dir ? dir.split('/').map((_, i, all) => all.slice(0, i + 1).join('/')) : [])
 const message = (e: unknown) => (e instanceof Error ? e.message : t('读取失败'))
-
-const sorted = (entries: FileTreeEntry[]) =>
-  [...entries].sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name))
 
 /** One level per request (`url` of a directory), cached until 刷新 or another `source` starts over. */
 function useTree(source: string, url: (dir: string) => string, dirs: string[]) {
@@ -73,7 +71,7 @@ function useTree(source: string, url: (dir: string) => string, dirs: string[]) {
       if (asked.current.has(id)) continue
       asked.current.add(id)
       api.get<FilesTreeDto>(url(dir)).then(
-        (r) => put(dir, { entries: sorted(r.entries), truncated: r.truncated }),
+        (r) => put(dir, { entries: sortEntries(r.entries), truncated: r.truncated }),
         (e: unknown) => put(dir, { error: message(e) }),
       )
     }
@@ -315,6 +313,41 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
     patch(tabKey, { dir: parentOf(path), selected: path })
     if (!wide) setTreeOpen(false)
   }
+  // One row sits in the tab order (the focused, else the selected, else the first); arrows move between rows.
+  const [focused, setFocused] = useState<string | null>(null)
+  const visible = (dir: string): string[] => {
+    const l = listings[dir]
+    if (!l || 'error' in l) return []
+    return l.entries.flatMap((e) => {
+      const path = join(dir, e.name)
+      return e.dir && expanded.has(path) ? [path, ...visible(path)] : [path]
+    })
+  }
+  const shownRows = visible('')
+  const tabStop = [focused, tab.selected].find((p) => p && shownRows.includes(p)) ?? shownRows[0]
+  const onTreeKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]')]
+    const at = items.indexOf(e.target as HTMLElement)
+    const el = items[at]
+    if (!el) return
+    const depth = (x: HTMLElement | undefined) => Number(x?.getAttribute('aria-level') ?? 0)
+    const open = el.getAttribute('aria-expanded')
+    const path = el.dataset.path as string
+    let to: HTMLElement | undefined
+    if (e.key === 'ArrowDown') to = items[at + 1]
+    else if (e.key === 'ArrowUp') to = items[at - 1]
+    else if (e.key === 'Home') to = items[0]
+    else if (e.key === 'End') to = items.at(-1)
+    else if (e.key === 'ArrowRight') {
+      if (open === 'false') toggleDir(path)
+      else if (open === 'true' && depth(items[at + 1]) > depth(el)) to = items[at + 1]
+    } else if (e.key === 'ArrowLeft') {
+      if (open === 'true') toggleDir(path)
+      else to = items.slice(0, at).findLast((x) => depth(x) < depth(el))
+    } else return
+    e.preventDefault()
+    to?.focus()
+  }
   const pickHit = (path: string, dir: boolean) => {
     setQuery('')
     if (dir) patch(tabKey, { dir: path })
@@ -348,6 +381,9 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           aria-expanded={e.dir ? open : undefined}
           aria-selected={e.dir ? undefined : path === tab.selected}
           data-name={e.name}
+          data-path={path}
+          tabIndex={path === tabStop ? 0 : -1}
+          onFocus={() => setFocused(path)}
           data-ignored={e.ignored || undefined}
           className={cx('ft__row', e.ignored && 'ft__row--ignored')}
           style={pad}
@@ -390,8 +426,18 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
     const l = listings[parentOf(path)]
     return l && 'entries' in l ? l.entries.find((e) => e.name === baseName(path)) : undefined
   }
+  const folder = tab.selected ? listings[parentOf(tab.selected)] : undefined
+  // Only changed files: 下一个 is the next change.
+  const order =
+    compare && tab.changedOnly
+      ? compare.changes.map((c) => c.path)
+      : tab.selected && folder && 'entries' in folder
+        ? filesOf(parentOf(tab.selected), folder.entries)
+        : []
+  const nav = tab.selected ? fileNav(order, tab.selected, pickFile) : null
   const viewer = (path: string) => (
     <BotFileViewer
+      nav={nav}
       key={`${path}@${viewRev ?? ''}`}
       botId={tab.botId}
       path={path}
@@ -441,7 +487,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
         )}
       </div>
     ) : (
-      <div ref={treeRef} role="tree" aria-label={t('文件')} className="ft">
+      <div ref={treeRef} role="tree" aria-label={t('文件')} className="ft" onKeyDown={onTreeKey}>
         {rows('', 0)}
       </div>
     )

@@ -48,4 +48,13 @@ export default {
   此工作表为空: 'This sheet is empty',
   '文件可能已损坏或格式不受支持，可下载后用本机应用打开':
     'The file may be damaged or in an unsupported format; download it and open it in an app',
+  上一个文件: 'Previous file',
+  下一个文件: 'Next file',
+  上一个: 'Previous',
+  下一个: 'Next',
+  '上一个：{name}（←）': 'Previous: {name} (←)',
+  '下一个：{name}（→）': 'Next: {name} (→)',
+  同目录文件: 'Files in this folder',
+  '复制带行号的引用，按住 Shift 选范围': 'Copy a reference with line numbers; Shift-click for a range',
+  '已复制 {ref}': 'Copied {ref}',
 } satisfies Record<string, string>
