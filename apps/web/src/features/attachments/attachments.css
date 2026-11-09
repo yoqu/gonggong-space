@@ -263,6 +263,11 @@
 .att-tile--on {
   background: #000;
 }
+/* Alone in a message, a playing video takes its own shape (a portrait one stands up), within reach of a screen. */
+.att-media:not(.att-media--multi) > .att-tile--on {
+  aspect-ratio: var(--ratio, 16 / 10);
+  max-height: min(480px, 70dvh);
+}
 .att-tile--on > video {
   object-fit: contain;
   animation: var(--fade-in) ui-fade-in;

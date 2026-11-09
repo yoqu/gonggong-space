@@ -194,8 +194,11 @@ describe('Lightbox flight from the thumbnail', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog').hasAttribute('data-closing')).toBe(true)
     expect(calls[1]!.frames.at(-1)).toMatchObject({ transform: 'translate(-240px, 225px) scale(0.25)' })
+    // The thumbnail is the flight's landing spot: shown under the fading scrim it would be a second copy.
+    expect(origin.style.visibility).toBe('hidden')
     calls[1]!.finish()
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(origin.style.visibility).toBe('')
     origin.remove()
   })
 

@@ -41,6 +41,10 @@
   line-height: var(--text-body-line);
   font-weight: 600;
 }
+/* Focused only to tell where paging landed; it is no control, so it draws no ring. */
+.fv__name:focus {
+  outline: none;
+}
 .fv__meta {
   font-size: var(--text-subheadline-size);
   line-height: var(--text-subheadline-line);
@@ -748,6 +752,11 @@
   gap: var(--space-6);
   padding: 6px var(--space-8);
   border-bottom: 1px solid var(--separator);
+}
+/* On a phone the search box gives way instead of 显示忽略的 breaking onto two lines. */
+.wt-files__bar > .ui-check {
+  flex: none;
+  white-space: nowrap;
 }
 .wt-files__path {
   flex: 1;

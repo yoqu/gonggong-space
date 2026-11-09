@@ -748,6 +748,17 @@ describe('browsing between files', () => {
     expect(document.querySelector('.fv__body')?.getAttribute('data-enter')).toBe('prev')
   })
 
+  it('moves focus to the name of the file paged to, where ←/→ keep paging', async () => {
+    openFiles({ dir: 'src/assets', selected: assets('doc.pdf') })
+    await tree().findByRole('treeitem', { name: /doc\.pdf/ })
+    fireEvent.click(files().getByRole('button', { name: '下一个文件' }))
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('logo.png'))
+    expect(document.activeElement?.className).toContain('fv__name')
+    fireEvent.keyDown(document.activeElement as Element, { key: 'ArrowRight' })
+    expect(filesTab().selected).toBe(assets('song.mp3'))
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('song.mp3'))
+  })
+
   it('leaves ←/→ to inputs, the tree, selections and modified keys', async () => {
     openFiles({ dir: 'src/assets', selected: assets('doc.pdf') })
     const search = files().getByRole('searchbox', { name: '搜索文件' })
@@ -764,6 +775,7 @@ describe('browsing between files', () => {
     expect(calls).toContain('/api/groups/g1/bots/b1/files/tree?path=src%2Fassets')
     fireEvent.click(next)
     expect(current()).toEqual([fileTab(assets('logo.png'))])
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('logo.png'))
   })
 
   it('offers no paging for the only file of a folder', async () => {

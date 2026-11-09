@@ -60,6 +60,12 @@ function seen(el: Element | null | undefined): el is Element {
   return !!r && r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth
 }
 
+/** Shows again the thumbnail hidden while the image flew back onto it. */
+function unhide(landing: { current: HTMLElement | null }) {
+  if (landing.current) landing.current.style.visibility = ''
+  landing.current = null
+}
+
 type Source =
   | { src: string; alt: string; items?: undefined; index?: undefined; onIndexChange?: undefined }
   | {
@@ -121,6 +127,8 @@ export function Lightbox({
   useLayoutEffect(() => {
     if (img.current?.complete && img.current.naturalWidth) flyIn()
   }, [])
+  const landing = useRef<HTMLElement | null>(null)
+  useEffect(() => () => unhide(landing), [])
   const close = () => {
     if (closing) return
     const el = img.current
@@ -132,6 +140,11 @@ export function Lightbox({
     setClosing(true)
     let run: Animation
     if (el && spring && viewRef.current.s === 1 && seen(from)) {
+      // Seen through the fading scrim, the thumbnail would be a second copy until the image lands on it.
+      if (from instanceof HTMLElement && !from.style.visibility) {
+        landing.current = from
+        from.style.visibility = 'hidden'
+      }
       for (const a of el.getAnimations()) a.cancel()
       run = el.animate(
         [{ transform: REST, clipPath: 'inset(0px 0px round 0px)' }, over(from, el.getBoundingClientRect())],
@@ -142,7 +155,11 @@ export function Lightbox({
       )
     } else
       run = root.animate([{ opacity: 1 }, { opacity: 0 }], { ...(fade ?? { duration: 0 }), fill: 'forwards' })
-    run.finished.then(onClose, onClose)
+    const done = () => {
+      unhide(landing)
+      onClose()
+    }
+    run.finished.then(done, done)
   }
   useEscape(close)
   useFocusTrap(ref, true)

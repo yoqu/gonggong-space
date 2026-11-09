@@ -534,7 +534,12 @@ export function FileViewer({
   const bar = useRef<HTMLDivElement>(null)
   const wide = useWide(bar, BAR_WIDE_PX)
   const [enter] = useState(() => enteringOf(path))
-  useEffect(clearEntering, [])
+  const title = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    // The pager that was pressed went with the file paged from; the new name tells a screen reader where it is now.
+    if (enter) title.current?.focus({ preventScroll: true })
+    clearEntering()
+  }, [enter])
   const navRef = useRef(nav)
   navRef.current = nav
   const paged = !!nav
@@ -871,7 +876,7 @@ export function FileViewer({
         ) : null}
         <FileIcon name={name} size={24} />
         <div className="fv__title">
-          <span className="fv__name" title={path}>
+          <span ref={title} className="fv__name" title={path} tabIndex={-1}>
             {name}
           </span>
           <span className="fv__meta">{meta}</span>

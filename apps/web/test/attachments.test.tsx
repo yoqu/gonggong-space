@@ -527,6 +527,20 @@ describe('message attachments and preview', () => {
     pause.mockRestore()
   })
 
+  it('gives a playing video its own shape, so a portrait one is not a sliver in a wide tile', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    mockApi()
+    renderChat()
+    const main = screen.getByRole('main')
+    fireEvent.click(await within(main).findByRole('button', { name: '播放 demo.mp4' }))
+    const video = main.querySelector('video[src="/api/attachments/v1"]') as HTMLVideoElement
+    Object.defineProperty(video, 'videoWidth', { value: 360 })
+    Object.defineProperty(video, 'videoHeight', { value: 640 })
+    fireEvent.loadedMetadata(video)
+    expect((video.closest('.att-tile') as HTMLElement).style.getPropertyValue('--ratio')).toBe('360 / 640')
+    play.mockRestore()
+  })
+
   it('previews a PDF attachment in place', async () => {
     mockApi({ 'HEAD /attachments/p1': () => new Response(null) })
     renderChat()

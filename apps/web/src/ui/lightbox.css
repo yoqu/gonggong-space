@@ -164,3 +164,9 @@
 .ui-lightbox[data-closing] > :not(.ui-lightbox__stage) {
   animation: var(--fade-out) ui-fade-out forwards;
 }
+/* A phone's bar is too narrow for the name beside the zoom buttons; fingers pinch and tap to zoom instead. */
+@media (pointer: coarse) and (max-width: 520px) {
+  .ui-lightbox__zoom {
+    display: none;
+  }
+}

@@ -1,5 +1,5 @@
 import type { Attachment, MessageDto } from '@gonggong/protocol'
-import { useRef, useState } from 'react'
+import { type CSSProperties, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
 import { Button, FileAttachment, FileIcon, Icon, Lightbox } from '../../ui'
@@ -47,6 +47,7 @@ export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
 /** A video tile that plays in place on a tap; the poster is its first frame. */
 function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
   const [state, setState] = useState<'idle' | 'playing' | 'failed'>('idle')
+  const [ratio, setRatio] = useState<string>()
   const ref = useRef<HTMLVideoElement>(null)
   const url = attachmentUrl(a.id)
   const play = () => {
@@ -59,7 +60,10 @@ function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
     v.play()?.catch(() => {})
   }
   return (
-    <figure className={cx('pn-image att-tile', state !== 'idle' && 'att-tile--on')}>
+    <figure
+      className={cx('pn-image att-tile', state !== 'idle' && 'att-tile--on')}
+      style={ratio ? ({ '--ratio': ratio } as CSSProperties) : undefined}
+    >
       {state === 'failed' ? (
         <div className="att-tile__failed">
           <span>{t('浏览器无法播放此视频，可下载查看')}</span>
@@ -76,6 +80,10 @@ function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
           muted={state === 'idle'}
           controls={state === 'playing'}
           autoPlay={state === 'playing'}
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget
+            if (v.videoWidth && v.videoHeight) setRatio(`${v.videoWidth} / ${v.videoHeight}`)
+          }}
           onError={() => setState('failed')}
         />
       )}

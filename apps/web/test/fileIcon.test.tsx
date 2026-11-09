@@ -45,6 +45,9 @@ describe('kindOf keeps preview kinds', () => {
     ['report.pdf', 'application/pdf', 'pdf'],
     ['logs.zip', 'application/zip', 'archive'],
     ['dump.bin', 'application/octet-stream', 'file'],
+    // Systems type .ts as an MPEG transport stream; it was shown as a video that cannot play.
+    ['main.ts', 'video/vnd.dlna.mpeg-tts', 'code'],
+    ['main.ts', 'video/mp2t', 'code'],
   ])('%s → %s', (name, mime, kind) => {
     expect(kindOf({ name, mime })).toBe(kind)
   })

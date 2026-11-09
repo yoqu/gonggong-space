@@ -41,8 +41,9 @@ export type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'md' | 'text' | 'co
 /** Preview kind (prototype KIND_*): svg is served as a download, so it is a plain file here. */
 export function kindOf(a: Pick<Attachment, 'name' | 'mime'>): FileKind {
   if (a.mime.startsWith('image/') && a.mime !== 'image/svg+xml') return 'image'
-  if (a.mime.startsWith('video/')) return 'video'
   const type = fileType(a.name, a.mime)
+  // A .ts file comes typed as an MPEG transport stream: the extension says code.
+  if (a.mime.startsWith('video/') && type !== 'code') return 'video'
   if (['audio', 'pdf', 'md', 'code', 'text', 'archive'].includes(type)) return type as FileKind
   return a.mime.startsWith('text/') || /\.csv$/i.test(a.name) ? 'text' : 'file'
 }
