@@ -74,7 +74,7 @@ export default {
   '拉入 Bot': 'Add Bot',
   ' · 主人将一并加入': ' · owner joins too',
   '{agent} · 主人 {owner}': '{agent} · owner {owner}',
-  '档位 {tier}': 'Tier {tier}',
+  '审批 {mode}': 'Approval: {mode}',
   ' · 本群': ' · this group',
   '触发 {scope}': 'Trigger {scope}',
   全局设置: 'Global settings',
@@ -93,7 +93,7 @@ export default {
   '群管理员移除的公告对所有人隐藏；成员「不再显示」只对自己生效，发布新公告后重新显示。':
     'A notice removed by a group admin is hidden for everyone; "Don\'t show again" only hides it for you, until a new notice is posted.',
   '跟随全局（{tier}）': 'Follow global ({tier})',
-  本群档位: 'Tier in this group',
+  本群审批方式: 'Approval in this group',
   群名称: 'Group name',
   编辑群公告: 'Edit notice',
   所有成员可拉人: 'Anyone can invite',
@@ -148,8 +148,8 @@ export default {
   '工作区…': 'Workspaces…',
   '选择工作区…': 'Choose workspace…',
   '；': '; ',
-  '本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。':
-    "The group tier follows the Bot's global setting by default and applies to running turns at once; at “Full access” only the listed people can trigger it.",
+  '本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全允许」时仅指定名单可触发。':
+    "Approval in this group follows the Bot's global setting by default and applies to running turns at once; at “Allow everything” only the listed people can trigger it.",
   公开频道: 'Public channel',
   私有群: 'Private group',
   显示: 'Show',

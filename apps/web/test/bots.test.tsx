@@ -499,15 +499,18 @@ describe('bot detail', () => {
     fireEvent.click(within(detail).getByRole('radio', { name: /算盘/ }))
     openTab(detail, '权限')
     expect(within(detail).getByText('李建国')).toBeTruthy()
-    for (const t of ['只读', '工作区写入', '完全访问'])
+    for (const t of ['每次问我', '帮我审批', '完全允许'])
       expect(within(detail).getByRole('radio', { name: t })).toBeTruthy()
+    expect(within(detail).queryByRole('radio', { name: '只读' })).toBeNull()
     fireEvent.click(within(detail).getByRole('radio', { name: '任何群成员' }))
-    fireEvent.click(within(detail).getByRole('radio', { name: '完全访问' }))
+    fireEvent.click(within(detail).getByRole('radio', { name: '完全允许' }))
+    expect(within(detail).getByText(/不再询问，Bot 可以执行任何操作/)).toBeTruthy()
+    expect(within(detail).queryByRole('combobox', { name: '已允许的命令' })).toBeNull()
     expect(within(detail).queryByRole('alert')).toBeNull()
     const anyone = within(detail).getByRole('radio', { name: '任何群成员' })
     expect(anyone.hasAttribute('disabled')).toBe(true)
-    expect(anyone.closest('[title]')?.getAttribute('title')).toBe('完全访问档位只允许指定名单触发')
-    expect(within(detail).getByText('完全访问档位只允许指定名单触发')).toBeTruthy()
+    expect(anyone.closest('[title]')?.getAttribute('title')).toBe('完全允许只能由触发名单里的人触发')
+    expect(within(detail).getByText('完全允许只能由触发名单里的人触发')).toBeTruthy()
     expect(within(detail).getByRole('combobox', { name: '触发名单' })).toBeTruthy()
     expect(within(detail).getByRole('radio', { name: '指定名单' }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
@@ -519,7 +522,7 @@ describe('bot detail', () => {
     )
   })
 
-  it('lets the owner set concurrency and command approval with an allowlist', async () => {
+  it('lets the owner pick 审批方式 and set concurrency', async () => {
     routes['GET /api/bots'] = () => [bot({})]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
@@ -528,63 +531,61 @@ describe('bot detail', () => {
     expect((within(detail).getByRole('spinbutton', { name: '并发上限' }) as HTMLInputElement).value).toBe('2')
     fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
     openTab(detail, '权限')
-    expect(within(detail).getByRole('radio', { name: '每次询问' }).getAttribute('aria-checked')).toBe('true')
-    expect(within(detail).queryByRole('combobox', { name: '命令白名单' })).toBeNull()
-    fireEvent.click(within(detail).getByRole('radio', { name: '白名单自动' }))
-    const field = within(detail).getByRole('combobox', { name: '命令白名单' })
-    for (const t of ['  go   build ', 'pnpm test', 'go build']) {
-      fireEvent.change(field, { target: { value: t } })
-      fireEvent.keyDown(field, { key: 'Enter' })
-    }
-    expect(within(detail).getByText(/以这些前缀开头的命令自动批准/)).toBeTruthy()
+    expect(within(detail).getByRole('radio', { name: '每次问我' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).getByText(/只读命令自动放行/)).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('radio', { name: '帮我审批' }))
+    expect(within(detail).getByText(/先由 AI 用小模型评估/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
-      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
         concurrency: 3,
-        approval: 'allowlist',
-        allowlist: ['go build', 'pnpm test'],
+        aiReview: true,
       }),
     )
   })
 
-  it('lets the owner edit the always-allow rules in ask and allowlist modes', async () => {
+  it('switching from 完全允许 to 帮我审批 lowers the tier and turns AI review on', async () => {
+    routes['GET /api/bots'] = () => [bot({ tier: 'full', triggerScope: 'list', triggerList: ['u2'] })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(within(detail).getByRole('radio', { name: '完全允许' }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(within(detail).getByRole('radio', { name: '帮我审批' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
+        tier: 'workspace',
+        aiReview: true,
+      }),
+    )
+  })
+
+  it('lets the owner edit the allowed commands', async () => {
     routes['GET /api/bots'] = () => [bot({ alwaysAllow: ['npm run build', 'tool:Fetch'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/', wang)
     const detail = await openMyBot()
     openTab(detail, '权限')
-    const field = within(detail).getByRole('combobox', { name: '始终允许' })
-    expect(within(detail).getByText(/来自审批卡片上的「始终允许」/)).toBeTruthy()
+    const field = within(detail).getByRole('combobox', { name: '已允许的命令' })
+    expect(within(detail).getByText(/审批卡片上选「批准，不再询问」会加到这里/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '移除 npm run build' }))
     fireEvent.change(field, { target: { value: '  cargo   test ' } })
     fireEvent.keyDown(field, { key: 'Enter' })
-    fireEvent.click(within(detail).getByRole('radio', { name: '全部自动' }))
-    expect(within(detail).queryByRole('combobox', { name: '始终允许' })).toBeNull()
-    fireEvent.click(within(detail).getByRole('radio', { name: '白名单自动' }))
-    expect(within(detail).getByRole('combobox', { name: '始终允许' })).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
-      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toMatchObject({
-        approval: 'allowlist',
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
         alwaysAllow: ['tool:Fetch', 'cargo test'],
       }),
     )
   })
 
-  it('lets the owner turn on AI 预审 outside 全部自动', async () => {
-    routes['GET /api/bots'] = () => [bot({})]
-    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+  it('keeps a legacy read-only bot selectable as 只读', async () => {
+    routes['GET /api/bots'] = () => [bot({ tier: 'read-only' })]
     renderAt('/', wang)
     const detail = await openMyBot()
     openTab(detail, '权限')
-    fireEvent.click(within(detail).getByRole('radio', { name: '全部自动' }))
-    expect(within(detail).queryByRole('switch', { name: 'AI 预审' })).toBeNull()
-    fireEvent.click(within(detail).getByRole('radio', { name: '每次询问' }))
-    fireEvent.click(within(detail).getByRole('switch', { name: 'AI 预审' }))
-    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
-    await waitFor(() =>
-      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ aiReview: true }),
-    )
+    expect(within(detail).getByRole('radio', { name: '只读' }).getAttribute('aria-checked')).toBe('true')
   })
 
   it('leaves unchanged always-allow rules out of the update', async () => {
@@ -600,26 +601,21 @@ describe('bot detail', () => {
     expect('alwaysAllow' in body).toBe(false)
   })
 
-  it('shows command approval read-only to a sysadmin who is not the owner', async () => {
-    routes['GET /api/bots'] = () => [
-      bot({ approval: 'allowlist', allowlist: ['go build'], alwaysAllow: ['npm run build', 'tail'] }),
-    ]
+  it('lets a sysadmin who is not the owner change only the tier, not AI review or the rules', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true, alwaysAllow: ['npm run build', 'tail'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
     renderAt('/admin/bots', admin)
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
     openTab(detail, '权限')
-    expect(within(detail).queryByRole('radio', { name: '每次询问' })).toBeNull()
-    expect(within(detail).getByText('白名单自动 · go build')).toBeTruthy()
-    expect(within(detail).getByText('只有 Bot 主人能修改命令审批')).toBeTruthy()
+    expect(within(detail).getByRole('radio', { name: '帮我审批' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).getByRole('radio', { name: '每次问我' }).hasAttribute('disabled')).toBe(true)
     expect(within(detail).getByText('npm run build、tail')).toBeTruthy()
-    expect(within(detail).queryByRole('combobox', { name: '始终允许' })).toBeNull()
-    openTab(detail, '高级')
-    fireEvent.click(within(detail).getByRole('button', { name: '增加' }))
+    expect(within(detail).queryByRole('combobox', { name: '已允许的命令' })).toBeNull()
+    fireEvent.click(within(detail).getByRole('radio', { name: '完全允许' }))
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')).toBeTruthy())
     const body = calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body as Record<string, unknown>
-    expect(body.concurrency).toBe(3)
-    expect('approval' in body || 'allowlist' in body || 'alwaysAllow' in body).toBe(false)
+    expect(body).toEqual({ tier: 'full', triggerScope: 'list' })
   })
 
   it('lets the owner set the git commit identity, blank = default', async () => {
@@ -962,8 +958,7 @@ describe('bot page profile', () => {
     defaultWorkspace: '/Users/wang/pay',
     triggerScope: 'list',
     triggerList: ['u2'],
-    approval: 'allowlist',
-    allowlist: ['go build'],
+    aiReview: true,
     alwaysAllow: ['tail'],
     concurrency: 3,
     gitName: 'CC',
@@ -993,10 +988,8 @@ describe('bot page profile', () => {
     expect(row(page, '运行配置', 'Agent')).toBe('Agentclaude-code 2.1.4')
     expect(row(page, '运行配置', '模型')).toBe('模型Opus · 高')
     expect(row(page, '运行配置', '默认工作区')).toBe('默认工作区~/pay')
-    expect(row(page, '权限', '权限档位')).toBe('权限档位工作区写入')
+    expect(row(page, '权限', '审批方式')).toBe('审批方式帮我审批 · 已允许 tail')
     await waitFor(() => expect(row(page, '权限', '触发范围')).toBe('触发范围指定名单 · 李建国'))
-    expect(row(page, '权限', '命令审批')).toBe('命令审批白名单自动 · go build')
-    expect(row(page, '权限', '始终允许')).toBe('始终允许tail')
     expect(row(page, '高级', '并发上限')).toBe('并发上限3 个群并行')
     expect(row(page, '高级', 'Git 提交身份')).toBe('Git 提交身份CC <cc@corp.com>')
     await waitFor(() => expect(row(page, '高级', '飞书应用')).toBe('飞书应用cli_a1'))

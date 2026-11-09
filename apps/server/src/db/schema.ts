@@ -218,13 +218,13 @@ export const bots = pgTable('bots', {
   triggerScope: text('trigger_scope').notNull().default('all'),
   triggerList: jsonb('trigger_list').$type<string[]>().notNull().default([]),
   concurrency: integer('concurrency').notNull().default(2),
-  /** 'ask' | 'allowlist' | 'all'; set by the owner only (plan J9). */
+  /** Legacy, always 'ask': 审批方式 is the tier plus aiReview now (migration 0106 folded the other modes in). */
   approval: text('approval').notNull().default('ask'),
   allowlist: jsonb('allowlist').$type<string[]>().notNull().default([]),
   /** Rules the owner chose 始终允许 for (command prefixes or `tool:<title>`), across groups. */
   alwaysAllow: jsonb('always_allow').$type<string[]>().notNull().default([]),
   /** AI 预审: what the rules leave to the owner is first reviewed by the bot's agent; owner only. */
-  aiReview: boolean('ai_review').notNull().default(false),
+  aiReview: boolean('ai_review').notNull().default(true),
   /** Owner's local directory used when a group has no binding of its own. */
   defaultWorkspace: text('default_workspace'),
   /** Default model / thought level as the adapter names them; null = the adapter's default. */

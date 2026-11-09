@@ -1,17 +1,20 @@
 //! AI 预审 (like Codex's auto-review): a permission request the bot's rules leave to the owner is first put to a
 //! throwaway session of the bot's own agent that may not act. It can only allow: whatever it is unsure of goes to the
 //! owner with its risk estimate and reasoning. The floor and the protected base branch never reach it.
-use crate::protocol::{AgentKind, AiReview, ReviewRisk, RunPrompt, Tier};
+//!
+//! Kept cheap: the session runs in an empty directory (no project instructions) on the smallest model the agent
+//! offers, and Claude gets a one-line system prompt and no tools instead of Claude Code's own.
+use crate::protocol::{AgentKind, AiReview, Choice, ReviewRisk, RunPrompt, Tier};
+use crate::session::select;
 use crate::turn::{client_capabilities, mode_for};
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
-    ContentBlock, InitializeRequest, NewSessionRequest, PromptRequest, RequestPermissionOutcome,
-    RequestPermissionRequest, RequestPermissionResponse, SessionNotification, SessionUpdate, SetSessionModeRequest,
-    TextContent,
+    ContentBlock, InitializeRequest, Meta, NewSessionRequest, PromptRequest, RequestPermissionOutcome,
+    RequestPermissionRequest, RequestPermissionResponse, SessionConfigOptionCategory, SessionConfigValueId,
+    SessionNotification, SessionUpdate, SetSessionConfigOptionRequest, SetSessionModeRequest, TextContent,
 };
 use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo, Handled, UntypedMessage};
 use serde::Deserialize;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -24,6 +27,13 @@ const RATIONALE_MAX: usize = 300;
 /// Group messages before the trigger shown to the reviewer, each clipped: enough to see what was asked for.
 const CONTEXT_LAST: usize = 5;
 const CONTEXT_MAX: usize = 500;
+/// Claude's system prompt for the review, replacing Claude Code's (tools, skills, environment).
+pub const SYSTEM: &str = "You review permission requests for a coding agent. Use no tools. Reply with the JSON object \
+asked for and nothing else.";
+/// Name parts of small, fast models, preferred in this order: a review is one short judgement.
+const SMALL: [&str; 5] = ["haiku", "mini", "flash", "lite", "nano"];
+/// The cheapest thought levels, preferred in this order.
+const LOW: [&str; 3] = ["minimal", "none", "low"];
 
 /// What the reviewer is shown.
 pub struct Input<'a> {
@@ -32,7 +42,7 @@ pub struct Input<'a> {
     pub tool_kind: &'a str,
     /// The command line, or the tool call's title and target.
     pub action: &'a str,
-    pub cwd: &'a Path,
+    pub cwd: &'a std::path::Path,
 }
 
 pub fn prompt(i: &Input) -> String {
@@ -139,9 +149,24 @@ fn clip_to(s: &str, max: usize) -> String {
     }
 }
 
-/// Puts `prompt` to a new session of `agent` in `cwd` and returns its reply text. The session may not act: it runs in
-/// the read-only tier's mode and every permission it asks for is cancelled.
-pub async fn ask(agent: AcpAgent, kind: AgentKind, cwd: &Path, prompt: String) -> Result<String, String> {
+/// The smallest model on offer, if any is recognisably small.
+pub fn small_model(models: &[Choice]) -> Option<&str> {
+    let named =
+        |part: &str| models.iter().find(|m| [&m.value, &m.name].iter().any(|s| s.to_lowercase().contains(part)));
+    SMALL.iter().find_map(|part| named(part)).map(|m| m.value.as_str())
+}
+
+/// The cheapest thought level on offer.
+pub fn low_effort(efforts: &[Choice]) -> Option<&str> {
+    LOW.iter().find_map(|v| efforts.iter().find(|e| e.value == *v)).map(|e| e.value.as_str())
+}
+
+/// Puts `prompt` to a new session of `agent` (`meta`: its `_meta`, Claude's) and returns its reply text. The session
+/// may not act: it runs in the read-only tier's mode and every permission it asks for is cancelled.
+pub async fn ask(agent: AcpAgent, kind: AgentKind, meta: Option<Meta>, prompt: String) -> Result<String, String> {
+    // Empty and read-only to the reviewer: no project instructions to load.
+    let cwd = std::env::temp_dir().join("gonggong-review");
+    std::fs::create_dir_all(&cwd).map_err(|e| e.to_string())?;
     let reply = Arc::new(Mutex::new(String::new()));
     let sink = reply.clone();
     Client
@@ -170,16 +195,30 @@ pub async fn ask(agent: AcpAgent, kind: AgentKind, cwd: &Path, prompt: String) -
         .connect_with(agent, async |cx: ConnectionTo<Agent>| {
             let init = InitializeRequest::new(ProtocolVersion::V1).client_capabilities(client_capabilities());
             cx.send_request(init).block_task().await?;
-            let res = cx.send_request(NewSessionRequest::new(cwd)).block_task().await?;
+            let res = cx.send_request(NewSessionRequest::new(&cwd).meta(meta)).block_task().await?;
+            let session = res.session_id;
             let mode = mode_for(kind, Tier::ReadOnly);
             if let Some(modes) = &res.modes
                 && *modes.current_mode_id.0 != *mode
                 && modes.available_modes.iter().any(|m| *m.id.0 == *mode)
             {
-                cx.send_request(SetSessionModeRequest::new(res.session_id.clone(), mode)).block_task().await?;
+                cx.send_request(SetSessionModeRequest::new(session.clone(), mode)).block_task().await?;
+            }
+            let mut options = res.config_options.unwrap_or_default();
+            if let Some((id, current, models)) = select(&options, &SessionConfigOptionCategory::Model)
+                && let Some(small) = small_model(&models).filter(|m| *m != current)
+            {
+                let set = SetSessionConfigOptionRequest::new(session.clone(), id, SessionConfigValueId::new(small));
+                options = cx.send_request(set).block_task().await?.config_options;
+            }
+            if let Some((id, current, efforts)) = select(&options, &SessionConfigOptionCategory::ThoughtLevel)
+                && let Some(low) = low_effort(&efforts).filter(|e| *e != current)
+            {
+                let set = SetSessionConfigOptionRequest::new(session.clone(), id, SessionConfigValueId::new(low));
+                cx.send_request(set).block_task().await?;
             }
             let text = vec![ContentBlock::Text(TextContent::new(prompt))];
-            cx.send_request(PromptRequest::new(res.session_id, text)).block_task().await?;
+            cx.send_request(PromptRequest::new(session, text)).block_task().await?;
             Ok(())
         })
         .await
@@ -227,10 +266,12 @@ mod tests {
     #[test]
     fn prompts_with_the_request_and_the_action_clipped() {
         let long = "x".repeat(TEXT_MAX + 10);
-        let text =
-            prompt(&Input {
-                request: "王磊: 装一下依赖", tool_kind: "execute", action: &long, cwd: Path::new("/w")
-            });
+        let text = prompt(&Input {
+            request: "王磊: 装一下依赖",
+            tool_kind: "execute",
+            action: &long,
+            cwd: std::path::Path::new("/w"),
+        });
         assert!(text.starts_with(HEADING));
         assert!(text.contains("<request>\n王磊: 装一下依赖\n</request>"));
         assert!(text.contains(&format!("<action kind=\"execute\">\n{}…\n</action>", "x".repeat(TEXT_MAX))));
@@ -270,5 +311,18 @@ mod tests {
         let mut v = verdict(ReviewRisk::High, Authorization::None, Outcome::Deny);
         v.rationale = "很".repeat(RATIONALE_MAX + 5);
         assert_eq!(v.review().rationale.chars().count(), RATIONALE_MAX);
+    }
+
+    fn choices(values: &[&str]) -> Vec<Choice> {
+        values.iter().map(|v| Choice { value: v.to_string(), name: v.to_uppercase(), description: None }).collect()
+    }
+
+    #[test]
+    fn picks_the_smallest_model_and_the_lowest_effort_on_offer() {
+        assert_eq!(small_model(&choices(&["default", "opus", "haiku"])), Some("haiku"));
+        assert_eq!(small_model(&choices(&["gpt-5.5", "gpt-5.4-mini", "gpt-5.4-nano"])), Some("gpt-5.4-mini"));
+        assert_eq!(small_model(&choices(&["kimi-k2", "glm-5"])), None);
+        assert_eq!(low_effort(&choices(&["low", "medium", "high", "minimal"])), Some("minimal"));
+        assert_eq!(low_effort(&choices(&["high", "max"])), None);
     }
 }

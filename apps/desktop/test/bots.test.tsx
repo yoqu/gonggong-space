@@ -21,8 +21,8 @@ beforeEach(() => {
       binding: 'pending_confirm',
       presence: 'pending_confirm',
       concurrency: 1,
-      approval: 'allowlist',
-      allowlist: ['go build', 'npm test'],
+      aiReview: true,
+      alwaysAllow: ['go build', 'npm test'],
       avatar: 'role-sentry',
       teamId: 't2',
       teamName: '支付组',
@@ -41,8 +41,7 @@ it('shows the server settings of each bot read-only', async () => {
     avatarSrc('role-gong'),
   )
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
-  expect(claude.getByText('每次询问')).toBeTruthy()
-  expect(claude.queryByText('命令白名单')).toBeNull()
+  expect(claude.getByText('每次问我')).toBeTruthy()
   expect(claude.getByText('默认团队')).toBeTruthy()
 
   const codex = await card('小王的 Codex')
@@ -53,8 +52,7 @@ it('shows the server settings of each bot read-only', async () => {
   expect(codex.getByText('他人为你创建，请在 Web 中确认')).toBeTruthy()
   expect(codex.getByText('支付组')).toBeTruthy()
   expect(codex.getByText('Codex · 未安装')).toBeTruthy()
-  expect(codex.getByText('白名单自动')).toBeTruthy()
-  expect(codex.getByText('go build、npm test')).toBeTruthy()
+  expect(codex.getByText('帮我审批 · 已允许 go build、npm test')).toBeTruthy()
   expect(codex.getByText('本机未安装 Codex，该 Bot 暂不能执行')).toBeTruthy()
   fireEvent.click(codex.getByRole('button', { name: '前往 Agent' }))
   expect(go).toHaveBeenCalledWith('agents')

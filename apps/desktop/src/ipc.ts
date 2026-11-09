@@ -104,8 +104,9 @@ export type MachineBot = Pick<
   | 'presence'
   | 'systemPrompt'
   | 'concurrency'
-  | 'approval'
-  | 'allowlist'
+  | 'tier'
+  | 'aiReview'
+  | 'alwaysAllow'
   | 'avatar'
 > & {
   /** Null from servers before teams (plan D20). */

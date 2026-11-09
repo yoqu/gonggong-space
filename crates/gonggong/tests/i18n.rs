@@ -1,6 +1,5 @@
 //! Its own binary: the locale is process-wide, and tests/it sets it to Chinese from tests running alongside.
 use gonggong::i18n::{Locale, set_locale};
-use gonggong::protocol::Approval;
 use gonggong::t;
 
 #[test]
@@ -8,7 +7,7 @@ fn renders_english() {
     set_locale(Locale::En);
     assert_eq!(gonggong::i18n::tag(), "en");
     assert_eq!(t!("未绑定"), "Not bound");
-    assert_eq!(Approval::Ask.label(), "Ask every time");
+    assert_eq!(t!("每次问我"), "Ask me every time");
     assert_eq!(t!("已从 CC Switch 导入 {n} 个供应商", n = 1), "Imported 1 provider from CC Switch");
     assert_eq!(t!("等待回答：{n} 个问题", n = 3), "Awaiting answers: 3 questions");
     set_locale(Locale::Zh);

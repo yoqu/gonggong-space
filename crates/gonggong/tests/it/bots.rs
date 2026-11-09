@@ -1,12 +1,12 @@
 use gonggong::bots::{self, Client};
 use gonggong::config::Config;
-use gonggong::protocol::Approval;
+use gonggong::protocol::Tier;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 const BOTS: &str = r#"[
-  {"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","ownerName":"王磊","concurrency":2,"approval":"allowlist","allowlist":["go build"]},
+  {"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"bound","presence":"online","ownerName":"王磊","concurrency":2,"tier":"full","aiReview":true,"alwaysAllow":["go build"]},
   {"id":"b2","name":"小王的 Codex","agentKind":"codex","binding":"pending_confirm","presence":"pending_confirm","ownerName":"王磊","concurrency":2}
 ]"#;
 
@@ -47,8 +47,17 @@ async fn lists_bots_with_the_machine_token() {
     assert_eq!(list.len(), 2);
     assert_eq!(bots::state_label(&list[0]), "在线");
     assert_eq!(bots::state_label(&list[1]), "待确认 · 请在 Web 中确认");
-    assert_eq!((list[0].approval, list[0].allowlist.as_slice()), (Approval::Allowlist, &["go build".to_string()][..]));
-    assert_eq!((list[1].approval, list[1].allowlist.len()), (Approval::Ask, 0), "older servers send neither");
+    assert_eq!(
+        (list[0].tier, list[0].ai_review, list[0].always_allow.as_slice()),
+        (Tier::Full, true, &["go build".to_string()][..])
+    );
+    assert_eq!(gonggong::bots::approval_label(&list[0]), "完全允许");
+    assert_eq!(
+        (list[1].tier, list[1].ai_review, list[1].always_allow.len()),
+        (Tier::Workspace, false, 0),
+        "older servers send none"
+    );
+    assert_eq!(gonggong::bots::approval_label(&list[1]), "每次问我");
     let heads = task.await.unwrap();
     assert!(heads[0].starts_with("GET /api/daemon/bots HTTP/1.1"));
     assert!(heads[0].to_lowercase().contains("authorization: bearer mt_1"));

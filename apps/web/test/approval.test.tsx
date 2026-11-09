@@ -105,12 +105,12 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([approval()])} />)
     expect(screen.getByText('权限请求 · 执行命令')).toBeTruthy()
     expect(screen.getByText('go build ./...')).toBeTruthy()
-    expect(screen.getByText(/超出「工作区写入」档位 · 01:30 后自动拒绝/)).toBeTruthy()
+    expect(screen.getByText(/01:30 后自动拒绝/)).toBeTruthy()
     expect(screen.getByText('你是 Bot 主人')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(screen.getByText(/超出「工作区写入」档位 · 01:29 后自动拒绝/)).toBeTruthy()
+    expect(screen.getByText(/01:29 后自动拒绝/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '批准' }))
     await waitFor(() => expect(calls).toHaveLength(1))
@@ -138,38 +138,23 @@ describe('ApprovalBlock', () => {
     )
   })
 
-  it('lets the owner waive approvals for the rest of this run, except in demo mode', async () => {
-    login('u1', '王磊')
-    const calls = mockApi({ 'POST /runs/r1/full-access': null })
-    const { unmount } = render(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.getByTitle(/本次运行结束后恢复原档位/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '本次运行免审批' }))
-    await waitFor(() => expect(calls).toHaveLength(1))
-    expect(calls[0]).toMatchObject({ method: 'POST', path: '/runs/r1/full-access' })
-    unmount()
-    useSession.setState({ tenancy: { demoMode: true } as never })
-    render(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.queryByRole('button', { name: '本次运行免审批' })).toBeNull()
-    useSession.setState({ tenancy: undefined as never })
-  })
-
   it('offers allow-always only when the agent does and there is something to remember', async () => {
     login('u1', '王磊')
     const calls = mockApi({ 'POST /runs/r1/approvals/a1': approval({ status: 'approved' }) })
     const remember = ['npm run build', 'tail']
     const { rerender } = render(<ApprovalBlock run={run([approval({ remember })])} />)
-    expect(screen.queryByRole('button', { name: '始终允许' })).toBeNull()
-    expect(screen.queryByText(/将始终允许/)).toBeNull()
+    expect(screen.queryByRole('button', { name: '批准，不再询问' })).toBeNull()
+    expect(screen.queryByText(/不再询问：/)).toBeNull()
     const options = [
       { optionId: 'always', name: 'Always', kind: 'allow_always' },
       ...approval().options,
     ] as ApprovalDto['options']
     rerender(<ApprovalBlock run={run([approval({ options })])} />)
-    expect(screen.queryByRole('button', { name: '始终允许' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '批准，不再询问' })).toBeNull()
     expect(screen.getByRole('button', { name: '批准' })).toBeTruthy()
     rerender(<ApprovalBlock run={run([approval({ options, remember })])} />)
-    expect(screen.getByText('将始终允许：npm run build、tail')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '始终允许' }))
+    expect(screen.getByText('不再询问：npm run build、tail')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '批准，不再询问' }))
     await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'always' }))
   })
 
@@ -186,7 +171,7 @@ describe('ApprovalBlock', () => {
         ])}
       />,
     )
-    expect(screen.queryByText(/将始终允许/)).toBeNull()
+    expect(screen.queryByText(/不再询问：/)).toBeNull()
   })
 
   it('counts down from the moment a request arrives', () => {
@@ -194,7 +179,7 @@ describe('ApprovalBlock', () => {
     const { rerender } = render(<ApprovalBlock run={run([])} />)
     vi.setSystemTime(NOW.getTime() + 20_000)
     rerender(<ApprovalBlock run={run([approval()])} />)
-    expect(screen.getByText(/超出「工作区写入」档位 · 01:10 后自动拒绝/)).toBeTruthy()
+    expect(screen.getByText(/01:10 后自动拒绝/)).toBeTruthy()
   })
 
   it('sends the reject option and shows a failed decision', async () => {
@@ -241,7 +226,7 @@ describe('ApprovalBlock', () => {
     render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)
     expect(screen.getByText(text)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
-    expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖 · 超出「工作区写入」档位/)).toBeTruthy()
+    expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖/)).toBeTruthy()
   })
 
   it('shows the latest request of the run', () => {

@@ -347,21 +347,14 @@ export function botRoutes(ctx: Ctx) {
       const bot = await loadBot(ctx, req.params.id)
       assertCanManage(user, bot)
       // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
-      if (
-        (body.approval !== undefined ||
-          body.allowlist !== undefined ||
-          body.alwaysAllow !== undefined ||
-          body.aiReview !== undefined) &&
-        user.id !== bot.ownerId
-      )
-        fail('forbidden', '命令审批只有 Bot 主人能修改')
+      if ((body.alwaysAllow !== undefined || body.aiReview !== undefined) && user.id !== bot.ownerId)
+        fail('forbidden', '审批方式只有 Bot 主人能修改')
       if ((body.gitName !== undefined || body.gitEmail !== undefined) && user.id !== bot.ownerId)
         fail('forbidden', 'Git 提交身份只有 Bot 主人能修改')
       if (body.agentSettings !== undefined) {
         if (user.id !== bot.ownerId) fail('forbidden', 'Agent 设置只有 Bot 主人能修改')
         assertBotAgentSettings(bot.agentKind as AgentKind, body.agentSettings)
       }
-      if (body.allowlist) body.allowlist = normalizeAllowlist(body.allowlist)
       if (body.alwaysAllow) body.alwaysAllow = normalizeAllowlist(body.alwaysAllow)
       await assertTierAllowed(ctx, body.tier)
       const name = body.name?.trim()
@@ -389,15 +382,8 @@ export function botRoutes(ctx: Ctx) {
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
-      const from = {
-        approval: bot.approval,
-        allowlist: bot.allowlist,
-        alwaysAllow: bot.alwaysAllow,
-        aiReview: bot.aiReview,
-      }
+      const from = { alwaysAllow: bot.alwaysAllow, aiReview: bot.aiReview }
       const approval = {
-        approval: body.approval ?? bot.approval,
-        allowlist: body.allowlist ?? bot.allowlist,
         alwaysAllow: body.alwaysAllow ?? bot.alwaysAllow,
         aiReview: body.aiReview ?? bot.aiReview,
       }

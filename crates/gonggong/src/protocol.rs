@@ -45,16 +45,6 @@ pub enum Approval {
     All,
 }
 
-impl Approval {
-    pub fn label(self) -> &'static str {
-        match self {
-            Approval::Ask => crate::t!("每次询问"),
-            Approval::Allowlist => crate::t!("白名单自动"),
-            Approval::All => crate::t!("全部自动"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {

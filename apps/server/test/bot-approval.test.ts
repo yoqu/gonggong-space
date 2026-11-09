@@ -23,10 +23,16 @@ async function world() {
 }
 
 describe('bot approval settings', () => {
-  it('defaults to ask with an empty allowlist', async () => {
+  it('defaults to 帮我审批: AI review on, nothing allowed always', async () => {
     const w = await world()
     const res = await w.owners.get<BotDto>(`/api/bots/${w.bot.id}`)
-    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [], alwaysAllow: [] })
+    expect(res.body).toMatchObject({
+      tier: 'workspace',
+      aiReview: true,
+      approval: 'ask',
+      allowlist: [],
+      alwaysAllow: [],
+    })
   })
 
   it('the owner edits alwaysAllow, normalized, and the change is audited', async () => {
@@ -43,22 +49,18 @@ describe('bot approval settings', () => {
     })
   })
 
-  it('the owner sets approval and a normalized allowlist', async () => {
+  it('the retired approval modes and allowlist are not settable any more', async () => {
     const w = await world()
-    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, {
-      approval: 'allowlist',
-      allowlist: ['  go   build ', 'pnpm test', 'go build', 'git\tstatus'],
-    })
+    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, { approval: 'all', allowlist: ['ls'] })
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({
-      approval: 'allowlist',
-      allowlist: ['go build', 'pnpm test', 'git status'],
-    })
+    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [] })
+    expect(await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.approval'))).toEqual([])
   })
 
-  it('audits the owner changing approval: it decides what runs unattended on their machine', async () => {
+  it('audits the owner switching to 每次问我: it decides what runs unattended on their machine', async () => {
     const w = await world()
-    await w.owners.patch(`/api/bots/${w.bot.id}`, { approval: 'all' })
+    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, { aiReview: false })
+    expect(res.body.aiReview).toBe(false)
     await w.owners.patch(`/api/bots/${w.bot.id}`, { systemPrompt: 'x' })
     const rows = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.approval'))
     expect(rows).toHaveLength(1)
@@ -67,44 +69,30 @@ describe('bot approval settings', () => {
       detail: {
         botId: w.bot.id,
         name: 'cc',
-        from: { approval: 'ask', allowlist: [], alwaysAllow: [] },
-        to: { approval: 'all', allowlist: [], alwaysAllow: [] },
+        from: { alwaysAllow: [], aiReview: true },
+        to: { alwaysAllow: [], aiReview: false },
       },
     })
   })
 
-  it('the owner turns AI 预审 on (off by default), audited with the approval settings', async () => {
-    const w = await world()
-    expect((await w.owners.get<BotDto>(`/api/bots/${w.bot.id}`)).body.aiReview).toBe(false)
-    const res = await w.owners.patch<BotDto>(`/api/bots/${w.bot.id}`, { aiReview: true })
-    expect(res.body.aiReview).toBe(true)
-    const rows = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'bot.approval'))
-    expect(rows[0]?.detail).toMatchObject({ from: { aiReview: false }, to: { aiReview: true } })
-  })
-
   it('rejects empty entries', async () => {
     const w = await world()
-    const res = await w.owners.patch(`/api/bots/${w.bot.id}`, { allowlist: ['go build', '   '] })
+    const res = await w.owners.patch(`/api/bots/${w.bot.id}`, { alwaysAllow: ['go build', '   '] })
     expect(res.status).toBe(400)
   })
 
-  it('a sysadmin cannot change approval or allowlist of another bot, but can change the rest', async () => {
+  it('a sysadmin cannot change the approval settings of another bot, but can change the rest', async () => {
     const w = await world()
-    for (const body of [
-      { approval: 'all' },
-      { allowlist: ['ls'] },
-      { alwaysAllow: ['ls'] },
-      { aiReview: true },
-    ]) {
+    for (const body of [{ alwaysAllow: ['ls'] }, { aiReview: false }]) {
       const res = await w.admins.patch(`/api/bots/${w.bot.id}`, body)
       expect(res.status).toBe(403)
       expect(res.body.error).toBe('forbidden')
     }
     const ok = await w.admins.patch<BotDto>(`/api/bots/${w.bot.id}`, { concurrency: 3 })
-    expect(ok.body).toMatchObject({ concurrency: 3, approval: 'ask', allowlist: [] })
+    expect(ok.body).toMatchObject({ concurrency: 3, aiReview: true })
   })
 
-  it('bots created by a sysadmin for someone else start with ask even if approval is sent', async () => {
+  it('bots created by a sysadmin for someone else start at 帮我审批 even if approval is sent', async () => {
     const w = await world()
     const res = await w.admins.post<BotDto>('/api/bots', {
       name: '代建',
@@ -114,16 +102,12 @@ describe('bot approval settings', () => {
       approval: 'all',
     })
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [] })
+    expect(res.body).toMatchObject({ approval: 'ask', allowlist: [], aiReview: true })
   })
 
-  it('run.start carries the bot approval, allowlist and alwaysAllow', async () => {
+  it('run.start carries the bot alwaysAllow and AI review, approval always ask', async () => {
     const w = await world()
-    await w.owners.patch(`/api/bots/${w.bot.id}`, {
-      approval: 'allowlist',
-      allowlist: ['go build'],
-      alwaysAllow: ['npm test'],
-    })
+    await w.owners.patch(`/api/bots/${w.bot.id}`, { alwaysAllow: ['npm test'], aiReview: false })
 
     const ws = t.ws('/ws/daemon')
     const box = inbox(ws)
@@ -154,9 +138,10 @@ describe('bot approval settings', () => {
     const start = await box.next<ServerToDaemon>()
     if (start.t !== 'run.start') throw new Error(`unexpected ${start.t}`)
     expect(start.bot).toMatchObject({
-      approval: 'allowlist',
-      allowlist: ['go build'],
+      approval: 'ask',
+      allowlist: [],
       alwaysAllow: ['npm test'],
+      aiReview: false,
     })
     ws.close()
   })

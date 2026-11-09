@@ -7,11 +7,24 @@ export default {
   刷新模型: 'Refresh models',
   '已刷新，共 {n} 个可选模型': 'Refreshed · {n} models available',
   推理强度: 'Reasoning effort',
-  每次询问: 'Ask every time',
-  白名单自动: 'Auto for allowlist',
-  全部自动: 'Auto for all',
-  命令审批: 'Command approval',
-  '只有 Bot 主人能修改命令审批': 'Only the Bot owner can change command approval',
+  每次问我: 'Ask me every time',
+  帮我审批: 'Review for me',
+  完全允许: 'Allow everything',
+  审批方式: 'Approval',
+  '已允许 {rules}': 'allowed {rules}',
+  已允许的命令: 'Allowed commands',
+  '高危命令（如 sudo、git push --force）、推送受保护的基准分支和客户端发版始终需要你确认。':
+    ' Dangerous commands (like sudo, git push --force), pushes to a protected base branch and client releases always need your confirmation.',
+  '只读命令自动放行，其余操作都发审批卡片给你。':
+    'Read-only commands run right away; everything else comes to you as an approval card.',
+  '先由 AI 用小模型评估：低风险且明显是用户要求的自动批准，其余仍交给你，审批卡片附上风险和理由。每次评估约消耗几千 token。':
+    'An AI on a small model assesses each request first: low-risk ones the user clearly asked for are approved automatically, the rest still come to you with the risk and reasoning on the card. Each assessment uses a few thousand tokens.',
+  '不再询问，Bot 可以执行任何操作；只有触发名单里的人能触发它。':
+    'Never asks: the Bot may do anything, and only the people on its trigger list can trigger it.',
+  'Bot 只能读取，其余操作都发审批卡片给你。':
+    'The Bot can only read; everything else comes to you as an approval card.',
+  '审批卡片上选「批准，不再询问」会加到这里；以这些前缀开头的命令（或 tool:工具名）自动批准，删除后再次询问。':
+    'Added by "Approve, don\'t ask again" on approval cards; commands starting with these prefixes (or tool:<tool name>) are approved automatically. Remove one to be asked again.',
   'Git 提交身份': 'Git commit identity',
   'Git 提交名': 'Git commit name',
   'Git 提交邮箱': 'Git commit email',
@@ -19,20 +32,7 @@ export default {
     'Author name and email of the commits the Bot makes; blank uses the default. Takes effect the next time the agent starts',
   '只有 Bot 主人能修改 Git 提交身份': 'Only the Bot owner can change the Git commit identity',
   '、': ', ',
-  命令白名单: 'Command allowlist',
-  输入命令前缀后按: 'Type a command prefix and press',
-  '添加。以这些前缀开头的命令自动批准；用 &&、;、| 连接时每一段都要在白名单内（只读命令除外），写文件的重定向或 $( ) 仍需你审批。':
-    'to add it. Commands starting with these prefixes are approved automatically; when chained with &&, ; or |, every part must be on the allowlist (read-only commands excepted). Redirects that write files and $( ) still need your approval.',
-  'cat、ls、git status 等只读命令在「每次询问」模式下也自动批准；sudo、git push --force、rm -rf / 等高危命令任何模式都需要你审批。':
-    'Read-only commands like cat, ls, git status are approved automatically even in "Ask every time" mode; dangerous commands like sudo, git push --force, rm -rf / always need your approval in every mode.',
-  始终允许: 'Always allow',
-  '来自审批卡片上的「始终允许」，在这个 Bot 所在的所有群生效；以这些前缀开头的命令（或 tool:工具名）自动批准。删除后再次需要你审批。':
-    'Added from "Always allow" on approval cards and applied in every group this Bot is in; commands starting with these prefixes (or tool:<tool name>) are approved automatically. Remove one to be asked again.',
-  '命令前缀或 tool:工具名': 'Command prefix or tool:<tool name>',
-  'AI 预审': 'AI pre-review',
   已开启: 'On',
-  '规则没放行的请求，先由这个 Bot 的 agent 在不能动手的会话里评估：低风险、且明显是用户要求的就自动批准，其余仍交给你，审批卡片附上风险和理由。高危命令和推送基准分支不经过 AI。会消耗这台机器上 agent 的额度。':
-    "Requests the rules don't allow are first assessed by this Bot's agent in a session that can't act: low-risk ones the user clearly asked for are approved automatically, the rest still come to you with the risk and reasoning on the approval card. Dangerous commands and pushes to the base branch never go to the AI. Uses the agent's quota on this machine.",
   '命令前缀，如 go build': 'Command prefix, e.g. go build',
   'Bot 详情': 'Bot details',
   托管工作区: 'Managed workspace',
@@ -50,7 +50,6 @@ export default {
   所在群: 'Groups',
   谁用了: 'Used by',
   按群: 'By group',
-  权限档位: 'Permission tier',
   触发范围: 'Who can trigger',
   并发上限: 'Concurrency limit',
   '{n} 个群并行': '{n} {n:group|groups} in parallel',
@@ -70,7 +69,8 @@ export default {
   '继承机器（当前：{name}）': 'Inherit from machine (currently: {name})',
   供应商: 'Provider',
   '读取中…': 'Loading…',
-  完全访问档位只允许指定名单触发: 'The Full access tier only allows a specified list to trigger',
+  完全允许只能由触发名单里的人触发:
+    'With “Allow everything” only the people on the trigger list can trigger it',
   '等待 {owner} 确认': 'Waiting for {owner} to confirm',
   '{creator} 为{owner}创建并绑定到 {machine}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。':
     '{creator} created it for {owner} and bound it to {machine}. It can be triggered once the machine owner confirms in web notifications or Bot details.',
@@ -98,7 +98,6 @@ export default {
   清除: 'Clear',
   触发名单: 'Trigger list',
   输入成员姓名: 'Enter member names',
-  默认权限档位: 'Default permission tier',
   '同时运行的轮次，超出的在该机器排队': 'Runs at the same time; extra runs queue on the machine',
   '{n} 个': '{n}',
   'agent 版本': 'Agent version',

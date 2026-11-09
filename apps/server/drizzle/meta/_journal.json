@@ -743,6 +743,13 @@
       "when": 1794130318431,
       "tag": "0105_rare_maria_hill",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794225337131,
+      "tag": "0106_skinny_mantis",
+      "breakpoints": true
     }
   ]
 }

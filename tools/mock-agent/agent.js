@@ -19,7 +19,9 @@
 //   "mock:later[-exec|-open]" start a background task and end the turn; once it finishes, go on by itself between
 //                prompts (-exec: asking permission; -open: never reporting the cycle's end)
 //   "Permission review…" (the daemon's AI pre-review, review::HEADING) answer by a word in the prompt: mock-review-allow
-//                allows at low risk, mock-review-garbage gives no verdict, anything else is denied as high risk
+//                allows at low risk, mock-review-garbage gives no verdict, mock-review-echo allows with what the review
+//                session was set up with (model, effort, system prompt, tools, setting sources, cwd) as the rationale,
+//                anything else is denied as high risk
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
 import { execSync } from 'node:child_process'
@@ -74,6 +76,7 @@ function open(sessionId, params) {
     systemPrompt: params._meta?.systemPrompt?.append ?? null,
     settings: params._meta?.claudeCode?.options?.settings ?? null,
     plugins: params._meta?.claudeCode?.options?.plugins ?? null,
+    meta: params._meta ?? null,
     mcpServers: params.mcpServers,
     mode: 'default',
     model: 'default',
@@ -102,6 +105,24 @@ async function prompt({ sessionId, prompt: blocks }, client) {
   const say = (t) => update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: t } })
 
   if (text.startsWith('Permission review for a coding agent')) {
+    if (text.includes('mock-review-echo')) {
+      const o = s.meta?.claudeCode?.options ?? {}
+      const setup = {
+        model: s.model,
+        effort: s.effort,
+        system: s.meta?.systemPrompt ?? null,
+        tools: o.tools ?? null,
+      }
+      Object.assign(setup, { sources: o.settingSources ?? null, cwd: s.cwd.split(/[\\/]/).at(-1) })
+      const verdict = {
+        risk: 'low',
+        user_authorization: 'high',
+        outcome: 'allow',
+        rationale: JSON.stringify(setup),
+      }
+      await say(JSON.stringify(verdict))
+      return { stopReason: 'end_turn' }
+    }
     const verdict = text.includes('mock-review-allow')
       ? { risk: 'low', user_authorization: 'high', outcome: 'allow', rationale: '用户要求的只读命令' }
       : { risk: 'high', user_authorization: 'none', outcome: 'deny', rationale: '用户没有要求改动文件' }

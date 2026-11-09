@@ -1,3 +1,4 @@
+import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc } from '@web/features/bots/avatars'
 import {
   Avatar,
@@ -14,7 +15,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type AgentCard, ipc, type MachineBot, type Providers } from '../ipc'
-import { AGENTS, APPROVAL } from '../lib/labels'
+import { AGENTS } from '../lib/labels'
 import { fail } from '../lib/ui'
 import { OFFICIAL, OFFICIAL_NAME } from '../providers/ProviderBox'
 import { useProviderSwitch } from '../providers/switch'
@@ -124,14 +125,7 @@ export function BotsPage({ go }: PageProps) {
                 </GroupRow>
               ) : null}
               <GroupRow label={t('并发上限')} value={b.concurrency} />
-              <GroupRow label={t('命令审批')} value={APPROVAL[b.approval]} />
-              {b.approval === 'allowlist' ? (
-                <GroupRow
-                  label={t('命令白名单')}
-                  wideValue
-                  value={b.allowlist.length ? b.allowlist.join(t('、')) : t('（空）')}
-                />
-              ) : null}
+              <GroupRow label={t('审批方式')} wideValue value={approvalText(b)} />
               {missing ? (
                 <div className="dk-row dk-warn">
                   <Icon name="warning" size={16} color="var(--system-red)" />
@@ -146,7 +140,7 @@ export function BotsPage({ go }: PageProps) {
       {bots?.length ? (
         <p className="dk-footnote">
           {t(
-            '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、命令审批与白名单等）。',
+            '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、审批方式等）。',
           )}
         </p>
       ) : null}

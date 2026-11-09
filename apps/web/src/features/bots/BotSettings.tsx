@@ -3,7 +3,6 @@ import {
   INHERIT_PROVIDER,
   OFFICIAL_PROVIDER,
   type ProviderStoreView,
-  type Tier,
   type TriggerScope,
   type UsageRowDto,
   type UserBriefDto,
@@ -35,7 +34,6 @@ import {
 } from '../../ui'
 import { FeishuAppForm } from '../feishu/FeishuAppForm'
 import { effectiveProvider, providerBlocked, useProviderSwitch } from '../machines/providers'
-import { TIER_LABEL, TIERS } from '../runs/tier'
 import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfig'
@@ -57,7 +55,7 @@ import {
 } from './model'
 import './bots.css'
 
-const FULL_HINT = t('完全访问档位只允许指定名单触发')
+const FULL_HINT = t('完全允许只能由触发名单里的人触发')
 const MAX_CONCURRENCY = 8
 
 function warning(bot: BotDto, userName: (id: string) => string) {
@@ -194,14 +192,13 @@ export function BotDetail({
   const [config, setConfig] = useState<AgentConfig>({ model: bot.model, effort: bot.effort })
   const [scope, setScope] = useState<TriggerScope>(bot.triggerScope)
   const [list, setList] = useState(bot.triggerList)
-  const [tier, setTier] = useState<Tier>(bot.tier)
   const [concurrency, setConcurrency] = useState(bot.concurrency)
   const [approval, setApproval] = useState<ApprovalValue>({
-    approval: bot.approval,
-    allowlist: bot.allowlist,
+    tier: bot.tier,
     alwaysAllow: bot.alwaysAllow,
     aiReview: bot.aiReview,
   })
+  const tier = approval.tier
   const [gitName, setGitName] = useState(bot.gitName ?? '')
   const [gitEmail, setGitEmail] = useState(bot.gitEmail ?? '')
   const [overrides, setOverrides] = useState(bot.agentSettings)
@@ -237,8 +234,6 @@ export function BotDetail({
     ...(config.effort !== bot.effort && { effort: config.effort }),
     ...(concurrency !== bot.concurrency && { concurrency }),
     // Only the owner may send these (plan J9).
-    ...(owner && approval.approval !== bot.approval && { approval: approval.approval }),
-    ...(owner && !sameList(approval.allowlist, bot.allowlist) && { allowlist: approval.allowlist }),
     ...(owner && !sameList(approval.alwaysAllow, bot.alwaysAllow) && { alwaysAllow: approval.alwaysAllow }),
     ...(owner && approval.aiReview !== bot.aiReview && { aiReview: approval.aiReview }),
     ...(owner && (gitName.trim() || null) !== bot.gitName && { gitName: gitName.trim() || null }),
@@ -418,22 +413,16 @@ export function BotDetail({
 
   const access = (
     <Form>
-      <FormRow label={t('权限档位')}>
-        <SegmentedControl<Tier>
-          aria-label={t('默认权限档位')}
-          size="small"
-          value={tier}
-          onChange={(v) => {
-            setTier(v)
-            if (v === 'full' && scope === 'all') setScope('list')
-          }}
-          items={TIERS.map((t) => ({
-            value: t,
-            label: TIER_LABEL[t],
-            disabled: !canEdit || (demo && t === 'full'),
-          }))}
-        />
-      </FormRow>
+      <ApprovalFields
+        owner={owner}
+        canEdit={canEdit}
+        demo={demo}
+        value={approval}
+        onChange={(v) => {
+          setApproval(v)
+          if (v.tier === 'full' && scope === 'all') setScope('list')
+        }}
+      />
       <FormRow label={t('触发范围')} hint={tier === 'full' ? FULL_HINT : undefined}>
         <div title={tier === 'full' ? FULL_HINT : undefined}>
           <SegmentedControl<TriggerScope>
@@ -470,7 +459,6 @@ export function BotDetail({
           )}
         </FormRow>
       ) : null}
-      <ApprovalFields owner={owner} value={approval} onChange={setApproval} />
     </Form>
   )
 

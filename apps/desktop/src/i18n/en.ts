@@ -22,9 +22,6 @@ export const en = {
   在资源管理器中显示: 'Show in Explorer',
   在文件管理器中显示: 'Show in file manager',
   '在 Finder 中显示': 'Show in Finder',
-  每次询问: 'Ask every time',
-  白名单自动: 'Auto for allowlist',
-  全部自动: 'Auto for all',
   绑定到团队服务器: 'Bind to your team server',
   '在 Web 端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。':
     'On the Web, choose "Bind new machine" from the avatar menu, then click "Open in app" or copy the join link and paste it here. Once bound, this machine belongs to you and every connection is initiated from it.',
@@ -121,14 +118,12 @@ export const en = {
   '{name} 的供应商': 'Provider of {name}',
   团队: 'Team',
   并发上限: 'Concurrency limit',
-  命令审批: 'Command approval',
-  命令白名单: 'Command allowlist',
-  '（空）': '(empty)',
+  审批方式: 'Approval',
   '本机未安装 {name}，该 Bot 暂不能执行':
     '{name} is not installed on this machine, so this Bot cannot run yet',
   '前往 Agent': 'Go to Agent',
-  '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、命令审批与白名单等）。':
-    'Providers are stored only on this machine and set here; all other Bot settings are managed on the Web (name, role description, model, concurrency limit, command approval and allowlist, etc.).',
+  '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、审批方式等）。':
+    'Providers are stored only on this machine and set here; all other Bot settings are managed on the Web (name, role description, model, concurrency limit, approval, etc.).',
   无人观看: 'No viewers',
   启动中: 'Starting',
   推流中: 'Streaming',

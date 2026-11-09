@@ -10,7 +10,7 @@ async function say(page: Page, text: string) {
   await page.getByRole('button', { name: '发送' }).click()
 }
 
-test('bind via 接入链接; the owner sets the allowlist on the web and the daemon applies it', async ({
+test('bind via 接入链接; the owner allows a command on the web and the daemon applies it', async ({
   page,
 }) => {
   test.setTimeout(10 * 60_000)
@@ -24,18 +24,18 @@ test('bind via 接入链接; the owner sets the allowlist on the web and the dae
     systemPrompt: '',
   })
 
-  // Only the owner may change command approval, not even a sysadmin.
+  // Only the owner may change the approval settings, not even a sysadmin.
   const ctx = await page.context().browser()!.newContext({ baseURL: 'http://127.0.0.1:5190' })
   await adminSession(ctx.request)
-  const denied = await ctx.request.patch(`/api/bots/${bot.id}`, { data: { approval: 'all' } })
+  const denied = await ctx.request.patch(`/api/bots/${bot.id}`, { data: { alwaysAllow: ['node -e'] } })
   expect(denied.status()).toBe(403)
   await ctx.close()
 
-  const saved = await api.call<{ approval: string; allowlist: string[] }>('patch', `/api/bots/${bot.id}`, {
-    approval: 'allowlist',
-    allowlist: ['node  -e', 'node -e'],
+  // 每次问我 (set by `call`), so only the rule can allow it.
+  const saved = await api.call<{ alwaysAllow: string[] }>('patch', `/api/bots/${bot.id}`, {
+    alwaysAllow: ['node  -e', 'node -e'],
   })
-  expect(saved).toMatchObject({ approval: 'allowlist', allowlist: ['node -e'] })
+  expect(saved.alwaysAllow).toEqual(['node -e'])
 
   const group = await api.call<{ id: string }>('post', '/api/groups', {
     name: '接入链接',

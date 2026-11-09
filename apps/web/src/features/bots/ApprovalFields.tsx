@@ -1,13 +1,37 @@
-import type { Approval } from '@gonggong/protocol'
+import type { Tier } from '@gonggong/protocol'
 import { t } from '../../i18n'
-import { FormRow, Kbd, SegmentedControl, Switch, type Token, TokenField } from '../../ui'
+import { FormRow, SegmentedControl, type Token, TokenField } from '../../ui'
 
-export const APPROVAL_LABEL: Record<Approval, string> = {
-  ask: t('每次询问'),
-  allowlist: t('白名单自动'),
-  all: t('全部自动'),
+/** 审批方式: one choice made of the bot's tier and AI review (read-only is a legacy tier, shown only while set). */
+export type ApprovalMode = 'ask' | 'review' | 'full' | 'read-only'
+
+export const APPROVAL_MODE_LABEL: Record<ApprovalMode, string> = {
+  ask: t('每次问我'),
+  review: t('帮我审批'),
+  full: t('完全允许'),
+  'read-only': t('只读'),
 }
-const APPROVALS = Object.keys(APPROVAL_LABEL) as Approval[]
+
+const FLOOR = t('高危命令（如 sudo、git push --force）、推送受保护的基准分支和客户端发版始终需要你确认。')
+const MODE_HINT: Record<ApprovalMode, string> = {
+  ask: t('只读命令自动放行，其余操作都发审批卡片给你。'),
+  review: t(
+    '先由 AI 用小模型评估：低风险且明显是用户要求的自动批准，其余仍交给你，审批卡片附上风险和理由。每次评估约消耗几千 token。',
+  ),
+  full: t('不再询问，Bot 可以执行任何操作；只有触发名单里的人能触发它。'),
+  'read-only': t('Bot 只能读取，其余操作都发审批卡片给你。'),
+}
+
+export const approvalMode = (bot: { tier: Tier; aiReview: boolean }): ApprovalMode =>
+  bot.tier === 'workspace' ? (bot.aiReview ? 'review' : 'ask') : bot.tier
+
+/** Display text, with the always-allowed rules when they matter. */
+export const approvalText = (bot: { tier: Tier; aiReview: boolean; alwaysAllow: string[] }) => {
+  const mode = approvalMode(bot)
+  return mode !== 'full' && bot.alwaysAllow.length
+    ? `${APPROVAL_MODE_LABEL[mode]} · ${t('已允许 {rules}', { rules: bot.alwaysAllow.join(t('、')) })}`
+    : APPROVAL_MODE_LABEL[mode]
+}
 
 /** Trimmed, whitespace-collapsed, de-duplicated command prefixes. */
 export const prefixes = (tokens: Token[]) => [
@@ -17,113 +41,85 @@ export const prefixes = (tokens: Token[]) => [
 ]
 
 export interface ApprovalValue {
-  approval: Approval
-  allowlist: string[]
-  alwaysAllow: string[]
+  tier: Tier
   aiReview: boolean
+  alwaysAllow: string[]
 }
 
-/** 命令审批: editable by the bot owner only (plan J9); everyone else sees the current setting. */
+/** 审批方式 and 已允许的命令. AI review and the rules are the owner's (plan J9); a sysadmin may only change the tier. */
 export function ApprovalFields({
   owner,
+  canEdit,
+  demo,
   value,
   onChange,
 }: {
   owner: boolean
+  canEdit: boolean
+  demo?: boolean
   value: ApprovalValue
   onChange: (value: ApprovalValue) => void
 }) {
-  // 全部自动 already approves everything below the hard floor, so the rules only matter in the other modes.
-  const remembers = value.approval !== 'all'
-  if (!owner)
-    return (
-      <>
-        <FormRow label={t('命令审批')} hint={t('只有 Bot 主人能修改命令审批')}>
-          <span>
-            {value.approval === 'allowlist' && value.allowlist.length
-              ? `${APPROVAL_LABEL.allowlist} · ${value.allowlist.join(t('、'))}`
-              : APPROVAL_LABEL[value.approval]}
-          </span>
-        </FormRow>
-        {remembers && value.alwaysAllow.length ? (
-          <FormRow label={t('始终允许')}>
-            <span>{value.alwaysAllow.join(t('、'))}</span>
-          </FormRow>
-        ) : null}
-        {remembers && value.aiReview ? (
-          <FormRow label={t('AI 预审')}>
-            <span>{t('已开启')}</span>
-          </FormRow>
-        ) : null}
-      </>
-    )
+  const mode = approvalMode(value)
+  const unattended = value.aiReview ? 'review' : 'ask'
+  const modes: ApprovalMode[] = [
+    'ask',
+    'review',
+    'full',
+    ...(value.tier === 'read-only' ? ['read-only' as const] : []),
+  ]
+  const pick = (m: ApprovalMode) =>
+    onChange({
+      ...value,
+      tier: m === 'ask' || m === 'review' ? 'workspace' : m,
+      aiReview: m === 'ask' ? false : m === 'review' ? true : value.aiReview,
+    })
   return (
     <>
       <FormRow
-        label={t('命令审批')}
+        label={t('审批方式')}
         align="top"
-        hint={t(
-          'cat、ls、git status 等只读命令在「每次询问」模式下也自动批准；sudo、git push --force、rm -rf / 等高危命令任何模式都需要你审批。',
-        )}
+        hint={mode === 'full' ? MODE_HINT.full : `${MODE_HINT[mode]}${FLOOR}`}
       >
-        <SegmentedControl<Approval>
-          aria-label={t('命令审批')}
-          size="small"
-          value={value.approval}
-          onChange={(approval) => onChange({ ...value, approval })}
-          items={APPROVALS.map((v) => ({ value: v, label: APPROVAL_LABEL[v] }))}
-        />
+        {canEdit ? (
+          <SegmentedControl<ApprovalMode>
+            aria-label={t('审批方式')}
+            size="small"
+            value={mode}
+            onChange={pick}
+            items={modes.map((m) => ({
+              value: m,
+              label: APPROVAL_MODE_LABEL[m],
+              disabled:
+                (demo && m === 'full') || (!owner && (m === 'ask' || m === 'review') && m !== unattended),
+            }))}
+          />
+        ) : (
+          <span>{APPROVAL_MODE_LABEL[mode]}</span>
+        )}
       </FormRow>
-      {value.approval === 'allowlist' ? (
+      {mode !== 'full' && (owner || value.alwaysAllow.length) ? (
         <FormRow
-          label={t('命令白名单')}
+          label={t('已允许的命令')}
           align="top"
           hint={
-            <>
-              {t('输入命令前缀后按')} <Kbd>↩</Kbd>{' '}
-              {t(
-                '添加。以这些前缀开头的命令自动批准；用 &&、;、| 连接时每一段都要在白名单内（只读命令除外），写文件的重定向或 $( ) 仍需你审批。',
-              )}
-            </>
+            owner
+              ? t(
+                  '审批卡片上选「批准，不再询问」会加到这里；以这些前缀开头的命令（或 tool:工具名）自动批准，删除后再次询问。',
+                )
+              : undefined
           }
         >
-          <TokenField
-            aria-label={t('命令白名单')}
-            value={value.allowlist}
-            placeholder={t('命令前缀，如 go build')}
-            onChange={(tokens) => onChange({ ...value, allowlist: prefixes(tokens) })}
-          />
-        </FormRow>
-      ) : null}
-      {remembers ? (
-        <FormRow
-          label={t('始终允许')}
-          align="top"
-          hint={t(
-            '来自审批卡片上的「始终允许」，在这个 Bot 所在的所有群生效；以这些前缀开头的命令（或 tool:工具名）自动批准。删除后再次需要你审批。',
+          {owner ? (
+            <TokenField
+              aria-label={t('已允许的命令')}
+              value={value.alwaysAllow}
+              placeholder={t('命令前缀，如 go build')}
+              onChange={(tokens) => onChange({ ...value, alwaysAllow: prefixes(tokens) })}
+            />
+          ) : (
+            <span>{value.alwaysAllow.join(t('、'))}</span>
           )}
-        >
-          <TokenField
-            aria-label={t('始终允许')}
-            value={value.alwaysAllow}
-            placeholder={t('命令前缀或 tool:工具名')}
-            onChange={(tokens) => onChange({ ...value, alwaysAllow: prefixes(tokens) })}
-          />
-        </FormRow>
-      ) : null}
-      {remembers ? (
-        <FormRow
-          label={t('AI 预审')}
-          align="top"
-          hint={t(
-            '规则没放行的请求，先由这个 Bot 的 agent 在不能动手的会话里评估：低风险、且明显是用户要求的就自动批准，其余仍交给你，审批卡片附上风险和理由。高危命令和推送基准分支不经过 AI。会消耗这台机器上 agent 的额度。',
-          )}
-        >
-          <Switch
-            aria-label={t('AI 预审')}
-            checked={value.aiReview}
-            onChange={(aiReview) => onChange({ ...value, aiReview })}
-          />
         </FormRow>
       ) : null}
     </>

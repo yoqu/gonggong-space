@@ -439,6 +439,7 @@ export const BotDto = z.object({
   effort: z.string().nullable(),
   /** What the bound machine's adapter offers; null until probed (or without a machine). */
   catalog: AgentCatalog.nullable(),
+  /** Always 'ask' and empty since 审批方式 replaced them (allowlists merged into alwaysAllow); kept for older clients. */
   approval: Approval,
   allowlist: z.array(z.string()),
   /** Rules from 始终允许 (see RunStart.bot.alwaysAllow). */
@@ -983,8 +984,6 @@ export const UpdateBotReq = z.object({
   model: z.string().nullable().optional(),
   effort: z.string().nullable().optional(),
   /** Bot owner only. */
-  approval: Approval.optional(),
-  allowlist: Allowlist.optional(),
   alwaysAllow: Allowlist.optional(),
   aiReview: z.boolean().optional(),
   /** Bot owner only; null = default. */

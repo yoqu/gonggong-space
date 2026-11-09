@@ -32,6 +32,7 @@ import {
   toast,
   useEscape,
 } from '../../ui'
+import { APPROVAL_MODE_LABEL, approvalMode } from '../bots/ApprovalFields'
 import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/lazy'
 import { AGENT_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from '../bots/model'
@@ -690,9 +691,12 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
             ...(owns
               ? [
                   {
-                    label: t('本群档位'),
+                    label: t('本群审批方式'),
                     submenu: [
-                      { value: FOLLOW, label: t('跟随全局（{tier}）', { tier: TIER_LABEL[b.tier] }) },
+                      {
+                        value: FOLLOW,
+                        label: t('跟随全局（{tier}）', { tier: APPROVAL_MODE_LABEL[approvalMode(b)] }),
+                      },
                       ...TIERS.filter((x) => !demo || x !== 'full' || tier === 'full').map((x) => ({
                         value: x,
                         label: TIER_LABEL[x],
@@ -739,7 +743,9 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
               </div>
               <div className="gs-bot__meta">
                 <span>
-                  {t('档位 {tier}', { tier: TIER_LABEL[effectiveTier(b, s)] })}
+                  {t('审批 {mode}', {
+                    mode: APPROVAL_MODE_LABEL[approvalMode({ ...b, tier: effectiveTier(b, s) })],
+                  })}
                   {tier ? t(' · 本群') : ''}
                 </span>
                 <span>{t('触发 {scope}', { scope: SCOPE_LABEL(b) })}</span>
@@ -776,7 +782,7 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
         })}
       </GroupBox>
       <div className="gs-foot">
-        {t('本群档位默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全访问」时仅指定名单可触发。')}
+        {t('本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全允许」时仅指定名单可触发。')}
       </div>
       <Presence>
         {removing ? (

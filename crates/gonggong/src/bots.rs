@@ -1,7 +1,7 @@
 //! `gg bots`: the bots bound to this machine via the server's machine-token REST API, read-only: they are managed on
 //! the Web (plan J11).
 use crate::config::Config;
-use crate::protocol::{AgentKind, Approval};
+use crate::protocol::{AgentKind, Tier};
 use crate::t;
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
@@ -19,11 +19,13 @@ pub struct Bot {
     pub system_prompt: String,
     #[serde(default)]
     pub concurrency: u32,
-    /// Older servers send neither.
+    #[serde(default = "default_tier")]
+    pub tier: Tier,
+    /// 帮我审批 when in the workspace tier; older servers send neither.
     #[serde(default)]
-    pub approval: Approval,
+    pub ai_review: bool,
     #[serde(default)]
-    pub allowlist: Vec<String>,
+    pub always_allow: Vec<String>,
     /// Role key of the avatar (`role-gong`, …); the desktop app draws it like the Web.
     #[serde(default = "default_avatar")]
     pub avatar: String,
@@ -32,6 +34,20 @@ pub struct Bot {
     pub team_id: Option<String>,
     #[serde(default)]
     pub team_name: Option<String>,
+}
+
+fn default_tier() -> Tier {
+    Tier::Workspace
+}
+
+/// 审批方式, as the Web names it.
+pub fn approval_label(bot: &Bot) -> &'static str {
+    match (bot.tier, bot.ai_review) {
+        (Tier::Full, _) => t!("完全允许"),
+        (Tier::ReadOnly, _) => t!("只读"),
+        (Tier::Workspace, true) => t!("帮我审批"),
+        (Tier::Workspace, false) => t!("每次问我"),
+    }
 }
 
 fn default_avatar() -> String {
@@ -114,7 +130,7 @@ pub async fn list(config: &Config) -> Result<()> {
         println!("{}", t!("本机还没有 Bot"));
     }
     for b in &bots {
-        let approval = t!("命令审批 {label}", label = b.approval.label());
+        let approval = t!("审批方式 {label}", label = approval_label(b));
         println!("{}\t{}\t{}\t{approval}", b.name, agent_label(b.agent_kind), state_label(b));
         println!("\t{}", t!("在 Web 中管理：{url}", url = web_url(&config.server, &b.id)));
     }

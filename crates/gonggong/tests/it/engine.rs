@@ -1737,3 +1737,29 @@ async fn the_floor_never_goes_to_the_ai_pre_review() {
     decide(&r, &approval, Some("reject"));
     r.finish("r1").await;
 }
+
+#[tokio::test]
+async fn ai_pre_review_runs_cheap_on_the_smallest_model_without_tools_or_project_instructions() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(reviewed("r1", "touch ok.txt mock-review-echo"));
+    let review = loop {
+        match r.next().await {
+            DaemonToServer::ApprovalAiApproved(a) => break a.review,
+            DaemonToServer::RunEvent { .. } => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    };
+    let setup: serde_json::Value = serde_json::from_str(&review.rationale).unwrap();
+    assert_eq!(
+        setup,
+        serde_json::json!({
+            "model": "haiku",
+            "effort": null,
+            "system": gonggong::review::SYSTEM,
+            "tools": [],
+            "sources": ["user"],
+            "cwd": "gonggong-review",
+        })
+    );
+    assert_eq!(r.finish("r1").await.1.reply, "ran");
+}

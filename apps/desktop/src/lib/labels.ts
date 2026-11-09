@@ -1,4 +1,4 @@
-import type { AgentKind, Approval, RunStatus } from '@gonggong/protocol'
+import type { AgentKind, RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
 import { t } from '../i18n'
 import type { Snapshot } from '../ipc'
@@ -73,12 +73,6 @@ export function revealLabel(os: string | undefined) {
 }
 
 export const VENDOR: Record<AgentKind, string> = { claude: 'Anthropic · CLI', codex: 'OpenAI · CLI' }
-
-export const APPROVAL: Record<Approval, string> = {
-  ask: t('每次询问'),
-  allowlist: t('白名单自动'),
-  all: t('全部自动'),
-}
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */
 export function tildify(path: string) {

@@ -289,7 +289,34 @@ struct State {
     prev: Option<Prev>,
     adopting: Option<Adopting>,
     /// The adapter process's launch config and agent while it lives: AI pre-reviews run on a copy of it.
-    reviewer: Option<(AcpAgentConfig, AgentKind)>,
+    reviewer: Option<Reviewer>,
+}
+
+/// How to start an AI pre-review (`review::ask`): the bot's adapter and, for Claude, the session `_meta` keeping its
+/// provider routing but dropping Claude Code's prompt, tools and the user's instructions.
+#[derive(Clone)]
+struct Reviewer {
+    config: AcpAgentConfig,
+    kind: AgentKind,
+    meta: Option<Meta>,
+}
+
+impl Reviewer {
+    fn new(config: AcpAgentConfig, kind: AgentKind, launch: Option<&inject::ClaudeLaunch>) -> Self {
+        let meta = (kind == AgentKind::Claude).then(|| {
+            let mut options = claude_options(launch, &Default::default(), &Default::default());
+            options.insert("tools".into(), serde_json::json!([]));
+            // The user's settings may route the CLI (its own provider config); user instructions come with them.
+            let isolated = launch.is_some_and(|l| !l.inherit_cli);
+            let sources = if isolated { serde_json::json!([]) } else { serde_json::json!(["user"]) };
+            options.insert("settingSources".into(), sources);
+            let mut meta = Meta::new();
+            meta.insert("systemPrompt".into(), review::SYSTEM.into());
+            meta.insert("claudeCode".into(), serde_json::json!({ "options": options }));
+            meta
+        });
+        Self { config, kind, meta }
+    }
 }
 
 struct Task {
@@ -1167,10 +1194,10 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
         .filter(|_| a.rules.ai_review && release.is_none())
         .filter(|_| !matches!(reason, ApprovalReason::HighRisk | ApprovalReason::ProtectedBase));
     let detail = release.or(detail).unwrap_or_else(|| title.clone());
-    let reviewer = reviewer.map(|(config, kind)| {
+    let reviewer = reviewer.map(|r| {
         let action = command.as_deref().unwrap_or(&detail);
         let input = review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd };
-        (config, kind, review::prompt(&input))
+        (r, review::prompt(&input))
     });
     let wire = ApprovalRequest {
         run_id: a.run_id.clone(),
@@ -1186,14 +1213,14 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
     let (tx, rx) = oneshot::channel();
     s.approvals.insert(request_id, Approval { title, remember, options: req.options, tx });
     match reviewer {
-        Some((config, kind, prompt)) => {
+        Some((r, prompt)) => {
             let event =
                 RunEvent::Status { status: RunStatus::Running, step: t!("AI 预审中：{title}", title = wire.title) };
             a.out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
-            let (shared, cwd) = (shared.clone(), a.cwd.clone());
+            let shared = shared.clone();
             tokio::spawn(async move {
-                let reply =
-                    tokio::time::timeout(review::TIMEOUT, review::ask(AcpAgent::new(config), kind, &cwd, prompt));
+                let ask = review::ask(AcpAgent::new(r.config), r.kind, r.meta, prompt);
+                let reply = tokio::time::timeout(review::TIMEOUT, ask);
                 let verdict = match reply.await {
                     Ok(Ok(text)) => review::parse(&text),
                     Ok(Err(e)) => {
@@ -1395,7 +1422,7 @@ pub(crate) async fn fork(agent: AcpAgent, cwd: &std::path::Path, session: &str) 
 }
 
 /// A select option of the given category: (config id, current value, choices).
-fn select(
+pub(crate) fn select(
     options: &[SessionConfigOption],
     category: &SessionConfigOptionCategory,
 ) -> Option<(String, String, Vec<Choice>)> {
@@ -1493,7 +1520,8 @@ pub(crate) async fn run(
         let _secrets = crate::logs::hold_secrets(s.env.0.values().cloned().collect());
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env).await {
             Ok(config) => {
-                shared.0.lock().unwrap().reviewer = Some((config.clone(), s.bot.agent_kind));
+                let reviewer = Reviewer::new(config.clone(), s.bot.agent_kind, turn.launch.as_ref());
+                shared.0.lock().unwrap().reviewer = Some(reviewer);
                 connect(&engine, &shared, &ask, AcpAgent::new(config), turn, &mut rx, &mut resume).await
             }
             Err(e) => Err(format!("{e:#}")),

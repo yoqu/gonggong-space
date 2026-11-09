@@ -188,7 +188,6 @@ export const en = {
   '仅 Bot 主人可以审批': "Only the Bot's owner can approve",
   该请求已处理: 'This request was already handled',
   无效的审批选项: 'Invalid approval option',
-  本次运行免审批: 'No approvals this run',
   提问不存在: 'Question not found',
   '仅触发人、Bot 主人或被 @ 的成员可以回答':
     "Only the requester, the Bot's owner or the members @-mentioned can answer",
@@ -268,7 +267,7 @@ export const en = {
   归属人不存在或已停用: 'The owner does not exist or is disabled',
   请选择执行机器: 'Choose a machine to run on',
   执行机器不属于归属人或已吊销: "The machine isn't the owner's or was revoked",
-  '命令审批只有 Bot 主人能修改': "Only the Bot's owner can change command approvals",
+  '审批方式只有 Bot 主人能修改': "Only the Bot's owner can change how it asks for approval",
   'Git 提交身份只有 Bot 主人能修改': "Only the Bot's owner can change its Git commit identity",
   'Agent 设置只有 Bot 主人能修改': "Only the Bot's owner can change its agent settings",
   'Bot 不能覆盖 Agent 设置「{id}」': 'A Bot cannot override the agent setting "{id}"',

@@ -26,13 +26,13 @@ mod tests {
     fn bots_serialize_with_their_server_settings_for_the_page() {
         let bot: Bot = serde_json::from_str(
             r#"{"id":"b1","name":"小王的 Claude","agentKind":"claude","binding":"pending_confirm","presence":"online",
-                "concurrency":2,"approval":"allowlist","allowlist":["go build"],"ownerName":"王磊"}"#,
+                "concurrency":2,"tier":"workspace","aiReview":true,"alwaysAllow":["go build"],"ownerName":"王磊"}"#,
         )
         .unwrap();
         let json = serde_json::to_value(bot).unwrap();
         assert_eq!(json["binding"], "pending_confirm");
-        assert_eq!((json["concurrency"].as_u64(), json["approval"].as_str()), (Some(2), Some("allowlist")));
-        assert_eq!(json["allowlist"], serde_json::json!(["go build"]));
+        assert_eq!((json["concurrency"].as_u64(), json["tier"].as_str()), (Some(2), Some("workspace")));
+        assert_eq!((&json["aiReview"], &json["alwaysAllow"]), (&serde_json::json!(true), &serde_json::json!(["go build"])));
         assert_eq!(json["avatar"], "role-gong", "older servers send no avatar");
         assert!(json["teamName"].is_null(), "servers before teams send no team");
         let mut sent = json;

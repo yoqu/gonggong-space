@@ -18,9 +18,8 @@ import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { stepText } from '../runs/mcp'
-import { TIER_LABEL } from '../runs/tier'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
-import { APPROVAL_LABEL } from './ApprovalFields'
+import { approvalText } from './ApprovalFields'
 import { BotAvatar, ROLES } from './avatars'
 import { type BotTab, BotWarning } from './BotSettings'
 import { agentCliVersion, agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
@@ -270,21 +269,13 @@ function Profile({
     [
       t('权限'),
       [
-        [t('权限档位'), TIER_LABEL[bot.tier]],
+        [t('审批方式'), approvalText(bot)],
         [
           t('触发范围'),
           bot.triggerScope === 'list'
             ? `${TRIGGER_SCOPE_LABEL.list} · ${names(bot.triggerList) || '--'}`
             : TRIGGER_SCOPE_LABEL[bot.triggerScope],
         ],
-        [
-          t('命令审批'),
-          bot.approval === 'allowlist' && bot.allowlist.length
-            ? `${APPROVAL_LABEL.allowlist} · ${bot.allowlist.join(t('、'))}`
-            : APPROVAL_LABEL[bot.approval],
-        ],
-        ...(bot.alwaysAllow.length ? ([[t('始终允许'), bot.alwaysAllow.join(t('、'))]] as Row[]) : []),
-        ...(bot.aiReview && bot.approval !== 'all' ? ([[t('AI 预审'), t('已开启')]] as Row[]) : []),
       ],
     ],
     [

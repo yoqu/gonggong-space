@@ -154,7 +154,14 @@ export async function call<T>(
   const res = await api[method](path, data === undefined ? undefined : { data })
   if (!res.ok()) throw new Error(`${method.toUpperCase()} ${path} → ${res.status()} ${await res.text()}`)
   const text = await res.text()
-  return (text ? JSON.parse(text) : undefined) as T
+  const body = text ? JSON.parse(text) : undefined
+  // New bots start at 帮我审批; specs expect requests to reach the owner (每次问我) unless they turn it on themselves.
+  // Bots made for someone else are theirs to change (403).
+  if (method === 'post' && path === '/api/bots') {
+    const off = await api.patch(`/api/bots/${body.id}`, { data: { aiReview: false } })
+    if (!off.ok() && off.status() !== 403) throw new Error(`PATCH /api/bots/${body.id} → ${off.status()}`)
+  }
+  return body as T
 }
 
 /** Binds each bot to its managed workspace (repo-less groups join unbound; repo groups already clone) once its machine is online; waits until ready. */

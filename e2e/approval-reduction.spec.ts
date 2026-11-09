@@ -29,7 +29,7 @@ async function bot(api: Awaited<ReturnType<typeof memberWithMachine>>['api'], na
   })
 }
 
-test('ask mode: read-only chains run unasked; 始终允许 persists a prefix across groups and restarts until removed', async ({
+test('每次问我: read-only chains run unasked; 批准，不再询问 persists a prefix across groups and restarts until removed', async ({
   page,
 }) => {
   test.setTimeout(15 * 60_000)
@@ -60,11 +60,11 @@ test('ask mode: read-only chains run unasked; 始终允许 persists a prefix acr
     await expect(readOnly).toContainText('只读完成')
     await expect(readOnly).not.toContainText('权限请求')
 
-    // 2. 始终允许 on the card remembers the smallest prefix, shown before deciding.
+    // 2. 批准，不再询问 on the card remembers the smallest prefix, shown before deciding.
     const first = await ask(page, run('git tag -f e2e-one', '已打标签'))
     await expect(first).toContainText('等待审批', { timeout: 3 * 60_000 })
-    await expect(first).toContainText('将始终允许：git tag')
-    await first.getByRole('button', { name: '始终允许' }).click()
+    await expect(first).toContainText('不再询问：git tag')
+    await first.getByRole('button', { name: '批准，不再询问' }).click()
     await expect(first).toContainText('reduce1 已批准')
     await expect(first).toHaveAttribute('data-status', 'completed', { timeout: 3 * 60_000 })
     await expect.poll(alwaysAllow).toEqual(['git tag'])
@@ -99,7 +99,7 @@ test('ask mode: read-only chains run unasked; 始终允许 persists a prefix acr
     await page.goto(`/g/${g2.id}`)
     const third = await ask(page, run('git tag -f e2e-three', '已打标签'))
     await expect(third).toContainText('等待审批', { timeout: 3 * 60_000 })
-    await expect(third).toContainText('将始终允许：git tag')
+    await expect(third).toContainText('不再询问：git tag')
     await third.getByRole('button', { name: '拒绝' }).click()
     await expect(third).toContainText('reduce1 已拒绝')
   } finally {
@@ -107,11 +107,11 @@ test('ask mode: read-only chains run unasked; 始终允许 persists a prefix acr
   }
 })
 
-test('全部自动 still sends floor commands to the owner', async ({ page }) => {
+test('帮我审批 still sends floor commands to the owner, never to the AI', async ({ page }) => {
   test.setTimeout(10 * 60_000)
   const { m, api } = await memberWithMachine(page, 'floor1')
   const b = await bot(api, '底线 Bot')
-  await api.call('patch', `/api/bots/${b.id}`, { approval: 'all' })
+  await api.call('patch', `/api/bots/${b.id}`, { aiReview: true })
   const group = await api.call<{ id: string }>('post', '/api/groups', {
     name: '底线',
     kind: 'group',
@@ -125,9 +125,34 @@ test('全部自动 still sends floor commands to the owner', async ({ page }) =>
     await expect(card).toContainText('等待审批', { timeout: 3 * 60_000 })
     await expect(card).toContainText('sudo -n true')
     // The floor is never remembered, so only 批准 / 拒绝 are offered.
-    await expect(card.getByRole('button', { name: '始终允许' })).toHaveCount(0)
+    await expect(card.getByRole('button', { name: '批准，不再询问' })).toHaveCount(0)
     await card.getByRole('button', { name: '拒绝' }).click()
     await expect(card).toContainText('floor1 已拒绝')
+  } finally {
+    m.stop()
+  }
+})
+
+test('帮我审批 lets the AI approve a harmless command the user asked for, without asking the owner', async ({
+  page,
+}) => {
+  test.setTimeout(10 * 60_000)
+  const { m, api } = await memberWithMachine(page, 'review1')
+  const b = await bot(api, '预审 Bot')
+  await api.call('patch', `/api/bots/${b.id}`, { aiReview: true })
+  const group = await api.call<{ id: string }>('post', '/api/groups', {
+    name: '预审',
+    kind: 'group',
+    botIds: [b.id],
+  })
+  m.start()
+  try {
+    await bindManaged(page.request, group.id, [b.id])
+    await page.goto(`/g/${group.id}`)
+    const card = await ask(page, run('node -e "console.log(1 + 1)"', '算完了', '预审 Bot'))
+    await expect(card).toHaveAttribute('data-status', 'completed', { timeout: 4 * 60_000 })
+    await expect(card).toContainText('算完了')
+    await expect(card).not.toContainText('等待审批')
   } finally {
     m.stop()
   }

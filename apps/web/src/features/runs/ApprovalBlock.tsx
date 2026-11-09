@@ -8,7 +8,6 @@ import { useNow } from '../../lib/now'
 import { countdown, hm } from '../../lib/time'
 import { Button, Icon, Tag, type TagTone } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
-import { effectiveTier, TIER_LABEL } from './tier'
 import './approval.css'
 import { t } from '../../i18n'
 
@@ -82,35 +81,30 @@ export function ApprovalBlock({ run }: { run: RunDto }) {
 /** One permission request of the run, decidable while pending. */
 export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: ApprovalDto }) {
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
-  const state = useWorkspace((s) => s.botStates[run.groupId]?.[run.botId])
   const me = useSession((s) => s.user)
   const pending = a.status === 'pending'
   const now = useNow(pending)
   /** The action in flight, so its own button spins. */
   const [busy, setBusy] = useState<string | null>(null)
   const mine = !!me && me.id === bot?.ownerId
-  const demo = useSession((s) => s.tenancy?.demoMode)
   const allow = pick(a.options, ['allow_once', 'allow_always'])
-  // Without rules to remember, 始终允许 would silently behave like 批准 (plan A7).
+  // Without rules to remember, 批准，不再询问 would silently behave like 批准 (plan A7).
   const always = a.remember.length
     ? a.options.find((o) => o.kind === 'allow_always' && o !== allow)
     : undefined
   const reject = pick(a.options, ['reject_once', 'reject_always'])
-  const tier = t('超出「{tier}」档位', { tier: TIER_LABEL[bot ? effectiveTier(bot, state) : 'workspace'] })
   const left = Date.parse(a.expiresAt) - now
 
-  const send = async (path: string, body: unknown, action: string) => {
-    setBusy(action)
+  const decide = async (option: PermissionOption) => {
+    setBusy(option.optionId)
     try {
-      await api.post(path, body)
+      await api.post(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId })
     } catch (e) {
       toastError(e)
     } finally {
       setBusy(null)
     }
   }
-  const decide = (option: PermissionOption) =>
-    send(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId }, option.optionId)
 
   return (
     <div
@@ -135,12 +129,11 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
       <div className="approval__cmd">{a.detail}</div>
       <div className="approval__why">
         {pending
-          ? t('{reason} · {tier} · {time} 后自动拒绝，agent 自行绕路', {
+          ? t('{reason} · {time} 后自动拒绝，agent 自行绕路', {
               reason: REASON[a.reason],
-              tier,
               time: countdown(left),
             })
-          : t('{reason} · {tier}', { reason: REASON[a.reason], tier })}
+          : REASON[a.reason]}
       </div>
       {a.review ? (
         <div className="approval__review">
@@ -166,18 +159,7 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
               loading={busy === always.optionId}
               onClick={() => decide(always)}
             >
-              {t('始终允许')}
-            </Button>
-          )}
-          {!demo && (
-            <Button
-              size="small"
-              disabled={!mine || !!busy}
-              loading={busy === 'full-access'}
-              title={t('本次运行切为「完全访问」，后续请求不再询问；本次运行结束后恢复原档位')}
-              onClick={() => send(`/runs/${run.id}/full-access`, {}, 'full-access')}
-            >
-              {t('本次运行免审批')}
+              {t('批准，不再询问')}
             </Button>
           )}
           <Button
@@ -190,7 +172,7 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
           </Button>
           {always && (
             <span className="approval__hint">
-              {t('将始终允许：{rules}', { rules: a.remember.join(t('、')) })}
+              {t('不再询问：{rules}', { rules: a.remember.join(t('、')) })}
             </span>
           )}
           <span className="approval__hint">

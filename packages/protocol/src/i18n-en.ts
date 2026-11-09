@@ -245,6 +245,8 @@ export const protocolEn = {
   只读: 'Read-only',
   工作区写入: 'Workspace write',
   完全访问: 'Full access',
+  需要审批: 'Needs approval',
+  完全允许: 'Allow everything',
 
   // Repo access reasons
   无权限或仓库不存在: 'no permission or the repo does not exist',

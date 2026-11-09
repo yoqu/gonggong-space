@@ -1145,17 +1145,17 @@ describe('group settings inspector', () => {
     renderAt('/g/g1')
     const d = await openDrawer()
     fireEvent.click(within(d).getByRole('button', { name: /^Bot(?! 与工作区)/ }))
-    await waitFor(() => expect(within(d).getByTestId('bot-b3').textContent).toContain('档位 只读 · 本群'))
+    await waitFor(() => expect(within(d).getByTestId('bot-b3').textContent).toContain('审批 只读 · 本群'))
     fireEvent.click(within(d).getByRole('button', { name: '小周的 Codex 的更多操作' }))
     expect(await screen.findByRole('menuitem', { name: '移出' })).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: '本群档位' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '本群审批方式' })).toBeNull()
 
     fireEvent.click(within(d).getByRole('button', { name: '小王的 Codex 的更多操作' }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: '本群档位' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '本群审批方式' }))
     expect(
-      screen.getByRole('menuitemcheckbox', { name: '跟随全局（工作区写入）' }).getAttribute('aria-checked'),
+      screen.getByRole('menuitemcheckbox', { name: '跟随全局（每次问我）' }).getAttribute('aria-checked'),
     ).toBe('true')
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '完全访问' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '完全允许' }))
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PUT' && c.path.endsWith('/bots/b2/tier'))?.body).toEqual({
         tier: 'full',
@@ -1165,7 +1165,7 @@ describe('group settings inspector', () => {
     fireEvent.click(within(d).getByRole('button', { name: '小王的 Codex 的更多操作' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '全局设置' }))
     const detail = await screen.findByRole('complementary', { name: 'Bot 详情' })
-    expect(within(detail).getByRole('radio', { name: '工作区写入' })).toBeTruthy()
+    expect(within(detail).getByRole('radio', { name: '每次问我' })).toBeTruthy()
   })
 })
 
