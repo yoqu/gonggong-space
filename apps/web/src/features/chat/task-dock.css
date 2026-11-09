@@ -1,116 +1,107 @@
+/* One line above the composer whatever the number of bots: counts, then a chip per item (scrolls sideways). */
 .task-dock {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  margin: var(--space-8) var(--space-16) 0;
   --enter-y: -6px;
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-smooth) ui-enter;
-  margin: var(--space-8) var(--space-16) 0;
-  padding: var(--space-2);
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-field);
-  background: var(--group-bg);
 }
-.task-dock__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  min-width: 0;
-  min-height: 30px;
-  padding: 0 var(--space-6);
-}
-.task-dock__title {
+.task-dock__summary {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
-  color: var(--label);
-  font-size: var(--text-callout-size);
-  font-weight: 600;
-}
-.task-dock__title svg {
-  color: var(--label-secondary);
-}
-.task-dock__summary {
-  flex: 1;
-  min-width: 0;
-  padding-bottom: var(--space-2);
-  display: flex;
-  gap: var(--space-8);
-  overflow: hidden;
+  gap: var(--space-6);
   color: var(--label-secondary);
   font-size: var(--text-callout-size);
   white-space: nowrap;
-}
-.task-dock__count {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .task-dock__count--attention {
   color: var(--tint-orange-text);
   font-weight: 600;
 }
-.task-dock__toggle {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 22px;
-  padding: 0 var(--space-4);
-  border: 0;
-  border-radius: var(--radius-capsule);
-  background: transparent;
-  color: var(--label-secondary);
-  font: inherit;
-  font-size: var(--text-callout-size);
-  cursor: pointer;
-}
-.task-dock__toggle:hover {
-  background: var(--control-fill);
-  color: var(--label);
-}
-.task-dock__chevron {
-  transition: transform var(--spring-interactive);
-}
-.task-dock__toggle[aria-expanded="true"] .task-dock__chevron {
-  transform: rotate(180deg);
-}
-.task-dock__rows {
+.task-dock__chips {
+  flex: 1;
+  display: flex;
+  gap: var(--space-6);
+  min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 2px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
   list-style: none;
 }
-.task-dock__row {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 32px;
-  border-radius: var(--radius-field);
-  transition: background-color var(--motion-fast);
+.task-dock__chips::-webkit-scrollbar {
+  display: none;
+}
+.task-dock__chip {
+  flex: none;
   --enter-y: 4px;
   animation:
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) ui-enter;
 }
-.task-dock__row:active {
+.task-dock__main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 240px;
+  height: 26px;
+  padding: 0 var(--space-8) 0 var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: var(--group-bg);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-callout-size);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.task-dock__main {
+  transition: background-color var(--motion-fast);
+}
+.task-dock__main:active {
   background: var(--control-fill);
 }
 @media (hover: hover) {
-  .task-dock__row:hover {
+  .task-dock__main:hover {
     background: var(--control-fill);
   }
 }
+.task-dock__chip--attention .task-dock__main {
+  border-color: var(--tint-orange-text);
+  background: var(--tint-orange);
+}
+.task-dock__name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.task-dock__kind {
+  flex: none;
+  color: var(--label-secondary);
+}
+.task-dock__chip--attention .task-dock__kind {
+  color: var(--tint-orange-text);
+  font-weight: 600;
+}
 /* An item that needs me gets a dot that breathes, so a glance at the dock tells it from a mere status. */
-.task-dock__row--attention .task-dock__main::before {
+.task-dock__chip--attention .task-dock__main::before {
   content: "";
   flex: none;
   width: 6px;
   height: 6px;
-  margin-right: calc(-1 * var(--space-2));
+  margin-left: var(--space-2);
   border-radius: 50%;
   background: var(--system-orange);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .task-dock__row--attention .task-dock__main::before {
+  .task-dock__chip--attention .task-dock__main::before {
     animation: task-dock-breathe 1.6s ease-in-out infinite;
   }
 }
@@ -134,95 +125,97 @@
   }
 }
 @media (pointer: coarse) {
-  .task-dock__row,
   .task-dock__main {
-    min-height: 40px;
+    height: 36px;
   }
 }
-.task-dock__main {
-  flex: 1;
+.task-dock__frac {
+  flex: none;
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* Done share of the run's todo; red once a stage failed. */
+.task-dock__ring {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--p), var(--control-fill) 0);
+}
+.task-dock__ring[data-status="done"] {
+  background: var(--system-green);
+}
+.task-dock__ring[data-status="failed"] {
+  background: conic-gradient(var(--system-red) var(--p), var(--control-fill) 0);
+}
+.task-dock__pulse {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: task-dock-pulse 1.4s ease-in-out infinite;
+}
+@keyframes task-dock-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-dock__pulse {
+    animation: none;
+  }
+}
+
+.task-pop {
   display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  min-width: 0;
-  min-height: 32px;
-  padding: 0 var(--space-6);
-  border: 0;
-  background: transparent;
-  color: var(--label);
-  font: inherit;
+  flex-direction: column;
+  gap: var(--space-8);
   font-size: var(--text-callout-size);
-  text-align: left;
-  cursor: pointer;
 }
-.task-dock__kind {
-  flex: none;
-  overflow: hidden;
-  color: var(--label-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.task-dock__kind--attention,
-.task-dock__row--attention .task-dock__kind {
-  color: var(--tint-orange-text);
-  font-weight: 600;
-}
-.task-dock__name {
-  flex: none;
-  max-width: 28%;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.task-dock__status {
-  flex: 1;
-  min-width: 0;
+.task-pop__head {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  overflow: hidden;
+  align-items: baseline;
+  gap: var(--space-8);
 }
-.task-dock__text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--label-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.task-dock__time {
-  flex: none;
+.task-pop__time {
+  margin-left: auto;
   color: var(--label-tertiary);
   font-size: var(--text-subheadline-size);
-  white-space: nowrap;
 }
-.task-dock__row .ui-btn {
-  flex: none;
-  margin-right: var(--space-2);
+.task-pop__step {
+  color: var(--label-secondary);
+  overflow-wrap: anywhere;
 }
+.task-pop__todo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.task-pop__todo .pg-stages {
+  flex-direction: column;
+}
+.task-pop__title {
+  font-weight: 600;
+}
+.task-pop__actions {
+  display: flex;
+  gap: var(--space-6);
+}
+
 @media (max-width: 767px) {
   .task-dock {
     margin: var(--space-8) var(--space-12) 0;
   }
+  /* Phones: the chips say it all; the counts stay for screen readers. */
   .task-dock__summary {
     position: absolute;
     overflow: clip;
     width: 1px;
     height: 1px;
-    padding: 0;
-    white-space: nowrap;
   }
-  .task-dock__title {
-    margin-right: auto;
-  }
-  .task-dock__name {
-    max-width: 32%;
-  }
-  .task-dock__status {
-    display: none;
-  }
-  .task-dock__row--attention .task-dock__text {
-    display: none;
+  .task-dock__main {
+    max-width: 180px;
   }
 }

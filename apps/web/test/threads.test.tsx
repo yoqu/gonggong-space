@@ -443,11 +443,14 @@ describe('thread runs', () => {
   it('keeps gathering a thread run while its thread is closed, its text shown once it opens', async () => {
     renderAt('/g/g1', withRuns())
     const row = await screen.findByTestId('task-dock-row')
-    const time = row.querySelector('.task-dock__time') as HTMLElement
     delta('r1', '我来看看')
-    await waitFor(() => expect(time.title).toBe(fullTime(min(2))))
     await waitFor(() => expect(useRunDeltas.getState().r1).toBe('我来看看'))
     fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    const pop = screen.getByRole('dialog')
+    await waitFor(() =>
+      expect((pop.querySelector('.task-pop__time') as HTMLElement).title).toBe(fullTime(min(2))),
+    )
+    fireEvent.click(within(pop).getByRole('button', { name: '定位' }))
     const rail = await panel()
     expect(await within(rail).findByText(/我来看看/)).toBeTruthy()
   })
@@ -457,6 +460,7 @@ describe('thread runs', () => {
     const row = await screen.findByTestId('task-dock-row')
     expect(within(row).getByText('话题')).toBeTruthy()
     fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '定位' }))
     const rail = await panel()
     await within(rail).findByTestId('run-card')
     await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled())

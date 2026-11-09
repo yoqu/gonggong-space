@@ -29,6 +29,7 @@ export async function progressCard(ctx: Ctx, run: Run, a: Args): Promise<ToolOut
     const progress: ProgressCard = {
       id,
       botId: run.botId,
+      runId: run.id,
       title: a.title,
       stages: a.stages,
       percent: a.percent ?? null,
@@ -56,6 +57,7 @@ export async function progressCard(ctx: Ctx, run: Run, a: Args): Promise<ToolOut
   const stages = a.stages ?? old.stages
   const progress: ProgressCard = {
     ...old,
+    runId: run.id,
     title: a.title ?? old.title,
     stages,
     percent: a.percent === undefined ? old.percent : a.percent,

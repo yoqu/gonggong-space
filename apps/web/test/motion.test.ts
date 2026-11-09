@@ -181,14 +181,12 @@ describe('motion and touch CSS contract', () => {
       'var(--spring-bouncy) ui-enter',
     )
     const dock = read('features/chat/task-dock.css')
-    expect(ruleOf(dock, '.task-dock__row')).toContain('var(--spring-snappy) ui-enter')
+    expect(ruleOf(dock, '.task-dock__chip')).toContain('var(--spring-snappy) ui-enter')
     expect(ruleOf(dock, '[data-pending-id][data-flash]')).toContain('task-dock-flash')
     expect(dock).toMatch(
-      /prefers-reduced-motion: no-preference\) \{\s*\.task-dock__row--attention \.task-dock__main::before \{\s*animation: task-dock-breathe/,
+      /prefers-reduced-motion: no-preference\) \{\s*\.task-dock__chip--attention \.task-dock__main::before \{\s*animation: task-dock-breathe/,
     )
-    expect(dock).toMatch(
-      /@media \(pointer: coarse\) \{\s*\.task-dock__row,\s*\.task-dock__main \{\s*min-height: 40px;/,
-    )
+    expect(dock).toMatch(/@media \(pointer: coarse\) \{\s*\.task-dock__main \{\s*height: 36px;/)
   })
 
   it('round 6: inbox cards rise in and leave aside, unread bars, touch-sized deletes', () => {

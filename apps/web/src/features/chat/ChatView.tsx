@@ -1,4 +1,11 @@
-import type { GroupDto, MessageDto, PinnedMessageDto, RunDto, RunStatus } from '@gonggong/protocol'
+import type {
+  GroupDto,
+  MessageDto,
+  PinnedMessageDto,
+  ProgressCard as ProgressCardDto,
+  RunDto,
+  RunStatus,
+} from '@gonggong/protocol'
 import {
   type DragEvent,
   Fragment,
@@ -568,20 +575,39 @@ export function ChatView({
         }
         foldable={group.foldRuns}
         branchable={branchable.has(r.id)}
+        progress={progressByRun.get(r.id)}
       />
     )
   }
+
+  /**
+   * Progress cards move into the card of the run that last updated them: by run, and the timeline without them (the
+   * unread divider moves on to the next message left). Cards of runs not on this page stay in the timeline.
+   */
+  const { progressByRun, shown, dividerShown } = useMemo(() => {
+    const progressByRun = new Map<string, ProgressCardDto[]>()
+    for (const m of tl.messages) {
+      const runId = m.progress?.runId
+      if (m.progress && runId && tl.runs[runId])
+        progressByRun.set(runId, [...(progressByRun.get(runId) ?? []), m.progress])
+    }
+    const absorbed = (m: MessageDto) => !!m.progress?.runId && progressByRun.has(m.progress.runId)
+    const shown = progressByRun.size ? tl.messages.filter((m) => !absorbed(m)) : tl.messages
+    const at = tl.messages.findIndex((m) => m.id === dividerAt)
+    const dividerShown = at < 0 ? dividerAt : tl.messages.slice(at).find((m) => !absorbed(m))?.id
+    return { progressByRun, shown, dividerShown }
+  }, [tl.messages, tl.runs, dividerAt])
 
   /** Each fold's events by its first index; stable slices keep the memoized folds from re-rendering. */
   const { folds, folded } = useMemo(() => {
     const folds = new Map<number, MessageDto[]>()
     const folded = new Set<number>()
-    for (const [start, end] of eventFolds(tl.messages, dividerAt)) {
-      folds.set(start, tl.messages.slice(start, end + 1))
+    for (const [start, end] of eventFolds(shown, dividerShown)) {
+      folds.set(start, shown.slice(start, end + 1))
       for (let i = start + 1; i <= end; i++) folded.add(i)
     }
     return { folds, folded }
-  }, [tl.messages, dividerAt])
+  }, [shown, dividerShown])
   const replyRun = (m: MessageDto) => (m.runId && replies.get(m.runId) === m ? tl.runs[m.runId] : undefined)
   /** Merged under the previous message: nothing (run card, divider) is drawn between them. */
   const isCompact = (prev: MessageDto | undefined, m: MessageDto) =>
@@ -590,7 +616,7 @@ export function ChatView({
     !m.recalled &&
     // Says which thread it answered.
     !m.alsoSent &&
-    m.id !== dividerAt &&
+    m.id !== dividerShown &&
     continues(prev, m) &&
     !replyRun(prev) &&
     !replyRun(m) &&
@@ -886,9 +912,9 @@ export function ChatView({
                 <div className="chat-scroll__loading">
                   <Mascot action="wait" size={72} label={t('加载中')} />
                 </div>
-              ) : tl.messages.length ? (
-                tl.messages.map((m, i) => {
-                  const prev = tl.messages[i - 1]
+              ) : shown.length ? (
+                shown.map((m, i) => {
+                  const prev = shown[i - 1]
                   const fold = folds.get(i)
                   if (folded.has(i)) return null
                   return (
@@ -896,7 +922,7 @@ export function ChatView({
                       {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
                         <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
                       )}
-                      {m.id === dividerAt ? <ChatNotice kind="unread" /> : null}
+                      {m.id === dividerShown ? <ChatNotice kind="unread" /> : null}
                       {fold === undefined ? (
                         <div
                           inert={readOnly}
@@ -966,7 +992,7 @@ export function ChatView({
               <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
               <PreviewTags groupId={group.id} />
             </div>
-            <TaskDock runs={runList} root={box} onLocate={locate} />
+            <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
             <ProviderBanner group={group} />
             <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} lastEditable={editLast} />
             <CreationHost group={group} onSent={onSent} />

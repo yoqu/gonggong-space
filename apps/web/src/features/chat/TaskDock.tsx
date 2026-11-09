@@ -1,15 +1,22 @@
-import type { ApprovalDto, QuestionSetDto, RunDto, RunStatus } from '@gonggong/protocol'
-import { type RefObject, useEffect, useMemo, useState } from 'react'
+import type {
+  ApprovalDto,
+  ProgressCard as ProgressCardDto,
+  QuestionSetDto,
+  RunDto,
+  RunStatus,
+} from '@gonggong/protocol'
+import { type CSSProperties, type RefObject, useEffect, useMemo, useState } from 'react'
 import { useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { useNow } from '../../lib/now'
 import { ago, fullTime } from '../../lib/time'
-import { Button, Icon, Tag } from '../../ui'
+import { Button, Icon, Popover, Tag } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { stepText, toolTitle } from '../runs/mcp'
 import { openTab } from '../workbench/open'
+import { ProgressStages, stagesDone } from './ProgressCard'
 import { STATUS_LABEL } from './RunGraphics'
 import './task-dock.css'
 
@@ -24,14 +31,16 @@ type TaskRow =
 
 const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
 const WAITING: RunStatus[] = ['queued', 'offline_wait']
-const COLLAPSED_ROWS = 2
 
 export function TaskDock({
   runs,
+  progress,
   root,
   onLocate,
 }: {
   runs: RunDto[]
+  /** Progress cards by run (latest last), shown in each run's chip. */
+  progress?: Map<string, ProgressCardDto[]>
   root?: RefObject<HTMLElement | null>
   onLocate: (run: RunDto, pendingId?: string) => void
 }) {
@@ -40,7 +49,6 @@ export function TaskDock({
   const [visible, setVisible] = useState<Record<string, boolean> | null>(() => (root ? null : {}))
   /** The open thread panel lives in the inspector, outside `root`: its cards are watched too. */
   const threadHost = useInspector((s) => (s.view === 'thread' ? s.host : null))
-  const [expanded, setExpanded] = useState(false)
   const pending = useMemo(() => {
     const owner = (run: RunDto) => bots.find((b) => b.id === run.botId)?.ownerId
     return runs
@@ -125,12 +133,6 @@ export function TaskDock({
     running: rows.filter((row) => row.section === 'running').length,
     waiting: rows.filter((row) => row.section === 'waiting').length,
   }
-  const attention = rows.filter((row) => row.section === 'attention')
-  const other = rows.filter((row) => row.section !== 'attention')
-  const shown = expanded ? rows : [...attention, ...other.slice(0, COLLAPSED_ROWS)]
-  const remaining = rows.length - shown.length
-  const collapsible = expanded || other.length > COLLAPSED_ROWS
-
   const locatePending = (item: PendingItem) => {
     const card = [root?.current, threadHost]
       .flatMap((scope) => [...(scope?.querySelectorAll<HTMLElement>('[data-pending-id]') ?? [])])
@@ -149,44 +151,35 @@ export function TaskDock({
     card.addEventListener('animationend', done)
   }
 
+  // One line whatever the number of bots: a chip each, details (todo, step) in the chip's popover.
   return (
     <div className="task-dock" data-testid="task-dock">
-      <div className="task-dock__head">
-        <span className="task-dock__title">
-          <Icon name="tray" size={14} />
-          {t('任务')}
-        </span>
-        <span className="task-dock__summary">
-          {counts.attention ? (
-            <span className="task-dock__count task-dock__count--attention">
-              {t('待我处理 {n}', { n: counts.attention })}
-            </span>
-          ) : null}
-          {counts.running ? (
-            <span className="task-dock__count">{t('运行中 {n}', { n: counts.running })}</span>
-          ) : null}
-          {counts.waiting ? (
-            <span className="task-dock__count">{t('等待中 {n}', { n: counts.waiting })}</span>
-          ) : null}
-        </span>
-        {collapsible ? (
-          <button
-            type="button"
-            className="task-dock__toggle"
-            aria-expanded={expanded}
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? t('收起') : t('展开 {n}', { n: remaining })}
-            <Icon name="chevron-down" size={12} className="task-dock__chevron" />
-          </button>
+      <span className="task-dock__summary">
+        <Icon name="tray" size={14} />
+        {counts.attention ? (
+          <span className="task-dock__count task-dock__count--attention">
+            {t('待我处理 {n}', { n: counts.attention })}
+          </span>
         ) : null}
-      </div>
-      <ul className="task-dock__rows">
-        {shown.map((row) =>
+        {counts.running ? (
+          <span className="task-dock__count">{t('运行中 {n}', { n: counts.running })}</span>
+        ) : null}
+        {counts.waiting ? (
+          <span className="task-dock__count">{t('等待中 {n}', { n: counts.waiting })}</span>
+        ) : null}
+      </span>
+      <ul className="task-dock__chips">
+        {rows.map((row) =>
           row.kind === 'pending' ? (
-            <PendingRow key={row.key} item={row.item} onLocate={() => locatePending(row.item)} />
+            <PendingChip key={row.key} item={row.item} onLocate={() => locatePending(row.item)} />
           ) : (
-            <RunRow key={row.key} run={row.run} waiting={row.section === 'waiting'} onLocate={onLocate} />
+            <RunChip
+              key={row.key}
+              run={row.run}
+              waiting={row.section === 'waiting'}
+              progress={progress?.get(row.run.id)?.at(-1)}
+              onLocate={onLocate}
+            />
           ),
         )}
       </ul>
@@ -194,67 +187,126 @@ export function TaskDock({
   )
 }
 
-function PendingRow({ item, onLocate }: { item: PendingItem; onLocate: () => void }) {
+function PendingChip({ item, onLocate }: { item: PendingItem; onLocate: () => void }) {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === item.run.botId)?.name ?? 'Bot')
   const approval = 'approval' in item
   const text = approval ? item.approval.title : (item.set.questions[0]?.title ?? '')
+  const kind = approval ? t('待审批') : t('待回答')
   return (
-    <li className="task-dock__row task-dock__row--attention" data-testid="task-dock-pending">
-      <button type="button" className="task-dock__main" onClick={onLocate}>
+    <li className="task-dock__chip task-dock__chip--attention" data-testid="task-dock-pending">
+      <button
+        type="button"
+        className="task-dock__main"
+        title={`${kind}：${text}`}
+        aria-label={t('{kind}：{text}（{name}）', { kind, text, name })}
+        onClick={onLocate}
+      >
         <BotAvatar id={item.run.botId} name={name} size={18} />
-        <span className="task-dock__kind task-dock__kind--attention">
-          {approval ? t('待审批') : t('待回答')}
-        </span>
-        <span className="task-dock__text">{text}</span>
+        <span className="task-dock__kind">{kind}</span>
         <span className="task-dock__name">{name}</span>
-        <Icon name="mappin" size={12} />
       </button>
     </li>
   )
 }
 
-/** A leaf, so the per-second tick re-renders only this text and not the row. */
+/** A leaf, so the per-second tick re-renders only this text and not the chip. */
 function Ago({ iso }: { iso: string }) {
   const now = useNow(true)
   return ago(iso, now)
 }
 
-function RunRow({
+/** Completed share of a progress card as a ring; a plain pulse without one. */
+function ProgressRing({ card }: { card?: ProgressCardDto }) {
+  if (!card) return <span className="task-dock__pulse" aria-hidden />
+  const { done, total } = stagesDone(card)
+  return (
+    <>
+      <span
+        className="task-dock__ring"
+        data-status={card.status}
+        style={{ '--p': `${total ? (done / total) * 100 : 0}%` } as CSSProperties}
+        aria-hidden
+      />
+      <span className="task-dock__frac">
+        {done}/{total}
+      </span>
+    </>
+  )
+}
+
+function RunChip({
   run,
   waiting,
+  progress,
   onLocate,
 }: {
   run: RunDto
   waiting: boolean
+  progress?: ProgressCardDto
   onLocate: (run: RunDto) => void
 }) {
   const name = useWorkspace((s) => s.bots.find((b) => b.id === run.botId)?.name ?? 'Bot')
-  const status = waiting ? STATUS_LABEL[run.status] : toolTitle(stepText(run)) || STATUS_LABEL.running
+  const step = waiting ? STATUS_LABEL[run.status] : toolTitle(stepText(run)) || STATUS_LABEL.running
   return (
-    <li className="task-dock__row" data-testid="task-dock-row">
-      <button type="button" className="task-dock__main" onClick={() => onLocate(run)}>
-        <BotAvatar id={run.botId} name={name} size={18} />
-        <span className="task-dock__name">{name}</span>
-        {run.threadRootId ? (
-          <Tag tone="gray" icon="thread">
-            {t('话题')}
-          </Tag>
-        ) : null}
-        <span className="task-dock__status">
-          <span className="task-dock__kind">{waiting ? status : t('运行中')}</span>
-          {waiting ? null : <span className="task-dock__text">{status}</span>}
-        </span>
-        <span className="task-dock__time" title={fullTime(run.lastActivityAt)}>
-          <Ago iso={run.lastActivityAt} />
-        </span>
-      </button>
-      <Button
-        size="small"
-        variant="plain"
-        icon="sidebar-right"
-        aria-label={t('过程')}
-        onClick={() => openTab({ kind: 'run', runId: run.id, view: 'process', file: null })}
-      />
+    <li className="task-dock__chip" data-testid="task-dock-row" data-waiting={waiting || undefined}>
+      <Popover
+        portal
+        placement="top-start"
+        width={300}
+        aria-label={t('{name} 的任务', { name })}
+        trigger={
+          <button type="button" className="task-dock__main" aria-label={t('{name}：{step}', { name, step })}>
+            <BotAvatar id={run.botId} name={name} size={18} />
+            <span className="task-dock__name">{name}</span>
+            {run.threadRootId ? (
+              <Tag tone="gray" icon="thread">
+                {t('话题')}
+              </Tag>
+            ) : null}
+            {waiting ? <span className="task-dock__kind">{step}</span> : <ProgressRing card={progress} />}
+          </button>
+        }
+      >
+        {(close) => (
+          <div className="task-pop">
+            <div className="task-pop__head">
+              <b>{name}</b>
+              <span className="task-pop__time" title={fullTime(run.lastActivityAt)}>
+                <Ago iso={run.lastActivityAt} />
+              </span>
+            </div>
+            <span className="task-pop__step">{waiting ? step : t('运行中：{step}', { step })}</span>
+            {progress ? (
+              <div className="task-pop__todo">
+                <span className="task-pop__title">{progress.title}</span>
+                <ProgressStages card={progress} />
+              </div>
+            ) : null}
+            <div className="task-pop__actions">
+              <Button
+                size="small"
+                icon="mappin"
+                onClick={() => {
+                  close()
+                  onLocate(run)
+                }}
+              >
+                {t('定位')}
+              </Button>
+              <Button
+                size="small"
+                icon="sidebar-right"
+                onClick={() => {
+                  close()
+                  openTab({ kind: 'run', runId: run.id, view: 'process', file: null })
+                }}
+              >
+                {t('过程')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Popover>
     </li>
   )
 }

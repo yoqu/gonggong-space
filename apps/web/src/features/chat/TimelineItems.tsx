@@ -1,6 +1,7 @@
 import {
   findUiBlocks,
   type MessageDto,
+  type ProgressCard as ProgressCardDto,
   parseMentions,
   type RunDto,
   type RunStatus,
@@ -56,6 +57,7 @@ import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
 import { mentionInChat } from './mention'
+import { RunProgress } from './ProgressCard'
 import {
   ClockFact,
   DelegationFacts,
@@ -748,6 +750,7 @@ export const RunCard = memo(function RunCard({
   trigger,
   foldable = false,
   branchable = false,
+  progress,
 }: {
   run: RunDto
   reply?: MessageDto
@@ -758,6 +761,8 @@ export const RunCard = memo(function RunCard({
   foldable?: boolean
   /** Offers 分支到新聊天 on the reply (see branchableRuns). */
   branchable?: boolean
+  /** Progress cards this run posted or last updated (progress_card), shown in the card instead of the timeline. */
+  progress?: ProgressCardDto[]
 }) {
   /** null until the user toggles, so the fold animation never plays on first render. */
   const [expanded, setExpanded] = useState<boolean | null>(null)
@@ -821,27 +826,31 @@ export const RunCard = memo(function RunCard({
       {sub}
     </span>
   )
+  const todos = progress?.map((c) => <RunProgress key={c.id} card={c} />)
   if (reply && !live && run.interrupt !== 'pending') {
     const tags = (
-      <div className="run-card__meta run-card__tags">
-        {run.status === 'completed' ? null : <Tag tone={TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>}
-        {continued}
-        {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
-        <FilesFact n={run.filesChanged} onOpen={diff} />
-        {started !== null ? <RunClock from={started} to={ended} live={false} /> : null}
-        <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
-        <PersonalSkillsFact n={run.personalSkills} />
-        <DelegationFacts d={run.delegation} />
-        <RunSyncLine run={run} />
-        {made.length ? <RunArtifactsLine artifacts={made} /> : null}
-        {sessionNote ? (
-          <span className="run-card__session">
-            <Icon name="arrow-clockwise" size={12} />
-            {sessionNote}
-          </span>
-        ) : null}
-        {process}
-      </div>
+      <>
+        {todos}
+        <div className="run-card__meta run-card__tags">
+          {run.status === 'completed' ? null : <Tag tone={TONE[run.status]}>{STATUS_LABEL[run.status]}</Tag>}
+          {continued}
+          {run.hop > 1 ? <HopChain hop={run.hop} max={run.hopMax} /> : null}
+          <FilesFact n={run.filesChanged} onOpen={diff} />
+          {started !== null ? <RunClock from={started} to={ended} live={false} /> : null}
+          <TokenFact total={usageTotal(run.usage)} label={fmtUsage(run.usage)} />
+          <PersonalSkillsFact n={run.personalSkills} />
+          <DelegationFacts d={run.delegation} />
+          <RunSyncLine run={run} />
+          {made.length ? <RunArtifactsLine artifacts={made} /> : null}
+          {sessionNote ? (
+            <span className="run-card__session">
+              <Icon name="arrow-clockwise" size={12} />
+              {sessionNote}
+            </span>
+          ) : null}
+          {process}
+        </div>
+      </>
     )
     return (
       <MessageMenu {...target}>
@@ -921,6 +930,7 @@ export const RunCard = memo(function RunCard({
                           </span>
                         </div>
                       ) : null}
+                      {todos}
                       {started !== null ? (
                         <div className="run-card__meta">
                           <FilesFact n={run.filesChanged} onOpen={diff} />

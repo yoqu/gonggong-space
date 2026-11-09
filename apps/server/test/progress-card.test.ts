@@ -78,6 +78,7 @@ describe('progress_card', () => {
       progress: {
         id,
         botId: w.bot.id,
+        runId: w.run.id,
         title: '部署 luke-server 到 test',
         stages: STAGES,
         percent: 40,
@@ -130,6 +131,9 @@ describe('progress_card', () => {
     const next = await w.runOf(w.bot.id)
     const res = await w.call('progress_card', { id, percent: 80 }, next.id)
     expect(res.isError).toBe(false)
+    // The card moves to the run card of the run that last updated it.
+    const m = await progressOf(id)
+    expect((m!.meta as { progress: MessageDto['progress'] }).progress?.runId).toBe(next.id)
   })
 
   it('refuses a new card without title and stages, and cards it may not touch', async () => {

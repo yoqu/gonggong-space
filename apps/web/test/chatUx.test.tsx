@@ -444,6 +444,11 @@ describe('scroll position', () => {
 describe('task dock', () => {
   const bar = () => screen.queryByTestId('task-dock')
   const rows = () => [...(bar()?.querySelectorAll<HTMLElement>('[data-testid="task-dock-row"]') ?? [])]
+  /** Opens a chip's popover and takes one of its actions. */
+  const pick = (row: HTMLElement, action: '定位' | '过程') => {
+    fireEvent.click(within(row).getByRole('button', { name: /小王的 Claude/ }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: action }))
+  }
 
   it('lists only live runs above the composer, those waiting on someone first', async () => {
     const started = new Date(Date.now() - 65_000).toISOString()
@@ -458,36 +463,30 @@ describe('task dock', () => {
       ],
     })
     renderAt()
-    await waitFor(() => expect(rows()).toHaveLength(2))
+    await waitFor(() => expect(rows()).toHaveLength(4))
     expect(precedes(bar()!, box())).toBe(true)
-    fireEvent.click(within(bar()!).getByRole('button', { name: /展开/ }))
+    expect(bar()!.textContent).toContain('运行中 1')
     expect(rows().map((row) => row.textContent)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('运行中'),
-        expect.stringContaining('排队中'),
-        expect.stringContaining('读取 server/refund.go'),
-      ]),
+      expect.arrayContaining([expect.stringContaining('排队中'), expect.stringContaining('等待审批')]),
     )
+    expect(within(bar()!).getByRole('button', { name: /读取 server\/refund.go/ })).toBeTruthy()
   })
 
-  it('shows two rows and folds the rest behind the expand control', async () => {
+  it('keeps every live run on one line of chips, without folding', async () => {
     mockApi({
       messages: [msg({ seq: 2 })],
       runs: ['r1', 'r2', 'r3', 'r4', 'r5'].map((id) => run({ id })),
     })
     renderAt()
-    await waitFor(() => expect(rows()).toHaveLength(2))
-    fireEvent.click(within(bar()!).getByRole('button', { name: /展开 3/ }))
-    expect(rows()).toHaveLength(5)
-    fireEvent.click(within(bar()!).getByRole('button', { name: '收起' }))
-    expect(rows()).toHaveLength(2)
+    await waitFor(() => expect(rows()).toHaveLength(5))
+    expect(within(bar()!).queryByRole('button', { name: /展开/ })).toBeNull()
   })
 
   it('opens the run process from 过程', async () => {
     mockApi({ messages: [msg({ seq: 2 })], runs: [run()] })
     renderAt()
     await waitFor(() => expect(rows()).toHaveLength(1))
-    fireEvent.click(within(rows()[0]!).getByRole('button', { name: '过程' }))
+    pick(rows()[0]!, '过程')
     expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
       { kind: 'run', runId: 'r1', view: 'process', file: null },
     ])
@@ -501,7 +500,7 @@ describe('task dock', () => {
     )
     renderAt()
     await waitFor(() => expect(rows()).toHaveLength(1))
-    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    pick(rows()[0]!, '定位')
     const target = await screen.findByText('第 7 条')
     const item = target.closest('[data-msg-id]') as HTMLElement
     await waitFor(() => expect(item.className).toContain('tl-item--flash'))
@@ -517,7 +516,7 @@ describe('task dock', () => {
     })
     renderAt()
     await waitFor(() => expect(rows()).toHaveLength(1))
-    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    pick(rows()[0]!, '定位')
     const item = document.querySelector('[data-msg-id="m3"]') as HTMLElement
     await waitFor(() => expect(item.className).toContain('tl-item--flash'))
   })
@@ -527,7 +526,7 @@ describe('task dock', () => {
     renderAt()
     await waitFor(() => expect(rows()).toHaveLength(1))
     expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
-    fireEvent.click(within(rows()[0]!).getByRole('button', { name: /小王的 Claude/ }))
+    pick(rows()[0]!, '定位')
     await waitFor(() =>
       expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
         { kind: 'run', runId: 'r1', view: 'process', file: null },
@@ -544,6 +543,44 @@ describe('task dock', () => {
     renderAt()
     await waitFor(() => expect(rows()).toHaveLength(1))
     expect(rows()[0]!.textContent).toContain('排队中')
+  })
+})
+
+describe('progress cards in run cards', () => {
+  const card = (id: string, runId?: string) => ({
+    id,
+    botId: 'b1',
+    ...(runId && { runId }),
+    title: `部署 ${id}`,
+    stages: [
+      { name: '构建', status: 'done' as const },
+      { name: '部署', status: 'running' as const },
+    ],
+    percent: null,
+    detail: null,
+    link: null,
+    status: 'running' as const,
+    updatedAt: at,
+  })
+
+  it('shows a progress card inside the card of its run, not on its own; older cards stay in the timeline', async () => {
+    mockApi({
+      messages: [
+        msg({ seq: 2 }),
+        msg({ id: 'p1', seq: 3, kind: 'event', authorId: null, body: '进度', progress: card('p1', 'r1') }),
+        msg({ id: 'p2', seq: 4, kind: 'event', authorId: null, body: '进度', progress: card('p2') }),
+      ],
+      runs: [run()],
+    })
+    renderAt()
+    const inRun = await screen.findByTestId('run-progress')
+    expect(inRun.closest('[data-testid="run-card"]')).toBeTruthy()
+    expect(inRun.textContent).toContain('部署 p1')
+    expect(inRun.textContent).toContain('1/2')
+    expect(screen.getAllByTestId('progress-card').map((c) => c.textContent)).toEqual([
+      expect.stringContaining('部署 p2'),
+    ])
+    expect(document.querySelector('[data-msg-id="p1"]')).toBeNull()
   })
 })
 

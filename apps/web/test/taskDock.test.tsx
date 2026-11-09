@@ -201,7 +201,7 @@ describe('TaskDock', () => {
     expect(screen.queryByRole('button', { name: /展开 [1-9]/ })).toBeNull()
   })
 
-  it('groups running, queued and offline-waiting tasks and excludes finished runs', () => {
+  it('shows every live task as one chip on a single line and excludes finished runs', () => {
     render(
       <TaskDock
         runs={[
@@ -214,15 +214,17 @@ describe('TaskDock', () => {
       />,
     )
 
-    expect(screen.getByTestId('task-dock').textContent).toContain('运行中 1')
-    expect(screen.getByTestId('task-dock').textContent).toContain('等待中 2')
-    expect(screen.getByTestId('task-dock').textContent).toContain('排队中')
-    fireEvent.click(screen.getByRole('button', { name: /展开 1/ }))
-    expect(screen.getByTestId('task-dock').textContent).toContain('离线等待')
+    const dock = screen.getByTestId('task-dock')
+    expect(dock.textContent).toContain('运行中 1')
+    expect(dock.textContent).toContain('等待中 2')
+    expect(screen.getAllByTestId('task-dock-row')).toHaveLength(3)
+    expect(dock.textContent).toContain('排队中')
+    expect(dock.textContent).toContain('离线等待')
     expect(screen.queryByText('已完成')).toBeNull()
+    expect(screen.queryByRole('button', { name: /展开/ })).toBeNull()
   })
 
-  it('shows a waiting run I cannot decide as waiting, with the latest activity time', () => {
+  it('shows a waiting run I cannot decide as waiting, with the latest activity time in its popover', () => {
     const active = new Date(NOW.getTime() - 65_000).toISOString()
     render(
       <TaskDock
@@ -253,40 +255,60 @@ describe('TaskDock', () => {
       expect.stringContaining('等待审批'),
       expect.stringContaining('等待回答'),
     ])
-    expect(rows[0]!.textContent).toContain('1 分钟前')
+    fireEvent.click(within(rows[0]!).getAllByRole('button')[0]!)
+    const pop = screen.getByRole('dialog')
+    expect(pop.textContent).toContain('1 分钟前')
     act(() => vi.advanceTimersByTime(60_000))
-    expect(rows[0]!.textContent).toContain('2 分钟前')
+    expect(pop.textContent).toContain('2 分钟前')
   })
 
-  it('locates a running task from its row and opens its process from the process action', () => {
+  it('opens a running task from its chip: its todo, then locate or process', () => {
     const onLocate = vi.fn()
     const r = run()
-    render(<TaskDock runs={[r]} onLocate={onLocate} />)
+    const progress = new Map([
+      [
+        'r1',
+        [
+          {
+            id: 'p1',
+            botId: 'b1',
+            runId: 'r1',
+            title: '部署到 test',
+            stages: [
+              { name: '构建', status: 'done' as const },
+              { name: '部署', status: 'running' as const },
+              { name: '冒烟', status: 'pending' as const },
+            ],
+            percent: null,
+            detail: null,
+            link: null,
+            status: 'running' as const,
+            updatedAt: NOW.toISOString(),
+          },
+        ],
+      ],
+    ])
+    render(<TaskDock runs={[r]} progress={progress} onLocate={onLocate} />)
 
-    expect(screen.getByTestId('task-dock').textContent).toContain('小王的 Claude')
+    const chip = screen.getByTestId('task-dock-row')
+    expect(chip.textContent).toContain('小王的 Claude')
+    expect(chip.textContent).toContain('1/3')
     fireEvent.click(screen.getByRole('button', { name: /小王的 Claude/ }))
+    const pop = screen.getByRole('dialog', { name: '小王的 Claude 的任务' })
+    expect(within(pop).getByText('部署到 test')).toBeTruthy()
+    expect(
+      within(pop)
+        .getAllByTestId('progress-stage')
+        .map((s) => s.textContent),
+    ).toEqual(['构建', '部署', '冒烟'])
+    fireEvent.click(within(pop).getByRole('button', { name: '定位' }))
     expect(onLocate).toHaveBeenCalledWith(r)
 
-    fireEvent.click(screen.getByRole('button', { name: '过程' }))
+    fireEvent.click(screen.getByRole('button', { name: /小王的 Claude/ }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '过程' }))
     expect(useWorkbench.getState().benches.g1?.tabs).toEqual([
       { kind: 'run', runId: 'r1', view: 'process', file: null },
     ])
-  })
-
-  it('collapses and expands the task rows', () => {
-    const runs = ['r1', 'r2', 'r3', 'r4'].map((id) =>
-      run({ id, queuedAt: new Date(NOW.getTime() + Number(id.slice(1))).toISOString() }),
-    )
-    render(<TaskDock runs={runs} onLocate={() => {}} />)
-
-    expect(screen.getAllByTestId('task-dock-row')).toHaveLength(2)
-    const chevron = document.querySelector('.task-dock__chevron')
-    fireEvent.click(screen.getByRole('button', { name: /展开/ }))
-    expect(screen.getAllByTestId('task-dock-row')).toHaveLength(4)
-    // One chevron turns (CSS on aria-expanded) instead of swapping glyphs.
-    expect(document.querySelector('.task-dock__chevron')).toBe(chevron)
-    fireEvent.click(screen.getByRole('button', { name: '收起' }))
-    expect(screen.getAllByTestId('task-dock-row')).toHaveLength(2)
   })
 
   it('hides pending items whose original forms are visible and shows them after scrolling away', () => {
@@ -407,7 +429,8 @@ describe('TaskDock', () => {
     )
     const row = screen.getByTestId('task-dock-row')
     expect(within(row).getByText('话题')).toBeTruthy()
-    fireEvent.click(within(row).getAllByRole('button')[0] as HTMLElement)
+    fireEvent.click(within(row).getByRole('button', { name: /小王的 Claude/ }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '定位' }))
     expect(onLocate).toHaveBeenCalledWith(r)
   })
 })

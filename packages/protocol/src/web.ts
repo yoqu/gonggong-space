@@ -1368,6 +1368,8 @@ export type ProgressStage = z.infer<typeof ProgressStage>
 export const ProgressCard = z.object({
   id: z.string(),
   botId: z.string(),
+  /** The run that posted or last updated it: shown inside that run's card. Absent on cards from before. */
+  runId: z.string().optional(),
   title: z.string(),
   stages: z.array(ProgressStage),
   percent: z.number().int().min(0).max(100).nullable(),

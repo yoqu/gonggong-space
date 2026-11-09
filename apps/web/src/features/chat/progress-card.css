@@ -55,3 +55,41 @@
   align-self: flex-start;
   color: var(--accent);
 }
+
+/* In a run card: a quiet block under the step, no card surface of its own. */
+.run-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-callout-size);
+}
+.run-progress__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  color: var(--label-secondary);
+}
+.run-progress__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--label);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-progress__count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.run-progress .pg-stages {
+  gap: var(--space-2) 10px;
+}
+.run-progress__detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
