@@ -3,6 +3,7 @@ import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { AppFrame } from '../ui'
 import { useEscape } from '../ui/overlay'
+import { FloatingChat } from './floatingChat'
 import { MOBILE_MAX, RAIL_MIN, useViewportBelow, useViewportWidth } from './viewport'
 import { useWorkbench, type WorkbenchMode } from './workbench'
 
@@ -265,6 +266,8 @@ export function ChatLayout({
       </nav>
     )
   const railTakesChat = docked && !full && room - (chat.width + 1) - resize.width < BENCH_MIN
+  // 全屏 hides the chat but floats its composer over the workbench: one composer, draft and selection kept.
+  const floating = full && !over && !phoneBench
   return (
     <AppFrame
       className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
@@ -309,12 +312,17 @@ export function ChatLayout({
         <main
           ref={setMain}
           id="main"
-          className={cx('chat__center', bench && 'chat__center--narrow', over && 'chat__center--over')}
-          style={bench ? { width: chat.width } : undefined}
+          className={cx(
+            'chat__center',
+            bench && 'chat__center--narrow',
+            over && 'chat__center--over',
+            floating && 'chat__center--float',
+          )}
+          style={bench && !floating ? { width: chat.width } : undefined}
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.
-          hidden={(full && !over) || phoneBench || railTakesChat}
+          hidden={phoneBench || railTakesChat}
         >
-          {children}
+          <FloatingChat.Provider value={floating}>{children}</FloatingChat.Provider>
         </main>
       ) : null}
       {bench && !full && !railTakesChat ? (

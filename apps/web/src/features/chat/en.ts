@@ -278,4 +278,8 @@ export default {
   未读消息加载失败: 'Failed to load unread messages',
   '没有找到这条消息，它可能在话题里或已太久远':
     "Couldn't find this message. It may be in a thread or too far back",
+  收起输入框: 'Hide the input',
+  '收起输入框 ⌘J': 'Hide the input ⌘J',
+  展开输入框: 'Show the input',
+  '展开输入框 ⌘J': 'Show the input ⌘J',
 } satisfies Record<string, string>

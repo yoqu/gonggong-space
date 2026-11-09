@@ -1,0 +1,108 @@
+/* In the chat column the dock is layout-neutral. */
+.cdock:not(.cdock--float),
+.cdock:not(.cdock--float) > .cdock__shell,
+.cdock:not(.cdock--float) .cdock__body {
+  display: contents;
+}
+
+/* 全屏: a glass bar over the workbench, centred, anchored to the bottom (left/width/bottom set inline). */
+.cdock--float {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  visibility: visible;
+  pointer-events: none;
+}
+.cdock--float .cdock__shell {
+  position: relative;
+  width: min(760px, 100%);
+  border-radius: calc(var(--radius-bubble) + 6px);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    var(--shadow-menu),
+    inset 0 0 0 0.5px var(--control-stroke);
+  pointer-events: auto;
+  transform-origin: bottom center;
+}
+.cdock--float[data-phase="opening"] .cdock__shell,
+.cdock--float[data-phase="closing"] .cdock__shell {
+  overflow: hidden;
+}
+.cdock--float .composer {
+  padding: 14px var(--space-8) var(--space-8);
+}
+.cdock--float .pn-composer {
+  background: transparent;
+  box-shadow: none;
+}
+.cdock--float .cdock__shell:focus-within {
+  box-shadow:
+    var(--shadow-menu),
+    inset 0 0 0 1px var(--accent);
+}
+
+/* The grabber on top: pressing it pushes the bar down into the orb. */
+.cdock__grip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 56px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  translate: -50% 0;
+  cursor: pointer;
+}
+.cdock__grip::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--label-tertiary);
+  translate: -50% 0;
+  transition:
+    width var(--spring-interactive),
+    background-color var(--fade-in);
+}
+.cdock__grip:hover::before,
+.cdock__grip:focus-visible::before {
+  width: 44px;
+  background: var(--label-secondary);
+}
+
+.cdock--float .cdock__shell--orb {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+}
+.cdock__orb {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  animation: cdock-orb-in var(--spring-bouncy);
+}
+.cdock__orb:hover {
+  background: var(--control-track);
+}
+@keyframes cdock-orb-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}

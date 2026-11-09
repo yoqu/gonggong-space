@@ -69,6 +69,7 @@ import { ConflictEvent } from '../sync/RunSyncLine'
 import { LinkedConflict, SyncBar, useLinkedSync } from '../sync/SyncBar'
 import { TakeoverDialog } from '../teams/TakeoverDialog'
 import { openTab } from '../workbench/open'
+import { ComposerDock } from './ComposerDock'
 import { useRunDeltas } from './deltas'
 import { lastEditable } from './editing'
 import { GitBar } from './GitBar'
@@ -994,7 +995,9 @@ export function ChatView({
             </div>
             <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
             <ProviderBanner group={group} />
-            <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} lastEditable={editLast} />
+            <ComposerDock>
+              <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} lastEditable={editLast} />
+            </ComposerDock>
             <CreationHost group={group} onSent={onSent} />
           </>
         )}

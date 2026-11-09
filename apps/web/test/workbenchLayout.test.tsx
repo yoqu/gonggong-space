@@ -86,9 +86,10 @@ describe('workbench column', () => {
     fireEvent.click(screen.getByRole('button', { name: '全屏' }))
     expect(screen.queryByText('会话图标条')).toBeNull()
     expect(screen.getByText('完整会话列表').closest('nav')).toBe(sidebar)
-    expect(chat().hidden).toBe(true)
+    // Out of view but mounted: its composer floats over the workbench.
+    expect(chat().className).toContain('chat__center--float')
     fireEvent.click(screen.getByRole('button', { name: '展开聊天' }))
-    expect(chat().hidden).toBe(false)
+    expect(chat().className).not.toContain('chat__center--float')
     expect(chat().className).toContain('chat__center--over')
   })
 
@@ -98,7 +99,7 @@ describe('workbench column', () => {
     fireEvent.click(screen.getByRole('button', { name: '全屏' }))
     fireEvent.click(screen.getByRole('button', { name: '展开聊天' }))
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(chat().hidden).toBe(true)
+    expect(chat().className).toContain('chat__center--float')
     expect(useWorkbench.getState().mode).toBe('full')
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(useWorkbench.getState().mode).toBe('focus')

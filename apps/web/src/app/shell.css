@@ -237,6 +237,16 @@ body {
   z-index: 24;
   box-shadow: var(--shadow-menu);
 }
+/* 全屏: the chat is out of view (zero size, clipped, invisible) while its composer floats over the workbench. */
+.chat__center--float {
+  position: fixed;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  /* Fixed, it is its own stacking context: above the workbench so the floating composer shows. */
+  z-index: 30;
+}
 /* With the workbench open the rail docks between the chat and the workbench (width set inline). */
 .chat__dock {
   position: relative;
