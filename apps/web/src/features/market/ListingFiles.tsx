@@ -2,7 +2,7 @@ import type { FileTextDto } from '@gonggong/protocol'
 import { type ReactNode, useCallback, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
-import { EmptyState, Icon } from '../../ui'
+import { EmptyState, FileIcon, Icon } from '../../ui'
 import { fmtSize } from '../attachments/api'
 import { baseName, FileViewer, viewKind } from '../files/FileViewer'
 
@@ -91,7 +91,11 @@ export function ListingFiles({
           <span className="ft__chevron">
             {dir ? <Icon name={open ? 'chevron-down' : 'chevron-right'} size={11} weight={2} /> : null}
           </span>
-          <Icon name={dir ? (open ? 'folder-open' : 'folder') : 'doc'} size={14} />
+          {dir ? (
+            <Icon name={open ? 'folder-open' : 'folder'} size={14} />
+          ) : (
+            <FileIcon name={c.name} size={14} />
+          )}
           <span className="ft__name">{c.name}</span>
           {dir ? null : <span className="mkt-files__size">{fmtSize(c.size ?? 0)}</span>}
         </button>

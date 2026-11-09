@@ -57,6 +57,15 @@ export const KIND_LABEL: Record<FileKind, string> = {
   file: t('文件#item'),
 }
 
+/** OOXML documents preview from their bytes though the attachment route serves them as a download. */
+export const OFFICE_LABEL = {
+  docx: t('Word 文档'),
+  xlsx: t('Excel 表格'),
+  pptx: t('PowerPoint 演示文稿'),
+} as const
+export const officeOf = (name: string) =>
+  /\.(docx|xlsx|pptx)$/i.exec(name)?.[1]?.toLowerCase() as keyof typeof OFFICE_LABEL | undefined
+
 export function fmtSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`

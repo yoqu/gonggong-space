@@ -37,4 +37,7 @@ export default {
   文本日志: 'Text log',
   代码: 'Code',
   跳到原消息: 'Jump to original message',
+  'Word 文档': 'Word document',
+  'Excel 表格': 'Excel workbook',
+  'PowerPoint 演示文稿': 'PowerPoint presentation',
 } satisfies Record<string, string>

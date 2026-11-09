@@ -36,6 +36,7 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: var(--space-16);
+  animation: var(--fade-in) ui-fade-in;
 }
 .fv__state {
   display: grid;
@@ -61,13 +62,49 @@
   max-width: 100%;
   max-height: 70vh;
 }
+/* The image opens full screen (Quick Look): the whole picture is the button. */
+.fv-img-open {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.fv-img-open:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 .fv-img {
   display: block;
+  opacity: 0;
+  transition: opacity var(--fade-in);
+}
+.fv-img[data-loaded] {
+  opacity: 1;
 }
 .fv-img--fit {
   max-width: 100%;
   max-height: 70vh;
   object-fit: contain;
+}
+.fv__audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  max-width: 480px;
+  margin: var(--space-16) auto 0;
+  padding: var(--space-20) var(--space-16);
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+}
+.fv__audio-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-weight: 600;
 }
 .fv__audio > audio {
   width: 100%;
@@ -498,6 +535,10 @@
   font-size: var(--text-caption-size);
   font-weight: 600;
   color: var(--system-orange);
+}
+/* File-type icons keep their colour except on the accent selection, where they turn white. */
+.ft__row[aria-selected="true"] > svg[data-type] {
+  color: inherit !important;
 }
 .ft__row[aria-selected="true"] > svg,
 .ft__row[aria-selected="true"] .ft__chevron,

@@ -17,6 +17,7 @@ import {
   Icon,
   type IconName,
   type Lang,
+  Lightbox,
   langOf,
   Popover,
   SegmentedControl,
@@ -358,6 +359,13 @@ export interface FileGit {
   onHistory: () => void
 }
 
+/** What a browser that cannot decode the file (mkv, heic…) or is served it as a download shows instead. */
+const MEDIA_FAILED: Partial<Record<ViewKind, string>> = {
+  image: t('浏览器无法显示此图片，可下载查看'),
+  video: t('浏览器无法播放此视频，可下载查看'),
+  audio: t('浏览器无法播放此音频，可下载查看'),
+}
+
 function Download({ url, name, message }: { url?: string; name: string; message: string }) {
   return (
     <div className="fv__none">
@@ -458,6 +466,10 @@ export function FileViewer({
   const [md, setMd] = useState<'preview' | 'source'>(line || annotateAsked ? 'source' : 'preview')
   const [fit, setFit] = useState<'fit' | 'actual'>('fit')
   const [dim, setDim] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(false)
+  // Keyed by the source so another file starts fresh.
+  const [failed, setFailed] = useState<string>()
+  const fail = () => setFailed(url)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the read for 重试, a new stamp reads anew
   useEffect(() => {
@@ -479,16 +491,28 @@ export function FileViewer({
   const copy = () => copyWithToast(path, t('已复制路径'))
 
   const body = (() => {
+    const failedText = url && failed === url ? MEDIA_FAILED[kind] : undefined
+    if (failedText) return <Download url={url} name={name} message={failedText} />
     switch (kind) {
       case 'image':
         return (
           <div className="fv__media fv__media--checker">
-            <img
-              className={cx('fv-img', fit === 'fit' && 'fv-img--fit')}
-              src={url}
-              alt={name}
-              onLoad={(e) => setDim(`${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}`)}
-            />
+            <button
+              type="button"
+              className="fv-img-open"
+              aria-label={t('全屏查看 {name}', { name })}
+              title={t('全屏查看')}
+              onClick={() => setZoom(true)}
+            >
+              <img
+                className={cx('fv-img', fit === 'fit' && 'fv-img--fit')}
+                data-loaded={dim ? '' : undefined}
+                src={url}
+                alt={name}
+                onLoad={(e) => setDim(`${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}`)}
+                onError={fail}
+              />
+            </button>
           </div>
         )
       case 'video':
@@ -498,15 +522,19 @@ export function FileViewer({
             <video
               src={url}
               controls
+              playsInline
               onLoadedMetadata={(e) => setDim(`${e.currentTarget.videoWidth}×${e.currentTarget.videoHeight}`)}
+              onError={fail}
             />
           </div>
         )
       case 'audio':
         return (
           <div className="fv__audio">
+            <FileIcon name={name} size={64} />
+            <span className="fv__audio-name">{name}</span>
             {/* biome-ignore lint/a11y/useMediaCaption: workspace audio carries no caption track */}
-            <audio src={url} controls />
+            <audio src={url} controls onError={fail} />
           </div>
         )
       case 'pdf':
@@ -658,6 +686,19 @@ export function FileViewer({
           title={t('复制路径')}
           onClick={copy}
         />
+        {kind === 'pdf' && url ? (
+          // Phones' frames show only a PDF's first page; the browser's own viewer pages through it.
+          <a
+            className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('在浏览器中打开')}
+            title={t('在浏览器中打开')}
+          >
+            <Icon name="globe" size={14} />
+          </a>
+        ) : null}
         {url ? (
           <a
             className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
@@ -702,6 +743,18 @@ export function FileViewer({
           </GroupBox>
         ) : null}
       </div>
+      {zoom && url ? (
+        <Lightbox
+          src={url}
+          alt={name}
+          onClose={() => setZoom(false)}
+          actions={
+            <a className="ui-btn ui-btn--small" href={url} download={name}>
+              {t('下载')}
+            </a>
+          }
+        />
+      ) : null}
     </div>
   )
 }

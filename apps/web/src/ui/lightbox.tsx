@@ -215,6 +215,7 @@ export function Lightbox({
         <div className={cx('ui-lightbox__img', zoomed && 'ui-lightbox__img--zoomed')}>
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard zoom is the toolbar and +/-/0 */}
           <img
+            key={item.src}
             ref={img}
             src={item.src}
             alt={item.alt}

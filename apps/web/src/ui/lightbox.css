@@ -20,7 +20,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-8) var(--space-16);
+  /* The app runs edge to edge (viewport-fit=cover): the close button stays clear of the notch and status bar. */
+  padding: calc(var(--space-8) + env(safe-area-inset-top)) calc(var(--space-16) + env(safe-area-inset-right))
+    var(--space-8) calc(var(--space-16) + env(safe-area-inset-left));
   color: #fff;
   font-size: var(--text-callout-size);
 }
@@ -63,10 +65,10 @@
   cursor: default;
 }
 .ui-lightbox__nav--prev {
-  left: var(--space-16);
+  left: calc(var(--space-16) + env(safe-area-inset-left));
 }
 .ui-lightbox__nav--next {
-  right: var(--space-16);
+  right: calc(var(--space-16) + env(safe-area-inset-right));
 }
 .ui-lightbox__title {
   flex: 1;
@@ -115,7 +117,8 @@
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: 0 var(--space-16) var(--space-16);
+  padding: 0 calc(var(--space-16) + env(safe-area-inset-right))
+    calc(var(--space-16) + env(safe-area-inset-bottom)) calc(var(--space-16) + env(safe-area-inset-left));
   overflow: hidden;
   /* Clicks beside the fitted image fall through to the scrim and close. */
   pointer-events: none;
@@ -129,13 +132,23 @@
 .ui-lightbox__img > img {
   display: block;
   max-width: 100%;
-  max-height: calc(100vh - 80px);
+  /* dvh: on phones 100vh runs under the browser's bottom bar. */
+  max-height: calc(100dvh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   object-fit: contain;
   pointer-events: auto;
   touch-action: none;
   user-select: none;
   cursor: zoom-in;
   transition: transform 0.15s ease-out;
+  /* Each image grows in slightly (scale, not transform: that one carries zoom and pan); reduced motion only fades. */
+  animation:
+    var(--fade-in) ui-fade-in,
+    var(--spring-snappy) ui-lightbox-in;
+}
+@keyframes ui-lightbox-in {
+  from {
+    scale: 0.94;
+  }
 }
 .ui-lightbox__img--zoomed > img {
   cursor: grab;

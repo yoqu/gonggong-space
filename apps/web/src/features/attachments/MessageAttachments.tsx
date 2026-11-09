@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
 import { Button, FileAttachment, Icon, Lightbox } from '../../ui'
 import { openTab } from '../workbench/open'
-import { attachmentUrl, fmtSize, KIND_LABEL, kindOf } from './api'
+import { attachmentUrl, fmtSize, KIND_LABEL, kindOf, OFFICE_LABEL, officeOf } from './api'
 import './attachments.css'
 import { t } from '../../i18n'
 
@@ -113,12 +113,14 @@ export function MessageAttachments({ list, from }: { list: Attachment[]; from: s
       ) : null}
       {docs.map((a) => {
         const kind = kindOf(a)
+        const office = officeOf(a.name)
+        const label = office ? OFFICE_LABEL[office] : KIND_LABEL[kind]
         return (
           <FileAttachment
             key={a.id}
             name={a.name}
             mime={a.mime}
-            meta={`${KIND_LABEL[kind]} · ${fmtSize(a.size)}${kind === 'file' ? '' : t(' · 点击预览')}`}
+            meta={`${label} · ${fmtSize(a.size)}${kind === 'file' && !office ? '' : t(' · 点击预览')}`}
             onOpen={() => open(a)}
           />
         )

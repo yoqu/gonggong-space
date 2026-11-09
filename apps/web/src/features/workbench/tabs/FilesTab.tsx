@@ -16,6 +16,7 @@ import {
   Button,
   Checkbox,
   EmptyState,
+  FileIcon,
   Icon,
   PathControl,
   Popover,
@@ -356,7 +357,11 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           <span className="ft__chevron">
             {e.dir ? <Icon name={open ? 'chevron-down' : 'chevron-right'} size={11} weight={2} /> : null}
           </span>
-          <Icon name={e.dir ? (open ? 'folder-open' : 'folder') : 'doc'} size={14} />
+          {e.dir ? (
+            <Icon name={open ? 'folder-open' : 'folder'} size={14} />
+          ) : (
+            <FileIcon name={e.name} size={14} />
+          )}
           <span className="ft__name">{e.name}</span>
           {compare ? (
             <CompareMark compare={compare} path={path} dir={e.dir} />
@@ -421,7 +426,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
               title={h.path}
               onClick={() => pickHit(h.path, h.dir)}
             >
-              <Icon name={h.dir ? 'folder' : 'doc'} size={14} />
+              {h.dir ? <Icon name="folder" size={14} /> : <FileIcon name={h.path} size={14} />}
               <span className="ft__name">{h.path}</span>
               {h.uncommitted ? <span className="ft__mark">M</span> : null}
             </button>

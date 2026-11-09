@@ -174,6 +174,8 @@ describe('files tab', () => {
     expect(names).toEqual(['src', 'README.md'])
     expect(within(row(/^src/)).getByTitle('未提交').textContent).toBe('M')
     expect(within(row(/README/)).queryByTitle('未提交')).toBeNull()
+    expect(row(/README/).querySelector('svg[data-type="md"]')).toBeTruthy()
+    expect(row(/^src/).querySelector('svg[data-type]')).toBeNull()
     expect(tree().queryByRole('treeitem', { name: /node_modules/ })).toBeNull()
 
     fireEvent.click(files().getByRole('checkbox', { name: '显示忽略的' }))
@@ -237,6 +239,7 @@ describe('files tab', () => {
     fireEvent.change(files().getByRole('searchbox', { name: '搜索文件' }), { target: { value: 'main' } })
     const hit = await files().findByRole('button', { name: /src\/main\.ts/ })
     expect(calls).toContain('/api/groups/g1/candidates/files?q=main&botId=b1')
+    expect(hit.querySelector('svg[data-type="code"]')).toBeTruthy()
     fireEvent.click(hit)
     expect(filesTab()).toMatchObject({ dir: 'src', selected: 'src/main.ts' })
     expect(await tree().findByRole('treeitem', { name: /main\.ts/ })).toBeTruthy()
@@ -298,6 +301,47 @@ describe('file viewer', () => {
     expect(img.className).toContain('fv-img--fit')
     fireEvent.click(screen.getByRole('radio', { name: '1:1' }))
     expect(img.className).not.toContain('fv-img--fit')
+  })
+
+  it('opens a previewed image full screen', () => {
+    openFile('src/assets/logo.png')
+    fireEvent.click(screen.getByRole('button', { name: '全屏查看 logo.png' }))
+    const box = screen.getByRole('dialog', { name: 'logo.png' })
+    expect(within(box).getByRole('img', { name: 'logo.png' }).getAttribute('src')).toBe(
+      raw('src/assets/logo.png'),
+    )
+    fireEvent.click(within(box).getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('offers a download when the browser cannot show the media', () => {
+    openFile('clip.mkv', 'photo.heic', 'voice.aac')
+    const tab = (p: string) => within(screen.getByTestId(`file:b1:${p}`))
+    const video = screen.getByTestId('file:b1:clip.mkv').querySelector('video') as HTMLVideoElement
+    fireEvent.error(video)
+    expect(tab('clip.mkv').getByText('浏览器无法播放此视频，可下载查看')).toBeTruthy()
+    expect(screen.getByTestId('file:b1:clip.mkv').querySelector('video')).toBeNull()
+    fireEvent.error(tab('photo.heic').getByRole('img', { name: 'photo.heic' }))
+    expect(tab('photo.heic').getByText('浏览器无法显示此图片，可下载查看')).toBeTruthy()
+    fireEvent.error(screen.getByTestId('file:b1:voice.aac').querySelector('audio') as HTMLAudioElement)
+    expect(tab('voice.aac').getByText('浏览器无法播放此音频，可下载查看')).toBeTruthy()
+    const links = tab('voice.aac').getAllByRole('link', { name: '下载' })
+    expect(links.every((l) => l.getAttribute('href') === raw('voice.aac'))).toBe(true)
+  })
+
+  it('opens a pdf in the browser, where a frame shows only its first page on phones', () => {
+    openFile('src/assets/doc.pdf')
+    const link = screen.getByRole('link', { name: '在浏览器中打开' })
+    expect(link.getAttribute('href')).toBe(raw('src/assets/doc.pdf'))
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toContain('noopener')
+  })
+
+  it('shows audio as a card with its name', () => {
+    openFile('src/assets/song.mp3')
+    const card = document.querySelector('.fv__audio') as HTMLElement
+    expect(card.querySelector('svg[data-type="audio"]')).toBeTruthy()
+    expect(within(card).getByText('song.mp3')).toBeTruthy()
   })
 
   it('offers a download for large and binary files', async () => {

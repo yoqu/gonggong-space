@@ -154,6 +154,12 @@ const timeline = {
         att({ id: 'a4', name: 'dump.bin', mime: 'application/octet-stream', size: 1024 }),
         att({ id: 'v1', name: 'demo.mp4', mime: 'video/mp4', size: 2048 }),
         att({ id: 'au1', name: 'song.mp3', mime: 'audio/mpeg', size: 2048 }),
+        att({
+          id: 'x1',
+          name: 'plan.xlsx',
+          mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          size: 4096,
+        }),
       ],
       quote: { kind: 'message', id: 'm0', who: '小王的 Claude', text: '上次的结论' },
     }),
@@ -392,6 +398,10 @@ describe('message attachments and preview', () => {
     expect(main.querySelector('video')?.getAttribute('src')).toBe('/api/attachments/v1')
     expect(within(main).getByRole('button', { name: '在工作台查看 demo.mp4' })).toBeTruthy()
     expect(within(main).getByRole('button', { name: /ci\.log/ }).textContent).toContain('文本日志 · 84 KB')
+    expect(within(main).getByRole('button', { name: /plan\.xlsx/ }).textContent).toContain(
+      'Excel 表格 · 4 KB · 点击预览',
+    )
+    expect(within(main).getByRole('button', { name: /dump\.bin/ }).textContent).not.toContain('点击预览')
   })
 
   it('opens images, logs, markdown and unsupported files as workbench file tabs', async () => {
