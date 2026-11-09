@@ -120,6 +120,7 @@ export function ListingFiles({
               url={`/api${base}/raw${query(selected)}`}
               kind={viewKind(selected)}
               read={read}
+              size={files.find((f) => f.path === selected)?.size}
             />
           ) : (
             <EmptyState compact icon="doc" title={t('选择左侧的文件查看')} />

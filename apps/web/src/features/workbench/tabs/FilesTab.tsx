@@ -27,7 +27,7 @@ import {
 import { useWide } from '../../diff/DiffPane'
 import { GitFileDiff } from '../../diff/GitFileDiff'
 import { useGitStamp } from '../../diff/useWorkspaceDiff'
-import { BotFileViewer } from '../../files/FileViewer'
+import { BotFileViewer, baseName } from '../../files/FileViewer'
 import { gitBase, gitUrls, shortRev, useGitRefs } from '../../git/api'
 import { ChangeList, ChangeMark } from '../../git/changes'
 import { RefList } from '../../git/RefList'
@@ -386,12 +386,17 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   const change = tab.selected && tab.base ? compare?.byPath.get(tab.selected) : undefined
   // A file deleted since the base only exists there.
   const viewRev = change?.change === 'deleted' ? tab.base : rev
+  const entryOf = (path: string) => {
+    const l = listings[parentOf(path)]
+    return l && 'entries' in l ? l.entries.find((e) => e.name === baseName(path)) : undefined
+  }
   const viewer = (path: string) => (
     <BotFileViewer
       key={`${path}@${viewRev ?? ''}`}
       botId={tab.botId}
       path={path}
       rev={viewRev}
+      size={entryOf(path)?.size}
       onOpenTab={() =>
         openTab({ kind: 'file', source: { botId: tab.botId, path, ...(viewRev ? { rev: viewRev } : {}) } })
       }

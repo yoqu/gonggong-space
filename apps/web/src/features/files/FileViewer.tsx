@@ -19,6 +19,8 @@ import {
   type Lang,
   Lightbox,
   langOf,
+  MenuButton,
+  type MenuItem,
   Popover,
   SegmentedControl,
   Spinner,
@@ -31,6 +33,7 @@ import { citeInChat } from '../chat/cite'
 import { Markdown } from '../chat/Markdown'
 import { revertChange, useGitDiff } from '../diff/GitFileDiff'
 import { type LineMark, lineMarks } from '../diff/hunk'
+import { useWide } from '../diff/useWide'
 import { useGitStamp } from '../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
@@ -90,6 +93,30 @@ const ICON: Record<FileType, IconName> = {
 export const fileIconName = (name: string, mime?: string) => ICON[fileType(name, mime)]
 
 export const baseName = (path: string) => path.split('/').pop() ?? path
+
+const TYPE_WORD: Record<FileType, string> = {
+  pdf: t('文档'),
+  word: t('文档'),
+  excel: t('表格'),
+  ppt: t('演示文稿'),
+  archive: t('压缩包'),
+  audio: t('音频'),
+  image: t('图片'),
+  video: t('视频'),
+  md: t('文档'),
+  code: t('代码'),
+  text: t('文本'),
+  other: t('文件#item'),
+}
+/** Quick Look's kind line: the extension, then what it is ("PNG 图片"). */
+function typeLabel(name: string) {
+  const ext = name.includes('.') ? (name.split('.').pop() ?? '').toUpperCase() : ''
+  const word = TYPE_WORD[fileType(name)]
+  return ext ? `${ext} ${word}` : word
+}
+
+/** Below this the bar keeps the name, the view switch and download; the rest folds into 更多. */
+const BAR_WIDE_PX = 520
 
 /** A whole 2 MB file as line nodes is too heavy; the rest is a download away. */
 const LINES_MAX = 5000
@@ -379,6 +406,15 @@ function Download({ url, name, message }: { url?: string; name: string; message:
   )
 }
 
+interface BarAction {
+  key: string
+  label: string
+  icon: IconName
+  run: () => void
+  pressed?: boolean
+  busy?: boolean
+}
+
 export interface FileViewerProps {
   name: string
   /** Copied by 复制路径; relative to the workspace root. */
@@ -388,6 +424,8 @@ export interface FileViewerProps {
   kind: ViewKind
   /** Text content for the textual kinds; must be stable across renders. */
   read: () => Promise<TextRead>
+  /** Bytes, when the caller knows them; a text read's own count wins, being fresher. */
+  size?: number
   /** Extra facts shown under the content (attachments). */
   details?: [string, string][]
   /** Lines to highlight and scroll to; a line range only means something in the source view. */
@@ -410,6 +448,7 @@ export function FileViewer({
   url,
   kind,
   read,
+  size,
   details,
   line,
   onOpenTab,
@@ -419,6 +458,8 @@ export function FileViewer({
   stamp,
   changes,
 }: FileViewerProps) {
+  const bar = useRef<HTMLDivElement>(null)
+  const wide = useWide(bar, BAR_WIDE_PX)
   const textual = TEXTUAL.includes(kind)
   const [annotate, setAnnotate] = useState<{ lines: BlameLine[] | null; error: string | null } | null>(null)
   const previousRevisions = useRef<{
@@ -620,17 +661,59 @@ export function FileViewer({
   })()
   const source = textual && text?.text != null && !(kind === 'md' && md === 'preview')
 
+  const actions: BarAction[] = [
+    ...(git && source
+      ? [
+          {
+            key: 'annotate',
+            label: t('注解（Git Blame）'),
+            icon: 'person' as const,
+            run: toggleAnnotate,
+            pressed: !!annotate,
+            busy: !!annotate && !annotate.lines && !annotate.error,
+          },
+        ]
+      : []),
+    ...(git ? [{ key: 'history', label: t('显示历史'), icon: 'clock' as const, run: git.onHistory }] : []),
+    { key: 'copy', label: t('复制路径'), icon: 'copy', run: copy },
+    ...(onOpenTab
+      ? [{ key: 'tab', label: t('在新标签页打开'), icon: 'external' as const, run: onOpenTab }]
+      : []),
+    ...(onCite ? [{ key: 'cite', label: t('在聊天中引用'), icon: 'at' as const, run: onCite }] : []),
+  ]
+  const menu: MenuItem[] = [
+    ...(kind === 'image'
+      ? [
+          { label: t('原始大小（1:1）'), value: 'actual', checked: fit === 'actual' },
+          { separator: true as const },
+        ]
+      : []),
+    ...actions.map((a) => ({
+      label: a.label,
+      value: a.key,
+      icon: a.icon,
+      ...(a.pressed === undefined ? {} : { checked: a.pressed }),
+    })),
+  ]
+  const shownSize = text?.size ?? size
+  const meta = [typeLabel(name), shownSize == null ? null : fmtSize(shownSize), dim]
+    .filter(Boolean)
+    .join(' · ')
+
   const rows =
     details && dim
       ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), dim] as [string, string]]
       : details
   return (
     <div className="fv">
-      <div className="fv__bar">
-        <FileIcon name={name} size={16} />
-        <span className="fv__name" title={path}>
-          {name}
-        </span>
+      <div ref={bar} className="fv__bar">
+        <FileIcon name={name} size={24} />
+        <div className="fv__title">
+          <span className="fv__name" title={path}>
+            {name}
+          </span>
+          <span className="fv__meta">{meta}</span>
+        </div>
         <span className="spacer" />
         {kind === 'md' && text?.text != null ? (
           <Tabs
@@ -643,7 +726,7 @@ export function FileViewer({
             ]}
           />
         ) : null}
-        {kind === 'image' ? (
+        {kind === 'image' && wide ? (
           <SegmentedControl
             size="small"
             aria-label={t('显示尺寸')}
@@ -655,37 +738,22 @@ export function FileViewer({
             ]}
           />
         ) : null}
-        {git && source ? (
-          <Button
-            size="small"
-            variant="plain"
-            icon="person"
-            aria-label={t('注解（Git Blame）')}
-            aria-pressed={!!annotate}
-            title={t('注解（Git Blame）')}
-            onClick={toggleAnnotate}
-          >
-            {annotate && !annotate.lines && !annotate.error ? <Spinner size={12} /> : null}
-          </Button>
-        ) : null}
-        {git ? (
-          <Button
-            size="small"
-            variant="plain"
-            icon="clock"
-            aria-label={t('显示历史')}
-            title={t('显示历史')}
-            onClick={git.onHistory}
-          />
-        ) : null}
-        <Button
-          size="small"
-          variant="plain"
-          icon="copy"
-          aria-label={t('复制路径')}
-          title={t('复制路径')}
-          onClick={copy}
-        />
+        {wide
+          ? actions.map((a) => (
+              <Button
+                key={a.key}
+                size="small"
+                variant="plain"
+                icon={a.icon}
+                aria-label={a.label}
+                aria-pressed={a.pressed}
+                title={a.label}
+                onClick={a.run}
+              >
+                {a.busy ? <Spinner size={12} /> : null}
+              </Button>
+            ))
+          : null}
         {kind === 'pdf' && url ? (
           // Phones' frames show only a PDF's first page; the browser's own viewer pages through it.
           <a
@@ -710,26 +778,22 @@ export function FileViewer({
             <Icon name="download" size={14} />
           </a>
         ) : null}
-        {onOpenTab ? (
-          <Button
-            size="small"
-            variant="plain"
-            icon="external"
-            aria-label={t('在新标签页打开')}
-            title={t('在新标签页打开')}
-            onClick={onOpenTab}
-          />
-        ) : null}
-        {onCite ? (
-          <Button
-            size="small"
-            variant="plain"
-            icon="at"
-            aria-label={t('在聊天中引用')}
-            title={t('在聊天中引用')}
-            onClick={onCite}
-          />
-        ) : null}
+        {wide ? null : (
+          <MenuButton
+            className="ui-btn ui-btn--small ui-btn--plain ui-btn--icon"
+            aria-label={t('更多')}
+            title={t('更多')}
+            align="end"
+            items={menu}
+            onSelect={(v) =>
+              v === 'actual'
+                ? setFit(fit === 'fit' ? 'actual' : 'fit')
+                : actions.find((a) => a.key === v)?.run()
+            }
+          >
+            <Icon name="more" size={14} />
+          </MenuButton>
+        )}
       </div>
       <div className="fv__body">
         {body}
@@ -769,6 +833,7 @@ export function BotFileViewer({
   line,
   rev,
   annotate,
+  size,
   onOpenTab,
 }: {
   botId: string
@@ -776,6 +841,8 @@ export function BotFileViewer({
   line?: LineRange
   rev?: string | null
   annotate?: number
+  /** Known from the tree listing; the text read reports its own. */
+  size?: number
   onOpenTab?: () => void
 }) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -833,6 +900,7 @@ export function BotFileViewer({
       url={rev ? undefined : `/api${base}/files/raw${query}`}
       kind={rev && !TEXTUAL.includes(kind) ? 'unknown' : kind}
       read={read}
+      size={size}
       line={line}
       onOpenTab={onOpenTab}
       onCite={() => citeInChat(groupId, `@${path}`)}

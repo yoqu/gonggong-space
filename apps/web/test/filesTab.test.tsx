@@ -353,6 +353,44 @@ describe('file viewer', () => {
     expect(await screen.findByText(/二进制文件/)).toBeTruthy()
   })
 
+  it('names the type and size under the file name', async () => {
+    openFile('src/main.ts')
+    expect(await screen.findByText('TS 代码 · 27 B')).toBeTruthy()
+  })
+
+  it('takes the size of a media file from the tree, and its dimensions once loaded', async () => {
+    openFiles({ dir: 'src/assets', selected: 'src/assets/logo.png' })
+    const img = files().getByRole('img', { name: 'logo.png' })
+    Object.defineProperty(img, 'naturalWidth', { value: 640 })
+    Object.defineProperty(img, 'naturalHeight', { value: 480 })
+    fireEvent.load(img)
+    expect(await files().findByText('PNG 图片 · 10 B · 640×480')).toBeTruthy()
+  })
+
+  it('keeps download first and folds the other actions into 更多 when narrow', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn(async () => {}) } })
+    openFile('src/assets/doc.pdf')
+    expect(screen.getByRole('link', { name: '在浏览器中打开' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '下载' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '复制路径' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '在聊天中引用' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    expect(screen.getByRole('menuitem', { name: '在聊天中引用' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: '复制路径' }))
+    await waitFor(() => expect(useToasts.getState().items[0]?.message).toBe('已复制路径'))
+  })
+
+  it('moves the actual-size toggle of an image into 更多 when narrow', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    openFile('src/assets/logo.png')
+    const img = screen.getByRole('img', { name: 'logo.png' })
+    expect(screen.queryByRole('radio', { name: '1:1' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '原始大小（1:1）' }))
+    expect(img.className).not.toContain('fv-img--fit')
+  })
+
   it('shows html as source', async () => {
     openFile('index.html')
     expect(await screen.findByText('<h1>hi</h1>')).toBeTruthy()

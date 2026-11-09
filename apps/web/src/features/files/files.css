@@ -20,13 +20,51 @@
 .fv__bar a {
   text-decoration: none;
 }
-.fv__name {
+/* The name comes first: actions keep their size, the title shrinks to an ellipsis. */
+.fv__bar > * {
+  flex: none;
+}
+.fv__bar > .fv__title {
+  flex: 0 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fv__name,
+.fv__meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-subheadline-size);
+}
+.fv__name {
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   font-weight: 600;
+}
+.fv__meta {
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.fv__bar > .spacer {
+  flex: 1 1 0;
+}
+/* Touch: icon buttons grow to 36px, an invisible ring takes the target to 44px. */
+@media (pointer: coarse) {
+  .fv__bar {
+    gap: var(--space-2);
+    padding-right: var(--space-4);
+  }
+  .fv__bar .ui-btn--icon {
+    --btn-h: 36px;
+    position: relative;
+  }
+  .fv__bar .ui-btn--icon::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
 }
 .fv__body {
   flex: 1;
@@ -36,6 +74,7 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: var(--space-16);
+  padding-bottom: max(var(--space-16), env(safe-area-inset-bottom));
   animation: var(--fade-in) ui-fade-in;
 }
 .fv__state {

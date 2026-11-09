@@ -41,6 +41,7 @@ export function AttachmentViewer({ attachment: a, from }: { attachment: Attachme
       url={url}
       kind={view}
       read={read}
+      size={a.size}
       details={[
         [t('来源#from'), from],
         [t('大小'), fmtSize(a.size)],
