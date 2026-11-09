@@ -166,17 +166,19 @@ export const versionDto = (row: VersionRow, fb?: Fallback): ArtifactVersionDto =
   files: row.v.files,
 })
 
-/** Ids of `ids` a live run has checked out. */
-async function runningIds(db: Read, groupId: string) {
+type Runner = NonNullable<ArtifactDto['runner']>
+
+/** The group's artifacts a live run has checked out, each with that run's bot and status (the latest run wins). */
+async function runners(db: Read, groupId: string) {
   const live = await db
-    .select({ ids: runs.artifacts })
+    .select({ ids: runs.artifacts, botId: runs.botId, status: runs.status })
     .from(runs)
     .where(and(eq(runs.groupId, groupId), inArray(runs.status, ACTIVE)))
-  return new Set(live.flatMap((r) => r.ids))
-}
-
-export async function isRunning(db: Read, a: Artifact) {
-  return (await runningIds(db, a.groupId)).has(a.id)
+    .orderBy(runs.queuedAt)
+  const out = new Map<string, Runner>()
+  for (const r of live)
+    for (const id of r.ids) out.set(id, { botId: r.botId, status: r.status as Runner['status'] })
+  return out
 }
 
 /** Runs per bot of the group waiting for their machine (offline_wait): ArtifactDto.queued. */
@@ -198,7 +200,7 @@ export async function manifestOf(a: Artifact, v: Version | undefined): Promise<G
   return 'manifest' in parsed ? parsed.manifest : null
 }
 
-type Live = { running: boolean; waits: Map<string, number>; fb?: Fallback }
+type Live = { runner: Runner | null; waits: Map<string, number>; fb?: Fallback }
 
 function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto {
   const queuedRunCount = (a.botId && live.waits.get(a.botId)) || 0
@@ -215,7 +217,8 @@ function dto(a: Artifact, head: VersionRow | undefined, live: Live): ArtifactDto
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     archivedAt: a.archivedAt?.toISOString() ?? null,
-    running: live.running,
+    running: !!live.runner,
+    runner: live.runner,
     queued: queuedRunCount > 0,
     queuedRunCount,
     favorites: a.favorites,
@@ -246,7 +249,7 @@ export async function listArtifacts(
   const heads = list.flatMap((a) => (a.headVersionId ? [a.headVersionId] : []))
   const [rows, running, waits] = await Promise.all([
     heads.length ? versionRows(ctx.db, inArray(artifactVersions.id, heads)) : [],
-    runningIds(ctx.db, groupId),
+    runners(ctx.db, groupId),
     offlineWaits(ctx.db, groupId),
   ])
   const byId = new Map(rows.map((r) => [r.v.id, r]))
@@ -256,7 +259,7 @@ export async function listArtifacts(
   )
   return list.map((a) => {
     const head = a.headVersionId ? byId.get(a.headVersionId) : undefined
-    return dto(a, head, { running: running.has(a.id), waits, fb: head && fb.get(head.v.id) })
+    return dto(a, head, { runner: running.get(a.id) ?? null, waits, fb: head && fb.get(head.v.id) })
   })
 }
 
@@ -277,7 +280,8 @@ export async function artifactDetail(ctx: Ctx, a: Artifact): Promise<ArtifactDto
         .limit(1)
     : []
   const fb = head ? (await fallbacks(ctx.db, [head.v])).get(head.v.id) : undefined
-  const live = { running: await isRunning(ctx.db, a), waits: await offlineWaits(ctx.db, a.groupId), fb }
+  const runner = (await runners(ctx.db, a.groupId)).get(a.id) ?? null
+  const live = { runner, waits: await offlineWaits(ctx.db, a.groupId), fb }
   return {
     ...dto(a, head, live),
     manifest: await manifestOf(a, head?.v),
@@ -361,7 +365,41 @@ export async function versionDetail(
   const [row] = await versionRows(ctx.db, eq(artifactVersions.id, v.id))
   const manifest = await manifestOf(a, v)
   const fb = (await fallbacks(ctx.db, [v])).get(v.id)
-  return { ...versionDto(row as VersionRow, fb), manifest, links: await screenLinks(a, v, manifest) }
+  const [parent] = v.parentVersionId
+    ? await ctx.db
+        .select({ files: artifactVersions.files })
+        .from(artifactVersions)
+        .where(eq(artifactVersions.id, v.parentVersionId))
+    : []
+  const before = new Map(parent?.files.map((f) => [f.path, f.hash]))
+  const changedScreens = parent
+    ? (manifest?.screens ?? [])
+        .filter((s) => v.files.find((f) => f.path === s.file)?.hash !== before.get(s.file))
+        .map((s) => s.id)
+    : []
+  return {
+    ...versionDto(row as VersionRow, fb),
+    manifest,
+    links: await screenLinks(a, v, manifest),
+    changedScreens,
+  }
+}
+
+/**
+ * Three-way merge by file of `theirs` (made on `base`) into `ours` (the head): null when a path changed differently
+ * on both sides.
+ */
+export function mergeFiles(base: ArtifactFile[], ours: ArtifactFile[], theirs: ArtifactFile[]) {
+  const map = (files: ArtifactFile[]) => new Map(files.map((f) => [f.path, f]))
+  const [b, o, t] = [map(base), map(ours), map(theirs)]
+  const out: ArtifactFile[] = []
+  for (const path of new Set([...o.keys(), ...t.keys(), ...b.keys()])) {
+    const [bf, of, tf] = [b.get(path), o.get(path), t.get(path)]
+    const pick = of?.hash === tf?.hash || tf?.hash === bf?.hash ? of : of?.hash === bf?.hash ? tf : null
+    if (pick === null) return null
+    if (pick) out.push(pick)
+  }
+  return out.sort((x, y) => (x.path < y.path ? -1 : x.path > y.path ? 1 : 0))
 }
 
 /** The `data-gg-link`s of every screen the manifest lists. */
@@ -376,6 +414,16 @@ async function screenLinks(a: Artifact, v: Version, manifest: GgArtifactManifest
   return out
 }
 
+/** `files` (made on `base`) merged into the head `ours`, or null when they overlap. */
+async function mergeInto(tx: Tx, base: string, ours: string, files: ArtifactFile[]) {
+  const rows = await tx
+    .select({ id: artifactVersions.id, files: artifactVersions.files })
+    .from(artifactVersions)
+    .where(inArray(artifactVersions.id, [base, ours]))
+  const of = (id: string) => rows.find((r) => r.id === id)?.files ?? []
+  return mergeFiles(of(base), of(ours), files)
+}
+
 export type SubmitInput = {
   parent: string | null
   submitKey: string | null
@@ -383,7 +431,7 @@ export type SubmitInput = {
   source: ArtifactVersionSource
   runId: string | null
   userId: string | null
-  /** Refuse (409) instead of keeping a stale candidate when the parent is not the head: the panel's edits. */
+  /** Refuse (409) instead of keeping a stale candidate when it does not merge into the head: members' edits. */
   onlyHead?: boolean
 }
 
@@ -398,16 +446,16 @@ async function checkUploaded(a: Artifact, files: ArtifactFile[]) {
 
 /**
  * A new version (§3.2): under the artifact's row lock, a retried `submitKey` gets the version it made; one based on
- * the head becomes the head, anything else is kept as a stale candidate.
+ * the head becomes the head. One based on an older version is merged into the head when the files they changed do not
+ * overlap: an edit becomes the merged head itself; a run's upload is kept as a stale candidate (its machine's folder
+ * matches it) with the merged version on top as the head. Anything else is kept as a stale candidate.
  */
 export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
   const files = [...input.files].sort((x, y) => (x.path < y.path ? -1 : x.path > y.path ? 1 : 0))
   await checkUploaded(a, files)
-  const issues = await lintVersion(
-    files,
-    (f) => readBlob(a.groupId, f.hash),
-    await pluginKit(ctx.db, a.pluginVersionId),
-  )
+  const kit = await pluginKit(ctx.db, a.pluginVersionId)
+  const lint = (list: ArtifactFile[]) => lintVersion(list, (f) => readBlob(a.groupId, f.hash), kit)
+  const issues = await lint(files)
   const out = await ctx.db.transaction(async (tx) => {
     const [locked] = await tx.select().from(artifacts).where(eq(artifacts.id, a.id)).for('update')
     if (!locked) return fail('not_found', '产物不存在')
@@ -429,34 +477,52 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
       if (!p) fail('invalid', '父版本不属于该产物')
     }
     const head = parent === locked.headVersionId
-    if (!head && input.onlyHead) fail('conflict', '产物已有新版本，请刷新后重做')
+    const merged =
+      !head && parent && locked.headVersionId
+        ? await mergeInto(tx, parent, locked.headVersionId, files)
+        : null
+    if (!head && !merged && input.onlyHead) fail('conflict', '产物已有新版本，请刷新后重做')
     const [last] = await tx
       .select({ n: artifactVersions.n })
       .from(artifactVersions)
       .where(eq(artifactVersions.artifactId, a.id))
       .orderBy(desc(artifactVersions.n))
       .limit(1)
-    const [version] = await tx
-      .insert(artifactVersions)
-      .values({
-        artifactId: a.id,
-        n: (last?.n ?? 0) + 1,
-        parentVersionId: parent,
-        source: input.source,
-        runId: input.runId,
-        userId: input.userId,
-        submitKey: input.submitKey,
-        files,
-        digest: digestOf(files),
-        stale: !head,
-        issues,
-      })
-      .returning()
+    let n = last?.n ?? 0
+    const insert = async (v: {
+      parent: string | null
+      files: ArtifactFile[]
+      head: boolean
+      issues: typeof issues
+    }) => {
+      const [row] = await tx
+        .insert(artifactVersions)
+        .values({
+          artifactId: a.id,
+          n: ++n,
+          parentVersionId: v.parent,
+          source: input.source,
+          runId: input.runId,
+          userId: input.userId,
+          submitKey: v.head && merged ? null : input.submitKey,
+          files: v.files,
+          digest: digestOf(v.files),
+          stale: !v.head,
+          issues: v.issues,
+        })
+        .returning()
+      return row as Version
+    }
+    const own = merged && input.onlyHead ? null : await insert({ parent, files, head, issues })
+    const top = merged
+      ? await insert({ parent: locked.headVersionId, files: merged, head: true, issues: await lint(merged) })
+      : own
     await tx
       .update(artifacts)
-      .set({ updatedAt: ctx.now(), ...(head && { headVersionId: (version as Version).id }) })
+      .set({ updatedAt: ctx.now(), ...((head || merged) && { headVersionId: (top as Version).id }) })
       .where(eq(artifacts.id, a.id))
-    return { version: version as Version, head, retried: false }
+    const version = (own ?? top) as Version
+    return { version, head: !version.stale, retried: false }
   })
   if (!out.retried) await refreshCard(ctx, a.id)
   if (!out.retried && out.head && input.source === 'edit') await snapshotPending(ctx, eq(artifacts.id, a.id))
@@ -468,7 +534,6 @@ export async function submitVersion(ctx: Ctx, a: Artifact, input: SubmitInput) {
  * candidate adopted this way stops being one). The next run checks the new head out.
  */
 export async function restoreVersion(ctx: Ctx, a: Artifact, versionId: string) {
-  if (await isRunning(ctx.db, a)) fail('conflict', '产物正在被 AI 修改，请等运行结束')
   const v = await requireVersion(ctx.db, a, versionId)
   await ctx.db.transaction(async (tx) => {
     const [locked] = await tx.select().from(artifacts).where(eq(artifacts.id, a.id)).for('update')

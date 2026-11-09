@@ -82,6 +82,46 @@ describe('version submit', () => {
     expect(row!.source).toBe('local')
   })
 
+  it('merges a version based on an older head when they changed different files', async () => {
+    const w = await artifactWorld(t)
+    const a = await w.artifact()
+    const run = await w.run([a.id])
+    const v1 = json<ArtifactSubmitRes>(await w.submit(run.id, a.id, L1))
+    const v2 = json<ArtifactSubmitRes>(
+      await w.submit(
+        run.id,
+        a.id,
+        { ...L1, 'screens/home.html': 'H2', 'a.txt': 'a' },
+        { parent: v1.versionId },
+      ),
+    )
+    const { 'screens/done.html': _, ...rest } = L1
+    const v3 = json<ArtifactSubmitRes>(
+      await w.submit(run.id, a.id, { ...rest, 'b.txt': 'b' }, { parent: v1.versionId }),
+    )
+    // The bot's own upload stays a candidate (its machine then checks the merged head out).
+    expect(v3).toMatchObject({ n: 3, head: false, stale: true })
+    const [merged] = await t.db
+      .select()
+      .from(artifactVersions)
+      .where(eq(artifactVersions.id, (await head(a.id)).headVersionId!))
+    expect(merged).toMatchObject({
+      n: 4,
+      parentVersionId: v2.versionId,
+      source: 'run',
+      runId: run.id,
+      stale: false,
+    })
+    expect(merged!.files.map((f) => f.path)).toEqual([
+      'a.txt',
+      'b.txt',
+      'gg-artifact.json',
+      'screens/home.html',
+      'tokens.css',
+    ])
+    expect(merged!.files.find((f) => f.path === 'screens/home.html')!.hash).toBe(sha('H2'))
+  })
+
   it('answers a retried submit key with the version it made', async () => {
     const w = await artifactWorld(t)
     const a = await w.artifact()
@@ -101,7 +141,7 @@ describe('version submit', () => {
     const both = (
       await Promise.all([
         w.submit(run.id, a.id, { ...L1, 'x.txt': 'x' }, { parent: v1.versionId }),
-        w.submit(run.id, a.id, { ...L1, 'y.txt': 'y' }, { parent: v1.versionId }),
+        w.submit(run.id, a.id, { ...L1, 'x.txt': 'y' }, { parent: v1.versionId }),
       ])
     ).map((r) => json<ArtifactSubmitRes>(r))
     expect(both.map((r) => r.head).sort()).toEqual([false, true])
@@ -407,26 +447,26 @@ describe('members', () => {
       expect((await t.app.inject({ url, headers: { cookie: outsider } })).statusCode, url).toBe(404)
   })
 
-  it('refuses to restore while a run has the artifact checked out', async () => {
+  it('restores while a run has the artifact checked out, naming the bot and what it is doing', async () => {
     const w = await artifactWorld(t)
     const a = await w.artifact()
     const run = await w.run([a.id])
     const v1 = json<ArtifactSubmitRes>(await w.submit(run.id, a.id, L1))
     await w.submit(run.id, a.id, { 'index.html': 'x' }, { parent: v1.versionId })
+    const cookie = await t.seed.cookie(w.wang.id)
     const res = await t.app.inject({
       method: 'POST',
       url: `/api/artifacts/${a.id}/versions/${v1.versionId}/restore`,
-      headers: { cookie: await t.seed.cookie(w.wang.id) },
+      headers: { cookie },
     })
-    expect(res.statusCode).toBe(409)
-    expect(
-      (
-        await t.app.inject({
-          url: `/api/artifacts/${a.id}`,
-          headers: { cookie: await t.seed.cookie(w.wang.id) },
-        })
-      ).json(),
-    ).toMatchObject({ running: true })
+    expect(res.statusCode).toBe(200)
+    await t.db.update(runs).set({ status: 'awaiting_answer' }).where(eq(runs.id, run.id))
+    expect((await t.app.inject({ url: `/api/artifacts/${a.id}`, headers: { cookie } })).json()).toMatchObject(
+      {
+        running: true,
+        runner: { botId: w.bot.id, status: 'awaiting_answer' },
+      },
+    )
   })
 
   it('shows a stale candidate on the card', async () => {

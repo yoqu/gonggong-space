@@ -46,7 +46,7 @@ export function useTextEdit({
       if (!fromMenu.current) onDirect()
       if (canEdit) return setState(m.state)
       setState(null)
-      toast({ type: 'warning', message: t('AI 正在修改，稍后再改文字') })
+      toast({ type: 'warning', message: t('历史版本只读，回到当前版本再改') })
       return reload(m.file)
     }
     setState(null)

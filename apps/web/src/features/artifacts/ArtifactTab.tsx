@@ -91,7 +91,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
   const shown = viewing ?? head
   const { preview, error: previewError } = useArtifactPreview(tab.artifactId, viewing, !!head)
   const { detail, tokens: tokensCss } = useVersionDetail(tab.artifactId, shown)
-  const readOnly = !!viewing || !!a?.running || busy
+  const readOnly = !!viewing || busy
   const design = useDesignSystem({
     artifactId: tab.artifactId,
     groupId: a?.groupId,
@@ -121,6 +121,19 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
       if (a?.manifest) setProto(a.manifest.entry)
     }
   }, [running, a?.manifest])
+
+  // A run's new head says who made it; the canvas marks the screens it changed (本版改动).
+  const lastHead = useRef(head)
+  useEffect(() => {
+    const was = lastHead.current
+    lastHead.current = head
+    const h = a?.head
+    if (!was || h?.id !== head || h.parentVersionId !== was || h.source !== 'run') return
+    toast({
+      type: 'info',
+      message: t('{name} 更新到 v{n}，改动的屏已标出', { name: h.authorName ?? 'AI', n: h.n }),
+    })
+  }, [head, a?.head])
 
   // Undo and redo move the head to the server's targets (ArtifactDto.undoVersionId / redoVersionId).
   const step = (to: string | null | undefined) =>
@@ -259,6 +272,9 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
             <Icon name="chevron-down" size={10} weight={2} />
           </MenuButton>
         ) : null}
+        {a.runner ? (
+          <Runner status={a.runner.status} name={groupBots.find((b) => b.id === a.runner?.botId)?.name} />
+        ) : null}
         {current?.issues.length ? (
           <IssuesButton
             artifactId={a.id}
@@ -286,13 +302,6 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           {t('分享')}
         </Button>
       </header>
-      {a.running ? (
-        <div className="art-running" role="status">
-          <Spinner size={13} />
-          <span>{t('AI 正在修改')}</span>
-          <small>{t('完成前画布只读')}</small>
-        </div>
-      ) : null}
       {!a.running && a.queued ? (
         <div className="art-queued" role="status" data-testid="art-queued">
           <i className="art-queued__dot" aria-hidden="true" />
@@ -311,7 +320,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           <Button size="small" variant="plain" onClick={() => setViewing(null)}>
             {t('回到当前版本')}
           </Button>
-          <Button size="small" disabled={busy || a.running} onClick={() => void adopt()}>
+          <Button size="small" disabled={busy} onClick={() => void adopt()}>
             {t('设为当前版本')}
           </Button>
         </div>
@@ -341,6 +350,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
           fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
           screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
+          changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
           dir={a.dir}
           designMd={design.md}
           designPanel={design.panel}
@@ -370,6 +380,27 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
         ) : null}
       </Presence>
     </div>
+  )
+}
+
+const RUNNER = {
+  running: t('运行中'),
+  awaiting_approval: t('等待审批'),
+  awaiting_answer: t('等待回答'),
+}
+
+/** A bot's live run has the artifact: who and what, without locking anything (its version merges in). */
+function Runner({ status, name }: { status: keyof typeof RUNNER; name: string | undefined }) {
+  return (
+    <span
+      className="art-runner"
+      role="status"
+      data-status={status}
+      title={t('你可以继续编辑，AI 交稿时自动合并；同一文件冲突时保留为候选版本')}
+    >
+      {status === 'running' ? <Spinner size={11} /> : <i className="art-runner__dot" aria-hidden="true" />}
+      {name ?? 'Bot'} · {RUNNER[status]}
+    </span>
   )
 }
 

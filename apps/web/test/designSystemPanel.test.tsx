@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { ArtifactTab } from '../src/features/artifacts/ArtifactTab'
-import { resetArtifacts } from '../src/features/artifacts/store'
+import { focusArtifact, resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui/toast'
 import { apiError, type Call, mockApi } from './mockApi'
@@ -340,7 +340,7 @@ describe('design-system panel', () => {
     const p = await openPanel()
     fireEvent.change(value(p, '--color-primary'), { target: { value: '#8C5835' } })
     fireEvent.click(p.getByRole('button', { name: '保存并让 AI 统一' }))
-    expect(await p.findByText(/产物已有新版本，或 AI 正在修改/)).toBeTruthy()
+    expect(await p.findByText(/产物已有新版本，和你的改动冲突/)).toBeTruthy()
     expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(false)
     expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#8C5835')
     fireEvent.click(p.getByRole('button', { name: '放弃改动' }))
@@ -364,10 +364,34 @@ describe('design-system panel', () => {
     expect(node().style.getPropertyValue('--a-color-primary')).toBe('#155332')
   })
 
-  it('is read-only while the AI is editing, with DESIGN.md rendered safely', async () => {
+  it('stays editable while the AI is running', async () => {
     mockApi(routes({ 'GET /artifacts/a1': artifact({ running: true }) }))
     const p = await openPanel()
-    expect(p.getByText('AI 修改中或查看历史版本时只读')).toBeTruthy()
+    expect(value(p, '--color-primary')).toHaveProperty('disabled', false)
+    expect(p.queryByText('查看历史版本时只读')).toBeNull()
+  })
+
+  it('is read-only on a past version, with DESIGN.md rendered safely', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/versions/v1': {
+          ...version(1, { files: [file('DESIGN.md'), file('tokens.css'), file('screens/home.html')] }),
+          manifest,
+          links: [],
+        },
+        'GET /artifacts/a1/files/tokens.css?version=v1': () => new Response(TOKENS),
+        'GET /artifacts/a1/files/DESIGN.md?version=v1': () => new Response(DESIGN),
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTestId('art-design-system')
+    act(() => {
+      focusArtifact('a1', { versionId: 'v1' })
+    })
+    await screen.findByText('正在查看 v1（只读）')
+    fireEvent.click(tool())
+    const p = within(screen.getByRole('complementary', { name: '设计系统' }))
+    await waitFor(() => expect(p.getByText('查看历史版本时只读')).toBeTruthy())
     expect(value(p, '--color-primary')).toHaveProperty('disabled', true)
     expect(p.getByRole('button', { name: '保存' })).toHaveProperty('disabled', true)
     expect(p.getByRole('button', { name: '保存并让 AI 统一' })).toHaveProperty('disabled', true)

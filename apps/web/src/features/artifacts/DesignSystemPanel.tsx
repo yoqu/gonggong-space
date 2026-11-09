@@ -329,7 +329,7 @@ function DesignSystemPanel({
     setError({
       text:
         e instanceof ApiError && e.status === 409
-          ? t('产物已有新版本，或 AI 正在修改，改动没有保存。可以放弃改动后重新编辑。')
+          ? t('产物已有新版本，和你的改动冲突，改动没有保存。可以放弃改动后重新编辑。')
           : errorText(e),
       conflict: e instanceof ApiError && e.status === 409,
     })
@@ -403,7 +403,7 @@ function DesignSystemPanel({
           onChange={setTab}
         />
       </div>
-      {readOnly ? <p className="art-dsp__note">{t('AI 修改中或查看历史版本时只读')}</p> : null}
+      {readOnly ? <p className="art-dsp__note">{t('查看历史版本时只读')}</p> : null}
       <div className="art-panel__body art-dsp__body">
         {tab === 'theme' ? (
           <>

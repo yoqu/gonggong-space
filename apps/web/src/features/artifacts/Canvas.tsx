@@ -262,6 +262,8 @@ export interface CanvasProps {
   fileUrl: (file: string) => string
   /** The shown version's per-screen thumbnails (Copy as PNG); empty until the server renders them. */
   screenThumbs: { screenId: string; url: string }[]
+  /** Screens this version changed from its parent: marked 本版改动. */
+  changedScreens: string[]
   /** The artifact's directory in the workspace (`design/<slug>`), for the implementation prompt. */
   dir: string
   /** The shown version's DESIGN.md; null when it has none. */
@@ -337,6 +339,7 @@ export function Canvas({
   readFile,
   fileUrl,
   screenThumbs,
+  changedScreens,
   dir,
   designMd,
   designPanel,
@@ -1404,14 +1407,14 @@ export function Canvas({
           label: { select: t('选择'), mark: t('标记#mark'), edit: t('直接编辑'), hand: t('抓手') }[id],
           value: `${RUN.tool}${id}`,
           shortcut: { select: 'V', mark: 'M', edit: 'E', hand: 'H' }[id],
-          ...(id === 'edit' && !canEdit ? { disabled: true, title: t('AI 正在修改') } : {}),
+          ...(id === 'edit' && !canEdit ? { disabled: true, title: t('历史版本只读') } : {}),
         })),
       ),
       ...entriesOf(t('工具'), [
         {
           label: t('上传到画布'),
           value: CMD.upload,
-          ...(canEdit ? {} : { disabled: true, title: t('AI 正在修改') }),
+          ...(canEdit ? {} : { disabled: true, title: t('历史版本只读') }),
         },
       ]),
       ...entriesOf(t('面板'), [
@@ -1731,6 +1734,9 @@ export function Canvas({
                       {fav ? (
                         <Icon name="star" size={11} className="art-title__fav" label={t('已收藏')} />
                       ) : null}
+                      {!tiny && n.kind === 'screen' && changedScreens.includes(n.id) ? (
+                        <span className="art-title__changed">{t('本版改动')}</span>
+                      ) : null}
                     </div>
                   )}
                   {on ? (
@@ -1863,7 +1869,7 @@ export function Canvas({
         <ToolButton
           icon="upload"
           label={t('上传到画布')}
-          off={canEdit ? (uploading ? t('正在上传…') : undefined) : t('AI 正在修改')}
+          off={canEdit ? (uploading ? t('正在上传…') : undefined) : t('历史版本只读')}
           onClick={() => command(CMD.upload)}
         />
         <input

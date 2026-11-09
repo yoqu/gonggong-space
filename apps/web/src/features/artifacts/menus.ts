@@ -109,7 +109,7 @@ export const variationItems = (bot: BotState): MenuItem[] => [
   },
 ]
 
-const readOnlyTitle = (readOnly: boolean) => (readOnly ? { disabled: true, title: t('AI 正在修改') } : {})
+const readOnlyTitle = (readOnly: boolean) => (readOnly ? { disabled: true, title: t('历史版本只读') } : {})
 
 export const modifyItems = (readOnly: boolean): MenuItem[] => [
   { label: t('编辑'), value: CMD.edit, shortcut: 'E', ...readOnlyTitle(readOnly) },

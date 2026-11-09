@@ -1,7 +1,7 @@
 // In-place editing aligned with Stitch: text typed in the screen, images by address or file.
 export default {
   编辑图片: 'Edit image',
-  'AI 正在修改，稍后再改文字': 'The AI is changing it: edit the text later',
+  '历史版本只读，回到当前版本再改': 'Past versions are read-only: go back to the current version to edit',
   '点选要改的文字，Esc 退出': 'Click a text to edit it, Esc to leave',
   '直接输入，回车保存，Esc 取消': 'Type in place: Enter saves, Esc cancels',
   图片地址: 'Image URL',

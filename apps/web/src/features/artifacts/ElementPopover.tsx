@@ -207,7 +207,7 @@ export function EditPopover({
     if (ok) onClose()
   }
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
-  const ro = readOnly ? t('AI 正在修改') : undefined
+  const ro = readOnly ? t('历史版本只读') : undefined
   const aiHint = noSource ?? (bot ? (offlineHint(bot) ?? undefined) : t('群里没有 Bot'))
   const image = isImage(el)
   const upload = useImageUpload(artifactId, el, (ops) => run(() => onApply(ops)))

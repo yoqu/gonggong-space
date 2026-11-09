@@ -23,7 +23,7 @@ import { type ElementEdit, editHtml, editToken } from './html.js'
 import { readableImage } from './images.js'
 import { designSystemFiles } from './kit.js'
 import { parseManifest } from './lint.js'
-import { type Artifact, isRunning, requireVersion, submitVersion } from './service.js'
+import { type Artifact, requireVersion, submitVersion } from './service.js'
 
 const TOKENS = 'tokens.css'
 /** `<sha256>.<ext>`: the upload's blob in the group's artifact store; an image's name under `assets/`. */
@@ -101,11 +101,9 @@ function copyId(id: string, taken: Set<string>) {
 
 /**
  * POST /api/artifacts/:id/edits (§3.5): every op applied to the head's files, saved as one new version (source
- * `edit`). Refuses with 409 while a run has it or once the head moved past `baseVersionId`.
+ * `edit`). Once the head moved past `baseVersionId` it merges in by file, or refuses with 409 when they overlap.
  */
 export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: ArtifactEditReq) {
-  if (await isRunning(ctx.db, a)) fail('conflict', '产物正在被 AI 修改，请等运行结束')
-  if (req.baseVersionId !== a.headVersionId) fail('conflict', '产物已有新版本，请刷新后重做')
   const base = await requireVersion(ctx.db, a, req.baseVersionId)
   const files = new Map<string, ArtifactFile>(base.files.map((f) => [f.path, f]))
   const changed = new Map<string, Buffer>()

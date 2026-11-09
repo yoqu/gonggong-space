@@ -423,6 +423,16 @@
   flex: none;
   color: var(--system-yellow);
 }
+.art-title__changed {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--tint-blue);
+  color: var(--tint-blue-text);
+  font-size: var(--text-caption-size);
+  line-height: 16px;
+  white-space: nowrap;
+}
 .art-title__input {
   height: 24px;
   padding: 0 6px;
@@ -660,20 +670,29 @@
 }
 
 /* AI at work: everything that changes the artifact waits. */
-.art-running {
-  position: relative;
-  z-index: 2;
-  display: flex;
+.art-runner {
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-4) var(--space-12);
-  border-bottom: 1px solid var(--separator);
+  gap: var(--space-4);
+  height: 22px;
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-capsule);
   background: var(--tint-blue);
   color: var(--tint-blue-text);
-  font-size: var(--text-footnote-size);
+  font-size: var(--text-caption-size);
+  white-space: nowrap;
 }
-.art-running small {
-  opacity: 0.8;
+.art-runner[data-status="awaiting_answer"],
+.art-runner[data-status="awaiting_approval"] {
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+}
+.art-runner__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* Connections between screens, drawn in viewport pixels over the plane. */

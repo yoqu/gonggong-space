@@ -110,8 +110,11 @@ export default {
   上方的屏: 'Screen above',
   下方的屏: 'Screen below',
   // R2: canvas nodes, panels and screen operations
-  'AI 正在修改': 'AI is editing',
-  完成前画布只读: 'The canvas is read-only until it finishes',
+  历史版本只读: 'Past versions are read-only',
+  本版改动: 'Changed',
+  '{name} 更新到 v{n}，改动的屏已标出': '{name} updated it to v{n}; changed screens are marked',
+  '你可以继续编辑，AI 交稿时自动合并；同一文件冲突时保留为候选版本':
+    "Keep editing: the AI's version merges in, or stays a candidate when you both changed the same file",
   原型: 'Prototype',
   双击打开: 'Double-click to open',
   已收藏: 'Favourited',

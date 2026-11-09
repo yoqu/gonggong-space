@@ -878,7 +878,6 @@ export const en = {
   '文件内容未上传：{path}': 'File content not uploaded: {path}',
   '文件大小与内容不符：{path}': "File size doesn't match its content: {path}",
   父版本不属于该产物: "The parent version doesn't belong to this artifact",
-  '产物正在被 AI 修改，请等运行结束': 'The AI is changing this artifact; wait for its run to end',
   已经是当前版本: 'Already the current version',
   '缩略图不能超过 {mb} MB': 'A thumbnail cannot exceed {mb} MB',
   '群的产物存储已超过 {gb} GB 上限': "The group's artifact storage exceeds its {gb} GB limit",

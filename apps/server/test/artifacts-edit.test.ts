@@ -114,20 +114,35 @@ describe('direct edits', () => {
     expect((card!.meta as { card: ArtifactCard }).card).toMatchObject({ versionN: 2, status: 'ready' })
   })
 
-  it('refuses a base that is no longer the head, and edits while a run has the artifact', async () => {
+  it('merges an edit on an older base that touches other files, and refuses one that overlaps', async () => {
     const s = await setup()
-    const op = { kind: 'text', file: 'screens/home.html', ggId: id(HOME, '<h1'), text: 'x' }
-    expect((await s.edit([op])).statusCode).toBe(200)
-    const stale = await s.edit([op])
-    expect(stale.statusCode).toBe(409)
-    expect(stale.json().message).toContain('新版本')
+    const home = (text: string) => ({ kind: 'text', file: 'screens/home.html', ggId: id(HOME, '<h1'), text })
+    expect((await s.edit([home('x')])).statusCode).toBe(200)
 
-    const head = (await t.db.select().from(artifacts).where(eq(artifacts.id, s.a.id)))[0]!.headVersionId!
+    const done = {
+      kind: 'text',
+      file: 'screens/done.html',
+      ggId: id(L1['screens/done.html'], '<h1'),
+      text: '成功',
+    }
+    const merged = await s.edit([done])
+    expect(merged.statusCode).toBe(200)
+    expect((merged.json() as ArtifactDto).head).toMatchObject({ n: 3, source: 'edit' })
+    expect(await s.file('screens/home.html')).toContain('<h1 class="t">x</h1>')
+    expect(await s.file('screens/done.html')).toContain('<h1>成功</h1>')
+
+    const overlap = await s.edit([home('y')])
+    expect(overlap.statusCode).toBe(409)
+    expect(overlap.json().message).toContain('新版本')
+    expect(await s.versions()).toBe(3)
+  })
+
+  it('edits while a run has the artifact checked out', async () => {
+    const s = await setup()
     await s.run([s.a.id], { status: 'running' })
-    const busy = await s.edit([op], head)
-    expect(busy.statusCode).toBe(409)
-    expect(busy.json().message).toContain('AI')
-    expect(await s.versions()).toBe(2)
+    const res = await s.edit([{ kind: 'text', file: 'screens/home.html', ggId: id(HOME, '<h1'), text: 'x' }])
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ running: true, runner: { botId: s.bot.id, status: 'running' } })
   })
 
   it('refuses unsafe values, paths, unknown elements and tokens without a new version', async () => {
@@ -406,6 +421,19 @@ describe('artifact details', () => {
     expect((res.json() as ArtifactVersionDetail).links).toEqual([
       { from: 'home', to: 'done', ggId: id(HOME, '<a '), text: '去报名' },
     ])
+  })
+
+  it('names the screens a version changed from its parent', async () => {
+    const s = await setup()
+    const detail = async (v: string) =>
+      (
+        await t.app.inject({ url: `/api/artifacts/${s.a.id}/versions/${v}`, headers: { cookie: s.cookie } })
+      ).json() as ArtifactVersionDetail
+    expect((await detail(s.v1.versionId)).changedScreens).toEqual([])
+    const res = await s.edit([
+      { kind: 'text', file: 'screens/done.html', ggId: id(L1['screens/done.html'], '<h1'), text: '成功' },
+    ])
+    expect((await detail((res.json() as ArtifactDto).headVersionId!)).changedScreens).toEqual(['done'])
   })
 
   it('stars screens and archives without a new version', async () => {

@@ -187,6 +187,8 @@ export type ArtifactLink = z.infer<typeof ArtifactLink>
 export const ArtifactVersionDetail = ArtifactVersionDto.extend({
   manifest: GgArtifactManifest.nullable(),
   links: z.array(ArtifactLink),
+  /** Screens whose file differs from the parent version's (none for a first version): 本版改动 on the canvas. */
+  changedScreens: z.array(ArtifactScreenId).optional(),
 })
 export type ArtifactVersionDetail = z.infer<typeof ArtifactVersionDetail>
 
@@ -223,8 +225,16 @@ export const ArtifactDto = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   archivedAt: z.string().nullable(),
-  /** A run is working on it: the panel is read-only until it ends. */
+  /**
+   * A live run has it checked out. Members still edit: a version the run submits on an older head is merged file by
+   * file when the changes do not overlap, else kept as a stale candidate.
+   */
   running: z.boolean(),
+  /** That run's bot and status (the canvas shows who is at it). */
+  runner: z
+    .object({ botId: z.string(), status: z.enum(['running', 'awaiting_approval', 'awaiting_answer']) })
+    .nullable()
+    .optional(),
   /** Its bot has triggered runs waiting for its machine to come online (offline_wait); they run once it does. */
   queued: z.boolean(),
   queuedRunCount: z.number().int().min(0),

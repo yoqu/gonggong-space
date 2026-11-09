@@ -4,7 +4,7 @@ export default {
   未命名设计系统: 'Untitled design system',
   预设: 'Presets',
   主题: 'Theme',
-  'AI 修改中或查看历史版本时只读': 'Read-only while the AI is editing or a past version is shown',
+  查看历史版本时只读: 'Read-only on a past version',
   模式: 'Mode',
   推导: 'Derived',
   浅色: 'Light',
@@ -38,8 +38,8 @@ export default {
   '群里没有 Bot': 'No Bot in this group',
   '已让 {bot} 按设计系统统一所有屏幕': '{bot} is restyling every screen to the design system',
   设计系统已保存: 'Design system saved',
-  '产物已有新版本，或 AI 正在修改，改动没有保存。可以放弃改动后重新编辑。':
-    'The artifact has a newer version or the AI is editing it, so your changes were not saved. Discard them and edit again.',
+  '产物已有新版本，和你的改动冲突，改动没有保存。可以放弃改动后重新编辑。':
+    'A newer version changed the same files, so your changes were not saved. Discard them and edit again.',
   放弃改动: 'Discard changes',
   继续编辑: 'Keep editing',
   '放弃未保存的设计系统改动？': 'Discard unsaved design system changes?',

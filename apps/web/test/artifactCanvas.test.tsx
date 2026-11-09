@@ -554,24 +554,25 @@ describe('favourites', () => {
 })
 
 describe('while AI is editing', () => {
-  it('is read-only with a banner', async () => {
-    const calls = mockApi(routes({ 'GET /artifacts/a1': artifact({ running: true }) }))
+  it('says who is at it and keeps the canvas editable', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ running: true, runner: { botId: 'b1', status: 'awaiting_answer' } }),
+      }),
+    )
     await renderTab()
-    expect(screen.getByText('AI 正在修改')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '撤销' }).hasAttribute('disabled')).toBe(true)
+    expect(document.querySelector('.art-runner')?.textContent).toContain('等待回答')
+    expect(screen.queryByText('AI 正在修改')).toBeNull()
+    expect(screen.getByRole('button', { name: '直接编辑' }).hasAttribute('disabled')).toBe(false)
     const menu = openContext('home')
-    for (const name of [/创建副本/, /剪切/, /重命名/, /删除/])
-      expect(item(menu, name).hasAttribute('disabled')).toBe(true)
-    fireEvent.keyDown(menu, { key: 'Escape' })
-    key('d', { metaKey: true })
-    key('Backspace')
-    key('e')
-    expect(screen.queryByRole('alertdialog')).toBeNull()
-    expect(screen.getByRole('button', { name: '直接编辑' }).hasAttribute('disabled')).toBe(true)
-    // Favourites and reading stay available.
-    key('F', { shiftKey: true })
-    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(edits(calls)).toEqual([])
+    for (const name of [/创建副本/, /重命名/]) expect(item(menu, name).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('marks the screens the shown version changed', async () => {
+    mockApi(routes({ 'GET /artifacts/a1/versions/v2': detail({ changedScreens: ['home'] }) }))
+    await renderTab()
+    expect(await screen.findByText('本版改动')).toBeTruthy()
+    expect(screen.getAllByText('本版改动')).toHaveLength(1)
   })
 })
 

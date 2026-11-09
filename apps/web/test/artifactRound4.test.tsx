@@ -249,12 +249,10 @@ describe('files on the canvas (G04)', () => {
     )
   })
 
-  it('takes no files while the AI is at work', async () => {
+  it('still takes files while the AI is at work (its version merges in)', async () => {
     mockApi(routes({ 'GET /artifacts/a1': artifact({ running: true }) }))
     await renderTab()
-    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(true)
-    fireEvent.dragOver(canvas(), { dataTransfer: { types: ['Files'], files: [png()] } })
-    expect(screen.queryByTestId('art-drop')).toBeNull()
+    expect(screen.getByRole('button', { name: '上传到画布' }).hasAttribute('disabled')).toBe(false)
   })
 
   it('moves a reference where it is dragged (ref-move)', async () => {

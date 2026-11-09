@@ -834,7 +834,7 @@ function ElementMenu({
   const noSource = located ? undefined : t('脚本生成的元素，只能批注')
   const noBot = bot ? undefined : t('群里没有 Bot')
   const offline = offlineHint(bot) ?? undefined
-  const ro = readOnly ? t('AI 正在修改') : undefined
+  const ro = readOnly ? t('历史版本只读') : undefined
   const status = textEditingHint(texting)
   const apply = async (ops: ArtifactEditOp[]) => (await onApply(ops)) && onClose()
   const upload = useImageUpload(artifactId, el, apply)
