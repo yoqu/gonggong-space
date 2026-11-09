@@ -282,6 +282,9 @@ describe('versions and submit', () => {
     expect(req([f('a'), f('a')])).toBe(false)
     expect(req([f('a', ARTIFACT_FILE_MAX_BYTES + 1)])).toBe(false)
     expect(req(Array.from({ length: ARTIFACT_MAX_FILES + 1 }, (_, i) => f(`f${i}`)))).toBe(false)
+    const full = Array.from({ length: 20 }, (_, i) => f(`f${i}`, ARTIFACT_FILE_MAX_BYTES))
+    expect(req(full)).toBe(true)
+    expect(req([...full, f('extra')])).toBe(false)
   })
   it('digest is the sync root hash of the files (exec false)', () => {
     const text = artifactDigestText([f('b'), f('a')])

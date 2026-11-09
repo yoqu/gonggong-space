@@ -716,7 +716,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("无法保存产物状态：{e}", "Couldn't save the artifact state: {e}"),
     ("无法扫描产物目录 {dir}：{e}", "Couldn't scan the artifact folder {dir}: {e}"),
     ("产物文件超过 10MB：{path}", "Artifact file over 10 MB: {path}"),
-    ("产物超出单版上限（500 个文件、50MB）", "The artifact exceeds the version limits (500 files, 50 MB)"),
+    ("产物超出单版上限（500 个文件、200MB）", "The artifact exceeds the version limits (500 files, 200 MB)"),
     ("产物版本清单不匹配：{version}", "The artifact version manifest doesn't match: {version}"),
     ("产物版本含有不安全的路径，已拒绝：{path}", "The artifact version has an unsafe path and was refused: {path}"),
     ("无法检出产物 {dir}：{e}", "Couldn't check out the artifact {dir}: {e}"),

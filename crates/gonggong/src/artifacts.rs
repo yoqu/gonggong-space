@@ -29,7 +29,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use tokio::io::AsyncWriteExt;
 
 pub const FILE_MAX_BYTES: u64 = 10 * 1024 * 1024;
-pub const VERSION_MAX_BYTES: u64 = 50 * 1024 * 1024;
+pub const VERSION_MAX_BYTES: u64 = 200 * 1024 * 1024;
 pub const MAX_FILES: usize = 500;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -314,7 +314,7 @@ fn within_limits(files: &[ArtifactFile]) -> Result<(), String> {
         return Err(t!("产物文件超过 10MB：{path}", path = f.path));
     }
     if files.len() > MAX_FILES || total > VERSION_MAX_BYTES {
-        return Err(t!("产物超出单版上限（500 个文件、50MB）").into());
+        return Err(t!("产物超出单版上限（500 个文件、200MB）").into());
     }
     Ok(())
 }

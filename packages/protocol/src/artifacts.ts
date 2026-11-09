@@ -4,7 +4,7 @@ import { SyncHash, SyncPath, syncRootText } from './sync.js'
 // ── Artifacts (docs/plan/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
 
 export const ARTIFACT_FILE_MAX_BYTES = 10 * 1024 * 1024
-export const ARTIFACT_VERSION_MAX_BYTES = 50 * 1024 * 1024
+export const ARTIFACT_VERSION_MAX_BYTES = 200 * 1024 * 1024
 export const ARTIFACT_MAX_FILES = 500
 /** Lint issues a run's context carries about the artifacts it works on. */
 export const ARTIFACT_CONTEXT_ISSUES_MAX = 20
