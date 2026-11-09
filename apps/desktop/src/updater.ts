@@ -25,24 +25,54 @@ export const useUpdate = create<{ state: UpdatePhase; dismissed: boolean }>()(()
 
 /** The downloaded update, installed on restart. */
 let downloaded: Update | null = null
+/** A re-check while an update waits for the restart. */
+let refreshing = false
 
 const set = (state: UpdatePhase) => useUpdate.setState({ state })
 
-/** Checks once and downloads what it finds; no-op while busy or once an update waits for the restart. */
+/** The latest update when it is newer than `than` (the downloaded one), downloaded; null when there is none. */
+async function fetchNewer(than?: Update | null) {
+  const update = await ipc.checkUpdate()
+  if (!update || update.version === than?.version) return null
+  await update.download()
+  return update
+}
+
+function ready(update: Update) {
+  downloaded = update
+  useUpdate.setState({
+    state: { phase: 'ready', version: update.version, notes: update.body?.trim() || undefined },
+    dismissed: false,
+  })
+}
+
+/**
+ * Checks once and downloads what it finds. While a downloaded update waits for the restart it keeps checking, so an
+ * app left running across several releases restarts straight into the latest instead of one release at a time.
+ */
 export async function checkForUpdate() {
-  const { phase } = useUpdate.getState().state
-  if (phase !== 'idle' && phase !== 'latest' && phase !== 'error') return
+  const { state } = useUpdate.getState()
+  if (state.phase === 'ready') {
+    if (refreshing) return
+    refreshing = true
+    try {
+      const update = await fetchNewer(downloaded)
+      if (update && useUpdate.getState().state.phase === 'ready') ready(update)
+    } catch {
+      // A failed background re-check keeps the downloaded update; the next check retries.
+    } finally {
+      refreshing = false
+    }
+    return
+  }
+  if (state.phase !== 'idle' && state.phase !== 'latest' && state.phase !== 'error') return
   set({ phase: 'checking' })
   try {
     const update = await ipc.checkUpdate()
     if (!update) return set({ phase: 'latest' })
     set({ phase: 'downloading', version: update.version })
     await update.download()
-    downloaded = update
-    useUpdate.setState({
-      state: { phase: 'ready', version: update.version, notes: update.body?.trim() || undefined },
-      dismissed: false,
-    })
+    ready(update)
   } catch (e) {
     set({ phase: 'error', message: String(e) })
   }
@@ -73,7 +103,10 @@ export async function restartToUpdate() {
   if (!update || state.phase !== 'ready') return
   set({ phase: 'installing', version: state.version })
   try {
-    await update.install()
+    // A release published since the download would otherwise take one more restart; offline, install what we have.
+    const latest = await fetchNewer(update).catch(() => null)
+    if (latest) set({ phase: 'installing', version: latest.version })
+    await (latest ?? update).install()
     await ipc.stopDaemon()
     await ipc.relaunch()
   } catch (e) {

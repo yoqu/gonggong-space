@@ -5,20 +5,20 @@ import { ipc, type Update } from '../src/ipc'
 import { SettingsPage } from '../src/pages/Settings'
 import { UpdateBanner } from '../src/shell/UpdateBanner'
 import { useDaemon } from '../src/store'
-import { startUpdater, useUpdate } from '../src/updater'
+import { checkForUpdate, startUpdater, useUpdate } from '../src/updater'
 import { INFO, run, status } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
-function fakeUpdate(calls: string[]) {
+function fakeUpdate(calls: string[], version = '0.2.0') {
   return {
-    version: '0.2.0',
+    version,
     body: '## 更新内容\n\n- 修复模型选择\n- 支持多张图片',
     download: vi.fn(async () => {
-      calls.push('download')
+      calls.push(`download ${version}`)
     }),
     install: vi.fn(async () => {
-      calls.push('install')
+      calls.push(`install ${version}`)
     }),
   } as unknown as Update
 }
@@ -53,7 +53,7 @@ it('downloads an update at launch, offers a restart and can be put off', async (
   expect(banner.textContent).toContain('新版本 v0.2.0 已下载，重启以更新')
   expect(banner.textContent).toContain('修复模型选择')
   expect(banner.textContent).toContain('支持多张图片')
-  expect(calls).toEqual(['download'])
+  expect(calls).toEqual(['download 0.2.0'])
   fireEvent.click(within(banner).getByRole('button', { name: '稍后' }))
   expect(screen.queryByRole('alert')).toBeNull()
   stop()
@@ -77,7 +77,7 @@ it('installs, stops the daemon and relaunches when nothing runs', async () => {
   render(<UpdateBanner />)
   startUpdater()()
   fireEvent.click(within(await screen.findByRole('alert')).getByRole('button', { name: '立即重启' }))
-  await waitFor(() => expect(calls).toEqual(['download', 'install', 'stop', 'relaunch']))
+  await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
 })
 
 it('warns before interrupting running tasks', async () => {
@@ -92,7 +92,7 @@ it('warns before interrupting running tasks', async () => {
 
   fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
   fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '仍然重启' }))
-  await waitFor(() => expect(calls).toEqual(['download', 'install', 'stop', 'relaunch']))
+  await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
 })
 
 it('checks by hand in Settings and shows the version and the outcome', async () => {
@@ -106,5 +106,38 @@ it('checks by hand in Settings and shows the version and the outcome', async () 
   fireEvent.click(screen.getByRole('button', { name: '检查更新' }))
   expect(await screen.findByText('v0.2.0 已下载，重启以更新')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: '立即重启' }))
-  await waitFor(() => expect(calls).toEqual(['download', 'install', 'stop', 'relaunch']))
+  await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
+})
+
+it('keeps checking while an update waits, so a restart skips straight to the latest release', async () => {
+  render(<UpdateBanner />)
+  startUpdater()()
+  await screen.findByRole('alert')
+  m.checkUpdate.mockResolvedValue(fakeUpdate(calls, '0.4.0'))
+  await act(() => checkForUpdate())
+  expect(screen.getByRole('alert').textContent).toContain('新版本 v0.4.0 已下载，重启以更新')
+  fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
+  await waitFor(() =>
+    expect(calls).toEqual(['download 0.2.0', 'download 0.4.0', 'install 0.4.0', 'stop', 'relaunch']),
+  )
+})
+
+it('installs a release published since the download instead of the downloaded one', async () => {
+  render(<UpdateBanner />)
+  startUpdater()()
+  await screen.findByRole('alert')
+  m.checkUpdate.mockResolvedValue(fakeUpdate(calls, '0.3.0'))
+  fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
+  await waitFor(() =>
+    expect(calls).toEqual(['download 0.2.0', 'download 0.3.0', 'install 0.3.0', 'stop', 'relaunch']),
+  )
+})
+
+it('installs the downloaded update when the re-check at restart fails', async () => {
+  render(<UpdateBanner />)
+  startUpdater()()
+  await screen.findByRole('alert')
+  m.checkUpdate.mockRejectedValue('network down')
+  fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: '立即重启' }))
+  await waitFor(() => expect(calls).toEqual(['download 0.2.0', 'install 0.2.0', 'stop', 'relaunch']))
 })
