@@ -47,6 +47,10 @@
   color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
 }
+/* A toggle that is on (自动换行, 注解, 源码) sits on a soft fill, as the toolbar's do. */
+.fv__bar .ui-btn[aria-pressed="true"] {
+  background: var(--control-track);
+}
 .fv__bar > .spacer {
   flex: 1 1 0;
 }
@@ -127,6 +131,13 @@
   max-height: 70vh;
   object-fit: contain;
 }
+.fv-img-open--svg {
+  width: 100%;
+}
+.fv-img--svg.fv-img--fit {
+  width: min(100%, 640px);
+  margin: 0 auto;
+}
 .fv__audio {
   display: flex;
   flex-direction: column;
@@ -158,6 +169,9 @@
 }
 .fv__md {
   min-width: 0;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
 }
 .fv-office {
   position: relative;
@@ -217,6 +231,12 @@
   font-size: var(--text-subheadline-size);
   color: var(--label-secondary);
 }
+.fv__note--cut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
 .fv__none {
   display: flex;
   flex-direction: column;
@@ -260,6 +280,12 @@
 }
 .pv-line__t {
   white-space: pre;
+}
+/* 自动换行: a long line folds under itself, its number staying on the first row. */
+.pv-lines[data-wrap] .pv-line__t {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 /* Git blame (IDEA's Annotate): a band per run of lines from one commit, its hash, author and age on the first. */
 .pv-line__blame {

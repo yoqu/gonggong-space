@@ -1,5 +1,14 @@
 import { FILE_TEXT_MAX_BYTES, type FileTextDto, type GitBlameDto, type GitShowDto } from '@gonggong/protocol'
-import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { type LineRange, useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
 import { api, errorText } from '../../lib/api'
@@ -122,6 +131,13 @@ const BAR_WIDE_PX = 520
 const LINES_MAX = 5000
 const TEXTUAL: ViewKind[] = ['md', 'html', 'text', 'unknown']
 
+/** 自动换行: phones and narrow panels wrap unless the reader said otherwise; one choice for every file. */
+const WRAP_KEY = 'gg.fv.wrap'
+const storedWrap = () => {
+  const v = localStorage.getItem(WRAP_KEY)
+  return v === 'on' ? true : v === 'off' ? false : null
+}
+
 const level = (line: string) => (/ERROR|FAIL/.test(line) ? 'error' : /WARN/.test(line) ? 'warn' : null)
 
 /** Memoized: a file can hold up to 2 MB of text, split, highlighted and drawn line by line. */
@@ -234,6 +250,8 @@ const Lines = memo(function Lines({
   colored,
   lang,
   line,
+  wrap,
+  download,
   blame,
   onCommit,
   onPrevious,
@@ -244,6 +262,9 @@ const Lines = memo(function Lines({
   colored: boolean
   lang: Lang | null
   line?: LineRange
+  wrap: boolean
+  /** Offered beside the note when the file is cut. */
+  download?: ReactNode
   blame?: BlameLine[]
   onCommit?: (hash: string) => void
   onPrevious?: (revision: string) => void
@@ -270,7 +291,13 @@ const Lines = memo(function Lines({
   }, [from, to])
   return (
     <>
-      <div className="pv-lines">
+      {count > shown.length ? (
+        <div className="fv__note fv__note--cut">
+          <span>{t('仅显示前 {max} 行，共 {n} 行，完整内容请下载', { max: LINES_MAX, n: count })}</span>
+          {download}
+        </div>
+      ) : null}
+      <div className="pv-lines" data-wrap={wrap || undefined}>
         {shown.map((l, i) => {
           const lv = colored ? level(l) : null
           const lineTokens = tokens?.[i]
@@ -299,11 +326,6 @@ const Lines = memo(function Lines({
           )
         })}
       </div>
-      {count > shown.length ? (
-        <div className="fv__note">
-          {t('仅显示前 {max} 行，共 {n} 行，完整内容请下载', { max: LINES_MAX, n: count })}
-        </div>
-      ) : null}
     </>
   )
 })
@@ -393,15 +415,19 @@ const MEDIA_FAILED: Partial<Record<ViewKind, string>> = {
   audio: t('浏览器无法播放此音频，可下载查看'),
 }
 
+function DownloadLink({ url, name }: { url: string; name: string }) {
+  return (
+    <a className="ui-btn ui-btn--small" href={url} download={name}>
+      {t('下载')}
+    </a>
+  )
+}
+
 function Download({ url, name, message }: { url?: string; name: string; message: string }) {
   return (
     <div className="fv__none">
       <span>{message}</span>
-      {url ? (
-        <a className="ui-btn ui-btn--small" href={url} download={name}>
-          {t('下载')}
-        </a>
-      ) : null}
+      {url ? <DownloadLink url={url} name={name} /> : null}
     </div>
   )
 }
@@ -505,8 +531,16 @@ export function FileViewer({
   }>()
   const [attempt, setAttempt] = useState(0)
   const [md, setMd] = useState<'preview' | 'source'>(line || annotateAsked ? 'source' : 'preview')
+  const [wrapPref, setWrapPref] = useState(storedWrap)
+  const wrap = wrapPref ?? !wide
+  const toggleWrap = () => {
+    localStorage.setItem(WRAP_KEY, wrap ? 'off' : 'on')
+    setWrapPref(!wrap)
+  }
   const [fit, setFit] = useState<'fit' | 'actual'>('fit')
   const [dim, setDim] = useState<string | null>(null)
+  // An SVG often has only a viewBox: no size of its own (browsers report 300×150), so it is drawn to the panel.
+  const vector = kind === 'image' && /\.svg$/i.test(name)
   const [zoom, setZoom] = useState(false)
   // Keyed by the source so another file starts fresh.
   const [failed, setFailed] = useState<string>()
@@ -529,7 +563,10 @@ export function FileViewer({
   const text = mine ? got.text : null
   const error = mine ? got.error : null
 
+  // Kept stable: Lines is memoized, a fresh node would redraw every line on each render.
+  const cutDownload = useMemo(() => (url ? <DownloadLink url={url} name={name} /> : undefined), [url, name])
   const copy = () => copyWithToast(path, t('已复制路径'))
+  const copyText = () => text?.text != null && copyWithToast(text.text, t('已复制全文'))
 
   const body = (() => {
     const failedText = url && failed === url ? MEDIA_FAILED[kind] : undefined
@@ -540,13 +577,13 @@ export function FileViewer({
           <div className="fv__media fv__media--checker">
             <button
               type="button"
-              className="fv-img-open"
+              className={cx('fv-img-open', vector && 'fv-img-open--svg')}
               aria-label={t('全屏查看 {name}', { name })}
               title={t('全屏查看')}
               onClick={() => setZoom(true)}
             >
               <img
-                className={cx('fv-img', fit === 'fit' && 'fv-img--fit')}
+                className={cx('fv-img', fit === 'fit' && 'fv-img--fit', vector && 'fv-img--svg')}
                 data-loaded={dim ? '' : undefined}
                 src={url}
                 alt={name}
@@ -650,6 +687,8 @@ export function FileViewer({
           colored={fileType(name) === 'text'}
           lang={langOf(name)}
           line={line}
+          wrap={wrap}
+          download={cutDownload}
           blame={annotate?.lines ?? undefined}
           onCommit={git?.onCommit}
           onPrevious={git ? (revision) => git.openRevision(path, revision) : undefined}
@@ -662,6 +701,20 @@ export function FileViewer({
   const source = textual && text?.text != null && !(kind === 'md' && md === 'preview')
 
   const actions: BarAction[] = [
+    ...(source
+      ? [
+          {
+            key: 'wrap',
+            label: t('自动换行'),
+            icon: 'arrow-turn-down-right' as const,
+            run: toggleWrap,
+            pressed: wrap,
+          },
+        ]
+      : []),
+    ...(text?.text != null
+      ? [{ key: 'copyText', label: t('复制全文'), icon: 'copy' as const, run: copyText }]
+      : []),
     ...(git && source
       ? [
           {
@@ -675,7 +728,7 @@ export function FileViewer({
         ]
       : []),
     ...(git ? [{ key: 'history', label: t('显示历史'), icon: 'clock' as const, run: git.onHistory }] : []),
-    { key: 'copy', label: t('复制路径'), icon: 'copy', run: copy },
+    { key: 'copy', label: t('复制路径'), icon: 'link', run: copy },
     ...(onOpenTab
       ? [{ key: 'tab', label: t('在新标签页打开'), icon: 'external' as const, run: onOpenTab }]
       : []),
@@ -696,13 +749,14 @@ export function FileViewer({
     })),
   ]
   const shownSize = text?.size ?? size
-  const meta = [typeLabel(name), shownSize == null ? null : fmtSize(shownSize), dim]
+  const shownDim = vector ? null : dim
+  const meta = [typeLabel(name), shownSize == null ? null : fmtSize(shownSize), shownDim]
     .filter(Boolean)
     .join(' · ')
 
   const rows =
-    details && dim
-      ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), dim] as [string, string]]
+    details && shownDim
+      ? [...details, [kind === 'video' ? t('分辨率') : t('尺寸'), shownDim] as [string, string]]
       : details
   return (
     <div className="fv">
@@ -715,7 +769,19 @@ export function FileViewer({
           <span className="fv__meta">{meta}</span>
         </div>
         <span className="spacer" />
-        {kind === 'md' && text?.text != null ? (
+        {kind === 'md' && text?.text != null && !wide ? (
+          // Two tabs would take a third of a phone's bar from the name; one toggle says the same.
+          <Button
+            size="small"
+            variant="plain"
+            icon="doc-code"
+            aria-label={t('源码')}
+            aria-pressed={md === 'source'}
+            title={t('源码')}
+            onClick={() => setMd(md === 'source' ? 'preview' : 'source')}
+          />
+        ) : null}
+        {kind === 'md' && text?.text != null && wide ? (
           <Tabs
             size="sm"
             value={md}

@@ -68,6 +68,7 @@ const TEXTS: Record<string, { text: string | null; binary: boolean; size: number
   'big.log': { text: null, binary: false, size: 3 * 1024 * 1024, mime: 'text/plain' },
   'data.bin': { text: null, binary: true, size: 2048, mime: 'application/octet-stream' },
   'index.html': { text: '<h1>hi</h1>', binary: false, size: 11, mime: 'text/html' },
+  'long.txt': { text: 'x\n'.repeat(5001), binary: false, size: 10002, mime: 'text/plain' },
 }
 
 let calls: string[]
@@ -116,6 +117,7 @@ beforeEach(() => {
   useToasts.setState({ items: [] })
 })
 afterEach(() => {
+  localStorage.removeItem('gg.fv.wrap')
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -367,6 +369,17 @@ describe('file viewer', () => {
     expect(await files().findByText('PNG 图片 · 10 B · 640×480')).toBeTruthy()
   })
 
+  it('sizes a vector image to the panel and leaves out its made-up dimensions', async () => {
+    openFile('icon.svg')
+    const img = screen.getByRole('img', { name: 'icon.svg' })
+    expect(img.className).toContain('fv-img--svg')
+    Object.defineProperty(img, 'naturalWidth', { value: 300 })
+    Object.defineProperty(img, 'naturalHeight', { value: 150 })
+    fireEvent.load(img)
+    expect(img.hasAttribute('data-loaded')).toBe(true)
+    expect(screen.getByText('SVG 图片')).toBeTruthy()
+  })
+
   it('keeps download first and folds the other actions into 更多 when narrow', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn(async () => {}) } })
@@ -389,6 +402,67 @@ describe('file viewer', () => {
     fireEvent.click(screen.getByRole('button', { name: '更多' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '原始大小（1:1）' }))
     expect(img.className).not.toContain('fv-img--fit')
+  })
+
+  it('wraps long lines by default when narrow, from 更多', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    openFile('src/main.ts')
+    await screen.findByText('console.log(a)')
+    const lines = document.querySelector('.pv-lines') as HTMLElement
+    expect(lines.hasAttribute('data-wrap')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    const item = screen.getByRole('menuitemcheckbox', { name: '自动换行' })
+    expect(item.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(item)
+    expect(lines.hasAttribute('data-wrap')).toBe(false)
+    expect(localStorage.getItem('gg.fv.wrap')).toBe('off')
+  })
+
+  it('keeps long lines unwrapped when wide until asked, and remembers the choice', async () => {
+    const view = openFile('src/main.ts')
+    await screen.findByText('console.log(a)')
+    const wrap = screen.getByRole('button', { name: '自动换行' })
+    expect(wrap.getAttribute('aria-pressed')).toBe('false')
+    expect(document.querySelector('.pv-lines[data-wrap]')).toBeNull()
+    fireEvent.click(wrap)
+    expect(document.querySelector('.pv-lines[data-wrap]')).toBeTruthy()
+    view.unmount()
+    openFile('src/main.ts')
+    await screen.findByText('console.log(a)')
+    expect(screen.getByRole('button', { name: '自动换行' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('copies the whole text, also from a markdown preview', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    openFile('README.md')
+    await screen.findByRole('heading', { name: '标题' })
+    expect(screen.queryByRole('button', { name: '自动换行' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '复制全文' }))
+    expect(writeText).toHaveBeenCalledWith('# 标题\n\n正文')
+    await waitFor(() => expect(useToasts.getState().items[0]?.message).toBe('已复制全文'))
+  })
+
+  it('switches markdown to its source with one button when narrow', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    openFile('README.md')
+    await screen.findByRole('heading', { name: '标题' })
+    expect(screen.queryByRole('tab', { name: '源码' })).toBeNull()
+    const source = screen.getByRole('button', { name: '源码' })
+    expect(source.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(source)
+    expect(screen.getByText('# 标题')).toBeTruthy()
+    expect(source.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('says up front that a long file is cut, with its download', async () => {
+    openFile('long.txt')
+    const note = await screen.findByText('仅显示前 5000 行，共 5001 行，完整内容请下载')
+    const box = note.closest('.fv__note') as HTMLElement
+    expect(within(box).getByRole('link', { name: '下载' }).getAttribute('href')).toBe(raw('long.txt'))
+    expect(box.compareDocumentPosition(document.querySelector('.pv-lines') as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
   })
 
   it('shows html as source', async () => {
