@@ -1,5 +1,5 @@
 import type { FileTextDto } from '@gonggong/protocol'
-import { type ReactNode, useCallback, useState } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { EmptyState, FileIcon, Icon } from '../../ui'
@@ -63,6 +63,16 @@ export function ListingFiles({
   const base = `/market/${listingId}/files`
   const textUrl = selected ? `${base}/text${query(selected)}` : null
   const read = useCallback(() => api.get<FileTextDto>(textUrl ?? ''), [textUrl])
+  // A README's relative images and links stay inside the listing.
+  const links = useMemo(
+    () => ({
+      raw: (p: string) =>
+        `/api/market/${listingId}/files/raw?path=${encodeURIComponent(p)}${versionId ? `&versionId=${encodeURIComponent(versionId)}` : ''}`,
+      open: (p: string) =>
+        p.endsWith('/') ? setExpanded((s) => new Set(s).add(p.slice(0, -1))) : setSelected(p),
+    }),
+    [listingId, versionId],
+  )
 
   const toggle = (path: string) =>
     setExpanded((s) => {
@@ -120,6 +130,7 @@ export function ListingFiles({
               url={`/api${base}/raw${query(selected)}`}
               kind={viewKind(selected)}
               read={read}
+              links={links}
               size={files.find((f) => f.path === selected)?.size}
             />
           ) : (

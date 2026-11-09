@@ -7,6 +7,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { CJK } from '../../lib/links'
 import { CodeBlock, Dialog, splitMentions, toast } from '../../ui'
+import { docPath } from '../files/docPath'
 import { RichBlock } from '../rich/RichBlock'
 import { openTab } from '../workbench/open'
 
@@ -65,7 +66,9 @@ function trimAutolinks(node: MdNode) {
   for (let i = 0; i < kids.length; i++) {
     const link = kids[i]
     const text = link?.children?.length === 1 ? link.children[0] : undefined
-    const at = text?.type === 'text' ? (text.value ?? '').search(CJK) : -1
+    // Literal autolinks read as a url (`http…`, `www.…`) or an email; a written `[快速开始](#快速开始)` is neither.
+    const literal = text?.type === 'text' && /^(?:https?:\/\/|www\.)|@/i.test(text.value ?? '')
+    const at = literal ? (text.value ?? '').search(CJK) : -1
     if (link?.type !== 'link' || !text?.value || !link.url?.endsWith(text.value) || at < 0) {
       if (link) trimAutolinks(link)
       continue
@@ -234,6 +237,105 @@ function remarkMentions({ members, bots, me }: Names) {
   return () => visit
 }
 
+/** GitHub's heading anchors: lower case, punctuation dropped, spaces to `-`, a repeat numbered `-1`, `-2`… */
+const remarkSlugs = () => (tree: MdNode) => {
+  const seen = new Map<string, number>()
+  const text = (n: MdNode): string => n.value ?? n.children?.map(text).join('') ?? ''
+  const visit = (n: MdNode) => {
+    if (n.type !== 'heading') return n.children?.forEach(visit)
+    const slug = text(n)
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
+      .replace(/ /g, '-')
+    const k = seen.get(slug) ?? 0
+    seen.set(slug, k + 1)
+    n.data = { ...n.data, hProperties: { ...n.data?.hProperties, id: k ? `${slug}-${k}` : slug } }
+  }
+  visit(tree)
+}
+
+/** Scrolls a document's heading to the top and flashes it, so the eye lands where the jump went. */
+export function jumpTo(root: Element | null | undefined, id: string) {
+  const el = root && [...root.querySelectorAll<HTMLElement>('[id]')].find((e) => e.id === id)
+  if (!el) return
+  el.scrollIntoView({ block: 'start' })
+  el.removeAttribute('data-flash')
+  void el.offsetWidth
+  el.setAttribute('data-flash', '')
+}
+
+/** A workspace document's place: its relative images and links resolve from its folder (docPath). */
+export interface MdDoc {
+  path: string
+  raw: (path: string) => string
+  /** A file, or a folder (ending in `/`). */
+  open: (path: string) => void
+}
+
+const unhash = (href: string) => {
+  try {
+    return decodeURIComponent(href.slice(1))
+  } catch {
+    return href.slice(1)
+  }
+}
+
+function docComponents(doc: MdDoc): Components {
+  return {
+    img: ({ node: _node, src, alt, ...props }) => {
+      const path = typeof src === 'string' ? docPath(doc.path, src) : undefined
+      if (path === null)
+        return (
+          <span className="md-out" title={t('图片位于工作区以外，无法显示')}>
+            {alt}
+          </span>
+        )
+      return <img {...props} src={path ? doc.raw(path) : src} alt={alt} loading="lazy" />
+    },
+    a: ({ node: _node, href, children, ...props }) => {
+      if (href?.startsWith('#'))
+        return (
+          <a
+            {...props}
+            href={href}
+            onClick={(e) => {
+              e.preventDefault()
+              jumpTo(e.currentTarget.closest('.md'), unhash(href))
+            }}
+          >
+            {children}
+          </a>
+        )
+      const path = href ? docPath(doc.path, href) : undefined
+      if (path === undefined)
+        return (
+          <a {...props} href={href} target="_blank" rel="noreferrer">
+            {children}
+          </a>
+        )
+      if (path === null)
+        return (
+          <span className="md-out" title={t('链接指向工作区以外，无法打开')}>
+            {children}
+          </span>
+        )
+      return (
+        <a
+          {...props}
+          href={doc.raw(path)}
+          onClick={(e) => {
+            e.preventDefault()
+            doc.open(path)
+          }}
+        >
+          {children}
+        </a>
+      )
+    },
+  }
+}
+
 const baseComponents: Components = {
   pre: ({ children }) => {
     const { text, language, closed } = fenced(children)
@@ -253,21 +355,36 @@ const baseComponents: Components = {
 
 /**
  * Bot reply rendering: GFM (tables, task lists) + Pane code blocks with copy, UI blocks (charts, buttons…) as
- * components; `botId` makes file names in code clickable. Wrap in RichMessage to let blocks act on the reply.
+ * components; `botId` makes file names in code clickable; `doc` reads it as a workspace file (heading anchors,
+ * relative images and links). Wrap in RichMessage to let blocks act on the reply.
  */
-export const Markdown = memo(function Markdown({ text, botId }: { text: string; botId?: string }) {
+export const Markdown = memo(function Markdown({
+  text,
+  botId,
+  doc,
+}: {
+  text: string
+  botId?: string
+  doc?: MdDoc
+}) {
   const names = useContext(MentionNames)
   const plugins = useMemo(
-    () => [...remarkPlugins, ...(names ? [remarkMentions(names)] : []), ...(botId ? [remarkFileRefs] : [])],
-    [names, botId],
+    () => [
+      ...remarkPlugins,
+      ...(names ? [remarkMentions(names)] : []),
+      ...(botId ? [remarkFileRefs] : []),
+      ...(doc ? [remarkSlugs] : []),
+    ],
+    [names, botId, doc],
   )
   const components = useMemo(
     () =>
       ({
         ...baseComponents,
+        ...(doc ? docComponents(doc) : {}),
         'file-ref': (p: FileRefProps & { children?: ReactNode }) => <FileRef {...p} botId={botId ?? ''} />,
       }) as Components,
-    [botId],
+    [botId, doc],
   )
   return (
     <div className="md">

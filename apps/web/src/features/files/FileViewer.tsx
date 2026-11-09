@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -39,13 +40,14 @@ import {
 } from '../../ui'
 import { fmtSize } from '../attachments/api'
 import { citeInChat } from '../chat/cite'
-import { Markdown } from '../chat/Markdown'
+import { jumpTo, Markdown, type MdDoc } from '../chat/Markdown'
 import { revertChange, useGitDiff } from '../diff/GitFileDiff'
 import { type LineMark, lineMarks } from '../diff/hunk'
 import { useWide } from '../diff/useWide'
 import { useGitStamp } from '../diff/useWorkspaceDiff'
 import { gitBase, gitUrls } from '../git/api'
 import { gitCommands } from '../git/commands'
+import { openTab } from '../workbench/open'
 import { type OfficeKind, OfficeView } from './OfficeView'
 import './files.css'
 import { t } from '../../i18n'
@@ -136,6 +138,14 @@ const WRAP_KEY = 'gg.fv.wrap'
 const storedWrap = () => {
   const v = localStorage.getItem(WRAP_KEY)
   return v === 'on' ? true : v === 'off' ? false : null
+}
+
+/** Below this many headings a document is short enough to scroll through. */
+const OUTLINE_MIN = 3
+interface Heading {
+  id: string
+  text: string
+  level: number
 }
 
 const level = (line: string) => (/ERROR|FAIL/.test(line) ? 'error' : /WARN/.test(line) ? 'warn' : null)
@@ -465,6 +475,8 @@ export interface FileViewerProps {
   /** Reads the text again in place whenever it changes (the work tree did). */
   stamp?: string
   changes?: FileChanges
+  /** Where a markdown file's relative images and links lead; must be stable across renders. */
+  links?: Omit<MdDoc, 'path'>
 }
 
 /** One file by type (design §4.6): shared by the files tab, file tabs and attachments. */
@@ -483,6 +495,7 @@ export function FileViewer({
   annotate: annotateAsked,
   stamp,
   changes,
+  links,
 }: FileViewerProps) {
   const bar = useRef<HTMLDivElement>(null)
   const wide = useWide(bar, BAR_WIDE_PX)
@@ -565,6 +578,16 @@ export function FileViewer({
 
   // Kept stable: Lines is memoized, a fresh node would redraw every line on each render.
   const cutDownload = useMemo(() => (url ? <DownloadLink url={url} name={name} /> : undefined), [url, name])
+  const doc = useMemo(() => (links ? { path, ...links } : undefined), [path, links])
+  const mdBox = useRef<HTMLDivElement>(null)
+  const [outline, setOutline] = useState<Heading[]>([])
+  const mdShown = kind === 'md' && md === 'preview' ? text?.text : undefined
+  // Read from the drawn headings, so the ids are the ones Markdown gave them.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: redrawn markdown is read anew
+  useLayoutEffect(() => {
+    const hs = mdBox.current?.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id]') ?? []
+    setOutline([...hs].map((h) => ({ id: h.id, text: h.textContent ?? '', level: Number(h.tagName[1]) })))
+  }, [mdShown])
   const copy = () => copyWithToast(path, t('已复制路径'))
   const copyText = () => text?.text != null && copyWithToast(text.text, t('已复制全文'))
 
@@ -673,8 +696,8 @@ export function FileViewer({
       )
     if (kind === 'md' && md === 'preview')
       return (
-        <div className="fv__md">
-          <Markdown text={text.text} />
+        <div ref={mdBox} className="fv__md">
+          <Markdown text={text.text} doc={doc} />
         </div>
       )
     return (
@@ -791,6 +814,36 @@ export function FileViewer({
               { value: 'source', label: t('源码') },
             ]}
           />
+        ) : null}
+        {mdShown != null && outline.length >= OUTLINE_MIN ? (
+          <Popover
+            portal
+            placement="bottom-end"
+            aria-label={t('大纲')}
+            trigger={
+              <Button size="small" variant="plain" icon="list" aria-label={t('大纲')} title={t('大纲')} />
+            }
+          >
+            {(close) => (
+              <nav className="fv-outline" aria-label={t('大纲')}>
+                {outline.map((h, i) => (
+                  <button
+                    // biome-ignore lint/suspicious/noArrayIndexKey: headings are positional
+                    key={i}
+                    type="button"
+                    className="fv-outline__item"
+                    data-level={h.level}
+                    onClick={() => {
+                      close()
+                      jumpTo(mdBox.current, h.id)
+                    }}
+                  >
+                    {h.text}
+                  </button>
+                ))}
+              </nav>
+            )}
+          </Popover>
         ) : null}
         {kind === 'image' && wide ? (
           <SegmentedControl
@@ -959,10 +1012,24 @@ export function BotFileViewer({
       showDiff: () => gitCommands(target).openChange(rel),
     }
   }, [diff, groupId, botId, repo, rel])
+  // Relative images come from the work tree even in an old version: the git routes serve text only.
+  const links = useMemo<FileViewerProps['links']>(
+    () => ({
+      raw: (p) => `/api/groups/${groupId}/bots/${botId}/files/raw?path=${encodeURIComponent(p)}`,
+      open: (p) =>
+        openTab(
+          p.endsWith('/')
+            ? { kind: 'files', botId, dir: p.slice(0, -1), selected: null }
+            : { kind: 'file', source: { botId, path: p } },
+        ),
+    }),
+    [groupId, botId],
+  )
   return (
     <FileViewer
       name={baseName(path)}
       path={path}
+      links={links}
       url={rev ? undefined : `/api${base}/files/raw${query}`}
       kind={rev && !TEXTUAL.includes(kind) ? 'unknown' : kind}
       read={read}

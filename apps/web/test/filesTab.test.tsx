@@ -69,6 +69,19 @@ const TEXTS: Record<string, { text: string | null; binary: boolean; size: number
   'data.bin': { text: null, binary: true, size: 2048, mime: 'application/octet-stream' },
   'index.html': { text: '<h1>hi</h1>', binary: false, size: 11, mime: 'text/html' },
   'long.txt': { text: 'x\n'.repeat(5001), binary: false, size: 10002, mime: 'text/plain' },
+  'docs/guide.md': {
+    text: [
+      '# 指南',
+      '![标志](../src/assets/logo.png) ![外面](../../secret.png) ![远程](https://example.com/a.png)',
+      '## 安装',
+      '见 [主程序](../src/main.ts)、[资源目录](../src/assets/)、[越界](../../x.md)、[官网](https://example.com)、[跳到使用](#使用-说明)',
+      '## 使用 说明',
+      '正文',
+    ].join('\n\n'),
+    binary: false,
+    size: 200,
+    mime: 'text/markdown',
+  },
 }
 
 let calls: string[]
@@ -453,6 +466,55 @@ describe('file viewer', () => {
     fireEvent.click(source)
     expect(screen.getByText('# 标题')).toBeTruthy()
     expect(source.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows images by paths relative to the markdown file, never outside the workspace', async () => {
+    openFile('docs/guide.md')
+    expect((await screen.findByRole('img', { name: '标志' })).getAttribute('src')).toBe(
+      raw('src/assets/logo.png'),
+    )
+    expect(screen.getByRole('img', { name: '远程' }).getAttribute('src')).toBe('https://example.com/a.png')
+    expect(screen.queryByRole('img', { name: '外面' })).toBeNull()
+    expect(screen.getByText('外面')).toBeTruthy()
+  })
+
+  it('opens relative links in the workbench and keeps outside links in the browser', async () => {
+    openFile('docs/guide.md')
+    fireEvent.click(await screen.findByRole('link', { name: '主程序' }))
+    expect(current().at(-1)).toEqual({ kind: 'file', source: { botId: 'b1', path: 'src/main.ts' } })
+    fireEvent.click(screen.getByRole('link', { name: '资源目录' }))
+    expect(current().at(-1)).toMatchObject({ kind: 'files', botId: 'b1', dir: 'src/assets', selected: null })
+    expect(screen.queryByRole('link', { name: '越界' })).toBeNull()
+    expect(screen.getByText('越界').getAttribute('title')).toBe('链接指向工作区以外，无法打开')
+    const site = screen.getByRole('link', { name: '官网' })
+    expect(site.getAttribute('href')).toBe('https://example.com')
+    expect(site.getAttribute('target')).toBe('_blank')
+  })
+
+  it('jumps to headings from in-page links and the outline', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    openFile('docs/guide.md')
+    const heading = await screen.findByRole('heading', { name: '使用 说明' })
+    expect(heading.id).toBe('使用-说明')
+    fireEvent.click(screen.getByRole('link', { name: '跳到使用' }))
+    expect(scroll.mock.contexts.at(-1)).toBe(heading)
+    fireEvent.click(await screen.findByRole('button', { name: '大纲' }))
+    const outline = screen.getByRole('navigation', { name: '大纲' })
+    expect(
+      within(outline)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['指南', '安装', '使用 说明'])
+    fireEvent.click(within(outline).getByRole('button', { name: '安装' }))
+    expect(scroll.mock.contexts.at(-1)).toBe(screen.getByRole('heading', { name: '安装' }))
+    expect(screen.getByRole('button', { name: '大纲' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('offers no outline for a short markdown file', async () => {
+    openFile('README.md')
+    await screen.findByRole('heading', { name: '标题' })
+    expect(screen.queryByRole('button', { name: '大纲' })).toBeNull()
   })
 
   it('says up front that a long file is cut, with its download', async () => {

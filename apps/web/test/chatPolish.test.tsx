@@ -23,6 +23,14 @@ describe('markdown autolinks', () => {
     render(<Markdown text="[文档](https://example.com/docs)" />)
     expect(screen.getByRole('link', { name: '文档' }).getAttribute('href')).toBe('https://example.com/docs')
   })
+
+  it('keeps a written link whose url ends in its Chinese text', () => {
+    render(<Markdown text="[快速开始](#快速开始) [文档](https://example.com/文档)" />)
+    expect(screen.getByRole('link', { name: '快速开始' }).getAttribute('href')).toBe(
+      '#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B',
+    )
+    expect(screen.getByRole('link', { name: '文档' })).toBeTruthy()
+  })
 })
 
 describe('markdown mentions', () => {

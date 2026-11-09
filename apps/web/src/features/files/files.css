@@ -173,6 +173,91 @@
   max-width: 820px;
   margin: 0 auto;
 }
+/* A document reads like a README on GitHub: airier lines, the top two heading levels ruled, images kept in the column. */
+.fv__md .md {
+  gap: var(--space-12);
+  line-height: 1.65;
+}
+.fv__md .md :is(h1, h2, h3, h4) {
+  margin-top: var(--space-12);
+  scroll-margin-top: var(--space-12);
+}
+.fv__md .md > :first-child {
+  margin-top: 0;
+}
+.fv__md .md :is(h1, h2) {
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--separator);
+}
+.fv__md .md img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+.fv__md .md hr {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  background: var(--separator);
+}
+.md-out {
+  color: var(--label-secondary);
+  text-decoration: line-through;
+  cursor: help;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fv__body:has(> .fv__md) {
+    scroll-behavior: smooth;
+  }
+  .fv__md [data-flash] {
+    animation: fv-flash 1.4s ease-out;
+  }
+}
+@keyframes fv-flash {
+  from {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+}
+.fv-outline {
+  display: flex;
+  flex-direction: column;
+  width: min(300px, calc(100vw - 32px));
+  max-height: min(60dvh, 420px);
+  overflow: auto;
+  padding: var(--space-6);
+}
+.fv-outline__item {
+  flex: none;
+  padding: var(--space-6) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-field);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.fv-outline__item:hover {
+  background: var(--control-fill);
+}
+.fv-outline__item[data-level="1"] {
+  font-weight: 600;
+}
+.fv-outline__item[data-level="2"] {
+  padding-left: var(--space-20);
+}
+.fv-outline__item[data-level="3"] {
+  padding-left: var(--space-32);
+  color: var(--label-secondary);
+}
+@media (pointer: coarse) {
+  .fv-outline__item {
+    min-height: 44px;
+  }
+}
 .fv-office {
   position: relative;
   flex: 1;

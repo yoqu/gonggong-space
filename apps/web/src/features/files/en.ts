@@ -37,4 +37,5 @@ export default {
   '新增：第 {range} 行': 'Added: {n:line|lines} {range}',
   '修改：第 {range} 行': 'Modified: {n:line|lines} {range}',
   '删除：{n} 行': 'Deleted: {n} {n:line|lines}',
+  大纲: 'Outline',
 } satisfies Record<string, string>

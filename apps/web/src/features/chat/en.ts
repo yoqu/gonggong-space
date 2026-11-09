@@ -34,6 +34,8 @@ export default {
   '群成员：{n} 人': 'Group members: {n} {n:person|people}',
   工作台: 'Workbench',
   工作区里没找到: 'Not found in the workspace',
+  '图片位于工作区以外，无法显示': 'This image is outside the workspace and cannot be shown',
+  '链接指向工作区以外，无法打开': 'This link points outside the workspace and cannot be opened',
   选择要打开的文件: 'Choose a file to open',
   回到底部: 'Back to bottom',
   群设置: 'Group settings',
