@@ -100,7 +100,7 @@ afterEach(() => {
 
 describe('artifact card', () => {
   it('shows a ready version and opens the canvas tab in focus mode', () => {
-    render(<ArtifactCardView card={card()} />)
+    render(<ArtifactCardView card={card()} groupId="g1" />)
     const c = within(screen.getByTestId('artifact-card'))
     expect(c.getByText('读书会小程序')).toBeTruthy()
     expect(c.getByText('v3')).toBeTruthy()
@@ -114,14 +114,17 @@ describe('artifact card', () => {
   })
 
   it('says it is generating before the first version', () => {
-    render(<ArtifactCardView card={card({ status: 'generating', versionN: null })} />)
+    render(<ArtifactCardView card={card({ status: 'generating', versionN: null })} groupId="g1" />)
     expect(screen.getByText('生成中')).toBeTruthy()
     expect(screen.queryByText(/^v\d/)).toBeNull()
   })
 
   it('flags a candidate version and design issues', () => {
     render(
-      <ArtifactCardView card={card({ status: 'stale-candidate', issueCount: 2, thumbnailUrl: '/t.png' })} />,
+      <ArtifactCardView
+        card={card({ status: 'stale-candidate', issueCount: 2, thumbnailUrl: '/t.png' })}
+        groupId="g1"
+      />,
     )
     expect(screen.getByText('有候选版本')).toBeTruthy()
     expect(screen.getByText('2 项规范问题')).toBeTruthy()

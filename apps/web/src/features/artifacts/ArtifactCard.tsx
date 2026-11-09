@@ -2,6 +2,7 @@ import type { ArtifactCard } from '@gonggong/protocol'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { Button, Icon, Skeleton, Spinner, Tag } from '../../ui'
+import { setEditing } from './editing'
 import { openArtifact } from './store'
 import './artifacts.css'
 
@@ -9,7 +10,7 @@ import './artifacts.css'
  * The artifact card in the conversation (产物托管 plan §4): one per artifact, updated in place as versions arrive;
  * 打开 shows its canvas in the workbench.
  */
-export function ArtifactCardView({ card }: { card: ArtifactCard }) {
+export function ArtifactCardView({ card, groupId }: { card: ArtifactCard; groupId: string }) {
   const me = useSession((s) => s.user?.id)
   const open = () => openArtifact(card.artifactId, card.title)
   const generating = card.status === 'generating'
@@ -64,7 +65,16 @@ export function ArtifactCardView({ card }: { card: ArtifactCard }) {
               {t('{n} 项规范问题', { n: card.issueCount })}
             </Tag>
           ) : null}
-          <Button size="small" className="art-card__open" onClick={open}>
+          <Button
+            size="small"
+            variant="plain"
+            className="art-card__open"
+            title={t('之后的消息都针对这个作品')}
+            onClick={() => setEditing(groupId, { artifactId: card.artifactId, title: card.title })}
+          >
+            {t('继续对话')}
+          </Button>
+          <Button size="small" onClick={open}>
             {t('打开')}
           </Button>
         </div>

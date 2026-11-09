@@ -12,6 +12,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { Avatar, Icon, type IconName } from '../../ui'
+import { useGroupArtifacts } from '../artifacts/groupArtifacts'
 import { BotAvatar } from '../bots/avatars'
 import { PRESENCE } from '../bots/model'
 import { CATEGORY } from '../plugins/model'
@@ -33,6 +34,8 @@ export interface Candidate {
   plugin?: string
   /** Listed but not pickable; `hint` says why. */
   disabled?: boolean
+  /** An artifact of the group (`#`): picking it makes it the composer's 正在编辑 instead of inserting text. */
+  artifact?: { id: string; title: string }
 }
 
 export interface Section {
@@ -65,6 +68,8 @@ function headOf(text: string, names: string[]) {
 export function trigger(before: string, names: string[]) {
   const at = /(?:^|\s)@([^\s@]*)$/.exec(before)
   if (at) return { char: '@', query: at[1] ?? '' } as const
+  const hash = /(?:^|\s)#([^\s#]*)$/.exec(before)
+  if (hash) return { char: '#', query: hash[1] ?? '' } as const
   const head = before.slice(headOf(before, names))
   const first = /^\/(\S*)$/.exec(head)
   if (first) return { char: '/', query: first[1] ?? '', mid: false } as const
@@ -119,6 +124,7 @@ export function useCandidates(
   inThread = false,
 ) {
   const bots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
+  const works = useGroupArtifacts(group.id)
   const me = useSession((s) => s.user?.id)
   // @所有人: group admins, in the main timeline only; the server reads the Chinese word whatever the language.
   const everyone =
@@ -179,100 +185,118 @@ export function useCandidates(
   // Entries of the previous query stay visible while the new one loads, narrowed so a quick Enter can't pick a stale hit.
   const fileEntries = (files?.entries ?? []).filter((e) => remoteFiles?.fresh || has(e.path))
   const sections: Section[] =
-    token.char === '@'
+    token.char === '#'
       ? [
           {
-            label: t('成员 / Bot'),
+            label: t('本群作品'),
             src: '',
-            items: people
-              .filter((p) => has(p.name))
-              .map((p) => ({ ...p, label: p.name, mono: false, insert: `@${p.name}` })),
-          },
-          {
-            label: t('文件'),
-            src: files && files.source !== 'none' ? t('来源：{source}', { source: files.label }) : '',
-            items: fileEntries.map((e) => ({
-              key: `file:${e.path}`,
-              icon: e.dir ? 'folder' : 'doc-text',
-              label: e.path,
-              mono: true,
-              hint: fileHint(e),
-              insert: `@${e.path}`,
-            })),
-          },
-        ]
-      : [
-          {
-            label: t('产物'),
-            src: '',
-            items: artifact.filter((c) => has(c.label) || has(c.key)),
-          },
-          {
-            label: t('系统命令'),
-            src: '',
-            items: (commands?.value.system ?? [])
-              .filter((c) => has(c.name))
-              .map((c) => ({
-                key: `cmd:${c.name}`,
-                icon: 'terminal',
-                label: `/${c.name}`,
-                mono: true,
-                hint: c.hint,
-                insert: `/${c.name}`,
-              })),
-          },
-          {
-            label: t('插件'),
-            src: '',
-            items: plugins
-              .filter((p) => has(p.manifest.title) || has(p.manifest.name))
-              .map((p) => ({
-                key: `plugin:${p.id}`,
-                icon: CATEGORY[p.manifest.category].icon,
-                label: p.manifest.title,
+            items: (inThread ? [] : works)
+              .filter((a) => has(a.title))
+              .map((a) => ({
+                key: `work:${a.id}`,
+                icon: 'grid' as const,
+                label: a.title,
                 mono: false,
-                hint: t('打开创作面板'),
+                hint: a.head ? `v${a.head.n}` : t('生成中'),
                 insert: '',
-                plugin: p.id,
-              })),
-          },
-          ...(
-            [
-              [t('我的 Skill'), t('个人引入'), true],
-              [t('团队 Skill'), t('配置中心'), false],
-            ] as const
-          ).map(([label, src, personal]) => ({
-            label,
-            src,
-            items: (commands?.value.skill ?? [])
-              .filter((c) => !!c.personal === personal && has(c.name))
-              .map((c) => ({
-                key: `skill:${c.name}`,
-                icon: 'star' as const,
-                // The agents need the plugin prefix (inserted below); people read the skill's own name.
-                label: `/${c.name.replace(`${SKILL_PLUGIN}:`, '')}`,
-                mono: true,
-                hint: c.hint,
-                insert: `${sigil}${c.name}`,
-                skill: true,
-              })),
-          })),
-          {
-            label: t('AGENT 命令'),
-            src: t('ACP 上报'),
-            items: (commands?.value.agent ?? [])
-              .filter((c) => has(c.name))
-              .map((c) => ({
-                key: `agent:${c.botId}:${c.name}`,
-                icon: 'cpu',
-                label: c.name.startsWith('$') ? c.name : `/${c.name}`,
-                mono: true,
-                hint: c.hint,
-                // Codex reports its skills as `$name`.
-                ...(c.name.startsWith('$') ? { insert: c.name, skill: true } : { insert: `/${c.name}` }),
+                artifact: { id: a.id, title: a.title },
               })),
           },
         ]
+      : token.char === '@'
+        ? [
+            {
+              label: t('成员 / Bot'),
+              src: '',
+              items: people
+                .filter((p) => has(p.name))
+                .map((p) => ({ ...p, label: p.name, mono: false, insert: `@${p.name}` })),
+            },
+            {
+              label: t('文件'),
+              src: files && files.source !== 'none' ? t('来源：{source}', { source: files.label }) : '',
+              items: fileEntries.map((e) => ({
+                key: `file:${e.path}`,
+                icon: e.dir ? 'folder' : 'doc-text',
+                label: e.path,
+                mono: true,
+                hint: fileHint(e),
+                insert: `@${e.path}`,
+              })),
+            },
+          ]
+        : [
+            {
+              label: t('产物'),
+              src: '',
+              items: artifact.filter((c) => has(c.label) || has(c.key)),
+            },
+            {
+              label: t('系统命令'),
+              src: '',
+              items: (commands?.value.system ?? [])
+                .filter((c) => has(c.name))
+                .map((c) => ({
+                  key: `cmd:${c.name}`,
+                  icon: 'terminal',
+                  label: `/${c.name}`,
+                  mono: true,
+                  hint: c.hint,
+                  insert: `/${c.name}`,
+                })),
+            },
+            {
+              label: t('插件'),
+              src: '',
+              items: plugins
+                .filter((p) => has(p.manifest.title) || has(p.manifest.name))
+                .map((p) => ({
+                  key: `plugin:${p.id}`,
+                  icon: CATEGORY[p.manifest.category].icon,
+                  label: p.manifest.title,
+                  mono: false,
+                  hint: t('打开创作面板'),
+                  insert: '',
+                  plugin: p.id,
+                })),
+            },
+            ...(
+              [
+                [t('我的 Skill'), t('个人引入'), true],
+                [t('团队 Skill'), t('配置中心'), false],
+              ] as const
+            ).map(([label, src, personal]) => ({
+              label,
+              src,
+              items: (commands?.value.skill ?? [])
+                .filter((c) => !!c.personal === personal && has(c.name))
+                .map((c) => ({
+                  key: `skill:${c.name}`,
+                  icon: 'star' as const,
+                  // The agents need the plugin prefix (inserted below); people read the skill's own name.
+                  label: `/${c.name.replace(`${SKILL_PLUGIN}:`, '')}`,
+                  mono: true,
+                  hint: c.hint,
+                  insert: `${sigil}${c.name}`,
+                  skill: true,
+                })),
+            })),
+            {
+              label: t('AGENT 命令'),
+              src: t('ACP 上报'),
+              items: (commands?.value.agent ?? [])
+                .filter((c) => has(c.name))
+                .map((c) => ({
+                  key: `agent:${c.botId}:${c.name}`,
+                  icon: 'cpu',
+                  label: c.name.startsWith('$') ? c.name : `/${c.name}`,
+                  mono: true,
+                  hint: c.hint,
+                  // Codex reports its skills as `$name`.
+                  ...(c.name.startsWith('$') ? { insert: c.name, skill: true } : { insert: `/${c.name}` }),
+                })),
+            },
+          ]
   const shown = sections.filter((s) => s.items.length)
   return { token, names, sections: shown, items: shown.flatMap((s) => s.items) }
 }
@@ -329,7 +353,7 @@ export function CandidatePopover({
 }: {
   /** Options get `${id}-${index}` ids for the textarea's aria-activedescendant. */
   id: string
-  char: '@' | '/'
+  char: '@' | '/' | '#'
   sections: Section[]
   active: Candidate | undefined
   onPick: (c: Candidate) => void
@@ -354,7 +378,7 @@ export function CandidatePopover({
       style={{ maxHeight }}
       className="pn-mentionpicker mention-pop"
       role="listbox"
-      aria-label={char === '/' ? t('/ 命令') : t('@ 候选')}
+      aria-label={char === '/' ? t('/ 命令') : char === '#' ? t('# 作品') : t('@ 候选')}
       data-testid="composer-popover"
     >
       {sections.map((s) => (

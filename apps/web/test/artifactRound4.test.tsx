@@ -493,9 +493,9 @@ describe('thumbnails', () => {
     issueCount: 0,
   }
   it('marks a card whose thumbnail is from an earlier version', () => {
-    const { rerender } = render(<ArtifactCardView card={card} />)
+    const { rerender } = render(<ArtifactCardView card={card} groupId="g1" />)
     expect(screen.queryByTestId('art-thumb-stale')).toBeNull()
-    rerender(<ArtifactCardView card={{ ...card, thumbnailStale: true } as ArtifactCard} />)
+    rerender(<ArtifactCardView card={{ ...card, thumbnailStale: true } as ArtifactCard} groupId="g1" />)
     expect(screen.getByTestId('art-thumb-stale').textContent).toBe('缩略图为旧版本')
   })
 

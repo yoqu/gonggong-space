@@ -286,8 +286,9 @@ describe('interrupt and append', () => {
     expect(screen.getByText('打断并追加到 小王的 Claude · 已改内容保留，仍算同一轮')).toBeTruthy()
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '直接回复 appended' } })
     fireEvent.click(button('发送'))
-    await waitFor(() => expect(calls).toHaveLength(1))
-    expect(calls[0]?.body).toMatchObject({ body: '直接回复 appended', appendTo: 'r1' })
+    const sentPosts = () => calls.filter((c) => c.method === 'POST')
+    await waitFor(() => expect(sentPosts()).toHaveLength(1))
+    expect(sentPosts()[0]?.body).toMatchObject({ body: '直接回复 appended', appendTo: 'r1' })
     await waitFor(() => expect(screen.queryByText(/打断并追加到/)).toBeNull())
 
     // 关闭 drops the target: the next message is an ordinary one.

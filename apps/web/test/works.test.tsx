@@ -233,12 +233,12 @@ describe('a private artifact card', () => {
     createdBy: 'u2',
   }
   it('hides its shot from other members and says why', () => {
-    render(<ArtifactCardView card={card} />)
+    render(<ArtifactCardView card={card} groupId="g1" />)
     expect(screen.queryByRole('img')).toBeNull()
     expect(screen.getByText('仅创建人可见')).toBeTruthy()
   })
   it('stays as it is for its creator', () => {
-    render(<ArtifactCardView card={{ ...card, createdBy: 'u1' }} />)
+    render(<ArtifactCardView card={{ ...card, createdBy: 'u1' }} groupId="g1" />)
     expect(screen.getByRole('img')).toBeTruthy()
     expect(screen.getByText('仅自己可见')).toBeTruthy()
   })

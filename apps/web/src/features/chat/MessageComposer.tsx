@@ -18,7 +18,9 @@ import { toastError } from '../../lib/errors'
 import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips } from '../artifacts/ContextChips'
-import { artifactContextOf, clearContext, useCanvasContext } from '../artifacts/context'
+import { artifactContextOf, type CanvasContext, clearContext, useCanvasContext } from '../artifacts/context'
+import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
+import { useGroupArtifacts } from '../artifacts/groupArtifacts'
 import { ARTIFACT_SLASH, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
 import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
@@ -44,8 +46,8 @@ const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
 const RETRIES = 2
 
 /** The artifact the composer works on: the canvas selection's, else the group's active artifact tab's. */
-function useArtifactTarget(groupId: string) {
-  const canvas = useCanvasContext((s) => (s.context?.groupId === groupId ? s.context : null))
+function useArtifactTarget(groupId: string, editing: CanvasContext | null) {
+  const canvas = useCanvasContext((s) => (s.context?.groupId === groupId ? s.context : null)) ?? editing
   const active = useWorkbench((s) => s.benches[groupId]?.active ?? null)
   const tabId = active?.startsWith('artifact:') ? active.slice('artifact:'.length) : ''
   const entry = useArtifactEntry(canvas?.artifactId ?? tabId)
@@ -146,14 +148,29 @@ export const MessageComposer = memo(function MessageComposer({
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.
   const soleDm = group.kind === 'dm' && groupBots.length === 1 && !appending
   const command = draft.trimStart().startsWith('/')
-  const canvas = useCanvasContext((s) => (s.context?.groupId === main ? s.context : null))
+  const selection = useCanvasContext((s) => (s.context?.groupId === main ? s.context : null))
+  // 正在编辑: without a canvas selection, the whole artifact goes along with every message.
+  const editing = useEditingOf(main)
+  const groupArtifacts = useGroupArtifacts(group.id)
+  const edited = editing ? groupArtifacts.find((a) => a.id === editing.artifactId) : undefined
+  const editingContext: CanvasContext | null =
+    editing && !selection
+      ? {
+          groupId: main,
+          artifactId: editing.artifactId,
+          title: edited?.title ?? editing.title,
+          botId: edited?.botId ?? null,
+          items: [],
+        }
+      : null
+  const canvas = selection ?? editingContext
   // …and a plain message sent with the canvas selected goes to the artifact's bot.
   const canvasBot =
     canvas && !appending && !command && !mentioned.length && !soleDm
       ? (groupBots.find((b) => b.id === canvas.botId) ?? null)
       : null
   const targets = !mentioned.length && soleDm && !command ? groupBots : canvasBot ? [canvasBot] : mentioned
-  const artifact = useArtifactTarget(main)
+  const artifact = useArtifactTarget(main, editingContext)
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0
   const artifactCandidates: Candidate[] = artifact
@@ -179,6 +196,7 @@ export const MessageComposer = memo(function MessageComposer({
     s.quote?.groupId === group.id && s.quote.threadRootId === thread ? s.quote : null,
   )
   const canvasFocus = useCanvasContext((s) => s.focus)
+  const editingFocus = useEditing((s) => s.focus)
   const imagePicker = useRef<HTMLInputElement>(null)
   const filePicker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -204,6 +222,13 @@ export const MessageComposer = memo(function MessageComposer({
   useEffect(() => {
     if (!canvas) setVariations(null)
   }, [canvas])
+  // 继续对话 hands the focus over; an artifact deleted meanwhile ends its 正在编辑.
+  useEffect(() => {
+    if (editingFocus && !thread) input.current?.focus()
+  }, [editingFocus, thread])
+  useEffect(() => {
+    if (editing && groupArtifacts.length && !edited) setEditing(main, null)
+  }, [editing, groupArtifacts, edited, main])
   // Add to Chat (⌘L) hands the focus over.
   useEffect(() => {
     if (canvasFocus && !thread && useCanvasContext.getState().context?.groupId === group.id)
@@ -276,10 +301,11 @@ export const MessageComposer = memo(function MessageComposer({
 
   const pick = (c: Candidate) => {
     if (!token) return
-    if (c.plugin) {
+    if (c.plugin || c.artifact) {
       const start = draft.slice(0, caret).lastIndexOf(token.char)
       change(draft.slice(0, start) + draft.slice(caret), start)
-      return openCreation({ groupId: group.id, pluginId: c.plugin })
+      if (c.artifact) return setEditing(main, { artifactId: c.artifact.id, title: c.artifact.title })
+      return c.plugin && openCreation({ groupId: group.id, pluginId: c.plugin })
     }
     if (token.char === '/' && token.mid && !c.skill) {
       const { next, pos } = placeCommand(draft, caret, c.insert, names)
@@ -361,7 +387,7 @@ export const MessageComposer = memo(function MessageComposer({
     dropDraft(key, body)
     setDraft((d) => (d === body ? '' : d))
     setVariations(null)
-    if (canvas) clearContext()
+    if (selection) clearContext()
   }
 
   const send = async () => {
@@ -401,7 +427,7 @@ export const MessageComposer = memo(function MessageComposer({
       setAlsoSent(false)
       uploads.clear()
       if (q) useQuote.getState().clear()
-      if (canvas) clearContext()
+      if (selection) clearContext()
     } catch (e) {
       toastError(e)
       setShake(true)
@@ -490,6 +516,7 @@ export const MessageComposer = memo(function MessageComposer({
               {canvas ? (
                 <ContextChips
                   context={canvas}
+                  onEnd={editingContext ? () => setEditing(main, null) : undefined}
                   bot={canvasBot}
                   others={canvasBot ? groupBots.filter((b) => b.id !== canvasBot.id) : []}
                   onSwitch={(name) => change(`@${name} ${draft}`, name.length + 2)}

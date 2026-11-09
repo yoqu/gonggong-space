@@ -22,6 +22,7 @@ export function ContextChips({
   onSwitch,
   variations,
   onVariations,
+  onEnd,
 }: {
   context: CanvasContext
   bot: BotDto | null
@@ -30,6 +31,8 @@ export function ContextChips({
   /** Stitch's Variations ×3: the next message asks for this many variations of the selected screens; null = off. */
   variations: number | null
   onVariations: (count: number | null) => void
+  /** 正在编辑 (no selection, the whole artifact): its chip ends it. */
+  onEnd?: () => void
 }) {
   const offline = offlineHint(bot)
   const noScreens = !selectedScreenIds(context).length
@@ -38,6 +41,20 @@ export function ContextChips({
   const folded = screens.length > SCREEN_CHIPS_MAX
   return (
     <div className="art-chips" data-testid="art-context-chips">
+      {onEnd ? (
+        <span className="art-chip art-chip--editing" title={context.title} data-testid="art-editing">
+          <Icon name="grid" size={13} className="art-chip__icon" />
+          <span className="art-chip__text">{t('正在编辑 · {name}', { name: context.title })}</span>
+          <button
+            type="button"
+            className="art-chip__x"
+            aria-label={t('结束编辑 {name}', { name: context.title })}
+            onClick={onEnd}
+          >
+            <Icon name="xmark" size={10} weight={2} />
+          </button>
+        </span>
+      ) : null}
       {folded ? (
         <span
           className="art-chip"
@@ -86,29 +103,31 @@ export function ContextChips({
           </span>
         )
       })}
-      <span className={variations ? 'art-var art-var--on' : 'art-var'} data-testid="art-variations">
-        <button
-          type="button"
-          className="art-var__toggle"
-          aria-pressed={!!variations}
-          disabled={noScreens}
-          title={noScreens ? t('先在画布上选屏') : t('开启后，发送的描述会生成所选屏幕的变体')}
-          onClick={() => onVariations(variations ? null : count)}
-        >
-          <Icon name="sparkle" size={12} />
-          {t('变体')}
-        </button>
-        <MenuButton
-          className="art-var__count"
-          aria-label={t('变体数量')}
-          disabled={noScreens}
-          items={VARIATION_COUNTS.map((n) => ({ label: `×${n}`, value: String(n), checked: n === count }))}
-          onSelect={(v) => onVariations(Number(v))}
-          placement="above"
-        >
-          {`×${count}`}
-        </MenuButton>
-      </span>
+      {onEnd ? null : (
+        <span className={variations ? 'art-var art-var--on' : 'art-var'} data-testid="art-variations">
+          <button
+            type="button"
+            className="art-var__toggle"
+            aria-pressed={!!variations}
+            disabled={noScreens}
+            title={noScreens ? t('先在画布上选屏') : t('开启后，发送的描述会生成所选屏幕的变体')}
+            onClick={() => onVariations(variations ? null : count)}
+          >
+            <Icon name="sparkle" size={12} />
+            {t('变体')}
+          </button>
+          <MenuButton
+            className="art-var__count"
+            aria-label={t('变体数量')}
+            disabled={noScreens}
+            items={VARIATION_COUNTS.map((n) => ({ label: `×${n}`, value: String(n), checked: n === count }))}
+            onSelect={(v) => onVariations(Number(v))}
+            placement="above"
+          >
+            {`×${count}`}
+          </MenuButton>
+        </span>
+      )}
       <button
         type="button"
         className="art-chips__ds"

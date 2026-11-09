@@ -632,7 +632,7 @@ export function ChatView({
     if (m.secretCard) return <SecretCard m={m} card={m.secretCard} />
     if (m.progress) return <ProgressCard card={m.progress} />
     if (m.card?.type === 'creation-draft') return <CreationDraftView m={m} card={m.card} />
-    if (m.card?.type === 'artifact') return <ArtifactCardView card={m.card} />
+    if (m.card?.type === 'artifact') return <ArtifactCardView card={m.card} groupId={m.groupId} />
     if (m.feishuIssue) return <FeishuIssueEventRow m={m} issue={m.feishuIssue} />
     if (m.kind === 'event') return <EventRow m={m} />
     if (m.recalled) return <RecallRow m={m} mine={m.authorId === meId} />

@@ -5,6 +5,8 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { ContextMenu, Icon, type IconName, MenuButton, Presence, toast } from '../../ui'
+import { GroupWorksTab } from '../artifacts/GroupWorks'
+import { useGroupArtifacts } from '../artifacts/groupArtifacts'
 import { fileIconName } from '../files/FileViewer'
 import { AddTabDialog, RenameTabDialog } from './AddTabDialog'
 import { groupTabsApi, openGroupTab, tabHref, useGroupTabs } from './store'
@@ -63,6 +65,7 @@ function benchKey(tab: GroupTabDto): string | null {
  */
 export function GroupTabBar({ group }: { group: GroupDto }) {
   const known = useGroupTabs(group.id)
+  const works = useGroupArtifacts(group.id)
   const tabs = known ?? []
   const shown = useWorkbench((s) =>
     s.open && s.groupId === group.id ? (s.benches[group.id]?.active ?? null) : null,
@@ -111,7 +114,7 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
     groupTabsApi.reorder(group.id, ids).catch(toastError)
   }
 
-  if (!known || !tabs.length) return null
+  if (!known || (!tabs.length && !works.length)) return null
 
   return (
     <nav className="gtabs" aria-label={t('群标签栏')}>
@@ -120,6 +123,7 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
           <Icon name="message" size={13} />
           <span className="gtab__title">{t('消息')}</span>
         </span>
+        <GroupWorksTab groupId={group.id} />
         {tabs.map((tab, index) => {
           const href = tabHref(group.id, tab)
           const key = benchKey(tab)
