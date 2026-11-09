@@ -42,7 +42,9 @@ describe('kindOf keeps preview kinds', () => {
     ['page.html', 'text/html', 'code'],
     ['ci.log', 'text/plain', 'text'],
     ['data.csv', 'text/csv', 'text'],
-    ['report.pdf', 'application/pdf', 'file'],
+    ['report.pdf', 'application/pdf', 'pdf'],
+    ['logs.zip', 'application/zip', 'archive'],
+    ['dump.bin', 'application/octet-stream', 'file'],
   ])('%s → %s', (name, mime, kind) => {
     expect(kindOf({ name, mime })).toBe(kind)
   })

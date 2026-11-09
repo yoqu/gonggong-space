@@ -154,6 +154,8 @@ const timeline = {
         att({ id: 'a4', name: 'dump.bin', mime: 'application/octet-stream', size: 1024 }),
         att({ id: 'v1', name: 'demo.mp4', mime: 'video/mp4', size: 2048 }),
         att({ id: 'au1', name: 'song.mp3', mime: 'audio/mpeg', size: 2048 }),
+        att({ id: 'p1', name: 'spec.pdf', mime: 'application/pdf', size: 2048 }),
+        att({ id: 'z1', name: 'logs.zip', mime: 'application/zip', size: 1024 }),
         att({
           id: 'x1',
           name: 'plan.xlsx',
@@ -396,12 +398,17 @@ describe('message attachments and preview', () => {
     expect(within(main).getByText('引用 小王的 Claude')).toBeTruthy()
     expect(within(main).getByText('上次的结论')).toBeTruthy()
     expect(main.querySelector('video')?.getAttribute('src')).toBe('/api/attachments/v1')
-    expect(within(main).getByRole('button', { name: '在工作台查看 demo.mp4' })).toBeTruthy()
+    expect(within(main).getByRole('button', { name: '播放 demo.mp4' })).toBeTruthy()
     expect(within(main).getByRole('button', { name: /ci\.log/ }).textContent).toContain('文本日志 · 84 KB')
     expect(within(main).getByRole('button', { name: /plan\.xlsx/ }).textContent).toContain(
       'Excel 表格 · 4 KB · 点击预览',
     )
     expect(within(main).getByRole('button', { name: /dump\.bin/ }).textContent).not.toContain('点击预览')
+    expect(within(main).getByRole('button', { name: /spec\.pdf/ }).textContent).toContain(
+      'PDF · 2 KB · 点击预览',
+    )
+    expect(within(main).getByRole('button', { name: /logs\.zip/ }).textContent).toContain('压缩包 · 1 KB')
+    expect(within(main).getByRole('button', { name: /logs\.zip/ }).textContent).not.toContain('点击预览')
   })
 
   it('opens images, logs, markdown and unsupported files as workbench file tabs', async () => {
@@ -450,15 +457,52 @@ describe('message attachments and preview', () => {
     expect(screen.queryByRole('complementary', { name: '侧栏' })).toBeNull()
   })
 
-  it('plays audio in the workbench', async () => {
+  it('plays audio right in the message, with the workbench and download at hand', async () => {
     mockApi()
     renderChat()
     const main = screen.getByRole('main')
-    const card = await within(main).findByRole('button', { name: /song\.mp3/ })
-    expect(card.textContent).toContain('音频 · 2 KB · 点击预览')
-    fireEvent.click(card)
+    const card = await within(main).findByRole('group', { name: 'song.mp3' })
+    expect(card.textContent).toContain('音频 · 2 KB')
+    const audio = card.querySelector('audio') as HTMLAudioElement
+    expect(audio.getAttribute('src')).toBe('/api/attachments/au1')
+    expect(audio.controls).toBe(true)
+    expect(within(card).getByRole('link', { name: '下载' }).getAttribute('href')).toBe('/api/attachments/au1')
+    fireEvent.error(audio)
+    expect(card.textContent).toContain('浏览器无法播放此音频，可下载查看')
+    fireEvent.click(within(card).getByRole('button', { name: '在工作台查看' }))
     const pane = await screen.findByRole('region', { name: '工作台' })
     await waitFor(() => expect(pane.querySelector('audio')?.getAttribute('src')).toBe('/api/attachments/au1'))
     expect(pane.textContent).toContain('音频不直接发送，agent 按路径读取')
+  })
+
+  it('plays a video in its tile, falling back to a download when the browser cannot', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockReturnValue()
+    mockApi()
+    renderChat()
+    const main = screen.getByRole('main')
+    fireEvent.click(await within(main).findByRole('button', { name: '播放 demo.mp4' }))
+    const video = main.querySelector('video[src="/api/attachments/v1"]') as HTMLVideoElement
+    expect(play).toHaveBeenCalledOnce()
+    expect(video.controls).toBe(true)
+    expect(video.muted).toBe(false)
+    expect(within(main).queryByRole('button', { name: '播放 demo.mp4' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '工作台' })).toBeNull()
+    fireEvent.error(video)
+    expect(within(main).getByText('浏览器无法播放此视频，可下载查看')).toBeTruthy()
+    fireEvent.click(within(main).getByRole('button', { name: '在工作台查看 demo.mp4' }))
+    const pane = await screen.findByRole('region', { name: '工作台' })
+    await waitFor(() => expect(pane.querySelector('video')?.getAttribute('src')).toBe('/api/attachments/v1'))
+    play.mockRestore()
+    pause.mockRestore()
+  })
+
+  it('previews a PDF attachment in place', async () => {
+    mockApi()
+    renderChat()
+    fireEvent.click(await within(screen.getByRole('main')).findByRole('button', { name: /spec\.pdf/ }))
+    const pane = await screen.findByRole('region', { name: '工作台' })
+    await waitFor(() => expect(pane.querySelector('iframe')?.getAttribute('src')).toBe('/api/attachments/p1'))
+    expect(within(pane).getByRole('link', { name: '在浏览器中打开' })).toBeTruthy()
   })
 })

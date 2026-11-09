@@ -178,6 +178,38 @@ describe('uploads', () => {
     ])
   })
 
+  it('serves PDFs inline for preview, every attachment sandboxed and never sniffed', async () => {
+    const w = await world()
+    const got = async (name: string, mime: string) => {
+      const { body } = await upload(w.cookies.wang, w.g.id, name, Buffer.from('%PDF-1.4'), mime)
+      const res = await fetch(t.url(`/api/attachments/${body.id}`), { headers: { cookie: w.cookies.wang } })
+      await res.arrayBuffer()
+      return {
+        type: res.headers.get('content-type'),
+        disposition: res.headers.get('content-disposition')?.split(';')[0],
+        csp: res.headers.get('content-security-policy'),
+        nosniff: res.headers.get('x-content-type-options'),
+      }
+    }
+    const sandboxed = { csp: 'sandbox', nosniff: 'nosniff' }
+    expect(await got('spec.pdf', 'application/pdf')).toEqual({
+      type: 'application/pdf',
+      disposition: 'inline',
+      ...sandboxed,
+    })
+    expect(await got('spec.pdf', 'application/octet-stream')).toEqual({
+      type: 'application/pdf',
+      disposition: 'inline',
+      ...sandboxed,
+    })
+    expect(await got('page.html', 'text/html')).toEqual({
+      type: 'application/octet-stream',
+      disposition: 'attachment',
+      ...sandboxed,
+    })
+    expect(await got('shot.png', 'image/png')).toMatchObject(sandboxed)
+  })
+
   it('supports byte ranges for inline video playback', async () => {
     const w = await world()
     const video = Buffer.from('0123456789')

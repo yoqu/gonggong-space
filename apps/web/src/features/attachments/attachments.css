@@ -188,6 +188,7 @@
 }
 .att-tile__play {
   position: absolute;
+  transition: scale var(--spring-interactive);
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -212,4 +213,60 @@
 }
 .att-tile__open:hover {
   background: var(--control-track);
+}
+.att-tile__open--play {
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .att-tile:has(.att-tile__open--play:hover) .att-tile__play {
+    scale: 1.1;
+  }
+}
+/* Playing: the whole frame, letterboxed, with the native controls. */
+.att-tile--on {
+  background: #000;
+}
+.att-tile--on > video {
+  object-fit: contain;
+  animation: var(--fade-in) ui-fade-in;
+}
+.att-tile__corner {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+}
+.att-tile__failed {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-12) 44px;
+  text-align: center;
+  color: var(--on-accent);
+  font-size: var(--text-subheadline-size);
+}
+
+/* Message audio: a card with its own player */
+.att-audio {
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) var(--space-12) var(--space-12);
+}
+.att-audio__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.att-audio audio {
+  width: 100%;
+  height: 36px;
+}
+.att-audio__failed {
+  margin: 0;
+  font-size: var(--text-subheadline-size);
+  color: var(--label-secondary);
 }

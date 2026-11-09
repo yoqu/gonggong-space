@@ -36,6 +36,8 @@ export default {
   音频: 'Audio',
   文本日志: 'Text log',
   代码: 'Code',
+  压缩包: 'Archive',
+  '播放 {name}': 'Play {name}',
   跳到原消息: 'Jump to original message',
   'Word 文档': 'Word document',
   'Excel 表格': 'Excel workbook',

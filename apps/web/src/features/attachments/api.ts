@@ -36,14 +36,14 @@ export function uploadFile(groupId: string, file: File, onProgress: (pct: number
   return postForm<Upload>('/api/uploads', form, onProgress)
 }
 
-export type FileKind = 'image' | 'video' | 'audio' | 'md' | 'text' | 'code' | 'file'
+export type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'md' | 'text' | 'code' | 'archive' | 'file'
 
 /** Preview kind (prototype KIND_*): svg is served as a download, so it is a plain file here. */
 export function kindOf(a: Pick<Attachment, 'name' | 'mime'>): FileKind {
   if (a.mime.startsWith('image/') && a.mime !== 'image/svg+xml') return 'image'
   if (a.mime.startsWith('video/')) return 'video'
   const type = fileType(a.name, a.mime)
-  if (type === 'audio' || type === 'md' || type === 'code' || type === 'text') return type
+  if (['audio', 'pdf', 'md', 'code', 'text', 'archive'].includes(type)) return type as FileKind
   return a.mime.startsWith('text/') || /\.csv$/i.test(a.name) ? 'text' : 'file'
 }
 
@@ -51,9 +51,11 @@ export const KIND_LABEL: Record<FileKind, string> = {
   image: t('图片'),
   video: t('视频'),
   audio: t('音频'),
+  pdf: 'PDF',
   md: 'Markdown',
   text: t('文本日志'),
   code: t('代码'),
+  archive: t('压缩包'),
   file: t('文件#item'),
 }
 

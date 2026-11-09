@@ -45,6 +45,7 @@ async function sendFile(req: FastifyRequest, reply: FastifyReply, a: AttachmentR
       'content-disposition',
       `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(a.name)}`,
     )
+    .header('content-security-policy', 'sandbox')
     .header('x-content-type-options', 'nosniff')
     .header('accept-ranges', 'bytes')
   const range = inline ? req.headers.range : undefined

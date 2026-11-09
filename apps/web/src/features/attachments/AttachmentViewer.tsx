@@ -4,14 +4,16 @@ import { t } from '../../i18n'
 import { FileViewer, type ViewKind } from '../files/FileViewer'
 import { attachmentUrl, type FileKind, fmtSize, kindOf, officeOf, workspacePath } from './api'
 
-/** The attachment route serves only images, video, audio and text inline; office documents render from their bytes. */
+/** The attachment route serves images, video, audio, PDF and text inline; office documents render from their bytes. */
 const VIEW: Record<FileKind, ViewKind> = {
   image: 'image',
   video: 'video',
   audio: 'audio',
+  pdf: 'pdf',
   md: 'md',
   text: 'text',
   code: 'text',
+  archive: 'binary',
   file: 'binary',
 }
 
