@@ -1219,6 +1219,9 @@ export function Canvas({
       ? links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
       : links
   const thumbOf = (n: CanvasNode) => screenThumbs.find((s) => s.screenId === n.id)?.url
+  const entryThumb = manifest?.entry
+    ? screenThumbs.find((s) => s.screenId === manifest.entry)?.url
+    : undefined
   const shownScreens = nodes.filter((n) => {
     if (n.kind !== 'screen') return false
     const r = onScreen(n, view)
@@ -1592,10 +1595,22 @@ export function Canvas({
                 ) : n.kind === 'doc' && designMd ? (
                   <DesignMdNode md={designMd} />
                 ) : n.kind === 'prototype' ? (
-                  <div className="art-proto">
-                    <Icon name="play" size={28} />
-                    <strong>{t('原型')}</strong>
-                    <span>{t('双击打开')}</span>
+                  <div className={cx('art-proto', entryThumb && 'art-proto--shot')}>
+                    {entryThumb ? (
+                      <img className="art-node__thumb" src={entryThumb} alt="" loading="lazy" />
+                    ) : null}
+                    <button
+                      type="button"
+                      className="art-proto__play"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPresent()
+                      }}
+                    >
+                      <Icon name="play" size={28} />
+                      <span>{t('点击预览')}</span>
+                    </button>
                   </div>
                 ) : src(n) ? (
                   <>

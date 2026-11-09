@@ -25,6 +25,8 @@ export type NavAction =
   | { type: 'back' }
   /** Picked from the screen list: starts over there. */
   | { type: 'jump'; screen: string }
+  /** Starts over on the entry, as if going back to it. */
+  | { type: 'restart'; screen: string }
 
 export const startNav = (screen: string): ProtoNav => ({
   stack: [{ screen, via: 'none' }],
@@ -47,6 +49,7 @@ export function navReducer(s: ProtoNav, a: NavAction): ProtoNav {
     return { stack: [...s.stack, { screen: a.screen, via }], enter: via, step: s.step + 1 }
   }
   if (a.type === 'jump') return { ...startNav(a.screen), step: s.step + 1 }
+  if (a.type === 'restart') return { ...startNav(a.screen), enter: 'push-back', step: s.step + 1 }
   const last = s.stack[s.stack.length - 1]
   if (s.stack.length < 2 || !last) return s
   return { stack: s.stack.slice(0, -1), enter: REVERSE[last.via], step: s.step + 1 }
@@ -127,13 +130,19 @@ export function backRects(back: unknown): BridgeBackRect[] {
  * `data-gg-link` with a source id that holds the picked rect. Rects in document coordinates.
  */
 export function linkHost(spots: BridgeLinkRect[], r: Rect): BridgeLinkRect | null {
-  const holds = (q: Rect) =>
-    r.x >= q.x - 0.5 && r.y >= q.y - 0.5 && r.x + r.w <= q.x + q.w + 0.5 && r.y + r.h <= q.y + q.h + 0.5
   let best: BridgeLinkRect | null = null
   for (const s of spots)
-    if (s.ggId && holds(s.rect) && (!best || s.rect.w * s.rect.h < best.rect.w * best.rect.h)) best = s
+    if (s.ggId && holds(s.rect, r) && (!best || s.rect.w * s.rect.h < best.rect.w * best.rect.h)) best = s
   return best
 }
+
+/** Whether `q` holds `r` (half a pixel of rounding either way). */
+export const holds = (q: Rect, r: Rect) =>
+  r.x >= q.x - 0.5 && r.y >= q.y - 0.5 && r.x + r.w <= q.x + q.w + 0.5 && r.y + r.h <= q.y + q.h + 0.5
+
+/** Whether a key press belongs to a field being typed in, not to the editor's shortcuts. */
+export const typing = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
 
 const POP_GAP = 8
 

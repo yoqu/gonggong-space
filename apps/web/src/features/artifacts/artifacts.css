@@ -331,9 +331,45 @@
   font-size: 15px;
   user-select: none;
 }
-.art-proto span {
+.art-proto--shot {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.art-proto__play {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.art-proto--shot .art-proto__play {
+  padding: 0;
+  color: #fff;
+}
+.art-proto--shot .art-proto__play > svg {
+  box-sizing: content-box;
+  padding: 18px;
+  border-radius: 50%;
+  background: #00000073;
+  backdrop-filter: blur(6px);
+}
+.art-proto__play span {
   color: #a1a1a6;
   font-size: 12px;
+}
+.art-proto--shot .art-proto__play span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #00000073;
+  color: #fff;
 }
 .art-node .ui-skeleton,
 .art-node .ui-skel--block {

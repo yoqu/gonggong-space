@@ -467,23 +467,42 @@
     const r = rectOf(el)
     return { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
   }
+  // A hotspot inside scrolling or clipping boxes (a horizontal card row) shows only where they let it: its document rect
+  // cut to each of them, null when nothing of it shows.
+  const CLIPS = /auto|scroll|hidden|clip/
+  const hotRect = (el) => {
+    let r = rectOf(el)
+    let clipped = false
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p)
+      if (!CLIPS.test(cs.overflowX + cs.overflowY)) continue
+      const c = rectOf(p)
+      const x = Math.max(r.x, c.x)
+      const y = Math.max(r.y, c.y)
+      r = { x, y, w: Math.min(r.x + r.w, c.x + c.w) - x, h: Math.min(r.y + r.h, c.y + c.h) - y }
+      clipped = true
+    }
+    if (clipped && (r.w <= 0 || r.h <= 0)) return null
+    return { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
+  }
+  const hots = (sel, entry) =>
+    [...document.querySelectorAll(sel)].slice(0, 500).flatMap((el) => {
+      const rect = hotRect(el)
+      return rect ? [{ ggId: ggIdOf(el), ...entry(el), rect }] : []
+    })
   const layout = () => {
     const d = document.documentElement
     return {
       width: d.scrollWidth,
       height: d.scrollHeight,
-      links: [...document.querySelectorAll('[data-gg-link]')].slice(0, 500).map((el) => {
+      links: hots('[data-gg-link]', (el) => {
         const transition = el.getAttribute('data-gg-transition')
         return {
-          ggId: ggIdOf(el),
           screen: el.getAttribute('data-gg-link'),
-          rect: docRect(el),
           ...(TRANSITIONS.includes(transition) && { transition }),
         }
       }),
-      back: [...document.querySelectorAll('[data-gg-back]')]
-        .slice(0, 500)
-        .map((el) => ({ ggId: ggIdOf(el), rect: docRect(el) })),
+      back: hots('[data-gg-back]', () => ({})),
     }
   }
   // Throttled to one post per 100 ms, the last position always sent: the main site moves its overlays with it.
@@ -521,4 +540,17 @@
   post({ type: 'ready', ...first })
   window.addEventListener('load', report)
   if (window.ResizeObserver) new ResizeObserver(report).observe(document.documentElement)
+  // A box scrolling inside the page (the document's own scroll is `scroll` above) moves the hotspots in it.
+  let boxTimer = null
+  document.addEventListener(
+    'scroll',
+    (e) => {
+      if (!(e.target instanceof Element) || boxTimer) return
+      boxTimer = setTimeout(() => {
+        boxTimer = null
+        report()
+      }, 100)
+    },
+    { capture: true, passive: true },
+  )
 })()

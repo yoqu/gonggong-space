@@ -38,7 +38,64 @@
 .proto-bar__mode {
   position: absolute;
   left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   transform: translateX(-50%);
+}
+/* Preview: where it is (屏名 · n/N), back and start over. */
+.proto-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.proto-bar__where {
+  max-width: 160px;
+  margin-right: var(--space-4);
+  overflow: hidden;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A narrow bar: the centre group joins the flow between the title and Share instead of overlapping them. */
+.proto {
+  container-type: inline-size;
+}
+@container (max-width: 720px) {
+  .proto-bar__mode {
+    position: static;
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+    transform: none;
+  }
+  .proto-bar > .art-bar__fill {
+    display: none;
+  }
+  .proto-bar__title {
+    max-width: 120px;
+  }
+  .proto-bar__where {
+    max-width: 96px;
+  }
+}
+/* A phone: the workbench header already names the artifact, the back arrow is enough. */
+@container (max-width: 480px) {
+  .proto-bar__title {
+    display: none;
+  }
+  .proto-bar {
+    gap: var(--space-4);
+  }
+  .proto-bar__mode {
+    gap: var(--space-4);
+  }
+  .proto-bar__where {
+    max-width: 56px;
+    margin-right: 0;
+  }
 }
 
 .proto-body {
@@ -124,6 +181,13 @@
   background: var(--content-bg);
   box-shadow: 0 0 0 1px var(--separator);
   overflow: hidden;
+}
+.proto-thumb__shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
 }
 .proto-thumb__shot iframe {
   position: absolute;
@@ -379,11 +443,11 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* A thin outline only: edit mode tags a hotspot (→ 目标屏) when the pointer is over it or it is selected. */
 .proto-hot {
   position: absolute;
-  border: 1.5px dashed var(--system-blue);
+  border: 1px dashed var(--system-blue);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--system-blue) 8%, transparent);
 }
 /* Preview: a click beside the hotspots shows where they are, for a moment (FLASH_MS in PrototypeEditor.tsx). */
 .proto-hots--flash .proto-hot {
@@ -412,7 +476,8 @@
 .proto-hot__tag {
   position: absolute;
   bottom: 100%;
-  left: -1.5px;
+  left: -1px;
+  z-index: 1;
   margin-bottom: 2px;
   padding: 0 6px;
   border-radius: 4px;
@@ -432,20 +497,29 @@
   background: var(--accent);
 }
 
-/* The pencil under the device, and its request bar. */
+/* The AI pill under the device (edit mode), and its request bar. */
 .proto-pencil {
   position: absolute;
   bottom: 14px;
   left: 50%;
   translate: -50% 0;
 }
+/* A narrow stage's rail lies along the bottom: the pill and its bar sit above it. */
+.proto-pencil--raised,
+.proto-change.proto-change--raised {
+  bottom: 62px;
+}
 .proto-pencil__btn {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-capsule);
+  font: inherit;
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -491,6 +565,28 @@
 .proto-rail .ui-menu-anchor {
   display: flex;
 }
+/* The device button names its width under the icon (375, 390, 768, 1440). */
+.art-tools__btn.proto-rail__device {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  height: 38px;
+}
+.proto-rail__device small {
+  color: var(--label-secondary);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.art-tools.proto-rail--bottom {
+  top: auto;
+  right: auto;
+  bottom: var(--space-12);
+  left: 50%;
+  flex-direction: row;
+  transform: translateX(-50%);
+}
 /* A one-line hint above the device, under the mode switch: it covers none of the screen, and stays under dialogs. */
 .proto-guide {
   position: absolute;
@@ -520,6 +616,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A narrow stage: under the screens pill (12 + 32 + a gap), across the stage, wrapping. */
+.proto-guide--narrow {
+  top: 52px;
+  right: var(--space-12);
+  left: var(--space-12);
+  max-width: none;
+  border-radius: 12px;
+  translate: none;
+}
+.proto-guide--narrow > span {
+  white-space: normal;
 }
 
 .proto-connect {
@@ -599,12 +707,6 @@
 .art-share__link small {
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
-}
-.art-share__note {
-  margin: 0;
-  color: var(--label-secondary);
-  font-size: var(--text-footnote-size);
-  line-height: 1.5;
 }
 .art-share__denied {
   display: flex;

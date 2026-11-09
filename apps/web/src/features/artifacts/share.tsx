@@ -121,6 +121,10 @@ export function ShareDialog({
     }
   }
   const on = !!share?.enabled
+  const turnOn = async () => {
+    const s = await set(true)
+    if (s?.url) await copyWithToast(s.url, t('链接已复制'))
+  }
   return (
     <Dialog open onClose={onClose} title={t('分享产物')} width={440}>
       <div className="art-share">
@@ -145,7 +149,7 @@ export function ShareDialog({
         <div className="art-share__row">
           <div>
             <strong>{t('开启分享')}</strong>
-            <small>{on ? t('任何拿到链接的人都能查看') : t('只有群成员能查看')}</small>
+            <small>{on ? t('任何拿到链接的人都能查看') : t('未开启，只有群成员能查看')}</small>
           </div>
           <Switch
             aria-label={t('开启分享')}
@@ -154,11 +158,6 @@ export function ShareDialog({
             onChange={(v) => void set(v)}
           />
         </div>
-        <p className="art-share__note">
-          {t(
-            '开启后，任何拿到链接的人都能查看这个产物的屏幕和原型（只读）。可以随时关闭，关闭后链接立即失效。',
-          )}
-        </p>
         {denied ? (
           <p className="art-share__denied" role="note">
             <Icon name="lock" size={13} />
@@ -171,20 +170,31 @@ export function ShareDialog({
             <small>{expiry(share.expiresAt)}</small>
           </div>
         ) : null}
-        <Button
-          variant="primary"
-          icon="link"
-          disabled={!on || !share?.url}
-          onClick={() => share?.url && void copyWithToast(share.url, t('链接已复制'))}
-        >
-          {t('复制链接')}
-        </Button>
+        {on ? (
+          <Button
+            variant="primary"
+            icon="link"
+            disabled={!share?.url}
+            onClick={() => share?.url && void copyWithToast(share.url, t('链接已复制'))}
+          >
+            {t('复制链接')}
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            icon="link"
+            disabled={!share || busy || !!denied}
+            onClick={() => void turnOn()}
+          >
+            {t('开启并复制链接')}
+          </Button>
+        )}
       </div>
     </Dialog>
   )
 }
 
-/** Show QR Code: the share link (to `screen` when given) for a phone to scan; asks to turn sharing on first. */
+/** Show QR Code: the share link (to `screen` when given) for a phone to scan; turns sharing on in place. */
 export function QrDialog({
   artifactId,
   groupId,
@@ -217,8 +227,7 @@ export function QrDialog({
       ) : (
         <div className="art-qr art-qr--off">
           <Icon name="qrcode" size={36} />
-          <strong>{t('先开启分享')}</strong>
-          <small>{t('二维码打开的是分享链接，开启分享后才能扫码查看')}</small>
+          <small>{t('二维码打开分享链接，开启后任何拿到链接的人都能查看')}</small>
           {denied ? <small className="art-share__denied">{denied}</small> : null}
           <Button
             variant="primary"
@@ -226,7 +235,7 @@ export function QrDialog({
             disabled={!share || busy || !!denied}
             onClick={() => void set(true)}
           >
-            {t('开启分享')}
+            {t('开启分享并生成二维码')}
           </Button>
         </div>
       )}

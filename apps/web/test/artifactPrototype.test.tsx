@@ -111,15 +111,16 @@ const tab = { kind: 'artifact' as const, artifactId: 'a1', title: '读书会小�
 const bodies = (calls: Call[], method: string, path: string) =>
   calls.filter((c) => c.method === method && c.path === path).map((c) => c.body)
 
-/** Renders the tab and opens the prototype editor with 演示. */
+/** Renders the tab and opens the prototype editor with 预览. */
 const openEditor = async () => {
   render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
   await screen.findByTitle('首页')
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: '演示' }).hasAttribute('disabled')).toBe(false),
+    expect(screen.getByRole('button', { name: '预览原型' }).hasAttribute('disabled')).toBe(false),
   )
-  fireEvent.click(screen.getByRole('button', { name: '演示' }))
-  await screen.findByRole('region', { name: '原型编辑器' })
+  expect(screen.getByRole('button', { name: '预览原型' }).textContent).toBe('预览')
+  fireEvent.click(screen.getByRole('button', { name: '预览原型' }))
+  await screen.findByRole('region', { name: '原型预览' })
 }
 const shown = () => screen.getByTestId('proto-screen')
 const fromScreen = (data: Record<string, unknown>) => {
@@ -198,6 +199,13 @@ describe('navigation', () => {
     // Nothing to go back to.
     expect(navReducer(s, { type: 'back' })).toBe(s)
     expect(navReducer(s, { type: 'jump', screen: 'shelf' }).stack).toEqual([{ screen: 'shelf', via: 'none' }])
+    // Restart: back to the entry, the way it came undone.
+    const deep = navReducer(navReducer(s, { type: 'go', screen: 'detail' }), { type: 'go', screen: 'shelf' })
+    expect(navReducer(deep, { type: 'restart', screen: 'home' })).toMatchObject({
+      stack: [{ screen: 'home', via: 'none' }],
+      enter: 'push-back',
+      step: deep.step + 1,
+    })
   })
 })
 
@@ -264,7 +272,7 @@ describe('prototype editor', () => {
     localStorage.removeItem(GUIDE_KEY)
     mockApi(routes())
     await openEditor()
-    const hint = () => screen.queryByRole('status', { name: '原型编辑器引导' })
+    const hint = () => screen.queryByRole('status', { name: '原型预览引导' })
     // Inside the stage, above the device, not a dialog over it.
     expect(screen.getByTestId('proto-stage').contains(hint())).toBe(true)
     expect(hint()?.textContent).toMatch(/点屏幕里的按钮就能跳转体验/)
@@ -278,18 +286,18 @@ describe('prototype editor', () => {
     mockApi(routes())
     await openEditor()
     editMode()
-    expect(screen.queryByRole('status', { name: '原型编辑器引导' })).toBeNull()
+    expect(screen.queryByRole('status', { name: '原型预览引导' })).toBeNull()
     expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
     localStorage.removeItem(GUIDE_KEY)
     fireEvent.click(screen.getByRole('button', { name: /读书会小程序/ }))
-    fireEvent.click(screen.getByRole('button', { name: '演示' }))
-    await screen.findByRole('status', { name: '原型编辑器引导' })
+    fireEvent.click(screen.getByRole('button', { name: '预览原型' }))
+    await screen.findByRole('status', { name: '原型预览引导' })
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(screen.queryByRole('status', { name: '原型编辑器引导' })).toBeNull()
+    expect(screen.queryByRole('status', { name: '原型预览引导' })).toBeNull()
     expect(localStorage.getItem(GUIDE_KEY)).toBe('1')
   })
 
-  it('keeps the design clean in preview, flashes hotspots on a miss, and labels them connected in edit mode', async () => {
+  it('keeps the design clean in preview, flashes hotspots on a miss, and outlines them in edit mode', async () => {
     mockApi(routes())
     await openEditor()
     ready(
@@ -313,15 +321,26 @@ describe('prototype editor', () => {
     expect(hots().children).toHaveLength(2)
     expect(hots().classList.contains('proto-hots--flash')).toBe(false)
     expect((hots().children[0] as HTMLElement).style.top).toBe('300px')
-    expect(within(hots()).queryByText('已连接')).toBeNull()
+    expect(hots().querySelector('.proto-hot__tag')).toBeNull()
     fireEvent.click(toggle)
     expect(hots().children).toHaveLength(0)
     editMode()
-    expect(within(hots()).getByText('已连接')).toBeTruthy()
-    expect(within(hots()).getByText('返回')).toBeTruthy()
+    // Edit mode outlines every hotspot, without a tag until the pointer is over it.
+    expect(hots().children).toHaveLength(2)
+    expect(hots().querySelector('.proto-hot__tag')).toBeNull()
+    expect(within(hots()).queryByText('已连接')).toBeNull()
+    fromScreen({ type: 'hover', ggId: '121', rect: { x: 20, y: 305, w: 50, h: 20 } })
+    expect(within(hots()).getByText('→ 书籍详情')).toBeTruthy()
+    expect(within(hots()).queryByText('← 返回')).toBeNull()
+    fromScreen({ type: 'hover', ggId: '80', rect: { x: 0, y: 0, w: 40, h: 40 } })
+    expect(within(hots()).queryByText('→ 书籍详情')).toBeNull()
     // Tags sit outside the element (P2-21): above it, or below when the screen's top leaves no room.
-    expect(within(hots()).getByText('已连接').classList.contains('proto-hot__tag--below')).toBe(false)
-    expect(within(hots()).getByText('返回').classList.contains('proto-hot__tag--below')).toBe(true)
+    expect(within(hots()).getByText('← 返回').classList.contains('proto-hot__tag--below')).toBe(true)
+    fromScreen({ type: 'hover', ggId: null, rect: null })
+    expect(hots().querySelector('.proto-hot__tag')).toBeNull()
+    // A selected connected element names where it goes.
+    select({ rect: { x: 10, y: 300, w: 200, h: 40 }, link: 'detail' })
+    expect(within(hots()).getByText('→ 书籍详情').classList.contains('proto-hot__tag--below')).toBe(false)
     // The frame keeps the device's height and scrolls itself; the overlays follow its scroll.
     expect((screen.getByTitle('首页') as HTMLElement).style.height).toBe('844px')
     fromScreen({ type: 'scroll', scrollX: 0, scrollY: 120 })
@@ -427,7 +446,7 @@ describe('prototype editor', () => {
     expect(screen.queryByTestId('proto-connect')).toBeNull()
     const stage = screen.getByTestId('proto-device').closest('.proto-stage') as HTMLElement
     expect(stage.style.paddingBottom).toBe('')
-    fireEvent.click(screen.getByRole('button', { name: '用 AI 修改这屏' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI 改这屏' }))
     expect(stage.style.paddingBottom).toBe('200px')
   })
 
@@ -476,7 +495,7 @@ describe('prototype editor', () => {
     )
 
     // The pencil: Edit With AI on the whole screen.
-    fireEvent.click(screen.getByRole('button', { name: '用 AI 修改这屏' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI 改这屏' }))
     fireEvent.change(screen.getByRole('textbox', { name: '修改要求' }), { target: { value: '整体换成深色' } })
     fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手' }))
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toHaveLength(2))
@@ -492,6 +511,7 @@ describe('prototype editor', () => {
   it('imagines a new screen from the list without a selection', async () => {
     const calls = mockApi(routes())
     await openEditor()
+    editMode()
     fireEvent.click(screen.getByRole('button', { name: /构想新屏/ }))
     fireEvent.change(screen.getByRole('textbox', { name: '新屏描述' }), { target: { value: '个人中心' } })
     fireEvent.click(screen.getByRole('button', { name: '发给 @设计助手' }))
@@ -503,16 +523,29 @@ describe('prototype editor', () => {
     expect(bodies(calls, 'POST', '/groups/g1/messages')).toHaveLength(0)
   })
 
-  it('asks to turn sharing on before showing a QR code', async () => {
+  it('turns sharing on in place to show a QR code', async () => {
     const calls = mockApi(routes())
     await openEditor()
     fireEvent.click(screen.getByRole('button', { name: '扫码查看' }))
     const dialog = await screen.findByRole('dialog', { name: '扫码查看' })
-    await within(dialog).findByText('先开启分享')
+    const turnOn = await within(dialog).findByRole('button', { name: '开启分享并生成二维码' })
     expect(screen.queryByTestId('art-qr')).toBeNull()
-    fireEvent.click(within(dialog).getByRole('button', { name: '开启分享' }))
-    await screen.findByTestId('art-qr')
+    await waitFor(() => expect(turnOn.hasAttribute('disabled')).toBe(false))
+    fireEvent.click(turnOn)
+    await within(dialog).findByTestId('art-qr')
     expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([{ enabled: true }])
+  })
+
+  it('says why the QR code cannot be turned on', async () => {
+    mockApi(routes({ 'GET /artifacts/a1': artifact({ botId: 'b2' }) }))
+    setGroup(['b1', 'b2'])
+    await openEditor()
+    fireEvent.click(screen.getByRole('button', { name: '扫码查看' }))
+    const dialog = await screen.findByRole('dialog', { name: '扫码查看' })
+    expect(within(dialog).getByText('只有 Bot 主人或群管理员能开关分享')).toBeTruthy()
+    expect(
+      within(dialog).getByRole('button', { name: '开启分享并生成二维码' }).hasAttribute('disabled'),
+    ).toBe(true)
   })
 
   it('opens itself once Instant Prototype’s run ends', async () => {
@@ -526,10 +559,10 @@ describe('prototype editor', () => {
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toHaveLength(1))
     running = true
     await act(() => loadArtifact('a1'))
-    expect(screen.queryByRole('region', { name: '原型编辑器' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '原型预览' })).toBeNull()
     running = false
     await act(() => loadArtifact('a1'))
-    await screen.findByRole('region', { name: '原型编辑器' })
+    await screen.findByRole('region', { name: '原型预览' })
   })
 
   describe('the element menu on the stage (P1-N1)', () => {
@@ -577,7 +610,8 @@ describe('prototype editor', () => {
     ready([{ ggId: '200', screen: 'detail', rect: { x: 0, y: 280, w: 390, h: 120 }, transition: 'fade' }])
     // The card's title, inside the card that links to 书籍详情.
     select({ ggId: '201', rect: { x: 16, y: 300, w: 200, h: 20 }, tag: 'h3', text: '本周共读' })
-    const picked = within(screen.getByTestId('proto-hots')).getByText('已选中').parentElement as HTMLElement
+    const picked = screen.getByTestId('proto-hots').querySelector('.proto-hot--selected') as HTMLElement
+    expect(within(picked).getByText('→ 书籍详情')).toBeTruthy()
     expect(picked.style.top).toBe('280px')
     expect(picked.style.height).toBe('120px')
     const m = screen.getByRole('dialog', { name: '编辑元素' })
@@ -677,15 +711,19 @@ describe('share', () => {
     await screen.findByTitle('首页')
     fireEvent.click(screen.getByRole('button', { name: '分享' }))
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
-    const copy = within(dialog).getByRole('button', { name: '复制链接' })
-    expect(copy.hasAttribute('disabled')).toBe(true)
-    const toggle = within(dialog).getByRole('switch', { name: '开启分享' })
-    await waitFor(() => expect(toggle.hasAttribute('disabled')).toBe(false))
-    fireEvent.click(toggle)
+    expect(within(dialog).getByText('未开启，只有群成员能查看')).toBeTruthy()
+    expect(dialog.textContent).not.toMatch('关闭后链接立即失效')
+    const turnOn = within(dialog).getByRole('button', { name: '开启并复制链接' })
+    await waitFor(() => expect(turnOn.hasAttribute('disabled')).toBe(false))
+    fireEvent.click(turnOn)
     await within(dialog).findByText(ON.url)
     expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([{ enabled: true }])
-    fireEvent.click(copy)
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(ON.url))
+    await waitFor(() => expect(useToasts.getState().items.map((i) => i.message)).toContain('链接已复制'))
+    expect(within(dialog).getByText('任何拿到链接的人都能查看')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '复制链接' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2))
+    const toggle = within(dialog).getByRole('switch', { name: '开启分享' })
     fireEvent.click(toggle)
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/share')).toHaveLength(2))
     expect(bodies(calls, 'POST', '/artifacts/a1/share')[1]).toEqual({ enabled: false })
@@ -700,6 +738,7 @@ describe('share', () => {
     const dialog = await screen.findByRole('dialog', { name: '分享产物' })
     expect(within(dialog).getByText('只有 Bot 主人或群管理员能开关分享')).toBeTruthy()
     expect(within(dialog).getByRole('switch', { name: '开启分享' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByRole('button', { name: '开启并复制链接' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('lets a group admin manage it', async () => {
@@ -898,7 +937,7 @@ describe('Stitch round 4 fixes (prototype)', () => {
     expect(within(chrome).queryByTestId('proto-capsule')).toBeNull()
   })
 
-  it('fills a narrow stage: the list starts as a pill, only the rail is kept clear (P0 layout)', async () => {
+  it('fills a narrow stage: the list starts as a pill, the rail lies along the bottom (P0 layout)', async () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(660)
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(900)
     mockApi(routes())
@@ -907,17 +946,33 @@ describe('Stitch round 4 fixes (prototype)', () => {
     expect(screen.getByRole('button', { name: /原型中的屏幕/ })).toBeTruthy()
     const stage = screen.getByTestId('proto-stage')
     expect(stage.style.paddingLeft).toBe('12px')
-    expect(stage.style.paddingRight).toBe('68px')
+    expect(stage.style.paddingRight).toBe('12px')
+    expect(stage.style.paddingBottom).toBe('68px')
+    const rail = screen.getByRole('toolbar', { name: '原型工具' })
+    expect(rail.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(rail.classList.contains('proto-rail--bottom')).toBe(true)
     const scale = Number.parseFloat(screen.getByTestId('proto-device').style.transform.slice(6))
-    expect(scale).toBeCloseTo((900 - 96) / 864)
+    expect(scale).toBeCloseTo((900 - 96 - 68) / 864)
     // The element menu follows the device where it now sits.
     editMode()
     select({ rect: { x: 0, y: 100, w: 10, h: 20 } })
     const left = Number.parseFloat(screen.getByRole('dialog', { name: '编辑元素' }).style.left)
-    expect(left).toBeCloseTo(12 + (660 - 12 - 68 - 410 * scale) / 2 + 10 * scale)
+    expect(left).toBeCloseTo(12 + (660 - 12 - 12 - 410 * scale) / 2 + 10 * scale)
+    // The AI pill sits above the rail.
+    expect(screen.getByRole('button', { name: 'AI 改这屏' }).closest('.proto-pencil--raised')).toBeTruthy()
     // Opening the list makes room for it on the left.
     fireEvent.click(screen.getByRole('button', { name: /原型中的屏幕/ }))
     expect(stage.style.paddingLeft).toBe('236px')
+  })
+
+  it('puts the guide under the screens pill on a narrow stage', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700)
+    localStorage.removeItem(GUIDE_KEY)
+    mockApi(routes())
+    await openEditor()
+    const hint = screen.getByRole('status', { name: '原型预览引导' })
+    expect(hint.classList.contains('proto-guide--narrow')).toBe(true)
   })
 
   it('slides screens inside a fixed clip, so a transition never shows past the device (P1-04)', async () => {
@@ -929,5 +984,97 @@ describe('Stitch round 4 fixes (prototype)', () => {
     expect(moving.className).toContain('proto-enter--slide-up')
     expect(moving.parentElement).toBe(screen.getByTestId('proto-clip'))
     expect(screen.getByTestId('proto-clip').className).toBe('proto-clip')
+  })
+})
+
+describe('prototype preview walkthrough fixes (2026-11-09)', () => {
+  it('keeps edit entries out of preview: add screen, imagine and the AI pill show in edit mode only', async () => {
+    mockApi(routes())
+    await openEditor()
+    expect(screen.queryByRole('button', { name: /添加屏幕/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /构想新屏/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'AI 改这屏' })).toBeNull()
+    editMode()
+    expect(screen.getByRole('button', { name: /添加屏幕/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /构想新屏/ })).toBeTruthy()
+    const pill = screen.getByRole('button', { name: 'AI 改这屏' })
+    expect(pill.textContent).toBe('AI 改这屏')
+    // Back to preview closes the open request bar too.
+    fireEvent.click(pill)
+    expect(screen.getByRole('textbox', { name: '修改要求' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: '预览' }))
+    expect(screen.queryByRole('textbox', { name: '修改要求' })).toBeNull()
+  })
+
+  it('says where the preview is, and goes back or starts over from the bar and the keyboard', async () => {
+    mockApi(routes())
+    await openEditor()
+    const where = () => screen.getByTestId('proto-where').textContent
+    const back = () => screen.queryByRole('button', { name: '返回' })
+    const restart = () => screen.getByRole('button', { name: '重新开始' })
+    expect(where()).toBe('首页 · 1/3')
+    expect(back()).toBeNull()
+    expect(restart().hasAttribute('disabled')).toBe(true)
+    fromScreen({ type: 'nav', screen: 'shelf' })
+    fromScreen({ type: 'nav', screen: 'detail' })
+    expect(where()).toBe('书籍详情 · 2/3')
+    fireEvent.click(back() as HTMLElement)
+    expect(shown().dataset.screen).toBe('shelf')
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    expect(shown().dataset.screen).toBe('home')
+    // A screen picked from the list is not the entry: starting over goes back to it.
+    fireEvent.click(screen.getByRole('button', { name: /书架/ }))
+    expect(restart().hasAttribute('disabled')).toBe(false)
+    fireEvent.click(restart())
+    expect(shown().dataset.screen).toBe('home')
+    fromScreen({ type: 'nav', screen: 'detail' })
+    fireEvent.keyDown(window, { key: 'Home' })
+    expect(shown().dataset.screen).toBe('home')
+    // Not while typing, nor in edit mode.
+    fromScreen({ type: 'nav', screen: 'detail' })
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    fireEvent.keyDown(input, { key: 'ArrowLeft' })
+    expect(shown().dataset.screen).toBe('detail')
+    input.remove()
+    editMode()
+    expect(screen.queryByTestId('proto-where')).toBeNull()
+    fireEvent.keyDown(window, { key: 'Home' })
+    expect(shown().dataset.screen).toBe('detail')
+  })
+
+  it('labels the device with its width, and reloads and highlights from the keyboard', async () => {
+    mockApi(routes())
+    await openEditor()
+    const device = screen.getByRole('button', { name: '设备：手机' })
+    expect(device.textContent).toBe('390')
+    const frame = screen.getByTitle('首页')
+    fireEvent.keyDown(window, { key: 'r' })
+    expect(screen.getByTitle('首页')).not.toBe(frame)
+    const toggle = screen.getByRole('button', { name: '高亮热点' })
+    fireEvent.keyDown(window, { key: 'h' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    // Shortcuts are named in the tooltips.
+    const tipOf = (b: HTMLElement) =>
+      document.getElementById(b.getAttribute('aria-describedby') as string)?.textContent
+    expect(tipOf(toggle)).toBe('高亮热点H')
+    expect(tipOf(screen.getByRole('button', { name: '重新加载' }))).toBe('重新加载R')
+  })
+
+  it('shows the server’s screenshots in the screen list, a live page only where there is none', async () => {
+    mockApi(
+      routes({
+        'GET /artifacts/a1/versions/v2': {
+          ...detail,
+          screenThumbs: [{ screenId: 'home', url: '/api/artifacts/a1/versions/v2/screens/home/thumbnail' }],
+        },
+      }),
+    )
+    await openEditor()
+    const list = screen.getByRole('complementary', { name: '原型中的屏幕' })
+    const shot = await within(list).findByRole('img', { name: '首页 缩略图' })
+    expect(shot.getAttribute('src')).toBe('/api/artifacts/a1/versions/v2/screens/home/thumbnail')
+    expect(within(list).queryByTitle('首页 缩略图')).toBe(null)
+    expect(within(list).getByTitle('书架 缩略图').tagName).toBe('IFRAME')
   })
 })

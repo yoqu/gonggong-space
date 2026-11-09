@@ -222,6 +222,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
           onBack={() => setProto(null)}
           onShare={() => setSharing(true)}
+          screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
         />
         {shareDialog}
       </div>
@@ -290,10 +291,11 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           size="small"
           variant="plain"
           icon="play"
+          aria-label={t('预览原型')}
           disabled={!preview || !shownManifest}
           onClick={present}
         >
-          {t('演示')}
+          {t('预览')}
         </Button>
         <Button size="small" icon="download" disabled={!head} onClick={() => ask('export')}>
           {t('导出')}

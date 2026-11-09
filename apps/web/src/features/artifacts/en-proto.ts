@@ -1,7 +1,8 @@
 // R5: the prototype editor (PrototypeEditor.tsx), export (ExportPanel.tsx) and share (share.tsx).
 export default {
   // Prototype editor
-  原型编辑器: 'Prototype editor',
+  原型预览: 'Prototype preview',
+  重新开始: 'Start over',
   返回画布: 'Back to canvas',
   原型模式: 'Prototype mode',
   原型中的屏幕: 'Screens in prototype',
@@ -17,7 +18,7 @@ export default {
   返回上一屏: 'Back to the previous screen',
   描述要怎么改这屏: 'Describe how to change this screen',
   '描述要怎么改这屏…': 'Describe how to change this screen…',
-  '用 AI 修改这屏': 'Change this screen with AI',
+  'AI 改这屏': 'Change with AI',
   'Esc 关闭': 'Esc to close',
   原型工具: 'Prototype tools',
   设备: 'Device',
@@ -27,7 +28,7 @@ export default {
   桌面: 'Desktop',
   高亮热点: 'Highlight hotspots',
   扫码查看: 'Scan QR code',
-  原型编辑器引导: 'Prototype editor guide',
+  原型预览引导: 'Prototype preview guide',
   '点屏幕里的按钮就能跳转体验；切到「编辑」可连线、改字或让 AI 改':
     'Tap buttons on the screen to try the flow; switch to Edit to connect, change text or ask the AI',
   连到屏幕: 'Connect to screen',
@@ -59,15 +60,13 @@ export default {
   分享产物: 'Share artifact',
   开启分享: 'Enable sharing',
   任何拿到链接的人都能查看: 'Anyone with the link can view',
-  只有群成员能查看: 'Only group members can view',
-  '开启后，任何拿到链接的人都能查看这个产物的屏幕和原型（只读）。可以随时关闭，关闭后链接立即失效。':
-    'Once on, anyone with the link can view the screens and prototype of this artifact (read-only). Turn it off any time; the link stops working at once.',
+  '未开启，只有群成员能查看': 'Off. Only group members can view',
   '只有 Bot 主人或群管理员能开关分享': 'Only the bot owner or a group admin can turn sharing on or off',
   演示模式下不能开启分享: 'Sharing is not available in demo mode',
   '链接 {date} 到期': 'Link expires {date}',
-  先开启分享: 'Turn sharing on first',
-  '二维码打开的是分享链接，开启分享后才能扫码查看':
-    'The QR code opens the share link, so sharing must be on to scan it',
+  开启分享并生成二维码: 'Turn on sharing and show QR code',
+  '二维码打开分享链接，开启后任何拿到链接的人都能查看':
+    'The QR code opens the share link. Once on, anyone with the link can view',
   用手机扫码打开原型: 'Scan with a phone to open the prototype',
   可见范围: 'Who can see it',
   仅自己: 'Only me',

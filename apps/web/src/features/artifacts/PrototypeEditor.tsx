@@ -1,6 +1,7 @@
 import type {
   ArtifactEditOp,
   ArtifactTransition,
+  ArtifactVersionDetail,
   BotDto,
   BridgeBackRect,
   BridgeLinkRect,
@@ -46,6 +47,7 @@ import {
   disconnectOps,
   enterClass,
   GUIDE_KEY,
+  holds,
   linkHost,
   menuPlace,
   navReducer,
@@ -53,6 +55,7 @@ import {
   type ProtoFrame,
   protoDevices,
   startNav,
+  typing,
 } from './prototype'
 import { Panel } from './SidePanel'
 import { QrDialog } from './share'
@@ -98,8 +101,13 @@ const RAIL_ROOM = 68
 const EDGE = 12
 /** A thumbnail's width in the screen list (px). */
 const THUMB_W = 188
-/** A stage narrower than this opens with the screen list collapsed, leaving the device the room. */
+/**
+ * A stage narrower than this opens with the screen list collapsed, leaving the device the room; its rail lies along
+ * the bottom, taking RAIL_ROOM there instead of at the right.
+ */
 const NARROW_STAGE = 720
+/** What a narrow stage's guide takes of its top (prototype.css `.proto-guide--narrow`: 52 down, two lines, a gap). */
+const GUIDE_ROOM = 120
 
 export interface PrototypeEditorProps {
   artifactId: string
@@ -115,6 +123,8 @@ export interface PrototypeEditorProps {
   onEdit: (ops: ArtifactEditOp[]) => Promise<void>
   onBack: () => void
   onShare: () => void
+  /** Server screenshots of this version's screens; the list falls back to live frames without one. */
+  screenThumbs: NonNullable<ArtifactVersionDetail['screenThumbs']>
 }
 
 /**
@@ -135,6 +145,7 @@ export function PrototypeEditor({
   onEdit,
   onBack,
   onShare,
+  screenThumbs,
 }: PrototypeEditorProps) {
   const screens = manifest.screens
   const [mode, setMode] = useState<Mode>('preview')
@@ -159,7 +170,11 @@ export function PrototypeEditor({
   const [imagine, setImagine] = useState(false)
   const [change, setChange] = useState(false)
   const [guide, setGuide] = useState(() => !localStorage.getItem(GUIDE_KEY))
+  /** The element under the pointer in edit mode, in document coordinates: the hotspot holding it shows its tag. */
+  const [hover, setHover] = useState<Rect | null>(null)
+  /** The server's screenshot of each screen (screen id → url): the list shows these, not a page per screen. */
   const [room, setRoom] = useState({ width: 0, height: 0 })
+  const root = useRef<HTMLElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const frames = useRef(new Map<string, HTMLIFrameElement>()).current
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
@@ -185,8 +200,31 @@ export function PrototypeEditor({
   }, [flash])
   const switchMode = (m: Mode) => {
     if (guide) closeGuide()
+    if (m === 'preview') setChange(false)
     setMode(m)
   }
+
+  const thumbOf = (id: string) => screenThumbs.find((x) => x.screenId === id)?.url
+  const entry = screens.some((s) => s.id === manifest.entry) ? manifest.entry : (screens[0]?.id ?? start)
+  const restart = () => go({ type: 'restart', screen: entry })
+  // Window-wide like the guide's Escape, but not from a field, a dialog, or a hidden workbench tab.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return
+      if (e.target instanceof Element && e.target.closest('[role="dialog"]')) return
+      if (root.current?.closest('[hidden]')) return
+      const k = e.key.toLowerCase()
+      if (k === 'r') setReload((n) => n + 1)
+      else if (k === 'h') setHotspots((on) => !on)
+      else if (edit) return
+      else if (e.key === 'ArrowLeft') go({ type: 'back' })
+      else if (e.key === 'Home') go({ type: 'restart', screen: entry })
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [edit, entry])
 
   useEffect(() => {
     const el = stage.current
@@ -220,6 +258,7 @@ export function PrototypeEditor({
   }
   useEffect(() => {
     for (const f of frames.values()) postToScreen(f, origin, { type: 'mode', mode: bridgeMode })
+    setHover(null)
     setElement(null)
     setMenu(false)
     setConnect(false)
@@ -228,6 +267,7 @@ export function PrototypeEditor({
   // Element positions belong to one version and one screen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a version or screen change only
   useEffect(() => {
+    setHover(null)
     setElement(null)
     setMenu(false)
     setConnect(false)
@@ -256,6 +296,10 @@ export function PrototypeEditor({
       go({ type: 'back' })
     } else if (m.type === 'miss') {
       if (!edit && !hotspots) setFlash((n) => n + 1)
+    } else if (m.type === 'hover') {
+      if (!edit) return
+      const at = scrolls[m.file] ?? NO_SCROLL
+      setHover(m.rect && { ...m.rect, x: m.rect.x + at.x, y: m.rect.y + at.y })
     } else if (m.type === 'scroll') {
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
     } else if (m.type === 'text-edit') {
@@ -289,23 +333,30 @@ export function PrototypeEditor({
   /** A document rect where it shows in the device now. */
   const inView = (r: Rect): Rect => ({ ...r, x: r.x - scrolled.x, y: r.y - scrolled.y })
   const connecting = connect && !!element && edit
-  /** The device sits centred between the screen list (when open) and the rail, or the connect panel while it is open. */
+  const narrow = room.width > 0 && room.width < NARROW_STAGE
+  /**
+   * The device sits centred between the screen list (when open) and the rail, or the connect panel while it is open;
+   * above the change bar, and above the rail where a narrow stage lays it along the bottom.
+   */
   const left = listOpen ? LIST_ROOM : EDGE
-  const right = connecting ? CONNECT_ROOM : RAIL_ROOM
+  const right = connecting ? CONNECT_ROOM : narrow ? EDGE : RAIL_ROOM
+  const bottom = (change ? CHANGE_ROOM : 0) + (narrow ? RAIL_ROOM : 0)
+  /** A narrow stage's guide spans it under the screens pill: the device starts below it. */
+  const top = narrow && guide ? GUIDE_ROOM : 0
   const scale = room.width
     ? Math.max(
         0.2,
         Math.min(
           1,
           (room.width - left - right) / (size.w + BEZEL * 2),
-          (room.height - 96 - (change ? CHANGE_ROOM : 0)) / (size.h + BEZEL * 2),
+          (room.height - 96 - top - bottom) / (size.h + BEZEL * 2),
         ),
       )
     : 1
   /** A screen rect (in its viewport) on the stage: the device box sits centred between the stage's paddings. */
   const onStage = (r: Rect): Rect => {
     const x = left + (room.width - left - right - (size.w + BEZEL * 2) * scale) / 2
-    const y = (room.height - (change ? CHANGE_ROOM : 0) - (size.h + BEZEL * 2) * scale) / 2
+    const y = top + (room.height - top - bottom - (size.h + BEZEL * 2) * scale) / 2
     return { x: x + (BEZEL + r.x) * scale, y: y + (BEZEL + r.y) * scale, w: r.w * scale, h: r.h * scale }
   }
   const src = (file: string) => (preview ? openUrl(preview.previewId, `/${file}`) : undefined)
@@ -316,6 +367,10 @@ export function PrototypeEditor({
   const showHots = edit || hotspots || flashing
   const askBot = (f: (b: BotDto) => Promise<boolean>) => (bot ? f(bot) : Promise.resolve(false))
   const located = element?.ggId ? { file: element.file, ggId: element.ggId } : null
+  const tip = narrow ? 'top' : 'left'
+  /** Edit mode tags a hotspot only under the pointer: its outline alone says it is connected. */
+  const tagged = (r: Rect) => edit && !!hover && holds(r, hover)
+  const at = screens.indexOf(cur) + 1
 
   const newScreen = (text: string) =>
     askBot((b) =>
@@ -325,7 +380,7 @@ export function PrototypeEditor({
     )
 
   return (
-    <section className="proto" aria-label={t('原型编辑器')}>
+    <section ref={root} className="proto" aria-label={t('原型预览')}>
       <header className="proto-bar">
         <Tooltip content={t('返回画布')} placement="bottom">
           <Button size="small" variant="plain" icon="arrow-left" onClick={onBack}>
@@ -343,6 +398,26 @@ export function PrototypeEditor({
               { value: 'edit', label: t('编辑'), icon: 'pencil' },
             ]}
           />
+          {edit ? null : (
+            <div className="proto-bar__nav">
+              <span className="proto-bar__where" data-testid="proto-where">
+                {`${cur.title} · ${at}/${screens.length}`}
+              </span>
+              {nav.stack.length > 1 ? (
+                <IconButton size="small" title={t('返回')} onClick={() => go({ type: 'back' })}>
+                  {'arrow-left' as const}
+                </IconButton>
+              ) : null}
+              <IconButton
+                size="small"
+                title={t('重新开始')}
+                disabled={nav.stack.length === 1 && cur.id === entry}
+                onClick={restart}
+              >
+                {'house' as const}
+              </IconButton>
+            </div>
+          )}
         </div>
         <span className="art-bar__fill" />
         <Button size="small" variant="primary" icon="share" onClick={onShare}>
@@ -369,7 +444,13 @@ export function PrototypeEditor({
                     onClick={() => s.id !== cur.id && go({ type: 'jump', screen: s.id })}
                   >
                     <span className="proto-thumb__shot">
-                      {preview ? (
+                      {thumbOf(s.id) ? (
+                        <img
+                          src={thumbOf(s.id)}
+                          alt={t('{title} 缩略图', { title: s.title })}
+                          loading="lazy"
+                        />
+                      ) : preview ? (
                         <iframe
                           title={t('{title} 缩略图', { title: s.title })}
                           src={src(s.file)}
@@ -384,44 +465,46 @@ export function PrototypeEditor({
                 </li>
               ))}
             </ul>
-            <footer className="proto-screens__foot">
-              <MenuButton
-                className="ui-btn ui-btn--small proto-screens__add"
-                items={[
-                  { label: t('用 AI 新建屏'), value: 'ai', icon: 'sparkle', disabled: !bot },
-                  { label: t('复制当前屏'), value: 'dup', icon: 'copy', disabled: readOnly },
-                ]}
-                onSelect={(v) => {
-                  if (v === 'ai') setImagine(true)
-                  else void saveEdits(onEdit, [{ kind: 'manifest', op: 'duplicate', screenId: cur.id }])
-                }}
-              >
-                <Icon name="plus" size={13} />
-                {t('添加屏幕')}
-              </MenuButton>
-              {imagine ? (
-                <AskForm
-                  label={t('新屏描述')}
-                  placeholder={located && edit ? t('描述点所选元素后打开的新屏…') : t('描述要新建的屏幕…')}
-                  bots={bots}
-                  bot={bot}
-                  onPickBot={pickBot}
-                  onSend={newScreen}
-                  onClose={() => setImagine(false)}
-                />
-              ) : (
-                <button
-                  type="button"
-                  className="proto-screens__imagine"
-                  disabled={!bot}
-                  title={bot ? undefined : t('群里没有 Bot')}
-                  onClick={() => setImagine(true)}
+            {edit ? (
+              <footer className="proto-screens__foot">
+                <MenuButton
+                  className="ui-btn ui-btn--small proto-screens__add"
+                  items={[
+                    { label: t('用 AI 新建屏'), value: 'ai', icon: 'sparkle', disabled: !bot },
+                    { label: t('复制当前屏'), value: 'dup', icon: 'copy', disabled: readOnly },
+                  ]}
+                  onSelect={(v) => {
+                    if (v === 'ai') setImagine(true)
+                    else void saveEdits(onEdit, [{ kind: 'manifest', op: 'duplicate', screenId: cur.id }])
+                  }}
                 >
-                  <Icon name="sparkle" size={14} />
-                  {t('构想新屏')}
-                </button>
-              )}
-            </footer>
+                  <Icon name="plus" size={13} />
+                  {t('添加屏幕')}
+                </MenuButton>
+                {imagine ? (
+                  <AskForm
+                    label={t('新屏描述')}
+                    placeholder={located && edit ? t('描述点所选元素后打开的新屏…') : t('描述要新建的屏幕…')}
+                    bots={bots}
+                    bot={bot}
+                    onPickBot={pickBot}
+                    onSend={newScreen}
+                    onClose={() => setImagine(false)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="proto-screens__imagine"
+                    disabled={!bot}
+                    title={bot ? undefined : t('群里没有 Bot')}
+                    onClick={() => setImagine(true)}
+                  >
+                    <Icon name="sparkle" size={14} />
+                    {t('构想新屏')}
+                  </button>
+                )}
+              </footer>
+            ) : null}
           </aside>
         ) : (
           <button type="button" className="proto-screens-pill" onClick={() => setListOpen(true)}>
@@ -436,7 +519,8 @@ export function PrototypeEditor({
           className="proto-stage"
           data-testid="proto-stage"
           style={{
-            ...(change ? { paddingBottom: CHANGE_ROOM } : {}),
+            ...(bottom ? { paddingBottom: bottom } : {}),
+            ...(top ? { paddingTop: top } : {}),
             paddingLeft: left,
             paddingRight: right,
           }}
@@ -484,7 +568,7 @@ export function PrototypeEditor({
                               // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
                               key={i}
                               rect={inView(h.rect)}
-                              tag={edit ? t('已连接') : null}
+                              tag={tagged(h.rect) ? `→ ${titleOf(h.screen)}` : null}
                               title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
                             />
                           ))
@@ -495,13 +579,17 @@ export function PrototypeEditor({
                               // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
                               key={`b${i}`}
                               rect={inView(h.rect)}
-                              tag={edit ? t('返回') : null}
+                              tag={tagged(h.rect) ? `← ${t('返回')}` : null}
                               title={t('返回上一屏')}
                             />
                           ))
                         : null}
                       {edit && element && !textEdit.state ? (
-                        <Hot rect={inView(element.rect)} tag={t('已选中')} selected />
+                        <Hot
+                          rect={inView(element.rect)}
+                          tag={element.link ? `→ ${titleOf(element.link)}` : t('已选中')}
+                          selected
+                        />
                       ) : null}
                     </div>
                   </div>
@@ -511,7 +599,11 @@ export function PrototypeEditor({
             </div>
           </div>
           {guide ? (
-            <div className="proto-guide" role="status" aria-label={t('原型编辑器引导')}>
+            <div
+              className={cx('proto-guide', narrow && 'proto-guide--narrow')}
+              role="status"
+              aria-label={t('原型预览引导')}
+            >
               <Icon name="play" size={14} />
               <span>{t('点屏幕里的按钮就能跳转体验；切到「编辑」可连线、改字或让 AI 改')}</span>
               <IconButton size="small" title={t('知道了')} onClick={closeGuide}>
@@ -525,7 +617,7 @@ export function PrototypeEditor({
               el={element}
               anchor={onStage(inView(element.rect))}
               room={room}
-              edges={{ left: listOpen ? LIST_ROOM : EDGE, right: RAIL_ROOM }}
+              edges={{ left, right: narrow ? EDGE : RAIL_ROOM }}
               readOnly={readOnly}
               bots={bots}
               bot={bot}
@@ -558,9 +650,10 @@ export function PrototypeEditor({
               onClose={dropElement}
             />
           ) : null}
-          {change ? (
+          {!edit ? null : change ? (
             <ChangeBar
               beside={connecting}
+              raised={narrow}
               bots={bots}
               bot={bot}
               onPickBot={pickBot}
@@ -576,16 +669,16 @@ export function PrototypeEditor({
               onClose={() => setChange(false)}
             />
           ) : (
-            <div className="proto-pencil">
-              <Tooltip content={t('描述要怎么改这屏')}>
+            <div className={cx('proto-pencil', narrow && 'proto-pencil--raised')}>
+              <Tooltip content={bot ? t('描述要怎么改这屏') : t('群里没有 Bot')}>
                 <button
                   type="button"
                   className="proto-pencil__btn"
-                  aria-label={t('用 AI 修改这屏')}
                   disabled={!bot}
                   onClick={() => setChange(true)}
                 >
-                  <Icon name="pencil" size={15} />
+                  <Icon name="sparkle" size={14} />
+                  {t('AI 改这屏')}
                 </button>
               </Tooltip>
             </div>
@@ -593,13 +686,13 @@ export function PrototypeEditor({
         </div>
 
         <div
-          className="art-tools proto-rail"
+          className={cx('art-tools proto-rail', narrow && 'proto-rail--bottom')}
           role="toolbar"
-          aria-orientation="vertical"
+          aria-orientation={narrow ? 'horizontal' : 'vertical'}
           aria-label={t('原型工具')}
         >
           <MenuButton
-            className="art-tools__btn"
+            className="art-tools__btn proto-rail__device"
             aria-label={t('设备：{name}', { name: DEVICE_LABEL[device] })}
             title={t('设备')}
             align="end"
@@ -612,18 +705,28 @@ export function PrototypeEditor({
             onSelect={(d) => setDevice(d as ProtoDevice)}
           >
             <Icon name={DEVICE_ICON[device]} size={16} />
+            <small aria-hidden="true">{size.w}</small>
           </MenuButton>
-          <RailButton icon="arrow-clockwise" label={t('重新加载')} onClick={() => setReload((n) => n + 1)} />
+          <RailButton
+            icon="arrow-clockwise"
+            label={t('重新加载')}
+            shortcut="R"
+            tip={tip}
+            onClick={() => setReload((n) => n + 1)}
+          />
           <RailButton
             icon="target"
             label={t('高亮热点')}
+            shortcut="H"
+            tip={tip}
             on={hotspots}
             onClick={() => setHotspots((on) => !on)}
           />
-          <RailButton icon="qrcode" label={t('扫码查看')} onClick={() => setQr(true)} />
+          <RailButton icon="qrcode" label={t('扫码查看')} tip={tip} onClick={() => setQr(true)} />
           <RailButton
             icon="external"
             label={t('新标签页打开')}
+            tip={tip}
             onClick={
               preview
                 ? () => window.open(`${openUrl(preview.previewId, '/')}#play:${cur.id}`, '_blank', 'noopener')
@@ -756,16 +859,20 @@ function Hot({
 function RailButton({
   icon,
   label,
+  shortcut,
+  tip,
   on,
   onClick,
 }: {
   icon: IconName
   label: string
+  shortcut?: string
+  tip: 'top' | 'left'
   on?: boolean
   onClick?: () => void
 }) {
   return (
-    <Tooltip content={label}>
+    <Tooltip content={label} shortcut={shortcut} placement={tip}>
       <button
         type="button"
         className="art-tools__btn"
@@ -853,13 +960,16 @@ function AskForm({
   )
 }
 
-/** The pencil under the device: describe how to change this screen. */
+/** The AI pill's request bar under the device: describe how to change this screen. */
 function ChangeBar({
   beside,
+  raised,
   ...props
 }: {
   /** The connect panel is open: keep clear of it. */
   beside: boolean
+  /** Above the rail along a narrow stage's bottom. */
+  raised: boolean
   bots: BotDto[]
   bot: BotDto | null
   onPickBot: (id: string) => void
@@ -867,7 +977,7 @@ function ChangeBar({
   onClose: () => void
 }) {
   return (
-    <div className={cx('proto-change', beside && 'proto-change--beside')}>
+    <div className={cx('proto-change', beside && 'proto-change--beside', raised && 'proto-change--raised')}>
       <AskForm label={t('修改要求')} placeholder={t('描述要怎么改这屏…')} {...props}>
         <small className="proto-change__hint">{t('Esc 关闭')}</small>
       </AskForm>

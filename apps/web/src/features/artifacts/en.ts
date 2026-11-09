@@ -32,7 +32,7 @@ export default {
   候选: 'Candidate',
   版本: 'Version',
   'v{n}（当前）': 'v{n} (current)',
-  演示: 'Demo',
+  预览原型: 'Preview prototype',
   即将支持: 'Coming soon',
   导出: 'Export',
   分享: 'Share',

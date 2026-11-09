@@ -87,6 +87,45 @@ describe('gg-bridge', () => {
     expect(s.posts).toHaveLength(n)
   })
 
+  it('reports links in a scrolling row as clipped to it, leaves out hidden ones and reports again as it scrolls', async () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="row" style="overflow-x: auto"><a id="a" data-gg-link="a">A</a><a id="b" data-gg-link="b">B</a><a id="c" data-gg-link="c">C</a></div>
+<button data-gg-back>返回</button></body></html>`)
+    const at = (sel: string, left: number, top: number, width: number, height: number) => {
+      s.$(sel).getBoundingClientRect = () => ({ left, top, width, height }) as DOMRect
+    }
+    const sizes = () => s.posts.map((p) => p.data).filter((d) => d.type === 'size')
+    // A 375-wide row of 150-wide cards: the second shows in part, the third not at all.
+    at('#row', 0, 400, 375, 200)
+    at('#a', 13, 400, 150, 200)
+    at('#b', 300, 400, 150, 200)
+    at('#c', 460, 400, 150, 200)
+    Object.defineProperty(s.w, 'scrollY', { value: 100, configurable: true })
+    s.w.dispatchEvent(new s.w.Event('load'))
+    expect(BridgeFromShell.parse(sizes().at(-1))).toMatchObject({
+      links: [
+        { screen: 'a', rect: { x: 13, y: 500, w: 150, h: 200 } },
+        { screen: 'b', rect: { x: 300, y: 500, w: 75, h: 200 } },
+      ],
+      back: [{ rect: { x: 0, y: 100, w: 0, h: 0 } }],
+    })
+    expect(sizes().at(-1)?.links).toHaveLength(2)
+
+    // Scrolled 300 to the left: the first goes, the third comes in; reported once the scrolling settles.
+    at('#a', -287, 400, 150, 200)
+    at('#b', 0, 400, 150, 200)
+    at('#c', 160, 400, 150, 200)
+    const n = sizes().length
+    s.$('#row').dispatchEvent(new s.w.Event('scroll'))
+    s.$('#row').dispatchEvent(new s.w.Event('scroll'))
+    await new Promise((r) => setTimeout(r, 150))
+    expect(sizes()).toHaveLength(n + 1)
+    expect(sizes().at(-1)?.links).toEqual([
+      { ggId: s.$('#b').getAttribute('data-gg-id'), screen: 'b', rect: { x: 0, y: 500, w: 150, h: 200 } },
+      { ggId: s.$('#c').getAttribute('data-gg-id'), screen: 'c', rect: { x: 160, y: 500, w: 150, h: 200 } },
+    ])
+  })
+
   it('reports a link’s valid transition with it', () => {
     const s = screen(
       '<!doctype html><html><head></head><body><a data-gg-link="a" data-gg-transition="fade">A</a><a data-gg-link="b" data-gg-transition="spin">B</a></body></html>',

@@ -27,7 +27,6 @@
     font: inherit; color: inherit; cursor: pointer;
   }
   .tools button[aria-current] { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
-  .tools button:disabled { opacity: 0.4; cursor: default; }
   .zoom { min-width: 48px; text-align: center; color: #6e6e73; font-variant-numeric: tabular-nums; }
   main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
@@ -96,8 +95,8 @@
 <body>
 <header>
   <div class="seg" role="group" aria-label="视图">
-    <button type="button" data-view="canvas">画布</button>
-    <button type="button" data-view="play">演示</button>
+    <button type="button" data-view="canvas">总览</button>
+    <button type="button" data-view="play">预览</button>
   </div>
   <h1></h1>
   <div class="tools" data-for="canvas">
@@ -107,7 +106,7 @@
     <button type="button" data-zoom="fit">适应</button>
   </div>
   <div class="tools" data-for="play">
-    <button class="back" type="button" disabled>返回</button>
+    <button class="back" type="button" hidden>返回</button>
     <span class="screens"></span>
   </div>
 </header>
@@ -196,7 +195,7 @@
     label.textContent = s.title
     const play = document.createElement('button')
     play.type = 'button'
-    play.textContent = '演示'
+    play.textContent = '预览'
     play.onclick = () => { setView('play'); go(s.id, 'none') }
     label.append(play)
     const { el, iframe } = makeDevice(s)
@@ -369,7 +368,7 @@
     }
     player.el.classList.toggle('light', s.statusBar === 'light')
     for (const b of list.children) b.toggleAttribute('aria-current', b.dataset.id === id)
-    back.disabled = stack.length < 2
+    back.hidden = stack.length < 2
     history.replaceState(null, '', `#play:${id}`)
   }
   const go = (id, transition = 'none') => {

@@ -8,6 +8,7 @@ import {
   PluginManifest,
   tokensCssOk,
 } from '@gonggong/protocol'
+import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
 import { frontmatter } from '../src/modules/skills/service.js'
@@ -187,6 +188,34 @@ describe('official plugin web-prototype', () => {
       for (const [, id] of html.matchAll(/data-gg-link="([^"]+)"/g)) expect(ids.has(id ?? ''), id).toBe(true)
       expect(html.replaceAll('href="#"', ''), s.file).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/)
     }
+  })
+
+  it('shell: switches between 总览 and 预览, and shows 返回 only once there is a screen to go back to', () => {
+    const shell = readFileSync(join(skillDir, 'kit/index.html'), 'utf8').replace(
+      '<script>',
+      `<script type="application/json" id="gg-manifest">${JSON.stringify(app)}</script><script>`,
+    )
+    const { window: w } = new JSDOM(shell, {
+      url: `https://p.test/#play:${app.entry}`,
+      runScripts: 'dangerously',
+      beforeParse(win) {
+        win.matchMedia = (() => ({ matches: true })) as never
+      },
+    })
+    const $ = (sel: string) => w.document.querySelector(sel) as HTMLButtonElement
+    expect([...w.document.querySelectorAll('[data-view]')].map((b) => b.textContent)).toEqual([
+      '总览',
+      '预览',
+    ])
+    expect([...w.document.querySelectorAll('.label button')].every((b) => b.textContent === '预览')).toBe(
+      true,
+    )
+    expect($('.back').hidden).toBe(true)
+    const other = app.screens.find((s) => s.id !== app.entry)?.id
+    $(`.screens [data-id="${other}"]`).click()
+    expect($('.back').hidden).toBe(false)
+    $('.back').click()
+    expect($('.back').hidden).toBe(true)
   })
 })
 

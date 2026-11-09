@@ -284,8 +284,28 @@ describe('nodes', () => {
     expect(screen.getByRole('complementary', { name: '设计系统' })).toBeTruthy()
     // Double-clicking the prototype opens the prototype editor on the entry screen.
     fireEvent.doubleClick(node('@prototype'))
-    expect(screen.getByRole('region', { name: '原型编辑器' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: '原型预览' })).toBeTruthy()
     expect(screen.getByTestId('proto-screen').dataset.screen).toBe('home')
+  })
+
+  it('shows the prototype as its entry screen with a play button, a dark tile until the screen has a thumbnail', async () => {
+    const url = '/thumb/home.png'
+    mockApi(
+      routes({ 'GET /artifacts/a1/versions/v2': detail({ screenThumbs: [{ screenId: 'home', url }] }) }),
+    )
+    await renderTab()
+    await waitFor(() => expect(node('@prototype').querySelector('img')?.getAttribute('src')).toBe(url))
+    fireEvent.click(within(node('@prototype')).getByRole('button', { name: '点击预览' }))
+    expect(screen.getByRole('region', { name: '原型预览' })).toBeTruthy()
+    expect(screen.getByTestId('proto-screen').dataset.screen).toBe('home')
+  })
+
+  it('keeps the dark prototype tile without an entry thumbnail', async () => {
+    mockApi(routes())
+    await renderTab()
+    await waitFor(() => expect(node('@prototype')).toBeTruthy())
+    expect(node('@prototype').querySelector('img')).toBeNull()
+    expect(within(node('@prototype')).getByRole('button', { name: '点击预览' })).toBeTruthy()
   })
 
   it('has no design-system node without tokens.css', async () => {
