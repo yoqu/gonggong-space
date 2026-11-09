@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.15 — 2026-11-09
+
+- 命令审批收成一个「审批方式」：每次问我 / 帮我审批 / 完全允许 / Command approval becomes one choice: Ask me every time, Review for me, or Allow everything
+- 「帮我审批」的 AI 预审改用最小模型、空目录、无工具的精简会话，每次约几千 token / AI review for Review for me runs on the smallest model in a lean, tool-less session in an empty directory, costing a few thousand tokens each
+- 产物单版上限放大到 200MB / Artifact versions may be up to 200MB
+- 群里最终回复只留最后一次工具调用之后的正文 / The final group reply keeps only the text after the last tool call
+- 桌面端久开跨多版时一次升到最新 / The desktop app updates straight to the latest when left open across several releases
+
 ## v0.4.14 — 2026-11-06
 
 - 托管工作区搬到可见的 `~/gonggong/workspaces/<群名>/<Bot名>/<仓库名>`，旧克隆下次运行或绑定时自动搬迁并保留未提交改动 / Managed workspaces move to a visible `~/gonggong/workspaces/<group>/<bot>/<repo>`; existing clones move on the next run or bind, keeping uncommitted changes
