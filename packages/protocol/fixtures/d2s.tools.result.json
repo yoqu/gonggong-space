@@ -30,6 +30,15 @@
       "managed": false,
       "path": "/opt/homebrew/bin/codex",
       "upgradeCommand": "brew upgrade codex"
+    },
+    {
+      "kind": "gemini",
+      "installed": true,
+      "version": "0.67.0",
+      "latest": "0.67.0",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/gemini",
+      "upgradeCommand": null
     }
   ],
   "settings": {

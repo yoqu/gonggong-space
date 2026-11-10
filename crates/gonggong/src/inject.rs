@@ -311,6 +311,15 @@ pub fn codex_env(p: &Provider) -> [(&'static str, String); 2] {
     [("MODEL_PROVIDER", CODEX_PROVIDER.into()), (CODEX_KEY_ENV, p.api_key.clone())]
 }
 
+/// CodeBuddy's own services, picked by `CODEBUDDY_INTERNET_ENVIRONMENT` (a preset's env), not by a base URL.
+const CODEBUDDY_SERVICES: [&str; 2] = ["https://www.codebuddy.ai", "https://copilot.tencent.com"];
+
+/// `CODEBUDDY_BASE_URL` for a CodeBuddy provider: only a third-party model service sets one.
+pub fn codebuddy_base_url(p: &Provider) -> Option<&str> {
+    let url = p.base_url.trim_end_matches('/');
+    (!CODEBUDDY_SERVICES.contains(&url)).then_some(url)
+}
+
 /// The model a bot runs on `p`: its own pick when the provider serves it, else the provider's default.
 pub fn model(p: &Provider, wanted: Option<&str>) -> Option<String> {
     let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
@@ -706,5 +715,13 @@ mod tests {
         assert_eq!(model(&p, Some("gpt-5")).as_deref(), Some("glm-5.3"));
         assert_eq!(model(&p, None).as_deref(), Some("glm-5.3"));
         assert_eq!(model(&custom(), Some("opus")), None);
+    }
+
+    #[test]
+    fn codebuddy_sets_a_base_url_only_for_a_third_party_service() {
+        let p = |url: &str| Provider::custom(crate::protocol::AgentKind::Codebuddy, "C".into(), url.into(), "k".into());
+        assert_eq!(codebuddy_base_url(&p("https://copilot.tencent.com/")), None);
+        assert_eq!(codebuddy_base_url(&p("https://www.codebuddy.ai")), None);
+        assert_eq!(codebuddy_base_url(&p("https://openrouter.ai/api/v1")), Some("https://openrouter.ai/api/v1"));
     }
 }

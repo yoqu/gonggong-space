@@ -5,7 +5,7 @@ import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, EmptyState, Icon, PickChatArt } from '../../ui'
-import { AGENT_LABEL, AGENTS } from '../bots/model'
+import { AGENT_LABEL, AGENTS, isLaterAgent, reportedAgent } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
 import { providerName } from './providers'
@@ -40,7 +40,7 @@ export function MachinesOverview({
           illustration={<PickChatArt />}
           title={t('还没有绑定机器')}
           description={t(
-            '在一台装有 Claude Code 或 Codex 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。',
+            '在一台装有 Claude Code、Codex 或 Gemini CLI 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。',
           )}
           action={
             <Button variant="primary" icon="plus" onClick={onBindMachine}>
@@ -78,7 +78,7 @@ function MachineCard({ machine: m, bots, index }: { machine: MachineDto; bots: B
         <span className="mx-sub">{t('最后在线：{time}', { time: ago(m.lastSeenAt) })}</span>
       ) : null}
       <span className="machine-card__agents">
-        {AGENTS.map((kind) => {
+        {AGENTS.filter((kind) => !isLaterAgent(kind) || reportedAgent(m, kind)).map((kind) => {
           const a = m.agents.find((x) => x.kind === kind)
           const provider =
             view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null

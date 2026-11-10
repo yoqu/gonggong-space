@@ -1,6 +1,6 @@
 //! Team skills (plan 团队Skill): one Claude plugin folder per (group, bot) under the daemon home, holding the run's
-//! merged skills. Claude loads it through `_meta.claudeCode.options.plugins`; Codex finds each skill through a link
-//! in `<cwd>/.agents/skills/`, kept out of git. Both list them as `gonggong-team:<name>`. The daemon's own skills join
+//! merged skills. Claude loads it through `_meta.claudeCode.options.plugins`; Codex and Gemini find each skill through
+//! a link in `<cwd>/.agents/skills/`, kept out of git. Both list them as `gonggong-team:<name>`. The daemon's own skills join
 //! them while their tool is listed: long how-tos read only when needed, instead of in every turn's tool list.
 use crate::config::Config;
 use crate::git;
@@ -55,7 +55,7 @@ pub fn set_dir(home: &Path, group_id: &str, bot_id: &str) -> PathBuf {
     home.join("skill-sets").join(format!("{group_id}-{bot_id}"))
 }
 
-/// Brings the (group, bot) plugin folder and, for Codex, the workspace links in line with `refs` and the built-in
+/// Brings the (group, bot) plugin folder and, for Codex and Gemini, the workspace links in line with `refs` and the built-in
 /// skills of the tools not `hidden`.
 pub async fn install(
     api: &Config,
@@ -117,11 +117,8 @@ pub async fn install(
         tokio::fs::write(&manifest, json.to_string()).await.map_err(e)?;
     }
 
-    let wanted: Vec<PathBuf> = if kind == AgentKind::Codex {
-        names.iter().map(|n| cwd.join(".agents/skills").join(n)).collect()
-    } else {
-        vec![]
-    };
+    let wanted: Vec<PathBuf> =
+        if kind.links_skills() { names.iter().map(|n| cwd.join(".agents/skills").join(n)).collect() } else { vec![] };
     for old in state.links.iter().filter(|l| !wanted.contains(l)) {
         unlink(old).await;
     }
@@ -156,11 +153,16 @@ fn roots(cwd: &Path) -> Vec<PathBuf> {
     vec![cwd.to_path_buf()]
 }
 
-/// The repo's own skill of that name, if any (Claude: `.claude/skills/<name>`, Codex: `.agents/skills/<name>`).
+/// The repo's own skill of that name, if any (Claude: `.claude/skills/<name>`, Codex: `.agents/skills/<name>`,
+/// Gemini: either `.agents/skills/<name>` or `.gemini/skills/<name>`, CodeBuddy: `.codebuddy/skills/<name>` or Claude's).
 fn baseline(root: &Path, kind: AgentKind, name: &str) -> Option<PathBuf> {
-    let dir = if kind == AgentKind::Codex { ".agents/skills" } else { ".claude/skills" };
-    let p = root.join(dir).join(name);
-    p.symlink_metadata().is_ok().then_some(p)
+    let dirs: &[&str] = match kind {
+        AgentKind::Claude => &[".claude/skills"],
+        AgentKind::Codex => &[".agents/skills"],
+        AgentKind::Gemini => &[".agents/skills", ".gemini/skills"],
+        AgentKind::Codebuddy => &[".codebuddy/skills", ".claude/skills"],
+    };
+    dirs.iter().map(|d| root.join(d).join(name)).find(|p| p.symlink_metadata().is_ok())
 }
 
 async fn fetch(api: &Config, r: &SkillRef, dir: &Path) -> Result<(), String> {

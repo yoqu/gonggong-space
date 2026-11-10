@@ -11,10 +11,16 @@ beforeEach(async () => {
 })
 afterEach(() => t.close())
 
-async function world() {
+async function world(agentKind = 'claude') {
   const alice = await t.seed.user({ name: '王磊' })
   const { machine } = await t.seed.machine(alice.id)
-  const bot = await t.seed.bot({ ownerId: alice.id, name: 'Claude', machineId: machine.id, concurrency: 2 })
+  const bot = await t.seed.bot({
+    ownerId: alice.id,
+    name: 'Claude',
+    machineId: machine.id,
+    concurrency: 2,
+    agentKind,
+  })
   const sent: ServerToDaemon[] = []
   const conn = { send: (m: ServerToDaemon) => void sent.push(m), close: () => {} }
   // Online without hub.register: its 'online' event schedules in the background, racing each test's own schedule().
@@ -44,6 +50,24 @@ async function world() {
 }
 
 describe('dispatch', () => {
+  it('holds a Gemini CLI run until its machine runs a client that knows Gemini', async () => {
+    const w = await world('gemini')
+    const a = await w.queued()
+    const features = vi.spyOn(t.ctx.hub, 'features').mockReturnValue(['tools'])
+
+    await schedule(t.ctx, w.bot.id)
+
+    expect(w.sent).toEqual([])
+    expect(await w.status(a.run.id)).toMatchObject({
+      status: 'offline_wait',
+      step: '执行机器的共工客户端版本过低，升级后才能运行这种 Agent 的 Bot',
+    })
+
+    features.mockReturnValue(['tools', 'gemini'])
+    await schedule(t.ctx, w.bot.id)
+    expect(w.sent).toMatchObject([{ t: 'run.start', runId: a.run.id, bot: { agentKind: 'gemini' } }])
+  })
+
   it('sends run.start only after the transaction committed', async () => {
     const w = await world()
     const a = await w.queued()

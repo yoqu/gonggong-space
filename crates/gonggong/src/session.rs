@@ -4,7 +4,8 @@ use crate::artifacts;
 use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::config::Config;
-use crate::engine::{Continuation, Inner};
+use crate::engine::{Continuation, Inner, Process};
+use crate::gemini;
 use crate::git;
 use crate::hosted::Scope;
 use crate::inject;
@@ -36,7 +37,9 @@ use agent_client_protocol::schema::v1::{
     SessionConfigValueId, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, Usage as AcpUsage,
 };
-use agent_client_protocol::{AcpAgent, AcpAgentConfig, Agent, Client, ConnectionTo, Handled, UntypedMessage};
+use agent_client_protocol::{
+    AcpAgent, AcpAgentConfig, Agent, Client, ConnectionTo, Handled, JsonRpcRequest, UntypedMessage,
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -76,11 +79,13 @@ struct Planned {
     plugins: plugins::Installed,
     /// Claude only.
     launch: Option<inject::ClaudeLaunch>,
+    /// Gemini only: its `GEMINI_CLI_HOME`, brought in line with the turn.
+    gemini_home: Option<PathBuf>,
 }
 
 /// Makes `req` the active turn and decides its provider from the store as of now, so CLI / desktop edits apply from
 /// the next turn on. None: it will not run (cancelled while queued, or no provider to run with).
-async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Planned> {
+async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: TurnReq) -> Option<Planned> {
     // A continuation still running ends (completed) before the turn starts.
     let begun = loop {
         shared.close_continuation().await;
@@ -93,6 +98,9 @@ async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Plann
     }
     let (home, user_home) = (engine.config.home.clone(), engine.config.user_home.clone());
     let (bot, resume) = (req.start.bot.clone(), req.start.resume_session_id.clone());
+    let gemini_home = (bot.agent_kind == AgentKind::Gemini)
+        .then(|| gemini::home_dir(&home, &format!("{}-{}", req.start.group_id, bot.id)));
+    let (dir, ask) = (gemini_home.clone(), ask.clone());
     let resolved = tokio::task::spawn_blocking(move || {
         let store = Store::load(&home)?;
         // A live adapter's file is rewritten (touched) each turn below, and adapters idle out after `idle`.
@@ -113,7 +121,12 @@ async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Plann
                 launch.write()?;
                 Some(launch)
             }
-            AgentKind::Codex => None,
+            AgentKind::Codex | AgentKind::Codebuddy => None,
+            AgentKind::Gemini => {
+                let dir = dir.expect("a Gemini run has its home");
+                gemini::prepare(&dir, &user_home, &selection, &system_prompt(&bot), Some(&ask))?;
+                None
+            }
         };
         anyhow::Ok((selection, removed, launch))
     })
@@ -129,7 +142,15 @@ async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Plann
     if let Some(l) = &launch {
         shared.set_compact(l.compact);
     }
-    Some(Planned { req, selection, removed, skills: Default::default(), plugins: Default::default(), launch })
+    Some(Planned {
+        req,
+        selection,
+        removed,
+        skills: Default::default(),
+        plugins: Default::default(),
+        launch,
+        gemini_home,
+    })
 }
 
 /// Installs the turn's team skills and plugins before its adapter is chosen. None: it fails (and is reported) instead.
@@ -1177,15 +1198,20 @@ fn ext_in(s: &mut State, session: &str, ext: ExtUpdate) {
 }
 
 /// A permission request of the active turn.
-fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequest) -> Permission {
+fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermissionRequest) -> Permission {
     s.requests += 1;
     let n = s.requests;
     let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
+    name_mcp_call(&mut req);
     // The built-in gonggong tools only ask or read the group: never an owner decision (spec §8.8).
     if req.tool_call.fields.title.as_deref().is_some_and(ask::is_builtin) {
         return Permission::Now(auto_allow(&req.options));
     }
-    let command = command_of(req.tool_call.fields.raw_input.as_ref());
+    // Gemini sends no raw input: an execute call's title is its command.
+    let command = match &req.tool_call.fields.raw_input {
+        Some(raw) => command_of(Some(raw)),
+        None => req.tool_call.fields.title.clone(),
+    };
     let read_paths = read_paths(&req);
     let release = req
         .tool_call
@@ -1290,6 +1316,15 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
         None => ask_owner(&a.out, wire),
     }
     Permission::Ask(rx)
+}
+
+/// Gemini titles an MCP call by its tool alone and names the server in `_meta`: named the Claude way
+/// (`mcp__<server>__<tool>`), the built-in gonggong tools are told apart and the card says which server asks.
+fn name_mcp_call(req: &mut RequestPermissionRequest) {
+    let mcp = req.tool_call.meta.as_ref().and_then(|m| m.get("gemini-cli")).map(|g| &g["mcp"]);
+    if let Some((server, tool)) = mcp.and_then(|m| Some((m["server_name"].as_str()?, m["tool_name"].as_str()?))) {
+        req.tool_call.fields.title = Some(format!("mcp__{server}__{tool}"));
+    }
 }
 
 /// Forwards a request to the bot owner.
@@ -1410,6 +1445,58 @@ fn command_of(raw: Option<&serde_json::Value>) -> Option<String> {
     }
 }
 
+/// ACP's older way to pick a model (Gemini CLI): `models` beside the session's fields, set with this method.
+const SET_MODEL: &str = "session/set_model";
+
+/// A session's models as `models` reports them.
+#[derive(Debug, Clone, PartialEq)]
+struct Models {
+    current: String,
+    /// The one the session was opened with.
+    initial: String,
+    choices: Vec<Choice>,
+}
+
+impl Models {
+    fn of(raw: &serde_json::Value) -> Option<Models> {
+        let models = raw.get("models")?;
+        let current = models["currentModelId"].as_str()?.to_string();
+        let choices = models["availableModels"]
+            .as_array()?
+            .iter()
+            .filter_map(|m| {
+                let value = m["modelId"].as_str()?.to_string();
+                let name = m["name"].as_str().map_or_else(|| value.clone(), String::from);
+                Some(Choice { name, value, description: m["description"].as_str().map(String::from) })
+            })
+            .collect();
+        Some(Models { initial: current.clone(), current, choices })
+    }
+
+    fn catalog(self) -> AgentCatalog {
+        let models =
+            named(self.choices).into_iter().map(|choice| ModelChoice { choice, efforts: vec![], effort: None });
+        AgentCatalog {
+            models: models.collect(),
+            current: Some(self.current).filter(|v| v != ADAPTER_DEFAULT),
+            ..Default::default()
+        }
+    }
+}
+
+/// Sends `req` and also returns its raw result, for what the typed response leaves out ([`Models`]).
+async fn send_raw<R>(
+    cx: &ConnectionTo<Agent>,
+    req: R,
+) -> Result<(R::Response, serde_json::Value), agent_client_protocol::Error>
+where
+    R: JsonRpcRequest,
+    R::Response: serde::de::DeserializeOwned,
+{
+    let raw = cx.send_request(req.to_untyped_message()?).block_task().await?;
+    Ok((serde_json::from_value(raw.clone())?, raw))
+}
+
 /// The adapters' "use your own default" row, left out of catalogs: `None` means the same.
 const ADAPTER_DEFAULT: &str = "default";
 
@@ -1432,10 +1519,13 @@ pub(crate) async fn probe(agent: AcpAgent, cwd: &std::path::Path) -> Result<Agen
         .connect_with(agent, async |cx: ConnectionTo<Agent>| {
             let init = InitializeRequest::new(ProtocolVersion::V1).client_capabilities(client_capabilities());
             cx.send_request(init).block_task().await?;
-            let res = cx.send_request(NewSessionRequest::new(cwd)).block_task().await?;
+            let (res, raw) = send_raw(&cx, NewSessionRequest::new(cwd)).await?;
             let options = res.config_options.unwrap_or_default();
             let (start_efforts, start_effort) = efforts(&options);
             let Some((id, current, models)) = select(&options, &SessionConfigOptionCategory::Model) else {
+                if let Some(models) = Models::of(&raw) {
+                    return Ok(models.catalog());
+                }
                 return Ok(AgentCatalog { efforts: start_efforts, effort: start_effort, ..Default::default() });
             };
             let mut list = vec![];
@@ -1559,7 +1649,7 @@ pub(crate) async fn run(
         let turn = match next.take() {
             Some(turn) => turn,
             None => match tokio::time::timeout(engine.config.reap, rx.recv()).await {
-                Ok(Some(req)) => match plan(&engine, &shared, req).await {
+                Ok(Some(req)) => match plan(&engine, &shared, &ask, req).await {
                     Some(turn) => match ready(&engine, &shared, turn).await {
                         Some(turn) => turn,
                         None => continue,
@@ -1573,7 +1663,10 @@ pub(crate) async fn run(
         };
         let s = &turn.req.start;
         let _secrets = crate::logs::hold_secrets(s.env.0.values().cloned().collect());
-        let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env).await {
+        let dirs = plugin_dirs(&turn.skills, &turn.plugins);
+        let cwd = (s.bot.agent_kind == AgentKind::Codebuddy).then_some(turn.req.cwd.as_path());
+        let process = Process { gemini_home: turn.gemini_home.as_deref(), plugin_dirs: &dirs, cwd };
+        let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env, &process).await {
             Ok(config) => {
                 let reviewer = Reviewer::new(config.clone(), s.bot.agent_kind, turn.launch.as_ref());
                 shared.0.lock().unwrap().reviewer = Some(reviewer);
@@ -1675,6 +1768,7 @@ async fn connect(
                 options: vec![],
                 initial: HashMap::new(),
                 applied: HashMap::new(),
+                models: None,
             };
             let secrets = env_digest(&first.req.start.env);
             let hidden = first.req.start.hidden_tools.clone();
@@ -1692,7 +1786,7 @@ async fn connect(
                 }
                 turn = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
-                        Ok(Some(next)) => match plan(engine, shared, next).await {
+                        Ok(Some(next)) => match plan(engine, shared, ask, next).await {
                             Some(turn) => match ready(engine, shared, turn).await {
                                 Some(turn) => break turn,
                                 None => continue,
@@ -1753,6 +1847,8 @@ struct Conversation<'a> {
     options: Vec<SessionConfigOption>,
     initial: HashMap<String, String>,
     applied: HashMap<String, String>,
+    /// The session's models when offered the older way instead of a config option (Gemini CLI).
+    models: Option<Models>,
 }
 
 impl Conversation<'_> {
@@ -1877,9 +1973,9 @@ impl Conversation<'_> {
         let tried = resume.is_some();
         if let Some(id) = resume {
             match self.restore(&id, req, meta.clone()).await {
-                Ok((modes, options)) => {
+                Ok((modes, options, models)) => {
                     self.set_modes(modes);
-                    self.set_options(options.unwrap_or_default());
+                    self.set_options(options.unwrap_or_default(), models);
                     return Ok((id, None));
                 }
                 Err(e) => tracing::info!("resuming session {} failed: {e}", id.0),
@@ -1888,9 +1984,9 @@ impl Conversation<'_> {
         let servers = mcp_servers_for(&req.start, self.ask);
         let new =
             NewSessionRequest::new(&req.cwd).additional_directories(req.extras.clone()).mcp_servers(servers).meta(meta);
-        let res = self.cx.send_request(new).block_task().await?;
+        let (res, raw) = send_raw(self.cx, new).await?;
         self.set_modes(res.modes);
-        self.set_options(res.config_options.unwrap_or_default());
+        self.set_options(res.config_options.unwrap_or_default(), Models::of(&raw));
         let reason =
             if tried { RESUME_FAILED.into() } else { req.start.new_session_reason.clone().unwrap_or("first".into()) };
         Ok((res.session_id, Some(reason)))
@@ -1901,7 +1997,10 @@ impl Conversation<'_> {
         id: &SessionId,
         req: &TurnReq,
         meta: Option<Meta>,
-    ) -> Result<(Option<SessionModeState>, Option<Vec<SessionConfigOption>>), agent_client_protocol::Error> {
+    ) -> Result<
+        (Option<SessionModeState>, Option<Vec<SessionConfigOption>>, Option<Models>),
+        agent_client_protocol::Error,
+    > {
         let caps = &self.init.agent_capabilities;
         let servers = mcp_servers_for(&req.start, self.ask);
         if caps.session_capabilities.resume.is_some() {
@@ -1909,15 +2008,15 @@ impl Conversation<'_> {
                 .additional_directories(req.extras.clone())
                 .mcp_servers(servers)
                 .meta(meta);
-            let res = self.cx.send_request(req).block_task().await?;
-            Ok((res.modes, res.config_options))
+            let (res, raw) = send_raw(self.cx, req).await?;
+            Ok((res.modes, res.config_options, Models::of(&raw)))
         } else if caps.load_session {
             let req = LoadSessionRequest::new(id.clone(), &req.cwd)
                 .additional_directories(req.extras.clone())
                 .mcp_servers(servers)
                 .meta(meta);
-            let res = self.cx.send_request(req).block_task().await?;
-            Ok((res.modes, res.config_options))
+            let (res, raw) = send_raw(self.cx, req).await?;
+            Ok((res.modes, res.config_options, Models::of(&raw)))
         } else {
             Err(agent_client_protocol::Error::method_not_found())
         }
@@ -1928,13 +2027,14 @@ impl Conversation<'_> {
         self.mode = modes.map(|m| m.current_mode_id.0.to_string());
     }
 
-    fn set_options(&mut self, options: Vec<SessionConfigOption>) {
+    fn set_options(&mut self, options: Vec<SessionConfigOption>, models: Option<Models>) {
         self.initial = [SessionConfigOptionCategory::Model, SessionConfigOptionCategory::ThoughtLevel]
             .iter()
             .filter_map(|c| select(&options, c))
             .map(|(id, current, _)| (id, current))
             .collect();
         self.applied.clear();
+        self.models = models.filter(|_| select(&options, &SessionConfigOptionCategory::Model).is_none());
         self.options = options;
     }
 
@@ -1960,11 +2060,36 @@ impl Conversation<'_> {
                     .is_none_or(|(.., c)| c.iter().all(|c| c.value != *m))
             })
         };
+        if let Some(models) = self.models.as_mut()
+            && let Some(target) =
+                model.clone().or_else(|| Some(models.initial.clone())).filter(|t| *t != models.current)
+        {
+            let params = serde_json::json!({ "sessionId": session.0, "modelId": target });
+            let set = match UntypedMessage::new(SET_MODEL, params) {
+                Ok(set) => self.cx.send_request(set).block_task().await,
+                Err(e) => Err(e),
+            };
+            let label = t!("模型");
+            let step = match set {
+                Ok(_) => {
+                    let name =
+                        models.choices.iter().find(|c| c.value == target).map_or(target.clone(), |c| c.name.clone());
+                    models.current = target;
+                    t!("已切换{label}：{name}", label = label, name = name)
+                }
+                Err(e) => t!("{label} {target} 不可用：{e}", label = label, target = target, e = describe(&e)),
+            };
+            let event = RunEvent::Status { status: RunStatus::Running, step };
+            req.out.send(DaemonToServer::RunEvent { run_id: req.start.run_id.clone(), event });
+        }
         let wanted = [
             (SessionConfigOptionCategory::Model, t!("模型"), &model),
             (SessionConfigOptionCategory::ThoughtLevel, t!("推理强度"), &bot.effort),
         ];
         for (category, label, want) in wanted {
+            if category == SessionConfigOptionCategory::Model && self.models.is_some() {
+                continue;
+            }
             let Some((id, current, choices)) = select(&self.options, &category) else {
                 if let Some(want) = want {
                     tracing::warn!("the adapter offers no {category:?} option; ignoring {want}");
@@ -2005,7 +2130,9 @@ impl Conversation<'_> {
         };
         req.out.send(DaemonToServer::SessionConfig {
             run_id: req.start.run_id.clone(),
-            model: unlisted(&self.options).or_else(|| in_effect(SessionConfigOptionCategory::Model)),
+            model: unlisted(&self.options)
+                .or_else(|| in_effect(SessionConfigOptionCategory::Model))
+                .or_else(|| self.models.as_ref().map(|m| m.current.clone())),
             effort: in_effect(SessionConfigOptionCategory::ThoughtLevel),
             settings: self.launch.as_ref().map(|l| l.snapshot.clone()),
         });
@@ -2043,6 +2170,12 @@ impl Conversation<'_> {
     }
 }
 
+/// The plugin folders a turn loads: the team skills plugin, then the group's plugins.
+fn plugin_dirs(skills: &skills::Installed, plugins: &plugins::Installed) -> Vec<PathBuf> {
+    let team = (!skills.names.is_empty()).then(|| skills.dir.clone());
+    team.into_iter().chain(plugins.dirs.iter().cloned()).collect()
+}
+
 /// `_meta.claudeCode.options`: the settings file, the setting sources when the CLI's user-level config is left out
 /// (the adapter's default loads user, project and local; ours are spread over it), the team skills plugin and the
 /// group's plugins.
@@ -2061,9 +2194,8 @@ fn claude_options(
     if let Some(args) = launch.map(|l| &l.args).filter(|a| !a.is_empty()) {
         options.insert("extraArgs".into(), serde_json::Value::Object(args.clone()));
     }
-    let team = (!skills.names.is_empty()).then_some(&skills.dir);
     let local: Vec<_> =
-        team.into_iter().chain(&plugins.dirs).map(|p| serde_json::json!({ "type": "local", "path": p })).collect();
+        plugin_dirs(skills, plugins).iter().map(|p| serde_json::json!({ "type": "local", "path": p })).collect();
     if !local.is_empty() {
         options.insert("plugins".into(), local.into());
     }
@@ -2071,7 +2203,8 @@ fn claude_options(
 }
 
 /// MCP servers attached when a session is created or restored: the server's global layer plus the built-in ask
-/// tool, which every session gets (spec §7.2).
+/// tool, which every session gets (spec §7.2). Gemini has the latter in its settings instead (`gemini::prepare`):
+/// there it gets a timeout, and an ACP server of the same name would replace it.
 fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer> {
     start
         .mcp_servers
@@ -2086,7 +2219,7 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
                 McpServerHttp::new(name, url).headers(headers.iter().map(|(k, v)| HttpHeader::new(k, v)).collect()),
             ),
         })
-        .chain([ask.clone()])
+        .chain((start.bot.agent_kind != AgentKind::Gemini).then(|| ask.clone()))
         .collect()
 }
 
@@ -2124,5 +2257,40 @@ mod tests {
         with_args.args.insert("debug".into(), serde_json::Value::Null);
         let options = claude_options(Some(&with_args), &none, &no);
         assert_eq!(options["extraArgs"], serde_json::json!({ "debug": null }));
+    }
+
+    #[test]
+    fn reads_models_offered_the_older_way() {
+        let raw = serde_json::json!({
+            "sessionId": "s",
+            "models": {
+                "availableModels": [
+                    { "modelId": "auto", "name": "Auto", "description": "Let Gemini CLI decide" },
+                    { "modelId": "gemini-2.5-pro" },
+                ],
+                "currentModelId": "gemini-2.5-pro",
+            },
+        });
+        let models = Models::of(&raw).unwrap();
+        assert_eq!((models.current.as_str(), models.initial.as_str()), ("gemini-2.5-pro", "gemini-2.5-pro"));
+        assert_eq!(models.choices[1].name, "gemini-2.5-pro", "no name: its id");
+        let catalog = models.catalog();
+        assert_eq!(catalog.models.len(), 2);
+        assert_eq!(catalog.current.as_deref(), Some("gemini-2.5-pro"));
+        assert_eq!(Models::of(&serde_json::json!({ "sessionId": "s" })), None);
+    }
+
+    #[test]
+    fn names_gemini_mcp_calls_by_the_server_in_meta() {
+        let call = |meta: Option<serde_json::Value>| {
+            let mut tool = acp::ToolCallUpdate::new("t1", acp::ToolCallUpdateFields::new().title("get_group_info"));
+            tool.meta = meta.and_then(|m| m.as_object().cloned());
+            let mut req = RequestPermissionRequest::new("s", tool, vec![]);
+            name_mcp_call(&mut req);
+            req.tool_call.fields.title.unwrap()
+        };
+        let meta = serde_json::json!({ "gemini-cli": { "mcp": { "server_name": "gonggong", "tool_name": "get_group_info" } } });
+        assert_eq!(call(Some(meta)), "mcp__gonggong__get_group_info");
+        assert_eq!(call(None), "get_group_info");
     }
 }

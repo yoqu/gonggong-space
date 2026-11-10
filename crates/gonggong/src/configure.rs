@@ -12,7 +12,8 @@ use std::path::Path;
 const DEFAULT: &str = "default";
 
 pub fn parse_kind(s: &str) -> Result<AgentKind, String> {
-    serde_json::from_value(serde_json::Value::String(s.to_lowercase())).map_err(|_| t!("应为 claude 或 codex").into())
+    serde_json::from_value(serde_json::Value::String(s.to_lowercase()))
+        .map_err(|_| t!("应为 claude、codex、gemini 或 codebuddy").into())
 }
 
 fn catalog_line(catalog: Option<&AgentCatalog>) -> String {
@@ -108,6 +109,7 @@ mod tests {
         assert_eq!(LocalSettings::load(home.path()).unwrap().agent(AgentKind::Codex).path, None);
         assert!(agent(home.path(), AgentKind::Codex, "/nope/codex".into()).is_err());
         assert_eq!(parse_kind("Claude"), Ok(AgentKind::Claude));
-        assert!(parse_kind("gemini").is_err());
+        assert!(parse_kind("gemini").is_ok());
+        assert!(parse_kind("opencode").is_err());
     }
 }

@@ -105,6 +105,14 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
         // of the owner. `workspace-write` keeps approvals with the owner and limits edits to the workspace.
         (AgentKind::Codex, Tier::Workspace) => "workspace-write",
         (AgentKind::Codex, Tier::ReadOnly) => "read-only",
+        (AgentKind::Gemini, Tier::Full) => "yolo",
+        // Edits are approved by Gemini itself only within its workspace dirs; the rest still asks the owner.
+        (AgentKind::Gemini, Tier::Workspace) => "autoEdit",
+        // Not `plan`: it changes how the agent works (it plans instead of answering); our rules refuse the writes.
+        (AgentKind::Gemini, Tier::ReadOnly) => "default",
+        (AgentKind::Codebuddy, Tier::Full) => "bypassPermissions",
+        (AgentKind::Codebuddy, Tier::Workspace) => "acceptEdits",
+        (AgentKind::Codebuddy, Tier::ReadOnly) => "default",
     }
 }
 
@@ -167,7 +175,15 @@ pub fn client_capabilities() -> ClientCapabilities {
 /// Error title from a typed session failure in `_meta` (session_info_update or the prompt response).
 /// Provider errors arrive as raw JSON bodies; their inner `error.message` is what users can act on.
 pub fn session_failure(meta: Option<&serde_json::Map<String, serde_json::Value>>) -> Option<String> {
-    let f = meta?.get("jetbrains")?.get("air")?.get("sessionFailure")?;
+    let meta = meta?;
+    // CodeBuddy ends a failed model request as a refusal carrying the JSON-RPC error.
+    if let Some(raw) = meta.get("codebuddy.ai/errorMessage").and_then(|m| m.as_str()) {
+        let e = serde_json::from_str::<serde_json::Value>(raw).ok();
+        let details = e.as_ref().and_then(|e| e.pointer("/data/details")?.as_str()?.lines().next().map(String::from));
+        let message = e.as_ref().and_then(|e| e["message"].as_str().map(String::from));
+        return Some(details.or(message).unwrap_or_else(|| raw.to_string()));
+    }
+    let f = meta.get("jetbrains")?.get("air")?.get("sessionFailure")?;
     if f.get("severity")?.as_str()? != "error" {
         return None;
     }
@@ -595,6 +611,18 @@ fn output_tail(content: &[ToolCallContent]) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn codebuddys_failed_model_request_is_a_session_failure() {
+        let error = r#"{"code":-32000,"message":"Authentication required","data":{"details":"401 Authentication required. Please use /login\n\nNote: …"}}"#;
+        let meta = serde_json::json!({ "codebuddy.ai/errorMessage": error });
+        assert_eq!(
+            super::session_failure(meta.as_object()).as_deref(),
+            Some("401 Authentication required. Please use /login")
+        );
+        let bare = serde_json::json!({ "codebuddy.ai/errorMessage": r#"{"message":"quota"}"# });
+        assert_eq!(super::session_failure(bare.as_object()).as_deref(), Some("quota"));
+    }
+
     use super::*;
     use crate::protocol::{Approval, McpCall};
     use agent_client_protocol::schema::v1::{
@@ -704,6 +732,10 @@ mod tests {
         assert_eq!(mode_for(AgentKind::Codex, Tier::ReadOnly), "read-only");
         // codex-acp's `agent` mode sends approvals to Codex's own reviewer model instead of the owner.
         assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), "workspace-write");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Full), "yolo");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Workspace), "autoEdit");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::ReadOnly), "default");
+        assert_eq!(mode_for(AgentKind::Codebuddy, Tier::Workspace), "acceptEdits");
     }
 
     #[test]

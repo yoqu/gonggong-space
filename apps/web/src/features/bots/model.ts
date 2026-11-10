@@ -12,9 +12,22 @@ import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
-export const AGENTS: AgentKind[] = ['claude', 'codex']
-export const AGENT_LABEL: Record<AgentKind, string> = { claude: 'Claude Code', codex: 'Codex' }
-const AGENT_CLI: Record<AgentKind, string> = { claude: 'claude-code', codex: 'codex' }
+export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy']
+export const AGENT_LABEL: Record<AgentKind, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+  codebuddy: 'CodeBuddy（WorkBuddy）',
+}
+const AGENT_CLI: Record<AgentKind, string> = {
+  claude: 'claude-code',
+  codex: 'codex',
+  gemini: 'gemini-cli',
+  codebuddy: 'codebuddy-code',
+}
+/** Agents added later: a machine's client from before one never offers it, and not having one is unremarkable. */
+const LATER: AgentKind[] = ['gemini', 'codebuddy']
+export const isLaterAgent = (k: AgentKind) => LATER.includes(k)
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
   bound: t('已绑定'),
@@ -60,6 +73,10 @@ export const agentOutdated = (b: BotDto) =>
 
 export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
   m.agents.find((a) => a.kind === kind && a.available)
+
+/** The agents a machine's client can run: one from before an agent was added never offers it. */
+export const machineAgents = (m: MachineDto | null | undefined) =>
+  AGENTS.filter((k) => !isLaterAgent(k) || !m || m.features.includes(k))
 
 const saveBot = (bot: BotDto) => {
   useWorkspace.getState().applyEvent({ t: 'bot.updated', bot })

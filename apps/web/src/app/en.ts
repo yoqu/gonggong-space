@@ -41,8 +41,8 @@ export default {
   群不存在或你已不在群内: "This group doesn't exist or you're no longer a member",
   选择一个群或私聊开始: 'Pick a group or direct message to start',
   '它可能已解散，或你已被移出。': 'It may have been dissolved, or you were removed.',
-  '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。':
-    "Pick a conversation on the left; @ a Bot to put Claude Code / Codex to work on a teammate's machine.",
+  '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex / Gemini CLI 开始工作。':
+    "Pick a conversation on the left; @ a Bot to put Claude Code / Codex / Gemini CLI to work on a teammate's machine.",
   加载工作区失败: 'Failed to load workspace',
   无法连接服务器: "Can't reach the server",
   '请检查网络或服务器状态后重试。': 'Check your network or the server status and try again.',
@@ -56,7 +56,7 @@ export default {
   '在机器上安装共工空间客户端，打开接入链接关联账号':
     'Install the Gonggong Space client on a machine and open the connect link to link your account',
   '新建 Bot': 'New Bot',
-  '选择机器上的 Claude Code 或 Codex': 'Pick Claude Code or Codex on a machine',
+  '选择机器上的 Claude Code、Codex 或 Gemini CLI': 'Pick Claude Code, Codex or Gemini CLI on a machine',
   '建群并 @ Bot': 'Create a group and @ a Bot',
   '拉上同事、绑定仓库，分配任务': 'Invite teammates, bind repos, hand out tasks',
   开始使用: 'Get started',
@@ -83,8 +83,8 @@ export default {
   确认: 'Confirm',
   '在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。':
     'Install the Gonggong Space client on your machine and open the connect link; your Bots run on that machine.',
-  '选择机器上的 Claude Code 或 Codex，给它起个好认的名字。':
-    'Pick Claude Code or Codex on a machine and give it a memorable name.',
+  '选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。':
+    'Pick Claude Code, Codex or Gemini CLI on a machine and give it a memorable name.',
   '拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。':
     'Invite teammates, bind repos, and @ your Bot in the group to hand out tasks.',
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',

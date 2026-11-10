@@ -68,8 +68,8 @@ export const en = {
   未安装: 'Not installed',
   '版本过低 {version}': 'Outdated {version}',
   '已安装 {version}': 'Installed {version}',
-  '运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ {min}）':
-    'Runs the ACP adapters and managed installs of Claude Code / Codex (requires ≥ {min})',
+  '运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）':
+    'Runs the ACP adapters, Gemini CLI and CodeBuddy, and the managed installs of the agent tools (requires ≥ {min})',
   路径: 'Path',
   '系统的 Node.js {version} 低于 {min}，ACP 适配器无法运行，请安装共工空间托管版（不影响系统的 Node.js）。':
     'The system Node.js {version} is below {min}, so the ACP adapters cannot run. Install the Gonggong-managed version (the system Node.js is left untouched).',
@@ -88,6 +88,7 @@ export const en = {
   'ACP 适配器': 'ACP adapter',
   '{version} · 随 daemon': '{version} · bundled with daemon',
   '随 daemon': 'Bundled with daemon',
+  'CLI 自带': 'Built into the CLI',
   可用模型: 'Available models',
   '模型与推理强度在 Web 端为 Bot 设置': 'Models and reasoning effort are set per Bot on the Web',
   适配器未提供: 'Not provided by the adapter',

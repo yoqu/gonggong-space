@@ -19,6 +19,7 @@ mod git_ops4_r4;
 mod git_ops5;
 mod hosted;
 mod html_render;
+mod native_agents;
 mod net;
 mod plugins;
 mod providers_run;

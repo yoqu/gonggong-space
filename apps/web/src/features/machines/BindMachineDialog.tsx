@@ -140,7 +140,7 @@ export function BindMachineDialog({
               ) : null}
               <p className="bind__note">
                 {t(
-                  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。',
+                  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。',
                 )}
               </p>
             </>
@@ -190,7 +190,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
             </ul>
           ) : machine.online ? (
             <span className="bind__note">
-              {t('未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。')}
+              {t('未检测到 Claude Code / Codex / Gemini CLI，安装后在客户端中重新检测即可上报。')}
             </span>
           ) : (
             <span className="bind__waiting">

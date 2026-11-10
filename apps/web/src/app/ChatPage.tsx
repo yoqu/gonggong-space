@@ -431,7 +431,9 @@ export function ChatPage() {
               description={
                 groupId
                   ? t('它可能已解散，或你已被移出。')
-                  : t('在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex 开始工作。')
+                  : t(
+                      '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex / Gemini CLI 开始工作。',
+                    )
               }
               action={groupId ? <Button onClick={() => navigate('/')}>{t('返回消息')}</Button> : undefined}
             />

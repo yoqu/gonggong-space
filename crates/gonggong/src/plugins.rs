@@ -1,6 +1,7 @@
 //! Plugins (plan 插件体系): each version is unpacked once into `plugin-sets/<name>-<digest>/` under the daemon home and
-//! shared by every run. Claude loads each folder as a plugin named `name` (skills `<name>:<skill>`); Codex finds each
-//! entry skill through a link `<cwd>/.agents/skills/<name>-<skill>`, kept out of git and removed with the plugin.
+//! shared by every run. Claude loads each folder as a plugin named `name` (skills `<name>:<skill>`); Codex and Gemini
+//! find each entry skill through a link `<cwd>/.agents/skills/<name>-<skill>`, kept out of git and removed with the
+//! plugin.
 use crate::config::Config;
 use crate::git;
 use crate::protocol::{AgentKind, PluginRef};
@@ -16,7 +17,7 @@ pub struct Installed {
     pub dirs: Vec<PathBuf>,
 }
 
-/// The Codex links made for a (group, bot), so only ours are removed.
+/// The Codex / Gemini links made for a (group, bot), so only ours are removed.
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct State {
     links: Vec<Link>,
@@ -36,7 +37,7 @@ impl Link {
     }
 }
 
-/// Brings the plugin folders and, for Codex, the workspace links of (group, bot) in line with `refs`.
+/// Brings the plugin folders and, for Codex and Gemini, the workspace links of (group, bot) in line with `refs`.
 pub async fn install(
     api: &Config,
     home: &Path,
@@ -66,7 +67,7 @@ pub async fn install(
         tokio::fs::read(&state_file).await.ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
     let repo = skills::repo_root(cwd);
     let mut wanted: Vec<(Link, PathBuf)> = vec![];
-    if kind == AgentKind::Codex {
+    if kind.links_skills() {
         for (r, dir) in refs.iter().zip(&dirs) {
             for skill in entry_skills(dir).await.map_err(e)? {
                 let path = cwd.join(".agents/skills").join(format!("{}-{skill}", r.name));

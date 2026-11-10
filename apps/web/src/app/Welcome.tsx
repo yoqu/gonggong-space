@@ -48,7 +48,7 @@ export function Welcome({
       icon: 'bot',
       color: 'var(--system-indigo)',
       title: t('新建 Bot'),
-      desc: t('选择机器上的 Claude Code 或 Codex，给它起个好认的名字。'),
+      desc: t('选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。'),
       action: t('新建 Bot'),
       done: hasBot,
       onClick: onNewBot,

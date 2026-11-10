@@ -1026,6 +1026,50 @@
       "model": "grok-4.5",
       "modelOptions": ["grok-4.5", "grok-4.7"],
       "effort": "high"
+    },
+    {
+      "id": "google",
+      "agent": "gemini",
+      "name": "Google AI Studio",
+      "group": "global",
+      "websiteUrl": "https://ai.google.dev/",
+      "apiKeyUrl": "https://aistudio.google.com/apikey",
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "modelOptions": ["gemini-2.5-pro", "gemini-3-pro-preview", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    },
+    {
+      "id": "openrouter",
+      "agent": "gemini",
+      "name": "OpenRouter",
+      "group": "aggregator",
+      "websiteUrl": "https://openrouter.ai/",
+      "apiKeyUrl": "https://openrouter.ai/keys",
+      "baseUrl": "https://openrouter.ai/api",
+      "model": "gemini-3.6-flash",
+      "modelOptions": ["gemini-3.6-flash", "google/gemini-3.6-flash", "google/gemini-3.8-flash"]
+    },
+    {
+      "id": "codebuddy-cn",
+      "agent": "codebuddy",
+      "name": "CodeBuddy 中国版",
+      "group": "cn",
+      "websiteUrl": "https://www.codebuddy.cn/",
+      "apiKeyUrl": "https://copilot.tencent.com/profile/",
+      "baseUrl": "https://copilot.tencent.com",
+      "modelOptions": [],
+      "env": {
+        "CODEBUDDY_INTERNET_ENVIRONMENT": "internal"
+      }
+    },
+    {
+      "id": "codebuddy",
+      "agent": "codebuddy",
+      "name": "CodeBuddy 国际版",
+      "group": "global",
+      "websiteUrl": "https://www.codebuddy.ai/",
+      "apiKeyUrl": "https://www.codebuddy.ai/profile/keys",
+      "baseUrl": "https://www.codebuddy.ai",
+      "modelOptions": []
     }
   ]
 }

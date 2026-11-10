@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Alert, Skeleton } from '../../ui'
-import { AGENT_LABEL, AGENTS } from '../bots/model'
+import { AGENT_LABEL, machineAgents } from '../bots/model'
 import { AgentSettingsBox } from './AgentSettingsPanel'
 import { ProviderBox } from './ProvidersPanel'
 import { SwitchNote, switchLines } from './providers'
@@ -45,7 +45,7 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
           </section>
         </section>
       ) : null}
-      {AGENTS.map((agent) => (
+      {machineAgents(machine).map((agent) => (
         <section key={agent} aria-label={AGENT_LABEL[agent]} className="mx-agent">
           {tools.state ? (
             <ToolBox kind={agent} state={tools.state} op={tools.op} onRun={tools.run} />

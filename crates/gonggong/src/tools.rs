@@ -1,4 +1,4 @@
-//! Managed agent tools (design §4.1): Node.js under `<home>/runtime`, Claude Code and Codex installed by npm into
+//! Managed agent tools (design §4.1): Node.js under `<home>/runtime`, Claude Code, Codex and Gemini CLI installed by npm into
 //! `<home>/tools`, all from the configured mirror. Never sudo, never the global npm prefix.
 use crate::agents;
 use crate::bots::agent_label;
@@ -30,16 +30,21 @@ pub enum ToolKind {
     Node,
     Claude,
     Codex,
+    Gemini,
+    Codebuddy,
 }
 
 impl ToolKind {
-    pub const ALL: [ToolKind; 3] = [ToolKind::Node, ToolKind::Claude, ToolKind::Codex];
+    pub const ALL: [ToolKind; 5] =
+        [ToolKind::Node, ToolKind::Claude, ToolKind::Codex, ToolKind::Gemini, ToolKind::Codebuddy];
 
     pub fn agent(self) -> Option<AgentKind> {
         match self {
             ToolKind::Node => None,
             ToolKind::Claude => Some(AgentKind::Claude),
             ToolKind::Codex => Some(AgentKind::Codex),
+            ToolKind::Gemini => Some(AgentKind::Gemini),
+            ToolKind::Codebuddy => Some(AgentKind::Codebuddy),
         }
     }
 
@@ -52,6 +57,19 @@ impl ToolKind {
             ToolKind::Node => None,
             ToolKind::Claude => Some("@anthropic-ai/claude-code"),
             ToolKind::Codex => Some("@openai/codex"),
+            ToolKind::Gemini => Some("@google/gemini-cli"),
+            ToolKind::Codebuddy => Some("@tencent-ai/codebuddy-code"),
+        }
+    }
+
+    /// The Homebrew formula or cask it is published as.
+    fn brew_name(self) -> &'static str {
+        match self {
+            ToolKind::Node => "node",
+            ToolKind::Claude => "claude-code",
+            ToolKind::Codex => "codex",
+            ToolKind::Gemini => "gemini-cli",
+            ToolKind::Codebuddy => "codebuddy-code",
         }
     }
 }
@@ -151,6 +169,7 @@ enum SelfUpgrade {
     /// The npm global prefix it was installed into.
     Npm {
         prefix: PathBuf,
+        package: &'static str,
     },
 }
 
@@ -160,7 +179,7 @@ fn self_upgrade(kind: ToolKind, path: &Path) -> Option<SelfUpgrade> {
     let at = |name: &str| parts.iter().position(|c| c.as_os_str() == name);
     if let Some(i) = at("Cellar").or_else(|| at("Caskroom")) {
         let brew = parts[..i].iter().collect::<PathBuf>().join("bin").join("brew");
-        return Some(SelfUpgrade::Brew { brew, name: if kind == ToolKind::Claude { "claude-code" } else { "codex" } });
+        return Some(SelfUpgrade::Brew { brew, name: kind.brew_name() });
     }
     if kind == ToolKind::Claude {
         return Some(SelfUpgrade::ClaudeUpdate);
@@ -174,7 +193,7 @@ fn self_upgrade(kind: ToolKind, path: &Path) -> Option<SelfUpgrade> {
     if !cfg!(windows) && prefix.ends_with("lib") {
         prefix.pop();
     }
-    Some(SelfUpgrade::Npm { prefix })
+    Some(SelfUpgrade::Npm { prefix, package: pkg })
 }
 
 impl SelfUpgrade {
@@ -190,7 +209,7 @@ impl SelfUpgrade {
         match self {
             SelfUpgrade::Brew { name, .. } => format!("brew upgrade {name}"),
             SelfUpgrade::ClaudeUpdate => "claude update".into(),
-            SelfUpgrade::Npm { .. } => "npm i -g @openai/codex@latest".into(),
+            SelfUpgrade::Npm { package, .. } => format!("npm i -g {package}@latest"),
         }
     }
 
@@ -208,7 +227,7 @@ impl SelfUpgrade {
                 cmd.arg("update").env("PATH", prepend_path(tool.parent().context("claude has no dir")?));
                 cmd
             }
-            SelfUpgrade::Npm { prefix } => {
+            SelfUpgrade::Npm { prefix, package } => {
                 let bin = if cfg!(windows) { prefix.clone() } else { prefix.join("bin") };
                 let own = agents::file_names("npm").into_iter().map(|n| bin.join(n)).find(|p| p.is_file());
                 let mut cmd = match own {
@@ -221,7 +240,7 @@ impl SelfUpgrade {
                 };
                 cmd.args(["i", "-g", "--prefix"]).arg(prefix);
                 cmd.args(["--registry", settings.mirror.registry(), "--no-audit", "--no-fund"]);
-                cmd.arg(format!("@openai/codex@{latest}"));
+                cmd.arg(format!("{package}@{latest}"));
                 cmd
             }
         };
@@ -728,6 +747,8 @@ pub fn agent_status(home: &Path, info: &AgentInfo) -> ToolStatus {
     let kind = match info.kind {
         AgentKind::Claude => ToolKind::Claude,
         AgentKind::Codex => ToolKind::Codex,
+        AgentKind::Gemini => ToolKind::Gemini,
+        AgentKind::Codebuddy => ToolKind::Codebuddy,
     };
     let path = info.path.as_deref().filter(|_| info.available);
     let managed = path.is_some_and(|p| is_managed(home, Path::new(p)));
@@ -764,7 +785,7 @@ fn current(home: &Path, kind: ToolKind) -> Result<ToolStatus> {
     })
 }
 
-/// Node, Claude Code and Codex with their latest versions.
+/// Node and the agent CLIs with their latest versions.
 pub async fn status(home: &Path, local: &LocalSettings) -> Vec<ToolStatus> {
     let (h, local) = (home.to_path_buf(), local.clone());
     // Runs each tool's `--version`.
@@ -781,7 +802,7 @@ pub async fn status(home: &Path, local: &LocalSettings) -> Vec<ToolStatus> {
 
 #[derive(clap::Subcommand)]
 pub enum AgentsCmd {
-    /// Install Node.js, Claude Code or Codex managed by Gonggong (under its home), from the configured mirror.
+    /// Install Node.js, Claude Code, Codex or Gemini CLI managed by Gonggong (under its home), from the configured mirror.
     Install {
         kind: ToolKind,
         /// Exact version (x.y.z); the latest by default.
@@ -966,8 +987,17 @@ mod tests {
 
         let npm =
             how(ToolKind::Codex, "/Users/wl/.nvm/versions/node/v22.1.0/lib/node_modules/@openai/codex/bin/codex.js");
-        assert_eq!(npm, Some(SelfUpgrade::Npm { prefix: "/Users/wl/.nvm/versions/node/v22.1.0".into() }));
+        let prefix = PathBuf::from("/Users/wl/.nvm/versions/node/v22.1.0");
+        assert_eq!(npm, Some(SelfUpgrade::Npm { prefix: prefix.clone(), package: "@openai/codex" }));
         assert_eq!(npm.unwrap().command(), "npm i -g @openai/codex@latest");
+        let gemini = how(
+            ToolKind::Gemini,
+            "/Users/wl/.nvm/versions/node/v22.1.0/lib/node_modules/@google/gemini-cli/bundle/gemini.js",
+        );
+        assert_eq!(gemini, Some(SelfUpgrade::Npm { prefix, package: "@google/gemini-cli" }));
+        assert_eq!(gemini.unwrap().command(), "npm i -g @google/gemini-cli@latest");
+        let brew = how(ToolKind::Gemini, "/opt/homebrew/Cellar/gemini-cli/0.67.0/libexec/bin/gemini").unwrap();
+        assert_eq!(brew.command(), "brew upgrade gemini-cli");
 
         // A standalone binary is not npm's to replace; Node is never upgraded for the user.
         assert_eq!(how(ToolKind::Codex, "/usr/local/bin/codex"), None);

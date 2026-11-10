@@ -1,5 +1,6 @@
 //! MCP tool calls in ACP updates: Claude titles them `mcp__<server>__<tool>` and reports the result as content;
-//! Codex titles them `mcp.<server>.<tool>` with `{ server, tool, arguments }` in and `{ result, error }` out.
+//! Codex titles them `mcp.<server>.<tool>` with `{ server, tool, arguments }` in and `{ result, error }` out; Gemini
+//! CLI titles them `<tool> (<server> MCP Server)`.
 use agent_client_protocol::schema::v1::{ContentBlock, ToolCallContent};
 use serde_json::Value;
 
@@ -10,6 +11,9 @@ const OUTPUT_MAX: usize = 2000;
 pub fn name(title: &str) -> Option<(String, String)> {
     let (server, tool) = if let Some(rest) = title.strip_prefix("mcp__") {
         rest.split_once("__")?
+    } else if let Some(rest) = title.strip_suffix(" MCP Server)") {
+        let (tool, server) = rest.rsplit_once(" (")?;
+        (server, tool)
     } else {
         title.strip_prefix("mcp.")?.split_once('.')?
     };
@@ -72,10 +76,11 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn names_claude_and_codex_titles() {
+    fn names_claude_codex_and_gemini_titles() {
         assert_eq!(name("mcp__gonggong__list_messages"), Some(("gonggong".into(), "list_messages".into())));
         assert_eq!(name("mcp__claude_ai_Figma__get_metadata"), Some(("claude_ai_Figma".into(), "get_metadata".into())));
         assert_eq!(name("mcp.gonggong.search_messages"), Some(("gonggong".into(), "search_messages".into())));
+        assert_eq!(name("get_group_info (gonggong MCP Server)"), Some(("gonggong".into(), "get_group_info".into())));
         assert_eq!(name("Read a.rs"), None);
         assert_eq!(name("mcp__gonggong"), None);
     }

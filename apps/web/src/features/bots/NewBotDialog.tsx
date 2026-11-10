@@ -35,7 +35,7 @@ import type { AgentConfig } from './AgentConfig'
 import { RolePicker, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
-import { AGENT_LABEL, AGENTS, botsApi, reportedAgent } from './model'
+import { AGENT_LABEL, AGENTS, botsApi, machineAgents, reportedAgent } from './model'
 
 interface Props {
   me: UserDto
@@ -420,7 +420,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
           <RadioGroup
             aria-label="Agent"
             value={draft.agent}
-            options={AGENTS.map((k) => {
+            options={machineAgents(m).map((k) => {
               const v = m && reportedAgent(m, k)
               return {
                 value: k,

@@ -31,8 +31,8 @@ export default {
     'Open the connect link in the Gonggong Space client. Once confirmed, the machine is yours and Bots run on it.',
   完成: 'Done',
   取消: 'Cancel',
-  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex；同一台机器重新绑定会恢复原记录。':
-    'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex; rebinding the same machine restores its record.',
+  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。':
+    'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex / Gemini CLI; rebinding the same machine restores its record.',
   'macOS（Apple 芯片）': 'macOS (Apple silicon)',
   'macOS（Intel）': 'macOS (Intel)',
   'Linux x86_64（命令行）': 'Linux x86_64 (CLI)',
@@ -52,8 +52,8 @@ export default {
   '该机器已归属你 · {name}（{os} · {arch}）': 'This machine is now yours · {name} ({os} · {arch})',
   '该机器的 agent': 'Agents on this machine',
   未安装: 'Not installed',
-  '未检测到 Claude Code / Codex，安装后在客户端中重新检测即可上报。':
-    'No Claude Code / Codex detected. Install one, then re-detect in the client to report it.',
+  '未检测到 Claude Code / Codex / Gemini CLI，安装后在客户端中重新检测即可上报。':
+    'No Claude Code / Codex / Gemini CLI detected. Install one, then re-detect in the client to report it.',
   '等待上报 agent…在机器上打开共工空间客户端':
     'Waiting for agents… Open the Gonggong Space client on the machine',
   '你自己创建的 Bot 已直接绑定到该机器，无需操作；管理员为你创建并指定到该机器的 Bot，需在通知中确认后才能被触发。':
@@ -168,8 +168,15 @@ export default {
     'The daemon removes managed workspaces; /cd folders and backups are kept',
   吊销: 'Revoke',
   '已吊销 {name}': 'Revoked {name}',
-  '运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ {min}）':
-    'Runs the ACP adapter and managed Claude Code / Codex installs (requires ≥ {min})',
+  协议: 'Protocol',
+  腾讯: 'Tencent',
+  '进入后输入 /login，用微信、Google/GitHub 或企业账号登录':
+    'Inside it, type /login and sign in with WeChat, Google/GitHub or an enterprise account',
+  '由 {agent} 决定，供应商需提供这种接口': 'Set by {agent}; the provider has to offer this API',
+  '进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）':
+    'Inside it, type /auth, pick Gemini API Key and paste the key (personal Google account login is no longer supported)',
+  '运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）':
+    'Runs the ACP adapters, Gemini CLI and CodeBuddy, and the managed installs of the agent tools (requires ≥ {min})',
   '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
   官方源: 'Official registry',
   来源: 'Source',
@@ -192,8 +199,8 @@ export default {
   安装日志: 'Install log',
   '等待机器输出…': 'Waiting for machine output…',
   镜像源: 'Mirror',
-  '安装、升级 Node.js、Claude Code 与 Codex 时从这里下载':
-    'Node.js, Claude Code and Codex installs and upgrades download from here',
+  '安装、升级 Node.js 与 Agent 工具时从这里下载':
+    'Node.js and agent tool installs and upgrades download from here',
   'Node.js 下载地址': 'Node.js download URL',
   'index.json 所在的目录': 'The folder containing index.json',
   官方登录: 'Official login',
@@ -347,8 +354,8 @@ export default {
   已安装客户端: 'Client installed',
   查看机器: 'View machine',
   机器总览: 'Machines overview',
-  '在一台装有 Claude Code 或 Codex 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':
-    'Install the Gonggong Space client on a machine with Claude Code or Codex and bind it; Bots run there.',
+  '在一台装有 Claude Code、Codex 或 Gemini CLI 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':
+    'Install the Gonggong Space client on a machine with Claude Code, Codex or Gemini CLI and bind it; Bots run there.',
   '供应商：{name}': 'Provider: {name}',
   '{n} 个 Bot · {k} 个运行中': '{n} {n:Bot|Bots} · {k} running',
   '没有 Bot': 'No Bots',

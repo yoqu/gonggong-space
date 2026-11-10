@@ -107,6 +107,8 @@ pub fn agent_label(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "Claude Code",
         AgentKind::Codex => "Codex",
+        AgentKind::Gemini => "Gemini CLI",
+        AgentKind::Codebuddy => "CodeBuddy（WorkBuddy）",
     }
 }
 

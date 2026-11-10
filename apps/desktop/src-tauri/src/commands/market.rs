@@ -59,9 +59,6 @@ mod tests {
     #[test]
     fn opens_the_market_of_the_bound_server() {
         assert_eq!(super::web_url("https://gg.example.com/", None), "https://gg.example.com/market");
-        assert_eq!(
-            super::web_url("https://gg.example.com", Some("l1")),
-            "https://gg.example.com/market?listing=l1"
-        );
+        assert_eq!(super::web_url("https://gg.example.com", Some("l1")), "https://gg.example.com/market?listing=l1");
     }
 }

@@ -32,7 +32,10 @@ mod tests {
         let json = serde_json::to_value(bot).unwrap();
         assert_eq!(json["binding"], "pending_confirm");
         assert_eq!((json["concurrency"].as_u64(), json["tier"].as_str()), (Some(2), Some("workspace")));
-        assert_eq!((&json["aiReview"], &json["alwaysAllow"]), (&serde_json::json!(true), &serde_json::json!(["go build"])));
+        assert_eq!(
+            (&json["aiReview"], &json["alwaysAllow"]),
+            (&serde_json::json!(true), &serde_json::json!(["go build"]))
+        );
         assert_eq!(json["avatar"], "role-gong", "older servers send no avatar");
         assert!(json["teamName"].is_null(), "servers before teams send no team");
         let mut sent = json;

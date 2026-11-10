@@ -25,13 +25,28 @@
 //                anything else is denied as high risk
 //   otherwise    text + thought + edit tool call (with permission request) + usage, then end_turn
 // Ids it hands out ("mock-*") resume in any process (like agents that persist sessions); others fail to resume.
+// Started with GEMINI_CLI_HOME (as the daemon starts Gemini CLI), it acts like Gemini CLI: models through `models` and
+// session/set_model instead of config options, session/load instead of resume, no raw input on tool calls, MCP calls
+// titled by the tool alone with the server in `_meta`, and the gonggong server read from the home's settings.json.
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { Readable, Writable } from 'node:stream'
 import * as acp from '@agentclientprotocol/sdk'
 
 const sessions = new Map()
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const MODES = ['default', 'acceptEdits', 'bypassPermissions'].map((id) => ({ id, name: id }))
+const GEMINI = process.env.GEMINI_CLI_HOME
+const geminiFile = (name) => {
+  try {
+    return readFileSync(`${GEMINI}/.gemini/${name}`, 'utf8')
+  } catch {
+    return null
+  }
+}
+const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-3.8-flash'].map((modelId) => ({ modelId, name: modelId }))
+const MODES = (
+  GEMINI ? ['default', 'autoEdit', 'yolo', 'plan'] : ['default', 'acceptEdits', 'bypassPermissions']
+).map((id) => ({ id, name: id }))
 const MODELS = [
   { value: 'default', name: 'Default' },
   { value: 'haiku', name: 'Haiku', description: 'Fastest' },
@@ -80,16 +95,19 @@ function open(sessionId, params) {
     meta: params._meta ?? null,
     mcpServers: params.mcpServers,
     mode: 'default',
-    model: 'default',
+    model: GEMINI ? (process.env.GEMINI_MODEL ?? 'gemini-2.5-pro') : 'default',
     effort: 'medium',
     configSets: [],
     abort: null,
   })
-  return {
-    sessionId,
-    modes: { currentModeId: 'default', availableModes: MODES },
-    configOptions: configOptions(sessions.get(sessionId)),
-  }
+  const modes = { currentModeId: 'default', availableModes: MODES }
+  if (GEMINI)
+    return {
+      sessionId,
+      modes,
+      models: { availableModels: GEMINI_MODELS, currentModelId: sessions.get(sessionId).model },
+    }
+  return { sessionId, modes, configOptions: configOptions(sessions.get(sessionId)) }
 }
 
 let clientCaps
@@ -172,6 +190,27 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         secretEnv: Object.fromEntries(
           Object.entries(process.env).filter(([k]) => k.startsWith('GG_SECRET_')),
         ),
+        args: process.argv.slice(2),
+        codebuddy: process.env.CODEBUDDY_API_KEY
+          ? {
+              apiKey: process.env.CODEBUDDY_API_KEY,
+              baseUrl: process.env.CODEBUDDY_BASE_URL ?? null,
+              model: process.env.CODEBUDDY_MODEL ?? null,
+              environment: process.env.CODEBUDDY_INTERNET_ENVIRONMENT ?? null,
+              mcpTimeout: process.env.MCP_TOOL_TIMEOUT ?? null,
+            }
+          : null,
+        gemini: GEMINI
+          ? {
+              home: GEMINI,
+              trust: process.env.GEMINI_CLI_TRUST_WORKSPACE ?? null,
+              apiKey: process.env.GEMINI_API_KEY ?? null,
+              baseUrl: process.env.GOOGLE_GEMINI_BASE_URL ?? null,
+              model: process.env.GEMINI_MODEL ?? null,
+              memory: geminiFile('GEMINI.md'),
+              settings: JSON.parse(geminiFile('settings.json') ?? 'null'),
+            }
+          : null,
         mcpServers: s.mcpServers,
         prompt: text,
         blocks: blocks.map((b) =>
@@ -236,7 +275,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
         title: command,
         kind: 'execute',
         status: 'pending',
-        rawInput: { command },
+        ...(GEMINI ? {} : { rawInput: { command } }),
       }
       await update({ sessionUpdate: 'tool_call', ...toolCall })
       const res = await client.request(acp.methods.client.session.requestPermission, {
@@ -289,12 +328,15 @@ async function prompt({ sessionId, prompt: blocks }, client) {
             .slice(anyTool + 10)
             .split(/ (.*)/s)
             .slice(0, 2)
-    const toolCall = {
-      toolCallId: `${name}-1`,
-      title: `mcp__gonggong__${name}`,
-      kind: 'other',
-      status: 'pending',
-    }
+    const toolCall = GEMINI
+      ? {
+          toolCallId: `${name}-1`,
+          title: name,
+          kind: 'other',
+          status: 'pending',
+          _meta: { 'gemini-cli': { mcp: { server_name: 'gonggong', tool_name: name } } },
+        }
+      : { toolCallId: `${name}-1`, title: `mcp__gonggong__${name}`, kind: 'other', status: 'pending' }
     await update({ sessionUpdate: 'tool_call', ...toolCall })
     const res = await client.request(acp.methods.client.session.requestPermission, {
       sessionId,
@@ -308,7 +350,9 @@ async function prompt({ sessionId, prompt: blocks }, client) {
       await say('ask denied')
       return { stopReason: 'end_turn' }
     }
-    const server = s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
+    const server = GEMINI
+      ? { url: JSON.parse(geminiFile('settings.json')).mcpServers.gonggong.httpUrl }
+      : s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
     try {
       const args = JSON.parse(raw)
       await mcp(server.url, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} }, abort.signal)
@@ -503,11 +547,13 @@ acp
     clientCaps = ctx.params.clientCapabilities
     return {
       protocolVersion: acp.PROTOCOL_VERSION,
-      agentCapabilities: {
-        loadSession: false,
-        sessionCapabilities: { resume: {}, fork: {} },
-        promptCapabilities: { image: true },
-      },
+      agentCapabilities: GEMINI
+        ? { loadSession: true, promptCapabilities: { image: true } }
+        : {
+            loadSession: false,
+            sessionCapabilities: { resume: {}, fork: {} },
+            promptCapabilities: { image: true },
+          },
     }
   })
   .onRequest('session/new', (ctx) => open(`mock-${crypto.randomUUID()}`, ctx.params))
@@ -515,6 +561,18 @@ acp
     if (!ctx.params.sessionId.startsWith('mock-'))
       throw acp.RequestError.resourceNotFound(ctx.params.sessionId)
     return open(ctx.params.sessionId, ctx.params)
+  })
+  .onRequest('session/load', (ctx) => {
+    if (!ctx.params.sessionId.startsWith('mock-'))
+      throw acp.RequestError.resourceNotFound(ctx.params.sessionId)
+    const { sessionId, ...rest } = open(ctx.params.sessionId, ctx.params)
+    return rest
+  })
+  .onRequest('session/set_model', { parse: (v) => v }, (ctx) => {
+    const s = sessions.get(ctx.params.sessionId)
+    s.model = ctx.params.modelId
+    s.configSets.push(`model=${ctx.params.modelId}`)
+    return {}
   })
   .onRequest('session/fork', (ctx) => {
     if (!ctx.params.sessionId.startsWith('mock-'))

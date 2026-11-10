@@ -6,6 +6,8 @@ import type { Snapshot } from '../ipc'
 export const AGENTS: Record<AgentKind, { name: string }> = {
   claude: { name: 'Claude Code' },
   codex: { name: 'Codex' },
+  gemini: { name: 'Gemini CLI' },
+  codebuddy: { name: 'CodeBuddy（WorkBuddy）' },
 }
 
 export type ConnKind = 'ok' | 'connecting' | 'offline' | 'proto' | 'revoked' | 'blocked' | 'unbound'
@@ -72,7 +74,12 @@ export function revealLabel(os: string | undefined) {
   return t('在 Finder 中显示')
 }
 
-export const VENDOR: Record<AgentKind, string> = { claude: 'Anthropic · CLI', codex: 'OpenAI · CLI' }
+export const VENDOR: Record<AgentKind, string> = {
+  claude: 'Anthropic · CLI',
+  codex: 'OpenAI · CLI',
+  gemini: 'Google · CLI',
+  codebuddy: 'Tencent · CLI',
+}
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */
 export function tildify(path: string) {

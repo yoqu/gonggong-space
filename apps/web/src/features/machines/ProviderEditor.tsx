@@ -42,6 +42,19 @@ const GROUPS: { key: ProviderPreset['group']; label: string }[] = [
   { key: 'global', label: t('海外') },
 ]
 const TIERS = ['haiku', 'sonnet', 'opus'] as const
+/** The API each agent CLI speaks: 共工 converts nothing, so the provider has to offer it. */
+const PROTOCOL: Record<AgentKind, string> = {
+  claude: 'Anthropic Messages',
+  codex: 'OpenAI Responses',
+  gemini: 'Google Gemini',
+  codebuddy: 'CodeBuddy',
+}
+const URL_HINT: Record<AgentKind, string> = {
+  claude: 'https://…/anthropic',
+  codex: 'https://…/v1',
+  gemini: 'https://generativelanguage.googleapis.com',
+  codebuddy: 'https://copilot.tencent.com',
+}
 const FORM_ID = 'provider-form'
 const OFFICIAL_FORM_ID = 'official-form'
 
@@ -289,7 +302,7 @@ export function ProviderEditor({
         aria-label="Base URL"
         value={f.baseUrl}
         onChange={(e) => set({ baseUrl: e.target.value })}
-        placeholder={agent === 'claude' ? 'https://…/anthropic' : 'https://…/v1'}
+        placeholder={URL_HINT[agent]}
       />
     </FormRow>
   )
@@ -329,6 +342,14 @@ export function ProviderEditor({
         <FormRow label={t('名称')}>
           <TextField aria-label={t('名称')} value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </FormRow>
+        {localProfile ? null : (
+          <FormRow
+            label={t('协议')}
+            hint={t('由 {agent} 决定，供应商需提供这种接口', { agent: AGENT_LABEL[agent] })}
+          >
+            <span>{PROTOCOL[agent]}</span>
+          </FormRow>
+        )}
         {localProfile ? (
           <>
             <FormRow

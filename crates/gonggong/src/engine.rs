@@ -7,6 +7,7 @@ use crate::coalesce::Coalesce;
 use crate::config::{Config, Settings};
 use crate::explorer;
 use crate::files;
+use crate::gemini;
 use crate::git;
 use crate::git_ops;
 use crate::git_write;
@@ -39,7 +40,8 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`.
+/// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`. Gemini CLI
+/// needs none.
 pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.2.2"),
@@ -248,7 +250,14 @@ impl Engine {
             agent_settings: Default::default(),
         };
         let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
-        Ok(AcpAgent::new(self.0.adapter(&bot, &local, &official, &SecretEnv::default()).await?))
+        let gemini_home = (kind == AgentKind::Gemini).then(|| gemini::home_dir(&self.0.config.home, gemini::PROBE));
+        if let Some(dir) = gemini_home.clone() {
+            let (user_home, selection) = (self.0.config.user_home.clone(), official.clone());
+            tokio::task::spawn_blocking(move || gemini::prepare(&dir, &user_home, &selection, "", None)).await??;
+        }
+        let process = Process { gemini_home: gemini_home.as_deref(), ..Default::default() };
+        let config = self.0.adapter(&bot, &local, &official, &SecretEnv::default(), &process).await?;
+        Ok(AcpAgent::new(config))
     }
 }
 
@@ -1050,20 +1059,56 @@ impl Inner {
     }
 
     /// Launch config of the adapter for this bot, with the local agent CLI, per-process system prompt and the
-    /// provider (§4.4; Claude's settings file, written by the turn's plan, is named per session). The run's
-    /// `secrets` go into the process env only: never a file.
+    /// provider (§4.4; Claude's settings file, written by the turn's plan, is named per session; Gemini's home too).
+    /// The run's `secrets` go into the process env only: never a file.
     pub(crate) async fn adapter(
         &self,
         bot: &RunBot,
         local: &LocalSettings,
         selection: &Selection,
         secrets: &SecretEnv,
+        process: &Process<'_>,
     ) -> anyhow::Result<AcpAgentConfig> {
         // First, the run's secrets over the user's variables: the daemon's own, set below, win over both.
         let mut env = Settings::load(&self.config.home)?.child_env();
         env.extend(secrets.0.clone());
+        let pinned_cli = match selection {
+            Selection::Provider(p) => p.executable_path.as_deref(),
+            Selection::Official(_) => None,
+        };
+        let cli = pinned_cli
+            .map(std::path::PathBuf::from)
+            .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         let base = match &self.config.adapter_cmd {
             Some(cmd) => AcpAgent::from_str(cmd)?.into_config().envs(env),
+            // Gemini CLI and CodeBuddy speak ACP themselves.
+            None if matches!(bot.agent_kind, AgentKind::Gemini | AgentKind::Codebuddy) => {
+                let (missing, script) = match bot.agent_kind {
+                    AgentKind::Gemini => (
+                        t!(
+                            "这台机器上没有 Gemini CLI，请安装：npm install -g @google/gemini-cli，或在「设置 → Agent 工具」里用共工托管安装"
+                        ),
+                        "@google/gemini-cli/bundle/gemini.js",
+                    ),
+                    _ => (
+                        t!(
+                            "这台机器上没有 CodeBuddy，请安装：npm install -g @tencent-ai/codebuddy-code，或在「设置 → Agent 工具」里用共工托管安装"
+                        ),
+                        "@tencent-ai/codebuddy-code/bin/codebuddy",
+                    ),
+                };
+                let cli = cli.as_deref().filter(|p| p.is_file()).context(missing)?;
+                let node = self.node().await?;
+                let config = match (agents::node_script(cli, script), process.cwd) {
+                    (Some(script), Some(cwd)) => AcpAgentConfig::new(&node.path)
+                        .arg(chdir_script(&self.config.home)?.to_string_lossy())
+                        .arg(cwd.to_string_lossy())
+                        .arg(script.to_string_lossy()),
+                    (Some(script), None) => AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()),
+                    (None, _) => AcpAgentConfig::new(cli),
+                };
+                config.arg("--acp").envs(env).env("PATH", node.path_env().to_string_lossy())
+            }
             None => {
                 let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
                 // The agent CLIs npm installs are node scripts: they must find this Node too.
@@ -1082,13 +1127,6 @@ impl Inner {
                 .env("GIT_COMMITTER_EMAIL", &g.email),
             None => base,
         };
-        let pinned_cli = match selection {
-            Selection::Provider(p) => p.executable_path.as_deref(),
-            Selection::Official(_) => None,
-        };
-        let cli = pinned_cli
-            .map(std::path::PathBuf::from)
-            .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         if let (AgentKind::Codex, Some(path)) = (bot.agent_kind, &cli)
             && let Some(problem) = agents::codex_problem(path)
         {
@@ -1131,7 +1169,47 @@ impl Inner {
                     .envs(provider.map(inject::codex_env).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }
+            AgentKind::Gemini => {
+                let dir = process.gemini_home.context("a Gemini run without its home")?;
+                let base = base
+                    .env("GEMINI_CLI_HOME", dir.to_string_lossy())
+                    .env("GEMINI_CLI_TRUST_WORKSPACE", "true")
+                    .envs(extra_env);
+                match provider {
+                    Some(p) => base
+                        .env("GEMINI_API_KEY", &p.api_key)
+                        .env("GOOGLE_GEMINI_BASE_URL", &p.base_url)
+                        .envs(p.model.as_ref().map(|m| ("GEMINI_MODEL", m))),
+                    None => base,
+                }
+            }
+            AgentKind::Codebuddy => {
+                // Its ACP sessions take no instructions or plugins: the process gets them.
+                let mut base = base.arg("--append-system-prompt").arg(system_prompt(bot));
+                if !process.plugin_dirs.is_empty() {
+                    let dirs = process.plugin_dirs.iter().map(|d| d.to_string_lossy().into_owned());
+                    base = base.arg("--plugin-dir").args(dirs);
+                }
+                let base = base.env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS).envs(extra_env);
+                match provider {
+                    Some(p) => base
+                        .env("CODEBUDDY_API_KEY", &p.api_key)
+                        .envs(inject::codebuddy_base_url(p).map(|u| ("CODEBUDDY_BASE_URL", u)))
+                        .envs(p.model.as_ref().map(|m| ("CODEBUDDY_MODEL", m))),
+                    None => base,
+                }
+            }
         })
+    }
+
+    /// The Node Gemini CLI and CodeBuddy run on (the managed one installed when there is none ≥ the adapters'
+    /// minimum).
+    async fn node(&self) -> anyhow::Result<tools::Node> {
+        let _guard = self.install.lock().await;
+        let log = |line: &str| tracing::info!("{line}");
+        tools::ensure_node(&self.config.home, &log)
+            .await
+            .context(t!("Gemini CLI 与 CodeBuddy 需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))
     }
 
     /// Installs the pinned adapters once (and the managed Node when no Node ≥ 22 is found), from the configured
@@ -1140,7 +1218,7 @@ impl Inner {
     async fn ensure_adapter(&self, kind: AgentKind) -> anyhow::Result<(tools::Node, PathBuf)> {
         let home = &self.config.home;
         let modules = home.join("adapters").join("node_modules");
-        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
+        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("Claude and Codex have an adapter");
         let script = modules.join(name).join("dist/index.js");
         let cached = self.adapter_node.lock().unwrap().clone();
         if let Some((key, node)) = cached {
@@ -1177,6 +1255,28 @@ impl Inner {
         *self.adapter_node.lock().unwrap() = Some((key, node.clone()));
         Ok((node, script))
     }
+}
+
+/// What a run's agent process starts with besides the bot and its provider.
+#[derive(Default)]
+pub(crate) struct Process<'a> {
+    /// Gemini's `GEMINI_CLI_HOME`.
+    pub gemini_home: Option<&'a Path>,
+    /// CodeBuddy loads the team skills and plugins with the process.
+    pub plugin_dirs: &'a [PathBuf],
+    /// CodeBuddy runs its shell in its own working directory, not the session's: the process starts in it.
+    pub cwd: Option<&'a Path>,
+}
+
+/// `node <this> <dir> <script> args…` runs the node script `script` with `args` in `dir`.
+fn chdir_script(home: &Path) -> anyhow::Result<PathBuf> {
+    const SCRIPT: &str = "process.chdir(process.argv[2]);\nconst script = process.argv[3];\nprocess.argv.splice(1, 3, script);\nrequire(script);\n";
+    let path = home.join("bin").join("chdir.cjs");
+    if std::fs::read_to_string(&path).ok().as_deref() != Some(SCRIPT) {
+        std::fs::create_dir_all(path.parent().expect("has a parent"))?;
+        std::fs::write(&path, SCRIPT)?;
+    }
+    Ok(path)
 }
 
 fn installed_version(pkg: &Path) -> Option<String> {
@@ -1229,5 +1329,22 @@ mod tests {
     fn pins_codex_adapter_with_workspace_write_mode() {
         let (_, _, version) = ADAPTERS.iter().find(|(kind, ..)| *kind == AgentKind::Codex).unwrap();
         assert_eq!(*version, "2.2.2");
+    }
+
+    #[test]
+    fn the_chdir_script_runs_a_node_script_in_the_directory_with_its_own_arguments() {
+        let (home, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let script = home.path().join("echo.js");
+        std::fs::write(&script, "console.log(JSON.stringify([process.cwd(), process.argv.slice(2)]))").unwrap();
+        let out = std::process::Command::new("node")
+            .arg(chdir_script(home.path()).unwrap())
+            .arg(dir.path())
+            .arg(&script)
+            .args(["--acp", "--append-system-prompt", "x"])
+            .output()
+            .unwrap();
+        let (cwd, args): (String, Vec<String>) = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(PathBuf::from(cwd), dir.path().canonicalize().unwrap());
+        assert_eq!(args, ["--acp", "--append-system-prompt", "x"]);
     }
 }
