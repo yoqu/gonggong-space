@@ -13,6 +13,7 @@ export const GONGGONG_TOOL_TITLES = {
   preview_close: '关闭预览',
   progress_card: '进度卡片',
   hand_off: '交给其他 Bot',
+  thread_create: '开话题',
   schedule_create: '创建定时任务',
   schedule_list: '定时任务列表',
   schedule_update: '修改定时任务',

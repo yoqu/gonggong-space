@@ -1152,6 +1152,7 @@ mod tests {
                 "preview_close",
                 "progress_card",
                 "hand_off",
+                "thread_create",
                 "schedule_create",
                 "schedule_list",
                 "schedule_update",
@@ -1887,6 +1888,7 @@ mod tests {
         assert!(is_builtin("mcp__gonggong__ask_group_members"));
         assert!(is_builtin("mcp__gonggong__list_messages"));
         assert!(is_builtin("mcp__gonggong__preview_expose"));
+        assert!(is_builtin("mcp__gonggong__thread_create"));
         assert!(is_builtin("mcp__gonggong__service_logs"));
         assert!(is_builtin("mcp__gonggong__skill_create"), "the server checks the run's originator is an admin");
         assert!(!is_builtin("mcp__gonggong__service_start"), "runs a command: the owner decides");

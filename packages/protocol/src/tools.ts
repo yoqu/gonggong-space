@@ -175,6 +175,16 @@ export const HandOffArgs = z.object({
     .optional(),
 })
 
+export const ThreadCreateArgs = z.object({
+  title: z.string().min(1).max(200).describe("The thread's opening message: what it is about"),
+  bot: z.string().min(1).max(64).describe('Bot of this group to work in it (you too)'),
+  task: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe('Its task: what to do, the context it needs, and when it is done'),
+})
+
 // Undescribed: schedule_update reuses them and points at schedule_create for their meaning.
 const scheduleCron = z.string().min(9).max(100)
 const scheduleAt = z.iso.datetime({ offset: true })
@@ -516,6 +526,13 @@ export const GONGGONG_TOOLS = {
       'Hand work to another bot: after this turn a message from you @-mentions it with the task and it starts. ' +
       'group hands to a bot of another group you are in. Writing @name in a reply does not start it.',
     input: HandOffArgs,
+  },
+  thread_create: {
+    title: GONGGONG_TOOL_TITLES.thread_create,
+    description:
+      'Open a thread in this group for a bot to work in: posts title now as its opening message; after this turn the bot ' +
+      'starts on task inside it. For long or parallel work kept apart from the main chat; at most 3 a turn, groups only.',
+    input: ThreadCreateArgs,
   },
   schedule_create: {
     title: GONGGONG_TOOL_TITLES.schedule_create,

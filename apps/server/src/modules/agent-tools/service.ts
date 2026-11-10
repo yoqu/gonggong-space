@@ -17,6 +17,7 @@ import {
   messages,
   questionSets,
   runs,
+  threadFollows,
   users,
 } from '../../db/schema.js'
 import { HttpError } from '../../lib/errors.js'
@@ -25,7 +26,7 @@ import { open } from '../../lib/seal.js'
 import { likePattern, patchPaths, snippet } from '../../lib/text.js'
 import { groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
-import { type MessageMeta, userAuthorName } from '../messages/service.js'
+import { type MessageMeta, postMessage, userAuthorName } from '../messages/service.js'
 import { closeOwnPreview, exposeGui, exposePreview } from '../previews/service.js'
 import { answerText } from '../questions/dto.js'
 import { redactDeep } from '../runs/redact.js'
@@ -396,12 +397,54 @@ async function handOff(ctx: Ctx, s: Scope, a: Args<'hand_off'>): Promise<ToolOut
   const task = a.task.trim()
   const groupId = away ? target.id : undefined
   const handoffs = [
-    ...run.handoffs.filter((h) => h.botId !== bot.id || h.groupId !== groupId),
+    ...run.handoffs.filter((h) => h.threadRootId || h.botId !== bot.id || h.groupId !== groupId),
     { botId: bot.id, task, ...(groupId && { groupId }) },
   ]
   await ctx.db.update(runs).set({ handoffs }).where(eq(runs.id, run.id))
   const who = away ? `群「${target.name}」的「${bot.name}」` : `「${bot.name}」`
   return { text: `已登记：本轮结束后由${who}接手（任务：${task}）。回复里不需要再 @ 它。`, groups: [] }
+}
+
+const THREADS_PER_TURN = 3
+
+/**
+ * A thread for a hop: its opening message goes out now, the bot starts in it once this run completes (like hand_off).
+ * The chain's initiator follows it so it does not get lost under the main timeline.
+ */
+async function threadCreate(ctx: Ctx, s: Scope, a: Args<'thread_create'>): Promise<ToolOutput> {
+  const { run } = s
+  const group = s.pick()
+  if (group.kind !== 'group') refuse('只能在群聊里开话题')
+  const max = (await groupParams(ctx, group)).chainMaxHops
+  if (run.hop >= max) refuse(`接力已达上限（${max} 跳），不能再开话题；请在回复里说明，由群成员决定`)
+  if (run.handoffs.filter((h) => h.threadRootId).length >= THREADS_PER_TURN)
+    refuse(`每轮最多开 ${THREADS_PER_TURN} 个话题`)
+  const members = await activeBots(ctx, group.id)
+  const name = a.bot.trim().replace(/^@/, '')
+  const bot =
+    members.find((b) => b.name === name) ??
+    refuse(`本群没有叫「${name}」的 Bot，可选的有：${members.map((b) => b.name).join('、')}`)
+  const task = a.task.trim()
+  const root = await postMessage(ctx, {
+    groupId: group.id,
+    kind: 'bot',
+    authorBotId: run.botId,
+    body: a.title.trim(),
+    meta: {},
+  })
+  await ctx.db
+    .update(runs)
+    .set({ handoffs: [...run.handoffs, { botId: bot.id, task, threadRootId: root.id }] })
+    .where(eq(runs.id, run.id))
+  if (run.originUserId)
+    await ctx.db
+      .insert(threadFollows)
+      .values({ rootMessageId: root.id, userId: run.originUserId, groupId: group.id })
+      .onConflictDoNothing()
+  return {
+    text: `已开话题 #${root.seq}「${root.body}」：本轮结束后由「${bot.name}」在话题里接手（任务：${task}）。`,
+    groups: [],
+  }
 }
 
 const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Promise<ToolOutput> } = {
@@ -416,6 +459,7 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   preview_gui: async (ctx, s, a) => ({ text: await exposeGui(ctx, s.run, a), groups: [] }),
   preview_close: async (ctx, s, a) => ({ text: await closeOwnPreview(ctx, s.run, a.preview), groups: [] }),
   hand_off: handOff,
+  thread_create: threadCreate,
   schedule_create: (ctx, s, a) => scheduleCreate(ctx, s.run, a),
   schedule_list: (ctx, s) => scheduleList(ctx, s.run),
   schedule_update: (ctx, s, a) => scheduleUpdate(ctx, s.run, a),

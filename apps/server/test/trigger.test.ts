@@ -1,7 +1,7 @@
 import { PROTOCOL_VERSION, type RunStart, type ToolCallRes } from '@gonggong/protocol'
 import { and, asc, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { bots, groupBots, groups, messages, runs } from '../src/db/schema.js'
+import { bots, groupBots, groups, messages, runs, threadFollows } from '../src/db/schema.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
 
@@ -28,6 +28,15 @@ async function daemon(token: string) {
   expect(await box.next()).toMatchObject({ t: 'welcome' })
   return {
     next: () => box.next<RunStart>(),
+    threadCreate: async (runId: string, bot: string, title = '拆出去的活', task = '继续') => {
+      const res = await t.app.inject({
+        method: 'POST',
+        url: `/api/daemon/runs/${runId}/tools/thread_create`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { arguments: { bot, title, task } },
+      })
+      return res.json<ToolCallRes>()
+    },
     handOff: async (runId: string, bot: string, task = '继续', group?: string) => {
       const res = await t.app.inject({
         method: 'POST',
@@ -274,6 +283,75 @@ describe('relay chain', () => {
     await new Promise((r) => setTimeout(r, 100))
     expect((await all()).length).toBe(3)
     expect(rows.map((r) => r.hop).sort()).toEqual([1, 2, 2])
+  })
+
+  it('opens a thread for a bot to work in, followed by the chain initiator', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A 拆一下', [w.a.id])
+    const start = await d.next()
+    const res = await d.threadCreate(start.runId, '接力 B', '前端改版', '把首页改完')
+    expect(res).toMatchObject({ isError: false })
+    const [root] = await t.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.groupId, w.group.id), eq(messages.body, '前端改版')))
+    expect(root).toMatchObject({ kind: 'bot', authorBotId: w.a.id, threadRootId: null })
+    expect(res.text).toContain(`#${root!.seq}`)
+    expect(
+      await t.db
+        .select()
+        .from(threadFollows)
+        .where(and(eq(threadFollows.rootMessageId, root!.id), eq(threadFollows.userId, w.bob.id))),
+    ).toHaveLength(1)
+    d.done(start.runId, '拆好了')
+    const next = await d.next()
+    expect(next.bot.id).toBe(w.b.id)
+    expect(next.prompt.text).toBe('@接力 B 把首页改完')
+    const rows = await until(w.allRuns, (r) => r.length === 2)
+    expect(rows[1]).toMatchObject({ hop: 2, threadRootId: root!.id, parentRunId: rows[0]!.id })
+    const [relay] = await t.db.select().from(messages).where(eq(messages.id, rows[1]!.triggerMessageId))
+    expect(relay).toMatchObject({ threadRootId: root!.id, authorBotId: w.a.id })
+  })
+
+  it('lets a bot open threads for itself, at most 3 a turn and never in a DM', async () => {
+    const w = await world()
+    const d = await daemon(w.token)
+    await w.say(w.bob.id, '@接力 A', [w.a.id])
+    const start = await d.next()
+    for (const title of ['一', '二', '三'])
+      expect(await d.threadCreate(start.runId, '接力 A', title)).toMatchObject({ isError: false })
+    expect(await d.threadCreate(start.runId, '接力 B')).toMatchObject({
+      isError: true,
+      text: '每轮最多开 3 个话题',
+    })
+    expect(await d.threadCreate(start.runId, '接力 Z')).toMatchObject({ isError: true })
+    d.done(start.runId, '好了')
+    for (let i = 0; i < 3; i++) {
+      const hop = await d.next()
+      expect(hop.bot.id).toBe(w.a.id)
+      d.done(hop.runId, '好了')
+    }
+    const rows = await until(w.allRuns, (r) => r.length === 4)
+    expect(new Set(rows.slice(1).map((r) => r.threadRootId)).size).toBe(3)
+
+    const dm = await t.seed.group({ createdBy: w.owner.id, kind: 'dm', botIds: [w.a.id] })
+    const [m] = await t.db
+      .insert(messages)
+      .values({
+        groupId: dm.id,
+        kind: 'user',
+        authorUserId: w.owner.id,
+        body: 'x',
+        meta: { mentions: [w.a.id] },
+      })
+      .returning()
+    await triggerRuns(t.ctx, m!)
+    const inDm = await d.next()
+    expect(await d.threadCreate(inDm.runId, '接力 A')).toMatchObject({
+      isError: true,
+      text: '只能在群聊里开话题',
+    })
   })
 
   it('authorizes every hop against the chain initiator', async () => {

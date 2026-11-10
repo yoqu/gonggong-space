@@ -13,6 +13,7 @@ export default {
   发布桌面应用预览: 'Publish desktop app preview',
   关闭预览: 'Close preview',
   '交给其他 Bot': 'Hand off to another Bot',
+  开话题: 'Open a thread',
   读取飞书群消息: 'Read Feishu group messages',
   发送飞书卡片: 'Send Feishu card',
   创建定时任务: 'Create scheduled task',
