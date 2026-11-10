@@ -85,6 +85,14 @@
   min-width: 180px;
   animation: var(--fade-in) ui-fade-in;
 }
+.ui-menu--sub-start {
+  left: auto;
+  right: calc(100% + 1px);
+}
+.ui-menu--sub-up {
+  top: auto;
+  bottom: -5px;
+}
 .ui-menu__sep {
   height: 1px;
   border: 0;

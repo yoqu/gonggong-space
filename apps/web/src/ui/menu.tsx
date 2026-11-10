@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type Ref,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -60,6 +61,21 @@ function ownItems(menu: HTMLElement) {
   return [...menu.querySelectorAll<HTMLElement>(ITEM)].filter((el) => el.closest('[role="menu"]') === menu)
 }
 
+/** The visible box of `el`: the viewport cut down by every ancestor that clips overflow (a scrolling message list). */
+function clipBox(el: HTMLElement) {
+  const box = { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight }
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const s = getComputedStyle(p)
+    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
+    const r = p.getBoundingClientRect()
+    box.top = Math.max(box.top, r.top)
+    box.left = Math.max(box.left, r.left)
+    box.right = Math.min(box.right, r.right)
+    box.bottom = Math.min(box.bottom, r.bottom)
+  }
+  return box
+}
+
 /**
  * Liquid Glass menu (Pane Menu). Focus moves between items and one row is highlighted for hover and keyboard alike;
  * ↑↓ Home End move, → / Enter open a submenu, ← / Esc close it, a letter jumps to the next item starting with it.
@@ -82,6 +98,7 @@ export function Menu({
   const [active, setActive] = useState(activeValue)
   const [openSub, setOpenSub] = useState(defaultOpenSubmenu)
   const [subFocus, setSubFocus] = useState(false)
+  const [subFlip, setSubFlip] = useState('')
   const own = useRef<HTMLDivElement | null>(null)
   const hasCheck = items.some((it) => 'label' in it && it.checked !== undefined)
   const hasIcon = items.some((it) => 'label' in it && it.icon)
@@ -98,6 +115,15 @@ export function Menu({
     // A long capped menu opens on the current choice rather than its top.
     menu.querySelector<HTMLElement>('[aria-checked="true"]')?.scrollIntoView?.({ block: 'nearest' })
   }, [])
+
+  // A submenu that would be clipped opens to the left and/or grows upward instead.
+  useLayoutEffect(() => {
+    const menu = own.current
+    if (!isSubmenu || !menu) return
+    const r = menu.getBoundingClientRect()
+    const box = clipBox(menu)
+    setSubFlip(cx(r.right > box.right && 'ui-menu--sub-start', r.bottom > box.bottom && 'ui-menu--sub-up'))
+  }, [isSubmenu])
 
   const setRef = (el: HTMLDivElement | null) => {
     own.current = el
@@ -157,7 +183,7 @@ export function Menu({
       ref={setRef}
       role="menu"
       tabIndex={-1}
-      className={cx('ui-menu', className)}
+      className={cx('ui-menu', className, subFlip)}
       onKeyDown={keyDown}
       onMouseLeave={(e) => {
         if (openSub < 0) setActive(undefined)
@@ -271,8 +297,23 @@ export function MenuButton({
   const [byPointer, setByPointer] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
   const presence = usePresence(open)
+  // Opens on the other side of the trigger when its own side would be clipped and the other has more room.
+  const [side, setSide] = useState(placement)
+  useLayoutEffect(() => {
+    const el = menu.current
+    if (!open || !el || !trigger.current) return
+    const r = el.getBoundingClientRect()
+    const t = trigger.current.getBoundingClientRect()
+    const box = clipBox(el)
+    const room = { below: box.bottom - t.bottom, above: t.top - box.top }
+    if (placement === 'below' && r.bottom > box.bottom && room.above > room.below) setSide('above')
+    else if (placement === 'above' && r.top < box.top && room.below > room.above) setSide('below')
+    else setSide(placement)
+  }, [open, placement])
   const setOpen = (next: boolean) => {
+    if (next) setSide(placement)
     setOpenState(next)
     onOpenChange?.(next)
   }
@@ -307,13 +348,14 @@ export function MenuButton({
       />
       {presence.mounted ? (
         <Menu
+          ref={menu}
           items={items}
           autoFocus
           focusMenu={byPointer}
           className={cx(
             'ui-menu--popover',
             align === 'end' && 'ui-menu--end',
-            placement === 'above' && 'ui-menu--above',
+            side === 'above' && 'ui-menu--above',
           )}
           data-state={presence.state}
           onAnimationEnd={presence.onAnimationEnd}

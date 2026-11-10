@@ -137,6 +137,58 @@ describe('Menu', () => {
     expect(rule).toContain('overflow-y: auto')
     expect(rule).toContain('overscroll-behavior: contain')
   })
+
+  it('flips the menu above and its submenu to the left when a scrolling ancestor would clip them', () => {
+    // A message list scrolling 0–400 × 0–500 with the trigger at its bottom-right corner.
+    const rects = new Map<string, DOMRect>([
+      ['list', new DOMRect(0, 0, 500, 400)],
+      ['trigger', new DOMRect(470, 370, 24, 24)],
+      ['menu', new DOMRect(300, 398, 200, 160)],
+      ['sub', new DOMRect(500, 393, 180, 120)],
+    ])
+    const original = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const key = this.matches('.ui-menu--sub')
+        ? 'sub'
+        : this.matches('[role="menu"]')
+          ? 'menu'
+          : this.matches('[aria-label="更多"]')
+            ? 'trigger'
+            : this.matches('[data-testid="list"]')
+              ? 'list'
+              : ''
+      return rects.get(key) ?? new DOMRect()
+    }
+    render(
+      <div data-testid="list" style={{ overflowY: 'auto' }}>
+        <MenuButton
+          aria-label="更多"
+          align="end"
+          items={[{ label: '稍后处理', value: 'later', submenu: [{ label: '1 小时', value: '1h' }] }]}
+          onSelect={() => {}}
+        >
+          …
+        </MenuButton>
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    expect(screen.getByRole('menu').className).toContain('ui-menu--above')
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: /稍后处理/ }))
+    const sub = document.querySelector('.ui-menu--sub')!
+    expect(sub.className).toContain('ui-menu--sub-start')
+    expect(sub.className).toContain('ui-menu--sub-up')
+    Element.prototype.getBoundingClientRect = original
+  })
+
+  it('keeps the menu below when it fits', () => {
+    render(
+      <MenuButton aria-label="更多" items={ITEMS} onSelect={() => {}}>
+        …
+      </MenuButton>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '更多' }))
+    expect(screen.getByRole('menu').className).not.toContain('ui-menu--above')
+  })
 })
 
 describe('AlertDialog', () => {
