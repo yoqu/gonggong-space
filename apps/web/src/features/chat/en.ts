@@ -191,6 +191,7 @@ export default {
   已置顶: 'Pinned',
   定时任务在独立的新会话中运行: 'Scheduled tasks run in a fresh session of their own',
   本轮因配置变更开启新会话: 'New session for this turn after a config change',
+  '距上次对话较久，已开启新会话': 'New session after a long break since the last turn',
   '原供应商已删除，已开启新会话': 'The previous provider was deleted; started a new session',
   今天: 'Today',
   昨天: 'Yesterday',

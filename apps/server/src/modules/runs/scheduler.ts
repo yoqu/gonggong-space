@@ -7,7 +7,7 @@ import {
   type Tier,
   UI_BLOCKS_GUIDE,
 } from '@gonggong/protocol'
-import { and, asc, count, desc, eq, gt, inArray, isNull, lt, ne, or, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt, max, ne, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import {
@@ -353,6 +353,22 @@ export async function buildRunStart(
   const session = thread
     ? { id: ts?.sessionId ?? null, newReason: ts?.newSessionReason ?? null }
     : { id: gb.sessionId, newReason: gb.newSessionReason }
+  // A long-idle session is not resumed: its prompt cache is gone, so the whole history would be re-read at full price.
+  if (!detached && session.id && !session.newReason) {
+    const [last] = await tx
+      .select({ at: max(runs.endedAt) })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.groupId, run.groupId),
+          eq(runs.botId, bot.id),
+          thread ? eq(runs.threadRootId, thread) : isNull(runs.threadRootId),
+          or(isNull(runs.newSessionReason), ne(runs.newSessionReason, 'schedule')),
+        ),
+      )
+    if (last?.at && now.getTime() - last.at.getTime() > params.sessionIdleHours * 3600_000)
+      session.newReason = 'idle'
+  }
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = detached || session.newReason ? null : session.id
   const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, plugins, hosted] =

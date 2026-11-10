@@ -13,6 +13,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   offlineWaitMin: DEFAULT_OFFLINE_WAIT_MIN,
   sessionReplayTokens: 16000,
   contextInlineTokens: 8000,
+  sessionIdleHours: 6,
   runRetentionDays: 30,
   attachmentMaxMb: 50,
   attachmentsPerMessage: MAX_ATTACHMENTS,

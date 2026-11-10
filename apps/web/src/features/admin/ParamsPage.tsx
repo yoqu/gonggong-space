@@ -41,7 +41,10 @@ const toForm = (p: SystemParams) =>
   Object.fromEntries(SYSTEM_PARAM_VIEW.map(({ key }) => [key, p[key]])) as Values
 
 const SECTIONS: { title: string; keys: Key[] }[] = [
-  { title: t('运行与会话'), keys: ['sessionReplayTokens', 'contextInlineTokens', 'questionsPerCard'] },
+  {
+    title: t('运行与会话'),
+    keys: ['sessionReplayTokens', 'contextInlineTokens', 'sessionIdleHours', 'questionsPerCard'],
+  },
   { title: t('附件#nav'), keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
   { title: t('机器连接'), keys: ['heartbeatSec', 'offlineMisses'] },
   { title: t('数据保留'), keys: ['runRetentionDays', 'backupRetentionDays', 'archiveRetentionDays'] },

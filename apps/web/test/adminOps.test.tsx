@@ -39,6 +39,7 @@ const PARAMS: SystemParams = {
   offlineWaitMin: 30,
   sessionReplayTokens: 16000,
   contextInlineTokens: 8000,
+  sessionIdleHours: 6,
   runRetentionDays: 30,
   attachmentMaxMb: 50,
   attachmentsPerMessage: 10,

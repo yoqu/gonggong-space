@@ -2407,6 +2407,9 @@ export type AdminMachineDto = z.infer<typeof AdminMachineDto>
 export const SystemParams = GroupParams.extend({
   sessionReplayTokens: z.number().int().min(1000).max(100000),
   contextInlineTokens: z.number().int().min(1000).max(100000),
+  /** A bot's next turn in a group (or thread) opens a new session after this long without one there: a long-idle
+   * session no longer has its prompt cache, so resuming it re-reads the whole history at full price. */
+  sessionIdleHours: z.number().int().min(1).max(720),
   runRetentionDays: z.number().int().min(1).max(3650),
   attachmentMaxMb: z
     .number()
@@ -2531,6 +2534,7 @@ export const SYSTEM_PARAM_VIEW: {
 }[] = [
   { key: 'sessionReplayTokens', label: '会话恢复失败时补送的群聊上下文（token 上限）', unit: 'token' },
   { key: 'contextInlineTokens', label: '每轮随消息附带的群聊上下文（token 上限）', unit: 'token' },
+  { key: 'sessionIdleHours', label: 'Bot 闲置后下次对话自动开新会话', unit: '小时' },
   { key: 'runRetentionDays', label: '完整运行过程保留', unit: '天' },
   { key: 'previewIdleHours', label: '预览无人访问后自动关闭', unit: '小时' },
   { key: 'previewShareMaxDays', label: '预览公开链接最长有效期', unit: '天' },

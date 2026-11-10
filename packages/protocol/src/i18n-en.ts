@@ -315,6 +315,7 @@ export const protocolEn = {
     'Group chat context replayed when a session cannot resume (max tokens)',
   '每轮随消息附带的群聊上下文（token 上限）': 'Group chat context sent with each turn (max tokens)',
   完整运行过程保留: 'Keep full run details for',
+  'Bot 闲置后下次对话自动开新会话': 'Start a new bot session after idle for',
   预览无人访问后自动关闭: 'Close previews after no visits for',
   预览公开链接最长有效期: 'Longest validity of a public preview link',
   单个附件大小上限: 'Max size of one attachment',
