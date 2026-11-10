@@ -582,6 +582,29 @@ describe('progress cards in run cards', () => {
     ])
     expect(document.querySelector('[data-msg-id="p1"]')).toBeNull()
   })
+
+  const withCard = () => ({
+    messages: [
+      msg({ seq: 2 }),
+      msg({ id: 'p1', seq: 3, kind: 'event', authorId: null, body: '进度', progress: card('p1', 'r1') }),
+    ],
+    runs: [run()],
+  })
+
+  it('共字君 walks the stages instead of the step line: one character per card', async () => {
+    mockApi(withCard(), { 'GET /bots': () => [bot({ avatar: 'role-gong' })] })
+    renderAt()
+    const walker = await screen.findByTestId('progress-walker')
+    expect(walker.dataset.stage).toBe('1')
+    expect(walker.closest('[data-testid="run-card"]')!.querySelectorAll('.ui-mascot')).toHaveLength(1)
+  })
+
+  it('a bot in costume keeps acting on its step line', async () => {
+    mockApi(withCard())
+    renderAt()
+    await screen.findByTestId('run-progress')
+    expect(screen.queryByTestId('progress-walker')).toBeNull()
+  })
 })
 
 describe('read marks and timestamps', () => {

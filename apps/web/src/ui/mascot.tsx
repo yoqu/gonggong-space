@@ -17,6 +17,11 @@ export const MASCOT_ACTIONS = [
   'sleep',
 ] as const
 export type MascotAction = (typeof MASCOT_ACTIONS)[number]
+/** Moves between places (walking along a run's stages), driven by events rather than a state; 共字君 only. */
+export const MASCOT_MOVES = ['walk', 'hop'] as const
+export type MascotMove = (typeof MASCOT_MOVES)[number]
+/** What a costume acts out for a move it has no scene for. */
+const COSTUME_MOVE: Record<MascotMove, MascotAction> = { walk: 'run', hop: 'done' }
 
 const INK = '#16213E'
 const HEAD_BOX = '26 0 68 68'
@@ -299,7 +304,7 @@ export function Mascot({
   label,
   className,
 }: {
-  action?: MascotAction
+  action?: MascotAction | MascotMove
   size?: number
   crop?: 'head'
   costume?: MascotCostume
@@ -313,7 +318,11 @@ export function Mascot({
     return (
       <img
         className={cx('ui-mascot', 'ui-mascot--role', className)}
-        src={costume.scene(action, size >= 64, still)}
+        src={costume.scene(
+          action in COSTUME_MOVE ? COSTUME_MOVE[action as MascotMove] : (action as MascotAction),
+          size >= 64,
+          still,
+        )}
         width={size}
         height={size}
         data-action={action}

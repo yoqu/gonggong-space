@@ -78,13 +78,13 @@
 .ui-mascot__mouth--wobble {
   display: none;
 }
-.ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--open,
+.ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="hop"]) .ui-mascot__eyes--open,
 .ui-mascot[data-action="sleep"] .ui-mascot__eyes--open,
 .ui-mascot[data-action="error"] .ui-mascot__eyes--open,
 .ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="error"]) .ui-mascot__mouth--smile {
   display: none;
 }
-.ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__eyes--happy,
+.ui-mascot:is([data-action="done"], [data-action="wave"], [data-action="hop"]) .ui-mascot__eyes--happy,
 .ui-mascot:is([data-action="done"], [data-action="wave"]) .ui-mascot__mouth--open,
 .ui-mascot[data-action="sleep"] .ui-mascot__eyes--closed,
 .ui-mascot[data-action="error"] .ui-mascot__eyes--x,
@@ -220,6 +220,35 @@
 }
 .ui-mascot__prop--run .ui-mascot__fx {
   animation: ui-mascot-speed 1.2s linear var(--dd, 0s) infinite;
+}
+
+/* Moves: a quick walk (lean, swing, stride twice as fast as run) and one small hop. */
+.ui-mascot[data-action="walk"] .ui-mascot__fig {
+  transform: rotate(5deg);
+}
+.ui-mascot[data-action="walk"] .ui-mascot__bob {
+  animation: ui-mascot-hop 0.3s ease-in-out infinite;
+}
+.ui-mascot[data-action="walk"] .ui-mascot__la {
+  animation: ui-mascot-swing 0.6s ease-in-out -0.3s infinite;
+}
+.ui-mascot[data-action="walk"] .ui-mascot__ra {
+  animation: ui-mascot-swing 0.6s ease-in-out infinite;
+}
+.ui-mascot[data-action="walk"] .ui-mascot__lf {
+  animation: ui-mascot-stride 0.6s ease-in-out infinite;
+}
+.ui-mascot[data-action="walk"] .ui-mascot__rf {
+  animation: ui-mascot-stride 0.6s ease-in-out -0.3s infinite;
+}
+.ui-mascot[data-action="hop"] .ui-mascot__bob {
+  animation: ui-mascot-jump 0.45s cubic-bezier(0.3, 0.6, 0.4, 1);
+}
+.ui-mascot[data-action="hop"] .ui-mascot__la {
+  animation: ui-mascot-cheer-l 0.225s ease-in-out 2 alternate both;
+}
+.ui-mascot[data-action="hop"] .ui-mascot__ra {
+  animation: ui-mascot-cheer-r 0.225s ease-in-out 2 alternate both;
 }
 
 .ui-mascot[data-action="done"] .ui-mascot__bob {

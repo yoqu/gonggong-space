@@ -93,3 +93,191 @@
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
 }
+
+/* 共字君 walking the stages: an overlay moved by transform only. The stages get head room for its 28px while it is on. */
+.run-progress {
+  position: relative;
+}
+.run-progress[data-walking] .pg-stages {
+  padding-top: 10px;
+  row-gap: 14px;
+}
+.pg-walker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  pointer-events: none;
+  transition: transform var(--spring-snappy);
+}
+.pg-walker > .ui-mascot {
+  transform-origin: 50% 88%;
+}
+.pg-stage[data-walker] > svg {
+  visibility: hidden;
+}
+/* The check it was standing on pops out once it leaves. */
+.run-progress[data-walking] .pg-stage[data-status="done"]:not([data-walker]) > svg {
+  animation: pg-check-pop 380ms var(--spring-bouncy, ease-out);
+}
+
+/* Skip: squash, two bounces on the way, squash on landing. */
+.pg-walker[data-move="walk"] > .ui-mascot {
+  animation: pg-walker-skip 600ms ease-in-out;
+}
+/* Hop on a finished stage: crouch, jump with a flip, land with a squash, a spark pops. */
+.pg-walker[data-move="hop"] > .ui-mascot {
+  animation: pg-walker-flip 650ms cubic-bezier(0.3, 0.6, 0.4, 1);
+}
+.pg-walker__spark {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  color: var(--system-orange);
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0;
+}
+.pg-walker[data-move="hop"] > .pg-walker__spark {
+  animation: pg-walker-spark 650ms ease-out;
+}
+/* Fidgets while it waits: peek at what comes next, wiggle, wave, bounce. */
+.pg-walker[data-move="peek"] > .ui-mascot {
+  animation: pg-walker-peek 900ms ease-in-out;
+}
+.pg-walker[data-move="wiggle"] > .ui-mascot {
+  animation: pg-walker-wiggle 900ms ease-in-out;
+}
+.pg-walker[data-move="wave"] > .ui-mascot {
+  animation: pg-walker-tilt 900ms ease-in-out;
+}
+.pg-walker[data-move="bounce"] > .ui-mascot {
+  animation: pg-walker-bounce 900ms ease-in-out;
+}
+
+@keyframes pg-walker-skip {
+  0%,
+  100% {
+    transform: none;
+  }
+  12% {
+    transform: scale(1.12, 0.84);
+  }
+  32% {
+    transform: translateY(-7px) scale(0.92, 1.1);
+  }
+  50% {
+    transform: scale(1.1, 0.88);
+  }
+  70% {
+    transform: translateY(-5px) scale(0.95, 1.06);
+  }
+  88% {
+    transform: scale(1.1, 0.88);
+  }
+}
+@keyframes pg-walker-flip {
+  0% {
+    transform: none;
+  }
+  18% {
+    transform: scale(1.18, 0.74);
+  }
+  45% {
+    transform: translateY(-15px) rotate(-200deg) scale(0.9, 1.1);
+  }
+  70% {
+    transform: translateY(-3px) rotate(-360deg);
+  }
+  82% {
+    transform: rotate(-360deg) scale(1.16, 0.8);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes pg-walker-spark {
+  30% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.3) rotate(90deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(4px, -6px) scale(0.6) rotate(180deg);
+  }
+}
+@keyframes pg-walker-peek {
+  0%,
+  100% {
+    transform: none;
+  }
+  25%,
+  70% {
+    transform: translateX(3px) rotate(16deg);
+  }
+  45% {
+    transform: translateX(4px) translateY(-2px) rotate(20deg);
+  }
+}
+@keyframes pg-walker-wiggle {
+  0%,
+  100% {
+    transform: none;
+  }
+  15%,
+  45%,
+  75% {
+    transform: rotate(-12deg);
+  }
+  30%,
+  60%,
+  90% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes pg-walker-tilt {
+  0%,
+  100% {
+    transform: none;
+  }
+  30%,
+  70% {
+    transform: rotate(-8deg);
+  }
+}
+@keyframes pg-walker-bounce {
+  0%,
+  50%,
+  100% {
+    transform: none;
+  }
+  10%,
+  60% {
+    transform: scale(1.12, 0.84);
+  }
+  28%,
+  78% {
+    transform: translateY(-6px) scale(0.92, 1.1);
+  }
+}
+@keyframes pg-check-pop {
+  0% {
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-walker > *,
+  .run-progress[data-walking] .pg-stage > svg {
+    animation: none !important;
+  }
+}

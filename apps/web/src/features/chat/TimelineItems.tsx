@@ -57,7 +57,7 @@ import { Markdown } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
 import { mentionInChat } from './mention'
-import { RunProgress } from './ProgressCard'
+import { RunProgress, walkable } from './ProgressCard'
 import {
   ClockFact,
   DelegationFacts,
@@ -827,7 +827,9 @@ export const RunCard = memo(function RunCard({
       {sub}
     </span>
   )
-  const todos = progress?.map((c) => <RunProgress key={c.id} card={c} />)
+  // 共字君 itself (no costume) walks the first running progress card's stages, in place of the step line's figure.
+  const walked = live && !costume && run.status === 'running' ? progress?.find(walkable) : undefined
+  const todos = progress?.map((c) => <RunProgress key={c.id} card={c} walker={c === walked} />)
   if (reply && !live && run.interrupt !== 'pending') {
     const tags = (
       <>
@@ -912,7 +914,7 @@ export const RunCard = memo(function RunCard({
                     <div className="pn-mcard__body">
                       {step || working ? (
                         <div className="run-card__step">
-                          {mascot ? (
+                          {mascot && !walked ? (
                             <Mascot
                               className="run-card__mascot"
                               action={mascot.action}
@@ -920,7 +922,7 @@ export const RunCard = memo(function RunCard({
                               size={32}
                             />
                           ) : (
-                            <Icon name={STEP_ICON[run.status] ?? 'info'} size={13} />
+                            <Icon name={STEP_ICON[run.status] ?? (walked ? 'bolt' : 'info')} size={13} />
                           )}
                           {/* A new tool step rises in; streamed text grows in place. */}
                           <span
