@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.16 — 2026-11-10
+
+- 「帮我审批」内置审核优先：官方供应商下 Claude 用 auto、Codex 用 agent 模式，运行注明由谁审 / Review for me prefers the built-in review: Claude auto and Codex agent mode on official services, and each run says who reviews
+- AI 预审默认关闭，在 Bot 里选模型开启 / AI pre-review is off by default; pick its model in the Bot to turn it on
+- 审批规则更严、卡片显示完整命令，恢复「本次运行免审批」 / Stricter approval rules, whole commands on cards, and Skip approvals for this run is back
+- 新增 Agent：Gemini CLI、CodeBuddy / New agents: Gemini CLI and CodeBuddy
+- gonggong MCP 新增 `thread_create`：Bot 可开话题并指派 Bot 在话题里接手（每轮最多 3 个，仅群聊，发起人自动关注） / The gonggong MCP adds `thread_create`: Bots open threads and assign a Bot to take them over (up to 3 per turn, group chats only, the requester follows)
+- Bot 闲置 6 小时后自动开新会话 / Bots start a new session after 6 idle hours
+
 ## v0.4.15 — 2026-11-09
 
 - 命令审批收成一个「审批方式」：每次问我 / 帮我审批 / 完全允许 / Command approval becomes one choice: Ask me every time, Review for me, or Allow everything
