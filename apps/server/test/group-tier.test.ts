@@ -1,7 +1,7 @@
 import { type GroupBotStateDto, PROTOCOL_VERSION, type RunDto, type ServerToDaemon } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { approvals, bots, messages, runs, systemParams } from '../src/db/schema.js'
+import { approvals, auditLogs, bots, messages, runs, systemParams } from '../src/db/schema.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
 import { triggerRuns } from '../src/modules/runs/trigger.js'
 import { createTestApp, inbox, type TestApp } from './support/app.js'
@@ -131,5 +131,58 @@ describe('per-group tier', () => {
     await w.start()
     expect((await w.owners.patch(`/api/bots/${w.bot.id}`, { tier: 'full' })).status).toBe(200)
     expect(await w.d.next()).toEqual({ t: 'run.tier', runId: r1.runId, tier: 'full' })
+  })
+})
+
+describe('full access for one run', () => {
+  const ask = (w: Awaited<ReturnType<typeof world>>, runId: string) =>
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: `${runId}/1`,
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'go build ./...',
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    })
+
+  it('lets the owner run the rest of this run at full access; the next run is back at the bot tier', async () => {
+    const w = await world()
+    await w.trigger(w.g1.id)
+    const { runId } = await w.start()
+    ask(w, runId)
+    await expect.poll(async () => (await t.db.select().from(approvals)).length).toBe(1)
+
+    expect((await w.members.post(`/api/runs/${runId}/full-access`, {})).status).toBe(403)
+    expect((await w.owners.post(`/api/runs/${runId}/full-access`, {})).status).toBe(204)
+    const sent = [await w.d.next(), await w.d.next()]
+    expect(sent).toContainEqual({ t: 'run.tier', runId, tier: 'full' })
+    expect(sent).toContainEqual({ t: 'approval.decision', runId, requestId: `${runId}/1`, optionId: 'allow' })
+    const [a] = await t.db.select().from(approvals)
+    expect([a!.status, a!.decidedBy]).toEqual(['approved', w.owner.id])
+    const logs = await t.db.select().from(auditLogs).where(eq(auditLogs.action, 'run.full_access'))
+    expect(logs[0]?.detail).toMatchObject({ runId, botId: w.bot.id })
+    const [b] = await t.db.select({ tier: bots.tier }).from(bots).where(eq(bots.id, w.bot.id))
+    expect(b!.tier).toBe('workspace')
+
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, runId))
+    await w.trigger(w.g1.id)
+    expect((await w.start()).bot.tier).toBe('workspace')
+  })
+
+  it('is refused in demo mode and once the run is over', async () => {
+    const w = await world()
+    await w.trigger(w.g1.id)
+    const { runId } = await w.start()
+    await t.db.insert(systemParams).values({ key: 'demoMode', value: true })
+    forgetSysParams(t.db)
+    expect((await w.owners.post(`/api/runs/${runId}/full-access`, {})).status).toBe(403)
+    await t.db.delete(systemParams)
+    forgetSysParams(t.db)
+    await t.db.update(runs).set({ status: 'succeeded' }).where(eq(runs.id, runId))
+    expect((await w.owners.post(`/api/runs/${runId}/full-access`, {})).status).toBe(409)
   })
 })

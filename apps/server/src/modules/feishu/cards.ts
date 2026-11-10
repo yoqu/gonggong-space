@@ -128,6 +128,19 @@ function approvalBlock(i: Extract<Interaction, { k: 'approval' }>): unknown[] {
       ],
     }
   })
+  const full: CardValue = { k: 'full', a: i.id }
+  buttons.push({
+    tag: 'column',
+    width: 'auto',
+    elements: [
+      {
+        tag: 'button',
+        type: 'default',
+        text: text(zt('本次运行免审批')),
+        behaviors: [{ type: 'callback', value: full }],
+      },
+    ],
+  })
   return [
     markdown(`**${zt('待审批：{title}', { title: i.title })}**`),
     ...(i.detail ? [markdown(codeBlock(i.detail))] : []),
@@ -374,6 +387,7 @@ const hideUiBlocks = (s: string) =>
 export type CardValue =
   | { k: 'answer'; q: string }
   | { k: 'approve'; a: string; o: string }
+  | { k: 'full'; a: string }
   /** An actions block of reply `m`: option `o`, or the ACT_FIELD picks of a multiple one. */
   | { k: 'act'; m: string; b: string; o?: number }
   | { k: 'share'; r: string; ok: boolean }

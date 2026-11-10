@@ -39,6 +39,9 @@ export default {
     '{tier} · auto-rejects in {time}, then the agent works around it',
   批准: 'Approve',
   '批准，不再询问': "Approve, don't ask again",
+  本次运行免审批: 'No approvals this run',
+  '本次运行改为「完全允许」，后续请求不再询问；下一轮恢复原审批方式':
+    'Switches this run to “Allow everything” so later requests are not asked; the next run uses the usual approval mode again',
   '拒绝#reject': 'Reject',
   '你是 Bot 主人': 'You own this Bot',
   '仅 Bot 主人 {name} 可操作，你只能查看': 'Only the Bot owner {name} can decide; you can only view',

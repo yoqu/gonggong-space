@@ -87,6 +87,7 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
   /** The action in flight, so its own button spins. */
   const [busy, setBusy] = useState<string | null>(null)
   const mine = !!me && me.id === bot?.ownerId
+  const demo = useSession((s) => s.tenancy?.demoMode)
   const allow = pick(a.options, ['allow_once', 'allow_always'])
   // Without rules to remember, 批准，不再询问 would silently behave like 批准 (plan A7).
   const always = a.remember.length
@@ -95,16 +96,18 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
   const reject = pick(a.options, ['reject_once', 'reject_always'])
   const left = Date.parse(a.expiresAt) - now
 
-  const decide = async (option: PermissionOption) => {
-    setBusy(option.optionId)
+  const send = async (path: string, body: unknown, action: string) => {
+    setBusy(action)
     try {
-      await api.post(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId })
+      await api.post(path, body)
     } catch (e) {
       toastError(e)
     } finally {
       setBusy(null)
     }
   }
+  const decide = (option: PermissionOption) =>
+    send(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId }, option.optionId)
 
   return (
     <div
@@ -160,6 +163,17 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
               onClick={() => decide(always)}
             >
               {t('批准，不再询问')}
+            </Button>
+          )}
+          {!demo && (
+            <Button
+              size="small"
+              disabled={!mine || !!busy}
+              loading={busy === 'full-access'}
+              title={t('本次运行改为「完全允许」，后续请求不再询问；下一轮恢复原审批方式')}
+              onClick={() => send(`/runs/${run.id}/full-access`, {}, 'full-access')}
+            >
+              {t('本次运行免审批')}
             </Button>
           )}
           <Button

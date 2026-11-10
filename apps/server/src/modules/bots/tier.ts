@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
 import { bots, groupBots, runs } from '../../db/schema.js'
+import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { approvePending } from '../approvals/service.js'
@@ -48,4 +49,29 @@ export async function applyTier(ctx: Ctx, actorId: string, botId: string, groupI
     if (r.machineId) ctx.hub.send(r.machineId, { t: 'run.tier', runId: r.runId, tier })
     if (tier === 'full') await approvePending(ctx, r.runId, actorId)
   }
+}
+
+/**
+ * The owner waives approvals for the rest of this run only: its tier goes to full and pending requests are approved.
+ * Nothing is stored on the bot, so the next run starts at the configured tier again.
+ */
+export async function fullAccessForRun(ctx: Ctx, userId: string, runId: string) {
+  const [r] = await ctx.db
+    .select({ status: runs.status, groupId: runs.groupId, bot: bots })
+    .from(runs)
+    .innerJoin(bots, eq(bots.id, runs.botId))
+    .where(eq(runs.id, runId))
+  if (!r) return fail('not_found', '运行不存在')
+  if (r.bot.ownerId !== userId) return fail('forbidden', '仅 Bot 主人可以审批')
+  await assertTierAllowed(ctx, 'full')
+  if (!LIVE.includes(r.status)) return fail('conflict', '运行已结束')
+  if (r.bot.machineId) ctx.hub.send(r.bot.machineId, { t: 'run.tier', runId, tier: 'full' })
+  await approvePending(ctx, runId, userId)
+  await audit(ctx, {
+    category: 'admin',
+    actorUserId: userId,
+    groupId: r.groupId,
+    action: 'run.full_access',
+    detail: { runId, botId: r.bot.id, name: r.bot.name },
+  })
 }

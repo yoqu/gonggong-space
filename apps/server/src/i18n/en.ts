@@ -188,6 +188,7 @@ export const en = {
   '仅 Bot 主人可以审批': "Only the Bot's owner can approve",
   该请求已处理: 'This request was already handled',
   无效的审批选项: 'Invalid approval option',
+  本次运行免审批: 'No approvals this run',
   提问不存在: 'Question not found',
   '仅触发人、Bot 主人或被 @ 的成员可以回答':
     "Only the requester, the Bot's owner or the members @-mentioned can answer",

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Ctx } from '../../context.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
+import { fullAccessForRun } from '../bots/tier.js'
 import { decideApproval } from './service.js'
 
 export function approvalRoutes(ctx: Ctx) {
@@ -12,6 +13,11 @@ export function approvalRoutes(ctx: Ctx) {
       const { optionId } = DecideApprovalReq.parse(req.body)
       const runId = idParam(req.params.runId, '运行不存在')
       return decideApproval(ctx, user, runId, idParam(req.params.id, '审批请求不存在'), optionId)
+    })
+    app.post<{ Params: { runId: string } }>('/api/runs/:runId/full-access', async (req, reply) => {
+      const user = await requireUser(ctx, req)
+      await fullAccessForRun(ctx, user.id, idParam(req.params.runId, '运行不存在'))
+      return reply.status(204).send()
     })
   }
 }

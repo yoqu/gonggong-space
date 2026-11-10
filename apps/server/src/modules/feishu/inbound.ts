@@ -27,6 +27,7 @@ import { decideApproval } from '../approvals/service.js'
 import { dataDir, safeName } from '../attachments/service.js'
 import { approveShareRequest, rejectShareRequest } from '../bots/share-requests.js'
 import { dmsOf, isSharedWith } from '../bots/shares.js'
+import { fullAccessForRun } from '../bots/tier.js'
 import { createGroup } from '../groups/create.js'
 import { activeBots } from '../groups/service.js'
 import { answerActions } from '../messages/actions.js'
@@ -568,7 +569,11 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
       .innerJoin(bots, eq(bots.id, runs.botId))
       .where(eq(approvals.id, value.a))
     if (!row) return toast('error', zt('审批请求不存在'))
-    const status = (await decideApproval(ctx, user, row.a.runId, row.a.id, value.o)).status
+    if (value.k === 'full') await fullAccessForRun(ctx, user.id, row.a.runId)
+    const status =
+      value.k === 'full'
+        ? 'approved'
+        : (await decideApproval(ctx, user, row.a.runId, row.a.id, value.o)).status
     if (!own) return toast('success', zt('已处理'))
     const card = approvalCard({
       bot: row.bot,
