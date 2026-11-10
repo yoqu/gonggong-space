@@ -12,6 +12,9 @@
 //   "mock:say <text>" reply with the rest of the prompt (from its last "mock:say") verbatim
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
 //   "mock:exec-twice <command>" the same, asking twice (one turn, two tool calls) unless the first is denied
+//   "mock:edit-then-exec <path> <command>" edit <path> without asking (like an accepted edit), then as mock:exec
+//   "mock:untitled <title>" a tool call titled <title>, then a permission request for it naming only its id (as Codex
+//                asks for MCP calls), reply "ran" or "denied"
 //   "mock:read <path>" ask permission for a read tool call at <path>, reply "read" or "denied"
 //   "mock:search <path>" the same for a search tool call
 //   "mock:ask <json>" call the injected gonggong MCP ask tool with <json> as arguments (after a permission request)
@@ -264,10 +267,44 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await say(execSync(text.slice(sh + 8), { cwd: s.cwd, encoding: 'utf8' }))
     return { stopReason: 'end_turn' }
   }
+  const untitled = text.indexOf('mock:untitled ')
+  if (untitled >= 0) {
+    const title = text.slice(untitled + 14).trim()
+    await update({ sessionUpdate: 'tool_call', toolCallId: 'mcp-1', title, kind: 'other', status: 'pending' })
+    const res = await client.request(acp.methods.client.session.requestPermission, {
+      sessionId,
+      toolCall: { toolCallId: 'mcp-1' },
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    })
+    await say(res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject' ? 'ran' : 'denied')
+    return { stopReason: 'end_turn' }
+  }
+  const edited = text.indexOf('mock:edit-then-exec ')
+  if (edited >= 0) {
+    const [path] = text.slice(edited + 20).split(' ', 1)
+    await update({
+      sessionUpdate: 'tool_call',
+      toolCallId: 'edit-0',
+      title: `Edit ${path}`,
+      kind: 'edit',
+      status: 'completed',
+      locations: [{ path }],
+    })
+  }
   const twice = text.indexOf('mock:exec-twice ')
-  const exec = twice >= 0 ? twice : text.indexOf('mock:exec ')
+  const exec = twice >= 0 ? twice : edited >= 0 ? edited : text.indexOf('mock:exec ')
   if (exec >= 0) {
-    const command = text.slice(exec + (twice >= 0 ? 16 : 10))
+    const command =
+      edited >= 0
+        ? text
+            .slice(edited + 20)
+            .split(' ')
+            .slice(1)
+            .join(' ')
+        : text.slice(exec + (twice >= 0 ? 16 : 10))
     let ran = true
     for (let i = 1; ran && i <= (twice >= 0 ? 2 : 1); i++) {
       const toolCall = {

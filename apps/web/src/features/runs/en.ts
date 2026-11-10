@@ -43,6 +43,7 @@ export default {
   本次会话不再问: "Don't ask again this session",
   '本次会话不再问：{rules}': "Won't ask again this session: {rules}",
   '全部批准（{n}）': 'Approve all ({n})',
+  '展开全部（{n} 字）': 'Show all ({n:character|characters})',
   '还有 {n} 个请求在等待：': '{n:request is|requests are} waiting too:',
   'AI 预审认为有风险': 'The AI pre-review flagged a risk',
   'AI 预审超时': 'The AI pre-review timed out',

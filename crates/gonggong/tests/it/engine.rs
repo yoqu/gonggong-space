@@ -1820,7 +1820,7 @@ async fn session_approval_trusts_the_program_until_a_new_session() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "mock:exec node a.js"));
     let (_, approval) = until_approval(&mut r).await;
-    assert_eq!(approval.remember_session, ["node"]);
+    assert_eq!(approval.remember_session, ["node <工作区内脚本>"]);
     r.send(ServerToDaemon::ApprovalDecision {
         run_id: "r1".into(),
         request_id: approval.request_id.clone(),
@@ -1839,4 +1839,45 @@ async fn session_approval_trusts_the_program_until_a_new_session() {
     let (_, approval) = until_approval(&mut r).await;
     decide(&r, &approval, Some("reject"));
     assert_eq!(r.finish("r3").await.1.reply, "denied");
+}
+
+#[tokio::test]
+async fn changing_a_build_file_in_the_run_sends_the_dev_pack_back_to_review() {
+    let mut r = rig(Duration::from_secs(60));
+    let mut s = start("r1", "mock:edit-then-exec package.json pnpm test");
+    s.bot.ai_review = true;
+    r.run(s);
+    let (events, approval) = until_approval(&mut r).await;
+    assert!(events.contains(&running("AI 预审中：pnpm test")));
+    assert_eq!(approval.reason, ApprovalReason::AiDenied);
+    decide(&r, &approval, Some("reject"));
+    r.finish("r1").await;
+
+    // A run that changed nothing such keeps it.
+    let mut s = start("r2", "mock:edit-then-exec src/a.ts pnpm test");
+    s.bot.ai_review = true;
+    r.run(s);
+    let (events, done) = r.finish("r2").await;
+    assert!(events.contains(&running("已按命令审批规则自动批准：pnpm test")));
+    assert_eq!(done.reply, "ran");
+}
+
+#[tokio::test]
+async fn codex_mcp_calls_to_gonggong_tools_need_no_owner() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:untitled mcp.gonggong.search_messages"));
+    let (_, done) = r.finish("r1").await;
+    assert_eq!(done.reply, "ran");
+}
+
+#[tokio::test]
+async fn the_owner_sees_the_whole_command_codex_quotes_and_all() {
+    let mut r = rig(Duration::from_secs(60));
+    let long = format!("node -e '{}'", "x".repeat(400));
+    r.run(start("r1", &format!("mock:exec \"{long}\"")));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.detail, format!("$ {long}"));
+    assert_eq!(approval.remember, [long.clone()]);
+    decide(&r, &approval, Some("reject"));
+    r.finish("r1").await;
 }

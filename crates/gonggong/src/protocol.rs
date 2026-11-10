@@ -1876,6 +1876,8 @@ pub const FEATURE_UPGRADE: &str = "upgrade";
 pub const FEATURE_GEMINI: &str = "gemini";
 /// Runs CodeBuddy (WorkBuddy) bots: a daemon without it cannot read a run.start for one.
 pub const FEATURE_CODEBUDDY: &str = "codebuddy";
+/// 帮我审批's rules (开发常用命令, workspace edits, AI pre-review that only stops risks).
+pub const FEATURE_APPROVAL_GATES: &str = "approvalGates";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.

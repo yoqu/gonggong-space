@@ -25,6 +25,10 @@
   transition: color var(--motion-base);
 }
 .approval__cmd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
   padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-field);
   background: var(--content-bg);
@@ -73,4 +77,23 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.approval__cmd-text {
+  align-self: stretch;
+  white-space: pre-wrap;
+}
+.approval__cmd[data-folded] .approval__cmd-text {
+  max-height: calc(var(--text-body-line) * 6);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.approval__unfold {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote-size);
+  cursor: pointer;
 }

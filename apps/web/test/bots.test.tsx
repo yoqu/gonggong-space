@@ -544,6 +544,29 @@ describe('bot detail', () => {
     )
   })
 
+  it('says when the machine client is too old for 帮我审批 rules', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true })]
+    routes['GET /api/machines'] = () => [mbp]
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(
+      await within(detail).findByText(/的客户端版本较旧，「帮我审批」还不能自动放行开发命令/),
+    ).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('radio', { name: '每次问我' }))
+    expect(within(detail).queryByText(/的客户端版本较旧/)).toBeNull()
+  })
+
+  it('says nothing about the client once it has 帮我审批 rules', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true })]
+    routes['GET /api/machines'] = () => [{ ...mbp, features: ['approvalGates'] }]
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(within(detail).getByRole('radio', { name: '帮我审批' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).queryByText(/的客户端版本较旧/)).toBeNull()
+  })
+
   it('switching from 完全允许 to 帮我审批 lowers the tier and turns AI review on', async () => {
     routes['GET /api/bots'] = () => [bot({ tier: 'full', triggerScope: 'list', triggerList: ['u2'] })]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)

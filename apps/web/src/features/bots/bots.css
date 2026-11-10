@@ -462,3 +462,10 @@ a.bot-page__group:hover {
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
 }
+
+/* A note under a hint that something configured here does not apply yet. */
+.bot-settings__warn {
+  display: block;
+  margin-top: var(--space-4);
+  color: var(--tint-orange-text);
+}

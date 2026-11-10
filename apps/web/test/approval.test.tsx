@@ -280,6 +280,16 @@ describe('ApprovalBlock', () => {
     expect(calls.every((c) => (c.body as { optionId: string }).optionId === 'allow')).toBe(true)
   })
 
+  it('folds a long command but lets the owner read all of it', () => {
+    login('u1', '王磊')
+    const detail = `$ node -e '${'x'.repeat(500)}'`
+    render(<ApprovalBlock run={run([approval({ detail })])} />)
+    expect(screen.getByText(detail).closest('[data-folded]')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: `展开全部（${detail.length} 字）` }))
+    expect(screen.getByText(detail).closest('[data-folded]')).toBeNull()
+    expect(screen.getByRole('button', { name: '收起' })).toBeTruthy()
+  })
+
   it('shows the latest request of the run', () => {
     login('u1', '王磊')
     render(

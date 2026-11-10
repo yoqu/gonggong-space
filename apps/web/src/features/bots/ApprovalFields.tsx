@@ -54,11 +54,14 @@ export function ApprovalFields({
   canEdit,
   demo,
   value,
+  outdated,
   onChange,
 }: {
   owner: boolean
   canEdit: boolean
   demo?: boolean
+  /** The bot's machine, when its client predates 帮我审批's rules: they do not apply there yet. */
+  outdated?: string
   value: ApprovalValue
   onChange: (value: ApprovalValue) => void
 }) {
@@ -81,7 +84,21 @@ export function ApprovalFields({
       <FormRow
         label={t('审批方式')}
         align="top"
-        hint={mode === 'full' ? MODE_HINT.full : `${MODE_HINT[mode]}${FLOOR}`}
+        hint={
+          <>
+            {mode === 'full' ? MODE_HINT.full : `${MODE_HINT[mode]}${FLOOR}`}
+            {mode === 'review' && outdated !== undefined ? (
+              <span className="bot-settings__warn" role="note">
+                {t(
+                  '{machine} 的客户端版本较旧，「帮我审批」还不能自动放行开发命令，更多请求会问你；升级客户端后生效。',
+                  {
+                    machine: outdated,
+                  },
+                )}
+              </span>
+            ) : null}
+          </>
+        }
       >
         {canEdit ? (
           <SegmentedControl<ApprovalMode>

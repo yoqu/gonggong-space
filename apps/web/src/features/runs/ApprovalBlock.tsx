@@ -75,6 +75,26 @@ function outcome(a: ApprovalDto) {
   }
 }
 
+/** Past these the command folds: the owner can still unfold and read all of what they approve. */
+const FOLD_CHARS = 400
+const FOLD_LINES = 8
+
+/** The command or target of a request, folded when long. */
+function ApprovalDetail({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const long = text.length > FOLD_CHARS || text.split('\n').length > FOLD_LINES
+  return (
+    <div className="approval__cmd" data-folded={(long && !open) || undefined}>
+      <span className="approval__cmd-text">{text}</span>
+      {long ? (
+        <button type="button" className="approval__unfold" onClick={() => setOpen(!open)}>
+          {open ? t('收起') : t('展开全部（{n} 字）', { n: text.length })}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /** The run's oldest pending permission request, else its latest (spec §3.4): only the bot owner may decide, others just watch.
  *  Agents may ask several in parallel; deciding a later one must not hide an earlier one still blocking the turn. */
 export function ApprovalBlock({ run }: { run: RunDto }) {
@@ -160,7 +180,7 @@ export function ApprovalCard({
         )}
         {t('权限请求 · {kind}', { kind: KIND[a.toolKind] ?? t('其他操作') })}
       </div>
-      <div className="approval__cmd">{a.detail}</div>
+      <ApprovalDetail text={a.detail} />
       <div className="approval__why">
         {pending
           ? t('{reason} · {time} 后自动拒绝，agent 自行绕路', {

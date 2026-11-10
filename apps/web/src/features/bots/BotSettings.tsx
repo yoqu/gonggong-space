@@ -418,6 +418,9 @@ export function BotDetail({
         canEdit={canEdit}
         demo={demo}
         value={approval}
+        outdated={
+          machine && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
+        }
         onChange={(v) => {
           setApproval(v)
           if (v.tier === 'full' && scope === 'all') setScope('list')

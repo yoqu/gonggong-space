@@ -1284,6 +1284,8 @@ export const DaemonFeature = z.enum([
   'gemini',
   /** Runs CodeBuddy (WorkBuddy) bots: a daemon without it cannot read a run.start for one. */
   'codebuddy',
+  /** 帮我审批's rules (开发常用命令, workspace edits, AI pre-review that only stops risks): older daemons ask more. */
+  'approvalGates',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

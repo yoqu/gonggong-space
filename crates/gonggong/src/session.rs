@@ -9,7 +9,7 @@ use crate::gemini;
 use crate::git;
 use crate::hosted::Scope;
 use crate::inject;
-use crate::local::{Decision, LocalSettings, Rules};
+use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
     AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalReason, ApprovalRequest, Attachment,
@@ -214,7 +214,7 @@ struct Active {
     hidden_tools: Vec<String>,
     /// What the agent was asked (`review::request_of`), shown to the AI pre-review.
     request: String,
-    /// Rules of requests the AI pre-review allowed in this run: the same kind of command is not reviewed again.
+    /// Requests the AI pre-review allowed in this run (`review_key`): the same one is not reviewed again.
     reviewed: Vec<String>,
 }
 
@@ -367,6 +367,8 @@ enum Reply {
 
 struct Approval {
     title: String,
+    /// What the AI pre-review allowing it trusts for the rest of the run (`review_key`).
+    key: String,
     /// What allow_always trusts from now on (`local::remember`).
     remember: Vec<String>,
     /// What 本次会话不再问 trusts until the session ends (`local::remember_session`).
@@ -647,10 +649,8 @@ impl Shared {
                     && let Some(allow) = auto_allow(&s.approvals[&wire.request_id].options) =>
             {
                 let p = s.approvals.remove(&wire.request_id).expect("checked above");
-                for rule in &p.remember {
-                    if !a.reviewed.contains(rule) {
-                        a.reviewed.push(rule.clone());
-                    }
+                if !a.reviewed.contains(&p.key) {
+                    a.reviewed.push(p.key.clone());
                 }
                 let review = v.review();
                 let step = t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = review.rationale);
@@ -1065,6 +1065,9 @@ impl Shared {
             c.last = Instant::now();
             cycle_end(&n.update)
         });
+        if changes_steering(&n.update, &a.cwd) {
+            a.rules.tampered = true;
+        }
         if let Some(event) = a.turn.apply(&n.session_id.0, n.update) {
             a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
         }
@@ -1211,8 +1214,10 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let command = match &req.tool_call.fields.raw_input {
         Some(raw) => command_of(Some(raw)),
         None => req.tool_call.fields.title.clone(),
-    };
+    }
+    .map(|c| local::unwrap_quoted(&c));
     let read_paths = read_paths(&req);
+    let edits_steering = changes_steering(&SessionUpdate::ToolCallUpdate(req.tool_call.clone()), &a.cwd);
     let release = req
         .tool_call
         .fields
@@ -1224,6 +1229,10 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     else {
         unreachable!("tool call updates always map to tool events")
     };
+    // Codex asks for MCP calls without a title of their own: the tool call's (`mcp.gonggong.<tool>`) tells.
+    if ask::is_builtin(&title) {
+        return Permission::Now(auto_allow(&req.options));
+    }
     let command = command.filter(|_| tool_kind == "execute");
     let read_only_tool = command.is_none()
         && matches!(tool_kind.as_str(), "read" | "search")
@@ -1232,10 +1241,13 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         && matches!(tool_kind.as_str(), "edit" | "delete" | "move")
         && a.rules.writes_within(&read_paths, &a.cwd);
     let decision = a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always);
-    // A kind of command the AI pre-review already allowed in this run.
-    let reviewed = decision == Decision::Ask
-        && !a.reviewed.is_empty()
-        && a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &a.reviewed) == Decision::Local;
+    // The same command the AI pre-review already allowed in this run (the whole line: a prefix would trust more).
+    let key = review_key(command.as_deref(), &title);
+    let reviewed = decision == Decision::Ask && a.reviewed.contains(&key);
+    // What this command changes steers the build and test commands run after it.
+    if edits_steering || command.as_deref().is_some_and(local::steers) {
+        a.rules.tampered = true;
+    }
     if decision == Decision::Full || read_only_tool {
         return Permission::Now(auto_allow(&req.options));
     }
@@ -1271,7 +1283,15 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         .clone()
         .filter(|_| a.rules.ai_review && release.is_none())
         .filter(|_| !matches!(reason, ApprovalReason::HighRisk | ApprovalReason::ProtectedBase));
-    let detail = release.or(detail).unwrap_or_else(|| title.clone());
+    // The whole command, not the run timeline's clipped line: the owner approves what runs.
+    let detail = match (release, &command) {
+        (Some(r), _) => r,
+        (None, Some(c)) => {
+            let note = detail.as_deref().and_then(|d| d.split_once('\n')).map(|(_, rest)| format!("\n{rest}"));
+            clip_detail(format!("$ {c}{}", note.unwrap_or_default()))
+        }
+        (None, None) => detail.unwrap_or_else(|| title.clone()),
+    };
     let reviewer = reviewer.map(|r| {
         let action = command.as_deref().unwrap_or(&detail);
         let outside = command.as_deref().map(|c| a.rules.outside_paths(c, &a.cwd)).unwrap_or_default();
@@ -1292,7 +1312,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         review: None,
     };
     let (tx, rx) = oneshot::channel();
-    s.approvals.insert(request_id, Approval { title, remember, remember_session, options: req.options, tx });
+    s.approvals.insert(request_id, Approval { title, key, remember, remember_session, options: req.options, tx });
     match reviewer {
         Some((r, prompt)) => {
             let event =
@@ -1325,6 +1345,37 @@ fn name_mcp_call(req: &mut RequestPermissionRequest) {
     if let Some((server, tool)) = mcp.and_then(|m| Some((m["server_name"].as_str()?, m["tool_name"].as_str()?))) {
         req.tool_call.fields.title = Some(format!("mcp__{server}__{tool}"));
     }
+}
+
+/// What makes two permission requests the same for the AI pre-review: the whole command, else the tool call's title.
+fn review_key(command: Option<&str>, title: &str) -> String {
+    command.map_or_else(|| format!("tool:{title}"), |c| c.split_whitespace().collect::<Vec<_>>().join(" "))
+}
+
+/// Long enough for any command an agent writes; past it, the card says so.
+const APPROVAL_DETAIL_MAX: usize = 20_000;
+
+fn clip_detail(s: String) -> String {
+    match s.char_indices().nth(APPROVAL_DETAIL_MAX) {
+        Some((i, _)) => format!("{}…", &s[..i]),
+        None => s,
+    }
+}
+
+/// An edit, move or delete the agent made (or is making) to a file that steers build and test commands.
+fn changes_steering(update: &SessionUpdate, cwd: &std::path::Path) -> bool {
+    let (kind, locations, raw) = match update {
+        SessionUpdate::ToolCall(c) => (Some(c.kind), Some(c.locations.as_slice()), c.raw_input.as_ref()),
+        SessionUpdate::ToolCallUpdate(u) => (u.fields.kind, u.fields.locations.as_deref(), u.fields.raw_input.as_ref()),
+        _ => return false,
+    };
+    if !matches!(kind, Some(acp::ToolKind::Edit | acp::ToolKind::Delete | acp::ToolKind::Move)) {
+        return false;
+    }
+    let raw_paths =
+        ["file_path", "filePath", "path"].into_iter().filter_map(|k| raw?.get(k)?.as_str().map(PathBuf::from));
+    let mut paths = locations.unwrap_or_default().iter().map(|l| l.path.clone()).chain(raw_paths.collect::<Vec<_>>());
+    paths.any(|p| local::steering(p.strip_prefix(cwd).unwrap_or(&p)))
 }
 
 /// Forwards a request to the bot owner.
