@@ -261,7 +261,7 @@ export interface CanvasProps {
   /** A file of the shown version as a URL (reference images). */
   fileUrl: (file: string) => string
   /** The shown version's per-screen thumbnails (Copy as PNG); empty until the server renders them. */
-  screenThumbs: { screenId: string; url: string }[]
+  screenThumbs: { screenId: string; url: string; stale?: boolean }[]
   /** Screens this version changed from its parent: marked 本版改动. */
   changedScreens: string[]
   /** The artifact's directory in the workspace (`design/<slug>`), for the implementation prompt. */
@@ -355,6 +355,8 @@ export function Canvas({
   const [room, setRoom] = useState({ width: 0, height: 0 })
   const [view, setView] = useState<View>({ x: 64, y: 64 + TITLE_ROOM, z: 1 })
   const [viewMoving, setViewMoving] = useState(false)
+  // Thumbnails (url|frame size) that loaded as tall as their frame: only fresh ones of these swap while the view moves.
+  const [coveringThumbs, setCoveringThumbs] = useState<ReadonlySet<string>>(new Set())
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every move of the view
   useEffect(() => {
     setViewMoving(true)
@@ -1218,7 +1220,16 @@ export function Canvas({
     : picked.length
       ? links.filter((l) => picked.some((n) => n.id === l.from || n.id === l.to))
       : links
-  const thumbOf = (n: CanvasNode) => screenThumbs.find((s) => s.screenId === n.id)?.url
+  const thumbOf = (n: CanvasNode) => screenThumbs.find((s) => s.screenId === n.id)
+  const covered = (n: CanvasNode) => {
+    const thumb = thumbOf(n)
+    return !!thumb && !thumb.stale && coveringThumbs.has(`${thumb.url}|${n.w}x${n.h}`)
+  }
+  const onThumbLoad = (n: CanvasNode, img: HTMLImageElement) => {
+    if (img.naturalHeight * n.w < img.naturalWidth * n.h - 1) return
+    const key = `${img.getAttribute('src')}|${n.w}x${n.h}`
+    setCoveringThumbs((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+  }
   const entryThumb = manifest?.entry
     ? screenThumbs.find((s) => s.screenId === manifest.entry)?.url
     : undefined
@@ -1615,7 +1626,13 @@ export function Canvas({
                 ) : src(n) ? (
                   <>
                     {thumbOf(n) ? (
-                      <img className="art-node__thumb" src={thumbOf(n)} alt="" loading="lazy" />
+                      <img
+                        className="art-node__thumb"
+                        src={thumbOf(n)?.url}
+                        alt=""
+                        loading="lazy"
+                        onLoad={(e) => onThumbLoad(n, e.currentTarget)}
+                      />
                     ) : null}
                     <iframe
                       key={`${versionKey}:${reloads[n.id] ?? 0}`}
@@ -1626,7 +1643,7 @@ export function Canvas({
                       className={cx(
                         'art-node__frame',
                         live && 'art-node__frame--live',
-                        (swapToThumbs || !nearView(n, view, room)) && 'art-node__frame--off',
+                        ((swapToThumbs && covered(n)) || !nearView(n, view, room)) && 'art-node__frame--off',
                       )}
                       title={n.title}
                       src={src(n) ?? undefined}

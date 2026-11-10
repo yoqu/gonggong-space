@@ -462,10 +462,14 @@ describe('connections', () => {
 })
 
 describe('performance', () => {
-  it('shows thumbnails instead of the pages while a crowded view moves, then the pages again', async () => {
+  it('shows full-height thumbnails of this version instead of the pages while a crowded view moves, then the pages again', async () => {
     const ids = ['home', 'detail', 's3', 's4', 's5', 's6', 's7']
     const many = { ...manifest, screens: ids.map((id) => ({ id, title: id, file: `screens/${id}.html` })) }
-    const thumbs = ids.map((id) => ({ screenId: id, url: `/thumb/${id}.png` }))
+    const thumbs = ids.map((id) => ({
+      screenId: id,
+      url: `/thumb/${id}.png`,
+      ...(id === 's5' && { stale: true }),
+    }))
     const size = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(4000)
     const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(2000)
     mockApi(
@@ -476,9 +480,22 @@ describe('performance', () => {
     )
     render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
     const frame = await screen.findByTitle('s7')
+    const load = (id: string, w: number, h: number) => {
+      const img = node(id).querySelector('img') as HTMLImageElement
+      Object.defineProperty(img, 'naturalWidth', { value: w })
+      Object.defineProperty(img, 'naturalHeight', { value: h })
+      fireEvent.load(img)
+    }
     expect(node('s7').querySelector('img')?.getAttribute('src')).toBe('/thumb/s7.png')
+    load('s7', 375, 5000)
+    // A thumbnail shorter than the frame, or of an older version, would flash a different page: those keep theirs.
+    load('s6', 375, 10)
+    load('s5', 375, 5000)
     fireEvent.wheel(canvas(), { deltaX: 0, deltaY: 40 })
     await waitFor(() => expect(frame.className).toContain('art-node__frame--off'))
+    expect(screen.getByTitle('s6').className).not.toContain('art-node__frame--off')
+    expect(screen.getByTitle('s5').className).not.toContain('art-node__frame--off')
+    expect(screen.getByTitle('s4').className).not.toContain('art-node__frame--off')
     await waitFor(() => expect(frame.className).not.toContain('art-node__frame--off'))
     size.mockRestore()
     height.mockRestore()
