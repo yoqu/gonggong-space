@@ -444,8 +444,10 @@ export const BotDto = z.object({
   allowlist: z.array(z.string()),
   /** Rules from 始终允许 (see RunStart.bot.alwaysAllow). */
   alwaysAllow: z.array(z.string()),
-  /** AI 预审 (see RunStart.bot.aiReview). */
+  /** 帮我审批 (see RunStart.bot.aiReview). */
   aiReview: z.boolean(),
+  /** AI 预审's model; null = off (see RunStart.bot.reviewModel). */
+  reviewModel: z.string().nullable(),
   /** Git commit identity; null = the bot name / `gitDefaultEmail`. */
   gitName: z.string().nullable(),
   gitEmail: z.string().nullable(),
@@ -986,6 +988,8 @@ export const UpdateBotReq = z.object({
   /** Bot owner only. */
   alwaysAllow: Allowlist.optional(),
   aiReview: z.boolean().optional(),
+  /** Bot owner only; null = AI 预审 off. */
+  reviewModel: z.string().trim().min(1).max(200).nullable().optional(),
   /** Bot owner only; null = default. */
   gitName: z.string().trim().min(1).max(80).nullable().optional(),
   gitEmail: z.email().max(200).nullable().optional(),

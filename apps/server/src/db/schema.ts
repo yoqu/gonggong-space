@@ -225,6 +225,8 @@ export const bots = pgTable('bots', {
   alwaysAllow: jsonb('always_allow').$type<string[]>().notNull().default([]),
   /** AI 预审: what the rules leave to the owner is first reviewed by the bot's agent; owner only. */
   aiReview: boolean('ai_review').notNull().default(true),
+  /** AI 预审's model (the owner picks a small one); null = off: it costs tokens on every request it reviews. */
+  reviewModel: text('review_model'),
   /** Owner's local directory used when a group has no binding of its own. */
   defaultWorkspace: text('default_workspace'),
   /** Default model / thought level as the adapter names them; null = the adapter's default. */

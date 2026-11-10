@@ -111,6 +111,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       allowlist: bot.allowlist,
       alwaysAllow: bot.alwaysAllow,
       aiReview: bot.aiReview,
+      reviewModel: bot.reviewModel,
       gitName: bot.gitName,
       gitEmail: bot.gitEmail,
       gitDefaultEmail: defaultGitEmail(bot.id),

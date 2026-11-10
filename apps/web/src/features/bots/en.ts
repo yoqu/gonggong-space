@@ -19,8 +19,16 @@ export default {
     ' Dangerous commands (like sudo, git push --force), pushes to a protected base branch and client releases always need your confirmation.',
   '只读命令自动放行，其余操作都发审批卡片给你。':
     'Read-only commands run right away; everything else comes to you as an approval card.',
-  '构建、测试、lint、格式化、本地 git 和工作区内改文件直接放行（等于信任仓库里的脚本）；其余先由 AI 用小模型评估，只拦下删除工作区外数据、读取凭据、外发数据、推送发版等风险操作交给你，审批卡片附上风险和理由。每次评估约消耗几千 token。':
-    'Building, testing, linting, formatting, local git and file changes inside the workspace run right away (this trusts the repository’s scripts); anything else is first assessed by an AI on a small model, which only stops risky actions — deleting data outside the workspace, reading credentials, sending data out, pushing or releasing — and sends those to you with the risk and reasoning on the card. Each assessment uses a few thousand tokens.',
+  '构建、测试、lint、格式化、本地 git 和工作区内改文件直接放行（等于信任仓库里的脚本）；其余发审批卡片给你，开启 AI 预审后先由 AI 评估，只把风险操作交给你。':
+    'Building, testing, linting, formatting, local git and file changes inside the workspace run right away (this trusts the repository’s scripts); anything else comes to you as an approval card, first assessed by an AI when AI pre-review is on, which only passes risky actions on to you.',
+  'AI 预审': 'AI pre-review',
+  '关闭#off': 'Off',
+  '默认关闭。开启后，规则没放行、内置审核也没接手的请求先由这里选的模型评估，只把风险操作交给你，审批卡片附上风险和理由。每次评估都消耗 token，请选小模型（如 haiku、mini、flash）。':
+    'Off by default. When on, requests the rules did not allow and no built-in review took are first assessed on the model picked here, which only passes risky actions on to you with the risk and reasoning on the card. Every assessment costs tokens: pick a small model (such as haiku, mini or flash).',
+  'Bot 所在机器尚未上报可选模型，暂不能开启。':
+    'The Bot’s machine has not reported its models yet, so this cannot be turned on.',
+  'Claude 和 Codex（OpenAI 官方登录）改由 agent 内置的自动审核把关，共工不再预审；被它拦下的操作会让 agent 换个做法，不发卡片。内置审核不可用时（第三方供应商、不支持的模型）按上面的方式审批，运行过程里会注明本次由谁审。':
+    'Claude and Codex (official OpenAI login) hand approvals to the agent’s built-in review instead; Gonggong does not pre-review. What it blocks makes the agent try another way, without a card. Where the built-in review is unavailable (third-party providers, unsupported models) approvals work as above; the run says who reviewed.',
   '不再询问，Bot 可以执行任何操作；能触发它的人发起的任务都不会被拦截，包括危险命令，建议只给自己用的群或 Bot 开启。':
     'Never asks: the Bot may do anything, and nothing anyone who can trigger it starts is stopped, dangerous commands included. Turn this on only for your own groups or Bots.',
   'Bot 只能读取，其余操作都发审批卡片给你。':

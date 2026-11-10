@@ -30,6 +30,7 @@
     "allowlist": ["go build"],
     "alwaysAllow": [],
     "aiReview": false,
+    "reviewModel": null,
     "gitName": null,
     "gitEmail": null,
     "gitDefaultEmail": "b1@bots.gonggong.local",

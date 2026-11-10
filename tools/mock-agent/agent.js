@@ -47,8 +47,12 @@ const geminiFile = (name) => {
   }
 }
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-3.8-flash'].map((modelId) => ({ modelId, name: modelId }))
+// MOCK_AUTO offers Claude's `auto`; MOCK_AUTO=fallback acts like a model without it: the adapter stays in
+// `acceptEdits` and says so with current_mode_update.
 const MODES = (
-  GEMINI ? ['default', 'autoEdit', 'yolo', 'plan'] : ['default', 'acceptEdits', 'bypassPermissions']
+  GEMINI
+    ? ['default', 'autoEdit', 'yolo', 'plan']
+    : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
 ).map((id) => ({ id, name: id }))
 const MODELS = [
   { value: 'default', name: 'Default' },
@@ -616,8 +620,15 @@ acp
       throw acp.RequestError.resourceNotFound(ctx.params.sessionId)
     return open(`mock-${crypto.randomUUID()}`, ctx.params)
   })
-  .onRequest('session/set_mode', (ctx) => {
-    sessions.get(ctx.params.sessionId).mode = ctx.params.modeId
+  .onRequest('session/set_mode', async (ctx) => {
+    const { sessionId, modeId } = ctx.params
+    const mode = modeId === 'auto' && process.env.MOCK_AUTO === 'fallback' ? 'acceptEdits' : modeId
+    sessions.get(sessionId).mode = mode
+    if (mode !== modeId)
+      await ctx.client.notify(acp.methods.client.session.update, {
+        sessionId,
+        update: { sessionUpdate: 'current_mode_update', currentModeId: mode },
+      })
     return {}
   })
   .onRequest('session/set_config_option', (ctx) => {

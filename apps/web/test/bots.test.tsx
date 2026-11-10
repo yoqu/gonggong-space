@@ -88,6 +88,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   allowlist: [],
   alwaysAllow: [],
   aiReview: false,
+  reviewModel: null,
   model: null,
   effort: null,
   catalog: null,
@@ -534,13 +535,30 @@ describe('bot detail', () => {
     expect(within(detail).getByRole('radio', { name: '每次问我' }).getAttribute('aria-checked')).toBe('true')
     expect(within(detail).getByText(/只读命令自动放行/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('radio', { name: '帮我审批' }))
-    expect(within(detail).getByText(/其余先由 AI 用小模型评估/)).toBeTruthy()
+    expect(within(detail).getByText(/开启 AI 预审后先由 AI 评估/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({
         concurrency: 3,
         aiReview: true,
       }),
+    )
+  })
+
+  it('AI 预审 is off until the owner picks a model the agent offers', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true, catalog: CATALOG })]
+    routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    const pick = within(detail).getByRole('button', { name: 'AI 预审' })
+    expect(pick.textContent).toContain('关闭')
+    expect(within(detail).getByText(/每次评估都消耗 token，请选小模型/)).toBeTruthy()
+    fireEvent.click(pick)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Haiku' }))
+    fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({ reviewModel: 'haiku' }),
     )
   })
 
@@ -565,6 +583,18 @@ describe('bot detail', () => {
     openTab(detail, '权限')
     expect(within(detail).getByRole('radio', { name: '帮我审批' }).getAttribute('aria-checked')).toBe('true')
     expect(within(detail).queryByText(/的客户端版本较旧/)).toBeNull()
+    expect(within(detail).queryByText(/改由 agent 内置的自动审核把关/)).toBeNull()
+  })
+
+  it('says 帮我审批 goes to the agent’s built-in review where the client supports it', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true })]
+    routes['GET /api/machines'] = () => [{ ...mbp, features: ['approvalGates', 'builtinReview'] }]
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(await within(detail).findByText(/改由 agent 内置的自动审核把关/)).toBeTruthy()
+    fireEvent.click(within(detail).getByRole('radio', { name: '每次问我' }))
+    expect(within(detail).queryByText(/改由 agent 内置的自动审核把关/)).toBeNull()
   })
 
   it('switching from 完全允许 to 帮我审批 lowers the tier and turns AI review on', async () => {
@@ -982,6 +1012,7 @@ describe('bot page profile', () => {
     triggerScope: 'list',
     triggerList: ['u2'],
     aiReview: true,
+    reviewModel: null,
     alwaysAllow: ['tail'],
     concurrency: 3,
     gitName: 'CC',

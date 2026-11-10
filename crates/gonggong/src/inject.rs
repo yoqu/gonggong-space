@@ -195,6 +195,20 @@ impl ClaudeLaunch {
         Ok(ClaudeLaunch { file, inherit_cli, args: args.extra_args(), snapshot, compact })
     }
 
+    /// Claude `auto` with 禁止直推基准分支: ask rules that bring pushes back to our rules, in a file of its own (named by
+    /// its content's digest) so runs without them keep theirs.
+    pub fn ask_pushes(&mut self, home: &Path, selection: &str) {
+        let (_, settings) = self.file.get_or_insert_with(|| (PathBuf::new(), json!({ "env": {} })));
+        let ask = &mut settings["permissions"]["ask"];
+        if !ask.is_array() {
+            *ask = json!([]);
+        }
+        ask.as_array_mut().expect("just made an array").extend(crate::turn::PUSH_ASK_RULES.map(Value::from));
+        let digest = Sha256::digest(settings.to_string());
+        let hash = digest.iter().take(6).map(|b| format!("{b:02x}")).collect::<String>();
+        self.file.as_mut().expect("set above").0 = claude_settings_path(home, selection, Some(&hash));
+    }
+
     pub fn settings_path(&self) -> Option<&Path> {
         self.file.as_ref().map(|(path, _)| path.as_path())
     }
@@ -418,6 +432,7 @@ mod tests {
             allowlist: vec![],
             always_allow: vec![],
             ai_review: false,
+            review_model: None,
             git: None,
             agent_settings: overrides.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
         }

@@ -61,6 +61,54 @@ fn file_digest(path: &Path) -> String {
         .unwrap_or_default()
 }
 
+/// The agent talks to its maker's own service, where its built-in reviewer works: the official login, without a base
+/// URL in its env, the daemon's env or the CLI's user config (`config`: Claude's `settings.json` when the run loads
+/// it, Codex's `config.toml`; None = absent). Claude `auto` through a gateway refuses every action it should check;
+/// Codex's reviewer model fails on third-party providers.
+pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection, config: Option<&str>) -> bool {
+    let crate::providers::Selection::Official(official) = selection else { return false };
+    if !matches!(kind, AgentKind::Claude | AgentKind::Codex) {
+        return false;
+    }
+    let base_url = |k: &str| k.ends_with("BASE_URL") || k == "CODEX_HOME" || k == "CLAUDE_CONFIG_DIR";
+    if official.env.keys().any(|k| base_url(k)) || std::env::vars_os().any(|(k, _)| k.to_str().is_some_and(base_url)) {
+        return false;
+    }
+    let Some(config) = config else { return true };
+    match kind {
+        AgentKind::Claude => {
+            let Ok(settings) = serde_json::from_str::<serde_json::Value>(config) else { return false };
+            settings["env"].as_object().is_none_or(|env| !env.keys().any(|k| base_url(k)))
+        }
+        AgentKind::Codex => {
+            let Ok(doc) = toml::from_str::<toml::Table>(config) else { return false };
+            let provider = doc.get("model_provider").and_then(|v| v.as_str());
+            provider.is_none_or(|p| p == "openai")
+                && !doc.contains_key("openai_base_url")
+                && !doc.contains_key("base_url")
+        }
+        AgentKind::Gemini | AgentKind::Codebuddy => false,
+    }
+}
+
+/// [`official_service`] with the CLI's user config under `user_home`; Claude's only when the run loads it.
+pub fn official_service_here(
+    kind: AgentKind,
+    selection: &crate::providers::Selection,
+    user_home: &Path,
+    loads_cli_config: bool,
+) -> bool {
+    let path = match kind {
+        AgentKind::Claude if loads_cli_config => Some(user_home.join(".claude/settings.json")),
+        AgentKind::Codex => Some(
+            std::env::var_os("CODEX_HOME").map_or_else(|| user_home.join(".codex"), PathBuf::from).join("config.toml"),
+        ),
+        _ => None,
+    };
+    let config = path.and_then(|p| std::fs::read_to_string(p).ok());
+    official_service(kind, selection, config.as_deref())
+}
+
 /// The user-level config file the CLI reads its providers and models from.
 fn cli_config(kind: AgentKind) -> PathBuf {
     match kind {
@@ -340,6 +388,27 @@ pub fn parse_version(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn built_in_review_needs_the_official_service() {
+        use crate::protocol::AgentKind::{Claude, Codex, Gemini};
+        use crate::providers::{Official, Provider, Selection};
+        let official = Selection::Official(Official::default());
+        let works = |kind, config: Option<&str>| super::official_service(kind, &official, config);
+        assert!(works(Codex, None));
+        assert!(works(Codex, Some("model = \"gpt-5\"\nmodel_provider = \"openai\"\n")));
+        assert!(!works(Codex, Some("openai_base_url = \"http://127.0.0.1:3425/v1\"\n")));
+        assert!(!works(Codex, Some("model_provider = \"custom\"\n[model_providers.custom]\n")));
+        assert!(!works(Codex, Some("not toml [")));
+        assert!(works(Claude, Some(r#"{"model":"opus","env":{"HTTPS_PROXY":"http://p"}}"#)));
+        assert!(!works(Claude, Some(r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.kimi.com/coding/"}}"#)));
+        assert!(!works(Gemini, None));
+        let mut env = Official::default();
+        env.env.insert("ANTHROPIC_BASE_URL".into(), "https://relay.test".into());
+        assert!(!super::official_service(Claude, &Selection::Official(env), None));
+        let relay = Provider::custom(Codex, "relay".into(), "https://relay.test/v1".into(), "k".into());
+        assert!(!super::official_service(Codex, &Selection::Provider(Box::new(relay)), None));
+    }
+
     use super::{file_names, parse_version};
 
     #[test]

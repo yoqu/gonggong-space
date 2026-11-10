@@ -41,6 +41,10 @@ pub struct Rules {
     pub ai_review: bool,
     /// The run changed a file that steers build and test commands (`steering`): 开发常用命令 are no longer trusted.
     pub tampered: bool,
+    /// The agent's own reviewer (Claude `auto`, Codex `agent`) is in effect: no AI pre-review of ours on top.
+    pub builtin: bool,
+    /// The model AI 预审 runs on; None = off.
+    pub review_model: Option<String>,
 }
 
 impl From<&RunBot> for Rules {
@@ -53,6 +57,8 @@ impl From<&RunBot> for Rules {
             extra_dirs: vec![],
             ai_review: bot.ai_review,
             tampered: false,
+            builtin: false,
+            review_model: bot.review_model.clone(),
         }
     }
 }
@@ -1579,6 +1585,8 @@ mod tests {
             extra_dirs: vec![],
             ai_review: false,
             tampered: false,
+            builtin: false,
+            review_model: None,
         }
     }
 

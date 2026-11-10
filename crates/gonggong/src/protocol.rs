@@ -564,6 +564,9 @@ pub struct RunBot {
     /// AI 预审: requests the rules leave to the owner are first reviewed by a tool-less session of the bot's agent.
     #[serde(default)]
     pub ai_review: bool,
+    /// The model AI 预审 runs on; `None` = no AI pre-review (the agent's own reviewer or the owner decide).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_model: Option<String>,
     /// Author and committer of the agent's git commits; `None` = the machine's git config.
     #[serde(default)]
     pub git: Option<GitIdentity>,
@@ -1878,6 +1881,8 @@ pub const FEATURE_GEMINI: &str = "gemini";
 pub const FEATURE_CODEBUDDY: &str = "codebuddy";
 /// 帮我审批's rules (开发常用命令, workspace edits, AI pre-review that only stops risks).
 pub const FEATURE_APPROVAL_GATES: &str = "approvalGates";
+/// 帮我审批 hands approvals to the agent's own reviewer (Claude `auto`, Codex `agent` on an official login).
+pub const FEATURE_BUILTIN_REVIEW: &str = "builtinReview";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.

@@ -39,6 +39,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   allowlist: [],
   alwaysAllow: [],
   aiReview: false,
+  reviewModel: null,
   model: null,
   effort: null,
   catalog: null,

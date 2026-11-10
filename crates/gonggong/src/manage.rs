@@ -5,13 +5,13 @@ use crate::config::{Config, Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_APPROVAL_GATES,
-    FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE,
-    FEATURE_CODEBUDDY,
-    FEATURE_CONTAINER, FEATURE_DIAG, FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2,
-    FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE,
-    FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK,
-    FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput,
-    ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS,
+    FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DIAG, FEATURE_GEMINI, FEATURE_GIT_ACCESS,
+    FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN,
+    FEATURE_NO_AUTO_UPGRADE, FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE,
+    FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap,
+    ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd,
+    ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -75,6 +75,7 @@ impl Manage {
             FEATURE_GEMINI.to_string(),
             FEATURE_CODEBUDDY.to_string(),
             FEATURE_APPROVAL_GATES.to_string(),
+            FEATURE_BUILTIN_REVIEW.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -968,7 +969,8 @@ mod tests {
                 "diag",
                 "gemini",
                 "codebuddy",
-                "approvalGates"
+                "approvalGates",
+                "builtinReview"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -999,6 +1001,7 @@ mod tests {
                 "gemini",
                 "codebuddy",
                 "approvalGates",
+                "builtinReview",
                 "ccSwitch"
             ]
         );

@@ -472,6 +472,7 @@ export async function buildRunStart(
       allowlist: bot.allowlist,
       alwaysAllow: bot.alwaysAllow,
       aiReview: bot.aiReview,
+      reviewModel: bot.reviewModel,
       git: gitIdentity(bot),
       agentSettings: bot.agentSettings,
       ...config,

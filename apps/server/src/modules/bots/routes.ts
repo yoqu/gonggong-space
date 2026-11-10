@@ -347,7 +347,10 @@ export function botRoutes(ctx: Ctx) {
       const bot = await loadBot(ctx, req.params.id)
       assertCanManage(user, bot)
       // Plan J9: what runs unattended on the owner's machine is the owner's call alone.
-      if ((body.alwaysAllow !== undefined || body.aiReview !== undefined) && user.id !== bot.ownerId)
+      if (
+        (body.alwaysAllow !== undefined || body.aiReview !== undefined || body.reviewModel !== undefined) &&
+        user.id !== bot.ownerId
+      )
         fail('forbidden', '审批方式只有 Bot 主人能修改')
       if ((body.gitName !== undefined || body.gitEmail !== undefined) && user.id !== bot.ownerId)
         fail('forbidden', 'Git 提交身份只有 Bot 主人能修改')
@@ -377,15 +380,18 @@ export function botRoutes(ctx: Ctx) {
         if (body.model !== undefined && body.effort === undefined)
           body.effort = fitEffort(catalog, body.model, bot.effort) === bot.effort ? bot.effort : null
       }
+      // AI 预审 runs on a model the bot's agent offers.
+      if (body.reviewModel) assertPick(await pickCatalog(ctx, bot), { model: body.reviewModel }, null)
       await ctx.db
         .update(bots)
         .set({ ...body, name, tier, triggerScope })
         .where(eq(bots.id, bot.id))
       await auditForeign(ctx, user, bot, 'bot.update', { changes: body })
-      const from = { alwaysAllow: bot.alwaysAllow, aiReview: bot.aiReview }
+      const from = { alwaysAllow: bot.alwaysAllow, aiReview: bot.aiReview, reviewModel: bot.reviewModel }
       const approval = {
         alwaysAllow: body.alwaysAllow ?? bot.alwaysAllow,
         aiReview: body.aiReview ?? bot.aiReview,
+        reviewModel: body.reviewModel === undefined ? bot.reviewModel : body.reviewModel,
       }
       if (JSON.stringify(approval) !== JSON.stringify(from))
         await audit(ctx, {

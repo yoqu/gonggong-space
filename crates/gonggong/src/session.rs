@@ -1,5 +1,6 @@
 //! One (group, bot) conversation: owns the adapter process, the ACP session and its turns (one at a time).
 use crate::agent_settings;
+use crate::agents;
 use crate::artifacts;
 use crate::ask::{self, Asker};
 use crate::attachments;
@@ -23,8 +24,8 @@ use crate::service::Outbox;
 use crate::skills;
 use crate::t;
 use crate::turn::{
-    CompactPolicy, ExtUpdate, TaskSnap, Turn, auto_allow, auto_review_failure, client_capabilities, compose_prompt,
-    mode_for, session_failure, sync_hint, system_prompt, wire_options,
+    CompactPolicy, ExtUpdate, TaskSnap, Turn, auto_allow, auto_review_failure, builtin_mode, client_capabilities,
+    compose_prompt, mode_for, session_failure, sync_hint, system_prompt, wire_options,
 };
 use crate::workspace;
 use agent_client_protocol::schema::ProtocolVersion;
@@ -79,6 +80,8 @@ struct Planned {
     plugins: plugins::Installed,
     /// Claude only.
     launch: Option<inject::ClaudeLaunch>,
+    /// The agent runs on its maker's service, where its built-in reviewer works (`agents::official_service`).
+    official: bool,
     /// Gemini only: its `GEMINI_CLI_HOME`, brought in line with the turn.
     gemini_home: Option<PathBuf>,
 }
@@ -98,6 +101,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
     }
     let (home, user_home) = (engine.config.home.clone(), engine.config.user_home.clone());
     let (bot, resume) = (req.start.bot.clone(), req.start.resume_session_id.clone());
+    let protect_base = req.start.workspace.protect_base;
     let gemini_home = (bot.agent_kind == AgentKind::Gemini)
         .then(|| gemini::home_dir(&home, &format!("{}-{}", req.start.group_id, bot.id)));
     let (dir, ask) = (gemini_home.clone(), ask.clone());
@@ -109,6 +113,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
             RunPlan::Resume(selection) => (selection, false),
             RunPlan::New { selection, provider_removed } => (selection, provider_removed),
         };
+        let mut official = agents::official_service_here(bot.agent_kind, &selection, &user_home, false);
         let launch = match bot.agent_kind {
             AgentKind::Claude => {
                 let defaults = store.agent_settings(AgentKind::Claude);
@@ -117,7 +122,11 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
                     None if defaults.inherit_cli => agent_settings::read_cli(&user_home, None),
                     None => None,
                 };
-                let launch = inject::ClaudeLaunch::new(&home, &selection, &defaults, &bot, cli.as_ref())?;
+                let mut launch = inject::ClaudeLaunch::new(&home, &selection, &defaults, &bot, cli.as_ref())?;
+                official = agents::official_service_here(bot.agent_kind, &selection, &user_home, launch.inherit_cli);
+                if protect_base && builtin_mode(bot.agent_kind, bot.tier, bot.ai_review, official).is_some() {
+                    launch.ask_pushes(&home, selection.key());
+                }
                 launch.write()?;
                 Some(launch)
             }
@@ -128,11 +137,11 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
                 None
             }
         };
-        anyhow::Ok((selection, removed, launch))
+        anyhow::Ok((selection, removed, launch, official))
     })
     .await
     .unwrap_or_else(|e| Err(e.into()));
-    let (selection, removed, launch) = match resolved {
+    let (selection, removed, launch, official) = match resolved {
         Ok(planned) => planned,
         Err(e) => {
             shared.finish(Err(format!("{e:#}")), None, None);
@@ -149,6 +158,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
         skills: Default::default(),
         plugins: Default::default(),
         launch,
+        official,
         gemini_home,
     })
 }
@@ -313,6 +323,8 @@ struct State {
     adopting: Option<Adopting>,
     /// The adapter process's launch config and agent while it lives: AI pre-reviews run on a copy of it.
     reviewer: Option<Reviewer>,
+    /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
+    mode_update: Option<String>,
 }
 
 /// How to start an AI pre-review (`review::ask`): the bot's adapter and, for Claude, the session `_meta` keeping its
@@ -475,6 +487,17 @@ impl Shared {
             interrupt(&mut s);
         }
         true
+    }
+
+    fn take_mode_update(&self) -> Option<String> {
+        self.0.lock().unwrap().mode_update.take()
+    }
+
+    /// Whether the agent's own reviewer is in effect for the active turn (no AI pre-review of ours).
+    fn set_builtin(&self, on: bool) {
+        if let Some(a) = self.0.lock().unwrap().active.as_mut() {
+            a.rules.builtin = on;
+        }
     }
 
     /// Next prompt of the active turn after the current one ended: the queued appends, unless it was stopped.
@@ -1037,6 +1060,9 @@ impl Shared {
     fn on_update(self: &Arc<Self>, n: SessionNotification) {
         let mut guard = self.0.lock().unwrap();
         let s = &mut *guard;
+        if let SessionUpdate::CurrentModeUpdate(u) = &n.update {
+            s.mode_update = Some(u.current_mode_id.0.to_string());
+        }
         // Sent right after session creation (before streaming); feeds the / candidates.
         if let (SessionUpdate::AvailableCommandsUpdate(u), Some(a)) = (&n.update, s.active.as_ref()) {
             let commands = u
@@ -1281,7 +1307,8 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let reviewer = s
         .reviewer
         .clone()
-        .filter(|_| a.rules.ai_review && release.is_none())
+        .filter(|_| a.rules.ai_review && !a.rules.builtin && release.is_none())
+        .zip(a.rules.review_model.clone())
         .filter(|_| !matches!(reason, ApprovalReason::HighRisk | ApprovalReason::ProtectedBase));
     // The whole command, not the run timeline's clipped line: the owner approves what runs.
     let detail = match (release, &command) {
@@ -1292,12 +1319,12 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         }
         (None, None) => detail.unwrap_or_else(|| title.clone()),
     };
-    let reviewer = reviewer.map(|r| {
+    let reviewer = reviewer.map(|(r, model)| {
         let action = command.as_deref().unwrap_or(&detail);
         let outside = command.as_deref().map(|c| a.rules.outside_paths(c, &a.cwd)).unwrap_or_default();
         let input =
             review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd, outside: &outside };
-        (r, review::prompt(&input))
+        (r, model, review::prompt(&input))
     });
     let wire = ApprovalRequest {
         run_id: a.run_id.clone(),
@@ -1314,13 +1341,13 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let (tx, rx) = oneshot::channel();
     s.approvals.insert(request_id, Approval { title, key, remember, remember_session, options: req.options, tx });
     match reviewer {
-        Some((r, prompt)) => {
+        Some((r, model, prompt)) => {
             let event =
                 RunEvent::Status { status: RunStatus::Running, step: t!("AI 预审中：{title}", title = wire.title) };
             a.out.send(DaemonToServer::RunEvent { run_id: wire.run_id.clone(), event });
             let shared = shared.clone();
             tokio::spawn(async move {
-                let ask = review::ask(AcpAgent::new(r.config), r.kind, r.meta, prompt);
+                let ask = review::ask(AcpAgent::new(r.config), r.kind, r.meta, &model, prompt);
                 let reply = tokio::time::timeout(review::TIMEOUT, ask);
                 let verdict = match reply.await {
                     Ok(Ok(text)) => review::parse(&text).ok_or(ApprovalReason::AiUnparsed),
@@ -1811,10 +1838,12 @@ async fn connect(
                 api: engine.config.api.as_ref(),
                 selection: first.selection.clone(),
                 launch: first.launch.clone(),
+                official: first.official,
                 skills: first.skills.clone(),
                 plugins: first.plugins.clone(),
                 session: None,
                 mode: None,
+                modes: vec![],
                 cancel_grace: engine.config.cancel_grace,
                 options: vec![],
                 initial: HashMap::new(),
@@ -1831,6 +1860,7 @@ async fn connect(
                         conv.skills = turn.skills.clone();
                         conv.plugins = turn.plugins.clone();
                         conv.launch = turn.launch.clone();
+                        conv.official = turn.official;
                         conv.turn(turn.req, turn.removed, resume).await?;
                     }
                     None => shared.finish(Err(String::new()), resume.as_ref(), None),
@@ -1885,12 +1915,16 @@ struct Conversation<'a> {
     selection: Selection,
     /// The Claude settings of the current turn; equal (file, CLI flag) to those the process started with.
     launch: Option<inject::ClaudeLaunch>,
+    /// Whether the current turn runs on the agent maker's service.
+    official: bool,
     /// The team skills of the current turn; their names are those the process started with.
     skills: skills::Installed,
     /// The plugins the process started with.
     plugins: plugins::Installed,
     session: Option<SessionId>,
     mode: Option<String>,
+    /// The session's modes on offer.
+    modes: Vec<String>,
     /// A cancelled prompt still unanswered after this long is abandoned with its adapter.
     cancel_grace: std::time::Duration,
     /// The session's config options as last reported, their values when it was opened, and the values we set
@@ -1954,14 +1988,35 @@ impl Conversation<'_> {
         };
         *resume = Some(session.clone());
         self.session = Some(session.clone());
-        let mode = mode_for(s.bot.agent_kind, s.bot.tier);
-        if self.mode.as_deref().is_some_and(|m| m != mode) {
-            match self.cx.send_request(SetSessionModeRequest::new(session.clone(), mode)).block_task().await {
-                Ok(_) => self.mode = Some(mode.into()),
-                Err(e) => tracing::warn!("session/set_mode {mode} failed: {e}"),
-            }
-        }
+        let builtin = builtin_mode(s.bot.agent_kind, s.bot.tier, s.bot.ai_review, self.official)
+            .filter(|m| self.modes.iter().any(|o| o == m));
+        let fallback = mode_for(s.bot.agent_kind, s.bot.tier);
+        self.switch(&session, builtin.unwrap_or(fallback)).await;
         self.configure(&req, &session).await;
+        // A model switch may have taken `auto` away too.
+        if let Some(mode) = self.shared.take_mode_update() {
+            self.mode = Some(mode);
+        }
+        let on = builtin.is_some_and(|b| self.mode.as_deref() == Some(b));
+        if !on {
+            self.switch(&session, fallback).await;
+        }
+        self.shared.set_builtin(on);
+        if builtin_mode(s.bot.agent_kind, s.bot.tier, s.bot.ai_review, true).is_some() {
+            let step = match (on, s.bot.agent_kind) {
+                (true, AgentKind::Claude) => t!("审批由 Claude 内置审核（auto 模式）把关").to_string(),
+                (true, _) => t!("审批由 Codex 内置审核（agent 模式）把关").to_string(),
+                (false, _) if !self.official => {
+                    t!("第三方供应商用不了内置审核，审批由共工规则把关").to_string()
+                }
+                (false, _) => t!(
+                    "内置审核不可用（模式 {mode}），审批由共工规则把关",
+                    mode = self.mode.as_deref().unwrap_or(fallback)
+                ),
+            };
+            let event = RunEvent::Status { status: RunStatus::Running, step };
+            req.out.send(DaemonToServer::RunEvent { run_id: s.run_id.clone(), event });
+        }
         // Before streaming, so a /stop during the fetch still cancels the prompt.
         self.shared.pre_turn(&req).await;
         self.shared.stream(self.cx, &session);
@@ -2075,7 +2130,20 @@ impl Conversation<'_> {
 
     /// Records the session's current mode so the first turn switches it to the tier's mode (D21) when offered.
     fn set_modes(&mut self, modes: Option<SessionModeState>) {
+        self.modes = modes.iter().flat_map(|m| &m.available_modes).map(|m| m.id.0.to_string()).collect();
         self.mode = modes.map(|m| m.current_mode_id.0.to_string());
+    }
+
+    /// Switches the session to `mode` when modes are offered; the adapter may report another one it fell back to.
+    async fn switch(&mut self, session: &SessionId, mode: &'static str) {
+        if self.mode.as_deref().is_none_or(|m| m == mode) {
+            return;
+        }
+        self.shared.take_mode_update();
+        match self.cx.send_request(SetSessionModeRequest::new(session.clone(), mode)).block_task().await {
+            Ok(_) => self.mode = Some(self.shared.take_mode_update().unwrap_or_else(|| mode.into())),
+            Err(e) => tracing::warn!("session/set_mode {mode} failed: {e}"),
+        }
     }
 
     fn set_options(&mut self, options: Vec<SessionConfigOption>, models: Option<Models>) {

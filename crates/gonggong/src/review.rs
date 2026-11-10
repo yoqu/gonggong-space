@@ -2,8 +2,8 @@
 //! throwaway session of the bot's own agent that may not act. It can only allow: whatever it is unsure of goes to the
 //! owner with its risk estimate and reasoning. The floor and the protected base branch never reach it.
 //!
-//! Kept cheap: the session runs in an empty directory (no project instructions) on the smallest model the agent
-//! offers, and Claude gets a one-line system prompt and no tools instead of Claude Code's own.
+//! Off unless the owner picks its model (a small one: every review costs tokens). Kept cheap: the session runs in an
+//! empty directory (no project instructions) at the lowest thought level, and Claude gets a one-line system prompt and no tools instead of Claude Code's own.
 use crate::protocol::{AgentKind, AiReview, Choice, ReviewRisk, RunPrompt, Tier};
 use crate::session::select;
 use crate::turn::{client_capabilities, mode_for};
@@ -30,8 +30,6 @@ const CONTEXT_MAX: usize = 500;
 /// Claude's system prompt for the review, replacing Claude Code's (tools, skills, environment).
 pub const SYSTEM: &str = "You review permission requests for a coding agent. Use no tools. Reply with the JSON object \
 asked for and nothing else.";
-/// Name parts of small, fast models, preferred in this order: a review is one short judgement.
-const SMALL: [&str; 5] = ["haiku", "mini", "flash", "lite", "nano"];
 /// The cheapest thought levels, preferred in this order.
 const LOW: [&str; 3] = ["minimal", "none", "low"];
 
@@ -142,21 +140,21 @@ fn clip_to(s: &str, max: usize) -> String {
     }
 }
 
-/// The smallest model on offer, if any is recognisably small.
-pub fn small_model(models: &[Choice]) -> Option<&str> {
-    let named =
-        |part: &str| models.iter().find(|m| [&m.value, &m.name].iter().any(|s| s.to_lowercase().contains(part)));
-    SMALL.iter().find_map(|part| named(part)).map(|m| m.value.as_str())
-}
-
 /// The cheapest thought level on offer.
 pub fn low_effort(efforts: &[Choice]) -> Option<&str> {
     LOW.iter().find_map(|v| efforts.iter().find(|e| e.value == *v)).map(|e| e.value.as_str())
 }
 
-/// Puts `prompt` to a new session of `agent` (`meta`: its `_meta`, Claude's) and returns its reply text. The session
-/// may not act: it runs in the read-only tier's mode and every permission it asks for is cancelled.
-pub async fn ask(agent: AcpAgent, kind: AgentKind, meta: Option<Meta>, prompt: String) -> Result<String, String> {
+/// Puts `prompt` to a new session of `agent` (`meta`: its `_meta`, Claude's) on `model` (the owner's pick) and returns
+/// its reply text. The session may not act: it runs in the read-only tier's mode and every permission it asks for is
+/// cancelled.
+pub async fn ask(
+    agent: AcpAgent,
+    kind: AgentKind,
+    meta: Option<Meta>,
+    model: &str,
+    prompt: String,
+) -> Result<String, String> {
     // Empty and read-only to the reviewer: no project instructions to load.
     let cwd = std::env::temp_dir().join("gonggong-review");
     std::fs::create_dir_all(&cwd).map_err(|e| e.to_string())?;
@@ -198,10 +196,10 @@ pub async fn ask(agent: AcpAgent, kind: AgentKind, meta: Option<Meta>, prompt: S
                 cx.send_request(SetSessionModeRequest::new(session.clone(), mode)).block_task().await?;
             }
             let mut options = res.config_options.unwrap_or_default();
-            if let Some((id, current, models)) = select(&options, &SessionConfigOptionCategory::Model)
-                && let Some(small) = small_model(&models).filter(|m| *m != current)
+            if let Some((id, current, _)) = select(&options, &SessionConfigOptionCategory::Model)
+                && current != model
             {
-                let set = SetSessionConfigOptionRequest::new(session.clone(), id, SessionConfigValueId::new(small));
+                let set = SetSessionConfigOptionRequest::new(session.clone(), id, SessionConfigValueId::new(model));
                 options = cx.send_request(set).block_task().await?.config_options;
             }
             if let Some((id, current, efforts)) = select(&options, &SessionConfigOptionCategory::ThoughtLevel)
@@ -322,10 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn picks_the_smallest_model_and_the_lowest_effort_on_offer() {
-        assert_eq!(small_model(&choices(&["default", "opus", "haiku"])), Some("haiku"));
-        assert_eq!(small_model(&choices(&["gpt-5.5", "gpt-5.4-mini", "gpt-5.4-nano"])), Some("gpt-5.4-mini"));
-        assert_eq!(small_model(&choices(&["kimi-k2", "glm-5"])), None);
+    fn picks_the_lowest_effort_on_offer() {
         assert_eq!(low_effort(&choices(&["low", "medium", "high", "minimal"])), Some("minimal"));
         assert_eq!(low_effort(&choices(&["high", "max"])), None);
     }

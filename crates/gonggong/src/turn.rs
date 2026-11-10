@@ -116,6 +116,26 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
     }
 }
 
+/// 帮我审批 hands approvals to the agent's own reviewer on its maker's service (`official`, [`agents::official_service`]):
+/// Claude's `auto` (the adapter falls back to `acceptEdits` by itself where the model lacks it, so the mode in effect
+/// is checked after switching) and Codex's `agent`. None: our rules and AI pre-review in [`mode_for`]'s mode.
+///
+/// [`agents::official_service`]: crate::agents::official_service
+pub fn builtin_mode(kind: AgentKind, tier: Tier, ai_review: bool, official: bool) -> Option<&'static str> {
+    if !ai_review || tier != Tier::Workspace || !official {
+        return None;
+    }
+    match kind {
+        AgentKind::Claude => Some("auto"),
+        AgentKind::Codex => Some("agent"),
+        AgentKind::Gemini | AgentKind::Codebuddy => None,
+    }
+}
+
+/// Claude `auto` lets pushes to any branch of the working repo through: these ask rules send them back to us, so a
+/// push to a protected base branch still asks the owner. Prefix rules miss `git -C dir push`, hence the inner `*`.
+pub const PUSH_ASK_RULES: [&str; 4] = ["Bash(git push)", "Bash(git push *)", "Bash(git * push)", "Bash(git * push *)"];
+
 /// A Codex auto review (codex-acp's `guardian_assessment:` tool call) that denied, aborted or timed out: its summary.
 /// Codex treats a failed review as a denial, so the bot would otherwise stall without a word.
 pub fn auto_review_failure(update: &SessionUpdate) -> Option<String> {
@@ -709,6 +729,7 @@ mod tests {
             allowlist: vec![],
             always_allow: vec![],
             ai_review: false,
+            review_model: None,
             git: None,
             agent_settings: Default::default(),
         };
@@ -736,6 +757,22 @@ mod tests {
         assert_eq!(mode_for(AgentKind::Gemini, Tier::Workspace), "autoEdit");
         assert_eq!(mode_for(AgentKind::Gemini, Tier::ReadOnly), "default");
         assert_eq!(mode_for(AgentKind::Codebuddy, Tier::Workspace), "acceptEdits");
+    }
+
+    #[test]
+    fn hands_review_to_the_agent_only_for_review_in_the_workspace_tier() {
+        let review = |kind, official| builtin_mode(kind, Tier::Workspace, true, official);
+        assert_eq!(review(AgentKind::Claude, true), Some("auto"));
+        assert_eq!(review(AgentKind::Codex, true), Some("agent"));
+        // Through a gateway Claude's `auto` refuses what it should check; Codex's reviewer fails.
+        assert_eq!(review(AgentKind::Claude, false), None);
+        assert_eq!(review(AgentKind::Codex, false), None);
+        assert_eq!(review(AgentKind::Gemini, true), None);
+        assert_eq!(review(AgentKind::Codebuddy, true), None);
+        // 每次问我, 完全允许 and the legacy read-only tier keep their modes.
+        assert_eq!(builtin_mode(AgentKind::Claude, Tier::Workspace, false, true), None);
+        assert_eq!(builtin_mode(AgentKind::Claude, Tier::Full, true, true), None);
+        assert_eq!(builtin_mode(AgentKind::Codex, Tier::ReadOnly, true, true), None);
     }
 
     #[test]

@@ -288,6 +288,9 @@ export const RunStart = z.object({
     alwaysAllow: z.array(z.string()).default([]),
     /** AI 预审: requests left to the owner by the rules are first reviewed by a tool-less session of the bot's agent. */
     aiReview: z.boolean().default(false),
+    /** The model AI 预审 runs on (the owner picks a small one); null = no AI pre-review: what the rules leave goes to
+     * the agent's own reviewer where it has one, else to the owner. */
+    reviewModel: z.string().nullable().default(null),
     /** Author and committer of the agent's git commits; null = the machine's git config. */
     git: z.object({ name: z.string(), email: z.string() }).nullable().default(null),
     /** The bot's overrides of `botOverride` agent settings (field id → value). */
@@ -1286,6 +1289,8 @@ export const DaemonFeature = z.enum([
   'codebuddy',
   /** 帮我审批's rules (开发常用命令, workspace edits, AI pre-review that only stops risks): older daemons ask more. */
   'approvalGates',
+  /** 帮我审批 hands approvals to the agent's own reviewer (Claude auto, Codex agent on an official login) where it works. */
+  'builtinReview',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

@@ -460,6 +460,22 @@ pub(super) const EN: &[(&str, &str)] = &[
         "The AI pre-review already approved this kind of command in this run: {command}",
     ),
     ("AI 预审中：{title}", "AI pre-review: {title}"),
+    (
+        "审批由 Claude 内置审核（auto 模式）把关",
+        "Approvals go to Claude's built-in review (auto mode)",
+    ),
+    (
+        "审批由 Codex 内置审核（agent 模式）把关",
+        "Approvals go to Codex's built-in review (agent mode)",
+    ),
+    (
+        "内置审核不可用（模式 {mode}），审批由共工规则把关",
+        "Built-in review unavailable (mode {mode}); approvals go to Gonggong's rules",
+    ),
+    (
+        "第三方供应商用不了内置审核，审批由共工规则把关",
+        "Third-party providers have no built-in review; approvals go to Gonggong's rules",
+    ),
     ("AI 预审已批准：{title}（{rationale}）", "Approved by AI pre-review: {title} ({rationale})"),
     ("Codex 自动审查失败，操作被拒绝：{review}", "Codex auto review failed, the action was denied: {review}"),
     ("等待审批：{title}", "Awaiting approval: {title}"),
