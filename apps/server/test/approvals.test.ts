@@ -272,6 +272,85 @@ describe('approvals', () => {
     )
   })
 
+  it('audits what the rules allowed by themselves, as rule_approved', async () => {
+    const w = await world()
+    const { runId } = await w.request()
+    w.d.send({
+      t: 'approval.ai_approved',
+      runId,
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'pnpm test',
+      source: 'rule',
+      review: null,
+    })
+    await vi.waitFor(async () => expect((await w.audit()).map((a) => a.action)).toContain('rule_approved'))
+    const [row] = (await w.audit()).filter((a) => a.action === 'rule_approved')
+    expect(row).toMatchObject({
+      category: 'approval',
+      detail: { runId, detail: 'pnpm test', source: 'rule' },
+    })
+    const names = { user: () => '', bot: () => '', runBot: () => '小王的 Claude' }
+    expect(summarize(row!, row!.detail as Record<string, unknown>, names)).toBe(
+      '按规则自动批准 小王的 Claude 执行 Bash',
+    )
+  })
+
+  it('stores why the AI pre-review left a request to the owner', async () => {
+    const w = await world()
+    const { runId } = await w.request()
+    for (const [i, reason] of (['ai_timeout', 'ai_unparsed', 'ai_error', 'ai_denied'] as const).entries())
+      w.d.send({
+        t: 'approval.request',
+        runId,
+        requestId: `req-ai-${i}`,
+        title: 'Bash',
+        toolKind: 'execute',
+        detail: 'node a.js',
+        reason,
+        options: OPTIONS,
+      })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 5)
+    expect(run.approvals.slice(1).map((a) => a.reason)).toEqual([
+      'ai_timeout',
+      'ai_unparsed',
+      'ai_error',
+      'ai_denied',
+    ])
+  })
+
+  it('本次会话不再问 tells the daemon to trust the session rules and leaves the bot settings alone', async () => {
+    const w = await world()
+    const { runId, approval } = await w.request()
+    expect(approval.rememberSession).toEqual([])
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-session',
+      title: 'Bash',
+      toolKind: 'execute',
+      detail: 'node scripts/a.js',
+      options: OPTIONS,
+      remember: ['node scripts/a.js'],
+      rememberSession: ['node'],
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    const a = run.approvals[1]!
+    expect(a.rememberSession).toEqual(['node'])
+    const post = (body: unknown) => w.owners.post<ApprovalDto>(`/api/runs/${runId}/approvals/${a.id}`, body)
+    expect((await post({ optionId: 'reject', session: true })).status).toBe(400)
+    expect((await post({ optionId: 'allow', session: true })).status).toBe(200)
+    expect(await w.d.next()).toEqual({
+      t: 'approval.decision',
+      runId,
+      requestId: 'req-session',
+      optionId: 'allow',
+      session: true,
+    })
+    const [bot] = await t.db.select({ rules: bots.alwaysAllow }).from(bots).where(eq(bots.id, w.bot.id))
+    expect(bot!.rules).toEqual([])
+  })
+
   it('sends the bot AI 预审 switch with run.start', async () => {
     const w = await world()
     await t.db.update(bots).set({ aiReview: true }).where(eq(bots.id, w.bot.id))

@@ -1,0 +1,9 @@
+{
+  "t": "approval.ai_approved",
+  "runId": "r1",
+  "title": "pnpm test",
+  "toolKind": "execute",
+  "detail": "pnpm test",
+  "source": "rule",
+  "review": null
+}

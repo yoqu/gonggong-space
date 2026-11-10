@@ -1,0 +1,1 @@
+ALTER TABLE "approvals" ADD COLUMN "remember_session" jsonb DEFAULT '[]'::jsonb NOT NULL;

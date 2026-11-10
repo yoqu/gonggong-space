@@ -17,10 +17,10 @@ export default {
     ' Dangerous commands (like sudo, git push --force), pushes to a protected base branch and client releases always need your confirmation.',
   '只读命令自动放行，其余操作都发审批卡片给你。':
     'Read-only commands run right away; everything else comes to you as an approval card.',
-  '先由 AI 用小模型评估：低风险且明显是用户要求的自动批准，其余仍交给你，审批卡片附上风险和理由。每次评估约消耗几千 token。':
-    'An AI on a small model assesses each request first: low-risk ones the user clearly asked for are approved automatically, the rest still come to you with the risk and reasoning on the card. Each assessment uses a few thousand tokens.',
-  '不再询问，Bot 可以执行任何操作；只有触发名单里的人能触发它。':
-    'Never asks: the Bot may do anything, and only the people on its trigger list can trigger it.',
+  '构建、测试、lint、格式化、本地 git 和工作区内改文件直接放行（等于信任仓库里的脚本）；其余先由 AI 用小模型评估，只拦下删除工作区外数据、读取凭据、外发数据、推送发版等风险操作交给你，审批卡片附上风险和理由。每次评估约消耗几千 token。':
+    'Building, testing, linting, formatting, local git and file changes inside the workspace run right away (this trusts the repository’s scripts); anything else is first assessed by an AI on a small model, which only stops risky actions — deleting data outside the workspace, reading credentials, sending data out, pushing or releasing — and sends those to you with the risk and reasoning on the card. Each assessment uses a few thousand tokens.',
+  '不再询问，Bot 可以执行任何操作；能触发它的人发起的任务都不会被拦截，包括危险命令，建议只给自己用的群或 Bot 开启。':
+    'Never asks: the Bot may do anything, and nothing anyone who can trigger it starts is stopped, dangerous commands included. Turn this on only for your own groups or Bots.',
   'Bot 只能读取，其余操作都发审批卡片给你。':
     'The Bot can only read; everything else comes to you as an approval card.',
   '审批卡片上选「批准，不再询问」会加到这里；以这些前缀开头的命令（或 tool:工具名）自动批准，删除后再次询问。':

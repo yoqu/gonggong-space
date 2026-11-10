@@ -65,6 +65,8 @@ export type Interaction =
       options: PermissionOption[]
       /** Rules 始终允许 adds; empty → its scope can't be shown, so it isn't offered (plan A7). */
       remember: string[]
+      /** Rules 本次会话不再问 trusts; empty → not offered. */
+      rememberSession: string[]
       status: string
       by: string | null
       /** The bot owner, the only one who can decide. */
@@ -128,6 +130,22 @@ function approvalBlock(i: Extract<Interaction, { k: 'approval' }>): unknown[] {
       ],
     }
   })
+  const once = i.options.find((o) => o.kind === 'allow_once')
+  if (once && i.rememberSession.length) {
+    const session: CardValue = { k: 'approve', a: i.id, o: once.optionId, s: 1 }
+    buttons.splice(1, 0, {
+      tag: 'column',
+      width: 'auto',
+      elements: [
+        {
+          tag: 'button',
+          type: 'default',
+          text: text(zt('本次会话不再问')),
+          behaviors: [{ type: 'callback', value: session }],
+        },
+      ],
+    })
+  }
   const full: CardValue = { k: 'full', a: i.id }
   buttons.push({
     tag: 'column',
@@ -386,7 +404,8 @@ const hideUiBlocks = (s: string) =>
 
 export type CardValue =
   | { k: 'answer'; q: string }
-  | { k: 'approve'; a: string; o: string }
+  /** `s`: 本次会话不再问. */
+  | { k: 'approve'; a: string; o: string; s?: 1 }
   | { k: 'full'; a: string }
   /** An actions block of reply `m`: option `o`, or the ACT_FIELD picks of a multiple one. */
   | { k: 'act'; m: string; b: string; o?: number }

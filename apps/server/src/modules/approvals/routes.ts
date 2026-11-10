@@ -10,9 +10,9 @@ export function approvalRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     app.post<{ Params: { runId: string; id: string } }>('/api/runs/:runId/approvals/:id', async (req) => {
       const user = await requireUser(ctx, req)
-      const { optionId } = DecideApprovalReq.parse(req.body)
+      const { optionId, session } = DecideApprovalReq.parse(req.body)
       const runId = idParam(req.params.runId, '运行不存在')
-      return decideApproval(ctx, user, runId, idParam(req.params.id, '审批请求不存在'), optionId)
+      return decideApproval(ctx, user, runId, idParam(req.params.id, '审批请求不存在'), optionId, session)
     })
     app.post<{ Params: { runId: string } }>('/api/runs/:runId/full-access', async (req, reply) => {
       const user = await requireUser(ctx, req)

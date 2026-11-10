@@ -750,6 +750,13 @@
       "when": 1794225337131,
       "tag": "0106_skinny_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1794278577629,
+      "tag": "0107_useful_gargoyle",
+      "breakpoints": true
     }
   ]
 }

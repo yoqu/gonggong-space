@@ -1662,11 +1662,24 @@ export const ApprovalDto = z.object({
   toolKind: z.string(),
   detail: z.string(),
   reason: z
-    .enum(['high_risk', 'protected_base', 'network', 'write', 'unparsed', 'not_allowed'])
+    .enum([
+      'high_risk',
+      'protected_base',
+      'network',
+      'write',
+      'unparsed',
+      'not_allowed',
+      'ai_denied',
+      'ai_timeout',
+      'ai_unparsed',
+      'ai_error',
+    ])
     .default('not_allowed'),
   options: z.array(PermissionOption),
   /** What 始终允许 would add to the bot's alwaysAllow. */
   remember: z.array(z.string()),
+  /** What 本次会话不再问 trusts until the agent session ends. */
+  rememberSession: z.array(z.string()),
   /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
   review: AiReview.nullable(),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
@@ -1681,7 +1694,8 @@ export const ApprovalDto = z.object({
 })
 export type ApprovalDto = z.infer<typeof ApprovalDto>
 
-export const DecideApprovalReq = z.object({ optionId: z.string() })
+/** `session`: 本次会话不再问 (an allow option only); the request's rememberSession rules are trusted until the session ends. */
+export const DecideApprovalReq = z.object({ optionId: z.string(), session: z.boolean().optional() })
 /** POST /api/runs/:id/interrupt — partition /stop leftovers (plan D7). */
 export const InterruptChoiceReq = z.object({ choice: z.enum(['keep', 'discard']) })
 /** POST /api/runs/:id/stop | stop-chain — how many unfinished runs were stopped. */

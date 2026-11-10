@@ -1557,6 +1557,9 @@ pub struct ApprovalRequest {
     /// Rules an allow_always answer adds to the bot's `always_allow`; empty → don't offer it.
     #[serde(default)]
     pub remember: Vec<String>,
+    /// Rules a 本次会话不再问 answer trusts until the session ends (`local::remember_session`).
+    #[serde(default)]
+    pub remember_session: Vec<String>,
     /// The AI pre-review's assessment when it did not allow the request; `None` = not reviewed.
     #[serde(default)]
     pub review: Option<AiReview>,
@@ -1570,7 +1573,19 @@ pub struct ApprovalAiApproved {
     pub title: String,
     pub tool_kind: String,
     pub detail: String,
-    pub review: AiReview,
+    /// Who allowed it: the AI pre-review (with its `review`) or the bot's rules.
+    #[serde(default)]
+    pub source: AutoSource,
+    #[serde(default)]
+    pub review: Option<AiReview>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoSource {
+    #[default]
+    Ai,
+    Rule,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1598,6 +1613,14 @@ pub enum ApprovalReason {
     Unparsed,
     #[default]
     NotAllowed,
+    /// The AI pre-review did not allow it (its `review` says why).
+    AiDenied,
+    /// The AI pre-review did not answer in time.
+    AiTimeout,
+    /// The AI pre-review's reply was not a verdict.
+    AiUnparsed,
+    /// The AI pre-review could not run.
+    AiError,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2708,7 +2731,14 @@ pub enum ServerToDaemon {
     #[serde(rename = "workspace.cd")]
     WorkspaceCd(WorkspaceCd),
     #[serde(rename = "approval.decision", rename_all = "camelCase")]
-    ApprovalDecision { run_id: String, request_id: String, option_id: Option<String> },
+    ApprovalDecision {
+        run_id: String,
+        request_id: String,
+        option_id: Option<String>,
+        /// 本次会话不再问: the request's `remember_session` rules are trusted until the session ends.
+        #[serde(default)]
+        session: bool,
+    },
     #[serde(rename = "run.discard", rename_all = "camelCase")]
     RunDiscard { run_id: String },
     #[serde(rename = "files.list")]

@@ -12,8 +12,8 @@ use crate::local::{Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
     AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalReason, ApprovalRequest, Attachment,
-    Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart, RunStatus,
-    SecretEnv, Tier, Usage, WorkspaceKind,
+    AutoSource, Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart,
+    RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -193,6 +193,8 @@ struct Active {
     hidden_tools: Vec<String>,
     /// What the agent was asked (`review::request_of`), shown to the AI pre-review.
     request: String,
+    /// Rules of requests the AI pre-review allowed in this run: the same kind of command is not reviewed again.
+    reviewed: Vec<String>,
 }
 
 /// A run the server opened for output between turns (a background task finished and the agent went on by itself).
@@ -274,7 +276,7 @@ struct State {
     agent: Option<ConnectionTo<Agent>>,
     /// Permission requests of the active turn awaiting the bot owner, by request id.
     approvals: HashMap<String, Approval>,
-    /// Rules the owner allowed always, trusted for the rest of the conversation.
+    /// Rules the owner allowed always or for this session (本次会话不再问), trusted until a new session starts.
     always: Vec<String>,
     requests: u64,
     /// The last turn's snapshot (run id) if it did not complete, kept for run.discard until the next turn starts
@@ -346,6 +348,8 @@ struct Approval {
     title: String,
     /// What allow_always trusts from now on (`local::remember`).
     remember: Vec<String>,
+    /// What 本次会话不再问 trusts until the session ends (`local::remember_session`).
+    remember_session: Vec<String>,
     options: Vec<PermissionOption>,
     tx: oneshot::Sender<Option<PermissionOptionId>>,
 }
@@ -555,21 +559,25 @@ impl Shared {
     }
 
     /// Applies the owner's decision to a pending request of `run_id`; false if there is none (e.g. already void).
-    pub(crate) fn decide(&self, run_id: &str, request_id: &str, option_id: Option<String>) -> bool {
+    /// `session`: 本次会话不再问, the request's session rules are trusted until a new session starts.
+    pub(crate) fn decide(&self, run_id: &str, request_id: &str, option_id: Option<String>, session: bool) -> bool {
         let mut s = self.0.lock().unwrap();
         let Some(out) = s.active.as_ref().filter(|a| a.run_id == run_id).map(|a| a.out.clone()) else { return false };
         let Some(p) = s.approvals.remove(request_id) else { return false };
         let choice = option_id.and_then(|id| p.options.into_iter().find(|o| *o.option_id.0 == *id));
-        if choice.as_ref().is_some_and(|o| o.kind == PermissionOptionKind::AllowAlways) {
-            for rule in p.remember {
-                if !s.always.contains(&rule) {
-                    s.always.push(rule);
-                }
-            }
-        }
         let allowed = choice
             .as_ref()
             .is_some_and(|o| matches!(o.kind, PermissionOptionKind::AllowOnce | PermissionOptionKind::AllowAlways));
+        let trusted = match choice.as_ref().map(|o| o.kind) {
+            Some(PermissionOptionKind::AllowAlways) => p.remember,
+            _ if allowed && session => p.remember_session,
+            _ => vec![],
+        };
+        for rule in trusted {
+            if !s.always.contains(&rule) {
+                s.always.push(rule);
+            }
+        }
         let step = if allowed {
             t!("已批准：{title}", title = p.title)
         } else {
@@ -601,20 +609,28 @@ impl Shared {
         true
     }
 
-    /// The AI pre-review of `wire` is in: an approving verdict allows it, anything else (no verdict included) asks the
-    /// owner. Nothing to do once the request was settled meanwhile (tier raised to full, turn ended).
-    fn reviewed(&self, mut wire: ApprovalRequest, verdict: Option<review::Verdict>) {
-        let mut s = self.0.lock().unwrap();
-        let Some(out) = s.active.as_ref().filter(|a| a.run_id == wire.run_id).map(|a| a.out.clone()) else { return };
+    /// The AI pre-review of `wire` is in: an approving verdict allows it (and the same kind of command for the rest of
+    /// the run), anything else asks the owner with the reason (`Err`: why there is no verdict). Nothing to do once the
+    /// request was settled meanwhile (tier raised to full, turn ended).
+    fn reviewed(&self, mut wire: ApprovalRequest, verdict: Result<review::Verdict, ApprovalReason>) {
+        let mut guard = self.0.lock().unwrap();
+        let s = &mut *guard;
+        let Some(a) = s.active.as_mut().filter(|a| a.run_id == wire.run_id) else { return };
+        let out = a.out.clone();
         if !s.approvals.contains_key(&wire.request_id) {
             return;
         }
         match verdict {
-            Some(v)
+            Ok(v)
                 if v.approves()
                     && let Some(allow) = auto_allow(&s.approvals[&wire.request_id].options) =>
             {
                 let p = s.approvals.remove(&wire.request_id).expect("checked above");
+                for rule in &p.remember {
+                    if !a.reviewed.contains(rule) {
+                        a.reviewed.push(rule.clone());
+                    }
+                }
                 let review = v.review();
                 let step = t!("AI 预审已批准：{title}（{rationale}）", title = p.title, rationale = review.rationale);
                 let event = RunEvent::Status { status: RunStatus::Running, step };
@@ -624,15 +640,26 @@ impl Shared {
                     title: wire.title,
                     tool_kind: wire.tool_kind,
                     detail: wire.detail,
-                    review,
+                    source: AutoSource::Ai,
+                    review: Some(review),
                 }));
                 let _ = p.tx.send(Some(allow));
             }
-            v => {
-                wire.review = v.map(|v| v.review());
+            Ok(v) => {
+                wire.review = Some(v.review());
+                wire.reason = ApprovalReason::AiDenied;
+                ask_owner(&out, wire);
+            }
+            Err(reason) => {
+                wire.reason = reason;
                 ask_owner(&out, wire);
             }
         }
+    }
+
+    /// A new agent session starts: what the owner allowed for the session ends with the old one.
+    fn new_session(&self) {
+        self.0.lock().unwrap().always.clear();
     }
 
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued. None: a continuation
@@ -671,6 +698,7 @@ impl Shared {
             continuation: None,
             hidden_tools: req.start.hidden_tools.clone(),
             request: review::request_of(&req.start.prompt),
+            reviewed: vec![],
         });
         Some(true)
     }
@@ -782,6 +810,7 @@ impl Shared {
             continuation: Some(Cont { session, last: Instant::now(), concluding: false }),
             hidden_tools: prev.hidden_tools,
             request: prev.request,
+            reviewed: vec![],
         });
         for held in w.held {
             match held {
@@ -1173,19 +1202,42 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
     let read_only_tool = command.is_none()
         && matches!(tool_kind.as_str(), "read" | "search")
         && a.rules.reads_within(&read_paths, &a.cwd);
-    match a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always) {
-        Decision::Full => return Permission::Now(auto_allow(&req.options)),
-        _ if read_only_tool => return Permission::Now(auto_allow(&req.options)),
-        Decision::Local if let Some(allow) = auto_allow(&req.options) => {
-            let step = t!("已按命令审批规则自动批准：{command}", command = command.unwrap_or(title));
-            let event = RunEvent::Status { status: RunStatus::Running, step };
-            a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
-            return Permission::Now(Some(allow));
-        }
-        _ => {}
+    let workspace_write = command.is_none()
+        && matches!(tool_kind.as_str(), "edit" | "delete" | "move")
+        && a.rules.writes_within(&read_paths, &a.cwd);
+    let decision = a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &s.always);
+    // A kind of command the AI pre-review already allowed in this run.
+    let reviewed = decision == Decision::Ask
+        && !a.reviewed.is_empty()
+        && a.rules.decide(a.tier, command.as_deref(), &title, &a.cwd, &a.reviewed) == Decision::Local;
+    if decision == Decision::Full || read_only_tool {
+        return Permission::Now(auto_allow(&req.options));
+    }
+    if (decision == Decision::Local || workspace_write || reviewed)
+        && let Some(allow) = auto_allow(&req.options)
+    {
+        let shown = command.clone().unwrap_or_else(|| title.clone());
+        let (step, source) = if reviewed {
+            (t!("同类命令本次运行已由 AI 预审批准：{command}", command = shown), AutoSource::Ai)
+        } else {
+            (t!("已按命令审批规则自动批准：{command}", command = shown), AutoSource::Rule)
+        };
+        let action = command.clone().or_else(|| detail.clone()).unwrap_or(shown);
+        let event = RunEvent::Status { status: RunStatus::Running, step };
+        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+        a.out.send(DaemonToServer::ApprovalAiApproved(ApprovalAiApproved {
+            run_id: a.run_id.clone(),
+            title,
+            tool_kind,
+            detail: action,
+            source,
+            review: None,
+        }));
+        return Permission::Now(Some(allow));
     }
     let request_id = format!("{}/{n}", a.run_id);
     let remember = a.rules.remember(command.as_deref(), &title, &a.cwd);
+    let remember_session = a.rules.remember_session(command.as_deref(), &title, &a.cwd);
     let reason = a.rules.reason(command.as_deref(), &tool_kind, &a.cwd);
     // The floor, the protected base branch and client releases are the owner's alone.
     let reviewer = s
@@ -1196,7 +1248,9 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
     let detail = release.or(detail).unwrap_or_else(|| title.clone());
     let reviewer = reviewer.map(|r| {
         let action = command.as_deref().unwrap_or(&detail);
-        let input = review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd };
+        let outside = command.as_deref().map(|c| a.rules.outside_paths(c, &a.cwd)).unwrap_or_default();
+        let input =
+            review::Input { request: &a.request, tool_kind: &tool_kind, action, cwd: &a.cwd, outside: &outside };
         (r, review::prompt(&input))
     });
     let wire = ApprovalRequest {
@@ -1208,10 +1262,11 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
         tool_kind,
         options: wire_options(&req.options),
         remember: remember.clone(),
+        remember_session: remember_session.clone(),
         review: None,
     };
     let (tx, rx) = oneshot::channel();
-    s.approvals.insert(request_id, Approval { title, remember, options: req.options, tx });
+    s.approvals.insert(request_id, Approval { title, remember, remember_session, options: req.options, tx });
     match reviewer {
         Some((r, prompt)) => {
             let event =
@@ -1222,12 +1277,12 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, req: RequestPermissionRequ
                 let ask = review::ask(AcpAgent::new(r.config), r.kind, r.meta, prompt);
                 let reply = tokio::time::timeout(review::TIMEOUT, ask);
                 let verdict = match reply.await {
-                    Ok(Ok(text)) => review::parse(&text),
+                    Ok(Ok(text)) => review::parse(&text).ok_or(ApprovalReason::AiUnparsed),
                     Ok(Err(e)) => {
                         tracing::warn!("AI pre-review failed: {e}");
-                        None
+                        Err(ApprovalReason::AiError)
                     }
-                    Err(_) => None,
+                    Err(_) => Err(ApprovalReason::AiTimeout),
                 };
                 shared.reviewed(wire, verdict);
             });
@@ -1732,6 +1787,9 @@ impl Conversation<'_> {
                     } else {
                         context
                     };
+                    if reason.is_some() {
+                        self.shared.new_session();
+                    }
                     // New sessions keep the provider they start with (§4.3): recorded before the agent is prompted.
                     if reason.is_some()
                         && let Err(e) = self.pin(&req, &id).await

@@ -20,6 +20,7 @@ export const en = {
   // Audit summaries
   '批准 {bot} 执行 {title}': 'Approved {bot} to run {title}',
   'AI 预审批准 {bot} 执行 {title}': 'AI pre-review approved {bot} to run {title}',
+  '按规则自动批准 {bot} 执行 {title}': 'Rules auto-approved {bot} to run {title}',
   '拒绝 {bot} 执行 {title}': 'Rejected {bot} running {title}',
   '超时自动拒绝 {bot} 执行 {title}': 'Timed out and rejected {bot} running {title}',
   '已 /stop': 'stopped by /stop',
@@ -189,6 +190,7 @@ export const en = {
   该请求已处理: 'This request was already handled',
   无效的审批选项: 'Invalid approval option',
   本次运行免审批: 'No approvals this run',
+  本次会话不再问: "Don't ask again this session",
   提问不存在: 'Question not found',
   '仅触发人、Bot 主人或被 @ 的成员可以回答':
     "Only the requester, the Bot's owner or the members @-mentioned can answer",

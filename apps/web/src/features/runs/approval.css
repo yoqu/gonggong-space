@@ -68,3 +68,9 @@
 .approval[data-resolved] .approval__title {
   color: var(--label-secondary);
 }
+
+.approval__others {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

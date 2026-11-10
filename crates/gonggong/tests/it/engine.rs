@@ -147,6 +147,8 @@ impl Rig {
             match self.next().await {
                 DaemonToServer::RunEvent { run_id: r, event } if r == run_id => events.push(event),
                 DaemonToServer::RunDone(d) if d.run_id == run_id => return (events, d),
+                // Audit records of what was allowed without the owner.
+                DaemonToServer::ApprovalAiApproved(_) => {}
                 other => panic!("unexpected {other:?}"),
             }
         }
@@ -170,6 +172,7 @@ async fn until_approval(r: &mut Rig) -> (Vec<RunEvent>, ApprovalRequest) {
         match r.next().await {
             DaemonToServer::RunEvent { event, .. } => events.push(event),
             DaemonToServer::ApprovalRequest(a) => return (events, a),
+            DaemonToServer::ApprovalAiApproved(_) => {}
             other => panic!("unexpected {other:?}"),
         }
     }
@@ -180,6 +183,7 @@ fn decide(r: &Rig, a: &ApprovalRequest, option_id: Option<&str>) {
         run_id: a.run_id.clone(),
         request_id: a.request_id.clone(),
         option_id: option_id.map(String::from),
+        session: false,
     });
 }
 
@@ -217,6 +221,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
                 },
             ],
             remember: vec!["tool:Write hello.txt".into()],
+            remember_session: vec!["tool:Write hello.txt".into()],
             review: None,
         }
     );
@@ -225,6 +230,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
         run_id: "r1".into(),
         request_id: "nope".into(),
         option_id: Some("reject".into()),
+        session: false,
     });
     decide(&r, &approval, Some("allow"));
     let (events, done) = r.finish("r1").await;
@@ -1667,7 +1673,7 @@ fn reviewed(run_id: &str, command: &str) -> RunStart {
 #[tokio::test]
 async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "touch ok.txt mock-review-allow"));
+    r.run(reviewed("r1", "node ok.js mock-review-allow"));
     let mut events = vec![];
     let audited = loop {
         match r.next().await {
@@ -1680,10 +1686,11 @@ async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
         audited,
         ApprovalAiApproved {
             run_id: "r1".into(),
-            title: "touch ok.txt mock-review-allow".into(),
+            title: "node ok.js mock-review-allow".into(),
             tool_kind: "execute".into(),
-            detail: "$ touch ok.txt mock-review-allow".into(),
-            review: AiReview { risk: ReviewRisk::Low, rationale: "用户要求的只读命令".into() },
+            detail: "$ node ok.js mock-review-allow".into(),
+            source: AutoSource::Ai,
+            review: Some(AiReview { risk: ReviewRisk::Low, rationale: "用户要求的只读命令".into() }),
         }
     );
     let (rest, done) = r.finish("r1").await;
@@ -1698,8 +1705,8 @@ async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
     assert_eq!(
         steps,
         [
-            "AI 预审中：touch ok.txt mock-review-allow",
-            "AI 预审已批准：touch ok.txt mock-review-allow（用户要求的只读命令）"
+            "AI 预审中：node ok.js mock-review-allow",
+            "AI 预审已批准：node ok.js mock-review-allow（用户要求的只读命令）"
         ]
     );
     assert_eq!(done.reply, "ran");
@@ -1708,21 +1715,22 @@ async fn ai_pre_review_allows_what_it_judges_safe_without_asking_the_owner() {
 #[tokio::test]
 async fn ai_pre_review_leaves_the_rest_to_the_owner_with_its_assessment() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "touch a.txt"));
+    r.run(reviewed("r1", "node a.js"));
     let (events, approval) = until_approval(&mut r).await;
-    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "AI 预审中：touch a.txt".into() }));
+    assert!(events.contains(&RunEvent::Status { status: RunStatus::Running, step: "AI 预审中：node a.js".into() }));
     assert_eq!(
         events.last(),
-        Some(&RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：touch a.txt".into() })
+        Some(&RunEvent::Status { status: RunStatus::AwaitingApproval, step: "等待审批：node a.js".into() })
     );
     assert_eq!(approval.review, Some(AiReview { risk: ReviewRisk::High, rationale: "用户没有要求改动文件".into() }));
+    assert_eq!(approval.reason, ApprovalReason::AiDenied);
     decide(&r, &approval, Some("allow"));
     assert_eq!(r.finish("r1").await.1.reply, "ran");
 
     // No verdict: the owner decides, without an assessment.
-    r.run(reviewed("r2", "touch b.txt mock-review-garbage"));
+    r.run(reviewed("r2", "node b.js mock-review-garbage"));
     let (_, approval) = until_approval(&mut r).await;
-    assert_eq!(approval.review, None);
+    assert_eq!((&approval.review, approval.reason), (&None, ApprovalReason::AiUnparsed));
     decide(&r, &approval, Some("reject"));
     assert_eq!(r.finish("r2").await.1.reply, "denied");
 }
@@ -1741,10 +1749,10 @@ async fn the_floor_never_goes_to_the_ai_pre_review() {
 #[tokio::test]
 async fn ai_pre_review_runs_cheap_on_the_smallest_model_without_tools_or_project_instructions() {
     let mut r = rig(Duration::from_secs(60));
-    r.run(reviewed("r1", "touch ok.txt mock-review-echo"));
+    r.run(reviewed("r1", "node ok.js mock-review-echo"));
     let review = loop {
         match r.next().await {
-            DaemonToServer::ApprovalAiApproved(a) => break a.review,
+            DaemonToServer::ApprovalAiApproved(a) => break a.review.unwrap(),
             DaemonToServer::RunEvent { .. } => {}
             other => panic!("unexpected {other:?}"),
         }
@@ -1762,4 +1770,73 @@ async fn ai_pre_review_runs_cheap_on_the_smallest_model_without_tools_or_project
         })
     );
     assert_eq!(r.finish("r1").await.1.reply, "ran");
+}
+
+#[tokio::test]
+async fn ai_pre_review_runs_once_per_kind_of_command_in_a_run() {
+    let mut r = rig(Duration::from_secs(60));
+    let mut s = start("r1", "mock:exec-twice node ok.js mock-review-allow");
+    s.bot.ai_review = true;
+    r.run(s);
+    let (events, done) = r.finish("r1").await;
+    let steps: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            RunEvent::Status { step, .. } => Some(step.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        steps,
+        [
+            "AI 预审中：node ok.js mock-review-allow",
+            "AI 预审已批准：node ok.js mock-review-allow（用户要求的只读命令）",
+            "同类命令本次运行已由 AI 预审批准：node ok.js mock-review-allow",
+        ]
+    );
+    assert_eq!(done.reply, "ran");
+}
+
+#[tokio::test]
+async fn the_dev_pack_is_allowed_by_rule_and_recorded() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(reviewed("r1", "rtk pnpm test"));
+    let audited = loop {
+        match r.next().await {
+            DaemonToServer::ApprovalAiApproved(a) => break a,
+            DaemonToServer::RunEvent { event: RunEvent::Status { step, .. }, .. } => {
+                assert!(!step.starts_with("AI 预审"), "{step}")
+            }
+            DaemonToServer::RunEvent { .. } => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    };
+    assert_eq!((audited.source, audited.review, audited.detail.as_str()), (AutoSource::Rule, None, "rtk pnpm test"));
+    assert_eq!(r.finish("r1").await.1.reply, "ran");
+}
+
+#[tokio::test]
+async fn session_approval_trusts_the_program_until_a_new_session() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:exec node a.js"));
+    let (_, approval) = until_approval(&mut r).await;
+    assert_eq!(approval.remember_session, ["node"]);
+    r.send(ServerToDaemon::ApprovalDecision {
+        run_id: "r1".into(),
+        request_id: approval.request_id.clone(),
+        option_id: Some("allow".into()),
+        session: true,
+    });
+    let (_, first) = r.finish("r1").await;
+    assert_eq!(first.reply, "ran");
+
+    r.run(follow_up("r2", "mock:exec node b.js --x", &first));
+    let (events, done) = r.finish("r2").await;
+    assert_eq!(done.reply, "ran");
+    assert!(events.contains(&running("已按命令审批规则自动批准：node b.js --x")));
+
+    r.run(RunStart { new_session_reason: Some("requested".into()), ..start("r3", "mock:exec node c.js") });
+    let (_, approval) = until_approval(&mut r).await;
+    decide(&r, &approval, Some("reject"));
+    assert_eq!(r.finish("r3").await.1.reply, "denied");
 }

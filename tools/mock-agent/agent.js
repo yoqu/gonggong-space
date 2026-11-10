@@ -11,6 +11,7 @@
 //   "mock:delay <ms>" wait that long first (the last one in the prompt), then behave as the rest of the prompt says
 //   "mock:say <text>" reply with the rest of the prompt (from its last "mock:say") verbatim
 //   "mock:exec <command>" ask permission for an execute tool call running <command>, reply "ran" or "denied"
+//   "mock:exec-twice <command>" the same, asking twice (one turn, two tool calls) unless the first is denied
 //   "mock:read <path>" ask permission for a read tool call at <path>, reply "read" or "denied"
 //   "mock:search <path>" the same for a search tool call
 //   "mock:ask <json>" call the injected gonggong MCP ask tool with <json> as arguments (after a permission request)
@@ -224,27 +225,31 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await say(execSync(text.slice(sh + 8), { cwd: s.cwd, encoding: 'utf8' }))
     return { stopReason: 'end_turn' }
   }
-  const exec = text.indexOf('mock:exec ')
+  const twice = text.indexOf('mock:exec-twice ')
+  const exec = twice >= 0 ? twice : text.indexOf('mock:exec ')
   if (exec >= 0) {
-    const command = text.slice(exec + 10)
-    const toolCall = {
-      toolCallId: 'exec-1',
-      title: command,
-      kind: 'execute',
-      status: 'pending',
-      rawInput: { command },
+    const command = text.slice(exec + (twice >= 0 ? 16 : 10))
+    let ran = true
+    for (let i = 1; ran && i <= (twice >= 0 ? 2 : 1); i++) {
+      const toolCall = {
+        toolCallId: `exec-${i}`,
+        title: command,
+        kind: 'execute',
+        status: 'pending',
+        rawInput: { command },
+      }
+      await update({ sessionUpdate: 'tool_call', ...toolCall })
+      const res = await client.request(acp.methods.client.session.requestPermission, {
+        sessionId,
+        toolCall,
+        options: [
+          { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+          { optionId: 'always', name: 'Always', kind: 'allow_always' },
+          { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+        ],
+      })
+      ran = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
     }
-    await update({ sessionUpdate: 'tool_call', ...toolCall })
-    const res = await client.request(acp.methods.client.session.requestPermission, {
-      sessionId,
-      toolCall,
-      options: [
-        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-        { optionId: 'always', name: 'Always', kind: 'allow_always' },
-        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-      ],
-    })
-    const ran = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
     await say(ran ? 'ran' : 'denied')
     return { stopReason: 'end_turn' }
   }

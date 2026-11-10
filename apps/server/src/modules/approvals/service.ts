@@ -71,6 +71,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       reason: req.reason,
       options: req.options,
       remember: rememberable(raw.remember),
+      rememberSession: raw.rememberSession.filter((r) => redact(r) === r),
       review: req.review && { ...req.review, rationale: r(req.review.rationale) },
       expiresAt,
       createdAt: ctx.now(),
@@ -91,7 +92,7 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
   })
 }
 
-/** The AI pre-review allowed a request of a live run on this machine by itself: kept in the audit log like a decision. */
+/** The AI pre-review or the bot's rules allowed a request of a live run on this machine: kept in the audit log like a decision. */
 export async function onAiApproved(ctx: Ctx, machineId: string, msg: ApprovalAiApproved) {
   const [row] = await ctx.db
     .select({ groupId: runs.groupId })
@@ -102,7 +103,7 @@ export async function onAiApproved(ctx: Ctx, machineId: string, msg: ApprovalAiA
   const r = (await runRedactors(ctx, msg.runId)).redact
   await ctx.db.insert(auditLogs).values({
     category: 'approval',
-    action: 'ai_approved',
+    action: msg.source === 'rule' ? 'rule_approved' : 'ai_approved',
     groupId: row.groupId,
     teamId: teamOfGroupSql(row.groupId),
     detail: {
@@ -110,8 +111,8 @@ export async function onAiApproved(ctx: Ctx, machineId: string, msg: ApprovalAiA
       title: r(msg.title),
       toolKind: msg.toolKind,
       detail: r(msg.detail),
-      risk: msg.review.risk,
-      rationale: r(msg.review.rationale),
+      source: msg.source,
+      ...(msg.review && { risk: msg.review.risk, rationale: r(msg.review.rationale) }),
     },
     createdAt: ctx.now(),
   })
@@ -124,6 +125,7 @@ export async function decideApproval(
   runId: string,
   id: string,
   optionId: string,
+  session = false,
 ) {
   const [row] = await scoped(ctx).where(and(eq(approvals.id, id), eq(approvals.runId, runId)))
   if (!row) return fail('not_found', '审批请求不存在')
@@ -132,7 +134,9 @@ export async function decideApproval(
   const option = (row.a.options as PermissionOption[]).find((o) => o.optionId === optionId)
   if (!option) return fail('invalid', '无效的审批选项')
   const status = option.kind.startsWith('allow') ? 'approved' : 'rejected'
-  const settled = await settle(ctx, row, status, optionId, user.id)
+  if (session && (status !== 'approved' || !row.a.rememberSession.length))
+    return fail('invalid', '无效的审批选项')
+  const settled = await settle(ctx, row, status, optionId, user.id, session)
   if (!settled) return fail('conflict', '该请求已处理')
   if (option.kind === 'allow_always' && settled.remember.length)
     await alwaysAllow(ctx, user.id, row.botId, settled)
@@ -231,6 +235,7 @@ async function settle(
   status: Settled,
   optionId: string | null,
   actorUserId: string | null,
+  session = false,
 ) {
   const [a] = await ctx.db
     .update(approvals)
@@ -239,14 +244,20 @@ async function settle(
     .returning()
   if (!a) return null
   if (row.machineId)
-    ctx.hub.send(row.machineId, { t: 'approval.decision', runId: a.runId, requestId: a.requestId, optionId })
+    ctx.hub.send(row.machineId, {
+      t: 'approval.decision',
+      runId: a.runId,
+      requestId: a.requestId,
+      optionId,
+      ...(session && { session: true }),
+    })
   await ctx.db.insert(auditLogs).values({
     category: 'approval',
     actorUserId,
     action: status,
     groupId: row.groupId,
     teamId: teamOfGroupSql(row.groupId),
-    detail: { ...auditDetail(a), optionId },
+    detail: { ...auditDetail(a), optionId, ...(session && { session: true }) },
     createdAt: ctx.now(),
   })
   await resolveNotifications(ctx, 'approval', 'approvalId', [a.id])

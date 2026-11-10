@@ -21,6 +21,7 @@ const approval: ApprovalDto = {
   reason: 'not_allowed',
   options: [],
   remember: [],
+  rememberSession: [],
   review: null,
   status: 'approved',
   voidReason: null,

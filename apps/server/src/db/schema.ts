@@ -915,6 +915,8 @@ export const approvals = pgTable(
     options: jsonb('options').notNull(),
     /** What an allow_always answer adds to the bot's alwaysAllow. */
     remember: jsonb('remember').$type<string[]>().notNull().default([]),
+    /** What 本次会话不再问 trusts until the agent session ends (kept on the machine only). */
+    rememberSession: jsonb('remember_session').$type<string[]>().notNull().default([]),
     /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
     review: jsonb('review').$type<AiReview>(),
     /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */

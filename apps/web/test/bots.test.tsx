@@ -534,7 +534,7 @@ describe('bot detail', () => {
     expect(within(detail).getByRole('radio', { name: '每次问我' }).getAttribute('aria-checked')).toBe('true')
     expect(within(detail).getByText(/只读命令自动放行/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('radio', { name: '帮我审批' }))
-    expect(within(detail).getByText(/先由 AI 用小模型评估/)).toBeTruthy()
+    expect(within(detail).getByText(/其余先由 AI 用小模型评估/)).toBeTruthy()
     fireEvent.click(within(detail).getByRole('button', { name: '保存' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'PATCH /api/bots/b1')?.body).toEqual({

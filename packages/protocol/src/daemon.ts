@@ -537,17 +537,30 @@ export const ApprovalRequest = z.object({
   detail: z.string(),
   /** Why the daemon forwarded this request; older daemons omit it. */
   reason: z
-    .enum(['high_risk', 'protected_base', 'network', 'write', 'unparsed', 'not_allowed'])
+    .enum([
+      'high_risk',
+      'protected_base',
+      'network',
+      'write',
+      'unparsed',
+      'not_allowed',
+      'ai_denied',
+      'ai_timeout',
+      'ai_unparsed',
+      'ai_error',
+    ])
     .default('not_allowed'),
   options: z.array(PermissionOption),
   /** Rules an allow_always answer adds to the bot's alwaysAllow; empty → the scope can't be shown, so don't offer it. */
   remember: z.array(z.string()).default([]),
+  /** Rules a 本次会话不再问 answer trusts until the agent session ends; empty → don't offer it. */
+  rememberSession: z.array(z.string()).default([]),
   /** The AI pre-review's assessment when it did not allow the request; null = no review (off, floor, or it failed). */
   review: AiReview.nullable().default(null),
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 
-/** A request the AI pre-review allowed by itself, without asking the owner: recorded in the audit log. */
+/** A request allowed without asking the owner, by the AI pre-review or the bot's rules: recorded in the audit log. */
 export const ApprovalAiApproved = z.object({
   t: z.literal('approval.ai_approved'),
   runId: z.string(),
@@ -555,7 +568,9 @@ export const ApprovalAiApproved = z.object({
   toolKind: z.string(),
   /** Command line / path / URL, as an approval.request would show it. */
   detail: z.string(),
-  review: AiReview,
+  source: z.enum(['ai', 'rule']).default('ai'),
+  /** The AI pre-review's assessment; null when the rules allowed it. */
+  review: AiReview.nullable().default(null),
 })
 export type ApprovalAiApproved = z.infer<typeof ApprovalAiApproved>
 
@@ -1712,6 +1727,8 @@ export const ApprovalDecision = z.object({
   runId: z.string(),
   requestId: z.string(),
   optionId: z.string().nullable(),
+  /** 本次会话不再问: the daemon trusts the request's rememberSession rules until the session ends. */
+  session: z.boolean().optional(),
 })
 
 /** Restore only the files this (finished, interrupted) turn touched; earlier uncommitted work stays (plan D7). */

@@ -573,7 +573,7 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
     const status =
       value.k === 'full'
         ? 'approved'
-        : (await decideApproval(ctx, user, row.a.runId, row.a.id, value.o)).status
+        : (await decideApproval(ctx, user, row.a.runId, row.a.id, value.o, value.s === 1)).status
     if (!own) return toast('success', zt('已处理'))
     const card = approvalCard({
       bot: row.bot,

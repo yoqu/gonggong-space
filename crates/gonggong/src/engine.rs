@@ -352,9 +352,9 @@ impl Handler for Engine {
                     out.send(DaemonToServer::RunDiscarded { run_id, ok, files, error });
                 });
             }
-            ServerToDaemon::ApprovalDecision { run_id, request_id, option_id } => {
+            ServerToDaemon::ApprovalDecision { run_id, request_id, option_id, session } => {
                 let actors = self.0.actors.lock().unwrap();
-                actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone()));
+                actors.values().any(|a| a.shared.decide(&run_id, &request_id, option_id.clone(), session));
             }
             ServerToDaemon::QuestionAnswer { run_id, request_id, answers, attachments, answered_by } => {
                 self.0.clone().deliver(run_id.clone(), attachments.clone(), move |shared| {

@@ -26,6 +26,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
   remember: [],
+  rememberSession: [],
   review: null,
   status: 'pending',
   voidReason: null,

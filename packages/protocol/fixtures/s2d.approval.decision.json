@@ -1,1 +1,1 @@
-{ "t": "approval.decision", "runId": "r1", "requestId": "p1", "optionId": "allow" }
+{ "t": "approval.decision", "runId": "r1", "requestId": "p1", "optionId": "allow", "session": true }

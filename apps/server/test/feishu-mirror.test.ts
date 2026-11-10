@@ -851,7 +851,7 @@ describe('question and approval cards', () => {
     machineId: string,
     runId: string,
     requestId: string,
-    o: { detail?: string; remember?: string[] } = {},
+    o: { detail?: string; remember?: string[]; rememberSession?: string[] } = {},
   ) =>
     onApprovalRequest(t.ctx, machineId, {
       t: 'approval.request',
@@ -867,6 +867,7 @@ describe('question and approval cards', () => {
         { optionId: 'ok', name: '允许一次', kind: 'allow_once' },
       ],
       remember: o.remember ?? [],
+      rememberSession: o.rememberSession ?? [],
       review: null,
     })
 
@@ -983,6 +984,33 @@ describe('question and approval cards', () => {
     expect(t.feishu.cardUpdates).toEqual([])
     const seqs = t.feishu.cardOps.map((o) => o.sequence)
     expect(seqs).toEqual([...seqs].sort((x, y) => x - y))
+  })
+
+  it('本次会话不再问 on the card approves once and has the daemon trust the session rules', async () => {
+    const { machine, run, ownerFs } = await liveRun()
+    await askApproval(machine.id, run.id, 'r1', { detail: 'node a.js', rememberSession: ['node'] })
+    await feishuIdle(t.ctx)
+    expect(runCard().json).toContain('"content":"本次会话不再问"')
+    const [a] = await t.db.select().from(approvals).where(eq(approvals.requestId, 'r1'))
+    const sent: unknown[] = []
+    const send = t.ctx.hub.send.bind(t.ctx.hub)
+    t.ctx.hub.send = (id, m) => {
+      sent.push(m)
+      return send(id, m)
+    }
+    await t.feishu.cardAction(BOT_APP, {
+      messageId: runCard().messageId,
+      chatId: CHAT,
+      operator: ownerFs,
+      value: { k: 'approve', a: a!.id, o: 'ok', s: 1 },
+    })
+    expect(sent).toContainEqual({
+      t: 'approval.decision',
+      runId: run.id,
+      requestId: 'r1',
+      optionId: 'ok',
+      session: true,
+    })
   })
 
   it('本次运行免审批 on the card approves the pending requests and lifts this run to full', async () => {

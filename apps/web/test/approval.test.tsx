@@ -28,6 +28,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
     { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
   ],
   remember: [],
+  rememberSession: [],
   review: null,
   status: 'pending',
   voidReason: null,
@@ -242,6 +243,41 @@ describe('ApprovalBlock', () => {
     expect(screen.getByText(text)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '批准' })).toBeNull()
     expect(screen.getByText(/未被只读规则或已保存的允许规则覆盖/)).toBeTruthy()
+  })
+
+  it('offers 本次会话不再问 with the rules it trusts, sent as an allow with session', async () => {
+    login('u1', '王磊')
+    const calls = mockApi({ 'POST /runs/r1/approvals/a1': approval({ status: 'approved' }) })
+    const { rerender } = render(<ApprovalBlock run={run([approval()])} />)
+    expect(screen.queryByRole('button', { name: '本次会话不再问' })).toBeNull()
+    rerender(<ApprovalBlock run={run([approval({ detail: 'node a.js', rememberSession: ['node'] })])} />)
+    expect(screen.getByText('本次会话不再问：node')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '本次会话不再问' }))
+    await waitFor(() => expect(calls[0]?.body).toEqual({ optionId: 'allow', session: true }))
+  })
+
+  it('says why the AI pre-review left it to the owner', () => {
+    login('u1', '王磊')
+    const { rerender } = render(<ApprovalBlock run={run([approval({ reason: 'ai_timeout' })])} />)
+    expect(screen.getByText(/AI 预审超时/)).toBeTruthy()
+    rerender(<ApprovalBlock run={run([approval({ reason: 'ai_denied' })])} />)
+    expect(screen.getByText(/AI 预审认为有风险/)).toBeTruthy()
+  })
+
+  it('merges requests waiting at once into one card that can approve them all', async () => {
+    login('u1', '王磊')
+    const calls = mockApi({
+      'POST /runs/r1/approvals/a1': approval({ status: 'approved' }),
+      'POST /runs/r1/approvals/a2': approval({ id: 'a2', status: 'approved' }),
+    })
+    render(<ApprovalBlock run={run([approval(), approval({ id: 'a2', detail: 'go vet ./...' })])} />)
+    expect(screen.getByText('go build ./...')).toBeTruthy()
+    expect(screen.getByText(/还有 1 个请求在等待/)).toBeTruthy()
+    expect(screen.getByText('go vet ./...')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '全部批准（2）' }))
+    await waitFor(() => expect(calls).toHaveLength(2))
+    expect(calls.map((c) => c.path)).toEqual(['/runs/r1/approvals/a1', '/runs/r1/approvals/a2'])
+    expect(calls.every((c) => (c.body as { optionId: string }).optionId === 'allow')).toBe(true)
   })
 
   it('shows the latest request of the run', () => {

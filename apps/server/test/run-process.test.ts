@@ -710,6 +710,7 @@ describe('run process', () => {
         reason: 'not_allowed',
         options: [{ optionId: 'ok', name: '允许', kind: 'allow_once' }],
         remember: [],
+        rememberSession: [],
         review: null,
         status: 'approved',
         voidReason: null,

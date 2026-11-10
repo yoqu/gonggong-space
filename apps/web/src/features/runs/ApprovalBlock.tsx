@@ -43,6 +43,10 @@ const REASON: Record<ApprovalDto['reason'], string> = {
   write: t('需要写入或修改文件'),
   unparsed: t('命令较复杂，无法确认是否只读'),
   not_allowed: t('未被只读规则或已保存的允许规则覆盖'),
+  ai_denied: t('AI 预审认为有风险'),
+  ai_timeout: t('AI 预审超时'),
+  ai_unparsed: t('AI 预审没有给出结论'),
+  ai_error: t('AI 预审未能运行'),
 }
 
 const RISK: Record<ReviewRisk, [string, TagTone]> = {
@@ -74,12 +78,22 @@ function outcome(a: ApprovalDto) {
 /** The run's oldest pending permission request, else its latest (spec §3.4): only the bot owner may decide, others just watch.
  *  Agents may ask several in parallel; deciding a later one must not hide an earlier one still blocking the turn. */
 export function ApprovalBlock({ run }: { run: RunDto }) {
-  const a = run.approvals.find((x) => x.status === 'pending') ?? run.approvals.at(-1)
-  return a ? <ApprovalCard key={a.id} run={run} approval={a} /> : null
+  const pending = run.approvals.filter((x) => x.status === 'pending')
+  const a = pending[0] ?? run.approvals.at(-1)
+  return a ? <ApprovalCard key={a.id} run={run} approval={a} others={pending.slice(1)} /> : null
 }
 
-/** One permission request of the run, decidable while pending. */
-export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: ApprovalDto }) {
+/** One permission request of the run, decidable while pending; `others` = the requests waiting behind it, listed on
+ *  the same card and approvable together. */
+export function ApprovalCard({
+  run,
+  approval: a,
+  others = [],
+}: {
+  run: RunDto
+  approval: ApprovalDto
+  others?: ApprovalDto[]
+}) {
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === run.botId))
   const me = useSession((s) => s.user)
   const pending = a.status === 'pending'
@@ -106,8 +120,25 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
       setBusy(null)
     }
   }
-  const decide = (option: PermissionOption) =>
-    send(`/runs/${run.id}/approvals/${a.id}`, { optionId: option.optionId }, option.optionId)
+  const decide = (option: PermissionOption, session?: boolean) =>
+    send(
+      `/runs/${run.id}/approvals/${a.id}`,
+      { optionId: option.optionId, ...(session && { session }) },
+      session ? 'session' : option.optionId,
+    )
+  const approveAll = async () => {
+    setBusy('all')
+    try {
+      for (const x of [a, ...others]) {
+        const option = pick(x.options, ['allow_once', 'allow_always'])
+        if (option) await api.post(`/runs/${run.id}/approvals/${x.id}`, { optionId: option.optionId })
+      }
+    } catch (e) {
+      toastError(e)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <div
@@ -144,6 +175,16 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
           <span>{t('AI 预审：{rationale}', { rationale: a.review.rationale })}</span>
         </div>
       ) : null}
+      {pending && others.length > 0 && (
+        <div className="approval__others">
+          <div className="approval__why">{t('还有 {n} 个请求在等待：', { n: others.length })}</div>
+          {others.map((x) => (
+            <div key={x.id} className="approval__cmd">
+              {x.detail}
+            </div>
+          ))}
+        </div>
+      )}
       {pending ? (
         <div className="approval__actions">
           <Button
@@ -155,6 +196,17 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
           >
             {t('批准')}
           </Button>
+          {allow && a.rememberSession.length > 0 && (
+            <Button
+              size="small"
+              disabled={!mine || !!busy}
+              loading={busy === 'session'}
+              title={t('本次会话不再问：{rules}', { rules: a.rememberSession.join(t('、')) })}
+              onClick={() => decide(allow, true)}
+            >
+              {t('本次会话不再问')}
+            </Button>
+          )}
           {always && (
             <Button
               size="small"
@@ -184,6 +236,16 @@ export function ApprovalCard({ run, approval: a }: { run: RunDto; approval: Appr
           >
             {t('拒绝#reject')}
           </Button>
+          {others.length > 0 && (
+            <Button size="small" disabled={!mine || !!busy} loading={busy === 'all'} onClick={approveAll}>
+              {t('全部批准（{n}）', { n: others.length + 1 })}
+            </Button>
+          )}
+          {a.rememberSession.length > 0 && a.rememberSession.join() !== a.remember.join() && (
+            <span className="approval__hint">
+              {t('本次会话不再问：{rules}', { rules: a.rememberSession.join(t('、')) })}
+            </span>
+          )}
           {always && (
             <span className="approval__hint">
               {t('不再询问：{rules}', { rules: a.remember.join(t('、')) })}

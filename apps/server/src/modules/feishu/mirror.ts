@@ -823,6 +823,7 @@ async function interactionsOf(ctx: Ctx, runId: string) {
         detail: a.detail,
         options: a.options as PermissionOption[],
         remember: a.remember,
+        rememberSession: a.rememberSession,
         status: a.status,
         by,
         owner,

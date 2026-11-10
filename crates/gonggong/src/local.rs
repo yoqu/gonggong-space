@@ -144,6 +144,35 @@ impl Rules {
         paths.iter().all(|path| within_root(path, cwd, &self.roots(cwd)))
     }
 
+    /// 帮我审批 trusts file changes inside the workspace, but not git's own files (hooks and config run code).
+    pub fn writes_within(&self, paths: &[PathBuf], cwd: &Path) -> bool {
+        self.ai_review
+            && !paths.is_empty()
+            && self.reads_within(paths, cwd)
+            && paths.iter().all(|p| !p.components().any(|c| c.as_os_str() == ".git"))
+    }
+
+    /// Paths a command names that lie outside the workspace, for the AI pre-review to weigh.
+    pub fn outside_paths(&self, command: &str, cwd: &Path) -> Vec<String> {
+        let roots = self.roots(cwd);
+        let mut out: Vec<String> = Vec::new();
+        for Segment { words, .. } in segments(command).unwrap_or_default() {
+            for w in &words[1..] {
+                let w = unquote(w.split_once('=').map_or(w, |(_, v)| v));
+                let pathlike = w.starts_with(['/', '~']) || w.starts_with("../") || w == "..";
+                let home = w.starts_with('~');
+                if pathlike
+                    && w != "/dev/null"
+                    && (home || !within_root(Path::new(w), cwd, &roots))
+                    && !out.iter().any(|o| o == w)
+                {
+                    out.push(w.to_string());
+                }
+            }
+        }
+        out
+    }
+
     /// Plan D15. `command` is the shell command of an execute-kind tool call, `None` for any other request, which
     /// `tool:<title>` rules match; `cwd` is the run's workspace and `always` the rules the owner allowed always in this
     /// conversation. The floor (plan A6) always goes to the owner.
@@ -156,10 +185,11 @@ impl Rules {
         }
         let trusted = self.always_allow.iter().chain(always);
         let roots = self.roots(cwd);
+        let dev = self.ai_review;
         let local = match self.approval {
             Approval::All => true,
-            Approval::Allowlist => allowed(self.allowlist.iter().chain(trusted), command, title, &roots),
-            Approval::Ask => allowed(trusted, command, title, &roots),
+            Approval::Allowlist => allowed(self.allowlist.iter().chain(trusted), command, title, &roots, dev),
+            Approval::Ask => allowed(trusted, command, title, &roots, dev),
         };
         if local { Decision::Local } else { Decision::Ask }
     }
@@ -204,6 +234,15 @@ impl Rules {
             vec![]
         } else {
             remember(command, title, &self.roots(cwd))
+        }
+    }
+
+    /// `remember_session` that also never trusts a push to the protected base branch.
+    pub fn remember_session(&self, command: Option<&str>, title: &str, cwd: &Path) -> Vec<String> {
+        if command.is_some_and(|c| self.pushes_base(c, cwd)) {
+            vec![]
+        } else {
+            remember_session(command, title, &self.roots(cwd))
         }
     }
 
@@ -260,10 +299,16 @@ fn current_branch(cwd: &Path) -> Option<String> {
     head.trim().strip_prefix("ref: refs/heads/").map(String::from)
 }
 
-fn allowed<'a>(rules: impl Iterator<Item = &'a String>, command: Option<&str>, title: &str, roots: &[&Path]) -> bool {
+fn allowed<'a>(
+    rules: impl Iterator<Item = &'a String>,
+    command: Option<&str>,
+    title: &str,
+    roots: &[&Path],
+    dev: bool,
+) -> bool {
     let (tools, prefixes): (Vec<&String>, Vec<&String>) = rules.partition(|r| r.starts_with(TOOL));
     match command {
-        Some(c) => allowlisted(prefixes, c, roots),
+        Some(c) => allowlisted(prefixes, c, roots, dev),
         None => tools.iter().any(|r| r[TOOL.len()..] == *title),
     }
 }
@@ -275,24 +320,267 @@ fn normalize(s: &str) -> String {
 }
 
 /// Commands that only read, trusted without being listed.
-const READ_ONLY: &[&str] =
-    &["cat", "head", "tail", "wc", "grep", "ls", "pwd", "echo", "git status", "git diff", "git log", "git show"];
+const READ_ONLY: &[&str] = &[
+    "cat",
+    "head",
+    "tail",
+    "wc",
+    "grep",
+    "ls",
+    "pwd",
+    "echo",
+    "git status",
+    "git diff",
+    "git log",
+    "git show",
+    "git rev-parse",
+    "git ls-files",
+    "git blame",
+    "git describe",
+    "git shortlog",
+    "git merge-base",
+    "git cat-file",
+    "git branch --show-current",
+    "git remote -v",
+    "git remote get-url",
+    "git stash list",
+    "git config --get",
+];
 
-/// Every command of a chain or pipeline starts with a trusted prefix at a word boundary, or is harmless on its own:
-/// a read-only command, a `cd` within one of `roots` or plain variable assignments. A command substituted by `$(…)`
-/// must be harmless itself. Anything else the shell could substitute or write elsewhere is never allowed (see
-/// `segments`).
-fn allowlisted<'a>(prefixes: impl IntoIterator<Item = &'a String>, command: &str, roots: &[&Path]) -> bool {
+/// Every command of a chain or pipeline (past its wrappers, see `unwrapped`) starts with a trusted prefix at a word
+/// boundary, is a `dev` command (帮我审批's 开发常用命令, see `dev_command`) or is harmless on its own: a read-only
+/// command, a `cd` within one of `roots` or plain variable assignments. A command substituted by `$(…)` must be
+/// harmless itself. Anything else the shell could substitute or write elsewhere is never allowed (see `segments`).
+fn allowlisted<'a>(prefixes: impl IntoIterator<Item = &'a String>, command: &str, roots: &[&Path], dev: bool) -> bool {
     let Some(all) = segments(command) else { return false };
     let prefixes: Vec<String> = prefixes.into_iter().map(|p| normalize(p)).collect();
     all.iter().all(|Segment { nested, words, .. }| {
+        let words = unwrapped(words);
         let line = words.join(" ");
-        (!nested && starts_with_any(&line, prefixes.iter().map(String::as_str))) || harmless(&line, words, roots)
+        (!nested && (starts_with_any(&line, prefixes.iter().map(String::as_str)) || dev && dev_command(words, roots)))
+            || harmless(&line, words, roots)
     })
 }
 
 fn harmless(line: &str, words: &[String], roots: &[&Path]) -> bool {
     read_only(line, words) || cd_within(words, roots) || words.iter().all(|w| assignment(w))
+}
+
+/// A command past the wrappers that only run the rest of it (`rtk`, `timeout 30`, `nice -n 5`, `env`, …) and the
+/// environment variables set for it, so `rtk git status` is judged as `git status`. Stops at anything it does not
+/// know, leaving that to be judged as written: variables that change what runs (`PATH`, `LD_PRELOAD`, …), `env`
+/// options.
+fn unwrapped(words: &[String]) -> &[String] {
+    let mut w = words;
+    loop {
+        let Some(first) = w.first() else { return words };
+        let rest = &w[1..];
+        let at = |i: usize| rest.get(i).map(|a| unquote(a));
+        let skip = match unquote(first) {
+            "rtk" => 1 + usize::from(at(0) == Some("proxy")),
+            "time" => 1 + usize::from(at(0) == Some("-p")),
+            "nohup" => 1,
+            "nice" => match at(0) {
+                Some("-n") => 3,
+                Some(a) if a.starts_with('-') && a[1..].parse::<i32>().is_ok() => 2,
+                _ => 1,
+            },
+            "timeout" => {
+                let mut i = 0;
+                while let Some(a) = at(i).filter(|a| a.starts_with('-')) {
+                    i += if matches!(a, "-s" | "-k" | "--signal" | "--kill-after") { 2 } else { 1 };
+                }
+                let duration = at(i).is_some_and(|d| {
+                    let n = d.trim_end_matches(['s', 'm', 'h', 'd']);
+                    !n.is_empty() && n.parse::<f64>().is_ok()
+                });
+                if !duration {
+                    return w;
+                }
+                i + 2
+            }
+            "env" if at(0).is_some_and(|a| !a.starts_with('-')) => 1,
+            a if env_assignment(a) => 1,
+            _ => return if w.is_empty() { words } else { w },
+        };
+        if skip >= w.len() {
+            return words;
+        }
+        w = &w[skip..];
+    }
+}
+
+/// `NAME=value` for an environment variable that only configures the command (`CI=1`, `LANG=C`), not one that
+/// changes what runs or where programs, libraries and configs come from.
+fn env_assignment(w: &str) -> bool {
+    const RISKY: &[&str] = &[
+        "IFS",
+        "ENV",
+        "BASH_ENV",
+        "PS4",
+        "PROMPT_COMMAND",
+        "SHELLOPTS",
+        "BASHOPTS",
+        "EDITOR",
+        "VISUAL",
+        "PAGER",
+        "GIT_PAGER",
+        "GIT_EDITOR",
+        "GIT_SSH",
+        "GIT_SSH_COMMAND",
+        "GIT_EXTERNAL_DIFF",
+        "GIT_ASKPASS",
+        "SSH_ASKPASS",
+        "GIT_EXEC_PATH",
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "HOME",
+        "SHELL",
+        "PERL5OPT",
+        "RUBYOPT",
+        "PYTHONSTARTUP",
+        "LESSOPEN",
+        "MANPAGER",
+        "BROWSER",
+        "TMPDIR",
+    ];
+    let Some((name, _)) = w.split_once('=') else { return false };
+    !name.is_empty()
+        && name.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+        && !name.starts_with(|c: char| c.is_ascii_digit())
+        && !RISKY.contains(&name)
+        && !["LD_", "DYLD_", "GIT_CONFIG"].iter().any(|p| name.starts_with(p))
+        && !["PATH", "_OPTIONS", "_COMMAND", "OPT", "PRELOAD"].iter().any(|s| name.ends_with(s))
+}
+
+/// Script and target names that ship rather than build or check.
+fn ships(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    ["publish", "deploy", "release", "ship", "push", "upload", "install", "prod"].iter().any(|k| name.contains(k))
+}
+
+/// Tools that build, check, test or format the project.
+const DEV_TOOLS: &[&str] = &[
+    "tsc",
+    "vitest",
+    "jest",
+    "mocha",
+    "eslint",
+    "prettier",
+    "biome",
+    "playwright",
+    "ruff",
+    "mypy",
+    "black",
+    "isort",
+    "pytest",
+    "rustfmt",
+    "gofmt",
+    "turbo",
+    "nx",
+];
+/// Package scripts a package manager runs by name without `run`.
+const DEV_SCRIPTS: &[&str] =
+    &["build", "test", "lint", "typecheck", "check", "format", "fmt", "e2e", "coverage", "compile", "dev"];
+
+/// 开发常用命令 trusted by 帮我审批: building, checking, testing and formatting the project and local git work. They run
+/// the repository's own scripts, so this trusts the repository; anything that ships, installs or rewrites history
+/// stays out.
+fn dev_command(words: &[String], roots: &[&Path]) -> bool {
+    let Some(first) = words.first() else { return false };
+    let args: Vec<&str> = words[1..].iter().map(|a| unquote(a)).collect();
+    // The first word that is not an option, past options taking a value; the index after it.
+    let operand = |from: usize, takes: &[&str]| {
+        let mut i = from;
+        while let Some(a) = args.get(i) {
+            if takes.contains(a) {
+                i += 2;
+            } else if a.starts_with('-') || a.starts_with('+') {
+                i += 1;
+            } else {
+                return Some((*a, i + 1));
+            }
+        }
+        None
+    };
+    let tool = |name: &str, rest: &[&str]| match name {
+        "playwright" => rest.first() == Some(&"test"),
+        _ => DEV_TOOLS.contains(&name),
+    };
+    match base(first) {
+        pm @ ("npm" | "pnpm" | "yarn" | "bun") => {
+            let takes = ["--filter", "-F", "-C", "--dir", "--prefix", "--workspace", "--cwd"];
+            let Some((sub, next)) = operand(0, &takes) else { return false };
+            match sub {
+                "run" | "run-script" | "rr" => operand(next, &[]).is_some_and(|(script, _)| !ships(script)),
+                "test" | "t" | "tst" => true,
+                "exec" => operand(next, &[]).is_some_and(|(t, i)| tool(t, &args[i..])),
+                _ => pm != "npm" && DEV_SCRIPTS.contains(&sub),
+            }
+        }
+        "npx" | "bunx" => operand(0, &["-p", "--package"]).is_some_and(|(t, i)| tool(t, &args[i..])),
+        "cargo" => operand(0, &["--manifest-path", "-C", "--config"]).is_some_and(|(sub, _)| {
+            [
+                "build", "b", "check", "c", "test", "t", "clippy", "fmt", "doc", "bench", "run", "r", "tree",
+                "metadata", "nextest",
+            ]
+            .contains(&sub)
+        }),
+        "go" => operand(0, &[]).is_some_and(|(sub, i)| match sub {
+            "build" | "test" | "vet" | "fmt" | "run" | "list" | "version" | "env" => true,
+            "mod" => args.get(i).is_some_and(|m| matches!(*m, "tidy" | "download" | "why" | "graph" | "verify")),
+            _ => false,
+        }),
+        "make" => {
+            let mut targets = vec![];
+            let mut i = 0;
+            while let Some(a) = args.get(i) {
+                if matches!(*a, "-C" | "-f" | "--directory" | "--file") {
+                    i += 1;
+                } else if !a.starts_with('-') && !a.contains('=') && a.parse::<u32>().is_err() {
+                    targets.push(*a);
+                }
+                i += 1;
+            }
+            targets.iter().all(|t| !ships(t))
+        }
+        name if name.starts_with("python") => {
+            args.first() == Some(&"-m")
+                && args.get(1).is_some_and(|m| ["pytest", "unittest", "mypy", "ruff", "black", "isort"].contains(m))
+        }
+        "mvn" | "mvnw" => {
+            let phases: Vec<&&str> = args.iter().filter(|a| !a.starts_with('-')).collect();
+            !phases.is_empty()
+                && phases.iter().all(|p| ["clean", "validate", "compile", "test", "package", "verify"].contains(p))
+        }
+        "gradle" | "gradlew" => {
+            let tasks: Vec<&&str> = args.iter().filter(|a| !a.starts_with('-')).collect();
+            !tasks.is_empty()
+                && tasks.iter().all(|t| ["build", "test", "check", "assemble", "lint", "clean"].contains(t))
+        }
+        "git" => {
+            let Some((sub, rest)) = git_subcommand(&args) else { return false };
+            let has = |xs: &[&str]| rest.iter().any(|a| xs.contains(a));
+            match sub {
+                "add" | "commit" | "fetch" | "pull" | "switch" => true,
+                "checkout" => !has(&[".", "--", "-f", "--force", "-p", "--patch", "--ours", "--theirs"]),
+                "branch" => !has(&["-D", "-f", "--force", "-M", "-C"]),
+                "stash" => !has(&["drop", "clear"]),
+                _ => false,
+            }
+        }
+        "mkdir" | "touch" => {
+            let paths: Vec<&&str> = args.iter().filter(|a| !a.starts_with('-')).collect();
+            !paths.is_empty()
+                && paths.iter().all(|p| {
+                    let path = Path::new(p);
+                    !p.contains(['~', '$', '*', '?', '[', '{'])
+                        && path.components().all(|c| c != std::path::Component::ParentDir)
+                        && (path.is_relative() || roots.iter().any(|r| path.starts_with(r)))
+                })
+        }
+        name => tool(name, &args),
+    }
 }
 
 /// Shell variables that change where commands, functions or `cd` are looked up (zsh ties `path` to `PATH`).
@@ -320,7 +608,43 @@ fn read_only(line: &str, words: &[String]) -> bool {
         return !words.iter().any(|w| w.starts_with("--output") || (words[0] == "git" && w.contains('$')));
     }
     let Some((name, args)) = program(words) else { return false };
-    if !matches!(name, "rg" | "sed" | "find" | "ps" | "jq" | "diff" | "stat" | "du" | "which") {
+    // `<tool> --version` of a program found on PATH.
+    if let [only] = args
+        && matches!(unquote(only), "--version" | "--help")
+        && plain_word(&words[0])
+        && !words[0].contains('/')
+    {
+        return true;
+    }
+    if !matches!(
+        name,
+        "rg" | "sed"
+            | "find"
+            | "ps"
+            | "jq"
+            | "diff"
+            | "stat"
+            | "du"
+            | "which"
+            | "sort"
+            | "cut"
+            | "tr"
+            | "nl"
+            | "basename"
+            | "dirname"
+            | "realpath"
+            | "readlink"
+            | "file"
+            | "tree"
+            | "date"
+            | "whoami"
+            | "uname"
+            | "true"
+            | "false"
+            | "uniq"
+            // `rtk read` (rtk's cat); the shell builtin only sets variables.
+            | "read"
+    ) {
         return false;
     }
     if args.iter().any(|word| unquote(word).contains('$')) {
@@ -338,6 +662,12 @@ fn read_only(line: &str, words: &[String]) -> bool {
             let w = unquote(w);
             matches!(w, "--pre" | "--pre-glob" | "--hostname-bin")
                 || ["--pre=", "--pre-glob=", "--hostname-bin="].iter().any(|p| w.starts_with(p))
+        }),
+        // `uniq in out` writes its second operand.
+        "uniq" => args.iter().filter(|w| !w.starts_with('-')).count() <= 1,
+        "sort" | "tree" => !args.iter().any(|w| {
+            let w = unquote(w);
+            w.starts_with("--output") || (w.starts_with("-o") || short_has(w, "o") && !w.starts_with("--"))
         }),
         _ => !args.iter().any(|word| unquote(word).starts_with("--output")),
     }
@@ -494,8 +824,9 @@ pub fn remembered(command: &str, roots: &[&Path]) -> Vec<String> {
         if nested {
             continue;
         }
+        let words = unwrapped(&words);
         let line = words.join(" ");
-        if harmless(&line, &words, roots) {
+        if harmless(&line, words, roots) {
             continue;
         }
         let plain: Vec<&str> = words.iter().map(String::as_str).take_while(|w| plain_word(w)).take(3).collect();
@@ -504,6 +835,28 @@ pub fn remembered(command: &str, roots: &[&Path]) -> Vec<String> {
         } else {
             plain.join(" ")
         };
+        if !rules.contains(&rule) {
+            rules.push(rule);
+        }
+    }
+    rules
+}
+
+/// Programs a 本次会话不再问 answer trusts by name for the rest of the session: an interpreter or tool whose arguments
+/// change every time (`node scripts/a.js`). Shells and privilege changes stay exact, a name would trust anything.
+const SESSION_BY_NAME: &[&str] = &[
+    "python", "python3", "node", "deno", "bun", "perl", "ruby", "php", "curl", "wget", "rsync", "chmod", "chown",
+    "kill", "pkill", "killall", "mv", "rm",
+];
+
+/// What a 本次会话不再问 answer trusts until the session ends: like `remember`, but by program name for
+/// `SESSION_BY_NAME`.
+pub fn remember_session(command: Option<&str>, title: &str, roots: &[&Path]) -> Vec<String> {
+    let Some(c) = command else { return remember(None, title, roots) };
+    let mut rules: Vec<String> = Vec::new();
+    for rule in remember(Some(c), title, roots) {
+        let name = rule.split(' ').next().unwrap_or_default();
+        let rule = if SESSION_BY_NAME.contains(&base(name)) { name.to_string() } else { rule };
         if !rules.contains(&rule) {
             rules.push(rule);
         }
@@ -532,6 +885,7 @@ const WRAPPERS: &[&str] = &["env", "command", "exec", "nohup", "time", "nice", "
 
 /// The program a command runs (file name) and its arguments, past variable assignments and wrappers.
 fn program(words: &[String]) -> Option<(&str, &[String])> {
+    let words = unwrapped(words);
     let i = words.iter().position(|w| {
         let name = w.split_once('=').map_or(w.as_str(), |(n, _)| n);
         let assignment = w.contains('=') && plain_word(name) && !name.contains(['.', ':', '@', '+', '-']);
@@ -1219,7 +1573,7 @@ mod tests {
             ("/bin/rm x", &["/bin/rm x"]),
             ("make", &["make"]),
             ("make build", &["make build"]),
-            ("FOO=1 make", &["FOO=1 make"]),
+            ("FOO=1 make", &["make"]),
             ("cd /w && pnpm lint 2>&1 | tail -3", &["pnpm lint"]),
             ("f=$(grep -rl x src | head -3); npm test $f", &["npm test"]),
             ("pnpm lint && pnpm lint --fix", &["pnpm lint"]),
@@ -1349,5 +1703,177 @@ mod tests {
         };
         save_catalog(home.path(), AgentKind::Claude, c.clone()).unwrap();
         assert_eq!(load_catalogs(home.path()).get(&AgentKind::Claude), Some(&c));
+    }
+
+    fn review(approval: Approval) -> Rules {
+        Rules { ai_review: true, ..bot(approval, &[]) }
+    }
+
+    #[test]
+    fn wrappers_are_dropped_before_judging_a_command() {
+        let cwd = Path::new("/w");
+        let ask = bot(Approval::Ask, &[]);
+        for c in [
+            "rtk git status",
+            "rtk proxy git log -3",
+            "rtk read package.json; rtk ls",
+            "timeout 30 rg TODO",
+            "timeout -s KILL 5s cat a",
+            "time ls",
+            "nice -n 10 wc -l a",
+            "nohup cat a",
+            "env LANG=C grep x a",
+            "LC_ALL=C sort a",
+            "cd /w/sub && rtk git diff",
+        ] {
+            assert_eq!(ask.decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Local, "{c}");
+        }
+        // Variables that change what runs or where programs come from are not dropped.
+        for c in ["PATH=/tmp git status", "GIT_EXTERNAL_DIFF=x git diff", "LD_PRELOAD=x.so cat a", "env -i cat a"] {
+            assert_eq!(ask.decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Ask, "{c}");
+        }
+        assert_eq!(remembered("rtk pnpm lint", &[cwd]), ["pnpm lint"]);
+        assert_eq!(remembered("timeout 60 CI=1 pnpm test", &[cwd]), ["pnpm test"]);
+        // The floor sees through them too.
+        for c in ["rtk git push --force", "timeout 5 sudo ls", "nice rm -rf /", "rtk proxy git reset --hard"] {
+            assert!(floor_hit(c), "{c}");
+        }
+    }
+
+    #[test]
+    fn more_read_only_commands_are_allowed() {
+        let cwd = Path::new("/w");
+        let ask = bot(Approval::Ask, &[]);
+        for c in [
+            "git rev-parse HEAD",
+            "git ls-files src",
+            "git blame a.rs",
+            "git branch --show-current",
+            "git remote -v",
+            "git stash list",
+            "sort a | uniq -c",
+            "cut -d, -f1 a",
+            "basename /w/a.rs",
+            "realpath a",
+            "date",
+            "uname -a",
+            "node --version",
+            "file a.png",
+            "tree src",
+        ] {
+            assert_eq!(ask.decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Local, "{c}");
+        }
+        for c in ["sort -o out a", "tree -o out src", "./x --version", "uniq a b"] {
+            assert_eq!(ask.decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Ask, "{c}");
+        }
+    }
+
+    #[test]
+    fn the_dev_pack_is_trusted_only_with_ai_review() {
+        let cwd = Path::new("/w");
+        let dev = [
+            "pnpm test",
+            "pnpm --filter @x/server test -- a.test.ts",
+            "pnpm -r typecheck",
+            "pnpm lint",
+            "pnpm run build",
+            "npm run lint -- --fix",
+            "npm test",
+            "yarn build",
+            "npx tsc --noEmit",
+            "npx vitest run a.test.ts",
+            "pnpm exec biome check .",
+            "./node_modules/.bin/eslint src",
+            "cargo test --workspace",
+            "cargo +nightly fmt",
+            "cargo clippy -- -D warnings",
+            "go test ./...",
+            "go vet ./...",
+            "make",
+            "make -j4 test",
+            "python -m pytest -q",
+            "pytest tests",
+            "ruff check .",
+            "mvn -q test",
+            "./gradlew build",
+            "git add -A",
+            "git commit -m 'fix: x'",
+            "git checkout -b feat/x",
+            "git checkout main",
+            "git switch -c x",
+            "git branch -d old",
+            "git stash",
+            "git stash pop",
+            "git fetch origin",
+            "git pull --rebase",
+            "mkdir -p src/a",
+            "touch src/a.ts",
+            "cd /w && pnpm test 2>&1 | tail -20",
+        ];
+        for c in dev {
+            assert_eq!(review(Approval::Ask).decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Local, "{c}");
+            assert_eq!(bot(Approval::Ask, &[]).decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Ask, "{c}");
+        }
+        let not_dev = [
+            "pnpm publish",
+            "pnpm run release",
+            "npm run deploy:prod",
+            "pnpm install",
+            "npm i left-pad",
+            "pnpm dlx some-tool",
+            "npx some-random-tool",
+            "cargo publish",
+            "cargo install ripgrep",
+            "go install x@latest",
+            "make deploy",
+            "make install",
+            "mvn deploy",
+            "git checkout .",
+            "git checkout -- a.ts",
+            "git checkout -f main",
+            "git branch -D old",
+            "git stash drop",
+            "git stash clear",
+            "git push origin x",
+            "git rebase main",
+            "mkdir /tmp/x",
+            "touch ../a",
+            "node scripts/a.js",
+            "python a.py",
+            "curl https://x.y",
+        ];
+        for c in not_dev {
+            assert_eq!(review(Approval::Ask).decide(Tier::Workspace, Some(c), "t", cwd, &[]), Decision::Ask, "{c}");
+        }
+    }
+
+    #[test]
+    fn session_rules_trust_the_same_program_for_interpreters() {
+        let cwd = Path::new("/w");
+        assert_eq!(remember_session(Some("node scripts/a.js --x"), "t", &[cwd]), ["node"]);
+        assert_eq!(
+            remember_session(Some("python3 a.py && pnpm build:docs"), "t", &[cwd]),
+            ["python3", "pnpm build:docs"]
+        );
+        assert_eq!(remember_session(Some("curl -s https://x.y | jq ."), "t", &[cwd]), ["curl"]);
+        assert_eq!(remember_session(Some("mv a b"), "t", &[cwd]), ["mv"]);
+        assert_eq!(remember_session(Some("npm run build -- --x"), "t", &[cwd]), ["npm run build"]);
+        assert_eq!(remember_session(None, "Fetch", &[cwd]), ["tool:Fetch"]);
+        assert!(remember_session(Some("sudo ls"), "t", &[cwd]).is_empty());
+        assert!(remember_session(Some("rm -rf /"), "t", &[cwd]).is_empty());
+        // Never trusts a whole shell or privilege escalation by name.
+        assert_eq!(remember_session(Some("bash -c 'ls'"), "t", &[cwd]), ["bash -c 'ls'"]);
+    }
+
+    #[test]
+    fn lists_the_paths_outside_the_workspace() {
+        let cwd = Path::new("/w");
+        let extra = PathBuf::from("/data");
+        let rules = Rules { extra_dirs: vec![extra], ..bot(Approval::Ask, &[]) };
+        assert_eq!(
+            rules.outside_paths("cp /w/a /etc/hosts && cat ../x /data/y ~/.ssh/id_rsa 2>/dev/null", cwd),
+            ["/etc/hosts", "../x", "~/.ssh/id_rsa"]
+        );
+        assert!(rules.outside_paths("pnpm test src/a.ts", cwd).is_empty());
     }
 }
