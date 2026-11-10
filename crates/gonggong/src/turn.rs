@@ -105,6 +105,11 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
         // of the owner. `workspace-write` keeps approvals with the owner and limits edits to the workspace.
         (AgentKind::Codex, Tier::Workspace) => "workspace-write",
         (AgentKind::Codex, Tier::ReadOnly) => "read-only",
+        (AgentKind::Gemini, Tier::Full) => "yolo",
+        // Edits are approved by Gemini itself only within its workspace dirs; the rest still asks the owner.
+        (AgentKind::Gemini, Tier::Workspace) => "autoEdit",
+        // Not `plan`: it changes how the agent works (it plans instead of answering); our rules refuse the writes.
+        (AgentKind::Gemini, Tier::ReadOnly) => "default",
     }
 }
 
@@ -704,6 +709,9 @@ mod tests {
         assert_eq!(mode_for(AgentKind::Codex, Tier::ReadOnly), "read-only");
         // codex-acp's `agent` mode sends approvals to Codex's own reviewer model instead of the owner.
         assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), "workspace-write");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Full), "yolo");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Workspace), "autoEdit");
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::ReadOnly), "default");
     }
 
     #[test]

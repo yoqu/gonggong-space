@@ -26,6 +26,7 @@ const TOOL_NAME: Record<ToolKind, string> = {
   node: 'Node.js',
   claude: AGENTS.claude.name,
   codex: AGENTS.codex.name,
+  gemini: AGENTS.gemini.name,
 }
 
 /** The install / upgrade in progress or last run; one at a time per machine. */
@@ -297,7 +298,7 @@ function NodeCard({
         active={!!s?.installed && !tooOld}
         title="Node.js"
         badge={badge}
-        sub={t('运行 ACP 适配器，托管安装 Claude Code / Codex 也用它（需 ≥ {min}）', { min: MIN_NODE })}
+        sub={t('运行 ACP 适配器与 Gemini CLI，托管安装 Agent 工具也用它（需 ≥ {min}）', { min: MIN_NODE })}
       >
         {actions}
       </Head>
@@ -396,7 +397,13 @@ function Agent({
           <GroupRow
             label={t('ACP 适配器')}
             wideValue
-            value={adapter ? t('{version} · 随 daemon', { version: adapter.version }) : t('随 daemon')}
+            value={
+              a.kind === 'gemini'
+                ? t('Gemini CLI 自带')
+                : adapter
+                  ? t('{version} · 随 daemon', { version: adapter.version })
+                  : t('随 daemon')
+            }
           />
           <GroupRow
             label={t('可用模型')}

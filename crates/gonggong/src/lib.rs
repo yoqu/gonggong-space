@@ -16,6 +16,7 @@ pub mod diag;
 pub mod engine;
 pub mod explorer;
 pub mod files;
+pub mod gemini;
 pub mod git;
 pub mod git_access;
 mod git_console;

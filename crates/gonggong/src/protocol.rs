@@ -22,6 +22,16 @@ pub struct I18nText {
 pub enum AgentKind {
     Claude,
     Codex,
+    Gemini,
+}
+
+impl AgentKind {
+    pub const ALL: [AgentKind; 3] = [AgentKind::Claude, AgentKind::Codex, AgentKind::Gemini];
+
+    /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins).
+    pub fn links_skills(self) -> bool {
+        matches!(self, AgentKind::Codex | AgentKind::Gemini)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1861,6 +1871,8 @@ pub const FEATURE_CONTAINER: &str = "container";
 pub const FEATURE_NO_AUTO_UPGRADE: &str = "noAutoUpgrade";
 /// upgrade.start: a Linux CLI daemon that upgrades itself, started from the web.
 pub const FEATURE_UPGRADE: &str = "upgrade";
+/// Runs Gemini CLI bots: a daemon without it cannot read a run.start for one.
+pub const FEATURE_GEMINI: &str = "gemini";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.

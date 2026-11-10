@@ -9,6 +9,7 @@ mod cast;
 mod contract;
 mod daemon;
 mod engine;
+mod gemini;
 mod git_identity;
 mod git_ops;
 mod git_ops3;

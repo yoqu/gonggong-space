@@ -57,7 +57,7 @@ pub enum ProviderCmd {
     },
     /// Delete a provider; sessions using it start a new session on their next turn.
     Rm { id: String },
-    /// Machine default: `use <claude|codex> <id|official>`; bot override: `use --bot <bot> <id|official|inherit>`.
+    /// Machine default: `use <claude|codex|gemini> <id|official>`; bot override: `use --bot <bot> <id|official|inherit>`.
     Use {
         /// Bot id or name.
         #[arg(long)]
@@ -135,7 +135,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
         }
         ProviderCmd::Use { bot: None, args } => {
             let [agent, choice] = args.as_slice() else {
-                bail!(t!("用法：gg provider use <claude|codex> <id|official>"))
+                bail!(t!("用法：gg provider use <claude|codex|gemini> <id|official>"))
             };
             let agent = parse_kind(agent).map_err(anyhow::Error::msg)?;
             let name = Store::update(home, |s| {
@@ -284,7 +284,7 @@ fn group_label(group: PresetGroup) -> &'static str {
 }
 
 fn print_presets(agent: Option<AgentKind>) {
-    for agent in agent.map_or(vec![AgentKind::Claude, AgentKind::Codex], |a| vec![a]) {
+    for agent in agent.map_or(AgentKind::ALL.to_vec(), |a| vec![a]) {
         println!("{}", agent_label(agent));
         for p in providers::presets(Some(agent)) {
             let model = p.model.as_deref().unwrap_or("-");
@@ -295,7 +295,7 @@ fn print_presets(agent: Option<AgentKind>) {
 }
 
 fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
-    for agent in agent.map_or(vec![AgentKind::Claude, AgentKind::Codex], |a| vec![a]) {
+    for agent in agent.map_or(AgentKind::ALL.to_vec(), |a| vec![a]) {
         let default = store.machine_default(agent)?;
         println!("{}", t!("{agent} · 本机默认：{name}", agent = agent_label(agent), name = default.name()));
         for p in store.providers.iter().filter(|p| p.agent == agent).map(Provider::view) {

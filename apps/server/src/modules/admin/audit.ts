@@ -46,7 +46,12 @@ const SECRET: Record<string, MessageKey> = {
   'secret.request': '请求填写',
 }
 const ROLE: Record<string, MessageKey> = { sysadmin: '系统管理员', member: '普通成员' }
-const TOOL: Record<string, string> = { node: 'Node.js', claude: 'Claude Code', codex: 'Codex' }
+const TOOL: Record<string, string> = {
+  node: 'Node.js',
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+}
 const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存机器的供应商',
   'machine.providers.remove': '删除机器的供应商',

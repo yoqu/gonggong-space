@@ -47,7 +47,7 @@ export function MirrorRows({
   }
   return (
     <>
-      <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js、Claude Code 与 Codex 时从这里下载')}>
+      <GroupRow label={t('镜像源')} description={t('安装、升级 Node.js 与 Agent 工具时从这里下载')}>
         <span className="mx-inline">
           {status}
           <PopUpButton

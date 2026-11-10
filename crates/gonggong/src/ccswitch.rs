@@ -3,7 +3,9 @@
 //! directly are taken; CC Switch itself is never written to.
 use crate::agent_settings::{self, AUTO_COMPACT, Layer};
 use crate::protocol::AgentKind;
-use crate::providers::{API_KEY, AUTH_TOKEN, ModelMap, Provider, Source, SourceKind, Store, WIRE_RESPONSES, mask_key};
+use crate::providers::{
+    API_KEY, AUTH_TOKEN, GOOGLE_GEMINI_URL, ModelMap, Provider, Source, SourceKind, Store, WIRE_RESPONSES, mask_key,
+};
 use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -66,11 +68,13 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
         let agent = match row.app.as_str() {
             "claude" => AgentKind::Claude,
             "codex" => AgentKind::Codex,
+            "gemini" => AgentKind::Gemini,
             _ => continue,
         };
         let current_key = match agent {
             AgentKind::Claude => "currentProviderClaude",
             AgentKind::Codex => "currentProviderCodex",
+            AgentKind::Gemini => "currentProviderGemini",
         };
         let current = match settings[current_key].as_str() {
             Some(id) => id == row.id,
@@ -100,7 +104,7 @@ fn read_db(path: &Path) -> Result<Vec<Row>> {
         |name: &str, fallback: &str| if columns.contains(name) { name.to_string() } else { fallback.to_string() };
     let sql = format!(
         "SELECT id, app_type, name, settings_config, {}, {}, {} FROM providers \
-         WHERE app_type IN ('claude', 'codex') ORDER BY rowid",
+         WHERE app_type IN ('claude', 'codex', 'gemini') ORDER BY rowid",
         column("category", "NULL"),
         column("meta", "'{}'"),
         column("is_current", "0"),
@@ -130,7 +134,7 @@ fn read_json(path: &Path) -> Result<Option<Vec<Row>>> {
         Err(e) => return Err(e.into()),
     };
     let doc: Value = serde_json::from_str(&text).with_context(|| t!("{path} 已损坏", path = path.display()))?;
-    let apps: Vec<_> = ["claude", "codex"].into_iter().filter(|a| doc[a]["providers"].is_object()).collect();
+    let apps: Vec<_> = ["claude", "codex", "gemini"].into_iter().filter(|a| doc[a]["providers"].is_object()).collect();
     if apps.is_empty() {
         return Ok(None);
     }
@@ -161,6 +165,7 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
     let direct = match agent {
         AgentKind::Claude => "anthropic",
         AgentKind::Codex => "openai_responses",
+        AgentKind::Gemini => "gemini_native",
     };
     if row.meta["apiFormat"].as_str().is_some_and(|f| f != direct) {
         return Ok(None);
@@ -176,7 +181,21 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
             let parts = codex_parts(row.settings.get("auth"), config)?;
             Ok(parts.into_provider(&row.name, None, None, None))
         }
+        AgentKind::Gemini => {
+            let empty = Map::new();
+            Ok(gemini(&row.name, row.settings["env"].as_object().unwrap_or(&empty)))
+        }
     }
+}
+
+/// From Gemini CLI `.env`-style variables; no base URL means Google's own endpoint.
+fn gemini(name: &str, env: &Map<String, Value>) -> Option<Provider> {
+    let get = |k: &str| text(env.get(k));
+    let base_url = get("GOOGLE_GEMINI_BASE_URL").or_else(|| get("GEMINI_BASE_URL")).unwrap_or(GOOGLE_GEMINI_URL.into());
+    Some(Provider {
+        model: get("GEMINI_MODEL"),
+        ..Provider::custom(AgentKind::Gemini, name.into(), base_url, get("GEMINI_API_KEY")?)
+    })
 }
 
 fn text(v: Option<&Value>) -> Option<String> {
@@ -304,7 +323,7 @@ pub fn apply(candidates: &[Candidate], keys: &[String], set_default: bool, store
     Ok(ids)
 }
 
-/// `ccswitch://v1/import?resource=provider&app=claude|codex&name=…&endpoint=a,b&apiKey=…&model=…` plus optional
+/// `ccswitch://v1/import?resource=provider&app=claude|codex|gemini&name=…&endpoint=a,b&apiKey=…&model=…` plus optional
 /// `haikuModel`/`sonnetModel`/`opusModel` and a base64 `config` (`configFormat` json|toml) whose values the explicit
 /// parameters override. Returns a provider without an id, for [`Store::upsert`].
 pub fn parse_link(link: &str) -> Result<Provider> {
@@ -320,7 +339,10 @@ pub fn parse_link(link: &str) -> Result<Provider> {
     let agent = match param("app").as_deref() {
         Some("claude") => AgentKind::Claude,
         Some("codex") => AgentKind::Codex,
-        other => bail!(t!("只支持 claude 与 codex 的供应商，链接里是 {app}", app = other.unwrap_or(t!("（空）")))),
+        Some("gemini") => AgentKind::Gemini,
+        other => {
+            bail!(t!("只支持 claude、codex 与 gemini 的供应商，链接里是 {app}", app = other.unwrap_or(t!("（空）"))))
+        }
     };
     let name = param("name").context(t!("链接缺少 name"))?;
     let endpoints: Vec<&str> = q.get("endpoint").map_or(vec![], |e| e.split(',').map(str::trim).collect());
@@ -362,6 +384,21 @@ pub fn parse_link(link: &str) -> Result<Provider> {
             };
             parts.into_provider(&name, param("apiKey"), endpoint, param("model"))
         }
+        AgentKind::Gemini => {
+            // The attached config is either the flat variables or Gemini settings with an `env` object.
+            let mut env =
+                config.as_ref().and_then(|c| c["env"].as_object().or(c.as_object())).cloned().unwrap_or_default();
+            for (k, v) in [
+                ("GEMINI_API_KEY", param("apiKey")),
+                ("GOOGLE_GEMINI_BASE_URL", endpoint),
+                ("GEMINI_MODEL", param("model")),
+            ] {
+                if let Some(v) = v {
+                    env.insert(k.into(), Value::String(v));
+                }
+            }
+            gemini(&name, &env)
+        }
     };
     let mut provider = provider.context(t!("链接缺少 API Key 或 endpoint，或不是直连格式"))?;
     provider.source = Some(Source { kind: SourceKind::Link, id: None });
@@ -396,6 +433,7 @@ mod tests {
 
     const CLAUDE_KEY: &str = "sk-claude-secret-111122223333";
     const CODEX_KEY: &str = "sk-codex-secret-444455556666";
+    const GEMINI_KEY: &str = "AIza-gemini-secret-777788889999";
 
     /// `providers` as created by CC Switch 36d9504 (`src-tauri/src/database/schema.rs`).
     const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS providers (
@@ -463,6 +501,24 @@ mod tests {
             ("glm", "codex", "Zhipu GLM", glm_settings(), Some("cn_official"), json!({}), true),
             ("relay", "codex", "Relay", bearer, None, json!({}), false),
             ("gem", "gemini", "Gemini", json!({"env": {}}), None, json!({}), true),
+            (
+                "openrouter",
+                "gemini",
+                "OpenRouter",
+                json!({"env": {"GOOGLE_GEMINI_BASE_URL": "https://openrouter.ai/api", "GEMINI_API_KEY": GEMINI_KEY, "GEMINI_MODEL": "gemini-3.6-flash"}}),
+                Some("aggregator"),
+                json!({}),
+                false,
+            ),
+            (
+                "proxied",
+                "gemini",
+                "Proxied",
+                json!({"env": {"GOOGLE_GEMINI_BASE_URL": "https://x.test", "GEMINI_API_KEY": "k"}}),
+                None,
+                json!({"apiFormat": "openai_chat"}),
+                false,
+            ),
         ];
         for (id, app, name, settings, category, meta, current) in rows {
             conn.execute(
@@ -479,12 +535,19 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_database_keeping_only_direct_claude_and_codex_providers() {
+    fn reads_the_database_keeping_only_direct_providers() {
         let dir = tempfile::tempdir().unwrap();
         db(dir.path(), "kimi-k2.7-code");
-        std::fs::write(dir.path().join("settings.json"), r#"{"currentProviderCodex":"relay"}"#).unwrap();
+        let settings = r#"{"currentProviderCodex":"relay","currentProviderGemini":"openrouter"}"#;
+        std::fs::write(dir.path().join("settings.json"), settings).unwrap();
         let c = read(dir.path()).unwrap();
-        assert_eq!(keys(&c), ["claude:kimi", "claude:aihub", "codex:glm", "codex:relay"]);
+        assert_eq!(keys(&c), ["claude:kimi", "claude:aihub", "codex:glm", "codex:relay", "gemini:openrouter"]);
+        let gemini = &c[4].provider;
+        assert!(c[4].current);
+        assert_eq!(
+            (gemini.agent, gemini.base_url.as_str(), gemini.api_key.as_str(), gemini.model.as_deref()),
+            (AgentKind::Gemini, "https://openrouter.ai/api", GEMINI_KEY, Some("gemini-3.6-flash"))
+        );
 
         let kimi = &c[0].provider;
         assert!(c[0].current, "no settings.json entry for claude: is_current decides");
@@ -562,13 +625,14 @@ mod tests {
         let view = preview(&c, &store);
         let json = serde_json::to_string(&view).unwrap();
         assert!(!json.contains(CLAUDE_KEY) && !json.contains(CODEX_KEY) && !json.contains("bearer-7777"));
+        assert!(!json.contains(GEMINI_KEY));
         assert_eq!(view[2].existing.as_deref(), Some(manual.as_str()), "same base URL + key as a local provider");
         assert_eq!(view[0].existing, None);
 
         let all: Vec<_> = c.iter().map(|c| c.key.clone()).collect();
         let ids = apply(&c, &all, true, &mut store).unwrap();
         assert_eq!(ids[2], manual);
-        assert_eq!(store.providers.len(), 4);
+        assert_eq!(store.providers.len(), 5);
         assert_eq!(store.get(&manual).unwrap().revision, 2);
         assert_eq!(store.machine_default(AgentKind::Claude).unwrap().key(), ids[0], "CC Switch current → default");
         assert_eq!(store.machine_default(AgentKind::Codex).unwrap().key(), ids[2]);
@@ -582,7 +646,7 @@ mod tests {
         apply(&c, &["claude:kimi".into()], false, &mut store).unwrap();
         let kimi = store.get(&ids[0]).unwrap();
         assert_eq!((kimi.revision, kimi.model.as_deref()), (2, Some("kimi-k3")));
-        assert_eq!(store.providers.len(), 4);
+        assert_eq!(store.providers.len(), 5);
         assert!(apply(&c, &["claude:nope".into()], false, &mut store).is_err());
         assert!(matches!(store.effective(AgentKind::Claude, "b").unwrap(), Selection::Provider(_)));
     }
@@ -652,12 +716,32 @@ mod tests {
         for bad in [
             "https://v1/import?resource=provider&app=codex&name=X",
             "ccswitch://v1/import?resource=mcp&app=codex&name=X",
-            "ccswitch://v1/import?resource=provider&app=gemini&name=X&endpoint=https://x.test&apiKey=k",
+            "ccswitch://v1/import?resource=provider&app=opencode&name=X&endpoint=https://x.test&apiKey=k",
+            "ccswitch://v1/import?resource=provider&app=gemini&name=X&endpoint=https://x.test",
             "ccswitch://v1/import?resource=provider&app=codex&name=X&endpoint=https://x.test",
             "ccswitch://v1/import?resource=provider&app=codex&name=X&endpoint=ftp://x.test&apiKey=k",
             "ccswitch://v1/import?resource=provider&app=claude&endpoint=https://x.test&apiKey=k",
         ] {
             assert!(parse_link(bad).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn parses_gemini_links_with_or_without_a_gateway() {
+        let link = format!(
+            "ccswitch://v1/import?resource=provider&app=gemini&name=OR&endpoint=https://openrouter.ai/api&apiKey={GEMINI_KEY}&model=gemini-3.6-flash"
+        );
+        let p = parse_link(&link).unwrap();
+        assert_eq!(
+            (p.agent, p.base_url.as_str(), p.api_key.as_str(), p.model.as_deref()),
+            (AgentKind::Gemini, "https://openrouter.ai/api", GEMINI_KEY, Some("gemini-3.6-flash"))
+        );
+        assert_eq!((p.api_key_field, p.wire_api), (None, None));
+
+        let config =
+            base64::engine::general_purpose::STANDARD.encode(json!({ "GEMINI_API_KEY": GEMINI_KEY }).to_string());
+        let p =
+            parse_link(&format!("ccswitch://v1/import?resource=provider&app=gemini&name=G&config={config}")).unwrap();
+        assert_eq!((p.base_url.as_str(), p.api_key.as_str()), (GOOGLE_GEMINI_URL, GEMINI_KEY), "Google's own endpoint");
     }
 }

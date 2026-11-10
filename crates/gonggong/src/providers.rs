@@ -20,6 +20,8 @@ pub const OFFICIAL_NAME: &str = "官方登录";
 pub const AUTH_TOKEN: &str = "ANTHROPIC_AUTH_TOKEN";
 pub const API_KEY: &str = "ANTHROPIC_API_KEY";
 pub const WIRE_RESPONSES: &str = "responses";
+/// Google's own Gemini endpoint: there Gemini CLI uses its plain API-key login instead of a gateway.
+pub const GOOGLE_GEMINI_URL: &str = "https://generativelanguage.googleapis.com";
 /// Session pins kept per (group, bot) however old: only its current session is resumed.
 const PINS_KEPT: usize = 5;
 /// Younger pins are kept anyway.
@@ -841,6 +843,7 @@ fn agent_name(agent: AgentKind) -> &'static str {
     match agent {
         AgentKind::Claude => "claude",
         AgentKind::Codex => "codex",
+        AgentKind::Gemini => "gemini",
     }
 }
 
@@ -860,7 +863,7 @@ fn slug(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use AgentKind::{Claude, Codex};
+    use AgentKind::{Claude, Codex, Gemini};
 
     const KEY: &str = "sk-secret-0123456789abcd";
 
@@ -906,7 +909,11 @@ mod tests {
         assert!(!claude.is_empty() && !codex.is_empty());
         assert!(claude.iter().all(|p| p.agent == Claude && p.api_key_field.is_some()));
         assert!(codex.iter().all(|p| p.agent == Codex && p.wire_api.as_deref() == Some(WIRE_RESPONSES)));
-        assert_eq!(presets(None).count(), claude.len() + codex.len());
+        let gemini: Vec<_> = presets(Some(Gemini)).collect();
+        assert!(gemini.iter().all(|p| p.agent == Gemini && p.api_key_field.is_none() && p.wire_api.is_none()));
+        assert_eq!(preset(Gemini, "google").unwrap().base_url, GOOGLE_GEMINI_URL);
+        assert!(preset(Gemini, "openrouter").unwrap().model_options.iter().all(|m| m.contains("gemini")));
+        assert_eq!(presets(None).count(), claude.len() + codex.len() + gemini.len());
         let zhipu = preset(Codex, "zhipu").unwrap();
         assert_eq!(zhipu.name, "智谱 GLM");
         assert!(zhipu.model_options.contains(&"glm-5.3".to_string()));

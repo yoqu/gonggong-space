@@ -12,9 +12,13 @@ import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
-export const AGENTS: AgentKind[] = ['claude', 'codex']
-export const AGENT_LABEL: Record<AgentKind, string> = { claude: 'Claude Code', codex: 'Codex' }
-const AGENT_CLI: Record<AgentKind, string> = { claude: 'claude-code', codex: 'codex' }
+export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini']
+export const AGENT_LABEL: Record<AgentKind, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+}
+const AGENT_CLI: Record<AgentKind, string> = { claude: 'claude-code', codex: 'codex', gemini: 'gemini-cli' }
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
   bound: t('已绑定'),
@@ -60,6 +64,10 @@ export const agentOutdated = (b: BotDto) =>
 
 export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
   m.agents.find((a) => a.kind === kind && a.available)
+
+/** The agents a machine's client can run: one from before Gemini CLI never offers it. */
+export const machineAgents = (m: MachineDto | null | undefined) =>
+  AGENTS.filter((k) => k !== 'gemini' || !m || m.features.includes('gemini'))
 
 const saveBot = (bot: BotDto) => {
   useWorkspace.getState().applyEvent({ t: 'bot.updated', bot })

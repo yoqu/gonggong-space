@@ -55,6 +55,12 @@ const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
 export const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
+/** A daemon from before Gemini CLI cannot read a run.start for one: the run waits for the client's upgrade. */
+const OUTDATED = {
+  status: 'offline_wait',
+  ...runStep('执行机器的共工客户端版本过低，升级后才能运行 Gemini CLI Bot'),
+  startedAt: null,
+}
 const WORKSPACE_WAIT = runStep('工作区准备中')
 
 /**
@@ -127,6 +133,10 @@ export async function schedule(ctx: Ctx, botId: string) {
       if (machineId && unready.has(run.groupId)) {
         if (run.status !== 'queued' || run.step !== WORKSPACE_WAIT.step)
           await setRun(run.id, { status: 'queued', ...WORKSPACE_WAIT })
+        continue
+      }
+      if (machineId && bot.agentKind === 'gemini' && !ctx.hub.features(machineId).includes('gemini')) {
+        if (run.status !== OUTDATED.status || run.step !== OUTDATED.step) await setRun(run.id, OUTDATED)
         continue
       }
       if (machineId && busy < bot.concurrency) {

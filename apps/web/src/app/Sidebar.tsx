@@ -465,7 +465,12 @@ function SetupGuide({
       done: bound,
       onClick: onBindMachine,
     },
-    { label: t('新建 Bot'), hint: t('选择机器上的 Claude Code 或 Codex'), done: hasBot, onClick: onNewBot },
+    {
+      label: t('新建 Bot'),
+      hint: t('选择机器上的 Claude Code、Codex 或 Gemini CLI'),
+      done: hasBot,
+      onClick: onNewBot,
+    },
     { label: t('建群并 @ Bot'), hint: t('拉上同事、绑定仓库，分配任务'), done: inGroup, onClick: onNewGroup },
   ]
   return (

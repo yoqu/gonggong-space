@@ -75,7 +75,25 @@ const WHITELIST = {
     AiHubMix: ['aihubmix', 'AiHubMix', 'aggregator'],
     'xAI (Grok)': ['xai', 'xAI Grok', 'global'],
   },
+  gemini: {
+    OpenRouter: ['openrouter', 'OpenRouter', 'aggregator'],
+  },
 }
+
+// Not from CC Switch (its Google entry is the official login): an AI Studio key on Google's own endpoint, where
+// Gemini CLI uses its plain API-key login. Models from Gemini CLI 0.67's own list (checked 2026-11-09).
+const MANUAL = [
+  {
+    id: 'google',
+    agent: 'gemini',
+    name: 'Google AI Studio',
+    group: 'global',
+    websiteUrl: 'https://ai.google.dev/',
+    apiKeyUrl: 'https://aistudio.google.com/apikey',
+    baseUrl: 'https://generativelanguage.googleapis.com',
+    modelOptions: ['gemini-2.5-pro', 'gemini-3-pro-preview', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'],
+  },
+]
 
 // Models CC Switch does not list, from the vendors' own docs (checked 2026-10-09), keyed by our preset id.
 const VOLC_PLAN = [
@@ -223,6 +241,7 @@ async function loadPresets(ccSwitch) {
 const PRESET_FILES = {
   providerPresets: 'claudeProviderPresets',
   codexProviderPresets: 'codexProviderPresets',
+  geminiProviderPresets: 'geminiProviderPresets',
   opencodeProviderPresets: 'opencodeProviderPresets',
   mcodeProviderPresets: 'mcodeProviderPresets',
   hermesProviderPresets: 'hermesProviderPresets',
@@ -313,23 +332,45 @@ function codexPreset(p, [id, name, group], known) {
   }
 }
 
+function geminiPreset(p, [id, name, group], known) {
+  const env = p.settingsConfig?.env ?? {}
+  const baseUrl = env.GOOGLE_GEMINI_BASE_URL
+  if (!baseUrl) return null
+  return {
+    id,
+    agent: 'gemini',
+    name,
+    group,
+    websiteUrl: cleanUrl(p.websiteUrl),
+    apiKeyUrl: cleanUrl(p.apiKeyUrl),
+    baseUrl,
+    model: env.GEMINI_MODEL,
+    // Other apps' lists for the vendor name its non-Gemini models too, which Gemini CLI cannot speak to.
+    modelOptions: unique([env.GEMINI_MODEL, ...known.filter((m) => m.includes('gemini'))]),
+  }
+}
+
 const excluded = (p) =>
   p.category === 'official' || p.isOfficial || p.requiresOAuth || p.providerType || p.templateValues
 
 async function main() {
   const ccSwitch = process.argv[2]
   if (!ccSwitch) throw new Error('usage: node scripts/sync-provider-presets.mjs <path-to-cc-switch>')
-  const commit = execFileSync('git', ['-C', ccSwitch, 'rev-parse', '--short', 'HEAD'], {
+  const commit = execFileSync('git', ['-C', ccSwitch, 'rev-parse', '--short=7', 'HEAD'], {
     encoding: 'utf8',
   }).trim()
   const all = await loadPresets(resolve(ccSwitch))
-  const { providerPresets, codexProviderPresets } = all
+  const { providerPresets, codexProviderPresets, geminiProviderPresets } = all
   // A vendor's preset has the same name in every app; Codex's catalog first, it is the most carefully kept.
   const known = (ccName) =>
     Object.keys(PRESET_FILES)
       .sort((a, b) => +(b === 'codexProviderPresets') - +(a === 'codexProviderPresets'))
       .flatMap((list) => all[list].filter((p) => p.name === ccName).flatMap(listedModels))
-  const sources = { claude: [providerPresets, claudePreset], codex: [codexProviderPresets, codexPreset] }
+  const sources = {
+    claude: [providerPresets, claudePreset],
+    codex: [codexProviderPresets, codexPreset],
+    gemini: [geminiProviderPresets, geminiPreset],
+  }
   const presets = []
   for (const [agent, [list, map]] of Object.entries(sources)) {
     for (const [ccName, entry] of Object.entries(WHITELIST[agent])) {
@@ -341,6 +382,11 @@ async function main() {
       presets.push(mapped)
     }
   }
+  presets.splice(
+    presets.findIndex((p) => p.agent === 'gemini'),
+    0,
+    ...MANUAL,
+  )
   writeFileSync(out, `${JSON.stringify({ source: `cc-switch@${commit}`, presets }, null, 2)}\n`)
   // Match the repo formatter so re-running the script yields a reviewable diff only.
   execFileSync(join(root, 'node_modules/.bin/biome'), ['format', '--write', out], { stdio: 'ignore' })

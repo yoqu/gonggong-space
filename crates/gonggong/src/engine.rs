@@ -7,6 +7,7 @@ use crate::coalesce::Coalesce;
 use crate::config::{Config, Settings};
 use crate::explorer;
 use crate::files;
+use crate::gemini;
 use crate::git;
 use crate::git_ops;
 use crate::git_write;
@@ -39,7 +40,8 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`.
+/// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. Both declare `bin: dist/index.js`. Gemini CLI
+/// needs none.
 pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.2.2"),
@@ -248,7 +250,13 @@ impl Engine {
             agent_settings: Default::default(),
         };
         let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
-        Ok(AcpAgent::new(self.0.adapter(&bot, &local, &official, &SecretEnv::default()).await?))
+        let gemini_home = (kind == AgentKind::Gemini).then(|| gemini::home_dir(&self.0.config.home, gemini::PROBE));
+        if let Some(dir) = gemini_home.clone() {
+            let (user_home, selection) = (self.0.config.user_home.clone(), official.clone());
+            tokio::task::spawn_blocking(move || gemini::prepare(&dir, &user_home, &selection, "", None)).await??;
+        }
+        let config = self.0.adapter(&bot, &local, &official, &SecretEnv::default(), gemini_home.as_deref()).await?;
+        Ok(AcpAgent::new(config))
     }
 }
 
@@ -1050,20 +1058,40 @@ impl Inner {
     }
 
     /// Launch config of the adapter for this bot, with the local agent CLI, per-process system prompt and the
-    /// provider (§4.4; Claude's settings file, written by the turn's plan, is named per session). The run's
-    /// `secrets` go into the process env only: never a file.
+    /// provider (§4.4; Claude's settings file, written by the turn's plan, is named per session; Gemini's home,
+    /// `gemini_home`, too). The run's `secrets` go into the process env only: never a file.
     pub(crate) async fn adapter(
         &self,
         bot: &RunBot,
         local: &LocalSettings,
         selection: &Selection,
         secrets: &SecretEnv,
+        gemini_home: Option<&Path>,
     ) -> anyhow::Result<AcpAgentConfig> {
         // First, the run's secrets over the user's variables: the daemon's own, set below, win over both.
         let mut env = Settings::load(&self.config.home)?.child_env();
         env.extend(secrets.0.clone());
+        let pinned_cli = match selection {
+            Selection::Provider(p) => p.executable_path.as_deref(),
+            Selection::Official(_) => None,
+        };
+        let cli = pinned_cli
+            .map(std::path::PathBuf::from)
+            .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         let base = match &self.config.adapter_cmd {
             Some(cmd) => AcpAgent::from_str(cmd)?.into_config().envs(env),
+            // Gemini CLI speaks ACP itself.
+            None if bot.agent_kind == AgentKind::Gemini => {
+                let cli = cli.as_deref().filter(|p| p.is_file()).context(t!(
+                    "这台机器上没有 Gemini CLI，请安装：npm install -g @google/gemini-cli，或在「设置 → Agent 工具」里用共工托管安装"
+                ))?;
+                let node = self.node().await?;
+                let config = match gemini::script(cli) {
+                    Some(script) => AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()),
+                    None => AcpAgentConfig::new(cli),
+                };
+                config.arg("--acp").envs(env).env("PATH", node.path_env().to_string_lossy())
+            }
             None => {
                 let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
                 // The agent CLIs npm installs are node scripts: they must find this Node too.
@@ -1082,13 +1110,6 @@ impl Inner {
                 .env("GIT_COMMITTER_EMAIL", &g.email),
             None => base,
         };
-        let pinned_cli = match selection {
-            Selection::Provider(p) => p.executable_path.as_deref(),
-            Selection::Official(_) => None,
-        };
-        let cli = pinned_cli
-            .map(std::path::PathBuf::from)
-            .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         if let (AgentKind::Codex, Some(path)) = (bot.agent_kind, &cli)
             && let Some(problem) = agents::codex_problem(path)
         {
@@ -1131,7 +1152,30 @@ impl Inner {
                     .envs(provider.map(inject::codex_env).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }
+            AgentKind::Gemini => {
+                let dir = gemini_home.context("a Gemini run without its home")?;
+                let base = base
+                    .env("GEMINI_CLI_HOME", dir.to_string_lossy())
+                    .env("GEMINI_CLI_TRUST_WORKSPACE", "true")
+                    .envs(extra_env);
+                match provider {
+                    Some(p) => base
+                        .env("GEMINI_API_KEY", &p.api_key)
+                        .env("GOOGLE_GEMINI_BASE_URL", &p.base_url)
+                        .envs(p.model.as_ref().map(|m| ("GEMINI_MODEL", m))),
+                    None => base,
+                }
+            }
         })
+    }
+
+    /// The Node Gemini CLI runs on (the managed one installed when there is none ≥ the adapters' minimum).
+    async fn node(&self) -> anyhow::Result<tools::Node> {
+        let _guard = self.install.lock().await;
+        let log = |line: &str| tracing::info!("{line}");
+        tools::ensure_node(&self.config.home, &log)
+            .await
+            .context(t!("Gemini CLI 需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))
     }
 
     /// Installs the pinned adapters once (and the managed Node when no Node ≥ 22 is found), from the configured
@@ -1140,7 +1184,7 @@ impl Inner {
     async fn ensure_adapter(&self, kind: AgentKind) -> anyhow::Result<(tools::Node, PathBuf)> {
         let home = &self.config.home;
         let modules = home.join("adapters").join("node_modules");
-        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("every agent kind has an adapter");
+        let (_, name, _) = ADAPTERS.iter().find(|(k, ..)| *k == kind).expect("Claude and Codex have an adapter");
         let script = modules.join(name).join("dist/index.js");
         let cached = self.adapter_node.lock().unwrap().clone();
         if let Some((key, node)) = cached {

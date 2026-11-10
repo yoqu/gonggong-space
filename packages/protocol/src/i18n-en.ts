@@ -211,6 +211,8 @@ export const protocolEn = {
 
   // Run steps
   'Bot 离线，等待上线': 'Bot offline, waiting for it to come online',
+  '执行机器的共工客户端版本过低，升级后才能运行 Gemini CLI Bot':
+    "The machine's Gonggong client is too old for Gemini CLI bots; upgrade it to run this one",
   工作区准备中: 'Preparing the workspace',
   等待切换为强制同步: 'Waiting for the switch to force sync',
   等待同步对齐: 'Waiting for the workspace to align with force sync',

@@ -119,6 +119,10 @@ impl Rig {
         }
     }
 
+    pub async fn probe(&self, kind: AgentKind) -> AgentCatalog {
+        self.engine.probe(kind).await.unwrap()
+    }
+
     pub fn home(&self) -> &Path {
         self.home.path()
     }

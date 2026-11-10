@@ -53,6 +53,35 @@
       "catalog": null,
       "latest": null,
       "managed": false
+    },
+    {
+      "kind": "gemini",
+      "available": true,
+      "version": "0.67.0",
+      "path": "/opt/homebrew/bin/gemini",
+      "minVersion": "0.36.0",
+      "catalog": {
+        "current": "gemini-2.5-pro",
+        "efforts": [],
+        "effort": null,
+        "models": [
+          {
+            "value": "auto",
+            "name": "Auto",
+            "description": "Let Gemini CLI decide the best model for the task",
+            "efforts": [],
+            "effort": null
+          },
+          {
+            "value": "gemini-2.5-pro",
+            "name": "gemini-2.5-pro",
+            "efforts": [],
+            "effort": null
+          }
+        ]
+      },
+      "latest": "0.67.0",
+      "managed": false
     }
   ]
 }

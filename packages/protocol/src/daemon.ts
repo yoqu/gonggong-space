@@ -1280,10 +1280,12 @@ export const DaemonFeature = z.enum([
   'noAutoUpgrade',
   /** upgrade.start: a Linux CLI daemon that upgrades itself, started from the web. */
   'upgrade',
+  /** Runs Gemini CLI bots: a daemon without it cannot read a run.start for one. */
+  'gemini',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
-export const ToolKind = z.enum(['node', 'claude', 'codex'])
+export const ToolKind = z.enum(['node', 'claude', 'codex', 'gemini'])
 export type ToolKind = z.infer<typeof ToolKind>
 export const ToolStatus = z.object({
   kind: ToolKind,

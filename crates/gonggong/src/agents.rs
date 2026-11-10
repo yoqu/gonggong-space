@@ -15,14 +15,17 @@ pub fn binary(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "claude",
         AgentKind::Codex => "codex",
+        AgentKind::Gemini => "gemini",
     }
 }
 
-/// Oldest CLI the pinned ACP adapter (engine::ADAPTERS) supports; older ones get a warning on the bot.
+/// Oldest CLI the pinned ACP adapter (engine::ADAPTERS) supports, or for Gemini the oldest with `--acp`; older ones
+/// get a warning on the bot.
 pub fn min_version(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "2.0.0",
         AgentKind::Codex => "0.160.1",
+        AgentKind::Gemini => "0.36.0",
     }
 }
 
@@ -30,7 +33,7 @@ pub fn min_version(kind: AgentKind) -> &'static str {
 /// probed for the same builds.
 pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
     let cached = load_catalogs(home);
-    [AgentKind::Claude, AgentKind::Codex]
+    AgentKind::ALL
         .into_iter()
         .map(|kind| {
             let mut info = detect_one(home, kind, local);
@@ -62,6 +65,7 @@ fn cli_config(kind: AgentKind) -> PathBuf {
         AgentKind::Codex => std::env::var_os("CODEX_HOME")
             .map_or_else(|| crate::config::user_home().join(".codex"), PathBuf::from)
             .join("config.toml"),
+        AgentKind::Gemini => crate::config::user_home().join(".gemini/settings.json"),
     }
 }
 
@@ -71,6 +75,7 @@ fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentInfo 
     let tool = match kind {
         AgentKind::Claude => crate::tools::ToolKind::Claude,
         AgentKind::Codex => crate::tools::ToolKind::Codex,
+        AgentKind::Gemini => crate::tools::ToolKind::Gemini,
     };
     AgentInfo {
         kind,
@@ -225,10 +230,12 @@ fn version(home: &Path, path: &Path) -> Option<String> {
 }
 
 /// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`); `None` if it cannot tell.
+/// Gemini CLI has no such command: its config tells.
 pub fn login_status(kind: AgentKind, cli: &Path) -> Option<String> {
     let args = match kind {
         AgentKind::Claude => ["auth", "status"],
         AgentKind::Codex => ["login", "status"],
+        AgentKind::Gemini => return Some(gemini_login(&crate::config::user_home())),
     };
     let out = crate::proc::command(cli).args(args).output().ok()?;
     let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
@@ -262,6 +269,37 @@ pub fn login_label(kind: AgentKind, out: &str) -> Option<String> {
             let how = line.strip_prefix("Logged in using ")?;
             Some(crate::t!("已登录 · {how}", how = how.trim_start_matches("an ").trim_start_matches("a ")))
         }
+        AgentKind::Gemini => None,
+    }
+}
+
+/// Where Gemini CLI finds its API key (env, then the `.env` files it loads from `~/.gemini` and `~/`) or the login
+/// its settings select. Its Google-account login no longer serves individuals, so that one does not count.
+pub fn gemini_login(user_home: &Path) -> String {
+    let in_env = GEMINI_KEYS.iter().any(|k| std::env::var(k).is_ok_and(|v| !v.is_empty()));
+    gemini_label(user_home, in_env)
+}
+
+const GEMINI_KEYS: [&str; 2] = ["GEMINI_API_KEY", "GOOGLE_API_KEY"];
+
+fn gemini_label(user_home: &Path, in_env: bool) -> String {
+    let in_file = [user_home.join(".gemini/.env"), user_home.join(".env")].iter().any(|f| {
+        std::fs::read_to_string(f).is_ok_and(|text| {
+            text.lines().any(|l| {
+                let l = l.trim().trim_start_matches("export ").trim_start();
+                l.split_once('=').is_some_and(|(k, v)| {
+                    GEMINI_KEYS.contains(&k.trim()) && !v.trim().trim_matches(['"', '\'']).is_empty()
+                })
+            })
+        })
+    });
+    let settings = std::fs::read_to_string(user_home.join(".gemini/settings.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&crate::gemini::strip_comments(&t)).ok());
+    match settings.as_ref().and_then(|s| s["security"]["auth"]["selectedType"].as_str()) {
+        Some("vertex-ai") => crate::t!("已登录 · {how}", how = "Vertex AI"),
+        _ if in_env || in_file => crate::t!("已登录 · {how}", how = "API key"),
+        _ => crate::t!("未登录").into(),
     }
 }
 
@@ -336,6 +374,22 @@ mod tests {
         );
         assert_eq!(login_label(Codex, "Not logged in\n").as_deref(), Some("未登录"));
         assert_eq!(login_label(Codex, "error: unknown"), None);
+    }
+
+    #[test]
+    fn tells_the_gemini_login_from_its_config() {
+        use super::gemini_label;
+        let home = tempfile::tempdir().unwrap();
+        assert_eq!(gemini_label(home.path(), false), "未登录");
+        assert_eq!(gemini_label(home.path(), true), "已登录 · API key");
+        std::fs::create_dir_all(home.path().join(".gemini")).unwrap();
+        std::fs::write(home.path().join(".gemini/.env"), "# key\nexport GEMINI_API_KEY=\"\"\n").unwrap();
+        assert_eq!(gemini_label(home.path(), false), "未登录", "an empty value");
+        std::fs::write(home.path().join(".env"), "GEMINI_API_KEY=AIza-x\n").unwrap();
+        assert_eq!(gemini_label(home.path(), false), "已登录 · API key");
+        let vertex = "{ // vertex\n \"security\": { \"auth\": { \"selectedType\": \"vertex-ai\" } } }";
+        std::fs::write(home.path().join(".gemini/settings.json"), vertex).unwrap();
+        assert_eq!(gemini_label(home.path(), false), "已登录 · Vertex AI");
     }
 
     #[test]

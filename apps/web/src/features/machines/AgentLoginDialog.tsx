@@ -9,6 +9,10 @@ import { CommandLine } from './AdminPanels'
 const LOGIN: Record<AgentKind, { command: string; next: string }> = {
   claude: { command: 'claude', next: t('进入后输入 /login，按提示在浏览器里完成登录') },
   codex: { command: 'codex login --device-auth', next: t('打开它给出的链接，输入验证码完成登录') },
+  gemini: {
+    command: 'gemini',
+    next: t('进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）'),
+  },
 }
 
 /** The official login happens in the agent's own CLI on the machine: through a machine terminal from here. */

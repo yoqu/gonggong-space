@@ -53,6 +53,12 @@ pub fn sweep(home: &Path, active: &HashSet<(String, String)>, now: SystemTime, r
             gone.push(path);
         }
     }
+    // Gemini CLI homes hold the pair's sessions too: gone with the pair.
+    for (name, path) in entries(&home.join("gemini")) {
+        if name != crate::gemini::PROBE && !names.contains(&name) && old(&path, ORPHAN_AGE) {
+            gone.push(path);
+        }
+    }
     for (name, path) in entries(&home.join("plugin-links")) {
         let pair = name.strip_suffix(".json").unwrap_or(&name);
         if !names.contains(pair) && old(&path, ORPHAN_AGE) {
@@ -148,6 +154,9 @@ mod tests {
         file(&h.join("skill-sets/g2-b1/s/SKILL.md"));
         file(&h.join("plugin-links/g1-b1.json"));
         file(&h.join("plugin-links/g2-b1.json"));
+        file(&h.join("gemini/g1-b1/.gemini/GEMINI.md"));
+        file(&h.join("gemini/g2-b1/.gemini/GEMINI.md"));
+        file(&h.join("gemini/probe/.gemini/GEMINI.md"));
         file(&h.join("sync/g1/b1/work"));
         file(&h.join("sync/g2/b1/work"));
         file(&h.join("workspaces/g2/b1/r/a"));
@@ -160,10 +169,11 @@ mod tests {
         let later = SystemTime::now() + DAY;
         assert_eq!(
             rel(&h, sweep(&h, &active, later, &[])),
-            ["plugin-links/g2-b1.json", "skill-sets/g2-b1", "sync/g2/b1"]
+            ["gemini/g2-b1", "plugin-links/g2-b1.json", "skill-sets/g2-b1", "sync/g2/b1"]
         );
         assert!(!h.join("sync/g2").exists(), "an emptied group dir goes too");
         assert!(h.join("skill-sets/g1-b1").exists() && h.join("sync/g1/b1/work").exists());
+        assert!(h.join("gemini/g1-b1").exists() && h.join("gemini/probe").exists());
         assert!(h.join("workspaces/g2/b1/r/a").exists() && h.join("backups/g2/0101-1200-b1/a").exists());
         assert!(h.join("named/支付组/小码/_empty/a").exists() && h.join("workspaces.json").exists());
     }

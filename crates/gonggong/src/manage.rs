@@ -6,11 +6,11 @@ use crate::local::LocalSettings;
 use crate::protocol::{
     AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_ARTIFACT_SNAPSHOT,
     FEATURE_ARTIFACTS, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_CONTAINER, FEATURE_DIAG,
-    FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS,
-    FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS,
-    FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd,
-    ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult,
-    ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4,
+    FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS,
+    FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS,
+    GitAccessCmd, ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd,
+    ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -71,6 +71,7 @@ impl Manage {
             FEATURE_PROVIDER_ARGS.to_string(),
             FEATURE_GIT_ACCESS.to_string(),
             FEATURE_DIAG.to_string(),
+            FEATURE_GEMINI.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -961,7 +962,8 @@ mod tests {
                 "claudeProfile",
                 "providerArgs",
                 "gitAccess",
-                "diag"
+                "diag",
+                "gemini"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -989,6 +991,7 @@ mod tests {
                 "providerArgs",
                 "gitAccess",
                 "diag",
+                "gemini",
                 "ccSwitch"
             ]
         );
@@ -1016,7 +1019,7 @@ mod tests {
             panic!()
         };
         assert_eq!((request_id.as_str(), ok, settings.mirror), ("t1", true, mirror));
-        assert_eq!(tools.len(), 3);
+        assert_eq!(tools.len(), 4);
         assert!(tools.iter().all(|t| t.latest.is_none()));
 
         let bad = ToolsCmd {

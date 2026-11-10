@@ -1,7 +1,7 @@
 //! 日志与诊断 (spec §14): machine self-checks for `gg doctor` / the desktop app, and the redacted diagnostics bundle.
 use crate::config::Config;
 use crate::logs::{self, redact};
-use crate::protocol::{AgentInfo, PROTOCOL_VERSION, Permission};
+use crate::protocol::{AgentInfo, AgentKind, PROTOCOL_VERSION, Permission};
 use crate::t;
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
@@ -98,7 +98,7 @@ pub fn agents(list: &[AgentInfo]) -> Check {
     let name = |a: &AgentInfo| crate::bots::agent_label(a.kind);
     let installed: Vec<_> = list.iter().filter(|a| a.available).collect();
     if installed.is_empty() {
-        return check(CheckKind::Agent, Status::Error, t!("未检测到 Claude Code 或 Codex"));
+        return check(CheckKind::Agent, Status::Error, t!("未检测到 Claude Code、Codex 或 Gemini CLI"));
     }
     let old: Vec<String> = installed
         .iter()
@@ -107,8 +107,12 @@ pub fn agents(list: &[AgentInfo]) -> Check {
             crate::upgrade::is_newer(min, v).then(|| t!("{agent} {v} 低于 {min}", agent = name(a), v = v, min = min))
         })
         .collect();
-    let missing: Vec<String> =
-        list.iter().filter(|a| !a.available).map(|a| t!("{tool} 未安装", tool = name(a))).collect();
+    // Gemini CLI came later and few use it: not having it is no warning.
+    let missing: Vec<String> = list
+        .iter()
+        .filter(|a| !a.available && a.kind != AgentKind::Gemini)
+        .map(|a| t!("{tool} 未安装", tool = name(a)))
+        .collect();
     let ok: Vec<String> = installed
         .iter()
         .map(|a| a.version.as_deref().map_or_else(|| name(a).to_string(), |v| format!("{} {v}", name(a))))
@@ -316,7 +320,6 @@ pub fn default_bundle_path() -> PathBuf {
 mod tests {
     use super::*;
     use crate::git::testing::{Remote, run as git};
-    use crate::protocol::AgentKind;
     use crate::workspace::EntryState;
     use std::io::Read;
 
@@ -414,6 +417,14 @@ mod tests {
         assert_eq!(partial.status, Status::Warn);
         assert_eq!(partial.detail, "Claude Code 1.0.0 低于 2.0.0 · Codex 未安装");
         assert_eq!(agents(&[info(AgentKind::Claude, None)]).status, Status::Error);
+        let no_gemini = agents(&[
+            info(AgentKind::Claude, Some("2.1.3")),
+            info(AgentKind::Codex, Some("0.160.1")),
+            info(AgentKind::Gemini, None),
+        ]);
+        assert_eq!(no_gemini.status, Status::Ok);
+        let gemini = agents(&[info(AgentKind::Claude, None), info(AgentKind::Gemini, Some("0.67.0"))]);
+        assert_eq!(gemini.detail, "Claude Code 未安装");
     }
 
     #[tokio::test]

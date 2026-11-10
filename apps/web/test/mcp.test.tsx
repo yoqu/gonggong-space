@@ -27,6 +27,8 @@ describe('MCP tool names', () => {
     expect(toolTitle('mcp__gonggong__list_messages')).toBe('读取聊天记录')
     expect(toolTitle('mcp.gonggong.ask_group_members')).toBe('向群成员提问')
     expect(toolTitle('mcp__claude_ai_Figma__get_metadata')).toBe('Figma · get_metadata')
+    expect(toolTitle('list_messages (gonggong MCP Server)')).toBe('读取聊天记录')
+    expect(toolTitle('get_issue (github MCP Server)')).toBe('github · get_issue')
     expect(toolTitle('Read src/a.ts')).toBe('Read src/a.ts')
   })
 
