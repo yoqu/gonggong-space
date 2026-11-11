@@ -507,6 +507,9 @@ export const en = {
   'gonggong-plugin.json 不符合清单格式：{field}':
     'gonggong-plugin.json does not match the manifest format: {field}',
   '缺少文件：{path}': 'Missing file: {path}',
+  用户不存在: 'User not found',
+  '你还没有加入团队，不能新建 Bot': 'You are not in a team yet, so no bot can be created',
+  '这个平台还没有发布 gg': 'No gg build has been published for this platform',
   '插件不能包含此路径：{path}': 'A plugin cannot contain this path: {path}',
   '这个产物没有指令 {name}': 'This artifact has no command {name}',
   只有平台层插件可以带供应商预设: 'Only platform-layer plugins can bring provider presets',

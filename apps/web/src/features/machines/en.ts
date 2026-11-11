@@ -27,8 +27,6 @@ export default {
   '没有安装客户端时，在机器的终端里执行。':
     "Without the client installed, run this in the machine's terminal.",
   绑定新机器: 'Bind new machine',
-  '在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。':
-    'Open the connect link in the Gonggong Space client. Once confirmed, the machine is yours and Bots run on it.',
   完成: 'Done',
   取消: 'Cancel',
   '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。':
@@ -351,9 +349,22 @@ export default {
   等待机器上线: 'Wait for the machine',
   '① 安装客户端': '① Install the client',
   '② 打开接入链接': '② Open the connect link',
-  '③ 等待机器上线': '③ Wait for the machine to come online',
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
-  '等待机器上线…': 'Waiting for the machine to come online…',
+  接入码已失效: 'The code has expired',
+  '一次性接入码 · {time} 后失效': 'One-time code · expires in {time}',
+  '粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器、建好 Bot。支持 macOS 和 Linux。':
+    'Paste it to Claude Code, Codex or another agent on this machine: it installs gg, binds the machine and sets up your Bot by itself. Works on macOS and Linux.',
+  等待接入: 'Waiting to connect',
+  机器已绑定: 'Machine bound',
+  'Bot 就绪': 'Bot ready',
+  '把下面这句话发给本机的 Agent，它会自己接入；接入后这台机器归属于你，Bot 在上面运行。':
+    'Send the sentence below to the agent on your machine and it connects by itself; the machine is then yours and your Bots run on it.',
+  '发给你的 Agent': 'Send to your agent',
+  'Windows 上请展开「其他方式」，用桌面客户端绑定。':
+    'On Windows, open "Other ways" and bind with the desktop app.',
+  其他方式: 'Other ways',
+  '等待接入…Agent 会自己下载安装，通常 1–3 分钟':
+    'Waiting… the agent downloads and installs by itself, usually in 1–3 minutes',
   机器已上线: 'The machine is online',
   '正在以管理员身份查看 {owner} 的机器': "Viewing {owner}'s machine as an admin",
   返回后台: 'Back to admin',

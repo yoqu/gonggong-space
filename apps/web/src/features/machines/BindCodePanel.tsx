@@ -1,10 +1,10 @@
 import type { BindCodeDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api, errorText } from '../../lib/api'
-import { copyWithToast } from '../../lib/clipboard'
+import { copyText, copyWithToast } from '../../lib/clipboard'
 import { useNow } from '../../lib/now'
 import { countdown } from '../../lib/time'
-import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner } from '../../ui'
+import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner, toast } from '../../ui'
 import './machines.css'
 import { t } from '../../i18n'
 
@@ -45,6 +45,61 @@ export const loginCommand = (code: BindCodeDto) => `gg login --server ${location
 export const dockerEnv = (code: BindCodeDto) => `GONGGONG_BIND_URL='${code.link}'`
 
 const copy = (text: string, message: string) => void copyWithToast(text, message)
+
+/**
+ * 发给你的 Agent (Agent 自助接入): the sentence to paste to a local Claude Code / Codex, which installs gg, binds this
+ * machine and gets its bot made by itself.
+ */
+export function AgentPrompt({ bind }: { bind: BindCode }) {
+  const { code, error, remaining, expired, generate } = bind
+  /** The code whose sentence was copied: a new code is a new sentence to copy. */
+  const [copied, setCopied] = useState<string | null>(null)
+  if (error)
+    return (
+      <span className="bind__code-line">
+        <Alert variant="error" description={error} />
+        <Button size="small" onClick={() => void generate()}>
+          {t('重试')}
+        </Button>
+      </span>
+    )
+  if (!code) return <Spinner size={18} />
+  if (expired)
+    return (
+      <span className="bind__code-line">
+        <span className="bind__expired">{t('接入码已失效')}</span>
+        <Button size="small" onClick={() => void generate()}>
+          {t('重新生成')}
+        </Button>
+      </span>
+    )
+  return (
+    <div className="bind__prompt-card">
+      <p className="bind__prompt">{code.agentPrompt}</p>
+      <span className="bind__code-line">
+        <Button
+          variant="primary"
+          onClick={() =>
+            void copyText(code.agentPrompt).then(
+              () => setCopied(code.code),
+              () => toast({ type: 'error', message: t('复制失败') }),
+            )
+          }
+        >
+          {copied === code.code ? t('已复制') : t('复制')}
+        </Button>
+        <span className="bind__note">
+          {t('一次性接入码 · {time} 后失效', { time: countdown(remaining) })}
+        </span>
+      </span>
+      <p className="bind__note">
+        {t(
+          '粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器、建好 Bot。支持 macOS 和 Linux。',
+        )}
+      </p>
+    </div>
+  )
+}
 
 /** 接入链接: open it in the desktop app, or copy it; the gg login command sits under 使用命令行. */
 export function BindCodePanel({ bind }: { bind: BindCode }) {

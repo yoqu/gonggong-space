@@ -3,6 +3,7 @@ pub mod agents;
 pub mod artifacts;
 pub mod ask;
 pub mod attachments;
+pub mod autostart;
 pub mod bind;
 pub mod bots;
 pub mod cast;

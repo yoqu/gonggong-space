@@ -283,7 +283,12 @@ export const BindCodeDto = z.object({
   code: z.string(),
   expiresAt: z.string(),
   link: z.string(),
+  /** Agent 自助接入: the sentence to paste to a local agent (Claude Code, Codex…), with this server and the code. */
+  agentPrompt: z.string(),
 })
+/** GET /api/install/gg?platform=<os>-<arch> (public): the gg build install.sh downloads; 404 when none. */
+export const InstallBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
+export type InstallBuildDto = z.infer<typeof InstallBuildDto>
 export type BindCodeDto = z.infer<typeof BindCodeDto>
 /** `name` is the owner's label when set, else `hostname`. */
 export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
@@ -2857,6 +2862,13 @@ export const WebEvent = z.discriminatedUnion('t', [
   /** The receiving user is no longer a member. */
   z.object({ t: z.literal('group.removed'), groupId: z.string() }),
   z.object({ t: z.literal('machine.updated'), machine: MachineDto }),
+  /** Owner only: `gg login --create-bot` bound the machine and made the bot and the DM with it (Agent 自助接入). */
+  z.object({
+    t: z.literal('machine.onboarded'),
+    machineId: z.string(),
+    botId: z.string(),
+    groupId: z.string(),
+  }),
   z.object({ t: z.literal('machine.removed'), machineId: z.string() }),
   /** Owner only: a line of a running tools install / upgrade. */
   z.object({

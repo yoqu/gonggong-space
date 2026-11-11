@@ -52,8 +52,7 @@ export default {
   '连接中…': 'Connecting…',
   '已断开 · 重连中': 'Disconnected · reconnecting',
   '{n} 人 · {mode}': '{n} {n:member|members} · {mode}',
-  '在机器上安装共工空间客户端，打开接入链接关联账号':
-    'Install the Gonggong Space client on a machine and open the connect link to link your account',
+  '把一句话发给你的 Agent，它会自己接入': 'Send one sentence to your agent and it connects by itself',
   '新建 Bot': 'New Bot',
   '选择机器上的 Claude Code、Codex 或 Gemini CLI': 'Pick Claude Code, Codex or Gemini CLI on a machine',
   开始使用: 'Get started',
@@ -76,8 +75,8 @@ export default {
   离线: 'Offline',
   还没有绑定机器: 'No machines bound yet',
   确认: 'Confirm',
-  '在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。':
-    'Install the Gonggong Space client on your machine and open the connect link; your Bots run on that machine.',
+  '复制一句话发给本机的 Claude Code 或 Codex，它会自己安装、绑定这台机器并建好 Bot。':
+    'Copy one sentence to Claude Code or Codex on your machine: it installs, binds the machine and sets up your Bot by itself.',
   '选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。':
     'Pick Claude Code, Codex or Gemini CLI on a machine and give it a memorable name.',
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',

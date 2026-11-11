@@ -134,13 +134,23 @@ export const MachineInfo = z.object({
 export type MachineInfo = z.infer<typeof MachineInfo>
 
 // ── REST: POST /api/daemon/login (bind code → long-lived machine token) ──────
-export const DaemonLoginReq = z.object({ code: z.string(), machine: MachineInfo })
-/** `restored`: this host was bound before, so its machine (and the bots on it) is reused. */
+/**
+ * POST /api/daemon/login. `createBot` (gg login --create-bot, Agent 自助接入): once bound, the server makes the owner a
+ * bot of that agent on this machine (one per machine and agent) and a DM with it.
+ */
+export const DaemonLoginReq = z.object({
+  code: z.string(),
+  machine: MachineInfo,
+  createBot: z.object({ agent: AgentKind }).optional(),
+})
+export type DaemonLoginReq = z.infer<typeof DaemonLoginReq>
+/** `restored`: this host was bound before, so its machine (and the bots on it) is reused. `bot`: from `createBot`. */
 export const DaemonLoginRes = z.object({
   token: z.string(),
   machineId: z.string(),
   ownerName: z.string(),
   restored: z.boolean(),
+  bot: z.object({ id: z.string(), name: z.string(), groupId: z.string() }).optional(),
 })
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 

@@ -784,4 +784,41 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("用户名和令牌不能为空", "The username and token must not be empty"),
     ("无法获取 {host} 的主机密钥", "Couldn't fetch the host key of {host}"),
     ("无法执行 git", "Couldn't run git"),
+    ("无法确定 gg 的路径", "Couldn't determine the path of gg"),
+    ("无法执行 {cmd}", "Couldn't run {cmd}"),
+    ("{cmd} 失败：{err}", "{cmd} failed: {err}"),
+    ("当前系统不支持 gg service，请使用桌面客户端", "gg service isn't supported on this system; use the desktop app"),
+    (
+        "已安装后台服务（launchd），登录后自动运行 gg run，日志见 {log}",
+        "Background service installed (launchd); gg run starts at login. Logs: {log}",
+    ),
+    (
+        "本机没有可用的 systemd 用户实例（如容器内），无法安装服务；请改用 nohup gg run > {log} 2>&1 & 在后台运行",
+        "No systemd user instance is available here (e.g. in a container), so no service can be installed; run nohup gg run > {log} 2>&1 & instead",
+    ),
+    (
+        "已安装后台服务（systemd 用户单元），登录后自动运行 gg run",
+        "Background service installed (systemd user unit); gg run starts at login",
+    ),
+    (
+        "注销后仍要运行，需执行 loginctl enable-linger",
+        "To keep it running after you log out, run loginctl enable-linger",
+    ),
+    (
+        "本机已有 daemon 在运行（pid {pid}），服务会在它退出后接管；要立即切换，请先停掉它",
+        "A daemon is already running here (pid {pid}); the service takes over when it exits. Stop it to switch now",
+    ),
+    (
+        "本机已有 daemon 在运行，服务会在它退出后接管；要立即切换，请先停掉它",
+        "A daemon is already running here; the service takes over when it exits. Stop it to switch now",
+    ),
+    ("已卸载后台服务", "Background service removed"),
+    (
+        "已准备好 Bot「{name}」和与它的私聊，回到 Web 即可开始对话",
+        "Bot \"{name}\" and a DM with it are ready; go back to the Web to start chatting",
+    ),
+    (
+        "服务器版本较旧，未自动创建 Bot，请在 Web 端新建",
+        "The server is too old to create the bot; create it on the Web",
+    ),
 ];

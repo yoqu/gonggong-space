@@ -458,7 +458,7 @@ function SetupGuide({
   const steps = [
     {
       label: t('绑定新机器'),
-      hint: t('在机器上安装共工空间客户端，打开接入链接关联账号'),
+      hint: t('把一句话发给你的 Agent，它会自己接入'),
       done: bound,
       onClick: onBindMachine,
     },

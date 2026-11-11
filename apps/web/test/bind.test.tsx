@@ -58,7 +58,10 @@ afterEach(() => {
 
 const linkOf = (code: string) => `gonggong://bind?server=${encodeURIComponent(location.origin)}&code=${code}`
 
-const api = (ttlMs = 10 * 60_000) =>
+const promptOf = (code: string) =>
+  `帮我接入共工空间：读取 ${location.origin}/api/install.md 并按步骤执行，接入码 ${code}。`
+
+const api = (ttlMs = 30 * 60_000) =>
   mockApi({
     'POST /bind-codes': () => {
       const code = codes.shift() as string
@@ -66,12 +69,19 @@ const api = (ttlMs = 10 * 60_000) =>
         code,
         expiresAt: new Date(Date.now() + ttlMs).toISOString(),
         link: linkOf(code),
+        agentPrompt: promptOf(code),
       }
     },
     'GET /machines': [old],
   })
 
-const openLink = () => screen.findByRole('link', { name: '在客户端中打开' })
+/** 其他方式: the desktop app, the gg login command and Docker. */
+const others = () => fireEvent.click(screen.getByRole('button', { name: '其他方式' }))
+const openLink = async () => {
+  await screen.findByRole('button', { name: '复制' })
+  if (!screen.queryByRole('link', { name: '在客户端中打开' })) others()
+  return screen.findByRole('link', { name: '在客户端中打开' })
+}
 
 const show = (props: { onClose?: () => void; onNewBot?: (machineId: string) => void } = {}) =>
   render(
@@ -82,18 +92,58 @@ const show = (props: { onClose?: () => void; onNewBot?: (machineId: string) => v
           element={<BindMachineDialog open onClose={props.onClose ?? (() => {})} onNewBot={props.onNewBot} />}
         />
         <Route path="/machine/:id" element={<p>machine page</p>} />
+        <Route path="/g/:id" element={<p>dm page</p>} />
       </Routes>
     </MemoryRouter>,
   )
 
 describe('bind machine dialog', () => {
+  it('leads with a sentence for the local agent, copied in one click, the other ways folded away', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    api()
+    show()
+    const card = await screen.findByRole('region', { name: '发给你的 Agent' })
+    expect(within(card).getByText(promptOf('K7QM-4X2P'))).toBeTruthy()
+    expect(within(card).getByText(/^一次性接入码 · (30:0\d|29:5\d) 后失效$/)).toBeTruthy()
+    expect(card.textContent).toContain('它会自己安装 gg、绑定这台机器、建好 Bot。支持 macOS 和 Linux。')
+    expect(screen.getByText('等待接入…Agent 会自己下载安装，通常 1–3 分钟')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
+    expect(screen.queryByText(/Windows 上请展开/)).toBeNull()
+    fireEvent.click(within(card).getByRole('button', { name: '复制' }))
+    expect(writeText).toHaveBeenCalledWith(promptOf('K7QM-4X2P'))
+    expect(await within(card).findByRole('button', { name: '已复制' })).toBeTruthy()
+    others()
+    expect(screen.getByRole('link', { name: '在客户端中打开' })).toBeTruthy()
+  })
+
+  it('opens the DM once the agent has bound the machine and made the bot', async () => {
+    api()
+    const onClose = vi.fn()
+    show({ onClose, onNewBot: () => {} })
+    await screen.findByRole('button', { name: '复制' })
+    const step = (name: string) =>
+      screen.getByText(name, { selector: '.ui-step__label' }).closest('li')?.getAttribute('data-status')
+    expect(step('等待接入')).toBe('active')
+    emit(fresh)
+    expect(step('机器已绑定')).toBe('completed')
+    expect(step('Bot 就绪')).toBe('active')
+    act(() =>
+      FakeSocket.last.onmessage?.({
+        data: JSON.stringify({ t: 'machine.onboarded', machineId: 'm1', botId: 'b1', groupId: 'g1' }),
+      }),
+    )
+    expect(await screen.findByText('dm page')).toBeTruthy()
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('opens the 接入链接 in the desktop app and copies it', async () => {
     const writeText = vi.fn(async () => {})
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     api()
     show()
     expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P'))
-    expect(await screen.findByText(/^一次性接入链接 · (10:00|09:5\d) 后失效$/)).toBeTruthy()
+    expect(await screen.findByText(/^一次性接入链接 · (30:0\d|29:5\d) 后失效$/)).toBeTruthy()
     expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
     // Three steps, the client download first.
     const sections = ['安装客户端', '打开接入链接', '等待机器上线'].map((name) =>
@@ -106,7 +156,7 @@ describe('bind machine dialog', () => {
     expect(sections[0]!.textContent).toContain('已经装好客户端可以跳过这一步')
     expect(within(sections[1]!).getByRole('link', { name: '在客户端中打开' })).toBeTruthy()
     expect(screen.queryByText('还没安装客户端？')).toBeNull()
-    expect(within(sections[2]!).getByText('等待机器上线…')).toBeTruthy()
+    expect(within(sections[2]!).getByText('等待接入…Agent 会自己下载安装，通常 1–3 分钟')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '复制接入链接' }))
     expect(writeText).toHaveBeenCalledWith(linkOf('K7QM-4X2P'))
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy()
@@ -128,6 +178,7 @@ describe('bind machine dialog', () => {
         code: 'K7QM-4X2P',
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
         link: '',
+        agentPrompt: promptOf('K7QM-4X2P'),
       },
       'GET /machines': [],
       'GET /client-downloads': downloads,
@@ -145,6 +196,8 @@ describe('bind machine dialog', () => {
     browser(MAC, 'arm')
     withDownloads(published)
     show()
+    await screen.findByRole('button', { name: '复制' })
+    others()
     const download = await screen.findByRole('link', { name: '下载 macOS（Apple 芯片）' })
     expect(download.getAttribute('href')).toBe('/downloads/Gonggong_0.3.2_aarch64.dmg')
     expect(screen.getByText('桌面客户端 · v0.3.2')).toBeTruthy()
@@ -164,11 +217,15 @@ describe('bind machine dialog', () => {
     browser(MAC, 'x86')
     withDownloads(published)
     const { unmount } = show()
+    await screen.findByRole('button', { name: '复制' })
+    others()
     expect(await screen.findByRole('link', { name: '下载 macOS（Intel）' })).toBeTruthy()
     unmount()
+    // Windows has no install.sh: the other ways open at once, with a word on why.
     browser(WIN)
     withDownloads(published)
     show()
+    expect(await screen.findByText('Windows 上请展开「其他方式」，用桌面客户端绑定。')).toBeTruthy()
     expect((await screen.findByRole('link', { name: '下载 Windows' })).getAttribute('href')).toBe(
       '/downloads/Gonggong_0.3.2_x64-setup.exe',
     )
@@ -183,18 +240,12 @@ describe('bind machine dialog', () => {
     )
   })
 
-  it('ticks ① once 我已安装 is pressed and moves on to ②', async () => {
+  it('ticks ① once 我已安装 is pressed', async () => {
     api()
     show()
     await openLink()
-    const step = (name: string) =>
-      screen.getByText(name, { selector: '.ui-step__label' }).closest('li')?.getAttribute('data-status')
-    expect(step('安装客户端')).toBe('active')
-    expect(step('打开接入链接')).toBe('pending')
     const install = screen.getByRole('region', { name: '安装客户端' })
     fireEvent.click(within(install).getByRole('button', { name: '我已安装' }))
-    expect(step('安装客户端')).toBe('completed')
-    expect(step('打开接入链接')).toBe('active')
     expect(within(install).queryByRole('button', { name: '我已安装' })).toBeNull()
     expect(install.textContent).toContain('已安装客户端')
   })
@@ -278,7 +329,10 @@ describe('bind machine dialog', () => {
     await act(async () => vi.advanceTimersByTime(3_000))
     expect(screen.getByText('接入链接已失效')).toBeTruthy()
     expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '重新生成' }))
+    // The agent card offers one too: the code is the same for both ways.
+    const card = screen.getByRole('region', { name: '发给你的 Agent' })
+    expect(within(card).getByText('接入码已失效')).toBeTruthy()
+    fireEvent.click(within(card).getByRole('button', { name: '重新生成' }))
     expect((await openLink()).getAttribute('href')).toBe(linkOf('ABCD-EFGH'))
     expect(calls.filter((c) => c.path === '/bind-codes')).toHaveLength(2)
   })

@@ -67,10 +67,10 @@ const events = (userId: string) => {
 }
 
 describe('bind codes', () => {
-  it('issues a one-time XXXX-XXXX code valid for 10 minutes', async () => {
+  it('issues a one-time XXXX-XXXX code valid for 30 minutes', async () => {
     const { code, expiresAt } = await newCode()
     expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
-    expect(Date.parse(expiresAt)).toBe(clock + 10 * 60_000)
+    expect(Date.parse(expiresAt)).toBe(clock + 30 * 60_000)
     const res = await t.app.inject({ method: 'POST', url: '/api/bind-codes' })
     expect(res.statusCode).toBe(401)
   })
@@ -164,7 +164,7 @@ describe('daemon login', () => {
     expect(reused.json().error).toBe('code_expired')
 
     const second = await newCode()
-    clock += 10 * 60_000 + 1
+    clock += 30 * 60_000 + 1
     const expired = await daemonLogin(second.code)
     expect(expired.statusCode).toBe(410)
     expect(expired.json().error).toBe('code_expired')
@@ -175,7 +175,7 @@ describe('daemon login', () => {
 
   it('locks a code after 5 failed attempts against it', async () => {
     const { code } = await newCode()
-    clock += 11 * 60_000
+    clock += 31 * 60_000
     for (let i = 0; i < 5; i++) expect((await daemonLogin(code, `10.0.1.${i}`)).statusCode).toBe(410)
     const locked = await daemonLogin(code, '10.0.2.1')
     expect(locked.json().error).toBe('code_locked')

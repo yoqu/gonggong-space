@@ -39,7 +39,7 @@ export function Welcome({
       icon: 'laptop',
       color: 'var(--system-blue)',
       title: t('绑定新机器'),
-      desc: t('在你的机器上安装共工空间客户端并打开接入链接，Bot 就在这台机器上运行。'),
+      desc: t('复制一句话发给本机的 Claude Code 或 Codex，它会自己安装、绑定这台机器并建好 Bot。'),
       action: t('开始绑定'),
       done: bound,
       onClick: onBindMachine,

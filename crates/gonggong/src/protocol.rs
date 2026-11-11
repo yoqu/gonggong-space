@@ -298,9 +298,28 @@ pub struct MachineInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DaemonLoginReq {
     pub code: String,
     pub machine: MachineInfo,
+    /// `gg login --create-bot`: once bound, the server makes a bot of this agent on the machine and a DM with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_bot: Option<CreateBot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBot {
+    pub agent: AgentKind,
+}
+
+/// The bot (and the DM with it) a `create_bot` login made; absent from older servers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginBot {
+    pub id: String,
+    pub name: String,
+    pub group_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -311,6 +330,8 @@ pub struct DaemonLoginRes {
     pub owner_name: String,
     #[serde(default)]
     pub restored: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bot: Option<LoginBot>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 use crate::config::{Config, Trust};
-use crate::protocol::{DaemonLoginReq, DaemonLoginRes, MachineInfo, SystemInfo};
+use crate::protocol::{AgentKind, CreateBot, DaemonLoginReq, DaemonLoginRes, LoginBot, MachineInfo, SystemInfo};
 use crate::t;
 use crate::tls;
 use anyhow::{Context, Result, bail};
@@ -61,6 +61,9 @@ pub struct Link {
     pub code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
+    /// `--create-bot <agent>` of a pasted command (Agent 自助接入).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub create_bot: Option<AgentKind>,
 }
 
 const LINK_SCHEME: &str = "gonggong";
@@ -94,12 +97,43 @@ fn link_of_command(input: &str) -> Result<Link> {
     if *gg != "gg" || *login != "login" {
         bail!(t!("无法识别：请粘贴接入链接或 gg login 命令"));
     }
-    if let [link] = args
+    if let [link, rest @ ..] = args
         && !link.starts_with("--")
     {
-        return link_of_url(unquote(link));
+        let mut parsed = link_of_url(unquote(link))?;
+        parsed.create_bot = match flags(rest)?.as_slice() {
+            [] => None,
+            [("create-bot", agent)] => Some(agent_kind(agent)?),
+            [(name, _), ..] => bail!(t!("gg login 命令中有无法识别的参数 {arg}", arg = format!("--{name}"))),
+        };
+        return Ok(parsed);
     }
-    let (mut server, mut code, mut fingerprint) = (None, None, None::<String>);
+    let (mut server, mut code, mut fingerprint, mut create_bot) = (None, None, None::<String>, None);
+    for (name, value) in flags(args)? {
+        let slot = match name {
+            "server" => &mut server,
+            "code" => &mut code,
+            "fingerprint" => &mut fingerprint,
+            "create-bot" => {
+                create_bot = Some(agent_kind(&value)?);
+                continue;
+            }
+            _ => bail!(t!("gg login 命令中有无法识别的参数 {arg}", arg = format!("--{name}"))),
+        };
+        *slot = Some(value);
+    }
+    let mut link = checked(server, code, fingerprint)?;
+    link.create_bot = create_bot;
+    Ok(link)
+}
+
+fn agent_kind(value: &str) -> Result<AgentKind> {
+    crate::configure::parse_kind(value).map_err(|e| anyhow::anyhow!("--create-bot: {e}"))
+}
+
+/// `--name value` / `--name=value` pairs, values unquoted.
+fn flags<'a>(args: &[&'a str]) -> Result<Vec<(&'a str, String)>> {
+    let mut out = vec![];
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         let Some(flag) = arg.strip_prefix("--") else {
@@ -112,15 +146,9 @@ fn link_of_command(input: &str) -> Result<Link> {
                 *args.next().filter(|v| !v.starts_with("--")).with_context(|| t!("--{flag} 缺少值", flag = flag))?,
             ),
         };
-        let slot = match name {
-            "server" => &mut server,
-            "code" => &mut code,
-            "fingerprint" => &mut fingerprint,
-            _ => bail!(t!("gg login 命令中有无法识别的参数 {arg}", arg = format!("--{name}"))),
-        };
-        *slot = Some(unquote(value).to_string());
+        out.push((name, unquote(value).to_string()));
     }
-    checked(server, code, fingerprint)
+    Ok(out)
 }
 
 fn checked(server: Option<String>, code: Option<String>, fingerprint: Option<String>) -> Result<Link> {
@@ -143,7 +171,7 @@ fn checked(server: Option<String>, code: Option<String>, fingerprint: Option<Str
     let fingerprint = fingerprint
         .map(|value| Trust::fingerprint(&value).map(|trust| trust.fingerprint_value().unwrap().to_owned()))
         .transpose()?;
-    Ok(Link { server: server.into(), code, fingerprint })
+    Ok(Link { server: server.into(), code, fingerprint, create_bot: None })
 }
 
 #[derive(Deserialize)]
@@ -155,6 +183,26 @@ struct ApiError {
 /// Exchanges the one-time code of a connect link for this machine's long-lived token.
 /// Returns the config and whether the server restored this host's earlier machine.
 pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust) -> Result<(Config, bool)> {
+    login_as(server, code, machine, trust, None).await.map(|l| (l.config, l.restored))
+}
+
+/// What a login brought back.
+pub struct Login {
+    pub config: Config,
+    /// The server restored this host's earlier machine.
+    pub restored: bool,
+    /// The bot `create_bot` asked for, with the DM made for it.
+    pub bot: Option<LoginBot>,
+}
+
+/// [`login`], asking the server to make a bot of `create_bot` on this machine (Agent 自助接入).
+pub async fn login_as(
+    server: &str,
+    code: &str,
+    machine: MachineInfo,
+    trust: Trust,
+    create_bot: Option<AgentKind>,
+) -> Result<Login> {
     let server = server.trim_end_matches('/');
     let config = Config {
         server: server.into(),
@@ -165,7 +213,11 @@ pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust)
     };
     let res = tls::http(&config)?
         .post(format!("{server}/api/daemon/login"))
-        .json(&DaemonLoginReq { code: code.trim().to_uppercase(), machine })
+        .json(&DaemonLoginReq {
+            code: code.trim().to_uppercase(),
+            machine,
+            create_bot: create_bot.map(|agent| CreateBot { agent }),
+        })
         .send()
         .await
         .with_context(|| t!("无法连接服务器 {server}", server = server))?;
@@ -185,7 +237,7 @@ pub async fn login(server: &str, code: &str, machine: MachineInfo, trust: Trust)
     }
     let body: DaemonLoginRes = res.json().await.context(t!("服务器响应无法解析"))?;
     let config = Config { token: body.token, machine_id: body.machine_id, owner_name: body.owner_name, ..config };
-    Ok((config, body.restored))
+    Ok(Login { config, restored: body.restored, bot: body.bot })
 }
 
 /// Voids this machine's token on the server; the machine itself stays so logging in again restores it.

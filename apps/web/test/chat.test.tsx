@@ -420,7 +420,7 @@ describe('sidebar', () => {
     const main = screen.getByRole('main')
     const guide = await within(main).findByRole('region', { name: '开始使用' })
     fireEvent.click(within(guide).getByRole('button', { name: /开始绑定/ }))
-    expect(await screen.findByRole('link', { name: '在客户端中打开' })).toBeTruthy()
+    expect(await screen.findByRole('region', { name: '发给你的 Agent' })).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
     )
@@ -617,7 +617,7 @@ describe('my machines and bots', () => {
     expect(empty.textContent).toContain('还没有绑定机器')
     fireEvent.click(within(empty).getByRole('button', { name: '绑定新机器' }))
     const dialog = await screen.findByRole('dialog', { name: '绑定新机器' })
-    expect(within(dialog).getByRole('region', { name: '安装客户端' })).toBeTruthy()
+    expect(within(dialog).getByRole('region', { name: '发给你的 Agent' })).toBeTruthy()
   })
 
   it('opens a bot from the sidebar and deletes it after confirmation', async () => {

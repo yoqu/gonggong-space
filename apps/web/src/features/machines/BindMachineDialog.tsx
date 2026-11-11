@@ -1,18 +1,33 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { Alert, Button, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus } from '../../ui'
+import {
+  Alert,
+  Button,
+  Dialog,
+  Disclosure,
+  Form,
+  FormRow,
+  Spinner,
+  StepIndicator,
+  type StepStatus,
+} from '../../ui'
 import { AGENT_LABEL } from '../bots/model'
-import { BindCodePanel, useBindCode } from './BindCodePanel'
+import { AgentPrompt, BindCodePanel, useBindCode } from './BindCodePanel'
 import { ClientDownload } from './ClientDownload'
 import { OS_LABEL } from './model'
 import './machines.css'
 import { t } from '../../i18n'
 
+/** Windows has no install.sh: its users go the desktop app way. */
+const onWindows = () => /Windows/i.test(navigator.userAgent)
+
 /**
- * 绑定新机器 in three steps: ① install the client (skippable), ② open the 接入链接 in it, ③ wait for the machine to
- * come online, then go on to 新建 Bot on it.
+ * 绑定新机器. Leads with a sentence to paste to a local agent (Agent 自助接入): it installs gg, binds the machine and
+ * gets its bot and DM made, and the dialog then opens that DM. 其他方式 keeps the desktop app, the gg login command
+ * and Docker; a machine bound that way ends on 新建 Bot.
  */
 export function BindMachineDialog({
   open,
@@ -31,6 +46,10 @@ export function BindMachineDialog({
   const known = useRef<Map<string, string> | null>(null)
   const bind = useBindCode(open, !!bound)
   const { code, error, expired } = bind
+  const navigate = useNavigate()
+  // Read when the agent is done, so a parent re-render (a new onClose) does not restart the wait below.
+  const leave = useRef({ navigate, onClose })
+  leave.current = { navigate, onClose }
 
   useEffect(() => {
     if (!open) return
@@ -41,6 +60,11 @@ export function BindMachineDialog({
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
     })
     return realtime.subscribe((e) => {
+      if (e.t === 'machine.onboarded') {
+        leave.current.navigate(`/g/${e.groupId}`)
+        leave.current.onClose()
+        return
+      }
       if (e.t !== 'machine.updated') return
       const m = e.machine
       setBound((prev) =>
@@ -57,19 +81,19 @@ export function BindMachineDialog({
 
   const online = !!bound?.online
   const steps: { label: string; status: StepStatus }[] = [
-    { label: t('安装客户端'), status: bound || installed ? 'completed' : 'active' },
     {
-      label: t('打开接入链接'),
-      status: bound ? 'completed' : expired || error ? 'error' : installed && code ? 'active' : 'pending',
+      label: t('等待接入'),
+      status: bound ? 'completed' : expired || error ? 'error' : code ? 'active' : 'pending',
     },
-    { label: t('等待机器上线'), status: online ? 'completed' : bound ? 'active' : 'pending' },
+    { label: t('机器已绑定'), status: bound ? 'completed' : 'pending' },
+    { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
   ]
 
   return (
     <Dialog
       open={open}
       title={t('绑定新机器')}
-      message={t('在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。')}
+      message={t('把下面这句话发给本机的 Agent，它会自己接入；接入后这台机器归属于你，Bot 在上面运行。')}
       width={520}
       onClose={onClose}
       actions={
@@ -87,30 +111,41 @@ export function BindMachineDialog({
         <StepIndicator steps={steps} />
         {bound ? null : (
           <>
-            <section className="bind__section" aria-label={t('安装客户端')}>
-              <h3 className="bind__heading">{t('① 安装客户端')}</h3>
-              {installed ? (
-                <span className="bind__note">{t('已安装客户端')}</span>
-              ) : (
-                <>
-                  <span className="bind__step-line">
-                    <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
-                    <Button size="small" onClick={() => setInstalled(true)}>
-                      {t('我已安装')}
-                    </Button>
-                  </span>
-                  <ClientDownload open={open} />
-                </>
-              )}
+            <section className="bind__section" aria-label={t('发给你的 Agent')}>
+              <h3 className="bind__heading">{t('发给你的 Agent')}</h3>
+              <AgentPrompt bind={bind} />
+              {onWindows() ? (
+                <Alert variant="info" description={t('Windows 上请展开「其他方式」，用桌面客户端绑定。')} />
+              ) : null}
             </section>
-            <section className="bind__section" aria-label={t('打开接入链接')}>
-              <h3 className="bind__heading">{t('② 打开接入链接')}</h3>
-              <BindCodePanel bind={bind} />
-            </section>
+            <Disclosure title={t('其他方式')} defaultOpen={onWindows()}>
+              <div className="bind">
+                <section className="bind__section" aria-label={t('安装客户端')}>
+                  <h3 className="bind__heading">{t('① 安装客户端')}</h3>
+                  {installed ? (
+                    <span className="bind__note">{t('已安装客户端')}</span>
+                  ) : (
+                    <>
+                      <span className="bind__step-line">
+                        <span className="bind__note">{t('已经装好客户端可以跳过这一步。')}</span>
+                        <Button size="small" onClick={() => setInstalled(true)}>
+                          {t('我已安装')}
+                        </Button>
+                      </span>
+                      <ClientDownload open={open} />
+                    </>
+                  )}
+                </section>
+                <section className="bind__section" aria-label={t('打开接入链接')}>
+                  <h3 className="bind__heading">{t('② 打开接入链接')}</h3>
+                  <BindCodePanel bind={bind} />
+                </section>
+              </div>
+            </Disclosure>
           </>
         )}
         <section className="bind__section" aria-label={t('等待机器上线')}>
-          <h3 className="bind__heading">{t('③ 等待机器上线')}</h3>
+          <h3 className="bind__heading">{t('等待机器上线')}</h3>
           {bound ? (
             <>
               <BoundMachine machine={bound} />
@@ -121,7 +156,7 @@ export function BindMachineDialog({
               {code && !expired ? (
                 <span className="bind__waiting">
                   <Spinner size={14} />
-                  {t('等待机器上线…')}
+                  {t('等待接入…Agent 会自己下载安装，通常 1–3 分钟')}
                 </span>
               ) : null}
               <p className="bind__note">

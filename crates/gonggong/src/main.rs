@@ -48,6 +48,15 @@ enum Cmd {
         /// Trust the PEM CA certificate at this path (needed for a private CA).
         #[arg(long, requires = "server", conflicts_with = "fingerprint")]
         ca_file: Option<PathBuf>,
+        /// Also have the server create a bot of this agent on this machine, and a DM with it
+        /// (claude|codex|gemini|codebuddy|pi|deepseek).
+        #[arg(long, value_name = "AGENT", value_parser = configure::parse_kind)]
+        create_bot: Option<AgentKind>,
+    },
+    /// Keep `gg run` running in the background and start it at login (macOS launchd, Linux systemd user unit).
+    Service {
+        #[command(subcommand)]
+        cmd: ServiceCmd,
     },
     /// Unbind this machine locally (removes the saved token).
     Logout,
@@ -94,6 +103,16 @@ enum Cmd {
         #[command(subcommand)]
         cmd: gonggong::provider_cli::ProviderCmd,
     },
+}
+
+#[derive(Subcommand)]
+enum ServiceCmd {
+    /// Install (or update) and start the background service.
+    Install,
+    /// Stop and remove the background service.
+    Uninstall,
+    /// Print `service: running|installed|not-installed|unsupported`.
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -193,13 +212,13 @@ async fn main() -> anyhow::Result<()> {
     };
     match cli.cmd {
         Cmd::Agents { cmd } => gonggong::tools::cli(&config::home(), cmd).await?,
-        Cmd::Login { link, server, code, fingerprint, ca_file } => {
-            let (server, code, fingerprint) = match (link, server, code) {
+        Cmd::Login { link, server, code, fingerprint, ca_file, create_bot } => {
+            let (server, code, fingerprint, create_bot) = match (link, server, code) {
                 (Some(link), _, _) => {
                     let link = gonggong::bind::parse_link(&link)?;
-                    (link.server, link.code, link.fingerprint)
+                    (link.server, link.code, link.fingerprint, create_bot.or(link.create_bot))
                 }
-                (None, Some(server), Some(code)) => (server, code, fingerprint),
+                (None, Some(server), Some(code)) => (server, code, fingerprint, create_bot),
                 _ => unreachable!("clap requires a link or --server and --code"),
             };
             let trust = match (fingerprint, ca_file) {
@@ -209,7 +228,8 @@ async fn main() -> anyhow::Result<()> {
                 (Some(_), Some(_)) => unreachable!("clap makes the trust options exclusive"),
             };
             let machine = machine_info();
-            let (config, restored) = gonggong::bind::login(&server, &code, machine.clone(), trust).await?;
+            let gonggong::bind::Login { config, restored, bot } =
+                gonggong::bind::login_as(&server, &code, machine.clone(), trust, create_bot).await?;
             config.save()?;
             if restored {
                 println!(
@@ -222,6 +242,29 @@ async fn main() -> anyhow::Result<()> {
                     t!("绑定成功：本机已归属 {owner}（{name}）", owner = config.owner_name, name = machine.name)
                 );
             }
+            match bot {
+                Some(bot) => {
+                    println!("{}", t!("已准备好 Bot「{name}」和与它的私聊，回到 Web 即可开始对话", name = bot.name))
+                }
+                None if create_bot.is_some() => {
+                    println!("{}", t!("服务器版本较旧，未自动创建 Bot，请在 Web 端新建"))
+                }
+                None => {}
+            }
+        }
+        Cmd::Service { cmd } => {
+            let spec = gonggong::autostart::Spec::current()?;
+            let spec = if matches!(cmd, ServiceCmd::Install) { spec.with_login_path() } else { spec };
+            let run = gonggong::autostart::System;
+            let notes = match cmd {
+                ServiceCmd::Install => gonggong::autostart::install(&spec, &run)?,
+                ServiceCmd::Uninstall => gonggong::autostart::uninstall(&spec, &run)?,
+                ServiceCmd::Status => vec![],
+            };
+            for n in notes {
+                println!("{n}");
+            }
+            println!("service: {}", gonggong::autostart::state(&spec, &run).as_str());
         }
         Cmd::Logout => {
             if let Some(config) = Config::load()?
@@ -235,18 +278,25 @@ async fn main() -> anyhow::Result<()> {
             Config::remove()?;
             println!("{}", t!("已退出登录；再次 gg login 会恢复这台机器及其 Bot"));
         }
-        Cmd::Status => match Config::load()? {
-            Some(c) => println!(
-                "{}",
-                t!(
-                    "已绑定：{server} · 归属 {owner} · 机器 {machine}",
-                    server = c.server,
-                    owner = c.owner_name,
-                    machine = c.machine_id
-                )
-            ),
-            None => println!("{}", t!("未绑定")),
-        },
+        Cmd::Status => {
+            let bound = Config::load()?;
+            match &bound {
+                Some(c) => println!(
+                    "{}",
+                    t!(
+                        "已绑定：{server} · 归属 {owner} · 机器 {machine}",
+                        server = c.server,
+                        owner = c.owner_name,
+                        machine = c.machine_id
+                    )
+                ),
+                None => println!("{}", t!("未绑定")),
+            }
+            // Stable lines for scripts and agents (install.md checks them).
+            println!("bound: {}", if bound.is_some() { "yes" } else { "no" });
+            let spec = gonggong::autostart::Spec::current()?;
+            println!("service: {}", gonggong::autostart::state(&spec, &gonggong::autostart::System).as_str());
+        }
         Cmd::Run { adapter_cmd } => {
             let options = Options { home: config::home(), config: config()?, adapter_cmd, self_upgrade: true };
             let daemon = Daemon::start(options)?;

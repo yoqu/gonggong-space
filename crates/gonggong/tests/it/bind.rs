@@ -1,6 +1,6 @@
 use gonggong::bind;
 use gonggong::config::Trust;
-use gonggong::protocol::MachineInfo;
+use gonggong::protocol::{AgentKind, MachineInfo};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -69,6 +69,29 @@ async fn login_exchanges_the_code_for_a_config() {
 }
 
 #[tokio::test]
+async fn login_asks_for_a_bot_and_reports_it_back() {
+    let res = r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","restored":false,"bot":{"id":"b1","name":"王磊的 Claude Code","groupId":"g1"}}"#;
+    let (url, req) = serve_once("200 OK", res).await;
+    let login = bind::login_as(&url, "K7QM-4X2P", machine(), Trust::System, Some(AgentKind::Codex)).await.unwrap();
+    assert!(!login.restored);
+    assert_eq!(login.config.token, "mt_abc");
+    let bot = login.bot.unwrap();
+    assert_eq!((bot.id.as_str(), bot.name.as_str(), bot.group_id.as_str()), ("b1", "王磊的 Claude Code", "g1"));
+    let req = req.await.unwrap();
+    let body: serde_json::Value = serde_json::from_str(req.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["createBot"], serde_json::json!({ "agent": "codex" }));
+
+    // Without --create-bot nothing is asked, and an older server's answer has no bot.
+    let (url, req) =
+        serve_once("200 OK", r#"{"token":"mt_abc","machineId":"m1","ownerName":"王磊","restored":false}"#).await;
+    let login = bind::login_as(&url, "K7QM-4X2P", machine(), Trust::System, None).await.unwrap();
+    assert!(login.bot.is_none());
+    let req = req.await.unwrap();
+    let body: serde_json::Value = serde_json::from_str(req.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert!(body.get("createBot").is_none());
+}
+
+#[tokio::test]
 async fn logout_voids_the_token_on_the_server() {
     let (url, req) = serve_once("204 No Content", "").await;
     let config = gonggong::config::Config {
@@ -128,7 +151,7 @@ const FP: &str =
     "sha256:BA:78:16:BF:8F:01:CF:EA:41:41:40:DE:5D:AE:22:23:B0:03:61:A3:96:17:7A:9C:B4:10:FF:61:F2:00:15:AD";
 
 fn link(server: &str, code: &str) -> bind::Link {
-    bind::Link { server: server.into(), code: code.into(), fingerprint: None }
+    bind::Link { server: server.into(), code: code.into(), fingerprint: None, create_bot: None }
 }
 
 fn trusted_link(server: &str, code: &str) -> bind::Link {
@@ -157,6 +180,12 @@ fn parses_the_login_command() {
     assert_eq!(bind::parse_link(&mixed).unwrap(), trusted_link("https://g.corp:8443", "K7QM-4X2P"));
     let quoted = "gg login 'gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P'";
     assert_eq!(bind::parse_link(quoted).unwrap(), link("https://g.corp", "K7QM-4X2P"));
+    let with_bot = "gg login --server https://g.corp --code K7QM-4X2P --create-bot Claude";
+    let mut want = link("https://g.corp", "K7QM-4X2P");
+    want.create_bot = Some(AgentKind::Claude);
+    assert_eq!(bind::parse_link(with_bot).unwrap(), want);
+    let link_and_bot = "gg login 'gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P' --create-bot=claude";
+    assert_eq!(bind::parse_link(link_and_bot).unwrap(), want);
 }
 
 #[test]
@@ -180,6 +209,7 @@ fn rejects_anything_else() {
         "gg login --server https://g.corp --code K7QM-4X2P --token x",
         "gonggong://bind?server=https%3A%2F%2Fg.corp&code=K7QM-4X2P&fp=bad",
         "gg login --server --code K7QM-4X2P",
+        "gg login --server https://g.corp --code K7QM-4X2P --create-bot cursor",
         "rm -rf / ; gg login --server https://g.corp --code K7QM-4X2P",
     ] {
         assert!(bind::parse_link(input).is_err(), "{input:?}");

@@ -26,9 +26,11 @@ import { machineDto, publishBots } from '../bots/dto.js'
 import { machineAdminRoutes } from './admin.js'
 import { gitAccessRoutes } from './git-access.js'
 import { netRoutes } from './net.js'
+import { agentPrompt, onboardBot, onboardRoutes } from './onboard.js'
 import { toolRoutes } from './tools.js'
 
-const CODE_TTL_MS = 10 * 60_000
+/** Room for an agent to download and install gg before it logs in (Agent 自助接入). */
+const CODE_TTL_MS = 30 * 60_000
 /** No I/O/0/1 so codes survive being read aloud or retyped. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/
@@ -54,6 +56,7 @@ function bindLink(server: string, code: string) {
 
 export function machineRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
+    onboardRoutes(ctx, app)
     /*
      * D3 asks to void a code after 5 consecutive wrong attempts, but a wrong code cannot be attributed to
      * the issuing user's code. So brute force is bounded per client IP (10 failures / 10 min → code_locked),
@@ -108,8 +111,13 @@ export function machineRoutes(ctx: Ctx) {
           .onConflictDoNothing()
           .returning()
         if (row) {
-          const link = bindLink(publicOrigin(req), row.code)
-          return { code: row.code, expiresAt: row.expiresAt.toISOString(), link }
+          const origin = publicOrigin(req)
+          return {
+            code: row.code,
+            expiresAt: row.expiresAt.toISOString(),
+            link: bindLink(origin, row.code),
+            agentPrompt: agentPrompt(origin, row.code),
+          }
         }
       }
     })
@@ -195,7 +203,14 @@ export function machineRoutes(ctx: Ctx) {
       }
       await onMachineBound(ctx, machine)
       ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: machineDto(ctx, machine) })
-      return { token, machineId: machine.id, ownerName, restored: !!prev && !transferred }
+      const bot = body.createBot ? await onboardBot(ctx, machine, body.createBot.agent) : undefined
+      return {
+        token,
+        machineId: machine.id,
+        ownerName,
+        restored: !!prev && !transferred,
+        ...(bot && { bot }),
+      }
     })
 
     app.post('/api/daemon/logout', async (req, reply) => {
