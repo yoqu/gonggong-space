@@ -10,6 +10,7 @@ import {
   HTML_RENDER_THEME_GUIDE,
   HTML_RENDER_TITLE_MAX,
 } from './html-render.js'
+import { ListingType, ListingVisibility, MarketSource } from './market.js'
 import { GONGGONG_TOOL_TITLES } from './tool-titles.js'
 import {
   DaemonRelease,
@@ -298,6 +299,101 @@ export const SkillRollbackArgs = z.object({
     .min(1)
     .describe('Version from skill_versions; becomes current without a new version'),
 })
+
+const listingRef = z
+  .string()
+  .min(1)
+  .max(100)
+  .describe('Market listing id or name (from market_list / market_mine)')
+const revision = z.number().int().min(1)
+const installLayer = z
+  .enum(['group', 'team', 'personal'])
+  .describe(
+    "group: this group (default) / team: all groups of the team / personal: the initiator's own runs everywhere (skills only)",
+  )
+export const MarketListArgs = z.object({
+  q: z.string().max(100).describe('Keyword in name, title or description').optional(),
+  type: ListingType.optional(),
+  source: MarketSource.describe(
+    "official: platform / team: the initiator's teams / public: other teams",
+  ).optional(),
+})
+export const MarketGetArgs = z.object({
+  listing: listingRef,
+  version: revision
+    .describe('Version number; default the listed one (drafts for maintainers and reviewers)')
+    .optional(),
+  path: z.string().min(1).max(255).describe("Read this file's content instead of the overview").optional(),
+})
+export const MarketPublishArgs = z
+  .object({
+    files: skillFiles
+      .describe('Skill folder files (SKILL.md, scripts/…, references/…); binary files with encoding=base64')
+      .optional(),
+    skill: skillName
+      .describe('Publish the current version of this skill visible here (see skill_list)')
+      .optional(),
+    github: z
+      .url()
+      .describe('Import github.com/<owner>/<repo>[/tree/<ref>/<path>]; again later for a new draft')
+      .optional(),
+    visibility: ListingVisibility.describe(
+      "team: members of this group's team (default; reviewed by team admins) / public: everyone (reviewed by sysadmins)",
+    ).optional(),
+    submit: z.boolean().describe('Also submit the new draft for review; default false').optional(),
+    changelog: z.string().max(2000).describe('What changed, shown to reviewers (with submit)').optional(),
+  })
+  .refine((a) => [a.files, a.skill, a.github].filter((x) => x !== undefined).length === 1, {
+    message: 'files、skill、github 必须且只能给一个',
+  })
+export const MarketMineArgs = z.object({})
+export const MarketSubmitArgs = z.object({
+  listing: listingRef,
+  version: revision.describe('Draft or rejected version; default the latest upload').optional(),
+  changelog: z.string().max(2000).describe('What changed, shown to reviewers'),
+})
+export const MarketUpdateArgs = z
+  .object({
+    listing: listingRef,
+    visibility: ListingVisibility.describe('Only before any version is approved').optional(),
+    status: z
+      .enum(['listed', 'unlisted'])
+      .describe('unlisted: hidden from the market, installs kept')
+      .optional(),
+  })
+  .refine((a) => a.visibility !== undefined || a.status !== undefined, {
+    message: 'visibility 与 status 至少给一个',
+  })
+export const MarketInstallsArgs = z.object({})
+export const MarketInstallArgs = z.object({
+  listing: listingRef,
+  layer: installLayer.optional(),
+  version: z
+    .union([revision, z.literal('latest')])
+    .describe(
+      'Pin this approved version, or "latest" to follow new ones; default: unchanged (new installs follow)',
+    )
+    .optional(),
+  enabled: z
+    .boolean()
+    .describe('false keeps it installed but off; default: unchanged (new installs on)')
+    .optional(),
+  note: z
+    .string()
+    .max(500)
+    .describe('Why, for the admins when the initiator cannot install there and a request is sent instead')
+    .optional(),
+})
+export const MarketUninstallArgs = z.object({ listing: listingRef, layer: installLayer.optional() })
+export const MarketReviewsArgs = z.object({})
+export const MarketReviewArgs = z
+  .object({
+    listing: listingRef,
+    version: revision.describe('Pending version (from market_reviews)'),
+    approve: z.boolean(),
+    note: z.string().max(500).describe('Required when rejecting: what to fix').optional(),
+  })
+  .refine((a) => a.approve || !!a.note?.trim(), { message: '驳回时必须写 note' })
 
 const kbId = z.string().describe('Entry id (from kb_list / kb_search)')
 const kbTitle = z.string().trim().min(1).max(KNOWLEDGE_TITLE_MAX).describe('Title that says what it is about')
@@ -598,6 +694,68 @@ export const GONGGONG_TOOLS = {
     title: GONGGONG_TOOL_TITLES.skill_rollback,
     description: `Roll a skill back to a past version.${SKILL_WRITE}`,
     input: SkillRollbackArgs,
+  },
+  market_list: {
+    title: GONGGONG_TOOL_TITLES.market_list,
+    description:
+      'Browse the skill and plugin market as the turn initiator: listed entries (official, their teams’, other teams’ public ones) with where they are installed.',
+    input: MarketListArgs,
+  },
+  market_get: {
+    title: GONGGONG_TOOL_TITLES.market_get,
+    description:
+      "A market listing: README (SKILL.md), files, versions with review state; or one file's content with path.",
+    input: MarketGetArgs,
+  },
+  market_publish: {
+    title: GONGGONG_TOOL_TITLES.market_publish,
+    description: `Upload a skill or plugin to the market as the turn initiator, in this group's team: from files, an existing skill here, or a GitHub folder. Saves a draft (a new version when the initiator already maintains the same name); it appears in the market once submitted and approved.${SKILL_FORMAT} Plugins carry gonggong-plugin.json at the root.`,
+    input: MarketPublishArgs,
+  },
+  market_mine: {
+    title: GONGGONG_TOOL_TITLES.market_mine,
+    description:
+      'Listings the turn initiator maintains: latest version with its review state and note, listed version, visibility, status.',
+    input: MarketMineArgs,
+  },
+  market_submit: {
+    title: GONGGONG_TOOL_TITLES.market_submit,
+    description: "Submit a draft or rejected version of the initiator's listing for review.",
+    input: MarketSubmitArgs,
+  },
+  market_update: {
+    title: GONGGONG_TOOL_TITLES.market_update,
+    description: "Change the visibility of the initiator's listing or list / unlist it.",
+    input: MarketUpdateArgs,
+  },
+  market_installs: {
+    title: GONGGONG_TOOL_TITLES.market_installs,
+    description:
+      'Market listings installed for this group, its team and the initiator personally: version, pinned or following, enabled.',
+    input: MarketInstallsArgs,
+  },
+  market_install: {
+    title: GONGGONG_TOOL_TITLES.market_install,
+    description:
+      'Install a market listing, or change its pinned version / on-off. Group and team need the initiator to administer them; otherwise an install request goes to the admins. Applies from the next turn.',
+    input: MarketInstallArgs,
+  },
+  market_uninstall: {
+    title: GONGGONG_TOOL_TITLES.market_uninstall,
+    description: 'Remove an installed market listing. Group and team need the initiator to administer them.',
+    input: MarketUninstallArgs,
+  },
+  market_reviews: {
+    title: GONGGONG_TOOL_TITLES.market_reviews,
+    description:
+      "Versions waiting for the initiator's review: team listings for admins of this group's team, public ones for sysadmins.",
+    input: MarketReviewsArgs,
+  },
+  market_review: {
+    title: GONGGONG_TOOL_TITLES.market_review,
+    description:
+      'Approve or reject a pending version as the initiator (not their own). Read it with market_get first; approving lists it and moves installs that follow it.',
+    input: MarketReviewArgs,
   },
   kb_list: {
     title: GONGGONG_TOOL_TITLES.kb_list,

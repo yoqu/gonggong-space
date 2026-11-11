@@ -251,6 +251,7 @@ const LAYER_WRITE_TOOLS = [
   'skill_delete',
   'skill_toggle',
   'skill_rollback',
+  'market_review',
 ]
 /** Refused unless the run's originator is a sysadmin. */
 const RELEASE_TOOLS = ['client_release_publish', 'client_release_notes']

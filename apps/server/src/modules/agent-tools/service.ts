@@ -35,6 +35,19 @@ import { inMainTimeline, threadSummaries } from '../threads/service.js'
 import { artifactCheckout } from './artifacts.js'
 import { listFeishuMessages } from './feishu.js'
 import { kbCreate, kbDelete, kbGet, kbList, kbSearch, kbUpdate } from './knowledge.js'
+import {
+  marketGet,
+  marketInstall,
+  marketInstalls,
+  marketListTool,
+  marketMine,
+  marketPublish,
+  marketReview,
+  marketReviews,
+  marketSubmit,
+  marketUninstall,
+  marketUpdate,
+} from './market.js'
 import { mcpCreate, mcpDelete, mcpGet, mcpList, mcpToggle, mcpUpdate } from './mcp.js'
 import { creationPropose, pluginCatalog } from './plugins.js'
 import { progressCard } from './progress.js'
@@ -471,6 +484,17 @@ const TOOLS: { [N in GonggongToolName]: (ctx: Ctx, s: Scope, a: Args<N>) => Prom
   skill_toggle: (ctx, s, a) => skillToggle(ctx, s.run, a),
   skill_versions: (ctx, s, a) => listSkillVersions(ctx, s.run, a),
   skill_rollback: (ctx, s, a) => skillRollback(ctx, s.run, a),
+  market_list: (ctx, s, a) => marketListTool(ctx, s.run, a),
+  market_get: (ctx, s, a) => marketGet(ctx, s.run, a),
+  market_publish: (ctx, s, a) => marketPublish(ctx, s.run, a),
+  market_mine: (ctx, s) => marketMine(ctx, s.run),
+  market_submit: (ctx, s, a) => marketSubmit(ctx, s.run, a),
+  market_update: (ctx, s, a) => marketUpdate(ctx, s.run, a),
+  market_installs: (ctx, s) => marketInstalls(ctx, s.run),
+  market_install: (ctx, s, a) => marketInstall(ctx, s.run, a),
+  market_uninstall: (ctx, s, a) => marketUninstall(ctx, s.run, a),
+  market_reviews: (ctx, s) => marketReviews(ctx, s.run),
+  market_review: (ctx, s, a) => marketReview(ctx, s.run, a),
   kb_list: (ctx, s, a) => kbList(ctx, s.run, a),
   kb_get: (ctx, s, a) => kbGet(ctx, s.run, a),
   kb_search: (ctx, s, a) => kbSearch(ctx, s.run, a),

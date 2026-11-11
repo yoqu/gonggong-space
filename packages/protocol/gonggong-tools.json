@@ -821,6 +821,299 @@
     }
   },
   {
+    "name": "market_list",
+    "title": "浏览市场",
+    "description": "Browse the skill and plugin market as the turn initiator: listed entries (official, their teams’, other teams’ public ones) with where they are installed.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "q": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Keyword in name, title or description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["plugin", "skill"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["official", "team", "public"],
+          "description": "official: platform / team: the initiator's teams / public: other teams"
+        }
+      }
+    }
+  },
+  {
+    "name": "market_get",
+    "title": "查看市场条目",
+    "description": "A market listing: README (SKILL.md), files, versions with review state; or one file's content with path.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version number; default the listed one (drafts for maintainers and reviewers)"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Read this file's content instead of the overview"
+        }
+      },
+      "required": ["listing"]
+    }
+  },
+  {
+    "name": "market_publish",
+    "title": "上传到市场",
+    "description": "Upload a skill or plugin to the market as the turn initiator, in this group's team: from files, an existing skill here, or a GitHub folder. Saves a draft (a new version when the initiator already maintains the same name); it appears in the market once submitted and approved. A skill is a folder with SKILL.md starting with YAML frontmatter: name (lowercase letters, digits, hyphens, ≤64, unique in the layer) and description (≤1024: what it does and when to use it; agents load it by this). The body gives the steps, kept short; details go in references/ read on demand, scripts in scripts/. At most 5 MB and 200 files. Plugins carry gonggong-plugin.json at the root.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "minItems": 1,
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "content": {
+                "type": "string"
+              },
+              "encoding": {
+                "default": "utf8",
+                "type": "string",
+                "enum": ["utf8", "base64"]
+              }
+            },
+            "required": ["path", "content"]
+          },
+          "description": "Skill folder files (SKILL.md, scripts/…, references/…); binary files with encoding=base64"
+        },
+        "skill": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Publish the current version of this skill visible here (see skill_list)"
+        },
+        "github": {
+          "type": "string",
+          "format": "uri",
+          "description": "Import github.com/<owner>/<repo>[/tree/<ref>/<path>]; again later for a new draft"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "team"],
+          "description": "team: members of this group's team (default; reviewed by team admins) / public: everyone (reviewed by sysadmins)"
+        },
+        "submit": {
+          "type": "boolean",
+          "description": "Also submit the new draft for review; default false"
+        },
+        "changelog": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "What changed, shown to reviewers (with submit)"
+        }
+      }
+    }
+  },
+  {
+    "name": "market_mine",
+    "title": "我的发布",
+    "description": "Listings the turn initiator maintains: latest version with its review state and note, listed version, visibility, status.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "market_submit",
+    "title": "提交审核",
+    "description": "Submit a draft or rejected version of the initiator's listing for review.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Draft or rejected version; default the latest upload"
+        },
+        "changelog": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "What changed, shown to reviewers"
+        }
+      },
+      "required": ["listing", "changelog"]
+    }
+  },
+  {
+    "name": "market_update",
+    "title": "修改市场条目",
+    "description": "Change the visibility of the initiator's listing or list / unlist it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "team"],
+          "description": "Only before any version is approved"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["listed", "unlisted"],
+          "description": "unlisted: hidden from the market, installs kept"
+        }
+      },
+      "required": ["listing"]
+    }
+  },
+  {
+    "name": "market_installs",
+    "title": "已引入的市场条目",
+    "description": "Market listings installed for this group, its team and the initiator personally: version, pinned or following, enabled.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "market_install",
+    "title": "引入市场条目",
+    "description": "Install a market listing, or change its pinned version / on-off. Group and team need the initiator to administer them; otherwise an install request goes to the admins. Applies from the next turn.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["group", "team", "personal"],
+          "description": "group: this group (default) / team: all groups of the team / personal: the initiator's own runs everywhere (skills only)"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "const": "latest"
+            }
+          ],
+          "description": "Pin this approved version, or \"latest\" to follow new ones; default: unchanged (new installs follow)"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "false keeps it installed but off; default: unchanged (new installs on)"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Why, for the admins when the initiator cannot install there and a request is sent instead"
+        }
+      },
+      "required": ["listing"]
+    }
+  },
+  {
+    "name": "market_uninstall",
+    "title": "移除市场条目",
+    "description": "Remove an installed market listing. Group and team need the initiator to administer them.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["group", "team", "personal"],
+          "description": "group: this group (default) / team: all groups of the team / personal: the initiator's own runs everywhere (skills only)"
+        }
+      },
+      "required": ["listing"]
+    }
+  },
+  {
+    "name": "market_reviews",
+    "title": "待审核版本",
+    "description": "Versions waiting for the initiator's review: team listings for admins of this group's team, public ones for sysadmins.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "market_review",
+    "title": "审核版本",
+    "description": "Approve or reject a pending version as the initiator (not their own). Read it with market_get first; approving lists it and moves installs that follow it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "listing": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Market listing id or name (from market_list / market_mine)"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Pending version (from market_reviews)"
+        },
+        "approve": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Required when rejecting: what to fix"
+        }
+      },
+      "required": ["listing", "version", "approve"]
+    }
+  },
+  {
     "name": "kb_list",
     "title": "知识库条目列表",
     "description": "Knowledge base entries of this group: title, id, version, tags, pinned (no body).",
