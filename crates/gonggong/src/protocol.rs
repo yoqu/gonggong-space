@@ -38,9 +38,11 @@ impl AgentKind {
         AgentKind::Deepseek,
     ];
 
-    /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins).
+    /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins, the
+    /// manifest agents say how: `skills.via`).
     pub fn links_skills(self) -> bool {
-        matches!(self, AgentKind::Codex | AgentKind::Gemini | AgentKind::Pi | AgentKind::Deepseek)
+        self == AgentKind::Codex
+            || crate::adapters::get(self).is_some_and(|a| a.spec.skills.via == crate::adapters::SkillsVia::Link)
     }
 }
 

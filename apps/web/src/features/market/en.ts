@@ -157,6 +157,8 @@ export default {
   '只在你发起的运行里生效，跟着你进入所有群；优先级高于群、仓库、团队的同名 Skill。':
     'Applies only to runs you start and follows you into every group; overrides same-named Skills of the group, repo and team.',
   引入最多: 'Most installed',
+  '创作#shelf': 'Creation',
+  供应商预设: 'Provider presets',
   搜索名称或描述: 'Search names or descriptions',
   '（没有描述）': '(No description)',
   市场里还没有条目: 'Nothing in the market yet',

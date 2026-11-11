@@ -18,8 +18,24 @@ const PkgPath = z
   .max(255)
   .refine((p) => !p.startsWith('/') && !p.split('/').includes('..'), '必须是插件目录内的相对路径')
 
-export const PluginCategory = z.enum(['web', 'deck', 'poster', 'dashboard', 'video', 'tool', 'other'])
+export const PluginCategory = z.enum([
+  'web',
+  'deck',
+  'poster',
+  'dashboard',
+  'video',
+  'other',
+  'tool',
+  'agent',
+  'provider',
+])
 export type PluginCategory = z.infer<typeof PluginCategory>
+/** The market's four shelves, by what a plugin is for. */
+export const PluginShelf = z.enum(['creation', 'tool', 'agent', 'provider'])
+export type PluginShelf = z.infer<typeof PluginShelf>
+export const shelfOf = (c: PluginCategory): PluginShelf =>
+  c === 'tool' || c === 'agent' || c === 'provider' ? c : 'creation'
+export const shelfCategories = (s: PluginShelf) => PluginCategory.options.filter((c) => shelfOf(c) === s)
 
 /** A form field of the creation panel (第 3 步「内容与参数」); its value is passed to the agent as `label：value`. */
 export const PluginInput = z.object({
@@ -117,18 +133,172 @@ export const PluginCommand = z.object({
 })
 export type PluginCommand = z.infer<typeof PluginCommand>
 
+const ENV_NAME = /^[A-Z][A-Z0-9_]{0,63}$/
+const EnvName = z.string().regex(ENV_NAME)
+/** A path on the machine: `~` is the user's home, `{home}` the agent's own config directory (`home` below). */
+const MachinePath = z.string().min(1).max(300)
+const Semver = z.string().regex(SEMVER)
+const Label = z.string().min(1).max(40)
+
+/** One way to tell the agent is logged in (§5.1 `login.check`); the first that holds gives the label. */
+export const AgentLoginCheck = z.discriminatedUnion('type', [
+  /** One of these env vars is set and not empty. */
+  z.object({ type: z.literal('env'), names: z.array(EnvName).min(1), label: Label }),
+  /** A `KEY=value` line (`export` allowed) with a non-empty value for one of `keys`, in any of `files`. */
+  z.object({
+    type: z.literal('envFile'),
+    files: z.array(MachinePath).min(1),
+    keys: z.array(EnvName).min(1),
+    label: Label,
+  }),
+  /** A `KEY: value` line with a non-empty value. */
+  z.object({ type: z.literal('yamlKey'), file: MachinePath, key: EnvName, label: Label }),
+  /** The JSON file (comments allowed) has `equals` at the JSON pointer. */
+  z.object({
+    type: z.literal('jsonValue'),
+    file: MachinePath,
+    pointer: z.string().startsWith('/'),
+    equals: z.string(),
+    label: Label,
+  }),
+  /** The JSON object's keys are the logins, listed as the label. */
+  z.object({ type: z.literal('jsonKeys'), file: MachinePath }),
+])
+export type AgentLoginCheck = z.infer<typeof AgentLoginCheck>
+
+/** What a permission tier sets: an ACP session mode, or process env (needs a restart to change). */
+const AgentTier = z.object({
+  mode: z.string().min(1).optional(),
+  env: z.record(EnvName, z.string()).default({}),
+})
+/**
+ * Arguments and env values may hold `{prompt}` (the bot's system prompt), `{state}` (the (group, bot) state folder),
+ * `{pkg}` (the plugin folder), `{node}`, `{cli}` and, in `skills.args`, `{pluginDirs}` (one argument per folder).
+ */
+const Template = z.string().max(500)
+
+/**
+ * An agent adapter (plan 插件扩展点 §5): how the daemon installs, starts and drives an ACP agent. Every field picks
+ * from a closed set of strategies; what they cannot say goes into `launchScript`, a Node script of the plugin run
+ * before each agent process starts (stdin: the run, stdout: `{ env, args }`).
+ */
+export const PluginAgent = z.object({
+  id: z.string().regex(ID),
+  title: z.string().min(1).max(40),
+  vendor: z.string().min(1).max(40),
+  install: z.object({
+    npm: z.string().min(1).max(100),
+    bin: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,39}$/),
+    /** The CLI's script inside its npm package, run on the daemon's Node; null: a native binary. */
+    script: z.string().max(200).nullable().default(null),
+    brew: z.string().max(60).nullable().default(null),
+    minVersion: Semver,
+    minNode: Semver.default('22.0.0'),
+  }),
+  acp: z.discriminatedUnion('kind', [
+    /** The CLI speaks ACP itself with these arguments. */
+    z.object({ kind: z.literal('native'), args: z.array(Template).max(10).default([]) }),
+    /** A pinned adapter npm package does (its `entry` run on the daemon's Node). */
+    z.object({
+      kind: z.literal('adapter'),
+      npm: z.string().min(1).max(100),
+      version: Semver,
+      entry: z.string().max(200).default('dist/index.js'),
+    }),
+  ]),
+  /** The CLI runs shell commands in its process directory, not the session's: start it in the workspace. */
+  chdir: z.boolean().default(false),
+  systemPrompt: z.discriminatedUnion('via', [
+    z.object({ via: z.literal('arg'), args: z.array(Template).min(1).max(5) }),
+    z.object({ via: z.literal('env'), env: EnvName }),
+    /** `launchScript` writes it where the agent reads it. */
+    z.object({ via: z.literal('script') }),
+  ]),
+  mcp: z
+    .object({
+      /** `acp`: session/new `mcpServers`; `env`: a JSON map name → config in `env`, each with `extra` merged in. */
+      via: z.enum(['acp', 'env']).default('acp'),
+      env: EnvName.optional(),
+      extra: z.record(z.string(), z.unknown()).default({}),
+      /** The built-in gonggong server: `script` hands it to `launchScript` (e.g. to give it a timeout) instead. */
+      gonggong: z.enum(['acp', 'script']).default('acp'),
+    })
+    .refine((m) => m.via !== 'env' || m.env, '需要 env')
+    .default({ via: 'acp', extra: {}, gonggong: 'acp' }),
+  skills: z.object({
+    /** `link`: team and plugin skills linked into `<cwd>/.agents/skills`; `arg`: their folders in `args`. */
+    via: z.enum(['link', 'arg']),
+    args: z.array(Template).max(5).default([]),
+    /** The repo's own skill folders, which win over a team skill of the same name. */
+    dirs: z.array(z.string().max(60)).min(1).max(5),
+  }),
+  /** Per tier; null: the agent has no permission modes and the owner's rules answer its requests. */
+  tiers: z
+    .object({
+      full: AgentTier,
+      workspace: AgentTier,
+      readonly: AgentTier,
+      /** Tier env is read at start: a tier change needs a new process. */
+      restartOnChange: z.boolean().default(false),
+    })
+    .nullable(),
+  /** Env the run's provider goes into; null: the agent keeps its own logins. */
+  provider: z
+    .object({
+      env: z.object({ apiKey: EnvName, baseUrl: EnvName.nullable(), model: EnvName.nullable() }),
+      /** The agent maker's own services: no base URL is set for them. */
+      skipBaseUrls: z.array(z.string().url()).max(10).default([]),
+    })
+    .nullable(),
+  /** The agent's config directory (`env`, else `default` under the user's home) and its models file in it. */
+  home: z.object({
+    env: EnvName.nullable(),
+    default: z.string().min(1).max(100),
+    config: z.string().min(1).max(100),
+  }),
+  login: z.object({
+    checks: z.array(AgentLoginCheck).max(6),
+    /** Say 「未登录」 when no check holds; false: it cannot tell (a key may come from elsewhere). */
+    loggedOut: z.boolean().default(true),
+    /** What the owner runs on the machine to log in, and what to do in it. */
+    command: z.string().min(1).max(100),
+    hint: z.string().min(1).max(200),
+  }),
+  env: z.record(EnvName, Template).default({}),
+  permission: z
+    .object({
+      /** `_meta` key of permission requests naming the MCP server and tool (`{ mcp: { server_name, tool_name } }`). */
+      mcpMeta: z.string().max(60).nullable().default(null),
+    })
+    .default({ mcpMeta: null }),
+  /** `_meta` key of a failed prompt carrying the JSON-RPC error. */
+  errors: z.object({ metaKey: z.string().max(60).nullable().default(null) }).default({ metaKey: null }),
+  /** Folders in a repo that steer the agent: writing there always asks the owner. */
+  steeringDirs: z.array(z.string().max(60)).max(5).default([]),
+  /** Folder under the daemon home for per-(group, bot) state (`{state}`, swept with the pair; `probe` for probes). */
+  state: z.string().regex(ID).nullable().default(null),
+  launchScript: PkgPath.nullable().default(null),
+})
+export type PluginAgent = z.infer<typeof PluginAgent>
+
 /** Extension points (plan 插件扩展点); each optional. */
 export const PluginContributes = z.object({
   mcp: z.array(PluginMcp).max(10).default([]),
   commands: z.array(PluginCommand).max(30).default([]),
   /** Provider presets (§6): platform-layer plugins only; added to every daemon's built-in ones, same id replacing. */
   providers: z.array(ProviderPreset).max(300).default([]),
+  /** Agent adapters (§5): they run code on the machine, so they need `exec`. */
+  agents: z.array(PluginAgent).max(5).default([]),
 })
 export type PluginContributes = z.infer<typeof PluginContributes>
 
 /** The permissions what a manifest contributes needs; it must declare exactly these. */
 export const requiredPermissions = (c: PluginContributes): PluginPermission[] =>
-  PluginPermission.options.filter((p) => c.mcp.some((m) => m.transport === (p === 'exec' ? 'stdio' : 'http')))
+  PluginPermission.options.filter(
+    (p) =>
+      c.mcp.some((m) => m.transport === (p === 'exec' ? 'stdio' : 'http')) ||
+      (p === 'exec' && c.agents.length > 0),
+  )
 
 /** Runs code on the executing machine (§9): needs 插件代码 on, the machine owner's consent and a pinned install. */
 export const pluginRunsCode = (m: { permissions: PluginPermission[] }) => m.permissions.includes('exec')
@@ -147,7 +317,7 @@ export const PluginManifest = z
     /** The skill a creation invokes: `skills/<entry>/SKILL.md` must exist. Null for a plugin without one (tools only). */
     entry: z.string().regex(ID).nullable().default(null),
     permissions: z.array(PluginPermission).max(PluginPermission.options.length).default([]),
-    contributes: PluginContributes.default({ mcp: [], commands: [], providers: [] }),
+    contributes: PluginContributes.default({ mcp: [], commands: [], providers: [], agents: [] }),
     /** The plugin's tile: an svg or png in the folder; absent: its category's glyph. */
     icon: PkgPath.optional(),
     templates: z.array(PluginTemplate).max(80).default([]),

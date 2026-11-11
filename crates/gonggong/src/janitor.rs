@@ -53,10 +53,12 @@ pub fn sweep(home: &Path, active: &HashSet<(String, String)>, now: SystemTime, r
             gone.push(path);
         }
     }
-    // Gemini CLI homes hold the pair's sessions too: gone with the pair.
-    for (name, path) in entries(&home.join("gemini")) {
-        if name != crate::gemini::PROBE && !names.contains(&name) && old(&path, ORPHAN_AGE) {
-            gone.push(path);
+    // Agent state (Gemini CLI's homes hold the pair's sessions too): gone with the pair.
+    for dir in crate::adapters::all().iter().filter_map(|a| a.spec.state.as_deref()) {
+        for (name, path) in entries(&home.join(dir)) {
+            if name != crate::adapters::PROBE && path.is_dir() && !names.contains(&name) && old(&path, ORPHAN_AGE) {
+                gone.push(path);
+            }
         }
     }
     for (name, path) in entries(&home.join("plugin-links")) {

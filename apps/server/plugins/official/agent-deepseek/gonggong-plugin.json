@@ -1,0 +1,90 @@
+{
+  "name": "agent-deepseek",
+  "version": "1.0.0",
+  "title": "DeepSeek Harness",
+  "description": "深度求索的 DeepSeek Harness：在机器上以 acp 配置运行，指令写进人设补丁，权限档位决定沙箱。",
+  "category": "agent",
+  "agents": ["deepseek"],
+  "minDaemon": "0.4.18",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "deepseek",
+        "title": "DeepSeek Harness",
+        "vendor": "深度求索",
+        "install": {
+          "npm": "@deepseek-ai/dsh",
+          "bin": "dsh",
+          "script": "lib/bin.js",
+          "brew": "dsh",
+          "minVersion": "0.2.2",
+          "minNode": "24.9.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["--profile", "acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".dsh/skills"]
+        },
+        "tiers": {
+          "full": {
+            "env": {
+              "DSH_PERMISSION_MODE": "danger-full-access"
+            }
+          },
+          "workspace": {
+            "env": {
+              "DSH_PERMISSION_MODE": "workspace-write"
+            }
+          },
+          "readonly": {
+            "env": {
+              "DSH_PERMISSION_MODE": "read-only"
+            }
+          },
+          "restartOnChange": true
+        },
+        "provider": {
+          "env": {
+            "apiKey": "DEEPSEEK_API_KEY",
+            "baseUrl": "DEEPSEEK_BASE_URL",
+            "model": null
+          }
+        },
+        "home": {
+          "env": "DSH_HOME",
+          "default": ".dsh",
+          "config": "cordis.patch.yml"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "env",
+              "names": ["DEEPSEEK_API_KEY"],
+              "label": "API key"
+            },
+            {
+              "type": "yamlKey",
+              "file": "{home}/.credentials.yaml",
+              "key": "DEEPSEEK_API_KEY",
+              "label": "API key"
+            }
+          ],
+          "command": "dsh web",
+          "hint": "在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）"
+        },
+        "state": "deepseek",
+        "launchScript": "contrib/agents/deepseek/launch.mjs"
+      }
+    ]
+  }
+}

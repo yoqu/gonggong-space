@@ -1,4 +1,4 @@
-import type { InstallRequestDto, ListingType, MarketListingDto, MarketSource } from '@gonggong/protocol'
+import type { InstallRequestDto, MarketListingDto, MarketSource, PluginShelf } from '@gonggong/protocol'
 import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -28,13 +28,15 @@ import './market.css'
 
 const TABS = ['market', 'requests', 'mine', 'reviews'] as const
 type Tab = (typeof TABS)[number]
-type TypeFilter = 'all' | ListingType
+/** Skills, or plugins by what they are for (PluginShelf). */
+type TypeFilter = 'all' | 'skill' | PluginShelf
 type SourceFilter = 'all' | MarketSource
 
 const marketPath = (q: string, type: TypeFilter, source: SourceFilter) => {
   const params = new URLSearchParams()
   if (q.trim()) params.set('q', q.trim())
-  if (type !== 'all') params.set('type', type)
+  if (type === 'skill') params.set('type', type)
+  else if (type !== 'all') params.set('shelf', type)
   if (source !== 'all') params.set('source', source)
   const s = params.toString()
   return s ? `/market?${s}` : '/market'
@@ -180,7 +182,10 @@ export function MarketPage() {
               items={[
                 { value: 'all', label: t('全部') },
                 { value: 'skill', label: 'Skill' },
-                { value: 'plugin', label: t('插件') },
+                { value: 'creation', label: t('创作#shelf') },
+                { value: 'tool', label: t('工具') },
+                { value: 'agent', label: 'Agent' },
+                { value: 'provider', label: t('供应商预设') },
               ]}
             />
             <SegmentedControl<SourceFilter>

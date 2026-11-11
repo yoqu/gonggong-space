@@ -7,7 +7,6 @@ use crate::coalesce::Coalesce;
 use crate::config::{Config, Settings};
 use crate::explorer;
 use crate::files;
-use crate::gemini;
 use crate::git;
 use crate::git_ops;
 use crate::git_write;
@@ -40,17 +39,12 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// Pinned ACP adapters (plan D19), installed under `<home>/adapters/`. All declare `bin: dist/index.js`. Gemini CLI,
-/// CodeBuddy and DeepSeek Harness need none.
-pub const ADAPTERS: [(AgentKind, &str, &str); 3] = [
+/// Pinned ACP adapters of the code agents (plan D19), installed under `<home>/adapters/`. Both declare
+/// `bin: dist/index.js`. The manifest agents name theirs (`acp.kind: adapter`), if any.
+pub const ADAPTERS: [(AgentKind, &str, &str); 2] = [
     (AgentKind::Claude, "@agentclientprotocol/claude-agent-acp", "0.81.0"),
     (AgentKind::Codex, "@agentclientprotocol/codex-acp", "2.2.2"),
-    (AgentKind::Pi, "pi-acp", "0.0.34"),
 ];
-/// pi's script in its npm package, run on the daemon's Node.
-const PI_SCRIPT: &str = "@earendil-works/pi-coding-agent/dist/bundle/cli.js";
-/// The oldest Node DeepSeek Harness runs on (its `engines`).
-const DSH_MIN_NODE: &str = "24.9.0";
 const PROBE_TIMEOUT: Duration = Duration::from_secs(90);
 /// Claude Code aborts an HTTP MCP call after a minute, or five silent minutes, while 「向群成员提问」 waits for a person
 /// up to the group's timeout (at most a day): the call must outlast it.
@@ -257,12 +251,7 @@ impl Engine {
             agent_settings: Default::default(),
         };
         let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
-        let gemini_home = (kind == AgentKind::Gemini).then(|| gemini::home_dir(&self.0.config.home, gemini::PROBE));
-        if let Some(dir) = gemini_home.clone() {
-            let (user_home, selection) = (self.0.config.user_home.clone(), official.clone());
-            tokio::task::spawn_blocking(move || gemini::prepare(&dir, &user_home, &selection, "", None)).await??;
-        }
-        let process = Process { gemini_home: gemini_home.as_deref(), ..Default::default() };
+        let process = Process { key: crate::adapters::PROBE, ..Default::default() };
         let config = self.0.adapter(&bot, &local, &official, &SecretEnv::default(), &process).await?;
         Ok(AcpAgent::new(config))
     }
@@ -1094,57 +1083,17 @@ impl Inner {
             .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
         let base = match &self.config.adapter_cmd {
             Some(cmd) => AcpAgent::from_str(cmd)?.into_config().envs(env),
-            // Gemini CLI, CodeBuddy and DeepSeek Harness speak ACP themselves.
-            None if matches!(bot.agent_kind, AgentKind::Gemini | AgentKind::Codebuddy | AgentKind::Deepseek) => {
-                let (missing, script) = match bot.agent_kind {
-                    AgentKind::Gemini => (
-                        t!(
-                            "这台机器上没有 Gemini CLI，请安装：npm install -g @google/gemini-cli，或在「设置 → Agent 工具」里用共工托管安装"
-                        ),
-                        "@google/gemini-cli/bundle/gemini.js",
-                    ),
-                    AgentKind::Deepseek => (
-                        t!(
-                            "这台机器上没有 DeepSeek Harness，请安装：npm install -g @deepseek-ai/dsh，或在「设置 → Agent 工具」里用共工托管安装"
-                        ),
-                        "@deepseek-ai/dsh/lib/bin.js",
-                    ),
-                    _ => (
-                        t!(
-                            "这台机器上没有 CodeBuddy，请安装：npm install -g @tencent-ai/codebuddy-code，或在「设置 → Agent 工具」里用共工托管安装"
-                        ),
-                        "@tencent-ai/codebuddy-code/bin/codebuddy",
-                    ),
-                };
-                let cli = cli.as_deref().filter(|p| p.is_file()).context(missing)?;
-                let node = self.node().await?;
-                if bot.agent_kind == AgentKind::Deepseek && crate::upgrade::is_newer(DSH_MIN_NODE, &node.version) {
-                    bail!(t!(
-                        "DeepSeek Harness 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
-                        v = DSH_MIN_NODE,
-                        current = node.version
-                    ));
+            None => match crate::adapters::get(bot.agent_kind) {
+                Some(a) => self.manifest_command(a, cli.as_deref(), process, env).await?,
+                None => {
+                    let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
+                    // The agent CLIs npm installs are node scripts: they must find this Node too.
+                    AcpAgentConfig::new(&node.path)
+                        .arg(script.to_string_lossy())
+                        .envs(env)
+                        .env("PATH", node.path_env().to_string_lossy())
                 }
-                let config = match (agents::node_script(cli, script), process.cwd) {
-                    (Some(script), Some(cwd)) => AcpAgentConfig::new(&node.path)
-                        .arg(chdir_script(&self.config.home)?.to_string_lossy())
-                        .arg(cwd.to_string_lossy())
-                        .arg(script.to_string_lossy()),
-                    (Some(script), None) => AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()),
-                    (None, _) => AcpAgentConfig::new(cli),
-                };
-                // DeepSeek Harness' ACP mode is a profile (below).
-                let config = if bot.agent_kind == AgentKind::Deepseek { config } else { config.arg("--acp") };
-                config.envs(env).env("PATH", node.path_env().to_string_lossy())
-            }
-            None => {
-                let (node, script) = self.ensure_adapter(bot.agent_kind).await?;
-                // The agent CLIs npm installs are node scripts: they must find this Node too.
-                AcpAgentConfig::new(&node.path)
-                    .arg(script.to_string_lossy())
-                    .envs(env)
-                    .env("PATH", node.path_env().to_string_lossy())
-            }
+            },
         };
         // After the user's variables: commits are the bot's, whatever the machine is configured with.
         let base = match &bot.git {
@@ -1197,90 +1146,173 @@ impl Inner {
                     .envs(provider.map(inject::codex_env).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }
-            AgentKind::Gemini => {
-                let dir = process.gemini_home.context("a Gemini run without its home")?;
-                let base = base
-                    .env("GEMINI_CLI_HOME", dir.to_string_lossy())
-                    .env("GEMINI_CLI_TRUST_WORKSPACE", "true")
-                    .envs(extra_env);
-                match provider {
-                    Some(p) => base
-                        .env("GEMINI_API_KEY", &p.api_key)
-                        .env("GOOGLE_GEMINI_BASE_URL", &p.base_url)
-                        .envs(p.model.as_ref().map(|m| ("GEMINI_MODEL", m))),
-                    None => base,
-                }
-            }
-            AgentKind::Codebuddy => {
-                // Its ACP sessions take no instructions or plugins: the process gets them.
-                let mut base = base.arg("--append-system-prompt").arg(system_prompt(bot));
-                if !process.plugin_dirs.is_empty() {
-                    let dirs = process.plugin_dirs.iter().map(|d| d.to_string_lossy().into_owned());
-                    base = base.arg("--plugin-dir").args(dirs);
-                }
-                let base = base.env("MCP_TOOL_TIMEOUT", ASK_TIMEOUT_MS).envs(extra_env);
-                match provider {
-                    Some(p) => base
-                        .env("CODEBUDDY_API_KEY", &p.api_key)
-                        .envs(inject::codebuddy_base_url(p).map(|u| ("CODEBUDDY_BASE_URL", u)))
-                        .envs(p.model.as_ref().map(|m| ("CODEBUDDY_MODEL", m))),
-                    None => base,
-                }
-            }
-            AgentKind::Pi => {
-                let files = crate::pi::files(&self.config.home)?;
-                let script = cli.as_deref().and_then(|c| agents::node_script(Path::new(c), PI_SCRIPT));
-                let (exe, script) = match (script, cli) {
-                    (Some(script), _) => {
-                        let node = self.node().await?;
-                        (node.path.to_string_lossy().into_owned(), Some(script.to_string_lossy().into_owned()))
-                    }
-                    (None, Some(cli)) => (cli, None),
-                    // A test's agent stands in for pi-acp.
-                    (None, None) if self.config.adapter_cmd.is_some() => (agents::binary(AgentKind::Pi).into(), None),
-                    (None, None) => bail!(t!(
-                        "这台机器上没有 pi，请安装：npm install -g @earendil-works/pi-coding-agent，或在「设置 → Agent 工具」里用共工托管安装"
-                    )),
-                };
-                base.env("PI_ACP_PI_COMMAND", files.wrapper.to_string_lossy())
-                    .env("GG_PI_EXE", exe)
-                    .envs(script.map(|s| ("GG_PI_SCRIPT", s)))
-                    .env("GG_PI_EXTENSION", files.extension.to_string_lossy())
-                    .env("GG_PI_SYSTEM_PROMPT", system_prompt(bot))
-                    .env("GG_PI_MCP", process.pi_mcp.unwrap_or("{}"))
-                    // Startup info and update notices are for people at a terminal.
-                    .env("PI_SKIP_VERSION_CHECK", "1")
-                    .envs(extra_env)
-            }
-            AgentKind::Deepseek => {
-                // Its sandbox and approvals by tier; past them, the owner's rules answer (`session::permission_in`).
-                let mode = match bot.tier {
-                    Tier::Full => "danger-full-access",
-                    Tier::Workspace => "workspace-write",
-                    Tier::ReadOnly => "read-only",
-                };
-                let patch = deepseek_patch(&self.config.home, bot)?;
-                let base = base
-                    .args(["--profile", "acp", "--patch"])
-                    .arg(patch.to_string_lossy())
-                    .env("DSH_PERMISSION_MODE", mode)
-                    .envs(extra_env);
-                match provider {
-                    Some(p) => base.env("DEEPSEEK_API_KEY", &p.api_key).env("DEEPSEEK_BASE_URL", &p.base_url),
-                    None => base,
-                }
+            _ => {
+                let a = crate::adapters::get(bot.agent_kind).expect("a manifest agent");
+                self.manifest_launch(a, base, bot, cli.as_deref(), provider, extra_env, process).await?
             }
         })
     }
 
-    /// The Node the agent CLIs without an adapter (and pi) run on (the managed one installed when there is none ≥ the
-    /// adapters' minimum).
+    /// How a manifest agent's process starts (`install`, `acp`, `chdir`): its CLI as a node script on the daemon's
+    /// Node (in the workspace when it runs shell commands in its own directory), or its pinned ACP adapter.
+    async fn manifest_command(
+        &self,
+        a: &crate::adapters::Adapter,
+        cli: Option<&Path>,
+        process: &Process<'_>,
+        env: Vec<(String, String)>,
+    ) -> anyhow::Result<AcpAgentConfig> {
+        let install = &a.spec.install;
+        let (config, node) = match &a.spec.acp {
+            crate::adapters::Acp::Native { .. } => {
+                let cli = cli.filter(|p| p.is_file()).context(a.missing())?;
+                let node = self.node().await?;
+                if crate::upgrade::is_newer(&install.min_node, &node.version) {
+                    bail!(t!(
+                        "{agent} 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
+                        agent = a.spec.title,
+                        v = install.min_node,
+                        current = node.version
+                    ));
+                }
+                let script =
+                    install.script.as_ref().and_then(|s| agents::node_script(cli, &format!("{}/{s}", install.npm)));
+                let config = match (script, process.cwd.filter(|_| a.spec.chdir)) {
+                    (Some(script), Some(cwd)) => AcpAgentConfig::new(&node.path)
+                        .arg(chdir_script(&self.config.home)?.to_string_lossy())
+                        .arg(cwd.to_string_lossy())
+                        .arg(script.to_string_lossy()),
+                    (Some(script), None) => AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()),
+                    (None, _) => AcpAgentConfig::new(cli),
+                };
+                (config, node)
+            }
+            crate::adapters::Acp::Adapter { .. } => {
+                if !cli.is_some_and(Path::is_file) {
+                    bail!(a.missing());
+                }
+                let (node, script) = self.ensure_manifest_adapter(a).await?;
+                (AcpAgentConfig::new(&node.path).arg(script.to_string_lossy()), node)
+            }
+        };
+        // The agent CLIs npm installs are node scripts: they must find this Node too.
+        Ok(config.envs(env).env("PATH", node.path_env().to_string_lossy()))
+    }
+
+    /// A manifest agent's arguments and env for the run (`acp.args`, `systemPrompt`, `skills`, `env`, `tiers`, `mcp`,
+    /// `launchScript`, `provider`), on top of how it starts.
+    #[allow(clippy::too_many_arguments)]
+    async fn manifest_launch(
+        &self,
+        a: &crate::adapters::Adapter,
+        base: AcpAgentConfig,
+        bot: &RunBot,
+        cli: Option<&str>,
+        provider: Option<&crate::providers::Provider>,
+        extra_env: std::collections::BTreeMap<String, String>,
+        process: &Process<'_>,
+    ) -> anyhow::Result<AcpAgentConfig> {
+        use crate::adapters::{SkillsVia, SystemPrompt, Via};
+        let home = &self.config.home;
+        let spec = &a.spec;
+        let prompt = system_prompt(bot);
+        let state = a.state_dir(home, process.key);
+        let pkg = a.pkg_dir(home)?;
+        let vars = crate::adapters::Vars { prompt: &prompt, state: state.as_deref(), pkg: Some(&pkg), node: None, cli };
+        let mut config = base;
+        if let crate::adapters::Acp::Native { args } = &spec.acp {
+            config = config.args(args.iter().map(|x| vars.fill(x)));
+        }
+        if let SystemPrompt::Arg { args } = &spec.system_prompt {
+            config = config.args(args.iter().map(|x| vars.fill(x)));
+        }
+        if spec.skills.via == SkillsVia::Arg {
+            config = config.args(crate::adapters::with_dirs(&spec.skills.args, process.plugin_dirs, &vars));
+        }
+        config = config.envs(spec.env.iter().map(|(k, v)| (k.clone(), vars.fill(v))));
+        if let Some(t) = a.tier(bot.tier) {
+            config = config.envs(t.env.clone());
+        }
+        if let SystemPrompt::Env { env } = &spec.system_prompt {
+            config = config.env(env, &prompt);
+        }
+        if let (Via::Env, Some(name)) = (spec.mcp.via, &spec.mcp.env) {
+            config = config.env(name, crate::adapters::mcp_map(process.mcp_servers, process.ask, &spec.mcp.extra));
+        }
+        if let Some(script) = &spec.launch_script {
+            let node = self.node().await?;
+            let script_path = pkg.join(script);
+            let install = &spec.install;
+            let cli_script = cli
+                .zip(install.script.as_ref())
+                .and_then(|(c, s)| agents::node_script(Path::new(c), &format!("{}/{s}", install.npm)));
+            let gonggong = process.ask.filter(|_| spec.mcp.gonggong == Via::Script).and_then(crate::adapters::gonggong);
+            let input = serde_json::json!({
+                "agent": spec.id,
+                "probe": process.key == crate::adapters::PROBE,
+                "bot": { "id": bot.id, "name": bot.name, "tier": bot.tier, "model": bot.model },
+                "systemPrompt": if process.key == crate::adapters::PROBE { String::new() } else { prompt.clone() },
+                "mcpServers": process.mcp_servers,
+                "gonggong": gonggong.map(|(_, g)| g),
+                "cwd": process.cwd,
+                "state": state,
+                "data": spec.state.as_ref().map(|d| home.join(d)),
+                "userHome": self.config.user_home,
+                "home": a.config_home(&self.config.user_home, &|n| std::env::var(n).ok()),
+                "provider": provider.map(|p| serde_json::json!({ "baseUrl": p.base_url, "model": p.model })),
+                "pkg": pkg,
+                "node": node.path,
+                "cli": cli,
+                "cliScript": cli_script,
+                "bin": install.bin,
+            });
+            let launch =
+                crate::adapters::run_script(&node.path, &script_path, &input).await.map_err(anyhow::Error::msg)?;
+            config = config.args(launch.args).envs(launch.env);
+        }
+        config = config.envs(extra_env);
+        if let (Some(p), Some(names)) = (provider, &spec.provider) {
+            config = config
+                .env(&names.env.api_key, &p.api_key)
+                .envs(names.env.base_url.as_ref().zip(a.base_url(&p.base_url)).map(|(k, v)| (k.clone(), v.to_string())))
+                .envs(names.env.model.as_ref().zip(p.model.as_ref()).map(|(k, v)| (k.clone(), v.clone())));
+        }
+        Ok(config)
+    }
+
+    /// Installs a manifest agent's pinned ACP adapter under `<home>/adapters/<id>/` once; returns (node, its entry).
+    async fn ensure_manifest_adapter(&self, a: &crate::adapters::Adapter) -> anyhow::Result<(tools::Node, PathBuf)> {
+        let crate::adapters::Acp::Adapter { npm, version, entry } = &a.spec.acp else {
+            bail!("{} has no ACP adapter", a.spec.id);
+        };
+        let dir = self.config.home.join("adapters").join(&a.spec.id);
+        let pkg = dir.join("node_modules").join(npm);
+        let node = self.node().await?;
+        let _guard = self.install.lock().await;
+        if installed_version(&pkg).as_deref() != Some(version.as_str()) {
+            let settings = Settings::load(&self.config.home)?;
+            let registry = settings.mirror.registry();
+            let log = |line: &str| tracing::info!("{line}");
+            tokio::fs::create_dir_all(&dir).await?;
+            tracing::info!("installing {npm}@{version} into {} from {registry}", dir.display());
+            let mut cmd = node.npm().context(t!("无法安装 ACP 适配器"))?;
+            cmd.args(["install", "--no-audit", "--no-fund", "--registry", registry, "--prefix"])
+                .arg(&dir)
+                .arg(format!("{npm}@{version}"))
+                .envs(settings.child_env());
+            tools::run(cmd, &log).await.context(t!("安装 ACP 适配器失败"))?;
+        }
+        Ok((node, pkg.join(entry)))
+    }
+
+    /// The Node the manifest agents, their adapters and launch scripts run on (the managed one installed when there
+    /// is none ≥ the adapters' minimum).
     async fn node(&self) -> anyhow::Result<tools::Node> {
         let _guard = self.install.lock().await;
         let log = |line: &str| tracing::info!("{line}");
         tools::ensure_node(&self.config.home, &log)
             .await
-            .context(t!("Gemini CLI、CodeBuddy、pi 与 DeepSeek Harness 需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))
+            .context(t!("Agent 启动需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))
     }
 
     /// Installs the pinned adapters once (and the managed Node when no Node ≥ 22 is found), from the configured
@@ -1328,29 +1360,18 @@ impl Inner {
     }
 }
 
-/// What a run's agent process starts with besides the bot and its provider.
+/// What a run's agent process starts with besides the bot and its provider (read by the manifest agents).
 #[derive(Default)]
 pub(crate) struct Process<'a> {
-    /// Gemini's `GEMINI_CLI_HOME`.
-    pub gemini_home: Option<&'a Path>,
-    /// CodeBuddy loads the team skills and plugins with the process.
+    /// The (group, bot) pair `<group>-<bot>` (its `{state}`), or [`crate::adapters::PROBE`].
+    pub key: &'a str,
+    /// The team skills folder and the group's plugins (`skills.via: arg`).
     pub plugin_dirs: &'a [PathBuf],
-    /// CodeBuddy runs its shell in its own working directory, not the session's: the process starts in it.
+    /// The workspace (`chdir`, and the launch script's `cwd`).
     pub cwd: Option<&'a Path>,
-    /// pi's MCP servers (`pi::mcp_env`): pi-acp leaves out the session's.
-    pub pi_mcp: Option<&'a str>,
-}
-
-/// DeepSeek Harness takes no per-session instructions: the bot's go into its system prompt, as a patch of the `acp`
-/// profile's persona (the profile's own line first) loaded with the process.
-fn deepseek_patch(home: &Path, bot: &RunBot) -> anyhow::Result<PathBuf> {
-    let persona = format!("You are a coding agent powered by the {{{{model}}}} model.\n\n{}", system_prompt(bot));
-    // JSON is YAML: no escaping of our own.
-    let patch = serde_json::json!([{ "id": "system-prompt", "config": { "personaPrefix": persona } }]);
-    let path = home.join("deepseek").join(format!("{}.yml", bot.id));
-    std::fs::create_dir_all(path.parent().expect("has a parent"))?;
-    std::fs::write(&path, patch.to_string())?;
-    Ok(path)
+    /// The run's MCP servers and the built-in gonggong one (`mcp.via: env`, the launch script).
+    pub mcp_servers: &'a [crate::protocol::McpServer],
+    pub ask: Option<&'a acp::McpServer>,
 }
 
 /// `node <this> <dir> <script> args…` runs the node script `script` with `args` in `dir`.

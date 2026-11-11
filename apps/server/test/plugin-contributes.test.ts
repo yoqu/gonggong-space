@@ -193,9 +193,16 @@ describe('provider presets', () => {
       modelOptions: [],
       websiteUrl: null,
     })
-    const list = (await (await w.as(w.eve)).get<GroupPluginDto[]>(`/api/groups/${w.group.id}/plugins`)).body
+    const eve = await w.as(w.eve)
+    const list = (await eve.get<GroupPluginDto[]>(`/api/groups/${w.group.id}/plugins`)).body
     expect(list.map((x) => x.manifest.name)).not.toContain(p.manifest.name)
     expect(list.map((x) => x.manifest.name)).toEqual(['slides', 'web-prototype'])
+    const shelf = async (name: string) =>
+      (await eve.get<{ name: string; category: string }[]>(`/api/market?shelf=${name}`)).body.map(
+        (l) => l.name,
+      )
+    expect((await shelf('creation')).sort()).toEqual(['slides', 'web-prototype'])
+    expect(await shelf('provider')).toEqual(['provider-presets'])
 
     const old = await daemon((await t.seed.machine(w.eve.id)).token, ['plugins'])
     expect(await Promise.race([old.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])).toBe(

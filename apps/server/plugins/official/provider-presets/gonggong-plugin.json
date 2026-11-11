@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "title": "官方供应商预设",
   "description": "新增供应商时可选的厂商预设（Base URL、模型、密钥变量），随服务端更新下发到所有机器，不用等客户端发版。",
-  "category": "tool",
+  "category": "provider",
   "agents": ["claude", "codex", "gemini", "codebuddy", "pi", "deepseek"],
   "minDaemon": "0.4.18",
   "license": "MIT",

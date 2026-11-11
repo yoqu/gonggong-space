@@ -18,7 +18,7 @@ import type {
   UpstreamMovedDto,
   VersionDiffDto,
 } from '@gonggong/protocol'
-import { pluginRunsCode } from '@gonggong/protocol'
+import { type PluginShelf, pluginRunsCode, shelfCategories } from '@gonggong/protocol'
 import {
   and,
   desc,
@@ -348,7 +348,7 @@ async function installedIn(db: Read, userId: string, listingIds: string[]) {
 export async function marketList(
   ctx: Ctx,
   me: Me,
-  f: { q?: string; type?: ListingType; source?: MarketSource },
+  f: { q?: string; type?: ListingType; source?: MarketSource; shelf?: PluginShelf },
 ): Promise<MarketListingDto[]> {
   const mine = await myTeamIds(ctx.db, me.id)
   const scope = marketScope(mine)
@@ -360,6 +360,12 @@ export async function marketList(
       eq(plugins.status, 'listed'),
       f.source ? scope[f.source] : or(...Object.values(scope)),
       f.type ? eq(plugins.type, f.type) : undefined,
+      f.shelf
+        ? and(
+            eq(plugins.type, 'plugin'),
+            inArray(sql`${shown.manifest}->>'category'`, shelfCategories(f.shelf)),
+          )
+        : undefined,
       like
         ? or(
             ilike(plugins.name, like),

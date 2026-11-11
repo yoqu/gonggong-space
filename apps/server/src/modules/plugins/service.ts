@@ -100,6 +100,7 @@ export function pluginSnapshot(input: SkillFile[]) {
     ...manifest.templates.flatMap((tp) => (tp.preview ? [tp.preview] : [])),
     ...(manifest.icon ? [manifest.icon] : []),
     ...(manifest.artifact?.kit ? [`${manifest.artifact.kit}/index.html`] : []),
+    ...manifest.contributes.agents.flatMap((a) => (a.launchScript ? [a.launchScript] : [])),
     // Files a stdio server starts from the folder.
     ...manifest.contributes.mcp.flatMap((c) =>
       c.transport === 'stdio'

@@ -1,0 +1,85 @@
+{
+  "name": "agent-codebuddy",
+  "version": "1.0.0",
+  "title": "CodeBuddy（WorkBuddy）",
+  "description": "腾讯的 CodeBuddy Code：在机器上用 ACP 运行，指令与插件随进程传入。",
+  "category": "agent",
+  "agents": ["codebuddy"],
+  "minDaemon": "0.4.18",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "codebuddy",
+        "title": "CodeBuddy（WorkBuddy）",
+        "vendor": "腾讯",
+        "install": {
+          "npm": "@tencent-ai/codebuddy-code",
+          "bin": "codebuddy",
+          "script": "bin/codebuddy",
+          "brew": "codebuddy-code",
+          "minVersion": "2.182.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["--acp"]
+        },
+        "chdir": true,
+        "systemPrompt": {
+          "via": "arg",
+          "args": ["--append-system-prompt", "{prompt}"]
+        },
+        "skills": {
+          "via": "arg",
+          "args": ["--plugin-dir", "{pluginDirs}"],
+          "dirs": [".codebuddy/skills", ".claude/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "bypassPermissions"
+          },
+          "workspace": {
+            "mode": "acceptEdits"
+          },
+          "readonly": {
+            "mode": "default"
+          }
+        },
+        "provider": {
+          "env": {
+            "apiKey": "CODEBUDDY_API_KEY",
+            "baseUrl": "CODEBUDDY_BASE_URL",
+            "model": "CODEBUDDY_MODEL"
+          },
+          "skipBaseUrls": ["https://www.codebuddy.ai", "https://copilot.tencent.com"]
+        },
+        "home": {
+          "env": "CODEBUDDY_CONFIG_DIR",
+          "default": ".codebuddy",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "env",
+              "names": ["CODEBUDDY_API_KEY"],
+              "label": "API key"
+            }
+          ],
+          "loggedOut": false,
+          "command": "codebuddy",
+          "hint": "进入后输入 /login，用微信、Google/GitHub 或企业账号登录"
+        },
+        "env": {
+          "MCP_TOOL_TIMEOUT": "90000000"
+        },
+        "errors": {
+          "metaKey": "codebuddy.ai/errorMessage"
+        }
+      }
+    ]
+  }
+}

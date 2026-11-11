@@ -110,10 +110,7 @@ pub fn agent_label(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "Claude Code",
         AgentKind::Codex => "Codex",
-        AgentKind::Gemini => "Gemini CLI",
-        AgentKind::Codebuddy => "CodeBuddy（WorkBuddy）",
-        AgentKind::Pi => "pi",
-        AgentKind::Deepseek => "DeepSeek Harness",
+        _ => crate::adapters::get(kind).map_or("?", |a| &a.spec.title),
     }
 }
 

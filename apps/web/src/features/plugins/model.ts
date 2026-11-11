@@ -23,6 +23,8 @@ export const CATEGORY: Record<PluginCategory, { icon: IconName; color: string }>
   dashboard: { icon: 'chart-bar', color: 'var(--avatar-2)' },
   video: { icon: 'video', color: 'var(--avatar-6)' },
   tool: { icon: 'plug', color: 'var(--avatar-2)' },
+  agent: { icon: 'bot', color: 'var(--avatar-3)' },
+  provider: { icon: 'cloud', color: 'var(--avatar-5)' },
   other: { icon: 'apps', color: 'var(--avatar-4)' },
 }
 

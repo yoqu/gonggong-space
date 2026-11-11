@@ -153,16 +153,15 @@ fn roots(cwd: &Path) -> Vec<PathBuf> {
     vec![cwd.to_path_buf()]
 }
 
-/// The repo's own skill of that name, if any (Claude: `.claude/skills/<name>`, Codex: `.agents/skills/<name>`,
-/// Gemini: either `.agents/skills/<name>` or `.gemini/skills/<name>`, CodeBuddy: `.codebuddy/skills/<name>` or Claude's).
+/// The repo's own skill of that name, if any (Claude: `.claude/skills/<name>`, Codex: `.agents/skills/<name>`, the
+/// others: their manifest's `skills.dirs`).
 fn baseline(root: &Path, kind: AgentKind, name: &str) -> Option<PathBuf> {
-    let dirs: &[&str] = match kind {
-        AgentKind::Claude => &[".claude/skills"],
-        AgentKind::Codex => &[".agents/skills"],
-        AgentKind::Gemini => &[".agents/skills", ".gemini/skills"],
-        AgentKind::Codebuddy => &[".codebuddy/skills", ".claude/skills"],
-        AgentKind::Pi => &[".agents/skills", ".pi/skills"],
-        AgentKind::Deepseek => &[".agents/skills", ".dsh/skills"],
+    let dirs: Vec<&str> = match kind {
+        AgentKind::Claude => vec![".claude/skills"],
+        AgentKind::Codex => vec![".agents/skills"],
+        _ => crate::adapters::get(kind)
+            .map(|a| a.spec.skills.dirs.iter().map(String::as_str).collect())
+            .unwrap_or_default(),
     };
     dirs.iter().map(|d| root.join(d).join(name)).find(|p| p.symlink_metadata().is_ok())
 }

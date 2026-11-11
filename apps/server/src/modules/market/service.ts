@@ -121,6 +121,7 @@ export const listingSummary = (listing: ListingRow, v: Version): ListingSummary 
   versionId: v.id,
   revision: v.revision,
   icon: ('icon' in v.manifest && v.manifest.icon) || null,
+  category: ('category' in v.manifest && v.manifest.category) || null,
 })
 
 export const inScope = (t: { scope: string; scopeId: string }) =>

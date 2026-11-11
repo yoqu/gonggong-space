@@ -1,0 +1,100 @@
+{
+  "name": "agent-gemini",
+  "version": "1.0.0",
+  "title": "Gemini CLI",
+  "description": "Google 的 Gemini CLI：在机器上用 ACP 运行，每个群的 Bot 有自己的配置目录，指令写进 GEMINI.md。",
+  "category": "agent",
+  "agents": ["gemini"],
+  "minDaemon": "0.4.18",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "gemini",
+        "title": "Gemini CLI",
+        "vendor": "Google",
+        "install": {
+          "npm": "@google/gemini-cli",
+          "bin": "gemini",
+          "script": "bundle/gemini.js",
+          "brew": "gemini-cli",
+          "minVersion": "0.36.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["--acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "mcp": {
+          "via": "acp",
+          "gonggong": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".gemini/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "yolo"
+          },
+          "workspace": {
+            "mode": "autoEdit"
+          },
+          "readonly": {
+            "mode": "default"
+          }
+        },
+        "provider": {
+          "env": {
+            "apiKey": "GEMINI_API_KEY",
+            "baseUrl": "GOOGLE_GEMINI_BASE_URL",
+            "model": "GEMINI_MODEL"
+          }
+        },
+        "home": {
+          "env": null,
+          "default": ".gemini",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "jsonValue",
+              "file": "{home}/settings.json",
+              "pointer": "/security/auth/selectedType",
+              "equals": "vertex-ai",
+              "label": "Vertex AI"
+            },
+            {
+              "type": "env",
+              "names": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+              "label": "API key"
+            },
+            {
+              "type": "envFile",
+              "files": ["{home}/.env", "~/.env"],
+              "keys": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+              "label": "API key"
+            }
+          ],
+          "command": "gemini",
+          "hint": "进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）"
+        },
+        "env": {
+          "GEMINI_CLI_TRUST_WORKSPACE": "true"
+        },
+        "permission": {
+          "mcpMeta": "gemini-cli"
+        },
+        "steeringDirs": [".gemini"],
+        "state": "gemini",
+        "launchScript": "contrib/agents/gemini/launch.mjs"
+      }
+    ]
+  }
+}

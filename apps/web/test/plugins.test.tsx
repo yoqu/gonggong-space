@@ -69,7 +69,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
   minDaemon: '0.4.0',
   entry: 'web-prototype',
   permissions: [],
-  contributes: { mcp: [], commands: [], providers: [] },
+  contributes: { mcp: [], commands: [], providers: [], agents: [] },
   templates: [
     {
       id: 'saas',

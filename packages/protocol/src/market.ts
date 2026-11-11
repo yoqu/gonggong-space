@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PluginMcp, PluginPermission } from './plugins.js'
+import { PluginCategory, PluginMcp, PluginPermission } from './plugins.js'
 
 // ── Skill 市场 (plan Skill市场-PRD): listings (the `plugins` table) installed into a scope ────
 /** `plugin`: a creation plugin with gonggong-plugin.json; `skill`: a bare skill folder (SKILL.md at its root). */
@@ -32,6 +32,8 @@ export const ListingSummary = z.object({
   revision: z.number().int(),
   /** A plugin's `manifest.icon` in that version (GET /api/market/:id/files/raw?path=…&versionId=…). */
   icon: z.string().nullable().optional(),
+  /** A plugin's category (its shelf: shelfOf); null for skills. */
+  category: PluginCategory.nullable().optional(),
 })
 export type ListingSummary = z.infer<typeof ListingSummary>
 

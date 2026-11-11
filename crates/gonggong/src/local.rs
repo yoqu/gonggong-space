@@ -814,11 +814,12 @@ pub fn steering(path: &Path) -> bool {
         "karma.conf",
         ".mocharc",
     ];
-    const DIRS: &[&str] = &[".git", ".husky", ".githooks", ".cargo", ".mvn", ".claude", ".gemini", ".codex"];
+    const DIRS: &[&str] = &[".git", ".husky", ".githooks", ".cargo", ".mvn", ".claude", ".codex"];
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+    let steers = |c: &str| DIRS.contains(&c) || crate::adapters::steering_dirs().any(|d| d == c);
     NAMES.contains(&name)
         || PREFIXES.iter().any(|p| name.starts_with(p))
-        || path.components().any(|c| c.as_os_str().to_str().is_some_and(|c| DIRS.contains(&c)))
+        || path.components().any(|c| c.as_os_str().to_str().is_some_and(steers))
 }
 
 /// Whether a command (run or about to run) may change a `steering` file: it writes one, or names one and is not

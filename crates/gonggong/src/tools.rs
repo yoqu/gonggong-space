@@ -47,16 +47,14 @@ impl ToolKind {
         ToolKind::Deepseek,
     ];
 
+    /// The agent of the same name; Node is none.
     pub fn agent(self) -> Option<AgentKind> {
-        match self {
-            ToolKind::Node => None,
-            ToolKind::Claude => Some(AgentKind::Claude),
-            ToolKind::Codex => Some(AgentKind::Codex),
-            ToolKind::Gemini => Some(AgentKind::Gemini),
-            ToolKind::Codebuddy => Some(AgentKind::Codebuddy),
-            ToolKind::Pi => Some(AgentKind::Pi),
-            ToolKind::Deepseek => Some(AgentKind::Deepseek),
-        }
+        serde_json::to_value(self).ok().and_then(|v| serde_json::from_value(v).ok())
+    }
+
+    /// The tool of the same name as the agent.
+    pub fn of(kind: AgentKind) -> ToolKind {
+        serde_json::to_value(kind).and_then(serde_json::from_value).expect("every agent is a tool")
     }
 
     pub fn label(self) -> &'static str {
@@ -68,10 +66,7 @@ impl ToolKind {
             ToolKind::Node => None,
             ToolKind::Claude => Some("@anthropic-ai/claude-code"),
             ToolKind::Codex => Some("@openai/codex"),
-            ToolKind::Gemini => Some("@google/gemini-cli"),
-            ToolKind::Codebuddy => Some("@tencent-ai/codebuddy-code"),
-            ToolKind::Pi => Some("@earendil-works/pi-coding-agent"),
-            ToolKind::Deepseek => Some("@deepseek-ai/dsh"),
+            _ => Some(&self.adapter().spec.install.npm),
         }
     }
 
@@ -81,11 +76,15 @@ impl ToolKind {
             ToolKind::Node => "node",
             ToolKind::Claude => "claude-code",
             ToolKind::Codex => "codex",
-            ToolKind::Gemini => "gemini-cli",
-            ToolKind::Codebuddy => "codebuddy-code",
-            ToolKind::Pi => "pi-coding-agent",
-            ToolKind::Deepseek => "dsh",
+            _ => {
+                let install = &self.adapter().spec.install;
+                install.brew.as_deref().unwrap_or(&install.bin)
+            }
         }
+    }
+
+    fn adapter(self) -> &'static crate::adapters::Adapter {
+        self.agent().and_then(crate::adapters::get).expect("a manifest agent's tool")
     }
 }
 
@@ -759,14 +758,7 @@ pub fn node_status(home: &Path) -> ToolStatus {
 
 /// Status of a detected agent CLI, without `latest`.
 pub fn agent_status(home: &Path, info: &AgentInfo) -> ToolStatus {
-    let kind = match info.kind {
-        AgentKind::Claude => ToolKind::Claude,
-        AgentKind::Codex => ToolKind::Codex,
-        AgentKind::Gemini => ToolKind::Gemini,
-        AgentKind::Codebuddy => ToolKind::Codebuddy,
-        AgentKind::Pi => ToolKind::Pi,
-        AgentKind::Deepseek => ToolKind::Deepseek,
-    };
+    let kind = ToolKind::of(info.kind);
     let path = info.path.as_deref().filter(|_| info.available);
     let managed = path.is_some_and(|p| is_managed(home, Path::new(p)));
     ToolStatus {

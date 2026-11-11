@@ -1,0 +1,73 @@
+{
+  "name": "agent-pi",
+  "version": "1.0.0",
+  "title": "pi",
+  "description": "Earendil 的 pi coding agent：经固定版本的 pi-acp 适配器运行，共工扩展负责 MCP、指令与审批。",
+  "category": "agent",
+  "agents": ["pi"],
+  "minDaemon": "0.4.18",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "pi",
+        "title": "pi",
+        "vendor": "Earendil",
+        "install": {
+          "npm": "@earendil-works/pi-coding-agent",
+          "bin": "pi",
+          "script": "dist/bundle/cli.js",
+          "brew": "pi-coding-agent",
+          "minVersion": "1.0.0"
+        },
+        "acp": {
+          "kind": "adapter",
+          "npm": "pi-acp",
+          "version": "0.0.34"
+        },
+        "systemPrompt": {
+          "via": "env",
+          "env": "GG_PI_SYSTEM_PROMPT"
+        },
+        "mcp": {
+          "via": "env",
+          "env": "GG_PI_MCP",
+          "extra": {
+            "exposure": "direct",
+            "timeout": 90000
+          }
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".pi/skills"]
+        },
+        "tiers": null,
+        "provider": null,
+        "home": {
+          "env": "PI_CODING_AGENT_DIR",
+          "default": ".pi/agent",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "jsonKeys",
+              "file": "{home}/auth.json"
+            }
+          ],
+          "loggedOut": false,
+          "command": "pi",
+          "hint": "进入后输入 /login，选择供应商登录或填写 API Key"
+        },
+        "env": {
+          "PI_SKIP_VERSION_CHECK": "1"
+        },
+        "state": "pi",
+        "launchScript": "contrib/agents/pi/launch.mjs"
+      }
+    ]
+  }
+}

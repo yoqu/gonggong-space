@@ -94,8 +94,9 @@ pub fn system_prompt(bot: &RunBot) -> String {
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
 }
 
-/// Plan D21: agent session mode for each permission tier. `None`: the agent has no permission modes (pi's are its
-/// thought levels, DeepSeek Harness has none); the owner's rules answer its permission requests.
+/// Plan D21: agent session mode for each permission tier (the manifest agents: `tiers`). `None`: the agent has no
+/// permission modes (pi's are its thought levels, DeepSeek Harness sets its sandbox by env); the owner's rules answer
+/// its permission requests.
 pub fn mode_for(kind: AgentKind, tier: Tier) -> Option<&'static str> {
     Some(match (kind, tier) {
         (AgentKind::Claude, Tier::Full) => "bypassPermissions",
@@ -106,15 +107,7 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> Option<&'static str> {
         // of the owner. `workspace-write` keeps approvals with the owner and limits edits to the workspace.
         (AgentKind::Codex, Tier::Workspace) => "workspace-write",
         (AgentKind::Codex, Tier::ReadOnly) => "read-only",
-        (AgentKind::Gemini, Tier::Full) => "yolo",
-        // Edits are approved by Gemini itself only within its workspace dirs; the rest still asks the owner.
-        (AgentKind::Gemini, Tier::Workspace) => "autoEdit",
-        // Not `plan`: it changes how the agent works (it plans instead of answering); our rules refuse the writes.
-        (AgentKind::Gemini, Tier::ReadOnly) => "default",
-        (AgentKind::Codebuddy, Tier::Full) => "bypassPermissions",
-        (AgentKind::Codebuddy, Tier::Workspace) => "acceptEdits",
-        (AgentKind::Codebuddy, Tier::ReadOnly) => "default",
-        (AgentKind::Pi | AgentKind::Deepseek, _) => return None,
+        _ => crate::adapters::get(kind)?.tier(tier)?.mode.as_deref()?,
     })
 }
 
@@ -130,7 +123,7 @@ pub fn builtin_mode(kind: AgentKind, tier: Tier, ai_review: bool, official: bool
     match kind {
         AgentKind::Claude => Some("auto"),
         AgentKind::Codex => Some("agent"),
-        AgentKind::Gemini | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => None,
+        _ => None,
     }
 }
 
@@ -198,8 +191,8 @@ pub fn client_capabilities() -> ClientCapabilities {
 /// Provider errors arrive as raw JSON bodies; their inner `error.message` is what users can act on.
 pub fn session_failure(meta: Option<&serde_json::Map<String, serde_json::Value>>) -> Option<String> {
     let meta = meta?;
-    // CodeBuddy ends a failed model request as a refusal carrying the JSON-RPC error.
-    if let Some(raw) = meta.get("codebuddy.ai/errorMessage").and_then(|m| m.as_str()) {
+    // An agent may end a failed model request as a refusal carrying the JSON-RPC error (its manifest's `errors`).
+    if let Some(raw) = crate::adapters::error_meta_keys().find_map(|k| meta.get(k)?.as_str()) {
         let e = serde_json::from_str::<serde_json::Value>(raw).ok();
         let details = e.as_ref().and_then(|e| e.pointer("/data/details")?.as_str()?.lines().next().map(String::from));
         let message = e.as_ref().and_then(|e| e["message"].as_str().map(String::from));

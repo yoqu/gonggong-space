@@ -7,6 +7,7 @@ import {
   InstallReq,
   ListingType,
   MarketSource,
+  PluginShelf,
   PublishReq,
   type RepoDto,
   ReviewReq,
@@ -121,6 +122,7 @@ const MarketQuery = z.object({
   q: z.string().optional(),
   type: ListingType.optional(),
   source: MarketSource.optional(),
+  shelf: PluginShelf.optional(),
 })
 
 /** Up to 8 MB of base64 in the JSON body, as plugin uploads; the decoded files are capped at 5 MB. */

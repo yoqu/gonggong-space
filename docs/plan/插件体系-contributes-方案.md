@@ -294,3 +294,41 @@ S2 与「内置插件去耦」合并做，目标是用户照着官方插件就�
 - **供应商预设**：`contributes.providers`，只允许平台层插件。服务端在 daemon 连上时、平台插件变化时下发 `presets.sync`（能力标志 `presetSync`），daemon 叠加在二进制自带的预设上（同 agent+id 覆盖）。新增内置插件 `provider-presets`，由 `scripts/sync-provider-presets.mjs` 与 `crates/gonggong/presets/providers.json` 同步生成。只带预设的插件不出现在群的插件列表里。
 - **验收样例**：`examples/plugins/dashboard`（数据看板）：自带图标、外壳、一条聊天命令和一条画布命令，上传后可创作，测试覆盖上传到发起创作。
 - **仍在核心的「扣子」**：产物平台（`gg-artifact.json` 多屏约定、画布、编辑器、批注、导出、分享、截图）。PPT 的演示、逐页编辑这类新交互形态仍需改核心，等 S5 Tab 扩展点。
+
+### 11.3 S3 落地（2026-11-11）
+
+Gemini CLI、CodeBuddy、pi、DeepSeek Harness 迁成 4 个内置插件 `apps/server/plugins/official/agent-<id>/`（类别 `agent`，权限 `exec`，随服务端同步到平台层，不进群插件列表）。daemon 把这 4 份清单和随包脚本编进二进制（`crates/gonggong/src/adapters.rs`），首次使用时按内容摘要写到 `<home>/agent-pkgs/<插件>-<摘要>/` 作为 `{pkg}`。`engine.rs`、`session.rs`、`turn.rs`、`agents.rs`、`tools.rs`、`inject.rs`、`skills.rs`、`janitor.rs`、`local.rs` 里这 4 个 Agent 的专属分支已删光（只剩单测里的用例），`gemini.rs`、`pi.rs` 删除。`AgentKind` 枚举 S3 仍保留，S4 改字符串 id。
+
+**清单字段**（`contributes.agents[]`，`packages/protocol/src/plugins.ts` 的 `PluginAgent`，都是封闭策略集合）：
+
+| 字段 | 取值 |
+|---|---|
+| `install` | `npm`、`bin`、`script`（包内 node 脚本，跑在 daemon 的 Node 上）、`brew`、`minVersion`、`minNode`（缺省 22.0.0） |
+| `acp` | `native`（`args`）或 `adapter`（固定版本 npm 包 + `entry`，装在 `<home>/adapters/<id>/`，不再随 Claude/Codex 的适配器一起装） |
+| `chdir` | CLI 在自己的进程目录跑命令时，进程在工作区启动 |
+| `systemPrompt.via` | `arg`（`args` 模板）、`env`、`script` |
+| `mcp` | `via: acp | env`（env 时为 name → 配置的 JSON，合入 `extra`）；`gonggong: acp | script`（内置 gonggong 服务交给启动脚本，不走 ACP） |
+| `skills` | `via: link | arg`（`args` 里 `{pluginDirs}` 展开为每个目录一个参数）；`dirs`：仓库自有 skill 目录 |
+| `tiers` | 每档 `mode` 或 `env`；`restartOnChange`；`null` 表示没有权限模式 |
+| `provider` | `env.apiKey/baseUrl/model` 变量名、`skipBaseUrls`；`null` 表示沿用 Agent 自己的登录 |
+| `home` | 配置目录（`env`，否则用户 home 下的 `default`）与模型配置文件 `config`（目录摘要进 catalog key） |
+| `login.checks` | `env`、`envFile`、`yamlKey`、`jsonValue`（JSON 指针，允许注释）、`jsonKeys`（键名作标签）；`loggedOut`；`command`、`hint` |
+| 其他 | `env`、`permission.mcpMeta`、`errors.metaKey`、`steeringDirs`、`state`（`<home>/<state>/<群>-<Bot>` 与 `probe`，janitor 随群/Bot 清理）、`launchScript` |
+
+模板变量：`{prompt}`、`{state}`、`{pkg}`、`{node}`、`{cli}`，`skills.args` 另有 `{pluginDirs}`。
+
+**launchScript 协议**：每次启动 Agent 进程（含 probe、fork）前，用 daemon 的 Node 运行一次。stdin 是 JSON：`agent`、`probe`、`bot{id,name,tier,model}`、`systemPrompt`、`mcpServers`（本轮的）、`gonggong{name,url,headers}`（仅 `mcp.gonggong: script`）、`cwd`、`state`、`data`（`<home>/<state>`）、`userHome`、`home`、`provider{baseUrl,model}`（不含 key）、`pkg`、`node`、`cli`、`cliScript`、`bin`。stdout 是 `{ env, args }`，文件由脚本自己写进 `state`/`data`。超时 10 秒，非 0 退出或输出不是 JSON 则本轮报错，不兜底。
+
+- Gemini：脚本合并用户 `settings.json`（去注释）、写 provider 的 `selectedType` 和带 timeout 的 gonggong MCP、把指令和用户记忆写进 `context.fileName`、软链共享的登录文件，返回 `GEMINI_CLI_HOME`。
+- pi：脚本在 `<home>/pi/` 写 wrapper，返回 `PI_ACP_PI_COMMAND`、`GG_PI_EXE`、`GG_PI_SCRIPT`、`GG_PI_EXTENSION`（随包的 `contrib/agents/pi/gonggong.ts`）；指令与 MCP 走声明的 env。
+- DeepSeek：脚本写人设补丁，返回 `--patch <file>`；档位用 `DSH_PERMISSION_MODE`，改档重启进程。
+- CodeBuddy：全部声明，没有脚本。
+
+**通用约定**：「共工审批请求」——扩展发 `confirm`，消息体为 `{"gonggong":{toolCallId,title?,input}}`，daemon 改写成对该工具调用的审批（原 pi 专属的 `own_request`）。
+
+**与 §5 的出入**：
+- 不用 `acp.cliEnv`：pi-acp 的 `PI_ACP_PI_COMMAND` 由启动脚本给出。
+- 不用 `systemPrompt.via: file` 和 `acp-meta`：DeepSeek 的补丁要拼接人设前缀，用脚本写更简单；`acp-meta` 只有 Claude 用，仍是代码适配器。
+- `permission.commandFrom` 没有做成字段：「没有 raw input 时用标题当命令」本来就是对所有 Agent 的通用规则。
+- `minVersion` 按代码实际值，DeepSeek 为 `0.2.2`。
+- 启动脚本只在进程启动时运行：Gemini 的 `GEMINI.md`、CodeBuddy/pi 的指令在同一进程内不随轮次刷新（与 CodeBuddy、pi 原有行为一致；Gemini 原来每轮重写）。

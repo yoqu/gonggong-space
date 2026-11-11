@@ -1,7 +1,8 @@
-// Gonggong's pi extension, written and loaded by the gonggong daemon (`pi.rs`). pi-acp passes neither the session's
+// Gonggong's pi extension, loaded by the wrapper agent-pi's launch script writes. pi-acp passes neither the session's
 // MCP servers nor instructions to pi, and pi runs every tool without asking: the run's servers and the bot's
-// instructions come from the env, and each tool call that may change something asks the ACP client first, which
-// answers by the bot's tier and the owner's rules.
+// instructions come from the env, and each tool call that may change something asks the ACP client first (the
+// gonggong approval request: confirm(title, { gonggong: { toolCallId, title, input } })), which answers by the bot's
+// tier and the owner's rules.
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 const READ_ONLY = new Set(['read', 'grep', 'find', 'ls'])

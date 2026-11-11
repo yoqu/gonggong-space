@@ -6,7 +6,6 @@ use crate::ask::{self, Asker};
 use crate::attachments;
 use crate::config::Config;
 use crate::engine::{Continuation, Inner, Process};
-use crate::gemini;
 use crate::git;
 use crate::hosted::Scope;
 use crate::inject;
@@ -83,13 +82,11 @@ struct Planned {
     launch: Option<inject::ClaudeLaunch>,
     /// The agent runs on its maker's service, where its built-in reviewer works (`agents::official_service`).
     official: bool,
-    /// Gemini only: its `GEMINI_CLI_HOME`, brought in line with the turn.
-    gemini_home: Option<PathBuf>,
 }
 
 /// Makes `req` the active turn and decides its provider from the store as of now, so CLI / desktop edits apply from
 /// the next turn on. None: it will not run (cancelled while queued, or no provider to run with).
-async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: TurnReq) -> Option<Planned> {
+async fn plan(engine: &Inner, shared: &Shared, mut req: TurnReq) -> Option<Planned> {
     // A continuation still running ends (completed) before the turn starts.
     let begun = loop {
         shared.close_continuation().await;
@@ -103,9 +100,6 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
     let (home, user_home) = (engine.config.home.clone(), engine.config.user_home.clone());
     let (bot, resume) = (req.start.bot.clone(), req.start.resume_session_id.clone());
     let protect_base = req.start.workspace.protect_base;
-    let gemini_home = (bot.agent_kind == AgentKind::Gemini)
-        .then(|| gemini::home_dir(&home, &format!("{}-{}", req.start.group_id, bot.id)));
-    let (dir, ask) = (gemini_home.clone(), ask.clone());
     let resolved = tokio::task::spawn_blocking(move || {
         let store = Store::load(&home)?;
         // A live adapter's file is rewritten (touched) each turn below, and adapters idle out after `idle`.
@@ -131,12 +125,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
                 launch.write()?;
                 Some(launch)
             }
-            AgentKind::Codex | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => None,
-            AgentKind::Gemini => {
-                let dir = dir.expect("a Gemini run has its home");
-                gemini::prepare(&dir, &user_home, &selection, &system_prompt(&bot), Some(&ask))?;
-                None
-            }
+            _ => None,
         };
         anyhow::Ok((selection, removed, launch, official))
     })
@@ -152,16 +141,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
     if let Some(l) = &launch {
         shared.set_compact(l.compact);
     }
-    Some(Planned {
-        req,
-        selection,
-        removed,
-        skills: Default::default(),
-        plugins: Default::default(),
-        launch,
-        official,
-        gemini_home,
-    })
+    Some(Planned { req, selection, removed, skills: Default::default(), plugins: Default::default(), launch, official })
 }
 
 /// Installs the turn's team skills and plugins before its adapter is chosen. None: it fails (and is reported) instead.
@@ -1266,12 +1246,12 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let n = s.requests;
     let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
     name_mcp_call(&mut req);
-    crate::pi::own_request(&mut req.tool_call);
+    crate::adapters::own_request(&mut req.tool_call);
     // The built-in gonggong tools only ask or read the group: never an owner decision (spec §8.8).
     if req.tool_call.fields.title.as_deref().is_some_and(ask::is_builtin) {
         return Permission::Now(auto_allow(&req.options));
     }
-    // Gemini sends no raw input: an execute call's title is its command.
+    // Without raw input (Gemini's), an execute call's title is its command.
     let command = match &req.tool_call.fields.raw_input {
         Some(raw) => command_of(Some(raw)),
         None => req.tool_call.fields.title.clone(),
@@ -1400,10 +1380,12 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     Permission::Ask(rx)
 }
 
-/// Gemini titles an MCP call by its tool alone and names the server in `_meta`: named the Claude way
-/// (`mcp__<server>__<tool>`), the built-in gonggong tools are told apart and the card says which server asks.
+/// An agent may title an MCP call by its tool alone and name the server in `_meta` (its manifest's
+/// `permission.mcpMeta`): named the Claude way (`mcp__<server>__<tool>`), the built-in gonggong tools are told apart
+/// and the card says which server asks.
 fn name_mcp_call(req: &mut RequestPermissionRequest) {
-    let mcp = req.tool_call.meta.as_ref().and_then(|m| m.get("gemini-cli")).map(|g| &g["mcp"]);
+    let meta = req.tool_call.meta.as_ref();
+    let mcp = meta.and_then(|m| crate::adapters::mcp_meta_keys().find_map(|k| m.get(k))).map(|g| &g["mcp"]);
     if let Some((server, tool)) = mcp.and_then(|m| Some((m["server_name"].as_str()?, m["tool_name"].as_str()?))) {
         req.tool_call.fields.title = Some(format!("mcp__{server}__{tool}"));
     }
@@ -1774,7 +1756,7 @@ pub(crate) async fn run(
         let turn = match next.take() {
             Some(turn) => turn,
             None => match tokio::time::timeout(engine.config.reap, rx.recv()).await {
-                Ok(Some(req)) => match plan(&engine, &shared, &ask, req).await {
+                Ok(Some(req)) => match plan(&engine, &shared, req).await {
                     Some(turn) => match ready(&engine, &shared, turn).await {
                         Some(turn) => turn,
                         None => continue,
@@ -1789,10 +1771,14 @@ pub(crate) async fn run(
         let s = &turn.req.start;
         let _secrets = crate::logs::hold_secrets(s.env.0.values().cloned().collect());
         let dirs = plugin_dirs(&turn.skills, &turn.plugins);
-        let cwd = (s.bot.agent_kind == AgentKind::Codebuddy).then_some(turn.req.cwd.as_path());
-        let pi_mcp = (s.bot.agent_kind == AgentKind::Pi).then(|| crate::pi::mcp_env(&s.mcp_servers, &ask));
-        let process =
-            Process { gemini_home: turn.gemini_home.as_deref(), plugin_dirs: &dirs, cwd, pi_mcp: pi_mcp.as_deref() };
+        let pair = format!("{}-{}", s.group_id, s.bot.id);
+        let process = Process {
+            key: &pair,
+            plugin_dirs: &dirs,
+            cwd: Some(turn.req.cwd.as_path()),
+            mcp_servers: &s.mcp_servers,
+            ask: Some(&ask),
+        };
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env, &process).await {
             Ok(config) => {
                 let reviewer = Reviewer::new(config.clone(), s.bot.agent_kind, turn.launch.as_ref());
@@ -1917,7 +1903,7 @@ async fn connect(
                 }
                 turn = loop {
                     match tokio::time::timeout(engine.config.idle, rx.recv()).await {
-                        Ok(Some(next)) => match plan(engine, shared, ask, next).await {
+                        Ok(Some(next)) => match plan(engine, shared, next).await {
                             Some(turn) => match ready(engine, shared, turn).await {
                                 Some(turn) => break turn,
                                 None => continue,
@@ -1939,8 +1925,9 @@ async fn connect(
                     || turn.plugins != conv.plugins
                     || env_digest(&turn.req.start.env) != secrets
                     || turn.req.start.hidden_tools != hidden
-                    // DeepSeek Harness takes its sandbox with the process.
-                    || (turn.req.start.bot.agent_kind == AgentKind::Deepseek && turn.req.start.bot.tier != tier)
+                    // An agent may take its sandbox with the process (`tiers.restartOnChange`).
+                    || (crate::adapters::get(turn.req.start.bot.agent_kind).is_some_and(|a| a.restarts_on_tier())
+                        && turn.req.start.bot.tier != tier)
                 {
                     return Ok(Some(turn));
                 }
@@ -2377,8 +2364,9 @@ fn claude_options(
 }
 
 /// MCP servers attached when a session is created or restored: the server's global layer plus the built-in ask
-/// tool, which every session gets (spec §7.2). Gemini has the latter in its settings instead (`gemini::prepare`):
-/// there it gets a timeout, and an ACP server of the same name would replace it.
+/// tool, which every session gets (spec §7.2). An agent whose launch script takes the latter (`mcp.gonggong:
+/// script`, Gemini's settings, where it gets a timeout) does without it here: a server of the same name would replace
+/// it.
 fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer> {
     start
         .mcp_servers
@@ -2393,7 +2381,11 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
                 McpServerHttp::new(name, url).headers(headers.iter().map(|(k, v)| HttpHeader::new(k, v)).collect()),
             ),
         })
-        .chain((start.bot.agent_kind != AgentKind::Gemini).then(|| ask.clone()))
+        .chain(
+            crate::adapters::get(start.bot.agent_kind)
+                .is_none_or(|a| a.spec.mcp.gonggong != crate::adapters::Via::Script)
+                .then(|| ask.clone()),
+        )
         .collect()
 }
 

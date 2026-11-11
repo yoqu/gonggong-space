@@ -171,12 +171,14 @@ describe('市场 in the app rail', () => {
 })
 
 describe('市场 page', () => {
-  it('lists listings as cards and filters by search, type and source', async () => {
+  it('lists listings as cards and filters by search, shelf and source', async () => {
     const calls = mockApi({
       'GET /market': LISTINGS,
       'GET /market?q=review': [LISTINGS[0]],
-      'GET /market?type=plugin': [LISTINGS[1]],
-      'GET /market?type=plugin&source=official': [LISTINGS[1]],
+      'GET /market?shelf=creation': [LISTINGS[1]],
+      'GET /market?shelf=creation&source=official': [LISTINGS[1]],
+      'GET /market?shelf=agent': [],
+      'GET /market?type=skill': [LISTINGS[0]],
     })
     renderPage()
     const grid = await screen.findByRole('list', { name: '市场' })
@@ -198,15 +200,26 @@ describe('市场 page', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索市场' }), { target: { value: 'review' } })
     await waitFor(() => expect(calls.some((c) => c.path === '/market?q=review')).toBe(true))
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索市场' }), { target: { value: '' } })
-    fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', { name: '插件' }),
-    )
-    await waitFor(() => expect(calls.some((c) => c.path === '/market?type=plugin')).toBe(true))
+    const types = within(screen.getByRole('radiogroup', { name: '类型' }))
+    expect(types.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      '全部',
+      'Skill',
+      '创作',
+      '工具',
+      'Agent',
+      '供应商预设',
+    ])
+    fireEvent.click(types.getByRole('radio', { name: 'Skill' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market?type=skill')).toBe(true))
+    fireEvent.click(types.getByRole('radio', { name: 'Agent' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market?shelf=agent')).toBe(true))
+    fireEvent.click(types.getByRole('radio', { name: '创作' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/market?shelf=creation')).toBe(true))
     fireEvent.click(
       within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: '官方' }),
     )
     await waitFor(() =>
-      expect(calls.some((c) => c.path === '/market?type=plugin&source=official')).toBe(true),
+      expect(calls.some((c) => c.path === '/market?shelf=creation&source=official')).toBe(true),
     )
   })
 
@@ -271,7 +284,7 @@ describe('市场 page', () => {
   })
 
   it('sorts by installs and clears filters from the empty state', async () => {
-    mockApi({ 'GET /market': LISTINGS, 'GET /market?type=plugin&source=team': [] })
+    mockApi({ 'GET /market': LISTINGS, 'GET /market?shelf=tool&source=team': [] })
     renderPage()
     const grid = await screen.findByRole('list', { name: '市场' })
     expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('review-pr')
@@ -280,7 +293,7 @@ describe('市场 page', () => {
     expect(within(grid).getAllByRole('listitem')[0]!.textContent).toContain('幻灯片')
 
     fireEvent.click(
-      within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', { name: '插件' }),
+      within(screen.getByRole('radiogroup', { name: '类型' })).getByRole('radio', { name: '工具' }),
     )
     fireEvent.click(
       within(screen.getByRole('radiogroup', { name: '来源' })).getByRole('radio', { name: '本团队' }),

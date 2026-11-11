@@ -364,6 +364,10 @@ describe('built-in plugins', () => {
     await syncBuiltinPlugins(t.ctx, BUILTIN_PLUGINS)
     const rows = await t.db.select().from(plugins)
     expect(rows.map((r) => [r.scope, r.name, r.updatedBy]).sort()).toEqual([
+      ['platform', 'agent-codebuddy', null],
+      ['platform', 'agent-deepseek', null],
+      ['platform', 'agent-gemini', null],
+      ['platform', 'agent-pi', null],
       ['platform', 'provider-presets', null],
       ['platform', 'slides', null],
       ['platform', 'web-prototype', null],
@@ -508,7 +512,7 @@ describe('group plugins', () => {
     const code = PluginManifestOf({
       ...m,
       permissions: ['exec'],
-      contributes: { mcp: [stdio], commands: [], providers: [] },
+      contributes: { mcp: [stdio], commands: [], providers: [], agents: [] },
     })
     const mcpOk = { ...ok, features: ['plugins', 'pluginMcp'] }
     expect(pluginBlocker(code, ok, 'v1')).toBe('daemon')

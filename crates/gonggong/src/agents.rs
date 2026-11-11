@@ -1,3 +1,4 @@
+use crate::adapters;
 use crate::engine::ADAPTERS;
 use crate::local::{LocalSettings, load_catalogs};
 use crate::protocol::{AgentInfo, AgentKind};
@@ -15,25 +16,22 @@ pub fn binary(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "claude",
         AgentKind::Codex => "codex",
-        AgentKind::Gemini => "gemini",
-        AgentKind::Codebuddy => "codebuddy",
-        AgentKind::Pi => "pi",
-        AgentKind::Deepseek => "dsh",
+        _ => &adapter(kind).spec.install.bin,
     }
 }
 
-/// Oldest CLI the pinned ACP adapter (engine::ADAPTERS) supports, or for Gemini the oldest with `--acp`; older ones
-/// get a warning on the bot.
+/// The manifest adapter of an agent other than Claude and Codex.
+fn adapter(kind: AgentKind) -> &'static adapters::Adapter {
+    adapters::get(kind).expect("every agent but Claude and Codex has a manifest adapter")
+}
+
+/// Oldest CLI the pinned ACP adapter (engine::ADAPTERS) supports, or the manifest's; older ones get a warning on the
+/// bot.
 pub fn min_version(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Claude => "2.0.0",
         AgentKind::Codex => "0.160.1",
-        AgentKind::Gemini => "0.36.0",
-        // The oldest build checked against its ACP mode.
-        AgentKind::Codebuddy => "2.182.0",
-        // The first with MCP (`pi.registerMcpServer`), which the gonggong extension needs.
-        AgentKind::Pi => "1.0.0",
-        AgentKind::Deepseek => "0.2.2",
+        _ => &adapter(kind).spec.install.min_version,
     }
 }
 
@@ -55,7 +53,12 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
 /// The CLI and adapter builds a catalog is probed from, and the CLI's own user-level config: upgrading either build or
 /// editing the config (a provider or model added to `~/.codex/config.toml`) may change what is offered.
 pub fn catalog_key(kind: AgentKind, version: Option<&str>) -> String {
-    let adapter = ADAPTERS.iter().find(|(k, ..)| *k == kind).map_or("", |(.., v)| v);
+    let adapter = ADAPTERS
+        .iter()
+        .find(|(k, ..)| *k == kind)
+        .map(|(.., v)| *v)
+        .or_else(|| adapters::get(kind)?.adapter_version())
+        .unwrap_or("");
     format!("{}+{adapter}+{}", version.unwrap_or("?"), file_digest(&cli_config(kind)))
 }
 
@@ -92,7 +95,7 @@ pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection
                 && !doc.contains_key("openai_base_url")
                 && !doc.contains_key("base_url")
         }
-        AgentKind::Gemini | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => false,
+        _ => false,
     }
 }
 
@@ -121,36 +124,21 @@ fn cli_config(kind: AgentKind) -> PathBuf {
         AgentKind::Codex => std::env::var_os("CODEX_HOME")
             .map_or_else(|| crate::config::user_home().join(".codex"), PathBuf::from)
             .join("config.toml"),
-        AgentKind::Gemini => crate::config::user_home().join(".gemini/settings.json"),
-        AgentKind::Codebuddy => std::env::var_os("CODEBUDDY_CONFIG_DIR")
-            .map_or_else(|| crate::config::user_home().join(".codebuddy"), PathBuf::from)
-            .join("settings.json"),
-        AgentKind::Pi => pi_dir().join("settings.json"),
-        AgentKind::Deepseek => dsh_home().join("cordis.patch.yml"),
+        _ => {
+            let a = adapter(kind);
+            a.config_home(&crate::config::user_home(), &env_var).join(&a.spec.home.config)
+        }
     }
 }
 
-/// pi's user-level directory (`PI_CODING_AGENT_DIR`, else `~/.pi/agent`).
-fn pi_dir() -> PathBuf {
-    std::env::var_os("PI_CODING_AGENT_DIR").map_or_else(|| crate::config::user_home().join(".pi/agent"), PathBuf::from)
-}
-
-/// DeepSeek Harness' home (`DSH_HOME`, else `~/.dsh`).
-fn dsh_home() -> PathBuf {
-    std::env::var_os("DSH_HOME").map_or_else(|| crate::config::user_home().join(".dsh"), PathBuf::from)
+fn env_var(name: &str) -> Option<String> {
+    std::env::var(name).ok()
 }
 
 fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentInfo {
     let path = locate(home, kind, local);
     let available = path.as_deref().is_some_and(Path::is_file);
-    let tool = match kind {
-        AgentKind::Claude => crate::tools::ToolKind::Claude,
-        AgentKind::Codex => crate::tools::ToolKind::Codex,
-        AgentKind::Gemini => crate::tools::ToolKind::Gemini,
-        AgentKind::Codebuddy => crate::tools::ToolKind::Codebuddy,
-        AgentKind::Pi => crate::tools::ToolKind::Pi,
-        AgentKind::Deepseek => crate::tools::ToolKind::Deepseek,
-    };
+    let tool = crate::tools::ToolKind::of(kind);
     AgentInfo {
         kind,
         available,
@@ -319,24 +307,13 @@ fn version(home: &Path, path: &Path) -> Option<String> {
     Some(v)
 }
 
-/// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`); `None` if it cannot tell.
-/// Gemini CLI has no such command: its config tells.
+/// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`) or, for the others, as their
+/// manifest's checks find it; `None` if it cannot tell.
 pub fn login_status(kind: AgentKind, cli: &Path) -> Option<String> {
     let args = match kind {
         AgentKind::Claude => ["auth", "status"],
         AgentKind::Codex => ["login", "status"],
-        AgentKind::Gemini => return Some(gemini_login(&crate::config::user_home())),
-        // Its login has no status command: only a key in the env tells.
-        AgentKind::Codebuddy => {
-            return std::env::var("CODEBUDDY_API_KEY")
-                .is_ok_and(|k| !k.is_empty())
-                .then(|| crate::t!("已登录 · {how}", how = "API key").to_string());
-        }
-        AgentKind::Pi => return pi_login(&pi_dir()),
-        AgentKind::Deepseek => {
-            let in_env = std::env::var("DEEPSEEK_API_KEY").is_ok_and(|k| !k.is_empty());
-            return Some(deepseek_login(&dsh_home(), in_env));
-        }
+        _ => return adapter(kind).login_status(&crate::config::user_home(), &env_var),
     };
     let out = crate::proc::command(cli).args(args).output().ok()?;
     let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
@@ -370,59 +347,7 @@ pub fn login_label(kind: AgentKind, out: &str) -> Option<String> {
             let how = line.strip_prefix("Logged in using ")?;
             Some(crate::t!("已登录 · {how}", how = how.trim_start_matches("an ").trim_start_matches("a ")))
         }
-        AgentKind::Gemini | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => None,
-    }
-}
-
-/// The providers pi stored a login or key for (`auth.json`); `None` when there is none: it may still find a key in
-/// the env.
-fn pi_login(dir: &Path) -> Option<String> {
-    let auth: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("auth.json")).ok()?).ok()?;
-    let names: Vec<&str> = auth.keys().map(String::as_str).collect();
-    (!names.is_empty()).then(|| crate::t!("已登录 · {how}", how = names.join(", ")))
-}
-
-/// DeepSeek Harness reads `DEEPSEEK_API_KEY` from the env or its managed credentials file.
-fn deepseek_login(dsh_home: &Path, in_env: bool) -> String {
-    let in_file = std::fs::read_to_string(dsh_home.join(".credentials.yaml")).is_ok_and(|text| {
-        text.lines().any(|l| {
-            l.trim().split_once(':').is_some_and(|(k, v)| {
-                k.trim().trim_matches(['"', '\'']) == "DEEPSEEK_API_KEY"
-                    && !v.trim().trim_matches(['"', '\'']).is_empty()
-            })
-        })
-    });
-    if in_env || in_file { crate::t!("已登录 · {how}", how = "API key") } else { crate::t!("未登录").into() }
-}
-
-/// Where Gemini CLI finds its API key (env, then the `.env` files it loads from `~/.gemini` and `~/`) or the login
-/// its settings select. Its Google-account login no longer serves individuals, so that one does not count.
-pub fn gemini_login(user_home: &Path) -> String {
-    let in_env = GEMINI_KEYS.iter().any(|k| std::env::var(k).is_ok_and(|v| !v.is_empty()));
-    gemini_label(user_home, in_env)
-}
-
-const GEMINI_KEYS: [&str; 2] = ["GEMINI_API_KEY", "GOOGLE_API_KEY"];
-
-fn gemini_label(user_home: &Path, in_env: bool) -> String {
-    let in_file = [user_home.join(".gemini/.env"), user_home.join(".env")].iter().any(|f| {
-        std::fs::read_to_string(f).is_ok_and(|text| {
-            text.lines().any(|l| {
-                let l = l.trim().trim_start_matches("export ").trim_start();
-                l.split_once('=').is_some_and(|(k, v)| {
-                    GEMINI_KEYS.contains(&k.trim()) && !v.trim().trim_matches(['"', '\'']).is_empty()
-                })
-            })
-        })
-    });
-    let settings = std::fs::read_to_string(user_home.join(".gemini/settings.json"))
-        .ok()
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&crate::gemini::strip_comments(&t)).ok());
-    match settings.as_ref().and_then(|s| s["security"]["auth"]["selectedType"].as_str()) {
-        Some("vertex-ai") => crate::t!("已登录 · {how}", how = "Vertex AI"),
-        _ if in_env || in_file => crate::t!("已登录 · {how}", how = "API key"),
-        _ => crate::t!("未登录").into(),
+        _ => None,
     }
 }
 
@@ -518,39 +443,6 @@ mod tests {
         );
         assert_eq!(login_label(Codex, "Not logged in\n").as_deref(), Some("未登录"));
         assert_eq!(login_label(Codex, "error: unknown"), None);
-    }
-
-    #[test]
-    fn tells_the_gemini_login_from_its_config() {
-        use super::gemini_label;
-        let home = tempfile::tempdir().unwrap();
-        assert_eq!(gemini_label(home.path(), false), "未登录");
-        assert_eq!(gemini_label(home.path(), true), "已登录 · API key");
-        std::fs::create_dir_all(home.path().join(".gemini")).unwrap();
-        std::fs::write(home.path().join(".gemini/.env"), "# key\nexport GEMINI_API_KEY=\"\"\n").unwrap();
-        assert_eq!(gemini_label(home.path(), false), "未登录", "an empty value");
-        std::fs::write(home.path().join(".env"), "GEMINI_API_KEY=AIza-x\n").unwrap();
-        assert_eq!(gemini_label(home.path(), false), "已登录 · API key");
-        let vertex = "{ // vertex\n \"security\": { \"auth\": { \"selectedType\": \"vertex-ai\" } } }";
-        std::fs::write(home.path().join(".gemini/settings.json"), vertex).unwrap();
-        assert_eq!(gemini_label(home.path(), false), "已登录 · Vertex AI");
-    }
-
-    #[test]
-    fn tells_the_pi_and_deepseek_logins_from_their_files() {
-        use super::{deepseek_login, pi_login};
-        let dir = tempfile::tempdir().unwrap();
-        assert_eq!(pi_login(dir.path()), None);
-        std::fs::write(dir.path().join("auth.json"), "{}").unwrap();
-        assert_eq!(pi_login(dir.path()), None);
-        std::fs::write(dir.path().join("auth.json"), r#"{"anthropic":{"type":"oauth"},"openai":{"key":"k"}}"#).unwrap();
-        assert_eq!(pi_login(dir.path()).as_deref(), Some("已登录 · anthropic, openai"));
-        assert_eq!(deepseek_login(dir.path(), false), "未登录");
-        assert_eq!(deepseek_login(dir.path(), true), "已登录 · API key");
-        std::fs::write(dir.path().join(".credentials.yaml"), "DEEPSEEK_API_KEY: ''\n").unwrap();
-        assert_eq!(deepseek_login(dir.path(), false), "未登录", "an empty value");
-        std::fs::write(dir.path().join(".credentials.yaml"), "DEEPSEEK_API_KEY: sk-x\n").unwrap();
-        assert_eq!(deepseek_login(dir.path(), false), "已登录 · API key");
     }
 
     #[cfg(unix)]

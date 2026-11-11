@@ -375,29 +375,16 @@ pub(super) const EN: &[(&str, &str)] = &[
         "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi or DeepSeek Harness)",
     ),
     (
-        "这台机器上没有 Gemini CLI，请安装：npm install -g @google/gemini-cli，或在「设置 → Agent 工具」里用共工托管安装",
-        "Gemini CLI is not on this machine. Install it with npm install -g @google/gemini-cli, or use the Gonggong-managed install in Settings → Agent tools",
+        "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",
+        "{agent} is not on this machine. Install it with npm install -g {npm}, or use the Gonggong-managed install in Settings → Agent tools",
     ),
+    ("Agent 启动需要 Node.js ≥ {v}", "Starting the agent needs Node.js ≥ {v}"),
     (
-        "Gemini CLI、CodeBuddy、pi 与 DeepSeek Harness 需要 Node.js ≥ {v}",
-        "Gemini CLI, CodeBuddy, pi and DeepSeek Harness need Node.js ≥ {v}",
+        "{agent} 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
+        "{agent} needs Node.js ≥ {v} (this one is {current}). Upgrade Node.js in Settings → Agent tools",
     ),
-    (
-        "这台机器上没有 DeepSeek Harness，请安装：npm install -g @deepseek-ai/dsh，或在「设置 → Agent 工具」里用共工托管安装",
-        "DeepSeek Harness is not on this machine. Install it with npm install -g @deepseek-ai/dsh, or use the Gonggong-managed install in Settings → Agent tools",
-    ),
-    (
-        "DeepSeek Harness 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
-        "DeepSeek Harness needs Node.js ≥ {v} (this one is {current}). Upgrade Node.js in Settings → Agent tools",
-    ),
-    (
-        "这台机器上没有 pi，请安装：npm install -g @earendil-works/pi-coding-agent，或在「设置 → Agent 工具」里用共工托管安装",
-        "pi is not on this machine. Install it with npm install -g @earendil-works/pi-coding-agent, or use the Gonggong-managed install in Settings → Agent tools",
-    ),
-    (
-        "这台机器上没有 CodeBuddy，请安装：npm install -g @tencent-ai/codebuddy-code，或在「设置 → Agent 工具」里用共工托管安装",
-        "CodeBuddy is not on this machine. Install it with npm install -g @tencent-ai/codebuddy-code, or use the Gonggong-managed install in Settings → Agent tools",
-    ),
+    ("启动脚本 {script} 失败：{e}", "Launch script {script} failed: {e}"),
+    ("超时", "timed out"),
     ("{agent} {v} 低于 {min}", "{agent} {v} is older than {min}"),
     ("{agents} 可用", "{agents} available"),
     ("本机暂无托管仓库", "No managed repositories on this machine yet"),

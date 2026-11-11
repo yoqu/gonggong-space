@@ -32,7 +32,27 @@ const CREATION = readdirSync(OFFICIAL)
   .filter((name) => load(name).manifest.entry)
 
 it('ships the creation plugins and the provider presets', () => {
-  expect(readdirSync(OFFICIAL).sort()).toEqual(['provider-presets', 'slides', 'web-prototype'])
+  expect(readdirSync(OFFICIAL).sort()).toEqual([
+    'agent-codebuddy',
+    'agent-deepseek',
+    'agent-gemini',
+    'agent-pi',
+    'provider-presets',
+    'slides',
+    'web-prototype',
+  ])
+})
+
+describe.each(['gemini', 'codebuddy', 'pi', 'deepseek'])('official agent plugin agent-%s', (id) => {
+  it('adapts that agent, runs code, and ships its launch script and icon', () => {
+    const { root, manifest } = load(`agent-${id}`)
+    expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
+    const [agent, ...more] = manifest.contributes.agents
+    expect(more).toEqual([])
+    expect(agent!.id).toBe(id)
+    for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
+      expect(existsSync(join(root, f)), f).toBe(true)
+  })
 })
 
 describe('official plugin provider-presets', () => {

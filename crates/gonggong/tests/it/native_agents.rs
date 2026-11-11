@@ -117,8 +117,9 @@ async fn pi_gets_the_extension_the_instructions_and_the_mcp_servers_through_its_
     let e = echo(&r.finish("p1").await);
     let pi = &e["pi"];
     assert_eq!(pi["command"], r.home().join("pi/pi-gonggong").to_str().unwrap());
-    assert_eq!(pi["extension"], r.home().join("pi/gonggong.ts").to_str().unwrap());
-    assert!(r.home().join("pi/gonggong.ts").is_file());
+    // The extension ships in the agent-pi plugin.
+    let extension = std::path::PathBuf::from(pi["extension"].as_str().unwrap());
+    assert!(extension.ends_with("contrib/agents/pi/gonggong.ts") && extension.is_file(), "{extension:?}");
     let prompt = pi["systemPrompt"].as_str().unwrap();
     assert!(prompt.contains("小王") && prompt.contains("只改 server/"), "{prompt}");
     let gonggong = &pi["mcp"]["gonggong"];
