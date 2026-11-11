@@ -187,11 +187,18 @@
 .task-pop__step {
   color: var(--label-secondary);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 .task-pop__todo {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-height: 240px;
+  overflow-y: auto;
 }
 .task-pop__todo .pg-stages {
   flex-direction: column;

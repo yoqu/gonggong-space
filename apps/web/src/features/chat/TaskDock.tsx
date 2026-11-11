@@ -275,7 +275,9 @@ function RunChip({
                 <Ago iso={run.lastActivityAt} />
               </span>
             </div>
-            <span className="task-pop__step">{waiting ? step : t('运行中：{step}', { step })}</span>
+            <span className="task-pop__step" title={step}>
+              {waiting ? step : t('运行中：{step}', { step })}
+            </span>
             {progress ? (
               <div className="task-pop__todo">
                 <span className="task-pop__title">{progress.title}</span>
