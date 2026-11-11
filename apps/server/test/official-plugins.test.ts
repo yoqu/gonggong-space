@@ -6,6 +6,7 @@ import {
   PLUGIN_MAX_BYTES,
   PLUGIN_MAX_FILES,
   PluginManifest,
+  ProviderPreset,
   tokensCssOk,
 } from '@gonggong/protocol'
 import { JSDOM } from 'jsdom'
@@ -23,10 +24,30 @@ function walk(dir: string): string[] {
 function load(name: string) {
   const root = join(OFFICIAL, name)
   const manifest = PluginManifest.parse(JSON.parse(readFileSync(join(root, PLUGIN_MANIFEST), 'utf8')))
-  return { root, manifest, skillDir: join(root, 'skills', manifest.entry!) }
+  return { root, manifest, skillDir: join(root, 'skills', manifest.entry ?? '') }
 }
 
-describe.each(readdirSync(OFFICIAL).sort())('official plugin %s', (name) => {
+const CREATION = readdirSync(OFFICIAL)
+  .sort()
+  .filter((name) => load(name).manifest.entry)
+
+it('ships the creation plugins and the provider presets', () => {
+  expect(readdirSync(OFFICIAL).sort()).toEqual(['provider-presets', 'slides', 'web-prototype'])
+})
+
+describe('official plugin provider-presets', () => {
+  it('carries the presets built into the daemon, and nothing a group would turn on', () => {
+    const { manifest } = load('provider-presets')
+    const bundled = JSON.parse(
+      readFileSync(join(OFFICIAL, '../../../../crates/gonggong/presets/providers.json'), 'utf8'),
+    ) as { source: string; presets: unknown[] }
+    expect(manifest.contributes.providers).toEqual(bundled.presets.map((p) => ProviderPreset.parse(p)))
+    expect(`cc-switch@${manifest.source?.revision}`).toBe(bundled.source)
+    expect([manifest.entry, manifest.contributes.mcp, manifest.contributes.commands]).toEqual([null, [], []])
+  })
+})
+
+describe.each(CREATION)('official plugin %s', (name) => {
   const { root, manifest, skillDir } = load(name)
 
   it('has a valid manifest named after its folder', () => {

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, 'crates/gonggong/presets/providers.json')
+const plugin = join(root, 'apps/server/plugins/official/provider-presets/gonggong-plugin.json')
 // Hand-kept: model id → context window (tokens), only values confirmed by the vendor's docs or its own preset env
 // (kimi-for-coding: CC Switch's Kimi For Coding sets CLAUDE_CODE_MAX_CONTEXT_TOKENS=262144).
 const MODEL_CONTEXT = JSON.parse(readFileSync(join(root, 'scripts/provider-model-context.json'), 'utf8'))
@@ -424,8 +425,13 @@ async function main() {
   )
   presets.push(...MANUAL.filter((p) => p.agent === 'codebuddy' || p.agent === 'deepseek'))
   writeFileSync(out, `${JSON.stringify({ source: `cc-switch@${commit}`, presets }, null, 2)}\n`)
+  // The same presets as the built-in platform plugin: a server deploy updates daemons without a client release.
+  const manifest = JSON.parse(readFileSync(plugin, 'utf8'))
+  manifest.contributes.providers = presets
+  manifest.source.revision = commit
+  writeFileSync(plugin, `${JSON.stringify(manifest, null, 2)}\n`)
   // Match the repo formatter so re-running the script yields a reviewable diff only.
-  execFileSync(join(root, 'node_modules/.bin/biome'), ['format', '--write', out], { stdio: 'ignore' })
+  execFileSync(join(root, 'node_modules/.bin/biome'), ['format', '--write', out, plugin], { stdio: 'ignore' })
   console.log(`wrote ${presets.length} presets to ${out}`)
 }
 

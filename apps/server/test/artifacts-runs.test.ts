@@ -78,7 +78,13 @@ describe('RunStart.artifacts', () => {
 
     const { start, run } = await dispatch(w, { mentions: [w.bot.id], artifactRefs: [target.id] })
     expect(start.artifacts).toHaveLength(20)
-    expect(start.artifacts[0]).toEqual({ id: target.id, dir: target.dir, headVersionId: null, digest: null })
+    expect(start.artifacts[0]).toEqual({
+      id: target.id,
+      dir: target.dir,
+      headVersionId: null,
+      digest: null,
+      plugin: null,
+    })
     // The 19 most recently updated of the bot's own.
     expect(start.artifacts.slice(1).map((a) => a.id)).toEqual(
       own
@@ -271,7 +277,9 @@ describe('creations', () => {
     })
 
     const start = (await w.next()) as RunStart
-    expect(start.artifacts).toEqual([{ id: a!.id, dir: a!.dir, headVersionId: null, digest: null }])
+    expect(start.artifacts).toEqual([
+      { id: a!.id, dir: a!.dir, headVersionId: null, digest: null, plugin: 'web-prototype' },
+    ])
     const v1 = (await w.submit(start.runId, a!.id, L1)).json() as ArtifactSubmitRes
     expect(v1).toMatchObject({ n: 1, head: true })
     const [updated] = await t.db.select().from(messages).where(eq(messages.id, card!.id))

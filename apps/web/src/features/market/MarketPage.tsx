@@ -239,7 +239,7 @@ export function MarketPage() {
                     onClick={() => setOpen(l)}
                   >
                     <span className="mkt-card__head">
-                      <ListingIcon type={l.type} official={l.source === 'official' ? l.name : undefined} />
+                      <ListingIcon type={l.type} listing={l} />
                       <span className="mkt-card__titles">
                         <strong className="works__name" title={l.title}>
                           {l.title}

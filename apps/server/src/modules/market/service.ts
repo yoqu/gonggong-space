@@ -120,6 +120,7 @@ export const listingSummary = (listing: ListingRow, v: Version): ListingSummary 
   status: listing.status as ListingStatus,
   versionId: v.id,
   revision: v.revision,
+  icon: ('icon' in v.manifest && v.manifest.icon) || null,
 })
 
 export const inScope = (t: { scope: string; scopeId: string }) =>

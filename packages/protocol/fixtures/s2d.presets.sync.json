@@ -1,0 +1,24 @@
+{
+  "t": "presets.sync",
+  "presets": [
+    {
+      "id": "acme",
+      "agent": "claude",
+      "name": "Acme",
+      "group": "cn",
+      "websiteUrl": "https://acme.example.com",
+      "apiKeyUrl": null,
+      "baseUrl": "https://api.acme.example.com/anthropic",
+      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+      "model": "acme-1",
+      "models": null,
+      "modelOptions": ["acme-1", "acme-2"],
+      "env": {},
+      "wireApi": null,
+      "effort": null,
+      "modelContext": {
+        "acme-1": 200000
+      }
+    }
+  ]
+}

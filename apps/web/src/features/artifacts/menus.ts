@@ -1,4 +1,4 @@
-import type { ArtifactDevice } from '@gonggong/protocol'
+import type { ArtifactDevice, ArtifactPluginCommandDto } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import type { MenuItem } from '../../ui'
 import { FRAME_PRESETS, type FramePreset, framePreset, type ScreenFrame } from './geometry'
@@ -45,7 +45,7 @@ export const CMD = {
   copyMd: 'copy-md',
   /** The prototype editor (the prototype node's 打开). */
   present: 'present',
-  /** `gen:<ArtifactCommand>`: POST …/commands for the selected screens. */
+  /** `gen:<command>` (a platform command or one of the artifact's plugin): POST …/commands for the selected screens. */
   generate: 'gen:',
   /** `var:<dimension>`: variations along one dimension; `var:custom` asks for the direction. */
   variations: 'var:',
@@ -78,20 +78,20 @@ const gen = (label: string, command: string, bot: BotState, shortcut?: string): 
   ...botTitle(bot),
 })
 
-/** The selection toolbar's four menus (Stitch capability list §3, 选中屏幕); each item becomes an @bot message. */
-export const generateItems = (bot: BotState): MenuItem[] => [
+/**
+ * The selection toolbar's 生成 menu (Stitch capability list §3, 选中屏幕): the platform's commands, then those the
+ * artifact's plugin adds (`plugin`, GET …/commands); each item becomes an @bot message.
+ */
+export const generateItems = (bot: BotState, plugin: ArtifactPluginCommandDto[] = []): MenuItem[] => [
   ...botHeader(bot),
-  gen(t('即时原型'), 'instant-prototype', bot),
   gen(t('变体'), 'variations', bot),
   gen(t('重新生成'), 'regenerate', bot, '⇧R'),
-  gen(t('桌面网页版'), 'desktop-version', bot),
-  gen(t('补全状态'), 'missing-states', bot),
   gen(t('动效'), 'animate', bot),
-  { separator: true },
-  gen(t('应用商店素材'), 'app-store-assets', bot),
-  gen(t('网页素材'), 'web-assets', bot),
-  gen(t('营销物料'), 'marketing-kit', bot),
-  gen(t('无障碍检查'), 'accessibility-audit', bot),
+  ...(plugin.length ? [{ separator: true } as const] : []),
+  ...plugin.map((c) => ({
+    ...gen(c.title, c.name, bot),
+    ...(c.description && bot === null ? { title: c.description } : {}),
+  })),
 ]
 
 export const variationItems = (bot: BotState): MenuItem[] => [
@@ -167,6 +167,8 @@ export function screenContextItems(o: {
   device: ArtifactDevice
   /** The one selected screen has a thumbnail to copy as PNG. */
   png: boolean
+  /** The artifact's plugin commands. */
+  plugin?: ArtifactPluginCommandDto[]
 }): MenuItem[] {
   const ro = readOnlyTitle(o.readOnly)
   return [
@@ -191,7 +193,7 @@ export function screenContextItems(o: {
     { label: t('删除'), value: CMD.remove, shortcut: '⌫', destructive: true, ...ro },
     { separator: true },
     { header: t('生成') },
-    { label: t('生成'), value: 'generate', submenu: generateItems(o.bot) },
+    { label: t('生成'), value: 'generate', submenu: generateItems(o.bot, o.plugin) },
     { label: t('变体'), value: 'variations', submenu: variationItems(o.bot) },
     gen(t('重新生成'), 'regenerate', o.bot, '⇧R'),
     { separator: true },

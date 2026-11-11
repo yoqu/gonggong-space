@@ -1,0 +1,144 @@
+/* gg-kit: platform-owned base for every screen. Do not edit or override in an artifact. */
+
+[data-gg-device='miniprogram'] {
+  --gg-width: 375px;
+  --gg-height: 812px;
+  --gg-status-bar: 44px;
+  --gg-capsule-top: 48px;
+  --gg-capsule-height: 32px;
+  --gg-capsule-width: 87px;
+  --gg-capsule-right: 7px;
+  --gg-nav-height: 88px;
+  --gg-safe-bottom: 34px;
+}
+
+[data-gg-device='mobile'] {
+  --gg-width: 390px;
+  --gg-height: 844px;
+  --gg-status-bar: 47px;
+  --gg-capsule-top: 0px;
+  --gg-capsule-height: 0px;
+  --gg-capsule-width: 0px;
+  --gg-capsule-right: 0px;
+  --gg-nav-height: 91px;
+  --gg-safe-bottom: 34px;
+}
+
+[data-gg-device='desktop'] {
+  --gg-width: 1440px;
+  --gg-height: 900px;
+  --gg-status-bar: 0px;
+  --gg-capsule-top: 0px;
+  --gg-capsule-height: 0px;
+  --gg-capsule-width: 0px;
+  --gg-capsule-right: 0px;
+  --gg-nav-height: 0px;
+  --gg-safe-bottom: 0px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-gg-link],
+[data-gg-back] {
+  cursor: pointer;
+}
+
+[data-gg-device='miniprogram'] ::-webkit-scrollbar,
+[data-gg-device='mobile'] ::-webkit-scrollbar {
+  display: none;
+}
+
+/* Image placeholder until a real image exists: <div class="gg-ph" data-label="活动海报 3:4"></div> */
+.gg-ph {
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(135deg, #ececee 0 10px, #e4e4e7 10px 20px);
+}
+
+.gg-ph::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #6b6b70;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.gg-ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gg-scroll-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+/* Under white text: a darker placeholder, as a real photo would be. */
+.gg-ph[data-tone='dark'] {
+  background: repeating-linear-gradient(135deg, #5b6b66 0 10px, #536360 10px 20px);
+}

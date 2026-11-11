@@ -7,6 +7,7 @@
   "agents": ["claude", "codex"],
   "minDaemon": "0.3.5",
   "entry": "slides",
+  "icon": "assets/icon.svg",
   "templates": [
     {
       "id": "html-ppt",

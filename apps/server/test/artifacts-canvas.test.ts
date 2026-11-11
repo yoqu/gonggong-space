@@ -100,7 +100,7 @@ describe('message canvas context (G11)', () => {
     expect(note).toContain('为选中的每个屏幕各出 2 个变体')
     expect(note).toContain(`产物「活动报名」，目录 ${s.a.dir}/，当前版本 v1。`)
     expect(note).toContain('- home（首页，screens/home.html）')
-    expect(note).toContain('遵守产品原型插件 SKILL.md 的约定')
+    expect(note).toContain('遵守产物所属插件 SKILL.md 的约定')
     expect(msg.body).not.toContain('gg-artifact.json')
 
     const en = await t.app.inject({

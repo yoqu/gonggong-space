@@ -83,6 +83,11 @@ export class DaemonHub extends EventEmitter<HubEvents> {
     })
   }
 
+  /** Connected machines. */
+  online() {
+    return [...this.conns.keys()]
+  }
+
   isOnline(machineId: string) {
     return this.conns.has(machineId)
   }

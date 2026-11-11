@@ -364,6 +364,7 @@ describe('built-in plugins', () => {
     await syncBuiltinPlugins(t.ctx, BUILTIN_PLUGINS)
     const rows = await t.db.select().from(plugins)
     expect(rows.map((r) => [r.scope, r.name, r.updatedBy]).sort()).toEqual([
+      ['platform', 'provider-presets', null],
       ['platform', 'slides', null],
       ['platform', 'web-prototype', null],
     ])
@@ -504,7 +505,11 @@ describe('group plugins', () => {
     expect(pluginBlocker(m, { ...ok, daemonVersion: null }, 'v1')).toBe('daemon')
     expect(pluginBlocker(m, { ...ok, env: {} }, 'v1')).toBe('secret')
     const stdio = { transport: 'stdio' as const, name: 's', command: ['x'], env: {} }
-    const code = PluginManifestOf({ ...m, permissions: ['exec'], contributes: { mcp: [stdio] } })
+    const code = PluginManifestOf({
+      ...m,
+      permissions: ['exec'],
+      contributes: { mcp: [stdio], commands: [], providers: [] },
+    })
     const mcpOk = { ...ok, features: ['plugins', 'pluginMcp'] }
     expect(pluginBlocker(code, ok, 'v1')).toBe('daemon')
     expect(pluginBlocker(code, mcpOk, 'v1')).toBe('code')

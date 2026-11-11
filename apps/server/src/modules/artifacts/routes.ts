@@ -9,6 +9,7 @@ import {
   ArtifactFavoritesReq,
   type ArtifactManifestRes,
   ArtifactPatchReq,
+  type ArtifactPluginCommandDto,
   ArtifactScreenId,
   type ArtifactShareDto,
   ArtifactShareReq,
@@ -48,7 +49,7 @@ import { artifactBlobs, artifactQuota } from './blobs.js'
 import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
-import { pluginDesignSystems } from './kit.js'
+import { pluginCommands, pluginDesignSystems } from './kit.js'
 import {
   type Artifact,
   artifactDetail,
@@ -486,6 +487,15 @@ export function artifactRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const a = await requireArtifact(ctx, req.params.id, me.id)
         return pluginDesignSystems(ctx.db, a.pluginVersionId)
+      },
+    )
+
+    app.get<{ Params: { id: string } }>(
+      '/api/artifacts/:id/commands',
+      async (req): Promise<ArtifactPluginCommandDto[]> => {
+        const me = await requireUser(ctx, req)
+        const a = await requireArtifact(ctx, req.params.id, me.id)
+        return (await pluginCommands(ctx.db, a.pluginVersionId)).map(({ prompt: _, ...c }) => c)
       },
     )
 

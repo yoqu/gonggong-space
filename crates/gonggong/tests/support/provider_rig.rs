@@ -130,7 +130,7 @@ impl Rig {
 
     pub fn add(&self, agent: AgentKind, preset: &str, default: bool) -> String {
         Store::update(self.home(), |s| {
-            let id = s.add(Provider::from_preset(providers::preset(agent, preset).unwrap(), KEY.into()))?;
+            let id = s.add(Provider::from_preset(&providers::preset(agent, preset).unwrap(), KEY.into()))?;
             if default {
                 s.use_machine(agent, &id)?;
             }

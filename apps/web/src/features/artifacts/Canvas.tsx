@@ -148,6 +148,7 @@ import {
   ZOOM_SELECTION,
   zoomItems,
 } from './menus'
+import { useArtifactCommands } from './pluginCommands'
 import { connectOps } from './prototype'
 import { RefNode } from './RefNode'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -281,6 +282,9 @@ export interface CanvasProps {
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
   onPrototypeAsked: () => void
 }
+
+/** 项目简报 in the export panel: the plugin command that writes brief.md (notes.ts reads it), when the plugin has one. */
+const BRIEF = 'project-brief'
 
 const deviceIcon = (d: ArtifactDevice): IconName => (d === 'desktop' ? 'desktop' : 'smartphone')
 
@@ -433,6 +437,7 @@ export function Canvas({
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const shareDenied = useShareAccess(groupId, botId)
   const botState: BotState = bot ? offlineHint(bot) : 'none'
+  const pluginCommands = useArtifactCommands(artifactId)
   const annotations = useAnnotations(artifactId, versionKey || null)
   const [panel, setPanelNow] = useState<Panel | null>(null)
   const otherNotes = useOpenElsewhere(
@@ -738,7 +743,7 @@ export function Canvas({
 
   // ── AI commands (Stitch's Generate and Variations menus) ──
   /** About the selected screens, or with `ggIds` about elements only. */
-  const ask = (command: ArtifactCommand, extra: Partial<ArtifactCommandReq> = {}) => {
+  const ask = (command: ArtifactCommandReq['command'], extra: Partial<ArtifactCommandReq> = {}) => {
     if (!bot) return Promise.resolve(false)
     const req: ArtifactCommandReq = {
       command,
@@ -868,7 +873,7 @@ export function Canvas({
     }
     if (value.startsWith(RUN.panel)) return setPanel(value.slice(RUN.panel.length) as Panel)
     if (value.startsWith(CMD.generate)) {
-      if (picked.length) void ask(value.slice(CMD.generate.length) as ArtifactCommand)
+      if (picked.length) void ask(value.slice(CMD.generate.length))
       return
     }
     if (value.startsWith(CMD.variations)) {
@@ -1336,10 +1341,11 @@ export function Canvas({
         shareDenied={shareDenied}
         readFile={readFile}
         prompt={implementationPrompt({ title, dir, manifest, links, designMd, tokens: tokens?.vars ?? [] })}
-        onBrief={() =>
-          bot
-            ? sendCommand(artifactId, { command: 'project-brief', botId: bot.id }, bot)
-            : Promise.resolve(false)
+        onBrief={
+          pluginCommands.some((c) => c.name === BRIEF)
+            ? () =>
+                bot ? sendCommand(artifactId, { command: BRIEF, botId: bot.id }, bot) : Promise.resolve(false)
+            : undefined
         }
         onClose={() => setPanel(null)}
       />
@@ -1403,7 +1409,7 @@ export function Canvas({
         { label: t('重命名'), value: CMD.rename, disabled: !canEdit || (!one && pickedRefs.length !== 1) },
         { label: t('删除'), value: CMD.remove, shortcut: '⌫', disabled: !canEdit },
       ]),
-      ...entriesOf(t('生成'), generateItems(botState)),
+      ...entriesOf(t('生成'), generateItems(botState, pluginCommands)),
       ...entriesOf(t('生成'), variationItems(botState), `${t('变体')} › `),
       ...entriesOf(t('修改#modify'), modifyItems(!canEdit)),
       ...entriesOf(t('预览'), previewItems(single, sharedFrame, device)),
@@ -1456,6 +1462,7 @@ export function Canvas({
               showLinks,
               frame: sharedFrame,
               bot: botState,
+              plugin: pluginCommands,
               device,
               png: hasThumb,
             })
@@ -1806,7 +1813,7 @@ export function Canvas({
             icon="sparkle"
             label={t('生成')}
             compact={compactFloat}
-            items={generateItems(botState)}
+            items={generateItems(botState, pluginCommands)}
             onSelect={command}
           />
           <FloatMenu

@@ -338,7 +338,7 @@ pub fn codebuddy_base_url(p: &Provider) -> Option<&str> {
 pub fn model(p: &Provider, wanted: Option<&str>) -> Option<String> {
     let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
     let models = p.models.iter().flat_map(|m| [&m.haiku, &m.sonnet, &m.opus]).flatten();
-    let mut options = p.model.iter().chain(models).chain(preset.into_iter().flat_map(|p| &p.model_options));
+    let mut options = p.model.iter().chain(models).chain(preset.iter().flat_map(|p| &p.model_options));
     wanted.filter(|w| options.any(|o| o.as_str() == *w)).map(String::from).or_else(|| p.model.clone())
 }
 
@@ -634,7 +634,7 @@ mod tests {
     #[test]
     fn the_models_context_window_fills_in_unless_the_provider_sets_one() {
         let home = tempfile::tempdir().unwrap();
-        let mut p = Provider::from_preset(providers::preset(Claude, "kimi-coding").unwrap(), "sk-k-0123456789".into());
+        let mut p = Provider::from_preset(&providers::preset(Claude, "kimi-coding").unwrap(), "sk-k-0123456789".into());
         p.id = "kimi-1".into();
         let none = defaults(&[], true);
         let l = launch(home.path(), &Selection::Provider(Box::new(p.clone())), &none, &bot(None, &[]));
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn model_prefers_the_bots_pick_among_the_providers_models() {
-        let p = Provider::from_preset(providers::preset(Codex, "zhipu").unwrap(), "k".into());
+        let p = Provider::from_preset(&providers::preset(Codex, "zhipu").unwrap(), "k".into());
         assert_eq!(model(&p, Some("glm-5.3-flash")).as_deref(), Some("glm-5.3-flash"), "from the preset's options");
         assert_eq!(model(&p, Some("gpt-5")).as_deref(), Some("glm-5.3"));
         assert_eq!(model(&p, None).as_deref(), Some("glm-5.3"));

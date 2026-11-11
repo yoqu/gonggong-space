@@ -141,6 +141,7 @@ struct Actor {
 
 impl Engine {
     pub fn new(config: EngineConfig) -> Self {
+        crate::providers::load_overlay(&config.home);
         let workspaces = Workspaces::new(config.home.clone());
         let services = Services::new(&config.home);
         let bin = crate::cast::local_bin();
@@ -894,18 +895,24 @@ impl Handler for Engine {
                     out.send(DaemonToServer::ServiceRestartResult { request_id, error });
                 });
             }
+            ServerToDaemon::PresetsSync { presets } => {
+                if let Err(e) = crate::providers::set_overlay(&self.0.config.home, presets) {
+                    tracing::warn!("presets overlay not saved: {e}");
+                }
+            }
             ServerToDaemon::PreviewsSync { previews } => {
                 tunnel::set_allowed(&self.0.previews, previews.into_iter().map(|p| (p.id, p.port)).collect());
             }
             ServerToDaemon::CastSync { casts } => self.0.casts.sync(casts, out),
             ServerToDaemon::CastRetry { preview_id } => self.0.casts.retry(&preview_id),
-            ServerToDaemon::ArtifactSnapshot { artifact_id, version_id } => {
+            ServerToDaemon::ArtifactSnapshot { artifact_id, version_id, plugin } => {
                 let Some(api) = self.0.config.api.clone() else { return };
                 let home = self.0.config.home.clone();
                 tokio::spawn(async move {
                     let shot = match crate::artifacts::Artifacts::new(&api, &home) {
                         Ok(a) => {
-                            a.snapshot(&artifact_id, &version_id, crate::artifacts::kit(&[], &home).as_deref()).await
+                            let kit = plugin.as_deref().and_then(|p| crate::artifacts::installed_kit(&home, p));
+                            a.snapshot(&artifact_id, &version_id, kit.as_deref()).await
                         }
                         Err(e) => Err(format!("{e:#}")),
                     };

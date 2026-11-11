@@ -398,6 +398,9 @@ pub struct DaemonArtifactRef {
     pub head_version_id: Option<String>,
     /// [`crate::sync::root_hash`] of the head's files with `exec` false.
     pub digest: Option<String>,
+    /// Its plugin (name): the turn's copy of it gives the shell screenshots are framed in.
+    #[serde(default)]
+    pub plugin: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1942,6 +1945,8 @@ pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// `PluginRef.mcp`: the plugins' MCP servers join the run's (plan 插件扩展点 S1).
 pub const FEATURE_PLUGIN_MCP: &str = "pluginMcp";
+/// `presets.sync`, artifact `plugin` and manifest `artifact.kit` (plan 插件扩展点 S2).
+pub const FEATURE_PRESET_SYNC: &str = "presetSync";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
 pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// `artifact.snapshot`: screenshots of artifact versions this machine did not make.
@@ -2908,7 +2913,16 @@ pub enum ServerToDaemon {
     CastRetry { preview_id: String },
     /// Screenshot a version this machine did not make (needs [`FEATURE_ARTIFACT_SNAPSHOT`]).
     #[serde(rename = "artifact.snapshot", rename_all = "camelCase")]
-    ArtifactSnapshot { artifact_id: String, version_id: String },
+    ArtifactSnapshot {
+        artifact_id: String,
+        version_id: String,
+        /// The artifact's plugin, whose installed shell frames the screens.
+        #[serde(default)]
+        plugin: Option<String>,
+    },
+    /// Provider presets of platform plugins, over the built-in ones (needs [`FEATURE_PRESET_SYNC`]).
+    #[serde(rename = "presets.sync")]
+    PresetsSync { presets: Vec<Preset> },
     #[serde(rename = "tools.cmd")]
     ToolsCmd(ToolsCmd),
     #[serde(rename = "providers.cmd")]

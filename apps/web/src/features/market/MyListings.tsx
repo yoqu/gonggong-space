@@ -130,7 +130,7 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
                 className="cfg__item mkt-row"
                 label={
                   <span className="mkt-row__head">
-                    <ListingIcon type={l.type} size={28} />
+                    <ListingIcon type={l.type} size={28} listing={l} />
                     <span className="mkt-row__titles">
                       <span className="cfg__name-line">
                         <strong className="mkt-row__name">{l.title}</strong>

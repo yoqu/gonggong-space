@@ -1,0 +1,50 @@
+{
+  "name": "dashboard",
+  "version": "1.0.0",
+  "title": "数据看板",
+  "description": "把指标需求做成桌面端多屏数据看板原型：总览、明细与下钻页面可点击跳转，按团队设计规范生成到工作区 design/<slug>/。",
+  "category": "dashboard",
+  "agents": ["claude", "codex"],
+  "minDaemon": "0.4.18",
+  "entry": "dashboard",
+  "icon": "assets/icon.svg",
+  "artifact": { "kit": "skills/dashboard/shell" },
+  "templates": [
+    {
+      "id": "ops-overview",
+      "title": "运营总览看板",
+      "description": "核心指标卡、趋势图、排行与明细下钻",
+      "group": "看板",
+      "designSystem": false
+    }
+  ],
+  "inputs": [
+    {
+      "id": "prompt",
+      "label": "需求",
+      "type": "text",
+      "required": true,
+      "placeholder": "要看哪些指标、给谁看、要哪几屏"
+    }
+  ],
+  "composer": { "prompt": "prompt" },
+  "license": "Apache-2.0",
+  "contributes": {
+    "commands": [
+      {
+        "name": "weekly-report",
+        "title": "看板周报",
+        "description": "按本群看板写一份本周数据周报",
+        "prompt": "根据本群最新的数据看板产物写一份本周数据周报：先给三条结论，再按指标列出环比变化和异常，最后给下周建议。补充要求：{args}"
+      },
+      {
+        "name": "add-drilldown",
+        "title": "加下钻页",
+        "description": "为选中的屏幕加一个明细下钻页",
+        "prompt": "为选中的屏幕各加一个明细下钻页：新屏 id 为 <原 id>-detail，含筛选栏、明细表格（分页）和返回按钮（data-gg-back），在原屏的指标卡上加 data-gg-link 跳过去，登记进 {dir}/gg-artifact.json。",
+        "where": "artifact",
+        "needsScreen": true
+      }
+    ]
+  }
+}

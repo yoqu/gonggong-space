@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
 
 /// The CLI's own login and user-level config: nothing is injected.
 pub const OFFICIAL: &str = "official";
@@ -96,12 +96,49 @@ pub fn presets_source() -> &'static str {
     &preset_file().source
 }
 
-pub fn presets(agent: Option<AgentKind>) -> impl Iterator<Item = &'static Preset> {
-    preset_file().presets.iter().filter(move |p| agent.is_none_or(|a| p.agent == a))
+/// Presets of platform plugins (plan 插件扩展点 §6), kept in `<home>/presets-overlay.json` for the CLI and restarts.
+static OVERLAY: RwLock<Vec<Preset>> = RwLock::new(vec![]);
+const OVERLAY_FILE: &str = "presets-overlay.json";
+
+/// Built-in presets with the overlay over them: the same (agent, id) replaces a built-in in place, new ones follow.
+fn merged(builtin: &[Preset], overlay: &[Preset]) -> Vec<Preset> {
+    let mut out: Vec<Preset> = builtin
+        .iter()
+        .map(|b| overlay.iter().find(|o| o.agent == b.agent && o.id == b.id).unwrap_or(b).clone())
+        .collect();
+    out.extend(overlay.iter().filter(|o| !builtin.iter().any(|b| b.agent == o.agent && b.id == o.id)).cloned());
+    out
 }
 
-pub fn preset(agent: AgentKind, id: &str) -> Option<&'static Preset> {
-    presets(Some(agent)).find(|p| p.id == id)
+pub fn presets(agent: Option<AgentKind>) -> Vec<Preset> {
+    let overlay = OVERLAY.read().unwrap_or_else(|e| e.into_inner());
+    merged(&preset_file().presets, &overlay).into_iter().filter(|p| agent.is_none_or(|a| p.agent == a)).collect()
+}
+
+pub fn preset(agent: AgentKind, id: &str) -> Option<Preset> {
+    presets(Some(agent)).into_iter().find(|p| p.id == id)
+}
+
+/// Reads the overlay the server last sent; a missing or unreadable file leaves only the built-in presets.
+pub fn load_overlay(home: &Path) {
+    let read = std::fs::read(home.join(OVERLAY_FILE)).ok().and_then(|b| serde_json::from_slice(&b).ok());
+    *OVERLAY.write().unwrap_or_else(|e| e.into_inner()) = read.unwrap_or_default();
+}
+
+/// Replaces the overlay (`presets.sync`); an empty list clears it.
+pub fn set_overlay(home: &Path, presets: Vec<Preset>) -> std::io::Result<()> {
+    let file = home.join(OVERLAY_FILE);
+    if presets.is_empty() {
+        match std::fs::remove_file(&file) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+    } else {
+        std::fs::create_dir_all(home)?;
+        std::fs::write(&file, serde_json::to_vec(&presets).expect("presets serialize"))?;
+    }
+    *OVERLAY.write().unwrap_or_else(|e| e.into_inner()) = presets;
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -871,7 +908,7 @@ mod tests {
     const KEY: &str = "sk-secret-0123456789abcd";
 
     fn kimi(store: &mut Store) -> String {
-        store.add(Provider::from_preset(preset(Claude, "kimi-coding").unwrap(), KEY.into())).unwrap()
+        store.add(Provider::from_preset(&preset(Claude, "kimi-coding").unwrap(), KEY.into())).unwrap()
     }
 
     #[test]
@@ -907,20 +944,20 @@ mod tests {
     #[test]
     fn bundled_presets_load_and_filter_by_agent() {
         assert!(presets_source().starts_with("cc-switch@"));
-        let claude: Vec<_> = presets(Some(Claude)).collect();
-        let codex: Vec<_> = presets(Some(Codex)).collect();
+        let claude = presets(Some(Claude));
+        let codex = presets(Some(Codex));
         assert!(!claude.is_empty() && !codex.is_empty());
         assert!(claude.iter().all(|p| p.agent == Claude && p.api_key_field.is_some()));
         assert!(codex.iter().all(|p| p.agent == Codex && p.wire_api.as_deref() == Some(WIRE_RESPONSES)));
-        let gemini: Vec<_> = presets(Some(Gemini)).collect();
+        let gemini = presets(Some(Gemini));
         assert!(gemini.iter().all(|p| p.agent == Gemini && p.api_key_field.is_none() && p.wire_api.is_none()));
         assert_eq!(preset(Gemini, "google").unwrap().base_url, GOOGLE_GEMINI_URL);
         assert!(preset(Gemini, "openrouter").unwrap().model_options.iter().all(|m| m.contains("gemini")));
-        let codebuddy: Vec<_> = presets(Some(Codebuddy)).collect();
+        let codebuddy = presets(Some(Codebuddy));
         assert_eq!(preset(Codebuddy, "codebuddy-cn").unwrap().env["CODEBUDDY_INTERNET_ENVIRONMENT"], "internal");
         assert_eq!(preset(Deepseek, "deepseek").unwrap().base_url, "https://api.deepseek.com/anthropic");
-        assert_eq!(presets(Some(Pi)).count(), 0, "pi keeps its own logins");
-        assert_eq!(presets(None).count(), claude.len() + codex.len() + gemini.len() + codebuddy.len() + 1);
+        assert_eq!(presets(Some(Pi)).len(), 0, "pi keeps its own logins");
+        assert_eq!(presets(None).len(), claude.len() + codex.len() + gemini.len() + codebuddy.len() + 1);
         let zhipu = preset(Codex, "zhipu").unwrap();
         assert_eq!(zhipu.name, "智谱 GLM");
         assert!(zhipu.model_options.contains(&"glm-5.3".to_string()));
@@ -928,15 +965,47 @@ mod tests {
         let kimi = |agent| preset(agent, "kimi-coding").unwrap().model_options.clone();
         assert!(kimi(Claude).len() > 1, "claude presets get the vendor's models listed by the other apps");
         assert_eq!(kimi(Claude), kimi(Codex));
-        let mut urls = presets(None).flat_map(|p| [&p.website_url, &p.api_key_url]).flatten();
+        let all = presets(None);
+        let mut urls = all.iter().flat_map(|p| [&p.website_url, &p.api_key_url]).flatten();
         assert!(
             urls.all(|u| !u.contains("aff=") && !u.contains("ref=") && !u.contains("track_id=")),
             "referral params stripped"
         );
-        let mut ids: Vec<_> = presets(None).map(|p| (p.agent, &p.id)).collect();
+        let mut ids: Vec<_> = all.iter().map(|p| (p.agent, &p.id)).collect();
         ids.sort();
         ids.dedup();
-        assert_eq!(ids.len(), presets(None).count(), "ids unique per agent");
+        assert_eq!(ids.len(), all.len(), "ids unique per agent");
+    }
+
+    #[test]
+    fn plugin_presets_replace_built_ins_by_agent_and_id_and_follow_them() {
+        let builtin = presets(None);
+        let mut kimi = preset(Claude, "kimi").unwrap();
+        kimi.base_url = "https://kimi.example.com".into();
+        let mut extra = kimi.clone();
+        (extra.id, extra.agent) = ("acme".into(), Codex);
+        let out = merged(&builtin, &[extra.clone(), kimi.clone()]);
+        assert_eq!(out.len(), builtin.len() + 1);
+        let at = builtin.iter().position(|p| p.agent == Claude && p.id == "kimi").unwrap();
+        assert_eq!(out[at], kimi, "replaced in place");
+        assert_eq!(out.last(), Some(&extra), "new ones follow the built-ins");
+    }
+
+    #[test]
+    fn the_overlay_is_kept_on_disk_and_cleared_by_an_empty_sync() {
+        // Only a same-id replacement, so the other tests' counts hold while it is set.
+        let home = tempfile::tempdir().unwrap();
+        let mut kimi = preset(Claude, "kimi").unwrap();
+        let original = kimi.clone();
+        kimi.name = "Kimi（插件）".into();
+        set_overlay(home.path(), vec![kimi.clone()]).unwrap();
+        assert_eq!(preset(Claude, "kimi"), Some(kimi.clone()));
+        *OVERLAY.write().unwrap() = vec![];
+        load_overlay(home.path());
+        assert_eq!(preset(Claude, "kimi"), Some(kimi), "reloaded after a restart");
+        set_overlay(home.path(), vec![]).unwrap();
+        assert!(!home.path().join(OVERLAY_FILE).exists());
+        assert_eq!(preset(Claude, "kimi"), Some(original));
     }
 
     #[test]

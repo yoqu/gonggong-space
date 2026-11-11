@@ -53,7 +53,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam, isUuid } from '../../lib/ids.js'
 import { notify, resolveNotifications } from '../notifications/notify.js'
-import { type ListingSnapshot, listingSnapshot } from '../plugins/service.js'
+import { type ListingSnapshot, listingSnapshot, presetsOnPlatformOnly } from '../plugins/service.js'
 import { fetchGithubSkill, upstreamCommit } from './github.js'
 import { requestedIn } from './requests.js'
 import { ADMIN_ROLES, byScope, listingSummary, listVersion, maintainedBy, nameTakenIn } from './service.js'
@@ -575,6 +575,7 @@ export async function publish(ctx: Ctx, me: Me, req: PublishReq, ghSource?: List
     if (!listing) return fail('conflict', '插件正在被修改，请重试')
     if (!made) await requireOwnName(tx, me, listing, s)
     publicCode(s, listing.visibility)
+    presetsOnPlatformOnly(s)
     const added = await addDraft(ctx, tx, listing, s, me.id, ghSource)
     return { listing, created: !!made, added }
   })

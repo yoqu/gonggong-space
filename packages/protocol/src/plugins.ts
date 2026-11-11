@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
-import { SkillFile } from './daemon.js'
+import { ProviderPreset, SkillFile } from './daemon.js'
 
 // ── Plugins (plan 插件体系-方案): a folder with a manifest, layered like team skills ────
 /** The manifest at the root of a plugin folder; the rest is a Claude plugin layout (`skills/<name>/SKILL.md`). */
@@ -100,8 +100,30 @@ export const PluginMcp = z.discriminatedUnion('transport', [
 ])
 export type PluginMcp = z.infer<typeof PluginMcp>
 
+export const PLUGIN_COMMAND_NAME = /^[a-z][a-z0-9-]{0,39}$/
+/**
+ * A command the plugin adds (plan 插件扩展点 §7), pure declaration. `chat`: `/<name>` in the composer, sent to the agent
+ * as `prompt` with `{args}` replaced by what follows the command, using the plugin's entry skill. `artifact`: in the
+ * canvas 生成 and `/` menus of this plugin's artifacts; `{dir}` is the artifact folder and the member's request follows.
+ */
+export const PluginCommand = z.object({
+  name: z.string().regex(PLUGIN_COMMAND_NAME),
+  title: z.string().min(1).max(20),
+  description: z.string().max(120).default(''),
+  prompt: z.string().min(1).max(4000),
+  where: z.enum(['chat', 'artifact']).default('chat'),
+  /** Artifact commands: off until screens are selected. */
+  needsScreen: z.boolean().default(false),
+})
+export type PluginCommand = z.infer<typeof PluginCommand>
+
 /** Extension points (plan 插件扩展点); each optional. */
-export const PluginContributes = z.object({ mcp: z.array(PluginMcp).max(10).default([]) })
+export const PluginContributes = z.object({
+  mcp: z.array(PluginMcp).max(10).default([]),
+  commands: z.array(PluginCommand).max(30).default([]),
+  /** Provider presets (§6): platform-layer plugins only; added to every daemon's built-in ones, same id replacing. */
+  providers: z.array(ProviderPreset).max(300).default([]),
+})
 export type PluginContributes = z.infer<typeof PluginContributes>
 
 /** The permissions what a manifest contributes needs; it must declare exactly these. */
@@ -125,7 +147,9 @@ export const PluginManifest = z
     /** The skill a creation invokes: `skills/<entry>/SKILL.md` must exist. Null for a plugin without one (tools only). */
     entry: z.string().regex(ID).nullable().default(null),
     permissions: z.array(PluginPermission).max(PluginPermission.options.length).default([]),
-    contributes: PluginContributes.default({ mcp: [] }),
+    contributes: PluginContributes.default({ mcp: [], commands: [], providers: [] }),
+    /** The plugin's tile: an svg or png in the folder; absent: its category's glyph. */
+    icon: PkgPath.optional(),
     templates: z.array(PluginTemplate).max(80).default([]),
     designSystems: z.array(PluginDesignSystem).max(80).default([]),
     inputs: z.array(PluginInput).max(12).default([]),
@@ -142,7 +166,14 @@ export const PluginManifest = z
      */
     composer: z.object({ prompt: z.string() }).nullable().default(null),
     /** Hosted-artifact features: `editable` shows direct editing, `tokens` (e.g. `tokens.css`) the theme panel. */
-    artifact: z.object({ editable: z.boolean().optional(), tokens: PkgPath.optional() }).optional(),
+    artifact: z
+      .object({
+        editable: z.boolean().optional(),
+        tokens: PkgPath.optional(),
+        /** The L1 shell: a folder with `index.html` (served as `/`) and runtime files (`/_gg/*`); default `skills/<entry>/kit`. */
+        kit: PkgPath.optional(),
+      })
+      .optional(),
     /** Where it came from, shown with the license (e.g. an open-design template at a pinned commit). */
     source: z
       .object({

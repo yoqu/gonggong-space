@@ -21,7 +21,8 @@ import { ContextChips } from '../artifacts/ContextChips'
 import { artifactContextOf, type CanvasContext, clearContext, useCanvasContext } from '../artifacts/context'
 import { setEditing, useEditing, useEditingOf } from '../artifacts/editing'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
-import { ARTIFACT_SLASH, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
+import { useArtifactCommands } from '../artifacts/pluginCommands'
+import { artifactSlash, commandSelection, parseArtifactSlash, selectedScreenIds } from '../artifacts/slash'
 import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
@@ -173,8 +174,9 @@ export const MessageComposer = memo(function MessageComposer({
   const artifact = useArtifactTarget(main, editingContext)
   const artifactBot = mentioned[0] ?? groupBots.find((b) => b.id === artifact?.botId) ?? groupBots[0] ?? null
   const hasScreens = selectedScreenIds(canvas).length > 0
+  const slashList = artifactSlash(useArtifactCommands(artifact?.artifactId))
   const artifactCandidates: Candidate[] = artifact
-    ? ARTIFACT_SLASH.map((c) => {
+    ? slashList.map((c) => {
         const off = c.needsScreen && !hasScreens
         return {
           key: `artifact:${c.command}`,
@@ -365,7 +367,7 @@ export const MessageComposer = memo(function MessageComposer({
         text: draft.trim(),
         screenIds: selectedScreenIds(canvas),
       }
-    const slash = parseArtifactSlash(draft)
+    const slash = parseArtifactSlash(draft, slashList)
     if (!slash || (slash.slash.needsScreen && !hasScreens)) return null
     return {
       command: slash.slash.command,

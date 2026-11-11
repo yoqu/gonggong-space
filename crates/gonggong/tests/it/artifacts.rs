@@ -66,7 +66,13 @@ impl Store {
                 v.files.iter().map(|f| (f.path.clone(), FileRef { hash: f.hash.clone(), exec: false })).collect();
             manifest_root(&m)
         });
-        DaemonArtifactRef { id: "a1".into(), dir: "design/app".into(), head_version_id: self.head.clone(), digest }
+        DaemonArtifactRef {
+            id: "a1".into(),
+            dir: "design/app".into(),
+            head_version_id: self.head.clone(),
+            digest,
+            plugin: None,
+        }
     }
 
     fn manifest_hits(&self) -> usize {

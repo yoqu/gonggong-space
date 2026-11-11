@@ -32,7 +32,7 @@ import {
   secretsText,
   sourceText,
 } from './model'
-import { PluginTile } from './PluginTile'
+import { PluginTile, pluginIcon } from './PluginTile'
 import { loadPlugins, togglePlugin, useGroupPlugins } from './store'
 import '../config/config.css'
 import './plugins.css'
@@ -44,7 +44,7 @@ function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
   const m = p.manifest
   return (
     <div className="plg-row">
-      <PluginTile m={m} official={p.layer === 'platform' ? m.name : undefined} />
+      <PluginTile m={m} src={pluginIcon(p)} />
       <div className="plg-row__text">
         <div className="plg-row__title">
           <b>{m.title}</b>

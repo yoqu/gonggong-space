@@ -69,7 +69,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
   minDaemon: '0.4.0',
   entry: 'web-prototype',
   permissions: [],
-  contributes: { mcp: [] },
+  contributes: { mcp: [], commands: [], providers: [] },
   templates: [
     {
       id: 'saas',
@@ -1004,6 +1004,21 @@ describe('插件 · 管理', () => {
     expect(avail.textContent).toContain('机器版本过低，需升级到 0.4.0 才能使用插件')
     // Once enabled, the composer offers 创作 for it too.
     await waitFor(() => expect(screen.getByText('插件 · 2')).toBeTruthy())
+  })
+
+  it("群设置 · 插件: a plugin's own icon replaces its category glyph", async () => {
+    const withIcon = plugin({ manifest: manifest({ icon: 'assets/icon.svg' }) })
+    mockApi(chatRoutes([withIcon, poster]))
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: '打开群设置' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(await within(dialog).findByRole('button', { name: '插件' }))
+    const row = (name: string) => within(dialog).getByText(name).closest('.cfg__item') as HTMLElement
+    await within(dialog).findByText('海报与社媒图')
+    expect(row('网页原型').querySelector('img.plg-tile')?.getAttribute('src')).toBe(
+      `/api/plugins/${withIcon.id}/files/assets/icon.svg`,
+    )
+    expect(row('海报与社媒图').querySelector('img')).toBeNull()
   })
 
   it('群设置 has no 插件 tab while the master switch is off', async () => {

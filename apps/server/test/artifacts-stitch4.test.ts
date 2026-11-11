@@ -114,7 +114,9 @@ describe('thumbnails of versions the daemon did not make (P1-01)', () => {
     const v2 = (
       (await s.edit([{ kind: 'file', path: 'tokens.css', content: ':root{}' }])).json() as ArtifactDto
     ).headVersionId!
-    expect(snapshots(sent)).toEqual([{ t: 'artifact.snapshot', artifactId: s.a.id, versionId: v2 }])
+    expect(snapshots(sent)).toEqual([
+      { t: 'artifact.snapshot', artifactId: s.a.id, versionId: v2, plugin: null },
+    ])
 
     // Offline: nothing sent, asked again when the machine comes online.
     s.offline()
@@ -123,7 +125,9 @@ describe('thumbnails of versions the daemon did not make (P1-01)', () => {
     ).headVersionId!
     const back = s.online()
     await settle()
-    expect(snapshots(back)).toEqual([{ t: 'artifact.snapshot', artifactId: s.a.id, versionId: v3 }])
+    expect(snapshots(back)).toEqual([
+      { t: 'artifact.snapshot', artifactId: s.a.id, versionId: v3, plugin: null },
+    ])
 
     // An older daemon without the feature is never sent one.
     const old = s.online(['artifacts'])
@@ -140,7 +144,9 @@ describe('thumbnails of versions the daemon did not make (P1-01)', () => {
     expect(snapshots(again)).toEqual([])
     const [done] = await t.db.update(runs).set({ status: 'completed' }).where(eq(runs.id, run.id)).returning()
     await publishRuns(t.ctx, [done!])
-    expect(snapshots(again)).toEqual([{ t: 'artifact.snapshot', artifactId: s.a.id, versionId: v3 }])
+    expect(snapshots(again)).toEqual([
+      { t: 'artifact.snapshot', artifactId: s.a.id, versionId: v3, plugin: null },
+    ])
 
     // Once shot it is not asked for again; run versions are the daemon's own business.
     expect((await s.shot(v3, 'thumbnail')).statusCode).toBe(204)

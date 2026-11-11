@@ -107,7 +107,13 @@ async fn after_a_turn_uploads_the_entry_screen_as_thumbnail_then_one_png_per_scr
     std::fs::write(dir.join("gg-artifact.json"), MANIFEST).unwrap();
     std::fs::write(dir.join("screens/home.html"), "<p>首页").unwrap();
     std::fs::write(dir.join("screens/done.html"), "<p>完成").unwrap();
-    let r = DaemonArtifactRef { id: "a1".into(), dir: "design/app".into(), head_version_id: None, digest: None };
+    let r = DaemonArtifactRef {
+        id: "a1".into(),
+        dir: "design/app".into(),
+        head_version_id: None,
+        digest: None,
+        plugin: None,
+    };
 
     let artifacts = Artifacts::new(&api, home.path()).unwrap();
     assert_eq!(artifacts.thumbnail("r1", cwd.path(), &r, "v2", None).await, Ok(true));

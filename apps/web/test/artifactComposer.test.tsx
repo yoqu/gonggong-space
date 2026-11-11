@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
 import { useWorkspace } from '../src/app/workspace'
 import { type CanvasContext, clearContext, useCanvasContext } from '../src/features/artifacts/context'
-import { parseArtifactSlash } from '../src/features/artifacts/slash'
+import { artifactSlash, parseArtifactSlash } from '../src/features/artifacts/slash'
 import { resetArtifacts, useArtifactFocus } from '../src/features/artifacts/store'
 import { MessageComposer } from '../src/features/chat/MessageComposer'
 import { RunCard, UserMessage } from '../src/features/chat/TimelineItems'
@@ -87,9 +87,15 @@ describe('variations ×n in the composer (G07)', () => {
   })
 })
 
+/** What GET /artifacts/a1/commands answers for a 产品原型 artifact (two of its plugin's commands). */
+const PLUGIN_COMMANDS = [
+  { name: 'app-store-assets', title: '应用商店素材', description: '上架截图与应用图标', needsScreen: false },
+  { name: 'accessibility-audit', title: '无障碍检查', description: '检查无障碍问题', needsScreen: true },
+]
+
 describe('/ artifact commands (G07)', () => {
-  it('lists the artifact commands first with the canvas selected', async () => {
-    mockApi({})
+  it("lists the platform's artifact commands, then its plugin's, first with the canvas selected", async () => {
+    mockApi({ 'GET /artifacts/a1/commands': PLUGIN_COMMANDS })
     setCanvas()
     render(<MessageComposer group={group} onSent={() => {}} />)
     type('/')
@@ -99,16 +105,7 @@ describe('/ artifact commands (G07)', () => {
     const names = within(groups[0] as HTMLElement)
       .getAllByRole('option')
       .map((o) => o.querySelector('.pn-mentionpicker__name')?.textContent)
-    expect(names).toEqual([
-      '/图片',
-      '/Logo',
-      '/图表',
-      '/动效',
-      '/应用商店素材',
-      '/网页素材',
-      '/营销物料',
-      '/无障碍检查',
-    ])
+    expect(names).toEqual(['/图片', '/Logo', '/图表', '/动效', '/应用商店素材', '/无障碍检查'])
     expect(within(pop).getByRole('option', { name: /动效/ }).getAttribute('aria-disabled')).toBeNull()
   })
 
@@ -161,8 +158,27 @@ describe('/ artifact commands (G07)', () => {
     expect(posts(calls, '/groups/g1/messages')).toEqual([])
   })
 
+  it('sends a plugin command by its name', async () => {
+    const calls = mockApi({
+      'GET /artifacts/a1/commands': PLUGIN_COMMANDS,
+      'POST /artifacts/a1/commands': { id: 'm1' },
+    })
+    setCanvas()
+    render(<MessageComposer group={group} onSent={() => {}} />)
+    await waitFor(() => expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(true))
+    type('/应用商店素材 三张')
+    fireEvent.keyDown(input(), { key: 'Enter' })
+    await waitFor(() => expect(posts(calls, '/artifacts/a1/commands')).toHaveLength(1))
+    expect(posts(calls, '/artifacts/a1/commands')[0]).toMatchObject({
+      command: 'app-store-assets',
+      text: '三张',
+    })
+  })
+
   it('reads the command at the head of the draft only', () => {
-    expect(parseArtifactSlash('/应用商店素材 三张')?.slash.command).toBe('app-store-assets')
+    const list = artifactSlash(PLUGIN_COMMANDS)
+    expect(parseArtifactSlash('/应用商店素材 三张', list)?.slash.command).toBe('app-store-assets')
+    expect(parseArtifactSlash('/应用商店素材 三张')).toBeNull()
     expect(parseArtifactSlash('/logo')?.text).toBe('')
     expect(parseArtifactSlash('/Logos')).toBeNull()
     expect(parseArtifactSlash('画个 /Logo')).toBeNull()

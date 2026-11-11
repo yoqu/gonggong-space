@@ -80,6 +80,7 @@ pub enum ProviderCmd {
 }
 
 pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
+    providers::load_overlay(home);
     match cmd {
         ProviderCmd::Presets { agent } => print_presets(agent),
         ProviderCmd::List { agent } => print_list(&Store::load(home)?, agent)?,
@@ -87,7 +88,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
             let key = read_key(key_stdin)?.context(t!("新增供应商需要 --key-stdin 传入 API Key"))?;
             let mut p = match (preset, base_url) {
                 (Some(id), _) => Provider::from_preset(
-                    providers::preset(agent, &id).with_context(|| {
+                    &providers::preset(agent, &id).with_context(|| {
                         t!("没有 {agent} 预设 {id}，可用 gg provider presets 查看", agent = agent_label(agent), id = id)
                     })?,
                     key,

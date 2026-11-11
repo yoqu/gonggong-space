@@ -1313,6 +1313,8 @@ export const DaemonFeature = z.enum([
   'deepseek',
   /** PluginRef.mcp (plan 插件扩展点 S1): `{node}` / `{pkg}` filled in and the servers handed to the agent. */
   'pluginMcp',
+  /** presets.sync, artifact `plugin` and manifest `artifact.kit` (plan 插件扩展点 S2). */
+  'presetSync',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -1356,20 +1358,20 @@ export type ModelMap = z.infer<typeof ModelMap>
 export const PresetGroup = z.enum(['cn', 'aggregator', 'global'])
 /** A built-in vendor (adapted from CC Switch): choosing one only leaves the API key to fill in. */
 export const ProviderPreset = z.object({
-  id: z.string(),
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
   agent: AgentKind,
-  name: z.string(),
-  group: PresetGroup,
-  websiteUrl: z.string().nullable(),
-  apiKeyUrl: z.string().nullable(),
+  name: z.string().min(1).max(60),
+  group: PresetGroup.default('global'),
+  websiteUrl: z.string().nullable().default(null),
+  apiKeyUrl: z.string().nullable().default(null),
   baseUrl: z.string(),
-  apiKeyField: z.string().nullable(),
-  model: z.string().nullable(),
-  models: ModelMap.nullable(),
-  modelOptions: z.array(z.string()),
-  env: z.record(z.string(), z.string()),
-  wireApi: z.string().nullable(),
-  effort: z.string().nullable(),
+  apiKeyField: z.string().nullable().default(null),
+  model: z.string().nullable().default(null),
+  models: ModelMap.nullable().default(null),
+  modelOptions: z.array(z.string()).default([]),
+  env: z.record(z.string(), z.string()).default({}),
+  wireApi: z.string().nullable().default(null),
+  effort: z.string().nullable().default(null),
   /** Claude: context window per model id, filled into CLAUDE_CODE_MAX_CONTEXT_TOKENS unless the provider sets it. */
   modelContext: z.record(z.string(), z.number().int()).default({}),
 })
@@ -2162,7 +2164,14 @@ export const ArtifactSnapshot = z.object({
   t: z.literal('artifact.snapshot'),
   artifactId: z.string(),
   versionId: z.string(),
+  /** The artifact's plugin: its installed version's shell (manifest `artifact.kit`) frames the screens. */
+  plugin: z.string().nullable().default(null),
 })
+/**
+ * Provider presets from platform-layer plugins (plan 插件扩展点 §6), sent on connect and whenever they change to
+ * daemons with `presetSync`: the daemon lists them with its built-in ones, the same (agent, id) replacing a built-in.
+ */
+export const PresetsSync = z.object({ t: z.literal('presets.sync'), presets: z.array(ProviderPreset) })
 
 /** Status, install / upgrade (answered by tools.progress lines then tools.result) or mirror settings. */
 export const ToolsCmd = z.object({
@@ -2307,6 +2316,7 @@ export const ServerToDaemon = z.discriminatedUnion('t', [
   CastSync,
   CastRetry,
   ArtifactSnapshot,
+  PresetsSync,
   ToolsCmd,
   ProvidersCmd,
   CcSwitchRead,

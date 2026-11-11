@@ -36,7 +36,7 @@ import { knowledgeContext } from '../knowledge/context.js'
 import { substitute } from '../mcp/secrets.js'
 import { enabledMcpServers } from '../mcp/service.js'
 import { type MessageMeta, userAuthorName } from '../messages/service.js'
-import { askPluginTrust, runPlugins } from '../plugins/service.js'
+import { askPluginTrust, commandPrompt, runPlugins } from '../plugins/service.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { enabledSkills } from '../skills/service.js'
 import { runSyncStart } from '../sync/store.js'
@@ -512,7 +512,9 @@ export async function buildRunStart(
     resumeSessionId,
     newSessionReason: detached ? 'schedule' : session.newReason,
     prompt: {
-      text: meta.artifactNote ? `${trigger.body}\n\n${meta.artifactNote}` : trigger.body,
+      text: meta.artifactNote
+        ? `${trigger.body}\n\n${meta.artifactNote}`
+        : ((granted && commandPrompt(trigger.body, granted.commands)) ?? trigger.body),
       triggeredBy: trigger.author ?? trigger.bot ?? '',
       context: [...kbNow, ...context, ...note],
       omitted,

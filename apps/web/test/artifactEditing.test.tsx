@@ -26,6 +26,7 @@ import { UserMessage } from '../src/features/chat/TimelineItems'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
 import { apiError, type Call, mockApi } from './mockApi'
+import { PROTO_COMMANDS } from './protoCommands'
 
 // R3 of docs/plan/原型编辑器-Stitch对标-开发计划.md: Direct Edit, Mark, selection as chat context, AI commands.
 
@@ -120,6 +121,7 @@ const routes = (o: Record<string, unknown> = {}) => ({
   'POST /artifacts/a1/preview': { previewId: 'pw1', origin: ORIGIN, url: '/api/previews/pw1/open' },
   'POST /artifacts/a1/edits': artifact(),
   'POST /artifacts/a1/commands': { id: 'm1' },
+  'GET /artifacts/a1/commands': PROTO_COMMANDS,
   ...o,
 })
 
@@ -768,22 +770,17 @@ describe('mark (M)', () => {
 describe('AI commands', () => {
   const commands = (calls: Call[]) => bodies(calls, 'POST', '/artifacts/a1/commands')
 
-  it('sends every Generate item for the selected screens, all of them when several are selected', async () => {
+  it("sends every Generate item, the platform's and the artifact plugin's, for the selected screens", async () => {
     const calls = mockApi(routes())
     await renderTab()
+    await waitFor(() => expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(true))
     fireEvent.click(node('home'))
     fireEvent.click(node('detail'), { shiftKey: true })
     const expected: [RegExp, string][] = [
-      [/即时原型/, 'instant-prototype'],
       [/^变体/, 'variations'],
       [/重新生成/, 'regenerate'],
-      [/桌面网页版/, 'desktop-version'],
-      [/补全状态/, 'missing-states'],
       [/动效/, 'animate'],
-      [/应用商店素材/, 'app-store-assets'],
-      [/网页素材/, 'web-assets'],
-      [/营销物料/, 'marketing-kit'],
-      [/无障碍检查/, 'accessibility-audit'],
+      ...PROTO_COMMANDS.map((c): [RegExp, string] => [new RegExp(c.title), c.name]),
     ]
     for (const [name] of expected) {
       fireEvent.click(screen.getByRole('button', { name: '生成' }))

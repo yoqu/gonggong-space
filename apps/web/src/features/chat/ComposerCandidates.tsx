@@ -250,15 +250,32 @@ export function useCandidates(
               src: '',
               items: plugins
                 .filter((p) => has(p.manifest.title) || has(p.manifest.name))
-                .map((p) => ({
-                  key: `plugin:${p.id}`,
-                  icon: CATEGORY[p.manifest.category].icon,
-                  label: p.manifest.title,
-                  mono: false,
-                  hint: t('打开创作面板'),
-                  insert: '',
-                  plugin: p.id,
-                })),
+                .map(
+                  (p): Candidate => ({
+                    key: `plugin:${p.id}`,
+                    icon: CATEGORY[p.manifest.category].icon,
+                    label: p.manifest.title,
+                    mono: false,
+                    hint: t('打开创作面板'),
+                    insert: '',
+                    plugin: p.id,
+                  }),
+                )
+                .concat(
+                  // Plugin chat commands: sent as typed, the server hands the agent the plugin's instruction.
+                  (commands?.value.plugin ?? [])
+                    .filter((c) => has(c.name) || has(c.plugin))
+                    .map(
+                      (c): Candidate => ({
+                        key: `plugincmd:${c.name}`,
+                        icon: 'plug' as const,
+                        label: `/${c.name}`,
+                        mono: true,
+                        hint: `${c.hint} · ${c.plugin}`,
+                        insert: `/${c.name}`,
+                      }),
+                    ),
+                ),
             },
             ...(
               [

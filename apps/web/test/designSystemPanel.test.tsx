@@ -340,10 +340,10 @@ describe('design-system panel', () => {
     expect(screen.getByText('本群导入')).toBeTruthy()
     fireEvent.click(await screen.findByRole('menuitem', { name: /AI Design/ }))
     const dialog = screen.getByRole('alertdialog')
-    expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(false)
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/artifacts/a1/commands')).toBe(false)
     fireEvent.click(within(dialog).getByRole('button', { name: '交给 AI' }))
     await waitFor(() =>
-      expect(calls.find((c) => c.path === '/artifacts/a1/commands')?.body).toMatchObject({
+      expect(calls.find((c) => c.method === 'POST' && c.path === '/artifacts/a1/commands')?.body).toMatchObject({
         command: 'apply-design-system',
         designSystemId: 'ds1',
       }),
@@ -386,7 +386,7 @@ describe('design-system panel', () => {
     const p = await openPanel()
     fireEvent.change(value(p, '--color-primary'), { target: { value: '#8C5835' } })
     fireEvent.click(p.getByRole('button', { name: '保存并让 AI 统一' }))
-    await waitFor(() => expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(true))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/artifacts/a1/commands')).toBe(true))
     const posts = calls.filter((c) => c.method === 'POST' && c.path !== '/artifacts/a1/preview')
     expect(posts.map((c) => c.path)).toEqual(['/artifacts/a1/edits', '/artifacts/a1/commands'])
     expect(posts[1]?.body).toEqual({ command: 'apply-design-system', botId: 'b1' })
@@ -405,7 +405,7 @@ describe('design-system panel', () => {
     fireEvent.change(value(p, '--color-primary'), { target: { value: '#8C5835' } })
     fireEvent.click(p.getByRole('button', { name: '保存并让 AI 统一' }))
     expect(await p.findByText(/产物已有新版本，和你的改动冲突/)).toBeTruthy()
-    expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(false)
+    expect(calls.some((c) => c.method === 'POST' && c.path === '/artifacts/a1/commands')).toBe(false)
     expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#8C5835')
     fireEvent.click(p.getByRole('button', { name: '放弃改动' }))
     expect((value(p, '--color-primary') as HTMLInputElement).value).toBe('#155332')

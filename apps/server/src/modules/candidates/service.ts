@@ -14,6 +14,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 import { commandPrefix, commands } from '../commands/index.js'
 import { activeBots } from '../groups/service.js'
+import { chatCommands, groupPluginList, pluginsOn } from '../plugins/service.js'
 import { enabledSkills } from '../skills/service.js'
 import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { pick } from './match.js'
@@ -164,7 +165,15 @@ export async function commandCandidates(
         botName: b.name,
       })),
   )
-  return { system, skill, agent }
+  const on = (await pluginsOn(ctx.db)) ? await groupPluginList(ctx.db, groupId) : []
+  const plugin = chatCommands(on.filter((r) => r.enabledInGroup).map((r) => r.version.manifest)).map(
+    ({ manifest, command }) => ({
+      name: command.name,
+      hint: command.description || command.title,
+      plugin: manifest.title,
+    }),
+  )
+  return { system, skill, plugin, agent }
 }
 
 /** Wires commands.update from daemons. Returns a drain-and-detach fn. */

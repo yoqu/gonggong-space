@@ -49,7 +49,8 @@ export function ExportPanel({
   readFile: (file: string) => Promise<string>
   /** 实现提示词: the prompt for a coding agent (implPrompt.ts). */
   prompt: string
-  onBrief: () => Promise<boolean>
+  /** 项目简报: only when the artifact's plugin has a brief command. */
+  onBrief?: () => Promise<boolean>
   /** Says a copy went through, over the canvas. */
   notify: Notify
   onClose: () => void
@@ -85,7 +86,7 @@ export function ExportPanel({
       )
     if (format === 'share') return copyLink()
     setBusy(true)
-    await onBrief()
+    await onBrief?.()
     setBusy(false)
   }
 
@@ -146,7 +147,9 @@ export function ExportPanel({
           aria-label={t('格式')}
           value={format}
           onChange={setFormat}
-          options={(Object.keys(FORMATS) as Format[]).map((k) => ({ value: k, label: FORMATS[k].label }))}
+          options={(Object.keys(FORMATS) as Format[])
+            .filter((k) => k !== 'brief' || onBrief)
+            .map((k) => ({ value: k, label: FORMATS[k].label }))}
         />
         <p className="art-export__note">{f.note}</p>
         {format === 'prompt' ? (

@@ -82,6 +82,7 @@ const LISTINGS = [
     author: null,
     agents: ['claude'],
     installs: 40,
+    icon: 'assets/icon.svg',
   }),
 ]
 const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto => ({
@@ -186,7 +187,13 @@ describe('市场 page', () => {
     expect(card.textContent).toContain('claude')
     expect(card.textContent).toContain('codex')
     expect(card.textContent).toContain('12 次引入')
-    expect((within(grid).getByText('幻灯片').closest('li') as HTMLElement).textContent).toContain('官方')
+    const slides = within(grid).getByText('幻灯片').closest('li') as HTMLElement
+    expect(slides.textContent).toContain('官方')
+    // A plugin's own icon, read from the version shown; a Skill keeps its glyph.
+    expect(slides.querySelector('img.mkt-icon')?.getAttribute('src')).toBe(
+      `/api/market/l2/files/raw?path=assets%2Ficon.svg&versionId=${LISTINGS[1]!.versionId}`,
+    )
+    expect(card.querySelector('img')).toBeNull()
 
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索市场' }), { target: { value: 'review' } })
     await waitFor(() => expect(calls.some((c) => c.path === '/market?q=review')).toBe(true))

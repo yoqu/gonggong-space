@@ -616,30 +616,52 @@ fn prune(root: &Path, path: &str) {
     }
 }
 
-/// The platform shell of a plugin: `skills/<skill>/kit/` holding `index.html` (served as `/`) and the runtime files
-/// (served as `/_gg/*`). Looked up in the turn's plugins, else in the installed web-prototype plugins (the latest).
-pub fn kit(plugins: &[PathBuf], home: &Path) -> Option<PathBuf> {
-    let in_plugin = |p: &Path| {
-        let preferred = p.join("skills/web-prototype/kit");
-        if preferred.join("index.html").is_file() {
-            return Some(preferred);
-        }
-        let skills = std::fs::read_dir(p.join("skills")).ok()?;
-        let mut kits: Vec<_> =
-            skills.flatten().map(|s| s.path().join("kit")).filter(|k| k.join("index.html").is_file()).collect();
-        kits.sort();
-        kits.into_iter().next()
-    };
-    plugins.iter().find_map(|p| in_plugin(p)).or_else(|| {
-        let sets = std::fs::read_dir(home.join("plugin-sets")).ok()?;
-        let mut sets: Vec<_> = sets
-            .flatten()
-            .filter(|s| s.file_name().to_string_lossy().starts_with("web-prototype-"))
-            .filter_map(|s| Some((s.metadata().ok()?.modified().ok()?, s.path())))
-            .collect();
-        sets.sort();
-        sets.into_iter().rev().find_map(|(_, p)| in_plugin(&p))
-    })
+/// A plugin folder's L1 shell (plan 插件扩展点 S2): its manifest's `artifact.kit`, else `skills/<entry>/kit`, holding
+/// `index.html` (served as `/`) and the runtime files (served as `/_gg/*`). Also the plugin's name.
+fn plugin_kit(dir: &Path) -> Option<(String, Option<PathBuf>)> {
+    #[derive(Deserialize)]
+    struct Artifact {
+        kit: Option<String>,
+    }
+    #[derive(Deserialize)]
+    struct Manifest {
+        name: String,
+        entry: Option<String>,
+        artifact: Option<Artifact>,
+    }
+    let m: Manifest = serde_json::from_slice(&std::fs::read(dir.join("gonggong-plugin.json")).ok()?).ok()?;
+    let rel = m.artifact.and_then(|a| a.kit).or_else(|| m.entry.map(|e| format!("skills/{e}/kit")));
+    let kit = rel
+        .filter(|r| Path::new(r).components().all(|c| matches!(c, std::path::Component::Normal(_))))
+        .map(|r| dir.join(r))
+        .filter(|k| k.join("index.html").is_file());
+    Some((m.name, kit))
+}
+
+/// The shell for an artifact of plugin `plugin`: that plugin among the turn's, else its most recently used installed
+/// version; without a plugin name (an older server), the first of the turn's plugins with a shell.
+pub fn kit(plugins: &[PathBuf], plugin: Option<&str>, home: &Path) -> Option<PathBuf> {
+    let Some(name) = plugin else { return plugins.iter().find_map(|p| plugin_kit(p)?.1) };
+    let named = |p: &Path| plugin_kit(p).filter(|(n, _)| n == name).and_then(|(_, k)| k);
+    plugins.iter().find_map(|p| named(p)).or_else(|| installed_kit(home, name))
+}
+
+/// The shell of the most recently used installed version of plugin `name` (screenshots outside a turn).
+pub fn installed_kit(home: &Path, name: &str) -> Option<PathBuf> {
+    let sets = home.join("plugin-sets");
+    let mut found: Vec<_> = std::fs::read_dir(&sets)
+        .ok()?
+        .flatten()
+        .filter(|s| !s.file_name().to_string_lossy().starts_with('.'))
+        .filter_map(|s| {
+            let (n, kit) = plugin_kit(&s.path())?;
+            let used = sets.join(format!(".{}.used", s.file_name().to_string_lossy()));
+            let at = used.metadata().or_else(|_| s.metadata()).ok()?.modified().ok()?;
+            (n == name).then_some((at, kit?))
+        })
+        .collect();
+    found.sort();
+    found.pop().map(|(_, k)| k)
 }
 
 /// A screen of a folder's gg-artifact.json to screenshot, and the window its device shows it in.
@@ -727,7 +749,8 @@ pub(crate) struct Turn {
     run_id: String,
     cwd: PathBuf,
     refs: Vec<DaemonArtifactRef>,
-    kit: Option<PathBuf>,
+    plugins: Vec<PathBuf>,
+    home: PathBuf,
     out: Outbox,
 }
 
@@ -770,7 +793,8 @@ pub(crate) async fn before_turn(
         run_id: start.run_id.clone(),
         cwd: cwd.to_path_buf(),
         refs: start.artifacts.clone(),
-        kit: kit(plugins, home),
+        plugins: plugins.to_vec(),
+        home: home.to_path_buf(),
         out: out.clone(),
     };
     (Some(turn), hint)
@@ -783,8 +807,8 @@ impl Turn {
             match self.artifacts.publish(&self.run_id, &self.cwd, r).await {
                 Ok(None) => {}
                 Ok(Some(res)) => {
-                    let (a, run, cwd, r, kit) =
-                        (self.artifacts.clone(), self.run_id.clone(), self.cwd.clone(), r.clone(), self.kit.clone());
+                    let kit = kit(&self.plugins, r.plugin.as_deref(), &self.home);
+                    let (a, run, cwd, r) = (self.artifacts.clone(), self.run_id.clone(), self.cwd.clone(), r.clone());
                     tokio::spawn(async move {
                         if let Err(e) = a.thumbnail(&run, &cwd, &r, &res.version_id, kit.as_deref()).await {
                             tracing::warn!("run {run}: thumbnail of artifact {} failed: {e}", r.dir);
@@ -884,19 +908,38 @@ mod tests {
     }
 
     #[test]
-    fn the_kit_comes_from_the_turn_s_plugins_else_an_installed_web_prototype() {
+    fn the_kit_is_the_one_a_plugin_s_manifest_names_whatever_the_plugin_is_called() {
         let home = tempfile::tempdir().unwrap();
-        let set = |name: &str, skill: &str| {
-            let k = home.path().join("plugin-sets").join(name).join("skills").join(skill).join("kit");
-            std::fs::create_dir_all(&k).unwrap();
-            std::fs::write(k.join("index.html"), "").unwrap();
-            home.path().join("plugin-sets").join(name)
+        let sets = home.path().join("plugin-sets");
+        // A plugin folder: its manifest, and a shell at `kit` (relative to the folder).
+        let set = |dir: &str, manifest: serde_json::Value, kit: &str| {
+            let p = sets.join(dir);
+            std::fs::create_dir_all(p.join(kit)).unwrap();
+            std::fs::write(p.join(kit).join("index.html"), "").unwrap();
+            std::fs::write(p.join("gonggong-plugin.json"), manifest.to_string()).unwrap();
+            p
         };
-        assert_eq!(kit(&[], home.path()), None);
-        let installed = set("web-prototype-d1", "web-prototype");
-        assert_eq!(kit(&[], home.path()), Some(installed.join("skills/web-prototype/kit")));
-        let other = set("slides-d2", "slides");
-        assert_eq!(kit(std::slice::from_ref(&other), home.path()), Some(other.join("skills/slides/kit")));
+        let board = set(
+            "board-d1",
+            serde_json::json!({ "name": "board", "entry": "board", "artifact": { "kit": "contrib/shell" } }),
+            "contrib/shell",
+        );
+        let deck = set("deck-d2", serde_json::json!({ "name": "deck", "entry": "deck" }), "skills/deck/kit");
+        let bare = set("bare-d3", serde_json::json!({ "name": "bare", "entry": "bare" }), "elsewhere");
+        let turn = [bare.clone(), deck.clone(), board.clone()];
+        assert_eq!(kit(&turn, Some("board"), home.path()), Some(board.join("contrib/shell")));
+        assert_eq!(kit(&turn, Some("deck"), home.path()), Some(deck.join("skills/deck/kit")));
+        assert_eq!(kit(&turn, Some("bare"), home.path()), None, "no shell where the manifest points");
+        assert_eq!(kit(&turn, None, home.path()), Some(deck.join("skills/deck/kit")), "an older server: the first");
+        // Not among the turn's: the most recently used installed version.
+        assert_eq!(kit(&[], Some("board"), home.path()), Some(board.join("contrib/shell")));
+        let newer = set("board-d9", serde_json::json!({ "name": "board", "entry": "board" }), "skills/board/kit");
+        std::fs::write(sets.join(".board-d9.used"), "").unwrap();
+        std::fs::write(sets.join(".board-d1.used"), "").unwrap();
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        std::fs::File::options().write(true).open(sets.join(".board-d1.used")).unwrap().set_modified(old).unwrap();
+        assert_eq!(installed_kit(home.path(), "board"), Some(newer.join("skills/board/kit")));
+        assert_eq!(installed_kit(home.path(), "web-prototype"), None);
     }
 
     #[test]
@@ -907,6 +950,7 @@ mod tests {
             dir: dir.into(),
             head_version_id: None,
             digest: None,
+            plugin: None,
         };
         assert!(Folder::new(cwd.path(), cwd.path(), &r("a1", "design/app-1a2b")).is_ok());
         for (id, dir) in

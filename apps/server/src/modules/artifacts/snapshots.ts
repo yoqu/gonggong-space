@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, ne, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { artifacts, artifactVersions, bots } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, plugins } from '../../db/schema.js'
 
 /** Heads asked for at once, most recently updated first. */
 const SNAPSHOT_MAX = 20
@@ -12,8 +12,14 @@ const SNAPSHOT_MAX = 20
  */
 export async function snapshotPending(ctx: Ctx, where: SQL) {
   const rows = await ctx.db
-    .select({ artifactId: artifacts.id, versionId: artifactVersions.id, machineId: bots.machineId })
+    .select({
+      artifactId: artifacts.id,
+      versionId: artifactVersions.id,
+      machineId: bots.machineId,
+      plugin: plugins.name,
+    })
     .from(artifacts)
+    .leftJoin(plugins, eq(plugins.id, artifacts.pluginId))
     .innerJoin(bots, eq(bots.id, artifacts.botId))
     .innerJoin(artifactVersions, eq(artifactVersions.id, artifacts.headVersionId))
     .where(
@@ -28,5 +34,10 @@ export async function snapshotPending(ctx: Ctx, where: SQL) {
     .limit(SNAPSHOT_MAX)
   for (const r of rows)
     if (r.machineId && ctx.hub.features(r.machineId).includes('artifactSnapshot'))
-      ctx.hub.send(r.machineId, { t: 'artifact.snapshot', artifactId: r.artifactId, versionId: r.versionId })
+      ctx.hub.send(r.machineId, {
+        t: 'artifact.snapshot',
+        artifactId: r.artifactId,
+        versionId: r.versionId,
+        plugin: r.plugin,
+      })
 }

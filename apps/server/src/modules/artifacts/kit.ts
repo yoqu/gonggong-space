@@ -1,4 +1,9 @@
-import type { ArtifactDesignSystem, PluginManifest, SkillFile } from '@gonggong/protocol'
+import type {
+  ArtifactDesignSystem,
+  ArtifactPluginCommandDto,
+  PluginManifest,
+  SkillFile,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Db } from '../../db/client.js'
 import { pluginVersions } from '../../db/schema.js'
@@ -19,7 +24,7 @@ export async function pluginKit(db: Pick<Db, 'select'>, pluginVersionId: string 
 }
 
 export function kitOf(m: PluginManifest, files: SkillFile[]): Kit | null {
-  const prefix = `skills/${m.entry}/kit/`
+  const prefix = `${m.artifact?.kit ?? `skills/${m.entry}/kit`}/`
   const kit: Kit = new Map(
     files
       .filter((f) => f.path.startsWith(prefix))
@@ -57,6 +62,23 @@ export async function pluginDesignSystems(
     category: d.category,
     swatches: d.swatches,
   }))
+}
+
+/** GET /api/artifacts/:id/commands: the artifact commands of the artifact's plugin version. */
+export async function pluginCommands(
+  db: Pick<Db, 'select'>,
+  pluginVersionId: string | null,
+): Promise<(ArtifactPluginCommandDto & { prompt: string })[]> {
+  const v = await pluginVersion(db, pluginVersionId)
+  return (v?.manifest.contributes.commands ?? [])
+    .filter((c) => c.where === 'artifact')
+    .map((c) => ({
+      name: c.name,
+      title: c.title,
+      description: c.description,
+      needsScreen: c.needsScreen,
+      prompt: c.prompt,
+    }))
 }
 
 /** DESIGN.md and tokens.css of a design system of the plugin version; null when it has no such one. */

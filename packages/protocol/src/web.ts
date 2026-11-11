@@ -2003,6 +2003,8 @@ export const CommandCandidatesDto = z.object({
   skill: z
     .array(z.object({ name: z.string(), hint: z.string(), personal: z.literal(true).optional() }))
     .default([]),
+  /** Chat commands of the plugins the group turned on (plan 插件扩展点 §7); system commands win a clash. */
+  plugin: z.array(z.object({ name: z.string(), hint: z.string(), plugin: z.string() })).default([]),
   /** Agent commands reported over ACP (Claude reports repo skills as commands), minus the team skills above. */
   agent: z.array(z.object({ name: z.string(), hint: z.string(), botId: z.string(), botName: z.string() })),
 })

@@ -15,7 +15,7 @@ import { Button, Dialog, Icon, Menu, type MenuItem, Popover, SegmentedControl } 
 import { AttachmentChips, type useUploads } from '../attachments/ComposerAttachments'
 import { ImportDesignDialog } from './ImportDesignDialog'
 import type { CreationDraft } from './model'
-import { PluginTile } from './PluginTile'
+import { PluginTile, pluginIcon } from './PluginTile'
 import { closeCreation, deleteDesignSystem, useGroupDesignSystems } from './store'
 
 const IMPORT = '__import'
@@ -150,11 +150,7 @@ export function PromptComposer({
                 aria-pressed={p.id === plugin.id}
                 onClick={() => onPickPlugin(p)}
               >
-                <PluginTile
-                  m={p.manifest}
-                  size={20}
-                  official={p.layer === 'platform' ? p.manifest.name : undefined}
-                />
+                <PluginTile m={p.manifest} size={20} src={pluginIcon(p)} />
                 {p.manifest.title}
               </button>
             ))}

@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import type {
+import {
   ArtifactCommand,
-  ArtifactCommandReq,
-  ArtifactContext,
-  ArtifactElementRef,
-  GgArtifactManifest,
-  MessageCanvas,
-  MessageDto,
-  SendAnnotationsReq,
+  type ArtifactCommandReq,
+  type ArtifactContext,
+  type ArtifactElementRef,
+  type GgArtifactManifest,
+  type MessageCanvas,
+  type MessageDto,
+  type SendAnnotationsReq,
 } from '@gonggong/protocol'
 import { and, eq, inArray } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -22,6 +22,7 @@ import { findDesignSystem } from '../plugins/designSystems.js'
 import { triggerRuns } from '../runs/trigger.js'
 import { readBlob } from './blobs.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
+import { pluginCommands } from './kit.js'
 import { type Artifact, manifestOf, requireVersion, type Version } from './service.js'
 
 // Everything here is read by agents (not translated), except the short message bodies members see.
@@ -148,11 +149,11 @@ const summaryLine = (c: MessageCanvas) =>
     .join(' › ')
 
 const RULES =
-  '新增、删除屏幕时同步更新 gg-artifact.json；遵守产品原型插件 SKILL.md 的约定（颜色、圆角、字号只用令牌，不引入外部资源，不改 index.html 和 _gg/）。'
+  '新增、删除屏幕时同步更新 gg-artifact.json；遵守产物所属插件 SKILL.md 的约定（颜色、圆角、字号只用令牌，不引入外部资源，不改 index.html 和 _gg/）。'
 
-/** One instruction per command (§ Stitch Generate menu), for the selection that follows it. */
+/** One instruction per platform command (§ Stitch Generate menu), for the selection that follows it. */
 export function commandInstruction(
-  r: Pick<ArtifactCommandReq, 'command' | 'text' | 'count' | 'ggIds'>,
+  r: Pick<ArtifactCommandReq, 'text' | 'count' | 'ggIds'> & { command: ArtifactCommand },
   dir: string,
 ) {
   const ask = r.text?.trim() ? `要求：${r.text.trim()}` : ''
@@ -163,18 +164,10 @@ export function commandInstruction(
   const by: Record<ArtifactCommand, string> = {
     variations: `为选中的每个屏幕各出 ${n} 个变体${ask ? `（${ask}）` : '（布局、配色、图片、字体、文案各有侧重）'}：每个变体是一个新屏（新 id，文件 screens/<id>.html），在 gg-artifact.json 里紧跟在原屏之后登记，标题写明变体方向；不要改原屏。`,
     regenerate: `重新设计选中的屏幕：保留屏幕 id、文件名和进出跳转（data-gg-link / data-gg-back），其余可以重做。${ask}`,
-    'desktop-version': `为选中的屏幕各生成一个桌面端（宽 1280）版本：新屏 id 为 <原 id>-desktop，紧跟在原屏之后登记进 gg-artifact.json；内容与原屏一致，布局按桌面重新排。${ask}`,
-    'missing-states': `为选中的屏幕补齐缺失的状态：空状态、加载中、出错（需要时再加无权限、离线），每个状态一个新屏，id 为 <原 id>-empty / -loading / -error 等，紧跟在原屏之后登记进 gg-artifact.json。${ask}`,
     animate: `给选中的屏幕加入场动效和交互反馈（元素依次出现、按钮按下、卡片悬停等），只用 CSS（transition、@keyframes），遵守 prefers-reduced-motion，不引入脚本库。${ask}`,
-    'accessibility-audit': `对选中的屏幕做无障碍审计：对比度、字号、点击区域、图片 alt、语义标签、表单 label、焦点顺序。能修的直接在源码里修，回复里逐条列出发现的问题和处理结果。${ask}`,
-    'instant-prototype': `把产物连成可点击的原型：给所有应该跳转的可点元素补上 data-gg-link="<目标屏 id>"（缺的目标屏就新建并登记），除入口屏外每屏都要有带 data-gg-back 的返回按钮。${ask}`,
-    'app-store-assets': `生成应用商店上架物料：3–5 张竖屏截图（1290×2796，每张带一句卖点标题）作为新屏（id 以 store- 开头），1024×1024 的应用图标放到 assets/。${ask}`,
-    'web-assets': `生成网站物料：落地页首屏横幅、社交分享图（1200×630）、favicon，作为新屏（id 以 web- 开头）或 assets/ 下的文件。${ask}`,
-    'marketing-kit': `生成一套营销物料：海报、社交媒体配图、宣传横幅，风格与设计系统一致，作为新屏（id 以 mkt- 开头）登记进 gg-artifact.json。${ask}`,
     logo: `设计产品 logo：至少 3 个方案，每个写成 assets/logo-<n>.svg，再新建一屏（id 为 logo）在浅色和深色底上展示各方案。${ask}`,
     image: `按要求绘制插图，用 SVG 或 CSS 画，写到 assets/ 下并用在选中的屏幕里，不引用外部图片。${ask}`,
     diagram: `按要求画图表或流程图：作为新屏（id 以 diagram- 开头）用 HTML / SVG 绘制，登记进 gg-artifact.json。${ask}`,
-    'project-brief': `根据当前产物写一份产品需求文档（PRD）到 ${dir}/brief.md：背景、目标用户、核心流程、每屏的功能与字段、交互与状态、待定问题。回复里用几句话总结。${ask}`,
     'edit-with-ai': elements
       ? `只修改下面选中的元素，${ask || '按说明修改'}。不要改动其他元素和屏幕。`
       : `按要求修改下面选中的整屏，${ask || '按说明修改'}。保留屏幕 id、文件名和进出跳转（data-gg-link / data-gg-back），不要改动其他屏幕。`,
@@ -190,18 +183,10 @@ export function commandInstruction(
 const COMMAND_LABEL: Record<ArtifactCommand, MessageKey> = {
   variations: '生成 {n} 个变体',
   regenerate: '重新生成',
-  'desktop-version': '生成桌面网页版',
-  'missing-states': '补全状态',
   animate: '添加动效',
-  'accessibility-audit': '无障碍检查',
-  'instant-prototype': '连成可点击原型',
-  'app-store-assets': '生成应用商店素材',
-  'web-assets': '生成网页素材',
-  'marketing-kit': '生成营销物料',
   logo: '设计 Logo',
   image: '绘制插图',
   diagram: '绘制图表',
-  'project-brief': '撰写产品需求文档',
   'edit-with-ai': '修改#edit',
   'apply-design-system': '套用设计系统',
   'connect-element': '新建一屏并连接',
@@ -249,6 +234,11 @@ export async function sendCommand(
   a: Artifact,
   r: ArtifactCommandReq,
 ): Promise<MessageDto> {
+  const core = ArtifactCommand.safeParse(r.command)
+  const plugin = core.success
+    ? null
+    : ((await pluginCommands(ctx.db, a.pluginVersionId)).find((c) => c.name === r.command) ??
+      fail('invalid', '这个产物没有指令 {name}', { name: r.command }))
   const ds =
     r.command === 'apply-design-system' && r.designSystemId
       ? ((await findDesignSystem(ctx, a.groupId, r.designSystemId)) ?? fail('not_found', '设计系统不存在'))
@@ -258,12 +248,17 @@ export async function sendCommand(
     elements: r.ggIds ?? [],
   })
   return postAsMember(ctx, me, a, r.botId, {
-    action: withText(t(COMMAND_LABEL[r.command], { n: r.count ?? 3 }), ds?.title ?? r.text),
+    action: withText(
+      core.success ? t(COMMAND_LABEL[core.data], { n: r.count ?? 3 }) : plugin!.title,
+      ds?.title ?? r.text,
+    ),
     canvas,
     note: [
       '[画布指令：上面这条消息的完整要求]',
       ...(ds ? importedDesignLines(ds, a.dir) : []),
-      commandInstruction(r, a.dir),
+      core.success
+        ? commandInstruction({ ...r, command: core.data }, a.dir)
+        : `${plugin!.prompt.replaceAll('{dir}', a.dir)}${r.text?.trim() ? `要求：${r.text.trim()}` : ''}`,
       '',
       ...lines,
       '',

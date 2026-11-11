@@ -6,6 +6,9 @@
   border-radius: var(--radius-field);
   color: #fff;
 }
+.plg-tile.plg-tile--img {
+  object-fit: cover;
+}
 .plg-heading {
   margin: 0;
   font-size: var(--text-body-size);

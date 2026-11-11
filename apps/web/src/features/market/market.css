@@ -16,6 +16,10 @@
   opacity: 0.6;
   transition: opacity var(--fade-in);
 }
+.mkt-icon.mkt-icon--img {
+  object-fit: cover;
+  background: none;
+}
 .mkt-icon {
   flex: none;
   display: grid;

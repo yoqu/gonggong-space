@@ -35,6 +35,7 @@ import {
   designSystemDto,
   listDesignSystems,
 } from './designSystems.js'
+import { presetSync } from './presets.js'
 import {
   botStates,
   deletePlugin,
@@ -277,6 +278,7 @@ function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
 }
 
 export function pluginRoutes(ctx: Ctx) {
+  presetSync(ctx)
   return async (app: FastifyInstance) => {
     eachLayer(ctx, 'plugins', (base, authorize) =>
       layerRoutes(ctx, app, base, authorize, base.startsWith('/api/groups/')),

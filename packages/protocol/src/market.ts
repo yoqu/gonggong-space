@@ -30,6 +30,8 @@ export const ListingSummary = z.object({
   /** Current version of the listing. */
   versionId: z.string(),
   revision: z.number().int(),
+  /** A plugin's `manifest.icon` in that version (GET /api/market/:id/files/raw?path=…&versionId=…). */
+  icon: z.string().nullable().optional(),
 })
 export type ListingSummary = z.infer<typeof ListingSummary>
 

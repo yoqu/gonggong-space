@@ -4,6 +4,7 @@ import {
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
   type PluginBlocker,
+  type PluginCommand,
   type PluginDto,
   type PluginLayer,
   PluginManifest,
@@ -29,12 +30,14 @@ import {
 import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
+import { commands as systemCommands } from '../commands/registry.js'
 import { groupsInstalls, listVersion } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
 import { mcpTurnedOff } from '../mcp/service.js'
 import { notify } from '../notifications/notify.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { checkFiles, frontmatter, LAYER_RANK, mergeSkills, snapshot } from '../skills/service.js'
+import { broadcastPresets } from './presets.js'
 
 type Read = Pick<Db, 'select'>
 export type PluginRow = typeof plugins.$inferSelect
@@ -95,6 +98,8 @@ export function pluginSnapshot(input: SkillFile[]) {
       ['DESIGN.md', 'tokens.css'].map((f) => `skills/${manifest.entry}/${d.dir}/${f}`),
     ),
     ...manifest.templates.flatMap((tp) => (tp.preview ? [tp.preview] : [])),
+    ...(manifest.icon ? [manifest.icon] : []),
+    ...(manifest.artifact?.kit ? [`${manifest.artifact.kit}/index.html`] : []),
     // Files a stdio server starts from the folder.
     ...manifest.contributes.mcp.flatMap((c) =>
       c.transport === 'stdio'
@@ -103,6 +108,10 @@ export function pluginSnapshot(input: SkillFile[]) {
     ),
   ]
   for (const path of required) if (!has(files, path)) fail('invalid', '缺少文件：{path}', { path })
+  const system = new Set(systemCommands.list().map((c) => c.name))
+  for (const c of manifest.contributes.commands)
+    if (c.where === 'chat' && system.has(c.name))
+      fail('invalid', '插件命令 {name} 与系统命令重名', { name: c.name })
   return { ...checked, manifest, type: 'plugin' as const }
 }
 
@@ -173,6 +182,7 @@ const log = (ctx: Ctx, actorId: string | null, l: Layer, action: string, row: Pl
  */
 export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId: string | null) {
   const name = s.manifest.name
+  if (l.scope !== 'platform') presetsOnPlatformOnly(s)
   const saved = await ctx.db.transaction(async (tx) => {
     const values = { ...l, name, type: s.type, authorId: actorId, updatedBy: actorId, updatedAt: ctx.now() }
     const [made] = await tx.insert(plugins).values(values).onConflictDoNothing().returning()
@@ -223,13 +233,21 @@ export async function savePlugin(ctx: Ctx, l: Layer, s: ListingSnapshot, actorId
       saved.plugin,
       saved.revision,
     )
+  if (saved.revision && l.scope === 'platform') await broadcastPresets(ctx)
   return saved
+}
+
+/** Provider presets apply to every machine: only platform-layer plugins may bring them (§6). */
+export function presetsOnPlatformOnly(s: ListingSnapshot) {
+  if (s.type === 'plugin' && s.manifest.contributes.providers.length)
+    fail('invalid', '只有平台层插件可以带供应商预设')
 }
 
 export async function deletePlugin(ctx: Ctx, l: Layer, row: PluginRow, actorId: string) {
   if (isBuiltin(row)) fail('forbidden', '内置插件不能删除')
   await ctx.db.delete(plugins).where(eq(plugins.id, row.id))
   await log(ctx, actorId, l, 'plugin.delete', row)
+  if (l.scope === 'platform') await broadcastPresets(ctx)
 }
 
 /**
@@ -287,7 +305,7 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
             (p.scope === 'group' && p.groupId === g.id)))
       const list = mergeSkills(
         rows
-          .filter((r) => applies(r.plugin))
+          .filter((r) => applies(r.plugin) && inGroups(r.version.manifest))
           .map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name })),
       ).map((r) => {
         const install = top.get(r.plugin.id)
@@ -297,6 +315,10 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
     }),
   )
 }
+
+/** Plugins that bring only provider presets apply to machines, not groups: groups do not list them. */
+const inGroups = (m: PluginManifest) =>
+  !!m.entry || m.contributes.mcp.length > 0 || m.contributes.commands.length > 0
 
 export const groupPluginList = async (db: Read, groupId: string) =>
   (await groupPluginLists(db, [groupId])).get(groupId) ?? []
@@ -362,6 +384,38 @@ export function pluginBlocker(m: PluginManifest, b: BotState, versionId: string)
   if (pluginRunsCode(m) && !b.codeEnabled) return 'code'
   if (m.secrets.some((name) => !(name in b.env))) return 'secret'
   if (pluginRunsCode(m) && !b.trusted.includes(versionId)) return 'trust'
+  return null
+}
+
+/** Chat commands of these plugins, one per name (the first plugin's), none named like a system command. */
+export function chatCommands(manifests: PluginManifest[]) {
+  const reserved = new Set(systemCommands.list().map((c) => c.name))
+  const out = new Map<string, { manifest: PluginManifest; command: PluginCommand }>()
+  for (const m of manifests)
+    for (const c of m.contributes.commands)
+      if (c.where === 'chat' && !reserved.has(c.name) && !out.has(c.name))
+        out.set(c.name, { manifest: m, command: c })
+  return [...out.values()]
+}
+
+/** The run's prompt for a message invoking a plugin's chat command (`/name args` anywhere in it), else null. */
+export function commandPrompt(body: string, commands: ReturnType<typeof chatCommands>) {
+  for (const { manifest: m, command: c } of commands) {
+    const hit = new RegExp(`(?:^|\\s)/${c.name}(?=\\s|$)([\\s\\S]*)$`).exec(body)
+    if (!hit) continue
+    // Agent-facing: not translated.
+    return [
+      body,
+      '',
+      `[插件命令 /${c.name}：插件「${m.title}」（${m.name}）]`,
+      c.prompt.replaceAll('{args}', hit[1]!.trim()),
+      ...(m.entry
+        ? [
+            `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
+          ]
+        : []),
+    ].join('\n')
+  }
   return null
 }
 
@@ -490,6 +544,7 @@ export async function runPlugins(
     }),
     /** Plugins with a creation skill, for the system prompt. */
     creations: usable.filter((r) => r.version.manifest.entry).map((r) => r.plugin.name),
+    commands: chatCommands(usable.map((r) => r.version.manifest)),
     asks: on
       .filter((r) => blocked(r) === 'trust')
       .map((r) => ({ pluginId: r.plugin.id, versionId: r.version.id })),

@@ -9,9 +9,9 @@ use crate::protocol::{
     FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI,
     FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS,
     FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS,
-    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN,
-    FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput, ProviderStateItem,
-    ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_PRESET_SYNC, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK,
+    FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput,
+    ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -59,6 +59,7 @@ impl Manage {
             FEATURE_REPROBE.to_string(),
             FEATURE_PLUGINS.to_string(),
             FEATURE_PLUGIN_MCP.to_string(),
+            FEATURE_PRESET_SYNC.to_string(),
             FEATURE_ARTIFACTS.to_string(),
             FEATURE_ARTIFACT_SNAPSHOT.to_string(),
             FEATURE_GIT_OPS.to_string(),
@@ -331,7 +332,7 @@ fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[Agen
 fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<ProvidersResult> {
     let mut r = answer(cmd.request_id.clone());
     match cmd.action {
-        ProvidersAction::Presets => r.presets = Some(providers::presets(cmd.agent).cloned().collect()),
+        ProvidersAction::Presets => r.presets = Some(providers::presets(cmd.agent)),
         ProvidersAction::List => r.view = Some(Store::load(home)?.view()),
         ProvidersAction::Catalog => {
             let id = cmd.id.context(t!("缺少供应商"))?;
@@ -445,7 +446,7 @@ fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
     };
     let mut p = match &input.preset_id {
         Some(preset) => Provider::from_preset(
-            providers::preset(input.agent, preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
+            &providers::preset(input.agent, preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
             key,
         ),
         None => Provider::custom(
@@ -643,9 +644,7 @@ mod tests {
         for mixed in [
             profile(&|i| i.base_url = Some("https://x.test".into())),
             profile(&|i| i.api_key = Some("sk-x".into())),
-            profile(&|i| {
-                i.preset_id = Some(providers::presets(Some(AgentKind::Claude)).next().unwrap().id.to_string())
-            }),
+            profile(&|i| i.preset_id = Some(providers::presets(Some(AgentKind::Claude))[0].id.clone())),
         ] {
             assert!(save(&mut store, mixed).is_err());
         }
@@ -957,6 +956,7 @@ mod tests {
                 "reprobe",
                 "plugins",
                 "pluginMcp",
+                "presetSync",
                 "artifacts",
                 "artifactSnapshot",
                 "gitOps",
@@ -991,6 +991,7 @@ mod tests {
                 "reprobe",
                 "plugins",
                 "pluginMcp",
+                "presetSync",
                 "artifacts",
                 "artifactSnapshot",
                 "gitOps",

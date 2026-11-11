@@ -1,10 +1,24 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AnnotationDto, ArtifactSubmitRes, MessageDto } from '@gonggong/protocol'
+import type {
+  AnnotationDto,
+  ArtifactPluginCommandDto,
+  ArtifactSubmitRes,
+  MessageDto,
+} from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifactAnnotations, groupBots, groupDesignSystems, messages, runs } from '../src/db/schema.js'
+import {
+  artifactAnnotations,
+  artifacts,
+  groupBots,
+  groupDesignSystems,
+  messages,
+  plugins,
+  runs,
+} from '../src/db/schema.js'
+import { syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
 
@@ -197,16 +211,49 @@ describe('AI commands', () => {
     expect(body).toContain('只修改下面选中的元素，要求：改成渐变标题')
     expect(body).toContain('- screens/home.html 第 4 行（区块 data-section="hero"）：<h1 class="t">报名</h1>')
 
-    const brief = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
-      command: 'project-brief',
-      botId: s.bot.id,
-    })
-    expect(await s.note((brief.json() as MessageDto).id)).toContain(`${s.a.dir}/brief.md`)
     const missing = await s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, {
       command: 'edit-with-ai',
       botId: s.bot.id,
     })
     expect(missing.statusCode).toBe(400)
+  })
+
+  it("offer the artifact plugin's own commands, filled in with the folder and the request", async () => {
+    const s = await setup()
+    const brief = { command: 'project-brief', botId: s.bot.id, text: '面向运营' }
+    const post = () => s.req('POST', `/api/artifacts/${s.a.id}/commands`, s.liCookie, brief)
+    expect((await post()).json()).toMatchObject({ error: 'invalid' })
+    expect((await s.req('GET', `/api/artifacts/${s.a.id}/commands`)).json()).toEqual([])
+
+    await syncBuiltinPlugins(t.ctx)
+    const [p] = await t.db.select().from(plugins).where(eq(plugins.name, 'web-prototype'))
+    await t.db
+      .update(artifacts)
+      .set({ pluginId: p!.id, pluginVersionId: p!.versionId })
+      .where(eq(artifacts.id, s.a.id))
+    const list = (
+      await s.req('GET', `/api/artifacts/${s.a.id}/commands`)
+    ).json() as ArtifactPluginCommandDto[]
+    expect(list.map((c) => c.name)).toEqual([
+      'instant-prototype',
+      'desktop-version',
+      'missing-states',
+      'app-store-assets',
+      'web-assets',
+      'marketing-kit',
+      'accessibility-audit',
+      'project-brief',
+    ])
+    expect(list.find((c) => c.name === 'desktop-version')).toMatchObject({ needsScreen: true })
+    expect(list[0]).not.toHaveProperty('prompt')
+    const res = await post()
+    expect(res.statusCode).toBe(200)
+    const msg = res.json() as MessageDto
+    expect(msg.body).toMatch(/^@小王的 Claude 撰写产品需求文档：面向运营/)
+    const note = await s.note(msg.id)
+    expect(note).toContain(`写一份产品需求文档（PRD）到 ${s.a.dir}/brief.md`)
+    expect(note).toContain('要求：面向运营')
+    expect(note).toContain('遵守产物所属插件 SKILL.md 的约定')
   })
 
   it('apply the design system to every screen and connect an element to a new screen', async () => {

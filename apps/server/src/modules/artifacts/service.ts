@@ -22,7 +22,7 @@ import {
 import { and, count, desc, eq, inArray, isNull, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
-import { artifacts, artifactVersions, bots, messages, runs, users } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, messages, plugins, runs, users } from '../../db/schema.js'
 import { t, zh } from '../../i18n/index.js'
 import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
@@ -694,11 +694,23 @@ export async function runArtifacts(tx: Tx, groupId: string, botId: string, meta:
           .limit(RUN_ARTIFACTS_MAX - first.length)
       : []
   const picked = [...first, ...rest].slice(0, RUN_ARTIFACTS_MAX)
+  const pluginIds = [...new Set(picked.flatMap(({ a }) => (a.pluginId ? [a.pluginId] : [])))]
+  const names = new Map(
+    pluginIds.length
+      ? (
+          await tx
+            .select({ id: plugins.id, name: plugins.name })
+            .from(plugins)
+            .where(inArray(plugins.id, pluginIds))
+        ).map((p) => [p.id, p.name])
+      : [],
+  )
   const refs: DaemonArtifactRef[] = picked.map(({ a, head }) => ({
     id: a.id,
     dir: a.dir as DaemonArtifactRef['dir'],
     headVersionId: a.headVersionId,
     digest: head?.digest ?? null,
+    plugin: (a.pluginId && names.get(a.pluginId)) || null,
   }))
   return { refs, exclude: all.map((r) => r.dir) as DaemonArtifactRef['dir'][], note: issuesNote(picked) }
 }

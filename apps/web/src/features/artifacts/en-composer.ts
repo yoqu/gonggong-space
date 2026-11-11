@@ -10,10 +10,6 @@ export default {
   图表: 'Diagram',
   '画图表或流程图，作为新屏': 'Draw a chart or flow as a new screen',
   给选中的屏幕加入场动效: 'Add motion to the selected screens',
-  上架截图与应用图标: 'Store screenshots and app icon',
-  '横幅、分享图与 favicon': 'Banner, share image and favicon',
-  '海报、社交配图与横幅': 'Posters, social images and banners',
-  检查并修复选中屏幕的无障碍问题: 'Audit and fix accessibility of the selected screens',
   在画布中查看: 'View on canvas',
   '改了 {screens}': 'Changed {screens}',
 }

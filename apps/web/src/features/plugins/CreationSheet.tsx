@@ -31,7 +31,7 @@ import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
 import { blockerText, CATEGORY, type CreationDraft, newDraft, previewUrl, requestOf } from './model'
-import { PluginTile, Swatches } from './PluginTile'
+import { PluginTile, pluginIcon, Swatches } from './PluginTile'
 import { PromptComposer } from './PromptComposer'
 import { type CreationOpen, closeCreation, createInGroup } from './store'
 import './plugins.css'
@@ -249,11 +249,7 @@ export function CreationSheet({
                       aria-pressed={p.id === plugin.id}
                       onClick={() => pickPlugin(p)}
                     >
-                      <PluginTile
-                        m={p.manifest}
-                        size={20}
-                        official={p.layer === 'platform' ? p.manifest.name : undefined}
-                      />
+                      <PluginTile m={p.manifest} size={20} src={pluginIcon(p)} />
                       {p.manifest.title}
                     </button>
                   ))}

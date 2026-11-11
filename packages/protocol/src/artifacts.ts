@@ -754,6 +754,8 @@ export const DaemonArtifactRef = z.object({
   dir: ArtifactDir,
   headVersionId: z.string().nullable(),
   digest: SyncHash.nullable(),
+  /** Its plugin (name): the turn's copy of it gives the shell screenshots are framed in. */
+  plugin: z.string().nullable().default(null),
 })
 export type DaemonArtifactRef = z.infer<typeof DaemonArtifactRef>
 /** GET /api/daemon/artifacts/:id/versions/:versionId */
@@ -814,22 +816,17 @@ export const ArtifactShareDto = z.object({
 })
 export type ArtifactShareDto = z.infer<typeof ArtifactShareDto>
 
-/** Instruction templates turned into @bot messages with the selection as context (R3). */
+/**
+ * Instruction templates turned into @bot messages with the selection as context (R3): the platform's own, for any
+ * artifact; plugins add theirs (`contributes.commands` with `where: 'artifact'`, plan 插件扩展点 §7).
+ */
 export const ArtifactCommand = z.enum([
   'variations',
   'regenerate',
-  'desktop-version',
-  'missing-states',
   'animate',
-  'accessibility-audit',
-  'instant-prototype',
-  'app-store-assets',
-  'web-assets',
-  'marketing-kit',
   'logo',
   'image',
   'diagram',
-  'project-brief',
   'edit-with-ai',
   /** Restyles every screen to the artifact's current DESIGN.md / tokens.css, keeping content and structure. */
   'apply-design-system',
@@ -837,6 +834,15 @@ export const ArtifactCommand = z.enum([
   'connect-element',
 ])
 export type ArtifactCommand = z.infer<typeof ArtifactCommand>
+
+/** GET /api/artifacts/:id/commands — the artifact commands its plugin version adds (canvas 生成 and `/` menus). */
+export const ArtifactPluginCommandDto = z.object({
+  name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  needsScreen: z.boolean(),
+})
+export type ArtifactPluginCommandDto = z.infer<typeof ArtifactPluginCommandDto>
 
 /** An element of a screen, by `(file, ggId)` in the head version. */
 export const ArtifactElementRef = z.object({ file: ArtifactHtmlFile, ggId: GgId })
@@ -851,7 +857,8 @@ export type ArtifactElementRef = z.infer<typeof ArtifactElementRef>
  */
 export const ArtifactCommandReq = z
   .object({
-    command: ArtifactCommand,
+    /** A platform command, or a command of the artifact's plugin by name. */
+    command: z.union([ArtifactCommand, z.string().regex(/^[a-z][a-z0-9-]{0,39}$/)]),
     botId: z.string(),
     screenIds: z.array(ArtifactScreenId).max(100).optional(),
     ggIds: z.array(ArtifactElementRef).max(50).optional(),

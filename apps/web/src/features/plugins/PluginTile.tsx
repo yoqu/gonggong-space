@@ -1,21 +1,34 @@
 import type { PluginManifest } from '@gonggong/protocol'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
-import { CATEGORY } from './model'
-import { hasOfficialIcon, OfficialIcon } from './OfficialIcon'
+import { CATEGORY, previewUrl } from './model'
 import './plugins.css'
 
-/** `official`: the manifest name of a platform plugin, drawn with its own tile when it has one. */
+/** The url of a plugin's own tile (`manifest.icon`), if it ships one. */
+export const pluginIcon = (p: { id: string; manifest: Pick<PluginManifest, 'icon'> }) =>
+  p.manifest.icon ? previewUrl(p.id, p.manifest.icon) : undefined
+
+/** `src`: the plugin's own tile (pluginIcon); else its category's glyph. */
 export function PluginTile({
   m,
   size = 32,
-  official,
+  src,
 }: {
   m: Pick<PluginManifest, 'category'>
   size?: number
-  official?: string
+  src?: string
 }) {
-  if (official && hasOfficialIcon(official)) return <OfficialIcon name={official} size={size} />
+  if (src)
+    return (
+      <img
+        className="plg-tile plg-tile--img"
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        aria-hidden="true"
+      />
+    )
   const c = CATEGORY[m.category]
   return (
     <span className="plg-tile" style={{ background: c.color, width: size, height: size }} aria-hidden="true">

@@ -116,13 +116,15 @@
       "id": "art1",
       "dir": "design/app-screens-a1b2",
       "headVersionId": "av3",
-      "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "plugin": "web-prototype"
     },
     {
       "id": "art2",
       "dir": "design/app-screens-c3d4",
       "headVersionId": null,
-      "digest": null
+      "digest": null,
+      "plugin": "web-prototype"
     }
   ],
   "artifactExclude": ["design/app-screens-a1b2", "design/app-screens-c3d4", "design/old-deck-9f0e"]

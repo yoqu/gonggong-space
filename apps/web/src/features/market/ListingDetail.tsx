@@ -1,4 +1,5 @@
 import type {
+  ListingSummary,
   ListingType,
   ListingVersionDto,
   MarketListingDetailDto,
@@ -26,7 +27,6 @@ import {
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 import { mcpTarget, permissionsText } from '../plugins/model'
-import { hasOfficialIcon, OfficialIcon } from '../plugins/OfficialIcon'
 import { ListingFiles } from './ListingFiles'
 import { TYPE_LABEL, targetLabels } from './status'
 import { VersionDiff } from './VersionDiff'
@@ -51,19 +51,28 @@ export const ReviewTag = ({ status }: { status: ReviewStatus }) => (
   <Tag tone={REVIEW_TONE[status]}>{REVIEW_LABEL[status]}</Tag>
 )
 
-/** A listing's glyph: Skill and 插件 read apart at a glance; official plugins have their own drawn tile. */
+/** A listing's glyph: Skill and 插件 read apart at a glance; a plugin with `manifest.icon` shows its own tile. */
 export function ListingIcon({
   type,
   size = 36,
-  official,
+  listing,
 }: {
   type: ListingType
   size?: number
-  /** The listing's name when it is an official one. */
-  official?: string
+  /** Its own tile, from the shown version. */
+  listing?: Pick<ListingSummary, 'id' | 'versionId' | 'icon'>
 }) {
-  if (type === 'plugin' && official && hasOfficialIcon(official))
-    return <OfficialIcon name={official} size={size} />
+  if (type === 'plugin' && listing?.icon)
+    return (
+      <img
+        className="mkt-icon mkt-icon--img"
+        src={`/api/market/${listing.id}/files/raw?${new URLSearchParams({ path: listing.icon, versionId: listing.versionId })}`}
+        alt=""
+        width={size}
+        height={size}
+        aria-hidden="true"
+      />
+    )
   return (
     <span className="mkt-icon" data-type={type} style={{ width: size, height: size }} aria-hidden="true">
       <Icon name={type === 'plugin' ? 'plug' : 'sparkle'} size={Math.round(size * 0.5)} />
@@ -110,11 +119,7 @@ export function ListingDetail({
   return (
     <div className="mkt-detail">
       <div className="mkt-detail__hero">
-        <ListingIcon
-          type={data.type}
-          size={44}
-          official={data.source === 'official' ? data.name : undefined}
-        />
+        <ListingIcon type={data.type} size={44} listing={data} />
         <div className="mkt-detail__summary">
           <div className="mkt-detail__meta">
             <Tag tone="blue">{TYPE_LABEL[data.type]}</Tag>

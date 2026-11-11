@@ -12,6 +12,7 @@ import { loadArtifact, resetArtifacts } from '../src/features/artifacts/store'
 import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui'
 import { type Call, mockApi } from './mockApi'
+import { PROTO_COMMANDS } from './protoCommands'
 
 // R5 of docs/plan/原型编辑器-Stitch对标-开发计划.md: the prototype editor, export, share and QR.
 
@@ -83,6 +84,7 @@ const routes = (o: Record<string, unknown> = {}) => ({
   'POST /artifacts/a1/preview': { previewId: 'pw1', origin: ORIGIN, url: '/api/previews/pw1/open' },
   'POST /artifacts/a1/edits': artifact(),
   'POST /artifacts/a1/commands': { id: 'm1' },
+  'GET /artifacts/a1/commands': PROTO_COMMANDS,
   'POST /groups/g1/messages': { id: 'm2' },
   'GET /artifacts/a1/share': OFF,
   'POST /artifacts/a1/share': (b: unknown) => ((b as { enabled: boolean }).enabled ? ON : OFF),
@@ -553,9 +555,10 @@ describe('prototype editor', () => {
     const calls = mockApi(routes({ 'GET /artifacts/a1': () => artifact({ running }) }))
     render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
     await screen.findByTitle('首页')
+    await waitFor(() => expect(calls.some((c) => c.path === '/artifacts/a1/commands')).toBe(true))
     fireEvent.click(screen.getByTestId('art-node-home'))
     fireEvent.click(screen.getByRole('button', { name: '生成' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '即时原型' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '连成可点击原型' }))
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/commands')).toHaveLength(1))
     running = true
     await act(() => loadArtifact('a1'))
