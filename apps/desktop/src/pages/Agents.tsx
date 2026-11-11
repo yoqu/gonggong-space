@@ -28,6 +28,8 @@ const TOOL_NAME: Record<ToolKind, string> = {
   codex: AGENTS.codex.name,
   gemini: AGENTS.gemini.name,
   codebuddy: AGENTS.codebuddy.name,
+  pi: AGENTS.pi.name,
+  deepseek: AGENTS.deepseek.name,
 }
 
 /** The install / upgrade in progress or last run; one at a time per machine. */
@@ -148,7 +150,11 @@ export function AgentsPage(_: PageProps) {
             onPickPath={() => pickPath(a.kind)}
             onResetPath={() => ipc.resetAgentPath(a.kind).then(load, fail)}
           />
-          {providers ? (
+          {a.kind === 'pi' ? (
+            <p className="dk-note">
+              {t('pi 使用它自己的登录：在本机运行 pi，输入 /login 登录或填写 API Key')}
+            </p>
+          ) : providers ? (
             <>
               <ProviderBox agent={a.kind} data={providers} onSwitch={switcher.request} />
               <AgentSettingsBox agent={a.kind} data={providers} />
@@ -299,9 +305,12 @@ function NodeCard({
         active={!!s?.installed && !tooOld}
         title="Node.js"
         badge={badge}
-        sub={t('运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）', {
-          min: MIN_NODE,
-        })}
+        sub={t(
+          '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）',
+          {
+            min: MIN_NODE,
+          },
+        )}
       >
         {actions}
       </Head>
@@ -401,7 +410,7 @@ function Agent({
             label={t('ACP 适配器')}
             wideValue
             value={
-              a.kind === 'gemini' || a.kind === 'codebuddy'
+              a.kind === 'gemini' || a.kind === 'codebuddy' || a.kind === 'deepseek'
                 ? t('CLI 自带')
                 : adapter
                   ? t('{version} · 随 daemon', { version: adapter.version })

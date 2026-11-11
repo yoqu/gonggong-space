@@ -48,12 +48,16 @@ const PROTOCOL: Record<AgentKind, string> = {
   codex: 'OpenAI Responses',
   gemini: 'Google Gemini',
   codebuddy: 'CodeBuddy',
+  pi: '',
+  deepseek: 'Anthropic Messages',
 }
 const URL_HINT: Record<AgentKind, string> = {
   claude: 'https://…/anthropic',
   codex: 'https://…/v1',
   gemini: 'https://generativelanguage.googleapis.com',
   codebuddy: 'https://copilot.tencent.com',
+  pi: '',
+  deepseek: 'https://api.deepseek.com/anthropic',
 }
 const FORM_ID = 'provider-form'
 const OFFICIAL_FORM_ID = 'official-form'

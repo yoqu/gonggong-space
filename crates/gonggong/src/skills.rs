@@ -161,6 +161,8 @@ fn baseline(root: &Path, kind: AgentKind, name: &str) -> Option<PathBuf> {
         AgentKind::Codex => &[".agents/skills"],
         AgentKind::Gemini => &[".agents/skills", ".gemini/skills"],
         AgentKind::Codebuddy => &[".codebuddy/skills", ".claude/skills"],
+        AgentKind::Pi => &[".agents/skills", ".pi/skills"],
+        AgentKind::Deepseek => &[".agents/skills", ".dsh/skills"],
     };
     dirs.iter().map(|d| root.join(d).join(name)).find(|p| p.symlink_metadata().is_ok())
 }

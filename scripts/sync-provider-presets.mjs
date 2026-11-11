@@ -116,6 +116,18 @@ const MANUAL = [
     baseUrl: 'https://www.codebuddy.ai',
     modelOptions: [],
   },
+  // DeepSeek Harness talks to DeepSeek's Anthropic-format API (DEEPSEEK_BASE_URL, checked 2026-11-11); its session
+  // lists the models.
+  {
+    id: 'deepseek',
+    agent: 'deepseek',
+    name: 'DeepSeek',
+    group: 'cn',
+    websiteUrl: 'https://platform.deepseek.com',
+    apiKeyUrl: 'https://platform.deepseek.com/api_keys',
+    baseUrl: 'https://api.deepseek.com/anthropic',
+    modelOptions: [],
+  },
 ]
 
 // Models CC Switch does not list, from the vendors' own docs (checked 2026-10-09), keyed by our preset id.
@@ -410,7 +422,7 @@ async function main() {
     0,
     ...MANUAL.filter((p) => p.agent === 'gemini'),
   )
-  presets.push(...MANUAL.filter((p) => p.agent === 'codebuddy'))
+  presets.push(...MANUAL.filter((p) => p.agent === 'codebuddy' || p.agent === 'deepseek'))
   writeFileSync(out, `${JSON.stringify({ source: `cc-switch@${commit}`, presets }, null, 2)}\n`)
   // Match the repo formatter so re-running the script yields a reviewable diff only.
   execFileSync(join(root, 'node_modules/.bin/biome'), ['format', '--write', out], { stdio: 'ignore' })

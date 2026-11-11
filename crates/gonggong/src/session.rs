@@ -130,7 +130,7 @@ async fn plan(engine: &Inner, shared: &Shared, ask: &acp::McpServer, mut req: Tu
                 launch.write()?;
                 Some(launch)
             }
-            AgentKind::Codex | AgentKind::Codebuddy => None,
+            AgentKind::Codex | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => None,
             AgentKind::Gemini => {
                 let dir = dir.expect("a Gemini run has its home");
                 gemini::prepare(&dir, &user_home, &selection, &system_prompt(&bot), Some(&ask))?;
@@ -1232,6 +1232,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     let n = s.requests;
     let Some(a) = s.active.as_mut() else { return Permission::Now(None) };
     name_mcp_call(&mut req);
+    crate::pi::own_request(&mut req.tool_call);
     // The built-in gonggong tools only ask or read the group: never an owner decision (spec §8.8).
     if req.tool_call.fields.title.as_deref().is_some_and(ask::is_builtin) {
         return Permission::Now(auto_allow(&req.options));
@@ -1743,7 +1744,9 @@ pub(crate) async fn run(
         let _secrets = crate::logs::hold_secrets(s.env.0.values().cloned().collect());
         let dirs = plugin_dirs(&turn.skills, &turn.plugins);
         let cwd = (s.bot.agent_kind == AgentKind::Codebuddy).then_some(turn.req.cwd.as_path());
-        let process = Process { gemini_home: turn.gemini_home.as_deref(), plugin_dirs: &dirs, cwd };
+        let pi_mcp = (s.bot.agent_kind == AgentKind::Pi).then(|| crate::pi::mcp_env(&s.mcp_servers, &ask));
+        let process =
+            Process { gemini_home: turn.gemini_home.as_deref(), plugin_dirs: &dirs, cwd, pi_mcp: pi_mcp.as_deref() };
         let result = match engine.adapter(&s.bot, &turn.req.local, &turn.selection, &s.env, &process).await {
             Ok(config) => {
                 let reviewer = Reviewer::new(config.clone(), s.bot.agent_kind, turn.launch.as_ref());
@@ -1852,6 +1855,7 @@ async fn connect(
             };
             let secrets = env_digest(&first.req.start.env);
             let hidden = first.req.start.hidden_tools.clone();
+            let tier = first.req.start.bot.tier;
             let cwd = first.req.cwd.clone();
             let mut turn = first;
             loop {
@@ -1889,6 +1893,8 @@ async fn connect(
                     || turn.plugins != conv.plugins
                     || env_digest(&turn.req.start.env) != secrets
                     || turn.req.start.hidden_tools != hidden
+                    // DeepSeek Harness takes its sandbox with the process.
+                    || (turn.req.start.bot.agent_kind == AgentKind::Deepseek && turn.req.start.bot.tier != tier)
                 {
                     return Ok(Some(turn));
                 }
@@ -1991,14 +1997,16 @@ impl Conversation<'_> {
         let builtin = builtin_mode(s.bot.agent_kind, s.bot.tier, s.bot.ai_review, self.official)
             .filter(|m| self.modes.iter().any(|o| o == m));
         let fallback = mode_for(s.bot.agent_kind, s.bot.tier);
-        self.switch(&session, builtin.unwrap_or(fallback)).await;
+        if let Some(mode) = builtin.or(fallback) {
+            self.switch(&session, mode).await;
+        }
         self.configure(&req, &session).await;
         // A model switch may have taken `auto` away too.
         if let Some(mode) = self.shared.take_mode_update() {
             self.mode = Some(mode);
         }
         let on = builtin.is_some_and(|b| self.mode.as_deref() == Some(b));
-        if !on {
+        if !on && let Some(fallback) = fallback {
             self.switch(&session, fallback).await;
         }
         self.shared.set_builtin(on);
@@ -2006,12 +2014,10 @@ impl Conversation<'_> {
             let step = match (on, s.bot.agent_kind) {
                 (true, AgentKind::Claude) => t!("审批由 Claude 内置审核（auto 模式）把关").to_string(),
                 (true, _) => t!("审批由 Codex 内置审核（agent 模式）把关").to_string(),
-                (false, _) if !self.official => {
-                    t!("第三方供应商用不了内置审核，审批由共工规则把关").to_string()
-                }
+                (false, _) if !self.official => t!("第三方供应商用不了内置审核，审批由共工规则把关").to_string(),
                 (false, _) => t!(
                     "内置审核不可用（模式 {mode}），审批由共工规则把关",
-                    mode = self.mode.as_deref().unwrap_or(fallback)
+                    mode = self.mode.as_deref().or(fallback).unwrap_or_default()
                 ),
             };
             let event = RunEvent::Status { status: RunStatus::Running, step };

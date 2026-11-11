@@ -68,6 +68,23 @@ describe('dispatch', () => {
     expect(w.sent).toMatchObject([{ t: 'run.start', runId: a.run.id, bot: { agentKind: 'gemini' } }])
   })
 
+  it.each(['pi', 'deepseek'])(
+    'holds a %s run until its machine runs a client that knows it',
+    async (kind) => {
+      const w = await world(kind)
+      const a = await w.queued()
+      const features = vi.spyOn(t.ctx.hub, 'features').mockReturnValue(['tools', 'gemini', 'codebuddy'])
+
+      await schedule(t.ctx, w.bot.id)
+      expect(w.sent).toEqual([])
+      expect(await w.status(a.run.id)).toMatchObject({ status: 'offline_wait' })
+
+      features.mockReturnValue(['tools', kind])
+      await schedule(t.ctx, w.bot.id)
+      expect(w.sent).toMatchObject([{ t: 'run.start', runId: a.run.id, bot: { agentKind: kind } }])
+    },
+  )
+
   it('sends run.start only after the transaction committed', async () => {
     const w = await world()
     const a = await w.queued()

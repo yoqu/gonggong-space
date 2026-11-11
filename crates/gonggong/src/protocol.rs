@@ -24,14 +24,23 @@ pub enum AgentKind {
     Codex,
     Gemini,
     Codebuddy,
+    Pi,
+    Deepseek,
 }
 
 impl AgentKind {
-    pub const ALL: [AgentKind; 4] = [AgentKind::Claude, AgentKind::Codex, AgentKind::Gemini, AgentKind::Codebuddy];
+    pub const ALL: [AgentKind; 6] = [
+        AgentKind::Claude,
+        AgentKind::Codex,
+        AgentKind::Gemini,
+        AgentKind::Codebuddy,
+        AgentKind::Pi,
+        AgentKind::Deepseek,
+    ];
 
     /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins).
     pub fn links_skills(self) -> bool {
-        matches!(self, AgentKind::Codex | AgentKind::Gemini)
+        matches!(self, AgentKind::Codex | AgentKind::Gemini | AgentKind::Pi | AgentKind::Deepseek)
     }
 }
 
@@ -1883,6 +1892,10 @@ pub const FEATURE_CODEBUDDY: &str = "codebuddy";
 pub const FEATURE_APPROVAL_GATES: &str = "approvalGates";
 /// 帮我审批 hands approvals to the agent's own reviewer (Claude `auto`, Codex `agent` on an official login).
 pub const FEATURE_BUILTIN_REVIEW: &str = "builtinReview";
+/// Runs pi bots: a daemon without it cannot read a run.start for one.
+pub const FEATURE_PI: &str = "pi";
+/// Runs DeepSeek Harness bots: a daemon without it cannot read a run.start for one.
+pub const FEATURE_DEEPSEEK: &str = "deepseek";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.

@@ -52,6 +52,8 @@ const TOOL: Record<string, string> = {
   codex: 'Codex',
   gemini: 'Gemini CLI',
   codebuddy: 'CodeBuddy（WorkBuddy）',
+  pi: 'pi',
+  deepseek: 'DeepSeek Harness',
 }
 const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存机器的供应商',

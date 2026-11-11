@@ -152,7 +152,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("未登录", "Not logged in"),
     ("未知方式", "unknown method"),
     ("已登录 · {how}", "Logged in · {how}"),
-    ("应为 claude、codex、gemini 或 codebuddy", "Expected claude, codex, gemini or codebuddy"),
+    (
+        "应为 claude、codex、gemini、codebuddy、pi 或 deepseek",
+        "Expected claude, codex, gemini, codebuddy, pi or deepseek",
+    ),
     ("可选模型：{models}", "Models: {models}"),
     ("适配器未提供可选模型", "The adapter offers no models"),
     ("可选模型待探测（daemon 运行时自动探测）", "Models not probed yet (detected automatically while the daemon runs)"),
@@ -209,8 +212,8 @@ pub(super) const EN: &[(&str, &str)] = &[
         "Deleted {name}; sessions using it start a new session on their next turn",
     ),
     (
-        "用法：gg provider use <claude|codex|gemini|codebuddy> <id|official>",
-        "Usage: gg provider use <claude|codex|gemini|codebuddy> <id|official>",
+        "用法：gg provider use <claude|codex|gemini|codebuddy|deepseek> <id|official>",
+        "Usage: gg provider use <claude|codex|gemini|codebuddy|deepseek> <id|official>",
     ),
     ("{agent} 本机默认供应商：{name}", "{agent} default provider on this machine: {name}"),
     (
@@ -368,14 +371,29 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("HTTPS 正常", "HTTPS OK"),
     ("HTTP 正常（未加密）", "HTTP OK (unencrypted)"),
     (
-        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI 或 CodeBuddy）",
-        "No agent found (Claude Code, Codex, Gemini CLI or CodeBuddy)",
+        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness）",
+        "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi or DeepSeek Harness)",
     ),
     (
         "这台机器上没有 Gemini CLI，请安装：npm install -g @google/gemini-cli，或在「设置 → Agent 工具」里用共工托管安装",
         "Gemini CLI is not on this machine. Install it with npm install -g @google/gemini-cli, or use the Gonggong-managed install in Settings → Agent tools",
     ),
-    ("Gemini CLI 与 CodeBuddy 需要 Node.js ≥ {v}", "Gemini CLI and CodeBuddy need Node.js ≥ {v}"),
+    (
+        "Gemini CLI、CodeBuddy、pi 与 DeepSeek Harness 需要 Node.js ≥ {v}",
+        "Gemini CLI, CodeBuddy, pi and DeepSeek Harness need Node.js ≥ {v}",
+    ),
+    (
+        "这台机器上没有 DeepSeek Harness，请安装：npm install -g @deepseek-ai/dsh，或在「设置 → Agent 工具」里用共工托管安装",
+        "DeepSeek Harness is not on this machine. Install it with npm install -g @deepseek-ai/dsh, or use the Gonggong-managed install in Settings → Agent tools",
+    ),
+    (
+        "DeepSeek Harness 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
+        "DeepSeek Harness needs Node.js ≥ {v} (this one is {current}). Upgrade Node.js in Settings → Agent tools",
+    ),
+    (
+        "这台机器上没有 pi，请安装：npm install -g @earendil-works/pi-coding-agent，或在「设置 → Agent 工具」里用共工托管安装",
+        "pi is not on this machine. Install it with npm install -g @earendil-works/pi-coding-agent, or use the Gonggong-managed install in Settings → Agent tools",
+    ),
     (
         "这台机器上没有 CodeBuddy，请安装：npm install -g @tencent-ai/codebuddy-code，或在「设置 → Agent 工具」里用共工托管安装",
         "CodeBuddy is not on this machine. Install it with npm install -g @tencent-ai/codebuddy-code, or use the Gonggong-managed install in Settings → Agent tools",
@@ -460,14 +478,8 @@ pub(super) const EN: &[(&str, &str)] = &[
         "The AI pre-review already approved this kind of command in this run: {command}",
     ),
     ("AI 预审中：{title}", "AI pre-review: {title}"),
-    (
-        "审批由 Claude 内置审核（auto 模式）把关",
-        "Approvals go to Claude's built-in review (auto mode)",
-    ),
-    (
-        "审批由 Codex 内置审核（agent 模式）把关",
-        "Approvals go to Codex's built-in review (agent mode)",
-    ),
+    ("审批由 Claude 内置审核（auto 模式）把关", "Approvals go to Claude's built-in review (auto mode)"),
+    ("审批由 Codex 内置审核（agent 模式）把关", "Approvals go to Codex's built-in review (agent mode)"),
     (
         "内置审核不可用（模式 {mode}），审批由共工规则把关",
         "Built-in review unavailable (mode {mode}); approvals go to Gonggong's rules",

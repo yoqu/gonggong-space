@@ -31,6 +31,10 @@
 // Started with GEMINI_CLI_HOME (as the daemon starts Gemini CLI), it acts like Gemini CLI: models through `models` and
 // session/set_model instead of config options, session/load instead of resume, no raw input on tool calls, MCP calls
 // titled by the tool alone with the server in `_meta`, and the gonggong server read from the home's settings.json.
+// Started with PI_ACP_PI_COMMAND (as the daemon starts pi-acp), it acts like pi-acp with gonggong's pi extension: its
+// modes are thought levels, permission requests are the extension's `confirm` (kind other, the tool call in the
+// message), and the gonggong server comes from GG_PI_MCP. Started with DSH_PERMISSION_MODE (DeepSeek Harness), it
+// offers no modes.
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { Readable, Writable } from 'node:stream'
@@ -46,6 +50,34 @@ const geminiFile = (name) => {
     return null
   }
 }
+const PI = process.env.PI_ACP_PI_COMMAND
+const DSH = process.env.DSH_PERMISSION_MODE
+const argAfter = (flag) => {
+  const i = process.argv.indexOf(flag)
+  return i >= 0 ? process.argv[i + 1] : null
+}
+// What pi-acp sends for the extension's ctx.ui.confirm about `toolCall`.
+const piConfirm = (toolCall, input) => ({
+  toolCallId: 'pi-ui-1',
+  title: toolCall.title,
+  kind: 'other',
+  status: 'pending',
+  rawInput: {
+    method: 'confirm',
+    title: toolCall.title,
+    message: JSON.stringify({
+      gonggong: {
+        toolCallId: toolCall.toolCallId,
+        title: toolCall.title.startsWith('mcp__') ? toolCall.title : undefined,
+        input,
+      },
+    }),
+  },
+})
+const PI_OPTIONS = [
+  { optionId: 'yes', name: 'Yes', kind: 'allow_once' },
+  { optionId: 'no', name: 'No', kind: 'reject_once' },
+]
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-3.8-flash'].map((modelId) => ({ modelId, name: modelId }))
 // MOCK_AUTO offers Claude's `auto`; MOCK_AUTO=fallback acts like a model without it: the adapter stays in
 // `acceptEdits` and says so with current_mode_update.
@@ -101,13 +133,20 @@ function open(sessionId, params) {
     plugins: params._meta?.claudeCode?.options?.plugins ?? null,
     meta: params._meta ?? null,
     mcpServers: params.mcpServers,
-    mode: 'default',
+    mode: PI ? 'medium' : 'default',
     model: GEMINI ? (process.env.GEMINI_MODEL ?? 'gemini-2.5-pro') : 'default',
     effort: 'medium',
     configSets: [],
     abort: null,
   })
-  const modes = { currentModeId: 'default', availableModes: MODES }
+  const modes = PI
+    ? {
+        currentModeId: 'medium',
+        availableModes: ['off', 'low', 'medium', 'high'].map((id) => ({ id, name: id })),
+      }
+    : DSH
+      ? undefined
+      : { currentModeId: 'default', availableModes: MODES }
   if (GEMINI)
     return {
       sessionId,
@@ -218,6 +257,24 @@ async function prompt({ sessionId, prompt: blocks }, client) {
               settings: JSON.parse(geminiFile('settings.json') ?? 'null'),
             }
           : null,
+        pi: PI
+          ? {
+              command: PI,
+              exe: process.env.GG_PI_EXE ?? null,
+              extension: process.env.GG_PI_EXTENSION ?? null,
+              systemPrompt: process.env.GG_PI_SYSTEM_PROMPT ?? null,
+              mcp: JSON.parse(process.env.GG_PI_MCP ?? 'null'),
+            }
+          : null,
+        deepseek: DSH
+          ? {
+              permissionMode: DSH,
+              apiKey: process.env.DEEPSEEK_API_KEY ?? null,
+              baseUrl: process.env.DEEPSEEK_BASE_URL ?? null,
+              profile: argAfter('--profile'),
+              patch: JSON.parse(readFileSync(argAfter('--patch'), 'utf8')),
+            }
+          : null,
         mcpServers: s.mcpServers,
         prompt: text,
         blocks: blocks.map((b) =>
@@ -321,14 +378,16 @@ async function prompt({ sessionId, prompt: blocks }, client) {
       await update({ sessionUpdate: 'tool_call', ...toolCall })
       const res = await client.request(acp.methods.client.session.requestPermission, {
         sessionId,
-        toolCall,
-        options: [
-          { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-          { optionId: 'always', name: 'Always', kind: 'allow_always' },
-          { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-        ],
+        toolCall: PI ? piConfirm({ ...toolCall, title: 'bash' }, { command }) : toolCall,
+        options: PI
+          ? PI_OPTIONS
+          : [
+              { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+              { optionId: 'always', name: 'Always', kind: 'allow_always' },
+              { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+            ],
       })
-      ran = res.outcome.outcome === 'selected' && res.outcome.optionId !== 'reject'
+      ran = res.outcome.outcome === 'selected' && !['reject', 'no'].includes(res.outcome.optionId)
     }
     await say(ran ? 'ran' : 'denied')
     return { stopReason: 'end_turn' }
@@ -381,19 +440,23 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await update({ sessionUpdate: 'tool_call', ...toolCall })
     const res = await client.request(acp.methods.client.session.requestPermission, {
       sessionId,
-      toolCall,
-      options: [
-        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-      ],
+      toolCall: PI ? piConfirm(toolCall, JSON.parse(raw)) : toolCall,
+      options: PI
+        ? PI_OPTIONS
+        : [
+            { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+            { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+          ],
     })
-    if (res.outcome.outcome !== 'selected' || res.outcome.optionId !== 'allow') {
+    if (res.outcome.outcome !== 'selected' || !['allow', 'yes'].includes(res.outcome.optionId)) {
       await say('ask denied')
       return { stopReason: 'end_turn' }
     }
     const server = GEMINI
       ? { url: JSON.parse(geminiFile('settings.json')).mcpServers.gonggong.httpUrl }
-      : s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
+      : PI
+        ? JSON.parse(process.env.GG_PI_MCP).gonggong
+        : s.mcpServers.find((m) => m.type === 'http' && m.name === 'gonggong')
     try {
       const args = JSON.parse(raw)
       await mcp(server.url, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} }, abort.signal)

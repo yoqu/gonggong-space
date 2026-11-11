@@ -75,7 +75,7 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
             AgentKind::Claude => "currentProviderClaude",
             AgentKind::Codex => "currentProviderCodex",
             AgentKind::Gemini => "currentProviderGemini",
-            AgentKind::Codebuddy => continue,
+            AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => continue,
         };
         let current = match settings[current_key].as_str() {
             Some(id) => id == row.id,
@@ -168,7 +168,7 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
         AgentKind::Codex => "openai_responses",
         AgentKind::Gemini => "gemini_native",
         // Not a CC Switch app.
-        AgentKind::Codebuddy => return Ok(None),
+        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => return Ok(None),
     };
     if row.meta["apiFormat"].as_str().is_some_and(|f| f != direct) {
         return Ok(None);
@@ -188,7 +188,7 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
             let empty = Map::new();
             Ok(gemini(&row.name, row.settings["env"].as_object().unwrap_or(&empty)))
         }
-        AgentKind::Codebuddy => Ok(None),
+        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => Ok(None),
     }
 }
 
@@ -403,7 +403,9 @@ pub fn parse_link(link: &str) -> Result<Provider> {
             }
             gemini(&name, &env)
         }
-        AgentKind::Codebuddy => unreachable!("links name claude, codex or gemini"),
+        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => {
+            unreachable!("links name claude, codex or gemini")
+        }
     };
     let mut provider = provider.context(t!("链接缺少 API Key 或 endpoint，或不是直连格式"))?;
     provider.source = Some(Source { kind: SourceKind::Link, id: None });

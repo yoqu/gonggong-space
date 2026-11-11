@@ -94,9 +94,10 @@ pub fn system_prompt(bot: &RunBot) -> String {
     if bot.system_prompt.trim().is_empty() { base } else { format!("{base}\n\n{}", bot.system_prompt) }
 }
 
-/// Plan D21: agent session mode for each permission tier.
-pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
-    match (kind, tier) {
+/// Plan D21: agent session mode for each permission tier. `None`: the agent has no permission modes (pi's are its
+/// thought levels, DeepSeek Harness has none); the owner's rules answer its permission requests.
+pub fn mode_for(kind: AgentKind, tier: Tier) -> Option<&'static str> {
+    Some(match (kind, tier) {
         (AgentKind::Claude, Tier::Full) => "bypassPermissions",
         (AgentKind::Claude, Tier::Workspace) => "acceptEdits",
         (AgentKind::Claude, Tier::ReadOnly) => "default",
@@ -113,7 +114,8 @@ pub fn mode_for(kind: AgentKind, tier: Tier) -> &'static str {
         (AgentKind::Codebuddy, Tier::Full) => "bypassPermissions",
         (AgentKind::Codebuddy, Tier::Workspace) => "acceptEdits",
         (AgentKind::Codebuddy, Tier::ReadOnly) => "default",
-    }
+        (AgentKind::Pi | AgentKind::Deepseek, _) => return None,
+    })
 }
 
 /// 帮我审批 hands approvals to the agent's own reviewer on its maker's service (`official`, [`agents::official_service`]):
@@ -128,7 +130,7 @@ pub fn builtin_mode(kind: AgentKind, tier: Tier, ai_review: bool, official: bool
     match kind {
         AgentKind::Claude => Some("auto"),
         AgentKind::Codex => Some("agent"),
-        AgentKind::Gemini | AgentKind::Codebuddy => None,
+        AgentKind::Gemini | AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek => None,
     }
 }
 
@@ -746,17 +748,19 @@ mod tests {
 
     #[test]
     fn maps_tiers_to_modes() {
-        assert_eq!(mode_for(AgentKind::Claude, Tier::Full), "bypassPermissions");
-        assert_eq!(mode_for(AgentKind::Claude, Tier::Workspace), "acceptEdits");
-        assert_eq!(mode_for(AgentKind::Claude, Tier::ReadOnly), "default");
-        assert_eq!(mode_for(AgentKind::Codex, Tier::Full), "agent-full-access");
-        assert_eq!(mode_for(AgentKind::Codex, Tier::ReadOnly), "read-only");
+        assert_eq!(mode_for(AgentKind::Claude, Tier::Full), Some("bypassPermissions"));
+        assert_eq!(mode_for(AgentKind::Claude, Tier::Workspace), Some("acceptEdits"));
+        assert_eq!(mode_for(AgentKind::Claude, Tier::ReadOnly), Some("default"));
+        assert_eq!(mode_for(AgentKind::Codex, Tier::Full), Some("agent-full-access"));
+        assert_eq!(mode_for(AgentKind::Codex, Tier::ReadOnly), Some("read-only"));
         // codex-acp's `agent` mode sends approvals to Codex's own reviewer model instead of the owner.
-        assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), "workspace-write");
-        assert_eq!(mode_for(AgentKind::Gemini, Tier::Full), "yolo");
-        assert_eq!(mode_for(AgentKind::Gemini, Tier::Workspace), "autoEdit");
-        assert_eq!(mode_for(AgentKind::Gemini, Tier::ReadOnly), "default");
-        assert_eq!(mode_for(AgentKind::Codebuddy, Tier::Workspace), "acceptEdits");
+        assert_eq!(mode_for(AgentKind::Codex, Tier::Workspace), Some("workspace-write"));
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Full), Some("yolo"));
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::Workspace), Some("autoEdit"));
+        assert_eq!(mode_for(AgentKind::Gemini, Tier::ReadOnly), Some("default"));
+        assert_eq!(mode_for(AgentKind::Codebuddy, Tier::Workspace), Some("acceptEdits"));
+        assert_eq!(mode_for(AgentKind::Pi, Tier::Full), None);
+        assert_eq!(mode_for(AgentKind::Deepseek, Tier::ReadOnly), None);
     }
 
     #[test]

@@ -1,4 +1,5 @@
-//! Agents that speak ACP themselves (Gemini CLI, CodeBuddy) against the mock agent acting like them.
+//! Agents that speak ACP themselves (Gemini CLI, CodeBuddy, DeepSeek Harness) and pi (through pi-acp with gonggong's
+//! extension) against the mock agent acting like them.
 #[path = "../support/provider_rig.rs"]
 mod provider_rig;
 
@@ -106,5 +107,56 @@ async fn codebuddy_gets_the_instructions_and_plugins_with_its_process_and_the_ke
     assert_eq!(c["baseUrl"], Value::Null, "CodeBuddy's own service: no model gateway");
     assert!(c["mcpTimeout"].as_str().unwrap().parse::<u64>().unwrap() > 24 * 3600 * 1000);
     assert_eq!(e["mode"], "bypassPermissions");
+    assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
+}
+
+#[tokio::test]
+async fn pi_gets_the_extension_the_instructions_and_the_mcp_servers_through_its_env() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("p1", AgentKind::Pi));
+    let e = echo(&r.finish("p1").await);
+    let pi = &e["pi"];
+    assert_eq!(pi["command"], r.home().join("pi/pi-gonggong").to_str().unwrap());
+    assert_eq!(pi["extension"], r.home().join("pi/gonggong.ts").to_str().unwrap());
+    assert!(r.home().join("pi/gonggong.ts").is_file());
+    let prompt = pi["systemPrompt"].as_str().unwrap();
+    assert!(prompt.contains("小王") && prompt.contains("只改 server/"), "{prompt}");
+    let gonggong = &pi["mcp"]["gonggong"];
+    assert!(gonggong["url"].as_str().unwrap().starts_with("http://127.0.0.1:"));
+    assert_eq!(gonggong["exposure"], "direct");
+    assert_eq!(e["mode"], "medium", "pi's modes are thought levels: the tier picks none");
+}
+
+#[tokio::test]
+async fn the_pi_extensions_confirm_is_judged_as_the_tool_call_it_is_about() {
+    let mut r = rig(Duration::from_secs(60));
+    // `finish` would time out on an approval request: both are answered without the owner.
+    let pi = |run_id: &str, text: &str| {
+        let mut s = start(run_id, AgentKind::Pi);
+        s.prompt.text = text.into();
+        s
+    };
+    r.run(pi("p1", "mock:exec rg -n TODO ."));
+    let done = r.finish("p1").await;
+    assert_eq!(done.reply, "ran");
+    r.run(RunStart { resume_session_id: done.session_id.clone(), ..pi("p2", "mock:tool list_messages {}") });
+    assert_ne!(r.finish("p2").await.reply, "ask denied");
+}
+
+#[tokio::test]
+async fn deepseek_runs_the_acp_profile_with_the_instructions_patched_in_and_the_key_in_its_env() {
+    let mut r = rig(Duration::from_secs(60));
+    r.add(AgentKind::Deepseek, "deepseek", true);
+    let mut s = start("d1", AgentKind::Deepseek);
+    s.bot.tier = Tier::ReadOnly;
+    r.run(s);
+    let e = echo(&r.finish("d1").await);
+    let d = &e["deepseek"];
+    assert_eq!((d["profile"].as_str(), d["permissionMode"].as_str()), (Some("acp"), Some("read-only")));
+    assert_eq!((d["apiKey"].as_str(), d["baseUrl"].as_str()), (Some(KEY), Some("https://api.deepseek.com/anthropic")));
+    assert_eq!(d["patch"][0]["id"], "system-prompt");
+    let persona = d["patch"][0]["config"]["personaPrefix"].as_str().unwrap();
+    assert!(persona.starts_with("You are a coding agent powered by the {{model}} model.\n\n"), "{persona}");
+    assert!(persona.contains("小王") && persona.contains("只改 server/"), "{persona}");
     assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
 }

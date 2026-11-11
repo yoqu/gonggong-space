@@ -39,6 +39,24 @@
       "managed": true,
       "path": "/Users/wl/.gonggong/tools/bin/gemini",
       "upgradeCommand": null
+    },
+    {
+      "kind": "pi",
+      "installed": true,
+      "version": "1.5.2",
+      "latest": "1.5.2",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/pi",
+      "upgradeCommand": null
+    },
+    {
+      "kind": "deepseek",
+      "installed": false,
+      "version": null,
+      "latest": "0.2.2-rc.1",
+      "managed": false,
+      "path": null,
+      "upgradeCommand": null
     }
   ],
   "settings": {

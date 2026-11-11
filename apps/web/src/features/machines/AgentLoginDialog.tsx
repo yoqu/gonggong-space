@@ -14,6 +14,11 @@ const LOGIN: Record<AgentKind, { command: string; next: string }> = {
     next: t('进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）'),
   },
   codebuddy: { command: 'codebuddy', next: t('进入后输入 /login，用微信、Google/GitHub 或企业账号登录') },
+  pi: { command: 'pi', next: t('进入后输入 /login，选择供应商登录或填写 API Key') },
+  deepseek: {
+    command: 'dsh web',
+    next: t('在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）'),
+  },
 }
 
 /** The official login happens in the agent's own CLI on the machine: through a machine terminal from here. */

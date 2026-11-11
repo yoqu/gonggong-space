@@ -36,6 +36,7 @@ pub mod mcp_call;
 pub mod net;
 pub mod open_apps;
 pub mod permission;
+pub mod pi;
 pub mod plugins;
 pub mod previews;
 pub mod proc;

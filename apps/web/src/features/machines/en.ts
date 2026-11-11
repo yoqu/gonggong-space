@@ -175,8 +175,15 @@ export default {
   '由 {agent} 决定，供应商需提供这种接口': 'Set by {agent}; the provider has to offer this API',
   '进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）':
     'Inside it, type /auth, pick Gemini API Key and paste the key (personal Google account login is no longer supported)',
-  '运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）':
-    'Runs the ACP adapters, Gemini CLI and CodeBuddy, and the managed installs of the agent tools (requires ≥ {min})',
+  '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
+    'Runs the ACP adapters and the agents that need none (Gemini CLI, CodeBuddy…), and the managed installs of the agent tools (requires ≥ {min})',
+  'pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key':
+    'pi uses its own login: run pi on the machine and type /login to sign in or enter an API key',
+  '进入后输入 /login，选择供应商登录或填写 API Key':
+    'Inside it, type /login and sign in with a provider or enter an API key',
+  '在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）':
+    'Enter the DeepSeek API key under Models in the page it opens (or set DEEPSEEK_API_KEY in the machine environment)',
+  '深度求索 · 需要 Node.js ≥ 24.9': 'DeepSeek · needs Node.js ≥ 24.9',
   '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
   官方源: 'Official registry',
   来源: 'Source',

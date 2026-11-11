@@ -101,7 +101,7 @@ pub fn agents(list: &[AgentInfo]) -> Check {
         return check(
             CheckKind::Agent,
             Status::Error,
-            t!("未检测到可用的 Agent（Claude Code、Codex、Gemini CLI 或 CodeBuddy）"),
+            t!("未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness）"),
         );
     }
     let old: Vec<String> = installed
@@ -111,10 +111,10 @@ pub fn agents(list: &[AgentInfo]) -> Check {
             crate::upgrade::is_newer(min, v).then(|| t!("{agent} {v} 低于 {min}", agent = name(a), v = v, min = min))
         })
         .collect();
-    // Gemini CLI and CodeBuddy came later and few use them: not having them is no warning.
+    // The agents that came later are used by few: not having them is no warning.
     let missing: Vec<String> = list
         .iter()
-        .filter(|a| !a.available && !matches!(a.kind, AgentKind::Gemini | AgentKind::Codebuddy))
+        .filter(|a| !a.available && matches!(a.kind, AgentKind::Claude | AgentKind::Codex))
         .map(|a| t!("{tool} 未安装", tool = name(a)))
         .collect();
     let ok: Vec<String> = installed

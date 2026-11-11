@@ -109,6 +109,8 @@ pub fn agent_label(kind: AgentKind) -> &'static str {
         AgentKind::Codex => "Codex",
         AgentKind::Gemini => "Gemini CLI",
         AgentKind::Codebuddy => "CodeBuddy（WorkBuddy）",
+        AgentKind::Pi => "pi",
+        AgentKind::Deepseek => "DeepSeek Harness",
     }
 }
 

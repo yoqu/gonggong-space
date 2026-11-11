@@ -20,14 +20,19 @@ const MIN_NODE = 22
 export const TOOL_INFO: Record<ToolKind, { name: string; sub: string }> = {
   node: {
     name: 'Node.js',
-    sub: t('运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）', {
-      min: MIN_NODE,
-    }),
+    sub: t(
+      '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）',
+      {
+        min: MIN_NODE,
+      },
+    ),
   },
   claude: { name: 'Claude Code', sub: 'Anthropic' },
   codex: { name: 'Codex', sub: 'OpenAI' },
   gemini: { name: 'Gemini CLI', sub: 'Google' },
   codebuddy: { name: 'CodeBuddy（WorkBuddy）', sub: t('腾讯') },
+  pi: { name: 'pi', sub: 'Earendil' },
+  deepseek: { name: 'DeepSeek Harness', sub: t('深度求索 · 需要 Node.js ≥ 24.9') },
 }
 const tooOld = (t: ToolStatus) =>
   t.kind === 'node' && t.installed && !!t.version && compareVersions(t.version, `${MIN_NODE}.0.0`) < 0

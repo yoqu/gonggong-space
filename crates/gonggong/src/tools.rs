@@ -32,11 +32,20 @@ pub enum ToolKind {
     Codex,
     Gemini,
     Codebuddy,
+    Pi,
+    Deepseek,
 }
 
 impl ToolKind {
-    pub const ALL: [ToolKind; 5] =
-        [ToolKind::Node, ToolKind::Claude, ToolKind::Codex, ToolKind::Gemini, ToolKind::Codebuddy];
+    pub const ALL: [ToolKind; 7] = [
+        ToolKind::Node,
+        ToolKind::Claude,
+        ToolKind::Codex,
+        ToolKind::Gemini,
+        ToolKind::Codebuddy,
+        ToolKind::Pi,
+        ToolKind::Deepseek,
+    ];
 
     pub fn agent(self) -> Option<AgentKind> {
         match self {
@@ -45,6 +54,8 @@ impl ToolKind {
             ToolKind::Codex => Some(AgentKind::Codex),
             ToolKind::Gemini => Some(AgentKind::Gemini),
             ToolKind::Codebuddy => Some(AgentKind::Codebuddy),
+            ToolKind::Pi => Some(AgentKind::Pi),
+            ToolKind::Deepseek => Some(AgentKind::Deepseek),
         }
     }
 
@@ -59,6 +70,8 @@ impl ToolKind {
             ToolKind::Codex => Some("@openai/codex"),
             ToolKind::Gemini => Some("@google/gemini-cli"),
             ToolKind::Codebuddy => Some("@tencent-ai/codebuddy-code"),
+            ToolKind::Pi => Some("@earendil-works/pi-coding-agent"),
+            ToolKind::Deepseek => Some("@deepseek-ai/dsh"),
         }
     }
 
@@ -70,6 +83,8 @@ impl ToolKind {
             ToolKind::Codex => "codex",
             ToolKind::Gemini => "gemini-cli",
             ToolKind::Codebuddy => "codebuddy-code",
+            ToolKind::Pi => "pi-coding-agent",
+            ToolKind::Deepseek => "dsh",
         }
     }
 }
@@ -749,6 +764,8 @@ pub fn agent_status(home: &Path, info: &AgentInfo) -> ToolStatus {
         AgentKind::Codex => ToolKind::Codex,
         AgentKind::Gemini => ToolKind::Gemini,
         AgentKind::Codebuddy => ToolKind::Codebuddy,
+        AgentKind::Pi => ToolKind::Pi,
+        AgentKind::Deepseek => ToolKind::Deepseek,
     };
     let path = info.path.as_deref().filter(|_| info.available);
     let managed = path.is_some_and(|p| is_managed(home, Path::new(p)));

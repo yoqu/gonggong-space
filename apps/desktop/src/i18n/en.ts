@@ -68,8 +68,10 @@ export const en = {
   未安装: 'Not installed',
   '版本过低 {version}': 'Outdated {version}',
   '已安装 {version}': 'Installed {version}',
-  '运行 ACP 适配器、Gemini CLI 与 CodeBuddy，托管安装 Agent 工具也用它（需 ≥ {min}）':
-    'Runs the ACP adapters, Gemini CLI and CodeBuddy, and the managed installs of the agent tools (requires ≥ {min})',
+  '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
+    'Runs the ACP adapters and the agents that need none (Gemini CLI, CodeBuddy…), and the managed installs of the agent tools (requires ≥ {min})',
+  'pi 使用它自己的登录：在本机运行 pi，输入 /login 登录或填写 API Key':
+    'pi uses its own login: run pi on this computer and type /login to sign in or enter an API key',
   路径: 'Path',
   '系统的 Node.js {version} 低于 {min}，ACP 适配器无法运行，请安装共工空间托管版（不影响系统的 Node.js）。':
     'The system Node.js {version} is below {min}, so the ACP adapters cannot run. Install the Gonggong-managed version (the system Node.js is left untouched).',

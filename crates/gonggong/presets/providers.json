@@ -1070,6 +1070,16 @@
       "apiKeyUrl": "https://www.codebuddy.ai/profile/keys",
       "baseUrl": "https://www.codebuddy.ai",
       "modelOptions": []
+    },
+    {
+      "id": "deepseek",
+      "agent": "deepseek",
+      "name": "DeepSeek",
+      "group": "cn",
+      "websiteUrl": "https://platform.deepseek.com",
+      "apiKeyUrl": "https://platform.deepseek.com/api_keys",
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "modelOptions": []
     }
   ]
 }

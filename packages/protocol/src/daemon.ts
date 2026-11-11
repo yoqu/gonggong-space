@@ -1291,10 +1291,14 @@ export const DaemonFeature = z.enum([
   'approvalGates',
   /** 帮我审批 hands approvals to the agent's own reviewer (Claude auto, Codex agent on an official login) where it works. */
   'builtinReview',
+  /** Runs pi bots: a daemon without it cannot read a run.start for one. */
+  'pi',
+  /** Runs DeepSeek Harness bots: a daemon without it cannot read a run.start for one. */
+  'deepseek',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
-export const ToolKind = z.enum(['node', 'claude', 'codex', 'gemini', 'codebuddy'])
+export const ToolKind = z.enum(['node', 'claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek'])
 export type ToolKind = z.infer<typeof ToolKind>
 export const ToolStatus = z.object({
   kind: ToolKind,

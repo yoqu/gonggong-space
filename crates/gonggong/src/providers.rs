@@ -845,6 +845,8 @@ fn agent_name(agent: AgentKind) -> &'static str {
         AgentKind::Codex => "codex",
         AgentKind::Gemini => "gemini",
         AgentKind::Codebuddy => "codebuddy",
+        AgentKind::Pi => "pi",
+        AgentKind::Deepseek => "deepseek",
     }
 }
 
@@ -864,7 +866,7 @@ fn slug(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use AgentKind::{Claude, Codebuddy, Codex, Gemini};
+    use AgentKind::{Claude, Codebuddy, Codex, Deepseek, Gemini, Pi};
 
     const KEY: &str = "sk-secret-0123456789abcd";
 
@@ -916,7 +918,9 @@ mod tests {
         assert!(preset(Gemini, "openrouter").unwrap().model_options.iter().all(|m| m.contains("gemini")));
         let codebuddy: Vec<_> = presets(Some(Codebuddy)).collect();
         assert_eq!(preset(Codebuddy, "codebuddy-cn").unwrap().env["CODEBUDDY_INTERNET_ENVIRONMENT"], "internal");
-        assert_eq!(presets(None).count(), claude.len() + codex.len() + gemini.len() + codebuddy.len());
+        assert_eq!(preset(Deepseek, "deepseek").unwrap().base_url, "https://api.deepseek.com/anthropic");
+        assert_eq!(presets(Some(Pi)).count(), 0, "pi keeps its own logins");
+        assert_eq!(presets(None).count(), claude.len() + codex.len() + gemini.len() + codebuddy.len() + 1);
         let zhipu = preset(Codex, "zhipu").unwrap();
         assert_eq!(zhipu.name, "智谱 GLM");
         assert!(zhipu.model_options.contains(&"glm-5.3".to_string()));

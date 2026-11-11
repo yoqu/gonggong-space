@@ -12,22 +12,28 @@ import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
-export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy']
+export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek']
 export const AGENT_LABEL: Record<AgentKind, string> = {
   claude: 'Claude Code',
   codex: 'Codex',
   gemini: 'Gemini CLI',
   codebuddy: 'CodeBuddy（WorkBuddy）',
+  pi: 'pi',
+  deepseek: 'DeepSeek Harness',
 }
 const AGENT_CLI: Record<AgentKind, string> = {
   claude: 'claude-code',
   codex: 'codex',
   gemini: 'gemini-cli',
   codebuddy: 'codebuddy-code',
+  pi: 'pi',
+  deepseek: 'dsh',
 }
 /** Agents added later: a machine's client from before one never offers it, and not having one is unremarkable. */
-const LATER: AgentKind[] = ['gemini', 'codebuddy']
+const LATER: AgentKind[] = ['gemini', 'codebuddy', 'pi', 'deepseek']
 export const isLaterAgent = (k: AgentKind) => LATER.includes(k)
+/** pi keeps its own logins and keys: 共工 injects no provider into it. */
+export const takesProviders = (k: AgentKind) => k !== 'pi'
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
   bound: t('已绑定'),

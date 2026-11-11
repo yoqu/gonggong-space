@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export { compareVersions } from './version.js'
 
-export const AgentKind = z.enum(['claude', 'codex', 'gemini', 'codebuddy'])
+export const AgentKind = z.enum(['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek'])
 export type AgentKind = z.infer<typeof AgentKind>
 
 export const Tier = z.enum(['full', 'workspace', 'read-only'])

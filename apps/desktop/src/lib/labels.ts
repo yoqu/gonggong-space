@@ -8,6 +8,8 @@ export const AGENTS: Record<AgentKind, { name: string }> = {
   codex: { name: 'Codex' },
   gemini: { name: 'Gemini CLI' },
   codebuddy: { name: 'CodeBuddy（WorkBuddy）' },
+  pi: { name: 'pi' },
+  deepseek: { name: 'DeepSeek Harness' },
 }
 
 export type ConnKind = 'ok' | 'connecting' | 'offline' | 'proto' | 'revoked' | 'blocked' | 'unbound'
@@ -79,6 +81,8 @@ export const VENDOR: Record<AgentKind, string> = {
   codex: 'OpenAI · CLI',
   gemini: 'Google · CLI',
   codebuddy: 'Tencent · CLI',
+  pi: 'Earendil · CLI',
+  deepseek: 'DeepSeek · CLI',
 }
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */

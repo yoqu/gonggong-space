@@ -188,8 +188,8 @@ pub async fn ask(
             cx.send_request(init).block_task().await?;
             let res = cx.send_request(NewSessionRequest::new(&cwd).meta(meta)).block_task().await?;
             let session = res.session_id;
-            let mode = mode_for(kind, Tier::ReadOnly);
-            if let Some(modes) = &res.modes
+            if let Some(mode) = mode_for(kind, Tier::ReadOnly)
+                && let Some(modes) = &res.modes
                 && *modes.current_mode_id.0 != *mode
                 && modes.available_modes.iter().any(|m| *m.id.0 == *mode)
             {
