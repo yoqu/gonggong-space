@@ -414,7 +414,6 @@ const THREADS_PER_TURN = 3
 async function threadCreate(ctx: Ctx, s: Scope, a: Args<'thread_create'>): Promise<ToolOutput> {
   const { run } = s
   const group = s.pick()
-  if (group.kind !== 'group') refuse('只能在群聊里开话题')
   const max = (await groupParams(ctx, group)).chainMaxHops
   if (run.hop >= max) refuse(`接力已达上限（${max} 跳），不能再开话题；请在回复里说明，由群成员决定`)
   if (run.handoffs.filter((h) => h.threadRootId).length >= THREADS_PER_TURN)
@@ -423,7 +422,7 @@ async function threadCreate(ctx: Ctx, s: Scope, a: Args<'thread_create'>): Promi
   const name = a.bot.trim().replace(/^@/, '')
   const bot =
     members.find((b) => b.name === name) ??
-    refuse(`本群没有叫「${name}」的 Bot，可选的有：${members.map((b) => b.name).join('、')}`)
+    refuse(`这里没有叫「${name}」的 Bot，可选的有：${members.map((b) => b.name).join('、')}`)
   const task = a.task.trim()
   const root = await postMessage(ctx, {
     groupId: group.id,

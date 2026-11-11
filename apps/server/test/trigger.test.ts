@@ -314,7 +314,7 @@ describe('relay chain', () => {
     expect(relay).toMatchObject({ threadRootId: root!.id, authorBotId: w.a.id })
   })
 
-  it('lets a bot open threads for itself, at most 3 a turn and never in a DM', async () => {
+  it('lets a bot open threads for itself, at most 3 a turn, in a DM too', async () => {
     const w = await world()
     const d = await daemon(w.token)
     await w.say(w.bob.id, '@接力 A', [w.a.id])
@@ -348,10 +348,25 @@ describe('relay chain', () => {
       .returning()
     await triggerRuns(t.ctx, m!)
     const inDm = await d.next()
-    expect(await d.threadCreate(inDm.runId, '接力 A')).toMatchObject({
-      isError: true,
-      text: '只能在群聊里开话题',
-    })
+    expect(await d.threadCreate(inDm.runId, '接力 A', '私聊话题', '接着做')).toMatchObject({ isError: false })
+    const [root] = await t.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.groupId, dm.id), eq(messages.body, '私聊话题')))
+    expect(
+      await t.db
+        .select()
+        .from(threadFollows)
+        .where(and(eq(threadFollows.rootMessageId, root!.id), eq(threadFollows.userId, w.owner.id))),
+    ).toHaveLength(1)
+    d.done(inDm.runId, '好了')
+    const hop = await d.next()
+    expect(hop.bot.id).toBe(w.a.id)
+    const dmRuns = await until(
+      () => t.db.select().from(runs).where(eq(runs.groupId, dm.id)),
+      (r) => r.length === 2,
+    )
+    expect(dmRuns.find((r) => r.hop === 2)).toMatchObject({ threadRootId: root!.id })
   })
 
   it('authorizes every hop against the chain initiator', async () => {

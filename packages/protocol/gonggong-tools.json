@@ -386,7 +386,7 @@
   {
     "name": "thread_create",
     "title": "开话题",
-    "description": "Open a thread in this group for a bot to work in: posts title now as its opening message; after this turn the bot starts on task inside it. For long or parallel work kept apart from the main chat; at most 3 a turn, groups only.",
+    "description": "Open a thread here (group or DM) for a bot to work in: posts title now as its opening message; after this turn the bot starts on task inside it. For long or parallel work kept apart from the main chat; at most 3 a turn.",
     "inputSchema": {
       "type": "object",
       "properties": {

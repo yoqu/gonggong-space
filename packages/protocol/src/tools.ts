@@ -530,8 +530,8 @@ export const GONGGONG_TOOLS = {
   thread_create: {
     title: GONGGONG_TOOL_TITLES.thread_create,
     description:
-      'Open a thread in this group for a bot to work in: posts title now as its opening message; after this turn the bot ' +
-      'starts on task inside it. For long or parallel work kept apart from the main chat; at most 3 a turn, groups only.',
+      'Open a thread here (group or DM) for a bot to work in: posts title now as its opening message; after this turn the bot ' +
+      'starts on task inside it. For long or parallel work kept apart from the main chat; at most 3 a turn.',
     input: ThreadCreateArgs,
   },
   schedule_create: {
