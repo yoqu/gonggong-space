@@ -10,12 +10,13 @@ use crate::gemini;
 use crate::git;
 use crate::hosted::Scope;
 use crate::inject;
+use crate::ledger::Ledger;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
     AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalReason, ApprovalRequest, Attachment,
-    AutoSource, Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome, RunStart,
-    RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
+    AutoSource, CacheUsage, Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome,
+    RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -325,6 +326,8 @@ struct State {
     reviewer: Option<Reviewer>,
     /// The latest `current_mode_update`: an adapter reports the mode it fell back to (Claude `auto` → `acceptEdits`).
     mode_update: Option<String>,
+    /// What each ACP session's context is made of, as far as we saw it.
+    ledgers: HashMap<String, Ledger>,
 }
 
 /// How to start an AI pre-review (`review::ask`): the bot's adapter and, for Claude, the session `_meta` keeping its
@@ -704,6 +707,26 @@ impl Shared {
     /// A new agent session starts: what the owner allowed for the session ends with the old one.
     fn new_session(&self) {
         self.0.lock().unwrap().always.clear();
+    }
+
+    /// A prompt sent in `session`; `fresh`: the session was just opened, so we see all of it.
+    fn record_prompt(&self, session: &SessionId, text: &str, new_turn: bool, fresh: bool) {
+        let mut s = self.0.lock().unwrap();
+        let key = session.0.to_string();
+        if fresh {
+            s.ledgers.insert(key.clone(), Ledger::default());
+        }
+        s.ledgers.entry(key).or_insert_with(Ledger::resumed).prompt(text, new_turn);
+    }
+
+    /// Sends the context's estimated make-up at the end of the active turn, if its agent reported an occupancy.
+    fn report_context(&self, session: &SessionId, cache: Option<CacheUsage>) {
+        let s = self.0.lock().unwrap();
+        let (Some(a), Some(l)) = (s.active.as_ref(), s.ledgers.get(&*session.0)) else { return };
+        let Some((context, breakdown)) = l.snapshot(cache) else { return };
+        let usage = a.turn.usage.clone().unwrap_or_default();
+        let event = RunEvent::Usage { usage, context: Some(context), breakdown: Some(breakdown) };
+        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
     }
 
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued. None: a continuation
@@ -1094,7 +1117,17 @@ impl Shared {
         if changes_steering(&n.update, &a.cwd) {
             a.rules.tampered = true;
         }
+        let mut ledger = match a.turn.agent_of(&n.session_id.0) {
+            None => Some(s.ledgers.entry(n.session_id.0.to_string()).or_insert_with(Ledger::resumed)),
+            Some(_) => None,
+        };
+        if let Some(l) = ledger.as_deref_mut() {
+            l.observe(&n.update);
+        }
         if let Some(event) = a.turn.apply(&n.session_id.0, n.update) {
+            if let (Some(l), RunEvent::Usage { context: Some(c), .. }) = (ledger, &event) {
+                l.context(*c);
+            }
             a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
         }
         if let Some(review) = review {
@@ -1501,14 +1534,26 @@ fn describe(e: &agent_client_protocol::Error) -> String {
 
 /// Token usage of a turn spanning several prompts (打断并追加).
 fn add_usage(a: Option<AcpUsage>, b: Option<AcpUsage>) -> Option<AcpUsage> {
+    let sum = |x: Option<u64>, y: Option<u64>| x.zip(y).map(|(x, y)| x + y).or(x).or(y);
     match (a, b) {
-        (Some(a), Some(b)) => Some(AcpUsage::new(
-            a.total_tokens + b.total_tokens,
-            a.input_tokens + b.input_tokens,
-            a.output_tokens + b.output_tokens,
-        )),
+        (Some(a), Some(b)) => Some(
+            AcpUsage::new(
+                a.total_tokens + b.total_tokens,
+                a.input_tokens + b.input_tokens,
+                a.output_tokens + b.output_tokens,
+            )
+            .cached_read_tokens(sum(a.cached_read_tokens, b.cached_read_tokens))
+            .cached_write_tokens(sum(a.cached_write_tokens, b.cached_write_tokens)),
+        ),
         (a, b) => a.or(b),
     }
+}
+
+/// The prompt cache of a turn, when the agent reports it (Claude: `inputTokens` leaves the cached ones out).
+fn cache_of(u: &AcpUsage) -> Option<CacheUsage> {
+    let read = u.cached_read_tokens?;
+    let total = u.input_tokens + read + u.cached_write_tokens.unwrap_or(0);
+    (total > 0).then_some(CacheUsage { read, total })
 }
 
 fn truncate(s: &str) -> String {
@@ -2037,6 +2082,7 @@ impl Conversation<'_> {
             }
         });
         let image = self.init.agent_capabilities.prompt_capabilities.image;
+        self.shared.record_prompt(&session, &text, true, reason.is_some());
         let mut blocks = attachments::prompt_blocks(&req.cwd, text, &s.prompt.attachments, image).await;
         let mut spent: Option<AcpUsage> = None;
         // 打断并追加 cancels a prompt and continues the same turn with the appended text (spec §8.9).
@@ -2057,6 +2103,7 @@ impl Conversation<'_> {
             });
             match self.shared.take_append() {
                 Some((text, files)) if result.is_ok() => {
+                    self.shared.record_prompt(&session, &text, false, false);
                     blocks = attachments::prompt_blocks(&req.cwd, text, &files, image).await;
                 }
                 _ => break result,
@@ -2067,6 +2114,7 @@ impl Conversation<'_> {
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) => Err(e),
             result => {
                 let error = result.as_ref().err().cloned();
+                self.shared.report_context(&session, result.as_ref().ok().and_then(|r| cache_of(r.usage.as_ref()?)));
                 self.shared.post_turn(self.shared.ending(result.as_ref().map_err(drop))).await;
                 self.shared.finish(result.map_err(|e| describe(&e)), Some(&session), reason.as_deref());
                 // A failed prompt may mean a broken adapter: restart it for the next turn.

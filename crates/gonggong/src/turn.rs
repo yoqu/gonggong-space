@@ -453,7 +453,7 @@ impl Turn {
                 self.usage = Some(usage.clone());
                 let (compact_at, block_at) = self.compact.map_or((None, None), |p| p.point(u.size));
                 let context = ContextUsage { used: u.used, size: u.size, compact_at, block_at };
-                Some(RunEvent::Usage { usage, context: Some(context) })
+                Some(RunEvent::Usage { usage, context: Some(context), breakdown: None })
             }
             SessionUpdate::CompactionSummaryChunk(c) if agent_id.is_none() => {
                 if let Some(t) = text(c.content) {

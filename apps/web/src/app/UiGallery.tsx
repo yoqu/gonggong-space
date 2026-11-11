@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import { ContextWindow } from '../features/runs/ContextWindow'
 import {
   Alert,
   Avatar,
@@ -249,6 +250,24 @@ export default function UiGallery() {
             { label: '校验失败', status: 'error' },
           ]}
         />
+      </Section>
+
+      <Section title="CONTEXT WINDOW">
+        <div style={{ width: 640 }}>
+          <ContextWindow
+            context={{ used: 105_000, size: 272_000 }}
+            breakdown={{
+              tools: [
+                { name: 'Bash', kind: 'execute', count: 11, tokens: 49_800 },
+                { name: 'list_messages', kind: 'other', count: 6, tokens: 1_300 },
+                { kind: 'read', count: 4, tokens: 900 },
+                { kind: 'search', count: 2, tokens: 317 },
+              ],
+              turns: [35_600, 2_400],
+              cache: { read: 104_000, total: 104_897 },
+            }}
+          />
+        </div>
       </Section>
 
       <Section title="AVATAR · CLOSE · EMPTY">

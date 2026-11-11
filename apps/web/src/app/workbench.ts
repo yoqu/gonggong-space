@@ -12,7 +12,7 @@ export type WorkbenchTab =
   | { kind: 'web'; previewId: string; path: string }
   | { kind: 'miniprogram'; previewId: string }
   | { kind: 'live'; previewId: string }
-  | { kind: 'run'; runId: string; view: 'process' | 'diff' | 'audit'; file: string | null }
+  | { kind: 'run'; runId: string; view: 'process' | 'diff' | 'context' | 'audit'; file: string | null }
   | { kind: 'diff'; botId: string; scope: DiffScope; file: string | null; repo?: string | null }
   | {
       kind: 'files'

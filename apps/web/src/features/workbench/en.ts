@@ -157,4 +157,5 @@ export default {
     'The terminal appears as a conversation on the left that only you can open; its shell ends after 24 idle hours and opening it again starts a new one.',
   '没有可用的机器：需要你的一台在线的 macOS 或 Linux 机器，且客户端已升级到最新版本。':
     'No machine available: you need one of your machines online, on macOS or Linux, with the latest client.',
+  '这次运行的 Agent 没有上报上下文用量': 'The agent did not report context usage for this run',
 } satisfies Record<string, string>

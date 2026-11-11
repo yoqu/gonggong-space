@@ -28,6 +28,7 @@ pub mod i18n;
 pub mod inject;
 pub mod janitor;
 pub mod layout;
+pub mod ledger;
 pub mod local;
 pub mod lock;
 pub mod logs;

@@ -1,0 +1,18 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "usage",
+    "usage": { "costUsd": 0.12 },
+    "context": { "used": 105000, "size": 272000 },
+    "breakdown": {
+      "tools": [
+        { "name": "Bash", "kind": "execute", "count": 11, "tokens": 49800 },
+        { "kind": "read", "count": 3, "tokens": 2400 }
+      ],
+      "turns": [35600, 1200],
+      "partial": true,
+      "cache": { "read": 104000, "total": 104897 }
+    }
+  }
+}

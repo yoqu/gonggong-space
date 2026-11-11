@@ -93,6 +93,42 @@ pub struct Usage {
 }
 
 /// Context window occupancy of an ACP session (usage_update).
+/// Estimated make-up of a session's context at the end of a run, from what the daemon saw of it (tokens guessed
+/// from text length). The rest of `ContextUsage::used` is the agent's own (system prompt, tool definitions, ...).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextBreakdown {
+    /// Tool calls (arguments and results) by tool, largest first.
+    pub tools: Vec<ToolTokens>,
+    /// Prompts and replies of each turn, oldest first.
+    pub turns: Vec<u64>,
+    /// Earlier parts were not seen (session resumed by a restarted daemon, or the agent compacted or cleared some).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub partial: bool,
+    /// Prompt cache of the run's last prompt, as reported by the agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache: Option<CacheUsage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolTokens {
+    /// The agent's tool name when known (Claude, MCP tools); else only `kind` tells it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// ACP ToolKind.
+    pub kind: String,
+    pub count: u32,
+    pub tokens: u64,
+}
+
+/// `read` of `total` input tokens came from the prompt cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CacheUsage {
+    pub read: u64,
+    pub total: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextUsage {
@@ -1436,6 +1472,9 @@ pub enum RunEvent {
         usage: Usage,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context: Option<ContextUsage>,
+        /// Sent once at the end of a run, with its last `context`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        breakdown: Option<ContextBreakdown>,
     },
     /// A context compaction, sent when it starts and when it ends.
     #[serde(rename_all = "camelCase")]

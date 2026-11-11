@@ -240,6 +240,16 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
         Some(&RunEvent::Status { status: RunStatus::Running, step: "已批准：Write hello.txt".into() })
     );
     assert!(events.iter().any(|e| matches!(e, RunEvent::Usage { .. })));
+    // The run's last usage event estimates what the context is made of.
+    let Some(RunEvent::Usage { context: Some(context), breakdown: Some(b), .. }) =
+        events.iter().rev().find(|e| matches!(e, RunEvent::Usage { .. }))
+    else {
+        panic!("no breakdown in {events:?}")
+    };
+    assert_eq!(context.used, 1200);
+    assert_eq!(b.turns.len(), 1);
+    assert!(b.turns[0] > 0 && !b.partial);
+    assert!(b.tools.iter().any(|t| t.kind == "edit" && t.count == 1), "{b:?}");
     assert_eq!(done.outcome, RunOutcome::Completed);
     assert_eq!(done.reply, "已写入 hello.txt。");
     assert_eq!(done.files_changed, 1);

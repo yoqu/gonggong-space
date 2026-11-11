@@ -561,6 +561,7 @@ mod tests {
         let usage = |used| RunEvent::Usage {
             usage: Default::default(),
             context: Some(ContextUsage { used, size: 200_000, compact_at: Some(167_000), block_at: None }),
+            breakdown: None,
         };
         let ctx = |used| Some(ContextUsage { used, size: 200_000, compact_at: Some(167_000), block_at: None });
         assert_eq!(m.context("g1", "b1"), None);
@@ -576,7 +577,7 @@ mod tests {
         rx.mark_unchanged();
         m.outbound(&event("r1", usage(50_000)));
         assert!(!rx.has_changed().unwrap(), "the same occupancy does not notify");
-        m.outbound(&event("r1", RunEvent::Usage { usage: Default::default(), context: None }));
+        m.outbound(&event("r1", RunEvent::Usage { usage: Default::default(), context: None, breakdown: None }));
         m.outbound(&failed("r1", "x".into()));
         assert_eq!(m.context("g1", "b1"), ctx(50_000), "kept after the run ends");
         assert_eq!(m.context("g2", "b1"), None);

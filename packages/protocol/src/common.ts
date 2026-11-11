@@ -59,6 +59,28 @@ export const ContextUsage = z.object({
 })
 export type ContextUsage = z.infer<typeof ContextUsage>
 
+/**
+ * Estimated make-up of a session's context at the end of a run (daemon's guess from text length): tool calls by
+ * tool, each turn's prompts and replies, oldest first. The rest of `ContextUsage.used` is the agent's own (system
+ * prompt, tool definitions…). `partial`: earlier parts were not seen (resumed after a daemon restart, or the agent
+ * compacted or cleared some). `cache`: `read` of the last prompt's `total` input tokens came from the prompt cache.
+ */
+export const ContextBreakdown = z.object({
+  tools: z.array(
+    z.object({
+      /** The agent's tool name when known; else only the ACP ToolKind tells it. */
+      name: z.string().optional(),
+      kind: z.string(),
+      count: z.number().int(),
+      tokens: z.number().int(),
+    }),
+  ),
+  turns: z.array(z.number().int()),
+  partial: z.boolean().optional(),
+  cache: z.object({ read: z.number().int(), total: z.number().int() }).optional(),
+})
+export type ContextBreakdown = z.infer<typeof ContextBreakdown>
+
 /** Where a repo sits in a workspace: the root itself, a git submodule, or an independent repo found below a non-git root. */
 /** `extra`: an additional directory of the session (its repo's `path` is the directory's absolute path). */
 export const RepoKind = z.enum(['root', 'submodule', 'nested', 'extra'])

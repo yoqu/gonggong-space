@@ -12,6 +12,7 @@ import {
   Answer,
   Approval,
   Attachment,
+  ContextBreakdown,
   ContextUsage,
   DevtoolsBlocker,
   DiffRepo,
@@ -368,7 +369,13 @@ export const RunEvent = z.discriminatedUnion('kind', [
       .optional(),
   }),
   /** `usage` carries what the run spent (cost so far); `context` is occupancy, never folded into `usage`. */
-  z.object({ kind: z.literal('usage'), usage: Usage, context: ContextUsage.optional() }),
+  /** `breakdown` comes once, at the end of a run, with its last `context`. */
+  z.object({
+    kind: z.literal('usage'),
+    usage: Usage,
+    context: ContextUsage.optional(),
+    breakdown: ContextBreakdown.optional(),
+  }),
   /**
    * A context compaction (ACP compaction_update), sent when it starts and again when it ends. Tokens before and
    * after and the trigger come with the end; `summary` (clipped, redacted server-side) is what the agent kept.

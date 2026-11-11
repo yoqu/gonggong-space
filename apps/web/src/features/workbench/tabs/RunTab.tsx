@@ -47,6 +47,7 @@ import { OFFICIAL_NAME } from '../../machines/providers'
 import { ActivityDock } from '../../runs/ActivityDock'
 import { ApprovalCard } from '../../runs/ApprovalBlock'
 import { processMarkdown, processText } from '../../runs/activity'
+import { ContextWindow, lastContext } from '../../runs/ContextWindow'
 import { IssueBanner } from '../../runs/IssueBanner'
 import { runIssue } from '../../runs/issue'
 import { ProcessView } from '../../runs/ProcessView'
@@ -64,6 +65,7 @@ type RunView = TabProps<'run'>['tab']['view']
 const VIEWS: { value: RunView; label: string }[] = [
   { value: 'process', label: t('过程') },
   { value: 'diff', label: t('改动') },
+  { value: 'context', label: t('上下文') },
   { value: 'audit', label: t('审批记录') },
 ]
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
@@ -440,6 +442,10 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
               </Button>
             ) : null}
           </div>
+        ) : view === 'context' ? (
+          <div className="run-tab__column">
+            <RunContext detail={detail} />
+          </div>
         ) : view === 'diff' ? (
           <Changes
             purged={detail.purged}
@@ -510,6 +516,14 @@ function useFollow(ref: RefObject<HTMLDivElement | null>, on: boolean, steps: un
       setUp(false)
     },
   }
+}
+
+/** The context at the run's end (or now, while it runs); its process must still be kept. */
+function RunContext({ detail }: { detail: RunDetailDto }) {
+  const last = useMemo(() => lastContext(detail.events), [detail.events])
+  if (detail.purged) return <div className="run-tab__empty">{PURGED}</div>
+  if (!last) return <div className="run-tab__empty">{t('这次运行的 Agent 没有上报上下文用量')}</div>
+  return <ContextWindow context={last.context} breakdown={last.breakdown} />
 }
 
 const waiting = (run: RunDto) =>
