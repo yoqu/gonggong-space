@@ -224,7 +224,7 @@ describe('MentionPicker', () => {
 describe('EmojiPicker', () => {
   it('draws every emoji from the bundled Twemoji set, keeping the char as alt text', () => {
     render(<EmojiPicker />)
-    for (const cat of ['常用', '笑脸', '手势', '符号']) {
+    for (const cat of ['常用', '笑脸', '手势', '自然', '食物', '活动', '物品', '符号']) {
       fireEvent.click(screen.getByRole('radio', { name: cat }))
       for (const cell of screen.getAllByRole('option')) {
         const img = cell.querySelector('img') as HTMLImageElement

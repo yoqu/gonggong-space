@@ -204,7 +204,7 @@ export function Composer({
     })
   const insertAtCaret = (s: string) => {
     const c = ref.current?.selectionStart ?? text.length
-    const next = text.slice(0, c) + s + text.slice(c)
+    const next = text.slice(0, c) + s + text.slice(ref.current?.selectionEnd ?? c)
     set(next)
     caretTo(c + s.length)
     return { next, caret: c + s.length }
@@ -386,7 +386,9 @@ export function Composer({
               onKeyDown?.(e)
               if (e.defaultPrevented || e.key !== 'Enter' || e.shiftKey) return
               e.preventDefault()
-              send()
+              // Ctrl/Cmd/Alt+Enter is the newline key in WeChat and Feishu; sending there surprises people.
+              if (e.ctrlKey || e.metaKey || e.altKey) insertAtCaret('\n')
+              else send()
             }}
           />
         </div>
@@ -415,13 +417,13 @@ export function Composer({
           {hint === false ? (
             !accessory && <span className="pn-composer__spacer" />
           ) : (
-            <span className="pn-composer__hint">{hint ?? t('Enter 发送 · ⇧Enter 换行')}</span>
+            <span className="pn-composer__hint">{hint ?? t('Enter 发送 · ⇧/Ctrl+Enter 换行')}</span>
           )}
           <button
             type="button"
             className="pn-composer__send"
             aria-label={t('发送')}
-            title={t('发送（Enter），换行（Shift + Enter）')}
+            title={t('发送（Enter），换行（Shift/Ctrl + Enter）')}
             data-state={busy ? 'busy' : sendable ? 'ready' : 'idle'}
             data-sent={sent}
             disabled={!sendable}

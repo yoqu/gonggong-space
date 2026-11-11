@@ -255,6 +255,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('composer attachments', () => {
+  it('inserts an emoji from the 表情 picker at the caret', async () => {
+    mockApi({})
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    const input = composer().getByRole('combobox') as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: '收到' } })
+    fireEvent.click(composer().getByRole('button', { name: '表情' }))
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '选择表情' })).getByRole('option', { name: '赞' }),
+    )
+    expect(input.value).toBe('收到👍')
+    expect(screen.queryByRole('dialog', { name: '选择表情' })).toBeNull()
+  })
+
   it('uploads picked files as chips, enforces the limits and sends the ids', async () => {
     const calls = mockApi({
       'POST /groups/g1/messages': () => msg({ seq: 10, authorId: 'u1', authorName: '王磊' }),

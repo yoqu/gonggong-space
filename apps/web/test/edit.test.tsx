@@ -131,6 +131,17 @@ describe('edit (编辑)', () => {
     })
   })
 
+  it('Ctrl+Enter breaks the line instead of saving', async () => {
+    const calls = renderChat([msg({ seq: 1, body: '第一行第二行' })])
+    await openMore('第一行第二行')
+    fireEvent.click(screen.getByRole('menuitem', { name: '编辑' }))
+    const box = screen.getByRole('textbox', { name: '编辑消息' }) as HTMLTextAreaElement
+    box.setSelectionRange(3, 3)
+    fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
+    expect(box.value).toBe('第一行\n第二行')
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+  })
+
   it('Esc cancels without saving', async () => {
     const calls = renderChat([msg({ seq: 1, body: '不改了' })])
     await openMore('不改了')

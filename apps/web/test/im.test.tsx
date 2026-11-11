@@ -162,6 +162,19 @@ describe('Composer', () => {
     expect(onSend).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['Ctrl', { ctrlKey: true }],
+    ['Cmd', { metaKey: true }],
+    ['Alt', { altKey: true }],
+  ])('treats %s+Enter as a newline at the caret, not a send', (_, mod) => {
+    const { onSend, input } = setup()
+    fireEvent.change(input, { target: { value: '第一行第二行' } })
+    input.setSelectionRange(3, 3)
+    fireEvent.keyDown(input, { key: 'Enter', ...mod })
+    expect(onSend).not.toHaveBeenCalled()
+    expect(input.value).toBe('第一行\n第二行')
+  })
+
   it('does not send while an IME is composing', () => {
     const { onSend, input } = setup()
     fireEvent.change(input, { target: { value: 'nihao' } })

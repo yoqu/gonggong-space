@@ -478,6 +478,7 @@ export const MessageComposer = memo(function MessageComposer({
               change(draft.slice(0, c) + at + draft.slice(c), c + at.length)
             },
           },
+          { icon: 'smile', label: t('表情') },
           { icon: 'slash', label: t('命令'), onClick: () => change(`${draft}/`) },
           { icon: 'paperclip', label: t('附件'), onClick: () => filePicker.current?.click() },
           { icon: 'image', label: t('图片'), onClick: () => imagePicker.current?.click() },

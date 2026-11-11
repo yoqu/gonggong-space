@@ -7,7 +7,7 @@ import { Textarea } from '../../ui'
 import { applyLocal } from './useTimeline'
 import './edit.css'
 
-/** Inline 编辑 of my own message: Enter saves, Shift+Enter breaks the line, Esc cancels. */
+/** Inline 编辑 of my own message: Enter saves, Shift/Ctrl/Cmd/Alt+Enter breaks the line, Esc cancels. */
 export function MessageEditor({ message, onDone }: { message: MessageDto; onDone: () => void }) {
   const [body, setBody] = useState(message.body)
   const [busy, setBusy] = useState(false)
@@ -34,7 +34,11 @@ export function MessageEditor({ message, onDone }: { message: MessageDto; onDone
           if (e.key === 'Escape') onDone()
           else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()
-            void save()
+            if (!(e.ctrlKey || e.metaKey || e.altKey)) return void save()
+            const { selectionStart: s, selectionEnd: end } = e.currentTarget
+            const el = e.currentTarget
+            setBody(`${body.slice(0, s)}\n${body.slice(end)}`)
+            setTimeout(() => el.setSelectionRange(s + 1, s + 1))
           }
         }}
       />
