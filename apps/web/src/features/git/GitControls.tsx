@@ -67,6 +67,7 @@ export function WorkspaceMenu({
   showDiff,
   onDiff,
   onFiles,
+  onChange,
 }: BotGit & {
   git: GitStatus | null
   head: ReactNode
@@ -74,6 +75,8 @@ export function WorkspaceMenu({
   showDiff: boolean
   onDiff?: () => void
   onFiles?: () => void
+  /** 更换工作区, offered to the bot's owner only. */
+  onChange?: () => void
 }) {
   const label = t('{name} 的工作区', { name })
   return (
@@ -112,6 +115,14 @@ export function WorkspaceMenu({
               disabled={!onFiles}
               onClick={then(() => onFiles?.())}
             />
+            {onChange ? (
+              <MenuItem
+                icon="folder-open"
+                label={t('更换工作区…')}
+                aria={t('更换 {name} 的工作区', { name })}
+                onClick={then(onChange)}
+              />
+            ) : null}
             {git ? (
               <MenuItem
                 icon="git-branch"

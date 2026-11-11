@@ -6,7 +6,7 @@ import { botRepliesInThreadOf, groupParams } from '../groups/params.js'
 import { activeBots } from '../groups/service.js'
 import { postEvent, postMessage } from '../messages/service.js'
 import { publishThread } from '../threads/service.js'
-import { PAUSING, reasonText } from '../workspaces/provision.js'
+import { adoptManaged, PAUSING, reasonText } from '../workspaces/provision.js'
 import { publishRun, type RunRow } from './dto.js'
 import { schedule } from './scheduler.js'
 import { runStep } from './step.js'
@@ -42,7 +42,8 @@ interface Trigger {
 
 /**
  * One run per bot in the group; out-of-scope bots get a `forbidden` card instead of a run (fan-out = parallel).
- * Bots without a workspace are not run at all: their owner is reminded and the message is not replayed (plan W5).
+ * Bots still waiting on their owner's workspace choice are not run: the owner is reminded and the message is not
+ * replayed (plan W5). One left without any is moved onto a managed directory and runs.
  */
 async function createRuns(ctx: Ctx, t: Trigger) {
   if (!t.botIds.length) return
@@ -50,6 +51,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
     .select({
       id: bots.id,
       binding: bots.binding,
+      machineId: bots.machineId,
       ownerId: bots.ownerId,
       tier: bots.tier,
       triggerScope: bots.triggerScope,
@@ -83,14 +85,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         t.anyScope || bot.sharedDm ? bot.ownerId : t.originUserId,
       )
       if (!refused && bot.workspaceState === 'unbound')
-        return void (await postEvent(
-          ctx,
-          t.groupId,
-          '{bot} 还没有工作区，本次未执行；{owner} 绑定工作区后重新发起即可',
-          { bot: bot.name, owner: bot.ownerName },
-          {},
-          noticeThread,
-        ))
+        await adoptManaged(ctx, t.groupId, bot, bot.name, noticeThread)
       if (!refused && bot.workspaceState === 'confirm')
         return void (await postEvent(
           ctx,

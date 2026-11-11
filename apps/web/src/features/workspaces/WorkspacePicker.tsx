@@ -34,8 +34,9 @@ function useCandidates(group: GroupDto, botId: string) {
 }
 
 /**
- * Picks where one of my bots works in this group: a local clone of the repo, a managed clone (`path = null`), the
- * bot's default workspace, or any directory on its machine. Shared by the workspace banner and the repo settings.
+ * Picks where one of my bots works in this group: a local clone of the repo, a managed clone or directory
+ * (`path = null`), the bot's default workspace, or any directory on its machine. Shared by the workspace banner, the
+ * repo settings and the bot bar's 更换工作区.
  */
 export function WorkspacePicker({
   group,
@@ -87,52 +88,61 @@ export function WorkspacePicker({
         onPick={(path) => void pick(path)}
         onClose={onClose}
         extra={
-          bot.defaultWorkspace || group.repo ? (
-            <div className="dirpick__choices">
-              {local.map((p) => (
-                <button key={p} type="button" className="dirpick__choice" onClick={() => void bind(p)}>
-                  <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
-                  <span className="dirpick__choice-text">
-                    <span className="dirpick__choice-title">
-                      {t('使用本机已有的仓库目录')}
-                      <span className="dirpick__badge">{t('免 clone')}</span>
-                    </span>
-                    <span className="dirpick__choice-desc">{p}</span>
+          <div className="dirpick__choices">
+            {local.map((p) => (
+              <button key={p} type="button" className="dirpick__choice" onClick={() => void bind(p)}>
+                <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
+                <span className="dirpick__choice-text">
+                  <span className="dirpick__choice-title">
+                    {t('使用本机已有的仓库目录')}
+                    <span className="dirpick__badge">{t('免 clone')}</span>
                   </span>
-                </button>
-              ))}
-              {group.repo ? (
-                <button type="button" className="dirpick__choice" onClick={() => void bind(null)}>
-                  <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
-                  <span className="dirpick__choice-text">
-                    <span className="dirpick__choice-title">
-                      {t('自动克隆群仓库')}
-                      <span className="dirpick__badge">{t('推荐')}</span>
-                    </span>
-                    <span className="dirpick__choice-desc">
-                      {found
-                        ? t('克隆 {url} 到 {path}', { url: group.repo.url, path: found.managedPath })
-                        : t('在机器上自动克隆到独立目录，互不干扰')}
-                    </span>
+                  <span className="dirpick__choice-desc">{p}</span>
+                </span>
+              </button>
+            ))}
+            {group.repo ? (
+              <button type="button" className="dirpick__choice" onClick={() => void bind(null)}>
+                <Icon name="git-branch" size={16} className="dirpick__choice-icon" />
+                <span className="dirpick__choice-text">
+                  <span className="dirpick__choice-title">
+                    {t('自动克隆群仓库')}
+                    <span className="dirpick__badge">{t('推荐')}</span>
                   </span>
-                </button>
-              ) : null}
-              {bot.defaultWorkspace ? (
-                <button
-                  type="button"
-                  className="dirpick__choice"
-                  onClick={() => bot.defaultWorkspace && void pick(bot.defaultWorkspace)}
-                >
-                  <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
-                  <span className="dirpick__choice-text">
-                    <span className="dirpick__choice-title">{t('使用默认工作区')}</span>
-                    <span className="dirpick__choice-desc">{bot.defaultWorkspace}</span>
+                  <span className="dirpick__choice-desc">
+                    {found
+                      ? t('克隆 {url} 到 {path}', { url: group.repo.url, path: found.managedPath })
+                      : t('在机器上自动克隆到独立目录，互不干扰')}
                   </span>
-                </button>
-              ) : null}
-              <span className="dirpick__or">{t('或选择机器上已有的目录')}</span>
-            </div>
-          ) : null
+                </span>
+              </button>
+            ) : null}
+            {bot.defaultWorkspace ? (
+              <button
+                type="button"
+                className="dirpick__choice"
+                onClick={() => bot.defaultWorkspace && void pick(bot.defaultWorkspace)}
+              >
+                <Icon name="folder-check" size={16} className="dirpick__choice-icon" />
+                <span className="dirpick__choice-text">
+                  <span className="dirpick__choice-title">{t('使用默认工作区')}</span>
+                  <span className="dirpick__choice-desc">{bot.defaultWorkspace}</span>
+                </span>
+              </button>
+            ) : null}
+            {group.repo ? null : (
+              <button type="button" className="dirpick__choice" onClick={() => void bind(null)}>
+                <Icon name="folder" size={16} className="dirpick__choice-icon" />
+                <span className="dirpick__choice-text">
+                  <span className="dirpick__choice-title">{t('使用托管目录')}</span>
+                  <span className="dirpick__choice-desc">
+                    {t('共工在机器上为这个会话单独建的目录，不碰你已有的文件')}
+                  </span>
+                </span>
+              </button>
+            )}
+            <span className="dirpick__or">{t('或选择机器上已有的目录')}</span>
+          </div>
         }
       />
       {foreign && group.repo ? (

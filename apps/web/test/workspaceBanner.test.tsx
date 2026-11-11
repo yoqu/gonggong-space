@@ -125,7 +125,7 @@ describe('workspace banner', () => {
     })
     render(<WorkspaceBanner group={group()} />)
     expect(screen.getByTestId('ws-banner-b1').textContent).toContain(
-      '为 小王的 Claude 选择工作区后才能开始工作，此前 @ 它不会执行',
+      '小王的 Claude 还没有选工作区，@ 它时会先用托管目录',
     )
     fireEvent.click(screen.getByText('绑定工作区'))
     fireEvent.click(await screen.findByText('pay'))
@@ -251,17 +251,17 @@ describe('workspace banner', () => {
       botStates: { g1: { b1: state('b1'), b2: state('b2') } },
     })
     render(<WorkspaceBanner group={group({ botIds: ['b1', 'b2'] })} />)
-    expect(screen.getByText('2 个 Bot 还没有工作区，此前 @ 它们不会执行')).toBeTruthy()
+    expect(screen.getByText('2 个 Bot 还没有选工作区，@ 它们时会先用托管目录')).toBeTruthy()
     expect(screen.getByTestId('ws-banner-b1').textContent).toBe('绑定 小王的 Claude')
     expect(screen.getByTestId('ws-banner-b2').textContent).toBe('绑定 小王的 Codex')
   })
 
-  it('tells other members who has to bind, and shows nothing once bound', () => {
+  it('tells other members it will start on a managed directory, and shows nothing once bound', () => {
     useSession.setState({ user: { id: 'u2' } as UserDto, status: 'ready' })
     useWorkspace.setState({ bots: [bot()], botStates: unbound('目录不存在') })
     const { rerender } = render(<WorkspaceBanner group={group()} />)
     expect(screen.getByTestId('ws-banner-b1').textContent).toBe(
-      '等待 王磊 为 小王的 Claude 绑定工作区 · 目录不存在',
+      '小王的 Claude 还没有选工作区，@ 它时会先用托管目录 · 目录不存在',
     )
     expect(screen.queryByText('绑定工作区')).toBeNull()
     useWorkspace.setState({ botStates: {} })

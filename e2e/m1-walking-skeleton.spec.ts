@@ -56,18 +56,20 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
     // Private chat without a repo: that bot alone makes it a DM (titled by its bot, no name field).
     await rail.getByRole('button', { name: /^消息/ }).click()
     await page.getByRole('button', { name: '发起会话' }).click()
-    await page.getByRole('dialog', { name: '新建群' }).getByRole('button', { name: '添加 Bot…' }).click()
-    const dm = page.getByRole('dialog', { name: '新建私聊' })
+    const dm = page.getByRole('dialog', { name: '发起会话' })
+    await dm.getByRole('button', { name: '添加 Bot…' }).click()
     await page
       .getByRole('dialog', { name: '添加 Bot' })
       .getByRole('menuitemcheckbox', { name: /小王的 Claude/ })
       .click()
     await dm.getByRole('button', { name: '添加 Bot…' }).click()
-    await dm.getByRole('button', { name: '创建' }).click()
+    await dm.getByRole('button', { name: '开始私聊' }).click()
 
-    // The bot joins unbound; its owner picks a local directory through the daemon-backed picker.
+    // The bot starts on a managed directory; its owner moves it to a local one from the bot bar's menu.
+    await expect(page.getByText('小王的 Claude 加入 · 使用托管工作区，主人可在聊天区更换')).toBeVisible()
     const dir = mkdtempSync(join(tmpdir(), 'gonggong-dm-'))
-    await page.getByRole('button', { name: '绑定工作区', exact: true }).click()
+    await page.getByRole('button', { name: '小王的 Claude 的工作区' }).click()
+    await page.getByRole('button', { name: '更换 小王的 Claude 的工作区' }).click()
     const picker = page.getByRole('dialog', { name: '为 小王的 Claude 选择工作区' })
     // Starts at the machine's home dir once the daemon answers.
     await expect(picker.getByLabel('目录路径')).not.toHaveValue('')

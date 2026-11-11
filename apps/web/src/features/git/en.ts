@@ -488,4 +488,6 @@ export default {
   '用 {hash} 的内容替换所选 {n} 个文件': 'Replace {n} selected {n:file|files} with their contents at {hash}',
   这些文件中未提交的改动会被覆盖: 'Uncommitted changes in these files will be overwritten',
   取回文件: 'Get files',
+  '更换工作区…': 'Change workspace…',
+  '更换 {name} 的工作区': "Change {name}'s workspace",
 } satisfies Record<string, string>

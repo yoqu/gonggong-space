@@ -5,6 +5,10 @@ export const protocolEn = {
   '{user} 创建了私聊 · 使用 {owner} 共享的 Bot':
     '{user} started a direct chat · with a Bot shared by {owner}',
   '{bot} · 使用独立的托管工作区': '{bot} · using a managed workspace of its own',
+  '{bot} · 使用托管工作区，主人可在聊天区更换':
+    '{bot} · using a managed workspace; its owner can change it from the chat',
+  '{bot} 默认工作区不可用：{error}，改用托管工作区':
+    '{bot} default workspace unavailable: {error}; using a managed workspace instead',
   '{user} 取消了 {bot} 的共享 · 私聊转为只读': '{user} stopped sharing {bot} · this chat is now read-only',
   '{user} 重新共享了 {bot}': '{user} shared {bot} again',
   '{user} 创建了群 · 成为群管理员': '{user} created the group · now group admin',

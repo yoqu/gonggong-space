@@ -98,7 +98,7 @@ describe('create group', () => {
     expect(await bodies(p.asWang, res.body.id)).toEqual([
       '王磊 创建了私聊 · 仅你和你的 Bot',
       '未绑定仓库 · 各 Bot 使用主人绑定的目录，仅分区模式',
-      '小王的 Claude 加入 · 等待 王磊 绑定工作区',
+      '小王的 Claude 加入 · 使用托管工作区，主人可在聊天区更换',
     ])
   })
 

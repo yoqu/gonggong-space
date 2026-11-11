@@ -182,8 +182,9 @@ export async function requestCd(
  * waits in `confirm` for the owner to choose a managed clone or a local one; otherwise (owner offline, force sync,
  * a shared DM, a repo change) it starts on a managed clone. A local directory, even the default one, is the
  * owner's explicit choice (/cd or the picker), never shared implicitly. Repo-less
- * groups use the bot's default directory, validated by the owner's daemon; without one the bot stays `unbound`
- * until the owner binds it. Also used after a repo change.
+ * groups use the bot's default directory, validated by the owner's daemon; without one (or when it is refused) the bot
+ * starts on a managed directory so the first @ runs, and its owner may change it from the chat. Also used after a
+ * repo change.
  */
 export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: { joined: boolean }) {
   const lead = joinedName(bot.name, o.joined)
@@ -219,13 +220,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
   }
   const [row] = await ctx.db.select({ path: bots.defaultWorkspace }).from(bots).where(eq(bots.id, bot.id))
   const path = row?.path
-  if (!path) {
-    await updateBotState(ctx, groupId, bot.id, { ...MANAGED, workspaceState: 'unbound' })
-    return void (await postEvent(ctx, groupId, '{bot} · 等待 {owner} 绑定工作区', {
-      bot: lead,
-      owner: await ownerName(ctx, bot.id),
-    }))
-  }
+  if (!path) return adoptManaged(ctx, groupId, bot, lead)
   await updateBotState(ctx, groupId, bot.id, {
     ...MANAGED,
     workspaceKind: 'cd',
@@ -234,6 +229,22 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
   })
   if (!(await sendCd(ctx, groupId, bot, path, 'default', o.joined)))
     await postEvent(ctx, groupId, '{bot} · daemon 离线，上线后使用默认工作区', { bot: lead })
+}
+
+/**
+ * Puts a bot without a usable directory on a managed one, ready at once in a repo-less group (the daemon makes it on
+ * the first run). Also moves bots left `unbound` before managed became the default, when they are next @-ed.
+ */
+export async function adoptManaged(
+  ctx: Ctx,
+  groupId: string,
+  bot: BotRef,
+  name: ReturnType<typeof joinedName>,
+  threadRootId: string | null = null,
+) {
+  await updateBotState(ctx, groupId, bot.id, MANAGED)
+  await postEvent(ctx, groupId, '{bot} · 使用托管工作区，主人可在聊天区更换', { bot: name }, {}, threadRootId)
+  await ensureWorkspace(ctx, groupId, bot)
 }
 
 /** Only partition groups may use a local directory, and a shared bot never touches its owner's directories. */
@@ -246,18 +257,13 @@ async function onDefault(ctx: Ctx, req: Pending, msg: WorkspaceState, name: stri
   if (msg.state === 'cloning') return
   if (msg.state === 'failed') {
     if (req.cdPath) await forgetLocalPath(ctx, req.machineId, req.cdPath)
-    await updateBotState(ctx, msg.groupId, msg.botId, {
-      ...MANAGED,
-      workspaceState: 'unbound',
-      workspaceError: msg.error,
+    await updateBotState(ctx, msg.groupId, msg.botId, MANAGED)
+    await postEvent(ctx, msg.groupId, '{bot} 默认工作区不可用：{error}，改用托管工作区', {
+      bot: name,
+      error: msg.error ?? { key: '未知错误' },
     })
-    const owner = await ownerName(ctx, msg.botId)
-    return void (await postEvent(
-      ctx,
-      msg.groupId,
-      '{bot} 默认工作区不可用：{error}，等待 {owner} 绑定工作区',
-      { bot: name, error: msg.error ?? { key: '未知错误' }, owner },
-    ))
+    await ensureWorkspace(ctx, msg.groupId, { id: msg.botId, name, machineId: req.machineId })
+    return schedule(ctx, msg.botId)
   }
   await updateBotState(ctx, msg.groupId, msg.botId, {
     workspaceKind: 'cd',

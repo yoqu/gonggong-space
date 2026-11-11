@@ -1,16 +1,17 @@
-import type { GroupBotStateDto, GroupDto } from '@gonggong/protocol'
+import type { BotDto, GroupBotStateDto, GroupDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../app/session'
 import { loadBotStates, loadGitOperations, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { copyWithToast } from '../../lib/clipboard'
 import { realtime } from '../../lib/realtime'
-import { Icon, type IconName } from '../../ui'
+import { Icon, type IconName, Presence } from '../../ui'
 import { refreshGitQuietly } from '../git/api'
 import { ongoingLabel } from '../git/commands'
 import { BranchLabel, WorkspaceMenu } from '../git/GitControls'
 import { PendingBadge } from '../git/GitOperations'
 import { openTab } from '../workbench/open'
+import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { ContextMeter } from './ContextMeter'
 import { contextGauge } from './ContextRing'
 
@@ -139,6 +140,7 @@ function Item({
   s,
   showGit,
   machine,
+  onChange,
 }: {
   group: GroupDto
   name: string
@@ -146,6 +148,7 @@ function Item({
   /** Partition groups with a repo, where the bar shows each bot's git status. */
   showGit: boolean
   machine: string | null
+  onChange?: () => void
 }) {
   const groupId = group.id
   const git = s.git
@@ -228,6 +231,7 @@ function Item({
           showDiff={showGit}
           onDiff={hint ? undefined : diff}
           onFiles={files}
+          onChange={onChange}
         />
       </span>
     </div>
@@ -259,6 +263,7 @@ export function GitBar({ group }: { group: GroupDto }) {
   const botKey = group.botIds.join()
   const gitOps = useWorkspace((s) => s.gitOps[group.id])
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
+  const [picking, setPicking] = useState<(BotDto & { machineId: string }) | null>(null)
   const showOthers = expandedGroupId === group.id
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reload when the group's bots change
@@ -327,6 +332,12 @@ export function GitBar({ group }: { group: GroupDto }) {
         machine={bot?.machineName ?? null}
         name={bot?.name ?? 'bot'}
         s={stateOf(id)}
+        onChange={
+          // Only the owner picks directories on their own machine; a force-sync group stays on managed clones.
+          bot && bot.ownerId === me && bot.machineId && showGit
+            ? () => setPicking({ ...bot, machineId: bot.machineId as string })
+            : undefined
+        }
       />
     )
   }
@@ -359,6 +370,9 @@ export function GitBar({ group }: { group: GroupDto }) {
           ) : null}
         </>
       ) : null}
+      <Presence>
+        {picking ? <WorkspacePicker group={group} bot={picking} onClose={() => setPicking(null)} /> : null}
+      </Presence>
     </div>
   )
 }

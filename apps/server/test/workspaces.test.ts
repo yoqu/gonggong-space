@@ -120,12 +120,12 @@ async function joinEnsure(d: Awaited<ReturnType<typeof daemon>>, groupId: string
 }
 
 describe('joining a repo-less group without a default workspace', () => {
-  it('leaves the bot unbound until its owner picks one, asking the daemon nothing', async () => {
+  it('starts on a managed directory right away so the first @ runs, asking the daemon nothing', async () => {
     const w = await world()
     const d = await daemon(w.a.token)
     const g = await w.createGroup({ repo: false })
-    expect(await w.stateOf(g.id)).toMatchObject({ state: 'unbound', workspace: 'managed', path: null })
-    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · 等待 王磊 绑定工作区')
+    expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed' })
+    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · 使用托管工作区，主人可在聊天区更换')
     const late = Promise.race([d.next(), new Promise((r) => setTimeout(() => r('quiet'), 300))])
     expect(await late).toBe('quiet')
   })
@@ -323,7 +323,7 @@ describe('default workspace', () => {
     )
   })
 
-  it('waits for the owner when the default directory is refused', async () => {
+  it('falls back to a managed directory when the default one is refused', async () => {
     const w = await world()
     await setDefault(w, '/src/gone')
     const d = await daemon(w.a.token)
@@ -331,10 +331,10 @@ describe('default workspace', () => {
     const req = await d.next()
     expect(req).toMatchObject({ t: 'workspace.cd', path: '/src/gone', repo: null })
     d.send(reply(req, { state: 'failed', path: null, git: null, error: '目录不存在' }))
-    await until(async () => (await w.stateOf(g.id)).state === 'unbound')
-    expect(await w.stateOf(g.id)).toMatchObject({ workspace: 'managed', error: '目录不存在' })
+    await until(async () => (await w.stateOf(g.id)).state === 'ready')
+    expect(await w.stateOf(g.id)).toMatchObject({ workspace: 'managed', error: null })
     await until(async () =>
-      (await w.bodies(g.id)).includes('小王的 Claude 默认工作区不可用：目录不存在，等待 王磊 绑定工作区'),
+      (await w.bodies(g.id)).includes('小王的 Claude 默认工作区不可用：目录不存在，改用托管工作区'),
     )
   })
 
@@ -678,9 +678,13 @@ describe('scheduling', () => {
     await until(() => seen.some((e) => e.t === 'run.updated' && e.run.status === 'running'))
   })
 
-  it('does not run an unbound bot and reminds its owner instead, without replay after binding', async () => {
+  it('moves a bot left without a workspace onto a managed directory when @-ed, and runs it', async () => {
     const w = await world()
     const g = await w.createGroup({ repo: false })
+    await t.db
+      .update(groupBots)
+      .set({ workspaceState: 'unbound' })
+      .where(and(eq(groupBots.groupId, g.id), eq(groupBots.botId, w.bot.id)))
     const [m] = await t.db
       .insert(messages)
       .values({
@@ -692,10 +696,9 @@ describe('scheduling', () => {
       })
       .returning()
     await triggerRuns(t.ctx, m!)
-    expect(await t.db.select().from(runs).where(eq(runs.groupId, g.id))).toEqual([])
-    expect(await w.bodies(g.id)).toContain(
-      '小王的 Claude 还没有工作区，本次未执行；王磊 绑定工作区后重新发起即可',
-    )
+    expect(await t.db.select().from(runs).where(eq(runs.groupId, g.id))).toHaveLength(1)
+    expect(await w.stateOf(g.id)).toMatchObject({ state: 'ready', workspace: 'managed' })
+    expect(await w.bodies(g.id)).toContain('小王的 Claude · 使用托管工作区，主人可在聊天区更换')
   })
 })
 

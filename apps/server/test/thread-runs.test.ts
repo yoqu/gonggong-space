@@ -226,7 +226,7 @@ describe('Bot 回复进话题', () => {
     const root = await w.say('发版前要不要冻结主干？', { userId: w.bob.id })
     await t.db
       .update(groupBots)
-      .set({ workspaceState: 'unbound' })
+      .set({ workspaceState: 'confirm' })
       .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
     await w.mention('@小王的 Claude 看下', root.id)
     const [notice] = await vi.waitFor(async () => {
@@ -235,7 +235,7 @@ describe('Bot 回复进话题', () => {
       return rows
     })
     expect(notice).toMatchObject({ threadRootId: root.id })
-    expect(notice?.body).toContain('还没有工作区')
+    expect(notice?.body).toContain('确认工作区')
   })
 
   it('keeps the refusal notice of a main-timeline @ in the group, not in a new thread nobody sees', async () => {
@@ -246,7 +246,7 @@ describe('Bot 回复进话题', () => {
       .where(eq(groups.id, w.group.id))
     await t.db
       .update(groupBots)
-      .set({ workspaceState: 'unbound' })
+      .set({ workspaceState: 'confirm' })
       .where(and(eq(groupBots.groupId, w.group.id), eq(groupBots.botId, w.bot.id)))
     await w.mention('@小王的 Claude 看下')
     const [notice] = await vi.waitFor(async () => {

@@ -16,7 +16,8 @@ const PAUSING: Partial<Record<RepoAccessReason, string>> = {
 }
 
 /**
- * Bots waiting for a workspace (plan W5): their owner binds one here; nobody else can, and they are not run meanwhile.
+ * Bots waiting for their owner's workspace choice (plan W5): one to confirm in a repo group is not run meanwhile; one
+ * left without any (from before managed became the default) moves onto a managed directory when @-ed.
  * Also bots paused because their machine cannot reach the repo: the owner (or an admin) rechecks after fixing it.
  */
 export function WorkspaceBanner({ group }: { group: GroupDto }) {
@@ -98,7 +99,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
         <PinnedBanner
           icon="folder-open"
           title={null}
-          text={t('{n} 个 Bot 还没有工作区，此前 @ 它们不会执行', { n: mineReady.length })}
+          text={t('{n} 个 Bot 还没有选工作区，@ 它们时会先用托管目录', { n: mineReady.length })}
           action={mineReady.map((b) => (
             <Button
               key={b.id}
@@ -121,9 +122,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
           ? mine
             ? t('为 {name} 确认工作区后才能开始工作：自动克隆或使用本机已有目录', { name: b.name })
             : t('等待 {owner} 为 {name} 确认工作区', { owner: b.ownerName, name: b.name })
-          : mine
-            ? t('为 {name} 选择工作区后才能开始工作，此前 @ 它不会执行', { name: b.name })
-            : t('等待 {owner} 为 {name} 绑定工作区', { owner: b.ownerName, name: b.name })
+          : t('{name} 还没有选工作区，@ 它时会先用托管目录', { name: b.name })
         return (
           <div key={b.id} data-testid={`ws-banner-${b.id}`}>
             <PinnedBanner

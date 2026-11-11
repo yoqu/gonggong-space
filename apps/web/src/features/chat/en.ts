@@ -215,12 +215,11 @@ export default {
   '{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理':
     "{name} is paused: its machine can't reach the repo ({why}). Waiting for {owner}",
   重新检查: 'Recheck',
-  '{n} 个 Bot 还没有工作区，此前 @ 它们不会执行':
-    "{n} Bots have no workspace yet; @-mentions won't run them until then",
+  '{n} 个 Bot 还没有选工作区，@ 它们时会先用托管目录':
+    '{n} {n:Bot has|Bots have} no workspace chosen yet; @ them and they start on a managed directory',
   '绑定 {name}': 'Bind {name}',
-  '为 {name} 选择工作区后才能开始工作，此前 @ 它不会执行':
-    "Choose a workspace for {name} before it can work; @-mentions won't run it until then",
-  '等待 {owner} 为 {name} 绑定工作区': 'Waiting for {owner} to bind a workspace for {name}',
+  '{name} 还没有选工作区，@ 它时会先用托管目录':
+    '{name} has no workspace chosen yet; @ it and it starts on a managed directory',
   绑定工作区: 'Bind workspace',
   游离: 'Detached',
   '为 {name} 确认工作区后才能开始工作：自动克隆或使用本机已有目录':

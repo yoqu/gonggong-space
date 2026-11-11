@@ -477,6 +477,48 @@ describe('git status bar', () => {
     ).toBe(true)
   })
 
+  it("lets a bot's owner change where it works from its menu, back to the managed directory too", async () => {
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), machineId: 'm1', online: true } as BotDto,
+        { ...bot('b2', '老李的 Codex'), ownerId: 'u2', machineId: 'm2' } as BotDto,
+      ],
+    })
+    const calls = mockApi({
+      'GET /groups/g1/bot-states': [
+        state('b1', { workspace: 'cd', path: '/src/notes' }),
+        state('b2', { path: '/w/b2' }),
+      ],
+      'GET /machines/m1/dirs': {
+        path: '/src/notes',
+        entries: [],
+        git: null,
+        unusable: null,
+        roots: ['/'],
+        places: [],
+        canCreate: false,
+        error: null,
+      },
+      'PUT /groups/g1/bots/b1/workspace': {},
+    })
+    render(<GitBar group={group({ repo: null, botIds: ['b1', 'b2'] })} />)
+    fireEvent.click(await screen.findByTestId('git-bar-more'))
+    expect(
+      within(await menu('老李的 Codex')).queryByRole('button', { name: '更换 老李的 Codex 的工作区' }),
+    ).toBeNull()
+    fireEvent.click(
+      within(await menu('小王的 Claude')).getByRole('button', { name: '更换 小王的 Claude 的工作区' }),
+    )
+    const picker = await screen.findByRole('dialog', { name: '为 小王的 Claude 选择工作区' })
+    fireEvent.click(within(picker).getByRole('button', { name: /使用托管目录/ }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+        path: '/groups/g1/bots/b1/workspace',
+        body: { path: null },
+      }),
+    )
+  })
+
   it('shows 待创建 before the daemon reports and follows realtime updates', async () => {
     vi.stubGlobal(
       'fetch',

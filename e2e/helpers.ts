@@ -164,7 +164,7 @@ export async function call<T>(
   return body as T
 }
 
-/** Binds each bot to its managed workspace (repo-less groups join unbound; repo groups already clone) once its machine is online; waits until ready. */
+/** Binds each bot to its managed workspace (repo groups may wait on the owner's choice) once its machine is online; waits until ready. */
 export async function bindManaged(api: Api, groupId: string, botIds: string[]) {
   const bind = (id: string) =>
     api.put(`/api/groups/${groupId}/bots/${id}/workspace`, { data: { path: null } })

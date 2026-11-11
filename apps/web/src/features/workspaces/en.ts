@@ -45,4 +45,7 @@ export default {
   '仅影响 {bot}，群内其他 Bot 不变': 'Only affects {bot}; other Bots in the group are unchanged',
   仍然使用: 'Use anyway',
   '克隆 {url} 到 {path}': 'Clone {url} into {path}',
+  使用托管目录: 'Use a managed directory',
+  '共工在机器上为这个会话单独建的目录，不碰你已有的文件':
+    'A directory Gonggong makes on the machine for this conversation alone, away from your own files',
 } satisfies Record<string, string>
