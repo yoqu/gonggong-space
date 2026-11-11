@@ -11,7 +11,7 @@ import { Button } from '../../ui'
 import { MessageAttachments } from '../attachments/MessageAttachments'
 import { draftOfCard, requestOf } from './model'
 import { PluginTile } from './PluginTile'
-import { createInGroup, dismissDraft, openCreation, useEnabledPlugins } from './store'
+import { createInGroup, dismissDraft, openCreation, useCreationPlugins } from './store'
 import './plugins.css'
 
 /** 自动选择 is stored in Chinese on the card; show it in the reader's language. */
@@ -49,7 +49,7 @@ function InputLine({ label, value }: { label: string; value: string }) {
 export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
   const [all, setAll] = useState(false)
   const [busy, setBusy] = useState(false)
-  const plugin = useEnabledPlugins(m.groupId).find((p) => p.id === card.pluginId)
+  const plugin = useCreationPlugins(m.groupId).find((p) => p.id === card.pluginId)
   const draft = plugin && draftOfCard(card, plugin)
   const [head, ...rest] = card.inputs
   const summary = [card.template?.title, dsTitle(card)].filter(Boolean).join(' · ')
@@ -129,7 +129,7 @@ export function CreationCardView({ m, card }: { m: MessageDto; card: Card }) {
  */
 export function CreationDraftView({ m, card }: { m: MessageDto; card: CreationDraftCard }) {
   const [busy, setBusy] = useState(false)
-  const plugin = useEnabledPlugins(m.groupId).find((p) => p.id === card.pluginId)
+  const plugin = useCreationPlugins(m.groupId).find((p) => p.id === card.pluginId)
   const draft = plugin && { ...draftOfCard(card, plugin), fromDraft: m.id }
   const [head] = card.inputs
   const summary = [card.template?.title, dsTitle(card)].filter(Boolean).join(' · ')

@@ -171,6 +171,17 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
             group: '',
             href: `/bot/${p('botId')}`,
           }
+    case 'plugin_trust':
+      return {
+        label: say(n.resolvedAt ? '插件运行授权' : '待授权的插件'),
+        text: say('插件 {plugin} {version} 要在 {machine} 上运行代码，请确认', {
+          plugin: p('pluginTitle'),
+          version: p('version'),
+          machine: p('machineName'),
+        }),
+        group: '',
+        href: `/machine/${p('machineId')}?tab=plugins`,
+      }
     case 'bot_confirm':
       return {
         label: say('待确认 Bot'),

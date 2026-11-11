@@ -1,5 +1,6 @@
 import {
   compareVersions,
+  type McpServer,
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
   type PluginBlocker,
@@ -7,6 +8,7 @@ import {
   type PluginLayer,
   PluginManifest,
   type PluginRef,
+  pluginRunsCode,
   type SkillFile,
   type SkillListingManifest,
 } from '@gonggong/protocol'
@@ -20,6 +22,7 @@ import {
   installs,
   machines,
   plugins,
+  pluginTrusts,
   pluginVersions,
   users,
 } from '../../db/schema.js'
@@ -28,6 +31,8 @@ import { fail } from '../../lib/errors.js'
 import { sysParams } from '../admin/params.js'
 import { groupsInstalls, listVersion } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
+import { mcpTurnedOff } from '../mcp/service.js'
+import { notify } from '../notifications/notify.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { checkFiles, frontmatter, LAYER_RANK, mergeSkills, snapshot } from '../skills/service.js'
 
@@ -49,6 +54,8 @@ export type Listed = {
 }
 
 const has = (files: SkillFile[], path: string) => files.some((f) => f.path === path)
+const PKG = '{pkg}/'
+const SECRET_REF = /\$\{secret:([A-Z][A-Z0-9_]{1,63})\}/g
 
 /**
  * The only paths a plugin may carry (plan 插件扩展点 §3.1). The daemon hands the folder to Claude as a local plugin,
@@ -77,15 +84,23 @@ export function pluginSnapshot(input: SkillFile[]) {
       field: parsed.error.issues[0]?.path.join('.') ?? '',
     })
   const manifest = parsed.data
-  const entry = `skills/${manifest.entry}/SKILL.md`
-  if (!has(files, entry)) fail('invalid', '缺少文件：{path}', { path: entry })
-  if (frontmatter(files, entry).name !== manifest.entry)
-    fail('invalid', '{path} 的 name 必须是 {name}', { path: entry, name: manifest.entry })
+  if (manifest.entry) {
+    const entry = `skills/${manifest.entry}/SKILL.md`
+    if (!has(files, entry)) fail('invalid', '缺少文件：{path}', { path: entry })
+    if (frontmatter(files, entry).name !== manifest.entry)
+      fail('invalid', '{path} 的 name 必须是 {name}', { path: entry, name: manifest.entry })
+  }
   const required = [
     ...manifest.designSystems.flatMap((d) =>
       ['DESIGN.md', 'tokens.css'].map((f) => `skills/${manifest.entry}/${d.dir}/${f}`),
     ),
     ...manifest.templates.flatMap((tp) => (tp.preview ? [tp.preview] : [])),
+    // Files a stdio server starts from the folder.
+    ...manifest.contributes.mcp.flatMap((c) =>
+      c.transport === 'stdio'
+        ? c.command.flatMap((a) => (a.startsWith(PKG) ? [a.slice(PKG.length)] : []))
+        : [],
+    ),
   ]
   for (const path of required) if (!has(files, path)) fail('invalid', '缺少文件：{path}', { path })
   return { ...checked, manifest, type: 'plugin' as const }
@@ -327,20 +342,38 @@ export type BotState = {
   daemonVersion: string | null
   /** The secrets this turn would get (resolveSecrets env). */
   env: Record<string, string>
+  /** 系统参数 · 插件代码. */
+  codeEnabled: boolean
+  /** Plugin versions the owner of the bot's machine allowed to run code there. */
+  trusted: string[]
 }
 
-/** Why the bot cannot use the plugin now, or null; shared by the group list, creations and run.start. */
-export function pluginBlocker(m: PluginManifest, b: BotState): PluginBlocker | null {
+/** Why the bot cannot use plugin version `versionId` now, or null; shared by the group list, creations and run.start. */
+export function pluginBlocker(m: PluginManifest, b: BotState, versionId: string): PluginBlocker | null {
   if (!(m.agents as string[]).includes(b.agentKind)) return 'agent'
   if (!b.online) return 'offline'
   if (
     !b.features.includes('plugins') ||
+    (m.contributes.mcp.length && !b.features.includes('pluginMcp')) ||
     !b.daemonVersion ||
     compareVersions(b.daemonVersion, m.minDaemon) < 0
   )
     return 'daemon'
+  if (pluginRunsCode(m) && !b.codeEnabled) return 'code'
   if (m.secrets.some((name) => !(name in b.env))) return 'secret'
+  if (pluginRunsCode(m) && !b.trusted.includes(versionId)) return 'trust'
   return null
+}
+
+/** Versions allowed to run code on each machine. */
+async function trustedOn(db: Read, machineIds: string[]) {
+  const rows = machineIds.length
+    ? await db
+        .select({ machineId: pluginTrusts.machineId, versionId: pluginTrusts.versionId })
+        .from(pluginTrusts)
+        .where(and(inArray(pluginTrusts.machineId, machineIds), eq(pluginTrusts.status, 'allowed')))
+    : []
+  return (machineId: string | null) => rows.filter((r) => r.machineId === machineId).map((r) => r.versionId)
 }
 
 /** The group's bots (or one of them) as a turn `originUserId` starts now would see them. */
@@ -365,6 +398,13 @@ export async function botStates(ctx: Ctx, groupId: string, originUserId: string,
       ),
     )
     .orderBy(asc(groupBots.addedAt))
+  const [params, trusted] = await Promise.all([
+    sysParams(ctx.db),
+    trustedOn(
+      ctx.db,
+      rows.flatMap((r) => (r.machineId ? [r.machineId] : [])),
+    ),
+  ])
   return Promise.all(
     rows.map(async (r) => {
       const online = !!r.machineId && ctx.hub.isOnline(r.machineId)
@@ -375,13 +415,42 @@ export async function botStates(ctx: Ctx, groupId: string, originUserId: string,
         features: online ? ctx.hub.features(r.machineId!) : [],
         daemonVersion: r.daemonVersion,
         env,
+        codeEnabled: params.pluginCodeEnabled,
+        trusted: trusted(r.machineId),
       }
       return { id: r.id, name: r.name, state }
     }),
   )
 }
 
-/** RunStart.plugins (the caller checks the master switch): enabled in the group and usable by the bot this turn. */
+/** A plugin's MCP servers as the run gets them: `<plugin>-<name>`, secrets filled in, the group's overrides applied. */
+function pluginMcp(name: string, m: PluginManifest, env: Record<string, string>, off: Set<string>) {
+  // Every name is in the manifest's `secrets`, which the run has (else the plugin is blocked).
+  const fill = (values: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(values).map(([k, v]) => [k, v.replace(SECRET_REF, (_, n: string) => env[n] ?? '')]),
+    )
+  return m.contributes.mcp.flatMap((c): McpServer[] => {
+    const full = `${name}-${c.name}`
+    if (off.has(full)) return []
+    return [
+      c.transport === 'stdio'
+        ? {
+            transport: 'stdio',
+            name: full,
+            command: c.command[0]!,
+            args: c.command.slice(1),
+            env: fill(c.env),
+          }
+        : { transport: 'http', name: full, url: c.url, headers: fill(c.headers) },
+    ]
+  })
+}
+
+/**
+ * RunStart.plugins (the caller checks the master switch): enabled in the group and usable by the bot this turn.
+ * `asks`: versions held back only for want of the machine owner's consent.
+ */
 export async function runPlugins(
   db: Read,
   groupId: string,
@@ -389,19 +458,84 @@ export async function runPlugins(
   machineId: string,
   features: string[],
   env: Record<string, string>,
-): Promise<PluginRef[]> {
-  const [list, [machine]] = await Promise.all([
+  codeEnabled: boolean,
+) {
+  const [list, [machine], trusted, off] = await Promise.all([
     groupPluginList(db, groupId),
     db.select({ version: machines.daemonVersion }).from(machines).where(eq(machines.id, machineId)),
+    trustedOn(db, [machineId]),
+    mcpTurnedOff(db, groupId),
   ])
-  const state = {
+  const state: BotState = {
     agentKind: bot.agentKind,
     online: true,
     features,
     daemonVersion: machine?.version ?? null,
     env,
+    codeEnabled,
+    trusted: trusted(machineId),
   }
-  return list
-    .filter((r) => r.enabledInGroup && !pluginBlocker(r.version.manifest, state))
-    .map((r) => ({ name: r.plugin.name, versionId: r.version.id, digest: r.version.digest }))
+  const on = list.filter((r) => r.enabledInGroup)
+  const blocked = (r: (typeof on)[number]) => pluginBlocker(r.version.manifest, state, r.version.id)
+  const usable = on.filter((r) => !blocked(r))
+  return {
+    refs: usable.map((r): PluginRef => {
+      const mcp = pluginMcp(r.plugin.name, r.version.manifest, env, off)
+      return {
+        name: r.plugin.name,
+        versionId: r.version.id,
+        digest: r.version.digest,
+        ...(mcp.length ? { mcp } : {}),
+      } as PluginRef
+    }),
+    /** Plugins with a creation skill, for the system prompt. */
+    creations: usable.filter((r) => r.version.manifest.entry).map((r) => r.plugin.name),
+    asks: on
+      .filter((r) => blocked(r) === 'trust')
+      .map((r) => ({ pluginId: r.plugin.id, versionId: r.version.id })),
+  }
+}
+
+/**
+ * Asks the machine's owner to allow plugin versions to run code there, once per version: a pending or decided
+ * request is not asked again.
+ */
+export async function askPluginTrust(
+  ctx: Ctx,
+  machineId: string,
+  asks: { pluginId: string; versionId: string }[],
+) {
+  if (!asks.length) return
+  const made = await ctx.db
+    .insert(pluginTrusts)
+    .values(asks.map((a) => ({ machineId, ...a })))
+    .onConflictDoNothing()
+    .returning()
+  if (!made.length) return
+  const [machine] = await ctx.db.select().from(machines).where(eq(machines.id, machineId))
+  if (!machine) return
+  const rows = await ctx.db
+    .select({ id: pluginTrusts.id, manifest: pluginVersions.manifest })
+    .from(pluginTrusts)
+    .innerJoin(pluginVersions, eq(pluginVersions.id, pluginTrusts.versionId))
+    .where(
+      inArray(
+        pluginTrusts.id,
+        made.map((m) => m.id),
+      ),
+    )
+  for (const r of rows)
+    await notify(
+      ctx,
+      machine.ownerId,
+      'plugin_trust',
+      {
+        trustId: r.id,
+        machineId,
+        machineName: machine.label ?? machine.name,
+        pluginTitle: r.manifest.title,
+        version: r.manifest.version,
+      },
+      null,
+    )
 }

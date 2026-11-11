@@ -58,6 +58,7 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   join_request: { icon: 'person-add', color: 'var(--system-orange)' },
   join_decided: { icon: 'person-add', color: 'var(--system-blue)' },
   reminder: { icon: 'bookmark', color: 'var(--system-indigo)' },
+  plugin_trust: { icon: 'plug', color: 'var(--system-orange)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */
@@ -83,14 +84,24 @@ function FeishuNotifyShortcut({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** 同意 / 拒绝 of a 申请共享 right in the notification; the settled notification arrives over realtime. */
-/** 同意 / 拒绝 of a bot share request, or (`join`) of a request to join one of my groups. */
-function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }) {
+/**
+ * 同意 / 拒绝 right in the notification: a bot share request, a request to join one of my groups, or a plugin asking to
+ * run code on my machine (允许 / 拒绝). The settled notification arrives over realtime.
+ */
+function DecideActions({ n }: { n: NotificationDto }) {
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
+  const p = n.payload
+  const send = (approve: boolean) =>
+    n.type === 'plugin_trust'
+      ? api.put(`/machines/${p.machineId}/plugin-trusts/${p.trustId}`, { allow: approve })
+      : api.post(
+          `/${n.type === 'join_request' ? 'join-requests' : 'share-requests'}/${p.requestId}/${approve ? 'approve' : 'reject'}`,
+          {},
+        )
   const decide = async (verb: 'approve' | 'reject') => {
     setBusy(verb)
     try {
-      await api.post(`/${join ? 'join-requests' : 'share-requests'}/${n.payload.requestId}/${verb}`, {})
+      await send(verb === 'approve')
     } catch (e) {
       toastError(e)
     } finally {
@@ -106,7 +117,7 @@ function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }
         disabled={!!busy}
         onClick={() => void decide('approve')}
       >
-        {t('同意')}
+        {n.type === 'plugin_trust' ? t('允许') : t('同意')}
       </Button>
       <Button
         size="small"
@@ -119,6 +130,9 @@ function ShareRequestActions({ n, join }: { n: NotificationDto; join?: boolean }
     </div>
   )
 }
+
+/** Notification types decided right in the panel with DecideActions. */
+const DECIDED_HERE = new Set<NotificationDto['type']>(['bot_share_request', 'join_request', 'plugin_trust'])
 
 /**
  * 批准 / 拒绝 of an approval raised in a chat the owner is not in (someone's DM with a bot shared with them): there is
@@ -357,8 +371,7 @@ function Panel({
                       </div>
                     </button>
                     {outside(n) ? <ApprovalActions n={n} /> : null}
-                    {n.type === 'bot_share_request' && !n.resolvedAt ? <ShareRequestActions n={n} /> : null}
-                    {n.type === 'join_request' && !n.resolvedAt ? <ShareRequestActions n={n} join /> : null}
+                    {DECIDED_HERE.has(n.type) && !n.resolvedAt ? <DecideActions n={n} /> : null}
                     <IconButton
                       size="small"
                       variant="plain"

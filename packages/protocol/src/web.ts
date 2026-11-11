@@ -1039,6 +1039,7 @@ export const NotificationType = z.enum([
   'join_request',
   'join_decided',
   'reminder',
+  'plugin_trust',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1059,6 +1060,7 @@ export type NotificationUnreadDto = z.infer<typeof NotificationUnreadDto>
 /** Also sent as browser push, only to the people who can act (spec §8.11); others stay in the in-app center. */
 export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'reminder',
+  'plugin_trust',
   'approval',
   'question',
   'offline_expired',
@@ -2460,6 +2462,8 @@ export const SystemParams = GroupParams.extend({
   demoMode: z.boolean(),
   /** Plugin system master switch (plan 插件体系-方案): off = no plugin UI, nothing sent to daemons. */
   pluginsEnabled: z.boolean(),
+  /** Plugins that run code (permission `exec`, plan 插件扩展点 §9); off = they are sent to no daemon. */
+  pluginCodeEnabled: z.boolean(),
 })
 export type SystemParams = z.infer<typeof SystemParams>
 /** Params a team may override for its groups (plan D9). */
@@ -2546,6 +2550,7 @@ export const SYSTEM_PARAM_VIEW: {
     | 'publicUrl'
     | 'demoMode'
     | 'pluginsEnabled'
+    | 'pluginCodeEnabled'
   >
   label: string
   unit: string

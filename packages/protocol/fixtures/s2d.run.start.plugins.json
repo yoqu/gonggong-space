@@ -115,6 +115,28 @@
       "name": "web-prototype",
       "versionId": "pv1",
       "digest": "a3f1"
+    },
+    {
+      "name": "tracker",
+      "versionId": "pv2",
+      "digest": "b7c2",
+      "mcp": [
+        {
+          "transport": "stdio",
+          "name": "tracker-issues",
+          "command": "{node}",
+          "args": ["{pkg}/contrib/mcp/server.mjs"],
+          "env": {
+            "TRACKER_TOKEN": "tok"
+          }
+        },
+        {
+          "transport": "http",
+          "name": "tracker-search",
+          "url": "https://tracker.example.com/mcp",
+          "headers": {}
+        }
+      ]
     }
   ]
 }

@@ -334,7 +334,7 @@ pub struct ContextMessage {
     pub attachments: Vec<Attachment>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "transport", rename_all = "lowercase")]
 pub enum McpServer {
     Stdio { name: String, command: String, args: Vec<String>, env: std::collections::BTreeMap<String, String> },
@@ -379,6 +379,9 @@ pub struct PluginRef {
     pub name: String,
     pub version_id: String,
     pub digest: String,
+    /// Its MCP servers (needs [`FEATURE_PLUGIN_MCP`]): `{node}` and `{pkg}` in stdio ones are filled in by the daemon.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mcp: Vec<McpServer>,
 }
 
 /// `GET /api/daemon/plugins/:versionId`
@@ -1937,6 +1940,8 @@ pub const FEATURE_PI: &str = "pi";
 pub const FEATURE_DEEPSEEK: &str = "deepseek";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
+/// `PluginRef.mcp`: the plugins' MCP servers join the run's (plan 插件扩展点 S1).
+pub const FEATURE_PLUGIN_MCP: &str = "pluginMcp";
 /// Hosted artifacts: `RunStart.artifacts` / `artifactExclude` and the artifact version routes.
 pub const FEATURE_ARTIFACTS: &str = "artifacts";
 /// `artifact.snapshot`: screenshots of artifact versions this machine did not make.

@@ -663,6 +663,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("无法下载团队 skill {name}：{e}", "Can't download team skill {name}: {e}"),
     ("无法安装插件：{e}", "Can't install plugins: {e}"),
     ("无法下载插件 {name}：{e}", "Can't download plugin {name}: {e}"),
+    ("插件 MCP {name} 需要 Node，本机没有找到", "Plugin MCP server {name} needs Node, which isn't on this machine"),
     ("插件名或版本不合法：{name}", "Invalid plugin name or version: {name}"),
     ("文件路径不合法：{path}", "Invalid file path: {path}"),
     ("已跳过团队 skill {names}：仓库里已有同名 skill", "Skipped team skill {names}: the repo has a skill of that name"),

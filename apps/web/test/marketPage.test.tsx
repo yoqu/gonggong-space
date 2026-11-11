@@ -87,6 +87,8 @@ const LISTINGS = [
 const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto => ({
   ...listing(),
   readme: '# 审查 PR\n\n按规范逐条检查。',
+  permissions: [],
+  mcp: [],
   files: [
     { path: 'SKILL.md', size: 320 },
     { path: 'scripts/run.sh', size: 1024 },

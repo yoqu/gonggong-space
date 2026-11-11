@@ -37,10 +37,16 @@ export function useGroupPlugins(groupId: string) {
   return list
 }
 
-/** Plugins turned on in the group: what 创作 offers. Reads what the chat view (useGroupPlugins) loaded. */
+/** Plugins turned on in the group. Reads what the chat view (useGroupPlugins) loaded. */
 export function useEnabledPlugins(groupId: string) {
   const list = usePluginStore((s) => s.lists[groupId])
   return useMemo(() => list?.filter((p) => p.enabledInGroup) ?? [], [list])
+}
+
+/** What 创作 offers: enabled plugins with a creation skill (tool-only plugins have none). */
+export function useCreationPlugins(groupId: string) {
+  const list = usePluginStore((s) => s.lists[groupId])
+  return useMemo(() => list?.filter((p) => p.enabledInGroup && p.manifest.entry) ?? [], [list])
 }
 
 export function putPlugin(groupId: string, p: GroupPluginDto) {

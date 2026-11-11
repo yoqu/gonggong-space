@@ -23,7 +23,7 @@ function walk(dir: string): string[] {
 function load(name: string) {
   const root = join(OFFICIAL, name)
   const manifest = PluginManifest.parse(JSON.parse(readFileSync(join(root, PLUGIN_MANIFEST), 'utf8')))
-  return { root, manifest, skillDir: join(root, 'skills', manifest.entry) }
+  return { root, manifest, skillDir: join(root, 'skills', manifest.entry!) }
 }
 
 describe.each(readdirSync(OFFICIAL).sort())('official plugin %s', (name) => {

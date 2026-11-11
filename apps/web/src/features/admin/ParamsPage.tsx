@@ -21,7 +21,13 @@ import { usePluginStore } from '../plugins/store'
 import { AdminPage } from './AdminPage'
 
 type Key = (typeof SYSTEM_PARAM_VIEW)[number]['key']
-type Toggle = 'registrationOpen' | 'singleTeamMode' | 'teamCreation' | 'demoMode' | 'pluginsEnabled'
+type Toggle =
+  | 'registrationOpen'
+  | 'singleTeamMode'
+  | 'teamCreation'
+  | 'demoMode'
+  | 'pluginsEnabled'
+  | 'pluginCodeEnabled'
 
 /** GET /api/admin/params; null until loaded (or when it fails — callers only use it for auxiliary copy). */
 export function useSystemParams(enabled = true) {
@@ -101,7 +107,8 @@ export function ParamsPage() {
       setSaved((s) => (s ? { ...s, ...Object.fromEntries(keys.map((k) => [k, next[k]])) } : next))
       // The switches reported on /me (plugins, demo, single team) take effect here without a reload.
       useSession.getState().setUser(await api.get<MeDto>('/me'))
-      if ('pluginsEnabled' in patch) usePluginStore.setState({ lists: {} })
+      // Which bots can use which plugin changes with either switch.
+      if ('pluginsEnabled' in patch || 'pluginCodeEnabled' in patch) usePluginStore.setState({ lists: {} })
       toast({ type: 'success', message })
     } catch (err) {
       toastError(err)
@@ -193,6 +200,21 @@ export function ParamsPage() {
                 label={saved.pluginsEnabled ? t('已开启') : t('已关闭#off')}
                 checked={saved.pluginsEnabled}
                 onChange={(v) => void apply({ pluginsEnabled: v }, v ? t('已开启插件') : t('已关闭插件'))}
+              />
+            </GroupRow>
+            <GroupRow
+              label={t('插件代码')}
+              description={t(
+                '允许插件在执行机器上运行代码，如本地 MCP 服务。开启后每个插件版本仍需机器主人在自己的机器上逐个授权。',
+              )}
+            >
+              <Switch
+                ariaLabel={t('插件代码')}
+                label={saved.pluginCodeEnabled ? t('已开启') : t('已关闭#off')}
+                checked={saved.pluginCodeEnabled}
+                onChange={(v) =>
+                  void apply({ pluginCodeEnabled: v }, v ? t('已开启插件代码') : t('已关闭插件代码'))
+                }
               />
             </GroupRow>
             <GroupRow

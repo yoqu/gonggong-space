@@ -13,6 +13,7 @@ import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPane
 import { AgentsPanel } from './AgentsPanel'
 import { GitAccessPanel } from './GitAccessPanel'
 import { OS_LABEL } from './model'
+import { PluginTrustsPanel } from './PluginTrustsPanel'
 
 const GB = 1024 ** 3
 
@@ -31,7 +32,7 @@ export const OS_ICON: Record<MachineDto['os'], IconName> = {
   windows: 'windows',
 }
 
-type Tab = 'overview' | 'agents' | 'workspaces' | 'git' | 'diagnostics'
+type Tab = 'overview' | 'agents' | 'workspaces' | 'git' | 'diagnostics' | 'plugins'
 type Part = 'tools' | 'providers' | 'agent' | 'workspaces' | 'git' | 'logs'
 const PART_NAME: Record<Part, string> = {
   tools: t('Agent 工具'),
@@ -49,7 +50,9 @@ const PART_FEATURE = {
   git: 'gitAccess',
   logs: 'machineAdmin',
 } as const
-const TAB_PARTS: Record<Exclude<Tab, 'overview'>, Part[]> = {
+/** Tabs the daemon serves; 插件授权 is the server's alone. */
+type DaemonTab = Exclude<Tab, 'overview' | 'plugins'>
+const TAB_PARTS: Record<DaemonTab, Part[]> = {
   agents: ['tools', 'providers', 'agent'],
   workspaces: ['workspaces'],
   git: ['git'],
@@ -65,13 +68,13 @@ const TAB_ALIAS: Record<string, Tab> = {
   workspaces: 'workspaces',
   git: 'git',
   diagnostics: 'diagnostics',
+  plugins: 'plugins',
 }
 
 const outdated = (m: MachineDto, part: Part) => !m.features.includes(PART_FEATURE[part])
 
 /** An online machine whose daemon is too old for all of a section; offline sections stay open to explain. */
-const blocked = (m: MachineDto, tab: Exclude<Tab, 'overview'>) =>
-  m.online && TAB_PARTS[tab].every((p) => outdated(m, p))
+const blocked = (m: MachineDto, tab: DaemonTab) => m.online && TAB_PARTS[tab].every((p) => outdated(m, p))
 
 function blockedNote(m: MachineDto) {
   if (!m.online) return t('机器离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断')
@@ -186,6 +189,7 @@ export function MachineDetails({
     return (Object.hasOwn(TAB_ALIAS, v) && TAB_ALIAS[v]) || 'overview'
   })
   const owner = useSession((st) => st.user?.id === machine.ownerId)
+  const plugins = useSession((st) => !!st.tenancy?.pluginsEnabled)
   const latest = useGet<ClientDownloads | null>('/client-downloads').data?.version
   const current = owner ? tab : 'overview'
   const specs: [IconName, string, string | null][] = [
@@ -208,12 +212,15 @@ export function MachineDetails({
               { value: 'workspaces', label: t('工作区#tab'), disabled: blocked(machine, 'workspaces') },
               { value: 'git', label: t('Git 访问'), disabled: blocked(machine, 'git') },
               { value: 'diagnostics', label: t('诊断'), disabled: blocked(machine, 'diagnostics') },
+              ...(plugins ? [{ value: 'plugins' as const, label: t('插件授权') }] : []),
             ]}
           />
           {blockedNote(machine) ? <p className="machine__tabs-note">{blockedNote(machine)}</p> : null}
         </div>
       ) : null}
-      {current === 'overview' ? null : !machine.online ? (
+      {current === 'overview' ? null : current === 'plugins' ? (
+        <PluginTrustsPanel machine={machine} />
+      ) : !machine.online ? (
         <OfflineNote machine={machine} />
       ) : blocked(machine, current) ? (
         <EmptyState

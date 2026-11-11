@@ -8,10 +8,10 @@ use crate::protocol::{
     FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS,
     FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI,
     FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS,
-    FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGINS, FEATURE_PROVIDER_ARGS,
-    FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS,
-    GitAccessCmd, ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd,
-    ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS,
+    FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN,
+    FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput, ProviderStateItem,
+    ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
 use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
 use crate::service::Outbox;
@@ -58,6 +58,7 @@ impl Manage {
             FEATURE_AGENT_SETTINGS.to_string(),
             FEATURE_REPROBE.to_string(),
             FEATURE_PLUGINS.to_string(),
+            FEATURE_PLUGIN_MCP.to_string(),
             FEATURE_ARTIFACTS.to_string(),
             FEATURE_ARTIFACT_SNAPSHOT.to_string(),
             FEATURE_GIT_OPS.to_string(),
@@ -955,6 +956,7 @@ mod tests {
                 "agentSettings",
                 "reprobe",
                 "plugins",
+                "pluginMcp",
                 "artifacts",
                 "artifactSnapshot",
                 "gitOps",
@@ -988,6 +990,7 @@ mod tests {
                 "agentSettings",
                 "reprobe",
                 "plugins",
+                "pluginMcp",
                 "artifacts",
                 "artifactSnapshot",
                 "gitOps",

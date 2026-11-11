@@ -18,7 +18,7 @@ const PkgPath = z
   .max(255)
   .refine((p) => !p.startsWith('/') && !p.split('/').includes('..'), '必须是插件目录内的相对路径')
 
-export const PluginCategory = z.enum(['web', 'deck', 'poster', 'dashboard', 'video', 'other'])
+export const PluginCategory = z.enum(['web', 'deck', 'poster', 'dashboard', 'video', 'tool', 'other'])
 export type PluginCategory = z.infer<typeof PluginCategory>
 
 /** A form field of the creation panel (第 3 步「内容与参数」); its value is passed to the agent as `label：value`. */
@@ -70,6 +70,47 @@ export const PluginDesignSystem = z.object({
 })
 export type PluginDesignSystem = z.infer<typeof PluginDesignSystem>
 
+/**
+ * What a plugin may do beyond giving skills (plan 插件扩展点 §9), listed on install and review: `exec` runs its code
+ * (stdio MCP servers) on the executing machine, `network` sends tool calls to the addresses it declares (http MCP).
+ */
+export const PluginPermission = z.enum(['exec', 'network'])
+export type PluginPermission = z.infer<typeof PluginPermission>
+
+const PLUGIN_SECRET_REF = /\$\{secret:([A-Z][A-Z0-9_]{1,63})\}/g
+const McpValues = z.record(z.string().min(1).max(100), z.string().max(2000)).default({})
+/**
+ * An MCP server the plugin brings (`contributes.mcp`), given to the agent as `<plugin>-<name>`. In `command`, `{node}`
+ * is the daemon's Node and `{pkg}` the unpacked plugin folder (absolute); env and header values may hold
+ * `${secret:NAME}` of the manifest's `secrets`.
+ */
+export const PluginMcp = z.discriminatedUnion('transport', [
+  z.object({
+    transport: z.literal('stdio'),
+    name: z.string().regex(ID),
+    command: z.array(z.string().min(1).max(500)).min(1).max(30),
+    env: McpValues,
+  }),
+  z.object({
+    transport: z.literal('http'),
+    name: z.string().regex(ID),
+    url: z.string().url().max(500),
+    headers: McpValues,
+  }),
+])
+export type PluginMcp = z.infer<typeof PluginMcp>
+
+/** Extension points (plan 插件扩展点); each optional. */
+export const PluginContributes = z.object({ mcp: z.array(PluginMcp).max(10).default([]) })
+export type PluginContributes = z.infer<typeof PluginContributes>
+
+/** The permissions what a manifest contributes needs; it must declare exactly these. */
+export const requiredPermissions = (c: PluginContributes): PluginPermission[] =>
+  PluginPermission.options.filter((p) => c.mcp.some((m) => m.transport === (p === 'exec' ? 'stdio' : 'http')))
+
+/** Runs code on the executing machine (§9): needs 插件代码 on, the machine owner's consent and a pinned install. */
+export const pluginRunsCode = (m: { permissions: PluginPermission[] }) => m.permissions.includes('exec')
+
 export const PluginManifest = z
   .object({
     name: z.string().regex(ID),
@@ -81,8 +122,10 @@ export const PluginManifest = z
     agents: z.array(AgentKind).min(1),
     /** Oldest daemon version that can load it (daemons also need the `plugins` feature). */
     minDaemon: z.string().regex(SEMVER),
-    /** The skill a creation invokes: `skills/<entry>/SKILL.md` must exist. */
-    entry: z.string().regex(ID),
+    /** The skill a creation invokes: `skills/<entry>/SKILL.md` must exist. Null for a plugin without one (tools only). */
+    entry: z.string().regex(ID).nullable().default(null),
+    permissions: z.array(PluginPermission).max(PluginPermission.options.length).default([]),
+    contributes: PluginContributes.default({ mcp: [] }),
     templates: z.array(PluginTemplate).max(80).default([]),
     designSystems: z.array(PluginDesignSystem).max(80).default([]),
     inputs: z.array(PluginInput).max(12).default([]),
@@ -118,6 +161,25 @@ export const PluginManifest = z
           ctx.addIssue({ code: 'custom', path: ['templates', k, 'inputs'], message: `没有输入项 ${id}` })
     if (m.composer && m.inputs.find((i) => i.id === m.composer?.prompt)?.type !== 'text')
       ctx.addIssue({ code: 'custom', path: ['composer', 'prompt'], message: '必须是一个 text 输入项' })
+    if (!m.entry && (m.templates.length || m.designSystems.length || m.inputs.length || m.composer))
+      ctx.addIssue({ code: 'custom', path: ['entry'], message: '有模板、设计系统或输入项时必须填写' })
+    const need = requiredPermissions(m.contributes)
+    if (need.join() !== [...new Set(m.permissions)].sort().join())
+      ctx.addIssue({ code: 'custom', path: ['permissions'], message: `必须正好是 [${need.join(', ')}]` })
+    const names = m.contributes.mcp.map((c) => c.name)
+    for (const [k, c] of m.contributes.mcp.entries()) {
+      if (names.indexOf(c.name) !== k)
+        ctx.addIssue({ code: 'custom', path: ['contributes', 'mcp', k, 'name'], message: `重名 ${c.name}` })
+      const values = Object.values(c.transport === 'stdio' ? c.env : c.headers)
+      for (const v of values)
+        for (const [, name] of v.matchAll(PLUGIN_SECRET_REF))
+          if (!m.secrets.includes(name!))
+            ctx.addIssue({
+              code: 'custom',
+              path: ['contributes', 'mcp', k],
+              message: `${name} 不在 secrets 里`,
+            })
+    }
   })
 export type PluginManifest = z.infer<typeof PluginManifest>
 
@@ -168,7 +230,8 @@ export const UploadPluginReq = z.object({ files: PluginFiles })
 export type UploadPluginReq = z.infer<typeof UploadPluginReq>
 
 /** Why a bot of the group cannot use a plugin now. */
-export const PluginBlocker = z.enum(['agent', 'daemon', 'offline', 'secret'])
+/** `code`: it runs code and 插件代码 is off; `trust`: the machine's owner has not allowed this version yet. */
+export const PluginBlocker = z.enum(['agent', 'daemon', 'offline', 'secret', 'code', 'trust'])
 export type PluginBlocker = z.infer<typeof PluginBlocker>
 /**
  * GET /api/groups/:id/plugins — platform, team and group plugins with the group's switch. Plugins are off in a group
@@ -181,6 +244,32 @@ export const GroupPluginDto = PluginDto.extend({
 export type GroupPluginDto = z.infer<typeof GroupPluginDto>
 /** PUT /api/groups/:id/plugins/:pluginId */
 export const TogglePluginReq = z.object({ enabled: z.boolean() })
+
+/**
+ * A machine owner's decision on running a plugin version's code there (plan 插件扩展点 §9): asked the first time a turn
+ * on the machine would use it; a new version asks again.
+ */
+export const PluginTrustStatus = z.enum(['pending', 'allowed', 'denied'])
+export type PluginTrustStatus = z.infer<typeof PluginTrustStatus>
+/** GET /api/machines/:id/plugin-trusts */
+export const PluginTrustDto = z.object({
+  id: z.string(),
+  machineId: z.string(),
+  pluginId: z.string(),
+  pluginName: z.string(),
+  pluginTitle: z.string(),
+  version: z.string(),
+  versionId: z.string(),
+  permissions: z.array(PluginPermission),
+  mcp: z.array(PluginMcp),
+  status: PluginTrustStatus,
+  requestedAt: z.string(),
+  decidedBy: z.string().nullable(),
+  decidedAt: z.string().nullable(),
+})
+export type PluginTrustDto = z.infer<typeof PluginTrustDto>
+/** PUT /api/machines/:id/plugin-trusts/:trustId; DELETE revokes it (the next turn asks again). */
+export const DecidePluginTrustReq = z.object({ allow: z.boolean() })
 
 export const CREATION_INPUT_MAX = 20000
 

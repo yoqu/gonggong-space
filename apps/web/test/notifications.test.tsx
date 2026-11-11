@@ -172,6 +172,35 @@ describe('notification center', () => {
     expect(screen.getByTestId('where').textContent).toBe('/')
   })
 
+  it('lets the machine owner allow a plugin to run code right in the notification', async () => {
+    const calls = mockApi({
+      'GET /notifications': [
+        note({
+          type: 'plugin_trust',
+          payload: {
+            trustId: 'pt1',
+            machineId: 'm1',
+            machineName: 'wanglei-mbp',
+            pluginTitle: '缺陷跟踪',
+            version: '1.0.0',
+          },
+        }),
+      ],
+      'PUT /machines/m1/plugin-trusts/pt1': {},
+    })
+    renderShell()
+    fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
+    const list = await screen.findByTestId('notification-list')
+    expect(
+      await within(list).findByText('插件 缺陷跟踪 1.0.0 要在 wanglei-mbp 上运行代码，请确认'),
+    ).toBeTruthy()
+    fireEvent.click(within(list).getByRole('button', { name: '允许' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/machines/m1/plugin-trusts/pt1')?.body).toEqual({ allow: true }),
+    )
+    expect(screen.getByTestId('where').textContent).toBe('/')
+  })
+
   it('opens a bot shared with me from its notification, reading it', async () => {
     const calls = mockApi({
       'GET /notifications': [

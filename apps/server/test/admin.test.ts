@@ -393,6 +393,7 @@ describe('system params', () => {
       publicUrl: '',
       demoMode: false,
       pluginsEnabled: false,
+      pluginCodeEnabled: false,
     })
   })
 

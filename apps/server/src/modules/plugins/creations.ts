@@ -96,6 +96,7 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
     (await groupPluginList(ctx.db, groupId)).find((r) => r.plugin.id === req.pluginId && r.enabledInGroup) ??
     fail('conflict', '这个插件没有在本群启用')
   const m = found.version.manifest
+  if (!m.entry) fail('invalid', '这个插件不能用来创作')
   const template = pick(m.templates, req.templateId, '请选择模板', '模板不存在')
   const ds = usesDesignSystem(m, template)
     ? await designSource(ctx, groupId, m, req.designSystemId)
@@ -105,7 +106,8 @@ async function resolve(ctx: Ctx, groupId: string, originUserId: string, req: Dra
   const { lines, missing } = inputLines(templateInputs(m, template), req.inputs, lenient)
   const [bot] = await botStates(ctx, groupId, originUserId, req.botId)
   if (!bot) return fail('not_found', 'Bot 不在本群')
-  if (pluginBlocker(m, bot.state)) fail('conflict', '{bot} 现在用不了这个插件', { bot: bot.name })
+  if (pluginBlocker(m, bot.state, found.version.id))
+    fail('conflict', '{bot} 现在用不了这个插件', { bot: bot.name })
   const card: CreationCard = {
     type: 'creation',
     pluginId: found.plugin.id,

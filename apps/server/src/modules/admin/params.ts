@@ -32,6 +32,7 @@ export const PARAM_DEFAULTS: SystemParams = {
   publicUrl: '',
   demoMode: false,
   pluginsEnabled: false,
+  pluginCodeEnabled: false,
 }
 
 const KEYS = Object.keys(PARAM_DEFAULTS) as (keyof SystemParams)[]

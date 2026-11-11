@@ -189,6 +189,7 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
                 }
                 turn.req.artifact_hint = hint;
             }
+            turn.req.start.mcp_servers.extend(plugins.mcp.iter().cloned());
             turn.skills = skills;
             turn.plugins = plugins;
             Some(turn)

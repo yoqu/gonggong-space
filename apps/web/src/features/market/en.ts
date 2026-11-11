@@ -188,4 +188,6 @@ export default {
   '标「同名冲突」的条目与这里已有的 Skill 同名，先移除那个再引入。':
     'Listings marked Name taken share a name with a skill already here; remove that one first.',
   在市场中查看详情: 'View in the market',
+  '权限#plugin': 'Permissions',
+  'MCP 服务': 'MCP servers',
 }

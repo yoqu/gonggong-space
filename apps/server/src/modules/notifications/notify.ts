@@ -79,8 +79,17 @@ export async function resolveNotifications(
     | 'join_request'
     | 'git_operation_request'
     | 'install_request'
-    | 'listing_submitted',
-  key: 'approvalId' | 'questionSetId' | 'conflictId' | 'botId' | 'requestId' | 'operationId' | 'versionId',
+    | 'listing_submitted'
+    | 'plugin_trust',
+  key:
+    | 'approvalId'
+    | 'questionSetId'
+    | 'conflictId'
+    | 'botId'
+    | 'requestId'
+    | 'operationId'
+    | 'versionId'
+    | 'trustId',
   ids: string[],
   groupId?: string,
   patch?: Record<string, unknown>,

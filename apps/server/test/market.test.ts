@@ -410,7 +410,15 @@ describe('plugin installs', () => {
         files: pluginFiles('deck', { version: '1.1.0' }),
       })
     ).body
-    const refs = await runPlugins(t.db, w.groupA.id, { agentKind: 'claude' }, machine.id, ['plugins'], {})
+    const { refs } = await runPlugins(
+      t.db,
+      w.groupA.id,
+      { agentKind: 'claude' },
+      machine.id,
+      ['plugins'],
+      {},
+      false,
+    )
     expect(refs.map((r) => [r.name, r.versionId])).toEqual([
       ['deck', deck2.versionId],
       ['page', page.versionId],

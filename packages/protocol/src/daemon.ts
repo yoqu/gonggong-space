@@ -214,8 +214,17 @@ export type SkillRef = z.infer<typeof SkillRef>
 /** `GET /api/daemon/skills/:versionId` */
 export const DaemonSkillRes = z.object({ files: z.array(SkillFile) })
 export type DaemonSkillRes = z.infer<typeof DaemonSkillRes>
-/** Plugin files for a run (plan 插件体系-方案); the daemon fetches them by `versionId`, cached by `digest`. */
-export const PluginRef = z.object({ name: z.string(), versionId: z.string(), digest: z.string() })
+/**
+ * Plugin files for a run (plan 插件体系-方案); the daemon fetches them by `versionId`, cached by `digest`. `mcp`: its
+ * MCP servers with secrets filled in, only to daemons with `pluginMcp`; the daemon replaces `{node}` and `{pkg}` in
+ * stdio `command`, `args` and `env` and adds them to the run's servers.
+ */
+export const PluginRef = z.object({
+  name: z.string(),
+  versionId: z.string(),
+  digest: z.string(),
+  mcp: z.array(McpServer).default([]),
+})
 export type PluginRef = z.infer<typeof PluginRef>
 /** `GET /api/daemon/plugins/:versionId` */
 export const DaemonPluginRes = z.object({ files: z.array(SkillFile) })
@@ -1302,6 +1311,8 @@ export const DaemonFeature = z.enum([
   'pi',
   /** Runs DeepSeek Harness bots: a daemon without it cannot read a run.start for one. */
   'deepseek',
+  /** PluginRef.mcp (plan 插件扩展点 S1): `{node}` / `{pkg}` filled in and the servers handed to the agent. */
+  'pluginMcp',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 

@@ -87,9 +87,10 @@ const skillMd = (name: string, body = 'Make a page.') =>
 
 /** A valid folder for the manifest: entry SKILL.md, each design system's files and each template preview. */
 function pkg(m: ReturnType<typeof manifest> = manifest(), body?: string) {
+  const entry = m.entry as string
   return [
     { path: 'gonggong-plugin.json', content: JSON.stringify(m) },
-    { path: `skills/${m.entry}/SKILL.md`, content: skillMd(m.entry, body) },
+    { path: `skills/${entry}/SKILL.md`, content: skillMd(entry, body) },
     ...m.designSystems.flatMap((d) => [
       { path: `skills/${m.entry}/${d.dir}/DESIGN.md`, content: `# ${d.title}\n` },
       { path: `skills/${m.entry}/${d.dir}/tokens.css`, content: ':root { --fg: #111; }\n' },
@@ -492,18 +493,29 @@ describe('group plugins', () => {
       features: ['plugins'],
       daemonVersion: '0.8.0',
       env: { A_KEY: 'x' },
+      codeEnabled: false,
+      trusted: [],
     }
-    expect(pluginBlocker(m, ok)).toBeNull()
-    expect(pluginBlocker(m, { ...ok, agentKind: 'codex', online: false })).toBe('agent')
-    expect(pluginBlocker(m, { ...ok, online: false, features: [] })).toBe('offline')
-    expect(pluginBlocker(m, { ...ok, features: [] })).toBe('daemon')
-    expect(pluginBlocker(m, { ...ok, daemonVersion: '0.7.12' })).toBe('daemon')
-    expect(pluginBlocker(m, { ...ok, daemonVersion: null })).toBe('daemon')
-    expect(pluginBlocker(m, { ...ok, env: {} })).toBe('secret')
+    expect(pluginBlocker(m, ok, 'v1')).toBeNull()
+    expect(pluginBlocker(m, { ...ok, agentKind: 'codex', online: false }, 'v1')).toBe('agent')
+    expect(pluginBlocker(m, { ...ok, online: false, features: [] }, 'v1')).toBe('offline')
+    expect(pluginBlocker(m, { ...ok, features: [] }, 'v1')).toBe('daemon')
+    expect(pluginBlocker(m, { ...ok, daemonVersion: '0.7.12' }, 'v1')).toBe('daemon')
+    expect(pluginBlocker(m, { ...ok, daemonVersion: null }, 'v1')).toBe('daemon')
+    expect(pluginBlocker(m, { ...ok, env: {} }, 'v1')).toBe('secret')
+    const stdio = { transport: 'stdio' as const, name: 's', command: ['x'], env: {} }
+    const code = PluginManifestOf({ ...m, permissions: ['exec'], contributes: { mcp: [stdio] } })
+    const mcpOk = { ...ok, features: ['plugins', 'pluginMcp'] }
+    expect(pluginBlocker(code, ok, 'v1')).toBe('daemon')
+    expect(pluginBlocker(code, mcpOk, 'v1')).toBe('code')
+    expect(pluginBlocker(code, { ...mcpOk, codeEnabled: true, env: {} }, 'v1')).toBe('secret')
+    expect(pluginBlocker(code, { ...mcpOk, codeEnabled: true }, 'v1')).toBe('trust')
+    expect(pluginBlocker(code, { ...mcpOk, codeEnabled: true, trusted: ['v1'] }, 'v1')).toBeNull()
   })
 })
 
-const PluginManifestOf = (o: ManifestIn) => manifest(o) as unknown as PluginManifest
+const PluginManifestOf = (o: ManifestIn) =>
+  ({ permissions: [], contributes: { mcp: [] }, ...manifest(o) }) as unknown as PluginManifest
 
 describe('plugins in run.start', () => {
   it('sends enabled plugins only to bots that can use them, and serves their files to those machines', async () => {

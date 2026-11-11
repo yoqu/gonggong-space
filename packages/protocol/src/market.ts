@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PluginMcp, PluginPermission } from './plugins.js'
 
 // ── Skill 市场 (plan Skill市场-PRD): listings (the `plugins` table) installed into a scope ────
 /** `plugin`: a creation plugin with gonggong-plugin.json; `skill`: a bare skill folder (SKILL.md at its root). */
@@ -145,6 +146,9 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   /** Targets the caller belongs to where another skill already has this skill's name (installing there is a 409). */
   nameTakenIn: z.array(TargetRef).optional(),
   readme: z.string(),
+  /** A plugin's permissions and MCP servers (plan 插件扩展点 §9), shown before installing; empty for skills. */
+  permissions: z.array(PluginPermission).default([]),
+  mcp: z.array(PluginMcp).default([]),
   files: z.array(z.object({ path: z.string(), size: z.number().int() })),
   versions: z.array(ListingVersionDto),
   ghSource: ListingSource.nullable(),

@@ -830,7 +830,7 @@ export const runs = pgTable(
     /** Secrets injected into the run: names and sources, never values. */
     secrets: jsonb('secrets').$type<RunSecret[]>().notNull().default([]),
     /** Plugins sent in its run.start: the only versions its machine may download. */
-    plugins: jsonb('plugins').$type<PluginRef[]>().notNull().default([]),
+    plugins: jsonb('plugins').$type<Omit<PluginRef, 'mcp'>[]>().notNull().default([]),
     /** Latest state of each subagent / background task by id: { subagents: {id: state}, tasks: {id: state} }. */
     delegation: jsonb('delegation').notNull().default({}),
     /**
@@ -1368,6 +1368,29 @@ export const installs = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique().on(t.listingId, t.scope, t.scopeId), index('installs_scope').on(t.scope, t.scopeId)],
+)
+
+/** A machine owner's decision on running a plugin version's code on that machine (plan 插件扩展点 §9). */
+export const pluginTrusts = pgTable(
+  'plugin_trusts',
+  {
+    id: id(),
+    machineId: uuid('machine_id')
+      .notNull()
+      .references(() => machines.id, { onDelete: 'cascade' }),
+    pluginId: uuid('plugin_id')
+      .notNull()
+      .references(() => plugins.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => pluginVersions.id, { onDelete: 'cascade' }),
+    /** PluginTrustStatus */
+    status: text('status').notNull().default('pending'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    createdAt: createdAt(),
+    decidedAt: ts('decided_at'),
+  },
+  (t) => [unique().on(t.machineId, t.versionId)],
 )
 
 /** A member asks the target's admins to install a listing (plan Skill市场-M4). */

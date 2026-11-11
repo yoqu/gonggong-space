@@ -68,6 +68,8 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
   agents: ['claude'],
   minDaemon: '0.4.0',
   entry: 'web-prototype',
+  permissions: [],
+  contributes: { mcp: [] },
   templates: [
     {
       id: 'saas',

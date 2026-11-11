@@ -426,4 +426,10 @@ export default {
     'Open a terminal on the machine (in Docker: docker compose exec daemon bash)',
   '进入后输入 /login，按提示在浏览器里完成登录': 'Then type /login and finish logging in in the browser',
   '打开它给出的链接，输入验证码完成登录': 'Open the link it prints and enter the code to log in',
+  插件授权: 'Plugin permissions',
+  '会运行代码的插件第一次在这台机器上使用时请你确认；插件出新版本要重新确认。':
+    'Plugins that run code ask you the first time they are used on this machine, and again for each new version.',
+  已允许: 'Allowed',
+  '撤销后，下次用到时会重新请你确认': 'After revoking, you will be asked again the next time it is needed',
+  还没有插件请求在这台机器上运行代码: 'No plugin has asked to run code on this machine yet',
 } satisfies Record<string, string>

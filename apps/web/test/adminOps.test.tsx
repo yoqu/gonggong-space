@@ -58,6 +58,7 @@ const PARAMS: SystemParams = {
   publicUrl: '',
   demoMode: false,
   pluginsEnabled: false,
+  pluginCodeEnabled: false,
 }
 
 class NoopSocket {

@@ -4,7 +4,7 @@
 //! plugin.
 use crate::config::Config;
 use crate::git;
-use crate::protocol::{AgentKind, PluginRef};
+use crate::protocol::{AgentKind, McpServer, PluginRef};
 use crate::skills;
 use crate::t;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,8 @@ use std::path::{Component, Path, PathBuf};
 pub struct Installed {
     /// One plugin folder per plugin, in run order; a change needs a new adapter process.
     pub dirs: Vec<PathBuf>,
+    /// The plugins' MCP servers with `{node}` and `{pkg}` filled in, added to the run's.
+    pub mcp: Vec<McpServer>,
 }
 
 /// The Codex / Gemini links made for a (group, bot), so only ours are removed.
@@ -49,6 +51,7 @@ pub async fn install(
     let e = |e: std::io::Error| t!("无法安装插件：{e}", e = e);
     let sets = home.join("plugin-sets");
     let mut dirs = vec![];
+    let mut mcp = vec![];
     for r in refs {
         if !plain(&r.name) || !plain(&r.digest) {
             return Err(t!("插件名或版本不合法：{name}", name = r.name));
@@ -60,6 +63,9 @@ pub async fn install(
         confine(&dir).await.map_err(e)?;
         // Last use, for the janitor: a version no turn takes for a month is removed.
         let _ = tokio::fs::write(sets.join(format!(".{}-{}.used", r.name, r.digest)), b"").await;
+        for server in &r.mcp {
+            mcp.push(fill(server, &dir, home).await?);
+        }
         dirs.push(dir);
     }
 
@@ -97,7 +103,29 @@ pub async fn install(
     state.links = wanted.into_iter().map(|(l, _)| l).collect();
     tokio::fs::create_dir_all(state_file.parent().expect("has a parent")).await.map_err(e)?;
     tokio::fs::write(&state_file, serde_json::to_vec(&state).expect("state serializes")).await.map_err(e)?;
-    Ok(Installed { dirs })
+    Ok(Installed { dirs, mcp })
+}
+
+/// A stdio server with `{pkg}` (the plugin folder) and `{node}` (the daemon's Node) filled in.
+async fn fill(server: &McpServer, pkg: &Path, home: &Path) -> Result<McpServer, String> {
+    let McpServer::Stdio { name, command, args, env } = server else { return Ok(server.clone()) };
+    let mut values = std::iter::once(command).chain(args).chain(env.values());
+    let node = if values.any(|v| v.contains("{node}")) {
+        let h = home.to_path_buf();
+        let found = tokio::task::spawn_blocking(move || crate::tools::node(&h)).await.ok().flatten();
+        let node = found.ok_or_else(|| t!("插件 MCP {name} 需要 Node，本机没有找到", name = name))?;
+        node.path.to_string_lossy().into_owned()
+    } else {
+        String::new()
+    };
+    let pkg = pkg.to_string_lossy();
+    let sub = |v: &String| v.replace("{pkg}", &pkg).replace("{node}", &node);
+    Ok(McpServer::Stdio {
+        name: name.clone(),
+        command: sub(command),
+        args: args.iter().map(sub).collect(),
+        env: env.iter().map(|(k, v)| (k.clone(), sub(v))).collect(),
+    })
 }
 
 /// A single path component, safe to put in a folder or link name.

@@ -18,6 +18,7 @@ import type {
   UpstreamMovedDto,
   VersionDiffDto,
 } from '@gonggong/protocol'
+import { pluginRunsCode } from '@gonggong/protocol'
 import {
   and,
   desc,
@@ -423,9 +424,8 @@ export async function marketDetail(
     .from(pluginVersions)
     .where(eq(pluginVersions.id, pick))
   const files = v!.files as SkillFile[]
-  const manifest = card!.shown.manifest
-  const readmePath =
-    listing.type === 'plugin' ? `skills/${(manifest as PluginManifest).entry}/SKILL.md` : 'SKILL.md'
+  const plugin = listing.type === 'plugin' ? (card!.shown.manifest as PluginManifest) : null
+  const readmePath = !plugin ? 'SKILL.md' : plugin.entry ? `skills/${plugin.entry}/SKILL.md` : 'README.md'
   const readme = files.find((f) => f.path === readmePath && f.encoding === 'utf8')?.content ?? ''
   const where = await installedIn(ctx.db, me.id, [listing.id])
   return {
@@ -436,6 +436,8 @@ export async function marketDetail(
     canReview,
     banReason: listing.banReason,
     readme,
+    permissions: plugin?.permissions ?? [],
+    mcp: plugin?.contributes.mcp ?? [],
     files: files.map((f) => ({
       path: f.path,
       size: f.encoding === 'base64' ? Buffer.from(f.content, 'base64').length : Buffer.byteLength(f.content),
@@ -572,6 +574,7 @@ export async function publish(ctx: Ctx, me: Me, req: PublishReq, ghSource?: List
           .for('update')
     if (!listing) return fail('conflict', '插件正在被修改，请重试')
     if (!made) await requireOwnName(tx, me, listing, s)
+    publicCode(s, listing.visibility)
     const added = await addDraft(ctx, tx, listing, s, me.id, ghSource)
     return { listing, created: !!made, added }
   })
@@ -584,6 +587,12 @@ export async function publish(ctx: Ctx, me: Me, req: PublishReq, ghSource?: List
       unchanged: !saved.added,
     },
   }
+}
+
+/** Plugins that run code stay in their team for now (plan 插件扩展点 §13). */
+function publicCode(s: ListingSnapshot, visibility: string | null) {
+  if (visibility === 'public' && s.type === 'plugin' && pluginRunsCode(s.manifest))
+    fail('invalid', '会运行代码的插件暂时只能在团队内可见')
 }
 
 /** The same-named listing in the team may take a new version only from its maintainers, and of the same type. */
@@ -612,6 +621,7 @@ export async function preflight(ctx: Ctx, me: Me, req: PublishReq): Promise<Publ
       ),
     )
   if (listing) await requireOwnName(ctx.db, me, listing, s)
+  publicCode(s, listing?.visibility ?? req.visibility)
   const [last] = listing
     ? await ctx.db
         .select({ revision: pluginVersions.revision, digest: pluginVersions.digest })
@@ -693,6 +703,13 @@ export async function updateListing(ctx: Ctx, me: Me, id: string, req: UpdateLis
   // Approval was given for the old audience: team admins must not be able to make a listing public.
   if (req.visibility && req.visibility !== listing.visibility && listing.listedVersionId)
     fail('conflict', '已有版本审核通过，不能再修改可见范围')
+  if (req.visibility === 'public' && listing.type === 'plugin') {
+    const code = await ctx.db
+      .select({ manifest: pluginVersions.manifest })
+      .from(pluginVersions)
+      .where(eq(pluginVersions.pluginId, listing.id))
+    if (code.some((v) => pluginRunsCode(v.manifest))) fail('invalid', '会运行代码的插件暂时只能在团队内可见')
+  }
   await ctx.db
     .update(plugins)
     .set({ ...req, updatedBy: me.id, updatedAt: ctx.now() })

@@ -25,7 +25,7 @@ import { ARTIFACT_SLASH, commandSelection, parseArtifactSlash, selectedScreenIds
 import { useArtifactEntry } from '../artifacts/store'
 import { AttachmentChips, FilePickers, QuoteChip, useUploads } from '../attachments/ComposerAttachments'
 import { useQuote } from '../attachments/quote'
-import { openCreation, useEnabledPlugins } from '../plugins/store'
+import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
 import { type Candidate, CandidatePopover, placeCommand, useCandidates } from './ComposerCandidates'
@@ -142,7 +142,7 @@ export const MessageComposer = memo(function MessageComposer({
   /** Variations ×n: the next message asks for n variations of the selected screens. */
   const [variations, setVariations] = useState<number | null>(null)
   const groupBots = useWorkspace((s) => s.bots).filter((b) => group.botIds.includes(b.id))
-  const plugins = useEnabledPlugins(group.id)
+  const plugins = useCreationPlugins(group.id)
   const appending = useAppend((s) => s.target?.groupId === main)
   const mentioned = mentionedBots(draft, groupBots)
   // Mirrors the server: a dm with a single bot needs no @ (appends excepted); run options skip commands.

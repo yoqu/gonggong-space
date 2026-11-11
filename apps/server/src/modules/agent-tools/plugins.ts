@@ -26,18 +26,23 @@ const BLOCKER: Record<PluginBlocker, string> = {
   offline: '机器离线',
   daemon: '机器版本过低',
   secret: '缺少所需密钥',
+  code: '插件代码未开启',
+  trust: '等待机器主人授权运行',
 }
 
 /** The group's enabled plugins with why the run's bot cannot use each, or none with the reason. */
 async function enabled(ctx: Ctx, run: Run) {
   if (!(await pluginsOn(ctx.db))) return refuse('插件功能未开启')
-  const list = (await groupPluginList(ctx.db, run.groupId)).filter((r) => r.enabledInGroup)
+  // Creation plugins only: tool plugins reach the agent as MCP servers.
+  const list = (await groupPluginList(ctx.db, run.groupId)).filter(
+    (r) => r.enabledInGroup && r.version.manifest.entry,
+  )
   if (!list.length) return refuse('本群没有启用插件，请群管理员在群设置「插件」里打开')
   const [bot] = await botStates(ctx, run.groupId, run.originUserId, run.botId)
   return list.map((r) => ({
     id: r.plugin.id,
     m: r.version.manifest,
-    blocker: bot ? pluginBlocker(r.version.manifest, bot.state) : ('agent' as const),
+    blocker: bot ? pluginBlocker(r.version.manifest, bot.state, r.version.id) : ('agent' as const),
   }))
 }
 

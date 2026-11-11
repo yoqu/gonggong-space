@@ -273,6 +273,10 @@ export const protocolEn = {
   '{bot} 所在机器无法访问 {repo}（{reason}），配置后在群里点「重新检查」':
     '{bot}\'s machine cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
   '待确认 Bot': 'Bot to confirm',
+  插件运行授权: 'Plugin authorization',
+  待授权的插件: 'Plugin to authorize',
+  '插件 {plugin} {version} 要在 {machine} 上运行代码，请确认':
+    'Plugin {plugin} {version} wants to run code on {machine}. Please confirm',
   '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you, please confirm the binding',
   '共享 Bot': 'Shared Bot',
   '有人@我': 'Mentioned',

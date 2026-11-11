@@ -25,6 +25,7 @@ import {
   toast,
 } from '../../ui'
 import { Markdown } from '../chat/Markdown'
+import { mcpTarget, permissionsText } from '../plugins/model'
 import { hasOfficialIcon, OfficialIcon } from '../plugins/OfficialIcon'
 import { ListingFiles } from './ListingFiles'
 import { TYPE_LABEL, targetLabels } from './status'
@@ -177,6 +178,24 @@ export function ListingDetail({
           </Link>
           <code className="gs-mono">@{gh.commit.slice(0, 7)}</code>
         </div>
+      ) : null}
+      {data.permissions.length || data.mcp.length ? (
+        <section className="mkt-detail__section" aria-label={t('权限#plugin')}>
+          <div className="cfg__eyebrow">{t('权限#plugin')}</div>
+          <div className="gs-note">{permissionsText(data)}</div>
+          {data.mcp.length ? (
+            <>
+              <div className="cfg__eyebrow">{t('MCP 服务')}</div>
+              <ul className="mkt-detail__mcp">
+                {data.mcp.map((c) => (
+                  <li key={c.name}>
+                    <b>{`${data.name}-${c.name}`}</b> <code className="gs-mono">{mcpTarget(c)}</code>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </section>
       ) : null}
       <section className="mkt-detail__section" aria-label={t('说明')}>
         <div className="cfg__eyebrow">{t('说明')}</div>

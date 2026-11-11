@@ -22,7 +22,16 @@ import {
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
-import { agentsText, BLOCKER_TAG, blockerText, LAYER_LABEL, secretsText, sourceText } from './model'
+import {
+  agentsText,
+  BLOCKER_TAG,
+  blockerText,
+  LAYER_LABEL,
+  mcpNames,
+  permissionsText,
+  secretsText,
+  sourceText,
+} from './model'
 import { PluginTile } from './PluginTile'
 import { loadPlugins, togglePlugin, useGroupPlugins } from './store'
 import '../config/config.css'
@@ -51,6 +60,14 @@ function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
           ].join(' · ')}
           {extra}
         </div>
+        {m.permissions.length || m.contributes.mcp.length ? (
+          <div className="plg-row__desc">
+            {[
+              t('权限：{list}', { list: permissionsText(m) }),
+              t('MCP 服务：{names}', { names: mcpNames(m).join(t('、')) }),
+            ].join(' · ')}
+          </div>
+        ) : null}
         <div className="plg-row__desc">{sourceText(m)}</div>
       </div>
     </div>

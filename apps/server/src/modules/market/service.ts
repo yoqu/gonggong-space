@@ -6,6 +6,7 @@ import {
   type ListingSummary,
   type ListingType,
   type PluginManifest,
+  pluginRunsCode,
   type SkillFile,
   type SkillListingManifest,
   type TargetRef,
@@ -355,6 +356,13 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
         ),
       )
     if (!v) fail('not_found', '版本不存在')
+  }
+  if (listing.type === 'plugin' && !pin) {
+    const [v] = await ctx.db
+      .select({ manifest: pluginVersions.manifest })
+      .from(pluginVersions)
+      .where(eq(pluginVersions.id, follow))
+    if (v && pluginRunsCode(v.manifest)) fail('invalid', '会运行代码的插件必须固定版本引入')
   }
   if (listing.type === 'skill') await skillNameFree(ctx.db, t, listing.name, listing.id)
   const set = {

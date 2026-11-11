@@ -49,6 +49,7 @@ import {
   savePlugin,
   setGroupPlugin,
 } from './service.js'
+import { trustRoutes } from './trusts.js'
 
 type Params = { Params: { id?: string; pluginId?: string } }
 
@@ -104,7 +105,10 @@ function groupRoutes(ctx: Ctx, app: FastifyInstance) {
     return rows.map((r) => ({
       ...pluginDto(r),
       enabledInGroup: r.enabledInGroup,
-      bots: states.map((b) => ({ botId: b.id, blocker: pluginBlocker(r.version.manifest, b.state) })),
+      bots: states.map((b) => ({
+        botId: b.id,
+        blocker: pluginBlocker(r.version.manifest, b.state, r.version.id),
+      })),
     }))
   }
 
@@ -280,5 +284,6 @@ export function pluginRoutes(ctx: Ctx) {
     groupRoutes(ctx, app)
     fileRoutes(ctx, app)
     daemonRoutes(ctx, app)
+    trustRoutes(ctx, app)
   }
 }

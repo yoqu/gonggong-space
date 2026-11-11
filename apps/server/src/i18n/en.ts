@@ -508,6 +508,11 @@ export const en = {
     'gonggong-plugin.json does not match the manifest format: {field}',
   '缺少文件：{path}': 'Missing file: {path}',
   '插件不能包含此路径：{path}': 'A plugin cannot contain this path: {path}',
+  这个插件不能用来创作: 'This plugin cannot be used for creations',
+  只有机器主人能授权插件在这台机器上运行: "Only the machine's owner can allow plugins to run on it",
+  授权不存在: 'Authorization not found',
+  会运行代码的插件必须固定版本引入: 'A plugin that runs code must be installed at a pinned version',
+  会运行代码的插件暂时只能在团队内可见: 'A plugin that runs code can only be visible within its team for now',
   '{path} 的 name 必须是 {name}': 'The name in {path} must be {name}',
   '插件正在被修改，请重试': 'The plugin is being changed, please retry',
   '内置插件不能覆盖，可以上传到团队或群里替换':

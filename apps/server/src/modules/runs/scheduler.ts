@@ -36,7 +36,7 @@ import { knowledgeContext } from '../knowledge/context.js'
 import { substitute } from '../mcp/secrets.js'
 import { enabledMcpServers } from '../mcp/service.js'
 import { type MessageMeta, userAuthorName } from '../messages/service.js'
-import { runPlugins } from '../plugins/service.js'
+import { askPluginTrust, runPlugins } from '../plugins/service.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { enabledSkills } from '../skills/service.js'
 import { runSyncStart } from '../sync/store.js'
@@ -110,6 +110,7 @@ export async function schedule(ctx: Ctx, botId: string) {
       knowledgeAt: Date | null
       detached: boolean
       thread: string | null
+      trustAsks: { pluginId: string; versionId: string }[]
     }[] = []
     const setRun = async (id: string, patch: Partial<RunRow>) =>
       out.push(...(await tx.update(runs).set(patch).where(eq(runs.id, id)).returning()))
@@ -161,7 +162,8 @@ export async function schedule(ctx: Ctx, botId: string) {
             sync: null,
             ...start.config,
             secrets: start.secrets,
-            plugins: start.msg.plugins,
+            // Without their MCP servers, whose env and headers hold secret values.
+            plugins: start.msg.plugins.map(({ mcp: _, ...p }) => p),
             personalSkills: start.personalSkills,
             artifacts: start.msg.artifacts.map((a) => a.id),
             // Known up front so the live round already starts its own session; run.done may refine it.
@@ -182,6 +184,7 @@ export async function schedule(ctx: Ctx, botId: string) {
             knowledgeAt: start.msg.command ? null : at,
             detached: start.detached,
             thread: start.thread,
+            trustAsks: start.trustAsks,
           })
         }
         continue
@@ -194,7 +197,17 @@ export async function schedule(ctx: Ctx, botId: string) {
     return { out, dispatches }
   })
   const unsent = new Map<string, RunRow>()
-  for (const { run, machineId, msg, triggerSeq, knowledgeAt, detached, thread } of changed.dispatches) {
+  for (const {
+    run,
+    machineId,
+    msg,
+    triggerSeq,
+    knowledgeAt,
+    detached,
+    thread,
+    trustAsks,
+  } of changed.dispatches) {
+    await askPluginTrust(ctx, machineId, trustAsks)
     if (ctx.hub.send(machineId, msg)) {
       // After the send: a cursor advanced for a start that never went out would drop that context for good.
       // A detached (scheduled) turn moves none of the conversation's cursors, nor uses up a pending /new.
@@ -388,7 +401,7 @@ export async function buildRunStart(
   }
   // A /new request wins over any session id a still-running turn reported after the request.
   const resumeSessionId = detached || session.newReason ? null : session.id
-  const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, plugins, hosted] =
+  const [recent, replay, interrupted, feishu, relay, scheduled, tier, sync, kb, granted, hosted] =
     await Promise.all([
       // Older messages stay out of the prompt; the agent reads them with the gonggong tools (plan C1).
       command ? null : contextMessages(tx, since, params.contextInlineTokens),
@@ -417,11 +430,13 @@ export async function buildRunStart(
             resumeSessionId ? (thread ? (ts?.updatedAt ?? null) : gb.knowledgeAt) : null,
           ),
       params.pluginsEnabled && bot.machineId
-        ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env)
-        : [],
+        ? runPlugins(tx, run.groupId, bot, bot.machineId, features, secrets.env, params.pluginCodeEnabled)
+        : null,
       // Only daemons that check artifacts out and upload them get any (old ones keep publishing with preview_static).
       features.includes('artifacts') && !command ? runArtifacts(tx, run.groupId, bot.id, meta) : null,
     ])
+  const plugins = granted?.refs ?? []
+  const creations = granted?.creations ?? []
   const context = recent?.kept.reverse() ?? []
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length
@@ -463,7 +478,7 @@ export async function buildRunStart(
             ]
           : []),
         ...(command ? [] : [UI_BLOCKS_GUIDE]),
-        ...(command || !plugins.length ? [] : [pluginHint(plugins.map((p) => p.name))]),
+        ...(command || !creations.length ? [] : [pluginHint(creations)]),
         bot.systemPrompt,
       ]
         .filter((s) => s.trim())
@@ -514,7 +529,7 @@ export async function buildRunStart(
       ? []
       : [
           ...(feishu ? [] : FEISHU_TOOLS),
-          ...(plugins.length ? [] : PLUGIN_TOOLS),
+          ...(creations.length ? [] : PLUGIN_TOOLS),
           ...(features.includes('artifacts') ? [] : ARTIFACT_TOOLS),
           ...(admin.any ? [] : LAYER_WRITE_TOOLS),
           ...(admin.sysadmin ? [] : RELEASE_TOOLS),
@@ -530,6 +545,7 @@ export async function buildRunStart(
     config,
     secrets: secrets.secrets,
     personalSkills: skills.filter((s) => s.personal).length,
+    trustAsks: granted?.asks ?? [],
     triggerSeq: command ? 0 : trigger.seq,
     settled: interrupted?.settled,
     detached,

@@ -104,7 +104,7 @@ impl Rig {
         }
         let res = json!({ "files": files }).to_string();
         self.bodies.lock().unwrap().insert(format!("/api/daemon/plugins/{version}"), res);
-        PluginRef { name: name.into(), version_id: version.into(), digest: format!("d{version}") }
+        PluginRef { name: name.into(), version_id: version.into(), digest: format!("d{version}"), mcp: vec![] }
     }
 
     fn skill(&self, name: &str, version: &str) -> SkillRef {
@@ -441,4 +441,55 @@ async fn claude_sees_no_hooks_mcp_commands_or_agents_a_plugin_folder_carries() {
     let names: Vec<_> =
         std::fs::read_dir(dir.join(".claude-plugin")).unwrap().map(|e| e.unwrap().file_name()).collect();
     assert_eq!(names, ["plugin.json"]);
+}
+
+#[tokio::test]
+async fn a_plugins_mcp_servers_reach_every_agent_with_node_and_its_folder_filled_in() {
+    let mut r = rig().await;
+    let cwd = repo();
+    let mut p = r.plugin_with("tracker", "pv1", &["tracker"], "one", &[("contrib/mcp/server.mjs", "")]);
+    p.mcp = vec![
+        McpServer::Stdio {
+            name: "tracker-issues".into(),
+            command: "{node}".into(),
+            args: vec!["{pkg}/contrib/mcp/server.mjs".into(), "--verbose".into()],
+            env: [("TRACKER_HOME".to_string(), "{pkg}/data".to_string()), ("TOKEN".to_string(), "t".to_string())]
+                .into(),
+        },
+        McpServer::Http {
+            name: "tracker-search".into(),
+            url: "https://tracker.example.com/mcp".into(),
+            headers: [].into(),
+        },
+    ];
+    let dir = r.set("tracker", "dpv1");
+    let node = gonggong::tools::node(r.home.path()).expect("a Node on PATH").path;
+    let stdio = json!({
+        "name": "tracker-issues",
+        "command": node,
+        "args": [format!("{}/contrib/mcp/server.mjs", dir.display()), "--verbose"],
+        "env": [{ "name": "TOKEN", "value": "t" }, { "name": "TRACKER_HOME", "value": format!("{}/data", dir.display()) }],
+    });
+    let http =
+        json!({ "type": "http", "name": "tracker-search", "url": "https://tracker.example.com/mcp", "headers": [] });
+
+    let turn = |run_id, kind| Turn {
+        run_id,
+        group: "g1",
+        kind,
+        cwd: cwd.path(),
+        skills: vec![],
+        plugins: vec![p.clone()],
+        resume: None,
+    };
+    let e = echo(&r.run(start(turn("r1", AgentKind::Claude))).await);
+    let servers = e["mcpServers"].as_array().unwrap();
+    assert_eq!(servers[..2], [stdio.clone(), http.clone()], "{servers:?}");
+
+    // pi takes them in its env, keyed by name.
+    let e = echo(&r.run(start(turn("r2", AgentKind::Pi))).await);
+    let mcp = &e["pi"]["mcp"];
+    assert_eq!(mcp["tracker-issues"]["command"], json!(node));
+    assert_eq!(mcp["tracker-issues"]["args"][0], stdio["args"][0]);
+    assert_eq!(mcp["tracker-search"]["url"], "https://tracker.example.com/mcp");
 }

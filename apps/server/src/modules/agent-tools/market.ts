@@ -5,6 +5,7 @@ import type {
   ListingVersionDto,
   ListingVisibility,
   MarketSource,
+  PluginPermission,
   ReviewStatus,
   SkillFile,
 } from '@gonggong/protocol'
@@ -130,6 +131,11 @@ export async function marketListTool(ctx: Ctx, run: Run, a: Args<'market_list'>)
   ])
 }
 
+const PERMISSION: Record<PluginPermission, string> = {
+  exec: 'exec（在执行机器上运行插件带的代码，需机器主人授权）',
+  network: 'network（把工具调用发到声明的地址）',
+}
+
 export async function marketGet(ctx: Ctx, run: Run, a: Args<'market_get'>): Promise<ToolOutput> {
   const me = await originator(ctx, run)
   const id = isUuid(a.listing)
@@ -160,6 +166,11 @@ export async function marketGet(ctx: Ctx, run: Run, a: Args<'market_get'>): Prom
       `「${d.title}」（${d.name}）· ${TYPE[d.type]} · ${sourceLabel(d.source, d.teamName)}${d.visibility ? ` · ${VISIBILITY[d.visibility]}` : ''} · ${status}`,
       `id ${d.id} · 作者 ${d.author ?? '—'} · 显示 v${d.revision} · 引入 ${d.installs} 次${d.canEdit ? ' · 发起人是维护者' : ''}${d.canReview ? ' · 发起人可审核' : ''}`,
       `说明：${d.description}`,
+      ...(d.permissions.length ? [`权限：${d.permissions.map((p) => PERMISSION[p]).join('；')}`] : []),
+      ...d.mcp.map(
+        (c) =>
+          `MCP「${d.name}-${c.name}」：${c.transport === 'stdio' ? `运行 ${c.command.join(' ')}` : `请求 ${c.url}`}`,
+      ),
       ...(d.ghSource ? [`来源：${d.ghSource.url}（commit ${d.ghSource.commit.slice(0, 7)}）`] : []),
       ...(d.installedIn?.length ? [`已引入：${d.installedIn.map(targetLabel).join('、')}`] : []),
       '版本：',

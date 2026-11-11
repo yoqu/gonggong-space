@@ -7,6 +7,8 @@ import {
   type PluginCategory,
   type PluginDto,
   type PluginManifest,
+  type PluginMcp,
+  type PluginPermission,
   templateInputs,
   usesDesignSystem,
 } from '@gonggong/protocol'
@@ -20,6 +22,7 @@ export const CATEGORY: Record<PluginCategory, { icon: IconName; color: string }>
   poster: { icon: 'image', color: 'var(--avatar-5)' },
   dashboard: { icon: 'chart-bar', color: 'var(--avatar-2)' },
   video: { icon: 'video', color: 'var(--avatar-6)' },
+  tool: { icon: 'plug', color: 'var(--avatar-2)' },
   other: { icon: 'apps', color: 'var(--avatar-4)' },
 }
 
@@ -50,6 +53,10 @@ export function blockerText(blocker: PluginBlocker, m: PluginManifest, botName: 
       return t('机器离线')
     case 'secret':
       return t('缺少密钥 {names}，请在群设置「密钥」里填写', { names: m.secrets.join(t('、')) })
+    case 'code':
+      return t('插件代码未开启')
+    case 'trust':
+      return t('等待机器主人授权运行')
   }
 }
 
@@ -58,7 +65,24 @@ export const BLOCKER_TAG: Record<PluginBlocker, { label: string; tone: 'gray' | 
   daemon: { label: t('需升级'), tone: 'orange' },
   offline: { label: t('离线'), tone: 'gray' },
   secret: { label: t('缺密钥'), tone: 'orange' },
+  code: { label: t('未开启'), tone: 'gray' },
+  trust: { label: t('待授权'), tone: 'orange' },
 }
+
+export const PERMISSION_LABEL: Record<PluginPermission, string> = {
+  exec: t('运行代码'),
+  network: t('访问网络'),
+}
+
+/** `运行代码、访问网络`; empty when it only gives skills. */
+export const permissionsText = (m: { permissions: PluginPermission[] }) =>
+  m.permissions.map((p) => PERMISSION_LABEL[p]).join(t('、'))
+
+/** The MCP servers it gives the agent, by the name they are delivered under. */
+export const mcpNames = (m: PluginManifest) => m.contributes.mcp.map((c) => `${m.name}-${c.name}`)
+
+/** What an MCP server runs (stdio) or calls (http). */
+export const mcpTarget = (c: PluginMcp) => (c.transport === 'stdio' ? c.command.join(' ') : c.url)
 
 export const previewUrl = (pluginId: string, path: string) =>
   `/api/plugins/${pluginId}/files/${path.split('/').map(encodeURIComponent).join('/')}`
