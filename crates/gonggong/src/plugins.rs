@@ -57,6 +57,7 @@ pub async fn install(
         if !dir.is_dir() {
             fetch(api, r, &sets, &dir).await?;
         }
+        confine(&dir).await.map_err(e)?;
         // Last use, for the janitor: a version no turn takes for a month is removed.
         let _ = tokio::fs::write(sets.join(format!(".{}-{}.used", r.name, r.digest)), b"").await;
         dirs.push(dir);
@@ -120,6 +121,36 @@ async fn fetch(api: &Config, r: &PluginRef, sets: &Path, dir: &Path) -> Result<(
     .await;
     let _ = tokio::fs::remove_dir_all(&tmp).await;
     unpacked.map_err(e)
+}
+
+/// Removes from a plugin folder whatever the server's path allowlist refuses (plan 插件扩展点 §3.1), so Claude, which
+/// loads the folder as a local plugin, finds no hooks, MCP servers, commands or agents; folders unpacked before the
+/// server refused them are cleaned too.
+async fn confine(dir: &Path) -> std::io::Result<()> {
+    let mut entries = tokio::fs::read_dir(dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let is_dir = entry.file_type().await?.is_dir();
+        let keep = if is_dir {
+            matches!(name.as_str(), "skills" | "previews" | "assets" | "contrib" | ".claude-plugin")
+        } else {
+            name == "gonggong-plugin.json" || name == "LICENSE" || name.ends_with(".md")
+        };
+        if !keep {
+            remove(&entry.path(), is_dir).await?;
+        }
+    }
+    let Ok(mut meta) = tokio::fs::read_dir(dir.join(".claude-plugin")).await else { return Ok(()) };
+    while let Some(entry) = meta.next_entry().await? {
+        if entry.file_name() != "plugin.json" {
+            remove(&entry.path(), entry.file_type().await?.is_dir()).await?;
+        }
+    }
+    Ok(())
+}
+
+async fn remove(path: &Path, is_dir: bool) -> std::io::Result<()> {
+    if is_dir { tokio::fs::remove_dir_all(path).await } else { tokio::fs::remove_file(path).await }
 }
 
 /// `skills/<entry>/SKILL.md` of a plugin folder, sorted by entry name.

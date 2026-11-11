@@ -206,10 +206,48 @@ describe('plugin upload', () => {
     expect(await bad(without('previews/saas.png'))).toMatchObject({ error: 'invalid' })
     for (const path of ['../x', '/etc/x', 'a\\b', 'a//b'])
       expect(await bad([...ok, { path, content: '' }])).toMatchObject({ error: 'invalid' })
-    expect(await bad([...ok, { path: 'big.txt', content: 'a'.repeat(PLUGIN_MAX_BYTES) }])).toMatchObject({
-      error: 'invalid',
-    })
+    expect(
+      await bad([...ok, { path: 'skills/web-prototype/big.txt', content: 'a'.repeat(PLUGIN_MAX_BYTES) }]),
+    ).toMatchObject({ error: 'invalid' })
     expect(await t.db.select().from(plugins)).toEqual([])
+  })
+
+  it('takes only allowlisted paths, so the folder cannot carry Claude hooks, MCP servers, commands or agents', async () => {
+    const w = await world()
+    const root = await w.as(w.root)
+    const post = (extra: string) =>
+      root.post<{ error: string; message: string }>('/api/admin/plugins', {
+        files: [...pkg(), { path: extra, content: '{}' }],
+      })
+    for (const path of [
+      'hooks/hooks.json',
+      '.mcp.json',
+      '.lsp.json',
+      'settings.json',
+      'commands/x.md',
+      'agents/x.md',
+      'output-styles/x.md',
+      '.claude-plugin/plugin.json',
+      'contrib/x.json',
+      'notes.txt',
+      'Skills/x.md',
+    ]) {
+      const res = await post(path)
+      expect(res.body, path).toMatchObject({ error: 'invalid' })
+      expect(res.body.message, path).toContain(path)
+    }
+    for (const path of [
+      'README.md',
+      'NOTICE.md',
+      'LICENSE',
+      'skills/web-prototype/hooks/hooks.json',
+      'previews/x.png',
+      'assets/logo.svg',
+      'contrib/mcp/server.mjs',
+      'contrib/agents/a.yml',
+      'contrib/tabs/board/index.html',
+    ])
+      expect((await post(path)).status, path).toBeLessThan(300)
   })
 
   it('takes a large catalogue: 80 grouped templates and 80 categorised design systems', async () => {

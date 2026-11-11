@@ -507,6 +507,7 @@ export const en = {
   'gonggong-plugin.json 不符合清单格式：{field}':
     'gonggong-plugin.json does not match the manifest format: {field}',
   '缺少文件：{path}': 'Missing file: {path}',
+  '插件不能包含此路径：{path}': 'A plugin cannot contain this path: {path}',
   '{path} 的 name 必须是 {name}': 'The name in {path} must be {name}',
   '插件正在被修改，请重试': 'The plugin is being changed, please retry',
   '内置插件不能覆盖，可以上传到团队或群里替换':

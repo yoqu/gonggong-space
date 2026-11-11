@@ -50,10 +50,19 @@ export type Listed = {
 
 const has = (files: SkillFile[], path: string) => files.some((f) => f.path === path)
 
+/**
+ * The only paths a plugin may carry (plan 插件扩展点 §3.1). The daemon hands the folder to Claude as a local plugin,
+ * which would run anything at Claude's reserved paths (`hooks/`, `.mcp.json`, `commands/`, `agents/`…).
+ */
+const ALLOWED_PATH =
+  /^(gonggong-plugin\.json|[^/]+\.md|LICENSE|(skills|previews|assets|contrib\/(mcp|agents|tabs))\/.+)$/
+
 /** Validates a plugin folder (plan 插件体系 S2) and returns it sorted, with its manifest, digest and size. */
 export function pluginSnapshot(input: SkillFile[]) {
   const checked = checkFiles(input, PLUGIN_MAX_BYTES, '插件不能超过 5 MB')
   const { files } = checked
+  const stray = files.find((f) => !ALLOWED_PATH.test(f.path))
+  if (stray) fail('invalid', '插件不能包含此路径：{path}', { path: stray.path })
   const raw = files.find((f) => f.path === PLUGIN_MANIFEST)
   if (!raw || raw.encoding !== 'utf8') return fail('invalid', '缺少 gonggong-plugin.json')
   let json: unknown

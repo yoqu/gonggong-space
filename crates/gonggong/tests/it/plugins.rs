@@ -88,12 +88,20 @@ async fn rig() -> Rig {
 impl Rig {
     /// Publishes a plugin version whose entry skills (by dir) say `body`.
     fn plugin(&self, name: &str, version: &str, skills: &[&str], body: &str) -> PluginRef {
+        self.plugin_with(name, version, skills, body, &[])
+    }
+
+    /// As `plugin`, plus `extra` (path, content) files.
+    fn plugin_with(&self, name: &str, version: &str, skills: &[&str], body: &str, extra: &[(&str, &str)]) -> PluginRef {
         let mut files = vec![json!({ "path": "gonggong-plugin.json", "content": format!("{{\"name\":\"{name}\"}}") })];
         for s in skills {
             let md = format!("---\nname: {s}\ndescription: d\n---\n{body}\n");
             files.push(json!({ "path": format!("skills/{s}/SKILL.md"), "content": md, "encoding": "utf8" }));
         }
         files.push(json!({ "path": "previews/a.png", "content": "AAE=", "encoding": "base64" }));
+        for (path, content) in extra {
+            files.push(json!({ "path": path, "content": content, "encoding": "utf8" }));
+        }
         let res = json!({ "files": files }).to_string();
         self.bodies.lock().unwrap().insert(format!("/api/daemon/plugins/{version}"), res);
         PluginRef { name: name.into(), version_id: version.into(), digest: format!("d{version}") }
@@ -390,4 +398,47 @@ fn ask_option_meta_is_aligned_with_the_options_trimmed_and_checked() {
     assert!(one(json!({ "image": "/etc/passwd" })).unwrap_err().contains("image"));
     assert!(one(json!({ "image": "../secret.png" })).is_err());
     assert!(one(json!({ "image": "a".repeat(501) })).is_err());
+}
+
+#[tokio::test]
+async fn claude_sees_no_hooks_mcp_commands_or_agents_a_plugin_folder_carries() {
+    let mut r = rig().await;
+    let cwd = repo();
+    let reserved = ["hooks/hooks.json", ".mcp.json", ".lsp.json", "settings.json", "commands/x.md", "agents/x.md"];
+    let mut extra: Vec<(&str, &str)> = reserved.iter().map(|p| (*p, "{}")).collect();
+    extra.extend([(".claude-plugin/hooks.json", "{}"), ("README.md", "hi"), ("contrib/mcp/s.mjs", "")]);
+    let p = r.plugin_with("web-prototype", "pv1", &["web-prototype"], "one", &extra);
+    // A folder an older daemon unpacked as is, before the server refused such paths.
+    let legacy = r.plugin("old", "pv2", &["old"], "two");
+    let old = r.set("old", "dpv2");
+    for path in reserved {
+        std::fs::create_dir_all(old.join(path).parent().unwrap()).unwrap();
+        std::fs::write(old.join(path), "{}").unwrap();
+    }
+    std::fs::create_dir_all(old.join("skills/old")).unwrap();
+    std::fs::write(old.join("skills/old/SKILL.md"), "---\nname: old\ndescription: d\n---\n").unwrap();
+
+    let turn = Turn {
+        run_id: "r1",
+        group: "g1",
+        kind: AgentKind::Claude,
+        cwd: cwd.path(),
+        skills: vec![],
+        plugins: vec![p, legacy],
+        resume: None,
+    };
+    echo(&r.run(start(turn)).await);
+    for dir in [r.set("web-prototype", "dpv1"), old] {
+        for path in reserved {
+            assert!(!dir.join(path).exists(), "{}", dir.join(path).display());
+        }
+        assert!(dir.join("skills").is_dir());
+    }
+    let dir = r.set("web-prototype", "dpv1");
+    for kept in ["previews/a.png", "README.md", "contrib/mcp/s.mjs", "gonggong-plugin.json"] {
+        assert!(dir.join(kept).exists(), "{kept}");
+    }
+    let names: Vec<_> =
+        std::fs::read_dir(dir.join(".claude-plugin")).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, ["plugin.json"]);
 }
