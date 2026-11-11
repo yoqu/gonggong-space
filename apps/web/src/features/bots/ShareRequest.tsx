@@ -10,12 +10,13 @@ import { useGet } from '../../lib/useGet'
 import { Button, Dialog, Input, Tag } from '../../ui'
 
 /** Opens the caller's DM with the bot, starting one when there is none. */
-export function useDm(bot: BotDto) {
+export function useDm(bot: BotDto | null) {
   const navigate = useNavigate()
   const dm = useWorkspace((s) =>
-    s.groups.find((g) => g.kind === 'dm' && g.botIds.length === 1 && g.botIds[0] === bot.id),
+    s.groups.find((g) => g.kind === 'dm' && g.botIds.length === 1 && g.botIds[0] === bot?.id),
   )
   return async () => {
+    if (!bot) return
     if (dm) return navigate(`/g/${dm.id}`)
     try {
       const group = await api.post<GroupDto>('/groups', {

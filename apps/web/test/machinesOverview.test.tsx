@@ -62,12 +62,14 @@ const VIEW = {
 describe('machines overview', () => {
   it('shows a card per machine: state, system, agents with their provider, and its bots', async () => {
     const calls = mockApi({ 'GET /machines/m1/providers': VIEW })
+    const onNewBot = vi.fn()
     render(
       <MemoryRouter>
         <MachinesOverview
           machines={[mbp, box]}
           bots={[bot('b1', 'running'), bot('b2', 'online')]}
           onBindMachine={() => {}}
+          onNewBot={onNewBot}
         />
       </MemoryRouter>,
     )
@@ -80,13 +82,18 @@ describe('machines overview', () => {
     for (const text of ['在线', 'macOS', 'Claude Code 2.1.4', 'Codex 未安装', '2 个 Bot · 1 个运行中'])
       expect(card.textContent).toContain(text)
     await waitFor(() => expect(card.textContent).toContain('供应商：Kimi'))
-    expect(card.dataset.online).toBe('true')
+    const wrap = card.closest('.machine-card') as HTMLElement
+    expect(wrap.dataset.online).toBe('true')
+    // 新建 Bot right on the card, on that machine, without opening it.
+    fireEvent.click(within(wrap).getByRole('button', { name: '在 wanglei-mbp 上新建 Bot' }))
+    expect(onNewBot).toHaveBeenCalledWith('m1')
     const old = within(overview).getByRole('link', { name: /old-box/ })
     expect(old.textContent).toContain('离线')
     // Offline: steps back and says when it was last seen; cards rise in one after another.
-    expect(old.dataset.online).toBe('false')
+    const oldBox = old.closest('.machine-card') as HTMLElement
+    expect(oldBox.dataset.online).toBe('false')
     expect(old.textContent).toContain('最后在线：')
-    expect(old.style.getPropertyValue('--i')).toBe('1')
+    expect(oldBox.style.getPropertyValue('--i')).toBe('1')
     expect(old.textContent).toContain('没有 Bot')
     // An offline machine keeps its configuration to itself.
     expect(calls.map((c) => c.path)).toEqual(['/machines/m1/providers'])
@@ -96,7 +103,7 @@ describe('machines overview', () => {
     const onBindMachine = vi.fn()
     render(
       <MemoryRouter>
-        <MachinesOverview machines={[]} bots={[]} onBindMachine={onBindMachine} />
+        <MachinesOverview machines={[]} bots={[]} onBindMachine={onBindMachine} onNewBot={() => {}} />
       </MemoryRouter>,
     )
     const overview = screen.getByRole('region', { name: '机器总览' })

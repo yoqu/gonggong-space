@@ -387,8 +387,10 @@ describe('sidebar', () => {
     renderAt('/')
     const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
     expect(within(welcome).getByRole('heading', { name: /欢迎来到共工空间/ })).toBeTruthy()
-    for (const b of ['开始绑定', '新建 Bot', '新建群'])
+    for (const b of ['开始绑定', '新建 Bot', '发起会话'])
       expect(within(welcome).getByRole('button', { name: b })).toBeTruthy()
+    expect(within(welcome).getByRole('heading', { name: '发起第一次对话' })).toBeTruthy()
+    expect(within(welcome).queryByText('建群并 @ Bot')).toBeNull()
     // The main area carries the guide, so the sidebar doesn't repeat it.
     expect(
       within(screen.getByRole('navigation', { name: '会话列表' })).queryByRole('region', {
@@ -436,12 +438,87 @@ describe('sidebar', () => {
     expect(within(guide).getAllByText('已完成')).toHaveLength(2)
   })
 
-  it('opens the new bot dialog from 机器与 Bot', async () => {
-    mockApi({ ...baseRoutes([]), 'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [] }] })
+  it('offers only the main area 绑定新机器 in an empty 机器与 Bot, and no 新建 Bot yet', async () => {
+    mockApi({ ...baseRoutes([]), 'GET /bots': () => [] })
     renderAt('/machines')
     const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
-    fireEvent.click(within(nav).getByRole('button', { name: '新建 Bot…' }))
-    expect(await screen.findByRole('dialog', { name: /新建 Bot/ })).toBeTruthy()
+    await within(screen.getByRole('main')).findByRole('region', { name: '机器总览' })
+    expect(screen.getAllByRole('button', { name: /绑定新机器/ })).toHaveLength(1)
+    expect(within(nav).queryByRole('button', { name: /绑定新机器/ })).toBeNull()
+    expect(within(nav).queryByRole('button', { name: /新建 Bot/ })).toBeNull()
+  })
+
+  it('names 新建 Bot in 机器与 Bot, offers it under each machine with that machine picked, and binds from the tree end', async () => {
+    const other: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux' }
+    mockApi({
+      ...baseRoutes([]),
+      'GET /machines': () => [machine, other],
+      'GET /bots/owners': () => [{ id: 'u1', name: '王磊', machines: [machine, other] }],
+      'POST /bind-codes': () => ({
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        link: 'gonggong://bind?server=x&code=K7QM-4X2P',
+      }),
+    })
+    renderAt('/machines')
+    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const head = await within(nav).findByRole('button', { name: '新建 Bot' })
+    expect(head.textContent).toContain('新建 Bot')
+    fireEvent.click(head)
+    let dialog = await screen.findByRole('dialog', { name: /新建 Bot/ })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
+
+    const mine = within(nav).getByRole('region', { name: '我的机器' })
+    fireEvent.click(within(mine).getByRole('button', { name: '在 old-box 上新建 Bot' }))
+    dialog = await screen.findByRole('dialog', { name: /新建 Bot/ })
+    const picked = await within(dialog).findByRole('radiogroup', { name: '执行机器' })
+    expect((within(picked).getByRole('radio', { name: /old-box/ }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
+
+    // The overview card offers it too.
+    const overview = within(screen.getByRole('main')).getByRole('region', { name: '机器总览' })
+    fireEvent.click(within(overview).getByRole('button', { name: '在 wanglei-mbp 上新建 Bot' }))
+    dialog = await screen.findByRole('dialog', { name: /新建 Bot/ })
+    const again = await within(dialog).findByRole('radiogroup', { name: '执行机器' })
+    expect((within(again).getByRole('radio', { name: /wanglei-mbp/ }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
+
+    const bind = within(nav).getByRole('button', { name: '绑定新机器' })
+    expect(bind.closest('[aria-label="我的机器"]')).toBe(mine)
+    fireEvent.click(bind)
+    expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
+  })
+
+  it('counts a DM with a bot as the first conversation in the sidebar 开始使用', async () => {
+    const dm = group({ id: 'd1', kind: 'dm', name: '小王的 Claude', botIds: ['b1'], members: [], repo: null })
+    mockApi({
+      ...baseRoutes([dm]),
+      'GET /machines': () => [machine],
+      'GET /groups/d1/timeline': () => ({ messages: [], runs: [] }),
+      'POST /groups/d1/read': () => dm,
+    })
+    renderAt('/g/d1')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    await within(nav).findByRole('link', { name: /小王的 Claude/ })
+    expect(within(nav).queryByRole('region', { name: '开始使用' })).toBeNull()
+  })
+
+  it('shows 发起第一次对话 as the last sidebar step until a conversation exists', async () => {
+    const dm = group({ id: 'd1', kind: 'dm', name: '小王的 Claude', botIds: ['b1'], members: [], repo: null })
+    mockApi({
+      ...baseRoutes([dm]),
+      'GET /groups/d1/timeline': () => ({ messages: [], runs: [] }),
+      'POST /groups/d1/read': () => dm,
+    })
+    renderAt('/g/d1')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const guide = await within(nav).findByRole('region', { name: '开始使用' })
+    const last = within(guide).getByRole('button', { name: /发起第一次对话/ })
+    expect(last.hasAttribute('disabled')).toBe(true)
+    expect(within(guide).queryByText('建群并 @ Bot')).toBeNull()
   })
 })
 
@@ -522,30 +599,6 @@ describe('my machines and bots', () => {
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
     await waitFor(() => expect(screen.queryByRole('region', { name: '机器详情' })).toBeNull())
     expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
-  })
-
-  it('leads 机器与 Bot with 绑定新机器, and offers it again while there is no machine', async () => {
-    mockApi({
-      ...baseRoutes([]),
-      'POST /bind-codes': () => ({
-        code: 'K7QM-4X2P',
-        expiresAt: new Date(Date.now() + 600_000).toISOString(),
-        link: 'gonggong://bind?server=x&code=K7QM-4X2P',
-      }),
-    })
-    renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
-    expect(within(nav).getByRole('heading', { name: '机器与 Bot' })).toBeTruthy()
-    const bar = nav.querySelector('.shellbar') as HTMLElement
-    expect(
-      within(bar)
-        .getAllByRole('button')
-        .map((b) => b.getAttribute('aria-label') ?? b.textContent),
-    ).toEqual(['绑定新机器', '新建 Bot…'])
-    expect(within(bar).getByRole('button', { name: '绑定新机器' }).textContent).toContain('绑定新机器')
-    const mine = within(nav).getByRole('region', { name: '我的机器' })
-    fireEvent.click(await within(mine).findByRole('button', { name: '绑定新机器' }))
-    expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
   })
 
   it('greets a member without machines on /machines with the same bind dialog', async () => {
@@ -1141,7 +1194,7 @@ async function addBot(dialog: HTMLElement, name: RegExp) {
 }
 
 describe('new group dialog', () => {
-  it('turns into a DM when only one of my bots is picked, and the switch overrides it', async () => {
+  it('turns into a DM when only one of my bots is picked, with no kind switch to get in the way', async () => {
     const created = group({
       id: 'd9',
       kind: 'dm',
@@ -1158,21 +1211,20 @@ describe('new group dialog', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    expect(within(dialog).getByRole('radio', { name: '私聊' }).hasAttribute('disabled')).toBe(true)
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
+    expect(within(dialog).queryByRole('radio', { name: '私聊' })).toBeNull()
+    expect(within(dialog).queryByRole('radio', { name: '群聊' })).toBeNull()
+    expect(within(dialog).getByRole('button', { name: '创建群' })).toBeTruthy()
 
     await addBot(dialog, /小王的 Claude/)
-    expect(await screen.findByRole('dialog', { name: '新建私聊' })).toBe(dialog)
-    expect(within(dialog).getByText(/将创建私聊/)).toBeTruthy()
+    expect(await within(dialog).findByText('将创建与它的私聊，之后不能再加人')).toBeTruthy()
     // A DM is titled by its Bot: no name to fill.
     expect(within(dialog).queryByLabelText('名称')).toBeNull()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
-    expect(within(dialog).getByLabelText('名称')).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('radio', { name: '私聊' }))
-    expect(within(dialog).queryByLabelText('名称')).toBeNull()
+    expect(within(dialog).queryByRole('switch', { name: '公开频道' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: '发起会话' })).toBe(dialog)
 
     expect(within(dialog).getByText('不绑定 · 各 Bot 使用本机目录')).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '开始私聊' }))
     expect(await screen.findByRole('heading', { name: '小王的 Claude' })).toBeTruthy()
     expect(calls.find((c) => c.method === 'POST' && c.path === '/groups')?.body).toEqual({
       name: '小王的 Claude',
@@ -1193,14 +1245,14 @@ describe('new group dialog', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     const name = within(dialog).getByLabelText('名称')
     expect(document.activeElement).toBe(name)
     fireEvent.change(name, { target: { value: '退款' } })
     fireEvent.keyDown(name, { key: 'Enter' })
     fireEvent.keyDown(name, { key: 'Enter' })
     await waitFor(() =>
-      expect(within(dialog).getByRole('button', { name: '创建' }).getAttribute('aria-busy')).toBe('true'),
+      expect(within(dialog).getByRole('button', { name: '创建群' }).getAttribute('aria-busy')).toBe('true'),
     )
     expect(calls.filter((c) => c.method === 'POST' && c.path === '/groups')).toHaveLength(1)
     reply(group({ id: 'g7', name: '退款' }))
@@ -1214,9 +1266,9 @@ describe('new group dialog', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     await addBot(dialog, /老李的 Codex/)
-    expect(await screen.findByRole('dialog', { name: '新建私聊' })).toBe(dialog)
+    expect(await within(dialog).findByRole('button', { name: '开始私聊' })).toBeTruthy()
   })
 
   it('checks the repo on its own and marks the result on each bot row', async () => {
@@ -1230,11 +1282,12 @@ describe('new group dialog', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     await addBot(dialog, /老李的 Codex/)
     expect(within(dialog).getByText('Bot · 1')).toBeTruthy()
     // Someone else's Bot (not shared with me) brings its owner in: a group, never a DM.
-    expect(within(dialog).getByRole('radio', { name: '私聊' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByLabelText('名称')).toBeTruthy()
+    expect(within(dialog).queryByText('将创建与它的私聊，之后不能再加人')).toBeNull()
 
     const panel = await openRepoPanel(dialog)
     const option = await within(panel).findByRole('option', { name: /pay\/refund/ })
@@ -1262,7 +1315,7 @@ describe('new group dialog', () => {
     expect(within(dialog).getByText(/成员 · 3/)).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('switch', { name: '公开频道' }))
-    const create = within(dialog).getByRole('button', { name: '创建' })
+    const create = within(dialog).getByRole('button', { name: '创建群' })
     fireEvent.click(create)
     await waitFor(() => expect(calls.some((c) => c.path === '/groups' && c.method === 'POST')).toBe(true))
     expect(calls.find((c) => c.path === '/groups' && c.method === 'POST')?.body).toEqual({
@@ -1336,10 +1389,9 @@ describe('new group dialog', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    // One Bot of mine alone would make it a DM.
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
-    await addBot(dialog, /小王的 Claude/)
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
+    // Someone else's Bot makes it a group, which needs a name.
+    await addBot(dialog, /老李的 Codex/)
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '仓库协作' } })
     const panel = await openRepoPanel(dialog)
     fireEvent.change(within(panel).getByLabelText('搜索仓库'), {
@@ -1355,25 +1407,25 @@ describe('new group dialog', () => {
     await waitFor(() => expect(answer).not.toBe(undefined))
     await act(async () => {
       await new Promise((r) => setTimeout(r, 450))
-      answer(probeRes([{ botId: 'b1', ok: false, reason: 'branch_missing' }], ['main']))
+      answer(probeRes([{ botId: 'b2', ok: false, reason: 'branch_missing' }], ['main']))
     })
     expect(within(dialog).getByText('分支不存在')).toBeTruthy()
     expect(within(dialog).getAllByText('分支 dev 不存在').length).toBeGreaterThan(0)
-    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByRole('button', { name: '创建群' }).hasAttribute('disabled')).toBe(true)
 
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '' } })
     fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'main' } })
     await act(async () => {
       await new Promise((r) => setTimeout(r, 450))
-      answer(probeRes([{ botId: 'b1', ok: false, reason: 'denied', detail: 'Repository not found.' }]))
+      answer(probeRes([{ botId: 'b2', ok: false, reason: 'denied', detail: 'Repository not found.' }]))
     })
     expect(within(dialog).getByText('无权限 · 进群后暂停').getAttribute('title')).toBe(
       'Repository not found.',
     )
     expect(within(dialog).getByText('1 个 Bot 进群后暂停，主人配置凭据后可重新检查')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByRole('button', { name: '创建群' }).hasAttribute('disabled')).toBe(true)
     fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '仓库协作' } })
-    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(false)
+    expect(within(dialog).getByRole('button', { name: '创建群' }).hasAttribute('disabled')).toBe(false)
   })
 })
 
@@ -1401,9 +1453,7 @@ describe('repo picker', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    // One Bot of mine alone would make it a DM.
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     const panel = await openRepoPanel(dialog)
     const sources = within(panel).getByRole('radiogroup', { name: '来源' })
     expect(
@@ -1444,9 +1494,7 @@ describe('repo picker', () => {
     mockApi({ ...baseRoutes([]), 'GET /me/git-accounts': () => [], 'GET /repos': () => [] })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    // One Bot of mine alone would make it a DM.
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     const panel = await openRepoPanel(dialog)
     expect(within(panel).queryByRole('radiogroup', { name: '来源' })).toBeNull()
     expect(await within(panel).findByText('没有匹配的仓库')).toBeTruthy()
@@ -1468,9 +1516,7 @@ describe('repo picker', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    // One Bot of mine alone would make it a DM.
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     const panel = await openRepoPanel(dialog)
     fireEvent.mouseDown(await within(panel).findByRole('option', { name: /pay\/refund/ }))
     await waitFor(() => expect(answers).toHaveLength(1))
@@ -1483,7 +1529,7 @@ describe('repo picker', () => {
     fail = true
     fireEvent.change(within(dialog).getByLabelText('基准分支'), { target: { value: 'main' } })
     expect(await within(dialog).findByText('网络连接失败，请检查网络后重试')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: '创建' }).hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByRole('button', { name: '开始私聊' }).hasAttribute('disabled')).toBe(true)
     fail = false
     fireEvent.click(within(dialog).getByRole('button', { name: '重新检查' }))
     await waitFor(() => expect(answers).toHaveLength(3))
@@ -1505,9 +1551,7 @@ describe('repo picker', () => {
     })
     renderAt('/')
     fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
-    const dialog = await screen.findByRole('dialog', { name: '新建群' })
-    // One Bot of mine alone would make it a DM.
-    fireEvent.click(within(dialog).getByRole('radio', { name: '群聊' }))
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
     await addBot(dialog, /小王的 Claude/)
     const panel = await openRepoPanel(dialog)
     fireEvent.change(within(panel).getByLabelText('搜索仓库'), {

@@ -124,8 +124,6 @@ export default {
   '分支 {branch} 不存在': 'Branch {branch} not found',
   '{n} 个 Bot 进群后暂停，主人配置凭据后可重新检查':
     '{n} {n:Bot|Bots} will be paused on joining; owners can recheck after setting up credentials',
-  新建私聊: 'New direct message',
-  新建群: 'New group',
   '检查中…': 'Checking…',
   创建: 'Create',
   名称: 'Name',
@@ -249,11 +247,6 @@ export default {
   '审查改动：新增 {add} 行，删除 {del} 行': 'Review changes: {add} added, {del} deleted lines',
   审查未提交的改动: 'Review uncommitted changes',
   '在 Git 面板中审查': 'Review in the Git panel',
-  会话类型: 'Conversation type',
-  '只选了一个 Bot、没有其他成员，将创建私聊；私聊之后不能再加人。':
-    'Only one Bot and nobody else: this creates a direct message, which cannot take more members later.',
-  '只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。':
-    'Pick just one of your (or shared) Bots and no members to create a direct message.',
   '描述要怎么改，发给 @{name}': 'Describe the change for @{name}',
   '使用了 {n} 个「我的 Skill」': 'Used {n} from My Skills',
   依据: 'Basis',
@@ -283,4 +276,7 @@ export default {
   '收起输入框 ⌘J': 'Hide the input ⌘J',
   展开输入框: 'Show the input',
   '展开输入框 ⌘J': 'Show the input ⌘J',
+  开始私聊: 'Start chat',
+  创建群: 'Create group',
+  '将创建与它的私聊，之后不能再加人': 'This starts a direct chat with it; no one else can be added later',
 } satisfies Record<string, string>

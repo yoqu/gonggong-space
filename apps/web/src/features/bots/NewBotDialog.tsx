@@ -36,6 +36,7 @@ import { RolePicker, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
 import { AGENT_LABEL, AGENTS, botsApi, machineAgents, reportedAgent } from './model'
+import { useDm } from './ShareRequest'
 
 interface Props {
   me: UserDto
@@ -150,8 +151,7 @@ function Shell({
 const RESULT_VARIANT = { pending: 'info', warn: 'warning', ok: 'success', confirm: 'info' } as const
 
 /** What to do after creating: follows the live bot, so binding a machine or bringing it online updates it. */
-function NextStep({ created, self }: { created: BotDto; self: boolean }) {
-  const bot = useWorkspace((s) => s.bots.find((b) => b.id === created.id)) ?? created
+function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
   const bindHere = self && bot.binding === 'pending_bind'
   const bind = useBindCode(bindHere)
   const agent = AGENT_LABEL[bot.agentKind]
@@ -203,13 +203,15 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   const [created, setCreated] = useState<BotDto | null>(null)
   const [picking, setPicking] = useState<string | null | false>(false)
   const [more, setMore] = useState(false)
-  const live = useWorkspace((s) => s.machines)
+  const liveMachines = useWorkspace((s) => s.machines)
+  const live = useWorkspace((s) => s.bots.find((b) => b.id === created?.id)) ?? created
+  const openDm = useDm(live)
   const formId = useId()
 
   // Own machines come from the live store, so a daemon that just connected shows its agents right away.
   const machinesOf = (o: BotOwnerDto) => {
     const byId = new Map(o.machines.map((m) => [m.id, m]))
-    for (const m of live) if (m.ownerId === o.id) byId.set(m.id, m)
+    for (const m of liveMachines) if (m.ownerId === o.id) byId.set(m.id, m)
     return [...byId.values()]
   }
 
@@ -230,12 +232,26 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   }, [me.id, machineId])
 
   const owner = owners?.find((o) => o.id === draft?.ownerId)
-  if (created)
+  if (created && live) {
+    const self = created.ownerId === me.id
+    const done: ModalAction = { label: t('完成'), onClick: onClose }
+    // My own bot once bound leads straight into a DM with it: the shortest way to a first conversation.
     return (
-      <Shell onClose={onClose} actions={[{ label: t('完成'), variant: 'primary', onClick: onClose }]}>
-        <NextStep created={created} self={created.ownerId === me.id} />
+      <Shell
+        onClose={onClose}
+        actions={
+          self && live.binding !== 'pending_bind'
+            ? [
+                done,
+                { label: t('和它聊一句'), variant: 'primary', onClick: () => void openDm().then(onClose) },
+              ]
+            : [{ ...done, variant: 'primary' }]
+        }
+      >
+        <NextStep bot={live} self={self} />
       </Shell>
     )
+  }
   if (!owners || !draft || !owner)
     return (
       <Shell onClose={onClose}>

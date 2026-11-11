@@ -1,6 +1,5 @@
 import type { MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import { Alert, Button, Dialog, Form, FormRow, Spinner, StepIndicator, type StepStatus } from '../../ui'
@@ -13,7 +12,7 @@ import { t } from '../../i18n'
 
 /**
  * 绑定新机器 in three steps: ① install the client (skippable), ② open the 接入链接 in it, ③ wait for the machine to
- * come online, then go on to 新建 Bot on it or to its page.
+ * come online, then go on to 新建 Bot on it.
  */
 export function BindMachineDialog({
   open,
@@ -25,7 +24,6 @@ export function BindMachineDialog({
   /** 新建 Bot on the machine just bound; without it the button is not offered. */
   onNewBot?: (machineId: string) => void
 }) {
-  const navigate = useNavigate()
   const [bound, setBound] = useState<MachineDto | null>(null)
   /** ① is the user's word: there is no telling whether the client is installed until it binds. */
   const [installed, setInstalled] = useState(false)
@@ -74,11 +72,16 @@ export function BindMachineDialog({
       message={t('在共工空间客户端中打开接入链接，确认后这台机器就归属于你，Bot 在上面运行。')}
       width={520}
       onClose={onClose}
-      actions={[
-        bound
-          ? { label: t('完成'), variant: 'primary', onClick: onClose }
-          : { label: t('取消'), onClick: onClose },
-      ]}
+      actions={
+        !bound
+          ? [{ label: t('取消'), onClick: onClose }]
+          : onNewBot
+            ? [
+                { label: t('稍后'), onClick: onClose },
+                { label: t('新建 Bot'), variant: 'primary', onClick: () => onNewBot(bound.id) },
+              ]
+            : [{ label: t('完成'), variant: 'primary', onClick: onClose }]
+      }
     >
       <div className="bind">
         <StepIndicator steps={steps} />
@@ -111,24 +114,7 @@ export function BindMachineDialog({
           {bound ? (
             <>
               <BoundMachine machine={bound} />
-              {online ? (
-                <span className="bind__actions">
-                  <span className="bind__online">{t('机器已上线')}</span>
-                  {onNewBot ? (
-                    <Button variant="primary" onClick={() => onNewBot(bound.id)}>
-                      {t('新建 Bot')}
-                    </Button>
-                  ) : null}
-                  <Button
-                    onClick={() => {
-                      onClose()
-                      navigate(`/machine/${bound.id}`)
-                    }}
-                  >
-                    {t('查看机器')}
-                  </Button>
-                </span>
-              ) : null}
+              {online ? <span className="bind__online">{t('机器已上线')}</span> : null}
             </>
           ) : (
             <>

@@ -8,6 +8,7 @@ import { useSession } from '../src/app/session'
 import { loadWorkspace, useWorkspace } from '../src/app/workspace'
 import { botStateText } from '../src/features/bots/model'
 import { mockCrop, uploadAvatar } from './crop'
+import { group } from './gitFixtures'
 
 const wang: UserDto = {
   id: 'u1',
@@ -262,8 +263,9 @@ describe('新建 Bot', () => {
   it('creates a bot for myself on my machine', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
     routes['POST /api/bots'] = (b) => bot({ name: (b as { name: string }).name })
+    routes['GET /api/machines'] = () => [mbp]
     renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     const name = await within(dialog).findByLabelText('名称')
     expect((name as HTMLInputElement).value).toBe('王磊的 Claude Code')
@@ -282,6 +284,8 @@ describe('新建 Bot', () => {
     fireEvent.click(within(roles).getByRole('radio', { name: /反推/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     expect(await within(dialog).findByText('已就绪，可以在群里 @ 它了')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '和它聊一句' }).className).toContain('ui-btn--primary')
+    expect(within(dialog).getByRole('button', { name: '完成' }).className).not.toContain('ui-btn--primary')
     fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(calls.find((c) => c.key === 'POST /api/bots')?.body).toEqual({
@@ -297,11 +301,44 @@ describe('新建 Bot', () => {
     expect(screen.getAllByText('小王的 Claude').length).toBeGreaterThan(0)
   })
 
+  it('opens a DM with the bot just created from 和它聊一句', async () => {
+    const created = bot({})
+    const dm = group({
+      id: 'd1',
+      name: created.name,
+      kind: 'dm',
+      botIds: [created.id],
+      members: [],
+      repo: null,
+    })
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
+    routes['POST /api/bots'] = () => created
+    routes['GET /api/machines'] = () => [mbp]
+    routes['POST /api/groups'] = () => dm
+    routes['GET /api/groups/d1/timeline'] = () => ({ messages: [], runs: [] })
+    routes['POST /api/groups/d1/read'] = () => dm
+    renderAt('/machines', wang)
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '和它聊一句' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新建 Bot' })).toBeNull())
+    expect(await within(screen.getByRole('main')).findByRole('heading', { name: created.name })).toBeTruthy()
+    expect(calls.find((c) => c.key === 'POST /api/groups')?.body).toEqual({
+      name: created.name,
+      kind: 'dm',
+      memberIds: [],
+      botIds: [created.id],
+      repo: null,
+    })
+  })
+
   it('says to open the desktop app when the machine is offline', async () => {
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [{ ...mbp, online: false }] }]
     routes['POST /api/bots'] = () => bot({ presence: 'offline' })
+    routes['GET /api/machines'] = () => [{ ...mbp, online: false }]
     renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
     expect(
@@ -318,13 +355,17 @@ describe('新建 Bot', () => {
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
       link: 'gonggong://bind?server=x&code=K7QM-4X2P',
     })
-    renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    routes['GET /api/groups'] = () => []
+    localStorage.setItem('gg.builder', '1')
+    renderAt('/', wang)
+    const welcome = await within(screen.getByRole('main')).findByRole('region', { name: '开始使用' })
+    fireEvent.click(within(welcome).getByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建' }))
     const open = await within(dialog).findByRole('link', { name: '在客户端中打开' })
     expect(open.getAttribute('href')).toBe('gonggong://bind?server=x&code=K7QM-4X2P')
     expect(within(dialog).getByRole('button', { name: '复制接入链接' })).toBeTruthy()
+    localStorage.removeItem('gg.builder')
   })
 
   it('tells an admin the owner was asked to confirm', async () => {
@@ -348,8 +389,9 @@ describe('新建 Bot', () => {
     const withCatalog = { ...mbp, agents: [{ ...mbp.agents[0]!, catalog: CATALOG }, mbp.agents[1]!] }
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [withCatalog] }]
     routes['POST /api/bots'] = () => bot({})
+    routes['GET /api/machines'] = () => [withCatalog]
     renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     const model = await within(dialog).findByRole('button', { name: '模型' })
@@ -411,8 +453,9 @@ describe('新建 Bot', () => {
     routes['GET /api/machines/m1/catalog?agent=claude&provider=inherit'] = () => ({ catalog: CATALOG })
     routes['GET /api/machines/m1/catalog?agent=claude&provider=p1'] = () => ({ catalog: kimi })
     routes['POST /api/bots'] = () => bot({})
+    routes['GET /api/machines'] = () => [withProviders]
     renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     const select = await within(dialog).findByRole('button', { name: '供应商' })
@@ -442,8 +485,9 @@ describe('新建 Bot', () => {
     routes['POST /api/bots'] = () => bot({})
     routes['GET /api/machines/m1/dirs'] = () => ({ path: '/Users/w', entries: [], git: null, unusable: null })
     routes['PUT /api/bots/b1/default-workspace'] = (b) => bot(b as Partial<BotDto>)
+    routes['GET /api/machines'] = () => [mbp]
     renderAt('/machines', wang)
-    fireEvent.click(screen.getByRole('button', { name: '新建 Bot…' }))
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     fireEvent.click(within(dialog).getByRole('button', { name: '选择目录…' }))

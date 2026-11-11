@@ -83,7 +83,7 @@ describe('使用者 / 搭建者', () => {
     expect(within(rail()).getByRole('button', { name: /^通知/ })).toBeTruthy()
 
     fireEvent.click(within(welcome).getByRole('button', { name: '我想搭自己的 Bot' }))
-    for (const b of ['开始绑定', '新建 Bot', '新建群'])
+    for (const b of ['开始绑定', '新建 Bot', '发起会话'])
       expect(await within(welcome).findByRole('button', { name: b })).toBeTruthy()
     expect(localStorage.getItem('gg.builder')).toBe('1')
     expect(within(rail()).getByRole('button', { name: '机器与 Bot' })).toBeTruthy()

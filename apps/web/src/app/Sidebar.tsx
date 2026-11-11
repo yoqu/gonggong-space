@@ -446,14 +446,14 @@ function DirectoryRow({ d }: { d: DirectoryGroupDto }) {
 function SetupGuide({
   bound,
   hasBot,
-  inGroup,
+  chatted,
   onBindMachine,
   onNewBot,
   onNewGroup,
 }: {
   bound: boolean
   hasBot: boolean
-  inGroup: boolean
+  chatted: boolean
   onBindMachine?: () => void
   onNewBot?: () => void
   onNewGroup?: () => void
@@ -471,7 +471,12 @@ function SetupGuide({
       done: hasBot,
       onClick: onNewBot,
     },
-    { label: t('建群并 @ Bot'), hint: t('拉上同事、绑定仓库，分配任务'), done: inGroup, onClick: onNewGroup },
+    {
+      label: t('发起第一次对话'),
+      hint: t('和 Bot 私聊，或拉上同事建群'),
+      done: chatted,
+      onClick: onNewGroup,
+    },
   ]
   return (
     <section className="sidebar-guide" aria-label={t('开始使用')}>
@@ -708,7 +713,8 @@ export function Sidebar({
   const { pathname } = useLocation()
   // While the main area shows the first-run welcome, "还没有…" in every section would only repeat it.
   const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
-  const inGroup = groups.some((g) => g.kind === 'group')
+  // A DM with a bot counts: the first conversation is what the last step asks for.
+  const chatted = groups.length > 0
   const own = useSections((s) => s.sections)
   const team = useTeamSections()
   const me = useSession((s) => s.user?.id)
@@ -956,11 +962,11 @@ export function Sidebar({
         onPointerLeave={() => setHovered(false)}
       >
         <div>
-          {guide && loaded && !(machines.length && bots.length && inGroup) ? (
+          {guide && loaded && !(machines.length && bots.length && chatted) ? (
             <SetupGuide
               bound={machines.length > 0}
               hasBot={bots.length > 0}
-              inGroup={inGroup}
+              chatted={chatted}
               onBindMachine={onBindMachine}
               onNewBot={onNewBot}
               onNewGroup={onNewGroup}

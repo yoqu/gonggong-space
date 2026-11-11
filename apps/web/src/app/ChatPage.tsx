@@ -277,7 +277,7 @@ export function ChatPage() {
               machines={myMachines}
               loaded={workspaceLoaded}
               onBindMachine={() => setBinding(true)}
-              onNewBot={() => setNewBot({})}
+              onNewBot={(machineId) => setNewBot({ machineId })}
               onConfirmBot={(id) => void confirmBot(id)}
             />
           ) : (
@@ -381,7 +381,12 @@ export function ChatPage() {
         ) : managing ? (
           workspaceLoaded ? (
             <Suspense fallback={null}>
-              <MachinesOverview machines={myMachines} bots={myBots} onBindMachine={() => setBinding(true)} />
+              <MachinesOverview
+                machines={myMachines}
+                bots={myBots}
+                onBindMachine={() => setBinding(true)}
+                onNewBot={(machineId) => setNewBot({ machineId })}
+              />
             </Suspense>
           ) : (
             <div className="chat__placeholder">

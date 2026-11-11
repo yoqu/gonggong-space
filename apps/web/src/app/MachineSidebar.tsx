@@ -5,7 +5,7 @@ import { BotAvatar } from '../features/bots/avatars'
 import { botStateText, botStateUnderMachine, PRESENCE } from '../features/bots/model'
 import { OS_LABEL } from '../features/machines/model'
 import { t } from '../i18n'
-import { Button, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
+import { Button, Icon, Toolbar, ToolbarGroup } from '../ui'
 import { Footer, SectionHead } from './Sidebar'
 
 /** Routes shown with 机器与 Bot in place of the conversation list. */
@@ -36,6 +36,31 @@ function BotRow({
       </NavLink>
       {action}
     </div>
+  )
+}
+
+/** A quiet action line in the tree: 「+ 新建 Bot」 under a machine, 「+ 绑定新机器」 at its end. */
+function AddRow({
+  label,
+  text,
+  nested,
+  onClick,
+}: {
+  label: string
+  text: string
+  nested?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={nested ? 'sidebar__add sidebar__row--nested' : 'sidebar__add'}
+      aria-label={label}
+      onClick={onClick}
+    >
+      <Icon name="plus" size={12} weight={2} />
+      {text}
+    </button>
   )
 }
 
@@ -76,7 +101,8 @@ export function MachineSidebar({
   machines: MachineDto[]
   loaded?: boolean
   onBindMachine: () => void
-  onNewBot: () => void
+  /** On `machineId` when picked from under that machine. */
+  onNewBot: (machineId?: string) => void
   /** Confirms a bot someone else created for me (shown on my pending_confirm bots). */
   onConfirmBot: (botId: string) => void
 }) {
@@ -100,15 +126,14 @@ export function MachineSidebar({
     <div className="sidebar">
       <div className="shellbar">
         <Toolbar title={t('机器与 Bot')} scrolled={false}>
-          <ToolbarGroup>
-            <ToolbarButton
-              icon="plus"
-              label={t('绑定新机器')}
-              text={t('绑定新机器')}
-              onClick={onBindMachine}
-            />
-            <ToolbarButton icon="bot" label={t('新建 Bot…')} onClick={onNewBot} />
-          </ToolbarGroup>
+          {/* A bot runs on a machine: until one is bound, the main area's 绑定新机器 is the only way on. */}
+          {machines.length ? (
+            <ToolbarGroup>
+              <Button size="small" variant="primary" icon="plus" onClick={() => onNewBot()}>
+                {t('新建 Bot')}
+              </Button>
+            </ToolbarGroup>
+          ) : null}
         </Toolbar>
       </div>
       <div className="sidebar__scroll">
@@ -123,16 +148,20 @@ export function MachineSidebar({
                     <div key={m.id} className="sidebar__machine">
                       <MachineRow m={m} bots={on.length} />
                       {on.map((b) => row(b, true))}
+                      <AddRow
+                        nested
+                        label={t('在 {machine} 上新建 Bot', { machine: m.name })}
+                        text={t('新建 Bot')}
+                        onClick={() => onNewBot(m.id)}
+                      />
                     </div>
                   )
                 })
               ) : loaded ? (
-                <div className="sidebar__empty sidebar__empty--action">
-                  {t('还没有绑定机器')}
-                  <Button size="small" variant="primary" icon="plus" onClick={onBindMachine}>
-                    {t('绑定新机器')}
-                  </Button>
-                </div>
+                <div className="sidebar__empty">{t('还没有绑定机器')}</div>
+              ) : null}
+              {machines.length ? (
+                <AddRow label={t('绑定新机器')} text={t('绑定新机器')} onClick={onBindMachine} />
               ) : null}
             </div>
           </section>

@@ -5,18 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import {
-  Button,
-  Dialog,
-  GroupBox,
-  GroupRow,
-  Icon,
-  IconButton,
-  Input,
-  SegmentedControl,
-  Switch,
-  Tabs,
-} from '../../ui'
+import { Button, Dialog, GroupBox, GroupRow, Icon, IconButton, Input, Switch, Tabs } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
 import { AGENT_LABEL } from '../bots/model'
@@ -69,7 +58,7 @@ export function NewGroupDialog(props: NewProps) {
   )
 }
 
-/** 发起会话: a group, or a DM when only one of my (or shared) Bots is picked and nobody else; the switch overrides it. */
+/** 发起会话: a DM when only one of my (or shared) Bots is picked and nobody else, otherwise a group. */
 function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: ReactNode }) {
   const feishu = useAuthOptions()?.feishuLogin
   const allBots = useWorkspace((s) => s.bots)
@@ -81,7 +70,6 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   const [people, setPeople] = useState<string[]>([])
   const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
-  const [prefer, setPrefer] = useState<GroupKind | null>(null)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
 
   const setRepoDraft = (o: Partial<RepoDraft>) => {
@@ -94,8 +82,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   const manual = people.filter((id) => !owners.includes(id))
   const only = picked.length === 1 ? picked[0] : undefined
   // A DM is me and one Bot I may chat with privately; it can never take more members.
-  const dmable = !!only && (only.ownerId === me.id || only.sharedWith.includes(me.id)) && !manual.length
-  const dm = dmable && prefer !== 'group'
+  const dm = !!only && (only.ownerId === me.id || only.sharedWith.includes(me.id)) && !manual.length
   const kind: GroupKind = dm ? 'dm' : 'group'
   const userName = (id: string) =>
     users.find((u) => u.id === id)?.name ?? allBots.find((b) => b.ownerId === id)?.ownerName ?? ''
@@ -143,7 +130,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
       open
       width={520}
       closeOnBackdrop={false}
-      title={dm ? t('新建私聊') : t('新建群')}
+      title={t('发起会话')}
       onClose={onClose}
       footer={
         <>
@@ -163,29 +150,13 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
             loading={creating}
             onClick={() => void submit()}
           >
-            {checking ? t('检查中…') : t('创建')}
+            {checking ? t('检查中…') : dm ? t('开始私聊') : t('创建群')}
           </Button>
         </>
       }
     >
       <div className="ng">
         {tabs}
-        <section className="ng-section">
-          <SegmentedControl<GroupKind>
-            aria-label={t('会话类型')}
-            items={[
-              { value: 'group', label: t('群聊') },
-              { value: 'dm', label: t('私聊'), disabled: !dmable },
-            ]}
-            value={kind}
-            onChange={setPrefer}
-          />
-          <p className="ng-hint">
-            {dm
-              ? t('只选了一个 Bot、没有其他成员，将创建私聊；私聊之后不能再加人。')
-              : t('只选一个你的（或共享给你的）Bot、不加成员时可创建私聊。')}
-          </p>
-        </section>
         {dm ? null : (
           <section className="ng-section">
             <h3 className="ng-section__title">{t('名称')}</h3>
@@ -251,6 +222,7 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
               onPick={(b) => setBotIds(toggle(botIds, b.id))}
             />
           </GroupBox>
+          {dm ? <p className="ng-hint">{t('将创建与它的私聊，之后不能再加人')}</p> : null}
         </section>
 
         <section className="ng-section">

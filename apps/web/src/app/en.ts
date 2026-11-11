@@ -20,7 +20,6 @@ export default {
   消息: 'Messages',
   通知: 'Notifications',
   管理后台: 'Admin console',
-  新建群: 'New group',
   '搜索会话、消息、文件、运行': 'Search conversations, messages, files and runs',
   搜索: 'Search',
   '连接已断开，正在重连…': 'Disconnected. Reconnecting…',
@@ -57,21 +56,17 @@ export default {
     'Install the Gonggong Space client on a machine and open the connect link to link your account',
   '新建 Bot': 'New Bot',
   '选择机器上的 Claude Code、Codex 或 Gemini CLI': 'Pick Claude Code, Codex or Gemini CLI on a machine',
-  '建群并 @ Bot': 'Create a group and @ a Bot',
-  '拉上同事、绑定仓库，分配任务': 'Invite teammates, bind repos, hand out tasks',
   开始使用: 'Get started',
   展开会话列表: 'Expand conversations',
   '{n} 个 Bot 在线': '{n} {n:Bot|Bots} online',
   '{n} 台机器在线': '{n} {n:machine|machines} online',
   '群#nav': 'Groups',
-  新建私聊: 'New direct message',
   还没有会话: 'No conversations yet',
   终端不存在或已删除: 'Terminal not found or deleted',
   '会话#list': 'Conversations',
   发起会话: 'New conversation',
   '机器与 Bot': 'Machines & Bots',
   '未绑定机器的 Bot': 'Bots without a machine',
-  '新建 Bot…': 'New Bot…',
   '还没有 Bot': 'No Bots yet',
   我的机器: 'My machines',
   绑定新机器: 'Bind new machine',
@@ -85,8 +80,6 @@ export default {
     'Install the Gonggong Space client on your machine and open the connect link; your Bots run on that machine.',
   '选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。':
     'Pick Claude Code, Codex or Gemini CLI on a machine and give it a memorable name.',
-  '拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。':
-    'Invite teammates, bind repos, and @ your Bot in the group to hand out tasks.',
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',
   '三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。':
     'Three steps to get your first Bot working. Or wait for a teammate to add you to a group and jump right in.',
@@ -125,4 +118,8 @@ export default {
   '个人分区…': 'Personal section…',
   '新建子分区…': 'New subsection…',
   '团队分区…': 'Team section…',
+  发起第一次对话: 'Start your first conversation',
+  '和 Bot 私聊，或拉上同事建群': 'Chat with a Bot one-on-one, or start a group with teammates',
+  '和你的 Bot 私聊，或拉上同事建群，把任务交给它。':
+    'Chat with your Bot one-on-one, or start a group with teammates, and hand it a task.',
 } satisfies Record<string, string>

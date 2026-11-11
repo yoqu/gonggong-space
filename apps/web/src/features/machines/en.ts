@@ -359,7 +359,6 @@ export default {
   返回后台: 'Back to admin',
   我已安装: 'Already installed',
   已安装客户端: 'Client installed',
-  查看机器: 'View machine',
   机器总览: 'Machines overview',
   '在一台装有 Claude Code、Codex 或 Gemini CLI 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':
     'Install the Gonggong Space client on a machine with Claude Code, Codex or Gemini CLI and bind it; Bots run there.',
@@ -432,4 +431,6 @@ export default {
   已允许: 'Allowed',
   '撤销后，下次用到时会重新请你确认': 'After revoking, you will be asked again the next time it is needed',
   还没有插件请求在这台机器上运行代码: 'No plugin has asked to run code on this machine yet',
+  稍后: 'Later',
+  '在 {machine} 上新建 Bot': 'New Bot on {machine}',
 } satisfies Record<string, string>

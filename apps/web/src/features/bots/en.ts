@@ -279,4 +279,5 @@ export default {
     '"Follow machine settings" uses the agent settings on the machine; takes effect the next time the agent starts',
   '该机器的 daemon 版本过旧，覆盖不会生效':
     "This machine's daemon is too old; the overrides will not take effect",
+  和它聊一句: 'Say hi to it',
 } satisfies Record<string, string>

@@ -56,9 +56,9 @@ export function Welcome({
     {
       icon: 'hashtag',
       color: 'var(--system-green)',
-      title: t('建群并 @ Bot'),
-      desc: t('拉上同事、绑定仓库，在群里 @ 你的 Bot 分配任务。'),
-      action: t('新建群'),
+      title: t('发起第一次对话'),
+      desc: t('和你的 Bot 私聊，或拉上同事建群，把任务交给它。'),
+      action: t('发起会话'),
       done: false,
       onClick: onNewGroup,
     },

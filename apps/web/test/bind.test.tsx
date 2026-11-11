@@ -218,7 +218,10 @@ describe('bind machine dialog', () => {
     expect(screen.queryByText('绑定成功')).toBeNull()
     emit(fresh)
     expect(screen.getByText('绑定成功')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '完成' })).toBeTruthy()
+    // One way forward: 新建 Bot leads, 稍后 steps back; 查看机器 and 完成 are gone.
+    expect(screen.getByRole('button', { name: '新建 Bot' }).className).toContain('ui-btn--primary')
+    expect(screen.getByRole('button', { name: '稍后' }).className).not.toContain('ui-btn--primary')
+    expect(screen.queryByRole('button', { name: '完成' })).toBeNull()
     expect(screen.getByText(/wanglei-mbp/)).toBeTruthy()
     expect(screen.getByText(/等待上报 agent/)).toBeTruthy()
     emit({
@@ -242,15 +245,16 @@ describe('bind machine dialog', () => {
     expect(onNewBot).toHaveBeenCalledWith('m1')
   })
 
-  it('opens the new machine from 查看机器', async () => {
+  it('leaves with 稍后 and offers no 查看机器 once online', async () => {
     api()
     const onClose = vi.fn()
-    show({ onClose })
+    show({ onClose, onNewBot: () => {} })
     await openLink()
     emit({ ...fresh, online: true })
     expect(screen.getByRole('region', { name: '等待机器上线' }).textContent).toContain('机器已上线')
-    fireEvent.click(screen.getByRole('button', { name: '查看机器' }))
-    expect(screen.getByText('machine page')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '查看机器' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: '新建 Bot' })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: '稍后' }))
     expect(onClose).toHaveBeenCalled()
   })
 

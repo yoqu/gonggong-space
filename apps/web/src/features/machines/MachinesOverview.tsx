@@ -17,10 +17,12 @@ export function MachinesOverview({
   machines,
   bots,
   onBindMachine,
+  onNewBot,
 }: {
   machines: MachineDto[]
   bots: BotDto[]
   onBindMachine: () => void
+  onNewBot: (machineId: string) => void
 }) {
   return (
     <section className="machines-overview" aria-label={t('机器总览')}>
@@ -32,7 +34,13 @@ export function MachinesOverview({
       {machines.length ? (
         <div className="machines-overview__grid">
           {machines.map((m, i) => (
-            <MachineCard key={m.id} index={i} machine={m} bots={bots.filter((b) => b.machineId === m.id)} />
+            <MachineCard
+              key={m.id}
+              index={i}
+              machine={m}
+              bots={bots.filter((b) => b.machineId === m.id)}
+              onNewBot={onNewBot}
+            />
           ))}
         </div>
       ) : (
@@ -53,48 +61,64 @@ export function MachinesOverview({
   )
 }
 
-function MachineCard({ machine: m, bots, index }: { machine: MachineDto; bots: BotDto[]; index: number }) {
+function MachineCard({
+  machine: m,
+  bots,
+  index,
+  onNewBot,
+}: {
+  machine: MachineDto
+  bots: BotDto[]
+  index: number
+  onNewBot: (machineId: string) => void
+}) {
   // Providers live on the machine alone: read live while it is online, never kept.
   const view = useGet<ProviderStoreView>(
     m.online && m.features.includes('providers') ? `/machines/${m.id}/providers` : null,
   ).data
   const running = bots.filter((b) => b.presence === 'running').length
   return (
-    <Link
-      to={`/machine/${m.id}`}
-      className="machine-card"
-      data-online={m.online}
-      style={{ '--i': index } as CSSProperties}
-    >
-      <span className="machine-card__head">
-        <Icon name={OS_ICON[m.os]} size={18} />
-        <span className="machine-card__name">{m.name}</span>
-        <span className="machine__status" data-online={m.online}>
-          {m.online ? t('在线') : t('离线')}
+    <div className="machine-card" data-online={m.online} style={{ '--i': index } as CSSProperties}>
+      <Link to={`/machine/${m.id}`} className="machine-card__open">
+        <span className="machine-card__head">
+          <Icon name={OS_ICON[m.os]} size={18} />
+          <span className="machine-card__name">{m.name}</span>
+          <span className="machine__status" data-online={m.online}>
+            {m.online ? t('在线') : t('离线')}
+          </span>
         </span>
-      </span>
-      <span className="mx-sub">{[OS_LABEL[m.os], m.arch].join(' · ')}</span>
-      {!m.online && m.lastSeenAt ? (
-        <span className="mx-sub">{t('最后在线：{time}', { time: ago(m.lastSeenAt) })}</span>
-      ) : null}
-      <span className="machine-card__agents">
-        {AGENTS.filter((kind) => !isLaterAgent(kind) || reportedAgent(m, kind)).map((kind) => {
-          const a = m.agents.find((x) => x.kind === kind)
-          const provider =
-            view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null
-          return (
-            <span key={kind} className="machine__agent" data-available={!!a?.available}>
-              {a?.available
-                ? `${AGENT_LABEL[kind]} ${a.version ?? ''}`.trim()
-                : `${AGENT_LABEL[kind]} ${t('未安装')}`}
-              {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
-            </span>
-          )
-        })}
-      </span>
-      <span className="mx-sub">
-        {bots.length ? t('{n} 个 Bot · {k} 个运行中', { n: bots.length, k: running }) : t('没有 Bot')}
-      </span>
-    </Link>
+        <span className="mx-sub">{[OS_LABEL[m.os], m.arch].join(' · ')}</span>
+        {!m.online && m.lastSeenAt ? (
+          <span className="mx-sub">{t('最后在线：{time}', { time: ago(m.lastSeenAt) })}</span>
+        ) : null}
+        <span className="machine-card__agents">
+          {AGENTS.filter((kind) => !isLaterAgent(kind) || reportedAgent(m, kind)).map((kind) => {
+            const a = m.agents.find((x) => x.kind === kind)
+            const provider =
+              view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null
+            return (
+              <span key={kind} className="machine__agent" data-available={!!a?.available}>
+                {a?.available
+                  ? `${AGENT_LABEL[kind]} ${a.version ?? ''}`.trim()
+                  : `${AGENT_LABEL[kind]} ${t('未安装')}`}
+                {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
+              </span>
+            )
+          })}
+        </span>
+        <span className="mx-sub machine-card__foot">
+          {bots.length ? t('{n} 个 Bot · {k} 个运行中', { n: bots.length, k: running }) : t('没有 Bot')}
+        </span>
+      </Link>
+      <Button
+        size="small"
+        icon="plus"
+        className="machine-card__new"
+        aria-label={t('在 {machine} 上新建 Bot', { machine: m.name })}
+        onClick={() => onNewBot(m.id)}
+      >
+        {t('新建 Bot')}
+      </Button>
+    </div>
   )
 }
