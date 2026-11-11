@@ -64,7 +64,7 @@ const SIDE: Record<GitConflict['ours'], string> = {
  */
 export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
-  const patch = useWorkbench((s) => s.patch)
+  const replace = useWorkbench((s) => s.replace)
   const closeTab = useWorkbench((s) => s.closeTab)
   const git = useWorkspace((s) => s.botStates[groupId]?.[tab.botId]?.git ?? null)
   const { owner } = useOwner(tab.botId)
@@ -86,7 +86,8 @@ export function GitMergeTab({ tab, tabKey }: TabProps<'git-merge'>) {
   const label = sides(changes.data, status?.branch ?? null)
   const go = (path: string) => {
     setError(null)
-    patch(tabKey, { path })
+    // The path is part of the tab's key: replace keeps it the active tab.
+    replace(tabKey, { ...tab, path })
   }
 
   const finish = async (req: { side?: Side; content?: string }) => {

@@ -63,6 +63,7 @@ const conflictApi = (conflict: GitConflictDto = CONFLICT, changes: GitChangesDto
       [`POST ${BASE}/actions`]: done,
     }),
   )
+const bench = () => useWorkbench.getState().benches.g1
 const row = (name: string) => within(screen.getByRole('group', { name }))
 const result = (name: string) => (screen.getByRole('textbox', { name }) as HTMLTextAreaElement).value
 const expectResult = (name: string, value: string) => waitFor(() => expect(result(name)).toBe(value))
@@ -127,11 +128,33 @@ describe('merge tool', () => {
     // The next conflicted file: theirs deleted it, so only a whole side can be kept.
     expect(await screen.findByText('两边对这个文件的处理不同，请选择保留哪一方')).toBeTruthy()
     expect(benchTabs().at(-1)).toMatchObject({ kind: 'git-merge', path: 'src/legacy.ts' })
+    expect(useWorkbench.getState().benches.g1?.active).toBe('git-merge:b1::src/legacy.ts')
     expect(screen.getByText('删除了文件')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '保留你的版本' }))
     await waitFor(() =>
       expect(actionsCalled(calls).at(-1)).toEqual({ action: 'resolve', path: 'src/legacy.ts', side: 'ours' }),
     )
+  })
+
+  it('switches conflicted files by hand keeping the tab active', async () => {
+    conflictApi()
+    open()
+    await screen.findByText('1 处冲突，已解决 0 处')
+    fireEvent.click(screen.getByRole('button', { name: '下一个冲突文件' }))
+    expect(await screen.findByText('两边对这个文件的处理不同，请选择保留哪一方')).toBeTruthy()
+    expect(bench()?.active).toBe('git-merge:b1::src/legacy.ts')
+    expect(bench()?.tabs.filter((t) => t.kind === 'git-merge')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: '上一个冲突文件' }))
+    await screen.findByText('1 处冲突，已解决 0 处')
+    expect(bench()?.active).toBe('git-merge:b1::src/order.ts')
+  })
+
+  it('closes the tab once the last conflicted file is applied', async () => {
+    conflictApi(CONFLICT, { ...MERGING, conflicts: MERGING.conflicts.slice(0, 1) })
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: '全部接受他们的' }))
+    await waitFor(() => expect(bench()?.tabs.some((t) => t.kind === 'git-merge')).toBe(false))
+    expect(bench()?.active ?? null).toBeNull()
   })
 
   it('asks before applying with conflicts left, marking them resolved as the result has them', async () => {
