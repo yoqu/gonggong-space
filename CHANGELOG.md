@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.17 — 2026-11-11
+
+- 新增 Agent：pi（共工扩展接入共工工具、MCP 与审批）、DeepSeek Harness（机器供应商支持 DeepSeek API Key） / New agents: pi (Gonggong's extension brings the Gonggong tools, MCP and approvals) and DeepSeek Harness (DeepSeek API keys as machine providers)
+- 运行卡片摘要过长时限三行，进度清单内部滚动 / Long run card summaries are clipped to three lines and progress lists scroll inside
+
 ## v0.4.16 — 2026-11-10
 
 - 「帮我审批」内置审核优先：官方供应商下 Claude 用 auto、Codex 用 agent 模式，运行注明由谁审 / Review for me prefers the built-in review: Claude auto and Codex agent mode on official services, and each run says who reviews
