@@ -129,12 +129,13 @@ export async function login(page: Page, account: string, password: string) {
   await page.getByRole('button', { name: '登录' }).click()
 }
 
-export async function changePassword(page: Page, oldPassword: string, newPassword: string) {
-  await page.getByLabel('初始密码').fill(oldPassword)
+/** Right after `login` the page already holds the initial password; pass `oldPassword` after a reload. */
+export async function changePassword(page: Page, newPassword: string, oldPassword?: string) {
+  if (oldPassword) await page.getByLabel('初始密码').fill(oldPassword)
   await page.getByLabel('新密码', { exact: true }).fill(newPassword)
   await page.getByLabel('确认新密码').fill(newPassword)
   await page.getByRole('button', { name: '修改密码' }).click()
-  await expect(page.getByLabel('初始密码')).toBeHidden()
+  await expect(page.getByLabel('确认新密码')).toBeHidden()
 }
 
 export async function logout(page: Page) {

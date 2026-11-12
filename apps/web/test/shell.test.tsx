@@ -193,6 +193,40 @@ describe('connection status', () => {
     expect(within(nav).queryByText(/本机 daemon/)).toBeNull()
   })
 
+  it('leaves out the bot and machine counts until I have any', async () => {
+    mockApi(routes([]))
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    await screen.findByRole('region', { name: '开始使用' })
+    expect(within(nav).queryByText(/个 Bot 在线/)).toBeNull()
+    expect(within(nav).queryByText(/台机器在线/)).toBeNull()
+  })
+
+  it('offers 发起会话 in the empty conversation list once I have a bot', async () => {
+    const mine = {
+      id: 'b1',
+      teamId: 't1',
+      name: '小王的 Claude',
+      ownerId: 'u1',
+      ownerName: '王磊',
+      agentKind: 'claude',
+      avatar: 'role-no',
+      followAgent: false,
+      avatarUrl: null,
+      machineId: 'mbp',
+      binding: 'bound',
+      presence: 'online',
+      triggerScope: 'all',
+      triggerList: [],
+      sharedWith: [],
+    } as unknown as BotDto
+    mockApi(routes([], [machine('mbp', true)], [mine]))
+    renderAt('/')
+    const nav = screen.getByRole('navigation', { name: '会话列表' })
+    const empty = (await within(nav).findByText('还没有会话')).closest('.sidebar__empty') as HTMLElement
+    expect(within(empty).getByRole('button', { name: '发起会话' })).toBeTruthy()
+  })
+
   it('counts only my own bots as online in the sidebar footer, like the machines', async () => {
     const bot = (id: string, ownerId: string, presence: BotDto['presence']) =>
       ({

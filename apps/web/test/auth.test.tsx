@@ -148,6 +148,13 @@ describe('self sign-up', () => {
     expect(screen.queryByTestId('join-page')).toBeNull()
   })
 
+  it('carries the product tagline under the logo for narrow screens, where the stage is hidden', async () => {
+    mockApi({ 'GET /me': () => apiError(401, 'unauthorized') })
+    renderAt('/login')
+    const head = (await screen.findByRole('heading', { name: '登录' })).closest('.auth__head') as HTMLElement
+    expect(head.querySelector('.auth__tagline')?.textContent).toBe('在群里 @ 一下，队友的 Bot 就开工。')
+  })
+
   it('keeps the admin-contact line when registration is closed, and the register page says so', async () => {
     mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),
@@ -191,6 +198,32 @@ describe('forced password change', () => {
       newPassword: 'new-pass-1',
     })
   })
+  it('right after login, reuses the password just typed instead of asking for it again', async () => {
+    const calls = mockApi({
+      'GET /me': () => apiError(401, 'unauthorized'),
+      'POST /auth/login': { ...me, mustChangePassword: true },
+      'POST /auth/password': { ...me, mustChangePassword: false },
+    })
+    renderAt('/login')
+    await screen.findByLabelText('账号')
+    fill('账号', 'wanglei')
+    fill('密码', 'init-pass')
+    fireEvent.click(screen.getByRole('button', { name: '登录' }))
+    await screen.findByLabelText('新密码')
+    expect(screen.queryByLabelText('初始密码')).toBeNull()
+    expect(screen.getByRole('heading', { name: '先设置只属于你的密码。' })).toBeTruthy()
+    expect(screen.getByRole('list', { name: '首次登录进度' }).textContent).toContain('开始使用共工空间')
+    fill('新密码', 'new-pass-1')
+    fill('确认新密码', 'new-pass-1')
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }))
+    expect(await screen.findByRole('navigation', { name: '会话列表' })).toBeTruthy()
+    expect(calls.find((c) => c.path === '/auth/password')?.body).toEqual({
+      oldPassword: 'init-pass',
+      newPassword: 'new-pass-1',
+    })
+    expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain('init-pass')
+  })
+
   it('checks the new password live and refuses reusing the current one', async () => {
     const calls = mockApi({ 'GET /me': { ...me, mustChangePassword: true } })
     renderAt('/')
@@ -222,7 +255,7 @@ describe('account menu', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByText('王磊')).toBeTruthy()
     expect(within(menu).getByText('普通成员 · wanglei')).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: '绑定新机器' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '接入我的电脑' })).toBeTruthy()
     expect(within(menu).queryAllByRole('link')).toEqual([])
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: '我的用量' }))

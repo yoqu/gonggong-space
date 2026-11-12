@@ -13,7 +13,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   // Bootstrap admin must change the initial password, then creates a member account.
   await login(page, 'admin', 'admin-init-pass')
-  await changePassword(page, 'admin-init-pass', 'admin-pass-2')
+  await changePassword(page, 'admin-pass-2')
   await page.goto('/admin/users')
   await page.getByRole('button', { name: '新建账号…' }).first().click()
   const account = page.getByRole('dialog', { name: '新建成员' })
@@ -26,7 +26,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   // Member first login.
   await login(page, 'wanglei', 'wanglei-init')
-  await changePassword(page, 'wanglei-init', 'wanglei-pass')
+  await changePassword(page, 'wanglei-pass')
 
   // Bind this machine with the one-time 接入链接, as the desktop app would receive it.
   await page.getByRole('button', { name: '账户菜单' }).click()

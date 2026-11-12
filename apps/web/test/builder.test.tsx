@@ -91,18 +91,36 @@ describe('使用者 / 搭建者', () => {
     expect(within(rail()).getByRole('button', { name: '机器与 Bot' })).toBeTruthy()
   })
 
-  it('offers 搭建自己的 Bot in the account menu, which opens 机器与 Bot with the full rail', async () => {
-    mockApi({ ...routes(), 'GET /bots/owners': () => [{ id: 'u1', name: '小李', machines: [] }] })
+  it('offers one 接入我的电脑 in the account menu, which opens 绑定新机器; builders see only 绑定新机器', async () => {
+    mockApi({
+      ...routes(),
+      'POST /bind-codes': () => ({ code: 'ABCD-EFGH', expiresAt: '2099-01-01T00:00:00Z' }),
+    })
     renderAt('/')
     await screen.findByRole('region', { name: '开始使用' })
     fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
-    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: '搭建自己的 Bot' }))
-    await waitFor(() => expect(screen.getByTestId('at').textContent).toBe('/machines'))
-    expect(within(rail()).getByRole('button', { name: '市场' })).toBeTruthy()
+    const menu = within(screen.getByRole('menu'))
+    expect(menu.queryByRole('menuitem', { name: '绑定新机器' })).toBeNull()
+    expect(menu.queryByRole('menuitem', { name: '搭建自己的 Bot' })).toBeNull()
+    fireEvent.click(menu.getByRole('menuitem', { name: '接入我的电脑' }))
+    expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
+    expect(localStorage.getItem('gg.builder')).toBe('1')
     expect(within(rail()).getByRole('button', { name: '机器与 Bot' })).toBeTruthy()
 
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '绑定新机器' })).toBeNull())
     fireEvent.click(screen.getByRole('button', { name: '账户菜单' }))
-    expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: '搭建自己的 Bot' })).toBeNull()
+    const again = within(screen.getByRole('menu'))
+    expect(again.getByRole('menuitem', { name: '绑定新机器' })).toBeTruthy()
+    expect(again.queryByRole('menuitem', { name: '接入我的电脑' })).toBeNull()
+  })
+
+  it('puts a placeholder in an empty conversation list: where chats come from, or 发起会话 for a builder with a bot', async () => {
+    mockApi(routes())
+    renderAt('/')
+    const list = await screen.findByRole('navigation', { name: '会话列表' })
+    const empty = await within(list).findByText('被拉进群后，会话会出现在这里')
+    expect(within(empty).queryByRole('button', { name: '发起会话' })).toBeNull()
   })
 
   it('still opens /machines directly for a 使用者', async () => {

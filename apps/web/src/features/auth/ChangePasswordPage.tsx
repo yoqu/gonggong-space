@@ -1,6 +1,7 @@
 import type { UserDto } from '@gonggong/protocol'
 import { AnimatePresence, m } from 'motion/react'
 import { type FormEvent, useState } from 'react'
+import { useLocation } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
@@ -21,8 +22,8 @@ function strength(pw: string) {
 
 type RuleState = 'ok' | 'bad' | undefined
 
-function usePasswordChange(onChanged: (me: UserDto) => void) {
-  const [form, setForm] = useState({ old: '', next: '', confirm: '' })
+function usePasswordChange(onChanged: (me: UserDto) => void, initialOld = '') {
+  const [form, setForm] = useState({ old: initialOld, next: '', confirm: '' })
   const [error, setError] = useState('')
   const [errorKey, setErrorKey] = useState(0)
   const [phase, setPhase] = useState<SubmitPhase>('idle')
@@ -79,7 +80,8 @@ function PasswordChangeFields({
   submitLabel,
 }: {
   pc: PasswordChange
-  oldLabel: string
+  /** Null when the current password is already known (typed at login a moment ago). */
+  oldLabel: string | null
   /** Omit when the surrounding dialog puts the submit button in its footer. */
   submitLabel?: string
 }) {
@@ -89,17 +91,20 @@ function PasswordChangeFields({
   return (
     <>
       <div className="auth__fields">
-        <SecureField
-          label={oldLabel}
-          size={size}
-          autoComplete="current-password"
-          value={form.old}
-          onChange={set('old')}
-          autoFocus
-        />
+        {oldLabel ? (
+          <SecureField
+            label={oldLabel}
+            size={size}
+            autoComplete="current-password"
+            value={form.old}
+            onChange={set('old')}
+            autoFocus
+          />
+        ) : null}
         <SecureField
           label={t('新密码')}
           size={size}
+          autoFocus={!oldLabel}
           autoComplete="new-password"
           placeholder={t('至少 {n} 位', { n: MIN_LENGTH })}
           value={form.next}
@@ -162,10 +167,12 @@ function PasswordChangeFields({
 /** Shown instead of the app while `mustChangePassword` is set (first login with an admin-issued password). */
 export function ChangePasswordPage() {
   const setUser = useSession((s) => s.setUser)
+  // Set by the login page; a reload drops it and the field shows again.
+  const known = (useLocation().state as { initialPassword?: string } | null)?.initialPassword ?? ''
   const pc = usePasswordChange((me) => {
     setUser(me)
     toast({ type: 'success', message: t('密码已更新，欢迎加入共工空间') })
-  })
+  }, known)
   return (
     <AuthCard
       variant="password"
@@ -180,7 +187,7 @@ export function ChangePasswordPage() {
         </button>
       }
     >
-      <PasswordChangeFields pc={pc} oldLabel={t('初始密码')} submitLabel={t('修改密码')} />
+      <PasswordChangeFields pc={pc} oldLabel={known ? null : t('初始密码')} submitLabel={t('修改密码')} />
     </AuthCard>
   )
 }

@@ -61,6 +61,7 @@ export default {
   '{n} 台机器在线': '{n} {n:machine|machines} online',
   '群#nav': 'Groups',
   还没有会话: 'No conversations yet',
+  '被拉进群后，会话会出现在这里': 'Once someone adds you to a group, conversations show up here',
   终端不存在或已删除: 'Terminal not found or deleted',
   '会话#list': 'Conversations',
   发起会话: 'New conversation',

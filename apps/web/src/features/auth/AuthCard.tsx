@@ -1,5 +1,6 @@
 import { m, useAnimationControls } from 'motion/react'
 import { type FormEvent, type ReactNode, useEffect } from 'react'
+import { t } from '../../i18n'
 import { Button, Icon, Logo, Spinner } from '../../ui'
 import { AuthStage, type AuthVariant, LocaleToggle, ThemeToggle } from './AuthStage'
 import './auth.css'
@@ -46,6 +47,10 @@ export function AuthCard({
           <m.form animate={shake} onSubmit={onSubmit} noValidate className="auth__form">
             <div className="auth__head">
               <Logo size={40} className="auth__logo" />
+              {/* Narrow screens hide the stage; this line keeps what the product is for. */}
+              {variant === 'login' ? (
+                <p className="auth__tagline">{t('在群里 @ 一下，队友的 Bot 就开工。')}</p>
+              ) : null}
               <h1 className="auth__title">{title}</h1>
               <p className="auth__subtitle">{subtitle}</p>
             </div>

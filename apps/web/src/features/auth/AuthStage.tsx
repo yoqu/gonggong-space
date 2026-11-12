@@ -185,7 +185,7 @@ function RelayDemo() {
 const FIRST_RUN = [
   { label: t('用初始密码登录'), state: 'done' },
   { label: t('设置自己的密码'), state: 'active' },
-  { label: t('绑定机器、新建 Bot，开始协作'), state: 'todo' },
+  { label: t('开始使用共工空间'), state: 'todo' },
 ] as const
 
 /** The password stage's counterpart of the relay demo: where the member is in their first-run path. */
@@ -214,11 +214,7 @@ export function AuthStage({ variant }: { variant: AuthVariant }) {
       <div className="auth-stage__copy">
         <h2 className="auth-stage__title">
           {password ? (
-            <>
-              {t('最后一步，')}
-              <br />
-              {t('设置只属于你的密码。')}
-            </>
+            t('先设置只属于你的密码。')
           ) : (
             <>
               {t('在群里 @ 一下，')}

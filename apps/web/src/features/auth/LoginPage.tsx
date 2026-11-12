@@ -74,7 +74,11 @@ export function LoginPage() {
       // Let the success state land before the app replaces the screen.
       setTimeout(() => {
         setUser(me)
-        navigate(next, { replace: true })
+        // Memory only (router state, never storage): the forced change then need not ask for it again.
+        navigate(next, {
+          replace: true,
+          state: me.mustChangePassword ? { initialPassword: password } : undefined,
+        })
       }, 420)
     } catch (err) {
       setError(errorText(err))

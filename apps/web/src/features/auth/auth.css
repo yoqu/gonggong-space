@@ -240,6 +240,11 @@
   margin: 0;
   color: var(--label-secondary);
 }
+.auth__tagline {
+  display: none;
+  margin: 0 0 var(--space-16);
+  color: var(--label-secondary);
+}
 .auth__fields {
   display: flex;
   flex-direction: column;
@@ -411,7 +416,8 @@
   .auth-stage {
     display: none;
   }
-  .auth__logo {
+  .auth__logo,
+  .auth__tagline {
     display: block;
   }
 }

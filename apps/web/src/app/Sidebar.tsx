@@ -54,6 +54,7 @@ import {
   toast,
 } from '../ui'
 import { keyNav } from '../ui/im/keynav'
+import { useIsBuilder } from './builder'
 import { activityOf } from './convActivity'
 import { useInspector } from './inspector'
 import { useSession } from './session'
@@ -689,7 +690,7 @@ export function Footer({ bots, machines }: { bots: BotDto[]; machines: MachineDt
       <span className="sidebar__conn" aria-live="polite">
         {conn.label}
       </span>
-      <span>{t('{n} 个 Bot 在线', { n: live })}</span>
+      {bots.length ? <span>{t('{n} 个 Bot 在线', { n: live })}</span> : null}
       {machines.length ? <span>{t('{n} 台机器在线', { n: online })}</span> : null}
     </footer>
   )
@@ -708,8 +709,7 @@ export function Sidebar({
   onNewBot,
 }: SidebarProps) {
   const { pathname } = useLocation()
-  // While the main area shows the first-run welcome, "还没有…" in every section would only repeat it.
-  const empty = (text: string) => (loaded && guide ? <div className="sidebar__empty">{text}</div> : null)
+  const builder = useIsBuilder()
   // A DM with a bot counts: the first conversation is what the last step asks for.
   const chatted = groups.length > 0
   const own = useSections((s) => s.sections)
@@ -993,7 +993,20 @@ export function Sidebar({
             {anything ? (
               sections.map(renderSection)
             ) : (
-              <div className="sidebar__list sidebar__list--convs">{empty(t('还没有会话'))}</div>
+              <div className="sidebar__list sidebar__list--convs">
+                {loaded ? (
+                  builder && bots.length ? (
+                    <div className="sidebar__empty sidebar__empty--action">
+                      <span>{t('还没有会话')}</span>
+                      <Button size="small" onClick={onNewGroup}>
+                        {t('发起会话')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="sidebar__empty">{t('被拉进群后，会话会出现在这里')}</div>
+                  )
+                ) : null}
+              </div>
             )}
             {anything && !onlyFlagged ? (
               team.canManage ? (

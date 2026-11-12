@@ -1,6 +1,5 @@
 import type { UserDto } from '@gonggong/protocol'
 import { Suspense, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { becomeBuilder, useIsBuilder } from '../../app/builder'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
@@ -41,7 +40,6 @@ export function AccountMenu({
   const [newBotOn, setNewBotOn] = useState<string | null>(null)
   const openSettings = useSettings((s) => s.open)
   const builder = useIsBuilder()
-  const navigate = useNavigate()
   const pausedUntil = usePausedUntil()
 
   if (!user) return null
@@ -74,8 +72,7 @@ export function AccountMenu({
           submenu: PAUSE_CHOICES.map(({ label, value }) => ({ label, value })),
         },
     { separator: true },
-    ...(builder ? [] : [{ label: t('搭建自己的 Bot'), value: 'build' }]),
-    { label: t('绑定新机器'), value: 'bind' },
+    builder ? { label: t('绑定新机器'), value: 'bind' } : { label: t('接入我的电脑'), value: 'build' },
     { label: t('我的用量'), value: 'usage' },
     { label: t('新手指引'), value: 'guide' },
     ...(soleTeam ? [{ label: t('团队设置'), value: 'team' }] : []),
@@ -97,7 +94,7 @@ export function AccountMenu({
     else if (value === 'guide') useGuide.getState().show()
     else if (value === 'build') {
       becomeBuilder()
-      navigate('/machines')
+      setDialog('bind')
     } else setDialog(value as 'bind' | 'usage' | 'team' | 'invite')
   }
 
