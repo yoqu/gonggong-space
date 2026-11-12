@@ -1,0 +1,41 @@
+.ui-demo {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-menu);
+  background: var(--group-bg);
+  box-shadow: 0 0 0 0.5px var(--separator);
+}
+.ui-demo__media {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.ui-demo__toggle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.ui-demo__play {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+  background: var(--accent-fill);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-fill) 40%, transparent);
+  transition: transform var(--spring-interactive);
+}
+.ui-demo__toggle:hover .ui-demo__play {
+  transform: scale(1.06);
+}
+.ui-demo__toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}

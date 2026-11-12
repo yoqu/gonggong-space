@@ -16,6 +16,8 @@ export default {
   离开: 'Away',
   加载中: 'Loading',
   应用导航: 'App navigation',
+  '播放演示': 'Play demo',
+  '暂停演示': 'Pause demo',
   '{label}（{n} 条未读）': '{label} ({n} unread)',
   '{label}（有新内容）': '{label} (new activity)',
   有新内容: 'New activity',
