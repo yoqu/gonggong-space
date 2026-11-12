@@ -53,7 +53,7 @@ import { citeInChat } from './cite'
 import { useRunDeltas } from './deltas'
 import { startEditing, stopEditing, useEditing } from './editing'
 import { isRich, replyFiles } from './grouping'
-import { Markdown } from './Markdown'
+import { Markdown, MentionNames } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
 import { mentionInChat } from './mention'
@@ -417,13 +417,24 @@ function AlsoSent({ m }: { m: MessageDto }) {
   ) : null
 }
 
-function Text({ body, names, me }: { body: string; names: string[]; me?: string }) {
+export interface MentionTarget {
+  id: string
+  name: string
+}
+
+/**
+ * Only the targets the message @-ed by id are highlighted: a deleted one stays plain text instead of matching a
+ * name it starts with (`@共字君` → member 共字).
+ */
+function Text({ m, targets, meId }: { m: MessageDto; targets: MentionTarget[]; meId?: string }) {
+  const ids = new Set([...m.mentions, ...(m.userMentions ?? [])])
+  const byName = new Map(targets.filter((x) => ids.has(x.id)).map((x) => [x.name, x.id]))
   return (
     <p>
-      {splitMentions(body, names).map((s, i) =>
+      {splitMentions(m.body, [...byName.keys()]).map((s, i) =>
         s.mention ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
-          <Mention key={i} name={s.text.slice(1)} me={s.text.slice(1) === me} />
+          <Mention key={i} name={s.text.slice(1)} me={!!meId && byName.get(s.text.slice(1)) === meId} />
         ) : (
           // biome-ignore lint/suspicious/noArrayIndexKey: segments are positional and never reorder
           <Fragment key={i}>
@@ -465,17 +476,18 @@ function useUnnamedTargets(m: MessageDto) {
  */
 export const UserMessage = memo(function UserMessage({
   m,
-  names,
-  me,
+  targets,
+  meId,
   fanOut = [],
   mine = false,
   compact = false,
   startedRuns,
 }: {
   m: MessageDto
-  names: string[]
-  /** My name: an @ of me is highlighted. */
-  me?: string
+  /** Bots and members an @ may name, by id. */
+  targets: MentionTarget[]
+  /** An @ of me is highlighted. */
+  meId?: string
   fanOut?: string[]
   mine?: boolean
   compact?: boolean
@@ -551,7 +563,7 @@ export const UserMessage = memo(function UserMessage({
           {creation ? null : editing ? (
             <MessageEditor message={m} onDone={stopEditing} />
           ) : m.body ? (
-            <Text body={m.body} names={names} me={me} />
+            <Text m={m} targets={targets} meId={meId} />
           ) : null}
           <ReactionBar message={m} />
         </Message>
@@ -690,6 +702,7 @@ function ReplyBody({ m }: { m: MessageDto }) {
   const rest = useMemo(() => unplacedHtmlPages(m.body, m.htmlRenders ?? []), [m.body, m.htmlRenders])
   const split = useMemo(() => splitBasis(m.body), [m.body])
   const botId = m.authorId ?? undefined
+  const mentionNames = useReplyMentionNames(m)
   const body = (
     <RichMessage.Provider value={m}>
       {split ? (
@@ -708,8 +721,24 @@ function ReplyBody({ m }: { m: MessageDto }) {
       ))}
     </RichMessage.Provider>
   )
-  if (m.htmlRenders?.length) return <div className="rich-reply rich-reply--pages">{body}</div>
-  return rich ? <div className="rich-reply">{body}</div> : <Clamp>{body}</Clamp>
+  const scoped = <MentionNames.Provider value={mentionNames}>{body}</MentionNames.Provider>
+  if (m.htmlRenders?.length) return <div className="rich-reply rich-reply--pages">{scoped}</div>
+  return rich ? <div className="rich-reply">{scoped}</div> : <Clamp>{scoped}</Clamp>
+}
+
+/** The chat's @ names with members cut to those the reply @-ed by id, as in a member's message. */
+function useReplyMentionNames(m: MessageDto) {
+  const names = useContext(MentionNames)
+  // A string, so replacing the workspace with equal content re-parses no Markdown.
+  const members = useWorkspace((s) =>
+    JSON.stringify(
+      s.groups
+        .find((g) => g.id === m.groupId)
+        ?.members.filter((x) => m.userMentions?.includes(x.userId))
+        .map((x) => x.name) ?? [],
+    ),
+  )
+  return useMemo(() => names && { ...names, members: JSON.parse(members) as string[] }, [names, members])
 }
 
 /** A bot message outside a loaded run card (relay notes, or a reply whose run is not in the page). */

@@ -139,8 +139,11 @@ export function ThreadView({
         runsByTrigger.set(r.triggerMessageId, [...(runsByTrigger.get(r.triggerMessageId) ?? []), r])
     return { runsByTrigger, replyRuns }
   }, [tl.messages, tl.runs])
-  const names = useMemo(
-    () => [...bots.map((b) => b.name), ...group.members.map((m) => m.name)],
+  const targets = useMemo(
+    () => [
+      ...bots.map((b) => ({ id: b.id, name: b.name })),
+      ...group.members.map((m) => ({ id: m.userId, name: m.name })),
+    ],
     [bots, group.members],
   )
   const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
@@ -170,7 +173,7 @@ export function ThreadView({
     ) : m.kind === 'bot' ? (
       <BotReply m={m} />
     ) : (
-      <UserMessage m={m} names={names} me={me?.name} mine={m.authorId === me?.id} />
+      <UserMessage m={m} targets={targets} meId={me?.id} mine={m.authorId === me?.id} />
     )
     return (
       <div key={m.id} data-msg-id={m.id} className="tl-item" inert={readOnly}>

@@ -225,7 +225,7 @@ describe('canvas refs in the timeline (G11)', () => {
     } as MessageDto
     withRouter(
       <>
-        <UserMessage m={m} names={['设计助手']} />
+        <UserMessage m={m} targets={[{ id: 'b1', name: '设计助手' }]} />
         <FocusProbe />
       </>,
     )

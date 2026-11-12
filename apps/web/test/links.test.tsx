@@ -52,7 +52,7 @@ describe('member messages', () => {
       authorId: 'u2',
       authorName: '李建国',
       body: '@小王的 Claude 看下https://ex.com/pr/12这个 **PR**',
-      mentions: [],
+      mentions: ['b1'],
       runId: null,
       createdAt: '2026-09-24T08:00:00Z',
       attachments: [],
@@ -61,7 +61,7 @@ describe('member messages', () => {
     } as MessageDto
     render(
       <MemoryRouter>
-        <UserMessage m={m} names={['小王的 Claude']} />
+        <UserMessage m={m} targets={[{ id: 'b1', name: '小王的 Claude' }]} />
       </MemoryRouter>,
     )
     expect(screen.getByRole('link', { name: 'https://ex.com/pr/12' }).getAttribute('href')).toBe(

@@ -93,6 +93,7 @@ import {
   EventFold,
   EventRow,
   eventText,
+  type MentionTarget,
   RecallRow,
   RunCard,
   UserMessage,
@@ -553,8 +554,11 @@ export function ChatView({
 
   // Keyed by content: `group` is replaced after every /read and `bots` on every run start/end, and new names would
   // re-render every message and re-parse every Markdown reply.
-  const namesKey = JSON.stringify([...bots.map((b) => b.name), ...group.members.map((m) => m.name)])
-  const names = useMemo(() => JSON.parse(namesKey) as string[], [namesKey])
+  const targetsKey = JSON.stringify([
+    ...bots.map((b) => ({ id: b.id, name: b.name })),
+    ...group.members.map((m) => ({ id: m.userId, name: m.name })),
+  ])
+  const targets = useMemo(() => JSON.parse(targetsKey) as MentionTarget[], [targetsKey])
   const mentionNamesKey = JSON.stringify({
     members: group.members.map((m) => m.name),
     bots: bots.filter((b) => group.botIds.includes(b.id)).map((b) => b.name),
@@ -645,8 +649,8 @@ export function ChatView({
     return (
       <UserMessage
         m={m}
-        names={names}
-        me={me?.name}
+        targets={targets}
+        meId={meId}
         mine={m.authorId === meId}
         compact={compact}
         fanOut={fanOuts.get(m.id)}

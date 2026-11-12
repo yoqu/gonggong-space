@@ -149,7 +149,7 @@ describe('timeline wiring', () => {
   })
 
   it('makes other members’ name and avatar card triggers; a bot unknown here gets none', () => {
-    const { unmount } = render(<UserMessage m={m({})} names={[]} />)
+    const { unmount } = render(<UserMessage m={m({})} targets={[]} />)
     expect(screen.getByText('李建国').closest('[aria-haspopup="dialog"]')).not.toBeNull()
     expect(screen.getByRole('img', { name: '李建国' }).closest('[aria-haspopup="dialog"]')).not.toBeNull()
     unmount()
