@@ -452,11 +452,12 @@ pub struct Vars<'a> {
 impl Vars<'_> {
     pub fn fill(&self, s: &str) -> String {
         let path = |p: Option<&Path>| p.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
-        s.replace("{prompt}", self.prompt)
-            .replace("{state}", &path(self.state))
+        // `{prompt}` last: the bot's prompt may itself contain `{cli}` and the like.
+        s.replace("{state}", &path(self.state))
             .replace("{pkg}", &path(self.pkg))
             .replace("{node}", &path(self.node))
             .replace("{cli}", self.cli.unwrap_or_default())
+            .replace("{prompt}", self.prompt)
     }
 }
 
@@ -653,6 +654,9 @@ mod tests {
     fn fills_arguments_and_lists_plugin_dirs_one_per_argument() {
         let vars = Vars { prompt: "hi", state: Some(Path::new("/s")), cli: Some("/bin/x"), ..Default::default() };
         assert_eq!(vars.fill("{prompt} {state}/a {cli} {pkg}"), "hi /s/a /bin/x ");
+        // The bot's own words go in verbatim, braces and all.
+        let code = Vars { prompt: "run {cli} in {pkg}", cli: Some("/bin/x"), ..Default::default() };
+        assert_eq!(code.fill("--append-system-prompt={prompt}"), "--append-system-prompt=run {cli} in {pkg}");
         let args = vec!["--plugin-dir".to_string(), "{pluginDirs}".to_string()];
         assert!(with_dirs(&args, &[], &vars).is_empty());
         let dirs = [PathBuf::from("/a"), PathBuf::from("/b")];
