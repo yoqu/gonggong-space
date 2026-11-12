@@ -1,4 +1,5 @@
 export default {
+  一句话接入演示: 'One-message setup demo',
   '该机器 Claude 配置目录': 'Claude configuration directory on the machine',
   请填写配置目录: 'Enter a configuration directory',
   配置目录: 'Configuration directory',

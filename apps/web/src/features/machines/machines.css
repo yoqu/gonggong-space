@@ -947,3 +947,28 @@
   justify-content: flex-end;
   gap: var(--space-8);
 }
+
+/* The demo loop sits above the sentence; on phones the dialog has no room for it. */
+.bind__demo {
+  margin-bottom: var(--space-4);
+}
+@media (max-width: 767px) {
+  .bind__demo {
+    display: none;
+  }
+}
+.bind__success {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.bind__success-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.bind__success-title {
+  font-size: var(--text-title-3-size);
+  font-weight: 600;
+}

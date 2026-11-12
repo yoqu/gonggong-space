@@ -1,15 +1,21 @@
 import type { LinkRequestDto, MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import demoDark from '../../assets/demo/a1-dark.mp4'
+import demoDarkPoster from '../../assets/demo/a1-dark-poster.webp'
+import demoLight from '../../assets/demo/a1-light.mp4'
+import demoLightPoster from '../../assets/demo/a1-light-poster.webp'
 import { api } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
 import {
   Alert,
   Button,
+  DemoVideo,
   Dialog,
   Disclosure,
   Form,
   FormRow,
+  Mascot,
   Spinner,
   StepIndicator,
   type StepStatus,
@@ -126,6 +132,15 @@ export function BindMachineDialog({
           <>
             <section className="bind__section" aria-label={t('发给你的 Agent')}>
               <h3 className="bind__heading">{t('发给你的 Agent')}</h3>
+              <DemoVideo
+                className="bind__demo"
+                label={t('一句话接入演示')}
+                autoPlay
+                sources={{
+                  light: { src: demoLight, poster: demoLightPoster },
+                  dark: { src: demoDark, poster: demoDarkPoster },
+                }}
+              />
               <AgentPrompt bind={bind} />
               {request ? <LinkRequestCard key={request.id} request={request} /> : null}
               {onWindows() ? (
@@ -196,23 +211,25 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
   const restored = machine.boundAt !== machine.createdAt
   return (
     <>
-      <Alert
-        variant="success"
-        title={restored ? t('已恢复原有机器') : t('绑定成功')}
-        description={
-          restored
-            ? t('{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）', {
-                name: machine.name,
-                os: OS_LABEL[machine.os],
-                arch: machine.arch,
-              })
-            : t('该机器已归属你 · {name}（{os} · {arch}）', {
-                name: machine.name,
-                os: OS_LABEL[machine.os],
-                arch: machine.arch,
-              })
-        }
-      />
+      <div className="bind__success">
+        <Mascot action="done" size={72} label={t('共字君')} />
+        <span className="bind__success-text">
+          <strong className="bind__success-title">{restored ? t('已恢复原有机器') : t('绑定成功')}</strong>
+          <span className="bind__note">
+            {restored
+              ? t('{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）', {
+                  name: machine.name,
+                  os: OS_LABEL[machine.os],
+                  arch: machine.arch,
+                })
+              : t('该机器已归属你 · {name}（{os} · {arch}）', {
+                  name: machine.name,
+                  os: OS_LABEL[machine.os],
+                  arch: machine.arch,
+                })}
+          </span>
+        </span>
+      </div>
       <Form>
         <FormRow label={t('该机器的 agent')} align="top">
           {machine.agents.length ? (

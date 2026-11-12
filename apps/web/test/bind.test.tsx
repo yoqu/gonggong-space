@@ -115,6 +115,9 @@ describe('bind machine dialog', () => {
     show()
     const card = await screen.findByRole('region', { name: '发给你的 Agent' })
     expect(within(card).getByText(promptOf('K7QM-4X2P'))).toBeTruthy()
+    // A silent loop above the sentence shows what happens after pasting it.
+    const demo = within(card).getByLabelText('一句话接入演示') as HTMLVideoElement
+    expect(demo.loop).toBe(true)
     // No countdown: an expired code still binds, through a confirmation here.
     expect(within(card).getByText('接入码过期也能接入，届时在这里点一下允许')).toBeTruthy()
     expect(card.textContent).not.toMatch(/后失效/)
@@ -288,6 +291,11 @@ describe('bind machine dialog', () => {
     expect(screen.queryByText('绑定成功')).toBeNull()
     emit(fresh)
     expect(screen.getByText('绑定成功')).toBeTruthy()
+    // 共字君 celebrates instead of a plain notice.
+    const done = within(screen.getByRole('region', { name: '已接入的机器' })).getByRole('img', {
+      name: '共字君',
+    })
+    expect(done.getAttribute('data-action')).toBe('done')
     // One way forward: 新建 Bot leads, 稍后 steps back; 查看机器 and 完成 are gone.
     expect(screen.getByRole('button', { name: '新建 Bot' }).className).toContain('ui-btn--primary')
     expect(screen.getByRole('button', { name: '稍后' }).className).not.toContain('ui-btn--primary')
