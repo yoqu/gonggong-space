@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.18 — 2026-11-12
+
+- Bot 进会话默认使用托管工作区，第一条 @ 即可执行；Bot 栏可更换工作区 / Bots use a managed workspace by default so the first @ can run, with Change workspace in the Bot menu
+- 插件可带 MCP 服务、斜杠命令、画布指令与供应商预设；插件代码须开启系统开关并由机器主人逐版本授权，上传按路径白名单收紧 / Plugins can contribute MCP servers, slash commands, canvas commands and provider presets; plugin code needs the system switch and per-version machine-owner approval, with upload path allowlisting
+- 运行详情新增「上下文」页签：上下文窗口用量、提示词缓存命中与构成估算 / Run details add Context: window usage, prompt-cache hits and an estimated breakdown
+- 内置 MCP 新增市场工具 / The built-in MCP adds market tools
+- `thread_create` 支持私聊，不再仅限群聊 / `thread_create` now works in direct chats, not just groups
+- 输入框 Ctrl/Cmd/Alt+Enter 改为换行，群聊新增表情面板 / Ctrl/Cmd/Alt+Enter inserts a newline in composers, and group chats get an emoji picker
+- 修复多文件冲突解决后白屏与新用户上手断点 / Fix blank screens after resolving multi-file conflicts and new-user onboarding dead ends
+
 ## v0.4.17 — 2026-11-11
 
 - 新增 Agent：pi（共工扩展接入共工工具、MCP 与审批）、DeepSeek Harness（机器供应商支持 DeepSeek API Key） / New agents: pi (Gonggong's extension brings the Gonggong tools, MCP and approvals) and DeepSeek Harness (DeepSeek API keys as machine providers)
