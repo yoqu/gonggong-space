@@ -1,7 +1,11 @@
 import { m } from 'motion/react'
+import tourDark from '../assets/demo/a2-dark.mp4'
+import tourDarkPoster from '../assets/demo/a2-dark-poster.webp'
+import tourLight from '../assets/demo/a2-light.mp4'
+import tourLightPoster from '../assets/demo/a2-light-poster.webp'
 import { t } from '../i18n'
 import { SPRING } from '../lib/motion'
-import { Button, Icon, type IconName, Mascot } from '../ui'
+import { Button, DemoVideo, Icon, type IconName, Mascot } from '../ui'
 import { becomeBuilder, useIsBuilder } from './builder'
 
 /**
@@ -88,6 +92,14 @@ export function Welcome({
       <p className="welcome__lead">
         {t('三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。')}
       </p>
+      <DemoVideo
+        className="welcome__tour"
+        label={t('共工空间使用演示')}
+        sources={{
+          light: { src: tourLight, poster: tourLightPoster },
+          dark: { src: tourDark, poster: tourDarkPoster },
+        }}
+      />
       <ol className="welcome__steps">
         {steps.map((s, i) => (
           <m.li

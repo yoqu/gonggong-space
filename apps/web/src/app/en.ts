@@ -81,6 +81,7 @@ export default {
   '选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。':
     'Pick Claude Code, Codex or Gemini CLI on a machine and give it a memorable name.',
   '欢迎来到共工空间，{name}': 'Welcome to Gonggong Space, {name}',
+  共工空间使用演示: 'Gonggong Space demo',
   '三步让你的第一个 Bot 开工。也可以等同事把你拉进群，直接参与协作。':
     'Three steps to get your first Bot working. Or wait for a teammate to add you to a group and jump right in.',
   'Bot 在团队成员的电脑上干活，你在群里 @ 它下达任务。':

@@ -78,6 +78,7 @@ describe('使用者 / 搭建者', () => {
     // No look-alike buttons that do nothing: the only things to click are real actions.
     expect(within(welcome).queryByText('@Bot 帮我查一下上个月的销售额')).toBeNull()
     expect(within(welcome).queryByRole('button', { name: '开始绑定' })).toBeNull()
+    expect(within(welcome).queryByRole('button', { name: '播放演示' })).toBeNull()
     expect(within(rail()).queryByRole('button', { name: '市场' })).toBeNull()
     expect(within(rail()).queryByRole('button', { name: '机器与 Bot' })).toBeNull()
     expect(within(rail()).getByRole('button', { name: /^消息/ })).toBeTruthy()
@@ -87,6 +88,9 @@ describe('使用者 / 搭建者', () => {
     expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
     for (const b of ['开始绑定', '新建 Bot', '发起会话'])
       expect(await within(welcome).findByRole('button', { name: b })).toBeTruthy()
+    // The tour plays above the steps on a click, never on its own.
+    expect(within(welcome).getByLabelText('共工空间使用演示').tagName).toBe('VIDEO')
+    expect(within(welcome).getByRole('button', { name: '播放演示' })).toBeTruthy()
     expect(localStorage.getItem('gg.builder')).toBe('1')
     expect(within(rail()).getByRole('button', { name: '机器与 Bot' })).toBeTruthy()
   })

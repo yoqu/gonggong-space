@@ -822,6 +822,10 @@ a.sidebar__open {
   align-items: center;
   text-align: center;
 }
+.welcome__tour {
+  width: 100%;
+  margin-bottom: var(--space-32);
+}
 .welcome__title {
   margin: var(--space-20) 0 var(--space-8);
   font-family: var(--text-large-title-family);
