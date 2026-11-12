@@ -31,8 +31,17 @@ fn alive(pid: u32) -> bool {
         .success()
 }
 
+/// Below the ephemeral ranges (Linux 32768+, macOS 49152+): a port from `bind(0)` can be taken by another test's
+/// outgoing connection before the service listens on it.
 fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+    static NEXT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
+    loop {
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let port = 20000 + (std::process::id() as u16).wrapping_mul(7).wrapping_add(n) % 10000;
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return port;
+        }
+    }
 }
 
 #[tokio::test]
