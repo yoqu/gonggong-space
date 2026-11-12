@@ -20,6 +20,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router'
 import { InspectorPortal, useInspector } from '../../app/inspector'
 import { useSession } from '../../app/session'
+import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { loadPins, useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -75,6 +76,7 @@ import { lastEditable } from './editing'
 import { GitBar } from './GitBar'
 import { GroupThreads } from './GroupThreads'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
+import { useImmersive } from './immersive'
 import { MentionNames } from './Markdown'
 import { branchableRuns } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
@@ -197,6 +199,7 @@ export function ChatView({
   const editLast = useCallback(() => lastEditable(latestMessages.current, meId), [meId])
   const box = useRef<HTMLDivElement>(null)
   const banners = useRef<HTMLDivElement>(null)
+  const [immersive, leaveImmersive] = useImmersive(box, useIsMobile())
   // The day separator sticks just below however many prompts are pinned above the messages.
   useHeightVar(banners, box, '--banners-h')
   const stick = useRef(true)
@@ -688,7 +691,10 @@ export function ChatView({
   const topic = dm || !group.noticeHidden ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
   return (
     <MentionNames.Provider value={mentionNames}>
-      <div className="chat-view" {...(readOnly ? {} : drag.handlers)}>
+      <div
+        className={cx('chat-view', immersive && 'chat-view--immersive')}
+        {...(readOnly ? {} : drag.handlers)}
+      >
         <ChatHeader
           group
           avatar={<GroupAvatar group={group} size={32} />}
@@ -989,15 +995,23 @@ export function ChatView({
         </div>
         {readOnly || closed ? null : (
           <>
-            <div className="chat-view__pins">
-              <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
-              <PreviewTags groupId={group.id} />
+            {/* Reading mode: any tap or focus here brings everything back. */}
+            <div className="chat-view__foot" onClickCapture={leaveImmersive} onFocusCapture={leaveImmersive}>
+              <div className="chat-view__pins">
+                <ScheduleTag groupId={group.id} onManage={() => inspect('group-info', 'schedules')} />
+                <PreviewTags groupId={group.id} />
+              </div>
+              <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
+              <ProviderBanner group={group} />
+              <ComposerDock>
+                <MessageComposer
+                  group={group}
+                  dropFiles={dropFiles}
+                  onSent={onSent}
+                  lastEditable={editLast}
+                />
+              </ComposerDock>
             </div>
-            <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
-            <ProviderBanner group={group} />
-            <ComposerDock>
-              <MessageComposer group={group} dropFiles={dropFiles} onSent={onSent} lastEditable={editLast} />
-            </ComposerDock>
             <CreationHost group={group} onSent={onSent} />
           </>
         )}

@@ -539,3 +539,74 @@ button.chat-view__plugins:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Reading mode on phones (useImmersive): only the header, the messages and a one-line composer pill stay. */
+.chat-view__foot {
+  display: contents;
+}
+@media (max-width: 767px) {
+  .chat-view--immersive
+    :is(
+      .git-bar,
+      .sync-bar,
+      .chat-view__pins,
+      .provider-banners,
+      .task-dock__chips,
+      .task-dock__summary > .icon,
+      .composer__chips,
+      .pn-composer__reply,
+      .pn-composer__bar
+    ) {
+    display: none;
+  }
+  .chat-view--immersive .chat-view__foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-6) var(--space-12) max(var(--space-8), env(safe-area-inset-bottom));
+    --enter-y: 8px;
+    animation:
+      var(--fade-in) ui-fade-in,
+      var(--spring-smooth) ui-enter;
+  }
+  .chat-view--immersive .composer {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+  .chat-view--immersive .pn-composer {
+    padding: 7px var(--space-12);
+    border-radius: var(--radius-capsule);
+  }
+  /* A draft shows its first line. */
+  .chat-view--immersive .pn-composer textarea {
+    max-height: 19px;
+    overflow: hidden;
+  }
+  /* The task counts become badges at the pill's end. */
+  .chat-view--immersive .task-dock {
+    order: 1;
+    margin: 0;
+    animation: none;
+  }
+  .chat-view--immersive .task-dock__summary {
+    position: static;
+    width: auto;
+    height: auto;
+    gap: var(--space-4);
+  }
+  .chat-view--immersive .task-dock__count {
+    padding: 2px var(--space-8);
+    border-radius: var(--radius-capsule);
+    background: var(--group-bg);
+  }
+  .chat-view--immersive .task-dock__count--attention {
+    background: var(--tint-orange);
+  }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .chat-view--immersive .task-dock__count--attention {
+    animation: var(--spring-bouncy) ui-badge-pop;
+  }
+}
