@@ -271,6 +271,7 @@ export default {
   全部标为已读: 'Mark all as read',
   '回复…': 'Reply…',
   发送失败: 'Failed to send',
+  重发: 'Resend',
   标为已读: 'Mark as read',
   已发送: 'Sent',
   '所有群的消息都看完了，新消息会出现在这里。': "You're all caught up. New messages will show up here.",

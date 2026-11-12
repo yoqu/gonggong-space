@@ -818,7 +818,7 @@ describe('composer', () => {
     await waitFor(() => expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull())
   })
 
-  it('clears the draft of a send that completes after the composer is gone', async () => {
+  it('drops the draft once the message is queued, before the send completes', async () => {
     let reply: (m: MessageDto) => void = () => {}
     mockApi(
       { messages: [], runs: [] },
@@ -828,9 +828,9 @@ describe('composer', () => {
     await screen.findByText('还没有消息')
     fireEvent.change(box(), { target: { value: '草稿' } })
     fireEvent.click(sendButton())
-    await waitFor(() => expect(sendButton().dataset.state).toBe('busy'))
+    expect(await screen.findByTestId('pending-message')).toBeTruthy()
+    expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull()
     view.unmount()
-    expect(sessionStorage.getItem('gonggong:draft:g1')).toBe('草稿')
     await act(async () => reply(msg({ seq: 9, body: '草稿' })))
     expect(sessionStorage.getItem('gonggong:draft:g1')).toBeNull()
   })

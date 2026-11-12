@@ -12,9 +12,7 @@ import {
 import { useIsMobile } from '../../app/viewport'
 import { useWorkbench } from '../../app/workbench'
 import { useWorkspace } from '../../app/workspace'
-import { ApiError, api } from '../../lib/api'
 import { cx } from '../../lib/cx'
-import { toastError } from '../../lib/errors'
 import { Checkbox, Composer } from '../../ui'
 import { sendCommand } from '../artifacts/actions'
 import { ContextChips } from '../artifacts/ContextChips'
@@ -33,6 +31,7 @@ import { type Candidate, CandidatePopover, placeCommand, useCandidates } from '.
 import { useCite } from './cite'
 import { startEditing } from './editing'
 import { mentions, useMention } from './mention'
+import { type SendBody, sendPending } from './pending'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import { useRecalled } from './recalled'
 import './composer.css'
@@ -43,8 +42,6 @@ const MAX_INPUT_PX = 240
 
 /** Bare `@` / `/` only open the candidate list; they are not a message. */
 const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
-
-const RETRIES = 2
 
 /** The artifact the composer works on: the canvas selection's, else the group's active artifact tab's. */
 function useArtifactTarget(groupId: string, editing: CanvasContext | null) {
@@ -82,31 +79,6 @@ export function uuid() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
-interface SendBody {
-  body: string
-  clientId: string
-  attachmentIds: string[]
-  quote: { kind: 'message' | 'run'; id: string } | null
-  appendTo: string | null
-  runOptions?: Picks
-  artifactContext?: ReturnType<typeof artifactContextOf>
-  threadRootId?: string
-  alsoSent?: boolean
-}
-
-/** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
-export async function postMessage(groupId: string, req: SendBody): Promise<MessageDto> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await api.post<MessageDto>(`/groups/${groupId}/messages`, req)
-    } catch (e) {
-      const transient = !(e instanceof ApiError) || e.status >= 500
-      if (!transient || attempt >= RETRIES) throw e
-      await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
-    }
-  }
-}
-
 export const MessageComposer = memo(function MessageComposer({
   group,
   onSent,
@@ -137,7 +109,7 @@ export const MessageComposer = memo(function MessageComposer({
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(0)
-  /** A failed send shakes the box (the toast says why; the draft stays for another Enter). */
+  /** A failed artifact command shakes the box (the toast says why; the draft stays for another Enter). */
   const [shake, setShake] = useState(false)
   const [picks, setPicks] = useState<Picks>({})
   /** Variations ×n: the next message asks for n variations of the selected screens. */
@@ -393,50 +365,49 @@ export const MessageComposer = memo(function MessageComposer({
   }
 
   const send = async () => {
-    const req = artifactRequest()
-    if (req) return sendArtifactCommand(req)
+    const artifactReq = artifactRequest()
+    if (artifactReq) return sendArtifactCommand(artifactReq)
     if (variations) return
     const body = draft
     const attachmentIds = uploads.ids
     if (sending.current || uploads.uploading || (!body.trim() && !attachmentIds.length)) return
-    sending.current = true
-    setBusy(true)
-    try {
-      const q = quote && { kind: quote.kind, id: quote.id }
-      const target = useAppend.getState().target
-      const appendTo = !thread && target?.groupId === group.id ? target.runId : null
-      const runOptions: Picks = {}
-      for (const b of targets) {
-        const pick = picks[b.id]
-        if (pick) runOptions[b.id] = pick
-      }
-      const req: SendBody = {
-        body,
-        clientId: uuid(),
-        attachmentIds,
-        quote: q,
-        appendTo,
-        ...(thread && { threadRootId: thread, alsoSent }),
-      }
-      if (Object.keys(runOptions).length) req.runOptions = runOptions
-      if (canvas) req.artifactContext = artifactContextOf(canvas)
-      onSent(await postMessage(group.id, req))
-      setSent((n) => n + 1)
-      if (appendTo) useAppend.getState().clear()
-      dropDraft(key, body)
-      setDraft((d) => (d === body ? '' : d))
-      setPicks({})
-      setAlsoSent(false)
-      uploads.clear()
-      if (q) useQuote.getState().clear()
-      if (selection) clearContext()
-    } catch (e) {
-      toastError(e)
-      setShake(true)
-    } finally {
-      sending.current = false
-      setBusy(false)
+    const q = quote && { kind: quote.kind, id: quote.id }
+    const target = useAppend.getState().target
+    const appendTo = !thread && target?.groupId === group.id ? target.runId : null
+    const runOptions: Picks = {}
+    for (const b of targets) {
+      const pick = picks[b.id]
+      if (pick) runOptions[b.id] = pick
     }
+    const req: SendBody = {
+      body,
+      clientId: uuid(),
+      attachmentIds,
+      quote: q,
+      appendTo,
+      ...(thread && { threadRootId: thread, alsoSent }),
+    }
+    if (Object.keys(runOptions).length) req.runOptions = runOptions
+    if (canvas) req.artifactContext = artifactContextOf(canvas)
+    // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one.
+    void sendPending(
+      {
+        groupId: group.id,
+        req,
+        quote: quote && { who: quote.who, text: quote.text },
+        files: uploads.items.map((i) => i.name),
+      },
+      onSent,
+    )
+    setSent((n) => n + 1)
+    if (appendTo) useAppend.getState().clear()
+    dropDraft(key, body)
+    setDraft((d) => (d === body ? '' : d))
+    setPicks({})
+    setAlsoSent(false)
+    uploads.clear()
+    if (q) useQuote.getState().clear()
+    if (selection) clearContext()
   }
 
   const chips = appending || quote || canvas || uploads.items.length > 0

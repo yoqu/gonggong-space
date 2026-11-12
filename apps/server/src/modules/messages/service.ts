@@ -105,6 +105,7 @@ export const messageDto = (m: MessageRow, authorName: string, reactions: Reactio
     reactions: recalled ? [] : reactions,
     recalled,
     editedAt: m.editedAt?.toISOString() ?? null,
+    ...((m.meta as MessageMeta).clientId && { clientId: (m.meta as MessageMeta).clientId }),
     ...((m.meta as MessageMeta).feishu && { fromFeishu: true }),
     ...((m.meta as MessageMeta).preview && { previewId: (m.meta as MessageMeta).preview }),
     ...((m.meta as MessageMeta).schedule && { scheduleId: (m.meta as MessageMeta).schedule }),

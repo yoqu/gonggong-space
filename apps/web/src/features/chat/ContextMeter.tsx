@@ -4,7 +4,8 @@ import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
 import { Button, Popover, TextField } from '../../ui'
 import { ContextRing, ContextSummary, contextGauge, contextTitle } from './ContextRing'
-import { postMessage, uuid } from './MessageComposer'
+import { uuid } from './MessageComposer'
+import { postMessage } from './pending'
 
 /** A bot's context window occupancy in this group, with /compact and /new at hand (both sent as group messages). */
 export function ContextMeter({

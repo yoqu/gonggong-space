@@ -610,3 +610,16 @@ button.chat-view__plugins:hover {
     animation: var(--spring-bouncy) ui-badge-pop;
   }
 }
+
+/* My message before the server has it: attachments by name, 发送失败 with 重发 / 删除 */
+.tl-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  font-size: var(--text-footnote-size);
+}
+.tl-pending__failed {
+  color: var(--system-red);
+}

@@ -1,5 +1,5 @@
 import type { BotDto, CreationDraftCard, GroupDto, MessageDto, UserDto, WebEvent } from '@gonggong/protocol'
-import { act, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
@@ -295,18 +295,15 @@ describe('composer keys and feedback', () => {
     expect(screen.queryByRole('textbox', { name: '编辑消息' })).toBeNull()
   })
 
-  it('shakes the composer when a send fails and keeps the draft', async () => {
+  it('keeps a failed send in the timeline as 发送失败 instead of shaking the composer', async () => {
     renderChat([], { 'POST /groups/g1/messages': apiError(400, 'invalid', '消息太长') })
     await waitFor(() => expect(input()).toBeTruthy())
     fireEvent.change(input(), { target: { value: '发不出去' } })
     fireEvent.keyDown(input(), { key: 'Enter' })
     expect(await screen.findByText('消息太长')).toBeTruthy()
-    const root = document.querySelector('.composer') as HTMLElement
-    expect(root.classList.contains('composer--shake')).toBe(true)
-    expect(input().value).toBe('发不出去')
-    const end = createEvent.animationEnd(root)
-    Object.defineProperty(end, 'animationName', { value: 'composer-shake' })
-    fireEvent(root, end)
-    expect(root.classList.contains('composer--shake')).toBe(false)
+    const pending = await screen.findByTestId('pending-message')
+    expect(within(pending).getByText('发送失败')).toBeTruthy()
+    expect(within(pending).getByText('发不出去')).toBeTruthy()
+    expect(document.querySelector('.composer--shake')).toBeNull()
   })
 })

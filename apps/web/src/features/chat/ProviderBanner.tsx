@@ -6,7 +6,8 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { Button, PinnedBanner } from '../../ui'
-import { postMessage, uuid } from './MessageComposer'
+import { uuid } from './MessageComposer'
+import { postMessage } from './pending'
 
 type Item = GroupProviderStateDto['items'][number]
 

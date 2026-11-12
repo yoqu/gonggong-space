@@ -81,9 +81,11 @@ import { useImmersive } from './immersive'
 import { MentionNames } from './Markdown'
 import { branchableRuns } from './MessageActions'
 import { MessageComposer } from './MessageComposer'
+import { PendingMessages } from './PendingMessages'
 import { PinnedMessages } from './PinnedMessages'
 import { ProgressCard } from './ProgressCard'
 import { ProviderBanner } from './ProviderBanner'
+import { useOnQueued } from './pending'
 import { repoName } from './repo'
 import { TaskDock } from './TaskDock'
 import { type ThreadFocus, ThreadView } from './ThreadView'
@@ -344,6 +346,14 @@ export function ChatView({
     seen.current = { first, seq: lastSeq, runs: runCount }
     measure()
   }, [tl.messages, tl.runs, unreadAt])
+
+  useOnQueued(() => {
+    stick.current = true
+    requestAnimationFrame(() => {
+      const el = box.current
+      if (el) el.scrollTop = el.scrollHeight
+    })
+  })
 
   // Streamed text grows run cards without re-rendering this view: re-pin once the cards have committed.
   useEffect(
@@ -985,6 +995,9 @@ export function ChatView({
                   description={t('@ 一个 Bot 让它开始工作，不 @ 的消息会作为上下文补送。')}
                 />
               )}
+              {tl.loaded && !readOnly ? (
+                <PendingMessages groupId={group.id} messages={tl.messages} onSent={onSent} />
+              ) : null}
               {readOnly && working.length ? (
                 <TypingIndicator
                   name={working}

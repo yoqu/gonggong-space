@@ -1418,6 +1418,8 @@ export const MessageDto = z.object({
   authorId: z.string().nullable(),
   authorName: z.string(),
   body: z.string(),
+  /** The sender's idempotency key (SendMessageReq.clientId): its composer swaps its 发送中 row for this message. */
+  clientId: z.string().optional(),
   /** Bot ids this message triggers (explicit @; a quote only adds context). */
   mentions: z.array(z.string()),
   /** Member ids it @s (被 @ notifications); always sent by the server. */

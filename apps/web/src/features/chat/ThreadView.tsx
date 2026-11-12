@@ -9,6 +9,7 @@ import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast } fr
 import { AGENT_LABEL } from '../bots/model'
 import { lastEditable } from './editing'
 import { MessageComposer } from './MessageComposer'
+import { PendingMessages } from './PendingMessages'
 import { BotReply, EventRow, RecallRow, RunCard, UserMessage } from './TimelineItems'
 import { InThread, ThreadScope } from './threadSummary'
 import { useTimeline } from './useTimeline'
@@ -241,6 +242,9 @@ export function ThreadView({
       >
         {tl.older === 'loading' ? <Spinner /> : null}
         {replies.map(item)}
+        {tl.loaded && !readOnly ? (
+          <PendingMessages groupId={group.id} thread={rootId} messages={tl.messages} onSent={tl.addMessage} />
+        ) : null}
       </ThreadPanel>
     </ThreadScope.Provider>
   )
