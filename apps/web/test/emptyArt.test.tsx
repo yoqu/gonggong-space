@@ -14,10 +14,16 @@ import {
   NoChangesArt,
   NoDataArt,
   NoGroupsArt,
+  NoKnowledgeArt,
   NoMachinesArt,
   NoMembersArt,
   NoNotificationsArt,
+  NoPluginsArt,
   NoResultsArt,
+  NoSchedulesArt,
+  NoSecretsArt,
+  NoTabsArt,
+  NoWorksArt,
   UnsupportedArt,
 } from '../src/ui'
 import { mockApi } from './mockApi'
@@ -69,6 +75,12 @@ describe('empty state illustrations', () => {
       NoChangesArt,
       ComingSoonArt,
       UnsupportedArt,
+      NoWorksArt,
+      NoPluginsArt,
+      NoSchedulesArt,
+      NoKnowledgeArt,
+      NoSecretsArt,
+      NoTabsArt,
     ]) {
       const { container, unmount } = render(<Art />)
       const svg = container.querySelector('svg.ui-art')

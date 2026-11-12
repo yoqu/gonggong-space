@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, EmptyState, GroupBox, Switch, Tag } from '../../ui'
+import { Button, EmptyState, GroupBox, NoSchedulesArt, Switch, Tag } from '../../ui'
 import { botsText, lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
 import { schedulesApi, timingText, useBotNames, useSchedules } from './store'
@@ -74,31 +74,39 @@ export function SchedulesView({ groupId }: { groupId: string }) {
   if (!list) return null
   return (
     <>
-      <div className="gs-toolbar">
-        <span className="gs-toolbar__text">
-          {t('{n} / {max} 个', { n: list.length, max: SCHEDULE_MAX_PER_GROUP })}
-        </span>
-        <Button
-          size="small"
-          disabled={list.length >= SCHEDULE_MAX_PER_GROUP}
-          onClick={() => setEditing('new')}
-        >
-          {t('新建定时任务')}
-        </Button>
-      </div>
       {list.length ? (
-        <GroupBox>
-          {list.map((s) => (
-            <Row key={s.id} s={s} onEdit={() => setEditing(s)} />
-          ))}
-        </GroupBox>
+        <>
+          <div className="gs-toolbar">
+            <span className="gs-toolbar__text">
+              {t('{n} / {max} 个', { n: list.length, max: SCHEDULE_MAX_PER_GROUP })}
+            </span>
+            <Button
+              size="small"
+              disabled={list.length >= SCHEDULE_MAX_PER_GROUP}
+              onClick={() => setEditing('new')}
+            >
+              {t('新建定时任务')}
+            </Button>
+          </div>
+          <GroupBox>
+            {list.map((s) => (
+              <Row key={s.id} s={s} onEdit={() => setEditing(s)} />
+            ))}
+          </GroupBox>
+        </>
       ) : (
         <EmptyState
           compact
+          illustration={<NoSchedulesArt />}
           title={t('还没有定时任务')}
           description={t(
             '到点由 Bot 自动执行一段指令；也可以直接让 Bot 帮你建，例如「每个工作日 9 点汇总昨天的 PR」。',
           )}
+          action={
+            <Button size="small" onClick={() => setEditing('new')}>
+              {t('新建定时任务')}
+            </Button>
+          }
         />
       )}
       {editing ? (

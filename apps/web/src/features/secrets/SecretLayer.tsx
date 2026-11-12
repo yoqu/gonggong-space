@@ -24,6 +24,7 @@ import {
   FormRow,
   GroupBox,
   GroupRow,
+  NoSecretsArt,
   Presence,
   PullDownButton,
   RadioGroup,
@@ -69,6 +70,7 @@ export function SecretLayerList({
   const own = data?.filter((s) => s.scope === scope) ?? []
   const inherited = data?.filter((s) => s.scope !== scope) ?? []
   const close = () => setAction(null)
+  const create = () => setAction({ kind: 'create' })
   const done = () => {
     close()
     reload()
@@ -135,8 +137,10 @@ export function SecretLayerList({
       {data && !own.length ? (
         <EmptyState
           compact
+          illustration={<NoSecretsArt />}
           title={t('暂无密钥')}
           description={editable ? t('新建后 Bot 运行时以同名环境变量读取。') : undefined}
+          action={editable ? <Button onClick={create}>{t('新建密钥…')}</Button> : undefined}
         />
       ) : null}
       {own.length ? <GroupBox>{own.map((s) => row(s, true))}</GroupBox> : null}
@@ -144,9 +148,7 @@ export function SecretLayerList({
         <div className="cfg__foot">
           <span className="gs-desc">{t('值加密保存，存入后任何人都看不到明文，只能覆盖或清除。')}</span>
           <span className="spacer" />
-          <Button disabled={!data} onClick={() => setAction({ kind: 'create' })}>
-            {t('新建密钥…')}
-          </Button>
+          {own.length ? <Button onClick={create}>{t('新建密钥…')}</Button> : null}
         </div>
       ) : null}
       {inherited.length ? (

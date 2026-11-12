@@ -199,3 +199,95 @@ export function UnsupportedArt() {
     </Scene>
   )
 }
+
+export function NoWorksArt() {
+  return (
+    <Scene action="wave">
+      <rect className="art-frame" x="96" y="44" width="52" height="44" rx="8" />
+      <path className="art-muted" d="M102 82l12-15 9 9 6-6 13 12Z" />
+      <circle className="art-accent" cx="134" cy="56" r="5" />
+      <Sparkle x={150} y={38} s={0.7} />
+    </Scene>
+  )
+}
+
+export function NoPluginsArt() {
+  return (
+    <Scene action="carry">
+      <path
+        className="art-frame"
+        d="M100 58h12a6 6 0 1 1 12 0h12v12a6 6 0 1 1 0 12v12h-36V82a6 6 0 1 0 0-12Z"
+      />
+      <circle className="art-accent" cx="142" cy="50" r="10" />
+      <path className="art-stroke-ink art-thin" d="M142 45v10m-5-5h10" />
+    </Scene>
+  )
+}
+
+export function NoSchedulesArt() {
+  return (
+    <Scene action="wait">
+      <circle className="art-frame" cx="122" cy="70" r="24" />
+      <path className="art-stroke-accent" d="M122 58v12l8 6" />
+      {[0, 90, 180, 270].map((deg) => (
+        <rect
+          key={deg}
+          className="art-muted"
+          x="120.5"
+          y="49"
+          width="3"
+          height="5"
+          rx="1.5"
+          transform={`rotate(${deg} 122 70)`}
+        />
+      ))}
+    </Scene>
+  )
+}
+
+export function NoKnowledgeArt() {
+  return (
+    <Scene action="think">
+      <path className="art-frame" d="M96 50q13-6 26 2v42q-13-8-26-2Z" />
+      <path className="art-frame" d="M148 50q-13-6-26 2v42q13-8 26-2Z" />
+      {[62, 71, 80].map((y) => (
+        <g key={y}>
+          <rect className="art-muted" x="102" y={y} width="14" height="4" rx="2" />
+          <rect
+            className={y === 62 ? 'art-accent-soft' : 'art-muted'}
+            x="128"
+            y={y}
+            width="14"
+            height="4"
+            rx="2"
+          />
+        </g>
+      ))}
+    </Scene>
+  )
+}
+
+export function NoSecretsArt() {
+  return (
+    <Scene action="idle">
+      <circle className="art-lens" cx="110" cy="70" r="12" />
+      <path className="art-stroke-accent" d="M122 70h24m-8 0v8m-8-8v6" />
+      <circle className="art-accent" cx="110" cy="70" r="4" />
+      <Sparkle x={146} y={50} s={0.7} />
+    </Scene>
+  )
+}
+
+export function NoTabsArt() {
+  return (
+    <Scene action="idle">
+      <rect className="art-frame" x="94" y="44" width="56" height="48" rx="8" />
+      <path className="art-stroke-muted art-thin" d="M94 58h56" />
+      {[101, 108, 115].map((x) => (
+        <circle key={x} className="art-muted" cx={x} cy="51" r="2.4" />
+      ))}
+      <circle className="art-accent" cx="122" cy="75" r="10" />
+      <path className="art-stroke-ink art-thin" d="M122 70v10m-5-5h10" />
+    </Scene>
+  )
+}

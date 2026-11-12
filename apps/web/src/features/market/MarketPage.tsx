@@ -6,9 +6,11 @@ import { t } from '../../i18n'
 import { useGet } from '../../lib/useGet'
 import {
   Button,
+  ComingSoonArt,
   Drawer,
   EmptyState,
   Icon,
+  NoResultsArt,
   PopUpButton,
   Presence,
   SearchField,
@@ -280,7 +282,7 @@ export function MarketPage() {
           ) : (
             <div className="works__center">
               <EmptyState
-                icon="tag"
+                illustration={filtered ? <NoResultsArt /> : <ComingSoonArt />}
                 title={filtered ? t('没有符合条件的条目') : t('市场里还没有条目')}
                 description={
                   filtered ? undefined : t('在「我的发布」里发布 Skill 或插件，审核通过后会出现在这里')

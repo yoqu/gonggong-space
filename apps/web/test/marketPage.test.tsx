@@ -1085,8 +1085,17 @@ describe('M4 引入申请 tab', () => {
   it('opens 我的发布 from ?tab=mine', async () => {
     const calls = mockApi({ 'GET /market/mine': [] })
     renderPage('/market?tab=mine')
-    expect(await screen.findByText('还没有发布过 Skill 或插件')).toBeTruthy()
+    const empty = (await screen.findByText('还没有发布过 Skill 或插件')).closest('.ui-empty') as HTMLElement
+    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
     expect(calls.some((c) => c.path === '/market')).toBe(false)
+  })
+
+  it('draws 共字君 on an empty shelf, with a way to publish', async () => {
+    mockApi({ 'GET /market': [], 'GET /market/mine': [] })
+    renderPage()
+    const empty = (await screen.findByText('市场里还没有条目')).closest('.ui-empty') as HTMLElement
+    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
+    expect(within(empty).getByRole('button', { name: '去发布' })).toBeTruthy()
   })
 })
 

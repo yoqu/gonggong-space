@@ -12,6 +12,8 @@ import {
   EmptyState,
   Icon,
   MenuButton,
+  NoResultsArt,
+  NoWorksArt,
   PopUpButton,
   Presence,
   SearchField,
@@ -277,7 +279,7 @@ export function WorksPage() {
       ) : (
         <div className="works__center">
           <EmptyState
-            icon="grid"
+            illustration={list.length ? <NoResultsArt /> : <NoWorksArt />}
             title={list.length ? t('没有符合条件的作品') : t('还没有作品')}
             description={list.length ? undefined : t('在群聊里发起创作，产出的原型和幻灯片会汇总到这里')}
             action={

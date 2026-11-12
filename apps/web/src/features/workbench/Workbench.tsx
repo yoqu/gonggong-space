@@ -10,7 +10,7 @@ import {
   type WorkbenchMode,
 } from '../../app/workbench'
 import { t } from '../../i18n'
-import { EmptyState, Icon, Popover, Tooltip } from '../../ui'
+import { EmptyState, Icon, NoTabsArt, Popover, Tooltip } from '../../ui'
 import { GitDialogHost } from '../git/dialogs/GitDialogHost'
 import { NewTabMenu } from './NewTabMenu'
 import { TabBar } from './TabBar'
@@ -63,7 +63,7 @@ function Empty() {
   return (
     <EmptyState
       compact
-      icon="dashboard"
+      illustration={<NoTabsArt />}
       title={t('还没有打开的标签页')}
       description={t('打开网页，或查看 Bot 的文件与 Git')}
       action={

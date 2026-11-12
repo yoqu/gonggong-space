@@ -23,6 +23,7 @@ import {
   EmptyState,
   GroupBox,
   GroupRow,
+  NoPluginsArt,
   Presence,
   RadioGroup,
   SegmentedControl,
@@ -222,7 +223,7 @@ export function MyListings({ onOpen }: { onOpen?: (l: MyListingDto) => void }) {
         )
       ) : (
         <EmptyState
-          icon="upload"
+          illustration={<NoPluginsArt />}
           title={t('还没有发布过 Skill 或插件')}
           description={t('支持文件夹、ZIP、粘贴 SKILL.md 或 GitHub 链接；同团队同名即发布新版本。')}
           action={

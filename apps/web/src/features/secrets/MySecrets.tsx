@@ -13,6 +13,7 @@ import {
   EmptyState,
   GroupBox,
   GroupRow,
+  NoSecretsArt,
   Presence,
   SecureField,
   Spinner,
@@ -36,6 +37,7 @@ export function MySecrets() {
     return (
       <EmptyState
         compact
+        illustration={<NoSecretsArt />}
         title={t('没有需要你填写的密钥')}
         description={t('团队或群里有「每人自填」「统一值可个人覆盖」的密钥时会列在这里。')}
       />

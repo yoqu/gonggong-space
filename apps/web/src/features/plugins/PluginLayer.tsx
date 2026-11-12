@@ -14,6 +14,7 @@ import {
   GroupBox,
   GroupRow,
   IconButton,
+  NoPluginsArt,
   Presence,
   Switch,
   Tag,
@@ -183,7 +184,12 @@ export function PluginLayerList({ base }: { base: string }) {
     <>
       {error ? <Alert variant="error" title={t('配置加载失败')} description={error} /> : null}
       {data?.length === 0 ? (
-        <EmptyState icon="apps" title={t('还没有插件')} description={UPLOAD_HINT} />
+        <EmptyState
+          illustration={<NoPluginsArt />}
+          title={t('还没有插件')}
+          description={UPLOAD_HINT}
+          action={<PluginUpload base={base} onDone={reload} />}
+        />
       ) : (
         <GroupBox>
           {data?.map((p) => (
@@ -198,11 +204,13 @@ export function PluginLayerList({ base }: { base: string }) {
           ))}
         </GroupBox>
       )}
-      <div className="cfg__foot">
-        {data?.length ? <span className="cfg__hint">{UPLOAD_HINT}</span> : null}
-        <span className="spacer" />
-        <PluginUpload base={base} onDone={reload} />
-      </div>
+      {data?.length ? (
+        <div className="cfg__foot">
+          <span className="cfg__hint">{UPLOAD_HINT}</span>
+          <span className="spacer" />
+          <PluginUpload base={base} onDone={reload} />
+        </div>
+      ) : null}
     </>
   )
 }

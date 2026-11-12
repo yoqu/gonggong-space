@@ -201,7 +201,8 @@ describe('作品 page', () => {
   it('starts a new creation in a group I pick: creation stays in the chat', async () => {
     mockApi({ 'GET /works/groups': GROUPS, 'GET /works': [] })
     renderAt('/works')
-    await screen.findByText('还没有作品')
+    const empty = (await screen.findByText('还没有作品')).closest('.ui-empty') as HTMLElement
+    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '新建' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: '设计群' }))
     await waitFor(() => expect(where()).toContain('/g/g3'))

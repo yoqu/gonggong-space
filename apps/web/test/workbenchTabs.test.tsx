@@ -137,7 +137,8 @@ describe('tab bar', () => {
   it('shows an empty workbench with ＋ when opened without tabs', () => {
     seed([])
     render(<Workbench />)
-    expect(screen.getByText('还没有打开的标签页')).toBeTruthy()
+    const empty = screen.getByText('还没有打开的标签页').closest('.ui-empty') as HTMLElement
+    expect(empty.querySelector('.ui-empty__art .ui-mascot')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: '新建标签页' })).toHaveLength(2)
   })
 

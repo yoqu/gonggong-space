@@ -11,6 +11,8 @@ import {
   Icon,
   MenuButton,
   type MenuItem,
+  NoKnowledgeArt,
+  NoResultsArt,
   Presence,
   SearchField,
   Tag,
@@ -93,14 +95,19 @@ export function KnowledgeView({ groupId }: { groupId: string }) {
   const [open, setOpen] = useState<Open | null>(null)
   const close = () => setOpen(null)
   const full = !q && (data?.entries.length ?? 0) >= KNOWLEDGE_MAX_ENTRIES
+  // Until there is an entry, 新建条目 lives in the empty state.
+  const none = !q && !data?.entries.length
+  const create = () => setOpen({ kind: 'edit', entry: null })
 
   return (
     <>
       <div className="gs-toolbar">
         <SearchField className="gs-search" placeholder={t('搜索知识库')} value={text} onChange={setText} />
-        <Button size="small" disabled={!data || full} onClick={() => setOpen({ kind: 'edit', entry: null })}>
-          {t('新建条目')}
-        </Button>
+        {none ? null : (
+          <Button size="small" disabled={!data || full} onClick={create}>
+            {t('新建条目')}
+          </Button>
+        )}
       </div>
       {error ? (
         <span className="gs-error">
@@ -117,12 +124,18 @@ export function KnowledgeView({ groupId }: { groupId: string }) {
           ))}
         </GroupBox>
       ) : data && q ? (
-        <EmptyState compact title={t('没有匹配的条目')} />
+        <EmptyState compact illustration={<NoResultsArt />} title={t('没有匹配的条目')} />
       ) : data ? (
         <EmptyState
           compact
+          illustration={<NoKnowledgeArt />}
           title={t('还没有知识')}
           description={t('把群里需要所有 Bot 记住的事实、约定写在这里，Bot 每次运行都能读到，也会自己补充。')}
+          action={
+            <Button size="small" onClick={create}>
+              {t('新建条目')}
+            </Button>
+          }
         />
       ) : null}
       <div className="gs-foot">

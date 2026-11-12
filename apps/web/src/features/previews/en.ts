@@ -113,6 +113,7 @@ export default {
   ' · 端口 {port}': ' · port {port}',
   停止: 'Stop',
   暂无托管服务: 'No hosted services',
+  暂无预览和托管服务: 'No previews or hosted services',
   'Bot 用 service_start 启动的服务由它所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。':
     'Services a Bot starts with service_start are hosted by its machine and keep running after the round ends; previews close automatically after 24 hours without visits. When a service stops, its preview card stays; the Bot can restart the service, or click Start on the card to bring it back.',
   '{name} 请求控制': '{name} requests control',
