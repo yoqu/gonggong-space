@@ -959,14 +959,26 @@ describe('selection as chat context', () => {
       }) as MessageDto
     const { unmount } = render(
       <MemoryRouter>
-        <UserMessage m={m('标题再大点', ['b1'])} targets={[{ id: 'b1', name: '设计助手' }, { id: 'b2', name: '前端' }]} />
+        <UserMessage
+          m={m('标题再大点', ['b1'])}
+          targets={[
+            { id: 'b1', name: '设计助手' },
+            { id: 'b2', name: '前端' },
+          ]}
+        />
       </MemoryRouter>,
     )
     expect(screen.getByText('发给 @设计助手')).toBeTruthy()
     unmount()
     const again = render(
       <MemoryRouter>
-        <UserMessage m={m('@设计助手 标题再大点', ['b1'])} targets={[{ id: 'b1', name: '设计助手' }, { id: 'b2', name: '前端' }]} />
+        <UserMessage
+          m={m('@设计助手 标题再大点', ['b1'])}
+          targets={[
+            { id: 'b1', name: '设计助手' },
+            { id: 'b2', name: '前端' },
+          ]}
+        />
       </MemoryRouter>,
     )
     expect(screen.queryByText('发给 @设计助手')).toBeNull()

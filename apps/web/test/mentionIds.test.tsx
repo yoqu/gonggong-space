@@ -79,7 +79,13 @@ describe('bot reply mentions by target id', () => {
       <MemoryRouter>
         <MentionNames.Provider value={{ members: ['共字', '张三'], bots: [], me: '张三' }}>
           <BotReply
-            m={m({ kind: 'bot', authorId: 'b1', authorName: '小王的 Claude', body: '@共字君 @张三 好了', userMentions: ['u3'] })}
+            m={m({
+              kind: 'bot',
+              authorId: 'b1',
+              authorName: '小王的 Claude',
+              body: '@共字君 @张三 好了',
+              userMentions: ['u3'],
+            })}
           />
         </MentionNames.Provider>
       </MemoryRouter>,

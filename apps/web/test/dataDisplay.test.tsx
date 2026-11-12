@@ -14,8 +14,8 @@ import {
   PathControl,
   Skeleton,
   Table,
-  type TableColumn,
   TableCardsOnNarrow,
+  type TableColumn,
 } from '../src/ui'
 
 interface File {
