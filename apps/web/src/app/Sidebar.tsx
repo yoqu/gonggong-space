@@ -20,7 +20,7 @@ import {
   useState,
 } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router'
-import { type PersonaRole, roleCostume } from '../features/bots/avatars'
+import { botCostume } from '../features/bots/avatars'
 import { draftKey } from '../features/chat/MessageComposer'
 import { useThreadUnread, useThreadUnreadSync } from '../features/chat/threadUnread'
 import { UnreadsRow } from '../features/chat/UnreadsRow'
@@ -154,10 +154,7 @@ function useActivity(g: GroupDto) {
   const a = activityOf(g.liveRuns)
   if (!a) return { activity: undefined, alert: undefined }
   const bot = (id: string) => bots.find((b) => b.id === id)
-  const costume = (id: string) => {
-    const role = bot(id)?.avatar
-    return role && role !== 'role-gong' ? roleCostume(role as PersonaRole) : undefined
-  }
+  const costume = (id: string) => botCostume(bot(id))
   const activity: ConversationActivity = {
     tone: a.tone,
     label: a.label,

@@ -108,6 +108,7 @@ export type MachineBot = Pick<
   | 'aiReview'
   | 'alwaysAllow'
   | 'avatar'
+  | 'followAgent'
 > & {
   /** Null from servers before teams (plan D20). */
   teamId: string | null

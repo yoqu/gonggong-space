@@ -1,5 +1,5 @@
 import { approvalText } from '@web/features/bots/ApprovalFields'
-import { avatarSrc } from '@web/features/bots/avatars'
+import { avatarSrc, faceOf } from '@web/features/bots/avatars'
 import {
   Avatar,
   Button,
@@ -86,7 +86,7 @@ export function BotsPage({ go }: PageProps) {
                   name={b.name}
                   shape="square"
                   size={28}
-                  src={avatarSrc(b.avatar, b.presence === 'running')}
+                  src={avatarSrc(faceOf(b), b.presence === 'running')}
                 />
                 <div className="dk-row__main">
                   <span className="dk-row__title">

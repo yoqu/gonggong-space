@@ -123,6 +123,7 @@ beforeEach(() => {
         ownerName: '王磊',
         tier: 'workspace',
         avatar: 'role-gong',
+        followAgent: false,
         avatarUrl: null,
       } as unknown as BotDto,
     ],

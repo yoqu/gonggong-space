@@ -203,7 +203,7 @@ export const bots = pgTable('bots', {
     .notNull()
     .references(() => users.id),
   agentKind: text('agent_kind').notNull(),
-  /** The role key (BOT_AVATARS). */
+  /** The role key (BOT_ROLES). */
   avatar: text('avatar'),
   /** `avatars/<uuid>` under the data dir, shown instead of the role; picking a role clears it. */
   avatarImage: text('avatar_image'),

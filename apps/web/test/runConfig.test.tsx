@@ -73,6 +73,7 @@ const bot: BotDto = {
   ownerName: '王磊',
   agentKind: 'claude',
   avatar: 'role-no',
+  followAgent: false,
   avatarUrl: null,
   machineId: 'm1',
   machineName: 'mbp',

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { loadWorkspace, useWorkspace } from '../src/app/workspace'
+import { avatarSrc } from '../src/features/bots/avatars'
 import { botStateText } from '../src/features/bots/model'
 import { mockCrop, uploadAvatar } from './crop'
 import { group } from './gitFixtures'
@@ -70,6 +71,7 @@ const bot = (o: Partial<BotDto>): BotDto => ({
   ownerName: '王磊',
   agentKind: 'claude',
   avatar: 'role-no',
+  followAgent: false,
   avatarUrl: null,
   machineId: 'm1',
   machineName: 'wanglei-mbp',
@@ -278,9 +280,13 @@ describe('新建 Bot', () => {
     expect(within(dialog).queryByRole('button', { name: '归属人' })).toBeNull()
     expect(within(dialog).queryByRole('button', { name: '模型' })).toBeNull()
     fireEvent.change(name, { target: { value: '小王的 Claude' } })
+    const face = within(dialog).getByRole('img', { name: '小王的 Claude' }).querySelector('img')
+    expect(face?.getAttribute('src')).toBe(avatarSrc('agent-claude'))
+    expect(within(dialog).queryByRole('radiogroup', { name: '角色' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '换个角色…' }))
     const roles = within(dialog).getByRole('radiogroup', { name: '角色' })
-    expect(within(roles).getAllByRole('radio')).toHaveLength(13)
-    expect((within(roles).getByRole('radio', { name: /共字君/ }) as HTMLInputElement).checked).toBe(true)
+    expect(within(roles).getAllByRole('radio')).toHaveLength(14)
+    expect((within(roles).getByRole('radio', { name: /跟随 Agent/ }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(within(roles).getByRole('radio', { name: /反推/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     expect(await within(dialog).findByText('已就绪，可以在群里 @ 它了')).toBeTruthy()

@@ -203,6 +203,7 @@ describe('connection status', () => {
         ownerName: ownerId,
         agentKind: 'claude',
         avatar: 'role-no',
+        followAgent: false,
         avatarUrl: null,
         machineId: 'mbp',
         binding: 'bound',

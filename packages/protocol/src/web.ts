@@ -406,6 +406,10 @@ export const BOT_AVATARS = [
 ] as const
 export const BotAvatar = z.enum(BOT_AVATARS)
 export type BotAvatar = z.infer<typeof BotAvatar>
+/** What a bot may wear: a built-in character, or `role-agent` for the figure of its own agent (the default). */
+export const BOT_ROLES = ['role-agent', ...BOT_AVATARS] as const
+export const BotRole = z.enum(BOT_ROLES)
+export type BotRole = z.infer<typeof BotRole>
 
 export const BotDto = z.object({
   id: z.string(),
@@ -414,7 +418,10 @@ export const BotDto = z.object({
   ownerId: z.string(),
   ownerName: z.string(),
   agentKind: AgentKind,
+  /** `role-agent` reads as `role-gong` here: clients before it can't draw it. */
   avatar: BotAvatar,
+  /** Wears its agent's figure (role `role-agent`). */
+  followAgent: z.boolean(),
   /** Uploaded image shown instead of the role's face; null = the role. */
   avatarUrl: z.string().nullable(),
   machineId: z.string().nullable(),
@@ -969,7 +976,7 @@ export const CreateBotReq = z.object({
   /** Omit when the owner has no machine yet (bot becomes pending_bind). */
   machineId: z.string().nullable(),
   systemPrompt: z.string().max(4000).default(''),
-  avatar: BotAvatar.default('role-gong'),
+  avatar: BotRole.default('role-agent'),
   model: z.string().nullable().default(null),
   effort: z.string().nullable().default(null),
   /** A provider id of `agentKind`, `official` or `inherit` (default); only for one's own bot on one's own machine. */
@@ -977,7 +984,7 @@ export const CreateBotReq = z.object({
 })
 export const UpdateBotReq = z.object({
   name: z.string().min(1).max(40).optional(),
-  avatar: BotAvatar.optional(),
+  avatar: BotRole.optional(),
   systemPrompt: z.string().max(4000).optional(),
   tier: Tier.optional(),
   triggerScope: TriggerScope.optional(),

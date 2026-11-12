@@ -108,6 +108,15 @@
   align-items: baseline;
   gap: var(--space-8);
 }
+.newbot__agent-face {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  align-self: center;
+}
+.newbot__name > :last-child {
+  flex: 1;
+}
 .newbot__mono {
   font-family: var(--font-mono);
 }

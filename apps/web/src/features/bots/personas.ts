@@ -31,6 +31,7 @@ export interface Persona {
   M: [number, number]
   s: number
   eyeInk?: string
+  mouthInk?: string
   open: (ink: string) => string
   glyph: (ink: string, face: string, state?: Face) => string
   motion: string
@@ -540,6 +541,7 @@ export const PERSONAS: Persona[] = [
 function face(ip: Persona, st: Face) {
   if (st === 'open') return ip.open(ip.to)
   const k = ip.eyeInk || ip.to,
+    m = ip.mouthInk || ip.to,
     s = ip.s,
     w = 1.8 * s,
     [mx, my] = ip.M
@@ -554,16 +556,16 @@ function face(ip: Persona, st: Face) {
   let mouth: string
   if (st === 'happy') {
     eyes = `<path d="${arc(x1, y1, 1)}${arc(x2, y2, 1)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 2.6 * s} ${my - 0.8}h${5.2 * s}a${2.6 * s} ${2.6 * s} 0 0 1 ${-5.2 * s} 0z" fill="${ip.to}"/>`
+    mouth = `<path d="M${mx - 2.6 * s} ${my - 0.8}h${5.2 * s}a${2.6 * s} ${2.6 * s} 0 0 1 ${-5.2 * s} 0z" fill="${m}"/>`
   } else if (st === 'closed') {
     eyes = `<path d="${arc(x1, y1)}${arc(x2, y2)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 1.4} ${my}q1.4 1 2.8 0" ${stroke(ip.to, 1.2)}/>`
+    mouth = `<path d="M${mx - 1.4} ${my}q1.4 1 2.8 0" ${stroke(m, 1.2)}/>`
   } else if (st === 'x') {
     eyes = `<path d="${cross(x1, y1)}${cross(x2, y2)}" ${stroke(k, 1.3)}/>`
-    mouth = `<path d="M${mx - 2.4} ${my}q.6-.9 1.2 0t1.2 0 1.2 0 1.2 0" ${stroke(ip.to, 1.1)}/>`
+    mouth = `<path d="M${mx - 2.4} ${my}q.6-.9 1.2 0t1.2 0 1.2 0 1.2 0" ${stroke(m, 1.1)}/>`
   } else {
     eyes = `<ellipse cx="${x1}" cy="${y1}" rx="${1.4 * s}" ry="${1.7 * s}" fill="${k}"/><path d="${arc(x2, y2)}" ${stroke(k, 1.4)}/>`
-    mouth = `<path d="M${mx - 1.4} ${my}q1.4 .6 2.8 0" ${stroke(ip.to, 1.2)}/>`
+    mouth = `<path d="M${mx - 1.4} ${my}q1.4 .6 2.8 0" ${stroke(m, 1.2)}/>`
   }
   return eyes + mouth
 }
@@ -607,10 +609,14 @@ const PROPS: Record<MascotAction, (ip: Persona, a: Act) => { back?: string; fron
     front: style === 'tap' ? hand(ip, 42, 36, 'hand tap') : '',
   }),
   type: (ip, [, t = '']) => ({
+    // A laptop at the figure's side, screen turned to us; the gloves tap its keys instead of hanging under the tile.
     front:
-      `<rect x="3" y="27" width="34" height="16" rx="3" fill="#eef1f6" stroke="#c9d1dd" stroke-width=".8"/>${lbl(t, 20, 35, ip.to, fitSize(t))}` +
-      `<rect x="-2" y="42.5" width="44" height="3" rx="1.5" fill="#c9d1dd"/>${hand(ip, 10, 42, 'hand h1')}${hand(ip, 30, 42, 'hand h2')}` +
-      `<g fill="${ip.to}" class="code"><rect class="l1" x="42" y="6" width="9" height="1.8" rx=".9"/><rect class="l2" x="42" y="10" width="6" height="1.8" rx=".9"/><rect class="l3" x="42" y="14" width="8" height="1.8" rx=".9"/></g>`,
+      `<rect x="31.8" y="14.6" width="18.4" height="14.4" rx="1.8" fill="#fff" stroke="${ip.to}" stroke-width="1"/>${lbl(t, 41, 20.6, ip.to, fitSize(t) - 0.6)}` +
+      `<rect class="cur" x="43.2" y="24.8" width="3" height="1.1" rx=".55" fill="${ip.to}"/>` +
+      `<path d="M31.2 29.6h19.6l3.2 6H28z" fill="#eef1f6" stroke="#c9d1dd" stroke-width=".8" stroke-linejoin="round"/>` +
+      `<path d="M32.2 31.6h17.6M31.2 33.6h19.6" stroke="#c9d1dd" stroke-width=".7" stroke-dasharray="1.6 .8"/>` +
+      `<g class="h1"><ellipse cx="35.4" cy="31.4" rx="2.6" ry="2" fill="${ip.to}" stroke="#fff" stroke-width="1"/></g>` +
+      `<g class="h2"><ellipse cx="45.8" cy="31.4" rx="2.6" ry="2" fill="${ip.to}" stroke="#fff" stroke-width="1"/></g>`,
   }),
   carry: (ip, [, t = '']) => ({
     back: feet(ip),
@@ -645,9 +651,7 @@ const ACT_CSS: Record<MascotAction, string> = {
   ask: `.fig{animation:askt ${D(2)} ease-in-out infinite}@keyframes askt{0%,100%{transform:rotate(0)}40%,70%{transform:rotate(6deg)}}.c{transform-box:fill-box;transform-origin:center;animation:qb ${D(0.8)} ease-in-out infinite alternate}@keyframes qb{to{transform:translateY(-1px) scale(1.08)}}`,
   raise: `.hand{animation:raise ${D(0.7)} ease-in-out infinite alternate}@keyframes raise{to{transform:translateY(-2.2px)}}.fig{animation:bob ${D(1.4)} ease-in-out infinite}@keyframes bob{50%{transform:translateY(-1px)}}`,
   wait: `.hg{transform-origin:-5.5px 30.4px;animation:flip ${D(2.4)} ease-in-out infinite}@keyframes flip{0%,60%{transform:rotate(0)}80%,100%{transform:rotate(180deg)}}`,
-  type:
-    `.h1{animation:key ${D(0.24)} ease-in-out infinite alternate}.h2{animation:key ${D(0.24)} ease-in-out infinite alternate-reverse}@keyframes key{to{transform:translateY(-2px)}}` +
-    `.code rect{transform-box:fill-box;transform-origin:0 50%;animation:ln ${D(1.8)} steps(1) infinite}.l2{animation-delay:${D(0.3)}!important}.l3{animation-delay:${D(0.6)}!important}@keyframes ln{0%{transform:scaleX(0)}30%,100%{transform:scaleX(1)}}`,
+  type: `.h1{animation:key ${D(0.24)} ease-in-out infinite alternate}.h2{animation:key ${D(0.24)} ease-in-out infinite alternate-reverse}@keyframes key{to{transform:translateY(-1.4px)}}.cur{animation:blink ${D(0.8)} steps(1) infinite}@keyframes blink{50%{opacity:0}}`,
   carry: `.fig,.load{animation:heave ${D(0.8)} ease-in-out infinite}@keyframes heave{50%{transform:translateY(1.2px)}}.fl{animation:stepl ${D(0.8)} ease-in-out infinite}.fr{animation:stepl ${D(0.8)} ease-in-out infinite reverse}@keyframes stepl{50%{transform:translateY(-1.8px)}}.sweat{animation:drip ${D(1.2)} ease-in infinite}@keyframes drip{from{transform:translateY(0);opacity:1}to{transform:translateY(5px);opacity:0}}`,
   run:
     `.fig{animation:runb ${D(0.36)} ease-in-out infinite alternate}@keyframes runb{from{transform:rotate(6deg) translateY(0)}to{transform:rotate(6deg) translateY(-2px)}}.fl{animation:kick ${D(0.36)} ease-in-out infinite alternate}.fr{animation:kick ${D(0.36)} ease-in-out infinite alternate-reverse}@keyframes kick{from{transform:translateX(-3px)}to{transform:translate(3px,-1.5px)}}` +

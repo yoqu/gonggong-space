@@ -38,7 +38,7 @@ import { UsageBars, useUsage } from '../usage/UsagePage'
 import { DirPicker } from '../workspaces/DirPicker'
 import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfig'
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
-import { avatarSrc, BotAvatar, RolePicker, roleHint } from './avatars'
+import { avatarSrc, BotAvatar, botRole, RolePicker, roleFace, roleHint } from './avatars'
 import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { BotShares } from './BotShares'
@@ -184,7 +184,7 @@ export function BotDetail({
   const demo = useSession((s) => s.tenancy?.demoMode)
   const [tab, setTab] = useState<string>(initialTab)
   const [name, setName] = useState(bot.name)
-  const [avatar, setAvatar] = useState(bot.avatar)
+  const [avatar, setAvatar] = useState(botRole(bot))
   const [prompt, setPrompt] = useState(bot.systemPrompt)
   const [workspace, setWorkspace] = useState(bot.defaultWorkspace)
   /** null = the bot's provider is kept. */
@@ -226,7 +226,7 @@ export function BotDetail({
   // Unchanged values are left out: one the catalog no longer lists would be refused.
   const patch: BotPatch = {
     ...(name.trim() !== bot.name && { name: name.trim() }),
-    ...(avatar !== bot.avatar && { avatar }),
+    ...(avatar !== botRole(bot) && { avatar }),
     ...(prompt !== bot.systemPrompt && { systemPrompt: prompt }),
     ...(tier !== bot.tier && { tier }),
     ...(scope !== bot.triggerScope && { triggerScope: scope }),
@@ -296,7 +296,12 @@ export function BotDetail({
             shape="square"
             src={bot.avatarUrl ?? undefined}
             preview={
-              <Avatar name={bot.name} shape="square" size={40} src={bot.avatarUrl ?? avatarSrc(avatar)} />
+              <Avatar
+                name={bot.name}
+                shape="square"
+                size={40}
+                src={bot.avatarUrl ?? avatarSrc(roleFace(avatar, bot.agentKind))}
+              />
             }
             onUpload={(image) => botsApi.uploadAvatar(bot.id, image)}
             onRemove={() => botsApi.removeAvatar(bot.id)}
@@ -304,8 +309,8 @@ export function BotDetail({
         </FormRow>
       ) : null}
       {canEdit ? (
-        <FormRow label={t('角色')} align="top" hint={roleHint(avatar)}>
-          <RolePicker value={avatar} onChange={setAvatar} />
+        <FormRow label={t('角色')} align="top" hint={roleHint(avatar, bot.agentKind)}>
+          <RolePicker value={avatar} agent={bot.agentKind} onChange={setAvatar} />
         </FormRow>
       ) : null}
       <FormRow

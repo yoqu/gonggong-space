@@ -20,7 +20,7 @@ import { RUN_STATUS } from '../chat/TimelineItems'
 import { stepText } from '../runs/mcp'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { approvalText } from './ApprovalFields'
-import { BotAvatar, ROLES } from './avatars'
+import { BotAvatar, botRole, roleOf } from './avatars'
 import { type BotTab, BotWarning } from './BotSettings'
 import { agentCliVersion, agentLine, PRESENCE, TRIGGER_SCOPE_LABEL } from './model'
 import { ShareRequestAction, useDm } from './ShareRequest'
@@ -226,7 +226,7 @@ function Profile({
   onSettings: (tab?: BotTab) => void
 }) {
   const feishu = useGet<FeishuAppView>(canEdit ? `/bots/${bot.id}/feishu` : null).data
-  const role = ROLES[bot.avatar]
+  const role = roleOf(botRole(bot), bot.agentKind)
   const names = (ids: string[]) => ids.map((id) => users.find((u) => u.id === id)?.name ?? '--').join(t('、'))
   const sections: [string, Row[], ReactNode?][] = [
     [
@@ -335,7 +335,7 @@ export function BotPage({
   const places = usePlaces(bot.id, canView)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
   const openDm = useDm(bot)
-  const role = ROLES[bot.avatar]
+  const role = roleOf(botRole(bot), bot.agentKind)
   const presence = PRESENCE[bot.presence]
 
   return (

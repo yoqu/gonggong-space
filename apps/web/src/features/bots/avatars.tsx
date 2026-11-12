@@ -1,10 +1,11 @@
-import type { BotDto, BotAvatar as RoleKey } from '@gonggong/protocol'
-import { BOT_AVATARS } from '@gonggong/protocol'
+import type { AgentKind, BotDto, BotAvatar as BuiltInRole, BotRole as RoleKey } from '@gonggong/protocol'
+import { BOT_ROLES } from '@gonggong/protocol'
 import { useId } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Avatar, type AvatarProps, type MascotCostume } from '../../ui'
-import { PERSONAS, personaScene } from './personas'
+import { AGENT_FIGURES } from './agentFigures'
+import { PERSONAS, type Persona, personaScene } from './personas'
 
 interface Role {
   name: string
@@ -44,26 +45,43 @@ const GONG: Role = {
     '.legs path+path{animation-direction:alternate-reverse}@keyframes step{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}',
 }
 
+/** The art a bot can wear: a built-in character or an agent's figure. */
+export type FaceKey = BuiltInRole | `agent-${AgentKind}`
+
+const asRole = (ip: Persona): Role => ({
+  name: ip.name,
+  mix: ip.mix,
+  line: ip.line,
+  from: ip.from,
+  to: ip.to,
+  glyph: (ink: string) => ip.glyph(ink, ip.open(ink), 'open'),
+  motion: ip.motion.replaceAll('var(--t)', String(ip.tempo)),
+})
+
+const FIGURES = new Map<string, Persona>([
+  ...PERSONAS.map((ip) => [`role-${ip.key}`, ip] as const),
+  ...Object.values(AGENT_FIGURES).map((ip) => [ip.key, ip] as const),
+])
+
 export const ROLES = Object.fromEntries([
   ['role-gong', GONG],
-  ...PERSONAS.map((ip) => [
-    `role-${ip.key}`,
-    {
-      name: ip.name,
-      mix: ip.mix,
-      line: ip.line,
-      from: ip.from,
-      to: ip.to,
-      glyph: (ink: string) => ip.glyph(ink, ip.open(ink), 'open'),
-      motion: ip.motion.replaceAll('var(--t)', String(ip.tempo)),
-    },
-  ]),
-]) as Record<RoleKey, Role>
+  ...[...FIGURES].map(([k, ip]) => [k, asRole(ip)]),
+]) as Record<FaceKey, Role>
+
+/** The art for a role: `role-agent` resolves to the figure of the bot's agent. */
+export const roleFace = (role: RoleKey, agent: AgentKind): FaceKey =>
+  role === 'role-agent' ? `agent-${agent}` : role
+
+export const botRole = (bot: Pick<BotDto, 'avatar' | 'followAgent'>): RoleKey =>
+  bot.followAgent ? 'role-agent' : bot.avatar
+
+export const faceOf = (bot: Pick<BotDto, 'avatar' | 'followAgent' | 'agentKind'>) =>
+  roleFace(botRole(bot), bot.agentKind)
 
 const cache = new Map<string, string>()
 
 /** SVG data URI, so the avatar works anywhere `<Avatar src>` does; `live` adds the role's signature move. */
-export function avatarSrc(key: RoleKey, live = false) {
+export function avatarSrc(key: FaceKey, live = false) {
   const id = live ? `${key}!` : key
   let src = cache.get(id)
   if (!src) {
@@ -82,29 +100,38 @@ export function avatarSrc(key: RoleKey, live = false) {
 }
 
 /** A bot's uploaded image, else its role's face. */
-export const botFace = (bot: Pick<BotDto, 'avatar' | 'avatarUrl'>, live = false) =>
-  bot.avatarUrl ?? avatarSrc(bot.avatar, live)
+export const botFace = (
+  bot: Pick<BotDto, 'avatar' | 'followAgent' | 'agentKind' | 'avatarUrl'>,
+  live = false,
+) => bot.avatarUrl ?? avatarSrc(faceOf(bot), live)
 
-export type PersonaRole = Exclude<RoleKey, 'role-gong'>
+export type PersonaRole = Exclude<FaceKey, 'role-gong'>
 
 const costumes = new Map<PersonaRole, MascotCostume>()
 
-/** The chat mascot played by a personality: its own scene for every action. */
+/** The chat mascot played by a personality or an agent figure: its own scene for every action. */
 export function roleCostume(key: PersonaRole): MascotCostume {
   let c = costumes.get(key)
   if (!c) {
-    const role = key.slice('role-'.length)
-    const ip = PERSONAS.find((p) => p.key === role) as (typeof PERSONAS)[number]
-    c = { role, scene: (action, words, still) => personaScene(ip, action, words, still) }
+    const ip = FIGURES.get(key) as Persona
+    c = {
+      role: key.replace(/^role-/, ''),
+      scene: (action, words, still) => personaScene(ip, action, words, still),
+    }
     costumes.set(key, c)
   }
   return c
 }
 
-/** The chat mascot dressed as a bot's character; undefined (共字君 itself) for the default or a deleted bot. */
+/** The mascot dressed as a bot's character; undefined (共字君 itself) for 共字君 or no bot. */
+export const botCostume = (bot: Pick<BotDto, 'avatar' | 'followAgent' | 'agentKind'> | undefined) => {
+  const face = bot && faceOf(bot)
+  return face && face !== 'role-gong' ? roleCostume(face) : undefined
+}
+
+/** The chat mascot dressed as a bot's character, looked up by id. */
 export function useBotCostume(id: string | undefined) {
-  const role = useWorkspace((s) => s.bots.find((b) => b.id === id)?.avatar)
-  return role && role !== 'role-gong' ? roleCostume(role) : undefined
+  return botCostume(useWorkspace((s) => s.bots.find((b) => b.id === id)))
 }
 
 type BotAvatarProps = Omit<AvatarProps, 'src' | 'shape'> & { id?: string | null }
@@ -122,23 +149,34 @@ export function BotAvatar({ id, name, ...rest }: BotAvatarProps) {
   )
 }
 
-export const roleHint = (k: RoleKey) => t('{name}：{line}', { name: ROLES[k].name, line: ROLES[k].line })
+export const roleOf = (k: RoleKey, agent: AgentKind): Role =>
+  k === 'role-agent'
+    ? { ...ROLES[`agent-${agent}`], name: t('跟随 Agent'), mix: ROLES[`agent-${agent}`].name }
+    : ROLES[k]
 
-/** Every bot plays a character: 共字君 unless the creator picks one of the twelve personalities. */
+export const roleHint = (k: RoleKey, agent: AgentKind) => {
+  const r = roleOf(k, agent)
+  return t('{name}：{line}', { name: r.name, line: r.line })
+}
+
+/** Every bot plays a character: by default the figure of its agent, else 共字君 or one of twelve personalities. */
 export function RolePicker({
   value,
+  agent,
   onChange,
   disabled,
 }: {
   value: RoleKey
+  agent: AgentKind
   onChange: (v: RoleKey) => void
   disabled?: boolean
 }) {
   const name = useId()
   return (
     <div role="radiogroup" aria-label={t('角色')} className="role-picker">
-      {BOT_AVATARS.map((k) => {
-        const r = ROLES[k]
+      {BOT_ROLES.map((k) => {
+        const r = roleOf(k, agent)
+        const face = roleFace(k, agent)
         return (
           <label key={k} className="role-card" title={r.line}>
             <input
@@ -150,8 +188,8 @@ export function RolePicker({
               onChange={() => onChange(k)}
             />
             <span className="role-card__art">
-              <img className="role-card__still" src={avatarSrc(k)} alt="" />
-              <img className="role-card__live" src={avatarSrc(k, true)} alt="" />
+              <img className="role-card__still" src={avatarSrc(face)} alt="" />
+              <img className="role-card__live" src={avatarSrc(face, true)} alt="" />
             </span>
             <span className="role-card__name">{r.name}</span>
             <span className="role-card__title">

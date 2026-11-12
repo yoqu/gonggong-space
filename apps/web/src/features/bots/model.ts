@@ -1,7 +1,7 @@
 import {
   type AgentKind,
-  type BotAvatar,
   type BotDto,
+  type BotRole,
   compareVersions,
   type MachineDto,
   type TriggerScope,
@@ -94,7 +94,6 @@ export type BotPatch = Partial<
   Pick<
     BotDto,
     | 'name'
-    | 'avatar'
     | 'systemPrompt'
     | 'tier'
     | 'triggerScope'
@@ -110,7 +109,7 @@ export type BotPatch = Partial<
     | 'gitName'
     | 'gitEmail'
     | 'agentSettings'
-  >
+  > & { avatar: BotRole }
 >
 
 export const botsApi = {
@@ -120,7 +119,7 @@ export const botsApi = {
     agentKind: AgentKind
     machineId: string | null
     systemPrompt: string
-    avatar: BotAvatar
+    avatar: BotRole
     model: string | null
     effort: string | null
   }) => api.post<BotDto>('/bots', body).then(saveBot),

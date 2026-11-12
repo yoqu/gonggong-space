@@ -259,6 +259,26 @@ describe('PATCH /api/bots/:id', () => {
     const body = { name: 'r', ownerId: wang.user.id, agentKind: 'claude', machineId: null }
     expect((await wang.req('POST', '/api/bots', body)).json()).toMatchObject({ avatar: 'role-gong' })
   })
+
+  it('wears its agent by default, read as 共字君 by clients that predate it', async () => {
+    const wang = await actor()
+    const body = { name: 'r', ownerId: wang.user.id, agentKind: 'codex', machineId: null }
+    const made = (await wang.req('POST', '/api/bots', body)).json()
+    expect(made).toMatchObject({ avatar: 'role-gong', followAgent: true })
+    const url = `/api/bots/${made.id}`
+    expect((await wang.req('PATCH', url, { avatar: 'role-sentry' })).json()).toMatchObject({
+      avatar: 'role-sentry',
+      followAgent: false,
+    })
+    expect((await wang.req('PATCH', url, { avatar: 'role-agent' })).json()).toMatchObject({
+      avatar: 'role-gong',
+      followAgent: true,
+    })
+    const gong = (await wang.req('POST', '/api/bots', { ...body, name: 's', avatar: 'role-gong' })).json()
+    expect(gong).toMatchObject({ avatar: 'role-gong', followAgent: false })
+    const seeded = await t.seed.bot({ ownerId: wang.user.id })
+    expect((await wang.req('GET', `/api/bots/${seeded.id}`)).json()).toMatchObject({ followAgent: false })
+  })
 })
 
 describe('confirm', () => {

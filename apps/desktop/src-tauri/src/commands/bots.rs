@@ -37,9 +37,12 @@ mod tests {
             (&serde_json::json!(true), &serde_json::json!(["go build"]))
         );
         assert_eq!(json["avatar"], "role-gong", "older servers send no avatar");
+        assert_eq!(json["followAgent"], false, "servers before agent figures send none");
         assert!(json["teamName"].is_null(), "servers before teams send no team");
         let mut sent = json;
         sent["avatar"] = "role-sentry".into();
-        assert_eq!(serde_json::from_value::<Bot>(sent).unwrap().avatar, "role-sentry");
+        sent["followAgent"] = true.into();
+        let bot = serde_json::from_value::<Bot>(sent).unwrap();
+        assert_eq!((bot.avatar.as_str(), bot.follow_agent), ("role-sentry", true));
     }
 }

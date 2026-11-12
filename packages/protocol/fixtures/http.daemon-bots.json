@@ -8,6 +8,7 @@
     "ownerName": "王磊",
     "agentKind": "claude",
     "avatar": "role-gong",
+    "followAgent": false,
     "avatarUrl": null,
     "machineId": "m1",
     "machineName": "wang-mbp",

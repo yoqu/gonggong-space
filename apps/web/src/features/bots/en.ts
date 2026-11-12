@@ -280,4 +280,11 @@ export default {
   '该机器的 daemon 版本过旧，覆盖不会生效':
     "This machine's daemon is too old; the overrides will not take effect",
   和它聊一句: 'Say hi to it',
+  官方形象: 'Official look',
+  '按 Bot 的 Agent 出图，一眼看出用的是哪家':
+    "Drawn from the bot's agent, so you can tell at a glance which one it runs",
+  '跟随 Agent': 'Follow agent',
+  '换个角色…': 'Change character…',
+  '默认用 Agent 的形象，一眼看出是哪家':
+    "Wears its agent's look by default, so you can tell at a glance which one it is",
 } satisfies Record<string, string>

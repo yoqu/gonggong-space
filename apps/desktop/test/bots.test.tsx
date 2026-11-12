@@ -13,7 +13,7 @@ beforeEach(() => {
   m.agents.mockResolvedValue([CLAUDE, CODEX])
   m.openBotInWeb.mockResolvedValue()
   m.bots.mockResolvedValue([
-    bot({}),
+    bot({ followAgent: true }),
     bot({
       id: 'b2',
       name: '小王的 Codex',
@@ -38,7 +38,7 @@ it('shows the server settings of each bot read-only', async () => {
   const claude = await card('小王的 Claude')
   expect(claude.getByText('在线')).toBeTruthy()
   expect(claude.getByRole('img', { name: '小王的 Claude' }).querySelector('img')?.getAttribute('src')).toBe(
-    avatarSrc('role-gong'),
+    avatarSrc('agent-claude'),
   )
   expect(claude.getByText('Claude Code 2.1.4')).toBeTruthy()
   expect(claude.getByText('每次问我')).toBeTruthy()

@@ -1,8 +1,8 @@
 import {
   type AgentKind,
-  type BotAvatar,
   type BotDto,
   type BotOwnerDto,
+  type BotRole,
   INHERIT_PROVIDER,
   type MachineDto,
   type UserDto,
@@ -14,6 +14,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import {
   Alert,
+  Avatar,
   Button,
   Dialog,
   Divider,
@@ -32,7 +33,7 @@ import { OS_LABEL } from '../machines/model'
 import { providerBlocked } from '../machines/providers'
 import { DirPicker } from '../workspaces/DirPicker'
 import type { AgentConfig } from './AgentConfig'
-import { RolePicker, roleHint } from './avatars'
+import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
 import { AGENT_LABEL, AGENTS, botsApi, machineAgents, reportedAgent } from './model'
@@ -52,7 +53,7 @@ interface Draft {
   agent: AgentKind
   name: string
   touched: boolean
-  avatar: BotAvatar
+  avatar: BotRole
   prompt: string
   /** Default workspace; only the owner may browse their own online machine (plan W1). */
   workspace: string | null
@@ -75,7 +76,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
     agent,
     name: autoName(owner, agent),
     touched: false,
-    avatar: 'role-gong',
+    avatar: 'role-agent',
     prompt,
     workspace: null,
     provider: INHERIT_PROVIDER,
@@ -203,6 +204,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   const [created, setCreated] = useState<BotDto | null>(null)
   const [picking, setPicking] = useState<string | null | false>(false)
   const [more, setMore] = useState(false)
+  const [roles, setRoles] = useState(false)
   const liveMachines = useWorkspace((s) => s.machines)
   const live = useWorkspace((s) => s.bots.find((b) => b.id === created?.id)) ?? created
   const openDm = useDm(live)
@@ -368,16 +370,32 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         ) : null}
 
         <FormRow label={t('名称')}>
-          <TextField
-            aria-label={t('名称')}
-            value={draft.name}
-            onChange={(e) => set({ name: e.target.value, touched: true })}
-          />
+          <div className="newbot__inline newbot__name">
+            <Avatar
+              name={draft.name}
+              shape="square"
+              size={32}
+              src={avatarSrc(roleFace(draft.avatar, draft.agent))}
+            />
+            <TextField
+              aria-label={t('名称')}
+              value={draft.name}
+              onChange={(e) => set({ name: e.target.value, touched: true })}
+            />
+          </div>
         </FormRow>
 
-        <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar)}>
-          <RolePicker value={draft.avatar} onChange={(avatar) => set({ avatar })} />
-        </FormRow>
+        {roles ? (
+          <FormRow label={t('角色')} align="top" hint={roleHint(draft.avatar, draft.agent)}>
+            <RolePicker value={draft.avatar} agent={draft.agent} onChange={(avatar) => set({ avatar })} />
+          </FormRow>
+        ) : (
+          <FormRow hint={t('默认用 Agent 的形象，一眼看出是哪家')}>
+            <Button size="small" onClick={() => setRoles(true)}>
+              {t('换个角色…')}
+            </Button>
+          </FormRow>
+        )}
 
         <FormRow label={t('系统提示词')} align="top" hint={t('同时作为群内简介。')}>
           <TextField
@@ -443,6 +461,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
                 disabled: !!m && !v,
                 label: (
                   <span className="newbot__machine">
+                    <img className="newbot__agent-face" src={avatarSrc(`agent-${k}`)} alt="" />
                     {AGENT_LABEL[k]}
                     <span className={m && !v ? 'newbot__missing' : 'newbot__muted'}>
                       {!m ? '' : v ? (v.version ?? t('已安装')) : t('未安装')}

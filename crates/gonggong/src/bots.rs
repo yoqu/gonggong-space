@@ -29,6 +29,9 @@ pub struct Bot {
     /// Role key of the avatar (`role-gong`, …); the desktop app draws it like the Web.
     #[serde(default = "default_avatar")]
     pub avatar: String,
+    /// Wears its agent's figure; `avatar` then holds the fallback for clients before it. Older servers send none.
+    #[serde(default)]
+    pub follow_agent: bool,
     /// The bot's team; a machine may serve several (plan D20). Servers before teams send neither.
     #[serde(default)]
     pub team_id: Option<String>,

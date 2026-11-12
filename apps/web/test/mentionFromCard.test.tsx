@@ -34,6 +34,7 @@ const bot = {
   agentKind: 'claude',
   agentVersion: '2.1.4',
   avatar: 'role-no',
+  followAgent: false,
   avatarUrl: null,
   binding: 'bound',
   presence: 'running',

@@ -185,6 +185,7 @@ export function bot(over: Partial<MachineBot>): MachineBot {
     aiReview: false,
     alwaysAllow: [],
     avatar: 'role-gong',
+    followAgent: false,
     teamId: 't1',
     teamName: '默认团队',
     ...over,

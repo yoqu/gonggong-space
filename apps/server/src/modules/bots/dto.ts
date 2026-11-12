@@ -89,6 +89,7 @@ export async function listBotDtos(ctx: Ctx, where?: SQL): Promise<BotDto[]> {
       ownerName,
       agentKind: bot.agentKind as BotDto['agentKind'],
       avatar: botRole(bot.avatar),
+      followAgent: bot.avatar === 'role-agent',
       avatarUrl: avatarUrl(bot.avatarImage),
       machineId: bot.machineId,
       machineName: machine?.name ?? null,

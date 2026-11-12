@@ -46,3 +46,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
+
+## Lobe Icons
+
+The agent marks in `apps/web/src/features/bots/agentFigures.ts` are traced from [Lobe Icons](https://github.com/lobehub/lobe-icons) (`@lobehub/icons-static-svg` 1.102.0, MIT License, Copyright (c) LobeHub) and redrawn as bot characters.
+
+Claude and Claude Code are trademarks of Anthropic, PBC; Codex of OpenAI; Gemini of Google LLC; CodeBuddy of Tencent; pi of its authors; DeepSeek of DeepSeek. They are used only to show which agent a bot runs and belong to their owners; this project is not affiliated with or endorsed by them. Every mark lives in that one file, so any of them can be replaced on request.
