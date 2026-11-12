@@ -823,7 +823,8 @@ a.sidebar__open {
   text-align: center;
 }
 .welcome__tour {
-  width: 100%;
+  /* Small enough that the three steps, the real call to action, stay in the first screen. */
+  width: min(520px, 100%);
   margin-bottom: var(--space-32);
 }
 .welcome__title {
