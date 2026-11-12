@@ -203,7 +203,14 @@ export function machineRoutes(ctx: Ctx) {
       }
       await onMachineBound(ctx, machine)
       ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: machineDto(ctx, machine) })
-      const bot = body.createBot ? await onboardBot(ctx, machine, body.createBot.agent) : undefined
+      // The machine is bound and its old token void by now: a bot that can't be made must not keep the new token from
+      // gg, which then says to create the bot on the Web.
+      const bot = body.createBot
+        ? await onboardBot(ctx, machine, body.createBot.agent).catch((err) => {
+            req.log.warn({ err, machineId: machine.id }, 'onboarding bot not created')
+            return undefined
+          })
+        : undefined
       return {
         token,
         machineId: machine.id,

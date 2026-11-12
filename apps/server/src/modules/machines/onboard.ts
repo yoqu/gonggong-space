@@ -28,10 +28,14 @@ const AGENT_TITLE: Record<AgentKind, string> = {
 export const agentPrompt = (origin: string, code: string) =>
   `帮我接入共工空间：读取 ${origin}/api/install.md 并按步骤执行，接入码 ${code}。`
 
-/** The server as a client outside the browser reaches it: the configured public URL, else the request's host. */
+/**
+ * The server as a client outside the browser reaches it: the configured public URL, else the request's host with the
+ * scheme the TLS-terminating proxy saw (plain http here would downgrade the checksum and the bind code).
+ */
 async function serverUrl(ctx: Ctx, req: FastifyRequest) {
   const configured = (await sysParams(ctx.db)).publicUrl.replace(/\/+$/, '')
-  return configured || `${req.protocol}://${req.host}`
+  const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol).split(',')[0]
+  return configured || `${proto}://${req.host}`
 }
 
 /**

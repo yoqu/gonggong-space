@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 import type { BindCodeDto, DaemonLoginRes, InstallBuildDto, WebEvent } from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { bots, groupBots, groups, systemParams } from '../src/db/schema.js'
+import { bots, groupBots, groups, systemParams, teamMembers } from '../src/db/schema.js'
 import { createTestApp, type TestApp } from './support/app.js'
 
 // Agent 自助接入: a local agent reads install.md, runs install.sh, and `gg login --create-bot` leaves a bot and a DM.
@@ -98,6 +98,16 @@ describe('gg login --create-bot', () => {
     expect(await t.db.select().from(bots)).toHaveLength(2)
   })
 
+  it('still logs the machine in when its bot cannot be made: the token must reach gg', async () => {
+    await t.db.delete(teamMembers).where(eq(teamMembers.userId, owner.id))
+    const res = await login((await newCode()).code, { agent: 'claude' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as DaemonLoginRes
+    expect(body.token).toBeTruthy()
+    expect(body.bot).toBeUndefined()
+    expect(await t.db.select().from(bots)).toEqual([])
+  })
+
   it('leaves a plain login as it was', async () => {
     const body = (await login((await newCode()).code)).json() as DaemonLoginRes
     expect(body.bot).toBeUndefined()
@@ -145,6 +155,13 @@ describe('install.md and install.sh', () => {
       url: 'http://gg.example.com/downloads/gonggong-9.9.9-macos-aarch64',
       sha256,
     })
+    // Behind the TLS-terminating proxy the request is plain http: the scheme comes from the proxy.
+    const proxied = await t.app.inject({
+      url: '/api/install.sh',
+      headers: { host: 'gg.example.com', 'x-forwarded-proto': 'https' },
+    })
+    expect(proxied.body).toContain('https://gg.example.com')
+    expect(proxied.body).not.toContain('http://gg.example.com')
   })
 
   it('install.sh downloads gg, checks it, logs in with the code and the agent, and starts the service', async () => {
@@ -195,7 +212,10 @@ describe('install.md and install.sh', () => {
     // A machine already bound elsewhere (the desktop app, another server) is left alone.
     const bound = mkdtempSync(join(tmpdir(), 'gg-install-'))
     mkdirSync(join(bound, '.gonggong'))
-    writeFileSync(join(bound, '.gonggong/config.json'), '{\n  "server": "https://other.example.com",\n  "token": "x"\n}')
+    writeFileSync(
+      join(bound, '.gonggong/config.json'),
+      '{\n  "server": "https://other.example.com",\n  "token": "x"\n}',
+    )
     await expect(run(bound)).rejects.toThrow(/already bound to https:\/\/other\.example\.com/)
     expect(readFileSync(join(bound, '.gonggong/config.json'), 'utf8')).toContain('other.example.com')
   })
