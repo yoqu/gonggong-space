@@ -29,13 +29,13 @@ export function PendingMessages({
           onRetry={retry}
           actions={false}
           bare={!p.req.body}
-          reply={p.quote ? { author: p.quote.who, text: p.quote.text } : undefined}
+          reply={p.draft.quote ? { author: p.draft.quote.who, text: p.draft.quote.text } : undefined}
           footer={
-            p.files.length || p.status === 'failed' ? (
+            p.draft.uploads.length || p.status === 'failed' ? (
               <div className="tl-pending">
-                {p.files.map((name) => (
-                  <Tag key={name} tone="gray" icon="paperclip">
-                    {name}
+                {p.draft.uploads.map((u) => (
+                  <Tag key={u.key} tone="gray" icon="paperclip">
+                    {u.name}
                   </Tag>
                 ))}
                 {p.status === 'failed' ? (

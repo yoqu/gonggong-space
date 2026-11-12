@@ -31,7 +31,7 @@ import { type Candidate, CandidatePopover, placeCommand, useCandidates } from '.
 import { useCite } from './cite'
 import { startEditing } from './editing'
 import { mentions, useMention } from './mention'
-import { type SendBody, sendPending } from './pending'
+import { type SendBody, sendPending, usePending } from './pending'
 import { mentionedBots, type Picks, RunConfigChips } from './RunConfigChips'
 import { useRecalled } from './recalled'
 import './composer.css'
@@ -109,7 +109,7 @@ export const MessageComposer = memo(function MessageComposer({
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(0)
-  /** A failed artifact command shakes the box (the toast says why; the draft stays for another Enter). */
+  /** A refused send or artifact command shakes the box (the toast says why; the draft is back for another Enter). */
   const [shake, setShake] = useState(false)
   const [picks, setPicks] = useState<Picks>({})
   /** Variations ×n: the next message asks for n variations of the selected screens. */
@@ -273,6 +273,23 @@ export const MessageComposer = memo(function MessageComposer({
     if (recalled.files.length) uploads.add(recalled.files)
   }, [recalled])
 
+  const rejected = usePending((s) =>
+    s.rejected?.groupId === group.id && s.rejected.req.threadRootId === thread ? s.rejected : null,
+  )
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per refused message, onto the draft it was rendered with
+  useEffect(() => {
+    if (!rejected) return
+    usePending.setState({ rejected: null })
+    const { req, draft: d } = rejected
+    change(draft.trim() ? `${req.body}\n${draft}` : req.body, req.body.length)
+    if (d.quote) useQuote.getState().set(d.quote)
+    if (d.append) useAppend.getState().start(d.append)
+    uploads.restore(d.uploads)
+    setPicks(d.picks)
+    setAlsoSent(d.alsoSent)
+    setShake(true)
+  }, [rejected])
+
   const pick = (c: Candidate) => {
     if (!token) return
     if (c.plugin || c.artifact) {
@@ -389,13 +406,13 @@ export const MessageComposer = memo(function MessageComposer({
     }
     if (Object.keys(runOptions).length) req.runOptions = runOptions
     if (canvas) req.artifactContext = artifactContextOf(canvas)
-    // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one.
+    // Shown in the timeline at once (发送中, then 发送失败 with 重发), so the composer is free for the next one;
+    // one the server refuses comes back here (see `rejected`).
     void sendPending(
       {
         groupId: group.id,
         req,
-        quote: quote && { who: quote.who, text: quote.text },
-        files: uploads.items.map((i) => i.name),
+        draft: { quote, uploads: uploads.items, append: appendTo ? target : null, picks, alsoSent },
       },
       onSent,
     )

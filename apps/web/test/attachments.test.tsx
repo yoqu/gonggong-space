@@ -310,6 +310,34 @@ describe('composer attachments', () => {
     await waitFor(() => expect(screen.queryByText('screen.png')).toBeNull())
   })
 
+  it('gives the uploaded files back to the composer when the server refuses the message', async () => {
+    let refuse = true
+    const calls = mockApi({
+      'POST /groups/g1/messages': () =>
+        refuse
+          ? new Response(JSON.stringify({ error: 'invalid', message: '附件不可用' }), { status: 400 })
+          : msg({ seq: 10, authorId: 'u1', authorName: '王磊' }),
+    })
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    const [images] = [...document.querySelectorAll('input[type=file]')] as HTMLInputElement[]
+    pick(images!, [file('screen.png', 486 * 1024, 'image/png')])
+    expect(await composer().findByText('screen.png')).toBeTruthy()
+    fireEvent.change(box(), { target: { value: '看图' } })
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(await screen.findByText('附件不可用')).toBeTruthy()
+    await waitFor(() => expect(box().value).toBe('看图'))
+    expect(composer().getByText('screen.png')).toBeTruthy()
+    expect(uploadFile).toHaveBeenCalledTimes(1)
+
+    refuse = false
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    await waitFor(() => expect(calls.filter((c) => c.path === '/groups/g1/messages')).toHaveLength(2))
+    const [first, again] = calls.filter((c) => c.path === '/groups/g1/messages')
+    expect(first!.body).toMatchObject({ body: '看图', attachmentIds: ['up1'] })
+    expect(again!.body).toMatchObject({ body: '看图', attachmentIds: ['up1'] })
+  })
+
   it('shows pasted images as thumbnails that open a lightbox', async () => {
     mockApi()
     renderChat()

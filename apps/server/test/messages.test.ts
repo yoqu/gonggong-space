@@ -106,7 +106,9 @@ describe('send message', () => {
     expect(c.body.id).toBe(a.body.id)
     // The sender's composer swaps its 发送中 row for the message (reply or realtime echo) by this key.
     expect(a.body.clientId).toBe('dup-client-1')
-    expect(liEvents.find((e) => e.t === 'message.new')).toMatchObject({ message: { clientId: 'dup-client-1' } })
+    expect(liEvents.find((e) => e.t === 'message.new')).toMatchObject({
+      message: { clientId: 'dup-client-1' },
+    })
     const rows = await t.db.select().from(messages).where(eq(messages.groupId, s.g.id))
     expect(rows.filter((m) => m.kind === 'user')).toHaveLength(1)
     expect(liEvents.filter((e) => e.t === 'message.new')).toHaveLength(1)

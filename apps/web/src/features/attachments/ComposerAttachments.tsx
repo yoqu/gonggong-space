@@ -9,7 +9,7 @@ import { type QuoteDraft, useQuote } from './quote'
 import './attachments.css'
 import { t } from '../../i18n'
 
-interface Pending {
+export interface UploadItem {
   key: number
   file: File
   name: string
@@ -24,14 +24,14 @@ interface Pending {
 
 let seq = 0
 
-const release = (i: Pending) => i.thumb && URL.revokeObjectURL(i.thumb)
+const release = (i: UploadItem) => i.thumb && URL.revokeObjectURL(i.thumb)
 
 /** Files picked in the composer, uploaded right away (spec §8.7: ≤ 50 MB each, ≤ 10 per message). */
 export function useUploads(groupId: string) {
-  const [items, setItems] = useState<Pending[]>([])
+  const [items, setItems] = useState<UploadItem[]>([])
   const live = useRef(items)
   live.current = items
-  const patch = (key: number, p: Partial<Pending>) =>
+  const patch = (key: number, p: Partial<UploadItem>) =>
     setItems((list) => list.map((i) => (i.key === key ? { ...i, ...p } : i)))
   const drop = (key: number) => {
     const gone = live.current.find((i) => i.key === key)
@@ -42,7 +42,7 @@ export function useUploads(groupId: string) {
 
   const add = (files: File[]) => {
     let room = MAX_ATTACHMENTS - live.current.length
-    const added: Pending[] = []
+    const added: UploadItem[] = []
     for (const file of files) {
       if (file.size > MAX_ATTACHMENT_BYTES) {
         toast({ type: 'error', message: t('{name} 超过 50 MB，未添加', { name: file.name }) })
@@ -82,6 +82,13 @@ export function useUploads(groupId: string) {
     drop(key)
   }
 
+  /** Puts back the files of a message the server refused; their uploads are still unbound, so nothing is re-sent. */
+  const restore = (list: UploadItem[]) => {
+    const back = list.map((i) => ({ ...i, key: ++seq, thumb: i.thumb && URL.createObjectURL(i.file) }))
+    live.current = [...live.current, ...back].slice(0, MAX_ATTACHMENTS)
+    setItems(live.current)
+  }
+
   const clear = useCallback(() => {
     live.current.forEach(release)
     live.current = []
@@ -101,6 +108,7 @@ export function useUploads(groupId: string) {
     items,
     add,
     remove,
+    restore,
     clear,
     ids: items.flatMap((i) => (i.upload ? [i.upload.id] : [])),
     uploading: items.some((i) => !i.upload),

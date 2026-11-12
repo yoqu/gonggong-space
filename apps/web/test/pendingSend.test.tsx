@@ -7,6 +7,7 @@ import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
 import { useQuote } from '../src/features/attachments/quote'
 import { usePending } from '../src/features/chat/pending'
+import { useAppend } from '../src/features/runs/append'
 import { apiError, mockApi } from './mockApi'
 
 const me: UserDto = {
@@ -115,6 +116,7 @@ beforeEach(() => {
   useWorkspace.setState({ groups: [], bots: [], machines: [], activeGroupId: null })
   usePending.setState({ list: [] })
   useQuote.getState().clear()
+  useAppend.getState().clear()
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -143,12 +145,12 @@ describe('optimistic send', () => {
     expect(within(main).getAllByText('马上看到我')).toHaveLength(1)
   })
 
-  it('marks a failed send in place and resends the same request, quote included', async () => {
+  it('marks a send failing on the server side in place and resends the same request, quote included', async () => {
     let fail = true
     const calls = renderChat({
       'POST /groups/g1/messages': (body: { clientId: string }) =>
         fail
-          ? apiError(400, 'invalid', '消息太长')
+          ? apiError(503, 'unavailable', '服务暂不可用')
           : msg({ seq: 2, body: '发不出去', clientId: body.clientId }),
     })
     await screen.findByText('原文')
@@ -157,9 +159,9 @@ describe('optimistic send', () => {
     )
     await send('发不出去')
     const main = screen.getByRole('main')
-    expect(await screen.findByText('消息太长')).toBeTruthy()
     const pending = await within(main).findByTestId('pending-message')
     await within(pending).findByText('发送失败')
+    expect(screen.getByText('服务暂不可用')).toBeTruthy()
     expect(pending.textContent).toContain('发不出去')
     expect(pending.textContent).toContain('引用的话')
     expect(input().value).toBe('')
@@ -169,13 +171,32 @@ describe('optimistic send', () => {
     fireEvent.click(within(pending).getByRole('button', { name: '重发' }))
     await waitFor(() => expect(within(main).queryByTestId('pending-message')).toBeNull())
     expect(within(main).getAllByText('发不出去')).toHaveLength(1)
-    const [first, again] = posts(calls)
+    // Network / 5xx failures are retried twice on their own before the row shows 发送失败.
+    const all = posts(calls)
+    expect(all).toHaveLength(4)
+    const [first, again] = [all[0], all[3]]
     expect(again!.body).toEqual(first!.body)
     expect(first!.body).toMatchObject({ body: '发不出去', quote: { kind: 'message', id: 'm1' } })
   })
 
+  it('takes a send the server refuses (4xx) back into the composer, quote and 追加 included, and shakes it', async () => {
+    renderChat({ 'POST /groups/g1/messages': () => apiError(400, 'invalid', '消息太长') })
+    await screen.findByText('原文')
+    act(() => {
+      useQuote.getState().set({ groupId: 'g1', kind: 'message', id: 'm1', who: '李建国', text: '引用的话' })
+      useAppend.getState().start({ groupId: 'g1', runId: 'r1', botName: '小王的 Claude' })
+    })
+    await send('太长了')
+    expect(await screen.findByText('消息太长')).toBeTruthy()
+    await waitFor(() => expect(input().value).toBe('太长了'))
+    expect(screen.queryByTestId('pending-message')).toBeNull()
+    expect(useQuote.getState().quote).toMatchObject({ id: 'm1', text: '引用的话' })
+    expect(useAppend.getState().target).toMatchObject({ runId: 'r1' })
+    expect(document.querySelector('.composer--shake')).toBeTruthy()
+  })
+
   it('deletes a failed message', async () => {
-    renderChat({ 'POST /groups/g1/messages': apiError(400, 'invalid', '消息太长') })
+    renderChat({ 'POST /groups/g1/messages': () => apiError(500, 'internal', '服务出错') })
     await send('不要了')
     const pending = await screen.findByTestId('pending-message')
     await within(pending).findByText('发送失败')

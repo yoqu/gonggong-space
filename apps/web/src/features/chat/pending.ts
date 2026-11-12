@@ -4,6 +4,9 @@ import { create } from 'zustand'
 import { ApiError, api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import type { artifactContextOf } from '../artifacts/context'
+import type { UploadItem } from '../attachments/ComposerAttachments'
+import type { QuoteDraft } from '../attachments/quote'
+import type { AppendTarget } from '../runs/append'
 import type { Picks } from './RunConfigChips'
 
 const RETRIES = 2
@@ -20,14 +23,15 @@ export interface SendBody {
   alsoSent?: boolean
 }
 
+const transient = (e: unknown) => !(e instanceof ApiError) || e.status >= 500
+
 /** Retries network / 5xx failures with the same clientId, so the server stores the message at most once. */
 export async function postMessage(groupId: string, req: SendBody): Promise<MessageDto> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await api.post<MessageDto>(`/groups/${groupId}/messages`, req)
     } catch (e) {
-      const transient = !(e instanceof ApiError) || e.status >= 500
-      if (!transient || attempt >= RETRIES) throw e
+      if (!transient(e) || attempt >= RETRIES) throw e
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt))
     }
   }
@@ -37,14 +41,25 @@ export async function postMessage(groupId: string, req: SendBody): Promise<Messa
 export interface PendingMessage {
   groupId: string
   req: SendBody
-  /** What the bubble shows of the quote and the attachments while there is no server copy. */
-  quote: { who: string; text: string } | null
-  files: string[]
+  /** The composer state it was sent from: shown in the bubble, and handed back when the server refuses it. */
+  draft: {
+    quote: QuoteDraft | null
+    uploads: UploadItem[]
+    append: AppendTarget | null
+    picks: Picks
+    alsoSent: boolean
+  }
   status: 'sending' | 'failed'
 }
 
-/** Outside the views, so a send survives switching groups. */
-export const usePending = create<{ list: PendingMessage[] }>(() => ({ list: [] }))
+/**
+ * Outside the views, so a send survives switching groups. `rejected`: a message the server refused (4xx), which 重发
+ * cannot fix; its group's (or thread's) composer takes it back as a draft.
+ */
+export const usePending = create<{ list: PendingMessage[]; rejected: PendingMessage | null }>(() => ({
+  list: [],
+  rejected: null,
+}))
 
 const update = (clientId: string, p: Partial<PendingMessage> | null) =>
   usePending.setState((s) => ({
@@ -67,7 +82,9 @@ export async function sendPending(p: Omit<PendingMessage, 'status'>, onSent: (m:
     dropPending(id)
   } catch (e) {
     toastError(e)
-    update(id, { status: 'failed' })
+    if (transient(e)) return update(id, { status: 'failed' })
+    dropPending(id)
+    usePending.setState({ rejected: { ...p, status: 'failed' } })
   }
 }
 
