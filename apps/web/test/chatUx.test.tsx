@@ -726,6 +726,8 @@ describe('composer', () => {
     mockApi({ messages: [], runs: [] })
     renderAt()
     await screen.findByText('还没有消息')
+    // The hint shows only once there is something to send without an @.
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
     for (const v of ['  ', '@', ' / ']) {
       fireEvent.change(box(), { target: { value: v } })
       expect(sendButton().disabled).toBe(true)
@@ -736,6 +738,9 @@ describe('composer', () => {
     fireEvent.change(box(), { target: { value: '@小王的 Claude' } })
     expect(sendButton().disabled).toBe(false)
     expect(screen.getByRole('button', { name: '小王的 Claude 的模型与推理强度' })).toBeTruthy()
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
+    fireEvent.change(box(), { target: { value: '' } })
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
   })
 
   it('grows with its content', async () => {

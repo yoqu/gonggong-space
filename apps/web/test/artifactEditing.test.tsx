@@ -936,6 +936,7 @@ describe('selection as chat context', () => {
     fireEvent.click(node('home'))
     render(<MessageComposer group={group} onSent={() => {}} />)
     expect(screen.queryByTestId('art-context-to')).toBeNull()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '标题再大点' } })
     expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
   })
 

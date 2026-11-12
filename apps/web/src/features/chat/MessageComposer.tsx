@@ -484,7 +484,7 @@ export const MessageComposer = memo(function MessageComposer({
         ]}
         hint={
           // With the canvas selected, the chips say who the message goes to.
-          mobile || thread || targets.length || soleDm
+          mobile || thread || targets.length || soleDm || !draft.trim()
             ? false
             : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
         }
