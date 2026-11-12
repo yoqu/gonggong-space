@@ -228,7 +228,10 @@ pub fn find(bin: &str) -> Option<PathBuf> {
         .map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
-        .chain(extra_dirs())
+        .chain(extra_dirs(
+            &crate::config::user_home(),
+            std::env::var_os("NVM_DIR").map(PathBuf::from).as_deref(),
+        ))
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|p| p.is_file())
 }
@@ -239,9 +242,9 @@ pub(crate) fn file_names(bin: &str) -> Vec<String> {
     if cfg!(windows) { vec![format!("{bin}.exe"), format!("{bin}.cmd")] } else { vec![bin.into()] }
 }
 
-/// Common install dirs missing from the PATH of GUI apps and services.
-fn extra_dirs() -> Vec<PathBuf> {
-    let home = crate::config::user_home();
+/// Common install dirs missing from the PATH of GUI apps and services, including the user-level Node managers
+/// (nvm, volta, fnm, asdf, pnpm, bun) whose `npm install -g` lands outside any system dir.
+fn extra_dirs(home: &Path, nvm_dir: Option<&Path>) -> Vec<PathBuf> {
     let mut dirs = vec![home.join(".local/bin")];
     if cfg!(windows) {
         dirs.extend(std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("npm")));
@@ -249,7 +252,35 @@ fn extra_dirs() -> Vec<PathBuf> {
         dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
     }
     dirs.push(home.join(".npm-global/bin"));
+    dirs.extend(
+        [
+            ".volta/bin",
+            ".bun/bin",
+            "Library/pnpm",
+            ".local/share/pnpm",
+            ".asdf/shims",
+            ".local/share/fnm/aliases/default/bin",
+            "Library/Application Support/fnm/aliases/default/bin",
+        ]
+        .map(|d| home.join(d)),
+    );
+    dirs.extend(nvm_bins(&nvm_dir.map_or_else(|| home.join(".nvm"), Path::to_path_buf)));
     dirs
+}
+
+/// `bin` of every Node nvm installed, newest first.
+fn nvm_bins(nvm: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(nvm.join("versions/node")) else { return vec![] };
+    let mut versions: Vec<(Vec<u64>, PathBuf)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            let v = name.trim_start_matches('v').split('.').map(str::parse).collect::<Result<_, _>>().ok()?;
+            Some((v, e.path().join("bin")))
+        })
+        .collect();
+    versions.sort_by(|a, b| b.0.cmp(&a.0));
+    versions.into_iter().map(|(_, bin)| bin).collect()
 }
 
 #[cfg(unix)]
@@ -381,6 +412,28 @@ mod tests {
     }
 
     use super::{file_names, parse_version};
+
+    #[cfg(unix)]
+    #[test]
+    fn user_level_node_installs_are_searched_newest_nvm_first() {
+        let home = tempfile::tempdir().unwrap();
+        let h = home.path();
+        for v in ["v9.0.0", "v24.15.0", "v22.22.2"] {
+            std::fs::create_dir_all(h.join(".nvm/versions/node").join(v).join("bin")).unwrap();
+        }
+        let dirs = super::extra_dirs(h, None);
+        let nvm: Vec<_> = dirs.iter().filter(|d| d.starts_with(h.join(".nvm"))).collect();
+        assert_eq!(
+            nvm,
+            ["v24.15.0", "v22.22.2", "v9.0.0"].map(|v| h.join(".nvm/versions/node").join(v).join("bin")).iter().collect::<Vec<_>>()
+        );
+        for d in [".volta/bin", ".bun/bin", "Library/pnpm", ".local/share/pnpm", ".asdf/shims"] {
+            assert!(dirs.contains(&h.join(d)), "{d}");
+        }
+        let custom = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(custom.path().join("versions/node/v20.0.0/bin")).unwrap();
+        assert!(super::extra_dirs(h, Some(custom.path())).contains(&custom.path().join("versions/node/v20.0.0/bin")));
+    }
 
     #[test]
     fn codex_without_its_native_binary_is_reported_before_starting() {
