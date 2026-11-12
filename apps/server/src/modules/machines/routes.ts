@@ -13,7 +13,7 @@ import { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { requireMachine } from '../../daemon/auth.js'
 import { CLOSE } from '../../daemon/gateway.js'
-import { bindCodes, bots, machines, users } from '../../db/schema.js'
+import { bindCodes, bots, machines } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
@@ -21,19 +21,17 @@ import { idParam } from '../../lib/ids.js'
 import { Throttle } from '../../lib/throttle.js'
 import { assertNotDemo } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
-import { onMachineBound } from '../bots/binding.js'
 import { machineDto, publishBots } from '../bots/dto.js'
 import { machineAdminRoutes } from './admin.js'
+import { afterBind, bindMachine, CODE_ALPHABET, CODE_FORMAT } from './bind.js'
 import { gitAccessRoutes } from './git-access.js'
+import { linkRoutes } from './link.js'
 import { netRoutes } from './net.js'
-import { agentPrompt, onboardBot, onboardRoutes } from './onboard.js'
+import { agentPrompt, onboardRoutes } from './onboard.js'
 import { toolRoutes } from './tools.js'
 
 /** Room for an agent to download and install gg before it logs in (Agent 自助接入). */
 const CODE_TTL_MS = 30 * 60_000
-/** No I/O/0/1 so codes survive being read aloud or retyped. */
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const CODE_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/
 const CODE_MAX_FAILURES = 5
 const IP_MAX_FAILURES = 10
 const IP_WINDOW_MS = 10 * 60_000
@@ -63,6 +61,7 @@ export function machineRoutes(ctx: Ctx) {
      * and a code that exists but is expired or used counts its own failures (after 5 → code_locked).
      */
     const ipThrottle = new Throttle(IP_MAX_FAILURES, IP_WINDOW_MS, ctx.now)
+    linkRoutes(ctx, app, ipThrottle)
 
     const pending = new Set<Promise<void>>()
     const pushState = (machineId: string) => {
@@ -138,40 +137,7 @@ export function machineRoutes(ctx: Ctx) {
           .set({ usedAt: now })
           .where(and(eq(bindCodes.code, code), isNull(bindCodes.usedAt), gt(bindCodes.expiresAt, now)))
           .returning()
-        if (!claimed) return null
-        const [owner] = await tx.select({ name: users.name }).from(users).where(eq(users.id, claimed.userId))
-        const { hardwareId } = body.machine
-        const [prev] = hardwareId
-          ? await tx.select().from(machines).where(eq(machines.hardwareId, hardwareId)).for('update')
-          : []
-        if (prev && prev.ownerId !== claimed.userId && !prev.revokedAt) {
-          const [{ n } = { n: 0 }] = await tx
-            .select({ n: count() })
-            .from(bots)
-            .where(and(eq(bots.machineId, prev.id), isNull(bots.deletedAt)))
-          if (n) {
-            const [holder] = await tx
-              .select({ name: users.name })
-              .from(users)
-              .where(eq(users.id, prev.ownerId))
-            fail('conflict', '这台机器已归属 {owner}，其上还有 {n} 个 Bot，需先删除后才能转给你', {
-              owner: holder?.name ?? '',
-              n,
-            })
-          }
-        }
-        const values = { ownerId: claimed.userId, ...body.machine, tokenHash: sha256(token), boundAt: now }
-        const [machine] = prev
-          ? await tx
-              .update(machines)
-              .set({ ...values, revokedAt: null, label: prev.ownerId === claimed.userId ? prev.label : null })
-              .where(eq(machines.id, prev.id))
-              .returning()
-          : await tx
-              .insert(machines)
-              .values({ ...values, createdAt: now })
-              .returning()
-        return machine && owner && { machine, ownerName: owner.name, prev }
+        return claimed ? bindMachine(tx, claimed.userId, body.machine, token, now) : null
       })
       if (!bound) {
         ipThrottle.fail(req.ip)
@@ -188,36 +154,7 @@ export function machineRoutes(ctx: Ctx) {
           row.usedAt ? '接入链接已被使用，请在 Web 端重新生成' : '接入链接已过期，请在 Web 端重新生成',
         )
       }
-      const { machine, ownerName, prev } = bound
-      // A daemon still running on the old token must not keep serving; it reconnects and is told to log in.
-      if (prev) ctx.hub.kick(prev.id, CLOSE.replaced, 'rebound')
-      const transferred = prev && prev.ownerId !== machine.ownerId
-      if (transferred) {
-        if (!prev.revokedAt) ctx.bus.publish([prev.ownerId], { t: 'machine.removed', machineId: prev.id })
-        await audit(ctx, {
-          category: 'admin',
-          actorUserId: machine.ownerId,
-          action: 'machine.transfer',
-          detail: { machineId: machine.id, name: machine.name, fromOwnerId: prev.ownerId },
-        })
-      }
-      await onMachineBound(ctx, machine)
-      ctx.bus.publish([machine.ownerId], { t: 'machine.updated', machine: machineDto(ctx, machine) })
-      // The machine is bound and its old token void by now: a bot that can't be made must not keep the new token from
-      // gg, which then says to create the bot on the Web.
-      const bot = body.createBot
-        ? await onboardBot(ctx, machine, body.createBot.agent).catch((err) => {
-            req.log.warn({ err, machineId: machine.id }, 'onboarding bot not created')
-            return undefined
-          })
-        : undefined
-      return {
-        token,
-        machineId: machine.id,
-        ownerName,
-        restored: !!prev && !transferred,
-        ...(bot && { bot }),
-      }
+      return afterBind(ctx, req.log, bound, token, body.createBot?.agent)
     })
 
     app.post('/api/daemon/logout', async (req, reply) => {

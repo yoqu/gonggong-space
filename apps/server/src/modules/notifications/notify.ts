@@ -80,7 +80,8 @@ export async function resolveNotifications(
     | 'git_operation_request'
     | 'install_request'
     | 'listing_submitted'
-    | 'plugin_trust',
+    | 'plugin_trust'
+    | 'link_request',
   key:
     | 'approvalId'
     | 'questionSetId'

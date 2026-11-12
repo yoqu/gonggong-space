@@ -336,6 +336,45 @@ pub struct DaemonLoginRes {
     pub bot: Option<LoginBot>,
 }
 
+/// POST /api/daemon/link-requests: the bind code expired, so the user allows this machine on the Web instead.
+/// `code` (the expired one) only tells the server whom to ask first.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkRequestReq {
+    pub machine: MachineInfo,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_bot: Option<CreateBot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkRequestRes {
+    pub id: String,
+    pub secret: String,
+    pub user_code: String,
+    pub url: String,
+    pub expires_at: String,
+    pub interval_ms: u64,
+}
+
+/// POST /api/daemon/link-requests/:id/poll.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkPollReq {
+    pub secret: String,
+}
+
+/// `Approved` carries what POST /api/daemon/login returns; the machine is bound at that poll, once.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum LinkPollRes {
+    Pending,
+    Denied,
+    Expired,
+    Approved(DaemonLoginRes),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {

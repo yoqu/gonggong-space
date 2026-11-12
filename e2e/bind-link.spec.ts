@@ -1,5 +1,17 @@
+import { spawn } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
-import { adminSession, bindManaged, buildDaemon, memberWithMachine } from './helpers'
+import {
+  adminSession,
+  bindManaged,
+  buildDaemon,
+  call,
+  GONGGONG_BIN,
+  memberWithMachine,
+  SERVER,
+} from './helpers'
 
 test.beforeAll(buildDaemon)
 
@@ -58,4 +70,40 @@ test('bind via 接入链接; the owner allows a command on the web and the daemo
   } finally {
     m.stop()
   }
+})
+
+test('an expired code binds after the owner allows it on the web', async ({ page }) => {
+  test.setTimeout(3 * 60_000)
+  const { api } = await memberWithMachine(page, 'link2')
+  // A code is spent once a machine binds with it: a second machine using it gets code_expired.
+  const { code } = await call<{ code: string }>(page.request, 'post', '/api/bind-codes')
+  const first = mkdtempSync(join(tmpdir(), 'gonggong-e2e-'))
+  const second = mkdtempSync(join(tmpdir(), 'gonggong-e2e-'))
+  const login = (home: string) =>
+    spawn(GONGGONG_BIN, ['login', '--server', SERVER, '--code', code], {
+      env: { ...process.env, GG_LANG: 'zh', GONGGONG_HOME: home, GONGGONG_MACHINE_ID: home },
+    })
+  const exit = (p: ReturnType<typeof login>) => new Promise<number | null>((r) => p.on('exit', r))
+  expect(await exit(login(first))).toBe(0)
+
+  const gg = login(second)
+  let out = ''
+  gg.stdout.on('data', (d) => {
+    out += String(d)
+  })
+  gg.stderr.on('data', (d) => {
+    out += String(d)
+  })
+  const done = exit(gg)
+  await expect.poll(() => /\/link\/([0-9a-f-]{36})/.exec(out)?.[1], { timeout: 30_000 }).toBeTruthy()
+  const id = /\/link\/([0-9a-f-]{36})/.exec(out)![1]
+  const userCode = /\b([A-Z0-9]{4})\b/.exec(out.slice(out.indexOf('/link/')))?.[1]
+
+  await page.goto(`/link/${id}`)
+  const card = page.getByRole('region', { name: '机器接入申请' })
+  if (userCode) await expect(card).toContainText(userCode)
+  await card.getByRole('button', { name: '允许接入' }).click()
+  await expect(card).toContainText('已允许接入')
+  expect(await done).toBe(0)
+  expect(await api.call<unknown[]>('get', '/api/machines')).toHaveLength(3)
 })

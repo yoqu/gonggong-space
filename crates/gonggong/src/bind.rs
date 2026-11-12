@@ -1,10 +1,14 @@
 use crate::config::{Config, Trust};
-use crate::protocol::{AgentKind, CreateBot, DaemonLoginReq, DaemonLoginRes, LoginBot, MachineInfo, SystemInfo};
+use crate::protocol::{
+    AgentKind, CreateBot, DaemonLoginReq, DaemonLoginRes, LinkPollReq, LinkPollRes, LinkRequestReq, LinkRequestRes,
+    LoginBot, MachineInfo, SystemInfo,
+};
 use crate::t;
 use crate::tls;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::path::Path;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Networks, System};
 
 /// This machine as reported to the server; the name drops any DNS suffix (`wanglei-mbp.local` → `wanglei-mbp`).
@@ -225,7 +229,7 @@ pub async fn login_as(
         let status = res.status();
         let reason = match res.json::<ApiError>().await {
             Ok(e) => match e.error.as_str() {
-                "code_expired" => t!("接入链接已失效（已过期或已被使用），请在 Web 端重新生成").into(),
+                "code_expired" => return Err(CodeExpired.into()),
                 "code_locked" => t!("接入链接尝试次数过多，已锁定，请稍后在 Web 端重新生成").into(),
                 "unauthorized" => t!("接入链接无效，请核对后重试").into(),
                 "invalid" => t!("接入链接中的代码格式应为 XXXX-XXXX").into(),
@@ -236,8 +240,211 @@ pub async fn login_as(
         bail!(t!("绑定失败：{reason}", reason = reason));
     }
     let body: DaemonLoginRes = res.json().await.context(t!("服务器响应无法解析"))?;
+    Ok(logged_in(config, body))
+}
+
+fn logged_in(config: Config, body: DaemonLoginRes) -> Login {
     let config = Config { token: body.token, machine_id: body.machine_id, owner_name: body.owner_name, ..config };
-    Ok(Login { config, restored: body.restored, bot: body.bot })
+    Login { config, restored: body.restored, bot: body.bot }
+}
+
+/// The 接入码 was expired or already used; [`connect`] then asks for a confirmation on the web instead.
+#[derive(Debug)]
+struct CodeExpired;
+
+impl std::fmt::Display for CodeExpired {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let reason = t!("接入链接已失效（已过期或已被使用），请在 Web 端重新生成");
+        f.write_str(&t!("绑定失败：{reason}", reason = reason))
+    }
+}
+
+impl std::error::Error for CodeExpired {}
+
+pub struct Connect<'a> {
+    /// Where the request being waited on is kept (`pending-link.json`), so a rerun after an interrupted wait goes on.
+    pub home: &'a Path,
+    /// Fail on an expired code instead of asking the web (unattended setups such as Docker).
+    pub code_only: bool,
+    pub open_browser: bool,
+}
+
+/// A link request being waited on.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Pending {
+    server: String,
+    #[serde(flatten)]
+    request: LinkRequestRes,
+}
+
+/// `gg login`: the 接入码 when it still works, otherwise (or without one) a request the user allows on the web.
+pub async fn connect(
+    server: &str,
+    code: Option<&str>,
+    machine: MachineInfo,
+    trust: Trust,
+    create_bot: Option<AgentKind>,
+    opts: Connect<'_>,
+) -> Result<Login> {
+    let server = server.trim_end_matches('/');
+    if let Some(code) = code {
+        match login_as(server, code, machine.clone(), trust.clone(), create_bot).await {
+            Err(e) if !opts.code_only && e.is::<CodeExpired>() => {}
+            done => return done,
+        }
+    }
+    let config = Config {
+        server: server.into(),
+        token: String::new(),
+        machine_id: String::new(),
+        owner_name: String::new(),
+        tls_trust: Some(trust),
+    };
+    let http = tls::http(&config)?;
+    let file = opts.home.join("pending-link.json");
+    let resumed = std::fs::read(&file)
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Pending>(&b).ok())
+        .filter(|p| p.server == server)
+        .map(|p| p.request);
+    let (mut request, mut heading) = match resumed {
+        Some(r) => (r, t!("继续等待上次的接入申请：")),
+        None => {
+            let heading = match code {
+                Some(_) => t!("接入码已过期或已用过，改为在网页上确认这台机器："),
+                None => t!("请在网页上确认这台机器："),
+            };
+            (request_link(&http, server, code, &machine, create_bot).await?, heading)
+        }
+    };
+    let mut renewed = false;
+    loop {
+        save_pending(&file, &Pending { server: server.into(), request: request.clone() })?;
+        println!("{heading}");
+        prompt(&request, opts.open_browser);
+        let interval =
+            std::time::Duration::from_millis(if request.interval_ms == 0 { 3000 } else { request.interval_ms });
+        let ended = loop {
+            match poll_link(&http, server, &request).await? {
+                Some(LinkPollRes::Pending) => tokio::time::sleep(interval).await,
+                other => break other,
+            }
+        };
+        let _ = std::fs::remove_file(&file);
+        match ended {
+            Some(LinkPollRes::Approved(body)) => return Ok(logged_in(config, body)),
+            Some(LinkPollRes::Denied) => {
+                bail!(t!("接入申请已被拒绝；如需接入，请重新运行 gg login --server {server}", server = server))
+            }
+            // Expired, or gone from the server (a stale saved request): one fresh request, then give up.
+            _ if !renewed => {
+                renewed = true;
+                heading = t!("接入申请已过期，已重新发起：");
+                request = request_link(&http, server, code, &machine, create_bot).await?;
+            }
+            _ => bail!(t!(
+                "接入申请一直没有人确认，已停止等待；准备好后请重新运行 gg login --server {server}",
+                server = server
+            )),
+        }
+    }
+}
+
+async fn request_link(
+    http: &reqwest::Client,
+    server: &str,
+    code: Option<&str>,
+    machine: &MachineInfo,
+    create_bot: Option<AgentKind>,
+) -> Result<LinkRequestRes> {
+    let res = http
+        .post(format!("{server}/api/daemon/link-requests"))
+        .json(&LinkRequestReq {
+            machine: machine.clone(),
+            create_bot: create_bot.map(|agent| CreateBot { agent }),
+            code: code.map(|c| c.trim().to_uppercase()),
+        })
+        .send()
+        .await
+        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
+    let status = res.status();
+    if status == reqwest::StatusCode::NOT_FOUND {
+        // A server from before web confirmation.
+        if code.is_some() {
+            return Err(CodeExpired.into());
+        }
+        bail!(t!("绑定失败：服务器版本较旧，请在 Web 端重新生成接入链接"));
+    }
+    if !status.is_success() {
+        let reason = match res.json::<ApiError>().await {
+            Ok(e) if e.error == "code_locked" => t!("待确认的接入申请过多，请稍后再试").into(),
+            Ok(e) => e.message,
+            Err(_) => t!("服务器返回 {status}", status = status),
+        };
+        bail!(t!("绑定失败：{reason}", reason = reason));
+    }
+    res.json().await.context(t!("服务器响应无法解析"))
+}
+
+/// `None`: the server no longer knows this request (or its secret), e.g. one saved by an earlier run.
+async fn poll_link(http: &reqwest::Client, server: &str, request: &LinkRequestRes) -> Result<Option<LinkPollRes>> {
+    let res = http
+        .post(format!("{server}/api/daemon/link-requests/{}/poll", request.id))
+        .json(&LinkPollReq { secret: request.secret.clone() })
+        .send()
+        .await
+        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
+    let status = res.status();
+    if matches!(status.as_u16(), 401 | 404 | 409) {
+        return Ok(None);
+    }
+    if !status.is_success() {
+        bail!(t!("绑定失败：{reason}", reason = t!("服务器返回 {status}", status = status)));
+    }
+    res.json().await.map(Some).context(t!("服务器响应无法解析"))
+}
+
+fn save_pending(file: &Path, pending: &Pending) -> Result<()> {
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(file, serde_json::to_vec_pretty(pending)?)?;
+    // It holds the request's secret.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
+/// What the user (or the agent relaying it) needs: where to allow this machine and the code to check there.
+fn prompt(request: &LinkRequestRes, open_browser: bool) {
+    println!("  {}", t!("确认链接：{url}", url = request.url));
+    println!("  {}", t!("核对码：{code}（与网页上显示的一致再点「允许接入」）", code = request.user_code));
+    println!("{}", t!("等待确认…命令中断后重新运行同一条命令会接着等"));
+    if open_browser {
+        open_url(&request.url);
+    }
+}
+
+/// Best effort: a desktop session opens the link itself; a headless one only has the printed link.
+fn open_url(url: &str) {
+    let graphical = std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let cmd = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "linux") && graphical {
+        "xdg-open"
+    } else {
+        return;
+    };
+    let _ = std::process::Command::new(cmd)
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
 }
 
 /// Voids this machine's token on the server; the machine itself stays so logging in again restores it.

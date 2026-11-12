@@ -198,6 +198,15 @@ describe('install.md and install.sh', () => {
       'status',
     ])
     expect(out).toContain('service: running')
+    expect(out).toContain('Downloading')
+
+    // Run again (an agent whose command was cut off while gg waited): the same gg is not downloaded again.
+    const { stdout: again } = await run(dir)
+    expect(again).not.toContain('Downloading')
+    expect(again).toContain('already installed')
+    expect(readFileSync(log, 'utf8').trim().split('\n').at(-3)).toBe(
+      `login --server ${server} --code ABCD-EFGH --create-bot claude`,
+    )
 
     // A build that does not match its sha256 is never run.
     await t.db.delete(systemParams)

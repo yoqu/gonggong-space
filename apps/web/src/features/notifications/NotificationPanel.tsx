@@ -59,6 +59,7 @@ const ICON: Record<NotificationDto['type'], { icon: IconName; color: string }> =
   join_decided: { icon: 'person-add', color: 'var(--system-blue)' },
   reminder: { icon: 'bookmark', color: 'var(--system-indigo)' },
   plugin_trust: { icon: 'plug', color: 'var(--system-orange)' },
+  link_request: { icon: 'link', color: 'var(--system-orange)' },
 }
 
 /** Whether 飞书通知 is on, and a way to its setting; only once the account is linked to Feishu. */

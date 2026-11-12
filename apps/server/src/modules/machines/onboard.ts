@@ -32,7 +32,8 @@ export const agentPrompt = (origin: string, code: string) =>
  * The server as a client outside the browser reaches it: the configured public URL, else the request's host with the
  * scheme the TLS-terminating proxy saw (plain http here would downgrade the checksum and the bind code).
  */
-async function serverUrl(ctx: Ctx, req: FastifyRequest) {
+/** The public address: the configured one, else as the request reached us (behind a proxy, its protocol). */
+export async function serverUrl(ctx: Ctx, req: FastifyRequest) {
   const configured = (await sysParams(ctx.db)).publicUrl.replace(/\/+$/, '')
   const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol).split(',')[0]
   return configured || `${proto}://${req.host}`

@@ -4,6 +4,7 @@
 mod artifacts;
 mod attachments;
 mod bind;
+mod link;
 mod bots;
 mod cast;
 mod contract;

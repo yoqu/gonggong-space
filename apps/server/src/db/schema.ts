@@ -1,4 +1,5 @@
 import {
+  type AgentKind,
   type AgentSettingValues,
   type AiReview,
   type ArtifactFile,
@@ -11,6 +12,7 @@ import {
   LIVE_RUN_STATUSES,
   type LintIssue,
   type ListingSource,
+  type MachineInfo,
   type NotifyLevel,
   type NotifyPrefs,
   type PluginManifest,
@@ -164,6 +166,30 @@ export const bindCodes = pgTable('bind_codes', {
   failedAttempts: integer('failed_attempts').notNull().default(0),
   createdAt: createdAt(),
 })
+
+/**
+ * 接入申请: a machine whose bind code expired asks to be bound; whoever signed in allows it on /link/:id owns it.
+ * `hint_user_id`: who issued that expired code, asked first. The token is only minted at the poll that binds.
+ */
+export const linkRequests = pgTable(
+  'link_requests',
+  {
+    id: id(),
+    /** sha256 of the poll secret only the requesting gg holds. */
+    secretHash: text('secret_hash').notNull(),
+    userCode: text('user_code').notNull(),
+    machine: jsonb('machine').$type<MachineInfo>().notNull(),
+    createBotAgent: text('create_bot_agent').$type<AgentKind>(),
+    hintUserId: uuid('hint_user_id').references(() => users.id),
+    ip: text('ip').notNull(),
+    /** pending | approved | denied | consumed */
+    status: text('status').notNull().default('pending'),
+    approvedBy: uuid('approved_by').references(() => users.id),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('link_requests_hint_idx').on(t.hintUserId, t.status)],
+)
 
 export const machines = pgTable('machines', {
   id: id(),

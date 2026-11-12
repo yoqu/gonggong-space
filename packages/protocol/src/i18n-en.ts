@@ -278,6 +278,9 @@ export const protocolEn = {
     '{bot}\'s machine cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
   '待确认 Bot': 'Bot to confirm',
   插件运行授权: 'Plugin authorization',
+  机器接入申请: 'Machine hookup request',
+  待确认的机器接入: 'Machine waiting to be allowed',
+  '{machine} 请求接入': '{machine} asks to be hooked up',
   待授权的插件: 'Plugin to authorize',
   '插件 {plugin} {version} 要在 {machine} 上运行代码，请确认':
     'Plugin {plugin} {version} wants to run code on {machine}. Please confirm',

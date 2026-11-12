@@ -1,0 +1,8 @@
+{
+  "status": "approved",
+  "token": "mt_abc",
+  "machineId": "m1",
+  "ownerName": "王磊",
+  "restored": false,
+  "bot": { "id": "b1", "name": "王磊的 Claude Code", "groupId": "g1" }
+}

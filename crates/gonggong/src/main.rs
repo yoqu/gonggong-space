@@ -33,12 +33,13 @@ enum Cmd {
         cmd: Option<gonggong::tools::AgentsCmd>,
     },
     /// Bind this machine to your account with a one-time code from the Web (头像菜单 → 绑定新机器): pass the 接入链接
-    /// (gg login 'gonggong://bind?…') or --server and --code.
+    /// (gg login 'gonggong://bind?…') or --server and --code. An expired code, or --server alone, asks you to allow
+    /// this machine on the Web instead.
     Login {
         /// The 接入链接 copied from the Web.
-        #[arg(conflicts_with_all = ["server", "code", "fingerprint", "ca_file"], required_unless_present_all = ["server", "code"])]
+        #[arg(conflicts_with_all = ["server", "code", "fingerprint", "ca_file"], required_unless_present = "server")]
         link: Option<String>,
-        #[arg(long, requires = "code")]
+        #[arg(long)]
         server: Option<String>,
         #[arg(long, requires = "server")]
         code: Option<String>,
@@ -52,6 +53,9 @@ enum Cmd {
         /// (claude|codex|gemini|codebuddy|pi|deepseek).
         #[arg(long, value_name = "AGENT", value_parser = configure::parse_kind)]
         create_bot: Option<AgentKind>,
+        /// Fail on an expired code instead of asking for a confirmation on the Web (unattended setups such as Docker).
+        #[arg(long)]
+        code_only: bool,
     },
     /// Keep `gg run` running in the background and start it at login (macOS launchd, Linux systemd user unit).
     Service {
@@ -212,14 +216,14 @@ async fn main() -> anyhow::Result<()> {
     };
     match cli.cmd {
         Cmd::Agents { cmd } => gonggong::tools::cli(&config::home(), cmd).await?,
-        Cmd::Login { link, server, code, fingerprint, ca_file, create_bot } => {
-            let (server, code, fingerprint, create_bot) = match (link, server, code) {
-                (Some(link), _, _) => {
+        Cmd::Login { link, server, code, fingerprint, ca_file, create_bot, code_only } => {
+            let (server, code, fingerprint, create_bot) = match (link, server) {
+                (Some(link), _) => {
                     let link = gonggong::bind::parse_link(&link)?;
-                    (link.server, link.code, link.fingerprint, create_bot.or(link.create_bot))
+                    (link.server, Some(link.code), link.fingerprint, create_bot.or(link.create_bot))
                 }
-                (None, Some(server), Some(code)) => (server, code, fingerprint, create_bot),
-                _ => unreachable!("clap requires a link or --server and --code"),
+                (None, Some(server)) => (server, code, fingerprint, create_bot),
+                _ => unreachable!("clap requires a link or --server"),
             };
             let trust = match (fingerprint, ca_file) {
                 (Some(fingerprint), None) => Trust::fingerprint(&fingerprint)?,
@@ -228,8 +232,10 @@ async fn main() -> anyhow::Result<()> {
                 (Some(_), Some(_)) => unreachable!("clap makes the trust options exclusive"),
             };
             let machine = machine_info();
+            let home = config::home();
+            let opts = gonggong::bind::Connect { home: &home, code_only, open_browser: true };
             let gonggong::bind::Login { config, restored, bot } =
-                gonggong::bind::login_as(&server, &code, machine.clone(), trust, create_bot).await?;
+                gonggong::bind::connect(&server, code.as_deref(), machine.clone(), trust, create_bot, opts).await?;
             config.save()?;
             if restored {
                 println!(

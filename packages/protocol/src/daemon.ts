@@ -154,6 +154,37 @@ export const DaemonLoginRes = z.object({
 })
 export type DaemonLoginRes = z.infer<typeof DaemonLoginRes>
 
+// ── REST: 接入申请 (bind code expired → the user allows the machine on the Web) ──
+/**
+ * POST /api/daemon/link-requests. `code`: the expired bind code, only used to find who issued it and ask them first;
+ * anyone signed in who opens `url` may allow it, and the machine is theirs.
+ */
+export const LinkRequestReq = z.object({
+  machine: MachineInfo,
+  createBot: z.object({ agent: AgentKind }).optional(),
+  code: z.string().optional(),
+})
+export type LinkRequestReq = z.infer<typeof LinkRequestReq>
+/** `secret` is only for polling; `userCode` is shown on both sides to check it is the same machine. */
+export const LinkRequestRes = z.object({
+  id: z.string(),
+  secret: z.string(),
+  userCode: z.string(),
+  url: z.string(),
+  expiresAt: z.string(),
+  intervalMs: z.number().int(),
+})
+export type LinkRequestRes = z.infer<typeof LinkRequestRes>
+/** POST /api/daemon/link-requests/:id/poll. */
+export const LinkPollReq = z.object({ secret: z.string() })
+export type LinkPollReq = z.infer<typeof LinkPollReq>
+/** Allowed: the machine is bound at this poll, once, with the same result as POST /api/daemon/login. */
+export const LinkPollRes = z.discriminatedUnion('status', [
+  z.object({ status: z.enum(['pending', 'denied', 'expired']) }),
+  DaemonLoginRes.extend({ status: z.literal('approved') }),
+])
+export type LinkPollRes = z.infer<typeof LinkPollRes>
+
 // ── REST for the daemon / desktop app (machine token, `Authorization: Bearer`) ─
 /** POST /api/daemon/net: a measured round trip + throughput to the server. */
 export const NetReportReq = z.object({ latencyMs: z.number().min(0), bandwidthMbps: z.number().min(0) })

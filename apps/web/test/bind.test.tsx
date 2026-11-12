@@ -75,6 +75,16 @@ const api = (ttlMs = 30 * 60_000) =>
     'GET /machines': [old],
   })
 
+const request = {
+  id: 'r1',
+  machine: { name: 'wanglei-mbp', os: 'macos', arch: 'aarch64' },
+  agent: 'claude',
+  ip: '203.0.113.7',
+  userCode: 'X7QM',
+  status: 'pending',
+  expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+}
+
 /** 其他方式: the desktop app, the gg login command and Docker. */
 const others = () => fireEvent.click(screen.getByRole('button', { name: '其他方式' }))
 const openLink = async () => {
@@ -105,7 +115,9 @@ describe('bind machine dialog', () => {
     show()
     const card = await screen.findByRole('region', { name: '发给你的 Agent' })
     expect(within(card).getByText(promptOf('K7QM-4X2P'))).toBeTruthy()
-    expect(within(card).getByText(/^一次性接入码 · (30:0\d|29:5\d) 后失效$/)).toBeTruthy()
+    // No countdown: an expired code still binds, through a confirmation here.
+    expect(within(card).getByText('接入码过期也能接入，届时在这里点一下允许')).toBeTruthy()
+    expect(card.textContent).not.toMatch(/后失效/)
     // One line of explanation (the dialog message); what the client reports is folded away.
     const dialog = screen.getByRole('dialog', { name: '绑定新机器' })
     expect(dialog.textContent).toContain('它会自己安装 gg、绑定这台机器并建好 Bot')
@@ -151,7 +163,6 @@ describe('bind machine dialog', () => {
     api()
     show()
     expect((await openLink()).getAttribute('href')).toBe(linkOf('K7QM-4X2P'))
-    expect(await screen.findByText(/^一次性接入链接 · (30:0\d|29:5\d) 后失效$/)).toBeTruthy()
     expect(screen.getByText('没有自动打开？复制接入链接，粘贴到客户端。')).toBeTruthy()
     // Three steps, the client download first.
     const sections = ['安装客户端', '打开接入链接', '等待接入'].map((name) =>
@@ -341,19 +352,49 @@ describe('bind machine dialog', () => {
     expect(screen.getByText(/old-box/)).toBeTruthy()
   })
 
-  it('offers a new code once the current one expires', async () => {
+  it('swaps in a new code silently once the current one expires', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const calls = api(2_000)
     show()
     await openLink()
     await act(async () => vi.advanceTimersByTime(3_000))
-    expect(screen.getByText('接入链接已失效')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
-    // The agent card offers one too: the code is the same for both ways.
-    const card = screen.getByRole('region', { name: '发给你的 Agent' })
-    expect(within(card).getByText('接入码已失效')).toBeTruthy()
-    fireEvent.click(within(card).getByRole('button', { name: '重新生成' }))
     expect((await openLink()).getAttribute('href')).toBe(linkOf('ABCD-EFGH'))
+    const card = screen.getByRole('region', { name: '发给你的 Agent' })
+    expect(within(card).getByText(promptOf('ABCD-EFGH'))).toBeTruthy()
+    expect(screen.queryByText(/已失效/)).toBeNull()
     expect(calls.filter((c) => c.path === '/bind-codes')).toHaveLength(2)
+  })
+
+  it('keeps a validity note for Docker, which only binds with the code', async () => {
+    api()
+    show()
+    await openLink()
+    fireEvent.click(screen.getByRole('button', { name: '在 Docker 中运行' }))
+    expect(screen.getByText(/接入码 30 分钟内有效，过期请重新生成/)).toBeTruthy()
+  })
+
+  it('asks right here when a machine whose code expired requests to be bound', async () => {
+    const calls = mockApi({
+      'POST /bind-codes': {
+        code: 'K7QM-4X2P',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        link: linkOf('K7QM-4X2P'),
+        agentPrompt: promptOf('K7QM-4X2P'),
+      },
+      'GET /machines': [old],
+      'POST /link-requests/r1/approve': { ...request, status: 'approved' },
+    })
+    show()
+    const card = await screen.findByRole('region', { name: '发给你的 Agent' })
+    expect(screen.queryByRole('region', { name: '机器接入申请' })).toBeNull()
+    act(() => FakeSocket.last.onmessage?.({ data: JSON.stringify({ t: 'machine.linkRequested', request }) }))
+    const ask = within(card).getByRole('region', { name: '机器接入申请' })
+    expect(ask.textContent).toContain('wanglei-mbp')
+    expect(within(ask).getByText('X7QM')).toBeTruthy()
+    fireEvent.click(within(ask).getByRole('button', { name: '允许接入' }))
+    expect(await within(ask).findByText('已允许接入')).toBeTruthy()
+    expect(calls.some((c) => c.path === '/link-requests/r1/approve')).toBe(true)
+    emit(fresh)
+    expect(screen.getByText('绑定成功')).toBeTruthy()
   })
 })

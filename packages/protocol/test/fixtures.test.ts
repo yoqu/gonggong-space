@@ -11,6 +11,9 @@ import {
   DaemonPluginRes,
   DaemonSkillRes,
   DaemonToServer,
+  LinkPollRes,
+  LinkRequestReq,
+  LinkRequestRes,
   ServerToDaemon,
   SyncChangesRes,
   SyncMissingRes,
@@ -40,6 +43,9 @@ const http = {
   'daemon-artifact-manifest': ArtifactManifestRes,
   'daemon-artifact-submit': ArtifactSubmitReq,
   'daemon-artifact-submitted': ArtifactSubmitRes,
+  'link-request': LinkRequestReq,
+  'link-requested': LinkRequestRes,
+  'link-poll': LinkPollRes,
 }
 
 describe('wire fixtures (shared with the Rust daemon)', () => {

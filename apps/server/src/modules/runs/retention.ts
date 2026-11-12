@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, isNull, lt, lte, or } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
-import { bindCodes, runEvents, runs, systemParams, webSessions } from '../../db/schema.js'
+import { bindCodes, linkRequests, runEvents, runs, systemParams, webSessions } from '../../db/schema.js'
 import { purgeSyncBlobs } from '../sync/blobs.js'
 import { runCardText } from './search-text.js'
 
@@ -55,6 +55,7 @@ export async function purgeExpiredLogins(ctx: Ctx) {
     .delete(webSessions)
     .where(or(lte(webSessions.expiresAt, now), isNotNull(webSessions.revokedAt)))
   await ctx.db.delete(bindCodes).where(lt(bindCodes.expiresAt, new Date(now.getTime() - DAY_MS)))
+  await ctx.db.delete(linkRequests).where(lt(linkRequests.expiresAt, new Date(now.getTime() - DAY_MS)))
 }
 
 /** Purges runs, unneeded sync blobs (F16) and dead logins now and then every `everyMs`; the returned function stops and waits for a purge in flight. */

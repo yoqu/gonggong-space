@@ -127,6 +127,35 @@ pub(super) const EN: &[(&str, &str)] = &[
         "接入链接已失效（已过期或已被使用），请在 Web 端重新生成",
         "The connect link is no longer valid (expired or already used); generate a new one on the Web",
     ),
+    ("继续等待上次的接入申请：", "Still waiting for the previous connection request:"),
+    (
+        "接入码已过期或已用过，改为在网页上确认这台机器：",
+        "The connect code expired or was already used; allow this machine on the web instead:",
+    ),
+    ("请在网页上确认这台机器：", "Allow this machine on the web:"),
+    ("接入申请已过期，已重新发起：", "The connection request expired; sent a new one:"),
+    (
+        "接入申请已被拒绝；如需接入，请重新运行 gg login --server {server}",
+        "The connection request was denied; to connect, run gg login --server {server} again",
+    ),
+    (
+        "接入申请一直没有人确认，已停止等待；准备好后请重新运行 gg login --server {server}",
+        "Nobody allowed the connection request, so gg stopped waiting; run gg login --server {server} again when ready",
+    ),
+    (
+        "绑定失败：服务器版本较旧，请在 Web 端重新生成接入链接",
+        "Couldn't bind: the server is too old; generate a new connect link on the web",
+    ),
+    ("待确认的接入申请过多，请稍后再试", "Too many connection requests are waiting; try again later"),
+    ("确认链接：{url}", "Link: {url}"),
+    (
+        "核对码：{code}（与网页上显示的一致再点「允许接入」）",
+        "Check code: {code} (click Allow only if the web page shows the same code)",
+    ),
+    (
+        "等待确认…命令中断后重新运行同一条命令会接着等",
+        "Waiting for confirmation... if this command is interrupted, run it again to keep waiting",
+    ),
     (
         "接入链接尝试次数过多，已锁定，请稍后在 Web 端重新生成",
         "Too many connect link attempts; it is locked. Generate a new one on the Web later",

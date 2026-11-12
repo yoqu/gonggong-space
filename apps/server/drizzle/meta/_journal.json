@@ -771,6 +771,13 @@
       "when": 1794386417410,
       "tag": "0109_mighty_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1794475231339,
+      "tag": "0110_lowly_the_stranger",
+      "breakpoints": true
     }
   ]
 }

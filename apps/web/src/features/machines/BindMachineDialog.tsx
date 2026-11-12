@@ -1,4 +1,4 @@
-import type { MachineDto } from '@gonggong/protocol'
+import type { LinkRequestDto, MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../../lib/api'
@@ -17,6 +17,7 @@ import {
 import { AGENT_LABEL } from '../bots/model'
 import { AgentPrompt, BindCodePanel, useBindCode } from './BindCodePanel'
 import { ClientDownload } from './ClientDownload'
+import { LinkRequestCard } from './LinkRequestCard'
 import { OS_LABEL } from './model'
 import './machines.css'
 import { t } from '../../i18n'
@@ -46,8 +47,10 @@ export function BindMachineDialog({
   const [viaClient, setViaClient] = useState(onWindows)
   /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
   const known = useRef<Map<string, string> | null>(null)
+  /** A machine whose code had expired asking to be bound: confirmed right here instead of on /link/:id. */
+  const [request, setRequest] = useState<LinkRequestDto | null>(null)
   const bind = useBindCode(open, !!bound)
-  const { code, error, expired } = bind
+  const { code, error } = bind
   const navigate = useNavigate()
   // Read when the agent is done, so a parent re-render (a new onClose) does not restart the wait below.
   const leave = useRef({ navigate, onClose })
@@ -58,11 +61,16 @@ export function BindMachineDialog({
     setBound(null)
     setInstalled(false)
     setViaClient(onWindows())
+    setRequest(null)
     known.current = null
     void api.get<MachineDto[]>('/machines').then((list) => {
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
     })
     return realtime.subscribe((e) => {
+      if (e.t === 'machine.linkRequested') {
+        setRequest(e.request)
+        return
+      }
       if (e.t === 'machine.onboarded') {
         leave.current.navigate(`/g/${e.groupId}`)
         leave.current.onClose()
@@ -86,7 +94,7 @@ export function BindMachineDialog({
   const steps: { label: string; status: StepStatus }[] = [
     {
       label: t('复制给 Agent'),
-      status: bound ? 'completed' : expired || error ? 'error' : code ? 'active' : 'pending',
+      status: bound ? 'completed' : error ? 'error' : code ? 'active' : 'pending',
     },
     { label: t('机器接入'), status: bound ? 'completed' : 'pending' },
     { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
@@ -119,6 +127,7 @@ export function BindMachineDialog({
             <section className="bind__section" aria-label={t('发给你的 Agent')}>
               <h3 className="bind__heading">{t('发给你的 Agent')}</h3>
               <AgentPrompt bind={bind} />
+              {request ? <LinkRequestCard key={request.id} request={request} /> : null}
               {onWindows() ? (
                 <Alert variant="info" description={t('Windows 上请展开「其他方式」，用桌面客户端绑定。')} />
               ) : null}
@@ -162,7 +171,7 @@ export function BindMachineDialog({
             </>
           ) : (
             <>
-              {code && !expired ? (
+              {code ? (
                 <span className="bind__waiting">
                   <Spinner size={14} />
                   {t('等待接入…Agent 会自己下载安装，通常 1–3 分钟')}

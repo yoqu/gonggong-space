@@ -12,8 +12,6 @@ export default {
   'Claude 可执行文件': 'Claude executable',
   '可选；留空使用该机器的 Agent 路径': "Optional; leave empty to use the machine's Agent path",
   接入链接: 'Connect link',
-  '一次性接入链接 · {time} 后失效': 'One-time connect link · Expires in {time}',
-  接入链接已失效: 'Connect link expired',
   重新生成: 'Regenerate',
   在客户端中打开: 'Open in client',
   已复制接入链接: 'Connect link copied',
@@ -349,8 +347,6 @@ export default {
   '① 安装客户端': '① Install the client',
   '② 打开接入链接': '② Open the connect link',
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
-  接入码已失效: 'The code has expired',
-  '一次性接入码 · {time} 后失效': 'One-time code · expires in {time}',
   等待接入: 'Waiting to connect',
   '复制给 Agent': 'Copy to your agent',
   机器接入: 'Machine connects',
@@ -445,4 +441,25 @@ export default {
   还没有插件请求在这台机器上运行代码: 'No plugin has asked to run code on this machine yet',
   稍后: 'Later',
   '在 {machine} 上新建 Bot': 'New Bot on {machine}',
+  '接入码过期也能接入，届时在这里点一下允许': 'An expired code still connects: you will just allow it here',
+  '接入码 30 分钟内有效，过期请重新生成。':
+    'The code is valid for 30 minutes; generate a new one once it expires.',
+  确认机器接入: 'Confirm a machine',
+  无法打开接入申请: 'Cannot open this connection request',
+  查看我的机器: 'View my machines',
+  核对码: 'Check code',
+  '发起 IP': 'Requested from IP',
+  '只在你本人刚发起接入、且核对码与终端一致时允许。':
+    'Allow only if you just started connecting this machine yourself and the code matches the one in its terminal.',
+  允许接入: 'Allow',
+  已允许接入: 'Allowed',
+  '机器正在接入，Bot 建好后自动打开私聊。':
+    'The machine is connecting; its bot’s DM opens once the bot is made.',
+  '机器正在接入，稍后可在「机器与 Bot」中查看。':
+    'The machine is connecting; find it under Machines & Bots shortly.',
+  已拒绝接入: 'Denied',
+  '这台机器不会被绑定。': 'This machine will not be bound.',
+  接入申请已过期: 'This request has expired',
+  '在机器的终端重新运行接入命令即可。': 'Run the connect command again in the machine’s terminal.',
+  这个接入申请已处理过: 'This request was already handled',
 } satisfies Record<string, string>

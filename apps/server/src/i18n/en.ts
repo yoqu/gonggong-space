@@ -397,6 +397,14 @@ export const en = {
   '主机名只能包含字母、数字、点、短横线和端口':
     'A host name may only contain letters, digits, dots, hyphens and a port',
   '接入链接尝试次数过多，请 10 分钟后再试': 'Too many connect link attempts, try again in 10 minutes',
+  接入申请不存在: 'No such hookup request',
+  '待确认的接入申请过多，请先在网页处理或稍后再试':
+    'Too many hookup requests are waiting; handle them on the Web or try again later',
+  '接入申请无效，请重新运行接入命令': 'This hookup request is not valid; run the hookup command again',
+  '接入申请已使用，请重新运行接入命令': 'This hookup request was already used; run the hookup command again',
+  '接入申请已过期，请在终端重新运行接入命令':
+    'This hookup request expired; run the hookup command in the terminal again',
+  接入申请已处理: 'This hookup request was already handled',
   '接入链接中的代码格式应为 XXXX-XXXX': 'The code in the connect link should look like XXXX-XXXX',
   '这台机器已归属 {owner}，其上还有 {n} 个 Bot，需先删除后才能转给你':
     'This machine belongs to {owner} and still has {n} {n:Bot|Bots}; delete them before it can move to you',

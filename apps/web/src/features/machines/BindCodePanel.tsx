@@ -2,8 +2,6 @@ import type { BindCodeDto } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { api, errorText } from '../../lib/api'
 import { copyText, copyWithToast } from '../../lib/clipboard'
-import { useNow } from '../../lib/now'
-import { countdown } from '../../lib/time'
 import { Alert, Button, Disclosure, Form, FormRow, Icon, IconButton, Spinner, toast } from '../../ui'
 import './machines.css'
 import { t } from '../../i18n'
@@ -11,19 +9,18 @@ import { t } from '../../i18n'
 export interface BindCode {
   code: BindCodeDto | null
   error: string
-  remaining: number
-  expired: boolean
   generate: () => Promise<void>
 }
 
-/** A one-time 接入链接, generated whenever `open` turns on; the countdown stops once `done`. */
+/**
+ * A one-time 接入链接, generated whenever `open` turns on. An expired code is swapped for a new one in place (until
+ * `done`): a machine that used the old one asks to be confirmed on the web instead of failing.
+ */
 export function useBindCode(open: boolean, done = false): BindCode {
   const [code, setCode] = useState<BindCodeDto | null>(null)
   const [error, setError] = useState('')
-  const now = useNow(open && !!code && !done)
 
   const generate = useCallback(async () => {
-    setCode(null)
     setError('')
     try {
       setCode(await api.post<BindCodeDto>('/bind-codes'))
@@ -33,11 +30,17 @@ export function useBindCode(open: boolean, done = false): BindCode {
   }, [])
 
   useEffect(() => {
+    setCode(null)
     if (open) void generate()
   }, [open, generate])
 
-  const remaining = code ? Date.parse(code.expiresAt) - now : 0
-  return { code, error, remaining, expired: !!code && !done && remaining <= 0, generate }
+  useEffect(() => {
+    if (!open || done || !code) return
+    const timer = setTimeout(() => void generate(), Math.max(0, Date.parse(code.expiresAt) - Date.now()))
+    return () => clearTimeout(timer)
+  }, [open, done, code, generate])
+
+  return { code, error, generate }
 }
 
 export const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
@@ -51,7 +54,7 @@ const copy = (text: string, message: string) => void copyWithToast(text, message
  * machine and gets its bot made by itself.
  */
 export function AgentPrompt({ bind }: { bind: BindCode }) {
-  const { code, error, remaining, expired, generate } = bind
+  const { code, error, generate } = bind
   /** The code whose sentence was copied: a new code is a new sentence to copy. */
   const [copied, setCopied] = useState<string | null>(null)
   if (error)
@@ -64,15 +67,6 @@ export function AgentPrompt({ bind }: { bind: BindCode }) {
       </span>
     )
   if (!code) return <Spinner size={18} />
-  if (expired)
-    return (
-      <span className="bind__code-line">
-        <span className="bind__expired">{t('接入码已失效')}</span>
-        <Button size="small" onClick={() => void generate()}>
-          {t('重新生成')}
-        </Button>
-      </span>
-    )
   return (
     <div className="bind__prompt-card">
       <p className="bind__prompt">{code.agentPrompt}</p>
@@ -88,9 +82,7 @@ export function AgentPrompt({ bind }: { bind: BindCode }) {
         >
           {copied === code.code ? t('已复制') : t('复制')}
         </Button>
-        <span className="bind__note">
-          {t('一次性接入码 · {time} 后失效', { time: countdown(remaining) })}
-        </span>
+        <span className="bind__note">{t('接入码过期也能接入，届时在这里点一下允许')}</span>
       </span>
     </div>
   )
@@ -98,23 +90,11 @@ export function AgentPrompt({ bind }: { bind: BindCode }) {
 
 /** 接入链接: open it in the desktop app, or copy it; the gg login command sits under 使用命令行. */
 export function BindCodePanel({ bind }: { bind: BindCode }) {
-  const { code, error, remaining, expired, generate } = bind
-  const waiting = !!code && !expired
+  const { code, error, generate } = bind
   return (
     <Form>
-      <FormRow
-        label={t('接入链接')}
-        align="top"
-        hint={waiting ? t('一次性接入链接 · {time} 后失效', { time: countdown(remaining) }) : undefined}
-      >
-        {expired ? (
-          <span className="bind__code-line">
-            <span className="bind__expired">{t('接入链接已失效')}</span>
-            <Button size="small" onClick={() => void generate()}>
-              {t('重新生成')}
-            </Button>
-          </span>
-        ) : code ? (
+      <FormRow label={t('接入链接')} align="top">
+        {code ? (
           <div className="bind__open">
             <span className="bind__code-line">
               <a className="ui-btn ui-btn--primary bind__open-link" href={code.link}>
@@ -141,7 +121,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
             <span className="bind__cmd-text">{code ? loginCommand(code) : '—'}</span>
             <IconButton
               title={t('复制命令')}
-              disabled={!waiting}
+              disabled={!code}
               onClick={() => code && copy(loginCommand(code), t('已复制绑定命令'))}
             >
               <Icon name="copy" />
@@ -156,7 +136,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
             <span className="bind__cmd-text">{code ? dockerEnv(code) : '—'}</span>
             <IconButton
               title={t('复制')}
-              disabled={!waiting}
+              disabled={!code}
               onClick={() => code && copy(dockerEnv(code), t('已复制'))}
             >
               <Icon name="copy" />
@@ -167,6 +147,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
               '在服务器的 docker/daemon 目录，把这一行加到 .env（另需 GG_VERSION 与 GONGGONG_MACHINE_ID），然后运行 docker compose up -d --build，容器首次启动时自动绑定。',
             )}
           </p>
+          <p className="bind__note">{t('接入码 30 分钟内有效，过期请重新生成。')}</p>
         </Disclosure>
       </FormRow>
     </Form>

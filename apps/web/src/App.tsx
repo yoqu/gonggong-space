@@ -14,6 +14,7 @@ const FeishuChoosePage = named(() => import('./features/feishu/FeishuChoosePage'
 const JoinPage = named(() => import('./features/teams/JoinPage'), 'JoinPage')
 const WelcomePage = named(() => import('./features/teams/WelcomePage'), 'WelcomePage')
 const SecretRequestPage = named(() => import('./features/secrets/SecretRequestPage'), 'SecretRequestPage')
+const LinkRequestPage = named(() => import('./features/machines/LinkRequestPage'), 'LinkRequestPage')
 const AdminRoutes = lazy(() => import('./features/admin/AdminRoutes'))
 // Behind the DEV check so production builds don't emit the gallery chunk at all.
 const UiGallery = import.meta.env.DEV ? lazy(() => import('./app/UiGallery')) : null
@@ -39,6 +40,7 @@ export function App() {
         <Route element={<RequireSession />}>
           <Route path="welcome" element={later(<WelcomePage />)} />
           <Route path="secret-requests/:id" element={later(<SecretRequestPage />)} />
+          <Route path="link/:id" element={later(<LinkRequestPage />)} />
           <Route element={<AppShell />}>
             <Route index element={<ChatPage />} />
             <Route path="g/:groupId" element={<ChatPage />} />

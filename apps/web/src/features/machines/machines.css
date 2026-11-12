@@ -873,3 +873,77 @@
   margin: 0;
   padding-left: var(--space-20);
 }
+
+/* 机器接入申请: /link/:id and inline in 绑定新机器. The code is what gets compared with the terminal, so it reads first. */
+.link-page {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-16);
+  width: min(420px, calc(100vw - 2 * var(--space-16)));
+}
+.link-page__title {
+  margin: 0;
+  font-size: var(--text-title-1-size);
+  text-align: center;
+}
+.link-page__back {
+  align-self: center;
+}
+.link-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-20);
+  border-radius: var(--radius-window);
+  background: var(--content-bg);
+  box-shadow: var(--shadow-control);
+}
+.link-card__name {
+  margin: 0;
+  font-size: var(--text-title-2-size);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.link-card__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4) var(--space-12);
+  margin: 0;
+  font-size: var(--text-callout-size);
+}
+.link-card__facts dt {
+  color: var(--label-secondary);
+}
+.link-card__facts dd {
+  margin: 0;
+}
+.link-card__check {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-field);
+  background: var(--tint-blue);
+}
+.link-card__label {
+  color: var(--label-secondary);
+  font-size: var(--text-callout-size);
+}
+.link-card__code {
+  font-family: var(--font-mono);
+  font-size: var(--text-large-title-size);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--tint-blue-text);
+}
+.link-card__hint {
+  margin: 0;
+  color: var(--label-secondary);
+  font-size: var(--text-callout-size);
+}
+.link-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}

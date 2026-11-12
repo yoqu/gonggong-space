@@ -1,0 +1,11 @@
+{
+  "machine": {
+    "name": "wang-mbp",
+    "os": "macos",
+    "arch": "aarch64",
+    "hardwareId": "3f2a9c",
+    "system": null
+  },
+  "createBot": { "agent": "claude" },
+  "code": "ABCD-EFGH"
+}

@@ -54,22 +54,30 @@ url=$(printf '%s' "$build" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
 sha=$(printf '%s' "$build" | sed -n 's/.*"sha256":"\([0-9a-f]*\)".*/\1/p')
 [ -n "$url" ] && [ -n "$sha" ] || fail "unexpected answer from $SERVER: $build"
 
-tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
-echo "==> Downloading $url"
-curl -fsSL -o "$tmp/gg" "$url" || fail "download failed: $url"
-if command -v sha256sum >/dev/null 2>&1; then
-  got=$(sha256sum "$tmp/gg" | cut -d' ' -f1)
-else
-  got=$(shasum -a 256 "$tmp/gg" | cut -d' ' -f1)
-fi
-[ "$got" = "$sha" ] || fail "sha256 mismatch: expected $sha, got $got (not installed)"
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
 
 bin="$HOME/.local/bin"
-mkdir -p "$bin"
-mv "$tmp/gg" "$bin/gg"
-chmod 755 "$bin/gg"
-echo "==> Installed $bin/gg"
+# A rerun (say, after the agent's command timed out while gg waited for a web confirmation) keeps the same gg.
+if [ -x "$bin/gg" ] && [ "$(sha256 "$bin/gg")" = "$sha" ]; then
+  echo "==> $bin/gg is already installed and up to date"
+else
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  echo "==> Downloading $url"
+  curl -fsSL -o "$tmp/gg" "$url" || fail "download failed: $url"
+  got=$(sha256 "$tmp/gg")
+  [ "$got" = "$sha" ] || fail "sha256 mismatch: expected $sha, got $got (not installed)"
+  mkdir -p "$bin"
+  mv "$tmp/gg" "$bin/gg"
+  chmod 755 "$bin/gg"
+  echo "==> Installed $bin/gg"
+fi
 
 "$bin/gg" login --server "$SERVER" --code "$CODE" --create-bot "$AGENT"
 if [ "$SERVICE" = 1 ]; then

@@ -290,6 +290,20 @@ export const BindCodeDto = z.object({
 export const InstallBuildDto = z.object({ version: z.string(), url: z.string(), sha256: z.string() })
 export type InstallBuildDto = z.infer<typeof InstallBuildDto>
 export type BindCodeDto = z.infer<typeof BindCodeDto>
+/**
+ * GET /api/link-requests/:id (signed in): a machine asking to be bound after its bind code expired. Allow it only if
+ * you just started the hookup yourself and `userCode` matches the terminal. `expired`: pending past `expiresAt`.
+ */
+export const LinkRequestDto = z.object({
+  id: z.string(),
+  machine: MachineInfo.pick({ name: true, os: true, arch: true }),
+  agent: AgentKind.nullable(),
+  ip: z.string(),
+  userCode: z.string(),
+  status: z.enum(['pending', 'approved', 'denied', 'consumed', 'expired']),
+  expiresAt: z.string(),
+})
+export type LinkRequestDto = z.infer<typeof LinkRequestDto>
 /** `name` is the owner's label when set, else `hostname`. */
 export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
   id: z.string(),
@@ -1052,6 +1066,7 @@ export const NotificationType = z.enum([
   'join_decided',
   'reminder',
   'plugin_trust',
+  'link_request',
 ])
 export const NotificationDto = z.object({
   id: z.string(),
@@ -1072,6 +1087,7 @@ export type NotificationUnreadDto = z.infer<typeof NotificationUnreadDto>
 /** Also sent as browser push, only to the people who can act (spec §8.11); others stay in the in-app center. */
 export const PUSHED_NOTIFICATION_TYPES: readonly NotificationDto['type'][] = [
   'reminder',
+  'link_request',
   'plugin_trust',
   'approval',
   'question',
@@ -2872,6 +2888,8 @@ export const WebEvent = z.discriminatedUnion('t', [
     groupId: z.string(),
   }),
   z.object({ t: z.literal('machine.removed'), machineId: z.string() }),
+  /** Who issued the expired bind code the machine came with: allow it here, as on /link/:id. */
+  z.object({ t: z.literal('machine.linkRequested'), request: LinkRequestDto }),
   /** Owner only: a line of a running tools install / upgrade. */
   z.object({
     t: z.literal('machine.tools.progress'),

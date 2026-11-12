@@ -1,6 +1,14 @@
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { bindCodes, messages, runEvents, runs, systemParams, webSessions } from '../src/db/schema.js'
+import {
+  bindCodes,
+  linkRequests,
+  messages,
+  runEvents,
+  runs,
+  systemParams,
+  webSessions,
+} from '../src/db/schema.js'
 import { forgetSysParams } from '../src/modules/admin/params.js'
 import { purgeExpiredLogins, purgeExpiredRuns, startRetention } from '../src/modules/runs/retention.js'
 import { createTestApp, type TestApp } from './support/app.js'
@@ -142,6 +150,23 @@ describe('login retention', () => {
     expect(sessions.map((r) => r.k)).toEqual(['live'])
     const codes = await t.db.select({ k: bindCodes.code }).from(bindCodes)
     expect(codes.map((r) => r.k).sort()).toEqual(['JUST', 'LIVE'])
+  })
+
+  it('drops 接入申请 a day past expiry', async () => {
+    const at = (days: number) => new Date(clock.getTime() + days * DAY)
+    const row = (userCode: string, expiresAt: Date) => ({
+      secretHash: userCode,
+      userCode,
+      machine: { name: 'm', os: 'macos' as const, arch: 'aarch64', hardwareId: null, system: null },
+      ip: '127.0.0.1',
+      expiresAt,
+    })
+    await t.db
+      .insert(linkRequests)
+      .values([row('LIVE', at(0.1)), row('JUST', at(-0.5)), row('OLDS', at(-1.1))])
+    await purgeExpiredLogins(t.ctx)
+    const left = await t.db.select({ k: linkRequests.userCode }).from(linkRequests)
+    expect(left.map((r) => r.k).sort()).toEqual(['JUST', 'LIVE'])
   })
 
   it('runs with the periodic retention sweep', async () => {
