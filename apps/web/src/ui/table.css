@@ -167,3 +167,51 @@
 .ui-table__actions .ui-btn {
   color: var(--label-secondary);
 }
+/* Phone widths (TableCardsOnNarrow): one card per row, the first column as its title, the rest as「标签：值」lines. */
+.ui-table--cards .ui-table__head {
+  display: none;
+}
+.ui-table--cards .ui-table__body {
+  gap: var(--space-8);
+  padding: var(--space-8);
+}
+.ui-table--cards .ui-table__row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: var(--space-8) 40px var(--space-8) var(--space-12);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+}
+.ui-table--cards .ui-table__row:not([aria-selected="true"]) {
+  background: var(--content-bg);
+}
+.ui-table--cards .ui-table__td {
+  display: flex;
+  align-items: baseline;
+  padding: 0;
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+}
+.ui-table--cards .ui-table__td:first-child {
+  font-weight: 600;
+}
+.ui-table--cards .ui-table__label {
+  flex: none;
+  color: var(--label-secondary);
+}
+.ui-table--cards .ui-table__cell {
+  flex-wrap: wrap;
+}
+.ui-table--cards .ui-table__cell--text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ui-table--cards .ui-table__actions {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+}

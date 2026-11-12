@@ -15,6 +15,7 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  TableCardsOnNarrow,
 } from '../src/ui'
 
 interface File {
@@ -199,6 +200,41 @@ describe('Table', () => {
     expect(screen.queryByText('图标.pdf')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '展开' }))
     expect(screen.getByText('图标.pdf')).toBeTruthy()
+  })
+
+  it('turns rows into cards under the phone breakpoint inside TableCardsOnNarrow', () => {
+    let narrow = true
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: narrow && q === '(max-width: 767px)',
+      media: q,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    const actions = () => [{ label: '重命名…', value: 'rename' }]
+    const ui = (cards: boolean) => (
+      <TableCardsOnNarrow value={cards}>
+        <Table aria-label="t" columns={columns} rows={flat} rowActions={actions} />
+      </TableCardsOnNarrow>
+    )
+    const { rerender, unmount } = render(ui(true))
+    expect(screen.getByRole('grid').className).toContain('ui-table--cards')
+    const beta = row('Beta')
+    expect(beta.getAttribute('style') ?? '').not.toContain('grid-template-columns')
+    const [title, size] = within(beta).getAllByRole('gridcell')
+    // The first column heads the card; the others read「标签：值」.
+    expect(title?.querySelector('.ui-table__label')).toBeNull()
+    expect(size?.textContent).toBe('大小：2')
+    expect(size?.querySelector('.ui-table__label')?.getAttribute('aria-hidden')).toBe('true')
+    expect(within(beta).getByRole('button', { name: '操作' })).toBeTruthy()
+
+    rerender(ui(false))
+    expect(screen.getByRole('grid').className).not.toContain('ui-table--cards')
+    unmount()
+    narrow = false
+    render(ui(true))
+    expect(screen.getByRole('grid').className).not.toContain('ui-table--cards')
+    expect(within(row('Beta')).getAllByRole('gridcell')[1]?.textContent).toBe('2')
+    vi.unstubAllGlobals()
   })
 })
 

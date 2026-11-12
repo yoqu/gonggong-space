@@ -2,10 +2,13 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
+  createContext,
   type ReactNode,
+  useContext,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
@@ -71,6 +74,18 @@ export interface TableProps<R extends TableRow = TableRow> {
   'aria-label': string
 }
 
+/** Tables inside turn into one card per row on phone widths, where columns would be clipped. */
+export const TableCardsOnNarrow = createContext(false)
+
+const PHONE = '(max-width: 767px)'
+const subscribePhone = (onChange: () => void) => {
+  if (typeof window.matchMedia !== 'function') return () => {}
+  const mq = window.matchMedia(PHONE)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
+}
+const isPhone = () => typeof window.matchMedia === 'function' && window.matchMedia(PHONE).matches
+
 const field = (row: TableRow, key: string) => (row as unknown as Record<string, unknown>)[key]
 
 /** macOS list / outline view: sortable header, multi-select, tree rows, sticky header, row-alt striping. */
@@ -106,6 +121,8 @@ export function Table<R extends TableRow = TableRow>({
   const anchor = useRef<RowId | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const isTree = rows.some((r) => r.children?.length)
+  const phone = useSyncExternalStore(subscribePhone, isPhone, () => false)
+  const cards = useContext(TableCardsOnNarrow) && phone
   const template = [
     ...columns.map((c) => (typeof c.width === 'number' ? `${c.width}px` : (c.width ?? 'minmax(0, 1fr)'))),
     ...(rowActions ? [`${ACTIONS_WIDTH}px`] : []),
@@ -231,6 +248,7 @@ export function Table<R extends TableRow = TableRow>({
         active && 'ui-table--active',
         density === 'compact' && 'ui-table--compact',
         !alternating && 'ui-table--plain',
+        cards && 'ui-table--cards',
         className,
       )}
       style={{ height, maxHeight, ...style }}
@@ -304,7 +322,7 @@ export function Table<R extends TableRow = TableRow>({
                 aria-level={isTree ? level : undefined}
                 aria-expanded={row.children ? open : undefined}
                 className={cx('ui-table__row', idx % 2 === 1 && 'ui-table__row--alt')}
-                style={{ gridTemplateColumns: template }}
+                style={cards ? undefined : { gridTemplateColumns: template }}
                 onMouseDown={(e) => onRowMouseDown(e, row.id)}
                 onDoubleClick={() => onOpen?.(row)}
               >
@@ -347,6 +365,14 @@ export function Table<R extends TableRow = TableRow>({
                           )}
                           {cell}
                         </span>
+                      ) : cards && ci > 0 ? (
+                        <>
+                          <span className="ui-table__label" aria-hidden="true">
+                            {c.title}
+                            {t('：')}
+                          </span>
+                          {cell}
+                        </>
                       ) : (
                         cell
                       )}

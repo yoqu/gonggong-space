@@ -8,6 +8,7 @@ export default {
   下一张: 'Next',
   没有项目: 'No items',
   操作: 'Actions',
+  '：': ': ',
   折叠: 'Collapse',
   展开: 'Expand',
   '{n} 条未读': '{n} unread',

@@ -83,6 +83,26 @@ describe('admin console', () => {
     expect(back).toContain('position: sticky')
   })
 
+  it('shows every admin table as cards on a phone, keeping status and row actions', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q === '(max-width: 767px)',
+      media: q,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    useSession.setState({ user: admin, status: 'ready' })
+    mockApi({ 'GET /admin/users': [row({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member' })] })
+    renderAt('/admin/users')
+    const grid = await screen.findByRole('grid', { name: '账号列表' })
+    expect(grid.className).toContain('ui-table--cards')
+    const card = screen.getByRole('gridcell', { name: 'wanglei' }).closest('[role="row"]') as HTMLElement
+    const texts = within(card)
+      .getAllByRole('gridcell')
+      .map((c) => c.textContent)
+    expect(texts).toContain('状态：正常')
+    expect(within(card).getByRole('button', { name: '操作' })).toBeTruthy()
+  })
+
   it('lists accounts with role, machines and status', async () => {
     useSession.setState({ user: admin, status: 'ready' })
     mockApi({

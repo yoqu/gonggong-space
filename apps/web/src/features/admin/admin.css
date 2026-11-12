@@ -147,8 +147,8 @@ a.ui-sidebar__item:hover:not([aria-current]) {
 .admin-grid {
   min-width: 0;
 }
-.admin-grid .ui-table__head,
-.admin-grid .ui-table__row {
+.admin-grid:not(.ui-table--cards) .ui-table__head,
+.admin-grid:not(.ui-table--cards) .ui-table__row {
   min-width: 640px;
 }
 .admin-table__warn {
@@ -186,6 +186,9 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   display: flex;
   gap: var(--space-8);
   overflow: hidden;
+}
+.ui-table--cards .admin-agents {
+  flex-wrap: wrap;
 }
 .admin-agent {
   display: inline-flex;

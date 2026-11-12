@@ -1,7 +1,7 @@
 import { Link, Navigate, NavLink, Outlet } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { Icon, Logo, Toaster } from '../../ui'
+import { Icon, Logo, TableCardsOnNarrow, Toaster } from '../../ui'
 import '../../ui/sidebar.css'
 import { ADMIN_NAV } from './nav'
 import './admin.css'
@@ -44,7 +44,9 @@ export function AdminLayout() {
         </div>
       </nav>
       <main className="admin__main">
-        <Outlet />
+        <TableCardsOnNarrow value>
+          <Outlet />
+        </TableCardsOnNarrow>
       </main>
       <Toaster />
     </div>
