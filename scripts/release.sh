@@ -210,7 +210,7 @@ if [ ${#mac_targets[@]} -gt 0 ]; then
   done
 fi
 
-# Desktop app (Tauri; only macOS is bundled in P1): `--only desktop` or a full release.
+# Desktop app (Tauri, both macOS arches): `--only desktop` or a full release.
 if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; then
   echo "== desktop (.app/.dmg)"
   # The updater feed is signed: the app must carry the public key and the build the private one.
@@ -225,13 +225,6 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
   : "${TAURI_SIGNING_PRIVATE_KEY:?TAURI_SIGNING_PRIVATE_KEY (path or content) is required to sign the app update}"
   # Unset, Tauri prompts on a terminal even for a key without password.
   export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
-  rm -rf "$ROOT/target/release/bundle"
-  # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
-  # so everyday desktop builds do not need libwebrtc.
-  arch="$(uname -m | sed s/arm64/aarch64/)"
-  [ -f "$out/$(cast_artifact "macos-$arch")" ] || mac_cast "macos-$arch" "$arch-apple-darwin"
-  mkdir -p "$ROOT/apps/desktop/src-tauri/binaries"
-  cp "$out/$(cast_artifact "macos-$arch")" "$ROOT/apps/desktop/src-tauri/binaries/gg-cast-$arch-apple-darwin"
   # TCC keys its grants (屏幕录制, 辅助功能) to the signature: an ad-hoc one changes every build and loses them, a
   # Developer ID one keeps them across builds. Tauri signs with APPLE_SIGNING_IDENTITY (the keychain's Developer ID
   # when unset) and notarizes when APPLE_API_KEY/APPLE_API_ISSUER/APPLE_API_KEY_PATH or APPLE_ID/APPLE_PASSWORD/
@@ -244,26 +237,39 @@ if [ -d "$ROOT/apps/desktop" ] && [ "$(uname -s)" = Darwin ] && wanted desktop; 
     unset APPLE_SIGNING_IDENTITY
     echo "warning: no Developer ID Application certificate, the app is signed ad hoc (permissions reset on update)" >&2
   fi
-  # Host-only build: drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips
-  # DYLD_* on the way) and so could not strip the binary.
-  (cd "$ROOT" && env -u RUSTC pnpm --filter @gonggong/desktop tauri build --bundles app,dmg \
-    --config '{"bundle":{"externalBin":["binaries/gg-cast"]}}')
-  # ASCII names: GitHub release assets do not keep the Chinese product name.
-  bundle="$ROOT/target/release/bundle"
-  cp "$bundle"/dmg/*.dmg "$out/Gonggong_${version}_$arch.dmg"
-  # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
-  # APPLE_NOTARY_PROFILE: a `xcrun notarytool store-credentials` keychain profile instead of the API key variables;
-  # the .app inside the .dmg is notarized with it.
-  if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
-    xcrun notarytool submit "$out/Gonggong_${version}_$arch.dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
-      --issuer "$APPLE_API_ISSUER" --wait
-    xcrun stapler staple "$out/Gonggong_${version}_$arch.dmg"
-  elif [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
-    xcrun notarytool submit "$out/Gonggong_${version}_$arch.dmg" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait
-    xcrun stapler staple "$out/Gonggong_${version}_$arch.dmg"
-  fi
-  cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"
-  cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
+  mkdir -p "$ROOT/apps/desktop/src-tauri/binaries"
+  # Apple silicon and Intel get one app each (not universal): every download and update stays half the size.
+  for arch in aarch64 x86_64; do
+    echo "== desktop $arch"
+    bundle="$ROOT/target/$arch-apple-darwin/release/bundle"
+    rm -rf "$bundle"
+    # The app bundles gg-cast (Tauri externalBin, placed beside its executable) instead of downloading it. Only here,
+    # so everyday desktop builds do not need libwebrtc.
+    [ -f "$out/$(cast_artifact "macos-$arch")" ] || mac_cast "macos-$arch" "$arch-apple-darwin"
+    cp "$out/$(cast_artifact "macos-$arch")" "$ROOT/apps/desktop/src-tauri/binaries/gg-cast-$arch-apple-darwin"
+    # Drop the macOS builds' RUSTC, whose rust-objcopy loses its library path through pnpm (SIP strips DYLD_* on the
+    # way) and so could not strip the binary. The pinned toolchain's bin goes first on PATH instead: a Homebrew cargo
+    # there lacks the Intel target.
+    (cd "$ROOT" && env -u RUSTC PATH="$(dirname "$("$rustup" which cargo)"):$PATH" \
+      pnpm --filter @gonggong/desktop tauri build --target "$arch-apple-darwin" \
+      --bundles app,dmg --config '{"bundle":{"externalBin":["binaries/gg-cast"]}}')
+    # ASCII names: GitHub release assets do not keep the Chinese product name.
+    dmg="$out/Gonggong_${version}_$arch.dmg"
+    cp "$bundle"/dmg/*.dmg "$dmg"
+    # Tauri notarizes the .app only; a downloaded .dmg is checked by Gatekeeper too, so notarize and staple it as well.
+    # APPLE_NOTARY_PROFILE: a `xcrun notarytool store-credentials` keychain profile instead of the API key variables;
+    # the .app inside the .dmg is notarized with it.
+    if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ] && [ -n "${APPLE_API_KEY_PATH:-}" ]; then
+      xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" \
+        --issuer "$APPLE_API_ISSUER" --wait
+      xcrun stapler staple "$dmg"
+    elif [ -n "${APPLE_NOTARY_PROFILE:-}" ]; then
+      xcrun notarytool submit "$dmg" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait
+      xcrun stapler staple "$dmg"
+    fi
+    cp "$bundle"/macos/*.app.tar.gz "$out/Gonggong_${version}_$arch.app.tar.gz"
+    cp "$bundle"/macos/*.app.tar.gz.sig "$out/Gonggong_${version}_$arch.app.tar.gz.sig"
+  done
 fi
 
 # Windows installer (NSIS), cross-compiled with cargo-xwin; signed for the updater like the macOS one, not Authenticode.

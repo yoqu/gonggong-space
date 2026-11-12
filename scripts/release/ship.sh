@@ -63,7 +63,7 @@ verify_daemon() {
 verify() {
   local v="$1" server="${2%/}" ok=1 platform body
   verify_daemon "$v" "$server" || ok=0
-  for platform in darwin/aarch64 windows/x86_64; do
+  for platform in darwin/aarch64 darwin/x86_64 windows/x86_64; do
     body="$(curl -sS "$server/api/desktop-update/$platform/0.0.0" || true)"
     if node -e 'const r = JSON.parse(process.argv[1]); process.exit(r.version === process.argv[2] && r.signature ? 0 : 1)' \
       "$body" "$v" 2>/dev/null; then
