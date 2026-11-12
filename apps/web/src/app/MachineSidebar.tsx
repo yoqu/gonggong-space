@@ -5,7 +5,7 @@ import { BotAvatar } from '../features/bots/avatars'
 import { botStateText, botStateUnderMachine, PRESENCE } from '../features/bots/model'
 import { OS_LABEL } from '../features/machines/model'
 import { t } from '../i18n'
-import { Button, Icon, Toolbar, ToolbarGroup } from '../ui'
+import { Button, Icon, Toolbar, ToolbarButton, ToolbarGroup } from '../ui'
 import { Footer, SectionHead } from './Sidebar'
 
 /** Routes shown with 机器与 Bot in place of the conversation list. */
@@ -129,9 +129,12 @@ export function MachineSidebar({
           {/* A bot runs on a machine: until one is bound, the main area's 绑定新机器 is the only way on. */}
           {machines.length ? (
             <ToolbarGroup>
-              <Button size="small" variant="primary" icon="plus" onClick={() => onNewBot()}>
-                {t('新建 Bot')}
-              </Button>
+              <ToolbarButton
+                icon="plus"
+                label={t('新建 Bot')}
+                text={t('新建 Bot')}
+                onClick={() => onNewBot()}
+              />
             </ToolbarGroup>
           ) : null}
         </Toolbar>
