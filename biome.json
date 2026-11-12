@@ -8,6 +8,7 @@
       "!apps/desktop/src-tauri/gen",
       "!docs",
       "!.gonggong-dev",
+      "!.gonggong",
       "!**/drizzle",
       "!.claude",
       "!.agents",

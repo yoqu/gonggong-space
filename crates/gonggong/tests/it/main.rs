@@ -18,6 +18,7 @@ mod git_ops4_r2;
 mod git_ops4_r3;
 mod git_ops4_r4;
 mod git_ops5;
+mod github_update;
 mod hosted;
 mod html_render;
 mod native_agents;

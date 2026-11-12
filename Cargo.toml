@@ -12,6 +12,14 @@ serde_json = "1.0.151"
 tempfile = "3.27.0"
 tracing = "0.1.44"
 
+# Debug builds keep line tables for backtraces but no full debug info, and none for dependencies: smaller artifacts,
+# faster links. Release is unaffected.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 strip = "symbols"
 lto = "thin"

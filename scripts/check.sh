@@ -30,6 +30,21 @@ $all && web=true desktop=true server=true protocol=true cargo=true tools=true
 
 run() { echo "▶ $*"; "$@"; }
 
+# Heavy steps (cargo, a whole vitest suite) queue across sessions and worktrees: run side by side on one machine they
+# only push each other into swap. /tmp rather than $TMPDIR, which a bot's shell may point elsewhere.
+lock="${GG_CHECK_LOCK:-/tmp/gonggong-check.lock}"
+serial() {
+  if command -v lockf >/dev/null; then
+    lockf -s -t 0 "$lock" true || echo "⏳ another check holds $lock, waiting…"
+    run lockf -k "$lock" "$@"
+  elif command -v flock >/dev/null; then
+    flock -n "$lock" true || echo "⏳ another check holds $lock, waiting…"
+    run flock "$lock" "$@"
+  else
+    run "$@"
+  fi
+}
+
 # Most test files boot the whole app, so the import graph would pick nearly all of them: match by name instead.
 pick_tests() {
   local pkg=$1 f key keys picked="" hit index
@@ -58,7 +73,7 @@ pick_tests() {
 vitest_suite() { # package dir, name
   local files
   if $all || ! files="$(pick_tests "$1")" || [ -z "$files" ]; then
-    run pnpm --filter "$2" test
+    serial pnpm --filter "$2" test
   else
     # shellcheck disable=SC2086
     run pnpm --filter "$2" exec vitest run $files
@@ -85,6 +100,31 @@ rust_filters() {
   echo "$out"
 }
 
+# What cargo builds: the whole workspace when the change can reach the desktop app, else the daemon alone; changes
+# confined to its modules build just the lib and tests/it (plus a changed standalone test), not every test binary.
+cargo_targets() {
+  local f t extra="" narrow=true
+  $all && { echo --workspace; return; }
+  for f in $changed; do
+    case "$f" in
+      tools/*.mjs) ;;
+      crates/gonggong/src/lib.rs | crates/gonggong/src/main.rs) narrow=false ;;
+      crates/gonggong/src/* | crates/gonggong/tests/it/*.rs) ;;
+      crates/gonggong/tests/support/*) narrow=false ;;
+      crates/gonggong/tests/*.rs)
+        t="${f##*/}"
+        extra+=" --test ${t%.rs}"
+        ;;
+      crates/gonggong/*) narrow=false ;;
+      crates/* | Cargo.toml | Cargo.lock | rust-toolchain.toml | rustfmt.toml | apps/desktop/src-tauri/* | tools/*)
+        echo --workspace
+        return
+        ;;
+    esac
+  done
+  if $narrow; then echo "-p gonggong --lib --test it$extra"; else echo "-p gonggong"; fi
+}
+
 # Internal hosts and addresses stay out of the public repository; the patterns live in the git-ignored
 # .internal-patterns (copied from the internal ops repository), so the list itself is not published either.
 if [ -f .internal-patterns ]; then
@@ -103,8 +143,8 @@ $desktop && run pnpm --filter @gonggong/desktop test
 $web && vitest_suite apps/web @gonggong/web
 $server && vitest_suite apps/server @gonggong/server
 # Bot shells export provider config, git identity and proxies, which the daemon's tests must not see.
-$cargo && run env -u CODEX_CONFIG -u MODEL_PROVIDER -u GG_PROVIDER_KEY \
+$cargo && serial env -u CODEX_CONFIG -u MODEL_PROVIDER -u GG_PROVIDER_KEY \
   -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL \
-  -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy cargo test --workspace \
+  -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy cargo test $(cargo_targets) \
   -- $($all || rust_filters)
 echo "✓ check passed"
