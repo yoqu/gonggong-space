@@ -16,7 +16,8 @@ mkdir -p "$GONGGONG_BACKUP_DIR"
 pg_dump --format=custom --no-owner --file="$GONGGONG_BACKUP_DIR/gonggong-$STAMP.dump.part" "$URL"
 mv "$GONGGONG_BACKUP_DIR/gonggong-$STAMP.dump.part" "$GONGGONG_BACKUP_DIR/gonggong-$STAMP.dump"
 if [ -d "$DATA/attachments" ]; then
-  tar -czf "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz.part" -C "$DATA" attachments
+  # The live server keeps writing attachments; GNU tar exits 1 for "file changed as we read it" and 2 for real errors.
+  tar -czf "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz.part" -C "$DATA" attachments || [ $? -eq 1 ]
   mv "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz.part" "$GONGGONG_BACKUP_DIR/attachments-$STAMP.tar.gz"
 fi
 

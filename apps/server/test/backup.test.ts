@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import postgres from 'postgres'
@@ -73,5 +73,29 @@ describe('scripts/backup.sh + restore.sh', () => {
     expect(await db.unsafe('SELECT body FROM notes')).toEqual([{ body: '备份我' }])
     await db.end()
     expect(readFileSync(join(restored, 'attachments/ab/file.txt'), 'utf8')).toBe('attachment')
+  })
+  it('tolerates attachments changing while tar reads them (tar exit 1), but not real tar errors', () => {
+    const data = join(work, 'data-live')
+    mkdirSync(join(data, 'attachments'), { recursive: true })
+    writeFileSync(join(data, 'attachments/file.txt'), 'attachment')
+    const dir = join(work, 'live-backups')
+    const realTar = execFileSync('bash', ['-c', 'command -v tar'], { encoding: 'utf8' }).trim()
+    const run = (code: number) => {
+      const bin = join(work, `tar-exit-${code}`)
+      mkdirSync(bin)
+      writeFileSync(
+        join(bin, 'tar'),
+        `#!/usr/bin/env bash\n"${realTar}" "$@"\necho 'tar: attachments: file changed as we read it' >&2\nexit ${code}\n`,
+      )
+      chmodSync(join(bin, 'tar'), 0o755)
+      return () =>
+        execFileSync('bash', [join(scripts, 'backup.sh')], {
+          env: { ...env(source, data), GONGGONG_BACKUP_DIR: dir, PATH: `${bin}:${process.env.PATH}` },
+          stdio: 'pipe',
+        })
+    }
+    run(1)()
+    expect(readdirSync(dir).some((f) => /^attachments-.*\.tar\.gz$/.test(f))).toBe(true)
+    expect(run(2)).toThrow()
   })
 })
