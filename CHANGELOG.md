@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.19 — 2026-11-12
+
+- 新增 Intel Mac 桌面端安装包，与 Apple 芯片版分别签名公证、各自更新 / Adds the Intel Mac desktop app, signed, notarized and updated separately from the Apple silicon build
+- 绑定新机器改为「发给你的 Agent」：Agent 自己装 gg、绑定、常驻，自动建好 Bot 与私聊；新增 `gg service` / Binding becomes Send to your Agent: the Agent installs gg, binds and stays running, with the Bot and direct chat created for you; adds `gg service`
+- Gemini CLI、CodeBuddy、pi、DeepSeek Harness 改为内置 Agent 插件，市场按用途分类 / Gemini CLI, CodeBuddy, pi and DeepSeek Harness become built-in Agent plugins, and the market filters by purpose
+- Bot 头像可「跟随 Agent」/ Bot avatars can follow their Agent
+- 手机端滑动时收起顶部条与输入框 / On phones, scrolling hides the top bars and shrinks the composer
+- 修复桌面端从 Dock 启动找不到 nvm 等装的 Agent CLI、提示词字面量被替换、建 Bot 失败丢令牌 / Fix Agent CLIs from nvm and others not found when launched from the Dock, prompt literals being replaced, and the token lost on a failed Bot creation
+
 ## v0.4.18 — 2026-11-12
 
 - Bot 进会话默认使用托管工作区，第一条 @ 即可执行；Bot 栏可更换工作区 / Bots use a managed workspace by default so the first @ can run, with Change workspace in the Bot menu
