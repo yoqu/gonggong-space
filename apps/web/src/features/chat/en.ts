@@ -30,6 +30,16 @@ export default {
   打开群信息: 'Open group info',
   '未绑定仓库 · Bot 使用本机目录': 'No repo · the Bot uses a local folder',
   '未绑定仓库 · 各 Bot 使用本机目录': 'No repo · each Bot uses a local folder',
+  '未绑定仓库 · Bot 使用托管工作区': 'No repo · the Bot uses a managed workspace',
+  '开始和 Bot 对话': 'Start talking to the Bot',
+  '它在你的电脑上干活，直接说要做什么': 'It works on your computer. Just say what you need.',
+  '它在 {owner} 的电脑上干活，直接说要做什么': "It works on {owner}'s computer. Just say what you need.",
+  '看看这台电脑上有哪些项目，挑一个讲讲它是做什么的':
+    'Look at the projects on this computer and explain what one of them does',
+  '帮我写个脚本，把下载文件夹里的图片按月份归档':
+    'Write a script that sorts the images in my Downloads folder by month',
+  '检查一下当前目录的代码，列出最该先修的 3 个问题':
+    'Review the code in the current folder and list the 3 issues to fix first',
   '群成员：{n} 人，{bots} 个 Bot': 'Group members: {n} {n:person|people}, {bots} {bots:Bot|Bots}',
   '群成员：{n} 人': 'Group members: {n} {n:person|people}',
   工作台: 'Workbench',

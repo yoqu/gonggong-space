@@ -36,7 +36,7 @@ import type { AgentConfig } from './AgentConfig'
 import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
-import { AGENT_LABEL, AGENTS, botsApi, machineAgents, reportedAgent } from './model'
+import { AGENT_LABEL, AGENTS, agentsUndetected, botsApi, machineAgents, reportedAgent } from './model'
 import { useDm } from './ShareRequest'
 
 interface Props {
@@ -149,12 +149,18 @@ function Shell({
   )
 }
 
+const missingText = (machine: string, agent: string) =>
+  t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', { machine, agent })
+const undetectedText = (machine: string, agent: string) =>
+  t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine, agent })
+
 const RESULT_VARIANT = { pending: 'info', warn: 'warning', ok: 'success', confirm: 'info' } as const
 
 /** What to do after creating: follows the live bot, so binding a machine or bringing it online updates it. */
 function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
   const bindHere = self && bot.binding === 'pending_bind'
   const bind = useBindCode(bindHere)
+  const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
   const agent = AGENT_LABEL[bot.agentKind]
   const next: { tone: keyof typeof RESULT_VARIANT; desc: string } =
     bot.binding === 'pending_confirm'
@@ -178,10 +184,10 @@ function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
           : bot.presence === 'agent_missing'
             ? {
                 tone: 'warn',
-                desc: t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', {
-                  machine: bot.machineName ?? '',
+                desc: (machine && agentsUndetected(machine) ? undetectedText : missingText)(
+                  bot.machineName ?? '',
                   agent,
-                }),
+                ),
               }
             : { tone: 'ok', desc: t('已就绪，可以在群里 @ 它了') }
   return (
@@ -237,17 +243,19 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   if (created && live) {
     const self = created.ownerId === me.id
     const done: ModalAction = { label: t('完成'), onClick: onClose }
-    // My own bot once bound leads straight into a DM with it: the shortest way to a first conversation.
+    const chat: ModalAction = { label: t('和它聊一句'), onClick: () => void openDm().then(onClose) }
+    // My own bot once ready leads straight into a DM with it: the shortest way to a first conversation. Not ready
+    // yet (machine offline, agent not reported), 完成 leads and a chat only waits.
+    const ready = live.presence !== 'offline' && live.presence !== 'agent_missing'
     return (
       <Shell
         onClose={onClose}
         actions={
-          self && live.binding !== 'pending_bind'
-            ? [
-                done,
-                { label: t('和它聊一句'), variant: 'primary', onClick: () => void openDm().then(onClose) },
-              ]
-            : [{ ...done, variant: 'primary' }]
+          !self || live.binding === 'pending_bind'
+            ? [{ ...done, variant: 'primary' }]
+            : ready
+              ? [done, { ...chat, variant: 'primary' }]
+              : [chat, { ...done, variant: 'primary' }]
         }
       >
         <NextStep bot={live} self={self} />
@@ -283,10 +291,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
       ? {
           tone: 'warn',
           title: t('绑定后暂不可用'),
-          desc: t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', {
-            machine: m.name,
-            agent: agentName,
-          }),
+          desc: (agentsUndetected(m) ? undetectedText : missingText)(m.name, agentName),
         }
       : self
         ? {
@@ -456,15 +461,16 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
             value={draft.agent}
             options={machineAgents(m).map((k) => {
               const v = m && reportedAgent(m, k)
+              const unknown = !!m && agentsUndetected(m)
               return {
                 value: k,
-                disabled: !!m && !v,
+                disabled: !!m && !v && !unknown,
                 label: (
                   <span className="newbot__machine">
                     <img className="newbot__agent-face" src={avatarSrc(`agent-${k}`)} alt="" />
                     {AGENT_LABEL[k]}
-                    <span className={m && !v ? 'newbot__missing' : 'newbot__muted'}>
-                      {!m ? '' : v ? (v.version ?? t('已安装')) : t('未安装')}
+                    <span className={m && !v && !unknown ? 'newbot__missing' : 'newbot__muted'}>
+                      {!m ? '' : v ? (v.version ?? t('已安装')) : unknown ? t('待检测') : t('未安装')}
                     </span>
                   </span>
                 ),

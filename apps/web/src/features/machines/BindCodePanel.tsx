@@ -92,11 +92,6 @@ export function AgentPrompt({ bind }: { bind: BindCode }) {
           {t('一次性接入码 · {time} 后失效', { time: countdown(remaining) })}
         </span>
       </span>
-      <p className="bind__note">
-        {t(
-          '粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器、建好 Bot。支持 macOS 和 Linux。',
-        )}
-      </p>
     </div>
   )
 }

@@ -80,6 +80,9 @@ export const agentOutdated = (b: BotDto) =>
 export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
   m.agents.find((a) => a.kind === kind && a.available)
 
+/** Offline and never reported: whether an agent is installed is not known yet (待检测, not 未安装). */
+export const agentsUndetected = (m: MachineDto) => !m.online && m.agents.length === 0
+
 /** The agents a machine's client can run: one from before an agent was added never offers it. */
 export const machineAgents = (m: MachineDto | null | undefined) =>
   AGENTS.filter((k) => !isLaterAgent(k) || !m || m.features.includes(k))

@@ -1,6 +1,7 @@
 import {
   type BotDto,
   INHERIT_PROVIDER,
+  type MachineDto,
   OFFICIAL_PROVIDER,
   type ProviderStoreView,
   type TriggerScope,
@@ -48,6 +49,7 @@ import {
   AGENT_LABEL,
   agentCliVersion,
   agentOutdated,
+  agentsUndetected,
   type BotPatch,
   botsApi,
   confirmBot,
@@ -58,7 +60,7 @@ import './bots.css'
 const FULL_HINT = t('完全允许只能由触发名单里的人触发')
 const MAX_CONCURRENCY = 8
 
-function warning(bot: BotDto, userName: (id: string) => string) {
+function warning(bot: BotDto, userName: (id: string) => string, machine: MachineDto | undefined) {
   const agent = AGENT_LABEL[bot.agentKind]
   if (bot.presence === 'pending_confirm')
     return {
@@ -79,6 +81,11 @@ function warning(bot: BotDto, userName: (id: string) => string) {
         owner: bot.ownerName,
         agent,
       }),
+    }
+  if (bot.presence === 'agent_missing' && machine && agentsUndetected(machine))
+    return {
+      title: t('{agent} 待检测', { agent }),
+      desc: t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine: machine.name, agent }),
     }
   if (bot.presence === 'agent_missing')
     return {
@@ -102,7 +109,8 @@ function warning(bot: BotDto, userName: (id: string) => string) {
 
 /** Why the Bot cannot run yet; its owner confirms a Bot someone else created for them right here. */
 export function BotWarning({ bot, users, owner }: { bot: BotDto; users: UserBriefDto[]; owner: boolean }) {
-  const warn = warning(bot, (id) => users.find((u) => u.id === id)?.name ?? '--')
+  const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
+  const warn = warning(bot, (id) => users.find((u) => u.id === id)?.name ?? '--', machine)
   if (!warn) return null
   return (
     <Alert variant="warning" title={warn.title} description={warn.desc}>

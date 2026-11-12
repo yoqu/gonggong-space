@@ -42,6 +42,8 @@ export function BindMachineDialog({
   const [bound, setBound] = useState<MachineDto | null>(null)
   /** ① is the user's word: there is no telling whether the client is installed until it binds. */
   const [installed, setInstalled] = useState(false)
+  /** 其他方式 opened: the machine is bound from the desktop app, which then reports its agents. */
+  const [viaClient, setViaClient] = useState(onWindows)
   /** id → boundAt before this code: a new id or a newer boundAt is the machine that just logged in. */
   const known = useRef<Map<string, string> | null>(null)
   const bind = useBindCode(open, !!bound)
@@ -55,6 +57,7 @@ export function BindMachineDialog({
     if (!open) return
     setBound(null)
     setInstalled(false)
+    setViaClient(onWindows())
     known.current = null
     void api.get<MachineDto[]>('/machines').then((list) => {
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
@@ -82,10 +85,10 @@ export function BindMachineDialog({
   const online = !!bound?.online
   const steps: { label: string; status: StepStatus }[] = [
     {
-      label: t('等待接入'),
+      label: t('复制给 Agent'),
       status: bound ? 'completed' : expired || error ? 'error' : code ? 'active' : 'pending',
     },
-    { label: t('机器已绑定'), status: bound ? 'completed' : 'pending' },
+    { label: t('机器接入'), status: bound ? 'completed' : 'pending' },
     { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
   ]
 
@@ -93,7 +96,9 @@ export function BindMachineDialog({
     <Dialog
       open={open}
       title={t('绑定新机器')}
-      message={t('把下面这句话发给本机的 Agent，它会自己接入；接入后这台机器归属于你，Bot 在上面运行。')}
+      message={t(
+        '把下面这句话粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器并建好 Bot（支持 macOS 和 Linux）。机器归属于你，Bot 在上面运行。',
+      )}
       width={520}
       onClose={onClose}
       actions={
@@ -118,7 +123,11 @@ export function BindMachineDialog({
                 <Alert variant="info" description={t('Windows 上请展开「其他方式」，用桌面客户端绑定。')} />
               ) : null}
             </section>
-            <Disclosure title={t('其他方式')} defaultOpen={onWindows()}>
+            <Disclosure
+              title={t('其他方式')}
+              defaultOpen={onWindows()}
+              onToggle={(o) => o && setViaClient(true)}
+            >
               <div className="bind">
                 <section className="bind__section" aria-label={t('安装客户端')}>
                   <h3 className="bind__heading">{t('① 安装客户端')}</h3>
@@ -144,11 +153,11 @@ export function BindMachineDialog({
             </Disclosure>
           </>
         )}
-        <section className="bind__section" aria-label={t('等待机器上线')}>
-          <h3 className="bind__heading">{t('等待机器上线')}</h3>
+        <section className="bind__section" aria-label={bound ? t('已接入的机器') : t('等待接入')}>
+          <h3 className="bind__heading">{bound ? t('已接入的机器') : t('等待接入')}</h3>
           {bound ? (
             <>
-              <BoundMachine machine={bound} />
+              <BoundMachine machine={bound} viaClient={viaClient} />
               {online ? <span className="bind__online">{t('机器已上线')}</span> : null}
             </>
           ) : (
@@ -159,11 +168,13 @@ export function BindMachineDialog({
                   {t('等待接入…Agent 会自己下载安装，通常 1–3 分钟')}
                 </span>
               ) : null}
-              <p className="bind__note">
-                {t(
-                  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。',
-                )}
-              </p>
+              <Disclosure title={t('了解上报内容')}>
+                <p className="bind__note">
+                  {t(
+                    '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。',
+                  )}
+                </p>
+              </Disclosure>
             </>
           )}
         </section>
@@ -172,7 +183,7 @@ export function BindMachineDialog({
   )
 }
 
-function BoundMachine({ machine }: { machine: MachineDto }) {
+function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: boolean }) {
   const restored = machine.boundAt !== machine.createdAt
   return (
     <>
@@ -216,7 +227,7 @@ function BoundMachine({ machine }: { machine: MachineDto }) {
           ) : (
             <span className="bind__waiting">
               <Spinner size={14} />
-              {t('等待上报 agent…在机器上打开共工空间客户端')}
+              {viaClient ? t('等待上报 agent…在机器上打开共工空间客户端') : t('等待机器上线…')}
             </span>
           )}
         </FormRow>

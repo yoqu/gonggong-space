@@ -649,3 +649,46 @@
 .tl-recalled-thread {
   padding-inline-start: calc(var(--avatar-regular) + 10px);
 }
+
+/* First private chat: what the Bot is for, then examples that fill the composer */
+.first-dm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  margin: auto;
+  padding: var(--space-32) var(--space-16);
+  max-width: 520px;
+  text-align: center;
+}
+.first-dm__lead {
+  margin: 0;
+  font-size: var(--text-headline-size);
+  line-height: var(--text-headline-line);
+  font-weight: var(--text-headline-weight);
+  color: var(--label);
+}
+.first-dm__examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+.first-dm__example {
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--control-fill);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--text-callout-size);
+  line-height: var(--text-callout-line);
+  text-align: left;
+  cursor: pointer;
+}
+.first-dm__example:hover {
+  border-color: var(--accent);
+}
+.first-dm__example:active {
+  background: var(--control-fill-pressed);
+}

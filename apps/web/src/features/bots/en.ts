@@ -88,8 +88,12 @@ export default {
   '{owner} 绑定第一台机器并上报 {agent} 后自动绑定，无需再操作；此前不能被触发。':
     'Binds automatically once {owner} binds a first machine that reports {agent}; no further action needed. It cannot be triggered until then.',
   '{agent} 未安装': '{agent} not installed',
+  '{agent} 待检测': '{agent} not detected yet',
   '{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。':
     '{machine} has not reported {agent}. Install it on that machine and re-detect; it becomes available automatically.',
+  '{machine} 还没上线检测 {agent}，上线并检测到后自动可用。':
+    '{machine} has not come online to detect {agent} yet; it becomes available once it is detected.',
+  待检测: 'Not detected yet',
   'agent 版本低于适配器要求': 'Agent version is below the adapter requirement',
   '{machine} 上的 {cli} 低于 ACP 适配器要求的 {min}，可能无法正常运行，请升级该 CLI。':
     '{cli} on {machine} is older than {min} required by the ACP adapter and may not work properly. Please upgrade the CLI.',

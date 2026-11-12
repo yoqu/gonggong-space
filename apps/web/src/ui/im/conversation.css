@@ -86,6 +86,11 @@
   white-space: nowrap;
   min-width: 0;
 }
+/* Nothing to make room for: the name takes the line. */
+.pn-conv__line:not(:has(.ui-tag)) > .pn-conv__name {
+  flex-shrink: 1;
+  max-width: none;
+}
 .pn-conv__time {
   flex: none;
   margin-left: auto;

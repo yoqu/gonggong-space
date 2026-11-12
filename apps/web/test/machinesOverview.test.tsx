@@ -99,6 +99,23 @@ describe('machines overview', () => {
     expect(calls.map((c) => c.path)).toEqual(['/machines/m1/providers'])
   })
 
+  it('says 待检测, not 未安装, for an offline machine that never reported its agents', () => {
+    mockApi({})
+    render(
+      <MemoryRouter>
+        <MachinesOverview
+          machines={[{ ...mbp, online: false, agents: [] }]}
+          bots={[]}
+          onBindMachine={() => {}}
+          onNewBot={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    const card = screen.getByRole('link', { name: /wanglei-mbp/ })
+    expect(card.textContent).toContain('Claude Code 待检测')
+    expect(card.textContent).not.toContain('未安装')
+  })
+
   it('guides a member without machines to bind one', () => {
     const onBindMachine = vi.fn()
     render(

@@ -21,15 +21,17 @@ const record = (guide: 'done' | 'skipped') =>
   api.patch<UserOnboarding>('/me/onboarding', { guide }).catch((e: Error) => console.warn('onboarding:', e))
 
 /**
- * First-login guide for 使用者 (not builders): pops up once the workspace is loaded and the server says it was never
- * finished or skipped. `ready`: groups and bots are loaded, so builder status is settled.
+ * First-login guide for 使用者 (not builders): pops up once the workspace is loaded, they are in a group and the
+ * server says it was never finished or skipped. `ready`: groups and bots are loaded, so builder status is settled.
  */
 export function UserGuide({ ready }: { ready: boolean }) {
   const builder = useIsBuilder()
   const open = useGuide((s) => s.open)
+  // In no group yet, every step would only say "wait for an admin": the main-area welcome covers that instead.
+  const inGroup = useWorkspace((s) => s.groups.some((g) => g.kind === 'group'))
   const checked = useRef(false)
   useEffect(() => {
-    if (!ready || builder || checked.current) return
+    if (!ready || builder || !inGroup || checked.current) return
     checked.current = true
     api.get<UserOnboarding>('/me/onboarding').then(
       (o) => {
@@ -37,7 +39,7 @@ export function UserGuide({ ready }: { ready: boolean }) {
       },
       () => {},
     )
-  }, [ready, builder])
+  }, [ready, builder, inGroup])
   return <Presence>{open ? <GuideDialog /> : null}</Presence>
 }
 

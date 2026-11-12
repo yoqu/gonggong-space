@@ -73,6 +73,7 @@ import { openTab } from '../workbench/open'
 import { ComposerDock } from './ComposerDock'
 import { useRunDeltas } from './deltas'
 import { lastEditable } from './editing'
+import { FirstDmIntro } from './FirstDmIntro'
 import { GitBar } from './GitBar'
 import { GroupThreads } from './GroupThreads'
 import { continues, eventFolds, sameDay, unreadStart } from './grouping'
@@ -686,6 +687,12 @@ export function ChatView({
   const sharer = dm ? bots.find((b) => b.id === group.botIds[0] && b.ownerId !== meId)?.ownerName : undefined
   // Its bot was unshared or deleted: the history stays, nothing can be asked any more.
   const closed = dm && !botCount
+  const dmWorkspace = useWorkspace((s) =>
+    dm ? s.botStates[group.id]?.[group.botIds[0] ?? '']?.workspace : undefined,
+  )
+  // Nobody has written yet: the Bot's join events alone leave a newcomer with no idea what to say.
+  const firstDm =
+    dm && !readOnly && !closed && tl.loaded && !tl.failed && !shown.some((m) => m.kind === 'user')
   const kind = channelKind(group.visibility)
   // The notice banner already shows it; once hidden, its first line stays in the header as the channel topic.
   const topic = dm || !group.noticeHidden ? '' : (group.notice ?? '').trim().split('\n')[0]?.trim()
@@ -745,7 +752,11 @@ export function ChatView({
                   <span title={group.repo?.url}>
                     {group.repo
                       ? `${repoName(group.repo.url)} · ${group.repo.branch}`
-                      : t('未绑定仓库 · Bot 使用本机目录')}
+                      : dmWorkspace === 'managed'
+                        ? t('未绑定仓库 · Bot 使用托管工作区')
+                        : dmWorkspace === 'cd'
+                          ? t('未绑定仓库 · Bot 使用本机目录')
+                          : t('未绑定仓库')}
                   </span>
                 </>
               ) : (
@@ -920,43 +931,48 @@ export function ChatView({
                   <Mascot action="wait" size={72} label={t('加载中')} />
                 </div>
               ) : shown.length ? (
-                shown.map((m, i) => {
-                  const prev = shown[i - 1]
-                  const fold = folds.get(i)
-                  if (folded.has(i)) return null
-                  return (
-                    <Fragment key={m.id}>
-                      {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
-                        <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
-                      )}
-                      {m.id === dividerShown ? <ChatNotice kind="unread" /> : null}
-                      {fold === undefined ? (
-                        <div
-                          inert={readOnly}
-                          data-msg-id={m.id}
-                          className={cx(
-                            'tl-item',
-                            tl.arrived.has(m.id) && 'tl-item--enter',
-                            flash === m.id && 'tl-item--flash',
-                          )}
-                        >
-                          {renderMessage(m, isCompact(prev, m))}
-                        </div>
-                      ) : (
-                        <EventFold events={fold} flash={flash} />
-                      )}
-                      {runsByTrigger.get(m.id)?.map((r) =>
-                        replies.has(r.id) ? null : readOnly ? (
-                          <div key={r.id} inert className="chat-view__inert">
-                            {card(r)}
+                <>
+                  {shown.map((m, i) => {
+                    const prev = shown[i - 1]
+                    const fold = folds.get(i)
+                    if (folded.has(i)) return null
+                    return (
+                      <Fragment key={m.id}>
+                        {prev && sameDay(prev.createdAt, m.createdAt) ? null : (
+                          <ChatNotice kind="date" day={dayLabel(m.createdAt)} />
+                        )}
+                        {m.id === dividerShown ? <ChatNotice kind="unread" /> : null}
+                        {fold === undefined ? (
+                          <div
+                            inert={readOnly}
+                            data-msg-id={m.id}
+                            className={cx(
+                              'tl-item',
+                              tl.arrived.has(m.id) && 'tl-item--enter',
+                              flash === m.id && 'tl-item--flash',
+                            )}
+                          >
+                            {renderMessage(m, isCompact(prev, m))}
                           </div>
                         ) : (
-                          card(r)
-                        ),
-                      )}
-                    </Fragment>
-                  )
-                })
+                          <EventFold events={fold} flash={flash} />
+                        )}
+                        {runsByTrigger.get(m.id)?.map((r) =>
+                          replies.has(r.id) ? null : readOnly ? (
+                            <div key={r.id} inert className="chat-view__inert">
+                              {card(r)}
+                            </div>
+                          ) : (
+                            card(r)
+                          ),
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                  {firstDm ? <FirstDmIntro groupId={group.id} owner={sharer} /> : null}
+                </>
+              ) : firstDm ? (
+                <FirstDmIntro groupId={group.id} owner={sharer} />
               ) : (
                 <EmptyState
                   bare

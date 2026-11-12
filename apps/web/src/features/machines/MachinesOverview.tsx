@@ -5,7 +5,7 @@ import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, EmptyState, Icon, PickChatArt } from '../../ui'
-import { AGENT_LABEL, AGENTS, isLaterAgent, reportedAgent } from '../bots/model'
+import { AGENT_LABEL, AGENTS, agentsUndetected, isLaterAgent, reportedAgent } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
 import { providerName } from './providers'
@@ -100,7 +100,7 @@ function MachineCard({
               <span key={kind} className="machine__agent" data-available={!!a?.available}>
                 {a?.available
                   ? `${AGENT_LABEL[kind]} ${a.version ?? ''}`.trim()
-                  : `${AGENT_LABEL[kind]} ${t('未安装')}`}
+                  : `${AGENT_LABEL[kind]} ${agentsUndetected(m) ? t('待检测') : t('未安装')}`}
                 {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
               </span>
             )

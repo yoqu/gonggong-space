@@ -920,20 +920,9 @@ a.sidebar__open {
   font-weight: 600;
   color: var(--tint-green-text);
 }
-.welcome__examples {
-  margin: 0 0 var(--space-20);
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
-}
-.welcome__example {
-  padding: var(--space-8) var(--space-16);
-  border-radius: var(--radius-window);
-  background: var(--content-bg);
-  box-shadow: var(--shadow-control);
+.welcome__alt {
+  margin: var(--space-12) 0 0;
+  color: var(--label-secondary);
   font-size: var(--text-callout-size);
 }
 @media (max-width: 900px) {
@@ -958,6 +947,15 @@ a.sidebar__open {
 .sidebar__sechead .sidebar__fold {
   flex: 1;
   min-width: 0;
+  white-space: nowrap;
+}
+/* Icon buttons, not the full-width 「+ 新建 Bot」 rows that share the class: those squeezed the title into a column. */
+.sidebar__sechead .sidebar__add {
+  flex: none;
+  justify-content: center;
+  width: var(--control-small);
+  padding: 0;
+  color: var(--label-secondary);
 }
 /* The head's actions show on hover, as Slack's do; touch screens always show them. */
 @media (hover: hover) {

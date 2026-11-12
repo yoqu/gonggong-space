@@ -350,6 +350,30 @@ describe('新建 Bot', () => {
     expect(
       await within(dialog).findByText('机器 wanglei-mbp 当前离线，打开该机器上的共工空间客户端后即可使用'),
     ).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: '完成' }).className).toContain('ui-btn--primary')
+  })
+
+  it('leads with 完成 and says 待检测 when the machine is offline and never reported its agents', async () => {
+    const unseen = { ...mbp, online: false, agents: [] }
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [unseen] }]
+    routes['POST /api/bots'] = () => bot({ presence: 'agent_missing' })
+    routes['GET /api/machines'] = () => [unseen]
+    renderAt('/machines', wang)
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    const claude = await within(dialog).findByRole('radio', { name: /Claude Code\s*待检测/ })
+    expect(claude.hasAttribute('disabled')).toBe(false)
+    expect(dialog.textContent).not.toContain('未安装')
+    expect(dialog.textContent).toContain('wanglei-mbp 还没上线检测 Claude Code，上线并检测到后自动可用。')
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
+    expect(
+      await within(dialog).findByText('wanglei-mbp 还没上线检测 Claude Code，上线并检测到后自动可用。'),
+    ).toBeTruthy()
+    // Not usable yet: 完成 leads, chatting stays possible but secondary.
+    expect(within(dialog).getByRole('button', { name: '完成' }).className).toContain('ui-btn--primary')
+    expect(within(dialog).getByRole('button', { name: '和它聊一句' }).className).not.toContain(
+      'ui-btn--primary',
+    )
   })
 
   it('hands out the 接入链接 right away when I have no machine yet', async () => {
@@ -961,6 +985,16 @@ describe('bot page', () => {
 
     fireEvent.click(within(places).getByRole('link', { name: /官网改版/ }))
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Bot 概况' })).toBeNull())
+  })
+
+  it('says 待检测, not 未安装, while its machine is offline and never reported its agents', async () => {
+    routes['GET /api/bots'] = () => [bot({ presence: 'agent_missing' })]
+    routes['GET /api/machines'] = () => [{ ...mbp, online: false, agents: [] }]
+    routes['GET /api/bots/b1/activity'] = () => []
+    renderAt('/bot/b1', wang)
+    const page = await screen.findByRole('region', { name: 'Bot 概况' })
+    expect(await within(page).findByText('Claude Code 待检测')).toBeTruthy()
+    expect(page.textContent).not.toContain('未安装')
   })
 
   it('moves the live turn’s step in place, refetching where the bot works only when a run changes', async () => {

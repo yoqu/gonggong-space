@@ -292,6 +292,15 @@ describe('使用者首次登录引导', () => {
     expect(within(dialog).queryByRole('button', { name: '帮我写周报' })).toBeNull()
   })
 
+  it('does not pop up before they are in any group, where every step would only say wait', async () => {
+    const calls = mockApi({ ...routes(), 'GET /groups': () => [] })
+    renderApp()
+    await screen.findByRole('region', { name: '开始使用' })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByRole('dialog', { name: '新手指引' })).toBeNull()
+    expect(calls.some((c) => c.path === '/me/onboarding')).toBe(false)
+  })
+
   it('never pops up for a builder', async () => {
     localStorage.setItem('gg.builder', '1')
     const calls = mockApi(routes())

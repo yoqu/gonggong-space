@@ -1,5 +1,6 @@
 import {
   type BotDto,
+  type GroupBotStateDto,
   type GroupDto,
   type MessageDto,
   type RunDto,
@@ -522,13 +523,66 @@ describe('hover action bar', () => {
     expect(screen.queryByText('小王的 Claude 正在处理…')).toBeNull()
   })
 
-  it('keeps the group mode and the per-Bot wording out of a private chat header', async () => {
+  it('keeps the group mode out of a private chat header and says where its Bot really works', async () => {
     renderChat({ messages: [msg({ seq: 1 })], runs: [] }, group({ kind: 'dm', name: '王磊 的私聊' }))
     const head = (await screen.findByRole('heading', { name: '王磊 的私聊' })).closest(
       'header',
     ) as HTMLElement
     expect(within(head).queryByText('分区模式')).toBeNull()
-    expect(head.textContent).toContain('仅你和你的 Bot · 未绑定仓库 · Bot 使用本机目录')
+    // Before the Bot's workspace is known, no claim about where it works.
+    expect(head.textContent).toContain('仅你和你的 Bot · 未绑定仓库')
+    expect(head.textContent).not.toContain('本机目录')
+    const state = (workspace: 'managed' | 'cd') =>
+      ({
+        botId: 'b1',
+        workspace,
+        state: 'ready',
+        path: '/w',
+        git: null,
+        error: null,
+        reason: null,
+        tier: null,
+        model: null,
+        effort: null,
+        context: null,
+        extraDirs: [],
+        repoPaths: {},
+      }) as GroupBotStateDto
+    act(() => useWorkspace.setState({ botStates: { g1: { b1: state('managed') } } }))
+    expect(head.textContent).toContain('未绑定仓库 · Bot 使用托管工作区')
+    act(() => useWorkspace.setState({ botStates: { g1: { b1: state('cd') } } }))
+    expect(head.textContent).toContain('未绑定仓库 · Bot 使用本机目录')
+  })
+
+  describe('first private chat', () => {
+    const joined = msg({ seq: 1, kind: 'event', authorId: null, body: '小王的 Claude 加入' })
+
+    it('opens with what the Bot does and examples that fill the composer without sending', async () => {
+      renderChat({ messages: [joined], runs: [] }, group({ kind: 'dm', name: '小王的 Claude' }))
+      const intro = await screen.findByRole('region', { name: '开始和 Bot 对话' })
+      expect(intro.textContent).toContain('它在你的电脑上干活，直接说要做什么')
+      const examples = within(intro).getAllByRole('button')
+      expect(examples).toHaveLength(3)
+      fireEvent.click(examples[0]!)
+      const box = (await screen.findByPlaceholderText(/输入消息/)) as HTMLTextAreaElement
+      await waitFor(() => expect(box.value).toBe(examples[0]!.textContent))
+      expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/messages'))).toEqual([])
+    })
+
+    it('is gone once a member has written', async () => {
+      renderChat(
+        { messages: [joined, msg({ seq: 2, authorId: 'u1', authorName: '王磊' })], runs: [] },
+        group({ kind: 'dm', name: '小王的 Claude' }),
+      )
+      await screen.findByText('第 2 条')
+      expect(screen.queryByRole('region', { name: '开始和 Bot 对话' })).toBeNull()
+    })
+
+    it('is not shown in a group chat', async () => {
+      renderChat({ messages: [joined], runs: [] })
+      await screen.findByText('小王的 Claude 加入')
+      expect(screen.queryByRole('region', { name: '开始和 Bot 对话' })).toBeNull()
+    })
   })
 
   it('shows a drop zone while files are dragged over the chat', async () => {

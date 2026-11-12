@@ -346,19 +346,20 @@ export default {
     'To bring it online, open the Gonggong Space client on the machine, or run in a terminal',
   安装客户端: 'Install the client',
   打开接入链接: 'Open the connect link',
-  等待机器上线: 'Wait for the machine',
   '① 安装客户端': '① Install the client',
   '② 打开接入链接': '② Open the connect link',
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
   接入码已失效: 'The code has expired',
   '一次性接入码 · {time} 后失效': 'One-time code · expires in {time}',
-  '粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器、建好 Bot。支持 macOS 和 Linux。':
-    'Paste it to Claude Code, Codex or another agent on this machine: it installs gg, binds the machine and sets up your Bot by itself. Works on macOS and Linux.',
   等待接入: 'Waiting to connect',
-  机器已绑定: 'Machine bound',
+  '复制给 Agent': 'Copy to your agent',
+  机器接入: 'Machine connects',
+  已接入的机器: 'Connected machine',
+  '等待机器上线…': 'Waiting for the machine to come online…',
+  了解上报内容: 'What the client reports',
   'Bot 就绪': 'Bot ready',
-  '把下面这句话发给本机的 Agent，它会自己接入；接入后这台机器归属于你，Bot 在上面运行。':
-    'Send the sentence below to the agent on your machine and it connects by itself; the machine is then yours and your Bots run on it.',
+  '把下面这句话粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器并建好 Bot（支持 macOS 和 Linux）。机器归属于你，Bot 在上面运行。':
+    'Paste the sentence below to Claude Code, Codex or another agent on this machine: it installs gg, binds the machine and sets up your Bot by itself (macOS and Linux). The machine is then yours and your Bots run on it.',
   '发给你的 Agent': 'Send to your agent',
   'Windows 上请展开「其他方式」，用桌面客户端绑定。':
     'On Windows, open "Other ways" and bind with the desktop app.',
