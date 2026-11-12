@@ -876,6 +876,7 @@ describe('not-found pages', () => {
     ['/machine/zz', '机器不存在或已吊销', '返回机器与 Bot', '/machines'],
     ['/t/zz', '终端不存在或已删除', '返回消息', '/'],
     ['/g/zz', '群不存在或你已不在群内', '返回消息', '/'],
+    ['/nope', '页面不存在', '返回消息', '/'],
   ])('%s offers a way out, also on a phone', async (path, title, action, target) => {
     for (const width of [1440, 390]) {
       setWidth(width)
@@ -886,6 +887,15 @@ describe('not-found pages', () => {
       await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(target))
       view.unmount()
     }
+  })
+
+  it('keeps an unknown page inside the app frame, without jumping to the last group', async () => {
+    mockApi(routes([group('g1', '退款')]))
+    renderAt('/nope')
+    expect(await screen.findByText('页面不存在')).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: '应用导航' })).toBeTruthy()
+    expect((await screen.findAllByText('退款')).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('where').textContent).toBe('/nope')
   })
 
   it('says why a bot or machine may be missing', async () => {

@@ -159,7 +159,7 @@ function useLinkedBot() {
   }, [bot, navigate])
 }
 
-export function ChatPage() {
+export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const { groupId, botId, machineId, spaceId } = useParams()
   const navigate = useNavigate()
   // 机器与 Bot: its tree replaces the conversation list; /machines alone opens nothing yet.
@@ -210,6 +210,7 @@ export function ChatPage() {
   // Desktop home resumes the last opened group; mobile home is the conversation list itself.
   useEffect(() => {
     if (
+      notFound ||
       groupId ||
       spaceId ||
       managing ||
@@ -226,6 +227,7 @@ export function ChatPage() {
     const target = groups.find((g) => g.id === lastGroup()) ?? groups[0]
     if (target) navigate(`/g/${target.id}`, { replace: true })
   }, [
+    notFound,
     groupId,
     spaceId,
     managing,
@@ -244,7 +246,16 @@ export function ChatPage() {
     <>
       <ChatLayout
         mobileView={
-          groupId || botId || machineId || spaceId || works || market || threads || unreads || later
+          notFound ||
+          groupId ||
+          botId ||
+          machineId ||
+          spaceId ||
+          works ||
+          market ||
+          threads ||
+          unreads ||
+          later
             ? 'chat'
             : 'list'
         }
@@ -296,7 +307,16 @@ export function ChatPage() {
           )
         }
       >
-        {market ? (
+        {notFound ? (
+          <div className="chat__placeholder">
+            <EmptyState
+              illustration={<DeniedArt />}
+              title={t('页面不存在')}
+              description={t('链接可能已失效，或你没有访问权限。')}
+              action={<Button onClick={() => navigate('/')}>{t('返回消息')}</Button>}
+            />
+          </div>
+        ) : market ? (
           <MarketPage />
         ) : threads ? (
           <ThreadInbox onBack={mobile ? () => navigate('/') : undefined} />

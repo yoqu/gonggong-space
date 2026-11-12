@@ -40,6 +40,8 @@ export default {
   群不存在或你已不在群内: "This group doesn't exist or you're no longer a member",
   选择一个群或私聊开始: 'Pick a group or direct message to start',
   '它可能已解散，或你已被移出。': 'It may have been dissolved, or you were removed.',
+  页面不存在: 'Page not found',
+  '链接可能已失效，或你没有访问权限。': "The link may have expired, or you don't have access.",
   '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex / Gemini CLI 开始工作。':
     "Pick a conversation on the left; @ a Bot to put Claude Code / Codex / Gemini CLI to work on a teammate's machine.",
   加载工作区失败: 'Failed to load workspace',

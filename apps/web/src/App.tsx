@@ -2,7 +2,6 @@ import { lazy, type ReactNode, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
 import { AppShell } from './app/AppShell'
 import { ChatPage } from './app/ChatPage'
-import { NotFound } from './app/NotFound'
 import { RequireSession } from './app/RequireSession'
 import { named } from './lib/lazy'
 import { Mascot } from './ui'
@@ -54,9 +53,9 @@ export function App() {
             <Route path="works/:artifactId" element={<ChatPage />} />
             <Route path="market" element={<ChatPage />} />
             <Route path="t/:spaceId" element={<ChatPage />} />
+            <Route path="*" element={<ChatPage notFound />} />
           </Route>
           <Route path="admin/*" element={later(<AdminRoutes />)} />
-          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </Suspense>
