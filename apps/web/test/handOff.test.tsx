@@ -31,7 +31,7 @@ const reply = (o: Partial<MessageDto>): MessageDto => ({
 beforeEach(() => {
   useCite.setState({ pending: null })
   useWorkspace.setState({
-    groups: [{ id: 'g1', botIds: ['b1', 'b2', 'b3'] } as GroupDto],
+    groups: [{ id: 'g1', botIds: ['b1', 'b2', 'b3'], members: [] as GroupDto['members'] } as GroupDto],
     bots: [bot('b1', 'MBP 的 CC'), bot('b2', 'CC专家'), bot('b3', '测试员'), bot('b4', '别群的 Bot')],
   })
 })
