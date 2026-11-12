@@ -15,6 +15,7 @@ import {
   NoResultsArt,
   Presence,
   SearchField,
+  Spinner,
   Tag,
 } from '../../ui'
 import { knowledgeApi, useKnowledge } from './api'
@@ -137,7 +138,9 @@ export function KnowledgeView({ groupId }: { groupId: string }) {
             </Button>
           }
         />
-      ) : null}
+      ) : error ? null : (
+        <Spinner />
+      )}
       <div className="gs-foot">
         {full
           ? t('已达 {max} 条上限，删除不再需要的条目后再新建。', { max: KNOWLEDGE_MAX_ENTRIES })

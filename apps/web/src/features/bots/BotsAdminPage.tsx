@@ -10,6 +10,7 @@ import {
   NoResultsArt,
   Presence,
   SearchField,
+  Spinner,
   Table,
   Tag,
   ToolbarButton,
@@ -31,7 +32,7 @@ export function BotsAdminPage() {
   const me = useSession((s) => s.user) as UserDto
   const [teamId, setTeamId] = useState('')
   const live = useWorkspace((s) => s.bots)
-  const { data, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
+  const { data, error, reload } = useGet<BotDto[]>(`/admin/bots${teamId ? `?teamId=${teamId}` : ''}`)
   const teamNames = new Map((useGet<AdminTeamDto[]>('/admin/teams').data ?? []).map((x) => [x.id, x.name]))
   // biome-ignore lint/correctness/useExhaustiveDependencies: the open team's live bot updates re-fetch every team's list
   useEffect(() => reload(), [live, reload])
@@ -151,6 +152,8 @@ export function BotsAdminPage() {
           />
           {selected ? <BotDetail key={selected.id} bot={selected} me={me} users={users} /> : null}
         </div>
+      ) : !data && !error ? (
+        <Spinner size={18} />
       ) : (
         <EmptyState
           illustration={<NoBotsArt />}

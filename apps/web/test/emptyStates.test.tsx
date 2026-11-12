@@ -1,7 +1,16 @@
-import type { GroupKnowledgeDto, GroupPreviewsDto, GroupSchedulesDto } from '@gonggong/protocol'
+import type {
+  BotDto,
+  GroupKnowledgeDto,
+  GroupPreviewsDto,
+  GroupSchedulesDto,
+  UserDto,
+} from '@gonggong/protocol'
 import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { BotsAdminPage } from '../src/features/bots/BotsAdminPage'
 import { KnowledgeView } from '../src/features/knowledge/KnowledgeView'
 import { PluginLayerList } from '../src/features/plugins/PluginLayer'
 import { PreviewsView } from '../src/features/previews/PreviewsView'
@@ -18,6 +27,9 @@ const emptyWithArt = async (title: string) => {
   expect(empty.querySelector('.ui-empty__art svg.ui-art .ui-mascot')).toBeTruthy()
   return empty
 }
+
+/** A reply held back for the whole test, so the view stays loading. */
+const never = () => new Promise<never>(() => {})
 
 class NoopSocket {
   close() {}
@@ -80,5 +92,51 @@ describe('empty states draw 共字君 and carry the page action', () => {
     const empty = await emptyWithArt('还没有插件')
     expect(within(empty).getByRole('button', { name: '上传文件夹…' })).toBeTruthy()
     expect(screen.getAllByRole('button', { name: '上传 zip…' })).toHaveLength(1)
+  })
+})
+
+describe('views show a loading state until their data arrives', () => {
+  it('定时任务', () => {
+    mockApi({ 'GET /groups/g1/schedules': never })
+    render(<SchedulesView groupId="g1" />)
+    expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()
+    expect(screen.queryByText('还没有定时任务')).toBeNull()
+  })
+
+  it('知识库', () => {
+    mockApi({ 'GET /groups/g1/knowledge': never })
+    render(<KnowledgeView groupId="g1" />)
+    expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()
+    expect(screen.queryByText('还没有知识')).toBeNull()
+  })
+
+  it('预览与服务', () => {
+    mockApi({ 'GET /groups/g1/previews': never })
+    render(<PreviewsView groupId="g1" />)
+    expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()
+  })
+
+  it('管理后台 · Bot', () => {
+    useSession.setState({ user: { id: 'u0', name: '陈晨', role: 'sysadmin' } as UserDto, status: 'ready' })
+    mockApi({ 'GET /admin/bots': never, 'GET /admin/teams': [], 'GET /users': [] })
+    render(
+      <MemoryRouter>
+        <BotsAdminPage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('status', { name: '加载中' })).toBeTruthy()
+    expect(screen.queryByText('还没有 Bot')).toBeNull()
+  })
+
+  it('管理后台 · Bot still says so when there is none', async () => {
+    useSession.setState({ user: { id: 'u0', name: '陈晨', role: 'sysadmin' } as UserDto, status: 'ready' })
+    mockApi({ 'GET /admin/bots': [] satisfies BotDto[], 'GET /admin/teams': [], 'GET /users': [] })
+    render(
+      <MemoryRouter>
+        <BotsAdminPage />
+      </MemoryRouter>,
+    )
+    await emptyWithArt('还没有 Bot')
+    expect(screen.queryByRole('status', { name: '加载中' })).toBeNull()
   })
 })

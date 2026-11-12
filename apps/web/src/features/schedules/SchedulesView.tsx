@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { attempt } from '../../lib/errors'
-import { Button, EmptyState, GroupBox, NoSchedulesArt, Switch, Tag } from '../../ui'
+import { Button, EmptyState, GroupBox, NoSchedulesArt, Spinner, Switch, Tag } from '../../ui'
 import { botsText, lastText, stateText } from './model'
 import { ScheduleDialog } from './ScheduleDialog'
 import { schedulesApi, timingText, useBotNames, useSchedules } from './store'
@@ -71,7 +71,7 @@ export function SchedulesView({ groupId }: { groupId: string }) {
   const list = useSchedules(groupId)
   const botIds = useWorkspace((s) => s.groups.find((g) => g.id === groupId)?.botIds) ?? []
   const [editing, setEditing] = useState<ScheduleDto | 'new' | null>(null)
-  if (!list) return null
+  if (!list) return <Spinner />
   return (
     <>
       {list.length ? (

@@ -1,7 +1,7 @@
 import type { GroupPreviewsDto } from '@gonggong/protocol'
 import { api } from '../../lib/api'
 import { attempt } from '../../lib/errors'
-import { Button, EmptyState, GroupBox, NoTabsArt } from '../../ui'
+import { Button, EmptyState, GroupBox, NoTabsArt, Spinner } from '../../ui'
 import './previews.css'
 import { t } from '../../i18n'
 import { openInWorkbench, openUrl, usePreviews } from './store'
@@ -21,7 +21,7 @@ const act = (path: string) => attempt(() => api.post(path))
  */
 export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: () => void }) {
   const list = usePreviews(groupId)
-  if (!list) return null
+  if (!list) return <Spinner />
   return (
     <>
       {list.previews.length || list.services.length ? (
