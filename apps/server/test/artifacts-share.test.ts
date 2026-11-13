@@ -25,18 +25,20 @@ const KIT = join(BUILTIN_PLUGINS, 'web-prototype/skills/web-prototype/kit')
 const DAY = 86400_000
 
 type Res = { status: number; headers: Record<string, string | string[] | undefined>; text: string }
-function get(host: string, path: string, headers: Record<string, string> = {}) {
+function get(host: string, path: string, headers: Record<string, string> = {}, body?: object) {
   const port = Number(new URL(t.url('/')).port)
   return new Promise<Res>((resolve, reject) => {
-    const req = request({ host: '127.0.0.1', port, path, headers: { host, ...headers } }, (res) => {
+    const method = body ? 'POST' : 'GET'
+    const req = request({ host: '127.0.0.1', port, path, method, headers: { host, ...headers } }, (res) => {
       let text = ''
       res.on('data', (d) => (text += d))
       res.on('end', () => resolve({ status: res.statusCode!, headers: res.headers, text }))
     })
     req.on('error', reject)
-    req.end()
+    req.end(body ? JSON.stringify(body) : undefined)
   })
 }
+const cookieOf = (r: Res) => (r.headers['set-cookie'] as string[])[0]!.split(';')[0]!
 
 async function setup() {
   const w = await artifactWorld(t)
@@ -153,7 +155,14 @@ describe('artifact sharing', () => {
   it("turns a public link to the head on and off; the bot's managers switch it, members read it", async () => {
     const s = await setup()
     const url = `/api/artifacts/${s.a.id}/share`
-    const off: ArtifactShareDto = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
+    const off: ArtifactShareDto = {
+      enabled: false,
+      url: null,
+      expiresAt: null,
+      version: null,
+      latest: null,
+      password: null,
+    }
     expect((await s.req('GET', url, s.liCookie)).json()).toEqual(off)
     expect((await s.req('POST', url, s.liCookie, { enabled: true })).statusCode).toBe(403)
 
@@ -161,6 +170,7 @@ describe('artifact sharing', () => {
     expect(on.statusCode).toBe(200)
     const share = on.json() as ArtifactShareDto
     expect(share.enabled).toBe(true)
+    expect(share.password).toBeNull()
     expect(share.url).toMatch(/^http:\/\/[a-z0-9]+\.preview\.test(:\d+)?\/__gg\/share\/ps_/)
     expect(new Date(share.expiresAt!).getTime() - t.ctx.now().getTime()).toBeGreaterThan(7 * DAY - 60_000)
     // Reused: one link per artifact, readable by every member.
@@ -280,5 +290,54 @@ describe('artifact sharing', () => {
     const outsider = await t.seed.cookie(s.outsider.id)
     expect((await s.req('GET', url, outsider)).statusCode).toBe(404)
     expect((await s.req('POST', url, s.wangCookie, {})).statusCode).toBe(400)
+  })
+
+  it('locks the link with a 4-digit password that visitors enter on the link, with limited tries', async () => {
+    const s = await setup()
+    const url = `/api/artifacts/${s.a.id}/share`
+    const share = (await s.req('POST', url, s.wangCookie, { enabled: true })).json() as ArtifactShareDto
+    const link = new URL(share.url!)
+    const openCookie = cookieOf(await get(link.host, link.pathname))
+    expect((await s.req('POST', url, s.liCookie, { enabled: true, locked: true })).statusCode).toBe(403)
+
+    const locked = (await s.req('POST', url, s.wangCookie, { enabled: true, locked: true })).json()
+    expect(locked).toMatchObject({ url: share.url, password: expect.stringMatching(/^\d{4}$/) })
+    const { password } = locked as ArtifactShareDto & { password: string }
+    expect((await s.req('GET', url, s.liCookie)).json()).toMatchObject({ password })
+    // Stored sealed.
+    const [row] = await t.db.select().from(previewShares)
+    expect(row!.password).toMatch(/^v1:/)
+    // Visitors who came in before the lock are asked too.
+    expect((await get(link.host, '/screens/home.html', { cookie: openCookie })).status).not.toBe(200)
+
+    // The link itself asks for the password, letting no one in until it is right.
+    const gate = await get(link.host, link.pathname, { accept: 'text/html' })
+    expect(gate.status).toBe(200)
+    expect(gate.headers['set-cookie']).toBeUndefined()
+    expect(gate.text).toContain('请输入访问密码')
+    const wrong = password === '0000' ? '1111' : '0000'
+    const bad = await get(link.host, link.pathname, {}, { password: wrong })
+    expect(bad.status).toBe(403)
+    expect(bad.headers['set-cookie']).toBeUndefined()
+    const ok = await get(link.host, link.pathname, {}, { password })
+    expect(ok.status).toBe(200)
+    expect(JSON.parse(ok.text)).toEqual({ location: '/' })
+    const cookie = cookieOf(ok)
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe(L1['screens/home.html'])
+
+    // A new password locks out those who knew the old one; dropping it opens the link again.
+    const relocked = (await s.req('POST', url, s.wangCookie, { enabled: true, locked: true })).json()
+    expect(relocked).toMatchObject({ url: share.url, password: expect.stringMatching(/^\d{4}$/) })
+    expect((await get(link.host, '/screens/home.html', { cookie })).status).not.toBe(200)
+    const opened = (await s.req('POST', url, s.wangCookie, { enabled: true, locked: false })).json()
+    expect(opened).toMatchObject({ url: share.url, password: null })
+    expect((await get(link.host, link.pathname)).status).toBe(302)
+
+    // Five wrong tries lock the link for a while, even against the right password.
+    const again = (await s.req('POST', url, s.wangCookie, { enabled: true, locked: true })).json()
+    const right = (again as ArtifactShareDto).password!
+    const miss = right === '0000' ? '1111' : '0000'
+    for (let i = 0; i < 5; i++) await get(link.host, link.pathname, {}, { password: miss })
+    expect((await get(link.host, link.pathname, {}, { password: right })).status).toBe(429)
   })
 })

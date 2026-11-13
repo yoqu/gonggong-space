@@ -5,7 +5,8 @@ import { SESSION_COOKIE } from '../auth/session.js'
 
 /** Who a preview cookie lets in: a group member, or a visitor through a public link (plan P7/P8). */
 /** `parent`: the main site's origin as the member reached it, the only one an artifact screen's bridge talks to. */
-export type Visitor = { userId: string; parent?: string } | { shareId: string }
+/** `key`: proof of a locked link's current password (`passKey`), so a new password locks earlier visitors out. */
+export type Visitor = { userId: string; parent?: string } | { shareId: string; key?: string }
 
 // Per process: a restart only costs visitors one silent trip through the main site.
 const SECRET = randomBytes(32)

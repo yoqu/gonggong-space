@@ -1120,6 +1120,8 @@ export const previewShares = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     /** An artifact preview's link pinned to this version; null: the preview's own (its head). */
     artifactVersionId: uuid('artifact_version_id').references(() => artifactVersions.id),
+    /** Sealed 4 digits visitors must enter (artifact shares); null: the link alone lets them in. */
+    password: text('password'),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id),

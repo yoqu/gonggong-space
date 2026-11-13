@@ -5,7 +5,7 @@ import { copyText } from '../../lib/clipboard'
 import { Button, Icon, RadioGroup, toast } from '../../ui'
 import { copyScreensCode, type Notify } from './actions'
 import { Panel } from './SidePanel'
-import { screenLink, useArtifactShare } from './share'
+import { copiedToast, screenLink, shareText, useArtifactShare } from './share'
 
 type Format = 'zip' | 'code' | 'prompt' | 'brief' | 'share'
 
@@ -71,8 +71,8 @@ export function ExportPanel({
   const copyLink = async () => {
     const s = share?.enabled ? share : await set(true)
     if (!s?.url) return
-    await copyText(screenLink(s.url)).then(
-      () => notify(t('链接已复制')),
+    await copyText(shareText(screenLink(s.url), s.password)).then(
+      () => notify(copiedToast(s.password)),
       () => toast({ type: 'error', message: t('复制失败') }),
     )
   }

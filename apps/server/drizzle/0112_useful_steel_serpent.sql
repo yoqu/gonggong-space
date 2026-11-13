@@ -1,0 +1,1 @@
+ALTER TABLE "preview_shares" ADD COLUMN "password" text;

@@ -477,6 +477,7 @@ describe('share', () => {
   it('toggles a public link to the head preview, locked to a version or following the latest', () => {
     expect(ArtifactShareReq.parse({ enabled: true })).toEqual({ enabled: true })
     expect(ArtifactShareReq.parse({ enabled: true, follow: true })).toEqual({ enabled: true, follow: true })
+    expect(ArtifactShareReq.parse({ enabled: true, locked: true })).toEqual({ enabled: true, locked: true })
     expect(ArtifactShareReq.safeParse({}).success).toBe(false)
     const on = {
       enabled: true,
@@ -484,9 +485,10 @@ describe('share', () => {
       expiresAt: '2026-11-06T00:00:00.000Z',
       version: 3,
       latest: 4,
+      password: '0427',
     }
     expect(ArtifactShareDto.parse(on)).toEqual(on)
-    const off = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
+    const off = { enabled: false, url: null, expiresAt: null, version: null, latest: null, password: null }
     expect(ArtifactShareDto.parse(off)).toEqual(off)
   })
 })

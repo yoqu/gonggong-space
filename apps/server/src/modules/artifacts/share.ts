@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { type ArtifactShareDto, type ArtifactShareReq, PREVIEW_SHARE_DEFAULT_DAYS } from '@gonggong/protocol'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { FastifyRequest } from 'fastify'
@@ -14,7 +15,15 @@ import { newSlug, requireManager } from '../previews/service.js'
 import { type Artifact, findArtifact, requireVersion } from './service.js'
 
 const DAY = 86400_000
-const OFF: ArtifactShareDto = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
+const OFF: ArtifactShareDto = {
+  enabled: false,
+  url: null,
+  expiresAt: null,
+  version: null,
+  latest: null,
+  password: null,
+}
+const newPassword = () => seal(String(randomInt(10_000)).padStart(4, '0'))
 
 /** Opens the artifact's preview (one following the head, one per pinned version), reusing an open one. */
 export async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: string | null) {
@@ -85,19 +94,21 @@ export async function shareState(ctx: Ctx, a: Artifact, req: FastifyRequest): Pr
     expiresAt: live.s.expiresAt.toISOString(),
     version: await versionNumber(ctx, live.s.artifactVersionId),
     latest: await versionNumber(ctx, a.headVersionId),
+    password: live.s.password ? open(live.s.password) : null,
   }
 }
 
 /**
  * POST /api/artifacts/:id/share (managers of the artifact's bot, like preview shares): on reuses the live link or
  * makes one to the head preview for the default days (capped by the system limit), pinned to the head version unless
- * `follow`; with `follow` given a live link is re-pinned to the head or set to follow it, keeping its URL. Off revokes.
+ * `follow`; with `follow` given a live link is re-pinned to the head or set to follow it, keeping its URL. `locked`
+ * gives the link a fresh password or drops it, keeping its URL too. Off revokes.
  */
 export async function setShare(
   ctx: Ctx,
   me: { id: string },
   a: Artifact,
-  { enabled, follow }: ArtifactShareReq,
+  { enabled, follow, locked }: ArtifactShareReq,
   req: FastifyRequest,
 ): Promise<ArtifactShareDto> {
   if (!enabled) {
@@ -122,12 +133,14 @@ export async function setShare(
   await requireManager(ctx, preview.groupId, preview.botId, me.id)
   const pin = follow ? null : a.headVersionId
   const live = await liveShare(ctx, a)
+  const password = locked === undefined ? undefined : locked ? newPassword() : null
   if (live) {
-    if (follow !== undefined)
-      await ctx.db
-        .update(previewShares)
-        .set({ artifactVersionId: pin })
-        .where(eq(previewShares.id, live.s.id))
+    const patch = {
+      ...(follow === undefined ? {} : { artifactVersionId: pin }),
+      ...(password === undefined ? {} : { password }),
+    }
+    if (Object.keys(patch).length)
+      await ctx.db.update(previewShares).set(patch).where(eq(previewShares.id, live.s.id))
     return shareState(ctx, a, req)
   }
   const days = Math.min(PREVIEW_SHARE_DEFAULT_DAYS, previewShareMaxDays)
@@ -138,6 +151,7 @@ export async function setShare(
       previewId: preview.id,
       tokenHash: sha256(token),
       artifactVersionId: pin,
+      password: password ?? null,
       createdBy: me.id,
       expiresAt: new Date(ctx.now().getTime() + days * DAY),
     })

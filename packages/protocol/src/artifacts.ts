@@ -807,8 +807,15 @@ export type WorkDto = z.infer<typeof WorkDto>
 export const WorkGroupDto = z.object({ id: z.string(), title: z.string() })
 export type WorkGroupDto = z.infer<typeof WorkGroupDto>
 
-/** `follow`: true makes the link show the latest version, false pins it to the head now; absent keeps it as it is. */
-export const ArtifactShareReq = z.object({ enabled: z.boolean(), follow: z.boolean().optional() })
+/**
+ * `follow`: true makes the link show the latest version, false pins it to the head now; absent keeps it as it is.
+ * `locked`: true asks visitors for a fresh 4-digit password, false drops it; absent keeps it as it is.
+ */
+export const ArtifactShareReq = z.object({
+  enabled: z.boolean(),
+  follow: z.boolean().optional(),
+  locked: z.boolean().optional(),
+})
 export type ArtifactShareReq = z.infer<typeof ArtifactShareReq>
 export const ArtifactShareDto = z.object({
   enabled: z.boolean(),
@@ -818,6 +825,8 @@ export const ArtifactShareDto = z.object({
   version: z.number().int().nullable(),
   /** The artifact's head version number while the link is on. */
   latest: z.number().int().nullable(),
+  /** The 4 digits visitors must enter; null when the link is open to anyone with it (or off). */
+  password: z.string().nullable(),
 })
 export type ArtifactShareDto = z.infer<typeof ArtifactShareDto>
 

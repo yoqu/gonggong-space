@@ -22,14 +22,22 @@ export async function loadShare(artifactId: string) {
     useShares.setState({ [artifactId]: s })
   } catch {
     useShares.setState({
-      [artifactId]: { enabled: false, url: null, expiresAt: null, version: null, latest: null },
+      [artifactId]: {
+        enabled: false,
+        url: null,
+        expiresAt: null,
+        version: null,
+        latest: null,
+        password: null,
+      },
     })
   }
 }
 
 /**
- * The artifact's share link, loaded on first use; `set` turns it on or off (managers only, the server checks), and
- * with `follow` makes it follow the latest version or locks it to the newest one.
+ * The artifact's share link, loaded on first use; `set` turns it on or off (managers only, the server checks), with
+ * `follow` makes it follow the latest version or locks it to the newest one, with `locked` gives it a fresh password
+ * or drops it.
  */
 export function useArtifactShare(artifactId: string) {
   const share = useShares((s) => s[artifactId])
@@ -38,13 +46,10 @@ export function useArtifactShare(artifactId: string) {
     if (!useShares.getState()[artifactId]) void loadShare(artifactId)
   }, [artifactId])
   const set = useCallback(
-    async (enabled: boolean, follow?: boolean) => {
+    async (enabled: boolean, opts: { follow?: boolean; locked?: boolean } = {}) => {
       setBusy(true)
       try {
-        const s = await api.post<ArtifactShareDto>(
-          `/artifacts/${artifactId}/share`,
-          follow === undefined ? { enabled } : { enabled, follow },
-        )
+        const s = await api.post<ArtifactShareDto>(`/artifacts/${artifactId}/share`, { enabled, ...opts })
         useShares.setState({ [artifactId]: s })
         return s
       } catch (e) {
@@ -93,6 +98,24 @@ const expiry = (at: string | null) =>
 
 /** The share link to a screen of the prototype (the shell plays `#play:<id>`). */
 export const screenLink = (url: string, screen?: string) => (screen ? `${url}#play:${screen}` : url)
+
+/** What to send someone: the link, and its password when it has one. */
+export const shareText = (url: string, password: string | null) =>
+  password ? `${url}\n${t('访问密码：{password}', { password })}` : url
+
+export const copiedToast = (password: string | null) => (password ? t('链接和密码已复制') : t('链接已复制'))
+
+/** A locked link's 4 digits, large enough to read out. */
+function Password({ value }: { value: string }) {
+  return (
+    <span className="art-share__digits" role="img" aria-label={t('访问密码 {password}', { password: value })}>
+      {value.split('').map((d, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: digits repeat and never move
+        <span key={i}>{d}</span>
+      ))}
+    </span>
+  )
+}
 
 /** 分享: the switch, what it means, and the link. */
 export function ShareDialog({
@@ -179,7 +202,7 @@ export function ShareDialog({
               aria-label={t('链接内容')}
               size="small"
               value={share.version ? 'pin' : 'follow'}
-              onChange={(v) => void set(true, v === 'follow')}
+              onChange={(v) => void set(true, { follow: v === 'follow' })}
               items={[
                 {
                   value: 'pin',
@@ -192,7 +215,11 @@ export function ShareDialog({
             {share.version && share.version < share.latest ? (
               <div className="art-share__stale">
                 <small>{t('已有更新的 v{n}，对方仍看到 v{m}', { n: share.latest, m: share.version })}</small>
-                <Button size="small" disabled={busy || !!denied} onClick={() => void set(true, false)}>
+                <Button
+                  size="small"
+                  disabled={busy || !!denied}
+                  onClick={() => void set(true, { follow: false })}
+                >
                   {t('更新到 v{n}', { n: share.latest })}
                 </Button>
               </div>
@@ -203,6 +230,38 @@ export function ShareDialog({
                   : t('Bot 修改后，对方看到的内容随之更新')}
               </small>
             )}
+          </div>
+        ) : null}
+        {on ? (
+          <div className="art-share__lock">
+            <div className="art-share__row">
+              <div>
+                <strong>{t('密码访问')}</strong>
+                <small>
+                  {share?.password ? t('打开链接后需输入 4 位数字密码') : t('开启后自动生成 4 位数字密码')}
+                </small>
+              </div>
+              <Switch
+                aria-label={t('密码访问')}
+                checked={!!share?.password}
+                disabled={busy || !!denied}
+                onChange={(v) => void set(true, { locked: v })}
+              />
+            </div>
+            {share?.password ? (
+              <div className="art-share__password">
+                <Password value={share.password} />
+                <Button
+                  size="small"
+                  variant="plain"
+                  icon="arrow-clockwise"
+                  disabled={busy || !!denied}
+                  onClick={() => void set(true, { locked: true })}
+                >
+                  {t('换一个')}
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {on && share?.url ? (
@@ -216,9 +275,12 @@ export function ShareDialog({
             variant="primary"
             icon="link"
             disabled={!share?.url}
-            onClick={() => share?.url && void copyWithToast(share.url, t('链接已复制'))}
+            onClick={() =>
+              share?.url &&
+              void copyWithToast(shareText(share.url, share.password), copiedToast(share.password))
+            }
           >
-            {t('复制链接')}
+            {share?.password ? t('复制链接和密码') : t('复制链接')}
           </Button>
         ) : (
           <Button
@@ -260,9 +322,24 @@ export function QrDialog({
             <QRCodeSVG value={url} size={196} marginSize={2} />
           </div>
           <small>{t('用手机扫码打开原型')}</small>
+          {share?.password ? (
+            <div className="art-share__password">
+              <small>{t('访问密码')}</small>
+              <Password value={share.password} />
+            </div>
+          ) : null}
           <small>{expiry(share?.expiresAt ?? null)}</small>
-          <Button size="small" icon="link" onClick={() => void copyWithToast(url, t('链接已复制'))}>
-            {t('复制链接')}
+          <Button
+            size="small"
+            icon="link"
+            onClick={() =>
+              void copyWithToast(
+                shareText(url, share?.password ?? null),
+                copiedToast(share?.password ?? null),
+              )
+            }
+          >
+            {share?.password ? t('复制链接和密码') : t('复制链接')}
           </Button>
         </div>
       ) : (

@@ -8,6 +8,8 @@ import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
+import { remember } from '../../lib/lru.js'
+import { open } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireSysadmin, requireUser } from '../auth/session.js'
 import { previewOrigin, requireOpenPreview, requireWebPreview } from './routes.js'
@@ -53,53 +55,81 @@ async function listShares(ctx: Ctx, where?: SQL): Promise<PreviewShareDto[]> {
 
 const byId = async (ctx: Ctx, id: string) => (await listShares(ctx, eq(previewShares.id, id)))[0]
 
+/** What a locked link's cookie carries: changes with its password and gives the digits away to no one. */
+export const passKey = (shareId: string, sealed: string) => sha256(`${shareId}:${open(sealed)}`).slice(0, 24)
+
 /**
- * Valid links let their visitor in; checked on every request so a revoke, expiry or demo mode takes effect at once.
- * Returns the link's pinned artifact version (null: the preview's own), or false when it does not let them in.
+ * Valid links let their visitor in; checked on every request so a revoke, expiry, new password or demo mode takes
+ * effect at once. Returns the link's pinned artifact version (null: the preview's own), or false when it does not.
  */
 export async function shareAllows(
   ctx: Ctx,
-  shareId: string,
+  visitor: { shareId: string; key?: string },
   previewId: string,
 ): Promise<string | null | false> {
   if ((await sysParams(ctx.db)).demoMode) return false
   const [row] = await ctx.db
-    .select({ version: previewShares.artifactVersionId })
+    .select({ version: previewShares.artifactVersionId, password: previewShares.password })
     .from(previewShares)
     .where(
       and(
-        eq(previewShares.id, shareId),
+        eq(previewShares.id, visitor.shareId),
         eq(previewShares.previewId, previewId),
         isNull(previewShares.revokedAt),
         gt(previewShares.expiresAt, ctx.now()),
       ),
     )
-  return row ? row.version : false
+  if (!row || (row.password && visitor.key !== passKey(visitor.shareId, row.password))) return false
+  return row.version
 }
 
-/** `/__gg/share/<token>` on the preview origin: counts the visit and returns the share id, or null when not valid. */
-export async function redeemShare(ctx: Ctx, preview: Preview, token: string) {
+/** The valid link `/__gg/share/<token>` names on this preview's origin, or null. */
+export async function linkShare(ctx: Ctx, previewId: string, token: string) {
   if ((await sysParams(ctx.db)).demoMode) return null
   const [s] = await ctx.db
-    .update(previewShares)
-    .set({ visitCount: sql`${previewShares.visitCount} + 1`, lastVisitAt: ctx.now() })
+    .select({ id: previewShares.id, password: previewShares.password })
+    .from(previewShares)
     .where(
       and(
         eq(previewShares.tokenHash, sha256(token)),
-        eq(previewShares.previewId, preview.id),
+        eq(previewShares.previewId, previewId),
         isNull(previewShares.revokedAt),
         gt(previewShares.expiresAt, ctx.now()),
       ),
     )
-    .returning()
-  if (!s) return null
+  return s ?? null
+}
+
+export async function countVisit(ctx: Ctx, preview: Preview, shareId: string) {
+  await ctx.db
+    .update(previewShares)
+    .set({ visitCount: sql`${previewShares.visitCount} + 1`, lastVisitAt: ctx.now() })
+    .where(eq(previewShares.id, shareId))
   await audit(ctx, {
     category: 'preview',
     action: 'share.visit',
     groupId: preview.groupId,
-    detail: { shareId: s.id, previewId: preview.id, title: preview.title },
+    detail: { shareId, previewId: preview.id, title: preview.title },
   })
-  return s.id
+}
+
+// 4 digits are 10,000 guesses: a few tries per link, then a pause, keeps guessing slower than the link lives.
+export const PASSWORD_TRIES = 5
+export const PASSWORD_PAUSE_MIN = 10
+const misses = new Map<string, { n: number; at: number }>()
+
+/** Checks a locked link's password, counting misses per link; `locked` while it pauses after too many. */
+export function tryPassword(ctx: Ctx, shareId: string, sealed: string, given: string) {
+  const now = ctx.now().getTime()
+  let m = misses.get(shareId)
+  if (m && now - m.at > PASSWORD_PAUSE_MIN * 60_000) m = undefined
+  if (m && m.n >= PASSWORD_TRIES) return 'locked'
+  if (given === open(sealed)) {
+    misses.delete(shareId)
+    return 'ok'
+  }
+  remember(misses, shareId, { n: (m?.n ?? 0) + 1, at: now }, 10_000)
+  return 'wrong'
 }
 
 async function requireShare(ctx: Ctx, id: string) {

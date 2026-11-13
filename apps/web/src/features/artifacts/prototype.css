@@ -721,6 +721,35 @@
   color: var(--tint-orange-text);
   font-size: var(--text-footnote-size);
 }
+.art-share__lock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.art-share__password {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.art-qr .art-share__password {
+  flex-direction: column;
+  gap: 4px;
+}
+.art-share__digits {
+  display: inline-flex;
+  gap: 6px;
+}
+.art-share__digits > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--quote-fill);
+  color: var(--label);
+  font: 600 18px / 1 var(--font-mono);
+}
 .art-share__link {
   display: flex;
   flex-direction: column;

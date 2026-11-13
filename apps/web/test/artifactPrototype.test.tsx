@@ -70,13 +70,14 @@ const artifact = (o: Record<string, unknown> = {}) => ({
 })
 const file = (path: string) => ({ path, hash: 'b'.repeat(64), size: 10 })
 const detail = { ...version(2), files: [file('screens/home.html')], manifest, links: [] }
-const OFF = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
+const OFF = { enabled: false, url: null, expiresAt: null, version: null, latest: null, password: null }
 const ON = {
   enabled: true,
   url: 'https://a1.preview.test/__gg/share/ps_x',
   expiresAt: '2026-11-06T10:00:00Z',
   version: 2,
   latest: 2,
+  password: null,
 }
 const routes = (o: Record<string, unknown> = {}) => ({
   'GET /artifacts/a1': artifact(),
@@ -762,6 +763,37 @@ describe('share', () => {
     expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([
       { enabled: true, follow: false },
       { enabled: true, follow: true },
+    ])
+  })
+
+  it('locks the link with a password and copies the two together', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1/share': ON,
+        'POST /artifacts/a1/share': (b: unknown) =>
+          (b as { locked: boolean }).locked ? { ...ON, password: '0427' } : ON,
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const lock = await within(dialog).findByRole('switch', { name: '密码访问' })
+    expect(lock.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(lock)
+    await within(dialog).findByLabelText('访问密码 0427')
+    expect(within(dialog).getByText('打开链接后需输入 4 位数字密码')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '复制链接和密码' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${ON.url}\n访问密码：0427`))
+    fireEvent.click(within(dialog).getByRole('button', { name: '换一个' }))
+    fireEvent.click(within(dialog).getByRole('switch', { name: '密码访问' }))
+    await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/share')).toHaveLength(3))
+    expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([
+      { enabled: true, locked: true },
+      { enabled: true, locked: true },
+      { enabled: true, locked: false },
     ])
   })
 

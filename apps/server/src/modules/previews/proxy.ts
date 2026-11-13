@@ -8,7 +8,8 @@ import { type MessageKey, translator } from '../../i18n/index.js'
 import { remember } from '../../lib/lru.js'
 import { serveArtifact } from '../artifacts/serve.js'
 import { foreignCookies, redeemCode, setCookie, type Visitor, verifyCookie } from './access.js'
-import { redeemShare, shareAllows } from './shares.js'
+import { shareUnlockPage } from './share-unlock.js'
+import { countVisit, linkShare, PASSWORD_PAUSE_MIN, passKey, shareAllows, tryPassword } from './shares.js'
 
 export type OpenPreview = typeof previews.$inferSelect
 
@@ -88,8 +89,61 @@ async function allowed(
   const visitor = verifyCookie(req, preview.id, ctx.now())
   if (!visitor) return null
   if (!('shareId' in visitor)) return { visitor, version: null }
-  const version = await shareAllows(ctx, visitor.shareId, preview.id)
+  const version = await shareAllows(ctx, visitor, preview.id)
   return version === false ? null : { visitor, version }
+}
+
+function json(res: ServerResponse, status: number, body: object, headers: Record<string, string> = {}) {
+  res
+    .writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers })
+    .end(JSON.stringify(body))
+}
+
+async function readPassword(req: IncomingMessage) {
+  let body = ''
+  for await (const chunk of req) {
+    body += chunk
+    if (body.length > 1024) return ''
+  }
+  try {
+    const { password } = JSON.parse(body) as { password?: unknown }
+    return typeof password === 'string' ? password : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * A public link: sets the visitor's cookie and sends them to the preview. A locked one first shows the password page,
+ * which posts the digits back here and is answered with JSON.
+ */
+async function serveShareLink(
+  ctx: Ctx,
+  preview: OpenPreview,
+  req: IncomingMessage,
+  res: ServerResponse,
+  token: string,
+) {
+  const share = await linkShare(ctx, preview.id, token)
+  if (!share) return page(res, 410, '公开链接已失效或已被收回。')
+  const location = localPath(preview.path)
+  if (!share.password) {
+    await countVisit(ctx, preview, share.id)
+    res.writeHead(302, { location, 'set-cookie': setCookie(ctx, preview.id, { shareId: share.id }) })
+    return res.end()
+  }
+  const t = translator(resolveLocale(req.headers['accept-language']))
+  if (req.method !== 'POST')
+    return res
+      .writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+      .end(shareUnlockPage(t))
+  const result = tryPassword(ctx, share.id, share.password, await readPassword(req))
+  if (result === 'locked')
+    return json(res, 429, { error: t('尝试次数过多，请 {n} 分钟后再试', { n: PASSWORD_PAUSE_MIN }) })
+  if (result === 'wrong') return json(res, 403, { error: t('密码不对，再试一次') })
+  await countVisit(ctx, preview, share.id)
+  const visitor = { shareId: share.id, key: passKey(share.id, share.password) }
+  return json(res, 200, { location }, { 'set-cookie': setCookie(ctx, preview.id, visitor) })
 }
 
 const downstream = (head: TunnelHead) => head.headers.filter(([k]) => !HOP.has(k.toLowerCase()))
@@ -111,11 +165,7 @@ export async function servePreviewHttp(
     return res.end()
   }
   if (url.pathname.startsWith('/__gg/share/')) {
-    const shareId = await redeemShare(ctx, preview, url.pathname.slice('/__gg/share/'.length))
-    if (!shareId) return page(res, 410, '公开链接已失效或已被收回。')
-    const location = localPath(preview.path)
-    res.writeHead(302, { location, 'set-cookie': setCookie(ctx, preview.id, { shareId }) })
-    return res.end()
+    return serveShareLink(ctx, preview, req, res, url.pathname.slice('/__gg/share/'.length))
   }
   const access = await allowed(ctx, req, preview)
   if (!access) {
