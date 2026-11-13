@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.20 — 2026-11-13
+
+- 接入码过期或已用时 `gg` 不再退出，改为网页确认（附 4 位核对码）/ `gg` no longer exits on an expired or used link code; it asks for web confirmation with a 4-digit check code
+- 运行里的联网搜索合成一行，显示查询词与来源 / Web searches in runs collapse into one line with the query and sources
+- 原型分享支持密码访问与锁定版本，列表支持拼音检索，发消息乐观插入 / Prototype shares get passwords and pinned versions, pickers support pinyin search, and messages appear instantly on send
+
 ## v0.4.19 — 2026-11-12
 
 - 新增 Intel Mac 桌面端安装包，与 Apple 芯片版分别签名公证、各自更新 / Adds the Intel Mac desktop app, signed, notarized and updated separately from the Apple silicon build
