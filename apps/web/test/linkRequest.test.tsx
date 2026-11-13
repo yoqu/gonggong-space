@@ -65,6 +65,8 @@ describe('/link/:id', () => {
     fireEvent.click(screen.getByRole('button', { name: '允许接入' }))
     expect(await screen.findByText('已允许接入')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST' && c.path === '/link-requests/r1/approve')).toBe(true)
+    // The text can show before React ran the effect that subscribes; flush it before the event arrives.
+    await act(async () => {})
     act(() =>
       FakeSocket.last.onmessage?.({
         data: JSON.stringify({ t: 'machine.onboarded', machineId: 'm1', botId: 'b1', groupId: 'g1' }),
