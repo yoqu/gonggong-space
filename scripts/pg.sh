@@ -24,8 +24,9 @@ case "${1:-start}" in
       mkdir -p "$DATA"
       initdb -D "$DATA" -U gonggong --auth=trust -E UTF8 >/dev/null
     fi
+    # Parallel vitest workers each hold several pools; the default 100 runs out on CI ("too many clients").
     if ! pg_ctl -D "$DATA" status >/dev/null 2>&1; then
-      pg_ctl -D "$DATA" -l "$ROOT/.gonggong-dev/pg.log" -o "-p $PORT -k /tmp" -w start >/dev/null
+      pg_ctl -D "$DATA" -l "$ROOT/.gonggong-dev/pg.log" -o "-p $PORT -k /tmp -c max_connections=300" -w start >/dev/null
     fi
     for db in gonggong gonggong_test; do
       psql -h /tmp -p "$PORT" -U gonggong -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 \

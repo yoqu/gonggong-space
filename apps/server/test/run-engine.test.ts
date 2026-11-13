@@ -40,8 +40,10 @@ async function oneRun() {
   const group = await t.seed.group({ createdBy: alice.id, botIds: [bot.id] })
   const d = await daemon(token)
   const deltas: string[] = []
+  let running = false
   t.ctx.bus.attach(alice.id, (e) => {
     if (e.t === 'run.delta') deltas.push(e.text)
+    if (e.t === 'run.updated' && e.run.status === 'running') running = true
   })
   const [m] = await t.db
     .insert(messages)
@@ -55,6 +57,8 @@ async function oneRun() {
     .returning()
   await triggerRuns(t.ctx, m!)
   const runId = (await d.box.next<RunStart>()).runId
+  // The running card is pushed after the start went out; let it land so tests only see their own pushes.
+  await expect.poll(() => running).toBe(true)
   const text = (delta: string) => d.send({ t: 'run.event', runId, event: { kind: 'text', delta } })
   const tool = (title: string, to = d) =>
     to.send({

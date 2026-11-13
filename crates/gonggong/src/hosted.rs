@@ -661,8 +661,13 @@ enum Ready {
 
 /// Dev servers often listen on `localhost`, which may be only `::1`.
 pub async fn connectable(port: u16) -> bool {
-    tokio::net::TcpStream::connect(("127.0.0.1", port)).await.is_ok()
-        || tokio::net::TcpStream::connect(("::1", port)).await.is_ok()
+    // With no listener, a port inside the ephemeral range can be picked as our own source port: the
+    // kernel then connects the socket to itself, which is not a server.
+    let listening = |s: std::io::Result<tokio::net::TcpStream>| {
+        s.is_ok_and(|s| s.local_addr().ok() != s.peer_addr().ok())
+    };
+    listening(tokio::net::TcpStream::connect(("127.0.0.1", port)).await)
+        || listening(tokio::net::TcpStream::connect(("::1", port)).await)
 }
 
 async fn wait_ready(port: u16, mut exited: watch::Receiver<bool>) -> Ready {

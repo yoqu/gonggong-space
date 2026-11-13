@@ -80,10 +80,12 @@ describe('飞书通知', () => {
     const { user, group, http } = await setup()
     const other = await t.seed.user()
     await link(user.id)
-    await notify(t.ctx, user.id, 'chain_done', { groupId: group.id, hops: 1 })
+    // Sending is fire-and-forget and reads the setting later: turn it off before the notice, not after.
     await http.put('/api/me/feishu/notify', { notify: true })
     await notify(t.ctx, user.id, 'bot_shared', { groupId: group.id })
     await notify(t.ctx, other.id, 'chain_done', { groupId: group.id, hops: 1 })
+    await http.put('/api/me/feishu/notify', { notify: false })
+    await notify(t.ctx, user.id, 'chain_done', { groupId: group.id, hops: 1 })
     await settle()
     expect(t.feishu.sent).toEqual([])
   })
