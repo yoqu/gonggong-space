@@ -62,5 +62,6 @@ pub mod tools;
 pub mod tunnel;
 pub mod turn;
 pub mod upgrade;
+pub mod web_call;
 pub mod wechatide;
 pub mod workspace;

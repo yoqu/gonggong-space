@@ -1,0 +1,24 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "tool",
+    "toolCallId": "tc3",
+    "title": "Search \"fastify 5 migration\"",
+    "toolKind": "fetch",
+    "status": "completed",
+    "web": {
+      "query": "fastify 5 migration",
+      "hits": [
+        {
+          "title": "Migration Guide V5 | Fastify",
+          "url": "https://fastify.dev/docs/latest/Guides/Migration-Guide-V5/"
+        },
+        {
+          "title": "Release v5.0.0 · fastify/fastify",
+          "url": "https://github.com/fastify/fastify/releases/tag/v5.0.0"
+        }
+      ]
+    }
+  }
+}

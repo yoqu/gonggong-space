@@ -326,6 +326,7 @@ impl Handler for Flood {
                     status: gonggong::protocol::ToolStatus::InProgress,
                     detail: Some("x".repeat(n)),
                     mcp: None,
+                    web: None,
                 },
             };
             out.send(DaemonToServer::RunEvent { run_id: run_id.clone(), event });

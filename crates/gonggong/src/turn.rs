@@ -1,10 +1,10 @@
 //! Pure per-turn logic: prompt composition, ACP update → RunEvent mapping, tier policies.
 use crate::attachments::rel_path;
-use crate::mcp_call;
 use crate::protocol::{
     self, AgentKind, CompactionStatus, CompactionTrigger, ContextMessage, ContextUsage, DiffRepo, GitStatus, McpCall,
-    RunBot, RunEvent, RunPrompt, RunSyncDone, RunSyncStart, SubagentState, TaskState, Tier, ToolStatus, Usage,
+    RunBot, RunEvent, RunPrompt, RunSyncDone, RunSyncStart, SubagentState, TaskState, Tier, ToolStatus, Usage, WebCall,
 };
+use crate::{mcp_call, web_call};
 use agent_client_protocol::schema::MaybeUndefined;
 use agent_client_protocol::schema::v1::{
     ClientCapabilities, ClientSessionCapabilities, CompactionCapabilities, CompactionStatus as AcpCompactionStatus,
@@ -217,6 +217,7 @@ struct ToolState {
     command: Option<String>,
     output: Option<String>,
     mcp: Option<McpCall>,
+    web: Option<WebCall>,
 }
 
 impl ToolState {
@@ -554,6 +555,17 @@ impl Turn {
         if let Some(out) = output_tail(f.content.as_deref().unwrap_or_default()) {
             state.output = Some(out);
         }
+        if web_call::is_web(state.kind.as_ref(), f.raw_input.as_ref()) {
+            let web = state.web.get_or_insert_default();
+            if let Some(raw) = f.raw_input.as_ref() {
+                web.query = web_call::query(raw).or(web.query.take());
+                web.url = web_call::url(raw).or(web.url.take());
+            }
+            let hits = web_call::hits(f.content.as_deref().unwrap_or_default());
+            if !hits.is_empty() && web.url.is_none() {
+                web.hits = hits;
+            }
+        }
         if state.mcp.is_none()
             && let Some((server, tool)) = mcp_call::name(&state.title)
         {
@@ -579,6 +591,7 @@ impl Turn {
             status: state.status.unwrap_or(ToolStatus::Pending),
             detail: state.detail(),
             mcp: state.mcp.clone(),
+            web: state.web.clone().filter(|w| w.query.is_some() || w.url.is_some()),
         }
     }
 }
@@ -843,7 +856,8 @@ mod tests {
                 tool_kind: "edit".into(),
                 status: ToolStatus::InProgress,
                 detail: Some("/w/b.rs:3".into()),
-                mcp: None
+                mcp: None,
+                web: None
             })
         );
         let done = ToolCallUpdate::new(
@@ -861,7 +875,8 @@ mod tests {
                 tool_kind: "edit".into(),
                 status: ToolStatus::Completed,
                 detail: Some("/w/c.rs".into()),
-                mcp: None
+                mcp: None,
+                web: None
             })
         );
         assert_eq!(t.files.iter().cloned().collect::<Vec<_>>(), vec!["/w/b.rs", "/w/c.rs"]);
@@ -1072,6 +1087,48 @@ mod tests {
             .raw_output(serde_json::json!({ "result": { "content": [{ "type": "text", "text": "无结果" }] }, "error": null }));
         let Some(RunEvent::Tool { mcp: Some(m), .. }) = t.apply("s", SessionUpdate::ToolCall(call)) else { panic!() };
         assert_eq!((m.input.as_deref(), m.output.as_deref()), (Some(r#"{"query":"登录"}"#), Some("无结果")));
+    }
+
+    #[test]
+    fn web_searches_carry_their_query_and_hits() {
+        let mut t = Turn::default();
+        let search = ToolCall::new("w", "Search \"fastify 5\"")
+            .kind(ToolKind::Fetch)
+            .raw_input(serde_json::json!({ "query": "fastify 5" }));
+        let Some(RunEvent::Tool { web, .. }) = t.apply("s", SessionUpdate::ToolCall(search)) else { panic!() };
+        assert_eq!(web, Some(WebCall { query: Some("fastify 5".into()), ..WebCall::default() }));
+        let done = ToolCallUpdate::new(
+            "w",
+            ToolCallUpdateFields::new().status(ToolCallStatus::Completed).content(vec![ToolCallContent::from(
+                ContentBlock::Text(TextContent::new("Migration Guide (https://fastify.dev/v5)")),
+            )]),
+        );
+        let Some(RunEvent::Tool { web: Some(w), detail, .. }) = t.apply("s", SessionUpdate::ToolCallUpdate(done))
+        else {
+            panic!()
+        };
+        assert_eq!(detail, None);
+        assert_eq!(
+            (w.query.as_deref(), w.hits.len(), w.hits[0].url.as_str()),
+            (Some("fastify 5"), 1, "https://fastify.dev/v5")
+        );
+
+        let fetch = ToolCall::new("f", "Fetch https://fastify.dev/v5")
+            .kind(ToolKind::Fetch)
+            .raw_input(serde_json::json!({ "url": "https://fastify.dev/v5", "prompt": "Summary (https://x.dev)" }))
+            .content(vec![ToolCallContent::from(ContentBlock::Text(TextContent::new("Summary (https://x.dev)")))]);
+        let Some(RunEvent::Tool { web, .. }) = t.apply("s", SessionUpdate::ToolCall(fetch)) else { panic!() };
+        assert_eq!(web, Some(WebCall { url: Some("https://fastify.dev/v5".into()), ..WebCall::default() }));
+
+        let codex = ToolCall::new("c", "Web search: rust 2024").kind(ToolKind::Search).raw_input(
+            serde_json::json!({ "type": "webSearch", "id": "c", "query": "rust 2024", "action": { "type": "search", "query": "rust 2024" } }),
+        );
+        let Some(RunEvent::Tool { web, .. }) = t.apply("s", SessionUpdate::ToolCall(codex)) else { panic!() };
+        assert_eq!(web.and_then(|w| w.query).as_deref(), Some("rust 2024"));
+
+        let grep = ToolCall::new("g", "grep x").kind(ToolKind::Search).raw_input(serde_json::json!({ "pattern": "x" }));
+        let Some(RunEvent::Tool { web, .. }) = t.apply("s", SessionUpdate::ToolCall(grep)) else { panic!() };
+        assert_eq!(web, None);
     }
 
     fn ext(v: serde_json::Value) -> ExtUpdate {

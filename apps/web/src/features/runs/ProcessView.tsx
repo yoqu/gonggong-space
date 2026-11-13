@@ -16,6 +16,8 @@ import {
   type Item,
   itemSteps,
   timeRange,
+  webLinks,
+  webPages,
 } from './activity'
 import { McpDetail } from './McpDetail'
 import type { Step } from './steps'
@@ -304,6 +306,7 @@ function ActionRow({
   // A failed call shows its error output until folded.
   const open = opened[a.key] ?? (!!s.failed && !a.quiet && (!!s.out || !!s.mcp?.output))
   const onToggle = () => toggle(a.key, open)
+  if (a.web) return <WebRow action={a} web={a.web} open={opened} toggle={toggle} day={day} />
   if (a.family === 'text')
     return (
       <li className="act-item act-text">
@@ -435,6 +438,128 @@ function ActionRow({
       {open && mcp ? <McpDetail call={mcp} /> : null}
       {open && out ? (
         <Output text={out} mono={a.family !== 'thought' && a.family !== 'compaction' && !task} />
+      ) : null}
+    </li>
+  )
+}
+
+const FAVICON_TINTS = ['blue', 'green', 'orange', 'purple', 'red', 'gray']
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+/** A site's letter on a tint picked from its name: no request goes out to the site for its icon. */
+function Favicon({ host }: { host: string }) {
+  const sum = [...host].reduce((n, c) => n + c.charCodeAt(0), 0)
+  const tint = FAVICON_TINTS[sum % FAVICON_TINTS.length]
+  return (
+    <span
+      className="act-web__favicon"
+      style={{ background: `var(--tint-${tint})`, color: `var(--tint-${tint}-text)` }}
+      aria-hidden
+    >
+      {host.charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
+/** Progress of a look-up still going: each finished call moves it on, never to the end before the last one. */
+function WebRing({ done, total }: { done: number; total: number }) {
+  const r = 5.5
+  const c = 2 * Math.PI * r
+  const p = (done + 0.5) / (total + 0.5)
+  return (
+    <svg className="act-row__icon act-web__ring" width={14} height={14} viewBox="0 0 14 14" aria-hidden>
+      <circle cx={7} cy={7} r={r} fill="none" strokeWidth={1.5} className="act-web__track" />
+      <circle
+        cx={7}
+        cy={7}
+        r={r}
+        fill="none"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - p)}
+        className="act-web__arc"
+      />
+    </svg>
+  )
+}
+
+const WEB_STACK = 4
+
+/** Web searches and fetches in a row: 正在搜索 with a progress ring, then 已搜索 N 个网站 with their sites; the
+ * sources fold out, open while it searches. */
+function WebRow({
+  action: a,
+  web,
+  open,
+  toggle,
+  day,
+}: { action: Action; web: Step[] } & Pick<Ctx, 'open' | 'toggle' | 'day'>) {
+  const running = web.some((s) => s.running)
+  const expanded = open[a.key] ?? running
+  const state = stateOf(a.step)
+  const hosts = [...new Set(webPages(web).map(hostOf))]
+  return (
+    <li className="act-item act-web" data-state={state} data-family="fetch" data-step={a.key}>
+      <button
+        type="button"
+        className="act-row act-row--head"
+        aria-expanded={expanded}
+        onClick={() => toggle(a.key, expanded)}
+      >
+        {running ? (
+          <WebRing done={web.filter((s) => !s.running).length} total={web.length} />
+        ) : (
+          <Icon name="globe" size={14} className="act-row__icon" />
+        )}
+        <span className={cx('act-row__verb', running && 'ui-shimmer')}>{a.verb}</span>
+        {a.target ? (
+          <span className="act-row__target" title={a.target}>
+            {a.target}
+          </span>
+        ) : null}
+        {!running && hosts.length ? (
+          <span className="act-web__stack" aria-hidden>
+            {hosts.slice(0, WEB_STACK).map((h) => (
+              <Favicon key={h} host={h} />
+            ))}
+          </span>
+        ) : null}
+        <Icon name="chevron-right" size={12} className="act-row__chevron" />
+        <When steps={web} day={day} range />
+      </button>
+      {expanded ? (
+        <ol className="act act--nested act-web__list">
+          {web.map((s) => (
+            <li key={s.key} className="act-web__call">
+              {s.web?.query ? (
+                <div className="act-web__query" data-state={stateOf(s)}>
+                  {t('“{q}”', { q: s.web.query })}
+                </div>
+              ) : null}
+              {webLinks(s).map((h) => (
+                <a
+                  key={h.url}
+                  className="act-web__hit"
+                  href={h.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Favicon host={hostOf(h.url)} />
+                  <span className="act-web__title">{h.title}</span>
+                  <span className="act-web__host">{hostOf(h.url)}</span>
+                </a>
+              ))}
+            </li>
+          ))}
+        </ol>
       ) : null}
     </li>
   )

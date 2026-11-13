@@ -333,4 +333,7 @@ export default {
     ' Earlier parts of the session (compacted or cleared by the agent, or from before a daemon restart) have no items and count as system & earlier content.',
   '分项在本轮结束后统计。': 'Items are counted when the run ends.',
   '其余 {n} 项': '{n} more',
+  '“{q}”': '“{q}”',
+  '已搜索 {n} 个网站': 'Searched {n:site|sites}',
+  '已访问 {n} 个网页': 'Visited {n:page|pages}',
 } satisfies Record<string, string>

@@ -1504,6 +1504,23 @@ pub struct McpCall {
     pub output: Option<String>,
 }
 
+/// A web search or page fetch: its query or URL and the pages a search found.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebCall {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hits: Vec<WebHit>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebHit {
+    pub title: String,
+    pub url: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RunEvent {
@@ -1535,6 +1552,8 @@ pub enum RunEvent {
         detail: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mcp: Option<McpCall>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        web: Option<WebCall>,
     },
     Usage {
         usage: Usage,

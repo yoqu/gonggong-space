@@ -555,6 +555,31 @@ describe('run process', () => {
     ])
   })
 
+  it('seals web search hits; the query in the title stays plain', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const call = { kind: 'tool', toolCallId: 'w1', title: 'Search "退款接口"', toolKind: 'fetch' }
+    const web = {
+      query: '退款接口',
+      hits: [{ title: '私密文档', url: `https://docs.example.com/x?token=${GH}` }],
+    }
+    w.send(runId, { ...call, status: 'completed', web })
+    w.done(runId, { reply: '好' })
+    await w.ended(runId)
+
+    const rows = await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))
+    const raw = JSON.stringify(rows)
+    expect(raw).not.toContain('私密文档')
+    expect(raw).not.toContain('ghp_')
+    expect(rows.map((r) => openEvent(r.payload as RunEvent))).toEqual([
+      {
+        ...call,
+        status: 'completed',
+        web: { ...web, hits: [{ title: '私密文档', url: `https://docs.example.com/x?token=${MASK}` }] },
+      },
+    ])
+  })
+
   it('keeps subagent streams apart, seals their free text and records background tasks after run.done', async () => {
     const w = await world()
     const runId = await w.mention()

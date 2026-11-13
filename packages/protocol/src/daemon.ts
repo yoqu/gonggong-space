@@ -417,6 +417,14 @@ export const RunEvent = z.discriminatedUnion('kind', [
         output: z.string().optional(),
       })
       .optional(),
+    /** A web search or page fetch: its query or URL and the pages a search found (redacted like `detail`). */
+    web: z
+      .object({
+        query: z.string().optional(),
+        url: z.string().optional(),
+        hits: z.array(z.object({ title: z.string(), url: z.string() })).optional(),
+      })
+      .optional(),
   }),
   /** `usage` carries what the run spent (cost so far); `context` is occupancy, never folded into `usage`. */
   /** `breakdown` comes once, at the end of a run, with its last `context`. */

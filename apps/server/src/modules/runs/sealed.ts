@@ -1,7 +1,7 @@
 import type { RunEvent } from '@gonggong/protocol'
 import { open, seal } from '../../lib/seal.js'
 
-/** Free text of the run process (streamed output, tool details and MCP I/O, subagent prompts, task and compaction summaries) is sealed at rest;
+/** Free text of the run process (streamed output, tool details, MCP I/O and web search hits, subagent prompts, task and compaction summaries) is sealed at rest;
  * kind, status, names, tool titles and steps stay plain so search can match them. */
 const mapText = (e: RunEvent, f: (s: string) => string): RunEvent => {
   switch (e.kind) {
@@ -9,9 +9,12 @@ const mapText = (e: RunEvent, f: (s: string) => string): RunEvent => {
     case 'thought':
       return { ...e, delta: f(e.delta) }
     case 'tool': {
-      const { detail, mcp } = e
+      const { detail, mcp, web } = e
       return {
         ...e,
+        ...(web?.hits && {
+          web: { ...web, hits: web.hits.map((h) => ({ title: f(h.title), url: f(h.url) })) },
+        }),
         ...(detail !== undefined && { detail: f(detail) }),
         ...(mcp && {
           mcp: {

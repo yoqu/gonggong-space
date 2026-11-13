@@ -30,7 +30,11 @@ export interface Step {
   stop?: string
   /** An MCP tool call's arguments and result. */
   mcp?: McpCall
+  /** A web search's query and the pages it found, or the page fetched. */
+  web?: WebCall
 }
+
+export type WebCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['web']>
 
 const SLOW_MS = 2000
 
@@ -208,6 +212,7 @@ function toolStep(
   const failed = e.status === 'failed'
   const running = live && (e.status === 'pending' || e.status === 'in_progress')
   if (e.mcp) return { mcp: e.mcp, mono: argSummary(e.mcp), failed, running }
+  if (e.web) return { web: e.web, mono: e.web.query ?? e.web.url, failed, running }
   if (e.toolKind === 'execute')
     return {
       // The output block opens with `$ <command>`: the one-line row shows that command, not the agent's title.

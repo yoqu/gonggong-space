@@ -38,6 +38,8 @@ export interface Action {
   quiet?: boolean
   /** The same failure in a row this many times, folded into this one. */
   repeat?: number
+  /** Consecutive web searches and fetches folded into this row, in order. */
+  web?: Step[]
   step: Step
 }
 
@@ -149,6 +151,7 @@ const verbOf = (key: string, s: Step) => {
 
 export function classify(s: Step, root: string | null): Action {
   const base = { key: s.key, step: s }
+  if (s.web) return { ...base, family: 'fetch', web: [s], ...webVerb([s]) }
   switch (s.kind) {
     case 'context':
       return { ...base, family: 'context', verb: s.label, target: s.meta }
@@ -293,6 +296,60 @@ function segment(all: Action[], running: boolean): Item[] {
       running,
     },
   ]
+}
+
+const quote = (q: string) => t('“{q}”', { q })
+
+/** What a web call found, or the page it fetched. */
+export const webLinks = (s: Step) => [
+  ...(s.web?.hits ?? []),
+  ...(s.web?.url ? [{ title: s.web.url, url: s.web.url }] : []),
+]
+
+/** Pages a web row lists, each once. */
+export const webPages = (steps: Step[]) => [...new Set(steps.flatMap(webLinks).map((h) => h.url))]
+
+function webVerb(steps: Step[]): { verb: string; target?: string } {
+  const live = steps.findLast((s) => s.running)
+  if (live?.web?.query) return { verb: t('正在搜索'), target: quote(live.web.query) }
+  if (live) return { verb: t('正在访问'), target: live.web?.url }
+  const queries = steps.flatMap((s) => (s.web?.query ? [s.web.query] : []))
+  if (steps.every((s) => s.failed))
+    return {
+      verb: queries.length ? t('搜索失败') : t('访问失败'),
+      target: queries.map(quote).join(GROUP_SEP),
+    }
+  const n = webPages(steps).length
+  if (!n) return { verb: t('已搜索'), target: queries.map(quote).join(GROUP_SEP) }
+  return { verb: queries.length ? t('已搜索 {n} 个网站', { n }) : t('已访问 {n} 个网页', { n }) }
+}
+
+/** Searches and fetches in a row are one look-up (thoughts between them stay, after it): one row for them all. */
+export function foldWeb(actions: Action[]): Action[] {
+  const out: Action[] = []
+  let at = -1
+  for (const a of actions) {
+    const prev = out[at]
+    if (a.web && prev?.web && out.slice(at + 1).every((p) => PASSIVE.has(p.family))) {
+      const web = [...prev.web, ...a.web]
+      out[at] = {
+        ...prev,
+        ...webVerb(web),
+        web,
+        step: {
+          ...prev.step,
+          end: a.step.end ?? a.step.at ?? prev.step.end,
+          running: web.some((s) => s.running),
+          failed: web.every((s) => s.failed),
+        },
+      }
+      continue
+    }
+    if (a.web) at = out.length
+    else if (!PASSIVE.has(a.family)) at = -1
+    out.push(a)
+  }
+  return out
 }
 
 /** Segments between boundaries; a segment with a single call stays a plain row. */
@@ -492,10 +549,12 @@ export function buildItems(
   live: boolean,
   workedMs: number | null,
 ): Item[] {
-  const actions = foldRepeats(
-    steps
-      .filter((s) => !(s.kind === 'execute' && s.running && !s.out && !named(s.title)))
-      .map((s) => classify(s, root)),
+  const actions = foldWeb(
+    foldRepeats(
+      steps
+        .filter((s) => !(s.kind === 'execute' && s.running && !s.out && !named(s.title)))
+        .map((s) => classify(s, root)),
+    ),
   )
   const last = actions.at(-1)
   if (live || last?.family !== 'text' || actions.length < 2 || workedMs === null)

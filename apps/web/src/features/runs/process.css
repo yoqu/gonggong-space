@@ -447,3 +447,98 @@ button.act-row:hover .act-row__target--file {
     padding: 0 var(--space-12);
   }
 }
+/* Web look-ups (rare-ui web-search, quiet): a progress ring while searching, the sites found stacked after. */
+.act-web__ring {
+  transform: rotate(-90deg);
+}
+.act-web__track {
+  stroke: var(--separator);
+}
+.act-web__arc {
+  stroke: var(--accent);
+  transition: stroke-dashoffset var(--motion-base);
+}
+.act-web__stack {
+  flex: none;
+  display: inline-flex;
+}
+.act-web__stack .act-web__favicon + .act-web__favicon {
+  margin-left: -5px;
+  transition: margin-left var(--motion-fast);
+}
+@media (hover: hover) {
+  button.act-row:hover .act-web__stack .act-web__favicon + .act-web__favicon {
+    margin-left: 1px;
+  }
+}
+.act-web__favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--background);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+.act-web__call {
+  display: flex;
+  flex-direction: column;
+}
+.act-web__query {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+}
+.act-web__query[data-state="running"] {
+  color: var(--label);
+}
+.act-web__hit {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4);
+  margin: 0 calc(-1 * var(--space-4));
+  border-radius: var(--radius-check);
+  color: var(--label-secondary);
+  font-size: var(--text-subheadline-size);
+  text-decoration: none;
+  animation: act-web-in 0.35s ease-out both;
+}
+@media (hover: hover) {
+  .act-web__hit:hover {
+    background: var(--quote-fill);
+  }
+}
+.act-web__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label);
+}
+.act-web__host {
+  flex: none;
+  color: var(--label-tertiary);
+  font-size: var(--text-footnote-size);
+}
+@keyframes act-web-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act-web__hit {
+    animation: none;
+  }
+  .act-web__arc {
+    transition: none;
+  }
+}

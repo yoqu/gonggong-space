@@ -36,11 +36,12 @@ fn weight(msg: &DaemonToServer) -> usize {
             DaemonToServer::RunEvent {
                 event: RunEvent::Text { delta, .. } | RunEvent::Thought { delta, .. }, ..
             } => delta.len(),
-            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, .. }, .. } => {
+            DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, web, .. }, .. } => {
                 let mcp = mcp
                     .as_ref()
                     .map_or(0, |m| m.input.as_deref().map_or(0, str::len) + m.output.as_deref().map_or(0, str::len));
-                detail.as_deref().map_or(0, str::len) + mcp
+                let web = web.as_ref().map_or(0, |w| w.hits.iter().map(|h| h.title.len() + h.url.len()).sum());
+                detail.as_deref().map_or(0, str::len) + mcp + web
             }
             _ => 0,
         }
@@ -55,11 +56,14 @@ fn over_budget(mut msg: DaemonToServer) -> Option<DaemonToServer> {
             event: RunEvent::Text { .. } | RunEvent::Thought { .. } | RunEvent::Status { .. } | RunEvent::Usage { .. },
             ..
         } => return None,
-        DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, .. }, .. } => {
+        DaemonToServer::RunEvent { event: RunEvent::Tool { detail, mcp, web, .. }, .. } => {
             *detail = None;
             if let Some(m) = mcp {
                 m.input = None;
                 m.output = None;
+            }
+            if let Some(w) = web {
+                w.hits.clear();
             }
         }
         _ => {}
@@ -554,6 +558,7 @@ mod tests {
                 status: ToolStatus::Completed,
                 detail: Some("x".repeat(bytes)),
                 mcp: None,
+                web: None,
             },
         )
     }
