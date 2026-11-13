@@ -52,10 +52,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-8);
   min-height: 20px;
 }
+/* On phones the metric switch drops under the title and scrolls instead of squeezing it to one glyph per line. */
+.usage-card__head .ui-seg {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
 .usage-card__title {
+  white-space: nowrap;
   font-size: var(--text-subheadline-size);
   font-weight: 600;
   color: var(--label-secondary);

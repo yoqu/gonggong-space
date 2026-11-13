@@ -393,7 +393,11 @@ export async function deleteInstall(ctx: Ctx, t: Target, listingId: string, acto
     .where(and(eq(installs.listingId, idParam(listingId, '条目不存在')), inScope(t)))
     .returning({ listingId: installs.listingId })
   if (!gone) return fail('not_found', '条目不存在')
-  await log(ctx, actorId, t, 'install.delete', { listingId: gone.listingId })
+  const [listing] = await ctx.db
+    .select({ name: plugins.name })
+    .from(plugins)
+    .where(eq(plugins.id, gone.listingId))
+  await log(ctx, actorId, t, 'install.delete', { listingId: gone.listingId, name: listing?.name })
 }
 
 /**

@@ -15,13 +15,14 @@ export function JoinPage() {
   const { user, status, load } = useSession()
   const [invite, setInvite] = useState<InvitePreviewDto | null>(null)
   const [error, setError] = useState('')
+  const [unreadable, setUnreadable] = useState(false)
   const [phase, setPhase] = useState<SubmitPhase>('idle')
 
   useEffect(() => {
     if (status === 'idle') void load()
   }, [status, load])
   useEffect(() => {
-    teamsApi.preview(token).then(setInvite, (e) => setError(errorText(e)))
+    teamsApi.preview(token).then(setInvite, () => setUnreadable(true))
   }, [token])
 
   const accept = async (e: FormEvent) => {
@@ -40,6 +41,7 @@ export function JoinPage() {
 
   const back = `/join/${token}`
   const usable = invite?.valid && !error
+  const dead = unreadable || invite?.valid === false
   return (
     <AuthCard
       testId="join-page"
@@ -48,7 +50,9 @@ export function JoinPage() {
       subtitle={
         invite
           ? t('{inviter} 邀请你加入团队「{team}」。', { inviter: invite.inviterName, team: invite.teamName })
-          : t('正在读取邀请…')
+          : unreadable
+            ? t('链接可能已过期、被撤销，或复制时不完整。')
+            : t('正在读取邀请…')
       }
       onSubmit={accept}
       footer={
@@ -58,15 +62,19 @@ export function JoinPage() {
               {t('返回消息')}
             </Link>
           </p>
+        ) : dead && status === 'ready' ? (
+          <p className="auth__foot">
+            <Link to="/login" className="auth__link">
+              {t('去登录')}
+            </Link>
+          </p>
         ) : null
       }
     >
-      {error || (invite && !invite.valid) ? (
-        <Alert
-          variant="error"
-          title={t('邀请链接已失效')}
-          description={error || t('请联系团队管理员重新邀请。')}
-        />
+      {dead ? (
+        <Alert variant="error" title={t('邀请链接已失效')} description={t('请联系团队管理员重新邀请。')} />
+      ) : error ? (
+        <Alert variant="error" description={error} />
       ) : !invite || status !== 'ready' ? (
         <Spinner />
       ) : null}

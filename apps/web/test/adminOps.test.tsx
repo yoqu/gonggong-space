@@ -557,6 +557,8 @@ describe('审计记录', () => {
     renderAt('/admin/audit')
     const list = await screen.findByTestId('audit-list')
     await within(list).findAllByText('批准 小王的 Claude 执行 go build ./... · 支付服务重构')
+    // The 640px row minimum must sit on the table itself so phone cards (ui-table--cards) can opt out of it.
+    expect(list.querySelector('.ui-table')?.classList.contains('admin-grid')).toBe(true)
     const auditRows = () => within(list).getAllByRole('row').slice(1)
     const first = auditRows()[0]!
     expect(first.textContent).toContain('审批')

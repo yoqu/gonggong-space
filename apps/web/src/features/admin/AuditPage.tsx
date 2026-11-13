@@ -176,9 +176,10 @@ export function AuditPanel({
         />
       </div>
       {error ? <Alert variant="error" description={error} /> : null}
-      <div className="admin-grid" data-testid="audit-list">
+      <div data-testid="audit-list">
         {shown ? (
           <Table<AuditDto>
+            className="admin-grid"
             aria-label={t('审计记录列表')}
             rows={shown}
             multiple={false}

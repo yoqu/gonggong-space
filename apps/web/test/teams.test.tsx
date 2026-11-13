@@ -502,6 +502,20 @@ describe('join page', () => {
     expect(await screen.findByText('邀请链接已失效')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '加入团队' })).toBeNull()
   })
+
+  it('stops loading on an unknown invite and gives a signed-out visitor a way to log in', async () => {
+    mockApi({
+      'GET /me': apiError(401, 'unauthorized'),
+      'GET /invites/ggi_bad': apiError(404, 'not_found', '邀请链接无效'),
+    })
+    useSession.setState({ user: null, tenancy: null, status: 'idle' })
+    renderAt('/join/ggi_bad')
+    expect(await screen.findByText('邀请链接已失效')).toBeTruthy()
+    expect(screen.queryByText('正在读取邀请…')).toBeNull()
+    expect(screen.queryByText('邀请链接无效')).toBeNull()
+    expect(screen.getByText('请联系团队管理员重新邀请。')).toBeTruthy()
+    expect(screen.getByRole('link', { name: '去登录' }).getAttribute('href')).toBe('/login')
+  })
 })
 
 describe('viewing a group as team admin (plan D19)', () => {

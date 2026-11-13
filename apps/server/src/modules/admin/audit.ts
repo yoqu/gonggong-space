@@ -1,10 +1,17 @@
-import { type AuditDto, type AuditQuery, SYSTEM_PARAM_VIEW } from '@gonggong/protocol'
+import {
+  type AuditDto,
+  type AuditQuery,
+  type I18nText,
+  SYSTEM_PARAM_VIEW,
+  type Tier,
+} from '@gonggong/protocol'
 import { and, desc, eq, inArray, lt } from 'drizzle-orm'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
 import { auditLogs, bots, groups, runs, users } from '../../db/schema.js'
 import { type MessageKey, t } from '../../i18n/index.js'
 import { idParam } from '../../lib/ids.js'
+import { TIER_LABEL } from '../bots/tier.js'
 
 type Row = typeof auditLogs.$inferSelect
 type Detail = Record<string, unknown>
@@ -63,6 +70,58 @@ const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.import': '导入机器的供应商',
   'machine.providers.agentSettings': '修改机器的 Agent 设置',
 }
+
+const SCHEDULE: Record<string, MessageKey> = {
+  'schedule.create': '新建定时任务「{name}」',
+  'schedule.update': '修改定时任务「{name}」',
+  'schedule.pause': '暂停定时任务「{name}」',
+  'schedule.resume': '恢复定时任务「{name}」',
+  'schedule.delete': '删除定时任务「{name}」',
+}
+const TERMINAL: Record<string, MessageKey> = {
+  'session.create': '打开 {target}',
+  'session.attach': '连接 {target}',
+  'session.detach': '断开 {target}',
+  'session.terminate': '结束 {target}',
+  'session.exit': '{target}已退出',
+  'session.revoke': '{target}因权限收回而关闭',
+}
+const PLUGIN: Record<string, MessageKey> = {
+  'plugin.create': '新增{layer}插件 {name}',
+  'plugin.update': '更新{layer}插件 {name} 到 r{n}',
+  'plugin.delete': '删除{layer}插件 {name}',
+  'skill.create': '新建{layer} Skill {name}',
+  'skill.update': '修改{layer} Skill {name}（v{n}）',
+  'skill.delete': '删除{layer} Skill {name}',
+  'skill.rollback': '将{layer} Skill {name} 回滚到 v{n}',
+}
+const TOGGLE: Record<string, [MessageKey, MessageKey]> = {
+  'plugin.group_toggle': ['在本群启用插件 {name}', '在本群停用插件 {name}'],
+  'mcp.group_toggle': ['在本群启用 MCP {name}', '在本群停用 MCP {name}'],
+  'skill.group_toggle': ['在本群启用 Skill {name}', '在本群停用 Skill {name}'],
+}
+const PLUGIN_TRUST: Record<string, MessageKey> = {
+  'plugin.trust_allow': '允许在机器上运行插件 {plugin} {version}',
+  'plugin.trust_deny': '拒绝在机器上运行插件 {plugin} {version}',
+  'plugin.trust_revoke': '撤销插件 {plugin} {version} 的运行授权',
+}
+const MARKET: Record<string, MessageKey> = {
+  'market.publish': '上传市场条目 {name} 的新版本',
+  'market.update': '修改市场条目 {name}',
+  'market.submit': '提交市场条目 {name} r{n} 审核',
+  'market.approve': '通过市场条目 {name} r{n} 的审核',
+  'market.reject': '驳回市场条目 {name} r{n}',
+  'market.unban': '恢复上架市场条目 {name}',
+  'install.delete': '卸载市场条目 {name}',
+}
+const FEISHU_CHAT: Record<string, MessageKey> = {
+  'feishu.chat.create_group': '从飞书群 {name} 创建群',
+  'feishu.chat.bind': '绑定飞书群 {name}',
+  'feishu.chat.create': '创建并绑定飞书群 {name}',
+  'feishu.chat.sync': '修改飞书群同步设置',
+  'feishu.chat.unbind': '解绑飞书群',
+}
+const GIT_STATUS: Record<string, MessageKey> = { succeeded: '成功', failed: '失败' }
 
 const TEAM_ROLE: Record<string, MessageKey> = { owner: '所有者', admin: '管理员', member: '成员' }
 const teamRole = (v: unknown) => (TEAM_ROLE[str(v)] ? t(TEAM_ROLE[str(v)] as MessageKey) : str(v))
@@ -138,6 +197,8 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
             : t('/cd {bot} 恢复托管工作区', { bot: n.bot(d.botId) })
         case 'command.new':
           return t('/new {bot} 开新会话', { bot: n.bot(d.botId) })
+        case 'run.retry':
+          return t('重试 {bot} 的轮次', { bot })
         case 'run.task_stop':
           return t('中断 {bot} 的后台任务', { bot })
         case 'tool.cross_group_read':
@@ -160,6 +221,19 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           layer: { key: str(d.layer) === 'personal' ? '个人' : (LAYER[str(d.layer)] ?? '平台层') },
           name: Array.isArray(d.names) ? ids(d.names).join('、') : str(d.name),
         })
+      if (row.action in PLUGIN)
+        return t(PLUGIN[row.action] as MessageKey, {
+          layer: { key: LAYER[str(d.layer)] ?? '平台层' },
+          name: str(d.name),
+          n: Number(d.revision ?? d.version),
+        })
+      if (row.action in TOGGLE)
+        return t((TOGGLE[row.action] as [MessageKey, MessageKey])[d.enabled ? 0 : 1], { name: str(d.name) })
+      if (row.action in PLUGIN_TRUST)
+        return t(PLUGIN_TRUST[row.action] as MessageKey, { plugin: str(d.plugin), version: str(d.version) })
+      if (row.action in MARKET)
+        return t(MARKET[row.action] as MessageKey, { name: str(d.name), n: Number(d.revision) })
+      if (row.action in FEISHU_CHAT) return t(FEISHU_CHAT[row.action] as MessageKey, { name: str(d.name) })
       switch (row.action) {
         case 'bot.create':
           return t('为 {user} 新建 Bot {name}', { user: n.user(d.ownerId), name: str(d.name) })
@@ -313,7 +387,98 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
             url: str(d.url),
             branch: str(d.branch),
           })
+        case 'group.repo.unbind':
+          return t('解绑仓库 {url}', { url: str((d.previous as Detail | undefined)?.url) })
+        case 'group.repo.extra.add':
+          return t('添加仓库 {url} · 分支 {branch}', { url: str(d.url), branch: str(d.branch) })
+        case 'group.repo.extra.remove':
+          return t('移除仓库 {url}', { url: str(d.url) })
+        case 'group.member.join':
+          return t('加入群')
+        case 'group.join_request.approve':
+          return t('同意 {name} 的入群申请', { name: str(d.name) })
+        case 'group.team_section':
+          return d.section
+            ? t('将群移到团队分区 {section}', { section: str(d.section) })
+            : t('将群移出团队分区')
+        case 'group.sync.enable':
+          return t('开启同步模式，以 {name} 为基准', { name: str(d.name) })
+        case 'group.sync.disable':
+          return t('切回分区模式')
+        case 'team.section.create':
+          return t('新建团队分区 {name}', { name: str(d.name) })
+        case 'team.section.rename':
+          return t('将团队分区 {before} 重命名为 {name}', { before: str(d.before), name: str(d.name) })
+        case 'team.section.delete':
+          return t('删除团队分区 {name}', { name: str(d.name) })
+        case 'bot.groupTier':
+          return d.tier
+            ? t('将 Bot {name} 在群内的档位设为「{tier}」', {
+                name: str(d.name),
+                tier: TIER_LABEL[d.tier as Tier] ? { key: TIER_LABEL[d.tier as Tier] } : str(d.tier),
+              })
+            : t('将 Bot {name} 在群内的档位恢复为跟随全局', { name: str(d.name) })
+        case 'bot.share_request.approve':
+          return t('同意 {user} 使用 Bot {name} 的申请', { user: n.user(d.userId), name: str(d.name) })
+        case 'daemon.release.notes':
+          return t('更新 daemon {version} 的版本说明', { version: str(d.version) })
+        case 'machine.link.approve':
+          return t('允许机器 {name} 接入（{ip}）', { name: str(d.name), ip: str(d.ip) })
+        case 'machine.git.key':
+          return t('为机器生成 Git SSH 密钥')
+        case 'machine.git.token':
+          return t('保存机器的 Git 访问令牌（{host}）', { host: str(d.host) })
+        case 'machine.git.trust':
+          return t('信任机器的 Git 主机 {host}', { host: str(d.host) })
+        case 'workspace.open':
+          return t('用 {app} 打开 {bot} 的工作区', { app: str(d.app), bot: n.bot(d.botId) })
+        case 'git.request':
+          return t('请求在 {bot} 的工作区执行 git {action}', { bot: n.bot(d.botId), action: str(d.action) })
+        case 'git.decide':
+          return t(d.approve ? '批准 {bot} 的 git {action}' : '拒绝 {bot} 的 git {action}', {
+            bot: n.bot(d.botId),
+            action: str(d.action),
+          })
+        case 'git.run':
+          return t('在 {bot} 的工作区执行 git {action}（{status}）', {
+            bot: n.bot(d.botId),
+            action: str(d.action),
+            status: GIT_STATUS[str(d.status)]
+              ? { key: GIT_STATUS[str(d.status)] as MessageKey }
+              : str(d.status),
+          })
+        case 'market.ban':
+          return t('下架市场条目 {name}：{reason}', { name: str(d.name), reason: str(d.reason) })
+        case 'install.put':
+          return t('安装市场条目 {name}（{state}）', {
+            name: str(d.name),
+            state: { key: d.enabled === false ? '停用' : '启用' },
+          })
       }
+      break
+    case 'schedule':
+      if (row.action === 'schedule.auto_pause')
+        return t('定时任务「{name}」自动停用：{reason}', {
+          name: str(d.name),
+          reason: typeof d.reason === 'object' && d.reason ? (d.reason as I18nText) : str(d.reason),
+        })
+      if (row.action in SCHEDULE) return t(SCHEDULE[row.action] as MessageKey, { name: str(d.name) })
+      break
+    case 'machine':
+      if (row.action === 'workspace.delete' || row.action === 'workspace.gc')
+        return t(
+          row.action === 'workspace.delete' ? '删除 {bot} 的工作区 {path}' : '清理 {bot} 的工作区 {path}',
+          {
+            bot: n.bot(d.botId),
+            path: str(d.path),
+          },
+        )
+      break
+    case 'terminal':
+      if (row.action in TERMINAL)
+        return t(TERMINAL[row.action] as MessageKey, {
+          target: d.botId ? { key: '{bot} 的终端', params: { bot: n.bot(d.botId) } } : { key: '机器终端' },
+        })
       break
     case 'preview':
       switch (row.action) {

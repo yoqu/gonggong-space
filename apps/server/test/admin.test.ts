@@ -359,6 +359,223 @@ describe('audit query', () => {
     )
   })
 
+  it('summarizes plugins, sections, git, schedules, workspaces and terminals', () => {
+    const n = {
+      user: (id: unknown) => (id === 'u1' ? '王磊' : ''),
+      bot: (id: unknown) => (id === 'b1' ? '设计师' : ''),
+      runBot: () => '小王的 Claude',
+    }
+    const s = (category: string, action: string, d: Record<string, unknown>) =>
+      summarize({ category, action }, d, n)
+    expect(s('admin', 'plugin.create', { layer: 'platform', name: 'web-prototype', revision: 1 })).toBe(
+      '新增平台层插件 web-prototype',
+    )
+    expect(s('admin', 'plugin.update', { layer: 'platform', name: 'slides', revision: 3 })).toBe(
+      '更新平台层插件 slides 到 r3',
+    )
+    expect(s('admin', 'plugin.group_toggle', { name: 'slides', enabled: false })).toBe(
+      '在本群停用插件 slides',
+    )
+    expect(s('admin', 'team.section.create', { name: '研发' })).toBe('新建团队分区 研发')
+    expect(s('admin', 'team.section.rename', { before: '研发', name: '研发中心' })).toBe(
+      '将团队分区 研发 重命名为 研发中心',
+    )
+    expect(s('admin', 'team.section.delete', { name: '研发' })).toBe('删除团队分区 研发')
+    expect(s('admin', 'group.team_section', { name: '测试群', section: '研发' })).toBe(
+      '将群移到团队分区 研发',
+    )
+    expect(s('admin', 'group.team_section', { name: '测试群', section: null })).toBe('将群移出团队分区')
+    expect(s('admin', 'bot.share_request.approve', { name: '设计师', userId: 'u1' })).toBe(
+      '同意 王磊 使用 Bot 设计师 的申请',
+    )
+    expect(s('admin', 'git.request', { botId: 'b1', action: 'push' })).toBe(
+      '请求在 设计师 的工作区执行 git push',
+    )
+    expect(s('admin', 'git.decide', { botId: 'b1', action: 'push', approve: false })).toBe(
+      '拒绝 设计师 的 git push',
+    )
+    expect(s('admin', 'install.delete', { listingId: 'l1', name: 'slides' })).toBe('卸载市场条目 slides')
+    expect(s('run', 'run.retry', { runId: 'r1' })).toBe('重试 小王的 Claude 的轮次')
+    expect(s('schedule', 'schedule.auto_pause', { name: '日报', reason: '连续失败 3 次' })).toBe(
+      '定时任务「日报」自动停用：连续失败 3 次',
+    )
+    expect(s('machine', 'workspace.delete', { botId: 'b1', path: '/w/pay' })).toBe(
+      '删除 设计师 的工作区 /w/pay',
+    )
+    expect(s('terminal', 'session.create', { botId: 'b1' })).toBe('打开 设计师 的终端')
+    expect(s('terminal', 'session.exit', { botId: null })).toBe('机器终端已退出')
+  })
+
+  // Every action written to audit_logs (grep `audit(` / `insert(auditLogs)` under src): add new ones here.
+  const EMITTED: Record<string, string[]> = {
+    approval: ['approved', 'rejected', 'expired', 'ai_approved', 'rule_approved', 'void'],
+    question: ['actions.answer', 'answered', 'expired', 'void'],
+    run: [
+      'command.stop',
+      'command.cd',
+      'command.new',
+      'run.stop',
+      'run.stop_chain',
+      'run.keep',
+      'run.discard',
+      'run.task_stop',
+      'run.retry',
+      'tool.cross_group_read',
+    ],
+    preview: ['share.create', 'share.revoke', 'share.extend', 'share.visit'],
+    schedule: [
+      'schedule.create',
+      'schedule.update',
+      'schedule.pause',
+      'schedule.resume',
+      'schedule.delete',
+      'schedule.auto_pause',
+    ],
+    machine: ['workspace.delete', 'workspace.gc'],
+    terminal: [
+      'session.create',
+      'session.attach',
+      'session.detach',
+      'session.exit',
+      'session.terminate',
+      'session.revoke',
+    ],
+    admin: [
+      'bot.create',
+      'bot.update',
+      'bot.delete',
+      'bot.confirm',
+      'bot.approval',
+      'bot.share',
+      'bot.groupTier',
+      'bot.provider',
+      'bot.always_allow',
+      'bot.share_request.approve',
+      'run.full_access',
+      'daemon.release',
+      'daemon.release.upload',
+      'daemon.release.remove',
+      'daemon.release.notes',
+      'feishu.app.save',
+      'feishu.app.remove',
+      'feishu.chat.create_group',
+      'feishu.chat.bind',
+      'feishu.chat.sync',
+      'feishu.chat.create',
+      'feishu.chat.unbind',
+      'user.create',
+      'user.update',
+      'user.password.reset',
+      'user.register',
+      'user.feishu.link',
+      'user.feishu.unlink',
+      'user.disable',
+      'user.enable',
+      'team.create',
+      'team.update',
+      'team.onboarding',
+      'team.archive',
+      'team.unarchive',
+      'team.owner',
+      'team.member.add',
+      'team.member.role',
+      'team.member.remove',
+      'team.leave',
+      'team.transfer',
+      'team.invite.create',
+      'team.invite.revoke',
+      'team.invite.accept',
+      'team.section.create',
+      'team.section.rename',
+      'team.section.delete',
+      'params.update',
+      'group.update',
+      'group.notice.remove',
+      'group.params',
+      'group.admin.grant',
+      'group.admin.revoke',
+      'group.dissolve',
+      'group.takeover',
+      'group.member.add',
+      'group.member.join',
+      'group.member.remove',
+      'group.bot.add',
+      'group.bot.remove',
+      'group.repo.change',
+      'group.repo.unbind',
+      'group.repo.extra.add',
+      'group.repo.extra.remove',
+      'group.team_section',
+      'group.join_request.approve',
+      'group.sync.enable',
+      'group.sync.disable',
+      'git.request',
+      'git.decide',
+      'git.run',
+      'workspace.open',
+      'machine.revoke',
+      'machine.transfer',
+      'machine.upgrade',
+      'machine.link.approve',
+      'machine.tools.install',
+      'machine.tools.upgrade',
+      'machine.tools.settings',
+      'machine.git.key',
+      'machine.git.token',
+      'machine.git.trust',
+      'machine.providers.save',
+      'machine.providers.remove',
+      'machine.providers.default',
+      'machine.providers.official',
+      'machine.providers.import',
+      'machine.providers.agentSettings',
+      'mcp.create',
+      'mcp.update',
+      'mcp.delete',
+      'mcp.group_toggle',
+      'secret.define',
+      'secret.update',
+      'secret.delete',
+      'secret.set',
+      'secret.clear',
+      'secret.fill',
+      'secret.request',
+      'skill.create',
+      'skill.update',
+      'skill.delete',
+      'skill.rollback',
+      'skill.group_toggle',
+      'plugin.create',
+      'plugin.update',
+      'plugin.delete',
+      'plugin.group_toggle',
+      'plugin.trust_allow',
+      'plugin.trust_deny',
+      'plugin.trust_revoke',
+      'market.publish',
+      'market.update',
+      'market.submit',
+      'market.approve',
+      'market.reject',
+      'market.ban',
+      'market.unban',
+      'install.put',
+      'install.delete',
+    ],
+  }
+
+  it('summarizes every audited action instead of echoing its id', () => {
+    const n = { user: () => '王磊', bot: () => '设计师', runBot: () => '小王的 Claude' }
+    const d = { name: 'x', layer: 'platform', version: '1.0', platforms: ['mac'], botId: 'b1', revision: 2 }
+    const echoed = Object.entries(EMITTED).flatMap(([category, actions]) =>
+      actions.filter((action) => {
+        const out = summarize({ category, action }, d, n)
+        return out === action || out.includes(action) || /\{\w+\}/.test(out)
+      }),
+    )
+    expect(echoed).toEqual([])
+  })
+
   it('is sysadmin only', async () => {
     const m = await t.seed.user()
     expect((await client(t, await t.seed.cookie(m.id)).get('/api/admin/audit')).status).toBe(403)

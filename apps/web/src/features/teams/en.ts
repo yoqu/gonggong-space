@@ -76,6 +76,8 @@ export default {
   '加入「{team}」': 'Join "{team}"',
   '{inviter} 邀请你加入团队「{team}」。': '{inviter} invited you to the team "{team}".',
   '正在读取邀请…': 'Reading the invite…',
+  '链接可能已过期、被撤销，或复制时不完整。':
+    'The link may have expired, been revoked, or been copied incompletely.',
   邀请链接已失效: 'This invite link has expired',
   '请联系团队管理员重新邀请。': 'Ask a team admin for a new invite.',
   '加入中…': 'Joining…',
