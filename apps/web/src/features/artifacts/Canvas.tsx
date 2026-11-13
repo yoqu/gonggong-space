@@ -265,6 +265,8 @@ export interface CanvasProps {
   screenThumbs: { screenId: string; url: string; stale?: boolean }[]
   /** Screens this version changed from its parent: marked 本版改动. */
   changedScreens: string[]
+  /** The shown version's files, null until they load: a frame reloads when its page or a shared file changes. */
+  files: { path: string; hash: string }[] | null
   /** The artifact's directory in the workspace (`design/<slug>`), for the implementation prompt. */
   dir: string
   /** The shown version's DESIGN.md; null when it has none. */
@@ -318,6 +320,23 @@ const manifestOp = (
   extra: { title?: string; index?: number } = {},
 ): ArtifactEditOp => ({ kind: 'manifest', op, screenId, ...extra })
 
+/** Per screen id, what its frame loads: its own page and every file a page may use (not the manifest, DESIGN.md or references). */
+function frameSignatures(files: { path: string; hash: string }[], manifest: GgArtifactManifest) {
+  const pages = new Set(manifest.screens.map((s) => s.file))
+  const hash = new Map(files.map((f) => [f.path, f.hash]))
+  const shared = files
+    .filter(
+      (f) =>
+        !pages.has(f.path) &&
+        f.path !== 'gg-artifact.json' &&
+        f.path !== 'DESIGN.md' &&
+        !f.path.startsWith('refs/'),
+    )
+    .map((f) => `${f.path}:${f.hash}`)
+    .join('|')
+  return new Map(manifest.screens.map((s) => [s.id, `${hash.get(s.file) ?? ''}|${shared}`]))
+}
+
 /**
  * The artifact canvas (Stitch capability list §3–§4, §9): the design system, the screens and the prototype side by
  * side on a dotted plane that pans and zooms. With the select and hand tools the canvas keeps the pointer; with mark
@@ -344,6 +363,7 @@ export function Canvas({
   fileUrl,
   screenThumbs,
   changedScreens,
+  files,
   dir,
   designMd,
   designPanel,
@@ -372,6 +392,18 @@ export function Canvas({
   const [selected, setSelected] = useState<string[]>([])
   const [help, setHelp] = useState(false)
   const [reloads, setReloads] = useState<Record<string, number>>({})
+  // A new version reloads only the frames whose page it changed: reloading every screen after one text edit flickers.
+  const lastSigs = useRef<{ previewId: string; sigs: Map<string, string> } | null>(null)
+  useEffect(() => {
+    if (!files || !manifest || !preview) return
+    const sigs = frameSignatures(files, manifest)
+    const last = lastSigs.current
+    lastSigs.current = { previewId: preview.previewId, sigs }
+    if (last?.previewId !== preview.previewId) return
+    const ids = [...sigs].flatMap(([id, sig]) => (last.sigs.has(id) && last.sigs.get(id) !== sig ? [id] : []))
+    if (ids.length)
+      setReloads((r) => ({ ...r, ...Object.fromEntries(ids.map((id) => [id, (r[id] ?? 0) + 1])) }))
+  }, [files, manifest, preview])
   const [dragging, setDragging] = useState(false)
   const [frames, setFrames] = useState<Record<string, ScreenFrame>>({})
   const [content, setContent] = useState<Record<string, number>>({})
@@ -1642,7 +1674,7 @@ export function Canvas({
                       />
                     ) : null}
                     <iframe
-                      key={`${versionKey}:${reloads[n.id] ?? 0}`}
+                      key={reloads[n.id] ?? 0}
                       ref={(el) => {
                         if (el) frameEls.set(n.file, el)
                         else frameEls.delete(n.file)

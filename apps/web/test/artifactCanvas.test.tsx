@@ -389,6 +389,51 @@ describe('context menu and screen operations', () => {
     await waitFor(() => expect(edits(calls)).toEqual([manifestOp('rename', 'home', { title: '发现' })]))
   })
 
+  it('reloads only the screens a new version changed, all when a shared file changed', async () => {
+    const hashed = (path: string, c: string) => ({ path, hash: c.repeat(64), size: 10 })
+    const filesOf = (home: string, tokens: string) => [
+      hashed('gg-artifact.json', 'a'),
+      hashed('tokens.css', tokens),
+      hashed('screens/home.html', home),
+      hashed('screens/detail.html', 'b'),
+    ]
+    let n = 2
+    const { files: _f, ...v3 } = version(3)
+    const { files: _g, ...v4 } = version(4)
+    mockApi(
+      routes({
+        'GET /artifacts/a1': () =>
+          n === 2 ? artifact() : artifact({ headVersionId: `v${n}`, head: n === 3 ? v3 : v4 }),
+        'GET /artifacts/a1/versions': () => [version(1), version(2), version(3), version(4)].slice(0, n),
+        'GET /artifacts/a1/versions/v2': detail({ files: filesOf('b', 'b') }),
+        'GET /artifacts/a1/versions/v3': detail({ ...version(3), files: filesOf('c', 'b') }),
+        'GET /artifacts/a1/versions/v4': detail({ ...version(4), files: filesOf('c', 'c') }),
+        'GET /artifacts/a1/files/tokens.css?version=v3': () => new Response(TOKENS),
+        'GET /artifacts/a1/files/tokens.css?version=v4': () => new Response(TOKENS),
+        'POST /artifacts/a1/edits': () => {
+          n += 1
+          return artifact()
+        },
+      }),
+    )
+    await renderTab()
+    const home = screen.getByTitle('首页')
+    const other = screen.getByTitle('书籍详情')
+    const rename = async (title: string) => {
+      fireEvent.click(item(openContext('detail'), /重命名/))
+      const input = screen.getByRole('textbox', { name: '重命名' })
+      fireEvent.change(input, { target: { value: title } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+    }
+    await rename('详情')
+    await waitFor(() => expect(screen.getByTitle('首页')).not.toBe(home))
+    expect(screen.getByTitle('书籍详情')).toBe(other)
+    const home3 = screen.getByTitle('首页')
+    await rename('详情页')
+    await waitFor(() => expect(screen.getByTitle('书籍详情')).not.toBe(other))
+    expect(screen.getByTitle('首页')).not.toBe(home3)
+  })
+
   it('deletes after confirming', async () => {
     const calls = mockApi(routes())
     await renderTab()

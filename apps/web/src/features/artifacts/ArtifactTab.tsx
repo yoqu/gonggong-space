@@ -353,6 +353,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           fileUrl={(file) => artifactFileUrl(tab.artifactId, file, shown ?? head)}
           screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
           changedScreens={detail?.id === shown ? (detail.changedScreens ?? []) : []}
+          files={detail?.id === shown ? detail.files : null}
           dir={a.dir}
           designMd={design.md}
           designPanel={design.panel}
