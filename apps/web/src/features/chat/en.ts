@@ -225,6 +225,7 @@ export default {
   '{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理':
     "{name} is paused: its machine can't reach the repo ({why}). Waiting for {owner}",
   重新检查: 'Recheck',
+  隐藏: 'Hide',
   '{n} 个 Bot 还没有选工作区，@ 它们时会先用托管目录':
     '{n} {n:Bot has|Bots have} no workspace chosen yet; @ them and they start on a managed directory',
   '绑定 {name}': 'Bind {name}',

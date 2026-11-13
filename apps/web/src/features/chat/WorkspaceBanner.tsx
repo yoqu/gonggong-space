@@ -15,6 +15,16 @@ const PAUSING: Partial<Record<RepoAccessReason, string>> = {
   timeout: t('连接超时'),
 }
 
+const HIDDEN_KEY = 'gg.workspaceBanner.hidden'
+const readHidden = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? '[]')
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
+
 /**
  * Bots waiting for their owner's workspace choice (plan W5): one to confirm in a repo group is not run meanwhile; one
  * left without any (from before managed became the default) moves onto a managed directory when @-ed.
@@ -26,7 +36,16 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const bots = useWorkspace((s) => s.bots)
   const [picking, setPicking] = useState<BotDto | null>(null)
   const navigate = useNavigate()
-  const inGroup = bots.filter((b) => group.botIds.includes(b.id))
+  // Hidden per bot and state: a banner comes back once the bot's state changes.
+  const [hidden, setHidden] = useState(readHidden)
+  const hideKey = (b: BotDto) =>
+    `${group.id}:${b.id}:${states?.[b.id]?.state}:${states?.[b.id]?.reason ?? ''}`
+  const hide = (list: BotDto[]) => {
+    const next = [...new Set([...hidden, ...list.map(hideKey)])].slice(-200)
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(next))
+    setHidden(next)
+  }
+  const inGroup = bots.filter((b) => group.botIds.includes(b.id) && !hidden.includes(hideKey(b)))
   const waiting = inGroup.filter((b) => ['unbound', 'confirm'].includes(states?.[b.id]?.state ?? ''))
   const paused = inGroup.filter((b) => {
     const s = states?.[b.id]
@@ -90,6 +109,8 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                   </>
                 ) : null
               }
+              onClose={() => hide([b])}
+              closeLabel={t('隐藏')}
             />
           </div>
         )
@@ -111,6 +132,8 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               {t('绑定 {name}', { name: b.name })}
             </Button>
           ))}
+          onClose={() => hide(mineReady)}
+          closeLabel={t('隐藏')}
         />
       ) : null}
       {waiting.map((b) => {
@@ -136,6 +159,8 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
                   </Button>
                 ) : null
               }
+              onClose={() => hide([b])}
+              closeLabel={t('隐藏')}
             />
           </div>
         )

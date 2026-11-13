@@ -1,5 +1,5 @@
 import type { BotDto, GroupDto, UserDto } from '@gonggong/protocol'
-import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -338,5 +338,20 @@ describe('workspace banner', () => {
     expect(screen.queryByText('重新检查')).toBeNull()
     rerender(tree(<WorkspaceBanner group={group({ members: members(true) })} />))
     expect(screen.getByText('重新检查')).toBeTruthy()
+  })
+
+  it('hides a banner until the bot’s state changes, also after a reload', () => {
+    localStorage.clear()
+    useSession.setState({ user: { id: 'u2' } as UserDto, status: 'ready' })
+    useWorkspace.setState({ bots: [bot()], botStates: paused })
+    const { unmount } = render(<WorkspaceBanner group={group({ members: members(false) })} />)
+    fireEvent.click(screen.getByRole('button', { name: '隐藏' }))
+    expect(screen.queryByTestId('ws-paused-b1')).toBeNull()
+    unmount()
+    render(<WorkspaceBanner group={group({ members: members(false) })} />)
+    expect(screen.queryByTestId('ws-paused-b1')).toBeNull()
+    const state = unbound().g1.b1
+    act(() => useWorkspace.setState({ botStates: { g1: { b1: { ...state, state: 'confirm' } } } }))
+    expect(screen.getByTestId('ws-banner-b1')).toBeTruthy()
   })
 })
