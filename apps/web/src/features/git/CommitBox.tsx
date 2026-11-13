@@ -1,10 +1,11 @@
 import type { GitActionInput, GitHeadCommit, GitOngoing } from '@gonggong/protocol'
 import { type KeyboardEvent, useState } from 'react'
 import { t } from '../../i18n'
-import { Button, Checkbox, Icon, Popover, Spinner, Tooltip, toast } from '../../ui'
+import { Button, Checkbox, Icon, Popover, Tooltip, toast, useFlash } from '../../ui'
 import { type GitTarget, gitActionTaken, runGitAction } from './api'
 import { gitCommands, inTarget, ongoingLabel } from './commands'
 import { useCommitDraft } from './draft'
+import { GitGlyph } from './GitGlyph'
 import { useOwner } from './owner'
 
 const HISTORY = 'gg.git.messages'
@@ -64,6 +65,7 @@ export function CommitBox({
   const { owner } = useOwner(target.botId)
   const { draft, update, clear } = useCommitDraft(target)
   const [busy, setBusy] = useState(false)
+  const [committed, flashCommitted] = useFlash()
   const message = draft.message ?? ongoing?.message ?? ''
   const amend = draft.amend && !ongoing
   const text = message.trim()
@@ -92,6 +94,7 @@ export function CommitBox({
     )
     setBusy(false)
     if (!gitActionTaken(op)) return
+    if (op?.status === 'succeeded') flashCommitted()
     if (!ongoing) remember(target.botId, text)
     clear()
     if (push && op?.status === 'succeeded') gitCommands(target).push()
@@ -188,9 +191,17 @@ export function CommitBox({
         </div>
       ) : null}
       <div className="gc-box__actions">
-        <Button size="small" variant="primary" disabled={!ready} onClick={() => void commit(false)}>
-          {busy ? <Spinner size={12} /> : null}
-          {label}
+        <Button
+          size="small"
+          variant="primary"
+          icon={<GitGlyph kind="commit" state={busy ? 'busy' : committed ? 'done' : 'idle'} size={12} />}
+          liveIcon
+          loading={busy}
+          done={committed}
+          disabled={!ready}
+          onClick={() => void commit(false)}
+        >
+          {busy ? t('提交中…') : committed ? t('已提交') : label}
         </Button>
         {owner && (!ongoing || ongoing.kind === 'merge') ? (
           <Button size="small" disabled={!ready} onClick={() => void commit(true)}>

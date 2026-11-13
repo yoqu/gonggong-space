@@ -99,6 +99,7 @@ export function UpdateDialog({ target, onClose }: Props) {
         {
           label: label(t('更新')),
           variant: 'primary',
+          loading: busy,
           disabled: busy || !branch || (!!refs && !upstream),
           onClick: () => void submit({ action: 'pull', mode }),
         },
@@ -164,6 +165,7 @@ export function PullDialog({ target, onClose }: Props) {
         {
           label: label(t('拉取')),
           variant: 'primary',
+          loading: busy,
           disabled: busy || !branch || !from,
           onClick: () => void submit({ action: 'pull', mode, ...(from && from !== upstream && { from }) }),
         },

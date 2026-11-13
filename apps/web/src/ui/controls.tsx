@@ -4,8 +4,10 @@ import {
   type ReactElement,
   type ReactNode,
   type Ref,
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
@@ -34,16 +36,23 @@ interface ButtonBaseProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean
   /** Shows a spinner in place of the icon and disables the button; pair with a progressive label (「正在上传」). */
   loading?: boolean
+  /** Briefly confirms the action finished: a drawn check, a green tint (see useFlash); pair with 「已…」. */
+  done?: boolean
+  /** The icon animates its own busy and done states (a GitGlyph): kept instead of the spinner and check. */
+  liveIcon?: boolean
 }
 
 export type ButtonProps = ButtonBaseProps &
   ({ icon?: Glyph; children: ReactNode } | { icon: Glyph; children?: undefined; 'aria-label': string })
 
 export function Button({
+  ref,
   variant = 'default',
   size = 'regular',
   fullWidth,
   loading,
+  done,
+  liveIcon,
   icon,
   className,
   type = 'button',
@@ -51,8 +60,32 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
+  const phase = loading ? 'loading' : done ? 'done' : 'idle'
+  const own = useRef<HTMLButtonElement | null>(null)
+  useWidthMorph(own, phase)
+  const setRef = useCallback(
+    (el: HTMLButtonElement | null) => {
+      own.current = el
+      if (typeof ref === 'function') ref(el)
+      else if (ref) ref.current = el
+    },
+    [ref],
+  )
+  const glyph =
+    liveIcon || phase === 'idle' ? (
+      icon ? (
+        renderGlyph(icon)
+      ) : null
+    ) : phase === 'loading' ? (
+      <ProgressIndicator variant="spinner" aria-label={t('正在处理')} />
+    ) : (
+      <svg className="ui-btn__check" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3.5 8.5l3 3 6-7" />
+      </svg>
+    )
   return (
     <button
+      ref={setRef}
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
@@ -62,19 +95,53 @@ export function Button({
         size !== 'regular' && size !== 'md' && `ui-btn--${size}`,
         icon && children == null && 'ui-btn--icon',
         loading && 'ui-btn--loading',
+        done && !loading && 'ui-btn--done',
         fullWidth && 'ui-btn--full',
         className,
       )}
       {...rest}
     >
-      {loading ? (
-        <ProgressIndicator variant="spinner" aria-label={t('正在处理')} />
-      ) : icon ? (
-        renderGlyph(icon)
+      {glyph ? (
+        <span key={liveIcon ? 'live' : phase} className="ui-btn__glyph">
+          {glyph}
+        </span>
       ) : null}
       {children}
     </button>
   )
+}
+
+const reducedMotion = () =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** A button turning busy or done changes its label: glide to the new width instead of jumping (other renders don't). */
+function useWidthMorph(ref: { current: HTMLElement | null }, phase: string) {
+  const last = useRef<{ phase: string; width: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const width = el.offsetWidth
+    const prev = last.current
+    last.current = { phase, width }
+    if (!prev || prev.phase === phase || prev.width === width || !el.animate || reducedMotion()) return
+    el.animate([{ width: `${prev.width}px` }, { width: `${width}px` }], {
+      duration: 280,
+      easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)',
+    })
+  })
+}
+
+/** On for a moment after `trigger()` (a button's done state); retriggering restarts it. */
+export function useFlash(ms = 1200): [boolean, () => void] {
+  const [on, setOn] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(timer.current), [])
+  const trigger = useCallback(() => {
+    clearTimeout(timer.current)
+    setOn(true)
+    timer.current = setTimeout(() => setOn(false), ms)
+  }, [ms])
+  return [on, trigger]
 }
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {

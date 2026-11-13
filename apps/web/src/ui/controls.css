@@ -145,6 +145,50 @@
   height: 14px;
   color: currentColor;
 }
+.ui-btn--loading {
+  cursor: progress;
+}
+/* The icon slot remounts per phase (idle / loading / done), so each glyph arrives with a small spring. */
+.ui-btn__glyph {
+  display: inline-flex;
+  flex: none;
+  animation:
+    ui-fade-in var(--fade-in),
+    ui-btn-glyph-in var(--spring-bouncy);
+}
+@keyframes ui-btn-glyph-in {
+  from {
+    transform: scale(0.4);
+  }
+}
+.ui-btn__check path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 14;
+  animation: ui-btn-draw 320ms 60ms ease-out both;
+}
+@keyframes ui-btn-draw {
+  from {
+    stroke-dashoffset: 14;
+  }
+}
+.ui-btn--done {
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+}
+.ui-btn--done.ui-btn--primary,
+.ui-btn--done.ui-btn--primary:active {
+  background: var(--system-green);
+  color: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn__check path {
+    animation: none;
+  }
+}
 
 /* Icon buttons in app chrome read as labels, not links. */
 .ui-icon-btn.ui-btn--plain {
@@ -331,4 +375,7 @@
 .ui-helptext {
   font-size: var(--text-callout-size);
   line-height: 17px;
+}
+.ui-btn--done:disabled {
+  opacity: 1;
 }

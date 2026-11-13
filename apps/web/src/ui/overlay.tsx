@@ -187,6 +187,8 @@ export interface ModalAction {
   variant?: ButtonVariant
   onClick?: () => void
   disabled?: boolean
+  /** The action is running: a spinner in the button, which stays disabled. */
+  loading?: boolean
   /** Receives focus on open; never set it on a destructive action. */
   autoFocus?: boolean
   /** `submit` with `form` submits a Form in the body, so Enter in a field and the button share one path. */
@@ -250,6 +252,7 @@ function ModalBody({
               key={i}
               variant={a.variant}
               disabled={a.disabled}
+              loading={a.loading}
               type={a.type}
               form={a.form}
               onClick={a.onClick}

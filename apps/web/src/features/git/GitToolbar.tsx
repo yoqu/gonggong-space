@@ -1,11 +1,13 @@
-import type { GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
-import { type ReactNode, useState } from 'react'
+import type { GitActionKind, GitChangesDto, GitStatus, RepoStatus } from '@gonggong/protocol'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { toastError } from '../../lib/errors'
-import { Icon, MenuButton, type MenuItem, Spinner, Tooltip, toast } from '../../ui'
+import { Icon, MenuButton, type MenuItem, Tooltip, toast, useFlash } from '../../ui'
 import { type GitTarget, refreshGit } from './api'
 import { BranchPopup } from './BranchPopup'
 import { gitCommands } from './commands'
+import { GitGlyph, type GitGlyphState } from './GitGlyph'
 
 /** How a repo of the workspace is named: an additional directory or extra repo (absolute) by its last segment. */
 export const repoLabel = (path: string | null) =>
@@ -33,6 +35,24 @@ export function BranchName({ status, head }: { status: RepoStatus; head?: string
   return <span>{head ? t('{hash}（游离）', { hash: head }) : t('游离')}</span>
 }
 
+/** A toolbar button's state from the bot's operations of `action` on this repo: busy while one runs, done a moment after it succeeds. */
+function useActionState(target: GitTarget, action: GitActionKind): GitGlyphState {
+  const ops = useWorkspace((s) => s.gitOps[target.groupId])
+  const mine = ops?.filter((o) => o.botId === target.botId && o.repo === target.repo && o.action === action)
+  const running = mine?.find((o) => o.status === 'running')?.id ?? null
+  const [done, flash] = useFlash()
+  const watched = useRef<string | null>(null)
+  const settled = mine?.find((o) => o.id === watched.current)?.status
+  useEffect(() => {
+    if (running) watched.current = running
+    else if (watched.current && settled !== 'running') {
+      watched.current = null
+      if (settled === 'succeeded') flash()
+    }
+  }, [running, settled, flash])
+  return running ? 'busy' : done ? 'done' : 'idle'
+}
+
 /**
  * The Git tab's toolbar: its views, then IDEA's main toolbar VCS actions — the branch popup (which also switches the
  * repo of a multi-repo workspace) with incoming / outgoing counts, fetch, update, push, and the rest under ⋯.
@@ -53,6 +73,9 @@ export function GitToolbar({
   onRepo: (repo: string | null) => void
 }) {
   const [fetching, setFetching] = useState(false)
+  const [fetched, flashFetched] = useFlash()
+  const pull = useActionState(target, 'pull')
+  const push = useActionState(target, 'push')
   const cmd = gitCommands(target)
   const head = target.repo ? (changes?.head?.shortHash ?? null) : (git.head ?? null)
   const last = changes?.head ?? null
@@ -61,6 +84,7 @@ export function GitToolbar({
     setFetching(true)
     try {
       await refreshGit(target.groupId, target.botId, true)
+      flashFetched()
       toast({ type: 'success', message: t('获取完成') })
     } catch (e) {
       toastError(e)
@@ -127,25 +151,35 @@ export function GitToolbar({
           type="button"
           className="gtb-btn"
           aria-label={fetching ? t('正在获取远程更新…') : t('获取远程更新')}
+          aria-busy={fetching || undefined}
           disabled={fetching}
           onClick={() => void fetchAll()}
         >
-          {fetching ? <Spinner size={12} /> : <Icon name="arrow-clockwise" size={14} />}
+          <GitGlyph kind="fetch" state={fetching ? 'busy' : fetched ? 'done' : 'idle'} />
         </button>
       </Tooltip>
-      <Tooltip content={t('更新…')}>
-        <button type="button" className="gtb-btn gtb-btn--in" aria-label={t('更新…')} onClick={cmd.pull}>
-          <Icon name="arrow-down" size={14} />
+      <Tooltip content={pull === 'busy' ? t('正在更新…') : t('更新…')}>
+        <button
+          type="button"
+          className="gtb-btn gtb-btn--in"
+          aria-label={pull === 'busy' ? t('正在更新…') : t('更新…')}
+          aria-busy={pull === 'busy' || undefined}
+          disabled={pull === 'busy'}
+          onClick={cmd.pull}
+        >
+          <GitGlyph kind="pull" state={pull} />
         </button>
       </Tooltip>
-      <Tooltip content={pushLabel}>
+      <Tooltip content={push === 'busy' ? t('正在推送…') : pushLabel}>
         <button
           type="button"
           className="gtb-btn gtb-btn--out"
-          aria-label={pushLabel}
+          aria-label={push === 'busy' ? t('正在推送…') : pushLabel}
+          aria-busy={push === 'busy' || undefined}
+          disabled={push === 'busy'}
           onClick={() => cmd.push()}
         >
-          <Icon name="arrow-up" size={14} />
+          <GitGlyph kind="push" state={push} />
         </button>
       </Tooltip>
       <MenuButton

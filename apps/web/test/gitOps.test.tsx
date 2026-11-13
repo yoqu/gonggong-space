@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkbench } from '../src/app/workbench'
-import { useWorkspace } from '../src/app/workspace'
+import { putGitOperation, useWorkspace } from '../src/app/workspace'
 import { GitBar } from '../src/features/chat/GitBar'
 import { useGitDialogs } from '../src/features/git/commands'
 import { GitDialogHost } from '../src/features/git/dialogs/GitDialogHost'
@@ -135,6 +135,55 @@ describe('Git tab toolbar', () => {
     finish(apiError(502, 'git_failed', 'fatal: could not read from remote repository'))
     await waitFor(() => expect(toasts()).toContain('fatal: could not read from remote repository'))
     expect(tab.getByRole('button', { name: '获取远程更新' })).toBeTruthy()
+  })
+
+  it('acts out a running update or push on its button, then confirms it with a check', async () => {
+    mockApi(routes())
+    render(<Page />)
+    const tab = await openGit()
+    const bar = within(tab.getByRole('toolbar', { name: 'Git 工具栏' }))
+    act(() => putGitOperation(op({ id: 'op-pull', action: 'pull', status: 'running' })))
+    const pulling = bar.getByRole('button', { name: '正在更新…' }) as HTMLButtonElement
+    expect(pulling.disabled).toBe(true)
+    expect(pulling.getAttribute('aria-busy')).toBe('true')
+    expect(pulling.querySelector('.gg-glyph')?.getAttribute('data-state')).toBe('busy')
+    act(() => putGitOperation(op({ id: 'op-pull', action: 'pull', status: 'succeeded' })))
+    const updated = bar.getByRole('button', { name: '更新…' })
+    expect(updated.querySelector('.gg-glyph')?.getAttribute('data-state')).toBe('done')
+    act(() => putGitOperation(op({ id: 'op-push', action: 'push', status: 'running' })))
+    expect(bar.getByRole('button', { name: '正在推送…' }).getAttribute('aria-busy')).toBe('true')
+    act(() => putGitOperation(op({ id: 'op-push', action: 'push', status: 'failed', error: 'rejected' })))
+    const push = bar.getByRole('button', { name: '推送…' })
+    expect(push.querySelector('.gg-glyph')?.getAttribute('data-state')).toBe('idle')
+  })
+
+  it('confirms a finished fetch on its button', async () => {
+    mockApi(routes())
+    render(<Page />)
+    const tab = await openGit()
+    fireEvent.click(tab.getByRole('button', { name: '获取远程更新' }))
+    await waitFor(() =>
+      expect(
+        tab
+          .getByRole('button', { name: '获取远程更新' })
+          .querySelector('.gg-glyph')
+          ?.getAttribute('data-state'),
+      ).toBe('done'),
+    )
+  })
+
+  it('shows the update dialog’s button busy while git runs', async () => {
+    let finish: (r: unknown) => void = () => {}
+    mockApi(routes({ [`POST ${BASE}/actions`]: () => new Promise((r) => (finish = r)) }))
+    render(<Page />)
+    fireEvent.click((await openGit()).getByRole('button', { name: '更新…' }))
+    const d = await dialog('更新 feat/refund-v2')
+    fireEvent.click(d.getByRole('button', { name: '更新' }))
+    await waitFor(() =>
+      expect(d.getByRole('button', { name: /更新/ }).getAttribute('aria-busy')).toBe('true'),
+    )
+    finish(done({ action: 'pull' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '更新 feat/refund-v2' })).toBeNull())
   })
 
   it('updates by merge, rebase or fast-forward only, remembering the choice', async () => {

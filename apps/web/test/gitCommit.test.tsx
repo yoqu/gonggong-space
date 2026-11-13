@@ -123,6 +123,22 @@ describe('commit view', () => {
     expect(await dialog('推送提交')).toBeTruthy()
   })
 
+  it('shows the commit button busy while git commits, then a moment of 「已提交」', async () => {
+    let finish: (r: unknown) => void = () => {}
+    mockApi(routes({ [`POST ${BASE}/actions`]: () => new Promise((r) => (finish = r)) }))
+    const tab = await openGit()
+    await tab.findByRole('region', { name: '要提交的文件' })
+    fireEvent.change(box(tab), { target: { value: '修复退款' } })
+    fireEvent.click(tab.getByRole('button', { name: '提交' }))
+    const busy = await tab.findByRole('button', { name: '提交中…' })
+    expect(busy.getAttribute('aria-busy')).toBe('true')
+    expect(busy.querySelector('.gg-glyph')?.getAttribute('data-state')).toBe('busy')
+    finish(done({ action: 'commit' }))
+    const committed = await tab.findByRole('button', { name: '已提交' })
+    expect(committed.querySelector('.gg-glyph')?.getAttribute('data-state')).toBe('done')
+    await waitFor(() => expect(tab.getByRole('button', { name: '提交' })).toBeTruthy(), { timeout: 3000 })
+  })
+
   it('keeps the message when git fails, with its reason', async () => {
     mockApi(
       routes({

@@ -250,6 +250,7 @@ export function PushDialog({
             <Button
               variant={toBase ? 'destructive' : 'primary'}
               disabled={busy || !name || !valid || editing || (toBase && !confirmed)}
+              loading={busy}
               onClick={() => send(false)}
             >
               {label(upTo ? title : t('推送'))}
