@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { Welcome } from '../src/app/Welcome'
@@ -126,5 +126,25 @@ describe('welcome', () => {
     )
     const welcome = screen.getByRole('region', { name: '开始使用' })
     expect(welcome.querySelector('.ui-mascot')?.getAttribute('data-action')).toBe('wave')
+  })
+
+  it('points a non-builder at groups they can join from the sidebar', () => {
+    const noop = () => {}
+    const onBrowse = vi.fn()
+    const props = {
+      name: '王磊',
+      bound: false,
+      hasBot: false,
+      onBindMachine: noop,
+      onNewBot: noop,
+      onNewGroup: noop,
+    }
+    const { rerender } = render(<Welcome {...props} />)
+    expect(screen.getByText('或等同事把你拉进群，在群里 @ Bot 直接提问就行。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '查看可加入的群' })).toBeNull()
+    rerender(<Welcome {...props} onBrowse={onBrowse} />)
+    expect(screen.getByText('侧栏里的群可以直接申请加入，进群后 @ Bot 提问就行。')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '查看可加入的群' }))
+    expect(onBrowse).toHaveBeenCalled()
   })
 })

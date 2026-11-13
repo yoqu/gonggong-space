@@ -147,6 +147,8 @@ export function TeamSettingsDialog({
               type="button"
               className={cx('gs-settings__tab', x.value === tab && 'gs-settings__tab--on')}
               aria-current={x.value === tab ? 'page' : undefined}
+              // Opening on the editable overview should not put a field in edit mode.
+              data-autofocus={x.value === tab || undefined}
               onClick={() => setTab(x.value)}
             >
               <Icon name={x.icon} size={15} />
@@ -169,6 +171,16 @@ function OverviewTab({ team, onClose }: { team: TeamDto; onClose: () => void }) 
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<'leave' | 'archive' | null>(null)
   const me = useSession((s) => s.user)
+  const { data: members } = useMembers(team.id)
+  // The server refuses these too; a team left with nobody is cleaned up by a platform admin.
+  const leaveBlock =
+    team.role !== 'owner' || !members
+      ? null
+      : members.length === 1
+        ? t('团队只有你一人，无法退出；如需清理请联系平台管理员')
+        : members.filter((m) => m.role === 'owner').length === 1
+          ? t('你是唯一的所有者，需先在「成员」里转让所有权')
+          : null
   const dirty = name.trim() !== team.name || (!image && (avatar.trim() || null) !== glyph)
   const save = async () => {
     setBusy(true)
@@ -225,14 +237,29 @@ function OverviewTab({ team, onClose }: { team: TeamDto; onClose: () => void }) 
           </Button>
         </div>
       ) : null}
+      <h3 className="team-danger__title">{t('危险操作')}</h3>
       <GroupBox>
-        <GroupRow label={t('退出团队')} destructive onClick={() => setConfirm('leave')} />
+        <GroupRow
+          label={t('退出团队')}
+          description={leaveBlock ?? t('你在该团队的 Bot 将被删除，并退出所有群')}
+        >
+          <Button
+            variant="destructive"
+            size="small"
+            disabled={leaveBlock !== null || (team.role === 'owner' && !members)}
+            onClick={() => setConfirm('leave')}
+          >
+            {t('退出')}
+          </Button>
+        </GroupRow>
+        {team.role === 'owner' ? (
+          <GroupRow label={t('归档团队')} description={t('所有成员都无法再进入，群转为只读')}>
+            <Button variant="destructive" size="small" onClick={() => setConfirm('archive')}>
+              {t('归档#action')}
+            </Button>
+          </GroupRow>
+        ) : null}
       </GroupBox>
-      {team.role === 'owner' ? (
-        <GroupBox>
-          <GroupRow label={t('归档团队')} destructive onClick={() => setConfirm('archive')} />
-        </GroupBox>
-      ) : null}
       <Presence>
         {confirm === 'leave' && me ? (
           <ConfirmActionDialog

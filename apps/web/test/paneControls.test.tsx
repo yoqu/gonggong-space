@@ -192,6 +192,19 @@ describe('PopUpButton', () => {
   const highlighted = (menu: HTMLElement) =>
     document.getElementById(menu.getAttribute('aria-activedescendant') ?? '')?.textContent
 
+  it('shows an option description only in the menu', () => {
+    render(
+      <PopUpButton
+        options={[{ value: 'off', label: '关闭', description: '仍提醒审批' }]}
+        defaultValue="off"
+      />,
+    )
+    const trigger = screen.getByRole('button', { name: '关闭' })
+    expect(trigger.textContent).not.toContain('仍提醒审批')
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menuitemcheckbox').textContent).toContain('仍提醒审批')
+  })
+
   it('opens a checked menu highlighting the current value and selects another', async () => {
     const onChange = vi.fn()
     render(<PopUpButton options={options} defaultValue="name" onChange={onChange} />)

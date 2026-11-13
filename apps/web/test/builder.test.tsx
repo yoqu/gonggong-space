@@ -127,11 +127,14 @@ describe('使用者 / 搭建者', () => {
     expect(within(empty).queryByRole('button', { name: '发起会话' })).toBeNull()
   })
 
-  it('still opens /machines directly for a 使用者', async () => {
+  it('still opens /machines directly for a 使用者, showing its rail entry selected while there', async () => {
     mockApi({ ...routes(), 'GET /bots/owners': () => [{ id: 'u1', name: '小李', machines: [] }] })
     renderAt('/machines')
     expect(await screen.findByRole('navigation', { name: '机器与 Bot' })).toBeTruthy()
-    expect(within(rail()).queryByRole('button', { name: '机器与 Bot' })).toBeNull()
+    expect(within(rail()).getByRole('button', { name: '机器与 Bot' }).getAttribute('aria-current')).toBe(
+      'page',
+    )
+    expect(within(rail()).queryByRole('button', { name: '市场' })).toBeNull()
   })
 
   it('counts owning a machine, a group admin seat, a team role or sysadmin as a builder', async () => {

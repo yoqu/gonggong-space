@@ -123,4 +123,14 @@ export default {
     'New members linked to Feishu get a welcome card from the default assistant; tapping an example asks it in the newcomer group.',
   '对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。':
     'Applies to every group of the team; team admins maintain it, and you can request installs in the market.',
+  危险操作: 'Danger zone',
+  退出: 'Leave',
+  '归档#action': 'Archive',
+  '你在该团队的 Bot 将被删除，并退出所有群':
+    'Your bots in this team are deleted and you leave all its groups',
+  '所有成员都无法再进入，群转为只读': 'No member can enter it anymore; its groups become read-only',
+  '团队只有你一人，无法退出；如需清理请联系平台管理员':
+    'You are the only member and cannot leave; ask a platform admin to clean up the team',
+  '你是唯一的所有者，需先在「成员」里转让所有权':
+    'You are the only owner; transfer ownership under Members first',
 }

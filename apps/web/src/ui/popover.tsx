@@ -99,7 +99,8 @@ export function useFixedPosition(
       el.style.minWidth = `${r.width}px`
       el.style.maxHeight = ''
     }
-    const { width: w, height: h } = el.getBoundingClientRect()
+    // Layout size: the enter animation scales the panel, which would under-measure it.
+    const { offsetWidth: w, offsetHeight: h } = el
     const room = { below: window.innerHeight - r.bottom - 2 * gap, above: r.top - 2 * gap }
     const below = h <= room.below || room.below >= room.above
     const height = list ? Math.min(h, below ? room.below : room.above) : h

@@ -220,6 +220,11 @@ describe('Popover', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       return this.classList.contains('ui-popover') ? rect(0, 300) : rect(window.innerHeight - 60, 30)
     })
+    // The panel is measured by layout size, which an entering scale animation does not shrink.
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(100)
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('ui-popover') ? 300 : 30
+    })
     render(
       <div data-testid="clip" style={{ overflow: 'auto' }}>
         <Popover portal aria-label="挑选" trigger={<Button>添加</Button>}>

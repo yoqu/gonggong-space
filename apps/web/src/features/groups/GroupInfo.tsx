@@ -432,7 +432,6 @@ function MainView({
           rows: [
             {
               label: t('通知'),
-              description: t('「仅@」只提醒 @我 和 @所有人；「关闭」连 @ 也不提醒，待审批和向我提问仍提醒'),
               control: (
                 <Select
                   label={t('通知')}

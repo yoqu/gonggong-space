@@ -53,7 +53,7 @@ const copy = (text: string, message: string) => void copyWithToast(text, message
  * 发给你的 Agent (Agent 自助接入): the sentence to paste to a local Claude Code / Codex, which installs gg, binds this
  * machine and gets its bot made by itself.
  */
-export function AgentPrompt({ bind }: { bind: BindCode }) {
+export function AgentPrompt({ bind, onCopied }: { bind: BindCode; onCopied?: (code: string) => void }) {
   const { code, error, generate } = bind
   /** The code whose sentence was copied: a new code is a new sentence to copy. */
   const [copied, setCopied] = useState<string | null>(null)
@@ -75,7 +75,10 @@ export function AgentPrompt({ bind }: { bind: BindCode }) {
           variant="primary"
           onClick={() =>
             void copyText(code.agentPrompt).then(
-              () => setCopied(code.code),
+              () => {
+                setCopied(code.code)
+                onCopied?.(code.code)
+              },
               () => toast({ type: 'error', message: t('复制失败') }),
             )
           }

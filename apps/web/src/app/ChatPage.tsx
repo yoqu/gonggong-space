@@ -192,6 +192,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const openMachine = machines.find((m) => m.id === machineId)
   const group = groups.find((g) => g.id === groupId)
   const preview = useTeamSections((s) => s.directory.find((g) => g.id === groupId))
+  const joinable = useTeamSections((s) => s.directory[0]?.id)
   const inspector = useInspector((s) => s.view)
   // biome-ignore lint/correctness/useExhaustiveDependencies: switching groups closes the rail
   useEffect(() => () => useInspector.getState().close(), [groupId])
@@ -446,6 +447,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
               onBindMachine={() => setBinding(true)}
               onNewBot={() => setNewBot({})}
               onNewGroup={() => setCreating(true)}
+              onBrowse={joinable ? () => navigate(`/g/${joinable}`) : undefined}
             />
           </div>
         ) : (

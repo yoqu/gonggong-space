@@ -55,6 +55,8 @@ export function BindMachineDialog({
   const known = useRef<Map<string, string> | null>(null)
   /** A machine whose code had expired asking to be bound: confirmed right here instead of on /link/:id. */
   const [request, setRequest] = useState<LinkRequestDto | null>(null)
+  /** The code whose sentence was copied: until then ① waits on the user rather than spinning. */
+  const [copied, setCopied] = useState<string | null>(null)
   const bind = useBindCode(open, !!bound)
   const { code, error } = bind
   const navigate = useNavigate()
@@ -68,6 +70,7 @@ export function BindMachineDialog({
     setInstalled(false)
     setViaClient(onWindows())
     setRequest(null)
+    setCopied(null)
     known.current = null
     void api.get<MachineDto[]>('/machines').then((list) => {
       known.current = new Map(list.map((m) => [m.id, m.boundAt]))
@@ -97,12 +100,13 @@ export function BindMachineDialog({
   }, [open])
 
   const online = !!bound?.online
+  const handedOver = (!!code && copied === code.code) || !!request
   const steps: { label: string; status: StepStatus }[] = [
     {
       label: t('复制给 Agent'),
-      status: bound ? 'completed' : error ? 'error' : code ? 'active' : 'pending',
+      status: bound || handedOver ? 'completed' : error ? 'error' : code ? 'current' : 'pending',
     },
-    { label: t('机器接入'), status: bound ? 'completed' : 'pending' },
+    { label: t('机器接入'), status: bound ? 'completed' : handedOver ? 'active' : 'pending' },
     { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
   ]
 
@@ -141,7 +145,7 @@ export function BindMachineDialog({
                   dark: { src: demoDark, poster: demoDarkPoster },
                 }}
               />
-              <AgentPrompt bind={bind} />
+              <AgentPrompt bind={bind} onCopied={setCopied} />
               {request ? <LinkRequestCard key={request.id} request={request} /> : null}
               {onWindows() ? (
                 <Alert variant="info" description={t('Windows 上请展开「其他方式」，用桌面客户端绑定。')} />

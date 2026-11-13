@@ -345,7 +345,7 @@ export function BotPage({
         title={bot.name}
         subtitle={[agentLine(bot), bot.machineName, bot.ownerName].filter(Boolean).join(' · ')}
         onBack={onBack}
-        trailing={owner || shared ? undefined : <ShareRequestAction bot={bot} />}
+        trailing={owner || shared ? undefined : <ShareRequestAction bot={bot} toolbar />}
         actions={[
           ...(owner || shared
             ? [

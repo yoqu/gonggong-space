@@ -145,8 +145,14 @@ describe('bind machine dialog', () => {
     await screen.findByRole('button', { name: '复制' })
     const step = (name: string) =>
       screen.getByText(name, { selector: '.ui-step__label' }).closest('li')?.getAttribute('data-status')
-    expect(step('复制给 Agent')).toBe('active')
+    // ① waits on the user: a highlighted step, not a spinner, until the sentence is copied.
+    expect(step('复制给 Agent')).toBe('current')
     expect(step('机器接入')).toBe('pending')
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn(async () => {}) } })
+    fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    await screen.findByRole('button', { name: '已复制' })
+    expect(step('复制给 Agent')).toBe('completed')
+    expect(step('机器接入')).toBe('active')
     emit(fresh)
     expect(step('复制给 Agent')).toBe('completed')
     expect(step('机器接入')).toBe('completed')

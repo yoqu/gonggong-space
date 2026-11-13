@@ -19,6 +19,7 @@ export function Welcome({
   onBindMachine,
   onNewBot,
   onNewGroup,
+  onBrowse,
 }: {
   name: string
   bound: boolean
@@ -26,6 +27,8 @@ export function Welcome({
   onBindMachine: () => void
   onNewBot: () => void
   onNewGroup: () => void
+  /** Set when the sidebar lists groups the user can join or ask to join: opens the first one's preview. */
+  onBrowse?: () => void
 }) {
   const builder = useIsBuilder()
   const steps: {
@@ -82,7 +85,16 @@ export function Welcome({
         >
           {t('接入我的电脑，搭自己的 Bot')}
         </Button>
-        <p className="welcome__alt">{t('或等同事把你拉进群，在群里 @ Bot 直接提问就行。')}</p>
+        {onBrowse ? (
+          <>
+            <p className="welcome__alt">{t('侧栏里的群可以直接申请加入，进群后 @ Bot 提问就行。')}</p>
+            <Button className="welcome__browse" icon="hashtag" onClick={onBrowse}>
+              {t('查看可加入的群')}
+            </Button>
+          </>
+        ) : (
+          <p className="welcome__alt">{t('或等同事把你拉进群，在群里 @ Bot 直接提问就行。')}</p>
+        )}
       </section>
     )
   return (

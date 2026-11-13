@@ -236,8 +236,21 @@ describe('team members', () => {
     const groups = (await (await as(w.alice)).get<GroupDto[]>('/api/groups')).body
     expect(groups[0]?.members.map((m) => m.name)).toEqual(['爱丽丝', '鲍勃'])
     expect((await (await as(w.eve)).del(`/api/teams/${w.teamA}/members/${w.bob.id}`)).status).toBe(404)
-    const sole = await (await as(w.carol)).del(`/api/teams/${w.teamB}/members/${w.carol.id}`)
+    const sole = await (await as(w.carol)).del<{ message: string }>(
+      `/api/teams/${w.teamB}/members/${w.carol.id}`,
+    )
     expect(sole.status).toBe(409)
+    expect(sole.body.message).toBe('团队至少需要一名所有者，请先转让')
+  })
+
+  it('refuses the last remaining member leaving; a platform admin cleans the team up', async () => {
+    const w = await world()
+    await (await as(w.carol)).del(`/api/teams/${w.teamB}/members/${w.eve.id}`)
+    const alone = await (await as(w.carol)).del<{ message: string }>(
+      `/api/teams/${w.teamB}/members/${w.carol.id}`,
+    )
+    expect(alone.status).toBe(409)
+    expect(alone.body.message).toBe('团队只剩你一人，无法退出；如需清理请联系平台管理员')
   })
 })
 

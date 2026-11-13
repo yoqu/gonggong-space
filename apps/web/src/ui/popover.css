@@ -96,6 +96,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ui-float__item--described {
+  align-items: flex-start;
+  height: auto;
+  max-width: 280px;
+  padding-block: var(--space-4);
+  white-space: normal;
+}
+.ui-float__item--described .ui-float__check,
+.ui-float__item--described .ui-popup__check {
+  margin-top: 1px;
+}
+.ui-float__desc {
+  display: block;
+  font-size: var(--text-subheadline-size);
+  line-height: var(--text-subheadline-line);
+  color: var(--label-secondary);
+}
+.ui-float__item[data-active] .ui-float__desc {
+  color: var(--on-accent);
+}
 .ui-float__detail {
   color: var(--label-secondary);
   letter-spacing: 0.5px;

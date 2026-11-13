@@ -260,7 +260,11 @@ export function teamRoutes(ctx: Ctx) {
       const target = await memberOf(team.id, idParam(req.params.userId, '该用户不在团队内'))
       if (target.role === 'owner') {
         if (myRole !== 'owner') return fail('forbidden', '仅团队所有者可操作')
-        if ((await owners(team.id)) === 1) return fail('conflict', '团队至少需要一名所有者，请先转让')
+        const members = await memberDtos(ctx, team.id)
+        if (members.length === 1)
+          return fail('conflict', '团队只剩你一人，无法退出；如需清理请联系平台管理员')
+        if (members.filter((m) => m.role === 'owner').length === 1)
+          return fail('conflict', '团队至少需要一名所有者，请先转让')
       }
       await removeFromTeam(ctx, team.id, { id: target.userId, name: target.name }, me)
       return reply.status(204).send()

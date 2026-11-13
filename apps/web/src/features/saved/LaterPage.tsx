@@ -8,12 +8,12 @@ import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import {
   Button,
-  EmptyChatArt,
   EmptyState,
   FailedArt,
   Icon,
   Mascot,
   MenuButton,
+  NoLaterArt,
   Presence,
   SegmentedControl,
   toast,
@@ -239,7 +239,7 @@ export function LaterPage({ onBack }: { onBack?: () => void }) {
       ) : !list.length ? (
         <div className="works__center">
           <EmptyState
-            illustration={<EmptyChatArt />}
+            illustration={<NoLaterArt />}
             title={tab === 'open' ? t('没有待处理的消息') : t('还没有完成的消息')}
             description={tab === 'open' ? t('在消息的更多菜单里点「稍后处理」，可以设置提醒。') : undefined}
           />

@@ -375,6 +375,7 @@
     box-shadow var(--motion-fast);
 }
 .ui-step[data-status="completed"],
+.ui-step[data-status="current"],
 .ui-step[data-status="active"] {
   background: var(--control-fill);
   box-shadow: var(--shadow-control);
@@ -400,6 +401,12 @@
   border-radius: var(--radius-capsule);
   background: currentColor;
   opacity: 0.6;
+}
+.ui-step[data-status="current"] .ui-step__dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  opacity: 1;
 }
 .ui-step__label {
   font-size: var(--text-subheadline-size);

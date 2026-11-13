@@ -357,6 +357,8 @@ export const en = {
   该用户不在团队内: 'This user is not in the team',
   该账号已在团队内: 'This account is already in the team',
   '团队至少需要一名所有者，请先转让': 'A team needs at least one owner, transfer ownership first',
+  '团队只剩你一人，无法退出；如需清理请联系平台管理员':
+    'You are the only member and cannot leave; ask a platform admin to clean up the team',
   不能转让给自己: "You can't transfer to yourself",
   邀请链接无效: 'Invalid invite link',
   邀请链接已失效: 'This invite link has expired',

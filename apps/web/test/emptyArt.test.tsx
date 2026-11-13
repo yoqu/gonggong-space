@@ -15,6 +15,7 @@ import {
   NoDataArt,
   NoGroupsArt,
   NoKnowledgeArt,
+  NoLaterArt,
   NoMachinesArt,
   NoMembersArt,
   NoNotificationsArt,
@@ -81,6 +82,7 @@ describe('empty state illustrations', () => {
       NoKnowledgeArt,
       NoSecretsArt,
       NoTabsArt,
+      NoLaterArt,
     ]) {
       const { container, unmount } = render(<Art />)
       const svg = container.querySelector('svg.ui-art')

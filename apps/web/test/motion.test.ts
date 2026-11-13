@@ -97,7 +97,9 @@ describe('motion and touch CSS contract', () => {
     expect(shell).toMatch(
       /@media \(prefers-reduced-motion: no-preference\) \{\s*\.sidebar__foot:not\(\[data-state="open"\]\) \.sidebar__dot \{\s*animation: sidebar-pulse/,
     )
-    expect(shell).toMatch(/@media \(pointer: coarse\) \{\s*\.sidebar__add \{\s*width: 32px;/)
+    expect(shell).toMatch(
+      /@media \(pointer: coarse\) \{\s*\.sidebar__sechead \.sidebar__add \{\s*width: 32px;/,
+    )
     expect(read('ui/im/conversation.css')).toMatch(
       /@media \(pointer: coarse\) \{\s*\.pn-shortcut \{\s*height: 36px;/,
     )

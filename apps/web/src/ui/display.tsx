@@ -476,7 +476,8 @@ export function GroupRow({
   )
 }
 
-export type StepStatus = 'completed' | 'active' | 'pending' | 'error'
+/** `current` waits on the user (no spinner); `active` is work in progress. */
+export type StepStatus = 'completed' | 'current' | 'active' | 'pending' | 'error'
 
 export function StepIndicator({ steps }: { steps: { label: string; status: StepStatus }[] }) {
   return (

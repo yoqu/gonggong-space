@@ -216,6 +216,41 @@ describe('team settings', () => {
     expect(screen.queryByPlaceholderText('输入账号添加成员')).toBeNull()
   })
 
+  it('keeps leave and archive in a quiet danger section; the sole owner cannot leave', async () => {
+    const owners = (list: TeamMemberDto[]) => {
+      mockApi({ 'GET /teams/t1/members': list })
+      signIn(null)
+      return render(<TeamSettingsDialog team={team({ role: 'owner' })} onClose={() => {}} />)
+    }
+    const asOwner = members.map((m) => ({
+      ...m,
+      role: m.userId === 'u1' ? ('owner' as const) : ('member' as const),
+    }))
+    const a = owners(asOwner)
+    expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: '团队名称' }))
+    expect(screen.getByText('危险操作')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '归档' })).toBeTruthy()
+    expect(await screen.findByText('你是唯一的所有者，需先在「成员」里转让所有权')).toBeTruthy()
+    expect((screen.getByRole('button', { name: '退出' }) as HTMLButtonElement).disabled).toBe(true)
+    a.unmount()
+
+    owners(asOwner.slice(0, 1))
+    expect(await screen.findByText('团队只有你一人，无法退出；如需清理请联系平台管理员')).toBeTruthy()
+    expect((screen.getByRole('button', { name: '退出' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('lets a member leave after confirming', async () => {
+    mockApi({ 'GET /teams/t1/members': members })
+    signIn(null)
+    render(<TeamSettingsDialog team={team()} onClose={() => {}} />)
+    expect(screen.queryByRole('button', { name: '归档' })).toBeNull()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '退出' }) as HTMLButtonElement).disabled).toBe(false),
+    )
+    fireEvent.click(screen.getByRole('button', { name: '退出' }))
+    expect(await screen.findByText('退出团队「支付组」？')).toBeTruthy()
+  })
+
   it('lets admins rename and create an invite link', async () => {
     const calls = mockApi({
       'PATCH /teams/t1': (body: { name: string }) => team({ role: 'admin', name: body.name }),

@@ -7,7 +7,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, Input, Tag } from '../../ui'
+import { Button, Dialog, Input, Tag, ToolbarButton, ToolbarGroup } from '../../ui'
 
 /** Opens the caller's DM with the bot, starting one when there is none. */
 export function useDm(bot: BotDto | null) {
@@ -35,7 +35,7 @@ export function useDm(bot: BotDto | null) {
 }
 
 /** Someone else's bot: 私聊 once it is shared with me, 等待主人同意 while asked, else 申请共享. */
-export function ShareRequestAction({ bot }: { bot: BotDto }) {
+export function ShareRequestAction({ bot, toolbar }: { bot: BotDto; toolbar?: boolean }) {
   const me = useSession((s) => s.user)
   const shared = !!me && bot.sharedWith.includes(me.id)
   const mine = bot.ownerId === me?.id
@@ -55,9 +55,21 @@ export function ShareRequestAction({ bot }: { bot: BotDto }) {
   if (data.length) return <Tag tone="gray">{t('等待主人同意')}</Tag>
   return (
     <>
-      <Button size="small" onClick={() => setAsking(true)}>
-        {t('申请共享')}
-      </Button>
+      {toolbar ? (
+        // Matches the header's other glass capsules.
+        <ToolbarGroup>
+          <ToolbarButton
+            icon="person-add"
+            label={t('申请共享')}
+            text={t('申请共享')}
+            onClick={() => setAsking(true)}
+          />
+        </ToolbarGroup>
+      ) : (
+        <Button size="small" onClick={() => setAsking(true)}>
+          {t('申请共享')}
+        </Button>
+      )}
       {asking ? <AskDialog bot={bot} onClose={() => setAsking(false)} onDone={reload} /> : null}
     </>
   )

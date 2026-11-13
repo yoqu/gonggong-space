@@ -72,15 +72,19 @@ export function AccountMenu({
           submenu: PAUSE_CHOICES.map(({ label, value }) => ({ label, value })),
         },
     { separator: true },
-    builder ? { label: t('绑定新机器'), value: 'bind' } : { label: t('接入我的电脑'), value: 'build' },
-    { label: t('我的用量'), value: 'usage' },
-    { label: t('新手指引'), value: 'guide' },
-    ...(soleTeam ? [{ label: t('团队设置'), value: 'team' }] : []),
-    ...(soleTeam && soleTeam.role !== 'member' ? [{ label: t('邀请成员'), value: 'invite' }] : []),
+    builder
+      ? { label: t('绑定新机器'), value: 'bind', icon: 'laptop' }
+      : { label: t('接入我的电脑'), value: 'build', icon: 'laptop' },
+    { label: t('我的用量'), value: 'usage', icon: 'chart-bar' },
+    { label: t('新手指引'), value: 'guide', icon: 'bubble-question' },
+    ...(soleTeam ? [{ label: t('团队设置'), value: 'team', icon: 'person-2' as const }] : []),
+    ...(soleTeam && soleTeam.role !== 'member'
+      ? [{ label: t('邀请成员'), value: 'invite', icon: 'person-add' as const }]
+      : []),
     { separator: true },
-    { label: t('设置…'), value: 'settings' },
+    { label: t('设置…'), value: 'settings', icon: 'gear' },
     { separator: true },
-    { label: t('退出登录'), value: 'logout' },
+    { label: t('退出登录'), value: 'logout', icon: 'external' },
   ]
 
   const select = (value: string) => {

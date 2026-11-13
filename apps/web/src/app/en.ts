@@ -91,6 +91,9 @@ export default {
   '接入我的电脑，搭自己的 Bot': 'Connect my computer and build my own Bot',
   '或等同事把你拉进群，在群里 @ Bot 直接提问就行。':
     'Or wait for a teammate to add you to a group, then just @ a Bot there and ask.',
+  查看可加入的群: 'See groups to join',
+  '侧栏里的群可以直接申请加入，进群后 @ Bot 提问就行。':
+    'You can join or ask to join the groups in the sidebar, then just @ a Bot there and ask.',
   共享给我: 'Shared with me',
   '{owner} 共享': 'Shared by {owner}',
   取消免打扰: 'Unmute',

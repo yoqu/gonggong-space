@@ -28,13 +28,10 @@ export function AppRail({ orientation = 'vertical' }: { orientation?: 'vertical'
   const bar = orientation === 'horizontal'
   const items: NavRailItem[] = [
     { id: 'chat', label: t('消息'), icon: 'message', badge: unread },
-    ...(worksShown ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
-    ...(builder
-      ? [
-          { id: 'market', label: t('市场'), icon: 'tag' as const },
-          { id: 'machines', label: t('机器与 Bot'), icon: 'server' as const },
-        ]
-      : []),
+    // A hidden entry still shows, selected, while its page is opened directly.
+    ...(worksShown || works ? [{ id: 'works', label: t('作品'), icon: 'grid' as const }] : []),
+    ...(builder || market ? [{ id: 'market', label: t('市场'), icon: 'tag' as const }] : []),
+    ...(builder || machines ? [{ id: 'machines', label: t('机器与 Bot'), icon: 'server' as const }] : []),
     { id: 'notif', label: t('通知'), icon: 'bell', badge: notifCount },
   ]
   const adminItems: NavRailItem[] = admin ? [{ id: 'admin', label: t('管理后台'), icon: 'shield-check' }] : []

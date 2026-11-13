@@ -291,3 +291,13 @@ export function NoTabsArt() {
     </Scene>
   )
 }
+
+export function NoLaterArt() {
+  return (
+    <Scene action="idle">
+      <path className="art-frame" d="M100 40h34a6 6 0 0 1 6 6v52l-23-14-23 14V46a6 6 0 0 1 6-6Z" />
+      <circle className="art-accent" cx="140" cy="44" r="11" />
+      <path className="art-stroke-ink art-thin" d="M140 38v6l4 3" />
+    </Scene>
+  )
+}

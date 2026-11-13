@@ -11,6 +11,8 @@ import './popup.css'
 export interface PopUpOption<V extends string> {
   value: V
   label: ReactNode
+  /** A second line under the label in the menu (the trigger shows only the label). */
+  description?: ReactNode
   disabled?: boolean
 }
 
@@ -158,10 +160,12 @@ export function PopUpButton<V extends string>({
               id={`${id}-${i}`}
               role="menuitemcheckbox"
               tabIndex={-1}
-              className="ui-float__item"
+              className={cx('ui-float__item', o.description != null && 'ui-float__item--described')}
               ref={i === active ? (el) => el?.scrollIntoView?.({ block: 'nearest' }) : undefined}
               data-active={i === active || undefined}
               aria-checked={o.value === current}
+              aria-labelledby={o.description != null ? `${id}-${i}-l` : undefined}
+              aria-describedby={o.description != null ? `${id}-${i}-d` : undefined}
               aria-disabled={o.disabled || undefined}
               onMouseEnter={() => !o.disabled && setActive(i)}
               onMouseLeave={() => setActive(-1)}
@@ -170,7 +174,16 @@ export function PopUpButton<V extends string>({
               <span className="ui-popup__check">
                 {o.value === current ? <Icon name="check" weight={2} /> : null}
               </span>
-              <span className="ui-float__label">{o.label}</span>
+              {o.description != null ? (
+                <span className="ui-float__label">
+                  <span id={`${id}-${i}-l`}>{o.label}</span>
+                  <span id={`${id}-${i}-d`} className="ui-float__desc">
+                    {o.description}
+                  </span>
+                </span>
+              ) : (
+                <span className="ui-float__label">{o.label}</span>
+              )}
             </div>
           ))}
         </Float>,
