@@ -2,6 +2,7 @@ import type { BotDto, BotRecentDto, UserBriefDto } from '@gonggong/protocol'
 import { type ReactElement, type ReactNode, useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import { Button, Icon, type Placement, Popover, SearchField } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
@@ -57,10 +58,7 @@ export function BotPicker({
   const [q, setQ] = useState('')
   const [opened, setOpened] = useState(false)
   const recent = useGet<BotRecentDto[]>(opened ? '/bots/recent' : null)
-  const needle = q.trim().toLowerCase()
-  const shown = bots.filter(
-    (b) => !needle || `${b.name} ${b.ownerName} ${AGENT_LABEL[b.agentKind]}`.toLowerCase().includes(needle),
-  )
+  const shown = bots.filter((b) => matchAny(q, b.name, b.ownerName, AGENT_LABEL[b.agentKind]))
   const { mine, others } = groupBots(shown, meId, recent.data ?? [])
   const row = (b: BotDto, close: () => void) => {
     const on = isOn(b.id)
@@ -149,8 +147,7 @@ export function MemberPicker({
 }) {
   const [q, setQ] = useState('')
   const [picked, setPicked] = useState<string[]>([])
-  const needle = q.trim().toLowerCase()
-  const list = users.filter((u) => !needle || `${u.name} ${u.account}`.toLowerCase().includes(needle))
+  const list = users.filter((u) => matchAny(q, u.name, u.account))
   // Candidates that left the list (added elsewhere meanwhile) are not handed over.
   const chosen = picked.filter((id) => users.some((u) => u.id === id))
   return (

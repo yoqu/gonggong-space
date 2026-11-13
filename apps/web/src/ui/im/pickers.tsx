@@ -1,6 +1,7 @@
 import { type CSSProperties, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
+import { matchAny, matchText } from '../../lib/match'
 import { Avatar, type AvatarProps } from '../display'
 import { SearchField } from '../form'
 import { Icon } from '../icon'
@@ -24,13 +25,11 @@ export interface MentionMember {
 
 const MAX_MENTIONS = 8
 
-/** Name substring or pinyin prefix; 「所有人」first unless excluded; at most 8 rows. */
+/** Name by substring or pinyin (full, initials, mixed); 「所有人」first unless excluded; at most 8 rows. */
 export function filterMembers(members: MentionMember[] = [], query = '', includeAll = true) {
   const q = query.toLowerCase()
-  const list = members.filter(
-    (m) => !q || m.name.toLowerCase().includes(q) || (m.pinyin ?? '').toLowerCase().startsWith(q),
-  )
-  const all = includeAll && (!q || t('所有人').toLowerCase().includes(q) || 'all'.startsWith(q))
+  const list = members.filter((m) => matchAny(q, m.name, m.pinyin))
+  const all = includeAll && (matchAny(q, t('所有人')) || 'all'.startsWith(q))
   return (
     all
       ? [{ id: '__all', name: t('所有人'), subtitle: t('{n} 人', { n: members.length }), all: true }, ...list]
@@ -54,15 +53,17 @@ export interface MentionPickerProps {
 }
 
 function highlight(name: string, q: string) {
-  const i = q ? name.toLowerCase().indexOf(q.toLowerCase()) : -1
-  if (i < 0) return name
-  return (
-    <>
-      {name.slice(0, i)}
-      <b>{name.slice(i, i + q.length)}</b>
-      {name.slice(i + q.length)}
-    </>
-  )
+  const hit = new Set(matchText(name, q))
+  if (!hit.size) return name
+  // Runs of hit / missed characters, so a pinyin match like「jwc」bolds「姜维川」as one span.
+  const runs: { text: string; on: boolean }[] = []
+  name.split('').forEach((c, i) => {
+    const last = runs.at(-1)
+    if (last && last.on === hit.has(i)) last.text += c
+    else runs.push({ text: c, on: hit.has(i) })
+  })
+  // biome-ignore lint/suspicious/noArrayIndexKey: the runs of one name never reorder
+  return runs.map((r, i) => (r.on ? <b key={i}>{r.text}</b> : r.text))
 }
 
 /** @member list; the input keeps focus, so rows are driven by `activeIndex` and chosen on mousedown. */

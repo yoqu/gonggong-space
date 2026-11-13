@@ -7,6 +7,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { attempt } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -518,8 +519,7 @@ export function MembersView({
   const candidates = users.filter((u) => !group.members.some((m) => m.userId === u.id))
   const bots = group.botIds.flatMap((id) => allBots.filter((b) => b.id === id))
   const [promoting, setPromoting] = useState('')
-  const needle = q.trim().toLowerCase()
-  const shown = group.members.filter((m) => !needle || m.name.toLowerCase().includes(needle))
+  const shown = group.members.filter((m) => matchAny(q, m.name))
   const toggleAdmin = async (m: GroupDto['members'][number]) => {
     setPromoting(m.userId)
     if (await attempt(() => groupsApi.setAdmin(group.id, m.userId, !m.isAdmin)))

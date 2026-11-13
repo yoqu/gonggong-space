@@ -11,6 +11,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { matchAny } from '../../lib/match'
 import { Avatar, Icon, type IconName } from '../../ui'
 import { useGroupArtifacts } from '../artifacts/groupArtifacts'
 import { BotAvatar } from '../bots/avatars'
@@ -209,7 +210,7 @@ export function useCandidates(
               label: t('成员 / Bot'),
               src: '',
               items: people
-                .filter((p) => has(p.name))
+                .filter((p) => matchAny(q, p.name))
                 .map((p) => ({ ...p, label: p.name, mono: false, insert: `@${p.name}` })),
             },
             {

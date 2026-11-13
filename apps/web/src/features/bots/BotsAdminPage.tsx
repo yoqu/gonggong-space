@@ -2,6 +2,7 @@ import type { AdminTeamDto, BotDto, UserBriefDto, UserDto } from '@gonggong/prot
 import { useEffect, useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Button,
@@ -42,10 +43,7 @@ export function BotsAdminPage() {
   const [deleting, setDeleting] = useState<BotDto | null>(null)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
   const [query, setQuery] = useState('')
-  const q = query.trim().toLowerCase()
-  const shown = bots.filter(
-    (b) => !q || `${b.name} ${b.ownerName} ${b.machineName ?? ''}`.toLowerCase().includes(q),
-  )
+  const shown = bots.filter((b) => matchAny(query, b.name, b.ownerName, b.machineName))
   const selected = shown.find((b) => b.id === selectedId) ?? shown[0]
 
   return (

@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
+import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -112,8 +113,8 @@ export function UsersPage() {
     }
   }
 
-  const q = query.trim().toLowerCase()
-  const shown = users?.filter((u) => !q || `${u.name} ${u.account}`.toLowerCase().includes(q))
+  const q = query.trim()
+  const shown = users?.filter((u) => matchAny(q, u.name, u.account))
 
   return (
     <AdminPage
