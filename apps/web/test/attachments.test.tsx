@@ -1,7 +1,7 @@
 import type { Attachment, BotDto, GroupDto, MessageDto, RunDto, UserDto } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { useWorkbench } from '../src/app/workbench'
@@ -221,6 +221,9 @@ const renderChat = () =>
       <App />
     </MemoryRouter>,
   )
+
+// The workbench is lazy; a cold first import can outlast findBy's default timeout.
+beforeAll(() => import('../src/features/workbench/Workbench'))
 
 const box = () =>
   screen.getByPlaceholderText('输入消息，@ 触发 Bot 或引用文件，/ 查看命令') as HTMLTextAreaElement
