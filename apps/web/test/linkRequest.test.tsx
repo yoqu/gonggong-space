@@ -128,5 +128,10 @@ describe('/link/:id', () => {
     mockApi({ 'GET /link-requests/r1': () => apiError(404, 'not_found', '接入申请不存在') })
     show()
     expect(await screen.findByText('无法打开接入申请')).toBeTruthy()
+    expect(screen.getByText(/接入申请不存在/).textContent).toContain(
+      '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '查看我的机器' }))
+    expect(await screen.findByText('machines page')).toBeTruthy()
   })
 })

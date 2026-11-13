@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
-import { EmptyState, Presence, Spinner } from '../../ui'
+import { Button, DeniedArt, EmptyState, Presence, Spinner } from '../../ui'
 import { secretsApi } from './api'
 import { FillDialog } from './SecretCard'
 
@@ -27,7 +27,12 @@ export function SecretRequestPage() {
     </Link>
   )
   const view = error ? (
-    <EmptyState title={t('无法打开密钥卡片')} description={error} icon="lock" />
+    <EmptyState
+      illustration={<DeniedArt />}
+      title={t('无法打开密钥卡片')}
+      description={error}
+      action={<Button onClick={() => navigate('/')}>{t('返回消息')}</Button>}
+    />
   ) : !req ? (
     <Spinner />
   ) : req.filled || done ? (

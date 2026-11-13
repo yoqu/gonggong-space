@@ -1014,7 +1014,7 @@ a.sidebar__open {
   }
 }
 @media (pointer: coarse) {
-  .sidebar__add {
+  .sidebar__sechead .sidebar__add {
     width: 32px;
     height: 32px;
   }

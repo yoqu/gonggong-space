@@ -463,4 +463,6 @@ export default {
   接入申请已过期: 'This request has expired',
   '在机器的终端重新运行接入命令即可。': 'Run the connect command again in the machine’s terminal.',
   这个接入申请已处理过: 'This request was already handled',
+  '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。':
+    'The link may have expired or already been handled. Run gg again in the terminal to get a new confirmation link.',
 } satisfies Record<string, string>

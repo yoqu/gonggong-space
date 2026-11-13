@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { realtime } from '../../lib/realtime'
-import { EmptyState, Spinner } from '../../ui'
+import { Button, DeniedArt, EmptyState, Spinner } from '../../ui'
 import { type LinkOutcome, LinkRequestCard } from './LinkRequestCard'
 
 /** /link/:id — the 确认链接 gg prints after its bind code expired; signing in first comes back here. */
@@ -31,7 +31,18 @@ export function LinkRequestPage() {
   return (
     <div className="not-found">
       {error ? (
-        <EmptyState title={t('无法打开接入申请')} description={error} icon="link" />
+        <EmptyState
+          illustration={<DeniedArt />}
+          title={t('无法打开接入申请')}
+          description={
+            <>
+              {error}
+              <br />
+              {t('链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。')}
+            </>
+          }
+          action={<Button onClick={() => navigate('/machines')}>{t('查看我的机器')}</Button>}
+        />
       ) : !request ? (
         <Spinner />
       ) : (

@@ -71,6 +71,8 @@
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  /* Cards clip their overflow, so their min height is 0: auto rows would shrink to fit the scroller and cut them. */
+  grid-auto-rows: max-content;
   align-content: start;
   gap: var(--space-16);
   margin: 0;

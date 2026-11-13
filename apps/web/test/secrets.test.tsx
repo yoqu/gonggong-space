@@ -590,6 +590,7 @@ describe('/secret-requests/:id (opened from Feishu)', () => {
         <Routes>
           <Route path="/secret-requests/:id" element={<SecretRequestPage />} />
           <Route path="/g/:groupId" element={<div>群聊页</div>} />
+          <Route path="/" element={<div>消息页</div>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -635,5 +636,7 @@ describe('/secret-requests/:id (opened from Feishu)', () => {
     mockApi({ 'GET /secret-requests/q1': apiError(404, 'not_found', '群不存在或你已不在群内') })
     page()
     expect(await screen.findByText('群不存在或你已不在群内')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '返回消息' }))
+    expect(await screen.findByText('消息页')).toBeTruthy()
   })
 })
