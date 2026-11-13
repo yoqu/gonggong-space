@@ -1,8 +1,8 @@
-import { type ArtifactShareDto, PREVIEW_SHARE_DEFAULT_DAYS } from '@gonggong/protocol'
+import { type ArtifactShareDto, type ArtifactShareReq, PREVIEW_SHARE_DEFAULT_DAYS } from '@gonggong/protocol'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { FastifyRequest } from 'fastify'
 import type { Ctx } from '../../context.js'
-import { artifacts, bots, previewShares, previews } from '../../db/schema.js'
+import { artifacts, artifactVersions, bots, previewShares, previews } from '../../db/schema.js'
 import { audit } from '../../lib/audit.js'
 import { newToken, sha256 } from '../../lib/crypto.js'
 import { fail } from '../../lib/errors.js'
@@ -14,7 +14,7 @@ import { newSlug, requireManager } from '../previews/service.js'
 import { type Artifact, findArtifact, requireVersion } from './service.js'
 
 const DAY = 86400_000
-const OFF: ArtifactShareDto = { enabled: false, url: null, expiresAt: null }
+const OFF: ArtifactShareDto = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
 
 /** Opens the artifact's preview (one following the head, one per pinned version), reusing an open one. */
 export async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: string | null) {
@@ -66,6 +66,15 @@ async function liveShare(ctx: Ctx, a: Artifact) {
   return row ? { ...row, token } : null
 }
 
+const versionNumber = async (ctx: Ctx, id: string | null) => {
+  if (!id) return null
+  const [v] = await ctx.db
+    .select({ n: artifactVersions.n })
+    .from(artifactVersions)
+    .where(eq(artifactVersions.id, id))
+  return v?.n ?? null
+}
+
 /** GET /api/artifacts/:id/share. */
 export async function shareState(ctx: Ctx, a: Artifact, req: FastifyRequest): Promise<ArtifactShareDto> {
   const live = await liveShare(ctx, a)
@@ -74,18 +83,21 @@ export async function shareState(ctx: Ctx, a: Artifact, req: FastifyRequest): Pr
     enabled: true,
     url: `${previewOrigin(ctx, live.p, req)}/__gg/share/${live.token}`,
     expiresAt: live.s.expiresAt.toISOString(),
+    version: await versionNumber(ctx, live.s.artifactVersionId),
+    latest: await versionNumber(ctx, a.headVersionId),
   }
 }
 
 /**
  * POST /api/artifacts/:id/share (managers of the artifact's bot, like preview shares): on reuses the live link or
- * makes one to the head preview for the default days (capped by the system limit); off revokes it.
+ * makes one to the head preview for the default days (capped by the system limit), pinned to the head version unless
+ * `follow`; with `follow` given a live link is re-pinned to the head or set to follow it, keeping its URL. Off revokes.
  */
 export async function setShare(
   ctx: Ctx,
   me: { id: string },
   a: Artifact,
-  enabled: boolean,
+  { enabled, follow }: ArtifactShareReq,
   req: FastifyRequest,
 ): Promise<ArtifactShareDto> {
   if (!enabled) {
@@ -108,7 +120,16 @@ export async function setShare(
   if (demoMode) fail('forbidden', '演示模式下不能创建公开链接')
   const preview = await openArtifactPreview(ctx, a, null)
   await requireManager(ctx, preview.groupId, preview.botId, me.id)
-  if (await liveShare(ctx, a)) return shareState(ctx, a, req)
+  const pin = follow ? null : a.headVersionId
+  const live = await liveShare(ctx, a)
+  if (live) {
+    if (follow !== undefined)
+      await ctx.db
+        .update(previewShares)
+        .set({ artifactVersionId: pin })
+        .where(eq(previewShares.id, live.s.id))
+    return shareState(ctx, a, req)
+  }
   const days = Math.min(PREVIEW_SHARE_DEFAULT_DAYS, previewShareMaxDays)
   const token = newToken('ps')
   const [s] = await ctx.db
@@ -116,6 +137,7 @@ export async function setShare(
     .values({
       previewId: preview.id,
       tokenHash: sha256(token),
+      artifactVersionId: pin,
       createdBy: me.id,
       expiresAt: new Date(ctx.now().getTime() + days * DAY),
     })

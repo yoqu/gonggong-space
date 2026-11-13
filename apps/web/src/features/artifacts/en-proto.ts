@@ -64,6 +64,13 @@ export default {
   '只有 Bot 主人或群管理员能开关分享': 'Only the bot owner or a group admin can turn sharing on or off',
   演示模式下不能开启分享: 'Sharing is not available in demo mode',
   '链接 {date} 到期': 'Link expires {date}',
+  链接内容: 'Link shows',
+  '锁定 v{n}': 'Locked to v{n}',
+  始终最新: 'Always latest',
+  '已有更新的 v{n}，对方仍看到 v{m}': 'v{n} is out; viewers still see v{m}',
+  '更新到 v{n}': 'Update to v{n}',
+  'Bot 再修改，对方看到的内容也不变': 'Later bot changes will not reach viewers',
+  'Bot 修改后，对方看到的内容随之更新': 'Viewers see bot changes as they land',
   开启分享并生成二维码: 'Turn on sharing and show QR code',
   '二维码打开分享链接，开启后任何拿到链接的人都能查看':
     'The QR code opens the share link. Once on, anyone with the link can view',

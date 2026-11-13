@@ -2,11 +2,11 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ArtifactShareDto, ArtifactSubmitRes } from '@gonggong/protocol'
+import type { ArtifactShareDto, ArtifactSubmitRes, SkillFile } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { strFromU8, unzipSync } from 'fflate'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { artifacts, plugins, previewShares } from '../src/db/schema.js'
+import { artifacts, plugins, pluginVersions, previewShares } from '../src/db/schema.js'
 import { BUILTIN_PLUGINS, syncBuiltinPlugins } from '../src/modules/plugins/builtin.js'
 import { createTestApp, type TestApp } from './support/app.js'
 import { artifactWorld, L1 } from './support/artifacts.js'
@@ -153,7 +153,7 @@ describe('artifact sharing', () => {
   it("turns a public link to the head on and off; the bot's managers switch it, members read it", async () => {
     const s = await setup()
     const url = `/api/artifacts/${s.a.id}/share`
-    const off: ArtifactShareDto = { enabled: false, url: null, expiresAt: null }
+    const off: ArtifactShareDto = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
     expect((await s.req('GET', url, s.liCookie)).json()).toEqual(off)
     expect((await s.req('POST', url, s.liCookie, { enabled: true })).statusCode).toBe(403)
 
@@ -188,7 +188,8 @@ describe('artifact sharing', () => {
       { ...s.files, 'screens/home.html': '<p>v2</p>' },
       { parent: s.v1.versionId },
     )
-    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe('<p>v2</p>')
+    // Pinned to the version it was shared at.
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe(L1['screens/home.html'])
 
     expect((await s.req('POST', url, s.liCookie, { enabled: false })).statusCode).toBe(403)
     expect((await s.req('POST', url, s.wangCookie, { enabled: false })).json()).toEqual(off)
@@ -198,6 +199,76 @@ describe('artifact sharing', () => {
     const again = (await s.req('POST', url, s.wangCookie, { enabled: true })).json() as ArtifactShareDto
     expect(again.enabled).toBe(true)
     expect(again.url).not.toBe(share.url)
+  })
+
+  it('pins the link to the version it was shared at, follows the latest on request and re-pins in place', async () => {
+    const s = await setup()
+    const url = `/api/artifacts/${s.a.id}/share`
+    const share = (await s.req('POST', url, s.wangCookie, { enabled: true })).json() as ArtifactShareDto
+    expect(share).toMatchObject({ enabled: true, version: 1, latest: 1 })
+    const link = new URL(share.url!)
+    const cookie = ((await get(link.host, link.pathname)).headers['set-cookie'] as string[])[0]!.split(
+      ';',
+    )[0]!
+    const v2 = (
+      await s.submit(
+        s.firstRun.id,
+        s.a.id,
+        { ...s.files, 'screens/home.html': '<p>v2</p>' },
+        { parent: s.v1.versionId },
+      )
+    ).json() as ArtifactSubmitRes
+    // A newer version does not reach the visitor of a pinned link.
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe(L1['screens/home.html'])
+    expect((await s.req('GET', url, s.liCookie)).json()).toMatchObject({ version: 1, latest: 2 })
+    // The shell learns the version it shows.
+    const shell = await get(link.host, '/', { cookie })
+    expect(shell.text).toContain('<script type="application/json" id="gg-meta">{"version":1}</script>')
+
+    // Re-pinning to the head and following the latest keep the same link.
+    const repinned = (await s.req('POST', url, s.wangCookie, { enabled: true, follow: false })).json()
+    expect(repinned).toMatchObject({ url: share.url, version: 2, latest: 2 })
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe('<p>v2</p>')
+    const follow = (await s.req('POST', url, s.wangCookie, { enabled: true, follow: true })).json()
+    expect(follow).toMatchObject({ url: share.url, version: null, latest: 2 })
+    await s.submit(
+      s.firstRun.id,
+      s.a.id,
+      { ...s.files, 'screens/home.html': '<p>v3</p>' },
+      { parent: v2.versionId },
+    )
+    expect((await get(link.host, '/screens/home.html', { cookie })).text).toBe('<p>v3</p>')
+    expect((await get(link.host, '/', { cookie })).text).toContain('{"version":3}')
+    // Plain "on" keeps whatever the link does.
+    expect((await s.req('POST', url, s.wangCookie, { enabled: true })).json()).toMatchObject({
+      version: null,
+    })
+    expect((await s.req('POST', url, s.liCookie, { enabled: true, follow: false })).statusCode).toBe(403)
+  })
+
+  it('serves the newest shell of the plugin, even to artifacts made with an older one', async () => {
+    const s = await setup()
+    const [p] = await t.db.select().from(plugins).where(eq(plugins.name, 'web-prototype'))
+    const [old] = await t.db.select().from(pluginVersions).where(eq(pluginVersions.id, p!.versionId!))
+    const files = (old!.files as SkillFile[]).map((f) =>
+      f.path.endsWith('kit/index.html') ? { ...f, content: '<p>new shell</p>' } : f,
+    )
+    const [next] = await t.db
+      .insert(pluginVersions)
+      .values({ ...old!, id: undefined, revision: old!.revision + 1, files, digest: 'next' })
+      .returning()
+    await t.db
+      .update(plugins)
+      .set({ versionId: next!.id, listedVersionId: next!.id })
+      .where(eq(plugins.id, p!.id))
+    const share = (
+      await s.req('POST', `/api/artifacts/${s.a.id}/share`, s.wangCookie, { enabled: true })
+    ).json() as ArtifactShareDto
+    const link = new URL(share.url!)
+    const cookie = ((await get(link.host, link.pathname)).headers['set-cookie'] as string[])[0]!.split(
+      ';',
+    )[0]!
+    expect((await get(link.host, '/', { cookie })).text).toContain('<p>new shell</p>')
   })
 
   it('reports an expired or revoked link as off, and keeps outsiders out', async () => {

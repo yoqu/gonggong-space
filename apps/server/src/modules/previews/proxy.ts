@@ -76,11 +76,20 @@ function upstreamHeaders(req: IncomingMessage, port: number, upgrade: boolean) {
   return out
 }
 
-/** A signed cookie's visitor; for public-link visitors the link must also still be valid. */
-async function allowed(ctx: Ctx, req: IncomingMessage, preview: OpenPreview): Promise<Visitor | null> {
+/**
+ * A signed cookie's visitor, with the artifact version a public link pins (null: the preview's own); for public-link
+ * visitors the link must also still be valid.
+ */
+async function allowed(
+  ctx: Ctx,
+  req: IncomingMessage,
+  preview: OpenPreview,
+): Promise<{ visitor: Visitor; version: string | null } | null> {
   const visitor = verifyCookie(req, preview.id, ctx.now())
   if (!visitor) return null
-  return 'shareId' in visitor && !(await shareAllows(ctx, visitor.shareId, preview.id)) ? null : visitor
+  if (!('shareId' in visitor)) return { visitor, version: null }
+  const version = await shareAllows(ctx, visitor.shareId, preview.id)
+  return version === false ? null : { visitor, version }
 }
 
 const downstream = (head: TunnelHead) => head.headers.filter(([k]) => !HOP.has(k.toLowerCase()))
@@ -108,8 +117,8 @@ export async function servePreviewHttp(
     res.writeHead(302, { location, 'set-cookie': setCookie(ctx, preview.id, { shareId }) })
     return res.end()
   }
-  const visitor = await allowed(ctx, req, preview)
-  if (!visitor) {
+  const access = await allowed(ctx, req, preview)
+  if (!access) {
     const { publicUrl } = ctx.config.preview
     if (publicUrl && req.method === 'GET' && req.headers.accept?.includes('text/html')) {
       const next = `${publicUrl}/api/previews/${preview.id}/open?path=${encodeURIComponent(req.url ?? '/')}`
@@ -119,7 +128,7 @@ export async function servePreviewHttp(
   }
   if (preview.kind === 'artifact') {
     touch(ctx, preview.id)
-    const refused = await serveArtifact(ctx, preview, visitor, req, res)
+    const refused = await serveArtifact(ctx, preview, access.visitor, req, res, access.version)
     // Browsers ask for a favicon on their own: one the artifact lacks is empty, not an error in the console.
     if (refused?.status === 404 && url.pathname === '/favicon.ico') return res.writeHead(204).end()
     return refused && page(res, refused.status, refused.key)

@@ -1,0 +1,2 @@
+ALTER TABLE "preview_shares" ADD COLUMN "artifact_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "preview_shares" ADD CONSTRAINT "preview_shares_artifact_version_id_artifact_versions_id_fk" FOREIGN KEY ("artifact_version_id") REFERENCES "public"."artifact_versions"("id") ON DELETE no action ON UPDATE no action;

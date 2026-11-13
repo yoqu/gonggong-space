@@ -4,7 +4,7 @@ import { type AsyncZippable, zip } from 'fflate'
 import type { Ctx } from '../../context.js'
 import { t } from '../../i18n/index.js'
 import { readBlob } from './blobs.js'
-import { kitName, pluginKit } from './kit.js'
+import { currentShell, kitName, pluginKit } from './kit.js'
 import type { Artifact, Version } from './service.js'
 
 const zipAsync = promisify(
@@ -47,9 +47,12 @@ export async function exportZip(ctx: Ctx, a: Artifact, v: Version) {
   const unused = unusedAssets(files)
   const entries: AsyncZippable = {}
   for (const [path, content] of files) if (!unused.has(path)) entries[`${slug}/${path}`] = content
+  const shell = kit ? await currentShell(ctx.db, a) : undefined
   for (const [name, content] of kit ?? [])
     entries[`${slug}/${name === 'index.html' ? name : `_gg/${name}`}`] =
-      name === 'index.html' && manifest ? withManifest(content, files.get(manifest.path) as Buffer) : content
+      name === 'index.html' && manifest
+        ? withManifest(shell ?? content, files.get(manifest.path) as Buffer)
+        : content
   entries[`${slug}/README.txt`] = Buffer.from(
     `${t('「{title}」v{n}：双击 index.html 即可预览；也可以在这个目录运行 npx serve（或任意静态服务器），再打开它给出的地址。', { title: a.title, n: v.n })}\n`,
   )

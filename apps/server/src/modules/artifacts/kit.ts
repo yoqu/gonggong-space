@@ -6,7 +6,7 @@ import type {
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Db } from '../../db/client.js'
-import { pluginVersions } from '../../db/schema.js'
+import { plugins, pluginVersions } from '../../db/schema.js'
 import { remember } from '../../lib/lru.js'
 
 export type Kit = Map<string, Buffer>
@@ -34,6 +34,23 @@ export function kitOf(m: PluginManifest, files: SkillFile[]): Kit | null {
       ]),
   )
   return kit.has('index.html') ? kit : null
+}
+
+/**
+ * The shell page (`index.html`) for an artifact: the platform owns it, so artifacts made with an older version of
+ * their plugin get the latest approved one's; screens keep their own version's `_gg/*`.
+ */
+export async function currentShell(
+  db: Pick<Db, 'select'>,
+  a: { pluginId: string | null; pluginVersionId: string | null },
+) {
+  const [p] = a.pluginId
+    ? await db.select({ v: plugins.listedVersionId }).from(plugins).where(eq(plugins.id, a.pluginId))
+    : []
+  return (
+    (p?.v ? (await pluginKit(db, p.v))?.get('index.html') : undefined) ??
+    (await pluginKit(db, a.pluginVersionId))?.get('index.html')
+  )
 }
 
 /** The kit file an artifact path stands for: the shell page and `_gg/*`. */

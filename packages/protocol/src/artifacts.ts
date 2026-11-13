@@ -807,12 +807,17 @@ export type WorkDto = z.infer<typeof WorkDto>
 export const WorkGroupDto = z.object({ id: z.string(), title: z.string() })
 export type WorkGroupDto = z.infer<typeof WorkGroupDto>
 
-export const ArtifactShareReq = z.object({ enabled: z.boolean() })
+/** `follow`: true makes the link show the latest version, false pins it to the head now; absent keeps it as it is. */
+export const ArtifactShareReq = z.object({ enabled: z.boolean(), follow: z.boolean().optional() })
 export type ArtifactShareReq = z.infer<typeof ArtifactShareReq>
 export const ArtifactShareDto = z.object({
   enabled: z.boolean(),
   url: z.string().nullable(),
   expiresAt: z.string().nullable(),
+  /** The version number the link is pinned to; null while it follows the latest (or is off). */
+  version: z.number().int().nullable(),
+  /** The artifact's head version number while the link is on. */
+  latest: z.number().int().nullable(),
 })
 export type ArtifactShareDto = z.infer<typeof ArtifactShareDto>
 

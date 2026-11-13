@@ -53,11 +53,18 @@ async function listShares(ctx: Ctx, where?: SQL): Promise<PreviewShareDto[]> {
 
 const byId = async (ctx: Ctx, id: string) => (await listShares(ctx, eq(previewShares.id, id)))[0]
 
-/** Valid links let their visitor in; checked on every request so a revoke, expiry or demo mode takes effect at once. */
-export async function shareAllows(ctx: Ctx, shareId: string, previewId: string) {
+/**
+ * Valid links let their visitor in; checked on every request so a revoke, expiry or demo mode takes effect at once.
+ * Returns the link's pinned artifact version (null: the preview's own), or false when it does not let them in.
+ */
+export async function shareAllows(
+  ctx: Ctx,
+  shareId: string,
+  previewId: string,
+): Promise<string | null | false> {
   if ((await sysParams(ctx.db)).demoMode) return false
   const [row] = await ctx.db
-    .select({ id: previewShares.id })
+    .select({ version: previewShares.artifactVersionId })
     .from(previewShares)
     .where(
       and(
@@ -67,7 +74,7 @@ export async function shareAllows(ctx: Ctx, shareId: string, previewId: string) 
         gt(previewShares.expiresAt, ctx.now()),
       ),
     )
-  return !!row
+  return row ? row.version : false
 }
 
 /** `/__gg/share/<token>` on the preview origin: counts the visit and returns the share id, or null when not valid. */

@@ -463,7 +463,7 @@ export function artifactRoutes(ctx: Ctx) {
       async (req): Promise<ArtifactShareDto> => {
         const me = await requireUser(ctx, req)
         const a = await requireArtifact(ctx, req.params.id, me.id)
-        return setShare(ctx, me, a, ArtifactShareReq.parse(req.body).enabled, req)
+        return setShare(ctx, me, a, ArtifactShareReq.parse(req.body), req)
       },
     )
 

@@ -9,7 +9,7 @@ import type { MessageKey } from '../../i18n/index.js'
 import type { Visitor } from '../previews/access.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { injectBridge } from './html.js'
-import { kitName, pluginKit } from './kit.js'
+import { currentShell, kitName, pluginKit } from './kit.js'
 import { findArtifact } from './service.js'
 
 const MIME: Record<string, string> = {
@@ -61,13 +61,14 @@ export async function serveArtifact(
   visitor: Visitor,
   req: IncomingMessage,
   res: ServerResponse,
+  pinned: string | null = null,
 ): Promise<Refusal | null> {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { allow: 'GET, HEAD' }).end()
     return null
   }
   const a = preview.artifactId ? await findArtifact(ctx.db, preview.artifactId) : undefined
-  const versionId = preview.artifactVersionId ?? a?.headVersionId
+  const versionId = pinned ?? preview.artifactVersionId ?? a?.headVersionId
   const [v] =
     a && versionId
       ? await ctx.db
@@ -100,6 +101,13 @@ export async function serveArtifact(
   const l1 = v.files.some((f) => f.path === GG_ARTIFACT_MANIFEST)
   const shell = l1 ? kitName(path) : null
   const kit = shell ? await pluginKit(ctx.db, a.pluginVersionId) : null
+  if (shell === 'index.html' && kit?.has(shell)) {
+    const page = ((await currentShell(ctx.db, a)) ?? (kit.get(shell) as Buffer)).toString('utf8')
+    // The shell shows which version it plays.
+    const meta = `<script type="application/json" id="gg-meta">${JSON.stringify({ version: v.n })}</script>`
+    const at = page.indexOf('</head>')
+    return send(mimeOf(path), Buffer.from(at < 0 ? page : page.slice(0, at) + meta + page.slice(at)))
+  }
   const fromKit = shell && kit?.get(shell)
   if (fromKit) return send(mimeOf(path), fromKit)
   const file = v.files.find((f) => f.path === path)

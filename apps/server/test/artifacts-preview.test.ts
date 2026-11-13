@@ -21,6 +21,11 @@ beforeEach(async () => {
 afterEach(() => t.close())
 
 const KIT = join(BUILTIN_PLUGINS, 'web-prototype/skills/web-prototype/kit')
+const withMeta = (shell: string, version: number) =>
+  shell.replace(
+    '</head>',
+    `<script type="application/json" id="gg-meta">{"version":${version}}</script></head>`,
+  )
 const BRIDGE_TAG = /<script src="\/__gg\/bridge\.js" data-gg-parent="[^"]*"><\/script>/
 /** A member's screen without what the server injects into it. */
 const plain = (html: string) => html.replace(/ data-gg-id="\d+"/g, '').replace(BRIDGE_TAG, '')
@@ -78,7 +83,8 @@ describe('artifact previews', () => {
     const p = await s.open()
     const shell = await p.fetch('/')
     expect(shell.status).toBe(200)
-    expect(shell.text).toBe(readFileSync(join(KIT, 'index.html'), 'utf8'))
+    // The kit's shell, told the version it plays.
+    expect(shell.text).toBe(withMeta(readFileSync(join(KIT, 'index.html'), 'utf8'), 1))
     expect(shell.headers['content-type']).toBe('text/html; charset=utf-8')
     expect(shell.headers['x-content-type-options']).toBe('nosniff')
     const css = await p.fetch('/_gg/gg-kit.css')
@@ -157,7 +163,7 @@ describe('artifact previews', () => {
         ),
     )
     // The shell, other files and the platform's own scripts stay as they are.
-    expect((await p.fetch('/')).text).toBe(readFileSync(join(KIT, 'index.html'), 'utf8'))
+    expect((await p.fetch('/')).text).toBe(withMeta(readFileSync(join(KIT, 'index.html'), 'utf8'), 2))
     expect((await p.fetch('/tokens.css')).text).toBe(L1['tokens.css'])
     const bridge = await p.fetch('/__gg/bridge.js')
     expect(bridge.headers['content-type']).toBe('text/javascript; charset=utf-8')

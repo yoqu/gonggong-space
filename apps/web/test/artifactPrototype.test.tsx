@@ -70,11 +70,13 @@ const artifact = (o: Record<string, unknown> = {}) => ({
 })
 const file = (path: string) => ({ path, hash: 'b'.repeat(64), size: 10 })
 const detail = { ...version(2), files: [file('screens/home.html')], manifest, links: [] }
-const OFF = { enabled: false, url: null, expiresAt: null }
+const OFF = { enabled: false, url: null, expiresAt: null, version: null, latest: null }
 const ON = {
   enabled: true,
   url: 'https://a1.preview.test/__gg/share/ps_x',
   expiresAt: '2026-11-06T10:00:00Z',
+  version: 2,
+  latest: 2,
 }
 const routes = (o: Record<string, unknown> = {}) => ({
   'GET /artifacts/a1': artifact(),
@@ -730,6 +732,37 @@ describe('share', () => {
     fireEvent.click(toggle)
     await waitFor(() => expect(bodies(calls, 'POST', '/artifacts/a1/share')).toHaveLength(2))
     expect(bodies(calls, 'POST', '/artifacts/a1/share')[1]).toEqual({ enabled: false })
+  })
+
+  it('locks the link to a version, follows the latest on request and moves a stale lock to the newest', async () => {
+    const calls = mockApi(
+      routes({
+        'GET /artifacts/a1/share': { ...ON, version: 1 },
+        'POST /artifacts/a1/share': (b: unknown) =>
+          (b as { follow: boolean }).follow ? { ...ON, version: null } : ON,
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const pinned = await within(dialog).findByRole('radio', { name: '锁定 v1' })
+    expect(pinned.getAttribute('aria-checked')).toBe('true')
+    expect(within(dialog).getByText('已有更新的 v2，对方仍看到 v1')).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '更新到 v2' }))
+    await within(dialog).findByRole('radio', { name: '锁定 v2' })
+    expect(within(dialog).queryByRole('button', { name: '更新到 v2' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('radio', { name: '始终最新' }))
+    await waitFor(() =>
+      expect(within(dialog).getByRole('radio', { name: '始终最新' }).getAttribute('aria-checked')).toBe(
+        'true',
+      ),
+    )
+    expect(within(dialog).getByText('Bot 修改后，对方看到的内容随之更新')).toBeTruthy()
+    expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([
+      { enabled: true, follow: false },
+      { enabled: true, follow: true },
+    ])
   })
 
   it('is read-only to members who do not manage the bot', async () => {

@@ -21,11 +21,16 @@ export async function loadShare(artifactId: string) {
     const s = await api.get<ArtifactShareDto>(`/artifacts/${artifactId}/share`)
     useShares.setState({ [artifactId]: s })
   } catch {
-    useShares.setState({ [artifactId]: { enabled: false, url: null, expiresAt: null } })
+    useShares.setState({
+      [artifactId]: { enabled: false, url: null, expiresAt: null, version: null, latest: null },
+    })
   }
 }
 
-/** The artifact's share link, loaded on first use; `set` turns it on or off (managers only, the server checks). */
+/**
+ * The artifact's share link, loaded on first use; `set` turns it on or off (managers only, the server checks), and
+ * with `follow` makes it follow the latest version or locks it to the newest one.
+ */
 export function useArtifactShare(artifactId: string) {
   const share = useShares((s) => s[artifactId])
   const [busy, setBusy] = useState(false)
@@ -33,10 +38,13 @@ export function useArtifactShare(artifactId: string) {
     if (!useShares.getState()[artifactId]) void loadShare(artifactId)
   }, [artifactId])
   const set = useCallback(
-    async (enabled: boolean) => {
+    async (enabled: boolean, follow?: boolean) => {
       setBusy(true)
       try {
-        const s = await api.post<ArtifactShareDto>(`/artifacts/${artifactId}/share`, { enabled })
+        const s = await api.post<ArtifactShareDto>(
+          `/artifacts/${artifactId}/share`,
+          follow === undefined ? { enabled } : { enabled, follow },
+        )
         useShares.setState({ [artifactId]: s })
         return s
       } catch (e) {
@@ -163,6 +171,39 @@ export function ShareDialog({
             <Icon name="lock" size={13} />
             {denied}
           </p>
+        ) : null}
+        {on && share?.latest ? (
+          <div className="art-share__scope">
+            <strong>{t('链接内容')}</strong>
+            <SegmentedControl<'pin' | 'follow'>
+              aria-label={t('链接内容')}
+              size="small"
+              value={share.version ? 'pin' : 'follow'}
+              onChange={(v) => void set(true, v === 'follow')}
+              items={[
+                {
+                  value: 'pin',
+                  label: t('锁定 v{n}', { n: share.version ?? share.latest }),
+                  disabled: busy || !!denied,
+                },
+                { value: 'follow', label: t('始终最新'), disabled: busy || !!denied },
+              ]}
+            />
+            {share.version && share.version < share.latest ? (
+              <div className="art-share__stale">
+                <small>{t('已有更新的 v{n}，对方仍看到 v{m}', { n: share.latest, m: share.version })}</small>
+                <Button size="small" disabled={busy || !!denied} onClick={() => void set(true, false)}>
+                  {t('更新到 v{n}', { n: share.latest })}
+                </Button>
+              </div>
+            ) : (
+              <small>
+                {share.version
+                  ? t('Bot 再修改，对方看到的内容也不变')
+                  : t('Bot 修改后，对方看到的内容随之更新')}
+              </small>
+            )}
+          </div>
         ) : null}
         {on && share?.url ? (
           <div className="art-share__link">

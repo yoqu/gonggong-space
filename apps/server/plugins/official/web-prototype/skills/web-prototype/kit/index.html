@@ -3,62 +3,169 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>原型</title>
 <style>
+  /* 共工 Pane tokens (apps/web/src/styles/tokens.css), light and dark. */
+  :root {
+    color-scheme: light dark;
+    --window-bg: #f5f5f5; --content-bg: #ffffff; --label: #000000d9; --label-secondary: #00000094;
+    --label-tertiary: #00000042; --separator: #0000001a; --group-bg: #0000000a; --control-fill: #ffffff;
+    --control-track: #00000017; --accent: #0088ff; --accent-fill: #0071e3; --on-accent: #ffffff;
+    --selection-fill: #0000000f; --glass-fill: #ffffffb8; --glass-edge: #0000001f; --dot: #0000001f;
+    --bezel: #d4d4da; --bezel-edge: #ffffffb3; --skeleton: #00000008;
+    --shadow-control: 0 0 0 0.5px rgba(0,0,0,0.1), 0 0.5px 1.5px rgba(0,0,0,0.18);
+    --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 0.5px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.12);
+    --shadow-node: 0 0 0 0.5px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.06), 0 16px 40px rgba(0,0,0,0.1);
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft Yahei", system-ui, sans-serif;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --window-bg: #1e1e1e; --content-bg: #161616; --label: #ffffffd9; --label-secondary: #ffffff8c;
+      --label-tertiary: #ffffff40; --separator: #ffffff1a; --group-bg: #ffffff0d; --control-fill: #ffffff24;
+      --control-track: #ffffff1f; --accent: #0091ff; --selection-fill: #ffffff17; --glass-fill: #282828b8;
+      --glass-edge: #00000080; --dot: #ffffff1c; --bezel: #2c2c30; --bezel-edge: #ffffff1f; --skeleton: #ffffff0a;
+      --shadow-control: 0 0 0 0.5px rgba(255,255,255,0.12), 0 0.5px 1.5px rgba(0,0,0,0.4);
+      --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 0.5px rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.4);
+      --shadow-node: 0 0 0 0.5px rgba(255,255,255,0.1), 0 16px 40px rgba(0,0,0,0.45);
+    }
+  }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
   body {
-    display: flex; flex-direction: column; background: #ececef; color: #1d1d1f;
-    font: 13px/1.4 -apple-system, "PingFang SC", "Helvetica Neue", "Microsoft Yahei", sans-serif;
+    display: flex; flex-direction: column; background: var(--window-bg); color: var(--label);
+    font: 13px/16px var(--font-sans); letter-spacing: -0.08px; -webkit-font-smoothing: antialiased;
   }
   [hidden] { display: none !important; }
-  header {
-    position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 8px 16px;
-    background: #fff; border-bottom: 1px solid #dcdce0; flex-wrap: wrap;
+  button { font: inherit; color: inherit; }
+  .icon { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* bar: title and version | 预览 / 总览 | where it is, or zoom */
+  .bar {
+    position: relative; z-index: 3; display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 12px 0 16px;
+    background: var(--glass-fill); border-bottom: 0.5px solid var(--separator);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
   }
-  header h1 { margin: 0; font-size: 14px; font-weight: 600; }
-  .seg { display: inline-flex; padding: 2px; border-radius: 8px; background: #f0f0f2; }
-  .seg button { border: 0; background: none; border-radius: 6px; padding: 3px 12px; font: inherit; color: #6e6e73; cursor: pointer; }
-  .seg button[aria-pressed='true'] { background: #fff; color: #1d1d1f; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-  .tools { display: flex; align-items: center; gap: 4px; margin-left: auto; flex-wrap: wrap; }
-  .tools button {
-    border: 1px solid #d2d2d7; background: #fff; border-radius: 999px; padding: 3px 12px;
-    font: inherit; color: inherit; cursor: pointer;
+  .brand { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .brand h1 { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ver {
+    flex: none; padding: 1px 6px; border-radius: 999px; background: var(--group-bg); color: var(--label-secondary);
+    font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums;
   }
-  .tools button[aria-current] { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
-  .zoom { min-width: 48px; text-align: center; color: #6e6e73; font-variant-numeric: tabular-nums; }
+  .by { flex: none; color: var(--label-tertiary); font-size: 11px; white-space: nowrap; }
+  .by::before { content: ''; display: inline-block; width: 1px; height: 10px; margin-right: 8px; background: var(--separator); vertical-align: -1px; }
+  .seg {
+    position: absolute; left: 50%; transform: translateX(-50%); display: inline-flex; padding: 2px; gap: 2px;
+    border-radius: 999px; background: var(--control-track);
+  }
+  .seg button {
+    border: 0; background: none; border-radius: 999px; padding: 4px 14px; color: var(--label-secondary); cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .seg button[aria-pressed='true'] { background: var(--control-fill); color: var(--label); box-shadow: var(--shadow-control); }
+  .tools { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; min-width: 28px;
+    padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--label); cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--group-bg); }
+  .btn[aria-pressed='true'] { background: var(--selection-fill); color: var(--accent); }
+  .btn:focus-visible, .seg button:focus-visible, .item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .where { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--label-secondary); font-variant-numeric: tabular-nums; }
+  .zoom { min-width: 44px; text-align: center; color: var(--label-secondary); font-variant-numeric: tabular-nums; }
   main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
-  /* canvas */
-  .canvas { position: absolute; inset: 0; cursor: grab; touch-action: none;
-    background: radial-gradient(circle, #d4d4d9 1px, transparent 1px) 0 0 / 24px 24px; }
+  /* play: the device, fitted whole */
+  .play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 48px 0 56px; }
+  .box { position: relative; flex: none; }
+  .stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .stage.framed { padding: 10px; border-radius: 54px; background: var(--bezel); box-shadow: inset 0 0 0 1px var(--bezel-edge), 0 0 0 0.5px var(--separator), 0 24px 60px rgba(0,0,0,0.2); }
+  .stage.framed .device { border-radius: 44px; }
+  .stage:not(.framed) .device { border-radius: 10px; box-shadow: var(--shadow-node); }
+
+  /* the screen list: a glass pill below the device opens it */
+  .pill {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2; display: flex; align-items: center; gap: 8px;
+    max-width: calc(100% - 32px); height: 34px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; cursor: pointer;
+    background: var(--glass-fill); box-shadow: var(--shadow-glass); color: var(--label);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
+  }
+  .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill small { color: var(--label-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .list {
+    position: absolute; z-index: 4; left: 12px; top: 12px; bottom: 12px; width: 280px; display: flex; flex-direction: column;
+    border-radius: 14px; background: var(--glass-fill); box-shadow: var(--shadow-glass); overflow: hidden;
+    -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+    transition: transform 0.3s var(--ease), opacity 0.2s;
+  }
+  .list.closed { transform: translateX(calc(-100% - 16px)); opacity: 0; pointer-events: none; }
+  .list header { display: flex; align-items: center; gap: 8px; padding: 12px 8px 8px 14px; font-weight: 600; }
+  .list header span { flex: 1; }
+  .list header small { color: var(--label-secondary); font-weight: 400; }
+  .search {
+    margin: 0 10px 8px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; outline: none;
+    background: var(--control-track); color: var(--label); font: inherit;
+  }
+  .search:focus { box-shadow: 0 0 0 2px var(--accent); }
+  .screens { flex: 1; overflow: auto; padding: 0 6px 8px; }
+  .item {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px;
+    background: none; text-align: left; cursor: pointer;
+  }
+  .item:hover { background: var(--group-bg); }
+  .item i { flex: none; min-width: 22px; color: var(--label-tertiary); font-style: normal; font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+  .item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item[aria-current] { background: var(--accent-fill); color: var(--on-accent); }
+  .item[aria-current] i { color: inherit; opacity: 0.7; }
+  .empty { padding: 16px; color: var(--label-secondary); text-align: center; }
+  .scrim { position: absolute; inset: 0; z-index: 3; background: rgba(0,0,0,0.25); opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+
+  .hint {
+    position: absolute; z-index: 2; left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
+    padding: 6px 6px 6px 12px; border-radius: 999px; background: var(--glass-fill); box-shadow: var(--shadow-glass);
+    color: var(--label-secondary); white-space: nowrap; animation: gg-hint 0.4s var(--ease) both;
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  }
+  .hint .btn { height: 22px; min-width: 22px; padding: 0; border-radius: 999px; }
+  @keyframes gg-hint { from { opacity: 0; transform: translate(-50%, -8px); } }
+
+  /* canvas: the screens in rows, like the app's */
+  .canvas { position: absolute; inset: 0; cursor: grab; touch-action: none; background: radial-gradient(circle, var(--dot) 1px, transparent 1px) 0 0 / 14px 14px; }
   .canvas.dragging { cursor: grabbing; }
   .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   .links { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
-  .links path { fill: none; stroke: #8e8e93; stroke-width: 2; stroke-dasharray: 6 5; }
+  .links path { fill: none; stroke: var(--accent); stroke-opacity: 0.55; stroke-width: 2; stroke-dasharray: 6 5; }
+  .links marker path { fill: var(--accent); fill-opacity: 0.7; stroke: none; }
   .frame { position: absolute; }
+  .frame .device { box-shadow: var(--shadow-node); border-radius: 12px; cursor: pointer; transition: box-shadow 0.2s; }
+  .frame .device:hover { box-shadow: 0 0 0 2px var(--accent), var(--shadow-node); }
+  .frame iframe { pointer-events: none; }
   .label {
-    position: absolute; left: 0; right: 0; bottom: 100%; display: flex; align-items: center; gap: 8px;
-    height: 40px; font-size: 18px; font-weight: 600; color: #3a3a3c; white-space: nowrap;
+    position: absolute; left: 0; right: 0; bottom: 100%; display: flex; align-items: center; gap: 8px; height: 32px;
+    font-size: 18px; font-weight: 600; color: var(--label-secondary); white-space: nowrap;
   }
+  .label span { overflow: hidden; text-overflow: ellipsis; }
   .label button {
-    border: 0; border-radius: 999px; padding: 2px 10px; background: #fff; color: #1d1d1f;
-    font: 13px/20px inherit; cursor: pointer; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    flex: none; border: 0; border-radius: 999px; padding: 2px 10px; background: var(--control-fill); color: var(--label);
+    font-size: 12px; line-height: 18px; cursor: pointer; box-shadow: var(--shadow-control);
   }
-  .frame .device { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12); transition: box-shadow 0.3s; }
-  .frame.focus .device { box-shadow: 0 0 0 4px #0a84ff, 0 16px 40px rgba(0, 0, 0, 0.18); }
-  .rounded .device { border-radius: 28px; }
-
-  /* play */
-  .play { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; }
-  .stage { transform-origin: center; }
-  .stage .device { border-radius: 44px; box-shadow: 0 0 0 10px #1d1d1f, 0 24px 60px rgba(0, 0, 0, 0.25); }
-  .stage.flat .device { border-radius: 0; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15); }
 
   /* device */
-  .device { position: relative; overflow: hidden; background: #fff; width: var(--w); height: var(--h); }
+  .device { position: relative; overflow: hidden; background: var(--content-bg); width: var(--w); height: var(--h); isolation: isolate; }
   .device iframe { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+  .device.loading::before {
+    content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    background:
+      linear-gradient(100deg, transparent 30%, var(--skeleton) 50%, transparent 70%) 0 0 / 300% 100%,
+      linear-gradient(var(--skeleton), var(--skeleton)) 16px calc(var(--status) + 48px) / calc(100% - 32px) 160px no-repeat,
+      linear-gradient(var(--skeleton), var(--skeleton)) 16px calc(var(--status) + 224px) / 60% 16px no-repeat,
+      linear-gradient(var(--skeleton), var(--skeleton)) 16px calc(var(--status) + 252px) / 40% 16px no-repeat,
+      var(--content-bg);
+    animation: gg-shimmer 1.4s linear infinite;
+  }
+  @keyframes gg-shimmer { from { background-position: 100% 0, 16px calc(var(--status) + 48px), 16px calc(var(--status) + 224px), 16px calc(var(--status) + 252px), 0 0; } to { background-position: -50% 0, 16px calc(var(--status) + 48px), 16px calc(var(--status) + 224px), 16px calc(var(--status) + 252px), 0 0; } }
   .status, .capsule { z-index: 2; }
   .device iframe.over { z-index: 1; }
 
@@ -89,36 +196,78 @@
   .light .status { color: #fff; }
   .light .capsule { color: #fff; background: rgba(0, 0, 0, 0.15); border-color: rgba(255, 255, 255, 0.35); }
   .light .capsule i { background: rgba(255, 255, 255, 0.4); }
-  .error { position: absolute; inset: 0; margin: auto; height: fit-content; max-width: 420px; color: #86868b; text-align: center; }
+  .error { position: absolute; inset: 0; margin: auto; height: fit-content; max-width: 420px; padding: 24px; color: var(--label-secondary); text-align: center; }
+
+  /* A phone: the screen is the page. The status bar's strip (screens leave it free) holds the screen list. */
+  body.compact .bar, body.compact .pill, body.compact .hint { display: none; }
+  body.compact .play { padding: 0; }
+  body.compact .box, body.compact .stage { position: absolute; inset: 0; width: auto !important; height: auto !important; transform: none !important; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  body.compact .stage .device { width: 100%; height: 100%; border-radius: 0; }
+  .strip { display: none; }
+  body.compact .strip {
+    position: absolute; z-index: 3; inset: 0 0 auto; height: var(--status); display: flex; align-items: center;
+    padding: 0 10px; pointer-events: none; color: #000;
+  }
+  .light .strip { color: #fff; }
+  body.compact .strip button {
+    pointer-events: auto; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0;
+    border-radius: 999px; background: rgba(127, 127, 127, 0.18); color: inherit; font-size: 12px; font-variant-numeric: tabular-nums;
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  body.compact .list { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 72%; border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  body.compact .list.closed { transform: translateY(calc(100% + 16px)); }
+  body.compact .list:not(.closed) ~ .scrim { opacity: 1; pointer-events: auto; }
+  body.compact .item { padding: 11px 10px; font-size: 15px; }
+  @media (prefers-reduced-motion: reduce) {
+    .list, .scrim, .seg button { transition: none; }
+    .hint, .device.loading::before { animation: none; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <div class="seg" role="group" aria-label="视图">
-    <button type="button" data-view="canvas">总览</button>
-    <button type="button" data-view="play">预览</button>
+<header class="bar">
+  <div class="brand">
+    <h1></h1>
+    <span class="ver" hidden></span>
+    <span class="by">共工空间</span>
   </div>
-  <h1></h1>
-  <div class="tools" data-for="canvas">
-    <button type="button" data-zoom="out" aria-label="缩小">−</button>
-    <span class="zoom"></span>
-    <button type="button" data-zoom="in" aria-label="放大">+</button>
-    <button type="button" data-zoom="fit">适应</button>
+  <div class="seg" role="group" aria-label="视图">
+    <button type="button" data-view="play">预览</button>
+    <button type="button" data-view="canvas">总览</button>
   </div>
   <div class="tools" data-for="play">
-    <button class="back" type="button" hidden>返回</button>
-    <span class="screens"></span>
+    <span class="where"></span>
+    <button class="btn back" type="button" title="返回上一屏（Esc）" aria-label="返回" hidden><svg class="icon" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
+    <button class="btn restart" type="button" title="回到第一屏" aria-label="回到第一屏"><svg class="icon" viewBox="0 0 16 16"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.8h2.8"/></svg></button>
+  </div>
+  <div class="tools" data-for="canvas">
+    <button class="btn" type="button" data-links aria-pressed="false" title="显示屏幕之间的跳转">连线</button>
+    <button class="btn" type="button" data-zoom="out" aria-label="缩小"><svg class="icon" viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg></button>
+    <span class="zoom"></span>
+    <button class="btn" type="button" data-zoom="in" aria-label="放大"><svg class="icon" viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg></button>
+    <button class="btn" type="button" data-zoom="fit">适应</button>
   </div>
 </header>
 <main>
   <div class="canvas" hidden>
     <div class="world">
-      <svg class="links" width="1" height="1" aria-hidden="true">
-        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#8e8e93" stroke="none"/></marker></defs>
+      <svg class="links" width="1" height="1" aria-hidden="true" hidden>
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z"/></marker></defs>
       </svg>
     </div>
   </div>
-  <div class="play" hidden><div class="stage"></div></div>
+  <div class="play" hidden>
+    <div class="box"><div class="stage"></div></div>
+    <button class="pill" type="button" aria-label="屏幕列表"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg><span></span><small></small></button>
+    <div class="hint" role="status" hidden><span>点屏幕里的按钮就能跳转体验</span><button class="btn" type="button" aria-label="知道了"><svg class="icon" viewBox="0 0 16 16"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg></button></div>
+    <nav class="list closed" aria-label="屏幕">
+      <header><span>屏幕 <small></small></span><button class="btn close" type="button" aria-label="收起"><svg class="icon" viewBox="0 0 16 16"><path d="m4.5 4.5 7 7m0-7-7 7"/></svg></button></header>
+      <input class="search" type="search" placeholder="搜索屏幕" aria-label="搜索屏幕" hidden>
+      <div class="screens"></div>
+      <p class="empty" hidden>没有匹配的屏幕</p>
+    </nav>
+    <div class="scrim"></div>
+  </div>
   <p class="error" hidden></p>
 </main>
 <template id="device">
@@ -148,107 +297,189 @@
     mobile: { w: 390, h: 844, status: 47, capsule: false, framed: true },
     desktop: { w: 1440, h: 900, status: 0, capsule: false, framed: false },
   }
-  const GAP = 120
+  // The app's canvas (apps/web geometry.ts): rows about 3400 wide, a 32px title above each screen, and the design
+  // system (720) and DESIGN.md (560) cards left of the screens, so positions members dragged screens to line up.
+  const GAP = 120, ROW_SPAN = 3400, TITLE = 32, LEFT = 720 + GAP + 560 + GAP, MAX_H = 8000, LOADING = 4
   const $ = (s, root = document) => root.querySelector(s)
   const fail = (text) => { $('.error').hidden = false; $('.error').textContent = text }
+  const json = (id) => { const el = document.getElementById(id); return el ? JSON.parse(el.textContent) : null }
 
   // An exported zip carries the manifest inline: opened from disk (file://) the shell cannot fetch it.
   let manifest
   try {
-    const inline = document.getElementById('gg-manifest')
-    manifest = inline
-      ? JSON.parse(inline.textContent)
-      : await (await fetch('gg-artifact.json', { cache: 'no-store' })).json()
+    manifest = json('gg-manifest') ?? (await (await fetch('gg-artifact.json', { cache: 'no-store' })).json())
   } catch {
     return fail('读不到 gg-artifact.json。请通过预览链接打开。')
   }
+  // The server says which version it plays; absent from disk and unhosted copies.
+  let meta = null
+  try { meta = json('gg-meta') } catch {}
   const device = DEVICES[manifest.device] ?? DEVICES.miniprogram
-  const screens = new Map(manifest.screens.map((s) => [s.id, s]))
+  const order = manifest.screens
+  const screens = new Map(order.map((s) => [s.id, s]))
+  const entry = screens.has(manifest.entry) ? manifest.entry : order[0].id
   document.title = manifest.title
   $('h1').textContent = manifest.title
+  if (meta?.version) { $('.ver').textContent = `v${meta.version}`; $('.ver').hidden = false }
   document.body.style.setProperty('--w', `${device.w}px`)
   document.body.style.setProperty('--h', `${device.h}px`)
   document.body.style.setProperty('--status', `${device.status}px`)
+  const store = { get: (k) => { try { return localStorage.getItem(k) } catch { return null } }, set: (k, v) => { try { localStorage.setItem(k, v) } catch {} } }
+  // On a phone a phone-sized prototype is the page itself, no frame around it.
+  const phone = matchMedia('(max-width: 520px)')
+  const compact = () => device.framed && phone.matches
 
-  const makeDevice = (s) => {
+  const makeDevice = (s, src = true) => {
     const el = $('#device').content.firstElementChild.cloneNode(true)
     $('.status', el).hidden = !device.status
     $('.capsule', el).hidden = !device.capsule
     const iframe = $('iframe', el)
     iframe.title = s.title
-    iframe.src = s.file
+    if (src) loadInto(el, iframe, s.file)
     el.classList.toggle('light', s.statusBar === 'light')
     return { el, iframe }
   }
+  function loadInto(el, iframe, file) {
+    el.classList.add('loading')
+    iframe.addEventListener('load', () => el.classList.remove('loading'), { once: true })
+    iframe.src = file
+  }
 
-  // ---- canvas: every screen side by side, pan and zoom ----
+  // ---- canvas: the screens in rows, at their content's height, loaded as they come into view ----
   const canvas = $('.canvas'), world = $('.world'), links = $('.links')
-  const frames = new Map()
-  manifest.screens.forEach((s, i) => {
+  const perRow = Math.max(1, Math.floor(ROW_SPAN / (device.w + GAP)))
+  const nodes = order.map((s) => {
     const frame = document.createElement('div')
     frame.className = 'frame'
-    frame.classList.toggle('rounded', device.framed)
-    const x = i * (device.w + GAP)
-    frame.style.left = `${x}px`
     const label = document.createElement('div')
     label.className = 'label'
-    label.textContent = s.title
+    const name = document.createElement('span')
+    name.textContent = s.title
     const play = document.createElement('button')
     play.type = 'button'
     play.textContent = '预览'
-    play.onclick = () => { setView('play'); go(s.id, 'none') }
-    label.append(play)
-    const { el, iframe } = makeDevice(s)
+    play.onclick = () => openScreen(s.id)
+    label.append(name, play)
+    const { el, iframe } = makeDevice(s, false)
+    el.onclick = () => { if (!moved) openScreen(s.id) }
     frame.append(label, el)
     world.append(frame)
-    frames.set(s.id, { frame, iframe, x })
-    iframe.addEventListener('load', drawLinks)
+    const n = { s, frame, el, iframe, x: 0, y: 0, h: device.h, state: 'idle' }
+    iframe.addEventListener('load', () => {
+      n.state = 'loaded'
+      measure(n)
+      // Fonts and images can grow the page after load.
+      setTimeout(() => measure(n), 800)
+      pump()
+    })
+    return n
   })
-  const width = manifest.screens.length * (device.w + GAP) - GAP
-  links.setAttribute('width', String(width))
-  links.setAttribute('height', String(device.h))
+  function measure(n) {
+    let h
+    try { h = n.iframe.contentDocument?.documentElement.scrollHeight } catch { return }
+    if (!h) return
+    h = Math.min(MAX_H, Math.max(device.h, Math.round(h)))
+    if (h === n.h) return
+    n.h = h
+    layout()
+  }
+  function layout() {
+    let y = 0
+    for (let i = 0; i < nodes.length; i += perRow) {
+      let x = LEFT, tallest = 0
+      for (const n of nodes.slice(i, i + perRow)) {
+        const placed = Number.isFinite(n.s.x) && Number.isFinite(n.s.y)
+        n.x = placed ? n.s.x : x
+        n.y = placed ? n.s.y : y
+        n.frame.style.left = `${n.x}px`
+        n.frame.style.top = `${n.y}px`
+        n.el.style.height = `${n.h}px`
+        x += device.w + GAP
+        tallest = Math.max(tallest, n.h)
+      }
+      y += tallest + GAP + TITLE
+    }
+    links.toggleAttribute('hidden', !showLinks)
+    if (showLinks) drawLinks()
+  }
+  const bounds = () => {
+    const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity }
+    for (const n of nodes) {
+      b.x0 = Math.min(b.x0, n.x); b.y0 = Math.min(b.y0, n.y - TITLE)
+      b.x1 = Math.max(b.x1, n.x + device.w); b.y1 = Math.max(b.y1, n.y + n.h)
+    }
+    return b
+  }
 
+  let showLinks = false
   function drawLinks() {
-    for (const p of links.querySelectorAll('path')) p.remove()
-    for (const [id, f] of frames) {
+    for (const p of links.querySelectorAll(':scope > path')) p.remove()
+    const b = bounds()
+    links.setAttribute('width', String(Math.max(1, b.x1)))
+    links.setAttribute('height', String(Math.max(1, b.y1)))
+    const byId = new Map(nodes.map((n) => [n.s.id, n]))
+    for (const f of nodes) {
       let doc
       try { doc = f.iframe.contentDocument } catch { continue }
-      if (!doc) continue
+      if (f.state !== 'loaded' || !doc) continue
       const seen = new Set()
       for (const a of doc.querySelectorAll('[data-gg-link]')) {
-        const to = frames.get(a.getAttribute('data-gg-link'))
         const target = a.getAttribute('data-gg-link')
-        if (!to || target === id || seen.has(target)) continue
+        const to = byId.get(target)
+        if (!to || target === f.s.id || seen.has(target)) continue
         seen.add(target)
         const r = a.getBoundingClientRect()
-        const forward = to.x > f.x
-        const sx = forward ? f.x + device.w : f.x
-        const sy = Math.min(Math.max(r.top + r.height / 2, 24), device.h - 24)
-        const tx = forward ? to.x : to.x + device.w
-        const ty = forward ? 120 : device.h - 120
+        const right = to.x >= f.x + device.w
+        const sx = right ? f.x + device.w : f.x
+        const sy = f.y + Math.min(Math.max(r.top + r.height / 2, 24), f.h - 24)
+        const tx = right ? to.x : to.x + device.w
+        const ty = to.y + 120
         const bend = Math.max(60, Math.abs(tx - sx) / 2)
-        // Forward links arc straight across; links back swing below the screens in between.
-        const d = forward
-          ? `M${sx} ${sy} C${sx + bend} ${sy} ${tx - bend} ${ty} ${tx} ${ty}`
-          : `M${sx} ${sy} C${sx - 80} ${device.h + 120} ${tx + 80} ${device.h + 120} ${tx} ${ty}`
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-        path.setAttribute('d', d)
+        path.setAttribute('d', `M${sx} ${sy} C${sx + (right ? bend : -bend)} ${sy} ${tx + (right ? -bend : bend)} ${ty} ${tx} ${ty}`)
         path.setAttribute('marker-end', 'url(#arrow)')
         links.append(path)
       }
     }
   }
+  $('[data-links]').onclick = (e) => {
+    showLinks = !showLinks
+    e.currentTarget.setAttribute('aria-pressed', String(showLinks))
+    layout()
+  }
+
+  // A few screens load at a time, nearest the view first.
+  function pump() {
+    if (current !== 'canvas') return
+    const box = canvas.getBoundingClientRect()
+    const near = (n) => {
+      const x = view.x + n.x * view.z, y = view.y + n.y * view.z
+      const m = 300
+      return x + device.w * view.z > -m && x < box.width + m && y + n.h * view.z > -m && y < box.height + m
+    }
+    let busy = nodes.filter((n) => n.state === 'loading').length
+    for (const n of nodes) {
+      if (busy >= LOADING) break
+      if (n.state !== 'idle' || !near(n)) continue
+      n.state = 'loading'
+      busy++
+      loadInto(n.el, n.iframe, n.s.file)
+    }
+  }
 
   const view = { x: 0, y: 0, z: 1 }
+  let pending = 0
   const apply = () => {
     // Whole pixels: fractional offsets make screens' fixed bars leak a sliver of the content behind them.
     world.style.transform = `translate(${Math.round(view.x)}px, ${Math.round(view.y)}px) scale(${view.z})`
     canvas.style.backgroundPosition = `${view.x}px ${view.y}px`
-    canvas.style.backgroundSize = `${24 * view.z}px ${24 * view.z}px`
+    canvas.style.backgroundSize = `${14 * view.z}px ${14 * view.z}px`
     $('.zoom').textContent = `${Math.round(view.z * 100)}%`
+    cancelAnimationFrame(pending)
+    pending = requestAnimationFrame(pump)
   }
   // Whole-pixel screen heights too, for the same reason as in apply().
-  const snap = (z) => Math.round(Math.min(2, Math.max(0.1, z)) * device.h) / device.h
+  const snap = (z) => Math.round(Math.min(2, Math.max(0.05, z)) * device.h) / device.h
   const zoomAt = (z, cx, cy) => {
     z = snap(z)
     view.x = cx - ((cx - view.x) * z) / view.z
@@ -256,24 +487,15 @@
     view.z = z
     apply()
   }
+  // As wide as the window: the first rows readable, the rest a scroll away.
   const fit = () => {
     const box = canvas.getBoundingClientRect()
-    const h = device.h + 140
-    view.z = snap(Math.min(1, (box.width - 96) / width, (box.height - 96) / h))
-    view.x = (box.width - width * view.z) / 2
-    view.y = (box.height - h * view.z) / 2 + 40 * view.z
+    const b = bounds()
+    const w = b.x1 - b.x0, h = b.y1 - b.y0
+    view.z = snap(Math.min(1, (box.width - 96) / w))
+    view.x = (box.width - w * view.z) / 2 - b.x0 * view.z
+    view.y = h * view.z < box.height - 96 ? (box.height - h * view.z) / 2 - b.y0 * view.z : 48 - b.y0 * view.z
     apply()
-  }
-  const focus = (id) => {
-    const f = frames.get(id)
-    if (!f) return
-    const box = canvas.getBoundingClientRect()
-    view.x = box.width / 2 - (f.x + device.w / 2) * view.z
-    world.style.transition = 'transform 0.35s ease'
-    apply()
-    setTimeout(() => { world.style.transition = '' }, 400)
-    for (const g of frames.values()) g.frame.classList.toggle('focus', g === f)
-    setTimeout(() => f.frame.classList.remove('focus'), 1200)
   }
 
   canvas.addEventListener('wheel', (e) => {
@@ -282,20 +504,21 @@
     if (e.ctrlKey || e.metaKey) zoomAt(view.z * Math.exp(-e.deltaY * 0.01), e.clientX - box.left, e.clientY - box.top)
     else { view.x -= e.deltaX; view.y -= e.deltaY; apply() }
   }, { passive: false })
-  let drag = null
+  let drag = null, moved = false
   canvas.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return
-    drag = { id: e.pointerId, x: e.clientX - view.x, y: e.clientY - view.y }
-    canvas.setPointerCapture(e.pointerId)
-    canvas.classList.add('dragging')
+    drag = { id: e.pointerId, x: e.clientX - view.x, y: e.clientY - view.y, sx: e.clientX, sy: e.clientY }
+    moved = false
   })
   canvas.addEventListener('pointermove', (e) => {
     if (drag?.id !== e.pointerId) return
+    if (!moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return
+    if (!moved) { moved = true; canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging') }
     view.x = e.clientX - drag.x
     view.y = e.clientY - drag.y
     apply()
   })
-  const endDrag = () => { drag = null; canvas.classList.remove('dragging') }
+  const endDrag = () => { drag = null; canvas.classList.remove('dragging'); setTimeout(() => { moved = false }) }
   canvas.addEventListener('pointerup', endDrag)
   canvas.addEventListener('pointercancel', endDrag)
   for (const b of document.querySelectorAll('[data-zoom]'))
@@ -306,22 +529,63 @@
     }
 
   // ---- play: one device, follow the links ----
-  const stage = $('.stage'), back = $('.back'), list = $('.screens')
-  stage.classList.toggle('flat', !device.framed)
-  const player = makeDevice(manifest.screens[0])
+  const play = $('.play'), box = $('.box'), stage = $('.stage'), back = $('.back'), list = $('.screens')
+  stage.classList.toggle('framed', device.framed)
+  const player = makeDevice(screens.get(entry), false)
+  const strip = document.createElement('div')
+  strip.className = 'strip'
+  strip.innerHTML = '<button type="button" aria-label="屏幕列表"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg><span></span></button>'
+  player.el.append(strip)
   stage.append(player.el)
-  for (const s of manifest.screens) {
+  order.forEach((s, i) => {
     const b = document.createElement('button')
     b.type = 'button'
-    b.textContent = s.title
+    b.className = 'item'
     b.dataset.id = s.id
-    b.onclick = () => go(s.id, 'none')
+    const n = document.createElement('i')
+    n.textContent = String(i + 1)
+    const t = document.createElement('span')
+    t.textContent = s.title
+    b.append(n, t)
+    b.onclick = () => { go(s.id, 'none'); if (compact()) openList(false) }
     list.append(b)
+  })
+  $('.list header small').textContent = String(order.length)
+  const search = $('.search')
+  search.hidden = order.length <= 8
+  search.oninput = () => {
+    const q = search.value.trim().toLowerCase()
+    let any = false
+    for (const b of list.children) {
+      const hit = !q || b.textContent.toLowerCase().includes(q)
+      b.hidden = !hit
+      any ||= hit
+    }
+    $('.list .empty').hidden = any
   }
+  const nav = $('.list')
+  function openList(open) {
+    nav.classList.toggle('closed', !open)
+    if (open) {
+      list.querySelector('[aria-current]')?.scrollIntoView?.({ block: 'center' })
+      if (!compact() && !search.hidden) search.focus()
+    }
+  }
+  $('.pill').onclick = () => openList(nav.classList.contains('closed'))
+  $('button', strip).onclick = () => openList(true)
+  $('.list .close').onclick = () => openList(false)
+  $('.scrim').onclick = () => openList(false)
+
   const fitStage = () => {
-    const box = $('.play').getBoundingClientRect()
-    const pad = device.framed ? 68 : 48
-    stage.style.transform = `scale(${Math.min(1, (box.width - pad) / device.w, (box.height - pad) / device.h)})`
+    if (compact()) return
+    const room = play.getBoundingClientRect()
+    const pad = device.framed ? 10 : 0
+    const w = device.w + pad * 2, h = device.h + pad * 2
+    // The list, when open, takes the left of a wide window.
+    const s = Math.min(1, (room.width - 64) / w, (room.height - 48 - 56 - 16) / h)
+    box.style.width = `${w * s}px`
+    box.style.height = `${h * s}px`
+    stage.style.transform = `scale(${s})`
   }
   // Each entry: the screen and how it was entered, so going back plays the reverse.
   const stack = []
@@ -334,9 +598,9 @@
     const old = player.iframe
     old.style.animation = ''
     old.classList.remove('over')
-    if (transition === 'none' || still.matches) {
-      old.src = s.file
+    if (transition === 'none' || still.matches || !old.getAttribute('src')) {
       old.title = s.title
+      loadInto(player.el, old, s.file)
     } else {
       const next = document.createElement('iframe')
       next.title = s.title
@@ -368,6 +632,11 @@
     }
     player.el.classList.toggle('light', s.statusBar === 'light')
     for (const b of list.children) b.toggleAttribute('aria-current', b.dataset.id === id)
+    const at = `${order.indexOf(s) + 1}/${order.length}`
+    $('.where').textContent = `${s.title} · ${at}`
+    $('.pill span').textContent = s.title
+    $('.pill small').textContent = at
+    $('span', strip).textContent = at
     back.hidden = stack.length < 2
     history.replaceState(null, '', `#play:${id}`)
   }
@@ -377,51 +646,85 @@
     stack.push({ id, t })
     show(id, t)
   }
-  back.onclick = () => {
+  const goBack = () => {
     if (stack.length < 2) return
     const { t } = stack.pop()
     show(stack.at(-1).id, REVERSE[t])
   }
+  back.onclick = goBack
+  $('.restart').onclick = () => { stack.length = 0; go(entry, 'none') }
+  const step = (d) => {
+    const i = order.findIndex((s) => s.id === stack.at(-1)?.id)
+    const next = order[Math.min(order.length - 1, Math.max(0, i + d))]
+    if (next) go(next.id, 'none')
+  }
+
+  const hint = $('.hint')
+  const closeHint = () => { hint.hidden = true; store.set('gg.share.hint', '1') }
+  $('.btn', hint).onclick = closeHint
 
   // ---- views ----
   let current
   function setView(v) {
+    if (compact()) v = 'play'
     current = v
     for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === v))
     for (const t of document.querySelectorAll('[data-for]')) t.hidden = t.dataset.for !== v
     canvas.hidden = v !== 'canvas'
-    $('.play').hidden = v !== 'play'
+    play.hidden = v !== 'play'
+    $('.stage .status').hidden = !device.status || compact()
     if (v === 'canvas') {
-      history.replaceState(null, '', location.pathname + location.search)
+      openList(false)
+      history.replaceState(null, '', '#canvas')
       fit()
     } else {
       fitStage()
-      if (!stack.length) go(manifest.entry, 'none')
+      if (!stack.length) go(entry, 'none')
       else show(stack.at(-1).id)
+      if (!store.get('gg.share.hint')) { hint.hidden = false; setTimeout(closeHint, 8000) }
     }
   }
+  function openScreen(id) {
+    stack.length = 0
+    stack.push({ id, t: 'none' })
+    setView('play')
+  }
   for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => setView(b.dataset.view)
-  addEventListener('resize', () => (current === 'canvas' ? fit() : fitStage()))
+  const relayout = () => {
+    document.body.classList.toggle('compact', compact())
+    if (compact() && current === 'canvas') return setView('play')
+    $('.stage .status').hidden = !device.status || compact()
+    return current === 'canvas' ? fit() : fitStage()
+  }
+  addEventListener('resize', relayout)
+  phone.addEventListener?.('change', relayout)
 
+  document.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return
+    if (e.key === 'Escape') return nav.classList.contains('closed') ? goBack() : openList(false)
+    if (current !== 'play') return
+    if (e.key === 'ArrowRight') step(1)
+    else if (e.key === 'ArrowLeft') step(-1)
+  })
   addEventListener('message', (e) => {
     const local = location.protocol === 'file:' && (e.origin === 'null' || e.origin === 'file://')
     if ((e.origin !== location.origin && !local) || e.data?.type !== 'gg:nav') return
-    if (current === 'play') {
-      if (e.source !== player.iframe.contentWindow) return
-      // A link without data-gg-transition pushes.
-      if (e.data.screen) go(e.data.screen, e.data.transition ?? 'push')
-      else back.onclick()
-      return
-    }
-    if ([...frames.values()].some((f) => f.iframe.contentWindow === e.source) && e.data.screen) focus(e.data.screen)
+    if (current !== 'play' || e.source !== player.iframe.contentWindow) return
+    // A link without data-gg-transition pushes.
+    if (e.data.screen) go(e.data.screen, e.data.transition ?? 'push')
+    else goBack()
   })
 
+  document.body.classList.toggle('compact', compact())
+  layout()
+  // A link opens to play; #canvas to the overview; #play:<id> to that screen.
   const hash = decodeURIComponent(location.hash.slice(1))
-  if (hash.startsWith('play:')) {
-    const id = hash.slice(5)
-    stack.push({ id: screens.has(id) ? id : manifest.entry, t: 'none' })
+  if (hash === 'canvas') setView('canvas')
+  else {
+    const id = hash.startsWith('play:') ? hash.slice(5) : entry
+    stack.push({ id: screens.has(id) ? id : entry, t: 'none' })
     setView('play')
-  } else setView('canvas')
+  }
 })()
 </script>
 </body>

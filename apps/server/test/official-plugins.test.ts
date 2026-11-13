@@ -120,6 +120,7 @@ describe('official plugin web-prototype', () => {
   const { manifest, skillDir } = load('web-prototype')
   const example = join(skillDir, 'templates/app-screens/example')
   const app = JSON.parse(readFileSync(join(example, 'gg-artifact.json'), 'utf8')) as {
+    title: string
     entry: string
     screens: { id: string; file: string }[]
   }
@@ -231,32 +232,84 @@ describe('official plugin web-prototype', () => {
     }
   })
 
-  it('shell: switches between 总览 and 预览, and shows 返回 only once there is a screen to go back to', () => {
-    const shell = readFileSync(join(skillDir, 'kit/index.html'), 'utf8').replace(
-      '<script>',
-      `<script type="application/json" id="gg-manifest">${JSON.stringify(app)}</script><script>`,
-    )
+  const openShell = (hash: string, width = 1440, meta?: object) => {
+    const shell = readFileSync(join(skillDir, 'kit/index.html'), 'utf8')
+      .replace(
+        '</head>',
+        meta
+          ? `<script type="application/json" id="gg-meta">${JSON.stringify(meta)}</script></head>`
+          : '</head>',
+      )
+      .replace(
+        '<script>',
+        `<script type="application/json" id="gg-manifest">${JSON.stringify(app)}</script><script>`,
+      )
     const { window: w } = new JSDOM(shell, {
-      url: `https://p.test/#play:${app.entry}`,
+      url: `https://p.test/${hash}`,
       runScripts: 'dangerously',
+      pretendToBeVisual: true,
       beforeParse(win) {
-        win.matchMedia = (() => ({ matches: true })) as never
+        win.matchMedia = ((q: string) => ({
+          matches: q.includes('reduce') || (q.includes('max-width') && width <= 520),
+          addEventListener() {},
+        })) as never
+        Object.defineProperty(win, 'innerWidth', { value: width })
       },
     })
-    const $ = (sel: string) => w.document.querySelector(sel) as HTMLButtonElement
-    expect([...w.document.querySelectorAll('[data-view]')].map((b) => b.textContent)).toEqual([
-      '总览',
-      '预览',
-    ])
-    expect([...w.document.querySelectorAll('.label button')].every((b) => b.textContent === '预览')).toBe(
-      true,
+    return { w, $: (sel: string) => w.document.querySelector(sel) as HTMLButtonElement }
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0))
+  const pressed = (w: { document: Document }) =>
+    [...w.document.querySelectorAll('[data-view]')].find((b) => b.getAttribute('aria-pressed') === 'true')
+      ?.textContent
+
+  it('shell: a link opens straight into 预览 at the entry; 总览 is a click (or #canvas) away', async () => {
+    const plain = openShell('', 1440, { version: 11 })
+    await tick()
+    expect(pressed(plain.w)).toBe('预览')
+    expect(plain.$('.stage iframe').getAttribute('src')).toBe(
+      app.screens.find((s) => s.id === app.entry)?.file,
     )
+    expect(plain.$('.ver').textContent).toBe('v11')
+    expect(plain.w.document.title).toBe(app.title)
+    plain.$('[data-view="canvas"]').click()
+    expect(pressed(plain.w)).toBe('总览')
+    expect(plain.w.location.hash).toBe('#canvas')
+    expect([...plain.w.document.querySelectorAll('.label button')].map((b) => b.textContent)).toEqual(
+      app.screens.map(() => '预览'),
+    )
+    const canvas = openShell('#canvas')
+    await tick()
+    expect(pressed(canvas.w)).toBe('总览')
+    expect(canvas.$('.ver').hidden).toBe(true)
+  })
+
+  it('shell: lists every screen, goes back the way it came, and pages with the arrow keys', async () => {
+    const { w, $ } = openShell(`#play:${app.entry}`)
+    await tick()
+    expect(
+      [...w.document.querySelectorAll('.screens [data-id]')].map((b) => b.getAttribute('data-id')),
+    ).toEqual(app.screens.map((s) => s.id))
     expect($('.back').hidden).toBe(true)
     const other = app.screens.find((s) => s.id !== app.entry)?.id
     $(`.screens [data-id="${other}"]`).click()
+    expect(w.location.hash).toBe(`#play:${other}`)
     expect($('.back').hidden).toBe(false)
+    expect($('.where').textContent).toContain(`2/${app.screens.length}`)
     $('.back').click()
     expect($('.back').hidden).toBe(true)
+    w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    expect(w.location.hash).toBe(`#play:${app.screens[1]?.id}`)
+    w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }))
+    expect(w.location.hash).toBe(`#play:${app.screens[0]?.id}`)
+  })
+
+  it('shell: on a phone the screen fills the window, with no device frame and no 总览', async () => {
+    const { w, $ } = openShell('#canvas', 390)
+    await tick()
+    expect(w.document.body.classList.contains('compact')).toBe(true)
+    expect(pressed(w)).toBe('预览')
+    expect(($('.stage .status') as HTMLElement).hidden).toBe(true)
   })
 })
 
