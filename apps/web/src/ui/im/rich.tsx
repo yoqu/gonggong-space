@@ -4,6 +4,7 @@ import { copyText } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { langFor, Tokens, useHighlight } from '../highlight'
 import { Icon } from '../icon'
+import { VoiceNote } from '../voice-note'
 import './rich.css'
 
 const COPIED_MS = 1500
@@ -116,86 +117,41 @@ export function LinkPreview({
   )
 }
 
-const duration = (s: number) => {
-  const t = Math.max(0, Math.round(s))
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
-}
-
-function hash(str: string) {
-  let x = 0
-  for (let i = 0; i < str.length; i++) x = (x * 31 + str.charCodeAt(i)) >>> 0
-  return x % 9973
-}
-
-/** Deterministic waveform: 12–36 bars growing with the length, seeded so a message always looks the same. */
-function bars(secs: number, seed: string) {
-  const n = Math.max(12, Math.min(36, Math.round(10 + secs * 0.9)))
-  let s = hash(seed) + 7
-  return Array.from({ length: n }, (_, i) => {
-    s = (s * 16807) % 2147483647
-    return { id: `bar${i}`, height: Math.round((0.25 + ((s % 1000) / 1000) * 0.75) * 20), on: i / n }
-  })
-}
-
 export interface VoiceMessageProps {
-  /** Seconds. */
+  /** Seconds; the file's own length wins once it loads. */
   duration: number
+  src?: string
   played?: boolean
-  playing?: boolean
-  /** 0–1 of the waveform tinted as played. */
-  progress?: number
   transcript?: ReactNode
   seed?: string
   onPlay?: (playing: boolean) => void
   className?: string
 }
 
-/** Voice note inside a bubble: play button, waveform, length, red dot until played; playback itself is the caller's. */
+/** Voice note inside a bubble: the VoiceNote bar, a red dot until first played, and an optional transcript. */
 export function VoiceMessage({
-  duration: secs,
+  duration,
+  src,
   played: playedInit = false,
-  playing: playingInit = false,
-  progress,
   transcript,
   seed,
   onPlay,
   className,
 }: VoiceMessageProps) {
-  const [playing, setPlaying] = useState(playingInit)
   const [played, setPlayed] = useState(playedInit)
-  const wave = bars(secs, seed ?? String(secs))
-  const prog = progress ?? (playing ? 0.35 : 0)
   return (
     <div className={cx('pn-voice', className)}>
       <div className="pn-voice__row">
-        <button
-          type="button"
-          className="pn-voice__play"
-          aria-label={playing ? t('暂停') : t('播放语音')}
-          aria-pressed={playing}
-          onClick={() => {
-            setPlaying(!playing)
-            setPlayed(true)
-            onPlay?.(!playing)
+        <VoiceNote
+          className="pn-voice__note"
+          src={src}
+          duration={duration}
+          seed={seed}
+          onPlayingChange={(p) => {
+            if (p) setPlayed(true)
+            onPlay?.(p)
           }}
-        >
-          <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" aria-hidden="true">
-            {playing ? (
-              <>
-                <rect x={3.5} y={2.5} width={3} height={11} rx={1} />
-                <rect x={9.5} y={2.5} width={3} height={11} rx={1} />
-              </>
-            ) : (
-              <path d="M4.5 2.8v10.4c0 .6.6.9 1.1.6l8.2-5.2c.5-.3.5-1 0-1.3L5.6 2.2c-.5-.3-1.1 0-1.1.6z" />
-            )}
-          </svg>
-        </button>
-        <span className="pn-voice__wave" aria-hidden="true">
-          {wave.map((b) => (
-            <i key={b.id} style={{ height: b.height }} className={b.on < prog ? 'on' : undefined} />
-          ))}
-        </span>
-        <span className="pn-voice__dur">{duration(secs)}</span>
+        />
         {!played && <span className="pn-voice__unread" role="img" aria-label={t('未听')} />}
       </div>
       {transcript && <div className="pn-voice__text">{transcript}</div>}

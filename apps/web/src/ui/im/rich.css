@@ -149,41 +149,8 @@
   align-items: center;
   gap: var(--space-8);
 }
-.pn-voice__play {
-  appearance: none;
-  border: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  flex: none;
-  display: grid;
-  place-items: center;
-  background: var(--accent-fill);
-  color: var(--on-accent);
-  padding: 0 0 0 1px;
-  cursor: default;
-}
-.pn-voice__play[aria-pressed="true"] {
-  padding: 0;
-}
-.pn-voice__wave {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 22px;
-}
-.pn-voice__wave i {
-  width: 2.5px;
-  border-radius: 2px;
-  background: var(--label-secondary);
-}
-.pn-voice__wave i.on {
-  background: var(--bubble-link);
-}
-.pn-voice__dur {
-  font-size: var(--text-callout-size);
-  color: var(--label-secondary);
-  font-variant-numeric: tabular-nums;
+.pn-voice__note {
+  width: 240px;
 }
 .pn-voice__unread {
   width: 7px;

@@ -412,8 +412,8 @@ describe('EventCard', () => {
 describe('VoiceMessage', () => {
   it('toggles play and clears the unread dot', () => {
     const onPlay = vi.fn()
-    const { container } = render(<VoiceMessage duration={9} seed="x" onPlay={onPlay} />)
-    expect(container.querySelector('.pn-voice__dur')?.textContent).toBe('0:09')
+    render(<VoiceMessage duration={9} seed="x" onPlay={onPlay} />)
+    expect(screen.getByRole('button', { name: '播放速度 1×' }).textContent).toBe('0:09')
     expect(screen.getByLabelText('未听')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '播放语音' }))
     expect(onPlay).toHaveBeenCalledWith(true)

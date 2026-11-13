@@ -539,7 +539,9 @@ describe('message attachments and preview', () => {
     expect(card.textContent).toContain('音频 · 2 KB')
     const audio = card.querySelector('audio') as HTMLAudioElement
     expect(audio.getAttribute('src')).toBe('/api/attachments/au1')
-    expect(audio.controls).toBe(true)
+    expect(audio.controls).toBe(false)
+    expect(within(card).getByRole('button', { name: '播放语音' })).toBeTruthy()
+    expect(within(card).getByRole('slider', { name: '播放进度' })).toBeTruthy()
     expect(within(card).getByRole('link', { name: '下载' }).getAttribute('href')).toBe('/api/attachments/au1')
     fireEvent.error(audio)
     expect(card.textContent).toContain('浏览器无法播放此音频，可下载查看')

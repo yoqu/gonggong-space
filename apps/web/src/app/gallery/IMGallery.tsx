@@ -782,7 +782,6 @@ export function IMGallery() {
             <VoiceMessage
               duration={34}
               played
-              playing
               seed="b"
               transcript="评审我改到周四下午三点，材料今晚发群里。"
             />

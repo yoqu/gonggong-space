@@ -1,0 +1,231 @@
+.ui-voice {
+  --voice-h: 44px;
+  --voice-knob: 34px;
+  --voice-bar: 2.5px;
+  --voice-accent: var(--accent);
+  --voice-progress: 0;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--voice-h);
+  min-width: 200px;
+  padding: 0 var(--space-12) 0 calc((var(--voice-h) - var(--voice-knob)) / 2);
+  border-radius: var(--radius-capsule);
+  background: color-mix(in srgb, var(--label) 6%, transparent);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ui-voice--lg {
+  --voice-h: 56px;
+  --voice-knob: 44px;
+  --voice-bar: 3px;
+  gap: var(--space-12);
+  padding-right: var(--space-16);
+}
+
+/* Soft accent lights drifting along the inside edge; they fade in on play and wind down on pause. */
+.ui-voice__glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--spring-smooth);
+}
+/* Blur inside the clipped layer so the light stays within the capsule instead of haloing around it. */
+.ui-voice__glow > span {
+  position: absolute;
+  inset: 0;
+  filter: blur(calc(var(--voice-h) * 0.32));
+}
+.ui-voice[data-playing="true"] .ui-voice__glow {
+  opacity: 0.42;
+}
+.ui-voice__glow i {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(var(--voice-h) * 1.6);
+  aspect-ratio: 1;
+  margin: calc(var(--voice-h) * -0.8) 0 0 calc(var(--voice-h) * -0.8);
+  border-radius: 50%;
+  background: var(--voice-accent);
+  animation: ui-voice-drift 7s ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.ui-voice[data-playing="true"] .ui-voice__glow i {
+  animation-play-state: running;
+}
+.ui-voice__glow i:nth-child(2) {
+  opacity: 0.8;
+  scale: 0.75;
+  animation-duration: 5.3s;
+  animation-delay: -2.1s;
+  animation-direction: alternate-reverse;
+}
+.ui-voice__glow i:nth-child(3) {
+  opacity: 0.7;
+  scale: 1.15;
+  animation-duration: 8.6s;
+  animation-delay: -4.4s;
+}
+.ui-voice__glow i:nth-child(4) {
+  opacity: 0.6;
+  scale: 0.6;
+  animation-duration: 4.7s;
+  animation-delay: -1.2s;
+  animation-direction: alternate-reverse;
+}
+@keyframes ui-voice-drift {
+  0% {
+    left: 4%;
+    top: 100%;
+  }
+  35% {
+    left: 46%;
+    top: 85%;
+  }
+  65% {
+    left: 72%;
+    top: 0%;
+  }
+  100% {
+    left: 98%;
+    top: 100%;
+  }
+}
+
+.ui-voice__play {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--voice-knob);
+  height: var(--voice-knob);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-fill);
+  /* An opaque ink faded as one layer: --label is translucent, so the glyph's overlapping halves would show a seam. */
+  color: #000;
+  box-shadow:
+    0 1px 2px #0000001f,
+    0 0 0 0.5px var(--control-stroke);
+  cursor: pointer;
+  transition: scale var(--spring-interactive);
+}
+.ui-voice__play:active {
+  scale: 0.92;
+}
+.ui-voice__play svg {
+  width: 72%;
+  height: 72%;
+  opacity: 0.85;
+}
+[data-theme$="dark"] .ui-voice__play {
+  color: #fff;
+}
+.ui-voice__play path {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.ui-voice__track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 62%;
+  border-radius: var(--radius-check);
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+.ui-voice__track:focus-visible,
+.ui-voice__play:focus-visible,
+.ui-voice__time:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-voice__bars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+.ui-voice__bars i {
+  flex: none;
+  width: var(--voice-bar);
+  border-radius: var(--voice-bar);
+  background: var(--label-tertiary);
+  transform-origin: center;
+  transition: scale var(--spring-snappy);
+}
+.ui-voice__track:hover .ui-voice__bars i {
+  scale: 1 1.08;
+}
+.ui-voice__fill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  clip-path: inset(0 calc((1 - var(--voice-progress)) * 100%) 0 0);
+  transition: clip-path var(--motion-fast);
+}
+.ui-voice[data-scrubbing] .ui-voice__fill {
+  transition: none;
+}
+.ui-voice__fill .ui-voice__bars i {
+  background: var(--label);
+}
+
+.ui-voice__time {
+  appearance: none;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 4ch;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  border-radius: var(--radius-check);
+}
+.ui-voice__time:hover {
+  color: var(--label);
+}
+.ui-voice__rate {
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-check);
+  background: color-mix(in srgb, var(--voice-accent) 16%, transparent);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  animation: ui-fade-in var(--motion-base);
+}
+.ui-voice audio {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-voice__glow i {
+    animation: none;
+  }
+  .ui-voice__glow i:nth-child(1) {
+    left: 20%;
+  }
+  .ui-voice__glow i:nth-child(3) {
+    left: 80%;
+  }
+}

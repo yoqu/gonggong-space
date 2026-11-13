@@ -207,7 +207,7 @@
   text-align: center;
   font-weight: 600;
 }
-.fv__audio > audio {
+.fv__audio-note {
   width: 100%;
 }
 /* The frame stays clear until the viewer has drawn, so a dark theme never flashes a white box; a page stands in. */

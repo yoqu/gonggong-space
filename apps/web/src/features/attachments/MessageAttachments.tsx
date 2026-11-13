@@ -2,7 +2,7 @@ import type { Attachment, MessageDto } from '@gonggong/protocol'
 import { type CSSProperties, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
-import { Button, FileAttachment, FileIcon, Icon, Lightbox } from '../../ui'
+import { Button, FileAttachment, FileIcon, Icon, Lightbox, VoiceNote } from '../../ui'
 import { openTab } from '../workbench/open'
 import { attachmentUrl, fmtSize, KIND_LABEL, kindOf, OFFICE_LABEL, officeOf } from './api'
 import './attachments.css'
@@ -157,8 +157,7 @@ function AudioCard({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
       {failed ? (
         <p className="att-audio__failed">{t('浏览器无法播放此音频，可下载查看')}</p>
       ) : (
-        // biome-ignore lint/a11y/useMediaCaption: uploaded audio carries no caption track
-        <audio src={url} controls preload="metadata" onError={() => setFailed(true)} />
+        <VoiceNote src={url} seed={a.id} onError={() => setFailed(true)} />
       )}
     </div>
   )

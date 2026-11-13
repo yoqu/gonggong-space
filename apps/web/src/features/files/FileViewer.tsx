@@ -37,6 +37,7 @@ import {
   Tabs,
   Tokens,
   useHighlight,
+  VoiceNote,
 } from '../../ui'
 import { fmtSize } from '../attachments/api'
 import { citeInChat } from '../chat/cite'
@@ -722,8 +723,7 @@ export function FileViewer({
           <div className="fv__audio">
             <FileIcon name={name} size={64} />
             <span className="fv__audio-name">{name}</span>
-            {/* biome-ignore lint/a11y/useMediaCaption: workspace audio carries no caption track */}
-            <audio src={url} controls onError={fail} />
+            {url && <VoiceNote size="lg" className="fv__audio-note" src={url} seed={name} onError={fail} />}
           </div>
         )
       case 'pdf':
