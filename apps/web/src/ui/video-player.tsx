@@ -527,7 +527,7 @@ export function VideoPlayer({
             {pipSupported && (
               <button
                 type="button"
-                className="ui-video__btn"
+                className="ui-video__btn ui-video__pip"
                 aria-label={pip ? t('退出画中画') : t('画中画')}
                 aria-pressed={pip}
                 title={pip ? t('退出画中画') : t('画中画')}

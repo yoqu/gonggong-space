@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type { Attachment } from '@gonggong/protocol'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MessageAttachments } from '../src/features/attachments/MessageAttachments'
 import { VideoPlayer } from '../src/ui'
 
 let play: ReturnType<typeof vi.spyOn>
@@ -123,5 +127,29 @@ describe('VideoPlayer', () => {
     expect(screen.getByRole('slider', { name: '播放进度' })).toBeTruthy()
     fireEvent.error(container.querySelector('video') as HTMLVideoElement)
     expect(onError).toHaveBeenCalled()
+  })
+})
+
+describe('VideoPlayer in a narrow tile', () => {
+  const css = (path: string) => readFileSync(join(import.meta.dirname, '../src', path), 'utf8')
+
+  it('lets a playing video of a multi-media message take the whole row', async () => {
+    const att = (id: string, name: string): Attachment =>
+      ({ id, name, mime: 'video/mp4', size: 1000, messageId: 'm1' }) as Attachment
+    render(<MessageAttachments from="李建国" list={[att('v1', 'a.mp4'), att('v2', 'b.mp4')]} />)
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: '播放 b.mp4' })))
+    const tile = screen.getByRole('group', { name: 'b.mp4' }).closest('.att-tile')
+    expect(tile?.classList.contains('att-tile--on')).toBe(true)
+    const rule = /\.att-media--multi > \.att-tile--on[^{]*\{([^}]*)\}/.exec(
+      css('features/attachments/attachments.css'),
+    )
+    expect(rule?.[1]).toMatch(/grid-column:\s*1 \/ -1/)
+  })
+
+  it('sheds controls by the player width, not the viewport, so fullscreen always fits', () => {
+    const player = css('ui/video-player.css')
+    expect(/\.ui-video \{([^}]*)\}/.exec(player)?.[1]).toMatch(/container-type:\s*inline-size/)
+    expect(player).not.toMatch(/@media \(max-width/)
+    expect(player).toMatch(/@container \(width < \d+px\)/)
   })
 })

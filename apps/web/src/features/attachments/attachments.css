@@ -237,10 +237,14 @@
 .att-tile--on {
   background: #000;
 }
-/* Alone in a message, a playing video takes its own shape (a portrait one stands up), within reach of a screen. */
-.att-media:not(.att-media--multi) > .att-tile--on {
+/* A playing video takes its own shape (a portrait one stands up), within reach of a screen;
+   among other media it spans the row, as a half-width tile is too narrow for its controls. */
+.att-media > .att-tile--on {
   aspect-ratio: var(--ratio, 16 / 10);
   max-height: min(480px, 70dvh);
+}
+.att-media--multi > .att-tile--on {
+  grid-column: 1 / -1;
 }
 .att-tile__corner {
   position: absolute;

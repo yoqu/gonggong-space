@@ -9,6 +9,8 @@
   isolation: isolate;
   display: block;
   overflow: hidden;
+  /* Controls fit the player, which may be a small chat tile; users give it an explicit width. */
+  container-type: inline-size;
   background: #000;
   color: var(--video-fg);
   outline: none;
@@ -292,6 +294,7 @@
 }
 .ui-video__btn--text {
   padding: 0 var(--space-8);
+  white-space: nowrap;
   font-size: var(--text-footnote-size);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -364,8 +367,11 @@
   background: var(--video-fg);
 }
 
+/* The time gives way first, so the slider sliding out never pushes fullscreen off the bar. */
 .ui-video__time {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   display: inline-flex;
   gap: var(--space-4);
   padding: 0 var(--space-6);
@@ -435,9 +441,36 @@
   background: var(--accent);
 }
 
-/* On a phone the skip buttons give way to the time; double-tap-free seeking stays on the bar. */
-@media (max-width: 480px) {
+/* A narrow player sheds controls, keeping play, volume and fullscreen; the keys and the bar still seek. */
+@container (width < 480px) {
   .ui-video__btn--skip {
+    display: none;
+  }
+  /* A short player has no room for a tall menu, so the speeds go three abreast. */
+  .ui-video__menu {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    min-width: 0;
+  }
+  .ui-video__item {
+    padding: var(--space-6) var(--space-8) var(--space-6) 20px;
+  }
+  .ui-video__item[aria-checked="true"]::before {
+    left: 8px;
+  }
+}
+@container (width < 320px) {
+  .ui-video__pip {
+    display: none;
+  }
+}
+@container (width < 260px) {
+  .ui-video__rate {
+    display: none;
+  }
+}
+@container (width < 220px) {
+  .ui-video__time {
     display: none;
   }
 }
