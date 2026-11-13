@@ -2,7 +2,7 @@ import type { Attachment, MessageDto } from '@gonggong/protocol'
 import { type CSSProperties, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
-import { Button, FileAttachment, FileIcon, Icon, Lightbox, VoiceNote } from '../../ui'
+import { Button, FileAttachment, FileIcon, Icon, Lightbox, VideoPlayer, VoiceNote } from '../../ui'
 import { openTab } from '../workbench/open'
 import { attachmentUrl, fmtSize, KIND_LABEL, kindOf, OFFICE_LABEL, officeOf } from './api'
 import './attachments.css'
@@ -48,19 +48,11 @@ export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
 function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
   const [state, setState] = useState<'idle' | 'playing' | 'failed'>('idle')
   const [ratio, setRatio] = useState<string>()
-  const ref = useRef<HTMLVideoElement>(null)
+  const ref = useRef<HTMLElement>(null)
   const url = attachmentUrl(a.id)
-  const play = () => {
-    const v = ref.current
-    if (!v) return
-    setState('playing')
-    // Within the tap itself: iOS only lets a gesture start playback with sound.
-    v.muted = false
-    v.controls = true
-    v.play()?.catch(() => {})
-  }
   return (
     <figure
+      ref={ref}
       className={cx('pn-image att-tile', state !== 'idle' && 'att-tile--on')}
       style={ratio ? ({ '--ratio': ratio } as CSSProperties) : undefined}
     >
@@ -72,40 +64,25 @@ function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
           </a>
         </div>
       ) : (
-        <video
-          ref={ref}
+        <VideoPlayer
           src={url}
-          preload="metadata"
-          playsInline
-          muted={state === 'idle'}
-          controls={state === 'playing'}
-          autoPlay={state === 'playing'}
-          onLoadedMetadata={(e) => {
-            const v = e.currentTarget
+          label={a.name}
+          fit="cover"
+          onStart={() => setState('playing')}
+          onLoadedMetadata={(v) => {
             if (v.videoWidth && v.videoHeight) setRatio(`${v.videoWidth} / ${v.videoHeight}`)
           }}
           onError={() => setState('failed')}
+          cover={
+            <figcaption className="att-tile__bar">
+              <Icon name="video" size={12} />
+              <span className="att-tile__name">{a.name}</span>
+              <span>{fmtSize(a.size)}</span>
+            </figcaption>
+          }
         />
       )}
-      {state === 'idle' ? (
-        <>
-          <figcaption className="att-tile__bar">
-            <Icon name="video" size={12} />
-            <span className="att-tile__name">{a.name}</span>
-            <span>{fmtSize(a.size)}</span>
-          </figcaption>
-          <span className="att-tile__play" aria-hidden="true">
-            <Icon name="play" size={18} />
-          </span>
-          <button
-            type="button"
-            className="att-tile__open att-tile__open--play"
-            title={t('播放 {name}', { name: a.name })}
-            aria-label={t('播放 {name}', { name: a.name })}
-            onClick={play}
-          />
-        </>
-      ) : (
+      {state !== 'idle' && (
         <Button
           className="att-tile__corner"
           size="small"
@@ -114,7 +91,7 @@ function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
           title={t('在工作台查看')}
           aria-label={`${t('在工作台查看')} ${a.name}`}
           onClick={() => {
-            ref.current?.pause()
+            ref.current?.querySelector('video')?.pause()
             onOpen()
           }}
         />

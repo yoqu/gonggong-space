@@ -312,6 +312,8 @@ describe('file viewer', () => {
   it('streams media from the raw route', () => {
     openFile('src/assets/demo.mp4', 'src/assets/song.mp3', 'src/assets/doc.pdf')
     expect(document.querySelector('video')?.getAttribute('src')).toBe(raw('src/assets/demo.mp4'))
+    expect(document.querySelector('video')?.controls).toBe(false)
+    expect(screen.getByRole('button', { name: '播放 demo.mp4' })).toBeTruthy()
     expect(document.querySelector('audio')?.getAttribute('src')).toBe(raw('src/assets/song.mp3'))
     expect(screen.getByTitle('doc.pdf').getAttribute('src')).toBe(raw('src/assets/doc.pdf'))
     expect(calls.some((c) => c.includes('/files/text'))).toBe(false)

@@ -194,7 +194,7 @@
   background: var(--group-bg);
 }
 .att-tile > img,
-.att-tile > video {
+.att-tile > .ui-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -223,24 +223,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.att-tile__play {
-  position: absolute;
-  transition: scale var(--spring-interactive);
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-glass);
-  color: var(--label);
-  pointer-events: none;
-}
 .att-tile__open {
   position: absolute;
   inset: 0;
@@ -251,15 +233,7 @@
 .att-tile__open:hover {
   background: var(--control-track);
 }
-.att-tile__open--play {
-  cursor: pointer;
-}
-@media (hover: hover) {
-  .att-tile:has(.att-tile__open--play:hover) .att-tile__play {
-    scale: 1.1;
-  }
-}
-/* Playing: the whole frame, letterboxed, with the native controls. */
+/* Playing: the whole frame, letterboxed, under the player's controls. */
 .att-tile--on {
   background: #000;
 }
@@ -268,14 +242,16 @@
   aspect-ratio: var(--ratio, 16 / 10);
   max-height: min(480px, 70dvh);
 }
-.att-tile--on > video {
-  object-fit: contain;
-  animation: var(--fade-in) ui-fade-in;
-}
 .att-tile__corner {
   position: absolute;
   top: var(--space-6);
   right: var(--space-6);
+  z-index: 3;
+  transition: opacity var(--motion-base);
+}
+.att-tile:has(.ui-video[data-idle]) .att-tile__corner {
+  opacity: 0;
+  pointer-events: none;
 }
 .att-tile__failed {
   height: 100%;

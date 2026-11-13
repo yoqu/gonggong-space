@@ -151,9 +151,16 @@
     conic-gradient(var(--checker) 25%, transparent 0 50%, var(--checker) 0 75%, transparent 0) 0 0 / 16px 16px,
     var(--content-bg);
 }
-.fv__media > video {
+.fv__media--video {
   display: block;
-  max-width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+.fv__media--video > .ui-video {
+  width: 100%;
+}
+.fv__media--video .ui-video:not([data-fullscreen]) > video {
+  height: auto;
   max-height: 70vh;
 }
 /* The image opens full screen (Quick Look): the whole picture is the button. */

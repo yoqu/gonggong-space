@@ -552,16 +552,26 @@ describe('message attachments and preview', () => {
   })
 
   it('plays a video in its tile, falling back to a download when the browser cannot', async () => {
-    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event('play'))
+      return Promise.resolve()
+    })
     const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockReturnValue()
     mockApi()
     renderChat()
     const main = screen.getByRole('main')
-    fireEvent.click(await within(main).findByRole('button', { name: '播放 demo.mp4' }))
+    const big = await within(main).findByRole('button', { name: '播放 demo.mp4' })
+    const player = within(screen.getByRole('group', { name: 'demo.mp4' }))
+    expect(player.queryByRole('slider', { name: '播放进度' })).toBeNull()
+    await act(async () => fireEvent.click(big))
     const video = main.querySelector('video[src="/api/attachments/v1"]') as HTMLVideoElement
     expect(play).toHaveBeenCalledOnce()
-    expect(video.controls).toBe(true)
+    expect(video.controls).toBe(false)
     expect(video.muted).toBe(false)
+    expect(player.getByRole('slider', { name: '播放进度' })).toBeTruthy()
+    expect(player.getByRole('button', { name: '全屏' })).toBeTruthy()
     expect(within(main).queryByRole('button', { name: '播放 demo.mp4' })).toBeNull()
     expect(screen.queryByRole('region', { name: '工作台' })).toBeNull()
     fireEvent.error(video)
@@ -574,11 +584,17 @@ describe('message attachments and preview', () => {
   })
 
   it('gives a playing video its own shape, so a portrait one is not a sliver in a wide tile', async () => {
-    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event('play'))
+      return Promise.resolve()
+    })
     mockApi()
     renderChat()
     const main = screen.getByRole('main')
-    fireEvent.click(await within(main).findByRole('button', { name: '播放 demo.mp4' }))
+    const big = await within(main).findByRole('button', { name: '播放 demo.mp4' })
+    await act(async () => fireEvent.click(big))
     const video = main.querySelector('video[src="/api/attachments/v1"]') as HTMLVideoElement
     Object.defineProperty(video, 'videoWidth', { value: 360 })
     Object.defineProperty(video, 'videoHeight', { value: 640 })

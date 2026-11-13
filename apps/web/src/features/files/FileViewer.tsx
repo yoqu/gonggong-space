@@ -37,6 +37,7 @@ import {
   Tabs,
   Tokens,
   useHighlight,
+  VideoPlayer,
   VoiceNote,
 } from '../../ui'
 import { fmtSize } from '../attachments/api'
@@ -707,15 +708,16 @@ export function FileViewer({
         )
       case 'video':
         return (
-          <div className="fv__media">
-            {/* biome-ignore lint/a11y/useMediaCaption: workspace and uploaded videos carry no caption track */}
-            <video
-              src={url}
-              controls
-              playsInline
-              onLoadedMetadata={(e) => setDim(`${e.currentTarget.videoWidth}×${e.currentTarget.videoHeight}`)}
-              onError={fail}
-            />
+          <div className="fv__media fv__media--video">
+            {url && (
+              <VideoPlayer
+                key={url}
+                src={url}
+                label={name}
+                onLoadedMetadata={(v) => setDim(`${v.videoWidth}×${v.videoHeight}`)}
+                onError={fail}
+              />
+            )}
           </div>
         )
       case 'audio':
