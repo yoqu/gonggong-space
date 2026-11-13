@@ -23,7 +23,7 @@ import { hardwareText, osText } from '../machines/MachineDetails'
 import '../machines/machines.css'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
 import { hasUpdate } from '../machines/tools'
-import { AdminPage } from './AdminPage'
+import { AdminPage, countLine } from './AdminPage'
 
 const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION
 
@@ -94,7 +94,15 @@ export function MachinesPage() {
     <AdminPage
       title={t('机器与网络')}
       desc={t('所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。')}
-      subtitle={machines ? t('{n} 台 · {online} 台在线', { n: machines.length, online }) : undefined}
+      subtitle={
+        machines
+          ? countLine(
+              t('{n} 台 · {online} 台在线', { n: machines.length, online }),
+              shown?.length,
+              machines.length,
+            )
+          : undefined
+      }
       actions={
         <ToolbarGroup>
           <ToolbarButton

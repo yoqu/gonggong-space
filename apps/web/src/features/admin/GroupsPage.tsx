@@ -13,7 +13,7 @@ import {
   Tag,
   type TagTone,
 } from '../../ui'
-import { AdminPage } from './AdminPage'
+import { AdminPage, countLine } from './AdminPage'
 import { useSystemParams } from './ParamsPage'
 import { TeamFilter } from './TeamFilter'
 
@@ -47,7 +47,9 @@ export function GroupsPage() {
     <AdminPage
       title={t('群#nav')}
       desc={t('所有群的模式、仓库与存档状态。')}
-      subtitle={groups ? t('{n} 个群', { n: groups.length }) : undefined}
+      subtitle={
+        groups ? countLine(t('{n} 个群', { n: groups.length }), shown?.length, groups.length) : undefined
+      }
       actions={<TeamFilter value={teamId} onChange={setTeamId} />}
       search={<SearchField placeholder={t('搜索群或仓库')} value={query} onChange={setQuery} />}
     >

@@ -222,6 +222,7 @@ export const MessageComposer = memo(function MessageComposer({
     names,
     sections,
     items: candidates,
+    empty,
   } = useCandidates(group, dismissed ? null : draft.slice(0, caret), plugins, artifactCandidates, !!thread)
   const current = Math.min(active, candidates.length - 1)
   const open = sections.length > 0
@@ -331,7 +332,13 @@ export const MessageComposer = memo(function MessageComposer({
       }
       return
     }
-    if (!candidates.length) return
+    if (!candidates.length) {
+      if (empty && e.key === 'Escape') {
+        e.preventDefault()
+        setDismissed(true)
+      }
+      return
+    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       const step = e.key === 'ArrowDown' ? 1 : -1
@@ -531,11 +538,12 @@ export const MessageComposer = memo(function MessageComposer({
           'aria-activedescendant': open && current >= 0 ? `${listId}-${current}` : undefined,
         }}
         popover={
-          token && open ? (
+          token && (open || empty) ? (
             <CandidatePopover
               id={listId}
               char={token.char}
               sections={sections}
+              empty={empty}
               active={candidates[current]}
               onPick={pick}
             />

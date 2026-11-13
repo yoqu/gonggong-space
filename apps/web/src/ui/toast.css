@@ -114,6 +114,11 @@
 .ui-toasts:empty {
   display: none;
 }
+/* A window-level dialog takes the focus: toasts from it show centered under it, not over the composer behind. */
+:root:has(.ui-overlay:not(.ui-overlay--contained) .ui-dialog) .ui-toasts {
+  left: 50%;
+  bottom: var(--space-20);
+}
 /* Phones: clear the bottom tab bar when no composer has lifted the toasts. */
 @media (max-width: 767px) {
   .ui-toasts {

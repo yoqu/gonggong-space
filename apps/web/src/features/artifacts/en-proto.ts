@@ -53,6 +53,7 @@ export default {
   '开启分享并复制链接：任何拿到链接的人都能查看，可随时在「分享」里关闭。':
     'Turns sharing on and copies the link: anyone with the link can view it; turn it off any time under Share.',
   开启并复制链接: 'Turn on and copy link',
+  开启并复制链接和密码: 'Turn on and copy link and password',
   '未选择屏幕时导出整个产物（{scope}）': 'With no screens selected the whole artifact is exported ({scope})',
   '导出整个版本（全部 {n} 个屏幕），与选中无关':
     'Exports the whole version ({n} {n:screen|screens}), whatever is selected',

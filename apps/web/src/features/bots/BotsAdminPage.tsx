@@ -17,7 +17,7 @@ import {
   ToolbarButton,
   ToolbarGroup,
 } from '../../ui'
-import { AdminPage } from '../admin/AdminPage'
+import { AdminPage, countLine } from '../admin/AdminPage'
 import { TeamFilter } from '../admin/TeamFilter'
 import { BotAvatar } from './avatars'
 import { BotDetail } from './BotSettings'
@@ -50,7 +50,7 @@ export function BotsAdminPage() {
     <AdminPage
       title="Bot"
       desc={t('全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。')}
-      subtitle={t('{n} 个 Bot', { n: bots.length })}
+      subtitle={countLine(t('{n} 个 Bot', { n: bots.length }), shown.length, bots.length)}
       actions={
         <ToolbarGroup>
           <TeamFilter value={teamId} onChange={setTeamId} />

@@ -301,6 +301,8 @@ export function MenuButton({
   const presence = usePresence(open)
   // Opens on the other side of the trigger when its own side would be clipped and the other has more room.
   const [side, setSide] = useState(placement)
+  // Likewise lines up with the trigger's other edge when its own edge would push the menu out of the clip box.
+  const [edge, setEdge] = useState(align)
   useLayoutEffect(() => {
     const el = menu.current
     if (!open || !el || !trigger.current) return
@@ -311,9 +313,16 @@ export function MenuButton({
     if (placement === 'below' && r.bottom > box.bottom && room.above > room.below) setSide('above')
     else if (placement === 'above' && r.top < box.top && room.below > room.above) setSide('below')
     else setSide(placement)
-  }, [open, placement])
+    const reach = { start: box.right - t.left, end: t.right - box.left }
+    if (align === 'end' && r.left < box.left && reach.start > reach.end) setEdge('start')
+    else if (align === 'start' && r.right > box.right && reach.end > reach.start) setEdge('end')
+    else setEdge(align)
+  }, [open, placement, align])
   const setOpen = (next: boolean) => {
-    if (next) setSide(placement)
+    if (next) {
+      setSide(placement)
+      setEdge(align)
+    }
     setOpenState(next)
     onOpenChange?.(next)
   }
@@ -354,7 +363,7 @@ export function MenuButton({
           focusMenu={byPointer}
           className={cx(
             'ui-menu--popover',
-            align === 'end' && 'ui-menu--end',
+            edge === 'end' && 'ui-menu--end',
             side === 'above' && 'ui-menu--above',
           )}
           data-state={presence.state}

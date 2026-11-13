@@ -178,7 +178,7 @@ export function useCandidates(
       ? `${base}/commands${mentioned.length ? `?botId=${mentioned.map((b) => b.id).join(',')}` : ''}`
       : null,
   )
-  if (!token) return { token, names, sections: [] as Section[], items: [] as Candidate[] }
+  if (!token) return { token, names, sections: [] as Section[], items: [] as Candidate[], empty: null }
 
   const q = token.query.toLowerCase()
   const has = (s: string) => s.toLowerCase().includes(q)
@@ -316,7 +316,9 @@ export function useCandidates(
             },
           ]
   const shown = sections.filter((s) => s.items.length)
-  return { token, names, sections: shown, items: shown.flatMap((s) => s.items) }
+  // A typed @name that matches nobody still answers, so it doesn't look like the list never opened.
+  const empty = token.char === '@' && q && !shown.length ? t('没有匹配的成员或 Bot') : null
+  return { token, names, sections: shown, items: shown.flatMap((s) => s.items), empty }
 }
 
 /** People (members and Bots) show their avatar; files and commands a glyph tile. */
@@ -366,6 +368,7 @@ export function CandidatePopover({
   id,
   char,
   sections,
+  empty,
   active,
   onPick,
 }: {
@@ -373,6 +376,8 @@ export function CandidatePopover({
   id: string
   char: '@' | '/' | '#'
   sections: Section[]
+  /** Shown instead of the sections when nothing matched. */
+  empty?: string | null
   active: Candidate | undefined
   onPick: (c: Candidate) => void
 }) {
@@ -399,6 +404,7 @@ export function CandidatePopover({
       aria-label={char === '/' ? t('/ 命令') : char === '#' ? t('# 作品') : t('@ 候选')}
       data-testid="composer-popover"
     >
+      {empty && !sections.length ? <div className="mention-pop__empty">{empty}</div> : null}
       {sections.map((s) => (
         <fieldset key={s.label} className="mention-pop__group" aria-label={s.label}>
           <div className="pn-mentionpicker__head mention-pop__head">

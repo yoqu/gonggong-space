@@ -766,6 +766,30 @@ describe('share', () => {
     ])
   })
 
+  it('turns the link on already locked when the password switch is set first', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const calls = mockApi(
+      routes({
+        'POST /artifacts/a1/share': (b: unknown) =>
+          (b as { locked?: boolean }).locked ? { ...ON, password: '0427' } : ON,
+      }),
+    )
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    await screen.findByTitle('首页')
+    fireEvent.click(screen.getByRole('button', { name: '分享' }))
+    const dialog = await screen.findByRole('dialog', { name: '分享产物' })
+    const lock = await within(dialog).findByRole('switch', { name: '密码访问' })
+    await waitFor(() => expect(lock.hasAttribute('disabled')).toBe(false))
+    fireEvent.click(lock)
+    expect(lock.getAttribute('aria-checked')).toBe('true')
+    expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([])
+    fireEvent.click(within(dialog).getByRole('button', { name: '开启并复制链接和密码' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(`${ON.url}\n访问密码：0427`))
+    expect(bodies(calls, 'POST', '/artifacts/a1/share')).toEqual([{ enabled: true, locked: true }])
+    await within(dialog).findByLabelText('访问密码 0427')
+  })
+
   it('locks the link with a password and copies the two together', async () => {
     const writeText = vi.fn(async () => {})
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })

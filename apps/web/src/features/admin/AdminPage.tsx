@@ -21,6 +21,10 @@ function Account() {
   )
 }
 
+/** A list's count line, prefixed with how many a search left (「1 / 3 个账号」). */
+export const countLine = (label: string, shown: number | undefined, total: number) =>
+  shown === undefined || shown === total ? label : `${shown} / ${label}`
+
 /** Admin page frame: unified toolbar (title, count, actions, search, account), a one-line description, then content. */
 export function AdminPage({
   title,

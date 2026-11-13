@@ -64,6 +64,11 @@
   white-space: nowrap;
   font-weight: 400;
 }
+.mention-pop__empty {
+  padding: var(--space-8) var(--space-12);
+  color: var(--label-secondary);
+  font-size: 13px;
+}
 .mention-pop__item {
   appearance: none;
   width: 100%;

@@ -180,6 +180,41 @@ describe('Menu', () => {
     Element.prototype.getBoundingClientRect = original
   })
 
+  it.each([
+    ['end', new DOMRect(10, 40, 24, 24), new DOMRect(-166, 68, 200, 160), 'ui-menu--end', false],
+    ['start', new DOMRect(470, 40, 24, 24), new DOMRect(470, 68, 200, 160), 'ui-menu--end', true],
+  ] as const)(
+    'lines an %s-aligned menu up with the other edge when its side would be clipped',
+    (align, trigger, menu, cls, has) => {
+      const rects = new Map([
+        ['list', new DOMRect(0, 0, 500, 400)],
+        ['trigger', trigger],
+        ['menu', menu],
+      ])
+      const original = Element.prototype.getBoundingClientRect
+      Element.prototype.getBoundingClientRect = function (this: Element) {
+        const key = this.matches('[role="menu"]')
+          ? 'menu'
+          : this.matches('[aria-label="更多"]')
+            ? 'trigger'
+            : this.matches('[data-testid="list"]')
+              ? 'list'
+              : ''
+        return rects.get(key) ?? new DOMRect()
+      }
+      render(
+        <div data-testid="list" style={{ overflowY: 'auto' }}>
+          <MenuButton aria-label="更多" align={align} items={ITEMS} onSelect={() => {}}>
+            …
+          </MenuButton>
+        </div>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: '更多' }))
+      expect(screen.getByRole('menu').className.includes(cls)).toBe(has)
+      Element.prototype.getBoundingClientRect = original
+    },
+  )
+
   it('keeps the menu below when it fits', () => {
     render(
       <MenuButton aria-label="更多" items={ITEMS} onSelect={() => {}}>

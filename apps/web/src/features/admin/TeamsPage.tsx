@@ -24,7 +24,7 @@ import {
   toast,
 } from '../../ui'
 import { TeamAvatar } from '../teams/TeamAvatar'
-import { AdminPage } from './AdminPage'
+import { AdminPage, countLine } from './AdminPage'
 
 const day = (iso: string) => new Date(iso).toLocaleDateString()
 
@@ -50,7 +50,9 @@ export function TeamsPage() {
     <AdminPage
       title={t('团队#nav')}
       desc={t('全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。')}
-      subtitle={teams ? t('{n} 个团队', { n: teams.length }) : undefined}
+      subtitle={
+        teams ? countLine(t('{n} 个团队', { n: teams.length }), shown?.length, teams.length) : undefined
+      }
       actions={
         <ToolbarGroup>
           <ToolbarButton

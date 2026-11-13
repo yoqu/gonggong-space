@@ -30,7 +30,7 @@ import {
   toast,
 } from '../../ui'
 import { ROLE_LABEL } from '../auth/AccountMenu'
-import { AdminPage } from './AdminPage'
+import { AdminPage, countLine } from './AdminPage'
 
 const TITLE = t('账号与角色')
 const DESC = t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。')
@@ -120,7 +120,9 @@ export function UsersPage() {
     <AdminPage
       title={TITLE}
       desc={DESC}
-      subtitle={users ? t('{n} 个账号', { n: users.length }) : undefined}
+      subtitle={
+        users ? countLine(t('{n} 个账号', { n: users.length }), shown?.length, users.length) : undefined
+      }
       actions={
         <ToolbarGroup>
           <ToolbarButton

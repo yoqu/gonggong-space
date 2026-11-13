@@ -606,6 +606,20 @@ describe('message attachments and preview', () => {
     play.mockRestore()
   })
 
+  it('shows a portrait video whole before it plays, so it is not cropped into a landscape tile', async () => {
+    mockApi()
+    renderChat()
+    const main = screen.getByRole('main')
+    await within(main).findByRole('button', { name: '播放 demo.mp4' })
+    const video = main.querySelector('video[src="/api/attachments/v1"]') as HTMLVideoElement
+    const player = video.closest('.ui-video') as HTMLElement
+    expect(player.dataset.fit).toBe('cover')
+    Object.defineProperty(video, 'videoWidth', { value: 360 })
+    Object.defineProperty(video, 'videoHeight', { value: 640 })
+    fireEvent.loadedMetadata(video)
+    expect(player.dataset.fit).toBe('contain')
+  })
+
   it('previews a PDF attachment in place', async () => {
     mockApi({ 'HEAD /attachments/p1': () => new Response(null) })
     renderChat()

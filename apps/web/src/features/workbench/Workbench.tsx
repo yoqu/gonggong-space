@@ -140,7 +140,7 @@ function PhoneWorkbench() {
             })
           }
         </Popover>
-        <NewTabMenu className="bench__btn">
+        <NewTabMenu className="bench__btn" align="end">
           <Icon name="plus" size={14} weight={1.8} />
         </NewTabMenu>
       </div>

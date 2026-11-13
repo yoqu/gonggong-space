@@ -48,6 +48,7 @@ export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
 function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
   const [state, setState] = useState<'idle' | 'playing' | 'failed'>('idle')
   const [ratio, setRatio] = useState<string>()
+  const [portrait, setPortrait] = useState(false)
   const ref = useRef<HTMLElement>(null)
   const url = attachmentUrl(a.id)
   return (
@@ -67,10 +68,13 @@ function VideoTile({ a, onOpen }: { a: Attachment; onOpen: () => void }) {
         <VideoPlayer
           src={url}
           label={a.name}
-          fit="cover"
+          // A portrait poster shows whole (pillarboxed) so it reads as portrait in a landscape tile.
+          fit={portrait ? 'contain' : 'cover'}
           onStart={() => setState('playing')}
           onLoadedMetadata={(v) => {
-            if (v.videoWidth && v.videoHeight) setRatio(`${v.videoWidth} / ${v.videoHeight}`)
+            if (!v.videoWidth || !v.videoHeight) return
+            setRatio(`${v.videoWidth} / ${v.videoHeight}`)
+            setPortrait(v.videoHeight > v.videoWidth)
           }}
           onError={() => setState('failed')}
           cover={

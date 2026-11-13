@@ -1016,6 +1016,25 @@ describe('chat view', () => {
     expect(box.value).toBe('@README.md ')
   })
 
+  it('says so when nobody matches the @ query, and Escape hides it', async () => {
+    mockApi({
+      ...baseRoutes([group()]),
+      'GET /groups/g1/candidates/files': () => ({ source: 'none', label: '', entries: [] }),
+    })
+    renderAt('/g/g1')
+    await screen.findByTestId('bot-reply')
+    const box = screen.getByPlaceholderText(
+      '输入消息，@ 触发 Bot 或引用文件，/ 查看命令',
+    ) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '@zzzq', selectionStart: 5 } })
+    const pop = await screen.findByTestId('composer-popover')
+    expect(pop.textContent).toContain('没有匹配的成员或 Bot')
+    expect(within(pop).queryAllByRole('option')).toHaveLength(0)
+    expect(box.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.keyDown(box, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('composer-popover')).toBeNull())
+  })
+
   it('lists agent commands of the mentioned bot after the mention', async () => {
     const calls = mockApi({
       ...baseRoutes([group()]),

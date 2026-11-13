@@ -160,6 +160,24 @@ describe('admin console', () => {
     expect(screen.queryByText(/一期|二期|OIDC/)).toBeNull()
   })
 
+  it('counts the matches over the total while searching', async () => {
+    useSession.setState({ user: admin, status: 'ready' })
+    mockApi({
+      'GET /admin/users': [
+        row({}),
+        row({ id: 'u1', account: 'wanglei', name: '王磊', role: 'member' }),
+        row({ id: 'u2', account: 'zhaomin', name: '赵敏', role: 'member' }),
+      ],
+    })
+    renderAt('/admin/users')
+    expect(await screen.findByText('3 个账号')).toBeTruthy()
+    const search = screen.getByRole('searchbox', { name: '搜索姓名或账号' })
+    fireEvent.change(search, { target: { value: 'wl' } })
+    expect(await screen.findByText('1 / 3 个账号')).toBeTruthy()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(await screen.findByText('3 个账号')).toBeTruthy()
+  })
+
   it('creates an account', async () => {
     useSession.setState({ user: admin, status: 'ready' })
     const created = row({

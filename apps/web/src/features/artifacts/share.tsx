@@ -152,9 +152,12 @@ export function ShareDialog({
     }
   }
   const on = !!share?.enabled
+  // Before the link exists the password switch is an option of turning it on, so no unlocked link ever goes out.
+  const [lockFirst, setLockFirst] = useState(false)
+  const locked = on ? !!share?.password : lockFirst
   const turnOn = async () => {
-    const s = await set(true)
-    if (s?.url) await copyWithToast(s.url, t('链接已复制'))
+    const s = await set(true, lockFirst ? { locked: true } : {})
+    if (s?.url) await copyWithToast(shareText(s.url, s.password), copiedToast(s.password))
   }
   return (
     <Dialog open onClose={onClose} title={t('分享产物')} width={440}>
@@ -232,38 +235,34 @@ export function ShareDialog({
             )}
           </div>
         ) : null}
-        {on ? (
-          <div className="art-share__lock">
-            <div className="art-share__row">
-              <div>
-                <strong>{t('密码访问')}</strong>
-                <small>
-                  {share?.password ? t('打开链接后需输入 4 位数字密码') : t('开启后自动生成 4 位数字密码')}
-                </small>
-              </div>
-              <Switch
-                aria-label={t('密码访问')}
-                checked={!!share?.password}
-                disabled={busy || !!denied}
-                onChange={(v) => void set(true, { locked: v })}
-              />
+        <div className="art-share__lock">
+          <div className="art-share__row">
+            <div>
+              <strong>{t('密码访问')}</strong>
+              <small>{locked ? t('打开链接后需输入 4 位数字密码') : t('开启后自动生成 4 位数字密码')}</small>
             </div>
-            {share?.password ? (
-              <div className="art-share__password">
-                <Password value={share.password} />
-                <Button
-                  size="small"
-                  variant="plain"
-                  icon="arrow-clockwise"
-                  disabled={busy || !!denied}
-                  onClick={() => void set(true, { locked: true })}
-                >
-                  {t('换一个')}
-                </Button>
-              </div>
-            ) : null}
+            <Switch
+              aria-label={t('密码访问')}
+              checked={locked}
+              disabled={!share || busy || !!denied}
+              onChange={(v) => (on ? void set(true, { locked: v }) : setLockFirst(v))}
+            />
           </div>
-        ) : null}
+          {on && share?.password ? (
+            <div className="art-share__password">
+              <Password value={share.password} />
+              <Button
+                size="small"
+                variant="plain"
+                icon="arrow-clockwise"
+                disabled={busy || !!denied}
+                onClick={() => void set(true, { locked: true })}
+              >
+                {t('换一个')}
+              </Button>
+            </div>
+          ) : null}
+        </div>
         {on && share?.url ? (
           <div className="art-share__link">
             <code title={share.url}>{share.url}</code>
@@ -289,7 +288,7 @@ export function ShareDialog({
             disabled={!share || busy || !!denied}
             onClick={() => void turnOn()}
           >
-            {t('开启并复制链接')}
+            {lockFirst ? t('开启并复制链接和密码') : t('开启并复制链接')}
           </Button>
         )}
       </div>

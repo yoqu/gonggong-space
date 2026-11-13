@@ -7,7 +7,7 @@ import { useGet } from '../../lib/useGet'
 import { Alert, Button, EmptyState, SearchField, SegmentedControl, Spinner, Switch, Table } from '../../ui'
 import { botsText, lastText, stateText } from '../schedules/model'
 import { timingText } from '../schedules/store'
-import { AdminPage } from './AdminPage'
+import { AdminPage, countLine } from './AdminPage'
 import { TeamFilter } from './TeamFilter'
 import '../schedules/schedules.css'
 
@@ -43,7 +43,11 @@ export function SchedulesPage() {
     <AdminPage
       title={t('定时任务')}
       desc={t('各群与私聊的定时任务：到点由候选 Bot 中第一个可用的执行。可在此停用或删除任意任务。')}
-      subtitle={data ? t('{n} 个任务', { n: data.schedules.length }) : undefined}
+      subtitle={
+        data
+          ? countLine(t('{n} 个任务', { n: data.schedules.length }), shown?.length, data.schedules.length)
+          : undefined
+      }
       actions={
         <>
           <SegmentedControl<Filter>

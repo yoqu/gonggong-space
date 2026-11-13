@@ -68,6 +68,7 @@ export default {
   未提交: 'Uncommitted',
   成员: 'Members',
   '成员 / Bot': 'Members / Bots',
+  '没有匹配的成员或 Bot': 'No matching members or bots',
   文件: 'Files',
   '来源：{source}': 'Source: {source}',
   系统命令: 'System commands',

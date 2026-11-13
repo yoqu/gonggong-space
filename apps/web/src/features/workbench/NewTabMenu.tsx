@@ -62,7 +62,16 @@ function OpenLinkDialog({ onClose }: { onClose: () => void }) {
 }
 
 /** ＋ of the workbench: a web page, or a bot's files or Git, in a new tab. */
-export function NewTabMenu({ className, children }: { className?: string; children: ReactNode }) {
+export function NewTabMenu({
+  className,
+  align = 'start',
+  children,
+}: {
+  className?: string
+  /** Desktop opens rightward, inside the workbench; the phone's top-right ＋ opens leftward. */
+  align?: 'start' | 'end'
+  children: ReactNode
+}) {
   const groupId = useWorkbench((s) => s.groupId)
   const group = useWorkspace((s) => s.groups.find((g) => g.id === groupId))
   const allBots = useWorkspace((s) => s.bots)
@@ -126,7 +135,7 @@ export function NewTabMenu({ className, children }: { className?: string; childr
         aria-label={t('新建标签页')}
         title={t('新建标签页')}
         className={className}
-        align="end"
+        align={align}
         items={items}
         onSelect={onSelect}
       >
