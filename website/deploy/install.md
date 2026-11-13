@@ -145,7 +145,9 @@ server 默认只监听 `127.0.0.1:8787`，由 Nginx 对外，见 [反向代理�
 
 1. 浏览器打开主站，用 `admin` 和初始密码登录，按提示修改密码。
 2. 进入「管理后台 → 账号与角色」，为成员创建账号，见 [账号与角色](/admin/users)。
-3. 在 [客户端发布](/admin/releases) 上传 daemon 安装包，成员即可 [绑定机器](/user/bind-machine)。
+3. 在 [客户端发布](/admin/releases) 上传 daemon（`gonggong-*`、`gg-cast-*`）和桌面端安装包，见 [升级与发布客户端](/deploy/upgrade)。网页「绑定新机器」里的「发给你的 Agent」一句话接入，要从本服务器下载对应平台的 `gg`，没有发布时会失败；未发布时 daemon 的自动升级改为检查 GitHub Releases。
+4. 建议在「管理后台 → 飞书」里填写「对外地址」（主站地址，如 `https://gg.example.com`）：一句话接入的安装脚本和飞书里的链接都用它，飞书登录也需要它。
+5. 成员即可 [绑定机器](/user/bind-machine)。
 
 ## 下一步
 

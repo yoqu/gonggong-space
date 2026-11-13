@@ -9,7 +9,7 @@
 | server | `apps/server`，Node.js（Fastify）。提供 `/api` 接口、浏览器与 daemon 的 WebSocket、附件存储、预览入口、客户端下载。**不提供网页静态文件** |
 | web | `apps/web`，React 单页应用。`vite build` 后得到纯静态文件 `apps/web/dist/`，由 Nginx 等 Web 服务器托管 |
 | PostgreSQL | 唯一的数据库。表结构在 server 启动时自动迁移 |
-| 数据目录 | `GONGGONG_DATA_DIR`：加密附件、基准分支镜像、客户端安装包、LiveKit 程序等 |
+| 数据目录 | `GONGGONG_DATA_DIR`：加密附件、托管产物、头像、强制同步文件、基准分支镜像、客户端安装包、LiveKit 程序等 |
 | LiveKit（可选） | 「实时画面」预览用的媒体服务。默认由 server 在第一次使用时自动启动一个本机 `livekit-server` 子进程，也可以接入外部 LiveKit |
 | daemon | 运行在**成员机器**上，不部署在服务器，见 [命令行 gg](/cli/) 与 [桌面端](/desktop/) |
 
@@ -43,13 +43,14 @@ server 按**单实例**设计：浏览器实时推送、daemon 连接、预览�
 ```
 
 - Nginx 负责 HTTPS、托管网页静态文件，并把 `/api`、`/ws`、`/livekit`、`/downloads` 反向代理给 server。
-- 成员机器上的 daemon 通过同一个域名连 server：`/api/daemon/*`、`/ws/daemon`（主连接）、`/ws/daemon/tunnel`（预览隧道）、`/downloads/*`（自动升级）。
+- 成员机器上的 daemon 通过同一个域名连 server：`/api/daemon/*`、`/ws/daemon`（主连接）、`/ws/daemon/tunnel`（预览隧道）、`/downloads/*`（安装与自动升级）。
+- 成员机器和服务器不在同一台机器上时，daemon 只能通过 `https://` 连接，并会校验证书，见 [HTTPS 与证书](/deploy/https)。
 - 需要让团队外的人访问 Bot 做出的网页预览时，再配置独立的预览泛域名。
 
 具体配置见 [反向代理与预览域名](/deploy/reverse-proxy)。
 
 ::: tip 局域网试用
-只在局域网里试用，可以不装 Nginx：用 `pnpm dev:server` + `pnpm dev:web` 启动，网页开发服务器会代理 `/api`、`/ws`、`/livekit` 到 server，局域网成员即可接入；想加密传输再配上自签证书，见 [HTTPS 与证书](/deploy/https#生成自签证书) 和 [快速上手](/guide/quick-start)。
+只在局域网里试用，可以不装 Nginx：用 `pnpm dev:server` + `pnpm dev:web` 启动，网页开发服务器会代理 `/api`、`/ws`、`/livekit` 到 server。daemon 只允许用 `http://` 连接本机服务器，其他成员机器要接入，必须配上自签证书并用证书指纹绑定，见 [HTTPS 与证书](/deploy/https#方案二-局域网自签证书)。也可以直接用 [Docker 部署](/deploy/docker)。
 :::
 
 ## 软件要求

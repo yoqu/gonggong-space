@@ -10,7 +10,7 @@ SERVER_PORT=8795
 WEB_PORT=5195
 export GG_DOCS_ADMIN_PASSWORD="${GG_DOCS_ADMIN_PASSWORD:-xinghe-init-2026}"
 # The demo repo is shown under a plausible remote URL; git rewrites it to the local bare repo everywhere.
-export GG_DOCS_REPO_URL="https://git.xinghe.dev/xinghe/todo-app.git"
+export GG_DOCS_REPO_URL="https://git.example.com/xinghe/todo-app.git"
 
 rm -rf "$DOCS_DIR" && mkdir -p "$DOCS_DIR/logs"
 export GIT_CONFIG_COUNT=1

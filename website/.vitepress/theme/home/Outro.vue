@@ -5,11 +5,7 @@ import Mascot from './Mascot.vue'
 import { vReveal } from './motion'
 
 const { t, link } = useCopy()
-const STEPS = computed(() => [
-  { who: t.value.outro.admin, cmd: 'pnpm install && pnpm db:up && pnpm dev:server' },
-  { who: t.value.outro.member, cmd: 'gg login --server https://gg.example.com --code K7QM-4X2P' },
-  { who: t.value.outro.member, cmd: 'gg run' },
-])
+const STEPS = computed(() => t.value.outro.steps.map(([who, cmd]) => ({ who: t.value.outro[who], cmd })))
 </script>
 
 <template>
@@ -137,8 +133,8 @@ const STEPS = computed(() => [
   color: #8fa3be;
 }
 .steps code {
-  overflow-x: auto;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font: 13.5px/1.7 var(--mono);
   color: #e9e6de;
   background: none;

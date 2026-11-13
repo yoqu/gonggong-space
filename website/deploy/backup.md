@@ -9,8 +9,15 @@
 | PostgreSQL 数据库 | `GONGGONG_DATABASE_URL` | 是，`pg_dump` 自定义格式 |
 | 附件 | `$GONGGONG_DATA_DIR/attachments/` | 是，打成 tar.gz |
 | 数据加密密钥 | `GONGGONG_DATA_KEY` | **否**，需单独妥善保管 |
+| 托管产物（原型、画布等的文件） | `$GONGGONG_DATA_DIR/artifacts/` | **否**，需要时自行备份 |
+| 上传的头像 | `$GONGGONG_DATA_DIR/avatars/` | **否**，需要时自行备份 |
+| 强制同步的文件内容 | `$GONGGONG_DATA_DIR/sync/` | **否**，需要时自行备份 |
 | 基准分支镜像 | `$GONGGONG_DATA_DIR/mirrors/` | 否，丢失后会从仓库重新拉取 |
 | 客户端安装包 | `$GONGGONG_DATA_DIR/downloads/` | 否，可重新上传 |
+
+::: tip 数据目录的其他内容
+`backup.sh` 只打包 `attachments/`。团队用到 [产物](/user/artifacts) 或强制同步时，建议把 `artifacts/`、`avatars/`、`sync/` 也纳入你们自己的文件备份（如定期 `rsync` 到备份盘），它们同样用 `GONGGONG_DATA_KEY` 加密。
+:::
 
 ::: danger 密钥与备份分开保存
 附件、diff 和运行过程是用 `GONGGONG_DATA_KEY` 加密的。没有密钥，备份里的这部分数据无法解密；而密钥和备份放在一起，拿到备份的人就能解密全部。请把密钥单独保存在密钥管理或离线介质中。
@@ -56,6 +63,10 @@ attachments-20260923-033000.tar.gz
 
 ::: tip
 备份目录最好在另一块磁盘，并定期同步到异地。同时请确认备份目录的访问权限，备份中的消息正文、运行卡片等是明文。
+:::
+
+::: details 用 Docker Compose 部署时
+`backup.sh` 需要能直接访问数据库和数据目录，而 compose 部署的数据库端口不对外发布、数据在 Docker 卷里。可以用 `docker compose exec -T db pg_dump -U gonggong --format=custom gonggong > gonggong-<时间戳>.dump` 导出数据库，并备份 `data` 卷；`data` 卷里的 `data.key` 是加密密钥，同样要与备份分开保存。
 :::
 
 ## 恢复

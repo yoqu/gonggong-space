@@ -6,12 +6,12 @@ import { vReveal } from './motion'
 
 const { t, link } = useCopy()
 const PAGES: [icon: string, path: string][] = [
+  [ICONS.laptop, '/user/bind-machine'],
   [ICONS.chat, '/user/chat'],
-  [ICONS.laptop, '/guide/architecture'],
-  [ICONS.eye, '/user/runs'],
+  [ICONS.eye, '/user/git'],
   [ICONS.seal, '/user/approvals'],
-  [ICONS.preview, '/user/previews'],
-  [ICONS.compass, '/admin/'],
+  [ICONS.preview, '/user/artifacts'],
+  [ICONS.compass, '/user/market-plugins'],
 ]
 const FEATURES = computed(() =>
   t.value.features.items.map(([title, body], i) => ({ title, body, icon: PAGES[i][0], link: PAGES[i][1] })),

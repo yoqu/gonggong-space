@@ -22,11 +22,12 @@ const SERVER = 'http://127.0.0.1:8795'
 const OUT = join(ROOT, 'website/public/screenshots/web')
 const GG = join(ROOT, 'target/debug/gg')
 const MOCK = `node ${join(ROOT, 'tools/mock-agent/agent.js')}`
-const REPO_URL = process.env.GG_DOCS_REPO_URL ?? 'https://git.xinghe.dev/xinghe/todo-app.git'
+const REPO_URL = process.env.GG_DOCS_REPO_URL ?? 'https://git.example.com/xinghe/todo-app.git'
 const ADMIN_INIT = process.env.GG_DOCS_ADMIN_PASSWORD
 const PASS = 'Xinghe@2026'
 const COMPOSER = '输入消息，@ 触发 Bot 或引用文件，/ 查看命令'
-const PUBLIC_SERVER = 'https://gg.xinghe.dev'
+const PUBLIC_SERVER = 'https://gg.example.com'
+const CODEX_AUTH = join(homedir(), '.codex', 'auth.json')
 const isMain = process.argv[1] === import.meta.filename
 const ONLY = new Set(isMain ? process.argv.slice(2) : (process.env.SHOTS_ONLY?.split(',') ?? []))
 
@@ -131,8 +132,7 @@ function startDaemon(name, code, extraEnv = {}) {
   const codexHome = join(home, 'codex')
   mkdirSync(codexHome, { recursive: true })
   // Codex reuses only the login; the developer's config.toml may pin something else.
-  const auth = join(homedir(), '.codex', 'auth.json')
-  if (existsSync(auth)) copyFileSync(auth, join(codexHome, 'auth.json'))
+  if (existsSync(CODEX_AUTH)) copyFileSync(CODEX_AUTH, join(codexHome, 'auth.json'))
   const env = {
     ...process.env,
     GONGGONG_HOME: home,
@@ -142,7 +142,7 @@ function startDaemon(name, code, extraEnv = {}) {
     CODEX_HOME: codexHome,
     ...extraEnv,
   }
-  execFileSync(GG, ['login', '--server', SERVER, '--code', code], { env, stdio: 'ignore' })
+  if (code) execFileSync(GG, ['login', '--server', SERVER, '--code', code], { env, stdio: 'ignore' })
   const run = () => {
     const out = openSync(join(DOCS, 'logs', `gg-${name}.log`), 'a')
     const proc = spawn(GG, ['run'], { env, stdio: ['ignore', out, out] })
@@ -164,6 +164,9 @@ process.on('exit', () => {
 })
 process.on('SIGINT', () => process.exit(130))
 process.on('SIGTERM', () => process.exit(143))
+
+const daemonEnv = (u) =>
+  u.key === 'chenchen' ? { GONGGONG_ADAPTER_CMD: MOCK, HOME: fakeHome('chenchen') } : {}
 
 /** 陈晨's machine runs the mock agent, so it can browse a made-up home instead of this host's. */
 function fakeHome(user) {
@@ -222,11 +225,7 @@ async function setupMachines(A) {
   S.machines = {}
   for (const u of USERS) {
     const { code } = await A[u.key]('POST', '/api/bind-codes')
-    const d = startDaemon(
-      u.machine,
-      code,
-      u.key === 'chenchen' ? { GONGGONG_ADAPTER_CMD: MOCK, HOME: fakeHome('chenchen') } : {},
-    )
+    const d = startDaemon(u.machine, code, daemonEnv(u))
     const m = await until(`${u.machine} online`, async () => {
       const [m] = await A[u.key]('GET', '/api/machines')
       return m?.online && m.agents?.length ? m : null
@@ -284,16 +283,21 @@ async function setupBots(A) {
   save()
 }
 
-/** Repo groups clone on their own; repo-less ones need the managed workspace bound once the machine is online. */
-async function bindAll(api, groupId, botIds) {
+/**
+ * Bots joining a repo group wait for their owner to pick a managed or local clone, and repo-less ones need the managed
+ * workspace bound once the machine is online: each owner picks the managed one.
+ */
+async function bindAll(A, groupId, botIds) {
+  // 设计助手 (sceneCreation) is 陈晨's.
+  const ownerApi = (id) => A[BOTS.find((b) => S.bots[b.key] === id)?.owner ?? 'chenchen']
   await until(
     'bots ready',
     async () => {
-      const states = await api('GET', `/api/groups/${groupId}/bot-states`)
+      const states = await A.wanglei('GET', `/api/groups/${groupId}/bot-states`)
       const pending = botIds.filter((id) => states.find((s) => s.botId === id)?.state !== 'ready')
       for (const id of pending)
-        if (states.find((s) => s.botId === id)?.state === 'unbound')
-          await api.ctx.put(`/api/groups/${groupId}/bots/${id}/workspace`, { data: { path: null } })
+        if (['unbound', 'confirm'].includes(states.find((s) => s.botId === id)?.state))
+          await ownerApi(id).ctx.put(`/api/groups/${groupId}/bots/${id}/workspace`, { data: { path: null } })
       return !pending.length
     },
     180_000,
@@ -316,13 +320,17 @@ async function setupGroups(A) {
   }
   S.dm = (await w('POST', '/api/groups', { name: '前端小助手', kind: 'dm', botIds: [S.bots.fe] })).id
   save()
+}
+
+async function populateGroups(A) {
+  const w = A.wanglei
   await w('PATCH', `/api/groups/${S.groups.dev}`, {
     notice: '本周目标：周五前完成待办筛选与 README 更新；合并前请 @测试助手 过一遍。',
   })
-  await bindAll(w, S.groups.dev, [S.bots.fe, S.bots.be, S.bots.qa])
-  await bindAll(w, S.groups.release, [S.bots.qa])
-  await bindAll(w, S.groups.product, [S.bots.fe])
-  await bindAll(w, S.dm, [S.bots.fe])
+  await bindAll(A, S.groups.dev, [S.bots.fe, S.bots.be, S.bots.qa])
+  await bindAll(A, S.groups.release, [S.bots.qa])
+  await bindAll(A, S.groups.product, [S.bots.fe])
+  await bindAll(A, S.dm, [S.bots.fe])
   await say(A.lina, S.groups.weekly, '本周周报请周五 18:00 前发到群里～')
   await say(A.wanglei, S.groups.weekly, '收到，我这边会附上 todo-app 的进展。')
   await say(A.lina, S.groups.site, '官网首页的新版设计稿已经上传到设计库了，下周开工。')
@@ -330,6 +338,8 @@ async function setupGroups(A) {
   await say(A.chenchen, S.groups.product, '建议放在列表上方，和计数放一起，切换后记住上次的选择。')
   await say(A.lina, S.groups.dev, '早～今天先把待办筛选做了吧，交互已经和产品确认：列表上方一个切换按钮。')
   await say(A.chenchen, S.groups.dev, '好的，做完我来补一轮回归测试。')
+  S.groupsReady = true
+  save()
 }
 
 // ── Browser ─────────────────────────────────────────────────────────────────
@@ -374,7 +384,9 @@ async function scrub(page, extra = []) {
     [DOCS, '/Users/wanglei/gonggong'],
     [HOST, 'wanglei-mbp'],
     [`/Users/${USER}`, '/Users/wanglei'],
-    [USER, 'wanglei'],
+    [`/home/${USER}`, '/Users/wanglei'],
+    // A short login name (say "gg") would also hit ordinary words such as ".gonggong".
+    ...(USER.length >= 4 ? [[USER, 'wanglei']] : []),
   ]
   await page.evaluate((pairs) => {
     const fix = (s) => pairs.reduce((acc, [a, b]) => acc.split(a).join(b), s)
@@ -423,8 +435,10 @@ async function shot(page, name, target, { pad = 16, extra = [], wait = 700, blur
     clip = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
   }
   await page.screenshot({ path: join(OUT, `${name}.png`), clip, animations: 'disabled' })
+  shots.add(name)
   log('shot', name)
 }
+const shots = new Set()
 
 const composer = (page) => page.getByPlaceholder(COMPOSER)
 const composerBox = (page) => page.locator('.composer').last()
@@ -451,13 +465,13 @@ async function sceneFirstLogin() {
   await shot(page, 'login')
   await page.getByLabel('密码').fill(S.users.wanglei.init)
   await page.getByRole('button', { name: '登录' }).click()
-  await page.getByLabel('初始密码').fill(S.users.wanglei.init)
+  // The login page hands the initial password over, so only the new one is asked for.
   await page.getByLabel('新密码', { exact: true }).fill(PASS)
   await page.getByLabel('确认新密码').fill(PASS)
   await page.getByLabel('确认新密码').blur()
   await shot(page, 'change-password')
   await page.getByRole('button', { name: '修改密码' }).click()
-  await page.getByLabel('初始密码').waitFor({ state: 'hidden' })
+  await page.getByLabel('确认新密码').waitFor({ state: 'hidden' })
   S.users.wanglei.changed = true
   save()
   await settle(page, 1500)
@@ -555,13 +569,16 @@ async function sceneRealRuns(A) {
     G,
     '@前端小助手 用 PORT=4380 npm run dev 把 todo-app 跑起来，然后发布一个预览给大家看看效果。',
   )
-  const m3 = await say(
-    A.lina,
-    G,
-    '@后端助手 看一下 server.js 有没有路径穿越之类的安全问题？先别改代码，简单说结论。',
-  )
+  // Without a Codex login on this host the review would only show a failed run.
+  const m3 = existsSync(CODEX_AUTH)
+    ? await say(
+        A.lina,
+        G,
+        '@后端助手 看一下 server.js 有没有路径穿越之类的安全问题？先别改代码，简单说结论。',
+      )
+    : null
   await runOf(w, G, m2.id, S.bots.fe)
-  await runOf(w, G, m3.id, S.bots.be).catch((e) => log('codex review:', e.message))
+  if (m3) await runOf(w, G, m3.id, S.bots.be).catch((e) => log('codex review:', e.message))
 
   // R3: back to 工作区写入, so committing needs the owner's approval.
   await w('PATCH', `/api/bots/${S.bots.fe}`, { tier: 'workspace' })
@@ -654,6 +671,23 @@ async function sceneMock(A) {
   })
   await shot(page, 'interrupt-choice', page.getByTestId('run-card').filter({ hasText: '保留改动' }).last())
 
+  // Claude may commit without asking; the mock agent asks for a command so the approval card always shows.
+  if (!shots.has('approval')) {
+    await w('PATCH', `/api/bots/${S.bots.qa}`, { tier: 'workspace' })
+    const m0 = await say(w, G, '@测试助手 mock:exec npm publish --tag next')
+    await runOf(w, G, m0.id, S.bots.qa, ['awaiting_approval', ...TERMINAL])
+    // Only the bot's owner may decide.
+    const owner = await newPage(A.chenchen)
+    await openGroup(owner, G)
+    const approve = owner.getByRole('main').getByRole('button', { name: '批准', exact: true }).last()
+    if (await approve.isVisible().catch(() => false)) {
+      await shot(owner, 'approval', runCard(owner), { blur: true })
+      await approve.click()
+    }
+    await runOf(w, G, m0.id, S.bots.qa)
+    await owner.context().close()
+  }
+
   const questions = [
     {
       type: 'multi',
@@ -675,6 +709,118 @@ async function sceneMock(A) {
   await runOf(w, G, m2.id, S.bots.qa)
   await say(A.chenchen, G, '回归清单我整理好了，发版前按清单过一遍，有问题直接在这里说。')
   await page.context().close()
+}
+
+// ── Scenes: data for the 2026-11 pages ──────────────────────────────────────
+const msgId = async (api, groupId, prefix) =>
+  (await timeline(api, groupId)).messages.find((m) => m.body?.startsWith(prefix))?.id
+
+/** A thread with a real run, a web search, a video and a prototype. */
+async function sceneExtraRuns(A) {
+  const w = A.wanglei
+  const G = S.groups.dev
+  await w('PATCH', `/api/bots/${S.bots.fe}`, { tier: 'full' })
+
+  // A thread under 李娜's first message, with a real run in it.
+  const root = await msgId(w, G, '早～今天先把待办筛选做了吧')
+  await say(A.chenchen, G, '筛选状态要不要也同步到 URL 上？这样分享链接时能带着筛选。', {
+    threadRootId: root,
+  })
+  await say(
+    w,
+    G,
+    '@前端小助手 简单评估一下：把筛选状态同步到 URL query 要改哪些地方？两三句话说明即可，先别改代码。',
+    { threadRootId: root },
+  )
+  await until(
+    'thread reply',
+    async () => JSON.stringify(await w('GET', `/api/messages/${root}/thread`)).includes('"kind":"bot"'),
+    300_000,
+    2000,
+  ).catch((e) => log('thread run:', e.message))
+  await say(A.lina, G, '可以，那就下个版本一起做。', { threadRootId: root, alsoSent: true })
+
+  // A real web search in 产品需求讨论.
+  const P = S.groups.product
+  const ws = await say(
+    w,
+    P,
+    '@前端小助手 联网搜一下 Safari 无痕模式下 localStorage 有什么限制，两三句话总结，附上来源链接。',
+  )
+  S.webSearch = (await runOf(w, P, ws.id, S.bots.fe).catch(() => null))?.id
+  await w('PATCH', `/api/bots/${S.bots.fe}`, { tier: 'workspace' })
+
+  // A screen recording in 官网改版, played by the chat's video player.
+  const video = readFileSync(join(ROOT, 'apps/web/src/assets/demo/a1-light.mp4'))
+  const up = await (
+    await A.lina.ctx.post('/api/uploads', {
+      multipart: {
+        groupId: S.groups.site,
+        file: { name: '首页引导动效-录屏.mp4', mimeType: 'video/mp4', buffer: video },
+      },
+    })
+  ).json()
+  await say(A.lina, S.groups.site, '首页「一句话接入」的引导动效录好了，大家看看节奏合不合适。', {
+    attachmentIds: [up.id],
+  })
+
+  await sceneCreation(A).catch((e) => log('creation:', e.message))
+}
+
+/** 陈晨's 设计助手 (the mock agent) turns a creation request into the todo-app mini-program prototype. */
+async function sceneCreation(A) {
+  const w = A.wanglei
+  await w('PUT', '/api/admin/params', { pluginsEnabled: true })
+  const plugin = (await w('GET', '/api/admin/plugins')).find(
+    (p) => p.builtin && p.manifest.name === 'web-prototype',
+  )
+  const c = A.chenchen
+  const bot = await c('POST', '/api/bots', {
+    name: '设计助手',
+    ownerId: S.users.chenchen.id,
+    agentKind: 'claude',
+    machineId: S.machines.chenchen,
+    systemPrompt: '你负责产品原型与视觉稿。',
+    avatar: 'role-palette',
+  }).catch(() =>
+    c('POST', '/api/bots', {
+      name: '设计助手',
+      ownerId: S.users.chenchen.id,
+      agentKind: 'claude',
+      machineId: S.machines.chenchen,
+      systemPrompt: '你负责产品原型与视觉稿。',
+    }),
+  )
+  S.bots.design = bot.id
+  const g = await c('POST', '/api/groups', {
+    name: '移动端原型',
+    kind: 'group',
+    memberIds: [S.users.wanglei.id, S.users.lina.id],
+    botIds: [bot.id],
+    repo: null,
+  })
+  S.groups.proto = g.id
+  save()
+  await bindAll(A, g.id, [bot.id]).catch(() => {})
+  await c('PUT', `/api/groups/${g.id}/plugins/${plugin.id}`, { enabled: true })
+  await c('POST', `/api/groups/${g.id}/creations`, {
+    pluginId: plugin.id,
+    templateId: 'app-screens',
+    designSystemId: 'glacier',
+    inputs: {
+      prompt: `待办清单小程序：列表页带「只看未完成」切换，新建待办页，完成统计页\nmock:sh sh ${join(ROOT, 'website/scripts/shots-artifact.sh')} <<'EOF'`,
+    },
+    directions: false,
+    botId: bot.id,
+  })
+  await until(
+    'artifact',
+    async () => (await c('GET', `/api/groups/${g.id}/artifacts`))[0]?.headVersion,
+    180_000,
+    2000,
+  ).catch(() => {})
+  await say(A.lina, g.id, '原型看着挺清楚，统计页的柱状图能不能按周和按月切换？')
+  await say(w, g.id, '我在画布上加了两条批注，大家有空看一下。')
 }
 
 // ── Scenes: capture ─────────────────────────────────────────────────────────
@@ -738,7 +884,7 @@ async function sceneChat(A) {
 
   // Interface overview: group info side panel next to the conversation.
   await reopen()
-  await page.getByRole('button', { name: '群设置' }).click()
+  await page.getByRole('button', { name: '群设置', exact: true }).first().click()
   await sleep(1000)
   await shot(page, 'interface')
   await shot(page, 'group-info', page.getByRole('complementary', { name: '侧栏' }), { pad: 0 })
@@ -780,7 +926,10 @@ async function sceneChat(A) {
   await shot(page, 'diff-pane')
 
   await reopen()
-  await page.getByRole('button', { name: '浏览 前端小助手 的文件' }).click()
+  await page.getByRole('button', { name: '工作台', exact: true }).first().click()
+  await sleep(800)
+  await page.getByRole('button', { name: '新建标签页' }).first().click()
+  await page.getByRole('menuitem', { name: '前端小助手' }).first().click()
   await sleep(1500)
   const aside = page.locator('section[aria-label="工作台"]')
   await aside.getByText('public', { exact: true }).first().click()
@@ -816,6 +965,239 @@ async function sceneChat(A) {
   await dark.context().close()
 }
 
+/** Knowledge, secrets and schedules of todo-app 开发群; after the chat shots, whose timeline their cards would fill. */
+async function seedGroupData(A) {
+  const w = A.wanglei
+  const G = S.groups.dev
+  const kb = [
+    [
+      w,
+      '发布流程',
+      '1. 合并前 @测试助手 跑一遍回归清单\n2. 打 tag：`vX.Y.Z`\n3. 在群里发更新说明',
+      ['发布', '流程'],
+      true,
+    ],
+    [
+      A.lina,
+      '接口约定',
+      '- 所有接口返回 JSON\n- 错误统一 `{ error: { code, message } }`\n- 分页参数 `page` / `size`',
+      ['后端'],
+      false,
+    ],
+    [
+      A.chenchen,
+      '回归测试清单',
+      '勾选 / 取消勾选、删除、「只看未完成」切换后刷新保留、筛选状态下新增。Chrome / Safari / Firefox 各一遍。',
+      ['测试'],
+      false,
+    ],
+    [
+      w,
+      '代码风格',
+      '前端不引入框架，保持原生 JS；样式写在 public/style.css；提交信息用中文。',
+      ['前端', '规范'],
+      false,
+    ],
+  ]
+  for (const [api, title, body, tags, pinned] of kb)
+    await api('POST', `/api/groups/${G}/knowledge`, { title, body, tags, ...(pinned ? { pinned } : {}) })
+  for (const sec of [
+    { name: 'NPM_TOKEN', description: '发布 npm 包用', mode: 'shared', value: 'npm_xinghe_demo_token_0001' },
+    {
+      name: 'SENTRY_DSN',
+      description: '错误上报地址，可用自己的项目覆盖',
+      mode: 'shared_overridable',
+      value: 'https://demo@sentry.example.com/12',
+    },
+    { name: 'GITHUB_TOKEN', description: '每人填自己的令牌，用于创建合并请求', mode: 'personal' },
+  ])
+    await w('POST', `/api/groups/${G}/secrets`, sec)
+  for (const sc of [
+    {
+      name: '每日 PR 汇总',
+      prompt: '汇总昨天合并到 main 的提交和未关闭的分支，按人列出，发到群里。',
+      botIds: [S.bots.fe],
+      cron: '0 9 * * 1-5',
+    },
+    {
+      name: '周五发版检查',
+      prompt: '按知识库里的「回归测试清单」检查 main 分支，发现问题直接在群里 @ 相关同学。',
+      botIds: [S.bots.qa, S.bots.fe],
+      cron: '0 16 * * 5',
+    },
+    {
+      name: '依赖安全巡检',
+      prompt: '检查 package.json 依赖有没有已知漏洞，有就列出升级建议。',
+      botIds: [S.bots.be],
+      cron: '30 10 1 * *',
+    },
+  ])
+    await w('POST', `/api/groups/${G}/schedules`, { ...sc, timezone: 'Asia/Shanghai' })
+
+  S.seeded = true
+  save()
+}
+
+/** The 2026-11 pages: threads, schedules, knowledge, secrets, Git, runs, video, plugins, market, artifacts. */
+async function sceneFeatures(A) {
+  const w = A.wanglei
+  const G = S.groups.dev
+  if (!S.seeded) await seedGroupData(A)
+  let page = await newPage(w)
+  const fresh = async (groupId = G) => {
+    await page.context().close()
+    page = await newPage(w)
+    await openGroup(page, groupId)
+  }
+  const panel = () => page.getByRole('complementary').last()
+
+  await step('thread', async () => {
+    await fresh()
+    await page
+      .getByRole('main')
+      .getByText(/条回复/)
+      .first()
+      .click()
+    await sleep(2500)
+    await shot(page, 'thread')
+  })
+
+  await step('schedules', async () => {
+    await fresh()
+    await page.getByRole('button', { name: '群设置', exact: true }).first().click()
+    await page.getByText('定时任务', { exact: true }).first().click()
+    await sleep(1200)
+    const item = panel()
+      .locator('li, [role="listitem"], div')
+      .filter({ hasText: /^周五发版检查/ })
+      .last()
+    await item.getByRole('button', { name: '编辑' }).first().click()
+    await sleep(1500)
+    await shot(page, 'schedules', undefined, { blur: true })
+  })
+
+  await step('knowledge', async () => {
+    await fresh()
+    await page.getByRole('button', { name: '群设置', exact: true }).first().click()
+    await page.getByText('知识库', { exact: true }).first().click()
+    await sleep(1500)
+    await shot(page, 'knowledge')
+  })
+
+  await step('secrets', async () => {
+    await fresh()
+    await page.getByRole('button', { name: '群设置', exact: true }).first().click()
+    await page.getByText('密钥', { exact: true }).first().click()
+    await sleep(1500)
+    await shot(page, 'secrets')
+  })
+
+  await step('git-panel', async () => {
+    const fe = (await w('GET', `/api/groups/${G}/bot-states`)).find((s) => s.botId === S.bots.fe)
+    appendFileSync(
+      `${fe.path}/public/style.css`,
+      '\n.filter-toggle.is-active {\n  background: #2f6fed;\n  color: #fff;\n}\n',
+    )
+    appendFileSync(`${fe.path}/README.md`, '\n- 筛选状态会同步到地址栏，分享链接时保留\n')
+    await fresh()
+    await page.getByRole('button', { name: '打开 前端小助手 的 Git' }).click()
+    await sleep(3000)
+    await page.locator('section[aria-label="工作台"]').getByText('style.css', { exact: true }).first().click()
+    await sleep(2000)
+    await shot(page, 'git-panel')
+  })
+
+  await step('run-context', async () => {
+    await fresh()
+    const r1 = page.getByTestId('bot-reply').filter({ hasText: '只看未完成' }).first()
+    await r1.scrollIntoViewIfNeeded()
+    await r1.getByRole('button', { name: '查看过程' }).click()
+    await sleep(1500)
+    const bench = page.locator('section[aria-label="工作台"]')
+    await bench.getByText('上下文', { exact: true }).first().click()
+    await sleep(1500)
+    await shot(page, 'run-context')
+  })
+
+  await step('web-search', async () => {
+    await fresh(S.groups.product)
+    await page.getByRole('main').getByText('查看过程').last().click()
+    await sleep(2000)
+    const bench = page.locator('section[aria-label="工作台"]')
+    // Folded twice: the turn's work, then its tool calls.
+    await bench
+      .getByText(/^已工作/)
+      .first()
+      .click()
+    await sleep(800)
+    await bench
+      .getByText(/^调用了工具/)
+      .first()
+      .click()
+    await sleep(1000)
+    const row = bench.getByText(/已搜索 \d+ 个网站|已访问 \d+ 个网页/).first()
+    await row.click()
+    await sleep(1200)
+    await shot(page, 'web-search')
+  })
+
+  await step('video-player', async () => {
+    await fresh(S.groups.site)
+    const video = page.getByRole('main').locator('video').last()
+    await video.scrollIntoViewIfNeeded()
+    const box = page.getByRole('main').getByRole('button', { name: /播放/ }).last()
+    await box.click()
+    await sleep(2200)
+    await video.evaluate((v) => v.pause())
+    const vb = await video.boundingBox()
+    await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2)
+    await sleep(600)
+    const msg = video.locator('xpath=ancestor::*[contains(concat(" ",@class," ")," pn-msg ")][1]')
+    await page.addStyleTag({ content: CSS })
+    await scrub(page)
+    const b = await msg.boundingBox()
+    if (want('video-player')) {
+      await page.screenshot({
+        path: join(OUT, 'video-player.png'),
+        clip: { x: b.x - 12, y: b.y - 12, width: b.width + 24, height: b.height + 24 },
+      })
+      shots.add('video-player')
+      log('shot', 'video-player')
+    }
+  })
+
+  await step('plugins', async () => {
+    await fresh(S.groups.proto)
+    await page.getByRole('button', { name: '群设置', exact: true }).first().click()
+    await page.getByRole('complementary').getByText('Skill', { exact: true }).first().click()
+    const dlg = page.getByRole('dialog').last()
+    await dlg.getByText('插件', { exact: true }).first().click()
+    await sleep(1500)
+    await shot(page, 'plugins')
+  })
+
+  await step('artifact-canvas', async () => {
+    await fresh(S.groups.proto)
+    await page.getByTestId('artifact-card').last().getByRole('button', { name: '打开' }).click()
+    await page.getByTestId('art-node-home').waitFor({ timeout: 30_000 })
+    await sleep(5000)
+    await shot(page, 'artifact-canvas', undefined, { wait: 1500 })
+  })
+
+  await step('works', async () => {
+    await page.goto('/works')
+    await settle(page, 3000)
+    await shot(page, 'works')
+  })
+
+  await step('market', async () => {
+    await page.goto('/market')
+    await settle(page, 2500)
+    await shot(page, 'market')
+  })
+  await page.context().close()
+}
+
 async function sceneAccount(A) {
   const w = A.wanglei
   const page = await newPage(w)
@@ -826,57 +1208,94 @@ async function sceneAccount(A) {
   await shot(page, 'account-menu', [menu, page.getByRole('button', { name: '账户菜单' })], { pad: 8 })
   await page.getByRole('menuitem', { name: '绑定新机器' }).click()
   const bind = page.getByRole('dialog')
-  await bind.getByText('使用命令行').click()
-  await sleep(600)
-  await shot(page, 'bind-machine')
+  await bind.getByText('发给你的 Agent', { exact: true }).waitFor()
+  await sleep(2500)
+  await shot(page, 'bind-agent', undefined, { blur: true })
+  await step('bind-machine', async () => {
+    await bind.getByText('其他方式', { exact: true }).click()
+    await bind.getByText('使用命令行', { exact: true }).click()
+    await sleep(600)
+    await bind.getByText('没有安装客户端时，在机器的终端里执行。').scrollIntoViewIfNeeded()
+    await shot(page, 'bind-machine', undefined, { blur: true })
+  })
   await close(page)
 
-  await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByRole('menuitem', { name: '我的用量' }).click()
-  await sleep(1500)
-  await shot(page, 'my-bots')
-  await close(page)
+  await step('my-bots', async () => {
+    await page.getByRole('button', { name: '账户菜单' }).click()
+    await page.getByRole('menuitem', { name: '我的用量' }).click()
+    await sleep(1500)
+    await shot(page, 'my-bots')
+    await close(page)
+  })
 
   for (const [tab, name] of [
     ['外观', 'settings-appearance'],
     ['Git 与仓库', 'settings-git'],
     ['账户', 'settings-account'],
-  ]) {
-    await page.getByRole('button', { name: '账户菜单' }).click()
-    await page.getByRole('menuitem', { name: '设置…' }).click()
-    const dlg = page.getByRole('dialog')
-    await dlg.getByText(tab, { exact: true }).first().click()
-    await sleep(800)
-    await shot(page, name, dlg, { pad: 0 })
-    await close(page)
-  }
+  ])
+    await step(name, async () => {
+      await page.getByRole('button', { name: '账户菜单' }).click()
+      await page.getByRole('menuitem', { name: '设置…' }).click()
+      const dlg = page.getByRole('dialog')
+      await dlg.getByText(tab, { exact: true }).first().click()
+      await sleep(800)
+      await shot(page, name, dlg, { pad: 0 })
+      await close(page)
+    })
+  await page.context().close()
+  await sceneMachines(A)
+}
 
-  // Machine details.
-  await page.locator('section[aria-label="我的机器"]').getByText('wanglei-mbp').click()
-  const md = page.getByRole('dialog')
-  await md.waitFor()
-  await sleep(800)
-  await md
-    .getByRole('textbox')
-    .first()
-    .evaluate((el) => el.blur())
+/** 机器与 Bot: the tree, a machine's tabs, a provider, the workspaces it holds and a terminal on it. */
+async function sceneMachines(A) {
+  const w = A.wanglei
+  const page = await newPage(w)
+  await page.goto('/machines')
+  await settle(page, 1500)
+  await shot(page, 'machines')
+
+  const M = S.machines.wanglei
+  await page.goto(`/machine/${M}`)
+  await settle(page, 1500)
   await shot(page, 'machine-dialog')
-  await md.getByText('Agent 工具', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Agent 与供应商' }).click()
   await sleep(2500)
   await shot(page, 'machine-tools')
-  await md.getByText('供应商', { exact: true }).click()
-  await sleep(1500)
-  await shot(page, 'machine-providers')
-  await md.getByRole('button', { name: '新增…' }).first().click()
-  const editor = page.getByRole('dialog').last()
-  await editor.getByText('自定义', { exact: true }).click()
-  await editor.getByLabel('名称').fill('星河内网网关')
-  await editor.getByLabel('Base URL').fill('https://llm.xinghe.dev/anthropic')
-  await editor.getByLabel('API Key').fill('sk-xinghe-demo-7f3a9c')
-  await editor.getByLabel('API Key').evaluate((el) => el.blur())
-  await shot(page, 'provider-editor')
-  await close(page)
-  await close(page)
+  await step('providers', async () => {
+    const providers = page.locator('section.mx-section').filter({ hasText: '选中的是该机器默认' }).first()
+    await providers.scrollIntoViewIfNeeded()
+    await shot(page, 'machine-providers', providers, { pad: 12 })
+    await providers.getByRole('button', { name: '新增…' }).click()
+    const editor = page.getByRole('dialog').last()
+    await editor.getByText('自定义', { exact: true }).first().click()
+    await editor.getByLabel('名称').fill('星河内网网关')
+    await editor.getByLabel('Base URL').fill('https://llm.example.com/anthropic')
+    await editor.getByLabel('API Key').fill('sk-xinghe-demo-7f3a9c')
+    await editor.getByLabel('API Key').evaluate((el) => el.blur())
+    await shot(page, 'provider-editor')
+    await close(page)
+  })
+  await step('machine-storage', async () => {
+    await page.goto(`/machine/${M}`)
+    await settle(page, 1000)
+    await page.getByRole('tab', { name: '工作区' }).click()
+    await sleep(4000)
+    await shot(page, 'machine-storage')
+  })
+  await step('terminal', async () => {
+    const fe = (await w('GET', `/api/groups/${S.groups.dev}/bot-states`)).find((s) => s.botId === S.bots.fe)
+    const space = await w('POST', '/api/terminal-spaces', { machineId: M, cwd: fe.path, name: 'todo-app' })
+    await page.goto(`/t/${space.id}`)
+    await settle(page, 3000)
+    const term = page.locator('.xterm, [data-testid="terminal"]').first()
+    await term.click()
+    // The demo prompt instead of this host's user and name.
+    await page.keyboard.type("export PS1='wanglei@wanglei-mbp todo-app % '; clear\n", { delay: 5 })
+    await sleep(800)
+    await page.keyboard.type('git log --oneline -6 && git status -sb\n', { delay: 15 })
+    await sleep(2000)
+    await shot(page, 'terminal', undefined, { blur: true })
+  })
   await page.context().close()
 }
 
@@ -895,17 +1314,20 @@ async function sceneBots(A) {
   await dlg.waitFor()
   await sleep(800)
   await page.evaluate(() => document.activeElement?.blur())
-  const label = (text) => dlg.locator('.ui-form__label', { hasText: `${text}：` }).first()
-  const row = (text) => [label(text), label(text).locator('xpath=following-sibling::*[1]')]
-  await step('bot-agent-config', async () => {
-    await label('推理强度').scrollIntoViewIfNeeded({ timeout: 5000 })
-    await shot(page, 'bot-agent-config', [...row('供应商'), ...row('推理强度')], { pad: 8 })
-  })
-  await label('命令审批').scrollIntoViewIfNeeded()
-  await shot(page, 'bot-settings', [...row('触发范围'), ...row('命令审批')], { pad: 8 })
+  // The editor is tabbed now: 运行配置 holds model, effort and provider; 权限 the trigger scope and tier.
+  for (const [tab, name] of [
+    ['运行配置', 'bot-agent-config'],
+    ['权限', 'bot-settings'],
+  ])
+    await step(name, async () => {
+      await dlg.getByRole('tab', { name: tab }).click()
+      await sleep(1200)
+      await shot(page, name, dlg, { pad: 0, blur: true })
+    })
   await close(page)
 
-  await openGroup(page, S.groups.dev)
+  await page.goto('/machines')
+  await settle(page, 1200)
   await page.getByRole('button', { name: '新建 Bot' }).first().click()
   const nb = page.getByRole('dialog')
   await nb.waitFor()
@@ -921,44 +1343,44 @@ async function sceneBots(A) {
   await shot(page, 'new-bot')
   await close(page)
 
-  // New group: bots, then the repo address with each bot's access check.
-  await page.getByRole('button', { name: '新建群' }).click()
-  const ng = page.getByRole('dialog').first()
-  await ng.getByLabel('名称').fill('todo-app 性能优化')
-  for (const who of ['Claude Code · 王磊', 'Codex · 李娜']) {
-    await ng
-      .getByText(/添加 Bot/)
-      .first()
-      .click()
-    await page.getByText(who, { exact: true }).last().click()
-    await ng.getByText('新建群', { exact: true }).first().click()
-    await sleep(300)
-  }
-  await ng.getByRole('button', { name: '仓库' }).click()
-  await page.getByPlaceholder('搜索仓库，或粘贴地址').fill(REPO_URL)
-  await sleep(800)
-  await page.getByPlaceholder('搜索仓库，或粘贴地址').press('Enter')
-  await ng
-    .getByText(/可访问|无权限|检查/)
-    .first()
-    .waitFor()
-    .catch(() => {})
-  await sleep(4000)
-  await shot(page, 'new-group')
-  await ng.getByRole('button', { name: '仓库' }).click()
-  await sleep(2500)
-  await shot(page, 'repo-picker', [ng, page.getByPlaceholder('搜索仓库，或粘贴地址')], { pad: 0 })
-  await close(page)
-  await close(page)
+  await openGroup(page, S.groups.dev)
+  // 发起会话: bots, members, then the repo address with each bot's access check.
+  await step('new-group', async () => {
+    await page.getByRole('button', { name: '发起会话' }).first().click()
+    const ng = page.getByRole('dialog').first()
+    await ng.getByLabel('名称').fill('todo-app 性能优化')
+    for (const who of ['后端助手', '测试助手']) {
+      await ng.getByText('添加 Bot…').click()
+      await page
+        .getByRole('option', { name: new RegExp(who) })
+        .or(page.getByText(who, { exact: true }).last())
+        .first()
+        .click()
+      await page.keyboard.press('Escape')
+      await sleep(300)
+    }
+    await ng.getByRole('button', { name: '仓库' }).click()
+    await page.getByPlaceholder('搜索仓库，或粘贴地址').fill(REPO_URL)
+    await sleep(800)
+    await page.getByPlaceholder('搜索仓库，或粘贴地址').press('Enter')
+    await sleep(4000)
+    await shot(page, 'new-group')
+    await ng.getByRole('button', { name: '仓库' }).click()
+    await sleep(2500)
+    await shot(page, 'repo-picker', [ng, page.getByPlaceholder('搜索仓库，或粘贴地址')], { pad: 0 })
+    await close(page)
+    await close(page)
+  })
 
   await page.context().close()
 
-  // Workspace picker: 陈晨 binds 测试助手 in 官网改版.
+  // Workspace picker: 陈晨 changes 测试助手's workspace in the repo group 发版检查.
   const cc = await newPage(A.chenchen)
-  await openGroup(cc, S.groups.site)
-  await cc.getByRole('button', { name: '绑定工作区' }).first().click()
-  await sleep(1500)
-  await shot(cc, 'workspace-picker')
+  await openGroup(cc, S.groups.release)
+  await cc.getByRole('button', { name: '测试助手 的工作区' }).click()
+  await cc.getByText('更换工作区…').first().click()
+  await sleep(2000)
+  await shot(cc, 'workspace-picker', undefined, { blur: true })
   await cc.context().close()
 }
 
@@ -1018,8 +1440,11 @@ async function sceneAdmin(A) {
   await mcp.getByLabel('命令').fill('npx')
   await mcp.getByLabel('参数').fill('-y\nfigma-developer-mcp\n--stdio')
   await mcp.getByText('环境变量').click()
-  await mcp.getByLabel('环境变量').fill('FIGMA_API_KEY=figd_xxxxxxxx')
-  await mcp.getByLabel('环境变量').evaluate((el) => el.blur())
+  await mcp.getByRole('button', { name: '添加一项' }).click()
+  await mcp.getByLabel('第 1 项的名称').fill('FIGMA_API_KEY')
+  // Values only reference secrets now.
+  await mcp.getByLabel('第 1 项的值').fill(`\${secret:FIGMA_API_KEY}`)
+  await mcp.getByLabel('第 1 项的值').evaluate((el) => el.blur())
   await shot(page, 'admin-config-mcp')
   await close(page)
 
@@ -1071,8 +1496,11 @@ async function main() {
   }
   const A = await apis()
   if (!S.machines) await setupMachines(A)
+  // A rerun against a kept stack (state.json present): the machines are bound, only their daemons need starting.
+  else for (const u of USERS) startDaemon(u.machine, null, daemonEnv(u))
   if (!S.bots) await setupBots(A)
   if (!S.groups) await setupGroups(A)
+  if (!S.groupsReady) await populateGroups(A)
   log('setup done')
   if (!S.runsDone) {
     await step('real runs', () => sceneRealRuns(A))
@@ -1082,10 +1510,16 @@ async function main() {
     S.runsDone = true
     save()
   }
+  if (!S.extraDone) {
+    await step('extra runs', () => sceneExtraRuns(A))
+    S.extraDone = true
+    save()
+  }
   maskMachines()
   await step('register', () => sceneRegister(A))
   await step('chat', () => sceneChat(A))
   await step('account', () => sceneAccount(A))
+  await step('features', () => sceneFeatures(A))
   await step('bots', () => sceneBots(A))
   await step('admin', () => sceneAdmin(A))
   log('done')
@@ -1121,6 +1555,10 @@ export const lab = {
     sceneBots,
     sceneAdmin,
     sceneRegister,
+    sceneExtraRuns,
+    sceneCreation,
+    sceneFeatures,
+    sceneMachines,
   },
   setBrowser: (b) => {
     browser = b

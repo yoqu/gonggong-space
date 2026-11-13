@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, height=1080" />
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script src="assets/vendor/gsap.min.js"></script>
     <style>
+      @font-face { font-family: "Noto Sans CJK SC"; src: local("Noto Sans CJK SC"); font-weight: 400; }
+      @font-face { font-family: "Noto Sans CJK SC"; src: local("Noto Sans CJK SC Bold"); font-weight: 700 900; }
+      @font-face { font-family: "Noto Sans Mono CJK SC"; src: local("Noto Sans Mono CJK SC"); }
+      @font-face { font-family: "DejaVu Sans Mono"; src: local("DejaVu Sans Mono"); }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #eef1f6; }
       :root {
@@ -13,325 +17,432 @@
         --ink2: #6e6e73;
         --line: #e5e5ea;
         --bubble: #f2f3f5;
-        --seal: #d23b2a;
+        --green: #1f8f3f;
+        --orange: #c45f00;
+        --mono: "DejaVu Sans Mono", "Noto Sans Mono CJK SC", ui-monospace, monospace;
       }
       #root {
         width: 100%; height: 100%; position: relative; overflow: hidden;
-        font-family: system-ui, -apple-system, sans-serif; color: var(--ink);
+        font-family: "Noto Sans CJK SC", system-ui, -apple-system, sans-serif; color: var(--ink);
         background: #eef1f6;
       }
       .full { position: absolute; inset: 0; }
       img { display: block; }
 
       /* ---------- background ---------- */
-      #bg { background: linear-gradient(160deg, #f4f6fb 0%, #e8edf7 55%, #e6f1f1 100%); }
+      #bg { background: linear-gradient(160deg, #f4f6fb 0%, #e8edf7 55%, #e9eef8 100%); }
       .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; }
       #blob1 { width: 900px; height: 900px; left: -200px; top: -300px; background: #c9d8ff; }
-      #blob2 { width: 800px; height: 800px; right: -220px; bottom: -320px; background: #c4ece8; }
+      #blob2 { width: 800px; height: 800px; right: -220px; bottom: -320px; background: #d3defc; }
       .grid {
         position: absolute; inset: 0; opacity: 0.5;
         background-image: radial-gradient(#c7cede 1.2px, transparent 1.2px);
         background-size: 36px 36px;
       }
 
-      /* ---------- chat window ---------- */
-      #win {
-        position: absolute; left: 450px; top: 64px; width: 1020px; height: 880px;
-        background: #fff; border-radius: 26px; overflow: hidden;
-        box-shadow: 0 40px 90px rgba(30, 50, 100, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
-        display: flex; flex-direction: column;
-      }
-      .titlebar { height: 46px; display: flex; align-items: center; gap: 9px; padding: 0 20px; background: #f7f7f9; border-bottom: 1px solid var(--line); }
+      /* ---------- shared window chrome ---------- */
+      .win { position: absolute; background: #fff; border-radius: 22px; overflow: hidden; box-shadow: 0 40px 90px rgba(30, 50, 100, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; }
+      .titlebar { height: 44px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 18px; background: #f7f7f9; border-bottom: 1px solid var(--line); }
       .tl { width: 13px; height: 13px; border-radius: 50%; }
-      .titlebar .name { margin-left: 14px; font-size: 17px; color: var(--ink2); font-weight: 600; }
-      .ghead { height: 86px; display: flex; align-items: center; gap: 16px; padding: 0 30px; border-bottom: 1px solid var(--line); }
-      .ghead img { width: 52px; height: 52px; border-radius: 13px; }
-      .ghead .t { font-size: 25px; font-weight: 700; }
-      .ghead .s { font-size: 17px; color: var(--ink2); margin-top: 3px; }
-      .ghead .members { margin-left: auto; display: flex; }
-      .ghead .members img { width: 44px; height: 44px; margin-left: -10px; border-radius: 0; }
-      #vp { position: relative; flex: 1; overflow: hidden; }
-      #stack { position: absolute; left: 0; right: 0; top: 0; padding: 26px 32px 10px; }
-      .msg { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; }
-      .msg.me { flex-direction: row-reverse; }
-      .av { width: 64px; height: 64px; flex: none; }
-      .av.me { border-radius: 50%; background: linear-gradient(135deg, #ff9a62, #e0533a); color: #fff; font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; margin: 4px; }
-      .who { font-size: 17px; color: var(--ink2); margin-bottom: 7px; display: flex; gap: 9px; align-items: center; }
-      .who b { color: var(--ink); font-weight: 600; }
+      .tl.r { background: #ff5f57; } .tl.y { background: #febc2e; } .tl.g { background: #28c840; }
+      .titlebar .name { margin-left: 12px; font-size: 16px; color: var(--ink2); font-weight: 600; }
+      .kick { font-size: 22px; font-weight: 700; color: var(--blue); letter-spacing: 2px; display: flex; gap: 14px; align-items: center; }
+      .kick em { font-style: normal; font-family: var(--mono); background: var(--blue); color: #fff; padding: 2px 10px; border-radius: 8px; letter-spacing: 0; }
+      .h { font-size: 60px; white-space: nowrap; font-weight: 800; line-height: 1.15; letter-spacing: -1px; }
+      .hl { color: var(--blue); }
+      .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 22px; border-radius: 10px; font-size: 18px; font-weight: 600; background: #f2f3f5; color: var(--ink); white-space: nowrap; }
+      .btn.pri { background: var(--blue); color: #fff; }
+      .ok { width: 26px; height: 26px; border-radius: 50%; background: #34c759; color: #fff; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+      .spin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #d6dbe6; border-top-color: var(--blue); flex: none; }
       .badge { font-size: 13px; color: var(--blue); background: #e6f0ff; padding: 1px 7px; border-radius: 6px; font-weight: 600; }
-      .bubble { display: inline-block; max-width: 720px; background: var(--bubble); padding: 15px 20px; border-radius: 6px 20px 20px 20px; font-size: 25px; line-height: 1.5; }
-      .me .bubble { background: var(--blue); color: #fff; border-radius: 20px 6px 20px 20px; }
-      .me .body { display: flex; flex-direction: column; align-items: flex-end; }
+
+      /* ---------- S1 hook ---------- */
+      #hookQ { position: absolute; left: 0; right: 0; top: 300px; text-align: center; font-size: 84px; font-weight: 800; letter-spacing: -1px; line-height: 1.25; }
+      #chores { position: absolute; left: 0; right: 0; top: 560px; display: flex; justify-content: center; gap: 22px; }
+      .chore { position: relative; font-size: 30px; color: var(--ink2); background: #fff; padding: 12px 26px; border-radius: 16px; box-shadow: 0 6px 18px rgba(30, 50, 100, 0.08); }
+      .chore i { position: absolute; left: 14px; right: 14px; top: 50%; height: 3px; background: #ff453a; border-radius: 2px; transform-origin: 0 50%; }
+      #oneLine { position: absolute; left: 760px; top: 480px; width: 400px; height: 120px; border-radius: 60px; background: var(--blue); color: #fff; font-size: 56px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px rgba(10, 124, 255, 0.35); }
+
+      /* ---------- S2 one-line onboarding ---------- */
+      #bwin { left: 110px; top: 150px; width: 840px; height: 680px; }
+      .dlg { padding: 30px 38px; display: flex; flex-direction: column; gap: 20px; }
+      .dlg h2 { font-size: 30px; font-weight: 700; }
+      .dlg .msg { font-size: 19px; color: var(--ink2); line-height: 1.6; margin-top: -8px; }
+      .steps { display: flex; align-items: center; gap: 12px; }
+      .stp { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 600; color: #8a8f99; white-space: nowrap; }
+      .stp .dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #c9ced8; position: relative; flex: none; background: #fff; }
+      .stp .dot b { position: absolute; inset: -2px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 14px; display: flex; align-items: center; justify-content: center; opacity: 0; }
+      .stp .ring { position: absolute; inset: 5px; border-radius: 50%; background: var(--blue); opacity: 0; }
+      .sline { flex: 1; height: 2px; background: #d6dbe6; position: relative; }
+      .sline i { position: absolute; inset: 0; background: var(--blue); transform-origin: 0 50%; transform: scaleX(0); }
+      .dlg h3 { font-size: 20px; font-weight: 700; }
+      .prompt-card { background: #f5f6f8; border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+      .prompt { font-size: 21px; line-height: 1.6; color: var(--ink); }
+      .prompt-row { display: flex; align-items: center; gap: 14px; }
+      .note { font-size: 16px; color: var(--ink2); }
+      #copyBtn { position: relative; width: 104px; height: 42px; flex: none; padding: 0; }
+      #copyBtn span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .wait { display: flex; align-items: center; gap: 12px; font-size: 18px; color: var(--ink2); }
+      #bound { display: flex; align-items: center; gap: 18px; background: #eefaf1; border: 1px solid #c8eccf; border-radius: 14px; padding: 14px 18px; }
+      #bound img { width: 80px; height: 80px; }
+      #bound strong { font-size: 24px; display: block; }
+      #bound span { font-size: 18px; color: var(--ink2); }
+      #cursor { position: absolute; width: 30px; height: 30px; left: 0; top: 0; }
+
+      #term { left: 990px; top: 190px; width: 840px; height: 610px; background: #16181d; box-shadow: 0 40px 90px rgba(10, 20, 40, 0.35); }
+      #term .titlebar { background: #22252c; border-bottom-color: #2e323b; }
+      #term .titlebar .name { color: #9aa1ad; }
+      .tbody { padding: 22px 26px; font-family: var(--mono); font-size: 18px; line-height: 1.6; color: #d7dae0; }
+      .tbody .ln { white-space: pre-wrap; word-break: break-all; }
+      .tbody .banner { color: #d98b5f; font-weight: 700; margin-bottom: 12px; }
+      .tbody .you { color: #ffffff; background: #262a33; border-left: 3px solid #8a93a6; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+      .tbody .tool { margin-top: 8px; }
+      .tbody .tool b { color: #4cd964; font-weight: 400; }
+      .tbody .tool u { text-decoration: none; color: #fff; font-weight: 700; }
+      .tbody .out { color: #9aa1ad; padding-left: 28px; }
+      .tbody .out.okc { color: #7ee2a0; }
+      .tbody .fin { margin-top: 12px; color: #fff; }
+      .tbody .fin b { color: #4cd964; font-weight: 400; }
+
+      #dm { left: 360px; top: 130px; width: 1200px; height: 720px; flex-direction: row; }
+      #dm .side { width: 300px; background: #f5f6f8; border-right: 1px solid var(--line); padding: 64px 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+      #dm .side .sec { font-size: 15px; color: var(--ink2); padding: 10px 12px 4px; }
+      #dm .side .row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; font-size: 18px; }
+      #dm .side .row img, #dm .side .row .ph { width: 40px; height: 40px; border-radius: 10px; flex: none; }
+      #dm .side .row .ph { background: #dfe4ee; }
+      #dm .side .row.on { background: #e3eeff; font-weight: 600; }
+      #dm .main { flex: 1; display: flex; flex-direction: column; }
+      #dm .head { height: 96px; display: flex; align-items: center; gap: 16px; padding: 0 30px; border-bottom: 1px solid var(--line); margin-top: 0; }
+      #dm .head img { width: 56px; height: 56px; }
+      #dm .head .t { font-size: 25px; font-weight: 700; }
+      #dm .head .s { font-size: 17px; color: var(--ink2); margin-top: 2px; }
+      #dm .body { padding: 34px 30px; }
+      .msg { display: flex; gap: 16px; margin-bottom: 22px; align-items: flex-start; }
+      .msg.me { flex-direction: row-reverse; }
+      .av { width: 60px; height: 60px; flex: none; }
+      .av.me { border-radius: 50%; background: linear-gradient(135deg, #ff9a62, #e0533a); color: #fff; font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; margin: 4px; }
+      .who { font-size: 16px; color: var(--ink2); margin-bottom: 6px; display: flex; gap: 9px; align-items: center; white-space: nowrap; }
+      .who b { color: var(--ink); font-weight: 600; }
+      .bubble { display: inline-block; max-width: 640px; background: var(--bubble); padding: 13px 18px; border-radius: 6px 18px 18px 18px; font-size: 23px; line-height: 1.5; }
+      .me .bubble { background: var(--blue); color: #fff; border-radius: 18px 6px 18px 18px; }
+      .me .body2 { display: flex; flex-direction: column; align-items: flex-end; }
       .at { color: var(--blue); font-weight: 600; }
       .me .at { color: #fff; background: rgba(255, 255, 255, 0.22); padding: 0 6px; border-radius: 6px; }
-      .sys { text-align: center; margin: 4px 0 24px; }
-      .sys span { font-size: 17px; color: var(--ink2); background: #f2f3f5; padding: 6px 16px; border-radius: 99px; }
-      .card { margin-top: 10px; width: 720px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05); overflow: hidden; position: relative; }
 
-      .sb { display: flex; gap: 12px; padding: 16px; }
-      .sb .f { flex: 1; height: 112px; border-radius: 10px; background: #f6f7fa; border: 1.5px dashed #c5cbd8; position: relative; }
-      .sb .f i { position: absolute; left: 8px; top: 6px; font-style: normal; font-size: 13px; color: #8a91a3; font-weight: 700; }
-      .sb .f u { position: absolute; background: #d9deea; border-radius: 4px; }
+      /* ---------- S3 every agent ---------- */
+      #s3Head { position: absolute; left: 0; right: 0; top: 96px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+      .acard { position: absolute; width: 510px; height: 200px; background: #fff; border-radius: 24px; box-shadow: 0 16px 40px rgba(30, 50, 100, 0.12); display: flex; align-items: center; gap: 22px; padding: 0 26px; }
+      .acard img { width: 128px; height: 128px; flex: none; }
+      .acard .nm { font-size: 38px; font-weight: 800; }
+      .acard .ag { display: inline-block; margin-top: 10px; font-size: 20px; font-weight: 700; color: var(--blue); background: #e6f0ff; padding: 4px 12px; border-radius: 9px; white-space: nowrap; }
+      .acard .mc { font-size: 18px; color: var(--ink2); margin-top: 10px; white-space: nowrap; }
+      .acard .mc i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #34c759; margin-right: 8px; }
 
-      .run-h { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); font-size: 19px; }
+      /* ---------- S4 relay in the group ---------- */
+      #gwin { left: 80px; top: 50px; width: 900px; height: 880px; }
+      .ghead { height: 84px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 26px; border-bottom: 1px solid var(--line); }
+      .ghead .gl { width: 50px; height: 50px; border-radius: 13px; background: linear-gradient(135deg, #4f8dff, #0a5ad8); color: #fff; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+      .ghead .t { font-size: 24px; font-weight: 700; }
+      .ghead .s { font-size: 16px; color: var(--ink2); margin-top: 2px; }
+      .ghead .members { margin-left: auto; display: flex; }
+      .ghead .members img { width: 42px; height: 42px; margin-left: -10px; }
+      #gvp { position: relative; flex: 1; overflow: hidden; }
+      #gstack { position: absolute; left: 0; right: 0; top: 0; padding: 22px 28px 6px; }
+      .thread { margin-top: 8px; width: 600px; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 12px; background: #fafbfd; padding: 12px 16px; }
+      .thread .tt { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+      .thread .tt em { font-style: normal; font-size: 14px; color: #fff; background: var(--blue); padding: 1px 8px; border-radius: 6px; }
+      .thread .tb { font-size: 18px; color: var(--ink2); margin-top: 6px; display: flex; align-items: center; gap: 10px; }
+      .thread .tb img { width: 30px; height: 30px; }
+      .card { margin-top: 8px; width: 600px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05); overflow: hidden; }
+      .run-h { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 18px; }
       .run-h .dot { width: 12px; height: 12px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 5px rgba(52, 199, 89, 0.18); }
-      .run-h .m { margin-left: auto; color: var(--ink2); font-size: 17px; }
-      .step { display: flex; align-items: center; gap: 14px; padding: 9px 20px; font-size: 19px; }
-      .step code { font-family: ui-monospace, Menlo, monospace; font-size: 17px; background: #f2f3f5; padding: 2px 8px; border-radius: 6px; }
-      .ico { width: 24px; height: 24px; position: relative; flex: none; }
-      .ico .spin { position: absolute; inset: 2px; border-radius: 50%; border: 3px solid #d6dbe6; border-top-color: var(--blue); }
-      .ico .ok { position: absolute; inset: 0; border-radius: 50%; background: #34c759; color: #fff; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-      .run-f { padding: 12px 20px 16px; color: var(--ink2); font-size: 17px; display: flex; gap: 22px; }
-
-      .appr-h { padding: 16px 20px 6px; font-size: 20px; font-weight: 700; color: #c45f00; display: flex; align-items: center; gap: 10px; }
-      .appr-b { padding: 4px 20px 6px; font-size: 18px; color: var(--ink2); }
-      .appr-b code { display: block; margin: 8px 0; font-family: ui-monospace, Menlo, monospace; font-size: 18px; color: var(--ink); background: #fff6ec; border: 1px solid #ffd9b0; padding: 10px 14px; border-radius: 10px; }
-      .appr-a { display: flex; gap: 12px; padding: 10px 20px 18px; position: relative; height: 66px; }
-      .btn { padding: 9px 26px; border-radius: 10px; font-size: 18px; font-weight: 600; }
-      .btn.no { background: #f2f3f5; }
-      .btn.yes { background: var(--blue); color: #fff; }
-      .appr-done { position: absolute; left: 20px; top: 14px; font-size: 18px; color: #1f8f3f; font-weight: 600; }
-      #seal {
-        position: absolute; right: 40px; top: 30px; width: 150px; height: 150px;
-        border: 6px solid var(--seal); border-radius: 22px; color: var(--seal);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 58px; font-weight: 900; letter-spacing: 4px;
-        background: rgba(210, 59, 42, 0.06);
-        box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.8), inset 0 0 0 7px var(--seal);
-      }
-
-      .pv-thumb { position: relative; width: 480px; height: 270px; background: #fff; border-bottom: 1px solid var(--line); overflow: hidden; }
-      .pv-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; font-size: 18px; }
-      .pv-foot .g { width: 10px; height: 10px; border-radius: 50%; background: #34c759; }
-      .pv-foot .m { color: var(--ink2); margin-left: auto; font-size: 16px; }
-      .play { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: rgba(0, 0, 0, 0.55); }
-      .play::after { content: ""; position: absolute; left: 27px; top: 21px; border-left: 22px solid #fff; border-top: 14px solid transparent; border-bottom: 14px solid transparent; }
-
-      .composer { height: 104px; padding: 16px 26px 22px; border-top: 1px solid var(--line); }
-      .field { height: 66px; border-radius: 16px; border: 1.5px solid #d8dce5; display: flex; align-items: center; padding: 0 12px 0 22px; font-size: 25px; position: relative; }
-      #ph { color: #848893; position: absolute; left: 22px; }
+      .run-h .m { margin-left: auto; color: var(--ink2); font-size: 16px; }
+      .step { display: flex; align-items: center; gap: 14px; padding: 8px 18px; font-size: 18px; position: relative; }
+      .step code { font-family: var(--mono); font-size: 16px; background: #f2f3f5; padding: 2px 8px; border-radius: 6px; }
+      .step .ico { width: 26px; height: 26px; position: relative; flex: none; }
+      .step .ico .spin { position: absolute; left: 3px; top: 3px; }
+      .step .ico .ok { position: absolute; inset: 0; }
+      .run-f { padding: 10px 18px 14px; color: var(--ink2); font-size: 16px; display: flex; gap: 20px; }
+      .run-f .add { color: var(--green); font-weight: 600; } .run-f .del { color: #d70015; font-weight: 600; }
+      .composer { height: 96px; flex: none; padding: 14px 22px 20px; border-top: 1px solid var(--line); }
+      .field { height: 62px; border-radius: 16px; border: 1.5px solid #d8dce5; display: flex; align-items: center; padding: 0 10px 0 20px; font-size: 22px; position: relative; }
+      #ph { color: #848893; position: absolute; left: 20px; }
       #typed span { opacity: 0; }
       #typed .at { color: var(--blue); }
-      #caret { width: 2.5px; height: 30px; background: var(--blue); margin-left: 2px; }
-      .send { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; background: #d8dce5; position: relative; }
+      .send { margin-left: auto; width: 44px; height: 44px; border-radius: 50%; background: #d8dce5; position: relative; flex: none; }
       #sendOn { position: absolute; inset: 0; border-radius: 50%; background: var(--blue); opacity: 0; }
-      .send::after { content: ""; position: absolute; left: 15px; top: 12px; border-bottom: 13px solid #fff; border-left: 8px solid transparent; border-right: 8px solid transparent; }
+      .send::after { content: ""; position: absolute; left: 14px; top: 11px; border-bottom: 13px solid #fff; border-left: 8px solid transparent; border-right: 8px solid transparent; }
 
-      /* ---------- right column ---------- */
-      #side { position: absolute; left: 1190px; top: 150px; width: 660px; height: 760px; }
-      .panel { position: absolute; left: 0; top: 0; width: 660px; opacity: 0; }
-      .kick { font-size: 22px; font-weight: 700; color: var(--blue); letter-spacing: 2px; display: flex; gap: 14px; align-items: center; }
-      .kick em { font-style: normal; font-family: ui-monospace, Menlo, monospace; background: var(--blue); color: #fff; padding: 2px 10px; border-radius: 8px; letter-spacing: 0; }
-      .h { font-size: 64px; white-space: nowrap; font-weight: 800; line-height: 1.15; margin-top: 22px; letter-spacing: -1px; }
-      .sub { font-size: 28px; color: var(--ink2); margin-top: 20px; line-height: 1.5; }
-      .hl { color: var(--blue); }
+      #s4side { position: absolute; left: 1030px; top: 70px; width: 830px; height: 860px; }
+      #canvasWin { left: 0; top: 0; width: 830px; height: 640px; }
+      .toolbar { height: 54px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--line); font-size: 17px; }
+      .toolbar .t { font-weight: 700; font-size: 19px; }
+      .toolbar .sp { flex: 1; }
+      .toolbar .tbtn { padding: 5px 14px; border-radius: 8px; background: #f2f3f5; color: var(--ink); font-weight: 600; white-space: nowrap; }
+      .toolbar .tbtn.pri { background: var(--blue); color: #fff; }
+      .board { position: relative; flex: 1; background: #f3f4f7; background-image: radial-gradient(#d5d9e3 1.2px, transparent 1.2px); background-size: 24px 24px; }
+      .scr { position: absolute; top: 60px; width: 220px; height: 440px; background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgba(30, 50, 100, 0.12); overflow: hidden; }
+      .scr .lbl { position: absolute; left: 0; right: 0; bottom: -40px; text-align: center; font-size: 17px; color: var(--ink2); font-weight: 600; }
+      .scr-wrap { position: absolute; top: 40px; width: 220px; height: 500px; }
+      .scr-wrap .lbl { position: absolute; left: 0; right: 0; top: 452px; text-align: center; font-size: 17px; color: var(--ink2); font-weight: 600; }
+      .scr-wrap .scr { top: 0; }
+      .ev-hero { height: 190px; background: linear-gradient(150deg, #2f6bff, #6a4cff); color: #fff; padding: 22px 16px; }
+      .ev-hero .k { font-size: 12px; opacity: 0.85; letter-spacing: 1px; }
+      .ev-hero .t { font-size: 24px; font-weight: 800; margin-top: 8px; line-height: 1.25; }
+      .ev-hero .d { font-size: 13px; margin-top: 10px; opacity: 0.9; }
+      .ev-b { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+      .ev-b .bar { height: 10px; border-radius: 5px; background: #e6e9f0; }
+      .ev-cta { margin: 6px 16px 0; height: 40px; border-radius: 12px; background: var(--blue); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+      .ev-form { padding: 22px 16px; display: flex; flex-direction: column; gap: 12px; }
+      .ev-form .ft { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+      .ev-form .fl { font-size: 12px; color: var(--ink2); }
+      .ev-form .fi { height: 34px; border-radius: 9px; border: 1.5px solid #dfe3ea; }
+      .ev-ok { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+      .ev-ok .c { width: 72px; height: 72px; border-radius: 50%; background: #34c759; color: #fff; font-size: 38px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+      .ev-ok .t { font-size: 20px; font-weight: 800; }
+      .ev-ok .d { font-size: 13px; color: var(--ink2); }
+      .link { position: absolute; top: 260px; height: 3px; background: #9db7ec; transform-origin: 0 50%; }
+      .link::after { content: ""; position: absolute; right: -2px; top: -6px; border-left: 11px solid #9db7ec; border-top: 7.5px solid transparent; border-bottom: 7.5px solid transparent; }
+      #painter { position: absolute; width: 72px; height: 72px; }
+      #gitWin { left: 0; top: 0; width: 830px; height: 640px; }
+      .gitbar { height: 54px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--line); font-size: 17px; }
+      .gitbar .br { font-family: var(--mono); font-size: 16px; background: #f2f3f5; padding: 4px 10px; border-radius: 8px; }
+      .gitbar .add { color: var(--green); font-weight: 700; } .gitbar .del { color: #d70015; font-weight: 700; }
+      .gitbody { display: flex; flex: 1; min-height: 0; }
+      .files { width: 270px; border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; }
+      .files div { font-family: var(--mono); font-size: 15px; padding: 8px 10px; border-radius: 8px; display: flex; justify-content: space-between; white-space: nowrap; }
+      .files div.on { background: #e3eeff; }
+      .files em { font-style: normal; color: var(--green); }
+      .diff { flex: 1; padding: 12px 0; font-family: var(--mono); font-size: 15px; line-height: 1.75; overflow: hidden; }
+      .diff div { padding: 0 16px; white-space: pre; }
+      .diff .a { background: #e8f8ec; color: #135c27; }
+      .diff .d { background: #fdecee; color: #8c1020; }
+      .diff .hh { color: #6e6e73; background: #f2f4f8; }
+      .s4tag { position: absolute; font-size: 24px; font-weight: 800; padding: 10px 18px; border-radius: 14px; color: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18); white-space: nowrap; }
 
-      .ctx { margin-top: 46px; display: flex; flex-direction: column; gap: 14px; }
-      .ctx div { font-size: 22px; padding: 12px 18px; border-radius: 14px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05); width: fit-content; }
-      .ctx .q { color: var(--ink2); }
-      .ctx .go { background: var(--blue); color: #fff; font-weight: 600; }
+      /* ---------- S5 review for me + phone ---------- */
+      #s5left { position: absolute; left: 120px; top: 110px; width: 1000px; }
+      .mode { margin-top: 36px; background: #fff; border-radius: 22px; box-shadow: 0 16px 40px rgba(30, 50, 100, 0.1); padding: 26px 30px; }
+      .mode .lab { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
+      .seg { position: relative; display: flex; background: #eceef2; border-radius: 12px; padding: 4px; width: 600px; }
+      .seg div { position: relative; flex: 1; text-align: center; font-size: 21px; padding: 10px 0; z-index: 1; font-weight: 600; color: #3a3d45; }
+      #segKnob { position: absolute; top: 4px; left: 4px; width: 197px; height: calc(100% - 8px); background: #fff; border-radius: 9px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); z-index: 0; }
+      .mode .hint { font-size: 18px; color: var(--ink2); margin-top: 16px; line-height: 1.6; }
+      .cmds { margin-top: 26px; display: flex; flex-direction: column; gap: 14px; }
+      .cmd { display: flex; align-items: center; gap: 16px; background: #fff; border-radius: 16px; padding: 14px 22px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05); border: 2px solid transparent; }
+      .cmd code { font-family: var(--mono); font-size: 22px; }
+      .cmd .st { margin-left: auto; font-size: 19px; font-weight: 700; color: var(--green); white-space: nowrap; }
+      #cmdPush .st { color: var(--orange); }
 
-      .flow { margin-top: 40px; position: relative; height: 420px; }
-      .node { position: absolute; left: 0; width: 620px; height: 92px; background: #fff; border-radius: 18px; box-shadow: 0 6px 22px rgba(30, 50, 100, 0.08); display: flex; align-items: center; gap: 18px; padding: 0 22px; }
-      .node .n { font-size: 24px; font-weight: 700; white-space: nowrap; }
-      .node .d { font-size: 18px; color: var(--ink2); margin-top: 2px; }
-      .node .ic { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex: none; }
-      .node .chips { margin-left: auto; display: flex; gap: 8px; }
-      .chip { font-size: 15px; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: #e9f8ee; color: #1f8f3f; }
-      #n1 { top: 0; } #n2 { top: 160px; } #n3 { top: 320px; height: 100px; border: 2px solid var(--blue); }
-      .wire { position: absolute; left: 46px; width: 4px; height: 68px; background: repeating-linear-gradient(#b9c6e4 0 8px, transparent 8px 14px); }
-      #w1 { top: 92px; } #w2 { top: 252px; }
-      .pkt { position: absolute; left: 40px; width: 16px; height: 16px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 6px rgba(10, 124, 255, 0.2); }
-      #lock { margin-top: 26px; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 12px; color: #1f8f3f; }
+      .phone { position: absolute; width: 410px; height: 850px; border-radius: 64px; background: #15171c; padding: 14px; box-shadow: 0 40px 90px rgba(10, 20, 40, 0.35); }
+      .phone .scrn { position: relative; width: 100%; height: 100%; border-radius: 51px; background: #fff; overflow: hidden; }
+      .phone .island { position: absolute; left: 50%; top: 12px; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; z-index: 5; }
+      .phone .sbar { height: 54px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 30px 4px; font-size: 16px; font-weight: 700; }
+      #phone1 { left: 1360px; top: 110px; }
+      .mhead { height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid var(--line); }
+      .mhead .bk { color: var(--blue); font-size: 26px; font-weight: 600; }
+      .mhead .t { font-size: 19px; font-weight: 700; }
+      .mhead .s { font-size: 14px; color: var(--ink2); }
+      .mbody { padding: 16px 14px; }
+      .mbody .msg { gap: 10px; margin-bottom: 16px; }
+      .mbody .av { width: 42px; height: 42px; }
+      .mbody .who { font-size: 14px; margin-bottom: 4px; }
+      .mbody .bubble { font-size: 17px; padding: 9px 13px; max-width: 290px; }
+      .appr { width: 300px; border: 1px solid #ffd9b0; background: #fffaf4; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+      .appr .ttl { font-size: 16px; font-weight: 700; color: var(--orange); display: flex; align-items: center; gap: 7px; }
+      .appr .ttl i { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--orange); border-right-color: transparent; }
+      .appr code { font-family: var(--mono); font-size: 16px; background: #fff; border: 1px solid #ffd9b0; padding: 8px 10px; border-radius: 8px; }
+      .appr .why { font-size: 14px; color: var(--ink2); line-height: 1.5; }
+      .appr .acts { display: flex; gap: 8px; position: relative; height: 36px; }
+      .appr .acts .btn { font-size: 15px; padding: 6px 14px; border-radius: 8px; }
+      #apprDone { position: absolute; left: 0; top: 7px; font-size: 15px; font-weight: 700; color: var(--green); white-space: nowrap; }
+      #tap { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: rgba(10, 124, 255, 0.25); border: 3px solid rgba(10, 124, 255, 0.6); }
+      #mReply { opacity: 0; }
 
-      .tiers { margin-top: 46px; display: flex; flex-direction: column; gap: 16px; }
-      .tier { display: flex; align-items: center; gap: 16px; font-size: 27px; padding: 18px 24px; background: #fff; border-radius: 16px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05); }
-      .tier .lv { width: 38px; height: 10px; border-radius: 5px; background: #d6dbe6; }
-      .tier .note { margin-left: auto; font-size: 18px; color: var(--ink2); }
-      #tier3 { border: 2px solid transparent; }
-      #trail { margin-top: 26px; font-size: 24px; font-weight: 600; color: #1f8f3f; }
+      /* ---------- S6 share ---------- */
+      #shareWin { left: 110px; top: 120px; width: 1040px; height: 720px; }
+      #shareWin .board .scr-wrap { top: 70px; }
+      #pop { position: absolute; right: 18px; top: 62px; width: 440px; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(30, 50, 100, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.05); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; z-index: 3; }
+      #pop .pt { font-size: 21px; font-weight: 700; }
+      #pop .pd { font-size: 16px; color: var(--ink2); line-height: 1.6; }
+      #pop .url { font-family: var(--mono); font-size: 15px; background: #f2f3f5; border-radius: 8px; padding: 9px 12px; color: var(--ink); }
+      #toast { position: absolute; left: 720px; top: 360px; background: rgba(30, 32, 38, 0.92); color: #fff; font-size: 19px; padding: 11px 22px; border-radius: 12px; white-space: nowrap; z-index: 4; }
+      #phone2 { left: 1300px; top: 110px; }
+      .safari { height: 48px; margin: 4px 14px 0; border-radius: 14px; background: #f0f1f4; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #3b3e46; gap: 6px; }
+      .safari i { width: 11px; height: 13px; border: 2px solid #8a8f99; border-radius: 3px; display: inline-block; }
+      #phone2 .ev-hero { height: 300px; padding: 40px 24px; }
+      #phone2 .ev-hero .k { font-size: 15px; }
+      #phone2 .ev-hero .t { font-size: 36px; }
+      #phone2 .ev-hero .d { font-size: 17px; margin-top: 16px; }
+      #phone2 .ev-b { padding: 24px; gap: 16px; }
+      #phone2 .ev-b .bar { height: 14px; border-radius: 7px; }
+      #phone2 .ev-cta { margin: 14px 24px 0; height: 58px; font-size: 20px; border-radius: 16px; }
 
-      /* ---------- roll call ---------- */
-      #rollBg { background: linear-gradient(135deg, #1739c9 0%, #1557d8 45%, #0d8f8b 100%); }
-      #rollTitle { position: absolute; top: 92px; left: 0; right: 0; text-align: center; color: #fff; font-size: 64px; font-weight: 800; letter-spacing: 2px; }
-      .hero { position: absolute; top: 250px; width: 360px; height: 470px; background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0, 20, 80, 0.35); display: flex; flex-direction: column; align-items: center; padding-top: 22px; }
-      .hero img { width: 250px; height: 250px; }
-      .hero .nm { font-size: 58px; font-weight: 800; margin-top: 4px; }
-      .hero .mx { font-size: 20px; color: var(--ink2); margin-top: 6px; }
-      .hero .job { position: absolute; top: -20px; right: -16px; background: #ffcf3f; color: #3a2a00; font-size: 24px; font-weight: 800; padding: 8px 16px; border-radius: 12px; transform: rotate(6deg); }
-      #crew { position: absolute; left: 0; right: 0; top: 790px; display: flex; justify-content: center; gap: 6px; }
-      #crew img { width: 118px; height: 118px; }
-
-      /* ---------- proof ---------- */
-      #proofBg { background: rgba(238, 241, 246, 0.94); }
-      #proofHead { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
-      #proofHead .h { margin-top: 12px; font-size: 64px; }
-      #proofHead .kick { justify-content: center; }
-      .shot { position: absolute; width: 960px; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 40px 90px rgba(30, 50, 100, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.06); }
-      .shot .bar { height: 34px; background: #f2f3f5; display: flex; align-items: center; gap: 8px; padding: 0 14px; }
-      .shot img { width: 960px; height: 600px; }
-      #shotA { left: 110px; top: 300px; }
-      #shotB { left: 850px; top: 340px; }
-      .tag { position: absolute; font-size: 26px; font-weight: 800; padding: 10px 18px; border-radius: 14px; color: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18); }
-      #tagA { left: 300px; top: 250px; background: #1f8f3f; }
-      #tagB { left: 1480px; top: 290px; background: var(--blue); }
-
-      /* ---------- zoom-through + end card ---------- */
+      /* ---------- end card ---------- */
       .endface { background: radial-gradient(1200px 700px at 50% 35%, #ffffff 0%, #eef3fb 70%, #e4ecf6 100%); }
-      #zoom { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; }
-      .endlogo { position: absolute; left: 885px; top: 170px; width: 150px; height: 150px; }
-      .endtitle { position: absolute; left: 0; right: 0; top: 345px; text-align: center; font-size: 132px; font-weight: 900; letter-spacing: 10px; }
-      .endtag { position: absolute; left: 0; right: 0; top: 525px; text-align: center; font-size: 50px; font-weight: 600; color: #2b2f3a; }
-      #endMeta { position: absolute; left: 0; right: 0; top: 625px; display: flex; justify-content: center; gap: 16px; }
-      #endMeta span { font-size: 24px; padding: 9px 20px; border-radius: 99px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06); color: #3b4152; }
-      #endUrl { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font-family: ui-monospace, Menlo, monospace; font-size: 28px; color: var(--blue); font-weight: 600; }
+      .endlogo { position: absolute; left: 885px; top: 150px; width: 150px; height: 150px; }
+      .endtitle { position: absolute; left: 0; right: 0; top: 320px; text-align: center; font-size: 132px; font-weight: 900; letter-spacing: 10px; }
+      .endtag { position: absolute; left: 0; right: 0; top: 505px; text-align: center; font-size: 50px; font-weight: 600; color: #2b2f3a; }
+      #endMeta { position: absolute; left: 0; right: 0; top: 605px; display: flex; justify-content: center; gap: 16px; }
+      #endMeta span { font-size: 24px; padding: 9px 20px; border-radius: 99px; background: #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06); color: #3b4152; white-space: nowrap; }
+      #endUrl { position: absolute; left: 0; right: 0; top: 685px; text-align: center; font-family: var(--mono); font-size: 28px; color: var(--blue); font-weight: 600; }
       #endCast { position: absolute; left: 0; right: 0; top: 790px; display: flex; justify-content: center; gap: 2px; }
       #endCast img { width: 124px; height: 124px; }
 
       /* ---------- captions ---------- */
-      #caps .cap { position: absolute; left: 0; right: 0; top: 968px; display: flex; justify-content: center; opacity: 0; }
-      #caps .cap span { max-width: 1500px; font-size: 32px; font-weight: 600; color: #fff; background: rgba(18, 22, 34, 0.78); padding: 10px 26px; border-radius: 14px; line-height: 1.4; text-align: center; }
-      #caps .cap b { color: #8fd6ff; margin-right: 6px; }
+      #caps .cap { position: absolute; left: 0; right: 0; top: 972px; display: flex; justify-content: center; opacity: 0; }
+      #caps .cap span { max-width: 1600px; font-size: 32px; font-weight: 600; color: #fff; background: rgba(18, 22, 34, 0.8); padding: 10px 26px; border-radius: 14px; line-height: 1.4; text-align: center; white-space: nowrap; }
     </style>
   </head>
   <body>
     <div id="root" data-composition-id="main" data-start="0" data-duration="60" data-width="1920" data-height="1080">
-      <div id="bg" class="clip full" data-start="0" data-duration="60" data-track-index="0">
+      <div id="bg" data-layout-allow-overflow class="clip full" data-start="0" data-duration="60" data-track-index="0">
         <div class="grid"></div>
         <div id="blob1" class="blob"></div>
         <div id="blob2" class="blob"></div>
       </div>
 
-      <div id="stage" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="0" data-duration="52" data-track-index="1">
-        <div id="win">
-          <div class="titlebar">
-            <div class="tl" style="background: #ff5f57"></div>
-            <div class="tl" style="background: #febc2e"></div>
-            <div class="tl" style="background: #28c840"></div>
-            <div class="name">共工空间</div>
-          </div>
-          <div class="ghead">
-            <img src="assets/logo.svg" alt="" />
-            <div>
-              <div class="t">宣传片小分队</div>
-              <div class="s" id="gsub">1 人 · 1 Bot · gonggong-promo</div>
+      <!-- S1 0–5.2 hook -->
+      <div id="s1" data-layout-allow-overlap data-layout-allow-occlusion class="clip full" data-start="0" data-duration="5.4" data-track-index="1">
+        <div id="hookQ">给团队加一位 AI 同事，<br /><span class="hl" id="hookQ2">要几步？</span></div>
+        <div id="chores">
+          <div class="chore">装环境<i></i></div>
+          <div class="chore">配密钥<i></i></div>
+          <div class="chore">写接入文档<i></i></div>
+          <div class="chore">开账号<i></i></div>
+          <div class="chore">拉群<i></i></div>
+        </div>
+        <div id="oneLine">一句话</div>
+      </div>
+
+      <!-- S2 4.6–13.8 one sentence to the agent -->
+      <div id="s2" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="4.6" data-duration="9.2" data-track-index="2">
+        <div class="win" id="bwin">
+          <div class="titlebar"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div><div class="name">共工空间</div></div>
+          <div class="dlg">
+            <h2>绑定新机器</h2>
+            <div class="msg">把下面这句话粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器并建好 Bot（支持 macOS 和 Linux）。机器归属于你，Bot 在上面运行。</div>
+            <div class="steps">
+              <div class="stp" id="st1"><div class="dot"><div class="ring"></div><b>✓</b></div>复制给 Agent</div>
+              <div class="sline"><i id="sl1"></i></div>
+              <div class="stp" id="st2"><div class="dot"><div class="ring"></div><b>✓</b></div>机器接入</div>
+              <div class="sline"><i id="sl2"></i></div>
+              <div class="stp" id="st3"><div class="dot"><div class="ring"></div><b>✓</b></div>Bot 就绪</div>
             </div>
-            <div class="members" id="members">
+            <h3>发给你的 Agent</h3>
+            <div class="prompt-card" id="promptCard">
+              <div class="prompt">帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 K7QD-9XMF。</div>
+              <div class="prompt-row">
+                <div class="btn pri" id="copyBtn"><span id="cp1">复制</span><span id="cp2" style="opacity: 0">已复制</span></div>
+                <span class="note">接入码过期也能接入，届时在这里点一下允许</span>
+              </div>
+            </div>
+            <h3 id="waitH">等待接入</h3>
+            <div class="wait" id="waitLine"><div class="spin" id="waitSpin"></div>等待接入…Agent 会自己下载安装，通常 1–3 分钟</div>
+            <div id="bound" style="opacity: 0; position: absolute; left: 38px; right: 38px; top: 520px">
+              <img src="assets/cast/gong-done.svg" alt="" />
+              <div><strong>绑定成功</strong><span>该机器已归属你 · 阿周的 MacBook Pro（macOS · arm64）</span></div>
+            </div>
+          </div>
+          <svg id="cursor" viewBox="0 0 30 30"><path d="M4 2 L4 24 L10 18 L14 27 L18 25 L14 17 L22 17 Z" fill="#1d1d1f" stroke="#fff" stroke-width="2" stroke-linejoin="round" /></svg>
+        </div>
+
+        <div class="win" id="term">
+          <div class="titlebar"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div><div class="name">claude — ~/projects</div></div>
+          <div class="tbody">
+            <div class="ln banner">✻ Claude Code</div>
+            <div class="ln you" id="tYou">&gt; 帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 K7QD-9XMF。</div>
+            <div class="ln tool" id="tt1"><b>●</b> <u>Fetch</u>(https://gg.example.com/api/install.md)</div>
+            <div class="ln tool" id="tt2"><b>●</b> <u>Bash</u>(curl -fsSL https://gg.example.com/api/install.sh -o /tmp/gonggong-install.sh)</div>
+            <div class="ln tool" id="tt3"><b>●</b> <u>Bash</u>(sh /tmp/gonggong-install.sh --code K7QD-9XMF --agent claude)</div>
+            <div class="ln out" id="to1">⎿ ==&gt; Installed ~/.local/bin/gg</div>
+            <div class="ln out" id="to2">  绑定成功：本机已归属 阿周（阿周的 MacBook Pro）</div>
+            <div class="ln out" id="to3">  已准备好 Bot「阿周的 Claude Code」和与它的私聊，回到 Web 即可开始对话</div>
+            <div class="ln out okc" id="to4">  service: running</div>
+            <div class="ln out okc" id="to5">  bound: yes</div>
+            <div class="ln fin" id="tfin"><b>●</b> 接好了：这台机器已常驻共工空间，新 Bot 的私聊已在网页上打开。</div>
+          </div>
+        </div>
+
+        <div class="win" id="dm">
+          <div class="side">
+            <div class="sec">群</div>
+            <div class="row"><div class="ph"></div>官网改版</div>
+            <div class="sec">私聊</div>
+            <div class="row on"><img src="assets/cast/braces-idle.svg" alt="" />阿周的 Claude Code</div>
+          </div>
+          <div class="main">
+            <div class="head">
+              <img src="assets/cast/braces-wave.svg" alt="" />
+              <div><div class="t">阿周的 Claude Code</div><div class="s">Claude Code · 阿周的 MacBook Pro · 在线</div></div>
+            </div>
+            <div class="body">
+              <div class="msg" id="dm1">
+                <img class="av" src="assets/cast/braces-wave.svg" alt="" />
+                <div>
+                  <div class="who"><b>阿周的 Claude Code</b><span class="badge">Bot</span></div>
+                  <div class="bubble">到岗。我常驻在阿周的 MacBook Pro 上，有活儿直接说。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S3 13.4–21.8 any agent, one group -->
+      <div id="s3" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="13.4" data-duration="8.6" data-track-index="3">
+        <div id="s3Head">
+          <div class="kick"><em>6</em>种 Agent，一个群</div>
+          <div class="h">哪家的 Agent，都能<span class="hl">进同一个群</span></div>
+        </div>
+        <div class="acard" id="ac1" style="left: 150px; top: 330px"><img src="assets/cast/braces-type.svg" alt="" /><div><div class="nm">铁码</div><div class="ag">Claude Code</div><div class="mc"><i></i>阿周的 MacBook Pro</div></div></div>
+        <div class="acard" id="ac2" style="left: 705px; top: 330px"><img src="assets/cast/hammock-think.svg" alt="" /><div><div class="nm">慢想</div><div class="ag">Codex</div><div class="mc"><i></i>小林的 Mac mini</div></div></div>
+        <div class="acard" id="ac3" style="left: 1260px; top: 330px"><img src="assets/cast/blank-carry.svg" alt="" /><div><div class="nm">留白</div><div class="ag">Gemini CLI</div><div class="mc"><i></i>设计组的 iMac</div></div></div>
+        <div class="acard" id="ac4" style="left: 150px; top: 590px"><img src="assets/cast/steps-run.svg" alt="" /><div><div class="nm">小步</div><div class="ag">CodeBuddy</div><div class="mc"><i></i>测试机 · Linux</div></div></div>
+        <div class="acard" id="ac5" style="left: 705px; top: 590px"><img src="assets/cast/focus-type.svg" alt="" /><div><div class="nm">闭关</div><div class="ag">pi</div><div class="mc"><i></i>阿周的 MacBook Pro</div></div></div>
+        <div class="acard" id="ac6" style="left: 1260px; top: 590px"><img src="assets/cast/abacus-think.svg" alt="" /><div><div class="nm">算盘</div><div class="ag">DeepSeek Harness</div><div class="mc"><i></i>构建服务器 · Docker</div></div></div>
+      </div>
+
+      <!-- S4 21.4–36 relay in the group -->
+      <div id="s4" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="21.4" data-duration="14.6" data-track-index="4">
+        <div class="win" id="gwin">
+          <div class="titlebar"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div><div class="name">共工空间</div></div>
+          <div class="ghead">
+            <div class="gl">官</div>
+            <div><div class="t">官网改版</div><div class="s">1 人 · 6 Bot · gonggong-site</div></div>
+            <div class="members">
+              <img src="assets/cast/braces-idle.svg" alt="" />
               <img src="assets/cast/hammock-idle.svg" alt="" />
               <img src="assets/cast/blank-idle.svg" alt="" />
-              <img src="assets/cast/braces-idle.svg" alt="" />
-              <img src="assets/cast/sentry-idle.svg" alt="" />
+              <img src="assets/cast/steps-idle.svg" alt="" />
+              <img src="assets/cast/focus-idle.svg" alt="" />
+              <img src="assets/cast/abacus-idle.svg" alt="" />
             </div>
           </div>
-          <div id="vp">
-            <div id="stack" data-layout-allow-overflow data-layout-allow-occlusion>
-              <div class="msg me" id="m1">
-                <div class="av me">你</div>
-                <div class="body">
-                  <div class="bubble"><span class="at">@共字君</span> 帮我做一支产品宣传片，发挥你的想象力。</div>
-                </div>
+          <div id="gvp">
+            <div id="gstack" data-layout-allow-overflow data-layout-allow-occlusion>
+              <div class="msg me" id="g1">
+                <div class="av me">周</div>
+                <div class="body2"><div class="bubble"><span class="at">@慢想</span> 下周的活动页：出三屏原型，顺便把报名接口写了。</div></div>
               </div>
-              <div class="msg" id="m2">
-                <img class="av" src="assets/cast/gong-wave.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
-                  <div class="bubble">收到！一个人做不完——我去拉几个同事。</div>
-                </div>
-              </div>
-              <div class="sys" id="m2s"><span>共字君 邀请 慢想、留白、铁码、哨兵 加入了群聊</span></div>
-              <div class="msg" id="m3">
-                <img class="av" src="assets/cast/hammock-think.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>慢想</b><span class="badge">Bot</span></div>
-                  <div class="bubble">卖点只要一个：在群里 @ 一下，就开工。</div>
-                </div>
-              </div>
-              <div class="msg" id="m4">
+              <div class="msg" id="g2">
                 <img class="av" src="assets/cast/hammock-raise.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>慢想</b><span class="badge">Bot</span></div>
-                  <div class="bubble"><span class="at">@留白</span> 分镜交给你，八个镜头以内。</div>
+                <div>
+                  <div class="who"><b>慢想</b><span class="badge">Bot</span><span>Codex</span></div>
+                  <div class="bubble">拆成两件，各开一个话题，交给对的人。</div>
+                  <div class="thread" id="th1"><div class="tt"><em>话题</em>活动页原型</div><div class="tb"><img src="assets/cast/blank-carry.svg" alt="" /><span class="at">@留白</span> 接手：三屏，先出首页</div></div>
+                  <div class="thread" id="th2"><div class="tt"><em>话题</em>报名接口</div><div class="tb"><img src="assets/cast/braces-type.svg" alt="" /><span class="at">@铁码</span> 接手：POST /api/signup，带测试</div></div>
                 </div>
               </div>
-              <div class="msg" id="m5">
-                <img class="av" src="assets/cast/blank-carry.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>留白</b><span class="badge">Bot</span></div>
-                  <div class="bubble">分镜 v1，每一格都讲得出理由。</div>
-                  <div class="card">
-                    <div class="sb">
-                      <div class="f"><i>01</i><u style="left: 30%; top: 40%; width: 40%; height: 30%"></u></div>
-                      <div class="f"><i>02</i><u style="left: 12%; top: 30%; width: 20%; height: 50%"></u><u style="left: 40%; top: 30%; width: 20%; height: 50%"></u><u style="left: 68%; top: 30%; width: 20%; height: 50%"></u></div>
-                      <div class="f"><i>03</i><u style="left: 10%; top: 25%; width: 45%; height: 60%"></u><u style="left: 62%; top: 35%; width: 28%; height: 12%"></u></div>
-                      <div class="f"><i>04</i><u style="left: 38%; top: 28%; width: 24%; height: 44%; border-radius: 50%"></u></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="msg" id="m6">
-                <img class="av" src="assets/cast/blank-wave.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>留白</b><span class="badge">Bot</span></div>
-                  <div class="bubble"><span class="at">@铁码</span> 开工吧，素材都在群文件里。</div>
-                </div>
-              </div>
-              <div class="msg" id="m7">
+              <div class="msg" id="g3">
                 <img class="av" src="assets/cast/braces-type.svg" alt="" />
-                <div class="body">
+                <div>
                   <div class="who"><b>铁码</b><span class="badge">Bot</span><span>Claude Code · 阿周的 MacBook Pro</span></div>
                   <div class="card">
                     <div class="run-h"><div class="dot"></div><b>运行中</b><span class="m" id="runTime">00:00</span></div>
-                    <div class="step" id="s1"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>读取 <code>STORYBOARD.md</code></div>
-                    <div class="step" id="s2"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>生成配音 <code>audio/v01–v09</code></div>
-                    <div class="step" id="s3"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>编辑 <code>index.html</code></div>
-                    <div class="step" id="s4"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>运行 <code>npx hyperframes check</code></div>
-                    <div class="step" id="s5"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>合成配乐 <code>audio/music.wav</code></div>
-                    <div class="run-f" id="runF"><span>改动 4 个文件</span><span>+128 −12</span><span>查看过程 ›</span></div>
-                  </div>
-                </div>
-              </div>
-              <div class="msg" id="m8">
-                <img class="av" src="assets/cast/braces-raise.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>铁码</b><span class="badge">Bot</span></div>
-                  <div class="card" id="appr">
-                    <div class="appr-h">⚠ 需要主人批准</div>
-                    <div class="appr-b">申请「完全访问」，执行：<code>rm -rf renders/ &amp;&amp; npx hyperframes render</code></div>
-                    <div class="appr-a">
-                      <div id="apprBtns" style="display: flex; gap: 12px"><div class="btn no">拒绝</div><div class="btn yes">批准</div></div>
-                      <div class="appr-done" id="apprDone">✓ 已由 你 批准 · 已记录到审计</div>
-                    </div>
-                    <div id="seal">批准</div>
-                  </div>
-                </div>
-              </div>
-              <div class="msg" id="m9">
-                <img class="av" src="assets/cast/gong-ask.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
-                  <div class="bubble">这一步要删文件，得主人点头。</div>
-                </div>
-              </div>
-              <div class="msg" id="m10">
-                <img class="av" src="assets/cast/sentry-done.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>哨兵</b><span class="badge">Bot</span></div>
-                  <div class="bubble">审片通过 ✅ 无越权、无报错，整 60 秒。</div>
-                </div>
-              </div>
-              <div class="msg" id="m11">
-                <img class="av" src="assets/cast/gong-done.svg" alt="" />
-                <div class="body">
-                  <div class="who"><b>共字君</b><span class="badge">Bot</span></div>
-                  <div class="bubble">宣传片做好啦——你正在看呢！</div>
-                  <div class="card" style="width: 482px">
-                    <div class="pv-thumb endface" id="thumb">
-                      <img src="assets/logo.svg" alt="" style="position: absolute; left: 221px; top: 44px; width: 38px; height: 38px" />
-                      <div style="position: absolute; left: 0; right: 0; top: 92px; text-align: center; font-size: 33px; font-weight: 900; letter-spacing: 3px">共工空间</div>
-                      <div style="position: absolute; left: 0; right: 0; top: 140px; text-align: center; font-size: 13px; font-weight: 600; color: #2b2f3a">让 AI 同事在群里接力干活</div>
-                      <div class="play" id="play"></div>
-                    </div>
-                    <div class="pv-foot"><div class="g"></div><b>共工空间-宣传片.mp4</b><span class="m">1:00 · 公开链接</span></div>
+                    <div class="step" id="rs1"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>编辑 <code>api/signup.ts</code></div>
+                    <div class="step" id="rs2"><div class="ico"><div class="spin"></div><div class="ok">✓</div></div>运行 <code>pnpm test</code></div>
+                    <div class="run-f" id="runF"><span>改动 3 个文件</span><span class="add">+128</span><span class="del">−12</span></div>
                   </div>
                 </div>
               </div>
@@ -340,109 +451,159 @@
           <div class="composer">
             <div class="field">
               <span id="ph">输入消息，@ 触发 Bot</span>
-              <span id="typed"></span><div id="caret"></div>
+              <span id="typed"></span>
               <div class="send"><div id="sendOn"></div></div>
             </div>
           </div>
         </div>
 
-        <div id="side">
-          <div class="panel" id="p1">
-            <div class="kick"><em>01</em>群聊即指挥台</div>
-            <div class="h">@ 一下，<span class="hl">就开工</span></div>
-            <div class="sub">成员和 Bot 在同一个群里协作；没 @ 的讨论，自动成为上下文。</div>
-            <div class="ctx">
-              <div class="q" id="c1">“开头要抓人。”</div>
-              <div class="q" id="c2">“别做成功能清单。”</div>
-              <div class="go" id="c3">@铁码 → 带着这些上下文开工</div>
+        <div id="s4side">
+          <div class="win" id="canvasWin">
+            <div class="toolbar"><span class="t">活动页原型</span><span class="note">画布 · v3</span><span class="sp"></span><span class="tbtn">适应画布</span><span class="tbtn pri">分享</span></div>
+            <div class="board">
+              <div class="scr-wrap" id="sc1" style="left: 50px">
+                <div class="scr"><div class="ev-hero"><div class="k">开发者沙龙 · 第 12 期</div><div class="t">和 AI 同事<br />一起写代码</div><div class="d">周六 14:00 · 线下 + 直播</div></div><div class="ev-b"><div class="bar" style="width: 90%"></div><div class="bar" style="width: 70%"></div><div class="bar" style="width: 80%"></div></div><div class="ev-cta">立即报名</div></div>
+                <div class="lbl">首页</div>
+              </div>
+              <div class="scr-wrap" id="sc2" style="left: 305px">
+                <div class="scr"><div class="ev-form"><div class="ft">报名信息</div><div class="fl">姓名</div><div class="fi"></div><div class="fl">公司</div><div class="fi"></div><div class="fl">邮箱</div><div class="fi"></div></div><div class="ev-cta">提交报名</div></div>
+                <div class="lbl">报名表单</div>
+              </div>
+              <div class="scr-wrap" id="sc3" style="left: 560px">
+                <div class="scr"><div class="ev-ok"><div class="c">✓</div><div class="t">报名成功</div><div class="d">周六见！</div></div></div>
+                <div class="lbl">报名成功</div>
+              </div>
+              <div class="link" id="lk1" style="left: 274px; width: 26px"></div>
+              <div class="link" id="lk2" style="left: 529px; width: 26px"></div>
+              <img id="painter" src="assets/cast/blank-type.svg" alt="" style="left: 700px; top: 470px" />
             </div>
           </div>
-          <div class="panel" id="p2">
-            <div class="kick"><em>02</em>跑在自己的机器上</div>
-            <div class="h" style="font-size: 60px">活儿在队友的<span class="hl">机器上</span>干</div>
-            <div class="flow">
-              <div class="node" id="n1"><div class="ic" style="background: #e6f0ff">💬</div><div><div class="n">群聊</div><div class="d">@ 与任务</div></div></div>
-              <div class="wire" id="w1"></div>
-              <div class="node" id="n2"><div class="ic" style="background: #f1edff">🛰</div><div><div class="n">服务器</div><div class="d">只管调度与中继</div></div></div>
-              <div class="wire" id="w2"></div>
-              <div class="node" id="n3"><div class="ic" style="background: #e9f8ee">💻</div><div><div class="n">阿周的 MacBook Pro</div><div class="d">本机已登录</div></div><div class="chips"><span class="chip">Claude Code</span><span class="chip">Codex</span></div></div>
-              <div class="pkt" id="pkt"></div>
+          <div class="win" id="gitWin">
+            <div class="gitbar"><b>Git</b><span class="br">feat/signup</span><span class="add">+128</span><span class="del">−12</span><span class="sp" style="flex: 1"></span><span class="btn pri" style="font-size: 16px; padding: 5px 16px">提交</span></div>
+            <div class="gitbody">
+              <div class="files">
+                <div class="on">api/signup.ts<em>+86</em></div>
+                <div>api/signup.test.ts<em>+38</em></div>
+                <div>web/routes.ts<em>+4 <span style="color: #d70015">−12</span></em></div>
+              </div>
+              <div class="diff">
+                <div class="hh">@@ -0,0 +1,86 @@</div>
+                <div class="a">+export async function signup(req: SignupReq) {</div>
+                <div class="a">+  const input = SignupReq.parse(req)</div>
+                <div class="a">+  if (await seats.full(input.eventId))</div>
+                <div class="a">+    return fail('conflict', '名额已满')</div>
+                <div class="a">+  return db.insert(signups).values(input)</div>
+                <div class="a">+}</div>
+                <div class="hh">@@ -18,12 +18,4 @@ web/routes.ts</div>
+                <div class="d">-  { path: '/event', page: Placeholder },</div>
+                <div class="a">+  { path: '/event', page: EventPage },</div>
+                <div class="a">+  { path: '/event/signup', page: SignupForm },</div>
+              </div>
             </div>
-            <div id="lock">🔒 代码 · 工作区 · 凭据，从不离开本机</div>
           </div>
-          <div class="panel" id="p3">
-            <div class="kick"><em>03</em>权限与审批</div>
-            <div class="h">越权操作，<span style="color: var(--seal)">主人盖章</span></div>
-            <div class="tiers">
-              <div class="tier"><div class="lv" style="background: #34c759"></div>只读</div>
-              <div class="tier"><div class="lv" style="background: #ffb020"></div>工作区写入</div>
-              <div class="tier" id="tier3"><div class="lv" style="background: var(--seal)"></div>完全访问<span class="note">需 Bot 主人批准</span></div>
+          <div class="s4tag" id="tagCanvas" style="left: 470px; top: 668px; background: var(--blue)">原型 · 托管在画布上</div>
+          <div class="s4tag" id="tagGit" style="left: 400px; top: 668px; background: var(--green)">代码 · 改在队友的机器上</div>
+        </div>
+      </div>
+
+      <!-- S5 35.6–46.4 review for me -->
+      <div id="s5" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="35.6" data-duration="10.8" data-track-index="5">
+        <div id="s5left">
+          <div class="kick"><em>审批方式</em>帮我审批</div>
+          <div class="h" style="margin-top: 18px">日常替你放行，<span style="color: var(--orange)">要紧的才问你</span></div>
+          <div class="mode" id="modeCard">
+            <div class="lab">审批方式</div>
+            <div class="seg"><span id="segKnob"></span><div>每次问我</div><div>帮我审批</div><div>完全允许</div></div>
+            <div class="hint">构建、测试、lint、格式化、本地 git 和工作区内改文件直接放行（等于信任仓库里的脚本）；其余发审批卡片给你，开启 AI 预审后先由 AI 评估，只把风险操作交给你。</div>
+          </div>
+          <div class="cmds">
+            <div class="cmd" id="cmd1"><code>pnpm test</code><span class="st">✓ 直接放行</span></div>
+            <div class="cmd" id="cmd2"><code>pnpm lint</code><span class="st">✓ 直接放行</span></div>
+            <div class="cmd" id="cmd3"><code>git commit -m "feat: 报名接口"</code><span class="st">✓ 直接放行</span></div>
+            <div class="cmd" id="cmdPush"><code>git push origin main</code><span class="st">→ 发到你手机</span></div>
+          </div>
+        </div>
+        <div class="phone" id="phone1">
+          <div class="scrn">
+            <div class="island"></div>
+            <div class="sbar"><span>21:42</span><span>5G</span></div>
+            <div class="mhead"><span class="bk">‹</span><div><div class="t">官网改版</div><div class="s">1 人 · 6 Bot</div></div></div>
+            <div class="mbody">
+              <div class="msg">
+                <img class="av" src="assets/cast/braces-raise.svg" alt="" />
+                <div>
+                  <div class="who"><b>铁码</b><span class="badge">Bot</span></div>
+                  <div class="appr" id="apprCard">
+                    <div class="ttl"><i></i>权限请求 · 执行命令</div>
+                    <code>git push origin main</code>
+                    <div class="why">可能修改受保护的基准分支 · 4:52 后自动拒绝，agent 自行绕路</div>
+                    <div class="acts">
+                      <div id="apprBtns" style="display: flex; gap: 8px"><div class="btn pri" id="approveBtn">批准</div><div class="btn">拒绝</div></div>
+                      <div id="apprDone">阿周 已批准 · 21:42</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="msg" id="mReply">
+                <img class="av" src="assets/cast/braces-done.svg" alt="" />
+                <div>
+                  <div class="who"><b>铁码</b><span class="badge">Bot</span></div>
+                  <div class="bubble">已推送 main，报名接口上线。</div>
+                </div>
+              </div>
             </div>
-            <div id="trail">✓ 过程实时可见，审批全程留痕</div>
+          </div>
+          <div id="tap"></div>
+        </div>
+      </div>
+
+      <!-- S6 46–53.4 share the prototype -->
+      <div id="s6" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="46" data-duration="7.4" data-track-index="6">
+        <div class="win" id="shareWin">
+          <div class="titlebar"><div class="tl r"></div><div class="tl y"></div><div class="tl g"></div><div class="name">共工空间</div></div>
+          <div class="toolbar"><span class="t">活动页原型</span><span class="note">画布 · v3</span><span class="sp"></span><span class="tbtn">适应画布</span><span class="tbtn pri" id="shareBtn">分享</span></div>
+          <div class="board">
+            <div class="scr-wrap" style="left: 60px"><div class="scr"><div class="ev-hero"><div class="k">开发者沙龙 · 第 12 期</div><div class="t">和 AI 同事<br />一起写代码</div><div class="d">周六 14:00 · 线下 + 直播</div></div><div class="ev-b"><div class="bar" style="width: 90%"></div><div class="bar" style="width: 70%"></div><div class="bar" style="width: 80%"></div></div><div class="ev-cta">立即报名</div></div><div class="lbl">首页</div></div>
+            <div class="scr-wrap" style="left: 320px"><div class="scr"><div class="ev-form"><div class="ft">报名信息</div><div class="fl">姓名</div><div class="fi"></div><div class="fl">公司</div><div class="fi"></div><div class="fl">邮箱</div><div class="fi"></div></div><div class="ev-cta">提交报名</div></div><div class="lbl">报名表单</div></div>
+            <div id="pop">
+              <div class="pt">分享产物</div>
+              <div class="pd" id="popD1">开启分享并复制链接：任何拿到链接的人都能查看，可随时在「分享」里关闭。</div>
+              <div class="pd" id="popD2" style="display: none">分享已开启，复制链接发给别人即可查看。</div>
+              <div class="url" id="popUrl" style="display: none">https://gg.example.com/s/ev12-signup</div>
+              <div><span class="btn pri" id="popBtn">开启分享</span></div>
+            </div>
+            <div id="toast">已复制</div>
+          </div>
+        </div>
+        <div class="phone" id="phone2">
+          <div class="scrn">
+            <div class="island"></div>
+            <div class="sbar"><span>21:45</span><span>5G</span></div>
+            <div class="safari"><i></i>gg.example.com</div>
+            <div class="ev-hero" style="margin-top: 12px"><div class="k">开发者沙龙 · 第 12 期</div><div class="t">和 AI 同事<br />一起写代码</div><div class="d">周六 14:00 · 线下 + 直播</div></div>
+            <div class="ev-b"><div class="bar" style="width: 90%"></div><div class="bar" style="width: 70%"></div><div class="bar" style="width: 80%"></div><div class="bar" style="width: 60%"></div></div>
+            <div class="ev-cta">立即报名</div>
           </div>
         </div>
       </div>
 
-      <div id="roll" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="7" data-duration="6" data-track-index="2">
-        <div id="rollIn" class="full">
-          <div id="rollBg" class="full"></div>
-          <div id="rollTitle">你的 AI 同事，都在群里</div>
-          <div class="hero" id="h1" style="left: 120px"><img src="assets/cast/hammock-think.svg" alt="" /><div class="nm">慢想</div><div class="mx">深思 × 逆向 × 守边界</div><div class="job">定方向</div></div>
-          <div class="hero" id="h2" style="left: 560px"><img src="assets/cast/blank-carry.svg" alt="" /><div class="nm">留白</div><div class="mx">温柔 × 偏执 × 克制</div><div class="job">画分镜</div></div>
-          <div class="hero" id="h3" style="left: 1000px"><img src="assets/cast/braces-type.svg" alt="" /><div class="nm">铁码</div><div class="mx">毒舌 × 洁癖 × 实干</div><div class="job">写代码</div></div>
-          <div class="hero" id="h4" style="left: 1440px"><img src="assets/cast/sentry-raise.svg" alt="" /><div class="nm">哨兵</div><div class="mx">警觉 × 冷静 × 讲流程</div><div class="job">把关</div></div>
-          <div id="crew">
-            <img src="assets/cast/focus-wave.svg" alt="" />
-            <img src="assets/cast/steps-wave.svg" alt="" />
-            <img src="assets/cast/no-wave.svg" alt="" />
-            <img src="assets/cast/abacus-wave.svg" alt="" />
-            <img src="assets/cast/gong-wave.svg" alt="" />
-            <img src="assets/cast/invert-wave.svg" alt="" />
-            <img src="assets/cast/spring-wave.svg" alt="" />
-            <img src="assets/cast/compass-wave.svg" alt="" />
-            <img src="assets/cast/loop-wave.svg" alt="" />
-          </div>
-        </div>
-      </div>
-
-      <div id="proof" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="40" data-duration="6.2" data-track-index="3">
-        <div id="proofIn" class="full">
-          <div id="proofBg" class="full"></div>
-          <div id="proofHead">
-            <div class="kick"><em>04</em>真实界面</div>
-            <div class="h">改动<span class="hl">可审</span>，结果<span class="hl">一键预览</span></div>
-          </div>
-          <div class="shot" id="shotA"><div class="bar"><div class="tl" style="background: #ff5f57"></div><div class="tl" style="background: #febc2e"></div><div class="tl" style="background: #28c840"></div></div><img src="assets/shots/diff-pane.webp" alt="" /></div>
-          <div class="shot" id="shotB"><div class="bar"><div class="tl" style="background: #ff5f57"></div><div class="tl" style="background: #febc2e"></div><div class="tl" style="background: #28c840"></div></div><img src="assets/shots/preview-workbench.webp" alt="" /></div>
-          <div class="tag" id="tagA">diff · Git 状态随手查</div>
-          <div class="tag" id="tagB">网页 · 小程序 · 桌面应用</div>
-        </div>
-      </div>
-
-      <div id="zoomClip" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow class="clip full" data-start="50.2" data-duration="1.9" data-track-index="4">
-        <div id="zoom" class="endface">
-          <img class="endlogo" src="assets/logo.svg" alt="" />
-          <div class="endtitle">共工空间</div>
-          <div class="endtag">让 AI 同事在群里接力干活</div>
-        </div>
-      </div>
-
-      <div id="end" class="clip full" data-start="52" data-duration="8" data-track-index="5">
-        <div class="full endface">
+      <!-- S7 52.8–60 end card -->
+      <div id="end" class="clip full" data-start="52.8" data-duration="7.2" data-track-index="7">
+        <div class="full endface" id="endIn">
           <img class="endlogo" id="eLogo" src="assets/logo.svg" alt="" />
           <div class="endtitle" id="eTitle">共工空间</div>
-          <div class="endtag" id="eTag">让 AI 同事在群里接力干活</div>
-          <div id="endMeta"><span>开源</span><span>自托管</span><span>接入 Claude Code / Codex</span><span>网页 · 桌面 · 手机</span></div>
+          <div class="endtag" id="eTag">一句话接入，AI 同事在群里接力干活</div>
+          <div id="endMeta"><span>开源</span><span>自托管</span><span>Claude Code · Codex · Gemini CLI 等 6 种 Agent</span><span>网页 · 桌面 · 手机</span></div>
           <div id="endUrl">github.com/yoqu/gonggong-space</div>
           <div id="endCast">
             <img src="assets/cast/gong-wave.svg" alt="" />
-            <img src="assets/cast/hammock-wave.svg" alt="" />
             <img src="assets/cast/braces-wave.svg" alt="" />
-            <img src="assets/cast/focus-wave.svg" alt="" />
-            <img src="assets/cast/steps-wave.svg" alt="" />
+            <img src="assets/cast/hammock-wave.svg" alt="" />
             <img src="assets/cast/blank-wave.svg" alt="" />
-            <img src="assets/cast/no-wave.svg" alt="" />
+            <img src="assets/cast/steps-wave.svg" alt="" />
+            <img src="assets/cast/focus-wave.svg" alt="" />
             <img src="assets/cast/abacus-wave.svg" alt="" />
+            <img src="assets/cast/no-wave.svg" alt="" />
             <img src="assets/cast/invert-wave.svg" alt="" />
             <img src="assets/cast/sentry-wave.svg" alt="" />
             <img src="assets/cast/spring-wave.svg" alt="" />
@@ -452,170 +613,207 @@
         </div>
       </div>
 
-      <div id="caps" class="clip full" data-start="0" data-duration="60" data-track-index="6">
-        <div class="cap" id="k1"><span><b>共字君</b>收到！一个人做不完——我去拉几个同事。</span></div>
-        <div class="cap" id="k2"><span>这里是共工空间。你的 AI 同事，都在群里。</span></div>
-        <div class="cap" id="k3"><span>在群里 @ 一下，它就开工；没 @ 的讨论，自动成为上下文。</span></div>
-        <div class="cap" id="k4"><span>活儿，在队友自己的机器上干：调用本机的 Claude Code 和 Codex，代码和凭据，从不离开本机。</span></div>
-        <div class="cap" id="k5"><span><b>共字君</b>这一步要删文件，得主人点头。</span></div>
-        <div class="cap" id="k6"><span>过程实时可见；越权操作，主人盖章才算数。</span></div>
-        <div class="cap" id="k7"><span>每一处改动都能审，结果一键预览。</span></div>
-        <div class="cap" id="k8"><span><b>共字君</b>宣传片做好啦——你正在看呢！</span></div>
+      <div id="caps" class="clip full" data-start="0" data-duration="60" data-track-index="8">
+        <div class="cap" id="k2"><span>一句话。发给你的 Agent，它自己安装、绑定、常驻，Bot 和私聊都替你建好。</span></div>
+        <div class="cap" id="k3"><span>Claude Code、Codex、Gemini CLI……哪家的 Agent，都能拉进同一个群。</span></div>
+        <div class="cap" id="k4"><span>在群里 @ 一下，它们自己分工、开话题、接力：原型画在画布上，代码改在队友的机器上。</span></div>
+        <div class="cap" id="k5"><span>日常命令，「帮我审批」替你放行；推送主分支这种要紧事，才到手机上问你。</span></div>
+        <div class="cap" id="k6"><span>做好的原型，开个公开链接，客户直接就能看。</span></div>
       </div>
 
-      <audio id="music" src="audio/music.wav" data-start="0" data-duration="60" data-track-index="10" data-volume="0.6"></audio>
-      <audio id="sfx" src="audio/sfx.wav" data-start="0" data-duration="60" data-track-index="11" data-volume="0.55"></audio>
-      <audio id="v01" src="audio/v01.mp3" data-start="2.8" data-duration="3.95" data-track-index="12"></audio>
-      <audio id="v02" src="audio/v02.mp3" data-start="9" data-duration="3.74" data-track-index="12"></audio>
-      <audio id="v03" src="audio/v03.mp3" data-start="13.4" data-duration="5.05" data-track-index="12"></audio>
-      <audio id="v04" src="audio/v04.mp3" data-start="20.4" data-duration="8.55" data-track-index="12"></audio>
-      <audio id="v05" src="audio/v05.mp3" data-start="31.6" data-duration="3.66" data-track-index="12"></audio>
-      <audio id="v06" src="audio/v06.mp3" data-start="35.8" data-duration="4.05" data-track-index="12"></audio>
-      <audio id="v07" src="audio/v07.mp3" data-start="40.4" data-duration="3.45" data-track-index="12"></audio>
-      <audio id="v08" src="audio/v08.mp3" data-start="47" data-duration="3.16" data-track-index="12"></audio>
-      <audio id="v09" src="audio/v09.mp3" data-start="52.6" data-duration="4.13" data-track-index="12"></audio>
+      <audio id="music" src="audio/music.wav" data-start="0" data-duration="60" data-track-index="10" data-volume="0.55"></audio>
+      <audio id="sfx" src="audio/sfx.wav" data-start="0" data-duration="60" data-track-index="11" data-volume="0.5"></audio>
+      <audio id="v01" src="audio/v01.mp3" data-start="0.5" data-duration="3.29" data-track-index="12"></audio>
+      <audio id="v02" src="audio/v02.mp3" data-start="4.4" data-duration="6.48" data-track-index="12"></audio>
+      <audio id="v03" src="audio/v03.mp3" data-start="14" data-duration="5.33" data-track-index="12"></audio>
+      <audio id="v04" src="audio/v04.mp3" data-start="22.6" data-duration="7.19" data-track-index="12"></audio>
+      <audio id="v05" src="audio/v05.mp3" data-start="36.2" data-duration="5.75" data-track-index="12"></audio>
+      <audio id="v06" src="audio/v06.mp3" data-start="46.6" data-duration="3.63" data-track-index="12"></audio>
+      <audio id="v07" src="audio/v07.mp3" data-start="53.4" data-duration="5.02" data-track-index="12"></audio>
     </div>
 
     <script>
-      const TYPE = '@共字君 帮我做一支产品宣传片，发挥你的想象力。'
+      window.__timelines = window.__timelines || {}
+      const TYPE = '@慢想 下周的活动页：出三屏原型，顺便把报名接口写了。'
       const typed = document.getElementById('typed')
       ;[...TYPE].forEach((ch, i) => {
         const s = document.createElement('span')
         s.textContent = ch
-        if (i < 4) s.className = 'at'
+        if (i < 3) s.className = 'at'
         typed.appendChild(s)
       })
 
       const tl = gsap.timeline({ paused: true })
       const pop = (sel, t, from = {}) =>
-        tl.fromTo(sel, { opacity: 0, y: 24, scale: 0.96, ...from }, { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: 'back.out(1.6)' }, t)
+        tl.fromTo(sel, { opacity: 0, y: 20, scale: 0.96, ...from }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: 'back.out(1.6)' }, t)
+      const show = (sel, t, d = 0.3) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d }, t)
+      const hide = (sel, t, d = 0.35) => tl.to(sel, { opacity: 0, duration: d, ease: 'power2.in' }, t)
 
-      // ---------- S1 hook: the request ----------
-      tl.fromTo('#win', { opacity: 0, y: -320 }, { opacity: 1, y: -360, duration: 0.6, ease: 'power3.out' }, 0.1)
-      tl.fromTo('#win', { scale: 1.5, transformOrigin: '50% 96%' }, { scale: 1, duration: 0.9, ease: 'power3.inOut' }, 2.45)
-      tl.to('#win', { y: 0, duration: 0.9, ease: 'power3.inOut' }, 2.45)
-      tl.fromTo('#caret', { opacity: 1 }, { opacity: 0, duration: 0.3, repeat: 3, yoyo: true, ease: 'steps(1)' }, 0)
-      tl.set('#ph', { opacity: 0 }, 0.6)
-      typed.querySelectorAll('span').forEach((s, i) => tl.set(s, { opacity: 1 }, 0.6 + i * 0.075))
-      tl.set('#sendOn', { opacity: 1 }, 2.4)
-      tl.set(['#typed', '#caret'], { opacity: 0 }, 2.5)
-      tl.set('#ph', { opacity: 1 }, 2.5)
-      tl.set('#sendOn', { opacity: 0 }, 2.5)
+      // ---------- S1 hook ----------
+      tl.fromTo('#hookQ', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.2)
+      tl.fromTo('.chore', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.18, ease: 'back.out(1.8)' }, 1.2)
+      tl.fromTo('.chore i', { scaleX: 0 }, { scaleX: 1, duration: 0.18, stagger: 0.12, ease: 'power2.out' }, 2.9)
+      tl.to('.chore', { opacity: 0.35, duration: 0.2, stagger: 0.12 }, 3.0)
+      tl.to(['#hookQ', '#chores'], { opacity: 0, y: -30, duration: 0.35, ease: 'power2.in' }, 3.95)
+      tl.fromTo('#oneLine', { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(2.2)' }, 4.25)
+      // the pill flies into the prompt card of the dialog
+      tl.to('#oneLine', { x: -330, y: 70, scale: 0.35, opacity: 0, duration: 0.5, ease: 'power3.in' }, 4.85)
 
-      // all messages start hidden; each reveal scrolls the stack so the newest sits at the bottom
-      const MSGS = [
-        ['#m1', 2.5], ['#m2', 2.85], ['#m2s', 12.7], ['#m3', 13.6], ['#m4', 15.0], ['#m5', 16.5],
-        ['#m6', 20.2], ['#m7', 21.0], ['#m8', 31.3], ['#m9', 31.9], ['#m10', 46.2], ['#m11', 47.0],
-      ]
-      MSGS.forEach(([sel]) => tl.set(sel, { opacity: 0 }, 0))
+      // ---------- S2 one sentence ----------
+      tl.fromTo('#bwin', { opacity: 0, y: 40, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'power3.out' }, 4.6)
+      tl.fromTo('#promptCard', { boxShadow: '0 0 0 0 rgba(10,124,255,0)' }, { boxShadow: '0 0 0 6px rgba(10,124,255,0.25)', duration: 0.3, yoyo: true, repeat: 1 }, 5.2)
+      tl.fromTo('#cursor', { x: 420, y: 700, opacity: 0 }, { x: 92, y: 452, opacity: 1, duration: 0.6, ease: 'power2.out' }, 4.9)
+      tl.to('#cursor', { scale: 0.85, duration: 0.08, yoyo: true, repeat: 1 }, 5.55)
+      tl.set('#cp1', { opacity: 0 }, 5.6)
+      tl.set('#cp2', { opacity: 1 }, 5.6)
+      tl.to('#cursor', { opacity: 0, duration: 0.2 }, 6.0)
+      // ① copied
+      tl.set('#st1 .dot b', { opacity: 1 }, 5.6)
+      tl.set('#st1', { color: '#1d1d1f' }, 5.6)
+      tl.fromTo('#sl1', { scaleX: 0 }, { scaleX: 1, duration: 3.2, ease: 'none' }, 5.7)
+      tl.set('#st2', { color: '#1d1d1f' }, 5.7)
+      tl.fromTo('#st2 .ring', { opacity: 0 }, { opacity: 1, duration: 0.3, repeat: 5, yoyo: true }, 5.8)
+      tl.fromTo('#waitSpin', { rotation: 0 }, { rotation: 1440, duration: 4.4, ease: 'none' }, 5.6)
 
+      tl.fromTo('#term', { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 5.9)
+      tl.set(['#tYou', '#tt1', '#tt2', '#tt3', '#to1', '#to2', '#to3', '#to4', '#to5', '#tfin'], { opacity: 0 }, 0)
+      show('#tYou', 6.3, 0.15)
+      ;[['#tt1', 6.9], ['#tt2', 7.4], ['#tt3', 7.9], ['#to1', 8.4], ['#to2', 8.75], ['#to3', 9.1], ['#to4', 9.45], ['#to5', 9.65], ['#tfin', 10.3]].forEach(([s, t]) =>
+        tl.fromTo(s, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.2 }, t))
+      // ② bound, ③ bot ready
+      tl.set('#st2 .ring', { opacity: 0 }, 8.9)
+      tl.set('#st2 .dot b', { opacity: 1 }, 8.9)
+      tl.fromTo('#sl2', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'none' }, 8.9)
+      tl.set('#st3', { color: '#1d1d1f' }, 9.7)
+      tl.set('#st3 .dot b', { opacity: 1 }, 9.7)
+      tl.to(['#waitH', '#waitLine'], { opacity: 0, duration: 0.2 }, 9.7)
+      pop('#bound', 9.85, { scale: 0.9, y: 10 })
+
+      // into the bot's DM
+      tl.to(['#bwin', '#term'], { opacity: 0, scale: 0.94, duration: 0.4, ease: 'power2.in' }, 11.0)
+      tl.fromTo('#dm', { opacity: 0, scale: 1.04 }, { opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out' }, 11.3)
+      pop('#dm1', 11.9, { x: -20, y: 0 })
+      tl.to('#dm', { opacity: 0, y: -40, duration: 0.4, ease: 'power2.in' }, 13.4)
+
+      // ---------- S3 any agent ----------
+      tl.fromTo('#s3Head', { opacity: 0, y: -24 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 13.6)
+      ;['#ac1', '#ac2', '#ac3', '#ac4', '#ac5', '#ac6'].forEach((c, i) =>
+        tl.fromTo(c, { opacity: 0, y: 60, scale: 0.9, rotation: i % 2 ? 3 : -3 }, { opacity: 1, y: 0, scale: 1, rotation: 0, duration: 0.45, ease: 'back.out(1.7)' }, 14.2 + i * 0.45))
+      tl.to('.acard', { y: -8, duration: 0.6, repeat: 3, yoyo: true, stagger: 0.1, ease: 'sine.inOut' }, 17.2)
+      // everyone converges into the group header
+      ;['#ac1', '#ac2', '#ac3', '#ac4', '#ac5', '#ac6'].forEach((c, i) => {
+        const left = [150, 705, 1260, 150, 705, 1260][i] + 255
+        const top = [330, 330, 330, 590, 590, 590][i] + 100
+        tl.to(c, { x: 760 + i * 32 - left, y: 155 - top, scale: 0.12, opacity: 0, duration: 0.6, ease: 'power3.in' }, 20.6 + i * 0.05)
+      })
+      hide('#s3Head', 20.6)
+
+      // ---------- S4 relay ----------
+      tl.fromTo('#gwin', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 21.4)
+      tl.fromTo('.ghead .members img', { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.06, ease: 'back.out(2)' }, 21.5)
+      tl.set('#ph', { opacity: 0 }, 22.0)
+      typed.querySelectorAll('span').forEach((s, i) => tl.set(s, { opacity: 1 }, 22.0 + i * 0.045))
+      tl.set('#sendOn', { opacity: 1 }, 23.25)
+      tl.set(['#typed', '#sendOn'], { opacity: 0 }, 23.4)
+      tl.set('#ph', { opacity: 1 }, 23.4)
+
+      tl.set(['#s4side', '#canvasWin', '#gitWin', '#tagCanvas', '#tagGit'], { opacity: 0 }, 0)
+      tl.set('#s4side', { opacity: 1 }, 21.4)
+      tl.fromTo('#canvasWin', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 25.6)
+      ;['#sc1', '#sc2', '#sc3'].forEach((s, i) => tl.fromTo(s, { opacity: 0, y: 40, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'back.out(1.6)' }, 26.1 + i * 0.6))
+      tl.fromTo(['#lk1', '#lk2'], { scaleX: 0 }, { scaleX: 1, duration: 0.3, stagger: 0.6 }, 26.9)
+      tl.fromTo('#painter', { opacity: 0, x: -560, y: -300 }, { opacity: 1, x: -460, y: -300, duration: 0.3 }, 26.1)
+      tl.to('#painter', { x: -205, duration: 0.55, ease: 'power2.inOut' }, 26.6)
+      tl.to('#painter', { x: 50, duration: 0.6, ease: 'power2.inOut' }, 27.2)
+      
+      tl.to('#painter', { x: 0, y: -60, duration: 0.6, ease: 'power2.inOut' }, 27.85)
+      pop('#tagCanvas', 27.6, { scale: 0.6, y: 0 })
+      tl.to(['#canvasWin', '#tagCanvas'], { opacity: 0, x: -40, duration: 0.35, ease: 'power2.in' }, 30.6)
+      tl.fromTo('#gitWin', { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 30.9)
+      tl.fromTo('.diff div', { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.18, stagger: 0.09 }, 31.3)
+      pop('#tagGit', 32.2, { scale: 0.6, y: 0 })
+
+      const GMSG = [['#g1', 23.4], ['#g2', 24.3], ['#th1', 24.9], ['#th2', 25.4], ['#g3', 29.6]]
+      GMSG.forEach(([sel]) => tl.set(sel, { opacity: 0 }, 0))
+      ;[1, 2].forEach((k, i) => {
+        const t = 30.6 + i * 0.8
+        tl.fromTo(`#rs${k}`, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25 }, t - 0.6)
+        tl.fromTo(`#rs${k} .spin`, { rotation: 0 }, { rotation: 360, duration: 0.6, ease: 'none' }, t - 0.6)
+        tl.set(`#rs${k} .spin`, { opacity: 0 }, t)
+        tl.fromTo(`#rs${k} .ok`, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(3)' }, t)
+      })
+      tl.fromTo('#runF', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 31.6)
+      const clock = { s: 0 }
+      tl.fromTo(clock, { s: 0 }, {
+        s: 38, duration: 4, ease: 'none', onUpdate: () => {
+          document.getElementById('runTime').textContent = `00:${String(Math.round(clock.s)).padStart(2, '0')}`
+        },
+      }, 29.6)
+      tl.to(['#gwin', '#s4side'], { opacity: 0, y: -30, duration: 0.4, ease: 'power2.in' }, 35.4)
+
+      // ---------- S5 review for me ----------
+      tl.fromTo('#s5left .kick, #s5left .h', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.1, ease: 'power3.out' }, 35.7)
+      pop('#modeCard', 36.0)
+      tl.fromTo('#segKnob', { x: 0 }, { x: 197, duration: 0.35, ease: 'power3.inOut' }, 36.6)
+      ;['#cmd1', '#cmd2', '#cmd3', '#cmdPush'].forEach((c, i) => pop(c, 37.3 + i * 0.6, { x: -30, y: 0 }))
+      tl.to('#cmdPush', { borderColor: '#ff9f0a', backgroundColor: '#fff8ef', duration: 0.3 }, 39.3)
+      tl.fromTo('#phone1', { opacity: 0, y: 120 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 39.6)
+      tl.fromTo('#apprCard', { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' }, 40.2)
+      tl.set('#apprDone', { opacity: 0 }, 0)
+      tl.set('#tap', { opacity: 0 }, 0)
+      tl.fromTo('#tap', { opacity: 0, scale: 1.8, x: 70, y: 418 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'power2.out' }, 42.2)
+      tl.to('#approveBtn', { scale: 0.9, duration: 0.08, yoyo: true, repeat: 1 }, 42.5)
+      tl.to('#tap', { opacity: 0, scale: 1.4, duration: 0.3 }, 42.65)
+      tl.set('#apprBtns', { opacity: 0 }, 42.65)
+      tl.fromTo('#apprDone', { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.25 }, 42.65)
+      tl.to('#cmdPush', { borderColor: '#34c759', backgroundColor: '#f1fbf3', duration: 0.3 }, 42.7)
+      tl.set('#cmdPush .st', { textContent: '✓ 已批准', color: '#1f8f3f' }, 42.7)
+      pop('#mReply', 43.5, { x: -16, y: 0 })
+      tl.to(['#s5left', '#phone1'], { opacity: 0, y: -30, duration: 0.4, ease: 'power2.in' }, 45.9)
+
+      // ---------- S6 share ----------
+      tl.fromTo('#shareWin', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 46.1)
+      tl.set(['#pop', '#toast'], { opacity: 0 }, 0)
+      tl.to('#shareBtn', { scale: 0.92, duration: 0.08, yoyo: true, repeat: 1 }, 46.8)
+      tl.fromTo('#pop', { opacity: 0, y: -10, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'power3.out' }, 46.95)
+      tl.to('#popBtn', { scale: 0.92, duration: 0.08, yoyo: true, repeat: 1 }, 47.9)
+      tl.set('#popD1', { display: 'none' }, 48.05)
+      tl.set(['#popD2', '#popUrl'], { display: 'block' }, 48.05)
+      tl.set('#popBtn', { textContent: '复制链接' }, 48.05)
+      tl.fromTo('#toast', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.25 }, 48.2)
+      tl.to('#toast', { opacity: 0, duration: 0.3 }, 49.6)
+      tl.fromTo('#phone2', { opacity: 0, x: 140, rotation: 4 }, { opacity: 1, x: 0, rotation: 0, duration: 0.6, ease: 'power3.out' }, 48.8)
+      tl.to(['#shareWin', '#phone2'], { opacity: 0, scale: 0.96, duration: 0.4, ease: 'power2.in' }, 52.6)
+
+      // ---------- S7 end card ----------
+      tl.fromTo('#endIn', { opacity: 0 }, { opacity: 1, duration: 0.5 }, 52.8)
+      tl.fromTo('#eLogo', { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(2)' }, 53.0)
+      tl.fromTo('#eTitle', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 53.3)
+      tl.fromTo('#eTag', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 54.4)
+      tl.fromTo('#endMeta span', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.12, ease: 'power3.out' }, 55.2)
+      tl.fromTo('#endUrl', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 56.0)
+      tl.fromTo('#endCast img', { opacity: 0, y: 90 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.07, ease: 'back.out(1.7)' }, 54.0)
+      tl.to('#endCast img', { y: -14, duration: 0.3, stagger: { each: 0.06, repeat: 5, yoyo: true }, ease: 'sine.inOut' }, 56.4)
+
+      // ---------- captions (spoken lines; v01 and v07 are on screen already) ----------
+      ;[[4.4, 10.9], [14, 19.35], [22.6, 29.8], [36.2, 41.95], [46.6, 50.3]].forEach(([a, b], i) => {
+        tl.fromTo(`#k${i + 2}`, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, a)
+        tl.to(`#k${i + 2}`, { opacity: 0, duration: 0.2 }, b)
+      })
+
+      // the group chat scrolls so the newest message sits at the bottom of the viewport
       function build() {
-        const vpH = document.getElementById('vp').clientHeight
-        const stack = document.getElementById('stack')
-        const top0 = stack.getBoundingClientRect().top
-        MSGS.forEach(([sel, t]) => {
+        const vpH = document.getElementById('gvp').clientHeight
+        GMSG.forEach(([sel, t]) => {
           const el = document.querySelector(sel)
-          const bottom = el.offsetTop + el.offsetHeight + 24
-          const y = Math.min(0, vpH - bottom)
-          tl.to('#stack', { y, duration: 0.45, ease: 'power3.out' }, t)
-          pop(sel, t, sel === '#m1' ? { x: 30, y: 0 } : sel === '#m2s' ? { y: 0, scale: 1 } : { x: -20 })
+          const host = el.closest('.msg') || el
+          let top = 0
+          for (let n = el; n && n.id !== 'gstack'; n = n.offsetParent) top += n.offsetTop
+          const bottom = top + el.offsetHeight + 20
+          tl.to('#gstack', { y: Math.min(0, vpH - bottom), duration: 0.45, ease: 'power3.out' }, t)
+          pop(sel, t, sel === '#g1' ? { x: 30, y: 0 } : { x: -20, y: 0 })
+          if (host !== el) tl.set(host, { opacity: 1 }, t)
         })
-        tl.set('#gsub', { textContent: '1 人 · 5 Bot · gonggong-promo' }, 12.7)
-        tl.fromTo('#members img', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.08, ease: 'back.out(2)' }, 12.7)
-
-        // ---------- S2 roll call ----------
-        tl.to('#win', { scale: 0.9, opacity: 0.4, transformOrigin: '50% 50%', duration: 0.4, ease: 'power2.in' }, 6.8)
-        tl.fromTo('#rollBg', { opacity: 0 }, { opacity: 1, duration: 0.25 }, 7)
-        ;['#h1', '#h2', '#h3', '#h4'].forEach((h, i) =>
-          tl.fromTo(h, { opacity: 0, scale: 1.6, rotation: i % 2 ? 7 : -7 }, { opacity: 1, scale: 1, rotation: i % 2 ? 1.5 : -1.5, duration: 0.32, ease: 'back.out(1.4)' }, 7 + i * 0.5))
-        tl.fromTo('.job', { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.25, stagger: 0.5, ease: 'back.out(3)' }, 7.2)
-        tl.fromTo('#rollTitle', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 9)
-        tl.fromTo('#crew img', { opacity: 0, y: 80 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.07, ease: 'back.out(1.8)' }, 9.1)
-        tl.to('#crew img', { y: -10, duration: 0.25, stagger: { each: 0.06, repeat: 3, yoyo: true }, ease: 'sine.inOut' }, 10.2)
-        tl.to(['#h1', '#h2', '#h3', '#h4'], { y: -8, duration: 0.5, repeat: 3, yoyo: true, stagger: 0.12, ease: 'sine.inOut' }, 9.4)
-        tl.to('#rollIn', { opacity: 0, scale: 1.04, duration: 0.45, ease: 'power2.in' }, 12.55)
-
-        // ---------- S3 @ relay ----------
-        tl.to('#win', { opacity: 1, scale: 1, x: -330, duration: 0.6, ease: 'power3.out' }, 12.6)
-        tl.fromTo('#p1', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 13.3)
-        pop('#c1', 15.6); pop('#c2', 16.2); pop('#c3', 17.6, { x: -30, y: 0 })
-        tl.to('#p1', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 19.8)
-
-        // ---------- S4 runs on a teammate's machine ----------
-        tl.fromTo('#p2', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 20.3)
-        ;[['#n1', 20.7], ['#n2', 21.0], ['#n3', 21.3]].forEach(([n, t]) => pop(n, t, { x: 30, y: 0 }))
-        tl.fromTo(['#w1', '#w2'], { scaleY: 0, transformOrigin: '50% 0%' }, { scaleY: 1, duration: 0.3, stagger: 0.3 }, 21.0)
-        tl.fromTo('#pkt', { opacity: 0 }, { opacity: 1, duration: 0.15 }, 22.0)
-        tl.to('#pkt', { y: 360, duration: 1.4, ease: 'power1.inOut', repeat: 2, repeatDelay: 0.4 }, 22.1)
-        tl.to('#pkt', { opacity: 0, duration: 0.2 }, 27.2)
-        tl.fromTo('#n3', { boxShadow: '0 6px 22px rgba(30,50,100,0.08)' }, { boxShadow: '0 0 0 10px rgba(10,124,255,0.15)', duration: 0.4, repeat: 3, yoyo: true }, 23.4)
-        pop('#lock', 26.8, { x: 0, y: 16 })
-        ;[1, 2, 3, 4, 5].forEach((k, i) => {
-          const t = 22.5 + i * 0.8
-          tl.fromTo(`#s${k}`, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25 }, t - 0.6)
-          tl.fromTo(`#s${k} .spin`, { rotation: 0 }, { rotation: 360, duration: 0.6, ease: 'none' }, t - 0.6)
-          tl.set(`#s${k} .spin`, { opacity: 0 }, t)
-          tl.fromTo(`#s${k} .ok`, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(3)' }, t)
-        })
-        tl.fromTo('#runF', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 26.2)
-        const clock = { s: 0 }
-        tl.fromTo(clock, { s: 0 }, { s: 42, duration: 5, ease: 'none', onUpdate: () => {
-          const s = Math.round(clock.s)
-          document.getElementById('runTime').textContent = `00:${String(s).padStart(2, '0')}`
-        } }, 21.2)
-        tl.to('#p2', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 30.6)
-
-        // ---------- S5 approval + seal ----------
-        tl.fromTo('#p3', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 31.2)
-        tl.fromTo('.tier', { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.18 }, 31.6)
-        tl.to('#tier3', { borderColor: '#d23b2a', backgroundColor: '#fff4f2', duration: 0.3 }, 33.0)
-        tl.set('#apprDone', { opacity: 0 }, 0)
-        tl.fromTo('#seal', { opacity: 0, scale: 2.6, rotation: -24 }, { opacity: 1, scale: 1, rotation: -12, duration: 0.22, ease: 'power4.in' }, 35.28)
-        tl.fromTo('#appr', { x: 0 }, { x: 6, duration: 0.05, repeat: 3, yoyo: true }, 35.5)
-        tl.set('#apprBtns', { opacity: 0 }, 35.6)
-        tl.fromTo('#apprDone', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 35.6)
-        pop('#trail', 36.6, { x: 0, y: 14 })
-        tl.to('#p3', { opacity: 0, x: -30, duration: 0.35, ease: 'power2.in' }, 39.6)
-
-        // ---------- S6 real UI proof ----------
-        tl.fromTo('#proofBg', { opacity: 0 }, { opacity: 1, duration: 0.35 }, 40)
-        tl.fromTo('#proofHead', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' }, 40.1)
-        tl.fromTo('#shotA', { opacity: 0, x: -160, rotation: -6 }, { opacity: 1, x: 0, rotation: -2.5, duration: 0.7, ease: 'power3.out' }, 40.3)
-        tl.fromTo('#shotB', { opacity: 0, x: 160, rotation: 6 }, { opacity: 1, x: 0, rotation: 2.5, duration: 0.7, ease: 'power3.out' }, 41.7)
-        tl.to('#shotA', { y: -14, duration: 5, ease: 'none' }, 41)
-        tl.to('#shotB', { y: -20, duration: 4, ease: 'none' }, 42.4)
-        pop('#tagA', 41.0, { scale: 0.6, y: 0 })
-        pop('#tagB', 42.5, { scale: 0.6, y: 0 })
-        tl.to('#proofIn', { opacity: 0, duration: 0.4 }, 45.8)
-
-        // ---------- S7 the reveal ----------
-        tl.to('#win', { x: 0, duration: 0.7, ease: 'power3.inOut' }, 45.7)
-        tl.fromTo('#play', { scale: 1 }, { scale: 1.12, duration: 0.4, repeat: 3, yoyo: true, ease: 'sine.inOut' }, 48.3)
-
-        // zoom-through: the end card grows out of the preview thumbnail
-        tl.seek(50.2, false)
-        const r = document.getElementById('thumb').getBoundingClientRect()
-        const root = document.getElementById('root').getBoundingClientRect()
-        tl.seek(0, false)
-        const k = r.width / 1920
-        tl.fromTo('#zoom', { x: r.left - root.left, y: r.top - root.top, scale: k, borderRadius: 4 / k },
-          { x: 0, y: 0, scale: 1, borderRadius: 0, duration: 1.6, ease: 'expo.inOut' }, 50.2)
-        tl.to('#win', { scale: 1.5, opacity: 0, duration: 1.6, ease: 'expo.in', transformOrigin: '30% 80%' }, 50.3)
-
-        // ---------- S8 end card ----------
-        tl.fromTo('#eLogo', { scale: 1 }, { scale: 1.08, duration: 0.3, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 52.0)
-        tl.fromTo('#endMeta span', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.12, ease: 'power3.out' }, 53.4)
-        tl.fromTo('#endUrl', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 54.2)
-        tl.fromTo('#endCast img', { opacity: 0, y: 90 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.07, ease: 'back.out(1.7)' }, 52.5)
-        tl.to('#endCast img', { y: -14, duration: 0.3, stagger: { each: 0.06, repeat: 5, yoyo: true }, ease: 'sine.inOut' }, 54.6)
-
-        // ---------- captions ----------
-        const CAPS = [[2.8, 6.75], [9, 12.74], [13.4, 18.45], [20.4, 28.95], [31.6, 35.26], [35.8, 39.85], [40.4, 43.85], [47, 50.16]]
-        CAPS.forEach(([a, b], i) => {
-          tl.fromTo(`#k${i + 1}`, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.2 }, a)
-          tl.to(`#k${i + 1}`, { opacity: 0, duration: 0.2 }, b)
-        })
-
         tl.seek(0)
         window.__timelines['main'] = tl
       }

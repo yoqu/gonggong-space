@@ -71,7 +71,7 @@ GONGGONG_PUBLIC_URL=https://gg.example.com   # 不要带结尾斜杠
 
 ## Nginx 配置
 
-以下配置假设：网页构建产物在 `/srv/gonggong/apps/web/dist`，server 以 HTTP 监听 `127.0.0.1:8787`（HTTPS 由 Nginx 终止，见 [HTTPS 与证书 · 方案一](/deploy/https#方案一-公网域名-受信任证书)）。
+以下配置假设：网页构建产物在 `/srv/gonggong/apps/web/dist`，server 以 HTTP 监听 `127.0.0.1:8787`（HTTPS 由 Nginx 终止，见 [HTTPS 与证书 · 方案一](/deploy/https#方案一-公网域名-受信任证书-推荐)）。
 
 ### 需要代理的路径
 
@@ -81,6 +81,7 @@ server 不托管网页，只有以下路径需要转发，其余都是网页静�
 | --- | --- |
 | `/api/` | 全部 HTTP 接口，包括 daemon 的 `/api/daemon/*` |
 | `/ws/web` | 浏览器实时推送（WebSocket） |
+| `/ws/terminals/…` | 机器终端会话（WebSocket） |
 | `/ws/daemon` | daemon 主连接（WebSocket） |
 | `/ws/daemon/tunnel` | daemon 预览隧道（WebSocket） |
 | `/livekit` | 实时画面信令（WebSocket） |
@@ -218,7 +219,7 @@ acme.sh --install-cert -d example-preview.com \
 - 主站证书用同样方法签发（`-d gg.example.com`，也可用 `--nginx` 走 HTTP-01）。
 
 ::: tip 证书续期不影响 daemon
-daemon 只连主站且不固定证书，主站和预览域名证书续期后都不需要重新绑定。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
+daemon 只连主站。主站用公共 CA 证书时 daemon 按系统 CA 校验，续期后不需要重新绑定；预览域名的证书与 daemon 无关。详见 [HTTPS 与证书 · 续期与更换](/deploy/https#续期与更换)。
 :::
 
 也可以用 Caddy 代替 Nginx：它能自动申请和续期证书，泛域名证书需要使用带对应 DNS 服务商插件的 Caddy 构建。
@@ -233,7 +234,7 @@ server 的浏览器实时推送、daemon 连接和预览隧道都保存在进程
 
 server 不信任代理头，放在 Nginx 后面时所有请求在它看来都来自 `127.0.0.1`。按 IP 计数的限流会因此由全体成员共享：
 
-- 绑定码连续输错 10 次（10 分钟内）后，所有人都要等 10 分钟才能再绑定；
+- 接入码连续输错 10 次（10 分钟内）后，所有人都要等 10 分钟才能再绑定；接入码过期后 `gg` 发起的网页确认申请也计入这个次数；
 - 开放自助注册时，每小时最多注册 5 个账号。
 
 登录失败限流按账号计数，不受影响。

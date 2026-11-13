@@ -11,13 +11,17 @@
 | Web 客户端 `apps/web` | React + Vite，路由 react-router，状态 zustand，代码高亮 shiki | React 19.3、Vite 8.3 |
 | 服务器 `apps/server` | Fastify + Drizzle ORM + PostgreSQL（驱动 `postgres`） | Fastify 5.12、drizzle-orm 0.45、drizzle-kit 0.31 |
 | daemon 与 `gg` `crates/gonggong` | Rust（edition 2024）、tokio、clap、`agent-client-protocol` | agent-client-protocol 2.2 |
-| 桌面端 `apps/desktop` | Tauri 2 + React，复用 `crates/gonggong` | tauri 2.11 |
+| 桌面端 `apps/desktop` | Tauri 2 + React，复用 `crates/gonggong` 与 Web 的组件 | Tauri 2.12 |
 | 协议 `packages/protocol` | zod 定义全部线上契约 | zod 4.6 |
 | 测试 | Vitest（TS 单元/集成）、`cargo test`、Playwright（端到端） | Vitest 5.0、Playwright 1.63 |
 | 代码检查 | Biome（格式化 + lint）、TypeScript | Biome 2.5、TypeScript 5.9 |
 | 文档站 `website` | VitePress | 1.6 |
 
-包管理器为 pnpm（版本由根 `package.json` 的 `packageManager` 字段锁定，`corepack enable` 即可）。前置环境：Node.js 24+、PostgreSQL、Rust 1.95+。
+前置环境：
+
+- **Node.js 24+**，pnpm 版本由根 `package.json` 的 `packageManager` 字段锁定（`corepack enable` 即可）。
+- **Rust**：版本由 `rust-toolchain.toml` 固定，请用 rustup 安装，并确保 rustup 的 `cargo` 排在 PATH 中其他 `cargo`（如 Homebrew 的 `rust`）前面，`cargo --version` 应显示固定的版本。
+- **PostgreSQL**：只需命令行工具，开发库由仓库脚本启动，见 [本地开发与测试](/dev/local#启动数据库)。
 
 ## 从哪里读起
 
@@ -26,13 +30,13 @@
 3. 按 [本地开发与测试](/dev/local) 把服务器、Web 和 daemon 在本机跑起来，自己建一个 Bot 走一遍。
 4. 读 `packages/protocol/src/`：这里是所有接口与消息的契约，读懂它就能顺着找到服务器和 daemon 的对应实现。详见 [协议](/dev/protocol)。
 5. 按兴趣深入：
-   - 一次运行怎么调度：`apps/server/src/modules/runs/`（`scheduler.ts`、`engine.ts`）
-   - daemon 怎么驱动 Agent：`crates/gonggong/src/engine.rs`、`session.rs`、`turn.rs`
+   - 一次运行怎么调度：`apps/server/src/modules/runs/`
+   - daemon 怎么驱动 Agent：`crates/gonggong/src/engine.rs`、`session.rs`、`turn.rs`，以及插件声明的 Agent 适配器 `adapters.rs`
    - 界面：`apps/web/src/features/chat/`、`apps/web/src/ui/`
 6. 动手前读 [贡献指南](/dev/contributing)。
 
 ::: tip
-仓库根目录的 `CLAUDE.md`（与 `AGENTS.md` 内容相同）是开发约定的简版，用 AI 编码工具参与开发时它会被自动读取。
+仓库根目录的 `CLAUDE.md` 与 `AGENTS.md` 是开发约定的简版（结构、命令、多语言、测试规则），用 AI 编码工具参与开发时会被自动读取。
 :::
 
 ## 相关页面

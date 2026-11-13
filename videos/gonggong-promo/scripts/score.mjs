@@ -1,4 +1,4 @@
-// Procedural score + SFX for the promo. 120 BPM so every scene cut lands on a beat.
+// Procedural score + SFX for the promo. 120 BPM; cues.json holds the SFX hits and the voice-over spans to duck under.
 // Usage: node scripts/score.mjs  → audio/music.wav, audio/sfx.wav
 import { writeFileSync, readFileSync } from 'node:fs'
 
@@ -106,12 +106,11 @@ const ARP = [0, 1, 2, 1, 2, 3, 2, 1]
 const music = bus()
 const BAR = BEAT * 4
 const section = (t) => {
-  if (t < 7) return 'intro'
-  if (t < 13) return 'roll'
-  if (t < 31) return 'groove'
-  if (t < 35.5) return 'tension'
-  if (t < 46) return 'groove'
-  if (t < 52) return 'reveal'
+  if (t < 4) return 'intro'
+  if (t < 13.5) return 'roll'
+  if (t < 39.5) return 'groove'
+  if (t < 42.5) return 'tension'
+  if (t < 53) return 'groove'
   return 'outro'
 }
 
@@ -130,7 +129,7 @@ for (let bar = 0; bar * BAR < LEN; bar++) {
     if (sc === 'intro') {
       if (s % 2 === 0) add(music, t, pluck(note), 0.9, 0.16, s % 4 ? 0.3 : -0.3)
     } else {
-      add(music, t, marimba(note), 0.5, 0.2, (s % 2 ? 0.35 : -0.35) * (sc === 'reveal' ? 0.5 : 1))
+      add(music, t, marimba(note), 0.5, 0.2, (s % 2 ? 0.35 : -0.35))
     }
   }
   for (let b = 0; b < 4; b++) {
@@ -145,16 +144,16 @@ for (let bar = 0; bar * BAR < LEN; bar++) {
     if (sc === 'roll') add(music, t, bass(root - 12, BEAT * 0.45), BEAT, 0.28)
   }
 }
-// tension riser into the stamp, reveal riser into the end card
-add(music, 32.5, riser(3), 3, 0.35)
-add(music, 49.4, riser(2.6), 2.6, 0.3)
-for (const t of [46, 48, 50]) add(music, t, bell(81), 2, 0.12, 0.2)
+// tension riser into the approval tap, riser into the end card
+add(music, 40, riser(2.5), 2.5, 0.3)
+add(music, 50.6, riser(2.4), 2.4, 0.3)
+for (const t of [9.85, 48, 50]) add(music, t, bell(81), 2, 0.12, 0.2)
 // finale: big D chord + bells ringing out
-add(music, 52, kick, 0.5, 0.7)
-add(music, 52, pad([50, 57, 62, 66, 69, 74], 7.6, 0.08), 7.6, 0.32)
-add(music, 52, bass(38, 4), 4, 0.35)
-;[74, 78, 81, 86].forEach((m, i) => add(music, 52 + i * 0.25, bell(m), 3, 0.13, i % 2 ? 0.3 : -0.3))
-add(music, 56, bell(86), 3.5, 0.1)
+add(music, 53, kick, 0.5, 0.7)
+add(music, 53, pad([50, 57, 62, 66, 69, 74], 7, 0.08), 7, 0.32)
+add(music, 53, bass(38, 4), 4, 0.35)
+;[74, 78, 81, 86].forEach((m, i) => add(music, 53 + i * 0.25, bell(m), 3, 0.13, i % 2 ? 0.3 : -0.3))
+add(music, 57, bell(86), 3, 0.1)
 
 // ---- SFX
 const sfx = bus()

@@ -89,8 +89,10 @@ function fakeTauri({ unbound }) {
     binding: 'bound',
     presence: 'online',
     systemPrompt: '',
-    approval: 'ask',
-    allowlist: [],
+    tier: 'workspace',
+    aiReview: false,
+    alwaysAllow: [],
+    followAgent: true,
     ...over,
   })
   const bots = [
@@ -107,8 +109,8 @@ function fakeTauri({ unbound }) {
       name: '测试助手',
       agentKind: 'codex',
       concurrency: 1,
-      approval: 'allowlist',
-      allowlist: ['pnpm test', 'pnpm lint', 'git status'],
+      aiReview: true,
+      alwaysAllow: ['pnpm test', 'pnpm lint', 'git status'],
       avatar: 'role-sentry',
     }),
   ]
@@ -196,7 +198,13 @@ function fakeTauri({ unbound }) {
       "gg login 'gonggong://bind?server=https%3A%2F%2Fgg.example.com&code=K7QM-4X2P'",
     'plugin:deep-link|get_current': () => null,
     overview: () => ({ workspaces: { count: 4, detail: '托管 3 · 本机目录 1 · 1.6 GB' } }),
-    get_settings: () => ({ autoUpgrade: true, launchAtLogin: true, mirror: { kind: 'npmmirror' } }),
+    get_settings: () => ({
+      autoUpgrade: true,
+      launchAtLogin: true,
+      hideDockOnClose: false,
+      mirror: { kind: 'npmmirror' },
+      env: {},
+    }),
     workspaces: () => ({
       offline: false,
       rows: [

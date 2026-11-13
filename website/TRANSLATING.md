@@ -13,7 +13,7 @@ The Chinese pages under `website/` are the source of truth. English pages mirror
 - External links unchanged.
 
 ## UI labels (important)
-The product UI is Chinese-only, so readers must be able to match what they see. Write the exact Chinese label in 「」 followed by an English gloss in parentheses, e.g. click 「新建 Bot」 (New Bot). After the first occurrence on a page you may use the English gloss alone if unambiguous. The same applies to error/status messages quoted from the software: 「绑定码已过期」 ("bind code expired").
+The product UI defaults to Chinese (an English UI also exists), so readers must be able to match what they see either way. Write the exact Chinese label in 「」 followed by an English gloss in parentheses, e.g. click 「新建 Bot」 (New Bot). After the first occurrence on a page you may use the English gloss alone if unambiguous. The same applies to error/status messages quoted from the software: 「接入码已过期」 ("connect code expired").
 
 ## Fixed terminology
 | Chinese | English |
@@ -38,7 +38,7 @@ The product UI is Chinese-only, so readers must be able to match what they see. 
 | 预览 / 公开链接 | preview / public link |
 | 实时画面 | live view |
 | 穿透与服务 | tunnels & services |
-| 绑定码 / 接入链接 | bind code / connect link |
+| 接入码 / 接入链接 | connect code / connect link |
 | 供应商 | provider |
 | Agent 命令 | Agent command |
 | 上下文占用 | context usage |

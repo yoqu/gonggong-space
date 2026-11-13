@@ -46,6 +46,7 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
           ['/user/interface', '界面导览', 'Interface Tour'],
           ['/user/bind-machine', '绑定机器', 'Binding a Machine'],
           ['/user/agents-providers', 'Agent 工具与供应商', 'Agent Tools & Providers'],
+          ['/user/machines', '我的机器与 Bot', 'My Machines & Bots'],
         ],
       },
       {
@@ -64,6 +65,8 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
           ['/user/repos-workspaces', '仓库与工作区', 'Repositories & Workspaces'],
           ['/user/chat', '在群里指挥 Bot', 'Directing Bots in a Group'],
           ['/user/commands', '指令参考', 'Command Reference'],
+          ['/user/schedules-threads', '定时任务与话题', 'Schedules & Threads'],
+          ['/user/knowledge-secrets', '知识库与密钥', 'Knowledge Base & Secrets'],
         ],
       },
       {
@@ -72,10 +75,17 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
         items: [
           ['/user/runs', '运行过程', 'Runs'],
           ['/user/diff-files', '代码变更与文件', 'Diffs & Files'],
+          ['/user/git', 'Git 管理', 'Git Management'],
           ['/user/approvals', '审批与提问', 'Approvals & Questions'],
           ['/user/previews', '结果预览', 'Previews'],
           ['/user/shares', '公开分享', 'Public Sharing'],
+          ['/user/artifacts', '原型、画布与作品库', 'Prototypes, Canvas & Works'],
         ],
+      },
+      {
+        zh: '扩展',
+        en: 'Extensions',
+        items: [['/user/market-plugins', 'Skill 市场与插件', 'Skill Market & Plugins']],
       },
       {
         zh: '其他',
@@ -128,13 +138,13 @@ const SECTIONS: { base: string; nav: [string, string]; groups: Group[] }[] = [
         items: [
           ['/admin/', '概览', 'Overview'],
           ['/admin/users', '账号与角色', 'Accounts & Roles'],
-          ['/admin/bots-groups', 'Bot 与群', 'Bots & Groups'],
+          ['/admin/bots-groups', 'Bot、群与定时任务', 'Bots, Groups & Schedules'],
           ['/admin/config', '配置中心', 'Configuration Center'],
           ['/admin/params', '系统参数', 'System Parameters'],
           ['/admin/feishu', '飞书', 'Feishu'],
           ['/admin/releases', '客户端发布', 'Client Releases'],
           ['/admin/machines', '机器', 'Machines'],
-          ['/admin/usage', '用量', 'Usage'],
+          ['/admin/usage', '用量与会话统计', 'Usage & Conversation Stats'],
           ['/admin/shares', '公开链接', 'Public Links'],
           ['/admin/audit', '审计记录', 'Audit Log'],
         ],
@@ -216,6 +226,8 @@ export default defineConfig({
   // The home page borrows the web app's personas, which import the protocol package; CI installs only the website,
   // so resolve it here rather than from apps/web/node_modules.
   vite: {
+    // apps/web/src/i18n uses top-level await.
+    build: { target: 'esnext' },
     resolve: {
       alias: {
         '@gonggong/protocol': fileURLToPath(new URL('../../packages/protocol/src/index.ts', import.meta.url)),
@@ -227,7 +239,7 @@ export default defineConfig({
     root: {
       label: '简体中文',
       lang: 'zh-CN',
-      description: '在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工。',
+      description: '在群里 @ 一下，队友机器上的 Claude Code、Codex 等 Agent 就开工。',
       themeConfig: {
         siteTitle: '共工空间',
         nav: nav('zh'),
@@ -249,7 +261,7 @@ export default defineConfig({
       link: '/en/',
       title: 'Gonggong Space',
       description:
-        'Mention a Bot in a group chat, and Claude Code / Codex gets to work on a teammate’s machine.',
+        'Mention a Bot in a group chat, and Claude Code, Codex or another agent gets to work on a teammate’s machine.',
       themeConfig: {
         siteTitle: 'Gonggong Space',
         nav: nav('en'),

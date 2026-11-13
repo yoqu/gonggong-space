@@ -1,12 +1,12 @@
 # Quick start
 
-This page takes the shortest path to getting Gonggong Space running and making your first @Bot. Each step lists only the minimum actions; follow the links for details.
+This page takes the shortest path to getting all of Gonggong Space running and making your first @Bot. Each step lists only the minimum actions; follow the links for details.
 
-::: tip Try the demo without deploying
-The public demo server [http://gg.uyoqu.com/](http://gg.uyoqu.com/) is ready to use: open it, register an account, and start from [step 3](#bind-your-machine). Bind your machine with `gg login --server http://gg.uyoqu.com --code <bind code>`, or paste the connect link into the desktop app. The demo uses plain `http://`, so traffic isn't encrypted; don't put private code or credentials on it.
+Overall flow: **admin starts the server → log in and change your password → send one message to your Agent (it connects the machine and sets up a Bot and a direct chat) → try a message in the direct chat → create a group and @ the Bot**.
+
+::: tip Use the demo environment
+Don't want to deploy it yourself? The default demo environment [https://gg.uyoqu.com](https://gg.uyoqu.com/) is ready to use: open it, register an account, skip steps 1 and 2, and start from [step 3](#bind). The demo is for trying things out only; don't put sensitive code or data on it.
 :::
-
-Overall flow: **admin starts the server → sign in and change password → bind a machine → create a Bot → create a group → @ the Bot**.
 
 ::: tip Members
 If your admin has already set up the server, just ask them for the "URL + account + initial password" and start from [step 2](#login).
@@ -14,99 +14,110 @@ If your admin has already set up the server, just ask them for the "URL + accoun
 
 ## 1. Admin: start the server
 
-On one machine, install Node.js 24+, pnpm, and PostgreSQL, then run from the project root:
+The Docker files in the repository are the fastest way (requires Docker and Docker Compose v2):
 
 ```bash
-pnpm install
-pnpm db:up                                        # start the project's PostgreSQL (port 54329)
-GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server   # server, default 127.0.0.1:8787
-pnpm dev:web                                      # web app, default http://127.0.0.1:5173
+git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
+GONGGONG_ADMIN_PASSWORD=初始密码 GONGGONG_PUBLIC_URL=https://<服务器 IP 或域名> docker compose up -d
 ```
 
-(`初始密码` is a placeholder for the initial password.)
+(`初始密码` is a placeholder for the initial password; `<服务器 IP 或域名>` is your server's IP or domain.)
 
-On first start, the server creates the sysadmin account `admin` using `GONGGONG_ADMIN_PASSWORD`, and database tables are created automatically.
+On first start, the server creates the sysadmin account `admin` using `GONGGONG_ADMIN_PASSWORD`, and database tables are created automatically. When it's up, open `GONGGONG_PUBLIC_URL` in a browser. For certificates, data volumes, and other details, see [Docker deployment](/en/deploy/docker); without Docker, see [Deploy from source](/en/deploy/install).
 
-::: tip When other machines need to connect
-Teammates' machines can bind to the server over `http://` or `https://`. Plain `http://` isn't encrypted, so configure a certificate when traffic crosses a network you don't trust; see [HTTPS and certificates](/en/deploy/https). For full deployment steps, see [Deploy from source](/en/deploy/install).
+::: warning If members will connect with "Send to your agent"
+With this method, the Agent on the member's machine downloads `gg` from your server and connects over `https://`, so you need two things in place:
+
+- Upload the daemon packages under 「管理后台」 (Admin console) →「客户端发布」 (Client releases); see [Client releases](/en/admin/releases).
+- The server must use a trusted certificate; see [HTTPS and certificates](/en/deploy/https). With a self-signed certificate, have members bind with the desktop app or the CLI instead (see [Bind a machine](/en/user/bind-machine)).
 :::
 
-## 2. Sign in and change your password {#login}
+## 2. Log in and change your password {#login}
 
-1. Open the web URL in a browser, enter your account and password, and click 「登录」 (Sign in).
-2. On first sign-in you must change the initial password: fill in 「初始密码」 (Initial password), 「新密码」 (New password), and 「确认新密码」 (Confirm new password), then click 「修改密码」 (Change password).
+1. Open the web URL in a browser, enter your account and password, and click 「登录」 (Log in).
+2. On first login you must change the initial password: fill in 「初始密码」 (Initial password), 「新密码」 (New password), and 「确认新密码」 (Confirm new password), then click 「修改密码」 (Change password).
 
-![Sign-in page](/screenshots/web/login.webp)
+![Login page](/screenshots/web/login.webp)
 
-After the admin signs in, go to 「管理后台」 (Admin console) →「账号与角色」 (Accounts & roles) in the left sidebar and click 「新建账号…」 (New account…) to create an account for each member, then send them the URL, account, and initial password. See [Sign-in and accounts](/en/user/login) and [Accounts and roles](/en/admin/users).
+After the admin logs in, go to 「管理后台」 (Admin console) →「账号与角色」 (Accounts & roles) and click 「新建账号…」 (New account…) to create an account for each member, then send them the URL, account, and initial password. If self sign-up is turned on in system parameters, members can also register on their own. See [Login and account](/en/user/login) and [Accounts and roles](/en/admin/users).
 
-## 3. Bind your machine {#bind-your-machine}
+## 3. Send one message to your Agent {#bind}
 
-First, prepare the machine that will run your Bots:
+First, prepare the machine that will run your Bots (macOS or Linux):
 
 - git;
-- the Claude Code and/or Codex CLI, **signed in** in a terminal (it should be able to chat normally);
-- the Gonggong Space daemon: the `gg` CLI (see [Installation](/en/cli/)) or the macOS desktop app (see [Desktop app](/en/desktop/)).
+- an Agent CLI that can already chat normally, such as Claude Code or Codex (logged in from a terminal).
 
-Then bind it:
+Then:
 
-1. In the avatar menu at the top right of the web app, click 「绑定新机器」 (Bind new machine) (or the + next to 「我的机器」 (My machines) in the left sidebar).
-2. The dialog generates a one-time connect link:
-   - Desktop app: click 「复制接入链接」 (Copy connect link) and paste it into the desktop app;
-   - CLI: expand 「使用命令行」 (Use the command line), click 「复制命令」 (Copy command), and run it in the machine's terminal. It looks like:
+1. Open 「绑定新机器」 (Bind new machine): any of 「开始绑定」 (Start binding) on the welcome page after login, 「绑定新机器」 under 「开始使用」 (Get started) on the left, or 「绑定新机器」 in the avatar menu at the top right will do.
+2. Under 「发给你的 Agent」 (Send to your agent), click 「复制」 (Copy) to get a message like this:
 
-   ```bash
-   gg login --server https://gg.example.com --code K7QM-4X2P
+   ```text
+   帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 K7QM-4X2P。
    ```
 
-3. When the terminal shows 「绑定成功」 ("bound successfully"), start the daemon (desktop app users skip this step; just keep the app running):
+   (It says: "Connect me to Gonggong Space: read https://gg.example.com/api/install.md and follow the steps; connect code K7QM-4X2P.")
 
-   ```bash
-   gg run
-   ```
+3. On that machine, open Claude Code or Codex and paste the message to it. It downloads and installs `gg`, binds the machine, installs it as a background service that starts at login, and sets up a Bot for you (such as 「王磊的 Claude Code」, "Wang Lei's Claude Code") and your direct chat with it. When the Agent wants to run commands along the way, allow them as it asks.
+4. The dialog on the web page steps through 「复制给 Agent」 (Copy to your agent), 「机器接入」 (Machine connects), and 「Bot 就绪」 (Bot ready), usually in 1–3 minutes. When it's done, the direct chat with the new Bot opens automatically.
 
-   Keep this terminal open. If you close it, your Bots will go 「离线」 (Offline).
+![Send to your agent](/screenshots/web/bind-agent.webp)
 
-![Bind new machine](/screenshots/web/bind-machine.webp)
+::: tip An expired connect code is fine
+The connect code is valid for 30 minutes. If it has expired or was already used, the Agent gives you a confirmation link and a 4-character check code: open the link in a browser (or just look in the 「绑定新机器」 dialog), and if the check code matches the one in the terminal, click 「允许接入」 (Allow).
+:::
 
-Once the dialog shows this machine's Claude Code / Codex versions, the machine is ready. See [Bind a machine](/en/user/bind-machine).
+**On Windows, or don't want to hand it to an Agent?** Expand 「其他方式」 (Other ways) in the dialog: install the desktop app and click 「在客户端中打开」 (Open in client); or expand 「使用命令行」 (Use the command line), copy `gg login --server … --code …`, run it in a terminal, then run `gg run` (or `gg service install` to install it as a background service); or choose 「在 Docker 中运行」 (Run in Docker). These methods don't create a Bot automatically after binding, so you need one more step: [Create a Bot](/en/user/create-bot). See [Bind a machine](/en/user/bind-machine).
 
-## 4. Create a Bot
+## 4. Try a message in the direct chat
 
-1. Click the + next to 「我的 Bot」 (My Bots) in the left sidebar (「新建 Bot…」 (New Bot…)).
-2. Choose the 「执行机器」 (Execution machine) (the one you just bound) and the 「Agent」 (Claude Code or Codex), and fill in the 「名称」 (Name), e.g. `后端助手` (Backend Assistant). Optionally pick a 「角色」 (Character), and describe its responsibilities in 「系统提示词」 (System prompt), e.g. "Backend API development; only edit the server/ directory."
-3. Click 「创建并绑定」 (Create and bind). When you see 「已就绪，可以在群里 @ 它了」 ("Ready—you can @ it in a group now"), you're done.
+A direct chat has only you and this Bot, so no @ is needed; just send a message:
 
-![New Bot](/screenshots/web/new-bot.webp)
+```text
+看看这台机器上装了哪些开发工具，用一句话告诉我
+```
 
-To start, we recommend setting 「触发范围」 (Trigger scope) to 「仅本人」 (Only me) in the Bot settings. See [Create a Bot](/en/user/create-bot) and [Bot settings and permissions](/en/user/bot-settings).
+("Check which development tools are installed on this machine and tell me in one sentence.")
+
+A run card appears in the chat; open it to see each step's thinking, tool calls, and command output.
+
+To change this Bot's name, character, system prompt, or approval mode, open it in 「机器与 Bot」 (Machines & Bots). To start with, we recommend setting 「触发范围」 (Who can trigger) to 「仅本人」 (Owner only). See [My machines and Bots](/en/user/machines) and [Bot settings and permissions](/en/user/bot-settings).
 
 ## 5. Create a group
 
-1. Click the + in the top toolbar (「新建群」 (New group)). If it's just for yourself, you can click the + next to 「私聊」 (Direct chats) in the left sidebar to start a direct chat.
-2. Fill in the 「名称」 (Name). To work on code, paste a git repository URL into 「仓库」 (Repository) (e.g. `git@github.com:xinghe/todo-app.git`) and confirm the 「基准分支」 (Base branch). Add your Bot and your teammates.
-3. Click 「创建」 (Create).
+1. Click the + at the top of the conversation list (「发起会话」 (New conversation)).
+2. Fill in 「名称」 (Name); click 「添加 Bot…」 (Add Bot…) to pick your Bot, then add teammates. If the Bots will change code, search for or paste a git repository URL under 「仓库」 (Repositories) (such as `git@github.com:xinghe/todo-app.git`) and confirm the base branch.
+3. Click 「创建群」 (Create group).
 
 ![New group](/screenshots/web/new-group.webp)
 
-When the group is created, the server checks whether each Bot's machine can access the repository. A Bot that can't is paused after joining until its Bot owner configures git credentials and rechecks. See [Groups and direct chats](/en/user/groups) and [Repositories and workspaces](/en/user/repos-workspaces).
+When you create the group, it checks whether each Bot's machine can reach the repository. A Bot that can't is paused after joining until its owner configures git credentials and rechecks. If you pick only one of your own Bots and add no one else, you get a direct chat instead. See [Groups and direct chats](/en/user/groups) and [Repositories and workspaces](/en/user/repos-workspaces).
 
-## 6. @ the Bot to get started
+## 6. @ the Bot to get to work
 
-Type `@` in the group's input box, pick the Bot, write your request, and press Enter:
+In the group's input box, type `@`, pick the Bot, write your request, and press Enter (using a Bot named 「后端助手」, "backend assistant", as the example):
 
 ```text
 @后端助手 看一下待办列表接口为什么偶尔 500，找到原因后修复并跑测试
 ```
 
-(That is: "@Backend Assistant find out why the todo list API occasionally returns 500, fix it, and run the tests.")
+("Find out why the todo list API sometimes returns 500, fix it, and run the tests.")
 
-A run card appears in the group. Open it to see each step of its reasoning, tool calls, and command output, plus which code it changed; operations that need your approval pop up an approval card.
+A run card appears in the group; open it to see each step's thinking, tool calls, command output, and which code changed. Actions that need your check pop up an approval card.
 
 ![Group chat overview](/screenshots/web/chat.webp)
 
 See [Directing Bots in a group](/en/user/chat), [Runs](/en/user/runs), and [Approvals and questions](/en/user/approvals).
 
-::: tip Something went wrong?
-First run `gg doctor` on the machine to self-check, then see [FAQ and troubleshooting](/en/guide/faq).
+## What's next
+
+- Commit and push the changes: [Git management](/en/user/git)
+- Open the web page a Bot started right in the group: [Previews](/en/user/previews)
+- Run the regression suite on a schedule every day: [Scheduled tasks and threads](/en/user/schedules-threads)
+- Give the Bot your project conventions and tokens: [Knowledge base and secrets](/en/user/knowledge-secrets)
+- Install common Skills for your team: [Skill market and plugins](/en/user/market-plugins)
+
+::: tip Something wrong?
+First run `gg doctor` on the machine for a self-check, then see [FAQ and troubleshooting](/en/guide/faq).
 :::

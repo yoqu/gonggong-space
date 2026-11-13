@@ -1,15 +1,15 @@
 # Local development and testing
 
-This page covers how to run the server, Web, and daemon on your machine, plus the commands for the various tests, migrations, and the docs site.
+This page covers how to run the server, web client, daemon, and desktop app on your machine, plus the commands for the pre-push self-check, the various tests, migrations, and the docs site.
 
 ## Prerequisites
 
 - **Node.js 24+** and **pnpm**: just run `corepack enable`; the pnpm version is pinned by the root `package.json`.
-- **PostgreSQL** (17 recommended). You only need the command-line tools installed; the system service does not need to be running:
-  - macOS: Postgres.app or `brew install postgresql@17`. The script finds it automatically, so you don't need to change PATH.
-  - Debian/Ubuntu: `sudo apt install postgresql`, then add `/usr/lib/postgresql/<version>/bin` to PATH.
-- **Rust 1.95+**: to build the daemon and the desktop app.
-- At least one Agent CLI (Claude Code or Codex), logged in, for real runs and end-to-end tests.
+- **PostgreSQL** (17 recommended). Only the command-line tools need to be installed; you don't need to start the system service:
+  - macOS: Postgres.app or `brew install postgresql@17`. The script finds them automatically, no PATH changes needed.
+  - Debian/Ubuntu: `sudo apt install postgresql`, then add `/usr/lib/postgresql/<version>/bin` to your PATH.
+- **Rust**: install with rustup; the version is pinned by `rust-toolchain.toml`. Used to build the daemon and the desktop app.
+- At least one Agent CLI (Claude Code or Codex), signed in, for real runs and end-to-end tests.
 
 Install dependencies:
 
@@ -20,26 +20,25 @@ pnpm install
 ## Start the database
 
 ```bash
-pnpm db:up      # start the in-repo PostgreSQL
+pnpm db:up      # start the project-local PostgreSQL
 pnpm db:down    # stop it
 ```
 
-`scripts/pg.sh` stores data in `.gonggong-dev/pg` inside the repo, listens on port **54329** (change it with `GONGGONG_PG_PORT`), and automatically creates two databases, `gonggong` and `gonggong_test`. It doesn't touch the system PostgreSQL service; multiple git worktrees share the same database under the main checkout.
+`scripts/pg.sh` keeps the data inside the repository at `.gonggong-dev/pg`, listens on port **54329** (change it with `GONGGONG_PG_PORT`), and creates two databases, `gonggong` and `gonggong_test`, automatically. It never touches the system PostgreSQL service; multiple git worktrees share the same database under the main checkout.
 
-## Start the server and Web
+## Start the server and web client
 
 ```bash
-GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server   # listens on 127.0.0.1:8787 by default, restarts on code changes
+GONGGONG_ADMIN_PASSWORD=<initial-password> pnpm dev:server   # listens on 127.0.0.1:8787 by default; restarts on code changes
 pnpm dev:web                                      # http://127.0.0.1:5173
 ```
 
-`初始密码` is a placeholder for the initial admin password you choose.
+- The server runs migrations automatically at startup; you don't need to create tables by hand.
+- On first startup, `GONGGONG_ADMIN_PASSWORD` creates the `admin` account, which must change its password on first sign-in.
+- Adjust the server's listen address with `HOST` and `PORT`.
+- The web dev server proxies `/api`, `/ws`, and `/livekit` to the server. Set the upstream address with `GONGGONG_SERVER`, and the port and listen address with `WEB_PORT` and `WEB_HOST`.
 
-- The server runs migrations automatically on startup; you don't need to create tables by hand.
-- On first startup, `GONGGONG_ADMIN_PASSWORD` is used to create the `admin` account, and you must change the password on first login.
-- The Web dev server forwards `/api`, `/ws`, and `/livekit` to the server; set the upstream address with `GONGGONG_SERVER`, and adjust the port and listen address with `WEB_PORT` and `WEB_HOST`.
-
-For the remaining server environment variables, see [Environment variables](/en/deploy/env).
+For the other server environment variables, see [Environment variables](/en/deploy/env).
 
 ## Build and bind the daemon
 
@@ -47,92 +46,124 @@ For the remaining server environment variables, see [Environment variables](/en/
 cargo build -p gonggong        # produces target/debug/gg
 ```
 
-1. In the Web app, open the avatar menu in the top-right corner, click 「绑定新机器」 (Bind new machine), and copy the bind code or connect link.
+1. On the web, open 「绑定新机器」 (Bind new machine) and copy the connect code or connect link.
 2. Log in and run:
 
 ```bash
-./target/debug/gg login --server http://127.0.0.1:5173 --code <绑定码>
-# or paste the connect link directly: ./target/debug/gg login '<接入链接>'
+./target/debug/gg login --server http://127.0.0.1:5173 --code <bind-code>
+# or paste the connect link directly: ./target/debug/gg login '<connect-link>'
 ./target/debug/gg run
 ```
 
-`<绑定码>` is the bind code and `<接入链接>` is the connect link.
+`http://` is only allowed for local addresses (`localhost`, `127.0.0.1`, and so on); LAN or remote servers must use `https://`. See [HTTPS development](#https-development) below.
 
-::: tip Running multiple daemons on one machine
-The daemon's local state lives in `~/.gonggong` by default. Setting `GONGGONG_HOME` (and `GONGGONG_MACHINE_ID`) lets you run multiple isolated daemons on the same machine, which is exactly what the end-to-end tests do.
+::: tip Running several daemons on one machine
+The daemon's local state lives in `~/.gonggong` by default. Setting `GONGGONG_HOME` (and `GONGGONG_MACHINE_ID`) lets you run several isolated daemons on the same machine; that's how the end-to-end tests do it.
 :::
 
 ::: tip Without calling a real Agent
-When debugging the daemon, you can use the mock Agent bundled with the repo instead of a real adapter, so you don't spend model quota:
+When debugging the daemon, you can replace the real adapter with the mock Agent bundled in the repository, so no model quota is used:
 
 ```bash
 GONGGONG_ADAPTER_CMD="node tools/mock-agent/agent.js" ./target/debug/gg run
 ```
 
-The mock Agent's behavior is chosen by the prompt, e.g. `mock:echo`, `mock:slow`, `mock:crash`. See the header of `tools/mock-agent/agent.js` for the full list.
+The mock Agent decides what to do from the prompt, for example `mock:echo`, `mock:slow`, `mock:crash`, `mock:exec <command>`. See the header of `tools/mock-agent/agent.js` for the full list.
 :::
 
-Desktop app development:
+## Desktop app development
 
 ```bash
 pnpm --filter @gonggong/desktop tauri dev
 ```
 
+The desktop app's UI is in `apps/desktop/src` and imports the web source (`apps/web/src`) directly through aliases; the Rust shell `apps/desktop/src-tauri` runs the `crates/gonggong` daemon in-process. When you change shared code such as `apps/web/src/ui/`, check the desktop app too.
+
 ## HTTPS development
 
-The daemon connects over plain http to any address, so other machines on the LAN can bind without a certificate. To encrypt the connection or debug the HTTPS path, start with a certificate:
+To debug the HTTPS path, or to let other machines on your LAN connect, start with a certificate:
 
 ```bash
-bash scripts/dev-cert.sh        # generate a self-signed certificate (covering localhost, 127.0.0.1, and this machine's LAN IP)
+bash scripts/dev-cert.sh        # generate a self-signed certificate (covers localhost, 127.0.0.1, and this machine's LAN IP)
 ```
 
-By default the script writes the certificate to `.gonggong-dev/tls/` and prints the `GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…` environment variables.
+By default the script writes the certificate to `.gonggong-dev/tls/` and prints `GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…`.
 
 ```bash
 export GONGGONG_TLS_CERT=… GONGGONG_TLS_KEY=…     # paste the values printed in the previous step
-GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
-WEB_HOST=0.0.0.0 pnpm dev:web                    # the server and Web share this certificate
-./target/debug/gg login --server https://127.0.0.1:5173 --code <绑定码>
+GONGGONG_ADMIN_PASSWORD=<initial-password> pnpm dev:server
+WEB_HOST=0.0.0.0 pnpm dev:web                    # the server and web client share this certificate
 ```
 
-The daemon accepts the self-signed certificate without verifying it, so no extra trust step is needed. See [HTTPS and certificates](/en/deploy/https).
+The daemon verifies the server certificate, against the system CAs by default. For a self-signed certificate, explicitly trust its SHA-256 fingerprint:
 
-## Testing
+```bash
+openssl x509 -in .gonggong-dev/tls/cert.pem -noout -fingerprint -sha256
+./target/debug/gg login --server https://127.0.0.1:5173 --code <bind-code> --fingerprint <fingerprint-printed-above>
+```
+
+For certificates issued by a private CA, use `--ca-file <CA certificate.pem>`. For local debugging only, you can also set `GONGGONG_INSECURE_DEV=1` to turn off certificate verification (the daemon prints a warning; don't use it anywhere else). See [HTTPS and certificates](/en/deploy/https).
+
+## Pre-push self-check: pnpm check
+
+```bash
+pnpm check          # typecheck + lint + tests selected by your changes
+pnpm check --all    # typecheck + lint + full test suite
+```
+
+`scripts/check.sh` diffs against the merge base with `origin/main`; uncommitted and untracked files also count as changes:
+
+- It always runs `pnpm typecheck` and `pnpm lint`.
+- For the web client and server, it only runs test files **with the same name or in the same domain as the changed files** (for example, if you changed files under `features/market/`, it runs tests with `market` in their names). If no matching test is found, it runs the package's full suite. Changes to the web client also run the desktop app tests.
+- For the daemon, it filters `cargo test` by module; changes to `lib.rs`, `main.rs`, `Cargo.toml`, and similar run everything.
+- Changes to `packages/protocol`, lockfiles, root config, or `scripts/` are treated as `--all`.
+- When only docs (`*.md`, `docs/`, `website/`, `videos/`) or `e2e/` change, no tests run.
+- If `.internal-patterns` exists locally, it first checks that no internal addresses have slipped into the repository.
+
+Heavy jobs such as `cargo test` and whole-package Vitest queue through `/tmp/gonggong-check.lock`, so several checkouts running self-checks at the same time don't starve each other. When the machine is under heavy load, parallel tests occasionally time out; rerun failed cases individually to confirm, and never just ignore them.
+
+## Tests
 
 | Command | What it runs |
 | --- | --- |
-| `pnpm test` | Everything: `tools/*.test.mjs` + Vitest for all packages + `cargo test --workspace` |
-| `pnpm -r test` | Vitest for all pnpm packages (protocol, server, web, desktop) |
-| `cargo test --workspace` | Rust tests for the daemon and desktop app, including protocol fixture round-trips (`crates/gonggong/tests/contract.rs`) |
+| `pnpm check` / `pnpm check --all` | Pre-push self-check, see above |
+| `pnpm test` | Everything: `tools/*.test.mjs` + Vitest in all packages + `cargo test --workspace` |
+| `pnpm -r test` | Vitest in all pnpm packages (protocol, server, web, desktop) |
+| `cargo test --workspace` | Rust tests for the daemon and desktop app, including protocol fixture round-trips |
 | `pnpm typecheck` | TypeScript type checking for all packages |
 | `pnpm lint` | Biome checks (`biome check .`) |
 | `pnpm e2e` | Playwright end-to-end tests |
 
-To run a single package: `pnpm --filter @gonggong/server test`; to run a single file: `pnpm --filter @gonggong/server exec vitest run test/groups.test.ts`.
+Run one package only: `pnpm --filter @gonggong/server test`; run one file only: `pnpm --filter @gonggong/server exec vitest run test/groups.test.ts`.
 
-Server tests need the database running (run `pnpm db:up` first).
+Server tests need the database running (run `pnpm db:up` first). Most daemon integration tests are in `crates/gonggong/tests/it/` and compile into a single test binary; run a subset with `cargo test -p gonggong --test it <name>`.
 
 ### What end-to-end tests need
 
 `pnpm e2e` uses `e2e/playwright.config.ts` and automatically:
 
-- recreates the `gonggong_e2e` database and starts the server on port 8790 (the initial admin password is fixed to a test value);
-- starts Web on port 5190;
-- builds the daemon with `cargo build -p gonggong` and runs `gg run` for each "member machine" with its own temporary `GONGGONG_HOME`.
+- Recreates the `gonggong_e2e` database and starts the server on port 8790 (with a fixed test value as the initial admin password);
+- Starts the web client on port 5190, with the browser locale `zh-CN`;
+- Builds the daemon with `cargo build -p gonggong` and runs `gg run` for each "member machine" with its own temporary `GONGGONG_HOME`.
 
-Most cases drive a **real Agent**, so you need Claude Code and Codex installed and logged in on your machine (Codex cases only reuse the login in `~/.codex/auth.json`; you can pick the model with `GONGGONG_E2E_CODEX_MODEL`). Real Agents depend on external model services, so failures are retried once automatically. Preview-related cases use `tools/mock-agent`, and the MCP injection case uses `tools/mcp-echo`.
+Most cases drive **real Agents**, so Claude Code and Codex must be installed and signed in on your machine (Codex cases reuse the login in `~/.codex/auth.json`; set the model with `GONGGONG_E2E_CODEX_MODEL`). Real Agents depend on external model services, so failures are retried once automatically. Preview and similar cases use `tools/mock-agent`, and MCP injection cases use `tools/mcp-echo`.
 
-There are also two on-demand configurations:
+Several other configurations run on demand:
 
-- HTTPS path: `GONGGONG_E2E_TLS=1 pnpm exec playwright test -c e2e/tls.config.ts`
-- Linux desktop previews: `bash scripts/gui-e2e.sh` (requires Docker)
+| Scenario | Command |
+| --- | --- |
+| HTTPS path | `GONGGONG_E2E_TLS=1 pnpm exec playwright test -c e2e/tls.config.ts` |
+| Real terminal | `GONGGONG_E2E_TERMINAL=1 pnpm exec playwright test -c e2e/terminal.config.ts` |
+| Forced sync across two machines (requires another machine reachable over SSH; see the header of `e2e/two-machines.spec.ts` for the required variables) | `pnpm exec playwright test -c e2e/remote.config.ts` |
+| Linux desktop preview (requires Docker) | `bash scripts/gui-e2e.sh` |
+| Linux daemon integration (requires Docker) | `bash scripts/linux-e2e.sh` |
 
 ## Server test database helpers
 
-Server tests live in `apps/server/test/`. By convention they use two helpers, and must not rely on other features' HTTP flows to create data:
+Server tests live in `apps/server/test/` and, by convention, use two helpers; don't create data through other features' HTTP flows:
 
-- `createTestDb()` from `test/support/db.ts`: creates a randomly named, fully migrated, isolated database for each test file, and drops it on `close()`.
-- `createTestApp()` from `test/support/app.ts`: starts the real application on a random port, connected to a fresh test database, and provides `seed`, a set of seeding helpers that write directly to the database (such as `seed.user()`, `seed.machine()`, `seed.bot()`, `seed.group()`, `seed.cookie()`).
+- `createTestDb()` in `test/support/db.ts`: creates a randomly named, fully migrated, isolated database for each test file and drops it on `close()`.
+- `createTestApp()` in `test/support/app.ts`: starts the real app on a random port, connected to a fresh test database, and provides seed helpers `seed` that write to the database directly (`seed.user()`, `seed.team()`, `seed.machine()`, `seed.bot()`, `seed.group()`, `seed.cookie()`). The first user created gets a default team, and users, groups, and Bots created afterward join it by default.
 
 ```ts
 import { createTestApp } from './support/app.js'
@@ -141,19 +172,21 @@ const t = await createTestApp()
 const owner = await t.seed.user()
 ```
 
+`test/support/` also has helpers for Git, forced sync, artifacts, and other scenarios (such as `git-daemon.ts`, `sync.ts`, `artifacts.ts`); reuse them when writing similar tests.
+
 ## Database migrations
 
-The table schema is defined only in `apps/server/src/db/schema.ts`. After changing it, generate a migration:
+Tables are defined only in `apps/server/src/db/schema.ts`. After changing it, generate a migration:
 
 ```bash
 pnpm --filter @gonggong/server db:generate
 ```
 
-Migrations are generated into `apps/server/drizzle/` and applied automatically when the server starts. Don't rewrite or regenerate migrations that have already been applied; generate a new migration for further changes.
+Migration files are generated into `apps/server/drizzle/` and applied automatically when the server starts. Don't rewrite or regenerate migrations that have already been applied; generate a new migration for additional changes.
 
 ## UI gallery
 
-In development mode, visit `http://127.0.0.1:5173/_ui` to see the design system component gallery (`apps/web/src/ui/`). This route exists only under `pnpm dev:web`; it isn't in production builds.
+In development mode, visit `http://127.0.0.1:5173/_ui` to see the design system component gallery (`apps/web/src/ui/`). The route exists only under `pnpm dev:web`, not in production builds.
 
 ## Previewing the docs site locally
 
@@ -161,11 +194,11 @@ In development mode, visit `http://127.0.0.1:5173/_ui` to see the design system 
 pnpm --filter @gonggong/website dev
 ```
 
-Page sources are in `website/`; see `website/WRITING.md` for the writing guidelines.
+Page sources are in `website/`; the writing guide and screenshot list are in `website/WRITING.md`. Screenshots are retaken with the scripts under `website/scripts/`.
 
 ## Related pages
 
 - [Repository structure](/en/dev/structure)
-- [Contributing guide](/en/dev/contributing)
+- [Contribution guide](/en/dev/contributing)
 - [Environment variables](/en/deploy/env)
 - [HTTPS and certificates](/en/deploy/https)

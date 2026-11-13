@@ -1,6 +1,6 @@
 # A headless member machine: gg (daemon) with Claude Code, Codex, Node 24, git and what Bots commonly need (Chromium
 # for snapshots and html_render, Xvfb for GUI previews, python3 + uv for MCP servers). Everything the daemon writes
-# lives under /home/gg (one volume). See website/deploy/daemon-docker.md.
+# lives under /home/gg (one volume). See website/deploy/docker.md.
 FROM ghcr.io/astral-sh/uv:0.13.6 AS uv
 
 FROM node:24-bookworm-slim

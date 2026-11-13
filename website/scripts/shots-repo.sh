@@ -68,8 +68,9 @@ EOF
 cat >.gitignore <<'EOF'
 node_modules/
 .DS_Store
+.gonggong/
 EOF
-commit 王磊 wanglei@xinghe.dev "2026-09-21T10:12:00+08:00" "初始化 todo-app：静态服务与页面骨架"
+commit 王磊 wanglei@example.com "2026-09-21T10:12:00+08:00" "初始化 todo-app：静态服务与页面骨架"
 
 mkdir -p public
 cat >public/index.html <<'EOF'
@@ -152,7 +153,7 @@ form.addEventListener('submit', (e) => {
 
 render()
 EOF
-commit 李娜 lina@xinghe.dev "2026-09-23T15:40:00+08:00" "待办列表：新增、勾选完成、删除，数据存 localStorage"
+commit 李娜 lina@example.com "2026-09-23T15:40:00+08:00" "待办列表：新增、勾选完成、删除，数据存 localStorage"
 
 cat >public/style.css <<'EOF'
 * { box-sizing: border-box; }
@@ -184,6 +185,6 @@ li.done span { color: #9aa1af; text-decoration: line-through; }
 footer { margin-top: 14px; color: #7a8190; font-size: 13px; }
 EOF
 
-commit 陈晨 chenchen@xinghe.dev "2026-09-25T11:05:00+08:00" "页面样式：卡片布局与完成态"
+commit 陈晨 chenchen@example.com "2026-09-25T11:05:00+08:00" "页面样式：卡片布局与完成态"
 git push -q origin main
 cd / && rm -rf "$SEED"

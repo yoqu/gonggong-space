@@ -6,9 +6,9 @@
 
 帮助手册：[中文](https://yoqu.github.io/gonggong-space/) · [English](https://yoqu.github.io/gonggong-space/en/)
 
-演示环境：[http://gg.uyoqu.com](http://gg.uyoqu.com/)（默认环境，注册账号即可直接体验，无需自己部署）
+演示环境：[https://gg.uyoqu.com](https://gg.uyoqu.com/)（默认环境，注册账号即可直接体验，无需自己部署）
 
-<p align="center"><b>在群里 @ 一下，队友机器上的 Claude Code / Codex 就开工，做完的网页直接在群里打开。</b></p>
+<p align="center"><b>在群里 @ 一下，队友机器上的 Claude Code、Codex 等 Agent 就开工，做完的网页直接在群里打开。</b></p>
 
 <p align="center">
   <a href="https://yoqu.github.io/gonggong-space/">文档</a> ·
@@ -19,14 +19,14 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue">
-  <img alt="Agents" src="https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-8A2BE2">
+  <img alt="Agents" src="https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex%20%7C%20Gemini%20CLI%20%7C%20more-8A2BE2">
   <img alt="Platforms" src="https://img.shields.io/badge/daemon-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey">
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-yes-success">
 </p>
 
 ![在群里 @ 前端 Bot 起服务，预览直接在右侧打开](website/public/screenshots/web/preview-workbench.webp)
 
-共工空间是面向小团队的自托管 AI 协作平台。每个成员把自己的机器接进来，机器上的 Claude Code / Codex 就成了群里可以 @ 的 **Bot**。人和 Bot 在同一个群里讨论、派活、接力，过程、改动和结果对全员可见。
+共工空间是面向小团队的自托管 AI 协作平台。每个成员把自己的机器接进来——只需把一句话发给本机的 Claude Code 或 Codex——机器上的 Agent 就成了群里可以 @ 的 **Bot**。人和 Bot 在同一个群里讨论、派活、接力，过程、改动和结果对全员可见。
 
 ## 视频介绍
 
@@ -47,9 +47,11 @@
 
 | | |
 | --- | --- |
-| 💬 **群聊即指挥台**<br>@ 谁谁开工，追加消息可以打断补充，`/stop` 随时叫停。Bot 可以把任务接力给群里另一个 Bot。 | 🖥️ **跑在你自己的机器上**<br>daemon 只向外连接，家里的 NAT、公司的防火墙都不用管。模型调用从成员本机直接发出，不经过服务器。 |
-| 🌐 **结果一键预览**<br>网页、接口服务、静态报告、桌面应用窗口、微信小程序模拟器，都能在群里直接打开和操作，还能生成限时公开链接。 | 🔍 **过程透明、改动可审**<br>思考、工具调用、命令输出实时回传；diff、Git 状态、文件树随手查看，每轮的 token 与上下文占用一目了然。 |
-| 🛡️ **权限与审批**<br>只读 / 工作区写入 / 完全访问三档；越权操作只有 Bot 主人能批准；Bot 拿不准时会在群里出选择题问人。 | 🇨🇳 **国内开箱即用**<br>默认 npmmirror 镜像；daemon 可一键安装 Node、Claude Code、Codex；内置主流模型厂商预设，选厂商只填 Key，可导入 CC Switch 配置。 |
+| 🔌 **一句话接入**<br>在「绑定新机器」里复制一句话发给本机的 Claude Code 或 Codex，它自己装好 `gg`、绑定机器、装成后台服务，并建好 Bot 和私聊。 | 🤖 **多种 Agent，跑在你自己的机器上**<br>Claude Code、Codex，以及以插件接入的 Gemini CLI、CodeBuddy、pi、DeepSeek Harness。daemon 只向外连接，模型调用从成员本机直接发出，不经过服务器。 |
+| 💬 **群聊即指挥台**<br>@ 谁谁开工，追加消息可以打断补充，`/stop` 随时叫停；Bot 之间可以接力，话题收住支线讨论，定时任务到点自动开工。 | 🔍 **过程透明、Git 在手**<br>思考、工具调用、命令输出实时回传；diff、文件树、提交、日志、贮藏与冲突处理都在网页上完成，每轮的上下文构成一目了然。 |
+| 🛡️ **审批不打断**<br>审批方式分「每次问我 / 帮我审批 / 完全允许」；「帮我审批」放行常规开发操作，可开 AI 预审，只把风险操作交给 Bot 主人。 | 🌐 **从预览到原型**<br>网页、接口服务、桌面应用窗口、微信小程序模拟器在群里直接打开；原型放上多屏画布批注迭代，汇入作品库，可生成带密码的公开链接。 |
+| 📚 **团队经验沉淀**<br>Skill 市场与插件（MCP、斜杠命令）、群知识库、平台 / 团队 / 群 / 个人四层密钥，让每个 Bot 带着团队的约定干活。 | 🧰 **机器与 Bot 一处管**<br>按机器管理 Bot、Agent 工具与供应商、Git 访问、磁盘空间，网页上升级 daemon、打开终端；也支持在 Docker 中运行机器。 |
+| 🇨🇳 **国内开箱即用**<br>默认 npmmirror 镜像；一键安装 Node、Claude Code、Codex；内置主流模型厂商预设，选厂商只填 Key，可导入 CC Switch 配置。 | 📱 **哪里都能指挥**<br>网页与手机浏览器、macOS / Windows 桌面端，绑定飞书后在飞书群里也能 @ Bot，运行卡片同步过去。 |
 
 <table>
   <tr>
@@ -57,8 +59,8 @@
     <td width="50%"><img src="website/public/screenshots/web/interface.webp" alt="群聊主界面"><p align="center">多人多 Bot 同群协作，Git 状态与上下文占用常驻群头部</p></td>
   </tr>
   <tr>
-    <td width="50%"><img src="website/public/screenshots/web/approval.webp" alt="审批卡片"><p align="center">越权操作由 Bot 主人批准</p></td>
-    <td width="50%"><img src="website/public/screenshots/desktop/overview.webp" alt="macOS 桌面端"><p align="center">macOS 桌面端：自带 daemon，菜单栏常驻</p></td>
+    <td width="50%"><img src="website/public/screenshots/web/approval.webp" alt="审批卡片"><p align="center">需要把关的操作交给 Bot 主人</p></td>
+    <td width="50%"><img src="website/public/screenshots/desktop/overview.webp" alt="桌面端"><p align="center">桌面端（macOS / Windows）：自带 daemon，后台常驻</p></td>
   </tr>
 </table>
 
@@ -70,13 +72,13 @@ flowchart LR
   D1[王磊的机器<br/>daemon] -->|主动出站| S
   D2[李娜的机器<br/>daemon] -->|主动出站| S
   D1 <-->|ACP| A1[Claude Code]
-  D2 <-->|ACP| A2[Codex]
+  D2 <-->|ACP| A2[Codex / Gemini CLI …]
 ```
 
 - 服务器只负责账号、群、消息路由、预览中继和审计，**不保管仓库凭据，也不调用模型**。
-- 每个「群 × Bot」一个独立工作区；群绑定 git 仓库后，Bot 用主人自己的 git 凭据克隆。
-- Agent 经 [ACP（Agent Client Protocol）](https://agentclientprotocol.com) 接入，适配层是插件式的，便于扩展更多 Agent。
-- 内置 `gonggong` MCP，Bot 可以检索群聊记录、查看群成员与运行记录、向群成员提问。
+- 每个「群 × Bot」一个独立工作区；群可绑定主仓库和附加仓库，Bot 用主人自己的 git 凭据克隆。
+- Agent 经 [ACP（Agent Client Protocol）](https://agentclientprotocol.com) 接入：Claude Code、Codex 走固定版本的适配器，其他 Agent 以插件声明安装与启动方式。
+- 内置 `gonggong` MCP，Bot 可以检索群聊记录、向群成员提问、发布预览、把任务交给其他 Bot、开话题、维护知识库、创建定时任务。
 
 ## 和同类工具的区别
 
@@ -92,15 +94,15 @@ flowchart LR
 
 让别人 @ 你的 Bot，就等于允许他在你的机器上执行 Agent。共工空间做了这些约束：
 
-- Bot 默认在隔离的托管工作区（`~/.gonggong/workspaces/`）里干活，权限档位与命令审批只有 Bot 主人能改；
-- 触发范围可设为「仅本人 / 指定名单 / 任何群成员」；
-- 服务器可启用 HTTPS 加密传输（daemon 接受自签证书，绑定即用）；所有操作留有审计记录。
+- Bot 默认在隔离的托管工作区（`~/gonggong/workspaces/`）里干活，审批方式只有 Bot 主人能改，审批卡片也只有他能处理；
+- 触发范围可设为「仅本人 / 指定名单 / 任何群成员」；高危命令、推送受保护的基准分支始终需要确认；
+- daemon 校验服务器证书，连接非本机服务器必须用 HTTPS；密钥只以环境变量注入并在过程中打码；所有操作留有审计记录。
 
-**建议**：Bot 跑在专用机器或虚拟机上；如果用日常工作机，保持「工作区写入」档位，不要对群开放「完全访问」。详见 [安全说明](https://yoqu.github.io/gonggong-space/deploy/security)。
+**建议**：Bot 跑在专用机器、虚拟机或 Docker 机器上；如果用日常工作机，审批方式保持「每次问我」或「帮我审批」，不要对群开放「完全允许」。详见 [安全说明](https://yoqu.github.io/gonggong-space/deploy/security)。
 
 ## 快速开始
 
-**0. 直接用演示环境**：打开默认演示环境 [http://gg.uyoqu.com](http://gg.uyoqu.com/) 注册账号，跳过第 1 步，从第 2 步绑定机器开始（`gg login --server http://gg.uyoqu.com --code <绑定码>`）。演示环境仅供体验，请勿存放敏感代码和数据。
+**0. 直接用演示环境**：打开默认演示环境 [https://gg.uyoqu.com](https://gg.uyoqu.com/) 注册账号，跳过第 1 步，从第 2 步接入机器开始。演示环境仅供体验，请勿存放敏感代码和数据。
 
 **1. 起服务**（Docker，自己部署）
 
@@ -118,14 +120,15 @@ GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
 pnpm dev:web                                      # http://127.0.0.1:5173
 ```
 
-**2. 接入机器**：从 [Releases](https://github.com/yoqu/gonggong-space/releases/latest) 下载 `gg` 或 macOS 桌面端，网页右上角「绑定新机器」，复制命令在要跑 Bot 的机器上执行（桌面端粘贴接入链接）：
+**2. 接入机器**：网页上打开「绑定新机器」，复制那句话，粘贴给要跑 Bot 的机器（macOS / Linux）上的 Claude Code 或 Codex：
 
-```bash
-gg login --server https://gg.example.com --code K7QM-4X2P
-gg run
+```text
+帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 K7QM-4X2P。
 ```
 
-**3. 新建 Bot → 建群 → `@Bot 需求`**，完事。
+Agent 会自己安装 `gg`、绑定机器、装成后台服务，并建好 Bot 和私聊。自己部署的服务器需先在「管理后台 → 客户端发布」上传 daemon，并使用受信任的证书。Windows 或不想交给 Agent 时，从 [Releases](https://github.com/yoqu/gonggong-space/releases/latest) 下载桌面端或 `gg`，在「其他方式」里用接入链接或 `gg login` 绑定。
+
+**3. 私聊里试一句，再建群 `@Bot 需求`**，完事。
 
 完整步骤见 [快速上手](https://yoqu.github.io/gonggong-space/guide/quick-start)；生产部署见 [从源码部署](https://yoqu.github.io/gonggong-space/deploy/install)。
 
@@ -133,8 +136,9 @@ gg run
 
 | 项 | 支持 |
 | --- | --- |
-| Agent | Claude Code、Codex |
-| daemon | 命令行 `gg`：macOS、Linux（glibc 2.31+）、Windows；桌面端：macOS |
+| Agent | Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness |
+| daemon | 命令行 `gg`：macOS、Linux（glibc 2.31+）、Windows；桌面端：macOS（Apple 芯片、Intel）、Windows；也可在 Docker 中运行 |
+| 网页 | 桌面与手机浏览器 |
 | 服务器 | Node.js 24+、PostgreSQL 17 |
 
 ## 参与开发

@@ -59,6 +59,11 @@
 | --- | --- | --- |
 | `GONGGONG_HEARTBEAT_SEC` | 系统参数「机器心跳间隔」 | daemon 心跳间隔（秒），优先于系统参数，启动时读取 |
 | `GONGGONG_PUSH_SUBJECT` | `mailto:gonggong@example.com` | 浏览器推送通知（Web Push）的联系方式，建议改成管理员邮箱 |
+| `GONGGONG_BOT_EMAIL_DOMAIN` | `bots.gonggong.local` | Bot 提交代码时默认作者邮箱的域名，邮箱形如 `<Bot 标识前 8 位>@<域名>`。Bot 单独设置了 Git 邮箱时以 Bot 设置为准 |
+
+::: tip GONGGONG_PUBLIC_URL 与「对外地址」
+`GONGGONG_PUBLIC_URL` 只用于预览。管理后台「飞书」页的「对外地址」（系统参数）另有用途：飞书卡片与登录回调里的链接，以及「发给你的 Agent」接入时安装脚本里的服务器地址。未设置时飞书登录不可用，安装脚本按请求的地址生成。放在反向代理后面时建议两处都填主站地址。
+:::
 
 ## 网页开发服务器
 
@@ -77,12 +82,12 @@
 | --- | --- | --- |
 | `GONGGONG_BACKUP_DIR` | `backup.sh`、`restore.sh` | 备份目录（必填），见 [备份与恢复](/deploy/backup) |
 | `GONGGONG_DATABASE_URL`、`GONGGONG_DB`、`GONGGONG_PG_PORT`、`GONGGONG_DATA_DIR` | 备份脚本、`release.sh --publish` | 与 server 相同的含义 |
-| `GONGGONG_ADMIN_PASSWORD` | `release.sh --publish` | 以管理员身份登录发布（必填） |
-| `GONGGONG_ADMIN_ACCOUNT` | `release.sh --publish` | 发布用的管理员账号，默认 `admin` |
+| `GONGGONG_ADMIN_PASSWORD` | `release.sh --publish`、`release/publish.sh server` | 以管理员身份登录发布（必填） |
+| `GONGGONG_ADMIN_ACCOUNT` | `release.sh --publish`、`release/publish.sh server` | 发布用的管理员账号，默认 `admin` |
 | `GONGGONG_CACERT` | `release.sh --publish` | server 使用自签证书时，信任的证书文件 |
 | `GONGGONG_DOWNLOAD_BASE` | `release.sh` | 安装包放在 CDN 时的下载地址前缀，默认 `/downloads` |
 
-daemon（成员机器上的 `gg`）读取的环境变量，如 `GONGGONG_NO_AUTO_UPGRADE`，见 [命令参考](/cli/reference) 与 [本地数据与日志](/cli/local-data)。
+daemon（成员机器上的 `gg`）读取的环境变量，如 `GONGGONG_HOME`、`GONGGONG_NO_AUTO_UPGRADE`，见 [命令参考](/cli/reference) 与 [本地数据与日志](/cli/local-data)；Docker 成员机器的变量见 [Docker 部署](/deploy/docker)。
 
 ## 相关页面
 

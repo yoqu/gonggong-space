@@ -1,6 +1,6 @@
 # Upgrades and client releases
 
-This page explains how to upgrade the server, and how to build and publish the clients for members' machines (the daemon and gg-cast) so they upgrade automatically.
+This page explains how to upgrade the server, and how to build and publish the clients on members' machines (daemon and gg-cast) so they upgrade automatically.
 
 ## Upgrade the server
 
@@ -24,104 +24,123 @@ This page explains how to upgrade the server, and how to build and publish the c
    curl -s http://127.0.0.1:8787/api/health
    ```
 
-- The server applies new database migrations automatically at startup; no manual steps are needed.
-- The web app is static files, so it takes effect as soon as the build finishes, without reloading Nginx. Open pages load the new version after a refresh.
-- Daemons and browsers disconnect during the restart and reconnect automatically.
+- The server applies new database migrations automatically at startup; nothing to do by hand.
+- The web app is static files, so it takes effect as soon as the build finishes; Nginx doesn't need a reload. Open pages load the new version after a refresh.
+- During the restart, daemons and browsers disconnect and reconnect automatically.
 
 ::: tip Protocol version
-The `protocol` returned by `/api/health` is the protocol version between the server and the daemon. When a new server raises the protocol version, older daemons are refused, and the [Machines](/en/admin/machines) page shows 「daemon 协议版本过旧」 ("daemon protocol version too old"). When you upgrade the server, publish the matching new clients at the same time; daemons with auto-upgrade enabled upgrade right away.
+The `protocol` returned by `/api/health` is the protocol version between the server and the daemon. When a new server raises the protocol version, older daemons are refused, and the [Machines](/en/admin/machines) page shows 「daemon 协议版本过旧」 ("daemon on an outdated protocol"). When upgrading the server, publish the matching new clients at the same time; daemons with auto-upgrade enabled upgrade immediately.
 :::
 
 ## Build the clients
 
-Clients are packaged on a build machine with `scripts/release.sh`; the version number comes from `crates/gonggong/Cargo.toml`.
+Clients are packaged on a build machine with `scripts/release.sh`; the version comes from `crates/gonggong/Cargo.toml`. By default the working tree must have no uncommitted changes (`git status` is clean); otherwise add `--allow-dirty`.
 
 ```bash
-bash scripts/release.sh                                # all platforms + desktop app
-bash scripts/release.sh --only macos-aarch64,desktop   # build only some artifacts
+bash scripts/release.sh                                # all artifacts
+bash scripts/release.sh --only macos-aarch64,desktop   # only some artifacts
+bash scripts/release.sh --daemon-only                  # only gg for the five platforms, no desktop app
 ```
 
-Values for `--only`: `macos-aarch64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `desktop`, comma-separated.
+Values for `--only`, comma-separated:
+
+| Value | Artifacts |
+| --- | --- |
+| `macos-aarch64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64` | The daemon (`gg`) and gg-cast for that platform |
+| `desktop` | macOS desktop app, one installer each for Apple silicon and Intel |
+| `desktop-windows` | Windows desktop installer (cross-compiled in Docker); built only when named explicitly in `--only` |
 
 ### Artifacts
 
-Output goes to `dist/<version>/`:
+Written to `dist/<版本>/` (`<版本>` = version):
 
 | File | Description |
 | --- | --- |
-| `gonggong-<version>-<platform>[.exe]` | The daemon (the `gg` CLI), one per platform |
-| `gg-cast-<version>-<platform>[.exe]` | The live view streaming program, one per platform |
-| `共工空间_<version>_<arch>.dmg` | macOS desktop app installer, with gg-cast built in |
-| `SHA256SUMS` | sha256 of each file |
-| `manifest.json` | Release manifest: the version plus each platform file's download URL and sha256 |
+| `gonggong-<版本>-<平台>[.exe]` | Daemon (command-line `gg`), one per platform |
+| `gg-cast-<版本>-<平台>[.exe]` | Live view streaming program, one per platform |
+| `Gonggong_<版本>_aarch64.dmg` / `Gonggong_<版本>_x86_64.dmg` | macOS desktop installers (Apple silicon / Intel), with gg-cast bundled |
+| `Gonggong_<版本>_<架构>.app.tar.gz` and `.sig` | macOS desktop auto-update bundle and its signature |
+| `Gonggong_<版本>_x64-setup.exe` and `.sig` | Windows desktop installer (also its update package) and its signature |
+| `SHA256SUMS` | sha256 of the daemon and gg-cast |
+| `manifest.json` | Release manifest: version, release notes, and the download URL and sha256 of the daemon and gg-cast for each platform |
+
+(`<平台>` = platform, `<架构>` = architecture.) Release notes are taken from `docs/release-notes/v<版本>.md` (or `--notes <文件>`), written into the manifest, and shown when clients prompt for an update.
 
 ### Build machine requirements
 
-| Artifact | Requirement |
+| Artifact | Requirements |
 | --- | --- |
-| macOS builds | A macOS host with the `aarch64-apple-darwin` and `x86_64-apple-darwin` targets installed via rustup |
-| Linux / Windows builds | Docker installed locally; cross-compiled inside a container. Linux builds require glibc ≥ 2.31 (Ubuntu 20.04+, Debian 11+, RHEL 9+) |
-| Desktop `.dmg` | A macOS host; run `pnpm install` first, with Rust and the Xcode command line tools installed |
+| macOS daemon | A macOS host with the `aarch64-apple-darwin` and `x86_64-apple-darwin` targets installed via rustup |
+| Linux / Windows daemon | Docker installed locally; cross-compiled inside a container. The Linux build needs glibc ≥ 2.31 (Ubuntu 20.04+, Debian 11+, RHEL 9+) |
+| macOS desktop app | A macOS host; run `pnpm install` first, with Rust and the Xcode command line tools installed; needs the auto-update signing private key (`TAURI_SIGNING_PRIVATE_KEY`, read from `~/.tauri/gonggong.key` by default) |
+| Windows desktop app | Docker installed locally; also needs the auto-update signing private key |
 
-::: tip Desktop app signing
-If there's a Developer ID Application certificate in the keychain, the script uses it to sign the desktop app automatically (you can also specify one with `APPLE_SIGNING_IDENTITY`). Otherwise it uses an ad hoc signature and prints a warning: with that, the Screen Recording, Accessibility, and other permissions granted by macOS are lost after every upgrade. See [Permissions and system settings](/en/desktop/permissions).
+::: tip macOS signing and notarization
+If there's a Developer ID Application certificate in the keychain, the script signs the desktop app with it automatically (you can also specify one with `APPLE_SIGNING_IDENTITY`); otherwise it uses an ad hoc signature and warns you. In that case, permissions macOS has granted, such as Screen Recording and Accessibility, are lost after every upgrade. See [Permissions and system settings](/en/desktop/permissions). If the environment variables needed for Apple notarization are configured (`APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_PATH`, or an `APPLE_NOTARY_PROFILE` keychain profile), the `.dmg` is notarized as well.
 :::
 
 ## Publish the clients
 
 ### Upload in the admin console
 
-The easiest route when the build machine and the server are separate: drag the `gonggong-*` and `gg-cast-*` files from `dist/<version>/` into 「管理后台 → 客户端发布」 (Admin console → Client releases). For file naming and version rules, see [Client releases](/en/admin/releases).
+The easiest option when the build machine and the server are separate: drag the files from `dist/<版本>/` into 「管理后台 → 客户端发布」 (Admin console → Client releases). The daemon and gg-cast are used for installation and auto-upgrade; the desktop `.dmg` and `setup.exe` appear in the downloads of 「绑定新机器」 (Bind new machine); once both the desktop update bundles and their signatures are uploaded, the desktop app prefers to update from this server. For file naming and version rules, see [Client releases](/en/admin/releases).
 
-### Publish with the script
+### Publish with a script
 
-If you can run the script on the server (or on a machine that can access the server's data directory), you can build and publish in one step:
+If you can access the server as an admin, a script can upload the whole directory at once:
+
+```bash
+GONGGONG_ADMIN_PASSWORD=<管理员密码> \
+bash scripts/release/publish.sh server <版本> https://gg.example.com
+```
+
+(`<管理员密码>` = the admin password.) It uploads the daemon, gg-cast, and desktop files in `dist/<版本>/` to the server one by one through the admin upload API, and finally uploads the release notes. It can be run repeatedly; files already uploaded are replaced.
+
+On the server (or a machine with access to the server's data directory), you can also build and publish the daemon directly:
 
 ```bash
 GONGGONG_DATA_DIR=/var/lib/gonggong \
-GONGGONG_ADMIN_PASSWORD=<admin-password> \
+GONGGONG_ADMIN_PASSWORD=<管理员密码> \
 bash scripts/release.sh --publish https://gg.example.com
 ```
 
-The script:
-
-1. Builds the artifacts as described above;
-2. Copies `gonggong-*` and `gg-cast-*` into `$GONGGONG_DATA_DIR/downloads/` (when that variable is set);
-3. Signs in as an admin and submits `manifest.json` to the server, creating a new release record.
+It copies `gonggong-*` and `gg-cast-*` into `$GONGGONG_DATA_DIR/downloads/` (when that variable is set), then submits `manifest.json` to the server as an admin. Desktop files aren't included and must be uploaded separately.
 
 Related variables:
 
 | Variable | Description |
 | --- | --- |
-| `GONGGONG_ADMIN_PASSWORD` | Required; password of the admin used for publishing |
-| `GONGGONG_ADMIN_ACCOUNT` | Admin account used for publishing; defaults to `admin` |
+| `GONGGONG_ADMIN_PASSWORD` | Required; the password of the admin used for publishing |
+| `GONGGONG_ADMIN_ACCOUNT` | Admin account used for publishing; default `admin` |
 | `GONGGONG_CACERT` | When the server uses a self-signed certificate, pass the certificate file so curl trusts it |
-| `GONGGONG_DOWNLOAD_BASE` | URL prefix when installers are hosted on a CDN, written into `manifest.json`; defaults to `/downloads` (served by the server) |
+| `GONGGONG_DOWNLOAD_BASE` | URL prefix when installers are hosted on a CDN, written into `manifest.json`; default `/downloads` (served by the server) |
 
 ::: warning
-Script publishing replaces the release record wholesale with `manifest.json`. If `--only` built just some platforms, the manifest contains only those, and the other platforms become 「未发布」 (Not released).
+`release.sh --publish` replaces the release records wholesale with `manifest.json`. If `--only` built just some platforms, the manifest contains only those, and the other platforms become 「未发布」 (Not released).
 :::
 
-When you use a CDN, the daemon verifies the CDN's HTTPS against the system certificate store, and always verifies each file's sha256.
+When using a CDN, the daemon verifies the CDN's HTTPS against the system certificate store and always verifies the file's sha256.
 
-### Distribute the desktop app
+## How clients auto-upgrade
 
-The `.dmg` isn't published through the server. Send the file directly to members who use the desktop app; reinstalling it upgrades them. See [Desktop app](/en/desktop/).
+**Daemon (command-line `gg`)**
 
-## How the daemon auto-upgrades
+- When the daemon connects to the server and the server has published a **higher version** with a file for its platform, it downloads it in the background, verifies the sha256, and once no turns are running on the machine, replaces itself and restarts.
+- When the server hasn't published a file for its platform, it checks GitHub Releases every 6 hours.
+- It never downgrades; a version that fails verification isn't retried for the rest of that run. When the server refuses it for an outdated protocol version, it downloads the upgrade immediately.
+- For Linux command-line daemons (including [Docker member machines](/en/deploy/docker)), you can click 「立即升级」 (Upgrade now) on the web machine page; it downloads and restarts when idle.
+- Members can turn it off with `GONGGONG_NO_AUTO_UPGRADE=1` or the desktop app's 「设置 → 自动升级」 (Settings → Auto upgrade).
+- gg-cast isn't downloaded along with the daemon; it's downloaded from the server on demand the first time a live view is streamed.
 
-- Each time the daemon connects to the server, if the server has published a **higher version** with a file for its platform, it downloads it in the background and verifies the sha256.
-- Once downloaded, it waits until no turns are running on the machine, then replaces its own executable and restarts.
-- It never downgrades; a version that fails verification isn't retried for the rest of that run.
-- When the server refuses it for an outdated protocol version, it downloads the upgrade immediately.
-- Members can turn this off with `GONGGONG_NO_AUTO_UPGRADE=1` or in the desktop app under 「设置 → 自动升级」 (Settings → Auto-upgrade).
-- gg-cast isn't downloaded along with the daemon; it's downloaded on demand the first time live view is streamed.
+**Desktop app**
 
-For details, see [Client releases](/en/admin/releases#how-auto-upgrade-works).
+It first checks the bound server for updates: if the server has published an update bundle and signature for its platform, it downloads from the server; otherwise it checks GitHub. The Apple silicon and Intel builds update independently; an app left open across several versions jumps straight to the latest.
+
+See [Client releases](/en/admin/releases).
 
 ## Related pages
 
 - [Client releases](/en/admin/releases)
 - [Backup and restore](/en/deploy/backup)
-- [CLI installation](/en/cli/)
+- [Command-line installation](/en/cli/)
 - [Desktop app](/en/desktop/)
