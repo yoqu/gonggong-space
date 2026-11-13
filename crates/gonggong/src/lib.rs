@@ -35,6 +35,7 @@ pub mod lock;
 pub mod logs;
 pub mod manage;
 pub mod mcp_call;
+pub mod mcp_tools;
 pub mod net;
 pub mod open_apps;
 pub mod permission;

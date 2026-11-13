@@ -56,4 +56,24 @@ export const GONGGONG_TOOL_TITLES = {
   plugin_catalog: '插件目录',
   creation_propose: '发起创作确认',
   artifact_checkout: '检出产物',
+  service_start: '启动托管服务',
+  preview_miniprogram: '发布小程序预览',
+  client_release_publish: '发布客户端到当前空间',
+} as const
+
+/** What the gonggong tools that need the bot owner's approval do, for the approval card; same shape as an MCP
+ *  tool's own `description` and `annotations`. */
+export const GONGGONG_TOOL_NOTES = {
+  service_start: {
+    description: '在 Bot 所在机器上运行参数里的命令，并让它在后台一直运行（如开发服务器）',
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  },
+  preview_miniprogram: {
+    description: '在 Bot 所在机器上用微信开发者工具打开工作区里的小程序，截图发到群里',
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  },
+  client_release_publish: {
+    description: '把编译好的客户端上传到当前空间，所有成员会收到更新',
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  },
 } as const

@@ -2,6 +2,7 @@ import {
   type AgentKind,
   type AgentSettingValues,
   type AiReview,
+  type ApprovalMcp,
   type ArtifactFile,
   type DiffRepo,
   type GitActionArgs,
@@ -948,6 +949,8 @@ export const approvals = pgTable(
     rememberSession: jsonb('remember_session').$type<string[]>().notNull().default([]),
     /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
     review: jsonb('review').$type<AiReview>(),
+    /** The MCP tool asked for, with what it declares about itself; null for other requests. */
+    mcp: jsonb('mcp').$type<ApprovalMcp>(),
     /** 'pending' | 'approved' | 'rejected' | 'expired' | 'void' */
     status: text('status').notNull().default('pending'),
     /** 'stopped' | 'chain_stopped' | 'ended' when status = 'void'. */

@@ -1,4 +1,11 @@
-import { GONGGONG_TOOL_TITLES, type I18nText, type Question, type RunEvent } from '@gonggong/protocol'
+import {
+  type ApprovalMcp,
+  GONGGONG_TOOL_NOTES,
+  GONGGONG_TOOL_TITLES,
+  type I18nText,
+  type Question,
+  type RunEvent,
+} from '@gonggong/protocol'
 import { t } from '../../i18n'
 
 export type McpCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['mcp']>
@@ -45,14 +52,17 @@ const short = (v: unknown) => {
   const s = typeof v === 'string' ? v : Array.isArray(v) ? t('{n} 项', { n: v.length }) : JSON.stringify(v)
   return s.length > VALUE_MAX ? `${s.slice(0, VALUE_MAX - 1)}…` : s
 }
+/** Whole values: what the owner approves. */
+const whole = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v, null, 2))
 
-/** The call's top-level arguments; null when they are not a whole JSON object (the daemon clips long input). */
-export function mcpArgs(input: string | undefined): [string, string][] | null {
+/** The call's top-level arguments, shortened unless `full`; null when they are not a whole JSON object (the daemon
+ *  clips long input). */
+export function mcpArgs(input: string | undefined, full = false): [string, string][] | null {
   if (!input) return null
   try {
     const v: unknown = JSON.parse(input)
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null
-    return Object.entries(v).map(([k, x]) => [k, short(x)])
+    return Object.entries(v).map(([k, x]) => [k, full ? whole(x) : short(x)])
   } catch {
     return null
   }
@@ -84,3 +94,14 @@ export const argSummary = (call: McpCall) =>
     ?.map(([k, v]) => `${k}=${v}`)
     .join(' · ') ||
   undefined
+
+/** What an approval card says about the MCP tool asked for: the tool's own declaration, the built-in tools' in Chinese. */
+export function mcpTool(m: ApprovalMcp) {
+  const builtin =
+    m.server === 'gonggong' ? GONGGONG_TOOL_NOTES[m.tool as keyof typeof GONGGONG_TOOL_NOTES] : undefined
+  return {
+    label: m.server === 'gonggong' || !m.title ? mcpLabel(m.server, m.tool) : m.title,
+    description: builtin ? t.text({ key: builtin.description }) : m.description,
+    annotations: builtin?.annotations ?? m.annotations,
+  }
+}

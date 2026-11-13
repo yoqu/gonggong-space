@@ -1035,7 +1035,7 @@ export const DAEMON_TOOLS = {
     input: SendAttachmentsArgs,
   },
   service_start: {
-    title: '启动托管服务',
+    title: GONGGONG_TOOL_TITLES.service_start,
     description:
       'Start a long-running service managed by gonggong (e.g. a dev server) that outlives the turn; then preview_expose it. ' +
       'Restarting a name keeps its preview cards working, no need to publish again.',
@@ -1076,7 +1076,7 @@ export const DAEMON_TOOLS = {
     alwaysLoad: true,
   },
   client_release_publish: {
-    title: '发布客户端到当前空间',
+    title: GONGGONG_TOOL_TITLES.client_release_publish,
     description:
       'Upload client builds from scripts/release.sh (gg, gg-cast, desktop installers and updates) to this space; members update from here. ' +
       'Prefer dir for a whole dist/<version> (one approval), file for one more file, dir with kind="daemon" for gg only. Sysadmin turns only.',
@@ -1096,7 +1096,7 @@ export const DAEMON_TOOLS = {
     input: FeishuSendCardArgs,
   },
   preview_miniprogram: {
-    title: '发布小程序预览',
+    title: GONGGONG_TOOL_TITLES.preview_miniprogram,
     description:
       'Open the workspace mini program in WeChat DevTools on this machine at a page and post a card with a simulator screenshot; call again to switch pages. ' +
       'It handles launch, login (QR code on the card) and trust: never drive DevTools yourself or send QR codes.',

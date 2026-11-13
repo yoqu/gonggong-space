@@ -18,6 +18,26 @@ export type ReviewRisk = z.infer<typeof ReviewRisk>
 /** Why the AI pre-review left a request to the owner: its risk estimate and reasoning. */
 export const AiReview = z.object({ risk: ReviewRisk, rationale: z.string().max(500) })
 export type AiReview = z.infer<typeof AiReview>
+
+/** The MCP tool an approval asks for: its call and what the tool's own `tools/list` entry says (MCP spec); the
+ *  annotations are the tool's claims, shown as declared, never guessed when absent. */
+export const ApprovalMcp = z.object({
+  server: z.string(),
+  tool: z.string(),
+  /** The call's arguments as JSON. */
+  input: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  annotations: z
+    .object({
+      readOnlyHint: z.boolean().optional(),
+      destructiveHint: z.boolean().optional(),
+      idempotentHint: z.boolean().optional(),
+      openWorldHint: z.boolean().optional(),
+    })
+    .optional(),
+})
+export type ApprovalMcp = z.infer<typeof ApprovalMcp>
 export const Allowlist = z.array(z.string().trim().min(1).max(200)).max(100)
 
 export const TriggerScope = z.enum(['all', 'list', 'self'])

@@ -137,6 +137,7 @@ const run = (o: Partial<RunDto> = {}): RunDto => ({
       remember: [],
       rememberSession: [],
       review: null,
+      mcp: null,
       status: 'approved',
       voidReason: null,
       decidedBy: 'u1',

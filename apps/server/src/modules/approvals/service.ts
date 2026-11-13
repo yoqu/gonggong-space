@@ -73,6 +73,11 @@ export async function onApprovalRequest(ctx: Ctx, machineId: string, raw: Approv
       remember: rememberable(raw.remember),
       rememberSession: raw.rememberSession.filter((r) => redact(r) === r),
       review: req.review && { ...req.review, rationale: r(req.review.rationale) },
+      mcp: req.mcp && {
+        ...req.mcp,
+        ...(req.mcp.input && { input: r(req.mcp.input) }),
+        ...(req.mcp.description && { description: r(req.mcp.description) }),
+      },
       expiresAt,
       createdAt: ctx.now(),
     })

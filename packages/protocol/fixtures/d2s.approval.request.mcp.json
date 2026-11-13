@@ -1,0 +1,36 @@
+{
+  "t": "approval.request",
+  "runId": "r1",
+  "requestId": "p2",
+  "title": "mcp__feishu-project__update_field",
+  "toolKind": "other",
+  "detail": "mcp__feishu-project__update_field",
+  "reason": "not_allowed",
+  "options": [
+    {
+      "optionId": "allow",
+      "name": "Allow",
+      "kind": "allow_once"
+    },
+    {
+      "optionId": "reject",
+      "name": "Reject",
+      "kind": "reject_once"
+    }
+  ],
+  "remember": ["mcp__feishu-project__update_field"],
+  "rememberSession": ["mcp__feishu-project__update_field"],
+  "review": null,
+  "mcp": {
+    "server": "feishu-project",
+    "tool": "update_field",
+    "input": "{\"work_item_id\":\"6512\",\"field\":\"priority\",\"value\":\"P0\"}",
+    "title": "Update field",
+    "description": "Update a field of a work item.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  }
+}

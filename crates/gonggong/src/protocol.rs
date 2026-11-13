@@ -1712,6 +1712,44 @@ pub struct ApprovalRequest {
     /// The AI pre-review's assessment when it did not allow the request; `None` = not reviewed.
     #[serde(default)]
     pub review: Option<AiReview>,
+    /// Set when the request is an MCP tool call.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<ApprovalMcp>,
+}
+
+/// The MCP tool an approval asks for: its call and what the tool's own `tools/list` entry says.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalMcp {
+    pub server: String,
+    pub tool: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<String>,
+    #[serde(flatten)]
+    pub info: McpToolInfo,
+}
+
+/// A tool's own `title`, `description` and `annotations` (MCP `tools/list`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct McpToolInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<McpToolAnnotations>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpToolAnnotations {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read_only_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destructive_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotent_hint: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_world_hint: Option<bool>,
 }
 
 /// A request the AI pre-review allowed by itself, without asking the owner: recorded in the audit log.

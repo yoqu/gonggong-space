@@ -23,6 +23,7 @@ const approval: ApprovalDto = {
   remember: [],
   rememberSession: [],
   review: null,
+  mcp: null,
   status: 'approved',
   voidReason: null,
   decidedBy: 'u1',

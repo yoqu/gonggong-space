@@ -82,6 +82,33 @@
   align-self: stretch;
   white-space: pre-wrap;
 }
+.approval__desc {
+  font-size: var(--text-callout-size);
+  color: var(--label-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* An MCP call's arguments: name, then its whole value. */
+.approval__args {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--space-12);
+  margin: 0;
+}
+.approval__args > div {
+  display: contents;
+}
+.approval__args dt {
+  color: var(--label-secondary);
+}
+.approval__args dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
 .approval__cmd[data-folded] .approval__cmd-text {
   max-height: calc(var(--text-body-line) * 6);
   overflow: hidden;

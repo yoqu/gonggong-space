@@ -30,6 +30,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
   remember: [],
   rememberSession: [],
   review: null,
+  mcp: null,
   status: 'pending',
   voidReason: null,
   decidedBy: null,
@@ -74,6 +75,56 @@ describe('ApprovalBlock', () => {
     login('u1', '王磊')
     render(<ApprovalBlock run={run([approval({ reason: 'unparsed' })])} />)
     expect(screen.getByText(/命令较复杂，无法确认是否只读/)).toBeTruthy()
+  })
+
+  it('shows an MCP call as the tool declares itself, with its whole arguments', () => {
+    login('u1', '王磊')
+    const long = 'x'.repeat(100)
+    const mcp = {
+      server: 'feishu-project',
+      tool: 'update_field',
+      input: JSON.stringify({ work_item_id: '6512', note: long }),
+      title: 'Update field',
+      description: 'Update a field of a work item.',
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    }
+    const rule = 'mcp__feishu-project__update_field'
+    const a = approval({
+      title: rule,
+      toolKind: 'other',
+      detail: rule,
+      mcp,
+      remember: [rule],
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'always', name: 'Always', kind: 'allow_always' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    })
+    const { rerender } = render(<ApprovalBlock run={run([a])} />)
+    expect(screen.getByText('权限请求 · Update field')).toBeTruthy()
+    expect(screen.getByText('Update a field of a work item.')).toBeTruthy()
+    expect(screen.getByText('会修改数据')).toBeTruthy()
+    expect(screen.getByText('访问外部系统')).toBeTruthy()
+    expect(screen.getByText('6512')).toBeTruthy()
+    expect(screen.getByText(long)).toBeTruthy()
+    expect(screen.getByText('以后都允许这个工具')).toBeTruthy()
+    expect(screen.getByText('不再询问：feishu-project · update_field')).toBeTruthy()
+
+    // Nothing declared: said so, not guessed from a name like delete_*.
+    const bare = { server: 'wiki', tool: 'delete_page', input: '{"id":1}' }
+    rerender(<ApprovalBlock run={run([approval({ id: 'a2', mcp: bare })])} />)
+    expect(screen.getByText('权限请求 · wiki · delete_page')).toBeTruthy()
+    expect(screen.getByText('工具未声明风险')).toBeTruthy()
+    expect(screen.queryByText('可能删除或覆盖数据')).toBeNull()
+
+    // Built-in tools that need approval explain themselves in Chinese.
+    const start = { server: 'gonggong', tool: 'service_start', input: '{"name":"web","command":"pnpm dev"}' }
+    rerender(<ApprovalBlock run={run([approval({ id: 'a3', mcp: start })])} />)
+    expect(screen.getByText('权限请求 · 启动托管服务')).toBeTruthy()
+    expect(screen.getByText(/在 Bot 所在机器上运行参数里的命令/)).toBeTruthy()
+    expect(screen.getByText('可能删除或覆盖数据')).toBeTruthy()
+    expect(screen.getByText('pnpm dev')).toBeTruthy()
   })
 
   it('shows the AI pre-review that left the request to the owner', () => {

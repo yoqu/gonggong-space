@@ -869,6 +869,7 @@ describe('question and approval cards', () => {
       remember: o.remember ?? [],
       rememberSession: o.rememberSession ?? [],
       review: null,
+      mcp: null,
     })
 
   it('questions show as a form in the run card, streaming paused; answering folds them into a summary', async () => {

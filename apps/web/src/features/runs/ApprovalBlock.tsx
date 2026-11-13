@@ -1,4 +1,4 @@
-import type { ApprovalDto, PermissionOption, ReviewRisk, RunDto } from '@gonggong/protocol'
+import type { ApprovalDto, ApprovalMcp, PermissionOption, ReviewRisk, RunDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -10,6 +10,7 @@ import { Button, Icon, Tag, type TagTone } from '../../ui'
 import { CountdownRing } from '../chat/RunGraphics'
 import './approval.css'
 import { t } from '../../i18n'
+import { mcpArgs, mcpTool, toolTitle } from './mcp'
 
 /** ACP tool kinds as the prototype names them. */
 export const VOID_TEXT = {
@@ -56,6 +57,9 @@ const RISK: Record<ReviewRisk, [string, TagTone]> = {
   critical: [t('极高风险'), 'solid-red'],
 }
 
+/** Rules naming an MCP tool (`mcp__s__t`) read as the tool. */
+const rules = (list: string[]) => list.map(toolTitle).join(t('、'))
+
 const pick = (options: PermissionOption[], kinds: PermissionOption['kind'][]) =>
   kinds.map((k) => options.find((o) => o.kind === k)).find(Boolean)
 
@@ -80,18 +84,72 @@ const FOLD_CHARS = 400
 const FOLD_LINES = 8
 
 /** The command or target of a request, folded when long. */
-function ApprovalDetail({ text }: { text: string }) {
+function ApprovalDetail({ text, args }: { text: string; args?: [string, string][] }) {
   const [open, setOpen] = useState(false)
   const long = text.length > FOLD_CHARS || text.split('\n').length > FOLD_LINES
   return (
     <div className="approval__cmd" data-folded={(long && !open) || undefined}>
-      <span className="approval__cmd-text">{text}</span>
+      {args ? (
+        <dl className="approval__cmd-text approval__args">
+          {args.map(([k, v]) => (
+            <div key={k}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <span className="approval__cmd-text">{text}</span>
+      )}
       {long ? (
         <button type="button" className="approval__unfold" onClick={() => setOpen(!open)}>
           {open ? t('收起') : t('展开全部（{n} 字）', { n: text.length })}
         </button>
       ) : null}
     </div>
+  )
+}
+
+/** Only what the tool declares (MCP annotations); nothing declared is said so, never guessed from its name. */
+function riskTags(a: ApprovalMcp['annotations']): [string, TagTone][] {
+  if (
+    !a ||
+    (a.readOnlyHint === undefined && a.destructiveHint === undefined && a.openWorldHint === undefined)
+  )
+    return [[t('工具未声明风险'), 'gray']]
+  const tags: [string, TagTone][] = []
+  if (a.readOnlyHint) tags.push([t('只读'), 'green'])
+  else if (a.destructiveHint) tags.push([t('可能删除或覆盖数据'), 'red'])
+  else if (a.readOnlyHint === false || a.destructiveHint === false) tags.push([t('会修改数据'), 'orange'])
+  if (a.openWorldHint) tags.push([t('访问外部系统'), 'blue'])
+  return tags
+}
+
+/** An MCP tool call: what the tool says it does, then the arguments of this call. */
+function McpRequest({ mcp, detail }: { mcp: ApprovalMcp; detail: string }) {
+  const tool = mcpTool(mcp)
+  const input = mcp.input ?? ''
+  const args = mcpArgs(input, true)
+  return (
+    <>
+      <div className="approval__review">
+        {riskTags(tool.annotations).map(([label, tone]) => (
+          <Tag key={label} tone={tone}>
+            {label}
+          </Tag>
+        ))}
+        <span>{t('来自 MCP「{server}」', { server: mcp.server })}</span>
+      </div>
+      {tool.description ? <div className="approval__desc">{tool.description}</div> : null}
+      {mcp.server === 'gonggong' && mcp.tool === 'client_release_publish' ? (
+        <ApprovalDetail text={detail} />
+      ) : input ? (
+        <ApprovalDetail
+          text={args ? args.map(([k, v]) => `${k}: ${v}`).join('\n') : input}
+          args={args ?? undefined}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -178,9 +236,11 @@ export function ApprovalCard({
         ) : (
           <Icon name="shield-warning" size={14} />
         )}
-        {t('权限请求 · {kind}', { kind: KIND[a.toolKind] ?? t('其他操作') })}
+        {t('权限请求 · {kind}', {
+          kind: a.mcp ? mcpTool(a.mcp).label : (KIND[a.toolKind] ?? t('其他操作')),
+        })}
       </div>
-      <ApprovalDetail text={a.detail} />
+      {a.mcp ? <McpRequest mcp={a.mcp} detail={a.detail} /> : <ApprovalDetail text={a.detail} />}
       <div className="approval__why">
         {pending
           ? t('{reason} · {time} 后自动拒绝，agent 自行绕路', {
@@ -200,7 +260,7 @@ export function ApprovalCard({
           <div className="approval__why">{t('还有 {n} 个请求在等待：', { n: others.length })}</div>
           {others.map((x) => (
             <div key={x.id} className="approval__cmd">
-              {x.detail}
+              {x.mcp ? mcpTool(x.mcp).label : x.detail}
             </div>
           ))}
         </div>
@@ -221,7 +281,7 @@ export function ApprovalCard({
               size="small"
               disabled={!mine || !!busy}
               loading={busy === 'session'}
-              title={t('本次会话不再问：{rules}', { rules: a.rememberSession.join(t('、')) })}
+              title={t('本次会话不再问：{rules}', { rules: rules(a.rememberSession) })}
               onClick={() => decide(allow, true)}
             >
               {t('本次会话不再问')}
@@ -234,7 +294,7 @@ export function ApprovalCard({
               loading={busy === always.optionId}
               onClick={() => decide(always)}
             >
-              {t('批准，不再询问')}
+              {a.mcp ? t('以后都允许这个工具') : t('批准，不再询问')}
             </Button>
           )}
           {!demo && (
@@ -263,13 +323,11 @@ export function ApprovalCard({
           )}
           {a.rememberSession.length > 0 && a.rememberSession.join() !== a.remember.join() && (
             <span className="approval__hint">
-              {t('本次会话不再问：{rules}', { rules: a.rememberSession.join(t('、')) })}
+              {t('本次会话不再问：{rules}', { rules: rules(a.rememberSession) })}
             </span>
           )}
           {always && (
-            <span className="approval__hint">
-              {t('不再询问：{rules}', { rules: a.remember.join(t('、')) })}
-            </span>
+            <span className="approval__hint">{t('不再询问：{rules}', { rules: rules(a.remember) })}</span>
           )}
           <span className="approval__hint">
             {mine

@@ -11,6 +11,7 @@ import {
   AiReview,
   Answer,
   Approval,
+  ApprovalMcp,
   Attachment,
   ContextBreakdown,
   ContextUsage,
@@ -625,6 +626,8 @@ export const ApprovalRequest = z.object({
   rememberSession: z.array(z.string()).default([]),
   /** The AI pre-review's assessment when it did not allow the request; null = no review (off, floor, or it failed). */
   review: AiReview.nullable().default(null),
+  /** Set when the request is an MCP tool call; older daemons omit it. */
+  mcp: ApprovalMcp.nullable().default(null),
 })
 export type ApprovalRequest = z.infer<typeof ApprovalRequest>
 

@@ -13,9 +13,9 @@ use crate::ledger::Ledger;
 use crate::local::{self, Decision, LocalSettings, Rules};
 use crate::plugins;
 use crate::protocol::{
-    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalReason, ApprovalRequest, Attachment,
-    AutoSource, CacheUsage, Choice, DaemonToServer, McpServer, ModelChoice, Question, RunDone, RunEvent, RunOutcome,
-    RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
+    AgentCatalog, AgentCommand, AgentKind, Answer, ApprovalAiApproved, ApprovalMcp, ApprovalReason, ApprovalRequest,
+    Attachment, AutoSource, CacheUsage, Choice, DaemonToServer, McpCall, McpServer, ModelChoice, Question, RunDone,
+    RunEvent, RunOutcome, RunStart, RunStatus, SecretEnv, Tier, Usage, WorkspaceKind,
 };
 use crate::providers::{RunPlan, Selection, Store};
 use crate::replicas::SyncTurn;
@@ -170,6 +170,10 @@ async fn ready(engine: &Inner, shared: &Shared, mut turn: Planned) -> Option<Pla
                 turn.req.artifact_hint = hint;
             }
             turn.req.start.mcp_servers.extend(plugins.mcp.iter().cloned());
+            crate::mcp_tools::prefetch(&plugins.mcp, cwd);
+            if let Some(a) = shared.0.lock().unwrap().active.as_mut() {
+                a.mcp = turn.req.start.mcp_servers.clone();
+            }
             turn.skills = skills;
             turn.plugins = plugins;
             Some(turn)
@@ -208,6 +212,8 @@ struct Active {
     request: String,
     /// Requests the AI pre-review allowed in this run (`review_key`): the same one is not reviewed again.
     reviewed: Vec<String>,
+    /// The run's MCP servers (plugins' included), whose tools' own descriptions approval cards show.
+    mcp: Vec<McpServer>,
 }
 
 /// A run the server opened for output between turns (a background task finished and the agent went on by itself).
@@ -233,6 +239,7 @@ struct Prev {
     session: Option<SessionId>,
     hidden_tools: Vec<String>,
     request: String,
+    mcp: Vec<McpServer>,
 }
 
 impl Prev {
@@ -250,6 +257,7 @@ impl Prev {
             session,
             hidden_tools: a.hidden_tools.clone(),
             request: a.request.clone(),
+            mcp: a.mcp.clone(),
         }
     }
 }
@@ -747,7 +755,9 @@ impl Shared {
             hidden_tools: req.start.hidden_tools.clone(),
             request: review::request_of(&req.start.prompt),
             reviewed: vec![],
+            mcp: req.start.mcp_servers.clone(),
         });
+        crate::mcp_tools::prefetch(&req.start.mcp_servers, &req.cwd);
         Some(true)
     }
 
@@ -859,6 +869,7 @@ impl Shared {
             hidden_tools: prev.hidden_tools,
             request: prev.request,
             reviewed: vec![],
+            mcp: prev.mcp,
         });
         for held in w.held {
             match held {
@@ -1258,6 +1269,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
     }
     .map(|c| local::unwrap_quoted(&c));
     let read_paths = read_paths(&req);
+    let raw_input = req.tool_call.fields.raw_input.clone();
     let edits_steering = changes_steering(&SessionUpdate::ToolCallUpdate(req.tool_call.clone()), &a.cwd);
     let release = req
         .tool_call
@@ -1265,7 +1277,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         .title
         .as_deref()
         .and_then(|title| ask::release_approval(title, req.tool_call.fields.raw_input.as_ref(), &a.cwd));
-    let Some(RunEvent::Tool { title, tool_kind, detail, .. }) =
+    let Some(RunEvent::Tool { title, tool_kind, detail, mcp, .. }) =
         a.turn.apply(&req.session_id.0, SessionUpdate::ToolCallUpdate(req.tool_call))
     else {
         unreachable!("tool call updates always map to tool events")
@@ -1352,6 +1364,7 @@ fn permission_in(shared: &Arc<Shared>, s: &mut State, mut req: RequestPermission
         remember: remember.clone(),
         remember_session: remember_session.clone(),
         review: None,
+        mcp: mcp.map(|m| approval_mcp(&a.mcp, m, raw_input.as_ref())),
     };
     let (tx, rx) = oneshot::channel();
     s.approvals.insert(request_id, Approval { title, key, remember, remember_session, options: req.options, tx });
@@ -1389,6 +1402,14 @@ fn name_mcp_call(req: &mut RequestPermissionRequest) {
     if let Some((server, tool)) = mcp.and_then(|m| Some((m["server_name"].as_str()?, m["tool_name"].as_str()?))) {
         req.tool_call.fields.title = Some(format!("mcp__{server}__{tool}"));
     }
+}
+
+/// The MCP call of a request with its whole arguments (the run timeline's are clipped) and what the tool declares.
+fn approval_mcp(servers: &[McpServer], call: McpCall, raw_input: Option<&serde_json::Value>) -> ApprovalMcp {
+    let args = raw_input.map(crate::mcp_call::arguments).filter(|a| !a.is_null());
+    let input = args.map(|a| clip_detail(a.to_string())).or(call.input);
+    let info = crate::mcp_tools::lookup(servers, &call.server, &call.tool).unwrap_or_default();
+    ApprovalMcp { server: call.server, tool: call.tool, input, info }
 }
 
 /// What makes two permission requests the same for the AI pre-review: the whole command, else the tool call's title.

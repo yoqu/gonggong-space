@@ -1,0 +1,1 @@
+ALTER TABLE "approvals" ADD COLUMN "mcp" jsonb;

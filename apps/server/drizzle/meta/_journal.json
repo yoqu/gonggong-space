@@ -792,6 +792,13 @@
       "when": 1794551934720,
       "tag": "0112_useful_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1794557990239,
+      "tag": "0113_dark_christian_walker",
+      "breakpoints": true
     }
   ]
 }

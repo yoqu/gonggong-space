@@ -230,6 +230,36 @@ describe('approvals', () => {
     })
   })
 
+  it('stores the MCP tool asked for with its own description, secrets masked; old daemons send none', async () => {
+    const w = await world()
+    const { runId, approval } = await w.request()
+    expect(approval.mcp).toBeNull()
+    w.d.send({
+      t: 'approval.request',
+      runId,
+      requestId: 'req-mcp',
+      title: 'mcp__feishu-project__update_field',
+      toolKind: 'other',
+      detail: 'mcp__feishu-project__update_field',
+      options: OPTIONS,
+      mcp: {
+        server: 'feishu-project',
+        tool: 'update_field',
+        input: '{"token":"sk-live-abcdefghijklmnop1234","value":"P0"}',
+        description: 'Update a field.',
+        annotations: { readOnlyHint: false, destructiveHint: false },
+      },
+    })
+    const run = await w.viewerWeb.run((r) => r.id === runId && r.approvals.length === 2)
+    expect(run.approvals[1]!.mcp).toEqual({
+      server: 'feishu-project',
+      tool: 'update_field',
+      input: `{"token":"${MASK}","value":"P0"}`,
+      description: 'Update a field.',
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    })
+  })
+
   it('audits what the AI pre-review allowed by itself, secrets masked, only for live runs of the machine', async () => {
     const w = await world()
     const { runId } = await w.request()

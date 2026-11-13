@@ -7,6 +7,7 @@ import {
   Allowlist,
   Answer,
   Approval,
+  ApprovalMcp,
   Attachment,
   ContextUsage,
   DevtoolsBlocker,
@@ -1718,6 +1719,8 @@ export const ApprovalDto = z.object({
   rememberSession: z.array(z.string()),
   /** The AI pre-review's assessment that left it to the owner; null = not reviewed. */
   review: AiReview.nullable(),
+  /** The MCP tool asked for; null for other requests and old records. */
+  mcp: ApprovalMcp.nullable().default(null),
   /** expired = auto-rejected on timeout; void = the run ended/stopped first. */
   status: z.enum(['pending', 'approved', 'rejected', 'expired', 'void']),
   /** Why a request became void: the run was stopped, its relay chain was stopped, or the run ended first. */

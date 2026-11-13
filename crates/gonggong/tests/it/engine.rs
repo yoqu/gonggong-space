@@ -224,6 +224,7 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
             remember: vec!["tool:Write hello.txt".into()],
             remember_session: vec!["tool:Write hello.txt".into()],
             review: None,
+            mcp: None,
         }
     );
     // Decisions for unknown requests are ignored.
@@ -1972,6 +1973,41 @@ async fn codex_mcp_calls_to_gonggong_tools_need_no_owner() {
     r.run(start("r1", "mock:untitled mcp.gonggong.search_messages"));
     let (_, done) = r.finish("r1").await;
     assert_eq!(done.reply, "ran");
+}
+
+#[tokio::test]
+async fn an_mcp_approval_shows_what_the_tool_declares_about_itself() {
+    let mut r = rig(Duration::from_secs(60));
+    let echo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/mcp-echo/server.js");
+    let server = McpServer::Stdio {
+        name: "echo-srv".into(),
+        command: "node".into(),
+        args: vec![echo.to_string_lossy().into()],
+        env: Default::default(),
+    };
+    // Listed in the background as the run starts: the card shows it once the list is in.
+    gonggong::mcp_tools::prefetch(std::slice::from_ref(&server), Path::new("."));
+    for _ in 0..200 {
+        if gonggong::mcp_tools::lookup(std::slice::from_ref(&server), "echo-srv", "echo").is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let mut s = start("r1", "mock:untitled mcp.echo-srv.echo");
+    s.mcp_servers = vec![server];
+    r.run(s);
+    let (_, approval) = until_approval(&mut r).await;
+    let annotations =
+        McpToolAnnotations { read_only_hint: Some(true), open_world_hint: Some(false), ..Default::default() };
+    let info = McpToolInfo {
+        title: Some("Echo".into()),
+        description: Some("Returns the given text unchanged.".into()),
+        annotations: Some(annotations),
+    };
+    let mcp = ApprovalMcp { server: "echo-srv".into(), tool: "echo".into(), input: None, info };
+    assert_eq!(approval.mcp, Some(mcp));
+    decide(&r, &approval, Some("reject"));
+    r.finish("r1").await;
 }
 
 #[tokio::test]

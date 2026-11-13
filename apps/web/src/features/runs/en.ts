@@ -39,6 +39,21 @@ export default {
     '{tier} · auto-rejects in {time}, then the agent works around it',
   批准: 'Approve',
   '批准，不再询问': "Approve, don't ask again",
+  以后都允许这个工具: 'Always allow this tool',
+  工具未声明风险: 'Risk not declared by the tool',
+  可能删除或覆盖数据: 'May delete or overwrite data',
+  会修改数据: 'Changes data',
+  访问外部系统: 'Reaches external systems',
+  '来自 MCP「{server}」': 'From MCP "{server}"',
+  启动托管服务: 'Start a managed service',
+  发布小程序预览: 'Publish a mini program preview',
+  发布客户端到当前空间: 'Publish a client to this space',
+  '在 Bot 所在机器上运行参数里的命令，并让它在后台一直运行（如开发服务器）':
+    "Runs the command in the arguments on the bot's machine and keeps it running in the background (e.g. a dev server)",
+  '在 Bot 所在机器上用微信开发者工具打开工作区里的小程序，截图发到群里':
+    "Opens the workspace mini program in WeChat DevTools on the bot's machine and posts a screenshot to the group",
+  '把编译好的客户端上传到当前空间，所有成员会收到更新':
+    'Uploads built clients to this space; every member gets the update',
   本次运行免审批: 'No approvals this run',
   本次会话不再问: "Don't ask again this session",
   '本次会话不再问：{rules}': "Won't ask again this session: {rules}",

@@ -29,6 +29,7 @@ const approval = (o: Partial<ApprovalDto> = {}): ApprovalDto => ({
   remember: [],
   rememberSession: [],
   review: null,
+  mcp: null,
   status: 'pending',
   voidReason: null,
   decidedBy: null,
