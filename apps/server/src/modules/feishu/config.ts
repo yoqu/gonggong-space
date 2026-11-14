@@ -24,6 +24,10 @@ export const configErrorText = (raw: string | null) =>
           )
         : t('自动配置失败：{reason}', { reason: raw })
 
+/** The config call succeeded (only the redirect URL may be missing) once Feishu approved the first version. */
+export const configReview = (raw: string | null) =>
+  raw === null || raw === NO_PUBLIC_URL ? 'approved' : raw === NOT_MODIFIABLE ? 'unknown' : 'pending'
+
 /**
  * Applies what scan-created apps cannot get through `addons`: the long connection for a bot app's events and
  * callbacks, the member events and OAuth redirect URL for the main app. The outcome is kept on the row (`config_error`).

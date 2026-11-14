@@ -1,8 +1,7 @@
 import type { FeishuAppDto, FeishuAppStatus, FeishuAppView } from '@gonggong/protocol'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { useGet } from '../../lib/useGet'
 import {
   Alert,
   Button,
@@ -14,6 +13,7 @@ import {
   TextField,
   toast,
 } from '../../ui'
+import { FeishuAppSteps, useFeishuApp } from './FeishuAppSteps'
 import './feishu.css'
 
 // The QR code library is only needed once someone scans.
@@ -43,25 +43,24 @@ export function FeishuAppStatusLine({ app }: { app: FeishuAppDto }) {
 
 /**
  * App ID / App Secret of one Feishu app at `path` (GET/PUT/DELETE FeishuAppView). The secret is write-only:
- * leaving it empty keeps showing the saved app, filling both replaces it.
+ * leaving it empty keeps showing the saved app, filling both replaces it. `blocked` says why scanning must wait.
  */
-export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel: string }) {
-  const { data, reload } = useGet<FeishuAppView>(path)
-  const app = data?.app ?? null
+export function FeishuAppForm({
+  path,
+  removeLabel,
+  blocked,
+}: {
+  path: string
+  removeLabel: string
+  blocked?: string
+}) {
+  const { app, reload, retry, retrying } = useFeishuApp(path)
   const [appId, setAppId] = useState('')
   const [appSecret, setAppSecret] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [removing, setRemoving] = useState(false)
   const [scan, setScan] = useState<'create' | 'update' | null>(null)
-  const [retrying, setRetrying] = useState(false)
-
-  // A fresh connection reports in within seconds.
-  useEffect(() => {
-    if (app?.status !== 'connecting') return
-    const timer = setTimeout(reload, 3000)
-    return () => clearTimeout(timer)
-  }, [app, reload])
 
   const save = async () => {
     setBusy(true)
@@ -79,42 +78,20 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
     }
   }
 
-  const retry = async () => {
-    setRetrying(true)
-    try {
-      await api.post<FeishuAppView>(`${path}/configure`, {})
-      reload()
-    } catch (e) {
-      toast({ type: 'error', message: errorText(e) })
-    } finally {
-      setRetrying(false)
-    }
-  }
-
   return (
     <div className="feishu-app">
       {app ? <FeishuAppStatusLine app={app} /> : <span className="feishu-app__unset">{t('未配置')}</span>}
-      {app?.configError ? (
-        <Alert variant="warning" description={app.configError}>
-          <div className="feishu-app__retry">
-            <span>
-              {t('缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。')}
-            </span>
-            <Button size="small" disabled={retrying} onClick={() => void retry()}>
-              {t('重试自动配置')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {app ? <FeishuAppSteps app={app} retrying={retrying} onRetry={() => void retry()} /> : null}
       <div className="feishu-app__actions">
-        <Button size="small" variant="primary" onClick={() => setScan('create')}>
+        <Button size="small" variant="primary" disabled={!!blocked} onClick={() => setScan('create')}>
           {t('扫码创建或接入')}
         </Button>
         {app ? (
-          <Button size="small" variant="plain" onClick={() => setScan('update')}>
+          <Button size="small" variant="plain" disabled={!!blocked} onClick={() => setScan('update')}>
             {t('更新权限')}
           </Button>
         ) : null}
+        {blocked ? <span className="feishu-app__blocked">{blocked}</span> : null}
         <span className="feishu-app__or">{t('或手动填写已有应用的凭证')}</span>
         <a className="feishu-app__guide" href={GUIDE} target="_blank" rel="noreferrer">
           {t('飞书后台配置说明')}

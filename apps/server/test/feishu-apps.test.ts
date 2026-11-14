@@ -44,15 +44,19 @@ describe('main app (管理后台 · 飞书)', () => {
     const { http } = await sysadmin()
     const unset = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
     expect(unset.body.app?.configError).toMatch(/对外地址/)
+    // The dev config went through: only the redirect URL is missing, the first version is approved.
+    expect(unset.body.app?.review).toBe('approved')
 
     await http.put('/api/admin/params', { publicUrl: 'https://gg.example.com' })
     t.feishu.configureError = 'scope not granted'
     const refused = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
     expect(refused.body.app?.configError).toContain('scope not granted')
+    expect(refused.body.app?.review).toBe('pending')
 
     t.feishu.configureError = null
     const ok = await http.put<FeishuAppView>('/api/admin/feishu', MAIN)
     expect(ok.body.app?.configError).toBeNull()
+    expect(ok.body.app?.review).toBe('approved')
     expect(t.feishu.configs).toEqual([
       { appId: 'cli_main01', config: { websocket: { events: MAIN_EVENTS, callbacks: [] } } },
       {

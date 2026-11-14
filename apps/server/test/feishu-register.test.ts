@@ -236,7 +236,9 @@ describe('自动配置 pending until the first version is approved', () => {
     t.feishu.configureErrorCode = 210021
     await pendingMain()
     const http = await sysadmin()
-    expect((await http.get<FeishuAppView>('/api/admin/feishu')).body.app?.configError).toMatch(/手动配置/)
+    const manual = (await http.get<FeishuAppView>('/api/admin/feishu')).body.app
+    expect(manual?.configError).toMatch(/手动配置/)
+    expect(manual?.review).toBe('unknown')
     const { retryFeishuConfig } = await import('../src/modules/feishu/config.js')
     t.feishu.configureError = null
     await retryFeishuConfig(t.ctx)

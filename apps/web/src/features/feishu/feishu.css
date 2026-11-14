@@ -105,3 +105,91 @@
 .ui-group__desc .feishu-issue__code {
   margin-left: 6px;
 }
+
+.feishu-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: 8px;
+  background: var(--control-fill);
+}
+
+.feishu-steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.feishu-steps__mark {
+  flex: none;
+  margin-top: 2px;
+}
+
+.feishu-steps__item--done .feishu-steps__mark,
+.feishu-steps__ok {
+  color: var(--system-green);
+}
+
+.feishu-steps__item--wait .feishu-steps__mark {
+  color: var(--system-blue);
+}
+
+.feishu-steps__item--warn .feishu-steps__mark,
+.feishu-steps__item--note .feishu-steps__mark {
+  color: var(--system-orange);
+}
+
+.feishu-steps__item--fail .feishu-steps__mark {
+  color: var(--system-red);
+}
+
+.feishu-steps__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.feishu-steps__title {
+  font-weight: 500;
+}
+
+.feishu-steps__desc,
+.feishu-steps__detail {
+  font-size: var(--text-footnote-size);
+  color: var(--label-secondary);
+  overflow-wrap: anywhere;
+}
+
+.feishu-steps__detail {
+  font-family: var(--font-mono);
+  color: var(--label-tertiary);
+}
+
+.feishu-steps__done {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feishu-steps__ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.feishu-app__blocked {
+  align-self: center;
+  color: var(--label-tertiary);
+  font-size: var(--text-footnote-size);
+}
+
+.feishu-scan .feishu-steps,
+.feishu-scan .feishu-steps__done {
+  align-self: stretch;
+}

@@ -6,7 +6,7 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { seal } from '../../lib/seal.js'
 import { FeishuError } from './client.js'
-import { configErrorText, configureApp } from './config.js'
+import { configErrorText, configReview, configureApp } from './config.js'
 import { type FeishuAppRow, reloadFeishu } from './gateway.js'
 
 export const appDto = (row: FeishuAppRow | undefined): FeishuAppDto | null =>
@@ -16,6 +16,7 @@ export const appDto = (row: FeishuAppRow | undefined): FeishuAppDto | null =>
         status: row.status as FeishuAppStatus,
         error: row.error,
         configError: configErrorText(row.configError),
+        review: configReview(row.configError),
         updatedAt: row.updatedAt.toISOString(),
       }
     : null

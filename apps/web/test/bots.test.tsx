@@ -1111,7 +1111,14 @@ describe('bot page profile', () => {
     routes['GET /api/bots'] = () => [full]
     routes['GET /api/machines'] = () => [mbp]
     routes['GET /api/bots/b1/feishu'] = () => ({
-      app: { appId: 'cli_a1', status: 'connected', error: null, configError: null, updatedAt: '' },
+      app: {
+        appId: 'cli_a1',
+        status: 'connected',
+        error: null,
+        configError: null,
+        review: 'approved',
+        updatedAt: '',
+      },
     })
     renderAt('/bot/b1', wang)
     const page = await screen.findByRole('region', { name: 'Bot 概况' })

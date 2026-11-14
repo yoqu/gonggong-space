@@ -100,12 +100,6 @@ export default {
   在飞书中打开: 'Open in Feishu',
   '{n} 秒后过期': 'Expires in {n}s',
   二维码已过期: 'The QR code has expired',
-  飞书应用已绑定并连接: 'Feishu app bound and connected',
-  '应用已保存。飞书管理员审核通过后会自动完成配置，也可稍后在应用设置中重试。':
-    'The app is saved. Setup finishes automatically once a Feishu admin approves it; you can also retry later in the app settings.',
-  '缺权限时点「更新权限」扫码补齐；飞书管理员审核通过后会自动完成，也可以现在重试。':
-    'If permissions are missing, use “Update permissions” to add them. This finishes automatically once a Feishu admin approves the app; you can also retry now.',
-  重试自动配置: 'Retry setup',
   '已与飞书群「{name}」同步，点击在飞书中打开':
     'Synced with the Feishu chat “{name}”; click to open it in Feishu',
   '在飞书中打开「{name}」': 'Open “{name}” in Feishu',
@@ -159,4 +153,20 @@ export default {
   '没能拉入飞书群：{reason}': 'Could not add it to the Feishu chat: {reason}',
   '飞书错误码 {code}': 'Feishu error {code}',
   一键拉入: 'Add to chat',
+  // 接入进度
+  接入进度: 'Setup progress',
+  已接通: 'Connected and approved',
+  已保存并连上飞书: 'Saved and connected to Feishu',
+  飞书管理员已审核通过: 'Approved by the Feishu admin',
+  '等待企业飞书管理员审核，通过后自动完成，无需回来操作':
+    "Waiting for your enterprise's Feishu admin to approve it; setup then finishes by itself, no need to come back",
+  请在飞书开发者后台确认已发布: 'Check in the Feishu developer console that it is published',
+  成员可以使用: 'Members can use it',
+  '新应用默认只有创建者可用。请在飞书管理后台把可用范围改为需要的成员':
+    'A new app is available only to its creator. Set its availability to the members who need it in the Feishu admin console',
+  打开飞书管理后台: 'Open the Feishu admin console',
+  等待中: 'Waiting',
+  未完成: 'Not done',
+  提醒: 'Reminder',
+  先保存对外地址: 'Save the public URL first',
 } satisfies Record<string, string>

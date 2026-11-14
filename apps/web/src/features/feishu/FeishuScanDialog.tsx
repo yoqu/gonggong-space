@@ -3,13 +3,22 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Alert, Dialog, toast } from '../../ui'
+import { Alert, Dialog, Spinner } from '../../ui'
+import { FeishuAppSteps, useFeishuApp } from './FeishuAppSteps'
 
 const POLL_MS = 1500
 
+/** Saved is not done: what is left (approval, availability range), live from the app itself. */
+function Saved({ path, onChange }: { path: string; onChange: () => void }) {
+  const { app, retry, retrying } = useFeishuApp(path)
+  if (!app) return <Spinner />
+  return <FeishuAppSteps app={app} retrying={retrying} full onRetry={() => void retry().then(onChange)} />
+}
+
 /**
  * 扫码创建或绑定 / 更新权限 of the Feishu app at `path`: the admin scans the QR in Feishu and confirms there; the server
- * saves the app and sets the long connection (and the main app's redirect URL) by itself.
+ * saves the app and sets the long connection (and the main app's redirect URL) by itself. Once saved the dialog stays,
+ * listing the steps Feishu still needs.
  */
 export function FeishuScanDialog({
   path,
@@ -68,11 +77,7 @@ export function FeishuScanDialog({
     // Record completion before refreshing the parent, which may replace callbacks.
     handled.current = session.id
     onDone()
-    if (!session?.configError) {
-      toast({ type: 'success', message: t('飞书应用已绑定并连接') })
-      onClose()
-    }
-  }, [succeeded, session, onDone, onClose])
+  }, [succeeded, session, onDone])
 
   const cancel = () => {
     if (id) void api.del(`/feishu/register/${id}`).catch(() => {})
@@ -116,13 +121,7 @@ export function FeishuScanDialog({
         ) : null}
         {session?.status === 'expired' ? <Alert variant="warning" description={t('二维码已过期')} /> : null}
         {session?.status === 'failed' ? <Alert variant="error" description={session.error ?? ''} /> : null}
-        {succeeded && session.configError ? (
-          <Alert
-            variant="warning"
-            title={session.configError}
-            description={t('应用已保存。飞书管理员审核通过后会自动完成配置，也可稍后在应用设置中重试。')}
-          />
-        ) : null}
+        {succeeded ? <Saved path={path} onChange={onDone} /> : null}
       </div>
     </Dialog>
   )

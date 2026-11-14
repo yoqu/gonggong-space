@@ -7,7 +7,12 @@ import { Button, GroupBox, GroupRow, Switch, TextField, toast } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
 
-/** 管理后台 · 飞书: the system-wide main app (飞书登录, mirroring people's messages) and auto sign-up. */
+const trimUrl = (url: string) => url.trim().replace(/\/+$/, '')
+
+/**
+ * 管理后台 · 飞书: the public URL first (the sign-in callback, card links and the chat invite card need it, so
+ * scanning waits for it), then the system-wide main app (飞书登录, mirroring people's messages), then auto sign-up.
+ */
 export function FeishuAdminPage() {
   const [autoSignup, setAutoSignup] = useState<boolean | null>(null)
   const [publicUrl, setPublicUrl] = useState('')
@@ -16,14 +21,14 @@ export function FeishuAdminPage() {
     api.get<SystemParams>('/admin/params').then((p) => {
       setAutoSignup(p.feishuAutoSignup)
       setPublicUrl(p.publicUrl ?? '')
-      setUrlDraft(p.publicUrl ?? '')
+      setUrlDraft(p.publicUrl || window.location.origin)
     }, toastError)
   }, [])
 
   const saveUrl = async () => {
     try {
       const next = await api.put<SystemParams>('/admin/params', {
-        publicUrl: urlDraft.trim().replace(/\/+$/, ''),
+        publicUrl: trimUrl(urlDraft),
       })
       setPublicUrl(next.publicUrl)
       setUrlDraft(next.publicUrl)
@@ -50,18 +55,6 @@ export function FeishuAdminPage() {
         '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。',
       )}
     >
-      <section className="admin-params">
-        <h2 className="admin-params__title">{t('主应用')}</h2>
-        <GroupBox>
-          <GroupRow
-            className="feishu-creds"
-            label={t('凭证')}
-            description={t('在飞书开发者后台「凭证与基础信息」中获取；保存前会向飞书校验。')}
-          >
-            <FeishuAppForm path="/admin/feishu" removeLabel={t('移除主应用')} />
-          </GroupRow>
-        </GroupBox>
-      </section>
       {autoSignup !== null ? (
         <section className="admin-params">
           <h2 className="admin-params__title">{t('对外地址')}</h2>
@@ -82,7 +75,7 @@ export function FeishuAdminPage() {
                 <Button
                   size="small"
                   aria-label={t('保存对外地址')}
-                  disabled={urlDraft.trim().replace(/\/+$/, '') === publicUrl}
+                  disabled={trimUrl(urlDraft) === publicUrl}
                   onClick={() => void saveUrl()}
                 >
                   {t('保存')}
@@ -99,6 +92,24 @@ export function FeishuAdminPage() {
                 <code className="feishu-app__id">{`${publicUrl}/api/auth/feishu/callback`}</code>
               </GroupRow>
             ) : null}
+          </GroupBox>
+        </section>
+      ) : null}
+      {autoSignup !== null ? (
+        <section className="admin-params">
+          <h2 className="admin-params__title">{t('主应用')}</h2>
+          <GroupBox>
+            <GroupRow
+              className="feishu-creds"
+              label={t('凭证')}
+              description={t('在飞书开发者后台「凭证与基础信息」中获取；保存前会向飞书校验。')}
+            >
+              <FeishuAppForm
+                path="/admin/feishu"
+                removeLabel={t('移除主应用')}
+                blocked={publicUrl ? undefined : t('先保存对外地址')}
+              />
+            </GroupRow>
           </GroupBox>
         </section>
       ) : null}

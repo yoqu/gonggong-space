@@ -15,6 +15,11 @@ export const FeishuAppDto = z.object({
   error: z.string().nullable(),
   /** Dev config not applied yet (e.g. the first version awaits approval); retried automatically. */
   configError: z.string().nullable(),
+  /**
+   * Whether the Feishu admin approved the app's first version: the dev config only goes through after (plan 飞书联动
+   * §5.3). `unknown`: an app Feishu will not let 共工 modify, so the config call tells nothing.
+   */
+  review: z.enum(['approved', 'pending', 'unknown']),
   updatedAt: z.string(),
 })
 export type FeishuAppDto = z.infer<typeof FeishuAppDto>

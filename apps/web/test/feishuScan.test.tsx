@@ -20,6 +20,7 @@ const bound: FeishuAppView = {
     status: 'connected',
     error: null,
     configError: null,
+    review: 'approved',
     updatedAt: '2026-10-01T00:00:00Z',
   },
 }
@@ -93,25 +94,53 @@ describe('扫码创建或接入', () => {
 
     view = bound
     session = { ...waiting, status: 'succeeded', app: bound.app }
+    // Saved is not done: the dialog stays with what is left (the availability range at least).
+    expect(await within(dialog).findByText('已接通')).toBeTruthy()
+    expect(within(dialog).getByText(/新应用默认只有创建者可用/)).toBeTruthy()
+    expect(within(dialog).getByRole('link', { name: '打开飞书管理后台' })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(await screen.findByText('已连接')).toBeTruthy()
   })
 
-  it('keeps the dialog open with the manual step when automatic configuration failed', async () => {
+  it('lists what is left while the first version awaits approval, and retries it', async () => {
+    const pendingApp = {
+      ...bound.app!,
+      configError: '自动配置失败：no permission',
+      review: 'pending' as const,
+    }
+    let view: FeishuAppView = { app: pendingApp }
     mockApi({
-      'GET /bots/b1/feishu': bound,
+      'GET /bots/b1/feishu': () => view,
       'POST /bots/b1/feishu/register': waiting,
       'GET /feishu/register/s1': {
         ...waiting,
         status: 'succeeded',
-        app: bound.app,
+        app: pendingApp,
         configError: '自动配置失败：no permission',
+      },
+      'POST /bots/b1/feishu/configure': () => {
+        view = bound
+        return view
       },
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
     fireEvent.click(await screen.findByRole('button', { name: '扫码创建或接入' }))
-    expect(await screen.findByText('自动配置失败：no permission')).toBeTruthy()
-    expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
+    const dialog = await screen.findByRole('dialog')
+    const steps = await within(dialog).findByRole('list', { name: '接入进度' })
+    expect(within(steps).getByText('等待企业飞书管理员审核，通过后自动完成，无需回来操作')).toBeTruthy()
+    expect(within(steps).getByText('自动配置失败：no permission')).toBeTruthy()
+    fireEvent.click(within(steps).getByRole('button', { name: '重试' }))
+    expect(await within(dialog).findByText('已接通')).toBeTruthy()
+  })
+
+  it('cannot tell approval of an app Feishu will not let us modify', async () => {
+    mockApi({
+      'GET /bots/b1/feishu': { app: { ...bound.app!, configError: '无法自动配置', review: 'unknown' } },
+    })
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
+    const steps = await screen.findByRole('list', { name: '接入进度' })
+    expect(within(steps).getByText('请在飞书开发者后台确认已发布')).toBeTruthy()
   })
 
   it('更新权限 re-confirms the bound app; closing cancels the session', async () => {

@@ -18,13 +18,15 @@ export function startFeishuInvite(ctx: Ctx) {
     // A chat 创建飞书群 just made is bound once that request finishes.
     await Promise.allSettled([...creatingChats])
     const base = await publicUrl(ctx)
-    if (!base || (await boundGroupOf(ctx, ev.chat_id))) return
-    const card = noticeCard(
-      zt(
-        '把这个飞书群接入共工：在共工创建对应的群并绑定，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。',
-      ),
-      { label: zt('在共工创建对应群'), url: `${base}/?feishuChat=${encodeURIComponent(ev.chat_id)}` },
-    )
+    if (await boundGroupOf(ctx, ev.chat_id)) return
+    const card = base
+      ? noticeCard(
+          zt(
+            '把这个飞书群接入共工：在共工创建对应的群并关联，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。',
+          ),
+          { label: zt('在共工创建对应群'), url: `${base}/?feishuChat=${encodeURIComponent(ev.chat_id)}` },
+        )
+      : noticeCard(zt('这个飞书群还没有接入共工。请在共工的群设置 › 飞书里关联本群。'))
     await ctx.feishu.api.send(credsOf(app), ev.chat_id, {
       msgType: 'interactive',
       content: JSON.stringify(card),

@@ -111,4 +111,13 @@ describe('主应用进群卡片', () => {
     await t.feishu.botAdded(BOT_APP, 'oc_bot', 'x')
     expect(t.feishu.sent.filter((m) => m.chatId === 'oc_bot')).toEqual([])
   })
+
+  it('without a public URL still tells the chat how to link it, with no button', async () => {
+    await setup()
+    await t.feishu.botAdded(MAIN, 'oc_new', '新群')
+    const [card] = t.feishu.sent.filter((m) => m.chatId === 'oc_new')
+    const text = JSON.stringify(card?.content)
+    expect(text).toContain('请在共工的群设置 › 飞书里关联本群')
+    expect(text).not.toContain('"tag":"button"')
+  })
 })

@@ -825,8 +825,10 @@ export const en = {
   '这是你自己的 Bot': 'This is your own Bot',
   '该 Bot 已共享给你': 'This Bot is already shared with you',
   '已申请，等待 Bot 主人处理': 'Already requested; waiting for the Bot owner',
-  '把这个飞书群接入共工：在共工创建对应的群并绑定，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。':
-    'Connect this chat to Gonggong: create the matching group there and bind it. Members who linked Feishu join automatically; then @ Bots right here.',
+  '把这个飞书群接入共工：在共工创建对应的群并关联，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。':
+    'Connect this chat to Gonggong: create the matching group there and link it. Members who linked Feishu join automatically; then @ Bots right here.',
+  '这个飞书群还没有接入共工。请在共工的群设置 › 飞书里关联本群。':
+    "This Feishu chat isn't connected to Gonggong yet. Link it under group settings › Feishu in Gonggong.",
   在共工创建对应群: 'Create the group in Gonggong',
   '飞书主应用没有建群权限，请系统管理员在飞书开放平台为主应用开通 im:chat:create 并发布版本':
     'The Feishu main app cannot create chats: a system admin must enable im:chat:create for it on the Feishu Open Platform and publish a version',
