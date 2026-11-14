@@ -69,7 +69,8 @@ describe('群设置 · 飞书', () => {
     fireEvent.click(await screen.findByRole('button', { name: '飞书群' }))
     fireEvent.click(await screen.findByText('飞书研发群'))
     fireEvent.click(screen.getByRole('button', { name: '关联' }))
-    expect(await screen.findByText('未接入飞书')).toBeTruthy()
+    // A bot without its own app: those who cannot set it up are told who can.
+    expect(await screen.findByText('请 Bot 主人接入')).toBeTruthy()
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ chatId: 'oc_1' })
     // Bots are pulled in on binding; one Feishu refused shows why in plain words, its code second, and a retry.
     await waitFor(() =>
@@ -200,20 +201,20 @@ describe('群设置 · 飞书', () => {
       },
     })
     render(<GroupFeishuTab group={group} />)
-    const toggle = await screen.findByRole('switch', { name: '网页消息同步到飞书群' })
+    const toggle = await screen.findByRole('switch', { name: '网页消息发到飞书群' })
     expect(toggle.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(toggle)
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ syncOutbound: false }),
     )
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: '网页消息同步到飞书群' }).getAttribute('aria-checked')).toBe(
+      expect(screen.getByRole('switch', { name: '网页消息发到飞书群' }).getAttribute('aria-checked')).toBe(
         'false',
       ),
     )
   })
 
-  it('turns off 同步全部飞书消息, warning that senders outside 共工 are stored too', async () => {
+  it('picks which Feishu messages come in, warning that senders outside 共工 are stored too', async () => {
     let view: GroupFeishuView = {
       ...unbound,
       chats: [],
@@ -234,16 +235,96 @@ describe('群设置 · 飞书', () => {
       },
     })
     render(<GroupFeishuTab group={group} />)
-    const toggle = await screen.findByRole('switch', { name: '同步全部飞书消息' })
+    // Grouped by direction: 共工 → 飞书 is one switch, 飞书 → 共工 one choice of two.
+    expect(await screen.findByText('共工 → 飞书')).toBeTruthy()
+    expect(screen.getByText('飞书 → 共工')).toBeTruthy()
     expect(screen.getByText(/没有共工账号的人发言也会保存到本群/)).toBeTruthy()
-    expect(toggle.getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(toggle)
+    const all = screen.getByRole('radio', { name: '同步全部消息' }) as HTMLInputElement
+    expect(all.checked).toBe(true)
+    fireEvent.click(screen.getByRole('radio', { name: '只同步 @Bot 的消息' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ syncAll: false }))
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: '同步全部飞书消息' }).getAttribute('aria-checked')).toBe(
-        'false',
+      expect((screen.getByRole('radio', { name: '只同步 @Bot 的消息' }) as HTMLInputElement).checked).toBe(
+        true,
       ),
     )
+  })
+
+  it('checks what linking needs first: my Feishu account, then the bot in the chat', async () => {
+    useSession.setState({ user: { id: 'u3', role: 'member' } as never, status: 'ready' })
+    let view: GroupFeishuView = {
+      ...unbound,
+      chats: [],
+      members: [{ userId: 'u3', name: '陈晨', linked: false }],
+    }
+    mockApi({ 'GET /groups/g1/feishu': () => view })
+    const { unmount } = render(<GroupFeishuTab group={group} />)
+    const link = await screen.findByRole('link', { name: '绑定飞书账号' })
+    expect(link.getAttribute('href')).toContain('/api/auth/feishu/start')
+    expect(screen.getByText('「共工助手」机器人已在飞书群')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制机器人名' })).toBeTruthy()
+    expect(screen.getByText('没有可关联的飞书群，先把机器人拉进群')).toBeTruthy()
+    unmount()
+
+    view = { ...view, members: [{ userId: 'u3', name: '陈晨', linked: true }] }
+    render(<GroupFeishuTab group={group} />)
+    expect(await screen.findByText('已绑定')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '绑定飞书账号' })).toBeNull()
+  })
+
+  it("lets a bot's owner open its Feishu settings from a bot without an app", async () => {
+    useSession.setState({ user: { id: 'u1', role: 'member' } as never, status: 'ready' })
+    const claude = {
+      id: 'b2',
+      teamId: 't1',
+      name: 'claude',
+      ownerId: 'u1',
+      ownerName: '王磊',
+      agentKind: 'claude',
+      avatar: 'role-no',
+      machineId: null,
+      binding: 'bound',
+      presence: 'offline',
+      systemPrompt: '',
+      tier: 'workspace',
+      triggerScope: 'all',
+      triggerList: [],
+      concurrency: 1,
+      alwaysAllow: [],
+      allowlist: [],
+      aiReview: false,
+      reviewModel: null,
+      model: null,
+      effort: null,
+      catalog: null,
+      gitName: null,
+      gitEmail: null,
+      gitDefaultEmail: 'b2@bots.gonggong.local',
+      sharedWith: [],
+      agentSettings: {},
+    }
+    useWorkspace.setState({ bots: [claude as never] })
+    mockApi({
+      'GET /users': [],
+      'GET /bots/b2/feishu': { app: null },
+      'GET /groups/g1/feishu': {
+        ...unbound,
+        chats: [],
+        chat: {
+          groupId: 'g1',
+          chatId: 'oc_1',
+          name: '研发群',
+          boundAt: '2026-10-01T00:00:00Z',
+          syncOutbound: true,
+          syncAll: true,
+        },
+        bots: [{ botId: 'b2', name: 'claude', appId: null, inChat: false, issue: null }],
+      },
+    })
+    render(<GroupFeishuTab group={group} />)
+    fireEvent.click(await screen.findByRole('button', { name: '去接入' }))
+    expect(await screen.findByRole('dialog', { name: 'Bot 详情' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '飞书' }).getAttribute('aria-selected')).toBe('true')
   })
 
   it('explains that the main app must be configured first', async () => {

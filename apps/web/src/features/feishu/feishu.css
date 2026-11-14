@@ -193,3 +193,15 @@
 .feishu-scan .feishu-steps__done {
   align-self: stretch;
 }
+
+.feishu-section {
+  margin: var(--space-12) 0 var(--space-4);
+  padding: 0 var(--space-4);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+
+.feishu-section:first-child {
+  margin-top: 0;
+}

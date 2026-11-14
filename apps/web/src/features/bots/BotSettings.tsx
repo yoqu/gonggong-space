@@ -163,7 +163,7 @@ function UsageTab({ bot }: { bot: BotDto }) {
   )
 }
 
-export type BotTab = 'basic' | 'run' | 'access' | 'advanced' | 'share'
+export type BotTab = 'basic' | 'run' | 'access' | 'advanced' | 'feishu' | 'share'
 
 const sameList = (a: string[], b: string[]) => a.join('\n') === b.join('\n')
 const sameMap = (a: Record<string, string>, b: Record<string, string>) =>
@@ -530,15 +530,14 @@ export function BotDetail({
           </span>
         </FormRow>
       )}
-      {canEdit ? (
-        <FormRow
-          label={t('飞书应用')}
-          align="top"
-          hint={t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @；单独保存，不随下方「保存」')}
-        >
-          <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('移除飞书应用')} />
-        </FormRow>
-      ) : null}
+    </Form>
+  )
+
+  const feishu = (
+    <Form>
+      <FormRow label={t('飞书应用')} align="top" hint={t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @')}>
+        <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('移除飞书应用')} />
+      </FormRow>
     </Form>
   )
 
@@ -548,7 +547,10 @@ export function BotDetail({
     { value: 'access', label: t('权限'), content: access },
     { value: 'advanced', label: t('高级'), content: advanced },
     ...(canEdit
-      ? [{ value: 'share', label: t('共享'), content: <BotShares bot={bot} users={users} /> }]
+      ? [
+          { value: 'feishu', label: t('飞书'), content: feishu },
+          { value: 'share', label: t('共享'), content: <BotShares bot={bot} users={users} /> },
+        ]
       : []),
     ...(plain ? [] : [{ value: 'usage', label: t('用量'), content: <UsageTab bot={bot} /> }]),
   ]
@@ -575,7 +577,7 @@ export function BotDetail({
             {t('删除 Bot')}
           </Button>
           <span className="spacer" />
-          {tab === 'usage' || tab === 'share' ? null : (
+          {tab === 'usage' || tab === 'share' || tab === 'feishu' ? null : (
             <Button variant="primary" disabled={!dirty || saving || !name.trim()} onClick={save}>
               {t('保存')}
             </Button>

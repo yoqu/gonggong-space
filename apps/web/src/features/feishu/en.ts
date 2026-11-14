@@ -63,19 +63,12 @@ export default {
   // 群设置 · 飞书
   '系统管理员尚未接入飞书，暂不能关联飞书群。':
     "The system admin hasn't connected Feishu yet, so Feishu chats can't be linked.",
-  '关联后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。':
-    "Once linked, members can @ bots in the Feishu chat; the bots' replies go back to the chat.",
-  '成员自动同步：飞书群里已绑定飞书账号的团队成员会加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。':
-    'Members sync automatically: team members in the Feishu chat who linked Feishu join this group and leave it when they leave the chat; members added here are added to the Feishu chat too.',
   飞书群: 'Feishu chat',
   一个共工群只能关联一个飞书群: 'A Gonggong group can be linked to one Feishu chat',
   取消关联: 'Unlink',
   关联: 'Link',
-  '列出机器人和你都在、尚未关联的飞书群': 'Chats both the bot and you are in that are not linked yet',
   选择飞书群: 'Choose a Feishu chat',
-  没有可关联的飞书群: 'No Feishu chat to link',
   已关联飞书群: 'Feishu chat linked',
-  未接入飞书: 'Feishu not connected',
   已在群中: 'In the chat',
   拉入飞书群: 'Add to chat',
   已拉入飞书群: 'Added to the Feishu chat',
@@ -108,18 +101,10 @@ export default {
   改为飞书群名: 'Use Feishu chat name',
   已改为飞书群名称: 'Renamed after the Feishu chat',
   同步飞书群成员: 'Sync Feishu chat members',
-  网页消息同步到飞书群: 'Sync web messages to the Feishu chat',
-  同步全部飞书消息: 'Sync all Feishu messages',
-  '开启后，飞书群里的普通消息也会同步到本群（只进不出，不触发 Bot）；没有共工账号的人发言也会保存到本群，以飞书昵称显示。关闭后只同步 @Bot 的消息':
-    'When on, ordinary messages in the Feishu chat also come into this group (one way, without running bots); messages from people without a Gonggong account are stored too, under their Feishu name. When off, only messages that @ a bot come in',
   已开启同步全部飞书消息: 'Syncing all Feishu messages turned on',
   已关闭同步全部飞书消息: 'Syncing all Feishu messages turned off',
-  '关闭后，网页上发的消息、定时任务消息及其 Bot 回复和预览卡片不再发到飞书群；飞书群里的消息照常同步到本群':
-    'When off, messages sent on the web and by schedules, their bot replies and preview cards no longer go to the Feishu chat; Feishu chat messages still sync to this group',
   已开启同步到飞书群: 'Syncing to the Feishu chat turned on',
   已关闭同步到飞书群: 'Syncing to the Feishu chat turned off',
-  '把飞书群里已注册共工的本团队成员补进本群，用于补上后来才注册或入团队的人':
-    'Adds team members in the Feishu chat who have Gonggong accounts, catching up on people who signed up or joined the team later',
   '新加入 {n} 人': '{n} joined',
   '新加入 {n} 人；{unlinked} 人未注册共工，{outside} 人不在本团队':
     '{n} joined; {unlinked} have no Gonggong account, {outside} are not in this team',
@@ -147,7 +132,6 @@ export default {
     'Only chats the bot "{name}" is in are listed; for a missing chat, add it under the chat\'s settings › Bots, then click Refresh',
   '只列出共工机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新':
     "Only chats the Gonggong bot is in are listed; for a missing chat, add it under the chat's settings › Bots, then click Refresh",
-  已关联其他群的飞书群不显示: 'Feishu chats linked to another group are not listed',
   '已关联飞书群 · {n} 个 Bot 没能拉入，原因见下方':
     'Linked to the Feishu chat · {n} {n:Bot|Bots} could not be added, see why below',
   '没能拉入飞书群：{reason}': 'Could not add it to the Feishu chat: {reason}',
@@ -169,4 +153,40 @@ export default {
   未完成: 'Not done',
   提醒: 'Reminder',
   先保存对外地址: 'Save the public URL first',
+  // 群设置 · 飞书 (重排)
+  '「{name}」机器人': 'the bot "{name}"',
+  共工机器人: 'the Gonggong bot',
+  关联前先确认: 'Before linking',
+  你已绑定飞书账号: 'You linked your Feishu account',
+  '只能关联你也在的飞书群，共工靠你的飞书账号确认':
+    'You can only link a chat you are in; Gonggong checks that with your Feishu account',
+  '已绑定#feishu': 'Linked',
+  绑定飞书账号: 'Link Feishu account',
+  '{bot}已在飞书群': '{bot} is in the Feishu chat',
+  '在飞书群设置 › 群机器人里添加。添加后群里会出现接入卡片，也可以直接点卡片完成关联':
+    "Add it under the chat's settings › Bots. A card then appears in the chat; you can also link from that card",
+  复制机器人名: 'Copy bot name',
+  已复制机器人名: 'Bot name copied',
+  '没有可关联的飞书群，先把机器人拉进群': 'No chat to link yet; add the bot to the chat first',
+  没有现成的飞书群: 'No Feishu chat yet',
+  '飞书群里已绑定飞书账号的团队成员会自动加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。后来才注册或入团队的人，点「同步飞书群成员」补上':
+    'Team members in the Feishu chat who linked Feishu join this group and leave it when they leave the chat; members added here are added to the chat too. For people who signed up or joined the team later, click "Sync Feishu chat members"',
+  '共工 → 飞书': 'Gonggong → Feishu',
+  '飞书 → 共工': 'Feishu → Gonggong',
+  网页消息发到飞书群: 'Send web messages to the Feishu chat',
+  '网页上发的消息、定时任务消息及其 Bot 回复和预览卡片发到飞书群。关闭后只在共工里看得到':
+    'Messages sent on the web and by schedules, their bot replies and preview cards go to the Feishu chat. When off, they stay in Gonggong',
+  同步哪些飞书消息: 'Which Feishu messages come in',
+  '同步全部消息时，普通消息只进不出、不触发 Bot；没有共工账号的人发言也会保存到本群，以飞书昵称显示':
+    'With all messages, ordinary ones come in one way without running bots; messages from people without a Gonggong account are stored too, under their Feishu name',
+  '只同步 @Bot 的消息': 'Only messages that @ a bot',
+  同步全部消息: 'All messages',
+  '群里的 Bot': 'Bots in this group',
+  '列出机器人和你都在、尚未关联的飞书群': 'Chats both the bot and you are in that are not linked yet',
+  没有可关联的飞书群: 'No Feishu chat to link',
+  '还没有接入飞书应用，飞书群里 @ 不到它': "Has no Feishu app yet, so it can't be @-ed in the Feishu chat",
+  去接入: 'Connect',
+  '请 Bot 主人接入': 'Ask its owner to connect it',
+  未接入: 'Not connected',
+  等待审核: 'Awaiting approval',
 } satisfies Record<string, string>

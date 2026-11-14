@@ -16,6 +16,7 @@ import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { Button, ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
+import { FeishuAppTag } from '../feishu/FeishuAppTag'
 import { stepText } from '../runs/mcp'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
 import { agentLabel } from './AgentConfig'
@@ -288,7 +289,9 @@ function Profile({
             {`${bot.gitName ?? bot.name} <${bot.gitEmail ?? bot.gitDefaultEmail}>`}
           </span>,
         ],
-        ...(canEdit ? ([[t('飞书应用'), feishu?.app?.appId ?? (feishu ? unset() : '--')]] as Row[]) : []),
+        ...(canEdit
+          ? ([[t('飞书应用'), feishu ? <FeishuAppTag key="feishu" app={feishu.app} /> : '--']] as Row[])
+          : []),
       ],
     ],
     ...(canEdit

@@ -247,8 +247,6 @@ export default {
   '只保存在 Bot 所在的机器上': "Stored only on the bot's machine",
   运行配置: 'Runtime',
   权限: 'Access',
-  '该 Bot 专属的飞书自建应用，用于在飞书群里被 @；单独保存，不随下方「保存」':
-    "This bot's own Feishu app, used to @ it in Feishu chats; saved on its own, not with Save below",
   '都可以在创建后的 Bot 设置里修改': "All can be changed in the bot's settings later",
   '设置供应商、模型与默认工作区…': 'Set provider, model and default workspace…',
   共享: 'Sharing',

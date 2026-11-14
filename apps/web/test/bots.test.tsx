@@ -597,6 +597,19 @@ describe('bot detail', () => {
     )
   })
 
+  it('keeps the Feishu app on its own 飞书 tab, without the 保存 button', async () => {
+    routes['GET /api/bots'] = () => [bot({})]
+    routes['GET /api/bots/b1/feishu'] = () => ({ app: null })
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '高级')
+    expect(within(detail).queryByText(/飞书应用/)).toBeNull()
+    openTab(detail, '飞书')
+    expect(await within(detail).findByText(/飞书应用/)).toBeTruthy()
+    expect(within(detail).getByRole('button', { name: '扫码创建或接入' })).toBeTruthy()
+    expect(within(detail).queryByRole('button', { name: '保存' })).toBeNull()
+  })
+
   it('lets the owner pick 审批方式 and set concurrency', async () => {
     routes['GET /api/bots'] = () => [bot({})]
     routes['PATCH /api/bots/b1'] = (b) => bot(b as Partial<BotDto>)
@@ -1137,7 +1150,7 @@ describe('bot page profile', () => {
     await waitFor(() => expect(row(page, '权限', '触发范围')).toBe('触发范围指定名单 · 李建国'))
     expect(row(page, '高级', '并发上限')).toBe('并发上限3 个群并行')
     expect(row(page, '高级', 'Git 提交身份')).toBe('Git 提交身份CC <cc@corp.com>')
-    await waitFor(() => expect(row(page, '高级', '飞书应用')).toBe('飞书应用cli_a1'))
+    await waitFor(() => expect(row(page, '高级', '飞书应用')).toBe('飞书应用已接通'))
     expect(row(page, '共享', '共享给')).toBe('共享给李建国')
 
     fireEvent.click(within(page).getByRole('button', { name: '管理共享' }))
