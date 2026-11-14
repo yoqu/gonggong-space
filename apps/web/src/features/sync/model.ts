@@ -35,7 +35,7 @@ export const TAG: Record<SyncVersionTag, string> = {
   auto_merge: t('自动合并'),
   interrupted: t('中断'),
   local: t('本地修改'),
-  merge: t('合并'),
+  merge: t('合并#merged'),
 }
 
 const ISSUES = [

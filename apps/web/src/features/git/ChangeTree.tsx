@@ -71,7 +71,7 @@ export function statusOf(c: TreeChange): { tone: string; letter: string; label: 
     case 'deleted':
       return { tone: 'deleted', letter: 'D', label: t('删除') }
     case 'renamed':
-      return { tone: 'renamed', letter: 'R', label: t('重命名') }
+      return { tone: 'renamed', letter: 'R', label: t('重命名#renamed') }
     default:
       return { tone: 'modified', letter: 'M', label: t('修改') }
   }

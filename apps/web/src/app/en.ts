@@ -97,7 +97,7 @@ export default {
   共享给我: 'Shared with me',
   '{owner} 共享': 'Shared by {owner}',
   取消免打扰: 'Unmute',
-  清除未读: 'Mark as read',
+  清除未读: 'Clear unread',
   移回列表: 'Move back to list',
   取消标记: 'Unflag',
   标记: 'Flag',

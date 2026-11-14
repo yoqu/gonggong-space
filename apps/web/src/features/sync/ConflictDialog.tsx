@@ -185,7 +185,7 @@ export function ConflictDialog({
           ? [
               { label: t('取消'), onClick: onClose },
               {
-                label: t('提交'),
+                label: t('提交#submit'),
                 variant: 'primary',
                 disabled: !decided || busy,
                 onClick: () => void submit(),

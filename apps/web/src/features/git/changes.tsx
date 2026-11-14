@@ -6,7 +6,7 @@ const MARK: Record<GitChange['change'], { letter: string; label: string }> = {
   added: { letter: 'A', label: t('新增') },
   modified: { letter: 'M', label: t('修改') },
   deleted: { letter: 'D', label: t('删除') },
-  renamed: { letter: 'R', label: t('重命名') },
+  renamed: { letter: 'R', label: t('重命名#renamed') },
 }
 
 export function ChangeMark({ change }: { change: GitChange['change'] }) {

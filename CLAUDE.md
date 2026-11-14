@@ -13,7 +13,7 @@
 - `pnpm db:up` 启动项目内 PostgreSQL（端口 54329，不碰系统服务）
 - Rust 用 rustup 装：`rust-toolchain.toml` 固定的版本只对 rustup 的 `cargo` 生效，它的 `cargo` 要排在 Homebrew `rust` 前面（brew 装的 rustup 在 `$(brew --prefix rustup)/bin`，官方脚本装在 `~/.cargo/bin`；`cargo --version` 应是固定版本），否则用的是 Homebrew 版、与 Jenkins 不一致
 - `pnpm check`（推送前自检：typecheck（增量）+ lint + 按改动文件名/所在模块选的测试文件，`--all` 跑全量）；`pnpm -r test`、`cargo test --workspace`、`pnpm typecheck`、`pnpm lint`（biome）
-- HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `GONGGONG_TLS_CERT/GONGGONG_TLS_KEY`，daemon 用 `gg login --server https://127.0.0.1:<port>`（不校验证书，见 `docs/plan/安全说明.md`）
+- HTTPS 开发：`bash scripts/dev-cert.sh` 生成自签证书并打印 `GONGGONG_TLS_CERT/GONGGONG_TLS_KEY`，daemon 默认校验证书，自签证书用 `gg login --server https://127.0.0.1:<port> --fingerprint <sha256>` 信任（见 `docs/plan/安全说明.md`）
 - `pnpm e2e`；迁移：改 `schema.ts` 后 `pnpm --filter @gonggong/server db:generate`
 
 ## 多语言（zh 默认 + en）

@@ -71,7 +71,7 @@ export function Actions({ data }: { data: ActionsBlock }) {
             disabled={locked || !picked.length}
             onClick={() => send(picked)}
           >
-            {t('提交')}
+            {t('提交#submit')}
           </Button>
         ) : null}
       </div>

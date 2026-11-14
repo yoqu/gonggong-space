@@ -11,7 +11,7 @@ export default {
   自动合并: 'Auto-merged',
   中断: 'Interrupted',
   本地修改: 'Local edit',
-  合并: 'Merged',
+  '合并#merged': 'Merged',
   '{n} 冲突': '{n} {n:conflict|conflicts}',
   '{n} 同步中': '{n} syncing',
   '{n} 落后': '{n} behind',
@@ -97,7 +97,7 @@ export default {
   '基于 v{base} 的改动与 v{head} 冲突：{n} 个文件':
     'Changes made on v{base} conflict with v{head}: {n} {n:file|files}',
   整版丢弃: 'Discard all',
-  提交: 'Submit',
+  '提交#submit': 'Submit',
   冲突已处理: 'The conflict was already resolved',
   '选「交给 Bot 合并」的文件会写入冲突标记，由 {bot} 发起一轮合并，结束后自动提交':
     'Files set to "Let the Bot merge" get conflict markers; {bot} runs a merge turn and its result is submitted automatically',
