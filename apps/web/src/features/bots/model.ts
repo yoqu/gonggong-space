@@ -12,7 +12,7 @@ import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
-export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek']
+export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
 export const AGENT_LABEL: Record<AgentKind, string> = {
   claude: 'Claude Code',
   codex: 'Codex',
@@ -20,6 +20,7 @@ export const AGENT_LABEL: Record<AgentKind, string> = {
   codebuddy: 'CodeBuddy（WorkBuddy）',
   pi: 'pi',
   deepseek: 'DeepSeek Harness',
+  antigravity: 'Antigravity CLI',
 }
 const AGENT_CLI: Record<AgentKind, string> = {
   claude: 'claude-code',
@@ -28,12 +29,17 @@ const AGENT_CLI: Record<AgentKind, string> = {
   codebuddy: 'codebuddy-code',
   pi: 'pi',
   deepseek: 'dsh',
+  antigravity: 'agy',
 }
 /** Agents added later: a machine's client from before one never offers it, and not having one is unremarkable. */
-const LATER: AgentKind[] = ['gemini', 'codebuddy', 'pi', 'deepseek']
+const LATER: AgentKind[] = ['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
 export const isLaterAgent = (k: AgentKind) => LATER.includes(k)
-/** pi keeps its own logins and keys: 共工 injects no provider into it. */
-export const takesProviders = (k: AgentKind) => k !== 'pi'
+/** These keep their own logins and keys: 共工 injects no provider into them, the owner logs in on the machine. */
+export const OWN_LOGIN: Partial<Record<AgentKind, string>> = {
+  pi: t('pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key'),
+  antigravity: t('Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录'),
+}
+export const takesProviders = (k: AgentKind) => !OWN_LOGIN[k]
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
   bound: t('已绑定'),

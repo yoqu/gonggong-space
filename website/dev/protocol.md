@@ -63,7 +63,7 @@ daemon 用机器令牌连接 `WS /ws/daemon`，每条消息是一个带 `t` 字�
 daemon 不直接调用各家 CLI，而是通过 [Agent Client Protocol（ACP）](https://agentclientprotocol.com) 驱动适配器。daemon 是 ACP 客户端（Rust crate `agent-client-protocol`），适配器是 ACP Agent，二者经 stdio 通信。
 
 - **Claude Code 与 Codex**：适配器版本固定在 `crates/gonggong/src/engine.rs`（`@agentclientprotocol/claude-agent-acp`、`@agentclientprotocol/codex-acp`），首次使用时从配置的 npm 镜像安装到 daemon 本地目录。
-- **Gemini CLI、CodeBuddy、pi、DeepSeek Harness**：由服务器内置插件 `apps/server/plugins/official/agent-*` 的清单（`contributes.agents`）声明怎么安装、启动和驱动，`crates/gonggong/src/adapters.rs` 在编译时把清单和启动脚本打进二进制。
+- **Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI**：由服务器内置插件 `apps/server/plugins/official/agent-*` 的清单（`contributes.agents`）声明怎么安装、启动和驱动，`crates/gonggong/src/adapters.rs` 在编译时把清单和启动脚本打进二进制。
 - 每个（群，Bot）对应一个适配器进程和一个 ACP 会话（`session.rs`），同一时间只跑一轮；daemon 会尽量恢复之前的会话，恢复失败时开新会话并补发最近的群消息。
 - `turn.rs` 负责拼提示词、把 ACP 的 `session/update` 映射为 `run.event`，并按 Bot 的权限档位与审批方式处理 `session/request_permission`。
 - 调试时可用 `GONGGONG_ADAPTER_CMD` 替换所有 Agent 的适配器命令，例如指向 `tools/mock-agent/agent.js`（基于 `@agentclientprotocol/sdk` 的模拟 Agent）。

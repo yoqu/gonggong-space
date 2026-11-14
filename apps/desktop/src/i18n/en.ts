@@ -407,4 +407,9 @@ export const en = {
   市场: 'Market',
   市场里还没有条目: 'The market has no listings yet',
   '{n} 次引入': '{n} {n:install|installs}',
+  安装命令: 'Install command',
+  '共工空间不能托管安装它，请在本机终端运行':
+    "Gonggong Space can't install it; run this in this computer's terminal",
+  'Antigravity CLI 使用它自己的登录：在本机运行 agy，用 Google 账号登录':
+    'Antigravity CLI uses its own login: run agy on this computer and sign in with a Google account',
 } satisfies Record<string, string>

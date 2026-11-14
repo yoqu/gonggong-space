@@ -100,7 +100,7 @@ Agent 用到的接入码已过期或已用过时，`gg` 不会失败退出，而
 
 ## 绑定后上报什么
 
-绑定后这台机器归属于你。客户端会上报机器名、系统、CPU、内存，以及这台机器可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness）。Agent 的登录信息、供应商和 API Key 都只保存在机器上，不会上传，见 [Agent 工具与供应商](/user/agents-providers)。
+绑定后这台机器归属于你。客户端会上报机器名、系统、CPU、内存，以及这台机器可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI）。Agent 的登录信息、供应商和 API Key 都只保存在机器上，不会上传，见 [Agent 工具与供应商](/user/agents-providers)。
 
 ## 常见报错
 

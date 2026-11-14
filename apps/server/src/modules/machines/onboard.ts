@@ -22,6 +22,7 @@ const AGENT_TITLE: Record<AgentKind, string> = {
   codebuddy: 'CodeBuddy',
   pi: 'pi',
   deepseek: 'DeepSeek Harness',
+  antigravity: 'Antigravity CLI',
 }
 
 /** The sentence the 绑定新机器 dialog offers to paste to a local agent (agent-facing words in Chinese on purpose). */

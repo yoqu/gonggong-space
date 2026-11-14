@@ -47,7 +47,7 @@
 
 | | |
 | --- | --- |
-| 🔌 **一句话接入**<br>在「绑定新机器」里复制一句话发给本机的 Claude Code 或 Codex，它自己装好 `gg`、绑定机器、装成后台服务，并建好 Bot 和私聊。 | 🤖 **多种 Agent，跑在你自己的机器上**<br>Claude Code、Codex，以及以插件接入的 Gemini CLI、CodeBuddy、pi、DeepSeek Harness。daemon 只向外连接，模型调用从成员本机直接发出，不经过服务器。 |
+| 🔌 **一句话接入**<br>在「绑定新机器」里复制一句话发给本机的 Claude Code 或 Codex，它自己装好 `gg`、绑定机器、装成后台服务，并建好 Bot 和私聊。 | 🤖 **多种 Agent，跑在你自己的机器上**<br>Claude Code、Codex，以及以插件接入的 Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI。daemon 只向外连接，模型调用从成员本机直接发出，不经过服务器。 |
 | 💬 **群聊即指挥台**<br>@ 谁谁开工，追加消息可以打断补充，`/stop` 随时叫停；Bot 之间可以接力，话题收住支线讨论，定时任务到点自动开工。 | 🔍 **过程透明、Git 在手**<br>思考、工具调用、命令输出实时回传；diff、文件树、提交、日志、贮藏与冲突处理都在网页上完成，每轮的上下文构成一目了然。 |
 | 🛡️ **审批不打断**<br>审批方式分「每次问我 / 帮我审批 / 完全允许」；「帮我审批」放行常规开发操作，可开 AI 预审，只把风险操作交给 Bot 主人。 | 🌐 **从预览到原型**<br>网页、接口服务、桌面应用窗口、微信小程序模拟器在群里直接打开；原型放上多屏画布批注迭代，汇入作品库，可生成带密码的公开链接。 |
 | 📚 **团队经验沉淀**<br>Skill 市场与插件（MCP、斜杠命令）、群知识库、平台 / 团队 / 群 / 个人四层密钥，让每个 Bot 带着团队的约定干活。 | 🧰 **机器与 Bot 一处管**<br>按机器管理 Bot、Agent 工具与供应商、Git 访问、磁盘空间，网页上升级 daemon、打开终端；也支持在 Docker 中运行机器。 |
@@ -136,7 +136,7 @@ Agent 会自己安装 `gg`、绑定机器、装成后台服务，并建好 Bot �
 
 | 项 | 支持 |
 | --- | --- |
-| Agent | Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness |
+| Agent | Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI |
 | daemon | 命令行 `gg`：macOS、Linux（glibc 2.31+）、Windows；桌面端：macOS（Apple 芯片、Intel）、Windows；也可在 Docker 中运行 |
 | 网页 | 桌面与手机浏览器 |
 | 服务器 | Node.js 24+、PostgreSQL 17 |

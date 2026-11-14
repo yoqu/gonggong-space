@@ -56,7 +56,7 @@ const WAITING = ['queued', 'offline_wait']
 export const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
 /** Agents a daemon announces as features: one from before cannot read a run.start for their bots. */
-const LATER_AGENTS: string[] = ['gemini', 'codebuddy', 'pi', 'deepseek']
+const LATER_AGENTS: string[] = ['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
 /** The run waits for the client's upgrade. */
 const OUTDATED = {
   status: 'offline_wait',

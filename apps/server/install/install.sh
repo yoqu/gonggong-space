@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs gg (the gonggong daemon) for this user, binds this machine and keeps it running in the background.
-# Usage: sh install.sh --code XXXX-XXXX --agent claude|codex|gemini|codebuddy|pi|deepseek [--server URL] [--no-service]
+# Usage: sh install.sh --code XXXX-XXXX --agent claude|codex|gemini|codebuddy|pi|deepseek|antigravity [--server URL] [--no-service]
 # Never needs sudo: gg goes to ~/.local/bin.
 set -eu
 
@@ -22,7 +22,7 @@ done
 
 fail() { echo "install.sh: $*" >&2; exit 1; }
 [ -n "$CODE" ] || fail "missing --code (the 接入码 XXXX-XXXX from the web page)"
-[ -n "$AGENT" ] || fail "missing --agent (claude, codex, gemini, codebuddy, pi or deepseek)"
+[ -n "$AGENT" ] || fail "missing --agent (claude, codex, gemini, codebuddy, pi, deepseek or antigravity)"
 command -v curl >/dev/null 2>&1 || fail "curl is required"
 
 if [ -z "$PLATFORM" ]; then

@@ -47,7 +47,7 @@ Gonggong Space is a self-hosted AI collaboration platform for small teams. Each 
 
 | | |
 | --- | --- |
-| 🔌 **One message to connect**<br>In 「绑定新机器」 (Bind new machine), copy one message and paste it to the Claude Code or Codex on your machine. It installs `gg`, binds the machine, sets it up as a background service, and gets your Bot and its direct chat ready. | 🤖 **Many Agents, on your own machines**<br>Claude Code and Codex, plus Gemini CLI, CodeBuddy, pi and DeepSeek Harness as Agent plugins. The daemon only makes outbound connections, and model calls go straight out from members' machines, never through the server. |
+| 🔌 **One message to connect**<br>In 「绑定新机器」 (Bind new machine), copy one message and paste it to the Claude Code or Codex on your machine. It installs `gg`, binds the machine, sets it up as a background service, and gets your Bot and its direct chat ready. | 🤖 **Many Agents, on your own machines**<br>Claude Code and Codex, plus Gemini CLI, CodeBuddy, pi, DeepSeek Harness and Antigravity CLI as Agent plugins. The daemon only makes outbound connections, and model calls go straight out from members' machines, never through the server. |
 | 💬 **The group chat is the command center**<br>@ whoever you want to start working; follow-ups interrupt and add to a run, and `/stop` halts it. Bots hand tasks to each other, threads hold side discussions, and scheduled tasks start on time. | 🔍 **Transparent process, Git at hand**<br>Thinking, tool calls and command output stream back live; diffs, the file tree, commits, logs, stashes and conflict resolution are all in the web app, and each turn's context breakdown is one click away. |
 | 🛡️ **Approvals that don't get in the way**<br>Pick Ask me every time, Review for me, or Allow everything. Review for me lets routine development work through, can add an AI pre-review, and only hands risky actions to the Bot owner. | 🌐 **From preview to prototype**<br>Web pages, API services, desktop app windows and WeChat mini program simulators open right in the group; prototypes go on a multi-screen canvas to annotate and iterate, land in Works, and can be shared with password-protected public links. |
 | 📚 **Your team's know-how, kept**<br>A Skill market and plugins (MCP servers, slash commands), group knowledge bases, and platform / team / group / personal secrets, so every Bot works by your team's conventions. | 🧰 **Machines and Bots in one place**<br>Manage Bots per machine, Agent tools and providers, Git access and disk space; upgrade the daemon and open a terminal from the web; machines can also run in Docker. |
@@ -138,7 +138,7 @@ For the full steps, see [Quick start](https://yoqu.github.io/gonggong-space/en/g
 
 | Item | Support |
 | --- | --- |
-| Agent | Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness |
+| Agent | Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI |
 | daemon | CLI `gg`: macOS, Linux (glibc 2.31+), Windows; desktop app: macOS (Apple silicon, Intel), Windows; can also run in Docker |
 | Web | Desktop and phone browsers |
 | Server | Node.js 24+, PostgreSQL 17 |

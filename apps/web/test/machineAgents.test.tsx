@@ -351,6 +351,38 @@ describe('Agent 工具', () => {
     expect(within(codex).getByRole('button', { name: '安装' })).toBeTruthy()
   })
 
+  it('gives Antigravity CLI, which is off npm, its install command and its own login instead of providers', async () => {
+    const command = 'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+    const agy = (installed: boolean) => ({
+      kind: 'antigravity' as const,
+      installed,
+      version: installed ? '1.5.9' : null,
+      latest: null,
+      managed: false,
+      path: installed ? '/Users/wl/.local/bin/agy' : null,
+      installCommand: command,
+    })
+    mockApi({
+      ...LIVE,
+      'GET /machines/m1/tools': { ...TOOLS, tools: [...TOOLS.tools, agy(false)] },
+    })
+    const { unmount } = open({ ...mbp, features: [...mbp.features, 'antigravity'] })
+    fireEvent.click(tab(AGENTS_TAB))
+    const card = await screen.findByRole('region', { name: 'Antigravity CLI' })
+    expect(card.textContent).toContain(command)
+    expect(within(card).queryByRole('button', { name: '安装' })).toBeNull()
+    expect(card.textContent).toContain('Antigravity CLI 使用它自己的登录')
+    unmount()
+
+    mockApi({ ...LIVE, 'GET /machines/m1/tools': { ...TOOLS, tools: [...TOOLS.tools, agy(true)] } })
+    open({ ...mbp, features: [...mbp.features, 'antigravity'] })
+    fireEvent.click(tab(AGENTS_TAB))
+    const installed = await screen.findByRole('region', { name: 'Antigravity CLI' })
+    expect(installed.textContent).toContain('自行安装')
+    expect(installed.textContent).not.toContain(command)
+    expect(installed.textContent).not.toContain('无法获取，请检查镜像源')
+  })
+
   it('streams the install log from realtime and takes the new state from the result', async () => {
     const calls = await openTools({ 'POST /machines/m1/tools/codex/install': { opId: 'op1' } })
     fireEvent.click(

@@ -1,0 +1,65 @@
+{
+  "name": "agent-antigravity",
+  "version": "1.0.0",
+  "title": "Antigravity CLI",
+  "description": "Google 的 Antigravity CLI（agy）：在机器上用 ACP 运行，Bot 的指令随会话传入，用机器上登录的 Google 账号。",
+  "category": "agent",
+  "agents": ["antigravity"],
+  "minDaemon": "0.4.21",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "antigravity",
+        "title": "Antigravity CLI",
+        "vendor": "Google",
+        "install": {
+          "npm": null,
+          "command": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+          "bin": "agy",
+          "script": null,
+          "brew": null,
+          "minVersion": "1.5.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["acp", "--disable-telemetry"]
+        },
+        "systemPrompt": {
+          "via": "meta",
+          "key": "antigravity"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "accept-edits"
+          },
+          "workspace": {
+            "mode": "accept-edits"
+          },
+          "readonly": {
+            "mode": "default"
+          }
+        },
+        "provider": null,
+        "home": {
+          "env": null,
+          "default": ".gemini/antigravity-cli",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [],
+          "loggedOut": false,
+          "command": "agy",
+          "hint": "进入后按提示用 Google 账号登录；机器没有浏览器时运行 agy acp --login，把链接拿到别处打开后粘贴授权码"
+        }
+      }
+    ]
+  }
+}

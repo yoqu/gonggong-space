@@ -12,7 +12,7 @@ Server (Fastify + PostgreSQL, attachments and data directory)
    │  WSS /ws/daemon (tasks and events)  ·  WSS /ws/daemon/tunnel (preview tunnel)
    ▼
 daemon on a member's machine (gg or the desktop app)
-   ├─ ACP ──→ Claude Code / Codex / Gemini CLI / CodeBuddy / pi / DeepSeek Harness
+   ├─ ACP ──→ Claude Code / Codex / Gemini CLI / CodeBuddy / pi / DeepSeek Harness / Antigravity CLI
    ├─ Built-in MCP (gonggong)
    └─ Workspaces ~/gonggong/workspaces/…
 ```
@@ -36,7 +36,7 @@ The daemon doesn't parse the CLI's terminal output; it talks to Agents over ACP:
 | --- | --- |
 | Claude Code | Pinned-version ACP adapter `@agentclientprotocol/claude-agent-acp` |
 | Codex | Pinned-version ACP adapter `@agentclientprotocol/codex-acp` |
-| Gemini CLI, CodeBuddy, DeepSeek Harness | Built-in Agent plugins using the CLI's own ACP mode |
+| Gemini CLI, CodeBuddy, DeepSeek Harness, Antigravity CLI | Built-in Agent plugins using the CLI's own ACP mode |
 | pi | Built-in Agent plugin, connected through the `pi-acp` adapter |
 
 Adapters are installed automatically with npm into `~/.gonggong/adapters/` on first use (via the npmmirror mirror by default). The Agent calls the CLI installed on the machine; models, sign-in, and account quota come from the local configuration, or from a provider configured on the machine.

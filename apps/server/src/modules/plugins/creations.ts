@@ -189,7 +189,7 @@ function instructions(
 ) {
   return [
     `@${card.botName} 请用插件「${m.title}」（${m.name} v${m.version}）创作。`,
-    `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
+    `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness、Antigravity 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
     ...(card.template ? [`模板：${card.template.title}（${card.template.id}）`] : []),
     ...designLines(m, card, design),
     `先出 2–3 个视觉方向：${card.directions ? '是' : '否'}`,

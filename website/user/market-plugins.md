@@ -147,7 +147,7 @@ Bot 也可以用内置工具帮你查看和修改 Skill、MCP；需要密钥时�
 内置插件随服务端自动安装：
 
 - 「产品原型」「幻灯片」：创作插件。
-- 「Gemini CLI」「CodeBuddy（WorkBuddy）」「pi」「DeepSeek Harness」：Agent 插件，让机器可以运行这些 Agent。
+- 「Gemini CLI」「CodeBuddy（WorkBuddy）」「pi」「DeepSeek Harness」「Antigravity CLI」：Agent 插件，让机器可以运行这些 Agent。
 - 「官方供应商预设」：厂商预设随服务端更新下发到所有机器，不用等客户端发版。
 
 ### 开启与启用

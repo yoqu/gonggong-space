@@ -30,6 +30,7 @@ const TOOL_NAME: Record<ToolKind, string> = {
   codebuddy: AGENTS.codebuddy.name,
   pi: AGENTS.pi.name,
   deepseek: AGENTS.deepseek.name,
+  antigravity: AGENTS.antigravity.name,
 }
 
 /** The install / upgrade in progress or last run; one at a time per machine. */
@@ -154,6 +155,10 @@ export function AgentsPage(_: PageProps) {
             <p className="dk-note">
               {t('pi 使用它自己的登录：在本机运行 pi，输入 /login 登录或填写 API Key')}
             </p>
+          ) : a.kind === 'antigravity' ? (
+            <p className="dk-note">
+              {t('Antigravity CLI 使用它自己的登录：在本机运行 agy，用 Google 账号登录')}
+            </p>
           ) : providers ? (
             <>
               <ProviderBox agent={a.kind} data={providers} onSwitch={switcher.request} />
@@ -177,7 +182,7 @@ function ToolActions({
   busy: boolean
   onRun: (op: ToolOp) => void
 }) {
-  if (!s) return null
+  if (!s || s.installCommand) return null
   const tooOld =
     s.kind === 'node' && s.installed && !!s.version && compareVersions(s.version, `${MIN_NODE}.0.0`) < 0
   if (!s.installed || tooOld) {
@@ -217,6 +222,17 @@ function ToolLog({ op }: { op: Op }) {
 /** 版本 · 共工空间托管 / 自行安装 · 最新版本 rows of a detected tool, and how to upgrade the user's own install. */
 function toolRows(s: ToolStatus | undefined, loaded: boolean) {
   if (!loaded) return <GroupRow label={t('最新版本')} wideValue value={t('检查中…')} />
+  if (s?.installCommand)
+    return s.installed ? (
+      <GroupRow label={t('来源')} wideValue value={t('自行安装')} />
+    ) : (
+      <GroupRow
+        label={t('安装命令')}
+        description={t('共工空间不能托管安装它，请在本机终端运行')}
+        wideValue
+        value={<span className="dk-mono">{s.installCommand}</span>}
+      />
+    )
   if (!s?.installed) return null
   const command = !s.managed && hasUpdate(s) ? s.upgradeCommand : null
   return (
@@ -410,7 +426,10 @@ function Agent({
             label={t('ACP 适配器')}
             wideValue
             value={
-              a.kind === 'gemini' || a.kind === 'codebuddy' || a.kind === 'deepseek'
+              a.kind === 'gemini' ||
+              a.kind === 'codebuddy' ||
+              a.kind === 'deepseek' ||
+              a.kind === 'antigravity'
                 ? t('CLI 自带')
                 : adapter
                   ? t('{version} · 随 daemon', { version: adapter.version })

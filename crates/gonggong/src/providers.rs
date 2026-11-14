@@ -884,6 +884,7 @@ fn agent_name(agent: AgentKind) -> &'static str {
         AgentKind::Codebuddy => "codebuddy",
         AgentKind::Pi => "pi",
         AgentKind::Deepseek => "deepseek",
+        AgentKind::Antigravity => "antigravity",
     }
 }
 

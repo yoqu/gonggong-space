@@ -2325,7 +2325,7 @@ impl Conversation<'_> {
     /// per process.
     fn meta(&self, start: &RunStart) -> Option<Meta> {
         if start.bot.agent_kind != AgentKind::Claude {
-            return None;
+            return manifest_meta(start);
         }
         let mut meta = Meta::new();
         meta.insert("systemPrompt".into(), serde_json::json!({ "append": system_prompt(&start.bot) }));
@@ -2350,6 +2350,15 @@ impl Conversation<'_> {
         .unwrap_or_else(|e| Err(e.into()))
         .map_err(|e| t!("无法记录会话使用的供应商：{e}", e = format!("{e:#}")))
     }
+}
+
+/// A manifest agent taking the bot's prompt in session/new: `_meta.<key>.systemPrompt.append` (`systemPrompt.via: meta`).
+fn manifest_meta(start: &RunStart) -> Option<Meta> {
+    let a = crate::adapters::get(start.bot.agent_kind)?;
+    let crate::adapters::SystemPrompt::Meta { key } = &a.spec.system_prompt else { return None };
+    let mut meta = Meta::new();
+    meta.insert(key.clone(), serde_json::json!({ "systemPrompt": { "append": system_prompt(&start.bot) } }));
+    Some(meta)
 }
 
 /// The plugin folders a turn loads: the team skills plugin, then the group's plugins.

@@ -61,7 +61,7 @@ A Bot is an AI member you can @ in a group. It is defined by:
 | --- | --- |
 | Owner | Who the Bot belongs to. Members can only create Bots for themselves; a sysadmin can create one for anyone, in which case the owner must confirm it in their notifications before it can be triggered |
 | Machine | One of the owner's machines; all of the Bot's work happens there |
-| Agent | Claude Code, Codex, Gemini CLI, CodeBuddy, pi, or DeepSeek Harness, using the CLI on that machine |
+| Agent | Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, or Antigravity CLI, using the CLI on that machine |
 | Character | Avatar and personality look: follows the Agent by default, or pick Gong (共字君) or one of 12 personality characters |
 | System prompt | Tells the Bot its job; also shown as its intro in the group |
 | Trigger scope | Who can @ it to start work: any group member / a specified list / owner only |

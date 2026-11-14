@@ -1175,8 +1175,11 @@ impl Inner {
                         current = node.version
                     ));
                 }
-                let script =
-                    install.script.as_ref().and_then(|s| agents::node_script(cli, &format!("{}/{s}", install.npm)));
+                let script = install
+                    .npm
+                    .as_ref()
+                    .zip(install.script.as_ref())
+                    .and_then(|(npm, s)| agents::node_script(cli, &format!("{npm}/{s}")));
                 let config = match (script, process.cwd.filter(|_| a.spec.chdir)) {
                     (Some(script), Some(cwd)) => AcpAgentConfig::new(&node.path)
                         .arg(chdir_script(&self.config.home)?.to_string_lossy())
@@ -1244,8 +1247,8 @@ impl Inner {
             let script_path = pkg.join(script);
             let install = &spec.install;
             let cli_script = cli
-                .zip(install.script.as_ref())
-                .and_then(|(c, s)| agents::node_script(Path::new(c), &format!("{}/{s}", install.npm)));
+                .zip(install.npm.as_ref().zip(install.script.as_ref()))
+                .and_then(|(c, (npm, s))| agents::node_script(Path::new(c), &format!("{npm}/{s}")));
             let gonggong = process.ask.filter(|_| spec.mcp.gonggong == Via::Script).and_then(crate::adapters::gonggong);
             let input = serde_json::json!({
                 "agent": spec.id,

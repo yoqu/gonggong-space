@@ -179,11 +179,23 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("帮我审批", "Review for me"),
     ("完全允许", "Allow everything"),
     ("未登录", "Not logged in"),
+    (
+        "这台机器上没有 {agent}，请在机器的终端运行：{command}",
+        "{agent} isn't on this machine; run this in the machine's terminal: {command}",
+    ),
+    (
+        "{tool} 不能由共工托管安装，请在机器的终端运行：{command}",
+        "{tool} can't be installed by Gonggong; run this in the machine's terminal: {command}",
+    ),
+    (
+        "{tool} 由你自行安装，请在机器的终端按它自己的方式升级",
+        "{tool} was installed by you; upgrade it its own way in the machine's terminal",
+    ),
     ("未知方式", "unknown method"),
     ("已登录 · {how}", "Logged in · {how}"),
     (
-        "应为 claude、codex、gemini、codebuddy、pi 或 deepseek",
-        "Expected claude, codex, gemini, codebuddy, pi or deepseek",
+        "应为 claude、codex、gemini、codebuddy、pi、deepseek 或 antigravity",
+        "Expected claude, codex, gemini, codebuddy, pi, deepseek or antigravity",
     ),
     ("可选模型：{models}", "Models: {models}"),
     ("适配器未提供可选模型", "The adapter offers no models"),
@@ -400,8 +412,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("HTTPS 正常", "HTTPS OK"),
     ("HTTP 正常（未加密）", "HTTP OK (unencrypted)"),
     (
-        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness）",
-        "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi or DeepSeek Harness)",
+        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI）",
+        "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness or Antigravity CLI)",
     ),
     (
         "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",

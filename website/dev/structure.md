@@ -140,7 +140,7 @@
 | `daemon.rs` | daemon 整体句柄（`gg run` 与桌面端共用）：单实例锁、服务与引擎、吊销清理、实时状态 |
 | `service.rs` | 与服务器的 WebSocket 连接、收发与按字节限额的发送缓冲 |
 | `engine.rs` | 执行服务器下发的运行；每个（群，Bot）一个 ACP 适配器进程，安装固定版本的 Claude Code / Codex 适配器 |
-| `adapters.rs` | 由内置 Agent 插件清单声明的适配器（Gemini CLI、CodeBuddy、pi、DeepSeek Harness），清单编译进二进制 |
+| `adapters.rs` | 由内置 Agent 插件清单声明的适配器（Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI），清单编译进二进制 |
 | `session.rs` | 单个（群，Bot）会话：适配器进程、ACP 会话与轮次 |
 | `turn.rs` | 每轮的纯逻辑：拼提示词、ACP 更新到运行事件的映射、权限档位策略 |
 | `review.rs` | 「帮我审批」的 AI 预审 |

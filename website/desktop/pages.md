@@ -40,7 +40,7 @@ Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团�
 
 **Node.js**：运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 也用它，需要 22 或更高版本。本机没有合适的 Node.js 时，点「安装」会安装共工空间托管版到 `~/.gonggong/runtime`，不影响系统环境。
 
-**各个 Agent**：Claude Code、Codex、Gemini CLI、CodeBuddy（WorkBuddy）、pi、DeepSeek Harness 各一张卡片。已安装时显示：
+**各个 Agent**：Claude Code、Codex、Gemini CLI、CodeBuddy（WorkBuddy）、pi、DeepSeek Harness、Antigravity CLI 各一张卡片。已安装时显示：
 
 - 路径、版本（是否满足最低版本要求）、来源（共工空间托管 / 自行安装）、最新版本（有新版时标「有更新」）
 - 登录状态、ACP 适配器（Claude Code、Codex、pi 的适配器随 daemon 提供，其余为「CLI 自带」）、可用模型（模型与推理强度在网页上为 Bot 设置）

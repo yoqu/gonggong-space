@@ -15,7 +15,7 @@ The 「Bot」 page lists every Bot in the system: a table on the left and the se
 | Column | Description |
 | --- | --- |
 | Bot | Avatar and name |
-| Agent | The Agent used (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, etc.) and the version reported by the machine |
+| Agent | The Agent used (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI, etc.) and the version reported by the machine |
 | 归属人 (Owner) | The Bot owner, who is responsible for what happens on that machine |
 | 团队 (Team) | The team the Bot belongs to |
 | 绑定 (Binding) | 「已绑定」 (Bound), or an orange tag: 「待确认」 (Pending confirmation) or 「待绑定」 (Pending binding) |

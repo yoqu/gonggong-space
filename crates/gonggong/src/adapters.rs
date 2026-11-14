@@ -1,5 +1,5 @@
-//! Agent adapters from plugin manifests (docs/plan/插件体系-contributes-方案.md §5). Gemini CLI, CodeBuddy, pi and
-//! DeepSeek Harness are the built-in `agent-*` plugins of the server's official folder, compiled in here: how each is
+//! Agent adapters from plugin manifests (docs/plan/插件体系-contributes-方案.md §5). Gemini CLI, CodeBuddy, pi,
+//! DeepSeek Harness and Antigravity CLI are the built-in `agent-*` plugins of the server's official folder, compiled in here: how each is
 //! installed, started and driven is the `contributes.agents` entry of its manifest, and what a manifest cannot say is
 //! its launch script, a Node script run before each agent process starts. Claude and Codex stay code adapters.
 use crate::protocol::{AgentKind, McpServer, Tier};
@@ -31,11 +31,12 @@ macro_rules! official {
 type Files = &'static [(&'static str, &'static str)];
 
 /// The built-in agent plugins: name and the files the daemon needs (manifest, launch script and what it loads).
-const BUILT_IN: [(&str, Files); 4] = [
+const BUILT_IN: [(&str, Files); 5] = [
     official!("agent-gemini", "contrib/agents/gemini/launch.mjs"),
     official!("agent-codebuddy"),
     official!("agent-pi", "contrib/agents/pi/launch.mjs", "contrib/agents/pi/gonggong.ts"),
     official!("agent-deepseek", "contrib/agents/deepseek/launch.mjs"),
+    official!("agent-antigravity"),
 ];
 
 /// A launch script gets this long; past it the turn fails.
@@ -74,7 +75,10 @@ pub struct Spec {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Install {
-    pub npm: String,
+    /// `None`: not on npm, so Gonggong cannot install it; the owner runs `command`.
+    pub npm: Option<String>,
+    #[serde(default)]
+    pub command: Option<String>,
     pub bin: String,
     pub script: Option<String>,
     pub brew: Option<String>,
@@ -109,9 +113,17 @@ fn adapter_entry() -> String {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "via", rename_all = "camelCase")]
 pub enum SystemPrompt {
-    Arg { args: Vec<String> },
-    Env { env: String },
+    Arg {
+        args: Vec<String>,
+    },
+    Env {
+        env: String,
+    },
     Script,
+    /// session/new `_meta.<key>.systemPrompt.append`.
+    Meta {
+        key: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -375,11 +387,18 @@ impl Adapter {
 
     /// Where the install hint points when the CLI is missing.
     pub fn missing(&self) -> String {
-        t!(
-            "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",
-            agent = self.spec.title,
-            npm = self.spec.install.npm
-        )
+        match (&self.spec.install.npm, &self.spec.install.command) {
+            (Some(npm), _) => t!(
+                "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",
+                agent = self.spec.title,
+                npm = npm
+            ),
+            (None, command) => t!(
+                "这台机器上没有 {agent}，请在机器的终端运行：{command}",
+                agent = self.spec.title,
+                command = command.as_deref().unwrap_or(&self.spec.install.bin)
+            ),
+        }
     }
 }
 
@@ -618,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_four_built_in_manifests() {
+    fn reads_the_built_in_manifests() {
         let ids: Vec<_> = all().iter().map(|a| (a.kind, a.plugin)).collect();
         assert_eq!(
             ids,
@@ -627,9 +646,15 @@ mod tests {
                 (AgentKind::Codebuddy, "agent-codebuddy"),
                 (AgentKind::Pi, "agent-pi"),
                 (AgentKind::Deepseek, "agent-deepseek"),
+                (AgentKind::Antigravity, "agent-antigravity"),
             ]
         );
         assert!(get(AgentKind::Claude).is_none() && get(AgentKind::Codex).is_none(), "code adapters");
+        // Off npm: the hint is the maker's install command.
+        let agy = a(AgentKind::Antigravity);
+        assert_eq!(agy.spec.install.npm, None);
+        assert!(agy.missing().contains("curl -fsSL https://antigravity.google/cli/install.sh | bash"));
+        assert!(a(AgentKind::Gemini).missing().contains("npm install -g @google/gemini-cli"));
         assert_eq!(a(AgentKind::Pi).adapter_version(), Some("0.0.34"));
         assert_eq!(a(AgentKind::Deepseek).spec.install.min_node, "24.9.0");
         assert_eq!(a(AgentKind::Gemini).spec.install.min_node, "22.0.0", "the default");

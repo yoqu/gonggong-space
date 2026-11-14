@@ -61,6 +61,7 @@ const TOOL: Record<string, string> = {
   codebuddy: 'CodeBuddy（WorkBuddy）',
   pi: 'pi',
   deepseek: 'DeepSeek Harness',
+  antigravity: 'Antigravity CLI',
 }
 const PROVIDERS: Record<string, MessageKey> = {
   'machine.providers.save': '保存机器的供应商',

@@ -40,7 +40,7 @@ sh /tmp/gonggong-install.sh --code K7QM-4X2P --agent claude
 
 - **git**
 - **Node.js 22 或更高**（含 npm）。没有的话，daemon 首次运行时会自动安装共工空间托管版 Node.js 到 `~/.gonggong/runtime`；也可以用 `gg agents install node` 提前安装。
-- 至少一个 Agent CLI（Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness），并在终端里先登录好。也可以用 `gg agents install <名称>` 安装共工空间托管版，见 [命令参考](/cli/reference#gg-agents-install)。
+- 至少一个 Agent CLI（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI），并在终端里先登录好。也可以用 `gg agents install <名称>` 安装共工空间托管版，见 [命令参考](/cli/reference#gg-agents-install)。
 
 daemon 首次运行时会用 npm 把 ACP 适配器安装到 `~/.gonggong/adapters/`，所以机器需要能访问 npm 源（默认淘宝镜像 npmmirror，可用 `gg agents mirror` 更换）。
 

@@ -34,10 +34,11 @@ pub enum ToolKind {
     Codebuddy,
     Pi,
     Deepseek,
+    Antigravity,
 }
 
 impl ToolKind {
-    pub const ALL: [ToolKind; 7] = [
+    pub const ALL: [ToolKind; 8] = [
         ToolKind::Node,
         ToolKind::Claude,
         ToolKind::Codex,
@@ -45,6 +46,7 @@ impl ToolKind {
         ToolKind::Codebuddy,
         ToolKind::Pi,
         ToolKind::Deepseek,
+        ToolKind::Antigravity,
     ];
 
     /// The agent of the same name; Node is none.
@@ -61,12 +63,24 @@ impl ToolKind {
         self.agent().map_or("Node.js", agent_label)
     }
 
+    /// The npm package; `None` for Node and for an agent off npm ([`ToolKind::own_install`]).
     fn package(self) -> Option<&'static str> {
         match self {
             ToolKind::Node => None,
             ToolKind::Claude => Some("@anthropic-ai/claude-code"),
             ToolKind::Codex => Some("@openai/codex"),
-            _ => Some(&self.adapter().spec.install.npm),
+            _ => self.adapter().spec.install.npm.as_deref(),
+        }
+    }
+
+    /// The maker's install command of an agent off npm: Gonggong neither installs it nor checks its latest version.
+    pub fn own_install(self) -> Option<&'static str> {
+        match self {
+            ToolKind::Node | ToolKind::Claude | ToolKind::Codex => None,
+            _ => {
+                let install = &self.adapter().spec.install;
+                install.npm.is_none().then(|| install.command.as_deref().unwrap_or(&install.bin))
+            }
         }
     }
 
@@ -102,6 +116,9 @@ pub struct ToolStatus {
     /// How the user's own install is upgraded (and so upgradable by Gonggong too); `None` when managed or unknown.
     #[serde(default)]
     pub upgrade_command: Option<String>,
+    /// An agent off npm: the maker's install command (Gonggong neither installs nor upgrades it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install_command: Option<String>,
 }
 
 impl ToolStatus {
@@ -392,6 +409,9 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
     {
         bail!(t!("ACP 适配器需要 Node.js ≥ {min}，不能安装 {v}", min = MIN_NODE_MAJOR, v = v));
     }
+    if let Some(command) = kind.own_install() {
+        bail!(t!("{tool} 不能由共工托管安装，请在机器的终端运行：{command}", tool = kind.label(), command = command));
+    }
     {
         let _busy = busy(home)?;
         let settings = Settings::load(home)?;
@@ -409,6 +429,9 @@ pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Res
     let status = current(home, kind)?;
     if !status.installed {
         bail!(t!("{tool} 未安装", tool = kind.label()));
+    }
+    if kind.own_install().is_some() {
+        bail!(t!("{tool} 由你自行安装，请在机器的终端按它自己的方式升级", tool = kind.label()));
     }
     let path = PathBuf::from(status.path.as_deref().unwrap_or_default());
     let own = if status.managed {
@@ -708,6 +731,9 @@ pub fn cached_latest(home: &Path, kind: ToolKind) -> Option<String> {
 
 /// Latest version of `kind` on the configured mirror, cached for 6 hours unless `force`.
 pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> {
+    if let Some(command) = kind.own_install() {
+        bail!(t!("{tool} 不能由共工托管安装，请在机器的终端运行：{command}", tool = kind.label(), command = command));
+    }
     let settings = Settings::load(home)?;
     let mirror = &settings.mirror;
     let source = match kind.package() {
@@ -753,6 +779,7 @@ pub fn node_status(home: &Path) -> ToolStatus {
         latest: None,
         path: node.map(|n| n.path.to_string_lossy().into_owned()),
         upgrade_command: None,
+        install_command: None,
     }
 }
 
@@ -772,11 +799,15 @@ pub fn agent_status(home: &Path, info: &AgentInfo) -> ToolStatus {
             .filter(|_| !managed)
             .and_then(|p| self_upgrade(kind, &canonical(Path::new(p))))
             .map(|s| s.command()),
+        install_command: kind.own_install().map(String::from),
     }
 }
 
-/// Adds the (cached) latest version; a failed check only loses the update hint.
+/// Adds the (cached) latest version; a failed check only loses the update hint. An agent off npm has none.
 pub async fn with_latest(home: &Path, status: ToolStatus) -> ToolStatus {
+    if status.kind.own_install().is_some() {
+        return status;
+    }
     let latest = latest(home, status.kind, false)
         .await
         .inspect_err(|e| tracing::warn!("{} latest version check failed: {e:#}", status.kind.label()))
@@ -910,6 +941,19 @@ pub(crate) fn http_url(s: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn an_agent_off_npm_is_neither_installed_nor_checked_for_updates() {
+        assert_eq!(ToolKind::Antigravity.package(), None);
+        let command = ToolKind::Antigravity.own_install().unwrap();
+        assert!(command.starts_with("curl -fsSL https://antigravity.google/"));
+        assert_eq!(ToolKind::Gemini.own_install(), None);
+        assert_eq!(ToolKind::Node.own_install(), None);
+        let home = tempfile::tempdir().unwrap();
+        let err = install(home.path(), ToolKind::Antigravity, None, &|_| {}).await.unwrap_err();
+        assert!(format!("{err:#}").contains(command), "{err:#}");
+        assert!(latest(home.path(), ToolKind::Antigravity, true).await.is_err(), "no npm to ask");
+    }
 
     #[test]
     fn picks_node_archives_per_platform() {

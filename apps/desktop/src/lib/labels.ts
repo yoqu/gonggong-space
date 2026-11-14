@@ -10,6 +10,7 @@ export const AGENTS: Record<AgentKind, { name: string }> = {
   codebuddy: { name: 'CodeBuddy（WorkBuddy）' },
   pi: { name: 'pi' },
   deepseek: { name: 'DeepSeek Harness' },
+  antigravity: { name: 'Antigravity CLI' },
 }
 
 export type ConnKind = 'ok' | 'connecting' | 'offline' | 'proto' | 'revoked' | 'blocked' | 'unbound'
@@ -83,6 +84,7 @@ export const VENDOR: Record<AgentKind, string> = {
   codebuddy: 'Tencent · CLI',
   pi: 'Earendil · CLI',
   deepseek: 'DeepSeek · CLI',
+  antigravity: 'Google · CLI',
 }
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */

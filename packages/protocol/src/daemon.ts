@@ -1369,6 +1369,8 @@ export const DaemonFeature = z.enum([
   'pi',
   /** Runs DeepSeek Harness bots: a daemon without it cannot read a run.start for one. */
   'deepseek',
+  /** Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one. */
+  'antigravity',
   /** PluginRef.mcp (plan 插件扩展点 S1): `{node}` / `{pkg}` filled in and the servers handed to the agent. */
   'pluginMcp',
   /** presets.sync, artifact `plugin` and manifest `artifact.kit` (plan 插件扩展点 S2). */
@@ -1376,7 +1378,16 @@ export const DaemonFeature = z.enum([
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
-export const ToolKind = z.enum(['node', 'claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek'])
+export const ToolKind = z.enum([
+  'node',
+  'claude',
+  'codex',
+  'gemini',
+  'codebuddy',
+  'pi',
+  'deepseek',
+  'antigravity',
+])
 export type ToolKind = z.infer<typeof ToolKind>
 export const ToolStatus = z.object({
   kind: ToolKind,
@@ -1389,6 +1400,8 @@ export const ToolStatus = z.object({
   path: z.string().nullable(),
   /** How the user's own install is upgraded (Gonggong runs it on 升级); null when managed or unknown, absent from older daemons. */
   upgradeCommand: z.string().nullable().optional(),
+  /** Not on npm, so Gonggong neither installs nor upgrades it: the maker's install command, run on the machine. */
+  installCommand: z.string().nullable().optional(),
 })
 export type ToolStatus = z.infer<typeof ToolStatus>
 /** Where Node and the agent CLIs are downloaded from; npmmirror by default. */

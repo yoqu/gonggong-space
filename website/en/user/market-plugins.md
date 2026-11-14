@@ -147,7 +147,7 @@ Bots can also view and change Skills and MCP for you with built-in tools; when a
 Built-in plugins are installed automatically with the server:
 
 - 「产品原型」 (Prototypes) and 「幻灯片」 (Slides): creation plugins.
-- 「Gemini CLI」, 「CodeBuddy（WorkBuddy）」, 「pi」, and 「DeepSeek Harness」: Agent plugins that let machines run these Agents.
+- 「Gemini CLI」, 「CodeBuddy（WorkBuddy）」, 「pi」, 「DeepSeek Harness」, and 「Antigravity CLI」: Agent plugins that let machines run these Agents.
 - 「官方供应商预设」 (Official provider presets): vendor presets are pushed to all machines with server updates, without waiting for a client release.
 
 ### Turn on and enable

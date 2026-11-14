@@ -140,7 +140,7 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` command-line entry poin
 | `daemon.rs` | The overall daemon handle (shared by `gg run` and the desktop app): single-instance lock, service and engine, revocation cleanup, live status |
 | `service.rs` | The WebSocket connection to the server: sending, receiving, and a byte-capped send buffer |
 | `engine.rs` | Executes runs sent by the server; one ACP adapter process per (group, Bot); installs pinned versions of the Claude Code / Codex adapters |
-| `adapters.rs` | Adapters declared by the built-in Agent plugin manifests (Gemini CLI, CodeBuddy, pi, DeepSeek Harness), with manifests compiled into the binary |
+| `adapters.rs` | Adapters declared by the built-in Agent plugin manifests (Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI), with manifests compiled into the binary |
 | `session.rs` | A single (group, Bot) session: adapter process, ACP session, and turns |
 | `turn.rs` | Pure per-turn logic: building prompts, mapping ACP updates to run events, permission tier policy |
 | `review.rs` | AI pre-review for 「帮我审批」 (Review for me) |

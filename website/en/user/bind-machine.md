@@ -101,7 +101,7 @@ After binding with any of these, the dialog shows 「绑定成功」 (Bound) and
 
 ## What gets reported after binding
 
-After binding, the machine belongs to you. The client reports the machine name, OS, CPU, memory, and the Agents available on the machine (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness). Agent login info, providers, and API keys stay on the machine and are never uploaded — see [Agent tools and providers](/en/user/agents-providers).
+After binding, the machine belongs to you. The client reports the machine name, OS, CPU, memory, and the Agents available on the machine (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI). Agent login info, providers, and API keys stay on the machine and are never uploaded — see [Agent tools and providers](/en/user/agents-providers).
 
 ## Common errors
 

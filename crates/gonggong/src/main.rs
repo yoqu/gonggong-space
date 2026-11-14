@@ -50,7 +50,7 @@ enum Cmd {
         #[arg(long, requires = "server", conflicts_with = "fingerprint")]
         ca_file: Option<PathBuf>,
         /// Also have the server create a bot of this agent on this machine, and a DM with it
-        /// (claude|codex|gemini|codebuddy|pi|deepseek).
+        /// (claude|codex|gemini|codebuddy|pi|deepseek|antigravity).
         #[arg(long, value_name = "AGENT", value_parser = configure::parse_kind)]
         create_bot: Option<AgentKind>,
         /// Fail on an expired code instead of asking for a confirmation on the Web (unattended setups such as Docker).

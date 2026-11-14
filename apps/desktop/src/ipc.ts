@@ -255,6 +255,8 @@ export interface ToolStatus {
   path: string | null
   /** How the user's own install is upgraded (the daemon runs it on 升级); null when managed or unknown. */
   upgradeCommand?: string | null
+  /** Not on npm, so Gonggong neither installs nor upgrades it: the maker's install command. */
+  installCommand?: string | null
 }
 
 export type ToolOp = 'install' | 'upgrade'

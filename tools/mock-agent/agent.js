@@ -52,6 +52,8 @@ const geminiFile = (name) => {
 }
 const PI = process.env.PI_ACP_PI_COMMAND
 const DSH = process.env.DSH_PERMISSION_MODE
+// Started as `<cli> acp` (as the daemon starts Antigravity CLI), it offers agy's modes and echoes the session `_meta`.
+const AGY = process.argv[2] === 'acp'
 const argAfter = (flag) => {
   const i = process.argv.indexOf(flag)
   return i >= 0 ? process.argv[i + 1] : null
@@ -84,7 +86,9 @@ const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-3.8-flash'].map((modelId) => ({
 const MODES = (
   GEMINI
     ? ['default', 'autoEdit', 'yolo', 'plan']
-    : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
+    : AGY
+      ? ['default', 'accept-edits', 'plan']
+      : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
 ).map((id) => ({ id, name: id }))
 const MODELS = [
   { value: 'default', name: 'Default' },
@@ -237,6 +241,7 @@ async function prompt({ sessionId, prompt: blocks }, client) {
           Object.entries(process.env).filter(([k]) => k.startsWith('GG_SECRET_')),
         ),
         args: process.argv.slice(2),
+        meta: s.meta,
         codebuddy: process.env.CODEBUDDY_API_KEY
           ? {
               apiKey: process.env.CODEBUDDY_API_KEY,

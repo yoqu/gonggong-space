@@ -4,11 +4,11 @@ use crate::ccswitch;
 use crate::config::{Config, Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_APPROVAL_GATES,
-    FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS,
-    FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI,
-    FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS,
-    FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS,
+    AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_ANTIGRAVITY,
+    FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH,
+    FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DEEPSEEK, FEATURE_DIAG,
+    FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4,
+    FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS,
     FEATURE_PRESET_SYNC, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK,
     FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput,
     ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
@@ -80,6 +80,7 @@ impl Manage {
             FEATURE_BUILTIN_REVIEW.to_string(),
             FEATURE_PI.to_string(),
             FEATURE_DEEPSEEK.to_string(),
+            FEATURE_ANTIGRAVITY.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -976,7 +977,8 @@ mod tests {
                 "approvalGates",
                 "builtinReview",
                 "pi",
-                "deepseek"
+                "deepseek",
+                "antigravity"
             ]
         );
         std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
@@ -1012,6 +1014,7 @@ mod tests {
                 "builtinReview",
                 "pi",
                 "deepseek",
+                "antigravity",
                 "ccSwitch"
             ]
         );
@@ -1039,7 +1042,7 @@ mod tests {
             panic!()
         };
         assert_eq!((request_id.as_str(), ok, settings.mirror), ("t1", true, mirror));
-        assert_eq!(tools.len(), 7);
+        assert_eq!(tools.len(), 8);
         assert!(tools.iter().all(|t| t.latest.is_none()));
 
         let bad = ToolsCmd {

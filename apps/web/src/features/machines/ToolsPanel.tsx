@@ -33,6 +33,7 @@ export const TOOL_INFO: Record<ToolKind, { name: string; sub: string }> = {
   codebuddy: { name: 'CodeBuddy（WorkBuddy）', sub: t('腾讯') },
   pi: { name: 'pi', sub: 'Earendil' },
   deepseek: { name: 'DeepSeek Harness', sub: t('深度求索 · 需要 Node.js ≥ 24.9') },
+  antigravity: { name: 'Antigravity CLI', sub: t('Google · 不在 npm 上，需在机器上自行安装') },
 }
 const tooOld = (t: ToolStatus) =>
   t.kind === 'node' && t.installed && !!t.version && compareVersions(t.version, `${MIN_NODE}.0.0`) < 0
@@ -111,9 +112,13 @@ export function ToolBox({
           </span>
           <span className="mx-sub">{sub}</span>
         </span>
-        {tool ? <ToolAction tool={tool} busy={!!op?.running} onRun={(w) => onRun(kind, w)} /> : null}
+        {tool && !tool.installCommand ? (
+          <ToolAction tool={tool} busy={!!op?.running} onRun={(w) => onRun(kind, w)} />
+        ) : null}
       </div>
-      {tool?.installed ? (
+      {tool?.installCommand ? (
+        <InstallCommandRow command={tool.installCommand} installed={tool.installed} />
+      ) : tool?.installed ? (
         <>
           <GroupRow label={t('来源')} wideValue value={tool.managed ? t('共工空间托管') : t('自行安装')} />
           <GroupRow
@@ -197,6 +202,20 @@ function ToolAction({
       {t('升级到 {version}', { version: tool.latest ?? '' })}
     </Button>
   ) : null
+}
+
+/** An agent off npm: 共工 neither installs nor upgrades it, the owner runs its maker's command on the machine. */
+export function InstallCommandRow({ command, installed }: { command: string; installed: boolean }) {
+  return (
+    <GroupRow
+      label={installed ? t('来源') : t('安装命令')}
+      description={
+        installed ? t('自行安装，按它自己的方式升级') : t('共工空间不能托管安装它，请在该机器的终端运行')
+      }
+      wideValue
+      value={installed ? t('自行安装') : <span className="mx-mono">{command}</span>}
+    />
+  )
 }
 
 function SelfUpgradeRow({ tool }: { tool: ToolStatus }) {

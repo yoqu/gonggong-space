@@ -12,7 +12,7 @@
    │  WSS /ws/daemon（任务与事件）  ·  WSS /ws/daemon/tunnel（预览隧道）
    ▼
 成员机器上的 daemon（gg 或桌面端）
-   ├─ ACP ──→ Claude Code / Codex / Gemini CLI / CodeBuddy / pi / DeepSeek Harness
+   ├─ ACP ──→ Claude Code / Codex / Gemini CLI / CodeBuddy / pi / DeepSeek Harness / Antigravity CLI
    ├─ 内置 MCP（gonggong）
    └─ 工作区 ~/gonggong/workspaces/…
 ```
@@ -36,7 +36,7 @@ daemon 不解析 CLI 的终端输出，而是通过 ACP 与 Agent 通信：
 | --- | --- |
 | Claude Code | 固定版本的 ACP 适配器 `@agentclientprotocol/claude-agent-acp` |
 | Codex | 固定版本的 ACP 适配器 `@agentclientprotocol/codex-acp` |
-| Gemini CLI、CodeBuddy、DeepSeek Harness | 内置 Agent 插件，用 CLI 自带的 ACP 模式 |
+| Gemini CLI、CodeBuddy、DeepSeek Harness、Antigravity CLI | 内置 Agent 插件，用 CLI 自带的 ACP 模式 |
 | pi | 内置 Agent 插件，经 `pi-acp` 适配器接入 |
 
 适配器首次使用时由 npm 自动安装到 `~/.gonggong/adapters/`（默认走 npmmirror 镜像）。Agent 调用的是机器上已安装的 CLI，模型、登录方式、账号额度沿用本机配置，或使用在机器上配置的供应商。

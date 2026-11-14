@@ -22,8 +22,9 @@
 | CodeBuddy（WorkBuddy） | 腾讯 |
 | pi | Earendil；用它自己的登录，不使用共工空间的供应商 |
 | DeepSeek Harness | 深度求索；需要 Node.js ≥ 24.9 |
+| Antigravity CLI | Google 的 `agy`；用它自己的 Google 账号登录，不使用共工空间的供应商。不在 npm 上，共工空间不能托管安装，请在机器的终端运行 `curl -fsSL https://antigravity.google/cli/install.sh \| bash` |
 
-Gemini CLI、CodeBuddy、pi、DeepSeek Harness 以内置 Agent 插件的形式提供，不需要另外安装插件，机器上装好对应的 CLI 即可。机器上的客户端版本较旧时，页面上不会出现后来新增的 Agent，升级 daemon 后才有。
+Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI 以内置 Agent 插件的形式提供，不需要另外安装插件，机器上装好对应的 CLI 即可。机器上的客户端版本较旧时，页面上不会出现后来新增的 Agent，升级 daemon 后才有。
 
 ## 页面结构
 
@@ -82,6 +83,7 @@ Gemini CLI、CodeBuddy、pi、DeepSeek Harness 以内置 Agent 插件的形式�
 | CodeBuddy | `codebuddy` | 输入 `/login`，用微信、Google/GitHub 或企业账号登录 |
 | pi | `pi` | 输入 `/login`，选择供应商登录或填写 API Key |
 | DeepSeek Harness | `dsh web` | 在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 `DEEPSEEK_API_KEY`） |
+| Antigravity CLI | `agy` | 按提示用 Google 账号登录；机器没有浏览器时运行 `agy acp --login`，在别处打开链接后粘贴授权码 |
 
 登录信息只保存在该机器上。不想登录官方账号，可以点「改用 API Key 供应商」新增一个第三方供应商。
 

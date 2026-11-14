@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Alert, Skeleton } from '../../ui'
-import { AGENT_LABEL, machineAgents, takesProviders } from '../bots/model'
+import { AGENT_LABEL, machineAgents, OWN_LOGIN, takesProviders } from '../bots/model'
 import { AgentSettingsBox } from './AgentSettingsPanel'
 import { ProviderBox } from './ProvidersPanel'
 import { SwitchNote, switchLines } from './providers'
@@ -53,9 +53,7 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
             <span className="mx-strong">{AGENT_LABEL[agent]}</span>
           )}
           {!takesProviders(agent) ? (
-            <span className="mx-sub">
-              {t('pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key')}
-            </span>
+            <span className="mx-sub">{OWN_LOGIN[agent]}</span>
           ) : view && has('providers') ? (
             <ProviderBox
               machine={machine}

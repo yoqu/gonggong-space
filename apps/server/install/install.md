@@ -19,7 +19,7 @@ You are an AI agent on the user's computer. The user asked you to connect this m
 ## Steps
 
 1. Decide which agent you are: `claude` (Claude Code), `codex` (Codex), `gemini` (Gemini CLI), `codebuddy`
-   (CodeBuddy), `pi` or `deepseek` (DeepSeek Harness). The bot created for the user runs on this agent.
+   (CodeBuddy), `pi`, `deepseek` (DeepSeek Harness) or `antigravity` (Antigravity CLI, `agy`). The bot created for the user runs on this agent.
 2. Download the installer:
 
    ```sh

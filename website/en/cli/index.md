@@ -40,7 +40,7 @@ Member machines need:
 
 - **git**
 - **Node.js 22 or later** (with npm). If it's missing, the daemon installs a Node.js managed by Gonggong Space into `~/.gonggong/runtime` on first run; you can also install it in advance with `gg agents install node`.
-- At least one Agent CLI (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, or DeepSeek Harness), already signed in in the terminal. You can also install a version managed by Gonggong Space with `gg agents install <name>`; see the [Command reference](/en/cli/reference#gg-agents-install).
+- At least one Agent CLI (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, or Antigravity CLI), already signed in in the terminal. You can also install a version managed by Gonggong Space with `gg agents install <name>`; see the [Command reference](/en/cli/reference#gg-agents-install).
 
 On first run, the daemon uses npm to install the ACP adapters into `~/.gonggong/adapters/`, so the machine needs access to an npm registry (the Taobao mirror npmmirror by default; change it with `gg agents mirror`).
 

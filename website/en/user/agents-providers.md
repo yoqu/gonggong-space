@@ -22,8 +22,9 @@ The same features are available on the desktop app's 「Agent 工具」 (Agent t
 | CodeBuddy (WorkBuddy) | Tencent |
 | pi | Earendil; uses its own login, not Gonggong Space's providers |
 | DeepSeek Harness | DeepSeek; requires Node.js ≥ 24.9 |
+| Antigravity CLI | Google's `agy`; uses its own Google sign-in, not Gonggong Space's providers. It isn't on npm, so Gonggong Space can't install it: run `curl -fsSL https://antigravity.google/cli/install.sh \| bash` in the machine's terminal |
 
-Gemini CLI, CodeBuddy, pi, and DeepSeek Harness come as built-in Agent plugins, so there's no separate plugin to install — just install the corresponding CLI on the machine. If the machine's client is older, Agents added later won't appear on the page until the daemon is upgraded.
+Gemini CLI, CodeBuddy, pi, DeepSeek Harness, and Antigravity CLI come as built-in Agent plugins, so there's no separate plugin to install — just install the corresponding CLI on the machine. If the machine's client is older, Agents added later won't appear on the page until the daemon is upgraded.
 
 ## Page layout
 
@@ -82,6 +83,7 @@ The first entry in each Agent's 「供应商」 (Provider) list is 「官方登�
 | CodeBuddy | `codebuddy` | Type `/login` and log in with WeChat, Google/GitHub, or an enterprise account |
 | pi | `pi` | Type `/login` and log in with a provider or enter an API key |
 | DeepSeek Harness | `dsh web` | In the web page that opens, enter your DeepSeek API key under 「模型」 (Model) (or set `DEEPSEEK_API_KEY` in the machine's environment) |
+| Antigravity CLI | `agy` | Sign in with a Google account as it prompts; on a machine without a browser, run `agy acp --login`, open the link elsewhere and paste the code |
 
 Login information is stored only on that machine. If you'd rather not log in to an official account, click 「改用 API Key 供应商」 (Use an API key provider instead) to add a third-party provider.
 

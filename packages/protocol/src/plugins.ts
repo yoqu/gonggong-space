@@ -186,15 +186,20 @@ export const PluginAgent = z.object({
   id: z.string().regex(ID),
   title: z.string().min(1).max(40),
   vendor: z.string().min(1).max(40),
-  install: z.object({
-    npm: z.string().min(1).max(100),
-    bin: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,39}$/),
-    /** The CLI's script inside its npm package, run on the daemon's Node; null: a native binary. */
-    script: z.string().max(200).nullable().default(null),
-    brew: z.string().max(60).nullable().default(null),
-    minVersion: Semver,
-    minNode: Semver.default('22.0.0'),
-  }),
+  install: z
+    .object({
+      /** null: not on npm, so 共工 cannot install it; the owner runs `command` on the machine. */
+      npm: z.string().min(1).max(100).nullable(),
+      /** The maker's own install command, shown when the CLI is missing. */
+      command: z.string().min(1).max(200).nullable().default(null),
+      bin: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,39}$/),
+      /** The CLI's script inside its npm package, run on the daemon's Node; null: a native binary. */
+      script: z.string().max(200).nullable().default(null),
+      brew: z.string().max(60).nullable().default(null),
+      minVersion: Semver,
+      minNode: Semver.default('22.0.0'),
+    })
+    .refine((i) => i.npm || i.command, '需要 npm 或 command'),
   acp: z.discriminatedUnion('kind', [
     /** The CLI speaks ACP itself with these arguments. */
     z.object({ kind: z.literal('native'), args: z.array(Template).max(10).default([]) }),
@@ -213,6 +218,8 @@ export const PluginAgent = z.object({
     z.object({ via: z.literal('env'), env: EnvName }),
     /** `launchScript` writes it where the agent reads it. */
     z.object({ via: z.literal('script') }),
+    /** session/new `_meta.<key>.systemPrompt.append`. */
+    z.object({ via: z.literal('meta'), key: z.string().min(1).max(40) }),
   ]),
   mcp: z
     .object({

@@ -42,8 +42,8 @@ This page lists common Gonggong Space terms by topic, with the English name used
 | Bot | Bot | bot | An AI member you can @ in a group; always runs on one of its owner's machines |
 | 归属人 / Bot 主人 | Bot owner | owner | The member the Bot belongs to; the only person who can act on its approval cards and change its approval mode |
 | 执行机器 | machine | machine | The machine the Bot runs on |
-| Agent | Agent | agent | The AI coding tool that does the work: Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness |
-| Agent 插件 | Agent plugin | agent plugin | An Agent connected as a plugin; Gemini CLI, CodeBuddy, pi, and DeepSeek Harness are built-in Agent plugins |
+| Agent | Agent | agent | The AI coding tool that does the work: Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI |
+| Agent 插件 | Agent plugin | agent plugin | An Agent connected as a plugin; Gemini CLI, CodeBuddy, pi, DeepSeek Harness, and Antigravity CLI are built-in Agent plugins |
 | 角色 | character | avatar / role | The Bot's avatar and personality look: follows the Agent, Gong, or one of 12 personality characters |
 | 系统提示词 | system prompt | system prompt | Describes the Bot's job; also shown as its intro in the group |
 | 共享 Bot | shared Bot | shared bot | A Bot its owner shares with team members so they can chat with it directly |

@@ -465,4 +465,13 @@ export default {
   这个接入申请已处理过: 'This request was already handled',
   '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。':
     'The link may have expired or already been handled. Run gg again in the terminal to get a new confirmation link.',
+  'Google · 不在 npm 上，需在机器上自行安装': 'Google · not on npm, install it on the machine yourself',
+  安装命令: 'Install command',
+  '自行安装，按它自己的方式升级': 'Installed by you; upgrade it its own way',
+  '共工空间不能托管安装它，请在该机器的终端运行':
+    "Gonggong Space can't install it; run this in the machine's terminal",
+  'Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录':
+    'Antigravity CLI uses its own login: run agy on that machine and sign in with a Google account',
+  '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码':
+    'Sign in with a Google account as it prompts; on a machine without a browser run agy acp --login instead, open the link elsewhere and paste the code',
 } satisfies Record<string, string>

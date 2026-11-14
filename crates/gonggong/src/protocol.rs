@@ -26,16 +26,18 @@ pub enum AgentKind {
     Codebuddy,
     Pi,
     Deepseek,
+    Antigravity,
 }
 
 impl AgentKind {
-    pub const ALL: [AgentKind; 6] = [
+    pub const ALL: [AgentKind; 7] = [
         AgentKind::Claude,
         AgentKind::Codex,
         AgentKind::Gemini,
         AgentKind::Codebuddy,
         AgentKind::Pi,
         AgentKind::Deepseek,
+        AgentKind::Antigravity,
     ];
 
     /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins, the
@@ -2060,6 +2062,8 @@ pub const FEATURE_BUILTIN_REVIEW: &str = "builtinReview";
 pub const FEATURE_PI: &str = "pi";
 /// Runs DeepSeek Harness bots: a daemon without it cannot read a run.start for one.
 pub const FEATURE_DEEPSEEK: &str = "deepseek";
+/// Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one.
+pub const FEATURE_ANTIGRAVITY: &str = "antigravity";
 pub const FEATURE_REPROBE: &str = "reprobe";
 pub const FEATURE_PLUGINS: &str = "plugins";
 /// `PluginRef.mcp`: the plugins' MCP servers join the run's (plan 插件扩展点 S1).

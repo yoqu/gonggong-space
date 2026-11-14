@@ -33,6 +33,7 @@ const CREATION = readdirSync(OFFICIAL)
 
 it('ships the creation plugins and the provider presets', () => {
   expect(readdirSync(OFFICIAL).sort()).toEqual([
+    'agent-antigravity',
     'agent-codebuddy',
     'agent-deepseek',
     'agent-gemini',
@@ -43,16 +44,40 @@ it('ships the creation plugins and the provider presets', () => {
   ])
 })
 
-describe.each(['gemini', 'codebuddy', 'pi', 'deepseek'])('official agent plugin agent-%s', (id) => {
-  it('adapts that agent, runs code, and ships its launch script and icon', () => {
-    const { root, manifest } = load(`agent-${id}`)
-    expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
-    const [agent, ...more] = manifest.contributes.agents
-    expect(more).toEqual([])
-    expect(agent!.id).toBe(id)
-    for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
-      expect(existsSync(join(root, f)), f).toBe(true)
+describe.each(['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity'])(
+  'official agent plugin agent-%s',
+  (id) => {
+    it('adapts that agent, runs code, and ships its launch script and icon', () => {
+      const { root, manifest } = load(`agent-${id}`)
+      expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
+      const [agent, ...more] = manifest.contributes.agents
+      expect(more).toEqual([])
+      expect(agent!.id).toBe(id)
+      for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
+        expect(existsSync(join(root, f)), f).toBe(true)
+    })
+  },
+)
+
+it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goes in session _meta', () => {
+  const [agent] = load('agent-antigravity').manifest.contributes.agents
+  expect(agent!.install).toMatchObject({
+    npm: null,
+    bin: 'agy',
+    command: expect.stringContaining('antigravity.google'),
   })
+  expect(agent!.acp).toEqual({ kind: 'native', args: ['acp', '--disable-telemetry'] })
+  expect(agent!.systemPrompt).toEqual({ via: 'meta', key: 'antigravity' })
+  // Its ACP modes are default / accept-edits / plan; 完全访问 is answered by the daemon on top of accept-edits.
+  expect(agent!.tiers).toMatchObject({
+    full: { mode: 'accept-edits' },
+    workspace: { mode: 'accept-edits' },
+    readonly: { mode: 'default' },
+  })
+  // An agent off npm must say how to install it.
+  const raw = JSON.parse(readFileSync(join(OFFICIAL, 'agent-antigravity', PLUGIN_MANIFEST), 'utf8'))
+  delete raw.contributes.agents[0].install.command
+  expect(PluginManifest.safeParse(raw).success).toBe(false)
 })
 
 describe('official plugin provider-presets', () => {

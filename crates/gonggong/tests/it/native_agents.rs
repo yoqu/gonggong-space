@@ -161,3 +161,20 @@ async fn deepseek_runs_the_acp_profile_with_the_instructions_patched_in_and_the_
     assert!(persona.contains("小王") && persona.contains("只改 server/"), "{persona}");
     assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
 }
+
+#[tokio::test]
+async fn antigravity_runs_agy_acp_with_the_instructions_in_the_session_meta() {
+    let mut r = rig(Duration::from_secs(60));
+    let mut s = start("a1", AgentKind::Antigravity);
+    s.bot.tier = Tier::Full;
+    r.run(s);
+    let e = echo(&r.finish("a1").await);
+    let args: Vec<String> = serde_json::from_value(e["args"].clone()).unwrap();
+    assert_eq!(args, ["acp", "--disable-telemetry"]);
+    let prompt = e["meta"]["antigravity"]["systemPrompt"]["append"].as_str().unwrap();
+    assert!(prompt.contains("小王") && prompt.contains("只改 server/"), "{prompt}");
+    assert_eq!(e["systemPrompt"], Value::Null, "not Claude's `_meta.systemPrompt`");
+    // agy has no bypass mode: 完全访问 edits freely and the daemon allows the rest.
+    assert_eq!(e["mode"], "accept-edits");
+    assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
+}

@@ -412,7 +412,7 @@ export function commandPrompt(body: string, commands: ReturnType<typeof chatComm
       c.prompt.replaceAll('{args}', hit[1]!.trim()),
       ...(m.entry
         ? [
-            `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
+            `Skill：Claude 用 ${m.name}:${m.entry}；Codex、Gemini、pi、DeepSeek Harness、Antigravity 用 ${m.entry}（目录 .agents/skills/${m.name}-${m.entry}）。`,
           ]
         : []),
     ].join('\n')

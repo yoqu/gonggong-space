@@ -15,7 +15,7 @@
 | 列 | 说明 |
 | --- | --- |
 | Bot | 头像与名称 |
-| Agent | 使用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 等）及机器上报的版本 |
+| Agent | 使用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI 等）及机器上报的版本 |
 | 归属人 | Bot 的主人，对这台机器上的操作负责 |
 | 团队 | Bot 所属团队 |
 | 绑定 | 「已绑定」；或橙色标签「待确认」「待绑定」 |

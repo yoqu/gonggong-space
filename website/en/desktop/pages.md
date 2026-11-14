@@ -40,7 +40,7 @@ An Agent is a CLI runtime installed on this machine and decides which models are
 
 **Node.js**: runs the ACP adapters and the Agents that don't need an adapter (Gemini CLI, CodeBuddy, and so on), and is also used for managed installs of Agents. Version 22 or later is required. If this machine doesn't have a suitable Node.js, clicking 「安装」 (Install) installs the version managed by Gonggong Space into `~/.gonggong/runtime`, without touching the system environment.
 
-**Each Agent**: Claude Code, Codex, Gemini CLI, CodeBuddy (WorkBuddy), pi, and DeepSeek Harness each have a card. When installed, a card shows:
+**Each Agent**: Claude Code, Codex, Gemini CLI, CodeBuddy (WorkBuddy), pi, DeepSeek Harness, and Antigravity CLI each have a card. When installed, a card shows:
 
 - Path, version (and whether it meets the minimum version), source (共工空间托管 / 自行安装, Managed by Gonggong Space / Self-installed), and latest version (marked 「有更新」 (Update available) when there's a newer one)
 - Login status, ACP adapter (the adapters for Claude Code, Codex, and pi ship with the daemon; the others are 「CLI 自带」 (Built into the CLI)), and available models (models and reasoning effort are set per Bot on the web)

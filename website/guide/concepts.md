@@ -59,7 +59,7 @@ Bot 是群里可以 @ 的 AI 成员。它由以下几项决定：
 | --- | --- |
 | 归属人 | Bot 属于谁。成员只能为自己创建；系统管理员可为任何人创建，此时需归属人在通知中确认后才能触发 |
 | 执行机器 | 归属人名下的一台机器，Bot 的所有工作都在这台机器上进行 |
-| Agent | Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness，使用执行机器上的 CLI |
+| Agent | Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI，使用执行机器上的 CLI |
 | 角色 | 头像与性格形象：默认跟随 Agent，也可选共字君或 12 个性格角色 |
 | 系统提示词 | 告诉 Bot 它的职责，同时作为群内简介 |
 | 触发范围 | 谁能 @ 它干活：任何群成员 / 指定名单 / 仅本人 |

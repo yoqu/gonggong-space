@@ -364,6 +364,7 @@ describe('built-in plugins', () => {
     await syncBuiltinPlugins(t.ctx, BUILTIN_PLUGINS)
     const rows = await t.db.select().from(plugins)
     expect(rows.map((r) => [r.scope, r.name, r.updatedBy]).sort()).toEqual([
+      ['platform', 'agent-antigravity', null],
       ['platform', 'agent-codebuddy', null],
       ['platform', 'agent-deepseek', null],
       ['platform', 'agent-gemini', null],

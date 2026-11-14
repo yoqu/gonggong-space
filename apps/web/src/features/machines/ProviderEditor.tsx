@@ -50,6 +50,7 @@ const PROTOCOL: Record<AgentKind, string> = {
   codebuddy: 'CodeBuddy',
   pi: '',
   deepseek: 'Anthropic Messages',
+  antigravity: '',
 }
 const URL_HINT: Record<AgentKind, string> = {
   claude: 'https://…/anthropic',
@@ -58,6 +59,7 @@ const URL_HINT: Record<AgentKind, string> = {
   codebuddy: 'https://copilot.tencent.com',
   pi: '',
   deepseek: 'https://api.deepseek.com/anthropic',
+  antigravity: '',
 }
 const FORM_ID = 'provider-form'
 const OFFICIAL_FORM_ID = 'official-form'

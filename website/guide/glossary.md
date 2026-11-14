@@ -42,8 +42,8 @@
 | Bot | bot | 群里可 @ 的 AI 成员，固定跑在归属人的某台机器上 |
 | 归属人 / Bot 主人 | owner | Bot 属于的成员，唯一能处理其审批卡片、修改审批方式的人 |
 | 执行机器 | machine | Bot 运行所在的机器 |
-| Agent | agent | 实际干活的 AI 编程工具：Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness |
-| Agent 插件 | agent plugin | 以插件形式接入的 Agent，Gemini CLI、CodeBuddy、pi、DeepSeek Harness 是内置的 Agent 插件 |
+| Agent | agent | 实际干活的 AI 编程工具：Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI |
+| Agent 插件 | agent plugin | 以插件形式接入的 Agent，Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI 是内置的 Agent 插件 |
 | 角色 | avatar / role | Bot 的头像与性格形象：跟随 Agent、共字君或 12 个性格角色 |
 | 系统提示词 | system prompt | Bot 的职责说明，同时作为群内简介 |
 | 共享 Bot | shared bot | Bot 主人把 Bot 共享给团队成员，对方可以私聊它 |

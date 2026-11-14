@@ -101,7 +101,9 @@ pub fn agents(list: &[AgentInfo]) -> Check {
         return check(
             CheckKind::Agent,
             Status::Error,
-            t!("未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi 或 DeepSeek Harness）"),
+            t!(
+                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI）"
+            ),
         );
     }
     let old: Vec<String> = installed

@@ -19,6 +19,12 @@ const LOGIN: Record<AgentKind, { command: string; next: string }> = {
     command: 'dsh web',
     next: t('在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）'),
   },
+  antigravity: {
+    command: 'agy',
+    next: t(
+      '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码',
+    ),
+  },
 }
 
 /** The official login happens in the agent's own CLI on the machine: through a machine terminal from here. */

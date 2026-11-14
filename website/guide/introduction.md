@@ -25,7 +25,7 @@
 | --- | --- |
 | Claude Code | 内置支持 |
 | Codex | 内置支持 |
-| Gemini CLI、CodeBuddy、pi、DeepSeek Harness | 以内置 Agent 插件的形式接入 |
+| Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI | 以内置 Agent 插件的形式接入 |
 
 Agent 沿用机器上已安装、已登录的 CLI，也可以在机器上配置第三方模型供应商（Key 只保存在本机）。见 [Agent 工具与供应商](/user/agents-providers)。
 

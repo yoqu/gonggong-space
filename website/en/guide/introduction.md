@@ -25,7 +25,7 @@ Connecting a machine takes one message: in 「绑定新机器」 (Bind new machi
 | --- | --- |
 | Claude Code | Built in |
 | Codex | Built in |
-| Gemini CLI, CodeBuddy, pi, DeepSeek Harness | Connected as built-in Agent plugins |
+| Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI | Connected as built-in Agent plugins |
 
 Agents use the CLI already installed and signed in on the machine. You can also configure third-party model providers on the machine (keys are stored only locally). See [Agent tools and providers](/en/user/agents-providers).
 
