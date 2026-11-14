@@ -1,5 +1,5 @@
 import type { GroupDto, SearchResultDto } from '@gonggong/protocol'
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
@@ -80,6 +80,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const listId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Tab>('msg')
   const [attempt, setAttempt] = useState(0)
@@ -167,6 +168,7 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           <input
             // biome-ignore lint/a11y/noAutofocus: the overlay exists to type a query
             autoFocus
+            ref={inputRef}
             className="search__input"
             placeholder={t('搜索会话、消息、文件、运行')}
             role="combobox"
@@ -186,7 +188,16 @@ export function SearchOverlay({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="search__tabs">
-          <Tabs size="sm" items={TABS} value={tab} onChange={setTab} />
+          <Tabs
+            size="sm"
+            items={TABS}
+            value={tab}
+            onChange={(v) => {
+              setTab(v)
+              // The tab is a parameter of the query; keyboard navigation stays in the input.
+              inputRef.current?.focus()
+            }}
+          />
         </div>
         <div className="search__results" data-testid="search-results">
           {count ? (
