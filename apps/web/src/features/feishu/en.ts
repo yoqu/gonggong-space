@@ -189,4 +189,14 @@ export default {
   '请 Bot 主人接入': 'Ask its owner to connect it',
   未接入: 'Not connected',
   等待审核: 'Awaiting approval',
+  // 从飞书群创建 · 关联到已有群
+  接入方式: 'How to connect',
+  新建共工群: 'New group',
+  关联到已有群: 'Link an existing group',
+  共工群: 'Gonggong group',
+  '你是群管理员、还没关联飞书群的群': "Groups you administer that aren't linked to a Feishu chat",
+  选择共工群: 'Choose a group',
+  没有可关联的共工群: 'No group to link',
+  '飞书群里已绑定飞书账号的本团队成员会加入该群，该群的 Bot 会被拉进飞书群。':
+    "Team members in the Feishu chat who linked Feishu join the group; the group's bots are added to the chat.",
 } satisfies Record<string, string>

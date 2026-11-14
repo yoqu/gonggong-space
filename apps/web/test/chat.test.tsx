@@ -1399,6 +1399,30 @@ describe('new group dialog', () => {
     )
   })
 
+  it('links the chat from a Feishu card to a group I administer instead of creating one', async () => {
+    const mine = group({ id: 'g1', name: '退款 v2 迁移' })
+    const linked = group({ id: 'g2', name: '已关联', feishu: { chatId: 'oc_x', name: 'x' } })
+    const calls = mockApi({
+      ...baseRoutes([mine, linked]),
+      'GET /feishu/chats': () => ({ available: true, chats: [{ chatId: 'oc_1', name: '研发群' }] }),
+      'PUT /groups/g1/feishu': () => ({}),
+    })
+    renderAt('/?feishuChat=oc_1')
+    const dialog = await screen.findByRole('dialog', { name: '从飞书群创建' })
+    fireEvent.click(within(dialog).getByRole('radio', { name: '关联到已有群' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: '共工群' }))
+    // Groups already linked to a Feishu chat are not offered.
+    expect(screen.queryByRole('menuitemcheckbox', { name: '已关联' })).toBeNull()
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '退款 v2 迁移' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '关联' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT' && c.path === '/groups/g1/feishu')?.body).toEqual({
+        chatId: 'oc_1',
+      }),
+    )
+    await waitFor(() => expect(useToasts.getState().items.map((i) => i.message)).toContain('已关联飞书群'))
+  })
+
   it('blocks creating without a name, while checking, and on a missing branch', async () => {
     let answer: (v: unknown) => void = () => {}
     mockApi({

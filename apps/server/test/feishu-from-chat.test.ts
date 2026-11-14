@@ -102,7 +102,8 @@ describe('主应用进群卡片', () => {
     await t.feishu.botAdded(MAIN, 'oc_new', '新群')
     const [card] = t.feishu.sent.filter((m) => m.chatId === 'oc_new')
     expect(card).toMatchObject({ appId: MAIN, msgType: 'interactive' })
-    expect(JSON.stringify(card?.content)).toContain('在共工创建对应群')
+    expect(JSON.stringify(card?.content)).toContain('点下方按钮新建或关联已有的共工群')
+    expect(JSON.stringify(card?.content)).toContain('接入共工')
     expect(JSON.stringify(card?.content)).toContain('https://gg.example.com/?feishuChat=oc_new')
 
     await s.http.post('/api/groups/from-feishu', { chatId: CHAT, name: '研发' })

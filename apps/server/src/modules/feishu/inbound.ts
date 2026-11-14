@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { AnswerActionsReq, type Attachment, type Question } from '@gonggong/protocol'
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import {
   approvals,
@@ -14,9 +14,11 @@ import {
   feishuChats,
   feishuMessageLinks,
   groupMembers,
+  groups,
   messages,
   questionSets,
   runs,
+  teamMembers,
   users,
 } from '../../db/schema.js'
 import { translator } from '../../i18n/index.js'
@@ -185,6 +187,23 @@ async function verifyAction(ctx: Ctx, next: string) {
 
 type Target = { groupId: string; botId: string; user: { id: string; name: string } }
 
+/**
+ * 申请加入 for a teammate outside the group, when 入群申请 would take them: the group is filed under a 团队分区 (the
+ * group page then offers 加入 or 申请加入). Signs them in from Feishu on the way.
+ */
+async function joinAction(ctx: Ctx, groupId: string, userId: string) {
+  const base = await publicUrl(ctx)
+  if (!base) return undefined
+  const [row] = await ctx.db
+    .select({ id: groups.id })
+    .from(groups)
+    .innerJoin(teamMembers, and(eq(teamMembers.teamId, groups.teamId), eq(teamMembers.userId, userId)))
+    .where(and(eq(groups.id, groupId), isNull(groups.archivedAt), isNotNull(groups.teamSectionId)))
+  if (!row) return undefined
+  const next = `/g/${groupId}`
+  return { label: zt('申请加入'), url: `${base}/api/auth/feishu/start?next=${encodeURIComponent(next)}` }
+}
+
 /** A message in a Feishu chat bound to a group: the @-ed bot runs there if the sender is a member. */
 async function groupTarget(ctx: Ctx, app: FeishuAppRow, ev: Receive): Promise<Target | undefined> {
   const botId = app.botId
@@ -210,12 +229,16 @@ async function groupTarget(ctx: Ctx, app: FeishuAppRow, ev: Receive): Promise<Ta
         .from(groupMembers)
         .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, user.id)))
     : []
-  if (!user || !member) {
-    const text = user
-      ? zt('你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。')
-      : zt('使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。')
-    const action = user ? undefined : await verifyAction(ctx, `/g/${groupId}`)
-    return void (await reply(ctx, app, ev, noticeCard(text, action)))
+  if (!user) {
+    const text = zt('使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。')
+    return void (await reply(ctx, app, ev, noticeCard(text, await verifyAction(ctx, `/g/${groupId}`))))
+  }
+  if (!member) {
+    const join = await joinAction(ctx, groupId, user.id)
+    const text = join
+      ? zt('你还不是对应共工群的成员，不能使用这个 Bot。点「申请加入」进入共工群，加入后重新 @ 即可。')
+      : zt('你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。')
+    return void (await reply(ctx, app, ev, noticeCard(text, join)))
   }
   return { groupId, botId, user }
 }

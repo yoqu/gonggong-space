@@ -9,8 +9,9 @@ import { boundGroupOf } from './members.js'
 const zt = translator('zh')
 
 /**
- * 主应用进群: a chat no group is bound to gets a card linking to 从飞书群创建 with the chat preselected. The main app
- * serves every team, so the team (and who may create it) is decided in 共工, not here.
+ * 主应用进群: a chat no group is bound to gets a card opening 从飞书群创建 with the chat preselected, where a new group
+ * is created or one the clicker administers is linked. The main app serves every team, so the team (and who may
+ * create or link) is decided in 共工, not here.
  */
 export function startFeishuInvite(ctx: Ctx) {
   onFeishu(ctx, 'im.chat.member.bot.added_v1', async (app, ev) => {
@@ -22,9 +23,9 @@ export function startFeishuInvite(ctx: Ctx) {
     const card = base
       ? noticeCard(
           zt(
-            '把这个飞书群接入共工：在共工创建对应的群并关联，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。',
+            '这个飞书群还没有接入共工。点下方按钮新建或关联已有的共工群，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。',
           ),
-          { label: zt('在共工创建对应群'), url: `${base}/?feishuChat=${encodeURIComponent(ev.chat_id)}` },
+          { label: zt('接入共工'), url: `${base}/?feishuChat=${encodeURIComponent(ev.chat_id)}` },
         )
       : noticeCard(zt('这个飞书群还没有接入共工。请在共工的群设置 › 飞书里关联本群。'))
     await ctx.feishu.api.send(credsOf(app), ev.chat_id, {

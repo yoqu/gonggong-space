@@ -9,10 +9,12 @@ import {
   feishuIdentities,
   feishuMessageLinks,
   groupMembers,
+  groups,
   messages,
   questionSets,
   runs,
   systemParams,
+  teamSections,
   teams,
 } from '../src/db/schema.js'
 import { seal } from '../src/lib/seal.js'
@@ -431,6 +433,27 @@ describe('飞书 → 共工', () => {
     await t.feishu.message(BOT_APP, { chatId: CHAT, from: fu, text: 'hi' }).done
     expect(await t.db.select().from(messages).where(eq(messages.groupId, group.id))).toEqual([])
     expect(JSON.stringify(lastSent()?.content)).toContain('不是对应共工群的成员')
+  })
+
+  it('offers 申请加入 to a teammate outside a group filed under a 团队分区', async () => {
+    const { owner, group } = await setup()
+    const [section] = await t.db
+      .insert(teamSections)
+      .values({ teamId: group.teamId, name: '研发', position: 0, createdBy: owner.id })
+      .returning()
+    await t.db.update(groups).set({ teamSectionId: section!.id }).where(eq(groups.id, group.id))
+    const teammate = await t.seed.user({ teamId: group.teamId })
+    await t.feishu.message(BOT_APP, { chatId: CHAT, from: await link(teammate.id), text: 'hi' }).done
+    const card = JSON.stringify(lastSent()?.content)
+    expect(card).toContain('申请加入')
+    expect(card).toContain(`${BASE}/api/auth/feishu/start?next=${encodeURIComponent(`/g/${group.id}`)}`)
+
+    // Someone outside the team cannot ask: the plain note stays.
+    const outsider = await t.seed.user({ teamId: null })
+    await t.feishu.message(BOT_APP, { chatId: CHAT, from: await link(outsider.id), text: 'hi' }).done
+    const plain = JSON.stringify(lastSent()?.content)
+    expect(plain).toContain('不是对应共工群的成员')
+    expect(plain).not.toContain('申请加入')
   })
 
   it('one message @-ing two bots, delivered by both apps, is stored once and runs both', async () => {

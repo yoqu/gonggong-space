@@ -825,11 +825,11 @@ export const en = {
   '这是你自己的 Bot': 'This is your own Bot',
   '该 Bot 已共享给你': 'This Bot is already shared with you',
   '已申请，等待 Bot 主人处理': 'Already requested; waiting for the Bot owner',
-  '把这个飞书群接入共工：在共工创建对应的群并关联，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。':
-    'Connect this chat to Gonggong: create the matching group there and link it. Members who linked Feishu join automatically; then @ Bots right here.',
+  '这个飞书群还没有接入共工。点下方按钮新建或关联已有的共工群，已绑定飞书账号的成员会自动加入，之后在群里 @Bot 即可使用。':
+    "This Feishu chat isn't connected to Gonggong yet. Use the button below to create a group or link one you have; members who linked Feishu join automatically, then @ Bots right here.",
   '这个飞书群还没有接入共工。请在共工的群设置 › 飞书里关联本群。':
     "This Feishu chat isn't connected to Gonggong yet. Link it under group settings › Feishu in Gonggong.",
-  在共工创建对应群: 'Create the group in Gonggong',
+  接入共工: 'Connect to Gonggong',
   '飞书主应用没有建群权限，请系统管理员在飞书开放平台为主应用开通 im:chat:create 并发布版本':
     'The Feishu main app cannot create chats: a system admin must enable im:chat:create for it on the Feishu Open Platform and publish a version',
   '你不在该飞书群中，不能关联': "You aren't in that Feishu chat, so you can't link it",
@@ -841,6 +841,9 @@ export const en = {
   '这个 Bot 不在关联的共工群中，请先把它加入该群。':
     "This Bot isn't in the linked Gonggong group. Add it to the group first.",
   绑定飞书账号: 'Link Feishu account',
+  申请加入: 'Request to join',
+  '你还不是对应共工群的成员，不能使用这个 Bot。点「申请加入」进入共工群，加入后重新 @ 即可。':
+    "You're not a member of the linked Gonggong group, so you can't use this Bot. Click Request to join to get in, then @ the Bot again.",
   '你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。':
     "You're not a member of the linked Gonggong group, so you can't use this Bot. Ask a group admin to add you.",
   '使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。':
