@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest 7 plus the newest of each of the last 7 backup days kept.
+# Daily backup (spec §14): PostgreSQL custom-format dump + attachments tarball, newest N plus the newest of each of the last N backup days kept.
+#   GONGGONG_BACKUP_KEEP  N above (default 7)
 #   GONGGONG_BACKUP_DIR   where backups go (required)
 #   GONGGONG_DATABASE_URL or GONGGONG_DB / GONGGONG_PG_PORT   same resolution as the server
 #   GONGGONG_DATA_DIR     server data dir holding attachments/ (default .gonggong-dev/data)
@@ -9,7 +10,7 @@ set -euo pipefail
 : "${GONGGONG_BACKUP_DIR:?GONGGONG_BACKUP_DIR is required}"
 URL="${GONGGONG_DATABASE_URL:-postgres://gonggong@127.0.0.1:${GONGGONG_PG_PORT:-54329}/${GONGGONG_DB:-gonggong}}"
 DATA="${GONGGONG_DATA_DIR:-.gonggong-dev/data}"
-KEEP=7
+KEEP="${GONGGONG_BACKUP_KEEP:-7}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 mkdir -p "$GONGGONG_BACKUP_DIR"
