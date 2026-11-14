@@ -86,6 +86,14 @@ describe('管理后台 · 飞书 · 对外地址', () => {
     let url = ''
     const calls = mockApi({
       'GET /admin/feishu': { app: null },
+      'GET /admin/feishu/overview': () => ({
+        publicUrl: url,
+        main: null,
+        linkedUsers: 0,
+        othersLinked: false,
+        bots: [],
+        chats: [],
+      }),
       'GET /admin/params': () => ({ feishuAutoSignup: true, publicUrl: url }) as SystemParams,
       'PUT /admin/params': (body: unknown) => {
         url = (body as SystemParams).publicUrl
@@ -99,8 +107,9 @@ describe('管理后台 · 飞书 · 对外地址', () => {
     )
     const field = (await screen.findByLabelText('对外地址')) as HTMLInputElement
     expect(field.value).toBe(window.location.origin)
+    await screen.findByRole('heading', { name: '接入进度' })
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
-    expect(headings.slice(0, 3)).toEqual(['对外地址', '主应用', '账号'])
+    expect(headings).toEqual(['接入进度', '对外地址', '主应用', 'Bot', '飞书群', '账号'])
     const scan = screen.getByRole('button', { name: '扫码创建或接入' }) as HTMLButtonElement
     expect(scan.disabled).toBe(true)
     expect(screen.getByText('先保存对外地址')).toBeTruthy()

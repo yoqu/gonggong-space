@@ -163,3 +163,43 @@ export const FeishuRegisterDto = z.object({
   configError: z.string().nullable(),
 })
 export type FeishuRegisterDto = z.infer<typeof FeishuRegisterDto>
+
+/** A bot and its own Feishu app, on 管理后台 · 飞书. */
+export const FeishuOverviewBotDto = z.object({
+  botId: z.string(),
+  name: z.string(),
+  teamName: z.string(),
+  ownerName: z.string(),
+  app: FeishuAppDto.nullable(),
+})
+export type FeishuOverviewBotDto = z.infer<typeof FeishuOverviewBotDto>
+
+/** A group linked to a Feishu chat, on 管理后台 · 飞书. */
+export const FeishuOverviewChatDto = z.object({
+  groupId: z.string(),
+  groupName: z.string(),
+  teamName: z.string(),
+  chatName: z.string(),
+  boundAt: z.string(),
+  /** Bots whose app is in the chat; null: not asked of Feishu here (群设置 · 飞书 shows it live). */
+  botsInChat: z.number().int().nullable(),
+  botsTotal: z.number().int(),
+  /** The latest reason a bot's app could not join the chat, kept in memory since the server started. */
+  issue: FeishuIssue.nullable(),
+  /** The caller is in the group, so its settings open from here. */
+  member: z.boolean(),
+})
+export type FeishuOverviewChatDto = z.infer<typeof FeishuOverviewChatDto>
+
+/** GET /api/admin/feishu/overview (sysadmin): how far Feishu is set up, every bot's app and every linked chat. */
+export const FeishuOverviewDto = z.object({
+  publicUrl: z.string(),
+  main: FeishuAppDto.nullable(),
+  /** Accounts that linked Feishu. */
+  linkedUsers: z.number().int(),
+  /** Someone besides who connected the main app linked Feishu: the app's availability range reaches members. */
+  othersLinked: z.boolean(),
+  bots: z.array(FeishuOverviewBotDto),
+  chats: z.array(FeishuOverviewChatDto),
+})
+export type FeishuOverviewDto = z.infer<typeof FeishuOverviewDto>

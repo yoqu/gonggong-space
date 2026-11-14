@@ -6,14 +6,17 @@ import { toastError } from '../../lib/errors'
 import { Button, GroupBox, GroupRow, Switch, TextField, toast } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
+import { FeishuOverviewTables, FeishuProgress, useFeishuOverview } from './FeishuOverview'
 
 const trimUrl = (url: string) => url.trim().replace(/\/+$/, '')
 
 /**
- * 管理后台 · 飞书: the public URL first (the sign-in callback, card links and the chat invite card need it, so
- * scanning waits for it), then the system-wide main app (飞书登录, mirroring people's messages), then auto sign-up.
+ * 管理后台 · 飞书: the setup progress on top, then the public URL (the sign-in callback, card links and the chat invite card need it, so
+ * scanning waits for it), then the system-wide main app (飞书登录, mirroring people's messages), every bot's app and linked chat, then auto
+ * sign-up.
  */
 export function FeishuAdminPage() {
+  const overview = useFeishuOverview()
   const [autoSignup, setAutoSignup] = useState<boolean | null>(null)
   const [publicUrl, setPublicUrl] = useState('')
   const [urlDraft, setUrlDraft] = useState('')
@@ -32,6 +35,7 @@ export function FeishuAdminPage() {
       })
       setPublicUrl(next.publicUrl)
       setUrlDraft(next.publicUrl)
+      overview.reload()
       toast({ type: 'success', message: t('对外地址已保存') })
     } catch (e) {
       toastError(e)
@@ -55,6 +59,7 @@ export function FeishuAdminPage() {
         '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。',
       )}
     >
+      {overview.data ? <FeishuProgress data={overview.data} /> : null}
       {autoSignup !== null ? (
         <section className="admin-params">
           <h2 className="admin-params__title">{t('对外地址')}</h2>
@@ -113,6 +118,7 @@ export function FeishuAdminPage() {
           </GroupBox>
         </section>
       ) : null}
+      {overview.data ? <FeishuOverviewTables data={overview.data} reload={overview.reload} /> : null}
       {autoSignup !== null ? (
         <section className="admin-params">
           <h2 className="admin-params__title">{t('账号')}</h2>

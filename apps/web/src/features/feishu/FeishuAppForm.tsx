@@ -49,12 +49,21 @@ export function FeishuAppForm({
   path,
   removeLabel,
   blocked,
+  onChange,
 }: {
   path: string
   removeLabel: string
   blocked?: string
+  /** After the app was saved, removed, scanned or its config retried. */
+  onChange?: () => void
 }) {
-  const { app, reload, retry, retrying } = useFeishuApp(path)
+  const feishu = useFeishuApp(path)
+  const { app, retrying } = feishu
+  const reload = () => {
+    feishu.reload()
+    onChange?.()
+  }
+  const retry = () => feishu.retry().then(onChange)
   const [appId, setAppId] = useState('')
   const [appSecret, setAppSecret] = useState('')
   const [busy, setBusy] = useState(false)

@@ -1,6 +1,7 @@
 import {
   FeishuAppReq,
   type FeishuAppView,
+  type FeishuOverviewDto,
   type FeishuRegisterDto,
   FeishuRegisterReq,
 } from '@gonggong/protocol'
@@ -14,6 +15,7 @@ import { requireSysadmin, requireUser } from '../auth/session.js'
 import { appDto, botApp, mainApp, removeApp, saveApp } from './apps.js'
 import { configureApp } from './config.js'
 import type { FeishuAppRow } from './gateway.js'
+import { feishuOverview } from './overview.js'
 import { cancelRegister, registerDto, registerSession, startRegister } from './register.js'
 
 type IdParams = { Params: { id: string } }
@@ -75,6 +77,11 @@ export function feishuRoutes(ctx: Ctx) {
     app.post<IdParams>('/api/bots/:id/feishu/configure', async (req): Promise<FeishuAppView> => {
       const { bot } = await manageableBot(req, req.params.id)
       return { app: appDto(await configureApp(ctx, bound(true, await botApp(ctx, bot.id)) as FeishuAppRow)) }
+    })
+
+    app.get('/api/admin/feishu/overview', async (req): Promise<FeishuOverviewDto> => {
+      const actor = await requireSysadmin(ctx, req)
+      return feishuOverview(ctx, actor.id)
     })
 
     app.get('/api/admin/feishu', async (req): Promise<FeishuAppView> => {
