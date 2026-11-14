@@ -261,3 +261,10 @@
   font-size: var(--text-footnote-size);
   color: var(--label-secondary);
 }
+
+.feishu-url__unsaved {
+  display: block;
+  margin-top: 4px;
+  color: var(--tint-orange-text);
+  font-weight: 500;
+}

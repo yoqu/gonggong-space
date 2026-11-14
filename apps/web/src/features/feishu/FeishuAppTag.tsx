@@ -8,6 +8,7 @@ export function feishuAppState(app: FeishuAppDto | null): { label: string; tone:
   if (app.status === 'error') return { label: t('连接失败'), tone: 'red' }
   if (app.status === 'connecting') return { label: t('连接中'), tone: 'blue' }
   if (app.review === 'pending') return { label: t('等待审核'), tone: 'orange' }
+  if (app.review === 'unknown') return { label: t('待确认'), tone: 'orange' }
   return { label: t('已接通'), tone: 'green' }
 }
 

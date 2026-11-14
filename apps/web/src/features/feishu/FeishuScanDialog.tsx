@@ -116,7 +116,9 @@ export function FeishuScanDialog({
             <a href={session.url} target="_blank" rel="noreferrer">
               {t('在飞书中打开')}
             </a>
-            <span className="feishu-scan__hint">{t('{n} 秒后过期', { n: String(left) })}</span>
+            <span className="feishu-scan__hint">
+              {t('{time} 后过期', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` })}
+            </span>
           </>
         ) : null}
         {session?.status === 'expired' ? <Alert variant="warning" description={t('二维码已过期')} /> : null}

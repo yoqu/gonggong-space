@@ -86,22 +86,25 @@ export function FeishuAppSteps({
   onRetry: () => void
   full?: boolean
 }) {
+  // The status tag beside already says 已接通; only right after scanning is the range still worth a reminder.
   if (app.status === 'connected' && app.review === 'approved')
-    return (
+    return full ? (
       <div className="feishu-steps__done">
         <span className="feishu-steps__ok">
           <Icon name="checkmark-circle" size={16} />
           {t('已接通')}
         </span>
-        {full ? <RangeNote /> : null}
+        <RangeNote />
       </div>
-    )
+    ) : null
   return (
     <ul className="feishu-steps" aria-label={t('接入进度')}>
       <Step
         state={app.status === 'connected' ? 'done' : app.status === 'connecting' ? 'wait' : 'fail'}
         title={t('已保存并连上飞书')}
-      />
+      >
+        {app.error ? <span className="feishu-steps__detail">{app.error}</span> : null}
+      </Step>
       {app.review === 'approved' ? (
         <Step state="done" title={t('飞书管理员已审核通过')} />
       ) : app.review === 'pending' ? (

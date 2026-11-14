@@ -16,6 +16,7 @@ const unbound: GroupFeishuView = {
   available: true,
   mainAppName: '共工助手',
   chat: null,
+  feishuError: null,
   chats: [{ chatId: 'oc_1', name: '飞书研发群' }],
   bots: [],
   members: [],
@@ -263,7 +264,7 @@ describe('群设置 · 飞书', () => {
     const { unmount } = render(<GroupFeishuTab group={group} />)
     const link = await screen.findByRole('link', { name: '绑定飞书账号' })
     expect(link.getAttribute('href')).toContain('/api/auth/feishu/start')
-    expect(screen.getByText('「共工助手」机器人已在飞书群')).toBeTruthy()
+    expect(screen.getByText('把「共工助手」机器人拉进飞书群')).toBeTruthy()
     expect(screen.getByRole('button', { name: '复制机器人名' })).toBeTruthy()
     expect(screen.getByText('没有可关联的飞书群，先把机器人拉进群')).toBeTruthy()
     unmount()
@@ -406,6 +407,64 @@ describe('群设置 · 飞书', () => {
     fail = false
     fireEvent.click(screen.getByRole('button', { name: '重试' }))
     expect(await screen.findByRole('button', { name: '飞书群' })).toBeTruthy()
+  })
+
+  it('keeps a bound group editable when the main app fails, with the reason on top', async () => {
+    useSession.setState({ user: { id: 'u1', role: 'sysadmin' } as never, status: 'ready' })
+    const calls = mockApi({
+      'GET /groups/g1/feishu': {
+        ...unbound,
+        chats: [],
+        feishuError: { code: 10014, message: 'app secret invalid' },
+        chat: {
+          groupId: 'g1',
+          chatId: 'oc_1',
+          name: '研发群',
+          boundAt: '2026-10-01T00:00:00Z',
+          syncOutbound: true,
+          syncAll: true,
+        },
+      },
+      'PATCH /groups/g1/feishu': unbound,
+    })
+    render(
+      <MemoryRouter>
+        <GroupFeishuTab group={group} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/^飞书调用失败：/)).toBeTruthy()
+    expect(screen.getByText('飞书错误码 10014').getAttribute('title')).toBe('app secret invalid')
+    expect(screen.getByRole('link', { name: '去管理后台检查飞书' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '取消关联' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('switch', { name: '网页消息发到飞书群' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+  })
+
+  it('a failed pull-in toasts one line; the reason stays in the row', async () => {
+    const bound: GroupFeishuView = {
+      ...unbound,
+      chats: [],
+      chat: {
+        groupId: 'g1',
+        chatId: 'oc_1',
+        name: '研发群',
+        boundAt: '2026-10-01T00:00:00Z',
+        syncOutbound: true,
+        syncAll: true,
+      },
+      bots: [{ botId: 'b1', name: 'codex', appId: 'cli_b1', inChat: false, issue: null }],
+    }
+    mockApi({
+      'GET /groups/g1/feishu': bound,
+      'POST /groups/g1/feishu/bots/b1': apiError(400, 'invalid', '拉入飞书群失败：很长的原因'),
+    })
+    render(<GroupFeishuTab group={group} />)
+    expect(await screen.findByText(/^未在飞书群，回复不会同步到飞书/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '拉入飞书群' }))
+    await waitFor(() =>
+      expect(useToasts.getState().items.map((x) => x.message)).toContain('没能拉入，原因见列表'),
+    )
+    expect(useToasts.getState().items.map((x) => x.message)).not.toContain('拉入飞书群失败：很长的原因')
   })
 
   it('unbinds after confirmation', async () => {

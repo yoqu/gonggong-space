@@ -190,9 +190,26 @@ async function view(
   added: string[] = [],
 ): Promise<GroupFeishuView> {
   const main = await mainApp(ctx)
-  if (!main) return { available: false, mainAppName: null, chat: null, chats: [], bots: [], members: [] }
+  if (!main)
+    return {
+      available: false,
+      mainAppName: null,
+      chat: null,
+      feishuError: null,
+      chats: [],
+      bots: [],
+      members: [],
+    }
   let chat = await boundChat(ctx.db, groupId)
-  const all = await feishu(ctx.feishu.api.listChats(credsOf(main)))
+  // A bound group's settings need no Feishu call: when the main app fails, they stay usable and the error is shown.
+  let feishuError: FeishuIssue | null = null
+  const all = chat
+    ? await ctx.feishu.api.listChats(credsOf(main)).catch((err) => {
+        if (!(err instanceof FeishuError)) throw err
+        feishuError = issueOf(err)
+        return []
+      })
+    : await feishu(ctx.feishu.api.listChats(credsOf(main)))
   // Renamed on Feishu since binding: the stored name follows, so the group can offer to match it.
   const current = chat && all.find((c) => c.chatId === chat?.chatId)
   if (chat && current && current.name !== chat.name) {
@@ -233,6 +250,7 @@ async function view(
           syncAll: chat.syncAll,
         }
       : null,
+    feishuError,
     chats,
     bots,
     members: (await linkedMembers(ctx, groupId)).map((m) => ({

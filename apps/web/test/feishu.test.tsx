@@ -64,11 +64,11 @@ describe('管理后台 · 飞书', () => {
         <App />
       </MemoryRouter>,
     )
-    expect(await screen.findByText('未配置')).toBeTruthy()
+    expect((await screen.findAllByText('未接入')).length).toBeGreaterThan(0)
     fireEvent.change(screen.getByLabelText('App ID'), { target: { value: ' cli_main01 ' } })
     fireEvent.change(screen.getByLabelText('App Secret'), { target: { value: 'secret' } })
     fireEvent.click(screen.getByRole('button', { name: '接入' }))
-    expect(await screen.findByText('已连接')).toBeTruthy()
+    expect((await screen.findAllByText('已接通')).length).toBeGreaterThan(0)
     expect(calls.find((c) => c.method === 'PUT' && c.path === '/admin/feishu')?.body).toEqual({
       appId: 'cli_main01',
       appSecret: 'secret',
@@ -113,10 +113,12 @@ describe('管理后台 · 飞书 · 对外地址', () => {
     const scan = screen.getByRole('button', { name: '扫码创建或接入' }) as HTMLButtonElement
     expect(scan.disabled).toBe(true)
     expect(screen.getByText('先保存对外地址')).toBeTruthy()
+    expect(screen.getByText('尚未保存，预填的是当前网址')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '保存对外地址' }))
     await waitFor(() => expect(scan.disabled).toBe(false))
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ publicUrl: window.location.origin })
     expect(screen.queryByText('先保存对外地址')).toBeNull()
+    expect(screen.queryByText('尚未保存，预填的是当前网址')).toBeNull()
   })
 })
 
@@ -136,8 +138,11 @@ describe('FeishuAppForm', () => {
       'PUT /bots/b1/feishu': apiError(400, 'invalid', '飞书校验失败：app secret invalid'),
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
+    // Said once: the tag, then the reason under the step that failed.
     expect(await screen.findByText('连接失败')).toBeTruthy()
-    expect(screen.getByText('endpoint unreachable')).toBeTruthy()
+    const steps = screen.getByRole('list', { name: '接入进度' })
+    expect(within(steps).getByText('endpoint unreachable')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '更换应用…' }))
     fireEvent.change(screen.getByLabelText('App ID'), { target: { value: 'cli_bot02' } })
     fireEvent.change(screen.getByLabelText('App Secret'), { target: { value: 'x' } })
     fireEvent.click(screen.getByRole('button', { name: '更换' }))

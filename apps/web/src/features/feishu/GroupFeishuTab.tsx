@@ -1,10 +1,10 @@
-import type { BotDto, FeishuMemberSyncDto, GroupDto, GroupFeishuView } from '@gonggong/protocol'
+import type { BotDto, FeishuIssue, FeishuMemberSyncDto, GroupDto, GroupFeishuView } from '@gonggong/protocol'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { locale, t } from '../../i18n'
-import { api } from '../../lib/api'
+import { ApiError, api } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
@@ -67,6 +67,30 @@ export function FeishuLoadError({ error, onRetry }: { error: string; onRetry: ()
         {admin ? <Link to="/admin/feishu">{t('去管理后台检查飞书')}</Link> : null}
       </div>
     </Alert>
+  )
+}
+
+/** The main app cannot read the bound chat: the settings below still work, Feishu-side ones may not. */
+function FeishuCallError({ issue }: { issue: FeishuIssue }) {
+  const admin = useSysadmin()
+  return (
+    <Alert
+      variant="error"
+      description={
+        <>
+          {t('飞书调用失败：{reason}', { reason: feishuHintText(issue.code) })}
+          <span className="feishu-issue__code" title={issue.message}>
+            {t('飞书错误码 {code}', { code: issue.code })}
+          </span>
+          {admin ? (
+            <>
+              {' '}
+              <Link to="/admin/feishu">{t('去管理后台检查飞书')}</Link>
+            </>
+          ) : null}
+        </>
+      }
+    />
   )
 }
 
@@ -143,7 +167,10 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       await api.post(`${path}/bots/${botId}`, {})
       toast({ type: 'success', message: t('已拉入飞书群') })
     } catch (e) {
-      toastError(e)
+      // Feishu's refusal (400) is kept on the bot's row; saying it again here would fill the screen.
+      if (e instanceof ApiError && e.status === 400)
+        toast({ type: 'error', message: t('没能拉入，原因见列表') })
+      else toastError(e)
     } finally {
       reload()
       setBusy(false)
@@ -183,6 +210,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
 
   return (
     <>
+      {data.feishuError ? <FeishuCallError issue={data.feishuError} /> : null}
       {data.chat ? (
         <>
           <GroupBox>
@@ -274,7 +302,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           <h3 className="feishu-section">{t('关联前先确认')}</h3>
           <GroupBox>
             <GroupRow
-              label={t('你已绑定飞书账号')}
+              label={t('绑定你的飞书账号')}
               description={t('只能关联你也在的飞书群，共工靠你的飞书账号确认')}
             >
               {linked ? (
@@ -289,12 +317,14 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
               )}
             </GroupRow>
             <GroupRow
-              label={t('{bot}已在飞书群', { bot: botLabel(data.mainAppName) })}
+              label={t('把{bot}拉进飞书群', { bot: botLabel(data.mainAppName) })}
               description={t(
                 '在飞书群设置 › 群机器人里添加。添加后群里会出现接入卡片，也可以直接点卡片完成关联',
               )}
             >
-              {data.mainAppName ? (
+              {data.chats.length ? (
+                <Tag tone="green">{t('已在群中')}</Tag>
+              ) : data.mainAppName ? (
                 <Button
                   size="small"
                   onClick={() =>
@@ -306,7 +336,9 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
                 >
                   {t('复制机器人名')}
                 </Button>
-              ) : null}
+              ) : (
+                <Tag tone="gray">{t('尚未加入')}</Tag>
+              )}
             </GroupRow>
           </GroupBox>
           <h3 className="feishu-section">{t('选择飞书群')}</h3>
@@ -341,13 +373,6 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </GroupBox>
         </>
       )}
-      {data.chat && data.bots.some((b) => b.appId && !b.inChat && !b.issue) ? (
-        <div className="gs-note">
-          {t(
-            '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布；仍不行请联系系统管理员检查飞书应用权限。',
-          )}
-        </div>
-      ) : null}
       {data.chat && data.bots.length ? (
         <>
           <h3 className="feishu-section">{t('群里的 Bot')}</h3>
@@ -369,7 +394,9 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
                         </span>
                       </>
                     ) : (
-                      t('未在飞书群 · 回复不会同步到飞书')
+                      t(
+                        '未在飞书群，回复不会同步到飞书。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布',
+                      )
                     )
                   }
                 >

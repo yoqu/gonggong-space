@@ -100,7 +100,12 @@ describe('扫码创建或接入', () => {
     expect(within(dialog).getByRole('link', { name: '打开飞书管理后台' })).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '完成' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(await screen.findByText('已连接')).toBeTruthy()
+    // Connected and approved: one status line, scanning again tucked behind 更换应用….
+    expect(await screen.findByText('已接通')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '扫码创建或接入' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '更换应用…' }))
+    expect(screen.getByRole('button', { name: '扫码创建或接入' }).className).not.toContain('primary')
+    expect(screen.getByLabelText('App ID')).toBeTruthy()
   })
 
   it('lists what is left while the first version awaits approval, and retries it', async () => {
@@ -125,7 +130,8 @@ describe('扫码创建或接入', () => {
       },
     })
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或接入' }))
+    fireEvent.click(await screen.findByRole('button', { name: '更换应用…' }))
+    fireEvent.click(screen.getByRole('button', { name: '扫码创建或接入' }))
     const dialog = await screen.findByRole('dialog')
     const steps = await within(dialog).findByRole('list', { name: '接入进度' })
     expect(within(steps).getByText('等待企业飞书管理员审核，通过后自动完成，无需回来操作')).toBeTruthy()
@@ -141,6 +147,9 @@ describe('扫码创建或接入', () => {
     render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
     const steps = await screen.findByRole('list', { name: '接入进度' })
     expect(within(steps).getByText('请在飞书开发者后台确认已发布')).toBeTruthy()
+    // The status tag tells the same: not 已接通 until confirmed.
+    expect(screen.getAllByText('待确认').length).toBeGreaterThan(0)
+    expect(screen.queryByText('已接通')).toBeNull()
   })
 
   it('更新权限 re-confirms the bound app; closing cancels the session', async () => {

@@ -175,6 +175,26 @@ describe('群设置 · 飞书 binding', () => {
     expect(t.feishu.botsAdded).toEqual([{ appId: MAIN, chatId: CHAT, botAppId: BOT_APP }])
   })
 
+  it('a bound group stays editable when the main app cannot reach Feishu, saying why', async () => {
+    const { ownerHttp, group, bot } = await setup()
+    t.feishu.invalid.add(MAIN)
+    const view = await ownerHttp.get<GroupFeishuView>(`/api/groups/${group.id}/feishu`)
+    expect(view.status).toBe(200)
+    expect(view.body).toMatchObject({
+      chat: { chatId: CHAT, name: '研发群' },
+      feishuError: { code: 10014, message: 'app secret invalid' },
+      bots: [{ botId: bot.id, inChat: true }],
+    })
+    const patched = await ownerHttp.patch<GroupFeishuView>(`/api/groups/${group.id}/feishu`, {
+      syncAll: true,
+    })
+    expect(patched.status).toBe(200)
+    expect(patched.body.chat?.syncAll).toBe(true)
+    expect((await ownerHttp.del(`/api/groups/${group.id}/feishu`)).status).toBe(204)
+    // Unbound, there is nothing to show without Feishu: the error stands.
+    expect((await ownerHttp.get(`/api/groups/${group.id}/feishu`)).status).toBe(400)
+  })
+
   it('binding an existing chat adds the bot apps missing from it, a refused one left to 拉入飞书群', async () => {
     const { ownerHttp, group, bot } = await setup({ bind: false })
     t.feishu.chats.set(BOT_APP, [])
@@ -323,6 +343,7 @@ describe('群设置 · 飞书 binding', () => {
       available: false,
       mainAppName: null,
       chat: null,
+      feishuError: null,
       chats: [],
       bots: [],
       members: [],

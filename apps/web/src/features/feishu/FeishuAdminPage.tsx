@@ -66,9 +66,16 @@ export function FeishuAdminPage() {
           <GroupBox>
             <GroupRow
               label={t('对外地址')}
-              description={t(
-                '浏览器访问共工的地址，如 https://gonggong.example.com；飞书卡片中的链接和飞书登录回调都基于它。',
-              )}
+              description={
+                <>
+                  {t(
+                    '浏览器访问共工的地址，如 https://gonggong.example.com；飞书卡片中的链接和飞书登录回调都基于它。',
+                  )}
+                  {publicUrl ? null : (
+                    <span className="feishu-url__unsaved">{t('尚未保存，预填的是当前网址')}</span>
+                  )}
+                </>
+              }
             >
               <span className="gs-value-line">
                 <TextField
@@ -79,6 +86,7 @@ export function FeishuAdminPage() {
                 />
                 <Button
                   size="small"
+                  variant={publicUrl ? undefined : 'primary'}
                   aria-label={t('保存对外地址')}
                   disabled={trimUrl(urlDraft) === publicUrl}
                   onClick={() => void saveUrl()}

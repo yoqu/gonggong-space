@@ -98,6 +98,8 @@ export const GroupFeishuView = z.object({
   /** The main app's bot name in Feishu: chats are listed only where it is a member. */
   mainAppName: z.string().nullable(),
   chat: FeishuChatDto.nullable(),
+  /** Why the main app could not read the bound chat (e.g. its secret was revoked); the settings stay usable. */
+  feishuError: FeishuIssue.nullable(),
   /** The main app's chats not bound to another group, to pick from. */
   chats: z.array(z.object({ chatId: z.string(), name: z.string() })),
   bots: z.array(GroupFeishuBotDto),

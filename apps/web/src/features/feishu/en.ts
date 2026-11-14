@@ -2,8 +2,6 @@ export default {
   飞书: 'Feishu',
   连接中: 'Connecting',
   连接失败: 'Connection failed',
-  未配置: 'Not configured',
-  留空保持不变: 'Leave blank to keep',
   更换: 'Replace',
   '接入#verb': 'Connect',
   飞书应用已保存: 'Feishu app saved',
@@ -72,9 +70,8 @@ export default {
   已在群中: 'In the chat',
   拉入飞书群: 'Add to chat',
   已拉入飞书群: 'Added to the Feishu chat',
-  '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布；仍不行请联系系统管理员检查飞书应用权限。':
-    'Replies of Bots not in the chat do not reach Feishu; click "Add to chat". If that fails, check that the chat allows adding bots and the Bot\'s Feishu app is published; otherwise ask the system admin to check the Feishu app permissions.',
-  '未在飞书群 · 回复不会同步到飞书': 'Not in the chat · replies do not reach Feishu',
+  '未在飞书群，回复不会同步到飞书。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布':
+    "Not in the chat, so replies don't reach Feishu. If adding fails, check that the chat allows bots and that the bot's Feishu app is published",
   取消关联飞书群: 'Unlink Feishu chat',
   '确定取消关联飞书群 {name}？': 'Unlink Feishu chat {name}?',
   '飞书群里 @Bot 将不再触发运行': '@ mentions of bots in the Feishu chat no longer start runs',
@@ -91,7 +88,7 @@ export default {
   '用飞书扫码，确认后自动完成配置': 'Scan with Feishu and confirm there; setup finishes automatically',
   飞书扫码: 'Scan with Feishu',
   在飞书中打开: 'Open in Feishu',
-  '{n} 秒后过期': 'Expires in {n}s',
+  '{time} 后过期': 'Expires in {time}',
   二维码已过期: 'The QR code has expired',
   '已与飞书群「{name}」同步，点击在飞书中打开':
     'Synced with the Feishu chat “{name}”; click to open it in Feishu',
@@ -157,12 +154,12 @@ export default {
   '「{name}」机器人': 'the bot "{name}"',
   共工机器人: 'the Gonggong bot',
   关联前先确认: 'Before linking',
-  你已绑定飞书账号: 'You linked your Feishu account',
+  绑定你的飞书账号: 'Link your Feishu account',
   '只能关联你也在的飞书群，共工靠你的飞书账号确认':
     'You can only link a chat you are in; Gonggong checks that with your Feishu account',
   '已绑定#feishu': 'Linked',
   绑定飞书账号: 'Link Feishu account',
-  '{bot}已在飞书群': '{bot} is in the Feishu chat',
+  '把{bot}拉进飞书群': 'Add {bot} to the Feishu chat',
   '在飞书群设置 › 群机器人里添加。添加后群里会出现接入卡片，也可以直接点卡片完成关联':
     "Add it under the chat's settings › Bots. A card then appears in the chat; you can also link from that card",
   复制机器人名: 'Copy bot name',
@@ -221,5 +218,10 @@ export default {
   打开群: 'Open group',
   '读取飞书群信息失败：{reason}': "Couldn't load Feishu chat info: {reason}",
   去管理后台检查飞书: 'Check Feishu in Admin',
+  '更换应用…': 'Replace app…',
+  '飞书调用失败：{reason}': 'Feishu call failed: {reason}',
+  '没能拉入，原因见列表': "Couldn't add it; see the list for why",
+  '尚未保存，预填的是当前网址': 'Not saved yet; prefilled with this page’s address',
+  尚未加入: 'Not added yet',
   去管理后台接入: 'Set it up in Admin',
 } satisfies Record<string, string>

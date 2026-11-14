@@ -1,19 +1,10 @@
-import type { FeishuAppDto, FeishuAppStatus, FeishuAppView } from '@gonggong/protocol'
+import type { FeishuAppView } from '@gonggong/protocol'
 import { lazy, Suspense, useState } from 'react'
 import { locale, t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import {
-  Alert,
-  Button,
-  ConfirmActionDialog,
-  Presence,
-  SecureField,
-  Tag,
-  type TagTone,
-  TextField,
-  toast,
-} from '../../ui'
+import { Alert, Button, ConfirmActionDialog, Presence, SecureField, TextField, toast } from '../../ui'
 import { FeishuAppSteps, useFeishuApp } from './FeishuAppSteps'
+import { FeishuAppTag } from './FeishuAppTag'
 import './feishu.css'
 
 // The QR code library is only needed once someone scans.
@@ -23,27 +14,10 @@ const FeishuScanDialog = lazy(() =>
 
 const GUIDE = `https://yoqu.github.io/gonggong-space/${locale === 'en' ? 'en/' : ''}admin/feishu`
 
-const STATUS: Record<FeishuAppStatus, { label: string; tone: TagTone }> = {
-  connecting: { label: t('连接中'), tone: 'blue' },
-  connected: { label: t('已连接'), tone: 'green' },
-  error: { label: t('连接失败'), tone: 'red' },
-}
-
-/** Connection state and its error, the one place a Feishu app's problems show up. */
-export function FeishuAppStatusLine({ app }: { app: FeishuAppDto }) {
-  const s = STATUS[app.status]
-  return (
-    <div className="feishu-app__status">
-      <Tag tone={s.tone}>{s.label}</Tag>
-      <span className="feishu-app__id">{app.appId}</span>
-      {app.error ? <Alert variant="error" description={app.error} /> : null}
-    </div>
-  )
-}
-
 /**
  * App ID / App Secret of one Feishu app at `path` (GET/PUT/DELETE FeishuAppView). The secret is write-only:
- * leaving it empty keeps showing the saved app, filling both replaces it. `blocked` says why scanning must wait.
+ * leaving it empty keeps showing the saved app, filling both replaces it. `blocked` says why scanning must wait. A saved
+ * app folds the scan and manual fields behind 更换应用…: scanning again replaces it, so it must not be the first thing seen.
  */
 export function FeishuAppForm({
   path,
@@ -70,6 +44,7 @@ export function FeishuAppForm({
   const [error, setError] = useState('')
   const [removing, setRemoving] = useState(false)
   const [scan, setScan] = useState<'create' | 'update' | null>(null)
+  const [replacing, setReplacing] = useState(false)
 
   const save = async () => {
     setBusy(true)
@@ -78,6 +53,7 @@ export function FeishuAppForm({
       await api.put<FeishuAppView>(path, { appId: appId.trim(), appSecret: appSecret.trim() })
       setAppId('')
       setAppSecret('')
+      setReplacing(false)
       reload()
       toast({ type: 'success', message: t('飞书应用已保存') })
     } catch (e) {
@@ -89,54 +65,77 @@ export function FeishuAppForm({
 
   return (
     <div className="feishu-app">
-      {app ? <FeishuAppStatusLine app={app} /> : <span className="feishu-app__unset">{t('未配置')}</span>}
+      <div className="feishu-app__status">
+        <FeishuAppTag app={app} />
+        {app ? <span className="feishu-app__id">{app.appId}</span> : null}
+      </div>
       {app ? <FeishuAppSteps app={app} retrying={retrying} onRetry={() => void retry()} /> : null}
-      <div className="feishu-app__actions">
-        <Button size="small" variant="primary" disabled={!!blocked} onClick={() => setScan('create')}>
-          {t('扫码创建或接入')}
-        </Button>
-        {app ? (
-          <Button size="small" variant="plain" disabled={!!blocked} onClick={() => setScan('update')}>
+      {app && !replacing ? (
+        <div className="feishu-app__actions">
+          <Button size="small" disabled={!!blocked} onClick={() => setScan('update')}>
             {t('更新权限')}
           </Button>
-        ) : null}
-        {blocked ? <span className="feishu-app__blocked">{blocked}</span> : null}
-        <span className="feishu-app__or">{t('或手动填写已有应用的凭证')}</span>
-        <a className="feishu-app__guide" href={GUIDE} target="_blank" rel="noreferrer">
-          {t('飞书后台配置说明')}
-        </a>
-      </div>
-      <div className="feishu-app__fields">
-        <TextField
-          aria-label="App ID"
-          placeholder={app ? app.appId : 'cli_…'}
-          autoComplete="off"
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-        />
-        <SecureField
-          aria-label="App Secret"
-          placeholder={app ? t('留空保持不变') : 'App Secret'}
-          autoComplete="new-password"
-          value={appSecret}
-          onChange={(e) => setAppSecret(e.target.value)}
-        />
-      </div>
-      {error ? <Alert variant="error" description={error} /> : null}
-      <div className="feishu-app__actions">
-        <Button
-          size="small"
-          disabled={busy || !appId.trim() || !appSecret.trim()}
-          onClick={() => void save()}
-        >
-          {app ? t('更换') : t('接入#verb')}
-        </Button>
-        {app ? (
+          <Button size="small" variant="plain" onClick={() => setReplacing(true)}>
+            {t('更换应用…')}
+          </Button>
           <Button size="small" variant="plain" onClick={() => setRemoving(true)}>
             {removeLabel}
           </Button>
-        ) : null}
-      </div>
+          {blocked ? <span className="feishu-app__blocked">{blocked}</span> : null}
+          <a className="feishu-app__guide" href={GUIDE} target="_blank" rel="noreferrer">
+            {t('飞书后台配置说明')}
+          </a>
+        </div>
+      ) : (
+        <>
+          <div className="feishu-app__actions">
+            <Button
+              size="small"
+              variant={app ? undefined : 'primary'}
+              disabled={!!blocked}
+              onClick={() => setScan('create')}
+            >
+              {t('扫码创建或接入')}
+            </Button>
+            {blocked ? <span className="feishu-app__blocked">{blocked}</span> : null}
+            <span className="feishu-app__or">{t('或手动填写已有应用的凭证')}</span>
+            <a className="feishu-app__guide" href={GUIDE} target="_blank" rel="noreferrer">
+              {t('飞书后台配置说明')}
+            </a>
+          </div>
+          <div className="feishu-app__fields">
+            <TextField
+              aria-label="App ID"
+              placeholder={app ? app.appId : 'cli_…'}
+              autoComplete="off"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+            />
+            <SecureField
+              aria-label="App Secret"
+              placeholder="App Secret"
+              autoComplete="new-password"
+              value={appSecret}
+              onChange={(e) => setAppSecret(e.target.value)}
+            />
+          </div>
+          {error ? <Alert variant="error" description={error} /> : null}
+          <div className="feishu-app__actions">
+            <Button
+              size="small"
+              disabled={busy || !appId.trim() || !appSecret.trim()}
+              onClick={() => void save()}
+            >
+              {app ? t('更换') : t('接入#verb')}
+            </Button>
+            {app ? (
+              <Button size="small" variant="plain" onClick={() => setReplacing(false)}>
+                {t('取消')}
+              </Button>
+            ) : null}
+          </div>
+        </>
+      )}
       <Presence>
         {scan ? (
           <Suspense fallback={null}>
@@ -144,7 +143,10 @@ export function FeishuAppForm({
               path={path}
               update={scan === 'update'}
               onClose={() => setScan(null)}
-              onDone={reload}
+              onDone={() => {
+                setReplacing(false)
+                reload()
+              }}
             />
           </Suspense>
         ) : null}
