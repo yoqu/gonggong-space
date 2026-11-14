@@ -40,6 +40,8 @@ export const botsText = (s: Pick<ScheduleDto, 'botIds' | 'runOptions'>, names: s
     .map((id, i) => {
       const pick = s.runOptions[id]
       const name = names[i] ?? ''
-      return pick ? `${name}（${agentConfigLabel(null, pick.model ?? null, pick.effort ?? null)}）` : name
+      return pick
+        ? `${name}（${agentConfigLabel(null, pick.model ?? null, pick.effort ?? null, (key) => t.text({ key }))}）`
+        : name
     })
     .join(' → ')

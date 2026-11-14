@@ -196,7 +196,7 @@ export default {
   '连 @ 也不提醒；待审批和向我提问仍提醒': 'Skips even mentions; approvals and questions for you still alert',
   '已取消 {name} 的管理员': 'Removed {name} as admin',
   '已将 {name} 设为管理员': 'Made {name} an admin',
-  '已添加 {n} 人': 'Added {n:person|people}',
+  '已添加 {n} 人': 'Added {n} {n:person|people}',
   没有匹配的成员: 'No matching members',
   群公告已发布: 'Notice posted',
   群公告已清空: 'Notice cleared',

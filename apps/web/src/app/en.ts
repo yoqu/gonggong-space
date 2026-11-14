@@ -105,6 +105,7 @@ export default {
   '已完成 · {n}': 'Done · {n}',
   取消星标: 'Unstar',
   加星标: 'Star',
+  '星标#section': 'Starred',
   频道: 'Channels',
   私信: 'Direct messages',
   移到分区: 'Move to section',

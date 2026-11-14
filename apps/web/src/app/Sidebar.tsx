@@ -543,7 +543,7 @@ type Section = {
   depth: number
   children: Section[]
 }
-const BUILT_IN: Record<BuiltIn, string> = { star: t('星标'), group: t('频道'), dm: t('私信') }
+const BUILT_IN: Record<BuiltIn, string> = { star: t('星标#section'), group: t('频道'), dm: t('私信') }
 const SPACES = 'space'
 /** Team sections' keys, apart from my own sections' ids. */
 const TEAM = 't:'

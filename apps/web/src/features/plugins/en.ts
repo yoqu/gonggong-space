@@ -22,7 +22,7 @@ export default {
   设计系统分类: 'Design system categories',
   搜索设计系统: 'Search design systems',
   没有匹配的设计系统: 'No matching design systems',
-  '{desc} · {n} 个模板': '{desc} · {n:template|templates}',
+  '{desc} · {n} 个模板': '{desc} · {n} {n:template|templates}',
   '决定颜色、字体和组件样式，只对这一次创作生效。':
     'Sets colors, fonts and component styles, for this creation only.',
   '这个插件没有设计系统，由 AI 自由发挥': 'This plugin has no design systems; AI picks the style',

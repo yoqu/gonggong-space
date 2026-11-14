@@ -1,18 +1,11 @@
-import {
-  agentConfigLabel,
-  type BotDto,
-  fitEffort,
-  type GroupDto,
-  parseMentions,
-  type RunConfigPick,
-} from '@gonggong/protocol'
+import { type BotDto, fitEffort, type GroupDto, parseMentions, type RunConfigPick } from '@gonggong/protocol'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Icon, MenuButton, type MenuItem } from '../../ui'
-import { effortOptions, modelOptions, useBotCatalog, withModel } from '../bots/AgentConfig'
+import { agentLabel, effortOptions, modelOptions, useBotCatalog, withModel } from '../bots/AgentConfig'
 import './run-config.css'
 
 export type Picks = Record<string, RunConfigPick>
@@ -98,7 +91,7 @@ export function RunConfigChip({
   const saved = { model: state?.model ?? bot.model, effort: state?.effort ?? bot.effort }
   const model = pick?.model !== undefined ? pick.model : saved.model
   const effort = fitEffort(catalog, model, pick?.effort !== undefined ? pick.effort : saved.effort)
-  const label = agentConfigLabel(catalog, model ?? catalog?.current ?? null, effort)
+  const label = agentLabel(catalog, model ?? catalog?.current ?? null, effort)
   const text = message ? `${bot.name} · ${label}` : label
   const name = t('{name} 的模型与推理强度', { name: bot.name })
   if (!editable || !live)

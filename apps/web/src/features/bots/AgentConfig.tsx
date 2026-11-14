@@ -1,5 +1,6 @@
 import {
   type AgentCatalog,
+  agentConfigLabel,
   type BotCatalogDto,
   effortName,
   fitEffort,
@@ -16,6 +17,11 @@ export interface AgentConfig {
   model: string | null
   effort: string | null
 }
+
+const effortLabel = (value: string) => t.text({ key: effortName(value) })
+/** `agentConfigLabel` in the reader's language. */
+export const agentLabel = (catalog: AgentCatalog | null, model: string | null, effort: string | null) =>
+  agentConfigLabel(catalog, model, effort, (key) => t.text({ key }))
 
 /** `默认（Sonnet）` when the adapter names the model a fresh session starts with. */
 export const defaultModelLabel = (catalog: AgentCatalog | null) =>
@@ -36,8 +42,8 @@ export function effortOptions(catalog: AgentCatalog | null, model: string | null
   const m = catalog && modelEfforts(catalog, model)
   if (!m?.efforts.length) return []
   return [
-    { value: '', label: m.effort ? t('默认（{name}）', { name: effortName(m.effort) }) : t('默认') },
-    ...m.efforts.map((e) => ({ value: e.value, label: effortName(e.value) })),
+    { value: '', label: m.effort ? t('默认（{name}）', { name: effortLabel(m.effort) }) : t('默认') },
+    ...m.efforts.map((e) => ({ value: e.value, label: effortLabel(e.value) })),
   ]
 }
 

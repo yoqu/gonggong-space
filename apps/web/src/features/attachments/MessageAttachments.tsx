@@ -1,4 +1,4 @@
-import type { Attachment, MessageDto } from '@gonggong/protocol'
+import { type Attachment, type MessageDto, RECALLED_QUOTE } from '@gonggong/protocol'
 import { type CSSProperties, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { cx } from '../../lib/cx'
@@ -39,7 +39,8 @@ export function MessageQuote({ quote }: { quote: MessageDto['quote'] }) {
     >
       <b>{t('引用 {who}', { who: quote.who })}</b>
       {t('：')}
-      <span>{quote.text}</span>
+      {/* The server stores a recalled message's quote as this Chinese placeholder. */}
+      <span>{quote.text === RECALLED_QUOTE ? t('该消息已撤回') : quote.text}</span>
     </div>
   )
 }

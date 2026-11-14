@@ -1,7 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createTranslator, protocolEn, resolveLocale } from '../src/index.js'
+import {
+  agentConfigLabel,
+  createTranslator,
+  effortName,
+  protocolEn,
+  resolveLocale,
+  SYSTEM_PARAM_VIEW,
+} from '../src/index.js'
 
 describe('i18n', () => {
   it('resolves locale tags, defaulting to Chinese', () => {
@@ -37,6 +44,26 @@ describe('i18n', () => {
     expect(createTranslator('en', en)('关闭#off')).toBe('Off')
     expect(createTranslator('zh', en)('关闭#off')).toBe('关闭')
     expect(createTranslator('en', {}).text({ key: '关闭#off' })).toBe('关闭')
+  })
+
+  it('labels the agent config in the reader language, keeping model and unknown effort names', () => {
+    const t = createTranslator('en', protocolEn)
+    const tr = (key: string) => t.text({ key })
+    const catalog = { current: null, models: [{ value: 'opus', name: 'Opus' }] } as never
+    expect(agentConfigLabel(null, null, 'medium', tr)).toBe('Default model · Medium')
+    expect(agentConfigLabel(catalog, 'opus', 'xhigh', tr)).toBe('Opus · Extra high')
+    expect(agentConfigLabel(null, 'gpt-5', 'turbo', tr)).toBe('gpt-5 · turbo')
+    expect(agentConfigLabel(null, null, 'none')).toBe('默认模型 · 关闭')
+    expect(
+      ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+        .map(effortName)
+        .filter((k) => !(k in protocolEn)),
+    ).toEqual([])
+  })
+
+  it('has English for every system parameter label and unit', () => {
+    const keys = SYSTEM_PARAM_VIEW.flatMap((v) => [v.label, v.unit]).filter((k) => !/^[\x20-\x7e]+$/.test(k))
+    expect(keys.filter((k) => !(k in protocolEn))).toEqual([])
   })
 
   it('has English for every sync failure reason the daemon sends as a template', () => {

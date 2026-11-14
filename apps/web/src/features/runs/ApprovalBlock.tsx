@@ -125,6 +125,22 @@ function riskTags(a: ApprovalMcp['annotations']): [string, TagTone][] {
   return tags
 }
 
+function RiskTags({ mcp }: { mcp: ApprovalMcp }) {
+  return riskTags(mcpTool(mcp).annotations).map(([label, tone]) => (
+    <Tag key={label} tone={tone}>
+      {label}
+    </Tag>
+  ))
+}
+
+/** Too risky to be approved in a batch: the owner decides it on its own. */
+const risky = (x: ApprovalDto) => {
+  const an = x.mcp ? mcpTool(x.mcp).annotations : undefined
+  return (
+    (!!an?.destructiveHint && !an.readOnlyHint) || x.review?.risk === 'high' || x.review?.risk === 'critical'
+  )
+}
+
 /** An MCP tool call: what the tool says it does, then the arguments of this call. */
 function McpRequest({ mcp, detail }: { mcp: ApprovalMcp; detail: string }) {
   const tool = mcpTool(mcp)
@@ -133,11 +149,7 @@ function McpRequest({ mcp, detail }: { mcp: ApprovalMcp; detail: string }) {
   return (
     <>
       <div className="approval__review">
-        {riskTags(tool.annotations).map(([label, tone]) => (
-          <Tag key={label} tone={tone}>
-            {label}
-          </Tag>
-        ))}
+        <RiskTags mcp={mcp} />
         <span>{t('来自 MCP「{server}」', { server: mcp.server })}</span>
       </div>
       {tool.description ? <div className="approval__desc">{tool.description}</div> : null}
@@ -259,8 +271,15 @@ export function ApprovalCard({
         <div className="approval__others">
           <div className="approval__why">{t('还有 {n} 个请求在等待：', { n: others.length })}</div>
           {others.map((x) => (
-            <div key={x.id} className="approval__cmd">
-              {x.mcp ? mcpTool(x.mcp).label : x.detail}
+            <div key={x.id} className="approval__cmd" data-mcp={x.mcp ? '' : undefined}>
+              {x.mcp ? (
+                <>
+                  <span>{mcpTool(x.mcp).label}</span>
+                  <RiskTags mcp={x.mcp} />
+                </>
+              ) : (
+                x.detail
+              )}
             </div>
           ))}
         </div>
@@ -275,6 +294,14 @@ export function ApprovalCard({
             onClick={() => allow && decide(allow)}
           >
             {t('批准')}
+          </Button>
+          <Button
+            size="small"
+            disabled={!mine || !!busy || !reject}
+            loading={!!reject && busy === reject.optionId}
+            onClick={() => reject && decide(reject)}
+          >
+            {t('拒绝#reject')}
           </Button>
           {allow && a.rememberSession.length > 0 && (
             <Button
@@ -308,19 +335,14 @@ export function ApprovalCard({
               {t('本次运行免审批')}
             </Button>
           )}
-          <Button
-            size="small"
-            disabled={!mine || !!busy || !reject}
-            loading={!!reject && busy === reject.optionId}
-            onClick={() => reject && decide(reject)}
-          >
-            {t('拒绝#reject')}
-          </Button>
-          {others.length > 0 && (
-            <Button size="small" disabled={!mine || !!busy} loading={busy === 'all'} onClick={approveAll}>
-              {t('全部批准（{n}）', { n: others.length + 1 })}
-            </Button>
-          )}
+          {others.length > 0 &&
+            ([a, ...others].some(risky) ? (
+              <span className="approval__hint">{t('含可能删除数据或高风险的请求，请逐个审批')}</span>
+            ) : (
+              <Button size="small" disabled={!mine || !!busy} loading={busy === 'all'} onClick={approveAll}>
+                {t('全部批准（{n}）', { n: others.length + 1 })}
+              </Button>
+            ))}
           {a.rememberSession.length > 0 && a.rememberSession.join() !== a.remember.join() && (
             <span className="approval__hint">
               {t('本次会话不再问：{rules}', { rules: rules(a.rememberSession) })}

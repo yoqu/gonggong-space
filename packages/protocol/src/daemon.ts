@@ -88,11 +88,17 @@ const EFFORT_NAMES: Record<string, string> = {
 export const effortName = (value: string) => EFFORT_NAMES[value] ?? value
 export const modelName = (catalog: AgentCatalog | null, value: string) =>
   catalog?.models.find((m) => m.value === value)?.name ?? value
-/** e.g. `Opus · 高`; a null model reads as 默认模型. */
-export const agentConfigLabel = (catalog: AgentCatalog | null, model: string | null, effort: string | null) =>
-  [model === null ? '默认模型' : modelName(catalog, model), ...(effort ? [effortName(effort)] : [])].join(
-    ' · ',
-  )
+/** e.g. `Opus · 高`; a null model reads as 默认模型. `tr` translates the Chinese parts; model names stay. */
+export const agentConfigLabel = (
+  catalog: AgentCatalog | null,
+  model: string | null,
+  effort: string | null,
+  tr = (key: string) => key,
+) =>
+  [
+    model === null ? tr('默认模型') : modelName(catalog, model),
+    ...(effort ? [tr(effortName(effort))] : []),
+  ].join(' · ')
 
 export const AgentInfo = z.object({
   kind: AgentKind,

@@ -58,8 +58,8 @@ export default {
   本次会话不再问: "Don't ask again this session",
   '本次会话不再问：{rules}': "Won't ask again this session: {rules}",
   '全部批准（{n}）': 'Approve all ({n})',
-  '展开全部（{n} 字）': 'Show all ({n:character|characters})',
-  '还有 {n} 个请求在等待：': '{n:request is|requests are} waiting too:',
+  '展开全部（{n} 字）': 'Show all ({n} {n:character|characters})',
+  '还有 {n} 个请求在等待：': '{n} more {n:request is|requests are} waiting:',
   'AI 预审认为有风险': 'The AI pre-review flagged a risk',
   'AI 预审超时': 'The AI pre-review timed out',
   'AI 预审没有给出结论': 'The AI pre-review gave no verdict',
@@ -349,6 +349,8 @@ export default {
   '分项在本轮结束后统计。': 'Items are counted when the run ends.',
   '其余 {n} 项': '{n} more',
   '“{q}”': '“{q}”',
-  '已搜索 {n} 个网站': 'Searched {n:site|sites}',
-  '已访问 {n} 个网页': 'Visited {n:page|pages}',
+  '已搜索 {n} 个网站': 'Searched {n} {n:site|sites}',
+  '已访问 {n} 个网页': 'Visited {n} {n:page|pages}',
+  '含可能删除数据或高风险的请求，请逐个审批':
+    'Includes requests that may delete data or are high risk; decide them one by one',
 } satisfies Record<string, string>

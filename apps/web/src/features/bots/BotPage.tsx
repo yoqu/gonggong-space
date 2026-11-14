@@ -1,12 +1,11 @@
-import {
-  agentConfigLabel,
-  type BotDto,
-  type BotPlaceDto,
-  type FeishuAppView,
-  type UsageDayDto,
-  type UsageRowDto,
-  type UserBriefDto,
-  type UserDto,
+import type {
+  BotDto,
+  BotPlaceDto,
+  FeishuAppView,
+  UsageDayDto,
+  UsageRowDto,
+  UserBriefDto,
+  UserDto,
 } from '@gonggong/protocol'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -19,6 +18,7 @@ import { Button, ChatHeader, Tag } from '../../ui'
 import { RUN_STATUS } from '../chat/TimelineItems'
 import { stepText } from '../runs/mcp'
 import { Trend, TZ, UsageBars, WINDOW } from '../usage/UsagePage'
+import { agentLabel } from './AgentConfig'
 import { approvalText } from './ApprovalFields'
 import { BotAvatar, botRole, roleOf } from './avatars'
 import { type BotTab, BotWarning } from './BotSettings'
@@ -255,7 +255,7 @@ function Profile({
             {agentCliVersion(bot)}
           </span>,
         ],
-        [t('模型'), agentConfigLabel(bot.catalog, bot.model, bot.effort)],
+        [t('模型'), agentLabel(bot.catalog, bot.model, bot.effort)],
         ...(canEdit
           ? ([
               [

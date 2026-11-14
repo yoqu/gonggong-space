@@ -248,7 +248,9 @@ export function ParamsPage() {
             <h2 className="admin-params__title">{g.title}</h2>
             <GroupBox>
               {g.keys.map((key) => {
-                const { label, unit } = VIEW.get(key) as (typeof SYSTEM_PARAM_VIEW)[number]
+                const view = VIEW.get(key) as (typeof SYSTEM_PARAM_VIEW)[number]
+                const label = t.text({ key: view.label })
+                const unit = t.text({ key: view.unit })
                 const edited = changed.some((c) => c.key === key)
                 return (
                   <GroupRow

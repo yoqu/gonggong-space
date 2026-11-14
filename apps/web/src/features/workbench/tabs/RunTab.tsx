@@ -1,5 +1,4 @@
 import {
-  agentConfigLabel,
   type DiffScope,
   type RunDetailDto,
   type RunDto,
@@ -37,6 +36,7 @@ import {
   Toolbar,
   toast,
 } from '../../../ui'
+import { agentLabel } from '../../bots/AgentConfig'
 import { BotAvatar, useBotCostume } from '../../bots/avatars'
 import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
 import { DiffPane } from '../../diff/DiffPane'
@@ -333,11 +333,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
               <Icon name="cpu" size={14} />
               <span className="run-tab__val">
                 {run.model || run.effort
-                  ? agentConfigLabel(
-                      bot?.catalog ?? null,
-                      run.model ?? bot?.catalog?.current ?? null,
-                      run.effort,
-                    )
+                  ? agentLabel(bot?.catalog ?? null, run.model ?? bot?.catalog?.current ?? null, run.effort)
                   : t('默认')}
               </span>
             </span>

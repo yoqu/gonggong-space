@@ -28,7 +28,7 @@ export default {
   '如：发布流程、接口命名约定': 'e.g. Release process, API naming conventions',
   标签: 'Tags',
   '回车添加，最多 {n} 个': 'Press Enter to add, up to {n}',
-  '最多 {n} 个标签': 'Up to {n:tag|tags}',
+  '最多 {n} 个标签': 'Up to {n} {n:tag|tags}',
   正文视图: 'Body view',
   '支持 Markdown · {n}/{max} 字': 'Markdown · {n}/{max} characters',
   正文: 'Body',

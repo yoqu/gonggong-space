@@ -331,6 +331,84 @@ describe('ApprovalBlock', () => {
     expect(calls.every((c) => (c.body as { optionId: string }).optionId === 'allow')).toBe(true)
   })
 
+  it('shows the declared risk of each waiting MCP request', () => {
+    login('u1', '王磊')
+    const create = {
+      server: 'feishu',
+      tool: 'create_doc',
+      input: '{"title":"周报"}',
+      title: 'Create doc',
+      description: 'Create a document.',
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    }
+    const del = {
+      server: 'feishu',
+      tool: 'delete_doc',
+      input: '{"id":1}',
+      annotations: { destructiveHint: true },
+    }
+    const { container } = render(
+      <ApprovalBlock run={run([approval({ mcp: create }), approval({ id: 'a2', mcp: del })])} />,
+    )
+    const others = container.querySelector('.approval__others') as HTMLElement
+    expect(others.textContent).toContain('feishu · delete_doc')
+    expect(others.textContent).toContain('可能删除或覆盖数据')
+  })
+
+  it('does not offer approve-all when a request may delete data or the AI pre-review rates it high', () => {
+    login('u1', '王磊')
+    const del = {
+      server: 'feishu',
+      tool: 'delete_doc',
+      input: '{"id":1}',
+      annotations: { destructiveHint: true },
+    }
+    const { rerender } = render(<ApprovalBlock run={run([approval(), approval({ id: 'a2', mcp: del })])} />)
+    expect(screen.queryByRole('button', { name: /全部批准/ })).toBeNull()
+    expect(screen.getByText('含可能删除数据或高风险的请求，请逐个审批')).toBeTruthy()
+    rerender(
+      <ApprovalBlock
+        run={run([
+          approval(),
+          approval({ id: 'a2', review: { risk: 'critical', rationale: '删除整个目录' } }),
+        ])}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /全部批准/ })).toBeNull()
+    rerender(
+      <ApprovalBlock
+        run={run([approval(), approval({ id: 'a2', review: { risk: 'medium', rationale: '改文件' } })])}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '全部批准（2）' })).toBeTruthy()
+    expect(screen.queryByText('含可能删除数据或高风险的请求，请逐个审批')).toBeNull()
+  })
+
+  it('puts reject right after approve', () => {
+    login('u1', '王磊')
+    const options = [
+      { optionId: 'always', name: 'Always', kind: 'allow_always' },
+      ...approval().options,
+    ] as ApprovalDto['options']
+    render(
+      <ApprovalBlock
+        run={run([
+          approval({ options, remember: ['go'], rememberSession: ['go'] }),
+          approval({ id: 'a2', detail: 'go vet ./...' }),
+        ])}
+      />,
+    )
+    const names = screen.getAllByRole('button').map((b) => b.textContent)
+    expect(names).toEqual([
+      '批准',
+      '拒绝',
+      '本次会话不再问',
+      '批准，不再询问',
+      '本次运行免审批',
+      '全部批准（2）',
+    ])
+  })
+
   it('folds a long command but lets the owner read all of it', () => {
     login('u1', '王磊')
     const detail = `$ node -e '${'x'.repeat(500)}'`

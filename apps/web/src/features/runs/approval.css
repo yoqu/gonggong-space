@@ -78,6 +78,16 @@
   flex-direction: column;
   gap: 4px;
 }
+/* A waiting MCP request: its name, then what it declares, compact. */
+.approval__cmd[data-mcp] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+.approval__cmd[data-mcp] .ui-tag {
+  font-family: var(--font-sans);
+}
 .approval__cmd-text {
   align-self: stretch;
   white-space: pre-wrap;

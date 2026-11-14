@@ -737,6 +737,7 @@ describe('run process', () => {
         remember: [],
         rememberSession: [],
         review: null,
+        mcp: null,
         status: 'approved',
         voidReason: null,
         decidedBy: w.alice.id,

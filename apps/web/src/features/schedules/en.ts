@@ -56,6 +56,6 @@ export default {
   确认删除: 'Confirm delete',
   定时任务: 'Scheduled tasks',
   已移出: 'Removed',
-  '定时任务：{n} 个': '{n:scheduled task|scheduled tasks}',
+  '定时任务：{n} 个': '{n} {n:scheduled task|scheduled tasks}',
   '管理#manage': 'Manage',
 }
