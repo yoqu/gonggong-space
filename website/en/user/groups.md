@@ -35,7 +35,7 @@ When creating a group:
 - While the repository is being checked, the button shows 「检查中…」 (Checking…); if the base branch doesn't exist, you can't create the group.
 
 ::: tip Create from a Feishu chat
-Once a sysadmin has configured the main Feishu app, 「从飞书群创建…」 (Create from Feishu chat…) appears at the bottom of the dialog. It creates a matching group from an existing Feishu group chat and binds them; see [Feishu](/en/admin/feishu).
+Once a sysadmin has connected Feishu, 「从飞书群创建…」 (Create from Feishu chat…) appears at the bottom of the dialog. It creates a matching group from an existing Feishu chat, or links the chat to a group you administer; see [Feishu](/en/admin/feishu).
 :::
 
 ### About direct chats
@@ -128,7 +128,7 @@ The group settings dialog has tab navigation on the left. Group admins can make 
 | 群级参数 (Group parameters) | Approval, relay, and offline-wait parameters (「参数」 (Parameters) in a direct chat) |
 | MCP / Skill | MCP servers and Skills that apply only to this group; when a name matches one at the team or platform level, the group level wins |
 | 密钥 (Secrets) | Group-level secrets; see [Wiki and secrets](/en/user/knowledge-secrets#secrets) |
-| 飞书 (Feishu) | Bind a Feishu group chat (visible to group admins only); see [Feishu](/en/admin/feishu) |
+| 飞书 (Feishu) | Link a Feishu chat, set syncing per direction, and see the Feishu status of the group's Bots (visible to group admins only); see [Feishu](/en/admin/feishu) |
 | 插件 (Plugins) | Appears when plugins are enabled for the system; see [Skill market and plugins](/en/user/market-plugins) |
 
 A direct chat has only 「基本信息」 (General), 「Bot」, 「仓库与同步」 (Repos & sync), and 「参数」 (Parameters), plus 「插件」 (Plugins) when plugins are enabled.

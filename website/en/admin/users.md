@@ -112,7 +112,7 @@ Choose 「指定所有者…」 (Set owner…) from the row's menu, pick an acco
 
 ### Archive and restore
 
-- **Archive team** (「归档团队」): the team disappears from members' team lists; the team's groups are unbound from their Feishu chats, and runs in progress are stopped. In single-team mode you can't archive the only team.
+- **Archive team** (「归档团队」): the team disappears from members' team lists; the team's groups are unlinked from their Feishu chats, and runs in progress are stopped. In single-team mode you can't archive the only team.
 - **Restore team** (「恢复团队」): restore an archived team from the row's menu. In single-team mode, you can't restore a team while another unarchived team exists.
 
 ## Audit

@@ -39,6 +39,10 @@ The product UI defaults to Chinese (an English UI also exists), so readers must 
 | 实时画面 | live view |
 | 穿透与服务 | tunnels & services |
 | 接入码 / 接入链接 | connect code / connect link |
+| 接入 / 移除（飞书应用） | connect / remove (a Feishu app) |
+| 关联 / 取消关联（飞书群） | link / unlink (a Feishu chat) |
+| 绑定 / 解绑（飞书账号） | link / unlink (a Feishu account) |
+| 共工机器人 | the Gonggong bot (the main Feishu app's bot) |
 | 供应商 | provider |
 | Agent 命令 | Agent command |
 | 上下文占用 | context usage |

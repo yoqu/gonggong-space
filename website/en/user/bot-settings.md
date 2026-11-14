@@ -8,7 +8,7 @@ In 「机器与 Bot」 (Machines & Bots), click a Bot to open its overview page,
 
 ![Bot settings](/screenshots/web/bot-settings.webp)
 
-Settings are split into the tabs 「基本信息」 (General), 「运行配置」 (Runtime), 「权限」 (Access), 「高级」 (Advanced), and 「共享」 (Sharing). When you're done, click 「保存」 (Save) at the bottom; you'll see 「已保存 · 下一次新开会话时生效」 ("Saved · Applies from the next new session"): **sessions in progress are not affected** — the new settings take effect the next time a session starts.
+Settings are split into the tabs 「基本信息」 (General), 「运行配置」 (Runtime), 「权限」 (Access), 「高级」 (Advanced), 「飞书」 (Feishu, Bot owners and sysadmins only), and 「共享」 (Sharing). When you're done, click 「保存」 (Save) at the bottom; you'll see 「已保存 · 下一次新开会话时生效」 ("Saved · Applies from the next new session"): **sessions in progress are not affected** — the new settings take effect the next time a session starts.
 
 ::: info Who can change what
 - The Bot owner and sysadmins can change most settings; anyone else who opens it can only view.
@@ -121,7 +121,12 @@ Decides whose @ in a group puts the Bot to work:
 
 - **Concurrency limit**: the number of turns running at the same time, from 1–8; extra turns queue on that machine. The default for new Bots comes from the system parameter 「Bot 并发上限 · 新建默认」 (Bot concurrency limit · default for new Bots), which defaults to 2.
 - **Git commit identity**: the author name and email used when the Bot commits code. Leave empty to use the defaults (the name defaults to the Bot name); takes effect the next time the agent starts. Only the Bot owner can change it.
-- **Feishu app**: bind a dedicated Feishu custom app to the Bot so you can @ it in Feishu groups. This item is saved separately, not with the 「保存」 (Save) button at the bottom. For setup, see [Feishu](/en/admin/feishu).
+
+## Feishu
+
+Bot owners and sysadmins see this tab. Connect a dedicated Feishu custom app to the Bot so you can @ it in Feishu chats and message it directly in Feishu. Click 「扫码创建或接入」 (Create or connect by scanning) and scan with Feishu; once connected, the checklist below says what's left (waiting for your organization's Feishu admin to approve it, widening the app's availability to the members who need it). Changes here take effect at once; there's no 「保存」 (Save) button at the bottom.
+
+The 「飞书应用」 (Feishu app) row on the Bot overview shows its status: 未接入 (Not connected), 连接中 (Connecting), 等待审核 (Awaiting approval), 连接失败 (Connection failed) or 已接通 (Connected and approved). In group settings · Feishu, a Bot without a Feishu app has 「去接入」 (Connect), which opens this tab. For setup details, see [Feishu](/en/admin/feishu).
 
 ## Sharing
 
