@@ -219,4 +219,7 @@ export default {
   'Bot 入群': 'Bots in chat',
   最近失败原因: 'Latest failure',
   打开群: 'Open group',
+  '读取飞书群信息失败：{reason}': "Couldn't load Feishu chat info: {reason}",
+  去管理后台检查飞书: 'Check Feishu in Admin',
+  去管理后台接入: 'Set it up in Admin',
 } satisfies Record<string, string>

@@ -1,5 +1,6 @@
 import type { BotDto, FeishuMemberSyncDto, GroupDto, GroupFeishuView } from '@gonggong/protocol'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
 import { locale, t } from '../../i18n'
@@ -8,6 +9,7 @@ import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
+  Alert,
   Button,
   ConfirmActionDialog,
   GroupBox,
@@ -51,13 +53,46 @@ export const chatListNote = (mainAppName: string | null) =>
 const botLabel = (mainAppName: string | null) =>
   mainAppName ? t('「{name}」机器人', { name: mainAppName }) : t('共工机器人')
 
+const useSysadmin = () => useSession((s) => s.user)?.role === 'sysadmin'
+
+/** Feishu could not be read (secret revoked, Feishu unreachable): say why and retry; a sysadmin can go fix it. */
+export function FeishuLoadError({ error, onRetry }: { error: string; onRetry: () => void }) {
+  const admin = useSysadmin()
+  return (
+    <Alert variant="error" description={t('读取飞书群信息失败：{reason}', { reason: error })}>
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Button size="sm" onClick={onRetry}>
+          {t('重试')}
+        </Button>
+        {admin ? <Link to="/admin/feishu">{t('去管理后台检查飞书')}</Link> : null}
+      </div>
+    </Alert>
+  )
+}
+
+/** The main app is not configured yet; a sysadmin is pointed at where to do it. */
+export function FeishuUnavailableNote() {
+  const admin = useSysadmin()
+  return (
+    <div className="gs-note">
+      {t('系统管理员尚未接入飞书，暂不能关联飞书群。')}
+      {admin ? (
+        <>
+          {' '}
+          <Link to="/admin/feishu">{t('去管理后台接入')}</Link>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 /**
  * 群设置 · 飞书: link the group to one Feishu chat of the main app; bots need their own app in that chat. Unlinked, it
  * shows what linking needs first (my Feishu account, the bot in the chat), then the chats to pick, then creating one.
  */
 export function GroupFeishuTab({ group }: { group: GroupDto }) {
   const path = `/groups/${group.id}/feishu`
-  const { data, reload } = useGet<GroupFeishuView>(path)
+  const { data, error, reload } = useGet<GroupFeishuView>(path)
   const me = useSession((s) => s.user)
   const bots = useWorkspace((s) => s.bots)
   const [connecting, setConnecting] = useState<BotDto | null>(null)
@@ -137,8 +172,8 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
     }
   }
 
-  if (!data) return <Spinner />
-  if (!data.available) return <div className="gs-note">{t('系统管理员尚未接入飞书，暂不能关联飞书群。')}</div>
+  if (!data) return error ? <FeishuLoadError error={error} onRetry={reload} /> : <Spinner />
+  if (!data.available) return <FeishuUnavailableNote />
 
   const linked = data.members.find((m) => m.userId === me?.id)?.linked ?? false
   const manages = (botId: string) => {

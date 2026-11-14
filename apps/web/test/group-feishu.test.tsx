@@ -1,12 +1,14 @@
 import type { GroupDto, GroupFeishuView, MessageDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { useSession } from '../src/app/session'
 import { useWorkspace } from '../src/app/workspace'
+import { FeishuGroupDialog } from '../src/features/feishu/FeishuGroupDialog'
 import { FeishuIssueEventRow } from '../src/features/feishu/FeishuIssueEvent'
 import { GroupFeishuTab } from '../src/features/feishu/GroupFeishuTab'
 import { useToasts } from '../src/ui/toast'
-import { mockApi } from './mockApi'
+import { apiError, mockApi } from './mockApi'
 
 const group = { id: 'g1', name: '研发群', kind: 'group' } as GroupDto
 
@@ -340,6 +342,70 @@ describe('群设置 · 飞书', () => {
     })
     render(<GroupFeishuTab group={group} />)
     expect(await screen.findByText('系统管理员尚未接入飞书，暂不能关联飞书群。')).toBeTruthy()
+  })
+
+  it('shows why Feishu could not be read with a retry instead of spinning forever', async () => {
+    useSession.setState({ user: { id: 'u1', role: 'member' } as never, status: 'ready' })
+    let fail = true
+    const calls = mockApi({
+      'GET /groups/g1/feishu': () =>
+        fail ? apiError(400, 'feishu_failed', '飞书调用失败：App Secret 无效') : unbound,
+    })
+    render(
+      <MemoryRouter>
+        <GroupFeishuTab group={group} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('读取飞书群信息失败：飞书调用失败：App Secret 无效')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '去管理后台检查飞书' })).toBeNull()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByRole('button', { name: '关联' })).toBeTruthy()
+    expect(calls.filter((c) => c.method === 'GET')).toHaveLength(2)
+  })
+
+  it('sends a sysadmin to the admin page when Feishu fails or is not set up', async () => {
+    useSession.setState({ user: { id: 'u1', role: 'sysadmin' } as never, status: 'ready' })
+    let reply: unknown = apiError(400, 'feishu_failed', '飞书调用失败')
+    mockApi({ 'GET /groups/g1/feishu': () => reply })
+    const { unmount } = render(
+      <MemoryRouter>
+        <GroupFeishuTab group={group} />
+      </MemoryRouter>,
+    )
+    const check = await screen.findByRole('link', { name: '去管理后台检查飞书' })
+    expect(check.getAttribute('href')).toBe('/admin/feishu')
+    unmount()
+
+    reply = { ...unbound, available: false, mainAppName: null, chats: [] }
+    render(
+      <MemoryRouter>
+        <GroupFeishuTab group={group} />
+      </MemoryRouter>,
+    )
+    const setup = await screen.findByRole('link', { name: '去管理后台接入' })
+    expect(setup.getAttribute('href')).toBe('/admin/feishu')
+  })
+
+  it('从飞书群创建 shows the read error with a retry', async () => {
+    useSession.setState({ user: { id: 'u1', role: 'member' } as never, status: 'ready' })
+    let fail = true
+    mockApi({
+      'GET /feishu/chats': () =>
+        fail
+          ? apiError(400, 'feishu_failed', '飞书调用失败：不可达')
+          : { available: true, mainAppName: '共工助手', chats: [{ chatId: 'oc_1', name: '飞书研发群' }] },
+    })
+    render(
+      <MemoryRouter>
+        <FeishuGroupDialog onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('读取飞书群信息失败：飞书调用失败：不可达')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '去管理后台检查飞书' })).toBeNull()
+    fail = false
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(await screen.findByRole('button', { name: '飞书群' })).toBeTruthy()
   })
 
   it('unbinds after confirmation', async () => {

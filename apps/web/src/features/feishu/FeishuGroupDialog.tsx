@@ -19,7 +19,7 @@ import {
   toast,
 } from '../../ui'
 import '../groups/groups.css'
-import { chatListNote } from './GroupFeishuTab'
+import { chatListNote, FeishuLoadError, FeishuUnavailableNote } from './GroupFeishuTab'
 
 /**
  * 从飞书群创建: a group of the current team bound to a Feishu chat the main app and I are in, with its users who
@@ -27,7 +27,7 @@ import { chatListNote } from './GroupFeishuTab'
  * `chatId` preselects the chat (the link on the main app's card).
  */
 export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: string; onClose: () => void }) {
-  const { data, reload } = useGet<FeishuChatChoicesDto>('/feishu/chats')
+  const { data, error, reload } = useGet<FeishuChatChoicesDto>('/feishu/chats')
   const navigate = useNavigate()
   const me = useSession((s) => s.user)
   const groups = useWorkspace((s) => s.groups)
@@ -117,9 +117,13 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
       }
     >
       {!data ? (
-        <Spinner />
+        error ? (
+          <FeishuLoadError error={error} onRetry={reload} />
+        ) : (
+          <Spinner />
+        )
       ) : !data.available ? (
-        <div className="gs-note">{t('系统管理员尚未接入飞书，暂不能关联飞书群。')}</div>
+        <FeishuUnavailableNote />
       ) : (
         <>
           <SegmentedControl
