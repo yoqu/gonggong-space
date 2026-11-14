@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.21 — 2026-11-14
+
+- 新增 Antigravity CLI（`agy`）内置 Agent 插件，经 ACP 原生接入 / Adds the built-in Antigravity CLI (`agy`) agent plugin over native ACP
+- MCP 授权卡片显示工具自带的标题、说明与风险标注 / MCP approval cards show the tool's own title, description and risk annotations
+- 飞书易用性改版：用词统一、接入清单、群设置与 Bot 设置「飞书」页、进群卡片关联已有群、管理后台接入进度 / Feishu usability overhaul: consistent wording, a setup checklist, Feishu pages in group and Bot settings, join cards that link existing groups, and admin setup progress
+
 ## v0.4.20 — 2026-11-13
 
 - 接入码过期或已用时 `gg` 不再退出，改为网页确认（附 4 位核对码）/ `gg` no longer exits on an expired or used link code; it asks for web confirmation with a 4-digit check code
