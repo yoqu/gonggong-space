@@ -47,7 +47,7 @@ export function FeishuAdminPage() {
     <AdminPage
       title={t('飞书')}
       desc={t(
-        '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的应用在 Bot 设置中绑定。',
+        '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。',
       )}
     >
       <section className="admin-params">

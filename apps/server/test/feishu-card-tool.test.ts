@@ -165,7 +165,7 @@ describe('gonggong MCP feishu_send_card', () => {
     const res = await send((await run()).id, token, card())
     expect(res).toEqual({
       status: 409,
-      body: expect.objectContaining({ message: '本群未绑定飞书群，无法发送飞书卡片' }),
+      body: expect.objectContaining({ message: '本群未关联飞书群，无法发送飞书卡片' }),
     })
   })
 })

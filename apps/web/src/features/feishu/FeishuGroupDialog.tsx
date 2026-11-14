@@ -41,12 +41,12 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
         type: 'success',
         message:
           r.skippedUnlinked || r.skippedNotInTeam
-            ? t('已创建并绑定飞书群，拉入 {n} 人；{unlinked} 人未绑定飞书账号，{outside} 人不在本团队', {
+            ? t('已创建并关联飞书群，拉入 {n} 人；{unlinked} 人未绑定飞书账号，{outside} 人不在本团队', {
                 n: r.added,
                 unlinked: r.skippedUnlinked,
                 outside: r.skippedNotInTeam,
               })
-            : t('已创建并绑定飞书群，拉入 {n} 人', { n: r.added }),
+            : t('已创建并关联飞书群，拉入 {n} 人', { n: r.added }),
       })
       onClose()
       navigate(`/g/${r.group.id}`)
@@ -80,15 +80,15 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
       {!data ? (
         <Spinner />
       ) : !data.available ? (
-        <div className="gs-note">{t('系统管理员尚未配置飞书主应用，暂不能绑定飞书群。')}</div>
+        <div className="gs-note">{t('系统管理员尚未接入飞书，暂不能关联飞书群。')}</div>
       ) : (
         <>
           <GroupBox>
-            <GroupRow label={t('飞书群')} description={t('列出主应用和你都在、尚未绑定的飞书群')}>
+            <GroupRow label={t('飞书群')} description={t('列出机器人和你都在、尚未关联的飞书群')}>
               <Button onClick={reload}>{t('刷新')}</Button>
               <PopUpButton
                 aria-label={t('飞书群')}
-                placeholder={chats.length ? t('选择飞书群') : t('没有可绑定的飞书群')}
+                placeholder={chats.length ? t('选择飞书群') : t('没有可关联的飞书群')}
                 disabled={!chats.length}
                 value={chatId}
                 options={chats.map((c) => ({ value: c.chatId, label: c.name }))}
@@ -105,7 +105,7 @@ export function FeishuGroupDialog({ chatId: initial, onClose }: { chatId?: strin
             </GroupRow>
           </GroupBox>
           {initial && !chats.some((c) => c.chatId === initial) ? (
-            <div className="gs-note">{t('卡片里的飞书群你不在其中或已绑定其他群')}</div>
+            <div className="gs-note">{t('卡片里的飞书群你不在其中或已关联其他群')}</div>
           ) : null}
           <div className="gs-note">
             {t('你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。')}

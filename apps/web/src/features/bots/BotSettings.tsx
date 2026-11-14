@@ -536,7 +536,7 @@ export function BotDetail({
           align="top"
           hint={t('该 Bot 专属的飞书自建应用，用于在飞书群里被 @；单独保存，不随下方「保存」')}
         >
-          <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('解除飞书应用')} />
+          <FeishuAppForm path={`/bots/${bot.id}/feishu`} removeLabel={t('移除飞书应用')} />
         </FormRow>
       ) : null}
     </Form>

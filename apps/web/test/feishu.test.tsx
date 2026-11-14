@@ -66,7 +66,7 @@ describe('管理后台 · 飞书', () => {
     expect(await screen.findByText('未配置')).toBeTruthy()
     fireEvent.change(screen.getByLabelText('App ID'), { target: { value: ' cli_main01 ' } })
     fireEvent.change(screen.getByLabelText('App Secret'), { target: { value: 'secret' } })
-    fireEvent.click(screen.getByRole('button', { name: '绑定' }))
+    fireEvent.click(screen.getByRole('button', { name: '接入' }))
     expect(await screen.findByText('已连接')).toBeTruthy()
     expect(calls.find((c) => c.method === 'PUT' && c.path === '/admin/feishu')?.body).toEqual({
       appId: 'cli_main01',
@@ -94,7 +94,7 @@ describe('FeishuAppForm', () => {
       },
       'PUT /bots/b1/feishu': apiError(400, 'invalid', '飞书校验失败：app secret invalid'),
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
     expect(await screen.findByText('连接失败')).toBeTruthy()
     expect(screen.getByText('endpoint unreachable')).toBeTruthy()
     fireEvent.change(screen.getByLabelText('App ID'), { target: { value: 'cli_bot02' } })
@@ -122,7 +122,7 @@ describe('FeishuAppForm', () => {
         return view
       },
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
     expect(await screen.findByText('自动配置失败：scope not granted')).toBeTruthy()
     expect(screen.getByText(/点「更新权限」扫码补齐/)).toBeTruthy()
     expect(screen.getByRole('link', { name: '飞书后台配置说明' }).getAttribute('href')).toBe(

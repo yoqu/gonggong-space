@@ -86,7 +86,7 @@ describe('从飞书群创建群', () => {
   it('refuses a chat I am not in and needs my Feishu account', async () => {
     const s = await setup()
     const notIn = await s.http.post('/api/groups/from-feishu', { chatId: 'oc_other', name: 'x' })
-    expect(notIn.body).toMatchObject({ message: '你不在该飞书群中，不能绑定' })
+    expect(notIn.body).toMatchObject({ message: '你不在该飞书群中，不能关联' })
     await t.db.delete(feishuIdentities).where(eq(feishuIdentities.userId, s.me.id))
     expect((await s.http.get<FeishuChatChoicesDto>('/api/feishu/chats')).body.chats).toEqual([])
     const unlinked = await s.http.post('/api/groups/from-feishu', { chatId: CHAT, name: 'x' })

@@ -179,7 +179,7 @@ const reply = (ctx: Ctx, app: FeishuAppRow, ev: Receive, card: object) =>
 async function verifyAction(ctx: Ctx, next: string) {
   const base = await publicUrl(ctx)
   return base
-    ? { label: zt('认证共工账号'), url: `${base}/api/auth/feishu/start?next=${encodeURIComponent(next)}` }
+    ? { label: zt('绑定飞书账号'), url: `${base}/api/auth/feishu/start?next=${encodeURIComponent(next)}` }
     : undefined
 }
 
@@ -198,11 +198,11 @@ async function groupTarget(ctx: Ctx, app: FeishuAppRow, ev: Receive): Promise<Ta
       ctx,
       app,
       ev,
-      noticeCard(zt('这个飞书群还没有绑定共工群，请群管理员在共工的群设置中绑定。')),
+      noticeCard(zt('这个飞书群还没有关联共工群，请群管理员在共工的群设置 › 飞书里关联。')),
     ))
   const groupId = chat.groupId
   if (!(await activeBots(ctx, groupId)).some((b) => b.id === botId))
-    return void (await reply(ctx, app, ev, noticeCard(zt('这个 Bot 不在绑定的共工群中，请先把它加入该群。'))))
+    return void (await reply(ctx, app, ev, noticeCard(zt('这个 Bot 不在关联的共工群中，请先把它加入该群。'))))
   const user = await userOfFeishu(ctx, ev.sender.sender_id?.union_id)
   const [member] = user
     ? await ctx.db
@@ -213,7 +213,7 @@ async function groupTarget(ctx: Ctx, app: FeishuAppRow, ev: Receive): Promise<Ta
   if (!user || !member) {
     const text = user
       ? zt('你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。')
-      : zt('使用 Bot 前需要先认证共工账号，认证后重新 @ 即可。')
+      : zt('使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。')
     const action = user ? undefined : await verifyAction(ctx, `/g/${groupId}`)
     return void (await reply(ctx, app, ev, noticeCard(text, action)))
   }
@@ -273,7 +273,10 @@ async function singleChatTarget(ctx: Ctx, app: FeishuAppRow, ev: Receive): Promi
       ctx,
       app,
       ev,
-      noticeCard(zt('使用 Bot 前需要先认证共工账号，认证后重新发送即可。'), await verifyAction(ctx, '/')),
+      noticeCard(
+        zt('使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新发送即可。'),
+        await verifyAction(ctx, '/'),
+      ),
     ))
   const [bot] = await ctx.db
     .select()
@@ -510,7 +513,7 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
   const messageId = ev.context?.open_message_id
   if (!value || !messageId) return {}
   const user = await userOfFeishu(ctx, ev.operator?.union_id)
-  if (!user) return toast('error', zt('请先认证共工账号'))
+  if (!user) return toast('error', zt('请先绑定飞书账号'))
   const own = (await linkOf(ctx, messageId))?.kind !== 'run_card'
   try {
     if (value.k === 'act') {
@@ -525,7 +528,7 @@ async function onCardAction(ctx: Ctx, ev: FeishuInbound['card.action.trigger']) 
     }
     if (value.k === 'share') {
       const [me] = await ctx.db.select().from(users).where(eq(users.id, user.id))
-      if (!me) return toast('error', zt('请先认证共工账号'))
+      if (!me) return toast('error', zt('请先绑定飞书账号'))
       await (value.ok ? approveShareRequest : rejectShareRequest)(ctx, me, value.r)
       const card = await decidedShareCard(ctx, value.r, { approved: value.ok, by: user.name })
       return { ...toast('success', zt('已处理')), ...(card && { card: { type: 'raw', data: card } }) }

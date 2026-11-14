@@ -164,7 +164,7 @@ function GuideDialog() {
         ) : (
           <>
             <p className="guide__lead">
-              {t('群绑定了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。')}
+              {t('群关联了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。')}
             </p>
             <div className="guide__examples">
               {starter?.feishuUrl ? (

@@ -27,7 +27,7 @@ const bound: FeishuAppView = {
 // The dialog is lazy; a cold first import can outlast findBy's default timeout.
 beforeAll(() => import('../src/features/feishu/FeishuScanDialog'))
 
-describe('扫码创建或绑定', () => {
+describe('扫码创建或接入', () => {
   it('handles success only once when parent callbacks change', async () => {
     mockApi({
       'POST /bots/b1/feishu/register': {
@@ -84,8 +84,8 @@ describe('扫码创建或绑定', () => {
       'POST /bots/b1/feishu/register': () => waiting,
       'GET /feishu/register/s1': () => session,
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或接入' }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByTitle('飞书扫码')).toBeTruthy()
     expect(within(dialog).getByRole('link', { name: '在飞书中打开' }).getAttribute('href')).toBe(waiting.url)
@@ -108,8 +108,8 @@ describe('扫码创建或绑定', () => {
         configError: '自动配置失败：no permission',
       },
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或接入' }))
     expect(await screen.findByText('自动配置失败：no permission')).toBeTruthy()
     expect(screen.getByText(/飞书管理员审核通过后会自动完成/)).toBeTruthy()
   })
@@ -121,7 +121,7 @@ describe('扫码创建或绑定', () => {
       'GET /feishu/register/s1': waiting,
       'DELETE /feishu/register/s1': undefined,
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
     fireEvent.click(await screen.findByRole('button', { name: '更新权限' }))
     await screen.findByRole('dialog')
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ update: true })
@@ -135,8 +135,8 @@ describe('扫码创建或绑定', () => {
       'POST /bots/b1/feishu/register': waiting,
       'GET /feishu/register/s1': { ...waiting, status: 'expired' },
     })
-    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="解除飞书应用" />)
-    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或绑定' }))
+    render(<FeishuAppForm path="/bots/b1/feishu" removeLabel="移除飞书应用" />)
+    fireEvent.click(await screen.findByRole('button', { name: '扫码创建或接入' }))
     expect(await screen.findByText('二维码已过期')).toBeTruthy()
     expect(screen.getByRole('button', { name: '重新生成' })).toBeTruthy()
   })

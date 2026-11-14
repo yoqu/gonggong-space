@@ -33,7 +33,7 @@ export function feishuRoutes(ctx: Ctx) {
   }
 
   const bound = (update: boolean, row: FeishuAppRow | undefined) =>
-    update ? (row ?? fail('invalid', '尚未绑定飞书应用')) : undefined
+    update ? (row ?? fail('invalid', '尚未接入飞书应用')) : undefined
 
   return async (app: FastifyInstance) => {
     // 扫码创建 / 更新权限 (plan F1): the QR link comes back at once, the outcome is polled.

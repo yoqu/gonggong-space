@@ -13,7 +13,7 @@ export default {
   请管理员把你拉进群: 'Ask an admin to add you to a group',
   '进群后在输入框里 @ Bot 再写问题，Bot 就会回复你。':
     'Once in a group, @ a Bot in the composer and type your question. The Bot replies to you.',
-  '群绑定了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。':
+  '群关联了飞书群时，直接在飞书群里 @ Bot 提问，回复会同步到共工。':
     'When a group is bound to a Feishu chat, @ the Bot right in the Feishu chat; replies sync to Gonggong.',
   打开飞书群: 'Open Feishu chat',
 }

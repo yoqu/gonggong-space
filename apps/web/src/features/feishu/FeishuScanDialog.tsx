@@ -86,7 +86,7 @@ export function FeishuScanDialog({
     <Dialog
       open
       width={420}
-      title={update ? t('更新飞书应用权限') : t('扫码创建或绑定飞书应用')}
+      title={update ? t('更新飞书应用权限') : t('扫码创建或接入飞书应用')}
       message={
         update
           ? t('用飞书扫码，确认后自动完成配置')

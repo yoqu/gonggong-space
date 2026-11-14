@@ -108,7 +108,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
       ) : null}
       <div className="feishu-app__actions">
         <Button size="small" variant="primary" onClick={() => setScan('create')}>
-          {t('扫码创建或绑定')}
+          {t('扫码创建或接入')}
         </Button>
         {app ? (
           <Button size="small" variant="plain" onClick={() => setScan('update')}>
@@ -143,7 +143,7 @@ export function FeishuAppForm({ path, removeLabel }: { path: string; removeLabel
           disabled={busy || !appId.trim() || !appSecret.trim()}
           onClick={() => void save()}
         >
-          {app ? t('更换') : t('绑定#verb')}
+          {app ? t('更换') : t('接入#verb')}
         </Button>
         {app ? (
           <Button size="small" variant="plain" onClick={() => setRemoving(true)}>

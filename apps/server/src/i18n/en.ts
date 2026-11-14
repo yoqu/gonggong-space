@@ -175,10 +175,10 @@ export const en = {
   '安装市场条目 {name}（{state}）': 'Installed market listing {name} ({state})',
   '卸载市场条目 {name}': 'Uninstalled market listing {name}',
   '从飞书群 {name} 创建群': 'Created the group from Feishu chat {name}',
-  '绑定飞书群 {name}': 'Bound Feishu chat {name}',
-  '创建并绑定飞书群 {name}': 'Created and bound Feishu chat {name}',
+  '关联飞书群 {name}': 'Linked Feishu chat {name}',
+  '创建并关联飞书群 {name}': 'Created and linked Feishu chat {name}',
   修改飞书群同步设置: 'Changed the Feishu chat sync settings',
-  解绑飞书群: 'Unbound the Feishu chat',
+  取消关联飞书群: 'Unlinked the Feishu chat',
   '解绑仓库 {url}': 'Unbound repo {url}',
   '添加仓库 {url} · 分支 {branch}': 'Added repo {url} · branch {branch}',
   '移除仓库 {url}': 'Removed repo {url}',
@@ -225,10 +225,10 @@ export const en = {
   '{bot} 的终端': "{bot}'s terminal",
   机器终端: 'the machine terminal',
 
-  '配置飞书主应用 {appId}': 'Configured the Feishu main app {appId}',
-  '为 Bot {bot} 绑定飞书应用 {appId}': 'Bound Feishu app {appId} to bot {bot}',
+  '接入飞书主应用 {appId}': 'Connected the Feishu main app {appId}',
+  '为 Bot {bot} 接入飞书应用 {appId}': 'Connected Feishu app {appId} to bot {bot}',
   '移除飞书主应用 {appId}': 'Removed the Feishu main app {appId}',
-  '解除 Bot {bot} 的飞书应用 {appId}': 'Unbound Feishu app {appId} from bot {bot}',
+  '移除 Bot {bot} 的飞书应用 {appId}': 'Removed Feishu app {appId} from bot {bot}',
   开启飞书自动开户: 'Turn on Feishu auto sign-up',
   关闭飞书自动开户: 'Turn off Feishu auto sign-up',
 
@@ -249,8 +249,8 @@ export const en = {
   打开共工: 'Open Gonggong',
   '对外地址改为 {url}': 'Public URL set to {url}',
   '飞书登录新建账号 {account}': 'Created account {account} via Feishu sign-in',
-  '绑定飞书身份 {name}': 'Linked Feishu identity {name}',
-  解绑飞书身份: 'Unlinked the Feishu identity',
+  '绑定飞书账号 {name}': 'Linked Feishu account {name}',
+  解绑飞书账号: 'Unlinked Feishu account',
 
   // Runs, approvals, questions
   运行不存在: 'Run not found',
@@ -330,8 +330,8 @@ export const en = {
   '卡片须是飞书卡片 JSON 2.0：schema 为 "2.0"，内容放在 body.elements':
     'The card must be Feishu card JSON 2.0: schema "2.0" with its content in body.elements',
   '卡片里没有用到图片占位符 {key}': 'The card does not use the image placeholder {key}',
-  '本群未绑定飞书群，无法发送飞书卡片':
-    'This group is not bound to a Feishu chat, so no Feishu card can be sent',
+  '本群未关联飞书群，无法发送飞书卡片':
+    'This group is not linked to a Feishu chat, so no Feishu card can be sent',
   '空间未配置飞书应用，无法发送飞书卡片': 'No Feishu app is configured, so no Feishu card can be sent',
   '飞书拒绝了{what}：{reason}': 'Feishu rejected {what}: {reason}',
   '卡片超过飞书的 30 KB 上限': "The card exceeds Feishu's 30 KB limit",
@@ -812,10 +812,10 @@ export const en = {
     'Feishu call failed: {what} {todo} (Feishu error {code}: {reason})',
   '拉入飞书群失败：{what}{todo}（飞书错误码 {code}：{reason}）':
     'Could not add it to the Feishu chat: {what} {todo} (Feishu error {code}: {reason})',
-  私聊不能绑定飞书群: "A DM can't be bound to a Feishu chat",
-  系统管理员尚未配置飞书主应用: "The system admin hasn't configured the Feishu main app yet",
-  '该群已绑定飞书群，请先解绑': 'This group is already bound to a Feishu chat, unbind it first',
-  主应用不在该飞书群中: "The main app isn't in that Feishu chat",
+  私聊不能关联飞书群: "A DM can't be linked to a Feishu chat",
+  系统管理员尚未接入飞书: "The system admin hasn't connected Feishu yet",
+  '该群已关联飞书群，请先取消关联': 'This group is already linked to a Feishu chat, unlink it first',
+  共工机器人不在该飞书群中: "The Gonggong bot isn't in that Feishu chat",
   请先在个人设置中绑定飞书账号: 'Link your Feishu account in your settings first',
   申请不存在: 'Request not found',
   申请不存在或已处理: 'Request not found or already handled',
@@ -830,24 +830,24 @@ export const en = {
   在共工创建对应群: 'Create the group in Gonggong',
   '飞书主应用没有建群权限，请系统管理员在飞书开放平台为主应用开通 im:chat:create 并发布版本':
     'The Feishu main app cannot create chats: a system admin must enable im:chat:create for it on the Feishu Open Platform and publish a version',
-  '你不在该飞书群中，不能绑定': "You aren't in that Feishu chat, so you can't bind it",
-  该飞书群已绑定其他群: 'That Feishu chat is already bound to another group',
-  该群尚未绑定飞书群: "This group isn't bound to a Feishu chat yet",
-  '该 Bot 没有绑定飞书应用': "This Bot doesn't have a Feishu app",
-  '这个飞书群还没有绑定共工群，请群管理员在共工的群设置中绑定。':
-    "This Feishu chat isn't bound to a Gonggong group yet. Ask a group admin to bind it in Gonggong's group settings.",
-  '这个 Bot 不在绑定的共工群中，请先把它加入该群。':
-    "This Bot isn't in the bound Gonggong group. Add it to the group first.",
-  认证共工账号: 'Verify your Gonggong account',
+  '你不在该飞书群中，不能关联': "You aren't in that Feishu chat, so you can't link it",
+  该飞书群已关联其他群: 'That Feishu chat is already linked to another group',
+  该群尚未关联飞书群: "This group isn't linked to a Feishu chat yet",
+  '该 Bot 还没有接入飞书应用': "This Bot hasn't connected a Feishu app yet",
+  '这个飞书群还没有关联共工群，请群管理员在共工的群设置 › 飞书里关联。':
+    "This Feishu chat isn't linked to a Gonggong group yet; ask a group admin to link it under group settings › Feishu in Gonggong.",
+  '这个 Bot 不在关联的共工群中，请先把它加入该群。':
+    "This Bot isn't in the linked Gonggong group. Add it to the group first.",
+  绑定飞书账号: 'Link Feishu account',
   '你还不是对应共工群的成员，不能使用这个 Bot。请联系群管理员把你加入群。':
-    "You're not a member of the bound Gonggong group, so you can't use this Bot. Ask a group admin to add you.",
-  '使用 Bot 前需要先认证共工账号，认证后重新 @ 即可。':
-    'Verify your Gonggong account before using Bots, then @ the Bot again.',
-  '使用 Bot 前需要先认证共工账号，认证后重新发送即可。':
-    'Verify your Gonggong account before using Bots, then send your message again.',
+    "You're not a member of the linked Gonggong group, so you can't use this Bot. Ask a group admin to add you.",
+  '使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新 @ 即可。':
+    'Link your Feishu account to Gonggong before using bots, then @ the bot again.',
+  '使用 Bot 前需要先把飞书账号绑定到共工，绑定后重新发送即可。':
+    'Link your Feishu account to Gonggong before using bots, then send it again.',
   '这个 Bot 还没有共享给你，请在共工中向 Bot 主人申请共享后再发送。':
     "This Bot isn't shared with you. Request a share from its owner in Gonggong, then send again.",
-  请先认证共工账号: 'Verify your Gonggong account first',
+  请先绑定飞书账号: 'Link your Feishu account first',
   已提交回答: 'Answers submitted',
   已处理: 'Handled',
   已选择: 'Chosen',
@@ -866,7 +866,7 @@ export const en = {
   '该应用不是在飞书开发者后台创建的，无法自动配置；请在开发者后台手动配置长连接事件与回调、重定向 URL':
     'This app was not created in the Feishu developer console and cannot be configured automatically; set up the long-connection events and callbacks and the redirect URL there by hand',
   '自动配置失败：{reason}': 'Automatic configuration failed: {reason}',
-  尚未绑定飞书应用: 'No Feishu app is bound yet',
+  尚未接入飞书应用: 'No Feishu app is connected yet',
   扫码会话不存在或已过期: 'The scan session does not exist or has expired',
   演示模式下不可执行此操作: 'Not allowed in demo mode',
   演示模式下不能创建公开链接: 'Public links cannot be created in demo mode',

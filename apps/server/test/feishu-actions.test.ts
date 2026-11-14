@@ -186,7 +186,7 @@ describe('飞书卡片里的 actions 按钮', () => {
     const stranger = t.feishu.user()
     expect((await click(stranger, { k: 'act', m: reply.id, b: 'env', o: 0 })).toast).toEqual({
       type: 'error',
-      content: '请先认证共工账号',
+      content: '请先绑定飞书账号',
     })
     const outsiderFs = await link(outsider.id)
     expect((await click(outsiderFs, { k: 'act', m: reply.id, b: 'env', o: 0 })).toast).toEqual({

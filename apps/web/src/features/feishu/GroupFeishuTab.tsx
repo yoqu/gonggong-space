@@ -35,10 +35,10 @@ function createConsequences(v: GroupFeishuView) {
 /** Why the picker may miss a chat: it lists only those the main app's bot is in. */
 export const chatListNote = (mainAppName: string | null) =>
   mainAppName
-    ? t('只列出共工机器人「{name}」已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新', {
+    ? t('只列出「{name}」机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新', {
         name: mainAppName,
       })
-    : t('只列出共工主应用机器人已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新')
+    : t('只列出共工机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新')
 
 /** 群设置 · 飞书: bind the group to one Feishu chat of the main app; bots need their own app in that chat. */
 export function GroupFeishuTab({ group }: { group: GroupDto }) {
@@ -73,9 +73,9 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
         out
           ? {
               type: 'info',
-              message: t('已绑定飞书群 · {n} 个 Bot 没能拉入，原因见下方', { n: out }),
+              message: t('已关联飞书群 · {n} 个 Bot 没能拉入，原因见下方', { n: out }),
             }
-          : { type: 'success', message: t('已绑定飞书群') },
+          : { type: 'success', message: t('已关联飞书群') },
       )
     } catch (e) {
       toastError(e)
@@ -121,12 +121,11 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
   }
 
   if (!data) return <Spinner />
-  if (!data.available)
-    return <div className="gs-note">{t('系统管理员尚未配置飞书主应用，暂不能绑定飞书群。')}</div>
+  if (!data.available) return <div className="gs-note">{t('系统管理员尚未接入飞书，暂不能关联飞书群。')}</div>
 
   return (
     <>
-      <div className="gs-note">{t('绑定后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。')}</div>
+      <div className="gs-note">{t('关联后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。')}</div>
       {data.chat ? null : <div className="gs-note">{chatListNote(data.mainAppName)}</div>}
       <div className="gs-note">
         {t(
@@ -136,10 +135,10 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       <GroupBox>
         {data.chat ? (
           <>
-            <GroupRow label={t('飞书群')} description={t('一个共工群只能绑定一个飞书群')}>
+            <GroupRow label={t('飞书群')} description={t('一个共工群只能关联一个飞书群')}>
               <span className="gs-value">{data.chat.name}</span>
               <Button disabled={busy} onClick={() => setUnbinding(true)}>
-                {t('解绑#feishu')}
+                {t('取消关联')}
               </Button>
             </GroupRow>
             <GroupRow
@@ -206,27 +205,27 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
             ) : null}
           </>
         ) : (
-          <GroupRow label={t('飞书群')} description={t('列出主应用和你都在、尚未绑定的飞书群')}>
+          <GroupRow label={t('飞书群')} description={t('列出机器人和你都在、尚未关联的飞书群')}>
             <Button disabled={busy} onClick={reload}>
               {t('刷新')}
             </Button>
             <PopUpButton
               aria-label={t('飞书群')}
-              placeholder={data.chats.length ? t('选择飞书群') : t('没有可绑定的飞书群')}
+              placeholder={data.chats.length ? t('选择飞书群') : t('没有可关联的飞书群')}
               disabled={!data.chats.length}
               value={chatId}
               options={data.chats.map((c) => ({ value: c.chatId, label: c.name }))}
               onChange={setChatId}
             />
             <Button variant="primary" disabled={!chatId || busy} onClick={() => void bind()}>
-              {t('绑定#verb')}
+              {t('关联')}
             </Button>
           </GroupRow>
         )}
         {data.chat ? null : (
           <GroupRow
             label={t('新建飞书群')}
-            description={t('用本群名称新建飞书群并绑定，拉入已绑定飞书的成员和 Bot')}
+            description={t('用本群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot')}
           >
             <Button disabled={busy} onClick={() => setCreating(true)}>
               {t('创建飞书群')}
@@ -234,11 +233,11 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
           </GroupRow>
         )}
       </GroupBox>
-      {data.chat ? null : <div className="gs-note">{t('已被其他群绑定的飞书群不显示')}</div>}
+      {data.chat ? null : <div className="gs-note">{t('已关联其他群的飞书群不显示')}</div>}
       {data.chat && data.bots.some((b) => b.appId && !b.inChat && !b.issue) ? (
         <div className="gs-note">
           {t(
-            '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。',
+            '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布；仍不行请联系系统管理员检查飞书应用权限。',
           )}
         </div>
       ) : null}
@@ -262,7 +261,7 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
               }
             >
               {!b.appId ? (
-                <Tag tone="gray">{t('未绑定飞书应用')}</Tag>
+                <Tag tone="gray">{t('未接入飞书')}</Tag>
               ) : b.inChat ? (
                 <Tag tone="green">{t('已在群中')}</Tag>
               ) : (
@@ -277,10 +276,10 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       {creating && !data.chat ? (
         <ConfirmActionDialog
           title={t('创建飞书群')}
-          message={t('确定新建飞书群「{name}」并绑定到本群？', { name: group.name })}
+          message={t('确定新建飞书群「{name}」并关联到本群？', { name: group.name })}
           consequences={createConsequences(data)}
           label={t('创建')}
-          done={t('已创建并绑定飞书群')}
+          done={t('已创建并关联飞书群')}
           run={() => api.post(`${path}/chat`, {})}
           onDone={() => {
             setCreating(false)
@@ -291,11 +290,11 @@ export function GroupFeishuTab({ group }: { group: GroupDto }) {
       ) : null}
       {unbinding && data.chat ? (
         <ConfirmActionDialog
-          title={t('解绑飞书群')}
-          message={t('确定解绑飞书群 {name}？', { name: data.chat.name })}
+          title={t('取消关联飞书群')}
+          message={t('确定取消关联飞书群 {name}？', { name: data.chat.name })}
           consequences={[t('飞书群里 @Bot 将不再触发运行'), t('已同步的消息保留')]}
-          label={t('解绑#feishu')}
-          done={t('已解绑飞书群')}
+          label={t('取消关联')}
+          done={t('已取消关联飞书群')}
           run={() => api.del(path)}
           onDone={() => {
             setUnbinding(false)

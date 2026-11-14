@@ -116,10 +116,10 @@ const MARKET: Record<string, MessageKey> = {
 }
 const FEISHU_CHAT: Record<string, MessageKey> = {
   'feishu.chat.create_group': '从飞书群 {name} 创建群',
-  'feishu.chat.bind': '绑定飞书群 {name}',
-  'feishu.chat.create': '创建并绑定飞书群 {name}',
+  'feishu.chat.bind': '关联飞书群 {name}',
+  'feishu.chat.create': '创建并关联飞书群 {name}',
   'feishu.chat.sync': '修改飞书群同步设置',
-  'feishu.chat.unbind': '解绑飞书群',
+  'feishu.chat.unbind': '取消关联飞书群',
 }
 const GIT_STATUS: Record<string, MessageKey> = { succeeded: '成功', failed: '失败' }
 
@@ -256,12 +256,12 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           })
         case 'feishu.app.save':
           return d.kind === 'main'
-            ? t('配置飞书主应用 {appId}', { appId: str(d.appId) })
-            : t('为 Bot {bot} 绑定飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
+            ? t('接入飞书主应用 {appId}', { appId: str(d.appId) })
+            : t('为 Bot {bot} 接入飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
         case 'feishu.app.remove':
           return d.kind === 'main'
             ? t('移除飞书主应用 {appId}', { appId: str(d.appId) })
-            : t('解除 Bot {bot} 的飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
+            : t('移除 Bot {bot} 的飞书应用 {appId}', { bot: n.bot(d.botId), appId: str(d.appId) })
         case 'user.create':
           return t('新建账号 {account}（{role}）', { account: str(d.account), role: role(d.role) })
         case 'user.update': {
@@ -278,9 +278,9 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
             ? t('飞书登录新建账号 {account}', { account: str(d.account) })
             : t('自助注册账号 {account}', { account: str(d.account) })
         case 'user.feishu.link':
-          return t('绑定飞书身份 {name}', { name: str(d.feishu) })
+          return t('绑定飞书账号 {name}', { name: str(d.feishu) })
         case 'user.feishu.unlink':
-          return t('解绑飞书身份')
+          return t('解绑飞书账号')
         case 'user.disable':
           return t('停用账号 {account}', { account: str(d.account) })
         case 'team.create':

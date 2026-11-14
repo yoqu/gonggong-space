@@ -148,7 +148,7 @@ describe('群设置 · 飞书 binding', () => {
     expect((await ownerHttp.post(`/api/groups/${group.id}/dissolve`)).status).toBe(200)
     await t.feishu.message(BOT_APP, { chatId: CHAT, from: ownerFs, text: 'hi' }).done
     expect(await t.db.select().from(messages).where(eq(messages.groupId, group.id))).toEqual([])
-    expect(JSON.stringify(lastSent()?.content)).toContain('还没有绑定共工群')
+    expect(JSON.stringify(lastSent()?.content)).toContain('还没有关联共工群')
     const other = await t.seed.group({ createdBy: owner.id })
     expect((await ownerHttp.put(`/api/groups/${other.id}/feishu`, { chatId: CHAT })).status).toBe(200)
   })
@@ -420,7 +420,7 @@ describe('飞书 → 共工', () => {
     await t.feishu.message(BOT_APP, { chatId: CHAT, from: stranger, text: 'hi' }).done
     expect(await t.db.select().from(messages).where(eq(messages.groupId, group.id))).toEqual([])
     const card = JSON.stringify(lastSent()?.content)
-    expect(card).toContain('认证共工账号')
+    expect(card).toContain('绑定飞书账号')
     expect(card).toContain(`${BASE}/api/auth/feishu/start?next=${encodeURIComponent(`/g/${group.id}`)}`)
   })
 

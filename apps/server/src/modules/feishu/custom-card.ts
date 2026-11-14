@@ -104,7 +104,7 @@ export function feishuCardRoutes(ctx: Ctx) {
         if (!used.has(key)) return fail('invalid', '卡片里没有用到图片占位符 {key}', { key })
 
       const chat = await boundChat(ctx.db, run.groupId)
-      if (!chat) return fail('conflict', '本群未绑定飞书群，无法发送飞书卡片')
+      if (!chat) return fail('conflict', '本群未关联飞书群，无法发送飞书卡片')
       const bot = await appOfBot(ctx, run.botId)
       if (!bot) return fail('conflict', '空间未配置飞书应用，无法发送飞书卡片')
       const creds = credsOf(bot)

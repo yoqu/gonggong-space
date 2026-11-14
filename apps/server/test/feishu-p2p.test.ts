@@ -150,7 +150,7 @@ describe('飞书单聊 Bot', () => {
     await setup()
     await say(t.feishu.user(), 'hi', BOT_APP, 'oc_p2p3')
     expect(await t.db.select().from(messages)).toHaveLength(0)
-    expect(lastText()).toContain('认证共工账号')
+    expect(lastText()).toContain('绑定飞书账号')
     expect(lastText()).toContain(`${BASE}/api/auth/feishu/start`)
   })
 

@@ -61,25 +61,25 @@ describe('群设置 · 飞书', () => {
     // Only chats the main app's bot is in can be listed: say which bot, and let the admin refresh after adding it.
     expect(
       await screen.findByText(
-        '只列出共工机器人「共工助手」已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新',
+        '只列出「共工助手」机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新',
       ),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '刷新' }))
     await waitFor(() => expect(calls.filter((c) => c.method === 'GET')).toHaveLength(2))
     fireEvent.click(await screen.findByRole('button', { name: '飞书群' }))
     fireEvent.click(await screen.findByText('飞书研发群'))
-    fireEvent.click(screen.getByRole('button', { name: '绑定' }))
-    expect(await screen.findByText('未绑定飞书应用')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '关联' }))
+    expect(await screen.findByText('未接入飞书')).toBeTruthy()
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ chatId: 'oc_1' })
     // Bots are pulled in on binding; one Feishu refused shows why in plain words, its code second, and a retry.
     await waitFor(() =>
       expect(useToasts.getState().items.map((x) => x.message)).toContain(
-        '已绑定飞书群 · 1 个 Bot 没能拉入，原因见下方',
+        '已关联飞书群 · 1 个 Bot 没能拉入，原因见下方',
       ),
     )
     expect(
       screen.getByText(
-        '没能拉入飞书群：飞书群设置了仅群主和管理员可添加成员。请飞书群主在群设置里改为所有人可添加，或把共工主应用设为群管理员。',
+        '没能拉入飞书群：飞书群设置了仅群主和管理员可添加成员。请飞书群主在群设置里改为所有人可添加，或把共工机器人设为群管理员。',
       ),
     ).toBeTruthy()
     expect(screen.getByText('飞书错误码 232017').getAttribute('title')).toBe('operator has no permission')
@@ -127,7 +127,7 @@ describe('群设置 · 飞书', () => {
     expect(screen.getByText('未绑定飞书账号，不会拉入：陈晨')).toBeTruthy()
     expect(screen.getByText('没有飞书应用，不会拉入：claude')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
-    expect(await screen.findByRole('button', { name: '解绑' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '取消关联' })).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST' && c.path === '/groups/g1/feishu/chat')).toBe(true)
   })
 
@@ -258,7 +258,7 @@ describe('群设置 · 飞书', () => {
       },
     })
     render(<GroupFeishuTab group={group} />)
-    expect(await screen.findByText('系统管理员尚未配置飞书主应用，暂不能绑定飞书群。')).toBeTruthy()
+    expect(await screen.findByText('系统管理员尚未接入飞书，暂不能关联飞书群。')).toBeTruthy()
   })
 
   it('unbinds after confirmation', async () => {
@@ -282,10 +282,10 @@ describe('群设置 · 飞书', () => {
       },
     })
     render(<GroupFeishuTab group={group} />)
-    fireEvent.click(await screen.findByRole('button', { name: '解绑' }))
-    const buttons = await screen.findAllByRole('button', { name: '解绑' })
+    fireEvent.click(await screen.findByRole('button', { name: '取消关联' }))
+    const buttons = await screen.findAllByRole('button', { name: '取消关联' })
     fireEvent.click(buttons.at(-1) as HTMLElement)
-    await waitFor(() => expect(screen.getByRole('button', { name: '绑定' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('button', { name: '关联' })).toBeTruthy())
   })
 })
 

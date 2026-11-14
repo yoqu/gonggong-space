@@ -5,7 +5,7 @@ export default {
   未配置: 'Not configured',
   留空保持不变: 'Leave blank to keep',
   更换: 'Replace',
-  '绑定#verb': 'Bind',
+  '接入#verb': 'Connect',
   飞书应用已保存: 'Feishu app saved',
   '确定移除飞书应用 {appId}？': 'Remove Feishu app {appId}?',
   '断开该应用的长连接，飞书里将无法再使用它':
@@ -22,11 +22,11 @@ export default {
     'When on, members of your enterprise can create a Gonggong account on their first Feishu sign-in, regardless of open sign-up.',
   已开启飞书自动开户: 'Feishu auto sign-up turned on',
   已关闭飞书自动开户: 'Feishu auto sign-up turned off',
-  '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的应用在 Bot 设置中绑定。':
-    "The main app powers Feishu sign-in and mirrors members' messages to bots into Feishu; each bot's own app is bound in its settings.",
+  '主应用负责飞书一键登录，并把成员发给 Bot 的消息同步到飞书；每个 Bot 的飞书应用在 Bot 设置 › 飞书里接入。':
+    "The main app powers Feishu sign-in and mirrors members' messages to bots into Feishu; each bot's own Feishu app is connected under its settings › Feishu.",
   飞书应用: 'Feishu app',
   '该 Bot 专属的飞书自建应用，用于在飞书群里被 @': "This bot's own Feishu app, used to @ it in Feishu chats",
-  解除飞书应用: 'Unbind Feishu app',
+  移除飞书应用: 'Remove Feishu app',
   // 飞书登录
   飞书登录: 'Sign in with Feishu',
   或: 'or',
@@ -61,37 +61,38 @@ export default {
   '在飞书开发者后台「安全设置 · 重定向 URL」中添加此地址，飞书登录才能回到共工。':
     'Add this address under Security Settings · Redirect URLs in the Feishu developer console so Feishu sign-in can return to Gonggong.',
   // 群设置 · 飞书
-  '系统管理员尚未配置飞书主应用，暂不能绑定飞书群。':
-    "The system admin hasn't configured the Feishu main app yet, so Feishu chats can't be bound.",
-  '绑定后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。':
-    "Once bound, members can @ bots in the Feishu chat; the bots' replies go back to the chat.",
+  '系统管理员尚未接入飞书，暂不能关联飞书群。':
+    "The system admin hasn't connected Feishu yet, so Feishu chats can't be linked.",
+  '关联后，成员在飞书群里 @Bot 即可使用；Bot 的回复会发回飞书群。':
+    "Once linked, members can @ bots in the Feishu chat; the bots' replies go back to the chat.",
   '成员自动同步：飞书群里已绑定飞书账号的团队成员会加入本群，退出飞书群即移出本群；在本群添加的成员也会被拉进飞书群。':
     'Members sync automatically: team members in the Feishu chat who linked Feishu join this group and leave it when they leave the chat; members added here are added to the Feishu chat too.',
   飞书群: 'Feishu chat',
-  一个共工群只能绑定一个飞书群: 'A Gonggong group can be bound to one Feishu chat',
-  '解绑#feishu': 'Unbind',
-  '列出主应用和你都在、尚未绑定的飞书群': 'Chats both the main app and you are in that are not bound yet',
+  一个共工群只能关联一个飞书群: 'A Gonggong group can be linked to one Feishu chat',
+  取消关联: 'Unlink',
+  关联: 'Link',
+  '列出机器人和你都在、尚未关联的飞书群': 'Chats both the bot and you are in that are not linked yet',
   选择飞书群: 'Choose a Feishu chat',
-  没有可绑定的飞书群: 'No Feishu chat to bind',
-  已绑定飞书群: 'Feishu chat bound',
-  未绑定飞书应用: 'No Feishu app',
+  没有可关联的飞书群: 'No Feishu chat to link',
+  已关联飞书群: 'Feishu chat linked',
+  未接入飞书: 'Feishu not connected',
   已在群中: 'In the chat',
   拉入飞书群: 'Add to chat',
   已拉入飞书群: 'Added to the Feishu chat',
-  '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查主应用是否有群成员权限、飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布。':
-    'Replies of Bots not in the chat do not reach Feishu; click "Add to chat". If that fails, check that the main app has chat member permissions, the chat allows adding bots, and the Bot\'s Feishu app is published.',
+  '未入群的 Bot 回复不会同步到飞书群，请点「拉入飞书群」。拉不进时，请检查飞书群是否允许添加机器人、该 Bot 的飞书应用是否已发布；仍不行请联系系统管理员检查飞书应用权限。':
+    'Replies of Bots not in the chat do not reach Feishu; click "Add to chat". If that fails, check that the chat allows adding bots and the Bot\'s Feishu app is published; otherwise ask the system admin to check the Feishu app permissions.',
   '未在飞书群 · 回复不会同步到飞书': 'Not in the chat · replies do not reach Feishu',
-  解绑飞书群: 'Unbind Feishu chat',
-  '确定解绑飞书群 {name}？': 'Unbind Feishu chat {name}?',
+  取消关联飞书群: 'Unlink Feishu chat',
+  '确定取消关联飞书群 {name}？': 'Unlink Feishu chat {name}?',
   '飞书群里 @Bot 将不再触发运行': '@ mentions of bots in the Feishu chat no longer start runs',
   已同步的消息保留: 'Messages already mirrored are kept',
-  已解绑飞书群: 'Feishu chat unbound',
-  扫码创建或绑定: 'Create or bind by scanning',
+  已取消关联飞书群: 'Feishu chat unlinked',
+  扫码创建或接入: 'Create or connect by scanning',
   更新权限: 'Update permissions',
   或手动填写已有应用的凭证: "or enter an existing app's credentials",
   飞书后台配置说明: 'Feishu console setup',
   更新飞书应用权限: 'Update Feishu app permissions',
-  扫码创建或绑定飞书应用: 'Create or bind a Feishu app by scanning',
+  扫码创建或接入飞书应用: 'Create or connect a Feishu app by scanning',
   '用飞书扫码，可新建应用或选择已有应用，确认后自动完成配置':
     'Scan with Feishu, create a new app or pick an existing one, and confirm; setup finishes automatically',
   '用飞书扫码，确认后自动完成配置': 'Scan with Feishu and confirm there; setup finishes automatically',
@@ -134,27 +135,27 @@ export default {
   '你是群主，之后在本群添加的成员也会被拉进飞书群':
     'You own the chat; members added to this group later are pulled into it too',
   新建飞书群: 'New Feishu chat',
-  '用本群名称新建飞书群并绑定，拉入已绑定飞书的成员和 Bot':
-    'Create a Feishu chat named after this group and bind it, with linked members and Bots',
+  '用本群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot':
+    'Create a Feishu chat named after this group and link it, with linked members and Bots',
   创建飞书群: 'Create Feishu chat',
-  '确定新建飞书群「{name}」并绑定到本群？': 'Create Feishu chat “{name}” and bind it to this group?',
+  '确定新建飞书群「{name}」并关联到本群？': 'Create Feishu chat “{name}” and link it to this group?',
   创建: 'Create',
-  已创建并绑定飞书群: 'Feishu chat created and bound',
+  已创建并关联飞书群: 'Feishu chat created and linked',
   从飞书群创建: 'Create from Feishu chat',
-  '已创建并绑定飞书群，拉入 {n} 人；{unlinked} 人未绑定飞书账号，{outside} 人不在本团队':
-    'Group created and bound; {n} joined, {unlinked} have no linked Feishu account, {outside} are not in this team',
-  '已创建并绑定飞书群，拉入 {n} 人': 'Group created and bound; {n} joined',
-  卡片里的飞书群你不在其中或已绑定其他群:
-    "You are not in the card's Feishu chat, or it is bound to another group",
+  '已创建并关联飞书群，拉入 {n} 人；{unlinked} 人未绑定飞书账号，{outside} 人不在本团队':
+    'Group created and linked; {n} joined, {unlinked} have no linked Feishu account, {outside} are not in this team',
+  '已创建并关联飞书群，拉入 {n} 人': 'Group created and linked; {n} joined',
+  卡片里的飞书群你不在其中或已关联其他群:
+    "You are not in the card's Feishu chat, or it is linked to another group",
   '你是群管理员；飞书群里已绑定飞书账号的本团队成员和已在群里的 Bot 会一起加入。':
     'You become the group admin; team members in the chat who linked Feishu and the Bots already in it join too.',
-  '只列出共工机器人「{name}」已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新':
-    'Only chats the Gonggong bot "{name}" is in are listed; for a missing chat, add that bot in its Feishu chat settings, then click Refresh',
-  '只列出共工主应用机器人已加入的群；看不到的群，请在飞书群设置里添加该机器人后点刷新':
-    "Only chats Gonggong's main app bot is in are listed; for a missing chat, add that bot in its Feishu chat settings, then click Refresh",
-  已被其他群绑定的飞书群不显示: 'Feishu chats bound to another group are not listed',
-  '已绑定飞书群 · {n} 个 Bot 没能拉入，原因见下方':
-    'Bound to the Feishu chat · {n} {n:Bot|Bots} could not be added, see why below',
+  '只列出「{name}」机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新':
+    'Only chats the bot "{name}" is in are listed; for a missing chat, add it under the chat\'s settings › Bots, then click Refresh',
+  '只列出共工机器人已加入的群；看不到的群，请在飞书群设置 › 群机器人里添加它后点刷新':
+    "Only chats the Gonggong bot is in are listed; for a missing chat, add it under the chat's settings › Bots, then click Refresh",
+  已关联其他群的飞书群不显示: 'Feishu chats linked to another group are not listed',
+  '已关联飞书群 · {n} 个 Bot 没能拉入，原因见下方':
+    'Linked to the Feishu chat · {n} {n:Bot|Bots} could not be added, see why below',
   '没能拉入飞书群：{reason}': 'Could not add it to the Feishu chat: {reason}',
   '飞书错误码 {code}': 'Feishu error {code}',
   一键拉入: 'Add to chat',

@@ -94,14 +94,14 @@ export async function bindableChats(ctx: Ctx, main: FeishuAppRow, userId: string
 
 /** The checks before tying `chatId` to a group (bind, or create a group from it); returns the chat and its users. */
 export async function checkBindable(ctx: Ctx, userId: string, chatId: string) {
-  const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
+  const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未接入飞书')
   const chat = (await feishu(ctx.feishu.api.listChats(credsOf(main)))).find((c) => c.chatId === chatId)
-  if (!chat) return fail('invalid', '主应用不在该飞书群中')
-  if ((await boundChatIds(ctx)).has(chatId)) return fail('conflict', '该飞书群已绑定其他群')
+  if (!chat) return fail('invalid', '共工机器人不在该飞书群中')
+  if ((await boundChatIds(ctx)).has(chatId)) return fail('conflict', '该飞书群已关联其他群')
   // The main app is shared by every team: only someone in the Feishu chat may tie it to their group.
   const me = (await unionIdOf(ctx, userId)) ?? fail('invalid', '请先在个人设置中绑定飞书账号')
   const members = await feishu(ctx.feishu.api.chatMembers(credsOf(main), chatId))
-  if (!members.includes(me)) return fail('invalid', '你不在该飞书群中，不能绑定')
+  if (!members.includes(me)) return fail('invalid', '你不在该飞书群中，不能关联')
   return { main, chat, members }
 }
 
@@ -260,7 +260,7 @@ export function feishuChatRoutes(ctx: Ctx) {
   const admin = async (req: Parameters<typeof requireUser>[1], groupId: string) => {
     const user = await requireUser(ctx, req)
     const { group } = await requireAdmin(ctx, groupId, user.id)
-    if (group.kind !== 'group') return fail('invalid', '私聊不能绑定飞书群')
+    if (group.kind !== 'group') return fail('invalid', '私聊不能关联飞书群')
     return { user, group }
   }
 
@@ -295,7 +295,7 @@ export function feishuChatRoutes(ctx: Ctx) {
             .values({ groupId, chatId, name: chat.name, boundBy: user.id, createdAt: ctx.now() })
             .onConflictDoNothing()
             .returning()
-          if (!row) fail('conflict', '该飞书群已绑定其他群')
+          if (!row) fail('conflict', '该飞书群已关联其他群')
         },
       )
       markBound(ctx, groupId)
@@ -319,14 +319,14 @@ export function feishuChatRoutes(ctx: Ctx) {
     app.put<Params>('/api/groups/:id/feishu', async (req) => {
       const { user, group } = await admin(req, req.params.id)
       const { chatId } = BindFeishuChatReq.parse(req.body)
-      if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已绑定飞书群，请先解绑')
+      if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已关联飞书群，请先取消关联')
       const { main, chat, members } = await checkBindable(ctx, user.id, chatId)
       const [row] = await ctx.db
         .insert(feishuChats)
         .values({ groupId: group.id, chatId, name: chat.name, boundBy: user.id, createdAt: ctx.now() })
         .onConflictDoNothing()
         .returning()
-      if (!row) return fail('conflict', '该飞书群已绑定其他群')
+      if (!row) return fail('conflict', '该飞书群已关联其他群')
       markBound(ctx, group.id)
       await joinFromFeishu(ctx, group, members)
       const { added } = await pullBots(ctx, group.id, main, chatId)
@@ -345,7 +345,7 @@ export function feishuChatRoutes(ctx: Ctx) {
     app.patch<Params>('/api/groups/:id/feishu', async (req) => {
       const { user, group } = await admin(req, req.params.id)
       const sync = UpdateFeishuChatReq.parse(req.body)
-      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未绑定飞书群')
+      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未关联飞书群')
       if (Object.keys(sync).length)
         await ctx.db.update(feishuChats).set(sync).where(eq(feishuChats.id, chat.id))
       await audit(ctx, {
@@ -363,8 +363,8 @@ export function feishuChatRoutes(ctx: Ctx) {
     app.post<Params>('/api/groups/:id/feishu/chat', (req) =>
       tracked(async () => {
         const { user, group } = await admin(req, req.params.id)
-        const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
-        if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已绑定飞书群，请先解绑')
+        const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未接入飞书')
+        if (await boundChat(ctx.db, group.id)) return fail('conflict', '该群已关联飞书群，请先取消关联')
         const members = await linkedMembers(ctx, group.id)
         const owner = members.find((m) => m.userId === user.id)?.unionId
         if (!owner) return fail('invalid', '请先在个人设置中绑定飞书账号')
@@ -396,7 +396,7 @@ export function feishuChatRoutes(ctx: Ctx) {
           .values({ groupId: group.id, chatId, name, boundBy: user.id, createdAt: ctx.now() })
           .onConflictDoNothing()
           .returning()
-        if (!row) return fail('conflict', '该群已绑定飞书群，请先解绑')
+        if (!row) return fail('conflict', '该群已关联飞书群，请先取消关联')
         markBound(ctx, group.id)
         for (let i = CREATE_USERS; i < unionIds.length; i += CREATE_USERS)
           await feishu(ctx.feishu.api.addUsers(credsOf(main), chatId, unionIds.slice(i, i + CREATE_USERS)))
@@ -435,18 +435,18 @@ export function feishuChatRoutes(ctx: Ctx) {
 
     app.post<Params>('/api/groups/:id/feishu/sync-members', async (req) => {
       const { group } = await admin(req, req.params.id)
-      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未绑定飞书群')
-      const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
+      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未关联飞书群')
+      const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未接入飞书')
       return syncFromFeishu(ctx, group, await feishu(ctx.feishu.api.chatMembers(credsOf(main), chat.chatId)))
     })
 
     app.post<{ Params: { id: string; botId: string } }>('/api/groups/:id/feishu/bots/:botId', async (req) => {
       const { user, group } = await admin(req, req.params.id)
-      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未绑定飞书群')
+      const chat = (await boundChat(ctx.db, group.id)) ?? fail('invalid', '该群尚未关联飞书群')
       const inGroup = (await activeBots(ctx, group.id)).some((b) => b.id === req.params.botId)
       const app = inGroup ? await botApp(ctx, req.params.botId) : undefined
-      if (!app) return fail('invalid', '该 Bot 没有绑定飞书应用')
-      const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未配置飞书主应用')
+      if (!app) return fail('invalid', '该 Bot 还没有接入飞书应用')
+      const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未接入飞书')
       const issue = await addBotApp(ctx, group.id, main, chat.chatId, req.params.botId, app.appId)
       if (issue) return failFeishu('拉入飞书群失败', issue)
       return view(ctx, group.id, user.id, [app.appId])

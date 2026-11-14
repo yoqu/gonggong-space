@@ -33,10 +33,10 @@ export const protocolEn = {
   '机器人不在飞书群里。': 'The bot is not in the Feishu chat.',
   '请群管理员把它拉入飞书群，或在飞书群设置里添加该机器人。':
     'A group admin can add it to the chat, or add the bot in the Feishu chat settings.',
-  '共工主应用不在飞书群里，无法替你拉入成员或机器人。':
-    "Gonggong's main app is not in the Feishu chat, so it cannot add members or bots.",
-  '请在飞书群设置 › 群机器人里添加共工主应用后重试。':
-    "Add Gonggong's main app under the Feishu chat's settings › Bots, then try again.",
+  '共工机器人不在飞书群里，无法替你拉入成员或机器人。':
+    'The Gonggong bot is not in the Feishu chat, so it cannot add members or bots for you.',
+  '请在飞书群设置 › 群机器人里添加共工机器人后重试。':
+    "Add the Gonggong bot under the chat's settings › Bots, then try again.",
   '飞书应用没有开启机器人能力。': 'The Feishu app has no bot capability.',
   '请应用管理员在飞书开放平台的「应用能力」里添加机器人，并发布新版本。':
     'Ask the app admin to add the Bot capability on the Feishu open platform and publish a new version.',
@@ -45,14 +45,14 @@ export const protocolEn = {
   '请应用管理员在飞书开放平台发布应用版本，并在飞书管理后台把可用范围设为需要的成员。':
     'Ask the app admin to publish a version on the Feishu open platform and set its availability to the people who need it in the Feishu admin console.',
   '飞书群设置了仅群主和管理员可添加成员。': 'The Feishu chat only lets its owner and admins add members.',
-  '请飞书群主在群设置里改为所有人可添加，或把共工主应用设为群管理员。':
-    "Ask the chat owner to let everyone add members, or make Gonggong's main app a chat admin.",
+  '请飞书群主在群设置里改为所有人可添加，或把共工机器人设为群管理员。':
+    'Ask the chat owner to let everyone add members in the chat settings, or make the Gonggong bot a chat admin.',
   '飞书群开启了禁言或仅部分成员可发言，机器人发不了消息。':
     'The Feishu chat is muted or only some members may speak, so the bot cannot post.',
   '请飞书群主在群设置里允许机器人发言。': 'Ask the chat owner to let the bot speak in the chat settings.',
   '飞书群已解散。': 'The Feishu chat was disbanded.',
-  '请在群设置 · 飞书里解绑，再绑定或新建飞书群。':
-    'Unbind it in group settings · Feishu, then bind or create another Feishu chat.',
+  '请在群设置 · 飞书里取消关联，再关联或新建飞书群。':
+    'Unlink it under group settings · Feishu, then link or create another Feishu chat.',
   '飞书应用缺少所需权限，或新开通的权限还没生效。':
     'The Feishu app lacks a required permission, or a newly granted one has not taken effect yet.',
   '请应用管理员在飞书开放平台开通所需权限（或在共工里点「更新权限」扫码确认），并发布版本。':

@@ -1382,7 +1382,7 @@ describe('new group dialog', () => {
     )
     await waitFor(() =>
       expect(useToasts.getState().items.map((i) => i.message)).toContain(
-        '已创建并绑定飞书群，拉入 2 人；1 人未绑定飞书账号，0 人不在本团队',
+        '已创建并关联飞书群，拉入 2 人；1 人未绑定飞书账号，0 人不在本团队',
       ),
     )
   })
