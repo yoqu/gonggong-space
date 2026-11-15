@@ -5,7 +5,13 @@ import { useWorkspace } from '../src/app/workspace'
 import { avatarSrc } from '../src/features/bots/avatars'
 import { GroupAvatar } from '../src/features/groups/GroupAvatar'
 
-const bot = { id: 'b1', name: '小王的 Claude', agentKind: 'claude', avatar: 'role-spring' } as BotDto
+const bot = {
+  id: 'b1',
+  name: '小王的 Claude',
+  agentKind: 'claude',
+  avatar: 'role-spring',
+  presence: 'online',
+} as BotDto
 const members = [
   { userId: 'u1', name: '王磊', avatar: null, isAdmin: true },
   { userId: 'u2', name: '李建国', avatar: null, isAdmin: false },

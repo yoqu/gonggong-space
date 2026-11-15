@@ -287,4 +287,11 @@ export default {
   开始私聊: 'Start chat',
   创建群: 'Create group',
   '将创建与它的私聊，之后不能再加人': 'This starts a direct chat with it; no one else can be added later',
+  '{name} 离线，消息会等上线后处理': '{name} is offline; messages will be handled once it is back',
+  '{name} 离线，消息会等上线后处理，超过 {n} 分钟作废':
+    '{name} is offline; messages will be handled once it is back, or dropped after {n} min',
+  '{name} 所在机器缺少 agent，暂时无法响应':
+    "{name}'s machine is missing its agent; it can't respond for now",
+  '{name} 还不可触发': "{name} can't be triggered yet",
+  '；': '; ',
 } satisfies Record<string, string>

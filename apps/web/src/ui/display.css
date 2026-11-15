@@ -140,6 +140,21 @@
 .ui-avatar__status--away {
   background: var(--system-orange);
 }
+.ui-avatar__status--running {
+  background: var(--system-blue);
+  animation: ui-avatar-breathe 1.6s ease-in-out infinite;
+}
+@keyframes ui-avatar-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+/* Hollow, so offline reads by shape, not only by color. */
+.ui-avatar__status--offline {
+  background: var(--pn-ring, var(--content-bg));
+  border: 2px solid var(--system-gray);
+  box-sizing: border-box;
+}
 .ui-avatars {
   display: inline-flex;
   align-items: center;
@@ -199,6 +214,9 @@
   .ui-progress--indeterminate .ui-progress__bar,
   .ui-spinner {
     animation-duration: 3s;
+  }
+  .ui-avatar__status--running {
+    animation: none;
   }
 }
 

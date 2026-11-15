@@ -74,6 +74,7 @@ beforeEach(() => {
         ownerId: 'u-li',
         ownerName: '李建国',
         avatar: 'role-gong',
+        presence: 'online',
       } as BotDto,
     ],
   })

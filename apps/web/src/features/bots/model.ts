@@ -10,7 +10,7 @@ import { refreshNotifCount, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { toast } from '../../ui'
+import { type AvatarStatus, toast } from '../../ui'
 
 export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
 export const AGENT_LABEL: Record<AgentKind, string> = {
@@ -56,6 +56,20 @@ export const PRESENCE: Record<BotDto['presence'], { label: string; color: string
   pending_confirm: { label: t('不可触发'), color: 'var(--system-gray)' },
 }
 
+// Busy is blue, not the avatar's red busy (red reads as an error); not triggerable shows as offline.
+const DOT: Record<BotDto['presence'], AvatarStatus> = {
+  online: 'online',
+  running: 'running',
+  offline: 'offline',
+  agent_missing: 'away',
+  pending_bind: 'offline',
+  pending_confirm: 'offline',
+}
+
+/** Avatar props for a bot's presence dot; none for a deleted bot. */
+export const presenceBadge = (b: Pick<BotDto, 'presence'> | undefined) =>
+  b ? { status: DOT[b.presence], statusLabel: PRESENCE[b.presence].label } : {}
+
 const SHORT_STATE: Partial<Record<BotDto['presence'], string>> = {
   online: t('在线'),
   running: t('运行中'),
@@ -68,6 +82,15 @@ export const botStateText = (b: BotDto) =>
   b.binding === 'bound'
     ? [b.machineName, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
     : BINDING_LABEL[b.binding]
+
+/** Head of a DM's subtitle: `mbp · 离线 · 仅你和你的 Bot · `. */
+export const dmLead = (bots: BotDto[], botId: string | undefined, sharer: string | undefined) => {
+  const b = bots.find((x) => x.id === botId)
+  return (
+    (b ? `${botStateText(b)} · ` : '') +
+    (sharer ? t('{owner} 共享的 Bot · ', { owner: sharer }) : t('仅你和你的 Bot · '))
+  )
+}
 
 /** The same line under its machine (机器与 Bot), the agent in place of the machine: `Claude Code · 在线`. */
 export const botStateUnderMachine = (b: BotDto) =>

@@ -126,6 +126,7 @@ beforeEach(() => {
         avatar: 'role-gong',
         followAgent: false,
         avatarUrl: null,
+        presence: 'online',
       } as unknown as BotDto,
     ],
   })

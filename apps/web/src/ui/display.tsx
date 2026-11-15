@@ -73,7 +73,14 @@ export function Badge(props: BadgeProps) {
 
 const HAN = /[\u3400-\u9fff]/
 const HAN_ALL = /[^\u3400-\u9fff]/g
-const STATUS_TEXT = { online: t('在线'), busy: t('忙碌'), away: t('离开') }
+const STATUS_TEXT = {
+  online: t('在线'),
+  busy: t('忙碌'),
+  away: t('离开'),
+  running: t('运行中'),
+  offline: t('离线'),
+}
+export type AvatarStatus = keyof typeof STATUS_TEXT
 
 /**
  * Chinese person name (2–3 characters) → last two characters; groups and longer Chinese names
@@ -223,7 +230,9 @@ export interface AvatarProps {
   name: string
   src?: string
   size?: number
-  status?: keyof typeof STATUS_TEXT
+  status?: AvatarStatus
+  /** Spoken in place of the status's own word, e.g. 在线空闲. */
+  statusLabel?: string
   /** `square` for groups, bots and apps. */
   shape?: 'circle' | 'square'
   color?: string
@@ -241,6 +250,7 @@ export function Avatar({
   src,
   size = 32,
   status,
+  statusLabel,
   shape = 'circle',
   color,
   members,
@@ -254,7 +264,7 @@ export function Avatar({
       className={cx('ui-avatar', shape === 'square' && 'ui-avatar--square', className)}
       title={name}
       role="img"
-      aria-label={status ? `${name}（${STATUS_TEXT[status]}）` : name}
+      aria-label={status ? `${name}（${statusLabel ?? STATUS_TEXT[status]}）` : name}
       style={{
         width: size,
         height: size,

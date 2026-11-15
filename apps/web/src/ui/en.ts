@@ -15,6 +15,7 @@ export default {
   在线: 'Online',
   忙碌: 'Busy',
   离开: 'Away',
+  离线: 'Offline',
   加载中: 'Loading',
   应用导航: 'App navigation',
   播放演示: 'Play demo',

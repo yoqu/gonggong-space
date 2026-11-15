@@ -5,6 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { Avatar, type AvatarProps, type MascotCostume } from '../../ui'
 import { AGENT_FIGURES } from './agentFigures'
+import { presenceBadge } from './model'
 import { PERSONAS, type Persona, personaScene } from './personas'
 
 interface Role {
@@ -136,14 +137,22 @@ export function useBotCostume(id: string | undefined) {
 
 type BotAvatarProps = Omit<AvatarProps, 'src' | 'shape'> & { id?: string | null }
 
-/** A bot's role looked up by id, else by (unique) name, moving while it runs; deleted bots fall back to initials. */
-export function BotAvatar({ id, name, ...rest }: BotAvatarProps) {
+/** Below this the presence dot would hide the face. */
+export const DOT_MIN = 24
+
+/**
+ * A bot's role looked up by id, else by (unique) name, moving while it runs, with its presence dot from 24px;
+ * deleted bots fall back to initials.
+ */
+export function BotAvatar({ id, name, size = 32, ...rest }: BotAvatarProps) {
   const bot = useWorkspace((s) => s.bots.find((b) => (id ? b.id === id : b.name === name)))
   return (
     <Avatar
       name={name}
       shape="square"
+      size={size}
       src={bot ? botFace(bot, bot.presence === 'running') : undefined}
+      {...(size >= DOT_MIN ? presenceBadge(bot) : {})}
       {...rest}
     />
   )

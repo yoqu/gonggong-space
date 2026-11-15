@@ -49,7 +49,7 @@ import {
 } from '../../ui'
 import { ArtifactCardView } from '../artifacts/ArtifactCard'
 import { useBotCostume } from '../bots/avatars'
-import { AGENT_LABEL } from '../bots/model'
+import { AGENT_LABEL, dmLead } from '../bots/model'
 import { McpSecretCard } from '../config/McpSecretCard'
 import { FeishuChatLink } from '../feishu/FeishuChatLink'
 import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
@@ -763,7 +763,7 @@ export function ChatView({
               ) : null}
               {dm ? (
                 <>
-                  {sharer ? t('{owner} 共享的 Bot · ', { owner: sharer }) : t('仅你和你的 Bot · ')}
+                  {dmLead(bots, group.botIds[0], sharer)}
                   <span title={group.repo?.url}>
                     {group.repo
                       ? `${repoName(group.repo.url)} · ${group.repo.branch}`

@@ -27,6 +27,7 @@ import { useQuote } from '../attachments/quote'
 import { openCreation, useCreationPlugins } from '../plugins/store'
 import { AppendBanner } from '../runs/AppendBanner'
 import { useAppend } from '../runs/append'
+import { BotPresenceHint } from './BotPresenceHint'
 import { type Candidate, CandidatePopover, placeCommand, useCandidates } from './ComposerCandidates'
 import { useCite } from './cite'
 import { startEditing } from './editing'
@@ -441,6 +442,7 @@ export const MessageComposer = memo(function MessageComposer({
       onAnimationEnd={(e) => e.animationName === 'composer-shake' && setShake(false)}
     >
       <FilePickers uploads={uploads} imageRef={imagePicker} fileRef={filePicker} />
+      <BotPresenceHint groupId={group.id} bots={targets} />
       <Composer
         value={draft}
         onChange={change}
