@@ -4,13 +4,14 @@
   display: block;
   overflow: visible;
 }
-.ui-logo__pupil {
-  fill: #10203a;
+.ui-logo__g--blue {
+  fill: var(--brand-blue);
 }
-/* Guideline: on dark grounds the pupils turn white, otherwise they vanish into the background seen through the rings */
-[data-theme="dark"] .ui-logo__pupil,
-[data-theme="hc-dark"] .ui-logo__pupil {
-  fill: #fff;
+.ui-logo__g--amber {
+  fill: var(--brand-amber);
+}
+.ui-logo__pupil {
+  fill: var(--brand-pupil);
 }
 .ui-logo__g,
 .ui-logo__pupil {

@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useId } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '../lib/cx'
 import './mascot.css'
 
@@ -23,7 +23,7 @@ export type MascotMove = (typeof MASCOT_MOVES)[number]
 /** What a costume acts out for a move it has no scene for. */
 const COSTUME_MOVE: Record<MascotMove, MascotAction> = { walk: 'run', hop: 'done' }
 
-const INK = '#16213E'
+const INK = 'var(--brand-ink)'
 const HEAD_BOX = '26 0 68 68'
 
 /**
@@ -60,7 +60,7 @@ function Face() {
     <>
       <g className="ui-mascot__eyes ui-mascot__eyes--open" fill={INK}>
         {EYES.map((x) => (
-          <ellipse key={x} className="ui-mascot__eye" cx={x} cy="50.5" rx="2.2" ry="2.8" />
+          <circle key={x} className="ui-mascot__eye" cx={x} cy="50.5" r="2.6" />
         ))}
       </g>
       <g fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round">
@@ -123,7 +123,7 @@ function Bubble({ kind, children }: { kind: string; children: ReactNode }) {
   )
 }
 
-function Props({ jade }: { jade: string }) {
+function Props() {
   return (
     <>
       <line
@@ -204,7 +204,7 @@ function Props({ jade }: { jade: string }) {
       </g>
       <g className="ui-mascot__prop ui-mascot__prop--type">
         <rect className="ui-mascot__laptop" x="34" y="78" width="52" height="28" rx="5" />
-        <path className="ui-mascot__glow" d="M60 85 66 92 60 99 54 92Z" fill={jade} />
+        <circle className="ui-mascot__glow" cx="60" cy="92" r="6" fill="var(--brand-amber)" />
         <rect className="ui-mascot__laptop-base" x="28" y="104" width="64" height="5" rx="2.5" />
         {(
           [
@@ -292,7 +292,7 @@ export interface MascotCostume {
 
 /**
  * 共字君, the brand mascot: the glyph 共 whose two bottom dots are its legs, whose long stroke breaks into arms and
- * whose two raised verticals hold the jade of the logo. `crop="head"` frames it for avatars and drops the props;
+ * whose two raised verticals hold an amber dot, the logo's second color, that doubles as its status light. `crop="head"` frames it for avatars and drops the props;
  * a `costume` puts a bot's character in its place, acting out the same states its own way.
  */
 export function Mascot({
@@ -313,7 +313,6 @@ export function Mascot({
   label?: string
   className?: string
 }) {
-  const id = useId()
   if (costume)
     return (
       <img
@@ -333,8 +332,6 @@ export function Mascot({
         aria-hidden={label ? undefined : true}
       />
     )
-  const body = `${id}b`
-  const jade = `${id}j`
   const full = crop !== 'head'
   const compact = size < 48
   return (
@@ -354,24 +351,14 @@ export function Mascot({
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
-      <defs>
-        <linearGradient id={body} gradientUnits="userSpaceOnUse" x1="40" y1="20" x2="80" y2="106">
-          <stop stopColor="#2F6BFF" />
-          <stop offset="1" stopColor="#0FA3A0" />
-        </linearGradient>
-        <linearGradient id={jade} gradientUnits="userSpaceOnUse" x1="54" y1="5" x2="66" y2="18">
-          <stop stopColor="#B8F5EA" />
-          <stop offset="1" stopColor="#14B3AE" />
-        </linearGradient>
-      </defs>
       {full ? <ellipse className="ui-mascot__shadow" cx="60" cy="109" rx="24" ry="3" /> : null}
       <g className="ui-mascot__fig">
-        <g className="ui-mascot__bob" fill={`url(#${body})`}>
+        <g className="ui-mascot__bob" fill="var(--brand-blue)">
           <Limb part="lf" ox={50} oy={78} rest={19}>
             <path
               d="M50 78 41 103"
               fill="none"
-              stroke={`url(#${body})`}
+              stroke="var(--brand-blue)"
               strokeWidth="9"
               strokeLinecap="round"
             />
@@ -380,7 +367,7 @@ export function Mascot({
             <path
               d="M70 78 79 103"
               fill="none"
-              stroke={`url(#${body})`}
+              stroke="var(--brand-blue)"
               strokeWidth="9"
               strokeLinecap="round"
             />
@@ -397,13 +384,12 @@ export function Mascot({
           <rect x="31" y="34" width="58" height="9" rx="4.5" />
           <rect x="38" y="62" width="44" height="9" rx="4.5" />
           <Face />
-          <g className="ui-mascot__jade">
-            <path className="ui-mascot__gem" d="M60 4.5 67 11.5 60 18.5 53 11.5Z" fill={`url(#${jade})`} />
-            <path d="M60 4.5 67 11.5H60Z" fill="#fff" opacity=".45" />
+          <g className="ui-mascot__dot">
+            <circle className="ui-mascot__lamp" cx="60" cy="11.5" r="6.5" fill="var(--brand-amber)" />
           </g>
         </g>
       </g>
-      {full ? <Props jade={`url(#${jade})`} /> : null}
+      {full ? <Props /> : null}
     </svg>
   )
 }

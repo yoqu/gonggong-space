@@ -38,8 +38,8 @@ export function Logo({
       viewBox="0 0 256 256"
       aria-hidden="true"
     >
-      <path className="ui-logo__g" fill="#3B7BFF" d={blue} />
-      <path className="ui-logo__g" fill="#FFB224" d={amber} />
+      <path className="ui-logo__g ui-logo__g--blue" d={blue} />
+      <path className="ui-logo__g ui-logo__g--amber" d={amber} />
       {small ? null : (
         <>
           <circle className="ui-logo__pupil" cx="75" cy="99" r="11" />

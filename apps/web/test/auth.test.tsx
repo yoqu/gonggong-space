@@ -53,6 +53,17 @@ afterEach(() => {
 })
 
 describe('login page', () => {
+  it('backs the stage with the two logo rings instead of waves', async () => {
+    mockApi({ 'GET /me': () => apiError(401, 'unauthorized') })
+    const { container } = renderAt('/login')
+    await screen.findByRole('heading', { name: '登录' })
+    const rings = container.querySelector('.auth-rings')
+    expect(rings?.getAttribute('aria-hidden')).toBe('true')
+    expect(rings?.querySelectorAll('.auth-rings__ring')).toHaveLength(2)
+    expect(rings?.querySelectorAll('.auth-rings__pupil')).toHaveLength(2)
+    expect(container.querySelector('.auth-waves')).toBeNull()
+  })
+
   it('logs in and lands on the workspace', async () => {
     const calls = mockApi({
       'GET /me': () => apiError(401, 'unauthorized'),

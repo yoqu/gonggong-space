@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 import { useSession } from '../src/app/session'
 import { Welcome } from '../src/app/Welcome'
+import { ROLES } from '../src/features/bots/avatars'
 import { runMascot } from '../src/features/runs/mascot'
 import { MASCOT_ACTIONS, Mascot, type MascotCostume } from '../src/ui'
 
@@ -28,15 +29,15 @@ describe('Mascot', () => {
     expect(svg.querySelector('.ui-mascot__prop')).toBeNull()
   })
 
-  it('keeps gradient ids unique per instance', () => {
-    const { container } = render(
-      <>
-        <Mascot />
-        <Mascot />
-      </>,
-    )
-    const ids = [...container.querySelectorAll('linearGradient')].map((g) => g.id)
-    expect(new Set(ids).size).toBe(ids.length)
+  it('wears the logo colors: flat brand blue, an amber dot on top and ink round eyes', () => {
+    const { container } = render(<Mascot action="type" />)
+    expect(container.querySelector('linearGradient')).toBeNull()
+    expect(container.querySelector('.ui-mascot__bob')?.getAttribute('fill')).toBe('var(--brand-blue)')
+    expect(container.querySelector('.ui-mascot__lamp')?.getAttribute('fill')).toBe('var(--brand-amber)')
+    expect(container.querySelector('.ui-mascot__glow')?.getAttribute('fill')).toBe('var(--brand-amber)')
+    const eyes = container.querySelectorAll('.ui-mascot__eye')
+    expect(eyes).toHaveLength(2)
+    for (const eye of eyes) expect(eye.tagName).toBe('circle')
   })
 
   it('drops props below 48px where they would blur into specks', () => {
@@ -46,9 +47,9 @@ describe('Mascot', () => {
     expect(container.querySelector('svg')?.classList.contains('ui-mascot--compact')).toBe(false)
   })
 
-  it('turns the jade into a status light when small', () => {
+  it('turns the dot into a status light when small', () => {
     const { container } = render(<Mascot action="raise" size={32} />)
-    expect(container.querySelector('.ui-mascot__gem')).toBeTruthy()
+    expect(container.querySelector('.ui-mascot__lamp')).toBeTruthy()
   })
 
   it('covers every action', () => {
@@ -98,7 +99,7 @@ describe('runMascot', () => {
 })
 
 describe('splash', () => {
-  it('shows 共字君 waiting while the session connects', () => {
+  it('shows the idle logo while the session connects', () => {
     useSession.setState({ user: null, status: 'loading' })
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -106,7 +107,10 @@ describe('splash', () => {
       </MemoryRouter>,
     )
     const splash = screen.getByRole('status')
-    expect(splash.querySelector('.ui-mascot')?.getAttribute('data-action')).toBe('wait')
+    const logo = splash.querySelector('.ui-logo')
+    expect(logo?.classList.contains('ui-logo--idle')).toBe(true)
+    expect(logo?.getAttribute('width')).toBe('64')
+    expect(splash.querySelector('.ui-mascot')).toBeNull()
     expect(splash.textContent).toContain('正在连接')
   })
 })
@@ -146,5 +150,18 @@ describe('welcome', () => {
     expect(screen.getByText('侧栏里的群可以直接申请加入，进群后 @ Bot 提问就行。')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '查看可加入的群' }))
     expect(onBrowse).toHaveBeenCalled()
+  })
+})
+
+describe('共字君 avatar', () => {
+  it('uses the flat brand blue tile with an amber dot and ink eyes', () => {
+    const gong = ROLES['role-gong']
+    expect(gong.from).toBe(gong.to)
+    expect(gong.from).toBe('#3b7bff')
+    const art = gong.glyph(gong.to)
+    expect(art).toContain('class="dot"')
+    expect(art).toContain('fill="#ffb224"')
+    expect(art).toContain('fill="#10203a"')
+    expect(art).not.toContain('jade')
   })
 })

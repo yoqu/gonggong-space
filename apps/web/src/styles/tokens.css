@@ -80,6 +80,12 @@
   --row-alt: #00000008;
   --selection-inactive: #00000021;
   --scrim: #00000026;
+  --brand-blue: #3b7bff;
+  --brand-amber: #ffb224;
+  --brand-ink: #10203a;
+  --brand-pupil: #10203a;
+  --brand-blue-wash: #3b7bff1f;
+  --brand-amber-wash: #ffb22433;
 
   /* Shadow */
   --shadow-window: 0 0 0 0.5px rgba(0,0,0,0.18), 0 22px 70px 4px rgba(0,0,0,0.3);
@@ -263,6 +269,12 @@
   --row-alt: #ffffff08;
   --selection-inactive: #ffffff26;
   --scrim: #00000066;
+  --brand-blue: #3b7bff;
+  --brand-amber: #ffb224;
+  --brand-ink: #10203a;
+  --brand-pupil: #ffffff;
+  --brand-blue-wash: #3b7bff33;
+  --brand-amber-wash: #ffb2242e;
 
   /* Shadow */
   --shadow-window: 0 0 0 0.5px rgba(0,0,0,0.9), inset 0 0 0 0.5px rgba(255,255,255,0.14), 0 22px 70px 4px rgba(0,0,0,0.6);
@@ -351,6 +363,12 @@
   --row-alt: #0000000f;
   --selection-inactive: #00000026;
   --scrim: #00000059;
+  --brand-blue: #3b7bff;
+  --brand-amber: #ffb224;
+  --brand-ink: #10203a;
+  --brand-pupil: #10203a;
+  --brand-blue-wash: #3b7bff1f;
+  --brand-amber-wash: #ffb22433;
 
   /* Shadow */
   --shadow-window: 0 0 0 1px #000000, 0 22px 70px 4px rgba(0,0,0,0.3);
@@ -439,6 +457,12 @@
   --row-alt: #ffffff14;
   --selection-inactive: #ffffff33;
   --scrim: #000000a6;
+  --brand-blue: #3b7bff;
+  --brand-amber: #ffb224;
+  --brand-ink: #10203a;
+  --brand-pupil: #ffffff;
+  --brand-blue-wash: #3b7bff33;
+  --brand-amber-wash: #ffb2242e;
 
   /* Shadow */
   --shadow-window: 0 0 0 1px #ffffff, 0 22px 70px 4px rgba(0,0,0,0.6);
@@ -529,6 +553,12 @@
     --row-alt: #0000000f;
     --selection-inactive: #00000026;
     --scrim: #00000059;
+    --brand-blue: #3b7bff;
+    --brand-amber: #ffb224;
+    --brand-ink: #10203a;
+    --brand-pupil: #10203a;
+    --brand-blue-wash: #3b7bff1f;
+    --brand-amber-wash: #ffb22433;
 
     /* Shadow */
     --shadow-window: 0 0 0 1px #000000, 0 22px 70px 4px rgba(0,0,0,0.3);
@@ -617,6 +647,12 @@
     --row-alt: #ffffff14;
     --selection-inactive: #ffffff33;
     --scrim: #000000a6;
+    --brand-blue: #3b7bff;
+    --brand-amber: #ffb224;
+    --brand-ink: #10203a;
+    --brand-pupil: #ffffff;
+    --brand-blue-wash: #3b7bff33;
+    --brand-amber-wash: #ffb2242e;
 
     /* Shadow */
     --shadow-window: 0 0 0 1px #ffffff, 0 22px 70px 4px rgba(0,0,0,0.6);

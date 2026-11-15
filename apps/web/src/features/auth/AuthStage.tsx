@@ -33,30 +33,14 @@ export function LocaleToggle() {
   )
 }
 
-// One wave period is 240 units; each layer spans 10 periods so shifting by one period loops seamlessly.
-const wave = (amp: number, y: number) => {
-  let d = `M-240 ${y}`
-  for (let x = -240; x < 2160; x += 240) d += ` q60 ${-amp} 120 0 t120 0`
-  return `${d} V400 H-240 Z`
-}
-const LAYERS = [
-  { d: wave(14, 250), dur: 26, className: 'auth-waves__far' },
-  { d: wave(18, 290), dur: 18, className: 'auth-waves__mid' },
-  { d: wave(12, 330), dur: 12, className: 'auth-waves__near' },
-]
-
-/** The mark's water as the ground of the stage: a slow swell in faint accent, never behind the copy. */
-function Waves() {
+/** The logo's two rings blown up behind the stage, cropped by its right edge; ring width is 27% of the outer diameter as in the mark. */
+function Rings() {
   return (
-    <svg
-      className="auth-waves"
-      viewBox="0 0 1200 400"
-      preserveAspectRatio="xMidYMax slice"
-      aria-hidden="true"
-    >
-      {LAYERS.map((l) => (
-        <path key={l.className} className={l.className} d={l.d} style={{ animationDuration: `${l.dur}s` }} />
-      ))}
+    <svg className="auth-rings" viewBox="10 35 236 120" aria-hidden="true">
+      <circle className="auth-rings__ring auth-rings__ring--blue" cx="70" cy="95" r="38" />
+      <circle className="auth-rings__ring auth-rings__ring--amber" cx="186" cy="95" r="38" />
+      <circle className="auth-rings__pupil" cx="75" cy="99" r="11" />
+      <circle className="auth-rings__pupil" cx="191" cy="99" r="11" />
     </svg>
   )
 }
@@ -209,7 +193,7 @@ export function AuthStage({ variant }: { variant: AuthVariant }) {
   const password = variant === 'password'
   return (
     <section className="auth-stage">
-      <Waves />
+      <Rings />
       <Brand size={28} motion="enter" subtitle={t('人与 Bot 的协作平台')} />
       <div className="auth-stage__copy">
         <h2 className="auth-stage__title">

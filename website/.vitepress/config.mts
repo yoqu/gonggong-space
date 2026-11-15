@@ -276,7 +276,7 @@ export default defineConfig({
     },
   },
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/logo-mark.svg',
     socialLinks: [{ icon: 'github', link: REPO }],
     search: {
       provider: 'local',

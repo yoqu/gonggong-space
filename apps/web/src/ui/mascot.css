@@ -26,7 +26,7 @@
 }
 .ui-mascot__eye,
 .ui-mascot__fx,
-.ui-mascot__jade {
+.ui-mascot__dot {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -55,8 +55,8 @@
 .ui-mascot__laptop-base {
   fill: #b8c2d3;
 }
-/* Always-on life: the jade floats and the eyes blink unless closed. */
-.ui-mascot__jade {
+/* Always-on life: the dot floats and the eyes blink unless closed. */
+.ui-mascot__dot {
   animation: ui-mascot-float 2.4s ease-in-out infinite;
 }
 .ui-mascot__eye {
@@ -102,7 +102,7 @@
 .ui-mascot:is([data-action="run"], [data-action="carry"]) .ui-mascot__prop--ground {
   display: inline;
 }
-.ui-mascot[data-action="carry"] .ui-mascot__jade {
+.ui-mascot[data-action="carry"] .ui-mascot__dot {
   display: none;
 }
 
@@ -286,7 +286,7 @@
 .ui-mascot[data-action="sleep"] .ui-mascot__bob {
   animation: ui-mascot-breathe 3.2s ease-in-out infinite;
 }
-.ui-mascot[data-action="sleep"] .ui-mascot__jade {
+.ui-mascot[data-action="sleep"] .ui-mascot__dot {
   animation-duration: 4.8s;
   opacity: 0.6;
 }
@@ -295,7 +295,7 @@
 }
 
 /*
- * Under 48px a unit is ~0.27px: props blur into specks and eye moves vanish, so only the silhouette and the jade,
+ * Under 48px a unit is ~0.27px: props blur into specks and eye moves vanish, so only the silhouette and the dot,
  * recoloured as a status light, tell the actions apart.
  */
 .ui-mascot.ui-mascot--compact[data-action] .ui-mascot__prop {
@@ -305,11 +305,11 @@
   animation: none;
   transform: none;
 }
-.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__jade {
+.ui-mascot.ui-mascot--compact[data-action] .ui-mascot__dot {
   animation: none;
   transform: scale(1.3);
 }
-.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__jade {
+.ui-mascot.ui-mascot--compact[data-action="carry"] .ui-mascot__dot {
   display: inline;
 }
 .ui-mascot.ui-mascot--compact:is(
@@ -319,7 +319,7 @@
     [data-action="raise"],
     [data-action="ask"]
   )
-  .ui-mascot__gem {
+  .ui-mascot__lamp {
   display: inline;
   fill: var(--mascot-light);
 }
@@ -370,7 +370,7 @@
 .ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__ra {
   transform: rotate(calc(-20deg - var(--rest)));
 }
-.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__jade {
+.ui-mascot.ui-mascot--compact[data-action="wait"] .ui-mascot__dot {
   opacity: 0.6;
 }
 
@@ -382,7 +382,7 @@
   animation: none;
   transform: rotate(-155deg) scaleY(2.4) rotate(calc(0deg - var(--rest)));
 }
-.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__jade {
+.ui-mascot.ui-mascot--compact[data-action="raise"] .ui-mascot__dot {
   animation: ui-mascot-lamp 1.6s ease-in-out infinite;
 }
 

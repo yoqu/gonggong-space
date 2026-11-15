@@ -4,7 +4,7 @@ import { AppShell } from './app/AppShell'
 import { ChatPage } from './app/ChatPage'
 import { RequireSession } from './app/RequireSession'
 import { named } from './lib/lazy'
-import { Mascot } from './ui'
+import { Logo } from './ui'
 import './app/shell.css'
 
 const LoginPage = named(() => import('./features/auth/LoginPage'), 'LoginPage')
@@ -21,7 +21,7 @@ const UiGallery = import.meta.env.DEV ? lazy(() => import('./app/UiGallery')) : 
 // Same delayed splash as the session boot, so a fast chunk load shows nothing.
 const loading = (
   <div className="app-center app-splash" role="status">
-    <Mascot action="wait" size={96} />
+    <Logo size={64} motion="idle" />
   </div>
 )
 /** Inside the session gate, so loading a page never unmounts it (and its realtime connection). */

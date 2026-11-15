@@ -47,12 +47,6 @@
 .art-shackle {
   stroke-width: 6;
 }
-.art-ripple {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  opacity: 0.45;
-}
 .art-pointer {
   fill: var(--label);
   stroke: var(--content-bg);

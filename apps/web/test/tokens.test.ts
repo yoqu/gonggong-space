@@ -63,6 +63,17 @@ describe('Pane tokens.css', () => {
     expect(hcDark).toEqual(blocks['hc-dark'])
   })
 
+  it('keeps the logo colors identical in every theme, only pupils and washes follow light/dark', () => {
+    for (const theme of THEMES) {
+      expect(blocks[theme]['--brand-blue'], theme).toBe('#3b7bff')
+      expect(blocks[theme]['--brand-amber'], theme).toBe('#ffb224')
+      expect(blocks[theme]['--brand-ink'], theme).toBe('#10203a')
+    }
+    expect(light['--brand-pupil']).toBe('#10203a')
+    expect(blocks.dark['--brand-pupil']).toBe('#ffffff')
+    expect(blocks['hc-dark']['--brand-pupil']).toBe('#ffffff')
+  })
+
   it('uses Pane systemBlue as the accent', () => {
     expect(light['--accent']).toBe('#0088ff')
     expect(blocks.dark['--accent']).toBe('#0091ff')

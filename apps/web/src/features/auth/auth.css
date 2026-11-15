@@ -28,31 +28,41 @@
   background: var(--window-bg);
   border-right: 1px solid var(--separator);
 }
-.auth-stage > :not(.auth-waves) {
+.auth-stage > :not(.auth-rings) {
   position: relative;
 }
-.auth-waves {
+.auth-rings {
   position: absolute;
-  inset: auto 0 0;
-  width: 100%;
-  height: 30%;
+  top: 9%;
+  right: -20%;
+  width: 54%;
+  overflow: visible;
   pointer-events: none;
 }
-.auth-waves path {
-  animation: auth-swell linear infinite;
+.auth-rings__ring {
+  fill: none;
+  stroke-width: 28;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: auth-ring-in var(--spring-smooth) both;
 }
-.auth-waves__far {
-  fill: color-mix(in srgb, var(--accent) 5%, transparent);
+.auth-rings__ring--blue {
+  stroke: var(--brand-blue-wash);
 }
-.auth-waves__mid {
-  fill: color-mix(in srgb, var(--accent) 7%, transparent);
+.auth-rings__ring--amber {
+  stroke: var(--brand-amber-wash);
+  animation-delay: 120ms;
 }
-.auth-waves__near {
-  fill: color-mix(in srgb, var(--accent) 9%, transparent);
+.auth-rings__pupil {
+  fill: color-mix(in srgb, var(--brand-pupil) 8%, transparent);
+  animation: auth-ring-in var(--spring-smooth) 240ms both;
+  transform-box: fill-box;
+  transform-origin: center;
 }
-@keyframes auth-swell {
-  to {
-    transform: translateX(-240px);
+@keyframes auth-ring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
   }
 }
 .auth-stage__copy {
@@ -431,7 +441,7 @@
   .auth-stage__copy,
   .relay,
   .first-run,
-  .auth-waves path {
+  .auth-rings circle {
     animation: none;
   }
 }

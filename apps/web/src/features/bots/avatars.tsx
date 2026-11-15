@@ -28,19 +28,19 @@ const stroke = (color: string, w: number) =>
 const GONG: Role = {
   name: t('共字君'),
   mix: t('默认角色'),
-  line: t('品牌吉祥物，什么活都肯接，把大家托举在一起'),
-  from: '#2f6bff',
-  to: '#0fa3a0',
-  glyph: (ink) =>
-    `<path class="jade" d="M20 3.2 22.9 6.1 20 9 17.1 6.1Z" fill="#b8f5ea"/>` +
+  line: t('品牌吉祥物，什么活都肯接，头顶的小灯告诉你它在忙什么'),
+  from: '#3b7bff',
+  to: '#3b7bff',
+  glyph: () =>
+    `<circle class="dot" cx="20" cy="6.1" r="2.9" fill="#ffb224"/>` +
     `<g class="legs" ${stroke(W, 3.2)}><path d="M16.4 28.4 13.8 34.6"/><path d="M23.6 28.4l2.6 6.2"/></g>` +
     `<rect x="15" y="15.6" width="10" height="10" rx="1.6" fill="${W}"/>` +
     `<g fill="${W}"><rect x="12.2" y="9.4" width="3.6" height="17.6" rx="1.8"/><rect x="24.2" y="9.4" width="3.6" height="17.6" rx="1.8"/>` +
     `<rect x="8.6" y="13.4" width="22.8" height="3.6" rx="1.8"/><rect x="9.8" y="24.6" width="20.4" height="3.6" rx="1.8"/></g>` +
-    `<ellipse cx="17.9" cy="20.2" rx="1.3" ry="1.6" fill="${ink}"/><ellipse cx="22.1" cy="20.2" rx="1.3" ry="1.6" fill="${ink}"/>` +
+    `<circle cx="17.9" cy="20.2" r="1.4" fill="#10203a"/><circle cx="22.1" cy="20.2" r="1.4" fill="#10203a"/>` +
     `<circle cx="16.6" cy="22.6" r=".8" fill="#ff8fb1"/><circle cx="23.4" cy="22.6" r=".8" fill="#ff8fb1"/>`,
   motion:
-    '.jade{animation:float 1.6s ease-in-out infinite}@keyframes float{50%{transform:translateY(-1.4px)}}' +
+    '.dot{animation:float 1.6s ease-in-out infinite}@keyframes float{50%{transform:translateY(-1.4px)}}' +
     '.legs path{transform-box:fill-box;transform-origin:50% 0;animation:step .5s ease-in-out infinite alternate}' +
     '.legs path+path{animation-direction:alternate-reverse}@keyframes step{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}',
 }

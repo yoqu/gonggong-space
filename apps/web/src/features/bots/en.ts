@@ -185,8 +185,8 @@ export default {
   '选择目录…': 'Choose folder…',
   共字君: 'Gong',
   默认角色: 'Default role',
-  '品牌吉祥物，什么活都肯接，把大家托举在一起':
-    'The brand mascot: takes on any job and holds everyone up together',
+  '品牌吉祥物，什么活都肯接，头顶的小灯告诉你它在忙什么':
+    'The brand mascot: takes on any job, and the light on its head tells you what it is up to',
   '{name}：{line}': '{name}: {line}',
   已绑定: 'Bound',
   待确认: 'Pending confirmation',

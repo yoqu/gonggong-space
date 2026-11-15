@@ -7,7 +7,7 @@ import { applyTeamEvent } from '../features/teams/store'
 import { t } from '../i18n'
 import { toastError } from '../lib/errors'
 import { realtime } from '../lib/realtime'
-import { Alert, Button, Mascot } from '../ui'
+import { Alert, Button, Logo } from '../ui'
 import { useSession } from './session'
 import { loadWorkspace, useWorkspace } from './workspace'
 
@@ -55,7 +55,7 @@ export function RequireSession() {
   if (status !== 'ready')
     return (
       <div className="app-center app-splash" role="status">
-        <Mascot action="wait" size={96} />
+        <Logo size={64} motion="idle" />
         <span className="app-splash__name">{t('共工空间')}</span>
         <span className="app-splash__hint">{t('正在连接…')}</span>
       </div>

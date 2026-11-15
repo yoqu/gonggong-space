@@ -1,5 +1,9 @@
 # Changelog
 
+## 未发布 / Unreleased
+
+- 新 logo「对眼 gg」：应用、桌面端图标、文档站统一更换，共字君、登录页与启动屏随之换上品牌蓝和琥珀 / New "gg" logo across the app, desktop icons and docs site, with 共字君, the sign-in page and the splash screen in the new brand blue and amber
+
 ## v0.4.21 — 2026-11-14
 
 - 新增 Antigravity CLI（`agy`）内置 Agent 插件，经 ACP 原生接入 / Adds the built-in Antigravity CLI (`agy`) agent plugin over native ACP

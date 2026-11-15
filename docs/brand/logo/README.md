@@ -5,7 +5,7 @@
 - **创意**：两个 g 是一对搭档，也是一双看着你的眼睛。`gg` 是 CLI 的名字，也是 Gong Gong 的缩写。
 - **版本**：横排（主用）、竖排、单独图形、单独文字。
 - **文件**：
-  - `gg-symbol.svg` 图形，`gg-symbol-small.svg` 小尺寸版（无瞳孔）
+  - `gg-symbol.svg` 图形，`gg-symbol-small.svg` 小尺寸版（无瞳孔），`gg-symbol-small-white.svg` 其白色单色版（彩色底上用）
   - `gg-horizontal.svg` 横排，`gg-stacked.svg` 竖排，`gg-wordmark.svg` 文字
   - 带 `-reversed` 的用于深色底，带 `-black` / `-white` 的是单色版
   - `gg-app-icon.svg` 应用图标（墨色底）；网页图标在 `apps/web/public/`，桌面端图标在 `apps/desktop/src-tauri/icons/`
