@@ -4,82 +4,69 @@
   display: block;
   overflow: visible;
 }
-.ui-logo__hand,
-.ui-logo__water {
-  fill: none;
-  stroke: #fff;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.ui-logo__pupil {
+  fill: #10203a;
 }
-.ui-logo__hand {
-  stroke-width: 5;
-}
-.ui-logo__water {
-  stroke-width: 3.2;
-  stroke-opacity: 0.55;
-}
-.ui-logo__jade {
+/* Guideline: on dark grounds the pupils turn white, otherwise they vanish into the background seen through the rings */
+[data-theme="dark"] .ui-logo__pupil,
+[data-theme="hc-dark"] .ui-logo__pupil {
   fill: #fff;
+}
+.ui-logo__g,
+.ui-logo__pupil {
   transform-box: fill-box;
   transform-origin: center;
 }
-.ui-logo--enter .ui-logo__badge {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: logo-badge var(--spring-smooth) both;
+.ui-logo--enter .ui-logo__g,
+.ui-logo--idle .ui-logo__g {
+  animation: logo-pop var(--spring-bouncy) both;
 }
-.ui-logo--enter .ui-logo__hand,
-.ui-logo--idle .ui-logo__hand {
-  stroke-dasharray: 1;
-  animation: logo-draw 900ms cubic-bezier(0.65, 0, 0.35, 1) 160ms both;
+.ui-logo--enter .ui-logo__g + .ui-logo__g,
+.ui-logo--idle .ui-logo__g + .ui-logo__g {
+  animation-delay: 90ms;
 }
-.ui-logo--enter .ui-logo__jade,
-.ui-logo--idle .ui-logo__jade {
-  animation: logo-lift 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms both;
+.ui-logo--enter .ui-logo__pupil {
+  animation: logo-pupil var(--spring-bouncy) 260ms both;
 }
-.ui-logo--idle .ui-logo__jade {
+.ui-logo--idle .ui-logo__pupil {
   animation:
-    logo-lift 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms both,
-    logo-float 2.4s ease-in-out 1.4s infinite;
+    logo-pupil var(--spring-bouncy) 260ms both,
+    logo-glance 4.8s ease-in-out 1.2s infinite;
 }
-.ui-logo--idle .ui-logo__water {
-  animation: logo-flow 1.6s linear infinite;
-}
-@keyframes logo-badge {
+@keyframes logo-pop {
   from {
     opacity: 0;
-    transform: scale(0.82) rotate(-8deg);
+    transform: translateY(12px) scale(0.6);
   }
 }
-@keyframes logo-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes logo-lift {
+@keyframes logo-pupil {
   from {
     opacity: 0;
-    transform: translateY(10px) rotate(-45deg) scale(0.6);
+    transform: scale(0);
   }
 }
-@keyframes logo-float {
-  50% {
-    transform: translateY(-2.5px);
+/* Pupils stay inside the ring's 24-unit hole: at most ~11 units from where they rest */
+@keyframes logo-glance {
+  0%,
+  18%,
+  100% {
+    transform: none;
   }
-}
-@keyframes logo-flow {
-  to {
-    transform: translateX(18.4px);
+  26%,
+  44% {
+    transform: translate(-9px, -5px);
+  }
+  52%,
+  70% {
+    transform: translate(3px, -7px);
+  }
+  78% {
+    transform: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ui-logo .ui-logo__badge,
-  .ui-logo .ui-logo__hand,
-  .ui-logo .ui-logo__jade,
-  .ui-logo .ui-logo__water {
+  .ui-logo .ui-logo__g,
+  .ui-logo .ui-logo__pupil {
     animation: none;
   }
 }

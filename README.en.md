@@ -164,7 +164,7 @@ Prerequisites: Node.js 24+, pnpm, PostgreSQL, Rust 1.95+. See [Local development
 
 ## Where the name comes from
 
-The name comes from Gonggong (共工), the ancient Chinese water god; in oracle bone script, the character 共 shows two hands lifting an object together. The logo is two wave crests holding up a piece of jade.
+The name comes from Gonggong (共工), the ancient Chinese water god; in oracle bone script, the character 共 shows two hands lifting an object together. The logo is two g's side by side: a pair of partners, and a pair of eyes looking at you; `gg` is the CLI's name and short for Gong Gong.
 
 ## Community
 

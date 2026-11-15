@@ -61,7 +61,7 @@ Gonggong Space doesn't replace these Agents; it brings them into your team's gro
 
 ## Where the name comes from
 
-"Gonggong" (共工) is the water god of ancient Chinese mythology. In oracle-bone script, the character 共 shows two hands lifting something together, which matches the idea of "everyone lifting the work together". The logo is two wave crests holding up a piece of jade.
+"Gonggong" (共工) is the water god of ancient Chinese mythology. In oracle-bone script, the character 共 shows two hands lifting something together, which matches the idea of "everyone lifting the work together". The logo is two g's side by side: a pair of partners, and a pair of eyes looking at you; `gg` is the CLI's name and short for Gong Gong.
 
 The brand mascot, Gong (共字君), is a flat little figure shaped like the character 共. A new Bot uses the selected Agent's look by default; you can switch it to Gong or one of 12 personality characters. See [Create a Bot](/en/user/create-bot).
 

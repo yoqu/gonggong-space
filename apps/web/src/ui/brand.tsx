@@ -1,11 +1,23 @@
-import { useId } from 'react'
 import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import './brand.css'
 
+// Paths come from docs/brand/logo (gg-symbol.svg, gg-symbol-small.svg); the small cut has thicker rings and no pupils.
+const MARK = {
+  full: [
+    'M18 95A52 52 0 1 1 122 95A52 52 0 1 1 18 95ZM46 95A24 24 0 1 0 94 95A24 24 0 1 0 46 95ZM94 57A14 14 0 0 1 122 57V161A52 52 0 0 1 70 213H52A14 14 0 0 1 52 185H70A24 24 0 0 0 94 161Z',
+    'M134 95A52 52 0 1 1 238 95A52 52 0 1 1 134 95ZM162 95A24 24 0 1 0 210 95A24 24 0 1 0 162 95ZM210 57A14 14 0 0 1 238 57V161A52 52 0 0 1 186 213H168A14 14 0 0 1 168 185H186A24 24 0 0 0 210 161Z',
+  ],
+  small: [
+    'M14 95A52 52 0 1 1 118 95A52 52 0 1 1 14 95ZM39 95A27 27 0 1 0 93 95A27 27 0 1 0 39 95ZM93 57A12.5 12.5 0 0 1 118 57V161A52 52 0 0 1 66 213H48A12.5 12.5 0 0 1 48 188H66A27 27 0 0 0 93 161Z',
+    'M138 95A52 52 0 1 1 242 95A52 52 0 1 1 138 95ZM163 95A27 27 0 1 0 217 95A27 27 0 1 0 163 95ZM217 57A12.5 12.5 0 0 1 242 57V161A52 52 0 0 1 190 213H172A12.5 12.5 0 0 1 172 188H190A27 27 0 0 0 217 161Z',
+  ],
+}
+
 /**
- * 共工空间 mark: two wave crests (the oracle-bone 共 is two hands raising one object) lift a jade above the water.
- * `motion="enter"` draws it in once; `"idle"` also keeps the jade floating and the water flowing (splash screens).
+ * 共工空间 mark「对眼 gg」: two g's side by side, a pair of partners that are also a pair of eyes.
+ * Below 32px the pupils blur the rings shut, so the small cut drops them (brand guideline).
+ * `motion="enter"` pops the two g's in once; `"idle"` also keeps the pupils glancing around (splash screens).
  */
 export function Logo({
   size = 24,
@@ -16,34 +28,24 @@ export function Logo({
   motion?: 'enter' | 'idle'
   className?: string
 }) {
-  const id = useId()
+  const small = size < 32
+  const [blue, amber] = small ? MARK.small : MARK.full
   return (
     <svg
       className={cx('ui-logo', motion && `ui-logo--${motion}`, className)}
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="0 0 256 256"
       aria-hidden="true"
     >
-      <defs>
-        <linearGradient id={`${id}g`} x1="8" y1="4" x2="56" y2="62" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#2F6BFF" />
-          <stop offset="1" stopColor="#0FA3A0" />
-        </linearGradient>
-        <clipPath id={`${id}c`}>
-          <rect width="64" height="64" rx="15" />
-        </clipPath>
-      </defs>
-      <rect className="ui-logo__badge" width="64" height="64" rx="15" fill={`url(#${id}g)`} />
-      <g clipPath={`url(#${id}c)`}>
-        <path
-          className="ui-logo__water"
-          d="M-9 53c4.6 0 4.6-3 9.2-3s4.6 3 9.2 3 4.6-3 9.2-3 4.6 3 9.2 3 4.6-3 9.2-3 4.6 3 9.2 3 4.6-3 9.2-3 4.6 3 9.2 3 4.6-3 9.2-3"
-        />
-      </g>
-      <path className="ui-logo__hand" pathLength={1} d="M9 44c5 0 7-4 9-9 3-7 7-8 10-5 2 2 1 6-2 6" />
-      <path className="ui-logo__hand" pathLength={1} d="M55 44c-5 0-7-4-9-9-3-7-7-8-10-5-2 2-1 6 2 6" />
-      <path className="ui-logo__jade" d="M32 11 40 19 32 27 24 19Z" />
+      <path className="ui-logo__g" fill="#3B7BFF" d={blue} />
+      <path className="ui-logo__g" fill="#FFB224" d={amber} />
+      {small ? null : (
+        <>
+          <circle className="ui-logo__pupil" cx="75" cy="99" r="11" />
+          <circle className="ui-logo__pupil" cx="191" cy="99" r="11" />
+        </>
+      )}
     </svg>
   )
 }

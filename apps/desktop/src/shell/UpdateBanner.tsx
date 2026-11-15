@@ -1,6 +1,7 @@
 import { AlertDialog, NotificationBanner } from '@web/ui'
 import { useState } from 'react'
 import logo from '../assets/logo.svg'
+import logoSmall from '../assets/logo-small.svg'
 import { t } from '../i18n'
 import { activeRuns, restartToUpdate, useUpdate } from '../updater'
 
@@ -44,7 +45,7 @@ export function UpdateBanner() {
       {state.phase === 'ready' && !dismissed ? (
         <div className="dk-update">
           <NotificationBanner
-            app={{ name: t('共工空间'), icon: <img src={logo} alt="" width={20} height={20} /> }}
+            app={{ name: t('共工空间'), icon: <img src={logoSmall} alt="" width={20} height={20} /> }}
             title={t('发现新版本')}
             body={
               <>

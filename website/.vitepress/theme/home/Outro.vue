@@ -11,10 +11,11 @@ const STEPS = computed(() => t.value.outro.steps.map(([who, cmd]) => ({ who: t.v
 <template>
   <section v-reveal class="outro">
     <div class="gg-wrap">
-      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
-        <path class="mark__wave" pathLength="1" d="M9 44c5 0 7-4 9-9 3-7 7-8 10-5 2 2 1 6-2 6M55 44c-5 0-7-4-9-9-3-7-7-8-10-5-2 2-1 6 2 6" />
-        <path class="mark__sea" pathLength="1" d="M9 53c4.6 0 4.6-3 9.2-3s4.6 3 9.2 3 4.6-3 9.2-3 4.6 3 9.2 3 4.6-3 9.2-3" />
-        <path class="mark__jade" d="M32 11 40 19 32 27 24 19Z" />
+      <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
+        <path class="mark__g" fill="#3B7BFF" d="M18 95A52 52 0 1 1 122 95A52 52 0 1 1 18 95ZM46 95A24 24 0 1 0 94 95A24 24 0 1 0 46 95ZM94 57A14 14 0 0 1 122 57V161A52 52 0 0 1 70 213H52A14 14 0 0 1 52 185H70A24 24 0 0 0 94 161Z" />
+        <path class="mark__g" fill="#FFB224" d="M134 95A52 52 0 1 1 238 95A52 52 0 1 1 134 95ZM162 95A24 24 0 1 0 210 95A24 24 0 1 0 162 95ZM210 57A14 14 0 0 1 238 57V161A52 52 0 0 1 186 213H168A14 14 0 0 1 168 185H186A24 24 0 0 0 210 161Z" />
+        <circle class="mark__pupil" cx="75" cy="99" r="11" />
+        <circle class="mark__pupil" cx="191" cy="99" r="11" />
       </svg>
       <h2 class="line gg-rise" style="--i: 2">{{ t.outro.title }}</h2>
       <p class="gg-lead gg-rise" style="--i: 3">{{ t.outro.lead }}</p>
@@ -54,44 +55,55 @@ const STEPS = computed(() => t.value.outro.steps.map(([who, cmd]) => ({ who: t.v
   margin: 0 auto;
   overflow: visible;
 }
-.mark path {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.mark__wave,
-.mark__sea {
-  stroke: var(--ink);
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  transition: stroke-dashoffset 1.6s cubic-bezier(0.6, 0, 0.2, 1);
-}
-.mark__wave {
-  stroke-width: 4.5;
-}
-.mark__sea {
-  stroke-width: 2.6;
-  stroke-opacity: 0.5;
-  transition-delay: 0.3s;
-}
-.mark .mark__jade {
-  fill: var(--jade);
+.mark path,
+.mark circle {
   transform-box: fill-box;
   transform-origin: center;
-  transform: translateY(18px) scale(0);
-  transition: transform 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) 1.2s;
 }
-.is-in .mark__wave,
-.is-in .mark__sea {
-  stroke-dashoffset: 0;
+.mark__pupil {
+  fill: #10203a;
 }
-.is-in .mark .mark__jade {
+.dark .mark__pupil {
+  fill: #fff;
+}
+.mark__g {
+  opacity: 0;
+  transform: translateY(14px) scale(0.6);
+  transition:
+    opacity 0.4s ease-out,
+    transform 0.9s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.mark__g + .mark__g {
+  transition-delay: 0.12s;
+}
+.mark .mark__pupil {
+  transform: scale(0);
+  transition: transform 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 0.5s;
+}
+.is-in .mark__g {
+  opacity: 1;
   transform: none;
-  animation: lift 4s ease-in-out 2.2s infinite;
 }
-@keyframes lift {
-  50% {
-    transform: translateY(-3px);
+.is-in .mark .mark__pupil {
+  transform: none;
+  animation: glance 4.8s ease-in-out 1.6s infinite;
+}
+@keyframes glance {
+  0%,
+  18%,
+  100% {
+    transform: none;
+  }
+  26%,
+  44% {
+    transform: translate(-9px, -5px);
+  }
+  52%,
+  70% {
+    transform: translate(3px, -7px);
+  }
+  78% {
+    transform: none;
   }
 }
 .line {
