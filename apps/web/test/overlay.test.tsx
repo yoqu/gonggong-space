@@ -278,6 +278,51 @@ describe('Toast behavior', () => {
   })
 })
 
+describe('Toast stack', () => {
+  const rows = () => [...document.querySelectorAll<HTMLElement>('.ui-toast')]
+  const depth = (el: HTMLElement) => el.style.getPropertyValue('--depth')
+  const raise = (...messages: string[]) =>
+    act(() => {
+      for (const message of messages) toast({ type: 'info', message })
+    })
+
+  it('stacks behind the newest toast, showing at most three layers', () => {
+    render(<Toaster />)
+    raise('一', '二', '三', '四')
+    expect(rows().map(depth)).toEqual(['3', '2', '1', '0'])
+    expect(rows().map((r) => r.hasAttribute('data-buried'))).toEqual([true, false, false, false])
+    expect(document.querySelector('.ui-toasts')!.hasAttribute('data-expanded')).toBe(false)
+  })
+
+  it('fans out on hover and on keyboard focus, and pauses every timer while open', () => {
+    vi.useFakeTimers()
+    render(<Toaster />)
+    raise('一', '二')
+    const stack = document.querySelector<HTMLElement>('.ui-toasts')!
+    fireEvent.mouseEnter(stack)
+    expect(stack.hasAttribute('data-expanded')).toBe(true)
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(rows()).toHaveLength(2)
+    fireEvent.mouseLeave(stack)
+    expect(stack.hasAttribute('data-expanded')).toBe(false)
+    act(() => {
+      toast({ type: 'info', message: '可撤销', action: { label: '撤销', onClick: () => {} } })
+    })
+    fireEvent.focus(screen.getByRole('button', { name: '撤销' }))
+    expect(stack.hasAttribute('data-expanded')).toBe(true)
+  })
+
+  it('places each toast above the newer ones when fanned out', () => {
+    render(<Toaster />)
+    raise('一', '二', '三')
+    for (const r of rows()) Object.defineProperty(r, 'offsetHeight', { configurable: true, value: 36 })
+    fireEvent.mouseEnter(document.querySelector('.ui-toasts')!)
+    expect(rows().map((r) => r.style.getPropertyValue('--toast-y'))).toEqual(['88px', '44px', '0px'])
+  })
+})
+
 describe('useLeaving', () => {
   it('marks a row while it animates out, then drops it', () => {
     vi.useFakeTimers()

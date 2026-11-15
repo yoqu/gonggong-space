@@ -97,19 +97,53 @@
   cursor: default;
 }
 
-/* Toaster: bottom center of the window, newest nearest the edge; a page may lift it above its composer. */
+/* Toaster: bottom center of the window; a page may lift it above its composer. All toasts share one cell: older
+   ones peek out behind the newest (--depth), up to three layers; hovered or focused, they fan out upwards by the
+   measured --toast-y. Only translate / scale / opacity move. */
 .ui-toasts {
   position: fixed;
   left: var(--toast-x, 50%);
   bottom: var(--toast-bottom, var(--space-20));
   z-index: var(--z-toast);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
+  display: grid;
+  justify-items: center;
+  align-items: end;
   width: max-content;
   max-width: calc(100vw - 32px);
   transform: translateX(-50%);
+}
+.ui-toasts > .ui-toast {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: calc(10 - var(--depth));
+  transform-origin: 50% 100%;
+  translate: 0 calc(var(--depth) * -8px);
+  scale: calc(1 - var(--depth) * 0.05);
+  transition:
+    translate var(--spring-snappy),
+    scale var(--spring-snappy),
+    opacity var(--fade-in);
+}
+.ui-toasts > .ui-toast > * {
+  transition: opacity var(--fade-in);
+}
+.ui-toasts:not([data-expanded]) > .ui-toast[data-behind] > * {
+  opacity: 0;
+}
+.ui-toasts:not([data-expanded]) > .ui-toast[data-buried] {
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-toasts[data-expanded] > .ui-toast {
+  translate: 0 calc(-1 * var(--toast-y, 0px));
+  scale: 1;
+}
+/* Bridges the gap to the toast below, so moving between fanned-out toasts doesn't fold the stack. */
+.ui-toasts[data-expanded] > .ui-toast::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: var(--space-8);
 }
 .ui-toasts:empty {
   display: none;
