@@ -4,6 +4,7 @@ import { useSession } from '../../app/session'
 import { loadBotStates, loadGitOperations, useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { copyWithToast } from '../../lib/clipboard'
+import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { Icon, type IconName, Presence } from '../../ui'
 import { refreshGitQuietly } from '../git/api'
@@ -14,6 +15,7 @@ import { openTab } from '../workbench/open'
 import { WorkspacePicker } from '../workspaces/WorkspacePicker'
 import { ContextMeter } from './ContextMeter'
 import { contextGauge } from './ContextRing'
+import { startNewSession } from './newSession'
 
 const WORKSPACE_LABEL = { managed: t('托管目录'), cd: t('本机目录') }
 const FOCUS_REFRESH_MS = 30_000
@@ -232,6 +234,7 @@ function Item({
           onDiff={hint ? undefined : diff}
           onFiles={files}
           onChange={onChange}
+          onNewSession={() => startNewSession(groupId, name).catch(toastError)}
         />
       </span>
     </div>

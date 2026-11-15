@@ -68,6 +68,7 @@ export function WorkspaceMenu({
   onDiff,
   onFiles,
   onChange,
+  onNewSession,
 }: BotGit & {
   git: GitStatus | null
   head: ReactNode
@@ -77,6 +78,8 @@ export function WorkspaceMenu({
   onFiles?: () => void
   /** 更换工作区, offered to the bot's owner only. */
   onChange?: () => void
+  /** 新对话: `/new @bot`, open to every member. */
+  onNewSession?: () => void
 }) {
   const label = t('{name} 的工作区', { name })
   return (
@@ -99,6 +102,15 @@ export function WorkspaceMenu({
         return (
           <div className="git-subs">
             <div className="git-menu__head">{head}</div>
+            {onNewSession ? (
+              <MenuItem
+                icon="arrow-clockwise"
+                label={t('新对话')}
+                note={t('下一轮不带之前的上下文')}
+                aria={t('让 {name} 开新对话', { name })}
+                onClick={then(onNewSession)}
+              />
+            ) : null}
             {showDiff ? (
               <MenuItem
                 icon="doc-text"

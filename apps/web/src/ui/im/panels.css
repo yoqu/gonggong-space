@@ -419,6 +419,9 @@
 .pn-profile__dot--busy {
   background: var(--system-red);
 }
+.pn-profile__dot--running {
+  background: var(--system-blue);
+}
 .pn-profile__dot--away {
   background: var(--system-orange);
 }

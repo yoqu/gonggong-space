@@ -38,6 +38,7 @@ const bot = {
   avatarUrl: null,
   binding: 'bound',
   presence: 'running',
+  systemPrompt: '',
 } as BotDto
 const card = (id: string, name: string): UserCardDto => ({
   id,

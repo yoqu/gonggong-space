@@ -27,3 +27,13 @@
   padding: var(--space-12) 0;
   color: var(--label-secondary);
 }
+/* The system prompt as intro: a few wrapped lines, the rest behind the link to the bot page. */
+.bot-card__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--label-secondary);
+}

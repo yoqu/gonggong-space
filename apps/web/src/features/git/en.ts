@@ -476,4 +476,7 @@ export default {
   取回文件: 'Get files',
   '更换工作区…': 'Change workspace…',
   '更换 {name} 的工作区': "Change {name}'s workspace",
+  新对话: 'New chat',
+  下一轮不带之前的上下文: 'Next turn starts without prior context',
+  '让 {name} 开新对话': 'Start a new chat with {name}',
 } satisfies Record<string, string>

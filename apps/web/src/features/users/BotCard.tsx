@@ -1,14 +1,33 @@
 import { type ReactNode, useContext } from 'react'
+import { Link } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
+import { toastError } from '../../lib/errors'
 import { ProfileCard } from '../../ui'
 import { botFace } from '../bots/avatars'
-import { agentLine, PRESENCE } from '../bots/model'
+import { agentLine, PRESENCE, presenceBadge } from '../bots/model'
+import { startNewSession } from '../chat/newSession'
 import { ThreadScope } from '../chat/threadSummary'
 import { HoverCardTrigger, mentionAction } from './UserCard'
 import { useHoverCard } from './useHoverCard'
 
-/** A bot's card: owner, agent and state; @TA while it is in the group. Unknown (deleted) bots get no card. */
+const INTRO_MAX = 50
+
+/** The system prompt as a one-paragraph intro: markdown marks and line breaks dropped, cut at INTRO_MAX. */
+export function botIntro(prompt: string) {
+  const text = prompt
+    .replace(/[#>*`_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return null
+  const cut = [...text].length > INTRO_MAX
+  return { text: cut ? `${[...text].slice(0, INTRO_MAX).join('')}…` : text, cut }
+}
+
+/**
+ * A bot's card: owner, agent, state and its system prompt as intro; @TA and 新对话 while it is in the group.
+ * Unknown (deleted) bots get no card.
+ */
 export function BotCardTrigger({
   botId,
   groupId,
@@ -27,7 +46,11 @@ export function BotCardTrigger({
   const bot = useWorkspace((s) => s.bots.find((b) => b.id === botId))
   const inGroup = useWorkspace((s) => !!s.groups.find((g) => g.id === groupId)?.botIds.includes(botId))
   if (!bot) return children
-  const live = bot.presence === 'online' || bot.presence === 'running'
+  const intro = botIntro(bot.systemPrompt)
+  const renew = () => {
+    hover.close()
+    startNewSession(groupId, bot.name, scope).catch(toastError)
+  }
   return (
     <HoverCardTrigger
       label={t('Bot 名片')}
@@ -38,12 +61,38 @@ export function BotCardTrigger({
         <ProfileCard
           name={bot.name}
           avatar={botFace(bot)}
-          status={bot.presence === 'running' ? 'busy' : live ? 'online' : 'offline'}
+          status={presenceBadge(bot).status}
           statusText={PRESENCE[bot.presence].label}
           title={agentLine(bot)}
           tags={[{ label: 'Bot', tone: 'blue' }]}
-          fields={[{ label: t('主人'), value: bot.ownerName }]}
-          actions={inGroup ? [mentionAction(groupId, bot.name, hover.close, scope)] : undefined}
+          fields={[
+            { label: t('主人'), value: bot.ownerName },
+            ...(intro
+              ? [
+                  {
+                    label: t('简介'),
+                    value: (
+                      <span className="bot-card__intro">
+                        {intro.text}
+                        {intro.cut ? (
+                          <Link to={`/bot/${bot.id}`} onClick={hover.close}>
+                            {t('完整内容见 Bot 详情')}
+                          </Link>
+                        ) : null}
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+          actions={
+            inGroup
+              ? [
+                  mentionAction(groupId, bot.name, hover.close, scope),
+                  { label: t('新对话'), icon: 'arrow-clockwise', variant: 'default', onClick: renew },
+                ]
+              : undefined
+          }
         />
       }
     >

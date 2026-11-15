@@ -6,8 +6,7 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { realtime } from '../../lib/realtime'
 import { Button, PinnedBanner } from '../../ui'
-import { uuid } from './MessageComposer'
-import { postMessage } from './pending'
+import { startNewSession } from './newSession'
 
 type Item = GroupProviderStateDto['items'][number]
 
@@ -38,16 +37,9 @@ export function ProviderBanner({ group }: { group: GroupDto }) {
     }
   }, [group.id])
 
-  // Same as typing the Agent command: `/new @bot` in the group.
   const renew = (bot: BotDto) => {
     setSending(bot.id)
-    postMessage(group.id, {
-      body: `/new @${bot.name}`,
-      clientId: uuid(),
-      attachmentIds: [],
-      quote: null,
-      appendTo: null,
-    })
+    startNewSession(group.id, bot.name)
       .catch(toastError)
       .finally(() => setSending(null))
   }

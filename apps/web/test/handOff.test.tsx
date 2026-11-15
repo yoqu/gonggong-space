@@ -10,7 +10,8 @@ import { BotReply } from '../src/features/chat/TimelineItems'
 /** Message rows open the chat's router (branch navigation), so every render gets one. */
 const render = (ui: ReactElement) => renderBare(<MemoryRouter>{ui}</MemoryRouter>)
 
-const bot = (id: string, name: string) => ({ id, name, avatar: 'role-no', presence: 'online' }) as BotDto
+const bot = (id: string, name: string) =>
+  ({ id, name, avatar: 'role-no', presence: 'online', systemPrompt: '' }) as BotDto
 const reply = (o: Partial<MessageDto>): MessageDto => ({
   id: 'm1',
   seq: 1,
