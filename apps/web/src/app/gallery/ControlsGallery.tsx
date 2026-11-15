@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import {
   Avatar,
   AvatarGroup,
@@ -19,6 +19,7 @@ import {
   ProgressIndicator,
   PullDownButton,
   RadioGroup,
+  RollingNumber,
   SearchField,
   SecureField,
   SegmentedControl,
@@ -29,6 +30,7 @@ import {
   TextArea,
   TextField,
   TokenField,
+  useFlash,
 } from '../../ui'
 
 const col = { display: 'flex', flexDirection: 'column', gap: 12 } as const
@@ -431,6 +433,12 @@ export function ControlsGallery() {
           <Badge count={12} muted />
         </div>
       </Card>
+      <Card name="RollingNumber">
+        <RollingDemo />
+      </Card>
+      <Card name="Button · 保存">
+        <SaveDemo />
+      </Card>
       <Card name="Avatar">
         <div style={col}>
           <div style={row(16)}>
@@ -477,5 +485,49 @@ export function ControlsGallery() {
         </GroupBox>
       </Card>
     </section>
+  )
+}
+
+function RollingDemo() {
+  const [n, setN] = useState(7)
+  return (
+    <div style={row()}>
+      <Badge count={n} />
+      <span style={{ fontSize: 'var(--text-title-1-size)' }}>
+        <RollingNumber value={n} />
+      </span>
+      <RollingNumber value={`${Math.min(100, n)}%`} />
+      <Button size="small" onClick={() => setN((v) => v + 1)}>
+        +1
+      </Button>
+      <Button size="small" onClick={() => setN((v) => v + 17)}>
+        +17
+      </Button>
+      <Button size="small" onClick={() => setN(7)}>
+        重置
+      </Button>
+    </div>
+  )
+}
+
+function SaveDemo() {
+  const [busy, setBusy] = useState(false)
+  const [saved, flash] = useFlash()
+  const save = () => {
+    setBusy(true)
+    setTimeout(() => {
+      setBusy(false)
+      flash()
+    }, 1200)
+  }
+  return (
+    <div style={row()}>
+      <Button variant="primary" loading={busy} done={saved} onClick={save}>
+        {busy ? '保存中…' : saved ? '已保存' : '保存'}
+      </Button>
+      <Button loading={busy} done={saved} onClick={save}>
+        {busy ? '保存中…' : saved ? '已保存' : '保存'}
+      </Button>
+    </div>
   )
 }

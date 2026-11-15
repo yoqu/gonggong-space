@@ -604,6 +604,7 @@ export default {
   机器: 'Machine',
   编辑头像: 'Edit avatar',
   '保存中…': 'Saving…',
+  已保存: 'Saved',
   完成: 'Done',
   拖动调整位置: 'Drag to reposition',
   缩放: 'Zoom',

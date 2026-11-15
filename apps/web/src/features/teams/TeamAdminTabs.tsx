@@ -28,7 +28,7 @@ import {
   Stepper,
   Tag,
   TextField,
-  toast,
+  useFlash,
 } from '../../ui'
 import { AuditPanel } from '../admin/AuditPage'
 import { McpLayerList, McpSaved, useMcpLayer } from '../config/ConfigPage'
@@ -161,6 +161,7 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
   const { data } = useGet<TeamParamsDto>(`/teams/${team.id}/params`)
   const [draft, setDraft] = useState<TeamParams | null>(null)
   const [busy, setBusy] = useState(false)
+  const [saved, flashSaved] = useFlash()
   useEffect(() => {
     if (data) setDraft(data.overrides)
   }, [data])
@@ -168,8 +169,7 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
   const dirty = TEAM_PARAM_KEYS.some((k) => draft[k] !== data.overrides[k])
   const save = async () => {
     setBusy(true)
-    if (await attempt(() => teamsApi.update(team.id, { params: draft })))
-      toast({ type: 'success', message: t('团队参数已保存') })
+    if (await attempt(() => teamsApi.update(team.id, { params: draft }))) flashSaved()
     setBusy(false)
   }
   return (
@@ -215,8 +215,8 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
         })}
       </GroupBox>
       <div className="team-actions">
-        <Button variant="primary" disabled={busy || !dirty} onClick={() => void save()}>
-          {t('保存')}
+        <Button variant="primary" disabled={!dirty} loading={busy} done={saved} onClick={() => void save()}>
+          {busy ? t('保存中…') : saved ? t('已保存') : t('保存')}
         </Button>
       </div>
       <div className="gs-foot">
@@ -231,6 +231,7 @@ export function TeamOnboardingTab({ team }: { team: TeamDto }) {
   const { data } = useGet<TeamOnboardingDto>(`/teams/${team.id}/onboarding`)
   const [draft, setDraft] = useState<TeamOnboardingReq | null>(null)
   const [busy, setBusy] = useState(false)
+  const [saved, flashSaved] = useFlash()
   useEffect(() => {
     if (data) setDraft({ groupId: data.groupId, botId: data.botId, examples: data.examples })
   }, [data])
@@ -239,8 +240,7 @@ export function TeamOnboardingTab({ team }: { team: TeamDto }) {
   const bots = options.find((g) => g.id === draft.groupId)?.bots ?? []
   const save = async () => {
     setBusy(true)
-    if (await attempt(() => api.put(`/teams/${team.id}/onboarding`, draft)))
-      toast({ type: 'success', message: t('新手群设置已保存') })
+    if (await attempt(() => api.put(`/teams/${team.id}/onboarding`, draft))) flashSaved()
     setBusy(false)
   }
   return (
@@ -294,10 +294,12 @@ export function TeamOnboardingTab({ team }: { team: TeamDto }) {
       <div className="team-actions">
         <Button
           variant="primary"
-          disabled={busy || draft.examples.some((q) => !q.trim())}
+          disabled={draft.examples.some((q) => !q.trim())}
+          loading={busy}
+          done={saved}
           onClick={() => void save()}
         >
-          {t('保存')}
+          {busy ? t('保存中…') : saved ? t('已保存') : t('保存')}
         </Button>
       </div>
       <div className="gs-foot">

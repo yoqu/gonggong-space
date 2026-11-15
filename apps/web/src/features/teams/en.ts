@@ -95,7 +95,6 @@ export default {
   '继承平台值 {value}': 'Inherits the platform value {value}',
   恢复继承: 'Inherit',
   '{name}：恢复继承': '{name}: inherit',
-  团队参数已保存: 'Team parameters saved',
   '留空沿用平台默认值；群管理员可在群设置中再调整群级参数。保存后对新会话生效。':
     'Empty fields use the platform defaults; group admins can still adjust group-level params in group settings. Applies to new sessions after saving.',
   '{members} 位成员 · {bots} 个 Bot': '{members} {members:member|members} · {bots} {bots:Bot|Bots}',
@@ -120,7 +119,6 @@ export default {
   '欢迎新成员，并请他们有问题 @ 它': 'Welcomes new members, who @ it with their questions',
   不设置: 'None',
   '示例问题 {n}': 'Example question {n}',
-  新手群设置已保存: 'Newcomer group settings saved',
   '已关联飞书的新成员会收到默认助手发来的欢迎卡片，点示例问题即在新手群里提问。':
     'New members linked to Feishu get a welcome card from the default assistant; tapping an example asks it in the newcomer group.',
   '对本团队所有群生效；由团队管理员维护，你可以在市场里申请引入。':

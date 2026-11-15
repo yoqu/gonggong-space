@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { Button, GroupBox, GroupRow, Switch, TextField, toast } from '../../ui'
+import { Button, GroupBox, GroupRow, Switch, TextField, toast, useFlash } from '../../ui'
 import { AdminPage } from '../admin/AdminPage'
 import { FeishuAppForm } from './FeishuAppForm'
 import { FeishuOverviewTables, FeishuProgress, useFeishuOverview } from './FeishuOverview'
@@ -20,6 +20,8 @@ export function FeishuAdminPage() {
   const [autoSignup, setAutoSignup] = useState<boolean | null>(null)
   const [publicUrl, setPublicUrl] = useState('')
   const [urlDraft, setUrlDraft] = useState('')
+  const [savingUrl, setSavingUrl] = useState(false)
+  const [urlSaved, flashUrlSaved] = useFlash()
   useEffect(() => {
     api.get<SystemParams>('/admin/params').then((p) => {
       setAutoSignup(p.feishuAutoSignup)
@@ -29,6 +31,7 @@ export function FeishuAdminPage() {
   }, [])
 
   const saveUrl = async () => {
+    setSavingUrl(true)
     try {
       const next = await api.put<SystemParams>('/admin/params', {
         publicUrl: trimUrl(urlDraft),
@@ -36,9 +39,11 @@ export function FeishuAdminPage() {
       setPublicUrl(next.publicUrl)
       setUrlDraft(next.publicUrl)
       overview.reload()
-      toast({ type: 'success', message: t('对外地址已保存') })
+      flashUrlSaved()
     } catch (e) {
       toastError(e)
+    } finally {
+      setSavingUrl(false)
     }
   }
 
@@ -89,9 +94,11 @@ export function FeishuAdminPage() {
                   variant={publicUrl ? undefined : 'primary'}
                   aria-label={t('保存对外地址')}
                   disabled={trimUrl(urlDraft) === publicUrl}
+                  loading={savingUrl}
+                  done={urlSaved}
                   onClick={() => void saveUrl()}
                 >
-                  {t('保存')}
+                  {savingUrl ? t('保存中…') : urlSaved ? t('已保存') : t('保存')}
                 </Button>
               </span>
             </GroupRow>

@@ -371,6 +371,35 @@ describe('team management tabs', () => {
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ params: { contextInlineTokens: 4000 } })
   })
 
+  it('confirms a saved form on the button itself, without a toast', async () => {
+    mockApi({
+      'GET /teams/t1/params': {
+        overrides: {},
+        platform: {
+          approvalTimeoutMin: 30,
+          chainMaxHops: 3,
+          offlineWaitMin: 30,
+          contextInlineTokens: 8000,
+          sessionReplayTokens: 16000,
+          botConcurrencyDefault: 2,
+          attachmentsPerMessage: 10,
+          questionsPerCard: 5,
+        },
+      },
+      'PATCH /teams/t1': () => team({ role: 'admin' }),
+    })
+    signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
+    render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '参数' }))
+    const context = await screen.findByLabelText('每轮随消息附带的群聊上下文（token 上限）')
+    fireEvent.change(context, { target: { value: '4000' } })
+    fireEvent.blur(context)
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    const done = await screen.findByRole('button', { name: '已保存' })
+    expect(done.className).toContain('ui-btn--done')
+    expect(screen.queryByText('团队参数已保存')).toBeNull()
+  })
+
   it('opens my groups; views or takes over the others; never archives', async () => {
     const calls = mockApi({
       'GET /teams/t1/groups': [

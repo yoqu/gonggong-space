@@ -54,7 +54,6 @@ export default {
   '浏览器访问共工的地址，如 https://gonggong.example.com；飞书卡片中的链接和飞书登录回调都基于它。':
     'The address browsers use to reach Gonggong, e.g. https://gonggong.example.com; links in Feishu cards and the Feishu sign-in callback are built on it.',
   保存对外地址: 'Save public URL',
-  对外地址已保存: 'Public URL saved',
   '重定向 URL': 'Redirect URL',
   '在飞书开发者后台「安全设置 · 重定向 URL」中添加此地址，飞书登录才能回到共工。':
     'Add this address under Security Settings · Redirect URLs in the Feishu developer console so Feishu sign-in can return to Gonggong.',
