@@ -137,11 +137,95 @@
   background: var(--group-bg);
   cursor: zoom-in;
 }
-.att-chip__thumb > img {
+.att-chip__thumb img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+/* Upload finished: the file icon gives way to a drawn check for a moment, then comes back (opacity and stroke
+   only, so it also plays under reduced motion). The lead's own animation only times the sequence. */
+.att-chip__lead {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+}
+.att-chip__thumb > .att-chip__lead {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.att-chip__check {
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  fill: none;
+  stroke: var(--system-green);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+}
+.att-chip__thumb .att-chip__check {
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border-radius: 50%;
+  background: var(--system-green);
+  stroke: var(--on-accent);
+}
+.att-chip[data-done] .att-chip__lead {
+  animation: att-done 1400ms;
+}
+.att-chip[data-done] .att-chip__lead > :not(.att-chip__check) {
+  animation: att-lead-away 1400ms ease both;
+}
+.att-chip[data-done] .att-chip__thumb .att-chip__lead > img {
+  animation-name: att-thumb-dim;
+}
+.att-chip[data-done] .att-chip__check {
+  animation: att-check 1400ms ease both;
+}
+@keyframes att-done {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes att-lead-away {
+  12%,
+  82% {
+    opacity: 0;
+  }
+}
+@keyframes att-thumb-dim {
+  12%,
+  82% {
+    opacity: 0.45;
+  }
+}
+@keyframes att-check {
+  0%,
+  10% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+  14% {
+    opacity: 1;
+    stroke-dashoffset: 1;
+  }
+  36%,
+  80% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
 }
 .att-chip__rm {
   flex: none;

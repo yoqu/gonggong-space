@@ -418,6 +418,29 @@ describe('composer attachments', () => {
     expect(send.disabled).toBe(false)
     expect(document.querySelector('.att-chip__bar')).toBeNull()
   })
+
+  it('turns the file icon into a check the moment its upload finishes, not for files already uploaded', async () => {
+    mockApi()
+    let finish: () => void = () => {}
+    vi.mocked(uploadFile).mockImplementation((_g, f) => ({
+      done: new Promise((r) => {
+        finish = () => r({ id: 'up1', name: f.name, size: f.size, mime: f.type })
+      }),
+      abort: vi.fn(),
+    }))
+    renderChat()
+    await screen.findByTestId('bot-reply')
+    const [, files] = document.querySelectorAll<HTMLInputElement>('input[type=file]')
+    pick(files as HTMLInputElement, [file('notes.txt', 10, 'text/plain')])
+    const chip = composer().getByText('notes.txt').closest<HTMLElement>('.att-chip')!
+    expect(chip.hasAttribute('data-done')).toBe(false)
+    expect(chip.querySelector('.att-chip__check')).toBeNull()
+    await act(async () => finish())
+    expect(chip.hasAttribute('data-done')).toBe(true)
+    expect(chip.querySelector('.att-chip__check')).toBeTruthy()
+    fireEvent.animationEnd(chip.querySelector('.att-chip__lead')!, { animationName: 'att-done' })
+    expect(chip.hasAttribute('data-done')).toBe(false)
+  })
 })
 
 describe('quotes', () => {

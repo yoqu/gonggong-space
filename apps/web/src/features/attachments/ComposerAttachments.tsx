@@ -1,5 +1,13 @@
 import { FILE_TEXT_MAX_BYTES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from '@gonggong/protocol'
-import { type ChangeEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, FileIcon, Icon, Lightbox, Presence, toast } from '../../ui'
 import { mentionInChat } from '../chat/mention'
@@ -194,9 +202,34 @@ function LocalPreview({ file }: { file: File }) {
   ) : null
 }
 
+const DoneCheck = () => (
+  <svg className="att-chip__check" viewBox="0 0 18 18" aria-hidden="true">
+    <path d="M4.5 9.4l3 3 6-6.8" pathLength={1} />
+  </svg>
+)
+
+/** Chips whose upload finished while shown: their icon turns into a check for a moment (once). */
+function useJustUploaded(items: UploadItem[]) {
+  const pending = useRef(new Set<number>())
+  const [done, setDone] = useState<ReadonlySet<number>>(() => new Set())
+  useLayoutEffect(() => {
+    const now = items.filter((i) => i.upload && pending.current.has(i.key)).map((i) => i.key)
+    pending.current = new Set(items.filter((i) => !i.upload).map((i) => i.key))
+    if (now.length) setDone((d) => new Set([...d, ...now]))
+  }, [items])
+  const settle = (key: number) =>
+    setDone((d) => {
+      const next = new Set(d)
+      next.delete(key)
+      return next
+    })
+  return [done, settle] as const
+}
+
 export function AttachmentChips({ uploads }: { uploads: Uploads }) {
   const [viewKey, setViewKey] = useState<number | null>(null)
   const thumbs = useRef(new Map<number, HTMLElement>())
+  const [justDone, settle] = useJustUploaded(uploads.items)
   if (!uploads.items.length) return null
   const viewing = uploads.items.find((i) => i.key === viewKey)
   const viewable = uploads.items.filter((i) => i.thumb)
@@ -204,7 +237,11 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
   return (
     <div className="att-chips">
       {uploads.items.map((i) => (
-        <span key={i.key} className={cx('att-chip', i.thumb && 'att-chip--image')}>
+        <span
+          key={i.key}
+          className={cx('att-chip', i.thumb && 'att-chip--image')}
+          data-done={justDone.has(i.key) || undefined}
+        >
           {i.thumb ? (
             <button
               ref={(el) => {
@@ -217,11 +254,23 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
               title={t('点击放大')}
               onClick={() => setViewKey(i.key)}
             >
-              <img src={i.thumb} alt={i.name} />
+              <span
+                className="att-chip__lead"
+                onAnimationEnd={(e) => e.target === e.currentTarget && settle(i.key)}
+              >
+                <img src={i.thumb} alt={i.name} />
+                {justDone.has(i.key) ? <DoneCheck /> : null}
+              </span>
             </button>
           ) : viewKind(i.name) === 'binary' ? (
             <>
-              <FileIcon name={i.name} size={18} />
+              <span
+                className="att-chip__lead"
+                onAnimationEnd={(e) => e.target === e.currentTarget && settle(i.key)}
+              >
+                <FileIcon name={i.name} size={18} />
+                {justDone.has(i.key) ? <DoneCheck /> : null}
+              </span>
               <span className="att-chip__name">{i.name}</span>
             </>
           ) : (
@@ -233,7 +282,13 @@ export function AttachmentChips({ uploads }: { uploads: Uploads }) {
               title={t('点击预览')}
               onClick={() => setViewKey(i.key)}
             >
-              <FileIcon name={i.name} size={18} />
+              <span
+                className="att-chip__lead"
+                onAnimationEnd={(e) => e.target === e.currentTarget && settle(i.key)}
+              >
+                <FileIcon name={i.name} size={18} />
+                {justDone.has(i.key) ? <DoneCheck /> : null}
+              </span>
               <span className="att-chip__name">{i.name}</span>
             </button>
           )}
