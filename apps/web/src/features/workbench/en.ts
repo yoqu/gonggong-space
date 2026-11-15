@@ -141,8 +141,6 @@ export default {
   更改: 'Changes',
   '{name} 的工作区还没有 Git 仓库': "{name}'s workspace has no Git repository yet",
   选择一个文件查看改动: 'Pick a file to see its changes',
-  '根目录不是 Git 仓库，各子仓库的改动在分支菜单中查看':
-    'The root is not a Git repository; see each sub-repo’s changes from the branch menu',
   终端会话: 'Terminal',
   '新开 Shell': 'New shell',
   删除终端: 'Delete terminal',

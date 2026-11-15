@@ -35,8 +35,6 @@ export default {
     'No response in time, rejected automatically · {at} · the agent will work around it',
   '权限请求 · {kind}': 'Permission request · {kind}',
   其他操作: 'Other action',
-  '{tier} · {time} 后自动拒绝，agent 自行绕路':
-    '{tier} · auto-rejects in {time}, then the agent works around it',
   批准: 'Approve',
   '批准，不再询问': "Approve, don't ask again",
   以后都允许这个工具: 'Always allow this tool',

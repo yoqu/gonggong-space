@@ -115,7 +115,6 @@ export default {
   输入成员姓名: 'Enter member names',
   '同时运行的轮次，超出的在该机器排队': 'Runs at the same time; extra runs queue on the machine',
   '{n} 个': '{n}',
-  'agent 版本': 'Agent version',
   '近 7 天用量': 'Usage (last 7 days)',
   '近 7 天无人使用': 'Nobody used it in the last 7 days',
   '删除 Bot': 'Delete Bot',

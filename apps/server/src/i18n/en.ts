@@ -414,7 +414,6 @@ export const en = {
   该用户不在群内: 'This user is not in the group',
   '唯一的群管理员不能被移出，请先指定继任者':
     "The only group admin can't be removed, appoint another admin first",
-  一期不支持解绑仓库: 'Unbinding the repo is not supported yet',
   群不存在或你已不在群内: "The group doesn't exist or you are no longer in it",
   仅群管理员可操作: 'Only group admins can do this',
   '私聊的头像跟随 Bot': "A DM's avatar follows its bot",
@@ -519,7 +518,6 @@ export const en = {
   只有机器主人可以管理这台机器: 'Only the machine’s owner can manage it',
   请填写机器上的绝对路径: 'Enter an absolute path on the machine',
   终端已结束: 'The terminal has ended',
-  '终端已结束，请新建会话': 'The terminal has ended, create a new session',
   仅发起人可以填写: 'Only the person who started the turn can fill these in',
   密钥已填写: 'The secrets are already filled in',
   请填写全部密钥: 'Fill in every secret',

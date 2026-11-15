@@ -22,9 +22,6 @@ export default {
   '{owner} 共享的 Bot · ': 'Bot shared by {owner} · ',
   'Bot 已取消共享或已删除，只能查看历史消息。':
     'The Bot is no longer shared or was deleted; only the history can be read.',
-  '{n} 人 · {bots} Bot · ': '{n} {n:member|members} · {bots} {bots:Bot|Bots} · ',
-  '{n} 人 · ': '{n} {n:member|members} · ',
-  '{n} Bot': '{n} {n:Bot|Bots}',
   '查看 Bot': 'View Bot',
   打开群设置: 'Open group settings',
   打开群信息: 'Open group info',
@@ -173,7 +170,6 @@ export default {
   定位: 'Locate',
   '运行中 {n}': '{n} running',
   '等待中 {n}': '{n} waiting',
-  '展开 {n}': 'Show {n} more',
   等待审批: 'Awaiting approval',
   等待回答: 'Awaiting answer',
   已中断: 'Interrupted',

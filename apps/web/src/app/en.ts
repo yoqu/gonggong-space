@@ -96,7 +96,6 @@ export default {
     'You can join or ask to join the groups in the sidebar, then just @ a Bot there and ask.',
   共享给我: 'Shared with me',
   '{owner} 共享': 'Shared by {owner}',
-  取消免打扰: 'Unmute',
   清除未读: 'Clear unread',
   移回列表: 'Move back to list',
   取消标记: 'Unflag',

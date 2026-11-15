@@ -39,8 +39,6 @@ export default {
   已隐藏: 'Hidden',
   暂无: 'None',
   消息免打扰: 'Mute messages',
-  '普通消息不提醒；@我、我的 Bot 待审批、向我提问仍提醒':
-    "No alerts for regular messages; still alerts for @me, my Bots' approvals and questions to me",
   星标: 'Star',
   运行卡片默认折叠: 'Collapse run cards by default',
   '只对我生效，审批与提问卡片始终展开': 'Only for me; approval and question cards stay expanded',

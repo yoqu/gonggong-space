@@ -66,7 +66,6 @@ export default {
   '引入到…': 'Install to…',
   '引入「{name}」': 'Install {name}',
   引入到: 'Install to',
-  你不是管理员的目标会向管理员提交引入申请: 'Where you are not an admin, you ask the admins to install it',
   申请引入: 'Request install',
   申请说明: 'Note',
   '为什么需要它（选填），管理员会看到': 'Why you need it (optional); the admins see it',
