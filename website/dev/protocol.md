@@ -11,15 +11,15 @@
                                                                                daemon 内置 MCP（回环 HTTP）◀── Agent
 ```
 
-所有 TypeScript 侧的契约都用 zod 定义在 `packages/protocol`，服务器、Web、桌面端直接引用；Rust 侧在 `crates/gonggong/src/protocol.rs` 手工镜像，并用共享 fixture 保证两边一致。
+所有 TypeScript 侧的契约都用 zod 定义在 `packages/protocol`，服务器、Web、桌面端直接引用；Rust 侧在 `crates/gonggong/src/protocol/` 手工镜像，并用共享 fixture 保证两边一致。
 
 ## packages/protocol 的组成
 
 | 文件 | 内容 |
 | --- | --- |
 | `src/common.ts` | 两端共用的基础类型：Agent 类型（`claude`、`codex`、`gemini`、`codebuddy`、`pi`、`deepseek`）、权限档位、命令审批、运行状态、附件与提问上限、上下文占用等 |
-| `src/web.ts` | Web ⇄ 服务器：REST 请求/响应 DTO（前缀 `/api`，会话用 httpOnly cookie），以及 `WS /ws/web` 上服务器推给浏览器的实时事件 |
-| `src/daemon.ts` | daemon ⇄ 服务器：`DaemonToServer`、`ServerToDaemon` 两个按 `t` 字段区分的联合类型、`PROTOCOL_VERSION` 与可选能力 `DaemonFeature` |
+| `src/web/`（`web.ts` 为桶文件） | Web ⇄ 服务器：REST 请求/响应 DTO（前缀 `/api`，会话用 httpOnly cookie），以及 `WS /ws/web` 上服务器推给浏览器的实时事件 |
+| `src/daemon/`（`daemon.ts` 为桶文件） | daemon ⇄ 服务器：`DaemonToServer`、`ServerToDaemon` 两个按 `t` 字段区分的联合类型、`PROTOCOL_VERSION` 与可选能力 `DaemonFeature` |
 | `src/tunnel.ts`、`src/terminal.ts` | 预览隧道的帧编解码与 `open` / `head` / `reset` 帧结构；网页终端的会话与控制消息 |
 | `src/tools.ts`、`src/tool-titles.ts` | 内置 `gonggong` MCP 工具的入参定义（生成 `gonggong-tools.json` 与 `gonggong-daemon-tools.json`）与显示标题 |
 | `src/agent-settings.ts` | 以控件形式提供的 Agent 设置项 |
@@ -56,7 +56,7 @@ daemon 用机器令牌连接 `WS /ws/daemon`，每条消息是一个带 `t` 字�
 - TS：`packages/protocol/test/fixtures.test.ts` 用 zod 解析每个样例，并检查文件名与消息 `t` 字段一致。
 - Rust：`crates/gonggong/tests/it/contract.rs` 把每个样例反序列化再序列化，要求与原文一致（忽略 `null` 字段），遇到不认识的类别直接失败；同时校验 `cases/tunnel-frames.json` 的帧编码。
 
-所以协议有变化时，先改 `packages/protocol`，再为新消息或新字段加 fixture，最后更新 `protocol.rs`，`pnpm -r test` 与 `cargo test --workspace` 都通过才算完成。
+所以协议有变化时，先改 `packages/protocol`，再为新消息或新字段加 fixture，最后更新 `protocol/`，`pnpm -r test` 与 `cargo test --workspace` 都通过才算完成。
 
 ## ACP 与 Agent 适配器
 

@@ -30,7 +30,7 @@ CI 会跑全量测试兜底，挂了由提交人立即修。改 `apps/web/src/ui
 
 1. 先改 `packages/protocol`（zod 定义）。
 2. 如果是 daemon 消息，在 `packages/protocol/fixtures/` 加对应样例。
-3. 同步更新 `crates/gonggong/src/protocol.rs`。
+3. 同步更新 `crates/gonggong/src/protocol/`。
 4. 旧 daemon 读不懂的新消息或字段，在 `DaemonFeature` 里加能力，服务器按能力下发。
 5. 修改内置 MCP 工具时，同步更新 `gonggong-tools.json` / `gonggong-daemon-tools.json`。
 6. 确认 TS 与 Rust 两边的往返测试都通过。

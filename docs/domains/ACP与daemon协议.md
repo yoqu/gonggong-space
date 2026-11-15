@@ -3,9 +3,9 @@
 > 范围：daemon 与服务端的连接与消息、能力协商与版本兼容、daemon 用 ACP 驱动 Agent（会话、权限、MCP、系统提示词）、运行生命周期与审批、网页终端、重连与离线。只写仍有效的决定，以代码为准，更新于 2026-11-15。
 
 ## 契约与 fixture
-- 全部线上消息在 `packages/protocol/src/daemon.ts`（zod）：`DaemonToServer`（d2s）、`ServerToDaemon`（s2d），按字段 `t` 区分（如 `run.start`、`run.done`）；Rust 镜像在 `crates/gonggong/src/protocol.rs`（serde）。
+- 全部线上消息在 `packages/protocol/src/daemon/`（zod，`daemon.ts` 为桶文件）：`DaemonToServer`（d2s）、`ServerToDaemon`（s2d），按字段 `t` 区分（如 `run.start`、`run.done`）；Rust 镜像在 `crates/gonggong/src/protocol/`（serde，子模块与 TS `src/daemon/` 对齐）。
 - 共享样例 `packages/protocol/fixtures/*.json`，文件名前缀决定类型：`d2s.*`、`s2d.*`、`tunnel.*`、`terminal.*`、`http.*`（机器 token 的 REST 体）、`data.agent-setting-fields`。
-- 往返校验两边都跑：TS `packages/protocol/test/fixtures.test.ts`，Rust `crates/gonggong/tests/it/contract.rs`（`every_shared_fixture_round_trips`）；改协议先改 protocol，再加 fixture、同步 `protocol.rs`。
+- 往返校验两边都跑：TS `packages/protocol/test/fixtures.test.ts`，Rust `crates/gonggong/tests/it/contract.rs`（`every_shared_fixture_round_trips`）；改协议先改 protocol，再加 fixture、同步 `protocol/`。
 - 新字段一律可选或带默认值（`.default(...)` / `#[serde(default)]`），旧端缺字段照常解析。
 - daemon 收到不认识的 s2d 消息只记日志忽略（`service.rs`）；服务端收到解析失败的 d2s 消息打日志丢弃（`apps/server/src/daemon/gateway.ts`）。
 
@@ -71,7 +71,7 @@
 - 断线不结束 PTY；服务端不落库终端内容与按键。
 
 ## 主要代码入口
-- 协议：`packages/protocol/src/daemon.ts`、`terminal.ts`、`fixtures/`；`crates/gonggong/src/protocol.rs`。
+- 协议：`packages/protocol/src/daemon.ts`、`terminal.ts`、`fixtures/`；`crates/gonggong/src/protocol/`。
 - 服务端：`apps/server/src/daemon/{gateway,hub}.ts`、`modules/runs/{scheduler,engine,reconcile,stop}.ts`、`modules/approvals/service.ts`、`modules/terminals/`。
 - daemon：`service.rs`（连接/补发/重连）、`engine.rs`（消息分派、进程启动、能力）、`session.rs`（ACP 会话与权限）、`turn.rs`（提示词、模式、能力）、`local.rs`（审批规则）、`adapters.rs`、`terminal.rs`、`tls.rs`、`upgrade.rs`。
 

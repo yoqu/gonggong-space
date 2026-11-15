@@ -148,7 +148,7 @@ Located in `crates/gonggong/src/`. `main.rs` is the `gg` command-line entry poin
 | `web_call.rs` | Recognizes web searches and web fetches in a run |
 | `ask.rs` | The built-in `gonggong` MCP server (local loopback, per-session URL): asking group members, forwarding server tools, answering daemon tools |
 | `mcp_call.rs` | Parses MCP tool calls in ACP updates (each Agent uses a different format) |
-| `protocol.rs` | Wire types corresponding to `packages/protocol` |
+| `protocol/` | Wire types corresponding to `packages/protocol` |
 | `agents.rs` | Detects installed Agent CLIs and their versions |
 | `tools.rs` | Managed installs of Node.js and Agent CLIs (no sudo, no global npm changes) |
 | `manage.rs` | Answers Agent tool, provider, and CC Switch requests from the server |

@@ -30,7 +30,7 @@ CI runs the full test suite as a backstop; if it breaks, the committer fixes it 
 
 1. Change `packages/protocol` (zod definitions) first.
 2. For daemon messages, add matching samples under `packages/protocol/fixtures/`.
-3. Update `crates/gonggong/src/protocol.rs` to match.
+3. Update `crates/gonggong/src/protocol/` to match.
 4. For new messages or fields that older daemons can't understand, add a capability to `DaemonFeature`; the server sends them based on capabilities.
 5. When you change built-in MCP tools, update `gonggong-tools.json` / `gonggong-daemon-tools.json` to match.
 6. Make sure the round-trip tests pass on both the TS and Rust sides.

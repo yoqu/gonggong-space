@@ -148,7 +148,7 @@
 | `web_call.rs` | 识别运行里的联网搜索与网页抓取 |
 | `ask.rs` | 内置 `gonggong` MCP 服务（本机回环、每会话独立 URL）：向群成员提问、转发服务器工具、应答 daemon 工具 |
 | `mcp_call.rs` | 解析 ACP 更新里的 MCP 工具调用（各 Agent 格式不同） |
-| `protocol.rs` | 与 `packages/protocol` 对应的线上类型 |
+| `protocol/` | 与 `packages/protocol` 对应的线上类型 |
 | `agents.rs` | 检测本机已装的 Agent CLI 及版本 |
 | `tools.rs` | 托管安装 Node.js 与 Agent CLI（不用 sudo、不动全局 npm） |
 | `manage.rs` | 服务器发来的 Agent 工具、供应商、CC Switch 请求的应答 |

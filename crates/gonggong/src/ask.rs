@@ -535,7 +535,7 @@ impl Release {
     }
 }
 
-/// What the server's `parseReleaseFile` takes (`packages/protocol/src/web.ts`), plus the notes it reads from
+/// What the server's `parseReleaseFile` takes (`packages/protocol/src/web/admin.ts`), plus the notes it reads from
 /// `RELEASE_NOTES.md`.
 static RELEASE_FILE: LazyLock<regex::Regex> = LazyLock::new(|| {
     regex::Regex::new(

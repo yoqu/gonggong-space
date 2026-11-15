@@ -44,7 +44,7 @@
 ## Git 管理面板
 - 只在分区群可用（`git/service.ts`：「仅分区模式群可以使用 Git 操作」）；读操作群成员都可用，所有读写带 `repo` 选子仓库/附加目录仓库。
 - 能力分级：`gitOps` → `gitOps2`（refresh）→ `gitOps3`（多仓库、changes/show/blame/stashes/conflict、多数写操作）→ `gitOps4`（add/ignore/apply/restore、`expect` 防漂移）；旧 daemon 409「客户端版本过旧」（`featureFor`）。
-- 写操作 `GitActionKind`（27 种，`packages/protocol/src/daemon.ts`），记录在 `git_operations`（`args`、`detail`、`pushesBase`）。
+- 写操作 `GitActionKind`（27 种，`packages/protocol/src/daemon/git.ts`），记录在 `git_operations`（`args`、`detail`、`pushesBase`）。
 - 主人直接执行，运行中 409；非主人提交申请，主人审批，30 分钟过期（`PENDING_MS`），`POST /api/git-operations/:id/decide`。
 - 审批前状态漂移：请求带 `expect`/`expectHead`，审批时校验（gitOps4）。
 - `guardBase`：受保护基准分支不能强推、不能远程删除、不能交互式变基改写；推到基准分支主人须 `confirmBase` 二次确认；推送目标按 upstream 钉住（`pinTarget`）。

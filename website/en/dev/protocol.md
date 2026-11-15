@@ -13,15 +13,15 @@ This page describes the communication contracts between Gonggong Space's compone
 
 In the diagram: 浏览器 = browser, 服务器 = server, Agent 适配器 = Agent adapter, 二进制帧 = binary frames, daemon 内置 MCP（回环 HTTP） = the daemon's built-in MCP (loopback HTTP).
 
-All TypeScript-side contracts are defined with zod in `packages/protocol` and used directly by the server, web client, and desktop app. The Rust side mirrors them by hand in `crates/gonggong/src/protocol.rs`, and shared fixtures keep both sides consistent.
+All TypeScript-side contracts are defined with zod in `packages/protocol` and used directly by the server, web client, and desktop app. The Rust side mirrors them by hand in `crates/gonggong/src/protocol/`, and shared fixtures keep both sides consistent.
 
 ## What packages/protocol contains
 
 | File | Contents |
 | --- | --- |
 | `src/common.ts` | Base types shared by both sides: Agent kinds (`claude`, `codex`, `gemini`, `codebuddy`, `pi`, `deepseek`), permission tiers, command approval, run status, attachment and question limits, context usage, and so on |
-| `src/web.ts` | Web ⇄ server: REST request/response DTOs (prefix `/api`, sessions via an httpOnly cookie), and the real-time events the server pushes to the browser over `WS /ws/web` |
-| `src/daemon.ts` | daemon ⇄ server: the `DaemonToServer` and `ServerToDaemon` unions discriminated by the `t` field, `PROTOCOL_VERSION`, and the optional capabilities `DaemonFeature` |
+| `src/web/` (`web.ts` is a barrel) | Web ⇄ server: REST request/response DTOs (prefix `/api`, sessions via an httpOnly cookie), and the real-time events the server pushes to the browser over `WS /ws/web` |
+| `src/daemon/` (`daemon.ts` is a barrel) | daemon ⇄ server: the `DaemonToServer` and `ServerToDaemon` unions discriminated by the `t` field, `PROTOCOL_VERSION`, and the optional capabilities `DaemonFeature` |
 | `src/tunnel.ts`, `src/terminal.ts` | Preview tunnel frame encoding/decoding and the `open` / `head` / `reset` frame structures; web terminal sessions and control messages |
 | `src/tools.ts`, `src/tool-titles.ts` | Input definitions of the built-in `gonggong` MCP tools (which generate `gonggong-tools.json` and `gonggong-daemon-tools.json`) and their display titles |
 | `src/agent-settings.ts` | Agent settings exposed as controls |
@@ -58,7 +58,7 @@ Each side has a test that walks the whole directory:
 - TS: `packages/protocol/test/fixtures.test.ts` parses every sample with zod and checks that the file name matches the message's `t` field.
 - Rust: `crates/gonggong/tests/it/contract.rs` deserializes and reserializes every sample and requires the result to match the original (ignoring `null` fields); unknown categories fail immediately. It also verifies the frame encoding in `cases/tunnel-frames.json`.
 
-So when the protocol changes, change `packages/protocol` first, add fixtures for new messages or fields, then update `protocol.rs`. It's done only when both `pnpm -r test` and `cargo test --workspace` pass.
+So when the protocol changes, change `packages/protocol` first, add fixtures for new messages or fields, then update `protocol/`. It's done only when both `pnpm -r test` and `cargo test --workspace` pass.
 
 ## ACP and Agent adapters
 

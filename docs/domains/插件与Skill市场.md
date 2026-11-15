@@ -58,7 +58,7 @@
 - 服务端：`apps/server/src/modules/plugins/`（service/routes/creations/trusts/presets/builtin）、`modules/market/`（service 引入、publish 发布审核、requests 申请、github 导入、routes）、`modules/skills/`、`modules/agent-tools/{market,skills,plugins}.ts`、`modules/runs/scheduler.ts`（`buildRunStart` 调 `runPlugins`、`enabledSkills`）。
 - 内置插件：`apps/server/plugins/official/`（web-prototype、slides、provider-presets、agent-*）。
 - Web：`apps/web/src/features/market/`、`features/plugins/`（创作面板、插件层管理）、`features/machines/PluginTrustsPanel.tsx`。
-- daemon：`crates/gonggong/src/plugins.rs`、`skills.rs`、`adapters.rs`、`protocol.rs`。
+- daemon：`crates/gonggong/src/plugins.rs`、`skills.rs`、`adapters.rs`、`protocol/`。
 
 ## 仍未做（plan 明确待做）
 - S4 开放自定义 Agent：`AgentKind` 改字符串 id、安装范围加 `machine`、`adapters.sync`、去掉 `LATER_AGENTS`、界面读 daemon 上报的 `AgentInfo`（目前仍是封闭枚举，`scheduler.ts` 仍有 `LATER_AGENTS`）。
