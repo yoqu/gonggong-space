@@ -67,7 +67,7 @@
   height: 2px;
   background: var(--accent);
   transform-origin: left;
-  transition: scale var(--motion-base);
+  transition: scale var(--spring-snappy);
 }
 .att-chip > svg,
 .att-chip__size,
@@ -251,7 +251,7 @@
   top: var(--space-6);
   right: var(--space-6);
   z-index: 3;
-  transition: opacity var(--motion-base);
+  transition: opacity var(--fade-in);
 }
 .att-tile:has(.ui-video[data-idle]) .att-tile__corner {
   opacity: 0;

@@ -24,7 +24,7 @@
   gap: var(--space-6);
   padding: var(--space-12);
   border: 1px solid var(--separator);
-  border-radius: var(--radius-card, 12px);
+  border-radius: var(--radius-menu);
   background: var(--content-bg);
   color: var(--label);
   font: inherit;
@@ -42,7 +42,7 @@
 }
 .group-threads__row[data-unread] .group-threads__text,
 .group-threads__row[data-unread] .group-threads__meta > span:not([class]) {
-  font-weight: 800;
+  font-weight: 600;
 }
 .group-threads__top {
   display: flex;
@@ -80,6 +80,6 @@
   bottom: var(--space-12);
   left: -1px;
   width: 3px;
-  border-radius: 0 3px 3px 0;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
   background: var(--accent);
 }

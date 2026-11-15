@@ -53,13 +53,13 @@
 .ui-table__body {
   display: flex;
   flex-direction: column;
-  padding: 4px 5px;
+  padding: 4px 6px;
 }
 .ui-table__row {
   display: grid;
   align-items: center;
   min-height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   user-select: none;
 }
 .ui-table--compact .ui-table__row {

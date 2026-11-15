@@ -78,7 +78,7 @@
   display: flex;
   gap: 2px;
   height: 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   overflow: hidden;
 }
 .usage-share > span {
@@ -125,7 +125,7 @@
   display: block;
   width: 112px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-small);
   background: var(--group-bg);
   overflow: hidden;
 }
@@ -133,7 +133,7 @@
   display: block;
   height: 100%;
   min-width: 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-small);
 }
 .usage-bars {
   display: flex;

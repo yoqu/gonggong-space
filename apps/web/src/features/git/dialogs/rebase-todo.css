@@ -36,7 +36,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  padding-top: 5px;
+  padding-top: 6px;
 }
 .git-rebase-todo__subject {
   overflow: hidden;

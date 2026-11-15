@@ -152,7 +152,7 @@
   flex: none;
   width: 6px;
   height: 6px;
-  margin: 0 3px;
+  margin: 0 4px;
   border-radius: 50%;
   background: var(--accent);
   animation: task-dock-pulse 1.4s ease-in-out infinite;

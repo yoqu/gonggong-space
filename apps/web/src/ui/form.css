@@ -26,7 +26,7 @@
   color: var(--label);
 }
 .ui-field__hint-icon {
-  margin-right: 3px;
+  margin-right: 4px;
   vertical-align: -2px;
   color: var(--system-red);
 }

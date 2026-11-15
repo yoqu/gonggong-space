@@ -22,7 +22,7 @@
   width: 40px;
   height: 12px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   box-shadow: inset 0 0 0 0.5px var(--separator);
 }
 .art-dsp__chips i {
@@ -43,7 +43,7 @@
 .art-dsp__note {
   margin: 0 var(--space-16) var(--space-8);
   padding: var(--space-6) var(--space-8);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--control-fill);
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
@@ -93,7 +93,7 @@
   flex: none;
   width: 14px;
   height: 14px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   box-shadow: inset 0 0 0 0.5px var(--separator);
 }
 .art-dsp__derived--unused {
@@ -121,7 +121,7 @@
 .art-dsp__swatch {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   box-shadow: inset 0 0 0 0.5px var(--separator);
 }
 .art-dsp__label {
@@ -211,7 +211,7 @@
 .art-dsp__more {
   padding: 1px 8px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: var(--quote-fill);
   color: var(--label-secondary);
   font: inherit;

@@ -70,7 +70,7 @@
   height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label-secondary);
   cursor: pointer;
@@ -95,7 +95,7 @@
 .glog-tool--small {
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
 }
 
 /* Filter bar. */
@@ -105,7 +105,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  padding: 5px 8px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--separator);
 }
 .glf-search {
@@ -116,8 +116,8 @@
   min-width: 160px;
   max-width: 360px;
   height: 26px;
-  padding: 0 3px 0 8px;
-  border-radius: 7px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--radius-field);
   background: var(--control-track);
   box-shadow: var(--shadow-outline);
   color: var(--label-secondary);
@@ -149,12 +149,12 @@
   height: 20px;
   padding: 0 4px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label-tertiary);
   font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .glf-flag:hover {
@@ -172,7 +172,7 @@
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent-text);
   font: inherit;
@@ -187,7 +187,7 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .glf-item[data-on] {
   background: color-mix(in srgb, var(--accent) 13%, transparent);
@@ -201,7 +201,7 @@
   padding: 0 8px;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label-secondary);
   font: inherit;
@@ -250,7 +250,7 @@
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--accent-text);
   font: inherit;
@@ -281,7 +281,7 @@
   height: 26px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -317,7 +317,7 @@
 .glf-date {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
 }
@@ -465,7 +465,7 @@
 .glog-refs {
   display: flex;
   flex: 0 1 auto;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   max-width: 55%;
   overflow: hidden;
@@ -474,12 +474,12 @@
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   max-width: 180px;
   height: 17px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: var(--tint-gray);
   color: var(--tint-gray-text);
   font-size: var(--text-subheadline-size);
@@ -752,7 +752,7 @@
 }
 .glog-info__branch {
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: var(--quote-fill);
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
@@ -829,7 +829,7 @@
   max-width: 40%;
   padding: 2px 8px;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: var(--quote-fill);
   color: var(--label);
   font-family: var(--font-mono);
@@ -845,7 +845,7 @@
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label-secondary);
   font-size: 15px;
@@ -905,7 +905,7 @@
 }
 .gcmp__count {
   padding: 0 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--quote-fill);
   color: var(--label-secondary);
   font-size: var(--text-caption-size);

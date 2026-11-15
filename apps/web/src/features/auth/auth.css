@@ -58,13 +58,13 @@
 .auth-stage__copy {
   margin-top: auto;
   max-width: 440px;
-  animation: auth-rise 700ms var(--ease-apple) 150ms both;
+  animation: auth-rise var(--spring-smooth) 150ms both;
 }
 .auth-stage__title {
   margin: 0 0 var(--space-12);
   font-size: var(--text-large-title-size);
   line-height: var(--text-large-title-line);
-  font-weight: 700;
+  font-weight: 600;
   word-break: keep-all;
 }
 .auth-stage__lead {
@@ -88,7 +88,7 @@
   background: var(--content-bg);
   box-shadow: var(--shadow-window);
   overflow: hidden;
-  animation: auth-rise 700ms var(--ease-apple) 300ms both;
+  animation: auth-rise var(--spring-smooth) 300ms both;
 }
 .relay__bar {
   display: flex;
@@ -166,7 +166,7 @@
   border-radius: var(--radius-window);
   background: var(--content-bg);
   box-shadow: var(--shadow-window);
-  animation: auth-rise 700ms var(--ease-apple) 300ms both;
+  animation: auth-rise var(--spring-smooth) 300ms both;
 }
 .first-run li {
   display: flex;
@@ -213,7 +213,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-  animation: auth-rise 600ms var(--ease-apple) 100ms both;
+  animation: auth-rise var(--spring-smooth) 100ms both;
 }
 .auth__form {
   display: flex;
@@ -234,7 +234,7 @@
   margin: 0;
   font-size: var(--text-title-1-size);
   line-height: var(--text-title-1-line);
-  font-weight: 700;
+  font-weight: 600;
 }
 .auth__subtitle {
   margin: 0;
@@ -284,7 +284,7 @@
   display: none;
 }
 .auth-error[data-shown] {
-  animation: auth-error-in 240ms var(--ease-apple);
+  animation: auth-error-in var(--spring-snappy);
 }
 @keyframes auth-error-in {
   from {
@@ -302,7 +302,7 @@
 .ui-btn.auth__submit {
   margin-top: var(--space-4);
   transition:
-    background var(--motion-base),
+    background var(--fade-in),
     transform var(--spring-interactive);
 }
 .ui-btn.auth__submit:not(:disabled):active {
@@ -341,7 +341,7 @@
   height: 4px;
   border-radius: var(--radius-capsule);
   background: var(--control-track);
-  transition: background 240ms var(--ease-apple);
+  transition: background var(--fade-in);
 }
 .auth-meter[data-score="1"] [data-on] {
   background: var(--system-red);
@@ -403,8 +403,8 @@
 /* Leaving: the form lifts away as the app takes over */
 .auth[data-leaving] .auth__card {
   transition:
-    opacity 360ms var(--ease-apple) 120ms,
-    transform 360ms var(--ease-apple) 120ms;
+    opacity var(--fade-in) 120ms,
+    transform var(--spring-snappy) 120ms;
   opacity: 0;
   transform: translateY(-12px) scale(0.98);
 }

@@ -4,7 +4,7 @@
   width: 320px;
   max-width: 100%;
   border: 1px solid var(--separator);
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   background: var(--group-bg);
   overflow: hidden;
 }
@@ -138,12 +138,12 @@
 .pv-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 240px;
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--separator);
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   background: var(--group-bg);
   color: var(--label);
   font-size: 12px;
@@ -175,7 +175,7 @@
   aspect-ratio: 16 / 10;
   margin-bottom: 6px;
   border: 1px solid var(--separator);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
 }
 .pv-login {
   width: 160px;

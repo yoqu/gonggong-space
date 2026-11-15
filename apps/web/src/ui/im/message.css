@@ -101,7 +101,7 @@
 .pn-bubble :not(pre) > code {
   font-family: var(--font-mono);
   font-size: var(--text-callout-size);
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: var(--radius-check);
   background: var(--quote-fill);
 }
@@ -218,7 +218,7 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
 .pn-quote {
   border-radius: var(--radius-field);
   background: var(--quote-fill);
-  padding: 5px 8px;
+  padding: 6px 8px;
   font-size: var(--text-callout-size);
   line-height: 16px;
   color: var(--label-secondary);
@@ -327,7 +327,7 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-6);
-  padding: 3px 8px 3px 4px;
+  padding: 4px 8px 4px 4px;
   border-radius: var(--radius-capsule);
   cursor: default;
   font-size: var(--text-callout-size);
@@ -340,7 +340,7 @@ body:has(.ui-menu--context) .pn-msg .pn-msg__actions {
   font-weight: 600;
 }
 .pn-thread--unread .pn-thread__count {
-  font-weight: 800;
+  font-weight: 600;
 }
 .pn-thread__new {
   display: inline-flex;

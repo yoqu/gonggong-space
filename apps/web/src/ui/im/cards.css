@@ -19,7 +19,7 @@
 .pn-filetile {
   width: 36px;
   height: 42px;
-  border-radius: 7px;
+  border-radius: var(--radius-field);
   flex: none;
   display: flex;
   flex-direction: column;
@@ -27,7 +27,7 @@
   justify-content: center;
   gap: 1px;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.3px;
 }
 .pn-filetile svg {
@@ -39,7 +39,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 .pn-file__name {
   font-weight: 500;
@@ -215,7 +215,7 @@
 .pn-meet__icon {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   flex: none;
   display: grid;
   place-items: center;
@@ -315,7 +315,7 @@
   width: 48px;
   height: 52px;
   flex: none;
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -328,7 +328,7 @@
 .pn-event__month {
   font-size: var(--text-footnote-size);
   line-height: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--tint-red-text);
 }
 .pn-event__day {
@@ -343,7 +343,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 .pn-event__title {
   font-weight: 600;

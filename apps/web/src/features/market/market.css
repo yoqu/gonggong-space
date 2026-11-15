@@ -1,7 +1,7 @@
 /* 市场: the page shell and card grid come from 作品 (works.css); these are the market-only parts */
 .mkt-tab-count {
   margin-left: var(--space-4);
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: var(--radius-capsule);
   background: var(--badge-fill);
   color: #fff;

@@ -212,7 +212,7 @@
   font-size: 11px;
   font-weight: 600;
   line-height: 16px;
-  animation: ui-fade-in var(--motion-base);
+  animation: ui-fade-in var(--fade-in);
 }
 .ui-voice audio {
   display: none;

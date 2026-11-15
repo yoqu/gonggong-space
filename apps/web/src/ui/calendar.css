@@ -14,7 +14,7 @@
 }
 .ui-cal__title {
   font-size: var(--text-body-size);
-  font-weight: 700;
+  font-weight: 600;
 }
 .ui-cal__nav {
   display: inline-flex;
@@ -77,7 +77,7 @@
 }
 .ui-cal__day--today {
   color: var(--accent-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 .ui-cal__day--sel,
 .ui-cal__day--sel:hover {

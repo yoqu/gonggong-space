@@ -490,7 +490,7 @@ export function StepIndicator({ steps }: { steps: { label: string; status: StepS
             ) : s.status === 'completed' ? (
               <Icon name="check" size={14} weight={2.2} />
             ) : s.status === 'error' ? (
-              <span style={{ fontSize: 'var(--text-callout-size)', fontWeight: 700, lineHeight: 1 }}>!</span>
+              <span style={{ fontSize: 'var(--text-callout-size)', fontWeight: 600, lineHeight: 1 }}>!</span>
             ) : (
               <span className="ui-step__dot" />
             )}

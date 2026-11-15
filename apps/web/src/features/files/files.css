@@ -480,7 +480,7 @@
 }
 .fv-sheet th,
 .fv-sheet td {
-  padding: 3px var(--space-8);
+  padding: 4px var(--space-8);
   border-right: 0.5px solid var(--separator);
   border-bottom: 0.5px solid var(--separator);
   white-space: nowrap;

@@ -587,7 +587,7 @@
   overflow-y: auto;
   list-style: none;
   border: 0.5px solid var(--separator);
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   background: var(--content-bg);
   box-shadow: var(--shadow-menu);
   pointer-events: auto;

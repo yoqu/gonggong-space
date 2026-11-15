@@ -52,7 +52,7 @@
   place-items: center;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: var(--radius-capsule);
   background: var(--badge-fill);
   color: var(--on-accent);
@@ -168,7 +168,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--ui-progress-fill, var(--accent));
-  transition: width var(--motion-base);
+  transition: width var(--spring-snappy);
 }
 .ui-progress--indeterminate .ui-progress__bar {
   width: 30%;

@@ -83,7 +83,7 @@
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: #ffffff1f;
 }
 .ui-lightbox__zoom button {
@@ -93,7 +93,7 @@
   height: 28px;
   padding: 0 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: none;
   color: #fff;
   font: inherit;

@@ -67,7 +67,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 .pn-conv__line {
   display: flex;
@@ -100,7 +100,7 @@
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 .pn-conv__time svg {
   width: 11px;
@@ -150,7 +150,7 @@
   font-variant-numeric: tabular-nums;
 }
 .pn-conv__name.pn-conv__name--bold {
-  font-weight: 700;
+  font-weight: 600;
 }
 .pn-conv__preview.pn-conv__preview--bold {
   color: var(--label);
@@ -234,7 +234,7 @@
 }
 .pn-shortcut__label--bold {
   color: var(--label);
-  font-weight: 700;
+  font-weight: 600;
 }
 .pn-shortcut__detail {
   position: absolute;

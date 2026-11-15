@@ -42,7 +42,7 @@
   margin: 0;
   font-size: var(--text-title-3-size);
   line-height: 19px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

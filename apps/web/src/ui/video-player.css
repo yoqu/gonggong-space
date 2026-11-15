@@ -52,7 +52,7 @@
   place-items: center;
   width: 64px;
   height: 64px;
-  padding: 0 0 0 3px;
+  padding: 0 0 0 4px;
   translate: -50% -50%;
   border: 0;
   border-radius: 50%;
@@ -144,7 +144,7 @@
   z-index: 3;
   display: flex;
   gap: var(--space-4);
-  transition: opacity var(--motion-base);
+  transition: opacity var(--fade-in);
 }
 
 /* Control bar */
@@ -157,8 +157,8 @@
   padding: var(--space-32) var(--space-12) var(--space-6);
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.32) 55%, transparent);
   transition:
-    opacity var(--motion-base),
-    translate var(--motion-base);
+    opacity var(--fade-in),
+    translate var(--spring-snappy);
 }
 .ui-video[data-idle] .ui-video__chrome,
 .ui-video[data-idle] .ui-video__actions {
@@ -235,7 +235,7 @@
   bottom: 18px;
   translate: -50% 0;
   padding: 2px var(--space-6);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--video-glass);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -261,7 +261,7 @@
   height: 32px;
   padding: 0 var(--space-4);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: transparent;
   color: var(--video-fg);
   cursor: pointer;
@@ -290,7 +290,7 @@
   top: 50%;
   translate: -50% -38%;
   font-size: 7.5px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .ui-video__btn--text {
   padding: 0 var(--space-8);
@@ -316,9 +316,9 @@
   background: transparent;
   cursor: pointer;
   transition:
-    width var(--motion-base),
-    opacity var(--motion-base),
-    margin var(--motion-base);
+    width var(--spring-snappy),
+    opacity var(--fade-in),
+    margin var(--spring-snappy);
 }
 .ui-video__volume:hover .ui-video__slider,
 .ui-video__volume:focus-within .ui-video__slider {
@@ -413,7 +413,7 @@
   position: relative;
   padding: var(--space-6) var(--space-12) var(--space-6) 28px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: transparent;
   color: var(--video-fg);
   font-size: var(--text-footnote-size);

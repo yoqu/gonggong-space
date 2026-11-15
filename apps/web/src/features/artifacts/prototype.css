@@ -113,7 +113,7 @@
 .proto-screens-pill {
   position: absolute;
   z-index: 2;
-  border-radius: 16px;
+  border-radius: var(--radius-bubble);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -157,7 +157,7 @@
   width: 100%;
   padding: 4px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -177,7 +177,7 @@
   position: relative;
   display: block;
   height: 110px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--content-bg);
   box-shadow: 0 0 0 1px var(--separator);
   overflow: hidden;
@@ -226,7 +226,7 @@
   gap: 6px;
   height: 28px;
   border: 1px dashed var(--control-outline);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -292,7 +292,7 @@
   border-radius: 30px;
 }
 .proto-device--desktop {
-  border-radius: 16px;
+  border-radius: var(--radius-bubble);
 }
 /*
  * The clip stays put while the screen inside it slides (transitions animate .proto-scroll), so a screen on its way in
@@ -313,7 +313,7 @@
   border-radius: 20px;
 }
 .proto-device--desktop .proto-clip {
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .proto-scroll {
   width: 100%;
@@ -368,7 +368,7 @@
   width: 87px;
   height: 32px;
   border: 0.5px solid #0000001f;
-  border-radius: 16px;
+  border-radius: var(--radius-bubble);
   background: #ffffff99;
 }
 .proto-chrome__capsule span {
@@ -447,7 +447,7 @@
 .proto-hot {
   position: absolute;
   border: 1px dashed var(--system-blue);
-  border-radius: 4px;
+  border-radius: var(--radius-small);
 }
 /* Preview: a click beside the hotspots shows where they are, for a moment (FLASH_MS in PrototypeEditor.tsx). */
 .proto-hots--flash .proto-hot {
@@ -480,7 +480,7 @@
   z-index: 1;
   margin-bottom: 2px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: var(--system-blue);
   color: #fff;
   font-size: 10px;
@@ -514,7 +514,7 @@
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 14px;
+  padding: 0 16px;
   border: 0;
   border-radius: var(--radius-capsule);
   font: inherit;
@@ -542,7 +542,7 @@
   left: 50%;
   width: min(560px, calc(100% - 160px));
   translate: -50% 0;
-  border-radius: 16px;
+  border-radius: var(--radius-bubble);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -598,7 +598,7 @@
   gap: var(--space-6);
   max-width: calc(100% - 160px);
   padding: 2px 4px 2px var(--space-12);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -623,7 +623,7 @@
   right: var(--space-12);
   left: var(--space-12);
   max-width: none;
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   translate: none;
 }
 .proto-guide--narrow > span {
@@ -646,7 +646,7 @@
   gap: 6px;
   margin: 0;
   padding: var(--space-8) var(--space-12);
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   background: var(--quote-fill);
   color: var(--label-secondary);
   font-size: var(--text-footnote-size);
@@ -666,7 +666,7 @@
   padding: var(--space-8) var(--space-12);
   overflow: auto;
   border: 1px solid var(--separator);
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   background: var(--quote-fill);
   color: var(--label);
   font: 11px / 1.6 var(--font-mono);
@@ -745,7 +745,7 @@
   place-items: center;
   width: 32px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--quote-fill);
   color: var(--label);
   font: 600 18px / 1 var(--font-mono);
@@ -755,7 +755,7 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--space-8) var(--space-12);
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   background: var(--quote-fill);
 }
 .art-share__link code {
@@ -777,7 +777,7 @@
 }
 .art-qr__code {
   padding: 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   background: #fff;
   line-height: 0;
 }

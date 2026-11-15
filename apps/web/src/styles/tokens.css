@@ -118,7 +118,7 @@
   --text-headline-family: var(--font-sans);
   --text-headline-size: 13px;
   --text-headline-line: 16px;
-  --text-headline-weight: 700;
+  --text-headline-weight: 600;
   --text-headline-tracking: -0.08px;
   --text-body-family: var(--font-sans);
   --text-body-size: 13px;
@@ -151,13 +151,17 @@
   --space-4: 4px;
   --space-6: 6px;
   --space-8: 8px;
+  --space-10: 10px;
   --space-12: 12px;
   --space-16: 16px;
   --space-20: 20px;
+  --space-24: 24px;
   --space-32: 32px;
 
   /* Radius */
+  --radius-small: 4px;
   --radius-check: 5px;
+  --radius-control: 6px;
   --radius-field: 8px;
   --radius-menu: 12px;
   --radius-bubble: 16px;

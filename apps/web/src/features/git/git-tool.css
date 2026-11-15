@@ -13,7 +13,7 @@
   align-items: center;
   gap: 2px;
   min-height: 36px;
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-bottom: 1px solid var(--separator);
 }
 .gtb-count {
@@ -31,12 +31,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 28px;
   height: 28px;
   padding: 0 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label-secondary);
   font: inherit;
@@ -136,7 +136,7 @@
   width: 26px;
   height: 26px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label-secondary);
   cursor: pointer;
@@ -184,7 +184,7 @@
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label-secondary);
   cursor: pointer;
@@ -199,7 +199,7 @@
 .gc-box__message {
   min-height: 64px;
   max-height: 40vh;
-  padding: 7px 9px;
+  padding: 8px 10px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-field);
   background: var(--content-bg);
@@ -247,7 +247,7 @@
   padding: 6px 8px;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -295,7 +295,7 @@
   min-width: 0;
   padding: 6px 4px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label);
   font: inherit;

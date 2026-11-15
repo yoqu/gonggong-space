@@ -7,7 +7,7 @@
   height: 16px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--label-secondary);
   appearance: none;
@@ -40,7 +40,7 @@
   gap: var(--space-4);
   padding: 4px 4px 4px 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   font: inherit;
   color: var(--label);

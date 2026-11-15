@@ -23,7 +23,7 @@
   gap: var(--space-6);
   font-size: var(--text-title-3-size);
   line-height: var(--text-title-3-line);
-  font-weight: 700;
+  font-weight: 600;
   min-width: 0;
 }
 .pn-chathead__title > h1 {

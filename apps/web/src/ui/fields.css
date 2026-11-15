@@ -77,7 +77,7 @@
   align-items: center;
   gap: 4px;
   min-height: var(--control-regular);
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-radius: var(--radius-field);
   background: var(--content-bg);
   box-shadow:

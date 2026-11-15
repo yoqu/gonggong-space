@@ -14,7 +14,7 @@
   width: max-content;
   max-width: 240px;
   padding: 4px var(--space-8);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);

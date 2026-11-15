@@ -183,7 +183,7 @@ code,
   margin: 0;
   font-size: var(--text-headline-size);
   line-height: var(--text-headline-line);
-  font-weight: 700;
+  font-weight: 600;
 }
 .dk-note,
 .dk-footnote {
@@ -429,7 +429,7 @@ code,
   font-family: var(--text-large-title-family);
   font-size: var(--text-large-title-size);
   line-height: var(--text-large-title-line);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: var(--text-large-title-tracking);
   text-align: center;
 }

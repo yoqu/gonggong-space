@@ -53,7 +53,7 @@
   flex-direction: column;
   gap: 1px;
   min-height: 0;
-  padding: var(--space-4) 5px;
+  padding: var(--space-4) 6px;
   overflow-y: auto;
 }
 .notif__empty {

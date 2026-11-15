@@ -17,7 +17,7 @@
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
   font-weight: 600;
@@ -115,7 +115,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 .hop-chain__dot {
   width: 6px;

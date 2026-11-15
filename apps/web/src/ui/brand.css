@@ -26,7 +26,7 @@
 .ui-logo--enter .ui-logo__badge {
   transform-box: fill-box;
   transform-origin: center;
-  animation: logo-badge 620ms var(--ease-apple) both;
+  animation: logo-badge var(--spring-smooth) both;
 }
 .ui-logo--enter .ui-logo__hand,
 .ui-logo--idle .ui-logo__hand {

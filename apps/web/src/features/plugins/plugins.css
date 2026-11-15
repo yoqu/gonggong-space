@@ -202,7 +202,7 @@
   margin-left: auto;
 }
 .plg-chip .plg-tile {
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .plg-grid {
   display: grid;
@@ -278,7 +278,7 @@
 .plg-swatch > span {
   flex: 1;
   height: 18px;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   box-shadow: inset 0 0 0 0.5px var(--separator);
 }
 .plg-form {
@@ -434,7 +434,7 @@
   border-bottom: 1px solid var(--separator);
 }
 .plg-req__head .plg-tile {
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 /* A narrow chat column (the canvas open beside it) cuts the title short instead of breaking it. */
 .plg-req__title {

@@ -32,7 +32,7 @@
   height: 26px;
   padding: 0 var(--space-8);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: none;
   color: var(--label-secondary);
   font: inherit;
@@ -72,7 +72,7 @@
   flex: none;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--radius-small);
   object-fit: contain;
 }
 .gtab__stale {
@@ -89,7 +89,7 @@
   height: 26px;
   padding: 0 var(--space-6);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: none;
   color: var(--label-secondary);
   font: inherit;
@@ -102,7 +102,7 @@
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: none;
   color: var(--label-secondary);
 }

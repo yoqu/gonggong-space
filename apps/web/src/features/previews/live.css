@@ -40,7 +40,7 @@
   right: 24px;
   z-index: 1;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: rgb(0 0 0 / 0.45);
   color: rgb(255 255 255 / 0.9);
   font-size: 11px;

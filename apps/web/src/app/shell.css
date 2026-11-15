@@ -277,7 +277,7 @@ body {
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   color: inherit;
 }
 .conv-strip__item:hover {
@@ -795,7 +795,7 @@ a.sidebar__open {
 /* Boot splash: appears only if loading outlasts a blink */
 .app-splash {
   gap: 10px;
-  animation: splash-in 400ms var(--ease-apple) 200ms both;
+  animation: splash-in var(--spring-smooth) 200ms both;
 }
 .app-splash__name {
   margin-top: var(--space-6);
@@ -808,7 +808,7 @@ a.sidebar__open {
 .app-splash__hint {
   font-size: var(--text-callout-size);
   color: var(--label-secondary);
-  animation: splash-in 400ms var(--ease-apple) 1.2s both;
+  animation: splash-in var(--spring-smooth) 1.2s both;
 }
 @keyframes splash-in {
   from {
@@ -870,7 +870,7 @@ a.sidebar__open {
   box-shadow: var(--shadow-control);
   text-align: left;
   transition:
-    box-shadow var(--motion-base),
+    box-shadow var(--fade-in),
     transform var(--spring-smooth);
 }
 .welcome__step[data-state="done"] {
@@ -1050,7 +1050,7 @@ a.sidebar__open {
 .sidebar__teamtag {
   margin-left: var(--space-4);
   padding: 0 var(--space-4);
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: var(--control-track);
   font-size: 10px;
   font-weight: 500;

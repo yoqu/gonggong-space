@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: var(--space-8);
   min-width: 0;
-  line-height: 19px;
+  line-height: 22px;
   overflow-wrap: anywhere;
 }
 .md > * {
@@ -576,7 +576,7 @@ button.chat-view__plugins:hover {
     padding: 0;
   }
   .chat-view--immersive .pn-composer {
-    padding: 7px var(--space-12);
+    padding: 8px var(--space-12);
     border-radius: var(--radius-capsule);
   }
   /* A draft shows its first line. */

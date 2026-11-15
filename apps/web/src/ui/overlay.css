@@ -77,7 +77,7 @@
   margin: 0;
   font-size: var(--text-title-3-size);
   line-height: 20px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .ui-dialog__message {
   margin: 0;
@@ -283,7 +283,7 @@
   margin: 0;
   font-size: var(--text-title-3-size);
   line-height: 19px;
-  font-weight: 700;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

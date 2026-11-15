@@ -85,7 +85,6 @@ a {
     --spring-smooth: 0s linear;
     --spring-bouncy: 0s linear;
     --spring-interactive: 0s linear;
-    --motion-base: 0s linear;
   }
 }
 ::selection {

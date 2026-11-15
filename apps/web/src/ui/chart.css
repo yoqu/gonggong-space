@@ -74,7 +74,7 @@
   gap: 2px;
   width: max-content;
   padding: var(--space-6) var(--space-8);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);

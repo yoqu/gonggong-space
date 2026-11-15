@@ -17,7 +17,7 @@
   justify-content: space-between;
   padding: 0 var(--space-12) 0 var(--space-16);
   font-size: var(--text-body-size);
-  font-weight: 700;
+  font-weight: 600;
   border-bottom: 1px solid var(--separator);
 }
 .pn-info__close {
@@ -84,7 +84,7 @@
   gap: var(--space-6);
   font-size: var(--text-title-3-size);
   line-height: 20px;
-  font-weight: 700;
+  font-weight: 600;
   margin-top: var(--space-4);
 }
 .pn-info__desc {
@@ -240,7 +240,7 @@
 }
 .pn-info__danger .pn-info__row--danger {
   border-radius: var(--radius-menu);
-  transition: background-color var(--motion-base);
+  transition: background-color var(--fade-in);
 }
 /* Armed: the second click confirms, so the row reads as the red button it now is. */
 .pn-info__row--danger[data-armed],
@@ -398,7 +398,7 @@
   gap: var(--space-6);
   font-size: var(--text-title-3-size);
   line-height: 20px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .pn-profile__status {
   display: flex;

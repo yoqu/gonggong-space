@@ -2,12 +2,12 @@
 .gb-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 260px;
   height: 26px;
   padding: 0 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -39,7 +39,7 @@
   padding: 2px 0 var(--space-8);
 }
 .gb__head {
-  padding: 8px 12px 3px;
+  padding: 8px 12px 4px;
   color: var(--label-tertiary);
   font-size: var(--text-caption-size);
   font-weight: 600;
@@ -53,7 +53,7 @@
   display: flex;
   align-items: center;
   padding-right: 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 .gb__row {
   display: flex;
@@ -64,7 +64,7 @@
   height: 26px;
   padding: 0 6px 0 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--label);
   font: inherit;
@@ -166,7 +166,7 @@
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label-tertiary);
   cursor: pointer;
@@ -238,7 +238,7 @@
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label-secondary);
   cursor: pointer;

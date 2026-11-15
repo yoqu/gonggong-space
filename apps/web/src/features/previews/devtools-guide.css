@@ -41,7 +41,7 @@
 .dg-win {
   position: relative;
   width: 260px;
-  border-radius: 10px;
+  border-radius: var(--radius-menu);
   background: var(--content-bg);
   box-shadow: var(--shadow-window);
   overflow: hidden;
@@ -52,8 +52,8 @@
 .dg-win__bar {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 10px;
+  gap: 6px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--separator);
 }
 .dg-win__bar i {
@@ -80,8 +80,8 @@
   border-right: 1px solid var(--separator);
 }
 .dg-win__side span {
-  padding: 3px 6px;
-  border-radius: 5px;
+  padding: 4px 6px;
+  border-radius: var(--radius-check);
 }
 .dg-win__side .dg-win__on {
   background: var(--accent);
@@ -107,7 +107,7 @@
   position: relative;
   width: 26px;
   height: 15px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--separator);
   animation: dg-toggle 4s ease-in-out infinite;
 }
@@ -150,7 +150,7 @@
 
 .dg-win--dialog {
   width: 240px;
-  padding: 16px 14px 12px;
+  padding: 16px 16px 12px;
 }
 .dg-dialog__title {
   color: var(--label);
@@ -165,8 +165,8 @@
   margin-top: 16px;
 }
 .dg-dialog__buttons span {
-  padding: 3px 10px;
-  border-radius: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-check);
   background: var(--separator);
 }
 .dg-dialog__buttons .dg-dialog__primary {

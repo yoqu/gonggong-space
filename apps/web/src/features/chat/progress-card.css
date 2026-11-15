@@ -100,7 +100,7 @@
 }
 .run-progress[data-walking] .pg-stages {
   padding-top: 10px;
-  row-gap: 14px;
+  row-gap: 16px;
 }
 .pg-walker {
   position: absolute;

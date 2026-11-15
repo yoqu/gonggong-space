@@ -34,12 +34,12 @@
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   height: 22px;
   padding: 0 6px 0 4px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-check);
   background: transparent;
   color: var(--label);
   font: inherit;

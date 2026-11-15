@@ -73,7 +73,7 @@
 }
 
 .feishu-scan svg {
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: #fff;
 }
 
@@ -113,7 +113,7 @@
   margin: 0;
   padding: 10px 12px;
   list-style: none;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--control-fill);
 }
 
@@ -221,7 +221,7 @@
   align-items: flex-start;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-field);
   background: var(--control-fill);
 }
 

@@ -201,7 +201,7 @@ export function OverlayGallery() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <Avatar name="张三" size={48} status="busy" />
                 <div>
-                  <div style={{ fontSize: 'var(--text-title-3-size)', fontWeight: 700 }}>张三</div>
+                  <div style={{ fontSize: 'var(--text-title-3-size)', fontWeight: 600 }}>张三</div>
                   <div style={{ fontSize: 'var(--text-subheadline-size)', color: 'var(--label-secondary)' }}>
                     会议中 · 至 11:00
                   </div>

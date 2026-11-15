@@ -132,7 +132,7 @@
   max-width: 200px;
   height: 28px;
   padding: 0 var(--space-4) 0 var(--space-8);
-  border-radius: 7px;
+  border-radius: var(--radius-field);
   color: var(--label-secondary);
   font-size: var(--text-subheadline-size);
   cursor: default;
@@ -200,7 +200,7 @@
   height: 16px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--label-secondary);
   opacity: 0;
@@ -269,7 +269,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  border-radius: 7px;
+  border-radius: var(--radius-field);
 }
 .bench-switch__row[aria-current] {
   background: var(--selection-fill);

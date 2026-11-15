@@ -4,7 +4,7 @@
 
 - **内容优先，玻璃浮于其上。** 只有浮层（工具栏分组、菜单、Alert、弹出框）用 Liquid Glass（`glass-fill` + `glass-blur` + `shadow-glass`）；内容区、列表、表单用不透明的 `content-bg` / `window-bg`。不要把整块内容做成玻璃。
 - **可读性优先于通透（macOS 27 的修正方向）。** 默认玻璃是偏不透明的 `glass-fill`；`glass-fill-clear` 只用于装饰层。玻璃外缘用 `glass-edge` 加深，顶部用 `glass-specular` 提亮，让它在复杂背景上依然有轮廓。
-- **一致的形状。** 可点击控件一律胶囊形（`radius-capsule`）；容器按层级用 `radius-field` 8 → `radius-menu` 12 → `radius-window` 14。macOS 27 收小并统一了窗口圆角，不要再用 Tahoe 那种 20px 以上的大圆角。
+- **一致的形状。** 可点击控件一律胶囊形（`radius-capsule`）；容器按层级用 `radius-field` 8 → `radius-menu` 12 → `radius-window` 14；工具栏小按钮、列表行、标签页用 `radius-control` 6，标签胶囊、色块、徽标用 `radius-small` 4。macOS 27 收小并统一了窗口圆角，不要再用 Tahoe 那种 20px 以上的大圆角。
 - **侧栏贴边，不悬浮。** 侧栏用 `sidebar-bg`，与内容之间仅一条 `separator` 发丝线，没有阴影和外边距；侧栏图标重新使用 `system-*` 彩色。
 
 ## 内容与文案
@@ -28,13 +28,14 @@
 ## 字体与排版
 
 - 字体栈 `--font-sans`：Apple 设备上直接调用系统的 SF Pro 与苹方，其他平台回退到 system-ui。库中不附带 SF Pro 字体文件——Apple 的授权只允许在 Apple 平台上的界面设计中使用它。
-- 文字样式照搬 macOS 的 Dynamic Type 表：`body` 13/16 是默认；`headline` 13/16 粗体用于窗口标题与分组标题；`subheadline` 11/14 semibold + `label-secondary` 用于侧栏分组标题；`title-1`、`large-title` 用于设置面板顶部。
+- 文字样式照搬 macOS 的 Dynamic Type 表：`body` 13/16 是默认；`headline` 13/16 semibold（600）用于窗口标题与分组标题；`subheadline` 11/14 semibold + `label-secondary` 用于侧栏分组标题；`title-1`、`large-title` 用于设置面板顶部。
 - macOS 界面文字比网页小：正文就是 13px，不要放大到 16px。
 
 ## 尺寸、间距与布局
 
 - 控件高度四档：`control-small` 20、`control-regular` 24（默认）、`control-large` 30、`control-xlarge` 36。同一行里的控件用同一档。
-- 相邻控件间距 `space-8`；窗口内容边距 `space-20`；分组内边距 `space-16`。
+- 相邻控件间距 `space-8`；窗口内容边距 `space-20`；分组内边距 `space-16`；紧凑卡片与列表行内边距 `space-10`；面板与对话框内容边距 `space-24`。
+- 字重只用 400 / 500 / 600 三档；13px 正文行高两档：单行界面文字 16px，消息与文档等阅读文字 22px。组件 CSS 不写死圆角与档外字重（`apps/web/test/design-values.test.ts` 守护，特殊形状在其白名单里写明原因）。
 - 统一工具栏高 `toolbar-height` 52px：标题在左，右侧是玻璃胶囊分组（`ToolbarGroup`），搜索框放最右。
 - 设置类页面用 `GroupBox` + `GroupRow`：左标签、右控件、行间 `separator`（系统设置风格，参照「SettingsExample」）；Sheet 和对话框里的表单用 `Form` + `FormRow`：标签右对齐成一列（经典偏好设置风格）。
 - 需要一小组输入再确认的任务用 `Sheet`（窗口内模态），只需确认的用 `Alert`，网页里没有窗口时用 `Dialog`。

@@ -34,7 +34,7 @@
 .sc-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .sc-form__title {
   margin: 0 0 6px;
@@ -153,7 +153,7 @@
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--separator);
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   background: var(--group-bg);
   color: var(--system-orange);
   font-size: 12px;

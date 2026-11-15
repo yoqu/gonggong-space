@@ -19,7 +19,7 @@
   padding: 0 var(--space-8);
 }
 .admin__product {
-  font-weight: 700;
+  font-weight: 600;
 }
 .admin__crumb {
   color: var(--label-secondary);
@@ -274,7 +274,7 @@ a.ui-sidebar__item:hover:not([aria-current]) {
   padding: 0 var(--space-12);
   font-size: var(--text-headline-size);
   line-height: var(--text-headline-line);
-  font-weight: 700;
+  font-weight: 600;
 }
 .admin-param__label {
   display: flex;

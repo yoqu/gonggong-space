@@ -339,8 +339,8 @@
 .ui-link {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  border-radius: 3px;
+  gap: 4px;
+  border-radius: var(--radius-small);
   color: var(--accent-text);
   text-decoration: none;
 }

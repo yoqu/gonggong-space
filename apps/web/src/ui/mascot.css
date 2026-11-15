@@ -46,7 +46,7 @@
 }
 .ui-mascot__z {
   font-family: var(--font-sans);
-  font-weight: 700;
+  font-weight: 600;
   fill: var(--label-tertiary);
 }
 .ui-mascot__laptop {

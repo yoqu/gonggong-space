@@ -7,6 +7,7 @@
   padding: 0;
   list-style: none;
 }
+/* 7px puts the guide line under the centre of the 14px row icon above. */
 .act--nested {
   margin: var(--space-2) 0 var(--space-4) 7px;
   padding-left: var(--space-12);
@@ -330,7 +331,7 @@ button.act-row:hover .act-row__target--file {
 .act-filter {
   padding: 2px var(--space-8);
   border: 1px solid var(--separator);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: transparent;
   color: var(--label-secondary);
   font: inherit;
@@ -456,7 +457,7 @@ button.act-row:hover .act-row__target--file {
 }
 .act-web__arc {
   stroke: var(--accent);
-  transition: stroke-dashoffset var(--motion-base);
+  transition: stroke-dashoffset var(--spring-smooth);
 }
 .act-web__stack {
   flex: none;
@@ -480,7 +481,7 @@ button.act-row:hover .act-row__target--file {
   border-radius: 50%;
   box-shadow: 0 0 0 1.5px var(--background);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 .act-web__call {

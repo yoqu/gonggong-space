@@ -150,7 +150,7 @@ describe('motion and touch CSS contract', () => {
     )
     const att = read('features/attachments/attachments.css')
     expect(ruleOf(att, '.att-chip')).toContain('var(--spring-bouncy) att-chip-in')
-    expect(ruleOf(att, '.att-chip__bar')).toContain('scale var(--motion-base)')
+    expect(ruleOf(att, '.att-chip__bar')).toContain('scale var(--spring-snappy)')
     expect(ruleOf(read('features/chat/edit.css'), '.msg-edit')).toContain('var(--spring-snappy) ui-enter')
   })
   it('moves runs: shimmering steps, turning fold, sliding requests, popping ticks, a ringing dock, roomy touch rows', () => {
@@ -168,7 +168,7 @@ describe('motion and touch CSS contract', () => {
     )
     const approval = read('features/runs/approval.css')
     expect(ruleOf(approval, '.approval:where([data-pending-id])')).toContain('var(--spring-smooth) ui-enter')
-    expect(ruleOf(approval, '.approval')).toContain('background-color var(--motion-base)')
+    expect(ruleOf(approval, '.approval')).toContain('background-color var(--fade-in)')
     const q = read('features/runs/question.css')
     expect(ruleOf(q, '.question:where([data-pending-id])')).toContain('var(--spring-smooth) ui-enter')
     expect(q).toMatch(/\.question__mark > svg,\s*\.qopt__check \{[^}]*var\(--spring-bouncy\) ui-enter/)
@@ -193,7 +193,7 @@ describe('motion and touch CSS contract', () => {
 
   it('round 6: inbox cards rise in and leave aside, unread bars, touch-sized deletes', () => {
     const motion = read('ui/motion.css')
-    expect(ruleOf(motion, '.ui-leaving')).toContain('ui-leave var(--motion-base) forwards')
+    expect(ruleOf(motion, '.ui-leaving')).toContain('ui-leave var(--fade-out) forwards')
     const inbox = read('features/chat/thread-inbox.css')
     expect(ruleOf(inbox, '.thread-inbox__card:not(.ui-leaving)')).toContain('ui-enter var(--spring-smooth)')
     expect(ruleOf(inbox, '.thread-inbox__card[data-unread]::before')).toContain('background: var(--accent)')

@@ -15,7 +15,7 @@
   max-width: 760px;
   padding: var(--space-12) var(--space-16);
   border: 1px solid var(--separator);
-  border-radius: var(--radius-card, 12px);
+  border-radius: var(--radius-menu);
   background: var(--content-bg);
   color: var(--label);
   font: inherit;
@@ -39,7 +39,7 @@
   bottom: var(--space-12);
   left: -1px;
   width: 3px;
-  border-radius: 0 3px 3px 0;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
   background: var(--accent);
   animation: ui-fade-in var(--fade-in);
 }
@@ -67,7 +67,7 @@
   }
 }
 .thread-inbox__card[data-unread] .thread-inbox__line:last-child b {
-  font-weight: 800;
+  font-weight: 600;
 }
 .thread-inbox__where {
   display: flex;

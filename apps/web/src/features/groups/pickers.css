@@ -42,7 +42,7 @@
   min-height: 36px;
   padding: var(--space-4) var(--space-8);
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-field);
   background: transparent;
   color: var(--label);
   font: inherit;

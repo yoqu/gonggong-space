@@ -27,7 +27,7 @@
   overflow: hidden;
   font-size: var(--text-title-3-size);
   line-height: var(--text-title-3-line);
-  font-weight: 700;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

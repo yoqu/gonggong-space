@@ -28,7 +28,7 @@
   align-items: center;
   gap: var(--space-8);
   padding: var(--space-6);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
 }
 .gworks__row:hover {
   background: var(--control-fill);
@@ -42,7 +42,7 @@
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--separator);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--content-bg);
   color: var(--label-tertiary);
 }
@@ -76,7 +76,7 @@
 .gworks__run {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--tint-blue-text);
 }
 .gworks__acts {

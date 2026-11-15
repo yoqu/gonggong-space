@@ -25,7 +25,7 @@
 /* A list row on its way out (useLeaving): slides aside and fades; clicks no longer land on it. */
 .ui-leaving {
   pointer-events: none;
-  animation: ui-leave var(--motion-base) forwards;
+  animation: ui-leave var(--fade-out) forwards;
 }
 @keyframes ui-leave {
   to {

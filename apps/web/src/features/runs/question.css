@@ -188,7 +188,7 @@
 .question__toggle {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   margin-left: auto;
   padding: 0;
   border: 0;

@@ -20,7 +20,7 @@
   padding: 0 6px;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   font: inherit;
   color: var(--label-secondary);

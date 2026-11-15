@@ -25,7 +25,7 @@
 .kb-row__main {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
   padding: 0;
@@ -85,7 +85,7 @@
   overflow: auto;
   padding: var(--space-8) var(--space-12);
   border: 0.5px solid var(--separator);
-  border-radius: 8px;
+  border-radius: var(--radius-field);
 }
 .kb-alert__ops {
   margin-top: 6px;

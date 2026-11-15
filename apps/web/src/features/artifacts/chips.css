@@ -7,11 +7,11 @@
 .art-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 100%;
   min-width: 0;
   height: 26px;
-  padding: 0 3px 0 var(--space-8);
+  padding: 0 4px 0 var(--space-8);
   border: 1px solid var(--separator);
   border-radius: var(--radius-capsule);
   background: var(--quote-fill);
@@ -66,7 +66,7 @@
   margin-left: 2px;
   padding: 0 var(--space-6);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--accent-text);
   font: inherit;

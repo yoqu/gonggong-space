@@ -2,7 +2,7 @@
   width: 260px;
   max-height: 280px;
   overflow: auto;
-  padding: 5px;
+  padding: 6px;
   border-radius: var(--radius-menu);
   background: var(--glass-fill);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -26,7 +26,7 @@
   flex: none;
   height: 32px;
   padding: 0 var(--space-8) 0 6px;
-  border-radius: 7px;
+  border-radius: var(--radius-field);
   cursor: default;
   --pn-ring: var(--glass-fill);
 }
@@ -42,7 +42,7 @@
   white-space: nowrap;
 }
 .pn-mentionpicker__name b {
-  font-weight: 700;
+  font-weight: 600;
 }
 .pn-mentionpicker__sub {
   font-size: var(--text-subheadline-size);
