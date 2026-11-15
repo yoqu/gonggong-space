@@ -48,6 +48,47 @@
 .pg-stage[data-status="done"] {
   color: var(--system-green);
 }
+.pg-check {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-check__tick {
+  stroke-dasharray: 1;
+}
+/* Done stages read as ticked off: a line through the name, drawn as a background so it can grow from the left. */
+.pg-stage[data-status="done"] > .pg-stage__name {
+  background: linear-gradient(currentColor, currentColor) 0 55% / 100% 1px no-repeat;
+}
+.pg-stage[data-fresh] .pg-check__ring {
+  transform-origin: center;
+  animation: var(--spring-bouncy) pg-ring-in;
+}
+.pg-stage[data-fresh] .pg-check__tick {
+  animation: pg-tick-draw 280ms 120ms ease-out both;
+}
+.pg-stage[data-fresh] > .pg-stage__name {
+  animation: pg-strike 360ms 320ms ease-out both;
+}
+@keyframes pg-ring-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+@keyframes pg-tick-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes pg-strike {
+  from {
+    background-size: 0 1px;
+  }
+}
 .pg-stage[data-status="failed"] {
   color: var(--system-red);
 }
@@ -277,7 +318,12 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pg-walker > *,
-  .run-progress[data-walking] .pg-stage > svg {
+  .run-progress[data-walking] .pg-stage > svg,
+  .pg-stage[data-fresh] .pg-check__ring,
+  .pg-stage[data-fresh] .pg-check__tick {
     animation: none !important;
+  }
+  .pg-stage[data-fresh] > .pg-stage__name {
+    animation: var(--fade-in) ui-fade-in;
   }
 }

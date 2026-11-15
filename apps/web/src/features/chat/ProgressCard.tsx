@@ -20,10 +20,9 @@ const STATUS: Record<Card['status'], [string, TagTone]> = {
   failed: [t('失败'), 'red'],
 }
 
-const STAGE_ICON: Record<ProgressStageStatus, IconName> = {
+const STAGE_ICON: Record<Exclude<ProgressStageStatus, 'done'>, IconName> = {
   pending: 'clock',
   running: 'arrow-clockwise',
-  done: 'checkmark-circle',
   failed: 'xmark-circle',
   skipped: 'minus',
 }
@@ -58,8 +57,44 @@ export const stagesDone = (card: Card) => ({
   total: card.stages.length,
 })
 
+/** A done stage's check, drawn as strokes so the tick can be drawn in when the stage turns done. */
+function StageCheck() {
+  return (
+    <svg className="pg-check" width={12} height={12} viewBox="0 0 18 18" aria-hidden="true">
+      <circle className="pg-check__ring" cx={9} cy={9} r={6.5} />
+      <path className="pg-check__tick" d="M6.1 9.2l2 2 3.9-4.2" pathLength={1} />
+    </svg>
+  )
+}
+
+/**
+ * Stages that turned done while shown: their tick draws in and their name is struck from the left, once.
+ * Stages already done on first render stay still.
+ */
+function useFreshlyDone(stages: Card['stages']) {
+  const seen = useRef<ProgressStageStatus[] | null>(null)
+  const [fresh, setFresh] = useState<ReadonlySet<number>>(() => new Set())
+  useLayoutEffect(() => {
+    const before = seen.current
+    seen.current = stages.map((s) => s.status)
+    if (!before) return
+    const now = stages.flatMap((s, i) =>
+      s.status === 'done' && before[i] && before[i] !== 'done' ? [i] : [],
+    )
+    if (now.length) setFresh((f) => new Set([...f, ...now]))
+  }, [stages])
+  const settle = (i: number) =>
+    setFresh((f) => {
+      const next = new Set(f)
+      next.delete(i)
+      return next
+    })
+  return [fresh, settle] as const
+}
+
 /** Stage list of a progress card, as shown on its run card and in the task dock; `walker`: the stage 共字君 stands on. */
 export function ProgressStages({ card, walker }: { card: Card; walker?: number }) {
+  const [fresh, settle] = useFreshlyDone(card.stages)
   return (
     <ol className="pg-stages">
       {card.stages.map((s, i) => (
@@ -70,9 +105,15 @@ export function ProgressStages({ card, walker }: { card: Card; walker?: number }
           data-testid="progress-stage"
           data-status={s.status}
           data-walker={i === walker || undefined}
+          data-fresh={(s.status === 'done' && fresh.has(i)) || undefined}
         >
-          <Icon name={STAGE_ICON[s.status]} size={12} />
-          {s.name}
+          {s.status === 'done' ? <StageCheck /> : <Icon name={STAGE_ICON[s.status]} size={12} />}
+          <span
+            className="pg-stage__name"
+            onAnimationEnd={(e) => e.animationName === 'pg-strike' && settle(i)}
+          >
+            {s.name}
+          </span>
         </li>
       ))}
     </ol>

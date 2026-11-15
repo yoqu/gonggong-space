@@ -62,3 +62,35 @@ describe('ProgressCard', () => {
     expect(link.getAttribute('target')).toBe('_blank')
   })
 })
+
+describe('ProgressStages ticking off', () => {
+  const stage = (name: string) =>
+    screen.getByText(name).closest<HTMLElement>('[data-testid="progress-stage"]')!
+
+  it('draws a check and strikes the name of done stages, without replaying for stages already done', () => {
+    render(<ProgressCard card={card()} />)
+    const queued = stage('排队')
+    expect(queued.querySelector('.pg-check__tick')).toBeTruthy()
+    expect(screen.getByText('排队').className).toBe('pg-stage__name')
+    expect(queued.hasAttribute('data-fresh')).toBe(false)
+    expect(stage('构建').querySelector('.pg-check__tick')).toBeNull()
+  })
+
+  it('plays the tick and the strike once, at the moment a stage turns done', () => {
+    const { rerender } = render(<ProgressCard card={card()} />)
+    rerender(
+      <ProgressCard
+        card={card({
+          stages: [
+            { name: '排队', status: 'done' },
+            { name: '构建', status: 'done' },
+            { name: '部署', status: 'running' },
+          ],
+        })}
+      />,
+    )
+    expect(stage('构建').hasAttribute('data-fresh')).toBe(true)
+    expect(stage('排队').hasAttribute('data-fresh')).toBe(false)
+    expect(stage('部署').hasAttribute('data-fresh')).toBe(false)
+  })
+})
