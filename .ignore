@@ -1,0 +1,11 @@
+# Search noise for ripgrep-based tools (agents, editors): tracked but almost never what a search is after.
+# Files stay in git; open them by path when needed.
+apps/server/drizzle/meta/
+videos/
+docs/原型UI-AI 对话 agent系统界面设计方案/_ds/
+docs/原型UI-AI 对话 agent系统界面设计方案/uploads/
+docs/design/pane/components/bundle.*
+apps/server/plugins/official/slides/
+pnpm-lock.yaml
+Cargo.lock
+docs/archive/
