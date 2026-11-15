@@ -92,15 +92,15 @@ useScroll(root, (r, vh) => root.value?.style.setProperty('--c', crossing(r, vh).
 .card:hover {
   transform: translateY(-6px) rotate(-1deg);
   box-shadow:
-    inset 0 0 0 1.5px var(--ink),
-    5px 6px 0 var(--ink);
+    inset 0 0 0 1px var(--rule),
+    var(--shadow);
 }
 .card img {
   flex: none;
 }
 .card h3 {
   margin: 0;
-  font-family: var(--serif);
+  font-family: var(--display);
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);

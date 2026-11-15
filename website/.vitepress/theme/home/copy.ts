@@ -10,6 +10,11 @@ const zh = {
       '在群里 @ 一下，队友机器上的 Claude Code、Codex 等 Agent 就开工。过程实时可见，改动随时可审，做好的页面在群里直接打开。',
     start: '快速上手',
     about: '共工空间是什么',
+    chips: [
+      { who: '小林', text: '@前端小助手 列表加个筛选' },
+      { who: '前端小助手', text: '组件好了，@测试助手 交给你' },
+      { who: '测试助手', text: '✓ 12 passed · 请审批' },
+    ],
   },
   stage: {
     kicker: '真实界面 · 一次完整协作',
@@ -116,6 +121,11 @@ const en: Copy = {
       'Mention a Bot in a group, and Claude Code, Codex or another Agent gets to work on a teammate’s machine. Every step is visible live, every change is reviewable, and what it builds opens right in the chat.',
     start: 'Quick Start',
     about: 'What is Gonggong Space',
+    chips: [
+      { who: 'Lin', text: '@Frontend Bot add a filter to the list' },
+      { who: 'Frontend Bot', text: 'UI done · @Test Bot over to you' },
+      { who: 'Test Bot', text: '✓ 12 passed · approve?' },
+    ],
   },
   stage: {
     kicker: 'The real product · one full run',

@@ -771,10 +771,10 @@ const parts = (text: string) => {
   place-items: center;
   width: 46px;
   height: 46px;
-  border-radius: 8px;
-  font: 900 22px var(--serif);
-  color: var(--seal);
-  box-shadow: inset 0 0 0 2.5px var(--seal);
+  border-radius: 50%;
+  font: 800 20px var(--display);
+  color: var(--blue);
+  box-shadow: inset 0 0 0 2.5px var(--blue);
   transform: rotate(-12deg);
 }
 .ask.ok .seal {
@@ -940,12 +940,12 @@ const parts = (text: string) => {
   border-radius: 16px;
   background: var(--card);
   box-shadow:
-    inset 0 0 0 1.5px var(--ink),
-    5px 6px 0 var(--ink);
+    inset 0 0 0 1px var(--rule),
+    var(--shadow);
 }
 .panel h4 {
   margin: 0 0 14px;
-  font-family: var(--serif);
+  font-family: var(--display);
   font-size: 17px;
   color: var(--ink);
 }
@@ -1001,9 +1001,9 @@ const parts = (text: string) => {
   width: 14px;
   height: 14px;
   margin-left: -7px;
-  background: var(--jade);
+  background: var(--amber);
   transform: rotate(45deg);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--jade) 25%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 25%, transparent);
   animation: float 1.6s ease-in-out infinite;
 }
 @keyframes float {

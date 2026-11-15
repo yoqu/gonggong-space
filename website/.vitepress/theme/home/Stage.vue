@@ -44,10 +44,10 @@ const MARKS: { from: number; to: number; rect: Rect }[] = [
 ]
 
 const CHAPTERS = [
-  { no: '壹', act: 'wave', end: 0.27 },
-  { no: '贰', act: 'type', end: 0.52 },
-  { no: '叁', act: 'think', end: 0.77 },
-  { no: '肆', act: 'done', end: 1.01 },
+  { no: '01', act: 'wave', end: 0.27 },
+  { no: '02', act: 'type', end: 0.52 },
+  { no: '03', act: 'think', end: 0.77 },
+  { no: '04', act: 'done', end: 1.01 },
 ]
 const { t } = useCopy()
 
@@ -176,7 +176,7 @@ const ink = (m: (typeof MARKS)[number]) => {
 <style scoped>
 .stage {
   position: relative;
-  height: 560vh;
+  height: 420vh;
   background: var(--paper);
 }
 .stage__pin {
@@ -216,13 +216,15 @@ const ink = (m: (typeof MARKS)[number]) => {
   transition: color 0.4s;
 }
 .chapters .no {
-  font-family: var(--serif);
-  font-size: 20px;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  padding-top: 3px;
   line-height: 1.3;
 }
 .chapters h3 {
   margin: 0;
-  font-family: var(--serif);
+  font-family: var(--display);
   font-size: 19px;
   font-weight: 700;
   line-height: 1.4;
@@ -247,7 +249,7 @@ const ink = (m: (typeof MARKS)[number]) => {
   color: var(--ink);
 }
 .chapters li.on .no {
-  color: var(--seal);
+  color: var(--blue);
 }
 .chapters li.on p {
   max-height: 8em;
@@ -262,7 +264,7 @@ const ink = (m: (typeof MARKS)[number]) => {
 .meter i {
   display: block;
   height: 100%;
-  background: var(--ink);
+  background: var(--blue);
   transform-origin: left;
 }
 
@@ -335,7 +337,7 @@ const ink = (m: (typeof MARKS)[number]) => {
 }
 .marks path {
   fill: none;
-  stroke: var(--seal);
+  stroke: var(--blue);
   stroke-width: var(--pen);
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -367,7 +369,7 @@ const ink = (m: (typeof MARKS)[number]) => {
 
 @media (max-width: 900px) {
   .stage {
-    height: 460vh;
+    height: 360vh;
   }
   .stage__pin {
     padding-top: calc(var(--vp-nav-height) + 40px);

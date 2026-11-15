@@ -1,30 +1,26 @@
 .gg-home {
-  --paper: #f3efe6;
-  --paper-2: #e9e3d6;
-  --card: #fbf9f4;
-  --ink: #1b2233;
-  --ink-2: #4b5367;
-  --ink-3: #8b8f9b;
-  --rule: rgb(27 34 51 / 0.14);
-  --blue: #0071e3;
-  --blue-ink: #0a58b8;
-  --jade: #14b3ae;
-  --jade-soft: #b8f5ea;
-  --seal: #c23b22;
-  --sun: #f1d5bd;
-  --cloud: #f8f5ee;
-  --m1: #dde1e6;
-  --m2: #c3ccd8;
-  --m3: #95a6bd;
-  --m4: #6b83a3;
-  --w1: #d7e5f1;
-  --w2: #9dbfe0;
-  --serif:
-    "Iowan Old Style", "Palatino", "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC",
-    "Noto Serif SC", serif;
+  --brand-blue: #3b7bff;
+  --brand-amber: #ffb224;
+  --brand-ink: #10203a;
+  --brand-pupil: #10203a;
+  --paper: #f6f8fc;
+  --paper-2: #edf1f8;
+  --card: #fff;
+  --ink: #10203a;
+  --ink-2: #4a586f;
+  --ink-3: #8a94a6;
+  --rule: rgb(16 32 58 / 0.12);
+  --blue: #3b7bff;
+  --blue-ink: #2459d6;
+  --blue-wash: #e8f0ff;
+  --amber: #ffb224;
+  --amber-ink: #a86a00;
+  --amber-wash: #fff4dc;
+  --shadow: 0 1px 2px rgb(16 32 58 / 0.06), 0 12px 32px -12px rgb(16 32 58 / 0.18);
+  --display: -apple-system, "PingFang SC", "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* 共字君's stylesheet reads the app's tokens. */
-  --system-blue: #0088ff;
+  --system-blue: #3b7bff;
   --system-teal: #00c3d0;
   --system-orange: #ff8d28;
   --system-green: #34c759;
@@ -42,24 +38,20 @@
 }
 
 .dark .gg-home {
-  --paper: #0f131c;
-  --paper-2: #161b27;
-  --card: #151a25;
-  --ink: #e9e6de;
-  --ink-2: #b3b2ad;
-  --ink-3: #7c7f88;
-  --rule: rgb(233 230 222 / 0.14);
-  --blue: #3b9bff;
-  --blue-ink: #6db4ff;
-  --seal: #d4553b;
-  --sun: #e8e1cf;
-  --cloud: #1a2030;
-  --m1: #1b2232;
-  --m2: #222c40;
-  --m3: #2d3a53;
-  --m4: #3a4b68;
-  --w1: #17233a;
-  --w2: #2c4468;
+  --brand-pupil: #fff;
+  --paper: #0b1424;
+  --paper-2: #101c31;
+  --card: #14223b;
+  --ink: #eef2f8;
+  --ink-2: #a9b4c6;
+  --ink-3: #6f7c92;
+  --rule: rgb(238 242 248 / 0.12);
+  --blue: #6b9bff;
+  --blue-ink: #8fb3ff;
+  --blue-wash: rgb(59 123 255 / 0.16);
+  --amber-ink: #ffc65c;
+  --amber-wash: rgb(255 178 36 / 0.14);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
   --label: rgb(255 255 255 / 0.85);
   --label-tertiary: rgb(255 255 255 / 0.25);
   --separator: rgb(255 255 255 / 0.12);
@@ -87,24 +79,26 @@
 .gg-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 13px;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--blue-ink);
 }
 .gg-kicker::before {
   content: "";
-  width: 28px;
-  height: 1px;
-  background: currentColor;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
 }
 
 .gg-h2 {
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: clamp(30px, 4.4vw, 52px);
-  line-height: 1.18;
-  letter-spacing: 0.02em;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(30px, 4.2vw, 50px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   margin: 18px 0 16px;
   color: var(--ink);
 }
@@ -137,9 +131,12 @@
   transform: translateY(-2px);
 }
 .gg-btn--ink {
-  background: var(--ink);
-  color: var(--paper);
-  box-shadow: 0 10px 24px -12px rgb(27 34 51 / 0.6);
+  background: var(--brand-blue);
+  color: #fff;
+  box-shadow: 0 10px 24px -12px rgb(59 123 255 / 0.7);
+}
+.gg-btn--ink:hover {
+  background: #2f6df0;
 }
 .gg-btn--line {
   color: var(--ink);

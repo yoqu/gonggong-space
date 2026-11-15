@@ -53,7 +53,7 @@ const FEATURES = computed(() =>
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin-top: 56px;
-  border-top: 1.5px solid var(--ink);
+  border-top: 1px solid var(--rule);
 }
 .item {
   position: relative;
@@ -76,6 +76,7 @@ const FEATURES = computed(() =>
   width: 48px;
   height: 48px;
   margin-bottom: 8px;
+  color: var(--blue);
   transition: transform 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
 .item:hover .icon {
@@ -92,7 +93,7 @@ const FEATURES = computed(() =>
 }
 h3 {
   margin: 0;
-  font-family: var(--serif);
+  font-family: var(--display);
   font-size: 21px;
   font-weight: 700;
 }

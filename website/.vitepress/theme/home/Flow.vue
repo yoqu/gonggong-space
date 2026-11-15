@@ -14,7 +14,7 @@ const NODES = computed(() =>
   })),
 )
 const LINKS = computed(() => t.value.flow.links)
-const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
+const LINE = 'M0 30 H200'
 </script>
 
 <template>
@@ -24,7 +24,7 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
       <h2 class="gg-h2 gg-rise" style="--i: 1">{{ t.flow.title[0] }}<br />{{ t.flow.title[1] }}</h2>
       <p class="gg-lead gg-rise" style="--i: 2">{{ t.flow.lead }}</p>
 
-      <div class="river">
+      <div class="lanes">
         <template v-for="(n, i) in NODES" :key="n.name">
           <article class="node gg-rise" :style="{ '--i': 3 + i * 2 }">
             <span class="node__icon" v-html="n.icon" />
@@ -38,15 +38,15 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
           <div v-if="LINKS[i]" class="link gg-rise" :style="{ '--i': 4 + i * 2 }" aria-hidden="true">
             <span class="link__down">{{ LINKS[i].down }} →</span>
             <svg viewBox="0 0 200 60" preserveAspectRatio="none">
-              <path :id="`river${i}`" class="link__bed" :d="RIVER" />
-              <path class="link__flow" :d="RIVER" />
+              <path :id="`lane${i}`" class="link__bed" :d="LINE" />
+              <path class="link__flow" :d="LINE" />
               <g class="packets">
-                <path v-for="k in 3" :key="`d${k}`" d="M-5 0 0 -5 5 0 0 5Z" fill="var(--blue)">
+                <circle v-for="k in 3" :key="`d${k}`" r="4" fill="var(--blue)">
                   <animateMotion :dur="`${3 + i * 0.4}s`" :begin="`${-k}s`" repeatCount="indefinite">
-                    <mpath :href="`#river${i}`" />
+                    <mpath :href="`#lane${i}`" />
                   </animateMotion>
-                </path>
-                <circle v-for="k in 2" :key="`u${k}`" r="3.4" fill="var(--jade)">
+                </circle>
+                <circle v-for="k in 2" :key="`u${k}`" r="3.4" fill="var(--amber)">
                   <animateMotion
                     :dur="`${3.6 + i * 0.3}s`"
                     :begin="`${-k * 1.6}s`"
@@ -55,7 +55,7 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
                     keyTimes="0;1"
                     calcMode="linear"
                   >
-                    <mpath :href="`#river${i}`" />
+                    <mpath :href="`#lane${i}`" />
                   </animateMotion>
                 </circle>
               </g>
@@ -78,16 +78,7 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
   padding: clamp(96px, 14vh, 160px) 0;
   background: var(--paper-2);
 }
-.flow::before {
-  content: '';
-  position: absolute;
-  inset: -1px 0 auto;
-  height: 40px;
-  background: var(--paper);
-  mask: radial-gradient(28px 22px at 50% 0, #000 98%, transparent) 0 0 / 56px 40px repeat-x;
-}
-
-.river {
+.lanes {
   display: grid;
   grid-template-columns: 1fr minmax(120px, 0.7fr) 1fr minmax(120px, 0.7fr) 1fr;
   align-items: stretch;
@@ -99,18 +90,18 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
   border-radius: 18px;
   background: var(--card);
   box-shadow:
-    inset 0 0 0 1.5px var(--ink),
-    5px 6px 0 var(--ink);
+    inset 0 0 0 1px var(--rule),
+    var(--shadow);
 }
 .node__icon {
   display: block;
   width: 52px;
   height: 52px;
-  color: var(--ink);
+  color: var(--blue);
 }
 .node h3 {
   margin: 14px 0 2px;
-  font-family: var(--serif);
+  font-family: var(--display);
   font-size: 22px;
   font-weight: 700;
 }
@@ -136,8 +127,8 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
   padding: 3px 10px;
   border-radius: 999px;
   font: 600 12px var(--mono);
-  color: var(--ink);
-  background: color-mix(in srgb, var(--jade) 16%, transparent);
+  color: var(--amber-ink);
+  background: var(--amber-wash);
 }
 
 .link {
@@ -157,13 +148,12 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
 }
 .link__bed {
   fill: none;
-  stroke: color-mix(in srgb, var(--w2) 60%, transparent);
-  stroke-width: 14;
-  stroke-linecap: round;
+  stroke: var(--rule);
+  stroke-width: 1.5;
 }
 .link__flow {
   fill: none;
-  stroke: var(--paper-2);
+  stroke: color-mix(in srgb, var(--blue) 45%, transparent);
   stroke-width: 1.5;
   stroke-dasharray: 6 10;
   animation: stream 1.2s linear infinite;
@@ -177,7 +167,7 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
   color: var(--blue-ink);
 }
 .link__up {
-  color: color-mix(in srgb, var(--jade) 70%, var(--ink));
+  color: var(--amber-ink);
 }
 
 .more {
@@ -211,7 +201,7 @@ const RIVER = 'M0 30 C40 12 60 12 100 30 S160 48 200 30'
 }
 
 @media (max-width: 860px) {
-  .river {
+  .lanes {
     grid-template-columns: 1fr;
     justify-items: stretch;
   }
