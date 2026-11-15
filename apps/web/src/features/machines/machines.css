@@ -4,12 +4,6 @@
   flex-direction: column;
   gap: var(--space-16);
 }
-.bind__code {
-  font-family: var(--font-mono);
-  font-size: var(--text-title-1-size);
-  font-weight: 600;
-  letter-spacing: 0.16em;
-}
 .bind__code-line {
   display: flex;
   align-items: center;
@@ -21,9 +15,6 @@
   line-height: var(--text-subheadline-line);
   color: var(--label-secondary);
   text-wrap: pretty;
-}
-.bind__expired {
-  color: var(--label-secondary);
 }
 .bind__prompt-card {
   display: flex;
@@ -306,9 +297,6 @@
 .machine__meta dd {
   margin: 0;
   color: var(--label);
-}
-.ui-btn.machine__revoke {
-  color: var(--tint-red-text);
 }
 
 /* 接入链接 */

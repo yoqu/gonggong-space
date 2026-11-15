@@ -14,19 +14,11 @@
 .art-muted {
   fill: color-mix(in srgb, var(--label-tertiary) 22%, transparent);
 }
-.art-cutout {
-  stroke: var(--content-bg);
-  stroke-width: 2.5;
-  fill: color-mix(in srgb, var(--label-tertiary) 35%, var(--content-bg));
-}
 .art-accent {
   fill: var(--accent);
 }
 .art-accent-soft {
   fill: color-mix(in srgb, var(--accent) 24%, var(--content-bg));
-}
-.art-danger {
-  fill: var(--system-red);
 }
 .art-ink {
   fill: var(--on-accent);
@@ -46,18 +38,6 @@
 }
 .art-shackle {
   stroke-width: 6;
-}
-.art-pointer {
-  fill: var(--label);
-  stroke: var(--content-bg);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-.art-accent-text {
-  fill: var(--accent);
-}
-.art-glyph--sm {
-  font-size: 10px;
 }
 .art-stroke-ink {
   fill: none;

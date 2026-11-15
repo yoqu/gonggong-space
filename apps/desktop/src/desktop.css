@@ -46,13 +46,6 @@ code,
 .dk-danger {
   color: var(--tint-red-text);
 }
-.dk-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
 
 /* Window: flush sidebar column (traffic lights on top), then toolbar + content + status line. */
 .dk-body {
@@ -262,11 +255,6 @@ code,
 .ui-group > * > .dk-row + .dk-row {
   border-top: 1px solid var(--separator);
 }
-.ui-group > .dk-row--sub {
-  border-top: 0;
-  padding-top: 0;
-  padding-left: 42px;
-}
 .dk-row__main {
   flex: 1;
   min-width: 0;
@@ -316,23 +304,6 @@ code,
   flex-direction: row;
   align-items: center;
   gap: var(--space-8);
-}
-.dk-vendors {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-.dk-vendors__group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.dk-field-row {
-  flex-wrap: nowrap;
-}
-.dk-field-row > .ui-field {
-  flex: 1;
-  min-width: 0;
 }
 
 /* 概览 */

@@ -103,7 +103,6 @@
   padding-block: var(--space-4);
   white-space: normal;
 }
-.ui-float__item--described .ui-float__check,
 .ui-float__item--described .ui-popup__check {
   margin-top: 1px;
 }

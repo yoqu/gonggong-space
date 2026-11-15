@@ -14,16 +14,6 @@
   overflow-wrap: anywhere;
 }
 
-.feishu-app__retry {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: var(--text-footnote-size);
-  color: var(--label-secondary);
-}
-
 .feishu-app__status {
   display: flex;
   flex-wrap: wrap;
@@ -38,10 +28,6 @@
 .feishu-app__id {
   font-family: var(--font-mono);
   color: var(--label-secondary);
-}
-
-.feishu-app__unset {
-  color: var(--label-tertiary);
 }
 
 .feishu-app__fields {

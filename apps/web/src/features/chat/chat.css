@@ -439,16 +439,6 @@
   color: var(--tint-red-text);
   cursor: help;
 }
-/* Repo settings (group settings dialog) */
-.repo-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-.repo-settings__mono {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-}
 
 .chat-view__pins {
   flex: none;
