@@ -17,7 +17,7 @@ import { currentTeam } from '../teams/service.js'
 
 type Params = { Params: { id: string } }
 
-export async function mySections(ctx: Ctx, userId: string, teamId: string): Promise<SidebarSectionDto[]> {
+async function mySections(ctx: Ctx, userId: string, teamId: string): Promise<SidebarSectionDto[]> {
   return ctx.db
     .select({ id: sidebarSections.id, name: sidebarSections.name, parentId: sidebarSections.parentId })
     .from(sidebarSections)

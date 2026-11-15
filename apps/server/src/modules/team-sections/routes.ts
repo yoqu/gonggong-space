@@ -45,7 +45,7 @@ async function requireTeamSection(ctx: Ctx, teamId: string, id: string) {
 }
 
 /** Everyone in the team sees the directory change. */
-export async function publishDirectory(ctx: Ctx, teamId: string) {
+async function publishDirectory(ctx: Ctx, teamId: string) {
   const rows = await ctx.db
     .select({ userId: teamMembers.userId })
     .from(teamMembers)
@@ -57,7 +57,7 @@ export async function publishDirectory(ctx: Ctx, teamId: string) {
 }
 
 /** Groups filed under a 团队分区 of `teamId` that `userId` is not in, or just `groupId`. */
-export async function directory(ctx: Ctx, userId: string, teamId: string, groupId?: string) {
+async function directory(ctx: Ctx, userId: string, teamId: string, groupId?: string) {
   const mine = ctx.db
     .select({ one: sql`1` })
     .from(groupMembers)

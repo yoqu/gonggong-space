@@ -17,7 +17,6 @@
     "@xterm/xterm": "6.0.0",
     "docx-preview": "0.4.1",
     "fflate": "0.8.3",
-    "jszip": "3.10.2",
     "livekit-client": "2.22.3",
     "mermaid": "12.2.0",
     "motion": "13.4.2",

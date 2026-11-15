@@ -35,7 +35,7 @@ import { branchMessage } from './branch.js'
 import { editMessage } from './edit.js'
 import { everyoneBut, memberMentions, mentionsAll, notifyMentions } from './mentions.js'
 import { resolveQuote } from './quote.js'
-import { hideMessage, notHiddenBy, recallMessage } from './recall.js'
+import { hideMessage, recallMessage } from './recall.js'
 import { type MessageMeta, type MessageRow, messageDto, publishMessage } from './service.js'
 
 /** The artifact a composer message is about, in this group, with the selection as the agent reads it. */

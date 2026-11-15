@@ -383,7 +383,7 @@ export function Dialog({
   )
 }
 
-export interface AlertAction {
+interface AlertAction {
   label: ReactNode
   variant?: 'default' | 'primary' | 'destructive'
   disabled?: boolean

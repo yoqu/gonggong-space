@@ -71,7 +71,7 @@ export const BLOCKER_TAG: Record<PluginBlocker, { label: string; tone: 'gray' | 
   trust: { label: t('待授权'), tone: 'orange' },
 }
 
-export const PERMISSION_LABEL: Record<PluginPermission, string> = {
+const PERMISSION_LABEL: Record<PluginPermission, string> = {
   exec: t('运行代码'),
   network: t('访问网络'),
 }

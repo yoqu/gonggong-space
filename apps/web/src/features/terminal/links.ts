@@ -14,7 +14,7 @@ const FILE_PATTERN = /(?:\.\/)?(?:[\w@+.~-]+\/)*[\w@+.~-]+\.[A-Za-z0-9_~-]+(?::(
 const TRAILING_PUNCTUATION = /[.,;:!?]+$/u
 const DOMAIN = /^(?:localhost|(?:[\w-]+\.)+(?:com|net|org|io|dev|app|cn|edu|gov))(?::\d+)?$/iu
 
-export function safeWorkspacePath(raw: string): string | null {
+function safeWorkspacePath(raw: string): string | null {
   if (!raw || raw.length > 4096 || /[\0\\]/u.test(raw) || /^[a-zA-Z][a-zA-Z\d+.-]*:/u.test(raw)) return null
   if (/%[0-9a-f]{2}/iu.test(raw) || raw.startsWith('/')) return null
   const parts = raw.split('/')
@@ -85,7 +85,7 @@ function isWide(point: number) {
   )
 }
 
-export function terminalLineLinks(line: string): (TerminalLink & { start: number; end: number })[] {
+function terminalLineLinks(line: string): (TerminalLink & { start: number; end: number })[] {
   const links: (TerminalLink & { start: number; end: number })[] = []
   for (const match of line.matchAll(URL_PATTERN)) {
     const text = trimUrl(match[0])

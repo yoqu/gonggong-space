@@ -8,7 +8,7 @@ import { plugins, pluginVersions } from '../../db/schema.js'
  * Provider presets of the platform-layer plugins (plan 插件扩展点 §6), by name order; a later one with the same
  * (agent, id) replaces an earlier one.
  */
-export async function platformPresets(db: Pick<Db, 'select'>): Promise<ProviderPreset[]> {
+async function platformPresets(db: Pick<Db, 'select'>): Promise<ProviderPreset[]> {
   const rows = await db
     .select({ manifest: pluginVersions.manifest })
     .from(plugins)

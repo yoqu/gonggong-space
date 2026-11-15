@@ -49,7 +49,7 @@ export function useCreationPlugins(groupId: string) {
   return useMemo(() => list?.filter((p) => p.enabledInGroup && p.manifest.entry) ?? [], [list])
 }
 
-export function putPlugin(groupId: string, p: GroupPluginDto) {
+function putPlugin(groupId: string, p: GroupPluginDto) {
   usePluginStore.setState((s) => ({
     lists: { ...s.lists, [groupId]: (s.lists[groupId] ?? []).map((x) => (x.id === p.id ? p : x)) },
   }))
@@ -77,7 +77,7 @@ export const openCreation = (open: CreationOpen) => useCreation.setState({ open 
 export const closeCreation = () => useCreation.setState({ open: null })
 
 /** Design systems the group imported (「导入我的设计」), loaded when a prompt-first composer opens. */
-export const useDesignSystems = create<{ lists: Record<string, GroupDesignSystemDto[]> }>()(() => ({
+const useDesignSystems = create<{ lists: Record<string, GroupDesignSystemDto[]> }>()(() => ({
   lists: {},
 }))
 const setDesignSystems = (groupId: string, list: GroupDesignSystemDto[]) =>

@@ -6,7 +6,6 @@ import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Avatar,
   Dialog,
   EmptyState,
   Form,

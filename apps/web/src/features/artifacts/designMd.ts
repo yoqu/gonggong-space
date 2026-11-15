@@ -90,7 +90,7 @@ export function setFrontMatter(md: string, path: string[], value: string) {
 const TEXT_FIELD: Record<string, string> = { size: 'fontSize', weight: 'fontWeight', leading: 'lineHeight' }
 
 /** Where a tokens.css name lives in the front matter. */
-export function frontMatterPath(token: string): string[] | null {
+function frontMatterPath(token: string): string[] | null {
   let m = /^--color-(.+)$/.exec(token)
   if (m) return ['colors', m[1] as string]
   m = /^--rounded-(.+)$/.exec(token)

@@ -20,7 +20,7 @@ function walk(node: Node, visit: (el: Element) => void) {
   if ('childNodes' in node) for (const c of node.childNodes) walk(c, visit)
 }
 
-export function parseHtml(html: string) {
+function parseHtml(html: string) {
   return parse(html, { sourceCodeLocationInfo: true })
 }
 
@@ -34,7 +34,7 @@ export function elementsOf(html: string) {
   return out
 }
 
-export const attr = (el: Element, name: string) => el.attrs.find((a) => a.name === name)?.value ?? null
+const attr = (el: Element, name: string) => el.attrs.find((a) => a.name === name)?.value ?? null
 
 export function textOf(node: Node): string {
   if (node.nodeName === '#text') return (node as DefaultTreeAdapterMap['textNode']).value

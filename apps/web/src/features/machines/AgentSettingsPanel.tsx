@@ -213,7 +213,7 @@ export function AgentSettingsBox({
 const CHOICE: AgentSettingField['type'][] = ['bool', 'enum', 'flag']
 
 /** One agent-layer field: three-state for bools, a switch for flags, text with units for the rest. */
-export function SettingControl({
+function SettingControl({
   field,
   text,
   disabled,

@@ -24,7 +24,7 @@ type User = { id: string; name: string }
 /** Stored under `teams.params.onboarding`, beside the param overrides. */
 type Stored = { groupId: string | null; botId: string | null; examples: string[] }
 
-export const storedOnboarding = (params: unknown): Stored => {
+const storedOnboarding = (params: unknown): Stored => {
   const own = (params as { onboarding?: Partial<Stored> }).onboarding
   return {
     groupId: own?.groupId ?? null,
@@ -33,7 +33,7 @@ export const storedOnboarding = (params: unknown): Stored => {
   }
 }
 
-export const chatLink = (chatId: string) =>
+const chatLink = (chatId: string) =>
   `https://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(chatId)}`
 
 /** The 新手群 and its bot as they are now: a deleted group or a bot no longer in it counts as none. */

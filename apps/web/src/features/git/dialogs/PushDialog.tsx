@@ -47,7 +47,7 @@ export interface PushedFile extends TreeChange {
  * IDEA's zipChanges: each commit's changes (oldest first) joined per file, following renames; a file added and then
  * deleted drops out.
  */
-export function zipChanges(commits: { from: string; to: string; changes: GitChange[] }[]): PushedFile[] {
+function zipChanges(commits: { from: string; to: string; changes: GitChange[] }[]): PushedFile[] {
   const files = new Map<string, PushedFile & { before: string | null }>()
   for (const c of commits)
     for (const ch of c.changes) {

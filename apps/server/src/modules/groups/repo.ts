@@ -1,6 +1,6 @@
 import { REPO_URL } from '@gonggong/protocol'
 
-export const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
+const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
 
 export function repoProblem(url: string, branch: string) {
   if (!REPO_URL.test(url)) return '地址格式不正确，支持 git@ / https:// / http:// / ssh://'

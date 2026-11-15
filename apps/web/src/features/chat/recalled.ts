@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { QuoteDraft } from '../attachments/quote'
 
 /** How long 重新编辑 is offered after my own recall. */
-export const REEDIT_WINDOW_MS = 5 * 60_000
+const REEDIT_WINDOW_MS = 5 * 60_000
 
 export interface RecalledDraft {
   groupId: string

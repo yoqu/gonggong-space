@@ -19,7 +19,6 @@ import { TabContent, TabLabel } from '../src/features/workbench/TabContent'
 
 /** A full hash made of one character. */
 export const hash = (c: string) => c.repeat(40)
-export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 export const commit = (c: string, o: Partial<GitCommit> = {}): GitCommit => ({
   hash: hash(c),
@@ -33,7 +32,7 @@ export const commit = (c: string, o: Partial<GitCommit> = {}): GitCommit => ({
   ...o,
 })
 
-export const branch = (name: string, o: Partial<GitBranch> = {}): GitBranch => ({
+const branch = (name: string, o: Partial<GitBranch> = {}): GitBranch => ({
   name,
   kind: 'local',
   current: false,
@@ -46,7 +45,7 @@ export const branch = (name: string, o: Partial<GitBranch> = {}): GitBranch => (
   ...o,
 })
 
-export const tag = (name: string, o: Partial<GitTag> = {}): GitTag => ({
+const tag = (name: string, o: Partial<GitTag> = {}): GitTag => ({
   name,
   commit: hash('1'),
   annotated: false,

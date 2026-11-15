@@ -18,7 +18,7 @@ type BotRow = typeof bots.$inferSelect
 type MachineRow = typeof machines.$inferSelect
 
 /** Values from retired looks read as the default character. */
-export const botRole = (avatar: string | null): BotAvatar =>
+const botRole = (avatar: string | null): BotAvatar =>
   (BOT_AVATARS as readonly string[]).includes(avatar ?? '') ? (avatar as BotAvatar) : 'role-gong'
 
 export const machineAgents = (m: MachineRow) => m.agents as AgentInfo[]

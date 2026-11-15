@@ -39,7 +39,7 @@ export const approvalText = (bot: { tier: Tier; aiReview: boolean; alwaysAllow: 
 }
 
 /** Trimmed, whitespace-collapsed, de-duplicated command prefixes. */
-export const prefixes = (tokens: Token[]) => [
+const prefixes = (tokens: Token[]) => [
   ...new Set(
     tokens.map((t) => (typeof t === 'string' ? t : t.label).trim().replace(/\s+/g, ' ')).filter(Boolean),
   ),

@@ -6,7 +6,7 @@ import {
   PERSONAL_BASE,
   type UserDto,
 } from '@gonggong/protocol'
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { type GlassPreference, getGlass, setGlass } from '../../app/glass'
 import { useSession } from '../../app/session'
 import { getTheme, setTheme, type ThemePreference } from '../../app/theme'
@@ -17,7 +17,6 @@ import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
-  Avatar,
   AvatarEditor,
   Button,
   Dialog,

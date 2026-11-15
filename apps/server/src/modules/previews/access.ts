@@ -13,7 +13,7 @@ const SECRET = randomBytes(32)
 const COOKIE_TTL_S = 8 * 3600
 const CODE_TTL_MS = 60_000
 
-export const cookieName = (previewId: string) => `gg_pv_${previewId}`
+const cookieName = (previewId: string) => `gg_pv_${previewId}`
 
 const mac = (data: string) => createHmac('sha256', SECRET).update(data).digest('base64url')
 
@@ -43,7 +43,7 @@ export function setCookie(ctx: Ctx, previewId: string, visitor: Visitor) {
   return `${cookieName(previewId)}=${value}; Path=/; Max-Age=${COOKIE_TTL_S}; HttpOnly; ${site}`
 }
 
-export function readCookies(header: string | undefined) {
+function readCookies(header: string | undefined) {
   const out: Record<string, string> = {}
   for (const part of header?.split(';') ?? []) {
     const i = part.indexOf('=')

@@ -43,9 +43,9 @@ export function useBindCode(open: boolean, done = false): BindCode {
   return { code, error, generate }
 }
 
-export const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
+const loginCommand = (code: BindCodeDto) => `gg login --server ${location.origin} --code ${code.code}`
 
-export const dockerEnv = (code: BindCodeDto) => `GONGGONG_BIND_URL='${code.link}'`
+const dockerEnv = (code: BindCodeDto) => `GONGGONG_BIND_URL='${code.link}'`
 
 const copy = (text: string, message: string) => void copyWithToast(text, message)
 

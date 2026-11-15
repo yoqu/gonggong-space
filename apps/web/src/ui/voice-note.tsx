@@ -7,7 +7,7 @@ const RATES = [1, 1.5, 2]
 const STEP = 5
 const MORPH_MS = 260
 
-export const fmtClock = (s: number) => {
+const fmtClock = (s: number) => {
   const v = Math.max(0, Math.floor(s))
   return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`
 }
@@ -19,7 +19,7 @@ function hash(str: string) {
 }
 
 /** Seeded bar heights (0.12–1) under a speech-like envelope, so the same clip always draws the same wave. */
-export function waveform(seed: string, n: number) {
+function waveform(seed: string, n: number) {
   let s = hash(seed)
   return Array.from({ length: n }, (_, i) => {
     s = (s * 16807) % 2147483647

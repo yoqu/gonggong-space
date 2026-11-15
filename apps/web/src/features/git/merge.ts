@@ -98,7 +98,7 @@ function backtrack(
   return out.reverse()
 }
 
-export type PieceKind = 'same' | 'ours' | 'theirs' | 'both' | 'conflict'
+type PieceKind = 'same' | 'ours' | 'theirs' | 'both' | 'conflict'
 
 /**
  * A stretch of the three-way merge, each side's lines of it: agreed on, changed by one side only, changed alike by both,
@@ -111,7 +111,7 @@ export interface Piece {
   theirs: string[]
 }
 
-export const noWhitespace = (s: string) => s.replace(/\s+/g, '')
+const noWhitespace = (s: string) => s.replace(/\s+/g, '')
 
 /**
  * base → ours and base → theirs as pieces. Changes to the same or touching base lines conflict (as git has it); the
@@ -237,7 +237,7 @@ export function simpleMerge(base: string[], ours: string[], theirs: string[]): s
 }
 
 /** Where a side of a change stands: not decided yet, taken into the result, or left out (or not changed at all). */
-export type SideState = 'open' | 'applied' | 'ignored'
+type SideState = 'open' | 'applied' | 'ignored'
 
 /** A piece in the result: its lines there, each side's state, and whether it was typed into. */
 export interface PieceState {

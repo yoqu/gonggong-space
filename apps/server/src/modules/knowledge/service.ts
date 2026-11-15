@@ -58,7 +58,7 @@ const author = (
       ? { kind: 'bot', id: botId, name: bot ?? '' }
       : null
 
-export const excerpt = (body: string) => body.replace(/\s+/g, ' ').trim().slice(0, EXCERPT_MAX)
+const excerpt = (body: string) => body.replace(/\s+/g, ' ').trim().slice(0, EXCERPT_MAX)
 
 const baseDto = ({ e, user, bot }: Loaded) => ({
   id: e.id,

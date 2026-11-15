@@ -4,12 +4,12 @@ import { bindCodes, linkRequests, runEvents, runs, systemParams, webSessions } f
 import { purgeSyncBlobs } from '../sync/blobs.js'
 import { runCardText } from './search-text.js'
 
-export const DEFAULT_RUN_RETENTION_DAYS = 30
+const DEFAULT_RUN_RETENTION_DAYS = 30
 const DAY_MS = 86_400_000
 const HOUR_MS = 3_600_000
 
 /** System param `runRetentionDays` (spec §9): how long a run's full process is kept. */
-export async function runRetentionDays(ctx: Ctx): Promise<number> {
+async function runRetentionDays(ctx: Ctx): Promise<number> {
   const [row] = await ctx.db.select().from(systemParams).where(eq(systemParams.key, 'runRetentionDays'))
   return typeof row?.value === 'number' ? row.value : DEFAULT_RUN_RETENTION_DAYS
 }

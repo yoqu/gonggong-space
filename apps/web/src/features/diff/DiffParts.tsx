@@ -32,7 +32,7 @@ import './diff.css'
 import { t } from '../../i18n'
 
 /** Five cells split between added and deleted lines (GitHub style); the numbers stay as text beside it. */
-export function DiffBar({ add, del }: { add: number; del: number }) {
+function DiffBar({ add, del }: { add: number; del: number }) {
   const label = t('新增 {add} 行，删除 {del} 行', { add, del })
   return (
     <span className="diff-bar" role="img" aria-label={label} title={label}>

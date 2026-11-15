@@ -39,7 +39,7 @@ export async function groupPins(ctx: Ctx, groupId: string): Promise<GroupPinsDto
   }
 }
 
-export async function publishPins(ctx: Ctx, groupId: string) {
+async function publishPins(ctx: Ctx, groupId: string) {
   const dto = await groupPins(ctx, groupId)
   ctx.bus.publish(await memberIds(ctx, groupId), { t: 'group.pins', groupId, ...dto })
 }

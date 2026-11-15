@@ -113,7 +113,7 @@ export const newSessionNote = (reason: string | null) =>
 const LIVE: RunStatus[] = ['running', 'awaiting_approval', 'awaiting_answer']
 const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
 
-export function fmtTime(iso: string) {
+function fmtTime(iso: string) {
   const d = new Date(iso)
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
   return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`

@@ -181,7 +181,7 @@ async function requestDtos(db: Read, where: SQL | undefined) {
 
 const requestDto = async (db: Read, id: string) => (await requestDtos(db, eq(installRequests.id, id)))[0]!
 
-export const listRequests = (db: Read, userId: string, view: 'mine' | 'todo') =>
+const listRequests = (db: Read, userId: string, view: 'mine' | 'todo') =>
   requestDtos(
     db,
     view === 'mine'
@@ -292,7 +292,7 @@ async function findRequest(db: Read, id: string) {
 }
 
 /** Approval installs in the same transaction: a conflict leaves the request pending. */
-export async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: DecideInstallRequestReq) {
+async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: DecideInstallRequestReq) {
   const { r } = await findRequest(ctx.db, id)
   if (r.status !== 'pending') fail('conflict', '这条申请已经处理过了')
   const { target, label } = await resolveTarget(ctx, r.scope as ScopeTarget['scope'], r.scopeId, me.id, true)
@@ -335,7 +335,7 @@ export async function decideRequest(ctx: Ctx, me: SessionUser, id: string, req: 
   return dto
 }
 
-export async function cancelRequest(ctx: Ctx, me: SessionUser, id: string) {
+async function cancelRequest(ctx: Ctx, me: SessionUser, id: string) {
   const { r } = await findRequest(ctx.db, id)
   if (r.requesterId !== me.id) fail('forbidden', '只有申请人可以撤回')
   const [done] = await ctx.db

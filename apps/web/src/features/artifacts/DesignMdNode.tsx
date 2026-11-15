@@ -5,7 +5,7 @@ import { Icon } from '../../ui'
 import { Markdown } from '../chat/Markdown'
 
 /** DESIGN.md without its YAML front matter: the card shows the prose (the tokens are on the design-system card). */
-export const designMdBody = (md: string) => {
+const designMdBody = (md: string) => {
   const m = /^---[ \t]*\n[\s\S]*?\n---[ \t]*(?:\n|$)/.exec(md)
   return (m ? md.slice(m[0].length) : md).trim()
 }

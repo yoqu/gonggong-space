@@ -66,7 +66,7 @@ export function hslToHex({ h, s, l }: Hsl): string {
 }
 
 /** WCAG relative luminance. */
-export function luminance(hex: string) {
+function luminance(hex: string) {
   const rgb = rgbOf(hex)
   if (!rgb) return 0
   const [r, g, b] = rgb.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as number[]
@@ -79,7 +79,7 @@ export function contrast(a: string, b: string) {
 }
 
 /** Black or white, whichever reads better on `hex`. */
-export const onColor = (hex: string) =>
+const onColor = (hex: string) =>
   contrast(hex, '#ffffff') >= contrast(hex, '#000000') ? '#ffffff' : '#000000'
 
 /** The mode a palette is in, read from its background (or surface) colour. */

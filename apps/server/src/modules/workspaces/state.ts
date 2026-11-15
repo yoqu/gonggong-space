@@ -13,7 +13,7 @@ import { refreshProviderState } from '../providers/state.js'
 
 type Row = typeof groupBots.$inferSelect
 
-export const botStateDto = (r: Row): GroupBotStateDto => ({
+const botStateDto = (r: Row): GroupBotStateDto => ({
   botId: r.botId,
   workspace: r.workspaceKind === 'cd' ? 'cd' : 'managed',
   state: r.workspaceState as GroupBotStateDto['state'],

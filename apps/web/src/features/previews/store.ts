@@ -24,7 +24,7 @@ function sync() {
   realtime.onReconnect(() => useStore.setState({}, true))
 }
 
-export function loadPreviews(groupId: string) {
+function loadPreviews(groupId: string) {
   if (loading.has(groupId)) return
   loading.add(groupId)
   api

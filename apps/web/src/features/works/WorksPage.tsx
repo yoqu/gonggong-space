@@ -37,7 +37,7 @@ const useWorks = create<Works>()(() => ({ groups: null, list: null, error: '' })
 /** Tests: forget what was loaded. */
 export const resetWorks = () => useWorks.setState({ groups: null, list: null, error: '' })
 
-export async function loadWorkGroups() {
+async function loadWorkGroups() {
   try {
     useWorks.setState({ groups: await api.get<WorkGroupDto[]>('/works/groups') })
   } catch {
@@ -64,7 +64,7 @@ export function useWorksShown() {
   return !!groups?.length || !!list?.length
 }
 
-export const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
+const VISIBILITY_LABEL: Record<ArtifactVisibility, string> = {
   private: t('仅自己可见'),
   group: t('本群可见'),
   team: t('团队可见'),

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { fail } from '../../lib/errors.js'
 
 export type TerminalLinkTarget = { userId: string; groupId: string; botId: string; cdPath?: string | null }
-export type TerminalLinkUser = { id: string }
+type TerminalLinkUser = { id: string }
 
 type Options = {
   user: (req: FastifyRequest) => Promise<TerminalLinkUser | null>
@@ -16,7 +16,7 @@ const RequestBody = z.object({
   line: z.number().int().min(1).max(1_000_000).default(1),
 })
 
-export function workspaceRelativePath(raw: string): string | null {
+function workspaceRelativePath(raw: string): string | null {
   if (/[\0\\]/u.test(raw) || /^[a-zA-Z][a-zA-Z\d+.-]*:/u.test(raw) || raw.startsWith('/')) return null
   if (/%[0-9a-f]{2}/iu.test(raw)) return null
   const parts = raw.split('/')

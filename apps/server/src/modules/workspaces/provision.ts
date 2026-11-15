@@ -42,7 +42,7 @@ export interface Pending {
 const pending = new Map<string, Pending>()
 
 /** Registers a request about to be sent; returns its requestId. */
-export function track(p: Pending) {
+function track(p: Pending) {
   const requestId = randomUUID()
   for (const [id, active] of pending)
     if (active.groupId === p.groupId && active.botId === p.botId) pending.delete(id)
@@ -50,7 +50,7 @@ export function track(p: Pending) {
   return requestId
 }
 
-export const forget = (requestId: string) => pending.delete(requestId)
+const forget = (requestId: string) => pending.delete(requestId)
 
 const MANAGED = {
   workspaceKind: 'managed',
@@ -93,7 +93,7 @@ export async function extraRepos(ctx: Pick<Ctx, 'db'>, groupId: string, protocol
   return rows.map((r) => ({ ...r, protocol }))
 }
 
-export async function ownerProtocol(ctx: Ctx, botId: string) {
+async function ownerProtocol(ctx: Ctx, botId: string) {
   const [row] = await ctx.db
     .select({ protocol: users.gitProtocol })
     .from(bots)

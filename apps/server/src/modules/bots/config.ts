@@ -41,7 +41,7 @@ export function assertBotAgentSettings(agent: AgentKind, values: AgentSettingVal
 type Bot = Pick<typeof bots.$inferSelect, 'agentKind' | 'machineId'>
 type Config = { model: string | null; effort: string | null }
 
-export const catalogOf = (agents: ReturnType<typeof machineAgents>, kind: string) =>
+const catalogOf = (agents: ReturnType<typeof machineAgents>, kind: string) =>
   agents.find((a) => a.kind === kind && a.available)?.catalog ?? null
 
 /** What the bot's machine reported its adapter offers. */

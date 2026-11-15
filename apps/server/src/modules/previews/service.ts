@@ -510,7 +510,7 @@ export async function startPreview(ctx: Ctx, p: Preview) {
   if (fresh) void takeSnapshot(ctx, fresh).catch(() => {})
 }
 
-export async function closePreview(ctx: Ctx, preview: Preview) {
+async function closePreview(ctx: Ctx, preview: Preview) {
   await ctx.db.update(previews).set({ closedAt: ctx.now() }).where(eq(previews.id, preview.id))
   await closePortListener(ctx, preview.id)
   await syncPreviews(ctx, preview.machineId)

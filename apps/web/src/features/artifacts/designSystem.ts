@@ -1,15 +1,9 @@
-import {
-  type ArtifactDesignSystem,
-  type ArtifactEditOp,
-  type ArtifactWholeFile,
-  tokenValueOk,
-} from '@gonggong/protocol'
+import { type ArtifactDesignSystem, type ArtifactEditOp, tokenValueOk } from '@gonggong/protocol'
 import { api } from '../../lib/api'
 import { syncDesignMd } from './designMd'
 import { loadArtifact } from './store'
 import { parseTokens, writeTokens } from './tokens'
 
-export type DesignFile = ArtifactWholeFile
 export type DesignEditOp = ArtifactEditOp
 
 /** GET /api/artifacts/:id/design-systems — the plugin's presets. */
@@ -25,7 +19,7 @@ export interface DesignFiles {
 /** More token changes than this go as one tokens.css file op (the request takes 50 ops). */
 const TOKEN_OPS_MAX = 40
 
-export const tokenMap = (css: string) => new Map(parseTokens(css).vars)
+const tokenMap = (css: string) => new Map(parseTokens(css).vars)
 
 /** The draft with token `changes` (keyed `--x`), mirrored into DESIGN.md's front matter. */
 export const applyTokens = (draft: DesignFiles, changes: Record<string, string>): DesignFiles => ({

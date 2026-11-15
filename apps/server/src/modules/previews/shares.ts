@@ -114,7 +114,7 @@ export async function countVisit(ctx: Ctx, preview: Preview, shareId: string) {
 }
 
 // 4 digits are 10,000 guesses: a few tries per link, then a pause, keeps guessing slower than the link lives.
-export const PASSWORD_TRIES = 5
+const PASSWORD_TRIES = 5
 export const PASSWORD_PAUSE_MIN = 10
 const misses = new Map<string, { n: number; at: number }>()
 

@@ -58,7 +58,7 @@ export function BranchPopup({
 }
 
 /** The popup's levels: the workspace's list, with one of its repos beside it or in its place. */
-export function BranchPanel({
+function BranchPanel({
   target,
   status,
   git,
@@ -789,7 +789,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
 const UNFOLDED = 10
 
 /** The popup's branch rows: sections of refs, favourites first, `/` folders unless searching. */
-export function buildRows(
+function buildRows(
   refs: GitRefsDto,
   o: { q: string; favorites: ReadonlySet<string>; open: ReadonlySet<string>; current: string | null },
 ): Row[] {

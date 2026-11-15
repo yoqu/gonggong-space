@@ -68,7 +68,7 @@ const SECRET =
 const ABSOLUTE_PATH = /(?:\/Users\/|\/home\/|[A-Za-z]:\\Users\\)[^\s'"`)\]]+/
 
 /** Likely secrets and local absolute paths in the files, shown to the author without refusing them. */
-export function publishWarnings(files: SkillFile[]) {
+function publishWarnings(files: SkillFile[]) {
   return files.flatMap((f) => {
     if (f.encoding !== 'utf8') return []
     const secret = SECRET.exec(f.content)
@@ -189,7 +189,7 @@ async function reviewerIds(db: Read, listing: ListingRow) {
   return rows.map((r) => r.id)
 }
 
-export async function requireTeamMember(db: Read, userId: string, teamId: string) {
+async function requireTeamMember(db: Read, userId: string, teamId: string) {
   if (!isUuid(teamId) || !(await teamRole(db, userId, teamId))) fail('forbidden', '只能发布到你所在的团队')
 }
 

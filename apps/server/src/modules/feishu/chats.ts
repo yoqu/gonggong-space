@@ -79,7 +79,7 @@ async function boundChatIds(ctx: Ctx) {
  * The main app's chats `userId` is in and no group has bound yet: the ones they may bind or create a group from.
  * The main app is shared by every team, so chats the user is not in stay hidden (their names may be another team's).
  */
-export async function bindableChats(ctx: Ctx, main: FeishuAppRow, userId: string, all?: FeishuChat[]) {
+async function bindableChats(ctx: Ctx, main: FeishuAppRow, userId: string, all?: FeishuChat[]) {
   const me = await unionIdOf(ctx, userId)
   if (!me) return []
   const taken = await boundChatIds(ctx)
@@ -93,7 +93,7 @@ export async function bindableChats(ctx: Ctx, main: FeishuAppRow, userId: string
 }
 
 /** The checks before tying `chatId` to a group (bind, or create a group from it); returns the chat and its users. */
-export async function checkBindable(ctx: Ctx, userId: string, chatId: string) {
+async function checkBindable(ctx: Ctx, userId: string, chatId: string) {
   const main = (await mainApp(ctx)) ?? fail('invalid', '系统管理员尚未接入飞书')
   const chat = (await feishu(ctx.feishu.api.listChats(credsOf(main)))).find((c) => c.chatId === chatId)
   if (!chat) return fail('invalid', '共工机器人不在该飞书群中')

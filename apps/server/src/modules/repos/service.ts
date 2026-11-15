@@ -107,7 +107,7 @@ async function groupCounts(ctx: Ctx, teamId: string, keys: Set<string>) {
 }
 
 /** Local directories of these repos on the user's machines. */
-export async function localPaths(ctx: Ctx, userId: string, repoIds: string[]) {
+async function localPaths(ctx: Ctx, userId: string, repoIds: string[]) {
   if (!repoIds.length) return []
   return ctx.db
     .select({ repoId: machineRepos.repoId, machineId: machineRepos.machineId, path: machineRepos.path })
@@ -157,7 +157,7 @@ export async function groupRepoIds(db: Pick<Db, 'select'>, groupIds: string[]) {
 }
 
 /** The team repo the group's primary repo is, if any. */
-export const groupRepoId = async (db: Pick<Db, 'select'>, groupId: string) =>
+const groupRepoId = async (db: Pick<Db, 'select'>, groupId: string) =>
   (await groupRepoIds(db, [groupId])).get(groupId) ?? null
 
 /** The caller's local directories holding the group's current repo. */

@@ -65,7 +65,7 @@ export const cardColumns = {
 type CardRow = Pick<RunRow, keyof typeof cardColumns>
 
 /** Pure mapping; `runDtoLoader` loads `approvals`, `questions` and `hopMax` (defaults: none / none / system param). */
-export const runDto = (
+const runDto = (
   r: CardRow,
   extra: {
     approvals?: ApprovalDto[]
@@ -119,7 +119,7 @@ export const runDto = (
   ...(extra.artifacts?.length && { artifacts: extra.artifacts }),
 })
 
-export type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }
+type Delegation = { subagents?: Record<string, string>; tasks?: Record<string, string> }
 
 function delegationDto({ subagents = {}, tasks = {} }: Delegation): RunDto['delegation'] {
   const states = Object.values(subagents)

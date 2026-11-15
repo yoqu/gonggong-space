@@ -12,7 +12,7 @@ export const useSaved = create<{ ids: Set<string>; due: number }>()(() => ({ ids
 
 const REFRESH_MS = 300
 
-export async function loadSaved() {
+async function loadSaved() {
   const d = await api.get<SavedStateDto>('/saved/state')
   useSaved.setState({ ids: new Set(d.ids), due: d.due })
 }

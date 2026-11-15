@@ -45,7 +45,7 @@ export function useArtifactBot(groupId: string, ownBotId?: string | null) {
 }
 
 /** Whether the bot's machine is up, as the group's member list shows it: else its runs wait. */
-export const botOnline = (b: Pick<BotDto, 'presence'>) => b.presence === 'online' || b.presence === 'running'
+const botOnline = (b: Pick<BotDto, 'presence'>) => b.presence === 'online' || b.presence === 'running'
 
 /** What a canvas request to `bot` says before it goes: null while the bot is online. */
 export const offlineHint = (bot: BotDto | null) =>
@@ -184,7 +184,7 @@ export const sendAnnotations = (artifactId: string, req: SendAnnotationsReq) =>
   api.post(`/artifacts/${artifactId}/annotations/send`, req)
 
 /** The screens' HTML, one after the other under a comment naming each file (Copy as code, ⌘C, Export › code). */
-export async function screensCode(screens: { file: string }[], readFile: (file: string) => Promise<string>) {
+async function screensCode(screens: { file: string }[], readFile: (file: string) => Promise<string>) {
   const parts = await Promise.all(screens.map(async (s) => `<!-- ${s.file} -->\n${await readFile(s.file)}`))
   return parts.join('\n\n')
 }

@@ -26,7 +26,7 @@ import { isBinary } from './blobs.js'
 import { syncOutdated } from './switch.js'
 
 /** A replica behind a head this fresh is still catching up (sync.available just went out); older, it lags. */
-export const SYNCING_MS = 60_000
+const SYNCING_MS = 60_000
 
 /**
  * F14, in order: not managed or on a daemon that cannot sync → excluded; not joined → syncing / offline while its sync.init is due, else excluded;

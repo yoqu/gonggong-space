@@ -8,7 +8,7 @@ import { fail } from '../../lib/errors.js'
 import { isUuid } from '../../lib/ids.js'
 
 /** Picks the team of list and create endpoints (plan D7); everything else derives it from the resource. */
-export const TEAM_HEADER = 'x-gg-team'
+const TEAM_HEADER = 'x-gg-team'
 
 const RANK: Record<TeamRole, number> = { member: 0, admin: 1, owner: 2 }
 const NOT_MEMBER = '团队不存在或你不是该团队成员'

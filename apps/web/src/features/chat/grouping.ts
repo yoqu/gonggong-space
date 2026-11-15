@@ -2,7 +2,7 @@ import type { MessageDto } from '@gonggong/protocol'
 import { filePaths } from '../runs/paths'
 
 /** Consecutive messages of one author within this window share one avatar and name. */
-export const MERGE_MS = 5 * 60_000
+const MERGE_MS = 5 * 60_000
 
 export const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString()
 
@@ -43,7 +43,7 @@ export const isRich = (m: MessageDto) =>
   m.attachments.length > 0 || CODE_OR_TABLE.test(m.body) || replyFiles(m.body).length > 0
 
 /** Shortest run of consecutive system events that folds into one expandable row. */
-export const EVENT_FOLD_MIN = 3
+const EVENT_FOLD_MIN = 3
 
 /**
  * Runs of ≥ EVENT_FOLD_MIN consecutive events on the same day, as start index → end index (inclusive).

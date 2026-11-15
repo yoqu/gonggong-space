@@ -49,7 +49,7 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 /** Runs holding a bot's slot: while one has an artifact checked out, the panel is read-only. */
 const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 /** Artifacts a run checks out at most (targets first, see runArtifacts). */
-export const RUN_ARTIFACTS_MAX = 20
+const RUN_ARTIFACTS_MAX = 20
 
 const SLUG = 'abcdefghijklmnopqrstuvwxyz0123456789'
 /** `design/<base>-<4 random>`. */
@@ -161,7 +161,7 @@ function summary({ v, bot, user }: VersionRow, fb?: Fallback): ArtifactVersionSu
   }
 }
 
-export const versionDto = (row: VersionRow, fb?: Fallback): ArtifactVersionDto => ({
+const versionDto = (row: VersionRow, fb?: Fallback): ArtifactVersionDto => ({
   ...summary(row, fb),
   files: row.v.files,
 })
@@ -316,7 +316,7 @@ export async function isArtifactManager(ctx: Ctx, a: Artifact, userId: string, i
 }
 
 /** The caller's access to `a` (ArtifactDto.visibility); `private`: a member it is hidden from. */
-export async function artifactAccess(
+async function artifactAccess(
   ctx: Ctx,
   a: Artifact,
   userId: string,
@@ -389,7 +389,7 @@ export async function versionDetail(
  * Three-way merge by file of `theirs` (made on `base`) into `ours` (the head): null when a path changed differently
  * on both sides.
  */
-export function mergeFiles(base: ArtifactFile[], ours: ArtifactFile[], theirs: ArtifactFile[]) {
+function mergeFiles(base: ArtifactFile[], ours: ArtifactFile[], theirs: ArtifactFile[]) {
   const map = (files: ArtifactFile[]) => new Map(files.map((f) => [f.path, f]))
   const [b, o, t] = [map(base), map(ours), map(theirs)]
   const out: ArtifactFile[] = []

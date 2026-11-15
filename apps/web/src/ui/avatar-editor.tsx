@@ -50,7 +50,7 @@ function exportCrop(img: HTMLImageElement, crop: Crop) {
   )
 }
 
-export interface AvatarCropDialogProps {
+interface AvatarCropDialogProps {
   /** Object URL of a picked file, or the current avatar's same-origin URL. */
   src: string
   shape?: 'circle' | 'square'
@@ -60,7 +60,7 @@ export interface AvatarCropDialogProps {
 }
 
 /** Drag to move, slider or wheel to zoom; the mask previews the circle or rounded square it will show as. */
-export function AvatarCropDialog({ src, shape = 'circle', onCancel, onDone }: AvatarCropDialogProps) {
+function AvatarCropDialog({ src, shape = 'circle', onCancel, onDone }: AvatarCropDialogProps) {
   const img = useRef<HTMLImageElement>(null)
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
   const [size, setSize] = useState<Size | null>(null)

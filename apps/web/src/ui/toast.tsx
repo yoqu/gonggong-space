@@ -115,7 +115,7 @@ let nextId = 1
 
 export const useToasts = create<{ items: ToastItem[] }>()(() => ({ items: [] }))
 
-export function dismissToast(id: number) {
+function dismissToast(id: number) {
   useToasts.setState((s) => ({ items: s.items.filter((t) => t.id !== id) }))
 }
 

@@ -2,7 +2,7 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
 
 export const THEME_STORAGE_KEY = 'gonggong.theme'
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'light'
+const DEFAULT_THEME_PREFERENCE: ThemePreference = 'light'
 
 const MEDIA_QUERY = '(prefers-color-scheme: dark)'
 

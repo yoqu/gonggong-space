@@ -13,7 +13,7 @@ interface Pending {
 }
 
 /** 「N 个群的会话仍在使用 X，开启新会话后才会切换到 Y」, one line per (X, Y). */
-export function impactLines(impact: Impact[]) {
+function impactLines(impact: Impact[]) {
   const by = new Map<string, Impact[]>()
   for (const i of impact) {
     const key = `${i.from}\u0000${i.to}`

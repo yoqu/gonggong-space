@@ -18,7 +18,7 @@ export const MASCOT_ACTIONS = [
 ] as const
 export type MascotAction = (typeof MASCOT_ACTIONS)[number]
 /** Moves between places (walking along a run's stages), driven by events rather than a state; 共字君 only. */
-export const MASCOT_MOVES = ['walk', 'hop'] as const
+const MASCOT_MOVES = ['walk', 'hop'] as const
 export type MascotMove = (typeof MASCOT_MOVES)[number]
 /** What a costume acts out for a move it has no scene for. */
 const COSTUME_MOVE: Record<MascotMove, MascotAction> = { walk: 'run', hop: 'done' }

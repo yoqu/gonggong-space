@@ -27,7 +27,7 @@ export interface FeishuInbound {
   }
 }
 export type FeishuEventType = keyof FeishuInbound
-export const FEISHU_EVENTS = [
+const FEISHU_EVENTS = [
   'im.message.receive_v1',
   'im.message.recalled_v1',
   'im.chat.member.user.added_v1',

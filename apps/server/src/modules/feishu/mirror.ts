@@ -49,17 +49,17 @@ import { publicUrl, userToken } from './identity.js'
 import { hintParams, issueOf } from './issues.js'
 
 /** Patched (non-streaming) run cards change at most this often; the final state is never held back. */
-export const CARD_THROTTLE_MS = 2000
+const CARD_THROTTLE_MS = 2000
 /** Streamed text and step changes are flushed to the card this often: continuous on screen, few API calls. */
-export const STREAM_FLUSH_MS = 250
+const STREAM_FLUSH_MS = 250
 /** Feishu ends streaming mode 10 minutes after it was turned on; it is turned on again a little before that. */
 const STREAMING_RENEW_MS = 9 * 60_000
 /** Feishu refuses card updates while a click on it is being handled (200810); the update is retried after this. */
-export const INTERACTING_RETRY_MS = 1000
+const INTERACTING_RETRY_MS = 1000
 const CARD_INTERACTING = 200810
 /** Reaction on the message a bot works on, and the one left when it completed (Feishu emoji_type). */
-export const WORKING_EMOJI = 'Typing'
-export const DONE_EMOJI = 'DONE'
+const WORKING_EMOJI = 'Typing'
+const DONE_EMOJI = 'DONE'
 /** CardKit sequences only grow: time-based (0.1 s since 2026) survives restarts, +1 keeps fast calls apart. */
 const SEQUENCE_EPOCH = Date.UTC(2026, 0, 1)
 /** Cards and snapshots remembered; a forgotten one is only sent or uploaded once more. */

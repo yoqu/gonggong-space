@@ -6,7 +6,7 @@ import { ToolbarButton, ToolbarGroup } from '../toolbar'
 import type { TagSpec } from './types'
 import './header.css'
 
-export interface ChatHeaderAction {
+interface ChatHeaderAction {
   icon: IconName | ReactElement
   label: string
   onClick?: () => void

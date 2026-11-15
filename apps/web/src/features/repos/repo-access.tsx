@@ -33,7 +33,7 @@ export const repoValidated = (d: RepoDraft) => !!settled(d) && !branchMissing(d)
 
 export const repoBody = (d: RepoDraft) => ({ url: d.url.trim(), branch: d.branch.trim() || 'main' })
 
-export const RESULT: Record<
+const RESULT: Record<
   NonNullable<BotProbeDto['reason']> | 'ok',
   { icon: IconName; text: string; tone: 'ok' | 'warn' | 'bad' | 'muted' }
 > = {
@@ -46,7 +46,7 @@ export const RESULT: Record<
 }
 
 /** Badge for the URL a machine actually used; none for local (file://) repos. */
-export const protocolOf = (url: string | null) =>
+const protocolOf = (url: string | null) =>
   url?.startsWith('http') ? 'HTTPS' : url?.startsWith('ssh://') || /^[^@/\s]+@/.test(url ?? '') ? 'SSH' : null
 
 /** One bot's access check result, for the bot rows of the new-group form and the repo settings. */

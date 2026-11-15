@@ -62,7 +62,7 @@ async function taskRoot(ctx: Ctx, runId: string) {
 }
 
 /** A stable local-notification key; absent where the payload does not identify one unambiguous object. */
-export async function notificationTag(ctx: Ctx, n: NotificationDto) {
+async function notificationTag(ctx: Ctx, n: NotificationDto) {
   const direct = payloadTag(n)
   if (direct) return direct
   const runId = n.payload.runId

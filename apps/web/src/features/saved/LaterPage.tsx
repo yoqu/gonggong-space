@@ -35,7 +35,7 @@ const snippet = (m: MessageDto) =>
     : m.body.replace(/\s+/g, ' ').trim().slice(0, SNIPPET) || (m.attachments.length ? t('[附件]') : '')
 
 /** Where 跳到原消息 goes: a thread reply opens its thread. */
-export const messageHref = (m: MessageDto) =>
+const messageHref = (m: MessageDto) =>
   m.threadRootId ? `/g/${m.groupId}?thread=${m.threadRootId}&msg=${m.id}` : `/g/${m.groupId}?msg=${m.id}`
 
 const isDue = (item: SavedMessageDto) => !!item.remindedAt && !item.doneAt

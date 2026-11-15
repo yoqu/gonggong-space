@@ -57,7 +57,7 @@ const STATUS_ORDER = (u: AdminUserDto) => (u.disabled ? 2 : u.mustChangePassword
 
 const READABLE = 'abcdefghjkmnpqrstuvwxyz23456789'
 /** Readable temporary password (no 0/o/1/l/i), grouped for reading aloud: `k7qm-4x2p-9d`. */
-export function tempPassword() {
+function tempPassword() {
   const bytes = crypto.getRandomValues(new Uint8Array(10))
   const chars = Array.from(bytes, (b) => READABLE[b % READABLE.length])
   return `${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8).join('')}`

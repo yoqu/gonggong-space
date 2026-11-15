@@ -39,7 +39,7 @@ function appleGpu() {
 }
 
 /** The `<os>-<arch>` of the browser's machine, or null on phones and unknown systems. */
-export async function detectPlatform(): Promise<string | null> {
+async function detectPlatform(): Promise<string | null> {
   const ua = navigator.userAgent
   if (/Android|iPhone|iPad/.test(ua)) return null
   const os = /Windows/.test(ua)

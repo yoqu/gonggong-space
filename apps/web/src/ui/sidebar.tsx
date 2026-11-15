@@ -18,7 +18,7 @@ export interface SidebarItem {
   children?: SidebarItem[]
 }
 
-export interface SidebarSection {
+interface SidebarSection {
   /** Key for `defaultCollapsed`; the title is used when absent. */
   id?: string
   title?: ReactNode

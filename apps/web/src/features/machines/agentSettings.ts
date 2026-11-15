@@ -1,7 +1,7 @@
 import type { AgentSettingField, AgentSettingId, AgentSettingValues } from '@gonggong/protocol'
 import { t } from '../../i18n'
 
-export const FIELD_LABEL: Record<AgentSettingId, string> = {
+const FIELD_LABEL: Record<AgentSettingId, string> = {
   contextWindow: t('上下文窗口'),
   autoCompactWindow: t('自动压缩窗口'),
   maxOutputTokens: t('输出上限'),

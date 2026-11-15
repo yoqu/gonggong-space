@@ -178,9 +178,6 @@ importers:
       fflate:
         specifier: 0.8.3
         version: 0.8.3
-      jszip:
-        specifier: 3.10.2
-        version: 3.10.2
       livekit-client:
         specifier: 2.22.3
         version: 2.22.3(@types/dom-mediacapture-record@1.0.22)

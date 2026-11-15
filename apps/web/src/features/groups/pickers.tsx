@@ -24,7 +24,7 @@ export function BotPresence({ bot }: { bot: BotDto }) {
 }
 
 /** Mine first, the most recently used on top (then by name); everyone else's by name. */
-export function groupBots(bots: BotDto[], meId: string | undefined, recent: BotRecentDto[]) {
+function groupBots(bots: BotDto[], meId: string | undefined, recent: BotRecentDto[]) {
   const byName = (a: BotDto, b: BotDto) => a.name.localeCompare(b.name, 'zh-CN')
   const used = new Map(recent.map((r) => [r.botId, r.lastUsedAt]))
   const mine = bots

@@ -34,7 +34,7 @@ export interface Step {
   web?: WebCall
 }
 
-export type WebCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['web']>
+type WebCall = NonNullable<Extract<RunEvent, { kind: 'tool' }>['web']>
 
 const SLOW_MS = 2000
 

@@ -4,7 +4,7 @@ import { nextEnabled, useControlled } from './controlled'
 import { type Glyph, renderGlyph } from './controls'
 import './segmented.css'
 
-export interface SegmentItem<V extends string> {
+interface SegmentItem<V extends string> {
   value: V
   label?: ReactNode
   icon?: Glyph

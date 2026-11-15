@@ -46,7 +46,7 @@ const upsert = <T extends { id: string }>(list: T[], item: T) =>
   list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]
 
 /** Same one-line preview the server computes for GroupDto.last. */
-export const previewOf = (m: Pick<MessageDto, 'kind' | 'authorName' | 'body'>) => {
+const previewOf = (m: Pick<MessageDto, 'kind' | 'authorName' | 'body'>) => {
   const line = m.body.replace(/\n[\s\S]*$/, '').slice(0, 80)
   return m.kind === 'event' ? line : `${m.authorName}：${line}`
 }
@@ -183,7 +183,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => ({
 }))
 
 /** Keeps the list newest first; a known operation is replaced in place. */
-export const upsertOp = (list: GitOperationDto[] | undefined, op: GitOperationDto) =>
+const upsertOp = (list: GitOperationDto[] | undefined, op: GitOperationDto) =>
   list?.some((o) => o.id === op.id) ? list.map((o) => (o.id === op.id ? op : o)) : [op, ...(list ?? [])]
 
 export function putGitOperation(op: GitOperationDto) {

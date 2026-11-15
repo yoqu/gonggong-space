@@ -12,12 +12,12 @@ const REF = /^\$\{secret:([A-Z][A-Z0-9_]{1,63})\}$/
 const PLACEHOLDER = /^\$\{secret:[A-Za-z0-9_.-]+\}$/
 
 /** env (stdio) or headers (http): every value there is a secret. */
-export const secretsOf = (c: McpServer) => (c.transport === 'stdio' ? c.env : c.headers)
+const secretsOf = (c: McpServer) => (c.transport === 'stdio' ? c.env : c.headers)
 const withSecrets = (c: McpServer, s: Record<string, string>): McpServer =>
   c.transport === 'stdio' ? { ...c, env: s } : { ...c, headers: s }
 
-export const refOf = (v: string) => REF.exec(v)?.[1] ?? null
-export const ref = (name: string) => `\${secret:${name}}`
+const refOf = (v: string) => REF.exec(v)?.[1] ?? null
+const ref = (name: string) => `\${secret:${name}}`
 
 /** Keys whose values are not `${secret:NAME}` references (plain text the agent must not set). */
 export const nonRefs = (c: McpServer) =>
@@ -25,7 +25,7 @@ export const nonRefs = (c: McpServer) =>
     .filter(([, v]) => !refOf(v))
     .map(([k]) => k)
 
-export const refsOf = (c: McpServer) =>
+const refsOf = (c: McpServer) =>
   Object.values(secretsOf(c)).flatMap((v) => {
     const n = refOf(v)
     return n ? [n] : []
@@ -65,7 +65,7 @@ export function describeMasked(c: McpServer, env: Record<string, string>) {
 }
 
 /** `MCP_<server>_<KEY>`: upper case, anything else `_`, at most 64 characters. */
-export function mcpSecretName(server: string, key: string, n = 1) {
+function mcpSecretName(server: string, key: string, n = 1) {
   const base = `MCP_${server}_${key}`.toUpperCase().replace(/[^A-Z0-9]/g, '_')
   const suffix = n > 1 ? `_${n}` : ''
   return `${base.slice(0, 64 - suffix.length)}${suffix}`

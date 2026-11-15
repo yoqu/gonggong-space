@@ -7,7 +7,7 @@ import type {
 } from '@gonggong/protocol'
 
 /** Screen sizes per device (the web-prototype kit's DEVICES). */
-export const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
+const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
   miniprogram: { w: 375, h: 812 },
   mobile: { w: 390, h: 844 },
   desktop: { w: 1440, h: 900 },
@@ -24,20 +24,20 @@ export const framePreset = (p: FramePreset, device: ArtifactDevice) =>
   p === 'mobile' && device === 'miniprogram'
     ? { ...FRAME_PRESETS.mobile, w: DEVICE_SIZE.miniprogram.w }
     : FRAME_PRESETS[p]
-export const NODE_GAP = 120
+const NODE_GAP = 120
 /** Room above a node for its title, in canvas units at 100%. */
 export const TITLE_ROOM = 32
 const PAD = 64
-export const ZOOM_MIN = 0.05
-export const ZOOM_MAX = 4
+const ZOOM_MIN = 0.05
+const ZOOM_MAX = 4
 export const ZOOM_STEP = 1.25
-export const SYSTEM_ID = '@system'
-export const DOC_ID = '@design-md'
-export const PROTOTYPE_ID = '@prototype'
-export const SYSTEM_WIDTH = 720
+const SYSTEM_ID = '@system'
+const DOC_ID = '@design-md'
+const PROTOTYPE_ID = '@prototype'
+const SYSTEM_WIDTH = 720
 /** Until the design-system card is measured. */
 export const SYSTEM_HEIGHT = 640
-export const DOC_WIDTH = 560
+const DOC_WIDTH = 560
 /** Until the DESIGN.md card is measured. */
 export const DOC_HEIGHT = 640
 
@@ -51,7 +51,7 @@ export const REF_SIZE: Record<ArtifactRefKind, { w: number; h: number }> = {
   text: { w: 320, h: 240 },
 }
 
-export type NodeKind = 'system' | 'doc' | 'screen' | 'prototype' | 'ref'
+type NodeKind = 'system' | 'doc' | 'screen' | 'prototype' | 'ref'
 
 export interface CanvasNode {
   id: string
@@ -102,10 +102,10 @@ export interface LayoutInput {
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
 
 /** How wide a row of screens may get before the next one wraps, in canvas units at 100%. */
-export const ROW_SPAN = 3400
+const ROW_SPAN = 3400
 
 /** Screens a row holds on `device`: about six phones, two desktops. */
-export const perRow = (device: ArtifactDevice) =>
+const perRow = (device: ArtifactDevice) =>
   Math.max(1, Math.floor(ROW_SPAN / (DEVICE_SIZE[device].w + NODE_GAP)))
 
 /**
@@ -194,7 +194,7 @@ export function layoutNodes({
   return { device, nodes }
 }
 
-export const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
 
 /** Zooms to `z` keeping the canvas point under (cx, cy) in place. */
 export function zoomAt(view: View, z: number, cx: number, cy: number): View {

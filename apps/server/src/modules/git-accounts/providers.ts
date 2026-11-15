@@ -18,7 +18,7 @@ export class ProviderError extends Error {
   }
 }
 
-export interface ProviderRepo {
+interface ProviderRepo {
   fullName: string
   httpsUrl: string
   sshUrl: string

@@ -39,7 +39,7 @@ const DAY_MS = 86_400_000
 const HASH = /^[0-9a-f]{7,40}$/i
 
 /** A local day as git takes it (YYYY-MM-DD). */
-export const isoDay = (ms: number) => {
+const isoDay = (ms: number) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }

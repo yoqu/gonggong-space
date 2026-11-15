@@ -94,7 +94,7 @@ export const setInheritedMcp = (
   extra?: Extra,
 ) => setOverride(ctx, groupMcpOverrides, 'mcp.group_toggle', groupId, name, enabled, actorId, extra)
 
-export function validConfig(config: McpServer): McpServer {
+function validConfig(config: McpServer): McpServer {
   const name = config.name.trim()
   if (!name) fail('invalid', 'MCP 名称不能为空')
   if (name === RESERVED) fail('invalid', `${RESERVED} 是系统内置 MCP 的名称`)
@@ -119,7 +119,7 @@ export async function forceNewSessions(ctx: Ctx, l: Layer) {
   for (const row of rows) await publishBotState(ctx, row)
 }
 
-export async function logMcp(
+async function logMcp(
   ctx: Ctx,
   actorId: string,
   l: Layer,

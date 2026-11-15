@@ -6,10 +6,10 @@ import { type CanvasContext, isScreenItem, removeContextItem, requestDesignPanel
 import { selectedScreenIds } from './slash'
 import './chips.css'
 
-export const VARIATION_COUNTS = [1, 2, 3, 4, 5]
-export const DEFAULT_VARIATIONS = 3
+const VARIATION_COUNTS = [1, 2, 3, 4, 5]
+const DEFAULT_VARIATIONS = 3
 /** More whole screens than this fold into one 「N 个屏幕」 chip: a marquee of many screens keeps the input in view. */
-export const SCREEN_CHIPS_MAX = 2
+const SCREEN_CHIPS_MAX = 2
 
 /**
  * The canvas selection above the group composer: `产物 · 屏` or `屏 › 元素`, each removable. `bot`: who a message

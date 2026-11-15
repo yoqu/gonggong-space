@@ -30,7 +30,7 @@ const CHAT_MAX = 560
 const STEP = 16
 const TOAST_GAP = 12
 /** The workbench is never squeezed under this by a docked rail; the rail takes the chat's place instead. */
-export const BENCH_MIN = 400
+const BENCH_MIN = 400
 // Laid-out widths (separators included) of the columns left of the content, so the dock is decided in the
 // same render instead of a frame later from a ResizeObserver.
 const NAV_WIDTH = 77

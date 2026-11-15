@@ -21,7 +21,7 @@ const LOOK: Record<ActivityLevel, { label: () => string; tone: TagTone; action: 
 }
 
 /** Bot figures stacked in the tag; the rest are counted as +N. */
-export const MAX_ACTORS = 3
+const MAX_ACTORS = 3
 
 export interface Activity {
   tone: TagTone

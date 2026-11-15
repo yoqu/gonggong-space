@@ -85,7 +85,7 @@ export function ImageAttachment({
   )
 }
 
-export type DocKind = 'doc' | 'sheet' | 'base' | 'slides' | 'wiki' | 'mindnote'
+type DocKind = 'doc' | 'sheet' | 'base' | 'slides' | 'wiki' | 'mindnote'
 
 const DOC_KINDS: Record<DocKind, [Tint, IconName, string]> = {
   doc: ['blue', 'doc', t('文档')],
@@ -144,7 +144,7 @@ export function DocLink({
   )
 }
 
-export interface MessageCardAction {
+interface MessageCardAction {
   label: ReactNode
   variant?: ButtonVariant
   onClick?: () => void

@@ -12,8 +12,8 @@ import {
 import type { WebSocket } from 'ws'
 import { z } from 'zod'
 
-export const TERMINAL_MAX_DATA_BYTES = 64 * 1024
-export const TERMINAL_MAX_CONTROL_BYTES = 4 * 1024
+const TERMINAL_MAX_DATA_BYTES = 64 * 1024
+const TERMINAL_MAX_CONTROL_BYTES = 4 * 1024
 
 const DAEMON_FRAME_BYTES = 96 * 1024
 type TerminalStatus = z.infer<typeof TerminalStatusSchema>

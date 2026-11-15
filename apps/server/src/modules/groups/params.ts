@@ -62,7 +62,7 @@ export const botRepliesInThreadOf = (own: unknown) =>
   (own as { botRepliesInThread?: boolean }).botRepliesInThread === true
 
 /** A group's own overrides (`groups.params`) over `defaults`. */
-export const withDefaults = (own: unknown, defaults: GroupParams): GroupParams =>
+const withDefaults = (own: unknown, defaults: GroupParams): GroupParams =>
   Object.fromEntries(KEYS.map((k) => [k, (own as Partial<GroupParams>)[k] ?? defaults[k]])) as GroupParams
 
 /** Effective group-level params: platform → team → the group's own overrides. */

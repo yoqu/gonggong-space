@@ -88,4 +88,3 @@ export function blobStore(o: { root: () => string; quota: { bytes: number }; max
     },
   }
 }
-export type BlobStore = ReturnType<typeof blobStore>

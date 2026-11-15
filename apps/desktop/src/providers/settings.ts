@@ -1,7 +1,7 @@
 import { type AgentKind, type AgentSettingField, type AgentSettingId, fieldsFor } from '@gonggong/protocol'
 import { t } from '../i18n'
 
-export const FIELD_LABEL: Record<AgentSettingId, string> = {
+const FIELD_LABEL: Record<AgentSettingId, string> = {
   contextWindow: t('上下文'),
   autoCompactWindow: t('自动压缩'),
   maxOutputTokens: t('输出'),
@@ -44,7 +44,7 @@ function formatMs(v: string): string {
   return `${n} ms`
 }
 
-export function formatSetting(field: AgentSettingField, v: string): string {
+function formatSetting(field: AgentSettingField, v: string): string {
   switch (field.type) {
     case 'tokens':
       return formatTokens(v)

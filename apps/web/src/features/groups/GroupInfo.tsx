@@ -20,7 +20,6 @@ import {
   EmptyState,
   GroupBox,
   Icon,
-  IconButton,
   InspectorPanel,
   MenuButton,
   type MenuItem,

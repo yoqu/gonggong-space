@@ -8,7 +8,7 @@ import { open } from '../../lib/seal.js'
 import { maskKnown, redact, redactWith } from '../runs/redact.js'
 
 export type SecretRow = typeof secrets.$inferSelect
-export type PersonalRow = typeof personalSecrets.$inferSelect
+type PersonalRow = typeof personalSecrets.$inferSelect
 type Read = Pick<Db, 'select'>
 
 export const RANK: Record<string, number> = { platform: 0, team: 1, group: 2 }
@@ -37,7 +37,7 @@ export function blocked(r: SecretRow, botId: string, now: Date) {
 }
 
 /** One per name among the applying definitions: a lower layer replaces a same-named one above it. */
-export function winners(rows: SecretRow[], botId: string, now: Date) {
+function winners(rows: SecretRow[], botId: string, now: Date) {
   const won = new Map<string, SecretRow>()
   for (const r of [...rows].sort((a, b) => (RANK[a.scope] ?? 0) - (RANK[b.scope] ?? 0)))
     if (!blocked(r, botId, now)) won.set(r.name, r)

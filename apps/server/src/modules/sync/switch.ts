@@ -48,7 +48,7 @@ const INITS = ['base', 'align', 'force']
  * The base bot's tree must be in this long after its sync.init went out, and an unsent one may wait no longer for the
  * base machine to come back (or for anything but the base's running turn), or the switch fails back to partition.
  */
-export const SWITCH_TIMEOUT_MS = 10 * 60_000
+const SWITCH_TIMEOUT_MS = 10 * 60_000
 
 const SWITCH_WAIT = runStep('等待切换为强制同步')
 const ALIGN_WAIT = runStep('等待同步对齐')

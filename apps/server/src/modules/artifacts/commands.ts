@@ -152,7 +152,7 @@ const RULES =
   '新增、删除屏幕时同步更新 gg-artifact.json；遵守产物所属插件 SKILL.md 的约定（颜色、圆角、字号只用令牌，不引入外部资源，不改 index.html 和 _gg/）。'
 
 /** One instruction per platform command (§ Stitch Generate menu), for the selection that follows it. */
-export function commandInstruction(
+function commandInstruction(
   r: Pick<ArtifactCommandReq, 'text' | 'count' | 'ggIds'> & { command: ArtifactCommand },
   dir: string,
 ) {

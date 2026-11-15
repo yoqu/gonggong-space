@@ -88,7 +88,7 @@ const FLASH_MS = 800
 /** Room the whole-screen change bar takes under the device while open. */
 const CHANGE_ROOM = 200
 /** Room the connect panel takes at the right while open (its 300px, 60px off the edge, and a gap). */
-export const CONNECT_ROOM = 380
+const CONNECT_ROOM = 380
 /** The popover's width on screen. */
 const MENU_W = 248
 /** The popover's height before it is measured (its four actions). */

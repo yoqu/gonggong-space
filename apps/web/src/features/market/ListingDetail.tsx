@@ -39,7 +39,7 @@ export const SOURCE_LABEL: Record<MarketListingDto['source'], string> = {
   public: t('公开'),
 }
 
-export const REVIEW_LABEL: Record<ReviewStatus, string> = {
+const REVIEW_LABEL: Record<ReviewStatus, string> = {
   draft: t('草稿'),
   pending: t('待审核'),
   approved: t('已通过'),
@@ -81,8 +81,7 @@ export function ListingIcon({
 }
 
 /** SKILL.md's YAML header is metadata already shown above; rendered as Markdown it reads as a stray heading. */
-export const stripFrontMatter = (md: string) =>
-  md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
+const stripFrontMatter = (md: string) => md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
 
 /** `作者 · 团队`, or 官方 for platform listings. */
 export const byline = (l: Pick<MarketListingDto, 'author' | 'teamName' | 'source'>) =>

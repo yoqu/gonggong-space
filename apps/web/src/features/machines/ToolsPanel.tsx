@@ -17,7 +17,7 @@ import { SaveStatus, useSaves } from './save'
 import { canUpgrade, hasUpdate } from './tools'
 
 const MIN_NODE = 22
-export const TOOL_INFO: Record<ToolKind, { name: string; sub: string }> = {
+const TOOL_INFO: Record<ToolKind, { name: string; sub: string }> = {
   node: {
     name: 'Node.js',
     sub: t(
@@ -205,7 +205,7 @@ function ToolAction({
 }
 
 /** An agent off npm: 共工 neither installs nor upgrades it, the owner runs its maker's command on the machine. */
-export function InstallCommandRow({ command, installed }: { command: string; installed: boolean }) {
+function InstallCommandRow({ command, installed }: { command: string; installed: boolean }) {
   return (
     <GroupRow
       label={installed ? t('来源') : t('安装命令')}

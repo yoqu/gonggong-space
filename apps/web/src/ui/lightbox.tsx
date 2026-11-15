@@ -16,7 +16,7 @@ import { Icon } from './icon'
 import { useEscape, useFocusTrap } from './overlay'
 import './lightbox.css'
 
-export type LightboxItem = { src: string; alt: string }
+type LightboxItem = { src: string; alt: string }
 
 /** A horizontal swipe longer than this (and wider than tall) pages. */
 const SWIPE_PX = 50

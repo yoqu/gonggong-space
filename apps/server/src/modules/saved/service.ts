@@ -55,7 +55,7 @@ const times = (s: SavedRow) => ({
   createdAt: s.createdAt.toISOString(),
 })
 
-export const openSaved = isNull(savedMessages.doneAt)
+const openSaved = isNull(savedMessages.doneAt)
 export const doneBefore = (before?: string) =>
   and(isNotNull(savedMessages.doneAt), before ? lt(savedMessages.doneAt, new Date(before)) : undefined)
 export const openBefore = (before?: string) =>

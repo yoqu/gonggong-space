@@ -15,7 +15,7 @@ import './git.css'
 const NO_OPS: GitOperationDto[] = []
 
 /** The bot's Git tab, where its requests wait for approval (a notification link). */
-export const openGitPanel = (botId: string) => openTab({ kind: 'git', botId, view: 'commit' })
+const openGitPanel = (botId: string) => openTab({ kind: 'git', botId, view: 'commit' })
 
 export const useGitOps = (groupId: string) => useWorkspace((s) => s.gitOps[groupId] ?? NO_OPS)
 

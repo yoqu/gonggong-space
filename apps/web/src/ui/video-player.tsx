@@ -47,7 +47,7 @@ function Glyph({ d, size = 20 }: { d: keyof typeof GLYPH; size?: number }) {
 }
 
 /** `m:ss`, or `h:mm:ss` once the video runs an hour. */
-export const fmtVideoTime = (s: number, long = s >= 3600) => {
+const fmtVideoTime = (s: number, long = s >= 3600) => {
   const v = Math.max(0, Math.floor(Number.isFinite(s) ? s : 0))
   const ss = String(v % 60).padStart(2, '0')
   if (!long) return `${Math.floor(v / 60)}:${ss}`

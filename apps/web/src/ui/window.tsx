@@ -78,7 +78,7 @@ export function AppFrame(props: AppFrameProps) {
 }
 
 /** Pane traffic lights — only for gallery windows; the web app never draws a fake window frame (D6). */
-export function TrafficLights({ inactive }: { inactive?: boolean }) {
+function TrafficLights({ inactive }: { inactive?: boolean }) {
   return (
     <div className={cx('ui-lights', inactive && 'ui-lights--inactive')} aria-hidden="true">
       <i data-light="close" />

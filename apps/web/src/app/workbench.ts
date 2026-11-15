@@ -140,7 +140,7 @@ interface WorkbenchState {
 }
 
 export const WORKBENCH_MAX_TABS = 12
-export const LIVE_FRAMES = 4
+const LIVE_FRAMES = 4
 const STORE_KEY = 'gonggong.workbench'
 
 export function tabKey(t: WorkbenchTab): string {

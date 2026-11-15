@@ -11,7 +11,7 @@ import { useSyncStatus } from './store'
 import './sync.css'
 
 /** Group admins and the bot's owner may settle its replica (F11, F12). */
-export function useCanSettle(groupId: string, botId: string) {
+function useCanSettle(groupId: string, botId: string) {
   const me = useSession((s) => s.user?.id)
   return useWorkspace(
     (s) =>

@@ -6,7 +6,7 @@ import { sendCommand } from './actions'
 import { focusArtifact } from './store'
 
 /** What the AI gets for 让 AI 修复 (never translated). */
-export const fixIssuesText = (issues: LintIssue[]) =>
+const fixIssuesText = (issues: LintIssue[]) =>
   `修复这些规范问题，其余内容不变：\n${issues.map((i) => `- ${i.file ? `${i.file}：` : ''}${i.message}`).join('\n')}`
 
 /**

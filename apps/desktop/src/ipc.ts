@@ -27,9 +27,9 @@ import { Update } from '@tauri-apps/plugin-updater'
 
 export type { Update }
 
-export type RejectReason = 'protocol' | 'revoked' | 'unauthorized' | 'workspace' | 'readonly'
+type RejectReason = 'protocol' | 'revoked' | 'unauthorized' | 'workspace' | 'readonly'
 
-export type Conn =
+type Conn =
   | { state: 'connecting' }
   | { state: 'online'; sinceMs: number }
   | { state: 'offline'; retryAtMs: number; error: string }
@@ -144,7 +144,7 @@ export interface WorkspaceRow {
   context: ContextUsage | null
 }
 
-export interface BackupRow {
+interface BackupRow {
   name: string
   path: string
   size: string
@@ -261,7 +261,7 @@ export interface ToolStatus {
 
 export type ToolOp = 'install' | 'upgrade'
 
-export interface ModelMap {
+interface ModelMap {
   haiku?: string | null
   sonnet?: string | null
   opus?: string | null

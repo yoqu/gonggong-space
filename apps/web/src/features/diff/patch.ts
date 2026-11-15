@@ -85,7 +85,7 @@ export function findFile(files: DiffFile[], path: string) {
   return files.find((f) => p === f.path || p.endsWith(`/${f.path}`))
 }
 
-export interface DiffDir<F = DiffFile> {
+interface DiffDir<F = DiffFile> {
   kind: 'dir'
   path: string
   name: string

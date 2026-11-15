@@ -62,7 +62,7 @@ export const commitPaths = (changes: TreeChange[]) =>
   changes.flatMap((c) => (c.oldPath ? [c.oldPath, c.path] : [c.path]))
 
 /** IDEA's file status colours and letters. */
-export function statusOf(c: TreeChange): { tone: string; letter: string; label: string } {
+function statusOf(c: TreeChange): { tone: string; letter: string; label: string } {
   if (c.conflict) return { tone: 'conflict', letter: 'C', label: t('冲突') }
   if (c.untracked) return { tone: 'untracked', letter: 'U', label: t('未跟踪') }
   switch (c.change) {

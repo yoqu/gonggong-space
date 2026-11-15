@@ -14,7 +14,7 @@ export interface CommitDraft {
   checks: Record<string, boolean>
 }
 
-export const EMPTY_DRAFT: CommitDraft = { message: null, amend: false, checks: {} }
+const EMPTY_DRAFT: CommitDraft = { message: null, amend: false, checks: {} }
 
 const load = (): Record<string, CommitDraft> => {
   try {

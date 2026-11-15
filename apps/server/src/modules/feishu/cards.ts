@@ -199,7 +199,7 @@ function questionBlock(i: Extract<Interaction, { k: 'question' }>): unknown[] {
 }
 
 /** The run's approvals and questions: settled ones as history (folded when many), then the pending blocks. */
-export function interactionElements(items: Interaction[]) {
+function interactionElements(items: Interaction[]) {
   const lines = items.filter((i) => !isPending(i)).map((i) => markdown(historyLine(i)))
   const history =
     lines.length > HISTORY_INLINE

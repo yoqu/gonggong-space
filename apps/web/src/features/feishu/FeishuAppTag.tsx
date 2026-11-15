@@ -3,7 +3,7 @@ import { t } from '../../i18n'
 import { Tag, type TagTone } from '../../ui'
 
 /** Where a bot's Feishu app stands, in one word: what the bot page and the admin overview show. */
-export function feishuAppState(app: FeishuAppDto | null): { label: string; tone: TagTone } {
+function feishuAppState(app: FeishuAppDto | null): { label: string; tone: TagTone } {
   if (!app) return { label: t('未接入'), tone: 'gray' }
   if (app.status === 'error') return { label: t('连接失败'), tone: 'red' }
   if (app.status === 'connecting') return { label: t('连接中'), tone: 'blue' }

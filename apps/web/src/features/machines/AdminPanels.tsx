@@ -299,7 +299,7 @@ const hasChanges = (w: MachineWorkspace) => !!w.changes && w.changes.uncommitted
 const keyOf = (w: MachineWorkspace) => `${w.groupId}/${w.botId}/${w.path}`
 const sum = (ws: MachineWorkspace[]) => ws.reduce((n, w) => n + (w.size ?? 0), 0)
 
-export const sizeText = (bytes: number) => {
+const sizeText = (bytes: number) => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let n = bytes
   let i = 0

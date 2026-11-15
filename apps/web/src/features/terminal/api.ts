@@ -5,10 +5,6 @@ export function createTerminal(groupId: string, botId: string, size: TerminalCre
   return api.post<TerminalDto>(`/groups/${groupId}/bots/${botId}/terminals`, size)
 }
 
-export function listTerminals(groupId: string, botId: string) {
-  return api.get<TerminalDto[]>(`/groups/${groupId}/bots/${botId}/terminals`)
-}
-
 export function endTerminal(sessionId: string) {
   return api.del<void>(`/terminals/${sessionId}`)
 }

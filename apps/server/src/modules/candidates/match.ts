@@ -8,7 +8,7 @@ export interface PathEntry {
  * Lower is better, null = no match: [kind, length] with kinds 0 path prefix, 1 name prefix, 2 substring, 3 name
  * subsequence. An empty query ranks by depth. Case-insensitive.
  */
-export function rank(path: string, query: string): [number, number] | null {
+function rank(path: string, query: string): [number, number] | null {
   const p = path.toLowerCase()
   const q = query.toLowerCase()
   const bare = p.replace(/\/$/, '')

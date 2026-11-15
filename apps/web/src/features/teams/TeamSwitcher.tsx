@@ -126,7 +126,7 @@ export function NewTeamSheet({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function JoinTeamSheet({ onClose }: { onClose: () => void }) {
+function JoinTeamSheet({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const token = tokenOf(text)

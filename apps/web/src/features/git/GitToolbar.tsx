@@ -30,7 +30,7 @@ export function repoOptions(git: GitStatus) {
 }
 
 /** The branch as the widget shows it: its name, or the detached commit. */
-export function BranchName({ status, head }: { status: RepoStatus; head?: string | null }) {
+function BranchName({ status, head }: { status: RepoStatus; head?: string | null }) {
   if (status.branch) return <span>{status.branch}</span>
   return <span>{head ? t('{hash}（游离）', { hash: head }) : t('游离')}</span>
 }

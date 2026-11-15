@@ -16,7 +16,7 @@ import { setArtifactVisibility } from './store'
 
 const useShares = create<Record<string, ArtifactShareDto | undefined>>()(() => ({}))
 
-export async function loadShare(artifactId: string) {
+async function loadShare(artifactId: string) {
   try {
     const s = await api.get<ArtifactShareDto>(`/artifacts/${artifactId}/share`)
     useShares.setState({ [artifactId]: s })

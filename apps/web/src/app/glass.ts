@@ -1,7 +1,7 @@
 export type GlassPreference = 'clear' | 'standard' | 'tinted'
 
 export const GLASS_STORAGE_KEY = 'gonggong.glass'
-export const DEFAULT_GLASS_PREFERENCE: GlassPreference = 'standard'
+const DEFAULT_GLASS_PREFERENCE: GlassPreference = 'standard'
 
 const isGlassPreference = (value: unknown): value is GlassPreference =>
   value === 'clear' || value === 'standard' || value === 'tinted'

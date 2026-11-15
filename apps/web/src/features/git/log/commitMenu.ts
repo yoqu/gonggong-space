@@ -9,7 +9,7 @@ import { parseRefs } from '../refs'
 import { EMPTY_TREE } from '../StashView'
 import { childOf } from './CommitTable'
 
-export const commitInfo = (c: GitCommit): CommitInfo => ({
+const commitInfo = (c: GitCommit): CommitInfo => ({
   hash: c.hash,
   shortHash: c.shortHash,
   subject: c.subject,

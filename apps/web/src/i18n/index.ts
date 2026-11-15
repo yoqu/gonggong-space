@@ -8,7 +8,6 @@ export { locale, setLocale } from './locale'
 // so module-level t() calls still see it.
 const dict = locale === 'en' ? (await import('./en')).en : ({} as typeof en)
 export const t = createTranslator(locale, dict)
-export type MessageKey = keyof typeof en
 
 if (typeof document !== 'undefined') {
   document.documentElement.lang = locale === 'en' ? 'en' : 'zh-CN'

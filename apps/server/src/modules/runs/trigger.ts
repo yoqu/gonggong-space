@@ -18,7 +18,7 @@ type Target = Pick<
 >
 
 /** Why `origin` may not trigger `bot` (spec §3.6), or null when allowed. The owner is always allowed. */
-export function refusal(bot: Target, origin: string): ProtocolKey | null {
+function refusal(bot: Target, origin: string): ProtocolKey | null {
   if (bot.binding !== 'bound') return 'Bot 未绑定或未确认，不能被触发'
   if (origin === bot.ownerId) return null
   const scope = bot.tier === 'full' && bot.triggerScope === 'all' ? 'list' : bot.triggerScope

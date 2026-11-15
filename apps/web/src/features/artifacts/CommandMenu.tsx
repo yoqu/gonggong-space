@@ -33,7 +33,7 @@ export function entriesOf(group: string, items: MenuItem[], prefix = ''): Comman
 }
 
 /** Every term of the query in the label or group, case-insensitively. */
-export const matchEntries = (entries: CommandEntry[], query: string) => {
+const matchEntries = (entries: CommandEntry[], query: string) => {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
   return entries.filter((e) => {
     const hay = `${e.label} ${e.group}`.toLowerCase()

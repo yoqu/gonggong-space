@@ -12,7 +12,7 @@ export interface ArtifactSlash {
 }
 
 /** The platform's own; the artifact's plugin adds its commands (artifactSlash). */
-export const ARTIFACT_SLASH: ArtifactSlash[] = [
+const ARTIFACT_SLASH: ArtifactSlash[] = [
   { command: 'image', label: t('图片'), hint: t('绘制插图并用在选中的屏幕里'), needsScreen: false },
   { command: 'logo', label: 'Logo', hint: t('设计几个 logo 方案'), needsScreen: false },
   { command: 'diagram', label: t('图表'), hint: t('画图表或流程图，作为新屏'), needsScreen: false },

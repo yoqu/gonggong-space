@@ -7,7 +7,7 @@ import type { Step } from './steps'
  * pieces of agent text fold into one segment titled by what they did (编辑了文件、运行了命令), and a finished turn
  * tucks everything before its final reply under 已工作.
  */
-export type Family =
+type Family =
   | 'explore'
   | 'execute'
   | 'edit'
@@ -24,7 +24,7 @@ export type Family =
   | 'mcp'
   | 'compaction'
   | 'other'
-export type Bucket = 'file' | 'search' | 'list' | 'probe'
+type Bucket = 'file' | 'search' | 'list' | 'probe'
 
 export interface Action {
   key: string
@@ -54,7 +54,7 @@ export interface Group {
   running: boolean
 }
 
-export interface Work {
+interface Work {
   key: string
   kind: 'work'
   items: Item[]
@@ -325,7 +325,7 @@ function webVerb(steps: Step[]): { verb: string; target?: string } {
 }
 
 /** Searches and fetches in a row are one look-up (thoughts between them stay, after it): one row for them all. */
-export function foldWeb(actions: Action[]): Action[] {
+function foldWeb(actions: Action[]): Action[] {
   const out: Action[] = []
   let at = -1
   for (const a of actions) {

@@ -24,7 +24,7 @@ export const agentLabel = (catalog: AgentCatalog | null, model: string | null, e
   agentConfigLabel(catalog, model, effort, (key) => t.text({ key }))
 
 /** `默认（Sonnet）` when the adapter names the model a fresh session starts with. */
-export const defaultModelLabel = (catalog: AgentCatalog | null) =>
+const defaultModelLabel = (catalog: AgentCatalog | null) =>
   catalog?.current ? t('默认（{name}）', { name: modelName(catalog, catalog.current) }) : t('默认')
 
 /** The model options of a picker ('' = the adapter's default), keeping a value the catalog no longer lists. */
