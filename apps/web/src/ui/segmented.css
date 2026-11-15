@@ -1,5 +1,7 @@
 /* SegmentedControl / Tabs */
 .ui-seg {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   flex: none;
   gap: 2px;
@@ -33,18 +35,36 @@
   font: inherit;
   white-space: nowrap;
   cursor: default;
-  transition:
-    background var(--fade-in),
-    box-shadow var(--fade-in);
+  transition: background var(--fade-in);
 }
 .ui-seg__item svg {
   width: 14px;
   height: 14px;
 }
 .ui-seg__item[data-selected] {
+  font-weight: 500;
+}
+/* The selected fill is one element that slides to the chosen segment (Segments sets --seg-x / --seg-w). */
+.ui-seg__thumb {
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: var(--seg-w, 0);
+  border-radius: var(--radius-capsule);
   background: var(--control-fill);
   box-shadow: var(--shadow-control);
-  font-weight: 500;
+  transform: translateX(var(--seg-x, 0));
+  pointer-events: none;
+}
+.ui-seg[data-ready] .ui-seg__thumb {
+  transition:
+    transform var(--spring-snappy),
+    width var(--spring-snappy);
+}
+.ui-seg[data-empty] .ui-seg__thumb {
+  opacity: 0;
 }
 .ui-seg__item:disabled {
   opacity: 0.45;

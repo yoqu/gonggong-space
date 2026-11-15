@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode } from 'react'
+import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef } from 'react'
 import { cx } from '../lib/cx'
 import { nextEnabled, useControlled } from './controlled'
 import { type Glyph, renderGlyph } from './controls'
@@ -45,6 +45,28 @@ function Segments<V extends string>({
 }) {
   const current = items.findIndex((it) => it.value === value)
   const focusable = current >= 0 ? current : nextEnabled(items, -1, 1)
+  const ref = useRef<HTMLDivElement>(null)
+  // One thumb slides between segments. It is placed before paint; transitions switch on only after that first
+  // placement has been styled, so it never slides in from the left edge.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the selection or the segments change
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const place = () => {
+      const seg = el.querySelector<HTMLElement>('.ui-seg__item[data-selected]')
+      if (!seg) return
+      el.style.setProperty('--seg-x', `${seg.offsetLeft}px`)
+      el.style.setProperty('--seg-w', `${seg.offsetWidth}px`)
+    }
+    place()
+    if (!('ready' in el.dataset)) {
+      void getComputedStyle(el.firstElementChild as Element).transform
+      el.dataset.ready = ''
+    }
+    const ro = new ResizeObserver(place)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [current, items])
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('.ui-seg__item')]
     const from = buttons.indexOf(e.target as HTMLButtonElement)
@@ -60,9 +82,12 @@ function Segments<V extends string>({
     <div
       role={tabs ? 'tablist' : 'radiogroup'}
       aria-label={label}
+      ref={ref}
       className={cx('ui-seg', size !== 'regular' && `ui-seg--${size}`)}
+      data-empty={current < 0 || undefined}
       onKeyDown={onKeyDown}
     >
+      <span className="ui-seg__thumb" aria-hidden="true" />
       {items.map((it, i) => {
         const selected = it.value === value
         return (
