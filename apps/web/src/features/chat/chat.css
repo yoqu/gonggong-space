@@ -25,9 +25,10 @@
   font-size: var(--text-title-3-size);
   line-height: var(--text-title-3-line);
 }
+/* Inherit the text size: in a 14px message a 13px h3 would be smaller than the paragraphs under it. */
 .md h3,
 .md h4 {
-  font-size: var(--text-body-size);
+  font-size: inherit;
 }
 .md ul,
 .md ol {

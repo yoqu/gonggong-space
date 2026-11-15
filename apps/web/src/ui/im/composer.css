@@ -15,10 +15,11 @@
     box-shadow var(--fade-in),
     background-color var(--fade-in);
 }
+/* The composer is focused nearly all the time, so focus only deepens the stroke; the blue glow is for drops. */
 .pn-composer:focus-within {
   box-shadow:
-    inset 0 0 0 1px var(--accent),
-    0 0 0 3px var(--tint-blue);
+    inset 0 0 0 1px color-mix(in srgb, var(--label-secondary) 70%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.06);
 }
 .pn-composer__reply {
   display: flex;
@@ -43,8 +44,9 @@
   padding: 0;
   min-height: 19px;
 }
+/* About 40% of the label colour: --label-tertiary (26%) was barely readable. */
 .pn-composer textarea::placeholder {
-  color: var(--label-tertiary);
+  color: color-mix(in srgb, var(--label-secondary) 70%, transparent);
 }
 .pn-composer textarea:focus-visible {
   outline: 0;

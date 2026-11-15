@@ -35,7 +35,7 @@
   line-height: 22px;
   text-align: center;
   white-space: nowrap;
-  color: var(--label-tertiary);
+  color: var(--label-secondary);
   font-variant-numeric: tabular-nums;
   opacity: 0;
 }
@@ -73,9 +73,10 @@
   max-width: 100%;
 }
 /* Text sits straight on the page; the class stays the hook for links, code and reactions inside a message. */
+/* Message text reads at 14px (one step above the 13px UI body, as Slack/Linear do); same 22px line. */
 .pn-bubble {
   color: var(--label);
-  font-size: var(--text-body-size);
+  font-size: 14px;
   line-height: 22px;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -98,9 +99,14 @@
   margin: 0;
   white-space: pre-wrap;
 }
+/* Prose stops at a readable measure on wide screens; tables and code keep their own widths. */
+.pn-bubble > p,
+.pn-bubble .md > :is(p, ul, ol, blockquote, h1, h2, h3, h4) {
+  max-width: 720px;
+}
 .pn-bubble :not(pre) > code {
   font-family: var(--font-mono);
-  font-size: var(--text-callout-size);
+  font-size: var(--text-body-size);
   padding: 1px 6px;
   border-radius: var(--radius-check);
   background: var(--quote-fill);

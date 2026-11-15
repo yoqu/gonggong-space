@@ -39,12 +39,11 @@
     background-color var(--motion-fast),
     opacity var(--fade-in);
 }
-.pn-conv:hover,
-.pn-conv[aria-current] {
+.pn-conv:hover {
   background: var(--selection-fill);
 }
 .pn-conv[aria-current] {
-  box-shadow: inset 0 0 0 1px var(--separator);
+  background: var(--selection-inactive);
 }
 .pn-conv--closed .pn-conv__avatar {
   filter: grayscale(1);
