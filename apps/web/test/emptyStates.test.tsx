@@ -70,6 +70,8 @@ describe('empty states draw 共字君 and carry the page action', () => {
     render(<PreviewsView groupId="g1" />)
     await emptyWithArt('暂无预览和托管服务')
     expect(screen.queryByText('暂无预览')).toBeNull()
+    expect(screen.getByText(/让 Bot 把网页或服务跑起来/)).toBeTruthy()
+    expect(screen.queryByText(/service_start/)).toBeNull()
   })
 
   it('我的密钥', async () => {

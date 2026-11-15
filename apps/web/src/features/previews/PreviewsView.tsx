@@ -27,11 +27,16 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
       {list.previews.length || list.services.length ? (
         <Lists list={list} onOpen={onOpen} />
       ) : (
-        <EmptyState compact illustration={<NoTabsArt />} title={t('暂无预览和托管服务')} />
+        <EmptyState
+          compact
+          illustration={<NoTabsArt />}
+          title={t('暂无预览和托管服务')}
+          description={t('让 Bot 把网页或服务跑起来（比如「起个预览给我看看」），就会出现在这里。')}
+        />
       )}
       <div className="gs-foot">
         {t(
-          'Bot 用 service_start 启动的服务由它所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。',
+          '服务由 Bot 所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。',
         )}
       </div>
     </>

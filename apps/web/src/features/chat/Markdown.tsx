@@ -1,6 +1,6 @@
 import type { FilesFindDto } from '@gonggong/protocol'
 import { createContext, isValidElement, memo, type ReactNode, useContext, useMemo, useState } from 'react'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import ReactMarkdown, { type Components, type Options } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
@@ -80,7 +80,12 @@ function trimAutolinks(node: MdNode) {
   }
 }
 
-const remarkPlugins = [remarkGfm, () => trimAutolinks, remarkFences]
+// A single ~ is a range or "about" in Chinese (9/29~9/30, 2~8s), not strikethrough.
+const remarkPlugins: Options['remarkPlugins'] = [
+  [remarkGfm, { singleTilde: false }],
+  () => trimAutolinks,
+  remarkFences,
+]
 
 /** A file name with an extension (`a.ts`, `Markdown.test.tsx`) or a dotfile (`.env`); `v1.2` is not one. */
 const FILE_NAME = /(?:^|\/)\.?[\w@-][\w@.-]*\.[A-Za-z]\w{0,7}$|(?:^|\/)\.[\w-]+$/

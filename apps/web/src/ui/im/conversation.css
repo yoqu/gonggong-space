@@ -45,7 +45,8 @@
 .pn-conv[aria-current] {
   background: var(--selection-inactive);
 }
-.pn-conv--closed .pn-conv__avatar {
+.pn-conv--closed .pn-conv__avatar,
+.conv-strip__item--closed > :first-child {
   filter: grayscale(1);
   opacity: 0.45;
 }

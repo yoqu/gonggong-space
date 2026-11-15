@@ -513,7 +513,7 @@ const pathOf = (r: Row) => (isSpace(r) ? `/t/${r.id}` : `/g/${r.id}`)
  * Groups, DMs and machine terminals together: pinned first, then the latest message (a terminal: its last opening)
  * first; a run waiting on me shows on its row.
  */
-const byPin = <R extends Row>(list: R[]) => {
+export const byPin = <R extends Row>(list: R[]) => {
   const pinned = (r: Row) => !isSpace(r) && r.pinned
   const at = (r: Row) => (isSpace(r) ? r.lastActiveAt : r.lastAt) ?? ''
   return [...list].sort((a, b) => Number(pinned(b)) - Number(pinned(a)) || at(b).localeCompare(at(a)))
@@ -634,30 +634,6 @@ function useSelectionCapsule(pathname: string, at: number) {
     return () => ro.disconnect()
   }, [pathname, at])
   return scroll
-}
-
-/** The conversation list folded to avatars and unread badges (workbench 专注 mode). */
-export function ConversationStrip({ groups }: { groups: GroupDto[] }) {
-  const rows = byPin(groups)
-  return (
-    <nav aria-label={t('会话列表')} className="conv-strip">
-      <button
-        type="button"
-        className="conv-strip__item"
-        title={t('展开会话列表')}
-        aria-label={t('展开会话列表')}
-        onClick={() => useWorkbench.getState().setMode('split')}
-      >
-        <Icon name="sidebar" size={18} />
-      </button>
-      {rows.map((g) => (
-        <NavLink key={g.id} to={`/g/${g.id}`} className="conv-strip__item" title={g.name} aria-label={g.name}>
-          <GroupAvatar group={g} size={32} />
-          <Badge count={rowCount(g)} muted={g.notifyLevel === 'off'} />
-        </NavLink>
-      ))}
-    </nav>
-  )
 }
 
 /** The collapsed chat (workbench 全屏 mode): messages that arrived since it collapsed, and other chats' unread. */
