@@ -248,7 +248,7 @@
   padding: var(--space-20) var(--space-32) var(--space-32);
   container-type: inline-size;
 }
-/* Work and usage on the left, the settings beside them; one column when narrow, settings first. */
+/* Work and usage on the left, the settings beside them; one column when narrow, what it is doing first (姜维川 2026-11-15). */
 .bot-page__columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
@@ -271,9 +271,6 @@
 @container (max-width: 760px) {
   .bot-page__columns {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .bot-page__side {
-    order: -1;
   }
 }
 .bot-page__hero {
