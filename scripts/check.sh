@@ -135,6 +135,7 @@ if [ -f .internal-patterns ]; then
     exit 1
   fi
 fi
+run node scripts/check-size.mjs
 run pnpm typecheck
 run pnpm lint
 $tools && run node --test tools/*.test.mjs
