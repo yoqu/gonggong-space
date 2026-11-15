@@ -1,0 +1,33 @@
+/* RollingNumber: each digit is a 0–9 strip in a one-line window, moved by transform only. */
+.ui-roll {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+.ui-roll__text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ui-roll__face {
+  display: inline-flex;
+  vertical-align: top;
+}
+.ui-roll__char::before {
+  content: attr(data-c);
+}
+.ui-roll__digit {
+  height: 1lh;
+  overflow: hidden;
+}
+.ui-roll__digit::before {
+  content: "0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9";
+  display: block;
+  white-space: pre;
+  text-align: center;
+  transform: translateY(calc(var(--d) * -10%));
+  transition: transform var(--spring-snappy);
+}

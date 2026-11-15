@@ -127,7 +127,9 @@ describe('motion and touch CSS contract', () => {
     )
     const tl = read('features/chat/timeline.css')
     expect(ruleOf(tl, '.chat-scroll__pill')).toContain('var(--spring-bouncy) ui-enter')
-    expect(ruleOf(tl, '.chat-scroll__count')).toContain('var(--spring-bouncy) chat-count-bump')
+    expect(read('ui/rolling-number.css')).toMatch(
+      /\.ui-roll__digit::before \{[^}]*transform var\(--spring-snappy\)/,
+    )
     expect(ruleOf(tl, '.chat-scroll__bottom')).toContain('var(--spring-bouncy) ui-enter')
     expect(ruleOf(tl, '.chat-pins')).toContain('var(--spring-snappy) ui-enter')
   })

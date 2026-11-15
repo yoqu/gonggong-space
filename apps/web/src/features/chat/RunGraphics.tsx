@@ -2,7 +2,7 @@ import type { RunDto, RunStatus } from '@gonggong/protocol'
 import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { SPRING } from '../../lib/motion'
-import { Icon } from '../../ui'
+import { Icon, RollingNumber } from '../../ui'
 import './run-graphics.css'
 import { t } from '../../i18n'
 
@@ -244,7 +244,7 @@ export function ClockFact({ ms, text, live }: { ms: number; text: string; live: 
 /** Token use against a 10k full bar. */
 export function TokenFact({ total, label }: { total: number; label: string }) {
   return (
-    <Fact label={label} value={label}>
+    <Fact label={label} value={<RollingNumber value={label} />}>
       <span className="token-meter">
         <span style={{ width: `${Math.min(total / 10_000, 1) * 100}%` }} />
       </span>

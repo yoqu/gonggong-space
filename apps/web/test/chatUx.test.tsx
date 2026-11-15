@@ -363,7 +363,7 @@ describe('scroll position', () => {
     expect(screen.queryByRole('button', { name: /条新消息/ })).toBeNull()
   })
 
-  it('bumps the new-message count on every arrival', async () => {
+  it('rolls the new-message count in place on every arrival', async () => {
     mockApi({ messages: [msg({ seq: 2, body: '你好' })], runs: [] })
     renderAt()
     await screen.findByText('你好')
@@ -373,7 +373,8 @@ describe('scroll position', () => {
     push({ t: 'message.new', message: msg({ seq: 4, authorId: 'u2', authorName: '李建国', body: '人呢' }) })
     const second = document.querySelector('.chat-scroll__count')
     expect(second?.textContent).toBe('2 条新消息')
-    expect(second).not.toBe(first)
+    expect(second).toBe(first)
+    expect(second?.querySelector<HTMLElement>('.ui-roll__digit')?.style.getPropertyValue('--d')).toBe('2')
   })
 
   it('jumps from a quote to its original message and flashes it', async () => {

@@ -2,7 +2,7 @@ import type { ContextUsage } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { fmtTokens } from '../../lib/format'
-import { LevelIndicator } from '../../ui'
+import { LevelIndicator, RollingNumber } from '../../ui'
 import './context.css'
 
 const R = 5
@@ -73,7 +73,7 @@ export function ContextRing({ context }: { context: ContextUsage }) {
           />
         ) : null}
       </svg>
-      {pct}%
+      <RollingNumber value={`${pct}%`} />
     </>
   )
 }

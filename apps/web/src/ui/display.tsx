@@ -3,6 +3,7 @@ import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { type Glyph, renderGlyph } from './controls'
 import { Icon } from './icon'
+import { RollingNumber } from './rolling-number'
 import './display.css'
 
 export type TagTone = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | 'solid-red'
@@ -61,12 +62,11 @@ export function Badge(props: BadgeProps) {
   const n = unreadCount(props.count)
   return (
     <span
-      key={n}
       className={cx('ui-badge', props.muted && 'ui-badge--muted')}
       role="img"
       aria-label={t('{n} 条未读', { n })}
     >
-      {n}
+      <RollingNumber value={n} />
     </span>
   )
 }

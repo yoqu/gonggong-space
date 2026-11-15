@@ -12,7 +12,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { useNow } from '../../lib/now'
 import { ago, fullTime } from '../../lib/time'
-import { Button, Icon, Popover, Tag } from '../../ui'
+import { Button, Icon, Popover, RollingNumber, Tag } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { stepText, toolTitle } from '../runs/mcp'
 import { openTab } from '../workbench/open'
@@ -158,14 +158,18 @@ export function TaskDock({
         <Icon name="tray" size={14} />
         {counts.attention ? (
           <span className="task-dock__count task-dock__count--attention">
-            {t('待我处理 {n}', { n: counts.attention })}
+            <RollingNumber value={t('待我处理 {n}', { n: counts.attention })} />
           </span>
         ) : null}
         {counts.running ? (
-          <span className="task-dock__count">{t('运行中 {n}', { n: counts.running })}</span>
+          <span className="task-dock__count">
+            <RollingNumber value={t('运行中 {n}', { n: counts.running })} />
+          </span>
         ) : null}
         {counts.waiting ? (
-          <span className="task-dock__count">{t('等待中 {n}', { n: counts.waiting })}</span>
+          <span className="task-dock__count">
+            <RollingNumber value={t('等待中 {n}', { n: counts.waiting })} />
+          </span>
         ) : null}
       </span>
       <ul className="task-dock__chips">

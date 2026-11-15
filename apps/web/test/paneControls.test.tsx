@@ -352,18 +352,16 @@ describe('Badge and Tag', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('remounts on a new count so its pop replays, but not on an unchanged one', () => {
+  it('pops in once, then rolls new counts in place', () => {
     const { rerender } = render(<Badge count={2} />)
-    const first = screen.getByText('2')
-    rerender(<Badge count={2} muted />)
-    expect(screen.getByText('2')).toBe(first)
+    const first = screen.getByText('2').closest('.ui-badge')
     rerender(<Badge count={3} />)
-    expect(screen.getByText('3')).not.toBe(first)
+    expect(screen.getByText('3').closest('.ui-badge')).toBe(first)
   })
 
   it('marks muted badges', () => {
     render(<Badge count={12} muted />)
-    expect(screen.getByText('12').className).toContain('ui-badge--muted')
+    expect(screen.getByText('12').closest('.ui-badge')?.className).toContain('ui-badge--muted')
   })
 
   it('renders a solid-red tag with an icon', () => {

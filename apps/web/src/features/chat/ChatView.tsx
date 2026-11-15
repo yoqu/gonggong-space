@@ -42,6 +42,7 @@ import {
   MessageList,
   PinnedBanner,
   Presence,
+  RollingNumber,
   Spinner,
   TypingIndicator,
   toast,
@@ -1009,8 +1010,8 @@ export function ChatView({
             {unseen ? (
               <button type="button" className="chat-scroll__pill" onClick={toBottom}>
                 <Icon name="chevron-down" size={13} />
-                <span key={unseen} className="chat-scroll__count">
-                  {t('{n} 条新消息', { n: unseen })}
+                <span className="chat-scroll__count">
+                  <RollingNumber value={t('{n} 条新消息', { n: unseen })} />
                 </span>
               </button>
             ) : away ? (

@@ -2,7 +2,17 @@ import type { UsageDayDto, UsageRowDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { fmtTokens } from '../../lib/format'
 import { useGet } from '../../lib/useGet'
-import { Alert, Dialog, EmptyState, NoDataArt, SegmentedControl, Spinner, Table, Tabs } from '../../ui'
+import {
+  Alert,
+  Dialog,
+  EmptyState,
+  NoDataArt,
+  RollingNumber,
+  SegmentedControl,
+  Spinner,
+  Table,
+  Tabs,
+} from '../../ui'
 import { Sparkline, TrendChart } from '../../ui/chart'
 import { AdminPage } from '../admin/AdminPage'
 import { TeamFilter } from '../admin/TeamFilter'
@@ -99,7 +109,9 @@ function Stats({ rows, by, daily }: { rows: UsageRowDto[]; by: By; daily: UsageD
         <div key={tile.label} className="usage-stat">
           <span className="usage-stat__label">{tile.label}</span>
           <div className="usage-stat__body">
-            <span className="usage-stat__value">{tile.value}</span>
+            <span className="usage-stat__value">
+              <RollingNumber value={tile.value} />
+            </span>
             {daily && tile.metric ? (
               <Sparkline values={daily.slice(-WINDOW).map((d) => d[tile.metric as Metric])} />
             ) : null}

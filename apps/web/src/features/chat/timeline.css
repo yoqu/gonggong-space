@@ -122,16 +122,6 @@
   cursor: default;
 }
 
-/* Each new arrival bumps the count (re-keyed by ChatView). */
-.chat-scroll__count {
-  display: inline-block;
-  animation: var(--spring-bouncy) chat-count-bump;
-}
-@keyframes chat-count-bump {
-  from {
-    transform: scale(1.25);
-  }
-}
 .chat-scroll__pill:active,
 .chat-scroll__bottom:active {
   scale: 0.92;

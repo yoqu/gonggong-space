@@ -628,7 +628,7 @@ describe('group settings inspector', () => {
       .getState()
       .applyEvent({ t: 'group.updated', group: { ...other, mentionCount: 2, notifyLevel: 'off' } })
     const badge = await within(screen.getByTestId('group-item-g0')).findByText('2')
-    expect(badge.className).toContain('ui-badge--muted')
+    expect(badge.closest('.ui-badge')?.className).toContain('ui-badge--muted')
   })
 
   it('asks before dissolving, then drops the group', async () => {
