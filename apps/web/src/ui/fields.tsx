@@ -95,6 +95,8 @@ export interface StepperProps {
   /** Shown while `value` is null, e.g. the inherited value. */
   placeholder?: string
   disabled?: boolean
+  /** Also report valid in-range values while typing, for forms whose save button waits on a change. */
+  live?: boolean
   className?: string
   style?: CSSProperties
   'aria-label'?: string
@@ -114,6 +116,7 @@ export function Stepper({
   width = 72,
   placeholder,
   disabled,
+  live,
   className,
   style,
   ...aria
@@ -158,7 +161,15 @@ export function Stepper({
           placeholder={placeholder}
           value={draft ?? current?.toFixed(precision) ?? ''}
           style={{ width }}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            if (!live || e.target.value.trim() === '') return
+            const n = Number(Number(e.target.value).toFixed(precision))
+            if (Number.isFinite(n) && n >= min && n <= max && n !== current) {
+              setCurrent(n)
+              onChange?.(n)
+            }
+          }}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

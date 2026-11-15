@@ -490,6 +490,7 @@ export function BotDetail({
       <FormRow label={t('并发上限')} hint={canEdit ? t('同时运行的轮次，超出的在该机器排队') : undefined}>
         {canEdit ? (
           <Stepper
+            live
             aria-label={t('并发上限')}
             min={1}
             max={Math.max(MAX_CONCURRENCY, bot.concurrency)}

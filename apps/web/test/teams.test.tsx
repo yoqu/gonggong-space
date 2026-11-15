@@ -371,6 +371,35 @@ describe('team management tabs', () => {
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ params: { contextInlineTokens: 4000 } })
   })
 
+  it('enables 保存 while typing, so the first click saves without a blur first', async () => {
+    const calls = mockApi({
+      'GET /teams/t1/params': {
+        overrides: {},
+        platform: {
+          approvalTimeoutMin: 30,
+          chainMaxHops: 3,
+          offlineWaitMin: 30,
+          contextInlineTokens: 8000,
+          sessionReplayTokens: 16000,
+          botConcurrencyDefault: 2,
+          attachmentsPerMessage: 10,
+          questionsPerCard: 5,
+        },
+      },
+      'PATCH /teams/t1': () => team({ role: 'admin' }),
+    })
+    signIn({ teams: [team({ role: 'admin' })], singleTeamMode: false, canCreateTeam: false })
+    render(<TeamSettingsDialog team={team({ role: 'admin' })} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '参数' }))
+    const hops = await screen.findByLabelText('接力链长上限 · 群默认')
+    fireEvent.change(hops, { target: { value: '45' } })
+    const save = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
+    expect(save.disabled).toBe(false)
+    fireEvent.click(save)
+    await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ params: { chainMaxHops: 45 } })
+  })
+
   it('confirms a saved form on the button itself, without a toast', async () => {
     mockApi({
       'GET /teams/t1/params': {

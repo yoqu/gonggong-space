@@ -922,7 +922,7 @@ export function Sidebar({
         <>
           {sec.label}
           {sec.team && sec.depth === 1 ? <span className="sidebar__teamtag">{t('团队')}</span> : null}
-          {sec.sec ? <span className="sidebar__count">{countOf(sec)}</span> : null}
+          {sec.sec && loaded ? <span className="sidebar__count">{countOf(sec)}</span> : null}
         </>,
         sec.fold,
         actionsOf(sec),
@@ -932,7 +932,10 @@ export function Sidebar({
         {sec.others.map((d) => (
           <DirectoryRow key={d.id} d={d} />
         ))}
-        {sec.sec && !sec.fold && !keysUnder(sec).some((k) => direct(k).length || outsideIn(k).length) ? (
+        {loaded &&
+        sec.sec &&
+        !sec.fold &&
+        !keysUnder(sec).some((k) => direct(k).length || outsideIn(k).length) ? (
           <div className="sidebar__drophint">{t('把会话拖到这里')}</div>
         ) : null}
       </div>

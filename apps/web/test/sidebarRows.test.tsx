@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Sidebar, useLongPress } from '../src/app/Sidebar'
+import { useSections } from '../src/features/groups/sections'
 
 const group = (id: string, lastAt: string): GroupDto => ({
   id,
@@ -116,6 +117,22 @@ it('marks public channels with # and private groups with a lock; shortcuts share
     '全部未读',
     '稍后处理',
   ])
+})
+
+it('does not hint 把会话拖到这里 or show 0 counts under my sections before the conversations load', () => {
+  useSections.setState({ sections: [{ id: 's1', name: '我的', parentId: null }] })
+  const ui = (loaded: boolean) => (
+    <MemoryRouter initialEntries={['/']}>
+      <Sidebar groups={[]} bots={[]} machines={[]} loaded={loaded} guide={false} />
+    </MemoryRouter>
+  )
+  const { rerender } = render(ui(false))
+  expect(screen.getByRole('group', { name: '我的' })).toBeTruthy()
+  expect(screen.queryByText('把会话拖到这里')).toBeNull()
+  expect(document.querySelector('.sidebar__count')).toBeNull()
+  rerender(ui(true))
+  expect(screen.getByText('把会话拖到这里')).toBeTruthy()
+  useSections.setState({ sections: [] })
 })
 
 it('opens the menu on a long press despite a finger’s drift, but not when the press turns into a scroll', () => {

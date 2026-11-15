@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Button, CloseButton, Icon, IconButton, Tabs, useFlash } from '../src/ui'
+import { Button, CloseButton, Icon, IconButton, Stepper, Tabs, useFlash } from '../src/ui'
 
 describe('Tabs', () => {
   it('keeps tab semantics and moves with arrow keys', () => {
@@ -114,5 +114,30 @@ describe('Button busy and done', () => {
     expect(screen.getByText('on')).toBeTruthy()
     act(() => vi.advanceTimersByTime(1200))
     expect(screen.getByText('off')).toBeTruthy()
+  })
+})
+
+describe('Stepper', () => {
+  it('commits typed values only on blur by default', () => {
+    const onChange = vi.fn()
+    render(<Stepper aria-label="份数" defaultValue={1} min={1} max={99} onChange={onChange} />)
+    const input = screen.getByRole('spinbutton', { name: '份数' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '45' } })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.blur(input)
+    expect(onChange).toHaveBeenCalledWith(45)
+  })
+
+  it('reports valid in-range values while typing when live, keeping the draft text', () => {
+    const onChange = vi.fn()
+    render(<Stepper live aria-label="份数" defaultValue={1} min={1} max={99} onChange={onChange} />)
+    const input = screen.getByRole('spinbutton', { name: '份数' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '4' } })
+    fireEvent.change(input, { target: { value: '45' } })
+    expect(onChange.mock.calls).toEqual([[4], [45]])
+    fireEvent.change(input, { target: { value: '450' } })
+    fireEvent.change(input, { target: { value: '' } })
+    expect(onChange).toHaveBeenCalledTimes(2)
+    expect(input.value).toBe('')
   })
 })

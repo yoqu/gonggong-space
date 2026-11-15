@@ -264,6 +264,7 @@ export function ParamsPage() {
                     }
                   >
                     <Stepper
+                      live
                       aria-label={label}
                       unit={unit}
                       min={0}

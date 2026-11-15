@@ -202,6 +202,7 @@ export function TeamParamsTab({ team }: { team: TeamDto }) {
                 </Button>
               )}
               <Stepper
+                live
                 aria-label={label}
                 unit={unit}
                 min={1}
