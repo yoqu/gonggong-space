@@ -61,7 +61,7 @@ const versionNote = (v: ArtifactVersionDto) =>
     .join(' · ')
 
 /**
- * A hosted artifact in the workbench (docs/plan/原型编辑器-Stitch对标-开发计划.md, B3): its versions on top, its screens on
+ * A hosted artifact in the workbench (docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md, B3): its versions on top, its screens on
  * the canvas. The server hosts it, so it opens whether or not the bot's machine is online.
  */
 const PROJECT = {

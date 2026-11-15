@@ -76,7 +76,7 @@ export type WorkbenchTab =
   /** A third-party page pinned in the group's tab bar (群标签栏). */
   | { kind: 'link'; url: string; title: string }
   | { kind: 'knowledge'; knowledgeId: string; title: string }
-  /** A hosted artifact's canvas (docs/plan/原型编辑器-Stitch对标-开发计划.md); `title` until its details load. */
+  /** A hosted artifact's canvas (docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md); `title` until its details load. */
   | { kind: 'artifact'; artifactId: string; title: string }
   /** A daemon-owned shell; closing this tab only detaches its browser socket. */
   | { kind: 'terminal'; botId: string; sessionId?: string }

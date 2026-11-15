@@ -19,7 +19,7 @@ import { copyText } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { toast } from '../../ui'
 
-// R3 of docs/plan/原型编辑器-Stitch对标-开发计划.md: direct edits, annotations and AI commands from the canvas.
+// R3 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: direct edits, annotations and AI commands from the canvas.
 
 /** The group's bots, in the group's order. */
 export function useGroupBots(groupId: string): BotDto[] {

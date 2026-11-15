@@ -1,5 +1,5 @@
 /**
- * Opt-in: force sync between this machine and a second one over the LAN (docs/plan/强制同步-开发计划.md).
+ * Opt-in: force sync between this machine and a second one over the LAN (docs/archive/2026-11/强制同步-开发计划.md).
  * This machine runs the HTTPS server, an HTTP server serving the group repo and bot 甲's daemon; the remote runs bot 乙's
  * daemon from its own GONGGONG_HOME, so a desktop app already running there is left alone. SSH must work
  * non-interactively (e.g. a ControlMaster socket passed in GONGGONG_E2E_SSH_OPTS).

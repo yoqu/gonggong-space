@@ -1,5 +1,7 @@
 # 共工（Gonggong）开发约定
 
+文档索引：`docs/README.md`（每份文档的用途与状态；`docs/archive/` 只在追溯来由时按路径读）。领域现行决定见 `docs/domains/`。
+
 需求：`docs/AI 团队工作区指挥平台 需求规格说明书（v1.0） .md`；计划与决策：`docs/plan/P1-开发计划.md`；ACP 事实：`docs/plan/acp-research.md`；原型：`docs/原型UI-AI 对话 agent系统界面设计方案/*.dc.html`（界面以原型为准）。
 
 ## 结构
@@ -38,4 +40,5 @@
 - 代码、注释、标识符用英文；界面文案用中文，与原型一致。注释非必要不写，只解释「为什么」。
 - 保持精简：不引入未使用的抽象、不加兜底分支掩盖错误、不改与需求无关的代码。
 - 引入新依赖前用 `npm view` / `cargo search` 核实最新版本并查官方文档，禁止凭记忆写 API。
+- 文档：方案做完即 `git mv` 到 `docs/archive/<年月>/` 并更新 `docs/README.md`；仍有效的结论写进 `docs/domains/`，过程留在提交记录。
 - 不提交生成的迁移冲突：并行切片若都改了 schema，由集成者合并后重新生成。

@@ -77,7 +77,7 @@ const hashParam = (req: GroupReq) => {
   return r.success ? r.data : fail('invalid', '哈希无效')
 }
 
-/** Force sync (docs/plan/强制同步-开发计划.md): blob store and changes for daemons (F15), status for members. */
+/** Force sync (docs/archive/2026-11/强制同步-开发计划.md): blob store and changes for daemons (F15), status for members. */
 export function syncRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     // Blobs arrive as raw (optionally gzip) bytes and are streamed to disk; writeBlob enforces the size limit.

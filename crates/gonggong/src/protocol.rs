@@ -2426,7 +2426,7 @@ pub struct ProviderStateItem {
     pub effective: String,
 }
 
-// ── Force sync (docs/plan/强制同步-开发计划.md) ──────────────────────────────
+// ── Force sync (docs/archive/2026-11/强制同步-开发计划.md) ──────────────────────────────
 pub const SYNC_FILE_MAX_BYTES: u64 = 50 * 1024 * 1024;
 pub const SYNC_VERSION_MAX_BYTES: u64 = 200 * 1024 * 1024;
 pub const SYNC_CHANGED_MAX: usize = 20;

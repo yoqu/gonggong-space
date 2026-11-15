@@ -17,7 +17,7 @@ import {
 } from '../src/features/artifacts/palette'
 import { parseTokens, writeTokens } from '../src/features/artifacts/tokens'
 
-// R4 of docs/plan/原型编辑器-Stitch对标-开发计划.md: the design-system panel's derivations and file edits.
+// R4 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the design-system panel's derivations and file edits.
 
 describe('palette', () => {
   it('round-trips hex through HSL', () => {

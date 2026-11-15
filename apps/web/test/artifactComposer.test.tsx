@@ -13,7 +13,7 @@ import { RunCard, UserMessage } from '../src/features/chat/TimelineItems'
 import { useToasts } from '../src/ui'
 import { mockApi } from './mockApi'
 
-// G07 / G11 / G14 of docs/plan/stitch-对比-第3轮.md: the group composer and timeline around the canvas.
+// G07 / G11 / G14 of docs/archive/2026-11/stitch-对比-第3轮.md: the group composer and timeline around the canvas.
 
 const at = '2026-10-30T10:00:00Z'
 const bots = [{ id: 'b1', name: '设计助手', presence: 'online', avatar: 'role-no' }] as BotDto[]

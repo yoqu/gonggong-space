@@ -19,7 +19,7 @@ const doneCards = (page: Page, bot: string) =>
   page.getByTestId('run-card').filter({ hasText: bot }).and(page.locator('[data-status="completed"]'))
 
 /**
- * Two bots on one machine are two replicas of a repo group (docs/plan/强制同步-开发计划.md S9): the admin switches
+ * Two bots on one machine are two replicas of a repo group (docs/archive/2026-11/强制同步-开发计划.md S9): the admin switches
  * the group to force sync, edits go out to the other replica, concurrent edits of different files both go in, an
  * overlapping edit is held and settled with 采用最新, and the group switches back.
  */

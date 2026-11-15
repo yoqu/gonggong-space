@@ -29,7 +29,7 @@ import { colorRole, colorRoles, parseTokens } from '../src/features/artifacts/to
 import { realtime } from '../src/lib/realtime'
 import { mockApi } from './mockApi'
 
-// R2 of docs/plan/原型编辑器-Stitch对标-开发计划.md: the canvas against Stitch's (capability list §3, §4, §9).
+// R2 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the canvas against Stitch's (capability list §3, §4, §9).
 
 const at = '2026-10-29T10:00:00Z'
 const ORIGIN = 'https://a1.preview.test'
@@ -926,7 +926,7 @@ describe('Stitch round 2 fixes', () => {
   })
 })
 
-// Round 3 of docs/plan/stitch-对比-第3轮.md (§3 web P1).
+// Round 3 of docs/archive/2026-11/stitch-对比-第3轮.md (§3 web P1).
 const DESIGN_MD = `---
 name: 阅境
 colors:

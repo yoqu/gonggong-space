@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { I18nText } from './i18n.js'
 
-// ── Force sync (docs/plan/强制同步-开发计划.md) ──────────────────────────────
+// ── Force sync (docs/archive/2026-11/强制同步-开发计划.md) ──────────────────────────────
 /** Defaults of the system parameters (F18): a bigger file or version is held and the owner told to .gitignore it. */
 export const SYNC_FILE_MAX_BYTES = 50 * 1024 * 1024
 export const SYNC_VERSION_MAX_BYTES = 200 * 1024 * 1024

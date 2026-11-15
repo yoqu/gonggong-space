@@ -1,4 +1,4 @@
-//! Force sync in the run lifecycle (docs/plan/强制同步-开发计划.md §3.1, S4): a replica catches up before a turn,
+//! Force sync in the run lifecycle (docs/archive/2026-11/强制同步-开发计划.md §3.1, S4): a replica catches up before a turn,
 //! submits the turn's changes after it (three-way merging conflicts), and idle replicas catch up when a new version is
 //! out; the mode switch (§3.5, S8) makes a replica the base, aligns it or lets it leave; a paused replica's local edits
 //! (F12) or held conflict (F11) are settled by sync.action or a merge turn. Every step on a replica holds its lock, and

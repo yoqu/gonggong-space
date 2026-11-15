@@ -1324,7 +1324,7 @@ export const DaemonFeature = z.enum([
    */
   'gitOps3',
   /**
-   * The second IDEA pass (docs/plan/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
+   * The second IDEA pass (docs/archive/2026-11/Git管理-IDEA对标-五轮迭代.md): push `target` with explicit refs, stash `expect`,
    * discard `keepAdded` / `patch`, the add / ignore actions, git.diff `oldPath` / `whitespace`, git.action.result
    * `detail`, checkout `localCommits`, pull `from`, branch-create `force`, push `commit`, reset / amend `expect`,
    * rebase `todo`, resolve `paths`, the apply / restore actions.

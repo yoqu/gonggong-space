@@ -20,7 +20,7 @@ import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 import { change, sha, syncWorld } from './support/sync.js'
 
-// S7 (docs/plan/强制同步-开发计划.md F21, F22) and the leftovers of S4–S8.
+// S7 (docs/archive/2026-11/强制同步-开发计划.md F21, F22) and the leftovers of S4–S8.
 
 type K = 'A' | 'B'
 let t: TestApp

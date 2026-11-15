@@ -1,4 +1,4 @@
-//! Force sync on the daemon side (docs/plan/强制同步-开发计划.md §3, S3): a replica's manifest and its diff against the
+//! Force sync on the daemon side (docs/archive/2026-11/强制同步-开发计划.md §3, S3): a replica's manifest and its diff against the
 //! last known version, the cross-platform and size checks, blob transfer, apply and three-way merge.
 //! A replica is one (group, bot) managed workspace; its state lives in `<home>/sync/<group>/<bot>/`, never in the
 //! workspace: `state.json` + `journal.jsonl` (the manifest at the version the replica last matched, and the stat

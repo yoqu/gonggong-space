@@ -547,7 +547,7 @@ export const FileTextDto = z.object({
   text: z.string().nullable(),
 })
 export type FileTextDto = z.infer<typeof FileTextDto>
-// ── Manual git (plan Git增强, docs/plan/Git管理-IDEA对标-开发计划.md) ─────────────────────────────────────────────
+// ── Manual git (plan Git增强, docs/archive/2026-11/Git管理-IDEA对标-开发计划.md) ─────────────────────────────────────────────
 // Reads (any member): GET /api/groups/:id/bots/:botId/git/{refs,log,show,tree,text,compare,diff,changes,blame,stashes,
 // conflict}. Writes: POST …/git/actions — the bot owner's run at once; anyone else's wait for the owner's approval.
 // Partition groups with a repo only; writes are refused with 409 while a run of the bot (or of a bot sharing its
@@ -1334,7 +1334,7 @@ export type PinnedMessageDto = z.infer<typeof PinnedMessageDto>
 export const GroupPinsDto = z.object({ pins: z.array(PinnedMessageDto) })
 export type GroupPinsDto = z.infer<typeof GroupPinsDto>
 
-/** 群标签栏 (docs/plan/群标签栏-设计.md): shared tabs under the group header; any member edits them. */
+/** 群标签栏 (docs/archive/2026-11/群标签栏-设计.md): shared tabs under the group header; any member edits them. */
 export const MAX_GROUP_TABS = 30
 export const GROUP_TAB_TITLE_MAX = 40
 export const GROUP_TAB_URL_MAX = 2000

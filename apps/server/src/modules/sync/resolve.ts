@@ -25,7 +25,7 @@ import { blobPath, blobSize, isBinary } from './blobs.js'
 import { conflictFiles, publishSync } from './status.js'
 import { raiseIssue } from './store.js'
 
-// Settling a paused replica (docs/plan/强制同步-开发计划.md F11, F12, §3.3): local edits, held conflicts.
+// Settling a paused replica (docs/archive/2026-11/强制同步-开发计划.md F11, F12, §3.3): local edits, held conflicts.
 
 /** Larger conflict sides are not previewed. */
 const PREVIEW_MAX = 1024 * 1024

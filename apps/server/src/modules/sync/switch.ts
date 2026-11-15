@@ -23,7 +23,7 @@ import { currentRepo, onlineMachine } from '../workspaces/provision.js'
 import { publishSync } from './status.js'
 import { closeConflicts, upsertReplica } from './store.js'
 
-// Mode switch (docs/plan/强制同步-开发计划.md §3.5): partition ⇄ force, replicas joining and leaving.
+// Mode switch (docs/archive/2026-11/强制同步-开发计划.md §3.5): partition ⇄ force, replicas joining and leaving.
 
 type Q = Pick<Db, 'select'>
 

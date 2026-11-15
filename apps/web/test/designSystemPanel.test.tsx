@@ -9,7 +9,7 @@ import { realtime } from '../src/lib/realtime'
 import { useToasts } from '../src/ui/toast'
 import { apiError, type Call, mockApi } from './mockApi'
 
-// R4 of docs/plan/原型编辑器-Stitch对标-开发计划.md: the design-system panel (Stitch capability list §5).
+// R4 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the design-system panel (Stitch capability list §5).
 
 const at = '2026-10-29T10:00:00Z'
 const TOKENS = `/* generated from DESIGN.md */

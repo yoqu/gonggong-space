@@ -27,7 +27,7 @@ import { useStickOnResize } from '../src/lib/useStickOnResize'
 import { useToasts } from '../src/ui'
 import { type Call, mockApi } from './mockApi'
 
-// Fixes from the 4th Stitch comparison walk-through (docs/plan/stitch-对比-第4轮.md): web P1-01…05 and P2s.
+// Fixes from the 4th Stitch comparison walk-through (docs/archive/2026-11/stitch-对比-第4轮.md): web P1-01…05 and P2s.
 
 const at = '2026-10-30T10:00:00Z'
 const ORIGIN = 'https://a1.preview.test'

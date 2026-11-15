@@ -37,7 +37,7 @@ import { createTestApp, type TestApp } from './support/app.js'
 import { client } from './support/http.js'
 import { change, sha, syncWorld } from './support/sync.js'
 
-// Review fixes of force sync (docs/plan/强制同步-开发计划.md): retention, stuck switches, lost replicas, cleanup, limits.
+// Review fixes of force sync (docs/archive/2026-11/强制同步-开发计划.md): retention, stuck switches, lost replicas, cleanup, limits.
 
 type K = 'A' | 'B'
 type Init = Extract<ServerToDaemon, { t: 'sync.init' }>

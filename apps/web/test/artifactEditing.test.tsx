@@ -28,7 +28,7 @@ import { useToasts } from '../src/ui'
 import { apiError, type Call, mockApi } from './mockApi'
 import { PROTO_COMMANDS } from './protoCommands'
 
-// R3 of docs/plan/原型编辑器-Stitch对标-开发计划.md: Direct Edit, Mark, selection as chat context, AI commands.
+// R3 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: Direct Edit, Mark, selection as chat context, AI commands.
 
 const at = '2026-10-29T10:00:00Z'
 const ORIGIN = 'https://a1.preview.test'

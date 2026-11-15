@@ -14,7 +14,7 @@ import { useToasts } from '../src/ui'
 import { type Call, mockApi } from './mockApi'
 import { PROTO_COMMANDS } from './protoCommands'
 
-// R5 of docs/plan/原型编辑器-Stitch对标-开发计划.md: the prototype editor, export, share and QR.
+// R5 of docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md: the prototype editor, export, share and QR.
 
 const at = '2026-10-30T10:00:00Z'
 const ORIGIN = 'https://a1.preview.test'

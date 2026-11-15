@@ -1,4 +1,4 @@
-//! Gemini CLI runs (docs/plan/Gemini-CLI接入-开发计划.md) against the mock agent acting like it.
+//! Gemini CLI runs (docs/archive/2026-11/Gemini-CLI接入-开发计划.md) against the mock agent acting like it.
 #[path = "../support/provider_rig.rs"]
 mod provider_rig;
 
