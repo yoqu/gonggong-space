@@ -36,7 +36,7 @@ import type { AgentConfig } from './AgentConfig'
 import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
-import { AGENT_LABEL, AGENTS, agentsUndetected, botsApi, machineAgents, reportedAgent } from './model'
+import { AGENT_LABEL, AGENTS, agentsUndetected, botsApi, clientRuns, reportedAgent } from './model'
 import { useDm } from './ShareRequest'
 
 interface Props {
@@ -459,18 +459,29 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
           <RadioGroup
             aria-label="Agent"
             value={draft.agent}
-            options={machineAgents(m).map((k) => {
+            // An online machine whose client is too old for an agent still lists it, greyed, saying why.
+            options={AGENTS.filter((k) => clientRuns(m, k) || m?.online).map((k) => {
+              const outdated = !clientRuns(m, k)
               const v = m && reportedAgent(m, k)
               const unknown = !!m && agentsUndetected(m)
+              const missing = outdated || (!!m && !v && !unknown)
               return {
                 value: k,
-                disabled: !!m && !v && !unknown,
+                disabled: missing,
                 label: (
                   <span className="newbot__machine">
                     <img className="newbot__agent-face" src={avatarSrc(`agent-${k}`)} alt="" />
                     {AGENT_LABEL[k]}
-                    <span className={m && !v && !unknown ? 'newbot__missing' : 'newbot__muted'}>
-                      {!m ? '' : v ? (v.version ?? t('已安装')) : unknown ? t('待检测') : t('未安装')}
+                    <span className={missing ? 'newbot__missing' : 'newbot__muted'}>
+                      {outdated
+                        ? t('客户端需升级')
+                        : !m
+                          ? ''
+                          : v
+                            ? (v.version ?? t('已安装'))
+                            : unknown
+                              ? t('待检测')
+                              : t('未安装')}
                     </span>
                   </span>
                 ),

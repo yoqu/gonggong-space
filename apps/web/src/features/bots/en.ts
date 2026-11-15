@@ -1,4 +1,5 @@
 export default {
+  客户端需升级: 'Client update needed',
   '{machine} 的客户端版本较旧，「帮我审批」还不能自动放行开发命令，更多请求会问你；升级客户端后生效。':
     "{machine}'s client is older: “Review for me” cannot auto-approve development commands there yet, so more requests come to you. Upgrade the client.",
   '默认（{name}）': 'Default ({name})',

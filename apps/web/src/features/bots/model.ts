@@ -89,9 +89,15 @@ export const reportedAgent = (m: MachineDto, kind: AgentKind) =>
 /** Offline and never reported: whether an agent is installed is not known yet (待检测, not 未安装). */
 export const agentsUndetected = (m: MachineDto) => !m.online && m.agents.length === 0
 
-/** The agents a machine's client can run: one from before an agent was added never offers it. */
-export const machineAgents = (m: MachineDto | null | undefined) =>
-  AGENTS.filter((k) => !isLaterAgent(k) || !m || m.features.includes(k))
+/**
+ * Whether a machine's client can run an agent: one from before the agent was added never offers it. Features are
+ * known only while the machine is connected, so an agent the client has reported counts too (offline, reconnecting).
+ */
+export const clientRuns = (m: MachineDto | null | undefined, kind: AgentKind) =>
+  !isLaterAgent(kind) || !m || m.features.includes(kind) || m.agents.some((a) => a.kind === kind)
+
+/** The agents a machine's client can run. */
+export const machineAgents = (m: MachineDto | null | undefined) => AGENTS.filter((k) => clientRuns(m, k))
 
 const saveBot = (bot: BotDto) => {
   useWorkspace.getState().applyEvent({ t: 'bot.updated', bot })

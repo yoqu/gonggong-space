@@ -353,6 +353,41 @@ describe('新建 Bot', () => {
     expect(within(dialog).getByRole('button', { name: '完成' }).className).toContain('ui-btn--primary')
   })
 
+  it('greys out an agent the machine client is too old for, instead of leaving it out', async () => {
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [mbp] }]
+    routes['GET /api/machines'] = () => [mbp]
+    renderAt('/machines', wang)
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    const agy = await within(dialog).findByRole('radio', { name: /Antigravity CLI\s*客户端需升级/ })
+    expect(agy.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('keeps offering an agent the client reported while the machine is reconnecting', async () => {
+    const away: MachineDto = {
+      ...mbp,
+      online: false,
+      agents: [
+        ...mbp.agents,
+        {
+          kind: 'antigravity',
+          available: true,
+          version: '1.5.9',
+          path: '/bin/agy',
+          minVersion: null,
+          catalog: null,
+        },
+      ],
+    }
+    routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [away] }]
+    routes['GET /api/machines'] = () => [away]
+    renderAt('/machines', wang)
+    fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
+    const agy = await within(dialog).findByRole('radio', { name: /Antigravity CLI\s*1\.5\.9/ })
+    expect(agy.hasAttribute('disabled')).toBe(false)
+  })
+
   it('leads with 完成 and says 待检测 when the machine is offline and never reported its agents', async () => {
     const unseen = { ...mbp, online: false, agents: [] }
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [unseen] }]
