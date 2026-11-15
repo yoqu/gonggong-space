@@ -1870,7 +1870,7 @@ export const terminalSpaces = pgTable(
   (t) => [index('terminal_spaces_owner').on(t.ownerId)],
 )
 
-// ── Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md §3.1) ──────────────
+// ── Hosted artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md §3.1) ──────────────
 export const artifacts = pgTable(
   'artifacts',
   {

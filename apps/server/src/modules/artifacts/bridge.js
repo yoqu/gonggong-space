@@ -1,4 +1,4 @@
-// gg-bridge: injected by the server into the screens of a member's artifact preview (docs/plan/产物托管与编辑-开发计划.md
+// gg-bridge: injected by the server into the screens of a member's artifact preview (docs/archive/2026-11/产物托管与编辑-开发计划.md
 // §3.4, contract BridgeToShell / BridgeFromShell in packages/protocol/src/artifacts.ts). Talks only to the main site
 // origin in its own `data-gg-parent`, and only takes messages from that origin and from `parent`.
 ;(() => {

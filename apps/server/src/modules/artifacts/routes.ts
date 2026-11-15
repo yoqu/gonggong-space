@@ -175,7 +175,7 @@ const PNG_HEADERS = {
 
 const PreviewReq = z.object({ versionId: z.string().nullable().optional() })
 
-/** Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md S1): daemon checkout / upload, members' reads. */
+/** Hosted artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md S1): daemon checkout / upload, members' reads. */
 export function artifactRoutes(ctx: Ctx) {
   return async (app: FastifyInstance) => {
     // Raw (optionally gzip) bytes streamed to disk; the store enforces the size limit.

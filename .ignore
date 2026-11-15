@@ -6,6 +6,14 @@ docs/原型UI-AI 对话 agent系统界面设计方案/_ds/
 docs/原型UI-AI 对话 agent系统界面设计方案/uploads/
 docs/design/pane/components/bundle.*
 apps/server/plugins/official/slides/
+# Generic design knowledge the prototype agent reads at run time; not code.
+apps/server/plugins/official/web-prototype/skills/web-prototype/craft/
 pnpm-lock.yaml
 Cargo.lock
 docs/archive/
+docs/release-notes/
+docs/promo/
+docs/原型UI-AI 对话 agent系统界面设计方案/support.js
+docs/原型UI-AI 对话 agent系统界面设计方案/image-slot.js
+# English mirror of the docs site: change website/<path> and sync website/en/<path> by the same path (see AGENTS.md).
+website/en/

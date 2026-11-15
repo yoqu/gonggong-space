@@ -1,4 +1,4 @@
-//! Hosted artifacts on the daemon side (docs/plan/产物托管与编辑-开发计划.md §3.2, slice D): the server holds each
+//! Hosted artifacts on the daemon side (docs/archive/2026-11/产物托管与编辑-开发计划.md §3.2, slice D): the server holds each
 //! `design/<slug>/` folder as versions. Before a turn, changes made here since the version last known (offline, a failed
 //! upload, a hand edit) go up first, and only then is the head checked out: a folder whose changes could not go up is
 //! left as it is. After the turn the folder goes up as a new version, with one PNG per screen of its gg-artifact.json

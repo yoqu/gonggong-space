@@ -1,7 +1,7 @@
 import type { Attachment, DiffScope } from '@gonggong/protocol'
 import { create } from 'zustand'
 
-/** Right-hand workbench of the chat page (docs/plan/预览工作台-设计.md): tabs per group, three space modes. */
+/** Right-hand workbench of the chat page (docs/archive/2026-11/预览工作台-设计.md): tabs per group, three space modes. */
 /** 1-based inclusive line range of a file. */
 export interface LineRange {
   from: number

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { SyncHash, SyncPath, syncRootText } from './sync.js'
 
-// ── Artifacts (docs/plan/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
+// ── Artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
 
 export const ARTIFACT_FILE_MAX_BYTES = 10 * 1024 * 1024
 export const ARTIFACT_VERSION_MAX_BYTES = 200 * 1024 * 1024

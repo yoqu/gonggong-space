@@ -1,4 +1,4 @@
-//! Hosted artifacts (docs/plan/产物托管与编辑-开发计划.md §3.2, slice D) against a stand-in server: local changes go up
+//! Hosted artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md §3.2, slice D) against a stand-in server: local changes go up
 //! before the head is checked out (and a folder whose changes could not go up is left alone), a turn's changes go up
 //! after it with a key that makes retries idempotent, and nothing outside the folder is ever written.
 use gonggong::artifacts::Artifacts;

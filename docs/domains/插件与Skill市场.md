@@ -68,7 +68,7 @@
 
 ## 来源
 - `docs/plan/插件体系-contributes-方案.md`
-- `docs/plan/Agent工具与供应商统一管理-设计.md`
+- `docs/archive/2026-11/Agent工具与供应商统一管理-设计.md`
 - `docs/archive/2026-11/插件体系-方案.md`、`插件体系-开发计划.md`、`插件体系-创作重构-开发计划.md`
 - `docs/archive/2026-11/Skill市场-PRD.md`、`Skill市场-M1-开发计划.md` ~ `Skill市场-M4-开发计划.md`
 - `docs/archive/2026-11/插件Skill市场-体验迭代.md`、`团队Skill-开发计划.md`、`内置MCP-Skill管理-开发计划.md`

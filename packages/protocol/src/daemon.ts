@@ -1298,7 +1298,7 @@ export const CastState = z.object({
   retryIn: z.number().int().nonnegative().optional(),
 })
 
-// ── Agent tools and providers (docs/plan/Agent工具与供应商统一管理-设计.md) ─────
+// ── Agent tools and providers (docs/archive/2026-11/Agent工具与供应商统一管理-设计.md) ─────
 /**
  * `tools`: tools.cmd; `providers`: providers.cmd; `ccSwitch`: ccswitch.* (only when the machine has CC Switch).
  * Provider settings live on the machine only: the server relays them in memory and never stores or logs them.
