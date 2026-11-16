@@ -1,12 +1,19 @@
 import {
+  AGENT_KINDS,
   AGENT_META,
   type AgentKind,
   type AgentSettingValues,
-  type DirListingDto,
+  API_PROTOCOLS,
+  type ApiProtocol,
+  agentMeta,
+  agentTakes,
+  clientRunsAgent,
+  type EndpointInput,
   fieldsFor,
   type ModelMap,
   type OfficialProviderReq,
   type OfficialSettings,
+  type PresetEndpoint,
   type ProviderPreset,
   type ProviderSavedDto,
   type ProviderStoreView,
@@ -15,7 +22,7 @@ import {
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { errorText } from '../../lib/api'
 import {
   Alert,
   Button,
@@ -23,6 +30,7 @@ import {
   ComboBox,
   Dialog,
   Disclosure,
+  Divider,
   Form,
   FormRow,
   GroupBox,
@@ -30,9 +38,11 @@ import {
   SearchField,
   SecureField,
   Skeleton,
+  Tag,
   TextField,
 } from '../../ui'
-import { DirPicker, join } from '../workspaces/DirPicker'
+import { PROTOCOL_AGENT, PROTOCOL_LABEL } from '../agents/model'
+import type { AgentsSource } from '../agents/source'
 import { envText, fieldTexts, joinProviderEnv, parseEnv, splitEnv, textOf } from './agentSettings'
 import { ProviderSettingRows } from './ProviderSettings'
 
@@ -42,24 +52,11 @@ const GROUPS: { key: ProviderPreset['group']; label: string }[] = [
   { key: 'global', label: t('海外') },
 ]
 const TIERS = ['haiku', 'sonnet', 'opus'] as const
-/** The API each agent CLI speaks: 共工 converts nothing, so the provider has to offer it. */
-const PROTOCOL: Record<AgentKind, string> = {
-  claude: 'Anthropic Messages',
-  codex: 'OpenAI Responses',
-  gemini: 'Google Gemini',
-  codebuddy: 'CodeBuddy',
-  pi: '',
-  deepseek: 'Anthropic Messages',
-  antigravity: '',
-}
-const URL_HINT: Record<AgentKind, string> = {
-  claude: 'https://…/anthropic',
-  codex: 'https://…/v1',
+const URL_HINT: Record<ApiProtocol, string> = {
+  anthropic: 'https://…/anthropic',
+  openai: 'https://…/v1',
   gemini: 'https://generativelanguage.googleapis.com',
   codebuddy: 'https://copilot.tencent.com',
-  pi: '',
-  deepseek: 'https://api.deepseek.com/anthropic',
-  antigravity: '',
 }
 const FORM_ID = 'provider-form'
 const OFFICIAL_FORM_ID = 'official-form'
@@ -82,41 +79,55 @@ interface EnvFields {
   base: AgentSettingValues
 }
 
-function envFields(agent: AgentKind, env: Record<string, string>): EnvFields {
-  const fields = fieldsFor(agent, 'provider')
+const settingFields = (protocol: ApiProtocol) => fieldsFor(PROTOCOL_AGENT[protocol], 'provider')
+
+function envFields(protocol: ApiProtocol, env: Record<string, string>): EnvFields {
+  const fields = settingFields(protocol)
   const { values, other } = splitEnv(env, fields)
   return { env: envText(other), settings: fieldTexts(fields, values), base: values }
 }
 
-interface Fields extends EnvFields {
-  name: string
-  configDir: string
-  executablePath: string
+/** One protocol of the provider being edited. */
+interface EndpointFields extends EnvFields {
+  protocol: ApiProtocol
   baseUrl: string
-  apiKey: string
   model: string
   models: Record<(typeof TIERS)[number], string>
-  proxy: string
   args: string
 }
 
-const fieldsOf = (
-  p: Pick<ProviderPreset, 'agent' | 'name' | 'baseUrl' | 'model' | 'models' | 'env'>,
-): Fields => ({
-  name: p.name,
-  configDir: '',
-  executablePath: '',
-  baseUrl: p.baseUrl,
-  apiKey: '',
-  model: p.model ?? '',
-  models: { haiku: p.models?.haiku ?? '', sonnet: p.models?.sonnet ?? '', opus: p.models?.opus ?? '' },
-  ...envFields(p.agent, p.env),
-  proxy: '',
-  args: '',
+type EndpointLike = Pick<PresetEndpoint, 'protocol' | 'baseUrl' | 'model' | 'models' | 'env'> & {
+  args?: string[]
+}
+
+const endpointFields = (e: EndpointLike): EndpointFields => ({
+  protocol: e.protocol,
+  baseUrl: e.baseUrl,
+  model: e.model ?? '',
+  models: { haiku: e.models?.haiku ?? '', sonnet: e.models?.sonnet ?? '', opus: e.models?.opus ?? '' },
+  ...envFields(e.protocol, e.env),
+  args: e.args?.join('\n') ?? '',
 })
 
-const empty = (agent: AgentKind) =>
-  fieldsOf({ agent, name: '', baseUrl: '', model: null, models: null, env: {} })
+const blank = (protocol: ApiProtocol): EndpointLike => ({
+  protocol,
+  baseUrl: '',
+  model: null,
+  models: null,
+  env: {},
+})
+
+interface Fields {
+  name: string
+  apiKey: string
+  proxy: string
+  configDir: string
+  executablePath: string
+  /** Every protocol the form knows (checked or not), so unchecking keeps what was typed. */
+  endpoints: EndpointFields[]
+  /** The protocols the provider will serve. */
+  on: ApiProtocol[]
+}
 
 /** The other variables' value of `name`, if they parse and set it. */
 function otherValue(text: string, name: string) {
@@ -134,161 +145,218 @@ const withoutVar = (text: string, name: string) =>
     .filter((l) => l.split('=')[0]?.trim() !== name)
     .join('\n')
 
+const argLines = (text: string) =>
+  text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+/** The protocols offered for `preset` (its endpoints), or all of them for a custom one. */
+const protocolsOf = (preset: ProviderPreset | null) =>
+  preset ? preset.endpoints.map((e) => e.protocol) : [...API_PROTOCOLS]
+
+function fromPreset(preset: ProviderPreset | null, single: boolean): Fields {
+  const endpoints = protocolsOf(preset).map((p) =>
+    endpointFields(preset?.endpoints.find((e) => e.protocol === p) ?? blank(p)),
+  )
+  const first = endpoints[0]?.protocol ?? 'anthropic'
+  return {
+    name: preset?.name ?? '',
+    apiKey: '',
+    proxy: '',
+    configDir: '',
+    executablePath: '',
+    endpoints,
+    on: preset && !single ? endpoints.map((e) => e.protocol) : [first],
+  }
+}
+
+function fromView(p: ProviderView): Fields {
+  const known = (protocol: ApiProtocol) => p.endpoints.find((e) => e.protocol === protocol)
+  const profile = p.endpoints.find((e) => e.configDir)
+  return {
+    name: p.name,
+    apiKey: '',
+    proxy: p.proxy ?? '',
+    configDir: profile?.configDir ?? '',
+    executablePath: profile?.executablePath ?? '',
+    endpoints: API_PROTOCOLS.map((x) => endpointFields(known(x) ?? blank(x))),
+    on: p.endpoints.map((e) => e.protocol),
+  }
+}
+
+/** The agents a provider serving `protocols` could be the default of (Claude Code alone for a profile). */
+const defaultable = (features: readonly string[], protocols: ApiProtocol[], profile: boolean) =>
+  AGENT_KINDS.filter(
+    (a) =>
+      agentMeta(a).login === 'provider' &&
+      clientRunsAgent(features, a) &&
+      (profile ? a === 'claude' : protocols.some((p) => agentTakes(a, p))),
+  )
+
 /**
- * 新增 (vendor first, then only the key) or 编辑 a provider of this machine. The stored key is never shown: it is
- * sent only when typed, so an empty field keeps it.
+ * 新增 (vendor first, then only the key) or 编辑 a provider of the machine: one vendor, an endpoint per protocol it
+ * serves. The stored key is never shown: it is sent only when typed, so an empty field keeps it. An older client
+ * keeps one protocol per provider.
  */
 export function ProviderEditor({
-  machineId,
-  agent,
-  profiles,
+  source,
   editing,
   onClose,
   onSaved,
 }: {
-  machineId: string
-  agent: AgentKind
-  /** The daemon can run a local Claude config directory (`claudeProfile`). */
-  profiles: boolean
+  source: AgentsSource
   /** null = a new provider. */
   editing: ProviderView | null
   onClose: () => void
-  onSaved: (saved: ProviderSavedDto, setDefault: boolean) => void
+  onSaved: (saved: ProviderSavedDto) => void
 }) {
+  const single = !source.features.includes('protocolProviders')
+  const profiles = source.features.includes('claudeProfile')
   const [presets, setPresets] = useState<ProviderPreset[] | null>(null)
   /** undefined while picking the vendor; null = 自定义. */
   const [preset, setPreset] = useState<ProviderPreset | null | undefined>(editing ? null : undefined)
-  const [f, setF] = useState<Fields>(
-    editing
-      ? {
-          ...fieldsOf(editing),
-          configDir: editing.configDir ?? '',
-          executablePath: editing.executablePath ?? '',
-          proxy: editing.proxy ?? '',
-          args: editing.args.join('\n'),
-        }
-      : empty(agent),
-  )
-  const [localProfile, setLocalProfile] = useState(Boolean(editing?.configDir))
-  const [setDefault, setSetDefault] = useState(false)
+  const [f, setF] = useState<Fields>(editing ? fromView(editing) : fromPreset(null, single))
+  const [localProfile, setLocalProfile] = useState(!!editing?.endpoints.some((e) => e.configDir))
+  const [setDefault, setSetDefault] = useState<AgentKind[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const [browsing, setBrowsing] = useState(false)
   const [suggested, setSuggested] = useState<string[]>([])
 
-  // The home's hidden Claude directories (`~/.claude-work`, `~/.qorz-claude`), not the official login's own
-  // `~/.claude`; browsing still reaches any other.
   useEffect(() => {
-    if (!localProfile) return
+    if (!localProfile || !source.claudeDirs) return
     let live = true
-    api.get<DirListingDto>(`/machines/${machineId}/dirs?hidden=1`).then(
-      (d) =>
-        live &&
-        setSuggested(
-          d.entries
-            .filter((e) => /^\..*claude/i.test(e.name) && e.name !== '.claude')
-            .map((e) => join(d.path, e.name)),
-        ),
-      // Suggestions only: 浏览… shows why the machine cannot be read.
+    // Suggestions only: 浏览… shows why the machine cannot be read.
+    source.claudeDirs().then(
+      (dirs) => live && setSuggested(dirs),
       () => {},
     )
     return () => {
       live = false
     }
-  }, [machineId, localProfile])
+  }, [source, localProfile])
 
   useEffect(() => {
-    api.get<ProviderPreset[]>(`/machines/${machineId}/providers/presets?agent=${agent}`).then(
+    source.presets().then(
       (list) => {
         setPresets(list)
         if (editing?.presetId) setPreset(list.find((p) => p.id === editing.presetId) ?? null)
       },
       (e) => setError(errorText(e)),
     )
-  }, [machineId, agent, editing])
+  }, [source, editing])
 
   const pick = (p: ProviderPreset | null, profile = false) => {
     setPreset(p)
     setLocalProfile(profile)
-    setF(p ? fieldsOf(p) : empty(agent))
+    setF(fromPreset(p, single))
+    setSetDefault([])
     setError(null)
   }
   const set = (patch: Partial<Fields>) => setF((x) => ({ ...x, ...patch }))
+  const setEndpoint = (protocol: ApiProtocol, patch: Partial<EndpointFields>) =>
+    setF((x) => ({
+      ...x,
+      endpoints: x.endpoints.map((e) => (e.protocol === protocol ? { ...e, ...patch } : e)),
+    }))
+  const toggle = (protocol: ApiProtocol, on: boolean) =>
+    setF((x) => ({
+      ...x,
+      on: on
+        ? single
+          ? [protocol]
+          : API_PROTOCOLS.filter((p) => p === protocol || x.on.includes(p))
+        : x.on.filter((p) => p !== protocol),
+    }))
   const setConfigDir = (configDir: string) =>
     setF((x) => ({
       ...x,
       configDir,
       ...((!x.name.trim() || x.name === profileName(x.configDir)) && { name: profileName(configDir) }),
     }))
-  const fields = fieldsFor(agent, 'provider')
-  const presetEnv = preset ? envFields(agent, preset.env) : null
-  const modelWindow = preset?.modelContext?.[f.model.trim()]
-  const restore = (id: string) => {
-    const field = fields.find((x) => x.id === id)
-    if (!field || !presetEnv) return
-    const raw = presetEnv.base[id] ?? ''
-    setF((x) => ({
-      ...x,
-      settings: { ...x.settings, [id]: textOf(field, raw) },
-      base: { ...x.base, [id]: raw },
-    }))
+  const presetEndpoint = (protocol: ApiProtocol) => preset?.endpoints.find((e) => e.protocol === protocol)
+  const editingEndpoint = (protocol: ApiProtocol) => editing?.endpoints.find((e) => e.protocol === protocol)
+  const active = localProfile
+    ? f.endpoints.filter((e) => e.protocol === 'anthropic')
+    : f.endpoints.filter((e) => f.on.includes(e.protocol))
+  const offered = localProfile ? [] : editing ? [...API_PROTOCOLS] : protocolsOf(preset ?? null)
+  const agentsFor = defaultable(
+    source.features,
+    active.map((e) => e.protocol),
+    localProfile,
+  )
+
+  const endpointInput = (e: EndpointFields): EndpointInput => {
+    const modelWindow = presetEndpoint(e.protocol)?.modelContext[e.model.trim()]
+    const env = joinProviderEnv({
+      fields: settingFields(e.protocol),
+      texts: e.settings,
+      initial: e.base,
+      other: e.env,
+      modelWindow,
+    })
+    const anthropic = e.protocol === 'anthropic'
+    // A profile's login and models come from its own directory: never send a key or URL a field once held.
+    if (localProfile)
+      return {
+        protocol: 'anthropic',
+        configDir: f.configDir.trim(),
+        executablePath: f.executablePath.trim(),
+        model: '',
+        models: {},
+        env,
+        args: argLines(e.args),
+      }
+    const models: ModelMap = Object.fromEntries(
+      TIERS.flatMap((tier) => (e.models[tier].trim() ? [[tier, e.models[tier].trim()]] : [])),
+    )
+    return {
+      protocol: e.protocol,
+      baseUrl: e.baseUrl.trim(),
+      model: e.model.trim(),
+      env,
+      ...(anthropic && { models, args: argLines(e.args) }),
+    }
   }
-  // A profile has no model mapping to move it to.
-  const smallFast = agent === 'claude' && !localProfile ? otherValue(f.env, SMALL_FAST) : undefined
 
   const save = async () => {
     if (!f.name.trim()) return setError(t('请填写名称'))
     if (localProfile && !f.configDir.trim()) return setError(t('请填写配置目录'))
-    if (!localProfile && !f.baseUrl.trim()) return setError(t('请填写 Base URL'))
+    if (!active.length) return setError(t('请至少选择一种协议'))
+    if (!localProfile && active.some((e) => !e.baseUrl.trim())) return setError(t('请填写 Base URL'))
     if (!localProfile && !editing && !f.apiKey.trim()) return setError(t('请填写 API Key'))
-    let env: Record<string, string>
+    let endpoints: EndpointInput[]
     try {
-      env = joinProviderEnv({ fields, texts: f.settings, initial: f.base, other: f.env, modelWindow })
+      endpoints = active.map(endpointInput)
     } catch (e) {
       return setError((e as Error).message)
     }
-    const models: ModelMap = Object.fromEntries(
-      TIERS.flatMap((tier) => (f.models[tier].trim() ? [[tier, f.models[tier].trim()]] : [])),
-    )
-    // A profile's login and models come from its own directory: never send a key or URL a field once held, and
-    // clear a model mapping an older editor stored.
-    const body: SaveProviderReq = localProfile
-      ? {
-          agent,
-          name: f.name.trim(),
-          configDir: f.configDir.trim(),
-          executablePath: f.executablePath.trim(),
-          model: '',
-          models: {},
-          env,
-          proxy: f.proxy.trim(),
-          args: argLines(f.args),
-        }
-      : {
-          agent,
-          ...(!editing && preset && { presetId: preset.id }),
-          name: f.name.trim(),
-          baseUrl: f.baseUrl.trim(),
-          ...(f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
-          model: f.model.trim(),
-          env,
-          proxy: f.proxy.trim(),
-          ...(agent === 'claude' && { models, args: argLines(f.args) }),
-        }
+    const kept = new Set(endpoints.map((e) => e.protocol))
+    const removeProtocols = (editing?.endpoints ?? []).map((e) => e.protocol).filter((p) => !kept.has(p))
+    const chosen = setDefault.filter((a) => agentsFor.includes(a))
+    const body: SaveProviderReq = {
+      ...(!editing && preset && { presetId: preset.id }),
+      name: f.name.trim(),
+      ...(!localProfile && f.apiKey.trim() && { apiKey: f.apiKey.trim() }),
+      proxy: f.proxy.trim(),
+      endpoints,
+      ...(removeProtocols.length && { removeProtocols }),
+      setDefault: chosen,
+      // An older client keeps the provider for one agent: the one it becomes the default of, if any.
+      ...(single && chosen[0] && { agent: chosen[0] }),
+    }
     setSaving(true)
     try {
-      const saved = editing
-        ? await api.put<ProviderSavedDto>(`/machines/${machineId}/providers/${editing.id}`, body)
-        : await api.post<ProviderSavedDto>(`/machines/${machineId}/providers`, body)
-      onSaved(saved, setDefault)
+      onSaved(await source.saveProvider(editing?.id ?? null, body))
     } catch (e) {
       setError(errorText(e))
       setSaving(false)
     }
   }
 
-  const title = editing ? t('编辑供应商') : t('新增 {agent} 供应商', { agent: AGENT_META[agent].name })
+  const title = editing ? t('编辑供应商') : t('新增供应商')
   if (preset === undefined)
     return (
       <Dialog open onClose={onClose} title={title} message={t('选择厂商，之后只需填写 API Key')} width={520}>
@@ -296,22 +364,12 @@ export function ProviderEditor({
         <VendorPicker
           presets={presets}
           onPick={pick}
-          onProfile={agent === 'claude' && profiles ? () => pick(null, true) : undefined}
+          onProfile={profiles ? () => pick(null, true) : undefined}
         />
       </Dialog>
     )
 
   const keyUrl = preset && (preset.apiKeyUrl ?? preset.websiteUrl)
-  const baseUrl = (
-    <FormRow label="Base URL">
-      <TextField
-        aria-label="Base URL"
-        value={f.baseUrl}
-        onChange={(e) => set({ baseUrl: e.target.value })}
-        placeholder={URL_HINT[agent]}
-      />
-    </FormRow>
-  )
   return (
     <Dialog
       open
@@ -323,7 +381,16 @@ export function ProviderEditor({
         editing && preset ? (
           <Button
             variant="plain"
-            onClick={() => setF({ ...fieldsOf(preset), apiKey: f.apiKey, proxy: f.proxy, args: f.args })}
+            onClick={() =>
+              setF((x) => ({
+                ...x,
+                name: preset.name,
+                endpoints: x.endpoints.map((e) => {
+                  const p = presetEndpoint(e.protocol)
+                  return p ? { ...endpointFields(p), args: e.args } : e
+                }),
+              }))
+            }
           >
             {t('恢复为预设值')}
           </Button>
@@ -348,59 +415,40 @@ export function ProviderEditor({
         <FormRow label={t('名称')}>
           <TextField aria-label={t('名称')} value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </FormRow>
-        {localProfile ? null : (
-          <FormRow
-            label={t('协议')}
-            hint={t('由 {agent} 决定，供应商需提供这种接口', { agent: AGENT_META[agent].name })}
-          >
-            <span>{PROTOCOL[agent]}</span>
-          </FormRow>
-        )}
         {localProfile ? (
-          <>
-            <FormRow
-              label={t('配置目录')}
-              hint={t('Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」')}
-            >
-              <span className="mx-inline mx-field-row">
-                <ComboBox
-                  aria-label={t('配置目录')}
-                  options={suggested}
-                  value={f.configDir}
-                  placeholder={t('该机器上的绝对路径')}
-                  onInput={setConfigDir}
-                  onChange={setConfigDir}
-                />
-                <Button size="small" onClick={() => setBrowsing(true)}>
-                  {t('浏览…')}
-                </Button>
-              </span>
-            </FormRow>
-            {browsing ? (
-              <DirPicker
-                machineId={machineId}
-                title={t('选择配置目录')}
-                start={f.configDir.trim() || null}
-                hidden
-                hint={t('进入配置目录后选择')}
-                onPick={(configDir) => {
-                  setConfigDir(configDir)
-                  setBrowsing(false)
-                }}
-                onClose={() => setBrowsing(false)}
-              />
-            ) : null}
-            <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用该机器的 Agent 路径')}>
-              <TextField
-                aria-label={t('Claude 可执行文件')}
-                value={f.executablePath}
-                onChange={(e) => set({ executablePath: e.target.value })}
-              />
-            </FormRow>
-          </>
+          <ProfileRows
+            source={source}
+            configDir={f.configDir}
+            executablePath={f.executablePath}
+            suggested={suggested}
+            browsing={browsing}
+            onBrowse={setBrowsing}
+            onConfigDir={setConfigDir}
+            onExecutable={(executablePath) => set({ executablePath })}
+          />
         ) : (
           <>
-            {preset ? null : baseUrl}
+            <FormRow
+              label={t('协议')}
+              hint={
+                single
+                  ? t('该机器的客户端较旧，一个供应商只能登记一种协议')
+                  : t(
+                      'Agent 只能用协议对得上的供应商：Claude Code 需要 Anthropic 兼容，Codex 需要 OpenAI 兼容',
+                    )
+              }
+            >
+              <span className="mx-inline mx-preset">
+                {offered.map((p) => (
+                  <Checkbox
+                    key={p}
+                    label={PROTOCOL_LABEL[p]}
+                    checked={f.on.includes(p)}
+                    onChange={(on) => toggle(p, on)}
+                  />
+                ))}
+              </span>
+            </FormRow>
             <FormRow
               label="API Key"
               hint={editing ? t('留空则保留已保存的 Key') : t('Key 只保存在这台机器上')}
@@ -420,80 +468,48 @@ export function ProviderEditor({
                 ) : null}
               </span>
             </FormRow>
-            <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
-              <ComboBox
-                aria-label={t('模型')}
-                options={preset?.modelOptions ?? []}
-                value={f.model}
-                placeholder={t('默认')}
-                onInput={(model) => set({ model })}
-                onChange={(model) => set({ model })}
-              />
-            </FormRow>
           </>
         )}
-        {editing ? null : (
-          <FormRow>
-            <Checkbox label={t('设为该机器默认')} checked={setDefault} onChange={setSetDefault} />
+        {active.map((e) => (
+          <EndpointRows
+            key={e.protocol}
+            endpoint={e}
+            profile={localProfile}
+            fromPreset={!!presetEndpoint(e.protocol) && !advanced}
+            advanced={advanced}
+            options={
+              presetEndpoint(e.protocol)?.modelOptions ?? editingEndpoint(e.protocol)?.modelOptions ?? []
+            }
+            preset={presetEndpoint(e.protocol)}
+            onChange={(patch) => setEndpoint(e.protocol, patch)}
+          />
+        ))}
+        {editing || !agentsFor.length ? null : (
+          <FormRow label={t('设为默认')} hint={t('这些 Agent 在该机器上默认使用它')}>
+            <span className="mx-inline mx-preset">
+              {agentsFor.map((a) => (
+                <Checkbox
+                  key={a}
+                  label={AGENT_META[a].name}
+                  checked={setDefault.includes(a)}
+                  onChange={(on) => setSetDefault((x) => (on ? [...x, a] : x.filter((y) => y !== a)))}
+                />
+              ))}
+            </span>
           </FormRow>
         )}
         <FormRow>
           <Disclosure title={t('高级')} open={advanced} onToggle={setAdvanced} />
         </FormRow>
         {advanced ? (
-          <>
-            {preset ? baseUrl : null}
-            {agent === 'claude' && !localProfile
-              ? TIERS.map((tier) => (
-                  <FormRow
-                    key={tier}
-                    label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
-                  >
-                    <TextField
-                      aria-label={t('{tier} 模型', { tier })}
-                      value={f.models[tier]}
-                      onChange={(e) => set({ models: { ...f.models, [tier]: e.target.value } })}
-                    />
-                  </FormRow>
-                ))
-              : null}
-            <ProviderSettingRows
-              fields={fields}
-              texts={f.settings}
-              preset={presetEnv?.settings}
-              modelWindow={modelWindow}
-              onChange={(id, text) => set({ settings: { ...f.settings, [id]: text } })}
-              onRestore={restore}
+          <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
+            <TextField
+              aria-label={t('代理地址')}
+              placeholder="http://127.0.0.1:7890"
+              value={f.proxy}
+              onChange={(e) => set({ proxy: e.target.value })}
             />
-            <ExtraRows
-              proxy={f.proxy}
-              env={f.env}
-              args={agent === 'claude' ? f.args : undefined}
-              envLabel={fields.length ? t('其他环境变量') : t('环境变量')}
-              proxyHint={t('Agent 经此代理访问供应商，留空为直连')}
-              onChange={set}
-            />
-            {smallFast !== undefined ? (
-              <FormRow>
-                <Alert
-                  variant="warning"
-                  description={t('{name} 已废弃，请改用 Haiku 模型映射', { name: SMALL_FAST })}
-                >
-                  <Button
-                    size="small"
-                    onClick={() =>
-                      set({
-                        env: withoutVar(f.env, SMALL_FAST),
-                        models: { ...f.models, haiku: f.models.haiku || smallFast },
-                      })
-                    }
-                  >
-                    {t('改用 Haiku 映射')}
-                  </Button>
-                </Alert>
-              </FormRow>
-            ) : null}
-          </>
+          </FormRow>
         ) : null}
         {error ? (
           <FormRow>
@@ -507,92 +523,247 @@ export function ProviderEditor({
   )
 }
 
-const argLines = (text: string) =>
-  text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-/** `args`: Claude Code's command-line arguments; undefined for other agents. */
-function ExtraRows({
-  proxy,
-  env,
-  args,
-  envLabel,
-  proxyHint,
-  onChange,
+/** A local Claude profile: its directory (suggested, typed or browsed) and an optional executable. */
+function ProfileRows({
+  source,
+  configDir,
+  executablePath,
+  suggested,
+  browsing,
+  onBrowse,
+  onConfigDir,
+  onExecutable,
 }: {
-  proxy: string
-  env: string
-  args?: string
-  envLabel: string
-  proxyHint: string
-  onChange: (patch: { proxy?: string; env?: string; args?: string }) => void
+  source: AgentsSource
+  configDir: string
+  executablePath: string
+  suggested: string[]
+  browsing: boolean
+  onBrowse: (on: boolean) => void
+  onConfigDir: (dir: string) => void
+  onExecutable: (path: string) => void
 }) {
   return (
     <>
-      <FormRow label={t('代理地址')} hint={proxyHint}>
-        <TextField
-          aria-label={t('代理地址')}
-          placeholder="http://127.0.0.1:7890"
-          value={proxy}
-          onChange={(e) => onChange({ proxy: e.target.value })}
-        />
-      </FormRow>
-      {args === undefined ? null : (
-        <FormRow
-          label={t('命令行参数')}
-          align="top"
-          hint={t(
-            '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置',
-          )}
-        >
-          <TextField
-            multiline
-            aria-label={t('命令行参数')}
-            rows={2}
-            placeholder="--settings ~/team.json"
-            value={args}
-            onChange={(e) => onChange({ args: e.target.value })}
+      <FormRow
+        label={t('配置目录')}
+        hint={t('Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」')}
+      >
+        <span className="mx-inline mx-field-row">
+          <ComboBox
+            aria-label={t('配置目录')}
+            options={suggested}
+            value={configDir}
+            placeholder={t('该机器上的绝对路径')}
+            onInput={onConfigDir}
+            onChange={onConfigDir}
           />
-        </FormRow>
-      )}
-      <FormRow label={envLabel} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
+          {source.renderDirPicker ? (
+            <Button size="small" onClick={() => onBrowse(true)}>
+              {t('浏览…')}
+            </Button>
+          ) : null}
+        </span>
+      </FormRow>
+      {browsing
+        ? source.renderDirPicker?.({
+            start: configDir.trim() || null,
+            onPick: (dir) => {
+              onConfigDir(dir)
+              onBrowse(false)
+            },
+            onClose: () => onBrowse(false),
+          })
+        : null}
+      <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用该机器的 Agent 路径')}>
         <TextField
-          multiline
-          aria-label={envLabel}
-          rows={3}
-          value={env}
-          onChange={(e) => onChange({ env: e.target.value })}
+          aria-label={t('Claude 可执行文件')}
+          value={executablePath}
+          onChange={(e) => onExecutable(e.target.value)}
         />
       </FormRow>
     </>
   )
 }
 
+/** One protocol's block: Base URL (in 高级 for a preset), model, and in 高级 its mapping, settings and variables. */
+function EndpointRows({
+  endpoint: e,
+  profile,
+  fromPreset,
+  advanced,
+  options,
+  preset,
+  onChange,
+}: {
+  endpoint: EndpointFields
+  profile: boolean
+  /** The preset fills the URL: shown only in 高级. */
+  fromPreset: boolean
+  advanced: boolean
+  options: string[]
+  preset: PresetEndpoint | undefined
+  onChange: (patch: Partial<EndpointFields>) => void
+}) {
+  const label = PROTOCOL_LABEL[e.protocol]
+  const fields = settingFields(e.protocol)
+  const presetEnv = preset ? envFields(e.protocol, preset.env) : null
+  const modelWindow = preset?.modelContext[e.model.trim()]
+  const anthropic = e.protocol === 'anthropic'
+  // A profile has no model mapping to move it to.
+  const smallFast = anthropic && !profile ? otherValue(e.env, SMALL_FAST) : undefined
+  const restore = (id: string) => {
+    const field = fields.find((x) => x.id === id)
+    if (!field || !presetEnv) return
+    const raw = presetEnv.base[id] ?? ''
+    onChange({ settings: { ...e.settings, [id]: textOf(field, raw) }, base: { ...e.base, [id]: raw } })
+  }
+  return (
+    <section className="ag-endpoint" aria-label={t('{protocol} 端点', { protocol: label })}>
+      {profile ? null : (
+        <>
+          <Divider label={t('{protocol} 端点', { protocol: label })} />
+          {fromPreset ? null : (
+            <FormRow label="Base URL">
+              <TextField
+                aria-label={t('{protocol} Base URL', { protocol: label })}
+                value={e.baseUrl}
+                onChange={(ev) => onChange({ baseUrl: ev.target.value })}
+                placeholder={URL_HINT[e.protocol]}
+              />
+            </FormRow>
+          )}
+          <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
+            <ComboBox
+              aria-label={t('{protocol} 模型', { protocol: label })}
+              options={options}
+              value={e.model}
+              placeholder={t('默认')}
+              onInput={(model) => onChange({ model })}
+              onChange={(model) => onChange({ model })}
+            />
+          </FormRow>
+        </>
+      )}
+      {advanced ? (
+        <>
+          {anthropic && !profile
+            ? TIERS.map((tier) => (
+                <FormRow
+                  key={tier}
+                  label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
+                >
+                  <TextField
+                    aria-label={t('{tier} 模型', { tier })}
+                    value={e.models[tier]}
+                    onChange={(ev) => onChange({ models: { ...e.models, [tier]: ev.target.value } })}
+                  />
+                </FormRow>
+              ))
+            : null}
+          <ProviderSettingRows
+            fields={fields}
+            texts={e.settings}
+            preset={presetEnv?.settings}
+            modelWindow={modelWindow}
+            onChange={(id, text) => onChange({ settings: { ...e.settings, [id]: text } })}
+            onRestore={restore}
+          />
+          {anthropic ? <ArgsRow value={e.args} onChange={(args) => onChange({ args })} /> : null}
+          <EnvRow
+            label={fields.length ? t('其他环境变量') : t('环境变量')}
+            value={e.env}
+            onChange={(env) => onChange({ env })}
+          />
+          {smallFast !== undefined ? (
+            <FormRow>
+              <Alert
+                variant="warning"
+                description={t('{name} 已废弃，请改用 Haiku 模型映射', { name: SMALL_FAST })}
+              >
+                <Button
+                  size="small"
+                  onClick={() =>
+                    onChange({
+                      env: withoutVar(e.env, SMALL_FAST),
+                      models: { ...e.models, haiku: e.models.haiku || smallFast },
+                    })
+                  }
+                >
+                  {t('改用 Haiku 映射')}
+                </Button>
+              </Alert>
+            </FormRow>
+          ) : null}
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+function ArgsRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <FormRow
+      label={t('命令行参数')}
+      align="top"
+      hint={t(
+        '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置',
+      )}
+    >
+      <TextField
+        multiline
+        aria-label={t('命令行参数')}
+        rows={2}
+        placeholder="--settings ~/team.json"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </FormRow>
+  )
+}
+
+function EnvRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <FormRow label={label} align="top" hint={t('启动 Agent 时附加，每行一个 KEY=VALUE')}>
+      <TextField
+        multiline
+        aria-label={label}
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </FormRow>
+  )
+}
+
 /** The official login's proxy and extra variables; the CLI's own login and config stay as they are. */
 export function OfficialEditor({
-  machineId,
+  source,
   agent,
   official,
   onClose,
   onSaved,
 }: {
-  machineId: string
+  source: AgentsSource
   agent: AgentKind
   official: OfficialSettings | undefined
   onClose: () => void
   onSaved: (view: ProviderStoreView) => void
 }) {
-  const [f, setF] = useState({
-    proxy: official?.proxy ?? '',
-    args: official?.args.join('\n') ?? '',
-    ...envFields(agent, official?.env ?? {}),
+  const fields = fieldsFor(agent, 'provider')
+  const [f, setF] = useState(() => {
+    const { values, other } = splitEnv(official?.env ?? {}, fields)
+    return {
+      proxy: official?.proxy ?? '',
+      args: official?.args.join('\n') ?? '',
+      env: envText(other),
+      settings: fieldTexts(fields, values),
+      base: values,
+    }
   })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const title = t('{agent} 官方登录设置', { agent: AGENT_META[agent].name })
-  const fields = fieldsFor(agent, 'provider')
 
   const save = async () => {
     let env: Record<string, string>
@@ -609,7 +780,7 @@ export function OfficialEditor({
     }
     setSaving(true)
     try {
-      onSaved(await api.put<ProviderStoreView>(`/machines/${machineId}/providers/official`, body))
+      onSaved(await source.saveOfficial(body))
     } catch (e) {
       setError(errorText(e))
       setSaving(false)
@@ -635,13 +806,21 @@ export function OfficialEditor({
           texts={f.settings}
           onChange={(id, text) => setF((x) => ({ ...x, settings: { ...x.settings, [id]: text } }))}
         />
-        <ExtraRows
-          proxy={f.proxy}
-          env={f.env}
-          args={agent === 'claude' ? f.args : undefined}
-          envLabel={fields.length ? t('其他环境变量') : t('环境变量')}
-          proxyHint={t('Agent 经此代理联网，留空为直连')}
-          onChange={(patch) => setF((x) => ({ ...x, ...patch }))}
+        <FormRow label={t('代理地址')} hint={t('Agent 经此代理联网，留空为直连')}>
+          <TextField
+            aria-label={t('代理地址')}
+            placeholder="http://127.0.0.1:7890"
+            value={f.proxy}
+            onChange={(e) => setF((x) => ({ ...x, proxy: e.target.value }))}
+          />
+        </FormRow>
+        {agent === 'claude' ? (
+          <ArgsRow value={f.args} onChange={(args) => setF((x) => ({ ...x, args }))} />
+        ) : null}
+        <EnvRow
+          label={fields.length ? t('其他环境变量') : t('环境变量')}
+          value={f.env}
+          onChange={(env) => setF((x) => ({ ...x, env }))}
         />
         {error ? (
           <FormRow>
@@ -662,16 +841,31 @@ function VendorPicker({
 }: {
   presets: ProviderPreset[] | null
   onPick: (p: ProviderPreset | null) => void
-  /** Offers 该机器 Claude 配置目录; absent when the agent or daemon cannot run one. */
+  /** Offers 该机器 Claude 配置目录; absent when the client cannot run one. */
   onProfile?: () => void
 }) {
   const [q, setQ] = useState('')
   const text = q.trim().toLowerCase()
   const match = (p: ProviderPreset) => !text || p.name.toLowerCase().includes(text) || p.id.includes(text)
-  const row = (key: string, name: string, sub: string, onClick: () => void) => (
+  const row = (
+    key: string,
+    name: string,
+    sub: string,
+    onClick: () => void,
+    protocols: ApiProtocol[] = [],
+  ) => (
     <button key={key} type="button" className="mx-row mx-row--button" onClick={onClick}>
       <span className="mx-row__main">
-        <span>{name}</span>
+        <span className="mx-row__title">
+          <span>{name}</span>
+          <span className="ag-protocols">
+            {protocols.map((p) => (
+              <Tag key={p} tone="purple">
+                {PROTOCOL_LABEL[p]}
+              </Tag>
+            ))}
+          </span>
+        </span>
         <span className="mx-sub mx-ellipsis">{sub}</span>
       </span>
     </button>
@@ -685,7 +879,17 @@ function VendorPicker({
         return list.length ? (
           <div key={g.key} className="mx-vendors__group">
             <span className="mx-sub">{g.label}</span>
-            <GroupBox>{list.map((p) => row(p.id, p.name, p.baseUrl, () => onPick(p)))}</GroupBox>
+            <GroupBox>
+              {list.map((p) =>
+                row(
+                  p.id,
+                  p.name,
+                  p.endpoints[0]?.baseUrl ?? '',
+                  () => onPick(p),
+                  p.endpoints.map((e) => e.protocol),
+                ),
+              )}
+            </GroupBox>
           </div>
         ) : null
       })}

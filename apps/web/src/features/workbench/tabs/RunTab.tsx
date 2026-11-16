@@ -36,6 +36,7 @@ import {
   Toolbar,
   toast,
 } from '../../../ui'
+import { OFFICIAL_NAME } from '../../agents/model'
 import { agentLabel } from '../../bots/AgentConfig'
 import { BotAvatar, useBotCostume } from '../../bots/avatars'
 import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
@@ -43,7 +44,6 @@ import { DiffPane } from '../../diff/DiffPane'
 import type { DiffSource } from '../../diff/store'
 import { useWorkspaceDiff, type WorkspaceDiff } from '../../diff/useWorkspaceDiff'
 import { fieldLabel, tokensLabel } from '../../machines/agentSettings'
-import { OFFICIAL_NAME } from '../../machines/providers'
 import { ActivityDock } from '../../runs/ActivityDock'
 import { ApprovalCard } from '../../runs/ApprovalBlock'
 import { processMarkdown, processText } from '../../runs/activity'

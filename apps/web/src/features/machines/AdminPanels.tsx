@@ -1,13 +1,15 @@
 import {
   compareVersions,
   type DiagCheck,
+  type MachineAgentsDto,
   type MachineDto,
   type MachineWorkspace,
+  type Mirror,
   type UpgradeState,
 } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { toastError } from '../../lib/errors'
 import { ago } from '../../lib/time'
@@ -29,7 +31,8 @@ import {
   type TagTone,
   toast,
 } from '../../ui'
-import { MirrorPanel } from './ToolsPanel'
+import { MirrorRows } from './MirrorRows'
+import { SaveStatus, useSaves } from './save'
 
 export const upgradable = (m: MachineDto, latest: string | undefined): latest is string =>
   !!latest && !!m.daemonVersion && compareVersions(m.daemonVersion, latest) < 0
@@ -228,6 +231,37 @@ export function DiagnosticsPanel({
       {machine.features.includes('tools') ? <MirrorPanel machine={machine} /> : null}
       {machine.features.includes('machineAdmin') ? <LogsPanel machine={machine} /> : null}
     </div>
+  )
+}
+
+/** 镜像源 of Node.js and the agent CLIs, kept with the tools on the machine. */
+function MirrorPanel({ machine }: { machine: MachineDto }) {
+  const [state, setState] = useState<MachineAgentsDto | null>(null)
+  const [error, setError] = useState('')
+  const base = `/machines/${machine.id}/tools`
+
+  useEffect(() => {
+    api.get<MachineAgentsDto>(base).then(setState, (e) => setError(errorText(e)))
+  }, [base])
+
+  const saves = useSaves()
+  const save = (mirror: Mirror) =>
+    saves.save('mirror', async () => {
+      setState(await api.put<MachineAgentsDto>(`${base}/settings`, { mirror }))
+      return undefined
+    })
+
+  if (error) return <Alert variant="error" description={error} />
+  if (!state) return <Skeleton count={1} />
+  return (
+    <GroupBox>
+      <MirrorRows
+        key={JSON.stringify(state.settings.mirror)}
+        mirror={state.settings.mirror}
+        status={<SaveStatus state={saves.status('mirror')} />}
+        onSave={save}
+      />
+    </GroupBox>
   )
 }
 

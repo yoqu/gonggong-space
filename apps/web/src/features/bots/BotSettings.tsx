@@ -43,7 +43,7 @@ import { type AgentConfig, AgentConfigFields, useBotCatalog } from './AgentConfi
 import { ApprovalFields, type ApprovalValue } from './ApprovalFields'
 import { avatarSrc, BotAvatar, botRole, RolePicker, roleFace, roleHint } from './avatars'
 import { BotAgentSettingRows, cleanOverrides } from './BotAgentSettings'
-import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
+import { choiceProvider, ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { BotShares } from './BotShares'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import { MachineLink } from './MachineLink'
@@ -224,13 +224,22 @@ export function BotDetail({
   const [view, setView] = useMachineProviders(bot.machineId, !!reason)
   const savedProvider = view?.bots[bot.id] ?? INHERIT_PROVIDER
   const picked = provider !== null && provider !== savedProvider ? provider : null
-  const effective = view && !reason ? effectiveProvider(view, bot.agentKind, bot.id) : OFFICIAL_PROVIDER
+  const effective =
+    view && !reason ? effectiveProvider(view, bot.agentKind, bot.id).provider : OFFICIAL_PROVIDER
   const live = useBotCatalog(bot.id, effective)
-  const pickedCatalog = useProviderCatalog(bot.machineId, bot.agentKind, picked)
+  const pickedCatalog = useProviderCatalog(
+    bot.machineId,
+    bot.agentKind,
+    picked && view ? choiceProvider(view, bot.agentKind, picked) : null,
+  )
   const catalog = picked ? pickedCatalog : (live?.catalog ?? bot.catalog)
   // Only on the owner's own machine: it alone sees the machine, and a picked provider declares its own models.
   const refresh =
     !picked && machine?.online && machine.features.includes('reprobe') ? live?.refresh : undefined
+  // The owner on their own machine sets provider, model and level in one go (PUT /bots/:id/provider).
+  const together = !reason && !!view
+  const modelChanged = config.model !== bot.model
+  const effortChanged = config.effort !== bot.effort
 
   // Unchanged values are left out: one the catalog no longer lists would be refused.
   const patch: BotPatch = {
@@ -240,8 +249,8 @@ export function BotDetail({
     ...(tier !== bot.tier && { tier }),
     ...(scope !== bot.triggerScope && { triggerScope: scope }),
     ...(!sameList(list, bot.triggerList) && { triggerList: list }),
-    ...(config.model !== bot.model && { model: config.model }),
-    ...(config.effort !== bot.effort && { effort: config.effort }),
+    ...(!together && modelChanged && { model: config.model }),
+    ...(!together && effortChanged && { effort: config.effort }),
     ...(concurrency !== bot.concurrency && { concurrency }),
     // Only the owner may send these (plan J9).
     ...(owner && !sameList(approval.alwaysAllow, bot.alwaysAllow) && { alwaysAllow: approval.alwaysAllow }),
@@ -252,7 +261,8 @@ export function BotDetail({
     ...(owner &&
       !sameMap(cleanOverrides(overrides), bot.agentSettings) && { agentSettings: cleanOverrides(overrides) }),
   }
-  const dirty = Object.keys(patch).length > 0 || workspace !== bot.defaultWorkspace || picked !== null
+  const providerDirty = together && (picked !== null || modelChanged || effortChanged)
+  const dirty = Object.keys(patch).length > 0 || workspace !== bot.defaultWorkspace || providerDirty
 
   const commit = async () => {
     setSaving(true)
@@ -266,11 +276,16 @@ export function BotDetail({
       setSaving(false)
     }
   }
-  // The provider goes first: the models picked are checked against the catalog of the provider in effect.
+  // Provider, model and level go first, in one request: the model is checked against the provider in effect.
   const switcher = useProviderSwitch(async ({ choice }) => {
     setSaving(true)
     try {
-      setView(await api.put<ProviderStoreView>(`/bots/${bot.id}/provider`, { choice }))
+      const body = {
+        choice,
+        ...(modelChanged && { model: config.model }),
+        ...(effortChanged && { effort: config.effort }),
+      }
+      setView(await api.put<ProviderStoreView>(`/bots/${bot.id}/provider`, body))
       setProvider(null)
     } catch (e) {
       setSaving(false)
@@ -280,8 +295,8 @@ export function BotDetail({
     await commit()
   })
   const save = () =>
-    picked && view
-      ? switcher.request({ agent: bot.agentKind, choice: picked, botId: bot.id }, view)
+    providerDirty && view
+      ? switcher.request({ agent: bot.agentKind, choice: picked ?? savedProvider, botId: bot.id }, view)
       : void commit()
 
   const basic = (
@@ -353,10 +368,10 @@ export function BotDetail({
         <ProviderModelFields
           reason={reason}
           view={view}
+          machine={machine}
           agent={bot.agentKind}
-          provider={provider ?? savedProvider}
+          value={{ provider: provider ?? savedProvider, config }}
           catalog={catalog}
-          config={config}
           disabled={!canEdit}
           refresh={refresh}
           onChange={(next) => {

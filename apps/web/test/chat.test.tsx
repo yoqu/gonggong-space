@@ -561,6 +561,10 @@ describe('my machines and bots', () => {
           path: '/bin/claude',
           minVersion: null,
           catalog: null,
+          latest: null,
+          managed: false,
+          upgradeCommand: null,
+          installCommand: null,
         },
       ],
       system: {

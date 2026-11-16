@@ -7,10 +7,10 @@ import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import { AgentIcon, Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
+import { MachineAgentsPanel } from '../agents/webSource'
 import { BotAvatar } from '../bots/avatars'
 import { PRESENCE } from '../bots/model'
 import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPanel } from './AdminPanels'
-import { AgentsPanel } from './AgentsPanel'
 import { GitAccessPanel } from './GitAccessPanel'
 import { OS_LABEL } from './model'
 import { PluginTrustsPanel } from './PluginTrustsPanel'
@@ -229,7 +229,7 @@ export function MachineDetails({
           description={t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')}
         />
       ) : current === 'agents' ? (
-        <AgentsPanel machine={machine} />
+        <MachineAgentsPanel machine={machine} />
       ) : current === 'workspaces' ? (
         <WorkspacesPanel machine={machine} />
       ) : current === 'git' ? (

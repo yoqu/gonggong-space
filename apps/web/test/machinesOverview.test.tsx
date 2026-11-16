@@ -33,6 +33,10 @@ const claude = {
   path: '/c',
   minVersion: null,
   catalog: null,
+  latest: null,
+  managed: false,
+  upgradeCommand: null,
+  installCommand: null,
 } as const
 const mbp = machine({ agents: [claude] })
 const box = machine({
@@ -55,8 +59,8 @@ afterEach(() => {
 })
 
 const VIEW = {
-  machine: { claude: 'p1' },
-  providers: [{ id: 'p1', agent: 'claude', name: 'Kimi' }],
+  machine: { claude: { provider: 'p1', model: 'kimi-k2' } },
+  providers: [{ id: 'p1', name: 'Kimi', endpoints: [] }],
 } as unknown as ProviderStoreView
 
 describe('machines overview', () => {
@@ -81,7 +85,7 @@ describe('machines overview', () => {
     expect(card.getAttribute('href')).toBe('/machine/m1')
     for (const text of ['在线', 'macOS', 'Claude Code 2.1.4', 'Codex 未安装', '2 个 Bot · 1 个运行中'])
       expect(card.textContent).toContain(text)
-    await waitFor(() => expect(card.textContent).toContain('供应商：Kimi'))
+    await waitFor(() => expect(card.textContent).toContain('供应商：Kimi / kimi-k2'))
     const wrap = card.closest('.machine-card') as HTMLElement
     expect(wrap.dataset.online).toBe('true')
     // 新建 Bot right on the card, on that machine, without opening it.
