@@ -187,6 +187,17 @@ export default {
     'Inside it, type /auth, pick Gemini API Key and paste the key (personal Google account login is no longer supported)',
   '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
     'Runs the ACP adapters and the agents that need none (Gemini CLI, CodeBuddy…), and the managed installs of the agent tools (requires ≥ {min})',
+  '官方账号在本机的 {agent} 里登录，登录信息只保存在本机。':
+    'The official account signs in inside {agent} on this computer; the login stays on this computer only.',
+  在本机打开终端: 'Open a terminal on this computer',
+  '按提示选择供应商，在浏览器里登录或粘贴 API Key':
+    'Follow the prompts to pick a provider, then sign in in the browser or paste an API key',
+  '进入后输入 /auth，选择 Qwen OAuth 在浏览器里登录，或填写 API Key':
+    'Once inside, type /auth and pick Qwen OAuth to sign in in the browser, or enter an API key',
+  '选择 Configure Providers，按提示选择供应商并填写 API Key':
+    'Choose Configure Providers, then pick a provider and enter its API key',
+  '进入后输入 /login，用 GitHub 账号完成设备登录':
+    'Once inside, type /login and sign in with your GitHub account on the device page',
   '进入后输入 /login，选择供应商登录或填写 API Key':
     'Inside it, type /login and sign in with a provider or enter an API key',
   '在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）':

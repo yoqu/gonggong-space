@@ -52,20 +52,28 @@ it('ships the creation plugins and the provider presets', () => {
   ])
 })
 
-describe.each(['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity', 'opencode', 'qwen', 'kimi', 'goose', 'copilot'])(
-  'official agent plugin agent-%s',
-  (id) => {
-    it('adapts that agent, runs code, and ships its launch script and icon', () => {
-      const { root, manifest } = load(`agent-${id}`)
-      expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
-      const [agent, ...more] = manifest.contributes.agents
-      expect(more).toEqual([])
-      expect(agent!.id).toBe(id)
-      for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
-        expect(existsSync(join(root, f)), f).toBe(true)
-    })
-  },
-)
+describe.each([
+  'gemini',
+  'codebuddy',
+  'pi',
+  'deepseek',
+  'antigravity',
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
+])('official agent plugin agent-%s', (id) => {
+  it('adapts that agent, runs code, and ships its launch script and icon', () => {
+    const { root, manifest } = load(`agent-${id}`)
+    expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
+    const [agent, ...more] = manifest.contributes.agents
+    expect(more).toEqual([])
+    expect(agent!.id).toBe(id)
+    for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
+      expect(existsSync(join(root, f)), f).toBe(true)
+  })
+})
 
 it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goes in session _meta', () => {
   const [agent] = load('agent-antigravity').manifest.contributes.agents
@@ -107,7 +115,11 @@ describe('the agents speaking ACP themselves (三期)', () => {
   it('installs them from npm, but Goose with its own script', () => {
     expect(agent('opencode').install).toMatchObject({ npm: '@opencode/cli', bin: 'opencode', script: null })
     expect(agent('qwen').install).toMatchObject({ npm: '@qwen-code/qwen-code', bin: 'qwen' })
-    expect(agent('kimi').install).toMatchObject({ npm: '@moonshot-ai/kimi-code', bin: 'kimi', minNode: '22.19.0' })
+    expect(agent('kimi').install).toMatchObject({
+      npm: '@moonshot-ai/kimi-code',
+      bin: 'kimi',
+      minNode: '22.19.0',
+    })
     expect(agent('copilot').install).toMatchObject({ npm: '@github/copilot', bin: 'copilot' })
     expect(agent('goose').install).toMatchObject({
       npm: null,
@@ -146,7 +158,11 @@ describe('the agents speaking ACP themselves (三期)', () => {
     })
     expect(agent('copilot').provider).toMatchObject({
       protocols: ['anthropic', 'openai'],
-      env: { apiKey: 'COPILOT_PROVIDER_API_KEY', baseUrl: 'COPILOT_PROVIDER_BASE_URL', model: 'COPILOT_MODEL' },
+      env: {
+        apiKey: 'COPILOT_PROVIDER_API_KEY',
+        baseUrl: 'COPILOT_PROVIDER_BASE_URL',
+        model: 'COPILOT_MODEL',
+      },
       byProtocol: {
         anthropic: { set: { COPILOT_PROVIDER_TYPE: 'anthropic' } },
         openai: { set: { COPILOT_PROVIDER_TYPE: 'openai' } },
@@ -156,7 +172,8 @@ describe('the agents speaking ACP themselves (三期)', () => {
 
   it('hands the bot prompt over as each CLI reads it', () => {
     expect(agent('qwen').systemPrompt).toEqual({ via: 'arg', args: ['--append-system-prompt', '{prompt}'] })
-    for (const id of ['opencode', 'kimi', 'goose', 'copilot']) expect(agent(id).systemPrompt).toEqual({ via: 'script' })
+    for (const id of ['opencode', 'kimi', 'goose', 'copilot'])
+      expect(agent(id).systemPrompt).toEqual({ via: 'script' })
   })
 })
 

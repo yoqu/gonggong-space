@@ -24,23 +24,31 @@ const LOGIN: Record<AgentKind, { command: string; next: string }> = {
       '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码',
     ),
   },
+  opencode: { command: 'opencode auth login', next: t('按提示选择供应商，在浏览器里登录或粘贴 API Key') },
+  qwen: { command: 'qwen', next: t('进入后输入 /auth，选择 Qwen OAuth 在浏览器里登录，或填写 API Key') },
+  kimi: { command: 'kimi', next: t('进入后输入 /login，按提示在浏览器里完成登录') },
+  goose: { command: 'goose configure', next: t('选择 Configure Providers，按提示选择供应商并填写 API Key') },
+  copilot: { command: 'copilot', next: t('进入后输入 /login，用 GitHub 账号完成设备登录') },
 }
 
-/** The official login happens in the agent's own CLI on the machine: through a machine terminal from here. */
+/**
+ * The official login happens in the agent's own CLI on the machine: through a machine terminal from here. Without
+ * `machine` it is the computer the desktop app runs on.
+ */
 export function AgentLoginDialog({
   machine,
   agent,
   onAddProvider,
   onClose,
 }: {
-  machine: MachineDto
+  machine?: MachineDto
   agent: AgentKind
   onAddProvider: () => void
   onClose: () => void
 }) {
   const [terminal, setTerminal] = useState(false)
   const terminals =
-    machine.online &&
+    !!machine?.online &&
     (machine.os === 'macos' || machine.os === 'linux') &&
     machine.features.includes(TERMINAL_DIR_FEATURE)
   const login = LOGIN[agent]
@@ -49,9 +57,13 @@ export function AgentLoginDialog({
       <Dialog
         open={!terminal}
         title={t('登录 {agent} 官方账号', { agent: AGENT_META[agent].name })}
-        message={t('官方账号在该机器上的 {agent} 里登录，登录信息只保存在该机器上。', {
-          agent: AGENT_META[agent].name,
-        })}
+        message={
+          machine
+            ? t('官方账号在该机器上的 {agent} 里登录，登录信息只保存在该机器上。', {
+                agent: AGENT_META[agent].name,
+              })
+            : t('官方账号在本机的 {agent} 里登录，登录信息只保存在本机。', { agent: AGENT_META[agent].name })
+        }
         width={520}
         onClose={onClose}
         actions={[
@@ -74,8 +86,10 @@ export function AgentLoginDialog({
                   {t('打开终端')}
                 </Button>
               </span>
-            ) : (
+            ) : machine ? (
               t('在该机器上打开终端（Docker 里用 docker compose exec daemon bash）')
+            ) : (
+              t('在本机打开终端')
             )}
           </li>
           <li className="mx-section">
@@ -85,7 +99,9 @@ export function AgentLoginDialog({
           <li>{login.next}</li>
         </ol>
       </Dialog>
-      <Presence>{terminal ? <NewTerminalDialog machine={machine.id} onClose={onClose} /> : null}</Presence>
+      <Presence>
+        {terminal && machine ? <NewTerminalDialog machine={machine.id} onClose={onClose} /> : null}
+      </Presence>
     </>
   )
 }

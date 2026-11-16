@@ -75,6 +75,17 @@ describe('Agent page', () => {
     await waitFor(() => expect(m.tools).toHaveBeenCalledTimes(3))
   })
 
+  it('tells how to log in to the official account in this machine’s terminal', async () => {
+    m.agentLocal.mockResolvedValue({ customPath: false, login: null, adapterVersion: null })
+    render(<AgentsPage go={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Claude Code/ }))
+    fireEvent.click(await row('Claude Code').findByRole('button', { name: '登录…' }))
+    const dialog = await screen.findByRole('dialog', { name: '登录 Claude Code 官方账号' })
+    expect(within(dialog).getByText('在本机打开终端')).toBeTruthy()
+    expect(within(dialog).getByText('进入后输入 /login，按提示在浏览器里完成登录')).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '打开终端' })).toBeNull()
+  })
+
   it('asks before switching a default that sessions still use, naming their groups and bots', async () => {
     m.providers.mockResolvedValue({
       view: {

@@ -42,6 +42,25 @@ const ACTS: Persona['acts'] = {
 
 type Figure = Omit<Persona, 'key' | 'name' | 'from' | 'to' | 'mix' | 'line' | 'acts'>
 
+/** Agents without a figure of their own: the whole mark bobbing, a white disc in its middle carrying the face. */
+const badge = (kind: AgentKind): Figure => {
+  const E: [number, number][] = [
+    [18.2, 19.6],
+    [21.8, 19.6],
+  ]
+  return {
+    tempo: 1,
+    E,
+    M: [20, 22.2],
+    s: 0.6,
+    open: (k) => eyes(k, E, 0.8, 1.05) + smile(k, 20, 22, 1.9),
+    glyph: (_k, f) =>
+      `<g class="badge">${AGENT_META[kind].mark.map((d) => mark(d, 8, 7, 1)).join('')}<circle cx="20" cy="20.6" r="4.8" fill="${W}"/>${f}</g>`,
+    motion:
+      '.badge{animation:bob calc(var(--t)*2.4s) ease-in-out infinite}@keyframes bob{50%{transform:translateY(-1px)}}',
+  }
+}
+
 const FIGURES: Record<AgentKind, Figure> = {
   claude: {
     tempo: 1,
@@ -153,6 +172,11 @@ const FIGURES: Record<AgentKind, Figure> = {
     motion:
       '.arch{animation:float calc(var(--t)*2.8s) ease-in-out infinite}@keyframes float{50%{transform:translateY(-1.4px)}}',
   },
+  opencode: badge('opencode'),
+  qwen: badge('qwen'),
+  kimi: badge('kimi'),
+  goose: badge('goose'),
+  copilot: badge('copilot'),
 }
 
 /** Each agent's figure, cast as a persona so it acts out every mascot state like the twelve personalities. */

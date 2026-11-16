@@ -46,12 +46,19 @@ describe('agent registry', () => {
       expect([m.adapter, m.feature]).toEqual(['cli', k])
       expect(m.mark.length).toBeGreaterThan(0)
     }
-    expect(AGENT_KINDS.map((k) => AGENT_META[k].bin).slice(-5)).toEqual(['opencode', 'qwen', 'kimi', 'goose', 'copilot'])
+    expect(AGENT_KINDS.map((k) => AGENT_META[k].bin).slice(-5)).toEqual([
+      'opencode',
+      'qwen',
+      'kimi',
+      'goose',
+      'copilot',
+    ])
     expect(AGENT_META.goose.install).toBe('command')
     expect(AGENT_META.opencode).toMatchObject({ install: 'managed', login: 'own', protocols: [] })
     expect(AGENT_META.opencode.loginHint).toContain('opencode auth login')
     expect(AGENT_META.qwen.protocols).toEqual(['openai'])
-    for (const k of ['kimi', 'goose', 'copilot'] as const) expect(AGENT_META[k].protocols).toEqual(['anthropic', 'openai'])
+    for (const k of ['kimi', 'goose', 'copilot'] as const)
+      expect(AGENT_META[k].protocols).toEqual(['anthropic', 'openai'])
   })
 
   it('matches providers by protocol', () => {

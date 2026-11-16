@@ -23,6 +23,11 @@ const AGENT_TITLE: Record<AgentKind, string> = {
   pi: 'pi',
   deepseek: 'DeepSeek Harness',
   antigravity: 'Antigravity CLI',
+  opencode: 'OpenCode',
+  qwen: 'Qwen Code',
+  kimi: 'Kimi Code',
+  goose: 'Goose',
+  copilot: 'Copilot CLI',
 }
 
 /** The sentence the 绑定新机器 dialog offers to paste to a local agent (agent-facing words in Chinese on purpose). */

@@ -1,5 +1,6 @@
 import type { ProviderSavedDto, ProviderStoreView } from '@gonggong/protocol'
 import type { AgentsSource } from '@web/features/agents/source'
+import { AgentLoginDialog } from '@web/features/machines/AgentLoginDialog'
 import { useEffect } from 'react'
 import { ipc, onToolProgress, type ProvidersCmd } from './ipc'
 import { fail } from './lib/ui'
@@ -80,6 +81,7 @@ export function desktopSource(features: string[]): AgentsSource {
       : undefined,
     claudeDirs: () => wrap(ipc.claudeDirs()),
     renderDirPicker: (p) => <DirPicker {...p} />,
+    renderLogin: (p) => <AgentLoginDialog {...p} />,
     openBot: (id) => void ipc.openBotInWeb(id).catch(fail),
     agentLocal: (kind) => wrap(ipc.agentLocal(kind)),
     pickPath: (kind) => wrap(ipc.pickAgentPath(kind)),
