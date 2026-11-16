@@ -261,6 +261,25 @@ async fn streams_a_turn_and_asks_the_owner_beyond_the_tier() {
 }
 
 #[tokio::test]
+async fn sends_the_context_make_up_while_a_turn_goes_on() {
+    let mut r = rig(Duration::from_secs(60));
+    r.run(start("r1", "mock:live"));
+    let (events, _) = r.finish("r1").await;
+    let breakdowns: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            RunEvent::Usage { context: Some(c), breakdown: Some(b), .. } => Some((c.used, b)),
+            _ => None,
+        })
+        .collect();
+    let [(used, first), .., (last_used, last), (end_used, end)] = breakdowns.as_slice() else { panic!("{events:?}") };
+    assert_eq!((*used, first.live, first.pending), (1000, true, Some(1000)), "{first:?}");
+    assert_eq!((*last_used, last.live, last.pending), (1000, true, Some(3000)), "{last:?}");
+    assert_eq!(last.tools, vec![ToolTokens { name: None, kind: "read".into(), count: 2, tokens: 3000 }]);
+    assert_eq!((*end_used, end.live, end.pending), (4100, false, None));
+}
+
+#[tokio::test]
 async fn session_fork_copies_a_turns_session_into_a_new_one() {
     let mut r = rig(Duration::from_secs(60));
     r.run(start("r1", "mock:echo"));

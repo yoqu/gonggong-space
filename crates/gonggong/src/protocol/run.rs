@@ -147,7 +147,7 @@ pub enum RunEvent {
         usage: Usage,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context: Option<ContextUsage>,
-        /// Sent once at the end of a run, with its last `context`.
+        /// Sent at the end of a run with its last `context`, and as `live` snapshots while it runs.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         breakdown: Option<ContextBreakdown>,
     },

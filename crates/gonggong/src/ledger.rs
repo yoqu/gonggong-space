@@ -12,6 +12,10 @@ pub struct Ledger {
     tools: Vec<(String, ToolCost)>,
     partial: bool,
     context: Option<ContextUsage>,
+    /// Tokens counted since the agent last reported its occupancy.
+    pending: u64,
+    /// Changed since the last snapshot sent.
+    dirty: bool,
 }
 
 #[derive(Default)]
@@ -33,7 +37,13 @@ impl Ledger {
         if new_turn || self.turns.is_empty() {
             self.turns.push(0);
         }
-        *self.turns.last_mut().expect("a turn") += tokens(text);
+        self.add_turn(tokens(text));
+    }
+
+    fn add_turn(&mut self, n: u64) {
+        *self.turns.last_mut().expect("a turn") += n;
+        self.pending += n;
+        self.dirty = true;
     }
 
     /// An update of the main agent (subagents' work stays out of its context).
@@ -44,7 +54,7 @@ impl Ledger {
                     if self.turns.is_empty() {
                         self.turns.push(0);
                     }
-                    *self.turns.last_mut().expect("a turn") += tokens(&t.text);
+                    self.add_turn(tokens(&t.text));
                 }
             }
             SessionUpdate::ToolCall(c) => self.tool(c.clone().into()),
@@ -56,6 +66,8 @@ impl Ledger {
                     self.tools.clear();
                     self.partial = true;
                 }
+                self.pending = 0;
+                self.dirty = true;
             }
             _ => {}
         }
@@ -66,7 +78,25 @@ impl Ledger {
         self.context = Some(context);
     }
 
-    pub fn snapshot(&self, cache: Option<CacheUsage>) -> Option<(ContextUsage, ContextBreakdown)> {
+    /// The make-up at the end of a run.
+    pub fn snapshot(&mut self, cache: Option<CacheUsage>) -> Option<(ContextUsage, ContextBreakdown)> {
+        self.dirty = false;
+        self.make_up(cache)
+    }
+
+    /// The make-up while the run goes on, if it changed since the last snapshot.
+    pub fn live(&mut self) -> Option<(ContextUsage, ContextBreakdown)> {
+        if !self.dirty {
+            return None;
+        }
+        let (context, mut breakdown) = self.make_up(None)?;
+        self.dirty = false;
+        breakdown.live = true;
+        breakdown.pending = Some(self.pending);
+        Some((context, breakdown))
+    }
+
+    fn make_up(&self, cache: Option<CacheUsage>) -> Option<(ContextUsage, ContextBreakdown)> {
         let context = self.context?;
         let mut tools: Vec<ToolTokens> = Vec::new();
         let mut at: HashMap<(Option<String>, String), usize> = HashMap::new();
@@ -80,7 +110,8 @@ impl Ledger {
             tools[i].tokens += c.input + c.output;
         }
         tools.sort_by(|a, b| b.tokens.cmp(&a.tokens));
-        Some((context, ContextBreakdown { tools, turns: self.turns.clone(), partial: self.partial, cache }))
+        let turns = self.turns.clone();
+        Some((context, ContextBreakdown { tools, turns, partial: self.partial, cache, ..Default::default() }))
     }
 
     fn tool(&mut self, update: ToolCallUpdate) {
@@ -93,6 +124,7 @@ impl Ledger {
             }
         };
         let cost = &mut self.tools[i].1;
+        let before = cost.input + cost.output;
         let f = &update.fields;
         if cost.name.is_none() {
             cost.name = tool_name(update.meta.as_ref(), f.title.as_deref());
@@ -109,6 +141,11 @@ impl Ledger {
             cost.output = content;
         } else if let Some(raw) = &f.raw_output {
             cost.output = cost.output.max(tokens(&raw.to_string()));
+        }
+        let after = cost.input + cost.output;
+        if after != before {
+            self.pending = (self.pending + after).saturating_sub(before);
+            self.dirty = true;
         }
     }
 }
@@ -226,5 +263,31 @@ mod tests {
         let (_, b) = l.snapshot(None).unwrap();
         assert!(b.partial && b.turns.is_empty() && b.tools.is_empty());
         assert!(Ledger::resumed().partial);
+    }
+
+    #[test]
+    fn live_snapshots_carry_what_was_added_since_the_last_report() {
+        let mut l = Ledger::default();
+        l.prompt(&"a".repeat(40), true);
+        assert!(l.live().is_none(), "nothing without an occupancy");
+        l.observe(&SessionUpdate::UsageUpdate(UsageUpdate::new(30_000, 200_000)));
+        l.context(ctx(30_000));
+        let (c, b) = l.live().unwrap();
+        assert_eq!((c.used, b.live, b.pending), (30_000, true, Some(0)));
+        assert!(l.live().is_none(), "unchanged");
+
+        l.observe(&reply(&"b".repeat(40)));
+        l.observe(&result("t1", &"x".repeat(4000)));
+        assert_eq!(l.live().unwrap().1.pending, Some(10 + 1000));
+        l.observe(&result("t1", &"x".repeat(400)));
+        assert_eq!(l.live().unwrap().1.pending, Some(10 + 100), "a replaced result counts by its difference");
+
+        l.observe(&SessionUpdate::UsageUpdate(UsageUpdate::new(31_000, 200_000)));
+        l.context(ctx(31_000));
+        assert_eq!(l.live().unwrap().1.pending, Some(0));
+        l.observe(&reply("cd"));
+        let (_, end) = l.snapshot(None).unwrap();
+        assert!(!end.live && end.pending.is_none());
+        assert!(l.live().is_none(), "the end's snapshot is the last");
     }
 }

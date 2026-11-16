@@ -345,6 +345,9 @@ export default {
   '会话早先的部分（Agent 压缩或清理过，或机器上的 daemon 重启过）没有分项，算在系统与早先内容里。':
     ' Earlier parts of the session (compacted or cleared by the agent, or from before a daemon restart) have no items and count as system & earlier content.',
   '分项在本轮结束后统计。': 'Items are counted when the run ends.',
+  实时: 'Live',
+  已统计: 'Counted',
+  '含估算增量 {n}': 'incl. {n} estimated',
   '其余 {n} 项': '{n} more',
   '“{q}”': '“{q}”',
   '已搜索 {n} 个网站': 'Searched {n} {n:site|sites}',

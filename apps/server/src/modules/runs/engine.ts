@@ -1,4 +1,4 @@
-import type { RunDone, RunEvent } from '@gonggong/protocol'
+import type { RunDetailDto, RunDone, RunEvent } from '@gonggong/protocol'
 import { and, desc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import type { DaemonHub } from '../../daemon/hub.js'
@@ -181,8 +181,17 @@ async function ownerOf(ctx: Ctx, machineId: string, runId: string, accept: 'live
   return owner
 }
 
+/**
+ * The latest live make-up of each running run's context. Kept in memory, not in run_events: readers refetch the
+ * process from its last row on, so a row updated in place would go unseen and new rows would split streamed text.
+ */
+const liveContexts = new Map<string, NonNullable<RunDetailDto['live']>>()
+
+export const liveContext = (runId: string) => liveContexts.get(runId)
+
 function forgetOwner(runId: string) {
   owners.delete(runId)
+  liveContexts.delete(runId)
   drops++
 }
 
@@ -193,6 +202,23 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
     await pushDelta(ctx, run, await appendStream(ctx, runId, raw))
     return
   }
+  if (raw.kind === 'usage' && raw.context && raw.breakdown?.live) {
+    // Not the group meter's: that shows only what the agent reported.
+    liveContexts.set(runId, { context: raw.context, breakdown: raw.breakdown })
+    ctx.bus.publish(
+      await memberIds(ctx, run.groupId),
+      {
+        t: 'run.progress',
+        runId,
+        groupId: run.groupId,
+        botId: run.botId,
+        lastActivityAt: ctx.now().toISOString(),
+      },
+      run.groupId,
+    )
+    return
+  }
+  if (raw.kind === 'usage' && raw.breakdown) liveContexts.delete(runId)
   await pushDelta(ctx, run, await closeStream(runId))
   const event = redactDeep(raw, (await runRedactors(ctx, runId)).redact)
   const at = ctx.now()

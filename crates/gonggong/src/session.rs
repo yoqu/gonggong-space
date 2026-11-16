@@ -322,6 +322,8 @@ struct State {
     mode_update: Option<String>,
     /// What each ACP session's context is made of, as far as we saw it.
     ledgers: HashMap<String, Ledger>,
+    /// A live snapshot of the active turn's context is due (`LIVE_EVERY`).
+    live_due: bool,
 }
 
 /// How to start an AI pre-review (`review::ask`): the bot's adapter and, for Claude, the session `_meta` keeping its
@@ -701,26 +703,6 @@ impl Shared {
     /// A new agent session starts: what the owner allowed for the session ends with the old one.
     fn new_session(&self) {
         self.0.lock().unwrap().always.clear();
-    }
-
-    /// A prompt sent in `session`; `fresh`: the session was just opened, so we see all of it.
-    fn record_prompt(&self, session: &SessionId, text: &str, new_turn: bool, fresh: bool) {
-        let mut s = self.0.lock().unwrap();
-        let key = session.0.to_string();
-        if fresh {
-            s.ledgers.insert(key.clone(), Ledger::default());
-        }
-        s.ledgers.entry(key).or_insert_with(Ledger::resumed).prompt(text, new_turn);
-    }
-
-    /// Sends the context's estimated make-up at the end of the active turn, if its agent reported an occupancy.
-    fn report_context(&self, session: &SessionId, cache: Option<CacheUsage>) {
-        let s = self.0.lock().unwrap();
-        let (Some(a), Some(l)) = (s.active.as_ref(), s.ledgers.get(&*session.0)) else { return };
-        let Some((context, breakdown)) = l.snapshot(cache) else { return };
-        let usage = a.turn.usage.clone().unwrap_or_default();
-        let event = RunEvent::Usage { usage, context: Some(context), breakdown: Some(breakdown) };
-        a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
     }
 
     /// Makes `req` the active turn, or reports it interrupted if it was cancelled while queued. None: a continuation
@@ -1121,11 +1103,16 @@ impl Shared {
         if let Some(l) = ledger.as_deref_mut() {
             l.observe(&n.update);
         }
+        let main = ledger.is_some();
         if let Some(event) = a.turn.apply(&n.session_id.0, n.update) {
             if let (Some(l), RunEvent::Usage { context: Some(c), .. }) = (ledger, &event) {
                 l.context(*c);
             }
             a.out.send(DaemonToServer::RunEvent { run_id: a.run_id.clone(), event });
+        }
+        if main && !s.live_due {
+            s.live_due = true;
+            self.schedule_live(a.run_id.clone(), n.session_id.0.to_string());
         }
         if let Some(review) = review {
             tracing::warn!("codex auto review failed in run {}: {review}", a.run_id);
@@ -2422,5 +2409,6 @@ fn mcp_servers_for(start: &RunStart, ask: &acp::McpServer) -> Vec<acp::McpServer
         .collect()
 }
 
+mod context;
 #[cfg(test)]
 mod tests;

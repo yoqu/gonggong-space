@@ -115,6 +115,12 @@ pub struct ContextBreakdown {
     /// Prompt cache of the run's last prompt, as reported by the agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache: Option<CacheUsage>,
+    /// A snapshot sent while the run goes on; the one at its end has none.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub live: bool,
+    /// Tokens estimated added since the agent last reported its occupancy, not yet in `ContextUsage::used`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

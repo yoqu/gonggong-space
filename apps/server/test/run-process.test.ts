@@ -679,6 +679,46 @@ describe('run process', () => {
     await w.ended(runId)
   })
 
+  it('keeps only the latest live context make-up of a running run, out of the process and the group meter', async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const context = { used: 1000, size: 200000 }
+    const live = (pending: number) => ({
+      kind: 'usage',
+      usage: {},
+      context,
+      breakdown: { tools: [], turns: [10], live: true, pending },
+    })
+    w.send(runId, { kind: 'usage', usage: {}, context })
+    w.send(runId, { kind: 'text', delta: '好' })
+    w.send(runId, live(5))
+    w.send(runId, { kind: 'text', delta: '的' })
+    w.send(runId, live(9))
+    await expect.poll(async () => (await w.detail(runId)).live?.breakdown.pending).toBe(9)
+    const detail = await w.detail(runId)
+    expect(detail.live).toEqual({ context, breakdown: live(9).breakdown })
+    expect(detail.events.map((e) => e.event)).toEqual([
+      { kind: 'usage', usage: {}, context },
+      { kind: 'text', delta: '好的' },
+    ])
+    expect(w.seen.filter((e) => e.t === 'run.progress').length).toBeGreaterThanOrEqual(2)
+    await t.db.update(groupBots).set({ contextUsage: null }).where(eq(groupBots.botId, w.bot.id))
+    w.send(runId, live(12))
+    await expect.poll(async () => (await w.detail(runId)).live?.breakdown.pending).toBe(12)
+    const [gb] = await t.db.select().from(groupBots).where(eq(groupBots.botId, w.bot.id))
+    expect(gb?.contextUsage).toBeNull()
+
+    const end = { tools: [], turns: [12] }
+    w.send(runId, { kind: 'usage', usage: {}, context, breakdown: end })
+    await expect.poll(async () => (await w.detail(runId)).live).toBeUndefined()
+    w.send(runId, live(1))
+    w.done(runId)
+    await w.ended(runId)
+    expect((await w.detail(runId)).live).toBeUndefined()
+    const kinds = (await t.db.select().from(runEvents).where(eq(runEvents.runId, runId))).map((r) => r.kind)
+    expect(kinds).toEqual(['usage', 'text', 'usage'])
+  })
+
   it('serves approvals and the group hop limit on detail, timeline and realtime cards', async () => {
     const w = await world()
     await t.db

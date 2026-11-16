@@ -148,7 +148,13 @@ function useRunDetail(runId: string, active: boolean) {
               since && prev ? [...prev.events.filter((e) => e.id < since), ...d.events] : d.events
             return 'run' in d
               ? { ...d, events }
-              : prev && { ...prev, purged: d.purged, prompts: d.prompts ?? prev.prompts, events }
+              : prev && {
+                  ...prev,
+                  purged: d.purged,
+                  prompts: d.prompts ?? prev.prompts,
+                  live: d.live,
+                  events,
+                }
           })
         },
         (e: Error) => alive && mine === seq && setError(e.message),
@@ -516,7 +522,7 @@ function useFollow(ref: RefObject<HTMLDivElement | null>, on: boolean, steps: un
 
 /** The context at the run's end (or now, while it runs); its process must still be kept. */
 function RunContext({ detail }: { detail: RunDetailDto }) {
-  const last = useMemo(() => lastContext(detail.events), [detail.events])
+  const last = useMemo(() => lastContext(detail.events, detail.live), [detail.events, detail.live])
   if (detail.purged) return <div className="run-tab__empty">{PURGED}</div>
   if (!last) return <div className="run-tab__empty">{t('这次运行的 Agent 没有上报上下文用量')}</div>
   return <ContextWindow context={last.context} breakdown={last.breakdown} />

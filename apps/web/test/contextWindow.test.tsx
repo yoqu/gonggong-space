@@ -26,6 +26,17 @@ describe('上下文窗口', () => {
     expect(lastContext([])).toBeNull()
   })
 
+  it('takes the live make-up while the run goes on, its pending tokens only on top of the occupancy it saw', () => {
+    const events: RunDetailDto['events'] = [{ id: 1, at, event: { kind: 'usage', usage: {}, context } }]
+    const live = { context, breakdown: { ...breakdown, cache: undefined, live: true, pending: 2_000 } }
+    expect(lastContext(events, live)).toEqual({ context, breakdown: live.breakdown })
+    const newer = { kind: 'usage' as const, usage: {}, context: { ...context, used: 106_000 } }
+    expect(lastContext([...events, { id: 2, at, event: newer }], live)).toEqual({
+      context: newer.context,
+      breakdown: { ...live.breakdown, pending: 0 },
+    })
+  })
+
   it('shows the occupancy, cache hits and the estimated items, system as the rest', () => {
     render(<ContextWindow context={context} breakdown={breakdown} />)
     expect(screen.getByText('健康')).toBeTruthy()
@@ -47,6 +58,24 @@ describe('上下文窗口', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: '会话内容' }))
     expect(screen.getAllByRole('listitem').filter((li) => li.closest('.ctxw__list'))).toHaveLength(2)
+  })
+
+  it('marks a live make-up and adds what was estimated since the last report', () => {
+    const { rerender } = render(
+      <ContextWindow
+        context={context}
+        breakdown={{ ...breakdown, cache: undefined, live: true, pending: 2_000 }}
+      />,
+    )
+    expect(screen.getByText('实时')).toBeTruthy()
+    expect(screen.getByText('≈107k')).toBeTruthy()
+    expect(screen.getByText('含估算增量 2k')).toBeTruthy()
+    // 107000 − 49800 − 3000 − 35600 − 1200
+    expect(screen.getAllByText('17k').length).toBeGreaterThan(0)
+    rerender(<ContextWindow context={context} breakdown={breakdown} />)
+    expect(screen.getByText('已统计')).toBeTruthy()
+    expect(screen.getByText('105k')).toBeTruthy()
+    expect(screen.queryByText('实时')).toBeNull()
   })
 
   it('says what is unknown: earlier parts, and items before the run ends', () => {

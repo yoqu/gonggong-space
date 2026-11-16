@@ -6,6 +6,8 @@
 //   "mock:hang"  stream one chunk, then hang, ignoring session/cancel
 //   "mock:crash" stream one chunk, then exit with code 3
 //   "mock:commands" report available commands (compact, new), then reply "ok"
+//   "mock:live [ms]" report an occupancy, then read two files (their results counted after the report) <ms>
+//                (default 2500) apart, report again and reply
 //   "mock:sh <command>" run the rest of the prompt (from its last "mock:sh") with sh in the session cwd (like Codex
 //                editing via shell)
 //   "mock:delay <ms>" wait that long first (the last one in the prompt), then behave as the rest of the prompt says
@@ -358,6 +360,27 @@ async function prompt({ sessionId, prompt: blocks }, client) {
       ],
     })
     await say('blocked')
+    return { stopReason: 'end_turn' }
+  }
+  const live = text.match(/mock:live(?: (\d+))?/)
+  if (live) {
+    const wait = Number(live[1] ?? 2500)
+    const read = async (id, chars) => {
+      await update({ sessionUpdate: 'tool_call', toolCallId: id, title: `Read ${id}.txt`, kind: 'read' })
+      await update({
+        sessionUpdate: 'tool_call_update',
+        toolCallId: id,
+        status: 'completed',
+        content: [{ type: 'content', content: { type: 'text', text: 'x'.repeat(chars) } }],
+      })
+    }
+    await update({ sessionUpdate: 'usage_update', used: 1000, size: 200000 })
+    await read('a', 4000)
+    await sleep(wait)
+    await read('b', 8000)
+    await sleep(wait)
+    await update({ sessionUpdate: 'usage_update', used: 4100, size: 200000 })
+    await say('ok')
     return { stopReason: 'end_turn' }
   }
   if (text.includes('mock:commands')) {

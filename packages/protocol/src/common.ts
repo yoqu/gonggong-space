@@ -97,6 +97,8 @@ export type ContextUsage = z.infer<typeof ContextUsage>
  * tool, each turn's prompts and replies, oldest first. The rest of `ContextUsage.used` is the agent's own (system
  * prompt, tool definitions…). `partial`: earlier parts were not seen (resumed after a daemon restart, or the agent
  * compacted or cleared some). `cache`: `read` of the last prompt's `total` input tokens came from the prompt cache.
+ * `live`: a snapshot sent while the run goes on (at most every 2 s); `pending`: tokens estimated added since the
+ * agent last reported its occupancy, not yet in `ContextUsage.used`.
  */
 export const ContextBreakdown = z.object({
   tools: z.array(
@@ -111,6 +113,8 @@ export const ContextBreakdown = z.object({
   turns: z.array(z.number().int()),
   partial: z.boolean().optional(),
   cache: z.object({ read: z.number().int(), total: z.number().int() }).optional(),
+  live: z.boolean().optional(),
+  pending: z.number().int().optional(),
 })
 export type ContextBreakdown = z.infer<typeof ContextBreakdown>
 

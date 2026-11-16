@@ -1,5 +1,5 @@
 import type { ContextBreakdown, ContextUsage, RunDetailDto } from '@gonggong/protocol'
-import { useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { fmtTokens } from '../../lib/format'
 import { SegmentedControl, Tag, type TagTone } from '../../ui'
@@ -10,12 +10,44 @@ import './context-window.css'
 type Group = 'system' | 'tools' | 'turns'
 type Entry = { key: string; group: Group; label: string; tokens: number; count?: number; kind?: string }
 
-/** The run's last reported occupancy, with the estimated make-up the daemon sends at its end. */
-export function lastContext(events: RunDetailDto['events']) {
+/**
+ * The run's last reported occupancy, with the estimated make-up the daemon sends at its end, or while it runs its
+ * `live` one. Tokens pending on a live make-up count only on top of the occupancy it was made with.
+ */
+export function lastContext(events: RunDetailDto['events'], live?: RunDetailDto['live']) {
   for (const { event: e } of [...events].reverse()) {
-    if (e.kind === 'usage' && e.context) return { context: e.context, breakdown: e.breakdown ?? null }
+    if (e.kind !== 'usage' || !e.context) continue
+    if (!live) return { context: e.context, breakdown: e.breakdown ?? null }
+    const pending = live.context.used === e.context.used ? live.breakdown.pending : 0
+    return { context: e.context, breakdown: { ...live.breakdown, pending } }
   }
-  return null
+  return live ?? null
+}
+
+const reducedMotion = () =>
+  typeof window.matchMedia !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const ROLL_MS = 620
+
+/** `value`, rolled to over ROLL_MS (ease-out quart) from what is shown, unless motion is reduced. */
+function useRolling(value: number) {
+  const [shown, setShown] = useState(value)
+  const from = useRef(value)
+  from.current = shown
+  useEffect(() => {
+    const start = from.current
+    if (start === value || reducedMotion()) {
+      setShown(value)
+      return
+    }
+    const t0 = performance.now()
+    let frame = requestAnimationFrame(function step(now) {
+      const p = Math.min(1, (now - t0) / ROLL_MS)
+      setShown(Math.round(start + (value - start) * (1 - (1 - p) ** 4)))
+      if (p < 1) frame = requestAnimationFrame(step)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+  return shown
 }
 
 const LEVEL: Record<ContextLevel, { tone: TagTone; label: string }> = {
@@ -33,8 +65,10 @@ const NARROW = 0.08
 const toolLabel = (tool: ContextBreakdown['tools'][number]) =>
   tool.name ?? TOOL_LABEL[tool.kind] ?? t('其他工具')
 
-/** 上下文窗口 of one run: occupancy, prompt cache, and what the context is made of (estimated). */
-export function ContextWindow({
+/** 上下文窗口 of one run: occupancy, prompt cache, and what the context is made of (estimated). Live while it runs. */
+export const ContextWindow = memo(ContextWindowView, (a, b) => JSON.stringify(a) === JSON.stringify(b))
+
+function ContextWindowView({
   context,
   breakdown,
 }: {
@@ -43,11 +77,14 @@ export function ContextWindow({
 }) {
   const [filter, setFilter] = useState<'all' | Group>('all')
   const [all, setAll] = useState(false)
-  const { level, pct } = contextGauge(context)
+  const pending = breakdown?.live ? (breakdown.pending ?? 0) : 0
+  const used = context.used + pending
+  const { level, pct } = contextGauge({ ...context, used })
   const health = LEVEL[level]
-  const free = Math.max(0, context.size - context.used)
-  const tools: Entry[] = (breakdown?.tools ?? []).map((tool, i) => ({
-    key: `tool:${i}`,
+  const free = Math.max(0, context.size - used)
+  const rolled = useRolling(used)
+  const tools: Entry[] = (breakdown?.tools ?? []).map((tool) => ({
+    key: `tool:${tool.kind}:${tool.name ?? ''}`,
     group: 'tools',
     label: toolLabel(tool),
     tokens: tool.tokens,
@@ -68,7 +105,7 @@ export function ContextWindow({
           key: 'system',
           group: 'system',
           label: systemLabel,
-          tokens: Math.max(0, context.used - sum(tools) - sum(turns)),
+          tokens: Math.max(0, used - sum(tools) - sum(turns)),
         },
       ]
     : []
@@ -89,12 +126,22 @@ export function ContextWindow({
           <div className="ctxw__caption">
             {t('已用上下文')}
             <Tag tone={health.tone}>{health.label}</Tag>
+            {breakdown ? (
+              <span className="ctxw__state" data-live={breakdown.live || undefined}>
+                {breakdown.live ? t('实时') : t('已统计')}
+              </span>
+            ) : null}
           </div>
           <div className="ctxw__big">
-            {fmtTokens(context.used)}
+            <span>{`${pending > 0 ? '≈' : ''}${fmtTokens(rolled)}`}</span>
             <span className="ctxw__of">{t(' / {size} token', { size: fmtTokens(context.size) })}</span>
           </div>
-          <div className="ctxw__sub">{t('已用 {pct}% · 剩余 {free}', { pct, free: fmtTokens(free) })}</div>
+          <div className="ctxw__sub">
+            {t('已用 {pct}% · 剩余 {free}', { pct, free: fmtTokens(free) })}
+            {pending > 0 ? (
+              <span className="ctxw__pending">{t('含估算增量 {n}', { n: fmtTokens(pending) })}</span>
+            ) : null}
+          </div>
         </div>
         {cache ? (
           <div className="ctxw__cache">

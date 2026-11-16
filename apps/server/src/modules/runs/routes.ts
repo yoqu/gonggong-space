@@ -16,7 +16,7 @@ import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
 import { authorName } from '../messages/service.js'
 import { runDtoLoader } from './dto.js'
-import { flushStream } from './engine.js'
+import { flushStream, liveContext } from './engine.js'
 import { openEvent } from './sealed.js'
 
 /** Most rounds the session list returns; older ones are rarely worth scrolling back to. */
@@ -114,6 +114,7 @@ export function runRoutes(ctx: Ctx) {
         settings: row.run.settings,
         retentionDays: (await sysParams(ctx.db)).runRetentionDays,
         events,
+        live: liveContext(row.run.id),
         prompts: await promptsOf(row.run),
       }
     })
@@ -135,6 +136,7 @@ export function runRoutes(ctx: Ctx) {
       const run = row ?? fail('not_found', '运行不存在')
       return {
         events: await eventsSince(run.id, RunDetailQuery.parse(req.query).since),
+        live: liveContext(run.id),
         prompts: await promptsOf(run),
         purged: run.purgedAt !== null,
       }

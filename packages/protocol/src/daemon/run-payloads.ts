@@ -218,7 +218,7 @@ export const RunEvent = z.discriminatedUnion('kind', [
       .optional(),
   }),
   /** `usage` carries what the run spent (cost so far); `context` is occupancy, never folded into `usage`. */
-  /** `breakdown` comes once, at the end of a run, with its last `context`. */
+  /** `breakdown` comes at the end of a run with its last `context`, and as `live` snapshots while it runs. */
   z.object({
     kind: z.literal('usage'),
     usage: Usage,

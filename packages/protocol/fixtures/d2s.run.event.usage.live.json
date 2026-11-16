@@ -1,0 +1,15 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "usage",
+    "usage": {},
+    "context": { "used": 48000, "size": 200000 },
+    "breakdown": {
+      "tools": [{ "name": "Bash", "kind": "execute", "count": 2, "tokens": 5200 }],
+      "turns": [900],
+      "live": true,
+      "pending": 1300
+    }
+  }
+}
