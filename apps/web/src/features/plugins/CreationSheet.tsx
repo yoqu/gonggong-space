@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type BotDto,
   type CreationStep,
   creationSteps,
@@ -29,7 +30,6 @@ import {
 } from '../../ui'
 import { AttachmentChips, useUploads } from '../attachments/ComposerAttachments'
 import { BotAvatar } from '../bots/avatars'
-import { AGENT_LABEL } from '../bots/model'
 import { blockerText, CATEGORY, type CreationDraft, newDraft, previewUrl, requestOf } from './model'
 import { PluginTile, pluginIcon, Swatches } from './PluginTile'
 import { PromptComposer } from './PromptComposer'
@@ -410,7 +410,7 @@ export function CreationSheet({
                       <span className="plg-botrow__text">
                         <span className="plg-botrow__name">
                           <b>{b.name}</b>
-                          <Tag tone="gray">{AGENT_LABEL[b.agentKind]}</Tag>
+                          <Tag tone="gray">{AGENT_META[b.agentKind].name}</Tag>
                         </span>
                         <span className="plg-botrow__sub">
                           {why

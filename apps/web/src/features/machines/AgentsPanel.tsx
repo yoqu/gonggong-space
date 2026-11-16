@@ -1,9 +1,16 @@
-import { type AgentKind, fieldsFor, type MachineDto, type ProviderStoreView } from '@gonggong/protocol'
+import {
+  AGENT_META,
+  type AgentKind,
+  agentMeta,
+  fieldsFor,
+  type MachineDto,
+  type ProviderStoreView,
+} from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
-import { Alert, Skeleton } from '../../ui'
-import { AGENT_LABEL, machineAgents, OWN_LOGIN, takesProviders } from '../bots/model'
+import { AgentIcon, Alert, Skeleton } from '../../ui'
+import { machineAgents } from '../bots/model'
 import { AgentSettingsBox } from './AgentSettingsPanel'
 import { ProviderBox } from './ProvidersPanel'
 import { SwitchNote, switchLines } from './providers'
@@ -46,14 +53,17 @@ export function AgentsPanel({ machine }: { machine: MachineDto }) {
         </section>
       ) : null}
       {machineAgents(machine).map((agent) => (
-        <section key={agent} aria-label={AGENT_LABEL[agent]} className="mx-agent">
+        <section key={agent} aria-label={AGENT_META[agent].name} className="mx-agent">
           {tools.state ? (
             <ToolBox kind={agent} state={tools.state} op={tools.op} onRun={tools.run} />
           ) : (
-            <span className="mx-strong">{AGENT_LABEL[agent]}</span>
+            <span className="mx-inline">
+              <AgentIcon kind={agent} />
+              <span className="mx-strong">{AGENT_META[agent].name}</span>
+            </span>
           )}
-          {!takesProviders(agent) ? (
-            <span className="mx-sub">{OWN_LOGIN[agent]}</span>
+          {AGENT_META[agent].login === 'own' ? (
+            <span className="mx-sub">{t.text({ key: agentMeta(agent).loginHint ?? '' })}</span>
           ) : view && has('providers') ? (
             <ProviderBox
               machine={machine}

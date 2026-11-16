@@ -166,7 +166,6 @@ export default {
   吊销: 'Revoke',
   '已吊销 {name}': 'Revoked {name}',
   协议: 'Protocol',
-  腾讯: 'Tencent',
   '进入后输入 /login，用微信、Google/GitHub 或企业账号登录':
     'Inside it, type /login and sign in with WeChat, Google/GitHub or an enterprise account',
   '由 {agent} 决定，供应商需提供这种接口': 'Set by {agent}; the provider has to offer this API',
@@ -174,13 +173,10 @@ export default {
     'Inside it, type /auth, pick Gemini API Key and paste the key (personal Google account login is no longer supported)',
   '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
     'Runs the ACP adapters and the agents that need none (Gemini CLI, CodeBuddy…), and the managed installs of the agent tools (requires ≥ {min})',
-  'pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key':
-    'pi uses its own login: run pi on the machine and type /login to sign in or enter an API key',
   '进入后输入 /login，选择供应商登录或填写 API Key':
     'Inside it, type /login and sign in with a provider or enter an API key',
   '在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）':
     'Enter the DeepSeek API key under Models in the page it opens (or set DEEPSEEK_API_KEY in the machine environment)',
-  '深度求索 · 需要 Node.js ≥ 24.9': 'DeepSeek · needs Node.js ≥ 24.9',
   '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
   官方源: 'Official registry',
   来源: 'Source',
@@ -465,13 +461,11 @@ export default {
   这个接入申请已处理过: 'This request was already handled',
   '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。':
     'The link may have expired or already been handled. Run gg again in the terminal to get a new confirmation link.',
-  'Google · 不在 npm 上，需在机器上自行安装': 'Google · not on npm, install it on the machine yourself',
+  '不在 npm 上，需在机器上自行安装': 'Not on npm; install it on the machine yourself',
   安装命令: 'Install command',
   '自行安装，按它自己的方式升级': 'Installed by you; upgrade it its own way',
   '共工空间不能托管安装它，请在该机器的终端运行':
     "Gonggong Space can't install it; run this in the machine's terminal",
-  'Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录':
-    'Antigravity CLI uses its own login: run agy on that machine and sign in with a Google account',
   '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码':
     'Sign in with a Google account as it prompts; on a machine without a browser run agy acp --login instead, open the link elsewhere and paste the code',
 } satisfies Record<string, string>

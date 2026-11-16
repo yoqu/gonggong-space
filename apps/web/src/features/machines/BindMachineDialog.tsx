@@ -1,4 +1,4 @@
-import type { LinkRequestDto, MachineDto } from '@gonggong/protocol'
+import { AGENT_META, type LinkRequestDto, type MachineDto } from '@gonggong/protocol'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import demoDark from '../../assets/demo/a1-dark.mp4'
@@ -20,7 +20,6 @@ import {
   StepIndicator,
   type StepStatus,
 } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { AgentPrompt, BindCodePanel, useBindCode } from './BindCodePanel'
 import { ClientDownload } from './ClientDownload'
 import { LinkRequestCard } from './LinkRequestCard'
@@ -245,7 +244,7 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
                     style={{ background: a.available ? 'var(--system-green)' : 'var(--system-gray)' }}
                   />
                   <span>
-                    {`${AGENT_LABEL[a.kind]} ${a.available ? (a.version ?? '') : t('未安装')}`.trim()}
+                    {`${AGENT_META[a.kind].name} ${a.available ? (a.version ?? '') : t('未安装')}`.trim()}
                   </span>
                 </li>
               ))}

@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type BotDto,
   INHERIT_PROVIDER,
   type MachineDto,
@@ -18,6 +19,7 @@ import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import { fmtTokens } from '../../lib/format'
 import {
+  AgentIcon,
   Alert,
   Avatar,
   AvatarEditor,
@@ -46,7 +48,6 @@ import { BotShares } from './BotShares'
 import { DeleteBotDialog } from './DeleteBotDialog'
 import { MachineLink } from './MachineLink'
 import {
-  AGENT_LABEL,
   agentCliVersion,
   agentOutdated,
   agentsUndetected,
@@ -61,7 +62,7 @@ const FULL_HINT = t('完全允许只能由触发名单里的人触发')
 const MAX_CONCURRENCY = 8
 
 function warning(bot: BotDto, userName: (id: string) => string, machine: MachineDto | undefined) {
-  const agent = AGENT_LABEL[bot.agentKind]
+  const agent = AGENT_META[bot.agentKind].name
   if (bot.presence === 'pending_confirm')
     return {
       title: t('等待 {owner} 确认', { owner: bot.ownerName }),
@@ -563,7 +564,7 @@ export function BotDetail({
         <div className="bots-detail__titles">
           <span className="bots-detail__name">{bot.name}</span>
           <span className="bots-detail__meta">
-            {AGENT_LABEL[bot.agentKind]} · {bot.ownerName}
+            <AgentIcon kind={bot.agentKind} size={14} /> {AGENT_META[bot.agentKind].name} · {bot.ownerName}
           </span>
         </div>
       </div>

@@ -1,17 +1,7 @@
-import type { AgentKind, RunStatus } from '@gonggong/protocol'
+import type { RunStatus } from '@gonggong/protocol'
 import type { BadgeVariant } from '@web/ui'
 import { t } from '../i18n'
 import type { Snapshot } from '../ipc'
-
-export const AGENTS: Record<AgentKind, { name: string }> = {
-  claude: { name: 'Claude Code' },
-  codex: { name: 'Codex' },
-  gemini: { name: 'Gemini CLI' },
-  codebuddy: { name: 'CodeBuddy（WorkBuddy）' },
-  pi: { name: 'pi' },
-  deepseek: { name: 'DeepSeek Harness' },
-  antigravity: { name: 'Antigravity CLI' },
-}
 
 export type ConnKind = 'ok' | 'connecting' | 'offline' | 'proto' | 'revoked' | 'blocked' | 'unbound'
 
@@ -75,16 +65,6 @@ export function revealLabel(os: string | undefined) {
   if (os === 'windows') return t('在资源管理器中显示')
   if (os === 'linux') return t('在文件管理器中显示')
   return t('在 Finder 中显示')
-}
-
-export const VENDOR: Record<AgentKind, string> = {
-  claude: 'Anthropic · CLI',
-  codex: 'OpenAI · CLI',
-  gemini: 'Google · CLI',
-  codebuddy: 'Tencent · CLI',
-  pi: 'Earendil · CLI',
-  deepseek: 'DeepSeek · CLI',
-  antigravity: 'Google · CLI',
 }
 
 /** `/Users/wl/.gonggong/workspaces` → `~/.gonggong/workspaces` */

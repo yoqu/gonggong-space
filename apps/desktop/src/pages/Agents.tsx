@@ -1,6 +1,6 @@
-import { type AgentKind, compareVersions } from '@gonggong/protocol'
+import { AGENT_META, type AgentKind, agentMeta, compareVersions, MIN_NODE } from '@gonggong/protocol'
 import { canUpgrade, hasUpdate } from '@web/features/machines/tools'
-import { Button, Disclosure, GroupBox, GroupRow, Icon, type IconName, Skeleton, Tag, toast } from '@web/ui'
+import { AgentIcon, Button, Disclosure, GroupBox, GroupRow, Icon, Skeleton, Tag, toast } from '@web/ui'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import {
@@ -13,7 +13,6 @@ import {
   type ToolOp,
   type ToolStatus,
 } from '../ipc'
-import { AGENTS, VENDOR } from '../lib/labels'
 import { fail, PathValue } from '../lib/ui'
 import { AgentSettingsBox } from '../providers/AgentSettingsBox'
 import { ProviderBox } from '../providers/ProviderBox'
@@ -21,17 +20,7 @@ import { useProviderSwitch } from '../providers/switch'
 import { useDaemon } from '../store'
 import type { PageProps } from '.'
 
-const MIN_NODE = 22
-const TOOL_NAME: Record<ToolKind, string> = {
-  node: 'Node.js',
-  claude: AGENTS.claude.name,
-  codex: AGENTS.codex.name,
-  gemini: AGENTS.gemini.name,
-  codebuddy: AGENTS.codebuddy.name,
-  pi: AGENTS.pi.name,
-  deepseek: AGENTS.deepseek.name,
-  antigravity: AGENTS.antigravity.name,
-}
+const toolName = (k: ToolKind) => (k === 'node' ? 'Node.js' : AGENT_META[k].name)
 
 /** The install / upgrade in progress or last run; one at a time per machine. */
 interface Op {
@@ -74,7 +63,7 @@ export function AgentsPage(_: PageProps) {
     if (a?.available)
       toast({
         type: 'success',
-        message: t('{name} {version} 已检测到', { name: AGENTS[kind].name, version: a.version ?? '' }),
+        message: t('{name} {version} 已检测到', { name: AGENT_META[kind].name, version: a.version ?? '' }),
       })
   }
 
@@ -97,7 +86,7 @@ export function AgentsPage(_: PageProps) {
       setOp((o) => o && { ...o, running: false })
       toast({
         type: 'success',
-        message: t('{name} {version} 已安装', { name: TOOL_NAME[kind], version: s.version ?? '' }),
+        message: t('{name} {version} 已安装', { name: toolName(kind), version: s.version ?? '' }),
       })
     } catch (e) {
       setOp((o) => o && { ...o, lines: [...o.lines, String(e)], running: false, failed: true })
@@ -151,14 +140,8 @@ export function AgentsPage(_: PageProps) {
             onPickPath={() => pickPath(a.kind)}
             onResetPath={() => ipc.resetAgentPath(a.kind).then(load, fail)}
           />
-          {a.kind === 'pi' ? (
-            <p className="dk-note">
-              {t('pi 使用它自己的登录：在本机运行 pi，输入 /login 登录或填写 API Key')}
-            </p>
-          ) : a.kind === 'antigravity' ? (
-            <p className="dk-note">
-              {t('Antigravity CLI 使用它自己的登录：在本机运行 agy，用 Google 账号登录')}
-            </p>
+          {agentMeta(a.kind).login === 'own' ? (
+            <p className="dk-note">{t.text({ key: agentMeta(a.kind).loginHint ?? '' })}</p>
           ) : providers ? (
             <>
               <ProviderBox agent={a.kind} data={providers} onSwitch={switcher.request} />
@@ -261,14 +244,15 @@ function toolRows(s: ToolStatus | undefined, loaded: boolean) {
 }
 
 function Head({
-  icon,
+  agent,
   active,
   title,
   badge,
   sub,
   children,
 }: {
-  icon: IconName
+  /** An agent's own mark; Node.js gets a generic tile. */
+  agent?: AgentKind
   active: boolean
   title: string
   badge: { tone: 'blue' | 'green' | 'orange' | 'red'; text: string }
@@ -277,12 +261,16 @@ function Head({
 }) {
   return (
     <div className="dk-row">
-      <span
-        className="dk-tile"
-        style={{ background: active ? 'var(--system-purple)' : 'var(--system-gray)' }}
-      >
-        <Icon name={icon} size={16} />
-      </span>
+      {agent ? (
+        <AgentIcon kind={agent} size={28} />
+      ) : (
+        <span
+          className="dk-tile"
+          style={{ background: active ? 'var(--system-purple)' : 'var(--system-gray)' }}
+        >
+          <Icon name="bolt" size={16} />
+        </span>
+      )}
       <div className="dk-row__main">
         <span className="dk-row__title">
           <span className="dk-strong">{title}</span>
@@ -317,7 +305,6 @@ function NodeCard({
   return (
     <GroupBox>
       <Head
-        icon="bolt"
         active={!!s?.installed && !tooOld}
         title="Node.js"
         badge={badge}
@@ -380,7 +367,7 @@ function Agent({
   onResetPath: () => void
 }) {
   const info = useDaemon((s) => s.info)
-  const meta = AGENTS[a.kind]
+  const meta = agentMeta(a.kind)
   const adapter = info?.adapters.find((x) => x.kind === a.kind)
   const usedBy = users.length ? t('被 {list} 使用', { list: users.join(t('、')) }) : t('暂无 Bot 使用')
   const badge = checking
@@ -393,11 +380,11 @@ function Agent({
   return (
     <GroupBox>
       <Head
-        icon={a.kind === 'claude' ? 'terminal' : 'square-terminal'}
+        agent={a.kind}
         active={a.available}
         title={meta.name}
         badge={badge}
-        sub={VENDOR[a.kind]}
+        sub={`${t.text({ key: meta.vendor })} · CLI`}
       >
         {actions}
         <Button onClick={onRecheck} disabled={checking}>
@@ -426,10 +413,7 @@ function Agent({
             label={t('ACP 适配器')}
             wideValue
             value={
-              a.kind === 'gemini' ||
-              a.kind === 'codebuddy' ||
-              a.kind === 'deepseek' ||
-              a.kind === 'antigravity'
+              meta.adapter === 'cli'
                 ? t('CLI 自带')
                 : adapter
                   ? t('{version} · 随 daemon', { version: adapter.version })

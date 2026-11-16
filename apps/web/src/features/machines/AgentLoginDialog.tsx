@@ -1,8 +1,7 @@
-import { type AgentKind, type MachineDto, TERMINAL_DIR_FEATURE } from '@gonggong/protocol'
+import { AGENT_META, type AgentKind, type MachineDto, TERMINAL_DIR_FEATURE } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { Button, Dialog, Presence } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { NewTerminalDialog } from '../terminal/NewTerminalDialog'
 import { CommandLine } from './AdminPanels'
 
@@ -49,9 +48,9 @@ export function AgentLoginDialog({
     <>
       <Dialog
         open={!terminal}
-        title={t('登录 {agent} 官方账号', { agent: AGENT_LABEL[agent] })}
+        title={t('登录 {agent} 官方账号', { agent: AGENT_META[agent].name })}
         message={t('官方账号在该机器上的 {agent} 里登录，登录信息只保存在该机器上。', {
-          agent: AGENT_LABEL[agent],
+          agent: AGENT_META[agent].name,
         })}
         width={520}
         onClose={onClose}

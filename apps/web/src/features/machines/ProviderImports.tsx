@@ -1,15 +1,15 @@
-import type {
-  AgentKind,
-  CcSwitchCandidate,
-  CcSwitchImportedDto,
-  CcSwitchPreviewDto,
-  ProviderSavedDto,
+import {
+  AGENT_META,
+  type AgentKind,
+  type CcSwitchCandidate,
+  type CcSwitchImportedDto,
+  type CcSwitchPreviewDto,
+  type ProviderSavedDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api, errorText } from '../../lib/api'
 import { Checkbox, Dialog, GroupBox, Skeleton, Tag, TextField } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 
 /** 从 CC Switch 导入: the machine's own CC Switch providers of `agent`, keys masked; all chosen by default. */
 export function CcSwitchImport({
@@ -63,7 +63,7 @@ export function CcSwitchImport({
       open
       onClose={onClose}
       closeOnBackdrop={false}
-      title={t('从 CC Switch 导入 {agent} 供应商', { agent: AGENT_LABEL[agent] })}
+      title={t('从 CC Switch 导入 {agent} 供应商', { agent: AGENT_META[agent].name })}
       message={t('只读取这台机器上的 CC Switch，Key 只保存在这台机器上')}
       width={560}
       actions={[
@@ -80,7 +80,7 @@ export function CcSwitchImport({
       {!list && !error ? <Skeleton count={3} /> : null}
       {list?.length === 0 ? (
         <p className="mx-sub">
-          {t('CC Switch 里没有可直接使用的 {agent} 供应商', { agent: AGENT_LABEL[agent] })}
+          {t('CC Switch 里没有可直接使用的 {agent} 供应商', { agent: AGENT_META[agent].name })}
         </p>
       ) : null}
       {list?.length ? (

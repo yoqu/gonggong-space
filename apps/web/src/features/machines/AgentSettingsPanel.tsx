@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type AgentKind,
   type AgentSettingField,
   type AgentSettingsReq,
@@ -14,7 +15,6 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { Alert, GroupBox, GroupRow, SegmentedControl, Switch, TextField } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import {
   BOOL_RAW,
   type BoolState,
@@ -56,7 +56,7 @@ export function AgentSettingsBox({
   const bots = useWorkspace((st) => st.bots).filter(
     (b) => b.machineId === machine.id && b.agentKind === agent,
   )
-  const title = t('{agent} Agent 设置', { agent: AGENT_LABEL[agent] })
+  const title = t('{agent} Agent 设置', { agent: AGENT_META[agent].name })
 
   const put = (key: string, next: AgentSettingValues, inherit: boolean) =>
     saves.save(key, async () => {
@@ -132,7 +132,7 @@ export function AgentSettingsBox({
               label={fieldLabel(f.id)}
               description={
                 old
-                  ? t('需要 {agent} {v} 及以上', { agent: AGENT_LABEL[agent], v: f.minVersion ?? '' })
+                  ? t('需要 {agent} {v} 及以上', { agent: AGENT_META[agent].name, v: f.minVersion ?? '' })
                   : source(f)
               }
             >

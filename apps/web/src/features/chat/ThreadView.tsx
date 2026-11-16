@@ -1,4 +1,10 @@
-import type { GroupDto, MessageDto, RunDto, ThreadStateDto } from '@gonggong/protocol'
+import {
+  AGENT_META,
+  type GroupDto,
+  type MessageDto,
+  type RunDto,
+  type ThreadStateDto,
+} from '@gonggong/protocol'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useSession } from '../../app/session'
 import { useWorkspace } from '../../app/workspace'
@@ -6,7 +12,6 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Button, EmptyState, FailedArt, Mascot, Spinner, ThreadPanel, toast } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { lastEditable } from './editing'
 import { MessageComposer } from './MessageComposer'
 import { PendingMessages } from './PendingMessages'
@@ -157,7 +162,7 @@ export function ThreadView({
         run={r}
         reply={reply}
         botName={bot?.name ?? 'bot'}
-        agent={bot ? AGENT_LABEL[bot.agentKind] : ''}
+        agent={bot ? AGENT_META[bot.agentKind].name : ''}
         trigger={r.triggerUserId ? userName(r.triggerUserId) : '—'}
         foldable={group.foldRuns}
       />

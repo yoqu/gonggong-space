@@ -1,4 +1,6 @@
 import {
+  AGENT_KINDS,
+  AGENT_META,
   type AgentKind,
   type BotDto,
   type BotOwnerDto,
@@ -13,6 +15,7 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import {
+  AgentIcon,
   Alert,
   Avatar,
   Button,
@@ -36,7 +39,7 @@ import type { AgentConfig } from './AgentConfig'
 import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
 import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
 import { WorkspacePath } from './BotSettings'
-import { AGENT_LABEL, AGENTS, agentsUndetected, botsApi, clientRuns, reportedAgent } from './model'
+import { agentsUndetected, botsApi, clientRuns, reportedAgent } from './model'
 import { useDm } from './ShareRequest'
 
 interface Props {
@@ -65,11 +68,11 @@ interface Draft {
 const NO_CONFIG: AgentConfig = { model: null, effort: null }
 
 const autoName = (owner: BotOwnerDto, agent: AgentKind) =>
-  t('{owner}的 {agent}', { owner: owner.name, agent: AGENT_LABEL[agent] })
+  t('{owner}的 {agent}', { owner: owner.name, agent: AGENT_META[agent].name })
 
 function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draft {
   const m = machines[0]
-  const agent = (m && AGENTS.find((k) => reportedAgent(m, k))) || 'claude'
+  const agent = (m && AGENT_KINDS.find((k) => reportedAgent(m, k))) || 'claude'
   return {
     ownerId: owner.id,
     machineId: m?.id ?? null,
@@ -161,7 +164,7 @@ function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
   const bindHere = self && bot.binding === 'pending_bind'
   const bind = useBindCode(bindHere)
   const machine = useWorkspace((s) => s.machines.find((m) => m.id === bot.machineId))
-  const agent = AGENT_LABEL[bot.agentKind]
+  const agent = AGENT_META[bot.agentKind].name
   const next: { tone: keyof typeof RESULT_VARIANT; desc: string } =
     bot.binding === 'pending_confirm'
       ? { tone: 'confirm', desc: t('已发送确认通知给 {name}', { name: bot.ownerName }) }
@@ -277,7 +280,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
   const m = machines.find((x) => x.id === draft.machineId)
   const self = owner.id === me.id
   const ver = m && reportedAgent(m, draft.agent)
-  const agentName = AGENT_LABEL[draft.agent]
+  const agentName = AGENT_META[draft.agent].name
   const result: { tone: keyof typeof RESULT_VARIANT; title: string; desc: string } = !m
     ? {
         tone: 'pending',
@@ -435,7 +438,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
                 if (!x) return
                 const agent = reportedAgent(x, draft.agent)
                   ? draft.agent
-                  : (AGENTS.find((k) => reportedAgent(x, k)) ?? draft.agent)
+                  : (AGENT_KINDS.find((k) => reportedAgent(x, k)) ?? draft.agent)
                 set({
                   machineId: x.id,
                   agent,
@@ -460,7 +463,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
             aria-label="Agent"
             value={draft.agent}
             // An online machine whose client is too old for an agent still lists it, greyed, saying why.
-            options={AGENTS.filter((k) => clientRuns(m, k) || m?.online).map((k) => {
+            options={AGENT_KINDS.filter((k) => clientRuns(m, k) || m?.online).map((k) => {
               const outdated = !clientRuns(m, k)
               const v = m && reportedAgent(m, k)
               const unknown = !!m && agentsUndetected(m)
@@ -470,8 +473,8 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
                 disabled: missing,
                 label: (
                   <span className="newbot__machine">
-                    <img className="newbot__agent-face" src={avatarSrc(`agent-${k}`)} alt="" />
-                    {AGENT_LABEL[k]}
+                    <AgentIcon kind={k} size={16} className="newbot__agent-face" />
+                    {AGENT_META[k].name}
                     <span className={missing ? 'newbot__missing' : 'newbot__muted'}>
                       {outdated
                         ? t('客户端需升级')
