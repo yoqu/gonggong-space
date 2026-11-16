@@ -349,6 +349,14 @@ fn version(home: &Path, path: &Path) -> Option<String> {
     Some(v)
 }
 
+/// Whether `kind` is known to be logged out by its manifest's checks (Claude Code and Codex report their own state
+/// through their CLI and are not judged here). Probing such an agent only fails, and Gemini CLI opens a Google
+/// sign-in page in the browser each time it starts unauthenticated.
+pub fn logged_out(kind: AgentKind, user_home: &Path, env: &dyn Fn(&str) -> Option<String>) -> bool {
+    !matches!(kind, AgentKind::Claude | AgentKind::Codex)
+        && adapter(kind).login_status(user_home, env).as_deref() == Some(&*t!("未登录"))
+}
+
 /// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`) or, for the others, as their
 /// manifest's checks find it; `None` if it cannot tell.
 pub fn login_status(kind: AgentKind, cli: &Path) -> Option<String> {
@@ -401,6 +409,20 @@ pub fn parse_version(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn probing_waits_for_a_login_its_manifest_can_see() {
+        use crate::protocol::AgentKind::{Antigravity, Claude, Gemini};
+        let home = tempfile::tempdir().unwrap();
+        let none = |_: &str| None;
+        let key = |n: &str| (n == "GEMINI_API_KEY").then(|| "k".to_string());
+        // Gemini without a key or Vertex would start its Google sign-in in a browser on every probe.
+        assert!(super::logged_out(Gemini, home.path(), &none));
+        assert!(!super::logged_out(Gemini, home.path(), &key));
+        // Unknown login state (agy) and the CLIs that report it themselves are still probed.
+        assert!(!super::logged_out(Antigravity, home.path(), &none));
+        assert!(!super::logged_out(Claude, home.path(), &none));
+    }
+
     #[test]
     fn built_in_review_needs_the_official_service() {
         use crate::protocol::AgentKind::{Claude, Codex, Gemini};

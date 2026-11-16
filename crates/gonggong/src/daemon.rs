@@ -225,6 +225,11 @@ async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
             .collect();
         let mut failed = false;
         for (kind, key) in missing {
+            // Checked again on each retry: probing resumes once the agent is logged in.
+            if crate::agents::logged_out(kind, &crate::config::user_home(), &|n| std::env::var(n).ok()) {
+                failed = true;
+                continue;
+            }
             match engine.probe(kind).await {
                 Ok(catalog) => {
                     done.insert((kind, key.clone()));
