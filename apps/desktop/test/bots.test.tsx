@@ -4,13 +4,14 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import './ipc-mock'
 import { ipc } from '../src/ipc'
 import { BotsPage } from '../src/pages/Bots'
-import { bot, CLAUDE, CODEX, provider } from './ipc-mock'
+import { bot, CLAUDE, CODEX, provider, STATE, VIEW } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  m.agents.mockResolvedValue([CLAUDE, CODEX])
+  m.tools.mockResolvedValue({ ...STATE, agents: [CLAUDE, CODEX] })
+  m.providers.mockResolvedValue({ view: VIEW })
   m.openBotInWeb.mockResolvedValue()
   m.bots.mockResolvedValue([
     bot({ followAgent: true }),
@@ -59,70 +60,52 @@ it('shows the server settings of each bot read-only', async () => {
 
   expect(screen.queryByRole('button', { name: '设置…' })).toBeNull()
   expect(screen.queryByRole('button', { name: '确认' })).toBeNull()
-  expect(screen.getByText(/供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理/)).toBeTruthy()
+  expect(screen.getByText(/Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型/)).toBeTruthy()
 })
 
 it('opens each bot on the Web to manage or confirm it', async () => {
   render(<BotsPage go={() => {}} />)
-  fireEvent.click((await card('小王的 Claude')).getByRole('button', { name: '在 Web 中管理' }))
+  fireEvent.click(
+    (await card('小王的 Claude')).getAllByRole('button', { name: '在 Web 中管理' })[0] as HTMLElement,
+  )
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b1'))
   const codex = await card('小王的 Codex')
-  expect(codex.queryByRole('button', { name: '在 Web 中管理' })).toBeNull()
+  expect(codex.getAllByRole('button', { name: '在 Web 中管理' })).toHaveLength(1)
   fireEvent.click(codex.getByRole('button', { name: '在 Web 中确认' }))
   await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
 })
 
 it('describes what the page manages', async () => {
   const { PAGES } = await import('../src/pages')
-  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe('本机运行的 Bot 与其供应商，其余设置请在 Web 端修改')
+  expect(PAGES.find((p) => p.key === 'bots')?.desc).toBe(
+    '本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改',
+  )
 })
 
-it('sets a bot’s provider: inherit, official or one of its agent, confirming when sessions keep the old one', async () => {
+it('shows each bot’s provider and model read-only, managed on the Web', async () => {
   m.providers.mockResolvedValue({
-    machine: { claude: 'kimi-1' },
-    bots: { b2: 'official' },
-    providers: [
-      provider({ id: 'kimi-1', name: 'Kimi' }),
-      provider({ id: 'glm-1', name: '智谱 GLM' }),
-      provider({ id: 'ds-1', agent: 'codex', name: 'DeepSeek' }),
-    ],
+    view: {
+      ...VIEW,
+      machine: { claude: { provider: 'kimi-1', model: 'kimi-k2' } },
+      bots: { b2: 'official' },
+      providers: [provider({ id: 'kimi-1', name: 'Kimi' })],
+    },
   })
-  m.chooseProvider.mockResolvedValue()
+  m.bots.mockResolvedValue([
+    bot({}),
+    bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex', model: 'gpt-5' }),
+    bot({ id: 'b3', name: '小王的 Gemini', agentKind: 'gemini' }),
+  ])
   render(<BotsPage go={() => {}} />)
   const claude = await card('小王的 Claude')
-  const select = await claude.findByRole('button', { name: '小王的 Claude 的供应商' })
-  expect(select.textContent).toContain('继承机器（当前：Kimi）')
-  fireEvent.click(select)
-  const menu = within(screen.getByRole('menu', { name: '小王的 Claude 的供应商' }))
-  expect(menu.getAllByRole('menuitemcheckbox').map((o) => o.textContent)).toEqual([
-    '继承机器（当前：Kimi）',
-    '官方登录',
-    'Kimi',
-    '智谱 GLM',
-  ])
-
-  m.providerImpact.mockResolvedValue([
-    { group: '支付服务重构', bot: '小王的 Claude', from: 'Kimi', to: '智谱 GLM' },
-  ])
-  fireEvent.click(menu.getByRole('menuitemcheckbox', { name: '智谱 GLM' }))
-  await waitFor(() => expect(m.providerImpact).toHaveBeenCalledWith('claude', 'glm-1', 'b1'))
-  const alert = within(await screen.findByRole('alertdialog'))
-  expect(alert.getByText('1 个群的会话仍在使用 Kimi，开启新会话后才会切换到 智谱 GLM：')).toBeTruthy()
-  expect(alert.getByText('支付服务重构（小王的 Claude）')).toBeTruthy()
-  expect(m.chooseProvider).not.toHaveBeenCalled()
-  fireEvent.click(alert.getByRole('button', { name: '切换' }))
-  await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('claude', 'glm-1', 'b1'))
-
+  expect(await claude.findByText('继承机器默认（Kimi / kimi-k2）')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /的供应商$/ })).toBeNull()
   const codex = await card('小王的 Codex')
-  expect(codex.getByRole('button', { name: '小王的 Codex 的供应商' }).textContent).toContain('官方登录')
-  fireEvent.click(codex.getByRole('button', { name: '小王的 Codex 的供应商' }))
-  m.providerImpact.mockResolvedValue([])
-  fireEvent.click(
-    within(screen.getByRole('menu', { name: '小王的 Codex 的供应商' })).getByRole('menuitemcheckbox', {
-      name: /继承机器/,
-    }),
-  )
-  await waitFor(() => expect(m.chooseProvider).toHaveBeenCalledWith('codex', 'inherit', 'b2'))
+  expect(codex.getByText('官方登录 / gpt-5')).toBeTruthy()
+  fireEvent.click(codex.getAllByRole('button', { name: '在 Web 中管理' })[0] as HTMLElement)
+  await waitFor(() => expect(m.openBotInWeb).toHaveBeenCalledWith('b2'))
+  expect((await card('小王的 Gemini')).getByText('继承机器默认（官方登录）')).toBeTruthy()
+  expect(m.providers).toHaveBeenCalledWith({ action: 'list' })
 })
 
 it('leaves the team out for servers before teams', async () => {

@@ -3,7 +3,6 @@ import { protocolEn } from '@gonggong/protocol'
 // The registry's vendors and login hints are translated in the protocol.
 export const en = {
   ...protocolEn,
-  '本机 Claude 配置目录': 'Local Claude configuration directory',
   关闭窗口后隐藏程序坞图标: 'Hide the Dock icon when the window closes',
   '保留菜单栏图标，可从菜单栏重新打开；后台服务继续运行':
     'Keep the menu-bar icon to reopen the window; background services keep running',
@@ -47,66 +46,16 @@ export const en = {
   重启共工空间: 'Restart Gonggong Space',
   完成: 'Done',
   稍后: 'Later',
-  '{name} {version} 已检测到': '{name} {version} detected',
-  '{name} {version} 已安装': '{name} {version} installed',
   'Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团队里的身份，认领后调用这里的某个 agent 执行。':
     'An Agent is a CLI runtime installed on this machine and decides which models are available; a Bot is an identity in the team that runs one of these agents once it takes on work.',
   安装: 'Install',
-  '升级到 {version}': 'Upgrade to {version}',
-  升级命令: 'Upgrade command',
-  '升级时按原安装方式运行，也可以在本机终端自己运行':
-    'Run the way it was installed when you upgrade; you can also run it in a terminal on this machine',
-  改用共工空间托管安装: 'Switch to the Gonggong Space managed install',
-  '正在安装…': 'Installing…',
-  安装失败: 'Installation failed',
-  安装完成: 'Installation complete',
-  安装日志: 'Installation log',
   最新版本: 'Latest version',
-  '检查中…': 'Checking…',
-  来源: 'Source',
-  共工空间托管: 'Managed by Gonggong Space',
-  自行安装: 'Self-installed',
-  '无法获取，请检查镜像源': 'Unavailable. Check the mirror',
-  有更新: 'Update available',
-  检测中: 'Detecting',
   未安装: 'Not installed',
-  '版本过低 {version}': 'Outdated {version}',
-  '已安装 {version}': 'Installed {version}',
-  '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
-    'Runs the ACP adapters and the agents that need none (Gemini CLI, CodeBuddy…), and the managed installs of the agent tools (requires ≥ {min})',
   路径: 'Path',
-  '系统的 Node.js {version} 低于 {min}，ACP 适配器无法运行，请安装共工空间托管版（不影响系统的 Node.js）。':
-    'The system Node.js {version} is below {min}, so the ACP adapters cannot run. Install the Gonggong-managed version (the system Node.js is left untouched).',
-  '本机没有 Node.js ≥ {min}。安装共工空间托管版到 ~/.gonggong/runtime，不影响系统环境。':
-    'No Node.js ≥ {min} on this machine. Install the Gonggong-managed version to ~/.gonggong/runtime without touching the system environment.',
-  '被 {list} 使用': 'Used by {list}',
   '、': ', ',
-  '暂无 Bot 使用': 'Not used by any Bot',
-  '检测中…': 'Detecting…',
-  重新检测: 'Detect again',
   版本: 'Version',
-  '{version} · 满足 ≥ {min}': '{version} · meets ≥ {min}',
-  '{version} · 低于要求的 ≥ {min}': '{version} · below the required ≥ {min}',
   登录: 'Login',
-  未知: 'Unknown',
   'ACP 适配器': 'ACP adapter',
-  '{version} · 随 daemon': '{version} · bundled with daemon',
-  '随 daemon': 'Bundled with daemon',
-  'CLI 自带': 'Built into the CLI',
-  可用模型: 'Available models',
-  '模型与推理强度在 Web 端为 Bot 设置': 'Models and reasoning effort are set per Bot on the Web',
-  适配器未提供: 'Not provided by the adapter',
-  恢复自动检测: 'Restore auto-detection',
-  '更换路径…': 'Change path…',
-  '本机未检测到 {name}（指定的路径 {path} 不存在）。点「安装」从镜像源安装共工空间托管版，不需要管理员权限。':
-    '{name} not found on this machine (the specified path {path} does not exist). Click "Install" to install the Gonggong-managed version from the mirror; no admin rights needed.',
-  '本机未检测到 {name}（已检查 PATH、~/.local/bin、/opt/homebrew/bin）。点「安装」从镜像源安装共工空间托管版，不需要管理员权限。':
-    '{name} not found on this machine (checked PATH, ~/.local/bin, /opt/homebrew/bin). Click "Install" to install the Gonggong-managed version from the mirror; no admin rights needed.',
-  '{list} 依赖它，安装前收到的消息会被拒绝，并在群里提示发起人「执行机器缺少 {name}」。':
-    '{list} depend on it. Until it is installed, their messages are rejected and the sender is told in the group that "the machine is missing {name}".',
-  '手动指定路径…': 'Specify path…',
-  '已安装，重新检测': 'Installed, detect again',
-  '继承机器（当前：{name}）': 'Inherit from machine (currently: {name})',
   待确认: 'Pending confirmation',
   'agent 缺失': 'Agent missing',
   离线: 'Offline',
@@ -118,17 +67,16 @@ export const en = {
   '在 Web 中管理': 'Manage on Web',
   '{name} · 未安装': '{name} · not installed',
   供应商: 'Provider',
-  '只保存在本机，进行中的会话开启新会话后才切换':
-    'Stored only on this machine; ongoing sessions switch once a new session starts',
-  '{name} 的供应商': 'Provider of {name}',
+  '供应商/模型': 'Provider / model',
+  '继承机器默认（{name}）': 'Machine default ({name})',
+  'Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。':
+    "Bot settings are managed on the Web (name, role description, provider and model, concurrency limit, approval, etc.); this machine's providers and defaults are set on the Agent page.",
   团队: 'Team',
   并发上限: 'Concurrency limit',
   审批方式: 'Approval',
   '本机未安装 {name}，该 Bot 暂不能执行':
     '{name} is not installed on this machine, so this Bot cannot run yet',
   '前往 Agent': 'Go to Agent',
-  '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、审批方式等）。':
-    'Providers are stored only on this machine and set here; all other Bot settings are managed on the Web (name, role description, model, concurrency limit, approval, etc.).',
   无人观看: 'No viewers',
   启动中: 'Starting',
   推流中: 'Streaming',
@@ -288,8 +236,8 @@ export const en = {
   执行: 'Execution',
   '本机的 Node.js 与 CLI 运行时：安装升级、检测与供应商':
     'Node.js and CLI runtimes on this machine: install, upgrade, detection and providers',
-  '本机运行的 Bot 与其供应商，其余设置请在 Web 端修改':
-    'Bots running on this machine and their providers; change other settings on the Web',
+  '本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改':
+    'Bots running on this machine with their provider / model; change their settings on the Web',
   '每个「群 × Bot」一个托管目录，或绑定的本机目录':
     'One managed directory per "group × Bot", or a bound local directory',
   穿透与服务: 'Tunnels & services',
@@ -310,20 +258,7 @@ export const en = {
   辅助功能: 'Accessibility',
   '远程操作桌面应用和小程序、自动信任小程序项目；未授权时远程点击和输入不生效':
     'Remote control of desktop apps and mini programs, and auto-trusting mini program projects; without it remote clicks and typing do nothing',
-  官方登录: 'Official login',
-  本机供应商: 'Machine providers',
-  '选中的是本机默认，新会话使用它；进行中的会话开启新会话后才切换':
-    "The selected one is this machine's default for new sessions; ongoing sessions switch once a new session starts",
-  '使用本机 CLI 自己的登录与配置': "Uses the CLI's own login and configuration on this machine",
   '环境变量每行一个 KEY=VALUE：{line}': 'Environment variables take one KEY=VALUE per line: {line}',
-  '{n} 个群的会话仍在使用 {from}，开启新会话后才会切换到 {to}':
-    "{n} {n:group's session still uses|groups' sessions still use} {from} and will switch to {to} once a new session starts",
-  '{group}（{bot}）': '{group} ({bot})',
-  '要让新会话改用 {to} 吗？': 'Switch new sessions to {to}?',
-  '进行中的会话不受影响，在群里开启新会话后才会切换。':
-    'Ongoing sessions are not affected; they switch once a new session starts in the group.',
-  '{text}：': '{text}:',
-  切换: 'Switch',
   导航: 'Navigation',
   '上次 {n} 秒前': 'last {n} s ago',
   尚未发送: 'not sent yet',
@@ -353,35 +288,11 @@ export const en = {
   检查更新: 'Check for updates',
   '自动下载新版本，重启后生效': 'Downloads new versions automatically; they apply after a restart',
   上下文: 'Context',
-  自动压缩: 'Auto-compact',
   输出: 'Output',
-  关闭思考参数: 'No thinking parameter',
-  '关闭实验性 beta': 'No experimental betas',
-  工具搜索: 'Tool search',
-  'API 超时': 'API timeout',
-  扩展思考: 'Extended thinking',
-  提交署名: 'Commit attribution',
-  '内置 git 指令': 'Built-in git instructions',
-  自动记忆: 'Auto memory',
-  'Bash 超时': 'Bash timeout',
-  'Bash 最长超时': 'Bash max timeout',
-  关闭非必要流量: 'No nonessential traffic',
-  不署名: 'None',
-  '{n} 分钟': '{n} min',
   '{n} 秒': '{n} s',
   是: 'Yes',
-  否: 'No',
   开: 'On',
   关: 'Off',
-  'Agent 设置': 'Agent settings',
-  '本机默认，新会话生效；Bot 可在 Web 端覆盖部分项':
-    'Machine defaults for new sessions; bots can override some on the Web',
-  '未设置，使用 Claude Code 默认值': 'Nothing set; Claude Code defaults apply',
-  '继承本机 CLI 配置': 'Inherit local CLI config',
-  '加载 ~/.claude 下的个人配置、CLAUDE.md、记忆、hooks 与 Skill':
-    'Loads the personal config, CLAUDE.md, memory, hooks and skills under ~/.claude',
-  '本机 CLI 配置设置了 {list}，会盖过共工的对应设置':
-    'The local CLI config sets {list}, which overrides the matching Gonggong settings',
   '{bot} 上下文 {detail}': '{bot} context {detail}',
   '{bot} 的上下文': "{bot}'s context",
   '在群里发 /compact @{bot} 压缩上下文，发 /new 开新对话。':
@@ -409,7 +320,4 @@ export const en = {
   市场: 'Market',
   市场里还没有条目: 'The market has no listings yet',
   '{n} 次引入': '{n} {n:install|installs}',
-  安装命令: 'Install command',
-  '共工空间不能托管安装它，请在本机终端运行':
-    "Gonggong Space can't install it; run this in this computer's terminal",
 } satisfies Record<string, string>

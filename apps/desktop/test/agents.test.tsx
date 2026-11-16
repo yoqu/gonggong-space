@@ -1,169 +1,147 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import './ipc-mock'
+import { desktopSource } from '../src/agentsSource'
 import { ipc, onToolProgress } from '../src/ipc'
 import { AgentsPage } from '../src/pages/Agents'
-import { useDaemon } from '../src/store'
-import { bot, CLAUDE, CODEX, INFO, tool } from './ipc-mock'
+import { agent, bot, CLAUDE, CODEX, provider, STATE, VIEW } from './ipc-mock'
 
 const m = vi.mocked(ipc)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useDaemon.setState({ info: INFO })
-  m.agents.mockResolvedValue([CLAUDE, CODEX])
+  m.agentFeatures.mockResolvedValue(['tools', 'providers', 'protocolProviders'])
+  m.tools.mockResolvedValue({ ...STATE, agents: [CLAUDE, CODEX] })
+  m.providers.mockResolvedValue({ view: VIEW })
   m.bots.mockResolvedValue([bot({}), bot({ id: 'b2', name: '小王的 Codex', agentKind: 'codex' })])
-  m.pickAgentPath.mockResolvedValue(true)
-  m.resetAgentPath.mockResolvedValue()
-  m.reveal.mockResolvedValue()
 })
 
-const card = async (name: string) => (await screen.findByText(name)).closest('.dk-agent') as HTMLElement
+const row = (name: string) =>
+  within(screen.getByRole('button', { name: new RegExp(`^${name}`) }).closest('.ag-agent') as HTMLElement)
 
-it('shows an installed agent with the models its adapter offers', async () => {
-  render(<AgentsPage go={() => {}} />)
-  const claude = within(await card('Claude Code'))
-  expect(claude.getByText('已安装 2.1.4')).toBeTruthy()
-  const path = claude.getByRole('navigation', { name: '/opt/homebrew/bin/claude' })
-  fireEvent.click(within(path).getByRole('button', { name: 'homebrew' }))
-  expect(m.reveal).toHaveBeenCalledWith('/opt/homebrew')
-  expect(claude.getByText('2.1.4 · 满足 ≥ 2.0.0')).toBeTruthy()
-  expect(claude.getByText('已登录 · Claude Max')).toBeTruthy()
-  expect(claude.getByText('0.81.0 · 随 daemon')).toBeTruthy()
-  expect(await claude.findByText('被 小王的 Claude 使用')).toBeTruthy()
-
-  expect(claude.getByText('Sonnet 5、Haiku 4.5')).toBeTruthy()
-  expect(claude.getByText('模型与推理强度在 Web 端为 Bot 设置')).toBeTruthy()
-
-  fireEvent.click(claude.getByRole('button', { name: '更换路径…' }))
-  await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('claude'))
-  expect(m.agents).toHaveBeenCalledTimes(2)
-})
-
-it('installs a missing agent with a live log, then detects it again', async () => {
-  let emit: (line: string) => void = () => {}
-  vi.mocked(onToolProgress).mockImplementation(async (_id, cb) => {
-    emit = cb
-    return () => {}
+describe('Agent page', () => {
+  it('shows the shared Agent page on this machine’s detection and providers', async () => {
+    m.providers.mockResolvedValue({ view: { ...VIEW, providers: [provider({ name: 'Kimi' })] } })
+    render(<AgentsPage go={() => {}} />)
+    const agents = await screen.findByRole('region', { name: 'Agent' })
+    expect(within(agents).getByText('Claude Code')).toBeTruthy()
+    const installable = screen.getByRole('region', { name: '可安装' })
+    expect(within(installable).getByText('Codex')).toBeTruthy()
+    const providers = await screen.findByRole('region', { name: '供应商' })
+    expect(within(providers).getByText('Kimi')).toBeTruthy()
+    expect(m.providers).toHaveBeenCalledWith({ action: 'list' })
   })
-  let finish: (s: ReturnType<typeof tool>) => void = () => {}
-  m.runTool.mockImplementation(() => new Promise((r) => (finish = r)))
-  m.tools.mockResolvedValue([
-    tool({ kind: 'claude', version: '2.1.4' }),
-    tool({ kind: 'codex', installed: false }),
-  ])
-  render(<AgentsPage go={() => {}} />)
-  const codex = within(await card('Codex'))
-  expect(codex.getByText('未安装')).toBeTruthy()
-  expect(codex.getByText(/本机未检测到 Codex/).textContent).toContain('小王的 Codex 依赖它')
-  expect(codex.queryByText(/npm install/)).toBeNull()
 
-  fireEvent.click(await codex.findByRole('button', { name: '安装' }))
-  await waitFor(() =>
-    expect(m.runTool).toHaveBeenCalledWith('install', 'codex', expect.stringMatching(/^codex-/)),
-  )
-  expect(vi.mocked(onToolProgress).mock.calls[0]?.[0]).toBe(m.runTool.mock.calls[0]?.[2])
-  act(() => emit('安装 @openai/codex@latest（https://registry.npmmirror.com）'))
-  const log = within(await codex.findByRole('log', { name: '安装日志' }))
-  expect(log.getByText('安装 @openai/codex@latest（https://registry.npmmirror.com）')).toBeTruthy()
-  expect(codex.getByText('正在安装…')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: '安装共工空间托管版' })).toBeNull()
+  it('installs an agent with a live log, then shows the new state', async () => {
+    let emit: (line: string) => void = () => {}
+    vi.mocked(onToolProgress).mockImplementation(async (_id, cb) => {
+      emit = cb
+      return () => {}
+    })
+    let finish: (s: typeof STATE) => void = () => {}
+    m.runTool.mockImplementation(() => new Promise((r) => (finish = r)))
+    render(<AgentsPage go={() => {}} />)
+    await screen.findByRole('region', { name: '可安装' })
+    fireEvent.click(row('Codex').getByRole('button', { name: '安装' }))
+    await waitFor(() =>
+      expect(m.runTool).toHaveBeenCalledWith('install', 'codex', expect.stringMatching(/^codex-/)),
+    )
+    expect(vi.mocked(onToolProgress).mock.calls[0]?.[0]).toBe(m.runTool.mock.calls[0]?.[2])
+    act(() => emit('安装 @openai/codex@latest'))
+    expect(await screen.findByText('安装 @openai/codex@latest')).toBeTruthy()
 
-  m.agents.mockResolvedValue([CLAUDE, { ...CODEX, available: true, version: '0.159.2', path: '/x/codex' }])
-  m.tools.mockResolvedValue([tool({ kind: 'codex', version: '0.159.2', managed: true, latest: '0.159.2' })])
-  await act(async () => finish(tool({ kind: 'codex', version: '0.159.2', managed: true })))
-  expect(await screen.findByText('已安装 0.159.2')).toBeTruthy()
-  expect(await screen.findByText('安装完成')).toBeTruthy()
-  expect(screen.getByText('共工空间托管')).toBeTruthy()
+    const codex = agent('codex', { version: '0.161.0', managed: true })
+    await act(async () => finish({ ...STATE, agents: [CLAUDE, codex] }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: '可安装' })).toBeNull())
+  })
+
+  it('shows a failed install’s message in its log', async () => {
+    m.runTool.mockRejectedValue('本机已有工具安装或升级在进行中，请稍后再试')
+    render(<AgentsPage go={() => {}} />)
+    await screen.findByRole('region', { name: '可安装' })
+    fireEvent.click(row('Codex').getByRole('button', { name: '安装' }))
+    expect(await screen.findByText('本机已有工具安装或升级在进行中，请稍后再试')).toBeTruthy()
+  })
 })
 
-it('upgrades a managed tool and shows the upgrade command of the user’s own', async () => {
-  m.tools.mockResolvedValue([
-    tool({ kind: 'node', version: '20.1.0', path: '/usr/local/bin/node' }),
-    tool({ kind: 'claude', version: '2.1.4', latest: '2.2.0', managed: true }),
-    tool({
-      kind: 'codex',
-      version: '0.150.0',
-      latest: '0.159.2',
-      path: '/opt/homebrew/bin/codex',
-      upgradeCommand: 'brew upgrade codex',
-    }),
-  ])
-  m.agents.mockResolvedValue([
-    CLAUDE,
-    { ...CODEX, available: true, version: '0.150.0', path: '/opt/homebrew/bin/codex' },
-  ])
-  m.runTool.mockRejectedValue('本机已有工具安装或升级在进行中，请稍后再试')
-  render(<AgentsPage go={() => {}} />)
-  const node = within((await screen.findByText('Node.js')).closest('.ui-group') as HTMLElement)
-  expect(await node.findByText('版本过低 20.1.0')).toBeTruthy()
-  expect(node.getByText(/低于 22，ACP 适配器无法运行/)).toBeTruthy()
-  expect(node.getByText('自行安装')).toBeTruthy()
+describe('desktop source', () => {
+  const source = (features = ['tools', 'providers', 'protocolProviders']) => desktopSource(features)
 
-  const codex = within(await card('Codex'))
-  expect(await codex.findByText('有更新')).toBeTruthy()
-  expect(codex.getByText('brew upgrade codex')).toBeTruthy()
-  expect(codex.queryByRole('button', { name: '安装共工空间托管版' })).toBeNull()
-  fireEvent.click(codex.getByRole('button', { name: '升级到 0.159.2' }))
-  await waitFor(() => expect(m.runTool).toHaveBeenCalledWith('upgrade', 'codex', expect.any(String)))
-  fireEvent.click(await codex.findByRole('button', { name: '改用共工空间托管安装' }))
-  await waitFor(() => expect(m.runTool).toHaveBeenCalledWith('install', 'codex', expect.any(String)))
+  it('saves a vendor, then makes it the default of each agent asked', async () => {
+    const saved = { ...VIEW, providers: [provider({ id: 'k1' })] }
+    const used = { ...VIEW, machine: { codex: { provider: 'k1', model: null } } }
+    m.providers.mockImplementation(async (cmd) =>
+      cmd.action === 'save' ? { id: 'k1', view: saved } : { view: used },
+    )
+    const res = await source().saveProvider(null, {
+      name: 'Kimi',
+      apiKey: 'sk-1',
+      endpoints: [{ protocol: 'openai', baseUrl: 'https://k.test/v1' }],
+      setDefault: ['claude', 'codex'],
+      agent: 'codex',
+    })
+    expect(m.providers.mock.calls.map((c) => c[0])).toEqual([
+      {
+        action: 'save',
+        provider: {
+          name: 'Kimi',
+          apiKey: 'sk-1',
+          endpoints: [{ protocol: 'openai', baseUrl: 'https://k.test/v1' }],
+        },
+      },
+      { action: 'use', agent: 'claude', choice: 'k1' },
+      { action: 'use', agent: 'codex', choice: 'k1' },
+    ])
+    expect(res).toEqual({ id: 'k1', view: used })
 
-  const claude = within(await card('Claude Code'))
-  expect(await claude.findByText('有更新')).toBeTruthy()
-  expect(claude.queryByText('claude update')).toBeNull()
-  expect(claude.getByText('共工空间托管')).toBeTruthy()
-  fireEvent.click(claude.getByRole('button', { name: '升级到 2.2.0' }))
-  await waitFor(() => expect(m.runTool).toHaveBeenCalledWith('upgrade', 'claude', expect.any(String)))
-  expect(await claude.findByText('安装失败')).toBeTruthy()
-  expect(within(claude.getByRole('log')).getByText('本机已有工具安装或升级在进行中，请稍后再试')).toBeTruthy()
+    await source().saveProvider('k1', { removeProtocols: ['openai'] })
+    expect(m.providers).toHaveBeenLastCalledWith({
+      action: 'save',
+      provider: { removeProtocols: ['openai'], id: 'k1' },
+    })
+  })
 
-  fireEvent.click(node.getByRole('button', { name: '安装' }))
-  await waitFor(() => expect(m.runTool).toHaveBeenCalledWith('install', 'node', expect.any(String)))
-})
+  it('passes defaults with their model, official logins and agent settings as the daemon takes them', async () => {
+    const s = source()
+    await s.setDefault('claude', 'k1', 'kimi-k2')
+    expect(m.providers).toHaveBeenLastCalledWith({
+      action: 'use',
+      agent: 'claude',
+      choice: 'k1',
+      model: 'kimi-k2',
+    })
+    await s.saveOfficial({ agent: 'claude', proxy: '' })
+    expect(m.providers).toHaveBeenLastCalledWith({
+      action: 'official',
+      agent: 'claude',
+      official: { proxy: '' },
+    })
+    await s.saveAgentSettings({ agent: 'claude', values: {}, inheritCli: false })
+    expect(m.providers).toHaveBeenLastCalledWith({
+      action: 'agentSettings',
+      agent: 'claude',
+      agentSettings: { values: {}, inheritCli: false },
+    })
+    await s.removeProvider('k1')
+    expect(m.providers).toHaveBeenLastCalledWith({ action: 'remove', id: 'k1' })
+    await s.importLink('ccswitch://v1/import?x')
+    expect(m.providers).toHaveBeenLastCalledWith({
+      action: 'importLink',
+      link: 'ccswitch://v1/import?x',
+      setDefault: false,
+    })
+  })
 
-it('rechecks and picks a path for a missing agent', async () => {
-  render(<AgentsPage go={() => {}} />)
-  const codex = within(await card('Codex'))
-  m.agents.mockResolvedValue([CLAUDE, { ...CODEX, available: true, version: '0.48.0', path: '/x/codex' }])
-  fireEvent.click(codex.getByRole('button', { name: '已安装，重新检测' }))
-  expect(await screen.findByText('已安装 0.48.0')).toBeTruthy()
+  it('rejects with an Error carrying the command’s message', async () => {
+    m.providers.mockRejectedValue('供应商 k1 不存在')
+    await expect(source().removeProvider('k1')).rejects.toThrow(new Error('供应商 k1 不存在'))
+  })
 
-  m.agents.mockResolvedValue([CLAUDE, CODEX])
-  fireEvent.click(screen.getAllByRole('button', { name: '重新检测' })[1] as HTMLElement)
-  const again = within(await card('Codex'))
-  fireEvent.click(await again.findByRole('button', { name: '手动指定路径…' }))
-  await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('codex'))
-})
-
-it('shows models as pending until probed, and restores detection for a custom path', async () => {
-  m.agents.mockResolvedValue([
-    { ...CLAUDE, catalog: null, customPath: true, path: '/opt/claude' },
-    { ...CODEX, available: true, version: '0.48.0', path: '/x/codex' },
-  ])
-  render(<AgentsPage go={() => {}} />)
-  const claude = within(await card('Claude Code'))
-  expect(claude.getByText('检测中…')).toBeTruthy()
-  fireEvent.click(claude.getByRole('button', { name: '恢复自动检测' }))
-  await waitFor(() => expect(m.resetAgentPath).toHaveBeenCalledWith('claude'))
-  const codex = within(await card('Codex'))
-  expect(codex.getByText('被 小王的 Codex 使用')).toBeTruthy()
-})
-
-it('reads names, marks, vendors, logins and adapters from the agent registry', async () => {
-  m.agents.mockResolvedValue([
-    CLAUDE,
-    { ...CLAUDE, kind: 'pi', path: '/x/bin/pi-cli' },
-    { ...CLAUDE, kind: 'gemini', path: '/x/bin/gemini-cli' },
-  ])
-  render(<AgentsPage go={() => {}} />)
-  const claude = within(await card('Claude Code'))
-  expect(claude.getByRole('img', { name: 'Claude Code' })).toBeTruthy()
-  expect(claude.getByText('Anthropic · CLI')).toBeTruthy()
-  const pi = within(await card('pi'))
-  expect(pi.getByRole('img', { name: 'pi' })).toBeTruthy()
-  expect(pi.getByText('Earendil · CLI')).toBeTruthy()
-  expect(pi.getByText('pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key')).toBeTruthy()
-  const gemini = within(await card('Gemini CLI'))
-  expect(gemini.getByText('CLI 自带')).toBeTruthy()
+  it('offers CC Switch only when the machine has it', async () => {
+    expect(source().ccSwitch).toBeUndefined()
+    const s = source(['providers', 'ccSwitch'])
+    m.ccSwitchApply.mockResolvedValue({ imported: ['k1'], view: VIEW })
+    expect(await s.ccSwitch?.apply(['claude:1'])).toEqual({ imported: ['k1'], view: VIEW })
+    expect(m.ccSwitchApply).toHaveBeenCalledWith(['claude:1'])
+  })
 })

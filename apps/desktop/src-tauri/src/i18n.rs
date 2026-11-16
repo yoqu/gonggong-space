@@ -10,8 +10,8 @@ const EN: &[(&str, &str)] = &[
     ("不是有效的 http(s) 地址：{url}", "Not a valid http(s) URL: {url}"),
     ("工作区不存在或已变化，请刷新", "The workspace is gone or has changed. Refresh and try again"),
     ("托管 {managed} · 本机目录 {cd} · {size}", "Managed {managed} · local directories {cd} · {size}"),
-    ("找不到 {path}", "Not found: {path}"),
-    ("选择 {agent} 可执行文件", "Choose the {agent} executable"),
+    ("本机执行端没有响应", "The local daemon did not answer"),
+    ("选择配置目录", "Choose the configuration directory"),
 ];
 
 pub fn text(zh: &'static str) -> &'static str {

@@ -37,7 +37,11 @@ pub struct Host {
 }
 
 impl Host {
+    /// Upgrades a v1 `providers.json` before any page reads it (the daemon does the same; it is idempotent).
     pub fn new(home: PathBuf, notify: Notify) -> Self {
+        if let Err(e) = gonggong::providers::Store::migrate_file(&home) {
+            tracing::warn!("providers.json migration failed: {e:#}");
+        }
         Host { home, state: Mutex::new(State::Idle), notify }
     }
 
@@ -99,7 +103,7 @@ impl Host {
     }
 
     /// Hands a fresh local detection to the running daemon, which reports it to the server if it changed.
-    pub fn report_agents(&self, agents: Vec<gonggong::protocol::AgentInfo>) {
+    pub fn report_agents(&self, agents: Vec<gonggong::protocol::AgentState>) {
         if let State::Running(daemon) = &*self.state.lock().unwrap() {
             daemon.set_agents(agents);
         }

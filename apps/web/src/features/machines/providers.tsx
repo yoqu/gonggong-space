@@ -6,7 +6,7 @@ import {
   type ProviderStoreView,
 } from '@gonggong/protocol'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useInRouterContext } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { AlertDialog } from '../../ui'
@@ -172,9 +172,13 @@ export function useProviderSwitch(apply: (change: ProviderChange) => Promise<voi
   return { request, dialog }
 }
 
-/** 「N 个群的会话开启新会话后才切换」 after a switch, opening into links to those groups. */
+/**
+ * 「N 个群的会话开启新会话后才切换」 after a switch, opening into links to those groups (names only in the desktop
+ * app, which has no router).
+ */
 export function SwitchNote({ lines }: { lines: SessionLine[] }) {
   const [open, setOpen] = useState(false)
+  const routed = useInRouterContext()
   const groups = lines.flatMap((l) => l.groups.map((label, i) => ({ label, id: l.groupIds[i] ?? '' })))
   return (
     <>
@@ -183,12 +187,17 @@ export function SwitchNote({ lines }: { lines: SessionLine[] }) {
       </button>
       {open ? (
         <span className="mx-groups">
-          {groups.map((g, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: one group may hold sessions of several bots
-            <Link key={i} to={`/g/${g.id}`}>
-              {g.label}
-            </Link>
-          ))}
+          {groups.map((g, i) =>
+            routed ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: one group may hold sessions of several bots
+              <Link key={i} to={`/g/${g.id}`}>
+                {g.label}
+              </Link>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: one group may hold sessions of several bots
+              <span key={i}>{g.label}</span>
+            ),
+          )}
         </span>
       ) : null}
     </>

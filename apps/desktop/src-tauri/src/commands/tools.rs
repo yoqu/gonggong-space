@@ -1,9 +1,9 @@
-//! Agent page: Node.js, Claude Code and Codex as managed tools (design §4.1): versions, the latest on the mirror,
-//! and installs / upgrades streamed line by line to the page.
-use super::Result;
+//! Agent page: Node.js and the agents (detection, versions, the latest on the mirror) and their installs / upgrades,
+//! streamed line by line to the page. Runs the daemon's own `tools.cmd` handling ([`gonggong::manage::Manage`]).
+use super::{Result, manage, relay};
 use crate::host::Host;
-use gonggong::local::LocalSettings;
-use gonggong::tools::{self, ToolKind, ToolStatus};
+use gonggong::manage::Manage;
+use gonggong::protocol::{AgentState, DaemonToServer, RuntimeState, ToolKind, ToolsAction, ToolsCmd, ToolsSettings};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
@@ -24,19 +24,47 @@ pub enum ToolOp {
     Upgrade,
 }
 
-/// Detection runs the CLIs and the latest check hits the mirror, so off the async workers the daemon shares.
-#[tauri::command]
-pub async fn tools(host: State<'_, Host>) -> Result<Vec<ToolStatus>> {
-    let home = host.home.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
-        Ok(tauri::async_runtime::block_on(tools::status(&home, &local)))
-    })
-    .await
-    .map_err(|e| e.to_string())?
+/// The Web's MachineAgentsDto.
+#[derive(Debug, Serialize)]
+pub struct MachineAgents {
+    node: Option<RuntimeState>,
+    agents: Vec<AgentState>,
+    settings: ToolsSettings,
 }
 
-/// 安装 / 升级 / 安装共工空间托管版; afterwards the new detection reaches the server like 重新检测.
+async fn tools_cmd(
+    m: &Manage,
+    action: ToolsAction,
+    kind: Option<ToolKind>,
+    progress: impl Fn(&str),
+) -> Result<MachineAgents> {
+    let cmd = ToolsCmd { request_id: String::new(), action, kind, version: None, mirror: None };
+    relay(
+        |out| m.tools(cmd, out),
+        |msg| match msg {
+            DaemonToServer::ToolsProgress { line, .. } => {
+                progress(&line);
+                None
+            }
+            DaemonToServer::ToolsResult { error: Some(e), .. } => Some(Err(e)),
+            DaemonToServer::ToolsResult { node, agents, settings, .. } => {
+                Some(Ok(MachineAgents { node, agents, settings }))
+            }
+            _ => None,
+        },
+    )
+    .await?
+}
+
+/// Every call is a 重新检测: a changed detection reaches the server right away, updating the bots' presence.
+#[tauri::command]
+pub async fn tools(host: State<'_, Host>) -> Result<MachineAgents> {
+    let state = tools_cmd(&manage(&host.home), ToolsAction::Status, None, |_| {}).await?;
+    host.report_agents(state.agents.clone());
+    Ok(state)
+}
+
+/// 安装 / 升级 / 改用共工空间托管安装; afterwards the new detection reaches the server like 重新检测.
 #[tauri::command]
 pub async fn run_tool(
     op: ToolOp,
@@ -44,16 +72,49 @@ pub async fn run_tool(
     op_id: String,
     app: AppHandle,
     host: State<'_, Host>,
-) -> Result<ToolStatus> {
+) -> Result<MachineAgents> {
+    let action = match op {
+        ToolOp::Install => ToolsAction::Install,
+        ToolOp::Upgrade => ToolsAction::Upgrade,
+    };
     let progress = |line: &str| {
         let _ = app.emit(PROGRESS_EVENT, ProgressLine { op_id: &op_id, line });
     };
-    let result = match op {
-        ToolOp::Install => tools::install(&host.home, kind, None, &progress).await,
-        ToolOp::Upgrade => tools::upgrade(&host.home, kind, &progress).await,
-    };
-    if let Ok(local) = LocalSettings::load(&host.home) {
+    let state = tools_cmd(&manage(&host.home), action, Some(kind), progress).await;
+    if let Ok(local) = gonggong::local::LocalSettings::load(&host.home) {
         host.report_agents(gonggong::agents::detect(&host.home, &local));
     }
-    result.map_err(|e| format!("{e:#}"))
+    state
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A temporary home whose mirror refuses at once, so no test reaches the network.
+    fn offline() -> (tempfile::TempDir, Manage) {
+        let home = tempfile::tempdir().unwrap();
+        let mut settings = gonggong::config::Settings::default();
+        let refused = "http://127.0.0.1:9/".to_string();
+        settings.mirror = gonggong::config::Mirror::Custom { registry: refused.clone(), node: refused };
+        settings.save(home.path()).unwrap();
+        let m = Manage::new(home.path().to_path_buf(), home.path().to_path_buf());
+        (home, m)
+    }
+
+    #[test]
+    fn status_lists_every_agent_of_the_registry_with_the_mirror() {
+        let (_home, m) = offline();
+        let state = tauri::async_runtime::block_on(tools_cmd(&m, ToolsAction::Status, None, |_| {})).unwrap();
+        assert!(state.agents.iter().any(|a| a.kind == gonggong::protocol::AgentKind::Claude));
+        let json = serde_json::to_value(&state).unwrap();
+        assert_eq!(json["settings"]["mirror"]["kind"], "custom");
+    }
+
+    #[test]
+    fn a_failed_op_rejects_with_its_error() {
+        let (_home, m) = offline();
+        let err = tauri::async_runtime::block_on(tools_cmd(&m, ToolsAction::Install, None, |_| {}));
+        assert!(err.is_err());
+    }
 }
