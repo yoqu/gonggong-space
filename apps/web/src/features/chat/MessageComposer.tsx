@@ -40,6 +40,8 @@ import { t } from '../../i18n'
 
 /** The input grows with its content up to this height (and 40% of the window), then scrolls. */
 const MAX_INPUT_PX = 240
+// Same rule as the server's mentionsAll, minus the code-span exclusion.
+const MENTIONS_ALL = /(^|[^A-Za-z0-9._%+-])@所有人/
 
 /** Bare `@` / `/` only open the candidate list; they are not a message. */
 const hasText = (value: string) => !['', '@', '/'].includes(value.trim())
@@ -495,7 +497,9 @@ export const MessageComposer = memo(function MessageComposer({
           // With the canvas selected, the chips say who the message goes to.
           mobile || thread || targets.length || soleDm || !draft.trim()
             ? false
-            : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
+            : MENTIONS_ALL.test(draft)
+              ? t('@所有人 只通知成员，不会触发 Bot')
+              : t('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')
         }
         accessory={
           targets.length || thread ? (

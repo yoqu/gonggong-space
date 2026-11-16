@@ -129,6 +129,7 @@ export default {
   图片: 'Image',
   '未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务':
     "Messages without an @ don't start a Bot; they're added as context for its next task",
+  '@所有人 只通知成员，不会触发 Bot': '@everyone notifies members only; it does not start a Bot',
   '分支 {branch} 不存在': 'Branch {branch} not found',
   '{n} 个 Bot 进群后暂停，主人配置凭据后可重新检查':
     '{n} {n:Bot|Bots} will be paused on joining; owners can recheck after setting up credentials',

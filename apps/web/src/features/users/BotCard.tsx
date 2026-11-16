@@ -13,11 +13,19 @@ import { useHoverCard } from './useHoverCard'
 
 const INTRO_MAX = 50
 
-/** The system prompt as a one-paragraph intro: markdown marks and line breaks dropped, cut at INTRO_MAX. */
+/**
+ * The system prompt as a one-paragraph intro, cut at INTRO_MAX: a heading leads what follows (`角色：`), list and
+ * emphasis marks go without leaving gaps, and no space follows Chinese punctuation.
+ */
 export function botIntro(prompt: string) {
   const text = prompt
-    .replace(/[#>*`_]+/g, ' ')
+    .replace(/^\s*#+\s*(.*?)\s*#*\s*$/gm, '$1：')
+    .replace(/^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/\*\*|__|[*`]/g, '')
     .replace(/\s+/g, ' ')
+    .replace(/([：，。；！？、）])\s+/g, '$1')
+    .replace(/：$/, '')
     .trim()
   if (!text) return null
   const cut = [...text].length > INTRO_MAX

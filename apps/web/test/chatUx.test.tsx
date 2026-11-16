@@ -735,6 +735,10 @@ describe('composer', () => {
     }
     fireEvent.change(box(), { target: { value: '背景' } })
     expect(screen.getByText('未 @ 的消息不会触发 Bot，会作为背景补充给下一次任务')).toBeTruthy()
+    // @所有人 addresses members only: say so instead of "未 @".
+    fireEvent.change(box(), { target: { value: '@所有人 看下' } })
+    expect(screen.queryByText(/未 @ 的消息不会触发 Bot/)).toBeNull()
+    expect(screen.getByText('@所有人 只通知成员，不会触发 Bot')).toBeTruthy()
     // A mention replaces the hint with the bot's model picker.
     fireEvent.change(box(), { target: { value: '@小王的 Claude' } })
     expect(sendButton().disabled).toBe(false)

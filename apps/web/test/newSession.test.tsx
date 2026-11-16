@@ -72,9 +72,12 @@ describe('bot intro', () => {
   it('shows the system prompt flattened, cut when long', () => {
     expect(botIntro('')).toBeNull()
     expect(botIntro('## 角色\n\n你是  支付组的 **后端** 助手')).toEqual({
-      text: '角色 你是 支付组的 后端 助手',
+      text: '角色：你是 支付组的 后端 助手',
       cut: false,
     })
+    expect(
+      botIntro('# 角色\n你是 **CC专家**，负责开发。\n\n- 先读 AGENTS.md\n* 看 `my_file`\n1. 用中文'),
+    ).toEqual({ text: '角色：你是 CC专家，负责开发。先读 AGENTS.md 看 my_file 用中文', cut: false })
     const long = botIntro('啊'.repeat(200))
     expect(long?.cut).toBe(true)
     expect(long?.text).toBe(`${'啊'.repeat(50)}…`)
