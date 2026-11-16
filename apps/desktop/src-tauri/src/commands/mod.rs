@@ -1,5 +1,6 @@
 //! Tauri commands, one module per page. To add a page's commands: create `commands/<page>.rs`, declare it here and
 //! list its commands in `handler()`; mirror each one in `src/ipc.ts`.
+mod agents;
 mod bots;
 mod live;
 mod logs;
@@ -50,6 +51,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         logs::recent_logs,
         tools::tools,
         tools::run_tool,
+        agents::agent_local,
+        agents::pick_agent_path,
+        agents::reset_agent_path,
+        agents::group_names,
         providers::agent_features,
         providers::providers_cmd,
         providers::ccswitch_preview,

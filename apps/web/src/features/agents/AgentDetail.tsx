@@ -5,17 +5,20 @@ import {
   fieldsFor,
   type ProviderStoreView,
 } from '@gonggong/protocol'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
+import { errorText } from '../../lib/api'
 import { copyWithToast } from '../../lib/clipboard'
 import { Button, GroupBox, GroupRow, Icon, IconButton, Presence, toast } from '../../ui'
 import { AgentSettingsBox } from '../machines/AgentSettingsPanel'
 import { OfficialEditor } from '../machines/ProviderEditor'
-import { effectiveProvider, SwitchNote, switchLines } from '../machines/providers'
+import { effectiveProvider, SwitchNote, switchLines, useProviderSwitch } from '../machines/providers'
 import { SaveStatus, useSaves } from '../machines/save'
 import { choiceLabel, choiceValue, machineDefault, parseChoice } from './model'
 import { ProviderModelPicker } from './ProviderModelPicker'
-import type { AgentBotRef, AgentsSource } from './source'
+import type { AgentBotRef, AgentLocal, AgentsSource } from './source'
+
+const fail = (e: unknown) => toast({ type: 'error', message: errorText(e) })
 
 function Command({ command }: { command: string }) {
   return (
@@ -38,6 +41,7 @@ export function AgentDetail({
   view,
   onView,
   onAddProvider,
+  onAgents,
   bots,
 }: {
   source: AgentsSource
@@ -46,19 +50,50 @@ export function AgentDetail({
   view: ProviderStoreView | null
   onView: (view: ProviderStoreView) => void
   onAddProvider: () => void
+  /** Detects the agents again (after a path is picked or reset). */
+  onAgents: () => Promise<void>
   bots: AgentBotRef[]
 }) {
   const meta = agentMeta(a.kind)
   const has = (f: string) => source.features.includes(f)
   const mine = bots.filter((b) => b.agentKind === a.kind)
   const models = a.catalog?.models.map((m) => m.name) ?? []
+  const [local, setLocal] = useState<AgentLocal | null>(null)
+  // Again after each detection: the path, and so the login, may have changed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a.path and a.available stand for a new detection
+  useEffect(() => {
+    let on = true
+    source.agentLocal?.(a.kind).then((l) => on && setLocal(l), fail)
+    return () => {
+      on = false
+    }
+  }, [source, a.kind, a.path, a.available])
+  const { pickPath, resetPath } = source
+  const changePath = (task: () => Promise<unknown>) => () =>
+    void task()
+      .then((changed) => (changed === false ? undefined : onAgents()))
+      .catch(fail)
   return (
     <div className="ag-detail">
       <GroupBox>
         <GroupRow
           label={t('路径')}
           wideValue
-          value={a.path ? <span className="mx-mono">{a.path}</span> : '--'}
+          value={
+            <span className="mx-inline">
+              {a.path ? <span className="mx-mono">{a.path}</span> : '--'}
+              {local?.customPath && resetPath ? (
+                <Button size="small" onClick={changePath(() => resetPath(a.kind))}>
+                  {t('恢复自动检测')}
+                </Button>
+              ) : null}
+              {pickPath ? (
+                <Button size="small" onClick={changePath(() => pickPath(a.kind))}>
+                  {a.available ? t('更换路径…') : t('手动指定路径…')}
+                </Button>
+              ) : null}
+            </span>
+          }
         />
         <GroupRow
           label={t('版本')}
@@ -93,10 +128,19 @@ export function AgentDetail({
             value={<Command command={a.installCommand} />}
           />
         ) : null}
+        {local && a.available ? (
+          <GroupRow label={t('登录#status')} wideValue value={local.login ?? t('未知')} />
+        ) : null}
         <GroupRow
           label={t('ACP 适配器')}
           wideValue
-          value={meta.adapter === 'bundled' ? t('共工内置适配器') : t('CLI 自带 ACP')}
+          value={
+            meta.adapter !== 'bundled'
+              ? t('CLI 自带 ACP')
+              : local?.adapterVersion
+                ? t('共工内置适配器 {version}', { version: local.adapterVersion })
+                : t('共工内置适配器')
+          }
         />
         <GroupRow
           label={t('可用模型')}
@@ -107,7 +151,14 @@ export function AgentDetail({
       {meta.login === 'own' ? (
         <p className="mx-sub ag-detail__note">{t.text({ key: meta.loginHint ?? '' })}</p>
       ) : view && has('providers') ? (
-        <DefaultBox source={source} agent={a} view={view} onView={onView} onAddProvider={onAddProvider} />
+        <DefaultBox
+          source={source}
+          agent={a}
+          view={view}
+          onView={onView}
+          onAddProvider={onAddProvider}
+          bots={bots}
+        />
       ) : null}
       {view && has('agentSettings') && fieldsFor(a.kind, 'agent').length ? (
         <AgentSettingsBox source={source} bots={bots} agent={a.kind} view={view} onView={onView} />
@@ -145,12 +196,14 @@ function DefaultBox({
   view,
   onView,
   onAddProvider,
+  bots,
 }: {
   source: AgentsSource
   agent: AgentState
   view: ProviderStoreView
   onView: (view: ProviderStoreView) => void
   onAddProvider: () => void
+  bots: AgentBotRef[]
 }) {
   const agent = a.kind
   const models = source.features.includes('protocolProviders')
@@ -159,10 +212,24 @@ function DefaultBox({
   const current = machineDefault(view, agent)
   const official = view.official[agent]
 
+  const switcher = useProviderSwitch(async ({ choice, model }) =>
+    saves.save('default', async () => {
+      onView(await source.setDefault(agent, choice, model ?? null))
+      return undefined
+    }),
+  )
+
   const pick = (value: string) => {
     const next = parseChoice(value)
+    const change = { agent, choice: next.provider, model: next.model }
+    if (source.confirmSwitch) {
+      void (source.groupNames?.() ?? Promise.resolve(undefined)).then((groups) =>
+        switcher.request(change, view, { groups, bots }),
+      )
+      return
+    }
     saves.save('default', async () => {
-      const lines = switchLines(view, { agent, choice: next.provider, model: next.model })
+      const lines = switchLines(view, change, { bots })
       onView(await source.setDefault(agent, next.provider, next.model))
       return lines.length ? <SwitchNote lines={lines} /> : undefined
     })
@@ -234,6 +301,7 @@ function DefaultBox({
           />
         ) : null}
       </Presence>
+      {switcher.dialog}
       <Presence>
         {open === 'login'
           ? source.renderLogin?.({ agent, onClose: () => setOpen(null), onAddProvider })

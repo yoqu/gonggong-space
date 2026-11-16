@@ -81,5 +81,10 @@ export function desktopSource(features: string[]): AgentsSource {
     claudeDirs: () => wrap(ipc.claudeDirs()),
     renderDirPicker: (p) => <DirPicker {...p} />,
     openBot: (id) => void ipc.openBotInWeb(id).catch(fail),
+    agentLocal: (kind) => wrap(ipc.agentLocal(kind)),
+    pickPath: (kind) => wrap(ipc.pickAgentPath(kind)),
+    resetPath: (kind) => wrap(ipc.resetAgentPath(kind)),
+    groupNames: () => wrap(ipc.groupNames()),
+    confirmSwitch: true,
   }
 }

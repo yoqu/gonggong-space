@@ -230,6 +230,74 @@ describe('Agent page on any source', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'KIMI / k2' }))
     await waitFor(() => expect(setDefault).toHaveBeenCalledWith('claude', 'kimi', 'k2'))
   })
+
+  it('shows what only the machine tells, and changes the path where the source can', async () => {
+    const agentLocal = vi.fn(async (kind: string) => ({
+      customPath: kind === 'claude',
+      login: kind === 'claude' ? '已登录 · Claude Max' : null,
+      adapterVersion: kind === 'claude' ? '0.81.0' : null,
+    }))
+    const pickPath = vi.fn(async () => true)
+    const resetPath = vi.fn(async () => {})
+    const loadAgents = vi.fn(async () => STATE)
+    await show(fakeSource({ agentLocal, pickPath, resetPath, loadAgents }))
+    fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    const claude = within(row('Claude Code'))
+    expect(await claude.findByText('已登录 · Claude Max')).toBeTruthy()
+    expect(claude.getByText('共工内置适配器 0.81.0')).toBeTruthy()
+    fireEvent.click(claude.getByRole('button', { name: '更换路径…' }))
+    await waitFor(() => expect(pickPath).toHaveBeenCalledWith('claude'))
+    await waitFor(() => expect(loadAgents).toHaveBeenCalledTimes(2))
+    fireEvent.click(claude.getByRole('button', { name: '恢复自动检测' }))
+    await waitFor(() => expect(resetPath).toHaveBeenCalledWith('claude'))
+    await waitFor(() => expect(loadAgents).toHaveBeenCalledTimes(3))
+
+    fireEvent.click(screen.getByRole('button', { name: /^CodeBuddy/ }))
+    const codebuddy = within(row('CodeBuddy'))
+    expect(await codebuddy.findByRole('button', { name: '手动指定路径…' })).toBeTruthy()
+    expect(codebuddy.queryByRole('button', { name: '恢复自动检测' })).toBeNull()
+    expect(codebuddy.queryByText('登录')).toBeNull()
+  })
+
+  it('offers no path change or login line without the source’s help', async () => {
+    await show(fakeSource())
+    fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    const claude = within(row('Claude Code'))
+    expect(claude.getByText('共工内置适配器')).toBeTruthy()
+    expect(claude.queryByRole('button', { name: '更换路径…' })).toBeNull()
+    expect(claude.queryByText('登录')).toBeNull()
+  })
+
+  it('asks before a switch leaves sessions behind when the source wants it, naming their groups', async () => {
+    const view = {
+      ...VIEW,
+      providers: [provider('kimi', [endpoint()])],
+      sessions: [{ groupId: 'g1', botId: 'b1', agent: 'claude' as const, provider: 'official' }],
+    }
+    const setDefault = vi.fn(async () => view)
+    render(
+      <MemoryRouter>
+        <AgentsPanel
+          source={fakeSource({
+            loadProviders: async () => view,
+            setDefault,
+            confirmSwitch: true,
+            groupNames: async () => ({ g1: '前端组' }),
+          })}
+          bots={[{ id: 'b1', name: '小王的 Claude', agentKind: 'claude' }]}
+        />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('region', { name: '供应商' })
+    fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    fireEvent.click(screen.getByRole('button', { name: '供应商/模型' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'KIMI / 默认模型' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('前端组（小王的 Claude）')).toBeTruthy()
+    expect(setDefault).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: '切换' }))
+    await waitFor(() => expect(setDefault).toHaveBeenCalledWith('claude', 'kimi', null))
+  })
 })
 
 describe('「供应商/模型」 options', () => {
