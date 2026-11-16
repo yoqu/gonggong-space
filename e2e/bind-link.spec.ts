@@ -97,7 +97,8 @@ test('an expired code binds after the owner allows it on the web', async ({ page
   const done = exit(gg)
   await expect.poll(() => /\/link\/([0-9a-f-]{36})/.exec(out)?.[1], { timeout: 30_000 }).toBeTruthy()
   const id = /\/link\/([0-9a-f-]{36})/.exec(out)![1]
-  const userCode = /\b([A-Z0-9]{4})\b/.exec(out.slice(out.indexOf('/link/')))?.[1]
+  // After the link: its id has 4-digit groups of its own.
+  const userCode = /\b([A-Z0-9]{4})\b/.exec(out.slice(out.indexOf(id) + id.length))?.[1]
 
   await page.goto(`/link/${id}`)
   const card = page.getByRole('region', { name: '机器接入申请' })
