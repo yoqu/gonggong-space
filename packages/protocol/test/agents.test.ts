@@ -8,7 +8,9 @@ describe('agent registry', () => {
 
   it('translates every Chinese text', () => {
     const texts = Object.values(AGENT_META).flatMap((m) =>
-      [m.vendor, 'loginHint' in m ? m.loginHint : '', 'note' in m ? m.note : ''].filter((x) => /[一-鿿]/.test(x)),
+      [m.vendor, 'loginHint' in m ? m.loginHint : '', 'note' in m ? m.note : ''].filter((x) =>
+        /[一-鿿]/.test(x),
+      ),
     )
     for (const x of texts) expect(protocolEn).toHaveProperty([x])
   })
