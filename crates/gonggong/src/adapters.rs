@@ -1,5 +1,6 @@
 //! Agent adapters from plugin manifests (docs/plan/插件体系-contributes-方案.md §5). Gemini CLI, CodeBuddy, pi,
-//! DeepSeek Harness and Antigravity CLI are the built-in `agent-*` plugins of the server's official folder, compiled in here: how each is
+//! DeepSeek Harness, Antigravity CLI, OpenCode, Qwen Code, Kimi Code, Goose and GitHub Copilot CLI are the built-in
+//! `agent-*` plugins of the server's official folder, compiled in here: how each is
 //! installed, started and driven is the `contributes.agents` entry of its manifest, and what a manifest cannot say is
 //! its launch script, a Node script run before each agent process starts. Claude and Codex stay code adapters.
 use crate::protocol::{AgentKind, McpServer, Tier};
@@ -31,12 +32,17 @@ macro_rules! official {
 type Files = &'static [(&'static str, &'static str)];
 
 /// The built-in agent plugins: name and the files the daemon needs (manifest, launch script and what it loads).
-const BUILT_IN: [(&str, Files); 5] = [
+const BUILT_IN: [(&str, Files); 10] = [
     official!("agent-gemini", "contrib/agents/gemini/launch.mjs"),
     official!("agent-codebuddy"),
     official!("agent-pi", "contrib/agents/pi/launch.mjs", "contrib/agents/pi/gonggong.ts"),
     official!("agent-deepseek", "contrib/agents/deepseek/launch.mjs"),
     official!("agent-antigravity"),
+    official!("agent-opencode", "contrib/agents/opencode/launch.mjs"),
+    official!("agent-qwen"),
+    official!("agent-kimi", "contrib/agents/kimi/launch.mjs"),
+    official!("agent-goose", "contrib/agents/goose/launch.mjs"),
+    official!("agent-copilot", "contrib/agents/copilot/launch.mjs"),
 ];
 
 /// A launch script gets this long; past it the turn fails.
@@ -190,6 +196,30 @@ pub struct ProviderEnv {
     pub env: ProviderNames,
     #[serde(default)]
     pub skip_base_urls: Vec<String>,
+    /// Per endpoint protocol: env names in place of `env`, and the env and arguments that make the CLI speak it.
+    #[serde(default)]
+    pub by_protocol: BTreeMap<crate::protocol::ApiProtocol, ProtocolEnv>,
+    /// The CLI ignores a provider without a model: the run fails, saying so, instead of falling back to its login.
+    #[serde(default)]
+    pub needs_model: bool,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProtocolEnv {
+    pub env: Option<ProviderNames>,
+    #[serde(default)]
+    pub set: BTreeMap<String, String>,
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
+impl ProviderEnv {
+    /// The env names an endpoint of `protocol` goes into, and what else picks that protocol.
+    pub fn for_protocol(&self, protocol: crate::protocol::ApiProtocol) -> (&ProviderNames, Option<&ProtocolEnv>) {
+        let extra = self.by_protocol.get(&protocol);
+        (extra.and_then(|p| p.env.as_ref()).unwrap_or(&self.env), extra)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -649,6 +679,11 @@ mod tests {
                 (AgentKind::Pi, "agent-pi"),
                 (AgentKind::Deepseek, "agent-deepseek"),
                 (AgentKind::Antigravity, "agent-antigravity"),
+                (AgentKind::Opencode, "agent-opencode"),
+                (AgentKind::Qwen, "agent-qwen"),
+                (AgentKind::Kimi, "agent-kimi"),
+                (AgentKind::Goose, "agent-goose"),
+                (AgentKind::Copilot, "agent-copilot"),
             ]
         );
         assert!(get(AgentKind::Claude).is_none() && get(AgentKind::Codex).is_none(), "code adapters");
@@ -663,7 +698,9 @@ mod tests {
         assert!(a(AgentKind::Deepseek).restarts_on_tier() && !a(AgentKind::Gemini).restarts_on_tier());
         assert_eq!(a(AgentKind::Pi).tier(Tier::Full).map(|t| t.mode.clone()), None);
         assert_eq!(a(AgentKind::Deepseek).tier(Tier::ReadOnly).unwrap().env["DSH_PERMISSION_MODE"], "read-only");
-        assert_eq!(steering_dirs().collect::<Vec<_>>(), [".gemini"]);
+        assert_eq!(steering_dirs().collect::<Vec<_>>(), [".gemini", ".opencode", ".qwen", ".kimi-code"]);
+        assert!(a(AgentKind::Goose).missing().contains("download_cli.sh | CONFIGURE=false bash"));
+        assert_eq!(a(AgentKind::Kimi).spec.install.min_node, "22.19.0");
         assert_eq!(mcp_meta_keys().collect::<Vec<_>>(), ["gemini-cli"]);
         assert_eq!(error_meta_keys().collect::<Vec<_>>(), ["codebuddy.ai/errorMessage"]);
     }
@@ -688,6 +725,25 @@ mod tests {
         assert!(with_dirs(&args, &[], &vars).is_empty());
         let dirs = [PathBuf::from("/a"), PathBuf::from("/b")];
         assert_eq!(with_dirs(&args, &dirs, &vars), ["--plugin-dir", "/a", "/b"]);
+    }
+
+    #[test]
+    fn picks_the_env_names_and_switches_of_the_endpoints_protocol() {
+        use crate::protocol::ApiProtocol::{Anthropic, Gemini, Openai};
+        let goose = a(AgentKind::Goose).spec.provider.as_ref().unwrap();
+        let (names, extra) = goose.for_protocol(Anthropic);
+        assert_eq!((names.api_key.as_str(), names.base_url.as_deref()), ("ANTHROPIC_API_KEY", Some("ANTHROPIC_HOST")));
+        assert_eq!(extra.unwrap().set["GOOSE_PROVIDER"], "anthropic");
+        let (names, extra) = goose.for_protocol(Openai);
+        assert_eq!((names.api_key.as_str(), names.base_url.as_deref()), ("OPENAI_API_KEY", Some("OPENAI_BASE_URL")));
+        assert_eq!(extra.unwrap().set["GOOSE_PROVIDER"], "openai");
+        assert!(goose.needs_model);
+        let qwen = a(AgentKind::Qwen).spec.provider.as_ref().unwrap();
+        assert_eq!(qwen.for_protocol(Openai).1.unwrap().args, ["--auth-type", "openai"]);
+        let gemini = a(AgentKind::Gemini).spec.provider.as_ref().unwrap();
+        let (names, extra) = gemini.for_protocol(Gemini);
+        assert_eq!((names.api_key.as_str(), extra.is_none(), gemini.needs_model), ("GEMINI_API_KEY", true, false));
+        assert!(a(AgentKind::Opencode).spec.provider.is_none(), "its own login");
     }
 
     #[test]
@@ -892,6 +948,52 @@ mod tests {
         let out = launch(AgentKind::Pi, home.path(), input).await.unwrap();
         assert_eq!(out.env["GG_PI_EXE"], "pi");
         assert!(!out.env.contains_key("GG_PI_SCRIPT"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn kimi_and_goose_get_a_home_of_links_with_the_instructions_before_the_users() {
+        let (home, user) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        for (kind, own, memory, env, config) in [
+            (AgentKind::Kimi, ".kimi-code", "AGENTS.md", "KIMI_CODE_HOME", "home"),
+            (AgentKind::Goose, ".config/goose", ".goosehints", "GOOSE_PATH_ROOT", "config"),
+        ] {
+            let own = user.path().join(own);
+            std::fs::create_dir_all(own.join("sessions")).unwrap();
+            std::fs::write(own.join("config.yaml"), "x").unwrap();
+            std::fs::write(own.join(memory), "user rules").unwrap();
+            let state = home.path().join(format!("{kind:?}/g1-b1"));
+            let input = json!({ "state": state, "home": own, "systemPrompt": "bot rules" });
+            let out = launch(kind, home.path(), input.clone()).await.unwrap();
+            let ours = state.join(config);
+            let root = if kind == AgentKind::Kimi { &ours } else { &state };
+            assert_eq!(out.env[env], root.to_string_lossy());
+            assert_eq!(std::fs::read_to_string(ours.join(memory)).unwrap(), "bot rules\n\nuser rules");
+            assert_eq!(std::fs::read_link(ours.join("config.yaml")).unwrap(), own.join("config.yaml"));
+            assert_eq!(std::fs::read_link(ours.join("sessions")).unwrap(), own.join("sessions"));
+            // The user's file gone: so is the link; the bot's instructions alone.
+            std::fs::remove_file(own.join("config.yaml")).unwrap();
+            std::fs::remove_file(own.join(memory)).unwrap();
+            launch(kind, home.path(), input).await.unwrap();
+            assert!(ours.join("config.yaml").symlink_metadata().is_err());
+            assert_eq!(std::fs::read_to_string(ours.join(memory)).unwrap(), "bot rules");
+        }
+    }
+
+    #[tokio::test]
+    async fn opencode_and_copilot_get_the_instructions_as_a_file_they_are_pointed_to() {
+        let home = tempfile::tempdir().unwrap();
+        let state = home.path().join("opencode/g1-b1");
+        let out =
+            launch(AgentKind::Opencode, home.path(), json!({ "state": state, "systemPrompt": "bot rules" })).await.unwrap();
+        let config: Value = serde_json::from_str(&out.env["OPENCODE_CONFIG_CONTENT"]).unwrap();
+        let file = config["instructions"][0].as_str().unwrap();
+        assert_eq!(std::fs::read_to_string(file).unwrap(), "bot rules");
+        let state = home.path().join("copilot/g1-b1");
+        let out =
+            launch(AgentKind::Copilot, home.path(), json!({ "state": state, "systemPrompt": "bot rules" })).await.unwrap();
+        let dir = Path::new(&out.env["COPILOT_CUSTOM_INSTRUCTIONS_DIRS"]).to_path_buf();
+        assert_eq!(std::fs::read_to_string(dir.join("AGENTS.md")).unwrap(), "bot rules");
     }
 
     #[tokio::test]

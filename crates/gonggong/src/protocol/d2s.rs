@@ -70,6 +70,13 @@ pub const FEATURE_DEEPSEEK: &str = "deepseek";
 /// Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one.
 pub const FEATURE_ANTIGRAVITY: &str = "antigravity";
 
+/// Runs OpenCode, Qwen Code, Kimi Code, Goose and GitHub Copilot CLI bots, each gated like the ones above.
+pub const FEATURE_OPENCODE: &str = "opencode";
+pub const FEATURE_QWEN: &str = "qwen";
+pub const FEATURE_KIMI: &str = "kimi";
+pub const FEATURE_GOOSE: &str = "goose";
+pub const FEATURE_COPILOT: &str = "copilot";
+
 pub const FEATURE_REPROBE: &str = "reprobe";
 
 pub const FEATURE_PLUGINS: &str = "plugins";

@@ -78,6 +78,12 @@ export const DaemonFeature = z.enum([
   'deepseek',
   /** Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one. */
   'antigravity',
+  /** Runs OpenCode, Qwen Code, Kimi Code, Goose and GitHub Copilot CLI bots (each its own, as the ones above). */
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
   /** PluginRef.mcp (plan 插件扩展点 S1): `{node}` / `{pkg}` filled in and the servers handed to the agent. */
   'pluginMcp',
   /** presets.sync, artifact `plugin` and manifest `artifact.kit` (plan 插件扩展点 S2). */
@@ -101,6 +107,11 @@ export const ToolKind = z.enum([
   'pi',
   'deepseek',
   'antigravity',
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
 ])
 export type ToolKind = z.infer<typeof ToolKind>
 /** Where Node and the agent CLIs are downloaded from; npmmirror by default. */

@@ -212,10 +212,13 @@ export function presetsFromLegacy(list: LegacyProviderPreset[]): ProviderPreset[
 }
 
 /** Each endpoint as a copy for every agent that speaks its protocol. */
+/** The agents a daemon from before protocol providers knows: a preset for a later one would fail its parse. */
+const LEGACY_AGENTS = AGENT_KINDS.slice(0, AGENT_KINDS.indexOf('antigravity') + 1)
+
 export const presetsToLegacy = (list: ProviderPreset[]): LegacyProviderPreset[] =>
   list.flatMap(({ endpoints, ...vendor }) =>
     endpoints.flatMap(({ protocol, ...endpoint }) =>
-      AGENT_KINDS.filter((agent) => agentTakes(agent, protocol)).map((agent) => ({
+      LEGACY_AGENTS.filter((agent) => agentTakes(agent, protocol)).map((agent) => ({
         ...vendor,
         agent,
         ...endpoint,

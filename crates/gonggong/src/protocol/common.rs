@@ -20,10 +20,15 @@ pub enum AgentKind {
     Pi,
     Deepseek,
     Antigravity,
+    Opencode,
+    Qwen,
+    Kimi,
+    Goose,
+    Copilot,
 }
 
 impl AgentKind {
-    pub const ALL: [AgentKind; 7] = [
+    pub const ALL: [AgentKind; 12] = [
         AgentKind::Claude,
         AgentKind::Codex,
         AgentKind::Gemini,
@@ -31,6 +36,11 @@ impl AgentKind {
         AgentKind::Pi,
         AgentKind::Deepseek,
         AgentKind::Antigravity,
+        AgentKind::Opencode,
+        AgentKind::Qwen,
+        AgentKind::Kimi,
+        AgentKind::Goose,
+        AgentKind::Copilot,
     ];
 
     /// Finds team and plugin skills through links in `<cwd>/.agents/skills/` (Claude loads them as plugins, the

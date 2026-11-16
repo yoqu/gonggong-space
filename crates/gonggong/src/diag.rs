@@ -102,7 +102,7 @@ pub fn agents(list: &[AgentState]) -> Check {
             CheckKind::Agent,
             Status::Error,
             t!(
-                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI）"
+                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI、OpenCode、Qwen Code、Kimi Code、Goose 或 GitHub Copilot CLI）"
             ),
         );
     }

@@ -176,6 +176,7 @@ const AgentTier = z.object({
  * `{pkg}` (the plugin folder), `{node}`, `{cli}` and, in `skills.args`, `{pluginDirs}` (one argument per folder).
  */
 const Template = z.string().max(500)
+const ProviderEnvNames = z.object({ apiKey: EnvName, baseUrl: EnvName.nullable(), model: EnvName.nullable() })
 
 /**
  * An agent adapter (plan 插件扩展点 §5): how the daemon installs, starts and drives an ACP agent. Every field picks
@@ -254,9 +255,22 @@ export const PluginAgent = z.object({
     .object({
       /** The provider endpoints it can run on. */
       protocols: z.array(ApiProtocol).min(1),
-      env: z.object({ apiKey: EnvName, baseUrl: EnvName.nullable(), model: EnvName.nullable() }),
+      env: ProviderEnvNames,
       /** The agent maker's own services: no base URL is set for them. */
       skipBaseUrls: z.array(z.string().url()).max(10).default([]),
+      /** Per endpoint protocol: env names in place of `env`, and the env and arguments that make the CLI speak it. */
+      byProtocol: z
+        .partialRecord(
+          ApiProtocol,
+          z.object({
+            env: ProviderEnvNames.optional(),
+            set: z.record(EnvName, z.string().max(200)).default({}),
+            args: z.array(Template).max(5).default([]),
+          }),
+        )
+        .default({}),
+      /** The CLI ignores a provider without a model: the run fails, saying so, instead of falling back to its login. */
+      needsModel: z.boolean().default(false),
     })
     .nullable(),
   /** The agent's config directory (`env`, else `default` under the user's home) and its models file in it. */

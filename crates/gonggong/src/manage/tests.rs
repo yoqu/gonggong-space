@@ -479,6 +479,11 @@ fn features_include_cc_switch_only_when_present() {
             "pi",
             "deepseek",
             "antigravity",
+            "opencode",
+            "qwen",
+            "kimi",
+            "goose",
+            "copilot",
             "agentState",
             "protocolProviders"
         ]
@@ -517,6 +522,11 @@ fn features_include_cc_switch_only_when_present() {
             "pi",
             "deepseek",
             "antigravity",
+            "opencode",
+            "qwen",
+            "kimi",
+            "goose",
+            "copilot",
             "agentState",
             "protocolProviders",
             "ccSwitch"

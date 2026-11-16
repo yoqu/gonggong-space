@@ -64,7 +64,7 @@ pub enum ProviderCmd {
     },
     /// Delete a provider; sessions using it start a new session on their next turn.
     Rm { id: String },
-    /// Machine default: `use <claude|codex|gemini|codebuddy|deepseek> <id|official>`; bot override: `use --bot <bot> <id|official|inherit>`.
+    /// Machine default: `use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>`; bot override: `use --bot <bot> <id|official|inherit>`.
     Use {
         /// Bot id or name.
         #[arg(long)]
@@ -178,7 +178,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
         }
         ProviderCmd::Use { bot: None, args } => {
             let [agent, choice] = args.as_slice() else {
-                bail!(t!("用法：gg provider use <claude|codex|gemini|codebuddy|deepseek> <id|official>"))
+                bail!(t!("用法：gg provider use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>"))
             };
             let agent = parse_kind(agent).map_err(anyhow::Error::msg)?;
             let name = Store::update(home, |s| {
