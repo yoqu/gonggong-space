@@ -16,11 +16,11 @@ async fn local_profile_is_selected_and_pinned_without_provider_settings() {
     let exe = r.home().join("claude-wrapper");
     std::fs::write(&exe, "fake").unwrap();
     let id = Store::update(r.home(), |s| {
-        let mut p = Provider::custom(AgentKind::Claude, "Local".into(), String::new(), String::new());
-        p.config_dir = Some(dir.to_string_lossy().into());
-        p.executable_path = Some(exe.to_string_lossy().into());
+        let mut p = Provider::custom(ApiProtocol::Anthropic, "Local".into(), String::new(), String::new());
+        p.endpoints[0].config_dir = Some(dir.to_string_lossy().into());
+        p.endpoints[0].executable_path = Some(exe.to_string_lossy().into());
         let id = s.add(p)?;
-        s.use_machine(AgentKind::Claude, &id)?;
+        s.use_machine(AgentKind::Claude, &id, None)?;
         Ok(id)
     })
     .unwrap();
@@ -34,7 +34,7 @@ async fn local_profile_is_selected_and_pinned_without_provider_settings() {
     assert_eq!(result["settings"], Value::Null);
     assert_eq!(result["claudeAmbientCleared"], true);
     assert_eq!(r.pinned(first.session_id.as_deref().unwrap()), id);
-    Store::update(r.home(), |s| s.use_machine(AgentKind::Claude, OFFICIAL)).unwrap();
+    Store::update(r.home(), |s| s.use_machine(AgentKind::Claude, OFFICIAL, None)).unwrap();
     r.run(follow_up("profile-2", &first, AgentKind::Claude));
     assert_eq!(echo(&r.finish("profile-2").await)["claudeConfigDir"], dir.to_str().unwrap());
 }
@@ -212,11 +212,38 @@ async fn a_third_party_provider_runs_its_own_model() {
     assert_eq!(r.configs.pop(), Some(("r1".into(), Some("kimi-for-coding".into()))));
 
     // One of the provider's models the adapter offers is switched to.
-    Store::update(r.home(), |s| s.edit(&id, |p| p.models.as_mut().unwrap().haiku = Some("haiku".into()))).unwrap();
+    Store::update(r.home(), |s| s.edit(&id, |p| p.endpoints[0].models.as_mut().unwrap().haiku = Some("haiku".into())))
+        .unwrap();
     r.run(with_model(follow_up("r2", &first, AgentKind::Claude), "haiku"));
     let second = r.finish("r2").await;
     assert_eq!(echo(&second)["configSets"], json!(["model=haiku"]));
     assert_eq!(r.configs.pop(), Some(("r2".into(), Some("haiku".into()))));
+}
+
+#[tokio::test]
+async fn a_bot_inheriting_the_machine_default_runs_its_model_unless_the_server_names_one() {
+    let mut r = rig(Duration::from_secs(60));
+    let id = r.add(AgentKind::Claude, "kimi-coding", false);
+    Store::update(r.home(), |s| {
+        s.edit(&id, |p| p.endpoints[0].models.as_mut().unwrap().haiku = Some("haiku".into()))?;
+        s.use_machine(AgentKind::Claude, &id, Some("haiku".into()))
+    })
+    .unwrap();
+    r.run(start("r1", AgentKind::Claude));
+    let first = r.finish("r1").await;
+    assert_eq!(echo(&first)["configSets"], json!(["model=haiku"]), "the machine default's model");
+    assert_eq!(r.configs.pop(), Some(("r1".into(), Some("haiku".into()))));
+
+    let s = start("r2", AgentKind::Claude);
+    r.run(RunStart { bot: RunBot { model: Some("opus".into()), ..s.bot.clone() }, ..s });
+    r.finish("r2").await;
+    assert_eq!(r.configs.pop(), Some(("r2".into(), Some("kimi-for-coding".into()))), "the server's pick, not served");
+
+    // A bot with its own provider does not take the machine default's model.
+    Store::update(r.home(), |s| s.use_bot("b1", AgentKind::Claude, &id)).unwrap();
+    r.run(start("r3", AgentKind::Claude));
+    r.finish("r3").await;
+    assert_eq!(r.configs.pop(), Some(("r3".into(), Some("kimi-for-coding".into()))));
 }
 
 #[tokio::test]
@@ -227,7 +254,8 @@ async fn codex_runs_with_the_providers_proxy_and_env_over_the_users() {
     Store::update(r.home(), |s| {
         s.edit(&id, |p| {
             p.proxy = Some("http://127.0.0.1:7890".into());
-            p.env = env(&[("GG_EXTRA", "provider"), ("NO_PROXY", "corp.cn"), ("GG_PROVIDER_KEY", "nope")]);
+            p.endpoint_mut(ApiProtocol::Openai).unwrap().env =
+                env(&[("GG_EXTRA", "provider"), ("NO_PROXY", "corp.cn"), ("GG_PROVIDER_KEY", "nope")]);
         })
     })
     .unwrap();
@@ -249,7 +277,7 @@ async fn claude_gets_the_providers_proxy_and_env_in_its_settings_file() {
     Store::update(r.home(), |s| {
         s.edit(&id, |p| {
             p.proxy = Some("http://127.0.0.1:7890".into());
-            p.env.insert("GG_EXTRA".into(), "1".into());
+            p.endpoints[0].env.insert("GG_EXTRA".into(), "1".into());
         })
     })
     .unwrap();
@@ -326,7 +354,7 @@ async fn an_edited_cli_config_shows_in_the_next_turn_without_a_restart() {
 async fn the_bots_model_picks_the_context_window_and_a_change_restarts_the_adapter() {
     let mut r = rig(Duration::from_secs(60));
     let id = r.add(AgentKind::Claude, "kimi-coding", true);
-    Store::update(r.home(), |s| s.edit(&id, |p| p.env.clear())).unwrap();
+    Store::update(r.home(), |s| s.edit(&id, |p| p.endpoints[0].env.clear())).unwrap();
     let with_model =
         |s: RunStart, model: &str| RunStart { bot: RunBot { model: Some(model.into()), ..s.bot.clone() }, ..s };
     r.run(with_model(start("r1", AgentKind::Claude), "kimi-for-coding"));

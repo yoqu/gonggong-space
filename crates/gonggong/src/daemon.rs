@@ -6,7 +6,7 @@ use crate::engine::{Engine, EngineConfig};
 use crate::hosted::Services;
 use crate::local::{CachedCatalog, LocalSettings, save_catalog};
 use crate::lock::Lock;
-use crate::protocol::{AgentInfo, RejectReason};
+use crate::protocol::{AgentState, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, ProcessPatch, Status};
 use crate::tools::ToolKind;
@@ -44,7 +44,7 @@ pub struct Stopped {
 
 pub struct Daemon {
     monitor: Monitor,
-    agents: watch::Sender<Vec<AgentInfo>>,
+    agents: watch::Sender<Vec<AgentState>>,
     /// Re-detection, catalog probing, the preview tunnel and the GitHub update check.
     background: Vec<JoinHandle<()>>,
     task: JoinHandle<Stopped>,
@@ -56,6 +56,9 @@ impl Daemon {
     /// Takes the machine lock and starts connecting in the background. Must be called inside a tokio runtime.
     pub fn start(opts: Options) -> anyhow::Result<Daemon> {
         let lock = Lock::acquire(&opts.home)?;
+        if let Err(e) = crate::providers::Store::migrate_file(&opts.home) {
+            tracing::warn!("providers.json migration failed: {e:#}");
+        }
         let upgrader = match opts.self_upgrade {
             true => Upgrader::from_env(opts.home.clone(), &opts.config)?,
             false => None,
@@ -133,7 +136,7 @@ impl Daemon {
     }
 
     /// A fresh local detection (the desktop's 重新检测, a changed path); reported to the server if it differs.
-    pub fn set_agents(&self, agents: Vec<AgentInfo>) {
+    pub fn set_agents(&self, agents: Vec<AgentState>) {
         publish_agents(&self.agents, agents);
     }
 
@@ -161,7 +164,7 @@ impl Daemon {
 }
 
 /// Publishes `agents` when they differ from the last detection; true if they did.
-pub fn publish_agents(tx: &watch::Sender<Vec<AgentInfo>>, agents: Vec<AgentInfo>) -> bool {
+pub fn publish_agents(tx: &watch::Sender<Vec<AgentState>>, agents: Vec<AgentState>) -> bool {
     tx.send_if_modified(|current| {
         let changed = *current != agents;
         if changed {
@@ -171,10 +174,10 @@ pub fn publish_agents(tx: &watch::Sender<Vec<AgentInfo>>, agents: Vec<AgentInfo>
     })
 }
 
-async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentInfo>>) {
+async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentState>>) {
     let mut tick = tokio::time::interval(REDETECT);
     tick.tick().await;
-    // The latest versions reported as `AgentInfo.latest`, refreshed from the mirror now and then.
+    // The latest versions reported as `AgentState.latest`, refreshed from the mirror now and then.
     let mut checked: Option<std::time::Instant> = None;
     loop {
         tick.tick().await;
@@ -190,11 +193,11 @@ async fn redetect(home: PathBuf, tx: watch::Sender<Vec<AgentInfo>>) {
     }
 }
 
-fn detect(home: &Path) -> anyhow::Result<Vec<AgentInfo>> {
+fn detect(home: &Path) -> anyhow::Result<Vec<AgentState>> {
     Ok(crate::agents::detect(home, &LocalSettings::load(home)?))
 }
 
-async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentInfo>>) {
+async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentState>>) {
     let home = home.to_path_buf();
     match tokio::task::spawn_blocking(move || detect(&home)).await {
         Ok(Ok(agents)) => {
@@ -207,7 +210,7 @@ async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentInfo>>) {
 
 /// Probes each detected agent without a catalog for its builds (once per build and daemon process), then publishes
 /// the detection again so the server gets the catalog.
-async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentInfo>>) {
+async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentState>>) {
     let mut rx = tx.subscribe();
     let mut tried = HashSet::new();
     loop {

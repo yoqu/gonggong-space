@@ -169,7 +169,7 @@ impl Engine {
     }
 
     /// Local agent detection, republished after a tool is installed or upgraded from the Web.
-    pub fn watch_agents(&self, tx: tokio::sync::watch::Sender<Vec<crate::protocol::AgentInfo>>) {
+    pub fn watch_agents(&self, tx: tokio::sync::watch::Sender<Vec<crate::protocol::AgentState>>) {
         self.0.manage.watch_agents(tx);
     }
 
@@ -1074,10 +1074,7 @@ impl Inner {
         // First, the run's secrets over the user's variables: the daemon's own, set below, win over both.
         let mut env = Settings::load(&self.config.home)?.child_env();
         env.extend(secrets.0.clone());
-        let pinned_cli = match selection {
-            Selection::Provider(p) => p.executable_path.as_deref(),
-            Selection::Official(_) => None,
-        };
+        let pinned_cli = selection.provider().and_then(|(_, e)| e.executable_path.as_deref());
         let cli = pinned_cli
             .map(std::path::PathBuf::from)
             .or_else(|| agents::locate(&self.config.home, bot.agent_kind, local));
@@ -1110,10 +1107,7 @@ impl Inner {
             anyhow::bail!(agents::codex_unusable(&problem));
         }
         let cli = cli.map(|p| p.to_string_lossy().into_owned());
-        let (provider, extra_env) = match selection {
-            Selection::Official(o) => (None, o.process_env()),
-            Selection::Provider(p) => (Some(p.as_ref()), p.process_env()),
-        };
+        let (provider, extra_env) = (selection.provider(), selection.process_env());
         Ok(match bot.agent_kind {
             AgentKind::Claude => {
                 let base = match selection.claude_profile() {
@@ -1138,12 +1132,12 @@ impl Inner {
             AgentKind::Codex => {
                 let mut config = serde_json::Map::new();
                 config.insert("developer_instructions".into(), system_prompt(bot).into());
-                if let Some(p) = provider {
-                    inject::codex_config(&mut config, p);
+                if let Some((p, e)) = provider {
+                    inject::codex_config(&mut config, p, e);
                 }
                 base.env("CODEX_CONFIG", serde_json::Value::Object(config).to_string())
                     .envs(extra_env)
-                    .envs(provider.map(inject::codex_env).into_iter().flatten())
+                    .envs(provider.map(|(p, _)| inject::codex_env(p)).into_iter().flatten())
                     .envs(cli.map(|p| ("CODEX_PATH", p)))
             }
             _ => {
@@ -1211,7 +1205,7 @@ impl Inner {
         base: AcpAgentConfig,
         bot: &RunBot,
         cli: Option<&str>,
-        provider: Option<&crate::providers::Provider>,
+        provider: Option<(&crate::providers::Provider, &crate::providers::Endpoint)>,
         extra_env: std::collections::BTreeMap<String, String>,
         process: &Process<'_>,
     ) -> anyhow::Result<AcpAgentConfig> {
@@ -1262,7 +1256,7 @@ impl Inner {
                 "data": spec.state.as_ref().map(|d| home.join(d)),
                 "userHome": self.config.user_home,
                 "home": a.config_home(&self.config.user_home, &|n| std::env::var(n).ok()),
-                "provider": provider.map(|p| serde_json::json!({ "baseUrl": p.base_url, "model": p.model })),
+                "provider": provider.map(|(_, e)| serde_json::json!({ "baseUrl": e.base_url, "model": e.model })),
                 "pkg": pkg,
                 "node": node.path,
                 "cli": cli,
@@ -1274,11 +1268,11 @@ impl Inner {
             config = config.args(launch.args).envs(launch.env);
         }
         config = config.envs(extra_env);
-        if let (Some(p), Some(names)) = (provider, &spec.provider) {
+        if let (Some((p, e)), Some(names)) = (provider, &spec.provider) {
             config = config
                 .env(&names.env.api_key, &p.api_key)
-                .envs(names.env.base_url.as_ref().zip(a.base_url(&p.base_url)).map(|(k, v)| (k.clone(), v.to_string())))
-                .envs(names.env.model.as_ref().zip(p.model.as_ref()).map(|(k, v)| (k.clone(), v.clone())));
+                .envs(names.env.base_url.as_ref().zip(a.base_url(&e.base_url)).map(|(k, v)| (k.clone(), v.to_string())))
+                .envs(names.env.model.as_ref().zip(e.model.as_ref()).map(|(k, v)| (k.clone(), v.clone())));
         }
         Ok(config)
     }

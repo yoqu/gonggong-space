@@ -6,8 +6,9 @@ use crate::agent_settings::{
     self, AUTO_COMPACT, AgentSettings, CONTEXT_WINDOW, CliSettingsSnapshot, Layer, MAX_OUTPUT, RunSettingsSnapshot,
     Target,
 };
+use crate::protocol::ApiProtocol;
 use crate::protocol::{AgentKind, RunBot};
-use crate::providers::{self, API_KEY, AUTH_TOKEN, OFFICIAL, Provider, Selection, Store};
+use crate::providers::{self, API_KEY, AUTH_TOKEN, Endpoint, OFFICIAL, Provider, Selection, Store};
 use crate::t;
 use crate::turn::CompactPolicy;
 use anyhow::{Result, bail};
@@ -96,17 +97,16 @@ impl ClaudeLaunch {
                 None => {}
             }
         }
-        let base = match selection {
-            Selection::Provider(p) if p.claude_profile().is_some() => json!({ "env": p.process_env() }),
-            Selection::Provider(p) => {
-                let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
-                let window = model(p, bot.model.as_deref()).and_then(|m| preset?.model_context.get(&m).copied());
-                if let Some(w) = window.filter(|_| !p.env.contains_key(CONTEXT_WINDOW)) {
+        let base = match selection.provider() {
+            Some((p, e)) if e.claude_profile().is_none() => {
+                let preset = p.preset_endpoint(ApiProtocol::Anthropic);
+                let window = model(p, e, bot.model.as_deref()).and_then(|m| preset?.model_context.get(&m).copied());
+                if let Some(w) = window.filter(|_| !e.env.contains_key(CONTEXT_WINDOW)) {
                     env.insert(CONTEXT_WINDOW.into(), w.to_string().into());
                 }
-                claude_settings(p)?
+                claude_settings(p, e)?
             }
-            Selection::Official(o) => json!({ "env": o.process_env() }),
+            _ => json!({ "env": selection.process_env() }),
         };
         let overlay = (!top.is_empty() || !env.is_empty()).then(|| {
             let digest = Sha256::digest(json!({ "settings": top, "env": env }).to_string());
@@ -119,10 +119,10 @@ impl ClaudeLaunch {
         top.extend(base);
         let file = match selection {
             Selection::Official(o) if o.is_empty() && overlay.is_none() => None,
-            Selection::Provider(p)
-                if p.claude_profile().is_some()
-                    && p.process_env().is_empty()
-                    && p.args.is_empty()
+            Selection::Provider { endpoint: e, .. }
+                if e.claude_profile().is_some()
+                    && selection.process_env().is_empty()
+                    && e.args.is_empty()
                     && overlay.is_none() =>
             {
                 None
@@ -165,10 +165,7 @@ impl ClaudeLaunch {
             enabled: setting != Some(false) && !truthy("DISABLE_AUTO_COMPACT") && !truthy("DISABLE_COMPACT"),
         };
         let snapshot = RunSettingsSnapshot {
-            provider: match selection {
-                Selection::Provider(p) => Some(p.name.clone()),
-                Selection::Official(_) => None,
-            },
+            provider: selection.provider().map(|(p, _)| p.name.clone()),
             context_window: number(CONTEXT_WINDOW, "contextWindow"),
             auto_compact_window: number(AUTO_COMPACT, "autoCompactWindow"),
             inherit_cli,
@@ -176,10 +173,7 @@ impl ClaudeLaunch {
             from_bot,
         };
         // The user's own `--settings` go under everything 共工 sets.
-        let args = match selection {
-            Selection::Official(o) => o.claude_args()?,
-            Selection::Provider(p) => p.claude_args()?,
-        };
+        let args = selection.claude_args()?;
         if let Some(mut user) = args.settings()? {
             if let Some(Value::Object(e)) = user.remove("env") {
                 for (k, v) in e {
@@ -223,21 +217,21 @@ impl ClaudeLaunch {
     }
 }
 
-/// Claude Code flag settings routing every request to `p`.
-pub fn claude_settings(p: &Provider) -> Result<Value> {
-    let key_field = p.api_key_field.as_deref().unwrap_or(AUTH_TOKEN);
+/// Claude Code flag settings routing every request to `p`'s anthropic endpoint `e`.
+pub fn claude_settings(p: &Provider, e: &Endpoint) -> Result<Value> {
+    let key_field = e.api_key_field.as_deref().unwrap_or(AUTH_TOKEN);
     let other = match key_field {
         AUTH_TOKEN => API_KEY,
         API_KEY => AUTH_TOKEN,
         _ => bail!(t!("供应商 {name} 的 Key 字段 {field} 不受支持", name = p.name, field = key_field)),
     };
-    let models = p.models.clone().unwrap_or_default();
+    let models = e.models.clone().unwrap_or_default();
     let or_blank = |v: &Option<String>| v.clone().unwrap_or_default();
     let connection = [
-        ("ANTHROPIC_BASE_URL", p.base_url.clone()),
+        ("ANTHROPIC_BASE_URL", e.base_url.clone()),
         (key_field, p.api_key.clone()),
         (other, String::new()),
-        ("ANTHROPIC_MODEL", or_blank(&p.model)),
+        ("ANTHROPIC_MODEL", or_blank(&e.model)),
         ("ANTHROPIC_DEFAULT_HAIKU_MODEL", or_blank(&models.haiku)),
         ("ANTHROPIC_DEFAULT_SONNET_MODEL", or_blank(&models.sonnet)),
         ("ANTHROPIC_DEFAULT_OPUS_MODEL", or_blank(&models.opus)),
@@ -246,7 +240,7 @@ pub fn claude_settings(p: &Provider) -> Result<Value> {
     let env: Map<String, Value> = CLAUDE_RESET
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .into_iter()
-        .chain(p.process_env())
+        .chain(p.process_env(e))
         .chain(connection.map(|(k, v)| (k.to_string(), v)))
         .map(|(k, v)| (k, Value::String(v)))
         .collect();
@@ -306,16 +300,16 @@ pub fn prune(home: &Path, store: &Store, stale: Option<Duration>) {
     }
 }
 
-/// Merges `p` into the adapter's `CODEX_CONFIG`; the key itself goes in [`CODEX_KEY_ENV`].
-pub fn codex_config(config: &mut Map<String, Value>, p: &Provider) {
-    let wire_api = p.wire_api.as_deref().unwrap_or(providers::WIRE_RESPONSES);
-    let provider = json!({ "name": p.name, "base_url": p.base_url, "wire_api": wire_api, "env_key": CODEX_KEY_ENV });
+/// Merges `p`'s openai endpoint `e` into the adapter's `CODEX_CONFIG`; the key itself goes in [`CODEX_KEY_ENV`].
+pub fn codex_config(config: &mut Map<String, Value>, p: &Provider, e: &Endpoint) {
+    let wire_api = e.wire_api.as_deref().unwrap_or(providers::WIRE_RESPONSES);
+    let provider = json!({ "name": p.name, "base_url": e.base_url, "wire_api": wire_api, "env_key": CODEX_KEY_ENV });
     config.insert("model_provider".into(), CODEX_PROVIDER.into());
     config.insert("model_providers".into(), json!({ CODEX_PROVIDER: provider }));
-    if let Some(model) = &p.model {
+    if let Some(model) = &e.model {
         config.insert("model".into(), model.as_str().into());
     }
-    if let Some(effort) = &p.effort {
+    if let Some(effort) = &e.effort {
         config.insert("model_reasoning_effort".into(), effort.as_str().into());
     }
 }
@@ -325,62 +319,60 @@ pub fn codex_env(p: &Provider) -> [(&'static str, String); 2] {
     [("MODEL_PROVIDER", CODEX_PROVIDER.into()), (CODEX_KEY_ENV, p.api_key.clone())]
 }
 
-/// The model a bot runs on `p`: its own pick when the provider serves it, else the provider's default.
-pub fn model(p: &Provider, wanted: Option<&str>) -> Option<String> {
-    let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
-    let models = p.models.iter().flat_map(|m| [&m.haiku, &m.sonnet, &m.opus]).flatten();
-    let mut options = p.model.iter().chain(models).chain(preset.iter().flat_map(|p| &p.model_options));
-    wanted.filter(|w| options.any(|o| o.as_str() == *w)).map(String::from).or_else(|| p.model.clone())
+/// The model a bot runs on endpoint `e` of `p`: its own pick (or the machine default's) when the endpoint serves
+/// it, else the endpoint's default.
+pub fn model(p: &Provider, e: &Endpoint, wanted: Option<&str>) -> Option<String> {
+    let preset = p.preset_endpoint(e.protocol);
+    let models = e.models.iter().flat_map(|m| [&m.haiku, &m.sonnet, &m.opus]).flatten();
+    let mut options = e.model.iter().chain(models).chain(preset.iter().flat_map(|p| &p.model_options));
+    wanted.filter(|w| options.any(|o| o.as_str() == *w)).map(String::from).or_else(|| e.model.clone())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::AgentKind::{Claude, Codex};
+    use crate::protocol::AgentKind::Claude;
     use crate::providers::Official;
 
     fn custom() -> Provider {
-        let mut p = Provider::custom(Claude, "X".into(), "https://x.test".into(), "sk-x-0123456789".into());
+        let mut p =
+            Provider::custom(ApiProtocol::Anthropic, "X".into(), "https://x.test".into(), "sk-x-0123456789".into());
         p.id = "x-1".into();
         p
+    }
+
+    fn sel(p: Provider) -> Selection {
+        Selection::of(&p, Claude).unwrap()
     }
 
     #[test]
     fn api_key_field_carries_the_key_and_blanks_the_other() {
         let mut p = custom();
-        p.api_key_field = Some(API_KEY.into());
-        p.env.insert("ANTHROPIC_BASE_URL".into(), "https://evil.test".into());
-        p.env.insert("ENABLE_TOOL_SEARCH".into(), "1".into());
-        let env = claude_settings(&p).unwrap()["env"].clone();
+        p.endpoints[0].api_key_field = Some(API_KEY.into());
+        p.endpoints[0].env.insert("ANTHROPIC_BASE_URL".into(), "https://evil.test".into());
+        p.endpoints[0].env.insert("ENABLE_TOOL_SEARCH".into(), "1".into());
+        let env = claude_settings(&p, &p.endpoints[0]).unwrap()["env"].clone();
         assert_eq!((env[API_KEY].as_str(), env[AUTH_TOKEN].as_str()), (Some("sk-x-0123456789"), Some("")));
         assert_eq!(env["ANTHROPIC_BASE_URL"], "https://x.test", "extra env never overrides the connection");
         assert_eq!((env["ENABLE_TOOL_SEARCH"].as_str(), env["ANTHROPIC_MODEL"].as_str()), (Some("1"), Some("")));
-        p.api_key_field = Some("OTHER".into());
-        assert!(!claude_settings(&p).unwrap_err().to_string().contains("sk-x"));
+        p.endpoints[0].api_key_field = Some("OTHER".into());
+        assert!(!claude_settings(&p, &p.endpoints[0]).unwrap_err().to_string().contains("sk-x"));
     }
 
     #[test]
     fn provider_extra_env_can_override_the_oauth_reset() {
         let mut p = custom();
-        assert_eq!(claude_settings(&p).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "");
-        p.env.insert("CLAUDE_CODE_OAUTH_TOKEN".into(), "synthetic-token".into());
-        assert_eq!(claude_settings(&p).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "synthetic-token");
+        assert_eq!(claude_settings(&p, &p.endpoints[0]).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "");
+        p.endpoints[0].env.insert("CLAUDE_CODE_OAUTH_TOKEN".into(), "synthetic-token".into());
+        assert_eq!(claude_settings(&p, &p.endpoints[0]).unwrap()["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "synthetic-token");
     }
 
     #[test]
     fn local_claude_profile_inherits_its_own_credentials() {
-        let mut value = serde_json::to_value(custom()).unwrap();
-        value["configDir"] = "/tmp/claude-profile".into();
-        let p: Provider = serde_json::from_value(value).unwrap();
+        let mut p = custom();
+        p.endpoints[0].config_dir = Some("/tmp/claude-profile".into());
         let home = tempfile::tempdir().unwrap();
-        let launch = ClaudeLaunch::new(
-            home.path(),
-            &Selection::Provider(Box::new(p)),
-            &AgentSettings::default(),
-            &bot(None, &[]),
-            None,
-        )
-        .unwrap();
+        let launch = ClaudeLaunch::new(home.path(), &sel(p), &AgentSettings::default(), &bot(None, &[]), None).unwrap();
         assert!(launch.file.is_none(), "a local profile must not clear its OAuth credentials");
     }
 
@@ -390,9 +382,9 @@ mod tests {
         let file = home.path().join("team.json");
         std::fs::write(&file, r#"{"language":"french","includeCoAuthoredBy":false}"#).unwrap();
         let mut p = custom();
-        p.args = vec![format!("--settings {}", file.display()), "--debug".into()];
+        p.endpoints[0].args = vec![format!("--settings {}", file.display()), "--debug".into()];
         let lang = defaults(&[("language", "english")], true);
-        let l = launch(home.path(), &Selection::Provider(Box::new(p.clone())), &lang, &bot(None, &[]));
+        let l = launch(home.path(), &sel(p.clone()), &lang, &bot(None, &[]));
         let written = read(l.settings_path().unwrap());
         assert_eq!(
             (written["language"].as_str(), written["includeCoAuthoredBy"].as_bool()),
@@ -402,11 +394,11 @@ mod tests {
         assert_eq!(Value::Object(l.args), json!({ "debug": null }));
 
         // A local profile otherwise needs no settings file, but its `--settings` must still be written.
-        p.base_url.clear();
+        p.endpoints[0].base_url.clear();
         p.api_key.clear();
-        p.config_dir = Some(home.path().display().to_string());
+        p.endpoints[0].config_dir = Some(home.path().display().to_string());
         let none = AgentSettings::default();
-        let l = launch(home.path(), &Selection::Provider(Box::new(p)), &none, &bot(None, &[]));
+        let l = launch(home.path(), &sel(p), &none, &bot(None, &[]));
         assert_eq!(read(l.settings_path().unwrap())["includeCoAuthoredBy"], false);
     }
 
@@ -454,7 +446,7 @@ mod tests {
         let mut files = vec![];
         for p in [store.get(&kept).unwrap(), &gone] {
             for d in [&none, &language] {
-                let l = launch(home.path(), &Selection::Provider(Box::new(p.clone())), d, &bot(None, &[]));
+                let l = launch(home.path(), &sel(p.clone()), d, &bot(None, &[]));
                 files.push(l.settings_path().unwrap().to_path_buf());
             }
         }
@@ -516,7 +508,7 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let mut store = Store::default();
         let id = store.add(custom()).unwrap();
-        let p = Selection::Provider(Box::new(store.get(&id).unwrap().clone()));
+        let p = sel(store.get(&id).unwrap().clone());
         let (none, lang) = (defaults(&[], true), defaults(&[("language", "english")], true));
         let plain = launch(home.path(), &p, &none, &bot(None, &[]));
         let used = launch(home.path(), &p, &lang, &bot(None, &[]));
@@ -539,7 +531,7 @@ mod tests {
     #[test]
     fn only_the_files_and_the_cli_flag_decide_a_restart() {
         let home = tempfile::tempdir().unwrap();
-        let p = Selection::Provider(Box::new(custom()));
+        let p = sel(custom());
         let d = defaults(&[], true);
         let cli = |language: &str| CliSettingsSnapshot {
             values: [("language".to_string(), language.to_string())].into(),
@@ -558,7 +550,7 @@ mod tests {
     #[test]
     fn invalid_bot_overrides_are_skipped() {
         let home = tempfile::tempdir().unwrap();
-        let p = Selection::Provider(Box::new(custom()));
+        let p = sel(custom());
         let b = bot(None, &[("thinking", "yes"), ("attribution", "co-authored"), ("language", "english")]);
         let l = launch(home.path(), &p, &defaults(&[("thinking", "true")], true), &b);
         let s = read(l.settings_path().unwrap());
@@ -571,7 +563,7 @@ mod tests {
     fn agent_defaults_then_bot_overrides_then_the_provider_then_the_connection() {
         let home = tempfile::tempdir().unwrap();
         let mut p = custom();
-        p.env.insert("BASH_DEFAULT_TIMEOUT_MS".into(), "9000".into());
+        p.endpoints[0].env.insert("BASH_DEFAULT_TIMEOUT_MS".into(), "9000".into());
         let d = defaults(
             &[
                 ("language", "chinese"),
@@ -584,7 +576,7 @@ mod tests {
             true,
         );
         let b = bot(None, &[("language", "english"), ("attribution", "none"), ("autoMemory", "true")]);
-        let l = launch(home.path(), &Selection::Provider(Box::new(p)), &d, &b);
+        let l = launch(home.path(), &sel(p), &d, &b);
         let s = read(l.settings_path().unwrap());
         assert_eq!(s["language"], "english", "the bot's override");
         assert_eq!(s["alwaysThinkingEnabled"], true, "a JSON boolean");
@@ -625,24 +617,23 @@ mod tests {
     #[test]
     fn the_models_context_window_fills_in_unless_the_provider_sets_one() {
         let home = tempfile::tempdir().unwrap();
-        let mut p = Provider::from_preset(&providers::preset(Claude, "kimi-coding").unwrap(), "sk-k-0123456789".into());
+        let mut p = Provider::from_preset(&providers::preset("kimi-coding").unwrap(), "sk-k-0123456789".into());
         p.id = "kimi-1".into();
         let none = defaults(&[], true);
-        let l = launch(home.path(), &Selection::Provider(Box::new(p.clone())), &none, &bot(None, &[]));
+        let l = launch(home.path(), &sel(p.clone()), &none, &bot(None, &[]));
         assert_eq!(
             l.settings_path(),
             Some(claude_settings_path(home.path(), "kimi-1", None).as_path()),
             "set by the preset"
         );
         assert_eq!(l.snapshot.context_window, Some(262144));
-        p.env.clear();
-        let l =
-            launch(home.path(), &Selection::Provider(Box::new(p.clone())), &none, &bot(Some("kimi-for-coding"), &[]));
+        p.endpoints[0].env.clear();
+        let l = launch(home.path(), &sel(p.clone()), &none, &bot(Some("kimi-for-coding"), &[]));
         assert_eq!(read(l.settings_path().unwrap())["env"][CONTEXT_WINDOW], "262144", "from the preset's modelContext");
         assert_ne!(l.settings_path(), Some(claude_settings_path(home.path(), "kimi-1", None).as_path()));
         assert_eq!((l.snapshot.context_window, l.snapshot.auto_compact_window), (Some(262144), None));
         assert_eq!(l.compact.point(262144), (Some(229144), None), "compacts at the model's window by default");
-        let other = launch(home.path(), &Selection::Provider(Box::new(p)), &none, &bot(Some("k3"), &[]));
+        let other = launch(home.path(), &sel(p), &none, &bot(Some("k3"), &[]));
         assert_eq!(other.snapshot.context_window, None, "no window known for that model");
         assert_ne!(other.settings_path(), l.settings_path(), "another model, another file");
     }
@@ -661,7 +652,7 @@ mod tests {
             version: None,
             compact_env: Default::default(),
         };
-        let p = Selection::Provider(Box::new(custom()));
+        let p = sel(custom());
         let d = defaults(&[("thinking", "false")], true);
         let l = ClaudeLaunch::new(home.path(), &p, &d, &bot(None, &[]), Some(&cli)).unwrap();
         assert_eq!(l.snapshot.from_cli, vec!["autoCompactWindow", "language", "CLAUDE_CODE_EFFORT_LEVEL"]);
@@ -685,9 +676,7 @@ mod tests {
             compact_env: env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
         };
         let policy = |p: &Provider, d: &AgentSettings, c: Option<&CliSettingsSnapshot>| {
-            ClaudeLaunch::new(home.path(), &Selection::Provider(Box::new(p.clone())), d, &bot(None, &[]), c)
-                .unwrap()
-                .compact
+            ClaudeLaunch::new(home.path(), &sel(p.clone()), d, &bot(None, &[]), c).unwrap().compact
         };
         let none = defaults(&[], true);
         assert_eq!(policy(&p, &none, None), CompactPolicy { window: None, max_output: None, pct: None, enabled: true });
@@ -705,21 +694,23 @@ mod tests {
         let pct =
             policy(&p, &none, Some(&cli(&[("maxOutputTokens", "8000")], &[("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "75")])));
         assert_eq!((pct.max_output, pct.pct), (Some(8000), Some(75.0)));
-        p.env.insert("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE".into(), "150".into());
-        p.env.insert("DISABLE_AUTO_COMPACT".into(), "0".into());
-        p.env.insert(AUTO_COMPACT.into(), "180000".into());
+        p.endpoints[0].env.insert("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE".into(), "150".into());
+        p.endpoints[0].env.insert("DISABLE_AUTO_COMPACT".into(), "0".into());
+        p.endpoints[0].env.insert(AUTO_COMPACT.into(), "180000".into());
         let from_provider = policy(&p, &none, None);
         assert_eq!((from_provider.window, from_provider.pct, from_provider.enabled), (Some(180000), None, true));
-        p.env.insert("DISABLE_AUTO_COMPACT".into(), "1".into());
+        p.endpoints[0].env.insert("DISABLE_AUTO_COMPACT".into(), "1".into());
         assert!(!policy(&p, &none, None).enabled, "the provider's env");
     }
 
     #[test]
     fn model_prefers_the_bots_pick_among_the_providers_models() {
-        let p = Provider::from_preset(&providers::preset(Codex, "zhipu").unwrap(), "k".into());
-        assert_eq!(model(&p, Some("glm-5.3-flash")).as_deref(), Some("glm-5.3-flash"), "from the preset's options");
-        assert_eq!(model(&p, Some("gpt-5")).as_deref(), Some("glm-5.3"));
-        assert_eq!(model(&p, None).as_deref(), Some("glm-5.3"));
-        assert_eq!(model(&custom(), Some("opus")), None);
+        let p = Provider::from_preset(&providers::preset("zhipu").unwrap(), "k".into());
+        let e = p.endpoint(ApiProtocol::Openai).unwrap();
+        assert_eq!(model(&p, e, Some("glm-5.3-flash")).as_deref(), Some("glm-5.3-flash"), "from the preset's options");
+        assert_eq!(model(&p, e, Some("gpt-5")).as_deref(), Some("glm-5.3"));
+        assert_eq!(model(&p, e, None).as_deref(), Some("glm-5.3"));
+        let c = custom();
+        assert_eq!(model(&c, &c.endpoints[0], Some("opus")), None);
     }
 }

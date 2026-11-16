@@ -185,6 +185,8 @@ pub struct Tiers {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderEnv {
+    /// The provider endpoints it can run on.
+    pub protocols: Vec<crate::protocol::ApiProtocol>,
     pub env: ProviderNames,
     #[serde(default)]
     pub skip_base_urls: Vec<String>,

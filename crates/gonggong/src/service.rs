@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::protocol::{
-    AgentInfo, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon, ServiceInfo,
+    AgentState, DaemonToServer, MachineInfo, PROTOCOL_VERSION, RejectReason, RunEvent, ServerToDaemon, ServiceInfo,
 };
 use crate::status::Monitor;
 use crate::tls::Ws;
@@ -292,7 +292,7 @@ pub struct Service<H: Handler> {
     pub config: Config,
     pub machine: MachineInfo,
     /// Local agent detection; changes after hello are reported as agents.update.
-    pub agents: watch::Receiver<Vec<AgentInfo>>,
+    pub agents: watch::Receiver<Vec<AgentState>>,
     pub handler: H,
     pub max_backoff: Duration,
     /// Self-upgrade when the server offers a newer build; `None` disables it.
