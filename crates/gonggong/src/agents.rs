@@ -1,7 +1,7 @@
 use crate::adapters;
 use crate::engine::ADAPTERS;
 use crate::local::{LocalSettings, load_catalogs};
-use crate::protocol::{AgentInfo, AgentKind};
+use crate::protocol::{AgentCatalog, AgentInfo, AgentKind};
 use crate::t;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -48,6 +48,15 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
             info
         })
         .collect()
+}
+
+/// A probed catalog worth caching: an agent logged out or offline (agy) offers no models, and caching that would hide
+/// them until its next upgrade.
+pub fn offered(kind: AgentKind, catalog: AgentCatalog) -> anyhow::Result<AgentCatalog> {
+    match catalog.models.is_empty() {
+        true => anyhow::bail!(t!("{kind} 没有报告可选模型，可能未登录或连不上服务", kind = format!("{kind:?}"))),
+        false => Ok(catalog),
+    }
 }
 
 /// The CLI and adapter builds a catalog is probed from, and the CLI's own user-level config: upgrading either build or
@@ -228,10 +237,7 @@ pub fn find(bin: &str) -> Option<PathBuf> {
         .map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
-        .chain(extra_dirs(
-            &crate::config::user_home(),
-            std::env::var_os("NVM_DIR").map(PathBuf::from).as_deref(),
-        ))
+        .chain(extra_dirs(&crate::config::user_home(), std::env::var_os("NVM_DIR").map(PathBuf::from).as_deref()))
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|p| p.is_file())
 }
@@ -425,7 +431,10 @@ mod tests {
         let nvm: Vec<_> = dirs.iter().filter(|d| d.starts_with(h.join(".nvm"))).collect();
         assert_eq!(
             nvm,
-            ["v24.15.0", "v22.22.2", "v9.0.0"].map(|v| h.join(".nvm/versions/node").join(v).join("bin")).iter().collect::<Vec<_>>()
+            ["v24.15.0", "v22.22.2", "v9.0.0"]
+                .map(|v| h.join(".nvm/versions/node").join(v).join("bin"))
+                .iter()
+                .collect::<Vec<_>>()
         );
         for d in [".volta/bin", ".bun/bin", "Library/pnpm", ".local/share/pnpm", ".asdf/shims"] {
             assert!(dirs.contains(&h.join(d)), "{d}");

@@ -121,7 +121,11 @@ impl Rig {
     }
 
     pub async fn probe(&self, kind: AgentKind) -> AgentCatalog {
-        self.engine.probe(kind).await.unwrap()
+        self.try_probe(kind).await.unwrap()
+    }
+
+    pub async fn try_probe(&self, kind: AgentKind) -> anyhow::Result<AgentCatalog> {
+        self.engine.probe(kind).await
     }
 
     pub fn home(&self) -> &Path {

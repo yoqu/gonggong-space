@@ -205,33 +205,47 @@ async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentInfo>>) {
     }
 }
 
-/// Probes each detected agent without a catalog for its builds (once per build and daemon process), then publishes
-/// the detection again so the server gets the catalog.
+/// Probes each detected agent without a catalog for its builds (once per build and daemon process once it succeeds,
+/// again every PROBE_RETRY while it fails, e.g. until the agent is logged in), then publishes the detection again so
+/// the server gets the catalog.
 async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentInfo>>) {
     let mut rx = tx.subscribe();
-    let mut tried = HashSet::new();
+    let mut done = HashSet::new();
     loop {
         let missing: Vec<_> = rx
             .borrow_and_update()
             .iter()
             .filter(|a| a.available && a.catalog.is_none())
             .map(|a| (a.kind, crate::agents::catalog_key(a.kind, a.version.as_deref())))
-            .filter(|k| !tried.contains(k))
+            .filter(|k| !done.contains(k))
             .collect();
+        let mut failed = false;
         for (kind, key) in missing {
-            tried.insert((kind, key.clone()));
             match engine.probe(kind).await {
                 Ok(catalog) => {
+                    done.insert((kind, key.clone()));
                     if let Err(e) = save_catalog(&home, kind, CachedCatalog { key, catalog }) {
                         tracing::warn!("saving the {kind:?} catalog failed: {e:#}");
                     }
                     republish(&home, &tx).await;
                 }
-                Err(e) => tracing::warn!("probing {kind:?} failed: {e:#}"),
+                Err(e) => {
+                    failed = true;
+                    tracing::warn!("probing {kind:?} failed: {e:#}");
+                }
             }
         }
-        if rx.changed().await.is_err() {
-            return;
+        let retry = async {
+            match failed {
+                true => tokio::time::sleep(PROBE_RETRY).await,
+                false => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            changed = rx.changed() => if changed.is_err() { return },
+            () = retry => {}
         }
     }
 }
+
+const PROBE_RETRY: Duration = Duration::from_secs(5 * 60);

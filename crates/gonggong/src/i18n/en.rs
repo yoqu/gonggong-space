@@ -453,6 +453,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("无法写入 {path}", "Can't write {path}"),
     ("探测 {kind} 可选模型超时", "Timed out probing {kind} models"),
+    (
+        "{kind} 没有报告可选模型，可能未登录或连不上服务",
+        "{kind} reported no models; it may be logged out or unable to reach its service",
+    ),
     ("这台机器上没有可用的 {kind}", "{kind} isn't available on this machine"),
     ("适配器不支持分支会话", "The adapter cannot branch sessions"),
     ("该轮已结束或不在本机运行", "This turn has ended or isn't running on this machine"),

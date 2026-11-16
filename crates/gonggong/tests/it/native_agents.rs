@@ -178,3 +178,13 @@ async fn antigravity_runs_agy_acp_with_the_instructions_in_the_session_meta() {
     assert_eq!(e["mode"], "accept-edits");
     assert!(e["mcpServers"].as_array().unwrap().iter().any(|m| m["name"] == "gonggong"));
 }
+
+#[tokio::test]
+async fn a_probe_offering_no_models_fails_so_no_empty_list_is_cached() {
+    let r = rig(Duration::from_secs(60));
+    let dir = r.home().join("probe");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(".mock-no-models"), "").unwrap();
+    let err = r.try_probe(AgentKind::Antigravity).await.unwrap_err();
+    assert!(err.to_string().contains("没有报告可选模型"), "{err:#}");
+}

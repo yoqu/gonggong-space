@@ -220,7 +220,7 @@ impl Engine {
         tokio::fs::create_dir_all(&dir).await?;
         let probe = session::probe(agent, &dir);
         match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
-            Ok(result) => result.map_err(anyhow::Error::msg),
+            Ok(result) => result.map_err(anyhow::Error::msg).and_then(|c| agents::offered(kind, c)),
             Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = format!("{kind:?}"))),
         }
     }

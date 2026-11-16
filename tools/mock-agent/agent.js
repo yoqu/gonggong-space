@@ -36,7 +36,7 @@
 // message), and the gonggong server comes from GG_PI_MCP. Started with DSH_PERMISSION_MODE (DeepSeek Harness), it
 // offers no modes.
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { Readable, Writable } from 'node:stream'
 import * as acp from '@agentclientprotocol/sdk'
 
@@ -151,6 +151,8 @@ function open(sessionId, params) {
     : DSH
       ? undefined
       : { currentModeId: 'default', availableModes: MODES }
+  // Like agy logged out or offline: a session with no models to pick.
+  if (existsSync(`${params.cwd}/.mock-no-models`)) return { sessionId, modes }
   if (GEMINI)
     return {
       sessionId,
