@@ -244,7 +244,10 @@ async fn goose_on_an_openai_endpoint_names_its_provider_and_reads_the_hints_of_i
     assert_eq!(env["GOOSE_PATH_ROOT"], r.home().join("goose/g1-b1").to_str().unwrap());
     has_bot_prompt(e["agentInstructions"].as_str().unwrap());
     assert_eq!((env["GOOSE_PROVIDER"].as_str(), env["GOOSE_MODEL"].as_str()), (Some("openai"), Some("grok-4.5")));
-    assert_eq!((env["OPENAI_API_KEY"].as_str(), env["OPENAI_BASE_URL"].as_str()), (Some(KEY), Some("https://api.x.ai/v1")));
+    assert_eq!(
+        (env["OPENAI_API_KEY"].as_str(), env["OPENAI_BASE_URL"].as_str()),
+        (Some(KEY), Some("https://api.x.ai/v1"))
+    );
     assert_eq!(e["mode"], "approve");
 }
 

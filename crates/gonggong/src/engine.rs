@@ -1268,22 +1268,9 @@ impl Inner {
             config = config.args(launch.args).envs(launch.env);
         }
         config = config.envs(extra_env);
-        if let (Some((p, e)), Some(spec)) = (provider, &spec.provider) {
-            let (names, extra) = spec.for_protocol(e.protocol);
-            let model = inject::model(p, e, bot.model.as_deref());
-            if spec.needs_model && model.is_none() {
-                bail!(t!(
-                    "{agent} 用第三方供应商时必须指定模型：请在供应商或 Bot 里选择模型",
-                    agent = a.spec.title
-                ));
-            }
-            config = config
-                .env(&names.api_key, &p.api_key)
-                .envs(names.base_url.as_ref().zip(a.base_url(&e.base_url)).map(|(k, v)| (k.clone(), v.to_string())))
-                .envs(names.model.as_ref().zip(model).map(|(k, v)| (k.clone(), v)));
-            if let Some(extra) = extra {
-                config = config.envs(extra.set.clone()).args(extra.args.iter().map(|x| vars.fill(x)));
-            }
+        if let (Some((p, e)), Some(names)) = (provider, &spec.provider) {
+            let (env, args) = inject::manifest_provider(a, names, p, e, bot.model.as_deref())?;
+            config = config.envs(env).args(args.iter().map(|x| vars.fill(x)));
         }
         Ok(config)
     }

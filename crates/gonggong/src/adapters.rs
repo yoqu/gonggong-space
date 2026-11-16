@@ -214,14 +214,6 @@ pub struct ProtocolEnv {
     pub args: Vec<String>,
 }
 
-impl ProviderEnv {
-    /// The env names an endpoint of `protocol` goes into, and what else picks that protocol.
-    pub fn for_protocol(&self, protocol: crate::protocol::ApiProtocol) -> (&ProviderNames, Option<&ProtocolEnv>) {
-        let extra = self.by_protocol.get(&protocol);
-        (extra.and_then(|p| p.env.as_ref()).unwrap_or(&self.env), extra)
-    }
-}
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderNames {
@@ -728,25 +720,6 @@ mod tests {
     }
 
     #[test]
-    fn picks_the_env_names_and_switches_of_the_endpoints_protocol() {
-        use crate::protocol::ApiProtocol::{Anthropic, Gemini, Openai};
-        let goose = a(AgentKind::Goose).spec.provider.as_ref().unwrap();
-        let (names, extra) = goose.for_protocol(Anthropic);
-        assert_eq!((names.api_key.as_str(), names.base_url.as_deref()), ("ANTHROPIC_API_KEY", Some("ANTHROPIC_HOST")));
-        assert_eq!(extra.unwrap().set["GOOSE_PROVIDER"], "anthropic");
-        let (names, extra) = goose.for_protocol(Openai);
-        assert_eq!((names.api_key.as_str(), names.base_url.as_deref()), ("OPENAI_API_KEY", Some("OPENAI_BASE_URL")));
-        assert_eq!(extra.unwrap().set["GOOSE_PROVIDER"], "openai");
-        assert!(goose.needs_model);
-        let qwen = a(AgentKind::Qwen).spec.provider.as_ref().unwrap();
-        assert_eq!(qwen.for_protocol(Openai).1.unwrap().args, ["--auth-type", "openai"]);
-        let gemini = a(AgentKind::Gemini).spec.provider.as_ref().unwrap();
-        let (names, extra) = gemini.for_protocol(Gemini);
-        assert_eq!((names.api_key.as_str(), extra.is_none(), gemini.needs_model), ("GEMINI_API_KEY", true, false));
-        assert!(a(AgentKind::Opencode).spec.provider.is_none(), "its own login");
-    }
-
-    #[test]
     fn codebuddy_sets_a_base_url_only_for_a_third_party_service() {
         let c = a(AgentKind::Codebuddy);
         assert_eq!(c.base_url("https://copilot.tencent.com/"), None);
@@ -984,14 +957,16 @@ mod tests {
     async fn opencode_and_copilot_get_the_instructions_as_a_file_they_are_pointed_to() {
         let home = tempfile::tempdir().unwrap();
         let state = home.path().join("opencode/g1-b1");
-        let out =
-            launch(AgentKind::Opencode, home.path(), json!({ "state": state, "systemPrompt": "bot rules" })).await.unwrap();
+        let out = launch(AgentKind::Opencode, home.path(), json!({ "state": state, "systemPrompt": "bot rules" }))
+            .await
+            .unwrap();
         let config: Value = serde_json::from_str(&out.env["OPENCODE_CONFIG_CONTENT"]).unwrap();
         let file = config["instructions"][0].as_str().unwrap();
         assert_eq!(std::fs::read_to_string(file).unwrap(), "bot rules");
         let state = home.path().join("copilot/g1-b1");
-        let out =
-            launch(AgentKind::Copilot, home.path(), json!({ "state": state, "systemPrompt": "bot rules" })).await.unwrap();
+        let out = launch(AgentKind::Copilot, home.path(), json!({ "state": state, "systemPrompt": "bot rules" }))
+            .await
+            .unwrap();
         let dir = Path::new(&out.env["COPILOT_CUSTOM_INSTRUCTIONS_DIRS"]).to_path_buf();
         assert_eq!(std::fs::read_to_string(dir.join("AGENTS.md")).unwrap(), "bot rules");
     }

@@ -178,7 +178,9 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
         }
         ProviderCmd::Use { bot: None, args } => {
             let [agent, choice] = args.as_slice() else {
-                bail!(t!("用法：gg provider use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>"))
+                bail!(t!(
+                    "用法：gg provider use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>"
+                ))
             };
             let agent = parse_kind(agent).map_err(anyhow::Error::msg)?;
             let name = Store::update(home, |s| {

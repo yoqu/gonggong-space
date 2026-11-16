@@ -2,6 +2,7 @@
 //! file named in `_meta` (process env loses to `~/.claude/settings.json`; an inline object would land on argv). Codex:
 //! the adapter's env only. The official login gets only its extra variables and proxy, the same way. Keys go to the 0600 file or the child's env, never to
 //! argv, logs or errors.
+use crate::adapters::{Adapter, ProviderEnv};
 use crate::agent_settings::{
     self, AUTO_COMPACT, AgentSettings, CONTEXT_WINDOW, CliSettingsSnapshot, Layer, MAX_OUTPUT, RunSettingsSnapshot,
     Target,
@@ -328,6 +329,28 @@ pub fn model(p: &Provider, e: &Endpoint, wanted: Option<&str>) -> Option<String>
     wanted.filter(|w| options.any(|o| o.as_str() == *w)).map(String::from).or_else(|| e.model.clone())
 }
 
+/// A manifest agent on endpoint `e`: the env (key, base URL, model and what picks the endpoint's protocol) and the
+/// arguments to add, unfilled. A CLI that ignores a provider without a model fails the run rather than use its login.
+pub fn manifest_provider(
+    a: &Adapter,
+    spec: &ProviderEnv,
+    p: &Provider,
+    e: &Endpoint,
+    wanted: Option<&str>,
+) -> Result<(Vec<(String, String)>, Vec<String>)> {
+    let extra = spec.by_protocol.get(&e.protocol);
+    let names = extra.and_then(|x| x.env.as_ref()).unwrap_or(&spec.env);
+    let model = model(p, e, wanted);
+    if spec.needs_model && model.is_none() {
+        bail!(t!("{agent} 用第三方供应商时必须指定模型：请在供应商或 Bot 里选择模型", agent = a.spec.title));
+    }
+    let mut env = vec![(names.api_key.clone(), p.api_key.clone())];
+    env.extend(names.base_url.clone().zip(a.base_url(&e.base_url).map(String::from)));
+    env.extend(names.model.clone().zip(model));
+    env.extend(extra.into_iter().flat_map(|x| x.set.clone()));
+    Ok((env, extra.map(|x| x.args.clone()).unwrap_or_default()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,6 +366,34 @@ mod tests {
 
     fn sel(p: Provider) -> Selection {
         Selection::of(&p, Claude).unwrap()
+    }
+
+    #[test]
+    fn a_manifest_agent_gets_the_env_names_and_switches_of_the_endpoints_protocol() {
+        let a = |k| crate::adapters::get(k).unwrap();
+        let spec = |k| a(k).spec.provider.as_ref().unwrap();
+        let goose = crate::protocol::AgentKind::Goose;
+        let mut p = custom();
+        p.endpoints[0].model = Some("m-1".into());
+        let (env, args) = manifest_provider(a(goose), spec(goose), &p, &p.endpoints[0], None).unwrap();
+        let env: std::collections::BTreeMap<_, _> = env.into_iter().collect();
+        assert_eq!(env["ANTHROPIC_API_KEY"], "sk-x-0123456789");
+        assert_eq!((env["ANTHROPIC_HOST"].as_str(), env["GOOSE_PROVIDER"].as_str()), ("https://x.test", "anthropic"));
+        assert!(args.is_empty());
+        let mut o = Provider::custom(ApiProtocol::Openai, "O".into(), "https://o.test".into(), "sk-o".into());
+        o.endpoints[0].model = Some("m-2".into());
+        let (env, _) = manifest_provider(a(goose), spec(goose), &o, &o.endpoints[0], None).unwrap();
+        assert!(env.contains(&("OPENAI_BASE_URL".into(), "https://o.test".into())));
+        assert!(env.contains(&("GOOSE_PROVIDER".into(), "openai".into())));
+        let qwen = crate::protocol::AgentKind::Qwen;
+        assert_eq!(
+            manifest_provider(a(qwen), spec(qwen), &o, &o.endpoints[0], None).unwrap().1,
+            ["--auth-type", "openai"]
+        );
+        o.endpoints[0].model = None;
+        let err = manifest_provider(a(goose), spec(goose), &o, &o.endpoints[0], None).unwrap_err();
+        assert!(err.to_string().contains("必须指定模型"));
+        assert!(crate::adapters::get(crate::protocol::AgentKind::Opencode).unwrap().spec.provider.is_none());
     }
 
     #[test]
