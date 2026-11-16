@@ -193,6 +193,7 @@ pub(super) const EN: &[(&str, &str)] = &[
     ),
     ("未知方式", "unknown method"),
     ("已登录 · {how}", "Logged in · {how}"),
+    ("未登录 · {why}", "Not logged in · {why}"),
     (
         "应为 claude、codex、gemini、codebuddy、pi、deepseek、antigravity、opencode、qwen、kimi、goose 或 copilot",
         "Expected claude, codex, gemini, codebuddy, pi, deepseek, antigravity, opencode, qwen, kimi, goose or copilot",

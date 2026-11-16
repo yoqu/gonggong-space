@@ -155,13 +155,17 @@ export const AgentLoginCheck = z.discriminatedUnion('type', [
   }),
   /** A `KEY: value` line with a non-empty value. */
   z.object({ type: z.literal('yamlKey'), file: MachinePath, key: EnvName, label: Label }),
-  /** The JSON file (comments allowed) has `equals` at the JSON pointer. */
+  /**
+   * The JSON file (comments allowed) has `equals` at the JSON pointer. `loggedOut`: it holds for a login that does not
+   * work (「未登录 · label」), e.g. a sign-in the agent dropped.
+   */
   z.object({
     type: z.literal('jsonValue'),
     file: MachinePath,
     pointer: z.string().startsWith('/'),
     equals: z.string(),
     label: Label,
+    loggedOut: z.boolean().default(false),
   }),
   /** The JSON object's keys are the logins, listed as the label. */
   z.object({ type: z.literal('jsonKeys'), file: MachinePath }),

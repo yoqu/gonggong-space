@@ -68,6 +68,22 @@
               "type": "jsonValue",
               "file": "{home}/settings.json",
               "pointer": "/security/auth/selectedType",
+              "equals": "oauth-personal",
+              "label": "Google 账号登录已不支持",
+              "loggedOut": true
+            },
+            {
+              "type": "jsonValue",
+              "file": "{home}/settings.json",
+              "pointer": "/selectedAuthType",
+              "equals": "oauth-personal",
+              "label": "Google 账号登录已不支持",
+              "loggedOut": true
+            },
+            {
+              "type": "jsonValue",
+              "file": "{home}/settings.json",
+              "pointer": "/security/auth/selectedType",
               "equals": "vertex-ai",
               "label": "Vertex AI"
             },

@@ -354,7 +354,7 @@ fn version(home: &Path, path: &Path) -> Option<String> {
 /// sign-in page in the browser each time it starts unauthenticated.
 pub fn logged_out(kind: AgentKind, user_home: &Path, env: &dyn Fn(&str) -> Option<String>) -> bool {
     !matches!(kind, AgentKind::Claude | AgentKind::Codex)
-        && adapter(kind).login_status(user_home, env).as_deref() == Some(&*t!("未登录"))
+        && adapter(kind).login_status(user_home, env).is_some_and(|s| s.starts_with(&*t!("未登录")))
 }
 
 /// 登录 state as the agent CLI reports it (`claude auth status`, `codex login status`) or, for the others, as their
@@ -418,6 +418,10 @@ mod tests {
         // Gemini without a key or Vertex would start its Google sign-in in a browser on every probe.
         assert!(super::logged_out(Gemini, home.path(), &none));
         assert!(!super::logged_out(Gemini, home.path(), &key));
+        std::fs::create_dir_all(home.path().join(".gemini")).unwrap();
+        let google = r#"{"security":{"auth":{"selectedType":"oauth-personal"}}}"#;
+        std::fs::write(home.path().join(".gemini/settings.json"), google).unwrap();
+        assert!(super::logged_out(Gemini, home.path(), &key), "a key does not help once Google sign-in is selected");
         // Unknown login state (agy) and the CLIs that report it themselves are still probed.
         assert!(!super::logged_out(Antigravity, home.path(), &none));
         assert!(!super::logged_out(Claude, home.path(), &none));

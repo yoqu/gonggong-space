@@ -282,5 +282,4 @@ async fn copilot_needs_the_providers_model_and_reads_the_instructions_from_an_ex
     );
     assert_eq!(env["COPILOT_PROVIDER_BASE_URL"], "https://api.deepseek.com/anthropic");
     assert_eq!(env["COPILOT_PROVIDER_API_KEY"], KEY);
-
 }
