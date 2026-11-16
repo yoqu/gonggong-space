@@ -1,0 +1,179 @@
+{
+  "t": "providers.result",
+  "requestId": "rq-2",
+  "ok": true,
+  "error": null,
+  "view": {
+    "machine": {
+      "claude": "kimi-coding-1a2b",
+      "codex": "kimi-coding-77e1",
+      "deepseek": "official"
+    },
+    "official": {
+      "claude": {
+        "env": {
+          "DISABLE_TELEMETRY": "1"
+        },
+        "proxy": "http://user:****@10.0.0.2:3128",
+        "args": ["--settings ~/.claude/team.json"]
+      }
+    },
+    "bots": {
+      "22222222-2222-4222-8222-222222222222": "official",
+      "33333333-3333-4333-8333-333333333333": "zhipu-9c8d"
+    },
+    "providers": [
+      {
+        "id": "kimi-coding-1a2b",
+        "agent": "claude",
+        "name": "Kimi For Coding",
+        "presetId": "kimi-coding",
+        "revision": 2,
+        "baseUrl": "https://api.kimi.com/coding/",
+        "apiKey": "****abcd",
+        "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+        "model": "kimi-for-coding",
+        "models": {
+          "haiku": "kimi-for-coding",
+          "sonnet": "kimi-for-coding"
+        },
+        "env": {
+          "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+          "GITHUB_TOKEN": "****wxyz"
+        },
+        "proxy": "http://user:****@10.0.0.2:3128",
+        "wireApi": null,
+        "effort": null,
+        "source": {
+          "kind": "cc-switch",
+          "id": "d1f0"
+        }
+      },
+      {
+        "id": "kimi-coding-77e1",
+        "agent": "codex",
+        "name": "Kimi For Coding",
+        "presetId": "kimi-coding",
+        "revision": 1,
+        "baseUrl": "https://api.kimi.com/coding/v1",
+        "apiKey": "****abcd",
+        "apiKeyField": null,
+        "model": "kimi-for-coding",
+        "models": null,
+        "env": {},
+        "proxy": "http://user:****@10.0.0.2:3128",
+        "wireApi": "responses",
+        "effort": "high",
+        "source": null
+      },
+      {
+        "id": "zhipu-9c8d",
+        "agent": "codex",
+        "name": "智谱 GLM",
+        "presetId": null,
+        "revision": 1,
+        "baseUrl": "https://open.bigmodel.cn/api/v1",
+        "apiKey": "****",
+        "apiKeyField": null,
+        "model": "glm-5.3",
+        "models": null,
+        "env": {},
+        "proxy": null,
+        "wireApi": "responses",
+        "effort": "high",
+        "source": null
+      },
+      {
+        "id": "deepseek-5e6f",
+        "agent": "deepseek",
+        "name": "DeepSeek",
+        "presetId": "deepseek",
+        "revision": 3,
+        "baseUrl": "https://api.deepseek.com/anthropic",
+        "apiKey": "****9f9f",
+        "apiKeyField": null,
+        "model": null,
+        "models": null,
+        "env": {},
+        "proxy": null,
+        "args": [],
+        "wireApi": null,
+        "effort": null,
+        "source": null
+      },
+      {
+        "id": "work-claude-0a1b",
+        "agent": "claude",
+        "name": "Work Claude",
+        "presetId": null,
+        "revision": 1,
+        "configDir": "/Users/wl/.claude-work",
+        "executablePath": "/Users/wl/bin/claude-work",
+        "baseUrl": "",
+        "apiKey": "",
+        "apiKeyField": null,
+        "model": null,
+        "models": null,
+        "env": {},
+        "proxy": null,
+        "args": ["--settings ~/.claude/team.json"],
+        "wireApi": null,
+        "effort": null,
+        "source": null
+      },
+      {
+        "id": "pi-3c4d",
+        "agent": "pi",
+        "name": "pi via OpenAI",
+        "presetId": null,
+        "revision": 1,
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "****1234",
+        "apiKeyField": null,
+        "model": "gpt-5.6-sol",
+        "models": null,
+        "env": {},
+        "proxy": null,
+        "wireApi": null,
+        "effort": null,
+        "source": null
+      }
+    ],
+    "sessions": [
+      {
+        "groupId": "11111111-1111-4111-8111-111111111111",
+        "botId": "22222222-2222-4222-8222-222222222222",
+        "agent": "claude",
+        "provider": "kimi-coding-1a2b"
+      },
+      {
+        "groupId": "11111111-1111-4111-8111-111111111111",
+        "botId": "33333333-3333-4333-8333-333333333333",
+        "agent": "codex",
+        "provider": "zhipu-9c8d"
+      }
+    ],
+    "agentSettings": {
+      "claude": {
+        "values": {
+          "language": "chinese",
+          "autoMemory": "false"
+        },
+        "inheritCli": false
+      }
+    },
+    "cli": {
+      "claude": {
+        "values": {
+          "language": "english",
+          "contextWindow": "200000"
+        },
+        "conflicts": ["CLAUDE_CODE_EFFORT_LEVEL"],
+        "hooks": 2,
+        "permissionRules": 5,
+        "version": "2.1.296"
+      }
+    }
+  },
+  "id": "kimi-coding-1a2b"
+}

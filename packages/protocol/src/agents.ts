@@ -7,7 +7,8 @@ import type { AgentKind } from './common.js'
 
 /** The API an endpoint speaks; a provider fits an agent when the agent speaks its protocol (no gateway in between). */
 export const API_PROTOCOLS = ['anthropic', 'openai', 'gemini', 'codebuddy'] as const
-export type ApiProtocol = (typeof API_PROTOCOLS)[number]
+// Exported as a zod enum from daemon/agent-state.ts; this module stays zod-free.
+type ApiProtocol = (typeof API_PROTOCOLS)[number]
 
 export interface AgentMeta {
   name: string

@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import {
+  AGENT_KINDS,
+  AGENT_META,
   AGENT_SETTING_FIELDS,
   ArtifactManifestRes,
   ArtifactSubmitReq,
@@ -47,6 +49,11 @@ const http = {
   'link-requested': LinkRequestRes,
   'link-poll': LinkPollRes,
 }
+/** Tables the daemon keeps its own copy of: each must equal the contract's. */
+const data = {
+  'agent-setting-fields': AGENT_SETTING_FIELDS,
+  'agent-protocols': Object.fromEntries(AGENT_KINDS.map((k) => [k, AGENT_META[k].protocols])),
+}
 
 describe('wire fixtures (shared with the Rust daemon)', () => {
   for (const file of readdirSync(dir)) {
@@ -54,7 +61,7 @@ describe('wire fixtures (shared with the Rust daemon)', () => {
       const [dirn, kind, ...rest] = file.split('.')
       const raw = JSON.parse(readFileSync(join(dir, file), 'utf8'))
       if (dirn === 'data') {
-        expect(raw).toEqual(JSON.parse(JSON.stringify(AGENT_SETTING_FIELDS)))
+        expect(raw).toEqual(JSON.parse(JSON.stringify(data[kind as keyof typeof data])))
         return
       }
       if (dirn === 'tunnel' || dirn === 'http' || dirn === 'terminal') {

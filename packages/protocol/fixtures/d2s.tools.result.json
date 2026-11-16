@@ -3,60 +3,78 @@
   "requestId": "op-1",
   "ok": true,
   "error": null,
-  "tools": [
-    {
-      "kind": "node",
-      "installed": true,
-      "version": "24.2.0",
-      "latest": "24.3.0",
-      "managed": true,
-      "path": "/Users/wl/.gonggong/runtime/current/bin/node",
-      "upgradeCommand": null
-    },
+  "node": {
+    "installed": true,
+    "version": "24.2.0",
+    "latest": "24.3.0",
+    "managed": true,
+    "path": "/Users/wl/.gonggong/runtime/current/bin/node"
+  },
+  "agents": [
     {
       "kind": "claude",
-      "installed": true,
+      "available": true,
       "version": "2.1.285",
+      "path": "/Users/wl/.gonggong/tools/bin/claude",
+      "minVersion": "2.0.0",
+      "catalog": {
+        "models": [
+          {
+            "value": "opus",
+            "name": "Opus",
+            "efforts": [
+              {
+                "value": "high",
+                "name": "High"
+              }
+            ],
+            "effort": "high"
+          }
+        ],
+        "current": "opus",
+        "efforts": [],
+        "effort": null
+      },
       "latest": "2.1.285",
       "managed": true,
-      "path": "/Users/wl/.gonggong/tools/bin/claude",
-      "upgradeCommand": null
+      "upgradeCommand": null,
+      "installCommand": null
     },
     {
       "kind": "codex",
-      "installed": true,
+      "available": true,
       "version": "0.40.0",
+      "path": "/opt/homebrew/bin/codex",
+      "minVersion": "0.160.1",
+      "catalog": null,
       "latest": "0.41.0",
       "managed": false,
-      "path": "/opt/homebrew/bin/codex",
-      "upgradeCommand": "brew upgrade codex"
-    },
-    {
-      "kind": "gemini",
-      "installed": true,
-      "version": "0.67.0",
-      "latest": "0.67.0",
-      "managed": true,
-      "path": "/Users/wl/.gonggong/tools/bin/gemini",
-      "upgradeCommand": null
-    },
-    {
-      "kind": "pi",
-      "installed": true,
-      "version": "1.5.2",
-      "latest": "1.5.2",
-      "managed": true,
-      "path": "/Users/wl/.gonggong/tools/bin/pi",
-      "upgradeCommand": null
+      "upgradeCommand": "brew upgrade codex",
+      "installCommand": null
     },
     {
       "kind": "deepseek",
-      "installed": false,
+      "available": false,
       "version": null,
+      "path": null,
+      "minVersion": null,
+      "catalog": null,
       "latest": "0.2.2-rc.1",
       "managed": false,
+      "upgradeCommand": null,
+      "installCommand": null
+    },
+    {
+      "kind": "antigravity",
+      "available": false,
+      "version": null,
       "path": null,
-      "upgradeCommand": null
+      "minVersion": null,
+      "catalog": null,
+      "latest": null,
+      "managed": false,
+      "upgradeCommand": null,
+      "installCommand": "curl -fsSL https://antigravity.google/cli/install.sh | bash"
     }
   ],
   "settings": {

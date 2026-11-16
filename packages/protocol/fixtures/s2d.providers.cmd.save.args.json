@@ -3,10 +3,15 @@
   "requestId": "rq-args",
   "action": "save",
   "provider": {
-    "agent": "claude",
+    "id": "team-claude-4f2a",
     "name": "Team Claude",
-    "baseUrl": "https://api.example.com/anthropic",
-    "apiKey": "sk-ant-xxxx",
-    "args": ["--settings ~/.claude/team.json", "--debug"]
+    "removeProtocols": ["openai"],
+    "endpoints": [
+      {
+        "protocol": "anthropic",
+        "baseUrl": "https://api.example.com/anthropic",
+        "args": ["--settings ~/.claude/team.json", "--debug"]
+      }
+    ]
   }
 }

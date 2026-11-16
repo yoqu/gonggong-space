@@ -1,0 +1,19 @@
+{
+  "t": "ccswitch.result",
+  "requestId": "rq-5",
+  "ok": true,
+  "error": null,
+  "candidates": [
+    {
+      "key": "claude:d1f0",
+      "agent": "claude",
+      "name": "Kimi",
+      "baseUrl": "https://api.moonshot.cn/anthropic",
+      "apiKey": "****abcd",
+      "model": null,
+      "current": true,
+      "existing": "kimi-coding-1a2b"
+    }
+  ],
+  "imported": []
+}

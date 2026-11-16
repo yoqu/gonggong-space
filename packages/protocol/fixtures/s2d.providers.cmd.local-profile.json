@@ -3,9 +3,13 @@
   "requestId": "rq-local",
   "action": "save",
   "provider": {
-    "agent": "claude",
     "name": "Local Claude",
-    "configDir": "/home/user/.claude-profile",
-    "executablePath": "/home/user/bin/claude-wrapper"
+    "endpoints": [
+      {
+        "protocol": "anthropic",
+        "configDir": "/home/user/.claude-profile",
+        "executablePath": "/home/user/bin/claude-wrapper"
+      }
+    ]
   }
 }
