@@ -1,8 +1,8 @@
 import {
+  type AgentDefault,
   type AgentKind,
   INHERIT_PROVIDER,
   type MachineDto,
-  OFFICIAL_PROVIDER,
   type ProviderStoreView,
 } from '@gonggong/protocol'
 import { useState } from 'react'
@@ -10,19 +10,18 @@ import { Link } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { AlertDialog } from '../../ui'
-
-export const OFFICIAL_NAME = t('官方登录')
+import { machineDefault, providerName } from '../agents/model'
 
 type Session = ProviderStoreView['sessions'][number]
 
-export const providerName = (view: ProviderStoreView, id: string) =>
-  id === OFFICIAL_PROVIDER
-    ? OFFICIAL_NAME
-    : (view.providers.find((p) => p.id === id)?.name ?? t('已删除的供应商'))
-
-/** What a new session of `botId` uses: its own choice, else the machine default of its agent (§4.2). */
-export const effectiveProvider = (view: ProviderStoreView, agent: AgentKind, botId: string) =>
-  view.bots[botId] ?? view.machine[agent] ?? OFFICIAL_PROVIDER
+/**
+ * What a new session of `botId` uses: its own provider (its model is kept on the bot), else the machine default of
+ * its agent (§4.2).
+ */
+export const effectiveProvider = (view: ProviderStoreView, agent: AgentKind, botId: string): AgentDefault => {
+  const own = view.bots[botId]
+  return own ? { provider: own, model: null } : machineDefault(view, agent)
+}
 
 /** Why the bot's provider cannot be set here (§5: its owner, on their own online machine), null when it can. */
 export const providerBlocked = (meId: string, botOwnerId: string, machine: MachineDto | undefined) =>
@@ -36,27 +35,20 @@ export const providerBlocked = (meId: string, botOwnerId: string, machine: Machi
           ? null
           : t('请先升级该机器的 daemon')
 
-/** 继承机器（当前：X） / 官方登录 / the machine's providers of `agent`. */
-export const botProviderOptions = (view: ProviderStoreView, agent: AgentKind) => [
-  {
-    value: INHERIT_PROVIDER,
-    label: t('继承机器（当前：{name}）', {
-      name: providerName(view, view.machine[agent] ?? OFFICIAL_PROVIDER),
-    }),
-  },
-  { value: OFFICIAL_PROVIDER, label: OFFICIAL_NAME },
-  ...view.providers.filter((p) => p.agent === agent).map((p) => ({ value: p.id, label: p.name })),
-]
-
-/** A machine default (no `botId`) or a bot's choice (`inherit` drops it). */
+/** A machine default (no `botId`, with its model) or a bot's choice (`inherit` drops it). */
 export interface ProviderChange {
   agent: AgentKind
   choice: string
+  model?: string | null
   botId?: string
 }
 
-function applied(view: ProviderStoreView, { agent, choice, botId }: ProviderChange): ProviderStoreView {
-  if (!botId) return { ...view, machine: { ...view.machine, [agent]: choice } }
+function applied(
+  view: ProviderStoreView,
+  { agent, choice, model, botId }: ProviderChange,
+): ProviderStoreView {
+  if (!botId)
+    return { ...view, machine: { ...view.machine, [agent]: { provider: choice, model: model ?? null } } }
   const { [botId]: _, ...bots } = view.bots
   return { ...view, bots: choice === INHERIT_PROVIDER ? bots : { ...bots, [botId]: choice } }
 }
@@ -83,8 +75,12 @@ export function switchLines(view: ProviderStoreView, change: ProviderChange): Se
   const after = applied(view, change)
   const by = new Map<string, Session[]>()
   for (const s of view.sessions) {
-    const next = effectiveProvider(after, s.agent, s.botId)
-    if (s.agent !== change.agent || next === effectiveProvider(view, s.agent, s.botId) || next === s.provider)
+    const next = effectiveProvider(after, s.agent, s.botId).provider
+    if (
+      s.agent !== change.agent ||
+      next === effectiveProvider(view, s.agent, s.botId).provider ||
+      next === s.provider
+    )
       continue
     const key = `${s.provider}\u0000${next}`
     by.set(key, [...(by.get(key) ?? []), s])
@@ -145,7 +141,10 @@ export function useProviderSwitch(apply: (change: ProviderChange) => Promise<voi
   const request = (change: ProviderChange, view: ProviderStoreView) => {
     const lines = switchLines(view, change)
     if (!lines.length) return void apply(change)
-    const to = providerName(view, effectiveProvider(applied(view, change), change.agent, change.botId ?? ''))
+    const to = providerName(
+      view,
+      effectiveProvider(applied(view, change), change.agent, change.botId ?? '').provider,
+    )
     setPending({ change, lines, to })
     setOpen(true)
   }

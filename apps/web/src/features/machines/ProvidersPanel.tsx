@@ -1,48 +1,55 @@
 import {
+  AGENT_KINDS,
   AGENT_META,
   type AgentKind,
-  type MachineDto,
-  OFFICIAL_PROVIDER,
+  canUse,
   type ProviderStoreView,
   type ProviderView,
 } from '@gonggong/protocol'
-import { type ReactNode, useState } from 'react'
+import { useState } from 'react'
 import { locale, t } from '../../i18n'
-import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { AlertDialog, Button, GroupBox, Presence, toast } from '../../ui'
-import { AgentLoginDialog } from './AgentLoginDialog'
+import { AlertDialog, Button, GroupBox, Presence, Tag, toast } from '../../ui'
+import { PROTOCOL_AGENT, PROTOCOL_LABEL } from '../agents/model'
+import type { AgentsSource } from '../agents/source'
 import { providerSummary } from './agentSettings'
-import { OfficialEditor, ProviderEditor } from './ProviderEditor'
+import { ProviderEditor } from './ProviderEditor'
 import { CcSwitchImport, LinkImport } from './ProviderImports'
-import { OFFICIAL_NAME, removalLines, SessionLines } from './providers'
+import { removalLines, SessionLines } from './providers'
 
-type Open =
-  | { kind: 'editor'; editing: ProviderView | null }
-  | { kind: 'official' }
-  | { kind: 'login' }
-  | { kind: 'ccswitch' }
-  | { kind: 'link' }
-  | { kind: 'remove'; provider: ProviderView }
-  | null
+type Open = { kind: 'ccswitch' } | { kind: 'link' } | { kind: 'remove'; provider: ProviderView } | null
 
-/** One agent's 供应商 (design §4.2), read and written live on the machine, which alone keeps them: the machine default (radio), add / edit / remove and the imports. */
-export function ProviderBox({
-  machine,
-  agent,
+/** The provider editor: null = closed; `editing` null = a new provider; `seq` remounts it on each opening. */
+export type EditorState = { editing: ProviderView | null; seq?: number } | null
+
+const names = (agents: AgentKind[]) => agents.map((a) => AGENT_META[a].name).join(t('、'))
+
+/** `https://api.kimi.com/coding/ · Key ****abcd`: where each protocol goes, then the key. */
+const summary = (p: ProviderView) =>
+  [
+    ...[...new Set(p.endpoints.map((e) => e.configDir ?? e.baseUrl))],
+    ...p.endpoints.map((e) => providerSummary(e.env)),
+    p.endpoints.every((e) => e.configDir) ? '' : `Key ${p.apiKey}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+/**
+ * 供应商 of the machine (one list for all agents): each vendor with the protocols it serves, add / edit / remove
+ * and the imports. Each agent picks its default among those it can run on, in its details.
+ */
+export function ProvidersPanel({
+  source,
   view,
   onView,
-  onSwitch,
-  status,
+  editor,
+  onEditor,
 }: {
-  machine: MachineDto
-  agent: AgentKind
+  source: AgentsSource
   view: ProviderStoreView
   onView: (view: ProviderStoreView) => void
-  /** Asks to make `choice` the default, confirming first when sessions keep the old one; `v` is the view to use. */
-  onSwitch: (agent: AgentKind, choice: string, v?: ProviderStoreView) => void
-  /** How the last switch of this agent's default went. */
-  status: ReactNode
+  editor: EditorState
+  onEditor: (e: EditorState) => void
 }) {
   const [open, setOpenState] = useState<Open>(null)
   // Presence keeps a closed dialog mounted: a new key makes each opening start fresh.
@@ -52,46 +59,34 @@ export function ProviderBox({
     setOpenState(o)
   }
   const close = () => setOpen(null)
-  const current = view.machine[agent] ?? OFFICIAL_PROVIDER
-  const list = view.providers.filter((p) => p.agent === agent)
-  const official = view.official[agent]
-  const envCount = Object.keys(official?.env ?? {}).length
   const removing = open?.kind === 'remove' ? open.provider : null
-  const title = t('{agent} 供应商', { agent: AGENT_META[agent].name })
-
-  const row = (value: string, name: string, sub: string, actions?: ReactNode) => (
-    <div key={value} className="mx-row">
-      <label className="ui-radio mx-row__main mx-radio">
-        <input
-          type="radio"
-          name={`provider-${machine.id}-${agent}`}
-          value={value}
-          checked={current === value}
-          onChange={() => onSwitch(agent, value)}
-        />
-        <span className="ui-radio__dot" />
-        <span className="mx-row__main">
-          <span>{name}</span>
-          <span className="mx-sub mx-ellipsis">{sub}</span>
-        </span>
-      </label>
-      {actions}
-    </div>
-  )
+  const defaultsOf = (id: string) => AGENT_KINDS.filter((a) => view.machine[a]?.provider === id)
 
   const remove = async (p: ProviderView) => {
     close()
     try {
-      onView(await api.del<ProviderStoreView>(`/machines/${machine.id}/providers/${p.id}`))
+      onView(await source.removeProvider(p.id))
       toast({ type: 'success', message: t('已删除供应商 {name}', { name: p.name }) })
     } catch (e) {
       toastError(e)
     }
   }
+  /** Makes `id` the default of each agent, one after another (the machine saves one change at a time). */
+  const makeDefault = async (pairs: [AgentKind, string][], v: ProviderStoreView) => {
+    let next = v
+    try {
+      for (const [agent, id] of pairs) next = await source.setDefault(agent, id, null)
+    } catch (e) {
+      toastError(e)
+    }
+    onView(next)
+  }
   const removeNote =
     removing &&
     [
-      current === removing.id ? t('它是该机器默认，删除后改为官方登录。') : '',
+      defaultsOf(removing.id).length
+        ? t('它是 {agents} 的默认，删除后改为官方登录。', { agents: names(defaultsOf(removing.id)) })
+        : '',
       Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承该机器默认。') : '',
     ]
       .filter(Boolean)
@@ -99,61 +94,52 @@ export function ProviderBox({
   const removeLines = removing ? removalLines(view, removing.id) : []
 
   return (
-    <section aria-label={title} className="mx-section">
+    <section aria-label={t('供应商#nav')} className="mx-section">
       <div className="mx-section__head">
         <span className="mx-row__main">
           <span className="mx-strong">{t('供应商#nav')}</span>
           <span className="mx-sub">
-            {t('选中的是该机器默认，新会话使用它；进行中的会话开启新会话后才切换')}
+            {source.features.includes('protocolProviders')
+              ? t('一个供应商可提供多种协议，每个 Agent 在详情里选用协议对得上的')
+              : t('该机器的客户端较旧，一个供应商只能登记一种协议；升级客户端后可登记多种')}
           </span>
         </span>
-        {status}
       </div>
       <GroupBox>
-        {row(
-          OFFICIAL_PROVIDER,
-          OFFICIAL_NAME,
-          [
-            t('使用这台机器上 CLI 自己的登录与配置'),
-            official?.proxy,
-            envCount ? t('{n} 个环境变量', { n: envCount }) : '',
-            official?.args.length ? t('{n} 个命令行参数', { n: official.args.length }) : '',
-          ]
-            .filter(Boolean)
-            .join(' · '),
-          <>
-            <Button size="small" onClick={() => setOpen({ kind: 'login' })}>
-              {t('登录…')}
-            </Button>
-            <Button size="small" onClick={() => setOpen({ kind: 'official' })}>
-              {t('设置…')}
-            </Button>
-          </>,
+        {view.providers.length ? null : (
+          <div className="mx-row mx-sub">{t('还没有供应商，Agent 使用官方登录')}</div>
         )}
-        {list.map((p) =>
-          row(
-            p.id,
-            p.name,
-            [
-              ...(p.configDir
-                ? [t('该机器 Claude 配置目录'), p.configDir]
-                : [p.baseUrl, p.model, providerSummary(p.env), `Key ${p.apiKey}`]),
-              p.args.length ? t('{n} 个命令行参数', { n: p.args.length }) : '',
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            <>
-              <Button size="small" onClick={() => setOpen({ kind: 'editor', editing: p })}>
+        {view.providers.map((p) => {
+          const defaults = defaultsOf(p.id)
+          return (
+            <div key={p.id} className="mx-row">
+              <span className="mx-row__main">
+                <span className="mx-row__title">
+                  <span>{p.name}</span>
+                  <span className="ag-protocols">
+                    {p.endpoints.map((e) => (
+                      <Tag key={e.protocol} tone="purple">
+                        {PROTOCOL_LABEL[e.protocol]}
+                      </Tag>
+                    ))}
+                  </span>
+                  {defaults.length ? (
+                    <Tag tone="blue">{t('{agents} 的默认', { agents: names(defaults) })}</Tag>
+                  ) : null}
+                </span>
+                <span className="mx-sub mx-ellipsis">{summary(p)}</span>
+              </span>
+              <Button size="small" onClick={() => onEditor({ editing: p })}>
                 {t('编辑…')}
               </Button>
               <Button size="small" onClick={() => setOpen({ kind: 'remove', provider: p })}>
                 {t('删除')}
               </Button>
-            </>,
-          ),
-        )}
+            </div>
+          )
+        })}
         <div className="mx-row mx-row--end">
-          {machine.features.includes('ccSwitch') ? (
+          {source.ccSwitch ? (
             <Button size="small" onClick={() => setOpen({ kind: 'ccswitch' })}>
               {t('从 CC Switch 导入…')}
             </Button>
@@ -161,53 +147,23 @@ export function ProviderBox({
           <Button size="small" onClick={() => setOpen({ kind: 'link' })}>
             {t('粘贴链接导入…')}
           </Button>
-          <Button size="small" variant="primary" onClick={() => setOpen({ kind: 'editor', editing: null })}>
+          <Button size="small" variant="primary" onClick={() => onEditor({ editing: null })}>
             {t('新增…')}
           </Button>
         </div>
       </GroupBox>
       <Presence>
-        {open?.kind === 'editor' ? (
+        {editor ? (
           <ProviderEditor
-            key={seq}
-            machineId={machine.id}
-            agent={agent}
-            profiles={machine.features.includes('claudeProfile')}
-            editing={open.editing}
-            onClose={close}
-            onSaved={({ id, view: v }, setDefault) => {
-              close()
+            key={editor.seq}
+            source={source}
+            editing={editor.editing}
+            onClose={() => onEditor(null)}
+            onSaved={({ view: v }) => {
+              onEditor(null)
               onView(v)
               toast({ type: 'success', message: t('供应商已保存') })
-              if (setDefault) onSwitch(agent, id, v)
             }}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {open?.kind === 'official' ? (
-          <OfficialEditor
-            key={seq}
-            machineId={machine.id}
-            agent={agent}
-            official={official}
-            onClose={close}
-            onSaved={(v) => {
-              close()
-              onView(v)
-              toast({ type: 'success', message: t('官方登录设置已保存') })
-            }}
-          />
-        ) : null}
-      </Presence>
-      <Presence>
-        {open?.kind === 'login' ? (
-          <AgentLoginDialog
-            key={seq}
-            machine={machine}
-            agent={agent}
-            onClose={close}
-            onAddProvider={() => setOpen({ kind: 'editor', editing: null })}
           />
         ) : null}
       </Presence>
@@ -215,17 +171,15 @@ export function ProviderBox({
         {open?.kind === 'ccswitch' ? (
           <CcSwitchImport
             key={seq}
-            machineId={machine.id}
-            agent={agent}
+            source={source}
             onClose={close}
-            onImported={({ imported, view: v }, currentId) => {
+            onImported={({ imported, view: v }, defaults) => {
               close()
-              onView(v)
               toast({
                 type: 'success',
                 message: t('已从 CC Switch 导入 {n} 个供应商', { n: imported.length }),
               })
-              if (currentId) onSwitch(agent, currentId, v)
+              void makeDefault(defaults, v)
             }}
           />
         ) : null}
@@ -234,14 +188,17 @@ export function ProviderBox({
         {open?.kind === 'link' ? (
           <LinkImport
             key={seq}
-            machineId={machine.id}
+            source={source}
             onClose={close}
             onImported={({ id, view: v }, setDefault) => {
               close()
-              onView(v)
               const p = v.providers.find((x) => x.id === id)
               toast({ type: 'success', message: t('已导入供应商 {name}', { name: p?.name ?? '' }) })
-              if (setDefault && p) onSwitch(p.agent, id, v)
+              const agents = p && setDefault ? linkAgents(p) : []
+              void makeDefault(
+                agents.map((a) => [a, id]),
+                v,
+              )
             }}
           />
         ) : null}
@@ -266,3 +223,7 @@ export function ProviderBox({
     </section>
   )
 }
+
+/** The agents an imported link was made for: each protocol's own agent that can run on it. */
+const linkAgents = (p: ProviderView) =>
+  [...new Set(p.endpoints.map((e) => PROTOCOL_AGENT[e.protocol]))].filter((a) => canUse(p, a))

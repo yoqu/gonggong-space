@@ -37,7 +37,13 @@ import { providerBlocked } from '../machines/providers'
 import { DirPicker } from '../workspaces/DirPicker'
 import type { AgentConfig } from './AgentConfig'
 import { avatarSrc, RolePicker, roleFace, roleHint } from './avatars'
-import { ProviderModelFields, useMachineProviders, useProviderCatalog } from './BotProvider'
+import {
+  choiceProvider,
+  type ProviderModel,
+  ProviderModelFields,
+  useMachineProviders,
+  useProviderCatalog,
+} from './BotProvider'
 import { WorkspacePath } from './BotSettings'
 import { agentsUndetected, botsApi, clientRuns, reportedAgent } from './model'
 import { useDm } from './ShareRequest'
@@ -87,7 +93,7 @@ function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draf
   }
 }
 
-/** 供应商 and 模型 of a new bot, offered as in its settings; others than the owner get what the machine reported. */
+/** 供应商/模型 of a new bot, offered as in its settings; others than the owner get what the machine reported. */
 function NewBotProviderFields({
   machine,
   meId,
@@ -103,19 +109,23 @@ function NewBotProviderFields({
   agent: AgentKind
   provider: string
   config: AgentConfig
-  onChange: (next: { provider: string; config: AgentConfig }) => void
+  onChange: (next: ProviderModel) => void
 }) {
   const reason = providerBlocked(meId, ownerId, machine)
   const [view] = useMachineProviders(machine.id, !!reason)
-  const catalog = useProviderCatalog(machine.id, agent, reason ? null : provider)
+  const catalog = useProviderCatalog(
+    machine.id,
+    agent,
+    reason || !view ? null : choiceProvider(view, agent, provider),
+  )
   return (
     <ProviderModelFields
       reason={reason}
       view={view}
+      machine={machine}
       agent={agent}
-      provider={provider}
+      value={{ provider, config }}
       catalog={reason ? (reportedAgent(machine, agent)?.catalog ?? null) : catalog}
-      config={config}
       onChange={onChange}
     />
   )

@@ -1,0 +1,69 @@
+/* Agent 页（web 与桌面共用） */
+.ag-node {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-window);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+.ag-node__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 40px;
+  padding: var(--space-8) var(--space-12);
+}
+.ag-node__text {
+  flex: 1;
+  min-width: 0;
+}
+.ag-node[data-status="missing"] .ag-node__text,
+.ag-node[data-status="old"] .ag-node__text {
+  color: var(--tint-red-text);
+}
+.ag-agent + .ag-agent {
+  border-top: 1px solid var(--separator);
+}
+.ag-row {
+  padding: 0 var(--space-12) 0 0;
+}
+.ag-row__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) 0 var(--space-8) var(--space-8);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.ag-row__chev {
+  flex: none;
+  color: var(--label-tertiary);
+}
+.ag-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: 0 var(--space-12) var(--space-12) var(--space-32);
+}
+.ag-detail__note,
+.ag-empty {
+  margin: 0;
+  padding: 0 var(--space-4);
+}
+.ag-protocols {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.ag-endpoint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--separator);
+}

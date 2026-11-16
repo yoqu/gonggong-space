@@ -1,4 +1,25 @@
 export default {
+  'Agent 只能用协议对得上的供应商：Claude Code 需要 Anthropic 兼容，Codex 需要 OpenAI 兼容':
+    'An agent can only use a provider that speaks its protocol: Claude Code needs Anthropic-compatible, Codex needs OpenAI-compatible',
+  '{protocol} Base URL': '{protocol} base URL',
+  '{protocol} 模型': '{protocol} model',
+  '{protocol} 端点': '{protocol} endpoint',
+  新增供应商: 'Add provider',
+  设为默认: 'Default for',
+  '这些 Agent 在该机器上默认使用它': 'These agents use it by default on this machine',
+  请至少选择一种协议: 'Choose at least one protocol',
+  '该机器的客户端较旧，一个供应商只能登记一种协议':
+    "The machine's client is older: a provider can serve one protocol only",
+  '从 CC Switch 导入供应商': 'Import providers from CC Switch',
+  'CC Switch 里没有可直接使用的供应商': 'CC Switch has no usable providers',
+  '{agents} 的默认': 'Default for {agents}',
+  '一个供应商可提供多种协议，每个 Agent 在详情里选用协议对得上的':
+    "A provider can serve several protocols. Each agent picks one that speaks its protocol, in the agent's details",
+  '它是 {agents} 的默认，删除后改为官方登录。':
+    "It is the default for {agents}; they'll switch to the official login.",
+  '该机器的客户端较旧，一个供应商只能登记一种协议；升级客户端后可登记多种':
+    "The machine's client is older: a provider can serve one protocol only. Update the client to add more",
+  '还没有供应商，Agent 使用官方登录': 'No providers yet. Agents use their official login',
   一句话接入演示: 'One-message setup demo',
   '该机器 Claude 配置目录': 'Claude configuration directory on the machine',
   请填写配置目录: 'Enter a configuration directory',
@@ -100,7 +121,6 @@ export default {
   '请填写 Base URL': 'Enter a Base URL',
   '请填写 API Key': 'Enter an API key',
   编辑供应商: 'Edit provider',
-  '新增 {agent} 供应商': 'Add {agent} provider',
   '选择厂商，之后只需填写 API Key': 'Choose a vendor; then just enter the API key',
   恢复为预设值: 'Restore preset values',
   厂商: 'Vendor',
@@ -129,11 +149,9 @@ export default {
   官方登录设置已保存: 'Official login settings saved',
   搜索厂商: 'Search vendors',
   '手动填写 Base URL': 'Enter the Base URL manually',
-  '从 CC Switch 导入 {agent} 供应商': 'Import {agent} providers from CC Switch',
   '只读取这台机器上的 CC Switch，Key 只保存在这台机器上':
     'Reads only CC Switch on this machine; keys are stored only on this machine',
   导入: 'Import',
-  'CC Switch 里没有可直接使用的 {agent} 供应商': 'CC Switch has no usable {agent} providers',
   'CC Switch 当前': 'Current in CC Switch',
   将更新已有项: 'Updates existing',
   '将 CC Switch 当前使用的设为该机器默认': "Set CC Switch's current provider as machine default",
@@ -141,13 +159,10 @@ export default {
   'CC Switch 的供应商分享链接，Key 只保存在这台机器上':
     'A CC Switch provider share link; the key is stored only on this machine',
   导入链接: 'Import link',
-  '{agent} 供应商': '{agent} providers',
   '已删除供应商 {name}': 'Deleted provider {name}',
   '它是该机器默认，删除后改为官方登录。':
     'It is the machine default; after deletion the default becomes the official login.',
   '单独设置为它的 Bot 改为继承该机器默认。': 'Bots set to it will inherit the machine default.',
-  '选中的是该机器默认，新会话使用它；进行中的会话开启新会话后才切换':
-    'The selected one is the machine default for new sessions; ongoing sessions switch once a new session starts',
   '使用这台机器上 CLI 自己的登录与配置': "Uses the CLI's own login and config on this machine",
   '编辑…': 'Edit…',
   删除: 'Delete',
@@ -168,7 +183,6 @@ export default {
   协议: 'Protocol',
   '进入后输入 /login，用微信、Google/GitHub 或企业账号登录':
     'Inside it, type /login and sign in with WeChat, Google/GitHub or an enterprise account',
-  '由 {agent} 决定，供应商需提供这种接口': 'Set by {agent}; the provider has to offer this API',
   '进入后输入 /auth，选择 Gemini API Key 并粘贴 Key（个人 Google 账号登录已不再支持）':
     'Inside it, type /auth, pick Gemini API Key and paste the key (personal Google account login is no longer supported)',
   '运行 ACP 适配器与不需适配器的 Agent（Gemini CLI、CodeBuddy 等），托管安装 Agent 工具也用它（需 ≥ {min}）':
@@ -307,7 +321,6 @@ export default {
   这台机器上还没有工作区: 'No workspaces on this machine yet',
   'daemon 会自动升级到最新版本': 'The daemon upgrades itself to the latest version',
   '可升级到 {version}': 'Update to {version} available',
-  '{n} 个命令行参数': '{n} command-line {n:argument|arguments}',
   命令行参数: 'Command-line arguments',
   '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置':
     "Added when Claude Code starts, one per line, e.g. --settings ~/team.json; --settings is merged into Gonggong's settings, and flags Gonggong manages (permissions, model, session, MCP…) cannot be set",
@@ -461,7 +474,6 @@ export default {
   这个接入申请已处理过: 'This request was already handled',
   '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。':
     'The link may have expired or already been handled. Run gg again in the terminal to get a new confirmation link.',
-  '不在 npm 上，需在机器上自行安装': 'Not on npm; install it on the machine yourself',
   安装命令: 'Install command',
   '自行安装，按它自己的方式升级': 'Installed by you; upgrade it its own way',
   '共工空间不能托管安装它，请在该机器的终端运行':

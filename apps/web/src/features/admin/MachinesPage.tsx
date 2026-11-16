@@ -20,8 +20,8 @@ import {
 } from '../../ui'
 import { hardwareText, osText } from '../machines/MachineDetails'
 import '../machines/machines.css'
+import { hasUpdate } from '../agents/model'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
-import { hasUpdate } from '../machines/tools'
 import { AdminPage, countLine } from './AdminPage'
 
 const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION

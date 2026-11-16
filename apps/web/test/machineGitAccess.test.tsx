@@ -2,9 +2,9 @@ import type {
   DiagCheck,
   GitAccessTest,
   GitAccessView,
+  MachineAgentsDto,
   MachineDto,
   ProviderStoreView,
-  ToolsStateDto,
   UserDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -44,7 +44,7 @@ const KEY = {
   publicKey: 'ssh-ed25519 AAAA gonggong@gg-server-1',
   comment: 'gonggong@gg-server-1',
 }
-const TOOLS: ToolsStateDto = { tools: [], settings: { mirror: { kind: 'npmmirror' } } }
+const TOOLS: MachineAgentsDto = { node: null, agents: [], settings: { mirror: { kind: 'npmmirror' } } }
 const VIEW: ProviderStoreView = {
   machine: {},
   official: {},
@@ -250,8 +250,9 @@ describe('official login', () => {
   it("explains logging in from the agent's CLI on the machine", async () => {
     mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
     open(server, '/?tab=agents')
-    const codex = await screen.findByRole('region', { name: 'Codex 供应商' })
-    fireEvent.click(within(codex).getByRole('button', { name: '登录…' }))
+    const installable = await screen.findByRole('region', { name: '可安装' })
+    fireEvent.click(within(installable).getByRole('button', { name: /^Codex/ }))
+    fireEvent.click(within(installable).getByRole('button', { name: '登录…' }))
     const dialog = await screen.findByRole('dialog', { name: '登录 Codex 官方账号' })
     expect(within(dialog).getByText('codex login --device-auth')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('button', { name: '改用 API Key 供应商' }))

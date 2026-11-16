@@ -1,4 +1,11 @@
-import type { AgentCatalog, BotDto, MachineDto, ProviderStoreView, UserDto } from '@gonggong/protocol'
+import type {
+  AgentCatalog,
+  BotDto,
+  MachineDto,
+  ProviderStoreView,
+  ProviderView,
+  UserDto,
+} from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,6 +25,23 @@ const me: UserDto = {
   avatar: null,
 }
 
+const OFFICIAL: AgentCatalog = {
+  current: 'sonnet',
+  efforts: [],
+  effort: null,
+  models: [{ value: 'sonnet', name: 'Sonnet', efforts: [], effort: null }],
+}
+const level = (value: string) => ({ value, name: value })
+const KIMI: AgentCatalog = {
+  current: 'kimi-for-coding',
+  efforts: [],
+  effort: null,
+  models: [
+    { value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null },
+    { value: 'kimi-k2', name: 'kimi-k2', efforts: ['low', 'high'].map(level), effort: 'low' },
+  ],
+}
+
 const mbp: MachineDto = {
   id: 'm1',
   ownerId: 'u1',
@@ -25,30 +49,27 @@ const mbp: MachineDto = {
   os: 'macos',
   arch: 'aarch64',
   online: true,
-  agents: [],
+  agents: [
+    {
+      kind: 'claude',
+      available: true,
+      version: '2.1.4',
+      path: '/c',
+      minVersion: null,
+      catalog: OFFICIAL,
+      latest: null,
+      managed: false,
+      upgradeCommand: null,
+      installCommand: null,
+    },
+  ],
   daemonVersion: '0.9.0',
-  features: ['tools', 'providers', 'agentSettings'],
+  features: ['tools', 'providers', 'agentSettings', 'protocolProviders'],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,
   boundAt: '2026-09-01T00:00:00Z',
   createdAt: '2026-09-01T00:00:00Z',
-}
-
-const OFFICIAL: AgentCatalog = {
-  current: 'sonnet',
-  efforts: [],
-  effort: null,
-  models: [{ value: 'sonnet', name: 'Sonnet', efforts: [], effort: null }],
-}
-const KIMI: AgentCatalog = {
-  current: 'kimi-for-coding',
-  efforts: [],
-  effort: null,
-  models: [
-    { value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null },
-    { value: 'kimi-k2', name: 'kimi-k2', efforts: [], effort: null },
-  ],
 }
 
 const bot = (o: Partial<BotDto> = {}): BotDto => ({
@@ -91,34 +112,57 @@ const bot = (o: Partial<BotDto> = {}): BotDto => ({
   ...o,
 })
 
-const provider = (id: string, name: string, agent: 'claude' | 'codex' = 'claude') => ({
+const provider = (
+  id: string,
+  name: string,
+  protocol: 'anthropic' | 'openai' = 'anthropic',
+  o: Partial<ProviderView['endpoints'][number]> = {},
+): ProviderView => ({
   id,
-  agent,
   name,
   presetId: null,
   revision: 1,
-  baseUrl: 'https://x.example.com',
   apiKey: '****abcd',
-  apiKeyField: null,
-  model: null,
-  models: null,
-  env: {},
   proxy: null,
-  args: [],
-  wireApi: null,
-  effort: null,
   source: null,
+  endpoints: [
+    {
+      protocol,
+      baseUrl: 'https://x.example.com',
+      apiKeyField: null,
+      wireApi: null,
+      model: null,
+      models: null,
+      effort: null,
+      env: {},
+      args: [],
+      configDir: null,
+      executablePath: null,
+      modelOptions: [],
+      ...o,
+    },
+  ],
 })
 
 const VIEW: ProviderStoreView = {
   official: {},
-  machine: { claude: 'p1' },
+  machine: { claude: { provider: 'p1', model: 'kimi-k2' } },
   bots: {},
-  providers: [provider('p1', 'Kimi'), provider('p2', 'GLM'), provider('p3', 'Codex 中转', 'codex')],
+  providers: [
+    provider('p1', 'Kimi', 'anthropic', { modelOptions: ['kimi-for-coding', 'kimi-k2'] }),
+    provider('p2', 'GLM', 'anthropic', { model: 'glm-4.6' }),
+    provider('p3', 'Codex 中转', 'openai'),
+  ],
   sessions: [],
   agentSettings: {},
   cli: {},
 }
+
+/** The labels of the open menu, without the second lines. */
+const menuLabels = () =>
+  screen
+    .getAllByRole('menuitemcheckbox')
+    .map((i) => i.querySelector('[id$="-l"]')?.textContent ?? i.textContent)
 
 beforeEach(() => {
   useWorkspace.setState({ machines: [mbp], groups: [], bots: [] })
@@ -136,44 +180,76 @@ const renderDetail = (b: BotDto = bot(), user: UserDto = me) => {
   return out
 }
 
-describe('bot provider', () => {
-  it('offers inherit (naming the machine default), official and the same-agent providers', async () => {
+describe('bot provider and model', () => {
+  it('inherits the machine default, offering each provider with its models and greying out another protocol', async () => {
     mockApi({
       'GET /machines/m1/providers': VIEW,
       'GET /bots/b1/catalog': { catalog: KIMI },
     })
     renderDetail()
-    const select = await screen.findByRole('button', { name: '供应商' })
-    await waitFor(() => expect(select.textContent).toContain('继承机器（当前：Kimi）'))
+    const select = await screen.findByRole('button', { name: '供应商/模型' })
+    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：Kimi / kimi-k2）'))
     fireEvent.click(select)
-    const names = screen.getAllByRole('menuitemcheckbox').map((i) => i.textContent)
-    expect(names).toEqual(['继承机器（当前：Kimi）', '官方登录', 'Kimi', 'GLM'])
+    expect(menuLabels()).toEqual([
+      '继承机器默认（当前：Kimi / kimi-k2）',
+      '官方登录 / 默认模型',
+      '官方登录 / Sonnet',
+      'Kimi / 默认模型',
+      'Kimi / kimi-for-coding',
+      'Kimi / kimi-k2',
+      'GLM / 默认（glm-4.6）',
+      'Codex 中转',
+    ])
+    const codex = screen.getAllByRole('menuitemcheckbox').at(-1) as HTMLElement
+    expect(codex.getAttribute('aria-disabled')).toBe('true')
+    expect(codex.textContent).toContain('该供应商只提供 OpenAI 兼容 接口，Claude Code 需要 Anthropic 兼容')
+    fireEvent.click(codex)
+    expect(select.textContent).toContain('继承机器默认')
   })
 
-  it('offers the models of the provider picked, and sets both on 保存, the provider first', async () => {
+  it('overrides provider, model and level in one PUT on 保存', async () => {
     const calls = mockApi({
       'GET /machines/m1/providers': { ...VIEW, machine: {} },
       'GET /bots/b1/catalog': { catalog: OFFICIAL },
-      'GET /machines/m1/catalog?agent=claude&provider=p2': { catalog: KIMI },
-      'PUT /bots/b1/provider': { ...VIEW, machine: {}, bots: { b1: 'p2' } },
-      'PATCH /bots/b1': bot({ model: 'kimi-k2' }),
+      'GET /machines/m1/catalog?agent=claude&provider=p1': { catalog: KIMI },
+      'PUT /bots/b1/provider': { ...VIEW, machine: {}, bots: { b1: 'p1' } },
     })
     renderDetail()
     const save = screen.getByRole('button', { name: '保存' }) as HTMLButtonElement
     expect(save.disabled).toBe(true)
-    fireEvent.click(await screen.findByRole('button', { name: '供应商' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'GLM' }))
+    fireEvent.click(await screen.findByRole('button', { name: '供应商/模型' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Kimi / kimi-k2' }))
     expect(calls.some((c) => c.method === 'PUT')).toBe(false)
-    fireEvent.click(await screen.findByRole('button', { name: '模型' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'kimi-k2' }))
-    expect(screen.queryByRole('menuitemcheckbox', { name: 'Sonnet' })).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: '推理强度' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '高' }))
     fireEvent.click(save)
-    await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true))
-    const writes = calls.filter((c) => c.method !== 'GET')
-    expect(writes).toEqual([
-      { method: 'PUT', path: '/bots/b1/provider', body: { choice: 'p2' } },
-      { method: 'PATCH', path: '/bots/b1', body: { model: 'kimi-k2' } },
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([
+      { method: 'PUT', path: '/bots/b1/provider', body: { choice: 'p1', model: 'kimi-k2', effort: 'high' } },
     ])
+  })
+
+  it('changes only the model of its own provider without asking', async () => {
+    const view = {
+      ...VIEW,
+      bots: { b1: 'p1' },
+      sessions: [{ groupId: 'g1', botId: 'b1', agent: 'claude' as const, provider: 'p1' }],
+    }
+    const calls = mockApi({
+      'GET /machines/m1/providers': view,
+      'GET /bots/b1/catalog': { catalog: KIMI },
+      'PUT /bots/b1/provider': view,
+    })
+    renderDetail(bot({ model: 'kimi-k2' }))
+    const select = await screen.findByRole('button', { name: '供应商/模型' })
+    await waitFor(() => expect(select.textContent).toBe('Kimi / kimi-k2'))
+    fireEvent.click(select)
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi / kimi-for-coding' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ choice: 'p1', model: 'kimi-for-coding' }),
+    )
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('confirms on 保存 when sessions of the bot keep the old provider; 取消 saves nothing', async () => {
@@ -189,8 +265,8 @@ describe('bot provider', () => {
       'PUT /bots/b1/provider': { ...view, bots: { b1: 'official' } },
     })
     renderDetail()
-    fireEvent.click(await screen.findByRole('button', { name: '供应商' }))
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '官方登录' }))
+    fireEvent.click(await screen.findByRole('button', { name: '供应商/模型' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '官方登录 / 默认模型' }))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     let alert = await screen.findByRole('alertdialog')
     expect(alert.textContent).toContain('1 个群的会话仍在使用 Kimi，开启新会话后才会切换到 官方登录')
@@ -204,11 +280,33 @@ describe('bot provider', () => {
     await waitFor(() => expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ choice: 'official' }))
   })
 
+  it('offers providers only on an older client, the model picked apart', async () => {
+    useWorkspace.setState({ machines: [{ ...mbp, features: ['tools', 'providers', 'agentSettings'] }] })
+    const calls = mockApi({
+      'GET /machines/m1/providers': { ...VIEW, machine: { claude: { provider: 'p1', model: null } } },
+      'GET /bots/b1/catalog': { catalog: KIMI },
+      'PUT /bots/b1/provider': VIEW,
+    })
+    renderDetail()
+    const select = await screen.findByRole('button', { name: '供应商/模型' })
+    expect(screen.getByText('升级该机器的客户端后可以同时选择模型')).toBeTruthy()
+    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：Kimi）'))
+    fireEvent.click(select)
+    expect(menuLabels()).toEqual(['继承机器默认（当前：Kimi）', '官方登录', 'Kimi', 'GLM', 'Codex 中转'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '继承机器默认（当前：Kimi）' }))
+    fireEvent.click(screen.getByRole('button', { name: '模型' }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'kimi-k2' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ choice: 'inherit', model: 'kimi-k2' }),
+    )
+  })
+
   it('is disabled with the reason when the machine is offline', async () => {
     const calls = mockApi({})
     useWorkspace.setState({ machines: [{ ...mbp, online: false }] })
     renderDetail()
-    const select = screen.getByRole('button', { name: '供应商' }) as HTMLButtonElement
+    const select = screen.getByRole('button', { name: '供应商/模型' }) as HTMLButtonElement
     expect(select.disabled).toBe(true)
     expect(screen.getByText(/机器离线/)).toBeTruthy()
     expect(calls.some((c) => c.path.includes('/providers'))).toBe(false)
@@ -217,7 +315,7 @@ describe('bot provider', () => {
   it('is disabled for someone who does not own the bot', () => {
     mockApi({})
     renderDetail(bot(), { ...me, id: 'u9', role: 'sysadmin' })
-    expect((screen.getByRole('button', { name: '供应商' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '供应商/模型' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText('只有 Bot 主人可以设置其供应商')).toBeTruthy()
   })
 
@@ -271,7 +369,7 @@ describe('bot agent settings', () => {
 
   it('caps the language override and warns when the daemon cannot apply overrides', async () => {
     mockApi({ 'GET /machines/m1/providers': view, 'GET /bots/b1/catalog': { catalog: KIMI } })
-    useWorkspace.setState({ machines: [{ ...mbp, features: ['tools', 'providers'] }] })
+    useWorkspace.setState({ machines: [{ ...mbp, features: ['tools', 'providers', 'protocolProviders'] }] })
     renderDetail()
     const language = await screen.findByRole('textbox', { name: '语言' })
     expect(language.getAttribute('maxlength')).toBe('64')

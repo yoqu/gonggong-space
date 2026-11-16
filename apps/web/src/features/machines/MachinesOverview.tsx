@@ -4,7 +4,6 @@ import {
   agentMeta,
   type BotDto,
   type MachineDto,
-  OFFICIAL_PROVIDER,
   type ProviderStoreView,
 } from '@gonggong/protocol'
 import type { CSSProperties } from 'react'
@@ -13,10 +12,10 @@ import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
 import { AgentIcon, Button, EmptyState, Icon, PickChatArt } from '../../ui'
+import { choiceLabel, machineDefault } from '../agents/model'
 import { agentsUndetected, reportedAgent } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
-import { providerName } from './providers'
 import '../works/works.css'
 import './machines.css'
 
@@ -102,8 +101,7 @@ function MachineCard({
         <span className="machine-card__agents">
           {AGENT_KINDS.filter((kind) => !agentMeta(kind).feature || reportedAgent(m, kind)).map((kind) => {
             const a = m.agents.find((x) => x.kind === kind)
-            const provider =
-              view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null
+            const provider = view && a?.available ? choiceLabel(view, machineDefault(view, kind)) : null
             return (
               <span key={kind} className="machine__agent" data-available={!!a?.available}>
                 <AgentIcon kind={kind} size={16} />
