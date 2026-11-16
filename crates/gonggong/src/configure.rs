@@ -110,6 +110,6 @@ mod tests {
         assert!(agent(home.path(), AgentKind::Codex, "/nope/codex".into()).is_err());
         assert_eq!(parse_kind("Claude"), Ok(AgentKind::Claude));
         assert!(parse_kind("gemini").is_ok());
-        assert!(parse_kind("opencode").is_err());
+        assert!(parse_kind("nope").is_err());
     }
 }
