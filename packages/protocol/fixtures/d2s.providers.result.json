@@ -5,8 +5,18 @@
   "error": null,
   "view": {
     "machine": {
-      "claude": "kimi-coding-1a2b",
-      "codex": "official"
+      "claude": {
+        "provider": "kimi-coding-1a2b",
+        "model": "kimi-for-coding-highspeed"
+      },
+      "codex": {
+        "provider": "kimi-coding-1a2b",
+        "model": null
+      },
+      "deepseek": {
+        "provider": "official",
+        "model": null
+      }
     },
     "official": {
       "claude": {
@@ -18,51 +28,107 @@
       }
     },
     "bots": {
-      "22222222-2222-4222-8222-222222222222": "official"
+      "22222222-2222-4222-8222-222222222222": "official",
+      "33333333-3333-4333-8333-333333333333": "zhipu-9c8d"
     },
     "providers": [
       {
         "id": "kimi-coding-1a2b",
-        "agent": "claude",
         "name": "Kimi For Coding",
         "presetId": "kimi-coding",
-        "revision": 2,
-        "baseUrl": "https://api.kimi.com/coding/",
+        "revision": 3,
         "apiKey": "****abcd",
-        "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
-        "model": "kimi-for-coding",
-        "models": {
-          "haiku": "kimi-for-coding",
-          "sonnet": "kimi-for-coding"
-        },
-        "env": {
-          "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
-          "GITHUB_TOKEN": "****wxyz"
-        },
         "proxy": "http://user:****@10.0.0.2:3128",
-        "wireApi": null,
-        "effort": null,
         "source": {
           "kind": "cc-switch",
           "id": "d1f0"
-        }
+        },
+        "endpoints": [
+          {
+            "protocol": "anthropic",
+            "baseUrl": "https://api.kimi.com/coding/",
+            "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+            "wireApi": null,
+            "model": "kimi-for-coding",
+            "models": {
+              "haiku": "kimi-for-coding",
+              "sonnet": "kimi-for-coding"
+            },
+            "effort": null,
+            "env": {
+              "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144",
+              "GITHUB_TOKEN": "****wxyz"
+            },
+            "args": [],
+            "configDir": null,
+            "executablePath": null,
+            "modelOptions": ["kimi-for-coding", "kimi-for-coding-highspeed"]
+          },
+          {
+            "protocol": "openai",
+            "baseUrl": "https://api.kimi.com/coding/v1",
+            "apiKeyField": null,
+            "wireApi": "responses",
+            "model": "kimi-for-coding",
+            "models": null,
+            "effort": "high",
+            "env": {},
+            "args": [],
+            "configDir": null,
+            "executablePath": null,
+            "modelOptions": []
+          }
+        ]
       },
       {
         "id": "zhipu-9c8d",
-        "agent": "codex",
         "name": "智谱 GLM",
         "presetId": null,
         "revision": 1,
-        "baseUrl": "https://open.bigmodel.cn/api/v1",
         "apiKey": "****",
-        "apiKeyField": null,
-        "model": "glm-5.3",
-        "models": null,
-        "env": {},
         "proxy": null,
-        "wireApi": "responses",
-        "effort": "high",
-        "source": null
+        "source": null,
+        "endpoints": [
+          {
+            "protocol": "openai",
+            "baseUrl": "https://open.bigmodel.cn/api/v1",
+            "apiKeyField": null,
+            "wireApi": "responses",
+            "model": "glm-5.3",
+            "models": null,
+            "effort": "high",
+            "env": {},
+            "args": [],
+            "configDir": null,
+            "executablePath": null,
+            "modelOptions": []
+          }
+        ]
+      },
+      {
+        "id": "work-claude-0a1b",
+        "name": "Work Claude",
+        "presetId": null,
+        "revision": 1,
+        "apiKey": "",
+        "proxy": null,
+        "source": null,
+        "endpoints": [
+          {
+            "protocol": "anthropic",
+            "baseUrl": "",
+            "apiKeyField": null,
+            "wireApi": null,
+            "model": null,
+            "models": null,
+            "effort": null,
+            "env": {},
+            "args": ["--settings ~/.claude/team.json"],
+            "configDir": "/Users/wl/.claude-work",
+            "executablePath": "/Users/wl/bin/claude-work",
+            "modelOptions": []
+          }
+        ]
       }
     ],
     "sessions": [

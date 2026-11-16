@@ -26,6 +26,7 @@ import {
   GitStashes,
   GitTree,
 } from './git.js'
+import { LegacyProviderInput, LegacyProviderPreset } from './legacy.js'
 import { GitProtocol, RepoSpec, RunStart, WorkspaceSpec } from './run-payloads.js'
 
 // ── server → daemon ─────────────────────────────────────────────────────────
@@ -338,9 +339,13 @@ export const ArtifactSnapshot = z.object({
 })
 /**
  * Provider presets from platform-layer plugins (plan 插件扩展点 §6), sent on connect and whenever they change to
- * daemons with `presetSync`: the daemon lists them with its built-in ones, the same (agent, id) replacing a built-in.
+ * daemons with `presetSync`: the daemon lists them with its built-in ones, the same id replacing a built-in. Daemons
+ * without `protocolProviders` get them through presetsToLegacy (same (agent, id) replacing).
  */
-export const PresetsSync = z.object({ t: z.literal('presets.sync'), presets: z.array(ProviderPreset) })
+export const PresetsSync = z.object({
+  t: z.literal('presets.sync'),
+  presets: z.array(z.union([ProviderPreset, LegacyProviderPreset])),
+})
 
 /** Status, install / upgrade (answered by tools.progress lines then tools.result) or mirror settings. */
 export const ToolsCmd = z.object({
@@ -355,9 +360,10 @@ export type ToolsCmd = z.infer<typeof ToolsCmd>
 /**
  * The machine's providers; answered by providers.result. `save` / `importLink` may carry a plaintext key (never
  * persisted or logged by the server). `use`: the machine default of `agent`, or with `botId` that bot's override
- * (`agent` = the bot's agentKind, `choice` also `inherit`). `catalog`: the models provider `id` declares.
- * `botCatalog`: what a new session of `botId` (absent: a new bot) on `agent` may pick, from the provider it would use —
- * the adapter's catalog when official (absent until probed), else the provider's declared models.
+ * (`agent` = the bot's agentKind, `choice` also `inherit`); `model` for the machine default only. `catalog`: the
+ * models provider `id` declares for `agent`. `botCatalog`: what a new session of `botId` (absent: a new bot) on `agent`
+ * may pick, from the provider it would use — the adapter's catalog when official (absent until probed), else the
+ * provider's declared models. Daemons without `protocolProviders` get a LegacyProviderInput and no `model`.
  */
 export const ProvidersCmd = z.object({
   t: z.literal('providers.cmd'),
@@ -378,7 +384,10 @@ export const ProvidersCmd = z.object({
   botId: z.string().optional(),
   id: z.string().optional(),
   choice: z.string().optional(),
-  provider: ProviderInput.optional(),
+  /** null = the endpoint's model (else the adapter's default). */
+  model: z.string().nullable().optional(),
+  // Legacy first: every ProviderInput field is optional, so it would also take (and strip) an old one.
+  provider: z.union([LegacyProviderInput, ProviderInput]).optional(),
   /** For `official`, with `agent`. */
   official: OfficialInput.optional(),
   /** For `agentSettings`, with `agent`: replaces that agent kind's machine defaults. */

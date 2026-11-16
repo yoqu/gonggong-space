@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
-import { ProviderPreset, SkillFile } from './daemon.js'
+import { ApiProtocol, LegacyProviderPreset, ProviderPreset, SkillFile } from './daemon.js'
 
 // ── Plugins (plan 插件体系-方案): a folder with a manifest, layered like team skills ────
 /** The manifest at the root of a plugin folder; the rest is a Claude plugin layout (`skills/<name>/SKILL.md`). */
@@ -252,6 +252,8 @@ export const PluginAgent = z.object({
   /** Env the run's provider goes into; null: the agent keeps its own logins. */
   provider: z
     .object({
+      /** The provider endpoints it can run on. */
+      protocols: z.array(ApiProtocol).min(1),
       env: z.object({ apiKey: EnvName, baseUrl: EnvName.nullable(), model: EnvName.nullable() }),
       /** The agent maker's own services: no base URL is set for them. */
       skipBaseUrls: z.array(z.string().url()).max(10).default([]),
@@ -292,8 +294,14 @@ export type PluginAgent = z.infer<typeof PluginAgent>
 export const PluginContributes = z.object({
   mcp: z.array(PluginMcp).max(10).default([]),
   commands: z.array(PluginCommand).max(30).default([]),
-  /** Provider presets (§6): platform-layer plugins only; added to every daemon's built-in ones, same id replacing. */
-  providers: z.array(ProviderPreset).max(300).default([]),
+  /**
+   * Provider presets (§6): platform-layer plugins only; added to every daemon's built-in ones, same id replacing.
+   * Manifests written before vendors had endpoints list one per agent (normalizePresets merges them).
+   */
+  providers: z
+    .array(z.union([ProviderPreset, LegacyProviderPreset]))
+    .max(300)
+    .default([]),
   /** Agent adapters (§5): they run code on the machine, so they need `exec`. */
   agents: z.array(PluginAgent).max(5).default([]),
 })

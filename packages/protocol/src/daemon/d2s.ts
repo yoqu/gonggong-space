@@ -11,15 +11,17 @@ import {
   Usage,
 } from '../common.js'
 import { RunSyncDone, SyncApplied, SyncState, SyncSubmit } from '../sync.js'
+import { AgentState, RuntimeState } from './agent-state.js'
 import {
   AgentsReprobeResult,
   BotsProviderState,
-  CcSwitchResult,
+  CcSwitchCandidate,
   DiagResult,
   GitAccessResult,
-  ProvidersResult,
+  ProviderPreset,
+  ProviderStoreView,
   ToolsProgress,
-  ToolsResult,
+  ToolsSettings,
   UpgradeResult,
 } from './agent-tools.js'
 import {
@@ -39,7 +41,13 @@ import {
   GitStashesResult,
   GitTreeResult,
 } from './git.js'
-import { AgentInfo, MachineInfo } from './machine.js'
+import {
+  LegacyCcSwitchCandidate,
+  LegacyProviderPreset,
+  LegacyProviderStoreView,
+  LegacyToolStatus,
+} from './legacy.js'
+import { AgentCatalog, MachineInfo } from './machine.js'
 import { RepoAccessReason, RunEvent } from './run-payloads.js'
 
 // ── daemon → server ─────────────────────────────────────────────────────────
@@ -78,7 +86,7 @@ export const Hello = z.object({
   token: z.string(),
   daemonVersion: z.string(),
   machine: MachineInfo,
-  agents: z.array(AgentInfo),
+  agents: z.array(AgentState),
   /** Runs this daemon is still executing (spec §14: server outage → turns go on locally). Others marked running
    * on this machine were lost (daemon restart) and are reconciled as interrupted. */
   activeRuns: z.array(z.string()).default([]),
@@ -252,7 +260,48 @@ export const SessionConfig = z.object({
 })
 
 /** Local agent detection changed after hello (path set / reset, re-check); replaces the machine's agents. */
-export const AgentsUpdate = z.object({ t: z.literal('agents.update'), agents: z.array(AgentInfo) })
+export const AgentsUpdate = z.object({ t: z.literal('agents.update'), agents: z.array(AgentState) })
+
+/*
+ * Answers about agents and providers. Daemons without `agentState` / `protocolProviders` answer in the legacy.ts
+ * shapes; the server normalizes them (normalizeStoreView, normalizePresets, normalizeCandidate, agentStatesFromLegacy).
+ */
+export const ToolsResult = z.object({
+  t: z.literal('tools.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  /** Only from daemons without `agentState`. */
+  tools: z.array(LegacyToolStatus).default([]),
+  node: RuntimeState.nullable().default(null),
+  agents: z.array(AgentState).default([]),
+  settings: ToolsSettings,
+})
+export type ToolsResult = z.infer<typeof ToolsResult>
+const AnyStoreView = z.union([ProviderStoreView, LegacyProviderStoreView])
+export const ProvidersResult = z.object({
+  t: z.literal('providers.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  view: AnyStoreView.optional(),
+  presets: z.array(z.union([ProviderPreset, LegacyProviderPreset])).optional(),
+  catalog: AgentCatalog.optional(),
+  /** The provider saved or imported. */
+  id: z.string().optional(),
+})
+export type ProvidersResult = z.infer<typeof ProvidersResult>
+export const CcSwitchResult = z.object({
+  t: z.literal('ccswitch.result'),
+  requestId: z.string(),
+  ok: z.boolean(),
+  error: z.string().nullable(),
+  candidates: z.array(z.union([CcSwitchCandidate, LegacyCcSwitchCandidate])),
+  /** Local ids written by ccswitch.apply. */
+  imported: z.array(z.string()),
+  view: AnyStoreView.optional(),
+})
+export type CcSwitchResult = z.infer<typeof CcSwitchResult>
 
 /** Answer to files.list. */
 /** Answer to workspace.diff; patch null = no changes, base = the main branch compared against (scope `base`). */

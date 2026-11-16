@@ -1,0 +1,69 @@
+{
+  "t": "tools.result",
+  "requestId": "op-1",
+  "ok": true,
+  "error": null,
+  "tools": [
+    {
+      "kind": "node",
+      "installed": true,
+      "version": "24.2.0",
+      "latest": "24.3.0",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/runtime/current/bin/node",
+      "upgradeCommand": null
+    },
+    {
+      "kind": "claude",
+      "installed": true,
+      "version": "2.1.285",
+      "latest": "2.1.285",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/claude",
+      "upgradeCommand": null
+    },
+    {
+      "kind": "codex",
+      "installed": true,
+      "version": "0.40.0",
+      "latest": "0.41.0",
+      "managed": false,
+      "path": "/opt/homebrew/bin/codex",
+      "upgradeCommand": "brew upgrade codex"
+    },
+    {
+      "kind": "gemini",
+      "installed": true,
+      "version": "0.67.0",
+      "latest": "0.67.0",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/gemini",
+      "upgradeCommand": null
+    },
+    {
+      "kind": "pi",
+      "installed": true,
+      "version": "1.5.2",
+      "latest": "1.5.2",
+      "managed": true,
+      "path": "/Users/wl/.gonggong/tools/bin/pi",
+      "upgradeCommand": null
+    },
+    {
+      "kind": "deepseek",
+      "installed": false,
+      "version": null,
+      "latest": "0.2.2-rc.1",
+      "managed": false,
+      "path": null,
+      "upgradeCommand": null
+    }
+  ],
+  "settings": {
+    "mirror": {
+      "kind": "custom",
+      "registry": "https://npm.corp.example",
+      "node": "https://npm.corp.example/node"
+    }
+  }
+}
