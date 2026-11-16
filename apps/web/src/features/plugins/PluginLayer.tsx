@@ -1,4 +1,10 @@
-import type { GroupDto, GroupPluginDto, PluginDto, SkillFile } from '@gonggong/protocol'
+import {
+  AGENT_META,
+  type GroupDto,
+  type GroupPluginDto,
+  type PluginDto,
+  type SkillFile,
+} from '@gonggong/protocol'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
@@ -21,7 +27,6 @@ import {
   toast,
 } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
-import { AGENT_LABEL } from '../bots/model'
 import { folderSkillFiles, zipSkillFiles } from '../config/skillFiles'
 import {
   agentsText,
@@ -297,7 +302,7 @@ export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; 
                     <span className="plg-bot">
                       <BotAvatar id={b.id} name={b.name} size={24} />
                       <b>{b.name}</b>
-                      <Tag tone="gray">{AGENT_LABEL[b.agentKind]}</Tag>
+                      <Tag tone="gray">{AGENT_META[b.agentKind].name}</Tag>
                     </span>
                   }
                   description={a?.text}

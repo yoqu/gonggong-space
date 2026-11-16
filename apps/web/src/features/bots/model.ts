@@ -1,7 +1,10 @@
 import {
+  AGENT_KINDS,
+  AGENT_META,
   type AgentKind,
   type BotDto,
   type BotRole,
+  clientRunsAgent,
   compareVersions,
   type MachineDto,
   type TriggerScope,
@@ -11,35 +14,6 @@ import { t } from '../../i18n'
 import { api, avatarForm } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { type AvatarStatus, toast } from '../../ui'
-
-export const AGENTS: AgentKind[] = ['claude', 'codex', 'gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
-export const AGENT_LABEL: Record<AgentKind, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  gemini: 'Gemini CLI',
-  codebuddy: 'CodeBuddy（WorkBuddy）',
-  pi: 'pi',
-  deepseek: 'DeepSeek Harness',
-  antigravity: 'Antigravity CLI',
-}
-const AGENT_CLI: Record<AgentKind, string> = {
-  claude: 'claude-code',
-  codex: 'codex',
-  gemini: 'gemini-cli',
-  codebuddy: 'codebuddy-code',
-  pi: 'pi',
-  deepseek: 'dsh',
-  antigravity: 'agy',
-}
-/** Agents added later: a machine's client from before one never offers it, and not having one is unremarkable. */
-const LATER: AgentKind[] = ['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
-export const isLaterAgent = (k: AgentKind) => LATER.includes(k)
-/** These keep their own logins and keys: 共工 injects no provider into them, the owner logs in on the machine. */
-export const OWN_LOGIN: Partial<Record<AgentKind, string>> = {
-  pi: t('pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key'),
-  antigravity: t('Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录'),
-}
-export const takesProviders = (k: AgentKind) => !OWN_LOGIN[k]
 
 export const BINDING_LABEL: Record<BotDto['binding'], string> = {
   bound: t('已绑定'),
@@ -95,12 +69,13 @@ export const dmLead = (bots: BotDto[], botId: string | undefined, sharer: string
 /** The same line under its machine (机器与 Bot), the agent in place of the machine: `Claude Code · 在线`. */
 export const botStateUnderMachine = (b: BotDto) =>
   b.binding === 'bound'
-    ? [AGENT_LABEL[b.agentKind], SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
+    ? [AGENT_META[b.agentKind].name, SHORT_STATE[b.presence]].filter(Boolean).join(' · ')
     : BINDING_LABEL[b.binding]
 
-export const agentLine = (b: BotDto) => [AGENT_LABEL[b.agentKind], b.agentVersion].filter(Boolean).join(' ')
+export const agentLine = (b: BotDto) =>
+  [AGENT_META[b.agentKind].name, b.agentVersion].filter(Boolean).join(' ')
 export const agentCliVersion = (b: BotDto) =>
-  b.agentVersion ? `${AGENT_CLI[b.agentKind]} ${b.agentVersion}` : '--'
+  b.agentVersion ? `${AGENT_META[b.agentKind].cli} ${b.agentVersion}` : '--'
 
 /** The reported CLI is older than the bundled ACP adapter supports. */
 export const agentOutdated = (b: BotDto) =>
@@ -117,10 +92,10 @@ export const agentsUndetected = (m: MachineDto) => !m.online && m.agents.length 
  * known only while the machine is connected, so an agent the client has reported counts too (offline, reconnecting).
  */
 export const clientRuns = (m: MachineDto | null | undefined, kind: AgentKind) =>
-  !isLaterAgent(kind) || !m || m.features.includes(kind) || m.agents.some((a) => a.kind === kind)
+  !m || clientRunsAgent(m.features, kind) || m.agents.some((a) => a.kind === kind)
 
 /** The agents a machine's client can run. */
-export const machineAgents = (m: MachineDto | null | undefined) => AGENTS.filter((k) => clientRuns(m, k))
+export const machineAgents = (m: MachineDto | null | undefined) => AGENT_KINDS.filter((k) => clientRuns(m, k))
 
 const saveBot = (bot: BotDto) => {
   useWorkspace.getState().applyEvent({ t: 'bot.updated', bot })

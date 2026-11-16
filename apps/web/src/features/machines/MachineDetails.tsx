@@ -1,4 +1,4 @@
-import type { BotDto, ClientDownloads, MachineDto } from '@gonggong/protocol'
+import { AGENT_META, type BotDto, type ClientDownloads, type MachineDto } from '@gonggong/protocol'
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -6,9 +6,9 @@ import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
+import { AgentIcon, Disclosure, EmptyState, Icon, type IconName, Tabs, TextField, toast } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
-import { AGENT_LABEL, PRESENCE } from '../bots/model'
+import { PRESENCE } from '../bots/model'
 import { CommandLine, DiagnosticsPanel, UpgradeGuide, upgradable, WorkspacesPanel } from './AdminPanels'
 import { AgentsPanel } from './AgentsPanel'
 import { GitAccessPanel } from './GitAccessPanel'
@@ -286,8 +286,8 @@ export function MachineDetails({
             {machine.agents.length ? (
               machine.agents.map((a) => (
                 <span key={a.kind} className="machine__agent" data-available={a.available}>
-                  <Icon name="bot" size={16} />
-                  <span className="machine__agent-name">{AGENT_LABEL[a.kind]}</span>
+                  <AgentIcon kind={a.kind} size={16} />
+                  <span className="machine__agent-name">{AGENT_META[a.kind].name}</span>
                   <span className="machine__agent-version">
                     {a.available ? (a.version ?? t('已安装')) : t('未安装')}
                   </span>

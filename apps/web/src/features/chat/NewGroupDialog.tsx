@@ -1,14 +1,31 @@
-import type { BotDto, BotProbeDto, GroupDto, UserBriefDto, UserDto } from '@gonggong/protocol'
+import {
+  AGENT_META,
+  type BotDto,
+  type BotProbeDto,
+  type GroupDto,
+  type UserBriefDto,
+  type UserDto,
+} from '@gonggong/protocol'
 import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
-import { Button, Dialog, GroupBox, GroupRow, Icon, IconButton, Input, Switch, Tabs } from '../../ui'
+import {
+  AgentIcon,
+  Button,
+  Dialog,
+  GroupBox,
+  GroupRow,
+  Icon,
+  IconButton,
+  Input,
+  Switch,
+  Tabs,
+} from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
-import { AGENT_LABEL } from '../bots/model'
 import { BotPicker, BotPresence, MemberPicker } from '../groups/pickers'
 import { RepoPicker } from '../repos/RepoPicker'
 import {
@@ -196,7 +213,8 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
                   <span className="pick__main">
                     <span className="pick__name">{b.name}</span>
                     <span className="pick__sub">
-                      {AGENT_LABEL[b.agentKind]} · {b.ownerName}
+                      <AgentIcon kind={b.agentKind} size={12} /> {AGENT_META[b.agentKind].name} ·{' '}
+                      {b.ownerName}
                     </span>
                   </span>
                   {r ? <AccessResult result={r} /> : <BotPresence bot={b} />}

@@ -11,7 +11,7 @@ import { BotReply } from '../src/features/chat/TimelineItems'
 const render = (ui: ReactElement) => renderBare(<MemoryRouter>{ui}</MemoryRouter>)
 
 const bot = (id: string, name: string) =>
-  ({ id, name, avatar: 'role-no', presence: 'online', systemPrompt: '' }) as BotDto
+  ({ id, name, avatar: 'role-no', presence: 'online', systemPrompt: '', agentKind: 'claude' }) as BotDto
 const reply = (o: Partial<MessageDto>): MessageDto => ({
   id: 'm1',
   seq: 1,

@@ -1,3 +1,4 @@
+export * from './agent-icon'
 export * from './avatar-editor'
 export * from './brand'
 export * from './calendar'

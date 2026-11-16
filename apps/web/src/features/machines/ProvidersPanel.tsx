@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type AgentKind,
   type MachineDto,
   OFFICIAL_PROVIDER,
@@ -10,7 +11,6 @@ import { locale, t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { AlertDialog, Button, GroupBox, Presence, toast } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { AgentLoginDialog } from './AgentLoginDialog'
 import { providerSummary } from './agentSettings'
 import { OfficialEditor, ProviderEditor } from './ProviderEditor'
@@ -57,7 +57,7 @@ export function ProviderBox({
   const official = view.official[agent]
   const envCount = Object.keys(official?.env ?? {}).length
   const removing = open?.kind === 'remove' ? open.provider : null
-  const title = t('{agent} 供应商', { agent: AGENT_LABEL[agent] })
+  const title = t('{agent} 供应商', { agent: AGENT_META[agent].name })
 
   const row = (value: string, name: string, sub: string, actions?: ReactNode) => (
     <div key={value} className="mx-row">

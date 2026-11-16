@@ -1,3 +1,4 @@
+import { AGENT_META } from '@gonggong/protocol'
 import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc, faceOf } from '@web/features/bots/avatars'
 import {
@@ -15,7 +16,6 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { type AgentCard, ipc, type MachineBot, type Providers } from '../ipc'
-import { AGENTS } from '../lib/labels'
 import { fail } from '../lib/ui'
 import { OFFICIAL, OFFICIAL_NAME } from '../providers/ProviderBox'
 import { useProviderSwitch } from '../providers/switch'
@@ -77,7 +77,7 @@ export function BotsPage({ go }: PageProps) {
         const badge = status(b, agent)
         const pending = b.binding === 'pending_confirm'
         const missing = !agent?.available
-        const name = AGENTS[b.agentKind].name
+        const name = AGENT_META[b.agentKind].name
         return (
           <div key={b.id} className="dk-bot">
             <GroupBox>

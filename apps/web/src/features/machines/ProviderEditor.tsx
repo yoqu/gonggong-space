@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type AgentKind,
   type AgentSettingValues,
   type DirListingDto,
@@ -31,7 +32,6 @@ import {
   Skeleton,
   TextField,
 } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { DirPicker, join } from '../workspaces/DirPicker'
 import { envText, fieldTexts, joinProviderEnv, parseEnv, splitEnv, textOf } from './agentSettings'
 import { ProviderSettingRows } from './ProviderSettings'
@@ -288,7 +288,7 @@ export function ProviderEditor({
     }
   }
 
-  const title = editing ? t('编辑供应商') : t('新增 {agent} 供应商', { agent: AGENT_LABEL[agent] })
+  const title = editing ? t('编辑供应商') : t('新增 {agent} 供应商', { agent: AGENT_META[agent].name })
   if (preset === undefined)
     return (
       <Dialog open onClose={onClose} title={title} message={t('选择厂商，之后只需填写 API Key')} width={520}>
@@ -351,7 +351,7 @@ export function ProviderEditor({
         {localProfile ? null : (
           <FormRow
             label={t('协议')}
-            hint={t('由 {agent} 决定，供应商需提供这种接口', { agent: AGENT_LABEL[agent] })}
+            hint={t('由 {agent} 决定，供应商需提供这种接口', { agent: AGENT_META[agent].name })}
           >
             <span>{PROTOCOL[agent]}</span>
           </FormRow>
@@ -591,7 +591,7 @@ export function OfficialEditor({
   })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const title = t('{agent} 官方登录设置', { agent: AGENT_LABEL[agent] })
+  const title = t('{agent} 官方登录设置', { agent: AGENT_META[agent].name })
   const fields = fieldsFor(agent, 'provider')
 
   const save = async () => {

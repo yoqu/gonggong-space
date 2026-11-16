@@ -149,3 +149,21 @@ it('shows models as pending until probed, and restores detection for a custom pa
   const codex = within(await card('Codex'))
   expect(codex.getByText('被 小王的 Codex 使用')).toBeTruthy()
 })
+
+it('reads names, marks, vendors, logins and adapters from the agent registry', async () => {
+  m.agents.mockResolvedValue([
+    CLAUDE,
+    { ...CLAUDE, kind: 'pi', path: '/x/bin/pi-cli' },
+    { ...CLAUDE, kind: 'gemini', path: '/x/bin/gemini-cli' },
+  ])
+  render(<AgentsPage go={() => {}} />)
+  const claude = within(await card('Claude Code'))
+  expect(claude.getByRole('img', { name: 'Claude Code' })).toBeTruthy()
+  expect(claude.getByText('Anthropic · CLI')).toBeTruthy()
+  const pi = within(await card('pi'))
+  expect(pi.getByRole('img', { name: 'pi' })).toBeTruthy()
+  expect(pi.getByText('Earendil · CLI')).toBeTruthy()
+  expect(pi.getByText('pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key')).toBeTruthy()
+  const gemini = within(await card('Gemini CLI'))
+  expect(gemini.getByText('CLI 自带')).toBeTruthy()
+})
