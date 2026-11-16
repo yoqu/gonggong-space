@@ -1,8 +1,12 @@
 # Changelog
 
-## 未发布 / Unreleased
+## v0.4.22 — 2026-11-16
 
+- Agent 管理重构：网页端与桌面端共用 Agent 页，供应商改为「厂商 + 按协议端点」，Agent 注册表统一名称、图标、安装与登录方式 / Agent management overhaul: a shared web and desktop Agent page, vendors with per-protocol endpoints, and one registry for names, icons, installation and sign-in
+- 新增 GitHub Copilot CLI、Goose、Kimi Code、OpenCode 与 Qwen Code 5 个 Agent / Adds 5 agents: GitHub Copilot CLI, Goose, Kimi Code, OpenCode and Qwen Code
+- daemon 不再缓存空模型列表，探测失败后每 5 分钟重试 / The daemon no longer caches an empty model list and retries failed probes every 5 minutes
 - 新 logo「对眼 gg」：应用、桌面端图标、文档站统一更换，共字君、登录页与启动屏随之换上品牌蓝和琥珀 / New "gg" logo across the app, desktop icons and docs site, with 共字君, the sign-in page and the splash screen in the new brand blue and amber
+- 网页体验：Bot 在线状态角标、一键「新对话」、通知堆叠、上传与进度完成动效、数字滚动、分段控件滑动、消息正文 14px及多轮 UX 修复 / Web experience: Bot presence badges, one-click New chat, stacked notifications, upload and progress completion motion, rolling numbers, sliding segmented controls, 14px chat text and several UX fixes
 
 ## v0.4.21 — 2026-11-14
 
