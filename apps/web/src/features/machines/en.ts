@@ -196,8 +196,6 @@ export default {
     'Once inside, type /auth and pick Qwen OAuth to sign in in the browser, or enter an API key',
   '选择 Configure Providers，按提示选择供应商并填写 API Key':
     'Choose Configure Providers, then pick a provider and enter its API key',
-  '进入后输入 /login，用 GitHub 账号完成设备登录':
-    'Once inside, type /login and sign in with your GitHub account on the device page',
   '进入后输入 /login，选择供应商登录或填写 API Key':
     'Inside it, type /login and sign in with a provider or enter an API key',
   '在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）':

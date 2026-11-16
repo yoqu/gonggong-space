@@ -1,7 +1,7 @@
 import type { AgentKind } from './common.js'
 
 /**
- * The one definition of each agent (docs/domains/agents.md): every client reads names, marks, install and login from
+ * The one definition of each agent (docs/domains/供应商与Agent设置.md): every client reads names, marks, install and login from
  * here, so adding an agent is one entry plus its daemon detector. Zod-free: the desktop imports it at runtime.
  */
 

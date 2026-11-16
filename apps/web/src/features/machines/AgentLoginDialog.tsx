@@ -28,7 +28,7 @@ const LOGIN: Record<AgentKind, { command: string; next: string }> = {
   qwen: { command: 'qwen', next: t('进入后输入 /auth，选择 Qwen OAuth 在浏览器里登录，或填写 API Key') },
   kimi: { command: 'kimi', next: t('进入后输入 /login，按提示在浏览器里完成登录') },
   goose: { command: 'goose configure', next: t('选择 Configure Providers，按提示选择供应商并填写 API Key') },
-  copilot: { command: 'copilot', next: t('进入后输入 /login，用 GitHub 账号完成设备登录') },
+  copilot: { command: 'copilot login', next: t('打开它给出的链接，输入验证码完成登录') },
 }
 
 /**
