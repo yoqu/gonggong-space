@@ -249,6 +249,15 @@ function CompareMark({ compare, path, dir }: { compare: Compare; path: string; d
   return change ? <ChangeMark change={change.change} /> : null
 }
 
+/** The server only says changed or untracked, not which, so no git letter. */
+function UncommittedMark() {
+  return (
+    <span className="ft__mark" role="img" aria-label={t('未提交')} title={t('未提交')}>
+      •
+    </span>
+  )
+}
+
 /** A bot workspace, read-only (design §4.5): lazy tree left, the picked file right. */
 export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
   const groupId = useWorkbench((s) => s.groupId) ?? ''
@@ -402,9 +411,7 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
           {compare ? (
             <CompareMark compare={compare} path={path} dir={e.dir} />
           ) : e.uncommitted && !rev ? (
-            <span className="ft__mark" title={t('未提交')}>
-              M
-            </span>
+            <UncommittedMark />
           ) : null}
         </button>
       )
@@ -478,8 +485,13 @@ export function FilesTab({ tab, tabKey }: TabProps<'files'>) {
               onClick={() => pickHit(h.path, h.dir)}
             >
               {h.dir ? <Icon name="folder" size={14} /> : <FileIcon name={h.path} size={14} />}
-              <span className="ft__name">{h.path}</span>
-              {h.uncommitted ? <span className="ft__mark">M</span> : null}
+              <span className="ft__name">{baseName(h.path)}</span>
+              {parentOf(h.path) ? (
+                <span className="ft__dir">
+                  <bdi>{parentOf(h.path)}</bdi>
+                </span>
+              ) : null}
+              {h.uncommitted ? <UncommittedMark /> : null}
             </button>
           ))
         ) : (

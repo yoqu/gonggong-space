@@ -1,6 +1,8 @@
 import type { FilesFindDto } from '@gonggong/protocol'
 import { createContext, isValidElement, memo, type ReactNode, useContext, useMemo, useState } from 'react'
 import ReactMarkdown, { type Components, type Options } from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
@@ -242,12 +244,23 @@ function remarkMentions({ members, bots, me }: Names) {
   return () => visit
 }
 
-/** GitHub's heading anchors: lower case, punctuation dropped, spaces to `-`, a repeat numbered `-1`, `-2`… */
-const remarkSlugs = () => (tree: MdNode) => {
+interface HNode {
+  type: string
+  tagName?: string
+  value?: string
+  properties?: Record<string, unknown>
+  children?: HNode[]
+}
+
+/**
+ * GitHub's heading anchors: lower case, punctuation dropped, spaces to `-`, a repeat numbered `-1`, `-2`… Runs after
+ * sanitizing (which prefixes ids with `user-content-`), so links and the outline find headings by their plain slug.
+ */
+const rehypeSlugs = () => (tree: HNode) => {
   const seen = new Map<string, number>()
-  const text = (n: MdNode): string => n.value ?? n.children?.map(text).join('') ?? ''
-  const visit = (n: MdNode) => {
-    if (n.type !== 'heading') return n.children?.forEach(visit)
+  const text = (n: HNode): string => n.value ?? n.children?.map(text).join('') ?? ''
+  const visit = (n: HNode) => {
+    if (n.type !== 'element' || !/^h[1-6]$/.test(n.tagName ?? '')) return n.children?.forEach(visit)
     const slug = text(n)
       .trim()
       .toLowerCase()
@@ -255,14 +268,39 @@ const remarkSlugs = () => (tree: MdNode) => {
       .replace(/ /g, '-')
     const k = seen.get(slug) ?? 0
     seen.set(slug, k + 1)
-    n.data = { ...n.data, hProperties: { ...n.data?.hProperties, id: k ? `${slug}-${k}` : slug } }
+    n.properties = { ...n.properties, id: k ? `${slug}-${k}` : slug }
   }
   visit(tree)
 }
 
+/** GitHub's README sanitizing, plus what our own plugins add (closed fences, file refs, mentions). */
+const docSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'file-ref'],
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), 'dataClosed'],
+    span: [
+      ...(defaultSchema.attributes?.span ?? []),
+      ['className', 'pn-mention', 'pn-mention--bot', 'pn-mention--me'],
+    ],
+    'file-ref': ['path', 'from', 'to'],
+  },
+}
+
+/** Workspace documents render their inline HTML (GitHub READMEs), sanitized; chat replies never do. */
+const docRehypePlugins: Options['rehypePlugins'] = [rehypeRaw, [rehypeSanitize, docSchema], rehypeSlugs]
+// Sanitizing prefixes every id once; without this, footnote ids would carry the prefix twice.
+const docRemarkRehype: Options['remarkRehypeOptions'] = { clobberPrefix: '' }
+
+const CLOBBER = 'user-content-'
+
 /** Scrolls a document's heading to the top and flashes it, so the eye lands where the jump went. */
 export function jumpTo(root: Element | null | undefined, id: string) {
-  const el = root && [...root.querySelectorAll<HTMLElement>('[id]')].find((e) => e.id === id)
+  const targets = root ? [...root.querySelectorAll<HTMLElement>('[id], [name]')] : []
+  const el = [id, CLOBBER + id]
+    .map((k) => targets.find((e) => e.id === k || e.getAttribute('name') === k))
+    .find(Boolean)
   if (!el) return
   el.scrollIntoView({ block: 'start' })
   el.removeAttribute('data-flash')
@@ -374,13 +412,8 @@ export const Markdown = memo(function Markdown({
 }) {
   const names = useContext(MentionNames)
   const plugins = useMemo(
-    () => [
-      ...remarkPlugins,
-      ...(names ? [remarkMentions(names)] : []),
-      ...(botId ? [remarkFileRefs] : []),
-      ...(doc ? [remarkSlugs] : []),
-    ],
-    [names, botId, doc],
+    () => [...remarkPlugins, ...(names ? [remarkMentions(names)] : []), ...(botId ? [remarkFileRefs] : [])],
+    [names, botId],
   )
   const components = useMemo(
     () =>
@@ -393,7 +426,11 @@ export const Markdown = memo(function Markdown({
   )
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={plugins} components={components}>
+      <ReactMarkdown
+        remarkPlugins={plugins}
+        components={components}
+        {...(doc ? { rehypePlugins: docRehypePlugins, remarkRehypeOptions: docRemarkRehype } : {})}
+      >
         {text}
       </ReactMarkdown>
     </div>

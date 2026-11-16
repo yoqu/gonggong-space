@@ -61,6 +61,13 @@ const TREES: Record<string, { entries: FileTreeEntry[]; truncated: boolean }> = 
     truncated: false,
   },
 }
+const GRAPH_HITS = [
+  'apps/server/plugins/official/slides/graph.ts',
+  'apps/server/plugins/official/slides/lib/graph-utils.ts',
+  'apps/server/plugins/official/slides/assets/graph.png',
+  'apps/web/src/graph/',
+  'graph.md',
+]
 const IGNORED = entry('node_modules', { dir: true, ignored: true })
 
 const TEXTS: Record<string, { text: string | null; binary: boolean; size: number; mime: string }> = {
@@ -117,7 +124,12 @@ beforeEach(() => {
         return json({
           source: 'workspace',
           label: '小王的 Claude 工作区',
-          entries: [{ path: 'src/main.ts', dir: false, uncommitted: true, notInWorkspace: false }],
+          entries: (u.searchParams.get('q') === 'graph' ? GRAPH_HITS : ['src/main.ts']).map((p) => ({
+            path: p.replace(/\/$/, ''),
+            dir: p.endsWith('/'),
+            uncommitted: p.endsWith('.ts') || p.endsWith('.png'),
+            notInWorkspace: false,
+          })),
         })
       if (u.pathname === '/api/attachments/a1') return new Response('line one\nERROR boom\n')
       if (u.pathname === '/api/groups/g1/bots/b1/files/raw' && path.startsWith('gone.'))
@@ -194,7 +206,8 @@ describe('files tab', () => {
       .getAllByRole('treeitem')
       .map((r) => r.dataset.name)
     expect(names).toEqual(['src', 'README.md'])
-    expect(within(row(/^src/)).getByTitle('未提交').textContent).toBe('M')
+    expect(within(row(/^src/)).getByTitle('未提交').textContent).toBe('•')
+    expect(within(row(/^src/)).getByLabelText('未提交')).toBeTruthy()
     expect(within(row(/README/)).queryByTitle('未提交')).toBeNull()
     expect(row(/README/).querySelector('svg[data-type="md"]')).toBeTruthy()
     expect(row(/^src/).querySelector('svg[data-type]')).toBeNull()
@@ -259,12 +272,48 @@ describe('files tab', () => {
     openFiles()
     await screen.findByRole('treeitem', { name: /README/ })
     fireEvent.change(files().getByRole('searchbox', { name: '搜索文件' }), { target: { value: 'main' } })
-    const hit = await files().findByRole('button', { name: /src\/main\.ts/ })
+    const hit = await files().findByRole('button', { name: /main\.ts/ })
+    expect(hit.title).toBe('src/main.ts')
     expect(calls).toContain('/api/groups/g1/candidates/files?q=main&botId=b1')
     expect(hit.querySelector('svg[data-type="code"]')).toBeTruthy()
     fireEvent.click(hit)
     expect(filesTab()).toMatchObject({ dir: 'src', selected: 'src/main.ts' })
     expect(await tree().findByRole('treeitem', { name: /main\.ts/ })).toBeTruthy()
+  })
+
+  it('shows each hit by its name with the folder after it, uncommitted ones with a dot', async () => {
+    openFiles()
+    await screen.findByRole('treeitem', { name: /README/ })
+    fireEvent.change(files().getByRole('searchbox', { name: '搜索文件' }), { target: { value: 'graph' } })
+    await files().findByRole('button', { name: /graph\.md/ })
+    const hits = [...document.querySelectorAll<HTMLElement>('.ft__row--hit')]
+    expect(hits.map((h) => h.querySelector('.ft__name')?.textContent)).toEqual([
+      'graph.ts',
+      'graph-utils.ts',
+      'graph.png',
+      'graph',
+      'graph.md',
+    ])
+    expect(hits.map((h) => h.querySelector('.ft__dir')?.textContent ?? null)).toEqual([
+      'apps/server/plugins/official/slides',
+      'apps/server/plugins/official/slides/lib',
+      'apps/server/plugins/official/slides/assets',
+      'apps/web/src',
+      null,
+    ])
+    expect(hits.map((h) => h.title)).toEqual(GRAPH_HITS.map((p) => p.replace(/\/$/, '')))
+    expect(hits.map((h) => h.querySelector('.ft__mark')?.textContent ?? null)).toEqual([
+      '•',
+      '•',
+      '•',
+      null,
+      null,
+    ])
+    expect(
+      within(hits[2] as HTMLElement)
+        .getByLabelText('未提交')
+        .getAttribute('title'),
+    ).toBe('未提交')
   })
 
   it('opens the viewed file in its own tab', async () => {

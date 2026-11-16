@@ -901,7 +901,25 @@
   font-family: var(--font-mono);
   font-size: var(--text-caption-size);
   font-weight: 600;
-  color: var(--system-orange);
+  color: var(--tint-orange-text);
+}
+/* Search hits: the name first, then its folder in grey, cut from the start so the part next to the file stays. */
+.ft__row--hit .ft__name {
+  flex: 0 1 auto;
+}
+.ft__dir {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  font-size: var(--text-caption-size);
+  color: var(--label-tertiary);
+}
+.ft__row[aria-selected="true"] .ft__dir {
+  color: inherit;
 }
 /* File-type icons keep their colour except on the accent selection, where they turn white. */
 .ft__row[aria-selected="true"] > svg[data-type] {
