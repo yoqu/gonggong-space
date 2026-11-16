@@ -82,6 +82,7 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
           view={view}
           onView={setView}
           onAddProvider={() => setEditor({ editing: null })}
+          onAgents={tools.reload}
           bots={bots}
         />
       }

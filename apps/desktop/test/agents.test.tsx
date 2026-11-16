@@ -55,6 +55,48 @@ describe('Agent page', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: '可安装' })).toBeNull())
   })
 
+  it('shows the login and adapter, and picks or resets the path on this machine', async () => {
+    m.agentLocal.mockResolvedValue({
+      customPath: true,
+      login: '已登录 · Claude Max',
+      adapterVersion: '0.81.0',
+    })
+    m.pickAgentPath.mockResolvedValue(true)
+    render(<AgentsPage go={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Claude Code/ }))
+    expect(await row('Claude Code').findByText('已登录 · Claude Max')).toBeTruthy()
+    expect(m.agentLocal).toHaveBeenCalledWith('claude')
+    expect(row('Claude Code').getByText('共工内置适配器 0.81.0')).toBeTruthy()
+    fireEvent.click(row('Claude Code').getByRole('button', { name: '更换路径…' }))
+    await waitFor(() => expect(m.pickAgentPath).toHaveBeenCalledWith('claude'))
+    await waitFor(() => expect(m.tools).toHaveBeenCalledTimes(2))
+    fireEvent.click(row('Claude Code').getByRole('button', { name: '恢复自动检测' }))
+    await waitFor(() => expect(m.resetAgentPath).toHaveBeenCalledWith('claude'))
+    await waitFor(() => expect(m.tools).toHaveBeenCalledTimes(3))
+  })
+
+  it('asks before switching a default that sessions still use, naming their groups and bots', async () => {
+    m.providers.mockResolvedValue({
+      view: {
+        ...VIEW,
+        providers: [provider({ id: 'k1', name: 'Kimi' })],
+        sessions: [{ groupId: 'g1', botId: 'b1', agent: 'claude', provider: 'official' }],
+      },
+    })
+    m.groupNames.mockResolvedValue({ g1: '支付服务重构' })
+    render(<AgentsPage go={() => {}} />)
+    fireEvent.click(await screen.findByRole('button', { name: /^Claude Code/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '供应商/模型' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Kimi/ }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('支付服务重构（小王的 Claude）')).toBeTruthy()
+    expect(m.providers).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'use' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '切换' }))
+    await waitFor(() =>
+      expect(m.providers).toHaveBeenCalledWith({ action: 'use', agent: 'claude', choice: 'k1', model: null }),
+    )
+  })
+
   it('shows a failed install’s message in its log', async () => {
     m.runTool.mockRejectedValue('本机已有工具安装或升级在进行中，请稍后再试')
     render(<AgentsPage go={() => {}} />)

@@ -12,6 +12,8 @@ const EN: &[(&str, &str)] = &[
     ("托管 {managed} · 本机目录 {cd} · {size}", "Managed {managed} · local directories {cd} · {size}"),
     ("本机执行端没有响应", "The local daemon did not answer"),
     ("选择配置目录", "Choose the configuration directory"),
+    ("找不到 {path}", "Not found: {path}"),
+    ("选择 {agent} 可执行文件", "Choose the {agent} executable"),
 ];
 
 pub fn text(zh: &'static str) -> &'static str {

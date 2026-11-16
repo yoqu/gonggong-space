@@ -69,4 +69,23 @@ export interface AgentsSource {
   renderLogin?(p: { agent: AgentKind; onClose: () => void; onAddProvider: () => void }): ReactNode
   /** Opens a bot of 使用它的 Bot; absent = names only. */
   openBot?(id: string): void
+  /** What only the machine itself tells about an agent (the desktop app); absent = not shown. */
+  agentLocal?(kind: AgentKind): Promise<AgentLocal>
+  /** 更换路径… / 手动指定路径…: picks the CLI by hand; false when cancelled. Absent = no such buttons. */
+  pickPath?(kind: AgentKind): Promise<boolean>
+  /** 恢复自动检测 of a path picked by hand. */
+  resetPath?(kind: AgentKind): Promise<void>
+  /** Names of the groups of the sessions a switch leaves behind; absent = the web workspace's groups. */
+  groupNames?(): Promise<Record<string, string>>
+  /** Ask before a default switch leaves sessions on the old provider (else switch, then say so). */
+  confirmSwitch?: boolean
+}
+
+export interface AgentLocal {
+  /** The path was picked by hand rather than detected. */
+  customPath: boolean
+  /** 登录 as the CLI reports it (`已登录 · Claude Max`); null = unknown. */
+  login: string | null
+  /** The bundled ACP adapter's version; null when the CLI speaks ACP itself. */
+  adapterVersion: string | null
 }

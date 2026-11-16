@@ -32,6 +32,7 @@ import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Update } from '@tauri-apps/plugin-updater'
+import type { AgentLocal } from '@web/features/agents/source'
 
 export type { Mirror, Update }
 
@@ -317,6 +318,14 @@ export const ipc = {
   claudeDirs: () => invoke<string[]>('claude_dirs'),
   /** The system folder dialog; null when cancelled. */
   pickDir: (start: string | null) => invoke<string | null>('pick_dir', { start }),
+  /** The agent's path picked by hand, its CLI's login and the bundled adapter's version. */
+  agentLocal: (kind: AgentKind) => invoke<AgentLocal>('agent_local', { kind }),
+  /** 更换路径… with the system file dialog; false when cancelled. */
+  pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
+  /** 恢复自动检测. */
+  resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),
+  /** Names of the groups of this machine's bots by id; empty when the server is unreachable. */
+  groupNames: () => invoke<Record<string, string>>('group_names'),
   bots: () => invoke<MachineBot[]>('bots'),
   /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
   openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),

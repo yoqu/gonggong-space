@@ -51,6 +51,9 @@ export function useAgentTools(source: AgentsSource) {
     }
   }
 
+  /** Detects again, e.g. after a path was picked by hand. */
+  const reload = async () => setState(await source.loadAgents())
+
   /** Upgrades `kinds` one after another; stops at the first that fails, leaving its log open. */
   const upgradeAll = async (kinds: AgentKind[]) => {
     for (const [i, kind] of kinds.entries()) {
@@ -60,5 +63,5 @@ export function useAgentTools(source: AgentsSource) {
     setBatch(null)
   }
 
-  return { state, error, op, batch, busy: !!op?.running || !!batch, run, upgradeAll }
+  return { state, error, op, batch, busy: !!op?.running || !!batch, run, upgradeAll, reload }
 }

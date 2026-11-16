@@ -53,11 +53,19 @@ function applied(
   return { ...view, bots: choice === INHERIT_PROVIDER ? bots : { ...bots, [botId]: choice } }
 }
 
+/** Names of groups and bots the web workspace does not know (the desktop app's), taking precedence. */
+export interface SessionNames {
+  groups?: Record<string, string>
+  bots?: { id: string; name: string }[]
+}
+
 /** `前端组（小王的 Claude）`, from what this member can see. */
-const sessionLabel = (s: Session) => {
+const sessionLabel = (s: Session, names: SessionNames = {}) => {
   const { groups, bots } = useWorkspace.getState()
-  const group = groups.find((g) => g.id === s.groupId)?.name ?? t('其他群')
-  return t('{group}（{bot}）', { group, bot: bots.find((b) => b.id === s.botId)?.name ?? 'Bot' })
+  const group = names.groups?.[s.groupId] ?? groups.find((g) => g.id === s.groupId)?.name ?? t('其他群')
+  const bot =
+    names.bots?.find((b) => b.id === s.botId)?.name ?? bots.find((b) => b.id === s.botId)?.name ?? 'Bot'
+  return t('{group}（{bot}）', { group, bot })
 }
 
 export interface SessionLine {
@@ -71,7 +79,11 @@ export interface SessionLine {
  * Sessions a change leaves on their pinned provider while new ones would switch (§4.3), one line per (X, Y):
  * 「N 个群的会话仍在使用 X，开启新会话后才会切换到 Y」.
  */
-export function switchLines(view: ProviderStoreView, change: ProviderChange): SessionLine[] {
+export function switchLines(
+  view: ProviderStoreView,
+  change: ProviderChange,
+  names?: SessionNames,
+): SessionLine[] {
   const after = applied(view, change)
   const by = new Map<string, Session[]>()
   for (const s of view.sessions) {
@@ -93,7 +105,7 @@ export function switchLines(view: ProviderStoreView, change: ProviderChange): Se
         from: providerName(view, from),
         to: providerName(after, to),
       }),
-      groups: list.map(sessionLabel),
+      groups: list.map((x) => sessionLabel(x, names)),
       groupIds: list.map((x) => x.groupId),
     }
   })
@@ -109,7 +121,7 @@ export function removalLines(view: ProviderStoreView, id: string): SessionLine[]
         n: list.length,
         name: providerName(view, id),
       }),
-      groups: list.map(sessionLabel),
+      groups: list.map((x) => sessionLabel(x)),
       groupIds: list.map((x) => x.groupId),
     },
   ]
@@ -138,8 +150,8 @@ export function useProviderSwitch(apply: (change: ProviderChange) => Promise<voi
   )
   const [open, setOpen] = useState(false)
 
-  const request = (change: ProviderChange, view: ProviderStoreView) => {
-    const lines = switchLines(view, change)
+  const request = (change: ProviderChange, view: ProviderStoreView, names?: SessionNames) => {
+    const lines = switchLines(view, change, names)
     if (!lines.length) return void apply(change)
     const to = providerName(
       view,
