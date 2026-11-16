@@ -435,7 +435,7 @@
   function panel(html) {
     var old = bar.querySelector('.ggt-panel');
     if (old) old.remove();
-    if (!html) return null;
+    if (html == null) return null;
     var p = el('div', 'ggt-panel', html);
     bar.appendChild(p);
     return p;

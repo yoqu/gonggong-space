@@ -205,6 +205,14 @@ async function check(page, base, e) {
     await page.keyboard.type('【改过】')
     await page.keyboard.press('Escape')
     ok(await page.evaluate(() => !document.querySelector('[contenteditable]')), 'Esc ends the text edit')
+    await page.click('[data-ggt="edit"] .theme')
+    const tuned = await page.evaluate(() => {
+      const input = document.querySelector('.ggt-panel input[type=color]')
+      if (!input) return false
+      input.value = '#12ab34'
+      input.dispatchEvent(new Event('input'))
+      return true
+    })
     const [dl] = await Promise.all([
       page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
       page.click('[data-ggt="edit"] .save'),
@@ -218,6 +226,7 @@ async function check(page, base, e) {
       saved.includes('deck-toolkit.js') && !saved.includes('data-ggt-edit'),
       'saved copy is the clean source',
     )
+    ok(!tuned || saved.includes('#12ab34!important'), 'saved copy carries the theme colour')
   }
   await page.keyboard.press('Escape')
   ok(!(await layer('edit')), 'Esc leaves edit mode')
