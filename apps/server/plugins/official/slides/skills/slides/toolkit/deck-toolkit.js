@@ -164,6 +164,16 @@
     'html.ggt-nocursor,html.ggt-nocursor *{cursor:none!important}',
     '.ggt-badge{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;background:rgba(28,28,30,.92);',
     'border-radius:10px;padding:8px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}',
+    '.ggt-bar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483646;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px);',
+    'background:rgba(28,28,30,.94);border-radius:12px;padding:8px 10px 8px 14px;box-shadow:0 10px 36px rgba(0,0,0,.35)}',
+    '.ggt-bar button{all:unset;cursor:pointer;background:#3a3a3c;color:#fff;border-radius:7px;padding:5px 11px;font-size:13px}.ggt-bar button:hover{background:#48484a}',
+    '.ggt-bar .pri{background:#0a84ff}.ggt-bar .pri:hover{background:#2491ff}',
+    '.ggt-bar input{all:unset;background:#fff;color:#111;border-radius:6px;padding:4px 8px;width:140px;font-size:13px}',
+    '.ggt-bar input[type=color]{all:revert;width:34px;height:24px;padding:0;border:0;background:none;vertical-align:middle}',
+    '.ggt-bar .msg{color:#c7c7cc;font-size:12px}.ggt-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;border-top:1px solid rgba(255,255,255,.1);padding-top:8px}',
+    '.ggt-panel label{display:flex;gap:4px;align-items:center;font:12px ui-monospace,Menlo,monospace;color:#e5e5ea}',
+    'html.ggt-editing [data-ggt-p=slide] *:hover{outline:1px dashed rgba(10,132,255,.7);outline-offset:2px;cursor:text}',
+    '[data-ggt-edit]{outline:2px solid #0a84ff!important;outline-offset:2px}',
     // Print: every slide on its own 1920×1080 page, whatever the template's paging model (see markPrint).
     '@media print{@page{size:1920px 1080px;margin:0}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}',
     'html,body{width:1920px!important;height:auto!important;min-height:0!important;overflow:visible!important;transform:none!important}body{display:block!important}',
@@ -191,7 +201,7 @@
 
   var KEYS = [
     ['翻页', ['←', '→']], ['跳到第 N 页', ['数字', 'Enter']], ['总览', ['O']], ['演讲者窗口', ['S']],
-    ['激光笔', ['L']], ['画笔（C 清除本页）', ['D']], ['黑屏 / 白屏', ['B', 'W']], ['关闭 / 退出', ['Esc']], ['快捷键', ['?']]
+    ['激光笔', ['L']], ['画笔（C 清除本页）', ['D']], ['黑屏 / 白屏', ['B', 'W']], ['编辑文字、替换、主题色', ['E']], ['关闭 / 退出', ['Esc']], ['快捷键', ['?']]
   ];
   function help() {
     var card = el('div', 'ggt-card');
@@ -337,6 +347,210 @@
     if (inkOn) toggleLaser(false);
   }
 
+  /* edit (E): click text to change it, replace across slides, theme colours, save a copy */
+  var editing = false, bar = null, edits = [], colors = {};
+  function textNodes(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), out = [];
+    while (w.nextNode()) {
+      var n = w.currentNode, p = n.parentElement;
+      if (n.nodeValue.trim() && p && !p.closest('script,style,.notes,.speaker-notes,[data-ggt]')) out.push(n);
+    }
+    return out;
+  }
+  function slideOf(node) {
+    var list = slides();
+    for (var i = 0; i < list.length; i++) if (list[i].contains(node)) return i;
+    return -1;
+  }
+  function say(t) { if (bar) bar.querySelector('.msg').textContent = t; }
+  function startEdit(el, at) {
+    var before = textNodes(el).map(function (n) { return n.nodeValue; });
+    var whole = el.textContent;
+    el.setAttribute('data-ggt-edit', '');
+    el.setAttribute('contenteditable', 'true');
+    el.focus({ preventScroll: true });
+    var done = function () {
+      el.removeEventListener('blur', done);
+      el.removeEventListener('keydown', keys);
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('data-ggt-edit');
+      var after = textNodes(el);
+      if (after.length === before.length) {
+        after.forEach(function (n, i) { if (n.nodeValue !== before[i]) edits.push({ slide: at, from: before[i], to: n.nodeValue }); });
+      } else if (el.textContent !== whole) edits.push({ slide: at, from: whole, to: el.textContent, whole: true });
+      say(edits.length ? '已改 ' + edits.length + ' 处，记得「保存副本」' : '点页面上的文字直接改');
+    };
+    var keys = function (e) {
+      if (e.key === 'Escape' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); el.blur(); }
+      e.stopPropagation();
+    };
+    el.addEventListener('blur', done);
+    el.addEventListener('keydown', keys);
+  }
+  function editClick(e) {
+    if (!editing || e.target.closest && e.target.closest('[data-ggt]')) return;
+    var at = slideOf(e.target);
+    if (at < 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type !== 'click') return;
+    var el = e.target;
+    var own = Array.prototype.some.call(el.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); });
+    if (own && !el.isContentEditable) startEdit(el, at);
+  }
+  ['click', 'mousedown', 'pointerdown', 'touchstart'].forEach(function (t) { document.addEventListener(t, editClick, true); });
+
+  function themeVars() {
+    var roots = [document.documentElement, document.body], out = {};
+    Array.prototype.forEach.call(document.styleSheets, function (sh) {
+      var rules;
+      try { rules = sh.cssRules; } catch (_) { return; }
+      Array.prototype.forEach.call(rules || [], function (r) {
+        if (!r.style || !r.selectorText) return;
+        var hit = roots.some(function (el) { try { return el && el.matches(r.selectorText); } catch (_) { return false; } });
+        if (!hit) return;
+        for (var i = 0; i < r.style.length; i++) {
+          var name = r.style[i];
+          if (name.indexOf('--') === 0 && /^\s*(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(r.style.getPropertyValue(name))) out[name] = 1;
+        }
+      });
+    });
+    return Object.keys(out);
+  }
+  function hex(v) {
+    var c = document.createElement('canvas').getContext('2d');
+    if (!c) return '#000000';
+    c.fillStyle = '#000';
+    c.fillStyle = v;
+    var x = c.fillStyle;
+    if (x[0] === '#') return x;
+    var m = /(\d+),\s*(\d+),\s*(\d+)/.exec(x);
+    return m ? '#' + [m[1], m[2], m[3]].map(function (d) { return ('0' + (+d).toString(16)).slice(-2); }).join('') : '#000000';
+  }
+  function setColor(name, v) {
+    colors[name] = v;
+    document.documentElement.style.setProperty(name, v);
+    document.body.style.setProperty(name, v);
+  }
+  function panel(html) {
+    var old = bar.querySelector('.ggt-panel');
+    if (old) old.remove();
+    if (!html) return null;
+    var p = el('div', 'ggt-panel', html);
+    bar.appendChild(p);
+    return p;
+  }
+  function replacePanel() {
+    var p = panel('<input class="q" placeholder="查找"><input class="r" placeholder="替换为"><button class="pri go">全部替换</button>');
+    var q = p.querySelector('.q');
+    q.focus();
+    p.querySelector('.go').onclick = function () {
+      var from = q.value, to = p.querySelector('.r').value, n = 0;
+      if (!from) return;
+      slides().forEach(function (sl) {
+        textNodes(sl).forEach(function (t) {
+          var parts = t.nodeValue.split(from);
+          if (parts.length > 1) { n += parts.length - 1; t.nodeValue = parts.join(to); }
+        });
+      });
+      if (n) edits.push({ all: true, from: from, to: to });
+      say(n ? '替换了 ' + n + ' 处' : '没找到「' + from + '」');
+    };
+  }
+  function themePanel() {
+    var names = themeVars();
+    if (!names.length) { panel(null); say('这套模板没有可调的颜色变量'); return; }
+    var p = panel('');
+    var cs = getComputedStyle(document.body);
+    names.forEach(function (name) {
+      var l = el('label');
+      l.textContent = name.slice(2);
+      var input = document.createElement('input');
+      input.type = 'color';
+      input.value = hex(colors[name] || cs.getPropertyValue(name).trim());
+      input.oninput = function () { setColor(name, input.value); };
+      l.appendChild(input);
+      p.appendChild(l);
+    });
+  }
+  function docSlides(doc) {
+    var s = Array.from(doc.querySelectorAll('[data-section]'));
+    if (s.length < 2) s = Array.from(doc.querySelectorAll('.slide'));
+    return topLevel(s);
+  }
+  function applyEdits(doc) {
+    var list = docSlides(doc), missed = 0;
+    edits.forEach(function (ed) {
+      var scope = ed.all ? list : [list[ed.slide]];
+      scope.forEach(function (sl) {
+        if (!sl) { missed++; return; }
+        if (ed.all) {
+          textNodes(sl).forEach(function (t) { t.nodeValue = t.nodeValue.split(ed.from).join(ed.to); });
+        } else if (ed.whole) {
+          var hit = Array.from(sl.querySelectorAll('*')).reverse().find(function (e) { return e.textContent === ed.from; });
+          if (hit) hit.textContent = ed.to; else missed++;
+        } else {
+          var t = textNodes(sl).find(function (n) { return n.nodeValue === ed.from; }) ||
+            textNodes(sl).find(function (n) { return n.nodeValue.trim() === ed.from.trim(); });
+          if (t) t.nodeValue = ed.to; else missed++;
+        }
+      });
+    });
+    var names = Object.keys(colors);
+    var old = doc.getElementById('ggt-theme');
+    if (old) old.remove();
+    if (names.length) {
+      var st = doc.createElement('style');
+      st.id = 'ggt-theme';
+      st.textContent = 'html,body{' + names.map(function (n) { return n + ':' + colors[n] + '!important'; }).join(';') + '}';
+      doc.head.appendChild(st);
+    }
+    return missed;
+  }
+  function download(html) {
+    var a = document.createElement('a');
+    var name = (decodeURIComponent(location.pathname.split('/').pop() || 'index.html')).replace(/\.html?$/i, '');
+    a.download = name + '-edited.html';
+    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+  function save() {
+    var url = location.href.split('#')[0];
+    fetch(url).then(function (r) { if (!r.ok) throw new Error(); return r.text(); }).then(function (src) {
+      var doc = new DOMParser().parseFromString(src, 'text/html');
+      var missed = applyEdits(doc);
+      download('<!doctype html>\n' + doc.documentElement.outerHTML);
+      say(missed ? '已保存副本；' + missed + ' 处改动没对上原文件，请检查' : '已保存副本（放回原文件夹替换 index.html 即可）');
+    }).catch(function () {
+      say('读不到原文件（本地直接打开时浏览器不允许），请在预览链接里保存');
+    });
+  }
+  function toggleEdit(on) {
+    editing = on === undefined ? !editing : on;
+    document.documentElement.classList.toggle('ggt-editing', editing);
+    if (!editing) {
+      var cur = document.querySelector('[data-ggt-edit]');
+      if (cur) cur.blur();
+      if (bar) bar.remove();
+      bar = null;
+      return;
+    }
+    markPrint();
+    toggleLaser(false);
+    if (ink) togglePen(false);
+    bar = el('div', 'ggt ggt-bar', '<span class="msg">点页面上的文字直接改</span><button class="rep">替换</button><button class="theme">主题色</button><button class="pri save">保存副本</button><button class="exit">退出编辑</button>');
+    bar.setAttribute('data-ggt', 'edit');
+    bar.querySelector('.rep').onclick = replacePanel;
+    bar.querySelector('.theme').onclick = themePanel;
+    bar.querySelector('.save').onclick = save;
+    bar.querySelector('.exit').onclick = function () { toggleEdit(false); };
+    quiet(bar);
+    document.body.appendChild(bar);
+  }
+
   /* jump: digits then Enter */
   var jump = '', jumpBadge = null, jumpTimer = 0;
   function setJump(v) {
@@ -458,7 +672,8 @@
       sl.removeAttribute('data-ggt-printcls');
     });
     // Some templates follow the class change and jump; put the deck back where printing started.
-    go(printAt);
+    setTimeout(function () { if (index() !== printAt) go(printAt); }, 0);
+    setTimeout(function () { if (index() !== printAt) go(printAt); }, 300);
   });
   ready(markPrint);
 
@@ -487,7 +702,7 @@
     if (jump && k === 'Enter') { own(e); var n = parseInt(jump, 10); setJump(''); closeAll(); go(n - 1); return; }
     if (jump && k === 'Backspace') { own(e); setJump(jump.slice(0, -1)); return; }
     if (k === 'Escape') {
-      if (jump || open || laser || inkOn) { own(e); setJump(''); closeAll(); toggleLaser(false); if (ink) togglePen(false); }
+      if (jump || open || laser || inkOn || editing) { own(e); setJump(''); closeAll(); toggleLaser(false); if (ink) togglePen(false); toggleEdit(false); }
       return;
     }
     var low = k.length === 1 ? k.toLowerCase() : k;
@@ -499,6 +714,7 @@
     else if (low === 'c' && inkOn) { own(e); strokes[index()] = []; paint(); }
     else if (low === 'b') { own(e); screen('black'); }
     else if (low === 'w') { own(e); screen('white'); }
+    else if (low === 'e') { own(e); toggleEdit(); }
     else if (open && kind !== 'help') own(e);
     else if (open) closeAll();
   }, true);

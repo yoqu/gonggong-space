@@ -13,7 +13,7 @@
 <div class="deck">
 
   <!-- 1. Cover -->
-  <section class="slide" data-title="Cover">
+  <section class="slide" data-title="Cover" data-section="cover">
     <p class="kicker">tech-sharing / 2026-04-15</p>
     <h1 class="h1 anim-fade-up" data-anim="fade-up">Rust 异步运行时<br>到底在<span style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">调度什么</span>?</h1>
     <p class="lede mt-m">从 <span class="mono">Future::poll</span> 到 tokio 的 work-stealing，一次讲清楚。</p>
@@ -22,7 +22,7 @@
   </section>
 
   <!-- 2. Agenda -->
-  <section class="slide" data-title="Agenda">
+  <section class="slide" data-title="Agenda" data-section="agenda">
     <p class="kicker">agenda.toml</p>
     <h2 class="h2">今天的路线图</h2>
     <div class="stack mt-l">
@@ -35,7 +35,7 @@
   </section>
 
   <!-- 3. Context -->
-  <section class="slide" data-title="Context">
+  <section class="slide" data-title="Context" data-section="context">
     <p class="kicker">// context</p>
     <h2 class="h2">问题：一个线程一个连接，<br>撑不住 10 万并发。</h2>
     <div class="grid g3 mt-l">
@@ -46,7 +46,7 @@
   </section>
 
   <!-- 4. Deep dive 1 -->
-  <section class="slide" data-title="Deep Dive 1">
+  <section class="slide" data-title="Deep Dive 1" data-section="deep-dive-1">
     <p class="kicker">deep-dive · 1 / 2</p>
     <h2 class="h2">Future 其实只有一个方法。</h2>
     <div class="grid g2 mt-l" style="align-items:start">
@@ -73,7 +73,7 @@
   </section>
 
   <!-- 5. Deep dive 2 -->
-  <section class="slide" data-title="Deep Dive 2">
+  <section class="slide" data-title="Deep Dive 2" data-section="deep-dive-2">
     <p class="kicker">deep-dive · 2 / 2</p>
     <h2 class="h2">Tokio 是一个偷任务的小工。</h2>
     <div class="grid g2 mt-l" style="align-items:start">
@@ -100,7 +100,7 @@
   </section>
 
   <!-- 6. Code example -->
-  <section class="slide" data-title="Code">
+  <section class="slide" data-title="Code" data-section="code">
     <p class="kicker">mini-runtime.rs · ~40 LOC</p>
     <h2 class="h2">手写一个最小 runtime。</h2>
     <div class="terminal mt-m">
@@ -128,7 +128,7 @@
   </section>
 
   <!-- 7. Takeaways -->
-  <section class="slide" data-title="Takeaways">
+  <section class="slide" data-title="Takeaways" data-section="takeaways">
     <p class="kicker">// takeaways</p>
     <h2 class="h2">三件事带回去。</h2>
     <div class="grid g3 mt-l">
@@ -140,7 +140,7 @@
   </section>
 
   <!-- 8. Q&A -->
-  <section class="slide center tc" data-title="Q and A">
+  <section class="slide center tc" data-title="Q and A" data-section="q-and-a">
     <div>
       <div class="mono" style="font-size:120px;color:var(--accent);font-weight:800;letter-spacing:-.04em">?</div>
       <h2 class="h2">Questions?</h2>

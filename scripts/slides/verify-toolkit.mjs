@@ -170,6 +170,58 @@ async function check(page, base, e) {
     ok(!(await layer(kind)) && (await idx()) === before, `any key leaves ${kind} without paging`)
   }
 
+  await page.evaluate(() => window.deckToolkit.go(0))
+  await until(async () => (await idx()) === 0)
+  await sleep(600)
+  await page.keyboard.press('e')
+  ok(await layer('edit'), 'E opens the edit bar')
+  const spot = await page.evaluate(async () => {
+    const source = await fetch(location.href.split('#')[0]).then((r) => r.text())
+    const sl = window.deckToolkit.slides()[window.deckToolkit.index()]
+    const order = ['h1', 'h2', 'h3', 'p', 'li', 'td', 'span', 'div'].flatMap((t) => [
+      ...sl.querySelectorAll(t),
+    ])
+    for (const el of order) {
+      const tag = el.outerHTML.slice(0, el.outerHTML.indexOf('>') + 1)
+      if (!source.includes(tag)) continue
+      const own = [...el.childNodes].some(
+        (n) => n.nodeType === 3 && n.nodeValue.trim().length > 1 && source.includes(n.nodeValue.trim()),
+      )
+      const r = el.getBoundingClientRect()
+      const cs = getComputedStyle(el)
+      if (!own || r.width < 20 || r.height < 8 || cs.visibility === 'hidden' || +cs.opacity < 0.5) continue
+      const x = r.left + Math.min(10, r.width / 2)
+      const y = r.top + r.height / 2
+      const hit = document.elementFromPoint(x, y)
+      if (hit === el) return { x, y, html: el.outerHTML.slice(0, 120) }
+    }
+    return null
+  })
+  ok(spot, 'finds editable text on the slide')
+  if (spot) {
+    await page.mouse.click(spot.x, spot.y)
+    ok(await page.evaluate(() => !!document.querySelector('[data-ggt-edit]')), 'clicking text starts editing')
+    await page.keyboard.press('End')
+    await page.keyboard.type('【改过】')
+    await page.keyboard.press('Escape')
+    ok(await page.evaluate(() => !document.querySelector('[contenteditable]')), 'Esc ends the text edit')
+    const [dl] = await Promise.all([
+      page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
+      page.click('[data-ggt="edit"] .save'),
+    ])
+    const saved = dl ? readFileSync(await dl.path(), 'utf8') : ''
+    ok(
+      saved.includes('【改过】'),
+      `saved copy carries the edit (${spot.html} · ${await page.textContent('[data-ggt="edit"] .msg')})`,
+    )
+    ok(
+      saved.includes('deck-toolkit.js') && !saved.includes('data-ggt-edit'),
+      'saved copy is the clean source',
+    )
+  }
+  await page.keyboard.press('Escape')
+  ok(!(await layer('edit')), 'Esc leaves edit mode')
+
   const beforePrint = await idx()
   const pdf = await page.pdf({
     width: '1920px',
@@ -179,7 +231,10 @@ async function check(page, base, e) {
   })
   const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length
   ok(pages === total, `prints one page per slide (${pages}/${total})`)
-  ok(await until(async () => (await idx()) === beforePrint), 'printing keeps the current slide')
+  ok(
+    await until(async () => (await idx()) === beforePrint),
+    `printing keeps the current slide (${beforePrint} → ${await idx()})`,
+  )
 
   await page.evaluate(() => {
     const i = document.createElement('input')

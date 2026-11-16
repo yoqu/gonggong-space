@@ -1,6 +1,6 @@
 {
   "name": "slides",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "title": "幻灯片",
   "description": "战略汇报、融资路演、产品发布、技术分享、周报、课件与社媒卡片，按模板自带的视觉体系生成可翻页的单文件 HTML 幻灯片，写到工作区 design/<slug>/ 并发布预览。",
   "category": "deck",

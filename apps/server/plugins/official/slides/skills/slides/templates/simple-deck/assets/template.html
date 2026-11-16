@@ -2,7 +2,7 @@
 <!--
   simple-deck seed.
 
-  Single-file horizontal-swipe HTML deck. Each `<section class="slide">`
+  Single-file horizontal-swipe HTML deck. Each `<section class="slide" data-section="slide-1">`
   is one slide; the body uses CSS scroll-snap to lock to slide boundaries.
   Keyboard nav (← / → / Space / Home / End) is wired in via the script at
   the bottom — DO NOT replace it, it solves five iframe-specific problems
@@ -246,7 +246,7 @@
   <!--
     ┌─────────────────────────────────────────────────────────────────┐
     │  PASTE SLIDES FROM references/layouts.md HERE.                 │
-    │  ► Each `<section class="slide">` must include a class from:    │
+    │  ► Each `<section class="slide" data-section="slide-2">` must include a class from:    │
     │    light | dark | hero light | hero dark                        │
     │  ► No 3+ same-theme in a row.                                   │
     │  ► For 8+ slides: ≥ 1 `hero dark` AND ≥ 1 `hero light`.         │
@@ -254,19 +254,19 @@
     └─────────────────────────────────────────────────────────────────┘
   -->
 
-  <section class="slide hero light center" data-screen-label="01 Cover">
+  <section class="slide hero light center" data-screen-label="01 Cover" data-section="hero">
     <div class="eyebrow">[REPLACE] Eyebrow · context · date</div>
     <h1 class="h-hero">[REPLACE] One sharp sentence.</h1>
     <p class="lead">[REPLACE] One subhead — concrete, not corporate.</p>
   </section>
 
-  <section class="slide light" data-screen-label="02 Body">
+  <section class="slide light" data-screen-label="02 Body" data-section="slide-4">
     <p class="eyebrow">[REPLACE] Section eyebrow</p>
     <h2 class="h-xl">[REPLACE] Body slide headline.</h2>
     <p class="lead">[REPLACE] Two sentences explaining the idea — no more.</p>
   </section>
 
-  <section class="slide hero dark center" data-screen-label="03 Closing">
+  <section class="slide hero dark center" data-screen-label="03 Closing" data-section="hero-5">
     <div class="eyebrow">[REPLACE] Eyebrow</div>
     <h2 class="h-hero">[REPLACE] The take-away.</h2>
   </section>

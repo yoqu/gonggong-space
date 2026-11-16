@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   GgArtifactManifest,
@@ -497,6 +498,39 @@ describe('official plugin slides', () => {
     expect(skill).toContain('window.deck = { slides, index, go(i) }')
   })
 
+  it('check-deck passes every example and catches broken decks', async () => {
+    const { checkDeck } = (await import(join(skillDir, 'toolkit/check-deck.mjs'))) as {
+      checkDeck: (f: string, o?: { allowOutside?: boolean }) => { slides: number; problems: string[] }
+    }
+    for (const t of manifest.templates) {
+      const f = join(skillDir, 'templates', t.id, 'example.html')
+      if (existsSync(f)) expect(checkDeck(f, { allowOutside: true }).problems, t.id).toEqual([])
+    }
+    const dir = mkdtempSync(join(tmpdir(), 'deck-'))
+    writeFileSync(join(dir, 'deck-toolkit.js'), '')
+    writeFileSync(
+      join(dir, 'index.html'),
+      `<html><head><script src="./deck-toolkit.js"></script></head><body>
+<section class="slide" data-section="cover"></section>
+<section class="slide" data-section="cover"></section>
+<div class="slide big"></div>
+<script type="application/json" id="speaker-notes">{"a":1}</script>
+<script>if (</script>
+<img src="./missing.png"><link href="../../outside.css">
+</body></html>`,
+    )
+    const { slides, problems } = checkDeck(join(dir, 'index.html'))
+    expect(slides).toBe(3)
+    expect(problems.map((p) => p.replace(/^line \d+: /, ''))).toEqual([
+      '#speaker-notes must be a JSON array, one entry per slide',
+      expect.stringContaining('inline script has a syntax error'),
+      'data-section "cover" repeats line 2',
+      'slide without data-section',
+      './missing.png does not exist',
+      '../../outside.css points outside the deck folder',
+    ])
+  })
+
   const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms))
   function openDeck(withAdapter = true) {
     const body = ['封面', '问题', '方案', '数据', '结论']
@@ -568,6 +602,19 @@ describe('official plugin slides', () => {
     expect(layer('white')).toBeNull()
     press('s')
     expect(opened).toEqual(['gg-deck-presenter'])
+  })
+
+  it('toolkit: E edits text in place and leaves with Esc', () => {
+    const { w, press, layer } = openDeck()
+    press('e')
+    expect(layer('edit')?.textContent).toContain('保存副本')
+    const h2 = w.document.querySelector('.slide h2') as HTMLElement
+    h2.dispatchEvent(new w.MouseEvent('click', { bubbles: true }))
+    expect(h2.isContentEditable || h2.getAttribute('contenteditable')).toBeTruthy()
+    h2.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(h2.getAttribute('contenteditable')).toBeNull()
+    press('Escape')
+    expect(layer('edit')).toBeNull()
   })
 
   it('toolkit: laser and pen toggle; keys pause while typing; idle Esc reaches the template', () => {
