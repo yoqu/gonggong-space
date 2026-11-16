@@ -32,6 +32,16 @@ describe('Agent page', () => {
     expect(m.providers).toHaveBeenCalledWith({ action: 'list' })
   })
 
+  it('opens Claude Code when the daemon leaves out empty agentSettings and cli', async () => {
+    m.agentFeatures.mockResolvedValue(['tools', 'providers', 'protocolProviders', 'agentSettings'])
+    const { agentSettings: _, cli: __, ...bare } = VIEW
+    m.providers.mockResolvedValue({ view: bare as typeof VIEW })
+    render(<AgentsPage go={() => {}} />)
+    await screen.findByRole('region', { name: '供应商' })
+    fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    expect(await screen.findByRole('region', { name: 'Claude Code Agent 设置' })).toBeTruthy()
+  })
+
   it('installs an agent with a live log, then shows the new state', async () => {
     let emit: (line: string) => void = () => {}
     vi.mocked(onToolProgress).mockImplementation(async (_id, cb) => {

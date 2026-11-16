@@ -1,4 +1,4 @@
-import type { ProviderSavedDto, ProviderStoreView } from '@gonggong/protocol'
+import { type ProviderSavedDto, ProviderStoreView } from '@gonggong/protocol'
 import type { AgentsSource } from '@web/features/agents/source'
 import { AgentLoginDialog } from '@web/features/machines/AgentLoginDialog'
 import { useEffect } from 'react'
@@ -11,9 +11,10 @@ const wrap = <T,>(p: Promise<T>): Promise<T> =>
     throw e instanceof Error ? e : new Error(String(e))
   })
 
-const view = (cmd: ProvidersCmd) => wrap(ipc.providers(cmd)).then((r) => r.view as ProviderStoreView)
+// The daemon leaves out empty maps (agentSettings, cli, official); the schema fills them in.
+const view = (cmd: ProvidersCmd) => wrap(ipc.providers(cmd)).then((r) => ProviderStoreView.parse(r.view))
 const saved = (cmd: ProvidersCmd) =>
-  wrap(ipc.providers(cmd)).then((r) => ({ id: r.id ?? '', view: r.view as ProviderStoreView }))
+  wrap(ipc.providers(cmd)).then((r) => ({ id: r.id ?? '', view: ProviderStoreView.parse(r.view) }))
 
 /** The system folder dialog, open while mounted. */
 function DirPicker({

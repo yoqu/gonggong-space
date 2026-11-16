@@ -1,4 +1,4 @@
-import { AGENT_META, type AgentState, type ProviderStoreView } from '@gonggong/protocol'
+import { AGENT_META, type AgentState, ProviderStoreView } from '@gonggong/protocol'
 import { choiceLabel, machineDefault } from '@web/features/agents/model'
 import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc, faceOf } from '@web/features/bots/avatars'
@@ -38,7 +38,9 @@ export function BotsPage({ go }: PageProps) {
   useEffect(() => {
     ipc.bots().then(setBots, fail)
     ipc.tools().then((s) => setAgents(s.agents), fail)
-    ipc.providers({ action: 'list' }).then((r) => setProviders(r.view ?? null), fail)
+    ipc
+      .providers({ action: 'list' })
+      .then((r) => setProviders(r.view ? ProviderStoreView.parse(r.view) : null), fail)
   }, [])
 
   return (
