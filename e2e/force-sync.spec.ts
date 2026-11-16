@@ -51,10 +51,7 @@ test('force sync: switch, distribute, concurrent edits, a held conflict, switch 
     })
     await bindManaged(page.request, group.id, [a.id, b.id])
     /** A file in the bot's managed clone. */
-    const file = (botId: string, name: string) => {
-      const dir = join(m.home, 'workspaces', group.id, botId)
-      return join(dir, readdirSync(dir)[0] ?? '', name)
-    }
+    const file = (botId: string, name: string) => join(m.workspace(group.id, botId) ?? '/nonexistent', name)
     const read = (botId: string, name: string) =>
       existsSync(file(botId, name)) ? readFileSync(file(botId, name), 'utf8') : null
     await page.goto(`/g/${group.id}`)
@@ -65,9 +62,9 @@ test('force sync: switch, distribute, concurrent edits, a held conflict, switch 
       await main.getByRole('button', { name: '群设置', exact: true }).click()
       await page
         .getByRole('complementary', { name: '群设置' })
-        .getByRole('button', { name: /同步模式/ })
+        .getByRole('button', { name: /^仓库与同步/ })
         .click()
-      const dialog = page.getByRole('dialog', { name: /群设置|同步模式/ })
+      const dialog = page.getByRole('dialog', { name: /仓库与同步/ })
       await dialog.getByRole('button', { name: '切换为强制同步' }).click()
       await expect(dialog.getByTestId(`plan-${b.id}`)).toContainText('对齐')
       await dialog.getByRole('button', { name: '基准 Bot' }).click()

@@ -33,7 +33,8 @@ test('workspace media opens in the file manager and reaches the chat, where it p
       repo: null,
     })
     await bindManaged(page.request, group.id, [bot.id])
-    const workspace = join(m.home, 'workspaces', group.id, bot.id, '_empty')
+    await expect.poll(() => m.workspace(group.id, bot.id), { timeout: 30_000 }).toBeTruthy()
+    const workspace = m.workspace(group.id, bot.id)!
     mkdirSync(workspace, { recursive: true })
     copyFileSync(PNG, join(workspace, 'shot.png'))
     copyFileSync(join(ROOT, 'e2e/fixtures/demo.mp4'), join(workspace, 'demo.mp4'))
@@ -63,6 +64,8 @@ test('workspace media opens in the file manager and reaches the chat, where it p
     expect(range.headers()['content-range']).toBe(`bytes 2-5/${video.size}`)
     expect(await range.body()).toHaveLength(4)
 
+    // The tile plays in place on a tap; only then does its corner offer the workbench.
+    await main.getByRole('button', { name: '播放 demo.mp4' }).click()
     await main.getByRole('button', { name: '在工作台查看 demo.mp4' }).click()
     const player = page.getByRole('region', { name: '工作台' }).locator('video')
     await expect(player).toHaveAttribute('src', `/api/attachments/${video.id}`)

@@ -51,7 +51,7 @@ test('a group admin adds a skill; Claude gets the plugin, Codex a git-excluded l
       await main.getByRole('button', { name: '群设置', exact: true }).click()
       await page
         .getByRole('complementary', { name: '群设置' })
-        .getByRole('button', { name: /同步模式/ })
+        .getByRole('button', { name: 'Skill', exact: true })
         .click()
       const settings = page.getByRole('dialog', { name: /Skill 下发/ })
       await settings.getByRole('button', { name: 'Skill', exact: true }).click()
@@ -164,7 +164,7 @@ test('a group admin has a bot create a skill through gonggong; settings and / li
       await main.getByRole('button', { name: '群设置', exact: true }).click()
       await page
         .getByRole('complementary', { name: '群设置' })
-        .getByRole('button', { name: /同步模式/ })
+        .getByRole('button', { name: 'Skill', exact: true })
         .click()
       const settings = page.getByRole('dialog', { name: /Skill 自助/ })
       await settings.getByRole('button', { name: 'Skill', exact: true }).click()
@@ -176,7 +176,7 @@ test('a group admin has a bot create a skill through gonggong; settings and / li
     await test.step('/ lists it', async () => {
       await box.fill('/release')
       const skills = page.getByRole('listbox', { name: '/ 命令' }).getByRole('group', { name: '团队 Skill' })
-      await expect(skills.getByRole('option', { name: /gonggong-team:release-notes/ })).toBeVisible()
+      await expect(skills.getByRole('option', { name: /^\/release-notes/ })).toBeVisible()
       await box.fill('')
     })
 
@@ -230,7 +230,7 @@ test('a group admin turns an inherited skill off for the group in settings, and 
       await page.goto(`/g/${groupId}`)
       await box.fill(`/${name}`)
       const skills = page.getByRole('listbox', { name: '/ 命令' }).getByRole('group', { name: '团队 Skill' })
-      return skills.getByRole('option', { name: new RegExp(`gonggong-team:${name}`) })
+      return skills.getByRole('option', { name: new RegExp(`^/${name}`) })
     }
     const runs = page.getByTestId('run-card')
     const turn = async (text: string, nth: number) => {
@@ -247,7 +247,7 @@ test('a group admin turns an inherited skill off for the group in settings, and 
       await page.getByRole('main').getByRole('button', { name: '群设置', exact: true }).click()
       await page
         .getByRole('complementary', { name: '群设置' })
-        .getByRole('button', { name: /同步模式/ })
+        .getByRole('button', { name: 'Skill', exact: true })
         .click()
       const settings = page.getByRole('dialog', { name: /继承关闭/ })
       await settings.getByRole('button', { name: 'Skill', exact: true }).click()

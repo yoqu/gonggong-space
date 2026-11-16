@@ -1,5 +1,13 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, type Page } from '@playwright/test'
@@ -53,6 +61,18 @@ export function machine(server = SERVER, extraEnv: Record<string, string> = {}) 
     stop: () => proc?.kill(),
     /** Resolves with the exit code once `gg run` terminates (e.g. after being revoked). */
     exited: () => exited,
+    /** The managed workspace of (group, bot) as the daemon placed it (`workspaces.json`); undefined until placed. */
+    workspace(groupId: string, botId: string): string | undefined {
+      try {
+        const placed = JSON.parse(readFileSync(join(home, 'workspaces.json'), 'utf8')) as Record<
+          string,
+          string
+        >
+        return Object.entries(placed).find(([k]) => k.startsWith(`${groupId}/${botId}/`))?.[1]
+      } catch {
+        return undefined
+      }
+    },
     /** Recursively finds a file by name under this machine's managed workspaces. */
     find(name: string): string | undefined {
       const walk = (dir: string): string | undefined => {
@@ -65,11 +85,14 @@ export function machine(server = SERVER, extraEnv: Record<string, string> = {}) 
           }
         }
       }
-      try {
-        return walk(join(home, 'workspaces'))
-      } catch {
-        return undefined
+      // Named layout (`<home>/named` under a test GONGGONG_HOME), then the id layout of older placements.
+      for (const root of ['named', 'workspaces']) {
+        try {
+          const hit = walk(join(home, root))
+          if (hit) return hit
+        } catch {}
       }
+      return undefined
     },
   }
 }

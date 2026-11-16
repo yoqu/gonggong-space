@@ -113,7 +113,7 @@ test('real shell: input/output, control bytes, page reconnect, ownership and pro
       'printf \'GG_REAL tty=%s cwd=%s\\n\' "$(test -t 0 && printf yes)" "$PWD"',
       'GG_REAL tty=yes',
     )
-    const cwd = realpathSync(join(m.home, 'workspaces', group.id, bot.id, '_empty'))
+    const cwd = realpathSync(m.workspace(group.id, bot.id)!)
     await expect(terminal.locator('.xterm-rows')).toContainText(`cwd=${cwd}`)
 
     await run(page, terminal, "printf 'GG_%s\\n' 'INTERRUPT_READY'; sleep 30", 'GG_INTERRUPT_READY')
