@@ -212,7 +212,6 @@ async fn republish(home: &Path, tx: &watch::Sender<Vec<AgentState>>) {
 /// again every PROBE_RETRY while it fails, e.g. until the agent is logged in), then publishes the detection again so
 /// the server gets the catalog.
 async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentState>>) {
-
     let mut rx = tx.subscribe();
     let mut done = HashSet::new();
     loop {
