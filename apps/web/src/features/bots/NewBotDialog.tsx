@@ -76,8 +76,8 @@ const NO_CONFIG: AgentConfig = { model: null, effort: null }
 const autoName = (owner: BotOwnerDto, agent: AgentKind) =>
   t('{owner}的 {agent}', { owner: owner.name, agent: AGENT_META[agent].name })
 
-function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = ''): Draft {
-  const m = machines[0]
+function draftFor(owner: BotOwnerDto, machines: MachineDto[], prompt = '', pickedId?: string): Draft {
+  const m = machines.find((x) => x.id === pickedId) ?? machines.find((x) => x.online) ?? machines[0]
   const agent = (m && AGENT_KINDS.find((k) => reportedAgent(m, k))) || 'claude'
   return {
     ownerId: owner.id,
@@ -244,10 +244,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         setOwners(sorted)
         const first = sorted[0]
         if (!first) return
-        const picked = first.machines.find((m) => m.id === machineId)
-        setDraft(
-          draftFor(first, picked ? [picked, ...first.machines.filter((m) => m !== picked)] : first.machines),
-        )
+        setDraft(draftFor(first, first.machines, '', machineId))
       })
       .catch(toastError)
   }, [me.id, machineId])

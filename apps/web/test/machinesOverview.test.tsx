@@ -147,4 +147,27 @@ describe('新建 Bot after binding', () => {
       true,
     )
   })
+
+  const checkedIn = async (machineId?: string) => {
+    mockApi({ 'GET /bots/owners': [{ id: 'u1', name: '王磊', machines: [box, mbp] }] })
+    render(
+      <MemoryRouter>
+        <NewBotDialog me={me} machineId={machineId} onClose={() => {}} />
+      </MemoryRouter>,
+    )
+    const machines = await screen.findByRole('radiogroup', { name: '执行机器' })
+    return (name: RegExp) => (within(machines).getByRole('radio', { name }) as HTMLInputElement).checked
+  }
+
+  it('defaults to the first online machine, not an offline one listed first', async () => {
+    const checked = await checkedIn()
+    expect(checked(/wanglei-mbp/)).toBe(true)
+    expect(checked(/old-box/)).toBe(false)
+  })
+
+  it('keeps an explicitly picked machine even when it is offline', async () => {
+    const checked = await checkedIn('m2')
+    expect(checked(/old-box/)).toBe(true)
+    expect(checked(/wanglei-mbp/)).toBe(false)
+  })
 })

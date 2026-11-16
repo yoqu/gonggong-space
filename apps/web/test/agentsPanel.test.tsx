@@ -268,6 +268,16 @@ describe('Agent page on any source', () => {
     expect(claude.queryByText('登录')).toBeNull()
   })
 
+  it('keeps the copy button next to a long upgrade or install command', async () => {
+    await show(fakeSource())
+    fireEvent.click(screen.getByRole('button', { name: /^Gemini CLI/ }))
+    const copy = within(row('Gemini CLI')).getByRole('button', { name: '复制命令' })
+    expect(copy.closest('.ag-value')?.textContent).toContain('brew upgrade gemini-cli')
+    expect(copy.closest('.ui-group__row')?.classList.contains('ag-long')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /^Antigravity CLI/ }))
+    expect(within(row('Antigravity CLI')).getByRole('button', { name: '复制命令' })).toBeTruthy()
+  })
+
   it('asks before a switch leaves sessions behind when the source wants it, naming their groups', async () => {
     const view = {
       ...VIEW,

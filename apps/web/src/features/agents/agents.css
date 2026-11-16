@@ -67,3 +67,38 @@
   padding: var(--space-8) 0;
   border-top: 1px solid var(--separator);
 }
+/* Rows holding a long path or command: the value moves below the label when it does not fit, then wraps. */
+.ui-group__row.ag-long {
+  flex-wrap: wrap;
+  row-gap: var(--space-6);
+}
+.ui-group__row.ag-long > .ui-group__text {
+  flex: 1 1 12em;
+}
+.ui-group__row.ag-long > .ui-group__trail {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+.ui-group__row.ag-long .ui-group__value {
+  min-width: 0;
+  overflow: visible;
+  white-space: normal;
+}
+.ag-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.ag-value--wrap {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: var(--space-6);
+}
+.ag-value > .mx-mono {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ag-value > :not(.mx-mono) {
+  flex: none;
+}

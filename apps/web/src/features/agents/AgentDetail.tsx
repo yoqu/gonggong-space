@@ -22,7 +22,7 @@ const fail = (e: unknown) => toast({ type: 'error', message: errorText(e) })
 
 function Command({ command }: { command: string }) {
   return (
-    <span className="mx-inline">
+    <span className="ag-value">
       <span className="mx-mono">{command}</span>
       <IconButton title={t('复制命令')} onClick={() => void copyWithToast(command, t('已复制命令'))}>
         <Icon name="copy" />
@@ -78,9 +78,10 @@ export function AgentDetail({
       <GroupBox>
         <GroupRow
           label={t('路径')}
+          className="ag-long"
           wideValue
           value={
-            <span className="mx-inline">
+            <span className="ag-value ag-value--wrap">
               {a.path ? <span className="mx-mono">{a.path}</span> : '--'}
               {local?.customPath && resetPath ? (
                 <Button size="small" onClick={changePath(() => resetPath(a.kind))}>
@@ -115,6 +116,7 @@ export function AgentDetail({
         {!a.managed && a.upgradeCommand ? (
           <GroupRow
             label={t('升级命令')}
+            className="ag-long"
             description={t('升级时按原安装方式运行，也可以在该机器的终端自己运行')}
             wideValue
             value={<Command command={a.upgradeCommand} />}
@@ -123,6 +125,7 @@ export function AgentDetail({
         {a.installCommand && !a.available ? (
           <GroupRow
             label={t('安装命令')}
+            className="ag-long"
             description={t('共工空间不能托管安装它，请在该机器的终端运行')}
             wideValue
             value={<Command command={a.installCommand} />}
