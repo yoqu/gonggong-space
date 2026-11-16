@@ -44,16 +44,16 @@ test('a Gemini CLI bot runs on a Google AI Studio provider added on the machine 
       const dialog = page.getByRole('region', { name: '机器详情' })
       await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
       await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
-      const gemini = dialog.getByRole('region', { name: 'Gemini CLI 供应商' })
-      await gemini.getByRole('button', { name: '新增…' }).click()
-      const editor = page.getByRole('dialog', { name: '新增 Gemini CLI 供应商' })
+      const providers = dialog.getByRole('region', { name: '供应商', exact: true })
+      await providers.getByRole('button', { name: '新增…' }).click()
+      const editor = page.getByRole('dialog', { name: '新增供应商' })
       await editor.getByRole('button', { name: /^Google AI Studio/ }).click()
-      await expect(editor).toContainText('Google Gemini')
       await editor.getByLabel('API Key').fill(KEY)
-      await editor.getByText('设为该机器默认').click()
+      await editor.locator('label.ui-check').filter({ hasText: 'Gemini CLI' }).click()
       await editor.getByRole('button', { name: '保存' }).click()
-      await expect(gemini.getByRole('radio', { name: /Google AI Studio/ })).toBeChecked()
-      await expect(gemini).toContainText(`Key ****${KEY.slice(-4)}`)
+      const row = providers.locator('.mx-row').filter({ hasText: 'Google AI Studio' })
+      await expect(row).toContainText('Gemini CLI 的默认')
+      await expect(row).toContainText(`Key ****${KEY.slice(-4)}`)
     })
 
     await test.step('a run gets its own Gemini home with the instructions, and the key only in its env', async () => {
@@ -119,14 +119,16 @@ test('a CodeBuddy (WorkBuddy) bot runs on a CodeBuddy China key with its instruc
     const dialog = page.getByRole('region', { name: '机器详情' })
     await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
     await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
-    const codebuddy = dialog.getByRole('region', { name: 'CodeBuddy（WorkBuddy） 供应商' })
-    await codebuddy.getByRole('button', { name: '新增…' }).click()
-    const editor = page.getByRole('dialog', { name: '新增 CodeBuddy（WorkBuddy） 供应商' })
+    const providers = dialog.getByRole('region', { name: '供应商', exact: true })
+    await providers.getByRole('button', { name: '新增…' }).click()
+    const editor = page.getByRole('dialog', { name: '新增供应商' })
     await editor.getByRole('button', { name: /^CodeBuddy 中国版/ }).click()
     await editor.getByLabel('API Key').fill(KEY)
-    await editor.getByText('设为该机器默认').click()
+    await editor.locator('label.ui-check').filter({ hasText: 'CodeBuddy（WorkBuddy）' }).click()
     await editor.getByRole('button', { name: '保存' }).click()
-    await expect(codebuddy.getByRole('radio', { name: /CodeBuddy 中国版/ })).toBeChecked()
+    await expect(providers.locator('.mx-row').filter({ hasText: 'CodeBuddy 中国版' })).toContainText(
+      'CodeBuddy（WorkBuddy） 的默认',
+    )
 
     const group = await api.call<{ id: string }>('post', '/api/groups', {
       name: 'CodeBuddy 群',
