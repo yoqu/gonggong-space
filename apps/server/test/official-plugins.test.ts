@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   GgArtifactManifest,
   PLUGIN_MANIFEST,
@@ -339,11 +339,141 @@ describe('official plugin web-prototype', () => {
 })
 
 describe('official plugin slides', () => {
-  const { manifest } = load('slides')
+  const { manifest, skillDir } = load('slides')
+  const toolkitPath = join(skillDir, 'toolkit/deck-toolkit.js')
+  const toolkit = readFileSync(toolkitPath, 'utf8')
+  const decks = walk(join(skillDir, 'templates')).filter((f) =>
+    /\/(example\.html|full-decks\/[^/]+\/index\.html|templates\/deck\.html|assets\/template\.html)$/.test(f),
+  )
 
   it('is a deck plugin whose templates carry their own visual systems', () => {
     expect(manifest.category).toBe('deck')
     expect(manifest.designSystems).toEqual([])
     expect(manifest.templates[0]?.id).toBe('html-ppt')
+  })
+
+  it('loads the presenting toolkit in <head> of every example and seed', () => {
+    expect(decks.length).toBeGreaterThan(60)
+    for (const f of decks) {
+      const head = readFileSync(f, 'utf8').split('</head>')[0] ?? ''
+      const src = /<script src="([^"]*deck-toolkit\.js)"><\/script>/.exec(head)?.[1]
+      expect(src && join(dirname(f), src), f).toBe(toolkitPath)
+    }
+  })
+
+  it('pages every html-ppt example with the shared runtime', () => {
+    for (const t of manifest.templates.filter((t) => /^html-ppt-(?!zhangzara|taste)/.test(t.id)))
+      expect(readFileSync(join(skillDir, 'templates', t.id, 'example.html'), 'utf8'), t.id).toContain(
+        '<script src="../html-ppt/assets/runtime.js"></script>',
+      )
+  })
+
+  it('tells the agent to inject the toolkit into every deck', () => {
+    const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('`<script src="./assets/deck-toolkit.js"></script>`')
+    expect(skill).toContain('window.deck = { slides, index, go(i) }')
+  })
+
+  const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms))
+  function openDeck(withAdapter = true) {
+    const body = ['封面', '问题', '方案', '数据', '结论']
+      .map(
+        (t, i) =>
+          `<section class="slide${i ? '' : ' active'}" data-section="s${i}"><h2>${t}</h2><aside class="notes">备注${i + 1}</aside></section>`,
+      )
+      .join('')
+    const kernel = `<script>
+      var slides = Array.from(document.querySelectorAll('.slide')), idx = 0, log = [];
+      function go(n) { idx = Math.max(0, Math.min(slides.length - 1, n)); slides.forEach((s, i) => s.classList.toggle('active', i === idx)); }
+      ${withAdapter ? 'window.deck = { slides: slides, get index() { return idx; }, go: go };' : ''}
+      document.addEventListener('keydown', (e) => { log.push(e.key); if (e.key === 'ArrowRight' || e.key === 'Enter') go(idx + 1); if (e.key === 'ArrowLeft') go(idx - 1); });
+    </script>`
+    const { window: w } = new JSDOM(
+      `<!doctype html><html><head><script>${toolkit}</script></head><body>${body}<input id="q">${kernel}</body></html>`,
+      { url: 'https://p.test/deck/index.html', runScripts: 'dangerously', pretendToBeVisual: true },
+    )
+    const opened: string[] = []
+    w.open = ((...a: string[]) => {
+      opened.push(a[1] ?? '')
+      return null
+    }) as never
+    const press = (key: string, target: EventTarget = w.document.body) =>
+      target.dispatchEvent(new w.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    const layer = (k: string) => w.document.querySelector(`[data-ggt="${k}"]`)
+    const state = w as unknown as { idx: number; log: string[] }
+    return { w, press, layer, state, opened }
+  }
+
+  it('toolkit: digits + Enter jump through window.deck; Enter alone still reaches the template', async () => {
+    const { press, layer, state } = openDeck()
+    press('4')
+    expect(layer('jump')?.textContent).toContain('4')
+    press('Enter')
+    expect(state.idx).toBe(3)
+    expect(layer('jump')).toBeNull()
+    press('Enter')
+    expect(state.idx).toBe(4)
+    expect(state.log).toEqual(['Enter'])
+    press('9')
+    press('Escape')
+    expect(layer('jump')).toBeNull()
+    expect(state.log).toEqual(['Enter'])
+  })
+
+  it('toolkit: ? help, O overview of every slide, B/W screens swallow the next key, S opens the presenter', async () => {
+    const { w, press, layer, state, opened } = openDeck()
+    press('?')
+    expect(layer('help')?.textContent).toContain('演讲者窗口')
+    press('Escape')
+    expect(layer('help')).toBeNull()
+    press('o')
+    const frames = [...w.document.querySelectorAll('[data-ggt="overview"] iframe')].map((f) =>
+      f.getAttribute('src'),
+    )
+    expect(frames).toEqual([1, 2, 3, 4, 5].map((n) => `https://p.test/deck/index.html?gg-slide=${n}`))
+    ;(w.document.querySelectorAll('[data-ggt="overview"] .ggt-tile')[2] as HTMLElement).click()
+    expect(state.idx).toBe(2)
+    expect(layer('overview')).toBeNull()
+    press('b')
+    expect(layer('black')).not.toBeNull()
+    press('ArrowRight')
+    expect(layer('black')).toBeNull()
+    expect(state.idx).toBe(2)
+    press('w')
+    expect(layer('white')).not.toBeNull()
+    press('s')
+    expect(layer('white')).toBeNull()
+    press('s')
+    expect(opened).toEqual(['gg-deck-presenter'])
+  })
+
+  it('toolkit: laser and pen toggle; keys pause while typing; idle Esc reaches the template', () => {
+    const { w, press, layer, state } = openDeck()
+    press('l')
+    expect(layer('laser')).not.toBeNull()
+    press('d')
+    expect(layer('ink')?.classList.contains('on')).toBe(true)
+    press('l')
+    expect(layer('ink')?.classList.contains('on')).toBe(false)
+    press('Escape')
+    expect(layer('laser')).toBeNull()
+    const input = w.document.getElementById('q') as HTMLInputElement
+    input.focus()
+    for (const k of ['o', '3', 'b']) press(k, input)
+    expect([layer('overview'), layer('jump'), layer('black')]).toEqual([null, null, null])
+    expect(state.log).toEqual(['o', '3', 'b'])
+    press('Escape')
+    expect(state.log.at(-1)).toBe('Escape')
+  })
+
+  it('toolkit: without window.deck it pages the template with arrow keys and opens #N', async () => {
+    const { press, state, w } = openDeck(false)
+    press('3')
+    press('Enter')
+    for (let i = 0; i < 20 && state.idx !== 2; i++) await tick(50)
+    expect(state.idx).toBe(2)
+    expect(state.log).toEqual(['ArrowRight', 'ArrowRight'])
+    await tick(250)
+    expect(w.location.hash).toBe('#3')
   })
 })

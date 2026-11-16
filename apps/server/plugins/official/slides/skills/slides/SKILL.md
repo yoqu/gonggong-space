@@ -21,6 +21,7 @@ slides/
 ├── SKILL.md                    ← you're reading this (shared workflow)
 ├── templates/<id>/GUIDE.md     ← per-template instructions (+ example.html, assets/, references/, design-system/)
 ├── templates/html-ppt/         ← shared runtime, 36 themes and 31 layouts used by every html-ppt-* template
+├── toolkit/deck-toolkit.js     ← presenting toolkit injected into every deck (Step 3)
 ├── craft/                      ← cross-template craft rules (anti-ai-slop, color, typography, accessibility…)
 └── references/critique.md      ← five-dimension self-review before publishing
 ```
@@ -149,6 +150,7 @@ Follow the template guide. Where the guide and this file disagree on *what to bu
 - Start from the template's seed or example: copy it to `design/<slug>/index.html`, keep its CSS and navigation script, and replace the content slide by slide.
 - Copy every local file the deck links (scripts, stylesheets, fonts, images) into `design/<slug>/` and reference it relatively — the folder must work on its own. Never link back into the skill directory.
 - When `演讲者备注：是`, write notes for every slide in the template's notes mechanism (the guide names it); otherwise skip notes.
+- **Inject the presenting toolkit.** Copy `toolkit/deck-toolkit.js` to `design/<slug>/assets/deck-toolkit.js` and load it as the last element of `<head>`: `<script src="./assets/deck-toolkit.js"></script>` (examples and seeds already carry the tag with a path into the skill — rewrite it). It must sit in `<head>` so its keys win over the template's. It adds `?` help, O overview, S presenter window, L laser, D pen, B/W black/white screen and digits + Enter jump to whatever paging the template has; never remove the template's own paging script. The toolkit drives the deck through `window.deck = { slides, index, go(i) }` when the template script sets it (keep that line when you edit the script) and falls back to ← → key presses otherwise.
 
 ### Step 4 — Critique
 
@@ -158,7 +160,7 @@ Run `references/critique.md` (it starts with the template's own checklist when t
 
 1. Make sure `design/<slug>/index.html` and every asset it uses are in `design/<slug>/`.
 2. Call the gonggong `preview_static` tool with `dir` = `design/<slug>` and `title` = the deck title.
-3. Reply with one short message: the file path, template used, slide count and the storyline in one line, how to navigate (← →, plus any presenter key the template has), what the critique fixed, and any assumptions or remaining placeholders. Do not paste the HTML into chat.
+3. Reply with one short message: the file path, template used, slide count and the storyline in one line, how to navigate (← →, `?` for the presenting keys, S for the presenter window), what the critique fixed, and any assumptions or remaining placeholders. Do not paste the HTML into chat.
 
 ## Hard rules
 

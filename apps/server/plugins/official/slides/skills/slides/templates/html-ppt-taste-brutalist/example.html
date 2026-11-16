@@ -403,6 +403,7 @@
     .alert-slide .alertbox { grid-template-columns: 1fr; padding: 32px 22px; }
   }
 </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 <div class="deck">
@@ -770,5 +771,30 @@
   </section>
 
 </div>
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.deck > .slide'));
+  function index() {
+    var best = 0;
+    slides.forEach(function (s, i) { if (s.offsetTop <= scrollY + innerHeight / 2) best = i; });
+    return best;
+  }
+  function go(n) {
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    window.scrollTo({ top: slides[n].offsetTop, behavior: 'instant' });
+  }
+  window.deck = { slides: slides, get index() { return index(); }, go: go };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key, i = index();
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ') go(i + 1);
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') go(i - 1);
+    else if (k === 'Home') go(0);
+    else if (k === 'End') go(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+})();
+</script>
 </body>
 </html>

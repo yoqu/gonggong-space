@@ -240,6 +240,7 @@
       transition: width 0.18s ease;
     }
   </style>
+<script src="../../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
   <!--
@@ -344,6 +345,7 @@
         if (progress) progress.style.width = (((i + 1) / slides.length) * 100) + '%';
         try { localStorage.setItem(KEY, String(i)); } catch (_) {}
       }
+      window.deck = { slides: slides, get index() { return active; }, go: function (n) { go(n); } };
       function go(i) {
         var next = Math.max(0, Math.min(slides.length - 1, i));
         setActive(next);

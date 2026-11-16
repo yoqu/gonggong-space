@@ -407,6 +407,7 @@
     .grid-2-7-5,.grid-2-6-6,.grid-2-8-4{grid-template-columns:1fr}
   }
 </style>
+<script src="../../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 
@@ -560,6 +561,7 @@ slides.forEach((s,i)=>{
   nav.appendChild(b);
 });
 
+window.deck={slides:slides,get index(){return idx},go:function(n){lock=false;go(n)}};
 function go(n){
   if(lock)return;
   idx=Math.max(0,Math.min(total-1,n));

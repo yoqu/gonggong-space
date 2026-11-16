@@ -77,18 +77,17 @@ If the brief mentions 演讲 / 分享 / 讲稿 / 逐字稿 / speaker notes / pre
 2. **每页 150–300 字** — about 2–3 minutes per slide.
 3. **用口语，不用书面语** — "因此"→"所以", "该方案"→"这个方案".
 
-Every deck that loads `runtime.js` supports it: **S** opens a popup with four draggable/resizable cards — CURRENT and NEXT (pixel-perfect iframes of the deck via `?preview=N`), SPEAKER SCRIPT, TIMER. The two windows stay in sync via `BroadcastChannel`; layout persists in `localStorage`.
+Every deck gets the shared presenting toolkit (`../../toolkit/deck-toolkit.js`, see SKILL.md Step 3): **S** opens the presenter window with the current and next slide, the notes and a timer. `runtime.js` exposes `window.deck` for it; its own S and O keys are taken over by the toolkit.
 
 ## Keyboard
 
 ```
-← → Space PgUp PgDn Home End   navigate
-F   fullscreen          O   overview grid
-S   presenter window    N   notes drawer
+← → Space PgUp PgDn Home End   navigate (runtime.js)
+F   fullscreen          N   notes drawer
 T   cycle themes (data-themes on <body>)
 A   replay demo animation on current slide
-R   reset timer (presenter window)
-#/N deep-link to slide N · ?preview=N single-slide preview · Esc close overlays
+toolkit: ? help · O overview · S presenter · L laser · D pen · B/W black/white · digits+Enter jump
+#/N deep-link to slide N · Esc close overlays
 ```
 
 ## Review before publishing

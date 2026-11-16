@@ -10,7 +10,7 @@ Distilled from [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) �
 
 ## Start here
 
-- `example.html` is a self-contained 16:9 deck (inline CSS, Google Fonts link). Copy it to `design/<slug>/index.html` and replace content section by section; keep the class structure. No assets from `../html-ppt/` are required.
+- `example.html` is a self-contained 16:9 deck (inline CSS, Google Fonts link). Copy it to `design/<slug>/index.html` and replace content section by section; keep the class structure. Keep the paging script at the end of `<body>` (← → / PgUp PgDn scroll one slide; it exposes `window.deck`). No assets from `../html-ppt/` are required.
 - Speaker-notes conventions and the self-contained-folder rule follow `../html-ppt/GUIDE.md`; if you add notes, put them in `<aside class="notes">` (hidden) — never as visible text.
 - Fonts: Every font stack keeps a Chinese fallback — sans: `"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif`; serif: `"Songti SC","Noto Serif SC",serif`. Google Fonts links may stay. Copy is Chinese with `<html lang="zh-CN">`.
 

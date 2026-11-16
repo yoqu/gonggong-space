@@ -569,6 +569,7 @@
     }
   }
 </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 
@@ -1173,6 +1174,7 @@
   fit();
   document.getElementById('total').textContent = String(total).padStart(2,'0');
   let i = 0;
+  window.deck = { slides: slides, get index() { return i; }, go: function (n) { go(n); } };
   function go(n){
     i = Math.max(0, Math.min(total-1, n));
     stage.style.transform = `translateX(-${i*100}vw)`;

@@ -127,6 +127,7 @@
     .chart-grid, .asks { grid-template-columns: 1fr; }
   }
 </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 <div class="deck" id="deck">
@@ -305,6 +306,7 @@
     const idx = activeIndex();
     nav.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === idx));
   }, { passive: true });
+  window.deck = { slides: slides, get index() { return activeIndex(); }, go: (n) => deck.scrollTo({ left: window.innerWidth * n, behavior: 'smooth' }) };
   document.addEventListener('keydown', (e) => {
     const idx = activeIndex();
     if (e.key === 'ArrowRight' || e.key === 'PageDown') {

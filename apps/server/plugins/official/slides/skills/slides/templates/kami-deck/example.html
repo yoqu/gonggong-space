@@ -693,6 +693,7 @@ strong { font-weight: 500; }
   #hint { display: none; }
 }
 </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 
@@ -970,6 +971,7 @@ strong { font-weight: 500; }
     if (bar) bar.style.width = (((idx + 1) / total) * 100) + '%';
   }
 
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { applySlide(n); } };
   function go(n) {
     if (lock) return;
     applySlide(n);

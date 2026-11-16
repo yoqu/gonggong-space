@@ -106,6 +106,7 @@
     }
 
     let idx = 0;
+    window.deck = { slides: slides, get index() { return idx; }, go: function (n) { go(n); } };
     const total = slides.length;
 
     /* ===== BroadcastChannel for presenter sync ===== */

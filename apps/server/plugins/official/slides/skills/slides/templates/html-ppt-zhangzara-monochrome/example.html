@@ -1562,7 +1562,8 @@
         margin: 0;
       }
     </style>
-  </head>
+  <script src="../../toolkit/deck-toolkit.js"></script>
+</head>
   <body>
     <div id="deck">
       <!-- ══════════════════════════════════════════════════════════════════
@@ -2488,6 +2489,7 @@
           return String(n).padStart(2, "0");
         }
 
+        window.deck = { slides: slides, get index() { return current; }, go: function (n) { isAnimating = false; goTo(n); } };
         /* ── goTo: the central navigation function ───────────────────────  */
         function goTo(index) {
           /* Guard: no double-firing while a transition is running */

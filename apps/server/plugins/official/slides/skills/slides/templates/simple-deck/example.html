@@ -49,6 +49,7 @@
     .counter { position: fixed; bottom: 24px; right: 32px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); background: var(--surface); padding: 4px 10px; border-radius: 999px; border: 1px solid #e6e4e0; }
     .hint { position: fixed; bottom: 24px; left: 32px; font-size: 11px; color: var(--muted); }
   </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
   <section class="slide title">
@@ -129,6 +130,7 @@
       }
     }
 
+    window.deck = { slides: slides, get index() { return active; }, go: function (n) { go(n); } };
     function go(i) {
       const next = Math.max(0, Math.min(slides.length - 1, i));
       active = next;

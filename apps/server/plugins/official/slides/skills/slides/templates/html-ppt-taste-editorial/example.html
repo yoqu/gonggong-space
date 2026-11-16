@@ -376,6 +376,7 @@
     #deck-nav { display: none; }
   }
 </style>
+<script src="../../toolkit/deck-toolkit.js"></script>
 </head>
 <body>
 <div class="deck">
@@ -602,6 +603,7 @@
     return Math.max(0, Math.min(slides.length - 1, n));
   }
 
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { go(n); } };
   function go(n) {
     idx = clamp(n);
     slides.forEach(function (slide, i) {

@@ -10,7 +10,7 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 - Shared rules — self-contained `design/<slug>/` folder, which assets to copy, speaker notes, presenter mode, keyboard runtime: `../html-ppt/GUIDE.md`.
 - Starting point: `../html-ppt/templates/full-decks/product-launch/` — copy `index.html` + `style.css` into `design/<slug>/`, keep `<body class="tpl-product-launch">`, copy `base.css`, `fonts.css`, `animations/animations.css`, `runtime.js` from `../html-ppt/assets/` into `design/<slug>/assets/` and rewrite the `../../../assets/...` links to `./assets/...`.
-- `example.html` is the same template filled with a realistic brief, with all CSS inlined and no runtime. Use it as the density/finish reference; if you start from it instead, add `<script src="./assets/runtime.js"></script>` (copied from `../html-ppt/assets/`) so the deck pages.
+- `example.html` is the same template filled with a realistic brief, with all CSS inlined; it loads `../html-ppt/assets/runtime.js`. Use it as the density/finish reference; if you start from it instead, copy `runtime.js` into `design/<slug>/assets/` and point the script at `./assets/runtime.js`.
 - Swap content, not classes — the scoped `.tpl-product-launch` classes are the identity. Re-skin only through the variables at the top of `style.css`.
 
 ## Visual system

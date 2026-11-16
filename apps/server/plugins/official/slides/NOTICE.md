@@ -38,6 +38,7 @@ limitations under the License.
 | `skills/slides/templates/{simple-deck,weekly-update,ib-pitch-book}/design-system/` | 「产品原型」插件的 `neutral-modern`、`corporate` 设计系统 |
 | `skills/slides/templates/kami-deck/design-system/` | `design-systems/kami/` |
 | `previews/*.webp` | 由各模板示例截图生成 |
+| `skills/slides/toolkit/deck-toolkit.js` | 自研放映工具包（总览、演讲者窗口、激光笔、画笔、黑白屏、跳页），不来自上游 |
 
 ## 未收录
 
