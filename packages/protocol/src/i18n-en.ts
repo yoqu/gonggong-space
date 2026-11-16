@@ -484,5 +484,18 @@ export const protocolEn = {
     '{listing} installed in {targets} was banned and stops loading from the next turn; consider removing it',
   '{targets} 引入的 {listing} 已解除封禁，恢复加载':
     '{listing} installed in {targets} was unbanned and loads again',
+  // Agent registry (agents.ts)
+  腾讯: 'Tencent',
+  阿里巴巴: 'Alibaba',
+  月之暗面: 'Moonshot AI',
+  'OpenCode 使用它自己的登录：在该机器上运行 opencode auth login 登录或填写 API Key':
+    'OpenCode keeps its own login: run opencode auth login on that machine to sign in or enter an API key',
+  '需要 Node.js ≥ 22.19': 'Needs Node.js ≥ 22.19',
+  深度求索: 'DeepSeek',
+  '需要 Node.js ≥ 24.9': 'Needs Node.js ≥ 24.9',
+  'pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key':
+    'pi keeps its own login: run pi on that machine and type /login, or enter an API key',
+  'Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录':
+    'Antigravity CLI keeps its own login: run agy on that machine and sign in with Google',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

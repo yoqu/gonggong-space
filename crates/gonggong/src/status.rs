@@ -1,7 +1,7 @@
 //! Live daemon status for UIs (the desktop app): connection, heartbeat, latency and the runs executing here.
 //! `Service` feeds it from the messages it relays; readers take snapshots or watch for changes.
 use crate::protocol::{
-    AgentInfo, ContextUsage, DaemonToServer, RejectReason, RunEvent, RunOutcome, RunStatus, ServerToDaemon,
+    AgentState, ContextUsage, DaemonToServer, RejectReason, RunEvent, RunOutcome, RunStatus, ServerToDaemon,
 };
 use crate::service::MAX_MERGED_DELTA;
 use serde::Serialize;
@@ -57,7 +57,7 @@ pub struct Status {
     pub heartbeat_sec: Option<u64>,
     pub last_heartbeat_ms: Option<u64>,
     pub latency_ms: Option<u64>,
-    pub agents: Vec<AgentInfo>,
+    pub agents: Vec<AgentState>,
     pub runs: Vec<RunInfo>,
 }
 
@@ -252,7 +252,7 @@ impl Monitor {
         });
     }
 
-    pub(crate) fn agents(&self, agents: Vec<AgentInfo>) {
+    pub(crate) fn agents(&self, agents: Vec<AgentState>) {
         self.set(|s| &mut s.agents, agents);
     }
 

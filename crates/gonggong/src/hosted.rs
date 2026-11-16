@@ -663,9 +663,8 @@ enum Ready {
 pub async fn connectable(port: u16) -> bool {
     // With no listener, a port inside the ephemeral range can be picked as our own source port: the
     // kernel then connects the socket to itself, which is not a server.
-    let listening = |s: std::io::Result<tokio::net::TcpStream>| {
-        s.is_ok_and(|s| s.local_addr().ok() != s.peer_addr().ok())
-    };
+    let listening =
+        |s: std::io::Result<tokio::net::TcpStream>| s.is_ok_and(|s| s.local_addr().ok() != s.peer_addr().ok());
     listening(tokio::net::TcpStream::connect(("127.0.0.1", port)).await)
         || listening(tokio::net::TcpStream::connect(("::1", port)).await)
 }

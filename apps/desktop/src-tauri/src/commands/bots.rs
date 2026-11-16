@@ -39,10 +39,13 @@ mod tests {
         assert_eq!(json["avatar"], "role-gong", "older servers send no avatar");
         assert_eq!(json["followAgent"], false, "servers before agent figures send none");
         assert!(json["teamName"].is_null(), "servers before teams send no team");
+        assert!(json["model"].is_null(), "the default model, or a server before bot models");
         let mut sent = json;
         sent["avatar"] = "role-sentry".into();
         sent["followAgent"] = true.into();
+        sent["model"] = "kimi-k2".into();
         let bot = serde_json::from_value::<Bot>(sent).unwrap();
         assert_eq!((bot.avatar.as_str(), bot.follow_agent), ("role-sentry", true));
+        assert_eq!(serde_json::to_value(bot).unwrap()["model"], "kimi-k2");
     }
 }

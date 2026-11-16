@@ -1,6 +1,7 @@
 import { protocolEn } from '@gonggong/protocol'
 import app from '../app/en'
 import admin from '../features/admin/en'
+import agents from '../features/agents/en'
 import artifacts from '../features/artifacts/en'
 import attachments from '../features/attachments/en'
 import auth from '../features/auth/en'
@@ -47,6 +48,7 @@ export const en = {
   ...ui,
   ...lib,
   ...admin,
+  ...agents,
   ...artifacts,
   ...attachments,
   ...auth,

@@ -1,43 +1,24 @@
+import { AGENT_META, type AgentState, type ProviderStoreView } from '@gonggong/protocol'
+import { choiceLabel, machineDefault } from '@web/features/agents/model'
 import { approvalText } from '@web/features/bots/ApprovalFields'
 import { avatarSrc, faceOf } from '@web/features/bots/avatars'
-import {
-  Avatar,
-  Button,
-  EmptyState,
-  GroupBox,
-  GroupRow,
-  Icon,
-  PopUpButton,
-  Skeleton,
-  Tag,
-  type TagTone,
-} from '@web/ui'
-import { useCallback, useEffect, useState } from 'react'
+import { Avatar, Button, EmptyState, GroupBox, GroupRow, Icon, Skeleton, Tag, type TagTone } from '@web/ui'
+import { useEffect, useState } from 'react'
 import { t } from '../i18n'
-import { type AgentCard, ipc, type MachineBot, type Providers } from '../ipc'
-import { AGENTS } from '../lib/labels'
+import { ipc, type MachineBot } from '../ipc'
 import { fail } from '../lib/ui'
-import { OFFICIAL, OFFICIAL_NAME } from '../providers/ProviderBox'
-import { useProviderSwitch } from '../providers/switch'
 import type { PageProps } from '.'
 
-const INHERIT = 'inherit'
-
-/** 继承机器（当前：X） / 官方登录 / this machine's providers of the bot's agent. */
-function providerOptions(b: MachineBot, p: Providers) {
-  const name = (id: string) =>
-    id === OFFICIAL ? OFFICIAL_NAME : (p.providers.find((x) => x.id === id)?.name ?? id)
-  return [
-    {
-      value: INHERIT,
-      label: t('继承机器（当前：{name}）', { name: name(p.machine[b.agentKind] ?? OFFICIAL) }),
-    },
-    { value: OFFICIAL, label: OFFICIAL_NAME },
-    ...p.providers.filter((x) => x.agent === b.agentKind).map((x) => ({ value: x.id, label: x.name })),
-  ]
+/** 「Kimi / kimi-k2」 of its own provider, else 「继承机器默认（X / 模型）」; the bot's own model wins either way. */
+function providerText(b: MachineBot, view: ProviderStoreView) {
+  const own = view.bots[b.id]
+  const model = b.model ?? null
+  if (own) return choiceLabel(view, { provider: own, model })
+  const d = machineDefault(view, b.agentKind)
+  return t('继承机器默认（{name}）', { name: choiceLabel(view, { ...d, model: model ?? d.model }) })
 }
 
-function status(b: MachineBot, agent: AgentCard | undefined): { text: string; tone: TagTone } {
+function status(b: MachineBot, agent: AgentState | undefined): { text: string; tone: TagTone } {
   if (b.binding === 'pending_confirm') return { text: t('待确认'), tone: 'orange' }
   if (!agent?.available || b.presence === 'agent_missing') return { text: t('agent 缺失'), tone: 'red' }
   if (b.presence === 'running') return { text: t('运行中'), tone: 'blue' }
@@ -46,21 +27,19 @@ function status(b: MachineBot, agent: AgentCard | undefined): { text: string; to
 }
 
 /**
- * Server settings are read-only here (plan J11), changed on the Web; the provider is machine-local (design §4.2),
- * so it is chosen here.
+ * Everything is read-only here (plan J11, D3 of Agent管理重构): the bot's settings, its provider and model included,
+ * are changed on the Web; the machine's providers and defaults on the Agent page.
  */
 export function BotsPage({ go }: PageProps) {
   const [bots, setBots] = useState<MachineBot[] | null>(null)
-  const [agents, setAgents] = useState<AgentCard[]>([])
-  const [providers, setProviders] = useState<Providers | null>(null)
-  const loadProviders = useCallback(() => ipc.providers().then(setProviders, fail), [])
-  const switcher = useProviderSwitch(loadProviders)
+  const [agents, setAgents] = useState<AgentState[]>([])
+  const [providers, setProviders] = useState<ProviderStoreView | null>(null)
 
   useEffect(() => {
     ipc.bots().then(setBots, fail)
-    ipc.agents().then(setAgents, fail)
-    loadProviders()
-  }, [loadProviders])
+    ipc.tools().then((s) => setAgents(s.agents), fail)
+    ipc.providers({ action: 'list' }).then((r) => setProviders(r.view ?? null), fail)
+  }, [])
 
   return (
     <>
@@ -77,7 +56,7 @@ export function BotsPage({ go }: PageProps) {
         const badge = status(b, agent)
         const pending = b.binding === 'pending_confirm'
         const missing = !agent?.available
-        const name = AGENTS[b.agentKind].name
+        const name = AGENT_META[b.agentKind].name
         return (
           <div key={b.id} className="dk-bot">
             <GroupBox>
@@ -115,13 +94,13 @@ export function BotsPage({ go }: PageProps) {
                 }
               />
               {providers ? (
-                <GroupRow label={t('供应商')} description={t('只保存在本机，进行中的会话开启新会话后才切换')}>
-                  <PopUpButton
-                    aria-label={t('{name} 的供应商', { name: b.name })}
-                    options={providerOptions(b, providers)}
-                    value={providers.bots[b.id] ?? INHERIT}
-                    onChange={(v) => switcher.request(b.agentKind, v, b.id)}
-                  />
+                <GroupRow label={t('供应商/模型')} wideValue>
+                  <span className="dk-inline">
+                    {providerText(b, providers)}
+                    <Button variant="plain" size="small" onClick={() => ipc.openBotInWeb(b.id).catch(fail)}>
+                      {t('在 Web 中管理')}
+                    </Button>
+                  </span>
                 </GroupRow>
               ) : null}
               <GroupRow label={t('并发上限')} value={b.concurrency} />
@@ -140,11 +119,10 @@ export function BotsPage({ go }: PageProps) {
       {bots?.length ? (
         <p className="dk-footnote">
           {t(
-            '供应商只保存在本机，在这里设置；Bot 的其余设置都在 Web 端管理（名称、角色说明、模型、并发上限、审批方式等）。',
+            'Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。',
           )}
         </p>
       ) : null}
-      {switcher.dialog}
     </>
   )
 }

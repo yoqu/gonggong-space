@@ -2,18 +2,27 @@
   "t": "providers.cmd",
   "requestId": "rq-2",
   "action": "save",
+  "agent": "claude",
   "setDefault": true,
   "provider": {
-    "agent": "claude",
     "presetId": "kimi-coding",
     "apiKey": "sk-test-0123456789abcd",
-    "model": "kimi-for-coding",
-    "models": {
-      "haiku": "kimi-for-coding"
-    },
-    "env": {
-      "ENABLE_TOOL_SEARCH": "1"
-    },
-    "proxy": "http://127.0.0.1:7890"
+    "proxy": "http://127.0.0.1:7890",
+    "endpoints": [
+      {
+        "protocol": "anthropic",
+        "model": "kimi-for-coding",
+        "models": {
+          "haiku": "kimi-for-coding"
+        },
+        "env": {
+          "ENABLE_TOOL_SEARCH": "1"
+        }
+      },
+      {
+        "protocol": "openai",
+        "model": "kimi-for-coding"
+      }
+    ]
   }
 }

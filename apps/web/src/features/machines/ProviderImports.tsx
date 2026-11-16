@@ -1,28 +1,27 @@
-import type {
-  AgentKind,
-  CcSwitchCandidate,
-  CcSwitchImportedDto,
-  CcSwitchPreviewDto,
-  ProviderSavedDto,
+import {
+  AGENT_META,
+  type AgentKind,
+  type CcSwitchCandidate,
+  type CcSwitchImportedDto,
+  type ProviderSavedDto,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
-import { api, errorText } from '../../lib/api'
+import { errorText } from '../../lib/api'
 import { Checkbox, Dialog, GroupBox, Skeleton, Tag, TextField } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
+import { PROTOCOL_LABEL } from '../agents/model'
+import type { AgentsSource } from '../agents/source'
 
-/** 从 CC Switch 导入: the machine's own CC Switch providers of `agent`, keys masked; all chosen by default. */
+/** 从 CC Switch 导入: the machine's own CC Switch providers, keys masked; all chosen by default. */
 export function CcSwitchImport({
-  machineId,
-  agent,
+  source,
   onClose,
   onImported,
 }: {
-  machineId: string
-  agent: AgentKind
+  source: AgentsSource
   onClose: () => void
-  /** `current`: the local id of CC Switch's current provider when it should become the default. */
-  onImported: (res: CcSwitchImportedDto, current: string | null) => void
+  /** `defaults`: agent → local id of CC Switch's current provider, when those should become the defaults. */
+  onImported: (res: CcSwitchImportedDto, defaults: [AgentKind, string][]) => void
 }) {
   const [list, setList] = useState<CcSwitchCandidate[] | null>(null)
   const [chosen, setChosen] = useState<string[]>([])
@@ -31,27 +30,28 @@ export function CcSwitchImport({
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    api.get<CcSwitchPreviewDto>(`/machines/${machineId}/ccswitch`).then(
-      ({ candidates }) => {
-        const mine = candidates.filter((c) => c.agent === agent)
-        setList(mine)
-        setChosen(mine.map((c) => c.key))
+    source.ccSwitch?.preview().then(
+      (candidates) => {
+        setList(candidates)
+        setChosen(candidates.map((c) => c.key))
       },
       (e) => setError(errorText(e)),
     )
-  }, [machineId, agent])
+  }, [source])
 
-  const current = list?.find((c) => c.current && chosen.includes(c.key))
+  const current = list?.filter((c) => c.current && chosen.includes(c.key)) ?? []
   const submit = async () => {
+    if (!source.ccSwitch) return
     setBusy(true)
     try {
-      // The default is switched afterwards, through the same confirmation as any other switch.
-      const res = await api.post<CcSwitchImportedDto>(`/machines/${machineId}/ccswitch/apply`, {
-        keys: chosen,
-        setDefault: false,
-      })
-      const at = current ? chosen.indexOf(current.key) : -1
-      onImported(res, setDefault && at >= 0 ? (res.imported[at] ?? null) : null)
+      const res = await source.ccSwitch.apply(chosen)
+      const defaults = setDefault
+        ? current.flatMap((c): [AgentKind, string][] => {
+            const id = res.imported[chosen.indexOf(c.key)]
+            return id ? [[c.agent, id]] : []
+          })
+        : []
+      onImported(res, defaults)
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
@@ -63,7 +63,7 @@ export function CcSwitchImport({
       open
       onClose={onClose}
       closeOnBackdrop={false}
-      title={t('从 CC Switch 导入 {agent} 供应商', { agent: AGENT_LABEL[agent] })}
+      title={t('从 CC Switch 导入供应商')}
       message={t('只读取这台机器上的 CC Switch，Key 只保存在这台机器上')}
       width={560}
       actions={[
@@ -78,11 +78,7 @@ export function CcSwitchImport({
     >
       {error ? <p className="mx-danger">{error}</p> : null}
       {!list && !error ? <Skeleton count={3} /> : null}
-      {list?.length === 0 ? (
-        <p className="mx-sub">
-          {t('CC Switch 里没有可直接使用的 {agent} 供应商', { agent: AGENT_LABEL[agent] })}
-        </p>
-      ) : null}
+      {list?.length === 0 ? <p className="mx-sub">{t('CC Switch 里没有可直接使用的供应商')}</p> : null}
       {list?.length ? (
         <div className="mx-vendors">
           <GroupBox>
@@ -95,6 +91,8 @@ export function CcSwitchImport({
                     <span className="mx-row__main">
                       <span className="mx-row__title">
                         {c.name}
+                        <Tag tone="gray">{AGENT_META[c.agent].name}</Tag>
+                        <Tag tone="purple">{PROTOCOL_LABEL[c.protocol]}</Tag>
                         {c.current ? <Tag tone="blue">{t('CC Switch 当前')}</Tag> : null}
                         {c.existing ? <Tag tone="gray">{t('将更新已有项')}</Tag> : null}
                       </span>
@@ -112,7 +110,7 @@ export function CcSwitchImport({
               label={t('将 CC Switch 当前使用的设为该机器默认')}
               checked={setDefault}
               onChange={setSetDefault}
-              disabled={!current}
+              disabled={!current.length}
             />
           ) : null}
         </div>
@@ -123,11 +121,11 @@ export function CcSwitchImport({
 
 /** 粘贴链接导入: a `ccswitch://v1/import?…` provider link, parsed by the machine itself. */
 export function LinkImport({
-  machineId,
+  source,
   onClose,
   onImported,
 }: {
-  machineId: string
+  source: AgentsSource
   onClose: () => void
   onImported: (res: ProviderSavedDto, setDefault: boolean) => void
 }) {
@@ -139,11 +137,7 @@ export function LinkImport({
   const submit = async () => {
     setBusy(true)
     try {
-      const res = await api.post<ProviderSavedDto>(`/machines/${machineId}/providers/import-link`, {
-        link: link.trim(),
-        setDefault: false,
-      })
-      onImported(res, setDefault)
+      onImported(await source.importLink(link.trim()), setDefault)
     } catch (e) {
       setError(errorText(e))
       setBusy(false)

@@ -1,0 +1,12 @@
+.ui-agent-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  /* Keeps the darker gradients (pi) apart from a dark background. */
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.14);
+}
+.ui-agent-icon svg {
+  display: block;
+}

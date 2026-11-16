@@ -3,20 +3,28 @@
  * `invoke` directly, so tests can mock this module.
  */
 import type {
-  AgentInfo,
   AgentKind,
   AgentSettings,
+  AgentState,
   BotDto,
-  CliSettingsSnapshot,
+  CcSwitchCandidate,
+  CcSwitchImportedDto,
   ContextUsage,
+  ProvidersCmd as DaemonProvidersCmd,
   DevtoolsBlocker,
   InstallDto,
   Locale,
+  MachineAgentsDto,
   MarketListingDto,
-  OfficialSettings,
+  Mirror,
+  OfficialInput,
   Permission,
+  ProviderInput,
+  ProviderPreset,
+  ProviderStoreView,
   RunEvent,
   RunStatus,
+  ToolKind,
 } from '@gonggong/protocol'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
@@ -24,8 +32,9 @@ import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { Update } from '@tauri-apps/plugin-updater'
+import type { AgentLocal } from '@web/features/agents/source'
 
-export type { Update }
+export type { Mirror, Update }
 
 type RejectReason = 'protocol' | 'revoked' | 'unauthorized' | 'workspace' | 'readonly'
 
@@ -74,7 +83,7 @@ export interface DaemonStatus {
   heartbeatSec: number | null
   lastHeartbeatMs: number | null
   latencyMs: number | null
-  agents: AgentInfo[]
+  agents: AgentState[]
   runs: RunInfo[]
 }
 
@@ -110,6 +119,8 @@ export type MachineBot = Pick<
   | 'avatar'
   | 'followAgent'
 > & {
+  /** The bot's own model (stored on the server); absent until the client reports it, null = the default. */
+  model?: string | null
   /** Null from servers before teams (plan D20). */
   teamId: string | null
   teamName: string | null
@@ -225,12 +236,6 @@ export interface NetResult {
   bandwidthMbps: number
 }
 
-/** 镜像源 of Node.js and the agent CLIs. */
-export type Mirror =
-  | { kind: 'npmmirror' }
-  | { kind: 'official' }
-  | { kind: 'custom'; registry: string; node: string }
-
 export interface Settings {
   autoUpgrade: boolean
   launchAtLogin: boolean
@@ -241,83 +246,23 @@ export interface Settings {
   env: Record<string, string>
 }
 
-export type ToolKind = 'node' | AgentKind
-
-/** Node.js or an agent CLI as a managed tool (design §4.1). */
-export interface ToolStatus {
-  kind: ToolKind
-  installed: boolean
-  version: string | null
-  /** Latest on the mirror; null when it could not be checked. */
-  latest: string | null
-  /** Installed by Gonggong (共工空间托管) rather than by the user (自行安装). */
-  managed: boolean
-  path: string | null
-  /** How the user's own install is upgraded (the daemon runs it on 升级); null when managed or unknown. */
-  upgradeCommand?: string | null
-  /** Not on npm, so Gonggong neither installs nor upgrades it: the maker's install command. */
-  installCommand?: string | null
-}
-
 export type ToolOp = 'install' | 'upgrade'
 
-interface ModelMap {
-  haiku?: string | null
-  sonnet?: string | null
-  opus?: string | null
+/** One `providers.cmd`, as the daemon handles it for the Web (`requestId` filled in here). */
+export type ProvidersCmd = Omit<
+  DaemonProvidersCmd,
+  't' | 'requestId' | 'provider' | 'official' | 'agentSettings'
+> & {
+  provider?: ProviderInput
+  official?: OfficialInput
+  agentSettings?: AgentSettings
 }
 
-/** A local provider as the page sees it: `apiKey` is masked (`****abcd`). */
-export interface ProviderView {
-  configDir?: string | null
-  executablePath?: string | null
-  id: string
-  agent: AgentKind
-  name: string
-  presetId: string | null
-  revision: number
-  baseUrl: string
-  apiKey: string
-  apiKeyField: string | null
-  model: string | null
-  models: ModelMap | null
-  env: Record<string, string>
-  /** Password masked; null = direct. */
-  proxy: string | null
-  wireApi: string | null
-  effort: string | null
-  source: { kind: 'cc-switch' | 'link'; id?: string } | null
-}
-
-/** `official`, a provider id, or (bots) `inherit`. */
-export type ProviderChoice = string
-
-export interface Providers {
-  /** Machine default per agent; absent = official. */
-  machine: Partial<Record<AgentKind, ProviderChoice>>
-  /** Per-bot override; absent = inherit the machine default. */
-  bots: Record<string, ProviderChoice>
-  providers: ProviderView[]
-  /** Official login extras per agent; absent = none. */
-  official?: Partial<Record<AgentKind, OfficialSettings>>
-  /** Machine defaults per agent; absent = Claude Code's defaults, CLI config inherited. */
-  agentSettings?: Partial<Record<AgentKind, AgentSettings>>
-  /** The CLI's own user-level config per agent; absent = none found. */
-  cli?: Partial<Record<AgentKind, CliSettingsSnapshot>>
-}
-
-/** A group's session that keeps `from` after a switch until a new session starts on `to`. */
-export interface Impact {
-  group: string
-  bot: string
-  from: string
-  to: string
-}
-
-export interface AgentCard extends AgentInfo {
-  /** Set with 更换路径 instead of detected on PATH. */
-  customPath: boolean
-  login: string | null
+/** What a `providers.cmd` answers with; the view's keys are masked. */
+export interface ProvidersAnswer {
+  view?: ProviderStoreView
+  presets?: ProviderPreset[]
+  id?: string
 }
 
 /** A macOS permission of this app; none are listed where none is needed (Windows, Linux). */
@@ -358,24 +303,32 @@ export const ipc = {
   /** The newest `limit` lines after line `after`. */
   recentLogs: (level: LogLevel, limit: number, after: number | null) =>
     invoke<LogLine[]>('recent_logs', { level, limit, after }),
-  agents: () => invoke<AgentCard[]>('agents'),
-  /** Resolves false when the file dialog was cancelled. */
-  pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
-  resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),
-  tools: () => invoke<ToolStatus[]>('tools'),
+  /** DaemonFeature values of this machine's client. */
+  agentFeatures: () => invoke<string[]>('agent_features'),
+  /** Node.js and the agents; every call detects again and reports a change to the server. */
+  tools: () => invoke<MachineAgentsDto>('tools'),
   /** Output lines arrive through `onToolProgress(opId, …)`. */
-  runTool: (op: ToolOp, kind: ToolKind, opId: string) => invoke<ToolStatus>('run_tool', { op, kind, opId }),
-  providers: () => invoke<Providers>('providers'),
-  /** The machine default of `agent`, or `bot`'s override. */
-  chooseProvider: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
-    invoke<void>('choose_provider', { agent, choice, bot: bot ?? null }),
-  providerImpact: (agent: AgentKind, choice: ProviderChoice, bot?: string) =>
-    invoke<Impact[]>('provider_impact', { agent, choice, bot: bot ?? null }),
+  runTool: (op: ToolOp, kind: ToolKind, opId: string) =>
+    invoke<MachineAgentsDto>('run_tool', { op, kind, opId }),
+  providers: (cmd: ProvidersCmd) =>
+    invoke<ProvidersAnswer>('providers_cmd', { cmd: { requestId: '', ...cmd } }),
+  ccSwitchPreview: () => invoke<CcSwitchCandidate[]>('ccswitch_preview'),
+  ccSwitchApply: (keys: string[]) => invoke<CcSwitchImportedDto>('ccswitch_apply', { keys }),
+  /** Hidden Claude directories in the home (`~/.claude-work`). */
+  claudeDirs: () => invoke<string[]>('claude_dirs'),
+  /** The system folder dialog; null when cancelled. */
+  pickDir: (start: string | null) => invoke<string | null>('pick_dir', { start }),
+  /** The agent's path picked by hand, its CLI's login and the bundled adapter's version. */
+  agentLocal: (kind: AgentKind) => invoke<AgentLocal>('agent_local', { kind }),
+  /** 更换路径… with the system file dialog; false when cancelled. */
+  pickAgentPath: (kind: AgentKind) => invoke<boolean>('pick_agent_path', { kind }),
+  /** 恢复自动检测. */
+  resetAgentPath: (kind: AgentKind) => invoke<void>('reset_agent_path', { kind }),
+  /** Names of the groups of this machine's bots by id; empty when the server is unreachable. */
+  groupNames: () => invoke<Record<string, string>>('group_names'),
   bots: () => invoke<MachineBot[]>('bots'),
   /** 在 Web 中管理 / 确认: `<server>/?bot=<id>` in the default browser. */
   openBotInWeb: (id: string) => invoke<void>('open_bot_in_web', { id }),
-  /** 在 Web 中管理: this machine's 供应商 tab. */
-  openProvidersInWeb: () => invoke<void>('open_providers_in_web'),
   /** 已连接 pill: the bound server's web app. */
   openWeb: () => invoke<void>('open_web'),
   /** The owner's personal Skill installs; read-only here, managed on the Web (plan Skill市场-M4 D14). */

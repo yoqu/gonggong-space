@@ -1,14 +1,21 @@
-import { type BotDto, type MachineDto, OFFICIAL_PROVIDER, type ProviderStoreView } from '@gonggong/protocol'
+import {
+  AGENT_KINDS,
+  AGENT_META,
+  agentMeta,
+  type BotDto,
+  type MachineDto,
+  type ProviderStoreView,
+} from '@gonggong/protocol'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { t } from '../../i18n'
 import { ago } from '../../lib/time'
 import { useGet } from '../../lib/useGet'
-import { Button, EmptyState, Icon, PickChatArt } from '../../ui'
-import { AGENT_LABEL, AGENTS, agentsUndetected, isLaterAgent, reportedAgent } from '../bots/model'
+import { AgentIcon, Button, EmptyState, Icon, PickChatArt } from '../../ui'
+import { choiceLabel, machineDefault } from '../agents/model'
+import { agentsUndetected, reportedAgent } from '../bots/model'
 import { OS_ICON } from './MachineDetails'
 import { OS_LABEL } from './model'
-import { providerName } from './providers'
 import '../works/works.css'
 import './machines.css'
 
@@ -92,15 +99,15 @@ function MachineCard({
           <span className="mx-sub">{t('最后在线：{time}', { time: ago(m.lastSeenAt) })}</span>
         ) : null}
         <span className="machine-card__agents">
-          {AGENTS.filter((kind) => !isLaterAgent(kind) || reportedAgent(m, kind)).map((kind) => {
+          {AGENT_KINDS.filter((kind) => !agentMeta(kind).feature || reportedAgent(m, kind)).map((kind) => {
             const a = m.agents.find((x) => x.kind === kind)
-            const provider =
-              view && a?.available ? providerName(view, view.machine[kind] ?? OFFICIAL_PROVIDER) : null
+            const provider = view && a?.available ? choiceLabel(view, machineDefault(view, kind)) : null
             return (
               <span key={kind} className="machine__agent" data-available={!!a?.available}>
+                <AgentIcon kind={kind} size={16} />
                 {a?.available
-                  ? `${AGENT_LABEL[kind]} ${a.version ?? ''}`.trim()
-                  : `${AGENT_LABEL[kind]} ${agentsUndetected(m) ? t('待检测') : t('未安装')}`}
+                  ? `${AGENT_META[kind].name} ${a.version ?? ''}`.trim()
+                  : `${AGENT_META[kind].name} ${agentsUndetected(m) ? t('待检测') : t('未安装')}`}
                 {provider ? <span className="mx-sub">{t('供应商：{name}', { name: provider })}</span> : null}
               </span>
             )

@@ -50,6 +50,19 @@ fn every_shared_fixture_round_trips() {
                 n += 1;
                 continue;
             }
+            ["data", "agent-protocols"] => {
+                // Which provider protocols each agent takes: the TS registry and the daemon's must agree.
+                let ours: serde_json::Map<_, _> = gonggong::protocol::AgentKind::ALL
+                    .iter()
+                    .map(|k| {
+                        let key = serde_json::to_value(k).unwrap().as_str().unwrap().to_string();
+                        (key, serde_json::to_value(k.protocols()).unwrap())
+                    })
+                    .collect();
+                assert_eq!(serde_json::Value::Object(ours), raw, "{name}");
+                n += 1;
+                continue;
+            }
             ["http", "daemon-bots"] => {
                 // `Bot` keeps the subset the CLI and desktop app use: every field it keeps must survive.
                 let back = round_trip::<Vec<Bot>>(&raw, &name);

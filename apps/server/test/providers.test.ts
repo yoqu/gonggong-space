@@ -4,12 +4,13 @@ import {
   type AgentCatalog,
   type BotDto,
   type GroupProviderStateDto,
+  type LegacyProviderStoreView,
+  type MachineAgentsDto,
   type MachineDto,
   PROTOCOL_VERSION,
   type ProviderSavedDto,
   type ProviderStoreView,
   type ToolOpDto,
-  type ToolsStateDto,
   type WebEvent,
 } from '@gonggong/protocol'
 import { sql } from 'drizzle-orm'
@@ -101,6 +102,15 @@ const view = (o: Partial<ProviderStoreView> = {}): ProviderStoreView => ({
   sessions: [],
   ...o,
 })
+/** What a daemon without `protocolProviders` answers. */
+const legacyView = (o: Partial<LegacyProviderStoreView> = {}): LegacyProviderStoreView => ({
+  ...view(),
+  machine: {},
+  providers: [],
+  ...o,
+})
+/** A daemon speaking the new shapes. */
+const NEW = ['tools', 'providers', 'protocolProviders', 'agentState']
 const masked = {
   id: 'kimi-1a2b',
   agent: 'claude' as const,
@@ -118,6 +128,33 @@ const masked = {
   wireApi: null,
   effort: null,
   source: null,
+}
+/** `masked` as the web sees it: one endpoint, kept to its agent. */
+const vendor = {
+  id: masked.id,
+  name: NAME,
+  presetId: null,
+  revision: 1,
+  apiKey: '****3210',
+  proxy: null,
+  source: null,
+  endpoints: [
+    {
+      protocol: 'anthropic' as const,
+      baseUrl: BASE_URL,
+      apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
+      wireApi: null,
+      model: null,
+      models: null,
+      effort: null,
+      env: {},
+      args: [],
+      configDir: null,
+      executablePath: null,
+      modelOptions: [],
+    },
+  ],
+  agents: ['claude' as const],
 }
 
 async function world() {
@@ -151,11 +188,9 @@ describe('agent tools and providers relayed to the machine', () => {
   it("relays a provider's command-line arguments only to a daemon that keeps them", async () => {
     const w = await world()
     const provider = {
-      agent: 'claude',
       name: 'Team',
-      baseUrl: 'https://x.test/anthropic',
       apiKey: 'sk-x',
-      args: ['--debug'],
+      endpoints: [{ protocol: 'anthropic', baseUrl: 'https://x.test/anthropic', args: ['--debug'] }],
     }
     const url = `/api/machines/${w.a.machine.id}/providers`
     const old = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'claudeArgs'])
@@ -168,7 +203,7 @@ describe('agent tools and providers relayed to the machine', () => {
     const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'providerArgs'])
     const pending = w.asWang.post<ProviderSavedDto>(url, provider)
     const cmd = await d.next()
-    expect(cmd).toMatchObject({ action: 'save', provider: { args: ['--debug'] } })
+    expect(cmd).toMatchObject({ action: 'save', provider: { agent: 'claude', args: ['--debug'] } })
     d.send({
       t: 'providers.result',
       requestId: cmd.requestId,
@@ -183,10 +218,14 @@ describe('agent tools and providers relayed to the machine', () => {
   it('relays a local Claude profile without requiring an API key', async () => {
     const w = await world()
     const profile = {
-      agent: 'claude',
       name: 'Local',
-      configDir: '/home/user/.qorz-claude',
-      executablePath: '/home/user/bin/claude-qorz',
+      endpoints: [
+        {
+          protocol: 'anthropic',
+          configDir: '/home/user/.qorz-claude',
+          executablePath: '/home/user/bin/claude-qorz',
+        },
+      ],
     }
     const old = await daemon(w.a.token, w.a.machine.id)
     const refused = await w.asWang.post<{ message: string }>(
@@ -247,11 +286,10 @@ describe('agent tools and providers relayed to the machine', () => {
     const base = `/api/machines/${w.a.machine.id}/providers`
 
     const pending = w.asWang.post<ProviderSavedDto>(base, {
-      agent: 'claude',
       name: NAME,
-      baseUrl: BASE_URL,
       apiKey: KEY,
-      setDefault: true,
+      endpoints: [{ protocol: 'anthropic', baseUrl: BASE_URL }],
+      setDefault: ['claude'],
     })
     const save = await d.next()
     expect(save).toMatchObject({
@@ -260,7 +298,8 @@ describe('agent tools and providers relayed to the machine', () => {
       setDefault: true,
       provider: { agent: 'claude', name: NAME, baseUrl: BASE_URL, apiKey: KEY },
     })
-    const saved = view({ machine: { claude: masked.id }, providers: [masked] })
+    const saved = legacyView({ machine: { claude: masked.id }, providers: [masked] })
+    const seen = view({ machine: { claude: { provider: masked.id, model: null } }, providers: [vendor] })
     d.send({
       t: 'providers.result',
       requestId: save.requestId,
@@ -270,15 +309,19 @@ describe('agent tools and providers relayed to the machine', () => {
       id: masked.id,
     })
     const res = await pending
-    expect(res).toEqual({ status: 200, body: { id: masked.id, view: saved } })
+    expect(res).toEqual({ status: 200, body: { id: masked.id, view: seen } })
     expect(JSON.stringify(res.body)).not.toContain(KEY)
 
-    const edit = w.asWang.put<ProviderSavedDto>(`${base}/${masked.id}`, {
-      agent: 'claude',
-      apiKey: `${KEY}-2`,
-    })
+    // An older daemon's provider is edited as the provider of its agent, looked up first.
+    const edit = w.asWang.put<ProviderSavedDto>(`${base}/${masked.id}`, { apiKey: `${KEY}-2` })
+    const lookup = await d.next()
+    expect(lookup).toMatchObject({ action: 'list' })
+    d.send({ t: 'providers.result', requestId: lookup.requestId, ok: true, error: null, view: saved })
     const editCmd = await d.next()
-    expect(editCmd).toMatchObject({ action: 'save', provider: { id: masked.id, apiKey: `${KEY}-2` } })
+    expect(editCmd).toMatchObject({
+      action: 'save',
+      provider: { id: masked.id, agent: 'claude', apiKey: `${KEY}-2` },
+    })
     d.send({
       t: 'providers.result',
       requestId: editCmd.requestId,
@@ -291,7 +334,7 @@ describe('agent tools and providers relayed to the machine', () => {
     const listCmd = await d.next()
     expect(listCmd).toMatchObject({ action: 'list' })
     d.send({ t: 'providers.result', requestId: listCmd.requestId, ok: true, error: null, view: saved })
-    expect((await list).body).toEqual(saved)
+    expect((await list).body).toEqual(seen)
 
     const def = w.asWang.put<ProviderStoreView>(`${base}/default`, { agent: 'claude', choice: 'official' })
     const useCmd = await d.next()
@@ -327,7 +370,7 @@ describe('agent tools and providers relayed to the machine', () => {
       method: 'POST',
       url: base,
       headers: { cookie: await t.seed.cookie(w.wang.id), 'content-type': 'application/json' },
-      payload: `{"agent":"claude","apiKey":"${KEY}"`,
+      payload: `{"name":"x","apiKey":"${KEY}"`,
     })
     expect(broken.statusCode).toBe(400)
     expect(broken.body).not.toContain(KEY)
@@ -386,12 +429,12 @@ describe('agent tools and providers relayed to the machine', () => {
       candidates: [candidate],
       imported: [],
     })
-    expect((await preview).body).toEqual({ candidates: [candidate] })
+    // An older daemon's candidate speaks its agent's protocol.
+    expect((await preview).body).toEqual({ candidates: [{ ...candidate, protocol: 'anthropic' }] })
 
     const apply = w.asWang.post(`${base}/apply`, { keys: ['claude:d1'], setDefault: true })
     const cmd = await d.next()
     expect(cmd).toMatchObject({ t: 'ccswitch.apply', keys: ['claude:d1'], setDefault: true })
-    const v = view({ providers: [masked] })
     d.send({
       t: 'ccswitch.result',
       requestId: cmd.requestId,
@@ -399,9 +442,9 @@ describe('agent tools and providers relayed to the machine', () => {
       error: null,
       candidates: [],
       imported: [masked.id],
-      view: v,
+      view: legacyView({ providers: [masked] }),
     })
-    expect((await apply).body).toEqual({ imported: [masked.id], view: v })
+    expect((await apply).body).toEqual({ imported: [masked.id], view: view({ providers: [vendor] }) })
   })
 
   it("sets a bot's provider only for the owner of both the bot and its machine", async () => {
@@ -617,11 +660,29 @@ describe('agent tools and providers relayed to the machine', () => {
       version: '2.1.285',
     })
     d.send({ t: 'tools.progress', requestId: opId, line: 'added 3 packages' })
-    const { tools, settings }: ToolsStateDto = {
-      tools: [
-        { kind: 'claude', installed: true, version: '2.1.285', latest: '2.1.285', managed: true, path: '/x' },
+    const tools = [
+      { kind: 'claude', installed: true, version: '2.1.285', latest: '2.1.285', managed: true, path: '/x' },
+      { kind: 'node', installed: true, version: '22.1.0', latest: '24.0.0', managed: false, path: '/n' },
+    ]
+    const settings = { mirror: { kind: 'npmmirror' as const } }
+    // An older daemon's tools list, merged with the agents its hello reported.
+    const state: MachineAgentsDto = {
+      node: { installed: true, version: '22.1.0', latest: '24.0.0', managed: false, path: '/n' },
+      agents: [
+        {
+          kind: 'claude',
+          available: true,
+          version: '2.1.0',
+          path: '/x/claude',
+          minVersion: null,
+          catalog: null,
+          latest: '2.1.285',
+          managed: true,
+          upgradeCommand: null,
+          installCommand: null,
+        },
       ],
-      settings: { mirror: { kind: 'npmmirror' } },
+      settings,
     }
     d.send({ t: 'tools.result', requestId: opId, ok: true, error: null, tools, settings })
     await until(() => wangSees.some((e) => e.t === 'machine.tools.result'))
@@ -634,7 +695,7 @@ describe('agent tools and providers relayed to the machine', () => {
         opId,
         ok: true,
         error: null,
-        state: { tools, settings },
+        state,
       },
     ] satisfies WebEvent[])
     expect(liSees.filter((e) => e.t.startsWith('machine.tools'))).toEqual([])
@@ -657,13 +718,13 @@ describe('agent tools and providers relayed to the machine', () => {
     })
 
     const d2 = await daemon(w.a.token, w.a.machine.id)
-    const status = w.asWang.get<ToolsStateDto>(base)
+    const status = w.asWang.get<MachineAgentsDto>(base)
     const st = await d2.next()
     expect(st).toMatchObject({ action: 'status' })
     d2.send({ t: 'tools.result', requestId: st.requestId, ok: true, error: null, tools, settings })
-    expect((await status).body).toEqual({ tools, settings })
+    expect((await status).body).toEqual(state)
 
-    const set = w.asWang.put<ToolsStateDto>(`${base}/settings`, {
+    const set = w.asWang.put<MachineAgentsDto>(`${base}/settings`, {
       mirror: { kind: 'custom', registry: 'ftp://x', node: 'https://n' },
     })
     expect((await set).status).toBe(400)

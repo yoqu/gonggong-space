@@ -5,7 +5,13 @@ import { GroupSchedulesDto } from '../schedules.js'
 import { SyncStatusDto } from '../sync.js'
 import { GitOperationDto } from './git.js'
 import { GroupDto, GroupTabsDto } from './groups.js'
-import { BotDto, GroupProviderStateDto, LinkRequestDto, MachineDto, ToolsStateDto } from './machines-bots.js'
+import {
+  BotDto,
+  GroupProviderStateDto,
+  LinkRequestDto,
+  MachineAgentsDto,
+  MachineDto,
+} from './machines-bots.js'
 import { GroupPinsDto, MessageDto, ReactionsDto, ThreadStateDto, ThreadSummary } from './messages.js'
 import { NotificationDto } from './notifications.js'
 import { GroupPreviewsDto } from './previews.js'
@@ -142,7 +148,7 @@ export const WebEvent = z.discriminatedUnion('t', [
     opId: z.string(),
     ok: z.boolean(),
     error: z.string().nullable(),
-    state: ToolsStateDto.nullable(),
+    state: MachineAgentsDto.nullable(),
   }),
   /** Group members: replaces the group's provider banner items. */
   GroupProviderStateDto.extend({ t: z.literal('group.providerState'), groupId: z.string() }),

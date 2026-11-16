@@ -1,0 +1,8 @@
+{
+  "t": "providers.cmd",
+  "requestId": "rq-9",
+  "action": "use",
+  "agent": "codex",
+  "choice": "kimi-coding-1a2b",
+  "model": "kimi-for-coding"
+}

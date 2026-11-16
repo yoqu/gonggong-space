@@ -49,15 +49,18 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         logs::measure_net,
         logs::export_diagnostics,
         logs::recent_logs,
-        agents::agents,
-        agents::pick_agent_path,
-        agents::reset_agent_path,
         tools::tools,
         tools::run_tool,
-        providers::providers,
-        providers::choose_provider,
-        providers::provider_impact,
-        providers::open_providers_in_web,
+        agents::agent_local,
+        agents::pick_agent_path,
+        agents::reset_agent_path,
+        agents::group_names,
+        providers::agent_features,
+        providers::providers_cmd,
+        providers::ccswitch_preview,
+        providers::ccswitch_apply,
+        providers::claude_dirs,
+        providers::pick_dir,
         bots::bots,
         bots::open_bot_in_web,
         market::market_installs,
@@ -75,15 +78,29 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
     ]
 }
 
+/// The daemon's handling of the Web's agent and provider commands, run here on this machine's files.
+fn manage(home: &std::path::Path) -> gonggong::manage::Manage {
+    gonggong::manage::Manage::new(home.to_path_buf(), gonggong::config::user_home())
+}
+
+/// Sends one command the way the server would and waits for the message `answer` picks out of what comes back.
+async fn relay<T>(
+    send: impl FnOnce(&gonggong::service::Outbox),
+    mut answer: impl FnMut(gonggong::protocol::DaemonToServer) -> Option<T>,
+) -> Result<T> {
+    let (out, mut rx) = gonggong::service::Outbox::channel();
+    send(&out);
+    // The handler holds its own sender until it is done; then the channel closes.
+    drop(out);
+    while let Some(msg) = rx.recv().await {
+        if let Some(found) = answer(msg) {
+            return Ok(found);
+        }
+    }
+    Err(tr!("本机执行端没有响应").to_string())
+}
+
 fn client() -> Result<gonggong::bots::Client> {
     let config = gonggong::config::Config::load().map_err(|e| e.to_string())?.ok_or(tr!("尚未绑定"))?;
     gonggong::bots::Client::new(&config).map_err(|e| e.to_string())
-}
-
-/// Applies a change to the owner's local settings (`local.json`); runs pick it up from their next turn.
-fn local(home: &std::path::Path, change: impl FnOnce(&mut gonggong::local::LocalSettings)) -> Result<()> {
-    gonggong::local::LocalStore::open(home.to_path_buf())
-        .and_then(|store| store.update(change))
-        .map(drop)
-        .map_err(|e| format!("{e:#}"))
 }

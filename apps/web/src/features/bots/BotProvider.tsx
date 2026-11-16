@@ -1,11 +1,20 @@
-import type { AgentCatalog, AgentKind, BotCatalogDto, ProviderStoreView } from '@gonggong/protocol'
+import {
+  type AgentCatalog,
+  type AgentKind,
+  type BotCatalogDto,
+  INHERIT_PROVIDER,
+  type MachineDto,
+  type ProviderStoreView,
+} from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
-import { FormRow, PopUpButton } from '../../ui'
-import { botProviderOptions } from '../machines/providers'
-import { type AgentConfig, AgentConfigFields, type CatalogRefresh } from './AgentConfig'
+import { Button, FormRow, PopUpButton } from '../../ui'
+import { choiceValue, machineDefault, parseChoice } from '../agents/model'
+import { ProviderModelPicker } from '../agents/ProviderModelPicker'
+import { type AgentConfig, AgentConfigFields, type CatalogRefresh, effortOptions } from './AgentConfig'
+import { reportedAgent } from './model'
 
 /** The machine's provider store (design §4.2), read live from it; null while asked or when `blocked`. */
 export function useMachineProviders(machineId: string | null, blocked: boolean) {
@@ -44,50 +53,116 @@ export function useProviderCatalog(machineId: string | null, agent: AgentKind, p
   return catalog
 }
 
+/** The provider a bot's choice runs on: its own, else the machine default of its agent. */
+export const choiceProvider = (view: ProviderStoreView, agent: AgentKind, provider: string) =>
+  provider === INHERIT_PROVIDER ? machineDefault(view, agent).provider : provider
+
+export interface ProviderModel {
+  /** A provider id, `official` or `inherit`. */
+  provider: string
+  config: AgentConfig
+}
+
 /**
- * 供应商 / 模型 / 推理强度 of the bot forms. Only the owner of the bot and its online machine may pick a provider
- * (`reason` says why not); a new provider starts from its default model.
+ * 供应商/模型 and 推理强度 of the bot forms: one pick of provider and model, inheriting the machine default unless
+ * overridden. Only the owner of the bot and its online machine may pick (`reason` says why not); the others get the
+ * models the bot's catalog lists. `catalog` is that of the provider in effect, for the levels.
  */
 export function ProviderModelFields({
   reason,
   view,
+  machine,
   agent,
-  provider,
+  value,
   catalog,
-  config,
   disabled,
   refresh,
   onChange,
 }: {
   reason: string | null
   view: ProviderStoreView | null
+  machine: MachineDto | undefined
   agent: AgentKind
-  provider: string
+  value: ProviderModel
   catalog: AgentCatalog | null
-  config: AgentConfig
   disabled?: boolean
   refresh?: CatalogRefresh
-  onChange: (next: { provider: string; config: AgentConfig }) => void
+  onChange: (next: ProviderModel) => void
 }) {
+  if (reason)
+    return (
+      <>
+        <FormRow label={t('供应商/模型')} hint={reason}>
+          <PopUpButton aria-label={t('供应商/模型')} value={null} placeholder="--" disabled options={[]} />
+        </FormRow>
+        <AgentConfigFields
+          catalog={catalog}
+          value={value.config}
+          disabled={disabled}
+          refresh={refresh}
+          onChange={(config) => onChange({ ...value, config })}
+        />
+      </>
+    )
+  const models = !!machine?.features.includes('protocolProviders')
+  const efforts = effortOptions(catalog, value.config.model)
   return (
     <>
-      <FormRow label={t('供应商')} hint={reason ?? t('只保存在 Bot 所在的机器上')}>
-        <PopUpButton
-          aria-label={t('供应商')}
-          value={view ? provider : null}
-          placeholder={reason ? '--' : t('读取中…')}
-          disabled={!!reason || !view}
-          options={view ? botProviderOptions(view, agent) : []}
-          onChange={(next) => onChange({ provider: next, config: { model: null, effort: null } })}
-        />
+      <FormRow
+        label={t('供应商/模型')}
+        hint={models ? t('只保存在 Bot 所在的机器上') : t('升级该机器的客户端后可以同时选择模型')}
+      >
+        <div className="bots-detail__buttons">
+          <ProviderModelPicker
+            view={view}
+            agent={agent}
+            catalog={machine ? (reportedAgent(machine, agent)?.catalog ?? null) : null}
+            models={models}
+            inherit={view ? machineDefault(view, agent) : undefined}
+            value={choiceValue(value.provider, models ? value.config.model : null)}
+            disabled={disabled}
+            onChange={(v) => {
+              const next = parseChoice(v)
+              const same = next.provider === value.provider
+              onChange({
+                provider: next.provider,
+                // A new provider starts from its default model and levels.
+                config: models
+                  ? { model: next.model, effort: same ? value.config.effort : null }
+                  : same
+                    ? value.config
+                    : { model: null, effort: null },
+              })
+            }}
+          />
+          {refresh && models ? (
+            <Button size="small" loading={refresh.busy} onClick={refresh.run}>
+              {t('刷新模型')}
+            </Button>
+          ) : null}
+        </div>
       </FormRow>
-      <AgentConfigFields
-        catalog={catalog}
-        value={config}
-        disabled={disabled}
-        refresh={refresh}
-        onChange={(next) => onChange({ provider, config: next })}
-      />
+      {models ? null : (
+        // An older client takes no model with the provider: the bot's own model, from its catalog.
+        <AgentConfigFields
+          catalog={catalog}
+          value={value.config}
+          disabled={disabled}
+          refresh={refresh}
+          onChange={(config) => onChange({ ...value, config })}
+        />
+      )}
+      {models && efforts.length ? (
+        <FormRow label={t('推理强度')}>
+          <PopUpButton
+            aria-label={t('推理强度')}
+            value={value.config.effort ?? ''}
+            disabled={disabled}
+            options={efforts}
+            onChange={(v) => onChange({ ...value, config: { ...value.config, effort: v || null } })}
+          />
+        </FormRow>
+      ) : null}
     </>
   )
 }

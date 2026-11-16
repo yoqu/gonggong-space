@@ -3,7 +3,7 @@ import { AgentSettings, AgentSettingValues } from '../agent-settings.js'
 import { AgentKind, Approval, DiffRepo, Tier, TriggerScope } from '../common.js'
 import {
   AgentCatalog,
-  AgentInfo,
+  AgentState,
   CcSwitchCandidate,
   DiffScope,
   DirEntry,
@@ -15,8 +15,8 @@ import {
   ProviderInput,
   ProviderStateItem,
   ProviderStoreView,
+  RuntimeState,
   TOOL_VERSION,
-  ToolStatus,
   ToolsSettings,
 } from '../daemon.js'
 
@@ -55,7 +55,7 @@ export const MachineDto = MachineInfo.omit({ hardwareId: true }).extend({
   boundAt: z.string(),
   createdAt: z.string(),
   online: z.boolean(),
-  agents: z.array(AgentInfo),
+  agents: z.array(AgentState),
   daemonVersion: z.string().nullable(),
   lastSeenAt: z.string().nullable(),
   /** DaemonFeature values of the connected daemon; empty while offline or for daemons that predate them. */
@@ -68,10 +68,10 @@ export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
 /*
  * Agent tools and providers of a machine (owner only, relayed live to its daemon; nothing is stored server-side).
  * Offline → 409 「机器离线」; a daemon without the feature → 409 「请先升级该机器的 daemon」.
- *   GET    /api/machines/:id/tools                          → ToolsStateDto
+ *   GET    /api/machines/:id/tools                          → MachineAgentsDto
  *   POST   /api/machines/:id/tools/:kind/install  InstallToolReq → ToolOpDto (progress + result over realtime)
  *   POST   /api/machines/:id/tools/:kind/upgrade             → ToolOpDto
- *   PUT    /api/machines/:id/tools/settings   ToolsSettings  → ToolsStateDto
+ *   PUT    /api/machines/:id/tools/settings   ToolsSettings  → MachineAgentsDto
  *   GET    /api/machines/:id/providers                      → ProviderStoreView
  *   GET    /api/machines/:id/providers/presets?agent=        → ProviderPreset[]
  *   POST   /api/machines/:id/providers        SaveProviderReq → ProviderSavedDto
@@ -88,8 +88,13 @@ export const UpdateMachineReq = z.object({ name: z.string().trim().max(64) })
  *   GET    /api/machines/:id/catalog?agent=&provider=       → BotCatalogDto (a new bot's models on that provider)
  *   GET    /api/groups/:id/provider-state                   → GroupProviderStateDto
  */
-export const ToolsStateDto = z.object({ tools: z.array(ToolStatus), settings: ToolsSettings })
-export type ToolsStateDto = z.infer<typeof ToolsStateDto>
+/** The machine's runtime and agents (an older daemon's tools.result converted by agentStatesFromLegacy). */
+export const MachineAgentsDto = z.object({
+  node: RuntimeState.nullable(),
+  agents: z.array(AgentState),
+  settings: ToolsSettings,
+})
+export type MachineAgentsDto = z.infer<typeof MachineAgentsDto>
 /*
  * Git access and self-checks of a machine (owner only, relayed live; tokens are never stored server-side):
  *   GET    /api/machines/:id/git-access                       → GitAccessView
@@ -107,19 +112,33 @@ export const InstallToolReq = z.object({ version: z.string().regex(TOOL_VERSION)
 export const ToolOpDto = z.object({ opId: z.string() })
 export type ToolOpDto = z.infer<typeof ToolOpDto>
 export const SaveProviderReq = ProviderInput.omit({ id: true }).extend({
-  setDefault: z.boolean().default(false),
+  /** Agents whose machine default becomes this provider. */
+  setDefault: z.array(AgentKind).default([]),
+  /** Older daemons only: the agent a single-endpoint provider is for; absent = the protocol's own agent. */
+  agent: AgentKind.optional(),
 })
 export type SaveProviderReq = z.input<typeof SaveProviderReq>
 export const ProviderSavedDto = z.object({ id: z.string(), view: ProviderStoreView })
 export type ProviderSavedDto = z.infer<typeof ProviderSavedDto>
-/** `choice`: a provider id of `agent` or `official`. */
-export const UseProviderReq = z.object({ agent: AgentKind, choice: z.string().min(1) })
+/** `choice`: a provider id `agent` can use or `official`; `model` absent or null = the endpoint's model. */
+export const UseProviderReq = z.object({
+  agent: AgentKind,
+  choice: z.string().min(1),
+  model: z.string().trim().min(1).max(128).nullable().optional(),
+})
 export const OfficialProviderReq = OfficialInput.extend({ agent: AgentKind })
 export type OfficialProviderReq = z.input<typeof OfficialProviderReq>
 export const AgentSettingsReq = AgentSettings.extend({ agent: AgentKind })
 export type AgentSettingsReq = z.input<typeof AgentSettingsReq>
-/** `choice`: a provider id of the bot's agent, `official` or `inherit`. */
-export const BotProviderReq = z.object({ choice: z.string().min(1) })
+/**
+ * `choice`: a provider id the bot's agent can use, `official` or `inherit`; `model` / `effort` (stored on the bot)
+ * set with it, absent = unchanged, null = default.
+ */
+export const BotProviderReq = z.object({
+  choice: z.string().min(1),
+  model: z.string().nullable().optional(),
+  effort: z.string().nullable().optional(),
+})
 /** What a new session of the bot may pick: asked live of its machine, else what it reported. */
 export const BotCatalogDto = z.object({ catalog: AgentCatalog.nullable() })
 export type BotCatalogDto = z.infer<typeof BotCatalogDto>

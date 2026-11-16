@@ -124,25 +124,13 @@ pub enum ProvidersAction {
     AgentSettings,
 }
 
-/// Adds (no `id`) or edits a provider; absent fields keep the stored (or preset) value.
+/// One protocol of a provider being saved; absent fields keep what is there (or the preset's value).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProviderInput {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    pub agent: AgentKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preset_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub config_dir: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub executable_path: Option<String>,
+pub struct EndpointInput {
+    pub protocol: ApiProtocol,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key_field: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -151,14 +139,54 @@ pub struct ProviderInput {
     pub models: Option<ModelMap>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env: Option<std::collections::BTreeMap<String, String>>,
-    /// Empty = direct; the masked one from the view = unchanged.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proxy: Option<String>,
     /// Claude Code command-line arguments, one per line; absent = unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub args: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_path: Option<String>,
+}
+
+impl EndpointInput {
+    pub fn new(protocol: ApiProtocol) -> EndpointInput {
+        EndpointInput {
+            protocol,
+            base_url: None,
+            api_key_field: None,
+            model: None,
+            models: None,
+            env: None,
+            args: None,
+            effort: None,
+            config_dir: None,
+            executable_path: None,
+        }
+    }
+}
+
+/// Adds (no `id`) or edits a provider; absent fields keep the stored (or preset) value. An endpoint replaces the one
+/// of its protocol and leaves the others; `removeProtocols` drops endpoints.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    /// Empty = direct; the masked one from the view = unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoints: Option<Vec<EndpointInput>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remove_protocols: Option<Vec<ApiProtocol>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -174,6 +202,9 @@ pub struct ProvidersCmd {
     pub id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub choice: Option<String>,
+    /// `use` of a machine default: its model; absent / null = the endpoint's (else the adapter's) default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<ProviderInput>,
     /// For `official`, with `agent`.

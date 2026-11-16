@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { AgentSettings, CliSettingsSnapshot } from '../agent-settings.js'
+import { agentTakes } from '../agents.js'
 import { AgentKind } from '../common.js'
-import { AgentCatalog } from './machine.js'
+import { ApiProtocol } from './agent-state.js'
 import { RepoAccessReason } from './run-payloads.js'
 
 // ── Agent tools and providers (docs/archive/2026-11/Agent工具与供应商统一管理-设计.md) ─────
@@ -77,10 +78,23 @@ export const DaemonFeature = z.enum([
   'deepseek',
   /** Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one. */
   'antigravity',
+  /** Runs OpenCode, Qwen Code, Kimi Code, Goose and GitHub Copilot CLI bots (each its own, as the ones above). */
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
   /** PluginRef.mcp (plan 插件扩展点 S1): `{node}` / `{pkg}` filled in and the servers handed to the agent. */
   'pluginMcp',
   /** presets.sync, artifact `plugin` and manifest `artifact.kit` (plan 插件扩展点 S2). */
   'presetSync',
+  /** tools.result reports `node` and `agents` (AgentState); older daemons send `tools` (LegacyToolStatus). */
+  'agentState',
+  /**
+   * Providers are vendors with an endpoint per protocol (providers.*, presets.sync), machine defaults carry a model,
+   * `use` takes `model` and `catalog` takes `agent`. Older daemons speak the legacy.ts shapes.
+   */
+  'protocolProviders',
 ])
 export type DaemonFeature = z.infer<typeof DaemonFeature>
 
@@ -93,23 +107,13 @@ export const ToolKind = z.enum([
   'pi',
   'deepseek',
   'antigravity',
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
 ])
 export type ToolKind = z.infer<typeof ToolKind>
-export const ToolStatus = z.object({
-  kind: ToolKind,
-  installed: z.boolean(),
-  version: z.string().nullable(),
-  /** Latest version on the mirror; null when it could not be checked. */
-  latest: z.string().nullable(),
-  /** Installed by Gonggong (and so upgradable by it). */
-  managed: z.boolean(),
-  path: z.string().nullable(),
-  /** How the user's own install is upgraded (Gonggong runs it on 升级); null when managed or unknown, absent from older daemons. */
-  upgradeCommand: z.string().nullable().optional(),
-  /** Not on npm, so Gonggong neither installs nor upgrades it: the maker's install command, run on the machine. */
-  installCommand: z.string().nullable().optional(),
-})
-export type ToolStatus = z.infer<typeof ToolStatus>
 /** Where Node and the agent CLIs are downloaded from; npmmirror by default. */
 export const Mirror = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('npmmirror') }),
@@ -133,51 +137,74 @@ export const ModelMap = z.object({
 })
 export type ModelMap = z.infer<typeof ModelMap>
 export const PresetGroup = z.enum(['cn', 'aggregator', 'global'])
-/** A built-in vendor (adapted from CC Switch): choosing one only leaves the API key to fill in. */
-export const ProviderPreset = z.object({
-  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
-  agent: AgentKind,
-  name: z.string().min(1).max(60),
-  group: PresetGroup.default('global'),
-  websiteUrl: z.string().nullable().default(null),
-  apiKeyUrl: z.string().nullable().default(null),
+export const PRESET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/
+/** What a vendor serves on one protocol. */
+export const PresetEndpoint = z.object({
+  protocol: ApiProtocol,
   baseUrl: z.string(),
   apiKeyField: z.string().nullable().default(null),
+  wireApi: z.string().nullable().default(null),
   model: z.string().nullable().default(null),
   models: ModelMap.nullable().default(null),
   modelOptions: z.array(z.string()).default([]),
   env: z.record(z.string(), z.string()).default({}),
-  wireApi: z.string().nullable().default(null),
   effort: z.string().nullable().default(null),
   /** Claude: context window per model id, filled into CLAUDE_CODE_MAX_CONTEXT_TOKENS unless the provider sets it. */
   modelContext: z.record(z.string(), z.number().int()).default({}),
 })
+export type PresetEndpoint = z.infer<typeof PresetEndpoint>
+/** A built-in vendor (adapted from CC Switch): choosing one only leaves the API key to fill in. */
+export const ProviderPreset = z.object({
+  id: z.string().regex(PRESET_ID),
+  name: z.string().min(1).max(60),
+  group: PresetGroup.default('global'),
+  websiteUrl: z.string().nullable().default(null),
+  apiKeyUrl: z.string().nullable().default(null),
+  endpoints: z.array(PresetEndpoint).min(1),
+})
 export type ProviderPreset = z.infer<typeof ProviderPreset>
+export const ProviderSource = z.object({ kind: z.enum(['cc-switch', 'link']), id: z.string().optional() })
+/** One protocol a provider serves; secrets masked like the provider's key. */
+export const ProviderEndpoint = z.object({
+  protocol: ApiProtocol,
+  baseUrl: z.string(),
+  apiKeyField: z.string().nullable(),
+  wireApi: z.string().nullable(),
+  model: z.string().nullable(),
+  models: ModelMap.nullable(),
+  effort: z.string().nullable(),
+  /** Values of `isSecretEnv` variables masked like the API key. */
+  env: z.record(z.string(), z.string()),
+  /** Claude Code command-line arguments, one per line. */
+  args: z.array(z.string()).default([]),
+  /** A local Claude profile: Claude Code only, with its own login instead of a key. */
+  configDir: z.string().nullable().default(null),
+  executablePath: z.string().nullable().default(null),
+  modelOptions: z.array(z.string()).default([]),
+})
+export type ProviderEndpoint = z.infer<typeof ProviderEndpoint>
 /** A machine's provider as it may leave the machine: `apiKey` masked to its last 4 characters at most. */
 export const ProviderView = z.object({
   id: z.string(),
-  agent: AgentKind,
   name: z.string(),
   presetId: z.string().nullable(),
   revision: z.number().int(),
-  configDir: z.string().nullable().optional(),
-  executablePath: z.string().nullable().optional(),
-  baseUrl: z.string(),
   apiKey: z.string(),
-  apiKeyField: z.string().nullable(),
-  model: z.string().nullable(),
-  models: ModelMap.nullable(),
-  /** Values of `isSecretEnv` variables masked like the API key. */
-  env: z.record(z.string(), z.string()),
   /** Password masked; null = direct. */
   proxy: z.string().nullable(),
-  /** Claude Code command-line arguments, one per line. */
-  args: z.array(z.string()).default([]),
-  wireApi: z.string().nullable(),
-  effort: z.string().nullable(),
-  source: z.object({ kind: z.enum(['cc-switch', 'link']), id: z.string().optional() }).nullable(),
+  source: ProviderSource.nullable(),
+  endpoints: z.array(ProviderEndpoint),
+  /** Only on providers of an older daemon (storeViewFromLegacy): it runs them for this agent alone. */
+  agents: z.array(AgentKind).optional(),
 })
 export type ProviderView = z.infer<typeof ProviderView>
+
+/** The endpoint `agent` would run on: the first whose protocol it speaks (a local profile only for Claude Code). */
+export const endpointFor = (p: ProviderView, agent: AgentKind) =>
+  p.agents && !p.agents.includes(agent)
+    ? undefined
+    : p.endpoints.find((e) => agentTakes(agent, e.protocol) && (!e.configDir || agent === 'claude'))
+export const canUse = (p: ProviderView, agent: AgentKind) => endpointFor(p, agent) !== undefined
 /** `official` = the CLI's own login (nothing injected); a bot without an override inherits the machine default. */
 export const OFFICIAL_PROVIDER = 'official'
 export const INHERIT_PROVIDER = 'inherit'
@@ -189,9 +216,12 @@ export const OfficialSettings = z.object({
   args: z.array(z.string()).default([]),
 })
 export type OfficialSettings = z.infer<typeof OfficialSettings>
+/** A machine default: `provider` an id or `official`; `model` null = the endpoint's (else the adapter's) default. */
+export const AgentDefault = z.object({ provider: z.string(), model: z.string().nullable() })
+export type AgentDefault = z.infer<typeof AgentDefault>
 export const ProviderStoreView = z.object({
-  /** Default per agent: a provider id or `official`; absent = official. */
-  machine: z.partialRecord(AgentKind, z.string()),
+  /** Default per agent; absent = official. */
+  machine: z.partialRecord(AgentKind, AgentDefault),
   /** Official login extras per agent; absent = none. */
   official: z.partialRecord(AgentKind, OfficialSettings).default({}),
   /** Bot overrides: bot id → provider id or `official`; absent = inherit. */
@@ -207,33 +237,40 @@ export const ProviderStoreView = z.object({
   ),
 })
 export type ProviderStoreView = z.infer<typeof ProviderStoreView>
-/**
- * Adds a provider (no `id`: from `presetId` or by hand) or edits one. Absent fields keep what is there (or the
- * preset's value); `apiKey` is required for a new one and replaced only when given.
- */
-export const ProviderInput = z.object({
-  id: z.string().optional(),
-  agent: AgentKind,
-  presetId: z.string().optional(),
-  name: z.string().trim().min(1).max(64).optional(),
-  configDir: z.string().trim().min(1).max(4096).optional(),
-  executablePath: z.string().trim().max(4096).optional(),
+/** One protocol of a provider being saved; absent fields keep what is there (or the preset's value). */
+export const EndpointInput = z.object({
+  protocol: ApiProtocol,
   baseUrl: z.url({ protocol: /^https?$/ }).optional(),
-  apiKey: z.string().trim().min(1).max(4096).optional(),
   apiKeyField: z.enum(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']).optional(),
   model: z.string().trim().max(128).optional(),
   models: ModelMap.optional(),
   env: z.record(z.string(), z.string()).optional(),
-  /** '' = direct; the masked one from the view = unchanged. */
-  proxy: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
   /** Claude only; absent = unchanged. The daemon refuses flags 共工 manages itself. */
   args: z.array(z.string()).optional(),
   effort: z.string().max(32).optional(),
+  configDir: z.string().trim().min(1).max(4096).optional(),
+  executablePath: z.string().trim().max(4096).optional(),
+})
+export type EndpointInput = z.infer<typeof EndpointInput>
+/**
+ * Adds a provider (no `id`: from `presetId` or by hand) or edits one. Absent fields keep what is there (or the
+ * preset's value); `apiKey` is required for a new one and replaced only when given. An endpoint replaces the one of
+ * its protocol and leaves the others; `removeProtocols` drops endpoints.
+ */
+export const ProviderInput = z.object({
+  id: z.string().optional(),
+  presetId: z.string().optional(),
+  name: z.string().trim().min(1).max(64).optional(),
+  apiKey: z.string().trim().min(1).max(4096).optional(),
+  /** '' = direct; the masked one from the view = unchanged. */
+  proxy: z.union([z.literal(''), z.url({ protocol: /^https?$/ })]).optional(),
+  endpoints: z.array(EndpointInput).optional(),
+  removeProtocols: z.array(ApiProtocol).optional(),
 })
 export type ProviderInput = z.infer<typeof ProviderInput>
 /** Sets an official login's extras; absent fields keep what is there. */
 export const OfficialInput = z.object({
-  env: ProviderInput.shape.env,
+  env: EndpointInput.shape.env,
   proxy: ProviderInput.shape.proxy,
   /** Claude only; absent = unchanged. The daemon refuses flags 共工 manages itself. */
   args: z.array(z.string()).optional(),
@@ -243,6 +280,7 @@ export type OfficialInput = z.infer<typeof OfficialInput>
 export const CcSwitchCandidate = z.object({
   key: z.string(),
   agent: AgentKind,
+  protocol: ApiProtocol,
   name: z.string(),
   baseUrl: z.string(),
   apiKey: z.string(),
@@ -266,38 +304,6 @@ export const ToolsProgress = z.object({
   requestId: z.string(),
   line: z.string(),
 })
-export const ToolsResult = z.object({
-  t: z.literal('tools.result'),
-  requestId: z.string(),
-  ok: z.boolean(),
-  error: z.string().nullable(),
-  tools: z.array(ToolStatus),
-  settings: ToolsSettings,
-})
-export type ToolsResult = z.infer<typeof ToolsResult>
-export const ProvidersResult = z.object({
-  t: z.literal('providers.result'),
-  requestId: z.string(),
-  ok: z.boolean(),
-  error: z.string().nullable(),
-  view: ProviderStoreView.optional(),
-  presets: z.array(ProviderPreset).optional(),
-  catalog: AgentCatalog.optional(),
-  /** The provider saved or imported. */
-  id: z.string().optional(),
-})
-export type ProvidersResult = z.infer<typeof ProvidersResult>
-export const CcSwitchResult = z.object({
-  t: z.literal('ccswitch.result'),
-  requestId: z.string(),
-  ok: z.boolean(),
-  error: z.string().nullable(),
-  candidates: z.array(CcSwitchCandidate),
-  /** Local ids written by ccswitch.apply. */
-  imported: z.array(z.string()),
-  view: ProviderStoreView.optional(),
-})
-export type CcSwitchResult = z.infer<typeof CcSwitchResult>
 /** agents.reprobe done; on success the new catalog has been sent in an agents.update first. */
 export const AgentsReprobeResult = z.object({
   t: z.literal('agents.reprobe.result'),

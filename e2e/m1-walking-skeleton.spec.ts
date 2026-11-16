@@ -30,7 +30,9 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   // Bind this machine with the one-time 接入链接, as the desktop app would receive it.
   await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByRole('menu').getByRole('menuitem', { name: '绑定新机器' }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: '接入我的电脑' }).click()
+  // The 接入链接 for the desktop app sits under 其他方式, after the sentence for a local agent.
+  await page.getByRole('dialog', { name: '绑定新机器' }).getByRole('button', { name: '其他方式' }).click()
   const link = (await page.getByRole('link', { name: '在客户端中打开' }).getAttribute('href')) ?? ''
   expect(link).toMatch(/^gonggong:\/\/bind\?server=.+&code=[A-Z0-9]{4}-[A-Z0-9]{4}/)
   const m = machine()
@@ -55,7 +57,7 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
     // Private chat without a repo: that bot alone makes it a DM (titled by its bot, no name field).
     await rail.getByRole('button', { name: /^消息/ }).click()
-    await page.getByRole('button', { name: '发起会话' }).click()
+    await page.getByRole('button', { name: '发起会话', description: '发起会话' }).click()
     const dm = page.getByRole('dialog', { name: '发起会话' })
     await dm.getByRole('button', { name: '添加 Bot…' }).click()
     await page

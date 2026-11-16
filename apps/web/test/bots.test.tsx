@@ -39,8 +39,23 @@ const mbp: MachineDto = {
       path: '/bin/claude',
       minVersion: '2.0.0',
       catalog: null,
+      latest: null,
+      managed: false,
+      upgradeCommand: null,
+      installCommand: null,
     },
-    { kind: 'codex', available: false, version: null, path: null, minVersion: '0.160.1', catalog: null },
+    {
+      kind: 'codex',
+      available: false,
+      version: null,
+      path: null,
+      minVersion: '0.160.1',
+      catalog: null,
+      latest: null,
+      managed: false,
+      upgradeCommand: null,
+      installCommand: null,
+    },
   ],
   daemonVersion: '0.1.0',
   features: [],
@@ -376,6 +391,10 @@ describe('新建 Bot', () => {
           path: '/bin/agy',
           minVersion: null,
           catalog: null,
+          latest: null,
+          managed: false,
+          upgradeCommand: null,
+          installCommand: null,
         },
       ],
     }
@@ -482,65 +501,72 @@ describe('新建 Bot', () => {
     )
   })
 
-  it('picks the provider like editing does, offering the models of that provider', async () => {
-    const withProviders = { ...mbp, features: ['tools', 'providers'] }
-    const kimi: AgentCatalog = {
-      current: 'kimi-for-coding',
-      efforts: [],
+  it('picks provider and model in one, like editing does, greying out providers of another protocol', async () => {
+    const withProviders = { ...mbp, features: ['tools', 'providers', 'protocolProviders'] }
+    const endpoint = (protocol: 'anthropic' | 'openai', modelOptions: string[] = []) => ({
+      protocol,
+      baseUrl: 'https://x.example.com',
+      apiKeyField: null,
+      wireApi: null,
+      model: null,
+      models: null,
       effort: null,
-      models: [{ value: 'kimi-for-coding', name: 'kimi-for-coding', efforts: [], effort: null }],
-    }
-    const p = (id: string, name: string, agent: 'claude' | 'codex') => ({
+      env: {},
+      args: [],
+      configDir: null,
+      executablePath: null,
+      modelOptions,
+    })
+    const p = (id: string, name: string, e: ReturnType<typeof endpoint>) => ({
       id,
-      agent,
       name,
       presetId: null,
       revision: 1,
-      baseUrl: 'https://x.example.com',
       apiKey: '****abcd',
-      apiKeyField: null,
-      model: null,
-      models: null,
-      env: {},
       proxy: null,
-      wireApi: null,
-      effort: null,
       source: null,
+      endpoints: [e],
     })
     routes['GET /api/bots/owners'] = () => [{ id: 'u1', name: '王磊', machines: [withProviders] }]
     routes['GET /api/machines/m1/providers'] = () => ({
       official: {},
       machine: {},
       bots: {},
-      providers: [p('p1', 'Kimi', 'claude'), p('p2', 'Codex 中转', 'codex')],
+      providers: [
+        p('p1', 'Kimi', endpoint('anthropic', ['kimi-for-coding', 'kimi-k2'])),
+        p('p2', 'Codex 中转', endpoint('openai')),
+      ],
       sessions: [],
     })
-    routes['GET /api/machines/m1/catalog?agent=claude&provider=inherit'] = () => ({ catalog: CATALOG })
-    routes['GET /api/machines/m1/catalog?agent=claude&provider=p1'] = () => ({ catalog: kimi })
+    routes['GET /api/machines/m1/catalog?agent=claude&provider=official'] = () => ({ catalog: CATALOG })
+    routes['GET /api/machines/m1/catalog?agent=claude&provider=p1'] = () => ({ catalog: CATALOG })
     routes['POST /api/bots'] = () => bot({})
     routes['GET /api/machines'] = () => [withProviders]
     renderAt('/machines', wang)
     fireEvent.click(await screen.findByRole('button', { name: '新建 Bot' }))
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
-    const select = await within(dialog).findByRole('button', { name: '供应商' })
-    await waitFor(() => expect(select.textContent).toContain('继承机器（当前：官方登录）'))
+    const select = await within(dialog).findByRole('button', { name: '供应商/模型' })
+    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：官方登录）'))
     fireEvent.click(select)
-    expect(screen.getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual([
-      '继承机器（当前：官方登录）',
-      '官方登录',
-      'Kimi',
+    const items = screen.getAllByRole('menuitemcheckbox')
+    expect(items.map((i) => i.querySelector('[id$="-l"]')?.textContent ?? i.textContent)).toEqual([
+      '继承机器默认（当前：官方登录）',
+      '官方登录 / 默认模型',
+      'Kimi / 默认模型',
+      'Kimi / kimi-for-coding',
+      'Kimi / kimi-k2',
+      'Codex 中转',
     ])
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi' }))
-    const model = await within(dialog).findByRole('button', { name: '模型' })
-    await waitFor(() => expect(model.textContent).toContain('默认（kimi-for-coding）'))
-    fireEvent.click(model)
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'kimi-for-coding' }))
+    const codex = items.at(-1) as HTMLElement
+    expect(codex.getAttribute('aria-disabled')).toBe('true')
+    expect(codex.textContent).toContain('该供应商只提供 OpenAI 兼容 接口，Claude Code 需要 Anthropic 兼容')
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi / kimi-k2' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并绑定' }))
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'POST /api/bots')?.body).toMatchObject({
         provider: 'p1',
-        model: 'kimi-for-coding',
+        model: 'kimi-k2',
       }),
     )
   })

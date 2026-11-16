@@ -49,6 +49,7 @@
           }
         },
         "provider": {
+          "protocols": ["codebuddy"],
           "env": {
             "apiKey": "CODEBUDDY_API_KEY",
             "baseUrl": "CODEBUDDY_BASE_URL",

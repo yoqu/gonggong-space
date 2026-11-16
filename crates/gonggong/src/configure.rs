@@ -13,7 +13,7 @@ const DEFAULT: &str = "default";
 
 pub fn parse_kind(s: &str) -> Result<AgentKind, String> {
     serde_json::from_value(serde_json::Value::String(s.to_lowercase()))
-        .map_err(|_| t!("应为 claude、codex、gemini、codebuddy、pi、deepseek 或 antigravity").into())
+        .map_err(|_| t!("应为 claude、codex、gemini、codebuddy、pi、deepseek、antigravity、opencode、qwen、kimi、goose 或 copilot").into())
 }
 
 fn catalog_line(catalog: Option<&AgentCatalog>) -> String {
@@ -110,6 +110,6 @@ mod tests {
         assert!(agent(home.path(), AgentKind::Codex, "/nope/codex".into()).is_err());
         assert_eq!(parse_kind("Claude"), Ok(AgentKind::Claude));
         assert!(parse_kind("gemini").is_ok());
-        assert!(parse_kind("opencode").is_err());
+        assert!(parse_kind("nope").is_err());
     }
 }

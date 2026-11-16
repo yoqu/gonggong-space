@@ -6,6 +6,7 @@ import type {
   RunDto,
   RunStatus,
 } from '@gonggong/protocol'
+import { AGENT_META } from '@gonggong/protocol'
 import {
   type DragEvent,
   Fragment,
@@ -49,7 +50,7 @@ import {
 } from '../../ui'
 import { ArtifactCardView } from '../artifacts/ArtifactCard'
 import { useBotCostume } from '../bots/avatars'
-import { AGENT_LABEL, dmLead } from '../bots/model'
+import { dmLead } from '../bots/model'
 import { McpSecretCard } from '../config/McpSecretCard'
 import { FeishuChatLink } from '../feishu/FeishuChatLink'
 import { FeishuIssueEventRow } from '../feishu/FeishuIssueEvent'
@@ -580,7 +581,6 @@ export function ChatView({
     [mentionNamesKey],
   )
   const userName = (id: string | null) => group.members.find((m) => m.userId === id)?.name ?? '—'
-
   const card = (r: RunDto, reply?: MessageDto) => {
     const bot = botsById.get(r.botId)
     return (
@@ -589,7 +589,7 @@ export function ChatView({
         run={r}
         reply={reply}
         botName={bot?.name ?? 'bot'}
-        agent={bot ? AGENT_LABEL[bot.agentKind] : ''}
+        agent={bot ? AGENT_META[bot.agentKind].name : ''}
         trigger={
           r.triggerUserId ? userName(r.triggerUserId) : (byId.get(r.triggerMessageId)?.authorName ?? '—')
         }

@@ -1,7 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use gonggong::config::Config;
 use gonggong::protocol::{
-    AgentInfo, AgentKind, DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon,
+    AgentKind, AgentState, DaemonToServer, MachineInfo, RejectReason, RunDone, RunEvent, RunOutcome, ServerToDaemon,
     ServiceInfo, ServiceStatus,
 };
 use gonggong::service::{Fatal, Handler, Outbox, Service};
@@ -50,7 +50,7 @@ fn service(port: u16, handler: Recorder) -> Service<Recorder> {
     with_agents(port, handler, watch::channel(vec![]).1)
 }
 
-fn with_agents(port: u16, handler: Recorder, agents: watch::Receiver<Vec<AgentInfo>>) -> Service<Recorder> {
+fn with_agents(port: u16, handler: Recorder, agents: watch::Receiver<Vec<AgentState>>) -> Service<Recorder> {
     Service {
         config: Config {
             server: format!("http://127.0.0.1:{port}"),
@@ -189,7 +189,7 @@ async fn messages_emitted_while_disconnected_arrive_in_order_after_reconnect() {
 async fn reports_agent_detection_changes_after_hello() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    let claude = |available| AgentInfo {
+    let claude = |available| AgentState {
         kind: AgentKind::Claude,
         available,
         version: None,
@@ -198,6 +198,8 @@ async fn reports_agent_detection_changes_after_hello() {
         catalog: None,
         latest: None,
         managed: false,
+        upgrade_command: None,
+        install_command: None,
     };
     let (tx, rx) = watch::channel(vec![claude(false)]);
     let task = tokio::spawn(with_agents(port, Recorder::default(), rx).run());

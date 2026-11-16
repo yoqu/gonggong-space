@@ -27,7 +27,7 @@ test('打开并关闭弹窗后节点被移除', async ({ page }) => {
   await adminSession(page.request)
   await page.goto('/')
   await page.getByRole('navigation', { name: '会话列表' }).getByRole('button', { name: '发起会话' }).click()
-  await expect(page.getByRole('dialog', { name: '新建群' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '发起会话' })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.locator('.ui-overlay')).toHaveCount(0)
   await expect(page.getByRole('dialog')).toHaveCount(0)

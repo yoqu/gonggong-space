@@ -4,16 +4,18 @@ use crate::ccswitch;
 use crate::config::{Config, Mirror, Settings};
 use crate::local::LocalSettings;
 use crate::protocol::{
-    AgentCatalog, AgentInfo, Choice, DaemonToServer, DiagCheck, FEATURE_AGENT_SETTINGS, FEATURE_ANTIGRAVITY,
-    FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS, FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH,
-    FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY, FEATURE_CONTAINER, FEATURE_DEEPSEEK, FEATURE_DIAG,
-    FEATURE_GEMINI, FEATURE_GIT_ACCESS, FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4,
-    FEATURE_GIT_REPOS, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_PI, FEATURE_PLUGIN_MCP, FEATURE_PLUGINS,
-    FEATURE_PRESET_SYNC, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS, FEATURE_REPROBE, FEATURE_SESSION_FORK,
-    FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS, GitAccessCmd, ModelChoice, ModelMap, ProviderInput,
-    ProviderStateItem, ProvidersAction, ProvidersCmd, ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
+    AgentCatalog, AgentState, Choice, DaemonToServer, DiagCheck, EndpointInput, FEATURE_AGENT_SETTINGS,
+    FEATURE_AGENT_STATE, FEATURE_ANTIGRAVITY, FEATURE_APPROVAL_GATES, FEATURE_ARTIFACT_SNAPSHOT, FEATURE_ARTIFACTS,
+    FEATURE_BUILTIN_REVIEW, FEATURE_CC_SWITCH, FEATURE_CLAUDE_ARGS, FEATURE_CLAUDE_PROFILE, FEATURE_CODEBUDDY,
+    FEATURE_CONTAINER, FEATURE_COPILOT, FEATURE_DEEPSEEK, FEATURE_DIAG, FEATURE_GEMINI, FEATURE_GIT_ACCESS,
+    FEATURE_GIT_OPS, FEATURE_GIT_OPS2, FEATURE_GIT_OPS3, FEATURE_GIT_OPS4, FEATURE_GIT_REPOS, FEATURE_GOOSE,
+    FEATURE_KIMI, FEATURE_MACHINE_ADMIN, FEATURE_NO_AUTO_UPGRADE, FEATURE_OPENCODE, FEATURE_PI, FEATURE_PLUGIN_MCP,
+    FEATURE_PLUGINS, FEATURE_PRESET_SYNC, FEATURE_PROTOCOL_PROVIDERS, FEATURE_PROVIDER_ARGS, FEATURE_PROVIDERS,
+    FEATURE_QWEN, FEATURE_REPROBE, FEATURE_SESSION_FORK, FEATURE_STORAGE_ADMIN, FEATURE_SYNC, FEATURE_TOOLS,
+    GitAccessCmd, ModelChoice, ModelMap, ProviderInput, ProviderStateItem, ProvidersAction, ProvidersCmd,
+    ProvidersResult, ToolsAction, ToolsCmd, ToolsSettings,
 };
-use crate::providers::{self, API_KEY, AUTH_TOKEN, INHERIT, Provider, Selection, Store};
+use crate::providers::{self, API_KEY, AUTH_TOKEN, Endpoint, INHERIT, Provider, Store};
 use crate::service::Outbox;
 use crate::t;
 use crate::tools;
@@ -35,7 +37,7 @@ struct Inner {
     /// Where `~/.cc-switch` and `~/.claude` are, both read only.
     user_home: PathBuf,
     /// Local agent detection, republished after a tool changed.
-    agents: OnceLock<watch::Sender<Vec<AgentInfo>>>,
+    agents: OnceLock<watch::Sender<Vec<AgentState>>>,
     /// The provider state the server holds for this machine (none after connecting).
     reported: Mutex<Vec<ProviderStateItem>>,
 }
@@ -45,7 +47,7 @@ impl Manage {
         Manage(Arc::new(Inner { home, user_home, agents: OnceLock::new(), reported: Mutex::default() }))
     }
 
-    pub fn watch_agents(&self, tx: watch::Sender<Vec<AgentInfo>>) {
+    pub fn watch_agents(&self, tx: watch::Sender<Vec<AgentState>>) {
         let _ = self.0.agents.set(tx);
     }
 
@@ -81,6 +83,13 @@ impl Manage {
             FEATURE_PI.to_string(),
             FEATURE_DEEPSEEK.to_string(),
             FEATURE_ANTIGRAVITY.to_string(),
+            FEATURE_OPENCODE.to_string(),
+            FEATURE_QWEN.to_string(),
+            FEATURE_KIMI.to_string(),
+            FEATURE_GOOSE.to_string(),
+            FEATURE_COPILOT.to_string(),
+            FEATURE_AGENT_STATE.to_string(),
+            FEATURE_PROTOCOL_PROVIDERS.to_string(),
         ];
         if self.0.cc_switch().is_dir() {
             features.push(FEATURE_CC_SWITCH.into());
@@ -145,9 +154,9 @@ impl Manage {
                 out.send(DaemonToServer::ToolsProgress { request_id: cmd.request_id.clone(), line });
             };
             let error = tools_op(home, &cmd, &progress).await.err().map(|e| format!("{e:#}"));
-            let tools = match LocalSettings::load(home) {
-                Ok(local) => tools::status(home, &local).await,
-                Err(_) => vec![],
+            let (node, agents) = match LocalSettings::load(home) {
+                Ok(local) => tools::state(home, &local).await,
+                Err(_) => (None, vec![]),
             };
             let settings = ToolsSettings { mirror: Settings::load(home).map(|s| s.mirror).unwrap_or_default() };
             this.refresh_agents().await;
@@ -155,7 +164,9 @@ impl Manage {
                 request_id: cmd.request_id,
                 ok: error.is_none(),
                 error,
-                tools,
+                tools: vec![],
+                node,
+                agents,
                 settings,
             });
         });
@@ -322,7 +333,7 @@ impl Inner {
 
 /// `agents`: this machine's detection, whose catalogs are what official logins offer. Every view carries the CLI's
 /// own config read from `user_home`.
-fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<ProvidersResult> {
+fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[AgentState]) -> Result<ProvidersResult> {
     let mut r = providers_change(home, cmd, agents)?;
     if let Some(view) = r.view.as_mut() {
         view.cli = crate::agent_settings::cli_snapshots(home, user_home);
@@ -330,7 +341,7 @@ fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[Agen
     Ok(r)
 }
 
-fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Result<ProvidersResult> {
+fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentState]) -> Result<ProvidersResult> {
     let mut r = answer(cmd.request_id.clone());
     match cmd.action {
         ProvidersAction::Presets => r.presets = Some(providers::presets(cmd.agent)),
@@ -338,7 +349,18 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
         ProvidersAction::Catalog => {
             let id = cmd.id.context(t!("缺少供应商"))?;
             let store = Store::load(home)?;
-            r.catalog = Some(catalog(store.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?));
+            let p = store.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
+            let e = match cmd.agent {
+                Some(agent) => p.endpoint_for(agent).with_context(|| {
+                    t!(
+                        "供应商 {name} 没有 {agent} 能用的协议端点",
+                        name = p.name,
+                        agent = crate::bots::agent_label(agent)
+                    )
+                })?,
+                None => &p.endpoints[0],
+            };
+            r.catalog = Some(catalog(p, e));
         }
         ProvidersAction::BotCatalog => {
             let agent = cmd.agent.context(t!("缺少 agent"))?;
@@ -347,21 +369,21 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
                 Some(bot) => store.effective(agent, bot)?,
                 None => store.machine_default(agent)?,
             };
-            r.catalog = match selection {
-                Selection::Official(_) => {
-                    agents.iter().find(|a| a.kind == agent && a.available).and_then(|a| a.catalog.clone())
-                }
-                Selection::Provider(p) => Some(catalog(&p)),
+            r.catalog = match selection.provider() {
+                None => agents.iter().find(|a| a.kind == agent && a.available).and_then(|a| a.catalog.clone()),
+                Some((p, e)) => Some(catalog(p, e)),
             };
         }
         ProvidersAction::Save => {
             let input = cmd.provider.context(t!("缺少供应商内容"))?;
-            let set_default = cmd.set_default.unwrap_or(false);
+            let default = match cmd.set_default {
+                Some(true) => Some(cmd.agent.context(t!("缺少 agent"))?),
+                _ => None,
+            };
             let (id, view) = Store::update(home, |s| {
-                let agent = input.agent;
                 let id = save(s, input)?;
-                if set_default {
-                    s.use_machine(agent, &id)?;
+                if let Some(agent) = default {
+                    s.use_machine(agent, &id, None)?;
                 }
                 Ok((id, s.view()))
             })?;
@@ -382,7 +404,7 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
                 match &cmd.bot_id {
                     Some(bot) => s.use_bot(bot, agent, &choice)?,
                     None if choice == INHERIT => bail!(t!("本机默认不能选择「继承」")),
-                    None => s.use_machine(agent, &choice)?,
+                    None => s.use_machine(agent, &choice, cmd.model)?,
                 }
                 Ok(s.view())
             })?);
@@ -414,13 +436,12 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
             })?);
         }
         ProvidersAction::ImportLink => {
-            let p = ccswitch::parse_link(cmd.link.as_deref().context(t!("缺少导入链接"))?)?;
+            let (agent, p) = ccswitch::parse_link(cmd.link.as_deref().context(t!("缺少导入链接"))?)?;
             let set_default = cmd.set_default.unwrap_or(false);
             let (id, view) = Store::update(home, |s| {
-                let agent = p.agent;
                 let id = s.upsert(p)?;
                 if set_default {
-                    s.use_machine(agent, &id)?;
+                    s.use_machine(agent, &id, None)?;
                 }
                 Ok((id, s.view()))
             })?;
@@ -433,75 +454,90 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentInfo]) -> Res
 /// Adds (no id: from the preset, or by hand) or edits a provider; returns its id.
 fn save(store: &mut Store, input: ProviderInput) -> Result<String> {
     if let Some(id) = input.id.clone() {
-        let existing = store.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
-        if existing.agent != input.agent {
-            bail!(t!("不能修改供应商所属的 agent"));
-        }
         store.edit(&id, |p| apply(p, input))?;
         return Ok(id);
     }
-    let key = if input.config_dir.is_some() {
-        String::new()
-    } else {
-        input.api_key.clone().context(t!("新增供应商需要填写 API Key"))?
-    };
+    let profile = input.endpoints.iter().flatten().any(|e| e.config_dir.is_some());
+    let key =
+        if profile { String::new() } else { input.api_key.clone().context(t!("新增供应商需要填写 API Key"))? };
     let mut p = match &input.preset_id {
         Some(preset) => Provider::from_preset(
-            &providers::preset(input.agent, preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
+            &providers::preset(preset).with_context(|| t!("没有预设 {preset}", preset = preset))?,
             key,
         ),
-        None => Provider::custom(
-            input.agent,
-            input.name.clone().unwrap_or_default(),
-            if input.config_dir.is_some() {
-                String::new()
-            } else {
-                input.base_url.clone().context(t!("自定义供应商需要填写 Base URL"))?
-            },
-            key,
-        ),
+        None => Provider::new(input.name.clone().unwrap_or_default(), key, vec![]),
     };
+    // A new endpoint needs a URL unless the preset has one (or it is a local profile).
+    let missing_url =
+        |e: &EndpointInput| p.endpoint(e.protocol).is_none() && e.base_url.is_none() && e.config_dir.is_none();
+    if input.endpoints.iter().flatten().any(missing_url) || (p.endpoints.is_empty() && input.endpoints.is_none()) {
+        bail!(t!("自定义供应商需要填写 Base URL"));
+    }
     apply(&mut p, input);
     store.add(p)
 }
 
 fn apply(p: &mut Provider, input: ProviderInput) {
-    let text = |s: String| Some(s.trim().to_string()).filter(|s| !s.is_empty());
-    if let Some(dir) = input.config_dir {
-        p.config_dir = text(dir);
-    }
-    if let Some(exe) = input.executable_path {
-        p.executable_path = text(exe);
-    }
     if let Some(name) = input.name {
         p.name = name.trim().into();
-    }
-    if let Some(url) = input.base_url {
-        p.base_url = url.trim().into();
     }
     if let Some(key) = input.api_key {
         p.api_key = key.trim().into();
     }
-    if let Some(field) = input.api_key_field.filter(|f| [AUTH_TOKEN, API_KEY].contains(&f.as_str())) {
-        p.api_key_field = Some(field);
-    }
-    if let Some(model) = input.model {
-        p.model = text(model);
-    }
-    if let Some(models) = input.models {
-        p.models = (models != ModelMap::default()).then_some(models);
-    }
-    if let Some(env) = input.env {
-        p.env = providers::unmask_env(env, &p.env);
-    }
     if let Some(proxy) = input.proxy {
         set_proxy(&mut p.proxy, proxy);
     }
+    for e in input.endpoints.into_iter().flatten() {
+        let preset = p.preset_endpoint(e.protocol);
+        let endpoint = match p.endpoint_mut(e.protocol) {
+            Some(endpoint) => endpoint,
+            None => {
+                let new = match &preset {
+                    Some(preset) => Endpoint::from_preset(preset),
+                    None => Endpoint::new(e.protocol, String::new()),
+                };
+                p.endpoints.push(new);
+                p.endpoints.last_mut().expect("just pushed")
+            }
+        };
+        apply_endpoint(endpoint, e);
+    }
+    for protocol in input.remove_protocols.into_iter().flatten() {
+        p.endpoints.retain(|e| e.protocol != protocol);
+    }
+}
+
+fn apply_endpoint(e: &mut Endpoint, input: EndpointInput) {
+    let text = |s: String| Some(s.trim().to_string()).filter(|s| !s.is_empty());
+    if let Some(dir) = input.config_dir {
+        e.config_dir = text(dir);
+    }
+    if let Some(exe) = input.executable_path {
+        e.executable_path = text(exe);
+    }
+    if let Some(url) = input.base_url {
+        e.base_url = url.trim().into();
+    }
+    if e.config_dir.is_some() {
+        e.api_key_field = None;
+    }
+    if let Some(field) = input.api_key_field.filter(|f| [AUTH_TOKEN, API_KEY].contains(&f.as_str())) {
+        e.api_key_field = Some(field);
+    }
+    if let Some(model) = input.model {
+        e.model = text(model);
+    }
+    if let Some(models) = input.models {
+        e.models = (models != ModelMap::default()).then_some(models);
+    }
+    if let Some(env) = input.env {
+        e.env = providers::unmask_env(env, &e.env);
+    }
     if let Some(args) = input.args {
-        p.args = arg_lines(args);
+        e.args = arg_lines(args);
     }
     if let Some(effort) = input.effort {
-        p.effort = text(effort);
+        e.effort = text(effort);
     }
 }
 
@@ -517,13 +553,13 @@ fn set_proxy(stored: &mut Option<String>, input: String) {
     }
 }
 
-/// The models a third-party provider declares (its model, the haiku/sonnet/opus mapping, its preset's options).
-fn catalog(p: &Provider) -> AgentCatalog {
-    let models = p.models.clone().unwrap_or_default();
-    let preset = p.preset_id.as_deref().and_then(|id| providers::preset(p.agent, id));
+/// The models a third-party endpoint declares (its model, the haiku/sonnet/opus mapping, its preset's options).
+fn catalog(p: &Provider, e: &Endpoint) -> AgentCatalog {
+    let models = e.models.clone().unwrap_or_default();
+    let preset = p.preset_endpoint(e.protocol);
     let mut names: Vec<String> = vec![];
-    let declared = [p.model.clone(), models.haiku, models.sonnet, models.opus].into_iter().flatten();
-    for name in declared.chain(preset.into_iter().flat_map(|pr| pr.model_options.clone())) {
+    let declared = [e.model.clone(), models.haiku, models.sonnet, models.opus].into_iter().flatten();
+    for name in declared.chain(preset.into_iter().flat_map(|pr| pr.model_options)) {
         if !names.contains(&name) {
             names.push(name);
         }
@@ -537,565 +573,11 @@ fn catalog(p: &Provider) -> AgentCatalog {
                 effort: None,
             })
             .collect(),
-        current: p.model.clone(),
+        current: e.model.clone(),
         efforts: vec![],
-        effort: p.effort.clone(),
+        effort: e.effort.clone(),
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::protocol::{AgentKind, OfficialInput};
-
-    const KEY: &str = "sk-test-0123456789abcd";
-
-    fn cmd(action: ProvidersAction) -> ProvidersCmd {
-        ProvidersCmd {
-            request_id: "r".into(),
-            action,
-            agent: None,
-            bot_id: None,
-            id: None,
-            choice: None,
-            provider: None,
-            official: None,
-            agent_settings: None,
-            link: None,
-            set_default: None,
-        }
-    }
-
-    fn input(agent: AgentKind) -> ProviderInput {
-        ProviderInput {
-            config_dir: None,
-            executable_path: None,
-            id: None,
-            agent,
-            preset_id: None,
-            name: None,
-            base_url: None,
-            api_key: None,
-            api_key_field: None,
-            model: None,
-            models: None,
-            env: None,
-            proxy: None,
-            args: None,
-            effort: None,
-        }
-    }
-
-    #[test]
-    fn saves_a_claude_providers_command_line_arguments() {
-        let home = tempfile::tempdir().unwrap();
-        let save = |provider: ProviderInput| {
-            let mut c = cmd(ProvidersAction::Save);
-            c.provider = Some(provider);
-            providers_op(home.path(), home.path(), c, &[])
-        };
-        let new = |agent: AgentKind, args: &[&str]| ProviderInput {
-            name: Some("K".into()),
-            base_url: Some("https://k.example".into()),
-            api_key: Some(KEY.into()),
-            args: Some(args.iter().map(|a| a.to_string()).collect()),
-            ..input(agent)
-        };
-        let r = save(new(AgentKind::Claude, &["--debug", " ", " --settings ~/team.json "])).unwrap();
-        assert_eq!(r.view.unwrap().providers[0].args, ["--debug", "--settings ~/team.json"]);
-        assert!(save(new(AgentKind::Claude, &["--permission-mode bypassPermissions"])).is_err());
-        assert!(save(new(AgentKind::Codex, &["--debug"])).is_err());
-        let id = r.id.unwrap();
-        let args = |home: &Path| Store::load(home).unwrap().get(&id).unwrap().args.clone();
-        save(ProviderInput { id: Some(id.clone()), ..input(AgentKind::Claude) }).unwrap();
-        assert_eq!(args(home.path()).len(), 2, "absent = unchanged");
-        save(ProviderInput { id: Some(id.clone()), args: Some(vec![]), ..input(AgentKind::Claude) }).unwrap();
-        assert!(args(home.path()).is_empty(), "cleared");
-    }
-
-    #[test]
-    fn creates_a_local_claude_profile_without_a_key() {
-        let home = tempfile::tempdir().unwrap();
-        let mut store = Store::default();
-        let mut profile = input(AgentKind::Claude);
-        profile.name = Some("Local".into());
-        profile.config_dir = Some(home.path().to_string_lossy().into());
-        let id = save(&mut store, profile).unwrap();
-        let p = store.get(&id).unwrap();
-        assert_eq!(p.config_dir.as_deref(), home.path().to_str());
-        assert!(p.api_key.is_empty());
-        let mut invalid = input(AgentKind::Codex);
-        invalid.name = Some("Bad".into());
-        invalid.config_dir = Some(home.path().to_string_lossy().into());
-        assert!(save(&mut store, invalid).is_err());
-    }
-
-    #[test]
-    fn a_local_claude_profile_excludes_url_key_and_preset() {
-        let home = tempfile::tempdir().unwrap();
-        let dir = home.path().to_string_lossy().to_string();
-        let mut store = Store::default();
-        let profile = |f: &dyn Fn(&mut ProviderInput)| {
-            let mut i = input(AgentKind::Claude);
-            i.name = Some("Local".into());
-            i.config_dir = Some(dir.clone());
-            f(&mut i);
-            i
-        };
-        for mixed in [
-            profile(&|i| i.base_url = Some("https://x.test".into())),
-            profile(&|i| i.api_key = Some("sk-x".into())),
-            profile(&|i| i.preset_id = Some(providers::presets(Some(AgentKind::Claude))[0].id.clone())),
-        ] {
-            assert!(save(&mut store, mixed).is_err());
-        }
-        let mut stray = input(AgentKind::Claude);
-        stray.name = Some("Stray".into());
-        stray.base_url = Some("https://x.test".into());
-        stray.api_key = Some("sk-x".into());
-        stray.executable_path = Some("/bin/sh".into());
-        assert!(save(&mut store, stray).is_err(), "an executable without a profile would be ignored");
-
-        let mut keyed = input(AgentKind::Claude);
-        keyed.name = Some("Keyed".into());
-        keyed.base_url = Some("https://x.test".into());
-        keyed.api_key = Some("sk-x".into());
-        let id = save(&mut store, keyed).unwrap();
-        let mut convert = profile(&|_| {});
-        convert.id = Some(id);
-        assert!(save(&mut store, convert).is_err(), "a keyed provider is not silently turned into a profile");
-    }
-
-    #[test]
-    fn saves_the_proxy_keeping_it_when_the_masked_one_comes_back() {
-        let home = tempfile::tempdir().unwrap();
-        let save = |provider: ProviderInput| {
-            let mut c = cmd(ProvidersAction::Save);
-            c.provider = Some(provider);
-            providers_op(home.path(), home.path(), c, &[])
-        };
-        let new = ProviderInput {
-            name: Some("K".into()),
-            base_url: Some("https://k.example".into()),
-            api_key: Some(KEY.into()),
-            ..input(AgentKind::Codex)
-        };
-        assert!(save(ProviderInput { proxy: Some("127.0.0.1:7890".into()), ..new.clone() }).is_err());
-        let r = save(ProviderInput { proxy: Some(" http://bob:pw@10.0.0.2:3128 ".into()), ..new }).unwrap();
-        let id = r.id.unwrap();
-        assert_eq!(r.view.unwrap().providers[0].proxy.as_deref(), Some("http://bob:****@10.0.0.2:3128"));
-        let proxy = |home: &Path| Store::load(home).unwrap().get(&id).unwrap().proxy.clone();
-
-        let edit =
-            |proxy: &str| ProviderInput { id: Some(id.clone()), proxy: Some(proxy.into()), ..input(AgentKind::Codex) };
-        save(edit("http://bob:****@10.0.0.2:3128")).unwrap();
-        assert_eq!(proxy(home.path()).as_deref(), Some("http://bob:pw@10.0.0.2:3128"), "masked = unchanged");
-        save(edit(" ")).unwrap();
-        assert_eq!(proxy(home.path()), None, "empty = direct");
-    }
-
-    #[test]
-    fn sets_the_official_logins_env_and_proxy_per_agent() {
-        let home = tempfile::tempdir().unwrap();
-        let set = |env: Option<&[(&str, &str)]>, proxy: Option<&str>| {
-            let mut c = cmd(ProvidersAction::Official);
-            c.agent = Some(AgentKind::Claude);
-            c.official = Some(OfficialInput {
-                env: env.map(|e| e.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
-                proxy: proxy.map(String::from),
-                args: None,
-            });
-            providers_op(home.path(), home.path(), c, &[])
-        };
-        assert!(set(Some(&[("BAD-NAME", "1")]), None).is_err());
-        assert!(set(None, Some("127.0.0.1:7890")).is_err());
-        let view = set(Some(&[("DISABLE_TELEMETRY", "1")]), Some("http://bob:pw@10.0.0.2:3128")).unwrap().view.unwrap();
-        let o = &view.official[&AgentKind::Claude];
-        assert_eq!(o.proxy.as_deref(), Some("http://bob:****@10.0.0.2:3128"));
-        assert_eq!(o.env["DISABLE_TELEMETRY"], "1");
-        assert!(!view.official.contains_key(&AgentKind::Codex));
-
-        set(None, Some("http://bob:****@10.0.0.2:3128")).unwrap();
-        let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
-        assert_eq!(stored.proxy.as_deref(), Some("http://bob:pw@10.0.0.2:3128"), "masked = unchanged");
-        assert_eq!(stored.env.len(), 1, "absent env = unchanged");
-
-        let view = set(Some(&[]), Some("")).unwrap().view.unwrap();
-        assert!(view.official.is_empty(), "cleared");
-
-        let view = set(Some(&[("MY_API_KEY", "sk-official-0123456789")]), None).unwrap().view.unwrap();
-        assert_eq!(view.official[&AgentKind::Claude].env["MY_API_KEY"], "****6789");
-        set(Some(&[("MY_API_KEY", "****6789"), ("CLAUDE_CODE_DISABLE_THINKING", "1")]), None).unwrap();
-        let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
-        assert_eq!(stored.env["MY_API_KEY"], "sk-official-0123456789", "masked = unchanged");
-        assert!(set(Some(&[("CLAUDE_CODE_DISABLE_THINKING", "0")]), None).is_err(), "a flag is '1' or absent");
-    }
-
-    #[test]
-    fn sets_the_official_logins_command_line_arguments_for_claude_only() {
-        let home = tempfile::tempdir().unwrap();
-        let set = |agent: AgentKind, args: &[&str]| {
-            let mut c = cmd(ProvidersAction::Official);
-            c.agent = Some(agent);
-            c.official = Some(OfficialInput {
-                env: None,
-                proxy: None,
-                args: Some(args.iter().map(|a| a.to_string()).collect()),
-            });
-            providers_op(home.path(), home.path(), c, &[])
-        };
-        let view = set(AgentKind::Claude, &["--debug", "  ", " --settings ~/team.json "]).unwrap().view.unwrap();
-        assert_eq!(view.official[&AgentKind::Claude].args, ["--debug", "--settings ~/team.json"]);
-        assert!(set(AgentKind::Claude, &["--permission-mode bypassPermissions"]).is_err());
-        assert!(set(AgentKind::Codex, &["--debug"]).is_err());
-        let stored = Store::load(home.path()).unwrap().official(AgentKind::Claude);
-        assert_eq!(stored.args.len(), 2, "a refused change keeps what was saved");
-        assert!(set(AgentKind::Claude, &[]).unwrap().view.unwrap().official.is_empty(), "cleared");
-    }
-
-    #[test]
-    fn agent_settings_are_validated_saved_and_reported_with_the_cli_config() {
-        let home = tempfile::tempdir().unwrap();
-        std::fs::create_dir(home.path().join(".claude")).unwrap();
-        let cli = r#"{"language":"english","env":{"CLAUDE_CODE_EFFORT_LEVEL":"high","ANTHROPIC_AUTH_TOKEN":"sk-cli"}}"#;
-        std::fs::write(home.path().join(".claude/settings.json"), cli).unwrap();
-        let set = |values: &[(&str, &str)], inherit_cli: bool| {
-            let mut c = cmd(ProvidersAction::AgentSettings);
-            c.agent = Some(AgentKind::Claude);
-            c.agent_settings = Some(crate::protocol::AgentSettings {
-                values: values.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-                inherit_cli,
-            });
-            providers_op(home.path(), home.path(), c, &[])
-        };
-        assert!(set(&[("contextWindow", "200000")], true).is_err(), "a provider field");
-        assert!(set(&[("bashTimeout", "soon")], true).is_err());
-        let view = set(&[("language", "chinese"), ("bashTimeout", "300000")], false).unwrap().view.unwrap();
-        let saved = &view.agent_settings[&AgentKind::Claude];
-        assert_eq!((saved.values.len(), saved.inherit_cli), (2, false));
-        let cli = &view.cli[&AgentKind::Claude];
-        assert_eq!(cli.values["language"], "english");
-        assert_eq!(cli.conflicts, vec!["CLAUDE_CODE_EFFORT_LEVEL".to_string()]);
-        assert!(!serde_json::to_string(&view).unwrap().contains("sk-cli"));
-        let list = providers_op(home.path(), home.path(), cmd(ProvidersAction::List), &[]).unwrap().view.unwrap();
-        assert_eq!(list.agent_settings, view.agent_settings);
-        assert!(set(&[], true).unwrap().view.unwrap().agent_settings.is_empty(), "back to the defaults");
-    }
-
-    #[test]
-    fn saves_from_a_preset_and_only_masked_keys_come_back() {
-        let home = tempfile::tempdir().unwrap();
-        let mut save = cmd(ProvidersAction::Save);
-        save.set_default = Some(true);
-        let env = [("HTTP_TIMEOUT", "30"), ("ENABLE_TOOL_SEARCH", "true"), ("GITHUB_TOKEN", "ghp-secret-wxyz")];
-        save.provider = Some(ProviderInput {
-            preset_id: Some("kimi-coding".into()),
-            api_key: Some(KEY.into()),
-            env: Some(env.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
-            ..input(AgentKind::Claude)
-        });
-        let r = providers_op(home.path(), home.path(), save, &[]).unwrap();
-        let id = r.id.clone().unwrap();
-        let view = r.view.clone().unwrap();
-        assert_eq!(view.machine.get(&AgentKind::Claude), Some(&id));
-        let p = &view.providers[0];
-        assert_eq!((p.api_key.as_str(), p.preset_id.as_deref()), ("****abcd", Some("kimi-coding")));
-        assert_eq!(p.env.keys().collect::<Vec<_>>(), vec!["ENABLE_TOOL_SEARCH", "GITHUB_TOKEN", "HTTP_TIMEOUT"]);
-        assert_eq!(p.env["GITHUB_TOKEN"], "****wxyz");
-        let masked_env = p.env.clone();
-        let json = serde_json::to_string(&DaemonToServer::ProvidersResult(r)).unwrap();
-        assert!(!json.contains(KEY) && !json.contains("ghp-secret"));
-
-        // The view's env sent back as is: the masked secret stays what it was.
-        let mut resend = cmd(ProvidersAction::Save);
-        resend.provider =
-            Some(ProviderInput { id: Some(id.clone()), env: Some(masked_env), ..input(AgentKind::Claude) });
-        providers_op(home.path(), home.path(), resend, &[]).unwrap();
-        let stored = Store::load(home.path()).unwrap();
-        assert_eq!(
-            (stored.get(&id).unwrap().env["GITHUB_TOKEN"].as_str(), stored.get(&id).unwrap().revision),
-            ("ghp-secret-wxyz", 1)
-        );
-
-        let mut invalid = cmd(ProvidersAction::Save);
-        let window = [("CLAUDE_CODE_MAX_CONTEXT_TOKENS", "200000"), ("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "262144")];
-        invalid.provider = Some(ProviderInput {
-            id: Some(id.clone()),
-            env: Some(window.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()),
-            ..input(AgentKind::Claude)
-        });
-        assert!(providers_op(home.path(), home.path(), invalid, &[]).is_err(), "auto-compact beyond the window");
-
-        let mut edit = cmd(ProvidersAction::Save);
-        edit.provider =
-            Some(ProviderInput { id: Some(id.clone()), model: Some("k2".into()), ..input(AgentKind::Claude) });
-        providers_op(home.path(), home.path(), edit, &[]).unwrap();
-        let stored = Store::load(home.path()).unwrap();
-        let p = stored.get(&id).unwrap();
-        assert_eq!((p.api_key.as_str(), p.model.as_deref(), p.revision), (KEY, Some("k2"), 2), "key kept when absent");
-
-        let mut bad_env = cmd(ProvidersAction::Save);
-        bad_env.provider = Some(ProviderInput {
-            id: Some(id.clone()),
-            env: Some([("A-B".to_string(), "1".to_string())].into()),
-            ..input(AgentKind::Claude)
-        });
-        assert!(providers_op(home.path(), home.path(), bad_env, &[]).is_err());
-
-        let mut wrong = cmd(ProvidersAction::Save);
-        wrong.provider = Some(ProviderInput { id: Some(id.clone()), ..input(AgentKind::Codex) });
-        assert!(providers_op(home.path(), home.path(), wrong, &[]).is_err());
-    }
-
-    #[test]
-    fn uses_machine_and_bot_choices_and_reports_stale_sessions() {
-        let home = tempfile::tempdir().unwrap();
-        let id = Store::update(home.path(), |s| {
-            let id =
-                s.add(Provider::custom(AgentKind::Claude, "Kimi".into(), "https://k.example".into(), KEY.into()))?;
-            s.pin("sess-1", AgentKind::Claude, "g1", "b1", &providers::Selection::Official(Default::default()));
-            Ok(id)
-        })
-        .unwrap();
-
-        let mut bot = cmd(ProvidersAction::Use);
-        (bot.agent, bot.bot_id, bot.choice) = (Some(AgentKind::Claude), Some("b1".into()), Some(id.clone()));
-        let view = providers_op(home.path(), home.path(), bot, &[]).unwrap().view.unwrap();
-        assert_eq!(view.bots.get("b1"), Some(&id));
-        assert_eq!(view.sessions[0].provider, providers::OFFICIAL);
-
-        let (out, mut rx) = Outbox::channel();
-        let manage = Manage::new(home.path().into(), home.path().join("none"));
-        manage.report_now(&out);
-        let DaemonToServer::BotsProviderState { items } = rx.try_recv().unwrap() else { panic!() };
-        assert_eq!(
-            items,
-            vec![ProviderStateItem {
-                group_id: "g1".into(),
-                bot_id: "b1".into(),
-                session: providers::OFFICIAL_NAME.into(),
-                effective: "Kimi".into()
-            }]
-        );
-        manage.report_now(&out);
-        assert!(rx.try_recv().is_err(), "unchanged state is not sent again");
-        manage.connected();
-        manage.report_now(&out);
-        assert!(rx.try_recv().is_ok(), "a new connection gets it again");
-
-        let mut inherit = cmd(ProvidersAction::Use);
-        (inherit.agent, inherit.choice) = (Some(AgentKind::Claude), Some(INHERIT.into()));
-        assert!(providers_op(home.path(), home.path(), inherit, &[]).is_err(), "the machine default cannot inherit");
-        let mut codex = cmd(ProvidersAction::Use);
-        (codex.agent, codex.choice) = (Some(AgentKind::Codex), Some(id));
-        assert!(providers_op(home.path(), home.path(), codex, &[]).is_err(), "a claude provider cannot serve codex");
-    }
-
-    #[test]
-    fn catalog_lists_declared_models_once() {
-        let mut p = Provider::custom(AgentKind::Claude, "K".into(), "https://k.example".into(), KEY.into());
-        p.model = Some("a".into());
-        p.models = Some(ModelMap { haiku: Some("b".into()), sonnet: Some("a".into()), opus: None });
-        let c = catalog(&p);
-        assert_eq!(c.models.iter().map(|m| m.choice.value.as_str()).collect::<Vec<_>>(), vec!["a", "b"]);
-        assert_eq!(c.current.as_deref(), Some("a"));
-    }
-
-    #[tokio::test]
-    async fn bot_catalog_follows_what_a_new_session_would_use() {
-        let home = tempfile::tempdir().unwrap();
-        let official = AgentCatalog { current: Some("opus".into()), ..Default::default() };
-        let claude = AgentInfo {
-            kind: AgentKind::Claude,
-            available: true,
-            version: Some("2.1.0".into()),
-            path: None,
-            min_version: None,
-            catalog: Some(official.clone()),
-            latest: None,
-            managed: false,
-        };
-        let manage = Manage::new(home.path().into(), home.path().into());
-        manage.watch_agents(watch::channel(vec![claude]).0);
-        let (out, mut rx) = Outbox::channel();
-        let mut ask = async |bot: Option<&str>| {
-            let mut c = cmd(ProvidersAction::BotCatalog);
-            (c.agent, c.bot_id) = (Some(AgentKind::Claude), bot.map(Into::into));
-            manage.providers(c, &out);
-            let DaemonToServer::ProvidersResult(r) = rx.recv().await.unwrap() else { panic!() };
-            assert!(r.ok, "{:?}", r.error);
-            r.catalog
-        };
-        assert_eq!(ask(Some("b1")).await, Some(official.clone()), "official: the adapter's catalog");
-
-        Store::update(home.path(), |s| {
-            let mut p = Provider::custom(AgentKind::Claude, "Kimi".into(), "https://k.example".into(), KEY.into());
-            p.model = Some("kimi-for-coding".into());
-            let id = s.add(p)?;
-            s.use_machine(AgentKind::Claude, &id)?;
-            s.use_bot("b2", AgentKind::Claude, providers::OFFICIAL)
-        })
-        .unwrap();
-        let third = ask(Some("b1")).await.unwrap();
-        assert_eq!(third.models.iter().map(|m| m.choice.value.as_str()).collect::<Vec<_>>(), vec!["kimi-for-coding"]);
-        assert_eq!(ask(None).await, Some(third), "a new bot gets the machine default");
-        assert_eq!(ask(Some("b2")).await, Some(official), "the bot's override wins");
-    }
-
-    #[test]
-    fn features_include_cc_switch_only_when_present() {
-        let home = tempfile::tempdir().unwrap();
-        let without = Manage::new(home.path().into(), home.path().into());
-        assert_eq!(
-            without.features(),
-            vec![
-                "tools",
-                "providers",
-                "sync",
-                "sessionFork",
-                "agentSettings",
-                "reprobe",
-                "plugins",
-                "pluginMcp",
-                "presetSync",
-                "artifacts",
-                "artifactSnapshot",
-                "gitOps",
-                "gitOps2",
-                "gitRepos",
-                "gitOps3",
-                "gitOps4",
-                "machineAdmin",
-                "storageAdmin",
-                "claudeArgs",
-                "claudeProfile",
-                "providerArgs",
-                "gitAccess",
-                "diag",
-                "gemini",
-                "codebuddy",
-                "approvalGates",
-                "builtinReview",
-                "pi",
-                "deepseek",
-                "antigravity"
-            ]
-        );
-        std::fs::create_dir(home.path().join(".cc-switch")).unwrap();
-        assert_eq!(
-            without.features(),
-            vec![
-                "tools",
-                "providers",
-                "sync",
-                "sessionFork",
-                "agentSettings",
-                "reprobe",
-                "plugins",
-                "pluginMcp",
-                "presetSync",
-                "artifacts",
-                "artifactSnapshot",
-                "gitOps",
-                "gitOps2",
-                "gitRepos",
-                "gitOps3",
-                "gitOps4",
-                "machineAdmin",
-                "storageAdmin",
-                "claudeArgs",
-                "claudeProfile",
-                "providerArgs",
-                "gitAccess",
-                "diag",
-                "gemini",
-                "codebuddy",
-                "approvalGates",
-                "builtinReview",
-                "pi",
-                "deepseek",
-                "antigravity",
-                "ccSwitch"
-            ]
-        );
-        std::fs::write(home.path().join("settings.json"), r#"{"autoUpgrade":false}"#).unwrap();
-        assert_eq!(without.features().last().map(String::as_str), Some("noAutoUpgrade"));
-    }
-
-    #[tokio::test]
-    async fn tools_settings_change_the_mirror_and_answer_with_the_status() {
-        let home = tempfile::tempdir().unwrap();
-        let manage = Manage::new(home.path().into(), home.path().into());
-        let (out, mut rx) = Outbox::channel();
-        // Unreachable mirror: the status is answered without update hints, and fast.
-        let mirror =
-            Mirror::Custom { registry: "http://127.0.0.1:9/npm".into(), node: "http://127.0.0.1:9/node".into() };
-        let settings = ToolsCmd {
-            request_id: "t1".into(),
-            action: ToolsAction::Settings,
-            kind: None,
-            version: None,
-            mirror: Some(mirror.clone()),
-        };
-        manage.tools(settings, &out);
-        let DaemonToServer::ToolsResult { request_id, ok, tools, settings, .. } = rx.recv().await.unwrap() else {
-            panic!()
-        };
-        assert_eq!((request_id.as_str(), ok, settings.mirror), ("t1", true, mirror));
-        assert_eq!(tools.len(), 8);
-        assert!(tools.iter().all(|t| t.latest.is_none()));
-
-        let bad = ToolsCmd {
-            request_id: "t2".into(),
-            action: ToolsAction::Install,
-            kind: Some(tools::ToolKind::Claude),
-            version: Some("1.0; rm -rf /".into()),
-            mirror: None,
-        };
-        manage.tools(bad, &out);
-        let DaemonToServer::ToolsResult { ok, error, .. } = rx.recv().await.unwrap() else { panic!() };
-        assert!(!ok && error.unwrap().contains("版本号格式不正确"));
-    }
-
-    #[tokio::test]
-    async fn git_access_answers_with_the_view_even_when_the_command_fails() {
-        let home = tempfile::tempdir().unwrap();
-        let manage = Manage::new(home.path().join("gg"), home.path().into());
-        let (out, mut rx) = Outbox::channel();
-        let cmd = |action, host: Option<&str>| GitAccessCmd {
-            request_id: "g1".into(),
-            action,
-            token: None,
-            host: host.map(String::from),
-            url: None,
-        };
-        manage.git_access(cmd(crate::protocol::GitAccessAction::GenKey, None), &out);
-        let DaemonToServer::GitAccessResult { request_id, ok, view, .. } = rx.recv().await.unwrap() else { panic!() };
-        assert_eq!((request_id.as_str(), ok), ("g1", true));
-        assert_eq!(view.unwrap().ssh_keys.len(), 1);
-
-        manage.git_access(cmd(crate::protocol::GitAccessAction::RemoveToken, Some("bad host")), &out);
-        let DaemonToServer::GitAccessResult { ok, error, view, .. } = rx.recv().await.unwrap() else { panic!() };
-        assert!(!ok && error.unwrap().contains("主机名无效"));
-        assert_eq!(view.unwrap().ssh_keys.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn diag_answers_with_every_check() {
-        let home = tempfile::tempdir().unwrap();
-        let manage = Manage::new(home.path().into(), home.path().into());
-        let (out, mut rx) = Outbox::channel();
-        manage.diag("d1".into(), None, &out);
-        let DaemonToServer::DiagResult { request_id, checks } = rx.recv().await.unwrap() else { panic!() };
-        assert_eq!(request_id, "d1");
-        assert_eq!(checks[0].kind, crate::diag::CheckKind::Server);
-        assert_eq!(checks[0].status, crate::diag::Status::Error);
-        assert!(checks.iter().any(|c| c.kind == crate::diag::CheckKind::Git));
-    }
-
-    #[test]
-    fn clips_on_char_boundaries() {
-        assert_eq!(clip("安装完成", 4), "安");
-        assert_eq!(clip("ok", 10), "ok");
-    }
-}
+mod tests;

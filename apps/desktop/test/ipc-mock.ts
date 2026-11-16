@@ -1,13 +1,32 @@
-import { vi } from 'vitest'
 import type {
-  AgentCard,
-  AppInfo,
-  DaemonStatus,
-  MachineBot,
+  AgentState,
+  MachineAgentsDto,
+  ProviderEndpoint,
+  ProviderStoreView,
   ProviderView,
-  RunInfo,
-  ToolStatus,
-} from '../src/ipc'
+} from '@gonggong/protocol'
+import { vi } from 'vitest'
+import type { AppInfo, DaemonStatus, MachineBot, RunInfo } from '../src/ipc'
+
+/** Hoisted with the mock: its factory reads them. */
+const { STATE, VIEW } = vi.hoisted(() => ({
+  STATE: {
+    node: { installed: true, version: '22.3.0', latest: '22.3.0', managed: true, path: '/n/node' },
+    agents: [] as AgentState[],
+    settings: { mirror: { kind: 'npmmirror' } },
+  } as MachineAgentsDto,
+  VIEW: {
+    machine: {},
+    official: {},
+    bots: {},
+    providers: [],
+    sessions: [],
+    agentSettings: {},
+    cli: {},
+  } as ProviderStoreView,
+}))
+
+export { STATE, VIEW }
 
 vi.mock('../src/ipc', () => ({
   ipc: {
@@ -41,17 +60,20 @@ vi.mock('../src/ipc', () => ({
     measureNet: vi.fn(),
     exportDiagnostics: vi.fn(),
     recentLogs: vi.fn(),
-    agents: vi.fn(),
-    pickAgentPath: vi.fn(),
-    resetAgentPath: vi.fn(),
-    tools: vi.fn(async () => []),
+    agentFeatures: vi.fn(async () => ['tools', 'providers', 'protocolProviders']),
+    tools: vi.fn(async () => STATE),
     runTool: vi.fn(),
-    providers: vi.fn(async () => ({ machine: {}, bots: {}, providers: [] })),
-    chooseProvider: vi.fn(),
-    providerImpact: vi.fn(async () => []),
+    providers: vi.fn(async () => ({ view: VIEW })),
+    ccSwitchPreview: vi.fn(async () => []),
+    ccSwitchApply: vi.fn(),
+    claudeDirs: vi.fn(async () => []),
+    pickDir: vi.fn(async () => null),
+    agentLocal: vi.fn(async () => ({ customPath: false, login: null, adapterVersion: null })),
+    pickAgentPath: vi.fn(async () => false),
+    resetAgentPath: vi.fn(async () => {}),
+    groupNames: vi.fn(async () => ({})),
     bots: vi.fn(),
     openBotInWeb: vi.fn(),
-    openProvidersInWeb: vi.fn(),
     openWeb: vi.fn(),
     marketInstalls: vi.fn(async () => []),
     marketListings: vi.fn(async () => []),
@@ -121,6 +143,8 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
         catalog: null,
         latest: null,
         managed: false,
+        upgradeCommand: null,
+        installCommand: null,
       },
       {
         kind: 'codex',
@@ -131,6 +155,8 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
         catalog: null,
         latest: null,
         managed: false,
+        upgradeCommand: null,
+        installCommand: null,
       },
     ],
     runs: [],
@@ -138,38 +164,55 @@ export function status(over: Partial<DaemonStatus> = {}): DaemonStatus {
   }
 }
 
-export const CLAUDE: AgentCard = {
-  kind: 'claude',
-  available: true,
-  version: '2.1.4',
-  path: '/opt/homebrew/bin/claude',
-  minVersion: '2.0.0',
-  customPath: false,
-  catalog: {
-    models: [
-      { value: 'sonnet', name: 'Sonnet 5', efforts: [], effort: null },
-      { value: 'haiku', name: 'Haiku 4.5', efforts: [], effort: null },
-    ],
-    current: null,
-    efforts: [],
-    effort: null,
-  },
-  login: '已登录 · Claude Max',
-  latest: null,
-  managed: false,
+export function agent(kind: AgentState['kind'], over: Partial<AgentState> = {}): AgentState {
+  return {
+    kind,
+    available: true,
+    version: '1.0.0',
+    path: `/opt/homebrew/bin/${kind}`,
+    minVersion: null,
+    catalog: null,
+    latest: null,
+    managed: false,
+    upgradeCommand: null,
+    installCommand: null,
+    ...over,
+  }
 }
 
-export const CODEX: AgentCard = {
-  kind: 'codex',
-  available: false,
-  version: null,
-  path: null,
-  minVersion: '0.160.1',
-  customPath: false,
-  catalog: null,
-  login: null,
-  latest: null,
-  managed: false,
+export const CLAUDE = agent('claude', { version: '2.1.4', minVersion: '2.0.0', latest: '2.1.4' })
+export const CODEX = agent('codex', { available: false, version: null, path: null, minVersion: '0.160.1' })
+
+export function endpoint(over: Partial<ProviderEndpoint> = {}): ProviderEndpoint {
+  return {
+    protocol: 'anthropic',
+    baseUrl: 'https://api.kimi.com/coding/',
+    apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
+    wireApi: null,
+    model: 'kimi-for-coding',
+    models: null,
+    effort: null,
+    env: {},
+    args: [],
+    configDir: null,
+    executablePath: null,
+    modelOptions: [],
+    ...over,
+  }
+}
+
+export function provider(over: Partial<ProviderView>): ProviderView {
+  return {
+    id: 'kimi-coding-a1b2',
+    name: 'Kimi For Coding',
+    presetId: 'kimi-coding',
+    revision: 1,
+    apiKey: '****abcd',
+    proxy: null,
+    source: null,
+    endpoints: [endpoint()],
+    ...over,
+  }
 }
 
 export function bot(over: Partial<MachineBot>): MachineBot {
@@ -188,31 +231,6 @@ export function bot(over: Partial<MachineBot>): MachineBot {
     followAgent: false,
     teamId: 't1',
     teamName: '默认团队',
-    ...over,
-  }
-}
-
-export function tool(over: Partial<ToolStatus> & Pick<ToolStatus, 'kind'>): ToolStatus {
-  return { installed: true, version: null, latest: null, managed: false, path: null, ...over }
-}
-
-export function provider(over: Partial<ProviderView>): ProviderView {
-  return {
-    id: 'kimi-coding-a1b2',
-    agent: 'claude',
-    name: 'Kimi For Coding',
-    presetId: 'kimi-coding',
-    revision: 1,
-    baseUrl: 'https://api.kimi.com/coding/',
-    apiKey: '****abcd',
-    apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
-    model: 'kimi-for-coding',
-    models: null,
-    env: {},
-    proxy: null,
-    wireApi: null,
-    effort: null,
-    source: null,
     ...over,
   }
 }

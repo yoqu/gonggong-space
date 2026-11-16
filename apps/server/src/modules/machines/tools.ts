@@ -1,19 +1,23 @@
 import { randomUUID } from 'node:crypto'
 import {
+  agentStatesFromLegacy,
   type DaemonToServer,
   InstallToolReq,
+  type MachineAgentsDto,
   ToolKind,
   type ToolOpDto,
   type ToolsResult,
   ToolsSettings,
-  type ToolsStateDto,
 } from '@gonggong/protocol'
+import { eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { Ctx } from '../../context.js'
+import { machines } from '../../db/schema.js'
 import { t } from '../../i18n/index.js'
 import { audit } from '../../lib/audit.js'
 import { requireUser } from '../auth/session.js'
+import { machineAgents } from '../bots/dto.js'
 import { OFFLINE, ownMachine, quietErrors, relay, requireFeature } from './relay.js'
 
 /** The latest-version checks behind a status may each wait on a slow mirror. */
@@ -21,7 +25,18 @@ const STATUS_TIMEOUT_MS = 90_000
 const OP_TIMEOUT_MS = 30 * 60_000
 
 const ToolOp = z.object({ kind: ToolKind, op: z.enum(['install', 'upgrade']) })
-const state = ({ tools, settings }: ToolsResult): ToolsStateDto => ({ tools, settings })
+
+/**
+ * The machine's runtime and agents; an older daemon (no `agentState`) sends one tools list, merged with the agents its
+ * hello / agents.update reported.
+ */
+async function state(ctx: Ctx, machineId: string, res: ToolsResult): Promise<MachineAgentsDto> {
+  const { settings } = res
+  if (ctx.hub.features(machineId).includes('agentState'))
+    return { node: res.node, agents: res.agents, settings }
+  const [m] = await ctx.db.select().from(machines).where(eq(machines.id, machineId))
+  return { ...agentStatesFromLegacy(res.tools, m ? machineAgents(m) : []), settings }
+}
 
 /** Node / Claude Code / Codex on a machine (design §4.1), driven live through its daemon. */
 export function toolRoutes(ctx: Ctx) {
@@ -43,17 +58,17 @@ export function toolRoutes(ctx: Ctx) {
     ctx.hub.on('message', onMessage)
     app.addHook('onClose', async () => void ctx.hub.off('message', onMessage))
 
-    app.get<{ Params: { id: string } }>('/api/machines/:id/tools', async (req): Promise<ToolsStateDto> => {
+    app.get<{ Params: { id: string } }>('/api/machines/:id/tools', async (req): Promise<MachineAgentsDto> => {
       const me = await requireUser(ctx, req)
       const m = await ownMachine(ctx, me.id, req.params.id)
       requireFeature(ctx, m.id, 'tools')
       const msg = { t: 'tools.cmd', requestId: randomUUID(), action: 'status' } as const
-      return state(await relay(ctx, m.id, msg, 'tools.result', STATUS_TIMEOUT_MS))
+      return state(ctx, m.id, await relay(ctx, m.id, msg, 'tools.result', STATUS_TIMEOUT_MS))
     })
 
     app.put<{ Params: { id: string } }>(
       '/api/machines/:id/tools/settings',
-      async (req): Promise<ToolsStateDto> => {
+      async (req): Promise<MachineAgentsDto> => {
         const me = await requireUser(ctx, req)
         const m = await ownMachine(ctx, me.id, req.params.id)
         const { mirror } = ToolsSettings.parse(req.body)
@@ -66,7 +81,7 @@ export function toolRoutes(ctx: Ctx) {
           action: 'machine.tools.settings',
           detail: { machineId: m.id },
         })
-        return state(res)
+        return state(ctx, m.id, res)
       },
     )
 
@@ -91,6 +106,7 @@ export function toolRoutes(ctx: Ctx) {
           .request(m.id, msg, 'tools.result', OP_TIMEOUT_MS)
           .then(async (res) => {
             ops.delete(opId)
+            const now = res ? await state(ctx, m.id, res) : null
             const error = res ? res.error : t(ctx.hub.isOnline(m.id) ? '操作超时，请稍后查看状态' : OFFLINE)
             ctx.bus.publish([m.ownerId], {
               t: 'machine.tools.result',
@@ -98,7 +114,7 @@ export function toolRoutes(ctx: Ctx) {
               opId,
               ok: res?.ok ?? false,
               error,
-              state: res ? state(res) : null,
+              state: now,
             })
             if (res?.ok)
               await audit(ctx, {

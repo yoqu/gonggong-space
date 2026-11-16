@@ -81,7 +81,9 @@
         ]
       },
       "latest": "0.67.0",
-      "managed": false
+      "managed": false,
+      "upgradeCommand": "brew upgrade gemini-cli",
+      "installCommand": null
     }
   ]
 }

@@ -1,24 +1,5 @@
 use super::*;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentInfo {
-    pub kind: AgentKind,
-    pub available: bool,
-    pub version: Option<String>,
-    pub path: Option<String>,
-    #[serde(default)]
-    pub min_version: Option<String>,
-    #[serde(default)]
-    pub catalog: Option<AgentCatalog>,
-    /// Latest version on the mirror as last checked (cached); `None` when never checked.
-    #[serde(default)]
-    pub latest: Option<String>,
-    /// Installed by Gonggong under its home.
-    #[serde(default)]
-    pub managed: bool,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choice {
     pub value: String,

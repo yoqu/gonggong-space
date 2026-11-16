@@ -4,7 +4,6 @@
 mod artifacts;
 mod attachments;
 mod bind;
-mod link;
 mod bots;
 mod cast;
 mod contract;
@@ -22,6 +21,7 @@ mod git_ops5;
 mod github_update;
 mod hosted;
 mod html_render;
+mod link;
 mod native_agents;
 mod net;
 mod plugins;

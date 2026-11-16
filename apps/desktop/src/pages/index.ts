@@ -66,7 +66,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: 'Bot',
         icon: 'bot',
         color: 'var(--system-indigo)',
-        desc: t('本机运行的 Bot 与其供应商，其余设置请在 Web 端修改'),
+        desc: t('本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改'),
         Component: BotsPage,
       },
       {

@@ -10,12 +10,9 @@ const MOCK = `${process.execPath} ${join(ROOT, 'tools/mock-agent/agent.js')}`
 const REPLY = [
   'CPU 持续升高，建议扩容。',
   '',
-  '```metrics',
-  '[{"label":"当前 CPU","value":78,"unit":"%","delta":36,"tone":"bad"}]',
-  '```',
-  '',
-  '```chart',
-  '{"type":"line","title":"CPU 使用率","x":["10:00","11:00","12:00"],"series":[{"name":"CPU","data":[42,61,78]}],"unit":"%"}',
+  '```mermaid',
+  'flowchart LR',
+  '  A[告警] --> B[扩容]',
   '```',
   '',
   '```actions',
@@ -23,7 +20,7 @@ const REPLY = [
   '```',
 ].join('\n')
 
-test('a bot reply renders metrics, a chart and buttons; a click answers the bot as the clicker', async ({
+test('a bot reply renders a diagram and buttons; a click answers the bot as the clicker', async ({
   page,
 }) => {
   test.setTimeout(4 * 60_000)
@@ -49,23 +46,23 @@ test('a bot reply renders metrics, a chart and buttons; a click answers the bot 
     })
     await bindManaged(page.request, group.id, [bot.id])
     await page.goto(`/g/${group.id}`)
-    await api.call('post', `/api/groups/${group.id}/messages`, {
-      body: `@${botName} mock:say ${REPLY}`,
-      clientId: `rich-${tag}`,
-    })
+    // Sent from the composer once the chat is live: posted over the API right after loading, a run done within
+    // the page's first moments can leave its card showing 运行中 (see the report).
+    await page
+      .getByPlaceholder('输入消息，@ 触发 Bot 或引用文件，/ 查看命令')
+      .fill(`@${botName} mock:say ${REPLY}`)
+    await page.getByRole('button', { name: '发送' }).click()
     const runs = page.getByTestId('run-card')
     await expect(runs).toHaveCount(1, { timeout: 60_000 })
     await expect(runs.first()).toHaveAttribute('data-status', 'completed', { timeout: 60_000 })
 
     const main = page.getByRole('main')
-    await expect(main.locator('.rich-metric__value').first()).toContainText('78')
-    const chart = main.getByRole('img', { name: 'CPU 使用率' })
-    await expect(chart).toBeVisible()
-    await expect(chart.locator('canvas, svg').first()).toBeVisible({ timeout: 30_000 })
+    await expect(main.locator('.rich-mermaid svg').first()).toBeVisible({ timeout: 30_000 })
+    await expect(main.locator('.rich-mermaid')).toContainText('扩容')
 
     await main.getByRole('button', { name: '扩容到 4 台' }).click()
     await expect(main.getByText(`rich${tag} 已选择 扩容到 4 台`)).toBeVisible({ timeout: 30_000 })
-    await expect(main.getByRole('button', { name: '扩容到 4 台' })).toBeDisabled()
+    await expect(main.getByRole('button', { name: '扩容到 4 台', exact: true })).toBeDisabled()
     // The click comes back to the bot as a message from the clicker, starting its next turn.
     await expect(main.getByText(`@${botName} 选择了「scale-4」`)).toBeVisible()
     await expect(runs).toHaveCount(2, { timeout: 60_000 })

@@ -50,6 +50,7 @@
           }
         },
         "provider": {
+          "protocols": ["gemini"],
           "env": {
             "apiKey": "GEMINI_API_KEY",
             "baseUrl": "GOOGLE_GEMINI_BASE_URL",

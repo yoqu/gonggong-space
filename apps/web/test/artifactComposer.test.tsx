@@ -17,7 +17,14 @@ import { mockApi } from './mockApi'
 
 const at = '2026-10-30T10:00:00Z'
 const bots = [
-  { id: 'b1', name: '设计助手', presence: 'online', avatar: 'role-no', systemPrompt: '' },
+  {
+    id: 'b1',
+    name: '设计助手',
+    presence: 'online',
+    avatar: 'role-no',
+    systemPrompt: '',
+    agentKind: 'claude',
+  },
 ] as BotDto[]
 const group = { id: 'g1', kind: 'group', members: [], botIds: ['b1'] } as unknown as GroupDto
 const home = { key: 'screen:home', screenId: 'home', screenTitle: '首页', pinned: false }

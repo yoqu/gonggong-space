@@ -37,6 +37,9 @@ pub struct Bot {
     pub team_id: Option<String>,
     #[serde(default)]
     pub team_name: Option<String>,
+    /// The bot's own model; `None` = the default (servers before bot models send none).
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 fn default_tier() -> Tier {

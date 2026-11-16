@@ -1,18 +1,29 @@
 import { randomUUID } from 'node:crypto'
 import {
+  AGENT_KINDS,
   AgentKind,
   AgentSettingsReq,
+  type ApiProtocol,
+  agentMeta,
+  agentTakes,
   type BotCatalogDto,
   BotProviderReq,
   CcSwitchApplyReq,
   type CcSwitchImportedDto,
   type CcSwitchPreviewDto,
+  fitEffort,
   ImportLinkReq,
   INHERIT_PROVIDER,
+  type LegacyProviderStoreView,
+  normalizeCandidate,
+  normalizePresets,
+  normalizeStoreView,
   OfficialProviderReq,
+  type ProviderInput,
   type ProviderPreset,
   type ProviderSavedDto,
   type ProviderStoreView,
+  providerInputToLegacy,
   SaveProviderReq,
   UseProviderReq,
 } from '@gonggong/protocol'
@@ -25,7 +36,8 @@ import { audit } from '../../lib/audit.js'
 import { fail } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 import { requireUser } from '../auth/session.js'
-import { choiceCatalog, pickCatalog, providersCmd } from '../bots/config.js'
+import { assertPick, choiceCatalog, pickCatalog, providersCmd } from '../bots/config.js'
+import { publishBot } from '../bots/dto.js'
 import { ownMachine, quietErrors, relay, requireFeature } from '../machines/relay.js'
 import { providerStateRoutes } from './state.js'
 
@@ -35,6 +47,11 @@ const REPROBE_TIMEOUT_MS = 100_000
 
 type Params = { id: string }
 type ProviderParams = { id: string; pid: string }
+type AnyStoreView = ProviderStoreView | LegacyProviderStoreView
+
+/** An older daemon's provider was its agent's: the first agent built for the protocol (anthropic → claude…). */
+const agentOfProtocol = (protocol: ApiProtocol) =>
+  AGENT_KINDS.find((k) => agentMeta(k).protocols[0] === protocol)
 
 /**
  * A machine's model providers (design §4.2–§4.5): relayed live to its daemon, which alone stores them. Nothing of
@@ -45,27 +62,74 @@ export function providerRoutes(ctx: Ctx) {
     quietErrors(app)
     await app.register(providerStateRoutes(ctx))
 
-    const view = (v: ProviderStoreView | undefined) => v ?? fail('invalid', '机器未返回供应商列表')
-    const saved = (res: { id?: string; view?: ProviderStoreView }): ProviderSavedDto => ({
+    // Older daemons answer in the legacy shapes: the web only ever sees the new ones.
+    const view = (v: AnyStoreView | undefined) =>
+      normalizeStoreView(v ?? fail('invalid', '机器未返回供应商列表'))
+    const saved = (res: { id?: string; view?: AnyStoreView }): ProviderSavedDto => ({
       id: res.id ?? fail('invalid', '机器未返回供应商'),
       view: view(res.view),
     })
+    const speaksProtocols = (machineId: string) => ctx.hub.features(machineId).includes('protocolProviders')
     const trail = (userId: string, action: string, detail: { machineId: string; botId?: string }) =>
       audit(ctx, { category: 'admin', actorUserId: userId, action, detail })
     const owned = async (req: { params: Params }, userId: string) => ownMachine(ctx, userId, req.params.id)
-    const requireProviderFeatures = (
-      machineId: string,
-      p: { configDir?: string; executablePath?: string; args?: string[] },
-    ) => {
-      if (p.configDir !== undefined || p.executablePath !== undefined)
+    const requireProviderFeatures = (machineId: string, p: ProviderInput) => {
+      const endpoints = p.endpoints ?? []
+      if (endpoints.some((e) => e.configDir !== undefined || e.executablePath !== undefined))
         requireFeature(
           ctx,
           machineId,
           'claudeProfile',
           '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录',
         )
-      if (p.args?.length)
+      if (endpoints.some((e) => e.args?.length))
         requireFeature(ctx, machineId, 'providerArgs', '请先升级该机器的 daemon 才能使用命令行参数')
+    }
+
+    /** The agent an older daemon's provider `id` belongs to. */
+    const legacyAgentOf = async (machineId: string, id: string) => {
+      const found = view((await providersCmd(ctx, machineId, { action: 'list' })).view).providers.find(
+        (p) => p.id === id,
+      )
+      return found?.agents?.[0] ?? fail('not_found', '供应商不存在')
+    }
+
+    /**
+     * New daemons take the vendor as is, then become the default of each `setDefault` agent; older ones keep one
+     * protocol per provider, written as the provider of one agent.
+     */
+    const save = async (machineId: string, body: unknown, id?: string): Promise<ProviderSavedDto> => {
+      const { setDefault, agent, ...fields } = SaveProviderReq.parse(body)
+      const input: ProviderInput = id ? { ...fields, id } : fields
+      if (!id && !input.apiKey && !input.endpoints?.some((e) => e.configDir))
+        fail('invalid', '请填写 API Key')
+      requireProviderFeatures(machineId, input)
+      if (speaksProtocols(machineId)) {
+        const res = saved(await providersCmd(ctx, machineId, { action: 'save', provider: input }))
+        for (const a of setDefault)
+          res.view = view(
+            (await providersCmd(ctx, machineId, { action: 'use', agent: a, choice: res.id })).view,
+          )
+        return res
+      }
+      const endpoints = input.endpoints ?? []
+      if (endpoints.length > 1 || input.removeProtocols?.length)
+        fail('conflict', '请先升级该机器的客户端才能为一个供应商登记多种协议')
+      const [endpoint] = endpoints
+      const target = id
+        ? await legacyAgentOf(machineId, id)
+        : (agent ?? (endpoint && agentOfProtocol(endpoint.protocol)) ?? fail('invalid', '请选择供应商的协议'))
+      if (endpoint && !agentTakes(target, endpoint.protocol))
+        fail('invalid', '{agent} 不支持 {protocol} 协议', {
+          agent: agentMeta(target).name,
+          protocol: endpoint.protocol,
+        })
+      if (setDefault.some((a) => a !== target))
+        fail('conflict', '请先升级该机器的客户端才能把一个供应商设为多个 Agent 的默认')
+      const provider = providerInputToLegacy(input, target)
+      return saved(
+        await providersCmd(ctx, machineId, { action: 'save', provider, setDefault: setDefault.length > 0 }),
+      )
     }
 
     app.get<{ Params: Params }>('/api/machines/:id/providers', async (req): Promise<ProviderStoreView> => {
@@ -80,18 +144,14 @@ export function providerRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
         const { agent } = z.object({ agent: AgentKind.optional() }).parse(req.query)
-        return (await providersCmd(ctx, m.id, { action: 'presets', agent })).presets ?? []
+        return normalizePresets((await providersCmd(ctx, m.id, { action: 'presets', agent })).presets ?? [])
       },
     )
 
     app.post<{ Params: Params }>('/api/machines/:id/providers', async (req): Promise<ProviderSavedDto> => {
       const me = await requireUser(ctx, req)
       const m = await owned(req, me.id)
-      const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
-      if (!provider.apiKey && !(provider.agent === 'claude' && provider.configDir))
-        fail('invalid', '请填写 API Key')
-      requireProviderFeatures(m.id, provider)
-      const res = saved(await providersCmd(ctx, m.id, { action: 'save', provider, setDefault }))
+      const res = await save(m.id, req.body)
       await trail(me.id, 'machine.providers.save', { machineId: m.id })
       return res
     })
@@ -101,15 +161,7 @@ export function providerRoutes(ctx: Ctx) {
       async (req): Promise<ProviderSavedDto> => {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
-        const { setDefault, ...provider } = SaveProviderReq.parse(req.body)
-        requireProviderFeatures(m.id, provider)
-        const res = saved(
-          await providersCmd(ctx, m.id, {
-            action: 'save',
-            provider: { ...provider, id: req.params.pid },
-            setDefault,
-          }),
-        )
+        const res = await save(m.id, req.body, req.params.pid)
         await trail(me.id, 'machine.providers.save', { machineId: m.id })
         return res
       },
@@ -131,8 +183,16 @@ export function providerRoutes(ctx: Ctx) {
       async (req): Promise<ProviderStoreView> => {
         const me = await requireUser(ctx, req)
         const m = await owned(req, me.id)
-        const { agent, choice } = UseProviderReq.parse(req.body)
-        const res = view((await providersCmd(ctx, m.id, { action: 'use', agent, choice })).view)
+        const { agent, choice, model } = UseProviderReq.parse(req.body)
+        const withModel = speaksProtocols(m.id)
+        if (!withModel && model) fail('conflict', '请先升级该机器的客户端才能为机器默认指定模型')
+        const cmd = {
+          action: 'use',
+          agent,
+          choice,
+          ...(withModel && model !== undefined && { model }),
+        } as const
+        const res = view((await providersCmd(ctx, m.id, cmd)).view)
         await trail(me.id, 'machine.providers.default', { machineId: m.id })
         return res
       },
@@ -203,7 +263,7 @@ export function providerRoutes(ctx: Ctx) {
       ccSwitch(m.id)
       const msg = { t: 'ccswitch.read', requestId: randomUUID() } as const
       const { candidates } = await relay(ctx, m.id, msg, 'ccswitch.result', TIMEOUT_MS)
-      return { candidates }
+      return { candidates: candidates.map(normalizeCandidate) }
     })
 
     app.post<{ Params: Params }>(
@@ -233,17 +293,29 @@ export function providerRoutes(ctx: Ctx) {
       if (bot.ownerId !== me.id) return fail('forbidden', '只有 Bot 主人可以设置其供应商')
       if (!bot.machineId || !machineOwner) return fail('conflict', 'Bot 尚未绑定机器')
       if (machineOwner !== me.id) return fail('forbidden', '只能在自己的机器上设置 Bot 的供应商')
-      const { choice } = BotProviderReq.parse(req.body)
+      const { choice, model, effort } = BotProviderReq.parse(req.body)
+      const agent = bot.agentKind as AgentKind
+      const picked = model !== undefined || effort !== undefined
+      // Checked against the provider being chosen (inherit: the machine default), before anything changes.
+      const catalog = picked
+        ? await choiceCatalog(ctx, { machineId: bot.machineId, agentKind: agent }, choice)
+        : null
+      if (picked) assertPick(catalog, { model, effort }, bot.model)
       const res = view(
-        (
-          await providersCmd(ctx, bot.machineId, {
-            action: 'use',
-            agent: bot.agentKind as AgentKind,
-            botId: bot.id,
-            choice,
-          })
-        ).view,
+        (await providersCmd(ctx, bot.machineId, { action: 'use', agent, botId: bot.id, choice })).view,
       )
+      if (picked) {
+        const next = model === undefined ? bot.model : model
+        // A new model keeps the old level only if it offers it.
+        const level =
+          effort !== undefined
+            ? effort
+            : fitEffort(catalog, next, bot.effort) === bot.effort
+              ? bot.effort
+              : null
+        await ctx.db.update(bots).set({ model: next, effort: level }).where(eq(bots.id, bot.id))
+        await publishBot(ctx, bot.id)
+      }
       await trail(me.id, 'bot.provider', { machineId: bot.machineId, botId: bot.id })
       return res
     })

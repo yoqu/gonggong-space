@@ -6,26 +6,42 @@
   "presets": [
     {
       "id": "kimi-coding",
-      "agent": "claude",
       "name": "Kimi For Coding",
       "group": "cn",
       "websiteUrl": "https://www.kimi.com/code/",
-      "apiKeyUrl": null,
-      "baseUrl": "https://api.kimi.com/coding/",
-      "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
-      "model": "kimi-for-coding",
-      "models": {
-        "opus": "kimi-for-coding"
-      },
-      "modelOptions": ["kimi-for-coding"],
-      "env": {
-        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
-      },
-      "wireApi": null,
-      "effort": null,
-      "modelContext": {
-        "kimi-for-coding": 262144
-      }
+      "apiKeyUrl": "https://www.kimi.com/code/",
+      "endpoints": [
+        {
+          "protocol": "anthropic",
+          "baseUrl": "https://api.kimi.com/coding/",
+          "apiKeyField": "ANTHROPIC_AUTH_TOKEN",
+          "wireApi": null,
+          "model": "kimi-for-coding",
+          "models": {
+            "opus": "kimi-for-coding"
+          },
+          "modelOptions": ["kimi-for-coding"],
+          "env": {
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "262144"
+          },
+          "effort": null,
+          "modelContext": {
+            "kimi-for-coding": 262144
+          }
+        },
+        {
+          "protocol": "openai",
+          "baseUrl": "https://api.kimi.com/coding/v1",
+          "apiKeyField": null,
+          "wireApi": "responses",
+          "model": "kimi-for-coding",
+          "models": null,
+          "modelOptions": ["kimi-for-coding"],
+          "env": {},
+          "effort": "high",
+          "modelContext": {}
+        }
+      ]
     }
   ]
 }

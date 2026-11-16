@@ -1,11 +1,13 @@
 import type {
+  AgentState,
   BotDto,
   CcSwitchCandidate,
+  MachineAgentsDto,
   MachineDto,
+  ProviderEndpoint,
   ProviderPreset,
   ProviderStoreView,
   ProviderView,
-  ToolsStateDto,
   UserDto,
   WebEvent,
 } from '@gonggong/protocol'
@@ -40,7 +42,7 @@ const mbp: MachineDto = {
   online: true,
   agents: [],
   daemonVersion: '0.9.0',
-  features: ['tools', 'providers', 'ccSwitch', 'agentSettings', 'claudeProfile'],
+  features: ['tools', 'providers', 'ccSwitch', 'agentSettings', 'claudeProfile', 'protocolProviders'],
   lastSeenAt: null,
   hostname: 'wanglei-mbp',
   system: null,
@@ -48,39 +50,60 @@ const mbp: MachineDto = {
   createdAt: '2026-09-01T00:00:00Z',
 }
 
-const TOOLS: ToolsStateDto = {
-  tools: [
-    { kind: 'node', installed: true, version: '22.1.0', latest: '22.9.0', managed: true, path: '/n' },
-    {
-      kind: 'claude',
-      installed: true,
+const agent = (kind: AgentState['kind'], o: Partial<AgentState> = {}): AgentState => ({
+  kind,
+  available: true,
+  version: null,
+  path: null,
+  minVersion: null,
+  catalog: null,
+  latest: null,
+  managed: false,
+  upgradeCommand: null,
+  installCommand: null,
+  ...o,
+})
+
+const TOOLS: MachineAgentsDto = {
+  node: { installed: true, version: '22.1.0', latest: '22.9.0', managed: true, path: '/n' },
+  agents: [
+    agent('claude', {
       version: '2.1.0',
       latest: '2.1.285',
-      managed: false,
       path: '/c',
       upgradeCommand: 'claude update',
-    },
-    { kind: 'codex', installed: false, version: null, latest: '0.159.2', managed: false, path: null },
+      catalog: {
+        current: 'sonnet',
+        efforts: [],
+        effort: null,
+        models: [{ value: 'sonnet', name: 'Sonnet', efforts: [], effort: null }],
+      },
+    }),
+    agent('codex', { available: false, latest: '0.159.2' }),
   ],
   settings: { mirror: { kind: 'npmmirror' } },
 }
 
 const kimiPreset: ProviderPreset = {
   id: 'kimi-coding',
-  agent: 'claude',
   name: 'Kimi For Coding',
   group: 'cn',
   websiteUrl: 'https://www.kimi.com/code/',
   apiKeyUrl: 'https://platform.kimi.com/keys',
-  baseUrl: 'https://api.kimi.com/coding/',
-  apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
-  model: 'kimi-for-coding',
-  models: null,
-  modelOptions: ['kimi-for-coding', 'kimi-k2'],
-  env: {},
-  wireApi: null,
-  effort: null,
-  modelContext: {},
+  endpoints: [
+    {
+      protocol: 'anthropic',
+      baseUrl: 'https://api.kimi.com/coding/',
+      apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
+      model: 'kimi-for-coding',
+      models: null,
+      modelOptions: ['kimi-for-coding', 'kimi-k2'],
+      env: {},
+      wireApi: null,
+      effort: null,
+      modelContext: {},
+    },
+  ],
 }
 const PRESETS: ProviderPreset[] = [
   kimiPreset,
@@ -89,28 +112,41 @@ const PRESETS: ProviderPreset[] = [
     id: 'openrouter',
     name: 'OpenRouter',
     group: 'aggregator',
-    baseUrl: 'https://openrouter.ai/api',
+    endpoints: [{ ...kimiPreset.endpoints[0]!, baseUrl: 'https://openrouter.ai/api' }],
   },
 ]
 
-const kimi: ProviderView = {
-  id: 'p1',
-  agent: 'claude',
-  name: 'Kimi',
-  presetId: 'kimi-coding',
-  revision: 1,
+const endpoint = (o: Partial<ProviderEndpoint> = {}): ProviderEndpoint => ({
+  protocol: 'anthropic',
   baseUrl: 'https://api.kimi.com/coding/',
-  apiKey: '****abcd',
   apiKeyField: 'ANTHROPIC_AUTH_TOKEN',
   model: 'kimi-for-coding',
   models: null,
   env: {},
-  proxy: 'http://bob:****@10.0.0.2:3128',
   args: [],
   wireApi: null,
   effort: null,
+  configDir: null,
+  executablePath: null,
+  modelOptions: ['kimi-for-coding', 'kimi-k2'],
+  ...o,
+})
+const kimi: ProviderView = {
+  id: 'p1',
+  name: 'Kimi',
+  presetId: 'kimi-coding',
+  revision: 1,
+  apiKey: '****abcd',
+  proxy: 'http://bob:****@10.0.0.2:3128',
   source: null,
+  endpoints: [endpoint()],
 }
+/** `kimi` with its one endpoint changed. */
+const kimiWith = (o: Partial<ProviderEndpoint>, p: Partial<ProviderView> = {}): ProviderView => ({
+  ...kimi,
+  ...p,
+  endpoints: [endpoint(o)],
+})
 const VIEW: ProviderStoreView = {
   machine: {},
   official: {},
@@ -156,13 +192,34 @@ const open = (machine: MachineDto = mbp, url = '/') =>
   render(
     <MemoryRouter initialEntries={[url]}>
       <MachinePage machine={machine} bots={[]} ownerName={machine.ownerId === me.id ? undefined : '周婷'} />
+      <Toaster />
     </MemoryRouter>,
   )
 
 const tab = (name: string) => screen.getByRole('tab', { name }) as HTMLButtonElement
 
 const AGENTS_TAB = 'Agent 与供应商'
-const LIVE = { 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW }
+const LIVE = {
+  'GET /machines/m1/tools': TOOLS,
+  'GET /machines/m1/providers': VIEW,
+  'GET /machines/m1/providers/presets': PRESETS,
+}
+
+/** The row of an agent (its open button), in whichever group it is listed. */
+const agentButton = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) })
+/** Opens an agent's details; returns its row. */
+const openAgent = async (name: string) => {
+  const button = await screen.findByRole('button', { name: new RegExp(`^${name}`) })
+  if (button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button)
+  return button.closest('.ag-agent') as HTMLElement
+}
+/** The Agent tab with Claude Code's details open; returns its 默认「供应商/模型」. */
+const openDefault = async (machine: MachineDto = mbp, name = 'Claude Code') => {
+  open(machine)
+  fireEvent.click(tab(AGENTS_TAB))
+  const row = await openAgent(name)
+  return within(row).getByRole('region', { name: '默认「供应商/模型」' })
+}
 
 describe('machine details sections', () => {
   it('gives the owner 概览, Agent 与供应商, 工作区, Git 访问 and 诊断', () => {
@@ -217,8 +274,9 @@ describe('machine details sections', () => {
     expect(tab(AGENTS_TAB).disabled).toBe(false)
     expect(screen.getByText('请先升级该机器的 daemon，才能管理Agent 设置与Git 访问')).toBeTruthy()
     fireEvent.click(tab(AGENTS_TAB))
-    await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    expect(screen.queryByRole('region', { name: 'Claude Code Agent 设置' })).toBeNull()
+    const row = await openAgent('Claude Code')
+    expect(within(row).getByRole('region', { name: '默认「供应商/模型」' })).toBeTruthy()
+    expect(within(row).queryByRole('region', { name: 'Claude Code Agent 设置' })).toBeNull()
   })
 
   it('names every outdated part in one note', () => {
@@ -236,7 +294,7 @@ describe('machine details sections', () => {
       mockApi(LIVE)
       open(mbp, `/?tab=${value}`)
       expect(tab(AGENTS_TAB).getAttribute('aria-selected')).toBe('true')
-      expect(await screen.findByRole('region', { name: 'Claude Code 供应商' })).toBeTruthy()
+      expect(await screen.findByRole('region', { name: '供应商' })).toBeTruthy()
       expect(document.querySelector('.machine__host')).toBeNull()
     },
   )
@@ -250,24 +308,36 @@ describe('machine details sections', () => {
     expect(tab(name).getAttribute('aria-selected')).toBe('true')
   })
 
-  it("puts each agent's tool, providers and settings in one card, reading the providers once", async () => {
+  it('lists Node.js, the agents, those to install and the providers, reading each once', async () => {
     const calls = mockApi(LIVE)
     open()
     fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code' })
+    const providers = await screen.findByRole('region', { name: '供应商' })
+    const node = screen.getByRole('region', { name: 'Node.js' })
+    const agents = screen.getByRole('region', { name: 'Agent' })
+    const installable = screen.getByRole('region', { name: '可安装' })
+    for (const [a, b] of [
+      [node, agents],
+      [agents, installable],
+      [installable, providers],
+    ] as const)
+      expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(agents).getByRole('button', { name: /^Claude Code/ })).toBeTruthy()
+    expect(within(installable).getByRole('button', { name: /^Codex/ })).toBeTruthy()
+    // Details open one agent at a time: where it is, its default, its settings, the bots using it.
+    const row = await openAgent('Claude Code')
     const parts = [
-      within(claude).getByText('自行安装'),
-      within(claude).getByRole('region', { name: 'Claude Code 供应商' }),
-      within(claude).getByRole('region', { name: 'Claude Code Agent 设置' }),
+      within(row).getByText('/c'),
+      within(row).getByRole('region', { name: '默认「供应商/模型」' }),
+      within(row).getByRole('region', { name: 'Claude Code Agent 设置' }),
+      within(row).getByRole('region', { name: '使用它的 Bot' }),
     ]
     for (let i = 1; i < parts.length; i++)
       expect(parts[i - 1]!.compareDocumentPosition(parts[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const codex = screen.getByRole('region', { name: 'Codex' })
-    expect(within(codex).getByRole('region', { name: 'Codex 供应商' })).toBeTruthy()
-    const env = screen.getByRole('region', { name: '运行环境' })
-    expect(within(env).getByRole('region', { name: 'Node.js' })).toBeTruthy()
-    expect(env.compareDocumentPosition(claude) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(agentButton('Claude Code'))
+    expect(within(row).queryByRole('region', { name: '默认「供应商/模型」' })).toBeNull()
     expect(calls.filter((c) => c.path === '/machines/m1/providers')).toHaveLength(1)
+    expect(calls.filter((c) => c.path === '/machines/m1/tools')).toHaveLength(1)
   })
 })
 
@@ -326,58 +396,92 @@ describe('重命名', () => {
 })
 
 describe('Agent 工具', () => {
-  const openTools = async (routes: Record<string, unknown> = {}) => {
+  const openTools = async (routes: Record<string, unknown> = {}, machine: MachineDto = mbp) => {
     const calls = mockApi({ ...LIVE, ...routes })
-    open()
+    open(machine)
     fireEvent.click(tab(AGENTS_TAB))
-    await screen.findByRole('region', { name: 'Codex' })
+    await screen.findByRole('region', { name: '供应商' })
     return calls
   }
+  const row = (name: string) => agentButton(name).closest('.ag-agent') as HTMLElement
 
-  it('shows versions, where they come from and the fitting action', async () => {
+  it('shows Node.js as one line and each agent with the one action its state calls for', async () => {
     await openTools()
     const node = screen.getByRole('region', { name: 'Node.js' })
-    expect(node.textContent).toContain('22.1.0')
-    expect(node.textContent).toContain('共工空间托管')
+    expect(node.textContent).toContain('Node.js 22.1.0 · 共工空间托管')
     expect(within(node).getByRole('button', { name: '升级到 22.9.0' })).toBeTruthy()
-    const claude = screen.getByRole('region', { name: 'Claude Code' })
-    expect(claude.textContent).toContain('自行安装')
+    const claude = row('Claude Code')
     expect(claude.textContent).toContain('有更新')
+    expect(
+      within(claude)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual([expect.stringMatching(/^Claude Code/), '升级到 2.1.285'])
+    await openAgent('Claude Code')
+    expect(claude.textContent).toContain('自行安装')
     expect(claude.textContent).toContain('claude update')
-    expect(within(claude).getByRole('button', { name: '升级到 2.1.285' })).toBeTruthy()
-    expect(within(claude).queryByRole('button', { name: '安装共工空间托管版' })).toBeNull()
-    const codex = screen.getByRole('region', { name: 'Codex' })
-    expect(codex.textContent).toContain('未安装')
-    expect(within(codex).getByRole('button', { name: '安装' })).toBeTruthy()
+    const codex = within(screen.getByRole('region', { name: '可安装' })).getByRole('button', {
+      name: /^Codex/,
+    })
+    expect((codex.closest('.ag-agent') as HTMLElement).textContent).not.toContain('有更新')
+    expect(
+      within(codex.closest('.ag-agent') as HTMLElement).getByRole('button', { name: '安装' }),
+    ).toBeTruthy()
   })
 
-  it('gives Antigravity CLI, which is off npm, its install command and its own login instead of providers', async () => {
+  it('puts a missing or too old Node.js first, with its install', async () => {
+    const calls = await openTools({
+      'GET /machines/m1/tools': { ...TOOLS, node: { ...TOOLS.node!, version: '20.1.0' } },
+      'POST /machines/m1/tools/node/install': { opId: 'op1' },
+    })
+    const node = screen.getByRole('region', { name: 'Node.js' })
+    expect(node.textContent).toContain('Node.js 20.1.0 版本过低，Agent 需要 ≥ 22')
+    fireEvent.click(within(node).getByRole('button', { name: '安装 Node.js' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/node/install')).toBe(true))
+    expect(within(node).getByRole('log', { name: '安装日志' })).toBeTruthy()
+  })
+
+  it('gives Antigravity CLI, which is off npm, a copyable install command and its own login', async () => {
     const command = 'curl -fsSL https://antigravity.google/cli/install.sh | bash'
-    const agy = (installed: boolean) => ({
-      kind: 'antigravity' as const,
-      installed,
-      version: installed ? '1.5.9' : null,
-      latest: null,
-      managed: false,
-      path: installed ? '/Users/wl/.local/bin/agy' : null,
-      installCommand: command,
-    })
-    mockApi({
-      ...LIVE,
-      'GET /machines/m1/tools': { ...TOOLS, tools: [...TOOLS.tools, agy(false)] },
-    })
-    const { unmount } = open({ ...mbp, features: [...mbp.features, 'antigravity'] })
-    fireEvent.click(tab(AGENTS_TAB))
-    const card = await screen.findByRole('region', { name: 'Antigravity CLI' })
-    expect(card.textContent).toContain(command)
+    const agy = (available: boolean) =>
+      agent('antigravity', {
+        available,
+        version: available ? '1.5.9' : null,
+        path: available ? '/Users/wl/.local/bin/agy' : null,
+        installCommand: command,
+      })
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    const features = [...mbp.features, 'antigravity']
+    const { unmount } = await (async () => {
+      mockApi({ ...LIVE, 'GET /machines/m1/tools': { ...TOOLS, agents: [...TOOLS.agents, agy(false)] } })
+      const out = open({ ...mbp, features })
+      fireEvent.click(tab(AGENTS_TAB))
+      await screen.findByRole('region', { name: '供应商' })
+      return out
+    })()
+    const installable = screen.getByRole('region', { name: '可安装' })
+    const card = within(installable)
+      .getByRole('button', { name: /^Antigravity CLI/ })
+      .closest('.ag-agent') as HTMLElement
+    expect(card.textContent).toContain('需自行安装')
     expect(within(card).queryByRole('button', { name: '安装' })).toBeNull()
+    fireEvent.click(within(card).getByRole('button', { name: '复制安装命令' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(command))
+    await openAgent('Antigravity CLI')
+    expect(card.textContent).toContain(command)
     expect(card.textContent).toContain('Antigravity CLI 使用它自己的登录')
+    expect(within(card).queryByRole('region', { name: '默认「供应商/模型」' })).toBeNull()
     unmount()
 
-    mockApi({ ...LIVE, 'GET /machines/m1/tools': { ...TOOLS, tools: [...TOOLS.tools, agy(true)] } })
-    open({ ...mbp, features: [...mbp.features, 'antigravity'] })
+    mockApi({ ...LIVE, 'GET /machines/m1/tools': { ...TOOLS, agents: [...TOOLS.agents, agy(true)] } })
+    open({ ...mbp, features })
     fireEvent.click(tab(AGENTS_TAB))
-    const installed = await screen.findByRole('region', { name: 'Antigravity CLI' })
+    const installed = await openAgent('Antigravity CLI')
+    expect(
+      within(screen.getByRole('region', { name: 'Agent' })).getByRole('button', { name: /^Antigravity CLI/ }),
+    ).toBeTruthy()
+    expect(within(installed).queryByRole('button', { name: '复制安装命令' })).toBeNull()
     expect(installed.textContent).toContain('自行安装')
     expect(installed.textContent).not.toContain(command)
     expect(installed.textContent).not.toContain('无法获取，请检查镜像源')
@@ -385,9 +489,7 @@ describe('Agent 工具', () => {
 
   it('streams the install log from realtime and takes the new state from the result', async () => {
     const calls = await openTools({ 'POST /machines/m1/tools/codex/install': { opId: 'op1' } })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Codex' })).getByRole('button', { name: '安装' }),
-    )
+    fireEvent.click(within(row('Codex')).getByRole('button', { name: '安装' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/codex/install')).toBe(true))
     emit({ t: 'machine.tools.progress', machineId: 'm1', opId: 'op1', line: 'added 3 packages' })
     emit({ t: 'machine.tools.progress', machineId: 'other', opId: 'op9', line: 'not mine' })
@@ -395,22 +497,27 @@ describe('Agent 工具', () => {
     expect(log.textContent).toContain('added 3 packages')
     expect(log.textContent).not.toContain('not mine')
     expect(screen.getByText('正在安装…')).toBeTruthy()
-    const done: ToolsStateDto = {
+    // Nothing else installs meanwhile: the machine runs one at a time.
+    expect(
+      (within(row('Claude Code')).getByRole('button', { name: '升级到 2.1.285' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    const done: MachineAgentsDto = {
       ...TOOLS,
-      tools: TOOLS.tools.map((t) =>
-        t.kind === 'codex' ? { ...t, installed: true, version: '0.159.2', managed: true } : t,
+      agents: TOOLS.agents.map((a) =>
+        a.kind === 'codex' ? { ...a, available: true, version: '0.159.2', managed: true } : a,
       ),
     }
     emit({ t: 'machine.tools.result', machineId: 'm1', opId: 'op1', ok: true, error: null, state: done })
-    expect(screen.getByText('安装完成')).toBeTruthy()
-    expect(screen.getByRole('region', { name: 'Codex' }).textContent).toContain('0.159.2')
+    expect(await screen.findByText('安装完成')).toBeTruthy()
+    const agents = screen.getByRole('region', { name: 'Agent' })
+    expect(within(agents).getByRole('button', { name: /^Codex/ }).textContent).toContain('0.159.2')
+    expect(screen.queryByRole('region', { name: '可安装' })).toBeNull()
   })
 
   it('shows a failed install with its error', async () => {
     await openTools({ 'POST /machines/m1/tools/codex/install': { opId: 'op1' } })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Codex' })).getByRole('button', { name: '安装' }),
-    )
+    fireEvent.click(within(row('Codex')).getByRole('button', { name: '安装' }))
     await screen.findByRole('log', { name: '安装日志' })
     await waitFor(() => expect(screen.getByText('正在安装…')).toBeTruthy())
     emit({
@@ -421,7 +528,7 @@ describe('Agent 工具', () => {
       error: '机器离线',
       state: null,
     })
-    expect(screen.getByText('安装失败')).toBeTruthy()
+    expect(await screen.findByText('安装失败')).toBeTruthy()
     expect(screen.getByRole('log', { name: '安装日志' }).textContent).toContain('机器离线')
   })
 
@@ -430,9 +537,8 @@ describe('Agent 工具', () => {
       'POST /machines/m1/tools/claude/upgrade': { opId: 'op1' },
       'POST /machines/m1/tools/claude/install': { opId: 'op2' },
     })
-    const claude = () => screen.getByRole('region', { name: 'Claude Code' })
-    expect(within(claude()).queryByRole('button', { name: '改用共工空间托管安装' })).toBeNull()
-    fireEvent.click(within(claude()).getByRole('button', { name: '升级到 2.1.285' }))
+    expect(within(row('Claude Code')).queryByRole('button', { name: '改用共工空间托管安装' })).toBeNull()
+    fireEvent.click(within(row('Claude Code')).getByRole('button', { name: '升级到 2.1.285' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/claude/upgrade')).toBe(true))
     emit({
       t: 'machine.tools.result',
@@ -442,9 +548,44 @@ describe('Agent 工具', () => {
       error: '没有写入权限，无法升级 Claude Code',
       state: null,
     })
-    expect(screen.getByText('安装失败')).toBeTruthy()
-    fireEvent.click(within(claude()).getByRole('button', { name: '改用共工空间托管安装' }))
+    expect(await screen.findByText('升级失败')).toBeTruthy()
+    fireEvent.click(within(row('Claude Code')).getByRole('button', { name: '改用共工空间托管安装' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/claude/install')).toBe(true))
+  })
+
+  it('upgrades every agent with an update in turn from 全部升级', async () => {
+    const tools: MachineAgentsDto = {
+      ...TOOLS,
+      agents: [
+        TOOLS.agents[0]!,
+        agent('codex', { version: '0.150.0', latest: '0.159.2', managed: true, path: '/x' }),
+        agent('gemini', { version: '0.1.0', latest: '0.2.0', path: '/g' }),
+      ],
+    }
+    const calls = await openTools(
+      {
+        'GET /machines/m1/tools': tools,
+        'POST /machines/m1/tools/claude/upgrade': { opId: 'op1' },
+        'POST /machines/m1/tools/codex/upgrade': { opId: 'op2' },
+      },
+      { ...mbp, features: [...mbp.features, 'gemini'] },
+    )
+    // Gemini CLI's own install has an update 共工 cannot run: listed, not counted.
+    expect(row('Gemini CLI').textContent).toContain('有更新')
+    const all = screen.getByRole('button', { name: '全部升级（2）' })
+    fireEvent.click(all)
+    await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/claude/upgrade')).toBe(true))
+    expect(screen.getByRole('button', { name: '正在升级 1/2…' })).toBeTruthy()
+    expect(calls.some((c) => c.path === '/machines/m1/tools/codex/upgrade')).toBe(false)
+    emit({ t: 'machine.tools.result', machineId: 'm1', opId: 'op1', ok: true, error: null, state: null })
+    await waitFor(() => expect(calls.some((c) => c.path === '/machines/m1/tools/codex/upgrade')).toBe(true))
+    expect(screen.getByRole('button', { name: '正在升级 2/2…' })).toBeTruthy()
+    const done: MachineAgentsDto = {
+      ...tools,
+      agents: tools.agents.map((a) => (a.kind === 'gemini' ? a : { ...a, version: a.latest })),
+    }
+    emit({ t: 'machine.tools.result', machineId: 'm1', opId: 'op2', ok: true, error: null, state: done })
+    await waitFor(() => expect(screen.queryByRole('button', { name: /全部升级|正在升级/ })).toBeNull())
   })
 })
 
@@ -508,52 +649,81 @@ describe('诊断', () => {
 })
 
 describe('供应商', () => {
-  const openProviders = async (routes: Record<string, unknown> = {}, view = VIEW) => {
-    const calls = mockApi({
-      'GET /machines/m1/tools': TOOLS,
-      'GET /machines/m1/providers': view,
-      'GET /machines/m1/providers/presets?agent=claude': PRESETS,
-      ...routes,
-    })
-    open()
+  const openProviders = async (
+    routes: Record<string, unknown> = {},
+    view = VIEW,
+    machine: MachineDto = mbp,
+  ) => {
+    const calls = mockApi({ ...LIVE, 'GET /machines/m1/providers': view, ...routes })
+    open(machine)
     fireEvent.click(tab(AGENTS_TAB))
-    return { calls, claude: await screen.findByRole('region', { name: 'Claude Code 供应商' }) }
+    return { calls, list: await screen.findByRole('region', { name: '供应商' }) }
   }
   const keyIn = (calls: Call[]) => calls.filter((c) => JSON.stringify(c.body ?? {}).includes('sk-new'))
+  const providerRow = (list: HTMLElement, name: string) =>
+    within(list).getByText(name).closest('.mx-row') as HTMLElement
 
-  it('lists official login and the providers with masked keys', async () => {
-    const { claude } = await openProviders()
-    expect((within(claude).getByRole('radio', { name: /官方登录/ }) as HTMLInputElement).checked).toBe(true)
-    expect(within(claude).getByRole('radio', { name: /Kimi/ }).closest('label')?.textContent).toContain(
-      'Key ****abcd',
+  it('lists the machine’s providers once for all agents, with their protocols and masked keys', async () => {
+    const { list } = await openProviders(
+      {},
+      {
+        ...VIEW,
+        machine: { claude: { provider: 'p1', model: null } },
+        providers: [
+          kimi,
+          {
+            ...kimi,
+            id: 'p2',
+            name: 'GLM',
+            endpoints: [
+              endpoint({ baseUrl: 'https://open.bigmodel.cn/api/anthropic' }),
+              endpoint({ protocol: 'openai', baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4' }),
+            ],
+          },
+        ],
+      },
     )
-    expect(screen.getByRole('region', { name: 'Codex 供应商' })).toBeTruthy()
+    const kimiRow = providerRow(list, 'Kimi')
+    expect(kimiRow.textContent).toContain('Anthropic 兼容')
+    expect(kimiRow.textContent).toContain('Claude Code 的默认')
+    expect(kimiRow.textContent).toContain('Key ****abcd')
+    const glm = providerRow(list, 'GLM')
+    expect(glm.textContent).toContain('Anthropic 兼容')
+    expect(glm.textContent).toContain('OpenAI 兼容')
+    expect(screen.queryByRole('region', { name: 'Codex 供应商' })).toBeNull()
   })
 
-  it('creates one from a preset and sends the key only when saving', async () => {
-    const { calls, claude } = await openProviders({
-      'POST /machines/m1/providers': { id: 'p2', view: VIEW },
-    })
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
-    const picker = await screen.findByRole('dialog', { name: '新增 Claude Code 供应商' })
+  it('creates one from a preset, sending the key only when saving and making it a default', async () => {
+    const { calls, list } = await openProviders({ 'POST /machines/m1/providers': { id: 'p2', view: VIEW } })
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
+    const picker = await screen.findByRole('dialog', { name: '新增供应商' })
     expect(within(picker).getByText('国内厂商')).toBeTruthy()
     expect(within(picker).getByText('聚合平台')).toBeTruthy()
     fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: 'open' } })
     expect(within(picker).queryByRole('button', { name: /Kimi For Coding/ })).toBeNull()
     fireEvent.change(within(picker).getByRole('searchbox'), { target: { value: '' } })
-    fireEvent.click(await within(picker).findByRole('button', { name: /Kimi For Coding/ }))
+    const vendor = await within(picker).findByRole('button', { name: /Kimi For Coding/ })
+    expect(vendor.textContent).toContain('Anthropic 兼容')
+    fireEvent.click(vendor)
 
-    const form = await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
+    const form = await screen.findByRole('form', { name: '新增供应商' })
     expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe(
       'Kimi For Coding',
     )
-    expect((within(form).getByRole('combobox', { name: '模型' }) as HTMLInputElement).value).toBe(
-      'kimi-for-coding',
-    )
+    expect(
+      (within(form).getByRole('combobox', { name: 'Anthropic 兼容 模型' }) as HTMLInputElement).value,
+    ).toBe('kimi-for-coding')
     const link = within(form).getByRole('link', { name: /获取 Key/ })
     expect(link.getAttribute('href')).toBe('https://platform.kimi.com/keys')
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toContain('noopener')
+    // Only the agents speaking Anthropic can take it.
+    const defaults = within(form)
+      .getAllByRole('checkbox')
+      .map((c) => c.closest('label')?.textContent)
+    expect(defaults).toContain('Claude Code')
+    expect(defaults).not.toContain('Codex')
+    fireEvent.click(within(form).getByRole('checkbox', { name: 'Claude Code' }))
 
     fireEvent.change(within(form).getByLabelText('API Key'), { target: { value: 'sk-new' } })
     expect(keyIn(calls)).toEqual([])
@@ -563,21 +733,87 @@ describe('供应商', () => {
       method: 'POST',
       path: '/machines/m1/providers',
       body: {
-        agent: 'claude',
         presetId: 'kimi-coding',
         name: 'Kimi For Coding',
-        baseUrl: 'https://api.kimi.com/coding/',
         apiKey: 'sk-new',
-        model: 'kimi-for-coding',
+        endpoints: [
+          { protocol: 'anthropic', baseUrl: 'https://api.kimi.com/coding/', model: 'kimi-for-coding' },
+        ],
+        setDefault: ['claude'],
       },
     })
   })
 
+  const twoProtocols: ProviderPreset = {
+    ...kimiPreset,
+    id: 'glm',
+    name: 'GLM',
+    endpoints: [
+      { ...kimiPreset.endpoints[0]!, baseUrl: 'https://open.bigmodel.cn/api/anthropic', model: 'glm-4.6' },
+      {
+        ...kimiPreset.endpoints[0]!,
+        protocol: 'openai',
+        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+        apiKeyField: null,
+        model: 'glm-4.6',
+      },
+    ],
+  }
+
+  it('adds a vendor with an endpoint per protocol, dropping the ones unchecked', async () => {
+    const { calls, list } = await openProviders({
+      'GET /machines/m1/providers/presets': [twoProtocols],
+      'POST /machines/m1/providers': { id: 'p2', view: VIEW },
+    })
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^GLM/ }))
+    const form = await screen.findByRole('form', { name: '新增供应商' })
+    expect(within(form).getByRole('region', { name: 'Anthropic 兼容 端点' })).toBeTruthy()
+    expect(within(form).getByRole('region', { name: 'OpenAI 兼容 端点' })).toBeTruthy()
+    expect((within(form).getByRole('checkbox', { name: 'Codex' }) as HTMLInputElement).disabled).toBe(false)
+    fireEvent.change(within(form).getByLabelText('API Key'), { target: { value: 'sk-new' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(keyIn(calls)).toHaveLength(1))
+    expect(
+      (keyIn(calls)[0]!.body as { endpoints: { protocol: string }[] }).endpoints.map((e) => e.protocol),
+    ).toEqual(['anthropic', 'openai'])
+
+    calls.length = 0
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^GLM/ }))
+    const again = await screen.findByRole('form', { name: '新增供应商' })
+    fireEvent.click(within(again).getByRole('checkbox', { name: 'OpenAI 兼容' }))
+    expect(within(again).queryByRole('region', { name: 'OpenAI 兼容 端点' })).toBeNull()
+    expect(within(again).queryByRole('checkbox', { name: 'Codex' })).toBeNull()
+    fireEvent.change(within(again).getByLabelText('API Key'), { target: { value: 'sk-new' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(keyIn(calls)).toHaveLength(1))
+    expect(
+      (keyIn(calls)[0]!.body as { endpoints: { protocol: string }[] }).endpoints.map((e) => e.protocol),
+    ).toEqual(['anthropic'])
+  })
+
+  it('keeps one protocol per provider on an older client', async () => {
+    const old = { ...mbp, features: mbp.features.filter((f) => f !== 'protocolProviders') }
+    useWorkspace.setState({ machines: [old] })
+    const { list } = await openProviders({ 'GET /machines/m1/providers/presets': [twoProtocols] }, VIEW, old)
+    expect(list.textContent).toContain('升级客户端后可登记多种')
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^GLM/ }))
+    const form = await screen.findByRole('form', { name: '新增供应商' })
+    const anthropic = within(form).getByRole('checkbox', { name: 'Anthropic 兼容' }) as HTMLInputElement
+    const openai = within(form).getByRole('checkbox', { name: 'OpenAI 兼容' }) as HTMLInputElement
+    expect([anthropic.checked, openai.checked]).toEqual([true, false])
+    fireEvent.click(openai)
+    expect([anthropic.checked, openai.checked]).toEqual([false, true])
+    expect(within(form).queryByRole('region', { name: 'Anthropic 兼容 端点' })).toBeNull()
+  })
+
   it('refuses to add one without an API key', async () => {
-    const { calls, claude } = await openProviders()
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    const { calls, list } = await openProviders()
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
     fireEvent.click(await screen.findByRole('button', { name: /Kimi For Coding/ }))
-    await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
+    await screen.findByRole('form', { name: '新增供应商' })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     expect(await screen.findByText('请填写 API Key')).toBeTruthy()
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
@@ -600,15 +836,18 @@ describe('供应商', () => {
   }
   const openProfile = async (routes: Record<string, unknown> = {}) => {
     const opened = await openProviders({ ...HOME_DIRS, ...routes })
-    fireEvent.click(within(opened.claude).getByRole('button', { name: '新增…' }))
+    fireEvent.click(within(opened.list).getByRole('button', { name: '新增…' }))
     fireEvent.click(await screen.findByRole('button', { name: /该机器 Claude 配置目录/ }))
-    return { ...opened, form: await screen.findByRole('form', { name: '新增 Claude Code 供应商' }) }
+    return { ...opened, form: await screen.findByRole('form', { name: '新增供应商' }) }
   }
+  const sent = (calls: Call[], method: string) =>
+    calls.find((c) => c.method === method && c.path.startsWith('/machines/m1/providers'))?.body as {
+      endpoints: Record<string, unknown>[]
+    } & Record<string, unknown>
 
   it('adds a local Claude profile from its own entry, picking a suggested directory', async () => {
     const { calls, form } = await openProfile({ 'POST /machines/m1/providers': { id: 'p2', view: VIEW } })
     expect(within(form).queryByLabelText('API Key')).toBeNull()
-    expect(within(form).queryByRole('checkbox', { name: '使用该机器 Claude 配置目录' })).toBeNull()
     fireEvent.click(within(form).getByRole('button', { name: '显示选项' }))
     const options = await screen.findAllByRole('option')
     // Not the official login's own ~/.claude, nor a mere name match like a claude-code checkout.
@@ -617,47 +856,49 @@ describe('供应商', () => {
     expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe(
       'qorz-claude',
     )
+    // A profile is for Claude Code alone.
+    expect(
+      within(form)
+        .getAllByRole('checkbox')
+        .map((c) => c.closest('label')?.textContent),
+    ).toEqual(['Claude Code'])
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     expect(within(form).queryByLabelText('haiku 模型')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
-    const body = calls.find((c) => c.method === 'POST' && c.path === '/machines/m1/providers')?.body
+    const body = sent(calls, 'POST')
     expect(body).toMatchObject({
-      agent: 'claude',
       name: 'qorz-claude',
-      configDir: '/Users/test/.qorz-claude',
-      model: '',
-      models: {},
+      endpoints: [{ protocol: 'anthropic', configDir: '/Users/test/.qorz-claude', model: '', models: {} }],
     })
-    for (const key of ['apiKey', 'baseUrl', 'presetId']) expect(body).not.toHaveProperty(key)
+    for (const key of ['apiKey', 'presetId']) expect(body).not.toHaveProperty(key)
+    expect(body.endpoints[0]).not.toHaveProperty('baseUrl')
   })
 
   it("clears a profile's stale model mapping and leaves its small fast model alone", async () => {
-    const profile: ProviderView = {
-      ...kimi,
-      presetId: null,
-      baseUrl: '',
-      apiKey: '',
-      configDir: '/Users/test/.qorz-claude',
-      model: 'old',
-      models: { haiku: 'old-haiku' },
-      env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' },
-    }
-    const { calls, claude } = await openProviders(
+    const profile = kimiWith(
+      {
+        baseUrl: '',
+        configDir: '/Users/test/.qorz-claude',
+        model: 'old',
+        models: { haiku: 'old-haiku' },
+        env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' },
+      },
+      { presetId: null, apiKey: '' },
+    )
+    const { calls, list } = await openProviders(
       { ...HOME_DIRS, 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } },
       { ...VIEW, providers: [profile] },
     )
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     expect(within(form).queryByRole('button', { name: '改用 Haiku 映射' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
-      model: '',
-      models: {},
-      env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' },
-    })
+    expect(sent(calls, 'PUT').endpoints).toMatchObject([
+      { model: '', models: {}, env: { ANTHROPIC_SMALL_FAST_MODEL: 'fast' } },
+    ])
   })
 
   it('keeps a typed name and an executable for a local profile', async () => {
@@ -671,12 +912,9 @@ describe('供应商', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() =>
-      expect(
-        calls.find((c) => c.method === 'POST' && c.path === '/machines/m1/providers')?.body,
-      ).toMatchObject({
+      expect(sent(calls, 'POST')).toMatchObject({
         name: 'Qorz',
-        configDir: '/Users/test/.qorz-claude',
-        executablePath: '/Users/test/bin/claude-qorz',
+        endpoints: [{ configDir: '/Users/test/.qorz-claude', executablePath: '/Users/test/bin/claude-qorz' }],
       }),
     )
   })
@@ -701,24 +939,15 @@ describe('供应商', () => {
   })
 
   it('offers a local profile only when the daemon supports it', async () => {
-    mockApi({
-      'GET /machines/m1/tools': TOOLS,
-      'GET /machines/m1/providers': VIEW,
-      'GET /machines/m1/providers/presets?agent=claude': PRESETS,
-    })
-    open({ ...mbp, features: ['providers'] })
-    fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    const { list } = await openProviders({}, VIEW, { ...mbp, features: ['tools', 'providers'] })
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
     await screen.findByRole('button', { name: /自定义/ })
     expect(screen.queryByRole('button', { name: /该机器 Claude 配置目录/ })).toBeNull()
   })
 
   it('edits without the key when it is left empty, and restores preset values', async () => {
-    const { calls, claude } = await openProviders({
-      'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
-    })
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const { calls, list } = await openProviders({ 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } })
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     const key = within(form).getByLabelText('API Key') as HTMLInputElement
     expect(key.value).toBe('')
@@ -731,29 +960,39 @@ describe('供应商', () => {
     fireEvent.change(within(form).getByRole('textbox', { name: '名称' }), { target: { value: 'Kimi 2' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    const body = calls.find((c) => c.method === 'PUT')?.body as Record<string, unknown>
-    expect(body).toMatchObject({ agent: 'claude', name: 'Kimi 2' })
+    const body = sent(calls, 'PUT')
+    expect(body).toMatchObject({ name: 'Kimi 2', endpoints: [{ protocol: 'anthropic' }] })
     expect(body).not.toHaveProperty('apiKey')
+    expect(body).not.toHaveProperty('removeProtocols')
   })
 
-  it('edits the proxy and environment of either agent under 高级', async () => {
-    const codex: ProviderView = {
-      ...kimi,
-      id: 'p2',
-      agent: 'codex',
-      name: 'GLM',
-      presetId: null,
-      proxy: null,
-    }
-    const { calls } = await openProviders(
-      {
-        'PUT /machines/m1/providers/p2': { id: 'p2', view: VIEW },
-        'GET /machines/m1/providers/presets?agent=codex': [],
-      },
-      { ...VIEW, providers: [kimi, codex] },
+  it('adds a protocol to an existing provider, or drops one', async () => {
+    const { calls, list } = await openProviders({ 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } })
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
+    const form = await screen.findByRole('form', { name: '编辑供应商' })
+    fireEvent.click(within(form).getByRole('checkbox', { name: 'OpenAI 兼容' }))
+    fireEvent.click(within(form).getByRole('checkbox', { name: 'Anthropic 兼容' }))
+    fireEvent.change(within(form).getByRole('textbox', { name: 'OpenAI 兼容 Base URL' }), {
+      target: { value: 'https://api.kimi.com/coding/v1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(sent(calls, 'PUT')).toMatchObject({
+      endpoints: [{ protocol: 'openai', baseUrl: 'https://api.kimi.com/coding/v1' }],
+      removeProtocols: ['anthropic'],
+    })
+  })
+
+  it('edits the proxy and environment under 高级', async () => {
+    const codex = kimiWith(
+      { protocol: 'openai', env: {} },
+      { id: 'p2', name: 'GLM', presetId: null, proxy: null },
     )
-    const region = screen.getByRole('region', { name: 'Codex 供应商' })
-    fireEvent.click(within(region).getByRole('button', { name: '编辑…' }))
+    const { calls, list } = await openProviders(
+      { 'PUT /machines/m1/providers/p2': { id: 'p2', view: VIEW } },
+      { ...VIEW, providers: [codex] },
+    )
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     fireEvent.change(within(form).getByRole('textbox', { name: '代理地址' }), {
@@ -764,20 +1003,18 @@ describe('供应商', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
-      agent: 'codex',
+    expect(sent(calls, 'PUT')).toMatchObject({
       proxy: 'http://127.0.0.1:7890',
-      env: { NODE_OPTIONS: '--max-old-space-size=4096' },
+      endpoints: [{ protocol: 'openai', env: { NODE_OPTIONS: '--max-old-space-size=4096' } }],
     })
   })
 
-  it("sets a Claude provider's command-line arguments above the other variables", async () => {
-    const { calls, claude } = await openProviders(
+  it("sets an Anthropic endpoint's command-line arguments above the other variables", async () => {
+    const { calls, list } = await openProviders(
       { 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } },
-      { ...VIEW, providers: [{ ...kimi, args: ['--debug'] }] },
+      { ...VIEW, providers: [kimiWith({ args: ['--debug'] })] },
     )
-    expect(within(claude).getByText(/1 个命令行参数/)).toBeTruthy()
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
@@ -787,16 +1024,12 @@ describe('供应商', () => {
     fireEvent.change(args, { target: { value: '--debug\n --settings ~/team.json ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
-      args: ['--debug', '--settings ~/team.json'],
-    })
+    expect(sent(calls, 'PUT').endpoints).toMatchObject([{ args: ['--debug', '--settings ~/team.json'] }])
   })
 
   it('shows the stored proxy masked and sends it back untouched', async () => {
-    const { calls, claude } = await openProviders({
-      'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
-    })
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const { calls, list } = await openProviders({ 'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW } })
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     expect((within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement).value).toBe(
@@ -804,115 +1037,18 @@ describe('供应商', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
-      proxy: 'http://bob:****@10.0.0.2:3128',
-    })
-  })
-
-  it("sets the official login's proxy and environment, showing the stored ones masked", async () => {
-    const official = {
-      claude: { env: { DISABLE_TELEMETRY: '1' }, proxy: 'http://bob:****@10.0.0.2:3128', args: ['--debug'] },
-    }
-    const { calls, claude } = await openProviders(
-      { 'PUT /machines/m1/providers/official': { ...VIEW, official } },
-      { ...VIEW, official },
-    )
-    expect(
-      within(claude)
-        .getByRole('radio', { name: /官方登录/ })
-        .closest('label')?.textContent,
-    ).toContain('http://bob:****@10.0.0.2:3128 · 1 个环境变量 · 1 个命令行参数')
-    fireEvent.click(within(claude).getByRole('button', { name: '设置…' }))
-    const form = await screen.findByRole('form', { name: 'Claude Code 官方登录设置' })
-    const proxy = within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement
-    expect(proxy.value).toBe('http://bob:****@10.0.0.2:3128')
-    const env = within(form).getByRole('textbox', { name: '其他环境变量' })
-    expect((env as HTMLTextAreaElement).value).toBe('DISABLE_TELEMETRY=1')
-    fireEvent.change(env, { target: { value: 'DISABLE_TELEMETRY=1\nNO_PROXY=.corp' } })
-    const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
-    expect(args.compareDocumentPosition(env) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(args.value).toBe('--debug')
-    fireEvent.change(args, { target: { value: '--debug\n\n  --settings ~/team.json  ' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
-      path: '/machines/m1/providers/official',
-      body: {
-        agent: 'claude',
-        proxy: 'http://bob:****@10.0.0.2:3128',
-        env: { DISABLE_TELEMETRY: '1', NO_PROXY: '.corp' },
-        args: ['--debug', '--settings ~/team.json'],
-      },
-    })
+    expect(sent(calls, 'PUT')).toMatchObject({ proxy: 'http://bob:****@10.0.0.2:3128' })
   })
 
   it('opens a fresh editor each time', async () => {
-    const { claude } = await openProviders()
-    fireEvent.click(within(claude).getByRole('button', { name: '新增…' }))
+    const { list } = await openProviders()
+    fireEvent.click(within(list).getByRole('button', { name: '新增…' }))
     fireEvent.click(await screen.findByRole('button', { name: /Kimi For Coding/ }))
-    await screen.findByRole('form', { name: '新增 Claude Code 供应商' })
+    await screen.findByRole('form', { name: '新增供应商' })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     expect((within(form).getByRole('textbox', { name: '名称' }) as HTMLInputElement).value).toBe('Kimi')
-  })
-
-  it('switches the machine default at once, noting the sessions that keep the old one', async () => {
-    const { calls, claude } = await openProviders({
-      'PUT /machines/m1/providers/default': { ...VIEW, machine: { claude: 'p1' } },
-    })
-    fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
-    expect(screen.queryByRole('alertdialog')).toBeNull()
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
-        path: '/machines/m1/providers/default',
-        body: { agent: 'claude', choice: 'p1' },
-      }),
-    )
-    await waitFor(() =>
-      expect((within(claude).getByRole('radio', { name: /Kimi/ }) as HTMLInputElement).checked).toBe(true),
-    )
-    const status = within(claude).getByRole('status')
-    expect(status.textContent).toContain('已保存 · 3 个群的会话开启新会话后才切换')
-    expect(within(status).queryByRole('link')).toBeNull()
-    fireEvent.click(within(status).getByRole('button', { name: '3 个群的会话开启新会话后才切换' }))
-    const links = within(status).getAllByRole('link')
-    expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['前端组（小王的 Claude）', '/g/g1'],
-      ['后端组（小王的 Claude）', '/g/g2'],
-      ['测试组（审查员）', '/g/g3'],
-    ])
-  })
-
-  it('says just 已保存 when no session is affected (bots with their own provider)', async () => {
-    const view = { ...VIEW, bots: { b1: 'official', b2: 'official' } }
-    const { claude } = await openProviders(
-      { 'PUT /machines/m1/providers/default': { ...view, machine: { claude: 'p1' } } },
-      view,
-    )
-    fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
-    await waitFor(() => expect(within(claude).getByRole('status').textContent).toBe('已保存'))
-    // 已保存 fades after a few seconds.
-    await waitFor(() => expect(within(claude).getByRole('status').textContent).toBe(''), { timeout: 4000 })
-  }, 10_000)
-
-  it('keeps the old default when a switch fails, with the reason and a retry', async () => {
-    let fail = true
-    const { calls, claude } = await openProviders({
-      'PUT /machines/m1/providers/default': () =>
-        fail ? apiError(503, 'machine_offline', '机器离线') : { ...VIEW, machine: { claude: 'p1' } },
-    })
-    fireEvent.click(within(claude).getByRole('radio', { name: /Kimi/ }))
-    await waitFor(() =>
-      expect(within(claude).getByRole('status').textContent).toContain('保存失败：机器离线'),
-    )
-    expect((within(claude).getByRole('radio', { name: /官方登录/ }) as HTMLInputElement).checked).toBe(true)
-    fail = false
-    fireEvent.click(within(claude).getByRole('button', { name: '重试' }))
-    await waitFor(() =>
-      expect((within(claude).getByRole('radio', { name: /Kimi/ }) as HTMLInputElement).checked).toBe(true),
-    )
-    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(2)
   })
 
   it('warns that sessions pinned to a deleted provider start over', async () => {
@@ -920,23 +1056,24 @@ describe('供应商', () => {
       ...VIEW,
       sessions: [{ groupId: 'g1', botId: 'b1', agent: 'claude' as const, provider: 'p1' }],
     }
-    const { calls, claude } = await openProviders(
+    const { calls, list } = await openProviders(
       { 'DELETE /machines/m1/providers/p1': { ...pinned, providers: [] } },
       pinned,
     )
-    fireEvent.click(within(claude).getByRole('button', { name: '删除' }))
+    fireEvent.click(within(list).getByRole('button', { name: '删除' }))
     const alert = await screen.findByRole('alertdialog')
     expect(alert.textContent).toContain('1 个群的会话正在使用 Kimi')
     expect(within(alert).getByText('前端组（小王的 Claude）')).toBeTruthy()
     fireEvent.click(within(alert).getByRole('button', { name: '删除' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
-    await waitFor(() => expect(within(claude).queryByRole('radio', { name: /Kimi/ })).toBeNull())
+    await waitFor(() => expect(within(list).queryByText('Kimi')).toBeNull())
   })
 
-  it('previews CC Switch providers masked and imports the chosen ones', async () => {
+  it('previews CC Switch providers of every agent masked, imports the chosen ones and makes the current the default', async () => {
     const cand = (o: Partial<CcSwitchCandidate>): CcSwitchCandidate => ({
       key: 'k1',
       agent: 'claude',
+      protocol: 'anthropic',
       name: 'DeepSeek',
       baseUrl: 'https://api.deepseek.com/anthropic',
       apiKey: '****wxyz',
@@ -945,46 +1082,51 @@ describe('供应商', () => {
       existing: null,
       ...o,
     })
-    const { calls, claude } = await openProviders({
+    const { calls, list } = await openProviders({
       'GET /machines/m1/ccswitch': {
         candidates: [
           cand({}),
           cand({ key: 'k2', name: 'GLM', current: false, existing: 'p9' }),
-          cand({ key: 'k3', agent: 'codex', name: 'Codex 中转' }),
+          cand({ key: 'k3', agent: 'codex', protocol: 'openai', name: 'Codex 中转', current: false }),
         ],
       },
-      'POST /machines/m1/ccswitch/apply': { imported: ['p5'], view: VIEW },
+      'POST /machines/m1/ccswitch/apply': { imported: ['p5', 'p6'], view: VIEW },
+      'PUT /machines/m1/providers/default': VIEW,
     })
-    fireEvent.click(within(claude).getByRole('button', { name: '从 CC Switch 导入…' }))
-    const dialog = await screen.findByRole('dialog', { name: '从 CC Switch 导入 Claude Code 供应商' })
+    fireEvent.click(within(list).getByRole('button', { name: '从 CC Switch 导入…' }))
+    const dialog = await screen.findByRole('dialog', { name: '从 CC Switch 导入供应商' })
     await within(dialog).findByText('DeepSeek')
     expect(dialog.textContent).toContain('Key ****wxyz')
     expect(dialog.textContent).toContain('将更新已有项')
-    expect(within(dialog).queryByText('Codex 中转')).toBeNull()
+    expect(within(dialog).getByText('Codex 中转')).toBeTruthy()
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /GLM/ }))
     fireEvent.click(within(dialog).getByRole('button', { name: '导入' }))
     await waitFor(() =>
       expect(calls.find((c) => c.path === '/machines/m1/ccswitch/apply')?.body).toEqual({
-        keys: ['k1'],
+        keys: ['k1', 'k3'],
         setDefault: false,
+      }),
+    )
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === '/machines/m1/providers/default')?.body).toEqual({
+        agent: 'claude',
+        choice: 'p5',
+        model: null,
       }),
     )
   })
 
   it('has no CC Switch entry when the machine has none', async () => {
-    mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
-    open({ ...mbp, features: ['tools', 'providers'] })
-    fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    expect(within(claude).queryByRole('button', { name: '从 CC Switch 导入…' })).toBeNull()
-    expect(within(claude).getByRole('button', { name: '粘贴链接导入…' })).toBeTruthy()
+    const { list } = await openProviders({}, VIEW, { ...mbp, features: ['tools', 'providers'] })
+    expect(within(list).queryByRole('button', { name: '从 CC Switch 导入…' })).toBeNull()
+    expect(within(list).getByRole('button', { name: '粘贴链接导入…' })).toBeTruthy()
   })
 
   it('imports a pasted ccswitch:// link', async () => {
-    const { calls, claude } = await openProviders({
+    const { calls, list } = await openProviders({
       'POST /machines/m1/providers/import-link': { id: 'p1', view: VIEW },
     })
-    fireEvent.click(within(claude).getByRole('button', { name: '粘贴链接导入…' }))
+    fireEvent.click(within(list).getByRole('button', { name: '粘贴链接导入…' }))
     const dialog = await screen.findByRole('dialog', { name: '粘贴链接导入' })
     const link = 'ccswitch://v1/import?resource=provider&app=claude&name=K'
     fireEvent.change(within(dialog).getByRole('textbox', { name: '导入链接' }), { target: { value: link } })
@@ -998,37 +1140,177 @@ describe('供应商', () => {
   })
 
   it('shows 机器离线 when the machine goes away while the tab is open', async () => {
-    mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': VIEW })
+    mockApi(LIVE)
     const view = open()
     fireEvent.click(tab(AGENTS_TAB))
-    await screen.findByRole('region', { name: 'Claude Code 供应商' })
+    await screen.findByRole('region', { name: '供应商' })
     view.rerender(
       <MemoryRouter>
         <MachinePage machine={{ ...mbp, online: false }} bots={[]} />
       </MemoryRouter>,
     )
     expect(screen.getAllByText(/机器离线/).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('region', { name: 'Claude Code 供应商' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '供应商' })).toBeNull()
+  })
+})
+
+describe('默认「供应商/模型」', () => {
+  const picker = (box: HTMLElement) => within(box).getByRole('button', { name: '供应商/模型' })
+  const pick = async (box: HTMLElement, name: string) => {
+    fireEvent.click(picker(box))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name }))
+  }
+
+  it('switches provider and model at once, noting the sessions that keep the old one', async () => {
+    const calls = mockApi({
+      ...LIVE,
+      'PUT /machines/m1/providers/default': {
+        ...VIEW,
+        machine: { claude: { provider: 'p1', model: 'kimi-k2' } },
+      },
+    })
+    const box = await openDefault()
+    expect(picker(box).textContent).toBe('官方登录 / 默认模型')
+    fireEvent.click(picker(box))
+    expect(screen.getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual([
+      '官方登录 / 默认模型',
+      '官方登录 / Sonnet',
+      'Kimi / 默认（kimi-for-coding）',
+      'Kimi / kimi-for-coding',
+      'Kimi / kimi-k2',
+    ])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi / kimi-k2' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+        path: '/machines/m1/providers/default',
+        body: { agent: 'claude', choice: 'p1', model: 'kimi-k2' },
+      }),
+    )
+    await waitFor(() => expect(picker(box).textContent).toBe('Kimi / kimi-k2'))
+    const status = within(box).getByRole('status')
+    expect(status.textContent).toContain('已保存 · 3 个群的会话开启新会话后才切换')
+    expect(within(status).queryByRole('link')).toBeNull()
+    fireEvent.click(within(status).getByRole('button', { name: '3 个群的会话开启新会话后才切换' }))
+    expect(
+      within(status)
+        .getAllByRole('link')
+        .map((a) => [a.textContent, a.getAttribute('href')]),
+    ).toEqual([
+      ['前端组（小王的 Claude）', '/g/g1'],
+      ['后端组（小王的 Claude）', '/g/g2'],
+      ['测试组（审查员）', '/g/g3'],
+    ])
+  })
+
+  it('greys out a provider of another protocol, saying why', async () => {
+    mockApi(LIVE)
+    const box = await openDefault(mbp, 'Codex')
+    fireEvent.click(picker(box))
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Kimi' })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
+    expect(item.textContent).toContain('该供应商只提供 Anthropic 兼容 接口，Codex 需要 OpenAI 兼容')
+  })
+
+  it('offers providers only on an older client, asking to update it', async () => {
+    const old = { ...mbp, features: mbp.features.filter((f) => f !== 'protocolProviders') }
+    const calls = mockApi({ ...LIVE, 'PUT /machines/m1/providers/default': VIEW })
+    const box = await openDefault(old)
+    expect(box.textContent).toContain('升级该机器的客户端后可以同时选择模型')
+    fireEvent.click(picker(box))
+    expect(screen.getAllByRole('menuitemcheckbox').map((i) => i.textContent)).toEqual(['官方登录', 'Kimi'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kimi' }))
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
+        agent: 'claude',
+        choice: 'p1',
+        model: null,
+      }),
+    )
+  })
+
+  it('says just 已保存 when no session is affected (bots with their own provider)', async () => {
+    const view = { ...VIEW, bots: { b1: 'official', b2: 'official' } }
+    mockApi({
+      ...LIVE,
+      'GET /machines/m1/providers': view,
+      'PUT /machines/m1/providers/default': { ...view, machine: { claude: { provider: 'p1', model: null } } },
+    })
+    const box = await openDefault()
+    await pick(box, 'Kimi / 默认（kimi-for-coding）')
+    await waitFor(() => expect(within(box).getByRole('status').textContent).toBe('已保存'))
+    // 已保存 fades after a few seconds.
+    await waitFor(() => expect(within(box).getByRole('status').textContent).toBe(''), { timeout: 4000 })
+  }, 10_000)
+
+  it('keeps the old default when a switch fails, with the reason and a retry', async () => {
+    let fail = true
+    const calls = mockApi({
+      ...LIVE,
+      'PUT /machines/m1/providers/default': () =>
+        fail
+          ? apiError(503, 'machine_offline', '机器离线')
+          : { ...VIEW, machine: { claude: { provider: 'p1', model: null } } },
+    })
+    const box = await openDefault()
+    await pick(box, 'Kimi / 默认（kimi-for-coding）')
+    await waitFor(() => expect(within(box).getByRole('status').textContent).toContain('保存失败：机器离线'))
+    fail = false
+    fireEvent.click(within(box).getByRole('button', { name: '重试' }))
+    await waitFor(() => expect(picker(box).textContent).toBe('Kimi / 默认（kimi-for-coding）'))
+    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(2)
+  })
+
+  it('names the bots using the agent and what they run on', async () => {
+    useWorkspace.setState({
+      bots: [
+        { ...bot('b1', '小王的 Claude'), machineId: 'm1', agentKind: 'claude', agentSettings: {} },
+        { ...bot('b2', '审查员'), machineId: 'm1', agentKind: 'claude', agentSettings: {} },
+        { ...bot('b3', '别处的'), machineId: 'm9', agentKind: 'claude', agentSettings: {} },
+      ],
+    })
+    mockApi({
+      ...LIVE,
+      'GET /machines/m1/providers': {
+        ...VIEW,
+        machine: { claude: { provider: 'p1', model: 'kimi-k2' } },
+        bots: { b2: 'official' },
+      },
+    })
+    open()
+    fireEvent.click(tab(AGENTS_TAB))
+    const row = await openAgent('Claude Code')
+    const used = within(row).getByRole('region', { name: '使用它的 Bot' })
+    expect(used.textContent).toContain('小王的 Claude')
+    expect(used.textContent).toContain('继承机器默认（Kimi / kimi-k2）')
+    expect(used.textContent).toContain('审查员')
+    expect(used.textContent).toContain('官方登录')
+    expect(used.textContent).not.toContain('别处的')
   })
 })
 
 describe('供应商 · 高级设置', () => {
   const PRESET: ProviderPreset = {
     ...kimiPreset,
-    env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '262144' },
-    modelContext: { 'kimi-for-coding': 262144, 'kimi-k2': 1000000 },
+    endpoints: [
+      {
+        ...kimiPreset.endpoints[0]!,
+        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '262144' },
+        modelContext: { 'kimi-for-coding': 262144, 'kimi-k2': 1000000 },
+      },
+    ],
   }
   const openEditor = async (provider: ProviderView, preset = PRESET) => {
     const calls = mockApi({
-      'GET /machines/m1/tools': TOOLS,
+      ...LIVE,
       'GET /machines/m1/providers': { ...VIEW, providers: [provider] },
-      'GET /machines/m1/providers/presets?agent=claude': [preset],
+      'GET /machines/m1/providers/presets': [preset],
       'PUT /machines/m1/providers/p1': { id: 'p1', view: VIEW },
     })
     open()
     fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    fireEvent.click(within(claude).getByRole('button', { name: '编辑…' }))
+    const list = await screen.findByRole('region', { name: '供应商' })
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     await within(form).findByText('预设：256K')
@@ -1037,14 +1319,17 @@ describe('供应商 · 高级设置', () => {
   const saved = async (calls: Call[]) => {
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    return calls.find((c) => c.method === 'PUT')?.body as { env: Record<string, string>; models?: unknown }
+    const body = calls.find((c) => c.method === 'PUT')?.body as {
+      endpoints: { env: Record<string, string>; models?: unknown }[]
+    }
+    return body.endpoints[0]!
   }
   const radio = (form: HTMLElement, group: string, name: string) =>
     within(within(form).getByRole('radiogroup', { name: group })).getByRole('radio', { name })
 
   it('saves untouched settings exactly as they were (a provider setting only the auto-compact window)', async () => {
     const env = { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '204800', GITHUB_TOKEN: '****wxyz' }
-    const { calls, form } = await openEditor({ ...kimi, env })
+    const { calls, form } = await openEditor(kimiWith({ env }))
     expect((within(form).getByRole('textbox', { name: '其他环境变量' }) as HTMLTextAreaElement).value).toBe(
       'GITHUB_TOKEN=****wxyz',
     )
@@ -1055,7 +1340,9 @@ describe('供应商 · 高级设置', () => {
     const { form } = await openEditor(kimi)
     const window = within(form).getByRole('button', { name: '上下文窗口' })
     expect(window.textContent).toContain('按模型：256K')
-    fireEvent.change(within(form).getByRole('combobox', { name: '模型' }), { target: { value: 'kimi-k2' } })
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Anthropic 兼容 模型' }), {
+      target: { value: 'kimi-k2' },
+    })
     expect(window.textContent).toContain('按模型：1M')
     fireEvent.click(window)
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '200K' }))
@@ -1085,7 +1372,7 @@ describe('供应商 · 高级设置', () => {
 
   it('keeps a tool search of auto:N and a flag of true when saved untouched', async () => {
     const env = { ENABLE_TOOL_SEARCH: 'auto:5', CLAUDE_CODE_DISABLE_THINKING: 'true' }
-    const { calls, form } = await openEditor({ ...kimi, env })
+    const { calls, form } = await openEditor(kimiWith({ env }))
     expect(radio(form, '工具搜索', '自动').getAttribute('aria-checked')).toBe('true')
     expect((within(form).getByRole('checkbox', { name: '关闭思考参数' }) as HTMLInputElement).checked).toBe(
       true,
@@ -1100,10 +1387,11 @@ describe('供应商 · 高级设置', () => {
   })
 
   it('marks a value changed from the preset and restores it alone', async () => {
-    const { calls, form } = await openEditor({
-      ...kimi,
-      env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '204800', CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000' },
-    })
+    const { calls, form } = await openEditor(
+      kimiWith({
+        env: { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '204800', CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000' },
+      }),
+    )
     expect(form.textContent).toContain('预设：256K')
     expect(within(form).getAllByText('已修改')).toHaveLength(2)
     fireEvent.click(within(form).getByRole('button', { name: '恢复预设：自动压缩窗口' }))
@@ -1135,10 +1423,9 @@ describe('供应商 · 高级设置', () => {
   })
 
   it('moves the deprecated small fast model to the Haiku mapping', async () => {
-    const { calls, form } = await openEditor({
-      ...kimi,
-      env: { ANTHROPIC_SMALL_FAST_MODEL: 'kimi-k2', X: '1' },
-    })
+    const { calls, form } = await openEditor(
+      kimiWith({ env: { ANTHROPIC_SMALL_FAST_MODEL: 'kimi-k2', X: '1' } }),
+    )
     expect(form.textContent).toContain('ANTHROPIC_SMALL_FAST_MODEL 已废弃')
     fireEvent.click(within(form).getByRole('button', { name: '改用 Haiku 映射' }))
     expect((within(form).getByRole('textbox', { name: 'haiku 模型' }) as HTMLInputElement).value).toBe(
@@ -1152,56 +1439,62 @@ describe('供应商 · 高级设置', () => {
 
   it('summarises window and output in the provider list', async () => {
     const env = { CLAUDE_CODE_MAX_CONTEXT_TOKENS: '262144', CLAUDE_CODE_MAX_OUTPUT_TOKENS: '128000' }
-    mockApi({
-      'GET /machines/m1/tools': TOOLS,
-      'GET /machines/m1/providers': { ...VIEW, providers: [{ ...kimi, env }] },
-    })
+    mockApi({ ...LIVE, 'GET /machines/m1/providers': { ...VIEW, providers: [kimiWith({ env })] } })
     open()
     fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    expect(within(claude).getByRole('radio', { name: /Kimi/ }).closest('label')?.textContent).toContain(
-      '上下文 256K · 输出 128K',
-    )
+    const list = await screen.findByRole('region', { name: '供应商' })
+    expect(list.textContent).toContain('上下文 256K · 输出 128K')
   })
 
-  it('gives the official login the same controls, without a model window', async () => {
+  it("sets the official login's controls, proxy and environment, showing the stored ones masked", async () => {
     const official = {
-      claude: { env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000', NO_PROXY: '.corp' }, proxy: null, args: [] },
+      claude: {
+        env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000', NO_PROXY: '.corp' },
+        proxy: 'http://bob:****@10.0.0.2:3128',
+        args: ['--debug'],
+      },
     }
     const calls = mockApi({
-      'GET /machines/m1/tools': TOOLS,
+      ...LIVE,
       'GET /machines/m1/providers': { ...VIEW, official },
       'PUT /machines/m1/providers/official': { ...VIEW, official },
     })
-    open()
-    fireEvent.click(tab(AGENTS_TAB))
-    const claude = await screen.findByRole('region', { name: 'Claude Code 供应商' })
-    fireEvent.click(within(claude).getByRole('button', { name: '设置…' }))
+    const box = await openDefault()
+    expect(box.textContent).toContain('http://bob:****@10.0.0.2:3128 · 2 个环境变量')
+    fireEvent.click(within(box).getByRole('button', { name: '设置…' }))
     const form = await screen.findByRole('form', { name: 'Claude Code 官方登录设置' })
     expect((within(form).getByRole('textbox', { name: '输出上限' }) as HTMLInputElement).value).toBe('64K')
     expect(within(form).getByRole('button', { name: '上下文窗口' }).textContent).not.toContain('按模型')
+    expect((within(form).getByRole('textbox', { name: '代理地址' }) as HTMLInputElement).value).toBe(
+      'http://bob:****@10.0.0.2:3128',
+    )
+    const env = within(form).getByRole('textbox', { name: '其他环境变量' }) as HTMLTextAreaElement
+    expect(env.value).toBe('NO_PROXY=.corp')
+    const args = within(form).getByRole('textbox', { name: '命令行参数' }) as HTMLTextAreaElement
+    expect(args.compareDocumentPosition(env) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(args.value).toBe('--debug')
     fireEvent.change(within(form).getByRole('textbox', { name: '输出上限' }), { target: { value: '32k' } })
+    fireEvent.change(args, { target: { value: '--debug\n\n  --settings ~/team.json  ' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true))
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
-      agent: 'claude',
-      proxy: '',
-      env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '32000', NO_PROXY: '.corp' },
-      args: [],
+    expect(calls.find((c) => c.method === 'PUT')).toMatchObject({
+      path: '/machines/m1/providers/official',
+      body: {
+        agent: 'claude',
+        proxy: 'http://bob:****@10.0.0.2:3128',
+        env: { CLAUDE_CODE_MAX_OUTPUT_TOKENS: '32000', NO_PROXY: '.corp' },
+        args: ['--debug', '--settings ~/team.json'],
+      },
     })
   })
 
-  it('leaves Codex providers with the plain variables', async () => {
-    const codex: ProviderView = { ...kimi, id: 'p2', agent: 'codex', name: 'GLM', presetId: null }
-    mockApi({
-      'GET /machines/m1/tools': TOOLS,
-      'GET /machines/m1/providers': { ...VIEW, providers: [codex] },
-      'GET /machines/m1/providers/presets?agent=codex': [],
-    })
+  it('leaves OpenAI endpoints with the plain variables', async () => {
+    const codex = kimiWith({ protocol: 'openai' }, { id: 'p2', name: 'GLM', presetId: null })
+    mockApi({ ...LIVE, 'GET /machines/m1/providers': { ...VIEW, providers: [codex] } })
     open()
     fireEvent.click(tab(AGENTS_TAB))
-    const region = await screen.findByRole('region', { name: 'Codex 供应商' })
-    fireEvent.click(within(region).getByRole('button', { name: '编辑…' }))
+    const list = await screen.findByRole('region', { name: '供应商' })
+    fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
     expect(within(form).queryByRole('button', { name: '上下文窗口' })).toBeNull()
@@ -1224,15 +1517,11 @@ describe('Agent 设置', () => {
     },
   }
   const openSettings = async (routes: Record<string, unknown> = {}, view = SET_VIEW) => {
-    const calls = mockApi({ 'GET /machines/m1/tools': TOOLS, 'GET /machines/m1/providers': view, ...routes })
-    render(
-      <MemoryRouter>
-        <MachinePage machine={mbp} bots={[]} />
-        <Toaster />
-      </MemoryRouter>,
-    )
+    const calls = mockApi({ ...LIVE, 'GET /machines/m1/providers': view, ...routes })
+    open()
     fireEvent.click(tab(AGENTS_TAB))
-    return { calls, region: await screen.findByRole('region', { name: 'Claude Code Agent 设置' }) }
+    const row = await openAgent('Claude Code')
+    return { calls, region: within(row).getByRole('region', { name: 'Claude Code Agent 设置' }) }
   }
   const row = (region: HTMLElement, label: string) =>
     within(region)

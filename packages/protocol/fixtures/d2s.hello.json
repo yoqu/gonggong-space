@@ -33,7 +33,9 @@
       "path": null,
       "minVersion": "0.160.1",
       "latest": null,
-      "managed": false
+      "managed": false,
+      "upgradeCommand": null,
+      "installCommand": null
     }
   ],
   "token": "mt_abc123",

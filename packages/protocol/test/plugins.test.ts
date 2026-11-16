@@ -10,6 +10,7 @@ import {
   groupDesignSystemId,
   groupDesignSystemKey,
   PLUGIN_MAX_FILES,
+  PluginAgent,
   PluginFiles,
   PluginManifest,
   templateInputs,
@@ -70,6 +71,44 @@ describe('plugin manifest', () => {
     const files = (k: number) => Array.from({ length: k }, (_, i) => ({ path: `f${i}`, content: '' }))
     expect(PluginFiles.safeParse(files(600)).success).toBe(true)
     expect(PluginFiles.safeParse(files(601)).success).toBe(false)
+  })
+})
+
+describe('plugin agent provider', () => {
+  const agent = (provider: unknown) => ({
+    id: 'kimi',
+    title: 'Kimi Code',
+    vendor: '月之暗面',
+    install: { npm: '@moonshot-ai/kimi-code', bin: 'kimi', minVersion: '2.6.0' },
+    acp: { kind: 'native', args: ['acp'] },
+    systemPrompt: { via: 'script' },
+    skills: { via: 'link', dirs: ['.agents/skills'] },
+    tiers: null,
+    provider,
+    home: { env: null, default: '.kimi-code', config: 'config.toml' },
+    login: { checks: [], command: 'kimi', hint: 'x' },
+  })
+  const env = { apiKey: 'K_API_KEY', baseUrl: 'K_BASE_URL', model: 'K_MODEL' }
+
+  it('sets env and arguments per endpoint protocol, and may need a model', () => {
+    const p = PluginAgent.parse(
+      agent({
+        protocols: ['anthropic', 'openai'],
+        env,
+        byProtocol: {
+          anthropic: { set: { K_TYPE: 'anthropic' } },
+          openai: { env: { ...env, apiKey: 'OPENAI_API_KEY' }, args: ['--auth-type', 'openai'] },
+        },
+        needsModel: true,
+      }),
+    ).provider
+    expect(p?.byProtocol.anthropic).toEqual({ set: { K_TYPE: 'anthropic' }, args: [] })
+    expect(p?.byProtocol.openai?.env?.apiKey).toBe('OPENAI_API_KEY')
+    expect(p?.needsModel).toBe(true)
+    const plain = PluginAgent.parse(agent({ protocols: ['gemini'], env })).provider
+    expect([plain?.byProtocol, plain?.needsModel]).toEqual([{}, false])
+    const bad = agent({ protocols: ['openai'], env, byProtocol: { openai: { set: { 'bad-name': 'x' } } } })
+    expect(PluginAgent.safeParse(bad).success).toBe(false)
   })
 })
 

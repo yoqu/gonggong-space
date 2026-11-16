@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   type AgentKind,
   type AgentSettingField,
   type AgentSettingsReq,
@@ -6,15 +7,12 @@ import {
   compareVersions,
   fieldsFor,
   LOCKED_CLAUDE_SETTINGS,
-  type MachineDto,
   type ProviderStoreView,
 } from '@gonggong/protocol'
 import { type KeyboardEvent, useRef, useState } from 'react'
-import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
-import { api } from '../../lib/api'
 import { Alert, GroupBox, GroupRow, SegmentedControl, Switch, TextField } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
+import type { AgentBotRef, AgentsSource } from '../agents/source'
 import {
   BOOL_RAW,
   type BoolState,
@@ -35,12 +33,15 @@ const INHERIT = 'inheritCli'
  * saved by itself: choices at once, text on blur or Enter.
  */
 export function AgentSettingsBox({
-  machine,
+  source,
+  bots: all,
   agent,
   view,
   onView,
 }: {
-  machine: MachineDto
+  source: AgentsSource
+  /** Bots on the machine: those overriding a value are named beside it. */
+  bots: AgentBotRef[]
   agent: AgentKind
   view: ProviderStoreView
   onView: (view: ProviderStoreView) => void
@@ -53,15 +54,13 @@ export function AgentSettingsBox({
   const committed = useRef(texts)
   const [inheritCli, setInheritCli] = useState(saved?.inheritCli ?? true)
   const saves = useSaves()
-  const bots = useWorkspace((st) => st.bots).filter(
-    (b) => b.machineId === machine.id && b.agentKind === agent,
-  )
-  const title = t('{agent} Agent 设置', { agent: AGENT_LABEL[agent] })
+  const bots = all.filter((b) => b.agentKind === agent)
+  const title = t('{agent} Agent 设置', { agent: AGENT_META[agent].name })
 
   const put = (key: string, next: AgentSettingValues, inherit: boolean) =>
     saves.save(key, async () => {
       const body: AgentSettingsReq = { agent, values: next, inheritCli: inherit }
-      onView(await api.put<ProviderStoreView>(`/machines/${machine.id}/agent-settings`, body))
+      onView(await source.saveAgentSettings(body))
       return undefined
     })
 
@@ -79,12 +78,12 @@ export function AgentSettingsBox({
   }
 
   // Where each value comes from: 共工设置 over the machine's CLI over the default, and the bots overriding it.
-  const source = (f: AgentSettingField) => {
+  const origin = (f: AgentSettingField) => {
     const own = values[f.id]
     const fromCli = inheritCli ? cli?.values[f.id] : undefined
     const cliText = fromCli ? t('该机器 CLI：{v}', { v: valueLabel(f, fromCli) }) : null
     const overriding = bots.flatMap((b) => {
-      const v = b.agentSettings[f.id]
+      const v = b.agentSettings?.[f.id]
       return v ? [t('{bot}（{v}）', { bot: b.name, v: valueLabel(f, v) })] : []
     })
     return (
@@ -132,8 +131,8 @@ export function AgentSettingsBox({
               label={fieldLabel(f.id)}
               description={
                 old
-                  ? t('需要 {agent} {v} 及以上', { agent: AGENT_LABEL[agent], v: f.minVersion ?? '' })
-                  : source(f)
+                  ? t('需要 {agent} {v} 及以上', { agent: AGENT_META[agent].name, v: f.minVersion ?? '' })
+                  : origin(f)
               }
             >
               <span className="mx-inline">

@@ -1,0 +1,14 @@
+{
+  "claude": ["anthropic"],
+  "codex": ["openai"],
+  "gemini": ["gemini"],
+  "codebuddy": ["codebuddy"],
+  "pi": [],
+  "deepseek": ["anthropic"],
+  "antigravity": [],
+  "opencode": [],
+  "qwen": ["openai"],
+  "kimi": ["anthropic", "openai"],
+  "goose": ["anthropic", "openai"],
+  "copilot": ["anthropic", "openai"]
+}

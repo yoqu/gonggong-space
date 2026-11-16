@@ -116,10 +116,10 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       await page.getByRole('button', { name: '编辑 Bot' }).click()
       const dialog = page.getByRole('dialog', { name: 'Bot 详情' })
       await dialog.getByRole('tab', { name: '运行配置' }).click()
-      const select = dialog.getByRole('button', { name: '供应商' })
+      const select = dialog.getByRole('button', { name: '供应商/模型' })
       await expect(select).toBeEnabled()
       await select.click()
-      await page.getByRole('menuitemcheckbox', { name: option }).click()
+      await page.getByRole('menuitemcheckbox', { name: option, exact: true }).click()
       await dialog.getByRole('button', { name: '保存' }).click()
       const confirm = page.getByRole('alertdialog')
       await expect(confirm).toContainText(`1 个群的会话仍在使用 ${from}，开启新会话后才会切换到 ${to}`)
@@ -135,18 +135,20 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
 
     await test.step('a new machine default from a preset: the running session keeps the official login', async () => {
       const dialog = await openMachine(page, 'Agent 与供应商')
-      const claude = dialog.getByRole('region', { name: 'Claude Code 供应商' })
-      await claude.getByRole('button', { name: '新增…' }).click()
-      const editor = page.getByRole('dialog', { name: '新增 Claude Code 供应商' })
+      const providers = dialog.getByRole('region', { name: '供应商', exact: true })
+      await providers.getByRole('button', { name: '新增…' }).click()
+      const editor = page.getByRole('dialog', { name: '新增供应商' })
       await editor.getByRole('searchbox', { name: '搜索厂商' }).fill('DeepSeek')
       await editor.getByRole('button', { name: /^DeepSeek/ }).click()
       await editor.getByLabel('API Key').fill(KEY)
-      await editor.getByText('设为该机器默认').click()
+      await editor.locator('label.ui-check').filter({ hasText: 'Claude Code' }).click()
       await editor.getByRole('button', { name: '保存' }).click()
-      // Switched at once; the running session is noted beside it instead of a confirmation.
-      await expect(claude.getByRole('status')).toContainText('已保存 · 1 个群的会话开启新会话后才切换')
-      await expect(claude.getByRole('radio', { name: /DeepSeek/ })).toBeChecked()
-      await expect(claude).toContainText(`Key ****${KEY.slice(-4)}`)
+      const row = providers.locator('.mx-row').filter({ hasText: 'DeepSeek' })
+      await expect(row).toContainText('Claude Code 的默认')
+      await expect(row).toContainText(`Key ****${KEY.slice(-4)}`)
+      await dialog.getByRole('button', { name: /^Claude Code/ }).click()
+      const defaults = dialog.getByRole('region', { name: '默认「供应商/模型」' })
+      await expect(defaults.getByRole('button', { name: '供应商/模型' })).toContainText('DeepSeek')
       await page.goto(`/g/${group.id}`)
 
       const kept = await turn()
@@ -171,7 +173,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
     })
 
     await test.step("the bot's own 官方登录 overrides the third-party machine default", async () => {
-      await botProvider('官方登录', 'DeepSeek', '官方登录')
+      await botProvider('官方登录 / 默认模型', 'DeepSeek', '官方登录')
       await renew('DeepSeek', '官方登录')
       const official = await turn()
       expect(official.run.newSessionReason).toBe('requested')
@@ -180,18 +182,22 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
     })
 
     await test.step('deleting the provider a session is pinned to opens a new session', async () => {
-      await botProvider('继承机器（当前：DeepSeek）', '官方登录', 'DeepSeek')
+      await botProvider('继承机器默认（当前：DeepSeek）', '官方登录', 'DeepSeek')
       await renew('官方登录', 'DeepSeek')
       expect((await turn()).echo.settings).toBe(settings)
 
       const dialog = await openMachine(page, 'Agent 与供应商')
-      const claude = dialog.getByRole('region', { name: 'Claude Code 供应商' })
-      await claude.getByRole('button', { name: '删除' }).click()
+      const providers = dialog.getByRole('region', { name: '供应商', exact: true })
+      await providers
+        .locator('.mx-row')
+        .filter({ hasText: 'DeepSeek' })
+        .getByRole('button', { name: '删除' })
+        .click()
       const confirm = page.getByRole('alertdialog', { name: '要删除供应商 DeepSeek 吗？' })
-      await expect(confirm).toContainText('它是该机器默认，删除后改为官方登录。')
+      await expect(confirm).toContainText('它是 Claude Code 的默认，删除后改为官方登录。')
       await expect(confirm).toContainText('1 个群的会话正在使用 DeepSeek，删除后它们下一轮会自动开启新会话')
       await confirm.getByRole('button', { name: '删除' }).click()
-      await expect(claude.getByRole('radio', { name: /官方登录/ })).toBeChecked()
+      await expect(providers).toContainText('还没有供应商，Agent 使用官方登录')
       await page.goto(`/g/${group.id}`)
       expect(existsSync(settings)).toBe(false)
 
@@ -221,7 +227,11 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
       )
       expect(dump).toContain('供应商切换')
       expect(dump).not.toContain(KEY)
-      expect(dump).not.toContain(DEEPSEEK)
+      // The official provider-presets plugin carries the preset's URL; nothing else of the machine's config is stored.
+      const rows = dump
+        .split('\n')
+        .filter((l) => l.includes(DEEPSEEK) && !l.includes('sync-provider-presets'))
+      expect(rows).toEqual([])
     })
   } finally {
     m.stop()
@@ -298,12 +308,16 @@ esac
   return { url, state, close: () => server.close() }
 }
 
-test('Agent 与供应商 installs Node.js and Claude Code from a custom mirror, streaming progress, then upgrades', async ({
+test('the Agent page installs Node.js and Claude Code from a custom mirror, streaming progress, shows details, then upgrades', async ({
   page,
 }) => {
   test.setTimeout(5 * 60_000)
   const mirror = await fakeMirror()
-  const { m } = await memberWithMachine(page, 'tl1', { env: isolated() })
+  // No Node.js on the machine, so the status line offers the managed one.
+  const env = isolated()
+  const { m } = await memberWithMachine(page, 'tl1', {
+    env: { ...env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', NVM_DIR: join(env.HOME, 'nvm') },
+  })
   m.start()
   try {
     await page.goto('/')
@@ -324,32 +338,56 @@ test('Agent 与供应商 installs Node.js and Claude Code from a custom mirror, 
     await saveMirror(`${mirror.url}/npm`)
 
     const node = dialog.getByRole('region', { name: 'Node.js' })
-    await node.getByRole('button', { name: /^安装/ }).click()
+    await expect(node).toContainText('未安装 Node.js')
+    await node.getByRole('button', { name: '安装 Node.js' }).click()
     const nodeLog = node.getByRole('log', { name: '安装日志' })
     await expect(nodeLog).toContainText('查询 Node.js 最新 LTS 版本')
     await expect(nodeLog).toContainText(`下载 node-v${NODE}-`)
     await expect(nodeLog).toContainText(`已切换到 Node.js ${NODE}`, { timeout: 60_000 })
     await expect(node).toContainText('安装完成')
-    await expect(node).toContainText(`已安装 ${NODE}`)
+    await expect(node).toContainText(`Node.js ${NODE}`)
     await expect(node).toContainText('共工空间托管')
     expect(existsSync(join(m.home, `runtime/node-v${NODE}/bin/node`))).toBe(true)
 
-    const claude = dialog.getByRole('region', { name: 'Claude Code', exact: true })
-    await claude.getByRole('button', { name: /^安装/ }).click()
+    // Not installed, Claude Code is listed under 可安装 with 安装 as its one action.
+    const installable = dialog.getByRole('region', { name: '可安装' })
+    const claudeOpen = dialog.getByRole('button', { name: /^Claude Code/ })
+    const claude = dialog
+      .locator('.ag-agent')
+      .filter({ has: page.getByRole('button', { name: /^Claude Code/ }) })
+    await expect(installable.getByRole('button', { name: /^Claude Code/ })).toBeVisible()
+    await claude.getByRole('button', { name: '安装', exact: true }).click()
     const claudeLog = claude.getByRole('log', { name: '安装日志' })
     await expect(claudeLog).toContainText(`安装 @anthropic-ai/claude-code@latest（${mirror.url}/npm）`)
     await expect(claudeLog).toContainText('added 1 package', { timeout: 60_000 })
     await expect(claude).toContainText('安装完成')
-    await expect(claude).toContainText('已安装 2.1.300')
-    await expect(claude).toContainText('共工空间托管')
+    await expect(claude).toContainText('2.1.300')
+    // Installed and current: in the Agent list, no action left.
+    await expect(
+      dialog
+        .getByRole('region', { name: 'Agent', exact: true })
+        .getByRole('button', { name: /^Claude Code/ }),
+    ).toBeVisible()
+    await expect(claude.getByRole('button', { name: /^(安装|升级到 .+)$/ })).toHaveCount(0)
+
+    await test.step('the details tell where it came from and that nothing uses it yet', async () => {
+      await claudeOpen.click()
+      await expect(claude).toContainText('共工空间托管')
+      await expect(claude).toContainText('2.1.300')
+      await expect(claude.getByRole('region', { name: '使用它的 Bot' })).toContainText(
+        '这台机器上还没有 Bot 使用它',
+      )
+      await claudeOpen.click()
+    })
 
     // A newer release on the mirror switched to: the upgrade installs exactly it from there.
     mirror.state.claude = '2.1.301'
     await saveMirror(`${mirror.url}/npm-next`)
+    await expect(dialog.getByRole('button', { name: '全部升级（1）' })).toBeVisible()
     await claude.getByRole('button', { name: '升级到 2.1.301' }).click()
     await expect(claudeLog).toContainText(`安装 @anthropic-ai/claude-code@2.1.301（${mirror.url}/npm-next）`)
     await expect(claudeLog).toContainText('added 1 package', { timeout: 60_000 })
-    await expect(claude).toContainText('已安装 2.1.301')
+    await expect(claude).toContainText('2.1.301')
     await expect(claude.getByRole('button', { name: /升级到/ })).toHaveCount(0)
     expect(mirror.state.hits).toEqual(
       expect.arrayContaining([
@@ -362,5 +400,101 @@ test('Agent 与供应商 installs Node.js and Claude Code from a custom mirror, 
   } finally {
     m.stop()
     mirror.close()
+  }
+})
+
+test('a provider speaking only OpenAI is offered to Claude Code disabled with why; adding Anthropic makes it a choice the bot inherits or overrides', async ({
+  page,
+}) => {
+  test.setTimeout(4 * 60_000)
+  const KEY = `sk-e2e-${randomBytes(12).toString('hex')}-R3l4`
+  const { m, api } = await memberWithMachine(page, 'pr3', { env: isolated() })
+  const me = await api.me()
+  const bot = await api.call<{ id: string }>('post', '/api/bots', {
+    name: 'pr3 Bot',
+    ownerId: me.id,
+    agentKind: 'claude',
+    machineId: await api.machineId(),
+    systemPrompt: '',
+  })
+  m.start()
+  try {
+    const dialog = await openMachine(page, 'Agent 与供应商')
+    const providers = dialog.getByRole('region', { name: '供应商', exact: true })
+    const relay = providers.locator('.mx-row').filter({ hasText: 'Relay' })
+    const claudeOpen = dialog.getByRole('button', { name: /^Claude Code/ })
+    const picker = dialog
+      .getByRole('region', { name: '默认「供应商/模型」' })
+      .getByRole('button', { name: '供应商/模型' })
+
+    await test.step('a custom provider with an OpenAI endpoint only', async () => {
+      await providers.getByRole('button', { name: '新增…' }).click()
+      const editor = page.getByRole('dialog', { name: '新增供应商' })
+      await editor.getByRole('button', { name: /^自定义/ }).click()
+      await editor.getByRole('textbox', { name: '名称' }).fill('Relay')
+      // A custom provider starts with Anthropic only: swap it for OpenAI.
+      for (const p of ['OpenAI 兼容', 'Anthropic 兼容'])
+        await editor.locator('label.ui-check').filter({ hasText: p }).click()
+      await editor.getByRole('textbox', { name: 'OpenAI 兼容 Base URL' }).fill('https://relay.test/v1')
+      await editor.getByLabel('API Key').fill(KEY)
+      await expect(editor.getByRole('checkbox', { name: 'Claude Code' })).toHaveCount(0)
+      await editor.getByRole('button', { name: '保存' }).click()
+      await expect(relay).toContainText('OpenAI 兼容')
+      await expect(relay).toContainText(`Key ****${KEY.slice(-4)}`)
+    })
+
+    await test.step('Claude Code lists it disabled, saying which protocol it lacks', async () => {
+      await claudeOpen.click()
+      await picker.click()
+      const option = page.getByRole('menuitemcheckbox', { name: /^Relay/ })
+      await expect(option).toBeDisabled()
+      await expect(option).toContainText('该供应商只提供 OpenAI 兼容 接口，Claude Code 需要 Anthropic 兼容')
+      await page.keyboard.press('Escape')
+    })
+
+    await test.step('editing it to add an Anthropic endpoint makes it Claude Code’s choice', async () => {
+      await relay.getByRole('button', { name: '编辑…' }).click()
+      const editor = page.getByRole('dialog', { name: '编辑供应商' })
+      await editor.locator('label.ui-check').filter({ hasText: 'Anthropic 兼容' }).click()
+      await editor
+        .getByRole('textbox', { name: 'Anthropic 兼容 Base URL' })
+        .fill('https://relay.test/anthropic')
+      await editor.getByRole('combobox', { name: 'Anthropic 兼容 模型' }).fill('relay-sonnet')
+      await editor.getByRole('button', { name: '保存' }).click()
+      await expect(relay).toContainText('Anthropic 兼容')
+      await picker.click()
+      await page.getByRole('menuitemcheckbox', { name: 'Relay / 默认（relay-sonnet）' }).click()
+      await expect(picker).toContainText('Relay')
+      await expect(relay).toContainText('Claude Code 的默认')
+    })
+
+    const runConfig = async () => {
+      await page.goto(`/bot/${bot.id}`)
+      await page.getByRole('button', { name: '编辑 Bot' }).click()
+      const d = page.getByRole('dialog', { name: 'Bot 详情' })
+      await d.getByRole('tab', { name: '运行配置' }).click()
+      const select = d.getByRole('button', { name: '供应商/模型' })
+      await expect(select).toBeEnabled()
+      return { d, select }
+    }
+
+    await test.step('the bot inherits the machine default, overrides it, then inherits again', async () => {
+      let { d, select } = await runConfig()
+      await expect(select).toContainText('继承机器默认（当前：Relay）')
+      await select.click()
+      await page.getByRole('menuitemcheckbox', { name: '官方登录 / 默认模型', exact: true }).click()
+      await d.getByRole('button', { name: '保存' }).click()
+      await expect(select).toContainText('官方登录')
+      ;({ d, select } = await runConfig())
+      await expect(select).toContainText('官方登录')
+      await select.click()
+      await expect(page.getByRole('menuitemcheckbox', { name: 'Relay / 默认（relay-sonnet）' })).toBeEnabled()
+      await page.getByRole('menuitemcheckbox', { name: '继承机器默认（当前：Relay）' }).click()
+      await d.getByRole('button', { name: '保存' }).click()
+      ;({ select } = await runConfig())
+      await expect(select).toContainText('继承机器默认（当前：Relay）')
+    })
+  } finally {
+    m.stop()
   }
 })

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { AgentKind } from '../common.js'
 
 /** Bumped on any breaking change of the daemon <-> server wire format. */
 export const PROTOCOL_VERSION = 1
@@ -63,22 +62,6 @@ export const agentConfigLabel = (
     model === null ? tr('默认模型') : modelName(catalog, model),
     ...(effort ? [tr(effortName(effort))] : []),
   ].join(' · ')
-
-export const AgentInfo = z.object({
-  kind: AgentKind,
-  available: z.boolean(),
-  version: z.string().nullable(),
-  path: z.string().nullable(),
-  /** Oldest CLI version the bundled ACP adapter supports; older ones still run but the bot shows a warning. */
-  minVersion: z.string().nullable().default(null),
-  /** What the adapter offers, probed by the daemon; null until probed or when unavailable. */
-  catalog: AgentCatalog.nullable().default(null),
-  /** Latest version on the machine's mirror (last check, cached by the daemon); absent from older daemons. */
-  latest: z.string().nullable().optional(),
-  /** Installed by Gonggong under its home, so it can upgrade it; absent from older daemons. */
-  managed: z.boolean().optional(),
-})
-export type AgentInfo = z.infer<typeof AgentInfo>
 
 /** Host facts shown to the owner and sysadmin; any of them may be unavailable on a given OS. */
 export const SystemInfo = z.object({

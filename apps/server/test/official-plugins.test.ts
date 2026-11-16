@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   GgArtifactManifest,
+  LegacyProviderPreset,
+  normalizePresets,
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
   PLUGIN_MAX_FILES,
@@ -12,6 +14,7 @@ import {
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
+import { z } from 'zod'
 import { frontmatter } from '../src/modules/skills/service.js'
 
 const OFFICIAL = join(import.meta.dirname, '../plugins/official')
@@ -35,29 +38,42 @@ it('ships the creation plugins and the provider presets', () => {
   expect(readdirSync(OFFICIAL).sort()).toEqual([
     'agent-antigravity',
     'agent-codebuddy',
+    'agent-copilot',
     'agent-deepseek',
     'agent-gemini',
+    'agent-goose',
+    'agent-kimi',
+    'agent-opencode',
     'agent-pi',
+    'agent-qwen',
     'provider-presets',
     'slides',
     'web-prototype',
   ])
 })
 
-describe.each(['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity'])(
-  'official agent plugin agent-%s',
-  (id) => {
-    it('adapts that agent, runs code, and ships its launch script and icon', () => {
-      const { root, manifest } = load(`agent-${id}`)
-      expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
-      const [agent, ...more] = manifest.contributes.agents
-      expect(more).toEqual([])
-      expect(agent!.id).toBe(id)
-      for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
-        expect(existsSync(join(root, f)), f).toBe(true)
-    })
-  },
-)
+describe.each([
+  'gemini',
+  'codebuddy',
+  'pi',
+  'deepseek',
+  'antigravity',
+  'opencode',
+  'qwen',
+  'kimi',
+  'goose',
+  'copilot',
+])('official agent plugin agent-%s', (id) => {
+  it('adapts that agent, runs code, and ships its launch script and icon', () => {
+    const { root, manifest } = load(`agent-${id}`)
+    expect(manifest).toMatchObject({ category: 'agent', entry: null, permissions: ['exec'], agents: [id] })
+    const [agent, ...more] = manifest.contributes.agents
+    expect(more).toEqual([])
+    expect(agent!.id).toBe(id)
+    for (const f of [manifest.icon!, ...(agent!.launchScript ? [agent!.launchScript] : [])])
+      expect(existsSync(join(root, f)), f).toBe(true)
+  })
+})
 
 it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goes in session _meta', () => {
   const [agent] = load('agent-antigravity').manifest.contributes.agents
@@ -80,13 +96,96 @@ it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goe
   expect(PluginManifest.safeParse(raw).success).toBe(false)
 })
 
+describe('the agents speaking ACP themselves (三期)', () => {
+  const agent = (id: string) => load(`agent-${id}`).manifest.contributes.agents[0]!
+
+  it('starts each in its own ACP mode', () => {
+    const acp = Object.fromEntries(
+      ['opencode', 'qwen', 'kimi', 'goose', 'copilot'].map((id) => [id, agent(id).acp]),
+    )
+    expect(acp).toEqual({
+      opencode: { kind: 'native', args: ['acp'] },
+      qwen: { kind: 'native', args: ['--acp'] },
+      kimi: { kind: 'native', args: ['acp'] },
+      goose: { kind: 'native', args: ['acp'] },
+      copilot: { kind: 'native', args: ['--acp'] },
+    })
+  })
+
+  it('installs them from npm, but Goose with its own script', () => {
+    expect(agent('opencode').install).toMatchObject({ npm: '@opencode/cli', bin: 'opencode', script: null })
+    expect(agent('qwen').install).toMatchObject({ npm: '@qwen-code/qwen-code', bin: 'qwen' })
+    expect(agent('kimi').install).toMatchObject({
+      npm: '@moonshot-ai/kimi-code',
+      bin: 'kimi',
+      minNode: '22.19.0',
+    })
+    expect(agent('copilot').install).toMatchObject({ npm: '@github/copilot', bin: 'copilot' })
+    expect(agent('goose').install).toMatchObject({
+      npm: null,
+      bin: 'goose',
+      command:
+        'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash',
+    })
+  })
+
+  it('OpenCode keeps its own login; the others take a provider and need its model', () => {
+    expect(agent('opencode').provider).toBeNull()
+    for (const id of ['qwen', 'kimi', 'goose', 'copilot']) expect(agent(id).provider?.needsModel).toBe(true)
+    expect(agent('qwen').provider).toMatchObject({
+      protocols: ['openai'],
+      env: { apiKey: 'OPENAI_API_KEY', baseUrl: 'OPENAI_BASE_URL', model: 'OPENAI_MODEL' },
+      byProtocol: { openai: { args: ['--auth-type', 'openai'] } },
+    })
+    expect(agent('kimi').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: { apiKey: 'KIMI_MODEL_API_KEY', baseUrl: 'KIMI_MODEL_BASE_URL', model: 'KIMI_MODEL_NAME' },
+      byProtocol: {
+        anthropic: { set: { KIMI_MODEL_PROVIDER_TYPE: 'anthropic' } },
+        openai: { set: { KIMI_MODEL_PROVIDER_TYPE: 'openai' } },
+      },
+    })
+    expect(agent('goose').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: { apiKey: 'ANTHROPIC_API_KEY', baseUrl: 'ANTHROPIC_HOST', model: 'GOOSE_MODEL' },
+      byProtocol: {
+        anthropic: { set: { GOOSE_PROVIDER: 'anthropic' } },
+        openai: {
+          env: { apiKey: 'OPENAI_API_KEY', baseUrl: 'OPENAI_BASE_URL', model: 'GOOSE_MODEL' },
+          set: { GOOSE_PROVIDER: 'openai' },
+        },
+      },
+    })
+    expect(agent('copilot').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: {
+        apiKey: 'COPILOT_PROVIDER_API_KEY',
+        baseUrl: 'COPILOT_PROVIDER_BASE_URL',
+        model: 'COPILOT_MODEL',
+      },
+      byProtocol: {
+        anthropic: { set: { COPILOT_PROVIDER_TYPE: 'anthropic' } },
+        openai: { set: { COPILOT_PROVIDER_TYPE: 'openai' } },
+      },
+    })
+  })
+
+  it('hands the bot prompt over as each CLI reads it', () => {
+    expect(agent('qwen').systemPrompt).toEqual({ via: 'arg', args: ['--append-system-prompt', '{prompt}'] })
+    for (const id of ['opencode', 'kimi', 'goose', 'copilot'])
+      expect(agent(id).systemPrompt).toEqual({ via: 'script' })
+  })
+})
+
 describe('official plugin provider-presets', () => {
   it('carries the presets built into the daemon, and nothing a group would turn on', () => {
     const { manifest } = load('provider-presets')
     const bundled = JSON.parse(
       readFileSync(join(OFFICIAL, '../../../../crates/gonggong/presets/providers.json'), 'utf8'),
     ) as { source: string; presets: unknown[] }
-    expect(manifest.contributes.providers).toEqual(bundled.presets.map((p) => ProviderPreset.parse(p)))
+    // Compared as vendors: either side may still be in the one-copy-per-agent shape.
+    const presets = z.array(z.union([ProviderPreset, LegacyProviderPreset])).parse(bundled.presets)
+    expect(normalizePresets(manifest.contributes.providers)).toEqual(normalizePresets(presets))
     expect(`cc-switch@${manifest.source?.revision}`).toBe(bundled.source)
     expect([manifest.entry, manifest.contributes.mcp, manifest.contributes.commands]).toEqual([null, [], []])
   })

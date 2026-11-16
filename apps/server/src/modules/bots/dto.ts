@@ -1,5 +1,5 @@
 import {
-  type AgentInfo,
+  AgentState,
   BOT_AVATARS,
   type BotAvatar,
   type BotDto,
@@ -21,7 +21,9 @@ type MachineRow = typeof machines.$inferSelect
 const botRole = (avatar: string | null): BotAvatar =>
   (BOT_AVATARS as readonly string[]).includes(avatar ?? '') ? (avatar as BotAvatar) : 'role-gong'
 
-export const machineAgents = (m: MachineRow) => m.agents as AgentInfo[]
+// Rows written before AgentState (AgentInfo, a subset) read with the new fields' defaults.
+const AgentStates = AgentState.array()
+export const machineAgents = (m: MachineRow): AgentState[] => AgentStates.parse(m.agents)
 
 export const machineDto = (ctx: Ctx, m: MachineRow): MachineDto => ({
   id: m.id,
@@ -40,7 +42,12 @@ export const machineDto = (ctx: Ctx, m: MachineRow): MachineDto => ({
   createdAt: m.createdAt.toISOString(),
 })
 
-function presence(ctx: Ctx, bot: BotRow, agent: AgentInfo | undefined, running: boolean): BotDto['presence'] {
+function presence(
+  ctx: Ctx,
+  bot: BotRow,
+  agent: AgentState | undefined,
+  running: boolean,
+): BotDto['presence'] {
   if (bot.binding !== 'bound') return bot.binding as BotDto['binding'] & BotDto['presence']
   if (!bot.machineId || !agent) return 'agent_missing'
   if (!ctx.hub.isOnline(bot.machineId)) return 'offline'

@@ -1,4 +1,5 @@
 import {
+  AGENT_META,
   AUTO_DESIGN_SYSTEM,
   type CreationCard,
   type CreationReq,
@@ -14,7 +15,6 @@ import {
 } from '@gonggong/protocol'
 import { t } from '../../i18n'
 import type { IconName } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 
 export const CATEGORY: Record<PluginCategory, { icon: IconName; color: string }> = {
   web: { icon: 'globe', color: 'var(--avatar-1)' },
@@ -34,7 +34,7 @@ export const LAYER_LABEL: Record<PluginDto['layer'], string> = {
   group: t('群层'),
 }
 
-export const agentsText = (m: PluginManifest) => m.agents.map((a) => AGENT_LABEL[a]).join(t('、'))
+export const agentsText = (m: PluginManifest) => m.agents.map((a) => AGENT_META[a].name).join(t('、'))
 
 export const secretsText = (m: PluginManifest) => m.secrets.join(t('、')) || '—'
 

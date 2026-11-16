@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AgentInfo, compareVersions, DaemonRelease, parseReleaseFile, UpgradeInfo } from '../src/index.js'
+import { AgentState, compareVersions, DaemonRelease, parseReleaseFile, UpgradeInfo } from '../src/index.js'
 
 describe('compareVersions', () => {
   it('orders dotted numeric versions, ignoring pre-release / build suffixes', () => {
@@ -17,8 +17,8 @@ describe('contracts', () => {
     builds: { 'macos-aarch64': { url: '/downloads/gg', sha256: 'a'.repeat(64) } },
   }
 
-  it('AgentInfo.minVersion defaults to null for daemons that do not report it', () => {
-    const a = AgentInfo.parse({ kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude' })
+  it('AgentState.minVersion defaults to null for daemons that do not report it', () => {
+    const a = AgentState.parse({ kind: 'claude', available: true, version: '2.1.4', path: '/bin/claude' })
     expect(a.minVersion).toBeNull()
   })
 

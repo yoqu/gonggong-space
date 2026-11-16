@@ -1,4 +1,12 @@
-import type { BotDto, GroupDto, GroupNoticeDto, GroupParams, Tier, UserBriefDto } from '@gonggong/protocol'
+import {
+  AGENT_META,
+  type BotDto,
+  type GroupDto,
+  type GroupNoticeDto,
+  type GroupParams,
+  type Tier,
+  type UserBriefDto,
+} from '@gonggong/protocol'
 import { type ReactNode, Suspense, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GROUP_MODE_LABEL } from '../../app/Sidebar'
@@ -35,7 +43,7 @@ import {
 import { APPROVAL_MODE_LABEL, approvalMode } from '../bots/ApprovalFields'
 import { BotAvatar } from '../bots/avatars'
 import { BotDialog } from '../bots/lazy'
-import { AGENT_LABEL, PRESENCE, TRIGGER_SCOPE_LABEL } from '../bots/model'
+import { PRESENCE, TRIGGER_SCOPE_LABEL } from '../bots/model'
 import { ShareRequestAction } from '../bots/ShareRequest'
 import { KnowledgeView } from '../knowledge/KnowledgeView'
 import { PreviewsView } from '../previews/PreviewsView'
@@ -725,7 +733,7 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
                     <Tag tone="blue">Bot</Tag>
                   </span>
                   <span className="gs-desc">
-                    {t('{agent} · 主人 {owner}', { agent: AGENT_LABEL[b.agentKind], owner: b.ownerName })}
+                    {t('{agent} · 主人 {owner}', { agent: AGENT_META[b.agentKind].name, owner: b.ownerName })}
                   </span>
                 </span>
                 <span className="gs-bot__state">

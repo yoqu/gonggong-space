@@ -2,6 +2,13 @@ use super::*;
 
 pub const FEATURE_TOOLS: &str = "tools";
 
+/// tools.result reports `node` and `agents` (AgentState) instead of `tools`.
+pub const FEATURE_AGENT_STATE: &str = "agentState";
+
+/// Providers are vendors with an endpoint per protocol, machine defaults carry a model, `use` takes `model` and
+/// `catalog` takes `agent`.
+pub const FEATURE_PROTOCOL_PROVIDERS: &str = "protocolProviders";
+
 /// Web terminals: hello `terminals`, the `terminate` open action, and stale cursors resuming from retained output.
 pub const FEATURE_TERMINAL: &str = "terminal-v2";
 
@@ -63,6 +70,13 @@ pub const FEATURE_DEEPSEEK: &str = "deepseek";
 /// Runs Antigravity CLI bots: a daemon without it cannot read a run.start for one.
 pub const FEATURE_ANTIGRAVITY: &str = "antigravity";
 
+/// Runs OpenCode, Qwen Code, Kimi Code, Goose and GitHub Copilot CLI bots, each gated like the ones above.
+pub const FEATURE_OPENCODE: &str = "opencode";
+pub const FEATURE_QWEN: &str = "qwen";
+pub const FEATURE_KIMI: &str = "kimi";
+pub const FEATURE_GOOSE: &str = "goose";
+pub const FEATURE_COPILOT: &str = "copilot";
+
 pub const FEATURE_REPROBE: &str = "reprobe";
 
 pub const FEATURE_PLUGINS: &str = "plugins";
@@ -112,7 +126,7 @@ pub enum DaemonToServer {
         token: String,
         daemon_version: String,
         machine: MachineInfo,
-        agents: Vec<AgentInfo>,
+        agents: Vec<AgentState>,
         #[serde(default)]
         active_runs: Vec<String>,
         #[serde(default)]
@@ -136,7 +150,7 @@ pub enum DaemonToServer {
     #[serde(rename = "approval.ai_approved")]
     ApprovalAiApproved(ApprovalAiApproved),
     #[serde(rename = "agents.update")]
-    AgentsUpdate { agents: Vec<AgentInfo> },
+    AgentsUpdate { agents: Vec<AgentState> },
     #[serde(rename = "commands.update", rename_all = "camelCase")]
     CommandsUpdate { group_id: String, bot_id: String, commands: Vec<AgentCommand> },
     #[serde(rename = "dir.result")]
@@ -315,7 +329,19 @@ pub enum DaemonToServer {
     #[serde(rename = "tools.progress", rename_all = "camelCase")]
     ToolsProgress { request_id: String, line: String },
     #[serde(rename = "tools.result", rename_all = "camelCase")]
-    ToolsResult { request_id: String, ok: bool, error: Option<String>, tools: Vec<ToolState>, settings: ToolsSettings },
+    ToolsResult {
+        request_id: String,
+        ok: bool,
+        error: Option<String>,
+        /// Only from daemons without [`FEATURE_AGENT_STATE`].
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tools: Vec<ToolState>,
+        #[serde(default)]
+        node: Option<RuntimeState>,
+        #[serde(default)]
+        agents: Vec<AgentState>,
+        settings: ToolsSettings,
+    },
     #[serde(rename = "providers.result")]
     ProvidersResult(ProvidersResult),
     #[serde(rename = "ccswitch.result", rename_all = "camelCase")]

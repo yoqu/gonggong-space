@@ -109,9 +109,6 @@
   gap: var(--space-8);
 }
 .newbot__agent-face {
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-small);
   align-self: center;
 }
 .newbot__name > :last-child {

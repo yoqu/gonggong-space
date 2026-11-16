@@ -1,10 +1,9 @@
-import type { LinkRequestDto } from '@gonggong/protocol'
+import { AGENT_META, type LinkRequestDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { t } from '../../i18n'
 import { ApiError, api } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { Alert, Button } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { OS_LABEL } from './model'
 import './machines.css'
 
@@ -52,7 +51,7 @@ export function LinkRequestCard({
         <dt>{t('系统')}</dt>
         <dd>{`${OS_LABEL[machine.os]} · ${machine.arch}`}</dd>
         <dt>Agent</dt>
-        <dd>{request.agent ? AGENT_LABEL[request.agent] : '—'}</dd>
+        <dd>{request.agent ? AGENT_META[request.agent].name : '—'}</dd>
         <dt>{t('发起 IP')}</dt>
         <dd>{request.ip}</dd>
       </dl>

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Regenerates crates/gonggong/presets/providers.json from a CC Switch checkout (MIT, see THIRD_PARTY_NOTICES.md).
 // Usage: node scripts/sync-provider-presets.mjs <path-to-cc-switch>
+// Presets are vendors with an endpoint per protocol (docs/plan/Agent管理重构-施工设计.md §2): CC Switch's per-app copies
+// of one vendor (same id) merge, the first copy of a protocol wins.
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -386,6 +388,34 @@ function geminiPreset(p, [id, name, group], known) {
   }
 }
 
+// The protocol each app's copy speaks (packages/protocol/src/agents.ts).
+const PROTOCOL = {
+  claude: 'anthropic',
+  codex: 'openai',
+  gemini: 'gemini',
+  codebuddy: 'codebuddy',
+  deepseek: 'anthropic',
+}
+
+/** Per-agent copies (in display order) → vendors with one endpoint per protocol, in order of first appearance. */
+function toVendors(copies) {
+  const vendors = new Map()
+  for (const { id, agent, name, group, websiteUrl, apiKeyUrl, ...endpoint } of copies) {
+    const protocol = PROTOCOL[agent]
+    if (!protocol) throw new Error(`${agent} takes no provider`)
+    let vendor = vendors.get(id)
+    if (!vendor) {
+      vendor = { id, name, group, websiteUrl, apiKeyUrl, endpoints: [] }
+      vendors.set(id, vendor)
+    }
+    vendor.websiteUrl ??= websiteUrl
+    vendor.apiKeyUrl ??= apiKeyUrl
+    if (!vendor.endpoints.some((e) => e.protocol === protocol))
+      vendor.endpoints.push({ protocol, ...endpoint })
+  }
+  return [...vendors.values()]
+}
+
 const excluded = (p) =>
   p.category === 'official' || p.isOfficial || p.requiresOAuth || p.providerType || p.templateValues
 
@@ -424,6 +454,10 @@ async function main() {
     ...MANUAL.filter((p) => p.agent === 'gemini'),
   )
   presets.push(...MANUAL.filter((p) => p.agent === 'codebuddy' || p.agent === 'deepseek'))
+  write(commit, toVendors(presets))
+}
+
+function write(commit, presets) {
   writeFileSync(out, `${JSON.stringify({ source: `cc-switch@${commit}`, presets }, null, 2)}\n`)
   // The same presets as the built-in platform plugin: a server deploy updates daemons without a client release.
   const manifest = JSON.parse(readFileSync(plugin, 'utf8'))

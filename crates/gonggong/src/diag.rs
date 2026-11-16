@@ -1,7 +1,7 @@
 //! 日志与诊断 (spec §14): machine self-checks for `gg doctor` / the desktop app, and the redacted diagnostics bundle.
 use crate::config::Config;
 use crate::logs::{self, redact};
-use crate::protocol::{AgentInfo, AgentKind, PROTOCOL_VERSION, Permission};
+use crate::protocol::{AgentKind, AgentState, PROTOCOL_VERSION, Permission};
 use crate::t;
 use crate::workspace::{self, Entry, EntryKind, human_size};
 use anyhow::Context;
@@ -94,15 +94,15 @@ pub async fn server(config: Option<&Config>) -> Check {
     }
 }
 
-pub fn agents(list: &[AgentInfo]) -> Check {
-    let name = |a: &AgentInfo| crate::bots::agent_label(a.kind);
+pub fn agents(list: &[AgentState]) -> Check {
+    let name = |a: &AgentState| crate::bots::agent_label(a.kind);
     let installed: Vec<_> = list.iter().filter(|a| a.available).collect();
     if installed.is_empty() {
         return check(
             CheckKind::Agent,
             Status::Error,
             t!(
-                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI）"
+                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI、OpenCode、Qwen Code、Kimi Code、Goose 或 GitHub Copilot CLI）"
             ),
         );
     }
@@ -405,7 +405,7 @@ mod tests {
 
     #[test]
     fn agent_check_reports_missing_and_outdated_clis() {
-        let info = |kind, version: Option<&str>| AgentInfo {
+        let info = |kind, version: Option<&str>| AgentState {
             kind,
             available: version.is_some(),
             version: version.map(Into::into),
@@ -414,6 +414,8 @@ mod tests {
             catalog: None,
             latest: None,
             managed: false,
+            upgrade_command: None,
+            install_command: None,
         };
         let both = agents(&[info(AgentKind::Claude, Some("2.1.3")), info(AgentKind::Codex, Some("0.160.1"))]);
         assert_eq!((both.status, both.detail.as_str()), (Status::Ok, "Claude Code 2.1.3 · Codex 0.160.1 可用"));

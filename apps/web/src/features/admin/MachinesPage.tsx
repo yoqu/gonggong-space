@@ -1,4 +1,4 @@
-import { type AdminMachineDto, PROTOCOL_VERSION } from '@gonggong/protocol'
+import { type AdminMachineDto, AGENT_META, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
@@ -18,11 +18,10 @@ import {
   ToolbarButton,
   ToolbarGroup,
 } from '../../ui'
-import { AGENT_LABEL } from '../bots/model'
 import { hardwareText, osText } from '../machines/MachineDetails'
 import '../machines/machines.css'
+import { hasUpdate } from '../agents/model'
 import { RevokeMachineDialog } from '../machines/RevokeMachineDialog'
-import { hasUpdate } from '../machines/tools'
 import { AdminPage, countLine } from './AdminPage'
 
 const outdated = (m: AdminMachineDto) => m.protocol != null && m.protocol < PROTOCOL_VERSION
@@ -183,7 +182,7 @@ export function MachinesPage() {
                             : undefined
                         }
                       >
-                        {AGENT_LABEL[a.kind]} {a.version}
+                        {AGENT_META[a.kind].name} {a.version}
                         {hasUpdate(a) ? <Tag tone="orange">{t('可升级')}</Tag> : null}
                       </span>
                     ))}

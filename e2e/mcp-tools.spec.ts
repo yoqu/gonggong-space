@@ -66,9 +66,24 @@ test('a group admin has a bot add a group MCP, fills its secret on the card, and
     })
 
     await test.step('the next turn gets the MCP server with the secret resolved; the chat only ever shows it masked', async () => {
-      await turn(`@${botName} mock:echo`, 3)
-      const timeline = await api.call<TimelineDto>('get', `/api/groups/${group.id}/timeline`)
-      const reply = timeline.messages.filter((x: MessageDto) => x.kind === 'bot').at(-1)!
+      // Filling the secret already started a turn that picks the request back up: the echo is the one after it.
+      await box.fill(`@${botName} mock:echo`)
+      await page.getByRole('button', { name: '发送' }).click()
+      let timeline: TimelineDto | undefined
+      let reply: MessageDto | undefined
+      await expect
+        .poll(
+          async () => {
+            timeline = await api.call<TimelineDto>('get', `/api/groups/${group.id}/timeline`)
+            reply = timeline.messages.find(
+              (x: MessageDto) => x.kind === 'bot' && x.body.includes('"mcpServers"'),
+            )
+            return !!reply
+          },
+          { timeout: 60_000 },
+        )
+        .toBe(true)
+      if (!reply || !timeline) throw new Error('no echo')
       const got = JSON.parse(reply.body) as {
         mcpServers: { name: string; env?: { name: string; value: string }[] }[]
       }

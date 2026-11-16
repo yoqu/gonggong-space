@@ -1,48 +1,59 @@
-//! Agent page: detected CLIs with their local path and the models each adapter offers (chosen on the server).
-use super::{Result, local};
+//! Agent page, what only this machine tells about an agent: a path picked by hand (更换路径…), the CLI's login and
+//! the bundled ACP adapter's version.
+use super::Result;
 use crate::host::Host;
 use crate::i18n::tr;
-use gonggong::local::LocalSettings;
-use gonggong::protocol::{AgentInfo, AgentKind};
+use gonggong::local::{LocalSettings, LocalStore};
+use gonggong::protocol::AgentKind;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AgentCard {
-    #[serde(flatten)]
-    info: AgentInfo,
+pub struct AgentLocal {
     /// The path comes from 更换路径 rather than detection.
     custom_path: bool,
     /// e.g. 已登录 · Claude Max; `None` when unknown or not installed.
     login: Option<String>,
+    /// `None` when the CLI speaks ACP itself.
+    adapter_version: Option<&'static str>,
 }
 
-fn cards(home: &Path, local: &LocalSettings, login: impl Fn(AgentKind, &Path) -> Option<String>) -> Vec<AgentCard> {
-    gonggong::agents::detect(home, local)
-        .into_iter()
-        .map(|info| {
-            let login = info.path.as_deref().filter(|_| info.available).and_then(|p| login(info.kind, Path::new(p)));
-            AgentCard { custom_path: local.agent(info.kind).path.is_some(), login, info }
-        })
-        .collect()
+fn adapter_version(kind: AgentKind) -> Option<&'static str> {
+    gonggong::engine::ADAPTERS
+        .iter()
+        .find(|(k, ..)| *k == kind)
+        .map(|(.., v)| *v)
+        .or_else(|| gonggong::adapters::get(kind)?.adapter_version())
 }
 
-/// Runs the CLIs (`--version`, login status), so off the async runtime. Every call is a 重新检测: a changed
-/// detection (installed, path set or reset) reaches the server right away, updating the bots' presence.
+fn agent_local_of(
+    home: &Path,
+    local: &LocalSettings,
+    kind: AgentKind,
+    login: impl Fn(AgentKind, &Path) -> Option<String>,
+) -> AgentLocal {
+    let cli = gonggong::agents::locate(home, kind, local).filter(|p| p.is_file());
+    AgentLocal {
+        custom_path: local.agent(kind).path.is_some(),
+        login: cli.and_then(|p| login(kind, &p)),
+        adapter_version: adapter_version(kind),
+    }
+}
+
+/// Runs the CLI (login status), so off the async runtime.
 #[tauri::command]
-pub async fn agents(host: State<'_, Host>) -> Result<Vec<AgentCard>> {
+pub async fn agent_local(kind: AgentKind, host: State<'_, Host>) -> Result<AgentLocal> {
     let home = host.home.clone();
-    let list = tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || {
         let local = LocalSettings::load(&home).map_err(|e| format!("{e:#}"))?;
-        Ok::<_, String>(cards(&home, &local, gonggong::agents::login_status))
+        Ok(agent_local_of(&home, &local, kind, gonggong::agents::login_status))
     })
     .await
-    .map_err(|e| e.to_string())??;
-    host.report_agents(list.iter().map(|c| c.info.clone()).collect());
-    Ok(list)
+    .map_err(|e| e.to_string())?
 }
 
 fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
@@ -51,7 +62,12 @@ fn set_path(home: &Path, kind: AgentKind, path: Option<PathBuf>) -> Result<()> {
     {
         return Err(tr!("找不到 {path}", path = p.display()));
     }
-    local(home, |s| s.agents.entry(kind).or_default().path = path.map(|p| p.to_string_lossy().into_owned()))
+    LocalStore::open(home.to_path_buf())
+        .and_then(|store| {
+            store.update(|s| s.agents.entry(kind).or_default().path = path.map(|p| p.to_string_lossy().into_owned()))
+        })
+        .map(drop)
+        .map_err(|e| format!("{e:#}"))
 }
 
 /// 更换路径 / 手动指定路径: picks the CLI with the system file dialog. Returns false when cancelled.
@@ -63,10 +79,23 @@ pub async fn pick_agent_path(kind: AgentKind, app: AppHandle, host: State<'_, Ho
     Ok(true)
 }
 
-/// Back to detection on PATH.
+/// 恢复自动检测: back to detection on PATH.
 #[tauri::command]
 pub fn reset_agent_path(kind: AgentKind, host: State<'_, Host>) -> Result<()> {
     set_path(&host.home, kind, None)
+}
+
+/// Names of the groups this machine's bots are in, for the sessions a provider switch leaves behind; empty when the
+/// server cannot be reached (ids stand in then).
+#[tauri::command]
+pub async fn group_names() -> BTreeMap<String, String> {
+    let Some(config) = gonggong::config::Config::load().ok().flatten() else { return BTreeMap::new() };
+    gonggong::workspace::fetch_pairs(&config)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.group_id, p.group_name))
+        .collect()
 }
 
 #[cfg(test)]
@@ -75,19 +104,22 @@ mod tests {
     use gonggong::local::AgentSettings;
 
     #[test]
-    fn cards_merge_detection_settings_and_login() {
+    fn local_info_merges_the_custom_path_login_and_adapter() {
         let home = tempfile::tempdir().unwrap();
         let exe = std::env::current_exe().unwrap();
         let mut local = LocalSettings::default();
         local.agents.insert(AgentKind::Claude, AgentSettings { path: Some(exe.to_string_lossy().into()) });
         local.agents.insert(AgentKind::Codex, AgentSettings { path: Some("/nope/codex".into()) });
-        let list = cards(home.path(), &local, |kind, _| Some(format!("{kind:?} ok")));
-        let claude = &list[0];
-        assert!(claude.info.available && claude.custom_path);
-        assert_eq!(claude.login.as_deref(), Some("Claude ok"));
-        let codex = &list[1];
-        assert!(!codex.info.available);
-        assert_eq!(codex.login, None);
+        let login = |kind: AgentKind, _: &Path| Some(format!("{kind:?} ok"));
+        assert_eq!(
+            agent_local_of(home.path(), &local, AgentKind::Claude, login),
+            AgentLocal { custom_path: true, login: Some("Claude ok".into()), adapter_version: Some("0.81.0") }
+        );
+        let codex = agent_local_of(home.path(), &local, AgentKind::Codex, login);
+        assert!(codex.custom_path);
+        assert_eq!(codex.login, None, "no login asked of a CLI that is not there");
+        let json = serde_json::to_value(&codex).unwrap();
+        assert_eq!(json["adapterVersion"], "2.2.2");
     }
 
     #[test]

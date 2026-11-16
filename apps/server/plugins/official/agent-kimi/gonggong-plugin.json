@@ -1,0 +1,87 @@
+{
+  "name": "agent-kimi",
+  "version": "1.0.0",
+  "title": "Kimi Code",
+  "description": "月之暗面的 Kimi Code：在机器上用 ACP 运行，每个群的 Bot 有自己的配置目录，指令写进 AGENTS.md。",
+  "category": "agent",
+  "agents": ["kimi"],
+  "minDaemon": "0.4.22",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "kimi",
+        "title": "Kimi Code",
+        "vendor": "月之暗面",
+        "install": {
+          "npm": "@moonshot-ai/kimi-code",
+          "bin": "kimi",
+          "script": "dist/main.mjs",
+          "brew": null,
+          "minVersion": "2.6.0",
+          "minNode": "22.19.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".kimi-code/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "yolo"
+          },
+          "workspace": {
+            "mode": "auto"
+          },
+          "readonly": {
+            "mode": "default"
+          }
+        },
+        "provider": {
+          "protocols": ["anthropic", "openai"],
+          "env": {
+            "apiKey": "KIMI_MODEL_API_KEY",
+            "baseUrl": "KIMI_MODEL_BASE_URL",
+            "model": "KIMI_MODEL_NAME"
+          },
+          "byProtocol": {
+            "anthropic": {
+              "set": {
+                "KIMI_MODEL_PROVIDER_TYPE": "anthropic"
+              }
+            },
+            "openai": {
+              "set": {
+                "KIMI_MODEL_PROVIDER_TYPE": "openai"
+              }
+            }
+          },
+          "needsModel": true
+        },
+        "home": {
+          "env": "KIMI_CODE_HOME",
+          "default": ".kimi-code",
+          "config": "config.toml"
+        },
+        "login": {
+          "checks": [],
+          "loggedOut": false,
+          "command": "kimi",
+          "hint": "进入后输入 /login，用 Kimi Code 账号或 Kimi 开放平台 API Key 登录"
+        },
+        "steeringDirs": [".kimi-code"],
+        "state": "kimi",
+        "launchScript": "contrib/agents/kimi/launch.mjs"
+      }
+    ]
+  }
+}

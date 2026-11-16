@@ -1,0 +1,28 @@
+{
+  "t": "agents.update",
+  "agents": [
+    {
+      "kind": "claude",
+      "available": true,
+      "version": "2.1.4",
+      "path": "/opt/homebrew/bin/claude",
+      "minVersion": "2.0.0"
+    },
+    {
+      "kind": "codex",
+      "available": true,
+      "version": "0.40.0",
+      "path": "/opt/homebrew/bin/codex"
+    },
+    {
+      "kind": "gemini",
+      "available": false,
+      "version": null,
+      "path": null,
+      "minVersion": "0.36.0",
+      "catalog": null,
+      "latest": null,
+      "managed": false
+    }
+  ]
+}

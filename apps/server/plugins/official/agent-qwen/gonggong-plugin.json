@@ -1,0 +1,86 @@
+{
+  "name": "agent-qwen",
+  "version": "1.0.0",
+  "title": "Qwen Code",
+  "description": "阿里巴巴的 Qwen Code：在机器上用 ACP 运行，指令随进程传入，供应商走 OpenAI 兼容协议。",
+  "category": "agent",
+  "agents": ["qwen"],
+  "minDaemon": "0.4.22",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "qwen",
+        "title": "Qwen Code",
+        "vendor": "阿里巴巴",
+        "install": {
+          "npm": "@qwen-code/qwen-code",
+          "bin": "qwen",
+          "script": "cli-entry.js",
+          "brew": "qwen-code",
+          "minVersion": "0.27.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["--acp"]
+        },
+        "systemPrompt": {
+          "via": "arg",
+          "args": ["--append-system-prompt", "{prompt}"]
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".qwen/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "yolo"
+          },
+          "workspace": {
+            "mode": "auto-edit"
+          },
+          "readonly": {
+            "mode": "default"
+          }
+        },
+        "provider": {
+          "protocols": ["openai"],
+          "env": {
+            "apiKey": "OPENAI_API_KEY",
+            "baseUrl": "OPENAI_BASE_URL",
+            "model": "OPENAI_MODEL"
+          },
+          "byProtocol": {
+            "openai": {
+              "args": ["--auth-type", "openai"]
+            }
+          },
+          "needsModel": true
+        },
+        "home": {
+          "env": null,
+          "default": ".qwen",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "jsonValue",
+              "file": "{home}/settings.json",
+              "pointer": "/security/auth/selectedType",
+              "equals": "qwen-oauth",
+              "label": "Qwen OAuth"
+            }
+          ],
+          "loggedOut": false,
+          "command": "qwen",
+          "hint": "进入后输入 /auth，用 Qwen 账号登录或填写 API Key"
+        },
+        "steeringDirs": [".qwen"]
+      }
+    ]
+  }
+}

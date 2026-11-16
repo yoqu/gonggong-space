@@ -1,0 +1,102 @@
+{
+  "name": "agent-goose",
+  "version": "1.0.0",
+  "title": "Goose",
+  "description": "Goose：在机器上用 ACP 运行，每个群的 Bot 有自己的配置目录，指令写进 .goosehints。",
+  "category": "agent",
+  "agents": ["goose"],
+  "minDaemon": "0.4.22",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "goose",
+        "title": "Goose",
+        "vendor": "Block",
+        "install": {
+          "npm": null,
+          "command": "curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash",
+          "bin": "goose",
+          "script": null,
+          "brew": "block-goose-cli",
+          "minVersion": "1.59.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills"]
+        },
+        "tiers": {
+          "full": {
+            "mode": "auto"
+          },
+          "workspace": {
+            "mode": "smart_approve"
+          },
+          "readonly": {
+            "mode": "approve"
+          }
+        },
+        "provider": {
+          "protocols": ["anthropic", "openai"],
+          "env": {
+            "apiKey": "ANTHROPIC_API_KEY",
+            "baseUrl": "ANTHROPIC_HOST",
+            "model": "GOOSE_MODEL"
+          },
+          "byProtocol": {
+            "anthropic": {
+              "set": {
+                "GOOSE_PROVIDER": "anthropic"
+              }
+            },
+            "openai": {
+              "env": {
+                "apiKey": "OPENAI_API_KEY",
+                "baseUrl": "OPENAI_BASE_URL",
+                "model": "GOOSE_MODEL"
+              },
+              "set": {
+                "GOOSE_PROVIDER": "openai"
+              }
+            }
+          },
+          "needsModel": true
+        },
+        "home": {
+          "env": null,
+          "default": ".config/goose",
+          "config": "config.yaml"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "env",
+              "names": ["GOOSE_PROVIDER"],
+              "label": "GOOSE_PROVIDER"
+            },
+            {
+              "type": "yamlKey",
+              "file": "{home}/config.yaml",
+              "key": "GOOSE_PROVIDER",
+              "label": "goose configure"
+            }
+          ],
+          "command": "goose configure",
+          "hint": "按提示选择模型服务商并填写 API Key"
+        },
+        "state": "goose",
+        "launchScript": "contrib/agents/goose/launch.mjs"
+      }
+    ]
+  }
+}

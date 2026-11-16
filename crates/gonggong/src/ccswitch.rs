@@ -1,8 +1,9 @@
 //! Read-only import from this machine's CC Switch (`~/.cc-switch`, design §4.5) and its
-//! `ccswitch://v1/import?resource=provider…` links. Only claude and codex providers that talk to their endpoint
-//! directly are taken; CC Switch itself is never written to.
+//! `ccswitch://v1/import?resource=provider…` links. Only claude, codex and gemini providers that talk to their endpoint
+//! directly are taken, each as one endpoint of its app's protocol (merged into the vendor already stored, see
+//! [`Store::duplicate_of`]); CC Switch itself is never written to.
 use crate::agent_settings::{self, AUTO_COMPACT, Layer};
-use crate::protocol::AgentKind;
+use crate::protocol::{AgentKind, ApiProtocol};
 use crate::providers::{
     API_KEY, AUTH_TOKEN, GOOGLE_GEMINI_URL, ModelMap, Provider, Source, SourceKind, Store, WIRE_RESPONSES, mask_key,
 };
@@ -17,8 +18,11 @@ use std::path::Path;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Candidate {
     pub key: String,
+    /// The CC Switch app it comes from.
+    pub agent: AgentKind,
     /// CC Switch's current provider for that agent.
     pub current: bool,
+    /// One endpoint, of the app's protocol.
     pub provider: Provider,
 }
 
@@ -27,6 +31,7 @@ pub struct Candidate {
 pub struct CandidateView {
     pub key: String,
     pub agent: AgentKind,
+    pub protocol: ApiProtocol,
     pub name: String,
     pub base_url: String,
     pub api_key: String,
@@ -75,7 +80,7 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
             AgentKind::Claude => "currentProviderClaude",
             AgentKind::Codex => "currentProviderCodex",
             AgentKind::Gemini => "currentProviderGemini",
-            AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek | AgentKind::Antigravity => continue,
+            _ => continue,
         };
         let current = match settings[current_key].as_str() {
             Some(id) => id == row.id,
@@ -83,7 +88,7 @@ pub fn read(dir: &Path) -> Result<Vec<Candidate>> {
         };
         if let Some(mut provider) = to_provider(agent, &row)? {
             provider.source = Some(Source { kind: SourceKind::CcSwitch, id: Some(row.id.clone()) });
-            out.push(Candidate { key: format!("{}:{}", row.app, row.id), current, provider });
+            out.push(Candidate { key: format!("{}:{}", row.app, row.id), agent, current, provider });
         }
     }
     Ok(out)
@@ -168,7 +173,7 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
         AgentKind::Codex => "openai_responses",
         AgentKind::Gemini => "gemini_native",
         // Not a CC Switch app.
-        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek | AgentKind::Antigravity => return Ok(None),
+        _ => return Ok(None),
     };
     if row.meta["apiFormat"].as_str().is_some_and(|f| f != direct) {
         return Ok(None);
@@ -188,7 +193,7 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
             let empty = Map::new();
             Ok(gemini(&row.name, row.settings["env"].as_object().unwrap_or(&empty)))
         }
-        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek | AgentKind::Antigravity => Ok(None),
+        _ => Ok(None),
     }
 }
 
@@ -196,10 +201,9 @@ fn to_provider(agent: AgentKind, row: &Row) -> Result<Option<Provider>> {
 fn gemini(name: &str, env: &Map<String, Value>) -> Option<Provider> {
     let get = |k: &str| text(env.get(k));
     let base_url = get("GOOGLE_GEMINI_BASE_URL").or_else(|| get("GEMINI_BASE_URL")).unwrap_or(GOOGLE_GEMINI_URL.into());
-    Some(Provider {
-        model: get("GEMINI_MODEL"),
-        ..Provider::custom(AgentKind::Gemini, name.into(), base_url, get("GEMINI_API_KEY")?)
-    })
+    let mut p = Provider::custom(ApiProtocol::Gemini, name.into(), base_url, get("GEMINI_API_KEY")?);
+    p.endpoints[0].model = get("GEMINI_MODEL");
+    Some(p)
 }
 
 fn text(v: Option<&Value>) -> Option<String> {
@@ -230,13 +234,11 @@ fn claude(name: &str, env: &Map<String, Value>, key_field: Option<&str>) -> Opti
     if agent_settings::validate_env(AgentKind::Claude, &settings, None).is_err() {
         settings.remove(AUTO_COMPACT);
     }
-    Some(Provider {
-        api_key_field: Some(field.into()),
-        model: get("ANTHROPIC_MODEL"),
-        models: (models != ModelMap::default()).then_some(models),
-        env: settings,
-        ..Provider::custom(AgentKind::Claude, name.into(), base_url, get(field)?)
-    })
+    let mut p = Provider::custom(ApiProtocol::Anthropic, name.into(), base_url, get(field)?);
+    let e = &mut p.endpoints[0];
+    (e.api_key_field, e.model, e.env) = (Some(field.into()), get("ANTHROPIC_MODEL"), settings);
+    e.models = (models != ModelMap::default()).then_some(models);
+    Some(p)
 }
 
 /// Connection fields of a Codex `config.toml` (+ `auth.json`) as CC Switch stores them.
@@ -261,11 +263,9 @@ impl CodexParts {
         if self.wire_api.as_deref().is_some_and(|w| w != WIRE_RESPONSES) {
             return None;
         }
-        Some(Provider {
-            model: model.or(self.model),
-            effort: self.effort,
-            ..Provider::custom(AgentKind::Codex, name.into(), base_url.or(self.base_url)?, key.or(self.key)?)
-        })
+        let mut p = Provider::custom(ApiProtocol::Openai, name.into(), base_url.or(self.base_url)?, key.or(self.key)?);
+        (p.endpoints[0].model, p.endpoints[0].effort) = (model.or(self.model), self.effort);
+        Some(p)
     }
 }
 
@@ -298,15 +298,19 @@ fn codex_parts(auth: Option<&Value>, config: &str) -> Result<CodexParts> {
 pub fn preview(candidates: &[Candidate], store: &Store) -> Vec<CandidateView> {
     candidates
         .iter()
-        .map(|c| CandidateView {
-            key: c.key.clone(),
-            agent: c.provider.agent,
-            name: c.provider.name.clone(),
-            base_url: c.provider.base_url.clone(),
-            api_key: mask_key(&c.provider.api_key),
-            model: c.provider.model.clone(),
-            current: c.current,
-            existing: store.duplicate_of(&c.provider).map(|p| p.id.clone()),
+        .map(|c| {
+            let e = &c.provider.endpoints[0];
+            CandidateView {
+                key: c.key.clone(),
+                agent: c.agent,
+                protocol: e.protocol,
+                name: c.provider.name.clone(),
+                base_url: e.base_url.clone(),
+                api_key: mask_key(&c.provider.api_key),
+                model: e.model.clone(),
+                current: c.current,
+                existing: store.duplicate_of(&c.provider).map(|p| p.id.clone()),
+            }
         })
         .collect()
 }
@@ -320,7 +324,7 @@ pub fn apply(candidates: &[Candidate], keys: &[String], set_default: bool, store
         let c = by_key.get(key.as_str()).with_context(|| t!("CC Switch 里没有可导入的 {key}", key = key))?;
         let id = store.upsert(c.provider.clone())?;
         if set_default && c.current {
-            store.use_machine(c.provider.agent, &id)?;
+            store.use_machine(c.agent, &id, None)?;
         }
         ids.push(id);
     }
@@ -329,8 +333,8 @@ pub fn apply(candidates: &[Candidate], keys: &[String], set_default: bool, store
 
 /// `ccswitch://v1/import?resource=provider&app=claude|codex|gemini&name=…&endpoint=a,b&apiKey=…&model=…` plus optional
 /// `haikuModel`/`sonnetModel`/`opusModel` and a base64 `config` (`configFormat` json|toml) whose values the explicit
-/// parameters override. Returns a provider without an id, for [`Store::upsert`].
-pub fn parse_link(link: &str) -> Result<Provider> {
+/// parameters override. Returns the link's app and a provider without an id, for [`Store::upsert`].
+pub fn parse_link(link: &str) -> Result<(AgentKind, Provider)> {
     let url = url::Url::parse(link.trim()).context(t!("不是合法的链接"))?;
     if url.scheme() != "ccswitch" || url.host_str() != Some("v1") || url.path() != "/import" {
         bail!(t!("不是 CC Switch 导入链接（ccswitch://v1/import?…）"));
@@ -403,13 +407,13 @@ pub fn parse_link(link: &str) -> Result<Provider> {
             }
             gemini(&name, &env)
         }
-        AgentKind::Codebuddy | AgentKind::Pi | AgentKind::Deepseek | AgentKind::Antigravity => {
+        _ => {
             unreachable!("links name claude, codex or gemini")
         }
     };
     let mut provider = provider.context(t!("链接缺少 API Key 或 endpoint，或不是直连格式"))?;
     provider.source = Some(Source { kind: SourceKind::Link, id: None });
-    Ok(provider)
+    Ok((agent, provider))
 }
 
 /// Tolerates what links do to base64: `+` turned into a space, missing padding, URL-safe alphabet.
@@ -549,30 +553,30 @@ mod tests {
         std::fs::write(dir.path().join("settings.json"), settings).unwrap();
         let c = read(dir.path()).unwrap();
         assert_eq!(keys(&c), ["claude:kimi", "claude:aihub", "codex:glm", "codex:relay", "gemini:openrouter"]);
-        let gemini = &c[4].provider;
+        let (gemini, ge) = (&c[4].provider, &c[4].provider.endpoints[0]);
         assert!(c[4].current);
         assert_eq!(
-            (gemini.agent, gemini.base_url.as_str(), gemini.api_key.as_str(), gemini.model.as_deref()),
-            (AgentKind::Gemini, "https://openrouter.ai/api", GEMINI_KEY, Some("gemini-3.6-flash"))
+            (c[4].agent, ge.protocol, ge.base_url.as_str(), gemini.api_key.as_str(), ge.model.as_deref()),
+            (AgentKind::Gemini, ApiProtocol::Gemini, "https://openrouter.ai/api", GEMINI_KEY, Some("gemini-3.6-flash"))
         );
 
-        let kimi = &c[0].provider;
+        let (kimi, ke) = (&c[0].provider, &c[0].provider.endpoints[0]);
         assert!(c[0].current, "no settings.json entry for claude: is_current decides");
-        assert_eq!((kimi.base_url.as_str(), kimi.api_key.as_str()), ("https://api.moonshot.cn/anthropic", CLAUDE_KEY));
-        assert_eq!(kimi.api_key_field.as_deref(), Some(AUTH_TOKEN));
-        assert_eq!(kimi.models.as_ref().unwrap().sonnet.as_deref(), Some("kimi-k2.7-code"));
-        assert_eq!(kimi.env.keys().collect::<Vec<_>>(), ["CLAUDE_CODE_MAX_CONTEXT_TOKENS"], "proxy/hooks dropped");
+        assert_eq!((ke.base_url.as_str(), kimi.api_key.as_str()), ("https://api.moonshot.cn/anthropic", CLAUDE_KEY));
+        assert_eq!((ke.protocol, ke.api_key_field.as_deref()), (ApiProtocol::Anthropic, Some(AUTH_TOKEN)));
+        assert_eq!(ke.models.as_ref().unwrap().sonnet.as_deref(), Some("kimi-k2.7-code"));
+        assert_eq!(ke.env.keys().collect::<Vec<_>>(), ["CLAUDE_CODE_MAX_CONTEXT_TOKENS"], "proxy/hooks dropped");
         assert_eq!(kimi.source, Some(Source { kind: SourceKind::CcSwitch, id: Some("kimi".into()) }));
-        assert_eq!(c[1].provider.api_key_field.as_deref(), Some(API_KEY));
+        assert_eq!(c[1].provider.endpoints[0].api_key_field.as_deref(), Some(API_KEY));
 
-        let glm = &c[2].provider;
+        let (glm, gl) = (&c[2].provider, &c[2].provider.endpoints[0]);
         assert!(!c[2].current, "settings.json overrides is_current");
-        assert_eq!((glm.base_url.as_str(), glm.api_key.as_str()), ("https://open.bigmodel.cn/api/v1", CODEX_KEY));
-        assert_eq!((glm.model.as_deref(), glm.effort.as_deref()), (Some("glm-5.3"), Some("high")));
+        assert_eq!((gl.base_url.as_str(), glm.api_key.as_str()), ("https://open.bigmodel.cn/api/v1", CODEX_KEY));
+        assert_eq!((gl.model.as_deref(), gl.effort.as_deref()), (Some("glm-5.3"), Some("high")));
         let relay = &c[3].provider;
         assert!(c[3].current);
         assert_eq!(
-            (relay.base_url.as_str(), relay.api_key.as_str()),
+            (relay.endpoints[0].base_url.as_str(), relay.api_key.as_str()),
             ("https://relay.test/v1", "sk-bearer-777788889999")
         );
     }
@@ -622,7 +626,7 @@ mod tests {
         let c = read(dir.path()).unwrap();
         let mut store = Store::default();
         let manual = Provider::custom(
-            AgentKind::Codex,
+            ApiProtocol::Openai,
             "我的智谱".into(),
             "https://open.bigmodel.cn/api/v1/".into(),
             CODEX_KEY.into(),
@@ -634,6 +638,7 @@ mod tests {
         assert!(!json.contains(CLAUDE_KEY) && !json.contains(CODEX_KEY) && !json.contains("bearer-7777"));
         assert!(!json.contains(GEMINI_KEY));
         assert_eq!(view[2].existing.as_deref(), Some(manual.as_str()), "same base URL + key as a local provider");
+        assert_eq!((view[2].agent, view[2].protocol), (AgentKind::Codex, ApiProtocol::Openai));
         assert_eq!(view[0].existing, None);
 
         let all: Vec<_> = c.iter().map(|c| c.key.clone()).collect();
@@ -642,6 +647,10 @@ mod tests {
         assert_eq!(store.providers.len(), 5);
         assert_eq!(store.get(&manual).unwrap().revision, 2);
         assert_eq!(store.machine_default(AgentKind::Claude).unwrap().key(), ids[0], "CC Switch current → default");
+        assert_eq!(
+            store.machine_default(AgentKind::Codex).unwrap().provider().unwrap().1.protocol,
+            ApiProtocol::Openai
+        );
         assert_eq!(store.machine_default(AgentKind::Codex).unwrap().key(), ids[2]);
 
         assert_eq!(apply(&c, &all, false, &mut store).unwrap(), ids, "re-import matches by source id");
@@ -652,10 +661,10 @@ mod tests {
         let c = read(changed.path()).unwrap();
         apply(&c, &["claude:kimi".into()], false, &mut store).unwrap();
         let kimi = store.get(&ids[0]).unwrap();
-        assert_eq!((kimi.revision, kimi.model.as_deref()), (2, Some("kimi-k3")));
+        assert_eq!((kimi.revision, kimi.endpoints[0].model.as_deref()), (2, Some("kimi-k3")));
         assert_eq!(store.providers.len(), 5);
         assert!(apply(&c, &["claude:nope".into()], false, &mut store).is_err());
-        assert!(matches!(store.effective(AgentKind::Claude, "b").unwrap(), Selection::Provider(_)));
+        assert!(matches!(store.effective(AgentKind::Claude, "b").unwrap(), Selection::Provider { .. }));
     }
 
     fn b64(v: &Value) -> String {
@@ -686,14 +695,15 @@ mod tests {
             ],
         )
         .unwrap();
-        let p = parse_link(link.as_str()).unwrap();
-        assert_eq!((p.agent, p.name.as_str()), (AgentKind::Claude, "My Kimi"));
-        assert_eq!((p.base_url.as_str(), p.api_key.as_str()), ("https://api.kimi.com/coding/", CLAUDE_KEY));
-        assert_eq!(p.model.as_deref(), Some("kimi-for-coding"));
-        let models = p.models.unwrap();
+        let (agent, p) = parse_link(link.as_str()).unwrap();
+        let e = &p.endpoints[0];
+        assert_eq!((agent, e.protocol, p.name.as_str()), (AgentKind::Claude, ApiProtocol::Anthropic, "My Kimi"));
+        assert_eq!((e.base_url.as_str(), p.api_key.as_str()), ("https://api.kimi.com/coding/", CLAUDE_KEY));
+        assert_eq!(e.model.as_deref(), Some("kimi-for-coding"));
+        let models = e.models.clone().unwrap();
         assert_eq!((models.haiku.as_deref(), models.opus.as_deref()), (Some("h"), Some("o-from-config")));
         assert_eq!(
-            p.env.keys().collect::<Vec<_>>(),
+            e.env.keys().collect::<Vec<_>>(),
             ["CLAUDE_CODE_MAX_CONTEXT_TOKENS", "CLAUDE_CODE_MAX_OUTPUT_TOKENS"],
             "an auto-compact window beyond the context window is dropped"
         );
@@ -709,16 +719,17 @@ mod tests {
         // URL-safe, unpadded, `+` mangled into a space: all tolerated.
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(config.to_string());
         let link = format!("ccswitch://v1/import?resource=provider&app=codex&name=GLM&config={encoded}");
-        let p = parse_link(&link).unwrap();
+        let (agent, p) = parse_link(&link).unwrap();
+        let e = &p.endpoints[0];
         assert_eq!(
-            (p.agent, p.base_url.as_str(), p.api_key.as_str()),
+            (agent, e.base_url.as_str(), p.api_key.as_str()),
             (AgentKind::Codex, "https://open.bigmodel.cn/api/v1", CODEX_KEY)
         );
-        assert_eq!((p.model.as_deref(), p.wire_api.as_deref()), (Some("glm-5.3"), Some(WIRE_RESPONSES)));
+        assert_eq!((e.model.as_deref(), e.wire_api.as_deref()), (Some("glm-5.3"), Some(WIRE_RESPONSES)));
 
         let plain = "ccswitch://v1/import?resource=provider&app=codex&name=X&endpoint=https%3A%2F%2Fx.test%2Fv1&apiKey=sk-x-000011112222&model=m";
-        let p = parse_link(plain).unwrap();
-        assert_eq!((p.base_url.as_str(), p.model.as_deref()), ("https://x.test/v1", Some("m")));
+        let e = parse_link(plain).unwrap().1.endpoints.remove(0);
+        assert_eq!((e.base_url.as_str(), e.model.as_deref()), ("https://x.test/v1", Some("m")));
 
         for bad in [
             "https://v1/import?resource=provider&app=codex&name=X",
@@ -738,17 +749,19 @@ mod tests {
         let link = format!(
             "ccswitch://v1/import?resource=provider&app=gemini&name=OR&endpoint=https://openrouter.ai/api&apiKey={GEMINI_KEY}&model=gemini-3.6-flash"
         );
-        let p = parse_link(&link).unwrap();
+        let (agent, p) = parse_link(&link).unwrap();
+        let e = &p.endpoints[0];
         assert_eq!(
-            (p.agent, p.base_url.as_str(), p.api_key.as_str(), p.model.as_deref()),
+            (agent, e.base_url.as_str(), p.api_key.as_str(), e.model.as_deref()),
             (AgentKind::Gemini, "https://openrouter.ai/api", GEMINI_KEY, Some("gemini-3.6-flash"))
         );
-        assert_eq!((p.api_key_field, p.wire_api), (None, None));
+        assert_eq!((&e.api_key_field, &e.wire_api), (&None, &None));
 
         let config =
             base64::engine::general_purpose::STANDARD.encode(json!({ "GEMINI_API_KEY": GEMINI_KEY }).to_string());
-        let p =
+        let (_, p) =
             parse_link(&format!("ccswitch://v1/import?resource=provider&app=gemini&name=G&config={config}")).unwrap();
-        assert_eq!((p.base_url.as_str(), p.api_key.as_str()), (GOOGLE_GEMINI_URL, GEMINI_KEY), "Google's own endpoint");
+        let url = p.endpoints[0].base_url.as_str();
+        assert_eq!((url, p.api_key.as_str()), (GOOGLE_GEMINI_URL, GEMINI_KEY), "Google's own endpoint");
     }
 }
