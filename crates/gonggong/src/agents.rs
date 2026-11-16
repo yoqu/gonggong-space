@@ -1,7 +1,7 @@
 use crate::adapters;
 use crate::engine::ADAPTERS;
 use crate::local::{LocalSettings, load_catalogs};
-use crate::protocol::{AgentInfo, AgentKind};
+use crate::protocol::{AgentKind, AgentState};
 use crate::t;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ pub fn min_version(kind: AgentKind) -> &'static str {
 
 /// Detects installed agent CLIs (the owner's configured paths, else PATH and common install dirs), with the catalog
 /// probed for the same builds.
-pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentInfo> {
+pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentState> {
     let cached = load_catalogs(home);
     AgentKind::ALL
         .into_iter()
@@ -135,11 +135,11 @@ fn env_var(name: &str) -> Option<String> {
     std::env::var(name).ok()
 }
 
-fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentInfo {
+fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentState {
     let path = locate(home, kind, local);
     let available = path.as_deref().is_some_and(Path::is_file);
     let tool = crate::tools::ToolKind::of(kind);
-    AgentInfo {
+    let mut state = AgentState {
         kind,
         available,
         version: path.as_deref().filter(|_| available).and_then(|p| version(home, p)),
@@ -148,7 +148,12 @@ fn detect_one(home: &Path, kind: AgentKind, local: &LocalSettings) -> AgentInfo 
         min_version: Some(min_version(kind).into()),
         catalog: None,
         latest: crate::tools::cached_latest(home, tool),
-    }
+        upgrade_command: None,
+        install_command: None,
+    };
+    let install = crate::tools::agent_status(home, &state);
+    (state.upgrade_command, state.install_command) = (install.upgrade_command, install.install_command);
+    state
 }
 
 /// The agent CLI to run: the configured path (even if it no longer exists, so the error names it), else the
@@ -228,10 +233,7 @@ pub fn find(bin: &str) -> Option<PathBuf> {
         .map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
-        .chain(extra_dirs(
-            &crate::config::user_home(),
-            std::env::var_os("NVM_DIR").map(PathBuf::from).as_deref(),
-        ))
+        .chain(extra_dirs(&crate::config::user_home(), std::env::var_os("NVM_DIR").map(PathBuf::from).as_deref()))
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|p| p.is_file())
 }
@@ -407,8 +409,13 @@ mod tests {
         let mut env = Official::default();
         env.env.insert("ANTHROPIC_BASE_URL".into(), "https://relay.test".into());
         assert!(!super::official_service(Claude, &Selection::Official(env), None));
-        let relay = Provider::custom(Codex, "relay".into(), "https://relay.test/v1".into(), "k".into());
-        assert!(!super::official_service(Codex, &Selection::Provider(Box::new(relay)), None));
+        let relay = Provider::custom(
+            crate::protocol::ApiProtocol::Openai,
+            "relay".into(),
+            "https://relay.test/v1".into(),
+            "k".into(),
+        );
+        assert!(!super::official_service(Codex, &Selection::of(&relay, Codex).unwrap(), None));
     }
 
     use super::{file_names, parse_version};
@@ -425,7 +432,10 @@ mod tests {
         let nvm: Vec<_> = dirs.iter().filter(|d| d.starts_with(h.join(".nvm"))).collect();
         assert_eq!(
             nvm,
-            ["v24.15.0", "v22.22.2", "v9.0.0"].map(|v| h.join(".nvm/versions/node").join(v).join("bin")).iter().collect::<Vec<_>>()
+            ["v24.15.0", "v22.22.2", "v9.0.0"]
+                .map(|v| h.join(".nvm/versions/node").join(v).join("bin"))
+                .iter()
+                .collect::<Vec<_>>()
         );
         for d in [".volta/bin", ".bun/bin", "Library/pnpm", ".local/share/pnpm", ".asdf/shims"] {
             assert!(dirs.contains(&h.join(d)), "{d}");

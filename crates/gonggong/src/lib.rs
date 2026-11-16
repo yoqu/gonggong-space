@@ -45,6 +45,7 @@ pub mod proc;
 pub mod protocol;
 pub mod provider_cli;
 pub mod providers;
+pub mod providers_migrate;
 mod replicas;
 pub mod repo;
 pub mod review;

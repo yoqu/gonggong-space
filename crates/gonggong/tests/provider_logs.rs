@@ -50,7 +50,8 @@ async fn the_key_never_reaches_the_logs() {
         assert_eq!(r.finish(run_id).await.reply, "ok");
     }
     // Editing the provider restarts the adapter: nothing on that path may print the key either.
-    Store::update(r.home(), |s| s.edit(&claude, |p| p.base_url = "https://example.test/anthropic".into())).unwrap();
+    Store::update(r.home(), |s| s.edit(&claude, |p| p.endpoints[0].base_url = "https://example.test/anthropic".into()))
+        .unwrap();
     r.run(quiet("r3", AgentKind::Claude, "b1", secrets[0]));
     assert_eq!(r.finish("r3").await.reply, "ok");
     // So does a changed secret.

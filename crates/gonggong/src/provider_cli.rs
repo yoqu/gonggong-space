@@ -5,8 +5,8 @@ use crate::bots::agent_label;
 use crate::ccswitch;
 use crate::config::{self, Config};
 use crate::configure::parse_kind;
-use crate::protocol::AgentKind;
-use crate::providers::{self, INHERIT, OFFICIAL, OFFICIAL_NAME, PresetGroup, Provider, Store};
+use crate::protocol::{AgentKind, ApiProtocol};
+use crate::providers::{self, Endpoint, INHERIT, OFFICIAL, OFFICIAL_NAME, PresetGroup, Provider, Store};
 use crate::t;
 use anyhow::{Context, Result, bail};
 use clap::Subcommand;
@@ -24,7 +24,8 @@ pub enum ProviderCmd {
         #[arg(value_parser = parse_kind)]
         agent: Option<AgentKind>,
     },
-    /// Add a provider from a preset (--preset) or by hand (--name + --base-url); the API key is read from stdin.
+    /// Add a provider from a preset (--preset, every protocol it serves) or by hand (--name + --base-url, the agent's
+    /// protocol unless --protocol); the API key is read from stdin.
     Add {
         #[arg(value_parser = parse_kind)]
         agent: AgentKind,
@@ -34,6 +35,9 @@ pub enum ProviderCmd {
         name: Option<String>,
         #[arg(long, requires = "name")]
         base_url: Option<String>,
+        /// anthropic, openai, gemini or codebuddy.
+        #[arg(long, value_parser = parse_protocol)]
+        protocol: Option<ApiProtocol>,
         #[arg(long)]
         model: Option<String>,
         /// Read the API key from stdin (keeps it out of the shell history).
@@ -43,9 +47,12 @@ pub enum ProviderCmd {
         #[arg(long)]
         default: bool,
     },
-    /// Change a provider; sessions using it restart their adapter and resume with the change.
+    /// Change a provider; sessions using it restart their adapter and resume with the change. --base-url and --model
+    /// change the endpoint of --protocol (needed when it has several; a new one with --base-url).
     Edit {
         id: String,
+        #[arg(long, value_parser = parse_protocol)]
+        protocol: Option<ApiProtocol>,
         #[arg(long)]
         name: Option<String>,
         #[arg(long)]
@@ -81,28 +88,47 @@ pub enum ProviderCmd {
 
 pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
     providers::load_overlay(home);
+    if let Some(backup) = Store::migrate_file(home)?.and_then(|r| r.backup) {
+        println!("{}", t!("providers.json 已升级为新格式，原文件备份为 {path}", path = backup.display()));
+    }
     match cmd {
         ProviderCmd::Presets { agent } => print_presets(agent),
         ProviderCmd::List { agent } => print_list(&Store::load(home)?, agent)?,
-        ProviderCmd::Add { agent, preset, name, base_url, model, key_stdin, default } => {
+        ProviderCmd::Add { agent, preset, name, base_url, protocol, model, key_stdin, default } => {
             let key = read_key(key_stdin)?.context(t!("新增供应商需要 --key-stdin 传入 API Key"))?;
             let mut p = match (preset, base_url) {
                 (Some(id), _) => Provider::from_preset(
-                    &providers::preset(agent, &id).with_context(|| {
-                        t!("没有 {agent} 预设 {id}，可用 gg provider presets 查看", agent = agent_label(agent), id = id)
-                    })?,
+                    &providers::preset(&id)
+                        .filter(|p| p.endpoints.iter().any(|e| agent.takes(e.protocol)))
+                        .with_context(|| {
+                            t!(
+                                "没有 {agent} 预设 {id}，可用 gg provider presets 查看",
+                                agent = agent_label(agent),
+                                id = id
+                            )
+                        })?,
                     key,
                 ),
-                (None, Some(url)) => Provider::custom(agent, name.clone().unwrap_or_default(), url, key),
+                (None, Some(url)) => {
+                    let protocol = protocol
+                        .or(agent.protocols().first().copied())
+                        .with_context(|| t!("{agent} 使用自己的登录，不用供应商", agent = agent_label(agent)))?;
+                    Provider::custom(protocol, name.clone().unwrap_or_default(), url, key)
+                }
                 (None, None) => unreachable!("clap requires --preset or --base-url"),
             };
             p.name = name.unwrap_or(p.name);
-            p.model = model.or(p.model);
+            if let Some(model) = model {
+                let protocol = p.endpoint_for(agent).map(|e| e.protocol);
+                if let Some(e) = protocol.and_then(|pr| p.endpoint_mut(pr)) {
+                    e.model = Some(model);
+                }
+            }
             let label = p.name.clone();
             let id = Store::update(home, |s| {
                 let id = s.add(p)?;
                 if default {
-                    s.use_machine(agent, &id)?;
+                    s.use_machine(agent, &id, None)?;
                 }
                 Ok(id)
             })?;
@@ -114,16 +140,32 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 print_stale(home, agent).await?;
             }
         }
-        ProviderCmd::Edit { id, name, base_url, model, key_stdin } => {
+        ProviderCmd::Edit { id, protocol, name, base_url, model, key_stdin } => {
             let key = read_key(key_stdin)?;
             if name.is_none() && base_url.is_none() && model.is_none() && key.is_none() {
                 bail!(t!("没有要修改的内容（--name / --base-url / --model / --key-stdin）"));
             }
             Store::update(home, |s| {
+                let p = s.get(&id).with_context(|| t!("供应商 {id} 不存在", id = id))?;
+                let protocol = match (protocol, p.endpoints.as_slice()) {
+                    (Some(protocol), _) => Some(protocol),
+                    (None, _) if base_url.is_none() && model.is_none() => None,
+                    (None, [only]) => Some(only.protocol),
+                    (None, _) => bail!(t!("{id} 有多个协议端点，请用 --protocol 指定要改哪一个", id = id)),
+                };
+                let new = protocol.filter(|pr| p.endpoint(*pr).is_none());
+                if new.is_some() && base_url.is_none() {
+                    bail!(t!("新增协议端点需要 --base-url"));
+                }
                 s.edit(&id, |p| {
+                    if let Some(protocol) = new {
+                        p.endpoints.push(Endpoint::new(protocol, String::new()));
+                    }
+                    if let Some(e) = protocol.and_then(|pr| p.endpoint_mut(pr)) {
+                        e.base_url = base_url.unwrap_or(e.base_url.clone());
+                        e.model = model.or(e.model.clone());
+                    }
                     p.name = name.unwrap_or(p.name.clone());
-                    p.base_url = base_url.unwrap_or(p.base_url.clone());
-                    p.model = model.or(p.model.clone());
                     p.api_key = key.unwrap_or(p.api_key.clone());
                 })
             })?;
@@ -140,7 +182,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
             };
             let agent = parse_kind(agent).map_err(anyhow::Error::msg)?;
             let name = Store::update(home, |s| {
-                s.use_machine(agent, choice)?;
+                s.use_machine(agent, choice, None)?;
                 Ok(s.machine_default(agent)?.name().to_string())
             })?;
             println!("{}", t!("{agent} 本机默认供应商：{name}", agent = agent_label(agent), name = name));
@@ -177,7 +219,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                     println!(
                         "{}\t{}\t{}\t{}\t{}\t{}\t{current}\t{action}",
                         v.key,
-                        agent_label(v.agent),
+                        protocol_name(v.protocol),
                         v.name,
                         v.base_url,
                         v.model.as_deref().unwrap_or("-"),
@@ -197,12 +239,12 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
             println!("{}", t!("已从 CC Switch 导入 {n} 个供应商", n = imported.len()));
         }
         ProviderCmd::Import { source, set_default, .. } if source.starts_with("ccswitch://") => {
-            let p = ccswitch::parse_link(&source)?;
-            let (agent, label) = (p.agent, p.name.clone());
+            let (agent, p) = ccswitch::parse_link(&source)?;
+            let label = p.name.clone();
             let id = Store::update(home, |s| {
                 let id = s.upsert(p)?;
                 if set_default {
-                    s.use_machine(agent, &id)?;
+                    s.use_machine(agent, &id, None)?;
                 }
                 Ok(id)
             })?;
@@ -284,12 +326,31 @@ fn group_label(group: PresetGroup) -> &'static str {
     }
 }
 
+fn parse_protocol(s: &str) -> Result<ApiProtocol, String> {
+    serde_json::from_value(serde_json::Value::String(s.to_ascii_lowercase()))
+        .map_err(|_| t!("协议应为 anthropic、openai、gemini 或 codebuddy").to_string())
+}
+
+fn protocol_name(p: ApiProtocol) -> &'static str {
+    match p {
+        ApiProtocol::Anthropic => "anthropic",
+        ApiProtocol::Openai => "openai",
+        ApiProtocol::Gemini => "gemini",
+        ApiProtocol::Codebuddy => "codebuddy",
+    }
+}
+
 fn print_presets(agent: Option<AgentKind>) {
     for agent in agent.map_or(AgentKind::ALL.to_vec(), |a| vec![a]) {
+        let presets = providers::presets(Some(agent));
+        if presets.is_empty() {
+            continue;
+        }
         println!("{}", agent_label(agent));
-        for p in providers::presets(Some(agent)) {
-            let model = p.model.as_deref().unwrap_or("-");
-            println!("  {}\t{}\t{}\t{}\t{model}", p.id, p.name, group_label(p.group), p.base_url);
+        for p in presets {
+            let e = p.endpoints.iter().find(|e| agent.takes(e.protocol)).expect("presets(agent) serve it");
+            let model = e.model.as_deref().unwrap_or("-");
+            println!("  {}\t{}\t{}\t{}\t{model}", p.id, p.name, group_label(p.group), e.base_url);
         }
     }
     println!("\n{}", t!("预设来自 {source}", source = providers::presets_source()));
@@ -299,10 +360,16 @@ fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
     for agent in agent.map_or(AgentKind::ALL.to_vec(), |a| vec![a]) {
         let default = store.machine_default(agent)?;
         println!("{}", t!("{agent} · 本机默认：{name}", agent = agent_label(agent), name = default.name()));
-        for p in store.providers.iter().filter(|p| p.agent == agent).map(Provider::view) {
+        for p in &store.providers {
+            let Some(e) = p.endpoint_for(agent) else { continue };
             let mark = if p.id == default.key() { "*" } else { " " };
-            let model = p.model.as_deref().unwrap_or("-");
-            println!("{mark} {}\t{}\t{}\t{model}\t{}", p.id, p.name, p.base_url, p.api_key);
+            let model = e.model.as_deref().unwrap_or("-");
+            let url = e.config_dir.as_deref().unwrap_or(&e.base_url);
+            let others: Vec<_> =
+                p.endpoints.iter().filter(|o| o.protocol != e.protocol).map(|o| protocol_name(o.protocol)).collect();
+            let others = if others.is_empty() { String::new() } else { format!("\t+{}", others.join(",")) };
+            let key = providers::mask_key(&p.api_key);
+            println!("{mark} {}\t{}\t{}\t{url}\t{model}\t{key}{others}", p.id, p.name, protocol_name(e.protocol));
         }
     }
     if !store.bots.is_empty() {
