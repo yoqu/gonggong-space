@@ -1,0 +1,81 @@
+{
+  "name": "agent-copilot",
+  "version": "1.0.0",
+  "title": "GitHub Copilot CLI",
+  "description": "GitHub Copilot CLI：在机器上用 ACP 运行，指令作为自定义指令传入，可用 GitHub 账号或自带模型服务商。",
+  "category": "agent",
+  "agents": ["copilot"],
+  "minDaemon": "0.4.22",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "copilot",
+        "title": "GitHub Copilot CLI",
+        "vendor": "GitHub",
+        "install": {
+          "npm": "@github/copilot",
+          "bin": "copilot",
+          "script": "npm-loader.js",
+          "brew": "copilot-cli",
+          "minVersion": "1.0.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["--acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".github/skills"]
+        },
+        "tiers": null,
+        "provider": {
+          "protocols": ["anthropic", "openai"],
+          "env": {
+            "apiKey": "COPILOT_PROVIDER_API_KEY",
+            "baseUrl": "COPILOT_PROVIDER_BASE_URL",
+            "model": "COPILOT_MODEL"
+          },
+          "byProtocol": {
+            "anthropic": {
+              "set": {
+                "COPILOT_PROVIDER_TYPE": "anthropic"
+              }
+            },
+            "openai": {
+              "set": {
+                "COPILOT_PROVIDER_TYPE": "openai"
+              }
+            }
+          },
+          "needsModel": true
+        },
+        "home": {
+          "env": "COPILOT_HOME",
+          "default": ".copilot",
+          "config": "settings.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "env",
+              "names": ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"],
+              "label": "GitHub token"
+            }
+          ],
+          "loggedOut": false,
+          "command": "copilot login",
+          "hint": "按提示用 GitHub 账号登录（需要 Copilot 订阅）"
+        },
+        "state": "copilot",
+        "launchScript": "contrib/agents/copilot/launch.mjs"
+      }
+    ]
+  }
+}

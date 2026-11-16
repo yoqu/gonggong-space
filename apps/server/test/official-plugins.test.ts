@@ -38,16 +38,21 @@ it('ships the creation plugins and the provider presets', () => {
   expect(readdirSync(OFFICIAL).sort()).toEqual([
     'agent-antigravity',
     'agent-codebuddy',
+    'agent-copilot',
     'agent-deepseek',
     'agent-gemini',
+    'agent-goose',
+    'agent-kimi',
+    'agent-opencode',
     'agent-pi',
+    'agent-qwen',
     'provider-presets',
     'slides',
     'web-prototype',
   ])
 })
 
-describe.each(['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity'])(
+describe.each(['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity', 'opencode', 'qwen', 'kimi', 'goose', 'copilot'])(
   'official agent plugin agent-%s',
   (id) => {
     it('adapts that agent, runs code, and ships its launch script and icon', () => {
@@ -81,6 +86,78 @@ it('Antigravity CLI is not on npm: the owner installs it, and the bot prompt goe
   const raw = JSON.parse(readFileSync(join(OFFICIAL, 'agent-antigravity', PLUGIN_MANIFEST), 'utf8'))
   delete raw.contributes.agents[0].install.command
   expect(PluginManifest.safeParse(raw).success).toBe(false)
+})
+
+describe('the agents speaking ACP themselves (三期)', () => {
+  const agent = (id: string) => load(`agent-${id}`).manifest.contributes.agents[0]!
+
+  it('starts each in its own ACP mode', () => {
+    const acp = Object.fromEntries(
+      ['opencode', 'qwen', 'kimi', 'goose', 'copilot'].map((id) => [id, agent(id).acp]),
+    )
+    expect(acp).toEqual({
+      opencode: { kind: 'native', args: ['acp'] },
+      qwen: { kind: 'native', args: ['--acp'] },
+      kimi: { kind: 'native', args: ['acp'] },
+      goose: { kind: 'native', args: ['acp'] },
+      copilot: { kind: 'native', args: ['--acp'] },
+    })
+  })
+
+  it('installs them from npm, but Goose with its own script', () => {
+    expect(agent('opencode').install).toMatchObject({ npm: '@opencode/cli', bin: 'opencode', script: null })
+    expect(agent('qwen').install).toMatchObject({ npm: '@qwen-code/qwen-code', bin: 'qwen' })
+    expect(agent('kimi').install).toMatchObject({ npm: '@moonshot-ai/kimi-code', bin: 'kimi', minNode: '22.19.0' })
+    expect(agent('copilot').install).toMatchObject({ npm: '@github/copilot', bin: 'copilot' })
+    expect(agent('goose').install).toMatchObject({
+      npm: null,
+      bin: 'goose',
+      command:
+        'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash',
+    })
+  })
+
+  it('OpenCode keeps its own login; the others take a provider and need its model', () => {
+    expect(agent('opencode').provider).toBeNull()
+    for (const id of ['qwen', 'kimi', 'goose', 'copilot']) expect(agent(id).provider?.needsModel).toBe(true)
+    expect(agent('qwen').provider).toMatchObject({
+      protocols: ['openai'],
+      env: { apiKey: 'OPENAI_API_KEY', baseUrl: 'OPENAI_BASE_URL', model: 'OPENAI_MODEL' },
+      byProtocol: { openai: { args: ['--auth-type', 'openai'] } },
+    })
+    expect(agent('kimi').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: { apiKey: 'KIMI_MODEL_API_KEY', baseUrl: 'KIMI_MODEL_BASE_URL', model: 'KIMI_MODEL_NAME' },
+      byProtocol: {
+        anthropic: { set: { KIMI_MODEL_PROVIDER_TYPE: 'anthropic' } },
+        openai: { set: { KIMI_MODEL_PROVIDER_TYPE: 'openai' } },
+      },
+    })
+    expect(agent('goose').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: { apiKey: 'ANTHROPIC_API_KEY', baseUrl: 'ANTHROPIC_HOST', model: 'GOOSE_MODEL' },
+      byProtocol: {
+        anthropic: { set: { GOOSE_PROVIDER: 'anthropic' } },
+        openai: {
+          env: { apiKey: 'OPENAI_API_KEY', baseUrl: 'OPENAI_BASE_URL', model: 'GOOSE_MODEL' },
+          set: { GOOSE_PROVIDER: 'openai' },
+        },
+      },
+    })
+    expect(agent('copilot').provider).toMatchObject({
+      protocols: ['anthropic', 'openai'],
+      env: { apiKey: 'COPILOT_PROVIDER_API_KEY', baseUrl: 'COPILOT_PROVIDER_BASE_URL', model: 'COPILOT_MODEL' },
+      byProtocol: {
+        anthropic: { set: { COPILOT_PROVIDER_TYPE: 'anthropic' } },
+        openai: { set: { COPILOT_PROVIDER_TYPE: 'openai' } },
+      },
+    })
+  })
+
+  it('hands the bot prompt over as each CLI reads it', () => {
+    expect(agent('qwen').systemPrompt).toEqual({ via: 'arg', args: ['--append-system-prompt', '{prompt}'] })
+    for (const id of ['opencode', 'kimi', 'goose', 'copilot']) expect(agent(id).systemPrompt).toEqual({ via: 'script' })
+  })
 })
 
 describe('official plugin provider-presets', () => {

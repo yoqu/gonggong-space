@@ -35,10 +35,15 @@ pub enum ToolKind {
     Pi,
     Deepseek,
     Antigravity,
+    Opencode,
+    Qwen,
+    Kimi,
+    Goose,
+    Copilot,
 }
 
 impl ToolKind {
-    pub const ALL: [ToolKind; 8] = [
+    pub const ALL: [ToolKind; 13] = [
         ToolKind::Node,
         ToolKind::Claude,
         ToolKind::Codex,
@@ -47,6 +52,11 @@ impl ToolKind {
         ToolKind::Pi,
         ToolKind::Deepseek,
         ToolKind::Antigravity,
+        ToolKind::Opencode,
+        ToolKind::Qwen,
+        ToolKind::Kimi,
+        ToolKind::Goose,
+        ToolKind::Copilot,
     ];
 
     /// The agent of the same name; Node is none.

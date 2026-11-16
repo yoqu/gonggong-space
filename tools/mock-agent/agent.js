@@ -54,6 +54,47 @@ const PI = process.env.PI_ACP_PI_COMMAND
 const DSH = process.env.DSH_PERMISSION_MODE
 // Started as `<cli> acp` (as the daemon starts Antigravity CLI), it offers agy's modes and echoes the session `_meta`.
 const AGY = process.argv[2] === 'acp'
+// Started with KIMI_CODE_HOME (Kimi Code) or GOOSE_PATH_ROOT (Goose), it offers that agent's modes.
+const KIMI = process.env.KIMI_CODE_HOME
+const GOOSE = process.env.GOOSE_PATH_ROOT
+// The env the third-wave agents (OpenCode, Qwen Code, Kimi Code, Goose, Copilot CLI) are started with, echoed.
+const AGENT_ENV = [
+  'OPENCODE_CONFIG_CONTENT',
+  'OPENAI_API_KEY',
+  'OPENAI_BASE_URL',
+  'OPENAI_MODEL',
+  'KIMI_CODE_HOME',
+  'KIMI_MODEL_NAME',
+  'KIMI_MODEL_API_KEY',
+  'KIMI_MODEL_BASE_URL',
+  'KIMI_MODEL_PROVIDER_TYPE',
+  'GOOSE_PATH_ROOT',
+  'GOOSE_PROVIDER',
+  'GOOSE_MODEL',
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_HOST',
+  'COPILOT_CUSTOM_INSTRUCTIONS_DIRS',
+  'COPILOT_PROVIDER_TYPE',
+  'COPILOT_PROVIDER_API_KEY',
+  'COPILOT_PROVIDER_BASE_URL',
+  'COPILOT_MODEL',
+]
+const readOr = (file) => {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch {
+    return null
+  }
+}
+/** The bot's instructions where each of those agents reads them. */
+const agentInstructions = () => {
+  const env = process.env
+  if (env.OPENCODE_CONFIG_CONTENT) return readOr(JSON.parse(env.OPENCODE_CONFIG_CONTENT).instructions[0])
+  if (KIMI) return readOr(`${KIMI}/AGENTS.md`)
+  if (GOOSE) return readOr(`${GOOSE}/config/.goosehints`)
+  if (env.COPILOT_CUSTOM_INSTRUCTIONS_DIRS) return readOr(`${env.COPILOT_CUSTOM_INSTRUCTIONS_DIRS}/AGENTS.md`)
+  return null
+}
 const argAfter = (flag) => {
   const i = process.argv.indexOf(flag)
   return i >= 0 ? process.argv[i + 1] : null
@@ -86,9 +127,13 @@ const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-3.8-flash'].map((modelId) => ({
 const MODES = (
   GEMINI
     ? ['default', 'autoEdit', 'yolo', 'plan']
-    : AGY
-      ? ['default', 'accept-edits', 'plan']
-      : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
+    : KIMI
+      ? ['default', 'plan', 'auto', 'yolo']
+      : GOOSE
+        ? ['auto', 'approve', 'smart_approve', 'chat']
+        : AGY
+          ? ['default', 'accept-edits', 'plan']
+          : ['default', 'acceptEdits', ...(process.env.MOCK_AUTO ? ['auto'] : []), 'bypassPermissions']
 ).map((id) => ({ id, name: id }))
 const MODELS = [
   { value: 'default', name: 'Default' },
@@ -280,6 +325,8 @@ async function prompt({ sessionId, prompt: blocks }, client) {
               patch: JSON.parse(readFileSync(argAfter('--patch'), 'utf8')),
             }
           : null,
+        agentEnv: Object.fromEntries(AGENT_ENV.filter((k) => process.env[k]).map((k) => [k, process.env[k]])),
+        agentInstructions: agentInstructions(),
         mcpServers: s.mcpServers,
         prompt: text,
         blocks: blocks.map((b) =>

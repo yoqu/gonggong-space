@@ -5,5 +5,10 @@
   "codebuddy": ["codebuddy"],
   "pi": [],
   "deepseek": ["anthropic"],
-  "antigravity": []
+  "antigravity": [],
+  "opencode": [],
+  "qwen": ["openai"],
+  "kimi": ["anthropic", "openai"],
+  "goose": ["anthropic", "openai"],
+  "copilot": ["anthropic", "openai"]
 }

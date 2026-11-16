@@ -1,0 +1,61 @@
+{
+  "name": "agent-opencode",
+  "version": "1.0.0",
+  "title": "OpenCode",
+  "description": "Anomaly 的 OpenCode：在机器上用 ACP 运行，Bot 的指令经内联配置传入，用机器上 opencode auth login 的登录。",
+  "category": "agent",
+  "agents": ["opencode"],
+  "minDaemon": "0.4.22",
+  "entry": null,
+  "icon": "assets/icon.svg",
+  "permissions": ["exec"],
+  "license": "Apache-2.0",
+  "contributes": {
+    "agents": [
+      {
+        "id": "opencode",
+        "title": "OpenCode",
+        "vendor": "Anomaly",
+        "install": {
+          "npm": "@opencode/cli",
+          "bin": "opencode",
+          "script": null,
+          "brew": "opencode",
+          "minVersion": "2.0.0"
+        },
+        "acp": {
+          "kind": "native",
+          "args": ["acp"]
+        },
+        "systemPrompt": {
+          "via": "script"
+        },
+        "skills": {
+          "via": "link",
+          "dirs": [".agents/skills", ".opencode/skills"]
+        },
+        "tiers": null,
+        "provider": null,
+        "home": {
+          "env": null,
+          "default": ".config/opencode",
+          "config": "opencode.json"
+        },
+        "login": {
+          "checks": [
+            {
+              "type": "jsonKeys",
+              "file": "~/.local/share/opencode/auth.json"
+            }
+          ],
+          "loggedOut": false,
+          "command": "opencode auth login",
+          "hint": "按提示选择服务商，登录或填写 API Key"
+        },
+        "steeringDirs": [".opencode"],
+        "state": "opencode",
+        "launchScript": "contrib/agents/opencode/launch.mjs"
+      }
+    ]
+  }
+}

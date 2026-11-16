@@ -194,8 +194,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("未知方式", "unknown method"),
     ("已登录 · {how}", "Logged in · {how}"),
     (
-        "应为 claude、codex、gemini、codebuddy、pi、deepseek 或 antigravity",
-        "Expected claude, codex, gemini, codebuddy, pi, deepseek or antigravity",
+        "应为 claude、codex、gemini、codebuddy、pi、deepseek、antigravity、opencode、qwen、kimi、goose 或 copilot",
+        "Expected claude, codex, gemini, codebuddy, pi, deepseek, antigravity, opencode, qwen, kimi, goose or copilot",
     ),
     ("可选模型：{models}", "Models: {models}"),
     ("适配器未提供可选模型", "The adapter offers no models"),
@@ -253,8 +253,8 @@ pub(super) const EN: &[(&str, &str)] = &[
         "Deleted {name}; sessions using it start a new session on their next turn",
     ),
     (
-        "用法：gg provider use <claude|codex|gemini|codebuddy|deepseek> <id|official>",
-        "Usage: gg provider use <claude|codex|gemini|codebuddy|deepseek> <id|official>",
+        "用法：gg provider use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>",
+        "Usage: gg provider use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>",
     ),
     ("{agent} 本机默认供应商：{name}", "{agent} default provider on this machine: {name}"),
     (
@@ -425,8 +425,8 @@ pub(super) const EN: &[(&str, &str)] = &[
     ("HTTPS 正常", "HTTPS OK"),
     ("HTTP 正常（未加密）", "HTTP OK (unencrypted)"),
     (
-        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness 或 Antigravity CLI）",
-        "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness or Antigravity CLI)",
+        "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI、OpenCode、Qwen Code、Kimi Code、Goose 或 GitHub Copilot CLI）",
+        "No agent found (Claude Code, Codex, Gemini CLI, CodeBuddy, pi, DeepSeek Harness, Antigravity CLI, OpenCode, Qwen Code, Kimi Code, Goose or GitHub Copilot CLI)",
     ),
     (
         "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",
@@ -436,6 +436,10 @@ pub(super) const EN: &[(&str, &str)] = &[
     (
         "{agent} 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
         "{agent} needs Node.js ≥ {v} (this one is {current}). Upgrade Node.js in Settings → Agent tools",
+    ),
+    (
+        "{agent} 用第三方供应商时必须指定模型：请在供应商或 Bot 里选择模型",
+        "{agent} needs a model to run on a third-party provider: pick one on the provider or the bot",
     ),
     ("启动脚本 {script} 失败：{e}", "Launch script {script} failed: {e}"),
     ("超时", "timed out"),
