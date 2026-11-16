@@ -36,6 +36,19 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 Safety, risk, compliance, data governance, incident post-mortems, red-team findings, pre-launch reviews, board briefings that need a decision.
 
+## Linked edits
+
+- The page number is hand-typed twice on every slide — `.ts-chrome .ts-page` and the right span of `.ts-footer` (`03 / 08`) — and `runtime.js` never touches them: renumber both on every slide, total included, when slides are added, removed or reordered.
+- The `.ts-footer` left label restates the slide's topic (and the `.ts-alert-tag` text) — update it with the headline.
+- Status colours are restated as `rgba()` outside the variables: `--ts-red` as `rgba(224,49,74,…)`, `--ts-amber` as `rgba(217,119,6,…)`, `--ts-green` as `rgba(6,118,71,…)` in `.ts-alert-tag`, `.ts-alert-box` and `.ts-highlight-*`; the hazard stripes' dark band `#111318` is literal too.
+- The evidence slide's inline `<svg>` hardcodes the palette (`fill="#e0314a"`, `#067647`, `#14141a`, `#4a4955`, `#8a8892`) and the bar geometry (`rect` `y`/`height` with the value `<text>` `y` above it) — re-skin and rescale it by hand.
+- The decision asked on the cover `.ts-alert-box` reappears on the CTA slide (`今晚需要表决`) — edit both.
+- If you copy and edit `runtime.js`, keep its `window.deck = { slides, get index(), go }` line — the toolkit drives the deck through it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded.
+
 ## Checklist
 
 - [ ] The decision being asked is on the cover and again on the CTA, with an owner.

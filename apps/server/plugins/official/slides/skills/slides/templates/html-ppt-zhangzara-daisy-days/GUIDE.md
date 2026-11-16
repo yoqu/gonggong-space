@@ -42,6 +42,20 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- The script hard-codes the total three times — `if(current<10)` in the next-slide branch, `goToSlide(10)` on End, and `counter.textContent=id+' / 10'` in the IntersectionObserver — plus the initial `1 / 10` in `#slideCounter`; change all four to the real slide count or slides past 10 cannot be reached by keyboard.
+- Each `<section class="slide">` needs `id="slide-N"` numbered 1…N in order: `goToSlide(n)` scrolls to `#slide-n` and the observer derives the page number from the id.
+- `#navDots` holds one hand-written `.nav-dot data-slide="N"` per slide (the first carries `active`); add or remove a dot with every slide, because both the keyboard's "current slide" and `window.deck.index` are read from the active dot.
+- Keep the `window.deck={slides:…,get index(){…},go:n=>goToSlide(n+1)}` line when editing the script; deck-toolkit.js navigates through it.
+- `.slide-chart-bar` is inline SVG: each `<rect>` `fill` must match the `.legend-swatch` inline `background` of its legend row, its `y + height` must stay on the 250 baseline, and the value `<text>` sits 8px above the bar top.
+- `.slide-donut` arcs are `<circle>`s with `stroke-dasharray="<len> 377"` and a cumulative negative `stroke-dashoffset` (the sum of previous lengths); every arc `stroke` must match its `.d-legend-swatch` background.
+- Chart and decoration colours are hex literals inside the SVGs (e.g. `#F8635F`, `#8DE3B7`, `#85C5FE`, `#FDE366`, `#D4A5E8`), not `:root` variables, so changing `--coral` and friends does not re-tint them.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The scroll-snap container is flattened for print and the nav dots and counter are hidden.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

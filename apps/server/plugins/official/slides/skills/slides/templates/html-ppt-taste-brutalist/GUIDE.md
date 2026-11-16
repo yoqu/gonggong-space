@@ -58,6 +58,19 @@ This aesthetic is mechanical and instant.
 - A blinking caret on the cover (`▌`) and a single pulse on the live status dot. Nothing else moves.
 - The example is a vertical stack of 100vh slides with no script; if you add keyboard paging, keep it an instant scroll-to-next-section.
 
+## Linked edits
+
+- Every slide hand-writes its position three times: `.topbar` `SLIDE NN / 11`, `.botbar` `PAGE NN / 11` and the incrementing `SERIAL OPN-04 / 07NN` — renumber all of them (and the total) when slides change.
+- The deck length is also stated on the cover: `.stamp` `PKT · 04 / 11` and the lede `Eleven slides.`; section headers repeat the slide number in `.ascii-frame` (`05 / open risks …`).
+- The mission ID (`OPN-04`) and the cover numeral `.cover .num` (`04`) recur in every topbar, serial and the cover `<dl>` — rename them everywhere at once.
+- `--hazard` `#E61919` is repeated as `rgba(230,25,25,…)` in `--hazard-soft` and the `.alertbox` hazard-stripe gradient; `--green` `#4AF626` as `rgba(74,246,38,…)` in the status-dot shadow and `@keyframes pulse`; `.sev-md` uses a raw `#E0A819`.
+- The risk register `.risk .table` is a 6-column grid with one `.h` header row; the narrow-screen media query hides cells via `nth-child(6n+4/5/6)`, so adding or removing a column means updating the header, the grid template and those selectors.
+- The paging script at the end of `<body>` reads `.deck > .slide` and picks the current slide by `offsetTop` vs `scrollY` — keep slides as direct children of `.deck` in one vertical stack, and keep its `window.deck = { slides, index, go }` line.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The blinking caret and pulsing status dot print in a static state.
+
 ## Pre-flight
 
 - [ ] Substrate is charcoal, foreground is phosphor, only accent is hazard red

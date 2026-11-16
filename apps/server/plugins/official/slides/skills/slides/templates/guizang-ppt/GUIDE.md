@@ -160,6 +160,19 @@ No notes runtime. When notes are requested, put them in `<aside class="notes" hi
 
 Style anchors: Guizang's talk "One-Person Company: Organizations Folded by AI" (2026-04-22), the layout of *Monocle* magazine.
 
+## Linked edits
+
+- Theme swap is one block: `--ink`, `--ink-rgb`, `--paper`, `--paper-rgb`, `--paper-tint`, `--ink-tint` in the seed's `:root` change together, and each `-rgb` triplet must equal its hex — every overlay, nav dot and the ESC index use `rgba(var(--ink-rgb|--paper-rgb), …)`.
+- A slide's `light` / `dark` class (or `data-theme`) is read by `go()` to toggle `body.light-bg`, which swaps `canvas#bg-light` / `canvas#bg-dark` and the `#nav` dot colours; a slide with neither class is treated as dark, so changing a slide's theme is a class change, nothing else.
+- `.chrome` page numbers are hand-written (`03 / 09`, `Act II · 04 / 09`): adding, removing or reordering slides means rewriting the number and total on every slide.
+- Act labels repeat across the act divider `.kicker` (`Act II`) and the `.chrome` / `.foot` of that act's pages; renaming or inserting an act updates all of them.
+- `#deck` width (`total*100vw`) and the `#nav` dots are generated from the `.slide` count — don't hard-code either.
+- When editing the paging script keep `slides.forEach(…toggle('active'…))` (read by the host bridge) and the line `window.deck={slides:slides,get index(){return idx},go:function(n){lock=false;go(n)}};`; keep `lucide.createIcons()` after the Lucide `<script>` or `<i data-lucide>` icons stay blank.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The WebGL backgrounds (`canvas#bg-dark` / `canvas#bg-light`) sit outside `#deck` and are hidden in print; the seed's `@media print` rule gives `.slide` a paper fill and `.slide.dark` an ink fill instead — keep it.
+
 ## Source & license
 
 Adapted from [`op7418/guizang-ppt-skill`](https://github.com/op7418/guizang-ppt-skill) — MIT, Copyright (c) 2026 op7418 (歸藏). The full license ships at [`LICENSE`](./LICENSE); keep it with any copy of the seed, example or references.

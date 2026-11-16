@@ -42,6 +42,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Each layout is styled through its class `.slide-1` … `.slide-10` (ground colour, grid and all child rules): the number is a layout id, not a page number — a duplicated slide keeps its `slide-N` class, and reordering moves the class with the markup.
+- `updateNav()` decides dark nav chrome from a hard-coded class list (`slide-2`, `slide-4`, `slide-6`, `slide-8` — the cream layouts); a new cream-ground layout class must be added there or the dots, counter and arrows stay pale on cream.
+- `.section-label` numbering is hand-written (`01 / Market Moment`, `02 / Pipeline Math`, `03 / Launch Calendar`); renumber in order after adding, removing or reordering sections.
+- The funnel slide's `initChart()` (`#growthChart`) holds the labels, both `datasets` and literal colours `#E85D5D` / `#1A1A1A` / `#6B6B6B` / `#B0B0B0`; the `.header-right .stat-number` and `.chart-sidebar .value` figures beside it must agree with that data.
+- Palette literals outside `:root`: the cover `.zigzag-layer` SVG strokes `#1A1A1A`, the closing `.zigzag-deco` path `fill="black"`, and the chart colours above.
+- When editing the script keep `updateNav()` (toggles `.slide.active`) and the line `window.deck = { slides: Array.from(slides), get index() { return currentSlide; }, go: function (n) { goToSlide(n); } };`; `#slideCounter` text and the dots are generated.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The Chart.js funnel is a canvas drawn at the on-screen size and 300 ms after load — print from a desktop-size window once it has rendered.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

@@ -1455,7 +1455,7 @@
 
 <script>
 (function() {
-  const totalSlides = 10;
+  const totalSlides = document.querySelectorAll('.slide').length;
   let currentSlide = 0;
   const container = document.getElementById('slidesContainer');
   const counter = document.getElementById('slideCounter');
@@ -1478,6 +1478,7 @@
     triggerAnimations(currentSlide);
   }
 
+  window.deck = { slides: Array.from(document.querySelectorAll('.slide')), get index() { return currentSlide; }, go: function (n) { goToSlide(n); } };
   function goToSlide(index) {
     if (index < 0 || index >= totalSlides) return;
     currentSlide = index;

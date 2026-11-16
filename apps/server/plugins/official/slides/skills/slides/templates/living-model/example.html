@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>野径咖啡 · 2027 新店扩张模型</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --bg:#f3f1eb;--card:#fffdf8;--line:#dcd7cb;--soft:#e8e4d9;--ink:#15191d;--mute:#62676c;
+  --acc:#1d6a4e;--acc-t:#d5e7dc;--neg:#b3442a;--neg-t:#f2dbd2;--warn:#a8741a;
+  --sans:"Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono",Menlo,Consolas,"PingFang SC","Noto Sans SC","Microsoft YaHei",monospace;
+}
+.slide{background:var(--bg);color:var(--ink);font-family:var(--sans);box-sizing:border-box;padding:64px 96px 0;font-size:30px;line-height:1.45}
+.slide *{box-sizing:border-box}
+.num,.kpi b,.knob b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hd{height:150px;display:flex;flex-direction:column;gap:12px}
+.tag{font:500 24px/1 var(--mono);color:var(--acc);letter-spacing:.06em}
+h1,h2{margin:0;font-weight:700;letter-spacing:-.01em}
+h2{font-size:60px;line-height:1.15}
+.ft{position:absolute;left:96px;right:96px;bottom:30px;display:flex;justify-content:space-between;font:20px/1 var(--mono);color:var(--mute);border-top:1px solid var(--line);padding-top:14px}
+/* model layout */
+.model{display:grid;grid-template-columns:560px 1fr;gap:56px;height:770px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px 32px;display:flex;flex-direction:column;gap:12px}
+.ph{display:flex;justify-content:space-between;align-items:center;font:500 22px/1 var(--mono);color:var(--mute);letter-spacing:.08em;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.panel button,.seg button{font:500 22px/1 var(--mono);color:var(--ink);background:none;border:1px solid var(--line);border-radius:4px;padding:10px 14px;cursor:pointer}
+.panel button:hover,.seg button:hover{border-color:var(--ink)}
+.knob{padding-top:6px;touch-action:none;user-select:none;-webkit-user-select:none}
+.kl{display:flex;justify-content:space-between;align-items:baseline;font-size:28px}
+.kl b{font-size:30px;font-weight:600}
+.knob.dirty .kl b{color:var(--acc)}
+.tr{position:relative;height:44px;cursor:ew-resize}
+.tr::before{content:"";position:absolute;left:0;right:0;top:19px;height:6px;background:var(--soft);border-radius:3px}
+.tr .fill{position:absolute;left:0;top:19px;height:6px;background:var(--ink);border-radius:3px}
+.tr .def{position:absolute;top:10px;width:2px;height:24px;margin-left:-1px;background:var(--mute);opacity:.55}
+.tr .th{position:absolute;top:4px;width:18px;height:36px;margin-left:-9px;background:var(--card);border:3px solid var(--ink);border-radius:4px;transition:transform .12s}
+.knob.drag .th{transform:scaleY(1.12);border-color:var(--acc)}
+.mm{display:flex;justify-content:space-between;font:20px/1 var(--mono);color:var(--mute)}
+.note{font-size:28px;color:var(--mute);line-height:1.5;margin:28px 0 0;padding-top:24px;border-top:1px dashed var(--line)}
+.view{display:flex;flex-direction:column;gap:18px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.kpi{border-top:3px solid var(--ink);padding-top:12px}
+.kpi b{display:block;font-size:76px;line-height:1.05;font-weight:600;letter-spacing:-.02em;transition:color .2s}
+.kpi span{font-size:28px;color:var(--mute)}
+.kpi[data-tone=pos] b{color:var(--acc)}
+.kpi[data-tone=neg] b{color:var(--neg)}
+.kpi[data-tone=neg]{border-color:var(--neg)}
+.chart{display:block;width:100%;height:520px}
+.fx{margin:0;font:500 28px/1.3 var(--mono);color:var(--mute);white-space:nowrap}
+.fx em{font-style:normal;color:var(--ink)}
+svg text{font-family:var(--mono)}
+.gl{stroke:var(--line);stroke-width:1}
+.ax{font-size:22px;fill:var(--mute)}
+.lb{font:600 26px var(--sans);fill:var(--ink)}
+.lbm{font-size:24px;fill:var(--mute)}
+.seg{display:flex;gap:0}
+.seg button{flex:1;border-radius:0;font-size:26px;padding:14px 0;margin-left:-1px}
+.seg button:first-child{border-radius:4px 0 0 4px}
+.seg button:last-child{border-radius:0 4px 4px 0}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* cover */
+.s-cover{padding:96px 96px 0;display:grid;grid-template-columns:1fr 600px;gap:80px;align-items:center}
+.s-cover h1{font-size:112px;line-height:1.02;letter-spacing:-.03em;margin:28px 0 36px}
+.s-cover h1 small{display:block;font-size:56px;font-weight:500;letter-spacing:0;color:var(--mute);margin-bottom:14px}
+.lead{font-size:36px;line-height:1.5;margin:0;max-width:880px}
+.meta{margin-top:56px;font:24px/1.6 var(--mono);color:var(--mute)}
+.try{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:40px 44px;display:flex;flex-direction:column;gap:20px}
+.try .big{font:600 120px/1 var(--mono);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.try .big small{font-size:44px;margin-left:8px}
+.try[data-tone=neg] .big{color:var(--neg)}
+.try[data-tone=pos] .big{color:var(--acc)}
+.cap{font-size:28px;color:var(--mute)}
+.pulse{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--acc);margin-right:12px;vertical-align:middle;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+/* agenda */
+.grid6{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:28px;height:760px}
+.cell{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:36px 40px;display:flex;flex-direction:column;gap:14px}
+.cell .n{font:600 28px/1 var(--mono);color:var(--acc)}
+.cell h3{margin:0;font-size:44px;line-height:1.15}
+.cell p{margin:0;font-size:30px;line-height:1.45}
+.cell .d{margin-top:auto;font:26px/1.3 var(--mono);color:var(--mute);border-top:1px dashed var(--line);padding-top:18px}
+.cell .d b{display:block;font-size:60px;font-weight:600;color:var(--ink);letter-spacing:-.02em;margin-bottom:6px}
+/* takeaways */
+.two{display:grid;grid-template-columns:780px 1fr;gap:96px;height:760px;align-items:center}
+.claim{font-size:60px;line-height:1.25;font-weight:700;margin:0;letter-spacing:-.01em}
+.claim em{font-style:normal;color:var(--acc)}
+.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rows li{display:grid;grid-template-columns:300px 1fr;gap:32px;padding:34px 0;border-top:1px solid var(--line);align-items:baseline}
+.rows li:last-child{border-bottom:1px solid var(--line)}
+.rows .num{font-size:48px;font-weight:600}
+.rows .neg{color:var(--neg)}
+.rows p{margin:0;font-size:30px}
+/* formulas */
+.fx-table{width:100%;border-collapse:collapse;font-size:28px}
+.fx-table td{padding:34px 0;border-top:1px solid var(--line);vertical-align:top}
+.fx-table tr:last-child td{border-bottom:1px solid var(--line)}
+.fx-table td:first-child{width:300px;font-weight:600}
+.fx-table td:nth-child(2){font-family:var(--mono);font-size:32px}
+.fx-table td:last-child{width:360px;color:var(--mute);font:24px/1.45 var(--mono);text-align:right}
+/* end */
+.s-end{display:flex;flex-direction:column;justify-content:center;padding:0 160px}
+.s-end h2{font-size:104px;line-height:1.1;letter-spacing:-.03em}
+.s-end p{font-size:36px;color:var(--mute);margin:40px 0 0;max-width:1300px}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}.kpi b,.tr .th{transition:none}}
+@media print{.slide{-webkit-print-color-adjust:exact;print-color-adjust:exact}.panel button,.seg button:not(.on){opacity:.5}.pulse{animation:none}}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<div class="deck">
+
+  <section class="slide s-cover" data-section="cover" data-title="封面">
+    <div>
+      <span class="tag">野径咖啡 · 经营分析部 · 董事会预读</span>
+      <h1><small>野径咖啡</small>2027 新店扩张模型</h1>
+      <p class="lead">把假设摆上台面：六个能在台上拖动的模型，每个结论都能追到一条公式。</p>
+      <div class="meta">基准值：4 家试点店 2026 年 1–10 月均值（示例数据）<br>2026.11.20 · 第 3 版</div>
+    </div>
+    <div class="try" data-model="cover">
+      <div class="cap"><span class="pulse"></span>试一下：拖动日杯数</div>
+      <div class="knob" data-k="cups" data-min="100" data-max="600" data-inc="2" data-v="336" data-u=" 杯">单店日杯数</div>
+      <div class="cap">单店月利润</div>
+      <div class="big"><span data-o="profit"></span><small>万元</small></div>
+      <div class="cap" data-o="hint"></div>
+    </div>
+    <aside class="notes">今天不念结论，而是把模型摆上台。右边这个滑块就是演示方式：日杯数从 336 往下拖到 250 左右，单店就开始亏钱。后面六页都是同一套做法，左边是参数，右边是图和结论，各位对哪个假设有疑问，随时喊停，我们现场改数。</aside>
+  </section>
+
+  <section class="slide" data-section="agenda" data-title="六个问题">
+    <header class="hd"><span class="tag">目录 / 六个问题</span><h2>扩张决策拆成六个可以单独争论的问题</h2></header>
+    <div class="grid6">
+      <div class="cell"><span class="n">01 增长漏斗</span><h3>一天能卖多少杯？</h3><p>从商圈客流推到日订单。</p><span class="d"><b>336</b>基准杯数 / 日</span></div>
+      <div class="cell"><span class="n">02 单位经济</span><h3>会员值多少钱？</h3><p>LTV 与获客成本之比。</p><span class="d"><b>3.6×</b>基准比值，2.5 个月回本</span></div>
+      <div class="cell"><span class="n">03 盈亏平衡</span><h3>多少杯才不亏？</h3><p>固定成本 ÷ 每杯边际贡献。</p><span class="d"><b>254</b>平衡杯数 / 日</span></div>
+      <div class="cell"><span class="n">04 现金跑道</span><h3>钱够开几家？</h3><p>开店节奏决定断粮月份。</p><span class="d"><b>19 月</b>每月 1 家时的现金跑道</span></div>
+      <div class="cell"><span class="n">05 敏感性</span><h3>哪个假设最要命？</h3><p>单变量 ±20% 的利润摆幅。</p><span class="d"><b>客单价</b>摆幅最大的变量</span></div>
+      <div class="cell"><span class="n">06 情景对比</span><h3>坏情况有多坏？</h3><p>乐观 / 基准 / 悲观三套参数。</p><span class="d"><b>&gt; 36 月</b>悲观情景的回本时间</span></div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>02</span></footer>
+    <aside class="notes">六个模型按决策顺序排：先估一家店能卖多少，再看每个会员值多少钱、多少杯才不亏，然后放大到公司层面看现金够不够，最后做敏感性和情景。每个格子下面是基准结论，后面每页都可以把参数拖回这个数。</aside>
+  </section>
+
+  <section class="slide" data-section="funnel" data-title="增长漏斗">
+    <header class="hd"><span class="tag">模型 01 / 增长漏斗</span><h2>一家新店一天能卖出多少杯？</h2></header>
+    <div class="model" data-model="funnel">
+      <div class="panel">
+        <div class="ph">参数<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="knob" data-k="traffic" data-min="2000" data-max="20000" data-inc="500" data-v="8000" data-u=" 人">商圈日客流</div>
+        <div class="knob" data-k="enter" data-min="1" data-max="15" data-inc="0.5" data-v="6" data-d="1" data-u="%">进店率</div>
+        <div class="knob" data-k="buy" data-min="30" data-max="95" data-inc="1" data-v="70" data-u="%">进店下单率</div>
+        <div class="knob" data-k="join" data-min="5" data-max="60" data-inc="1" data-v="25" data-u="%">注册会员率</div>
+        <div class="knob" data-k="price" data-min="20" data-max="50" data-inc="1" data-v="32" data-u=" 元">客单价</div>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="orders"></b><span>日订单（杯）</span></div>
+          <div class="kpi"><b data-o="rev"></b><span>月营收（万元）</span></div>
+          <div class="kpi"><b data-o="members"></b><span>月新增会员</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>日订单</em> = 日客流 × 进店率 × 下单率　<em>月营收</em> = 日订单 × 客单价 × 30</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>03</span></footer>
+    <aside class="notes">漏斗最敏感的是进店率。试点店的进店率在 4% 到 8% 之间，基准取 6%。可以现场把进店率拖到 4%，日订单会掉到两百出头，已经低于下一页要讲的盈亏平衡线。所以选址评估时，门头可见度要单独打分。</aside>
+  </section>
+
+  <section class="slide" data-section="ltv-cac" data-title="LTV / CAC">
+    <header class="hd"><span class="tag">模型 02 / 单位经济</span><h2>一个会员带来的毛利，能覆盖几次获客？</h2></header>
+    <div class="model" data-model="ltv">
+      <div class="panel">
+        <div class="ph">参数<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="knob" data-k="price" data-min="20" data-max="50" data-inc="1" data-v="32" data-u=" 元">客单价</div>
+        <div class="knob" data-k="margin" data-min="30" data-max="80" data-inc="1" data-v="62" data-u="%">毛利率</div>
+        <div class="knob" data-k="freq" data-min="0.5" data-max="6" data-inc="0.1" data-v="2.4" data-d="1" data-u=" 次">月均到店</div>
+        <div class="knob" data-k="life" data-min="1" data-max="24" data-inc="1" data-v="9" data-u=" 月">会员生命周期</div>
+        <div class="knob" data-k="cac" data-min="20" data-max="300" data-inc="5" data-v="120" data-u=" 元">获客成本 CAC</div>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="ltv"></b><span>LTV（元）</span></div>
+          <div class="kpi"><b data-o="ratio"></b><span>LTV / CAC</span></div>
+          <div class="kpi"><b data-o="payback"></b><span>CAC 回本（月）</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>LTV</em> = 客单价 × 毛利率 × 月均到店 × 生命周期</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>04</span></footer>
+    <aside class="notes">绿色线是一个会员累计贡献的毛利，红色虚线是获客成本，交点就是回本月。行业常用 3 倍作为健康线，我们基准是 3.6 倍。市场部提议把首杯券加到 150 元的获客成本，可以拖一下 CAC 看看，比值会降到 2.9，跌破健康线。</aside>
+  </section>
+
+  <section class="slide" data-section="breakeven" data-title="盈亏平衡">
+    <header class="hd"><span class="tag">模型 03 / 盈亏平衡</span><h2>每天卖到多少杯，一家店才不亏钱？</h2></header>
+    <div class="model" data-model="breakeven">
+      <div class="panel">
+        <div class="ph">参数<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="knob" data-k="rent" data-min="3" data-max="12" data-inc="0.1" data-v="6.5" data-d="1" data-u=" 万">月租金</div>
+        <div class="knob" data-k="labor" data-min="4" data-max="12" data-inc="0.1" data-v="7.2" data-d="1" data-u=" 万">月人力</div>
+        <div class="knob" data-k="price" data-min="20" data-max="50" data-inc="1" data-v="32" data-u=" 元">客单价</div>
+        <div class="knob" data-k="cost" data-min="6" data-max="18" data-inc="0.5" data-v="11" data-d="1" data-u=" 元">单杯变动成本</div>
+        <div class="knob" data-k="cups" data-min="100" data-max="600" data-inc="2" data-v="336" data-u=" 杯">预计日杯数</div>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="be"></b><span>盈亏平衡（杯/日）</span></div>
+          <div class="kpi"><b data-o="profit"></b><span>月利润（万元）</span></div>
+          <div class="kpi"><b data-o="safety"></b><span>安全边际</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>平衡点</em> = (租金 + 人力 + 其他 2.3 万) ÷ 30 ÷ (客单价 − 单杯成本)</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>05</span></footer>
+    <aside class="notes">两条线的交点就是盈亏平衡，基准是每天 254 杯，预计 336 杯，安全边际 24%。房东谈判时最常问的是租金能涨多少：把月租金拖到 9 万，平衡点会升到 286 杯，安全边际只剩 15%，这就是我们的租金上限。</aside>
+  </section>
+
+  <section class="slide" data-section="runway" data-title="现金跑道">
+    <header class="hd"><span class="tag">模型 04 / 现金跑道</span><h2>按这个节奏开店，钱能撑到第几个月？</h2></header>
+    <div class="model" data-model="runway">
+      <div class="panel">
+        <div class="ph">参数<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="knob" data-k="cash" data-min="500" data-max="4000" data-inc="50" data-v="1800" data-u=" 万">账上现金</div>
+        <div class="knob" data-k="pace" data-min="0" data-max="4" data-inc="1" data-v="1" data-u=" 家">每月新开店</div>
+        <div class="knob" data-k="capex" data-min="50" data-max="180" data-inc="5" data-v="90" data-u=" 万">单店开办投入</div>
+        <div class="knob" data-k="hq" data-min="10" data-max="100" data-inc="5" data-v="40" data-u=" 万">总部月费用</div>
+        <div class="knob" data-k="mature" data-min="-2" data-max="12" data-inc="0.1" data-v="5.2" data-d="1" data-u=" 万">成熟店月利润</div>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="runway"></b><span>现金跑道（月）</span></div>
+          <div class="kpi"><b data-o="gap"></b><span>最大资金缺口（万元）</span></div>
+          <div class="kpi"><b data-o="stores"></b><span>第 48 个月门店数</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>月现金</em> = 上月 − 新店数 × 开办投入 − 总部费用 + Σ 各店利润</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>06</span></footer>
+    <aside class="notes">新店前 6 个月是爬坡期，从月亏 3 万线性爬到成熟利润。每月开 1 家，第 19 个月现金跌破零，最大缺口约 275 万。所以下一轮融资要在 2028 年中之前到账。如果节奏拖到每月 2 家，第 9 个月就断粮，这是我们不建议激进扩张的原因。</aside>
+  </section>
+
+  <section class="slide" data-section="tornado" data-title="敏感性分析">
+    <header class="hd"><span class="tag">模型 05 / 敏感性</span><h2>哪个假设估错了，代价最大？</h2></header>
+    <div class="model" data-model="tornado">
+      <div class="panel">
+        <div class="ph">参数<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="knob" data-k="swing" data-min="5" data-max="50" data-inc="1" data-v="20" data-u="%">单变量波动 ±</div>
+        <div class="knob" data-k="cups" data-min="150" data-max="600" data-inc="2" data-v="336" data-u=" 杯">基准日杯数</div>
+        <p class="note">每根条：只让一个变量上下浮动，其余保持基准，看单店月利润变化多少。深色 = 变量调高，浅色 = 调低。</p>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="base"></b><span>基准月利润（万元）</span></div>
+          <div class="kpi"><b data-o="top"></b><span>最敏感变量</span></div>
+          <div class="kpi"><b data-o="worst"></b><span>单项最坏（万元）</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>月利润</em> = 日杯数 × 30 × (客单价 − 单杯成本) − 租金 − 人力 − 其他</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>07</span></footer>
+    <aside class="notes">龙卷风图按摆幅从大到小排。客单价影响最大，其次是日杯数，租金和人力反而靠后。结论是：与其在租金上多砍两千，不如守住客单价，不轻易做买一送一。把波动拖到 30%，客单价调低这一项单店就会亏损。</aside>
+  </section>
+
+  <section class="slide" data-section="scenarios" data-title="情景对比">
+    <header class="hd"><span class="tag">模型 06 / 情景对比</span><h2>同一家店，三种世界里多久回本？</h2></header>
+    <div class="model" data-model="scenario">
+      <div class="panel">
+        <div class="ph">情景<button type="button" class="reset" tabindex="-1">复位</button></div>
+        <div class="seg"><button type="button" tabindex="-1" data-scn="up">乐观</button><button type="button" tabindex="-1" data-scn="base" class="on">基准</button><button type="button" tabindex="-1" data-scn="down">悲观</button></div>
+        <div class="knob" data-k="cups" data-min="150" data-max="600" data-inc="2" data-v="336" data-u=" 杯">日杯数</div>
+        <div class="knob" data-k="price" data-min="20" data-max="50" data-inc="1" data-v="32" data-u=" 元">客单价</div>
+        <div class="knob" data-k="cost" data-min="6" data-max="18" data-inc="0.5" data-v="11" data-d="1" data-u=" 元">单杯变动成本</div>
+        <div class="knob" data-k="capex" data-min="50" data-max="180" data-inc="5" data-v="90" data-u=" 万">开办投入</div>
+      </div>
+      <div class="view">
+        <div class="kpis">
+          <div class="kpi"><b data-o="payback"></b><span>回本（第 N 月）</span></div>
+          <div class="kpi"><b data-o="mature"></b><span>成熟月利润（万元）</span></div>
+          <div class="kpi"><b data-o="cum"></b><span>36 个月累计（万元）</span></div>
+        </div>
+        <svg class="chart" viewBox="0 0 1112 520"></svg>
+        <p class="fx"><em>累计现金</em> = −开办投入 + Σ 月利润（前 6 月爬坡）</p>
+      </div>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>08</span></footer>
+    <aside class="notes">三条细线是三套预设，粗线是当前参数。乐观情景第 10 个月回本，基准第 22 个月，悲观情景日杯数只有 250，成熟后仍月亏，36 个月都回不了本。点按钮切换情景，滑块会跟着跳到那套参数，也可以在此基础上再微调。</aside>
+  </section>
+
+  <section class="slide" data-section="takeaways" data-title="结论">
+    <header class="hd"><span class="tag">结论 / 基准参数下</span><h2>建议：每月 1 家，守住四条红线</h2></header>
+    <div class="two">
+      <p class="claim">每月开 1 家，下一轮融资必须在<em>第 19 个月</em>前到账。</p>
+      <ul class="rows">
+        <li data-step><span class="num">≥ 254 杯</span><p>单店日杯数下限，测算低于不签约。</p></li>
+        <li data-step><span class="num">≥ 3.0×</span><p>会员 LTV / CAC 下限，倒推券预算。</p></li>
+        <li data-step><span class="num">≤ 9 万</span><p>单店月租金上限，安全边际 15%。</p></li>
+        <li data-step><span class="num neg">≥ 275 万</span><p>2028 年中前需补足的资金缺口。</p></li>
+      </ul>
+    </div>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>09</span></footer>
+    <aside class="notes">四条红线都来自前面的模型，基准参数下成立。这页按右键逐条出现。需要董事会拍板的是第一句：开店节奏和融资时间绑定。如果融资推迟，我们就把节奏降到每两个月 1 家，模型显示这样 48 个月内现金不会跌破零。</aside>
+  </section>
+
+  <section class="slide" data-section="formulas" data-title="公式附录">
+    <header class="hd"><span class="tag">附录 / 全部公式</span><h2>所有结论都能追到这六行</h2></header>
+    <table class="fx-table">
+      <tr><td>增长漏斗</td><td>日订单 = 日客流 × 进店率 × 下单率</td><td>客流：商圈热力数据</td></tr>
+      <tr><td>LTV</td><td>客单价 × 毛利率 × 月均到店 × 生命周期</td><td>会员系统 10 个月均值</td></tr>
+      <tr><td>盈亏平衡</td><td>固定成本 ÷ 30 ÷ (客单价 − 单杯成本)</td><td>其他固定 2.3 万/月</td></tr>
+      <tr><td>现金跑道</td><td>现金 −= 开店投入 + 总部费用 − Σ 店利润</td><td>爬坡 6 个月，首月 −3 万</td></tr>
+      <tr><td>敏感性</td><td>Δ利润 = f(变量 × (1 ± 波动)) − f(基准)</td><td>每次只动一个变量</td></tr>
+      <tr><td>情景</td><td>累计 = −投入 + Σ 爬坡月利润 + Σ 成熟月利润</td><td>三套预设见备注</td></tr>
+    </table>
+    <footer class="ft"><span>野径咖啡 · 2027 新店扩张模型</span><span>10</span></footer>
+    <aside class="notes">附录给财务同事核对用。三套情景预设：乐观为日杯数 420、客单价 34、单杯成本 10.5、投入 85 万；基准为 336、32、11、90 万；悲观为 250、30、12、100 万。所有数据为示例，正式版会替换为 11 月结账数。</aside>
+  </section>
+
+  <section class="slide s-end" data-section="end" data-title="问答">
+    <span class="tag">野径咖啡 · 经营分析部</span>
+    <h2>报一个你不同意的数字，<br>我们现场改。</h2>
+    <p>模型文件随会议纪要发出，所有参数都能拖，所有公式都在附录页。</p>
+    <aside class="notes">最后留十五分钟问答。请各位直接报数字，比如“我觉得进店率只有 4%”，我们翻回对应那页拖到 4%，当场看结论变不变。会后把大家改过的参数组合记进纪要，作为下一版模型的悲观情景候选。</aside>
+  </section>
+
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+<script>
+/* Living models. Each model: calc(p) -> { o: {outputKey: text}, t: {outputKey: 'pos'|'neg'}, ...raw } and draw(r, p) -> SVG markup.
+   Params come from the .knob elements of the same [data-model] block (data-v = default). */
+(function () {
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var OTHER = 2.3, RAMP = 6, RAMP_START = -3; // 万元/月: other fixed costs; new store ramps from -3 to mature over 6 months
+  var SCN = {
+    up: { cups: 420, price: 34, cost: 10.5, capex: 85 },
+    base: { cups: 336, price: 32, cost: 11, capex: 90 },
+    down: { cups: 250, price: 30, cost: 12, capex: 100 }
+  };
+  var BASE = { cups: 336, price: 32, cost: 11, rent: 6.5, labor: 7.2 };
+
+  function n0(v) { return Math.round(v).toLocaleString('zh-CN'); }
+  function f1(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+  function profit(q) { return (q.cups * 30 * (q.price - q.cost)) / 1e4 - q.rent - q.labor - OTHER; } // 万元/月
+  function ramp(age, mature) { return age >= RAMP ? mature : RAMP_START + (mature - RAMP_START) * age / RAMP; }
+  function niceStep(raw) {
+    var p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+  }
+  function ticks(a, b, n) {
+    var s = niceStep((b - a) / n || 1), out = [];
+    for (var v = Math.ceil(a / s) * s; v <= b + 1e-9; v += s) out.push(+v.toFixed(6));
+    return out;
+  }
+  // plot frame: x/y domains -> pixel scales + gridlines + axis labels
+  function frame(o) {
+    var W = 1112, H = 520, L = o.l || 96, R = o.r || 40, T = 24, B = 56;
+    var X = function (v) { return L + (v - o.x[0]) / (o.x[1] - o.x[0]) * (W - L - R); };
+    var Y = function (v) { return H - B - (v - o.y[0]) / (o.y[1] - o.y[0]) * (H - T - B); };
+    var g = '';
+    ticks(o.y[0], o.y[1], 5).forEach(function (v) {
+      g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>' +
+        '<text class="ax" x="' + (L - 14) + '" y="' + (Y(v) + 8) + '" text-anchor="end">' + o.yf(v) + '</text>';
+    });
+    var xt = o.xt || ticks(o.x[0], o.x[1], 6);
+    xt.forEach(function (v, i) {
+      var last = i === xt.length - 1;
+      g += '<text class="ax" x="' + X(v) + '" y="' + (H - B + 34) + '" text-anchor="' + (last ? 'end' : i ? 'middle' : 'start') + '">' + o.xf(v) + (last ? ' ' + o.xl : '') + '</text>';
+    });
+    return { X: X, Y: Y, g: g, L: L, R: W - R, T: T, B: H - B };
+  }
+  function line(pts, X, Y) { return pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); }).join(''); }
+  function nice(v) { return niceStep(v / 5) * 5; }
+
+  var MODELS = {
+    cover: {
+      calc: function (p) {
+        var v = profit({ cups: p.cups, price: BASE.price, cost: BASE.cost, rent: BASE.rent, labor: BASE.labor });
+        var be = Math.ceil((BASE.rent + BASE.labor + OTHER) * 1e4 / 30 / (BASE.price - BASE.cost));
+        return { o: { profit: f1(v), hint: v >= 0 ? '高于盈亏平衡 ' + be + ' 杯/日' : '低于盈亏平衡 ' + be + ' 杯/日，单店亏损' }, t: { self: v >= 0 ? 'pos' : 'neg' } };
+      }
+    },
+    funnel: {
+      calc: function (p) {
+        var visit = p.traffic * p.enter / 100, orders = visit * p.buy / 100, join = orders * p.join / 100;
+        return { stages: [['商圈客流', p.traffic], ['进店', visit], ['下单', orders], ['注册会员', join]],
+          o: { orders: n0(orders), rev: f1(orders * p.price * 30 / 1e4), members: n0(join * 30) },
+          t: { orders: orders >= 254 ? 'pos' : 'neg' } };
+      },
+      draw: function (r) {
+        var W = 1112, cx = 640, max = Math.log10(20001), s = '', h = 92, gap = 26, y = 20;
+        r.stages.forEach(function (st, i) {
+          var w = Math.max(60, 880 * Math.log10(st[1] + 1) / max), prev = i ? r.stages[i - 1][1] : 0;
+          s += '<rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="3" fill="' + (i === 2 ? 'var(--acc)' : i === 3 ? 'var(--acc-t)' : 'var(--ink)') + '" opacity="' + (i < 2 ? (i ? .78 : .9) : 1) + '"/>' +
+            '<text class="lb" x="40" y="' + (y + 56) + '">' + st[0] + '</text>' +
+            '<text x="' + cx + '" y="' + (y + 60) + '" text-anchor="middle" font-size="36" font-weight="600" fill="' + (i === 3 ? 'var(--ink)' : 'var(--card)') + '">' + n0(st[1]) + '</text>';
+          if (i) s += '<text class="ax" x="' + (W - 10) + '" y="' + (y - 4) + '" text-anchor="end">↓ ' + (st[1] / prev * 100).toFixed(1) + '%</text>';
+          y += h + gap;
+        });
+        return s + '<text class="lbm" x="' + (W - 10) + '" y="' + (y + 20) + '" text-anchor="end">条宽为对数刻度 · 单位：人或单 / 日</text>';
+      }
+    },
+    ltv: {
+      calc: function (p) {
+        var m = p.price * p.margin / 100 * p.freq, ltv = m * p.life, ratio = ltv / p.cac, pb = p.cac / m;
+        return { m: m, ltv: ltv, pb: pb,
+          o: { ltv: n0(ltv), ratio: ratio.toFixed(1) + '×', payback: pb > p.life ? '不回本' : pb.toFixed(1) },
+          t: { ratio: ratio >= 3 ? 'pos' : 'neg', payback: pb > p.life ? 'neg' : '' } };
+      },
+      draw: function (r, p) {
+        var top = nice(Math.max(r.ltv, p.cac) * 1.15);
+        var f = frame({ x: [0, 24], y: [0, top], xf: function (v) { return v; }, yf: n0, xl: '月', xt: [0, 4, 8, 12, 16, 20, 24] });
+        var pts = [];
+        for (var mo = 0; mo <= 24; mo++) pts.push([mo, r.m * Math.min(mo, p.life)]);
+        var s = f.g + '<path d="' + line(pts, f.X, f.Y) + 'L' + f.X(24) + ' ' + f.Y(0) + 'L' + f.X(0) + ' ' + f.Y(0) + 'Z" fill="var(--acc-t)" opacity=".6"/>' +
+          '<path d="' + line(pts, f.X, f.Y) + '" fill="none" stroke="var(--acc)" stroke-width="5"/>' +
+          '<line x1="' + f.L + '" x2="' + f.R + '" y1="' + f.Y(p.cac) + '" y2="' + f.Y(p.cac) + '" stroke="var(--neg)" stroke-width="3" stroke-dasharray="12 8"/>' +
+          '<text class="lb" x="' + (f.R - 8) + '" y="' + (f.Y(p.cac) + (p.cac > r.ltv ? -14 : 38)) + '" text-anchor="end" style="fill:var(--neg)">CAC ' + p.cac + ' 元</text>' +
+          '<text class="lb" x="' + (f.R - 8) + '" y="' + (f.Y(r.ltv) - 16) + '" text-anchor="end">LTV ' + n0(r.ltv) + ' 元</text>';
+        if (r.pb <= p.life) s += '<circle cx="' + f.X(r.pb) + '" cy="' + f.Y(p.cac) + '" r="11" fill="var(--card)" stroke="var(--ink)" stroke-width="4"/>' +
+          '<text class="ax" x="' + (f.X(r.pb) + 18) + '" y="' + (f.Y(p.cac) + 38) + '">回本 ' + r.pb.toFixed(1) + ' 月</text>';
+        return s;
+      }
+    },
+    breakeven: {
+      calc: function (p) {
+        var fixed = p.rent + p.labor + OTHER, unit = p.price - p.cost;
+        var be = unit > 0 ? fixed * 1e4 / 30 / unit : Infinity, pr = profit(p), sm = (p.cups - be) / p.cups;
+        return { fixed: fixed, be: be, pr: pr,
+          o: { be: isFinite(be) ? n0(Math.ceil(be)) : '—', profit: f1(pr), safety: !isFinite(be) || sm < -1 ? '< −100%' : Math.round(sm * 100) + '%' },
+          t: { profit: pr >= 0 ? 'pos' : 'neg', safety: sm >= .15 ? 'pos' : 'neg' } };
+      },
+      draw: function (r, p) {
+        var X1 = 600, rev = function (c) { return c * 30 * p.price / 1e4; }, cost = function (c) { return r.fixed + c * 30 * p.cost / 1e4; };
+        var top = nice(Math.max(rev(X1), cost(X1)));
+        var f = frame({ x: [0, X1], y: [0, top], xf: function (v) { return v; }, yf: function (v) { return v + '万'; }, xl: '杯/日', xt: [0, 100, 200, 300, 400, 500, 600] });
+        var be = Math.min(r.be, X1), s = f.g;
+        s += '<path d="M' + f.X(0) + ' ' + f.Y(rev(0)) + 'L' + f.X(be) + ' ' + f.Y(rev(be)) + 'L' + f.X(be) + ' ' + f.Y(cost(be)) + 'L' + f.X(0) + ' ' + f.Y(cost(0)) + 'Z" fill="var(--neg-t)"/>';
+        if (be < X1) s += '<path d="M' + f.X(be) + ' ' + f.Y(rev(be)) + 'L' + f.X(X1) + ' ' + f.Y(rev(X1)) + 'L' + f.X(X1) + ' ' + f.Y(cost(X1)) + 'Z" fill="var(--acc-t)"/>';
+        s += '<path d="M' + f.X(0) + ' ' + f.Y(rev(0)) + 'L' + f.X(X1) + ' ' + f.Y(rev(X1)) + '" stroke="var(--acc)" stroke-width="5"/>' +
+          '<path d="M' + f.X(0) + ' ' + f.Y(cost(0)) + 'L' + f.X(X1) + ' ' + f.Y(cost(X1)) + '" stroke="var(--ink)" stroke-width="4"/>' +
+          '<path d="M' + (f.R - 330) + ' ' + (f.B - 24) + 'h44" stroke="var(--acc)" stroke-width="5"/><text class="lb" x="' + (f.R - 274) + '" y="' + (f.B - 15) + '">营收</text>' +
+          '<path d="M' + (f.R - 170) + ' ' + (f.B - 24) + 'h44" stroke="var(--ink)" stroke-width="4"/><text class="lb" x="' + (f.R - 114) + '" y="' + (f.B - 15) + '">总成本</text>' +
+          '<line x1="' + f.X(p.cups) + '" x2="' + f.X(p.cups) + '" y1="' + f.T + '" y2="' + f.B + '" stroke="var(--ink)" stroke-width="2" stroke-dasharray="6 6"/>' +
+          '<text class="ax" x="' + (f.X(p.cups) + (p.cups > 470 ? -12 : 12)) + '" y="' + (f.T + 24) + '" text-anchor="' + (p.cups > 470 ? 'end' : 'start') + '">预计 ' + p.cups + ' 杯</text>';
+        if (r.be <= X1) s += '<circle cx="' + f.X(r.be) + '" cy="' + f.Y(rev(r.be)) + '" r="12" fill="var(--card)" stroke="var(--ink)" stroke-width="4"/>';
+        return s;
+      }
+    },
+    runway: {
+      calc: function (p) {
+        var cash = p.cash, ages = [], pts = [[0, cash]], out = null, min = cash;
+        for (var m = 1; m <= 48; m++) {
+          for (var k = 0; k < p.pace; k++) { ages.push(0); cash -= p.capex; }
+          var flow = -p.hq;
+          ages = ages.map(function (a) { flow += ramp(a + 1, p.mature); return a + 1; });
+          cash += flow; min = Math.min(min, cash); pts.push([m, cash]);
+          if (cash < 0 && out === null) out = m;
+        }
+        return { pts: pts, out: out,
+          o: { runway: out === null ? '> 48' : String(out), gap: min < 0 ? n0(-min) : '0', stores: String(ages.length) },
+          t: { runway: out === null ? 'pos' : 'neg', gap: min < 0 ? 'neg' : 'pos' } };
+      },
+      draw: function (r) {
+        var lo = Math.min(0, Math.min.apply(null, r.pts.map(function (q) { return q[1]; }))), hi = Math.max.apply(null, r.pts.map(function (q) { return q[1]; }));
+        var st = niceStep((hi - lo) / 5 || 100), y0 = Math.floor(lo / st) * st, y1 = Math.ceil(hi / st) * st;
+        var f = frame({ x: [0, 48], y: [y0, y1], xf: function (v) { return v; }, yf: function (v) { return n0(v) + '万'; }, xl: '月', xt: [0, 12, 24, 36, 48], l: 130 });
+        var d = line(r.pts, f.X, f.Y), s = f.g;
+        s += '<clipPath id="below"><rect x="0" y="' + f.Y(0) + '" width="1112" height="520"/></clipPath>' +
+          '<path d="' + d + 'L' + f.X(48) + ' ' + f.Y(0) + 'L' + f.X(0) + ' ' + f.Y(0) + 'Z" fill="var(--neg-t)" clip-path="url(#below)"/>' +
+          '<line x1="' + f.L + '" x2="' + f.R + '" y1="' + f.Y(0) + '" y2="' + f.Y(0) + '" stroke="var(--ink)" stroke-width="2"/>' +
+          '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>';
+        if (r.out !== null) s += '<line x1="' + f.X(r.out) + '" x2="' + f.X(r.out) + '" y1="' + f.T + '" y2="' + f.B + '" stroke="var(--neg)" stroke-width="3" stroke-dasharray="10 8"/>' +
+          '<text class="lb" x="' + (f.X(r.out) + (r.out > 36 ? -14 : 14)) + '" y="' + (f.T + 30) + '" text-anchor="' + (r.out > 36 ? 'end' : 'start') + '" style="fill:var(--neg)">第 ' + r.out + ' 月现金见底</text>';
+        return s;
+      }
+    },
+    tornado: {
+      calc: function (p) {
+        var b = { cups: p.cups, price: BASE.price, cost: BASE.cost, rent: BASE.rent, labor: BASE.labor }, base = profit(b), k = p.swing / 100;
+        var names = { price: '客单价', cups: '日杯数', cost: '单杯成本', labor: '月人力', rent: '月租金' };
+        var rows = Object.keys(names).map(function (key) {
+          var hi = Object.assign({}, b), lo = Object.assign({}, b);
+          hi[key] *= 1 + k; lo[key] *= 1 - k;
+          return { name: names[key], hi: profit(hi) - base, lo: profit(lo) - base };
+        }).sort(function (a, c) { return Math.abs(c.hi - c.lo) - Math.abs(a.hi - a.lo); });
+        var worst = Math.min.apply(null, rows.map(function (q) { return Math.min(q.hi, q.lo); }));
+        return { rows: rows, base: base,
+          o: { base: f1(base), top: rows[0].name, worst: f1(base + worst) },
+          t: { base: base >= 0 ? 'pos' : 'neg', worst: base + worst >= 0 ? 'pos' : 'neg' } };
+      },
+      draw: function (r) {
+        var mx = Math.max.apply(null, r.rows.map(function (q) { return Math.max(Math.abs(q.hi), Math.abs(q.lo)); })) || 1, st = niceStep(mx / 3), m = Math.ceil(mx / st) * st;
+        var L = 200, R = 1072, cx = (L + R) / 2, sc = (R - L) / 2 / m, h = 58, gap = 26, y = 30, s = '';
+        ticks(-m, m, 6).forEach(function (v) {
+          s += '<line class="gl" x1="' + (cx + v * sc) + '" x2="' + (cx + v * sc) + '" y1="16" y2="456"/><text class="ax" x="' + (cx + v * sc) + '" y="494" text-anchor="middle">' + (v > 0 ? '+' : '') + +v.toFixed(1) + '</text>';
+        });
+        r.rows.forEach(function (q) {
+          [[q.hi, 'var(--ink)'], [q.lo, 'var(--soft)']].forEach(function (b) {
+            var x = b[0] < 0 ? cx + b[0] * sc : cx;
+            s += '<rect x="' + x + '" y="' + y + '" width="' + Math.abs(b[0]) * sc + '" height="' + h + '" fill="' + b[1] + '"' + (b[1] === 'var(--soft)' ? ' stroke="var(--mute)" stroke-width="1.5"' : '') + '/>';
+          });
+          s += '<text class="lb" x="0" y="' + (y + 40) + '">' + q.name + '</text>';
+          y += h + gap;
+        });
+        return s + '<line x1="' + cx + '" x2="' + cx + '" y1="10" y2="462" stroke="var(--ink)" stroke-width="2"/><text class="ax" x="0" y="494">单位：万元</text>';
+      }
+    },
+    scenario: {
+      calc: function (p) {
+        function curve(q) {
+          var mature = profit({ cups: q.cups, price: q.price, cost: q.cost, rent: BASE.rent, labor: BASE.labor }), c = -q.capex, pts = [[0, c]], pb = null;
+          for (var m = 1; m <= 36; m++) { c += ramp(m, mature); pts.push([m, c]); if (c >= 0 && pb === null) pb = m; }
+          return { pts: pts, pb: pb, mature: mature, cum: c };
+        }
+        var cur = curve(p);
+        return { cur: cur, ghosts: Object.keys(SCN).map(function (k) { return [k, curve(SCN[k])]; }),
+          o: { payback: cur.pb === null ? '> 36' : String(cur.pb), mature: f1(cur.mature), cum: f1(cur.cum) },
+          t: { payback: cur.pb === null ? 'neg' : 'pos', cum: cur.cum >= 0 ? 'pos' : 'neg', mature: cur.mature >= 0 ? '' : 'neg' } };
+      },
+      draw: function (r) {
+        var all = [].concat(r.cur.pts, r.ghosts[0][1].pts, r.ghosts[2][1].pts).map(function (q) { return q[1]; });
+        var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all.concat(0)), st = niceStep((hi - lo) / 5);
+        var f = frame({ x: [0, 36], y: [Math.floor(lo / st) * st, Math.ceil(hi / st) * st], xf: function (v) { return v; }, yf: function (v) { return n0(v) + '万'; }, xl: '月', xt: [0, 6, 12, 18, 24, 30, 36], l: 120, r: 110 });
+        var lab = { up: '乐观', base: '基准', down: '悲观' }, s = f.g + '<line x1="' + f.L + '" x2="' + f.R + '" y1="' + f.Y(0) + '" y2="' + f.Y(0) + '" stroke="var(--ink)" stroke-width="2"/>';
+        r.ghosts.forEach(function (g) {
+          var end = g[1].pts[36];
+          s += '<path d="' + line(g[1].pts, f.X, f.Y) + '" fill="none" stroke="var(--mute)" stroke-width="2" stroke-dasharray="4 6"/>' +
+            '<text class="ax" x="' + (f.R + 12) + '" y="' + (f.Y(end[1]) + 8) + '">' + lab[g[0]] + '</text>';
+        });
+        s += '<path d="' + line(r.cur.pts, f.X, f.Y) + '" fill="none" stroke="' + (r.cur.pb === null ? 'var(--neg)' : 'var(--acc)') + '" stroke-width="6" stroke-linejoin="round"/>';
+        if (r.cur.pb !== null) s += '<circle cx="' + f.X(r.cur.pb) + '" cy="' + f.Y(r.cur.pts[r.cur.pb][1]) + '" r="11" fill="var(--card)" stroke="var(--ink)" stroke-width="4"/>';
+        return s;
+      }
+    }
+  };
+
+  function knobUI(k) {
+    var label = k.textContent.trim();
+    k.innerHTML = '<div class="kl"><span>' + label + '</span><b></b></div><div class="tr"><i class="fill"></i><i class="def"></i><i class="th"></i></div><div class="mm"><span></span><span></span></div>';
+    var d = +(k.dataset.d || 0), u = k.dataset.u || '';
+    k.fmt = function (v) { return (d ? v.toFixed(d) : n0(v)) + u; };
+    k.min = +k.dataset.min; k.max = +k.dataset.max; k.step = +k.dataset.inc; k.def = +k.dataset.v;
+    var mm = k.querySelectorAll('.mm span');
+    mm[0].textContent = k.fmt(k.min); mm[1].textContent = k.fmt(k.max);
+    k.querySelector('.def').style.left = (k.def - k.min) / (k.max - k.min) * 100 + '%';
+  }
+  function setKnob(k, v) {
+    v = Math.round(Math.min(k.max, Math.max(k.min, v)) / k.step) * k.step;
+    k.value = +v.toFixed(4);
+    var pct = (k.value - k.min) / (k.max - k.min) * 100 + '%';
+    k.querySelector('.fill').style.width = pct;
+    k.querySelector('.th').style.left = pct;
+    k.querySelector('.kl b').textContent = k.fmt(k.value);
+    k.classList.toggle('dirty', Math.abs(k.value - k.def) > 1e-9);
+  }
+
+  $$('[data-model]').forEach(function (box) {
+    var model = MODELS[box.dataset.model], knobs = $$('.knob', box), svg = box.querySelector('svg.chart');
+    function render() {
+      var p = {};
+      knobs.forEach(function (k) { p[k.dataset.k] = k.value; });
+      var r = model.calc(p);
+      Object.keys(r.o).forEach(function (key) {
+        var el = box.querySelector('[data-o="' + key + '"]');
+        el.textContent = r.o[key];
+        var kpi = el.closest('.kpi');
+        if (kpi) kpi.dataset.tone = (r.t && r.t[key]) || '';
+      });
+      if (r.t && r.t.self) box.dataset.tone = r.t.self;
+      if (svg) svg.innerHTML = model.draw(r, p);
+    }
+    function reset() {
+      knobs.forEach(function (k) { setKnob(k, k.def); });
+      $$('.seg button', box).forEach(function (b) { b.classList.toggle('on', b.dataset.scn === 'base'); });
+      render();
+    }
+    box.reset = reset;
+    knobs.forEach(function (k) {
+      knobUI(k);
+      var tr = k.querySelector('.tr');
+      function at(e) {
+        var rc = tr.getBoundingClientRect();
+        setKnob(k, k.min + (e.clientX - rc.left) / rc.width * (k.max - k.min));
+        $$('.seg button', box).forEach(function (b) { b.classList.remove('on'); });
+        render();
+      }
+      // pointer events instead of <input type=range>: never takes keyboard focus, so ← → keep paging
+      tr.addEventListener('pointerdown', function (e) { e.preventDefault(); tr.setPointerCapture(e.pointerId); k.classList.add('drag'); at(e); });
+      tr.addEventListener('pointermove', function (e) { if (tr.hasPointerCapture(e.pointerId)) at(e); });
+      tr.addEventListener('pointerup', function () { k.classList.remove('drag'); });
+      tr.addEventListener('pointercancel', function () { k.classList.remove('drag'); });
+      k.addEventListener('dblclick', function () { setKnob(k, k.def); render(); });
+      // keep the kernel's swipe-to-page from firing while dragging on touch screens
+      ['touchstart', 'touchend'].forEach(function (t) { k.addEventListener(t, function (e) { e.stopPropagation(); }); });
+    });
+    $$('button', box).forEach(function (b) {
+      b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      b.addEventListener('click', function () {
+        if (b.classList.contains('reset')) reset();
+        else {
+          var q = SCN[b.dataset.scn];
+          knobs.forEach(function (k) { if (k.dataset.k in q) setKnob(k, q[k.dataset.k]); });
+          $$('.seg button', box).forEach(function (x) { x.classList.toggle('on', x === b); });
+          render();
+        }
+        b.blur();
+      });
+    });
+    reset();
+  });
+  // print always shows the default parameter state
+  addEventListener('beforeprint', function () { $$('[data-model]').forEach(function (b) { b.reset(); }); });
+})();
+</script>
+</body>
+</html>

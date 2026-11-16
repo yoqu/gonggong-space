@@ -90,6 +90,21 @@ toolkit: ? help · O overview · S presenter · L laser · D pen · B/W black/wh
 #/N deep-link to slide N · Esc close overlays
 ```
 
+## Linked edits
+
+- `runtime.js` counts `.deck .slide` at load, so adding, removing or reordering a `<section class="slide">` needs no script change — but every page must be a `.slide` inside the single `.deck`.
+- `runtime.js` rewrites `data-current`/`data-total` only on the first `.slide-number` in the document (`document.querySelector`); keep one (the cover's `.deck-footer`), and hand-update any extra one (presenter-mode-reveal has a second on its last slide).
+- Hand-typed `NN / 08` page labels are not touched by the runtime — `.dk-snum` (dir-key-nav-minimal), `.gd-snum` (graphify-dark-graph), `.oc-snum` (obsidian-claude-gradient), `.hc-footer` (hermes-cyber-terminal), `.kb-footer` (knowledge-arch-blueprint), `.ts-page` + `.ts-footer` (testing-safety-alert), `.xw-page` + `.xw-footer` (xhs-white-editorial): renumber every slide and the total when the page count or order changes.
+- Section counters such as `chapter · 01 / 04` (dir-key-nav-minimal `.dk-keyhint`) and `section · 01/04` (hermes-cyber-terminal `.hc-chrome`) must match the number of sections in the agenda.
+- Every name in `data-themes` needs `assets/themes/<name>.css`, and `<link id="theme-link">` must point into that folder (or set `data-theme-base`) — T-cycling and the presenter previews derive the folder from it.
+- Full decks restate their accent hexes outside the variables — `--grad` stops and literal `rgba()` tints/shadows (e.g. weekly-report `.tag.feat`, tech-sharing `.slide::before` glows, product-launch `.cta-btn` shadow) — so re-skinning `.tpl-<name>{--accent…}` means editing those rules too.
+- Speaker notes must be `.notes`, `aside.notes` or `.speaker-notes` inside the slide; the N drawer and the toolkit presenter window read exactly those selectors.
+- When copying a starter, rewrite both the `../../../assets/...` links and the toolkit tag `<script src="../../../../../toolkit/deck-toolkit.js">` in `<head>`; if you edit `assets/runtime.js`, keep the `window.deck = { slides, get index(), go }` line the toolkit drives.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The cover's `.slide-number` shows whichever slide is current, so press Home before printing; `.counter` elements count up only on visited slides and otherwise print their markup text (keep it equal to `data-to`); canvas FX (`data-fx`) print the frame drawn at that moment.
+
 ## Review before publishing
 
 - O overview: nothing clips, no slide is empty or overfull.

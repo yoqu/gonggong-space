@@ -1260,6 +1260,7 @@
           slides[0].classList.add('active');
         }
 
+        window.deck = { slides: slides, get index() { return current; }, go: function (n) { go(n); } };
         function go(n) {
           n = Math.max(0, Math.min(total - 1, n));
           if (n === current) return;

@@ -35,6 +35,20 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 课程模块、新人培训、内部赋能、工作坊、在线课 — 讲师带学员逐步学会一件事.
 
+## Linked edits
+
+- The objective list is duplicated in `aside.sidebar .obj-list` on every content slide — adding, renaming or reordering an objective means editing every copy, and `li.done` / `li.current` are hand-set per slide (earlier steps `done`, this slide's step `current`).
+- The same objectives appear three times: sidebar `.obj-list`, the Objectives slide `.concept-box` list (①–④) and the Summary `✓` `.concept-box` grid — keep wording and count aligned.
+- Sidebar progress text (`Page 2 of 7 · ~5 min in`) is hand-written; renumber it when slides are added or removed.
+- The Check slide's `.mcq.correct` option, its `✓ Correct.` line and the sidebar `You should get N/N` must match the number of `.mcq` questions actually on the slide.
+- Content slides rely on the `.slide` 260px + 1fr grid: each needs both `aside.sidebar` and `div.main`; only cover/summary use `.slide.full`.
+- Accent teal `#2d7d6e` is also baked into `--grad` and `.mcq.correct` (`rgba(45,125,110,.06)`), amber `--accent-2` into `.exercise` (`#fff8ed`), and `.code` uses raw ink/paper hexes (`#2a2418`, `#f4f1e8`, `#8a7f68`) — re-skin these together with the `.tpl-course-module` variables.
+- Navigation comes from `runtime.js` (slides are `.deck .slide`; it sets `window.deck = { slides, index, go }` for deck-toolkit.js) — if you copy or edit `runtime.js`, keep that line.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The shared base print CSS hides `.deck-footer`, so the cover footer (brand line + `.slide-number`) does not appear in the PDF.
+
 ## Checklist
 
 - [ ] Objectives are verbs learners can demonstrate; the summary maps back to them.

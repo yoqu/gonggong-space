@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>栖山茶事 · 二〇二六春茶新品发布</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --paper:#F2ECDF;--paper-2:#E8DFCC;--ink:#1E1C19;--ink-2:#47423A;--ink-3:#8C8476;--hair:#CFC5B2;
+  --cinnabar:#AE3A2A;--tea:#5F6B4A;
+  --kai:"Kaiti SC","STKaiti","KaiTi","Songti SC","Noto Serif SC",serif;
+  --song:"Songti SC","STSong","Noto Serif SC",serif;
+  --noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .2 0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --fiber:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .06' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .3 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+}
+.slide{background-color:var(--paper);background-image:var(--noise),var(--fiber),radial-gradient(ellipse 70% 60% at 22% 18%,rgba(255,252,244,.75),transparent 70%),radial-gradient(ellipse 60% 50% at 88% 92%,rgba(150,125,85,.14),transparent 70%);color:var(--ink);font-family:var(--song);font-size:30px;line-height:1.7;box-sizing:border-box}
+.slide *{box-sizing:border-box}
+.kai{font-family:var(--kai)}
+.num{font-variant-numeric:tabular-nums lining-nums}
+
+/* ink bloom: elements with .ink fade in from a soft blur when their slide becomes active */
+.ink{opacity:0}
+.slide.is-active .ink{animation:bloom 1.5s cubic-bezier(.22,.61,.36,1) var(--d,0s) both}
+@keyframes bloom{0%{opacity:0;filter:blur(14px);transform:scale(1.03)}55%{opacity:.85;filter:blur(3px)}100%{opacity:1;filter:none;transform:none}}
+
+/* vertical title column on the right, read top-down */
+.vt{position:absolute;right:170px;top:140px;writing-mode:vertical-rl;font-family:var(--kai);font-size:100px;line-height:1;letter-spacing:.32em;margin:0;font-weight:400}
+.vt small{display:block;font-family:var(--song);font-size:30px;letter-spacing:.4em;color:var(--ink-3);margin-right:28px;margin-top:10px}
+.vrule{position:absolute;right:360px;top:150px;bottom:150px;width:1px;background:var(--hair)}
+.body{position:absolute;left:160px;right:420px;top:150px;bottom:140px}
+.folio{position:absolute;left:160px;bottom:56px;font-size:22px;color:var(--ink-3);letter-spacing:.3em}
+.folio b{font-weight:400;color:var(--cinnabar);margin-left:18px}
+
+/* seal: white text cut into cinnabar (白文); .zhu = red text and frame on paper (朱文) */
+.seal{position:absolute;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;background:var(--cinnabar);color:var(--paper);font-family:var(--kai);font-weight:700;line-height:1.02;letter-spacing:.02em;border-radius:5px 3px 6px 4px;box-shadow:inset 0 0 0 5px var(--cinnabar),inset 0 0 0 7px rgba(242,236,223,.85);overflow:hidden}
+.seal::after{content:"";position:absolute;inset:0;background:var(--noise);mix-blend-mode:screen;opacity:.9}
+.seal.zhu{background:transparent;color:var(--cinnabar);box-shadow:inset 0 0 0 4px var(--cinnabar)}
+.seal.zhu::after{display:none}
+.s-lg{width:132px;height:132px;font-size:52px}
+.s-md{width:96px;height:96px;font-size:38px}
+.s-sm{width:64px;height:64px;font-size:40px}
+
+svg.deco{position:absolute;pointer-events:none}
+.mtn{left:0;bottom:0;width:1920px;height:520px}
+
+/* cover */
+.cover .brand{position:absolute;left:160px;top:120px;font-family:var(--kai);font-size:44px;letter-spacing:.4em}
+.cover .brand span{display:block;font-family:var(--song);font-size:28px;letter-spacing:.3em;color:var(--ink-2);margin-top:12px}
+.cover h1{position:absolute;right:220px;top:110px;margin:0;writing-mode:vertical-rl;font-family:var(--kai);font-weight:400;font-size:176px;line-height:1;letter-spacing:.14em}
+.cover .sub{position:absolute;right:450px;top:130px;writing-mode:vertical-rl;font-size:40px;letter-spacing:.36em;color:var(--ink-2)}
+.cover .seal{right:470px;top:640px}
+.moon{left:520px;top:120px;width:640px;height:640px}
+
+/* preface */
+.verse{position:absolute;right:420px;top:170px;writing-mode:vertical-rl;font-family:var(--kai);font-size:60px;line-height:2.1;letter-spacing:.22em}
+.verse .r{color:var(--cinnabar)}
+.gate{left:200px;top:210px;width:600px;height:600px}
+.pre-note{position:absolute;left:200px;bottom:150px;width:600px;text-align:center;font-size:28px;color:var(--ink-2);letter-spacing:.2em}
+
+/* terroir */
+.terr{display:grid;grid-template-columns:820px 1fr;gap:60px;height:100%;align-items:center}
+.terr svg{width:820px;height:620px;display:block}
+.facts{list-style:none;margin:0;padding:0}
+.facts li{padding:24px 0;border-top:1px solid var(--hair)}
+.facts li:last-child{border-bottom:1px solid var(--hair)}
+.facts .v{font-size:84px;line-height:1.05;font-family:var(--song)}
+.facts .v small{font-size:32px;margin-left:8px;color:var(--ink-2)}
+.facts p{margin:4px 0 0;font-size:28px;color:var(--ink-2)}
+.ex{font-size:24px;color:var(--ink-3);letter-spacing:.1em}
+
+/* seasons */
+.seasons{position:relative;height:100%}
+.seasons svg.stroke{position:absolute;left:0;top:400px;width:1340px;height:60px}
+.term{position:absolute;top:200px;width:320px;margin-left:-160px;text-align:center}
+.term .name{font-family:var(--kai);font-size:72px;line-height:1;letter-spacing:.2em;text-indent:.2em}
+.term .date{font-size:28px;color:var(--ink-3);margin-top:16px}
+.term .dot{width:30px;height:30px;margin:62px auto 46px;border-radius:50%;background:var(--ink)}
+.term.key .dot{background:var(--cinnabar)}
+.term .what{font-size:30px;line-height:1.6}
+.term .what b{display:block;font-family:var(--kai);font-size:40px;font-weight:400}
+.term.key .what b{color:var(--cinnabar)}
+
+/* products */
+.teas{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;height:100%}
+.tea{position:relative;border:1.5px solid var(--ink);padding:0 36px 30px;display:flex;flex-direction:column}
+.tea::before{content:"";position:absolute;inset:8px;border:1px solid var(--hair);pointer-events:none}
+.tea svg.lat{display:block;width:calc(100% + 72px);margin:0 -36px 26px;height:110px;border-bottom:1.5px solid var(--ink)}
+.tea .nm{font-family:var(--kai);font-size:68px;line-height:1.1}
+.tea .nm span{font-size:34px;color:var(--ink-3);margin-right:10px}
+.tea .tp{font-size:28px;color:var(--cinnabar);letter-spacing:.12em;margin:10px 0 14px}
+.tea p{margin:0;font-size:28px;line-height:1.65;color:var(--ink-2)}
+.tea dl{margin:22px 0 0;flex:1;display:grid;grid-template-columns:auto 1fr;gap:6px 22px;font-size:28px;align-content:start}
+.tea dt{color:var(--ink-3)}
+.tea dd{margin:0}
+.tea .px{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--hair);padding-top:16px;font-size:28px}
+.tea .px b{font-weight:400;font-size:40px}
+
+/* craft (interactive) */
+.steps{display:flex;justify-content:space-between;padding:0 20px;margin-top:50px}
+.stp{appearance:none;border:0;background:none;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:center;width:200px}
+.stp svg{display:block;width:180px;height:180px;margin:0 auto;overflow:visible}
+.stp .ring{fill:none;stroke:var(--ink);stroke-width:9;stroke-linecap:round;opacity:.28;transition:opacity .4s,stroke .4s}
+.stp text{font-family:var(--kai);font-size:76px;fill:var(--ink)}
+.stp .lb{display:block;font-family:var(--kai);font-size:34px;margin-top:8px;letter-spacing:.2em;text-indent:.2em}
+.stp.on .ring{opacity:1;stroke:var(--cinnabar)}
+.stp.on .lb{color:var(--cinnabar)}
+.stp:focus-visible{outline:2px dashed var(--ink-3);outline-offset:6px}
+.panel{margin-top:70px;border-top:1px solid var(--ink);padding-top:30px;display:grid;grid-template-columns:300px 1fr;gap:50px;min-height:270px}
+.panel .k{font-family:var(--kai);font-size:64px;line-height:1.2}
+.panel .k small{display:block;font-family:var(--song);font-size:28px;color:var(--ink-3);margin-top:12px}
+.panel dl{margin:0;display:grid;grid-template-columns:140px 1fr;gap:10px 24px;font-size:30px}
+.panel dt{color:var(--ink-3)}
+.panel dd{margin:0}
+.hint{position:absolute;right:0;bottom:0;font-size:24px;color:var(--ink-3);letter-spacing:.1em}
+
+/* flavor (interactive) */
+.flav{display:grid;grid-template-columns:640px 1fr;gap:70px;height:100%;align-items:center}
+.flav svg{width:640px;height:640px;display:block}
+.radar-grid{fill:none;stroke:var(--hair);stroke-width:1.5}
+.radar-axis{stroke:var(--hair);stroke-width:1.5}
+.radar-lab{font-family:var(--kai);font-size:40px;fill:var(--ink)}
+#radarPoly{fill:rgba(174,58,42,.14);stroke:var(--cinnabar);stroke-width:3.5;stroke-linejoin:round;transition:d .6s ease}
+.tabs{display:flex;gap:16px;margin-bottom:34px}
+.tab{appearance:none;font:inherit;font-family:var(--kai);font-size:38px;padding:4px 26px;background:none;border:1.5px solid var(--ink-3);color:var(--ink-2);cursor:pointer;border-radius:2px}
+.tab.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.notes-list{margin:0;display:grid;grid-template-columns:120px 1fr;gap:16px 26px;font-size:30px}
+.notes-list dt{font-family:var(--kai);color:var(--cinnabar);font-size:34px}
+.notes-list dd{margin:0}
+.brew{margin-top:30px;padding-top:22px;border-top:1px solid var(--hair);font-size:28px;color:var(--ink-2)}
+
+/* gifts */
+.gift{display:grid;grid-template-columns:560px 1fr;gap:70px;height:100%;align-items:center}
+.gift svg{width:560px;height:620px;display:block}
+.sku{list-style:none;margin:0;padding:0}
+.sku li{display:grid;grid-template-columns:1fr auto;gap:4px 30px;padding:28px 0;border-top:1px solid var(--hair)}
+.sku li:last-child{border-bottom:1px solid var(--hair)}
+.sku b{font-family:var(--kai);font-weight:400;font-size:48px;line-height:1.2}
+.sku .p{font-size:36px;align-self:end}
+.sku p{grid-column:1/-1;margin:0;font-size:28px;color:var(--ink-2)}
+
+/* tea gatherings */
+.meets{display:flex;flex-direction:row-reverse;height:660px}
+.meet{flex:1;display:flex;justify-content:center;padding-top:40px;border-left:1px solid var(--hair)}
+.meet:last-child{border-left:0}
+.meet .col{writing-mode:vertical-rl}
+.meet .col>span{display:block;margin-left:26px}
+.meet .d{font-size:32px;color:var(--cinnabar);letter-spacing:.2em}
+.meet .c{font-family:var(--kai);font-size:110px;line-height:1;letter-spacing:.2em}
+.meet .v{font-size:30px;color:var(--ink-2);letter-spacing:.14em}
+.book{position:absolute;left:0;right:0;bottom:0;font-size:28px;color:var(--ink-2);border-top:1px solid var(--hair);padding-top:20px}
+
+/* end */
+.end .verse{right:300px;top:160px;font-size:120px;line-height:1.5;letter-spacing:.2em}
+.end .seal{right:650px;top:700px}
+.end .colo{position:absolute;left:160px;top:140px;font-size:30px;color:var(--ink-2);letter-spacing:.3em;line-height:2}
+
+@media (prefers-reduced-motion:reduce){
+  .ink{opacity:1}
+  .slide.is-active .ink{animation:none}
+  #radarPoly,.stp .ring{transition:none}
+}
+@media print{
+  .ink{opacity:1;animation:none!important}
+}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E1C19" stop-opacity=".95"/><stop offset=".55" stop-color="#1E1C19" stop-opacity=".35"/><stop offset="1" stop-color="#1E1C19" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="moonFill" cx=".5" cy=".45" r=".55">
+      <stop offset="0" stop-color="#FBF7EE"/><stop offset="1" stop-color="#E8DFCC"/>
+    </radialGradient>
+    <filter id="rough" x="-5%" y="-10%" width="110%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".018 .04" numOctaves="3" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="16"/>
+      <feGaussianBlur stdDeviation=".8"/>
+    </filter>
+    <pattern id="lattice" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M0 0H60V60H0Z M30 0V18 M30 42V60 M0 30H18 M42 30H60 M18 18H42V42H18Z" fill="none" stroke="#1E1C19" stroke-width="2"/>
+    </pattern>
+    <symbol id="cloud" viewBox="0 0 240 90">
+      <path d="M8 70 C30 70 40 52 62 52 C80 52 86 66 76 74 C68 80 58 72 64 64 M64 52 C70 30 96 22 116 30 C140 40 136 66 116 68 C102 70 98 54 110 50 M128 36 C150 16 190 20 200 44 C208 64 186 76 172 66 C162 58 172 46 182 52 M200 56 C214 58 226 64 234 72" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ranges" viewBox="0 0 1920 520" preserveAspectRatio="none">
+      <g filter="url(#rough)">
+        <path opacity=".2" fill="url(#mist)" d="M0 330 C140 280 250 220 380 250 S620 150 780 210 S1010 300 1150 200 S1420 90 1580 170 S1820 240 1920 200 V520 H0Z"/>
+        <path opacity=".38" fill="url(#mist)" d="M0 420 C200 350 320 300 470 345 S720 270 880 330 S1110 410 1270 320 S1520 280 1660 340 S1850 380 1920 360 V520 H0Z"/>
+        <path opacity=".6" fill="url(#mist)" d="M0 500 C220 450 400 400 590 440 S900 420 1080 465 S1400 430 1600 470 S1830 470 1920 455 V520 H0Z"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="deck" data-brand="栖山茶事　二〇二六春茶">
+
+  <section class="slide cover plain" data-section="cover" data-title="封面">
+    <svg class="deco moon ink" style="--d:.1s" viewBox="0 0 640 640" aria-hidden="true"><circle cx="320" cy="320" r="300" fill="url(#moonFill)" stroke="#CFC5B2" stroke-width="1.5"/></svg>
+    <svg class="deco mtn ink" style="--d:.4s" aria-hidden="true"><use href="#ranges"/></svg>
+    <svg class="deco ink" style="--d:.9s;left:300px;top:330px;width:300px;height:112px;color:#8C8476" aria-hidden="true"><use href="#cloud"/></svg>
+    <div class="brand ink">栖山茶事<span>云雾山中　春茶一季</span></div>
+    <h1 class="ink" style="--d:.2s">栖山春茶</h1>
+    <div class="sub ink" style="--d:.6s">二〇二六　新品发布</div>
+    <div class="seal s-lg ink" style="--d:1.1s">栖山茶事</div>
+    <aside class="notes">各位来宾，欢迎来到栖山茶事二〇二六年春茶新品发布。今天不讲大道理，只讲一座山、一个春天和三款茶。发布会约二十五分钟，最后会公布四场春日茶会的时间，现场可以预约。</aside>
+  </section>
+
+  <section class="slide" data-section="preface" data-title="序">
+    <svg class="deco gate ink" viewBox="0 0 600 600" aria-hidden="true">
+      <defs><clipPath id="gateClip"><circle cx="300" cy="300" r="250"/></clipPath></defs>
+      <circle cx="300" cy="300" r="282" fill="none" stroke="#1E1C19" stroke-width="3"/>
+      <circle cx="300" cy="300" r="266" fill="none" stroke="#1E1C19" stroke-width="1.2"/>
+      <g clip-path="url(#gateClip)" opacity=".5"><rect width="600" height="600" fill="url(#lattice)"/></g>
+      <circle cx="300" cy="300" r="250" fill="none" stroke="#1E1C19" stroke-width="2"/>
+      <rect x="150" y="150" width="300" height="300" fill="#F2ECDF" stroke="#1E1C19" stroke-width="2"/>
+      <svg x="150" y="150" width="300" height="300" viewBox="0 0 1920 520" preserveAspectRatio="xMidYMax slice"><use href="#ranges"/></svg>
+    </svg>
+    <div class="pre-note ink" style="--d:.8s">窗中一角山</div>
+    <h2 class="vt ink">序<small>一山一茶</small></h2>
+    <div class="vrule"></div>
+    <div class="verse">
+      <div class="ink" style="--d:.3s">山有四时，茶只取一<span class="r">春</span>。</div>
+      <div class="ink" style="--d:.7s">春分过后，第一芽开采。</div>
+      <div class="ink" style="--d:1.1s">我们等了一整个冬天，</div>
+      <div class="ink" style="--d:1.5s">只为这一盏鲜。</div>
+    </div>
+    <aside class="notes">我们做茶十一年，越来越相信一件事：好茶是等出来的。一年只有一个春天，春茶的鲜只在那几周。今年春分后第七天开园，比去年晚了四天，因为倒春寒，芽头长得慢，但内质更足。</aside>
+  </section>
+
+  <section class="slide" data-section="terroir" data-title="山场">
+    <h2 class="vt ink">山场<small>云栖山</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="terr">
+        <svg class="ink" style="--d:.2s" viewBox="0 0 820 620" aria-label="云栖山茶园分布">
+          <g fill="none" stroke="#1E1C19" stroke-linecap="round">
+            <path stroke-width="2.6" d="M20 520 C120 470 180 380 260 330 S380 170 450 130 S560 200 610 260 S720 390 800 450"/>
+            <path stroke-width="1.6" opacity=".7" d="M60 540 C150 500 220 430 300 390 S420 250 470 220 S560 270 600 320 S700 430 790 480"/>
+            <path stroke-width="1.2" opacity=".5" d="M100 560 C200 530 260 480 340 450 S440 340 490 310 S570 350 610 390 S700 470 780 510"/>
+            <path stroke-width="1" opacity=".35" d="M150 580 C240 560 300 530 380 510 S470 430 510 405 S580 430 620 460 S710 520 770 545"/>
+            <path stroke-width="1.6" opacity=".55" d="M450 130 C440 200 470 260 455 330 M610 260 C590 320 600 380 580 430"/>
+          </g>
+          <use href="#cloud" x="60" y="120" width="220" height="83" style="color:#8C8476"/>
+          <g stroke="#AE3A2A" stroke-width="1.5"><path d="M452 178 L512 92 M300 388 L196 318 M620 385 L692 280"/></g>
+          <g font-family="Kaiti SC,STKaiti,Songti SC,Noto Serif SC,serif" font-size="34" fill="#1E1C19">
+            <circle cx="452" cy="178" r="11" fill="#AE3A2A"/><text x="520" y="70">云栖坡</text><text x="520" y="106" font-size="26" fill="#8C8476">海拔 1,120 米</text>
+            <circle cx="300" cy="388" r="11" fill="#AE3A2A"/><text x="60" y="290">松涧</text><text x="60" y="326" font-size="26" fill="#8C8476">海拔 980 米</text>
+            <circle cx="620" cy="385" r="11" fill="#AE3A2A"/><text x="700" y="250">石门</text><text x="700" y="286" font-size="26" fill="#8C8476">海拔 860 米</text>
+          </g>
+        </svg>
+        <div>
+          <ul class="facts">
+            <li class="ink" style="--d:.4s"><div class="v num">860–1,120<small>米</small></div><p>三处茶园海拔，均向东北坡</p></li>
+            <li class="ink" style="--d:.7s"><div class="v num">210<small>天</small></div><p>年均云雾日，漫射光让芽叶更嫩</p></li>
+            <li class="ink" style="--d:1s"><div class="v num">1,300<small>亩</small></div><p>生态茶园，不施化学除草剂</p></li>
+          </ul>
+          <p class="ex">注：数据为示例</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">栖山的三处茶园都在东北坡，海拔八百六十到一千一百二十米。东北坡下午就进山影，加上一年两百多天的云雾，日照是漫射的，芽叶长得慢，氨基酸留得住，这就是春茶鲜爽的来源。三款新品分别出自这三处山场。</aside>
+  </section>
+
+  <section class="slide" data-section="seasons" data-title="时令">
+    <h2 class="vt ink">时令<small>采摘时序</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="seasons">
+        <svg class="stroke ink" viewBox="0 0 1340 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34 C200 22 420 40 680 28 S1100 22 1340 32 L1340 36 C1100 30 700 46 420 42 S120 40 0 38Z" fill="#1E1C19" opacity=".85" filter="url(#rough)"/></svg>
+        <div class="term" style="left:11%" data-step><div class="name">春分</div><div class="date num">三月二十日</div><div class="dot"></div><div class="what"><b>开园试采</b>一芽初展，定工艺</div></div>
+        <div class="term key" style="left:37%" data-step><div class="name">清明</div><div class="date num">四月四日前</div><div class="dot"></div><div class="what"><b>明前 · 云芽</b>单芽，一年最鲜</div></div>
+        <div class="term" style="left:63%" data-step><div class="name">谷雨</div><div class="date num">四月二十日前</div><div class="dot"></div><div class="what"><b>雨前 · 青岚</b>一芽一叶，味足</div></div>
+        <div class="term" style="left:88%" data-step><div class="name">立夏</div><div class="date num">五月五日前</div><div class="dot"></div><div class="what"><b>松烟 · 焙火</b>春末收尾入炭焙</div></div>
+      </div>
+    </div>
+    <aside class="notes">春茶不是一个时间点，而是一个时序。春分试采，定下今年的杀青温度；清明前的单芽做云芽，产量最少；谷雨前一芽一叶做青岚；立夏前的春尾茶做松烟，经过炭焙。每款茶都对应一个节气。</aside>
+  </section>
+
+  <section class="slide" data-section="products" data-title="三款新品">
+    <h2 class="vt ink">新品<small>春茶三款</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="teas">
+        <div class="tea ink" style="--d:.2s">
+          <svg class="lat" aria-hidden="true"><rect width="100%" height="100%" fill="url(#lattice)" opacity=".55"/></svg>
+          <div class="nm"><span>明前</span>云芽</div>
+          <div class="tp">绿茶 · 云栖坡单芽</div>
+          <p>只取清明前单芽，豆花香，汤色嫩绿，入口鲜而不薄。</p>
+          <dl><dt>采摘</dt><dd>清明前七日</dd><dt>产量</dt><dd class="num">一千二百罐</dd><dt>宜</dt><dd>玻璃杯，看芽叶竖立</dd></dl>
+          <div class="px"><span>五十克 · 罐</span><b class="num">¥398</b></div>
+        </div>
+        <div class="tea ink" style="--d:.5s">
+          <svg class="lat" aria-hidden="true"><rect width="100%" height="100%" fill="url(#lattice)" opacity=".55"/></svg>
+          <div class="nm"><span>雨前</span>青岚</div>
+          <div class="tp">绿茶 · 松涧一芽一叶</div>
+          <p>谷雨前采，兰花香，滋味比云芽厚，耐泡四到五道。</p>
+          <dl><dt>采摘</dt><dd>谷雨前十日</dd><dt>产量</dt><dd>四千罐</dd><dt>宜</dt><dd>盖碗，日常口粮</dd></dl>
+          <div class="px"><span>一百克 · 罐</span><b class="num">¥268</b></div>
+        </div>
+        <div class="tea ink" style="--d:.8s">
+          <svg class="lat" aria-hidden="true"><rect width="100%" height="100%" fill="url(#lattice)" opacity=".55"/></svg>
+          <div class="nm"><span>春尾</span>松烟</div>
+          <div class="tp">烘青 · 石门炭焙</div>
+          <p>春末茶青入松炭轻焙，带一缕烟韵，适合日常与冷泡。</p>
+          <dl><dt>采摘</dt><dd>立夏前</dd><dt>焙火</dt><dd>松炭轻焙两次</dd><dt>宜</dt><dd>大壶或冷泡</dd></dl>
+          <div class="px"><span>一百五十克 · 罐</span><b class="num">¥168</b></div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">今年三款新品，从鲜到醇排开。云芽产量最少，今年只做一千二百罐；青岚是我们推荐的日常口粮茶；松烟是今年新做的尝试，带一点炭焙的烟韵，冷泡也好喝。价格为示例，以官方渠道为准。</aside>
+  </section>
+
+  <section class="slide" data-section="craft" data-title="工艺">
+    <h2 class="vt ink">工艺<small>五道工序</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="steps ink" role="tablist">
+        <button class="stp on" data-k="0"><svg viewBox="0 0 180 180"><path class="ring" d="M92 12 C140 14 170 50 168 94 C166 140 128 170 86 168 C44 166 12 132 14 88 C16 54 40 26 70 16"/><text x="90" y="116" text-anchor="middle">摊</text></svg><span class="lb">摊青</span></button>
+        <button class="stp" data-k="1"><svg viewBox="0 0 180 180"><path class="ring" d="M92 12 C140 14 170 50 168 94 C166 140 128 170 86 168 C44 166 12 132 14 88 C16 54 40 26 70 16"/><text x="90" y="116" text-anchor="middle">杀</text></svg><span class="lb">杀青</span></button>
+        <button class="stp" data-k="2"><svg viewBox="0 0 180 180"><path class="ring" d="M92 12 C140 14 170 50 168 94 C166 140 128 170 86 168 C44 166 12 132 14 88 C16 54 40 26 70 16"/><text x="90" y="116" text-anchor="middle">揉</text></svg><span class="lb">揉捻</span></button>
+        <button class="stp" data-k="3"><svg viewBox="0 0 180 180"><path class="ring" d="M92 12 C140 14 170 50 168 94 C166 140 128 170 86 168 C44 166 12 132 14 88 C16 54 40 26 70 16"/><text x="90" y="116" text-anchor="middle">理</text></svg><span class="lb">理条</span></button>
+        <button class="stp" data-k="4"><svg viewBox="0 0 180 180"><path class="ring" d="M92 12 C140 14 170 50 168 94 C166 140 128 170 86 168 C44 166 12 132 14 88 C16 54 40 26 70 16"/><text x="90" y="116" text-anchor="middle">焙</text></svg><span class="lb">烘焙</span></button>
+      </div>
+      <div class="panel ink" style="--d:.4s" aria-live="polite">
+        <div class="k" id="cpName">摊青<small id="cpStep">第一道</small></div>
+        <dl>
+          <dt>时长</dt><dd id="cpTime">六到八小时</dd>
+          <dt>要点</dt><dd id="cpWhat">竹匾薄摊，散去青气，叶色由翠转暗绿</dd>
+          <dt>为什么</dt><dd id="cpWhy">水分降到七成左右，杀青才杀得透</dd>
+        </dl>
+      </div>
+      <div class="hint">点选五道工序查看</div>
+    </div>
+    <aside class="notes">五道工序里最要紧的是杀青。今年我们把杀青锅温从二百四十度降到二百二十度，时间拉长一分钟，香气更干净，不带闷气。现场可以点每一道工序看具体参数，揉捻和理条决定外形，烘焙决定能放多久。</aside>
+  </section>
+
+  <section class="slide" data-section="flavor" data-title="风味">
+    <h2 class="vt ink">风味<small>品鉴笔记</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="flav">
+        <svg class="ink" viewBox="0 0 640 640" aria-label="风味雷达图">
+          <g id="radarGrid"></g>
+          <path id="radarPoly" d=""/>
+        </svg>
+        <div class="ink" style="--d:.3s">
+          <div class="tabs"><button class="tab on" data-t="0">云芽</button><button class="tab" data-t="1">青岚</button><button class="tab" data-t="2">松烟</button></div>
+          <dl class="notes-list">
+            <dt>汤色</dt><dd id="fvColor">嫩绿明亮</dd>
+            <dt>香气</dt><dd id="fvNose">豆花香，带一点栗香</dd>
+            <dt>滋味</dt><dd id="fvTaste">鲜爽，回甘快</dd>
+          </dl>
+          <div class="brew" id="fvBrew">冲泡：八十五度水，三克配一百五十毫升，第一泡四十五秒</div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">风味用五个维度来看：鲜、香、甘、醇、韵。云芽胜在鲜，青岚最均衡，松烟的醇和韵最突出。点上方的茶名可以切换。冲泡建议是我们茶师反复试出来的，水温比常见建议略低，是为了保住鲜味。</aside>
+  </section>
+
+  <section class="slide" data-section="gifts" data-title="器与礼">
+    <h2 class="vt ink">器与礼<small>春礼</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="gift">
+        <svg class="ink" style="--d:.1s" viewBox="0 0 560 620" aria-label="茶罐与礼盒线描">
+          <g fill="none" stroke="#1E1C19" stroke-width="2.4" stroke-linejoin="round">
+            <path d="M40 330 L300 330 L300 560 L40 560 Z"/>
+            <path d="M40 330 L120 280 L380 280 L300 330 M380 280 L380 510 L300 560"/>
+            <path d="M170 330 L170 560 M210 330 L210 560" stroke-width="1.4" opacity=".6"/>
+            <path d="M360 150 C360 132 500 132 500 150 L500 470 C500 488 360 488 360 470 Z" fill="#F2ECDF"/>
+            <path d="M360 150 C360 168 500 168 500 150"/>
+            <path d="M352 120 C352 98 508 98 508 120 L508 146 C508 166 352 166 352 146 Z" fill="#F2ECDF"/>
+            <path d="M352 120 C352 140 508 140 508 120" stroke-width="1.4"/>
+          </g>
+          <rect x="362" y="200" width="136" height="200" fill="url(#lattice)" opacity=".35"/>
+          <rect x="396" y="236" width="68" height="128" fill="#F2ECDF" stroke="#1E1C19" stroke-width="1.6"/>
+          <text x="430" y="300" writing-mode="vertical-rl" text-anchor="middle" font-family="Kaiti SC,STKaiti,Songti SC,serif" font-size="34" fill="#1E1C19" letter-spacing="4">云芽</text>
+          <rect x="70" y="360" width="56" height="56" fill="#AE3A2A" rx="3"/>
+          <text x="98" y="398" text-anchor="middle" font-family="Kaiti SC,STKaiti,Songti SC,serif" font-size="30" font-weight="700" fill="#F2ECDF">春</text>
+          <use href="#cloud" x="40" y="70" width="260" height="98" style="color:#8C8476"/>
+        </svg>
+        <ul class="sku">
+          <li class="ink" style="--d:.3s"><b>春山一叶</b><span class="p num">¥398</span><p>云芽单罐，锡箔内袋，开罐即饮</p></li>
+          <li class="ink" style="--d:.6s"><b>三春礼盒</b><span class="p num">¥728</span><p>云芽、青岚、松烟各一罐，附手写品鉴卡</p></li>
+          <li class="ink" style="--d:.9s"><b>栖山年礼</b><span class="p num">¥1,680</span><p>三春礼盒配粗陶盖碗一只，限量五百套</p></li>
+        </ul>
+      </div>
+    </div>
+    <aside class="notes">包装今年换了：茶罐用素白哑光，窗格纹压凹，不贴大面积印刷，只在罐身留茶名和一枚印。礼盒三档，三春礼盒是主推款，年礼配了一只本地窑口的粗陶盖碗，只做五百套。价格均为示例。</aside>
+  </section>
+
+  <section class="slide" data-section="gatherings" data-title="春日茶会">
+    <h2 class="vt ink">茶会<small>春日四场</small></h2>
+    <div class="vrule"></div>
+    <div class="body">
+      <div class="meets">
+        <div class="meet" data-step><div class="col"><span class="d">四月十二日</span><span class="c">杭州</span><span class="v">湖畔 · 半山茶寮</span></div></div>
+        <div class="meet" data-step><div class="col"><span class="d">四月十九日</span><span class="c">苏州</span><span class="v">园林 · 听松小筑</span></div></div>
+        <div class="meet" data-step><div class="col"><span class="d">四月二十六日</span><span class="c">成都</span><span class="v">巷里 · 竹间茶室</span></div></div>
+        <div class="meet" data-step><div class="col"><span class="d">五月三日</span><span class="c">北京</span><span class="v">胡同 · 一隅书房</span></div></div>
+      </div>
+      <div class="book ink" style="--d:.4s">每场四十席，三月二十日起在栖山茶事官方渠道预约。</div>
+    </div>
+    <aside class="notes">四月到五月初，我们在四座城市各办一场春日茶会，从右往左按日期排。每场四十席，茶师现场冲泡三款新品，可以对照品饮。三月二十日开园当天开放预约，场地名称为示例。</aside>
+  </section>
+
+  <section class="slide end plain" data-section="end" data-title="结束">
+    <svg class="deco mtn ink" style="--d:.2s" aria-hidden="true"><use href="#ranges"/></svg>
+    <div class="colo ink" style="--d:.9s">栖山茶事<br>二〇二六　春</div>
+    <div class="verse">
+      <div class="ink" style="--d:.3s">山中一盏</div>
+      <div class="ink" style="--d:.7s">敬候君来</div>
+    </div>
+    <div class="seal s-md ink" style="--d:1.2s">栖山</div>
+    <aside class="notes">谢谢各位。今天现场的三款新品都可以试饮，茶会预约二维码在出口处。春天很短，希望大家今年都能喝到一盏好的春茶。</aside>
+  </section>
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+<script>
+/* Template script: folio, craft tabs, flavor radar. */
+(function () {
+  var CN = '零壹贰叁肆伍陆柒捌玖拾';
+  var deck = document.querySelector('.deck');
+  var slides = deck.querySelectorAll(':scope > .slide');
+  function cn(n) { return n <= 10 ? CN[n] : '拾' + CN[n - 10]; }
+  slides.forEach(function (s, i) {
+    if (s.classList.contains('plain')) return;
+    var f = document.createElement('div'); f.className = 'folio';
+    f.textContent = deck.dataset.brand;
+    var b = document.createElement('b'); b.textContent = cn(i + 1) + ' / ' + cn(slides.length);
+    f.appendChild(b); s.appendChild(f);
+  });
+
+  function pick(bar, sel, fn) {
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest(sel); if (!b) return;
+      bar.querySelectorAll(sel).forEach(function (x) { x.classList.toggle('on', x === b); });
+      fn(+(b.dataset.k || b.dataset.t)); b.blur();
+    });
+  }
+  var $ = function (id) { return document.getElementById(id); };
+
+  var CRAFT = [
+    ['摊青', '第一道', '六到八小时', '竹匾薄摊，散去青气，叶色由翠转暗绿', '水分降到七成左右，杀青才杀得透'],
+    ['杀青', '第二道', '三到四分钟', '锅温二百二十度，抖闷结合，手不离叶', '定住鲜叶的绿，激发豆花香'],
+    ['揉捻', '第三道', '十五分钟', '轻揉为主，先轻后重再轻', '揉出茶汁，成条而不碎'],
+    ['理条', '第四道', '八到十分钟', '理条机低温往复，芽叶挺直', '外形匀整，冲泡时根根竖立'],
+    ['烘焙', '第五道', '两次，间隔一夜', '先高温足火，再低温慢焙；松烟另入松炭', '含水降到百分之六以下，耐存放']
+  ];
+  document.querySelectorAll('.steps').forEach(function (bar) {
+    pick(bar, '.stp', function (k) {
+      var c = CRAFT[k];
+      $('cpName').firstChild.nodeValue = c[0]; $('cpStep').textContent = c[1];
+      $('cpTime').textContent = c[2]; $('cpWhat').textContent = c[3]; $('cpWhy').textContent = c[4];
+    });
+  });
+
+  var AX = ['鲜', '香', '甘', '醇', '韵'], C = 320, R = 210;
+  var FLAVOR = [
+    [[9.5, 8, 7.5, 6, 6.5], '嫩绿明亮', '豆花香，带一点栗香', '鲜爽，回甘快', '冲泡：八十五度水，三克配一百五十毫升，第一泡四十五秒'],
+    [[8, 8.5, 8, 7.5, 7.5], '黄绿清亮', '幽兰香，杯底留香', '鲜醇平衡，耐泡五道', '冲泡：九十度水，四克配一百五十毫升，第一泡四十秒'],
+    [[5.5, 7, 7.5, 9, 9], '橙黄透亮', '松烟与焙火香', '醇厚，喉韵长', '冲泡：沸水，四克配一百五十毫升；冷泡十克配一升，冷藏八小时']
+  ];
+  function pt(i, v) {
+    var a = -Math.PI / 2 + i * 2 * Math.PI / AX.length;
+    return [C + Math.cos(a) * R * v / 10, C + Math.sin(a) * R * v / 10];
+  }
+  function poly(vals) { return 'M' + vals.map(function (v, i) { return pt(i, v).map(function (n) { return n.toFixed(1); }).join(' '); }).join(' L') + 'Z'; }
+  var grid = $('radarGrid'); if (!grid) return;
+  var h = '';
+  [2.5, 5, 7.5, 10].forEach(function (r) { h += '<path class="radar-grid" d="' + poly([r, r, r, r, r]) + '"/>'; });
+  AX.forEach(function (n, i) {
+    var e = pt(i, 10), l = pt(i, 12.6);
+    h += '<line class="radar-axis" x1="' + C + '" y1="' + C + '" x2="' + e[0] + '" y2="' + e[1] + '"/>';
+    h += '<text class="radar-lab" x="' + l[0] + '" y="' + (l[1] + 14) + '" text-anchor="middle">' + n + '</text>';
+  });
+  grid.innerHTML = h;
+  function flavor(k) {
+    var f = FLAVOR[k];
+    $('radarPoly').setAttribute('d', poly(f[0]));
+    $('fvColor').textContent = f[1]; $('fvNose').textContent = f[2]; $('fvTaste').textContent = f[3]; $('fvBrew').textContent = f[4];
+  }
+  flavor(0);
+  document.querySelectorAll('.tabs').forEach(function (bar) { pick(bar, '.tab', flavor); });
+})();
+</script>
+</body>
+</html>

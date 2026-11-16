@@ -163,7 +163,16 @@
     'background:radial-gradient(circle,#fff 0 18%,#ff2d2d 35%,rgba(255,45,45,.35) 60%,transparent 72%);box-shadow:0 0 14px 4px rgba(255,40,40,.55)}',
     'html.ggt-nocursor,html.ggt-nocursor *{cursor:none!important}',
     '.ggt-badge{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;background:rgba(28,28,30,.92);',
-    'border-radius:10px;padding:8px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}'
+    'border-radius:10px;padding:8px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}',
+    // Print: every slide on its own 1920×1080 page, whatever the template's paging model (see markPrint).
+    '@media print{@page{size:1920px 1080px;margin:0}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}',
+    'html,body{width:1920px!important;height:auto!important;min-height:0!important;overflow:visible!important;transform:none!important}body{display:block!important}',
+    '[data-ggt-p=path]{display:block!important;position:static!important;transform:none!important;width:auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;margin:0!important;padding:0!important}',
+    '[data-ggt-p=hide],.ggt,.ggt-laser,.ggt-ink{display:none!important}',
+    '[data-ggt-p=slide]{display:var(--ggt-print-display,block)!important;position:relative!important;inset:auto!important;transform:none!important;opacity:1!important;visibility:visible!important;width:1920px!important;height:1080px!important;min-height:0!important;max-height:none!important;margin:0!important;overflow:hidden!important;box-sizing:border-box!important;break-inside:avoid;break-after:auto!important}',
+    '[data-ggt-p=slide]~[data-ggt-p=slide]{break-before:page}',
+    '[data-ggt-p=slide] *{animation-duration:0s!important;animation-delay:0s!important;transition:none!important}',
+    '.notes,aside.notes,.speaker-notes{display:none!important}}'
   ].join('\n');
   var style = document.createElement('style');
   style.textContent = css;
@@ -196,7 +205,13 @@
     layer.addEventListener('click', closeAll);
     show(layer);
   }
-  function show(layer) { closeAll(); open = layer; document.body.appendChild(layer); }
+  // Clicks on toolkit layers must not reach templates that page on any click.
+  function quiet(node) {
+    if (node._quiet) return;
+    node._quiet = true;
+    node.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+  function show(layer) { closeAll(); open = layer; quiet(layer); document.body.appendChild(layer); }
 
   function frame(i, width) {
     var f = el('div', 'ggt-frame');
@@ -275,6 +290,7 @@
     if (ink) return;
     ink = el('canvas', 'ggt-ink ggt-layer');
     ink.setAttribute('data-ggt', 'ink');
+    quiet(ink);
     document.body.appendChild(ink);
     inkCtx = ink.getContext && ink.getContext('2d');
     sizeInk();
@@ -405,6 +421,46 @@
     var c = presenter.document.getElementById('clock');
     if (c) c.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
+
+  /* print: tag the slides, the elements around them, and the chrome to hide */
+  function markPrint() {
+    var list = slides();
+    if (!list.length) return;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ggt-p]'), function (e) { e.removeAttribute('data-ggt-p'); });
+    var path = [];
+    list.forEach(function (sl) {
+      sl.setAttribute('data-ggt-p', 'slide');
+      for (var a = sl.parentElement; a && a !== document.documentElement; a = a.parentElement) if (path.indexOf(a) < 0) path.push(a);
+    });
+    path.forEach(function (a) {
+      if (a !== document.body) a.setAttribute('data-ggt-p', 'path');
+      Array.prototype.forEach.call(a.children, function (c) {
+        if (path.indexOf(c) < 0 && !c.hasAttribute('data-ggt-p') && !/^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(c.tagName)) c.setAttribute('data-ggt-p', 'hide');
+      });
+    });
+    var cur = list[index()], d = cur && getComputedStyle(cur).display;
+    document.documentElement.style.setProperty('--ggt-print-display', d && d !== 'none' ? d : 'block');
+  }
+  // Templates that reveal content only on the current slide get that class on every slide while printing.
+  var printCls = [], printAt = 0;
+  addEventListener('beforeprint', function () {
+    markPrint();
+    printAt = index();
+    var list = slides(), cur = list[printAt];
+    printCls = cur ? Array.prototype.filter.call(cur.classList, function (c) { return /^(is-)?(active|current|present|visible)$/.test(c); }) : [];
+    list.forEach(function (sl) {
+      printCls.forEach(function (c) { if (!sl.classList.contains(c)) { sl.classList.add(c); sl.setAttribute('data-ggt-printcls', ''); } });
+    });
+  });
+  addEventListener('afterprint', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ggt-printcls]'), function (sl) {
+      printCls.forEach(function (c) { sl.classList.remove(c); });
+      sl.removeAttribute('data-ggt-printcls');
+    });
+    // Some templates follow the class change and jump; put the deck back where printing started.
+    go(printAt);
+  });
+  ready(markPrint);
 
   /* follow the kernel */
   var last = -1;

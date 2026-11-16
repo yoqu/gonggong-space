@@ -1402,6 +1402,7 @@
     const counter = document.getElementById('slideCounter');
     const totalSlides = slides.length;
 
+    window.deck = { slides: Array.from(slides), get index() { return currentSlide; }, go: function (n) { currentSlide = n; updateSlide(); } };
     function updateSlide() {
       slides.forEach((slide, index) => {
         slide.classList.toggle('active', index === currentSlide);

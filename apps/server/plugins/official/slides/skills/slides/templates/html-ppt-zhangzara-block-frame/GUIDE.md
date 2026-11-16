@@ -41,6 +41,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Each layout's CSS is scoped by a positional class `slide-1` … `slide-10` (e.g. `.slide-7 .timeline-step`, `.slide-8 .stat-card`, `.slide-9 .team-avatar`); these name layouts, not page numbers — a duplicated slide keeps its source's `slide-N` class, and never renumber them after inserting slides or the styles land on the wrong pages.
+- Only `.slide.active` is shown (`display: flex`); the first section keeps `active` in the markup, and `#slideCounter` (`01 / 10` in the markup) is rewritten from `slides.length`, so no total is hard-coded in the script.
+- Keep the `window.deck = { slides: Array.from(slides), get index() { return currentSlide; }, go: … };` line when editing the script; deck-toolkit.js navigates through it, and the `.nav-btn` buttons call the global `prevSlide()` / `nextSlide()`.
+- The `.slide-7` timeline colours its steps by position (`.timeline-step:nth-child(2..4)` → pink/green/yellow, the 4th drops its right margin); a 5th step gets no colour and a trailing gap unless you add matching rules.
+- `.slide-8` stat cards tilt by `:nth-child(odd/even)` in a `repeat(4, 1fr)` grid and `.slide-9` team avatars are coloured by `.team-card:nth-child(2..6)` in a `repeat(3, 1fr)` grid — keep 4 stat cards and 6 team cards or extend those rules.
+- The `.slide-4` chart SVG hard-codes the palette hex in its bars (`#FE90E8` = `--pink`, `#C0F7FE` = `--blue`, `#99E885` = `--green`); each bar's `y + height` must stay on the 280 baseline and the series spacing (144px per group) lines up with the `S1…S40` x-labels.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The counter and arrow buttons are hidden in print.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

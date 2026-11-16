@@ -1561,6 +1561,7 @@
         }
 
         /* ── goTo: the single source of truth for navigation ───────────────── */
+        window.deck = { slides: slides, get index() { return current; }, go: function (n) { animating = false; goTo(n); } };
         function goTo(index, instant) {
           // Clamp to valid range
           index = Math.max(0, Math.min(total - 1, index));

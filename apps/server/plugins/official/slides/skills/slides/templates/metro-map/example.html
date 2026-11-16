@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>蓝鲸物流 2026 数字化建设路线</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --paper:#FBFAF6;--ink:#14202B;--muted:#5B6670;--rule:#DADDD8;--pale:#C9CED1;
+  --l1:#0B6FB8;--l2:#E2552D;--l3:#12936A;
+  --board:#121A22;--board-ink:#FFC63A;--board-dim:#7E8A94;
+  --sans:"Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono",Menlo,Consolas,"PingFang SC","Noto Sans SC","Microsoft YaHei",monospace;
+}
+.slide{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:30px;line-height:1.5;box-sizing:border-box;font-variant-numeric:tabular-nums}
+.slide *{box-sizing:border-box}
+.slide.dark{background:#10171E;color:#EEF1F2;--paper:#10171E;--ink:#EEF1F2;--muted:#9AA6AF;--rule:#2A3640;--pale:#3A4752}
+.slide h1,.slide h2,.slide h3,.slide p{margin:0}
+.body{position:absolute;left:140px;right:140px;top:450px;bottom:80px}
+.claim{position:absolute;left:140px;right:140px;top:342px;font-size:56px;font-weight:700;line-height:1.2;letter-spacing:-.5px}
+.lc1{--c:var(--l1)}.lc2{--c:var(--l2)}.lc3{--c:var(--l3)}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:var(--c);color:#fff;font-weight:800;font-size:30px;flex:none}
+.tag{font-size:22px;letter-spacing:2px;color:var(--muted)}
+.code{font-family:var(--mono)}
+.foot{position:absolute;left:140px;right:140px;bottom:36px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:20px;color:var(--muted)}
+
+/* mini line map (filled by script) */
+.minimap{position:absolute;left:0;right:0;top:0;height:150px;border-bottom:2px solid var(--rule)}
+.mm-cap{position:absolute;left:140px;right:140px;top:12px;display:flex;justify-content:space-between;font-size:20px;color:var(--muted);letter-spacing:2px}
+.mm-in{position:absolute;left:140px;right:140px;top:82px;height:0}
+.mm-seg{position:absolute;top:-4px;height:8px;background:var(--c);opacity:.22}
+.mm-seg.done{opacity:1}
+.mm-st{position:absolute;top:0;width:0;height:0;cursor:pointer}
+.mm-st i{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--paper);border:5px solid var(--pale)}
+.mm-st.done i{background:var(--c);border-color:var(--c)}
+.mm-st.cur i{left:-15px;top:-15px;width:30px;height:30px;background:var(--paper);border:8px solid var(--c);box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 22%,transparent)}
+.mm-st.xfer i{box-shadow:0 0 0 4px var(--paper),0 0 0 7px var(--ink)}
+.mm-st.cur.xfer i{box-shadow:0 0 0 4px var(--paper),0 0 0 7px var(--ink),0 0 0 14px color-mix(in srgb,var(--c) 22%,transparent)}
+.mm-st b{position:absolute;top:22px;left:0;transform:translateX(-50%);white-space:nowrap;font-size:20px;font-weight:500;color:var(--muted)}
+.mm-st.cur b{font-weight:800;color:var(--ink)}
+.mm-st:hover i{transform:scale(1.25)}
+.mm-train{position:absolute;top:-38px;width:0;transition:left .9s cubic-bezier(.45,0,.2,1)}
+.mm-train::before{content:"";position:absolute;left:-10px;top:0;border:10px solid transparent;border-top:12px solid var(--ink)}
+
+/* station name sign (filled by script) */
+.sign{position:absolute;left:140px;right:140px;top:184px;height:124px;display:flex;align-items:stretch;border-radius:14px;overflow:hidden;background:var(--ink);color:var(--paper)}
+.sign .s-bar{width:22px;background:var(--c)}
+.sign .s-main{flex:1;display:flex;align-items:center;gap:28px;padding:0 36px}
+.sign .s-no{font-size:24px;line-height:1.45;opacity:.75;letter-spacing:1px}
+.sign .s-name{font-size:64px;font-weight:800;letter-spacing:4px}
+.sign .s-next{display:flex;flex-direction:column;justify-content:center;padding:0 40px;border-left:2px solid color-mix(in srgb,var(--paper) 25%,transparent);font-size:28px;min-width:420px}
+.sign .s-next small{font-size:20px;letter-spacing:2px;opacity:.7}
+.sign .s-xfer{display:flex;align-items:center;gap:14px;padding:0 36px;font-size:26px;background:color-mix(in srgb,var(--paper) 10%,transparent)}
+.sign .s-xfer .badge{width:44px;height:44px;font-size:24px}
+.dark .sign{background:#EEF1F2;color:#10171E}
+
+/* cover */
+.cover-top{position:absolute;left:140px;right:140px;top:110px;display:flex;justify-content:space-between;align-items:flex-start}
+.brand{display:flex;align-items:center;gap:18px;font-size:28px;font-weight:700}
+.brand .mark{width:56px;height:56px;border-radius:12px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-size:30px}
+.cover h1{font-size:120px;line-height:1.05;font-weight:800;letter-spacing:-2px;margin-top:46px}
+.cover .sub{font-size:34px;color:var(--muted);margin-top:20px}
+.legend{display:flex;flex-direction:column;gap:18px;padding-top:8px}
+.legend span{display:flex;align-items:center;gap:16px;font-size:28px;font-weight:600}
+.legend .badge{width:48px;height:48px;font-size:26px}
+.routemap{position:absolute;left:120px;top:480px;width:1680px;height:540px;overflow:visible}
+.routemap .st{cursor:pointer}
+.routemap text{font-family:var(--sans);fill:var(--ink)}
+.routemap .rm-name{font-size:32px;font-weight:700}
+.routemap .rm-meta{font-size:22px;letter-spacing:1px;fill:var(--muted)}
+
+/* how to ride */
+.lines3{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;height:100%}
+.lcard{border-top:12px solid var(--c);padding-top:30px;display:flex;flex-direction:column;gap:18px}
+.lcard h3{display:flex;align-items:center;gap:18px;font-size:44px}
+.lcard p{color:var(--muted)}
+.lstops{list-style:none;margin:6px 0 0;padding:0 0 0 8px;position:relative;display:flex;flex-direction:column;gap:14px}
+.lstops::before{content:"";position:absolute;left:19px;top:16px;bottom:16px;width:8px;background:var(--c);border-radius:4px}
+.lstops li{position:relative;display:flex;align-items:center;gap:22px;font-size:30px;font-weight:600}
+.lstops li i{width:30px;height:30px;border-radius:50%;background:var(--paper);border:7px solid var(--c);flex:none;position:relative}
+.lstops li.xfer i{box-shadow:0 0 0 4px var(--paper),0 0 0 7px var(--ink)}
+.lstops small{font-size:22px;font-weight:400;color:var(--muted)}
+.lcard dl{margin:auto 0 0;display:grid;grid-template-columns:auto 1fr;gap:10px 22px;font-size:28px}
+.lcard dt{color:var(--muted)}
+.lcard dd{margin:0;font-weight:600}
+
+/* split */
+.split{display:grid;grid-template-columns:1.25fr 1fr;gap:90px;height:100%}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:44px}
+.steps li{display:grid;grid-template-columns:64px 1fr;gap:20px;align-items:start}
+.steps li>span{font-family:var(--mono);font-size:26px;color:var(--c);font-weight:700;padding-top:4px}
+.steps b{display:block;font-size:34px}
+.steps em{font-style:normal;color:var(--muted)}
+.nums{display:grid;gap:36px;align-content:start}
+.num{border-top:2px solid var(--rule);padding-top:16px}
+.num strong{display:block;font-size:84px;line-height:1;font-weight:800;color:var(--c)}
+.num span{color:var(--muted)}
+
+/* departure board */
+.board-wrap{display:grid;grid-template-columns:1fr 440px;gap:60px;height:100%}
+.board{align-self:start;background:var(--board);border-radius:16px;padding:28px 36px;font-family:var(--mono);color:var(--board-ink)}
+.board table{width:100%;border-collapse:collapse;font-size:30px}
+.board th{color:var(--board-dim);font-weight:400;font-size:22px;text-align:left;padding:0 0 12px;letter-spacing:2px}
+.board td{padding:12px 0;border-top:1px solid #26313B}
+.board td.ok{color:#7FD6A8}
+.board td.go{color:#fff}
+.big{display:flex;flex-direction:column;justify-content:center;gap:12px}
+.big .from{font-size:40px;color:var(--muted);text-decoration:line-through}
+.big strong{font-size:120px;line-height:1;font-weight:800;color:var(--c)}
+.big p{color:var(--muted)}
+
+/* flow diagram + chart */
+.figure{width:100%;height:100%}
+.figure text{font-family:var(--sans);fill:var(--ink)}
+.chart-wrap{display:grid;grid-template-columns:1fr 420px;gap:60px;height:100%}
+.note{font-size:22px;color:var(--muted)}
+
+/* three-step sub-line */
+.subline{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:50px}
+.subline::before{content:"";position:absolute;left:16.6%;right:16.6%;top:28px;height:10px;background:var(--c);border-radius:5px}
+.sub-st{position:relative;text-align:center}
+.sub-st i{display:block;width:66px;height:66px;margin:0 auto 26px;border-radius:50%;background:var(--paper);border:10px solid var(--c)}
+.sub-st b{display:block;font-size:40px}
+.sub-st p{color:var(--muted);margin-top:8px}
+.ribbon{margin-top:110px;display:flex;align-items:baseline;gap:30px;padding-top:28px;border-top:2px solid var(--rule)}
+.ribbon strong{font-size:72px;color:var(--c);font-weight:800}
+
+/* portal mock */
+.mock{align-self:start;border:2px solid var(--rule);border-radius:20px;padding:30px 36px;background:#fff;display:flex;flex-direction:column;gap:18px}
+.mock .row{display:flex;justify-content:space-between;font-size:28px}
+.mock .bar{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--c) 68%,var(--rule) 68%)}
+.mock .alert{background:#FFF2E6;border-radius:12px;padding:16px 22px;font-size:28px;color:#8A3A12}
+
+/* terminus summary (filled by script) */
+.recap{display:grid;grid-template-columns:1fr 1fr;gap:16px 70px}
+.recap div{display:grid;grid-template-columns:30px 220px 1fr;gap:18px;align-items:center;padding:18px 0;border-bottom:1px solid var(--rule);font-size:28px}
+.recap i{width:26px;height:26px;border-radius:50%;background:var(--c)}
+.recap b{font-weight:700}
+.recap span{color:var(--muted)}
+.next-trip{margin-top:60px;display:flex;align-items:center;gap:26px;font-size:32px}
+.next-trip .tag{font-size:24px}
+
+@media (prefers-reduced-motion:reduce){
+  .slide,.slide.is-active,.slide [data-step],.mm-train{transition:none!important}
+  .mm-st:hover i{transform:none}
+}
+@media print{.mm-train{transition:none}}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<div class="deck">
+  <section class="slide cover" data-section="cover" data-title="路线总图">
+    <div class="cover-top">
+      <div>
+        <div class="brand"><span class="mark">鲸</span>蓝鲸物流 · 数字化办公室</div>
+        <h1>2026 数字化建设路线</h1>
+        <p class="sub">三条线，八个站，一年开到「全链路可视」</p>
+      </div>
+      <div class="legend" data-legend></div>
+    </div>
+    <svg class="routemap" data-routemap viewBox="0 0 1680 540" aria-label="2026 数字化建设线路图"></svg>
+    <aside class="notes">这是今年数字化建设的整张线路图。我们把全年工作拆成三条线：底座线管数据和系统，调度线管车和路，服务线管客户体验。每个圆点是一个交付节点，双圈是换乘站，意味着上一条线的成果交给下一条线继续用。接下来按站讲，每到一站说清楚做什么、做到什么程度。</aside>
+  </section>
+
+  <section class="slide" data-section="how-to-ride" data-title="乘车须知">
+    <nav class="minimap"></nav>
+    <h2 class="claim" style="top:200px">三条线各有一个负责部门，换乘站就是交接验收点</h2>
+    <div class="body" style="top:360px">
+      <div class="lines3">
+        <div class="lcard lc1">
+          <h3><span class="badge">1</span>底座线</h3>
+          <p>系统上云、数据统一口径，为后两条线铺轨。</p>
+          <ul class="lstops" data-line-stops="1"></ul>
+          <dl><dt>区间</dt><dd>1 月 – 4 月</dd><dt>牵头</dt><dd>信息技术部</dd><dt>预算</dt><dd>【示例】820 万</dd></dl>
+        </div>
+        <div class="lcard lc2">
+          <h3><span class="badge">2</span>调度线</h3>
+          <p>路径规划、车辆物联和司机端，让每一公里可算。</p>
+          <ul class="lstops" data-line-stops="2"></ul>
+          <dl><dt>区间</dt><dd>5 月 – 8 月</dd><dt>牵头</dt><dd>运输管理部</dd><dt>预算</dt><dd>【示例】1,150 万</dd></dl>
+        </div>
+        <div class="lcard lc3">
+          <h3><span class="badge">3</span>服务线</h3>
+          <p>客户自助查询与异常主动推送，把可视交给客户。</p>
+          <ul class="lstops" data-line-stops="3"></ul>
+          <dl><dt>区间</dt><dd>9 月 – 12 月</dd><dt>牵头</dt><dd>客户服务部</dd><dt>预算</dt><dd>【示例】540 万</dd></dl>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">先讲乘车规则。每条线有一个牵头部门对结果负责，其他部门是乘客也是司机。双圈的换乘站最关键：上一条线的成果必须在这里验收通过，下一条线才能发车。预算数字是示例口径，最终以财务部批复为准。下面从第一站「现状盘点」出发。</aside>
+  </section>
+
+  <section class="slide" data-section="s1-audit" data-title="现状盘点" data-stop data-line="1" data-when="1 月" data-result="14 个系统、6 套口径摸清">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">先把家底摸清：14 个系统，6 套数据口径</h2>
+    <div class="body lc1">
+      <div class="split">
+        <ol class="steps">
+          <li data-step><span>01</span><div><b>系统各自为政</b><em>仓储、运输、结算分属三家供应商，接口靠每晚导表。</em></div></li>
+          <li data-step><span>02</span><div><b>同一指标，三个答案</b><em>「准时率」在运营、财务、客服报表里分别按发车、签收、承诺时间算。</em></div></li>
+          <li data-step><span>03</span><div><b>纸单仍是主流程</b><em>回单靠司机带回网点扫描，平均滞后 2.6 天。</em></div></li>
+        </ol>
+        <div class="nums">
+          <div class="num"><strong>14</strong><span>在用业务系统</span></div>
+          <div class="num"><strong>6</strong><span>套互不一致的报表口径</span></div>
+          <div class="num"><strong>38%</strong><span>运单仍用纸质回单</span></div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">第一站不建新东西，只做盘点。我们访谈了十一个部门，梳理出十四个在用系统。最典型的问题是同一个准时率有三种算法，开会先吵口径。纸质回单占三成多，直接拖慢结算。按右箭头逐条展开三个发现，右侧三个数字是后面每一站要改变的基线。</aside>
+  </section>
+
+  <section class="slide" data-section="s2-cloud" data-title="仓储上云" data-stop data-line="1" data-when="2–3 月" data-result="月度停机 11 h → 0.8 h">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">六个区域仓按周迁移，业务不停摆</h2>
+    <div class="body lc1">
+      <div class="board-wrap">
+        <div class="board">
+          <table>
+            <tr><th>班次</th><th>区域仓</th><th>迁移窗口</th><th>状态</th></tr>
+            <tr><td>W01</td><td>嘉兴仓</td><td>02-10 周二夜</td><td class="ok">已上云</td></tr>
+            <tr><td>W02</td><td>昆山仓</td><td>02-24 周二夜</td><td class="ok">已上云</td></tr>
+            <tr><td>W03</td><td>武汉仓</td><td>03-03 周二夜</td><td class="ok">已上云</td></tr>
+            <tr><td>W04</td><td>成都仓</td><td>03-12 周四夜</td><td class="ok">已上云</td></tr>
+            <tr><td>W05</td><td>郑州仓</td><td>03-19 周四夜</td><td class="go">演练中</td></tr>
+            <tr><td>W06</td><td>佛山仓</td><td>03-26 周四夜</td><td>待发车</td></tr>
+          </table>
+        </div>
+        <div class="big">
+          <span class="tag">月度计划外停机</span>
+          <span class="from">11 小时</span>
+          <strong>0.8 h</strong>
+          <p>已迁移四仓近 30 天均值（示例）</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">仓储上云按「一周一仓」节奏推进，每次都选业务最低谷的周二或周四夜间。时刻表上绿色是已完成，白色是正在演练，郑州仓本周做第二轮回切演练。右边是已迁移仓库近三十天的计划外停机时长，从每月十一个小时降到不到一小时，这是机房换云带来的直接收益。</aside>
+  </section>
+
+  <section class="slide" data-section="s3-data" data-title="数据中台" data-stop data-line="1" data-when="4 月" data-result="214 个指标统一为 1 套口径">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">六套报表汇成一个指标库，调度线从这里接数据</h2>
+    <div class="body">
+      <svg class="figure" viewBox="0 0 1640 560" aria-label="数据流向图">
+        <g fill="none" stroke-width="10" stroke-linecap="round">
+          <path d="M300 40 H520 C620 40 620 280 720 280" stroke="var(--l1)"/>
+          <path d="M300 136 H520 C620 136 620 280 720 280" stroke="var(--l1)"/>
+          <path d="M300 232 H720" stroke="var(--l1)"/>
+          <path d="M300 328 H720" stroke="var(--l1)"/>
+          <path d="M300 424 H520 C620 424 620 280 720 280" stroke="var(--l1)"/>
+          <path d="M300 520 H520 C620 520 620 280 720 280" stroke="var(--l1)"/>
+          <path d="M920 280 C1020 280 1020 80 1120 80 H1260" stroke="var(--l3)"/>
+          <path d="M920 280 H1260" stroke="var(--l2)"/>
+          <path d="M920 280 C1020 280 1020 480 1120 480 H1260" stroke="var(--l3)"/>
+        </g>
+        <g font-size="30" font-weight="600">
+          <text x="0" y="50">仓储 WMS</text><text x="0" y="146">运输 TMS</text><text x="0" y="242">财务结算</text>
+          <text x="0" y="338">客服工单</text><text x="0" y="434">车辆台账</text><text x="0" y="530">合同计费</text>
+        </g>
+        <circle cx="820" cy="280" r="104" fill="var(--paper)" stroke="var(--ink)" stroke-width="10"/>
+        <circle cx="820" cy="280" r="80" fill="var(--paper)" stroke="var(--l1)" stroke-width="10"/>
+        <text x="820" y="272" text-anchor="middle" font-size="34" font-weight="800">指标库</text>
+        <text x="820" y="316" text-anchor="middle" font-size="28" fill="var(--muted)">214 项</text>
+        <g font-size="30" font-weight="600">
+          <text x="1290" y="90">客户门户</text><text x="1290" y="290">调度引擎</text><text x="1290" y="490">经营看板</text>
+        </g>
+        <text x="1290" y="328" font-size="24" fill="var(--muted)">换乘 · 调度线</text>
+      </svg>
+    </div>
+    <aside class="notes">数据中台是第一个换乘站。左边六个来源系统的数据统一进入指标库，二百一十四个指标各有唯一定义和负责人。橙色那条就是调度线，五月起调度引擎只从指标库取数，不再直连业务库。双圈表示这里要做交接验收：口径文档和数据质量报告通过后，调度线才发车。</aside>
+  </section>
+
+  <section class="slide" data-section="s4-dispatch" data-title="智能调度" data-stop data-line="2" data-when="5–6 月" data-result="单车日均里程 −12%">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">路径规划上线，四个大区单车日均里程平均降 12%</h2>
+    <div class="body lc2">
+      <div class="chart-wrap">
+        <svg class="figure" viewBox="0 0 1100 520" aria-label="各大区单车日均里程">
+          <g font-size="30" font-weight="600">
+            <text x="0" y="70">华东</text><text x="0" y="200">华南</text><text x="0" y="330">华中</text><text x="0" y="460">西南</text>
+          </g>
+          <g fill="var(--pale)">
+            <rect x="110" y="34" width="749" height="24" rx="4"/><rect x="110" y="164" width="715" height="24" rx="4"/>
+            <rect x="110" y="294" width="804" height="24" rx="4"/><rect x="110" y="424" width="866" height="24" rx="4"/>
+          </g>
+          <g fill="var(--l2)">
+            <rect x="110" y="64" width="660" height="34" rx="4"/><rect x="110" y="194" width="634" height="34" rx="4"/>
+            <rect x="110" y="324" width="701" height="34" rx="4"/><rect x="110" y="454" width="763" height="34" rx="4"/>
+          </g>
+          <g font-size="26" fill="var(--muted)">
+            <text x="870" y="56">312</text><text x="836" y="186">298</text><text x="925" y="316">335</text><text x="987" y="446">361</text>
+          </g>
+          <g font-size="28" font-weight="700">
+            <text x="782" y="92">275</text><text x="756" y="222">264</text><text x="823" y="352">292</text><text x="885" y="482">318</text>
+          </g>
+        </svg>
+        <div class="big">
+          <span class="tag">单车日均里程 · 公里</span>
+          <p><span style="display:inline-block;width:26px;height:14px;background:var(--pale);margin-right:12px"></span>上线前 4 周</p>
+          <p><span style="display:inline-block;width:26px;height:20px;background:var(--l2);margin-right:12px"></span>上线后 4 周</p>
+          <strong>−12%</strong>
+          <p class="note">示例数据，取 5 月 6 日前后各 4 周</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">调度线第一站是路径规划。我们对比了上线前后各四周，四个大区的单车日均里程都在下降，西南因为山路多，降幅最大。这里不是算法多聪明，而是数据中台让订单、路况和车辆状态第一次在同一张表里。数据是示例口径，正式数字以运营月报为准。</aside>
+  </section>
+
+  <section class="slide" data-section="s5-iot" data-title="车队物联" data-stop data-line="2" data-when="7 月" data-result="1,200 台车实时在线">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">1,200 台自有车装上传感器，冷链断温 5 分钟内告警</h2>
+    <div class="body lc2">
+      <div class="split" style="grid-template-columns:1fr 1.2fr">
+        <div class="nums">
+          <div class="num"><strong>1,200</strong><span>台自有车辆接入，覆盖率 100%</span></div>
+          <div class="num"><strong>5 分钟</strong><span>冷链断温告警时限，原为次日发现</span></div>
+        </div>
+        <ol class="steps">
+          <li data-step><span>温</span><div><b>冷藏厢温度</b><em>每 30 秒回传，超出 2–8℃ 区间即推送给调度和司机。</em></div></li>
+          <li data-step><span>门</span><div><b>车门开合</b><em>非装卸点开门自动留痕，异常停靠一目了然。</em></div></li>
+          <li data-step><span>能</span><div><b>油耗与电量</b><em>和路径规划联动，换算每单真实运输成本。</em></div></li>
+        </ol>
+      </div>
+    </div>
+    <aside class="notes">七月完成全部自有车辆的传感器安装。我们只采三类数据：温度、车门、能耗，因为这三类能直接变成动作。冷链断温过去要第二天看记录才知道，现在五分钟内推到调度和司机手机上。外协车辆暂不强制安装，明年再谈。</aside>
+  </section>
+
+  <section class="slide" data-section="s6-driver" data-title="司机端" data-stop data-line="2" data-when="8 月" data-result="纸质回单 38% → 4%">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">司机端 App 三步走完一单，回单不再靠带回网点</h2>
+    <div class="body lc2">
+      <div class="subline">
+        <div class="sub-st" data-step><i></i><b>接单</b><p>派车单直达手机，路线已规划好</p></div>
+        <div class="sub-st" data-step><i></i><b>装车拍照</b><p>拍货物与封签，自动关联运单</p></div>
+        <div class="sub-st" data-step><i></i><b>电子签收</b><p>收货人手机签字，回单即时入账</p></div>
+      </div>
+      <div class="ribbon"><span class="tag">纸质回单占比</span><strong>38% → 4%</strong><span style="color:var(--muted)">剩余 4% 为客户指定纸单</span></div>
+    </div>
+    <aside class="notes">司机端是调度线的终点，也是换乘站。司机只做三件事：接单、装车拍照、电子签收。签收完回单立即进入结算，不用再等司机回网点。纸质回单从三成多降到百分之四，剩下的是客户合同里要求纸单的。签收数据接下来交给服务线，用在客户门户上。</aside>
+  </section>
+
+  <section class="slide" data-section="s7-portal" data-title="客户门户" data-stop data-line="3" data-when="9–10 月" data-result="异常主动推送，咨询量 −30%">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">客户自己查在途，晚到之前我们先开口</h2>
+    <div class="body lc3">
+      <div class="split" style="grid-template-columns:1fr 1fr">
+        <ol class="steps">
+          <li><span>A</span><div><b>在途可视</b><em>每单展示当前位置、下一站和预计送达时间。</em></div></li>
+          <li><span>B</span><div><b>异常先推</b><em>预计晚到超过 30 分钟，主动通知并给出原因。</em></div></li>
+          <li><span>C</span><div><b>电子回单自取</b><em>签收后一分钟内可下载，对账不用再要。</em></div></li>
+        </ol>
+        <div class="mock" aria-label="门户在途卡片示意">
+          <div class="row"><b>运单 LJ-2610-08841</b><span class="tag">冷链 · 整车</span></div>
+          <div class="row"><span>嘉兴仓</span><span>上海 · 闵行门店</span></div>
+          <div class="bar"></div>
+          <div class="row"><span style="color:var(--muted)">预计送达</span><b>14:20</b></div>
+          <div class="alert">预计晚到 40 分钟：G60 嘉松段拥堵，已改走 S32。</div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">服务线把前两条线的成果交给客户。门户的核心不是好看，是让客户少打电话：在途位置、预计送达和电子回单都能自己查。最有价值的是异常先推，晚到超过三十分钟，系统在客户发现之前就发通知并说明原因。试点客户的咨询量下降约三成，数字为示例。</aside>
+  </section>
+
+  <section class="slide dark" data-section="s8-terminus" data-title="全链路可视" data-stop data-line="3" data-when="12 月" data-result="一张实时运营图">
+    <nav class="minimap"></nav>
+    <header class="sign"></header>
+    <h2 class="claim">终点站：一年八站，从 14 个孤岛到一张实时运营图</h2>
+    <div class="body">
+      <div class="recap" data-recap></div>
+      <div class="next-trip"><span class="tag">下一程</span>2027 年开通「绿色线」：新能源车队与碳排核算</div>
+    </div>
+    <aside class="notes">终点站是全链路可视：从仓库出库到客户签收，每一单都在一张实时运营图上。左右两栏是每一站交付的结果，和第一站的基线对照着看。2027 年我们计划开第四条线，聚焦新能源车队和碳排核算，具体方案下季度单独汇报。谢谢大家，欢迎提问。</aside>
+  </section>
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+<script>
+/* Metro map: stations, line map, signs and recap are generated from [data-stop] slides. */
+(function () {
+  var LINES = { '1': '底座线', '2': '调度线', '3': '服务线' };
+  var NETWORK = '蓝鲸物流 · 2026 数字化路线';
+  var slides = window.deck.slides;
+  var stops = slides.filter(function (s) { return s.hasAttribute('data-stop'); }).map(function (el) {
+    return { el: el, slide: slides.indexOf(el), name: el.getAttribute('data-title'), line: el.getAttribute('data-line'),
+      when: el.getAttribute('data-when') || '', result: el.getAttribute('data-result') || '' };
+  });
+  var n = stops.length;
+  if (!n) return;
+  stops.forEach(function (st, i) {
+    st.no = 'S' + String(i + 1).padStart(2, '0');
+    st.xfer = i < n - 1 && stops[i + 1].line !== st.line;
+    st.color = 'var(--l' + st.line + ')';
+  });
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+  function pct(i) { return n > 1 ? (i / (n - 1)) * 100 : 50; }
+  function stopOf(slide) { for (var i = 0; i < n; i++) if (stops[i].el === slide) return i; return -1; }
+  function badge(line, cls) { return '<span class="badge lc' + line + (cls ? ' ' + cls : '') + '">' + line + '</span>'; }
+
+  // Mini line map on every slide with nav.minimap.
+  slides.forEach(function (slide) {
+    var nav = slide.querySelector('.minimap');
+    if (!nav) return;
+    var cur = stopOf(slide);
+    var h = '<div class="mm-cap"><span>' + esc(NETWORK) + '</span><span>' +
+      (cur < 0 ? '共 ' + n + ' 站 · 即将发车' : '第 ' + (cur + 1) + ' 站 / 共 ' + n + ' 站') + '</span></div><div class="mm-in">';
+    for (var i = 0; i < n - 1; i++)
+      h += '<i class="mm-seg' + (i < cur ? ' done' : '') + '" style="left:' + pct(i) + '%;width:' + (pct(i + 1) - pct(i)) + '%;--c:' + stops[i + 1].color + '"></i>';
+    stops.forEach(function (st, k) {
+      var state = k < cur ? 'done' : k === cur ? 'cur' : 'todo';
+      h += '<span class="mm-st ' + state + (st.xfer ? ' xfer' : '') + '" style="left:' + pct(k) + '%;--c:' + st.color +
+        '" data-go="' + st.slide + '" title="' + esc(st.name) + '"><i></i><b>' + esc(st.name) + '</b></span>';
+    });
+    if (cur >= 0) h += '<span class="mm-train" style="left:' + pct(cur) + '%"></span>';
+    nav.innerHTML = h + '</div>';
+  });
+
+  // Station name sign.
+  stops.forEach(function (st, i) {
+    var sign = st.el.querySelector('.sign');
+    if (!sign) return;
+    var nx = stops[i + 1];
+    var h = '<span class="s-bar" style="--c:' + st.color + '"></span><div class="s-main">' + badge(st.line) +
+      '<span class="s-no"><span class="code">' + st.no + '</span><br>' + esc(LINES[st.line] || '') + (st.when ? ' · ' + esc(st.when) : '') + '</span>' +
+      '<span class="s-name">' + esc(st.name) + '</span></div>';
+    if (st.xfer) h += '<div class="s-xfer">换乘' + badge(nx.line) + esc(LINES[nx.line] || '') + '</div>';
+    h += '<div class="s-next"><small>' + (nx ? '下一站 NEXT' : '本线终点 TERMINUS') + '</small>' + (nx ? esc(nx.name) + ' →' : '感谢乘坐') + '</div>';
+    sign.innerHTML = h;
+  });
+
+  // Legend + full route map on the cover.
+  var lineIds = [];
+  stops.forEach(function (st) { if (lineIds.indexOf(st.line) < 0) lineIds.push(st.line); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-legend]'), function (el) {
+    el.innerHTML = lineIds.map(function (l) { return '<span>' + badge(l) + esc(LINES[l] || l + ' 号线') + '</span>'; }).join('');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-routemap]'), function (svg) {
+    var W = 1680, pad = 90, step = n > 1 ? (W - pad * 2) / (n - 1) : 0, rise = Math.min(140, step * 0.6);
+    var pts = stops.map(function (st, i) { return { x: pad + i * step, y: 360 - lineIds.indexOf(st.line) * rise }; });
+    var h = '<g fill="none" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">';
+    for (var i = 0; i < n - 1; i++) {
+      var a = pts[i], b = pts[i + 1], flat = (step - Math.abs(b.y - a.y)) / 2;
+      h += '<path stroke="' + stops[i + 1].color + '" d="M' + a.x + ' ' + a.y + ' H' + (a.x + flat) + ' L' + (b.x - flat) + ' ' + b.y + ' H' + b.x + '"/>';
+    }
+    h += '</g>';
+    stops.forEach(function (st, i) {
+      var p = pts[i], end = i === n - 1;
+      h += '<g class="st" data-go="' + st.slide + '"><title>' + esc(st.name) + '</title>';
+      if (st.xfer || end) h += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (end ? 30 : 26) + '" fill="var(--paper)" stroke="var(--ink)" stroke-width="6"/>';
+      h += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (st.xfer || end ? 15 : 17) + '" fill="var(--paper)" stroke="' + st.color + '" stroke-width="8"/>' +
+        '<text class="rm-name" x="' + p.x + '" y="' + (p.y + 80) + '" text-anchor="middle">' + esc(st.name) + '</text>' +
+        '<text class="rm-meta" x="' + p.x + '" y="' + (p.y + 114) + '" text-anchor="middle">' + st.no + (st.when ? ' · ' + esc(st.when) : '') + '</text>' +
+        (st.xfer ? '<text class="rm-meta" x="' + p.x + '" y="' + (p.y - 46) + '" text-anchor="middle">换乘</text>' : '') +
+        (end ? '<text class="rm-meta" x="' + p.x + '" y="' + (p.y - 50) + '" text-anchor="middle">终点</text>' : '') + '</g>';
+    });
+    svg.innerHTML = h;
+  });
+
+  // Station list per line ("乘车须知" cards).
+  Array.prototype.forEach.call(document.querySelectorAll('[data-line-stops]'), function (el) {
+    var l = el.getAttribute('data-line-stops');
+    el.innerHTML = stops.filter(function (st) { return st.line === l; }).map(function (st) {
+      return '<li class="' + (st.xfer ? 'xfer' : '') + '" data-go="' + st.slide + '" style="cursor:pointer"><i></i>' + esc(st.name) + ' <small>' + esc(st.when) + '</small></li>';
+    }).join('');
+  });
+
+  // Terminus recap: one row per station result.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-recap]'), function (el) {
+    el.innerHTML = stops.map(function (st) {
+      return '<div style="--c:' + st.color + '"><i></i><b>' + esc(st.name) + '</b><span>' + esc(st.result) + '</span></div>';
+    }).join('');
+  });
+
+  // Click a station to jump there; never keep focus so ← → keep working.
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-go]');
+    if (!t) return;
+    window.deck.go(parseInt(t.getAttribute('data-go'), 10));
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  });
+
+  // Train marker rides from the previous station to the current one.
+  var last = stopOf(slides[window.deck.index]);
+  document.addEventListener('slidechange', function (e) {
+    var cur = stopOf(e.detail.slide);
+    var train = e.detail.slide.querySelector('.mm-train');
+    if (train && cur >= 0 && last >= 0 && last !== cur) {
+      train.style.transition = 'none';
+      train.style.left = pct(last) + '%';
+      void train.offsetWidth;
+      train.style.transition = '';
+      train.style.left = pct(cur) + '%';
+    }
+    last = cur;
+  });
+})();
+</script>
+</body>
+</html>

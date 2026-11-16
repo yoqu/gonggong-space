@@ -41,6 +41,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Page numbers are typed by hand in two places per slide: the right-hand label in `.slide-chrome` (`03`) and the `.slide-foot` label (`03 / 12`); after adding, removing or reordering slides renumber both on every slide and change the `/ 12` total.
+- Chapter slides (`slide--chapter`) carry their number twice — the watermark `.grove-num` (`01`) and the `.chapter-num` kicker (`01 / Context`) — and chapter numbers must run in order across the deck.
+- From slide 3 on, slides alternate `dark` and `light` (cover, chapters and end are always `dark`); when inserting a slide pick the class that keeps the alternation, and on `light` slides the foot label uses `style="color: var(--c-fg-light-2)"` instead of the `muted` class used on `dark` slides.
+- Content is hidden (`[data-anim] { opacity: 0 }`) until `.slide.is-active` plays it, so every animated element needs a `data-anim` of `fade-up`, `fade-in`, `reveal-right`, `reveal-left` or `scale-in` and a `data-delay` of 0–6 — any other value stays invisible.
+- The `.slide--chart` bars are CSS: each `.bar-fill` has a hand-set `style="height: …vh"` that must be rescaled together with its `.bar-val` text so bar heights stay proportional.
+- `#nav-dots`, `#slide-counter` and the track width (`total + "00vw"`) are built from the slide count, so the script needs no total change; keep its `window.deck = { slides: slides, get index() { return current; }, go: … };` line when editing it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. `is-active` is copied to every slide and entrance animations are zeroed, so each `data-anim` element prints in its final, visible state.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

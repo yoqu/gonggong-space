@@ -34,6 +34,7 @@
   canvas.bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;display:block;transition:opacity 1.2s ease}
   canvas#bg-light{opacity:0}
   canvas#bg-dark{opacity:1}
+  @media print{.slide{background:rgb(var(--paper-rgb))}.slide.dark{background:rgb(var(--ink-rgb))}}
   body.light-bg canvas#bg-light{opacity:1}
   body.light-bg canvas#bg-dark{opacity:0}
 

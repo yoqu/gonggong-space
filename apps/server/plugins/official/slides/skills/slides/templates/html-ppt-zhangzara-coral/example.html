@@ -1385,6 +1385,7 @@
             nextArrow.classList.toggle('dark', isLight);
         }
 
+        window.deck = { slides: Array.from(slides), get index() { return currentSlide; }, go: function (n) { goToSlide(n); } };
         function goToSlide(index) {
             if (index >= 0 && index < totalSlides) {
                 currentSlide = index;

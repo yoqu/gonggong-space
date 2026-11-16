@@ -54,6 +54,20 @@ Distilled from [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) �
 - Static / print fallback: keep every slide visible when the runtime has not booted or the document is printed.
 - No translate, no blur, no auto-advance.
 
+## Linked edits
+
+- `.pagenum` (`NN / 10`) on every slide is hand-written — renumber all of them, including the total, when slides change.
+- The TOC on the thesis slide (`ul.toc li` with `.n`, `.t`, `.pg p. NN`) lists every slide; add, remove or reorder entries together with the slides.
+- Each slide's `.meta-row .num` (`03 · manifest`) carries the section number — keep it equal to the slide's position.
+- Counts in titles must match content: the manifesto `h2.title`, its `data-title` and the TOC entry name a number of theses that must equal the `.manifesto .item` count.
+- Chart bars are inline `style="--w: NN%"` hand-scaled to the largest value; the latest bar alone gets `.bar.accent` — recompute widths and move `.accent` when data changes.
+- `--ink` / `--paper` are repeated as `rgba(26,26,25,…)` / `rgba(251,251,250,…)` in `#deck-nav` and its `.dot`s, and `.ghost-cta.solid:hover` uses `#2A2A28` — update them with the variables.
+- The nav script takes slides from the direct children of `.deck` with class `slide`, builds one `#deck-nav` dot per slide, toggles `.active` + `.is-active` (CSS shows `body.deck-nav-ready .slide.active`) and sets `window.deck = { slides, index, go }` — keep that line and keep slides un-nested.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The nav dots and progress bar are not printed.
+
 ## Pre-flight
 
 - [ ] Substrate is warm off-white; foreground is off-black; never pure black/white

@@ -35,6 +35,20 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 周报、月报、业务复盘、团队状态更新、增长/运营数据汇报.
 
+## Linked edits
+
+- The cover's `<span class="slide-number" data-current="1" data-total="7">` is rewritten by `runtime.js` (only the first `.slide-number` is), so slide count changes need no hand edit there — but a `.slide-number` added to another slide would stay frozen.
+- `--grad` repeats `--accent #2e63eb` / `--accent-2 #0ea5b5`, and the tints restate variables as `rgba()`: `.tag.feat` (accent), `.tag.infra` (accent-2), `.tag.fix` + `.delta.up` (`--good`), `.tag.exp` (`--warn`), `.delta.down` (`--bad`) — change them with the variables.
+- A KPI's status lives in two places: `.kpi.good/.warn/.bad` (left bar) and `.delta.up/.down/.flat` with ▲ / ▼ / — ; both must match the number's direction.
+- Each `.chart-bars .col .b` has its label in `data-v` and its bar in an inline `style="height:%"` — recompute all heights against the same maximum when values change; the `W25e` forecast bar's `*` ties to the footnote below the chart.
+- `.grid.g4` holds 8 `.kpi` cells (two rows of four); keep a multiple of 4.
+- The week number and date range in the cover `.week-chip`, the chart's last `.lbl`, and the Next-week kicker (`W25 计划`) must agree.
+- If you copy and edit `runtime.js`, keep its `window.deck = { slides, get index(), go }` line — the toolkit drives the deck through it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The cover's `.slide-number` shows whichever slide is current, so press Home before printing.
+
 ## Checklist
 
 - [ ] Cover headline is the finding, not "第 24 周周报".

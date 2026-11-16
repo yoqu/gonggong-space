@@ -35,6 +35,19 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 技术分享、内部 tech talk、架构讲解、会议演讲 — 工程师听众. Pair with presenter-mode notes when it will be spoken.
 
+## Linked edits
+
+- The cover's `<span class="slide-number" data-current="1" data-total="8">` is rewritten by `runtime.js` (only the first `.slide-number` is), so no hand edit when slides change; a `.slide-number` added elsewhere would stay frozen.
+- The Agenda `.agenda-row .num` list (`01`–`05`, with `~Nmin` timings) mirrors the section slides, whose kickers carry hand-typed counters (`workflow map · 1 / 2`, `pilot · 2 / 2`) — add, drop or reorder a section in both places.
+- Accent hexes are restated outside the variables: `--grad` (`#7ee787`, `#79c0ff`), the `.slide::before` radial glows (`rgba(121,192,255,.12)`, `rgba(126,231,135,.08)`) and `.pill-accent` (`rgba(126,231,135,…)`) — change them with `--accent` / `--accent-2`.
+- The canvas `#0d1117` is literal in both `.tpl-tech-sharing` and `.tpl-tech-sharing .slide`, besides `--bg`; headings are literal `#fff` — a light re-skin must change all of them.
+- Code colours are fixed GitHub-dark hexes, independent of the accents: `.kw .fn .str .cmt .num`, `.terminal` `#010409`, `.terminal .bar` `#161b22`, the three `.terminal .dot` colours.
+- If you copy and edit `runtime.js`, keep its `window.deck = { slides, get index(), go }` line — the toolkit drives the deck through it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The cover's `.slide-number` shows whichever slide is current, so press Home before printing; `.terminal pre` is capped at `max-height:440px` with scrolling, so code longer than that is cut off in print.
+
 ## Checklist
 
 - [ ] Code is real and runnable-looking, trimmed to the lines that matter, with highlighted tokens.

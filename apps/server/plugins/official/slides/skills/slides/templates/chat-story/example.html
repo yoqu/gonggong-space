@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一次差评，换来三年续约</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --paper:#F7F1E8;--ink:#2B2520;--muted:#776B60;--rule:#E3D8CA;--panel:#FFFCF7;
+  --in:#EEE3D4;--out:#22665E;--out-ink:#FFFFFF;--clay:#C2603A;--olive:#7D7230;
+  --sans:"Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --serif:Georgia,"Songti SC","Noto Serif SC",serif;
+}
+.slide{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:30px;line-height:1.5;box-sizing:border-box;font-variant-numeric:tabular-nums}
+.slide *{box-sizing:border-box}
+.slide h1,.slide h2,.slide h3,.slide p{margin:0}
+.kicker{font-size:24px;letter-spacing:2px;color:var(--muted)}
+.serif{font-family:var(--serif)}
+
+/* avatars: initial in a circle */
+.av{flex:none;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:700;background:var(--c,var(--muted))}
+.p-zhou{--c:var(--clay)}.p-lu{--c:var(--out)}.p-cheng{--c:var(--olive)}
+
+/* left caption column on chat slides */
+.cap{position:absolute;left:140px;top:120px;width:530px;bottom:120px;display:flex;flex-direction:column;gap:26px}
+.cap .act{display:flex;align-items:baseline;gap:18px;font-size:26px;color:var(--clay);font-weight:700;letter-spacing:2px}
+.cap .act span{color:var(--muted);font-weight:400;letter-spacing:1px}
+.cap h2{font-family:var(--serif);font-size:54px;line-height:1.25;font-weight:700}
+.cap p{color:var(--muted)}
+.cap .hint{margin-top:auto;font-size:22px;color:var(--muted);letter-spacing:1px}
+
+/* chat panel */
+.chat{position:absolute;left:720px;right:120px;top:44px;bottom:44px;background:var(--panel);border:2px solid var(--rule);border-radius:28px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 60px -40px rgba(60,40,20,.35)}
+.chat-head{flex:none;height:84px;display:flex;align-items:center;gap:20px;padding:0 34px;border-bottom:2px solid var(--rule)}
+.chat-head b{font-size:30px}
+.chat-head .sub{font-size:22px;color:var(--muted)}
+.chat-head .live{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:22px;color:var(--muted)}
+.chat-head .live::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--out)}
+.thread{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:18px;padding:28px 34px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 140px);mask-image:linear-gradient(to bottom,transparent 0,#000 140px)}
+.chat-foot{flex:none;height:72px;display:flex;align-items:center;gap:18px;padding:0 26px;border-top:2px solid var(--rule)}
+.chat-foot span{flex:1;height:52px;border-radius:26px;background:var(--paper);display:flex;align-items:center;padding:0 24px;font-size:24px;color:#A89A8C}
+.chat-foot i{width:52px;height:52px;border-radius:50%;background:var(--out);display:flex;align-items:center;justify-content:center}
+
+/* thread items: hidden steps take no space, so earlier bubbles slide up and fade */
+.thread>*{flex:none}
+.thread>[data-step]{display:none}
+.thread>[data-step].is-shown{display:flex;animation:pop .38s cubic-bezier(.2,.7,.3,1) both}
+.thread>.typing.is-shown:has(~ .is-shown){display:none}
+@keyframes pop{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+.msg{display:flex;align-items:flex-end;gap:16px;max-width:92%}
+.msg.out{align-self:flex-end;flex-direction:row-reverse}
+.msg>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.msg.out>div{align-items:flex-end}
+.who{font-size:20px;color:var(--muted);font-weight:500;padding:0 6px}
+.bub{padding:14px 24px;border-radius:26px;background:var(--in);font-size:30px;line-height:1.45}
+.msg.in .bub{border-bottom-left-radius:8px}
+.msg.out .bub{background:var(--out);color:var(--out-ink);border-bottom-right-radius:8px}
+.read{font-size:20px;color:var(--muted);padding:0 6px}
+.read::before{content:"✓✓ ";letter-spacing:-3px;margin-right:6px;color:var(--out)}
+.sys{align-self:center;font-size:22px;color:var(--muted);background:#F0E8DC;border-radius:20px;padding:6px 20px}
+.typing .bub{display:flex;gap:10px;padding:24px 26px}
+.typing .bub i{width:12px;height:12px;border-radius:50%;background:currentColor;opacity:.5;animation:blink 1.2s infinite}
+.typing .bub i:nth-child(2){animation-delay:.2s}.typing .bub i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+/* card / image messages */
+.card{background:#fff!important;color:var(--ink)!important;border:2px solid var(--rule);padding:18px 24px;width:500px}
+.card .c-title{display:flex;justify-content:space-between;align-items:baseline;font-size:24px;color:var(--muted);margin-bottom:10px}
+.card .c-title b{font-size:28px;color:var(--ink)}
+.card svg{display:block;width:100%;height:auto}
+.card svg text{font-family:var(--sans);fill:var(--muted)}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 20px;margin:0;font-size:26px}
+.card dt{color:var(--muted)}
+.card dd{margin:0;font-weight:600}
+.card ol{margin:0;padding-left:36px;font-size:26px;line-height:1.5}
+.card .ok{color:var(--out)}
+
+/* cover */
+.cover-l{position:absolute;left:140px;top:150px;width:900px}
+.cover h1{font-family:var(--serif);font-size:124px;line-height:1.12;font-weight:700;margin:40px 0 36px}
+.cover h1 em{font-style:normal;color:var(--clay)}
+.cover .sub{font-size:34px;color:var(--muted)}
+.cover-meta{position:absolute;left:140px;bottom:110px;display:flex;gap:56px;font-size:26px;color:var(--muted)}
+.cover-meta b{display:block;color:var(--ink);font-size:30px}
+.cover-chat{position:absolute;right:140px;top:330px;width:720px;display:flex;flex-direction:column;gap:34px}
+.cover-chat .msg{max-width:100%}
+
+/* cast */
+.title{position:absolute;left:140px;right:140px;top:120px}
+.title h2{font-family:var(--serif);font-size:72px;line-height:1.2;margin-top:18px}
+.cast{position:absolute;left:140px;right:140px;top:380px;display:grid;grid-template-columns:repeat(3,1fr);gap:48px}
+.person{border-top:2px solid var(--ink);padding-top:36px;display:flex;flex-direction:column;gap:14px}
+.person .av{width:120px;height:120px;font-size:56px;margin-bottom:12px}
+.person b{font-size:40px}
+.person .role{color:var(--muted)}
+.person p{margin-top:8px}
+
+/* narration */
+.slide.narr{background:var(--ink);color:#F7F1E8}
+.narr .inner{position:absolute;left:220px;right:220px;top:50%;transform:translateY(-50%)}
+.narr .kicker{color:#B9AA99}
+.narr h2{font-family:var(--serif);font-size:104px;line-height:1.22;font-weight:700;margin-top:40px}
+.narr h2 em{font-style:normal;color:#E9A07F}
+.narr p{font-size:36px;color:#CDBFAF;margin-top:44px;max-width:1480px}
+
+/* data */
+.rows{position:absolute;left:140px;right:140px;top:400px;display:flex;flex-direction:column;gap:46px}
+.row{display:grid;grid-template-columns:380px 1fr 300px;gap:40px;align-items:center}
+.row .lab b{display:block;font-size:34px}
+.row .lab span{font-size:24px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:10px}
+.bars i{display:block;height:26px;border-radius:13px;background:#D9CCBB;width:var(--w)}
+.bars i.after{height:38px;border-radius:19px;background:var(--out)}
+.row .val{font-size:28px;color:var(--muted);text-align:right}
+.row .val b{display:block;font-size:68px;line-height:1.1;font-weight:800;color:var(--ink)}
+.foot-note{position:absolute;left:140px;bottom:70px;font-size:22px;color:var(--muted)}
+
+/* lessons */
+.lessons{position:absolute;left:140px;right:140px;top:420px;display:grid;grid-template-columns:repeat(3,1fr);gap:60px}
+.lessons div{border-top:2px solid #5A4F45;padding-top:30px}
+.lessons em{display:block;font-style:normal;font-family:var(--serif);font-size:96px;line-height:1;color:#E9A07F}
+.lessons b{display:block;font-size:40px;margin:26px 0 14px}
+.lessons p{color:#CDBFAF}
+.sign-off{position:absolute;left:140px;bottom:80px;font-size:24px;color:#B9AA99;letter-spacing:2px}
+
+@media (prefers-reduced-motion:reduce){
+  .slide,.slide.is-active,.slide [data-step]{transition:none!important}
+  .thread>[data-step].is-shown,.typing .bub i{animation:none}
+}
+@media print{
+  .thread>[data-step]{display:flex}
+  .thread>.typing{display:none}
+}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<div class="deck">
+  <section class="slide cover" data-section="cover" data-title="封面">
+    <div class="cover-l">
+      <div class="kicker">青舟客服 · 客户故事 No.07</div>
+      <h1>一次差评，<br>换来<em>三年续约</em></h1>
+      <p class="sub">禾丰生鲜 × 青舟客服：从投诉到续约的 117 天</p>
+    </div>
+    <div class="cover-chat" aria-hidden="true">
+      <div class="sys" style="align-self:center">3 月 8 日 22:14</div>
+      <div class="msg in"><span class="av p-zhou">周</span><div><p class="bub">机器人把「退款」全转成了「查物流」。</p></div></div>
+      <div class="msg out"><span class="av p-lu">陆</span><div><p class="bub">收到。10 分钟内给您第一次进展。</p></div></div>
+      <div class="sys" style="align-self:center">7 月 3 日 · 合同已签署：三年期</div>
+    </div>
+    <div class="cover-meta"><span><b>客户成功部</b>复盘整理</span><span><b>5 幕对话</b>按 → 逐条播放</span><span><b>2026 年 7 月</b>内部分享</span></div>
+    <aside class="notes">今天讲一个客户故事。禾丰生鲜在三月大促那晚给我们打过一个很重的差评，四个月后却签了三年续约。中间发生了什么，我们用当时群里的对话来还原，每页按右箭头逐条播放。对话经过客户同意并做了删节，人名为化名。</aside>
+  </section>
+  <section class="slide" data-section="cast" data-title="人物">
+    <div class="title"><div class="kicker">登场人物</div><h2>一个客户，两个接住她的人</h2></div>
+    <div class="cast">
+      <div class="person"><span class="av p-zhou">周</span><b>周岚</b><span class="role">禾丰生鲜 · 客服运营总监</span><p>管着 120 个坐席，大促夜一直盯着排队数。</p></div>
+      <div class="person"><span class="av p-lu">陆</span><b>陆一舟</b><span class="role">青舟客服 · 客户成功经理</span><p>禾丰的专属对接人，那晚第一个回消息。</p></div>
+      <div class="person"><span class="av p-cheng">程</span><b>程远</b><span class="role">青舟客服 · 算法值班工程师</span><p>负责意图模型，那晚被拉进群定位问题。</p></div>
+    </div>
+    <aside class="notes">先认识三个人。周岚是客户方的客服运营负责人，大促当晚压力最大的人。陆一舟是我们的客户成功经理，程远是那晚值班的算法工程师。后面五幕对话都发生在双方的专属服务群里，左边是客户，右边是我们。</aside>
+  </section>
+  <section class="slide" data-section="act1-complaint" data-title="投诉">
+    <div class="cap">
+      <div class="act">第 1 幕 · 投诉<span>3 月 8 日 22:14</span></div>
+      <h2>机器人把「退款」<br>当成了「查物流」</h2>
+      <p>春季大促开场 14 分钟，排队人数涨到 612 人。</p>
+      <div class="hint">按 → 播放对话</div>
+    </div>
+    <div class="chat">
+      <div class="chat-head"><span class="av p-zhou" style="width:52px;height:52px;font-size:24px">禾</span><div><b>禾丰生鲜 × 青舟 · 专属服务群</b><br><span class="sub">3 位成员</span></div><span class="live">在线</span></div>
+      <div class="thread">
+        <div class="sys">3 月 8 日 22:14 · 周岚 发起紧急求助</div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">机器人把「退款」全转成了「物流查询」，排队 40 分钟了！</p></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><div class="bub card"><div class="c-title"><b>排队人数</b><span>22:00 – 22:14</span></div><svg viewBox="0 0 520 150" aria-label="排队人数折线"><path d="M10 128 H510" stroke="#E3D8CA" stroke-width="2"/><path d="M10 122 L80 119 L150 113 L220 99 L290 77 L360 52 L430 32 L500 16" fill="none" stroke="#C2603A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="500" cy="16" r="9" fill="#C2603A"/><text x="380" y="46" font-size="24" text-anchor="end">612 人</text><text x="10" y="148" font-size="20">22:00</text><text x="510" y="148" font-size="20" text-anchor="end">22:14</text></svg></div></div></div>
+        <div class="msg out typing" data-step><span class="av p-lu">陆</span><div><p class="bub"><i></i><i></i><i></i></p></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">收到。我现在拉技术进群，10 分钟内给您第一次进展。</p><small class="read">已读</small></div></div>
+        <div class="sys" data-step>程远 加入了对话</div>
+        <div class="msg out" data-step><span class="av p-cheng">程</span><div><b class="who">程远 · 青舟客服</b><p class="bub">定位到：模型更新把「退款」并进了「物流」，正在回滚。</p></div></div>
+      </div>
+      <div class="chat-foot"><span>输入消息…</span><i><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i></div>
+    </div>
+    <aside class="notes">这是三月八日晚上十点十四分。周岚发来的第一句话很冲，还附了一张排队截图。陆一舟没有先解释，而是承诺十分钟内给第一次进展，并把值班工程师拉进群。按右箭头逐条播放，注意从求助到定位原因用了不到十分钟。</aside>
+  </section>
+  <section class="slide" data-section="act2-rollback" data-title="回滚">
+    <div class="cap">
+      <div class="act">第 2 幕 · 回滚<span>3 月 8 日 22:31</span></div>
+      <h2>修好了，<br>可转错的人怎么办？</h2>
+      <p>回滚用了 17 分钟，但已有 1,326 次会话进错了队列。</p>
+      <div class="hint">按 → 播放对话</div>
+    </div>
+    <div class="chat">
+      <div class="chat-head"><span class="av p-zhou" style="width:52px;height:52px;font-size:24px">禾</span><div><b>禾丰生鲜 × 青舟 · 专属服务群</b><br><span class="sub">3 位成员</span></div><span class="live">在线</span></div>
+      <div class="thread">
+        <div class="sys">22:31</div>
+        <div class="msg out" data-step><span class="av p-cheng">程</span><div><b class="who">程远 · 青舟客服</b><p class="bub">已回滚，新进线的退款咨询恢复正常。</p></div></div>
+        <div class="msg out" data-step><span class="av p-cheng">程</span><div><b class="who">程远 · 青舟客服</b><div class="bub card"><div class="c-title"><b>事故卡片 · 意图误判</b><span class="ok">已恢复</span></div><dl><dt>时段</dt><dd>22:02 – 22:29</dd><dt>影响</dt><dd>1,326 次会话</dd><dt>原因</dt><dd>意图模型更新合并了两类意图</dd></dl></div></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">那已经被转错的一千多位顾客怎么办？</p></div></div>
+        <div class="msg out typing" data-step><span class="av p-lu">陆</span><div><p class="bub"><i></i><i></i><i></i></p></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">1,326 个会话已导出，明早 9 点前给您回访名单。</p><small class="read">已读</small></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">好。明早 9 点，我等。</p></div></div>
+      </div>
+      <div class="chat-foot"><span>输入消息…</span><i><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i></div>
+    </div>
+    <aside class="notes">回滚本身很快，十七分钟。但周岚马上问了一个我们没准备好的问题：已经被转错的顾客怎么办。陆一舟当场给了时间点，明早九点前出回访名单。这是整件事的转折，客户看到的不只是修好了，还有人对后果负责。</aside>
+  </section>
+  <section class="slide narr" data-section="beat-apology" data-title="旁白：道歉之后">
+    <div class="inner">
+      <div class="kicker">旁白</div>
+      <h2>道歉只是开场。<br>客户要的是<em>「下次不会再发生」</em>。</h2>
+      <p>证据比道歉有用：第二天的复盘会，我们没带致歉信，带去了三条客户可以检查的改进。</p>
+    </div>
+    <aside class="notes">停一下讲个判断。事故之后很多团队的第一反应是写致歉信、给补偿。我们这次反过来，先拿出客户可以检查的改进，每一条都写清楚怎么验证。下一幕就是复盘文档发进群之后的对话。</aside>
+  </section>
+  <section class="slide" data-section="act3-review" data-title="复盘">
+    <div class="cap">
+      <div class="act">第 3 幕 · 复盘<span>3 月 9 日 18:40</span></div>
+      <h2>把改进<br>摊开给客户看</h2>
+      <p>回访名单 08:42 发出，比约定早 18 分钟；当晚复盘文档进群。</p>
+      <div class="hint">按 → 播放对话</div>
+    </div>
+    <div class="chat">
+      <div class="chat-head"><span class="av p-zhou" style="width:52px;height:52px;font-size:24px">禾</span><div><b>禾丰生鲜 × 青舟 · 专属服务群</b><br><span class="sub">3 位成员</span></div><span class="live">在线</span></div>
+      <div class="thread">
+        <div class="sys">3 月 9 日 08:42 · 陆一舟 发送了 回访名单.xlsx</div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><div class="bub card"><div class="c-title"><b>事故复盘 · 3 条改进</b><span>PDF · 6 页</span></div><ol><li>意图模型先灰度 5%，再全量</li><li>大促人工兜底：60 秒降到 20 秒</li><li>每周一发质量周报到本群</li></ol></div></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">第 2 条我们很需要。灰度的结果，能让我们一起看吗？</p></div></div>
+        <div class="msg out typing" data-step><span class="av p-lu">陆</span><div><p class="bub"><i></i><i></i><i></i></p></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">可以。下周起灰度报告同步到本群，你们的标注员也能直接改意图。</p><small class="read">已读</small></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">那我们先观察一个季度。</p></div></div>
+      </div>
+      <div class="chat-foot"><span>输入消息…</span><i><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i></div>
+    </div>
+    <aside class="notes">复盘文档里只有三条改进，都能被客户检查：灰度比例、人工兜底时长、每周质量周报。周岚主动要求一起看灰度结果，我们顺势把客户的标注员也拉进来。她最后一句「先观察一个季度」，其实是把续约决定往后放了，而不是取消。</aside>
+  </section>
+  <section class="slide" data-section="numbers" data-title="数据：90 天后">
+    <div class="title"><div class="kicker">数据 · 3 月 8 日 vs 6 月 18 日</div><h2>一个季度后，三个数字都换了样</h2></div>
+    <div class="rows">
+      <div class="row" data-step><div class="lab"><b>大促首次响应</b><span>越短越好</span></div><div class="bars"><i style="--w:100%"></i><i class="after" style="--w:6%"></i></div><div class="val">41 分钟 →<b>2.5 分钟</b></div></div>
+      <div class="row" data-step><div class="lab"><b>意图识别准确率</b><span>抽检 2,000 条</span></div><div class="bars"><i style="--w:86%"></i><i class="after" style="--w:95%"></i></div><div class="val">86% →<b>95%</b></div></div>
+      <div class="row" data-step><div class="lab"><b>顾客满意度</b><span>5 分制</span></div><div class="bars"><i style="--w:62%"></i><i class="after" style="--w:92%"></i></div><div class="val">3.1 →<b>4.6</b></div></div>
+    </div>
+    <div class="foot-note">浅色为 3 月 8 日，深色为 6 月 18 日 · 示例数据</div>
+    <aside class="notes">一个季度之后，我们用同样的口径对比了两个大促夜。首次响应从四十一分钟降到两分半，意图准确率从百分之八十六到九十五，满意度从三点一到四点六。准确率的提升里，有一部分来自客户标注员直接修改的意图，这一点下一幕会提到。数字为示例。</aside>
+  </section>
+  <section class="slide" data-section="act4-peak" data-title="618 当晚">
+    <div class="cap">
+      <div class="act">第 4 幕 · 618<span>6 月 18 日 23:58</span></div>
+      <h2>峰值翻了一倍多，<br>没有一单积压</h2>
+      <p>这一次，是周岚先在群里开口。</p>
+      <div class="hint">按 → 播放对话</div>
+    </div>
+    <div class="chat">
+      <div class="chat-head"><span class="av p-zhou" style="width:52px;height:52px;font-size:24px">禾</span><div><b>禾丰生鲜 × 青舟 · 专属服务群</b><br><span class="sub">3 位成员</span></div><span class="live">在线</span></div>
+      <div class="thread">
+        <div class="sys">6 月 18 日 23:58</div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">峰值是 3 月那晚的 2.3 倍，没人排队超 3 分钟。</p></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><div class="bub card"><div class="c-title"><b>排队时长 · 分钟</b><span>6/18 vs 3/8</span></div><svg viewBox="0 0 520 150" aria-label="排队时长对比"><path d="M10 134 H510" stroke="#E3D8CA" stroke-width="2"/><path d="M10 124 L90 108 L170 77 L250 49 L330 30 L410 22 L500 18" fill="none" stroke="#D9CCBB" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 129 L90 126 L170 124 L250 123 L330 125 L410 123 L500 125" fill="none" stroke="#22665E" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><text x="500" y="46" font-size="22" text-anchor="end">3/8 · 41</text><text x="500" y="112" font-size="22" text-anchor="end" style="fill:#22665E">6/18 · 2.5</text></svg></div></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">「退款改地址」这条新意图，是你们标注员上月加的。</p></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">老板刚问续约的事，能约时间聊聊三年方案吗？</p></div></div>
+        <div class="msg out typing" data-step><span class="av p-lu">陆</span><div><p class="bub"><i></i><i></i><i></i></p></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">周四下午 3 点可以吗？我把明年的路线图带上。</p><small class="read">已读</small></div></div>
+      </div>
+      <div class="chat-foot"><span>输入消息…</span><i><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i></div>
+    </div>
+    <aside class="notes">六一八当晚，同样接近午夜，这次是周岚主动发消息。峰值是三月那晚的二点三倍，排队却没超过三分钟。陆一舟特意提到新意图是客户标注员加的，把功劳还给客户团队。紧接着，续约的话题由客户自己提了出来。</aside>
+  </section>
+  <section class="slide" data-section="act5-renewal" data-title="续约">
+    <div class="cap">
+      <div class="act">第 5 幕 · 续约<span>7 月 3 日 16:05</span></div>
+      <h2>那 10 分钟，<br>被写进了值守手册</h2>
+      <p>续约合同签完，周岚补了一句我们没想到的话。</p>
+      <div class="hint">按 → 播放对话</div>
+    </div>
+    <div class="chat">
+      <div class="chat-head"><span class="av p-zhou" style="width:52px;height:52px;font-size:24px">禾</span><div><b>禾丰生鲜 × 青舟 · 专属服务群</b><br><span class="sub">3 位成员</span></div><span class="live">在线</span></div>
+      <div class="thread">
+        <div class="sys">7 月 3 日 16:05</div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><div class="bub card"><div class="c-title"><b>续约确认</b><span class="ok">已签署</span></div><dl><dt>方案</dt><dd>青舟客服 企业版</dd><dt>期限</dt><dd>三年 · 2027 – 2029</dd><dt>坐席</dt><dd>120 → 180</dd></dl></div></div></div>
+        <div class="msg in" data-step><span class="av p-zhou">周</span><div><b class="who">周岚 · 禾丰生鲜</b><p class="bub">签好了。说句实话：3 月那晚你们要是没在 10 分钟内回我，我们已经在看别家了。</p></div></div>
+        <div class="msg out typing" data-step><span class="av p-lu">陆</span><div><p class="bub"><i></i><i></i><i></i></p></div></div>
+        <div class="msg out" data-step><span class="av p-lu">陆</span><div><b class="who">陆一舟 · 青舟客服</b><p class="bub">那 10 分钟现在写进了大促值守手册：紧急求助 10 分钟内必须有人回。</p><small class="read">已读</small></div></div>
+        <div class="sys" data-step>周岚 将本群设为置顶</div>
+      </div>
+      <div class="chat-foot"><span>输入消息…</span><i><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i></div>
+    </div>
+    <aside class="notes">七月三日续约签完，三年期，坐席从一百二十扩到一百八十。周岚说了一句很关键的话：那晚如果十分钟内没人回，她们已经在看别家了。所以真正留住客户的，不是后来的数字，而是第一个十分钟。最后一条系统消息，她把群置顶了。</aside>
+  </section>
+  <section class="slide narr" data-section="lessons" data-title="我们学到的">
+    <div class="title"><div class="kicker" style="color:#B9AA99">复盘 · 从投诉到续约</div><h2 style="color:#F7F1E8">我们做对的三件事</h2></div>
+    <div class="lessons">
+      <div data-step><em>01</em><b>10 分钟有人回</b><p>紧急求助先回人，再回答案。时限写进值守手册。</p></div>
+      <div data-step><em>02</em><b>把事故摊开</b><p>事故卡片、复盘文档、灰度报告，都发进客户群。</p></div>
+      <div data-step><em>03</em><b>让客户参与改进</b><p>标注员直接改意图，改进里有他们的名字。</p></div>
+    </div>
+    <div class="sign-off">青舟客服 · 客户成功部 · 客户故事 No.07</div>
+    <aside class="notes">最后总结三件事。第一，十分钟有人回，先回人再回答案。第二，把事故摊开，让客户看到我们在改什么。第三，让客户参与改进，改进成果有他们的名字。这三条都已经写进客户成功部的工作规范，欢迎各团队提问和补充。</aside>
+  </section>
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+</body>
+</html>

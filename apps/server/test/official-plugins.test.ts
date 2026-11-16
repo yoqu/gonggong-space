@@ -452,7 +452,7 @@ describe('official plugin slides', () => {
   })
 
   it('loads the presenting toolkit in <head> of every example and seed', () => {
-    expect(decks.length).toBeGreaterThan(60)
+    expect(decks.length).toBeGreaterThan(45)
     for (const f of decks) {
       const head = readFileSync(f, 'utf8').split('</head>')[0] ?? ''
       const src = /<script src="([^"]*deck-toolkit\.js)"><\/script>/.exec(head)?.[1]
@@ -465,6 +465,30 @@ describe('official plugin slides', () => {
       expect(readFileSync(join(skillDir, 'templates', t.id, 'example.html'), 'utf8'), t.id).toContain(
         '<script src="../html-ppt/assets/runtime.js"></script>',
       )
+  })
+
+  it('groups 31 templates as 经典 / 交互实验 with short names, and every guide covers linked edits and print', () => {
+    expect(manifest.templates).toHaveLength(31)
+    for (const t of manifest.templates) {
+      expect(['经典·汇报', '经典·发布路演', '经典·技术教育', '经典·创意社媒', '交互实验'], t.id).toContain(
+        t.group,
+      )
+      expect(t.title.length, t.title).toBeLessThanOrEqual(6)
+      const guide = readFileSync(join(skillDir, 'templates', t.id, 'GUIDE.md'), 'utf8')
+      expect(guide, t.id).toContain('## Linked edits')
+      expect(guide, t.id).toContain('## Print')
+    }
+  })
+
+  it('maps every retired template id to a template that still ships', () => {
+    const skill = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+    const rows = [...(skill.split('<!-- RETIRED -->')[1] ?? '').matchAll(/^\| `([^`]+)` \| `([^`]+)`/gm)]
+    expect(rows).toHaveLength(30)
+    const ids = new Set(manifest.templates.map((t) => t.id))
+    for (const [, from, to] of rows) {
+      expect(ids.has(from ?? ''), from).toBe(false)
+      expect(ids.has(to ?? ''), `${from} → ${to}`).toBe(true)
+    }
   })
 
   it('tells the agent to inject the toolkit into every deck', () => {

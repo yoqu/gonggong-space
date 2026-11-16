@@ -34,6 +34,20 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 Product launches, feature reveals, rollout proposals, launch keynotes, internal "we are shipping X" announcements.
 
+## Linked edits
+
+- The cover's `<span class="slide-number" data-current="1" data-total="8">` is rewritten by `runtime.js` (only the first `.slide-number` is), so no hand edit when slides change; a `.slide-number` added elsewhere would stay frozen.
+- The product name on the cover device is CSS, not markup: `.hero-shot::before{content:"OpenDesign"}` (the starter `style.css` says `"Halo v2"`) — change it with the cover headline and `.brand`.
+- `--grad` repeats `--accent #ff5a36` / `--accent-2` / `--accent-3`, and the accent is restated as `rgba(255,90,54,…)` in the `.price-card.pro` and `.cta-btn` shadows — re-brand them together.
+- The near-black `#0a0a12` is literal in `.slide.dark` and `.price-card.pro` (background and border), separate from `--ink` / `--text-1` — change all of them together.
+- Dark/light rhythm: `.slide.dark` is on Cover, Fit and Ship; when adding slides keep dark ones apart, and any new component used on a dark slide needs its own `.slide.dark …` colour rule (only `.h1/.h2/h3/h4/.lede/.dim/.card/.kicker` are overridden).
+- `.step .n` numbers (1, 2, 3) are hand-typed — renumber when steps change.
+- If you copy and edit `runtime.js`, keep its `window.deck = { slides, get index(), go }` line — the toolkit drives the deck through it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The cover's `.slide-number` shows whichever slide is current, so press Home before printing.
+
 ## Checklist
 
 - [ ] Each feature slide sells one benefit with proof (number, quote, screenshot), not a feature list.

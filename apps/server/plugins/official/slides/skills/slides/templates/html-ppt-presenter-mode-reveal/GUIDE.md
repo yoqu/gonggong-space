@@ -35,6 +35,21 @@ Every slide carries `<aside class="notes">` with 150–300 字 of 逐字稿.
 
 技术分享、路演、课程讲授、现场演示 — 任何「要上台讲」且需要提词的场景.
 
+## Linked edits
+
+- `data-themes` on `<html>` must match the files in `./assets/themes/<name>.css` and the `<link id="theme-link">` href (runtime derives the theme folder from it, falling back to `assets/themes/`); the example's inline `<style data-theme="tokyo-night">` is the default and must be replaced if you change the default theme.
+- Theme names/count are also written in copy — the closing `.code-block` (`switch theme (5 presets)`) and the last slide's notes list all five themes; update them with `data-themes`.
+- Several colours ignore the theme and stay GitHub-dark: `.blue/.green/.orange/.purple/.red`, `.code-block` (`#0d1117`, `#e6edf3`, token colours), the `.speaker .av` gradient stop `#bc8cff`, and the fixed key-hint `color:#484f5866` — check them against every theme in `data-themes`, especially `corporate-clean`.
+- Agenda `.agenda-row .num` (01–05), the heading `Five things on the agenda`, each section slide's `.kicker` (`// part 0N · …`) and the cover notes (`five parts`) must stay in sync when parts change.
+- `.slide-number` sits on the cover and the last slide, but runtime only updates the first one in the document, so the last slide's `data-current="6" data-total="6"` is hand-written — fix it when the slide count changes.
+- Shortcut copy appears in three places — cover `.lede`, the closing `.code-block`, and the fixed bottom-left hint `<div>` after `.deck` — keep them consistent with what actually works (deck-toolkit.js owns S and O; its presenter window resets the timer with a button, not R).
+- Every slide's `<aside class="notes">` must stay inside its `section.slide`; both the toolkit presenter window and runtime's N overlay read it from there.
+- Navigation comes from `runtime.js` (slides are `.deck .slide`; it sets `window.deck = { slides, index, go }` for deck-toolkit.js) — if you copy or edit `runtime.js`, keep that line.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The shared base print CSS hides `.deck-footer` (hashtags + `.slide-number`) and the fixed shortcut hint is dropped; speaker notes never print.
+
 ## Checklist
 
 - [ ] Every slide has 150–300 字 notes following the three rules in `../html-ppt/references/presenter-mode.md` (提示信号、加粗核心词、过渡句独立成段、口语).

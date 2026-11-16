@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>穹顶城市数据中心二期 · 工程方案</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --bg:#0c2d52;--ink:#eef6ff;--cy:#8fd6ff;--dim:#a9c6e2;--faint:rgba(170,210,245,.32);
+  --g1:rgba(150,200,240,.075);--g2:rgba(150,200,240,.17);--hi:#ffc65c;--fillhi:rgba(143,214,255,.2);
+  --sans:"DIN Alternate","Bahnschrift","Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono",Menlo,Consolas,"PingFang SC","Noto Sans SC","Microsoft YaHei",monospace;
+}
+.slide{background-color:var(--bg);color:var(--ink);font-family:var(--sans);font-size:28px;line-height:1.45;box-sizing:border-box;padding:84px 104px 0;
+  background-image:linear-gradient(var(--g2) 1px,transparent 1px),linear-gradient(90deg,var(--g2) 1px,transparent 1px),linear-gradient(var(--g1) 1px,transparent 1px),linear-gradient(90deg,var(--g1) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;background-position:48px 48px}
+.slide *{box-sizing:border-box}
+/* drawing sheet chrome (built by script) */
+.sheet{position:absolute;inset:24px;border:2px solid var(--ink);pointer-events:none}
+.sheet::before{content:"";position:absolute;inset:22px;border:1px solid var(--ink)}
+.zt{position:absolute;font:14px/22px var(--mono);color:var(--dim);text-align:center}
+.zt.h{top:0;width:20px;margin-left:-10px}.zt.hb{bottom:0;top:auto}
+.zt.v{left:0;width:22px;margin-top:-11px}.zt.vr{right:0;left:auto}
+.zk{position:absolute;background:var(--ink)}
+.tb{position:absolute;right:22px;bottom:22px;width:640px;display:grid;grid-template-columns:1.2fr .9fr .9fr;border-left:2px solid var(--ink);border-top:2px solid var(--ink);background:var(--bg)}
+.tb div{border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:5px 12px 6px;height:50px}
+.tb div:nth-child(3n){border-right:0}
+.tb .w2{grid-column:span 2}
+.tb i{display:block;font:normal 13px/1.2 var(--mono);color:var(--dim);letter-spacing:.08em}
+.tb b{display:block;font:600 19px/1.3 var(--sans);white-space:nowrap;overflow:hidden}
+/* header */
+.hd{display:flex;align-items:baseline;gap:28px;height:120px;border-bottom:1px solid var(--faint);margin-bottom:28px}
+.no{font:600 24px/1 var(--mono);color:var(--cy);border:1.5px solid var(--cy);padding:8px 12px;letter-spacing:.06em}
+h1,h2{margin:0;font-weight:600;letter-spacing:.02em}
+h2{font-size:58px;line-height:1.1}
+.hd small{margin-left:auto;font:22px var(--mono);color:var(--dim)}
+/* svg vocabulary */
+svg{overflow:visible;display:block}
+svg text{font-family:var(--sans)}
+.ln{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.ln.th{stroke-width:1.2;stroke:var(--dim)}
+.ln.bold{stroke-width:3.5}
+.dim{fill:none;stroke:var(--cy);stroke-width:1.5}
+.ext{stroke:var(--cy);stroke-width:1;opacity:.7}
+.cl{fill:none;stroke:var(--dim);stroke-width:1.2;stroke-dasharray:28 6 4 6}
+.hid{fill:none;stroke:var(--dim);stroke-width:1.2;stroke-dasharray:8 6}
+.t{font-size:26px;font-weight:600;fill:var(--ink)}
+.tl{font-size:28px;font-weight:600;fill:var(--ink)}
+.ts{font:22px var(--mono);fill:var(--cy)}
+.tm{font:24px var(--mono);fill:var(--dim)}
+.dt{font:600 24px var(--mono);fill:var(--cy);paint-order:stroke;stroke:var(--bg);stroke-width:10px;stroke-linejoin:round}
+.bl circle{fill:var(--bg);stroke:var(--ink);stroke-width:2}
+.bl text{font:600 24px var(--mono);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.fi{opacity:1}
+/* hoverable parts */
+.part .bx{fill:rgba(143,214,255,.05);transition:fill .2s,stroke .2s,opacity .2s}
+.part{transition:opacity .2s;cursor:default}
+.part:hover .bx{fill:var(--fillhi);stroke:var(--cy)}
+.peek .part:not(:hover){opacity:.4}
+.spec{border:1.5px solid var(--cy);background:rgba(12,45,82,.92);display:flex;flex-direction:column}
+.spec header{font:600 20px/1 var(--mono);color:var(--bg);background:var(--cy);padding:10px 16px;letter-spacing:.1em}
+.spec .spec-t{font-size:38px;font-weight:600;padding:22px 24px 6px;line-height:1.2}
+.spec .spec-d{padding:8px 24px 24px;font-size:28px;color:var(--ink);line-height:1.5}
+.spec .spec-d em{font-style:normal;color:var(--cy);font-family:var(--mono)}
+.spec footer{margin-top:auto;border-top:1px solid var(--faint);padding:14px 24px;font:22px/1.4 var(--mono);color:var(--dim)}
+/* draw-on: every .ln/.dim has pathLength=1 (set by script); replays when the slide becomes active */
+.slide.is-active .ln,.slide.is-active .dim{stroke-dasharray:1 1;animation:draw 1.1s cubic-bezier(.4,0,.2,1) both;animation-delay:var(--d,0s)}
+.slide.is-active .fi{animation:fadein .6s ease both;animation-delay:calc(var(--d,0s) + .5s)}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.slide.is-active .ln,.slide.is-active .dim,.slide.is-active .fi{animation:none}.part,.part .bx{transition:none}}
+@media print{.slide{-webkit-print-color-adjust:exact;print-color-adjust:exact}.slide .ln,.slide .dim,.slide .fi{animation:none!important}}
+/* cover */
+.s-cover .kick{font:600 24px var(--mono);color:var(--cy);letter-spacing:.12em}
+.s-cover h1{font-size:84px;line-height:1.12;margin:30px 0 40px}
+.s-cover h1 span{color:var(--cy)}
+.specs{font:28px/1 var(--mono);width:700px}
+.specs div{display:flex;align-items:baseline;gap:12px;padding:14px 0;border-bottom:1px dashed var(--faint)}
+.specs div i{font-style:normal;color:var(--dim)}
+.specs div b{margin-left:auto;font-weight:600}
+.org{position:absolute;left:104px;bottom:90px;font:24px/1.5 var(--mono);color:var(--dim)}
+/* tables */
+table.pt{width:100%;border-collapse:collapse;font-size:28px}
+.pt th{font:600 20px var(--mono);color:var(--cy);text-align:left;letter-spacing:.1em;padding:0 16px 14px;border-bottom:2px solid var(--ink)}
+.pt td{white-space:nowrap;padding:13px 16px;border-bottom:1px solid var(--faint);vertical-align:baseline}
+.pt td.id{font:22px var(--mono);color:var(--dim);width:100px}
+.pt td.v{font:600 30px var(--mono);color:var(--cy);white-space:nowrap}
+.pt td.m{font-family:var(--mono);color:var(--dim)}
+.pt tr td:first-child,.pt tr th:first-child{padding-left:0}
+/* risks */
+.risks{display:flex;flex-direction:column}
+.risk{display:grid;grid-template-columns:120px 470px 96px 1fr;gap:28px;align-items:center;padding:20px 0;border-bottom:1px solid var(--faint)}
+.risk:first-child{border-top:2px solid var(--ink)}
+.risk .id{font:22px var(--mono);color:var(--dim)}
+.risk .nm{font-weight:600;font-size:30px;line-height:1.3}
+.risk .lv{width:64px;height:64px;border:2px solid var(--ink);border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:28px}
+.risk .lv.h{border-color:var(--hi);color:var(--hi)}
+.risk p{margin:0;line-height:1.4}
+/* notes row */
+.flowsteps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:22px;width:1100px}
+.flowsteps div{border-top:2px solid var(--cy);padding-top:12px;line-height:1.4}
+.flowsteps b{font:600 22px var(--mono);color:var(--cy);display:block;margin-bottom:4px}
+/* end */
+.sign{width:100%;border-collapse:collapse;font-size:28px}
+.sign th{font:600 20px var(--mono);color:var(--cy);text-align:left;padding:0 0 12px;border-bottom:2px solid var(--ink);letter-spacing:.1em}
+.sign td{height:74px;border-bottom:1px solid var(--faint)}
+.sign td:nth-child(2){border-bottom:1px solid var(--ink);width:240px}
+.asks{list-style:none;margin:0;padding:0;counter-reset:a}
+.asks li{counter-increment:a;display:grid;grid-template-columns:70px 1fr;padding:18px 0;border-bottom:1px dashed var(--faint)}
+.dir{margin-top:44px;display:grid;grid-template-columns:1fr 1fr;column-gap:40px;font-size:28px}
+.dir h3{grid-column:1/-1;margin:0 0 6px;font:600 20px var(--mono);color:var(--cy);letter-spacing:.1em}
+.dir div{display:flex;gap:16px;padding:8px 0;border-bottom:1px dashed var(--faint)}
+.dir code{font:24px/1.6 var(--mono);color:var(--dim)}
+.asks li::before{content:"0" counter(a);font:600 26px var(--mono);color:var(--cy)}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" fill="#eef6ff"/></marker>
+    <marker id="da" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 2 L12 6 L0 10" fill="none" stroke="#8fd6ff" stroke-width="1.6"/></marker>
+    <pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="14" stroke="#a9c6e2" stroke-width="1.4"/></pattern>
+    <pattern id="cross" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V12M0 0H12" stroke="#a9c6e2" stroke-width="1.2"/></pattern>
+    <pattern id="soil" width="36" height="20" patternUnits="userSpaceOnUse"><path d="M2 6l8 8M14 4l6 6M24 8l9 9" stroke="#a9c6e2" stroke-width="1.2" fill="none"/></pattern>
+  </defs>
+</svg>
+<div class="deck">
+
+  <!-- 01 cover -->
+  <section class="slide s-cover" data-section="cover" data-title="封面" data-dwg="DC2-G-00" data-scale="1:1000">
+    <div style="padding-top:60px">
+      <div class="kick">工程方案 · 送审稿 B 版</div>
+      <h1>穹顶城市数据中心<br><span>二期工程方案</span></h1>
+      <div class="specs">
+        <div><i>IT 负载</i><b>24 MW</b></div>
+        <div><i>设计 PUE</i><b>≤ 1.18</b></div>
+        <div><i>机柜</i><b>1,280 柜</b></div>
+        <div><i>计划投产</i><b>2028.12</b></div>
+      </div>
+    </div>
+    <svg style="position:absolute;left:860px;top:180px" width="960" height="640" viewBox="0 0 960 640">
+      <rect x="0" y="500" width="760" height="44" fill="url(#soil)" class="fi"/>
+      <line class="ln bold" x1="0" y1="500" x2="760" y2="500"/>
+      <path class="ln bold" d="M140 500 A280 300 0 0 1 700 500"/>
+      <path class="ln th" d="M230 500 A190 300 0 0 1 610 500"/>
+      <path class="ln th" d="M325 500 A95 300 0 0 1 515 500"/>
+      <line class="ln th" x1="420" y1="200" x2="420" y2="500"/>
+      <line class="ln th" x1="150" y1="420" x2="690" y2="420"/>
+      <line class="ln th" x1="183" y1="340" x2="657" y2="340"/>
+      <line class="ln th" x1="240" y1="270" x2="600" y2="270"/>
+      <rect class="ln" x="230" y="400" width="380" height="100" fill="rgba(143,214,255,.06)"/>
+      <line class="ln th" x1="230" y1="450" x2="610" y2="450"/>
+      <rect class="ln" x="610" y="452" width="56" height="48"/>
+      <rect class="ln" x="672" y="452" width="56" height="48"/>
+      <ellipse class="ln th" cx="638" cy="452" rx="20" ry="6"/>
+      <ellipse class="ln th" cx="700" cy="452" rx="20" ry="6"/>
+      <line class="cl" x1="420" y1="160" x2="420" y2="560"/>
+      <!-- dimensions -->
+      <line class="ext" x1="140" y1="505" x2="140" y2="600"/><line class="ext" x1="700" y1="505" x2="700" y2="600"/>
+      <line class="dim" x1="140" y1="586" x2="700" y2="586" marker-start="url(#da)" marker-end="url(#da)"/>
+      <text class="dt" x="420" y="574" text-anchor="middle">Ø 128 000</text>
+      <line class="ext" x1="415" y1="200" x2="40" y2="200"/><line class="ext" x1="135" y1="500" x2="40" y2="500"/>
+      <line class="dim" x1="56" y1="200" x2="56" y2="500" marker-start="url(#da)" marker-end="url(#da)"/>
+      <text class="dt" x="46" y="350" text-anchor="middle" transform="rotate(-90 46 350)">42 000</text>
+      <!-- balloons -->
+      <line class="ln th" x1="752" y1="196" x2="640" y2="302"/>
+      <g class="bl fi"><circle cx="770" cy="180" r="24"/><text x="770" y="181">1</text></g>
+      <text class="t fi" x="806" y="190">钢网壳穹顶</text>
+      <line class="ln th" x1="752" y1="316" x2="600" y2="425"/>
+      <g class="bl fi"><circle cx="770" cy="300" r="24"/><text x="770" y="301">2</text></g>
+      <text class="t fi" x="806" y="310">模块化机房楼</text>
+      <line class="ln th" x1="752" y1="425" x2="728" y2="450"/>
+      <g class="bl fi"><circle cx="770" cy="410" r="24"/><text x="770" y="411">3</text></g>
+      <text class="t fi" x="806" y="420">干冷器组</text>
+      <text class="tm fi" x="0" y="40">立面 · ELEVATION</text>
+    </svg>
+    <div class="org">编制：穹顶城市基础设施投资有限公司 · 二期设计组<br>尺寸单位：mm　标高单位：m</div>
+    <aside class="notes">各位专家好，今天汇报穹顶城市数据中心二期的工程方案送审稿。二期设计 IT 负载 24 兆瓦，1280 个机柜，目标 PUE 不高于 1.18，计划 2028 年 12 月全面投产。右侧是立面示意：钢网壳穹顶罩住模块化机房楼，干冷器布置在穹顶外侧。后面依次讲架构、模块、数据流、总图、剖面、参数、风险和里程碑。</aside>
+  </section>
+
+  <!-- 02 architecture -->
+  <section class="slide" data-section="architecture" data-title="总体架构" data-dwg="DC2-A-01" data-scale="示意">
+    <div class="hd"><span class="no">图 01</span><h2>总体架构：供电、制冷、网络三路汇入四个机房模块</h2></div>
+    <div style="display:grid;grid-template-columns:1200px 1fr;gap:48px">
+      <svg width="1200" height="640" viewBox="0 0 1200 640">
+        <!-- network -->
+        <g class="part" data-name="运营商接入" data-note="三家运营商各 400G 双路由进线，分别从南、北两个光缆井进入，任一运营商中断不影响业务。"><rect class="ln bx" x="450" y="0" width="300" height="66"/><text class="t" x="600" y="42" text-anchor="middle">运营商接入 ×3</text></g>
+        <line class="ln" x1="600" y1="66" x2="600" y2="100" marker-end="url(#ar)"/>
+        <g class="part" data-name="核心网络区" data-note="两组核心交换机分置于 B、C 模块之间的网络间，与一期通过 100G 专线互联。"><rect class="ln bx" x="450" y="102" width="300" height="66"/><text class="t" x="600" y="144" text-anchor="middle">核心网络 · 400G</text></g>
+        <line class="ln" x1="600" y1="168" x2="600" y2="198" marker-end="url(#ar)"/>
+        <!-- power column -->
+        <g class="part" data-name="110kV 双回路进线" data-note="来自城东、城西两座 220kV 变电站的独立回路，接入批复是二期最大的进度风险（见 R-01）。"><rect class="ln bx" x="0" y="0" width="270" height="70"/><text class="t" x="135" y="45" text-anchor="middle">110kV 双回路</text></g>
+        <line class="ln" x1="135" y1="70" x2="135" y2="136" marker-end="url(#ar)"/>
+        <g class="part" data-name="主变电站" data-note="2 × 63 MVA 主变，一用一备，任一台可带满全部 IT 负载与制冷负载。"><rect class="ln bx" x="0" y="140" width="270" height="70"/><text class="t" x="135" y="185" text-anchor="middle">主变 2×63 MVA</text></g>
+        <line class="ln" x1="135" y1="210" x2="135" y2="276" marker-end="url(#ar)"/>
+        <g class="part" data-name="10kV 中压配电" data-note="单母线分段，A/B 两段分别供给每个模块的两路电源，实现 2N。"><rect class="ln bx" x="0" y="280" width="270" height="70"/><text class="t" x="135" y="325" text-anchor="middle">10kV 中压配电</text></g>
+        <line class="ln" x1="135" y1="350" x2="135" y2="416" marker-end="url(#ar)"/>
+        <g class="part" data-name="UPS 与柴发" data-note="UPS 2N，后备 15 分钟；柴油发电机 12 × 2.5 MW（N+2），储油满足 72 小时满载。"><rect class="ln bx" x="0" y="420" width="270" height="96"/><text class="t" x="135" y="460" text-anchor="middle">UPS 2N</text><text class="ts" x="135" y="494" text-anchor="middle">柴发 12×2.5 MW</text></g>
+        <polyline class="ln" points="270,468 300,468 300,297 326,297" marker-end="url(#ar)"/>
+        <polyline class="ln" points="300,468 300,522 326,522" marker-end="url(#ar)"/>
+        <text class="ts" x="135" y="560" text-anchor="middle">↑ 2N 母线</text>
+        <!-- modules -->
+        <g class="part" data-name="机房模块 A" data-note="风冷模块，<em>6 MW · 320 柜</em>，单柜 8–15 kW。2028 年 7 月与 B 模块首批上线。"><rect class="ln bx" x="330" y="200" width="255" height="195"/><text class="tl" x="352" y="250">模块 A</text><text class="ts" x="352" y="290">6 MW · 320 柜</text><text class="ts" x="352" y="324">风冷</text></g>
+        <g class="part" data-name="机房模块 B" data-note="风冷模块，<em>6 MW · 320 柜</em>，与 A 模块共用一组冷冻站，首批上线。"><rect class="ln bx" x="615" y="200" width="255" height="195"/><text class="tl" x="637" y="250">模块 B</text><text class="ts" x="637" y="290">6 MW · 320 柜</text><text class="ts" x="637" y="324">风冷</text></g>
+        <g class="part" data-name="机房模块 C" data-note="液冷模块，<em>6 MW · 320 柜</em>，单柜 25–40 kW，承载 GPU 训练集群。"><rect class="ln bx" x="330" y="425" width="255" height="195"/><text class="tl" x="352" y="475">模块 C</text><text class="ts" x="352" y="515">6 MW · 320 柜</text><text class="ts" x="352" y="549">液冷</text></g>
+        <g class="part" data-name="机房模块 D" data-note="液冷模块，<em>6 MW · 320 柜</em>，2028 年 12 月上线，楼板按 40 kW/柜荷载设计。"><rect class="ln bx" x="615" y="425" width="255" height="195"/><text class="tl" x="637" y="475">模块 D</text><text class="ts" x="637" y="515">6 MW · 320 柜</text><text class="ts" x="637" y="549">液冷</text></g>
+        <!-- cooling column -->
+        <g class="part" data-name="干冷器与冷却塔" data-note="屋面干冷器 24 台 + 闭式冷却塔 16 台，年自然冷却时间约 5,600 小时。"><rect class="ln bx" x="930" y="0" width="270" height="70"/><text class="t" x="1065" y="45" text-anchor="middle">干冷器 · 冷却塔</text></g>
+        <line class="ln" x1="1065" y1="70" x2="1065" y2="136" marker-end="url(#ar)"/>
+        <g class="part" data-name="冷冻站" data-note="磁悬浮冷水机组 6 台（4 用 2 备），只在夏季湿球温度高于 19 ℃ 时投入。"><rect class="ln bx" x="930" y="140" width="270" height="70"/><text class="t" x="1065" y="185" text-anchor="middle">冷冻站 · 板换</text></g>
+        <line class="ln" x1="1065" y1="210" x2="1065" y2="276" marker-end="url(#ar)"/>
+        <g class="part" data-name="CDU 液冷分配" data-note="每个液冷模块 12 台 CDU，供水 35 ℃ / 回水 45 ℃，回水送余热回收。"><rect class="ln bx" x="930" y="280" width="270" height="70"/><text class="t" x="1065" y="325" text-anchor="middle">CDU 液冷分配</text></g>
+        <line class="ln" x1="1065" y1="350" x2="1065" y2="416" marker-end="url(#ar)"/>
+        <g class="part" data-name="余热回收" data-note="45 ℃ 回水经换热站接入城市供暖管网，设计可供暖面积约 3.2 万平方米。"><rect class="ln bx" x="930" y="420" width="270" height="96"/><text class="t" x="1065" y="460" text-anchor="middle">余热回收</text><text class="ts" x="1065" y="494" text-anchor="middle">→ 城市供暖</text></g>
+        <polyline class="ln" points="930,315 905,315 905,297 874,297" marker-end="url(#ar)"/>
+        <polyline class="ln" points="905,315 905,522 874,522" marker-end="url(#ar)"/>
+        <text class="ts" x="1065" y="560" text-anchor="middle">↑ 冷量环网</text>
+      </svg>
+      <div class="spec" style="height:640px">
+        <header>部件说明 / DETAIL</header>
+        <div class="spec-t">悬停任一部件</div>
+        <div class="spec-d">查看容量、冗余方式与上线时间。共 15 个部件，四个模块各 <em>6&nbsp;MW</em>。</div>
+        <footer>箭头：能量与冷量流向<br>悬停时其余部件变暗</footer>
+      </div>
+    </div>
+    <aside class="notes">这张是总体架构。左边是供电链路，从 110kV 双回路到 UPS 和柴发，全程 2N；右边是制冷链路，干冷器优先，冷冻站只在夏季高温时投入；上方是网络接入。四个模块里 A、B 风冷，C、D 液冷。现场可以把鼠标停在任一方框上，右侧会显示容量和冗余说明。</aside>
+  </section>
+
+  <!-- 03 module exploded -->
+  <section class="slide" data-section="module" data-title="模块分解" data-dwg="DC2-A-02" data-scale="1:100">
+    <div class="hd"><span class="no">图 02</span><h2>预制机房模块：四层分解，工厂预装、现场拼接</h2></div>
+    <div style="display:grid;grid-template-columns:1020px 1fr;gap:40px">
+      <svg width="1020" height="740" viewBox="0 0 1040 740">
+        <!-- explode guides -->
+        <line class="hid" x1="200" y1="170" x2="200" y2="650"/><line class="hid" x1="740" y1="170" x2="740" y2="650"/><line class="hid" x1="980" y1="50" x2="980" y2="530"/>
+        <!-- layer 1 roof / busway -->
+        <path class="ln" d="M200 170 L740 170 L980 50 L440 50 Z" fill="rgba(143,214,255,.05)"/>
+        <path class="ln" d="M200 170 v16 h540 v-16 M740 186 L980 66 V50"/>
+        <line class="ln th" x1="280" y1="150" x2="820" y2="150"/><line class="ln th" x1="340" y1="120" x2="880" y2="120"/><line class="ln th" x1="400" y1="90" x2="940" y2="90"/>
+        <!-- layer 2 racks -->
+        <path class="ln" d="M200 330 L740 330 L980 210 L440 210 Z" fill="rgba(143,214,255,.05)"/>
+        <path class="ln" d="M200 330 v16 h540 v-16 M740 346 L980 226 V210"/>
+        <path class="ln th" d="M250 305 h480 v-20 h-480 z M310 275 h480 v-20 h-480 z M370 245 h480 v-20 h-480 z"/>
+        <path class="ln th" d="M290 305v-20M330 305v-20M370 305v-20M410 305v-20M450 305v-20M490 305v-20M530 305v-20M570 305v-20M610 305v-20M650 305v-20M690 305v-20M350 275v-20M390 275v-20M430 275v-20M470 275v-20M510 275v-20M550 275v-20M590 275v-20M630 275v-20M670 275v-20M710 275v-20M750 275v-20M410 245v-20M450 245v-20M490 245v-20M530 245v-20M570 245v-20M610 245v-20M650 245v-20M690 245v-20M730 245v-20M770 245v-20M810 245v-20"/>
+        <!-- layer 3 raised floor + pipes -->
+        <path class="ln" d="M200 490 L740 490 L980 370 L440 370 Z" fill="url(#hatch)" fill-opacity=".35"/>
+        <path class="ln" d="M200 490 v16 h540 v-16 M740 506 L980 386 V370"/>
+        <line class="ln" x1="260" y1="470" x2="800" y2="470" style="stroke:var(--cy)"/><line class="ln" x1="340" y1="430" x2="880" y2="430" style="stroke:var(--cy)"/>
+        <!-- layer 4 base frame -->
+        <path class="ln" d="M200 650 L740 650 L980 530 L440 530 Z" fill="rgba(143,214,255,.05)"/>
+        <path class="ln" d="M200 650 v20 h540 v-20 M740 670 L980 550 V530"/>
+        <path class="ln th" d="M335 650 L575 530 M470 650 L710 530 M605 650 L845 530 M320 590 L860 590"/>
+        <!-- balloons -->
+        <line class="ln th" x1="94" y1="120" x2="300" y2="150"/><g class="bl fi"><circle cx="70" cy="116" r="24"/><text x="70" y="117">1</text></g>
+        <line class="ln th" x1="94" y1="280" x2="250" y2="295"/><g class="bl fi"><circle cx="70" cy="276" r="24"/><text x="70" y="277">2</text></g>
+        <line class="ln th" x1="94" y1="440" x2="300" y2="465"/><g class="bl fi"><circle cx="70" cy="436" r="24"/><text x="70" y="437">3</text></g>
+        <line class="ln th" x1="94" y1="600" x2="320" y2="590"/><g class="bl fi"><circle cx="70" cy="596" r="24"/><text x="70" y="597">4</text></g>
+        <!-- dimensions -->
+        <line class="ext" x1="200" y1="676" x2="200" y2="722"/><line class="ext" x1="740" y1="676" x2="740" y2="722"/>
+        <line class="dim" x1="200" y1="708" x2="740" y2="708" marker-start="url(#da)" marker-end="url(#da)"/>
+        <text class="dt" x="470" y="696" text-anchor="middle">12 000</text>
+        <line class="dim" x1="770" y1="680" x2="1010" y2="560" marker-start="url(#da)" marker-end="url(#da)"/>
+        <text class="dt" x="914" y="650" text-anchor="middle">7 200</text>
+      </svg>
+      <div>
+        <table class="pt">
+          <tr><th>#</th><th>部件</th><th>规格</th><th>数量</th></tr>
+          <tr><td class="id">1</td><td>屋面桥架</td><td class="m">2×2500 A</td><td class="m">1 套</td></tr>
+          <tr><td class="id">2</td><td>机柜冷通道</td><td class="m">8–40 kW</td><td class="m">80 柜</td></tr>
+          <tr><td class="id">3</td><td>地板管廊</td><td class="m">DN150 环管</td><td class="m">1 套</td></tr>
+          <tr><td class="id">4</td><td>钢结构底座</td><td class="m">隔震支座</td><td class="m">24 个</td></tr>
+        </table>
+        <p style="margin:36px 0 0;line-height:1.5">每个 6 MW 模块由 4 个预制单元拼成。预制率 <b style="color:var(--cy);font-family:var(--mono)">85%</b>，单元现场吊装 3 天，单模块总工期 10 周。</p>
+      </div>
+    </div>
+    <aside class="notes">这是一个预制单元的分解图，从上到下四层：屋面桥架层走母线和弱电，机柜层每单元 80 个柜子带冷通道封闭，管廊层是架空地板加液冷环管，最下面是带隔震支座的钢结构底座。单元尺寸 12 米乘 7.2 米，可以公路运输，四个单元拼成一个 6 兆瓦模块。</aside>
+  </section>
+
+  <!-- 04 data flow -->
+  <section class="slide" data-section="dataflow" data-title="数据流" data-dwg="DC2-N-03" data-scale="示意">
+    <div class="hd"><span class="no">图 03</span><h2>数据流：南北向进、东西向转、每日回传一期</h2></div>
+    <svg width="1712" height="500" viewBox="0 0 1712 500">
+      <g class="part"><rect class="ln bx" x="0" y="180" width="190" height="100"/><text class="t" x="95" y="222" text-anchor="middle">城市业务</text><text class="ts" x="95" y="256" text-anchor="middle">政务 · 交通</text></g>
+      <line class="ln" x1="190" y1="230" x2="286" y2="230" marker-end="url(#ar)"/><text class="ts" x="240" y="214" text-anchor="middle">公网</text>
+      <g class="part"><rect class="ln bx" x="290" y="180" width="190" height="100"/><text class="t" x="385" y="222" text-anchor="middle">运营商 ×3</text><text class="ts" x="385" y="256" text-anchor="middle">双路由</text></g>
+      <line class="ln" x1="480" y1="230" x2="576" y2="230" marker-end="url(#ar)"/><text class="ts" x="530" y="214" text-anchor="middle">3×400G</text>
+      <g class="part"><rect class="ln bx" x="580" y="180" width="190" height="100"/><text class="t" x="675" y="222" text-anchor="middle">边界路由</text><text class="ts" x="675" y="256" text-anchor="middle">2N · 防火墙</text></g>
+      <line class="ln" x1="770" y1="230" x2="866" y2="230" marker-end="url(#ar)"/><text class="ts" x="820" y="214" text-anchor="middle">2×800G</text>
+      <g class="part"><rect class="ln bx" x="870" y="180" width="190" height="100"/><text class="t" x="965" y="222" text-anchor="middle">Spine ×8</text><text class="ts" x="965" y="256" text-anchor="middle">51.2T 全互联</text></g>
+      <line class="ln" x1="1060" y1="230" x2="1156" y2="230" marker-end="url(#ar)"/><text class="ts" x="1110" y="214" text-anchor="middle">全互联</text>
+      <g class="part"><rect class="ln bx" x="1160" y="180" width="190" height="100"/><text class="t" x="1255" y="222" text-anchor="middle">Leaf ×64</text><text class="ts" x="1255" y="256" text-anchor="middle">每柜列 2 台</text></g>
+      <polyline class="ln" points="1350,210 1400,210 1400,90 1466,90" marker-end="url(#ar)"/><text class="ts" x="1388" y="130" text-anchor="end">RoCE 400G</text>
+      <polyline class="ln" points="1350,250 1400,250 1400,370 1466,370" marker-end="url(#ar)"/><text class="ts" x="1388" y="340" text-anchor="end">200G</text>
+      <g class="part"><rect class="ln bx" x="1470" y="40" width="240" height="100"/><text class="t" x="1590" y="82" text-anchor="middle">GPU 训练集群</text><text class="ts" x="1590" y="116" text-anchor="middle">模块 C / D</text></g>
+      <g class="part"><rect class="ln bx" x="1470" y="320" width="240" height="100"/><text class="t" x="1590" y="362" text-anchor="middle">存储集群</text><text class="ts" x="1590" y="396" text-anchor="middle">120 PB</text></g>
+      <path class="ln th" d="M1590 40 V10 H965 V176" marker-end="url(#ar)" style="stroke:var(--cy)"/>
+      <text class="ts" x="1270" y="40" text-anchor="middle">东西向：训练流量不出 Spine</text>
+      <polyline class="ln" points="1590,420 1590,460 776,460" marker-end="url(#ar)"/>
+      <g class="part"><rect class="ln bx" x="580" y="420" width="190" height="80"/><text class="t" x="675" y="470" text-anchor="middle">一期灾备</text></g>
+      <text class="ts" x="1180" y="448" text-anchor="middle">每日增量 · 100G 专线</text>
+      <line class="cl" x1="530" y1="246" x2="530" y2="330"/><text class="tm" x="530" y="364" text-anchor="middle">外网 | 内网</text>
+    </svg>
+    <div class="flowsteps">
+      <div data-step><b>① 南北向</b>外部请求经三家运营商进入，边界路由完成清洗。</div>
+      <div data-step><b>② 东西向</b>训练流量在 Spine–Leaf 内闭环，不经过边界。</div>
+      <div data-step><b>③ 备份</b>存储每日增量经 100G 专线回传一期机房。</div>
+    </div>
+    <aside class="notes">数据流分三段讲，按右键逐段出现。第一段南北向，城市政务和交通业务经三家运营商进来，在边界路由清洗。第二段东西向，GPU 训练的大流量只在 Spine 和 Leaf 之间走，不占出口带宽。第三段备份，存储集群每天把增量经 100G 专线回传一期，作为异地灾备。</aside>
+  </section>
+
+  <!-- 05 site plan -->
+  <section class="slide" data-section="site-plan" data-title="部署拓扑" data-dwg="DC2-S-04" data-scale="1:1000">
+    <div class="hd"><span class="no">图 04</span><h2>总平面与部署拓扑：二期紧贴一期东侧</h2></div>
+    <div style="display:grid;grid-template-columns:1180px 1fr;gap:48px">
+      <svg width="1180" height="640" viewBox="0 0 1180 640">
+        <rect class="cl" x="40" y="60" width="1060" height="540"/>
+        <text class="tm" x="52" y="92">用地红线</text>
+        <!-- overall dims -->
+        <line class="ext" x1="40" y1="56" x2="40" y2="20"/><line class="ext" x1="1100" y1="56" x2="1100" y2="20"/>
+        <line class="dim" x1="40" y1="34" x2="1100" y2="34" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="570" y="24" text-anchor="middle">186 000</text>
+        <line class="ext" x1="1104" y1="60" x2="1160" y2="60"/><line class="ext" x1="1104" y1="600" x2="1160" y2="600"/>
+        <line class="dim" x1="1146" y1="60" x2="1146" y2="600" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1174" y="330" text-anchor="middle" transform="rotate(-90 1174 330)">92 000</text>
+        <g class="part" data-name="一期机房（已投运）" data-note="2023 年投运，<em>9.6 MW · 520 柜</em>，实测 PUE 1.31。二期与其共用 110kV 站址和运维中心。"><rect class="ln bx" x="80" y="110" width="340" height="210" style="fill:url(#hatch)"/><rect x="150" y="190" width="200" height="50" style="fill:var(--bg)"/><text class="t" x="250" y="224" text-anchor="middle">一期（已投运）</text></g>
+        <g class="part" data-name="二期主楼" data-note="三层，<em>4 个 6 MW 模块</em>，平面 2×2 布置；1F 配电与柴发并机，2F 风冷，3F 液冷。"><rect class="ln bx" x="470" y="110" width="440" height="260"/><line class="ln th" x1="690" y1="110" x2="690" y2="370"/><line class="ln th" x1="470" y1="240" x2="910" y2="240"/><text class="tl" x="580" y="186" text-anchor="middle">A</text><text class="tl" x="800" y="186" text-anchor="middle">B</text><text class="tl" x="580" y="316" text-anchor="middle">C</text><text class="tl" x="800" y="316" text-anchor="middle">D</text></g>
+        <g class="part" data-name="110kV 变电站" data-note="户内 GIS，<em>2 × 63 MVA</em>，一期已预留二期间隔，只需扩建主变。"><rect class="ln bx" x="80" y="370" width="220" height="180"/><text class="t" x="190" y="452" text-anchor="middle">110kV 站</text><text class="ts" x="190" y="486" text-anchor="middle">2×63 MVA</text></g>
+        <g class="part" data-name="柴发楼" data-note="<em>12 × 2.5 MW</em> 柴油发电机组，N+2；距主楼 40 米，满足噪声与排烟要求。"><rect class="ln bx" x="340" y="420" width="250" height="130"/><text class="t" x="465" y="480" text-anchor="middle">柴发楼</text><text class="ts" x="465" y="514" text-anchor="middle">12×2.5 MW</text></g>
+        <g class="part" data-name="储油罐区" data-note="2 × 200 m³ 埋地储油罐，满足 72 小时满载运行。"><circle class="ln bx" cx="650" cy="470" r="34"/><circle class="ln bx" cx="730" cy="470" r="34"/><text class="ts" x="690" y="540" text-anchor="middle">储油</text></g>
+        <g class="part" data-name="冷却塔区" data-note="闭式冷却塔 <em>16 台</em>，4 × 4 布置，与主楼冷量环网双管连接。"><rect class="ln bx" x="800" y="410" width="270" height="150"/><g class="fi"><circle class="ln th" cx="840" cy="445" r="20"/><circle class="ln th" cx="903" cy="445" r="20"/><circle class="ln th" cx="966" cy="445" r="20"/><circle class="ln th" cx="1029" cy="445" r="20"/><circle class="ln th" cx="840" cy="525" r="20"/><circle class="ln th" cx="903" cy="525" r="20"/><circle class="ln th" cx="966" cy="525" r="20"/><circle class="ln th" cx="1029" cy="525" r="20"/></g><text class="ts" x="935" y="490" text-anchor="middle">冷却塔 ×16</text></g>
+        <!-- entrance & north -->
+        <line class="ln" x1="620" y1="640" x2="620" y2="606" marker-end="url(#ar)"/><text class="tm" x="636" y="632">主入口</text>
+        <g class="fi"><circle class="ln th" cx="1010" cy="160" r="34"/><path d="M1010 118 L1022 166 L1010 158 L998 166 Z" style="fill:var(--ink)"/><text class="t" x="1010" y="230" text-anchor="middle">N</text></g>
+      </svg>
+      <div class="spec" style="height:640px">
+        <header>建筑说明 / DETAIL</header>
+        <div class="spec-t">悬停任一建筑</div>
+        <div class="spec-d">二期用地 <em>1.71 公顷</em>，主楼贴一期东侧布置，共用 110kV 站与运维中心。</div>
+        <footer>斜线填充：既有建筑<br>点划线：用地红线</footer>
+      </div>
+    </div>
+    <aside class="notes">总平面图，比例一比一千。斜线填充的是已投运的一期，二期主楼紧贴东侧，四个模块二乘二布置。南侧依次是 110kV 站、柴发楼、储油罐和冷却塔区，主入口在南面中部。用地 186 米乘 92 米。同样可以悬停查看每栋建筑的说明。</aside>
+  </section>
+
+  <!-- 06 section -->
+  <section class="slide" data-section="section" data-title="剖面 A-A" data-dwg="DC2-S-05" data-scale="1:200">
+    <div class="hd"><span class="no">图 05</span><h2>剖面 A–A：一层配电，二层风冷，三层液冷</h2></div>
+    <svg width="1712" height="660" viewBox="0 0 1712 660">
+      <rect x="120" y="560" width="1160" height="56" fill="url(#soil)" class="fi"/>
+      <line class="ln bold" x1="120" y1="560" x2="1280" y2="560"/>
+      <!-- slabs -->
+      <rect class="ln" x="200" y="420" width="1000" height="16" fill="url(#cross)"/>
+      <rect class="ln" x="200" y="299" width="1000" height="16" fill="url(#cross)"/>
+      <rect class="ln" x="200" y="178" width="1000" height="16" fill="url(#cross)"/>
+      <rect class="ln" x="200" y="544" width="1000" height="16" fill="url(#cross)"/>
+      <!-- walls -->
+      <rect class="ln" x="180" y="178" width="20" height="382" fill="url(#hatch)"/>
+      <rect class="ln" x="1200" y="178" width="20" height="382" fill="url(#hatch)"/>
+      <!-- raised floors -->
+      <line class="hid" x1="200" y1="402" x2="1200" y2="402"/><line class="hid" x1="200" y1="281" x2="1200" y2="281"/>
+      <!-- racks 2F / 3F -->
+      <path class="ln th" d="M260 402v-74h40v74M330 402v-74h40v74M400 402v-74h40v74M900 402v-74h40v74M970 402v-74h40v74M1040 402v-74h40v74M1110 402v-74h40v74"/>
+      <path class="ln th" d="M260 281v-74h40v74M330 281v-74h40v74M400 281v-74h40v74M900 281v-74h40v74M970 281v-74h40v74M1040 281v-74h40v74M1110 281v-74h40v74"/>
+      <!-- roof equipment -->
+      <path class="ln" d="M300 178v-58h160v58M560 178v-58h160v58M820 178v-58h160v58"/>
+      <path class="ln th" d="M330 120 a50 12 0 0 1 100 0 M590 120 a50 12 0 0 1 100 0 M850 120 a50 12 0 0 1 100 0"/>
+      <!-- 1F equipment -->
+      <path class="ln th" d="M260 544v-70h120v70M420 544v-70h120v70M860 544v-84h220v84"/>
+      <text class="t fi" x="680" y="512">配电 · UPS</text><text class="t fi" x="970" y="512" text-anchor="middle">柴发并机</text>
+      <text class="t fi" x="470" y="372">二层 · 风冷 8–15 kW/柜</text>
+      <text class="t fi" x="470" y="251">三层 · 液冷 25–40 kW/柜</text>
+      <text class="t fi" x="1000" y="165">屋面 · 干冷器</text>
+      <!-- elevation markers -->
+      <g class="fi">
+        <path d="M150 560 l-14 -18 h28 z" fill="none" stroke="var(--cy)" stroke-width="1.5"/><text class="ts" x="140" y="530" text-anchor="end">±0.000</text>
+        <path d="M150 428 l-14 -18 h28 z" fill="none" stroke="var(--cy)" stroke-width="1.5"/><text class="ts" x="140" y="398" text-anchor="end">+6.000</text>
+        <path d="M150 307 l-14 -18 h28 z" fill="none" stroke="var(--cy)" stroke-width="1.5"/><text class="ts" x="140" y="277" text-anchor="end">+11.500</text>
+        <path d="M150 186 l-14 -18 h28 z" fill="none" stroke="var(--cy)" stroke-width="1.5"/><text class="ts" x="140" y="156" text-anchor="end">+17.000</text>
+        <path d="M150 120 l-14 -18 h28 z" fill="none" stroke="var(--cy)" stroke-width="1.5"/><text class="ts" x="140" y="90" text-anchor="end">+20.000</text>
+      </g>
+      <!-- dimension chain -->
+      <line class="ext" x1="1224" y1="560" x2="1400" y2="560"/><line class="ext" x1="1224" y1="428" x2="1400" y2="428"/><line class="ext" x1="1224" y1="307" x2="1400" y2="307"/><line class="ext" x1="1224" y1="186" x2="1400" y2="186"/><line class="ext" x1="990" y1="120" x2="1480" y2="120"/>
+      <line class="dim" x1="1330" y1="560" x2="1330" y2="428" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1346" y="502">6 000</text>
+      <line class="dim" x1="1330" y1="428" x2="1330" y2="307" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1346" y="376">5 500</text>
+      <line class="dim" x1="1330" y1="307" x2="1330" y2="186" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1346" y="255">5 500</text>
+      <line class="dim" x1="1330" y1="186" x2="1330" y2="120" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1346" y="162">3 000</text>
+      <line class="ext" x1="1224" y1="560" x2="1480" y2="560"/>
+      <line class="dim" x1="1466" y1="560" x2="1466" y2="120" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="1496" y="340" text-anchor="middle" transform="rotate(-90 1496 340)">20 000</text>
+      <!-- section cut mark -->
+      <text class="tm fi" x="120" y="652">剖面 A–A　1:200　（剖切位置见图 04）</text>
+      <!-- legend -->
+      <g class="fi">
+        <rect x="1540" y="140" width="48" height="30" fill="url(#cross)" stroke="var(--ink)"/><text class="ts" x="1600" y="164">混凝土</text>
+        <rect x="1540" y="200" width="48" height="30" fill="url(#hatch)" stroke="var(--ink)"/><text class="ts" x="1600" y="224">砌体</text>
+        <rect x="1540" y="260" width="48" height="30" fill="url(#soil)" stroke="var(--ink)"/><text class="ts" x="1600" y="284">素土</text>
+        <line class="hid" x1="1540" y1="335" x2="1588" y2="335"/><text class="ts" x="1600" y="343">架空地板</text>
+      </g>
+    </svg>
+    <aside class="notes">剖面 A–A，比例一比二百。一层层高 6 米，放配电、UPS 和柴发并机；二层风冷机房、三层液冷机房，层高都是 5.5 米，架空地板 800 毫米；屋面布置干冷器，总高 20 米。液冷放在三层是因为液冷管路短、楼板荷载按 40 千瓦每柜设计。</aside>
+  </section>
+
+  <!-- 07 parameters -->
+  <section class="slide" data-section="parameters" data-title="关键参数" data-dwg="DC2-T-06" data-scale="—">
+    <div class="hd"><span class="no">表 01</span><h2>关键参数：二期设计值对照一期实测</h2></div>
+    <table class="pt">
+      <tr><th>编号</th><th>参数</th><th>二期设计值</th><th>一期实测</th><th>说明</th></tr>
+      <tr><td class="id">P-01</td><td>IT 负载</td><td class="v">24 MW</td><td class="m">9.6 MW</td><td>4 个模块分两批上线</td></tr>
+      <tr><td class="id">P-02</td><td>设计 PUE</td><td class="v">≤ 1.18</td><td class="m">1.31</td><td>液冷占比 50%</td></tr>
+      <tr><td class="id">P-03</td><td>机柜数</td><td class="v">1,280</td><td class="m">520</td><td>单柜 8–40 kW</td></tr>
+      <tr><td class="id">P-04</td><td>供电架构</td><td class="v">2N</td><td class="m">2N</td><td>110kV 双回路进线</td></tr>
+      <tr><td class="id">P-05</td><td>柴发备用</td><td class="v">12×2.5 MW</td><td class="m">6×2.0 MW</td><td>N+2，储油 72 h</td></tr>
+      <tr><td class="id">P-06</td><td>自然冷却</td><td class="v">5,600 h/年</td><td class="m">3,100 h/年</td><td>干冷器优先运行</td></tr>
+      <tr><td class="id">P-07</td><td>WUE</td><td class="v">≤ 0.6 L/kWh</td><td class="m">1.4 L/kWh</td><td>闭式塔减少补水</td></tr>
+      <tr><td class="id">P-08</td><td>可用性等级</td><td class="v">Tier III</td><td class="m">Tier III</td><td>可并行维护</td></tr>
+    </table>
+    <aside class="notes">关键参数表，左边是二期设计值，右边是一期运行两年的实测值。最关键的是 PUE 从 1.31 降到 1.18 以下，靠两件事：液冷占一半负载，以及干冷器把自然冷却时间从 3100 小时提到 5600 小时。水耗 WUE 也从 1.4 降到 0.6，主要因为改用闭式冷却塔。</aside>
+  </section>
+
+  <!-- 08 risks -->
+  <section class="slide" data-section="risks" data-title="风险与对策" data-dwg="DC2-R-07" data-scale="—">
+    <div class="hd"><span class="no">表 02</span><h2>风险与对策：两项高风险已有降级方案</h2></div>
+    <div class="risks">
+      <div class="risk" data-step><span class="id">R-01</span><span class="nm">110kV 接入批复延期</span><span class="lv h">高</span><p>先建 10kV 临时双回路，首批模块降额 6 MW 上线。</p></div>
+      <div class="risk" data-step><span class="id">R-02</span><span class="nm">液冷 CDU 供货 26 周</span><span class="lv h">高</span><p>两家供应商框架协议，首批 12 台提前锁单。</p></div>
+      <div class="risk" data-step><span class="id">R-03</span><span class="nm">夏季湿球温度超设计值</span><span class="lv">中</span><p>冷冻站机械补冷，保留 15% 冷量余量。</p></div>
+      <div class="risk" data-step><span class="id">R-04</span><span class="nm">城市供暖接口年份不定</span><span class="lv">中</span><p>换热站先预留接口，余热暂排冷却塔。</p></div>
+      <div class="risk" data-step><span class="id">R-05</span><span class="nm">GPU 机柜功率继续上探</span><span class="lv">低</span><p>三层楼板按 40 kW/柜设计，母线预留 30%。</p></div>
+    </div>
+    <aside class="notes">五项风险按右键逐条出现。两项高风险：一是 110kV 接入批复，如果延期，我们先拉 10kV 临时双回路，首批模块降额到 6 兆瓦上线；二是液冷 CDU 供货周期长达 26 周，已经和两家供应商签框架协议、提前锁单。其余三项是中低风险，对策都已经落进设计。</aside>
+  </section>
+
+  <!-- 09 milestones -->
+  <section class="slide" data-section="milestones" data-title="里程碑" data-dwg="DC2-P-08" data-scale="—">
+    <div class="hd"><span class="no">图 06</span><h2>里程碑：21 个月从批复到全面投产</h2></div>
+    <svg width="1712" height="620" viewBox="0 0 1712 620">
+      <!-- overall dimension -->
+      <line class="ext" x1="60" y1="16" x2="60" y2="290"/><line class="ext" x1="1660" y1="16" x2="1660" y2="290"/>
+      <line class="dim" x1="60" y1="30" x2="1660" y2="30" marker-start="url(#da)" marker-end="url(#da)"/><text class="dt" x="860" y="20" text-anchor="middle">21 个月</text>
+      <!-- axis -->
+      <line class="ln bold" x1="60" y1="300" x2="1660" y2="300"/>
+      <path class="ln th" d="M60 290v20M136 294v12M212 294v12M289 290v20M365 294v12M441 294v12M517 294v12M593 294v12M669 294v12M746 290v20M822 294v12M898 294v12M974 294v12M1050 294v12M1126 294v12M1203 290v20M1279 294v12M1355 294v12M1431 294v12M1507 294v12M1584 294v12M1660 290v20"/>
+      <!-- milestones: x = 60 + month * 76.19 -->
+      <g class="fi">
+        <line class="ln th" x1="60" y1="300" x2="60" y2="140"/><g class="bl"><circle cx="60" cy="116" r="24"/><text x="60" y="117">M1</text></g>
+        <text class="t" x="96" y="112">方案批复</text><text class="ts" x="96" y="146">2027.03</text>
+        <line class="ln th" x1="289" y1="300" x2="289" y2="440"/><g class="bl"><circle cx="289" cy="464" r="24"/><text x="289" y="465">M2</text></g>
+        <text class="t" x="325" y="460">土建开工</text><text class="ts" x="325" y="494">2027.06</text>
+        <line class="ln th" x1="746" y1="300" x2="746" y2="140"/><g class="bl"><circle cx="746" cy="116" r="24"/><text x="746" y="117">M3</text></g>
+        <text class="t" x="782" y="112">主体封顶</text><text class="ts" x="782" y="146">2027.12</text>
+        <line class="ln th" x1="974" y1="300" x2="974" y2="440"/><g class="bl"><circle cx="974" cy="464" r="24"/><text x="974" y="465">M4</text></g>
+        <text class="t" x="1010" y="460">110kV 送电</text><text class="ts" x="1010" y="494">2028.03</text>
+        <line class="ln th" x1="1279" y1="300" x2="1279" y2="140"/><g class="bl"><circle cx="1279" cy="116" r="24"/><text x="1279" y="117">M5</text></g>
+        <text class="t" x="1315" y="112">模块 A/B 上线</text><text class="ts" x="1315" y="146">2028.07</text>
+        <line class="ln th" x1="1660" y1="300" x2="1660" y2="440"/><g class="bl"><circle cx="1660" cy="464" r="24"/><text x="1660" y="465">M6</text></g>
+        <text class="t" x="1624" y="460" text-anchor="end">全面投产</text><text class="ts" x="1624" y="494" text-anchor="end">2028.12</text>
+      </g>
+      <!-- year labels -->
+      <text class="tm fi" x="60" y="340">2027</text><text class="tm fi" x="822" y="340">2028</text>
+      <!-- phases -->
+      <g class="fi">
+        <rect x="60" y="590" width="229" height="16" fill="var(--faint)"/><rect x="289" y="590" width="457" height="16" fill="url(#hatch)" stroke="var(--dim)"/><rect x="746" y="590" width="533" height="16" fill="var(--faint)"/><rect x="1279" y="590" width="381" height="16" fill="url(#hatch)" stroke="var(--dim)"/>
+        <text class="ts" x="60" y="578">设计</text><text class="ts" x="289" y="578">土建</text><text class="ts" x="746" y="578">机电安装</text><text class="ts" x="1279" y="578">分批调试</text>
+      </g>
+    </svg>
+    <aside class="notes">时间轴按月等比画，总长 21 个月。关键路径是 M4，110kV 送电必须在 2028 年 3 月完成，否则 7 月模块 A、B 无法按期上线，这也对应风险表里的 R-01。底部四段是施工阶段，机电安装和土建有一个月左右的搭接。</aside>
+  </section>
+
+  <!-- 10 end -->
+  <section class="slide" data-section="end" data-title="评审结论" data-dwg="DC2-Z-09" data-scale="—">
+    <div class="hd"><span class="no">END</span><h2>提请评审：同意进入初步设计</h2></div>
+    <div style="display:grid;grid-template-columns:900px 1fr;gap:96px;align-items:start">
+      <div>
+        <ul class="asks">
+          <li><span>确认 24 MW 规模与 2N 供电架构</span></li>
+          <li><span>同意液冷占比 50%，三层楼板按 40 kW/柜设计</span></li>
+          <li><span>批准 10kV 临时供电作为 R-01 降级方案</span></li>
+        </ul>
+        <div class="dir"></div>
+      </div>
+      <table class="sign">
+        <tr><th>会签专业</th><th>签字</th><th>日期</th></tr>
+        <tr><td>电气</td><td></td><td></td></tr>
+        <tr><td>暖通</td><td></td><td></td></tr>
+        <tr><td>结构</td><td></td><td></td></tr>
+        <tr><td>网络</td><td></td><td></td></tr>
+        <tr><td>消防</td><td></td><td></td></tr>
+      </table>
+    </div>
+    <aside class="notes">最后提请评审会决议三件事：确认规模和供电架构，同意液冷占比与楼板荷载，批准临时供电作为降级方案。右边是会签栏，会后请各专业负责人签字。各位专家有问题可以随时指定某一张图，我们翻回去对照讲。</aside>
+  </section>
+
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+<script>
+/* Blueprint sheet: frame + zone marks + title block per slide, draw-on order, hover detail panel. */
+(function () {
+  var PROJECT = '穹顶城市数据中心二期', DATE = '2027.03.18', SIGN = '二期设计组 / 总工办';
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.deck > .slide'));
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  slides.forEach(function (s, i) {
+    var z = '', k;
+    for (k = 1; k <= 8; k++) {
+      var x = (k - .5) / 8 * 100;
+      z += '<span class="zt h" style="left:' + x + '%">' + k + '</span><span class="zt h hb" style="left:' + x + '%">' + k + '</span>';
+      if (k < 8) z += '<i class="zk" style="left:' + k / 8 * 100 + '%;top:0;width:1px;height:22px"></i><i class="zk" style="left:' + k / 8 * 100 + '%;bottom:0;width:1px;height:22px"></i>';
+    }
+    'ABCD'.split('').forEach(function (c, j) {
+      var y = (j + .5) / 4 * 100;
+      z += '<span class="zt v" style="top:' + y + '%">' + c + '</span><span class="zt v vr" style="top:' + y + '%">' + c + '</span>';
+      if (j) z += '<i class="zk" style="top:' + j / 4 * 100 + '%;left:0;height:1px;width:22px"></i><i class="zk" style="top:' + j / 4 * 100 + '%;right:0;height:1px;width:22px"></i>';
+    });
+    var tb = '<div class="tb"><div class="w2"><i>工程名称</i><b>' + PROJECT + '</b></div><div><i>图号</i><b>' + s.dataset.dwg + '</b></div>' +
+      '<div class="w2"><i>图名</i><b>' + s.dataset.title + '</b></div><div><i>比例</i><b>' + s.dataset.scale + '</b></div>' +
+      '<div><i>设计 / 审核</i><b>' + SIGN + '</b></div><div><i>日期</i><b>' + DATE + '</b></div><div><i>张次</i><b>' + pad(i + 1) + ' / ' + pad(slides.length) + '</b></div></div>';
+    var sheet = document.createElement('div');
+    sheet.className = 'sheet';
+    sheet.innerHTML = z + tb;
+    s.insertBefore(sheet, s.firstChild);
+    // draw order = document order; pathLength=1 lets one dash cover any shape
+    Array.prototype.forEach.call(s.querySelectorAll('svg .ln, svg .dim, svg .fi'), function (el, n) {
+      if (!el.classList.contains('fi')) el.setAttribute('pathLength', '1');
+      el.style.setProperty('--d', Math.min(n * .025, 1).toFixed(2) + 's');
+    });
+    var dir = s.querySelector('.dir');
+    if (dir) dir.innerHTML = '<h3>图纸目录 · 共 ' + slides.length + ' 张</h3>' + slides.map(function (x) { return '<div><code>' + x.dataset.dwg + '</code>' + x.dataset.title + '</div>'; }).join('');
+    var spec = s.querySelector('.spec');
+    if (!spec) return;
+    var t = spec.querySelector('.spec-t'), d = spec.querySelector('.spec-d'), t0 = t.innerHTML, d0 = d.innerHTML;
+    Array.prototype.forEach.call(s.querySelectorAll('.part[data-note]'), function (p) {
+      var svg = p.ownerSVGElement;
+      p.addEventListener('mouseenter', function () { t.textContent = p.dataset.name; d.innerHTML = p.dataset.note; svg.classList.add('peek'); });
+      p.addEventListener('mouseleave', function () { t.innerHTML = t0; d.innerHTML = d0; svg.classList.remove('peek'); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

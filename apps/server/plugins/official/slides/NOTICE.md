@@ -22,7 +22,7 @@ limitations under the License.
 ## 其他许可的内容
 
 - `templates/html-ppt/`：改编自 [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)（MIT，© 2026 lewis），`LICENSE` 原样保留在该目录；`html-ppt-*` 各模板的示例与起点同样来自它。
-- `templates/html-ppt-zhangzara-*/`：来自 [zarazhangrui/beautiful-html-templates](https://github.com/zarazhangrui/beautiful-html-templates)（MIT，© 2026 Zara Zhang），`LICENSE` 原样保留在各目录。
+- `templates/html-ppt-zhangzara-*/`（v0.2 保留 8 套）：来自 [zarazhangrui/beautiful-html-templates](https://github.com/zarazhangrui/beautiful-html-templates)（MIT，© 2026 Zara Zhang），`LICENSE` 原样保留在各目录。
 - `templates/guizang-ppt/`：MIT（© 2026 op7418 歸藏），`LICENSE` 原样保留在该目录。按固定提交时的许可收录；上游后来改为 AGPL-3.0，不再跟进上游。
 - `templates/html-ppt-taste-{brutalist,editorial}/`：上游改编自 [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill)（MIT），署名保留在各 `GUIDE.md`。
 - `templates/ib-pitch-book/`：上游改编自 [anthropics/financial-services](https://github.com/anthropics/financial-services)（Apache-2.0），署名见 `references/attribution.md`。
@@ -38,7 +38,8 @@ limitations under the License.
 | `skills/slides/templates/{simple-deck,weekly-update,ib-pitch-book}/design-system/` | 「产品原型」插件的 `neutral-modern`、`corporate` 设计系统 |
 | `skills/slides/templates/kami-deck/design-system/` | `design-systems/kami/` |
 | `previews/*.webp` | 由各模板示例截图生成 |
-| `skills/slides/toolkit/deck-toolkit.js` | 自研放映工具包（总览、演讲者窗口、激光笔、画笔、黑白屏、跳页），不来自上游 |
+| `skills/slides/toolkit/deck-toolkit.js` | 自研放映工具包（总览、演讲者窗口、激光笔、画笔、黑白屏、跳页、打印排版），不来自上游 |
+| `skills/slides/toolkit/stage-seed.html` 与 `templates/{gov-report,new-chinese,bento-grid,newspaper,metro-map,chat-story,living-model,blueprint}/` | 自研，代码与视觉原创，不来自上游 |
 
 ## 未收录
 

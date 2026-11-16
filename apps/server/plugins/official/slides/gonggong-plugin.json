@@ -1,6 +1,6 @@
 {
   "name": "slides",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "title": "幻灯片",
   "description": "战略汇报、融资路演、产品发布、技术分享、周报、课件与社媒卡片，按模板自带的视觉体系生成可翻页的单文件 HTML 幻灯片，写到工作区 design/<slug>/ 并发布预览。",
   "category": "deck",
@@ -11,374 +11,227 @@
   "templates": [
     {
       "id": "html-ppt",
-      "title": "HTML 演示工作室",
+      "title": "演示工作室",
       "description": "36 套主题、31 种版式、15 套整稿起点，键盘翻页与演讲者模式；按场景选主题与模板，通用各类演示。",
-      "group": "产品技术",
+      "group": "经典·技术教育",
       "preview": "previews/html-ppt.webp"
     },
     {
       "id": "html-ppt-weekly-report",
-      "title": "商务蓝数据周报",
+      "title": "数据周报",
       "description": "浅灰白底单一钴蓝强调，八格指标、已交付清单、八周柱图与下周负责人表，结论即标题。",
-      "group": "战略咨询",
+      "group": "经典·汇报",
       "preview": "previews/html-ppt-weekly-report.webp"
     },
     {
-      "id": "html-ppt-zhangzara-blue-professional",
-      "title": "米纸钴蓝季度业务汇报",
-      "description": "米黄纸底配单一电光钴蓝、现代无衬线排版，适合季度复盘、咨询交付、B2B 方案汇报。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-blue-professional.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-cobalt-grid",
-      "title": "钴蓝网格纸商业论证",
-      "description": "米色方格纸底、钴蓝斜体衬线与像素阶梯装饰，严格双色，适合续约方案、研究简报、年刊。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-cobalt-grid.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-mat",
-      "title": "鼠尾草绿中古咨询诊断",
-      "description": "深鼠尾草绿底配骨白卡片与焦橙点缀，中古木质质感，适合咨询诊断、利润改善、董事会汇报。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-mat.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-monochrome",
-      "title": "象牙纸黑白学术简报",
-      "description": "象牙纸底纯墨黑字、零彩色，细衬线大标题配 Jost 正文与等宽注记；适合研究报告、白皮书与基金评审。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-monochrome.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-signal",
-      "title": "深蓝金线战略备忘",
-      "description": "深海军蓝底配骨白纸页，单一暗金强调，衬线标题沉稳克制；适合战略决策、董事会与咨询交付。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-signal.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-soft-editorial",
-      "title": "暖纸柔色杂志咨询",
-      "description": "暖纸底配粉、柠檬、鼠尾草柔色块，优雅衬线大标题，留白从容；适合咨询路线图与品牌长文。",
-      "group": "战略咨询",
-      "preview": "previews/html-ppt-zhangzara-soft-editorial.webp"
-    },
-    {
       "id": "simple-deck",
-      "title": "简洁明暗节奏汇报",
+      "title": "简洁汇报",
       "description": "明暗页交替节奏，单一强调色，随设计系统或品牌色换肤；适合经营复盘、产品介绍与短路演。",
-      "group": "战略咨询",
+      "group": "经典·汇报",
       "preview": "previews/simple-deck.webp"
     },
     {
-      "id": "kami-deck",
-      "title": "羊皮纸墨蓝印刷风",
-      "description": "暖羊皮纸底单一墨蓝强调，统一字重衬线、无斜体，印刷质感；适合学术组会、研究汇报与白皮书。",
-      "group": "战略咨询",
-      "preview": "previews/kami-deck.webp"
+      "id": "gov-report",
+      "title": "政企汇报",
+      "description": "白底正红配深灰、页眉单位名与红色粗线，任务完成表、成效数据、问题与下步计划，适合国企、机关与大型企业的年度汇报。",
+      "group": "经典·汇报",
+      "preview": "previews/gov-report.webp",
+      "designSystem": false
     },
     {
-      "id": "html-ppt-product-launch",
-      "title": "暗场橙光产品发布",
-      "description": "深色主视觉配暖橙渐变光球，功能卡、步骤、价格档与客户证言收尾，适合发布会与上线公告。",
-      "group": "营销销售",
-      "preview": "previews/html-ppt-product-launch.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-broadside",
-      "title": "黑底火橙大报头条发布",
-      "description": "近黑底配火焰橙、超粗小写大字与等宽说明，中英双语友好，适合发布会传播与品牌宣言。",
-      "group": "营销销售",
-      "preview": "previews/html-ppt-zhangzara-broadside.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-coral",
-      "title": "珊瑚撞色增长汇报",
-      "description": "奶油、珊瑚红与近黑交替，Bebas 窄体大写标题配锯齿纹，适合增长计划、品牌营销汇报。",
-      "group": "营销销售",
-      "preview": "previews/html-ppt-zhangzara-coral.webp"
-    },
-    {
-      "id": "guizang-ppt",
-      "title": "杂志墨感流体发布会",
-      "description": "电子杂志加电子墨水风，衬线大标题与流体动态背景，横向翻页；适合发布会、行业分享与营销规划。",
-      "group": "营销销售",
-      "preview": "previews/guizang-ppt.webp"
-    },
-    {
-      "id": "html-ppt-pitch-deck",
-      "title": "白底渐变融资路演",
-      "description": "白底配蓝紫渐变、超大标题与巨型数字，十页经典结构：问题、方案、市场、牵引、融资额。",
-      "group": "融资财务",
-      "preview": "previews/html-ppt-pitch-deck.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-bold-poster",
-      "title": "红黑巨字海报宣言",
-      "description": "白底黑字配消防红单色点缀、超大复古手写体堆叠标题，适合品牌宣言、愿景路演、融资故事。",
-      "group": "融资财务",
-      "preview": "previews/html-ppt-zhangzara-bold-poster.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-long-table",
-      "title": "奶油铁锈红财务预读",
-      "description": "奶油纸底配铁锈红单色，粗体大写标题与斜体衬线、描边胶囊，适合财务模型预读、品牌活动。",
-      "group": "融资财务",
-      "preview": "previews/html-ppt-zhangzara-long-table.webp"
+      "id": "html-ppt-zhangzara-signal",
+      "title": "深蓝战略",
+      "description": "深海军蓝底配骨白纸页，单一暗金强调，衬线标题沉稳克制；适合战略决策、董事会与咨询交付。",
+      "group": "经典·汇报",
+      "preview": "previews/html-ppt-zhangzara-signal.webp"
     },
     {
       "id": "ib-pitch-book",
-      "title": "投行路演资料册",
+      "title": "投行资料册",
       "description": "机密标识与页眉，可比公司表、估值足球场、DCF 敏感性矩阵；适合并购顾问与战略选项讨论。",
-      "group": "融资财务",
+      "group": "经典·汇报",
       "preview": "previews/ib-pitch-book.webp"
     },
     {
-      "id": "html-ppt-tech-sharing",
-      "title": "暗色代码技术分享",
-      "description": "代码编辑器暗底、等宽提示符小标题、薄荷到天蓝渐变标题与终端代码块，适合工程师内部分享。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-tech-sharing.webp"
-    },
-    {
-      "id": "html-ppt-graphify-dark-graph",
-      "title": "暗夜图谱产品论证",
-      "description": "深夜渐变底漂浮光晕、封面力导向关系图、彩虹渐变标题与玻璃卡片，适合开发工具与数据产品。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-graphify-dark-graph.webp"
-    },
-    {
-      "id": "html-ppt-knowledge-arch-blueprint",
-      "title": "奶油蓝图架构复盘",
-      "description": "奶油纸底蓝图网格、唯一铁锈红强调、黑框硬卡与突出一步的流程，适合架构图与事故复盘。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-knowledge-arch-blueprint.webp"
-    },
-    {
-      "id": "html-ppt-hermes-cyber-terminal",
-      "title": "暗终端工具评测",
-      "description": "近黑底网格扫描线、窗口按钮栏、命令提示符标题与薄荷荧光等宽字，适合工具选型与评测。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-hermes-cyber-terminal.webp"
-    },
-    {
-      "id": "html-ppt-obsidian-claude-gradient",
-      "title": "暗紫渐变开发教程",
-      "description": "代码托管风暗底配紫蓝光晕网格、居中排版、紫胶囊徽章与三色渐变词，适合开发流程教程。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-obsidian-claude-gradient.webp"
-    },
-    {
-      "id": "html-ppt-taste-brutalist",
-      "title": "CRT 战术遥测简报",
-      "description": "炭黑底荧白等宽字、唯一警示红、扫描线与发丝线网格、零圆角，适合事故复盘与安全评审。",
-      "group": "产品技术",
-      "preview": "previews/html-ppt-taste-brutalist.webp"
-    },
-    {
-      "id": "weekly-update",
-      "title": "团队周报指标站会",
-      "description": "一页一个头条数字，已交付、进行中、受阻清单带负责人与指标图；适合团队周报与运营站会。",
-      "group": "产品技术",
-      "preview": "previews/weekly-update.webp"
-    },
-    {
-      "id": "html-ppt-course-module",
-      "title": "暖纸衬线课程模块",
-      "description": "暖米纸面配衬线大标题，左侧常驻学习目标栏，概念框、例题、练习与选择题自测。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-course-module.webp"
-    },
-    {
-      "id": "html-ppt-presenter-mode-reveal",
-      "title": "深色演讲者逐字稿",
-      "description": "深色主题可切换，每页附 150–300 字逐字稿，按 S 打开演讲者视图看当前、下页与计时。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-presenter-mode-reveal.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-cartesian",
-      "title": "暖灰衬线学术答辩",
-      "description": "暖灰石色底、无彩色，Playfair 衬线标题配细线圆环，适合论文答辩、白皮书、研究报告。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-cartesian.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-daisy-days",
-      "title": "雏菊粉彩培训课件",
-      "description": "奶油底配粉彩圆角卡片、手绘雏菊星星彩虹与粗描边，适合培训工作坊、课堂、社区活动。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-daisy-days.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-pin-and-paper",
-      "title": "黄纸别针手记课堂汇报",
-      "description": "黄色纸纹配别针插画与墨蓝手写字，便签式排版；适合课程作业、毕业答辩与工作坊复盘。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-pin-and-paper.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-playful",
-      "title": "蜜桃暖色轻松培训",
-      "description": "蜜桃暖底墨黑字，宽体粗标题配手绘圆圈线条，亲切轻松；适合技能培训、小团队发布与社群分享。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-playful.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-retro-windows",
-      "title": "复古视窗课堂课件",
-      "description": "九十年代灰色视窗外框、像素字体与凸起按钮，怀旧好玩；适合安全意识培训与趣味课件。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-retro-windows.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-scatterbrain",
-      "title": "便利贴白板创意提案",
-      "description": "软木与纸面底上的彩色便利贴，花体标题配手写字，像设计白板；适合毕设答辩、头脑风暴与工作坊。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-scatterbrain.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-vellum",
-      "title": "深蓝暖黄学术讲座",
-      "description": "深蓝底暖黄斜体衬线，单一灰青点缀，低密度安静；适合人文讲座、学术研究与政策简报。",
-      "group": "教育培训",
-      "preview": "previews/html-ppt-zhangzara-vellum.webp"
-    },
-    {
-      "id": "html-ppt-taste-editorial",
-      "title": "米白衬线极简杂志",
-      "description": "暖米白底衬线标题配无衬线正文与等宽注记、发丝线分隔、单一低饱和强调色，适合投资人更新。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-taste-editorial.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-biennale-yellow",
-      "title": "暖纸日光黄展览策展",
-      "description": "羊皮纸底配日光黄色块与靛蓝衬线大字、柔光晕染，适合展览、艺术机构、策展提案。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-biennale-yellow.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-block-frame",
-      "title": "粗框撞色新野兽派提案",
-      "description": "米白底配粉蓝绿黄色块、4px黑粗框与硬投影，适合品牌改版、创意提案、独立产品发布。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-block-frame.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-creative-mode",
-      "title": "米纸多彩品牌审查",
-      "description": "米纸底配绿粉橙黄撞色块、超粗黑体与等宽页眉，适合品牌识别审查、创意机构提案。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-creative-mode.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-editorial-tri-tone",
-      "title": "粉芥酒红三色杂志",
-      "description": "粉、芥黄、酒红三色满版，粗黑体配斜体衬线，像时装杂志跨页，适合编辑提案、品牌改版。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-editorial-tri-tone.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-raw-grid",
-      "title": "粗边框新粗野案例",
-      "description": "粗黑描边卡片加硬投影，粉色与鼠尾草绿底，网格直给；适合设计案例、路演演示与品牌提案。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-raw-grid.webp"
-    },
-    {
-      "id": "html-ppt-zhangzara-studio",
-      "title": "黑底电光黄工作室",
-      "description": "炭黑底电光黄大字，整页黄底作节奏断点，等宽注记；适合工作室作品集、报价与创意提案。",
-      "group": "设计创意",
-      "preview": "previews/html-ppt-zhangzara-studio.webp"
-    },
-    {
       "id": "html-ppt-testing-safety-alert",
-      "title": "红黑警示合规简报",
+      "title": "警示合规",
       "description": "暖白底红黑警示斜纹、删除线否定标题、红黄绿分级卡与检查清单，适合风险合规与复盘。",
-      "group": "公共政策",
+      "group": "经典·汇报",
       "preview": "previews/html-ppt-testing-safety-alert.webp"
     },
     {
       "id": "html-ppt-zhangzara-grove",
-      "title": "森林绿衬线政策简报",
+      "title": "森林政策",
       "description": "墨绿底配骨白衬线与铁锈红点缀，明暗页交替、侧栏标注，中英双语友好，适合政策与议会简报。",
-      "group": "公共政策",
+      "group": "经典·汇报",
       "preview": "previews/html-ppt-zhangzara-grove.webp"
     },
     {
-      "id": "html-ppt-zhangzara-peoples-platform",
-      "title": "蓝橙撞色海报倡议",
-      "description": "奶油底蓝橙红三色海报撞色，粗板衬线口号配手写笔刷；适合公共政策宣讲、社区倡议与动员。",
-      "group": "公共政策",
-      "preview": "previews/html-ppt-zhangzara-peoples-platform.webp"
+      "id": "html-ppt-pitch-deck",
+      "title": "融资路演",
+      "description": "白底配蓝紫渐变、超大标题与巨型数字，十页经典结构：问题、方案、市场、牵引、融资额。",
+      "group": "经典·发布路演",
+      "preview": "previews/html-ppt-pitch-deck.webp"
     },
     {
-      "id": "html-ppt-zhangzara-stencil-tablet",
-      "title": "镂空字土色合规审查",
-      "description": "骨白底镂空刻字标题配六色大地色块，像档案手册；适合合规审查、监管通报与文博机构。",
-      "group": "公共政策",
-      "preview": "previews/html-ppt-zhangzara-stencil-tablet.webp"
+      "id": "html-ppt-product-launch",
+      "title": "暗场发布",
+      "description": "深色主视觉配暖橙渐变光球，功能卡、步骤、价格档与客户证言收尾，适合发布会与上线公告。",
+      "group": "经典·发布路演",
+      "preview": "previews/html-ppt-product-launch.webp"
+    },
+    {
+      "id": "guizang-ppt",
+      "title": "杂志发布会",
+      "description": "电子杂志加电子墨水风，衬线大标题与流体动态背景，横向翻页；适合发布会、行业分享与营销规划。",
+      "group": "经典·发布路演",
+      "preview": "previews/guizang-ppt.webp"
+    },
+    {
+      "id": "html-ppt-zhangzara-coral",
+      "title": "珊瑚增长",
+      "description": "奶油、珊瑚红与近黑交替，Bebas 窄体大写标题配锯齿纹，适合增长计划、品牌营销汇报。",
+      "group": "经典·发布路演",
+      "preview": "previews/html-ppt-zhangzara-coral.webp"
+    },
+    {
+      "id": "html-ppt-zhangzara-bold-poster",
+      "title": "巨字海报",
+      "description": "白底黑字配消防红单色点缀、超大复古手写体堆叠标题，适合品牌宣言、愿景路演、融资故事。",
+      "group": "经典·发布路演",
+      "preview": "previews/html-ppt-zhangzara-bold-poster.webp"
+    },
+    {
+      "id": "new-chinese",
+      "title": "新中式",
+      "description": "宣纸米白底、墨色宋楷配朱砂印章，竖排标题与水墨线描留白，适合文化品牌、茶与文旅、非遗与国风新品发布。",
+      "group": "经典·发布路演",
+      "preview": "previews/new-chinese.webp",
+      "designSystem": false
+    },
+    {
+      "id": "html-ppt-tech-sharing",
+      "title": "代码分享",
+      "description": "代码编辑器暗底、等宽提示符小标题、薄荷到天蓝渐变标题与终端代码块，适合工程师内部分享。",
+      "group": "经典·技术教育",
+      "preview": "previews/html-ppt-tech-sharing.webp"
+    },
+    {
+      "id": "html-ppt-taste-brutalist",
+      "title": "CRT 简报",
+      "description": "炭黑底荧白等宽字、唯一警示红、扫描线与发丝线网格、零圆角，适合事故复盘与安全评审。",
+      "group": "经典·技术教育",
+      "preview": "previews/html-ppt-taste-brutalist.webp"
+    },
+    {
+      "id": "html-ppt-course-module",
+      "title": "课程模块",
+      "description": "暖米纸面配衬线大标题，左侧常驻学习目标栏，概念框、例题、练习与选择题自测。",
+      "group": "经典·技术教育",
+      "preview": "previews/html-ppt-course-module.webp"
+    },
+    {
+      "id": "html-ppt-presenter-mode-reveal",
+      "title": "逐字稿演讲",
+      "description": "深色主题可切换，每页附 150–300 字逐字稿，按 S 打开演讲者视图看当前、下页与计时。",
+      "group": "经典·技术教育",
+      "preview": "previews/html-ppt-presenter-mode-reveal.webp"
+    },
+    {
+      "id": "kami-deck",
+      "title": "羊皮纸学术",
+      "description": "暖羊皮纸底单一墨蓝强调，统一字重衬线、无斜体，印刷质感；适合学术组会、研究汇报与白皮书。",
+      "group": "经典·技术教育",
+      "preview": "previews/kami-deck.webp"
+    },
+    {
+      "id": "html-ppt-zhangzara-daisy-days",
+      "title": "粉彩课堂",
+      "description": "奶油底配粉彩圆角卡片、手绘雏菊星星彩虹与粗描边，适合培训工作坊、课堂、社区活动。",
+      "group": "经典·技术教育",
+      "preview": "previews/html-ppt-zhangzara-daisy-days.webp"
+    },
+    {
+      "id": "html-ppt-taste-editorial",
+      "title": "极简杂志",
+      "description": "暖米白底衬线标题配无衬线正文与等宽注记、发丝线分隔、单一低饱和强调色，适合投资人更新。",
+      "group": "经典·创意社媒",
+      "preview": "previews/html-ppt-taste-editorial.webp"
     },
     {
       "id": "html-ppt-xhs-white-editorial",
-      "title": "白底杂志重点长图",
+      "title": "小红书长图",
       "description": "纯白底彩虹顶条、黑色粗标题配渐变词与黑底重点胶囊、马卡龙软卡片，适合干货与晋升材料。",
-      "group": "个人社媒",
+      "group": "经典·创意社媒",
       "preview": "previews/html-ppt-xhs-white-editorial.webp"
     },
     {
-      "id": "html-ppt-xhs-pastel-card",
-      "title": "马卡龙衬线心得",
-      "description": "奶油底柔光色斑、衬线大标题配一个斜体强调词、圆角马卡龙色卡与环形图，适合个人故事分享。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-xhs-pastel-card.webp"
+      "id": "html-ppt-zhangzara-scatterbrain",
+      "title": "便利贴白板",
+      "description": "软木与纸面底上的彩色便利贴，花体标题配手写字，像设计白板；适合毕设答辩、头脑风暴与工作坊。",
+      "group": "经典·创意社媒",
+      "preview": "previews/html-ppt-zhangzara-scatterbrain.webp"
+    },
+    {
+      "id": "html-ppt-zhangzara-block-frame",
+      "title": "新粗野提案",
+      "description": "米白底配粉蓝绿黄色块、4px黑粗框与硬投影，适合品牌改版、创意提案、独立产品发布。",
+      "group": "经典·创意社媒",
+      "preview": "previews/html-ppt-zhangzara-block-frame.webp"
     },
     {
       "id": "html-ppt-zhangzara-8-bit-orbit",
-      "title": "像素霓虹街机故事分享",
+      "title": "像素街机",
       "description": "深蓝星空底配粉青黄霓虹、像素描边大字与扫描线，适合游戏、黑客松、极客爱好分享。",
-      "group": "个人社媒",
+      "group": "经典·创意社媒",
       "preview": "previews/html-ppt-zhangzara-8-bit-orbit.webp"
     },
     {
-      "id": "html-ppt-zhangzara-capsule",
-      "title": "胶囊彩块年终述职",
-      "description": "骨白底配多彩糖果色胶囊标签、Didone 衬线大名，适合个人述职、作品集、生活方式品牌。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-zhangzara-capsule.webp"
+      "id": "bento-grid",
+      "title": "便当格",
+      "description": "大小不一的圆角卡片拼成不规则网格，大数字、迷你图表与短句错峰浮现，适合产品特性一览、年度回顾与成绩单。",
+      "group": "经典·创意社媒",
+      "designSystem": false
     },
     {
-      "id": "html-ppt-zhangzara-neo-grid-bold",
-      "title": "荧光黄粗网格作品集",
-      "description": "灰白底粗黑网格分栏，单一荧光黄色块，大写粗体标题；适合作品集述职、个人品牌与设计提案。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-zhangzara-neo-grid-bold.webp"
+      "id": "newspaper",
+      "title": "报纸头版",
+      "description": "新闻纸底黑色报头、多栏排版与首字下沉，头条逐字排出、短讯点开看全文，适合发布公告、重大新闻式汇报与年度大事记。",
+      "group": "交互实验",
+      "preview": "previews/newspaper.webp",
+      "designSystem": false
     },
     {
-      "id": "html-ppt-zhangzara-pink-script",
-      "title": "黑底玫粉夜色故事",
-      "description": "黑底热粉强调与珍珠奶白，大号衬线斜体标题，低密度留白；适合纪念回顾、生活方式与品牌故事。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-zhangzara-pink-script.webp"
+      "id": "metro-map",
+      "title": "地铁路线图",
+      "description": "整份演示是一条地铁线、每页一站，顶部迷你线路随进度点亮、点站名可跳转，适合项目路线图、里程碑与学习路径。",
+      "group": "交互实验",
+      "preview": "previews/metro-map.webp",
+      "designSystem": false
     },
     {
-      "id": "html-ppt-zhangzara-retro-zine",
-      "title": "米色孔版小志专题",
-      "description": "米色纸底孔版绿套印，窄体大标题配手写批注与拼贴；适合社区故事、独立刊物与文化活动。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-zhangzara-retro-zine.webp"
+      "id": "chat-story",
+      "title": "对话叙事",
+      "description": "每页一个聊天界面，按 → 气泡逐条出现，穿插旁白大字与数据页，适合用户故事、访谈复盘、客服案例与使用场景。",
+      "group": "交互实验",
+      "preview": "previews/chat-story.webp",
+      "designSystem": false
     },
     {
-      "id": "html-ppt-zhangzara-sakura-chroma",
-      "title": "复古磁带彩虹画册",
-      "description": "奶油纸底斜向彩虹色带，窄体粗字与规格勾选框，像老磁带包装；适合旅行影像与产品画册。",
-      "group": "个人社媒",
-      "preview": "previews/html-ppt-zhangzara-sakura-chroma.webp"
+      "id": "living-model",
+      "title": "活体模型",
+      "description": "参数面板加实时重算的图表，台上拖动滑块现场推演增长、单位经济、盈亏平衡与情景对比，适合商业模型与预算方案。",
+      "group": "交互实验",
+      "preview": "previews/living-model.webp",
+      "designSystem": false
+    },
+    {
+      "id": "blueprint",
+      "title": "蓝图工程",
+      "description": "工程蓝底白色细线、网格与图框标题栏，尺寸标注与引线编号，线条绘制入场、部件悬停说明，适合系统架构与工程方案评审。",
+      "group": "交互实验",
+      "preview": "previews/blueprint.webp",
+      "designSystem": false
     }
   ],
   "designSystems": [],

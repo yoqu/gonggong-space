@@ -36,6 +36,19 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 Dual-purpose 小红书图文 + horizontal deck; dense text with strong emphasis; Chinese-first audiences — 晋升材料、方法论、干货分享.
 
+## Linked edits
+
+- Page numbers are hand-written twice per slide — `.xw-topbar .xw-page` (`03 / 08`) and the right span of `.xw-footer` (`03 / 08`; cover says `Cover · 01`) — renumber both, including the total, whenever a slide is added, removed or moved.
+- Section dividers number chapters by hand (`.xw-tag` `Chapter · 01` + the `第一章` kicker); keep them sequential.
+- Palette hexes are repeated outside the `--xw-*` variables: `.xw-grad` and `.xw-tag .dot` gradients (`#7b61ff,#4e8cff,#17b26a,#ff9d42,#ff5fa2`), `.xw-focus-*` text colours (`#174ea6`, `#c11574`, `#b54708`, `#067647`), and `#111318` in `.xw-focus` / `.xw-num` — change them with the variables.
+- The SVG bar chart hard-codes per row: track `fill` = soft tint, bar `fill` = accent hex, value `<text>` fill = matching focus text colour; bar `width` is hand-set on a 520px track starting at `x=180` — recompute widths when the data changes.
+- One colour per category: a category's `.xw-card.soft-*` tint and its chart row colour should match across slides.
+- Navigation comes from `../html-ppt/assets/runtime.js` (slides are `.deck .slide`; it sets `window.deck = { slides, index, go }` for deck-toolkit.js) — if you copy or edit `runtime.js`, keep that line.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded.
+
 ## Checklist
 
 - [ ] Max one gradient phrase and 2–4 focus pills per slide — emphasis must stay scarce.

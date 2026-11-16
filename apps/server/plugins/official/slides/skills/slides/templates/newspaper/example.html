@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>星港日报 · 科技特刊</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+/* Newspaper front page — tokens */
+:root{
+  --paper:#EEE5CF; --paper-2:#E3D7BA; --ink:#1D1A15; --ink-2:#4B443A; --rule:#2A251E; --red:#9C2B1F;
+  --serif:"Iowan Old Style","Times New Roman","Songti SC","Noto Serif SC",serif;
+  --sans:"Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+}
+.slide{background:var(--paper);color:var(--ink);font-family:var(--serif);-webkit-print-color-adjust:exact;print-color-adjust:exact;
+  background-image:radial-gradient(ellipse at 18% 12%,rgba(255,250,235,.55),transparent 55%),radial-gradient(ellipse at 85% 90%,rgba(150,120,70,.12),transparent 60%),repeating-linear-gradient(0deg,rgba(80,60,30,.025) 0 1px,transparent 1px 3px)}
+.paper{position:absolute;inset:40px 64px 36px;display:flex;flex-direction:column}
+p{margin:0}
+.hairline{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* running header on inner pages */
+.run{display:flex;justify-content:space-between;align-items:baseline;font-size:26px;padding-bottom:10px;border-bottom:1px solid var(--rule);box-shadow:0 5px 0 -1px var(--paper),0 6px 0 0 var(--rule);margin-bottom:26px}
+.run .nm{font-weight:900;font-size:34px;letter-spacing:.12em}
+.run .pg{font-weight:700}
+
+/* front-page masthead */
+.top{display:flex;justify-content:space-between;font:400 24px/1 var(--sans);color:var(--ink-2);padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.mast{display:grid;grid-template-columns:330px 1fr 330px;align-items:center;padding:12px 0 10px}
+.mast .name{text-align:center;font-weight:900;font-size:128px;line-height:1;letter-spacing:.14em;margin-right:-.14em}
+.ear{border:1px solid var(--rule);padding:14px 18px;font-size:26px;line-height:1.4}
+.ear b{display:block;font-size:28px}
+.ear.r{text-align:right}
+.stamp{display:inline-block;background:var(--red);color:#F6EEDC;font:700 30px/1 var(--sans);letter-spacing:.2em;padding:10px 12px 10px 16px;margin-bottom:8px}
+.datebar{display:flex;justify-content:space-between;font-size:26px;padding:10px 4px;border-top:5px solid var(--rule);border-bottom:1px solid var(--rule)}
+.datebar b{font-weight:700}
+
+/* headlines */
+.kicker{display:inline-block;align-self:flex-start;background:var(--ink);color:var(--paper);font:700 26px/1 var(--sans);letter-spacing:.12em;padding:9px 14px 9px 16px}
+.kicker.red{background:var(--red)}
+.hl{font-weight:900;line-height:1.1;letter-spacing:-.01em;margin:12px 0 0;font-size:90px}
+.hl.s{font-size:84px}
+.hl.xs{font-size:72px}
+.deck-sub{font-size:34px;line-height:1.4;color:var(--ink-2);margin-top:14px}
+.deck-sub b{color:var(--ink)}
+
+/* body text */
+.body{font-size:28px;line-height:1.62;text-align:justify}
+.body p{text-indent:2em}
+.body p+p{margin-top:2px}
+.cols2{column-count:2;column-gap:36px;column-rule:1px solid var(--rule)}
+.cols3{column-count:3;column-gap:36px;column-rule:1px solid var(--rule)}
+.drop>p:first-child{text-indent:0}
+.drop>p:first-child::first-letter{float:left;font-size:3.35em;line-height:.95;font-weight:900;margin:.04em .1em 0 0}
+.jump{font:700 26px/1.4 var(--sans);text-align:right;margin-top:6px;text-indent:0!important}
+.cont{font:700 26px/1.4 var(--sans);color:var(--ink-2);margin-bottom:4px}
+h4{font-size:34px;line-height:1.3;font-weight:900;margin:0 0 8px}
+.vrule{border-left:1px solid var(--rule)}
+.box{border:1px solid var(--rule);padding:18px 22px}
+.box.shade{background:var(--paper-2)}
+.cap{font:400 24px/1.45 var(--sans);color:var(--ink-2);margin-top:10px}
+.cap b{color:var(--ink)}
+.side-h{font:900 30px/1 var(--serif);letter-spacing:.3em;text-align:center;padding:10px 0;border-top:5px solid var(--rule);border-bottom:1px solid var(--rule);margin:0 0 6px}
+.fig svg{display:block;width:100%;height:auto}
+
+/* clickable briefs (sidebar) */
+.brief{all:unset;display:block;box-sizing:border-box;width:100%;padding:14px 0 14px;border-bottom:1px solid var(--rule);cursor:pointer}
+.brief .t{display:block;font:900 30px/1.3 var(--serif)}
+.brief .s{display:block;font-size:28px;line-height:1.5;margin-top:6px;color:var(--ink-2)}
+.brief .x{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s ease}
+.brief .x>span{overflow:hidden;min-height:0;font-size:28px;line-height:1.55;text-align:justify}
+.brief .x>span>span{display:block;padding-top:8px}
+.brief.open .x{grid-template-rows:1fr}
+.brief.open .s{display:none}
+.brief .more{display:block;font:700 24px/1 var(--sans);margin-top:10px;color:var(--red)}
+.brief .more::after{content:"展开全文 ▾"}
+.brief.open .more::after{content:"收起 ▴"}
+.brief:hover .t{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
+
+/* tables & lists */
+table.spec{width:100%;border-collapse:collapse;font-size:28px;text-align:center}
+table.spec th,table.spec td{padding:10px 8px;border-bottom:1px solid var(--rule)}
+table.spec thead th{font:700 24px/1.3 var(--sans);border-top:3px solid var(--rule)}
+table.spec td:first-child,table.spec th:first-child{text-align:left;font-weight:700}
+table.spec .num{font-variant-numeric:tabular-nums;font-weight:900}
+.leader{display:flex;align-items:baseline;gap:12px;font-size:28px;line-height:1.85}
+.leader i{flex:1;border-bottom:2px dotted var(--ink-2);transform:translateY(-6px)}
+.leader b{font-weight:900;min-width:4.2em}
+
+/* headline typesetting: chars come in one by one, from blur to sharp */
+@keyframes typeset{0%{opacity:0;filter:blur(14px)}55%{opacity:1}100%{opacity:1;filter:blur(0)}}
+.slide.typeset .hl .ch{animation:typeset .6s ease-out backwards;animation-delay:calc(var(--k,0) * 60ms + 200ms)}
+@media (prefers-reduced-motion:reduce){
+  .slide.typeset .hl .ch{animation:none}
+  .brief .x{transition:none}
+}
+@media print{.slide .hl .ch{animation:none!important}}
+/* chronicle */
+.ev{padding:22px 28px 0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column}
+.ev:nth-child(4n){border-right:0}
+.ev b{font-size:84px;font-weight:900;line-height:1}
+.ev span{font:700 26px/1 var(--sans);color:var(--red);margin:10px 0 12px}
+.ev p{font-size:28px;line-height:1.55}
+.ev.hi{background:var(--paper-2)}
+/* classifieds */
+.ads{flex:1;min-height:0;display:grid;grid-template-columns:1.25fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:22px;margin-top:22px}
+.ad{border:2px solid var(--rule);padding:20px 26px;display:flex;flex-direction:column;gap:14px;font-size:30px;line-height:1.45;text-align:center;justify-content:center}
+.ad-h{font:900 40px/1 var(--serif);letter-spacing:.25em;border-bottom:1px solid currentColor;padding-bottom:12px}
+.ad.inv{background:var(--ink);color:var(--paper)}
+.ad.dbl{border:6px double var(--rule)}
+.ad.dash{border-style:dashed}
+.ad-f{font:700 26px/1.3 var(--sans);margin-top:auto}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="ht1" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.05" fill="#1D1A15"/></pattern>
+  <pattern id="ht2" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.9" fill="#1D1A15"/></pattern>
+  <pattern id="ht3" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="2.8" fill="#1D1A15"/></pattern>
+  <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3.4" height="10" fill="#1D1A15"/></pattern>
+  <pattern id="hatch-l" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="1.5" height="10" fill="#1D1A15"/></pattern>
+</defs></svg>
+<div class="deck">
+<!-- 第 1 版 · 头版 -->
+  <section class="slide" data-section="front-page" data-title="头版">
+    <div class="paper">
+      <div class="top"><span>星港日报社出版　新闻热线 000-0000-0000（示例）</span><span>港区今日 晴 9–17℃　东北风 3 级</span></div>
+      <div class="mast">
+        <div class="ear"><b>本期导读</b>仓储机器人特刊<br>今日 <span class="pg-total"></span> 版</div>
+        <div class="name">星港日报</div>
+        <div class="ear r"><span class="stamp">科技特刊</span><br>第 8412 期</div>
+      </div>
+      <div class="datebar"><b>2026 年 11 月 16 日　星期一</b><span>国内统一刊号 CN 00-0000（示例）</span><span>零售价 每份 2.00 元</span><b>第 <span class="pg-n"></span> 版</b></div>
+      <div style="display:grid;grid-template-columns:1fr 410px;gap:0 36px;flex:1;min-height:0;margin-top:20px">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <span class="kicker red">新品发布</span>
+          <h1 class="hl">澜舟发布「穿梭者 3」<br>一台机器人，扛起整座仓</h1>
+          <p class="deck-sub">载重提到 <b>1.5 吨</b>、电量见底自己去换电，首批 <b>200 台</b>本月交付华东三座物流园</p>
+          <div style="display:grid;grid-template-columns:480px 1fr;gap:34px;margin-top:18px;flex:1;min-height:0">
+            <figure class="fig" style="margin:0">
+              <svg viewBox="0 0 560 360" fill="none" stroke="#1D1A15" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+                <path d="M10 338H550"/>
+                <ellipse cx="285" cy="336" rx="215" ry="9" fill="url(#ht1)" stroke="none"/>
+                <path d="M18 268h72M36 290h58M12 312h86" stroke-width="2"/>
+                <path d="M180 30h240l-30 14H150z" fill="url(#ht1)"/>
+                <path d="M390 44l30-14v198l-30 14z" fill="url(#ht2)"/>
+                <rect x="150" y="44" width="240" height="198"/>
+                <path d="M150 110h240l30-14M150 176h240l30-14"/>
+                <rect x="164" y="64" width="78" height="46" fill="url(#ht1)"/><path d="M203 64v14"/>
+                <rect x="252" y="76" width="60" height="34"/>
+                <rect x="320" y="58" width="58" height="52" fill="url(#ht2)"/>
+                <rect x="164" y="128" width="100" height="48"/><path d="M214 128v16"/>
+                <rect x="276" y="138" width="102" height="38" fill="url(#ht1)"/>
+                <rect x="168" y="190" width="72" height="52" fill="url(#ht2)"/>
+                <rect x="250" y="182" width="128" height="60"/><path d="M314 182v18"/>
+                <rect x="132" y="242" width="292" height="10" fill="#1D1A15"/>
+                <path d="M424 248l26-12v10l-26 12z" fill="#1D1A15"/>
+                <rect x="120" y="252" width="296" height="66" rx="14"/>
+                <path d="M416 262l28-12v54l-28 14z" fill="url(#ht3)"/>
+                <path d="M140 274H396" stroke-width="5"/>
+                <rect x="248" y="288" width="40" height="16" rx="3" fill="url(#ht2)"/>
+                <circle cx="398" cy="294" r="9"/>
+                <circle cx="168" cy="324" r="15" fill="#1D1A15"/>
+                <circle cx="368" cy="324" r="15" fill="#1D1A15"/>
+              </svg>
+              <figcaption class="cap"><b>图</b>　「穿梭者 3」顶起货架驶向拣选台</figcaption>
+            </figure>
+            <div class="body cols2 drop" style="min-height:0">
+              <p>本报讯　11 月 15 日，澜舟机器人在嘉兴发布第三代仓储机器人「穿梭者 3」。新机能把整排货架顶起送到拣货员面前，单台载重从 1 吨提到 1.5 吨，电量低于两成时会自行驶向换电站，九十秒后回到岗位。</p>
+              <p>澜舟称，首批 200 台将在本月底前交付嘉兴、昆山、南通三座物流园。</p>
+              <p class="jump">（下转第 2 版）</p>
+            </div>
+          </div>
+        </div>
+        <aside class="vrule" style="padding-left:30px;min-height:0">
+          <h4 class="side-h">简　讯</h4>
+          <div class="briefs">
+            <button class="brief" type="button" aria-expanded="false"><span class="t">首批 200 台本月交付</span><span class="s">嘉兴、昆山、南通先行。</span><span class="x"><span><span>首批「穿梭者 3」将于 11 月 28 日前交付三座物流园，其中嘉兴园区 64 台已完成两周夜班试运行。后续批次排到明年 3 月。</span></span></span><span class="more"></span></button>
+            <button class="brief" type="button" aria-expanded="false"><span class="t">工会：先培训，再换岗</span><span class="s">受影响的拣货员可转维护岗。</span><span class="x"><span><span>受影响的 86 名拣货员可报名六周运维培训，结业转维护岗，薪资不低于原岗。首期 40 人已开课。</span></span></span><span class="more"></span></button>
+            <button class="brief" type="button" aria-expanded="false"><span class="t">售价暂未公布</span><span class="s">官方只说「按月租用」。</span><span class="x"><span><span>澜舟未公布整机售价，只说以按月租用为主，含维保与软件升级。具体价格 12 月公布。</span></span></span><span class="more"></span></button>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <aside class="notes">这是头版。先让大家看报头和日期，再看头条：一台机器人扛起整座仓。标题会像排字一样一个字一个字出现。右侧三条简讯可以点开看全文，讲到工会那条时点一下，强调我们先安排培训再换岗。正文下转第二版。</aside>
+  </section>
+
+  <!-- 第 2 版 · 要闻 -->
+  <section class="slide" data-section="product" data-title="产品要闻">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 要闻</span></header>
+      <span class="kicker">深度</span>
+      <h2 class="hl s">拆开「穿梭者 3」：三处改动，一个目标</h2>
+      <p class="deck-sub">目标只有一个——让仓库在夜里也不用停</p>
+      <div style="display:grid;grid-template-columns:1fr 410px;gap:0 36px;flex:1;min-height:0;margin-top:22px">
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0 36px">
+            <div class="body"><p class="cont">（上接第 1 版）</p><h4>底盘：多扛半吨</h4><p>底盘改用双电机驱动，能顶起 1.5 吨的整排货架，冷链仓的饮料箱也能一次搬走。</p><p>车身高度没变，旧货架不用改，直接就能顶。</p></div>
+            <div class="body vrule" style="padding-left:30px"><h4>换电：不用人插电</h4><p>电量低于两成，机器人自己开到换电站，机械臂九十秒换好电池，不必停下等充电。</p><p>过去一座仓要多备三成机器轮流充电，现在这部分可以省掉。</p></div>
+            <div class="body vrule" style="padding-left:30px"><h4>定位：不靠地面二维码</h4><p>改用激光加视觉定位，仓库地面不用再贴二维码，老仓改造工期从三周缩到四天。</p><p>地面磨损、积水也不再影响定位，夜里不用停工补码。</p></div>
+          </div>
+          <table class="spec" style="margin-top:auto">
+            <thead><tr><th>规格</th><th>载重</th><th>最高速度</th><th>连续工作</th><th>补能方式</th><th>改造工期</th></tr></thead>
+            <tbody>
+              <tr><td>穿梭者 2</td><td class="num">1.0 吨</td><td class="num">1.5 米/秒</td><td class="num">8 小时</td><td>人工充电</td><td class="num">约 3 周</td></tr>
+              <tr><td>穿梭者 3</td><td class="num">1.5 吨</td><td class="num">2.0 米/秒</td><td class="num">不间断</td><td>自动换电</td><td class="num">约 4 天</td></tr>
+            </tbody>
+          </table>
+          <p class="cap">表：本报据澜舟机器人发布会资料整理（示例数据）</p>
+        </div>
+        <aside class="vrule" style="padding-left:30px;min-height:0">
+          <h4 class="side-h">延伸阅读</h4>
+          <div class="briefs">
+            <button class="brief" type="button" aria-expanded="false"><span class="t">什么是「货到人」</span><span class="s">人不走，货架走。</span><span class="x"><span><span>传统仓库里拣货员推车找货，一个班要走二十公里；「货到人」让机器人把货架送到固定的拣选台，人站着不动就能拣货。</span></span></span><span class="more"></span></button>
+            <button class="brief" type="button" aria-expanded="false"><span class="t">换电站长什么样</span><span class="s">一台冰箱大小。</span><span class="x"><span><span>换电站约一台双门冰箱大小，内存 12 块电池，可同时服务 40 台机器人，占地不到 2 平方米。</span></span></span><span class="more"></span></button>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <aside class="notes">第二版讲三处改动：底盘多扛半吨、自动换电、不再依赖地面二维码。重点放在第三点，老仓改造从三周缩到四天，这是客户最在意的。下面的规格表两代对比，右侧延伸阅读可以点开解释货到人和换电站。</aside>
+  </section>
+
+  <!-- 第 3 版 · 数据 -->
+  <section class="slide" data-section="data" data-title="效率数据">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 数据</span></header>
+      <span class="kicker">数据</span>
+      <h2 class="hl s">效率账本：一台顶过去的一台半</h2>
+      <div style="display:grid;grid-template-columns:1000px 1fr;gap:0 40px;flex:1;min-height:0;margin-top:24px">
+        <figure class="fig" style="margin:0">
+          <h4>单台每小时搬运货架次数</h4>
+          <svg viewBox="0 0 1000 520" font-family="Iowan Old Style,Times New Roman,Songti SC,serif" fill="#1D1A15">
+            <g stroke="#1D1A15" stroke-dasharray="4 8" stroke-width="1.5"><path d="M90 380H980M90 285H980M90 190H980M90 95H980"/></g>
+            <g font-size="26" text-anchor="end"><text x="74" y="389">20</text><text x="74" y="294">40</text><text x="74" y="199">60</text><text x="74" y="104">80</text></g>
+            <rect x="160" y="294" width="180" height="181" fill="url(#hatch-l)" stroke="#1D1A15" stroke-width="2.5"/>
+            <rect x="430" y="228" width="180" height="247" fill="url(#hatch)" stroke="#1D1A15" stroke-width="2.5"/>
+            <rect x="700" y="128" width="180" height="347" fill="#1D1A15"/>
+            <g font-size="54" font-weight="900" text-anchor="middle"><text x="250" y="276">38</text><text x="520" y="210">52</text><text x="790" y="110" fill="#9C2B1F">73</text></g>
+            <path d="M90 475H980" stroke="#1D1A15" stroke-width="3"/>
+            <g font-size="30" text-anchor="middle"><text x="250" y="514">2022 款</text><text x="520" y="514">穿梭者 2</text><text x="790" y="514" font-weight="900">穿梭者 3</text></g>
+          </svg>
+          <figcaption class="cap"><b>图表</b>　本报数据部　来源：澜舟嘉兴园区试点报告（示例数据）</figcaption>
+        </figure>
+        <div class="vrule" style="padding-left:34px;display:flex;flex-direction:column;min-height:0">
+          <div class="body"><p>试点十二周里，同样一座仓，夜班需要的机器人从 96 台降到 64 台。省下来的不只是机器：拣选台前排队的货架少了，拣货员等货的时间从每单 40 秒降到 15 秒。</p></div>
+          <h4 style="margin-top:22px">拣选差错率（‰），12 周</h4>
+          <svg viewBox="0 0 420 230" style="width:100%;height:auto" fill="none" stroke="#1D1A15">
+            <path d="M30 200H410" stroke-width="2.5"/>
+            <polyline points="40,32 72,52 104,62 136,82 168,102 200,112 232,122 264,142 296,152 328,162 360,167 392,172" stroke-width="4"/>
+            <circle cx="40" cy="32" r="7" fill="#1D1A15"/><circle cx="392" cy="172" r="8" fill="#9C2B1F" stroke="none"/>
+            <g font-family="Iowan Old Style,Times New Roman,Songti SC,serif" font-size="28" fill="#1D1A15" stroke="none"><text x="58" y="30">1.8</text><text x="340" y="150">0.4</text><text x="30" y="228" font-size="22">第 1 周</text><text x="340" y="228" font-size="22">第 12 周</text></g>
+          </svg>
+          <div class="box shade" style="margin-top:auto;display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:28px">夜班所需机器人</span><b style="font-size:48px;font-weight:900">96 → 64 台</b></div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">数据版只讲一个结论：一台顶过去一台半。左边柱图是单台每小时搬运货架的次数，从 38 次到 73 次。右边是拣选差错率，十二周从千分之一点八降到零点四。提醒听众这些是嘉兴园区的试点数据，样本只有一座仓。</aside>
+  </section>
+
+  <!-- 第 4 版 · 现场 -->
+  <section class="slide" data-section="on-site" data-title="现场特写">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 现场</span></header>
+      <span class="kicker">现场</span>
+      <h2 class="hl s">凌晨两点，嘉兴园区的 64 台「穿梭者」</h2>
+      <figure class="fig" style="margin:22px 0 0">
+        <svg viewBox="0 0 1792 420" fill="none" stroke="#1D1A15" stroke-width="2.2" stroke-linejoin="round">
+          <path d="M860 18h72l90 232H770z" fill="url(#ht1)" stroke="none" opacity=".55"/>
+          <path d="M860 10h72M872 52h48M880 84h32M886 108h20" stroke-width="6"/>
+          <path d="M0 20L760 170V250L0 410z" fill="url(#ht1)"/>
+          <path d="M1792 20L1032 170V250L1792 410z" fill="url(#ht1)"/>
+          <path d="M0 20L760 170M0 410L760 250M0 117L760 188M0 215L760 210M0 312L760 230"/>
+          <path d="M1792 20L1032 170M1792 410L1032 250M1792 117L1032 188M1792 215L1032 210M1792 312L1032 230"/>
+          <path d="M180 56V372M340 87V339M480 115V309M600 138V284M700 158V263M760 170V250"/>
+          <path d="M1612 56V372M1452 87V339M1312 115V309M1192 138V284M1092 158V263M1032 170V250"/>
+          <path d="M40 140h90v60H40zM210 120h80v54h-80zM380 150h60v44h-60zM60 250h100v60H60zM220 230h90v56h-90z" fill="url(#ht3)"/>
+          <path d="M1752 140h-90v60h90zM1582 120h-80v54h80zM1412 150h-60v44h60zM1732 250h-100v60h100zM1572 230h-90v56h90z" fill="url(#ht3)"/>
+          <path d="M760 250h272M896 250V420M840 250L560 420M952 250L1232 420" stroke-dasharray="10 12"/>
+          <rect x="878" y="214" width="36" height="28" fill="url(#ht2)"/><rect x="872" y="242" width="48" height="10" fill="#1D1A15"/>
+          <rect x="800" y="226" width="22" height="18" fill="url(#ht2)"/><rect x="796" y="244" width="30" height="6" fill="#1D1A15"/>
+          <rect x="786" y="268" width="220" height="118" fill="url(#ht1)" stroke-width="3"/>
+          <path d="M786 308h220M786 348h220M896 268v118" stroke-width="2.5"/>
+          <rect x="768" y="386" width="256" height="30" rx="8" fill="url(#ht3)" stroke-width="3"/>
+          <path d="M790 398h212" stroke="#EEE5CF" stroke-width="4"/>
+        </svg>
+        <figcaption class="cap"><b>图</b>　凌晨 2 时 10 分，嘉兴园区 B 区通道。货架被机器人顶起，排队驶向尽头的拣选台。线描：本报美术部</figcaption>
+      </figure>
+      <div class="body cols3" style="margin-top:18px">
+        <p>夜班的拣选台前只有 9 个人。头顶的灯只开了通道上方的一排，机器人不需要光。值班主管指着屏幕说，今晚要出 1.2 万单，比三个月前多一倍。</p>
+        <p>每隔几分钟，就有一台机器人离开队伍，自己开进角落的换电站。九十秒后，它带着满电的电池回到原来的位置，队伍没有断过。</p>
+        <p>凌晨四点，最后一批货架回到库位。拣货员孙师傅摘下手套说：「以前一晚上走两万步，现在一千步都不到。」</p>
+      </div>
+    </div>
+    <aside class="notes">现场版用一张大线描图带听众进仓库：通道、两侧货架、排队的机器人。讲一个细节就够了，九十秒换电、队伍不断。最后引用孙师傅那句以前一晚两万步、现在不到一千步，作为情绪落点，然后进入专访。</aside>
+  </section>
+
+  <!-- 第 5 版 · 专访 -->
+  <section class="slide" data-section="interview" data-title="创始人专访">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 专访</span></header>
+      <span class="kicker">专访</span>
+      <h2 class="hl s">程望舒：我们卖的不是机器人，是不停的仓</h2>
+      <div style="display:grid;grid-template-columns:330px 1fr 470px;gap:0 36px;flex:1;min-height:0;margin-top:24px">
+        <figure class="fig" style="margin:0">
+          <svg viewBox="0 0 360 420" fill="none" stroke="#1D1A15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="356" height="416" fill="url(#ht1)" stroke="none" opacity=".45"/>
+            <path d="M40 420C50 322 110 286 155 272L180 304L205 272C250 286 310 322 320 420z" fill="url(#ht2)"/>
+            <path d="M155 272L180 336L205 272"/>
+            <path d="M156 236V272M204 236V272"/>
+            <ellipse cx="180" cy="162" rx="70" ry="86" fill="#EEE5CF"/>
+            <path d="M110 154C108 84 158 66 190 68C242 72 258 112 252 160C236 122 202 112 162 120C138 124 120 140 110 154z" fill="url(#ht3)"/>
+            <path d="M218 116C252 146 252 204 218 240C234 202 234 152 218 116z" fill="url(#ht1)" stroke="none"/>
+            <circle cx="158" cy="164" r="17"/><circle cx="204" cy="164" r="17"/><path d="M175 164h12"/>
+            <path d="M182 176L176 200L188 202"/><path d="M164 218Q180 226 198 218"/>
+          </svg>
+          <figcaption class="cap"><b>程望舒</b>　澜舟机器人创始人、首席执行官。线描：本报美术部</figcaption>
+        </figure>
+        <div class="body vrule" style="padding-left:34px">
+          <p style="text-indent:0"><b>问：</b>第三代最想解决什么？</p>
+          <p style="text-indent:0"><b>答：</b>停机。客户不在乎机器人多聪明，只在乎双十一那一晚仓库会不会停。所以我们把充电改成了换电。</p>
+          <p style="text-indent:0;margin-top:14px"><b>问：</b>拣货员会被替代吗？</p>
+          <p style="text-indent:0"><b>答：</b>走路的活被替代了，拣货的手还在。我们跟园区一起出培训费，让愿意的人转去做维护。</p>
+          <p style="text-indent:0;margin-top:14px"><b>问：</b>为什么只租不卖？</p>
+          <p style="text-indent:0"><b>答：</b>中小仓库一次拿不出几百万，按月付，旺季多租、淡季退。</p>
+          <p style="text-indent:0;margin-top:14px"><b>问：</b>下一步呢？</p>
+          <p style="text-indent:0"><b>答：</b>把换电站做成园区的公共设施，谁家的机器人都能来换。仓库越来越多是租来的，设备也该能跟着搬。</p>
+          <p style="text-indent:0;margin-top:14px"><b>问：</b>最担心什么？</p>
+          <p style="text-indent:0"><b>答：</b>担心大家只记住「无人」，忘了仓库里还有人。</p>
+        </div>
+        <blockquote class="vrule" style="margin:0;padding-left:34px;display:flex;flex-direction:column;justify-content:center">
+          <p style="font-size:120px;line-height:.6;font-weight:900;color:var(--red)">“</p>
+          <p style="font-size:52px;line-height:1.35;font-weight:900">客户不在乎机器人多聪明，只在乎双十一那一晚，仓库会不会停。</p>
+          <p class="cap" style="margin-top:22px;font-size:26px">—— 程望舒，11 月 15 日于嘉兴</p>
+        </blockquote>
+      </div>
+    </div>
+    <aside class="notes">专访版把创始人的三个回答压成一句话：卖的不是机器人，是不停的仓。左边是线描肖像，中间三问三答，右边大号引语。讲替代问题那一问时放慢，把培训转岗的安排再说一遍，和头版的工会简讯呼应。</aside>
+  </section>
+
+  <!-- 第 6 版 · 大事记 -->
+  <section class="slide" data-section="chronicle" data-title="七年大事记">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 大事记</span></header>
+      <span class="kicker">大事记</span>
+      <h2 class="hl s">七年：从一台样机到 1,800 台在岗</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;flex:1;min-height:0;margin-top:26px;border-top:5px solid var(--rule)">
+        <div class="ev"><b>2019</b><span>4 月</span><p>三名工程师在嘉兴租下一间车库，做出第一台样机，只能搬 200 公斤。</p></div>
+        <div class="ev"><b>2020</b><span>9 月</span><p>第一个客户：一家冷链仓库租下 6 台，签的是三个月试用。</p></div>
+        <div class="ev"><b>2021</b><span>6 月</span><p>完成首轮融资，团队从 11 人扩到 60 人。</p></div>
+        <div class="ev"><b>2022</b><span>3 月</span><p>「2022 款」量产，单台每小时搬运 38 次。</p></div>
+        <div class="ev"><b>2023</b><span>11 月</span><p>双十一当晚 300 台不停机，客户从此开始按年签约。</p></div>
+        <div class="ev"><b>2024</b><span>5 月</span><p>「穿梭者 2」发布，进入华东 14 座物流园。</p></div>
+        <div class="ev"><b>2025</b><span>12 月</span><p>在岗机器人突破 1,000 台；开始自研换电站。</p></div>
+        <div class="ev hi"><b>2026</b><span>11 月</span><p>「穿梭者 3」发布，在岗总数 1,800 台。</p></div>
+      </div>
+    </div>
+    <aside class="notes">大事记按年份排了八格，一年一件事。不用逐条念，挑三个节点：2019 年车库里的样机、2023 年双十一三百台不停机、今年的穿梭者 3。最后一格底色加深，表示今天。数字都是示例，正式使用时请替换成真实记录。</aside>
+  </section>
+
+  <!-- 第 7 版 · 市场 -->
+  <section class="slide" data-section="market" data-title="市场反应">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 市场</span></header>
+      <span class="kicker">市场</span>
+      <h2 class="hl s">发布后 24 小时：订单、同行与工人</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr 410px;gap:0 36px;flex:1;min-height:0;margin-top:24px">
+        <div class="body">
+          <h4>意向订单 1,100 台</h4>
+          <p>发布会后一天，澜舟收到 23 家仓储企业的意向，合计 1,100 台，超过公司全年产能的一半。</p>
+          <h4 style="margin-top:20px">同行：换电是门槛</h4>
+          <p>两家同行负责人对本报表示，自动换电要配套建站，中小仓库未必愿意改。也有人认为，不贴二维码的定位方案才是真正的门槛。</p>
+          <h4 style="margin-top:20px">工人：先看培训</h4>
+          <p>嘉兴园区的拣货员最关心的不是机器多快，而是培训结业后的岗位。工会表示，首期 40 人将在 12 月底结业。</p>
+        </div>
+        <div class="vrule" style="padding-left:34px;display:flex;flex-direction:column">
+          <h4>订单速览</h4>
+          <table class="spec">
+            <thead><tr><th>地区</th><th>企业</th><th>意向台数</th></tr></thead>
+            <tbody>
+              <tr><td>华东</td><td class="num">12</td><td class="num">620</td></tr>
+              <tr><td>华南</td><td class="num">6</td><td class="num">310</td></tr>
+              <tr><td>华北</td><td class="num">3</td><td class="num">110</td></tr>
+              <tr><td>西南</td><td class="num">2</td><td class="num">60</td></tr>
+              <tr><td>合计</td><td class="num">23</td><td class="num">1,100</td></tr>
+            </tbody>
+          </table>
+          <p class="cap">来源：澜舟机器人（示例数据）</p>
+          <div class="box shade" style="margin-top:auto"><p style="font-size:28px;line-height:1.55"><b>编者注</b>　意向订单不等于合同。按以往惯例，意向转为正式订单的比例约为六成。</p></div>
+        </div>
+        <aside class="vrule" style="padding-left:30px;min-height:0">
+          <h4 class="side-h">短　讯</h4>
+          <div class="briefs">
+            <button class="brief" type="button" aria-expanded="false"><span class="t">换电站可共用</span><span class="s">澜舟称将开放接口。</span><span class="x"><span><span>澜舟表示换电站接口明年开放，同一园区内不同客户可共用一座站，摊薄建站成本。</span></span></span><span class="more"></span></button>
+            <button class="brief" type="button" aria-expanded="false"><span class="t">培训班第二期报名</span><span class="s">名额 60 个，月底截止。</span><span class="x"><span><span>昆山、南通两园区的拣货员也可报名第二期运维培训，名额 60 个，11 月 30 日截止，学费由园区与澜舟分摊。</span></span></span><span class="more"></span></button>
+            <button class="brief" type="button" aria-expanded="false"><span class="t">一家同行宣布降价</span><span class="s">旧款租金下调一成。</span><span class="x"><span><span>发布会次日，一家同行宣布旧款仓储机器人月租下调一成，并承诺明年上半年推出换电版本。</span></span></span><span class="more"></span></button>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <aside class="notes">市场版讲发布后一天的反应。意向订单一千一百台，来自二十三家企业，华东占一半以上。同行的质疑也要讲：换电站需要建站，中小仓库未必愿意。右侧短讯回应了这一点，可以点开换电站可共用那条。</aside>
+  </section>
+
+  <!-- 第 8 版 · 评论 -->
+  <section class="slide" data-section="editorial" data-title="社论">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 评论</span></header>
+      <span class="kicker red">社论</span>
+      <h2 class="hl s">机器搬得动货架，搬不动的是责任</h2>
+      <div style="display:grid;grid-template-columns:1fr 470px;gap:0 36px;flex:1;min-height:0;margin-top:24px">
+        <div class="body cols2 drop">
+          <p>机器人进仓库不是新闻，新闻是它开始在夜班里独当一面。效率提升的账很好算，难算的是另一本账：走路的活被替代之后，人去哪里。</p>
+          <p>嘉兴园区给出的答案值得一看——先培训，再换岗，薪资不降。这不是慈善，是让技术落地的前提。没有一线工人的信任，再好的机器也只能停在仓库门口。</p>
+          <p>过去十年，仓库里的机器越来越多，人越来越少。少下来的那些人，很少有人追问去了哪里。有的回了老家，有的去送外卖，有的还在下一座仓库门口排队。</p>
+          <p>嘉兴的做法未必能照搬：六周培训的费用、维护岗的名额、愿意学的人有多少，每座园区都不一样。但至少它把这个问题摆上了桌面，写进了合同。</p>
+          <p>我们希望这不是孤例。企业算效率账时，也请把转岗的成本一并算进去；政府在补贴自动化改造时，也可以把培训一并纳入。</p>
+          <p>本报将在下期追踪首期学员的结业与上岗情况。</p>
+          <p style="text-align:right;text-indent:0;font-weight:700">本报评论员</p>
+        </div>
+        <aside class="vrule" style="padding-left:34px">
+          <h4 class="side-h">读者来信</h4>
+          <div class="box shade" style="margin-top:14px"><p class="body" style="text-indent:0">「我在仓库干了九年，听说要上机器人，第一反应是慌。报名了培训，现在每天学修电机。」</p><p class="cap">—— 嘉兴　拣货员　孙女士</p></div>
+          <div class="box" style="margin-top:18px"><p class="body" style="text-indent:0">「希望贵报后续追踪：培训结业后，转岗率到底有多少？」</p><p class="cap">—— 南通　读者　陈先生</p></div>
+          <div class="box" style="margin-top:18px"><p class="body" style="text-indent:0">「机器能顶起一吨半，我们仓库的地面撑得住吗？」</p><p class="cap">—— 昆山　仓库主管　周先生</p></div>
+        </aside>
+      </div>
+    </div>
+    <aside class="notes">社论版是整份特刊的立场：效率之外，还要算人的账。正文用首字下沉，读两段就够。右边两封读者来信，一封来自正在培训的拣货员，一封要求我们追踪转岗率，这也是下期要回答的问题。</aside>
+  </section>
+
+  <!-- 第 9 版 · 分类广告 -->
+  <section class="slide" data-section="classifieds" data-title="分类广告">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 广告</span></header>
+      <h2 class="hl xs" style="margin-top:0;text-align:center;border-bottom:1px solid var(--rule);padding-bottom:14px">分类广告 · 公告</h2>
+      <div class="ads">
+        <div class="ad" style="grid-row:span 2"><b class="ad-h">招　聘</b><p>澜舟机器人诚聘<br><b style="font-size:44px">现场运维工程师</b></p><p>嘉兴 · 昆山 · 南通<br>六周带薪培训，结业即上岗<br>拣货岗位转岗优先</p><p style="border-top:1px solid var(--rule);padding-top:14px">能看懂简单电路图者优先<br>夜班补贴另计<br>名额 60 人，额满即止</p><p class="ad-f">报名：各园区工会办公室</p></div>
+        <div class="ad inv"><b class="ad-h">交付公告</b><p>首批「穿梭者 3」<br>11 月 28 日前交付完毕</p></div>
+        <div class="ad dbl"><b class="ad-h">开放日</b><p>11 月 22 日（周六）嘉兴园区<br>夜班参观，限 30 人</p></div>
+        <div class="ad"><b class="ad-h">寻猫启事</b><p>园区 B 区橘猫「货架」走失，<br>常趴在换电站上取暖。</p></div>
+        <div class="ad dash"><b class="ad-h">订阅本报</b><p>科技特刊每月一期<br>全年 12 期 24.00 元</p></div>
+      </div>
+    </div>
+    <aside class="notes">分类广告版是给整份报纸透透气的一页。招聘那一格是正经信息：运维岗、六周带薪培训、转岗优先。交付公告与开放日给出时间。寻猫启事是园区真实氛围的小彩蛋，讲到这里可以让大家笑一下，再进入末版。</aside>
+  </section>
+
+  <!-- 第 10 版 · 末版 -->
+  <section class="slide" data-section="back-page" data-title="末版">
+    <div class="paper">
+      <header class="run"><span class="nm">星港日报</span><span>科技特刊　2026 年 11 月 16 日　星期一</span><span class="pg">第 <span class="pg-n"></span> 版 · 末版</span></header>
+      <span class="kicker red">下期预告</span>
+      <h2 class="hl">走进三座「无灯工厂」</h2>
+      <p class="deck-sub">12 月 21 日出刊　追踪：嘉兴园区培训结业后，转岗率有多少</p>
+      <div style="display:grid;grid-template-columns:1fr 560px;gap:0 40px;flex:1;min-height:0;margin-top:26px;border-top:5px solid var(--rule);padding-top:20px">
+        <div>
+          <h4>本期版面</h4>
+          <div style="column-count:2;column-gap:48px">
+            <div class="leader"><b>第 1 版</b><span>头版</span><i></i><span>新品发布</span></div>
+            <div class="leader"><b>第 2 版</b><span>要闻</span><i></i><span>三处改动</span></div>
+            <div class="leader"><b>第 3 版</b><span>数据</span><i></i><span>效率账本</span></div>
+            <div class="leader"><b>第 4 版</b><span>现场</span><i></i><span>凌晨两点</span></div>
+            <div class="leader"><b>第 5 版</b><span>专访</span><i></i><span>程望舒</span></div>
+            <div class="leader"><b>第 6 版</b><span>大事记</span><i></i><span>七年</span></div>
+            <div class="leader"><b>第 7 版</b><span>市场</span><i></i><span>24 小时</span></div>
+            <div class="leader"><b>第 8 版</b><span>评论</span><i></i><span>社论</span></div>
+            <div class="leader"><b>第 9 版</b><span>广告</span><i></i><span>分类公告</span></div>
+            <div class="leader"><b>第 10 版</b><span>末版</span><i></i><span>下期预告</span></div>
+          </div>
+          <h4 style="margin-top:26px;padding-top:18px;border-top:1px solid var(--rule)">下期三站</h4>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0 30px">
+            <div class="body"><b>苏州 · 电机厂</b><p style="text-indent:0">夜里只亮一盏灯的总装线。</p></div>
+            <div class="body vrule" style="padding-left:28px"><b>东莞 · 注塑厂</b><p style="text-indent:0">三个人看管 120 台机器。</p></div>
+            <div class="body vrule" style="padding-left:28px"><b>成都 · 药品分装</b><p style="text-indent:0">洁净车间里，人在玻璃外。</p></div>
+          </div>
+        </div>
+        <div class="box" style="display:flex;flex-direction:column;justify-content:space-between">
+          <p style="font-size:28px;line-height:1.7">主办　星港日报社<br>本期主编　沈知行<br>美术　本报美术部<br>地址　港区望海路 1 号（示例）</p>
+          <p style="font-size:64px;font-weight:900;text-align:center;border:3px double var(--rule);padding:14px 0;letter-spacing:.3em;margin-right:0">本期完</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">末版做两件事：预告下期走进三座无灯工厂，并追踪培训转岗率，回应读者来信。左边是本期十个版面的导读，方便会后翻回去找。右边是报社信息和本期完的印章。到这里可以收尾，开放提问。</aside>
+  </section>
+</div>
+<script>
+/* Newspaper: page numbers (第 N 版), headline typesetting on slidechange, clickable briefs. */
+(function () {
+  var all = document.querySelectorAll('.deck > .slide'), cur = null;
+  Array.prototype.forEach.call(all, function (s, i) {
+    Array.prototype.forEach.call(s.querySelectorAll('.pg-n'), function (el) { el.textContent = i + 1; });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.pg-total'), function (el) { el.textContent = all.length; });
+  Array.prototype.forEach.call(document.querySelectorAll('.hl'), function (hl) {
+    var k = 0;
+    (function walk(node) {
+      Array.prototype.slice.call(node.childNodes).forEach(function (c) {
+        if (c.nodeType === 1) return walk(c);
+        if (c.nodeType !== 3) return;
+        var f = document.createDocumentFragment();
+        (c.textContent.match(/[A-Za-z0-9.,%]+|\s+|[\s\S]/g) || []).forEach(function (t) {
+          if (/^\s+$/.test(t)) return f.appendChild(document.createTextNode(t));
+          var sp = document.createElement('span');
+          sp.className = 'ch';
+          sp.style.setProperty('--k', k++);
+          sp.textContent = t;
+          f.appendChild(sp);
+        });
+        c.parentNode.replaceChild(f, c);
+      });
+    })(hl);
+  });
+  document.addEventListener('slidechange', function (e) {
+    var s = e.detail.slide;
+    if (s === cur) return;
+    if (cur) cur.classList.remove('typeset');
+    cur = s;
+    s.classList.add('typeset');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.brief'), function (b) {
+    b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    b.addEventListener('click', function () {
+      var open = !b.classList.contains('open');
+      Array.prototype.forEach.call(b.parentNode.querySelectorAll('.brief'), function (o) {
+        o.classList.remove('open');
+        o.setAttribute('aria-expanded', 'false');
+      });
+      b.classList.toggle('open', open);
+      b.setAttribute('aria-expanded', String(open));
+      b.blur();
+    });
+  });
+})();
+</script>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+</body>
+</html>

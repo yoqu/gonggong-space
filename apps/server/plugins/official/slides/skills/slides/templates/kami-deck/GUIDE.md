@@ -56,6 +56,19 @@ A typical 11-slide deck:
 
 No notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage or in the overview.
 
+## Linked edits
+
+- Every slide's `.slide-foot .counter` is hand-written (`03 / 09`): adding, removing or reordering a slide means rewriting the number and the total on every slide (the dots, progress bar and `#deck` width are built by the script from the `.slide` count — don't add them by hand).
+- Chapter numbering is hand-written too: `.s-chapter .num` (`01`, `02`) and the content/stats `.head .num` (`01.1`, `01.2`, `01.3`) must be renumbered when you insert or move a chapter.
+- The ink-blue ground comes from the `dark` class plus the kind class (`s-cover dark`, `s-chapter dark`, `s-end dark`): when you change a slide's kind, change both classes and its `data-slide-kind` together.
+- The `.slide-chrome` strip (brand mark, deck title, section name) is repeated verbatim on every slide — a title change has to be made in all of them.
+- A brand accent replaces `--brand` / `--brand-light` and also the raw `rgba(27, 54, 93, …)` fills (progress track, dots), the `#B5C8DC` highlight in `.s-cover h1 .hl` / `.s-end .word .hl`, and the pre-blended `--tag-08/14/22` tints.
+- When editing the runtime script keep `applySlide()` (it toggles `.slide.active`, read by the host bridge) and the line `window.deck = { slides: slides, get index() { return idx; }, go: function (n) { applySlide(n); } };`.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded.
+
 ## Self-check
 
 - [ ] All cover / chapter / end slides use ink-blue background (`#1B365D`) with ivory text. All other slides are on parchment.

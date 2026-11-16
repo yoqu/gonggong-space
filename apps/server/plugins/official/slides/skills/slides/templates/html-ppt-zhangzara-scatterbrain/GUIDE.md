@@ -41,6 +41,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Slides are `display: none` until `.slide.active`; exactly the first `<section class="slide">` keeps `active` in the markup (the script falls back to slide 0 otherwise), and the total is read from the DOM, so no count needs changing.
+- Keep the `window.deck = { slides: slides, get index() { return current; }, go: function (n) { go(n); } };` line when editing the script; deck-toolkit.js navigates through it.
+- Backgrounds are hand-assigned per slide in a `bg-cork` → `bg-paper` → `bg-warm` rotation; when inserting or removing slides, re-assign the `bg-*` classes so the rotation continues (cover and closing use `bg-cork slide-title`).
+- The chart slide's SVG bars hard-code the palette hex (`#ffe066`, `#a5d8ff`, `#ffc9c9`, `#b2f2bb` = `--yellow`/`--blue`/`--pink`/`--green`) while the legend uses `var(--yellow)` etc. — change both together; each bar's `y + height` must stay on the 200 baseline and its value `<text>` sits 10px above the bar top at the bar's centre `x`.
+- The data-diagram pie uses hand-computed arc paths (`A80 80`) with the same hex fills repeated in its SVG legend `<rect>`s — recompute the arc end points when the shares change and keep slice and legend fills identical.
+- Post-it tilts are positional: `.feature-postit:nth-child(1..3)` set the rotations (a 4th note gets none) and `.timeline-row:nth-child(even)` flips direction, so adding items changes the zig-zag.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The `growBar` animation is zeroed for print, so bars print at full height.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

@@ -42,6 +42,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Slide numbers are hand-written twice per slide — the right-hand `.label` in `.slide-chrome` (`03`) and the right-hand `.label` in `.slide-foot` (`03 / 18`): adding, removing or reordering a slide means rewriting both on every slide; `#slide-counter`, `#nav-dots` and the `#deck` width are built by the script from the `.slide` count.
+- Pie slide: the `.pie-donut` inline `conic-gradient` stops, the `.pie-swatch` inline backgrounds (`var(--c-accent)`, `#3d5475`, `#526880`, `#2d3f55`) and the `.pie-item-val` percentages describe the same data — change them together.
+- Pyramid slide: `.pyr-level:nth-child(1…5)` sets each level's width and accent tint by position; exactly five levels are styled, a sixth needs its own `nth-child` rule.
+- Cycle slide: `.cycle-grid` is a 3×3 grid whose DOM order is spatial (step 01, →, step 02, ↓, empty, ↓, step 04, ←, step 03) — keep all nine children and the clockwise numbering when editing steps.
+- Elements with `data-anim` stay at `opacity: 0` until the script puts `.is-active` on their slide, and only `data-delay="0"`–`"6"` are defined.
+- When editing the engine script keep `goTo()` (toggles `.is-active`) and the line `window.deck = { slides: slides, get index() { return current; }, go: function (n) { animating = false; goTo(n); } };`.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. `data-anim` elements print in their final, visible state.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

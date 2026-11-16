@@ -109,6 +109,19 @@ Default **10-slide** spine unless the brief says otherwise:
 
 No notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage or in print.
 
+## Linked edits
+
+- Page numbers are hand-written twice per slide — the last `<span>` of `.mast .meta` and the page span in `footer.foot` (`03 / 10`, `01 / 03` in the seed): adding, removing or reordering a slide means rewriting both on every slide; only the chrome `.counter` (`#now` / `#total`) is filled by the script.
+- The table of contents `.toc ol li` carries a hand-written `.pg` (`p.03`) per entry and the section slides carry `§N` in `.mast .meta`; both must follow the real slide order.
+- Demo-data status lives in several places that flip together: cover `.demo-pill`, every `footer.foot .conf`, the `.demo-banner` / `.source-status` banner and the disclaimer slide.
+- `--accent` drives CSS only; inline SVG charts, legend swatches (`.sw i`) and football-field bars (`.ff-bar`) repeat token values as literals (`oklch(48% 0.18 28)`, `oklch(86% 0.008 75)`, `oklch(38% 0.010 70)`, `oklch(56% 0.008 70)`) — rebrand them along with `:root`.
+- In `example.html`, `fit()` in the script hard-codes the stage size `1320` × `820`, matching `.slide-inner { width: 1320px; height: 820px }`; change both together.
+- When editing the navigation script keep `go()` (translates `#stage`, writes `#now`) and the line `window.deck = { slides: slides, get index() { return i; }, go: function (n) { go(n); } };`.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The seed's own `@media print` hides `.chrome`, `.agent-stamp` and `.demo-banner`, so the demo-data banner never reaches the PDF — the on-slide `.demo-pill` and `.conf` marks are what carry it.
+
 ## Provenance
 
 See **`references/attribution.md`**. Source workflow and naming derive from Anthropic's Apache-2.0 **financial-services** repository; keep the attribution file and upstream link with any copy of this template.

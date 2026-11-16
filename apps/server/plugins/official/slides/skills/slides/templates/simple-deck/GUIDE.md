@@ -84,6 +84,19 @@ Read the class list. If you see `light × 4 in a row`, swap one to `dark`. If no
 
 No notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Inserting, removing or reordering a slide means renumbering every `data-screen-label="NN Name"` and re-checking the theme-class sequence (`light` / `dark` / `hero light` / `hero dark`) against the rhythm rules.
+- `.slide.dark` rules hard-code the light canvas as `rgba(250,250,247,…)` (`.muted`, `.border`, `.lead`, `.pt p`, `.ph-img`) — when `--bg` changes, update those RGB values too.
+- `--accent-soft` is derived from `--accent`; `example.html` additionally hard-codes the accent in `style="color:#c96442;"` on the dark `.slide.title` eyebrows and a raw `#e6e4e0` border on `.counter` — keep them in sync with the tokens.
+- The nav script scrolls to `index * window.innerWidth`, so every `section.slide` must be a direct child of `<body>` at exactly `flex: 0 0 100vw`, and the chrome (`#deck-progress`, `#deck-counter`, `.deck-hint`) must stay `position: fixed`; the class `slide` must not be used on anything but slides (the script queries `.slide`).
+- The counter's initial text (`1 / 3` in the seed, `1 / 6` in `example.html`) is static HTML — the seed rewrites it on load, the example only after the first move, so update it with the slide count.
+- Keep the `window.deck = { slides, get index(), go }` line in the nav script.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded.
+
 ## Hard rules
 
 - **Theme class on every slide** (`light` | `dark` | `hero light` | `hero dark`). Bare `class="slide"` = regression.

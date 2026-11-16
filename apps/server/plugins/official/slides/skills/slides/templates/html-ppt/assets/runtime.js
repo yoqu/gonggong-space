@@ -227,8 +227,11 @@
       });
       idx = n;
       barFill.style.width = ((n+1)/total*100)+'%';
-      const numEl = document.querySelector('.slide-number');
-      if (numEl) { numEl.setAttribute('data-current', n+1); numEl.setAttribute('data-total', total); }
+      document.querySelectorAll('.slide-number').forEach(el => {
+        const own = slides.findIndex(s => s.contains(el));
+        el.setAttribute('data-current', (own < 0 ? n : own) + 1);
+        el.setAttribute('data-total', total);
+      });
 
       // notes (bottom overlay)
       const note = slides[n].querySelector('.notes, aside.notes, .speaker-notes');

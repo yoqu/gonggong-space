@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tidy 笔记 · 2026 年度回顾</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+/* Bento grid — tokens */
+:root{
+  --bg:#ECEAE4; --card:#FFFFFF; --ink:#17171A; --muted:#6B6963; --line:#DEDAD1;
+  --night:#111113; --night-card:#1E1E22; --night-muted:#A3A09A;
+  --orange:#FF6A2B; --butter:#F4DC6A; --sage:#CFE2C3; --sky:#CADCEE;
+  --grad:linear-gradient(140deg,#FF6A2B 0%,#FF923A 50%,#FFC65A 100%);
+  --sans:"SF Pro Display","Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono",Menlo,Consolas,"PingFang SC","Noto Sans SC","Microsoft YaHei",monospace;
+  --radius:30px; --gap:24px;
+}
+.slide{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.slide.dark{background:var(--night);color:#F3F1EC}
+.grid{position:absolute;left:72px;right:72px;top:56px;bottom:96px;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(6,1fr);gap:var(--gap)}
+.foot{position:absolute;left:76px;right:76px;bottom:34px;display:flex;justify-content:space-between;font:500 24px/1 var(--mono);color:var(--muted);letter-spacing:.02em}
+.dark .foot{color:var(--night-muted)}
+.foot .pg{font-variant-numeric:tabular-nums}
+
+/* cards */
+.card{grid-column:var(--c);grid-row:var(--r);background:var(--card);border-radius:var(--radius);padding:32px 36px;box-sizing:border-box;position:relative;overflow:hidden;display:flex;flex-direction:column;min-width:0;min-height:0;
+  box-shadow:0 1px 2px rgba(23,23,26,.05),0 14px 30px -18px rgba(23,23,26,.28);
+  transition:transform .4s cubic-bezier(.2,.75,.25,1),box-shadow .4s ease}
+.card:hover{transform:translateY(-6px);box-shadow:0 2px 4px rgba(23,23,26,.06),0 26px 44px -20px rgba(23,23,26,.36)}
+.dark .card{background:var(--night-card);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 18px 40px -22px rgba(0,0,0,.8)}
+.card.ink{background:var(--ink);color:#F3F1EC}
+.card.grad{background:var(--grad);color:var(--ink)}
+.card.sage{background:var(--sage)}
+.card.butter{background:var(--butter)}
+.card.sky{background:var(--sky)}
+.dark .card.grad{background:var(--grad);color:var(--ink)}
+.dark .card.sage{background:var(--sage);color:var(--ink)}
+.card.center{justify-content:center}
+
+/* type */
+.eyebrow{font:600 24px/1.2 var(--mono);letter-spacing:.04em;color:var(--muted)}
+.ink .eyebrow,.dark .eyebrow{color:var(--night-muted)}
+.grad .eyebrow,.sage .eyebrow,.butter .eyebrow,.sky .eyebrow{color:rgba(23,23,26,.62)}
+h1{font-size:150px;line-height:.98;font-weight:800;letter-spacing:-.035em;margin:0}
+h2{font-size:64px;line-height:1.08;font-weight:800;letter-spacing:-.02em;margin:18px 0 0}
+h3{font-size:36px;line-height:1.2;font-weight:700;margin:0;letter-spacing:-.01em}
+p{margin:0}
+.lab{font-size:28px;line-height:1.3;font-weight:600}
+.txt{font-size:28px;line-height:1.45;color:var(--muted)}
+.ink .txt,.dark .txt{color:var(--night-muted)}
+.grad .txt,.sage .txt,.butter .txt,.sky .txt{color:rgba(23,23,26,.72)}
+.num{font-size:112px;line-height:.92;font-weight:800;letter-spacing:-.045em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.num.l{font-size:168px}
+.num.m{font-size:84px}
+.num small{font-size:.4em;font-weight:700;letter-spacing:0;margin-left:6px}
+.delta{display:inline-block;font:600 26px/1 var(--sans);padding:8px 14px;border-radius:999px;background:rgba(23,23,26,.07)}
+.ink .delta,.dark .delta{background:rgba(255,255,255,.1)}
+.push{margin-top:auto}
+.row{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.gap{height:16px}
+.ico{width:56px;height:56px;flex:none}
+.ico svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* mini charts */
+.bars{display:flex;align-items:flex-end;gap:14px;height:100%;min-height:0}
+.bars .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:10px}
+.bars .bar{width:100%;background:var(--ink);border-radius:10px 10px 4px 4px;transform-origin:bottom}
+.bars .b.hi .bar{background:var(--orange)}
+.bars .b span{font:500 22px/1 var(--mono);color:var(--muted)}
+.ring{width:100%;height:100%}
+.ring circle{fill:none;stroke-width:14}
+.ring .track{stroke:rgba(23,23,26,.1)}
+.ink .ring .track,.dark .ring .track{stroke:rgba(255,255,255,.12)}
+.ring .val{stroke:var(--orange);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.hbar{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:20px;font-size:28px}
+.hbar i{display:block;height:34px;border-radius:9px;background:var(--ink);transform-origin:left}
+.hbar.hi i{background:var(--orange)}
+.hbar b{font:700 28px/1 var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.meter{height:18px;border-radius:9px;background:rgba(23,23,26,.1);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink);border-radius:9px;transform-origin:left}
+.dots{display:flex;flex-wrap:wrap;gap:9px}
+.dots i{width:22px;height:22px;border-radius:50%;background:currentColor;opacity:.85}
+.dots i.o{background:var(--orange);opacity:1}
+.stars{display:flex;gap:6px}
+.stars svg{width:38px;height:38px;fill:var(--ink)}
+.mo{font:700 30px/1 var(--mono);letter-spacing:.02em}
+.quote{font-size:52px;line-height:1.32;font-weight:700;letter-spacing:-.01em}
+.who{font-size:28px;color:var(--night-muted);margin-top:22px}
+.av{display:flex}
+.av i{width:58px;height:58px;border-radius:50%;margin-right:-12px;border:3px solid var(--card);display:grid;place-items:center;font:700 24px/1 var(--sans);font-style:normal;color:var(--ink)}
+.big-n{font-size:120px;font-weight:800;letter-spacing:-.05em;line-height:.9;opacity:.22}
+
+/* stagger in: slidechange adds .is-in to the slide that just became active */
+@keyframes rise{from{opacity:0;transform:translateY(34px) scale(.965)}}
+@keyframes grow-y{from{transform:scaleY(0)}}
+@keyframes grow-x{from{transform:scaleX(0)}}
+@keyframes ring{from{stroke-dasharray:0 100;opacity:0}}
+.slide.is-in .card{animation:rise .7s cubic-bezier(.2,.75,.25,1) backwards;animation-delay:calc(var(--i,0) * 75ms + 80ms)}
+.slide.is-in .bar{animation:grow-y .8s cubic-bezier(.2,.75,.25,1) backwards;animation-delay:calc(var(--i,0) * 75ms + 380ms + var(--k,0) * 35ms)}
+.slide.is-in .hbar i,.slide.is-in .meter i{animation:grow-x .9s cubic-bezier(.2,.75,.25,1) backwards;animation-delay:calc(var(--i,0) * 75ms + 380ms + var(--k,0) * 60ms)}
+.slide.is-in .ring .val{animation:ring 1.1s cubic-bezier(.3,.7,.2,1) backwards;animation-delay:calc(var(--i,0) * 75ms + 380ms)}
+@media (prefers-reduced-motion:reduce){
+  .slide.is-in .card,.slide.is-in .bar,.slide.is-in .hbar i,.slide.is-in .meter i,.slide.is-in .ring .val{animation:none}
+  .card{transition:none}
+  .card:hover{transform:none}
+}
+@media print{.card{box-shadow:none}.slide *{animation:none!important}}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<div class="deck">
+<!-- 1 · cover -->
+  <section class="slide dark" data-section="cover" data-title="封面">
+    <div class="grid">
+      <div class="card" style="--c:1/9;--r:1/5">
+        <span class="eyebrow">TIDY NOTES · 年度回顾</span>
+        <h1 class="push">Tidy 笔记<br>的 2026</h1>
+        <p class="txt" style="margin-top:24px;font-size:34px">把散落的想法，收进一个格子里。</p>
+      </div>
+      <div class="card grad" style="--c:9/13;--r:1/4">
+        <span class="eyebrow">YEAR</span>
+        <div class="num l push">2026</div>
+      </div>
+      <div class="card" style="--c:9/11;--r:4/7">
+        <div class="ico" style="color:var(--orange)"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="10" rx="2"/><rect x="13.5" y="3.5" width="7" height="6" rx="2"/><rect x="13.5" y="12.5" width="7" height="8" rx="2"/><rect x="3.5" y="16.5" width="7" height="4" rx="2"/></svg></div>
+        <p class="lab push">第 4 个年头</p>
+      </div>
+      <div class="card sage" style="--c:11/13;--r:4/7">
+        <div class="num m">12</div>
+        <p class="lab push">次大版本<br>从未跳票</p>
+      </div>
+      <div class="card" style="--c:1/5;--r:5/7">
+        <span class="eyebrow">WHEN</span>
+        <p class="lab push" style="font-size:34px">2027 年 1 月 9 日<br>全员年会 · 杭州</p>
+      </div>
+      <div class="card" style="--c:5/9;--r:5/7">
+        <span class="eyebrow">BY</span>
+        <p class="lab push" style="font-size:34px">产品负责人 林予安<br><span class="txt">与 48 位同事一起</span></p>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">开场先别急着讲数字。说一句：今年我们做的事，一页一个格子就能讲清楚，格子越大越重要。提醒大家后面每页的卡片会依次出现，跟着看就好。介绍自己和这次分享的时长，大约二十五分钟，最后留十五分钟问答。</aside>
+  </section>
+
+  <!-- 2 · overview -->
+  <section class="slide" data-section="overview" data-title="全格总览">
+    <div class="grid">
+      <div class="card ink" style="--c:1/5;--r:1/3">
+        <span class="eyebrow">01 · 全格总览</span>
+        <h2 class="push">一年，<br>九个格子讲完</h2>
+      </div>
+      <div class="card" style="--c:5/8;--r:1/3">
+        <span class="eyebrow">月活用户</span>
+        <div class="row push"><div class="num">286<small>万</small></div><span class="delta">+118%</span></div>
+      </div>
+      <div class="card" style="--c:8/10;--r:1/3">
+        <span class="eyebrow">新增笔记</span>
+        <div class="num m push">1.4<small>亿条</small></div>
+      </div>
+      <div class="card ink" style="--c:10/13;--r:1/4">
+        <span class="eyebrow">付费转化</span>
+        <div style="flex:1;min-height:0;position:relative;margin-top:16px">
+          <svg class="ring" viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="50"/><circle class="val" cx="60" cy="60" r="50" pathLength="100" style="stroke-dasharray:8.4 100"/></svg>
+          <div style="position:absolute;inset:0;display:grid;place-items:center"><div class="num m" style="font-size:72px">8.4<small>%</small></div></div>
+        </div>
+      </div>
+      <div class="card" style="--c:1/4;--r:3/5">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9h17M9 9v11.5"/></svg></div>
+        <div class="row push"><p class="lab">上线功能</p><div class="num m">37</div></div>
+      </div>
+      <div class="card grad" style="--c:4/7;--r:3/7">
+        <span class="eyebrow">次月留存</span>
+        <div class="num l push">62<small>%</small></div>
+        <p class="txt" style="margin-top:18px">去年同期 47%。<br>留下来的人，才是答案。</p>
+      </div>
+      <div class="card" style="--c:7/10;--r:3/5">
+        <span class="eyebrow">应用商店评分</span>
+        <div class="row push"><div class="num m">4.8</div>
+          <div class="stars"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><svg style="opacity:.25" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg></div></div>
+      </div>
+      <div class="card sky" style="--c:10/13;--r:4/7">
+        <span class="eyebrow">团队</span>
+        <div class="num m" style="margin-top:14px">48<small>人</small></div>
+        <div class="dots push"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="card" style="--c:1/4;--r:5/7">
+        <span class="eyebrow">P0 事故</span>
+        <div class="num m push">1<small>次</small></div>
+        <p class="txt" style="margin-top:8px">3 月同步延迟 41 分钟</p>
+      </div>
+      <div class="card butter" style="--c:7/10;--r:5/7">
+        <span class="eyebrow">人均每天打开</span>
+        <div class="num m push">5.2<small>次</small></div>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">这页是全年的缩略图，九个格子，每个格子后面都有一页展开。先指橙色那块：次月留存从 47% 到 62%，这是今年最想让大家记住的数字。月活翻倍是结果，留存才是原因。唯一的 P0 事故也放在这里，不藏。</aside>
+  </section>
+
+  <!-- 3 · metrics -->
+  <section class="slide" data-section="metrics" data-title="增长指标">
+    <div class="grid">
+      <div class="card ink" style="--c:1/6;--r:1/3">
+        <span class="eyebrow">02 · 指标</span>
+        <h2 class="push">用户翻了一倍多，<br>而且留下来了</h2>
+      </div>
+      <div class="card" style="--c:6/9;--r:1/3">
+        <span class="eyebrow">新增注册</span>
+        <div class="num push">412<small>万</small></div>
+      </div>
+      <div class="card" style="--c:1/9;--r:3/7">
+        <div class="row"><div><span class="eyebrow">月活用户 · 万</span><div class="num" style="margin-top:14px">286</div></div><p class="txt" style="text-align:right">1 月 131 万 → 12 月 286 万<br>每个月都比上个月高</p></div>
+        <div class="bars" style="margin-top:28px;flex:1">
+          <div class="b" style="--k:0"><div class="bar" style="height:46%"></div><span>1</span></div>
+          <div class="b" style="--k:1"><div class="bar" style="height:48%"></div><span>2</span></div>
+          <div class="b" style="--k:2"><div class="bar" style="height:52%"></div><span>3</span></div>
+          <div class="b" style="--k:3"><div class="bar" style="height:56%"></div><span>4</span></div>
+          <div class="b" style="--k:4"><div class="bar" style="height:60%"></div><span>5</span></div>
+          <div class="b hi" style="--k:5"><div class="bar" style="height:64%"></div><span>6</span></div>
+          <div class="b" style="--k:6"><div class="bar" style="height:69%"></div><span>7</span></div>
+          <div class="b" style="--k:7"><div class="bar" style="height:74%"></div><span>8</span></div>
+          <div class="b" style="--k:8"><div class="bar" style="height:80%"></div><span>9</span></div>
+          <div class="b" style="--k:9"><div class="bar" style="height:86%"></div><span>10</span></div>
+          <div class="b" style="--k:10"><div class="bar" style="height:93%"></div><span>11</span></div>
+          <div class="b hi" style="--k:11"><div class="bar" style="height:100%"></div><span>12</span></div>
+        </div>
+      </div>
+      <div class="card sage" style="--c:9/13;--r:1/4">
+        <span class="eyebrow">次月留存</span>
+        <div style="display:flex;align-items:center;gap:30px;flex:1;min-height:0;margin-top:12px">
+          <svg class="ring" viewBox="0 0 120 120" style="width:220px;height:220px;flex:none"><circle class="track" cx="60" cy="60" r="50"/><circle class="val" cx="60" cy="60" r="50" pathLength="100" style="stroke-dasharray:62 100;stroke:var(--ink)"/></svg>
+          <div><div class="num m">62<small>%</small></div><p class="txt" style="margin-top:12px">去年 47%</p></div>
+        </div>
+      </div>
+      <div class="card" style="--c:9/11;--r:4/7">
+        <span class="eyebrow">付费用户</span>
+        <div class="num m push">24<small>万</small></div>
+        <p class="txt" style="margin-top:10px">6 月起手写识别带动</p>
+      </div>
+      <div class="card butter" style="--c:11/13;--r:4/7">
+        <span class="eyebrow">付费转化</span>
+        <div class="num m push">8.4<small>%</small></div>
+        <div class="meter" style="margin-top:20px"><i style="width:84%;--k:0"></i></div>
+        <p class="txt" style="margin-top:12px">目标 10%</p>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">柱子会一根根长出来，橙色的两根是 6 月和 12 月：6 月手写识别上线，12 月是年度回顾带来的回流。月活每个月都在涨，没有回落过。付费转化 8.4%，离 10% 的目标还差一点，明年要补上。</aside>
+  </section>
+
+  <!-- 4 · features -->
+  <section class="slide" data-section="features" data-title="关键功能">
+    <div class="grid">
+      <div class="card ink" style="--c:1/5;--r:1/3">
+        <span class="eyebrow">03 · 功能</span>
+        <h2 class="push">今年最常被用的<br>六个功能</h2>
+      </div>
+      <div class="card sage" style="--c:5/9;--r:1/4">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div>
+        <h3 class="push">双链引用</h3>
+        <p class="txt" style="margin-top:10px">输入 [[ 就能连到另一条笔记，反向链接自动出现在页脚。</p>
+      </div>
+      <div class="card" style="--c:9/13;--r:1/3">
+        <div class="row"><div class="ico"><svg viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.5A3.8 3.8 0 0 1 17.5 18H7z"/><path d="M10 13.5l2 2 3.5-4"/></svg></div><span class="delta">7 月重写</span></div>
+        <h3 class="push">离线同步</h3>
+        <p class="txt" style="margin-top:6px">没网照写，联网后自动合并。</p>
+      </div>
+      <div class="card grad" style="--c:1/5;--r:3/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"/><path d="M14 7l3 3"/></svg></div>
+        <span class="eyebrow" style="margin-top:28px">平板用户最爱</span>
+        <h3 style="margin-top:12px;font-size:56px">手写识别</h3>
+        <p class="txt" style="margin-top:14px">手写也能被搜到，一键转成文字。</p>
+        <div class="num push">41<small>%</small></div>
+        <p class="lab" style="margin-top:12px">的平板用户每周都在用</p>
+      </div>
+      <div class="card ink" style="--c:9/13;--r:3/5">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg></div>
+        <h3 class="push">一键归档</h3>
+        <p class="txt" style="margin-top:6px">按项目、日期或标签收起旧笔记。</p>
+      </div>
+      <div class="card" style="--c:5/9;--r:4/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9h17M9 9v11.5"/></svg></div>
+        <h3 class="push">模板市场</h3>
+        <p class="txt" style="margin-top:10px">用户自己分享的 1,260 个模板，会议纪要类最多。</p>
+      </div>
+      <div class="card sky" style="--c:9/13;--r:5/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg></div>
+        <h3 class="push">本地全文搜索</h3>
+        <p class="txt" style="margin-top:6px">索引放在本机，断网也能搜。</p>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">六个功能按使用频率排，格子大小就是热度。最大的橙色格是手写识别，平板用户里四成每周都在用，也是付费转化的主要来源。双链引用是老用户呼声最高的功能。离线同步七月整个重写过，三月那次事故就是旧方案留下的问题。</aside>
+  </section>
+
+  <!-- 5 · usage -->
+  <section class="slide" data-section="usage" data-title="用户在记什么">
+    <div class="grid">
+      <div class="card ink" style="--c:1/6;--r:1/3">
+        <span class="eyebrow">04 · 使用</span>
+        <h2 class="push">大家用 Tidy<br>记什么</h2>
+      </div>
+      <div class="card" style="--c:6/10;--r:1/3">
+        <span class="eyebrow">全年最长的一篇</span>
+        <div class="num push">4.2<small>万字</small></div>
+        <p class="txt" style="margin-top:10px">一份博士论文的读书笔记</p>
+      </div>
+      <div class="card ink" style="--c:10/13;--r:1/4">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></div>
+        <span class="eyebrow" style="margin-top:22px">第二个记录高峰</span>
+        <div class="num m push">23:00</div>
+        <p class="txt" style="margin-top:10px">第一个是早上 9:30</p>
+      </div>
+      <div class="card" style="--c:1/8;--r:3/7">
+        <span class="eyebrow">笔记类型占比</span>
+        <div style="display:flex;flex-direction:column;justify-content:space-around;flex:1;margin-top:16px">
+          <div class="hbar hi" style="--k:0"><span>会议纪要</span><i style="width:100%"></i><b>31%</b></div>
+          <div class="hbar" style="--k:1"><span>读书笔记</span><i style="width:71%"></i><b>22%</b></div>
+          <div class="hbar" style="--k:2"><span>待办清单</span><i style="width:61%"></i><b>19%</b></div>
+          <div class="hbar" style="--k:3"><span>日记</span><i style="width:45%"></i><b>14%</b></div>
+          <div class="hbar" style="--k:4"><span>其他</span><i style="width:45%"></i><b>14%</b></div>
+        </div>
+      </div>
+      <div class="card butter" style="--c:8/10;--r:3/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9-8-8z"/><circle cx="8" cy="8" r="1.5"/></svg></div>
+        <span class="eyebrow" style="margin-top:26px">人均标签</span>
+        <div class="num push">17<small>个</small></div>
+        <p class="txt" style="margin-top:12px">最常见：#周报 #待读 #灵感</p>
+      </div>
+      <div class="card sky" style="--c:10/13;--r:4/7">
+        <span class="eyebrow">带双链的笔记</span>
+        <div class="num push">68<small>%</small></div>
+        <p class="txt" style="margin-top:12px">上线前这个数字是 0</p>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">会议纪要占三成，是第一大用途，这也是明年做多人协作的直接理由。晚上十一点是第二个记录高峰，很多人睡前整理一天。双链上线不到一年，已有近七成笔记至少带一个链接，说明大家真的在把笔记连起来用。</aside>
+  </section>
+
+  <!-- 6 · timeline -->
+  <section class="slide" data-section="timeline" data-title="月度时间线">
+    <div class="grid">
+      <div class="card ink" style="--c:1/13;--r:1/2;flex-direction:row;align-items:center;justify-content:space-between;padding:0 40px">
+        <h2 style="margin:0;font-size:56px">2026，一月一格</h2>
+        <span class="eyebrow">05 · 时间线　橙色 = 大版本</span>
+      </div>
+      <div class="card" style="--c:1/3;--r:2/4"><span class="mo">01</span><p class="lab push">Windows 版<br>公测</p></div>
+      <div class="card grad" style="--c:3/5;--r:2/4"><span class="mo">02</span><p class="lab push">双链引用<br>上线</p></div>
+      <div class="card" style="--c:5/7;--r:2/4"><span class="mo">03</span><p class="lab push">同步事故<br>公开复盘</p></div>
+      <div class="card" style="--c:7/9;--r:2/4"><span class="mo">04</span><p class="lab push">模板市场<br>开张</p></div>
+      <div class="card sage" style="--c:9/11;--r:2/4"><span class="mo">05</span><p class="lab push">月活破<br>160 万</p></div>
+      <div class="card grad" style="--c:11/13;--r:2/4"><span class="mo">06</span><p class="lab push">手写识别<br>上线</p></div>
+      <div class="card" style="--c:1/3;--r:4/6"><span class="mo">07</span><p class="lab push">离线同步<br>重写完成</p></div>
+      <div class="card" style="--c:3/5;--r:4/6"><span class="mo">08</span><p class="lab push">教育版<br>对学生免费</p></div>
+      <div class="card" style="--c:5/7;--r:4/6"><span class="mo">09</span><p class="lab push">搜索改用<br>本地索引</p></div>
+      <div class="card grad" style="--c:7/9;--r:4/6"><span class="mo">10</span><p class="lab push">一键归档<br>上线</p></div>
+      <div class="card sage" style="--c:9/11;--r:4/6"><span class="mo">11</span><p class="lab push">月活破<br>260 万</p></div>
+      <div class="card ink" style="--c:11/13;--r:4/6"><span class="mo">12</span><p class="lab push">「你的 2026」<br>年度回顾</p></div>
+      <div class="card" style="--c:1/13;--r:6/7;flex-direction:row;align-items:center;justify-content:space-between;padding:0 40px">
+        <p class="lab">全年 12 次大版本，每月第二个周二发布</p>
+        <div class="meter" style="width:640px"><i style="width:100%;background:var(--orange);--k:0"></i></div>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">一月一格，按顺序浮现。橙色三格是今年的三个大功能：二月双链、六月手写、十月归档。三月的事故我们公开写了复盘，用户反馈反而是全年最好的一次沟通。十二月的年度回顾页面带来了一波老用户回流。</aside>
+  </section>
+
+  <!-- 7 · quotes -->
+  <section class="slide" data-section="quotes" data-title="用户的话">
+    <div class="grid">
+      <div class="card ink" style="--c:1/9;--r:1/5;padding:48px 56px">
+        <span class="eyebrow">06 · 用户说</span>
+        <p class="quote push">“三年的会议记录都搬进来了。去年那句「先别上线」，我五秒钟就翻出来了。”</p>
+        <p class="who">周晴 · 物流公司项目经理 · 用了 31 个月</p>
+      </div>
+      <div class="card grad" style="--c:9/13;--r:1/3">
+        <span class="eyebrow">应用商店</span>
+        <div class="row push"><div class="num">4.8</div><p class="lab" style="text-align:right">3.1 万条评价</p></div>
+      </div>
+      <div class="card" style="--c:9/13;--r:3/5">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5z"/></svg></div>
+        <p class="lab push">“它认得出我的草书，这个我真没想到。”</p>
+        <p class="txt" style="margin-top:8px">建筑系研二学生</p>
+      </div>
+      <div class="card sage" style="--c:1/5;--r:5/7">
+        <p class="lab">“高铁上没信号，周报照样写完，到站自动同步了。”</p>
+        <p class="txt push">区域销售主管</p>
+      </div>
+      <div class="card" style="--c:5/9;--r:5/7">
+        <span class="eyebrow">净推荐值</span>
+        <div class="row push"><div class="num">54</div><span class="delta">去年 41</span></div>
+      </div>
+      <div class="card butter" style="--c:9/13;--r:5/7">
+        <span class="eyebrow">用户反馈</span>
+        <div class="row push"><div class="num m">2.3<small>万条</small></div><p class="lab" style="text-align:right">已回复<br>91%</p></div>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">这页不用我多说，念一下最大那句就好。三条用户原话都来自今年的应用内反馈，已经征得本人同意。净推荐值从 41 涨到 54。两万三千条反馈，九成一都有人回复过，感谢支持组的十位同事。</aside>
+  </section>
+
+  <!-- 8 · team -->
+  <section class="slide" data-section="team" data-title="团队">
+    <div class="grid">
+      <div class="card ink" style="--c:1/5;--r:1/3">
+        <span class="eyebrow">07 · 团队</span>
+        <h2 class="push">48 个人，<br>五个小组</h2>
+      </div>
+      <div class="card grad" style="--c:5/9;--r:1/5">
+        <span class="eyebrow">最大的组</span>
+        <h3 style="margin-top:14px;font-size:52px">编辑器组</h3>
+        <div class="num l push">14<small>人</small></div>
+        <p class="txt" style="margin-top:14px">双链、手写识别、归档都出自这里</p>
+      </div>
+      <div class="card" style="--c:9/13;--r:1/3">
+        <div class="row"><h3>同步组</h3><div class="num m">9</div></div>
+        <div class="av push"><i style="background:var(--sage)">宋</i><i style="background:var(--sky)">黎</i><i style="background:var(--butter)">杭</i><i style="background:var(--sage)">闻</i><i style="background:var(--sky)">+5</i></div>
+      </div>
+      <div class="card" style="--c:1/5;--r:3/5">
+        <div class="row"><h3>用户支持</h3><div class="num m">10</div></div>
+        <div class="av push"><i style="background:var(--butter)">苏</i><i style="background:var(--sage)">韦</i><i style="background:var(--sky)">程</i><i style="background:var(--butter)">+7</i></div>
+      </div>
+      <div class="card sage" style="--c:9/11;--r:3/5">
+        <h3>设计组</h3>
+        <div class="num m push">7</div>
+      </div>
+      <div class="card sky" style="--c:11/13;--r:3/5">
+        <h3>增长组</h3>
+        <div class="num m push">8</div>
+      </div>
+      <div class="card" style="--c:1/7;--r:5/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="15" r="2"/><path d="M6 7v10M6 7c0 5 4 8 10 8"/></svg></div>
+        <div class="row push"><p class="lab">全年合并代码请求</p><div class="num">6,120</div></div>
+      </div>
+      <div class="card ink" style="--c:7/13;--r:5/7">
+        <span class="eyebrow">远程</span>
+        <div class="row push"><p class="lab">11 位同事分布在<br>7 座城市</p><div class="num">11<small>人</small></div></div>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">四十八个人分五个组。编辑器组最大，今年三个大功能都出自他们。同步组九个人，扛住了三月的事故，也完成了七月的重写。用户支持十个人回了两万多条反馈。远程同事有十一位，在七座城市，年会请大家线上一起举杯。</aside>
+  </section>
+
+  <!-- 9 · next year -->
+  <section class="slide" data-section="next-year" data-title="2027 计划">
+    <div class="grid">
+      <div class="card ink" style="--c:1/5;--r:1/4">
+        <span class="eyebrow">08 · 明年</span>
+        <h2 class="push">2027，<br>只做三件事</h2>
+        <p class="txt" style="margin-top:16px">其余需求一律排到下半年再议。</p>
+      </div>
+      <div class="card grad" style="--c:5/9;--r:1/5">
+        <div class="big-n">01</div>
+        <h3 class="push" style="font-size:52px">多人实时协作</h3>
+        <p class="txt" style="margin-top:14px">会议纪要占三成，大家早就在一起写了，只是工具没跟上。</p>
+      </div>
+      <div class="card" style="--c:9/13;--r:1/5">
+        <div class="big-n">02</div>
+        <h3 class="push" style="font-size:52px">安卓平板重做</h3>
+        <p class="txt" style="margin-top:14px">手写识别在安卓平板上的体验，还差 iPad 一大截。</p>
+      </div>
+      <div class="card sage" style="--c:1/5;--r:4/7">
+        <div class="big-n">03</div>
+        <h3 class="push" style="font-size:52px">导出不设限</h3>
+        <p class="txt" style="margin-top:14px">笔记是用户的，随时整包带走。</p>
+      </div>
+      <div class="card ink" style="--c:5/13;--r:5/7;flex-direction:row;align-items:center;gap:40px">
+        <div class="ico" style="color:var(--orange)"><svg viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19L12 3z"/><path d="M12 10v4.5M12 17.5v.01"/></svg></div>
+        <div><span class="eyebrow">明确不做</span><p class="lab" style="margin-top:12px;font-size:36px">不放广告 · 不卖数据 · 不为了凑数加功能</p></div>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">明年只做三件事。协作排第一，因为数据已经告诉我们会议纪要是最大用途。安卓平板是欠的账。导出不设限是对用户的承诺。底下那条黑色的格子同样重要：不做什么。新需求请先对照这三件事，对不上的先放一放。</aside>
+  </section>
+
+  <!-- 10 · end -->
+  <section class="slide dark" data-section="thanks" data-title="结尾">
+    <div class="grid">
+      <div class="card" style="--c:1/9;--r:1/5">
+        <span class="eyebrow">谢谢</span>
+        <h1 class="push" style="font-size:132px">谢谢每一位<br>整理者</h1>
+      </div>
+      <div class="card grad" style="--c:9/13;--r:1/3">
+        <span class="eyebrow">NEXT</span>
+        <div class="num push">2027 见</div>
+      </div>
+      <div class="card" style="--c:9/13;--r:3/5">
+        <div class="ico" style="color:var(--orange)"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5z"/></svg></div>
+        <p class="lab push" style="font-size:34px">现在是问答时间<br><span class="txt">约 15 分钟</span></p>
+      </div>
+      <div class="card sage" style="--c:1/5;--r:5/7">
+        <span class="eyebrow">幻灯片</span>
+        <p class="lab push">会后发到全员群</p>
+      </div>
+      <div class="card" style="--c:5/9;--r:5/7">
+        <span class="eyebrow">反馈</span>
+        <p class="lab push">年会结束前填问卷，<br>3 分钟</p>
+      </div>
+      <div class="card" style="--c:9/13;--r:5/7">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="10" rx="2"/><rect x="13.5" y="3.5" width="7" height="6" rx="2"/><rect x="13.5" y="12.5" width="7" height="8" rx="2"/><rect x="3.5" y="16.5" width="7" height="4" rx="2"/></svg></div>
+        <p class="lab push">Tidy 笔记 · 第 5 年</p>
+      </div>
+    </div>
+    <div class="foot"><span>Tidy 笔记 · 2026 年度回顾</span><span class="pg"></span></div>
+    <aside class="notes">收尾一句话：谢谢每一位整理者，既是用户，也是在座的各位。接下来十五分钟问答，任何问题都可以问，包括三月那次事故。幻灯片会后发到全员群，离场前请花三分钟填一下年会问卷，我们明年会按反馈调整形式。</aside>
+  </section>
+</div>
+<script>
+/* Bento: number cards for the stagger, fill page numbers, replay the entrance when a slide becomes active. */
+(function () {
+  var all = document.querySelectorAll('.deck > .slide'), cur = null;
+  Array.prototype.forEach.call(all, function (s, i) {
+    Array.prototype.forEach.call(s.querySelectorAll('.card'), function (c, k) { c.style.setProperty('--i', k); });
+    var pg = s.querySelector('.foot .pg');
+    if (pg) pg.textContent = String(i + 1).padStart(2, '0') + ' / ' + String(all.length).padStart(2, '0');
+  });
+  document.addEventListener('slidechange', function (e) {
+    var s = e.detail.slide;
+    if (s === cur) return;
+    if (cur) cur.classList.remove('is-in');
+    cur = s;
+    s.classList.add('is-in');
+  });
+})();
+</script>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+</body>
+</html>

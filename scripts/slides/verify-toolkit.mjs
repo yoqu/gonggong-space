@@ -21,6 +21,7 @@ export function entries() {
   for (const d of readdirSync(join(TPL, 'html-ppt/templates/full-decks')).sort())
     out.push({ id: `html-ppt/${d}`, path: `templates/html-ppt/templates/full-decks/${d}/index.html` })
   out.push({ id: 'html-ppt/deck', path: 'templates/html-ppt/templates/deck.html' })
+  out.push({ id: 'stage-seed', path: 'toolkit/stage-seed.html' })
   out.push({ id: 'guizang-ppt', path: 'templates/guizang-ppt/assets/template.html?splice=1' })
   for (const id of ['simple-deck', 'ib-pitch-book'])
     out.push({ id: `${id}/seed`, path: `templates/${id}/assets/template.html` })
@@ -102,8 +103,13 @@ async function check(page, base, e) {
   }, 15000)
   ok(thumbOk, 'last overview thumbnail shows the last slide')
   if (shots) await page.screenshot({ path: join(shots, `${e.id.replace(/\//g, '__')}-overview.png`) })
+  await page.locator('[data-ggt="overview"] .ggt-tile').nth(1).click()
+  ok(await until(async () => (await idx()) === 1, 8000), 'clicking a tile jumps')
+  await sleep(1200)
+  ok((await idx()) === 1, 'the click does not reach the template')
+  await page.keyboard.press('o')
   await page.locator('[data-ggt="overview"] .ggt-tile').nth(0).click()
-  ok(await until(async () => (await idx()) === 0, 8000), 'clicking a tile jumps')
+  ok(await until(async () => (await idx()) === 0, 8000), 'clicking tile 1 returns to the start')
   ok(!(await layer('overview')), 'overview closes after jump')
 
   const [popup] = await Promise.all([
@@ -163,6 +169,17 @@ async function check(page, base, e) {
     await page.keyboard.press('ArrowRight')
     ok(!(await layer(kind)) && (await idx()) === before, `any key leaves ${kind} without paging`)
   }
+
+  const beforePrint = await idx()
+  const pdf = await page.pdf({
+    width: '1920px',
+    height: '1080px',
+    printBackground: true,
+    preferCSSPageSize: true,
+  })
+  const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length
+  ok(pages === total, `prints one page per slide (${pages}/${total})`)
+  ok(await until(async () => (await idx()) === beforePrint), 'printing keeps the current slide')
 
   await page.evaluate(() => {
     const i = document.createElement('input')

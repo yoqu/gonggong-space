@@ -38,6 +38,19 @@ Visual system, layouts and the keyboard runtime come from the MIT-licensed [`lew
 
 Fundraising, accelerator demo day, investor meetings, "state of the company" updates. One idea and one number per slide; the traction slide is the climax.
 
+## Linked edits
+
+- The cover's `<span class="slide-number" data-current="1" data-total="10">` is rewritten by `runtime.js` (only the first `.slide-number` is), so no hand edit when slides change; a `.slide-number` added elsewhere would stay frozen.
+- `.section-num` (`01`–`07`) is typed by hand on Problem → Team, paired with the `.num-tag` label beside it — renumber the following slides when you insert, drop or reorder one.
+- `--grad` repeats `--accent #3b5bff` / `--accent-2 #7a46ff` / `--accent-3 #d94cff`, `--grad-soft` is a pastel of the same hues, and `.ask-box`'s shadow restates the accent as `rgba(59,91,255,.35)` — re-brand all of them together.
+- `.traction-bar .bar` heights are inline `style="height:%"` while the values sit in each `<em>`; the largest value is `100%`, the others are proportional — recompute when the numbers change.
+- `.avatar` initials are typed separately from the `<h4>` name on each `.team-card`.
+- If you copy and edit `runtime.js`, keep its `window.deck = { slides, get index(), go }` line — the toolkit drives the deck through it.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The cover's `.slide-number` shows whichever slide is current, so press Home before printing.
+
 ## Checklist
 
 - [ ] Story arc problem → solution → why now → traction → ask; the ask states amount and what it buys.

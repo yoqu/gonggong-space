@@ -41,6 +41,19 @@ A single self-contained HTML deck — typography, palette, decorative system and
 
 This template has no notes runtime. When notes are requested, put them in `<aside class="notes" hidden>…</aside>` as the last child of each slide — never visible on stage.
 
+## Linked edits
+
+- Only `.slide.active` is visible (the rest sit at `opacity: 0`), so the first `.slide` inside `#slides` must keep `active` in the markup and every added slide must be a `.slide` child of `#slides`.
+- The inline script's `window.deck = { slides: Array.from(slides), get index() …, go: … }` line is how deck-toolkit.js drives overview, presenter window and jump-to-slide — keep it whenever you edit the script.
+- `#counter` and the `#progress` width are recomputed from `slides.length`, so adding or removing slides needs no total change in the script; `data-index` is not read by it but keep it sequential from 0.
+- Card counts are tied to fixed grids: `.summary-highlights` and `.fin-grid` are `repeat(3, 1fr)` (3 `summary-hl`, 6 `fin-cell`), `.svc-grid` and `.rm-inner` are `1fr 1fr` (4 `svc-card`, 4 `rm-phase`) — change the column count together with the number of items.
+- `.slide-pillars` is a flex row of 3 `.pillar`s: `.pillar:nth-child(odd)` paints the `--light` stripes and `.pillar:last-child` drops the right rule, and the `p-num` numerals (`01`–`03`) are typed by hand — renumber them when adding or removing a pillar.
+- Colour lives only in `:root` (`--red`, `--dark`, `--light`, `--bg`); no hex is repeated elsewhere, so re-tint through the variables only.
+
+## Print
+
+Supported. Browser print (Cmd/Ctrl+P → Save as PDF) gives one 1920×1080 page per slide; deck-toolkit.js lays the slides out for print, so keep it loaded. The `active` class is copied to every slide while printing, so all slides print fully visible; the "Click or Swipe" `.hint` and the counter are hidden.
+
 ## Checklist
 
 - [ ] Every slide is built from this template's vocabulary; no foreign layouts, fonts or colours.

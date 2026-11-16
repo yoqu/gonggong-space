@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>华川能源集团 2026 年度数字化转型工作汇报</title>
+<style>
+/* ===== Stage kernel: 1920×1080 slides scaled to the window. Keep this block as is. ===== */
+html,body{margin:0;height:100%;overflow:hidden;background:#000}
+.deck{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;overflow:hidden;visibility:hidden;opacity:0;transition:opacity .35s ease,visibility 0s .35s}
+.slide.is-active{visibility:visible;opacity:1;transition:opacity .35s ease}
+.slide .notes{display:none}
+.slide [data-step]{opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.slide [data-step].is-shown{opacity:1;transform:none}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{height:auto;overflow:visible;background:none}
+  .deck{position:static;transform:none!important}
+  .slide{position:relative;visibility:visible;opacity:1;break-after:page;width:1920px;height:1080px}
+  .slide [data-step]{opacity:1;transform:none}
+}
+/* ===== Template styles below ===== */
+:root{
+  --red:#C8102E;--red-deep:#9C0C23;--red-tint:#F6E3E3;
+  --ink:#1C1C1C;--gray:#4F4A44;--mute:#7A736A;--line:#DCD4C6;--rule:#EDE7DC;
+  --gold:#B08D57;--paper:#FBF8F2;--white:#FFFFFF;
+  --ok:#2E6B47;--ok-tint:#E4EFE7;--doing:#9A6A0E;--doing-tint:#F5ECD8;
+  --sans:"Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --doc:"FangSong","STFangsong","Songti SC","Noto Serif SC",serif;
+}
+.slide{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:30px;line-height:1.6;box-sizing:border-box;padding:184px 140px 124px}
+.slide *{box-sizing:border-box}
+.num{font-variant-numeric:tabular-nums}
+
+/* chrome: injected by the template script into every slide without .plain */
+.hd{position:absolute;left:140px;right:140px;top:52px;height:72px;display:flex;align-items:center;justify-content:space-between;border-bottom:8px solid var(--red)}
+.hd::after{content:"";position:absolute;left:0;right:0;bottom:-18px;height:2px;background:var(--gold)}
+.hd .org{font-size:32px;font-weight:800;letter-spacing:.14em;color:var(--red)}
+.hd .doc{font-size:24px;color:var(--gray);letter-spacing:.04em}
+.ft{position:absolute;left:140px;right:140px;bottom:44px;display:flex;justify-content:space-between;align-items:center;font-size:22px;color:var(--mute);border-top:1px solid var(--line);padding-top:14px}
+.ft .pg{font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:.08em}
+
+/* titles */
+.ttl{display:flex;align-items:baseline;gap:0;margin:0 0 36px}
+.ttl .no{font-size:56px;font-weight:900;color:var(--red)}
+.ttl h2{margin:0;font-size:56px;font-weight:900;letter-spacing:.04em;line-height:1.25}
+.ttl .no{margin-right:-8px}
+.ttl .sub{margin-left:auto;font-size:26px;color:var(--mute)}
+.lead{font-size:32px;color:var(--gray);margin:0 0 32px}
+.tag{display:inline-block;font-size:24px;font-weight:700;color:var(--white);background:var(--red);padding:2px 16px;letter-spacing:.1em}
+.src{position:absolute;left:140px;bottom:96px;font-size:22px;color:var(--mute)}
+
+/* cover / end */
+.cover{padding:0}
+.cover .band{position:absolute;left:0;right:0;top:0;height:28px;background:var(--red)}
+.cover .band::after{content:"";position:absolute;left:0;right:0;top:40px;height:2px;background:var(--gold)}
+.cover .mark{position:absolute;right:140px;top:110px;font-size:26px;color:var(--red);border:2px solid var(--red);padding:4px 18px;letter-spacing:.2em}
+.cover .org{position:absolute;left:180px;top:300px;font-size:44px;font-weight:700;color:var(--red);letter-spacing:.3em}
+.cover h1{position:absolute;left:180px;right:180px;top:380px;margin:0;font-size:104px;font-weight:900;line-height:1.25;letter-spacing:.04em}
+.cover .bar{position:absolute;left:180px;top:640px;width:300px;height:10px;background:var(--red)}
+.cover .bar::after{content:"";position:absolute;left:0;width:620px;top:22px;height:2px;background:var(--gold)}
+.cover dl{position:absolute;left:180px;bottom:150px;margin:0;display:grid;grid-template-columns:auto auto;gap:6px 24px;font-size:32px;color:var(--gray)}
+.cover dt{color:var(--mute)}
+.cover dd{margin:0;color:var(--ink);font-weight:600}
+.cover .grid{position:absolute;right:0;bottom:0;width:760px;height:620px}
+.end{text-align:center}
+.end .big{position:absolute;left:0;right:0;top:330px;font-size:150px;font-weight:900;letter-spacing:.3em;text-indent:.3em}
+.end .bar{position:absolute;left:50%;top:560px;width:360px;margin-left:-180px;height:10px;background:var(--red)}
+.end .bar::after{content:"";position:absolute;left:-120px;right:-120px;top:22px;height:2px;background:var(--gold)}
+.end .say{position:absolute;left:0;right:0;top:620px;font-size:40px;color:var(--gray);letter-spacing:.2em}
+.end .org{position:absolute;left:0;right:0;bottom:150px;font-size:30px;color:var(--mute);letter-spacing:.1em}
+
+/* agenda */
+.toc{list-style:none;margin:8px 0 0;padding:0;columns:2;column-gap:120px}
+.toc li{break-inside:avoid;display:flex;align-items:baseline;gap:24px;padding:22px 0;border-bottom:1px solid var(--line);font-size:38px;font-weight:700}
+.toc .cn{color:var(--red);font-weight:900;width:64px}
+.toc .dots{flex:1;border-bottom:2px dotted var(--line);transform:translateY(-10px)}
+.toc .p{font-size:28px;color:var(--mute);font-weight:400;font-variant-numeric:tabular-nums}
+
+/* overview */
+.two{display:grid;grid-template-columns:1.05fr 1fr;gap:80px}
+.para{margin:20px 0 0;font-family:var(--doc);font-size:34px;line-height:1.85;text-indent:2em;text-align:justify}
+.para b{color:var(--red)}
+.pts{list-style:none;margin:0;padding:0}
+.pts li{display:grid;grid-template-columns:72px 1fr;padding:18px 0;border-top:1px solid var(--line)}
+.pts li:last-child{border-bottom:1px solid var(--line)}
+.pts .n{font-size:40px;font-weight:900;color:var(--red);line-height:1.2}
+.pts b{display:block;font-size:34px}
+.pts span{font-size:28px;color:var(--gray)}
+
+.prog{display:flex;height:22px;margin-top:40px;gap:4px}
+.prog i,.prog-l i{display:block}
+.prog-l{display:flex;gap:36px;margin-top:14px;font-size:28px;color:var(--gray)}
+.prog-l span{display:flex;align-items:center;gap:10px}
+.prog-l i{width:18px;height:18px}
+.prog .ok,.prog-l .ok{background:var(--ok)}
+.prog .doing,.prog-l .doing{background:#C99A3B}
+.prog .late,.prog-l .late{background:var(--red)}
+
+/* task table */
+.filter{display:flex;gap:14px;margin:-6px 0 22px;align-items:center}
+.filter .lab{font-size:24px;color:var(--mute);margin-right:6px}
+.filter button{font:inherit;font-size:24px;padding:4px 20px;border:1.5px solid var(--line);background:var(--white);color:var(--gray);cursor:pointer;border-radius:0}
+.filter button.on{border-color:var(--ink);background:var(--ink);color:var(--white)}
+table.tb{width:100%;border-collapse:collapse;font-size:28px;line-height:1.35;background:var(--white)}
+.tb th{background:var(--red);color:var(--white);font-weight:700;text-align:left;padding:14px 20px;font-size:26px;letter-spacing:.06em}
+.tb td{padding:15px 20px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tb tr:nth-child(even) td{background:#FCFAF7}
+.tb .c{text-align:center}
+.tb tbody tr{transition:opacity .25s ease}
+.tb tbody tr.dim{opacity:.22}
+.st{display:inline-block;min-width:112px;text-align:center;font-size:24px;font-weight:700;padding:3px 12px}
+.st.ok{color:var(--ok);background:var(--ok-tint)}
+.st.doing{color:var(--doing);background:var(--doing-tint)}
+.st.late{color:var(--red);background:var(--red-tint)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:6px solid var(--ink);border-bottom:1px solid var(--line)}
+.stat{padding:30px 32px 30px 0;border-right:1px solid var(--line)}
+.stat+.stat{padding-left:32px}
+.stat:last-child{border-right:0}
+.stat .k{font-size:28px;color:var(--gray);font-weight:600}
+.stat .v{font-size:112px;font-weight:900;line-height:1.1;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin:8px 0 4px}
+.stat .v small{font-size:34px;font-weight:700;margin-left:6px;letter-spacing:0}
+.yoy{display:flex;align-items:center;gap:10px;font-size:28px;font-weight:700}
+.yoy svg{width:26px;height:26px}
+.yoy.good{color:var(--ok)}
+.yoy.bad{color:var(--red)}
+.yoy em{font-style:normal;color:var(--mute);font-weight:400;font-size:24px}
+.chartrow{display:grid;grid-template-columns:1fr 420px;gap:60px;margin-top:30px;align-items:center}
+.chartrow svg{width:100%;height:auto;display:block}
+.legend{font-size:26px;color:var(--gray)}
+.legend p{margin:0 0 12px;display:flex;align-items:center;gap:14px}
+.legend i{width:26px;height:18px;display:inline-block}
+
+/* case */
+.case{display:grid;grid-template-columns:1fr 760px;gap:70px}
+.blk{margin:0 0 22px}
+.blk h3{margin:0 0 6px;font-size:30px;color:var(--red);font-weight:800;letter-spacing:.1em}
+.blk p{margin:0;font-size:29px;line-height:1.6;color:var(--ink)}
+.fig{background:var(--white);border:1px solid var(--line);padding:26px 30px 18px}
+.fig h4{margin:0 0 8px;font-size:26px;font-weight:700}
+.fig svg{display:block;width:100%;height:auto}
+.fig .cap{font-size:22px;color:var(--mute);margin-top:6px}
+
+/* issues */
+.iss{list-style:none;margin:0;padding:0}
+.iss li{display:grid;grid-template-columns:110px 520px 1fr;gap:40px;align-items:start;padding:44px 0;border-top:1px solid var(--line)}
+.iss li:last-child{border-bottom:1px solid var(--line)}
+.iss .n{width:84px;height:84px;border:3px solid var(--red);color:var(--red);font-size:44px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.iss b{font-size:36px;line-height:1.35}
+.iss p{margin:0;font-size:28px;color:var(--gray)}
+.iss p em{font-style:normal;color:var(--ink);font-weight:700}
+
+/* plan */
+.line{position:relative;height:110px;margin:0 30px 20px}
+.line::before{content:"";position:absolute;left:0;right:0;top:30px;height:4px;background:var(--line)}
+.line .fill{position:absolute;left:0;top:30px;height:4px;width:0;background:var(--red);transition:width 1.2s ease}
+.slide.is-active .line .fill{width:100%}
+.node{position:absolute;top:18px;transform:translateX(-50%);text-align:center;font-size:26px;font-weight:700;white-space:nowrap}
+.node::before{content:"";display:block;width:28px;height:28px;margin:0 auto 10px;background:var(--white);border:5px solid var(--red);border-radius:50%}
+.node.key::before{background:var(--red)}
+.tb.plan td:first-child{font-weight:800;color:var(--red);white-space:nowrap}
+
+/* requests */
+.req{font-family:var(--doc)}
+.req ol{list-style:none;margin:0;padding:0}
+.req li{padding:22px 0 22px;border-bottom:1px solid var(--line)}
+.req li:first-child{border-top:1px solid var(--line)}
+.req b{display:block;font-family:var(--sans);font-size:36px;font-weight:800;margin-bottom:6px}
+.req b span{color:var(--red)}
+.req p{margin:0;font-size:32px;line-height:1.6;color:var(--gray)}
+.req .close{margin-top:34px;display:flex;justify-content:space-between;align-items:flex-end;font-size:34px}
+.req .sign{text-align:right;line-height:1.7}
+
+@media (prefers-reduced-motion:reduce){
+  .line .fill,.tb tbody tr{transition:none}
+}
+@media print{
+  .tb tbody tr.dim{opacity:1}
+  .line .fill{width:100%}
+}
+</style>
+<script src="../../toolkit/deck-toolkit.js"></script>
+</head>
+<body>
+<div class="deck" data-org="华川能源集团有限公司" data-doc="2026 年度数字化转型工作汇报 · 内部资料">
+
+  <section class="slide plain cover" data-section="cover" data-title="封面">
+    <div class="band"></div>
+    <div class="mark">内部资料</div>
+    <svg class="grid" viewBox="0 0 760 620" aria-hidden="true" fill="none" stroke="#DCD4C6" stroke-width="1.5">
+      <path d="M760 80 L200 620 M760 200 L320 620 M760 320 L440 620 M760 440 L560 620"/>
+      <path d="M760 140 L260 620" stroke="#B08D57" stroke-width="2"/>
+      <rect x="560" y="300" width="120" height="120" stroke="#C8102E" stroke-width="3"/>
+    </svg>
+    <div class="org">华川能源集团</div>
+    <h1>2026 年度<br>数字化转型工作汇报</h1>
+    <div class="bar"></div>
+    <dl>
+      <dt>汇报单位</dt><dd>集团数字化转型办公室</dd>
+      <dt>汇报时间</dt><dd class="num">2026 年 12 月</dd>
+    </dl>
+    <aside class="notes">各位领导：下面由数字化转型办公室汇报 2026 年度数字化转型工作。汇报分七个部分，约二十分钟，重点是数据成效、存在问题和三项请示事项。请示事项需要会上议定，汇报结束后请各位领导审议。</aside>
+  </section>
+
+  <section class="slide" data-section="agenda" data-title="汇报提纲">
+    <div class="ttl"><h2>汇报提纲</h2></div>
+    <ol class="toc">
+      <li><span class="cn">一</span>工作概述<span class="dots"></span><span class="p">03</span></li>
+      <li><span class="cn">二</span>重点任务完成情况<span class="dots"></span><span class="p">04</span></li>
+      <li><span class="cn">三</span>数据成效<span class="dots"></span><span class="p">05</span></li>
+      <li><span class="cn">四</span>典型案例<span class="dots"></span><span class="p">06</span></li>
+      <li><span class="cn">五</span>问题与不足<span class="dots"></span><span class="p">07</span></li>
+      <li><span class="cn">六</span>2027 年工作计划<span class="dots"></span><span class="p">08</span></li>
+      <li><span class="cn">七</span>请示事项<span class="dots"></span><span class="p">09</span></li>
+    </ol>
+    <aside class="notes">汇报按七个部分展开：先讲全年总体情况和十八项重点任务的完成表，再用数据和一个典型案例说明成效，然后如实报告三方面问题，最后汇报明年计划和需要集团决策的三项请示事项。</aside>
+  </section>
+
+  <section class="slide" data-section="overview" data-title="工作概述">
+    <div class="ttl"><span class="no">一、</span><h2>工作概述</h2><span class="sub">年度目标总体完成</span></div>
+    <div class="two">
+      <div>
+        <span class="tag">总体情况</span>
+        <p class="para">2026 年，集团围绕“数据贯通、业务上云、生产智能”三条主线推进数字化转型，年初确定重点任务 <b>18 项</b>，截至 11 月末已完成 <b>15 项</b>，2 项按计划推进，1 项进度滞后。全年数字化投入 4.8 亿元，覆盖所属 23 家二级单位。</p>
+        <div class="prog" aria-label="18 项重点任务完成结构"><i class="ok" style="flex:15"></i><i class="doing" style="flex:2"></i><i class="late" style="flex:1"></i></div>
+        <div class="prog-l"><span><i class="ok"></i>已完成 15</span><span><i class="doing"></i>推进中 2</span><span><i class="late"></i>滞后 1</span></div>
+      </div>
+      <ol class="pts">
+        <li data-step><span class="n">01</span><div><b>统一数据底座建成</b><span>主数据标准 312 项，二级单位接入率 100%</span></div></li>
+        <li data-step><span class="n">02</span><div><b>核心业务系统上云</b><span>财务、物资、人力等 41 套系统完成迁移</span></div></li>
+        <li data-step><span class="n">03</span><div><b>生产现场智能化</b><span>6 座电厂上线设备预测性维护</span></div></li>
+        <li data-step><span class="n">04</span><div><b>网络安全零事故</b><span>全年未发生三级及以上网络安全事件</span></div></li>
+      </ol>
+    </div>
+    <aside class="notes">总体看，年度目标基本完成。十八项任务完成十五项，完成率百分之八十三。右侧四点是全年最主要的进展，其中数据底座和系统上云是基础，生产智能化是今年见效最明显的部分，后面案例会具体讲。滞后的一项在下一页说明原因。</aside>
+  </section>
+
+  <section class="slide" data-section="tasks" data-title="重点任务完成表">
+    <div class="ttl"><span class="no">二、</span><h2>重点任务完成情况</h2><span class="sub">节选 6 / 18 项</span></div>
+    <div class="filter"><span class="lab">按状态查看</span><button class="on" data-f="all">全部</button><button data-f="ok">已完成</button><button data-f="doing">推进中</button><button data-f="late">滞后</button></div>
+    <table class="tb tasks">
+      <thead><tr><th class="c" style="width:110px">序号</th><th>重点任务</th><th style="width:300px">牵头部门</th><th style="width:420px">年度目标 / 完成情况</th><th class="c" style="width:170px">状态</th></tr></thead>
+      <tbody>
+        <tr data-s="ok"><td class="c num">1</td><td>集团主数据管理平台建设</td><td>数字化转型办公室</td><td>标准 300 项 / 实际 312 项</td><td class="c"><span class="st ok">已完成</span></td></tr>
+        <tr data-s="ok"><td class="c num">2</td><td>财务共享系统云上迁移</td><td>财务管理部</td><td>11 月底前切换 / 10 月切换</td><td class="c"><span class="st ok">已完成</span></td></tr>
+        <tr data-s="ok"><td class="c num">3</td><td>电厂设备预测性维护推广</td><td>生产技术部</td><td>4 座电厂 / 上线 6 座</td><td class="c"><span class="st ok">已完成</span></td></tr>
+        <tr data-s="doing"><td class="c num">4</td><td>供应链协同平台二期</td><td>物资供应中心</td><td>供应商接入 800 家 / 已 610 家</td><td class="c"><span class="st doing">推进中</span></td></tr>
+        <tr data-s="doing"><td class="c num">5</td><td>新能源场站集中监控</td><td>新能源事业部</td><td>场站 35 座 / 已接入 28 座</td><td class="c"><span class="st doing">推进中</span></td></tr>
+        <tr data-s="late"><td class="c num">6</td><td>工程项目全过程管理系统</td><td>基建管理部</td><td>12 月上线 / 延至次年 3 月</td><td class="c"><span class="st late">滞后</span></td></tr>
+      </tbody>
+    </table>
+    <aside class="notes">这里节选六项代表性任务，完整十八项清单见会议材料附件一。可以按状态筛选查看。需要说明的是第六项工程项目全过程管理系统，因基建管理制度年中修订，需求发生较大变更，上线时间调整到明年三月，已报分管领导同意。</aside>
+  </section>
+
+  <section class="slide" data-section="results" data-title="数据成效">
+    <div class="ttl"><span class="no">三、</span><h2>数据成效</h2><span class="sub">截至 2026 年 11 月末，同比为与上年同期相比</span></div>
+    <div class="stats">
+      <div class="stat"><div class="k">数字化投入</div><div class="v"><span data-to="4.8" data-dec="1">4.8</span><small>亿元</small></div>
+        <div class="yoy bad"><svg viewBox="0 0 24 24"><path d="M12 3 L21 15 H15 V21 H9 V15 H3 Z" fill="currentColor"/></svg>12.6%<em>投入增加</em></div></div>
+      <div class="stat"><div class="k">设备联网率</div><div class="v"><span data-to="92.4" data-dec="1">92.4</span><small>%</small></div>
+        <div class="yoy good"><svg viewBox="0 0 24 24"><path d="M12 3 L21 15 H15 V21 H9 V15 H3 Z" fill="currentColor"/></svg>18.1<em>个百分点</em></div></div>
+      <div class="stat"><div class="k">线上审批平均时长</div><div class="v"><span data-to="1.6" data-dec="1">1.6</span><small>天</small></div>
+        <div class="yoy good"><svg viewBox="0 0 24 24"><path d="M12 21 L21 9 H15 V3 H9 V9 H3 Z" fill="currentColor"/></svg>57.0%<em>时长缩短</em></div></div>
+      <div class="stat"><div class="k">非计划停机</div><div class="v"><span data-to="37" data-dec="0">37</span><small>次</small></div>
+        <div class="yoy good"><svg viewBox="0 0 24 24"><path d="M12 21 L21 9 H15 V3 H9 V9 H3 Z" fill="currentColor"/></svg>41.3%<em>同比减少</em></div></div>
+    </div>
+    <div class="chartrow">
+      <svg viewBox="0 0 1080 300" aria-label="季度设备联网率对比">
+        <g font-size="26" fill="#7A736A" font-family="PingFang SC,Noto Sans SC,sans-serif">
+          <line x1="60" y1="250" x2="1060" y2="250" stroke="#1C1C1C" stroke-width="2"/>
+          <line x1="60" y1="150" x2="1060" y2="150" stroke="#EDE7DC"/>
+          <line x1="60" y1="50" x2="1060" y2="50" stroke="#EDE7DC"/>
+          <text x="48" y="256" text-anchor="end">50</text><text x="48" y="156" text-anchor="end">75</text><text x="48" y="56" text-anchor="end">100</text>
+          <rect x="130" y="186" width="70" height="64" fill="#DCD4C6"/><rect x="210" y="138" width="70" height="112" fill="#C8102E"/>
+          <rect x="380" y="170" width="70" height="80" fill="#DCD4C6"/><rect x="460" y="110" width="70" height="140" fill="#C8102E"/>
+          <rect x="630" y="155" width="70" height="95" fill="#DCD4C6"/><rect x="710" y="82" width="70" height="168" fill="#C8102E"/>
+          <rect x="880" y="138" width="70" height="112" fill="#DCD4C6"/><rect x="960" y="60" width="70" height="190" fill="#C8102E"/>
+          <text x="205" y="286" text-anchor="middle">一季度</text><text x="455" y="286" text-anchor="middle">二季度</text>
+          <text x="705" y="286" text-anchor="middle">三季度</text><text x="955" y="286" text-anchor="middle">四季度（预计）</text>
+          <g fill="#1C1C1C" font-weight="700" text-anchor="middle" font-size="28"><text x="245" y="128">78.0</text><text x="495" y="100">85.0</text><text x="745" y="72">91.8</text><text x="995" y="50">97.5</text></g>
+        </g>
+      </svg>
+      <div class="legend">
+        <p><i style="background:#DCD4C6"></i>2025 年</p>
+        <p><i style="background:#C8102E"></i>2026 年</p>
+        <p style="font-size:24px;color:#7A736A">单位：%。四季度为预计值，以年报数据为准。</p>
+      </div>
+    </div>
+    <aside class="notes">四个指标里，投入增加用红色箭头标出，提醒这是成本项；其余三项都是向好的方向。联网率提升最明显，四个季度都高于去年同期，四季度预计接近百分之九十八。非计划停机减少四成，是预测性维护带来的直接效益。</aside>
+  </section>
+
+  <section class="slide" data-section="case" data-title="典型案例">
+    <div class="ttl"><span class="no">四、</span><h2>典型案例：川南电厂设备预测性维护</h2></div>
+    <div class="case">
+      <div>
+        <div class="blk" data-step><h3>背景</h3><p>川南电厂两台 66 万千瓦机组服役超 12 年，2025 年因辅机故障非计划停机 18 次，检修以事后抢修为主。</p></div>
+        <div class="blk" data-step><h3>做法</h3><p>在给水泵、引风机等 186 台关键设备加装振动与温度测点，接入集团数据底座，按故障模型提前 7–15 天预警，检修工单自动派发。</p></div>
+        <div class="blk" data-step><h3>成效</h3><p>上线后三个季度非计划停机合计 4 次，减少检修费用约 1,260 万元，模式已推广至另外 5 座电厂。</p></div>
+      </div>
+      <div class="fig">
+        <h4>川南电厂非计划停机次数（次 / 季度）</h4>
+        <svg viewBox="0 0 700 400" aria-label="非计划停机次数">
+          <g font-family="PingFang SC,Noto Sans SC,sans-serif" font-size="24" fill="#7A736A">
+            <line x1="40" y1="340" x2="690" y2="340" stroke="#1C1C1C" stroke-width="2"/>
+            <line x1="385" y1="30" x2="385" y2="340" stroke="#C8102E" stroke-width="2" stroke-dasharray="8 6"/>
+            <text x="395" y="48" fill="#C8102E" font-weight="700">系统上线</text>
+            <g fill="#BDB4A6">
+              <rect x="70" y="240" width="54" height="100"/><rect x="155" y="190" width="54" height="150"/>
+              <rect x="240" y="265" width="54" height="75"/><rect x="325" y="215" width="54" height="125"/>
+            </g>
+            <g fill="#C8102E">
+              <rect x="420" y="290" width="54" height="50"/><rect x="505" y="315" width="54" height="25"/><rect x="590" y="315" width="54" height="25"/>
+            </g>
+            <g fill="#1C1C1C" font-weight="700" text-anchor="middle" font-size="26">
+              <text x="97" y="230">4</text><text x="182" y="180">6</text><text x="267" y="255">3</text><text x="352" y="205">5</text>
+              <text x="447" y="280">2</text><text x="532" y="305">1</text><text x="617" y="305">1</text>
+            </g>
+            <g text-anchor="middle"><text x="97" y="370">25Q1</text><text x="182" y="370">25Q2</text><text x="267" y="370">25Q3</text><text x="352" y="370">25Q4</text><text x="447" y="370">26Q1</text><text x="532" y="370">26Q2</text><text x="617" y="370">26Q3</text></g>
+          </g>
+        </svg>
+        <div class="cap">注：2025 年数据含两台机组，统计口径一致。</div>
+      </div>
+    </div>
+    <aside class="notes">选川南电厂做案例，是因为它设备老、故障多，最能说明问题。上线前一年停机十八次，上线后三个季度合计四次。这个案例的经验是先选关键辅机，测点不求全，模型先跑通再推广。今年已复制到另外五座电厂。</aside>
+  </section>
+
+  <section class="slide" data-section="issues" data-title="问题与不足">
+    <div class="ttl"><span class="no">五、</span><h2>问题与不足</h2><span class="sub">对照年初目标查找</span></div>
+    <ol class="iss">
+      <li data-step><span class="n">1</span><b>数据质量参差，跨单位共享不畅</b><p>二级单位数据标准执行不一，约 <em>18%</em> 的设备台账存在重复或缺项，影响分析结论的可信度。</p></li>
+      <li data-step><span class="n">2</span><b>部分项目需求变更频繁</b><p>工程项目全过程管理系统需求变更 <em>3 轮</em>，上线推迟，暴露出业务部门前期参与不足。</p></li>
+      <li data-step><span class="n">3</span><b>复合型数字人才短缺</b><p>既懂生产又懂数据的骨干仅 <em>46 人</em>，基层单位对外部实施方依赖较大。</p></li>
+    </ol>
+    <aside class="notes">问题主要有三方面。第一是数据质量，这是影响后续智能应用的根本问题；第二是需求管理，滞后项目的教训要吸取；第三是人才，目前过度依赖外部实施方。三个问题在下一页的计划里都有对应措施。</aside>
+  </section>
+
+  <section class="slide" data-section="plan" data-title="下一步计划">
+    <div class="ttl"><span class="no">六、</span><h2>2027 年工作计划</h2><span class="sub">● 为关键节点</span></div>
+    <div class="line"><div class="fill"></div>
+      <span class="node" style="left:4%">1 月</span><span class="node key" style="left:27%">3 月</span><span class="node" style="left:50%">6 月</span><span class="node key" style="left:73%">9 月</span><span class="node" style="left:96%">12 月</span>
+    </div>
+    <table class="tb plan">
+      <thead><tr><th style="width:190px">时间节点</th><th>工作任务</th><th style="width:330px">责任单位</th><th style="width:400px">交付标志</th></tr></thead>
+      <tbody>
+        <tr><td>1 月底</td><td>启动数据质量专项治理</td><td>数字化转型办公室</td><td>治理方案印发</td></tr>
+        <tr><td>3 月底</td><td>工程项目全过程管理系统上线</td><td>基建管理部</td><td>通过上线验收</td></tr>
+        <tr><td>6 月底</td><td>设备台账重复缺项率降至 5% 以内</td><td>各二级单位</td><td>月度质量通报</td></tr>
+        <tr><td>9 月底</td><td>新能源场站集中监控全覆盖</td><td>新能源事业部</td><td>35 座场站接入</td></tr>
+        <tr><td>12 月底</td><td>培养数字化骨干 120 人</td><td>人力资源部</td><td>认证名单公布</td></tr>
+      </tbody>
+    </table>
+    <aside class="notes">明年计划按五个节点推进，三月和九月是两个关键节点，分别是滞后项目上线和新能源监控全覆盖。每项都明确了责任单位和可检查的交付标志，建议纳入集团年度考核。</aside>
+  </section>
+
+  <section class="slide" data-section="requests" data-title="请示事项">
+    <div class="ttl"><span class="no">七、</span><h2>请示事项</h2><span class="sub">提请集团董事会审议</span></div>
+    <div class="req">
+      <ol>
+        <li data-step><b><span>（一）</span>批准 2027 年数字化投入预算 5.2 亿元</b><p>较 2026 年增加 0.4 亿元，新增部分主要用于数据治理和新能源监控。</p></li>
+        <li data-step><b><span>（二）</span>同意设立集团数据管理委员会</b><p>由分管领导任主任，统筹数据标准制定和跨单位数据共享。</p></li>
+        <li data-step><b><span>（三）</span>将数据质量指标纳入二级单位年度考核</b><p>权重建议为 3%，自 2027 年一季度起执行。</p></li>
+      </ol>
+      <div class="close"><span>妥否，请审示。</span><span class="sign">集团数字化转型办公室<br><span class="num">2026 年 12 月 8 日</span></span></div>
+    </div>
+    <aside class="notes">最后是三项请示事项，需要会上议定。第一项是预算，增量四千万元，主要用于数据治理；第二项是成立数据管理委员会，解决跨单位共享的协调问题；第三项是考核，建议权重百分之三。请各位领导审议。</aside>
+  </section>
+
+  <section class="slide plain end" data-section="end" data-title="结束页">
+    <div class="cover"><div class="band"></div></div>
+    <div class="big">汇报完毕</div>
+    <div class="bar"></div>
+    <div class="say">恳请各位领导批评指正</div>
+    <div class="org">华川能源集团有限公司 · 数字化转型办公室</div>
+    <aside class="notes">汇报完毕，谢谢各位领导。会议材料附件一是十八项任务完整清单，附件二是 2027 年预算明细，供审议时参考。</aside>
+  </section>
+</div>
+<script>
+/* Stage kernel: paging, in-slide steps ([data-step]), scaling, window.deck for deck-toolkit.js. Keep as is. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll(':scope > .slide'));
+  var idx = 0, step = 0;
+  function steps(i) { return slides[i].querySelectorAll('[data-step]'); }
+  function show(i, s) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    var list = steps(idx);
+    step = s === undefined ? list.length : Math.max(0, Math.min(list.length, s));
+    slides.forEach(function (el, k) { el.classList.toggle('is-active', k === idx); });
+    Array.prototype.forEach.call(list, function (el, k) { el.classList.toggle('is-shown', k < step); });
+    document.dispatchEvent(new CustomEvent('slidechange', { detail: { index: idx, step: step, slide: slides[idx] } }));
+  }
+  function next() {
+    if (step < steps(idx).length) show(idx, step + 1);
+    else if (idx < slides.length - 1) show(idx + 1, 0);
+  }
+  function prev() {
+    if (step > 0 && steps(idx).length) show(idx, step - 1);
+    else if (idx > 0) show(idx - 1);
+  }
+  function fit() {
+    var k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    deck.style.transform = 'scale(' + k + ') translate(-50%,-50%)';
+  }
+  window.deck = { slides: slides, get index() { return idx; }, go: function (n) { show(n); }, next: next, prev: prev };
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'Enter') next();
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp' || k === 'Backspace') prev();
+    else if (k === 'Home') show(0, 0);
+    else if (k === 'End') show(slides.length - 1);
+    else return;
+    e.preventDefault();
+  });
+  var tx = null;
+  addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var d = e.changedTouches[0].clientX - tx;
+    if (Math.abs(d) > 50) (d < 0 ? next : prev)();
+    tx = null;
+  });
+  addEventListener('resize', fit);
+  fit();
+  show(0, 0);
+})();
+</script>
+<script>
+/* Template script: page chrome, task filter, count-up. */
+(function () {
+  var deck = document.querySelector('.deck');
+  var slides = deck.querySelectorAll(':scope > .slide');
+  var total = String(slides.length).padStart(2, '0');
+  slides.forEach(function (s, i) {
+    if (s.classList.contains('plain')) return;
+    var hd = document.createElement('div'); hd.className = 'hd';
+    hd.innerHTML = '<span class="org"></span><span class="doc"></span>';
+    hd.children[0].textContent = deck.dataset.org;
+    hd.children[1].textContent = deck.dataset.doc;
+    var ft = document.createElement('div'); ft.className = 'ft';
+    ft.innerHTML = '<span></span><span class="pg"></span>';
+    ft.children[0].textContent = s.dataset.title || '';
+    ft.children[1].textContent = '第 ' + String(i + 1).padStart(2, '0') + ' 页 / 共 ' + total + ' 页';
+    s.insertBefore(hd, s.firstChild); s.insertBefore(ft, hd.nextSibling);
+  });
+
+  document.querySelectorAll('.filter').forEach(function (bar) {
+    var rows = bar.parentNode.querySelectorAll('tbody tr[data-s]');
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      bar.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      rows.forEach(function (r) { r.classList.toggle('dim', b.dataset.f !== 'all' && r.dataset.s !== b.dataset.f); });
+      b.blur();
+    });
+  });
+
+  var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.addEventListener('slidechange', function (e) {
+    var nums = e.detail.slide.querySelectorAll('[data-to]');
+    if (!nums.length || e.detail.step > 0 || still) return;
+    var t0 = performance.now();
+    (function tick(t) {
+      var p = Math.min(1, (t - t0) / 900), q = 1 - Math.pow(1 - p, 3);
+      nums.forEach(function (n) { n.textContent = (n.dataset.to * q).toFixed(+n.dataset.dec); });
+      if (p < 1) requestAnimationFrame(tick);
+    })(t0);
+  });
+})();
+</script>
+</body>
+</html>

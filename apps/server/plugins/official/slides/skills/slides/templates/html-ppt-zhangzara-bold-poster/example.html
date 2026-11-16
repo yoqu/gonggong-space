@@ -843,6 +843,7 @@
         counter.textContent = String(i + 1).padStart(2, '0') + ' / ' + String(total).padStart(2, '0');
       }
 
+      window.deck = { slides: Array.from(slides), get index() { return current; }, go: function (n) { current = n; show(n); } };
       function next() { if (current < total - 1) { current++; show(current); } }
       function prev() { if (current > 0) { current--; show(current); } }
 
