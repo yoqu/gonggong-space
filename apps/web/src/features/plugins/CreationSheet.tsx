@@ -36,6 +36,9 @@ import { PromptComposer } from './PromptComposer'
 import { type CreationOpen, closeCreation, createInGroup } from './store'
 import './plugins.css'
 
+const reducedMotion = () =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 const STEP_LABEL: Record<CreationStep, string> = {
   template: t('类型与模板'),
   design: t('设计系统'),
@@ -91,6 +94,7 @@ export function CreationSheet({
   const [filter, setFilter] = useState(() => facetsOf(draft))
   const [stepKey, setStep] = useState<CreationStep>(open.step ?? 'template')
   const [busy, setBusy] = useState(false)
+  const [hovered, setHovered] = useState<string | null>(null)
   const uploads = useUploads(group.id)
   const fileInput = useRef<HTMLInputElement>(null)
   const plugin = plugins.find((p) => p.id === draft.pluginId) ?? (plugins[0] as GroupPluginDto)
@@ -274,6 +278,8 @@ export function CreationSheet({
                       className="plg-card"
                       aria-pressed={tp.id === draft.templateId}
                       onClick={() => pickTemplate(tp.id)}
+                      onPointerEnter={() => tp.demo && !reducedMotion() && setHovered(tp.id)}
+                      onPointerLeave={() => setHovered(null)}
                     >
                       <span className="plg-card__check" aria-hidden="true">
                         <Icon name="check" size={10} />
@@ -281,7 +287,7 @@ export function CreationSheet({
                       {tp.preview ? (
                         <img
                           className="plg-card__thumb"
-                          src={previewUrl(plugin.id, tp.preview)}
+                          src={previewUrl(plugin.id, (hovered === tp.id && tp.demo) || tp.preview)}
                           alt={tp.title}
                         />
                       ) : (

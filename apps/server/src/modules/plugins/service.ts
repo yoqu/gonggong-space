@@ -97,7 +97,7 @@ export function pluginSnapshot(input: SkillFile[]) {
     ...manifest.designSystems.flatMap((d) =>
       ['DESIGN.md', 'tokens.css'].map((f) => `skills/${manifest.entry}/${d.dir}/${f}`),
     ),
-    ...manifest.templates.flatMap((tp) => (tp.preview ? [tp.preview] : [])),
+    ...manifest.templates.flatMap((tp) => [tp.preview, tp.demo].filter((p): p is string => !!p)),
     ...(manifest.icon ? [manifest.icon] : []),
     ...(manifest.artifact?.kit ? [`${manifest.artifact.kit}/index.html`] : []),
     ...manifest.contributes.agents.flatMap((a) => (a.launchScript ? [a.launchScript] : [])),

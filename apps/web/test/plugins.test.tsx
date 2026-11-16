@@ -77,6 +77,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
       description: '首屏 · 功能 · 价格 · CTA',
       group: null,
       preview: 'previews/saas.png',
+      demo: 'previews/saas-demo.webp',
       inputs: null,
       designSystem: true,
     },
@@ -86,6 +87,7 @@ const manifest = (o: Partial<PluginManifest> = {}): PluginManifest => ({
       description: '倒计时 · 议程 · 报名表',
       group: null,
       preview: null,
+      demo: null,
       inputs: null,
       designSystem: true,
     },
@@ -411,9 +413,14 @@ describe('插件 · 创作入口', () => {
 
     // 1 类型与模板: the first template is picked; previews come from the plugin's files.
     expect(d.getByRole('button', { name: /SaaS 产品落地页/, pressed: true })).toBeTruthy()
-    expect((d.getByAltText('SaaS 产品落地页') as HTMLImageElement).getAttribute('src')).toBe(
-      '/api/plugins/p1/files/previews/saas.png',
-    )
+    const thumb = d.getByAltText('SaaS 产品落地页') as HTMLImageElement
+    expect(thumb.getAttribute('src')).toBe('/api/plugins/p1/files/previews/saas.png')
+    // Hovering a card plays its demo in place of the still preview.
+    const saas = d.getByRole('button', { name: /SaaS 产品落地页/, pressed: true })
+    fireEvent.pointerEnter(saas)
+    expect(thumb.getAttribute('src')).toBe('/api/plugins/p1/files/previews/saas-demo.webp')
+    fireEvent.pointerLeave(saas)
+    expect(thumb.getAttribute('src')).toBe('/api/plugins/p1/files/previews/saas.png')
     fireEvent.click(d.getByRole('button', { name: /活动报名页/ }))
     // Only 设计助手 can use it: 交给谁 folds into the last step.
     expect(d.getByText('1 / 3')).toBeTruthy()
@@ -628,6 +635,7 @@ describe('插件 · 步骤随插件和模板变化', () => {
           description: '',
           group: null,
           preview: null,
+          demo: null,
           inputs: ['title'],
           designSystem: false,
         },

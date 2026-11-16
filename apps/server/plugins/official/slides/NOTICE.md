@@ -37,7 +37,7 @@ limitations under the License.
 | `skills/slides/templates/<id>/` | `design-templates/<id>/`（`SKILL.md` 改写为 `GUIDE.md`，其余文件照搬，删去 README、导出脚本与 OD 专用文件） |
 | `skills/slides/templates/{simple-deck,weekly-update,ib-pitch-book}/design-system/` | 「产品原型」插件的 `neutral-modern`、`corporate` 设计系统 |
 | `skills/slides/templates/kami-deck/design-system/` | `design-systems/kami/` |
-| `previews/*.webp` | 由各模板示例截图生成 |
+| `previews/*.webp` | 由各模板示例截图生成；`*-demo.webp`（卡片悬停动图）由 `scripts/slides/gen-demos.mjs` 生成 |
 | `skills/slides/toolkit/deck-toolkit.js` | 自研放映工具包（总览、演讲者窗口、激光笔、画笔、黑白屏、跳页、打印排版），不来自上游 |
 | `skills/slides/toolkit/stage-seed.html` 与 `templates/{gov-report,new-chinese,bento-grid,newspaper,metro-map,chat-story,living-model,blueprint}/` | 自研，代码与视觉原创，不来自上游 |
 

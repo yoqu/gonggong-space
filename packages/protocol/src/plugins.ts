@@ -66,6 +66,8 @@ export const PluginTemplate = z.object({
   group: z.string().min(1).max(20).nullable().default(null),
   /** An image in the folder shown on the template card; null = a placeholder. */
   preview: PkgPath.nullable().default(null),
+  /** An animated image (e.g. the first slides cycling) played in place of the preview while the card is hovered. */
+  demo: PkgPath.nullable().default(null),
   /** Ids of the manifest inputs this template asks for; null = all of them. */
   inputs: z.array(z.string()).max(12).nullable().default(null),
   /** False when the template brings its own look: the panel skips the design system step. */

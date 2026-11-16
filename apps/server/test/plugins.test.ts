@@ -205,6 +205,10 @@ describe('plugin upload', () => {
       error: 'invalid',
     })
     expect(await bad(without('previews/saas.png'))).toMatchObject({ error: 'invalid' })
+    const withDemo = manifest({
+      templates: [{ id: 'saas', title: 'SaaS 落地页', demo: 'previews/saas-demo.webp' }],
+    })
+    expect(await bad(pkg(withDemo))).toMatchObject({ error: 'invalid' })
     for (const path of ['../x', '/etc/x', 'a\\b', 'a//b'])
       expect(await bad([...ok, { path, content: '' }])).toMatchObject({ error: 'invalid' })
     expect(

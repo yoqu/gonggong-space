@@ -206,7 +206,7 @@ describe.each(CREATION)('official plugin %s', (name) => {
   it('has a guide for every template and every preview file', () => {
     for (const t of manifest.templates) {
       expect(existsSync(join(skillDir, 'templates', t.id, 'GUIDE.md')), t.id).toBe(true)
-      if (t.preview) expect(existsSync(join(root, t.preview)), t.preview).toBe(true)
+      for (const f of [t.preview, t.demo]) if (f) expect(existsSync(join(root, f)), f).toBe(true)
     }
   })
 
