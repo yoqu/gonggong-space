@@ -20,7 +20,7 @@
 
 ## 发布与审核
 - 作者在「我的发布」上传（文件夹/ZIP/粘贴 SKILL.md）或 GitHub 导入，条目挂在所选团队（须是成员）；每次发布生成 draft，`/submit` → pending（`market/publish.ts`）。
-- 审核人：`visibility=team` 为团队 admin，`public` 为 sysadmin；不能审自己的版本（sysadmin 自己的公开条目例外）；驳回必填原因。
+- 审核人：`visibility=team` 为团队 admin，`public` 为 sysadmin；不能审自己的版本（sysadmin 例外，任何可见范围都可自审；姜维川 2026-11-16 定）；驳回必填原因。
 - 通过后 `listedVersionId` 前移，跟随最新的引入同一事务前移并通知引入方；锁定版本的引入显示「有新版本」由管理员手动升级。
 - 已有版本审核通过后不能再改可见范围；各层管理员直接上传的版本直接 approved。
 - 市场可见：已审核且 listed；来源分 official（平台层）/team（我所在团队）/public（他队公开）。

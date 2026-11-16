@@ -775,8 +775,7 @@ export async function reviewVersion(ctx: Ctx, me: Me, id: string, versionId: str
   const v = await findVersion(ctx.db, listing, versionId)
   if (!(await reviews(ctx.db, me, listing))) fail('forbidden', '你不能审核这个版本')
   const own = v.createdBy === me.id || listing.authorId === me.id
-  if (own && !(listing.visibility === 'public' && me.role === 'sysadmin'))
-    fail('forbidden', '不能审核自己发布的版本')
+  if (own && me.role !== 'sysadmin') fail('forbidden', '不能审核自己发布的版本')
   if (v.reviewStatus !== 'pending') fail('conflict', '版本不在待审核状态')
   const moved = await ctx.db.transaction(async (tx) => {
     await tx

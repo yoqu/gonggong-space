@@ -260,7 +260,7 @@ describe('review', () => {
     expect((await submit(w.api.ann, listing)).status).toBe(409)
   })
 
-  it('leaves public listings to sysadmins and never lets authors review themselves', async () => {
+  it('leaves public listings to sysadmins and lets only sysadmin authors review themselves', async () => {
     const w = await world()
     const pub = (await publish(w.api.ann, w.teamA, skill('pub'), 'public')).body.listing
     await submit(w.api.ann, pub)
@@ -284,7 +284,7 @@ describe('review', () => {
     await t.db.insert(teamMembers).values({ teamId: w.teamA, userId: w.root.id, role: 'admin' })
     const rootTeam = (await publish(w.api.root, w.teamA, skill('rooted-team'))).body.listing
     await submit(w.api.root, rootTeam)
-    expect((await review(w.api.root, rootTeam, { approve: true })).status).toBe(403)
+    expect((await review(w.api.root, rootTeam, { approve: true })).status).toBe(204)
   })
 
   it('moves following installs on approval only, leaving pinned ones', async () => {
