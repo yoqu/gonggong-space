@@ -209,6 +209,29 @@ describe('provider presets', () => {
       'quiet',
     )
   })
+
+  it('reach daemons with protocolProviders as vendors, older manifests merged', async () => {
+    const w = await world()
+    const codex = { ...PRESET, agent: 'codex', baseUrl: 'https://api.acme.example.com/v1' }
+    const mine = manifest({ name: 'acme-presets', entry: null, contributes: { providers: [PRESET, codex] } })
+    await upload(w, [
+      file('gonggong-plugin.json', JSON.stringify(mine)),
+      file('assets/icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>'),
+    ])
+    const conn = await daemon(w.token, ['plugins', 'presetSync', 'protocolProviders'])
+    const first = await conn.next<{ t: string; presets: Record<string, unknown>[] }>()
+    expect(first.t).toBe('presets.sync')
+    expect(first.presets.filter((p) => p.id === 'acme')).toMatchObject([
+      {
+        name: 'Acme',
+        endpoints: [
+          { protocol: 'anthropic', baseUrl: PRESET.baseUrl, model: 'acme-1' },
+          { protocol: 'openai', baseUrl: codex.baseUrl },
+        ],
+      },
+    ])
+    expect(first.presets.some((p) => 'agent' in p)).toBe(false)
+  })
 })
 
 const EXAMPLE = join(import.meta.dirname, '../../../examples/plugins/dashboard')

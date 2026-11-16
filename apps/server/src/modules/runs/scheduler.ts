@@ -2,6 +2,7 @@ import {
   type AgentKind,
   type Approval,
   type ContextMessage,
+  clientRunsAgent,
   type GitProtocol,
   type RunStart,
   type Tier,
@@ -55,8 +56,6 @@ const WAITING = ['queued', 'offline_wait']
 /** Runs holding one of the bot's concurrency slots. */
 export const ACTIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'), startedAt: null }
-/** Agents a daemon announces as features: one from before cannot read a run.start for their bots. */
-const LATER_AGENTS: string[] = ['gemini', 'codebuddy', 'pi', 'deepseek', 'antigravity']
 /** The run waits for the client's upgrade. */
 const OUTDATED = {
   status: 'offline_wait',
@@ -140,8 +139,8 @@ export async function schedule(ctx: Ctx, botId: string) {
       }
       if (
         machineId &&
-        LATER_AGENTS.includes(bot.agentKind) &&
-        !ctx.hub.features(machineId).includes(bot.agentKind)
+        // A client from before the agent was added cannot read a run.start for its bots.
+        !clientRunsAgent(ctx.hub.features(machineId), bot.agentKind as AgentKind)
       ) {
         if (run.status !== OUTDATED.status || run.step !== OUTDATED.step) await setRun(run.id, OUTDATED)
         continue

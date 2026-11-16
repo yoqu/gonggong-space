@@ -78,7 +78,8 @@ export async function providersCmd(ctx: Ctx, machineId: string, body: Omit<Provi
 export async function choiceCatalog(ctx: Ctx, bot: Bot & { machineId: string }, choice: string) {
   if (choice === INHERIT_PROVIDER) return pickCatalog(ctx, bot)
   if (choice === OFFICIAL_PROVIDER) return botCatalog(ctx.db, bot)
-  return (await providersCmd(ctx, bot.machineId, { action: 'catalog', id: choice })).catalog ?? null
+  const agent = bot.agentKind as AgentKind
+  return (await providersCmd(ctx, bot.machineId, { action: 'catalog', agent, id: choice })).catalog ?? null
 }
 
 /**

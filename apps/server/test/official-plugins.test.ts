@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   GgArtifactManifest,
+  LegacyProviderPreset,
+  normalizePresets,
   PLUGIN_MANIFEST,
   PLUGIN_MAX_BYTES,
   PLUGIN_MAX_FILES,
@@ -12,6 +14,7 @@ import {
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
+import { z } from 'zod'
 import { frontmatter } from '../src/modules/skills/service.js'
 
 const OFFICIAL = join(import.meta.dirname, '../plugins/official')
@@ -86,7 +89,9 @@ describe('official plugin provider-presets', () => {
     const bundled = JSON.parse(
       readFileSync(join(OFFICIAL, '../../../../crates/gonggong/presets/providers.json'), 'utf8'),
     ) as { source: string; presets: unknown[] }
-    expect(manifest.contributes.providers).toEqual(bundled.presets.map((p) => ProviderPreset.parse(p)))
+    // Compared as vendors: either side may still be in the one-copy-per-agent shape.
+    const presets = z.array(z.union([ProviderPreset, LegacyProviderPreset])).parse(bundled.presets)
+    expect(normalizePresets(manifest.contributes.providers)).toEqual(normalizePresets(presets))
     expect(`cc-switch@${manifest.source?.revision}`).toBe(bundled.source)
     expect([manifest.entry, manifest.contributes.mcp, manifest.contributes.commands]).toEqual([null, [], []])
   })

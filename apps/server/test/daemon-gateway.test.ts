@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from '@gonggong/protocol'
+import { AgentState, PROTOCOL_VERSION } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { machines } from '../src/db/schema.js'
@@ -49,7 +49,8 @@ describe('daemon gateway', () => {
     expect(await box.next()).toMatchObject({ t: 'welcome', machineId: machine.id })
     expect(t.ctx.hub.isOnline(machine.id)).toBe(true)
     const [row] = await t.db.select().from(machines).where(eq(machines.id, machine.id))
-    expect(row?.agents).toEqual(hello(token).agents)
+    // Stored as AgentState: fields an older daemon leaves out at their defaults.
+    expect(row?.agents).toEqual(hello(token).agents.map((a) => AgentState.parse(a)))
     expect(row?.daemonVersion).toBe('0.1.0')
   })
 

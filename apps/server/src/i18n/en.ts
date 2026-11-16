@@ -461,6 +461,15 @@ export const en = {
   '只有机器主人可以管理其 Agent 工具与供应商':
     "Only the machine's owner can manage its agent tools and providers",
   '请先升级该机器的 daemon': "Upgrade this machine's daemon first",
+  请先升级该机器的客户端才能为一个供应商登记多种协议:
+    "Upgrade this machine's client to register more than one protocol for a provider",
+  '请先升级该机器的客户端才能把一个供应商设为多个 Agent 的默认':
+    "Upgrade this machine's client to make one provider the default of several Agents",
+  请先升级该机器的客户端才能为机器默认指定模型:
+    "Upgrade this machine's client to set a model for the machine default",
+  请选择供应商的协议: "Choose the provider's protocol",
+  '{agent} 不支持 {protocol} 协议': '{agent} does not support the {protocol} protocol',
+  供应商不存在: 'Provider not found',
   '请先升级该机器的 daemon 才能使用 Agent 设置': "Upgrade this machine's daemon to use Agent settings",
   '请先升级该机器的 daemon 才能使用命令行参数': "Upgrade this machine's daemon to use command-line arguments",
   '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录':

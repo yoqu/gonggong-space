@@ -1,4 +1,10 @@
-import { type BotDto, type DaemonBotDto, PROTOCOL_VERSION, type WebEvent } from '@gonggong/protocol'
+import {
+  AgentState,
+  type BotDto,
+  type DaemonBotDto,
+  PROTOCOL_VERSION,
+  type WebEvent,
+} from '@gonggong/protocol'
 import { and, eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DaemonConn } from '../src/daemon/hub.js'
@@ -371,12 +377,13 @@ describe('agents.update', () => {
     }
     ws.send(JSON.stringify({ t: 'agents.update', agents: [...CLAUDE, codex] }))
     await vi.waitFor(() => expect(botEvents(seen).at(-1)).toMatchObject({ id: bot.id, presence: 'online' }))
+    const agents = [...CLAUDE, codex].map((a) => AgentState.parse(a))
     expect(seen).toContainEqual({
       t: 'machine.updated',
-      machine: expect.objectContaining({ id: machine.id, agents: [...CLAUDE, codex] }),
+      machine: expect.objectContaining({ id: machine.id, agents }),
     })
     const [row] = await t.db.select().from(machines).where(eq(machines.id, machine.id))
-    expect(row?.agents).toEqual([...CLAUDE, codex])
+    expect(row?.agents).toEqual(agents)
     expect(await presence()).toBe('online')
     ws.close()
   })
