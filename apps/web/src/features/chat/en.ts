@@ -237,6 +237,12 @@ export default {
   确认工作区: 'Choose workspace',
   '仅提及，不会让 Bot 开始工作': 'Mention only: it does not start the Bot',
   '从飞书群创建…': 'Create from Feishu chat…',
+  同时创建飞书群: 'Also create a Feishu chat',
+  '用群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot':
+    'Create a Feishu chat named after the group and link it, adding members and Bots linked to Feishu',
+  '先在设置 › 账户中绑定飞书账号': 'Link your Feishu account in Settings › Account first',
+  '群已创建，但没能创建飞书群：{reason}。可在群设置 › 飞书重试':
+    'Group created, but the Feishu chat could not be: {reason}. Retry in Group settings › Feishu',
   仓库: 'Repository',
   未绑定仓库: 'No repository',
   机器: 'Machine',

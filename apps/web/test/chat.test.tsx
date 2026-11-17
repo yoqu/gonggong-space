@@ -22,6 +22,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { useRunDeltas } from '../src/features/chat/deltas'
 import { useTerminalSpaces } from '../src/features/terminal/spaces'
 import { useToasts } from '../src/ui/toast'
+import { apiError } from './mockApi'
 
 vi.mock('../src/features/terminal/TerminalView', () => ({
   TerminalView: ({ spaceId }: { spaceId?: string }) => <div data-testid="terminal-body">{spaceId}</div>,
@@ -256,7 +257,8 @@ function mockApi(routes: Record<string, (body: Record<string, unknown> | undefin
       calls.push({ method, path, body })
       const handler = routes[`${method} ${path.split('?')[0]}`]
       if (!handler) return new Response(JSON.stringify({ error: 'not_found', message: '' }), { status: 404 })
-      return new Response(JSON.stringify(await handler(body)))
+      const out = await handler(body)
+      return out instanceof Response ? out : new Response(JSON.stringify(out))
     }),
   )
   return calls
@@ -1350,6 +1352,61 @@ describe('new group dialog', () => {
       repo: { url: 'git@git.corp:pay/refund.git', branch: 'release' },
       visibility: 'public',
     })
+  })
+
+  it('creates a Feishu chat with the new group when asked; a failure keeps the group and says how to retry', async () => {
+    let feishuFails = false
+    const calls = mockApi({
+      ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
+      'GET /auth/options': () => ({ registrationOpen: false, feishuLogin: true }),
+      'GET /me/feishu': () => ({ identity: { name: '王磊', email: null } }),
+      'POST /groups': () => group({ id: 'g7', name: '研发' }),
+      'POST /groups/g7/feishu/chat': () =>
+        feishuFails ? apiError(400, 'invalid', '飞书主应用没有建群权限') : {},
+      'GET /groups/g7/timeline': () => ({ messages: [], runs: [] }),
+      'POST /groups/g7/read': () => group({ id: 'g7' }),
+    })
+    const create = async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: '发起会话' })[0]!)
+      const dialog = await screen.findByRole('dialog', { name: '发起会话' })
+      fireEvent.change(within(dialog).getByLabelText('名称'), { target: { value: '研发' } })
+      const sync = await within(dialog).findByRole('switch', { name: '同时创建飞书群' })
+      expect(sync.getAttribute('aria-checked')).toBe('false')
+      fireEvent.click(sync)
+      fireEvent.click(within(dialog).getByRole('button', { name: '创建群' }))
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: '发起会话' })).toBeNull())
+    }
+    renderAt('/')
+    await create()
+    expect(calls.filter((c) => c.path === '/groups/g7/feishu/chat' && c.method === 'POST')).toHaveLength(1)
+    expect(calls.findIndex((c) => c.path === '/groups' && c.method === 'POST')).toBeLessThan(
+      calls.findIndex((c) => c.path === '/groups/g7/feishu/chat'),
+    )
+    feishuFails = true
+    await create()
+    await waitFor(() =>
+      expect(useToasts.getState().items.map((i) => i.message)).toContain(
+        '群已创建，但没能创建飞书群：飞书主应用没有建群权限。可在群设置 › 飞书重试',
+      ),
+    )
+  })
+
+  it('offers the Feishu chat only after the creator binds a Feishu account', async () => {
+    mockApi({
+      ...baseRoutes([]),
+      'GET /me/git-accounts': () => [],
+      'GET /repos': () => [],
+      'GET /auth/options': () => ({ registrationOpen: false, feishuLogin: true }),
+      'GET /me/feishu': () => ({ identity: null }),
+    })
+    renderAt('/')
+    fireEvent.click(screen.getByRole('button', { name: '发起会话' }))
+    const dialog = await screen.findByRole('dialog', { name: '发起会话' })
+    const sync = await within(dialog).findByRole('switch', { name: '同时创建飞书群' })
+    expect(sync.hasAttribute('disabled')).toBe(true)
+    expect(within(dialog).getByText('先在设置 › 账户中绑定飞书账号')).toBeTruthy()
   })
 
   it('creates a group from a Feishu chat: picks the chat, keeps its name editable and reports who was left out', async () => {

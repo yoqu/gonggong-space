@@ -2,6 +2,7 @@ import {
   AGENT_META,
   type BotDto,
   type BotProbeDto,
+  type FeishuIdentityView,
   type GroupDto,
   type UserBriefDto,
   type UserDto,
@@ -9,7 +10,7 @@ import {
 import { type ReactNode, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useWorkspace } from '../../app/workspace'
-import { api } from '../../lib/api'
+import { api, errorText } from '../../lib/api'
 import { toastError } from '../../lib/errors'
 import { useGet } from '../../lib/useGet'
 import {
@@ -23,6 +24,7 @@ import {
   Input,
   Switch,
   Tabs,
+  toast,
 } from '../../ui'
 import { useAuthOptions } from '../auth/options'
 import { BotAvatar } from '../bots/avatars'
@@ -88,6 +90,9 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
   const [repo, setRepo] = useState<RepoDraft>(() => emptyRepo())
   const [creating, setCreating] = useState(false)
   const users = useGet<UserBriefDto[]>('/users').data ?? []
+  // The Feishu chat is owned by its creator, so it needs their linked Feishu account.
+  const feishuId = useGet<FeishuIdentityView>(feishu ? '/me/feishu' : null).data
+  const [withFeishu, setWithFeishu] = useState(false)
 
   const setRepoDraft = (o: Partial<RepoDraft>) => {
     setRepo((r) => ({ ...r, ...o }))
@@ -133,6 +138,15 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
         ...(!dm && { visibility: isPublic ? 'public' : 'private' }),
       })
       useWorkspace.getState().applyEvent({ t: 'group.updated', group })
+      if (!dm && withFeishu)
+        await api.post(`/groups/${group.id}/feishu/chat`, {}).catch((e) =>
+          toast({
+            type: 'error',
+            message: t('群已创建，但没能创建飞书群：{reason}。可在群设置 › 飞书重试', {
+              reason: errorText(e),
+            }),
+          }),
+        )
       onClose()
       navigate(`/g/${group.id}`)
     } catch (e) {
@@ -198,6 +212,23 @@ function NewChatDialog({ me, onClose, onFromFeishu, tabs }: NewProps & { tabs: R
               <GroupRow label={t('公开频道')} description={t('团队成员可在「浏览频道」中找到并自行加入')}>
                 <Switch aria-label={t('公开频道')} checked={isPublic} onChange={setPublic} />
               </GroupRow>
+              {feishu && feishuId ? (
+                <GroupRow
+                  label={t('同时创建飞书群')}
+                  description={
+                    feishuId.identity
+                      ? t('用群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot')
+                      : t('先在设置 › 账户中绑定飞书账号')
+                  }
+                >
+                  <Switch
+                    aria-label={t('同时创建飞书群')}
+                    checked={withFeishu}
+                    disabled={!feishuId.identity}
+                    onChange={setWithFeishu}
+                  />
+                </GroupRow>
+              ) : null}
             </GroupBox>
           </section>
         )}
