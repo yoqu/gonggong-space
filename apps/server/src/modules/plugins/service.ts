@@ -9,6 +9,7 @@ import {
   type PluginLayer,
   PluginManifest,
   type PluginRef,
+  pluginInGroups,
   pluginRunsCode,
   type SkillFile,
   type SkillListingManifest,
@@ -306,7 +307,7 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
             (p.scope === 'group' && p.groupId === g.id)))
       const list = mergeSkills(
         rows
-          .filter((r) => applies(r.plugin) && inGroups(r.version.manifest))
+          .filter((r) => applies(r.plugin) && pluginInGroups(r.version.manifest))
           .map((r) => ({ ...r, scope: r.plugin.scope, name: r.plugin.name })),
       ).map((r) => {
         const install = top.get(r.plugin.id)
@@ -316,10 +317,6 @@ export async function groupPluginLists(db: Read, groupIds: string[]) {
     }),
   )
 }
-
-/** Plugins that bring only provider presets apply to machines, not groups: groups do not list them. */
-const inGroups = (m: PluginManifest) =>
-  !!m.entry || m.contributes.mcp.length > 0 || m.contributes.commands.length > 0
 
 export const groupPluginList = async (db: Read, groupId: string) =>
   (await groupPluginLists(db, [groupId])).get(groupId) ?? []

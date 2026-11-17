@@ -1,4 +1,11 @@
-import type { InstallRequestDto, MarketListingDto, MarketSource, PluginShelf } from '@gonggong/protocol'
+import {
+  type InstallRequestDto,
+  type ListingSummary,
+  type MarketListingDto,
+  type MarketSource,
+  type PluginShelf,
+  shelfOf,
+} from '@gonggong/protocol'
 import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useSession } from '../../app/session'
@@ -73,6 +80,12 @@ function useReviewQueues() {
  * 我的发布 for authors; 待审核 for reviewers. `?tab=` opens one and `?listing=` a listing's detail (notifications link
  * to them).
  */
+/** Agent and provider-preset plugins apply to machines, never to a group, team or repo. */
+const machineOnly = (d: Pick<ListingSummary, 'category'>) => {
+  const shelf = d.category ? shelfOf(d.category) : null
+  return shelf === 'agent' || shelf === 'provider'
+}
+
 export function MarketPage() {
   const [params, setParams] = useSearchParams()
   const queues = useReviewQueues()
@@ -309,7 +322,7 @@ export function MarketPage() {
             key={installedAt}
             id={openId}
             actions={({ listedVersionId, listedRevision, ...d }) =>
-              d.status === 'listed' && listedVersionId && listedRevision !== null ? (
+              d.status === 'listed' && listedVersionId && listedRevision !== null && !machineOnly(d) ? (
                 <Button
                   size="small"
                   variant="primary"

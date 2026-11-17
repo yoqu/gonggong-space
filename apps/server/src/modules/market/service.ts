@@ -6,6 +6,7 @@ import {
   type ListingSummary,
   type ListingType,
   type PluginManifest,
+  pluginInGroups,
   pluginRunsCode,
   type SkillFile,
   type SkillListingManifest,
@@ -210,11 +211,15 @@ export async function installable(db: Read, t: Target, where?: SQL): Promise<Ins
     )
     .orderBy(asc(plugins.name))
   const taken = await takenSkillNames(db, t)
-  return rows.map((r) => ({
-    ...listingSummary(r.listing, r.current),
-    nameTaken: r.listing.type === 'skill' && taken.has(r.listing.name),
-  }))
+  return rows
+    .filter((r) => inScopes(r.current.manifest))
+    .map((r) => ({
+      ...listingSummary(r.listing, r.current),
+      nameTaken: r.listing.type === 'skill' && taken.has(r.listing.name),
+    }))
 }
+
+const inScopes = (m: Version['manifest']) => !('contributes' in m) || pluginInGroups(m)
 
 /** Skill names the scope already has: its skill installs (but `exceptListingId`'s) and the layer's own skills. */
 async function takenSkillNames(db: Read, t: Target, exceptListingId?: string) {
@@ -359,12 +364,13 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
       )
     if (!v) fail('not_found', '版本不存在')
   }
-  if (listing.type === 'plugin' && !pin) {
+  if (listing.type === 'plugin') {
     const [v] = await ctx.db
       .select({ manifest: pluginVersions.manifest })
       .from(pluginVersions)
-      .where(eq(pluginVersions.id, follow))
-    if (v && pluginRunsCode(v.manifest)) fail('invalid', '会运行代码的插件必须固定版本引入')
+      .where(eq(pluginVersions.id, pin || follow))
+    if (v && !inScopes(v.manifest)) fail('invalid', 'Agent 与供应商预设插件作用于机器，不能引入')
+    if (v && !pin && pluginRunsCode(v.manifest)) fail('invalid', '会运行代码的插件必须固定版本引入')
   }
   if (listing.type === 'skill') await skillNameFree(ctx.db, t, listing.name, listing.id)
   const set = {

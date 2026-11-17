@@ -218,6 +218,30 @@ describe('installs', () => {
     expect((await install(w.api.eve, w.paths.group, hidden.id)).status).toBe(409)
     expect((await install(w.api.eve, w.paths.group, platform.id)).status).toBe(200)
   })
+
+  it('keeps machine-only plugins (agents, provider presets) out of scopes', async () => {
+    const w = await world()
+    const res = await w.api.root.post<ListingSummary>('/api/admin/plugins', {
+      files: pluginFiles('agent-x', { category: 'agent', entry: null }),
+    })
+    expect(res.status).toBeLessThan(300)
+    for (const [api, path] of [
+      [w.api.mia, w.paths.group],
+      [w.api.bob, w.paths.team],
+      [w.api.bob, w.paths.repo],
+    ] as const) {
+      const offered = await api.get<ListingSummary[]>(`${path}/installable`)
+      expect(offered.body.map((l) => l.name)).not.toContain('agent-x')
+    }
+    expect(
+      (
+        await install(w.api.eve, w.paths.group, res.body.id, {
+          enabled: true,
+          pinVersionId: res.body.versionId,
+        })
+      ).status,
+    ).toBe(400)
+  })
 })
 
 describe('skill merge', () => {

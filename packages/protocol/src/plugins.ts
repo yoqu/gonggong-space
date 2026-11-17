@@ -337,6 +337,11 @@ export const requiredPermissions = (c: PluginContributes): PluginPermission[] =>
 
 /** Runs code on the executing machine (§9): needs 插件代码 on, the machine owner's consent and a pinned install. */
 export const pluginRunsCode = (m: { permissions: PluginPermission[] }) => m.permissions.includes('exec')
+/** Groups use a plugin only for its entry skill, MCP or commands; one bringing just agents or provider presets applies to machines. */
+export const pluginInGroups = (m: {
+  entry: string | null
+  contributes: { mcp: unknown[]; commands: unknown[] }
+}) => !!m.entry || m.contributes.mcp.length > 0 || m.contributes.commands.length > 0
 
 export const PluginManifest = z
   .object({
