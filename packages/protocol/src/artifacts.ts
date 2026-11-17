@@ -1,4 +1,13 @@
 import { z } from 'zod'
+import {
+  ARTIFACT_LINKS_MAX,
+  ArtifactLinkDisplay,
+  ArtifactLinkRatio,
+  GgArtifactLink,
+  LinkFields,
+  LinkSize,
+} from './artifact-links.js'
+import { ArtifactAnchor, ArtifactRuleFile } from './artifact-rules.js'
 import { SyncHash, SyncPath, syncRootText } from './sync.js'
 
 // ── Artifacts (docs/archive/2026-11/产物托管与编辑-开发计划.md): server-hosted, versioned design/<slug>/ folders ────
@@ -68,6 +77,7 @@ export const GgArtifactManifest = z
     entry: ArtifactScreenId,
     screens: z.array(GgArtifactScreen).min(1).max(100),
     refs: z.array(GgArtifactRef).max(ARTIFACT_REFS_MAX).optional(),
+    links: z.array(GgArtifactLink).max(ARTIFACT_LINKS_MAX).optional(),
   })
   .superRefine((m, ctx) => {
     const ids = new Set<string>()
@@ -87,6 +97,12 @@ export const GgArtifactManifest = z
       const ext = r.file.slice(r.file.lastIndexOf('.') + 1) as keyof typeof ARTIFACT_REF_EXT
       if (ARTIFACT_REF_EXT[ext] !== r.kind)
         ctx.addIssue({ code: 'custom', path: ['refs', i, 'kind'], message: `与文件类型不符：${r.file}` })
+    }
+    const linkIds = new Set<string>()
+    for (const [i, l] of (m.links ?? []).entries()) {
+      if (linkIds.has(l.id))
+        ctx.addIssue({ code: 'custom', path: ['links', i, 'id'], message: `链接 id 重复：${l.id}` })
+      linkIds.add(l.id)
     }
   })
 export type GgArtifactManifest = z.infer<typeof GgArtifactManifest>
@@ -379,7 +395,14 @@ export function tokenValueOk(value: string) {
 /** How the prototype view moves to a link's target: `push-back` slides in from the left. */
 export const ArtifactTransition = z.enum(['none', 'push', 'push-back', 'slide-up', 'fade'])
 export type ArtifactTransition = z.infer<typeof ArtifactTransition>
-export const EditableAttr = z.enum(['src', 'href', 'alt', 'data-gg-link', 'data-gg-transition'])
+export const EditableAttr = z.enum([
+  'src',
+  'href',
+  'alt',
+  'data-gg-link',
+  'data-gg-transition',
+  'data-gg-anchor',
+])
 export type EditableAttr = z.infer<typeof EditableAttr>
 const RELATIVE_URL = /^(?![a-z][a-z0-9+.-]*:)(?![/\\])[^\s"'<>\\`]+$/i
 const HTTP_URL = /^https?:\/\/[^\s"'<>\\`]+$/i
@@ -398,6 +421,8 @@ export function attrValueOk(name: EditableAttr, value: string) {
       return value === '' || ArtifactScreenId.safeParse(value).success
     case 'data-gg-transition':
       return value === '' || ArtifactTransition.safeParse(value).success
+    case 'data-gg-anchor':
+      return value === '' || ArtifactAnchor.safeParse(value).success
   }
 }
 
@@ -427,8 +452,8 @@ export function tokensCssOk(css: string) {
   return body.slice(at).trim() === ''
 }
 
-/** Files of an artifact a member may replace whole (the design system panel). */
-export const ArtifactWholeFile = z.enum(['DESIGN.md', 'tokens.css'])
+/** Files of an artifact a member may replace whole: the design system panel's, and the rule files (stored as plain text). */
+export const ArtifactWholeFile = z.union([z.enum(['DESIGN.md', 'tokens.css']), ArtifactRuleFile])
 export type ArtifactWholeFile = z.infer<typeof ArtifactWholeFile>
 export const ARTIFACT_WHOLE_FILE_MAX_BYTES = 200 * 1024
 
@@ -460,7 +485,7 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('delete'), ...At }),
   /** An uploaded image copied into `assets/`; the element's `src` points at it. */
   z.object({ kind: z.literal('asset'), ...At, uploadId: z.string() }),
-  /** Replaces DESIGN.md (stored as plain text; clients escape it) or tokens.css (see tokensCssOk). */
+  /** Replaces DESIGN.md or a rule file (stored as plain text; clients escape it) or tokens.css (see tokensCssOk). */
   z
     .object({ kind: z.literal('file'), path: ArtifactWholeFile, content: z.string() })
     .superRefine((o, ctx) => {
@@ -513,6 +538,30 @@ export const ArtifactEditOp = z.discriminatedUnion('kind', [
     x: z.number().finite(),
     y: z.number().finite(),
   }),
+  /** Adds a link node (the server picks its id from the title or host). */
+  z.object({
+    kind: z.literal('link'),
+    ...LinkFields,
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
+  }),
+  /** Given fields replace the node's; `h` null drops it (a fixed ratio). */
+  z.object({
+    kind: z.literal('link-update'),
+    id: ArtifactScreenId,
+    title: LinkFields.title.optional(),
+    display: ArtifactLinkDisplay.optional(),
+    ratio: ArtifactLinkRatio.optional(),
+    w: LinkSize.optional(),
+    h: LinkSize.nullable().optional(),
+  }),
+  z.object({
+    kind: z.literal('link-move'),
+    id: ArtifactScreenId,
+    x: z.number().finite(),
+    y: z.number().finite(),
+  }),
+  z.object({ kind: z.literal('link-delete'), id: ArtifactScreenId }),
 ])
 export type ArtifactEditOp = z.infer<typeof ArtifactEditOp>
 /** POST /api/artifacts/:id/edits — 409 when `baseVersionId` is not the head. */
@@ -664,12 +713,16 @@ export const BridgeLinkRect = z.object({
 export type BridgeLinkRect = z.infer<typeof BridgeLinkRect>
 export const BridgeBackRect = z.object({ ggId: GgId.nullable(), rect: Rect })
 export type BridgeBackRect = z.infer<typeof BridgeBackRect>
+export const BridgeAnchorRect = z.object({ anchor: ArtifactAnchor, ggId: GgId.nullable(), rect: Rect })
+export type BridgeAnchorRect = z.infer<typeof BridgeAnchorRect>
 const Layout = {
   width: z.number(),
   height: z.number(),
   links: z.array(BridgeLinkRect).max(500).optional(),
   /** `data-gg-back` elements. */
   back: z.array(BridgeBackRect).max(500).optional(),
+  /** `data-gg-anchor` elements (page rules hang on them), in document coordinates like `links`. */
+  anchors: z.array(BridgeAnchorRect).max(500).optional(),
 }
 /**
  * Element rects (`hover`, `select`) are in the screen's viewport (its iframe) when posted, in CSS pixels; `links` /
@@ -701,6 +754,8 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
     link: z.string().nullable(),
     /** `data-gg-transition`, when valid. */
     transition: ArtifactTransition.nullable(),
+    /** `data-gg-anchor`, when valid. */
+    anchor: ArtifactAnchor.nullable().optional(),
     /** Its outer HTML without the injected `data-gg-*` attributes, cut to BRIDGE_SNIPPET_MAX characters. */
     snippet: z.string().max(BRIDGE_SNIPPET_MAX),
   }),
@@ -846,6 +901,8 @@ export const ArtifactCommand = z.enum([
   'apply-design-system',
   /** Imagine new screen: a new screen as `text` describes, linked from the selected elements. */
   'connect-element',
+  /** Fills in the business rules (rules/<id>.md, shared ones in rules/shared.md) of `screenIds`, pending what it cannot infer. */
+  'complete-rules',
 ])
 export type ArtifactCommand = z.infer<typeof ArtifactCommand>
 

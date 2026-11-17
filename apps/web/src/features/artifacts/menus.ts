@@ -43,6 +43,10 @@ export const CMD = {
   designMd: 'design-md',
   /** DESIGN.md's text to the system clipboard. */
   copyMd: 'copy-md',
+  /** The 页面规则 panel of the selected screen (the first without one). */
+  rules: 'rules',
+  /** The 共享规则.md panel. */
+  sharedRules: 'shared-rules',
   /** The prototype editor (the prototype node's 打开). */
   present: 'present',
   /** `gen:<command>` (a platform command or one of the artifact's plugin): POST …/commands for the selected screens. */
@@ -204,6 +208,7 @@ export function screenContextItems(o: {
     ...previewItems(o.single, o.frame, o.device).filter((it) => !('separator' in it)),
     { separator: true },
     { label: t('显示连线'), value: CMD.links, shortcut: 'X', checked: o.showLinks },
+    { label: t('页面规则'), value: CMD.rules, disabled: !o.single },
     ...moreItems(o.readOnly).filter((it) => 'value' in it && it.value !== CMD.remove && it.disabled !== true),
   ]
 }

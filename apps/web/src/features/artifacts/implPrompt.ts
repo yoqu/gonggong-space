@@ -1,4 +1,5 @@
-import type { ArtifactLink, GgArtifactManifest } from '@gonggong/protocol'
+import { type ArtifactLink, type GgArtifactManifest, SHARED_RULES_FILE } from '@gonggong/protocol'
+import { promptRules, type RuleData } from './rules'
 
 /** The front matter's top-level scalars and one level of maps (`colors.primary: #fff`), as `key: value` lines. */
 function frontMatterLines(md: string) {
@@ -32,6 +33,8 @@ export function implementationPrompt(o: {
   designMd: string | null
   /** tokens.css custom properties, for when there is no DESIGN.md front matter. */
   tokens: [string, string][]
+  /** Page business rules, per screen under its line. */
+  rules?: RuleData
 }) {
   const { manifest } = o
   const out = [
@@ -44,6 +47,9 @@ export function implementationPrompt(o: {
     for (const s of manifest.screens) {
       out.push(`- ${s.id}「${s.title}」：${o.dir}/${s.file}`)
       if (s.prompt?.trim()) out.push(`  说明：${s.prompt.trim().replace(/\s+/g, ' ')}`)
+      out.push(
+        ...promptRules(o.rules?.pages[s.id]?.rules, o.rules?.shared ?? null, `${o.dir}/${SHARED_RULES_FILE}`),
+      )
     }
     out.push('')
   }

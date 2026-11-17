@@ -856,6 +856,7 @@ mod tests {
                     { "id": "detail", "title": "x", "file": "screens/home.html" },
                     { "id": "detail", "title": "详情", "file": "screens/detail.html" },
                 ],
+                "links": [{ "id": "spec", "url": "https://x.feishu.cn/docx/1", "title": "需求", "display": "embed", "ratio": "16:9" }],
             })
             .to_string()
         };

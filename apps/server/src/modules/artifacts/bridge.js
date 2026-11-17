@@ -19,6 +19,12 @@
     'height',
   ]
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
+  // ArtifactAnchor in the contract.
+  const ANCHOR = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  const anchorOf = (el) => {
+    const a = el.getAttribute('data-gg-anchor')
+    return a && a.length <= 40 && ANCHOR.test(a) ? a : null
+  }
   // STYLE_PROPS in the contract: what the element panel edits.
   const STYLE_PROPS = new Set([
     'color',
@@ -159,6 +165,7 @@
       href: el.getAttribute('href'),
       link: el.getAttribute('data-gg-link'),
       transition: TRANSITIONS.includes(transition) ? transition : null,
+      anchor: anchorOf(el),
       snippet: el.outerHTML.replace(INJECTED, '').slice(0, 300),
     }
   }
@@ -503,6 +510,7 @@
         }
       }),
       back: hots('[data-gg-back]', () => ({})),
+      anchors: hots('[data-gg-anchor]', (el) => ({ anchor: anchorOf(el) })).filter((a) => a.anchor),
     }
   }
   // Throttled to one post per 100 ms, the last position always sent: the main site moves its overlays with it.

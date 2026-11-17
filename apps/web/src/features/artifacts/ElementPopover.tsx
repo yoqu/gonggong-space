@@ -168,6 +168,7 @@ export function EditPopover({
   screens,
   onLink,
   onConnect,
+  onRule,
   onProps,
   onDelete,
   onClose,
@@ -191,6 +192,8 @@ export function EditPopover({
   onLink: (to: string) => Promise<boolean>
   /** Imagine new screen: a screen the AI makes from `text`, linked from this element. */
   onConnect: (text: string) => Promise<boolean>
+  /** 添加规则: a page rule on this element. */
+  onRule: () => void
   onProps: () => void
   onDelete: () => void
   onClose: () => void
@@ -277,6 +280,7 @@ export function EditPopover({
             disabled={!located || !bot}
             onClick={() => setStep('connect')}
           />
+          <Action icon="checklist" label={t('添加规则')} hint={ro} disabled={readOnly} onClick={onRule} />
           <Action
             icon="slider-horizontal"
             label={t('属性')}

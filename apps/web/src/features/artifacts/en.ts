@@ -1,19 +1,23 @@
 import composer from './en-composer'
 import design from './en-design'
 import inplace from './en-inplace'
+import links from './en-links'
 import proto from './en-proto'
 import r3 from './en-r3'
 import r4 from './en-r4'
 import r5 from './en-r5'
+import rules from './en-rules'
 
 export default {
   ...composer,
   ...design,
   ...inplace,
+  ...links,
   ...proto,
   ...r3,
   ...r4,
   ...r5,
+  ...rules,
   // Card
   '{title} 缩略图': '{title} thumbnail',
   正在生成: 'Generating',

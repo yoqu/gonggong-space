@@ -7,6 +7,8 @@ import {
   type ArtifactDto,
   ArtifactEditReq,
   ArtifactFavoritesReq,
+  ArtifactLinkMetaReq,
+  type ArtifactLinkMetaRes,
   type ArtifactManifestRes,
   ArtifactPatchReq,
   type ArtifactPluginCommandDto,
@@ -50,6 +52,7 @@ import { sendAnnotations, sendCommand } from './commands.js'
 import { applyEdits, UPLOAD_READ_MAX, uploadFile } from './edits.js'
 import { exportZip } from './export.js'
 import { pluginCommands, pluginDesignSystems } from './kit.js'
+import { artifactLinkMeta } from './link-meta.js'
 import {
   type Artifact,
   artifactDetail,
@@ -480,6 +483,15 @@ export function artifactRoutes(ctx: Ctx) {
       }
       return artifactDetail(ctx, (await findArtifact(ctx.db, a.id)) as Artifact)
     })
+
+    app.post<{ Params: { id: string } }>(
+      '/api/artifacts/:id/link-meta',
+      async (req): Promise<ArtifactLinkMetaRes> => {
+        const me = await requireUser(ctx, req)
+        await requireArtifact(ctx, req.params.id, me.id)
+        return artifactLinkMeta(ArtifactLinkMetaReq.parse(req.body).url)
+      },
+    )
 
     app.get<{ Params: { id: string } }>(
       '/api/artifacts/:id/design-systems',

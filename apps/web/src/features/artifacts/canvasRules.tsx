@@ -1,0 +1,386 @@
+import {
+  ArtifactAnchor,
+  type ArtifactEditOp,
+  type BotDto,
+  type BridgeAnchorRect,
+  type BridgeMode,
+  SHARED_RULES_FILE,
+} from '@gonggong/protocol'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { t } from '../../i18n'
+import { cx } from '../../lib/cx'
+import { offlineHint } from './actions'
+import { type BridgeMessage, postToScreen } from './bridge'
+import { elementBox, inDocument, NO_SCROLL, type Scroll, scrolledBy } from './elements'
+import type { CanvasNode, Rect, View } from './geometry'
+import { type RulesAdding, RulesPanel } from './RulesPanel'
+import {
+  addRuleOps,
+  anchorSpots,
+  defaultLabel,
+  loadRomanizer,
+  ruleFileOp,
+  ruleStats,
+  type SharedRef,
+  sharedRefs,
+  useRuleFiles,
+} from './rules'
+import { SharedRulesNode, SharedRulesPanel } from './SharedRules'
+import './rules.css'
+
+const MARKS_KEY = 'gg.art.ruleMarks'
+/** Whole-page marks sit in a row at the screen's top left, this far apart (px). */
+const PAGE_MARK_STEP = 22
+
+type RulesPanelKind = 'rules' | 'shared'
+
+/**
+ * Page business rules on the canvas (design/app-screens-fzvz canvas, rules-view, rules-add, shared-rules): the badges
+ * beside screen titles, the numbered marks on the elements, picking an element for a new rule, the 页面规则 and
+ * 共享规则.md panels and the shared rules node. The canvas wires these pieces in where they go.
+ */
+export function useCanvasRules(o: {
+  files: { path: string; hash: string }[] | null
+  readFile: (file: string) => Promise<string>
+  versionKey: string
+  /** The manifest's screens (the canvas lays them out after the shared rules node is known). */
+  screens: { id: string; title: string; file: string }[]
+  canEdit: boolean
+  frames: ReadonlyMap<string, HTMLIFrameElement>
+  origin: string | null
+  /** The bridge mode of the canvas's tool, restored when picking ends. */
+  mode: BridgeMode
+  scrolls: Record<string, Scroll>
+  panel: string | null
+  setPanel: (p: RulesPanelKind | null) => void
+  save: (ops: ArtifactEditOp[]) => Promise<boolean>
+  /** AI 补全: complete-rules for the screen, to the artifact's bot. */
+  complete: (screenId: string) => Promise<boolean>
+  bot: BotDto | null
+  /** Selects the screen and brings it into view. */
+  focus: (screenId: string) => void
+}) {
+  const data = useRuleFiles(o.files, o.readFile, o.versionKey)
+  const [show, setShow] = useState(() => localStorage.getItem(MARKS_KEY) !== 'off')
+  const [screenId, setScreenId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [sharedAt, setSharedAt] = useState<{ id: string | null; n: number }>({ id: null, n: 0 })
+  const [sharedEditing, setSharedEditing] = useState(false)
+  const [anchors, setAnchors] = useState<Record<string, BridgeAnchorRect[]>>({})
+  /** A rule being added; `rect`: its element in the screen's document, for the draft mark. */
+  const [adding, setAdding] = useState<(RulesAdding & { screenId: string; rect: Rect | null }) | null>(null)
+  const highlighted = useRef<string | null>(null)
+  const screen = o.screens.find((s) => s.id === screenId) ?? null
+  const page = screenId ? data.pages[screenId] : undefined
+  const refs = sharedRefs(data.pages, o.screens)
+
+  const toggle = () => {
+    localStorage.setItem(MARKS_KEY, show ? 'off' : 'on')
+    setShow(!show)
+  }
+  const highlight = (file: string | null, ggId: string | null) => {
+    const last = highlighted.current
+    if (last && last !== file) postToScreen(o.frames.get(last), o.origin, { type: 'highlight', ggIds: [] })
+    highlighted.current = ggId ? file : null
+    if (!file) return
+    const f = o.frames.get(file)
+    postToScreen(f, o.origin, { type: 'highlight', ggIds: ggId ? [ggId] : [] })
+    if (ggId) postToScreen(f, o.origin, { type: 'scroll-to', ggId })
+  }
+  const spotOf = (file: string, anchor: string | null) =>
+    anchor ? anchors[file]?.find((a) => a.anchor === anchor) : undefined
+  const selectRule = (sid: string, i: number) => {
+    setSelected(i)
+    const s = o.screens.find((x) => x.id === sid)
+    const r = data.pages[sid]?.rules[i]
+    if (s && r) highlight(s.file, spotOf(s.file, r.anchor)?.ggId ?? null)
+  }
+  const open = (sid: string, i?: number) => {
+    if (o.panel !== 'rules' || sid !== screenId) o.focus(sid)
+    if (sid !== screenId) {
+      setSelected(null)
+      setAdding(null)
+    }
+    setScreenId(sid)
+    o.setPanel('rules')
+    if (i !== undefined) selectRule(sid, i)
+  }
+  const openShared = (id: string | null = null) => {
+    setSharedAt((p) => ({ id, n: p.n + 1 }))
+    o.setPanel('shared')
+  }
+  const createShared = () => {
+    setSharedEditing(true)
+    openShared()
+  }
+
+  // Leaving the panel ends adding and the element's outline.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on the panel only
+  useEffect(() => {
+    if (o.panel === 'rules') return
+    setAdding(null)
+    highlight(null, null)
+    if (o.panel !== 'shared') setSharedEditing(false)
+  }, [o.panel])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a version change only
+  useEffect(() => {
+    setAdding(null)
+    setSelected(null)
+    setAnchors({})
+  }, [o.versionKey])
+
+  // Picking: the screens take clicks (as with the mark tool) until the rule is saved or cancelled.
+  const picking = !!adding
+  const wasPicking = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on picking's start and end only
+  useEffect(() => {
+    if (picking === wasPicking.current) return
+    wasPicking.current = picking
+    for (const f of o.frames.values()) {
+      postToScreen(f, o.origin, { type: 'mode', mode: picking ? 'mark' : o.mode })
+      if (!picking) postToScreen(f, o.origin, { type: 'select-clear' })
+    }
+  }, [picking])
+  useEffect(() => {
+    if (!picking) return
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setAdding(null)
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [picking])
+
+  const startAdding = () =>
+    screenId && setAdding({ screenId, picked: false, target: null, scriptMade: false, rect: null })
+  const wholePage = () =>
+    adding && setAdding({ ...adding, picked: true, target: null, scriptMade: false, rect: null })
+
+  /** Takes the bridge messages that are about rules; true when the canvas should not handle it as well. */
+  const onBridge = (m: BridgeMessage) => {
+    if (m.type === 'ready' || m.type === 'size') {
+      const found = anchorSpots((m as { anchors?: unknown }).anchors)
+      if (found) setAnchors((a) => ({ ...a, [m.file]: found }))
+      return false
+    }
+    if (!adding) return false
+    if (m.type === 'mark-rect') {
+      postToScreen(o.frames.get(m.file), o.origin, { type: 'select-clear' })
+      return true
+    }
+    if (m.type !== 'select') return false
+    pick(m)
+    return true
+  }
+  /** The element a new rule hangs on; one made by a script (no ggId, no anchor) leaves the whole page. */
+  const pick = (el: Extract<BridgeMessage, { type: 'select' }>) => {
+    const s = o.screens.find((x) => x.file === el.file)
+    if (!s) return
+    const anchor = ArtifactAnchor.safeParse(el.anchor).success ? (el.anchor as string) : null
+    const usable = !!el.ggId || !!anchor
+    if (s.id !== screenId) {
+      setScreenId(s.id)
+      setSelected(null)
+    }
+    setAdding({
+      screenId: s.id,
+      picked: true,
+      scriptMade: !usable,
+      target: usable ? { label: defaultLabel(el), file: el.file, ggId: el.ggId, anchor, tag: el.tag } : null,
+      rect: usable ? inDocument(el.rect, o.scrolls[el.file] ?? NO_SCROLL) : null,
+    })
+  }
+  /** 添加规则 on an element picked with direct edit: straight to the new rule. */
+  const addFor = (el: { screenId: string } & Extract<BridgeMessage, { type: 'select' }>) => {
+    open(el.screenId)
+    pick(el)
+  }
+
+  const create = async (label: string, text: string, pending: boolean) => {
+    if (!adding || !screen) return false
+    const target = adding.target && { ...adding.target, label: label.trim() || adding.target.label }
+    const taken = [
+      ...(anchors[screen.file] ?? []).map((a) => a.anchor),
+      ...(page?.rules ?? []).flatMap((r) => (r.anchor ? [r.anchor] : [])),
+    ]
+    const romanize = target && !target.anchor && target.ggId ? await loadRomanizer() : undefined
+    const ops = addRuleOps({
+      screenId: screen.id,
+      title: page?.title ?? `${screen.title} · 页面规则`,
+      rules: page?.rules ?? [],
+      target,
+      text,
+      pending,
+      taken,
+      romanize,
+    })
+    const ok = await o.save(ops)
+    if (ok) {
+      setAdding(null)
+      setSelected(page?.rules.length ?? 0)
+    }
+    return ok
+  }
+
+  const badge = (n: CanvasNode): ReactNode => {
+    const rules = data.pages[n.id]?.rules
+    if (!show || !rules?.length) return null
+    const { total, pending } = ruleStats(rules)
+    return (
+      <button
+        type="button"
+        className="art-title__rules"
+        data-testid={`art-rules-badge-${n.id}`}
+        aria-label={
+          pending ? t('规则 {n} · 待确认 {m}', { n: total, m: pending }) : t('规则 {n}', { n: total })
+        }
+        onClick={() => open(n.id)}
+      >
+        {t('规则 {n}', { n: total })}
+        {pending ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <em>{t('待确认 {n}', { n: pending })}</em>
+          </>
+        ) : null}
+      </button>
+    )
+  }
+
+  /** The numbered marks on the screens (and the new rule's), over the canvas at the current pan and zoom. */
+  const marks = (view: View, nodes: CanvasNode[]): ReactNode => {
+    if (!show && !adding) return null
+    const pageAt = (n: CanvasNode, k: number) => ({
+      left: view.x + n.x * view.z + 6 + k * PAGE_MARK_STEP,
+      top: view.y + n.y * view.z + 6,
+    })
+    const out: ReactNode[] = []
+    for (const n of nodes) {
+      if (n.kind !== 'screen') continue
+      const rules = show ? (data.pages[n.id]?.rules ?? []) : []
+      let k = 0
+      const place = (rect: Rect | null) => {
+        if (!rect) return pageAt(n, k++)
+        const at = scrolledBy(rect, o.scrolls[n.file] ?? NO_SCROLL)
+        if (at.y + at.h < 0 || at.y > n.h) return null
+        const b = elementBox(n, at, view)
+        return { left: b.left + b.width, top: b.top }
+      }
+      for (const [i, r] of rules.entries()) {
+        const spot = spotOf(n.file, r.anchor)
+        const at = place(spot?.rect ?? null)
+        if (!at) continue
+        out.push(
+          <button
+            key={`${n.id}:${i}`}
+            type="button"
+            className={cx(
+              'art-rule-mark',
+              !spot && 'art-rule-mark--page',
+              r.pending && 'art-rule-mark--pending',
+              o.panel === 'rules' && screenId === n.id && selected === i && 'art-rule-mark--on',
+            )}
+            data-testid={`art-rule-mark-${n.id}-${i + 1}`}
+            title={r.text}
+            style={at}
+            onClick={() => open(n.id, i)}
+          >
+            {i + 1}
+          </button>,
+        )
+      }
+      if (adding?.picked && adding.screenId === n.id) {
+        const at = place(adding.rect)
+        if (at)
+          out.push(
+            <span
+              key={`${n.id}:new`}
+              className="art-rule-mark art-rule-mark--draft"
+              data-testid="art-rule-draft"
+              style={at}
+            >
+              {(data.pages[n.id]?.rules.length ?? 0) + 1}
+            </span>,
+          )
+      }
+    }
+    return out.length ? <div className="art-rule-marks">{out}</div> : null
+  }
+
+  const banner = adding ? (
+    <div className="art-rule-pick" role="status" aria-label={t('选取元素')}>
+      {t('点击页面元素挂规则，或')}
+      <button type="button" onClick={wholePage}>
+        {t('挂到整页')}
+      </button>
+      <span aria-hidden="true">·</span>
+      {t('Esc 取消')}
+    </div>
+  ) : null
+
+  const hint = o.bot ? offlineHint(o.bot) : t('群里没有 Bot')
+  const panel =
+    o.panel === 'rules' && screen ? (
+      <RulesPanel
+        screens={o.screens}
+        screenId={screen.id}
+        onScreen={(id) => open(id)}
+        data={page}
+        canEdit={o.canEdit}
+        selected={selected}
+        onSelect={(i) => selectRule(screen.id, i)}
+        onSaveRules={(rules) => o.save([ruleFileOp(screen.id, page?.title ?? null, rules)])}
+        onSaveSource={(md) => o.save([{ kind: 'file', path: `rules/${screen.id}.md`, content: md }])}
+        adding={adding?.screenId === screen.id ? adding : null}
+        onAdd={startAdding}
+        onCreate={create}
+        onCancelAdd={() => setAdding(null)}
+        onShared={(id) => openShared(id)}
+        ai={{ disabled: !o.bot, hint }}
+        onComplete={() => void o.complete(screen.id)}
+        onClose={() => o.setPanel(null)}
+      />
+    ) : o.panel === 'shared' ? (
+      <SharedRulesPanel
+        md={data.shared}
+        refs={refs}
+        canEdit={o.canEdit}
+        editing={sharedEditing}
+        focus={sharedAt}
+        onSave={(md) => o.save([{ kind: 'file', path: SHARED_RULES_FILE, content: md }])}
+        onRef={(r: SharedRef) => open(r.screenId, r.n - 1)}
+        onClose={() => o.setPanel(null)}
+      />
+    ) : null
+
+  /** The shared rules node's content; it shows with the file, or empty for an editor to start one. */
+  const node = (
+    <SharedRulesNode
+      md={data.shared}
+      canEdit={o.canEdit}
+      onOpen={() => openShared()}
+      onCreate={createShared}
+    />
+  )
+
+  return {
+    data,
+    show,
+    toggle,
+    picking,
+    /** The bridge mode the screens should be in (a screen that loads while picking gets the picking mode). */
+    modeFor: (mode: BridgeMode): BridgeMode => (picking ? 'mark' : mode),
+    /** With the file, or empty for an editor once the artifact has page rules (it would only clutter one without). */
+    hasSharedNode: data.shared !== null || (o.canEdit && Object.keys(data.pages).length > 0),
+    open,
+    openShared,
+    addFor,
+    onBridge,
+    badge,
+    marks,
+    banner,
+    panel,
+    node,
+  }
+}

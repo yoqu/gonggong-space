@@ -137,6 +137,33 @@ describe('gg-bridge', () => {
     ])
   })
 
+  it('reports valid rule anchors in document coordinates, and the selected element’s anchor', () => {
+    const s = screen(
+      '<!doctype html><html><head></head><body><button id="pay" data-gg-anchor="pay-btn">付款</button><p data-gg-anchor="Bad Anchor">x</p><p id="plain">y</p></body></html>',
+    )
+    const ready = BridgeFromShell.parse(s.posts[0]?.data)
+    const pay = s.$('#pay').getAttribute('data-gg-id')
+    expect(ready.type === 'ready' && ready.anchors).toEqual([
+      { anchor: 'pay-btn', ggId: pay, rect: { x: 0, y: 0, w: 0, h: 0 } },
+    ])
+    Object.defineProperty(s.w, 'scrollY', { value: 50 })
+    s.$('#pay').getBoundingClientRect = () => ({ left: 5, top: 10, width: 60, height: 30 }) as DOMRect
+    s.w.dispatchEvent(new s.w.Event('load'))
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'size',
+      anchors: [{ anchor: 'pay-btn', rect: { x: 5, y: 60, w: 60, h: 30 } }],
+    })
+    s.send({ type: 'mode', mode: 'edit' })
+    s.click('#pay')
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'select',
+      anchor: 'pay-btn',
+      snippet: '<button id="pay" data-gg-anchor="pay-btn">付款</button>',
+    })
+    s.click('#plain')
+    expect(s.last()).toMatchObject({ type: 'select', anchor: null })
+  })
+
   it('reports scrolling at most every 100 ms, ending with the last position', async () => {
     const s = screen()
     const scrollTo = (y: number) => {

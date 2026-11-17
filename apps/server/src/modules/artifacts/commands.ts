@@ -23,6 +23,7 @@ import { triggerRuns } from '../runs/trigger.js'
 import { readBlob } from './blobs.js'
 import { type Element, elementsOf, lineOf, sectionOf, textOf } from './html.js'
 import { pluginCommands } from './kit.js'
+import { rulesContext } from './rules.js'
 import { type Artifact, manifestOf, requireVersion, type Version } from './service.js'
 
 // Everything here is read by agents (not translated), except the short message bodies members see.
@@ -127,6 +128,17 @@ async function contextLines(ctx: Ctx, a: Artifact, sel: Selection) {
       '参考文件（成员放到画布上的资料，已随产物检出，请先查看再按要求处理）：',
       ...refs.map((r) => `- ${a.dir}/${r.file}（${REF_KIND[r.kind]}：${r.title}）`),
     )
+  const ruleScreens = [
+    ...new Set([
+      ...sel.screenIds,
+      ...sel.elements.flatMap((e) => m?.screens.find((s) => s.file === e.file)?.id ?? []),
+    ]),
+  ]
+  const rules = await rulesContext(async (path) => {
+    const f = v.files.find((x) => x.path === path)
+    return f ? (await readBlob(a.groupId, f.hash)).toString('utf8') : null
+  }, ruleScreens)
+  if (rules.length) lines.push(...rules)
   const canvas: MessageCanvas = {
     artifactId: a.id,
     title: a.title,
@@ -175,6 +187,17 @@ function commandInstruction(
     'connect-element': elements
       ? `${newScreen}再给下面选中的元素加 data-gg-link="<新屏 id>"，其他元素和屏幕不要改。`
       : `${newScreen}再在下面选中的屏幕里找合适的位置加一个进入新屏的入口（按钮、列表项或卡片等，带 data-gg-link="<新屏 id>"），与原有布局协调，其他屏幕不要改。`,
+    'complete-rules': [
+      `为下面选中的每个屏幕补全页面业务规则，写进 ${dir}/rules/<屏幕 id>.md（已有的规则保留，只补缺的、改错的）。`,
+      '只写看原型看不出来的业务规则：异常与边界情况、数据计算与取整、权限、状态流转；不要复述界面上已经能看到的内容。',
+      '格式严格如下：可选的一级标题（# 屏幕名），然后是编号列表，每条一行，例如：1. **提交按钮** `#submit-btn` [待确认]：库存为 0 时置灰并提示已售罄。没有挂元素的省去 `#锚点`，确定的规则不写 [待确认]。',
+      '规则挂在某个元素上时，在该屏 HTML 的那个元素上加 data-gg-anchor="<锚点>"（小写字母、数字和连字符，屏内唯一，已有的锚点不要改），规则里写 `#<锚点>`；针对整页的规则不写锚点。',
+      '从原型和上下文推不出来的不要编：标 [待确认] 并写出建议值（如「建议：超时 15 分钟自动取消」）。',
+      `多个屏幕共用的规则写进 ${dir}/rules/shared.md：按 \`## S1 标题\` 分节，节内用表格或列表；页面规则里写「见 S1」引用，不要重复抄写。`,
+      ask,
+    ]
+      .filter(Boolean)
+      .join('\n'),
   }
   return by[r.command]
 }
@@ -190,6 +213,7 @@ const COMMAND_LABEL: Record<ArtifactCommand, MessageKey> = {
   'edit-with-ai': '修改#edit',
   'apply-design-system': '套用设计系统',
   'connect-element': '新建一屏并连接',
+  'complete-rules': '补全业务规则',
 }
 
 const withText = (action: string, text: string | undefined) =>

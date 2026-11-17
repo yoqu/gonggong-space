@@ -13,6 +13,7 @@ import {
   type ArtifactUploadRes,
   GG_ARTIFACT_MANIFEST,
   GgArtifactManifest,
+  ruleFileOf,
 } from '@gonggong/protocol'
 import { eq } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
@@ -89,6 +90,23 @@ const assetSrc = (file: string, name: string) => (file.includes('/') ? `../asset
 
 type ManifestOp = Extract<ArtifactEditOp, { kind: 'manifest' | 'screen-move' }>
 type RefOp = Extract<ArtifactEditOp, { kind: 'ref' | 'ref-delete' | 'ref-move' | 'ref-rename' }>
+type LinkOp = Extract<ArtifactEditOp, { kind: 'link' | 'link-update' | 'link-move' | 'link-delete' }>
+
+const kebab = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+/** A link node's id from its title, else its host (`www.` dropped); `-2`, `-3`… when taken. */
+function linkId(title: string, url: string, taken: Set<string>) {
+  const base = (kebab(title) || kebab(new URL(url).hostname.replace(/^www\./, '')) || 'link').slice(0, 34)
+  const root = base.replace(/-+$/, '')
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? root : `${root}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+}
 
 /** `<id>-copy`, then `<id>-copy-2`…, within the 40 characters of a screen id. */
 function copyId(id: string, taken: Set<string>) {
@@ -119,7 +137,9 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
   const tokens: Extract<ArtifactEditOp, { kind: 'token' }>[] = []
   const screens: ManifestOp[] = []
   const refs: RefOp[] = []
+  const linkOps: LinkOp[] = []
   const links = new Set<string>()
+  const removed = new Set<string>()
   let designSystemId: string | null = null
   for (const op of req.ops) {
     switch (op.kind) {
@@ -161,8 +181,21 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
       case 'ref-rename':
         refs.push(op)
         break
+      case 'link':
+      case 'link-update':
+      case 'link-move':
+      case 'link-delete':
+        linkOps.push(op)
+        break
       case 'file':
-        changed.set(op.path, Buffer.from(op.content))
+        // An emptied rule file goes: a screen without rules has none.
+        if (op.path.startsWith('rules/') && !op.content.trim()) {
+          changed.delete(op.path)
+          removed.add(op.path)
+        } else {
+          changed.set(op.path, Buffer.from(op.content))
+          removed.delete(op.path)
+        }
         break
       case 'design-system': {
         const ds =
@@ -185,14 +218,13 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
     changed.set(TOKENS, Buffer.from(css))
   }
 
-  const removed = new Set<string>()
   const manifest = async () => {
     const parsed = files.has(GG_ARTIFACT_MANIFEST)
       ? parseManifest((await read(GG_ARTIFACT_MANIFEST)).toString('utf8'))
       : null
     return parsed && 'manifest' in parsed ? parsed.manifest : null
   }
-  if (screens.length || refs.length) {
+  if (screens.length || refs.length || linkOps.length) {
     const m = (await manifest()) ?? fail('invalid', '清单无效，不能调整屏幕')
     for (const op of screens) {
       const i = m.screens.findIndex((s) => s.id === op.screenId)
@@ -209,6 +241,11 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         const file = `screens/${id}.html`
         changed.set(file, await read(screen.file))
         removed.delete(file)
+        const rules = ruleFileOf(screen.id)
+        if (!removed.has(rules) && (changed.has(rules) || files.has(rules))) {
+          changed.set(ruleFileOf(id), await read(rules))
+          removed.delete(ruleFileOf(id))
+        }
         // The copy goes back to the layout rather than on top of its original.
         const { x: _x, y: _y, ...rest } = screen
         m.screens.splice(i + 1, 0, {
@@ -220,8 +257,10 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
       } else if (op.op === 'delete') {
         if (m.screens.length === 1) fail('invalid', '不能删除最后一屏')
         m.screens.splice(i, 1)
-        removed.add(screen.file)
-        changed.delete(screen.file)
+        for (const path of [screen.file, ruleFileOf(screen.id)]) {
+          removed.add(path)
+          changed.delete(path)
+        }
         if (m.entry === screen.id) m.entry = m.screens[0]?.id ?? m.entry
       } else {
         m.screens.splice(i, 1)
@@ -250,8 +289,30 @@ export async function applyEdits(ctx: Ctx, a: Artifact, userId: string, req: Art
         removed.add(ref.file)
       }
     }
+    for (const op of linkOps) {
+      const list = m.links ?? []
+      if (op.kind === 'link') {
+        const taken = new Set([...list, ...m.screens, ...(m.refs ?? [])].map((x) => x.id))
+        const { kind: _, ...fields } = op
+        m.links = [...list, { id: linkId(op.title, op.url, taken), ...fields }]
+        continue
+      }
+      const link = list.find((l) => l.id === op.id) ?? fail('invalid', '链接不存在：{id}', { id: op.id })
+      if (op.kind === 'link-move') Object.assign(link, { x: op.x, y: op.y })
+      else if (op.kind === 'link-delete') m.links = list.filter((l) => l !== link)
+      else {
+        const { kind: _, id: _id, h, ...fields } = op
+        Object.assign(link, fields)
+        if (h) link.h = h
+        if (h === null || link.ratio !== 'free') delete link.h
+      }
+    }
     const valid = GgArtifactManifest.safeParse(m)
-    if (!valid.success) fail('invalid', refs.length ? '参考太多或无效' : '清单无效，不能调整屏幕')
+    if (!valid.success)
+      fail(
+        'invalid',
+        linkOps.length ? '链接太多或无效' : refs.length ? '参考太多或无效' : '清单无效，不能调整屏幕',
+      )
     changed.set(GG_ARTIFACT_MANIFEST, Buffer.from(`${JSON.stringify(m, null, 2)}\n`))
   }
   if (links.size) {

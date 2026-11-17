@@ -1,0 +1,284 @@
+/* Page business rules (canvasRules.tsx, RulesPanel.tsx, SharedRules.tsx): kept plain, like prototype notes. */
+
+/* ── Badge beside a screen's title ── */
+.art-title__rules {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--selection-fill);
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-caption-size);
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.art-title__rules:hover {
+  color: var(--label);
+}
+.art-title__rules em {
+  color: var(--tint-orange-text);
+  font-style: normal;
+}
+
+/* ── Numbered marks over the screens ── */
+.art-rule-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.art-rule-mark {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1.5px solid var(--content-bg);
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.art-rule-mark--page {
+  transform: none;
+}
+.art-rule-mark--pending {
+  background: var(--system-orange);
+}
+.art-rule-mark--on {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.art-rule-mark--draft {
+  border: 1.5px dashed var(--accent);
+  background: var(--content-bg);
+  color: var(--accent);
+  cursor: default;
+}
+
+/* ── Picking an element for a new rule: the dark strip at the top of the stage ── */
+.art-rule-pick {
+  position: absolute;
+  top: var(--space-12);
+  left: calc((100% - var(--art-side, 0px)) / 2);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 6px 14px;
+  border-radius: var(--radius-capsule);
+  background: rgba(28, 28, 30, 0.88);
+  color: #fff;
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.art-rule-pick button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8ec5ff;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── 页面规则 panel ── */
+.art-rules__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-16) var(--space-8);
+}
+.art-rules__count {
+  flex: 1;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+  white-space: nowrap;
+}
+.art-rules__body {
+  gap: var(--space-8);
+}
+.art-rules__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-rule {
+  position: relative;
+  display: flex;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-menu);
+  cursor: pointer;
+}
+.art-rule:hover,
+.art-rule--on {
+  background: var(--selection-fill);
+}
+.art-rule__no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: var(--radius-capsule);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.art-rule__no--pending {
+  background: var(--system-orange);
+}
+.art-rule__main {
+  flex: 1;
+  min-width: 0;
+}
+.art-rule__anchor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-rule__text {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.art-rule__ref {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.art-rule__ref:hover {
+  text-decoration: underline;
+}
+.art-rule__ops {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: none;
+  border-radius: var(--radius-control);
+  background: var(--content-bg);
+}
+.art-rule:hover .art-rule__ops,
+.art-rule:focus-within .art-rule__ops {
+  display: flex;
+}
+.art-rule__edit,
+.art-rule-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-6);
+}
+.art-rule__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-6);
+}
+.art-rule-new {
+  margin: 0;
+  padding: var(--space-12);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-menu);
+  min-width: 0;
+}
+.art-rule-new__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-footnote-size);
+}
+.art-rule-new__label {
+  width: 120px;
+  height: 24px;
+}
+.art-rule-new__hint,
+.art-rules__tip {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+.art-rule-new__note {
+  margin: 0;
+  color: var(--tint-orange-text);
+  font-size: var(--text-footnote-size);
+}
+.art-rules__source {
+  flex: 1;
+  min-height: 240px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  white-space: pre-wrap;
+}
+.art-rules__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16) var(--space-12);
+  border-top: 1px solid var(--separator);
+}
+.art-rules__tip {
+  margin: 0;
+}
+
+/* ── 共享规则.md: a plain Markdown document ── */
+.art-shared .art-panel__head {
+  gap: var(--space-6);
+}
+.art-shared__sub {
+  margin: 0;
+  padding: 0 var(--space-16) var(--space-8);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-shared__body {
+  gap: var(--space-8);
+}
+.art-shared__section--on {
+  border-radius: var(--radius-menu);
+  background: var(--selection-fill);
+}
+.art-shared__refs {
+  margin: var(--space-4) 0 0;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote-size);
+}
+.art-shared__refs button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.art-shared-node {
+  height: 100%;
+  max-height: none;
+  cursor: pointer;
+}

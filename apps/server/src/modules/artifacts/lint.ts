@@ -6,6 +6,7 @@ import {
   type LintIssue,
 } from '@gonggong/protocol'
 import { type Kit, kitName } from './kit.js'
+import { lintRules } from './rules.js'
 
 const warn = (code: string, message: string, file?: string): LintIssue => ({
   code,
@@ -41,10 +42,12 @@ export async function lintVersion(
   const byPath = new Map(files.map((f) => [f.path, f]))
   const manifestFile = byPath.get(GG_ARTIFACT_MANIFEST)
   let screens: Set<string> | null = null
+  let manifest: GgArtifactManifest | null = null
   if (manifestFile) {
     const parsed = parseManifest((await read(manifestFile)).toString('utf8'))
     if ('error' in parsed) issues.push(warn('manifest-invalid', parsed.error, GG_ARTIFACT_MANIFEST))
     else {
+      manifest = parsed.manifest
       screens = new Set(parsed.manifest.screens.map((s) => s.id))
       for (const s of parsed.manifest.screens)
         if (!byPath.has(s.file))
@@ -76,6 +79,12 @@ export async function lintVersion(
     const external = new Set(EXTERNAL.flatMap((re) => [...html.matchAll(re)].map((m) => m[1] ?? '')))
     for (const url of external) issues.push(warn('external-resource', `引用了外部资源：${url}`, f.path))
   }
+
+  const text = async (path: string) => {
+    const f = byPath.get(path)
+    return f ? (await read(f)).toString('utf8') : null
+  }
+  issues.push(...(await lintRules(files, text, manifest)))
 
   if (l1 && kit)
     for (const f of files) {

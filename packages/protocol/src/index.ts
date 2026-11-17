@@ -1,5 +1,7 @@
 export * from './agent-settings.js'
 export * from './agents.js'
+export * from './artifact-links.js'
+export * from './artifact-rules.js'
 export * from './artifacts.js'
 export * from './common.js'
 export * from './daemon.js'

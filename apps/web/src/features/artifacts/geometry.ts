@@ -1,10 +1,15 @@
-import type {
-  ArtifactDevice,
-  ArtifactRefKind,
-  GgArtifactManifest,
-  GgArtifactRef,
-  GgArtifactScreen,
+import {
+  ARTIFACT_LINK_MAX_W,
+  ARTIFACT_LINK_MIN_W,
+  type ArtifactDevice,
+  type ArtifactLinkRatio,
+  type ArtifactRefKind,
+  type GgArtifactLink,
+  type GgArtifactManifest,
+  type GgArtifactRef,
+  type GgArtifactScreen,
 } from '@gonggong/protocol'
+import { t } from '../../i18n'
 
 /** Screen sizes per device (the web-prototype kit's DEVICES). */
 const DEVICE_SIZE: Record<ArtifactDevice, { w: number; h: number }> = {
@@ -38,6 +43,9 @@ const SYSTEM_WIDTH = 720
 /** Until the design-system card is measured. */
 export const SYSTEM_HEIGHT = 640
 const DOC_WIDTH = 560
+const SHARED_RULES_ID = '@shared-rules'
+/** The shared rules node: a fixed card, a long file is cut off with a fade. */
+const SHARED_RULES_SIZE = { w: 400, h: 480 }
 /** Until the DESIGN.md card is measured. */
 export const DOC_HEIGHT = 640
 
@@ -51,13 +59,42 @@ export const REF_SIZE: Record<ArtifactRefKind, { w: number; h: number }> = {
   text: { w: 320, h: 240 },
 }
 
-type NodeKind = 'system' | 'doc' | 'screen' | 'prototype' | 'ref'
+/** A link node's id: the link's own id under this prefix. */
+export const LINK_PREFIX = '@link:'
+export const linkNodeId = (id: string) => `${LINK_PREFIX}${id}`
+/** An embedded page's width until it is resized; its header (title, host, buttons) sits above the page. */
+export const LINK_WIDTH = 480
+export const LINK_HEAD = 40
+export const LINK_CARD = { w: 360, h: 64 }
+const LINK_RATIO: Record<Exclude<ArtifactLinkRatio, 'free'>, number> = {
+  '16:9': 16 / 9,
+  '4:3': 4 / 3,
+  '3:4': 3 / 4,
+  '1:1': 1,
+}
+export const clampLinkSize = (v: number) =>
+  Math.round(Math.min(ARTIFACT_LINK_MAX_W, Math.max(ARTIFACT_LINK_MIN_W, v)))
+/** The page's size in an embedded link (`ratio` free keeps its own height); a card is one fixed row. */
+export function linkPage(l: Pick<GgArtifactLink, 'ratio' | 'w' | 'h'>) {
+  const w = clampLinkSize(l.w ?? LINK_WIDTH)
+  return {
+    w,
+    h: l.ratio === 'free' ? clampLinkSize(l.h ?? (w * 3) / 4) : Math.round(w / LINK_RATIO[l.ratio]),
+  }
+}
+const linkSize = (l: GgArtifactLink) => {
+  if (l.display === 'card') return LINK_CARD
+  const p = linkPage(l)
+  return { w: p.w, h: LINK_HEAD + p.h }
+}
+
+type NodeKind = 'system' | 'doc' | 'rules' | 'screen' | 'prototype' | 'ref' | 'link'
 
 export interface CanvasNode {
   id: string
   kind: NodeKind
   title: string
-  /** The screen's HTML file; empty for other kinds. */
+  /** The screen's HTML file (a reference's file, a link's URL); empty for other kinds. */
   file: string
   x: number
   y: number
@@ -90,6 +127,8 @@ export interface LayoutInput {
   system: number | null
   /** Height of the DESIGN.md card; null (or absent) when the version has no DESIGN.md. */
   doc?: number | null
+  /** Whether the shared rules node shows (rules/shared.md, or an empty one an editor can start). */
+  sharedRules?: boolean
   frames: Record<string, ScreenFrame>
   /** Content heights the screens reported, by file. */
   content: Record<string, number>
@@ -97,6 +136,8 @@ export interface LayoutInput {
   refs?: GgArtifactRef[]
   /** Measured heights of image references, by ref id. */
   refHeights?: Record<string, number>
+  /** Web pages on the canvas. */
+  links?: GgArtifactLink[]
 }
 
 export const defaultFrame = (device: ArtifactDevice): ScreenFrame => ({ ...DEVICE_SIZE[device], full: true })
@@ -118,10 +159,12 @@ export function layoutNodes({
   manifest,
   system,
   doc = null,
+  sharedRules = false,
   frames,
   content,
   refs = [],
   refHeights = {},
+  links = [],
 }: LayoutInput): {
   device: ArtifactDevice
   nodes: CanvasNode[]
@@ -160,6 +203,15 @@ export function layoutNodes({
     const { w, h } = DEVICE_SIZE[device]
     cells.push({ id: PROTOTYPE_ID, kind: 'prototype', title: manifest.title, file: '', w, h })
   }
+  // The shared rules close the rows, right of the screens that refer to them.
+  if (sharedRules)
+    cells.push({
+      id: SHARED_RULES_ID,
+      kind: 'rules',
+      title: t('共享规则.md'),
+      file: '',
+      ...SHARED_RULES_SIZE,
+    })
   const row = perRow(device)
   let y = 0
   for (let i = 0; i < cells.length; i += row) {
@@ -190,6 +242,22 @@ export function layoutNodes({
       h,
     })
     if (!placed) refX += size.w + NODE_GAP
+  }
+  // Links not placed yet continue the references' row.
+  for (const l of links) {
+    const { w, h } = linkSize(l)
+    const placed = l.x !== undefined && l.y !== undefined
+    nodes.push({
+      id: linkNodeId(l.id),
+      kind: 'link',
+      title: l.title,
+      file: l.url,
+      x: placed ? (l.x as number) : refX,
+      y: placed ? (l.y as number) : refY,
+      w,
+      h,
+    })
+    if (!placed) refX += w + NODE_GAP
   }
   return { device, nodes }
 }

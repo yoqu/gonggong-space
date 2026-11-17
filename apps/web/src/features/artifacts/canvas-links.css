@@ -1,0 +1,162 @@
+/* ── Web pages on the canvas: embedded pages and link cards, the ratio bar, 添加链接 ── */
+.art-node--link {
+  overflow: hidden;
+  border-radius: var(--radius-menu);
+}
+.art-link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.art-link__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-6);
+  height: 40px;
+  padding: 0 var(--space-6) 0 var(--space-12);
+  border-bottom: 1px solid var(--separator);
+}
+.art-link__icon {
+  flex: none;
+  color: var(--accent);
+}
+.art-link__title {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-link__head .art-link__title {
+  flex: 1;
+}
+.art-link__host {
+  overflow: hidden;
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-link__head .art-link__host {
+  flex: none;
+  max-width: 40%;
+}
+/* Unselected (or while the view moves) the canvas keeps the pointer: the page cannot swallow a drag or a zoom. */
+.art-link__frame {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+  pointer-events: none;
+}
+.art-link__frame--live {
+  pointer-events: auto;
+}
+.art-link__off {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  color: var(--label-tertiary);
+}
+.art-link--card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0 var(--space-12) 0 var(--space-16);
+}
+.art-link__names {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Over a selected embed (viewport pixels): the ratio bar above it, the resize handle on its bottom-right corner. */
+.art-link-bar {
+  position: absolute;
+  bottom: calc(100% + 34px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--content-bg);
+  box-shadow:
+    0 0 0 1px var(--separator),
+    0 4px 16px #0000001f;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.art-link-bar__size {
+  padding: 0 var(--space-6);
+  color: var(--label-secondary);
+  font-size: var(--text-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.art-link-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--content-bg);
+  cursor: nwse-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.art-addlink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.art-addlink__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.art-addlink__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  color: var(--label);
+  font-size: var(--text-footnote-size);
+  font-weight: 600;
+}
+.art-addlink__aside {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+  font-weight: 400;
+}
+.art-addlink__warn,
+.art-addlink__warn:focus {
+  border-color: var(--system-orange);
+  box-shadow: 0 0 0 1px var(--system-orange);
+}
+.art-addlink__hint {
+  color: var(--system-orange);
+  font-size: var(--text-caption-size);
+}
+.art-addlink__hint--error {
+  color: var(--system-red);
+}
+.art-addlink__option {
+  display: inline-flex;
+  flex-direction: column;
+}
+.art-addlink__option > span {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}
+.art-addlink__note {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption-size);
+}

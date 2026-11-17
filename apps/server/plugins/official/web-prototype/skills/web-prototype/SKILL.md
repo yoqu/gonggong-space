@@ -67,11 +67,29 @@ design/<slug>/
 ├── screens/<id>.html       ← one full HTML document per screen (skeleton below)
 ├── assets/                 ← images you were given or fetched, referenced relatively
 ├── refs/                   ← reference files people put on the canvas (images, PDFs, text); read them, don't edit
+├── rules/<id>.md           ← the screen's business rules (see "Page business rules"); rules/shared.md for shared ones
 ├── index.html              ← not hosted only: copied verbatim from kit/index.html (platform shell)
 └── _gg/                    ← not hosted only: copied verbatim from kit/gg-kit.css and kit/gg-kit.js (platform runtime)
 ```
 
-People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too.
+People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. Web pages people put on the canvas (a Feishu doc, say) are in `"links": [{ "id", "url", "title", … }]`: context to read when you can, keep them as they are too. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too.
+
+## Page business rules
+
+What the prototype cannot show — edge and error cases, how numbers are computed and rounded, permissions, state changes — lives in `rules/<screen id>.md`, one file per screen, versioned with the artifact. People edit them on the canvas; read them before changing a screen and implement what they say.
+
+```markdown
+# 确认订单
+
+1. **提交按钮** `#submit-btn`：库存为 0 时置灰，文案改为「已售罄」
+2. **优惠券** `#coupon` [待确认]：建议同一订单只能用一张
+3. 金额计算见 S1
+```
+
+- One numbered item per rule, one sentence: `**<element>**` (optional), `` `#<anchor>` `` (optional; none means the whole page), `[待确认]` (optional), then `：` and the rule.
+- An anchor is the element's `data-gg-anchor="<kebab>"` in the screen's HTML, unique within the screen. Add it when a rule hangs on an element; never rename or drop an existing one (rules point at it), and keep it when you rewrite the screen.
+- Rules several screens share go to `rules/shared.md` as `## S1 <title>` sections (a table or list each); page rules cite them as `见 S1`.
+- Write rules only when asked (`补全业务规则`) or when the request states them; keep existing ones. Never invent: what you cannot infer gets `[待确认]` and a suggested value. Delete or copy a screen's rule file along with the screen.
 
 `index.html` and `_gg/` belong to the platform: never edit them and never put your own files there; the platform replaces them when it renders. Once `DESIGN.md` and `tokens.css` are in the folder they are the artifact's own: later turns read and follow those copies (people may have changed them), not the plugin's originals.
 
