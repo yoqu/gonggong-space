@@ -147,7 +147,7 @@ function Shell({
       open
       width={540}
       title={t('新建 Bot')}
-      message={t('创建时直接绑定到归属人的机器')}
+      message={t('创建时直接绑定到 Bot 主人的电脑')}
       onClose={onClose}
       closeOnBackdrop={false}
       actions={
@@ -163,7 +163,7 @@ function Shell({
 }
 
 const missingText = (machine: string, agent: string) =>
-  t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', { machine, agent })
+  t('{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。', { machine, agent })
 const undetectedText = (machine: string, agent: string) =>
   t('{machine} 还没上线检测 {agent}，上线并检测到后自动可用。', { machine, agent })
 
@@ -182,15 +182,15 @@ function NextStep({ bot, self }: { bot: BotDto; self: boolean }) {
         ? {
             tone: 'pending',
             desc: self
-              ? t('在要运行 Bot 的机器上用共工空间客户端打开接入链接，绑定并上报 {agent} 后自动可用。', {
+              ? t('在要运行 Bot 的电脑上用共工空间客户端打开接入链接，绑定并上报 {agent} 后自动可用。', {
                   agent,
                 })
-              : t('{owner} 绑定第一台机器并上报 {agent} 后自动可用。', { owner: bot.ownerName, agent }),
+              : t('{owner} 绑定第一台电脑并上报 {agent} 后自动可用。', { owner: bot.ownerName, agent }),
           }
         : bot.presence === 'offline'
           ? {
               tone: 'warn',
-              desc: t('机器 {machine} 当前离线，打开该机器上的共工空间客户端后即可使用', {
+              desc: t('电脑 {machine} 当前离线，打开这台电脑上的共工空间客户端后即可使用', {
                 machine: bot.machineName ?? '',
               }),
             }
@@ -292,7 +292,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
     ? {
         tone: 'pending',
         title: t('待绑定'),
-        desc: t('{owner} 绑定第一台机器并上报 {agent} 后自动绑定，无需再操作；此前不能被触发。', {
+        desc: t('{owner} 绑定第一台电脑并上报 {agent} 后会自动绑定；此前还不能被触发。', {
           owner: owner.name,
           agent: agentName,
         }),
@@ -310,14 +310,14 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
             desc: t(
               m.online
                 ? '绑定到 {machine} · {agent} {version}，可直接拉入群触发。'
-                : '绑定到 {machine} · {agent} {version}，可直接拉入群触发。机器当前离线，上线后开始执行。',
+                : '绑定到 {machine} · {agent} {version}，可直接拉入群触发。电脑当前离线，上线后开始执行。',
               { machine: m.name, agent: agentName, version: ver.version ?? '' },
             ),
           }
         : {
             tone: 'confirm',
             title: t('等待 {owner} 确认', { owner: owner.name }),
-            desc: t('已绑定到 {machine}。机器上的操作由主人负责，{owner} 在 Web 通知中一键确认后即可触发。', {
+            desc: t('已绑定到 {machine}。电脑上的操作由主人负责，{owner} 在通知里确认后即可触发。', {
               machine: m.name,
               owner: owner.name,
             }),
@@ -365,16 +365,16 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
       <Form id={formId} onSubmit={() => void create()}>
         <Divider label={t('基本信息')} />
         {owners.length > 1 ? (
-          <FormRow label={t('归属人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
+          <FormRow label={t('Bot 主人')} hint={t('系统管理员可为任何人创建；成员本人只能为自己创建。')}>
             <PopUpButton
-              aria-label={t('归属人')}
+              aria-label={t('Bot 主人')}
               value={owner.id}
               options={owners.map((o) => ({
                 value: o.id,
                 label:
                   o.id === me.id
                     ? t('{name}（我）', { name: o.name })
-                    : t('{name} · {n} 台机器', { name: o.name, n: machinesOf(o).length }),
+                    : t('{name} · {n} 台电脑', { name: o.name, n: machinesOf(o).length }),
               }))}
               onChange={(id) => {
                 const o = owners.find((x) => x.id === id)
@@ -424,10 +424,10 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
         </FormRow>
 
         <Divider label={t('运行配置')} />
-        <FormRow label={t('执行机器')} align={machines.length ? 'top' : 'center'}>
+        <FormRow label={t('运行电脑')} align={machines.length ? 'top' : 'center'}>
           {machines.length ? (
             <RadioGroup
-              aria-label={t('执行机器')}
+              aria-label={t('运行电脑')}
               value={m?.id}
               options={machines.map((x) => ({
                 value: x.id,
@@ -458,7 +458,7 @@ export function NewBotDialog({ me, machineId, onClose, onCreated }: Props) {
             />
           ) : (
             <span className="newbot__muted">
-              {t('{owner} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。', {
+              {t('{owner} 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。', {
                 owner: owner.name,
               })}
             </span>

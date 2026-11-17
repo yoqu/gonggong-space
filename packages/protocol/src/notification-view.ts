@@ -43,8 +43,8 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
       }
     case 'offline_expired':
       return {
-        label: say('Bot 离线作废'),
-        text: say('你 @{bot} 的请求等待 {n} 分钟未上线，已作废', { bot, n: p('waitMin') }),
+        label: say('Bot 离线超时'),
+        text: say('你 @{bot} 的请求等待 {n} 分钟未上线，已失效', { bot, n: p('waitMin') }),
         group,
         href: at('runId'),
       }
@@ -58,7 +58,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
     case 'repo_access':
       return {
         label: say('Bot 无法访问仓库'),
-        text: say('{bot} 所在机器无法访问 {repo}（{reason}），配置后在群里点「重新检查」', {
+        text: say('{bot} 所在的电脑连不上 {repo}（{reason}），配置后在群里点「重新检查」', {
           bot,
           repo: p('repo'),
           reason: { key: p('reason') },
@@ -173,7 +173,7 @@ export function notificationView(n: NotificationDto, tr: (t: I18nText) => string
           }
     case 'link_request':
       return {
-        label: say(n.resolvedAt ? '机器接入申请' : '待确认的机器接入'),
+        label: say(n.resolvedAt ? '电脑接入申请' : '待确认的电脑接入'),
         text: say('{machine} 请求接入', { machine: p('machineName') }),
         group: '',
         href: `/link/${p('requestId')}`,

@@ -73,8 +73,8 @@ export default {
   '各 Bot 在 Bot 页设置': "Set on each Bot's page",
   仓库基线: 'Repo baseline',
   低: 'Low',
-  '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 由 daemon 缓存在本机，Claude 以插件注入，Codex 在工作区建软链并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。':
-    'Merging happens in daemon memory. MCP is injected via ACP when a session starts and never written to disk; skills are cached on the machine, injected as a plugin for Claude and symlinked into the workspace for Codex (added to .git/info/exclude). The built-in gonggong (questions, chat history, group info, etc.) is always injected.',
+  '仅在客户端内存中合并生效，不改动原有配置文件；MCP 会在新建会话时自动注入，Skill 会缓存在电脑本地，内置工具集 gonggong 始终可用。':
+    'Merging stays in client memory without editing config files. MCP servers are injected automatically when a session starts, skills are cached on your computer, and the built-in gonggong toolset is always available.',
   '已保存，全员下一轮新会话生效': "Saved; applies to everyone's next new session",
   '已要求相关 Bot 下一轮开新会话，卡片会提示原因。':
     'Affected Bots will start a new session next run, with the reason shown on the card.',
@@ -126,7 +126,7 @@ export default {
   '相关 Bot 下一轮起不再加载这个 skill': 'Affected Bots stop loading this skill from their next run',
   '已删除 {name}': 'Deleted {name}',
   导入文件夹: 'Import folder',
-  '导入文件夹…': 'Import Folder…',
+  '导入文件夹…': 'Import folder…',
   '导入 zip': 'Import zip',
   '导入 zip…': 'Import zip…',
   没有读到文件: 'No files found',
@@ -141,7 +141,7 @@ export default {
   '只能整体替换，不能在线编辑。': 'It can only be replaced, not edited here.',
   '已回滚到 v{n}，相关 Bot 下一轮生效': 'Rolled back to v{n}; affected Bots pick it up next run',
   '{name} 的历史版本': 'Version history of {name}',
-  回滚到此版本: 'Roll Back to This Version',
+  回滚到此版本: 'Roll back to this version',
   'v{n} · {count} 个文件': 'v{n} · {count} {count:file|files}',
   本群: 'This group',
   仅群管理员可修改: 'Only group admins can make changes',

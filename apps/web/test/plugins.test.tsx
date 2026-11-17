@@ -1010,7 +1010,7 @@ describe('插件 · 管理', () => {
     const avail = within(dialog).getByRole('group', { name: 'Bot 可用性' })
     expect(avail.textContent).toContain('设计助手')
     expect(avail.textContent).toContain('可使用 1 个插件')
-    expect(avail.textContent).toContain('机器版本过低，需升级到 0.4.0 才能使用插件')
+    expect(avail.textContent).toContain('共工客户端版本过低，需升级到 0.4.0 才能使用插件')
     // Once enabled, the composer offers 创作 for it too.
     await waitFor(() => expect(screen.getByText('插件 · 2')).toBeTruthy())
   })
@@ -1083,7 +1083,7 @@ describe('插件 · 管理', () => {
     expect(row.textContent).toContain('平台层')
     expect(row.textContent).toContain('支持：Claude Code')
     expect(row.textContent).toContain('需要密钥：—')
-    expect(row.textContent).toContain('最低机器版本 0.4.0')
+    expect(row.textContent).toContain('最低客户端版本 0.4.0')
     expect(row.textContent).toContain('Apache-2.0 · open-design@4f69a42')
     expect(row.textContent).toContain('陈晨 · 刚刚 · 20 KB')
 

@@ -101,7 +101,7 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
     }
     await expect.poll(bobState, { timeout: 60_000 }).toMatchObject({ state: 'failed', reason: 'denied' })
     await expect(page.getByTestId(`ws-paused-${bobBot.id}`)).toContainText(
-      `无权限 Codex 已暂停：所在机器无法访问仓库（无权限或仓库不存在），等待 ${bobAccount} 处理`,
+      `无权限 Codex 已暂停：所在电脑连不上仓库（无权限或仓库不存在），等待 ${bobAccount} 处理`,
     )
 
     // @-ing the paused bot explains why nothing runs.
@@ -112,7 +112,7 @@ test('bots whose machine cannot read the group repo are shown, paused and not ru
       page
         .getByRole('main')
         .getByText(
-          `无权限 Codex 所在机器无法访问仓库（无权限或仓库不存在），本次未执行；${bobAccount} 配置后点「重新检查」`,
+          `无权限 Codex 所在的电脑连不上仓库（无权限或仓库不存在），本次未执行；${bobAccount} 配置后点「重新检查」`,
         ),
     ).toBeVisible()
     await expect(page.getByTestId('run-card')).toHaveCount(before)

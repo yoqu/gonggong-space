@@ -99,7 +99,7 @@ async function assertUsers(ctx: Ctx, teamId: string, ids: string[]) {
 
 export function assertCanManage(user: SessionUser, bot: BotRow) {
   if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-    fail('forbidden', '只有归属人或系统管理员可以修改该 Bot')
+    fail('forbidden', '只有 Bot 主人或系统管理员可以修改该 Bot')
 }
 
 /** Sysadmin actions on someone else's bot are audited (spec 9: all admin operations). */
@@ -278,20 +278,20 @@ export function botRoutes(ctx: Ctx) {
             .innerJoin(teamMembers, and(eq(teamMembers.userId, users.id), eq(teamMembers.teamId, teamId)))
             .where(and(eq(users.id, body.ownerId), isNull(users.disabledAt)))
         : []
-      if (!owner) return fail('invalid', '归属人不存在或已停用')
+      if (!owner) return fail('invalid', 'Bot 主人不存在或已停用')
       const ownerMachines = await ctx.db
         .select({ id: machines.id })
         .from(machines)
         .where(and(eq(machines.ownerId, owner.id), isNull(machines.revokedAt)))
       if (body.machineId === null) {
-        if (ownerMachines.length) fail('invalid', '请选择执行机器')
+        if (ownerMachines.length) fail('invalid', '请选择运行电脑')
       } else if (!ownerMachines.some((m) => m.id === body.machineId)) {
-        fail('invalid', '执行机器不属于归属人或已吊销')
+        fail('invalid', '选中的电脑不属于 Bot 主人或已解绑')
       }
       await assertNameFree(ctx, name)
       const provider = body.provider ?? INHERIT_PROVIDER
       if (provider !== INHERIT_PROVIDER && (owner.id !== user.id || !body.machineId))
-        fail('forbidden', '只能在自己的机器上设置 Bot 的供应商')
+        fail('forbidden', '只能在自己的电脑上设置 Bot 的供应商')
       if (body.model || body.effort) {
         const catalog = body.machineId
           ? await choiceCatalog(ctx, { machineId: body.machineId, agentKind: body.agentKind }, provider)
@@ -369,7 +369,7 @@ export function botRoutes(ctx: Ctx) {
       let triggerScope = body.triggerScope ?? bot.triggerScope
       // Spec 3.6: a full-tier bot may only be triggered by an explicit list.
       if (tier === 'full' && triggerScope === 'all') {
-        if (body.triggerScope === 'all') fail('invalid', 'full 档位强制使用指定名单')
+        if (body.triggerScope === 'all') fail('invalid', '「完全允许」方式只能给指定成员使用')
         triggerScope = 'list'
       }
       if (body.triggerList) await assertUsers(ctx, bot.teamId, body.triggerList)
@@ -445,8 +445,8 @@ export function botRoutes(ctx: Ctx) {
           ctx,
           groupId,
           tier
-            ? '{user} 将 {bot} 在本群的档位设为「{tier}」'
-            : '{user} 将 {bot} 在本群的档位恢复为跟随全局（{tier}）',
+            ? '{user} 将 {bot} 在本群的审批方式设为「{tier}」'
+            : '{user} 将 {bot} 在本群的审批方式恢复为跟随全局（{tier}）',
           { user: user.name, bot: bot.name, tier: { key: TIER_LABEL[tier ?? (bot.tier as Tier)] } },
         )
         await applyTier(ctx, user.id, bot.id, groupId)
@@ -498,7 +498,7 @@ export function botRoutes(ctx: Ctx) {
     app.post<IdParams>('/api/bots/:id/confirm', async (req) => {
       const user = await requireUser(ctx, req)
       const bot = await loadBot(ctx, req.params.id)
-      if (user.id !== bot.ownerId) fail('forbidden', '只有机器主人可以确认')
+      if (user.id !== bot.ownerId) fail('forbidden', '只有电脑主人可以确认')
       if (bot.binding !== 'pending_confirm') fail('conflict', '该 Bot 无需确认')
       return confirmBot(ctx, bot)
     })

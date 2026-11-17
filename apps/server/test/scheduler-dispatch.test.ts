@@ -60,7 +60,7 @@ describe('dispatch', () => {
     expect(w.sent).toEqual([])
     expect(await w.status(a.run.id)).toMatchObject({
       status: 'offline_wait',
-      step: '执行机器的共工客户端版本过低，升级后才能运行这种 Agent 的 Bot',
+      step: '这台电脑的共工客户端版本过旧，升级后才能运行这种 Agent 的 Bot',
     })
 
     features.mockReturnValue(['tools', 'gemini'])

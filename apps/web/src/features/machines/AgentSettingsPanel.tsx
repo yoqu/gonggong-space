@@ -25,7 +25,7 @@ import {
 import { BOOL_ITEMS } from './ProviderSettings'
 import { commitOnBlur, SaveStatus, useSaves } from './save'
 
-const SOURCE_LABEL = { default: t('默认'), cli: t('该机器 CLI'), agent: t('机器设置') }
+const SOURCE_LABEL = { default: t('默认'), cli: t('这台电脑 CLI'), agent: t('电脑设置') }
 const INHERIT = 'inheritCli'
 
 /**
@@ -81,7 +81,7 @@ export function AgentSettingsBox({
   const origin = (f: AgentSettingField) => {
     const own = values[f.id]
     const fromCli = inheritCli ? cli?.values[f.id] : undefined
-    const cliText = fromCli ? t('该机器 CLI：{v}', { v: valueLabel(f, fromCli) }) : null
+    const cliText = fromCli ? t('这台电脑 CLI：{v}', { v: valueLabel(f, fromCli) }) : null
     const overriding = bots.flatMap((b) => {
       const v = b.agentSettings?.[f.id]
       return v ? [t('{bot}（{v}）', { bot: b.name, v: valueLabel(f, v) })] : []
@@ -115,7 +115,7 @@ export function AgentSettingsBox({
         <span className="mx-row__main">
           <span className="mx-strong">{t('Agent 设置')}</span>
           <span className="mx-sub">
-            {t('这台机器上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名')}
+            {t('这台电脑上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名')}
           </span>
           <span className="mx-sub">{t('改动立即保存，下一轮生效')}</span>
         </span>
@@ -159,17 +159,17 @@ export function AgentSettingsBox({
       </GroupBox>
       <GroupBox>
         <GroupRow
-          label={t('继承该机器 CLI 配置')}
+          label={t('继承这台电脑 CLI 配置')}
           description={
             inheritCli
-              ? t('同时加载这台机器上 CLI 自己的用户配置')
+              ? t('同时加载这台电脑上 CLI 自己的用户配置')
               : t('已关闭：同时不再加载个人 CLAUDE.md、记忆、hooks 和用户 Skill')
           }
         >
           <span className="mx-inline">
             <SaveStatus state={saves.status(INHERIT)} />
             <Switch
-              aria-label={t('继承该机器 CLI 配置')}
+              aria-label={t('继承这台电脑 CLI 配置')}
               checked={inheritCli}
               onChange={(on) => {
                 setInheritCli(on)
@@ -180,7 +180,7 @@ export function AgentSettingsBox({
         </GroupRow>
         {inheritCli && cli && (cli.hooks || cli.permissionRules) ? (
           <GroupRow
-            label={t('该机器 CLI')}
+            label={t('这台电脑 CLI')}
             description={t('{hooks} 个 hooks、{rules} 条权限规则会随继承一起生效', {
               hooks: cli.hooks,
               rules: cli.permissionRules,
@@ -190,7 +190,7 @@ export function AgentSettingsBox({
         {agent === 'claude' ? (
           <GroupRow
             label={t('由共工管理')}
-            description={t('权限、模型、MCP、插件与密钥由共工统一管理，该机器 CLI 中的同名设置不生效')}
+            description={t('权限、模型、MCP、插件与密钥由共工统一管理，这台电脑 CLI 中的同名设置不生效')}
           >
             <span className="mx-sub mx-mono">{LOCKED_CLAUDE_SETTINGS.join(' · ')}</span>
           </GroupRow>
@@ -199,7 +199,7 @@ export function AgentSettingsBox({
       {inheritCli && cli?.conflicts.length ? (
         <Alert
           variant="warning"
-          description={t('该机器 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置', {
+          description={t('这台电脑 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置', {
             names: cli.conflicts.join('、'),
           })}
         />

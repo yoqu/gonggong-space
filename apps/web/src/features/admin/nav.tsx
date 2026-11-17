@@ -38,7 +38,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('账号与角色'),
         icon: 'person-2',
         color: 'var(--system-blue)',
-        desc: t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。'),
+        desc: t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有电脑与登录。'),
         element: <UsersPage />,
       },
       {
@@ -54,7 +54,9 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         label: t('Bot#nav'),
         icon: 'bot',
         color: 'var(--system-purple)',
-        desc: t('全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。'),
+        desc: t(
+          '查看所有 Bot 的归属、绑定与状态；可为任何成员新建，创建时直接绑定到 Bot 主人的电脑和 Agent。',
+        ),
         element: <BotsAdminPage />,
       },
       {
@@ -110,7 +112,7 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
         icon: 'download',
         color: 'var(--system-blue)',
         desc: t(
-          '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载；桌面端优先从这里检查更新，未发布签名更新包的平台改查 GitHub。',
+          '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。',
         ),
         element: <ReleasesPage />,
       },
@@ -121,10 +123,10 @@ export const ADMIN_NAV: { head: string; items: AdminItem[] }[] = [
     items: [
       {
         path: 'machines',
-        label: t('机器#nav'),
+        label: t('电脑#nav'),
         icon: 'server',
         color: 'var(--system-indigo)',
-        desc: t('所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。'),
+        desc: t('查看所有电脑的系统、硬件、客户端版本、在线状态与网络质量记录。'),
         element: <MachinesPage />,
       },
       {

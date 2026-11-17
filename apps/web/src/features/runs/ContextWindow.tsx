@@ -211,7 +211,7 @@ function ContextWindowView({
             </li>
           </ul>
           <div className="ctxw__list-head">
-            <span>{t('内容')}</span>
+            <span>{t('内容#list')}</span>
             <SegmentedControl
               size="small"
               aria-label={t('筛选内容')}
@@ -243,14 +243,14 @@ function ContextWindowView({
               {t('显示全部 {n} 项', { n: entries.length })}
             </button>
           ) : null}
-          <p className="ctxw__note">
-            {t('分项按文本长度估算；系统提示词与工具定义为已用量减去其余各项。')}
-            {breakdown.partial
-              ? t(
-                  '会话早先的部分（Agent 压缩或清理过，或机器上的 daemon 重启过）没有分项，算在系统与早先内容里。',
-                )
-              : null}
-          </p>
+          <p className="ctxw__note">{t('分项按文本长度估算；系统提示词与工具定义为已用量减去其余各项。')}</p>
+          {breakdown.partial ? (
+            <p className="ctxw__note">
+              {t(
+                '会话早先的部分（Agent 压缩或清理过，或电脑上的客户端重启过）没有分项，算在系统与早先内容里。',
+              )}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="ctxw__note">{t('分项在本轮结束后统计。')}</p>

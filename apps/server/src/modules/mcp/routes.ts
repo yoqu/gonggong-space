@@ -143,7 +143,7 @@ export function mcpRoutes(ctx: Ctx) {
     // Cards from before secrets are read-only: the values now go into secret definitions (secret_request).
     app.post('/api/mcp-secrets/:id', async (req) => {
       await requireUser(ctx, req)
-      return fail('conflict', '这张卡片已停用，请让 Bot 用 secret_request 重新发起')
+      return fail('conflict', '这张卡片已失效，请让 Bot 重新发起填写密钥的请求')
     })
   }
 }

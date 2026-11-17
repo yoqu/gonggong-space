@@ -272,7 +272,7 @@ function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
         ),
       )
       .limit(1)
-    if (!sent) return fail('forbidden', '该机器上没有正在使用这个插件版本的运行')
+    if (!sent) return fail('forbidden', '这台电脑上没有正在使用这个插件版本的运行')
     return { files: found.files as SkillFile[] }
   })
 }

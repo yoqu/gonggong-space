@@ -101,7 +101,7 @@ test('an expired code binds after the owner allows it on the web', async ({ page
   const userCode = /\b([A-Z0-9]{4})\b/.exec(out.slice(out.indexOf(id) + id.length))?.[1]
 
   await page.goto(`/link/${id}`)
-  const card = page.getByRole('region', { name: '机器接入申请' })
+  const card = page.getByRole('region', { name: '电脑接入申请' })
   if (userCode) await expect(card).toContainText(userCode)
   await card.getByRole('button', { name: '允许接入' }).click()
   await expect(card).toContainText('已允许接入')

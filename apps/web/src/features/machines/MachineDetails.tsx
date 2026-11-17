@@ -77,12 +77,12 @@ const outdated = (m: MachineDto, part: Part) => !m.features.includes(PART_FEATUR
 const blocked = (m: MachineDto, tab: DaemonTab) => m.online && TAB_PARTS[tab].every((p) => outdated(m, p))
 
 function blockedNote(m: MachineDto) {
-  if (!m.online) return t('机器离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断')
+  if (!m.online) return t('电脑离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断')
   const old = (Object.keys(PART_NAME) as Part[]).filter((p) => outdated(m, p)).map((p) => PART_NAME[p])
   const last = old.pop()
   if (!last) return null
   const what = old.length ? `${old.join(t('、'))}${t('与')}${last}` : last
-  return t('请先升级该机器的 daemon，才能管理{what}', { what })
+  return t('请先升级这台电脑的共工客户端，才能管理{what}', { what })
 }
 
 /** The machine's name with a pencil to rename it in place: Enter saves, Esc cancels; empty falls back to the hostname. */
@@ -159,11 +159,11 @@ export function MachineName({ machine, onChanged }: { machine: MachineDto; onCha
 /** An offline machine's live sections: when it was last seen and how to bring it back; nothing is kept off it. */
 function OfflineNote({ machine }: { machine: MachineDto }) {
   return (
-    <section className="machine-offline" aria-label={t('机器离线')}>
-      <span className="mx-strong">{t('机器离线')}</span>
+    <section className="machine-offline" aria-label={t('电脑离线')}>
+      <span className="mx-strong">{t('电脑离线')}</span>
       <span className="mx-sub">{t('最后在线：{time}', { time: dateText(machine.lastSeenAt) })}</span>
-      <span>{t('供应商、Agent 工具与 Agent 设置只保存在机器上，机器上线后才能查看和修改。')}</span>
-      <span>{t('让它上线：在该机器上打开共工空间客户端，或在终端运行')}</span>
+      <span>{t('供应商、Agent 工具与 Agent 设置只保存在这台电脑上，上线后才能查看和修改。')}</span>
+      <span>{t('让它上线：在这台电脑上打开共工空间客户端，或在终端运行')}</span>
       <CommandLine command="gg run" />
     </section>
   )
@@ -203,7 +203,7 @@ export function MachineDetails({
       {owner ? (
         <div className="machine__tabs">
           <Tabs<Tab>
-            aria-label={t('机器详情')}
+            aria-label={t('电脑详情')}
             value={tab}
             onChange={setTab}
             items={[
@@ -225,8 +225,8 @@ export function MachineDetails({
       ) : blocked(machine, current) ? (
         <EmptyState
           compact
-          title={t('请先升级该机器的 daemon')}
-          description={t('当前 daemon 版本不支持在 Web 上管理，升级后即可使用。')}
+          title={t('请先升级这台电脑的共工客户端')}
+          description={t('当前客户端版本不支持在网页端管理，升级后即可使用。')}
         />
       ) : current === 'agents' ? (
         <MachineAgentsPanel machine={machine} />
@@ -249,12 +249,14 @@ export function MachineDetails({
                 <span className="machine__tag">{osText(machine)}</span>
                 <span className="machine__tag">{machine.arch}</span>
                 {machine.daemonVersion ? (
-                  <span className="machine__tag">daemon v{machine.daemonVersion}</span>
+                  <span className="machine__tag">
+                    {t('客户端')} v{machine.daemonVersion}
+                  </span>
                 ) : null}
                 {upgradable(machine, latest) ? (
                   <span
                     className="machine__tag machine__tag--update"
-                    title={t('daemon 会自动升级到最新版本')}
+                    title={t('共工客户端会自动升级到最新版本')}
                   >
                     {t('可升级到 {version}', { version: latest })}
                   </span>

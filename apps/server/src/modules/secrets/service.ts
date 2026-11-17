@@ -209,7 +209,8 @@ export async function createSecret(
   extra?: Extra,
 ) {
   checkName(body.name)
-  if (body.mode === 'personal' && body.value !== undefined) fail('invalid', 'personal 模式的密钥没有统一值')
+  if (body.mode === 'personal' && body.value !== undefined)
+    fail('invalid', '「个人」模式的密钥由各成员自己填写，没有统一值')
   const at = ctx.now()
   const [row] = await ctx.db
     .insert(secrets)
@@ -238,7 +239,8 @@ export async function updateSecret(ctx: Ctx, row: SecretRow, body: UpdateSecretR
   const name = body.name ?? row.name
   if (body.name !== undefined) checkName(body.name)
   const mode = body.mode ?? row.mode
-  if (mode === 'personal' && typeof body.value === 'string') fail('invalid', 'personal 模式的密钥没有统一值')
+  if (mode === 'personal' && typeof body.value === 'string')
+    fail('invalid', '「个人」模式的密钥由各成员自己填写，没有统一值')
   if (name !== row.name) {
     const [taken] = await ctx.db
       .select({ id: secrets.id })

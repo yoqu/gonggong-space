@@ -63,7 +63,7 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
         <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
         <span className="mx-sub">
           {t(
-            '该机器运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：',
+            '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：',
             {
               version: latest,
             },
@@ -77,11 +77,11 @@ export function UpgradeGuide({ machine, latest }: { machine: MachineDto; latest:
       <span className="mx-strong">{t('可升级到 {version}', { version: latest })}</span>
       <span className="mx-sub">
         {machine.features.includes('noAutoUpgrade')
-          ? t('该机器关闭了自动升级。升级方式：')
-          : t('daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：')}
+          ? t('这台电脑关闭了自动升级。升级方式：')
+          : t('客户端在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：')}
       </span>
-      <span>{t('桌面端：在该机器上打开共工空间客户端，点「检查更新」')}</span>
-      <span>{t('命令行：在该机器上重启 daemon，重连后自动升级')}</span>
+      <span>{t('桌面端：在这台电脑上打开共工空间客户端，点「检查更新」')}</span>
+      <span>{t('命令行：在这台电脑上重启共工客户端，重连后自动升级')}</span>
       <CommandLine command="gg run" />
     </section>
   )
@@ -152,7 +152,7 @@ const CHECK_STATUS: Record<DiagCheck['status'], string> = {
   ok: t('正常'),
   warn: t('注意'),
   error: t('异常'),
-  skipped: t('跳过'),
+  skipped: t('跳过#check'),
 }
 
 /** `gg doctor` run on the machine; a git problem links to Git 访问. */
@@ -214,7 +214,7 @@ export function DiagnosticsPanel({
     <div className="mx">
       <GroupBox>
         <GroupRow
-          label={t('daemon 版本')}
+          label={t('客户端版本')}
           wideValue
           value={
             <span className="mx-inline">
@@ -288,7 +288,7 @@ function LogsPanel({ machine }: { machine: MachineDto }) {
           {t('刷新')}
         </Button>
         <span className="machine-admin__hint">
-          {t('最近 {n} 行，密钥与令牌已在机器上打码', { n: LOG_LINES })}
+          {t('最近 {n} 行，密钥与令牌已在电脑上打码', { n: LOG_LINES })}
         </span>
       </div>
       {error ? (
@@ -504,7 +504,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
           )
         })
       ) : (
-        <EmptyState compact title={t('这台机器上还没有工作区')} />
+        <EmptyState compact title={t('这台电脑上还没有工作区')} />
       )}
       <Presence>
         {confirm ? (
@@ -512,7 +512,7 @@ export function WorkspacesPanel({ machine }: { machine: MachineDto }) {
             open
             role="alertdialog"
             title={t('删除所选的 {n} 个工作区？', { n: selected.length })}
-            message={t('会删除机器上的这些目录，不可恢复。')}
+            message={t('会删除电脑上的这些目录，不可恢复。')}
             onClose={() => setConfirm(false)}
             actions={[
               { label: t('取消'), onClick: () => setConfirm(false), autoFocus: true },

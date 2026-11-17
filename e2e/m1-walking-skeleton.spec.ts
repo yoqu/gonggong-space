@@ -30,9 +30,9 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   // Bind this machine with the one-time 接入链接, as the desktop app would receive it.
   await page.getByRole('button', { name: '账户菜单' }).click()
-  await page.getByRole('menu').getByRole('menuitem', { name: '接入我的电脑' }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: '绑定新电脑' }).click()
   // The 接入链接 for the desktop app sits under 其他方式, after the sentence for a local agent.
-  await page.getByRole('dialog', { name: '绑定新机器' }).getByRole('button', { name: '其他方式' }).click()
+  await page.getByRole('dialog', { name: '绑定新电脑' }).getByRole('button', { name: '其他方式' }).click()
   const link = (await page.getByRole('link', { name: '在客户端中打开' }).getAttribute('href')) ?? ''
   expect(link).toMatch(/^gonggong:\/\/bind\?server=.+&code=[A-Z0-9]{4}-[A-Z0-9]{4}/)
   const m = machine()
@@ -42,17 +42,17 @@ test('admin creates a member → member binds a machine, creates a bot and gets 
 
   try {
     // ③ waits for the machine to come online, then goes on to 新建 Bot on it: bound directly to the machine.
-    const bind = page.getByRole('dialog', { name: '绑定新机器' })
-    await expect(bind.getByText('机器已上线')).toBeVisible({ timeout: 30_000 })
+    const bind = page.getByRole('dialog', { name: '绑定新电脑' })
+    await expect(bind.getByText('电脑已上线')).toBeVisible({ timeout: 30_000 })
     await bind.getByRole('button', { name: '新建 Bot' }).click()
     const rail = page.getByRole('navigation', { name: '应用导航' })
-    await expect(page.getByRole('radiogroup', { name: '执行机器' }).getByRole('radio').first()).toBeChecked()
+    await expect(page.getByRole('radiogroup', { name: '运行电脑' }).getByRole('radio').first()).toBeChecked()
     await page.getByRole('radio', { name: /Claude Code/ }).check()
     await page.getByLabel('名称').fill('小王的 Claude')
     await page.getByRole('button', { name: '创建并绑定' }).click()
     await expect(page.getByText('已就绪，可以在群里 @ 它了')).toBeVisible({ timeout: 30_000 })
     await page.getByRole('button', { name: '完成' }).click()
-    await rail.getByRole('button', { name: '机器与 Bot' }).click()
+    await rail.getByRole('button', { name: '电脑与 Bot' }).click()
     await expect(page.getByText('小王的 Claude').first()).toBeVisible()
 
     // Private chat without a repo: that bot alone makes it a DM (titled by its bot, no name field).

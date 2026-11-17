@@ -369,7 +369,7 @@ export async function putInstall(ctx: Ctx, t: Target, listingId: string, req: In
       .select({ manifest: pluginVersions.manifest })
       .from(pluginVersions)
       .where(eq(pluginVersions.id, pin || follow))
-    if (v && !inScopes(v.manifest)) fail('invalid', 'Agent 与供应商预设插件作用于机器，不能引入')
+    if (v && !inScopes(v.manifest)) fail('invalid', 'Agent 与供应商预设插件作用于电脑，不能引入')
     if (v && !pin && pluginRunsCode(v.manifest)) fail('invalid', '会运行代码的插件必须固定版本引入')
   }
   if (listing.type === 'skill') await skillNameFree(ctx.db, t, listing.name, listing.id)
@@ -533,6 +533,6 @@ export async function hostedListingFiles(db: Read, machineId: string, versionId:
           and(eq(installs.scope, 'user'), eq(installs.enabled, true), sql`${resolvedId(db)} = ${versionId}`),
         )
         .limit(1)
-  if (!allowed || v.status === 'banned') return fail('forbidden', '该机器上没有可使用这个 skill 的 Bot')
+  if (!allowed || v.status === 'banned') return fail('forbidden', '这台电脑上没有可使用这个 Skill 的 Bot')
   return v.files as SkillFile[]
 }

@@ -28,12 +28,12 @@ export const providerBlocked = (meId: string, botOwnerId: string, machine: Machi
   botOwnerId !== meId
     ? t('只有 Bot 主人可以设置其供应商')
     : machine?.ownerId !== meId
-      ? t('只能在自己的机器上设置 Bot 的供应商')
+      ? t('只能在自己的电脑上设置 Bot 的供应商')
       : !machine.online
-        ? t('机器离线，上线后才能设置')
+        ? t('电脑离线，上线后才能设置')
         : machine.features.includes('providers')
           ? null
-          : t('请先升级该机器的 daemon')
+          : t('请先升级这台电脑的共工客户端')
 
 /** A machine default (no `botId`, with its model) or a bot's choice (`inherit` drops it). */
 export interface ProviderChange {

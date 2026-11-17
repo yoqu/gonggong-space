@@ -399,8 +399,8 @@ describe('我的密钥', () => {
     expect(row('JIRA_TOKEN').textContent).toContain('已填写 · 末 4 位 abcd')
     fireEvent.click(within(row('GITHUB_TOKEN')).getByRole('button', { name: '填写…' }))
     const dialog = await screen.findByRole('dialog', { name: '填写 GITHUB_TOKEN' })
-    expect(within(dialog).getByText(/机器主人能读到/)).toBeTruthy()
-    const foreign = within(dialog).getByRole('checkbox', { name: '允许在他人机器上的 Bot 使用' })
+    expect(within(dialog).getByText(/电脑主人能读到/)).toBeTruthy()
+    const foreign = within(dialog).getByRole('checkbox', { name: '允许在他人电脑上的 Bot 使用' })
     expect((foreign as HTMLInputElement).checked).toBe(false)
     const value = within(dialog).getByLabelText('值') as HTMLInputElement
     expect(value.type).toBe('password')
@@ -424,7 +424,7 @@ describe('我的密钥', () => {
     render(<SettingsDialog page="secrets" onClose={() => {}} />)
     await screen.findByText('JIRA_TOKEN')
     const sw = within(row('JIRA_TOKEN')).getByRole('switch', {
-      name: '允许在他人机器上的 Bot 使用 JIRA_TOKEN',
+      name: '允许在他人电脑上的 Bot 使用 JIRA_TOKEN',
     })
     expect(sw.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(sw)
@@ -496,9 +496,9 @@ describe('填写密钥 card', () => {
     render(<SecretCard m={m} card={foreign} />)
     fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
     const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
-    const allow = within(dialog).getByLabelText('允许在他人机器上的 Bot 使用') as HTMLInputElement
+    const allow = within(dialog).getByLabelText('允许在他人电脑上的 Bot 使用') as HTMLInputElement
     expect(allow.checked).toBe(true)
-    expect(within(dialog).getByText(/机器主人能读到 Bot 进程的环境变量/)).toBeTruthy()
+    expect(within(dialog).getByText(/电脑主人能读到 Bot 进程的环境变量/)).toBeTruthy()
     fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
     await waitFor(() =>
@@ -514,7 +514,7 @@ describe('填写密钥 card', () => {
     render(<SecretCard m={m} card={{ ...card, foreign: false }} />)
     fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
     const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
-    expect(within(dialog).queryByLabelText('允许在他人机器上的 Bot 使用')).toBeNull()
+    expect(within(dialog).queryByLabelText('允许在他人电脑上的 Bot 使用')).toBeNull()
   })
 
   it('keeps my unfilled cards atop the chat until they are filled', async () => {
@@ -599,7 +599,7 @@ describe('/secret-requests/:id (opened from Feishu)', () => {
     const calls = mockApi({ 'GET /secret-requests/q1': req, 'POST /secret-requests/q1': {} })
     page()
     const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
-    expect(within(dialog).getByLabelText('允许在他人机器上的 Bot 使用')).toBeTruthy()
+    expect(within(dialog).getByLabelText('允许在他人电脑上的 Bot 使用')).toBeTruthy()
     fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
     expect(await screen.findByText('已填写，可以回到飞书')).toBeTruthy()

@@ -567,8 +567,8 @@ function DesignSystemPanel({
                     <thead>
                       <tr>
                         <th>{t('样式')}</th>
-                        <th>{t('字号')}</th>
-                        <th>{t('字重')}</th>
+                        <th>{t('字号#type')}</th>
+                        <th>{t('字重#type')}</th>
                         <th>{t('行高')}</th>
                       </tr>
                     </thead>

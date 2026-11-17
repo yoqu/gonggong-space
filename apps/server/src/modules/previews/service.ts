@@ -353,7 +353,7 @@ export async function takeSnapshot(ctx: Ctx, p: Preview, { launch = true } = {})
     : p.port !== null
       ? { previewId: p.id, port: p.port }
       : null
-  if (!conn || !target) return fail('conflict', '预览所在的机器离线')
+  if (!conn || !target) return fail('conflict', '预览所在的电脑离线')
   let png: Buffer
   let status: number
   try {
@@ -438,7 +438,7 @@ export function startLoginWatch(ctx: Ctx) {
 /** Asks the machine to stop a live service; its exit report closes the service's previews. */
 export function stopService(ctx: Ctx, svc: { id: string; machineId: string }) {
   if (!ctx.hub.send(svc.machineId, { t: 'service.stop', serviceId: svc.id }))
-    fail('conflict', '服务所在的机器离线')
+    fail('conflict', '服务所在的电脑离线')
 }
 
 /** 停止: closes the tunnel and, with `withService`, stops the live service behind it first. */

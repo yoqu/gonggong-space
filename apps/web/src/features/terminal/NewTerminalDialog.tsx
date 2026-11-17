@@ -80,9 +80,9 @@ export function NewTerminalDialog({
           {usable.length ? (
             <>
               <section className="ng-section">
-                <h3 className="ng-section__title">{t('机器')}</h3>
+                <h3 className="ng-section__title">{t('电脑')}</h3>
                 <Select
-                  label={t('机器')}
+                  label={t('电脑')}
                   options={usable.map((m) => ({ value: m.id, label: m.name }))}
                   value={machineId}
                   onChange={setMachineId}
@@ -129,7 +129,7 @@ export function NewTerminalDialog({
             </>
           ) : (
             <p className="ng-hint">
-              {t('没有可用的机器：需要你的一台在线的 macOS 或 Linux 机器，且客户端已升级到最新版本。')}
+              {t('没有可用的电脑：需要你的一台在线的 macOS 或 Linux 电脑，且共工客户端已升级到最新版本。')}
             </p>
           )}
         </div>

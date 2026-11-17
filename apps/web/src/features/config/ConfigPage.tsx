@@ -378,7 +378,7 @@ export function ConfigPage() {
           ))}
           <div className="cfg__note">
             {t(
-              '合并在 daemon 内存完成；MCP 在新建会话时经 ACP 注入不落盘；skill 由 daemon 缓存在本机，Claude 以插件注入，Codex 在工作区建软链并加入 .git/info/exclude。内置 gonggong（提问、聊天记录、群信息等）始终注入。',
+              '仅在客户端内存中合并生效，不改动原有配置文件；MCP 会在新建会话时自动注入，Skill 会缓存在电脑本地，内置工具集 gonggong 始终可用。',
             )}
           </div>
           <McpSaved force={layer.savedForce} />

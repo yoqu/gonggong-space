@@ -351,7 +351,7 @@ describe('audit query', () => {
       'Bot 设计师 始终允许：npm test、tail',
     )
     expect(s('admin', 'machine.transfer', { name: 'mac-mini', fromOwnerId: 'u1' })).toBe(
-      '将 王磊 的机器 mac-mini 转移到名下',
+      '将 王磊 的电脑 mac-mini 转移到名下',
     )
     expect(s('run', 'run.task_stop', { runId: 'r1' })).toBe('中断 小王的 Claude 的后台任务')
     expect(s('run', 'tool.cross_group_read', { runId: 'r1', groups: ['g1', 'g2'] })).toBe(
@@ -403,7 +403,7 @@ describe('audit query', () => {
       '删除 设计师 的工作区 /w/pay',
     )
     expect(s('terminal', 'session.create', { botId: 'b1' })).toBe('打开 设计师 的终端')
-    expect(s('terminal', 'session.exit', { botId: null })).toBe('机器终端已退出')
+    expect(s('terminal', 'session.exit', { botId: null })).toBe('电脑终端已退出')
   })
 
   // Every action written to audit_logs (grep `audit(` / `insert(auditLogs)` under src): add new ones here.

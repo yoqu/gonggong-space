@@ -143,7 +143,7 @@ export function RepoSettings({ group, isAdmin }: { group: GroupDto; isAdmin: boo
             message={t('确定移除仓库 {repo}？', { repo: repoPath(removing.url) })}
             consequences={[
               t('各 Bot 从下一轮起不再使用它，并开始新会话'),
-              t('已有克隆保留在各自机器上，不会删除'),
+              t('已有克隆保留在各自电脑上，不会删除'),
             ]}
             label={t('移除')}
             done={t('已移除仓库')}
@@ -160,7 +160,7 @@ export function RepoSettings({ group, isAdmin }: { group: GroupDto; isAdmin: boo
             consequences={[
               t('自动克隆的 Bot 改用默认工作区；没有默认工作区的需主人重新选择'),
               t('已使用本机目录的 Bot 不变'),
-              t('自动克隆保留在各自机器上，不会删除'),
+              t('自动克隆保留在各自电脑上，不会删除'),
             ]}
             label={t('解绑仓库')}
             done={t('已解绑仓库')}

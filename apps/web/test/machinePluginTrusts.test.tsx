@@ -93,7 +93,7 @@ describe('插件授权', () => {
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ allow: true })
 
     fireEvent.click(within(section).getByRole('button', { name: '撤销' }))
-    expect(await within(section).findByText('还没有插件请求在这台机器上运行代码')).toBeTruthy()
+    expect(await within(section).findByText('还没有插件请求在这台电脑上运行代码')).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true))
   })
 

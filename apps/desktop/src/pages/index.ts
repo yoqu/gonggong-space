@@ -45,7 +45,7 @@ export const SECTIONS: { title?: string; pages: Page[] }[] = [
         label: t('概览'),
         icon: 'dashboard',
         color: 'var(--system-blue)',
-        desc: t('本机执行端状态与正在运行的轮次'),
+        desc: t('这台电脑的连接状态与正在运行的任务'),
         Component: OverviewPage,
       },
     ],

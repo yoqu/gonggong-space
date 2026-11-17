@@ -404,7 +404,7 @@ export function ProviderEditor({
       <Form id={FORM_ID} aria-label={title} onSubmit={() => void save()}>
         <FormRow label={t('厂商')}>
           <span className="mx-inline">
-            <span>{preset ? preset.name : localProfile ? t('该机器 Claude 配置目录') : t('自定义')}</span>
+            <span>{preset ? preset.name : localProfile ? t('这台电脑的 Claude 配置目录') : t('自定义')}</span>
             {editing ? null : (
               <Button size="small" variant="plain" onClick={() => setPreset(undefined)}>
                 {t('更换…')}
@@ -432,7 +432,7 @@ export function ProviderEditor({
               label={t('协议')}
               hint={
                 single
-                  ? t('该机器的客户端较旧，一个供应商只能登记一种协议')
+                  ? t('这台电脑的客户端版本较旧，一个供应商只能登记一种协议')
                   : t(
                       'Agent 只能用协议对得上的供应商：Claude Code 需要 Anthropic 兼容，Codex 需要 OpenAI 兼容',
                     )
@@ -451,7 +451,7 @@ export function ProviderEditor({
             </FormRow>
             <FormRow
               label="API Key"
-              hint={editing ? t('留空则保留已保存的 Key') : t('Key 只保存在这台机器上')}
+              hint={editing ? t('留空则保留已保存的 Key') : t('Key 只保存在这台电脑上')}
             >
               <span className="mx-inline mx-field-row">
                 <SecureField
@@ -482,7 +482,7 @@ export function ProviderEditor({
           </>
         )}
         {editing || !agentsFor.length ? null : (
-          <FormRow label={t('设为默认')} hint={t('这些 Agent 在该机器上默认使用它')}>
+          <FormRow label={t('设为默认')} hint={t('这些 Agent 在这台电脑上默认使用它')}>
             <span className="mx-inline mx-preset">
               {agentsFor.map((a) => (
                 <Checkbox
@@ -563,7 +563,7 @@ function ProfileRows({
             aria-label={t('配置目录')}
             options={suggested}
             value={configDir}
-            placeholder={t('该机器上的绝对路径')}
+            placeholder={t('这台电脑上的绝对路径')}
             onInput={onConfigDir}
             onChange={onConfigDir}
           />
@@ -584,7 +584,7 @@ function ProfileRows({
             onClose: () => onBrowse(false),
           })
         : null}
-      <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用该机器的 Agent 路径')}>
+      <FormRow label={t('Claude 可执行文件')} hint={t('可选；留空使用这台电脑的 Agent 路径')}>
         <TextField
           aria-label={t('Claude 可执行文件')}
           value={executablePath}
@@ -820,7 +820,7 @@ export function OfficialEditor({
       onClose={onClose}
       closeOnBackdrop={false}
       title={title}
-      message={t('登录与配置仍用这台机器上 CLI 自己的，以下设置在启动 Agent 时附加')}
+      message={t('登录与配置仍用这台电脑上 CLI 自己的，以下设置在启动 Agent 时附加')}
       width={560}
       actions={[
         { label: t('取消'), onClick: onClose },
@@ -925,8 +925,8 @@ function VendorPicker({
         {onProfile
           ? row(
               'profile',
-              t('该机器 Claude 配置目录'),
-              t('使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key'),
+              t('这台电脑的 Claude 配置目录'),
+              t('使用这台电脑上另一个 Claude 配置目录里的登录与设置，无需 API Key'),
               onProfile,
             )
           : null}

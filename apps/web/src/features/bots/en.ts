@@ -1,11 +1,11 @@
 export default {
   客户端需升级: 'Client update needed',
   '{machine} 的客户端版本较旧，「帮我审批」还不能自动放行开发命令，更多请求会问你；升级客户端后生效。':
-    "{machine}'s client is older: “Review for me” cannot auto-approve development commands there yet, so more requests come to you. Upgrade the client.",
+    '{machine}\'s client is older: "Review for me" cannot auto-approve development commands there yet, so more requests come to you. Upgrade the client.',
   '默认（{name}）': 'Default ({name})',
   默认: 'Default',
   模型: 'Model',
-  '跟随默认 · 机器上报可选模型后可设置': 'Follows default · Available once the machine reports its models',
+  '跟随默认 · 电脑上报可选模型后可设置': 'Follows default · Available once the computer reports its models',
   '群内可临时切换，发消息时也可单条指定': 'Can be switched in a group, or set per message',
   刷新模型: 'Refresh models',
   '已刷新，共 {n} 个可选模型': 'Refreshed · {n} models available',
@@ -17,19 +17,19 @@ export default {
   '已允许 {rules}': 'allowed {rules}',
   已允许的命令: 'Allowed commands',
   '高危命令（如 sudo、git push --force）、推送受保护的基准分支和客户端发版始终需要你确认。':
-    ' Dangerous commands (like sudo, git push --force), pushes to a protected base branch and client releases always need your confirmation.',
+    'Dangerous commands (like sudo, git push --force), pushes to a protected base branch and client releases always need your confirmation.',
   '只读命令自动放行，其余操作都发审批卡片给你。':
     'Read-only commands run right away; everything else comes to you as an approval card.',
   '构建、测试、lint、格式化、本地 git 和工作区内改文件直接放行（等于信任仓库里的脚本）；其余发审批卡片给你，开启 AI 预审后先由 AI 评估，只把风险操作交给你。':
-    'Building, testing, linting, formatting, local git and file changes inside the workspace run right away (this trusts the repository’s scripts); anything else comes to you as an approval card, first assessed by an AI when AI pre-review is on, which only passes risky actions on to you.',
+    "Building, testing, linting, formatting, local git and file changes inside the workspace run right away (this trusts the repository's scripts); anything else comes to you as an approval card, first assessed by an AI when AI pre-review is on, which only passes risky actions on to you.",
   'AI 预审': 'AI pre-review',
   '关闭#off': 'Off',
   '默认关闭。开启后，规则没放行、内置审核也没接手的请求先由这里选的模型评估，只把风险操作交给你，审批卡片附上风险和理由。每次评估都消耗 token，请选小模型（如 haiku、mini、flash）。':
     'Off by default. When on, requests the rules did not allow and no built-in review took are first assessed on the model picked here, which only passes risky actions on to you with the risk and reasoning on the card. Every assessment costs tokens: pick a small model (such as haiku, mini or flash).',
-  'Bot 所在机器尚未上报可选模型，暂不能开启。':
-    'The Bot’s machine has not reported its models yet, so this cannot be turned on.',
+  'Bot 所在电脑尚未上报可选模型，暂不能开启。':
+    "The Bot's computer has not reported its models yet, so this cannot be turned on.",
   'Claude 和 Codex（OpenAI 官方登录）改由 agent 内置的自动审核把关，共工不再预审；被它拦下的操作会让 agent 换个做法，不发卡片。内置审核不可用时（第三方供应商、不支持的模型）按上面的方式审批，运行过程里会注明本次由谁审。':
-    'Claude and Codex (official OpenAI login) hand approvals to the agent’s built-in review instead; Gonggong does not pre-review. What it blocks makes the agent try another way, without a card. Where the built-in review is unavailable (third-party providers, unsupported models) approvals work as above; the run says who reviewed.',
+    "Claude and Codex (official OpenAI login) hand approvals to the Agent's built-in review instead; Gonggong does not pre-review. What it blocks makes the Agent try another way, without a card. Where the built-in review is unavailable (third-party providers, unsupported models) approvals work as above; the run says who reviewed.",
   '不再询问，Bot 可以执行任何操作；能触发它的人发起的任务都不会被拦截，包括危险命令，建议只给自己用的群或 Bot 开启。':
     'Never asks: the Bot may do anything, and nothing anyone who can trigger it starts is stopped, dangerous commands included. Turn this on only for your own groups or Bots.',
   'Bot 只能读取，其余操作都发审批卡片给你。':
@@ -48,7 +48,7 @@ export default {
   'Bot 详情': 'Bot details',
   托管工作区: 'Managed workspace',
   '空闲，在群里 @ 它即可开工': 'Idle · @ it in a group to start work',
-  '{machine} 离线，被 @ 的请求会等待机器上线': '{machine} is offline; requests wait until it comes online',
+  '{machine} 离线，被 @ 的请求会等待电脑上线': '{machine} is offline; requests wait until it comes online',
   '{ago}开始': 'Started {ago}',
   '还没有加入任何群，把它拉进群后即可 @ 它': 'Not in any group yet. Add it to a group, then @ it',
   工作位置: 'Where it works',
@@ -74,24 +74,24 @@ export default {
   '近 {n} 天用量': 'Usage in the last {n} days',
   配置: 'Configuration',
   '只有 Bot 主人可以设置其供应商': 'Only the Bot owner can set its provider',
-  '只能在自己的机器上设置 Bot 的供应商': "A Bot's provider can only be set on your own machine",
-  '机器离线，上线后才能设置': 'The machine is offline; set this once it is online',
-  '请先升级该机器的 daemon': "Upgrade this machine's daemon first",
-  '继承机器（当前：{name}）': 'Inherit from machine (currently: {name})',
+  '只能在自己的电脑上设置 Bot 的供应商': "A Bot's provider can only be set on your own computer",
+  '电脑离线，上线后才能设置': 'Computer offline; set this once it is online',
+  请先升级这台电脑的共工客户端: "Upgrade this computer's Gonggong client first",
+  '使用电脑默认（当前：{name}）': 'Computer default (now {name})',
   供应商: 'Provider',
   '读取中…': 'Loading…',
   完全允许只能由触发名单里的人触发:
-    'With “Allow everything” only the people on the trigger list can trigger it',
+    'With "Allow everything" only the people on the trigger list can trigger it',
   '等待 {owner} 确认': 'Waiting for {owner} to confirm',
-  '{creator} 为{owner}创建并绑定到 {machine}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。':
-    '{creator} created it for {owner} and bound it to {machine}. It can be triggered once the machine owner confirms in web notifications or Bot details.',
+  '{creator} 为 {owner} 创建并绑定到 {machine}。电脑主人在通知或 Bot 详情中确认后才能使用。':
+    '{creator} created it for {owner} and bound it to {machine}. It can be triggered once the computer owner confirms in notifications or Bot details.',
   待绑定: 'Pending binding',
-  '{owner} 绑定第一台机器并上报 {agent} 后自动绑定，无需再操作；此前不能被触发。':
-    'Binds automatically once {owner} binds a first machine that reports {agent}; no further action needed. It cannot be triggered until then.',
+  '{owner} 绑定第一台电脑并上报 {agent} 后会自动绑定；此前还不能被触发。':
+    'Binds automatically once {owner} binds their first computer that reports {agent}; it cannot be triggered until then.',
   '{agent} 未安装': '{agent} not installed',
   '{agent} 待检测': '{agent} not detected yet',
-  '{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。':
-    '{machine} has not reported {agent}. Install it on that machine and re-detect; it becomes available automatically.',
+  '{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。':
+    '{machine} has not reported {agent}. Install it on that computer and check again; it becomes available automatically.',
   '{machine} 还没上线检测 {agent}，上线并检测到后自动可用。':
     '{machine} has not come online to detect {agent} yet; it becomes available once it is detected.',
   待检测: 'Not detected yet',
@@ -113,26 +113,27 @@ export default {
   清除: 'Clear',
   触发名单: 'Trigger list',
   输入成员姓名: 'Enter member names',
-  '同时运行的轮次，超出的在该机器排队': 'Runs at the same time; extra runs queue on the machine',
+  '同时执行的任务上限，超出的在这台电脑排队': 'Max concurrent tasks; extra ones queue on this computer',
   '{n} 个': '{n}',
   '近 7 天用量': 'Usage (last 7 days)',
   '近 7 天无人使用': 'Nobody used it in the last 7 days',
   '删除 Bot': 'Delete Bot',
   保存: 'Save',
-  '全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。':
-    "Owner, binding and status of every Bot. Create one for any member; it binds to the owner's machine and agent on creation.",
+  '查看所有 Bot 的归属、绑定与状态；可为任何成员新建，创建时直接绑定到 Bot 主人的电脑和 Agent。':
+    "Owner, binding and status of every Bot. Create one for any member; it binds to the owner's computer and Agent on creation.",
   '{n} 个 Bot': '{n} {n:Bot|Bots}',
   '新建 Bot…': 'New Bot…',
-  '搜索 Bot、归属人或机器': 'Search Bots, owners or machines',
+  '搜索 Bot、主人或电脑': 'Search Bots, owners or computers',
   'Bot 列表': 'Bot list',
   '删除 Bot…': 'Delete Bot…',
   '没有匹配的 Bot': 'No matching Bots',
-  归属人: 'Owner',
+  'Bot 主人': 'Bot owner',
   绑定: 'Binding',
   状态: 'Status',
+  电脑: 'Computer',
   '还没有 Bot': 'No Bots yet',
-  'Bot 绑定到成员的机器，在群里被 @ 后开工。':
-    "A Bot is bound to a member's machine and starts work when @-mentioned in a group.",
+  'Bot 绑定到成员的电脑，在群里被 @ 后开工。':
+    "A Bot is bound to a member's computer and starts work when @-mentioned in a group.",
   '要删除 {name} 吗？': 'Delete {name}?',
   '删除后不可恢复，群消息与运行记录保留。': 'This cannot be undone. Group messages and run history are kept.',
   '从所在的 {n} 个群移除': 'Removed from {n} {n:group|groups}',
@@ -141,16 +142,16 @@ export default {
   '已删除 {name}': 'Deleted {name}',
   '{owner}的 {agent}': "{owner}'s {agent}",
   '新建 Bot': 'New Bot',
-  创建时直接绑定到归属人的机器: "Binds to the owner's machine on creation",
+  '创建时直接绑定到 Bot 主人的电脑': "Binds to the Bot owner's computer on creation",
   取消: 'Cancel',
   创建: 'Create',
   '已发送确认通知给 {name}': 'Confirmation request sent to {name}',
-  '在要运行 Bot 的机器上用共工空间客户端打开接入链接，绑定并上报 {agent} 后自动可用。':
-    'Open the connect link in the Gonggong Space client on the machine that will run the Bot. It becomes available once bound and {agent} is reported.',
-  '{owner} 绑定第一台机器并上报 {agent} 后自动可用。':
-    'Available once {owner} binds a first machine that reports {agent}.',
-  '机器 {machine} 当前离线，打开该机器上的共工空间客户端后即可使用':
-    'Machine {machine} is offline. Open the Gonggong Space client on it to start using the Bot',
+  '在要运行 Bot 的电脑上用共工空间客户端打开接入链接，绑定并上报 {agent} 后自动可用。':
+    'Open the connect link in the Gonggong Space client on the computer that will run the Bot; it becomes available once bound and {agent} is reported.',
+  '{owner} 绑定第一台电脑并上报 {agent} 后自动可用。':
+    'Available once {owner} binds a first computer that reports {agent}.',
+  '电脑 {machine} 当前离线，打开这台电脑上的共工空间客户端后即可使用':
+    'Computer {machine} is offline. Open the Gonggong Space client on it to start using the Bot',
   '已就绪，可以在群里 @ 它了': 'Ready. You can @ it in a group now',
   '{name} 已创建': '{name} created',
   完成: 'Done',
@@ -158,22 +159,22 @@ export default {
   创建后立即可用: 'Available right after creation',
   '绑定到 {machine} · {agent} {version}，可直接拉入群触发。':
     'Binds to {machine} · {agent} {version}; add it to a group to trigger it.',
-  '绑定到 {machine} · {agent} {version}，可直接拉入群触发。机器当前离线，上线后开始执行。':
-    'Binds to {machine} · {agent} {version}; add it to a group to trigger it. The machine is offline; runs start once it is online.',
-  '已绑定到 {machine}。机器上的操作由主人负责，{owner} 在 Web 通知中一键确认后即可触发。':
-    'Bound to {machine}. The owner is responsible for actions on the machine; it can be triggered once {owner} confirms in web notifications.',
+  '绑定到 {machine} · {agent} {version}，可直接拉入群触发。电脑当前离线，上线后开始执行。':
+    'Binds to {machine} · {agent} {version}; add it to a group to trigger it. The computer is offline; runs start once it is online.',
+  '已绑定到 {machine}。电脑上的操作由主人负责，{owner} 在通知里确认后即可触发。':
+    'Bound to {machine}. The owner is responsible for actions on the computer; it can be triggered once {owner} confirms in notifications.',
   '默认工作区未设置：{error}': 'Default workspace not set: {error}',
   创建并绑定: 'Create and bind',
   创建并发送确认: 'Create and request confirmation',
   '系统管理员可为任何人创建；成员本人只能为自己创建。':
     'System admins can create Bots for anyone; members can only create their own.',
   '{name}（我）': '{name} (me)',
-  '{name} · {n} 台机器': '{name} · {n} {n:machine|machines}',
-  执行机器: 'Machine',
+  '{name} · {n} 台电脑': '{name} · {n} {n:computer|computers}',
+  运行电脑: 'Computer',
   在线: 'Online',
   离线: 'Offline',
-  '{owner} 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。':
-    '{owner} has no bound machine yet. The Bot will be created as "Pending binding"; you can pick the agent now.',
+  '{owner} 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。':
+    '{owner} has no bound computer yet. The Bot will be created as "Pending binding"; you can pick the Agent now.',
   已安装: 'Installed',
   未安装: 'Not installed',
   名称: 'Name',
@@ -244,7 +245,7 @@ export default {
     'Lays problems out in the open to help people grow; reviews every milestone.',
   复盘: 'Retro',
   '直率 × 暖心 × 透明': 'Candid × Warm × Transparent',
-  '只保存在 Bot 所在的机器上': "Stored only on the bot's machine",
+  '只保存在 Bot 所在的电脑上': "Stored only on the Bot's computer",
   运行配置: 'Runtime',
   权限: 'Access',
   '都可以在创建后的 Bot 设置里修改': "All can be changed in the bot's settings later",
@@ -269,18 +270,18 @@ export default {
   '一句话说明用途（可选）': 'What you need it for (optional)',
   '{owner} 同意后会为你打开和 {name} 的私聊。私聊使用你单独的托管工作区，命令审批仍由 Bot 主人处理。':
     'Once {owner} approves, a direct chat with {name} opens for you. It uses a managed workspace of your own; command approvals stay with the Bot owner.',
-  共享申请: 'Access requests',
+  '共享申请#list': 'Access requests',
   头像: 'Avatar',
   上传的图片代替角色形象显示: "An uploaded image shows instead of the role's face",
   覆盖: 'Overrides',
   '只有 Bot 主人可以修改 Agent 设置': "Only the Bot's owner can change its agent settings",
   '{label}：{v}': '{label}: {v}',
-  跟随机器设置: 'Follow machine settings',
-  '跟随机器设置（当前：{v}）': 'Follow machine settings (now: {v})',
-  '「跟随机器设置」使用机器上的 Agent 设置；下次启动 agent 时生效':
-    '"Follow machine settings" uses the agent settings on the machine; takes effect the next time the agent starts',
-  '该机器的 daemon 版本过旧，覆盖不会生效':
-    "This machine's daemon is too old; the overrides will not take effect",
+  跟随电脑设置: 'Follow computer settings',
+  '跟随电脑设置（当前：{v}）': 'Follow computer settings (now: {v})',
+  '「跟随电脑设置」使用这台电脑上的 Agent 设置；下次启动 Agent 时生效':
+    '"Follow computer settings" uses the Agent settings on this computer; takes effect the next time the Agent starts',
+  '这台电脑的共工客户端版本过旧，覆盖不会生效':
+    "This computer's Gonggong client is too old; the overrides will not take effect",
   和它聊一句: 'Say hi to it',
   官方形象: 'Official look',
   '按 Bot 的 Agent 出图，一眼看出用的是哪家':

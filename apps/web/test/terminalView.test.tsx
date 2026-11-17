@@ -241,7 +241,7 @@ describe('terminal view', () => {
     const onExit = vi.fn()
     render(<TerminalView sessionId={sessionId} active onExit={onExit} />)
     act(() => lastSocket().json({ op: 'reset', code: 'forbidden' }))
-    expect(screen.getByText('没有权限使用此终端，仅机器主人可访问')).toBeTruthy()
+    expect(screen.getByText('没有权限使用此终端，仅电脑主人可访问')).toBeTruthy()
     act(() => lastSocket().json({ op: 'exit', state: 'exited', exitCode: 7, reason: 'exited' }))
     expect(onExit).toHaveBeenCalledWith(7, 'exited')
     expect(screen.getByText('Shell 已退出，退出码 7')).toBeTruthy()

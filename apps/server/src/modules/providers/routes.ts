@@ -64,9 +64,9 @@ export function providerRoutes(ctx: Ctx) {
 
     // Older daemons answer in the legacy shapes: the web only ever sees the new ones.
     const view = (v: AnyStoreView | undefined) =>
-      normalizeStoreView(v ?? fail('invalid', '机器未返回供应商列表'))
+      normalizeStoreView(v ?? fail('invalid', '电脑未返回供应商列表'))
     const saved = (res: { id?: string; view?: AnyStoreView }): ProviderSavedDto => ({
-      id: res.id ?? fail('invalid', '机器未返回供应商'),
+      id: res.id ?? fail('invalid', '电脑未返回供应商'),
       view: view(res.view),
     })
     const speaksProtocols = (machineId: string) => ctx.hub.features(machineId).includes('protocolProviders')
@@ -80,10 +80,10 @@ export function providerRoutes(ctx: Ctx) {
           ctx,
           machineId,
           'claudeProfile',
-          '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录',
+          '请先升级这台电脑的共工客户端，才能使用 Claude 配置目录',
         )
       if (endpoints.some((e) => e.args?.length))
-        requireFeature(ctx, machineId, 'providerArgs', '请先升级该机器的 daemon 才能使用命令行参数')
+        requireFeature(ctx, machineId, 'providerArgs', '请先升级这台电脑的共工客户端，才能使用命令行参数')
     }
 
     /** The agent an older daemon's provider `id` belongs to. */
@@ -114,7 +114,7 @@ export function providerRoutes(ctx: Ctx) {
       }
       const endpoints = input.endpoints ?? []
       if (endpoints.length > 1 || input.removeProtocols?.length)
-        fail('conflict', '请先升级该机器的客户端才能为一个供应商登记多种协议')
+        fail('conflict', '请先升级这台电脑的共工客户端，才能为一个供应商登记多种协议')
       const [endpoint] = endpoints
       const target = id
         ? await legacyAgentOf(machineId, id)
@@ -125,7 +125,7 @@ export function providerRoutes(ctx: Ctx) {
           protocol: endpoint.protocol,
         })
       if (setDefault.some((a) => a !== target))
-        fail('conflict', '请先升级该机器的客户端才能把一个供应商设为多个 Agent 的默认')
+        fail('conflict', '请先升级这台电脑的共工客户端，才能把一个供应商设为多个 Agent 的默认')
       const provider = providerInputToLegacy(input, target)
       return saved(
         await providersCmd(ctx, machineId, { action: 'save', provider, setDefault: setDefault.length > 0 }),
@@ -185,7 +185,7 @@ export function providerRoutes(ctx: Ctx) {
         const m = await owned(req, me.id)
         const { agent, choice, model } = UseProviderReq.parse(req.body)
         const withModel = speaksProtocols(m.id)
-        if (!withModel && model) fail('conflict', '请先升级该机器的客户端才能为机器默认指定模型')
+        if (!withModel && model) fail('conflict', '请先升级这台电脑的共工客户端，才能为电脑默认指定模型')
         const cmd = {
           action: 'use',
           agent,
@@ -205,7 +205,7 @@ export function providerRoutes(ctx: Ctx) {
         const m = await owned(req, me.id)
         const { agent, ...official } = OfficialProviderReq.parse(req.body)
         if (official.args?.length)
-          requireFeature(ctx, m.id, 'claudeArgs', '请先升级该机器的 daemon 才能使用命令行参数')
+          requireFeature(ctx, m.id, 'claudeArgs', '请先升级这台电脑的共工客户端，才能使用命令行参数')
         const res = view((await providersCmd(ctx, m.id, { action: 'official', agent, official })).view)
         await trail(me.id, 'machine.providers.official', { machineId: m.id })
         return res
@@ -219,7 +219,7 @@ export function providerRoutes(ctx: Ctx) {
         const m = await owned(req, me.id)
         const { agent, ...agentSettings } = AgentSettingsReq.parse(req.body)
         // Older daemons drop an action they do not know, which would leave the request waiting out the timeout.
-        requireFeature(ctx, m.id, 'agentSettings', '请先升级该机器的 daemon 才能使用 Agent 设置')
+        requireFeature(ctx, m.id, 'agentSettings', '请先升级这台电脑的共工客户端，才能使用 Agent 设置')
         const res = view(
           (await providersCmd(ctx, m.id, { action: 'agentSettings', agent, agentSettings })).view,
         )
@@ -252,7 +252,7 @@ export function providerRoutes(ctx: Ctx) {
 
     const ccSwitch = (machineId: string) => {
       const noCcSwitch = ctx.hub.features(machineId).includes('providers')
-        ? '这台机器上没有 CC Switch'
+        ? '这台电脑上没有 CC Switch'
         : undefined
       requireFeature(ctx, machineId, 'ccSwitch', noCcSwitch)
     }
@@ -291,8 +291,8 @@ export function providerRoutes(ctx: Ctx) {
       if (!row) return fail('not_found', 'Bot 不存在')
       const { bot, machineOwner } = row
       if (bot.ownerId !== me.id) return fail('forbidden', '只有 Bot 主人可以设置其供应商')
-      if (!bot.machineId || !machineOwner) return fail('conflict', 'Bot 尚未绑定机器')
-      if (machineOwner !== me.id) return fail('forbidden', '只能在自己的机器上设置 Bot 的供应商')
+      if (!bot.machineId || !machineOwner) return fail('conflict', 'Bot 尚未绑定电脑')
+      if (machineOwner !== me.id) return fail('forbidden', '只能在自己的电脑上设置 Bot 的供应商')
       const { choice, model, effort } = BotProviderReq.parse(req.body)
       const agent = bot.agentKind as AgentKind
       const picked = model !== undefined || effort !== undefined
@@ -351,7 +351,7 @@ export function providerRoutes(ctx: Ctx) {
     // 刷新模型: the machine probes the bot's agent again now (e.g. after its CLI config was edited).
     app.post<{ Params: Params }>('/api/bots/:id/catalog/refresh', async (req): Promise<BotCatalogDto> => {
       const bot = await pickable(req)
-      if (!bot.machineId) return fail('conflict', 'Bot 尚未绑定机器')
+      if (!bot.machineId) return fail('conflict', 'Bot 尚未绑定电脑')
       requireFeature(ctx, bot.machineId, 'reprobe')
       const msg = { t: 'agents.reprobe', requestId: randomUUID(), kind: bot.agentKind as AgentKind } as const
       await relay(ctx, bot.machineId, msg, 'agents.reprobe.result', REPROBE_TIMEOUT_MS)

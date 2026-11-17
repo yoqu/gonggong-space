@@ -133,7 +133,7 @@ pub(crate) fn classify(stderr: &str) -> Failure {
         RepoAccessReason::Denied
     };
     let detail = match lower.contains("host key verification failed") {
-        true => t!("Host key verification failed：先在这台机器上手动 ssh 一次该主机，确认 host key").into(),
+        true => t!("Host key verification failed：先在这台电脑上手动 ssh 一次该主机，确认 host key").into(),
         false => detail,
     };
     Failure { reason, detail }

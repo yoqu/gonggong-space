@@ -3,7 +3,7 @@
 The Chinese pages under `website/` are the source of truth. English pages mirror them under `website/en/` with the **same relative path**: `website/user/chat.md` → `website/en/user/chat.md`. Sidebar/nav for English already exist in `.vitepress/config.mts` — do not edit it.
 
 ## What to produce
-- A faithful, natural English translation of every section, table, tip box, and code-block comment. Do not drop, summarize, or add content. Keep the same heading structure, the same screenshots (same `/screenshots/...` paths — the UI itself is Chinese-only), and the same VitePress containers (`::: tip` etc.; translate their titles).
+- A faithful, natural English translation of every section, table, tip box, and code-block comment. Do not drop, summarize, or add content. Keep the same heading structure, the same screenshots (same `/screenshots/...` paths), and the same VitePress containers (`::: tip` etc.; translate their titles).
 - Write for developers and team leads: concise, direct, second person ("you"), American English, sentence-case headings.
 - If the Chinese page has an error you can verify against code, keep the translation faithful and list the issue in your final report instead of silently changing meaning.
 
@@ -20,10 +20,10 @@ The product UI defaults to Chinese (an English UI also exists), so readers must 
 | --- | --- |
 | 共工空间 | Gonggong Space (the desktop app's display name is 「共工空间」) |
 | Bot | Bot (capitalized) |
-| 机器 | machine |
+| 电脑 | computer |
 | 群 / 私聊 | group / direct chat |
 | 群管理员 / 系统管理员 / 普通成员 | group admin / sysadmin / member |
-| Bot 主人 / 归属人 | Bot owner |
+| Bot 主人 | Bot owner |
 | 触发人 | requester (the person who triggered the run) |
 | 工作区 / 托管工作区 | workspace / managed workspace |
 | 分区模式 | partition mode |
@@ -31,7 +31,7 @@ The product UI defaults to Chinese (an English UI also exists), so readers must 
 | 过程面板 | process panel |
 | 工作台 | workbench |
 | 审批 / 权限请求 | approval / permission request |
-| 权限档位：只读 / 工作区写入 / 完全访问 | permission tier: Read-only / Workspace write / Full access |
+| 审批方式：每次问我 / 帮我审批 / 完全允许 | approval mode: Ask me every time / Review for me / Allow everything |
 | 触发范围 | trigger scope |
 | 提问 | question (a Bot asking group members) |
 | 打断并追加 | interrupt and append |
@@ -52,7 +52,7 @@ The product UI defaults to Chinese (an English UI also exists), so readers must 
 | 客户端发布 | client releases |
 | 审计记录 | audit log |
 | 共工空间托管 | managed by Gonggong Space |
-| daemon / `gg` | daemon / `gg` |
+| 共工客户端 / `gg` | Gonggong client / `gg` |
 
 ## Code blocks
 Keep commands, config, and output exactly as-is. Translate only comments (`# ...`, `// ...`). Chinese program output inside a code block stays Chinese; add an English note after the block if the meaning matters.

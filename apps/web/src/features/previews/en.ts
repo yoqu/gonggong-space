@@ -42,14 +42,14 @@ export default {
   状态: 'Status',
   '共工空间桌面端「实时画面」页': 'the Live view page of the Gonggong Space desktop app',
   无法连接实时画面: "Can't connect to the live view",
-  机器离线: 'Machine offline',
+  电脑离线: 'Computer offline',
   应用已停止: 'App stopped',
-  机器未授权屏幕录制: 'Screen recording not allowed on the machine',
+  电脑未授权屏幕录制: 'Screen recording not allowed on the computer',
   '请 Bot 主人在{page}完成授权': "Ask the Bot's owner to grant it on {page}",
   没有推送画面: 'No picture is being sent',
   'Bot 主人可在{page}查看': "The Bot's owner can check {page}",
-  '机器未授权辅助功能，远程操作不会生效，请在{page}完成授权':
-    "Accessibility isn't allowed on the machine, so remote input won't work. Grant it on {page}",
+  '电脑未授权辅助功能，远程操作不会生效，请在{page}完成授权':
+    "Accessibility isn't allowed on the computer, so remote input won't work. Grant it on {page}",
   网络差: 'Poor network',
   网络一般: 'Fair network',
   帧率: 'Frame rate',
@@ -62,7 +62,7 @@ export default {
   '网络较差，建议切换到「{quality}」': 'Poor network; try switching to "{quality}"',
   '{title} 实时画面': '{title} live view',
   键盘输入: 'Keyboard input',
-  机器网络差: "Machine's network is poor",
+  电脑网络差: "Computer's network is poor",
   你的网络差: 'Your network is poor',
   '丢包 {loss}%': 'Loss {loss}%',
   '延迟 {rtt} ms': 'Latency {rtt} ms',
@@ -116,8 +116,8 @@ export default {
   暂无预览和托管服务: 'No previews or hosted services',
   '让 Bot 把网页或服务跑起来（比如「起个预览给我看看」），就会出现在这里。':
     'Ask a Bot to run a web page or service (e.g. "spin up a preview for me") and it shows up here.',
-  '服务由 Bot 所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。':
-    'Services are hosted by the Bot’s machine and keep running after the round ends; previews close automatically after 24 hours without visits. When a service stops, its preview card stays; the Bot can restart the service, or click Start on the card to bring it back.',
+  '服务由 Bot 所在的电脑托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。':
+    "Services are hosted on the Bot's computer and keep running after the round ends; previews close automatically after 24 hours without visits. When a service stops, its preview card stays; the Bot can restart the service, or click Start on the card to bring it back.",
   '{name} 请求控制': '{name} requests control',
   同意: 'Approve',
   你正在控制: "You're in control",
@@ -144,5 +144,4 @@ export default {
   重新开放: 'Reopen',
   '小程序 · {path}': 'Mini program · {path}',
   '桌面应用 · {name}': 'Desktop app · {name}',
-  '服务已停止 · ': 'Service stopped · ',
 } satisfies Record<string, string>

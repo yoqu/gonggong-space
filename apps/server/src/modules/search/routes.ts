@@ -10,7 +10,7 @@ import { likePattern, patchPaths, snippet, summarizeBlocks } from '../../lib/tex
 import { requireUser } from '../auth/session.js'
 import { pick } from '../candidates/match.js'
 import type { Mirrors } from '../candidates/mirror.js'
-import { groupTitle } from '../groups/title.js'
+import { groupTitle, translateGroupTitle } from '../groups/title.js'
 import { notHiddenBy } from '../messages/recall.js'
 import { type MessageMeta, userAuthorName } from '../messages/service.js'
 import { runMatches } from '../runs/search-text.js'
@@ -61,7 +61,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
     return rows.map(({ m, author, bot, group }) => ({
       kind: 'msg',
       title: snippet(summarizeBlocks(m.body, (m.meta as MessageMeta).htmlRenders), q),
-      sub: `${bot ? t('{bot} 最终回复', { bot }) : (author ?? '')} · ${group}`,
+      sub: `${bot ? t('{bot} 最终回复', { bot }) : (author ?? '')} · ${translateGroupTitle(group)}`,
       groupId: m.groupId,
       messageId: m.id,
       ...(m.threadRootId && { threadRootId: m.threadRootId }),
@@ -106,7 +106,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
           add({
             kind: 'file',
             title: path,
-            sub: t('{bot} 工作区 · {group}', { bot: r.bot, group: r.group }),
+            sub: t('{bot} 工作区 · {group}', { bot: r.bot, group: translateGroupTitle(r.group) }),
             groupId: r.groupId,
             messageId: null,
             runId: r.id,
@@ -133,7 +133,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
         add({
           kind: 'file',
           title: e.path,
-          sub: t('{branch} 镜像 · {group}', { branch: repo.branch, group: repo.group }),
+          sub: t('{branch} 镜像 · {group}', { branch: repo.branch, group: translateGroupTitle(repo.group) }),
           groupId: repo.groupId,
           messageId: null,
           runId: null,
@@ -186,7 +186,7 @@ export function searchRoutes(ctx: Ctx, mirrors: Mirrors) {
       kind: 'run',
       title: `${bot} · ${snippet(task.replaceAll(`@${bot}`, ''), '')}`,
       sub: [
-        group,
+        translateGroupTitle(group),
         r.step || null,
         r.filesChanged ? t('改动 {n} 文件', { n: r.filesChanged }) : null,
         r.purgedAt ? t('运行过程已过期，仅保留卡片摘要') : null,

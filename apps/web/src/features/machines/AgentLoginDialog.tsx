@@ -16,12 +16,12 @@ const LOGIN: Record<AgentKind, { command: string; next: string }> = {
   pi: { command: 'pi', next: t('进入后输入 /login，选择供应商登录或填写 API Key') },
   deepseek: {
     command: 'dsh web',
-    next: t('在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）'),
+    next: t('在打开的网页「模型」里填写 DeepSeek API Key（也可以在电脑环境变量里设置 DEEPSEEK_API_KEY）'),
   },
   antigravity: {
     command: 'agy',
     next: t(
-      '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码',
+      '进入后按提示用 Google 账号登录；电脑没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码',
     ),
   },
   opencode: { command: 'opencode auth login', next: t('按提示选择供应商，在浏览器里登录或粘贴 API Key') },
@@ -59,7 +59,7 @@ export function AgentLoginDialog({
         title={t('登录 {agent} 官方账号', { agent: AGENT_META[agent].name })}
         message={
           machine
-            ? t('官方账号在该机器上的 {agent} 里登录，登录信息只保存在该机器上。', {
+            ? t('官方账号在这台电脑上的 {agent} 里登录，登录信息只保存在这台电脑上。', {
                 agent: AGENT_META[agent].name,
               })
             : t('官方账号在本机的 {agent} 里登录，登录信息只保存在本机。', { agent: AGENT_META[agent].name })
@@ -81,13 +81,13 @@ export function AgentLoginDialog({
           <li>
             {terminals ? (
               <span className="mx-inline">
-                {t('打开该机器的终端')}
+                {t('打开这台电脑的终端')}
                 <Button size="small" icon="terminal" onClick={() => setTerminal(true)}>
                   {t('打开终端')}
                 </Button>
               </span>
             ) : machine ? (
-              t('在该机器上打开终端（Docker 里用 docker compose exec daemon bash）')
+              t('在这台电脑上打开终端（Docker 里用 docker compose exec daemon bash）')
             ) : (
               t('在本机打开终端')
             )}

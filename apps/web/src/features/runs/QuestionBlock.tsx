@@ -50,8 +50,8 @@ function outcome(q: QuestionSetDto, run: RunDto) {
     case 'expired':
       return t('无人回答，agent 已按推荐项继续 · {at}', { at: hm(q.expiresAt) })
     case 'void':
-      if (LIVE.includes(run.status)) return t('提问已作废，agent 不再等待回答')
-      return run.status === 'interrupted' ? t('运行已停止，提问作废') : t('运行已结束，提问作废')
+      if (LIVE.includes(run.status)) return t('提问已失效，Agent 不再等待回答')
+      return run.status === 'interrupted' ? t('运行已停止，提问已失效') : t('运行已结束，提问已失效')
     default:
       return null
   }
@@ -152,7 +152,11 @@ export function QuestionCard({ run, set }: { run: RunDto; set: QuestionSetDto })
   const done = (
     <div className="question__done">
       <Tag tone={set.status === 'answered' ? 'green' : 'gray'}>
-        {set.status === 'answered' ? t('已回答') : set.status === 'expired' ? t('已超时') : t('已作废')}
+        {set.status === 'answered'
+          ? t('已回答')
+          : set.status === 'expired'
+            ? t('已超时')
+            : t('已失效#status')}
       </Tag>
       <span>{outcome(set, run)}</span>
       <button type="button" className="question__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>

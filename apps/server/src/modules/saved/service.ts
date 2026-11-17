@@ -2,7 +2,7 @@ import type { SavedMessageDto } from '@gonggong/protocol'
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, type SQL, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { bots, groupMembers, groups, messages, savedMessages, users } from '../../db/schema.js'
-import { groupTitle } from '../groups/title.js'
+import { groupTitle, translateGroupTitle } from '../groups/title.js'
 import { notify } from '../notifications/notify.js'
 import { loadMessages } from '../threads/routes.js'
 
@@ -43,7 +43,9 @@ export async function savedItems(
   )
   return rows.flatMap(({ s, groupName }): SavedMessageDto[] => {
     const message = dtos.get(s.messageId)
-    return message ? [{ groupId: s.groupId, groupName, message, ...times(s) }] : []
+    return message
+      ? [{ groupId: s.groupId, groupName: translateGroupTitle(groupName), message, ...times(s) }]
+      : []
   })
 }
 

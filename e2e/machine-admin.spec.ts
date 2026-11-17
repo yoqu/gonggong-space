@@ -6,7 +6,7 @@ import { buildDaemon, memberWithMachine } from './helpers'
 
 test.beforeAll(buildDaemon)
 
-test('机器详情: the daemon log and its workspaces, read and cleaned through the real daemon', async ({
+test('电脑详情: the daemon log and its workspaces, read and cleaned through the real daemon', async ({
   page,
 }) => {
   test.setTimeout(3 * 60_000)
@@ -24,7 +24,7 @@ test('机器详情: the daemon log and its workspaces, read and cleaned through 
   try {
     const id = await api.machineId()
     await page.goto(`/machine/${id}`)
-    const details = page.getByRole('region', { name: '机器详情' })
+    const details = page.getByRole('region', { name: '电脑详情' })
     await expect(details.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
 
     await details.getByRole('tab', { name: '诊断' }).click()
@@ -42,7 +42,7 @@ test('机器详情: the daemon log and its workspaces, read and cleaned through 
     const confirm = page.getByRole('alertdialog', { name: '删除所选的 1 个工作区？' })
     await expect(confirm).toContainText('没推送的改动')
     await confirm.getByRole('button', { name: '删除' }).click()
-    await expect(list).toContainText('这台机器上还没有工作区')
+    await expect(list).toContainText('这台电脑上还没有工作区')
   } finally {
     m.stop()
   }

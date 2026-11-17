@@ -125,8 +125,8 @@ export function MachineSidebar({
   return (
     <div className="sidebar">
       <div className="shellbar">
-        <Toolbar title={t('机器与 Bot')} scrolled={false}>
-          {/* A bot runs on a machine: until one is bound, the main area's 绑定新机器 is the only way on. */}
+        <Toolbar title={t('电脑与 Bot')} scrolled={false}>
+          {/* A bot runs on a machine: until one is bound, the main area's 绑定新电脑 is the only way on. */}
           {machines.length ? (
             <ToolbarGroup>
               <ToolbarButton
@@ -141,8 +141,8 @@ export function MachineSidebar({
       </div>
       <div className="sidebar__scroll">
         <div>
-          <section aria-label={t('我的机器')}>
-            <SectionHead label={t('我的机器')} />
+          <section aria-label={t('我的电脑')}>
+            <SectionHead label={t('我的电脑')} />
             <div className="sidebar__list">
               {machines.length ? (
                 machines.map((m) => {
@@ -161,16 +161,16 @@ export function MachineSidebar({
                   )
                 })
               ) : loaded ? (
-                <div className="sidebar__empty">{t('还没有绑定机器')}</div>
+                <div className="sidebar__empty">{t('还没有绑定电脑')}</div>
               ) : null}
               {machines.length ? (
-                <AddRow label={t('绑定新机器')} text={t('绑定新机器')} onClick={onBindMachine} />
+                <AddRow label={t('绑定新电脑')} text={t('绑定新电脑')} onClick={onBindMachine} />
               ) : null}
             </div>
           </section>
           {unplaced.length ? (
-            <section aria-label={t('未绑定机器的 Bot')}>
-              <SectionHead label={t('未绑定机器的 Bot')} />
+            <section aria-label={t('未绑定电脑的 Bot')}>
+              <SectionHead label={t('未绑定电脑的 Bot')} />
               <div className="sidebar__list">{unplaced.map((b) => row(b))}</div>
             </section>
           ) : null}

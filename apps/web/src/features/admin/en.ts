@@ -42,19 +42,21 @@ export default {
   存档: 'Archive',
   从未连接: 'Never connected',
   '测量于 {time}': 'Measured {time}',
-  机器与网络: 'Machines & network',
-  '所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。':
-    'OS, hardware, daemon version, online status and network quality of every machine.',
-  '{n} 台 · {online} 台在线': '{n} {n:machine|machines} · {online} online',
-  '机器详情…': 'Machine details…',
-  搜索机器或主人: 'Search machines or owners',
-  机器列表: 'Machines',
-  '吊销机器…': 'Revoke machine…',
-  没有匹配的机器: 'No matching machines',
-  还没有机器: 'No machines yet',
+  电脑与网络: 'Computers & network',
+  '查看所有电脑的系统、硬件、客户端版本、在线状态与网络质量记录。':
+    'OS, hardware, client version, online status and network quality of every computer.',
+  '{n} 台 · {online} 台在线': '{n} {n:computer|computers} · {online} online',
+  '电脑详情…': 'Computer details…',
+  搜索电脑或主人: 'Search computers or owners',
+  电脑列表: 'Computers',
+  '解绑电脑…': 'Unbind computer…',
+  没有匹配的电脑: 'No matching computers',
+  还没有电脑: 'No computers yet',
   主人: 'Owner',
-  '机器#nav': 'Machines',
+  '电脑#nav': 'Computers',
   硬件: 'Hardware',
+  电脑: 'Computer',
+  客户端版本: 'Client version',
   'Agent 版本': 'Agent versions',
   '最新版本 {version} · {source}': 'Latest {version} · {source}',
   可升级: 'Update available',
@@ -64,24 +66,24 @@ export default {
   在线: 'Online',
   离线: 'Offline',
   最后心跳: 'Last heartbeat',
-  '{n} 台 daemon 协议版本过旧': '{n} {n:daemon|daemons} on an outdated protocol',
+  '{n} 台共工客户端版本过旧': '{n} {n:Gonggong client|Gonggong clients} on an outdated version',
   '{list}，服务器已拒绝连接并提示升级。':
     '{list}. The server rejected the connection and asked for an upgrade.',
   '{name} 运行 v{version}（协议 v{protocol}）': '{name} runs v{version} (protocol v{protocol})',
   '、': ', ',
-  '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。':
-    'Members measure network quality in the daemon (gg net or "Measure latency & bandwidth" in the desktop app); it is not shown in groups.',
+  '网络质量由成员在电脑客户端中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。':
+    'Members measure network quality in the computer client (gg net or "Measure latency & bandwidth" in the desktop app); it is not shown in groups.',
   账号与角色: 'Accounts & roles',
-  '创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。':
-    "Create accounts, assign roles and reset passwords. Disabling immediately disconnects all of the member's machines and sessions.",
+  '创建账号、分配角色、重置密码；停用会立即断开该成员的所有电脑与登录。':
+    "Create accounts, assign roles and reset passwords. Disabling immediately disconnects all of the member's computers and sessions.",
   '所有群的模式、仓库与权威副本状态。': 'Mode, repo and authoritative copy state of every group.',
   配置: 'Configuration',
   系统参数: 'System parameters',
   '平台默认值；团队管理员可在团队设置中覆盖部分参数，群管理员再在群设置中调整群级参数。':
     'Platform defaults; team admins override some of them in team settings, and group admins adjust group-level params in group settings.',
   客户端发布: 'Client releases',
-  '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载；桌面端优先从这里检查更新，未发布签名更新包的平台改查 GitHub。':
-    "Daemons on members' machines upgrade to this version when they connect; gg-cast downloads on demand the first time a live view is streamed; members download the desktop installers and the Linux daemon from Bind new machine; desktop apps check for updates here first, and on GitHub for platforms without a signed update package.",
+  '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。':
+    "Gonggong clients on members' computers upgrade to this version when they connect; the live view component downloads on demand when first used; members download the desktop installers and CLI client from Bind new computer; desktop apps check for updates here first, and on GitHub when no signed update package is published.",
   观测: 'Observability',
   用量: 'Usage',
   '公开链接#nav': 'Public links',
@@ -89,7 +91,7 @@ export default {
     'Public links to Bot previews: they stop working once expired or revoked, and every visit is audited.',
   运行与会话: 'Runs & sessions',
   '附件#nav': 'Attachments',
-  机器连接: 'Machine connections',
+  电脑连接: 'Computer connections',
   数据保留: 'Data retention',
   '群与 Bot 默认值': 'Group & Bot defaults',
   其他: 'Other',
@@ -121,15 +123,16 @@ export default {
   请填写版本说明: 'Enter release notes',
   版本说明已保存: 'Release notes saved',
   '填写本版本的更新内容，支持 Markdown。': 'Enter the changes in this version. Markdown is supported.',
-  '未填写版本说明。桌面端和 daemon 升级时不会显示具体更新内容。':
-    'No release notes yet. Desktop and daemon upgrades will not show the specific changes.',
+  '未填写版本说明。桌面端和命令行客户端升级时不会显示具体更新内容。':
+    'No release notes yet. Desktop and CLI client upgrades will not show specific changes.',
   拖入发布产物: 'Drop release artifacts',
   '运行 scripts/release.sh 后，把 dist/<版本>/ 里的 gonggong-*、gg-cast-* 与 Gonggong_*（安装包、更新包与 .sig 签名）拖到这里；RELEASE_NOTES.md 可作为本版本更新说明上传。文件名决定平台与版本；更高的版本会替换整个发布。':
-    'After running scripts/release.sh, drop the gonggong-*, gg-cast-* and Gonggong_* files (installers, update packages and .sig signatures) from dist/<version>/ here; RELEASE_NOTES.md can be uploaded as this release’s notes. File names determine platform and version; a higher version replaces the whole release.',
+    "After running scripts/release.sh, drop the gonggong-*, gg-cast-* and Gonggong_* files (installers, update packages and .sig signatures) from dist/<version>/ here; RELEASE_NOTES.md can be uploaded as this release's notes. File names determine platform and version; a higher version replaces the whole release.",
   各平台发布文件: 'Release files by platform',
   平台: 'Platform',
   标识: 'ID',
-  'gg-cast（实时画面）': 'gg-cast (live view)',
+  共工客户端: 'Gonggong client',
+  实时画面组件: 'Live view component',
   桌面端: 'Desktop app',
   桌面端安装包: 'Desktop installer',
   桌面端更新包: 'desktop update package',
@@ -139,14 +142,14 @@ export default {
   缺少更新包: 'Package missing',
   '该平台的桌面端将改从 GitHub 检查更新，直到重新上传。':
     'Desktop apps on this platform check GitHub for updates until it is uploaded again.',
-  '成员将无法在「绑定新机器」中下载该平台的安装包，直到重新上传。':
-    'Members cannot download the installer for this platform from Bind new machine until it is uploaded again.',
+  '成员将无法在「绑定新电脑」中下载该平台的安装包，直到重新上传。':
+    'Members cannot download the installer for this platform from Bind new computer until it is uploaded again.',
   '移除 {kind}…': 'Remove {kind}…',
   '要移除 {platform} 的 {kind} 吗？': 'Remove {kind} for {platform}?',
-  '该平台的机器将不再自动升级，直到重新上传。':
-    'Machines on this platform stop auto-upgrading until it is uploaded again.',
-  '该平台的机器将无法推送实时画面，直到重新上传。':
-    'Machines on this platform cannot stream a live view until it is uploaded again.',
+  '该平台的电脑将不再自动升级，直到重新上传。':
+    'Computers on this platform stop auto-upgrading until it is uploaded again.',
+  '该平台的电脑将无法推送实时画面，直到重新上传。':
+    'Computers on this platform cannot stream a live view until it is uploaded again.',
   取消: 'Cancel',
   移除: 'Remove',
   已停用: 'Disabled',
@@ -155,7 +158,7 @@ export default {
   '{n} 台 · {state}': '{n} · {state}',
   '至少 {n} 位': 'At least {n} characters',
   重新生成: 'Regenerate',
-  '已启用 {name}，需重新绑定机器': 'Enabled {name}; machines must be bound again',
+  '已启用 {name}，需重新绑定电脑': 'Enabled {name}; computers must be bound again',
   '{n} 个账号': '{n} {n:account|accounts}',
   '新建账号…': 'New account…',
   搜索姓名或账号: 'Search name or account',
@@ -171,13 +174,14 @@ export default {
   '新建账号后，把账号和初始密码发给同事；对方首次登录时会被要求修改密码。':
     "After creating an account, send the account and initial password to your colleague; they'll be asked to change it on first login.",
   '要停用账号 {name} 吗？': 'Disable account {name}?',
-  '可以随时重新启用，但需要重新绑定机器。':
-    'You can re-enable it at any time, but machines must be bound again.',
-  '立即吊销其所有 daemon token 和 Web 会话': 'Immediately revokes all their daemon tokens and web sessions',
-  'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）':
-    'The daemon wipes team keys and managed workspaces after its next failed connection (best effort, not guaranteed)',
-  '其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理':
-    'Their Bots are removed from every group; a running Bot is treated as interrupted',
+  '可以随时重新启用，但需要重新绑定电脑。':
+    'You can re-enable it at any time, but computers must be bound again.',
+  立即断开其所有电脑客户端并退出网页登录:
+    'Immediately disconnects all their computer clients and logs out web sessions',
+  '共工客户端重连时会清理团队密钥和托管工作区（/cd 目录保留）':
+    'The Gonggong client removes team secrets and managed workspaces when it tries reconnecting (/cd folders are kept)',
+  '其 Bot 从所有群移除；运行中的任务会直接中断':
+    'Their Bots are removed from every group, and running tasks will be interrupted',
   群消息与审计记录保留: 'Group messages and audit records are kept',
   停用: 'Disable',
   '已停用 {name}': 'Disabled {name}',
@@ -187,8 +191,8 @@ export default {
   '已重置 {name} 的密码，请记下临时密码 {password}':
     "Reset {name}'s password. Note down the temporary password {password}",
   '重置 {name} 的密码': "Reset {name}'s password",
-  '对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。':
-    'All their web sessions end immediately; they must log in with the temporary password and change it right away. Bound machines and Bots are unaffected.',
+  '对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的电脑与 Bot 不受影响。':
+    'All their web sessions end immediately; they must log in with the temporary password and change it right away. Bound computers and Bots are unaffected.',
   重置并复制: 'Reset & copy',
   临时密码: 'Temporary password',
   '重置后自动复制，请私下发给对方。': 'Copied automatically after reset; send it to them privately.',
@@ -210,7 +214,7 @@ export default {
   不能修改自己的角色: "You can't change your own role",
   初始密码: 'Initial password',
   '创建后账号与初始密码会一起复制。': 'The account and initial password are copied together after creation.',
-  '机器#count': 'Machines',
+  '电脑#count': 'Computers',
   'Bot#nav': 'Bots',
   团队: 'Team',
   '团队#nav': 'Teams',
@@ -223,8 +227,8 @@ export default {
   已开启单团队模式: 'Single-team mode turned on',
   演示: 'Demo',
   演示模式: 'Demo mode',
-  '对外公开演示时开启，防止内容经内网穿透的域名流到互联网、访客破坏演示环境：预览只能登录后在群内查看，不能创建公开链接，已发出的公开链接立即失效，预览卡片不同步到飞书；实时画面只能观看不能操控；Bot 不能使用「完全访问」档位，已设为完全访问的按「工作区写入」运行；除系统管理员外不能改密码和昵称，不能解散群、移除成员、删除 Bot、吊销机器、归档团队。':
-    'Turn on for public demos, so content cannot leak to the internet through tunnel domains and visitors cannot break the demo: previews can only be viewed in their group after signing in, public links cannot be created and existing ones stop working at once, preview cards are not sent to Feishu; live views are watch-only; bots cannot use the Full access tier, and those set to it run at Workspace write; apart from system admins, nobody can change passwords or nicknames, dissolve groups, remove members, delete bots, revoke machines or archive teams.',
+  '对外公开演示时开启，限制访客破坏环境：禁止创建公开链接、禁止远程操控实时画面、禁止「完全允许」审批方式；除系统管理员外不可改密码/昵称，不可解散群、移人、删 Bot、解绑电脑或归档团队。':
+    'Turn on for public demos so visitors cannot disrupt the environment: disables public links, live view remote control, and "Allow everything" approvals; restricts password/nickname changes, dissolving groups, removing members, deleting Bots, unbinding computers, and archiving teams to system admins.',
   已开启演示模式: 'Demo mode turned on',
   已关闭演示模式: 'Demo mode turned off',
   已关闭单团队模式: 'Single-team mode turned off',
@@ -232,7 +236,7 @@ export default {
   '单团队模式下任何人都不能新建团队。': 'Nobody can create teams in single-team mode.',
   建团队权限已保存: 'Team creation setting saved',
   '自助注册的账号不能新建团队，需凭邀请链接加入团队。':
-    'Self-registered accounts can’t create teams; they need an invite link to join one.',
+    "Self-registered accounts can't create teams; they need an invite link to join one.",
   所有人: 'Everyone',
   仅系统管理员: 'System admins only',
   '全部团队的所有者、成员数与状态；团队内的成员、邀请与配置由团队管理员在团队设置中管理。':

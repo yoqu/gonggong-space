@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { protocolEn } from '@gonggong/protocol'
 import { describe, expect, it } from 'vitest'
 import { en as serverEn } from '../src/i18n/en.js'
@@ -12,5 +14,24 @@ describe('English dictionary', () => {
         .map((p) => `${key} => ${value} (missing {${p}})`),
     )
     expect(dropped).toEqual([])
+  })
+
+  it('covers static Zod validation messages from request schemas', () => {
+    const protoDir = join(import.meta.dirname, '../../../packages/protocol/src')
+    const sources = ['schedules.ts', 'web/admin.ts', 'web/groups.ts']
+    const missing: string[] = []
+    for (const rel of sources) {
+      const text = readFileSync(join(protoDir, rel), 'utf8')
+      for (const m of text.matchAll(
+        /(?:message:[ \t]*|,[ \t]*|URL\.canParse\(u\),\s*)'([^']*[\u4e00-\u9fff][^']*)'/g,
+      )) {
+        const msg = m[1] ?? ''
+        if (!(msg in en)) missing.push(`${rel}: ${msg}`)
+      }
+    }
+    for (const msg of ['文件不能超过 200 KB', 'tokens.css 只能包含令牌声明、注释和 .t-* 文字样式']) {
+      if (!(msg in en)) missing.push(`artifacts.ts: ${msg}`)
+    }
+    expect(missing).toEqual([])
   })
 })

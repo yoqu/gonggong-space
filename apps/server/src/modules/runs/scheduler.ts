@@ -59,7 +59,7 @@ const OFFLINE = { status: 'offline_wait', ...runStep('Bot 离线，等待上线'
 /** The run waits for the client's upgrade. */
 const OUTDATED = {
   status: 'offline_wait',
-  ...runStep('执行机器的共工客户端版本过低，升级后才能运行这种 Agent 的 Bot'),
+  ...runStep('这台电脑的共工客户端版本过旧，升级后才能运行这种 Agent 的 Bot'),
   startedAt: null,
 }
 const WORKSPACE_WAIT = runStep('工作区准备中')

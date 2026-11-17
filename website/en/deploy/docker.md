@@ -8,10 +8,10 @@ Suited to trials and small teams on an internal network.
 
 ```bash
 git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
-GONGGONG_ADMIN_PASSWORD=<初始密码> GONGGONG_PUBLIC_URL=https://<服务器 IP 或域名> docker compose up -d
+GONGGONG_ADMIN_PASSWORD=<initial-password> GONGGONG_PUBLIC_URL=https://<server-ip-or-domain> docker compose up -d
 ```
 
-(`<初始密码>` is the initial password; `<服务器 IP 或域名>` is the server's IP or domain.)
+(`<initial-password>` is the initial password; `<server-ip-or-domain>` is the server's IP or domain.)
 
 The first start builds the images (a few minutes). When it's done, open `GONGGONG_PUBLIC_URL` in a browser, sign in with `admin` and the initial password, change the password when prompted, and then [bind a machine](/en/user/bind-machine).
 
@@ -33,7 +33,7 @@ On first start the server generates a self-signed certificate in the data volume
   ```bash
   docker compose exec server openssl x509 -in /data/tls/cert.pem -noout -fingerprint -sha256
   ```
-  Then in the web 「绑定新机器」 (Bind new machine) → 「其他方式」 (Other ways) → 「使用命令行」 (Use the command line), copy the command, append `--fingerprint <指纹>` (the fingerprint), and run it. See [HTTPS and certificates](/en/deploy/https#check-the-certificate-fingerprint-and-bind).
+  Then in the web 「绑定新电脑」 (Bind new computer) → 「其他方式」 (Other ways) → 「使用命令行」 (Use the command line), copy the command, append `--fingerprint <fingerprint>`, and run it. See [HTTPS and certificates](/en/deploy/https#check-the-certificate-fingerprint-and-bind).
 - The one-sentence setup via 「发给你的 Agent」 (Send to your agent) on the web needs a trusted certificate. With a self-signed certificate, bind with the command line or the desktop app instead.
 - If you change the host name in `GONGGONG_PUBLIC_URL`, delete the `tls/` directory in the data volume and restart to regenerate it. Because the certificate changes, machines bound by fingerprint must rebind with the new fingerprint.
 
@@ -77,17 +77,17 @@ WeChat DevTools, mini program live view, and 「用本机应用打开」 (open w
    printf 'GG_VERSION=0.4.20\nGONGGONG_MACHINE_ID=%s\n' "$(openssl rand -hex 16)" > .env
    ```
 
-2. On the web, click 「绑定新机器」 (Bind new machine) in the avatar menu, expand 「其他方式」 (Other ways) → 「在 Docker 中运行」 (Run in Docker), add the `GONGGONG_BIND_URL='<接入链接>'` line (`<接入链接>` is the connect link) to `.env`, then build, start, and keep it running:
+2. On the web, click 「绑定新电脑」 (Bind new computer) in the avatar menu, expand 「其他方式」 (Other ways) → 「在 Docker 中运行」 (Run in Docker), add the `GONGGONG_BIND_URL='<connect-link>'` line to `.env`, then build, start, and keep it running:
 
    ```bash
    docker compose up -d --build
    docker compose logs -f daemon
    ```
 
-   On first start the container binds automatically with this connect link. The binding is stored in the data volume, so later restarts don't need it. The connect code is valid for 30 minutes; because the container is unattended, an expired code doesn't fall back to web confirmation but fails outright, so generate a new one and start again. You can also bind manually first and then start: `docker compose run --rm daemon gg login '<接入链接>'`.
+   On first start the container binds automatically with this connect link. The binding is stored in the data volume, so later restarts don't need it. The connect code is valid for 30 minutes; because the container is unattended, an expired code doesn't fall back to web confirmation but fails outright, so generate a new one and start again. You can also bind manually first and then start: `docker compose run --rm daemon gg login '<connect-link>'`.
 
    ::: tip The server uses a self-signed certificate
-   Append `&fp=<证书指纹>` (the certificate fingerprint) to the end of the connect link (see "Certificate" above for how to look it up), and the daemon will trust only that certificate.
+   Append `&fp=<certificate-fingerprint>` to the end of the connect link (see "Certificate" above for how to look it up), and the daemon will trust only that certificate.
    :::
 
 3. Sign in to the Agent, using either option:

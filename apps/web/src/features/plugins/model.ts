@@ -50,15 +50,15 @@ export function blockerText(blocker: PluginBlocker, m: PluginManifest, botName: 
     case 'agent':
       return t('{bot} 不支持（仅 {agents}）', { bot: botName, agents: agentsText(m) })
     case 'daemon':
-      return t('机器版本过低，需升级到 {min} 才能使用插件', { min: m.minDaemon })
+      return t('共工客户端版本过低，需升级到 {min} 才能使用插件', { min: m.minDaemon })
     case 'offline':
-      return t('机器离线')
+      return t('电脑离线')
     case 'secret':
       return t('缺少密钥 {names}，请在群设置「密钥」里填写', { names: m.secrets.join(t('、')) })
     case 'code':
       return t('插件代码未开启')
     case 'trust':
-      return t('等待机器主人授权运行')
+      return t('等待电脑主人授权运行')
   }
 }
 

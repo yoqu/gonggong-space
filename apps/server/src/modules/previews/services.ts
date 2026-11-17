@@ -114,7 +114,7 @@ export async function restartService(ctx: Ctx, svc: { id: string; machineId: str
   if (!ctx.hub.send(svc.machineId, { t: 'service.restart', requestId, serviceId: svc.id }))
     settle(requestId, null)
   const res = await answer
-  if (!res) return fail('conflict', '服务所在的机器离线或没有响应')
+  if (!res) return fail('conflict', '服务所在的电脑离线或没有响应')
   if (res.error) throw new HttpError('conflict', res.error)
 }
 

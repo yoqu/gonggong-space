@@ -265,7 +265,7 @@ describe('a stopped or closed preview comes back without asking the bot', () => 
     await wang.post(`/api/previews/${p!.id}/close`, { stopService: true })
     await t.db.update(services).set({ status: 'exited' }).where(eq(services.id, w.web.id))
 
-    answering(w, '本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动')
+    answering(w, '这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动')
     const failed = await wang.post(`/api/previews/${p!.id}/start`)
     expect(failed).toMatchObject({
       status: 409,

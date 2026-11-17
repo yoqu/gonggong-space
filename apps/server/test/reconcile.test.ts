@@ -92,7 +92,7 @@ describe('hello reconciliation (daemon restart)', () => {
     for (const r of [lost, approving, answering]) {
       const row = await status(r.id)
       expect(row.status).toBe('interrupted')
-      expect(row.step).toBe('daemon 重启，本轮已中断')
+      expect(row.step).toBe('共工客户端重启，本轮已中断')
       expect(row.endedAt).not.toBeNull()
     }
     expect((await status(kept.id)).status).toBe('running')

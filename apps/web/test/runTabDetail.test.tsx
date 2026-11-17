@@ -89,7 +89,7 @@ describe('run tab detail', () => {
     render(<RunTab {...props} />)
     await screen.findByTitle('开始 – 结束')
     expect(screen.queryByText('本次注入的密钥')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '机器与会话' }))
+    fireEvent.click(screen.getByRole('button', { name: '电脑与会话' }))
     const row = screen.getByText('本次注入的密钥').closest('.ui-group__row') as HTMLElement
     expect(row.textContent).toContain('FEISHU_DEVOPS_TOKEN（团队）、GITHUB_TOKEN（个人）')
   })
@@ -116,7 +116,7 @@ describe('run tab detail', () => {
     )
     render(<RunTab {...props} />)
     const banner = await screen.findByRole('alert')
-    expect(within(banner).getByText('运行失败：agent 异常')).toBeTruthy()
+    expect(within(banner).getByText('运行失败：Agent 异常')).toBeTruthy()
     expect(within(banner).getByText(/API Error: 529 overloaded/)).toBeTruthy()
     expect(within(banner).queryByText(/at line 7/)).toBeNull()
     fireEvent.click(within(banner).getByRole('button', { name: '展开全部' }))
@@ -132,11 +132,11 @@ describe('run tab detail', () => {
     expect(within(stopped).getByText('张三 执行了 /stop')).toBeTruthy()
     unmount()
 
-    serve(detail(run({ status: 'expired', step: 'Bot 离线超过 30 分钟，已作废并通知 张三' })))
+    serve(detail(run({ status: 'expired', step: 'Bot 离线超过 30 分钟，已失效并通知 张三' })))
     const second = render(<RunTab {...props} />)
     const expired = await screen.findByRole('alert')
-    expect(within(expired).getByText('运行已作废')).toBeTruthy()
-    expect(within(expired).getByText(/机器/)).toBeTruthy()
+    expect(within(expired).getByText('运行已失效')).toBeTruthy()
+    expect(within(expired).getByText(/电脑/)).toBeTruthy()
     second.unmount()
 
     serve(detail(run({ status: 'offline_wait', step: 'Bot 离线，等待上线', startedAt: null, endedAt: null })))

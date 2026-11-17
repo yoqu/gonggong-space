@@ -81,7 +81,9 @@ describe('sync in English', () => {
       ),
     ).toBeTruthy()
     expect(
-      within(screen.getByTestId('replica-b2')).getByText('The daemon is too old to sync, please upgrade'),
+      within(screen.getByTestId('replica-b2')).getByText(
+        'The Gonggong client is too old to sync; please upgrade',
+      ),
     ).toBeTruthy()
     const line = (sync: unknown) =>
       render(<RunSyncLine run={{ groupId: 'g1', botId: 'b1', sync } as never} />).container.textContent
@@ -90,7 +92,7 @@ describe('sync in English', () => {
     )
     const rejected = { key: '同步提交被拒绝：超过单版体积上限' }
     expect(line({ outcome: 'error', reason: rejected.key, reasonI18n: rejected })).toBe(
-      'Sync submit rejected: over the per-version size limit',
+      'Sync submission rejected: over the per-version size limit',
     )
     expect(line({ outcome: 'error', reason: 'Disk full', reasonI18n: null })).toBe('Sync failed: Disk full')
   })

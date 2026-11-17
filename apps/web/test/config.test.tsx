@@ -99,7 +99,7 @@ describe('配置中心', () => {
     )
     expect((within(builtin).getByRole('switch') as HTMLInputElement).disabled).toBe(true)
     expect(screen.getByText(/合并预览/)).toBeTruthy()
-    expect(screen.getByText(/MCP 在新建会话时经 ACP 注入不落盘/)).toBeTruthy()
+    expect(screen.getByText(/MCP 会在新建会话时自动注入/)).toBeTruthy()
     expect(
       (screen.getByRole('checkbox', { name: '强制相关 Bot 下一轮开新会话' }) as HTMLInputElement).checked,
     ).toBe(false)

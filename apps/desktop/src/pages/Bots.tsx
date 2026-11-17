@@ -15,12 +15,12 @@ function providerText(b: MachineBot, view: ProviderStoreView) {
   const model = b.model ?? null
   if (own) return choiceLabel(view, { provider: own, model })
   const d = machineDefault(view, b.agentKind)
-  return t('继承机器默认（{name}）', { name: choiceLabel(view, { ...d, model: model ?? d.model }) })
+  return t('使用电脑默认（{name}）', { name: choiceLabel(view, { ...d, model: model ?? d.model }) })
 }
 
 function status(b: MachineBot, agent: AgentState | undefined): { text: string; tone: TagTone } {
   if (b.binding === 'pending_confirm') return { text: t('待确认'), tone: 'orange' }
-  if (!agent?.available || b.presence === 'agent_missing') return { text: t('agent 缺失'), tone: 'red' }
+  if (!agent?.available || b.presence === 'agent_missing') return { text: t('Agent 未就绪'), tone: 'red' }
   if (b.presence === 'running') return { text: t('运行中'), tone: 'blue' }
   if (b.presence === 'online') return { text: t('在线'), tone: 'green' }
   return { text: t('离线'), tone: 'gray' }
@@ -50,7 +50,7 @@ export function BotsPage({ go }: PageProps) {
         <EmptyState
           icon="bot"
           title={t('本机还没有 Bot')}
-          description={t('在 Web 端创建 Bot 并指定到这台机器后，会显示在这里。')}
+          description={t('在网页端创建 Bot 并指定到这台电脑后，会显示在这里。')}
         />
       ) : null}
       {bots?.map((b) => {

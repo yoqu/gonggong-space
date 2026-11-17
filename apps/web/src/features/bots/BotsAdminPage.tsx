@@ -49,7 +49,7 @@ export function BotsAdminPage() {
   return (
     <AdminPage
       title="Bot"
-      desc={t('全部 Bot 的归属、绑定与状态；可为任何成员新建，新建时直接绑定归属人的机器与 agent。')}
+      desc={t('查看所有 Bot 的归属、绑定与状态；可为任何成员新建，创建时直接绑定到 Bot 主人的电脑和 Agent。')}
       subtitle={countLine(t('{n} 个 Bot', { n: bots.length }), shown.length, bots.length)}
       actions={
         <ToolbarGroup>
@@ -62,7 +62,7 @@ export function BotsAdminPage() {
           />
         </ToolbarGroup>
       }
-      search={<SearchField placeholder={t('搜索 Bot、归属人或机器')} value={query} onChange={setQuery} />}
+      search={<SearchField placeholder={t('搜索 Bot、主人或电脑')} value={query} onChange={setQuery} />}
     >
       {bots.length ? (
         <div className="bots-page__body">
@@ -102,7 +102,7 @@ export function BotsAdminPage() {
                 sortValue: agentLine,
                 render: agentLine,
               },
-              { key: 'ownerName', title: t('归属人'), width: 96, sortable: true },
+              { key: 'ownerName', title: t('Bot 主人'), width: 96, sortable: true },
               {
                 key: 'teamId',
                 title: t('团队'),
@@ -127,7 +127,7 @@ export function BotsAdminPage() {
               },
               {
                 key: 'machineName',
-                title: t('机器'),
+                title: t('电脑'),
                 width: 'minmax(0, 200px)',
                 mono: true,
                 secondary: true,
@@ -156,7 +156,7 @@ export function BotsAdminPage() {
         <EmptyState
           illustration={<NoBotsArt />}
           title={t('还没有 Bot')}
-          description={t('Bot 绑定到成员的机器，在群里被 @ 后开工。')}
+          description={t('Bot 绑定到成员的电脑，在群里被 @ 后开工。')}
           action={<Button onClick={() => setCreating(true)}>{t('新建 Bot…')}</Button>}
         />
       )}

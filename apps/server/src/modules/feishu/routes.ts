@@ -30,7 +30,7 @@ export function feishuRoutes(ctx: Ctx) {
       .where(and(eq(bots.id, idParam(rawId, 'Bot 不存在')), isNull(bots.deletedAt)))
     if (!bot) return fail('not_found', 'Bot 不存在')
     if (user.id !== bot.ownerId && user.role !== 'sysadmin')
-      return fail('forbidden', '只有归属人或系统管理员可以修改该 Bot')
+      return fail('forbidden', '只有 Bot 主人或系统管理员可以修改该 Bot')
     return { user, bot }
   }
 

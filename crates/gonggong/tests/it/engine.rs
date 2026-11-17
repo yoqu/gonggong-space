@@ -367,7 +367,7 @@ async fn raising_the_tier_to_full_mid_run_approves_pending_requests() {
     let (events, done) = r.finish("r1").await;
     assert!(events.contains(&RunEvent::Status {
         status: RunStatus::Running,
-        step: "档位已切换为「完全访问」，自动批准：Write hello.txt".into()
+        step: "审批方式已切换为「完全允许」，自动批准：Write hello.txt".into()
     }));
     assert_eq!(done.reply, "已写入 hello.txt。");
 }

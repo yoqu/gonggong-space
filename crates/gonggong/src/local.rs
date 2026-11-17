@@ -120,7 +120,7 @@ impl LocalSettings {
             if let Some(p) = &a.path
                 && !Path::new(p).is_absolute()
             {
-                bail!(t!("{kind} 的路径必须是绝对路径：{p}", kind = format!("{kind:?}"), p = p));
+                bail!(t!("{kind} 的路径必须是绝对路径：{p}", kind = crate::bots::agent_label(*kind), p = p));
             }
         }
         Ok(())

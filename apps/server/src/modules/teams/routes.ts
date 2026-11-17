@@ -262,7 +262,7 @@ export function teamRoutes(ctx: Ctx) {
         if (myRole !== 'owner') return fail('forbidden', '仅团队所有者可操作')
         const members = await memberDtos(ctx, team.id)
         if (members.length === 1)
-          return fail('conflict', '团队只剩你一人，无法退出；如需清理请联系平台管理员')
+          return fail('conflict', '团队只剩你一人，无法退出；如需清理请联系系统管理员')
         if (members.filter((m) => m.role === 'owner').length === 1)
           return fail('conflict', '团队至少需要一名所有者，请先转让')
       }

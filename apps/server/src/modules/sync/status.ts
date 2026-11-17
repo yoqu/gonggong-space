@@ -120,9 +120,9 @@ async function statusOf(ctx: Ctx, groupId: string) {
       updatedAt: r.replica?.syncedAt?.toISOString() ?? null,
       issue: managed ? ((issue as SyncReplicaIssue | null) ?? null) : null,
       files: issue ? (r.replica?.files ?? []) : [],
-      reason: outdated ? t('daemon 版本过旧，请升级') : issue ? (r.replica?.reason ?? null) : null,
+      reason: outdated ? t('共工客户端版本过旧，请升级') : issue ? (r.replica?.reason ?? null) : null,
       reasonI18n: outdated
-        ? { key: 'daemon 版本过旧，请升级' }
+        ? { key: '共工客户端版本过旧，请升级' }
         : issue
           ? (r.replica?.reasonI18n ?? null)
           : null,

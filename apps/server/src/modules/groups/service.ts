@@ -35,7 +35,7 @@ import { LIVE } from '../runs/dto.js'
 import { stopRuns } from '../runs/stop.js'
 import { avatarUrl } from '../users/dto.js'
 import { botRepliesInThreadOf, replyStyleOf } from './params.js'
-import { groupTitle } from './title.js'
+import { groupTitle, translateGroupTitle } from './title.js'
 
 /** Non-members (of the group or of its live team) get not_found so group ids don't leak. */
 export async function requireMember(ctx: Ctx, groupId: string, userId: string) {
@@ -323,7 +323,7 @@ async function groupViews(ctx: Ctx, userIds: string[], where?: SQL) {
     const group: GroupDto = {
       id: g.id,
       teamId: g.teamId,
-      name: title,
+      name: translateGroupTitle(title),
       kind: g.kind as GroupDto['kind'],
       visibility: g.visibility as GroupVisibility,
       avatar: avatarUrl(g.avatar),

@@ -32,10 +32,10 @@ export function MachinesOverview({
   onNewBot: (machineId: string) => void
 }) {
   return (
-    <section className="machines-overview" aria-label={t('机器总览')}>
+    <section className="machines-overview" aria-label={t('电脑总览')}>
       {/* The same page head as 市场 and 作品. */}
       <header className="works__head">
-        <h1 className="works__title">{t('我的机器')}</h1>
+        <h1 className="works__title">{t('我的电脑')}</h1>
         {machines.length ? <span className="works__count">{machines.length}</span> : null}
       </header>
       {machines.length ? (
@@ -53,13 +53,13 @@ export function MachinesOverview({
       ) : (
         <EmptyState
           illustration={<PickChatArt />}
-          title={t('还没有绑定机器')}
+          title={t('还没有绑定电脑')}
           description={t(
-            '在一台装有 Claude Code、Codex 或 Gemini CLI 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。',
+            '在一台装有 Claude Code、Codex 或 Gemini CLI 的电脑上安装共工空间客户端并绑定，Bot 就在上面运行。',
           )}
           action={
             <Button variant="primary" icon="plus" onClick={onBindMachine}>
-              {t('绑定新机器')}
+              {t('绑定新电脑')}
             </Button>
           }
         />

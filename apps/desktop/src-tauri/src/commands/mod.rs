@@ -97,7 +97,7 @@ async fn relay<T>(
             return Ok(found);
         }
     }
-    Err(tr!("本机执行端没有响应").to_string())
+    Err(tr!("共工客户端没有响应，请稍后重试").to_string())
 }
 
 fn client() -> Result<gonggong::bots::Client> {

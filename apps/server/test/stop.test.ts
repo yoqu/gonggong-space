@@ -447,7 +447,7 @@ describe('offline expiry and chain notifications', () => {
     await expireOfflineRuns(t.ctx)
     expect(await w.run(r!.id)).toMatchObject({
       status: 'expired',
-      step: 'Bot 离线超过 10 分钟，已作废并通知 李建国',
+      step: 'Bot 离线超过 10 分钟，已失效并通知 李建国',
       endedAt: clock,
     })
     const notes = await t.db.select().from(notifications)

@@ -236,7 +236,7 @@ describe('process steps', () => {
         status(12, '已批准：go build ./...'),
         status(22, '等待审批：rm -rf dist'),
         status(24, '请求被拒绝，agent 自行绕路'),
-        status(30, '档位已切换为「完全访问」，自动批准：ls'),
+        status(30, '审批方式已切换为「完全允许」，自动批准：ls'),
       ],
     })
     expect(steps.map((s) => [s.kind, s.body])).toEqual([
@@ -244,7 +244,7 @@ describe('process steps', () => {
       ['text', '开始'],
       ['approval', '系统管理员 已批准'],
       ['approval', '系统管理员 已拒绝'],
-      ['status', '档位已切换为「完全访问」，自动批准：ls'],
+      ['status', '审批方式已切换为「完全允许」，自动批准：ls'],
     ])
   })
 

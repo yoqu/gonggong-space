@@ -65,9 +65,9 @@ function reasonText(reason: string | null) {
     case 'idle_timeout':
       return t('终端因长时间闲置已结束')
     case 'revoked':
-      return t('机器权限已撤销，终端已结束')
+      return t('电脑权限已收回，终端已结束')
     case 'daemon_restart':
-      return t('daemon 已重启，原终端无法恢复')
+      return t('共工客户端已重启，原终端无法恢复')
     case 'user':
       return t('终端已结束')
     default:
@@ -198,7 +198,7 @@ export function TerminalView({
       if (message) {
         const value = message.value
         if (value.code === 'forbidden' || value.status === 403) {
-          fail(t('没有权限使用此终端，仅机器主人可访问'))
+          fail(t('没有权限使用此终端，仅电脑主人可访问'))
         } else if (message.type === 'reset') {
           // The socket closes right after a reset and reconnects from `after`; only a session that stays missing ends.
           if (value.code === 'not_found' && attempts >= MAX_MISSING_ATTEMPTS) fail(t('终端不存在或已结束'))
@@ -274,7 +274,7 @@ export function TerminalView({
             if (!disposed)
               fail(
                 e instanceof ApiError && e.status === 403
-                  ? t('没有权限使用此终端，仅机器主人可访问')
+                  ? t('没有权限使用此终端，仅电脑主人可访问')
                   : errorText(e),
               )
           },
@@ -428,7 +428,7 @@ export function TerminalViewGuard(props: TerminalViewProps) {
       <EmptyState
         icon="shield-warning"
         title={t('没有权限使用此终端')}
-        description={t('仅机器主人可访问终端')}
+        description={t('仅电脑主人可访问终端')}
       />
     )
   return <TerminalView {...props} />

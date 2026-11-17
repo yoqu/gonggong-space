@@ -18,7 +18,7 @@ const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']
 export async function reconcileRuns(ctx: Ctx, machineId: string, activeRuns: string[]) {
   const lost = await ctx.db
     .update(runs)
-    .set({ status: 'interrupted', ...runStep('daemon 重启，本轮已中断'), endedAt: ctx.now() })
+    .set({ status: 'interrupted', ...runStep('共工客户端重启，本轮已中断'), endedAt: ctx.now() })
     .where(
       and(
         inArray(runs.status, LIVE),

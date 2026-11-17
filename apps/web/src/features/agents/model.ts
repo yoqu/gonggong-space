@@ -96,7 +96,7 @@ export function whyNot(p: ProviderView, agent: AgentKind): string | null {
     })
   const need = agentMeta(agent).protocols
   if (p.endpoints.some((e) => e.configDir && need.includes(e.protocol)))
-    return t('该机器 Claude 配置目录只能给 Claude Code 用')
+    return t('这台电脑的 Claude 配置目录只能给 Claude Code 用')
   return t('该供应商只提供 {have} 接口，{agent} 需要 {need}', {
     have: list([...new Set(p.endpoints.map((e) => PROTOCOL_LABEL[e.protocol]))], t('、')),
     agent: name,
@@ -113,7 +113,7 @@ export const providerName = (view: ProviderStoreView, id: string) =>
   id === OFFICIAL_PROVIDER
     ? OFFICIAL_NAME
     : id === INHERIT_PROVIDER
-      ? t('继承机器默认')
+      ? t('使用电脑默认')
       : (view.providers.find((p) => p.id === id)?.name ?? t('已删除的供应商'))
 
 /** The machine default of `agent`; absent = official with its default model. */
@@ -169,7 +169,7 @@ export function choiceOptions(
   if (inherit)
     out.push({
       value: choiceValue(INHERIT_PROVIDER, null),
-      label: t('继承机器默认（当前：{name}）', { name: choiceLabel(view, inherit) }),
+      label: t('使用电脑默认（当前：{name}）', { name: choiceLabel(view, inherit) }),
     })
   const group = (
     id: string,

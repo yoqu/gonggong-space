@@ -7,17 +7,16 @@ export const en = {
   '保留菜单栏图标，可从菜单栏重新打开；后台服务继续运行':
     'Keep the menu-bar icon to reopen the window; background services keep running',
   '本机已绑定到 {host}，请先在设置中解绑':
-    'This machine is already bound to {host}. Unbind it in Settings first',
+    'This computer is already bound to {host}. Unbind it in Settings first',
   已连接: 'Connected',
   连接中: 'Connecting',
   重连中: 'Reconnecting',
   协议不兼容: 'Protocol incompatible',
-  'token 已吊销': 'Token revoked',
+  已解绑: 'Unbound',
   未运行: 'Not running',
   未绑定: 'Not bound',
   在线: 'Online',
   已拒绝: 'Rejected',
-  已吊销: 'Revoked',
   准备中: 'Preparing',
   等待审批: 'Awaiting approval',
   等待回答: 'Awaiting answer',
@@ -26,18 +25,19 @@ export const en = {
   在文件管理器中显示: 'Show in file manager',
   '在 Finder 中显示': 'Show in Finder',
   绑定到团队服务器: 'Bind to your team server',
-  '在 Web 端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。':
-    'On the Web, choose "Bind new machine" from the avatar menu, then click "Open in app" or copy the join link and paste it here. Once bound, this machine belongs to you and every connection is initiated from it.',
-  接入链接: 'Join link',
-  '粘贴网页上复制的接入链接或 gg login 命令': 'Paste the join link or gg login command copied from the Web',
+  '在网页端头像菜单选择「绑定新电脑」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后这台电脑只归你使用，连接都会从你的电脑主动发起。':
+    'On the Web, choose "Bind new computer" from the avatar menu, then click "Open in app" or copy the connect link and paste it here. Once bound, this computer belongs to you and all connections start from your computer.',
+  接入链接: 'Connect link',
+  '粘贴网页上复制的接入链接或 gg login 命令':
+    'Paste the connect link or gg login command copied from the Web',
   服务器: 'Server',
-  接入代码: 'Connect code',
+  接入码: 'Connect code',
   '请确认这是你们团队的服务器，再点「绑定」。': 'Make sure this is your team\'s server, then click "Bind".',
   '绑定中…': 'Binding…',
   绑定: 'Bind',
   授予系统权限: 'Grant system permissions',
   'Bot 推送本机桌面应用和小程序的实时画面、成员远程操作时，需要 macOS 授予「共工空间」以下权限。未授权不影响其他功能。':
-    'For Bots to stream live views of desktop apps and mini programs on this machine, and for members to control them remotely, macOS must grant "Gonggong Space" the permissions below. Everything else works without them.',
+    'For Bots to stream live views of desktop apps and mini programs on this computer, and for members to control them remotely, macOS must grant "Gonggong Space" the permissions below. Everything else works without them.',
   已授权: 'Granted',
   未授权: 'Not granted',
   去授权: 'Grant',
@@ -47,7 +47,7 @@ export const en = {
   完成: 'Done',
   稍后: 'Later',
   'Agent 是本机安装的 CLI 运行时，决定能用哪些模型；Bot 是团队里的身份，认领后调用这里的某个 agent 执行。':
-    'An Agent is a CLI runtime installed on this machine and decides which models are available; a Bot is an identity in the team that runs one of these agents once it takes on work.',
+    'An Agent is a CLI runtime installed on this computer and decides which models are available; a Bot is an identity in the team that runs one of these agents once it takes on work.',
   安装: 'Install',
   最新版本: 'Latest version',
   未安装: 'Not installed',
@@ -57,25 +57,25 @@ export const en = {
   登录: 'Login',
   'ACP 适配器': 'ACP adapter',
   待确认: 'Pending confirmation',
-  'agent 缺失': 'Agent missing',
+  'Agent 未就绪': 'Agent unavailable',
   离线: 'Offline',
-  '本机还没有 Bot': 'No Bots on this machine yet',
-  '在 Web 端创建 Bot 并指定到这台机器后，会显示在这里。':
-    'Bots created on the Web and assigned to this machine show up here.',
+  '本机还没有 Bot': 'No Bots on this computer yet',
+  '在网页端创建 Bot 并指定到这台电脑后，会显示在这里。':
+    'Bots created on the Web and assigned to this computer show up here.',
   '他人为你创建，请在 Web 中确认': 'Created for you by someone else. Confirm it on the Web',
   '在 Web 中确认': 'Confirm on Web',
   '在 Web 中管理': 'Manage on Web',
   '{name} · 未安装': '{name} · not installed',
   供应商: 'Provider',
   '供应商/模型': 'Provider / model',
-  '继承机器默认（{name}）': 'Machine default ({name})',
+  '使用电脑默认（{name}）': 'Computer default ({name})',
   'Bot 的设置都在 Web 端管理（名称、角色说明、供应商与模型、并发上限、审批方式等）；本机的供应商与默认值在 Agent 页设置。':
-    "Bot settings are managed on the Web (name, role description, provider and model, concurrency limit, approval, etc.); this machine's providers and defaults are set on the Agent page.",
+    "Bot settings are managed on the Web (name, role description, provider and model, concurrency limit, approval, etc.); this computer's providers and defaults are set on the Agent page.",
   团队: 'Team',
   并发上限: 'Concurrency limit',
   审批方式: 'Approval',
   '本机未安装 {name}，该 Bot 暂不能执行':
-    '{name} is not installed on this machine, so this Bot cannot run yet',
+    '{name} is not installed on this computer, so this Bot cannot run yet',
   '前往 Agent': 'Go to Agent',
   无人观看: 'No viewers',
   启动中: 'Starting',
@@ -88,20 +88,21 @@ export const en = {
   本地构建: 'Local build',
   '使用 GG_CAST_BIN 指定的开发构建': 'Uses the development build set by GG_CAST_BIN',
   未内置: 'Not bundled',
-  '当前是开发版共工空间：首次推流时从服务器下载，服务器需在「客户端发布」上传 gg-cast':
-    'This is a development build of Gonggong Space: gg-cast is downloaded from the server on the first stream, so the server must upload it under "Client releases"',
+  '当前是开发版共工空间：首次推流时从服务器下载，请先在管理后台「客户端发布」上传实时画面组件':
+    'This is a development build of Gonggong Space: the live view component is downloaded from the server on the first stream, so upload it under "Client releases" in Admin first',
   推流组件: 'Streaming component',
+  实时画面组件: 'Live view component',
   系统权限: 'System permissions',
   'Bot 开放的实时画面': 'Live views opened by Bots',
-  本机没有实时画面: 'No live views on this machine',
+  本机没有实时画面: 'No live views on this computer',
   正在启动推流: 'Starting stream',
   小程序: 'Mini program',
   桌面应用: 'Desktop app',
   '{name} 正在远程操作': '{name} is controlling remotely',
   关闭并停止应用: 'Close and stop app',
   关闭: 'Close',
-  '群成员在 Web 打开实时画面时，本机才用 gg-cast 推送对应窗口；没人看时自动停止。推流失败会自动重试，原因显示在这里。':
-    'This machine streams a window with gg-cast only while a group member watches it on the Web, and stops when nobody does. Failed streams retry automatically, with the reason shown here.',
+  '群成员在 Web 端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。':
+    'This computer streams a window only while a group member watches it on the Web, and stops when nobody does. Failed streams retry automatically, with the reason shown here.',
   正常: 'OK',
   注意: 'Warning',
   异常: 'Error',
@@ -138,28 +139,27 @@ export const en = {
   本机队列为空: 'Local queue is empty',
   '{bot} · {group} · {user} 触发 · 排第 {n}': '{bot} · {group} · triggered by {user} · #{n} in line',
   重新绑定: 'Bind again',
-  '服务器不可用 · 指数退避重连中（下次 {sec} 秒后）':
-    'Server unavailable · reconnecting with exponential backoff (next in {sec} s)',
-  '运行中的轮次在本地继续并缓存输出，重连后补传；强制同步群该轮结束后的提交等服务器恢复后执行。':
-    'Runs in progress continue locally and cache their output, which is uploaded after reconnecting; commits after a run in a forced-sync group wait until the server is back.',
+  '连不上服务器 · {sec} 秒后自动重连': 'Cannot reach server · reconnecting in {sec} s',
+  '运行中的任务会在本地继续并暂存输出，重连后自动补传；强制同步群的提交会等服务器恢复后继续。':
+    'Tasks in progress continue locally and buffer output to upload after reconnecting; commits in forced-sync groups wait until the server is back.',
   '协议版本不兼容 · 服务器拒绝连接': 'Protocol version incompatible · server refused the connection',
-  '本机 daemon v{version} 使用协议 v{protocol}，服务器：{message}。升级 daemon 后重启生效；升级前本机 Bot 显示离线。':
-    "This machine's daemon v{version} uses protocol v{protocol}; server: {message}. Upgrade the daemon and restart; until then the Bots on this machine show as offline.",
-  'token 已被吊销 · 账号已停用': 'Token revoked · account disabled',
-  '已清除本机团队密钥与 {n} 个托管工作区（尽力而非保证）；/cd 绑定的目录与本机备份目录不动。如有误，请联系系统管理员后重新绑定。':
-    'Cleared the team secrets and {n} managed {n:workspace|workspaces} on this machine (best effort, not guaranteed); /cd directories and local backups are untouched. If this is a mistake, contact your system admin and bind again.',
-  'token 无效 · 服务器拒绝连接': 'Invalid token · server refused the connection',
+  '这台电脑的共工客户端（v{version}）版本太旧，与服务器不兼容（{message}）。请升级后重启；升级前这台电脑上的 Bot 会显示离线。':
+    "This computer's Gonggong client (v{version}) is too old for the server ({message}). Upgrade and restart; until then the Bots on this computer show as offline.",
+  '电脑已解绑 · 账号已停用': 'Computer unbound · account disabled',
+  '已清理这台电脑上的团队密钥和 {n} 个托管工作区；/cd 绑定的目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。':
+    'Cleared the team secrets and {n} managed {n:workspace|workspaces} on this computer; /cd directories and local backups are untouched. If this is a mistake, contact your system admin and bind again.',
+  '绑定已失效 · 服务器拒绝连接': 'Binding invalid · server refused the connection',
   '未授权：{list}': 'Not granted: {list}',
   'Bot 推送的桌面应用、小程序实时画面或远程操作在本机不可用，授权后即可使用。':
-    'Live views and remote control of desktop apps and mini programs pushed by Bots are unavailable on this machine until permission is granted.',
-  'daemon 未运行': 'Daemon not running',
+    'Live views and remote control of desktop apps and mini programs pushed by Bots are unavailable on this computer until permission is granted.',
+  共工客户端未运行: 'Gonggong client is not running',
   重试: 'Retry',
   已完成: 'Completed',
   已中断: 'Interrupted',
   失败: 'Failed',
   返回: 'Back',
   运行过程: 'Process',
-  该轮次的过程已不在本机保留: "This run's process is no longer kept on this machine",
+  该轮次的过程已不在本机保留: "This run's process is no longer kept on this computer",
   浅色: 'Light',
   深色: 'Dark',
   跟随系统: 'System',
@@ -191,25 +191,25 @@ export const en = {
   '解除绑定…': 'Unbind…',
   '解除绑定后清除团队密钥与托管工作区，本机备份保留。':
     'Unbinding clears the team secrets and managed workspaces; local backups are kept.',
-  '要解除本机与团队服务器的绑定吗？': 'Unbind this machine from the team server?',
+  '要解除本机与团队服务器的绑定吗？': 'Unbind this computer from the team server?',
   '本机将断开连接，清除团队密钥与托管工作区（/cd 绑定的目录与本机备份保留），并回到首次绑定引导。此操作不可撤销。':
-    'This machine will disconnect, clear the team secrets and managed workspaces (/cd directories and local backups are kept), and return to first-time setup. This cannot be undone.',
+    'This computer will disconnect, clear the team secrets and managed workspaces (/cd directories and local backups are kept), and return to first-time setup. This cannot be undone.',
   取消: 'Cancel',
   解除绑定: 'Unbind',
   已退出: 'Exited',
   启动失败: 'Failed to start',
   预览穿透: 'Preview tunnels',
-  本机没有开放的穿透: 'No open tunnels on this machine',
+  本机没有开放的穿透: 'No open tunnels on this computer',
   '端口 {port}': 'Port {port}',
   '服务 {name}': 'Service {name}',
   本机打开: 'Open locally',
   停止穿透和服务: 'Stop tunnel and service',
   停止穿透: 'Stop tunnel',
   托管服务: 'Hosted services',
-  本机没有托管服务: 'No hosted services on this machine',
+  本机没有托管服务: 'No hosted services on this computer',
   停止: 'Stop',
   'Bot 开放的预览与启动的后台服务由本机托管。在这里停止与在 Web 群里停止效果相同，群成员会立即看到变化。':
-    'Previews opened and background services started by Bots are hosted on this machine. Stopping them here is the same as stopping them in the Web group; group members see the change immediately.',
+    'Previews opened and background services started by Bots are hosted on this computer. Stopping them here is the same as stopping them in the Web group; group members see the change immediately.',
   '已请求 {bot} 改回托管工作区，结果见群消息':
     'Asked {bot} to switch back to the managed workspace; see the group messages for the result',
   '已删除 {path}': 'Deleted {path}',
@@ -222,22 +222,23 @@ export const en = {
   无法连接服务器: 'Cannot connect to the server',
   '群与 Bot 名称、/cd 绑定暂不可用，以下仅按本机目录列出。':
     'Group and Bot names and /cd bindings are unavailable; only local directories are listed below.',
-  本机还没有工作区: 'No workspaces on this machine yet',
+  本机还没有工作区: 'No workspaces on this computer yet',
   '本机备份 · 不上传': 'Local backups · never uploaded',
   '被覆盖的本地修改、中断的半成品保存在这里，不上传服务器。':
     'Overwritten local changes and interrupted work are kept here and never uploaded to the server.',
   暂无本机备份: 'No local backups',
-  '要从本机删除“{group} × {bot}”的工作区吗？': 'Delete the workspace of "{group} × {bot}" from this machine?',
+  '要从本机删除“{group} × {bot}”的工作区吗？':
+    'Delete the workspace of "{group} × {bot}" from this computer?',
   '将删除 {path}（{state}），此操作不可撤销。只影响本机目录，群里的消息与记录不受影响。':
     '{path} ({state}) will be deleted. This cannot be undone. Only the local directory is affected; group messages and records stay.',
   删除: 'Delete',
   概览: 'Overview',
-  本机执行端状态与正在运行的轮次: "Status of this machine's runner and runs in progress",
+  这台电脑的连接状态与正在运行的任务: "Status of this computer's connection and running tasks",
   执行: 'Execution',
   '本机的 Node.js 与 CLI 运行时：安装升级、检测与供应商':
-    'Node.js and CLI runtimes on this machine: install, upgrade, detection and providers',
+    'Node.js and CLI runtimes on this computer: install, upgrade, detection and providers',
   '本机运行的 Bot 与其供应商/模型，设置请在 Web 端修改':
-    'Bots running on this machine with their provider / model; change their settings on the Web',
+    'Bots running on this computer with their provider / model; change their settings on the Web',
   '每个「群 × Bot」一个托管目录，或绑定的本机目录':
     'One managed directory per "group × Bot", or a bound local directory',
   穿透与服务: 'Tunnels & services',
@@ -246,7 +247,7 @@ export const en = {
   实时画面: 'Live views',
   'Bot 推送的桌面应用与小程序画面：推流组件、系统权限与推流状态':
     'Desktop app and mini program views pushed by Bots: streaming component, system permissions and stream status',
-  本机: 'This machine',
+  本机: 'This computer',
   日志与诊断: 'Logs & diagnostics',
   '连接、ACP、git 与同步日志；运行过程入库前已脱敏':
     'Connection, ACP, git and sync logs; run processes are redacted before being stored',
@@ -273,7 +274,7 @@ export const en = {
   在浏览器中打开共工: 'Open Gonggong in the browser',
   '有运行中的任务，重启会中断': 'Tasks are running. Restarting will interrupt them',
   '本机有 {n} 个任务正在运行，重启后它们会被中断。':
-    '{n} {n:task is|tasks are} running on this machine and will be interrupted by the restart.',
+    '{n} {n:task is|tasks are} running on this computer and will be interrupted by the restart.',
   仍然重启: 'Restart anyway',
   共工空间: 'Gonggong Space',
   发现新版本: 'New version available',

@@ -52,7 +52,7 @@ const STATUS: Record<RunStatus, { label: string; template: string }> = {
   awaiting_answer: { label: zt('等待回答'), template: 'orange' },
   completed: { label: zt('已完成'), template: 'green' },
   interrupted: { label: zt('已中断'), template: 'red' },
-  expired: { label: zt('已作废'), template: 'grey' },
+  expired: { label: zt('已失效'), template: 'grey' },
 }
 
 /** An approval or question of the run, shown inside its card: a block while pending, one history line after. */
@@ -532,7 +532,7 @@ const PREVIEW_KIND: Record<string, string> = {
 
 const PREVIEW_STATE: Record<PreviewState, { label: string; template: string }> = {
   online: { label: zt('可打开'), template: 'green' },
-  offline: { label: zt('机器离线'), template: 'grey' },
+  offline: { label: zt('电脑离线'), template: 'grey' },
   login: { label: zt('等待开发者工具登录'), template: 'orange' },
   closed: { label: zt('已关闭'), template: 'grey' },
 }
@@ -617,7 +617,7 @@ export function progressCard(o: ProgressCard & { bot: string }) {
 
 function settledNote(status: string, by: string | null) {
   if (status === 'expired') return zt('已超时')
-  if (status === 'void') return zt('已作废')
+  if (status === 'void') return zt('已失效')
   if (status === 'rejected') return zt('已由 {name} 拒绝', { name: by ?? '' })
   if (status === 'approved') return zt('已由 {name} 允许', { name: by ?? '' })
   return zt('已由 {name} 处理', { name: by ?? '' })

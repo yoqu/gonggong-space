@@ -3,7 +3,7 @@
 站点：VitePress 1.6，源文件在 `website/`，侧栏见 `.vitepress/config.mts`（页面路径固定，不要改名或增删页面；确需新增先写在本文件末尾「待定」里）。
 
 ## 定位与读者
-- 产品名：**共工空间**（英文 gonggong-space）；命令行叫 `gg`；成员机器上的常驻程序称「daemon」，桌面端应用名「共工空间」（以代码里的实际名称为准）。
+- 产品名：**共工空间**（英文 gonggong-space）；命令行叫 `gg`；成员电脑上的客户端程序称「共工客户端」（内部代号 `daemon`），桌面端应用名「共工空间」（以代码里的实际名称为准）。
 - 读者：第一次接触的团队成员、搭服务的管理员、想参与开发的贡献者。写给使用者看，不写内部开发过程。
 
 ## 事实来源（最重要）
@@ -13,7 +13,7 @@
 
 ## 文风
 - 中文，简洁直接，短句。操作步骤用有序列表，按钮/菜单名用「」括起来并与界面完全一致，如 点击「新建 Bot」。
-- 术语统一：「Bot」（不写 BOT/bot）、「机器」（不写电脑/设备）、「群」（不写群聊）、「工作区」只指 Bot 的目录、「Agent 命令」。权限档位：只读 / 工作区写入 / 完全访问。
+- 术语统一：「Bot」（不写 BOT/bot）、「电脑」（指成员接入运行 Bot 的端时，不用机器/设备）、「群」（不写群聊）、「工作区」只指 Bot 的目录、「Agent 命令」。审批方式：每次问我 / 帮我审批 / 完全允许。
 - 禁止出现内部开发备注：一期/二期/P1/切片/待定/需实测/验收 等字眼，也不要提计划文档编号（P4、D17…）。
 - 善用 VitePress 容器：`::: tip`、`::: warning`、`::: danger`、`::: details`。代码块标注语言。
 - 每页开头一句话说明本页讲什么；结尾可放「相关页面」链接（站内链接用绝对路径，如 `/user/create-bot`，不带 .md）。
@@ -32,13 +32,13 @@
 | web/welcome.webp | 登录后首页/欢迎页 |
 | web/interface.webp | 主界面全景（左侧栏群列表 + 群消息 + 右侧栏） |
 | web/account-menu.webp | 右上角头像菜单展开 |
-| web/bind-machine.webp | 「绑定新机器」对话框展开「其他方式」（安装客户端、接入链接、使用命令行） |
-| web/machine-dialog.webp | 机器页 →「概览」（系统信息、在线状态） |
-| web/machine-tools.webp | 机器页 →「Agent 与供应商」（Node.js、Claude Code 版本与升级） |
-| web/machine-providers.webp | 机器页 →「Agent 与供应商」里的供应商列表 |
+| web/bind-machine.webp | 「绑定新电脑」对话框展开「其他方式」（安装客户端、接入链接、使用命令行） |
+| web/machine-dialog.webp | 电脑详情 →「概览」（系统信息、在线状态） |
+| web/machine-tools.webp | 电脑详情 →「Agent 与供应商」（Node.js、Claude Code 版本与升级） |
+| web/machine-providers.webp | 电脑详情 →「Agent 与供应商」里的供应商列表 |
 | web/provider-editor.webp | 供应商编辑表单 |
-| web/new-bot.webp | 「新建 Bot」对话框（名称、机器、Agent、性格角色头像） |
-| web/bot-settings.webp | Bot 设置（触发范围、权限档位、并发、审批） |
+| web/new-bot.webp | 「新建 Bot」对话框（名称、运行电脑、Agent、性格角色头像） |
+| web/bot-settings.webp | Bot 设置（触发范围、审批方式、并发、审批） |
 | web/bot-agent-config.webp | Bot 的模型与推理强度配置 |
 | web/bot-page.webp | 与 Bot 私聊页 |
 | web/my-bots.webp | 我的 Bot 与用量 |
@@ -70,7 +70,7 @@
 | web/admin-config.webp | 管理后台 · 配置中心 |
 | web/admin-params.webp | 管理后台 · 系统参数 |
 | web/admin-releases.webp | 管理后台 · 客户端发布 |
-| web/admin-machines.webp | 管理后台 · 机器 |
+| web/admin-machines.webp | 管理后台 · 电脑与网络 |
 | web/admin-usage.webp | 管理后台 · 用量 |
 | web/admin-shares.webp | 管理后台 · 公开链接 |
 | web/admin-audit.webp | 管理后台 · 审计记录 |
@@ -110,10 +110,10 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| web/bind-agent.webp | 「绑定新机器」→「发给你的 Agent」那一步（含一句话接入动画） |
-| web/machines.webp | 我的机器与 Bot 页（机器列表 + 机器下的 Bot） |
-| web/machine-storage.webp | 机器页 →「工作区」（工作区占用、瘦身/清理） |
-| web/terminal.webp | 机器终端会话 |
+| web/bind-agent.webp | 「绑定新电脑」→「发给你的 Agent」那一步（含一句话接入动画） |
+| web/machines.webp | 我的电脑与 Bot 页（电脑列表 + 电脑下的 Bot） |
+| web/machine-storage.webp | 电脑详情 →「工作区」（工作区占用、瘦身/清理） |
+| web/terminal.webp | 电脑终端会话 |
 | web/schedules.webp | 定时任务列表与编辑 |
 | web/thread.webp | 话题（thread）侧栏 |
 | web/knowledge.webp | 知识库 |

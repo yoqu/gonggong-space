@@ -158,7 +158,7 @@ describe('switch to force: preconditions and preview', () => {
       expect(res.status).toBe(400)
       return res.body.message
     }
-    expect(await fails(w.b.id)).toBe('基准 Bot 所在机器离线')
+    expect(await fails(w.b.id)).toBe('基准 Bot 所在的电脑离线')
     await t.db
       .update(groupBots)
       .set({ workspaceKind: 'cd', cdPath: '/tmp/x' })

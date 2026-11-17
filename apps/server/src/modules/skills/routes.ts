@@ -188,7 +188,7 @@ function daemonRoutes(ctx: Ctx, app: FastifyInstance) {
         ),
       )
       .limit(1)
-    if (!hosted) return fail('forbidden', '该机器上没有可使用这个 skill 的 Bot')
+    if (!hosted) return fail('forbidden', '这台电脑上没有可使用这个 Skill 的 Bot')
     return { files: found.files as SkillFile[] }
   })
 }

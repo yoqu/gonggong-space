@@ -45,7 +45,7 @@ export function LinkRequestCard({
   }
   const { machine } = request
   return (
-    <section className="link-card" aria-label={t('机器接入申请')}>
+    <section className="link-card" aria-label={t('电脑接入申请')}>
       <p className="link-card__name">{machine.name}</p>
       <dl className="link-card__facts">
         <dt>{t('系统')}</dt>
@@ -77,17 +77,17 @@ export function LinkRequestCard({
           title={t('已允许接入')}
           description={
             request.agent
-              ? t('机器正在接入，Bot 建好后自动打开私聊。')
-              : t('机器正在接入，稍后可在「机器与 Bot」中查看。')
+              ? t('电脑正在接入，Bot 建好后自动打开私聊。')
+              : t('电脑正在接入，稍后可在「电脑与 Bot」中查看。')
           }
         />
       ) : outcome === 'denied' ? (
-        <Alert title={t('已拒绝接入')} description={t('这台机器不会被绑定。')} />
+        <Alert title={t('已拒绝接入')} description={t('这台电脑不会被绑定。')} />
       ) : outcome === 'expired' ? (
         <Alert
           variant="warning"
           title={t('接入申请已过期')}
-          description={t('在机器的终端重新运行接入命令即可。')}
+          description={t('在电脑的终端重新运行接入命令即可。')}
         />
       ) : (
         <Alert title={t('这个接入申请已处理过')} />

@@ -70,7 +70,9 @@ fn fallback_profile_catalog(home: &Path, claude: &AgentState) -> Option<AgentCat
 /// them until its next upgrade.
 pub fn offered(kind: AgentKind, catalog: AgentCatalog) -> anyhow::Result<AgentCatalog> {
     match catalog.models.is_empty() {
-        true => anyhow::bail!(t!("{kind} 没有报告可选模型，可能未登录或连不上服务", kind = format!("{kind:?}"))),
+        true => {
+            anyhow::bail!(t!("{kind} 没有报告可选模型，可能未登录或连不上服务", kind = crate::bots::agent_label(kind)))
+        }
         false => Ok(catalog),
     }
 }
@@ -354,7 +356,7 @@ pub fn codex_problem(cli: &Path) -> Option<String> {
 /// The error a Codex session reports when its CLI cannot start, with how to fix the install.
 pub fn codex_unusable(problem: &str) -> String {
     t!(
-        "Codex 无法启动：{problem}。请重新安装：pnpm add -g @openai/codex（或 npm install -g @openai/codex），或在「设置 → Agent 工具」里改用共工托管安装",
+        "Codex 无法启动：{problem}。请重新安装：pnpm add -g @openai/codex（或 npm install -g @openai/codex），或在桌面端「执行 → Agent」页改用共工托管安装（或运行 gg agents install codex）",
         problem = problem
     )
 }

@@ -35,7 +35,9 @@ describe('MCP tool names', () => {
   it('hides session config echoes from the run card step', () => {
     expect(toolTitle('已切换推理强度：High')).toBe('')
     expect(toolTitle('已切换模型：Opus')).toBe('')
-    expect(toolTitle('档位已切换为「完全访问」，自动批准：ls')).toBe('档位已切换为「完全访问」，自动批准：ls')
+    expect(toolTitle('审批方式已切换为「完全允许」，自动批准：ls')).toBe(
+      '审批方式已切换为「完全允许」，自动批准：ls',
+    )
   })
 
   it('lists arguments as key and short value', () => {

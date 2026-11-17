@@ -419,7 +419,7 @@ export function ConversationStatsPanel({ base, teamId = '' }: { base: string; te
       <Details path={path} days={days} platform={platform && !teamId} />
       <p className="usage-note">
         {t(
-          '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、机器或 Bot 的主人、群管理员，其余为使用者。',
+          '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、电脑或 Bot 的主人、群管理员，其余为使用者。',
         )}
       </p>
     </>

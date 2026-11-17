@@ -36,7 +36,7 @@ export async function openArtifactPreview(ctx: Ctx, a: Artifact, versionId: stri
     .limit(1)
   if (open) return open
   const [bot] = a.botId ? await ctx.db.select().from(bots).where(eq(bots.id, a.botId)) : []
-  if (!bot?.machineId) return fail('conflict', '产物所属的 Bot 没有绑定机器')
+  if (!bot?.machineId) return fail('conflict', '产物所属的 Bot 没有绑定电脑')
   const [p] = await ctx.db
     .insert(previews)
     .values({

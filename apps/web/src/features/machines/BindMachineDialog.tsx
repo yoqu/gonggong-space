@@ -105,16 +105,16 @@ export function BindMachineDialog({
       label: t('复制给 Agent'),
       status: bound || handedOver ? 'completed' : error ? 'error' : code ? 'current' : 'pending',
     },
-    { label: t('机器接入'), status: bound ? 'completed' : handedOver ? 'active' : 'pending' },
+    { label: t('电脑接入'), status: bound ? 'completed' : handedOver ? 'active' : 'pending' },
     { label: t('Bot 就绪'), status: bound ? 'active' : 'pending' },
   ]
 
   return (
     <Dialog
       open={open}
-      title={t('绑定新机器')}
+      title={t('绑定新电脑')}
       message={t(
-        '把下面这句话粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器并建好 Bot（支持 macOS 和 Linux）。机器归属于你，Bot 在上面运行。',
+        '把下面这句话粘贴给这台电脑上的 Claude Code 或 Codex（支持 macOS / Linux），它会自己安装、绑定电脑并建好 Bot。',
       )}
       width={520}
       onClose={onClose}
@@ -180,12 +180,12 @@ export function BindMachineDialog({
             </Disclosure>
           </>
         )}
-        <section className="bind__section" aria-label={bound ? t('已接入的机器') : t('等待接入')}>
-          <h3 className="bind__heading">{bound ? t('已接入的机器') : t('等待接入')}</h3>
+        <section className="bind__section" aria-label={bound ? t('已接入的电脑') : t('等待接入')}>
+          <h3 className="bind__heading">{bound ? t('已接入的电脑') : t('等待接入')}</h3>
           {bound ? (
             <>
               <BoundMachine machine={bound} viaClient={viaClient} />
-              {online ? <span className="bind__online">{t('机器已上线')}</span> : null}
+              {online ? <span className="bind__online">{t('电脑已上线')}</span> : null}
             </>
           ) : (
             <>
@@ -198,7 +198,7 @@ export function BindMachineDialog({
               <Disclosure title={t('了解上报内容')}>
                 <p className="bind__note">
                   {t(
-                    '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。',
+                    '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和可用的 Claude Code / Codex / Gemini CLI；同一台电脑重新绑定会恢复原记录。',
                   )}
                 </p>
               </Disclosure>
@@ -217,15 +217,15 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
       <div className="bind__success">
         <Mascot action="done" size={72} label={t('共字君')} />
         <span className="bind__success-text">
-          <strong className="bind__success-title">{restored ? t('已恢复原有机器') : t('绑定成功')}</strong>
+          <strong className="bind__success-title">{restored ? t('已恢复原有电脑') : t('绑定成功')}</strong>
           <span className="bind__note">
             {restored
-              ? t('{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）', {
+              ? t('{name} 之前绑定过，已恢复原电脑记录和上面的 Bot（{os} · {arch}）', {
                   name: machine.name,
                   os: OS_LABEL[machine.os],
                   arch: machine.arch,
                 })
-              : t('该机器已归属你 · {name}（{os} · {arch}）', {
+              : t('这台电脑已归属你 · {name}（{os} · {arch}）', {
                   name: machine.name,
                   os: OS_LABEL[machine.os],
                   arch: machine.arch,
@@ -234,7 +234,7 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
         </span>
       </div>
       <Form>
-        <FormRow label={t('该机器的 agent')} align="top">
+        <FormRow label={t('这台电脑的 Agent')} align="top">
           {machine.agents.length ? (
             <ul className="bind__agents">
               {machine.agents.map((a) => (
@@ -256,14 +256,14 @@ function BoundMachine({ machine, viaClient }: { machine: MachineDto; viaClient: 
           ) : (
             <span className="bind__waiting">
               <Spinner size={14} />
-              {viaClient ? t('等待上报 agent…在机器上打开共工空间客户端') : t('等待机器上线…')}
+              {viaClient ? t('等待上报 Agent…在电脑上打开共工空间客户端') : t('等待电脑上线…')}
             </span>
           )}
         </FormRow>
       </Form>
       <p className="bind__note">
         {t(
-          '你自己创建的 Bot 已直接绑定到该机器，无需操作；管理员为你创建并指定到该机器的 Bot，需在通知中确认后才能被触发。',
+          '你自己创建的 Bot 已直接绑定到这台电脑；别人为你创建并指定到这台电脑的 Bot，需在通知里确认后才能使用。',
         )}
       </p>
     </>

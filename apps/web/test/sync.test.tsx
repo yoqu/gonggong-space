@@ -354,7 +354,7 @@ describe('sync mode settings', () => {
     expect(within(await screen.findByTestId('plan-b1')).getByText('对齐')).toBeTruthy()
     expect(within(screen.getByTestId('plan-b2')).getByText('不参与（有未提交的改动）')).toBeTruthy()
     expect(within(screen.getByTestId('plan-b3')).getByText('不参与（本机目录）')).toBeTruthy()
-    expect(within(screen.getByTestId('plan-b4')).getByText('对齐（机器离线，上线后对齐）')).toBeTruthy()
+    expect(within(screen.getByTestId('plan-b4')).getByText('对齐（电脑离线，上线后对齐）')).toBeTruthy()
     const confirm = screen.getByRole('button', { name: '确认切换' })
     expect(confirm.hasAttribute('disabled')).toBe(true)
 

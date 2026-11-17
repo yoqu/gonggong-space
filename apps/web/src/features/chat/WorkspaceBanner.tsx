@@ -56,7 +56,7 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
   const recheck = (bot: BotDto) =>
     api
       .post(`/groups/${group.id}/bots/${bot.id}/recheck`)
-      .then(() => toast({ type: 'info', message: t('正在让 {name} 的机器重新 clone…', { name: bot.name }) }))
+      .then(() => toast({ type: 'info', message: t('正在让 {name} 的电脑重新克隆…', { name: bot.name }) }))
       .catch(toastError)
 
   const mineReady = waiting.filter((b) => b.ownerId === me?.id && b.machineId && !states?.[b.id]?.error)
@@ -75,13 +75,13 @@ export function WorkspaceBanner({ group }: { group: GroupDto }) {
               text={
                 mine
                   ? t(
-                      '{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器的「Git 访问」里配置后重新检查',
+                      '{name} 已暂停：所在电脑连不上仓库（{why}），在这台电脑的「Git 访问」里配置后重新检查',
                       {
                         name: b.name,
                         why: why ?? '',
                       },
                     )
-                  : t('{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理', {
+                  : t('{name} 已暂停：所在电脑连不上仓库（{why}），等待 {owner} 处理', {
                       name: b.name,
                       why: why ?? '',
                       owner: b.ownerName,

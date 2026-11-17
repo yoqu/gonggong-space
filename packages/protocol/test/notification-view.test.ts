@@ -58,7 +58,7 @@ describe('notificationView', () => {
       notificationView(
         n('offline_expired', { groupId: 'g1', groupName: '支付', runId: 'r2', botName: 'C', waitMin: 30 }),
       ),
-    ).toMatchObject({ label: 'Bot 离线作废', text: '你 @C 的请求等待 30 分钟未上线，已作废' })
+    ).toMatchObject({ label: 'Bot 离线超时', text: '你 @C 的请求等待 30 分钟未上线，已失效' })
     expect(
       notificationView(
         n('chain_done', { groupId: 'g1', groupName: '支付', rootRunId: 'r0', hops: 3, stopped: false }),
@@ -254,7 +254,7 @@ describe('notificationView', () => {
     expect(
       view(n('repo_access', { groupId: 'g1', botName: 'C', repo: 'org/app', reason: '连接超时' }), en).text,
     ).toBe(
-      'C\'s machine cannot reach org/app (connection timed out); fix it, then click "Recheck" in the group',
+      'C\'s computer cannot reach org/app (connection timed out); fix it, then click "Recheck" in the group',
     )
   })
 })

@@ -169,7 +169,7 @@ Hover over a message to show the action bar (「回复话题」 (Reply in thread
 | 复制链接 (Copy link) | Copy a link to this message |
 | 从这里标为未读 (Mark unread from here) | Move the unread divider to this message; see [Notifications](/en/user/notifications#unread) |
 | 置顶 / 取消置顶 (Pin / Unpin) | Pin to the top of the group, up to 5 per group |
-| 存入知识库 (Save to knowledge base) | Create a wiki entry from this message; see [Wiki and secrets](/en/user/knowledge-secrets#save-to-the-knowledge-base) |
+| 存入知识库 (Save to knowledge base) | Create a knowledge base entry from this message; see [Knowledge base and secrets](/en/user/knowledge-secrets#save-to-the-knowledge-base) |
 | 分支到新聊天 (Branch to new chat) | Bot owner only, available on this Bot's most recent completed reply: opens a new direct chat with it that continues from this turn |
 | 编辑 (Edit) | Your own regular messages only, within 24 hours |
 | 撤回 (Recall) | Your own messages only, within 24 hours. The content is hidden from everyone |

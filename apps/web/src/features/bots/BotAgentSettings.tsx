@@ -41,7 +41,7 @@ export function BotAgentSettingRows({
             .map((f) =>
               t('{label}：{v}', {
                 label: fieldLabel(f.id),
-                v: value[f.id] ? valueLabel(f, value[f.id] ?? '') : t('跟随机器设置'),
+                v: value[f.id] ? valueLabel(f, value[f.id] ?? '') : t('跟随电脑设置'),
               }),
             )
             .join(' · ')}
@@ -56,8 +56,8 @@ export function BotAgentSettingRows({
         const own = value[f.id] ?? ''
         const current = machine?.[f.id]
         const follow = machine
-          ? t('跟随机器设置（当前：{v}）', { v: current ? valueLabel(f, current) : t('默认') })
-          : t('跟随机器设置')
+          ? t('跟随电脑设置（当前：{v}）', { v: current ? valueLabel(f, current) : t('默认') })
+          : t('跟随电脑设置')
         const set = (v: string) => onChange({ ...value, [f.id]: v })
         const choices = f.type === 'bool' ? ['true', 'false'] : (f.options ?? [])
         return (
@@ -67,8 +67,8 @@ export function BotAgentSettingRows({
             hint={
               i === fields.length - 1
                 ? outdated
-                  ? t('该机器的 daemon 版本过旧，覆盖不会生效')
-                  : t('「跟随机器设置」使用机器上的 Agent 设置；下次启动 agent 时生效')
+                  ? t('这台电脑的共工客户端版本过旧，覆盖不会生效')
+                  : t('「跟随电脑设置」使用这台电脑上的 Agent 设置；下次启动 Agent 时生效')
                 : undefined
             }
           >

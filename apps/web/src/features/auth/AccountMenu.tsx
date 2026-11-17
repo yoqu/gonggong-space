@@ -73,8 +73,8 @@ export function AccountMenu({
         },
     { separator: true },
     builder
-      ? { label: t('绑定新机器'), value: 'bind', icon: 'laptop' }
-      : { label: t('接入我的电脑'), value: 'build', icon: 'laptop' },
+      ? { label: t('绑定新电脑'), value: 'bind', icon: 'laptop' }
+      : { label: t('绑定新电脑'), value: 'build', icon: 'laptop' },
     { label: t('我的用量'), value: 'usage', icon: 'chart-bar' },
     { label: t('新手指引'), value: 'guide', icon: 'bubble-question' },
     ...(soleTeam ? [{ label: t('团队设置'), value: 'team', icon: 'person-2' as const }] : []),

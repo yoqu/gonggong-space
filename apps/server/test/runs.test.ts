@@ -542,7 +542,7 @@ describe('run engine', () => {
       done(runId, { outcome: 'failed', reply: '', error: 'adapter exited', usage: null, sessionId: null }),
     )
     const final = await web.until<Extract<WebEvent, { t: 'run.updated' }>>(runUpdated('interrupted', runId))
-    expect(final.run.step).toBe('agent 异常：adapter exited')
+    expect(final.run.step).toBe('运行出错：adapter exited')
     const replies = await t.db.select().from(messages).where(eq(messages.runId, runId))
     expect(replies).toEqual([])
   })

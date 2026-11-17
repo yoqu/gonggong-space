@@ -16,71 +16,89 @@ use std::path::Path;
 pub enum ProviderCmd {
     /// List the built-in vendors (adapted from CC Switch's presets).
     Presets {
+        /// Filter by Agent name.
         #[arg(value_parser = parse_kind)]
         agent: Option<AgentKind>,
     },
-    /// List this machine's providers, defaults and bot overrides (keys masked).
+    /// List this computer's providers, defaults and bot overrides (keys masked).
     List {
+        /// Filter by Agent name.
         #[arg(value_parser = parse_kind)]
         agent: Option<AgentKind>,
     },
-    /// Add a provider from a preset (--preset, every protocol it serves) or by hand (--name + --base-url, the agent's
-    /// protocol unless --protocol); the API key is read from stdin.
+    /// Add a provider from a preset (--preset) or manually (--name + --base-url); the API key is read from stdin.
     Add {
+        /// Agent name (claude, codex, gemini, ...).
         #[arg(value_parser = parse_kind)]
         agent: AgentKind,
+        /// Built-in preset ID from `gg provider presets`.
         #[arg(long, required_unless_present = "base_url", conflicts_with = "base_url")]
         preset: Option<String>,
+        /// Display name for the new provider.
         #[arg(long)]
         name: Option<String>,
+        /// API base URL (http:// or https://).
         #[arg(long, requires = "name")]
         base_url: Option<String>,
-        /// anthropic, openai, gemini or codebuddy.
+        /// Wire protocol: anthropic, openai, gemini or codebuddy.
         #[arg(long, value_parser = parse_protocol)]
         protocol: Option<ApiProtocol>,
+        /// Default model name.
         #[arg(long)]
         model: Option<String>,
-        /// Read the API key from stdin (keeps it out of the shell history).
+        /// Read the API key from stdin (one line, trimmed; keeps it out of shell history).
         #[arg(long)]
         key_stdin: bool,
-        /// Also make it this machine's default for the agent.
+        /// Also make it this computer's default for the Agent.
         #[arg(long)]
         default: bool,
     },
-    /// Change a provider; sessions using it restart their adapter and resume with the change. --base-url and --model
-    /// change the endpoint of --protocol (needed when it has several; a new one with --base-url).
+    /// Update a provider; sessions using it restart to pick up the change. --base-url and --model update the
+    /// endpoint of --protocol (required if multiple protocols exist, or to add a new endpoint with --base-url).
     Edit {
+        /// Provider ID to update.
         id: String,
+        /// Protocol endpoint to update (or add when used with --base-url).
         #[arg(long, value_parser = parse_protocol)]
         protocol: Option<ApiProtocol>,
+        /// New display name.
         #[arg(long)]
         name: Option<String>,
+        /// New API base URL.
         #[arg(long)]
         base_url: Option<String>,
+        /// New default model name.
         #[arg(long)]
         model: Option<String>,
+        /// Read a new API key from stdin (one line, trimmed).
         #[arg(long)]
         key_stdin: bool,
     },
     /// Delete a provider; sessions using it start a new session on their next turn.
-    Rm { id: String },
-    /// Machine default: `use <claude|codex|gemini|codebuddy|deepseek|qwen|kimi|goose|copilot> <id|official>`; bot override: `use --bot <bot> <id|official|inherit>`.
+    Rm {
+        /// Provider ID to delete.
+        id: String,
+    },
+    /// Set a computer default (`use <agent> <id|official>`) or bot override (`use --bot <bot> <id|official|inherit>`).
     Use {
-        /// Bot id or name.
+        /// Bot ID or name (omit to set the computer default).
         #[arg(long)]
         bot: Option<String>,
+        /// `<agent> <id|official>` for computer default, or `<id|official|inherit>` with --bot.
         #[arg(num_args = 1..=2, required = true)]
         args: Vec<String>,
     },
-    /// Import from this machine's CC Switch (`cc-switch`: previews unless --all / --ids) or a `ccswitch://` link.
+    /// Import from CC Switch (`cc-switch`, previews unless --all or --ids) or a `ccswitch://` link.
     Import {
+        /// `cc-switch` or a `ccswitch://` import link.
         source: String,
+        /// Import all candidates from CC Switch.
         #[arg(long, conflicts_with = "ids")]
         all: bool,
-        /// Keys from the preview, comma separated.
+        /// Keys from the preview to import, comma-separated.
         #[arg(long, value_delimiter = ',')]
         ids: Vec<String>,
-        /// Also make the imported current provider (CC Switch's, or the link's) this machine's default.
+        /// Also make the imported active provider this computer's default.
         #[arg(long)]
         set_default: bool,
     },
@@ -133,7 +151,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 Ok(id)
             })?;
             match default {
-                true => println!("{}", t!("已新增 {label}（{id}），并设为本机默认", label = label, id = id)),
+                true => println!("{}", t!("已新增 {label}（{id}），并设为电脑默认", label = label, id = id)),
                 false => println!("{}", t!("已新增 {label}（{id}）", label = label, id = id)),
             }
             if default {
@@ -169,7 +187,7 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                     p.api_key = key.unwrap_or(p.api_key.clone());
                 })
             })?;
-            println!("{}", t!("已修改 {id}；使用它的会话会重启 adapter 后继续", id = id));
+            println!("{}", t!("已修改 {id}；使用它的会话会重启进程后继续", id = id));
         }
         ProviderCmd::Rm { id } => {
             let p = Store::update(home, |s| s.remove(&id))?;
@@ -187,24 +205,24 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 s.use_machine(agent, choice, None)?;
                 Ok(s.machine_default(agent)?.name().to_string())
             })?;
-            println!("{}", t!("{agent} 本机默认供应商：{name}", agent = agent_label(agent), name = name));
+            println!("{}", t!("{agent} 电脑默认供应商：{name}", agent = agent_label(agent), name = name));
             print_stale(home, agent).await?;
         }
         ProviderCmd::Use { bot: Some(bot), args } => {
             let [choice] = args.as_slice() else {
                 bail!(t!("用法：gg provider use --bot <bot> <id|official|inherit>"))
             };
-            let config = Config::load()?.context(t!("设置 Bot 的供应商需要先 gg login（要查询 Bot 的 agent）"))?;
+            let config = Config::load()?.context(t!("设置 Bot 的供应商需要先 gg login（要查询 Bot 的 Agent）"))?;
             let bots = crate::bots::Client::new(&config)?.list().await?;
             let bot = bots
                 .iter()
                 .find(|b| b.id == bot || b.name == bot)
-                .with_context(|| t!("本机没有 Bot「{bot}」", bot = bot))?;
+                .with_context(|| t!("这台电脑没有 Bot「{bot}」", bot = bot))?;
             let name = Store::update(home, |s| {
                 s.use_bot(&bot.id, bot.agent_kind, choice)?;
                 Ok(s.effective(bot.agent_kind, &bot.id)?.name().to_string())
             })?;
-            let how = if choice == INHERIT { t!("继承本机默认") } else { t!("单独设置") };
+            let how = if choice == INHERIT { t!("使用电脑默认") } else { t!("单独设置") };
             println!("{}", t!("{bot} 的供应商：{name}（{how}）", bot = bot.name, name = name, how = how));
             print_stale(home, bot.agent_kind).await?;
         }
@@ -215,23 +233,31 @@ pub async fn run(home: &Path, cmd: ProviderCmd) -> Result<()> {
                 return Ok(());
             }
             if !all && ids.is_empty() {
-                for v in ccswitch::preview(&candidates, &Store::load(home)?) {
-                    let action = v.existing.map_or(t!("新增").into(), |id| t!("更新 {id}", id = id));
-                    let current = if v.current { t!("CC Switch 当前") } else { "" };
-                    println!(
-                        "{}\t{}\t{}\t{}\t{}\t{}\t{current}\t{action}",
-                        v.key,
-                        protocol_name(v.protocol),
-                        v.name,
-                        v.base_url,
-                        v.model.as_deref().unwrap_or("-"),
-                        v.api_key
-                    );
+                let preview = ccswitch::preview(&candidates, &Store::load(home)?);
+                let rows: Vec<_> = preview
+                    .into_iter()
+                    .map(|v| {
+                        let action = v.existing.map_or(t!("新增").into(), |id| t!("更新 {id}", id = id));
+                        let current = if v.current { t!("CC Switch 当前") } else { "" };
+                        vec![
+                            v.key,
+                            protocol_name(v.protocol).to_string(),
+                            v.name,
+                            v.base_url,
+                            v.model.unwrap_or_else(|| "-".into()),
+                            v.api_key,
+                            current.to_string(),
+                            action,
+                        ]
+                    })
+                    .collect();
+                for line in crate::format_columns(&rows) {
+                    println!("{}", line.trim_end());
                 }
                 println!(
                     "\n{}",
                     t!(
-                        "用 --all 导入全部，或 --ids <key,…> 选择；加 --set-default 同时把 CC Switch 当前使用的设为本机默认"
+                        "用 --all 导入全部，或 --ids <key,…> 选择；加 --set-default 同时把 CC Switch 当前使用的设为电脑默认"
                     )
                 );
                 return Ok(());
@@ -287,14 +313,21 @@ pub fn agent_settings(
     })?;
     let cli = agent_settings::read_cli(user_home, agent_settings::claude_version(home))
         .filter(|_| agent == AgentKind::Claude);
-    println!("{}", t!("{agent} · 本机 Agent 设置", agent = agent_label(agent)));
-    for f in agent_settings::fields(agent, Some(Layer::Agent)) {
-        let value = settings.values.get(f.id).map_or("-", String::as_str);
-        let from_cli = cli.as_ref().and_then(|c| c.values.get(f.id)).filter(|_| settings.inherit_cli);
-        match from_cli {
-            Some(v) => println!("  {}\t{}\t{value}\t{}", f.id, f.key, t!("CLI 配置：{v}", v = v)),
-            None => println!("  {}\t{}\t{value}", f.id, f.key),
-        }
+    println!("{}", t!("{agent} · 电脑 Agent 设置", agent = agent_label(agent)));
+    let rows: Vec<_> = agent_settings::fields(agent, Some(Layer::Agent))
+        .map(|f| {
+            let value = settings.values.get(f.id).map_or("-", String::as_str);
+            let from_cli = cli.as_ref().and_then(|c| c.values.get(f.id)).filter(|_| settings.inherit_cli);
+            vec![
+                format!("  {}", f.id),
+                f.key.to_string(),
+                value.to_string(),
+                from_cli.map(|v| t!("CLI 配置：{v}", v = v)).unwrap_or_default(),
+            ]
+        })
+        .collect();
+    for line in crate::format_columns(&rows) {
+        println!("{}", line.trim_end());
     }
     let inherit = if settings.inherit_cli { t!("是") } else { t!("否") };
     println!("{}", t!("加载 CLI 自身配置（~/.claude）：{inherit}", inherit = inherit));
@@ -349,10 +382,22 @@ fn print_presets(agent: Option<AgentKind>) {
             continue;
         }
         println!("{}", agent_label(agent));
-        for p in presets {
-            let e = p.endpoints.iter().find(|e| agent.takes(e.protocol)).expect("presets(agent) serve it");
-            let model = e.model.as_deref().unwrap_or("-");
-            println!("  {}\t{}\t{}\t{}\t{model}", p.id, p.name, group_label(p.group), e.base_url);
+        let rows: Vec<_> = presets
+            .into_iter()
+            .map(|p| {
+                let e = p.endpoints.iter().find(|e| agent.takes(e.protocol)).expect("presets(agent) serve it");
+                let model = e.model.as_deref().unwrap_or("-");
+                vec![
+                    format!("  {}", p.id),
+                    p.name,
+                    group_label(p.group).to_string(),
+                    e.base_url.clone(),
+                    model.to_string(),
+                ]
+            })
+            .collect();
+        for line in crate::format_columns(&rows) {
+            println!("{line}");
         }
     }
     println!("\n{}", t!("预设来自 {source}", source = providers::presets_source()));
@@ -361,7 +406,8 @@ fn print_presets(agent: Option<AgentKind>) {
 fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
     for agent in agent.map_or(AgentKind::ALL.to_vec(), |a| vec![a]) {
         let default = store.machine_default(agent)?;
-        println!("{}", t!("{agent} · 本机默认：{name}", agent = agent_label(agent), name = default.name()));
+        println!("{}", t!("{agent} · 电脑默认：{name}", agent = agent_label(agent), name = default.name()));
+        let mut rows = vec![];
         for p in &store.providers {
             let Some(e) = p.endpoint_for(agent) else { continue };
             let mark = if p.id == default.key() { "*" } else { " " };
@@ -369,20 +415,38 @@ fn print_list(store: &Store, agent: Option<AgentKind>) -> Result<()> {
             let url = e.config_dir.as_deref().unwrap_or(&e.base_url);
             let others: Vec<_> =
                 p.endpoints.iter().filter(|o| o.protocol != e.protocol).map(|o| protocol_name(o.protocol)).collect();
-            let others = if others.is_empty() { String::new() } else { format!("\t+{}", others.join(",")) };
+            let others = if others.is_empty() { String::new() } else { format!("+{}", others.join(",")) };
             let key = providers::mask_key(&p.api_key);
-            println!("{mark} {}\t{}\t{}\t{url}\t{model}\t{key}{others}", p.id, p.name, protocol_name(e.protocol));
+            rows.push(vec![
+                format!("{mark} {}", p.id),
+                p.name.clone(),
+                protocol_name(e.protocol).to_string(),
+                url.to_string(),
+                model.to_string(),
+                key,
+                others,
+            ]);
+        }
+        for line in crate::format_columns(&rows) {
+            println!("{}", line.trim_end());
         }
     }
     if !store.bots.is_empty() {
         println!("\n{}", t!("Bot 单独设置："));
-        for (bot, choice) in &store.bots {
-            let name = if choice == OFFICIAL {
-                crate::i18n::tr(OFFICIAL_NAME)
-            } else {
-                store.get(choice).map_or(choice.as_str(), |p| &p.name)
-            };
-            println!("  {bot}\t{name}");
+        let rows: Vec<_> = store
+            .bots
+            .iter()
+            .map(|(bot, choice)| {
+                let name = if choice == OFFICIAL {
+                    crate::i18n::tr(OFFICIAL_NAME)
+                } else {
+                    store.get(choice).map_or(choice.as_str(), |p| &p.name)
+                };
+                vec![format!("  {bot}"), name.to_string()]
+            })
+            .collect();
+        for line in crate::format_columns(&rows) {
+            println!("{line}");
         }
     }
     Ok(())

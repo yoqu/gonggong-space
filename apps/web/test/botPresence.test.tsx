@@ -105,7 +105,7 @@ describe('composer presence hint', () => {
       bot({ id: 'f', name: 'F', presence: 'online' }),
     ]
     expect(presenceHint(bots, 30)).toBe(
-      'A、B 离线，消息会等上线后处理，超过 30 分钟作废；C 所在机器缺少 agent，暂时无法响应；D 还不可触发',
+      'A、B 离线，消息会等上线后处理，超过 30 分钟自动失效；C 所在电脑缺少 Agent，暂时无法响应；D 还不可触发',
     )
     expect(presenceHint(bots.slice(0, 1), null)).toBe('A 离线，消息会等上线后处理')
     expect(presenceHint(bots.slice(4), 30)).toBeNull()
@@ -117,7 +117,7 @@ describe('composer presence hint', () => {
     render(<MessageComposer group={group()} onSent={() => {}} />)
     expect(screen.queryByText(/离线，消息会等/)).toBeNull()
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '@cc 构建' } })
-    await screen.findByText('cc 离线，消息会等上线后处理，超过 45 分钟作废')
+    await screen.findByText('cc 离线，消息会等上线后处理，超过 45 分钟自动失效')
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '@dd 构建' } })
     expect(screen.queryByText(/离线，消息会等/)).toBeNull()
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '@cc 构建' } })
@@ -130,6 +130,6 @@ describe('composer presence hint', () => {
     mockApi({ 'GET /groups/g2/params': { approvalTimeoutMin: 5, chainMaxHops: 3, offlineWaitMin: 10 } })
     useWorkspace.setState({ bots: [bot({ presence: 'offline' })] })
     render(<MessageComposer group={group({ id: 'g2', kind: 'dm', botIds: ['b1'] })} onSent={() => {}} />)
-    await screen.findByText('cc 离线，消息会等上线后处理，超过 10 分钟作废')
+    await screen.findByText('cc 离线，消息会等上线后处理，超过 10 分钟自动失效')
   })
 })

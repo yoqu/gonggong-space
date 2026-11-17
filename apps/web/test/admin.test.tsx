@@ -62,7 +62,7 @@ describe('admin console', () => {
       '群',
       '配置中心',
       '系统参数',
-      '机器',
+      '电脑',
       '会话统计',
       '用量',
       '审计记录',
@@ -115,7 +115,7 @@ describe('admin console', () => {
     })
     renderAt('/admin/users')
     expect(await screen.findByRole('heading', { name: '账号与角色' })).toBeTruthy()
-    for (const h of ['成员', '账号', '所属团队', '角色', '机器', '状态'])
+    for (const h of ['成员', '账号', '所属团队', '角色', '电脑', '状态'])
       expect(screen.getByRole('columnheader', { name: h })).toBeTruthy()
     const rowOf = (account: string) =>
       screen.getByRole('gridcell', { name: account }).closest('[role="row"]') as HTMLElement
@@ -313,7 +313,7 @@ describe('admin console', () => {
           endedRuns: 190,
           failedRuns: 19,
           reasons: [
-            { status: 'interrupted', step: '机器离线', count: 12 },
+            { status: 'interrupted', step: '电脑离线', count: 12 },
             { status: 'expired', step: '等待超时', count: 7 },
           ],
         },
@@ -351,7 +351,7 @@ describe('admin console', () => {
         .getAllByRole('row')
         .slice(1)
         .map((r) => r.textContent),
-    ).toEqual([expect.stringMatching(/^已中断机器离线12/), expect.stringMatching(/^已作废等待超时7/)])
+    ).toEqual([expect.stringMatching(/^已中断电脑离线12/), expect.stringMatching(/^已失效等待超时7/)])
 
     const table = await screen.findByRole('grid', { name: '会话明细' })
     const rows = within(table).getAllByRole('row').slice(1)

@@ -122,7 +122,7 @@ describe('ApprovalBlock', () => {
     const start = { server: 'gonggong', tool: 'service_start', input: '{"name":"web","command":"pnpm dev"}' }
     rerender(<ApprovalBlock run={run([approval({ id: 'a3', mcp: start })])} />)
     expect(screen.getByText('权限请求 · 启动托管服务')).toBeTruthy()
-    expect(screen.getByText(/在 Bot 所在机器上运行参数里的命令/)).toBeTruthy()
+    expect(screen.getByText(/在 Bot 所在的电脑上运行参数里的命令/)).toBeTruthy()
     expect(screen.getByText('可能删除或覆盖数据')).toBeTruthy()
     expect(screen.getByText('pnpm dev')).toBeTruthy()
   })
@@ -281,13 +281,17 @@ describe('ApprovalBlock', () => {
       {},
       '超时未处理，已自动拒绝 · 10:21 · agent 将自行绕路',
     ],
-    [approval({ status: 'void', voidReason: 'stopped' }), { status: 'interrupted' }, '运行已停止，请求作废'],
+    [
+      approval({ status: 'void', voidReason: 'stopped' }),
+      { status: 'interrupted' },
+      '运行已停止，请求已失效',
+    ],
     [
       approval({ status: 'void', voidReason: 'chain_stopped' }),
       { status: 'interrupted' },
-      '链已终止，请求作废',
+      '接力已终止，请求已失效',
     ],
-    [approval({ status: 'void', voidReason: 'ended' }), { status: 'completed' }, '运行已结束，请求作废'],
+    [approval({ status: 'void', voidReason: 'ended' }), { status: 'completed' }, '运行已结束，请求已失效'],
   ] as const)('shows the outcome %#', (a, o, text) => {
     login('u1', '王磊')
     render(<ApprovalBlock run={run([a], o as Partial<RunDto>)} />)

@@ -117,7 +117,7 @@ export function AgentDetail({
           <GroupRow
             label={t('升级命令')}
             className="ag-long"
-            description={t('升级时按原安装方式运行，也可以在该机器的终端自己运行')}
+            description={t('升级时按原安装方式运行，也可以在这台电脑的终端自己运行')}
             wideValue
             value={<Command command={a.upgradeCommand} />}
           />
@@ -126,7 +126,7 @@ export function AgentDetail({
           <GroupRow
             label={t('安装命令')}
             className="ag-long"
-            description={t('共工空间不能托管安装它，请在该机器的终端运行')}
+            description={t('共工空间无法自动安装它，请在这台电脑的终端运行')}
             wideValue
             value={<Command command={a.installCommand} />}
           />
@@ -148,7 +148,7 @@ export function AgentDetail({
         <GroupRow
           label={t('可用模型')}
           wideValue
-          value={models.length ? models.join(t('、')) : t('机器上报后可见')}
+          value={models.length ? models.join(t('、')) : t('电脑上报后可见')}
         />
       </GroupBox>
       {meta.login === 'own' ? (
@@ -179,7 +179,7 @@ export function AgentDetail({
               />
             ))
           ) : (
-            <GroupRow label={<span className="mx-sub">{t('这台机器上还没有 Bot 使用它')}</span>} />
+            <GroupRow label={<span className="mx-sub">{t('这台电脑上还没有 Bot 使用它')}</span>} />
           )}
         </GroupBox>
       </section>
@@ -190,7 +190,7 @@ export function AgentDetail({
 const botLine = (view: ProviderStoreView, agent: AgentKind, botId: string) =>
   view.bots[botId]
     ? choiceLabel(view, effectiveProvider(view, agent, botId))
-    : t('继承机器默认（{name}）', { name: choiceLabel(view, machineDefault(view, agent)) })
+    : t('使用电脑默认（{name}）', { name: choiceLabel(view, machineDefault(view, agent)) })
 
 /** 默认「供应商/模型」 of the agent on this machine, switched at once; the official login's extras beside it. */
 function DefaultBox({
@@ -244,14 +244,14 @@ function DefaultBox({
         <span className="mx-row__main">
           <span className="mx-strong">{t('默认「供应商/模型」')}</span>
           <span className="mx-sub">
-            {t('这台机器上 Bot 默认使用它，新会话生效；进行中的会话开启新会话后才切换')}
+            {t('这台电脑上 Bot 默认使用它，新建会话生效；已有会话需要开新会话后切换')}
           </span>
         </span>
       </div>
       <GroupBox>
         <GroupRow
           label={t('供应商/模型')}
-          description={models ? undefined : t('升级该机器的客户端后可以同时选择模型')}
+          description={models ? undefined : t('升级这台电脑的共工客户端后可同时选择模型')}
         >
           <span className="mx-inline">
             <SaveStatus state={saves.status('default')} />
@@ -271,7 +271,7 @@ function DefaultBox({
         <GroupRow
           label={t('官方登录')}
           description={[
-            t('使用这台机器上 CLI 自己的登录与配置'),
+            t('使用这台电脑上 CLI 自己的登录与配置'),
             official?.proxy,
             Object.keys(official?.env ?? {}).length
               ? t('{n} 个环境变量', { n: Object.keys(official?.env ?? {}).length })

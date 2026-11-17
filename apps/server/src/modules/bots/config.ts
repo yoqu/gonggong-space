@@ -88,7 +88,7 @@ export async function choiceCatalog(ctx: Ctx, bot: Bot & { machineId: string }, 
  */
 export function assertPick(catalog: AgentCatalog | null, pick: RunConfigPick, current: string | null) {
   if (!pick.model && !pick.effort) return
-  if (!catalog) return fail('invalid', 'Bot 所在机器尚未上报可选模型，只能跟随默认')
+  if (!catalog) return fail('invalid', 'Bot 所在的电脑尚未上报可选模型，只能跟随默认')
   const model = modelEfforts(catalog, pick.model === undefined ? current : pick.model)
   if (pick.model && !model) fail('invalid', '不支持的模型：{model}', { model: pick.model })
   if (pick.effort && model && !model.efforts.some((e) => e.value === pick.effort))

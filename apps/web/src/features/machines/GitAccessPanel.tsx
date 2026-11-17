@@ -112,7 +112,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
           <span className="mx-row__main">
             <span className="mx-strong">{t('测试连接')}</span>
             <span className="mx-sub">
-              {t('Bot 在这台机器上拉取、推送代码时不会弹出账号密码，需要先配置 SSH 密钥或 HTTPS 令牌')}
+              {t('Bot 在这台电脑上拉取、推送代码时不会弹出账号密码，需要先配置 SSH 密钥或 HTTPS 令牌')}
             </span>
           </span>
         </div>
@@ -139,7 +139,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             <span className="mx-strong">{t('SSH 密钥')}</span>
             <span className="mx-sub">
               {t(
-                '用于 git@ 开头的地址。把公钥添加到 GitHub（Settings → SSH and GPG keys）或 GitLab（Preferences → SSH Keys）；只给一个仓库用时添加为该仓库的 Deploy Key。私钥只保存在这台机器上。',
+                '用于 git@ 开头的地址。把公钥添加到 GitHub（Settings → SSH and GPG keys）或 GitLab（Preferences → SSH Keys）；只给一个仓库用时添加为该仓库的 Deploy Key。私钥只保存在这台电脑上。',
               )}
             </span>
           </span>
@@ -173,7 +173,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             ))}
           </GroupBox>
         ) : (
-          <p className="mx-sub">{t('这台机器还没有 SSH 密钥')}</p>
+          <p className="mx-sub">{t('这台电脑还没有 SSH 密钥')}</p>
         )}
         {data.knownHosts.length ? (
           <span className="mx-sub">
@@ -188,7 +188,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
             <span className="mx-strong">{t('HTTPS 令牌')}</span>
             <span className="mx-sub">
               {t(
-                '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。',
+                '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台电脑上。',
               )}
             </span>
           </span>
@@ -196,7 +196,7 @@ export function GitAccessPanel({ machine, repo }: { machine: MachineDto; repo?: 
         {data.helper ? (
           <Alert
             variant="info"
-            description={t('该机器已有凭据助手 {helper}，git 会先使用它保存的账号，再使用这里的令牌', {
+            description={t('这台电脑已有凭据助手 {helper}，git 会先使用它保存的账号，再使用这里的令牌', {
               helper: data.helper,
             })}
           />
@@ -268,7 +268,7 @@ function TestResult({
 }) {
   if (test.ok) return <Alert variant="success" title={t('可以访问 {url}', { url: test.url })} />
   const hint = test.hostKey
-    ? t('这台机器还不认识该主机的密钥。核对下面的指纹与托管平台公布的一致后再信任。')
+    ? t('这台电脑还不认识该主机的密钥。核对下面的指纹与托管平台公布的一致后再信任。')
     : test.reason === 'denied'
       ? isHttps(test.url)
         ? t('在下方为 {host} 添加 HTTPS 令牌后再测试', { host: hostOf(test.url) })

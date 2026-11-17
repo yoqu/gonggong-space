@@ -85,7 +85,7 @@ async function removeHosted(url: string) {
 /** Stores one uploaded artifact (multipart) and records it in the release; audited as `actorId`'s. */
 async function storeReleaseFile(ctx: Ctx, actorId: string, req: FastifyRequest) {
   const part = await req.file({ limits: { fileSize: MAX_FILE_MB * 1024 * 1024, files: 1 } })
-  if (!part) return fail('invalid', '缺少文件')
+  if (!part) return fail('invalid', '请先选择要上传的文件')
   if (part.filename === 'RELEASE_NOTES.md') {
     const chunks: Buffer[] = []
     let size = 0

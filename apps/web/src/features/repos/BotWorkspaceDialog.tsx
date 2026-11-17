@@ -69,7 +69,7 @@ export function BotWorkspaceDialog({
               ? t('仅 Bot 主人 {owner} 可修改', { owner: bot.ownerName })
               : online
                 ? t('改动从下一轮起生效并开始新会话')
-                : t('机器离线，上线后可更改')}
+                : t('电脑离线，上线后可更改')}
           </span>
           <span className="spacer" />
           <Button onClick={onClose}>{t('完成')}</Button>

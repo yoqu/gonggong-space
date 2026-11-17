@@ -47,7 +47,7 @@ const LAUNCH: Duration = Duration::from_secs(3);
 /// the first time (MCP skips that only with the setting below or a CLI access token), or its compile failed.
 fn not_up() -> &'static str {
     t!(
-        "小程序没有在模拟器里运行起来。如果微信开发者工具弹出「您信任此项目的作者吗？」：gonggong 会代为点击「信任并运行」，但运行 gg 的程序需要在「系统设置 → 隐私与安全性 → 辅助功能」里获得授权；也可以由机器主人手动点一次（每个项目只需一次），或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。"
+        "小程序没有在模拟器里运行起来。如果微信开发者工具弹出「您信任此项目的作者吗？」：gonggong 会代为点击「信任并运行」，但运行 gg 的程序需要在「系统设置 → 隐私与安全性 → 辅助功能」里获得授权；也可以由电脑主人手动点一次（每个项目只需一次），或在开发者工具「设置 → 安全」开启「自动化接口打开工具时默认信任项目」。否则请查看开发者工具的编译输出。"
     )
 }
 fn port_off() -> &'static str {
@@ -624,12 +624,12 @@ pub fn explain(e: Error) -> String {
         Error::Unauthorized => {
             if ask_authorization() {
                 t!(
-                    "已在本机微信开发者工具里弹出「{client}」的授权请求，请机器主人点击「允许」，之后会自动继续",
+                    "已在本机微信开发者工具里弹出「{client}」的授权请求，请电脑主人点击「允许」，之后会自动继续",
                     client = CLIENT
                 )
             } else {
                 t!(
-                    "请机器主人在微信开发者工具里授权「{client}」（运行 wechatide auth -c {client}），或关闭 CLI 访问令牌后重试",
+                    "请电脑主人在微信开发者工具里授权「{client}」（运行 wechatide auth -c {client}），或关闭 CLI 访问令牌后重试",
                     client = CLIENT
                 )
             }

@@ -142,11 +142,14 @@ describe('machine agent settings', () => {
       inheritCli: false,
     }
     const offline = await w.owners.put<{ message: string }>(url, body)
-    expect([offline.status, offline.body.message]).toEqual([409, '机器离线'])
+    expect([offline.status, offline.body.message]).toEqual([409, '电脑离线'])
     expect((await w.admins.put(url, body)).status).toBe(403)
     const old = await daemon(w, ['providers'])
     const stale = await w.owners.put<{ message: string }>(url, body)
-    expect([stale.status, stale.body.message]).toEqual([409, '请先升级该机器的 daemon 才能使用 Agent 设置'])
+    expect([stale.status, stale.body.message]).toEqual([
+      409,
+      '请先升级这台电脑的共工客户端，才能使用 Agent 设置',
+    ])
     old.close()
     await expect.poll(() => t.ctx.hub.isOnline(w.machine.id)).toBe(false)
     const d = await daemon(w, ['providers', 'agentSettings'])
@@ -188,7 +191,10 @@ describe("official login's command-line arguments", () => {
     const body = { agent: 'claude', proxy: '', args: ['--settings ~/secret-team.json', '--debug'] }
     const old = await daemon(w, ['providers'])
     const stale = await w.owners.put<{ message: string }>(url, body)
-    expect([stale.status, stale.body.message]).toEqual([409, '请先升级该机器的 daemon 才能使用命令行参数'])
+    expect([stale.status, stale.body.message]).toEqual([
+      409,
+      '请先升级这台电脑的共工客户端，才能使用命令行参数',
+    ])
     old.close()
     await expect.poll(() => t.ctx.hub.isOnline(w.machine.id)).toBe(false)
     const d = await daemon(w, ['providers', 'claudeArgs'])

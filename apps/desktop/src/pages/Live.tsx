@@ -40,7 +40,7 @@ const COMPONENT: Record<CastComponent['source'], { text: string; tone: TagTone; 
   download: {
     text: t('未内置'),
     tone: 'orange',
-    desc: t('当前是开发版共工空间：首次推流时从服务器下载，服务器需在「客户端发布」上传 gg-cast'),
+    desc: t('当前是开发版共工空间：首次推流时从服务器下载，请先在管理后台「客户端发布」上传实时画面组件'),
   },
 }
 
@@ -82,7 +82,7 @@ export function LivePage(_: PageProps) {
               </span>
               <div className="dk-row__main">
                 <span className="dk-row__title">
-                  <span className="dk-strong">gg-cast</span>
+                  <span className="dk-strong">{t('实时画面组件')}</span>
                   <Tag tone={c.tone}>{c.text}</Tag>
                 </span>
                 <span className="dk-sub">{c.desc}</span>
@@ -181,7 +181,7 @@ export function LivePage(_: PageProps) {
       </Section>
       <p className="dk-footnote">
         {t(
-          '群成员在 Web 打开实时画面时，本机才用 gg-cast 推送对应窗口；没人看时自动停止。推流失败会自动重试，原因显示在这里。',
+          '群成员在 Web 端打开实时画面时，这台电脑才开始推送对应窗口；没人看时自动停止。推送失败会自动重试，原因会显示在这里。',
         )}
       </p>
     </>

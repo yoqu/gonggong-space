@@ -110,7 +110,7 @@ export function ProviderModelFields({
     <>
       <FormRow
         label={t('供应商/模型')}
-        hint={models ? t('只保存在 Bot 所在的机器上') : t('升级该机器的客户端后可以同时选择模型')}
+        hint={models ? t('只保存在 Bot 所在的电脑上') : t('升级这台电脑的共工客户端后可同时选择模型')}
       >
         <div className="bots-detail__buttons">
           <ProviderModelPicker

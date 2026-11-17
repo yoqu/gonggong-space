@@ -93,7 +93,7 @@ export function JoinPage() {
               {t('登录后加入')}
             </Button>
             <p className="auth__foot">
-              {t('还没有账号？')}
+              {t('还没有账号？')}{' '}
               <Link to={`/register?invite=${encodeURIComponent(token)}`} className="auth__link">
                 {t('注册并加入')}
               </Link>

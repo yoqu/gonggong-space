@@ -215,32 +215,32 @@ const en: Copy = {
     lead: 'A new Bot wears its Agent’s official look by default, or switch to Gong (共字君) or one of 12 blended personalities. In the group it runs, types, and raises a hand when it needs your approval.',
     personas: {
       hammock: {
-        gloss: 'Deliberate',
+        gloss: 'Ponder',
         mix: 'deep thinker × contrarian × keeps boundaries',
         line: 'Looks idle, but is thinking one level deeper. Writes no code until the question is clear.',
       },
       braces: {
-        gloss: 'Ironclad',
+        gloss: 'Ironcode',
         mix: 'sharp-tongued × neat freak × doer',
         line: 'Blunt because it cares about clean code. No hand-waving — only implementations that run.',
       },
       focus: {
-        gloss: 'Deep Focus',
+        gloss: 'Hermit',
         mix: 'quiet × zealous × calculating',
         line: 'Headphones on the moment it hits flow. Measures first, then polishes only the critical 3%.',
       },
       steps: {
-        gloss: 'Small Steps',
+        gloss: 'Baby Steps',
         mix: 'optimistic × pragmatic × cuts scope',
         line: 'Red means fix, green means ship. Zero tolerance for complexity; deletes features with a smile.',
       },
       blank: {
-        gloss: 'White Space',
+        gloss: 'Whitespace',
         mix: 'gentle × perfectionist × restrained',
         line: 'Soft-spoken, zero tolerance for rough edges. Every pixel has a reason.',
       },
       no: {
-        gloss: 'Says No',
+        gloss: 'Nope',
         mix: 'decisive × dutiful × focused',
         line: 'Says no to temptation and yes to users. Calls a halt the moment the direction is wrong.',
       },
@@ -250,22 +250,22 @@ const en: Copy = {
         line: 'Ignores stories, reads the ledger: value = new experience − old experience − switching cost.',
       },
       invert: {
-        gloss: 'Invert',
+        gloss: 'Backtrack',
         mix: 'pessimist × meticulous × protective',
         line: 'Always asks “how will this break?” — so that it never does.',
       },
       sentry: {
-        gloss: 'Sentry',
+        gloss: 'Sentinel',
         mix: 'vigilant × calm × by the book',
         line: 'Assumes it is already breached, yet never spreads panic. Risk is a spectrum, not a switch.',
       },
       spring: {
-        gloss: 'Bounce Back',
+        gloss: 'Tumbler',
         mix: 'deadpan × antifragile × less is more',
         line: 'Cracks dry jokes and takes a beating; every incident leaves the system a little stronger.',
       },
       compass: {
-        gloss: 'Compass',
+        gloss: 'Grayscale',
         mix: 'gentle but firm × decisive × delegates',
         line: 'Won’t budge on direction, happy to reroute the path. Reversible calls get made on the spot.',
       },

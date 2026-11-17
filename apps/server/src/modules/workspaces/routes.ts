@@ -49,9 +49,9 @@ async function ownMachine(ctx: Ctx, userId: string, rawId: string) {
   const [m] = await ctx.db
     .select()
     .from(machines)
-    .where(and(eq(machines.id, idParam(rawId, '机器不存在')), isNull(machines.revokedAt)))
-  if (!m) return fail('not_found', '机器不存在')
-  return m.ownerId === userId ? m : fail('forbidden', '只能浏览自己机器上的目录')
+    .where(and(eq(machines.id, idParam(rawId, '电脑不存在')), isNull(machines.revokedAt)))
+  if (!m) return fail('not_found', '电脑不存在')
+  return m.ownerId === userId ? m : fail('forbidden', '只能浏览自己电脑上的目录')
 }
 
 export function workspaceRoutes(ctx: Ctx) {
@@ -81,7 +81,7 @@ export function workspaceRoutes(ctx: Ctx) {
       const m = await ownMachine(ctx, (await requireUser(ctx, req)).id, req.params.id)
       const { parent, name } = DirCreateReq.parse(req.body)
       if (!name.trim() || /[\\/]/.test(name) || name === '.' || name === '..')
-        fail('invalid', '文件夹名称不合法')
+        fail('invalid', '文件夹名称不能为空，且不能包含 / \\ . ..')
       const machineId =
         onlineMachine(ctx, m.id) ?? fail('conflict', '{name} 离线，无法新建文件夹', { name: m.name })
       const ask = { t: 'dir.create', requestId: randomUUID(), parent, name } as const

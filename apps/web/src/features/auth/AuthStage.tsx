@@ -64,8 +64,7 @@ const SCRIPT: Line[] = [
     bot: true,
     text: (
       <p>
-        {t('已修复并提交。')}
-        <span className="pn-mention">@{t('李娜的 Codex')}</span> {t('帮忙 review 一下')}
+        {t('已修复并提交。')} <span className="pn-mention">@{t('李娜的 Codex')}</span> {t('帮忙 review 一下')}
       </p>
     ),
   },

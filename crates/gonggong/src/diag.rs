@@ -102,7 +102,7 @@ pub fn agents(list: &[AgentState]) -> Check {
             CheckKind::Agent,
             Status::Error,
             t!(
-                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI、OpenCode、Qwen Code、Kimi Code、Goose 或 GitHub Copilot CLI）"
+                "未检测到可用的 Agent（Claude Code、Codex、Gemini CLI、CodeBuddy、pi、DeepSeek Harness、Antigravity CLI、OpenCode、Qwen Code、Kimi Code、Goose 或 GitHub Copilot CLI），可运行 gg agents install <claude|codex> 安装"
             ),
         );
     }
@@ -125,7 +125,12 @@ pub fn agents(list: &[AgentState]) -> Check {
         .collect();
     match (old.is_empty(), missing.is_empty()) {
         (true, true) => check(CheckKind::Agent, Status::Ok, t!("{agents} 可用", agents = ok.join(" · "))),
-        _ => check(CheckKind::Agent, Status::Warn, [old, missing].concat().join(" · ")),
+        (_, false) => {
+            let mut detail = [old, missing].concat().join(" · ");
+            detail.push_str(t!(" · 可运行 gg agents install 安装"));
+            check(CheckKind::Agent, Status::Warn, detail)
+        }
+        (false, true) => check(CheckKind::Agent, Status::Warn, old.join(" · ")),
     }
 }
 
@@ -194,12 +199,23 @@ pub fn disk(home: &Path, entries: &[Entry]) -> Check {
             t!("工作区 {used} · 无法读取剩余空间：{e}", used = human_size(used), e = e),
         ),
         Ok(free) => {
-            let status = if free < DISK_LOW { Status::Warn } else { Status::Ok };
-            check(
-                CheckKind::Disk,
-                status,
-                t!("工作区 {used} · 剩余 {free}", used = human_size(used), free = human_size(free)),
-            )
+            if free < DISK_LOW {
+                check(
+                    CheckKind::Disk,
+                    Status::Warn,
+                    t!(
+                        "工作区 {used} · 剩余 {free}（空间不足，可用 gg workspaces --delete 清理闲置工作区）",
+                        used = human_size(used),
+                        free = human_size(free)
+                    ),
+                )
+            } else {
+                check(
+                    CheckKind::Disk,
+                    Status::Ok,
+                    t!("工作区 {used} · 剩余 {free}", used = human_size(used), free = human_size(free)),
+                )
+            }
         }
     }
 }
@@ -423,7 +439,7 @@ mod tests {
         assert_eq!(outdated.detail, "Codex 0.46.0 低于 0.160.1");
         let partial = agents(&[info(AgentKind::Claude, Some("1.0.0")), info(AgentKind::Codex, None)]);
         assert_eq!(partial.status, Status::Warn);
-        assert_eq!(partial.detail, "Claude Code 1.0.0 低于 2.0.0 · Codex 未安装");
+        assert_eq!(partial.detail, "Claude Code 1.0.0 低于 2.0.0 · Codex 未安装 · 可运行 gg agents install 安装");
         assert_eq!(agents(&[info(AgentKind::Claude, None)]).status, Status::Error);
         let no_gemini = agents(&[
             info(AgentKind::Claude, Some("2.1.3")),
@@ -432,7 +448,7 @@ mod tests {
         ]);
         assert_eq!(no_gemini.status, Status::Ok);
         let gemini = agents(&[info(AgentKind::Claude, None), info(AgentKind::Gemini, Some("0.67.0"))]);
-        assert_eq!(gemini.detail, "Claude Code 未安装");
+        assert_eq!(gemini.detail, "Claude Code 未安装 · 可运行 gg agents install 安装");
     }
 
     #[tokio::test]

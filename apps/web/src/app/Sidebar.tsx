@@ -459,14 +459,14 @@ function SetupGuide({
 }) {
   const steps = [
     {
-      label: t('绑定新机器'),
+      label: t('绑定新电脑'),
       hint: t('把一句话发给你的 Agent，它会自己接入'),
       done: bound,
       onClick: onBindMachine,
     },
     {
       label: t('新建 Bot'),
-      hint: t('选择机器上的 Claude Code、Codex 或 Gemini CLI'),
+      hint: t('选择电脑上的 Claude Code、Codex 或 Gemini CLI'),
       done: hasBot,
       onClick: onNewBot,
     },
@@ -544,7 +544,7 @@ type Section = {
   depth: number
   children: Section[]
 }
-const BUILT_IN: Record<BuiltIn, string> = { star: t('星标#section'), group: t('频道'), dm: t('私信') }
+const BUILT_IN: Record<BuiltIn, string> = { star: t('星标#section'), group: t('频道'), dm: t('私聊#section') }
 const SPACES = 'space'
 /** Team sections' keys, apart from my own sections' ids. */
 const TEAM = 't:'
@@ -640,7 +640,7 @@ export function Footer({ bots, machines }: { bots: BotDto[]; machines: MachineDt
         {conn.label}
       </span>
       {bots.length ? <span>{t('{n} 个 Bot 在线', { n: live })}</span> : null}
-      {machines.length ? <span>{t('{n} 台机器在线', { n: online })}</span> : null}
+      {machines.length ? <span>{t('{n} 台电脑在线', { n: online })}</span> : null}
     </footer>
   )
 }

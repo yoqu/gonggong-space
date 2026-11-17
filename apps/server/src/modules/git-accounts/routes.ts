@@ -81,7 +81,7 @@ export function gitAccountRoutes(ctx: Ctx) {
           set: { provider: body.provider, token: seal(token), status: 'ok' },
         })
         .returning()
-      if (!row) return fail('conflict', '保存失败')
+      if (!row) return fail('conflict', '保存 Git 账号失败，请稍后重试')
       forgetAccount(row.id)
       return reply.status(201).send(toDto(row))
     })
@@ -115,7 +115,7 @@ export function gitAccountRoutes(ctx: Ctx) {
         const me = await requireUser(ctx, req)
         const row = await own(me.id, req.params.id)
         const repo = req.query.repo?.trim()
-        if (!repo) return fail('invalid', '缺少仓库')
+        if (!repo) return fail('invalid', '请先选择或填写仓库')
         return viaProvider(row, (api) => api.branches(repo, req.query.q ?? ''))
       },
     )

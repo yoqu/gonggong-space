@@ -43,7 +43,7 @@ export async function bindMachine(
       .where(and(eq(bots.machineId, prev.id), isNull(bots.deletedAt)))
     if (n) {
       const [holder] = await tx.select({ name: users.name }).from(users).where(eq(users.id, prev.ownerId))
-      fail('conflict', '这台机器已归属 {owner}，其上还有 {n} 个 Bot，需先删除后才能转给你', {
+      fail('conflict', '这台电脑已归属 {owner}，上面还有 {n} 个 Bot，需先删除后才能转给你', {
         owner: holder?.name ?? '',
         n,
       })

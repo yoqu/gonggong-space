@@ -88,8 +88,8 @@ function Where({
   const current = s.git?.branch ?? null
   return (
     <dl className="git-loc">
-      <dt>{t('机器')}</dt>
-      <dd>{machine ?? t('未绑定机器')}</dd>
+      <dt>{t('电脑')}</dt>
+      <dd>{machine ?? t('未绑定电脑')}</dd>
       <dt>{t('目录#one')}</dt>
       <dd className="git-loc__dir">
         <span className="git-loc__mono">

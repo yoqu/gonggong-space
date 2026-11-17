@@ -104,7 +104,7 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   awaiting_answer: t('等待回答'),
   completed: t('已完成'),
   interrupted: t('已中断'),
-  expired: t('已作废'),
+  expired: t('已失效'),
 }
 
 /** Statuses that need someone to act keep their text visible (C6); the rest show it on hover. */
@@ -351,9 +351,9 @@ export function OfflineGlyph() {
       width="40"
       height="16"
       role="img"
-      aria-label={t('机器离线')}
+      aria-label={t('电脑离线')}
     >
-      <title>{t('机器离线')}</title>
+      <title>{t('电脑离线')}</title>
       <rect className="sf-2" x="1" y="2.8" width="12" height="8.4" rx="1.6" fill="currentColor" />
       <rect x="1" y="2.8" width="12" height="8.4" rx="1.6" {...STROKE} />
       <path d="M5 14h4M7 11.2V14M25.5 5.5l-3 5" {...STROKE} />

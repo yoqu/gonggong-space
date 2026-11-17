@@ -387,7 +387,7 @@ function Panel({
               })}
         </div>
         <div className="notif__foot">
-          {t('只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。')}
+          {t('只推送需要你操作的事项；模式切换、电脑落后等群级事件只在群内显示。')}
           <PushAction />
           <FeishuNotifyShortcut onClose={onClose} />
         </div>

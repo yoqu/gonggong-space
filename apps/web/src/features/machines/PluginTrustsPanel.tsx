@@ -36,7 +36,7 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
           <span className="mx-row__main">
             <span className="mx-strong">{t('插件授权')}</span>
             <span className="mx-sub">
-              {t('会运行代码的插件第一次在这台机器上使用时请你确认；插件出新版本要重新确认。')}
+              {t('会运行代码的插件第一次在这台电脑上使用时请你确认；插件出新版本要重新确认。')}
             </span>
           </span>
         </div>
@@ -96,7 +96,7 @@ export function PluginTrustsPanel({ machine }: { machine: MachineDto }) {
             ))}
           </GroupBox>
         ) : (
-          <p className="mx-sub">{t('还没有插件请求在这台机器上运行代码')}</p>
+          <p className="mx-sub">{t('还没有插件请求在这台电脑上运行代码')}</p>
         )}
       </section>
     </div>

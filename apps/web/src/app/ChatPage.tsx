@@ -261,7 +261,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
             ? 'chat'
             : 'list'
         }
-        sidebarLabel={managing ? t('机器与 Bot') : undefined}
+        sidebarLabel={managing ? t('电脑与 Bot') : undefined}
         nav={(orientation) => <AppRail orientation={orientation} />}
         workbench={
           benchShown ? (
@@ -348,9 +348,9 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
               {workspaceLoaded ? (
                 <EmptyState
                   illustration={<DeniedArt />}
-                  title={t('机器不存在或已吊销')}
+                  title={t('电脑不存在或已解绑')}
                   description={t('可能已被删除，或你没有访问权限。')}
-                  action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+                  action={<Button onClick={() => navigate('/machines')}>{t('返回电脑与 Bot')}</Button>}
                 />
               ) : (
                 <Mascot action="wait" size={72} label={t('加载中')} />
@@ -375,7 +375,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
                   illustration={<DeniedArt />}
                   title={t('Bot 不存在或已删除')}
                   description={t('可能已被删除，或你没有访问权限。')}
-                  action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+                  action={<Button onClick={() => navigate('/machines')}>{t('返回电脑与 Bot')}</Button>}
                 />
               ) : (
                 <Mascot action="wait" size={72} label={t('加载中')} />
@@ -460,7 +460,7 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
                 groupId
                   ? t('它可能已解散，或你已被移出。')
                   : t(
-                      '在左侧选择会话；@ Bot 即可让团队成员机器上的 Claude Code / Codex / Gemini CLI 开始工作。',
+                      '在左侧选择会话；@ Bot 即可让团队成员电脑上的 Claude Code / Codex / Gemini CLI 开始工作。',
                     )
               }
               action={groupId ? <Button onClick={() => navigate('/')}>{t('返回消息')}</Button> : undefined}

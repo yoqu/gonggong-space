@@ -114,7 +114,7 @@ test('fan-out + owner-only approval: approve one bot, reject the other; /stop vo
     await expect(pinned.getByRole('button', { name: '批准' })).toBeEnabled()
     await say(page, '/stop @审批 A')
     await expect(second).toContainText('已中断')
-    await expect(second).toContainText('运行已停止，请求作废')
+    await expect(second).toContainText('运行已停止，请求已失效')
   } finally {
     m.stop()
     await viewer.close()

@@ -15,9 +15,9 @@ export function presenceHint(bots: BotDto[], waitMin: number | null) {
     offline.length
       ? waitMin === null
         ? t('{name} 离线，消息会等上线后处理', { name: join(offline) })
-        : t('{name} 离线，消息会等上线后处理，超过 {n} 分钟作废', { name: join(offline), n: waitMin })
+        : t('{name} 离线，消息会等上线后处理，超过 {n} 分钟自动失效', { name: join(offline), n: waitMin })
       : '',
-    missing.length ? t('{name} 所在机器缺少 agent，暂时无法响应', { name: join(missing) }) : '',
+    missing.length ? t('{name} 所在电脑缺少 Agent，暂时无法响应', { name: join(missing) }) : '',
     pending.length ? t('{name} 还不可触发', { name: join(pending) }) : '',
   ].filter(Boolean)
   return parts.length ? parts.join(t('；')) : null

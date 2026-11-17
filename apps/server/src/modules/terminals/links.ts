@@ -36,7 +36,7 @@ export function terminalLinkRoutes(options: Options) {
         const path = workspaceRelativePath(input.path)
         if (!path) return fail('invalid', '文件路径不合法：{path}', { path: input.path })
         const target = await options.authorize(user.id, req.params.groupId, req.params.botId)
-        if (!target) return fail('forbidden', '仅机器主人可以使用终端')
+        if (!target) return fail('forbidden', '只有电脑主人可以使用终端')
         return { path, line: input.line, exists: await options.exists(target, { path }) }
       },
     )

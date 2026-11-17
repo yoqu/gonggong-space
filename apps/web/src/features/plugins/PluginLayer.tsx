@@ -62,7 +62,7 @@ function PluginInfo({ p, extra }: { p: PluginDto; extra?: ReactNode }) {
           {[
             t('支持：{agents}', { agents: agentsText(m) }),
             t('需要密钥：{names}', { names: secretsText(m) }),
-            t('最低机器版本 {v}', { v: m.minDaemon }),
+            t('最低客户端版本 {v}', { v: m.minDaemon }),
           ].join(' · ')}
           {extra}
         </div>
@@ -288,7 +288,7 @@ export function GroupPluginsTab({ group, readOnly = false }: { group: GroupDto; 
           <h3 className="plg-heading">{t('Bot 可用性')}</h3>
           <div className="gs-note">
             {t(
-              '插件下发前会检查每个 Bot 的机器版本和 Agent 种类，不满足的不下发，并在这里和创作面板里写明原因。',
+              '插件下发前会检查每个 Bot 的客户端版本和 Agent 种类，不满足的不下发，并在这里和创作面板里写明原因。',
             )}
           </div>
           <GroupBox>

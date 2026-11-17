@@ -65,11 +65,11 @@ export const GONGGONG_TOOL_TITLES = {
  *  tool's own `description` and `annotations`. */
 export const GONGGONG_TOOL_NOTES = {
   service_start: {
-    description: '在 Bot 所在机器上运行参数里的命令，并让它在后台一直运行（如开发服务器）',
+    description: '在 Bot 所在的电脑上运行参数里的命令，并让它在后台一直运行（如开发服务器）',
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
   },
   preview_miniprogram: {
-    description: '在 Bot 所在机器上用微信开发者工具打开工作区里的小程序，截图发到群里',
+    description: '在 Bot 所在的电脑上用微信开发者工具打开工作区里的小程序，截图发到群里',
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
   client_release_publish: {

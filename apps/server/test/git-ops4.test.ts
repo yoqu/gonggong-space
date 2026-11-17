@@ -20,7 +20,7 @@ afterEach(() => t.close())
 
 const OPS3 = ['gitOps', 'gitOps2', 'gitRepos', 'gitOps3']
 const ALL = [...OPS3, 'gitOps4']
-const old = { status: 409, body: { message: 'cc 所在机器的客户端版本过旧，升级后才能使用 Git 操作' } }
+const old = { status: 409, body: { message: 'cc 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作' } }
 const confirm = { status: 409, body: { message: '推送基准分支需要再次确认' } }
 const noForce = { status: 409, body: { message: '受保护的基准分支不能强制推送' } }
 const noDelete = { status: 409, body: { message: '受保护的基准分支不能在远程删除' } }

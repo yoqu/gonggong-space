@@ -26,7 +26,7 @@ afterEach(() => t.close())
 
 const ALL = ['gitOps', 'gitOps2', 'gitRepos', 'gitOps3']
 const OLD = ['gitOps', 'gitOps2', 'gitRepos']
-const old = { status: 409, body: { message: 'cc 所在机器的客户端版本过旧，升级后才能使用 Git 操作' } }
+const old = { status: 409, body: { message: 'cc 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作' } }
 const secret = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789AB'
 const hash = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'
 const commit = {

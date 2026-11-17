@@ -104,7 +104,7 @@ export function workspaceFileRoutes(ctx: Ctx) {
             .from(machines)
             .where(eq(machines.id, t.bot.machineId))
         : []
-      if (m?.ownerId !== me.id) return fail('forbidden', '仅 Bot 所在机器的主人可以用本地应用打开')
+      if (m?.ownerId !== me.id) return fail('forbidden', '只有 Bot 所在电脑的主人可以用本地应用打开')
       return { ...t, me }
     }
 

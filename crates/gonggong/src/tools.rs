@@ -417,10 +417,10 @@ pub async fn install(home: &Path, kind: ToolKind, version: Option<&str>, progres
         && let Some(v) = &version
         && major(v).is_none_or(|m| m < MIN_NODE_MAJOR)
     {
-        bail!(t!("ACP 适配器需要 Node.js ≥ {min}，不能安装 {v}", min = MIN_NODE_MAJOR, v = v));
+        bail!(t!("运行 Agent 需要 Node.js ≥ {min}，不能安装 {v}", min = MIN_NODE_MAJOR, v = v));
     }
     if let Some(command) = kind.own_install() {
-        bail!(t!("{tool} 不能由共工托管安装，请在机器的终端运行：{command}", tool = kind.label(), command = command));
+        bail!(t!("{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}", tool = kind.label(), command = command));
     }
     {
         let _busy = busy(home)?;
@@ -441,7 +441,7 @@ pub async fn upgrade(home: &Path, kind: ToolKind, progress: Progress<'_>) -> Res
         bail!(t!("{tool} 未安装", tool = kind.label()));
     }
     if kind.own_install().is_some() {
-        bail!(t!("{tool} 由你自行安装，请在机器的终端按它自己的方式升级", tool = kind.label()));
+        bail!(t!("{tool} 由你自行安装，请在这台电脑的终端按它自己的方式升级", tool = kind.label()));
     }
     let path = PathBuf::from(status.path.as_deref().unwrap_or_default());
     let own = if status.managed {
@@ -742,7 +742,7 @@ pub fn cached_latest(home: &Path, kind: ToolKind) -> Option<String> {
 /// Latest version of `kind` on the configured mirror, cached for 6 hours unless `force`.
 pub async fn latest(home: &Path, kind: ToolKind, force: bool) -> Result<String> {
     if let Some(command) = kind.own_install() {
-        bail!(t!("{tool} 不能由共工托管安装，请在机器的终端运行：{command}", tool = kind.label(), command = command));
+        bail!(t!("{tool} 不能由共工托管安装，请在这台电脑的终端运行：{command}", tool = kind.label(), command = command));
     }
     let settings = Settings::load(home)?;
     let mirror = &settings.mirror;
@@ -869,39 +869,45 @@ pub async fn status(home: &Path, local: &LocalSettings) -> Vec<ToolStatus> {
 
 #[derive(clap::Subcommand)]
 pub enum AgentsCmd {
-    /// Install Node.js, Claude Code, Codex or Gemini CLI managed by Gonggong (under its home), from the configured mirror.
+    /// Install Node.js or a Gonggong-managed Agent CLI (claude, codex, gemini, codebuddy, deepseek, qwen, kimi,
+    /// opencode, copilot) from the configured mirror.
     Install {
+        /// Tool or Agent to install.
         kind: ToolKind,
-        /// Exact version (x.y.z); the latest by default.
+        /// Exact version (x.y.z); defaults to latest.
         #[arg(long)]
         version: Option<String>,
     },
-    /// Upgrade tools to their latest version (one you installed, the way you installed it).
+    /// Upgrade tools to their latest version (self-installed tools upgrade via their own package manager).
     Upgrade {
+        /// Tool or Agent to upgrade.
         #[arg(required_unless_present = "all", conflicts_with = "all")]
         kind: Option<ToolKind>,
+        /// Upgrade all installed tools.
         #[arg(long)]
         all: bool,
     },
     /// Show or set the download mirror: npmmirror (default), official, or an npm registry URL with --node-mirror.
     Mirror {
+        /// Mirror preset name or custom npm registry URL.
         value: Option<String>,
         /// Node.js download base of a custom mirror (where index.json lives).
         #[arg(long, value_name = "URL")]
         node_mirror: Option<String>,
     },
-    /// Show or change this machine's agent settings (defaults every bot runs with); running sessions pick a change
-    /// up from their next turn.
+    /// Show or change this computer's Agent settings (defaults every bot runs with); running sessions pick changes up
+    /// from their next turn.
     Settings {
+        /// Agent name (defaults to claude).
         #[arg(value_parser = crate::configure::parse_kind, default_value = "claude")]
         agent: AgentKind,
         /// Set a field, e.g. --set language=chinese (repeatable).
         #[arg(long, value_name = "ID=VALUE")]
         set: Vec<String>,
-        /// Back to Claude Code's default (repeatable).
+        /// Reset a setting back to the Agent's default (repeatable).
         #[arg(long, value_name = "ID")]
         unset: Vec<String>,
-        /// Also load the CLI's own user-level config (~/.claude).
+        /// Also load the Agent CLI's own user-level config.
         #[arg(long, value_name = "true|false")]
         inherit_cli: Option<bool>,
     },

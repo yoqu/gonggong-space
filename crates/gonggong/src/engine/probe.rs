@@ -24,7 +24,7 @@ impl Engine {
             .await??
         };
         let Some(info) = detected.into_iter().find(|a| a.kind == kind && a.available) else {
-            bail!(t!("这台机器上没有可用的 {kind}", kind = format!("{kind:?}")));
+            bail!(t!("这台电脑上没有可用的 {kind}", kind = crate::bots::agent_label(kind)));
         };
         let official = self.probe(kind).await;
         if let Ok(catalog) = &official {
@@ -67,7 +67,7 @@ impl Engine {
         let probe = session::probe(agent, &dir);
         match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
             Ok(result) => result.map_err(anyhow::Error::msg).and_then(|c| agents::offered(kind, c)),
-            Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = format!("{kind:?}"))),
+            Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = crate::bots::agent_label(kind))),
         }
     }
 

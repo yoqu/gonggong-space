@@ -1,9 +1,9 @@
 export default {
   '打断并追加到 {name} · 已改内容保留，仍算同一轮':
     'Interrupt & append to {name} · edits so far are kept, still the same turn',
-  '运行已停止，请求作废': 'Run stopped; request void',
-  '链已终止，请求作废': 'Chain stopped; request void',
-  '运行已结束，请求作废': 'Run ended; request void',
+  '运行已停止，请求已失效': 'Run stopped; request expired',
+  '接力已终止，请求已失效': 'Relay stopped; request expired',
+  '运行已结束，请求已失效': 'Run ended; request expired',
   执行命令: 'Run command',
   访问网络: 'Network access',
   写入文件: 'Write file',
@@ -23,16 +23,16 @@ export default {
   '命令较复杂，无法确认是否只读': 'Complex command; read-only behavior could not be confirmed',
   未被只读规则或已保存的允许规则覆盖: 'Not covered by read-only or saved allow rules',
   '{reason} · {time} 后自动拒绝，agent 自行绕路':
-    '{reason} · auto-rejected in {time}; the agent will work around it',
+    '{reason} · auto-rejected in {time}; the Agent will try another way',
   已批准: 'Approved',
   已拒绝: 'Rejected',
   已超时: 'Timed out',
-  已作废: 'Void',
+  '已失效#status': 'Expired',
   '不再询问：{rules}': "Won't ask again: {rules}",
   '{name} 已批准 · {at}': 'Approved by {name} · {at}',
-  '{name} 已拒绝 · {at} · agent 将自行绕路': 'Rejected by {name} · {at} · the agent will work around it',
+  '{name} 已拒绝 · {at} · agent 将自行绕路': 'Rejected by {name} · {at} · the Agent will try another way',
   '超时未处理，已自动拒绝 · {at} · agent 将自行绕路':
-    'No response in time, rejected automatically · {at} · the agent will work around it',
+    'No response in time, rejected automatically · {at} · the Agent will try another way',
   '权限请求 · {kind}': 'Permission request · {kind}',
   其他操作: 'Other action',
   批准: 'Approve',
@@ -46,10 +46,10 @@ export default {
   启动托管服务: 'Start a managed service',
   发布小程序预览: 'Publish a mini program preview',
   发布客户端到当前空间: 'Publish a client to this space',
-  '在 Bot 所在机器上运行参数里的命令，并让它在后台一直运行（如开发服务器）':
-    "Runs the command in the arguments on the bot's machine and keeps it running in the background (e.g. a dev server)",
-  '在 Bot 所在机器上用微信开发者工具打开工作区里的小程序，截图发到群里':
-    "Opens the workspace mini program in WeChat DevTools on the bot's machine and posts a screenshot to the group",
+  '在 Bot 所在的电脑上运行参数里的命令，并让它在后台一直运行（如开发服务器）':
+    "Runs the command in the arguments on the Bot's computer and keeps it running in the background (e.g. a dev server)",
+  '在 Bot 所在的电脑上用微信开发者工具打开工作区里的小程序，截图发到群里':
+    "Opens the workspace mini program in WeChat DevTools on the Bot's computer and posts a screenshot to the group",
   '把编译好的客户端上传到当前空间，所有成员会收到更新':
     'Uploads built clients to this space; every member gets the update',
   本次运行免审批: 'No approvals this run',
@@ -63,7 +63,7 @@ export default {
   'AI 预审没有给出结论': 'The AI pre-review gave no verdict',
   'AI 预审未能运行': 'The AI pre-review could not run',
   '本次运行改为「完全允许」，后续请求不再询问；下一轮恢复原审批方式':
-    'Switches this run to “Allow everything” so later requests are not asked; the next run uses the usual approval mode again',
+    'Switches this run to "Allow everything" so later requests are not asked; the next run uses the usual approval mode again',
   '拒绝#reject': 'Reject',
   '你是 Bot 主人': 'You own this Bot',
   '仅 Bot 主人 {name} 可操作，你只能查看': 'Only the Bot owner {name} can decide; you can only view',
@@ -75,7 +75,7 @@ export default {
   '已丢弃本轮改动 · 已备份并回滚到同步版本':
     "Discarded this turn's changes · backed up and rolled back to the synced version",
   '保留即提交为一版（标「中断」）；丢弃先备份，再回滚到同步版本。处理前该 Bot 在本群的新触发排队。仅发起人 {name} 或 Bot 主人可选，无超时。':
-    'Keep submits them as a version (tagged “interrupted”); discard backs them up, then rolls back to the synced version. Until then this bot’s new requests in the group wait. Only the initiator {name} or the bot owner may choose; no timeout.',
+    'Keep submits them as a version (tagged "interrupted"); discard backs them up, then rolls back to the synced version. Until then this Bot\'s new requests in the group wait. Only the initiator {name} or the Bot owner may choose; no timeout.',
   '已保留本轮改动 · 留在工作区，未提交': "Kept this turn's changes · left in the workspace, uncommitted",
   '已丢弃本轮改动 · 之前已有的未提交内容不动':
     "Discarded this turn's changes · earlier uncommitted work is untouched",
@@ -106,9 +106,9 @@ export default {
   停止: 'Stop',
   '{name} 已回答 · {at} · 已写入审计记录': 'Answered by {name} · {at} · recorded in the audit log',
   '无人回答，agent 已按推荐项继续 · {at}': 'No answer; the agent went on with the recommended options · {at}',
-  '提问已作废，agent 不再等待回答': 'Question void; the agent is no longer waiting',
-  '运行已停止，提问作废': 'Run stopped; question void',
-  '运行已结束，提问作废': 'Run ended; question void',
+  '提问已失效，Agent 不再等待回答': 'Question expired; the Agent is no longer waiting',
+  '运行已停止，提问已失效': 'Run stopped; question expired',
+  '运行已结束，提问已失效': 'Run ended; question expired',
   '{name}（触发人兼 Bot 主人）可回答': '{name} (who started it and owns the Bot) can answer',
   '触发人 {trigger} 或 Bot 主人 {owner} 可回答':
     '{trigger} (who started it) or the Bot owner {owner} can answer',
@@ -128,8 +128,8 @@ export default {
   终止: 'Stop',
   停止这条接力链上所有未完成的轮次: 'Stops every unfinished turn in this relay chain',
   后续接力不再触发: 'No further relays will start',
-  'Bot 离线，已进入该机器队列 · 上线后自动执行，{time} 后作废并通知 {name}':
-    "Bot offline, queued on its machine · runs when it's back; expires in {time} and notifies {name}",
+  'Bot 离线，已进入这台电脑的队列 · 上线后自动执行，{time} 后失效并通知 {name}':
+    "Bot offline, queued on this computer · runs when it's back; expires in {time} and notifies {name}",
   正在读取: 'Reading',
   已读取: 'Read',
   读取失败: 'Read failed',
@@ -208,7 +208,7 @@ export default {
   '。': '. ',
   编辑文件: 'Edit file',
   失败: 'Failed',
-  已取消: 'Cancelled',
+  已取消: 'Canceled',
   已断开: 'Disconnected',
   运行中: 'Running',
   已暂停: 'Paused',
@@ -279,20 +279,20 @@ export default {
   '已全部结束：{done} 个完成，{failed} 个失败': 'All finished: {done} done, {failed} failed',
   '已全部结束：{n} 个完成': 'All finished: {n} done',
   '{time} · 耗时 {span}': '{time} · took {span}',
-  '运行失败：agent 异常': 'Run failed: agent error',
-  '看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在机器上 agent 的登录、额度与网络。':
-    "Read the error, then @ the bot again. If it keeps happening, check the agent's sign-in, quota and network on the bot's machine.",
+  '运行失败：Agent 异常': 'Run failed: Agent error',
+  '看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在电脑上 Agent 的登录、额度与网络。':
+    "Read the error, then @ the Bot again. If it keeps happening, check the Agent's sign-in, quota and network on the Bot's computer.",
   运行已停止: 'Run stopped',
   运行已中断: 'Run interrupted',
   未记录原因: 'No reason recorded',
   '重新 @ Bot 再试一次；已改的文件见「改动」。':
     '@ the bot to try again; files already changed are under Changes.',
-  运行已作废: 'Run voided',
-  '确认 Bot 所在机器在线、daemon 正在运行后重新 @ Bot。':
-    "Make sure the bot's machine is online and its daemon running, then @ the bot again.",
-  未获准运行: 'Not allowed to run',
-  'Bot 所在机器离线；超过 {n} 分钟仍未上线本轮作废。':
-    "The bot's machine is offline; this run is voided if it isn't back within {n} {n:minute|minutes}.",
+  运行已失效: 'Run expired',
+  '确认 Bot 所在电脑在线、共工客户端正在运行后重新 @ Bot。':
+    "Make sure the Bot's computer is online and its Gonggong client is running, then @ the Bot again.",
+  没有运行权限: 'Not allowed to run',
+  'Bot 所在电脑离线；超过 {n} 分钟仍未上线本次请求将失效。':
+    "The Bot's computer is offline; this request expires if it isn't back within {n} {n:minute|minutes}.",
   等待开始: 'Waiting to start',
   复制错误信息: 'Copy error',
   已复制错误信息: 'Error copied',
@@ -304,7 +304,7 @@ export default {
   '指定：{names}': 'Assigned: {names}',
   '{name} 已回答': '{name} answered',
   '无人回答，agent 已按推荐项继续': 'No answer; the agent went on with the recommended options',
-  提问已作废: 'Question void',
+  提问已失效: 'Question expired',
   '待处理 {n} 项': '{n} {n:request|requests} waiting',
   筛选过程: 'Filter process',
   需处理: 'Requests',
@@ -320,7 +320,7 @@ export default {
   已自动压缩上下文: 'Auto-compacted context',
   已压缩上下文: 'Compacted context',
   压缩上下文失败: 'Compaction failed',
-  压缩已取消: 'Compaction cancelled',
+  压缩已取消: 'Compaction canceled',
   健康: 'Healthy',
   偏高: 'High',
   将满: 'Nearly full',
@@ -338,20 +338,20 @@ export default {
   '{read} 来自缓存 · {fresh} 新增': '{read} from cache · {fresh} new',
   上下文构成: 'Context make-up',
   剩余空间: 'Free space',
-  内容: 'Contents',
+  '内容#list': 'Contents',
   筛选内容: 'Filter contents',
   系统: 'System',
   '显示全部 {n} 项': 'Show all {n}',
   '分项按文本长度估算；系统提示词与工具定义为已用量减去其余各项。':
     'Items are estimated from text length; the system prompt and tool definitions are what is left of the total.',
-  '会话早先的部分（Agent 压缩或清理过，或机器上的 daemon 重启过）没有分项，算在系统与早先内容里。':
-    ' Earlier parts of the session (compacted or cleared by the agent, or from before a daemon restart) have no items and count as system & earlier content.',
+  '会话早先的部分（Agent 压缩或清理过，或电脑上的客户端重启过）没有分项，算在系统与早先内容里。':
+    'Earlier parts of the session (compacted or cleared by the Agent, or from before a client restart) have no items and count as system & earlier content.',
   '分项在本轮结束后统计。': 'Items are counted when the run ends.',
   实时: 'Live',
   已统计: 'Counted',
   '含估算增量 {n}': 'incl. {n} estimated',
   '其余 {n} 项': '{n} more',
-  '“{q}”': '“{q}”',
+  '“{q}”': '"{q}"',
   '已搜索 {n} 个网站': 'Searched {n} {n:site|sites}',
   '已访问 {n} 个网页': 'Visited {n} {n:page|pages}',
   '含可能删除数据或高风险的请求，请逐个审批':

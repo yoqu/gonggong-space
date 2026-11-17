@@ -446,11 +446,11 @@ const EMOJI: { id: Exclude<EmojiCategory, 'recent'>; label: string; items: Emoji
     id: 'object',
     label: t('物品'),
     items: [
-      ['💻', t('电脑')],
+      ['💻', t('电脑#emoji')],
       ['🖥️', t('显示器')],
       ['⌨️', t('键盘')],
       ['🖱️', t('鼠标#emoji')],
-      ['📱', t('手机')],
+      ['📱', t('手机#emoji')],
       ['☎️', t('座机')],
       ['🔋', t('电池 电量')],
       ['🔌', t('插头')],

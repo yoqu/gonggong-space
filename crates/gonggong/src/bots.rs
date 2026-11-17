@@ -124,7 +124,7 @@ pub fn state_label(bot: &Bot) -> String {
         Binding::Bound => match bot.presence.as_str() {
             "online" => t!("在线"),
             "running" => t!("运行中"),
-            "agent_missing" => t!("本机未安装该 agent"),
+            "agent_missing" => t!("未安装该 Agent"),
             _ => t!("离线"),
         }
         .into(),
@@ -134,12 +134,22 @@ pub fn state_label(bot: &Bot) -> String {
 pub async fn list(config: &Config) -> Result<()> {
     let bots = Client::new(config)?.list().await?;
     if bots.is_empty() {
-        println!("{}", t!("本机还没有 Bot"));
+        println!("{}", t!("这台电脑还没有 Bot"));
     }
-    for b in &bots {
-        let approval = t!("审批方式 {label}", label = approval_label(b));
-        println!("{}\t{}\t{}\t{approval}", b.name, agent_label(b.agent_kind), state_label(b));
-        println!("\t{}", t!("在 Web 中管理：{url}", url = web_url(&config.server, &b.id)));
+    let rows: Vec<_> = bots
+        .iter()
+        .map(|b| {
+            vec![
+                b.name.clone(),
+                agent_label(b.agent_kind).to_string(),
+                state_label(b),
+                t!("审批方式 {label}", label = approval_label(b)),
+            ]
+        })
+        .collect();
+    for (line, b) in crate::format_columns(&rows).into_iter().zip(&bots) {
+        println!("{line}");
+        println!("  {}", t!("在 Web 中管理：{url}", url = web_url(&config.server, &b.id)));
     }
     Ok(())
 }

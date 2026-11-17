@@ -137,7 +137,7 @@ export function GroupTabBar({ group }: { group: GroupDto }) {
                 { label: t('复制链接'), value: 'copy', disabled: !href },
                 { separator: true },
                 { label: t('重命名'), value: 'rename' },
-                { label: t('删除标签'), value: 'delete', destructive: true },
+                { label: t('删除标签#tab'), value: 'delete', destructive: true },
               ]}
               onSelect={(v) => onMenu(v, tab)}
             >

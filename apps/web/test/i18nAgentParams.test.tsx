@@ -61,10 +61,10 @@ it('shows system parameter labels and units in English', async () => {
       <ParamsPage />
     </MemoryRouter>,
   )
-  expect(await screen.findByText('Machine heartbeat interval')).toBeTruthy()
-  expect(screen.getByRole('spinbutton', { name: 'Machine heartbeat interval' })).toBeTruthy()
+  expect(await screen.findByText('Computer heartbeat interval')).toBeTruthy()
+  expect(screen.getByRole('spinbutton', { name: 'Computer heartbeat interval' })).toBeTruthy()
   expect(screen.getAllByText('sec').length).toBeGreaterThan(0)
-  expect(screen.queryByText('机器心跳间隔')).toBeNull()
+  expect(screen.queryByText('电脑心跳间隔')).toBeNull()
   expect(screen.queryByText('秒')).toBeNull()
 })
 

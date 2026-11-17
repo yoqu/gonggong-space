@@ -423,6 +423,6 @@ describe('conflicts (F11)', () => {
       .where(eq(syncConflicts.id, c.id))
     const res = await t.app.inject({ method: 'GET', url: url(sha(bin)), headers: { cookie: li } })
     expect(res.statusCode).toBe(400)
-    expect(res.json().message).toBe('二进制文件')
+    expect(res.json().message).toBe('二进制文件不支持在线预览')
   })
 })

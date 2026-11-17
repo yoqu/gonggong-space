@@ -34,7 +34,7 @@ export function questionText(q: QuestionSetDto) {
     case 'expired':
       return t('无人回答，agent 已按推荐项继续')
     case 'void':
-      return t('提问已作废')
+      return t('提问已失效')
   }
 }
 

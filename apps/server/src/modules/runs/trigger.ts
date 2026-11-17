@@ -100,7 +100,7 @@ async function createRuns(ctx: Ctx, t: Trigger) {
         return void (await postEvent(
           ctx,
           t.groupId,
-          '{bot} 所在机器无法访问仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」',
+          '{bot} 所在的电脑连不上仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」',
           { bot: bot.name, reason: { key: reasonText(reason) }, owner: bot.ownerName },
           {},
           noticeThread,

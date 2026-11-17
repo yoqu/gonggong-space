@@ -30,7 +30,7 @@ export default {
   或: 'or',
   飞书登录未启用: 'Feishu sign-in is not enabled',
   '飞书登录已过期，请重新登录': 'The Feishu sign-in has expired; please sign in again',
-  已取消飞书授权: 'Feishu authorization was cancelled',
+  已取消飞书授权: 'Feishu authorization was canceled',
   '飞书登录失败，请稍后再试': 'Feishu sign-in failed; please try again later',
   '账号已停用，请联系系统管理员': 'This account is disabled; contact the system admin',
   该飞书身份已绑定其他账号: 'This Feishu identity is already linked to another account',
@@ -90,10 +90,10 @@ export default {
   '{time} 后过期': 'Expires in {time}',
   二维码已过期: 'The QR code has expired',
   '已与飞书群「{name}」同步，点击在飞书中打开':
-    'Synced with the Feishu chat “{name}”; click to open it in Feishu',
-  '在飞书中打开「{name}」': 'Open “{name}” in Feishu',
+    'Synced with the Feishu chat "{name}"; click to open it in Feishu',
+  '在飞书中打开「{name}」': 'Open "{name}" in Feishu',
   '与飞书群名「{name}」不一致，改成一样便于两边对应':
-    'Differs from the Feishu chat name “{name}”; matching it makes the two easy to pair',
+    'Differs from the Feishu chat name "{name}"; matching it makes the two easy to pair',
   改为飞书群名: 'Use Feishu chat name',
   已改为飞书群名称: 'Renamed after the Feishu chat',
   同步飞书群成员: 'Sync Feishu chat members',
@@ -113,7 +113,7 @@ export default {
   '用本群名称新建飞书群并关联，拉入已绑定飞书的成员和 Bot':
     'Create a Feishu chat named after this group and link it, with linked members and Bots',
   创建飞书群: 'Create Feishu chat',
-  '确定新建飞书群「{name}」并关联到本群？': 'Create Feishu chat “{name}” and link it to this group?',
+  '确定新建飞书群「{name}」并关联到本群？': 'Create Feishu chat "{name}" and link it to this group?',
   创建: 'Create',
   已创建并关联飞书群: 'Feishu chat created and linked',
   从飞书群创建: 'Create from Feishu chat',
@@ -220,7 +220,7 @@ export default {
   '更换应用…': 'Replace app…',
   '飞书调用失败：{reason}': 'Feishu call failed: {reason}',
   '没能拉入，原因见列表': "Couldn't add it; see the list for why",
-  '尚未保存，预填的是当前网址': 'Not saved yet; prefilled with this page’s address',
+  '尚未保存，预填的是当前网址': "Not saved yet; prefilled with this page's address",
   尚未加入: 'Not added yet',
   去管理后台接入: 'Set it up in Admin',
 } satisfies Record<string, string>

@@ -327,7 +327,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
             <Icon name="copy" />
           </MenuButton>
         ) : null}
-        <IconButton title={t('机器与会话')} aria-pressed={more} onClick={() => setMore(!more)}>
+        <IconButton title={t('电脑与会话')} aria-pressed={more} onClick={() => setMore(!more)}>
           <Icon name="info" />
         </IconButton>
       </Toolbar>
@@ -371,7 +371,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
         ) : null}
         {run && more ? (
           <GroupBox>
-            <GroupRow label={t('机器')}>
+            <GroupRow label={t('电脑')}>
               <span className="run-tab__val run-tab__mono">{bot?.machineName ?? '—'}</span>
             </GroupRow>
             <GroupRow label={t('会话')}>
@@ -643,7 +643,7 @@ function PastRound({ run, prompt, root }: { run: RunDto; prompt: string; root: s
 async function stopTask(runId: string, taskId: string) {
   try {
     const { sent } = await api.post<TaskStopRes>(`/runs/${runId}/tasks/${encodeURIComponent(taskId)}/stop`)
-    if (!sent) throw new Error(t('Bot 所在机器离线'))
+    if (!sent) throw new Error(t('Bot 所在电脑离线'))
   } catch (e) {
     toast({ type: 'error', message: t('停止失败：{error}', { error: (e as Error).message }) })
     throw e
@@ -657,8 +657,8 @@ function RunSettings({ settings: s }: { settings: NonNullable<RunDetailDto['sett
     [t('供应商'), s.provider ?? OFFICIAL_NAME],
     [t('上下文窗口'), s.contextWindow ? tokensLabel(s.contextWindow) : t('默认')],
     [t('自动压缩窗口'), s.autoCompactWindow ? tokensLabel(s.autoCompactWindow) : t('默认')],
-    [t('继承该机器 CLI 配置'), s.inheritCli ? t('是') : t('否')],
-    ...(s.fromCli.length ? [[t('来自该机器 CLI'), names(s.fromCli)]] : []),
+    [t('继承这台电脑 CLI 配置'), s.inheritCli ? t('是') : t('否')],
+    ...(s.fromCli.length ? [[t('来自这台电脑 CLI'), names(s.fromCli)]] : []),
     ...(s.fromBot.length ? [[t('Bot 覆盖'), names(s.fromBot)]] : []),
   ]
   return (

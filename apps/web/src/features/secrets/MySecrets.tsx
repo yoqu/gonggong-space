@@ -23,8 +23,8 @@ import {
 import { MODE_LABEL, secretsApi, valueState } from './api'
 import '../config/config.css'
 
-export const FOREIGN = t('允许在他人机器上的 Bot 使用')
-export const FOREIGN_NOTE = t('机器主人能读到 Bot 进程的环境变量，所以默认只注入到你自己机器上的 Bot。')
+export const FOREIGN = t('允许在他人电脑上的 Bot 使用')
+export const FOREIGN_NOTE = t('电脑主人能读到 Bot 进程的环境变量，所以默认只注入到你自己电脑上的 Bot。')
 
 /** 设置 · 我的密钥: definitions of my teams and groups that take my own value (`shared_overridable` / `personal`). */
 export function MySecrets() {

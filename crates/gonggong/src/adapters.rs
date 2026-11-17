@@ -436,12 +436,12 @@ impl Adapter {
     pub fn missing(&self) -> String {
         match (&self.spec.install.npm, &self.spec.install.command) {
             (Some(npm), _) => t!(
-                "这台机器上没有 {agent}，请安装：npm install -g {npm}，或在「设置 → Agent 工具」里用共工托管安装",
+                "这台电脑上没有 {agent}，请安装：npm install -g {npm}，或在桌面端「执行 → Agent」页托管安装（或运行 gg agents install）",
                 agent = self.spec.title,
                 npm = npm
             ),
             (None, command) => t!(
-                "这台机器上没有 {agent}，请在机器的终端运行：{command}",
+                "这台电脑上没有 {agent}，请在这台电脑的终端运行：{command}",
                 agent = self.spec.title,
                 command = command.as_deref().unwrap_or(&self.spec.install.bin)
             ),

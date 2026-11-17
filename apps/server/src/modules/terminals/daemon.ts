@@ -117,7 +117,7 @@ export class TerminalDaemonTransport implements TerminalSessions {
     onClose: () => void,
   ): Stream {
     const conn = this.ctx.tunnels.get(machineId)
-    if (!conn) throw new Error('daemon 已断开')
+    if (!conn) throw new Error('电脑已断开连接')
     return conn.terminal(
       { terminal: open, method: 'TERMINAL', path: '/', headers: [], upgrade: true },
       (frame) => onFrame({ type: frame.type, payload: frame.payload }),
@@ -168,7 +168,7 @@ export class TerminalDaemonTransport implements TerminalSessions {
               settle(error as Error)
             }
           },
-          () => settle(new Error('daemon 已断开')),
+          () => settle(new Error('电脑已断开连接')),
         )
         timer = setTimeout(() => {
           stream.close('terminate timeout')

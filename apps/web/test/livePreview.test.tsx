@@ -240,7 +240,7 @@ describe('桌面应用预览 · 观看', () => {
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('机器未授权屏幕录制')
+    await screen.findByText('电脑未授权屏幕录制')
     screen.getByText('请 Bot 主人在共工空间桌面端「实时画面」页完成授权')
   })
 
@@ -332,7 +332,7 @@ describe('桌面应用预览 · 控制', () => {
       }),
     )
     render(<LiveTab tab={tab} tabKey="live:p3" active />)
-    await screen.findByText('机器未授权辅助功能，远程操作不会生效，请在共工空间桌面端「实时画面」页完成授权')
+    await screen.findByText('电脑未授权辅助功能，远程操作不会生效，请在共工空间桌面端「实时画面」页完成授权')
   })
 
   it('viewers only watch: no input leaves the page', async () => {
@@ -452,7 +452,7 @@ describe('实时画面 · 网络、帧率与画质', () => {
     expect(screen.queryByRole('button', { name: '画质' })).toBeNull()
 
     act(() => lk.rooms[0]?.emit('connectionQualityChanged', 'poor', { identity: 'cast' }))
-    await waitFor(() => expect(figures.textContent).toContain('机器网络差'))
+    await waitFor(() => expect(figures.textContent).toContain('电脑网络差'))
 
     fireEvent.click(screen.getByRole('button', { name: '隐藏画面数据' }))
     expect(screen.queryByRole('status', { name: '画面数据' })).toBeNull()

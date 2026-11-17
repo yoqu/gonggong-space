@@ -30,7 +30,7 @@ export default {
   '、': ', ',
   '不参与（本机目录）': 'Not participating (local directory)',
   '不参与（有未提交的改动）': 'Not participating (uncommitted changes)',
-  '对齐（机器离线，上线后对齐）': 'Align (machine offline, aligns once it connects)',
+  '对齐（电脑离线，上线后对齐）': 'Align (computer offline; aligns once it connects)',
   '对齐（工作区就绪后对齐）': 'Align (once its workspace is ready)',
   '不参与（共工空间客户端版本过旧，请升级）':
     'Not participating (Gonggong Space client too old, please upgrade)',
@@ -113,8 +113,6 @@ export default {
   '无文件改动 · v{v}': 'No file changes · v{v}',
   '冲突待处理 · {n} 个文件': 'Conflict pending · {n} {n:file|files}',
   '同步失败：{reason}': 'Sync failed: {reason}',
-  等待处理本地改动: 'Waiting for local changes to be settled',
-  等待处理同步冲突: 'Waiting for the sync conflict to be resolved',
   已开始提交本地改动: 'Submitting local changes',
   提交本地改动: 'Submit local changes',
   丢弃本地改动: 'Discard local changes',

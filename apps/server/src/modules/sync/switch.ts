@@ -290,8 +290,9 @@ export async function enableSync(ctx: Ctx, userId: string, groupId: string, base
   if (!base) return fail('invalid', '基准 Bot 不在群内')
   if (base.kind !== 'managed') return fail('invalid', '基准 Bot 使用本机目录，不能作为基准')
   if (base.state !== 'ready') return fail('invalid', '基准 Bot 的托管工作区尚未就绪')
-  if (!onlineMachine(ctx, base.machineId)) return fail('invalid', '基准 Bot 所在机器离线')
-  if (syncOutdated(ctx, base.machineId)) return fail('invalid', '基准 Bot 所在机器的 daemon 版本过旧，请升级')
+  if (!onlineMachine(ctx, base.machineId)) return fail('invalid', '基准 Bot 所在的电脑离线')
+  if (syncOutdated(ctx, base.machineId))
+    return fail('invalid', '基准 Bot 所在电脑的共工客户端版本过旧，请升级')
 
   await ctx.db.transaction(async (tx) => {
     await tx
@@ -445,7 +446,7 @@ export async function expireSwitches(ctx: Ctx) {
       if (stale(sw.sentAt)) await onBaseFailed(ctx, id, sw.botId, null, true)
     } else if (!onlineMachine(ctx, machineId)) {
       if (stale(sw.at, lastSeenAt))
-        await onBaseFailed(ctx, id, sw.botId, { key: '基准 Bot 所在机器离线超过 10 分钟' })
+        await onBaseFailed(ctx, id, sw.botId, { key: '基准 Bot 所在电脑离线超过 10 分钟' })
     } else if (stale(sw.at) && !(await runsIn(ctx, id, sw.botId))) {
       await sendDueInits(ctx, sw.botId)
       const [g] = await ctx.db.select({ sw: groups.syncSwitch }).from(groups).where(eq(groups.id, id))

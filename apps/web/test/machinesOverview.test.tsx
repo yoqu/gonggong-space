@@ -77,9 +77,9 @@ describe('machines overview', () => {
         />
       </MemoryRouter>,
     )
-    const overview = screen.getByRole('region', { name: '机器总览' })
-    // Headed like 市场 and 作品, with the machine count; the sidebar already says 机器与 Bot.
-    expect(within(overview).getByRole('heading', { level: 1, name: '我的机器' })).toBeTruthy()
+    const overview = screen.getByRole('region', { name: '电脑总览' })
+    // Headed like 市场 and 作品, with the machine count; the sidebar already says 电脑与 Bot.
+    expect(within(overview).getByRole('heading', { level: 1, name: '我的电脑' })).toBeTruthy()
     expect(within(overview).getByText('2')).toBeTruthy()
     const card = within(overview).getByRole('link', { name: /wanglei-mbp/ })
     expect(card.getAttribute('href')).toBe('/machine/m1')
@@ -127,9 +127,9 @@ describe('machines overview', () => {
         <MachinesOverview machines={[]} bots={[]} onBindMachine={onBindMachine} onNewBot={() => {}} />
       </MemoryRouter>,
     )
-    const overview = screen.getByRole('region', { name: '机器总览' })
-    expect(overview.textContent).toContain('还没有绑定机器')
-    fireEvent.click(within(overview).getByRole('button', { name: '绑定新机器' }))
+    const overview = screen.getByRole('region', { name: '电脑总览' })
+    expect(overview.textContent).toContain('还没有绑定电脑')
+    fireEvent.click(within(overview).getByRole('button', { name: '绑定新电脑' }))
     expect(onBindMachine).toHaveBeenCalled()
   })
 })
@@ -142,7 +142,7 @@ describe('新建 Bot after binding', () => {
         <NewBotDialog me={me} machineId="m1" onClose={() => {}} />
       </MemoryRouter>,
     )
-    const machines = await screen.findByRole('radiogroup', { name: '执行机器' })
+    const machines = await screen.findByRole('radiogroup', { name: '运行电脑' })
     expect((within(machines).getByRole('radio', { name: /wanglei-mbp/ }) as HTMLInputElement).checked).toBe(
       true,
     )
@@ -155,7 +155,7 @@ describe('新建 Bot after binding', () => {
         <NewBotDialog me={me} machineId={machineId} onClose={() => {}} />
       </MemoryRouter>,
     )
-    const machines = await screen.findByRole('radiogroup', { name: '执行机器' })
+    const machines = await screen.findByRole('radiogroup', { name: '运行电脑' })
     return (name: RegExp) => (within(machines).getByRole('radio', { name }) as HTMLInputElement).checked
   }
 

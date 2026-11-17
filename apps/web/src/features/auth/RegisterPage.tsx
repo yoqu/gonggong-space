@@ -70,14 +70,14 @@ export function RegisterPage() {
       subtitle={
         closed
           ? t('当前未开放注册，请联系系统管理员创建账号。')
-          : t('注册后即可加入群、绑定机器、创建你的 Bot。')
+          : t('注册后即可加入群、绑定电脑、创建你的 Bot。')
       }
       errorKey={errorKey}
       leaving={phase === 'done'}
       onSubmit={submit}
       footer={
         <p className="auth__foot">
-          {t('已有账号？')}
+          {t('已有账号？')}{' '}
           <Link to="/login" className="auth__link">
             {t('去登录')}
           </Link>

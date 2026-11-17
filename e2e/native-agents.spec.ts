@@ -40,8 +40,8 @@ test('a Gemini CLI bot runs on a Google AI Studio provider added on the machine 
   try {
     await test.step('the machine page offers Gemini providers and names the protocol they must speak', async () => {
       await page.goto('/machines')
-      await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
-      const dialog = page.getByRole('region', { name: '机器详情' })
+      await page.getByRole('region', { name: '我的电脑' }).locator('.sidebar__open').first().click()
+      const dialog = page.getByRole('region', { name: '电脑详情' })
       await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
       await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
       const providers = dialog.getByRole('region', { name: '供应商', exact: true })
@@ -115,8 +115,8 @@ test('a CodeBuddy (WorkBuddy) bot runs on a CodeBuddy China key with its instruc
   m.start()
   try {
     await page.goto('/machines')
-    await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
-    const dialog = page.getByRole('region', { name: '机器详情' })
+    await page.getByRole('region', { name: '我的电脑' }).locator('.sidebar__open').first().click()
+    const dialog = page.getByRole('region', { name: '电脑详情' })
     await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
     await dialog.getByRole('tab', { name: 'Agent 与供应商' }).click()
     const providers = dialog.getByRole('region', { name: '供应商', exact: true })

@@ -270,9 +270,9 @@ describe('bots whose machine cannot reach the repo', () => {
     ).toBe(200)
     const bodies = async () =>
       (await w.asBob.get<TimelineDto>(`/api/groups/${w.g.id}/timeline`)).body.messages.map((m) => m.body)
-    await until(async () => (await bodies()).some((b) => b.includes('无法访问仓库')))
+    await until(async () => (await bodies()).some((b) => b.includes('连不上仓库')))
     expect(await bodies()).toContain(
-      '小王的 Claude 所在机器无法访问仓库（无权限或仓库不存在），本次未执行；王磊 配置后点「重新检查」',
+      '小王的 Claude 所在的电脑连不上仓库（无权限或仓库不存在），本次未执行；王磊 配置后点「重新检查」',
     )
     expect(await t.db.select().from(runs)).toEqual([])
     const sent = await t.db.select().from(notifications).where(eq(notifications.userId, w.alice.id))

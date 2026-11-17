@@ -159,7 +159,7 @@ export function MarketPage() {
               ),
             },
             { value: 'mine', label: t('我的发布') },
-            ...(queues.length ? [{ value: 'reviews' as const, label: t('待审核') }] : []),
+            ...(queues.length ? [{ value: 'reviews' as const, label: t('待审核#tab') }] : []),
           ]}
         />
       </header>

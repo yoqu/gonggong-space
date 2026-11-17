@@ -112,7 +112,7 @@ export function WorkspacePicker({
                   <span className="dirpick__choice-desc">
                     {found
                       ? t('克隆 {url} 到 {path}', { url: group.repo.url, path: found.managedPath })
-                      : t('在机器上自动克隆到独立目录，互不干扰')}
+                      : t('在电脑上自动克隆到独立目录，互不干扰')}
                   </span>
                 </span>
               </button>

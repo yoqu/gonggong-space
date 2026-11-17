@@ -52,7 +52,7 @@ const SECTIONS: { title: string; keys: Key[] }[] = [
     keys: ['sessionReplayTokens', 'contextInlineTokens', 'sessionIdleHours', 'questionsPerCard'],
   },
   { title: t('附件#nav'), keys: ['attachmentMaxMb', 'attachmentsPerMessage'] },
-  { title: t('机器连接'), keys: ['heartbeatSec', 'offlineMisses'] },
+  { title: t('电脑连接'), keys: ['heartbeatSec', 'offlineMisses'] },
   { title: t('数据保留'), keys: ['runRetentionDays', 'backupRetentionDays', 'archiveRetentionDays'] },
   {
     title: t('群与 Bot 默认值'),
@@ -192,7 +192,7 @@ export function ParamsPage() {
             <GroupRow
               label={t('插件')}
               description={t(
-                '开启后，群管理员可在群设置里启用插件，群成员通过输入框的「创作」使用。关闭后不显示任何插件入口，也不向机器下发插件；已上传的插件保留。',
+                '开启后，群管理员可在群设置里启用插件，成员可在输入框通过「创作」使用。关闭后隐藏所有插件入口且不再下发给电脑，已上传的插件会保留。',
               )}
             >
               <Switch
@@ -205,7 +205,7 @@ export function ParamsPage() {
             <GroupRow
               label={t('插件代码')}
               description={t(
-                '允许插件在执行机器上运行代码，如本地 MCP 服务。开启后每个插件版本仍需机器主人在自己的机器上逐个授权。',
+                '允许插件在电脑上运行代码（如本地 MCP 服务）。开启后，每次运行新版本仍需电脑主人在自己的电脑上授权。',
               )}
             >
               <Switch
@@ -229,7 +229,7 @@ export function ParamsPage() {
             <GroupRow
               label={t('演示模式')}
               description={t(
-                '对外公开演示时开启，防止内容经内网穿透的域名流到互联网、访客破坏演示环境：预览只能登录后在群内查看，不能创建公开链接，已发出的公开链接立即失效，预览卡片不同步到飞书；实时画面只能观看不能操控；Bot 不能使用「完全访问」档位，已设为完全访问的按「工作区写入」运行；除系统管理员外不能改密码和昵称，不能解散群、移除成员、删除 Bot、吊销机器、归档团队。',
+                '对外公开演示时开启，限制访客破坏环境：禁止创建公开链接、禁止远程操控实时画面、禁止「完全允许」审批方式；除系统管理员外不可改密码/昵称，不可解散群、移人、删 Bot、解绑电脑或归档团队。',
               )}
             >
               <Switch

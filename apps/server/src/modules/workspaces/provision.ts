@@ -207,7 +207,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
       groupId,
       onlineMachine(ctx, bot.machineId)
         ? '{bot} · 使用托管工作区，等待本机克隆…'
-        : '{bot} · daemon 离线，上线后克隆托管工作区',
+        : '{bot} · 客户端离线，上线后克隆托管工作区',
       { bot: lead },
     )
     return ensureWorkspace(ctx, groupId, bot)
@@ -228,7 +228,7 @@ export async function joinWorkspace(ctx: Ctx, groupId: string, bot: BotRef, o: {
     workspaceState: 'pending',
   })
   if (!(await sendCd(ctx, groupId, bot, path, 'default', o.joined)))
-    await postEvent(ctx, groupId, '{bot} · daemon 离线，上线后使用默认工作区', { bot: lead })
+    await postEvent(ctx, groupId, '{bot} · 客户端离线，上线后使用默认工作区', { bot: lead })
 }
 
 /**
@@ -386,7 +386,7 @@ async function onState(ctx: Ctx, machineId: string, msg: WorkspaceState) {
   if (req?.kind === 'cd' && req.cdPath && msg.state === 'failed' && row.state === 'cloning')
     await ensureWorkspace(ctx, msg.groupId, { id: msg.botId, name: row.name, machineId: row.machineId })
   if (req?.kind === 'ensure' && msg.state === 'ready')
-    await postEvent(ctx, msg.groupId, '{bot} · daemon 已 clone 到托管工作区', { bot: row.name })
+    await postEvent(ctx, msg.groupId, '{bot} · 客户端已克隆到托管工作区', { bot: row.name })
   // A retry failing the same way (e.g. on every reconnect) is not announced again.
   if (req?.kind === 'ensure' && msg.state === 'failed' && msg.error !== row.error)
     await postEvent(ctx, msg.groupId, '{bot} 工作区创建失败：{error}', {

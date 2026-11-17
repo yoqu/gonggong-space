@@ -26,8 +26,8 @@ it('translates bot labels, roles and repo check summaries', () => {
   expect(checkSummary(draft as never)).toBe('1 Bot can access · 1 offline')
 })
 
-it('renders the revoke machine dialog in English', () => {
+it('renders the unbind computer dialog in English', () => {
   render(<RevokeMachineDialog machine={{ id: 'm1', name: 'mbp' } as MachineDto} onClose={() => {}} />)
-  expect(screen.getByText('Revoke machine mbp?')).toBeTruthy()
-  expect(screen.getByText("The machine's daemon disconnects immediately")).toBeTruthy()
+  expect(screen.getByText('Unbind computer mbp?')).toBeTruthy()
+  expect(screen.getByText("This computer's Gonggong client disconnects immediately")).toBeTruthy()
 })

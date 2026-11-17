@@ -70,7 +70,7 @@ function sendAction(
 ) {
   const online = onlineMachine(ctx, machineId)
   if (!online || !ctx.hub.send(online, { t: 'sync.action', groupId, botId, action }))
-    fail('conflict', 'Bot 所在机器离线，上线后再处理')
+    fail('conflict', 'Bot 所在的电脑离线，上线后再处理')
 }
 
 /** 提交本地改动 / 丢弃本地改动 (F12): the daemon submits them as a version, or backs them up and catches up. */
@@ -186,7 +186,7 @@ export async function conflictText(
   if (!sides.has(hash)) return fail('not_found', '文件内容不存在')
   const size = await blobSize(groupId, hash)
   if (size === null) return fail('not_found', '文件内容不存在')
-  if (await isBinary(groupId, hash)) return fail('invalid', '二进制文件')
+  if (await isBinary(groupId, hash)) return fail('invalid', '二进制文件不支持在线预览')
   if (size > PREVIEW_MAX) return fail('invalid', '文件过大，无法预览')
   const chunks: Buffer[] = []
   for await (const chunk of await openFile(blobPath(groupId, hash))) chunks.push(chunk as Buffer)

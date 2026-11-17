@@ -86,7 +86,7 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
           <h1 className="dk-onboarding__title">{t('绑定到团队服务器')}</h1>
           <p className="dk-onboarding__desc">
             {t(
-              '在 Web 端头像菜单选择「绑定新机器」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后本机归属于你，所有连接均由本机向外发起。',
+              '在网页端头像菜单选择「绑定新电脑」，点「在客户端中打开」或复制接入链接粘贴到这里。绑定后这台电脑只归你使用，连接都会从你的电脑主动发起。',
             )}
           </p>
           <Form aria-label={t('绑定到团队服务器')}>
@@ -104,7 +104,7 @@ export function Onboarding({ link, onDone }: { link: { url: string } | null; onD
           {parsed ? (
             <GroupBox>
               <GroupRow label={t('服务器')} wideValue value={host(parsed.server)} />
-              <GroupRow label={t('接入代码')} value={parsed.code} />
+              <GroupRow label={t('接入码')} value={parsed.code} />
             </GroupBox>
           ) : null}
           {parsed ? <p className="dk-footnote">{t('请确认这是你们团队的服务器，再点「绑定」。')}</p> : null}

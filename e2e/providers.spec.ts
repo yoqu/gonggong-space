@@ -35,8 +35,8 @@ function isolated() {
 async function openMachine(page: Page, tab: 'Agent 与供应商' | '诊断') {
   await page.goto('/machines')
   // The machine's row comes before the Bots listed under it.
-  await page.getByRole('region', { name: '我的机器' }).locator('.sidebar__open').first().click()
-  const dialog = page.getByRole('region', { name: '机器详情' })
+  await page.getByRole('region', { name: '我的电脑' }).locator('.sidebar__open').first().click()
+  const dialog = page.getByRole('region', { name: '电脑详情' })
   // Offline sections stay clickable (they explain how to bring the machine back): wait until it is online.
   await expect(dialog.locator('.machine__status[data-online="true"]')).toBeVisible({ timeout: 30_000 })
   await dialog.getByRole('tab', { name: tab }).click()
@@ -182,7 +182,7 @@ test('provider switches reach new sessions only, a bot override wins, a deleted 
     })
 
     await test.step('deleting the provider a session is pinned to opens a new session', async () => {
-      await botProvider('继承机器默认（当前：DeepSeek）', '官方登录', 'DeepSeek')
+      await botProvider('使用电脑默认（当前：DeepSeek）', '官方登录', 'DeepSeek')
       await renew('官方登录', 'DeepSeek')
       expect((await turn()).echo.settings).toBe(settings)
 
@@ -375,7 +375,7 @@ test('the Agent page installs Node.js and Claude Code from a custom mirror, stre
       await expect(claude).toContainText('共工空间托管')
       await expect(claude).toContainText('2.1.300')
       await expect(claude.getByRole('region', { name: '使用它的 Bot' })).toContainText(
-        '这台机器上还没有 Bot 使用它',
+        '这台电脑上还没有 Bot 使用它',
       )
       await claudeOpen.click()
     })
@@ -480,7 +480,7 @@ test('a provider speaking only OpenAI is offered to Claude Code disabled with wh
 
     await test.step('the bot inherits the machine default, overrides it, then inherits again', async () => {
       let { d, select } = await runConfig()
-      await expect(select).toContainText('继承机器默认（当前：Relay）')
+      await expect(select).toContainText('使用电脑默认（当前：Relay）')
       await select.click()
       await page.getByRole('menuitemcheckbox', { name: '官方登录 / 默认模型', exact: true }).click()
       await d.getByRole('button', { name: '保存' }).click()
@@ -489,10 +489,10 @@ test('a provider speaking only OpenAI is offered to Claude Code disabled with wh
       await expect(select).toContainText('官方登录')
       await select.click()
       await expect(page.getByRole('menuitemcheckbox', { name: 'Relay / 默认（relay-sonnet）' })).toBeEnabled()
-      await page.getByRole('menuitemcheckbox', { name: '继承机器默认（当前：Relay）' }).click()
+      await page.getByRole('menuitemcheckbox', { name: '使用电脑默认（当前：Relay）' }).click()
       await d.getByRole('button', { name: '保存' }).click()
       ;({ select } = await runConfig())
-      await expect(select).toContainText('继承机器默认（当前：Relay）')
+      await expect(select).toContainText('使用电脑默认（当前：Relay）')
     })
   } finally {
     m.stop()

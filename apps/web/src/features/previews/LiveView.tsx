@@ -88,12 +88,12 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
   const problem = error
     ? { title: t('无法连接实时画面'), description: error }
     : p.status === 'offline'
-      ? { title: t('机器离线') }
+      ? { title: t('电脑离线') }
       : p.status === 'stopped'
         ? { title: t('应用已停止') }
         : p.live?.missing.includes('screen_recording')
           ? {
-              title: t('机器未授权屏幕录制'),
+              title: t('电脑未授权屏幕录制'),
               description: t('请 Bot 主人在{page}完成授权', { page: DESKTOP_PAGE }),
             }
           : p.live?.devtools
@@ -117,7 +117,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
         {(controlling || p.canManage) && p.live?.missing.includes('accessibility') ? (
           <span className="lv-warn">
             <Icon name="hand" size={12} />
-            {t('机器未授权辅助功能，远程操作不会生效，请在{page}完成授权', { page: DESKTOP_PAGE })}
+            {t('电脑未授权辅助功能，远程操作不会生效，请在{page}完成授权', { page: DESKTOP_PAGE })}
           </span>
         ) : null}
         {track ? (
@@ -248,7 +248,7 @@ export function LiveView({ preview: p }: { preview: PreviewDto }) {
   )
 }
 
-const weakSide = (weak: Weak) => (weak.machine ? t('机器网络差') : weak.me ? t('你的网络差') : null)
+const weakSide = (weak: Weak) => (weak.machine ? t('电脑网络差') : weak.me ? t('你的网络差') : null)
 
 /** The picture's figures as a watermark over the stage's top right corner; clicks pass through to the picture. */
 function LiveFigures({ stats: s, notes }: { stats: LiveStats; notes: (string | null)[] }) {

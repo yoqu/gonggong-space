@@ -28,8 +28,8 @@ export default {
   '近 {n} 天没有会话': 'No conversations in the last {n} days',
   时间范围: 'Time range',
   '近 {n} 天': 'Last {n} days',
-  '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、机器或 Bot 的主人、群管理员，其余为使用者。':
-    'Counts only, no message content · Messages are what members and Bots said, not system events · Runs count by when they were requested · Success rate = completed / ended · Builders: sysadmins, team admins, owners of a machine or Bot, group admins; everyone else is a user.',
+  '只统计数量，不含消息内容 · 消息为成员与 Bot 的发言，不含系统事件 · 运行轮次按发起时间计入 · 成功率 = 已完成 / 已结束 · 搭建者：系统管理员、团队管理员、电脑或 Bot 的主人、群管理员，其余为使用者。':
+    'Counts only, no message content · Messages are what members and Bots said, not system events · Runs count by when they were requested · Success rate = completed / ended · Builders: sysadmins, team admins, owners of a computer or Bot, group admins; everyone else is a user.',
   运营: 'Operations',
   留存: 'Retention',
   '前 {n} 天活跃 {p} 人，{r} 人回访': '{r} of {p} active in the {n} days before came back',

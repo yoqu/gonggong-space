@@ -14,9 +14,9 @@ import { mcpArgs, mcpTool, toolTitle } from './mcp'
 
 /** ACP tool kinds as the prototype names them. */
 export const VOID_TEXT = {
-  stopped: t('运行已停止，请求作废'),
-  chain_stopped: t('链已终止，请求作废'),
-  ended: t('运行已结束，请求作废'),
+  stopped: t('运行已停止，请求已失效'),
+  chain_stopped: t('接力已终止，请求已失效'),
+  ended: t('运行已结束，请求已失效'),
 }
 
 const KIND: Record<string, string> = {
@@ -34,7 +34,7 @@ const DONE: Record<ApprovalDto['status'], [string, TagTone]> = {
   approved: [t('已批准'), 'green'],
   rejected: [t('已拒绝'), 'red'],
   expired: [t('已超时'), 'gray'],
-  void: [t('已作废'), 'gray'],
+  void: [t('已失效#status'), 'gray'],
 }
 
 const REASON: Record<ApprovalDto['reason'], string> = {

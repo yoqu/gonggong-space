@@ -186,9 +186,9 @@ function ConnAlert({
     return (
       <Alert
         variant="warning"
-        title={t('服务器不可用 · 指数退避重连中（下次 {sec} 秒后）', { sec })}
+        title={t('连不上服务器 · {sec} 秒后自动重连', { sec })}
         description={t(
-          '运行中的轮次在本地继续并缓存输出，重连后补传；强制同步群该轮结束后的提交等服务器恢复后执行。',
+          '运行中的任务会在本地继续并暂存输出，重连后自动补传；强制同步群的提交会等服务器恢复后继续。',
         )}
       />
     )
@@ -200,7 +200,7 @@ function ConnAlert({
         variant="error"
         title={t('协议版本不兼容 · 服务器拒绝连接')}
         description={t(
-          '本机 daemon v{version} 使用协议 v{protocol}，服务器：{message}。升级 daemon 后重启生效；升级前本机 Bot 显示离线。',
+          '这台电脑的共工客户端（v{version}）版本太旧，与服务器不兼容（{message}）。请升级后重启；升级前这台电脑上的 Bot 会显示离线。',
           { version: version ?? '', protocol: protocol ?? '', message: c.message },
         )}
       />
@@ -211,9 +211,9 @@ function ConnAlert({
     return (
       <Alert
         variant="error"
-        title={t('token 已被吊销 · 账号已停用')}
+        title={t('电脑已解绑 · 账号已停用')}
         description={t(
-          '已清除本机团队密钥与 {n} 个托管工作区（尽力而非保证）；/cd 绑定的目录与本机备份目录不动。如有误，请联系系统管理员后重新绑定。',
+          '已清理这台电脑上的团队密钥和 {n} 个托管工作区；/cd 绑定的目录和本地备份保持不变。如有误，请联系系统管理员后重新绑定。',
           { n: workspaces },
         )}
       >
@@ -222,7 +222,7 @@ function ConnAlert({
     )
   }
   return (
-    <Alert variant="error" title={t('token 无效 · 服务器拒绝连接')} description={c.message}>
+    <Alert variant="error" title={t('绑定已失效 · 服务器拒绝连接')} description={c.message}>
       <Rebind />
     </Alert>
   )
@@ -246,7 +246,7 @@ function PermissionsAlert() {
 
 function BlockedAlert({ message }: { message: string }) {
   return (
-    <Alert variant="error" title={t('daemon 未运行')} description={message}>
+    <Alert variant="error" title={t('共工客户端未运行')} description={message}>
       <Button size="small" onClick={() => ipc.startDaemon().catch(() => {})}>
         {t('重试')}
       </Button>

@@ -3,18 +3,18 @@ export default {
   'OpenAI 兼容': 'OpenAI-compatible',
   '该供应商由旧版客户端登记，只能给 {agents} 用':
     'This provider was added by an older client and only works with {agents}',
-  '该机器 Claude 配置目录只能给 Claude Code 用':
-    'A Claude configuration directory only works with Claude Code',
+  '这台电脑的 Claude 配置目录只能给 Claude Code 用':
+    'A Claude configuration directory on this computer only works with Claude Code',
   '该供应商只提供 {have} 接口，{agent} 需要 {need}': 'This provider only offers {have}; {agent} needs {need}',
-  继承机器默认: 'Machine default',
-  '继承机器默认（当前：{name}）': 'Machine default (now {name})',
-  '继承机器默认（{name}）': 'Machine default ({name})',
+  使用电脑默认: 'Computer default',
+  '使用电脑默认（当前：{name}）': 'Computer default (now {name})',
+  '使用电脑默认（{name}）': 'Computer default ({name})',
   '供应商/模型': 'Provider / model',
   '新增供应商…': 'Add provider…',
   '默认「供应商/模型」': 'Default provider / model',
-  '这台机器上 Bot 默认使用它，新会话生效；进行中的会话开启新会话后才切换':
-    'Bots on this machine use it unless they set their own. New sessions pick it up; ongoing ones switch once a new session starts',
-  升级该机器的客户端后可以同时选择模型: "Update the machine's client to pick a model as well",
+  '这台电脑上 Bot 默认使用它，新建会话生效；已有会话需要开新会话后切换':
+    'Bots on this computer use it unless they set their own. New sessions pick it up; ongoing ones switch once a new session starts',
+  升级这台电脑的共工客户端后可同时选择模型: "Update this computer's client to pick a model as well",
   'ACP 适配器': 'ACP adapter',
   共工内置适配器: 'Built into Gonggong',
   '共工内置适配器 {version}': 'Built into Gonggong, {version}',
@@ -25,14 +25,14 @@ export default {
   恢复自动检测: 'Detect automatically',
   'CLI 自带 ACP': 'Built into the CLI',
   可用模型: 'Models',
-  机器上报后可见: 'Shown once the machine reports them',
+  电脑上报后可见: 'Shown once the computer reports them',
   '最低要求 {version}': 'Requires {version} or later',
   '使用它的 Bot': 'Bots using it',
-  '这台机器上还没有 Bot 使用它': 'No bot on this machine uses it yet',
+  '这台电脑上还没有 Bot 使用它': 'No Bot on this computer uses it yet',
   '全部升级（{n}）': 'Update all ({n})',
   '正在升级 {done}/{total}…': 'Updating {done} of {total}…',
-  '这台机器上还没有可用的 Agent，从下面选一个安装':
-    'No agent is available on this machine yet. Install one below',
+  '这台电脑上还没有可用的 Agent，从下面选一个安装':
+    'No Agent is available on this computer yet. Install one below',
   可安装: 'Available to install',
   需自行安装: 'Install it yourself',
   '低于最低要求 {version}': 'Older than {version}',

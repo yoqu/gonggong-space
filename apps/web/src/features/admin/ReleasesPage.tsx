@@ -38,8 +38,8 @@ interface Row {
 
 const KINDS = ['builds', 'cast', 'desktop', 'update', 'signature'] as const
 const KIND_LABEL: Record<ReleaseKind, string> = {
-  builds: 'daemon',
-  cast: 'gg-cast',
+  builds: t('共工客户端'),
+  cast: t('实时画面组件'),
   desktop: t('桌面端'),
   update: t('桌面端更新包'),
   signature: t('桌面端更新签名'),
@@ -181,7 +181,7 @@ export function ReleasesPage() {
     <AdminPage
       title={t('客户端发布')}
       desc={t(
-        '成员机器上的 daemon 连上后自动升级到这里的版本；gg-cast 在首次推送实时画面时按需下载；桌面端安装包与 Linux daemon 供成员在「绑定新机器」中下载；桌面端优先从这里检查更新，未发布签名更新包的平台改查 GitHub。',
+        '成员电脑上的共工客户端连上后会自动升级到这里的版本，实时画面组件会在首次使用时按需下载；桌面端安装包与命令行版供成员在「绑定新电脑」中下载，桌面端优先从这里检查更新，未发布签名包时改查 GitHub。',
       )}
       subtitle={
         release === undefined
@@ -219,7 +219,7 @@ export function ReleasesPage() {
           ) : (
             <Alert
               variant="warning"
-              description={t('未填写版本说明。桌面端和 daemon 升级时不会显示具体更新内容。')}
+              description={t('未填写版本说明。桌面端和命令行客户端升级时不会显示具体更新内容。')}
             />
           )}
         </div>
@@ -246,12 +246,12 @@ export function ReleasesPage() {
             { key: 'id', title: t('标识'), mono: true, secondary: true, width: 150 },
             {
               key: 'builds',
-              title: 'daemon',
+              title: t('共工客户端'),
               render: (r) => <BuildCell build={r.builds} needed={r.machines > 0} />,
             },
             {
               key: 'cast',
-              title: t('gg-cast（实时画面）'),
+              title: t('实时画面组件'),
               render: (r) => <BuildCell build={r.cast} needed={false} />,
             },
             {
@@ -260,7 +260,7 @@ export function ReleasesPage() {
               render: (r) => <BuildCell build={r.desktop} needed={false} />,
             },
             { key: 'update', title: t('桌面端自动更新'), render: (r) => <UpdateCell row={r} /> },
-            { key: 'machines', title: t('机器#count'), width: 72, align: 'right' },
+            { key: 'machines', title: t('电脑#count'), width: 72, align: 'right' },
           ]}
           rowActions={(r) =>
             KINDS.filter((k) => r[k]).map((k) => ({
@@ -281,9 +281,9 @@ export function ReleasesPage() {
           })}
           message={
             {
-              builds: t('该平台的机器将不再自动升级，直到重新上传。'),
-              cast: t('该平台的机器将无法推送实时画面，直到重新上传。'),
-              desktop: t('成员将无法在「绑定新机器」中下载该平台的安装包，直到重新上传。'),
+              builds: t('该平台的电脑将不再自动升级，直到重新上传。'),
+              cast: t('该平台的电脑将无法推送实时画面，直到重新上传。'),
+              desktop: t('成员将无法在「绑定新电脑」中下载该平台的安装包，直到重新上传。'),
               update: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
               signature: t('该平台的桌面端将改从 GitHub 检查更新，直到重新上传。'),
             }[removing.kind]

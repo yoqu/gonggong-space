@@ -250,7 +250,7 @@ describe('team members', () => {
       `/api/teams/${w.teamB}/members/${w.carol.id}`,
     )
     expect(alone.status).toBe(409)
-    expect(alone.body.message).toBe('团队只剩你一人，无法退出；如需清理请联系平台管理员')
+    expect(alone.body.message).toBe('团队只剩你一人，无法退出；如需清理请联系系统管理员')
   })
 })
 

@@ -122,12 +122,12 @@ describe('bind machine dialog', () => {
     expect(within(card).getByText('接入码过期也能接入，届时在这里点一下允许')).toBeTruthy()
     expect(card.textContent).not.toMatch(/后失效/)
     // One line of explanation (the dialog message); what the client reports is folded away.
-    const dialog = screen.getByRole('dialog', { name: '绑定新机器' })
-    expect(dialog.textContent).toContain('它会自己安装 gg、绑定这台机器并建好 Bot')
+    const dialog = screen.getByRole('dialog', { name: '绑定新电脑' })
+    expect(dialog.textContent).toContain('它会自己安装、绑定电脑并建好 Bot')
     expect(card.textContent).not.toContain('支持 macOS 和 Linux')
-    expect(screen.queryByText(/客户端会上报机器名/)).toBeNull()
+    expect(screen.queryByText(/客户端会上报电脑名/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '了解上报内容' }))
-    expect(screen.getByText(/客户端会上报机器名/)).toBeTruthy()
+    expect(screen.getByText(/客户端会上报电脑名/)).toBeTruthy()
     expect(screen.getByText('等待接入…Agent 会自己下载安装，通常 1–3 分钟')).toBeTruthy()
     expect(screen.queryByRole('link', { name: '在客户端中打开' })).toBeNull()
     expect(screen.queryByText(/Windows 上请展开/)).toBeNull()
@@ -147,15 +147,15 @@ describe('bind machine dialog', () => {
       screen.getByText(name, { selector: '.ui-step__label' }).closest('li')?.getAttribute('data-status')
     // ① waits on the user: a highlighted step, not a spinner, until the sentence is copied.
     expect(step('复制给 Agent')).toBe('current')
-    expect(step('机器接入')).toBe('pending')
+    expect(step('电脑接入')).toBe('pending')
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn(async () => {}) } })
     fireEvent.click(screen.getByRole('button', { name: '复制' }))
     await screen.findByRole('button', { name: '已复制' })
     expect(step('复制给 Agent')).toBe('completed')
-    expect(step('机器接入')).toBe('active')
+    expect(step('电脑接入')).toBe('active')
     emit(fresh)
     expect(step('复制给 Agent')).toBe('completed')
-    expect(step('机器接入')).toBe('completed')
+    expect(step('电脑接入')).toBe('completed')
     expect(step('Bot 就绪')).toBe('active')
     act(() =>
       FakeSocket.last.onmessage?.({
@@ -298,19 +298,19 @@ describe('bind machine dialog', () => {
     emit(fresh)
     expect(screen.getByText('绑定成功')).toBeTruthy()
     // 共字君 celebrates instead of a plain notice.
-    const done = within(screen.getByRole('region', { name: '已接入的机器' })).getByRole('img', {
+    const done = within(screen.getByRole('region', { name: '已接入的电脑' })).getByRole('img', {
       name: '共字君',
     })
     expect(done.getAttribute('data-action')).toBe('done')
-    // One way forward: 新建 Bot leads, 稍后 steps back; 查看机器 and 完成 are gone.
+    // One way forward: 新建 Bot leads, 稍后 steps back; 查看电脑 and 完成 are gone.
     expect(screen.getByRole('button', { name: '新建 Bot' }).className).toContain('ui-btn--primary')
     expect(screen.getByRole('button', { name: '稍后' }).className).not.toContain('ui-btn--primary')
     expect(screen.queryByRole('button', { name: '完成' })).toBeNull()
     expect(screen.getByText(/wanglei-mbp/)).toBeTruthy()
     // Bound through the desktop app: its agents come once the client runs.
-    expect(screen.getByText(/等待上报 agent…在机器上打开共工空间客户端/)).toBeTruthy()
-    expect(screen.queryByRole('region', { name: '等待机器上线' })).toBeNull()
-    expect(screen.getByRole('region', { name: '已接入的机器' })).toBeTruthy()
+    expect(screen.getByText(/等待上报 Agent…在电脑上打开共工空间客户端/)).toBeTruthy()
+    expect(screen.queryByRole('region', { name: '等待电脑上线' })).toBeNull()
+    expect(screen.getByRole('region', { name: '已接入的电脑' })).toBeTruthy()
     emit({
       ...fresh,
       online: true,
@@ -352,18 +352,18 @@ describe('bind machine dialog', () => {
     show({ onNewBot: () => {} })
     await screen.findByRole('button', { name: '复制' })
     emit(fresh)
-    expect(screen.getByText('等待机器上线…')).toBeTruthy()
+    expect(screen.getByText('等待电脑上线…')).toBeTruthy()
     expect(screen.queryByText(/打开共工空间客户端/)).toBeNull()
   })
 
-  it('leaves with 稍后 and offers no 查看机器 once online', async () => {
+  it('leaves with 稍后 and offers no 查看电脑 once online', async () => {
     api()
     const onClose = vi.fn()
     show({ onClose, onNewBot: () => {} })
     await openLink()
     emit({ ...fresh, online: true })
-    expect(screen.getByRole('region', { name: '已接入的机器' }).textContent).toContain('机器已上线')
-    expect(screen.queryByRole('button', { name: '查看机器' })).toBeNull()
+    expect(screen.getByRole('region', { name: '已接入的电脑' }).textContent).toContain('电脑已上线')
+    expect(screen.queryByRole('button', { name: '查看电脑' })).toBeNull()
     expect(screen.getAllByRole('button', { name: '新建 Bot' })).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: '稍后' }))
     expect(onClose).toHaveBeenCalled()
@@ -377,7 +377,7 @@ describe('bind machine dialog', () => {
     emit({ ...old, online: false })
     expect(screen.queryByText('绑定成功')).toBeNull()
     emit({ ...old, boundAt: '2026-09-24T08:00:00Z' })
-    expect(screen.getByText('已恢复原有机器')).toBeTruthy()
+    expect(screen.getByText('已恢复原有电脑')).toBeTruthy()
     expect(screen.getByText(/old-box/)).toBeTruthy()
   })
 
@@ -415,9 +415,9 @@ describe('bind machine dialog', () => {
     })
     show()
     const card = await screen.findByRole('region', { name: '发给你的 Agent' })
-    expect(screen.queryByRole('region', { name: '机器接入申请' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '电脑接入申请' })).toBeNull()
     act(() => FakeSocket.last.onmessage?.({ data: JSON.stringify({ t: 'machine.linkRequested', request }) }))
-    const ask = within(card).getByRole('region', { name: '机器接入申请' })
+    const ask = within(card).getByRole('region', { name: '电脑接入申请' })
     expect(ask.textContent).toContain('wanglei-mbp')
     expect(within(ask).getByText('X7QM')).toBeTruthy()
     fireEvent.click(within(ask).getByRole('button', { name: '允许接入' }))

@@ -26,7 +26,7 @@ export default {
   '选中屏幕后在左侧对话里描述修改，不用 @':
     'Select screens, then describe changes in the chat on the left — no @ needed',
   '可以说「点 X 时打开下一屏」，AI 会连好跳转':
-    'Say “tapping X opens the next screen” and the AI wires up the link',
+    'Say "tapping X opens the next screen" and the AI wires up the link',
   '按 ⌘K 搜索所有命令，⇧ 拖动框选多个屏幕':
     'Press ⌘K to search every command; ⇧-drag to select several screens',
   下一条: 'Next',
@@ -35,9 +35,9 @@ export default {
   产物名称: 'Artifact name',
   '下载 .zip': 'Download .zip',
   删除产物: 'Delete artifact',
-  '删除产物「{title}」？': 'Delete “{title}”?',
+  '删除产物「{title}」？': 'Delete "{title}"?',
   '从群里移除，群成员不再看到它': 'It leaves the group; members no longer see it.',
   '文件和版本保留，可以恢复': 'Its files and versions are kept and can be restored',
-  '已创建副本「{title}」': 'Created a copy “{title}”',
+  '已创建副本「{title}」': 'Created a copy "{title}"',
   '复制为 PNG': 'Copy as PNG',
 }

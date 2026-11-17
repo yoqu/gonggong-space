@@ -357,7 +357,7 @@ describe('「供应商/模型」 options', () => {
 
   it('says why a provider does not fit', () => {
     expect(whyNot(openai, 'claude')).toBe('该供应商只提供 OpenAI 兼容 接口，Claude Code 需要 Anthropic 兼容')
-    expect(whyNot(profile, 'deepseek')).toBe('该机器 Claude 配置目录只能给 Claude Code 用')
+    expect(whyNot(profile, 'deepseek')).toBe('这台电脑的 Claude 配置目录只能给 Claude Code 用')
     expect(whyNot(legacy, 'claude')).toBe('该供应商由旧版客户端登记，只能给 DeepSeek Harness 用')
     expect(whyNot(anthropic, 'claude')).toBeNull()
   })
@@ -369,7 +369,7 @@ describe('「供应商/模型」 options', () => {
       models: false,
       inherit: withDefault.machine.claude,
     })
-    expect(labels(o).slice(0, 3)).toEqual(['继承机器默认（当前：KIMI / k2）', '官方登录', 'KIMI'])
+    expect(labels(o).slice(0, 3)).toEqual(['使用电脑默认（当前：KIMI / k2）', '官方登录', 'KIMI'])
   })
 
   it('tells the states apart', () => {

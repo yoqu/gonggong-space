@@ -66,7 +66,7 @@ export async function eraseMessage(ctx: Ctx, m: MessageRow) {
   })
   const voided = await ctx.db
     .update(runs)
-    .set({ status: 'expired', ...runStep('触发消息已撤回，已作废'), endedAt: ctx.now() })
+    .set({ status: 'expired', ...runStep('触发消息已撤回，请求已失效'), endedAt: ctx.now() })
     .where(and(eq(runs.triggerMessageId, m.id), inArray(runs.status, ['queued', 'offline_wait'])))
     .returning()
   for (const run of voided) {

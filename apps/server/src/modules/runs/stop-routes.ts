@@ -94,7 +94,7 @@ export function stopRoutes(ctx: Ctx) {
         return fail('forbidden', '只有触发人或 Bot 主人可以重新运行')
       if (run.hop !== 1) return fail('conflict', '接力运行不能单独重新运行，请到原群消息重新触发')
       if (run.status !== 'interrupted' && run.status !== 'expired')
-        return fail('conflict', '只有失败或作废的运行可以重新运行')
+        return fail('conflict', '只有失败或已失效的运行可以重新运行')
       if (message.recalledAt) return fail('conflict', '原消息已撤回，无法重新运行')
       await rerunFor(ctx, message, [run.botId])
       await audit(ctx, {

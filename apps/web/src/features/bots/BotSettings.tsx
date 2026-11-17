@@ -66,19 +66,16 @@ function warning(bot: BotDto, userName: (id: string) => string, machine: Machine
   if (bot.presence === 'pending_confirm')
     return {
       title: t('等待 {owner} 确认', { owner: bot.ownerName }),
-      desc: t(
-        '{creator} 为{owner}创建并绑定到 {machine}。机器主人在 Web 通知或 Bot 详情中确认后才能被触发。',
-        {
-          creator: userName(bot.createdBy),
-          owner: bot.ownerName,
-          machine: bot.machineName ?? '',
-        },
-      ),
+      desc: t('{creator} 为 {owner} 创建并绑定到 {machine}。电脑主人在通知或 Bot 详情中确认后才能使用。', {
+        creator: userName(bot.createdBy),
+        owner: bot.ownerName,
+        machine: bot.machineName ?? '',
+      }),
     }
   if (bot.presence === 'pending_bind')
     return {
       title: t('待绑定'),
-      desc: t('{owner} 绑定第一台机器并上报 {agent} 后自动绑定，无需再操作；此前不能被触发。', {
+      desc: t('{owner} 绑定第一台电脑并上报 {agent} 后会自动绑定；此前还不能被触发。', {
         owner: bot.ownerName,
         agent,
       }),
@@ -91,7 +88,7 @@ function warning(bot: BotDto, userName: (id: string) => string, machine: Machine
   if (bot.presence === 'agent_missing')
     return {
       title: t('{agent} 未安装', { agent }),
-      desc: t('{machine} 未上报 {agent}。在该机器安装并重新检测后自动可用。', {
+      desc: t('{machine} 未上报 {agent}。在这台电脑安装并重新检测后自动可用。', {
         machine: bot.machineName ?? '',
         agent,
       }),
@@ -356,7 +353,7 @@ export function BotDetail({
 
   const run = (
     <Form>
-      <FormRow label={t('执行机器')}>
+      <FormRow label={t('运行电脑')}>
         <span className="bots-detail__mono">
           <MachineLink id={bot.machineId} name={bot.machineName} />
         </span>
@@ -503,7 +500,10 @@ export function BotDetail({
 
   const advanced = (
     <Form>
-      <FormRow label={t('并发上限')} hint={canEdit ? t('同时运行的轮次，超出的在该机器排队') : undefined}>
+      <FormRow
+        label={t('并发上限')}
+        hint={canEdit ? t('同时执行的任务上限，超出的在这台电脑排队') : undefined}
+      >
         {canEdit ? (
           <Stepper
             live

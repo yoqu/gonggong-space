@@ -48,7 +48,7 @@ it('titles a run detail after the run instead of the overview', async () => {
   fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
   expect(await within(toolbar()).findByRole('heading', { name: '小王的 Claude' })).toBeTruthy()
   expect(within(toolbar()).getByText('官网改版 · 王磊 触发')).toBeTruthy()
-  expect(toolbar().textContent).not.toContain('本机执行端状态与正在运行的轮次')
+  expect(toolbar().textContent).not.toContain('这台电脑的连接状态与正在运行的任务')
   fireEvent.click(screen.getByRole('button', { name: '返回' }))
   expect(within(toolbar()).getByRole('heading', { name: '概览' })).toBeTruthy()
 })

@@ -23,7 +23,7 @@ export const PILL: Record<ConnKind, { text: string; color: string }> = {
   connecting: { text: t('连接中'), color: ORANGE },
   offline: { text: t('重连中'), color: ORANGE },
   proto: { text: t('协议不兼容'), color: RED },
-  revoked: { text: t('token 已吊销'), color: RED },
+  revoked: { text: t('已解绑'), color: RED },
   blocked: { text: t('未运行'), color: RED },
   unbound: { text: t('未绑定'), color: GRAY },
 }
@@ -33,7 +33,7 @@ export const CONN_STAT: Record<ConnKind, string> = {
   connecting: t('连接中'),
   offline: t('重连中'),
   proto: t('已拒绝'),
-  revoked: t('已吊销'),
+  revoked: t('已解绑'),
   blocked: t('未运行'),
   unbound: t('未绑定'),
 }

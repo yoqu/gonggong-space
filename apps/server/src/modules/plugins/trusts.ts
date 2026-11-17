@@ -14,9 +14,9 @@ async function ownMachine(ctx: Ctx, userId: string, id: string) {
   const [m] = await ctx.db
     .select()
     .from(machines)
-    .where(and(eq(machines.id, idParam(id, '机器不存在')), isNull(machines.revokedAt)))
-  if (!m) return fail('not_found', '机器不存在')
-  if (m.ownerId !== userId) return fail('forbidden', '只有机器主人能授权插件在这台机器上运行')
+    .where(and(eq(machines.id, idParam(id, '电脑不存在')), isNull(machines.revokedAt)))
+  if (!m) return fail('not_found', '电脑不存在')
+  if (m.ownerId !== userId) return fail('forbidden', '只有电脑主人能授权插件在这台电脑上运行')
   return m
 }
 

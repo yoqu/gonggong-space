@@ -51,14 +51,15 @@ export default {
   '请填写{label}': 'Fill in {label}',
   '请选择交给哪个 Bot': 'Choose a bot',
   '{bot} 不支持（仅 {agents}）': '{bot} is not supported ({agents} only)',
-  '机器版本过低，需升级到 {min} 才能使用插件': 'Machine version too old; upgrade to {min} to use plugins',
+  '共工客户端版本过低，需升级到 {min} 才能使用插件':
+    'Gonggong client is too old; upgrade to {min} to use plugins',
   '缺少密钥 {names}，请在群设置「密钥」里填写':
     'Missing secrets {names}; fill them in under group settings > Secrets',
   不支持: 'Unsupported',
   需升级: 'Upgrade needed',
   缺密钥: 'Missing secrets',
   插件代码未开启: 'Plugin code is turned off',
-  等待机器主人授权运行: "Waiting for the machine owner's permission to run",
+  等待电脑主人授权运行: "Waiting for the computer owner's permission to run",
   待授权: 'Awaiting permission',
   未开启: 'Off',
   运行代码: 'Run code',
@@ -75,7 +76,7 @@ export default {
   这个插件已在本群停用: 'This plugin is turned off in this group',
   '支持：{agents}': 'Works with: {agents}',
   '需要密钥：{names}': 'Secrets: {names}',
-  '最低机器版本 {v}': 'Daemon {v} or later',
+  '最低客户端版本 {v}': 'Client {v} or later',
   上传文件夹: 'Upload folder',
   '上传文件夹…': 'Upload folder…',
   '上传 zip': 'Upload zip',
@@ -92,13 +93,13 @@ export default {
   '上传到本群的插件只对本群生效；与团队层、平台层同名时以群层为准。':
     'Plugins uploaded here apply to this group only and replace same-named team or platform plugins.',
   'Bot 可用性': 'Bot availability',
-  '插件下发前会检查每个 Bot 的机器版本和 Agent 种类，不满足的不下发，并在这里和创作面板里写明原因。':
-    "Before sending plugins, each bot's machine version and agent are checked; bots that don't qualify get none, with the reason shown here and in the Create panel.",
+  '插件下发前会检查每个 Bot 的客户端版本和 Agent 种类，不满足的不下发，并在这里和创作面板里写明原因。':
+    "Before sending plugins, each Bot's client version and Agent are checked; Bots that don't qualify get none, with the reason shown here and in the Create panel.",
   '可使用 {n} 个插件': 'Can use {n} {n:plugin|plugins}',
   '对本团队所有群可见，群管理员在群设置中启用；与平台层同名时以团队层为准。':
     'Visible to all groups of this team; group admins enable them in group settings. Replaces same-named platform plugins.',
-  '开启后，群管理员可在群设置里启用插件，群成员通过输入框的「创作」使用。关闭后不显示任何插件入口，也不向机器下发插件；已上传的插件保留。':
-    'When on, group admins can enable plugins in group settings and members use them via Create in the composer. When off, no plugin entry is shown and nothing is sent to machines; uploaded plugins are kept.',
+  '开启后，群管理员可在群设置里启用插件，成员可在输入框通过「创作」使用。关闭后隐藏所有插件入口且不再下发给电脑，已上传的插件会保留。':
+    'When on, group admins can enable plugins in group settings and members use them via Create in the composer. When off, hide all plugin entries and stop sending plugins to computers; uploaded plugins are kept.',
   已开启插件: 'Plugins turned on',
   平台插件: 'Platform plugins',
   '内置插件随服务端自动安装；也可以上传自己的插件，对所有团队可见。':
@@ -106,8 +107,8 @@ export default {
   管理插件: 'Manage plugins',
   已关闭插件: 'Plugins turned off',
   插件代码: 'Plugin code',
-  '允许插件在执行机器上运行代码，如本地 MCP 服务。开启后每个插件版本仍需机器主人在自己的机器上逐个授权。':
-    "Lets plugins run code on the executing machine, such as local MCP servers. Each plugin version still needs the machine owner's permission on their machine.",
+  '允许插件在电脑上运行代码（如本地 MCP 服务）。开启后，每次运行新版本仍需电脑主人在自己的电脑上授权。':
+    "Lets plugins run code on computers (such as local MCP servers). Each new version still needs the computer owner's permission on their computer.",
   已开启插件代码: 'Plugin code turned on',
   已关闭插件代码: 'Plugin code turned off',
   倾向: 'Lean',
@@ -152,7 +153,7 @@ export default {
   '想做个什么样的产品？': 'What shall we design?',
   '把 DESIGN.md 的内容粘贴到这里…': 'Paste a DESIGN.md here…',
   '拖入 DESIGN.md 文件': 'Drop a DESIGN.md file',
-  本群导入: 'Imported in this group',
+  本群导入: 'Imported to this group',
   '湖畔露营地预约：选营位和日期、确认订单、入园码':
     'Lakeside campsite booking: pick a pitch and dates, confirm, entry code',
   '示例：{text}': 'Example: {text}',

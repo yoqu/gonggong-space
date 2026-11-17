@@ -100,7 +100,7 @@ export function RunConfigChip({
         className="run-config__chip"
         aria-label={name}
         title={
-          !editable ? READ_ONLY : !live ? t('正在读取可选模型…') : (live.error ?? t('机器尚未上报可选模型'))
+          !editable ? READ_ONLY : !live ? t('正在读取可选模型…') : (live.error ?? t('电脑尚未上报可选模型'))
         }
         disabled
         items={[]}
@@ -130,7 +130,7 @@ export function RunConfigChip({
       checked: (model ?? '') === o.value,
     })),
     ...(!available
-      ? [{ label: live.error ?? t('机器尚未上报可选模型'), value: 'unavailable', disabled: true }]
+      ? [{ label: live.error ?? t('电脑尚未上报可选模型'), value: 'unavailable', disabled: true }]
       : []),
     { label: t('刷新模型'), value: 'refresh', disabled: live.refresh.busy },
     ...(efforts.length

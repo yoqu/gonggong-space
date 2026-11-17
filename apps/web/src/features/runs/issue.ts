@@ -17,9 +17,9 @@ const AGENT_ERROR = 'agent 异常：{error}'
 export function agentErrorIssue(detail: string): RunIssue {
   return {
     tone: 'error',
-    title: t('运行失败：agent 异常'),
+    title: t('运行失败：Agent 异常'),
     detail: detail || t('未知错误'),
-    hint: t('看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在机器上 agent 的登录、额度与网络。'),
+    hint: t('看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在电脑上 Agent 的登录、额度与网络。'),
   }
 }
 
@@ -49,18 +49,18 @@ export function runIssue(run: RunDto): RunIssue | null {
     case 'expired':
       return {
         tone: 'error',
-        title: t('运行已作废'),
+        title: t('运行已失效'),
         detail: detail || t('未记录原因'),
-        hint: t('确认 Bot 所在机器在线、daemon 正在运行后重新 @ Bot。'),
+        hint: t('确认 Bot 所在电脑在线、共工客户端正在运行后重新 @ Bot。'),
       }
     case 'forbidden':
-      return { tone: 'error', title: t('未获准运行'), detail }
+      return { tone: 'error', title: t('没有运行权限'), detail }
     case 'offline_wait':
       return {
         tone: 'info',
         title: t('等待 Bot 上线'),
         detail,
-        hint: t('Bot 所在机器离线；超过 {n} 分钟仍未上线本轮作废。', { n: run.offlineWaitMin }),
+        hint: t('Bot 所在电脑离线；超过 {n} 分钟仍未上线本次请求将失效。', { n: run.offlineWaitMin }),
       }
     case 'queued':
       return { tone: 'info', title: t('排队中'), detail: detail || t('等待开始') }

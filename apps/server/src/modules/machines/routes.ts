@@ -148,7 +148,7 @@ export function machineRoutes(ctx: Ctx) {
           .returning()
         if (!row) return fail('unauthorized', '接入链接无效，请核对后重试')
         if (row.failedAttempts > CODE_MAX_FAILURES)
-          return fail('code_locked', '接入链接已作废，请在 Web 端重新生成')
+          return fail('code_locked', '接入链接已失效，请在 Web 端重新生成')
         return fail(
           'code_expired',
           row.usedAt ? '接入链接已被使用，请在 Web 端重新生成' : '接入链接已过期，请在 Web 端重新生成',
@@ -170,7 +170,7 @@ export function machineRoutes(ctx: Ctx) {
     app.get('/api/machines', async (req): Promise<MachineDto[]> => {
       const user = await requireUser(ctx, req)
       const { all } = z.object({ all: z.literal('1').optional() }).parse(req.query)
-      if (all && user.role !== 'sysadmin') return fail('forbidden', '仅系统管理员可查看全部机器')
+      if (all && user.role !== 'sysadmin') return fail('forbidden', '仅系统管理员可查看全部电脑')
       const rows = await ctx.db
         .select()
         .from(machines)
@@ -181,14 +181,14 @@ export function machineRoutes(ctx: Ctx) {
 
     app.patch<{ Params: { id: string } }>('/api/machines/:id', async (req): Promise<MachineDto> => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '机器不存在')
+      const id = idParam(req.params.id, '电脑不存在')
       const { name } = UpdateMachineReq.parse(req.body)
       const [m] = await ctx.db
         .select()
         .from(machines)
         .where(and(eq(machines.id, id), isNull(machines.revokedAt)))
-      if (!m) return fail('not_found', '机器不存在')
-      if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能修改自己的机器')
+      if (!m) return fail('not_found', '电脑不存在')
+      if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能修改自己的电脑')
       const label = name || null
       await ctx.db.update(machines).set({ label }).where(eq(machines.id, id))
       const dto = machineDto(ctx, { ...m, label })
@@ -198,19 +198,19 @@ export function machineRoutes(ctx: Ctx) {
 
     app.delete<{ Params: { id: string } }>('/api/machines/:id', async (req, reply) => {
       const user = await requireUser(ctx, req)
-      const id = idParam(req.params.id, '机器不存在')
+      const id = idParam(req.params.id, '电脑不存在')
       const [m] = await ctx.db
         .select()
         .from(machines)
         .where(and(eq(machines.id, id), isNull(machines.revokedAt)))
-      if (!m) return fail('not_found', '机器不存在')
-      if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能吊销自己的机器')
+      if (!m) return fail('not_found', '电脑不存在')
+      if (m.ownerId !== user.id && user.role !== 'sysadmin') return fail('forbidden', '只能解绑自己的电脑')
       await assertNotDemo(ctx, user)
       const [{ n } = { n: 0 }] = await ctx.db
         .select({ n: count() })
         .from(bots)
         .where(and(eq(bots.machineId, id), isNull(bots.deletedAt)))
-      if (n) return fail('conflict', '还有 {n} 个 Bot 绑定在这台机器上，请先删除', { n })
+      if (n) return fail('conflict', '还有 {n} 个 Bot 绑定在这台电脑上，请先删除', { n })
       await ctx.db.update(machines).set({ revokedAt: ctx.now() }).where(eq(machines.id, id))
       ctx.hub.kick(id, CLOSE.revoked, 'revoked')
       ctx.bus.publish([m.ownerId], { t: 'machine.removed', machineId: id })

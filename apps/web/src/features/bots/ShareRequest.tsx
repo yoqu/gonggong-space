@@ -141,7 +141,7 @@ export function ShareRequestList({ bot, onChange }: { bot: BotDto; onChange?: ()
     }
   }
   return (
-    <ul className="bot-shares" aria-label={t('共享申请')}>
+    <ul className="bot-shares" aria-label={t('共享申请#list')}>
       {data.map((r) => (
         <li key={r.id} className="bot-shares__row">
           <span className="share-req__who">

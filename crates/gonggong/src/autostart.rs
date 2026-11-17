@@ -261,10 +261,10 @@ fn held(spec: &Spec, service_running: bool) -> Option<String> {
     match Lock::acquire(&spec.home) {
         Err(LockError::Held { pid }) => Some(match pid {
             Some(pid) => {
-                t!("本机已有 daemon 在运行（pid {pid}），服务会在它退出后接管；要立即切换，请先停掉它", pid = pid)
+                t!("这台电脑已有共工客户端在运行（pid {pid}），服务会在它退出后接管；要立即切换，请先停掉它", pid = pid)
                     .into()
             }
-            None => t!("本机已有 daemon 在运行，服务会在它退出后接管；要立即切换，请先停掉它").into(),
+            None => t!("这台电脑已有共工客户端在运行，服务会在它退出后接管；要立即切换，请先停掉它").into(),
         }),
         _ => None,
     }

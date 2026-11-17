@@ -113,7 +113,7 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
         {installed.length ? (
           <GroupBox>{installed.map(row)}</GroupBox>
         ) : (
-          <p className="mx-sub ag-empty">{t('这台机器上还没有可用的 Agent，从下面选一个安装')}</p>
+          <p className="mx-sub ag-empty">{t('这台电脑上还没有可用的 Agent，从下面选一个安装')}</p>
         )}
       </section>
       {view && has('providers') ? (

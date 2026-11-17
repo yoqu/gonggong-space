@@ -33,7 +33,7 @@ import { ROLE_LABEL } from '../auth/AccountMenu'
 import { AdminPage, countLine } from './AdminPage'
 
 const TITLE = t('账号与角色')
-const DESC = t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有机器与登录。')
+const DESC = t('创建账号、分配角色、重置密码；停用会立即断开该成员的所有电脑与登录。')
 const ROLE_OPTIONS = (['member', 'sysadmin'] as const).map((value) => ({ value, label: ROLE_LABEL[value] }))
 
 function Status({ user }: { user: AdminUserDto }) {
@@ -106,7 +106,7 @@ export function UsersPage() {
   async function enable(u: AdminUserDto) {
     try {
       await api.post(`/admin/users/${u.id}/enable`)
-      toast({ type: 'success', message: t('已启用 {name}，需重新绑定机器', { name: u.name }) })
+      toast({ type: 'success', message: t('已启用 {name}，需重新绑定电脑', { name: u.name }) })
       void load()
     } catch (err) {
       toastError(err)
@@ -200,7 +200,7 @@ export function UsersPage() {
             },
             {
               key: 'machines',
-              title: t('机器#count'),
+              title: t('电脑#count'),
               width: 120,
               secondary: true,
               sortable: true,
@@ -287,11 +287,11 @@ function DisableDialog({
   return (
     <ConfirmActionDialog
       title={t('要停用账号 {name} 吗？', { name: user.name })}
-      message={t('可以随时重新启用，但需要重新绑定机器。')}
+      message={t('可以随时重新启用，但需要重新绑定电脑。')}
       consequences={[
-        t('立即吊销其所有 daemon token 和 Web 会话'),
-        t('daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）'),
-        t('其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理'),
+        t('立即断开其所有电脑客户端并退出网页登录'),
+        t('共工客户端重连时会清理团队密钥和托管工作区（/cd 目录保留）'),
+        t('其 Bot 从所有群移除；运行中的任务会直接中断'),
         t('群消息与审计记录保留'),
       ]}
       label={t('停用')}
@@ -338,7 +338,7 @@ function ResetPasswordDialog({
     <Dialog
       open
       title={t('重置 {name} 的密码', { name: user.name })}
-      message={t('对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的机器与 Bot 不受影响。')}
+      message={t('对方所有网页登录立即失效，需用临时密码重新登录并马上修改；已绑定的电脑与 Bot 不受影响。')}
       onClose={onClose}
       closeOnBackdrop={false}
       width={480}

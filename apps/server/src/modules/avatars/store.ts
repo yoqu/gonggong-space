@@ -23,7 +23,7 @@ export const LOCAL = 'avatars/'
 /** Stores the request's multipart `file` as `avatars/<uuid>.<ext>` and returns that key. */
 export async function receiveAvatar(ctx: Ctx, req: FastifyRequest, user: SessionUser) {
   const part = await req.file({ limits: { fileSize: AVATAR_MAX_BYTES, files: 1 } })
-  if (!part) return fail('invalid', '缺少文件')
+  if (!part) return fail('invalid', '请先选择要上传的文件')
   const ext = EXT[part.mimetype as keyof typeof EXT]
   try {
     await assertNotDemo(ctx, user)

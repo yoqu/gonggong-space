@@ -186,14 +186,14 @@ describe('preview card', () => {
       'POST /previews/p1/start': apiError(
         409,
         'conflict',
-        '本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动',
+        '这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动',
       ),
     })
     const { unmount } = render(<PreviewCard previewId="p1" groupId="g1" botId="b1" fallback="预览：登录页" />)
     fireEvent.click(await screen.findByRole('button', { name: '重新开放' }))
     await waitFor(() =>
       expect(useToasts.getState().items).toMatchObject([
-        { type: 'error', message: '本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动' },
+        { type: 'error', message: '这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动' },
       ]),
     )
     expect(calls.some((c) => c.path === '/previews/p1/start')).toBe(true)

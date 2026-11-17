@@ -2,7 +2,7 @@ import type { AdminGroupDto } from '@gonggong/protocol'
 import { and, count, desc, eq, inArray, isNull, type SQL } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groupBots, groupMembers, groupRepos, groups, teams, users } from '../../db/schema.js'
-import { groupTitle } from '../groups/title.js'
+import { groupTitle, translateGroupTitle } from '../groups/title.js'
 
 /** Rows of 管理后台 · 群 and 团队设置 · 群 matching `where`, archived ones included, newest first. */
 export async function adminGroupDtos(ctx: Ctx, where?: SQL): Promise<AdminGroupDto[]> {
@@ -34,7 +34,7 @@ export async function adminGroupDtos(ctx: Ctx, where?: SQL): Promise<AdminGroupD
   const n = (list: { groupId: string; n: number }[], id: string) => list.find((x) => x.groupId === id)?.n ?? 0
   return rows.map(({ g, title, owner, teamName }) => ({
     id: g.id,
-    name: title,
+    name: translateGroupTitle(title),
     ownerName: owner,
     kind: g.kind as AdminGroupDto['kind'],
     mode: g.mode as AdminGroupDto['mode'],

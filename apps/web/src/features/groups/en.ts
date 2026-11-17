@@ -19,8 +19,8 @@ export default {
   退出群: 'Leave group',
   '你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。':
     'You are the only group admin. Appoint another group admin under "Members" before leaving.',
-  '退出后你的 Bot 一并移出本群；运行中的轮次按非主动中断处理。再次点击确认。':
-    'Your Bots leave the group with you; running turns are treated as interrupted. Click again to confirm.',
+  '退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。再次点击确认。':
+    'Your Bots leave the group with you, and running tasks will be interrupted. Click again to confirm.',
   确认删除: 'Confirm delete',
   删除私聊: 'Delete chat',
   确认解散: 'Confirm dissolve',
@@ -63,11 +63,11 @@ export default {
   '未带入 Bot': 'No Bots brought',
   取消管理员: 'Remove admin',
   设为管理员: 'Make admin',
-  '移出成员时，其 Bot 一并移出；运行中的 Bot 按非主动中断处理。':
-    'Removing a member also removes their Bots; a running Bot is treated as interrupted.',
+  '移出成员时，其 Bot 会一并移出，运行中的任务会直接中断。':
+    'Removing a member also removes their Bots, and running tasks will be interrupted.',
   '移出成员 {name}': 'Remove member {name}',
-  '其 Bot 一并移出本群；运行中的 Bot 按非主动中断处理。':
-    'Their Bots leave the group too; a running Bot is treated as interrupted.',
+  '其 Bot 会一并移出本群，运行中的任务会直接中断。':
+    'Their Bots leave the group too, and running tasks will be interrupted.',
   '{n} 个 · 在线 {online}': '{n} · {online} online',
   '拉入 Bot': 'Add Bot',
   ' · 主人将一并加入': ' · owner joins too',
@@ -77,8 +77,8 @@ export default {
   '触发 {scope}': 'Trigger {scope}',
   全局设置: 'Global settings',
   '移出 Bot {name}': 'Remove Bot {name}',
-  '移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。':
-    'Its workspace is kept for the owner to delete or keep; a running turn is treated as interrupted.',
+  '移出后保留其工作区，由主人决定是否删除；运行中的任务会直接中断。':
+    'Its workspace is kept for its owner to delete or keep; running tasks will be interrupted.',
   编辑公告: 'Edit notice',
   发布公告: 'Post notice',
   群公告加载失败: 'Failed to load notices',
@@ -102,7 +102,7 @@ export default {
   '先写结论、口语化，不贴表名、代码和 SQL，依据放在末尾':
     'Conclusion first, in plain words; no table names, code or SQL; the basis goes at the end',
   'Bot 在功能分支上提交，推送到基准分支需要 Bot 主人审批':
-    'Bots commit on feature branches; pushing to the base branch needs the Bot owner’s approval',
+    "Bots commit on feature branches; pushing to the base branch needs the Bot owner's approval",
   名称已保存: 'Name saved',
   '群公告 · 置顶展示在对话顶部': 'Group notice · pinned atop the chat',
   '如：每个 Bot 独立分支，走 PR；退款 v1 下周一下线':
@@ -147,7 +147,7 @@ export default {
   '选择工作区…': 'Choose workspace…',
   '；': '; ',
   '本群审批方式默认跟随 Bot 全局设置，运行中的轮次立即生效；本群为「完全允许」时仅指定名单可触发。':
-    "Approval in this group follows the Bot's global setting by default and applies to running turns at once; at “Allow everything” only the listed people can trigger it.",
+    'Approval in this group follows the Bot\'s global setting by default and applies to running turns at once; at "Allow everything" only the listed people can trigger it.',
   公开频道: 'Public channel',
   私有群: 'Private group',
   显示: 'Show',
@@ -179,12 +179,11 @@ export default {
   申请加入: 'Ask to join',
   新建团队分区: 'New team section',
   新建子分区: 'New subsection',
-  '放在「{name}」下': 'Inside “{name}”',
+  '放在「{name}」下': 'Inside "{name}"',
   重命名团队分区: 'Rename team section',
   '团队所有成员都能看到；群管理员可把自己的群归入其中':
     'Everyone in the team sees it; group admins can file their groups under it',
   团队分区: 'Team section',
-  入群申请: 'Join requests',
   '入群申请 · {n}': 'Join requests · {n}',
   不归入: 'None',
   '仅@': 'Mentions only',

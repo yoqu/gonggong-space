@@ -65,7 +65,7 @@ export function AccessResult({ result }: { result: BotProbeDto }) {
 export function checkSummary(d: RepoDraft) {
   const c = settled(d)
   if (!c) return null
-  if (!c.results.length) return t('没有可检查的 Bot · 进群后由各 Bot 的机器验证')
+  if (!c.results.length) return t('没有可检查的 Bot · 进群后由各 Bot 的电脑验证')
   const count = (f: (r: BotProbeDto) => boolean) => c.results.filter(f).length
   const ok = count((r) => r.ok)
   const paused = repoUnavailable(d)

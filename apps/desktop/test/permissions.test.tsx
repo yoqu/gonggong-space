@@ -90,12 +90,12 @@ describe('app', () => {
     const first = render(<App />)
     await screen.findByText('授予系统权限')
     fireEvent.click(screen.getByRole('button', { name: '稍后' }))
-    await screen.findByText('本机执行端状态与正在运行的轮次')
+    await screen.findByText('这台电脑的连接状态与正在运行的任务')
     first.unmount()
 
     usePermissions.setState({ list: [], guide: false })
     render(<App />)
-    await screen.findByText('本机执行端状态与正在运行的轮次')
+    await screen.findByText('这台电脑的连接状态与正在运行的任务')
     expect(screen.queryByText('授予系统权限')).toBeNull()
   })
 
@@ -103,7 +103,7 @@ describe('app', () => {
     m.appInfo.mockResolvedValue(INFO)
     m.permissions.mockResolvedValue([])
     render(<App />)
-    await screen.findByText('本机执行端状态与正在运行的轮次')
+    await screen.findByText('这台电脑的连接状态与正在运行的任务')
     expect(screen.queryByText('授予系统权限')).toBeNull()
   })
 

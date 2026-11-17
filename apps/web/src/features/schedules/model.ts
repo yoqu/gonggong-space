@@ -11,7 +11,7 @@ const RESULT: Partial<Record<NonNullable<ScheduleDto['lastStatus']>, string>> = 
   completed: t('完成'),
   interrupted: t('中断'),
   forbidden: t('无权触发'),
-  expired: t('离线作废'),
+  expired: t('离线已失效'),
 }
 
 /** 下次… while on; why it is off otherwise. */
@@ -30,7 +30,7 @@ export const lastText = (s: ScheduleDto, botName: (id: string) => string) =>
     ? t('最近 {at} · {bot} {result}', {
         at: at(s.lastFiredAt, s),
         bot: s.lastBotId ? botName(s.lastBotId) : '',
-        result: s.lastStatus ? (RESULT[s.lastStatus] ?? '') : t('跳过'),
+        result: s.lastStatus ? (RESULT[s.lastStatus] ?? '') : t('跳过#schedule'),
       })
     : null
 

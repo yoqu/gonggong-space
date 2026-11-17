@@ -55,7 +55,7 @@ describe('/link/:id', () => {
       'POST /link-requests/r1/approve': req({ status: 'approved' }),
     })
     show()
-    const card = await screen.findByRole('region', { name: '机器接入申请' })
+    const card = await screen.findByRole('region', { name: '电脑接入申请' })
     expect(card.textContent).toContain('lixiao-MacBook-Pro')
     expect(card.textContent).toContain('macOS · aarch64')
     expect(card.textContent).toContain('Claude Code')
@@ -82,7 +82,7 @@ describe('/link/:id', () => {
     })
     show()
     fireEvent.click(await screen.findByRole('button', { name: '允许接入' }))
-    fireEvent.click(await screen.findByRole('link', { name: '查看我的机器' }))
+    fireEvent.click(await screen.findByRole('link', { name: '查看我的电脑' }))
     expect(await screen.findByText('machines page')).toBeTruthy()
   })
 
@@ -133,7 +133,7 @@ describe('/link/:id', () => {
     expect(screen.getByText(/接入申请不存在/).textContent).toContain(
       '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。',
     )
-    fireEvent.click(screen.getByRole('button', { name: '查看我的机器' }))
+    fireEvent.click(screen.getByRole('button', { name: '查看我的电脑' }))
     expect(await screen.findByText('machines page')).toBeTruthy()
   })
 })

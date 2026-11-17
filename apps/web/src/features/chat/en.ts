@@ -9,7 +9,7 @@ export default {
   '还有 {n} 条回复': '{n} more {n:reply|replies}',
   本群话题: 'Threads of this group',
   还没有话题: 'No threads yet',
-  '在任意消息上选择「回复话题」即可开始': 'Pick “Reply in thread” on any message to start one',
+  '在任意消息上选择「回复话题」即可开始': 'Pick "Reply in thread" on any message to start one',
   还没有关注的话题: 'No followed threads yet',
   '在消息上点「回复话题」，或在话题里被 @，就会出现在这里。':
     'Reply in a thread on any message, or get @-ed in one, and it shows up here.',
@@ -82,9 +82,9 @@ export default {
   上下文占用: 'Context usage',
   上下文: 'Context',
   '已关闭自动压缩，用到 {n} 时 Agent 会停下，需要手动压缩或开新对话。':
-    'Auto-compaction is off: the agent stops at {n} until you compact or start a new conversation. ',
-  '即将停下。': 'About to stop. ',
-  '即将用满。': 'Almost full. ',
+    'Auto-compaction is off: the Agent stops at {n} until you compact or start a new conversation.',
+  '即将停下。': 'About to stop.',
+  '即将用满。': 'Almost full.',
   '压缩时保留的重点（可选）': 'What to keep when compacting (optional)',
   '压缩会把此前的对话总结后保留；开新对话则不再带上此前的对话。':
     'Compacting keeps a summary of the conversation so far; a new conversation leaves it behind.',
@@ -97,7 +97,7 @@ export default {
   '落后 {n} 个提交': '{n} {n:commit|commits} behind',
   '领先 {n} 个提交': '{n} {n:commit|commits} ahead',
   更多工作区: 'More workspaces',
-  '展开其余 {n} 个 Bot 的工作区': 'Show the other {n} {n:Bot|Bots}’ workspaces',
+  '展开其余 {n} 个 Bot 的工作区': "Show the other {n} {n:Bot|Bots}' workspaces",
   收起更多工作区: 'Hide other workspaces',
   '查看 {name} 的改动': "View {name}'s changes",
   改动: 'Changes',
@@ -151,7 +151,7 @@ export default {
   '只有 Bot 主人或群管理员可以切换': 'Only the Bot owner or a group admin can change this',
   '{name} 的模型与推理强度': "{name}'s model and reasoning effort",
   '正在读取可选模型…': 'Loading available models…',
-  机器尚未上报可选模型: "The machine hasn't reported its models yet",
+  电脑尚未上报可选模型: "The computer hasn't reported its models yet",
   模型: 'Model',
   推理强度: 'Reasoning effort',
   设为本群默认: 'Set as group default',
@@ -162,7 +162,6 @@ export default {
   离线等待: 'Waiting for machine',
   无权触发: 'Not allowed',
   运行中: 'Running',
-  任务: 'Tasks',
   '待我处理 {n}': '{n} for me',
   '{kind}：{text}（{name}）': '{kind}: {text} ({name})',
   '{name} 的任务': 'Tasks of {name}',
@@ -219,12 +218,12 @@ export default {
   展开: 'Expand',
   网络或证书问题: 'network or certificate problem',
   连接超时: 'connection timed out',
-  '正在让 {name} 的机器重新 clone…': "Asking {name}'s machine to clone again…",
-  '{name} 已暂停：所在机器无法访问仓库（{why}），在这台机器的「Git 访问」里配置后重新检查':
-    "{name} is paused: its machine can't reach the repo ({why}). Set it up in that machine's Git access, then recheck",
+  '正在让 {name} 的电脑重新克隆…': "Asking {name}'s computer to clone again…",
+  '{name} 已暂停：所在电脑连不上仓库（{why}），在这台电脑的「Git 访问」里配置后重新检查':
+    "{name} is paused: its computer can't reach the repo ({why}). Set it up under Git access on this computer, then recheck",
   去配置: 'Set up',
-  '{name} 已暂停：所在机器无法访问仓库（{why}），等待 {owner} 处理':
-    "{name} is paused: its machine can't reach the repo ({why}). Waiting for {owner}",
+  '{name} 已暂停：所在电脑连不上仓库（{why}），等待 {owner} 处理':
+    "{name} is paused: its computer can't reach the repo ({why}). Waiting for {owner}",
   重新检查: 'Recheck',
   隐藏: 'Hide',
   '{n} 个 Bot 还没有选工作区，@ 它们时会先用托管目录':
@@ -248,8 +247,8 @@ export default {
     'Group created, but the Feishu chat could not be: {reason}. Retry in Group settings › Feishu',
   仓库: 'Repository',
   未绑定仓库: 'No repository',
-  机器: 'Machine',
-  未绑定机器: 'No machine',
+  电脑: 'Computer',
+  未绑定电脑: 'No computer',
   '目录#one': 'Folder',
   复制目录: 'Copy folder path',
   已复制目录: 'Folder path copied',
@@ -260,7 +259,7 @@ export default {
   附加目录: 'Extra directories',
   分支到新聊天: 'Branch to new chat',
   '还剩 {n} 自动压缩': 'Auto-compacts in {n}',
-  '还剩 {n} 自动压缩。': 'Auto-compacts in {n}. ',
+  '还剩 {n} 自动压缩。': 'Auto-compacts in {n}.',
   '审查改动：新增 {add} 行，删除 {del} 行': 'Review changes: {add} added, {del} deleted lines',
   审查未提交的改动: 'Review uncommitted changes',
   '在 Git 面板中审查': 'Review in the Git panel',
@@ -298,10 +297,10 @@ export default {
   创建群: 'Create group',
   '将创建与它的私聊，之后不能再加人': 'This starts a direct chat with it; no one else can be added later',
   '{name} 离线，消息会等上线后处理': '{name} is offline; messages will be handled once it is back',
-  '{name} 离线，消息会等上线后处理，超过 {n} 分钟作废':
-    '{name} is offline; messages will be handled once it is back, or dropped after {n} min',
-  '{name} 所在机器缺少 agent，暂时无法响应':
-    "{name}'s machine is missing its agent; it can't respond for now",
+  '{name} 离线，消息会等上线后处理，超过 {n} 分钟自动失效':
+    '{name} is offline; messages will be handled once it is back, or expire after {n} min',
+  '{name} 所在电脑缺少 Agent，暂时无法响应':
+    "{name}'s computer is missing its Agent; it can't respond for now",
   '{name} 还不可触发': "{name} can't be triggered yet",
   '；': '; ',
 } satisfies Record<string, string>

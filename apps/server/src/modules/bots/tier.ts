@@ -21,7 +21,7 @@ export async function runTier(db: Pick<Db, 'select'>, tier: Tier): Promise<Tier>
 
 export async function assertTierAllowed(ctx: Ctx, tier: Tier | null | undefined) {
   if (tier === 'full' && (await sysParams(ctx.db)).demoMode)
-    fail('forbidden', '演示模式下不能使用完全访问档位')
+    fail('forbidden', '演示模式下不能使用「完全允许」审批方式')
 }
 
 const LIVE = ['running', 'awaiting_approval', 'awaiting_answer']

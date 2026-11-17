@@ -22,13 +22,13 @@ fn catalog_line(catalog: Option<&AgentCatalog>) -> String {
             let names: Vec<_> = c.models.iter().map(|m| m.choice.value.as_str()).collect();
             t!("可选模型：{models}", models = names.join(t!("、")))
         }
-        Some(_) => t!("适配器未提供可选模型").into(),
-        None => t!("可选模型待探测（daemon 运行时自动探测）").into(),
+        Some(_) => t!("未提供可选模型").into(),
+        None => t!("可选模型待探测（共工客户端运行时自动探测）").into(),
     }
 }
 
-/// The latest version and who installed it, e.g. 「最新 2.1.285（可升级）\t共工空间托管」.
-fn tool_columns(s: &ToolStatus) -> String {
+/// The latest version and who installed it, e.g. [最新 2.1.285（可升级）, 共工空间托管].
+fn tool_columns(s: &ToolStatus) -> [String; 2] {
     let latest = match &s.latest {
         Some(l) if s.has_update() => t!("最新 {v}（可升级）", v = l),
         Some(_) if s.installed => t!("已是最新").into(),
@@ -40,7 +40,7 @@ fn tool_columns(s: &ToolStatus) -> String {
         (true, true) => t!("共工空间托管"),
         (true, false) => t!("自行安装"),
     };
-    format!("{latest}\t{source}")
+    [latest, source.to_string()]
 }
 
 pub async fn print_agents(home: &Path) -> Result<()> {
@@ -51,13 +51,15 @@ pub async fn print_agents(home: &Path) -> Result<()> {
         .as_deref()
         .and_then(|v| v.split('.').next()?.parse::<u32>().ok())
         .is_some_and(|m| m < tools::MIN_NODE_MAJOR);
-    println!(
-        "Node.js\t{}\t{}\t{}\t{}",
-        node.version.as_deref().unwrap_or("-"),
-        tool_columns(&node),
-        node.path.as_deref().unwrap_or(t!("未安装")),
-        if too_old { t!("ACP 适配器需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR) } else { String::new() }
-    );
+    let [node_latest, node_source] = tool_columns(&node);
+    let mut rows = vec![vec![
+        "Node.js".to_string(),
+        node.version.as_deref().unwrap_or("-").to_string(),
+        node_latest,
+        node_source,
+        node.path.as_deref().unwrap_or(t!("未安装")).to_string(),
+        if too_old { t!("部分 Agent 需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR) } else { String::new() },
+    ]];
     for a in crate::agents::detect(home, &local) {
         let status = tools::with_latest(home, tools::agent_status(home, &a)).await;
         let path = match (&a.path, a.available) {
@@ -65,13 +67,18 @@ pub async fn print_agents(home: &Path) -> Result<()> {
             (Some(p), false) => t!("{path}（不存在）", path = p),
             (None, _) => t!("未安装").into(),
         };
-        println!(
-            "{}\t{}\t{}\t{path}\t{}",
-            bots::agent_label(a.kind),
-            a.version.as_deref().unwrap_or("-"),
-            tool_columns(&status),
-            catalog_line(a.catalog.as_ref())
-        );
+        let [latest, source] = tool_columns(&status);
+        rows.push(vec![
+            bots::agent_label(a.kind).to_string(),
+            a.version.as_deref().unwrap_or("-").to_string(),
+            latest,
+            source,
+            path,
+            catalog_line(a.catalog.as_ref()),
+        ]);
+    }
+    for line in crate::format_columns(&rows) {
+        println!("{}", line.trim_end());
     }
     Ok(())
 }

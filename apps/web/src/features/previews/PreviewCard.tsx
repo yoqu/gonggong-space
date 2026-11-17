@@ -105,7 +105,7 @@ export function PreviewCard({
             {mini ? (p.awaiting === 'login' ? loginNote(p) : t('小程序 · {path}', { path: p.path })) : null}
             {gui ? t('桌面应用 · {name}', { name: p.serviceName ?? '' }) : null}
             {p.snapshotError ? <span className="pv-card__error">{p.snapshotError}</span> : null}
-            {!mini && !gui && p.status === 'stopped' ? t('服务已停止 · ') : ''}
+            {!mini && !gui && p.status === 'stopped' ? `${t('服务已停止')} · ` : ''}
             {!mini && p.port ? `:${p.port}` : ''}
             {mini || gui ? null : p.path}
             {p.serviceName && !gui ? ` · ${p.serviceName}` : ''}

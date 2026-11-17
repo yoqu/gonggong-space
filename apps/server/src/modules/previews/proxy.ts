@@ -38,7 +38,7 @@ function localPath(target: string) {
   return `${u.pathname}${u.search}`
 }
 
-const OFFLINE = '预览所在的机器离线，稍后再试。'
+const OFFLINE = '预览所在的电脑离线，稍后再试。'
 const UNKNOWN = '请从共工空间的预览卡片打开这个预览。'
 
 const lastWrite = new Map<string, number>()
@@ -207,7 +207,7 @@ export async function servePreviewHttp(
   } catch (err) {
     return res.headersSent
       ? res.destroy()
-      : page(res, 502, '预览所在的机器离线，稍后再试。（{error}）', { error: (err as Error).message })
+      : page(res, 502, '预览所在的电脑离线，稍后再试。（{error}）', { error: (err as Error).message })
   }
   res.writeHead(head.status, downstream(head).flat())
   stream.pipe(res)

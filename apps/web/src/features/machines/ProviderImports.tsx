@@ -64,7 +64,7 @@ export function CcSwitchImport({
       onClose={onClose}
       closeOnBackdrop={false}
       title={t('从 CC Switch 导入供应商')}
-      message={t('只读取这台机器上的 CC Switch，Key 只保存在这台机器上')}
+      message={t('只读取这台电脑上的 CC Switch，Key 只保存在这台电脑上')}
       width={560}
       actions={[
         { label: t('取消'), onClick: onClose },
@@ -107,7 +107,7 @@ export function CcSwitchImport({
           </GroupBox>
           {list.some((c) => c.current) ? (
             <Checkbox
-              label={t('将 CC Switch 当前使用的设为该机器默认')}
+              label={t('将 CC Switch 当前使用的设为这台电脑默认')}
               checked={setDefault}
               onChange={setSetDefault}
               disabled={!current.length}
@@ -150,7 +150,7 @@ export function LinkImport({
       onClose={onClose}
       closeOnBackdrop={false}
       title={t('粘贴链接导入')}
-      message={t('CC Switch 的供应商分享链接，Key 只保存在这台机器上')}
+      message={t('CC Switch 的供应商分享链接，Key 只保存在这台电脑上')}
       width={520}
       actions={[
         { label: t('取消'), onClick: onClose },
@@ -172,7 +172,7 @@ export function LinkImport({
           onChange={(e) => setLink(e.target.value)}
           error={error ?? undefined}
         />
-        <Checkbox label={t('设为该机器默认')} checked={setDefault} onChange={setSetDefault} />
+        <Checkbox label={t('设为这台电脑默认')} checked={setDefault} onChange={setSetDefault} />
       </div>
     </Dialog>
   )

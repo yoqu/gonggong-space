@@ -107,7 +107,7 @@ describe('terminal daemon transport', () => {
     attachment.subscribe(() => {}, lost)
     latest().drop()
     expect(lost).toHaveBeenCalledWith('daemon_disconnected')
-    await expect(transport.attach(open, randomUUID())).rejects.toThrow('daemon 已断开')
+    await expect(transport.attach(open, randomUUID())).rejects.toThrow('电脑已断开连接')
   })
 
   it('marks a shell the daemon no longer has as daemon_restart', async () => {
@@ -162,7 +162,9 @@ describe('terminal daemon transport', () => {
 
   it('rejects terminate when the machine is offline or the daemon never answers', async () => {
     const { transport, latest } = fixture()
-    await expect(transport.terminate({ ...target, machineId: randomUUID() })).rejects.toThrow('daemon 已断开')
+    await expect(transport.terminate({ ...target, machineId: randomUUID() })).rejects.toThrow(
+      '电脑已断开连接',
+    )
     vi.useFakeTimers()
     try {
       const terminating = transport.terminate(target)

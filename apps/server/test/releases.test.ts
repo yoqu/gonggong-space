@@ -72,7 +72,7 @@ describe('daemon release publishing', () => {
       detail: { version: '0.2.0', platforms: ['macos-aarch64', 'linux-x86_64'] },
     })
     const audit = await t.app.inject({ url: '/api/admin/audit?category=admin', headers: { cookie } })
-    expect(audit.json()[0].summary).toBe('发布 daemon 0.2.0（macos-aarch64、linux-x86_64）')
+    expect(audit.json()[0].summary).toBe('发布客户端 0.2.0（macos-aarch64、linux-x86_64）')
   })
 
   it('offers the build in welcome and in protocol rejects', async () => {

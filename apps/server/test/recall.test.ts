@@ -234,7 +234,7 @@ describe('recall (撤回)', () => {
     expect(waiting?.status).toBe('offline_wait')
     await recall(w.asWang, m.id)
     const [run] = await t.db.select().from(runs)
-    expect(run).toMatchObject({ status: 'expired', step: '触发消息已撤回，已作废' })
+    expect(run).toMatchObject({ status: 'expired', step: '触发消息已撤回，请求已失效' })
     expect(run?.endedAt).not.toBeNull()
   })
 })

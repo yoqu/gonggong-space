@@ -24,7 +24,7 @@ export default {
   隐藏文件夹: 'Hidden folders',
   显示隐藏文件夹: 'Show hidden folders',
   '这是共工按群托管的工作区，原群删除 Bot 或清理空间时会被删掉。请把仓库克隆到其他目录（如 ~/code）再选择。':
-    "This is a workspace 共工 manages for one group: it is deleted when that group's Bot is removed or storage is cleaned up. Clone the repository somewhere else (e.g. ~/code) and pick it there.",
+    "This is a workspace Gonggong manages for one group: it is deleted when that group's Bot is removed or storage is cleaned up. Clone the repository somewhere else (e.g. ~/code) and pick it there.",
   文件夹名称: 'Folder name',
   '不是 git 仓库': 'not a git repo',
   '为 {bot} 选择工作区': 'Choose a workspace for {bot}',
@@ -32,8 +32,8 @@ export default {
   '免 clone': 'No clone',
   自动克隆群仓库: 'Automatic clone of the group repo',
   推荐: 'Recommended',
-  '在机器上自动克隆到独立目录，互不干扰':
-    'Cloned automatically into its own folder on the machine, isolated from others',
+  '在电脑上自动克隆到独立目录，互不干扰':
+    'Cloned automatically into its own folder on the computer, isolated from others',
   使用默认工作区: 'Use the default workspace',
   或选择机器上已有的目录: 'Or choose an existing folder on the machine',
   该目录不是群仓库: 'This folder is not the group repo',

@@ -18,10 +18,10 @@ The Docker files in the repository are the fastest way (requires Docker and Dock
 
 ```bash
 git clone https://github.com/yoqu/gonggong-space.git && cd gonggong-space
-GONGGONG_ADMIN_PASSWORD=初始密码 GONGGONG_PUBLIC_URL=https://<服务器 IP 或域名> docker compose up -d
+GONGGONG_ADMIN_PASSWORD=<initial-password> GONGGONG_PUBLIC_URL=https://<server-ip-or-domain> docker compose up -d
 ```
 
-(`初始密码` is a placeholder for the initial password; `<服务器 IP 或域名>` is your server's IP or domain.)
+(`<initial-password>` is a placeholder for the initial password; `<server-ip-or-domain>` is your server's IP or domain.)
 
 On first start, the server creates the sysadmin account `admin` using `GONGGONG_ADMIN_PASSWORD`, and database tables are created automatically. When it's up, open `GONGGONG_PUBLIC_URL` in a browser. For certificates, data volumes, and other details, see [Docker deployment](/en/deploy/docker); without Docker, see [Deploy from source](/en/deploy/install).
 

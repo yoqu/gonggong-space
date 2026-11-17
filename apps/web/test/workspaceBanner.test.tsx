@@ -312,7 +312,7 @@ describe('workspace banner', () => {
     const calls = mockApi({ 'POST /groups/g1/bots/b1/recheck': undefined })
     render(<WorkspaceBanner group={group({ members: members(false) })} />)
     expect(screen.getByTestId('ws-paused-b1').textContent).toContain(
-      '小王的 Claude 已暂停：所在机器无法访问仓库（无权限或仓库不存在），在这台机器的「Git 访问」里配置后重新检查',
+      '小王的 Claude 已暂停：所在电脑连不上仓库（无权限或仓库不存在），在这台电脑的「Git 访问」里配置后重新检查',
     )
     fireEvent.click(screen.getByText('重新检查'))
     await waitFor(() =>

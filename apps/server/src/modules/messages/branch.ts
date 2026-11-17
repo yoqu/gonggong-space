@@ -65,7 +65,7 @@ export async function branchMessage(ctx: Ctx, me: { id: string; name: string }, 
   const machineId = onlineMachine(ctx, row.machineId)
   if (!machineId) return fail('conflict', '{bot} 离线，无法分支', { bot: row.name })
   if (!ctx.hub.features(machineId).includes('sessionFork'))
-    return fail('conflict', '{bot} 所在机器的 daemon 版本过旧，请升级后再分支', { bot: row.name })
+    return fail('conflict', '{bot} 所在电脑的共工客户端版本过旧，请升级后再分支', { bot: row.name })
 
   // The session lives in the bot's workspace on its owner's machine: fork it before any chat is opened.
   const forked = await ctx.hub.request(

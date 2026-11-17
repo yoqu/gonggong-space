@@ -54,9 +54,9 @@ beforeEach(() => {
 const row = async (text: string) =>
   within(((await screen.findAllByText(text))[0] as HTMLElement).closest('.dk-row') as HTMLElement)
 
-it('shows the bundled gg-cast and the live previews with their state, controller and failure', async () => {
+it('shows the bundled live view component and the live previews with their state, controller and failure', async () => {
   render(<LivePage go={() => {}} />)
-  const cast = await row('gg-cast')
+  const cast = await row('实时画面组件')
   expect(cast.getByText('已内置')).toBeTruthy()
   expect(cast.getByText('随共工空间一起安装与升级，无需单独下载')).toBeTruthy()
   const app = await row('桌面客户端')
@@ -68,10 +68,10 @@ it('shows the bundled gg-cast and the live previews with their state, controller
   expect(screen.queryByText('登录页')).toBeNull()
 })
 
-it('explains a dev build without gg-cast, and hides permissions where none are needed', async () => {
+it('explains a dev build without a bundled live view component, and hides permissions where none are needed', async () => {
   m.castComponent.mockResolvedValue({ source: 'download' })
   render(<LivePage go={() => {}} />)
-  expect((await row('gg-cast')).getByText('未内置')).toBeTruthy()
+  expect((await row('实时画面组件')).getByText('未内置')).toBeTruthy()
   expect(screen.queryByText('系统权限')).toBeNull()
 })
 

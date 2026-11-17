@@ -69,7 +69,7 @@ export function daemonWorkspaceRoutes(ctx: Ctx) {
         return fail('not_found', '工作区不存在')
       if (row.gb.workspaceKind !== 'cd') return fail('conflict', '该工作区不是 /cd 绑定')
       if (!(await requestCd(ctx, { groupId, botId, path: null })))
-        return fail('conflict', '本机未连接服务器，无法改回托管')
+        return fail('conflict', '这台电脑未连接服务器，无法改回托管')
       await announceCd(ctx, { groupId, userId: row.bot.ownerId, bot: row.bot, path: null })
       return reply.status(204).send()
     })

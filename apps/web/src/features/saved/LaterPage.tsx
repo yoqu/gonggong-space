@@ -115,7 +115,7 @@ function Item({
           </Button>
         )}
         <Button size="small" variant="plain" onClick={() => navigate(messageHref(m))}>
-          {t('跳到原消息')}
+          {t('跳到原消息#later')}
         </Button>
         <Button
           size="small"

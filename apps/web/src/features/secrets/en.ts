@@ -79,9 +79,9 @@ export default {
     'Applies to every group of the team; bots get it as an environment variable of the same name. Group admins can override it with a same-named secret in group settings.',
   '只对本群生效；与团队层、平台层同名时以群层为准。Bot 运行时以同名环境变量注入。':
     'Applies to this group only and wins over same-named team and platform secrets. Bots get it as an environment variable of the same name.',
-  '允许在他人机器上的 Bot 使用': "Allow bots on other people's machines",
-  '机器主人能读到 Bot 进程的环境变量，所以默认只注入到你自己机器上的 Bot。':
-    "A machine's owner can read its bot processes' environment, so by default only bots on your own machines get it.",
+  '允许在他人电脑上的 Bot 使用': "Allow Bots on other people's computers",
+  '电脑主人能读到 Bot 进程的环境变量，所以默认只注入到你自己电脑上的 Bot。':
+    "A computer's owner can read its Bot processes' environment, so by default only Bots on your own computers get it.",
   没有需要你填写的密钥: 'No secrets for you to fill in',
   '团队或群里有「每人自填」「统一值可个人覆盖」的密钥时会列在这里。':
     'Secrets of your teams and groups that are per member or may be overridden show up here.',

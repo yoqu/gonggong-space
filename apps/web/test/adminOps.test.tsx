@@ -116,9 +116,9 @@ describe('账号与角色 · 停用 / 启用', () => {
     const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText('要停用账号 王磊 吗？')).toBeTruthy()
     for (const line of [
-      '立即吊销其所有 daemon token 和 Web 会话',
-      'daemon 下次连接失败后清除团队密钥和托管工作区（尽力而非保证）',
-      '其 Bot 从所有群移除；运行中的 Bot 按非主动中断处理',
+      '立即断开其所有电脑客户端并退出网页登录',
+      '共工客户端重连时会清理团队密钥和托管工作区（/cd 目录保留）',
+      '其 Bot 从所有群移除；运行中的任务会直接中断',
       '群消息与审计记录保留',
     ])
       expect(within(dialog).getByText(new RegExp(line.replace(/[()（）]/g, '.')))).toBeTruthy()
@@ -232,7 +232,7 @@ describe('群', () => {
   })
 })
 
-describe('机器与网络', () => {
+describe('电脑与网络', () => {
   it('shows owner, system, daemon, network and heartbeat, and warns about old protocols', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-23T10:00:00Z'))
@@ -330,13 +330,13 @@ describe('机器与网络', () => {
       'GET /admin/params': PARAMS,
     })
     renderAt('/admin/machines')
-    expect(await screen.findByRole('heading', { name: '机器与网络' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '电脑与网络' })).toBeTruthy()
     for (const h of [
       '主人',
-      '机器',
+      '电脑',
       '系统',
       '硬件',
-      'daemon',
+      '客户端版本',
       'Agent 版本',
       '延迟',
       '带宽',
@@ -392,41 +392,41 @@ describe('机器与网络', () => {
       '最新版本 2.1.285 · 共工空间托管',
     )
     expect(screen.getByText('38 ms').title).toMatch(/^测量于 /)
-    // Selecting a row enables 机器详情…; Enter opens it too.
-    const details = screen.getByRole('button', { name: '机器详情…' }) as HTMLButtonElement
+    // Selecting a row enables 电脑详情…; Enter opens it too.
+    const details = screen.getByRole('button', { name: '电脑详情…' }) as HTMLButtonElement
     expect(details.disabled).toBe(true)
     fireEvent.mouseDown(rowOf('zt-desktop'))
     expect(details.disabled).toBe(false)
-    fireEvent.keyDown(screen.getByRole('grid', { name: '机器列表' }), { key: 'Enter' })
+    fireEvent.keyDown(screen.getByRole('grid', { name: '电脑列表' }), { key: 'Enter' })
     // The member's machine page itself, read as a sysadmin: no live sections and no terminal, but rename and revoke.
-    const page = await screen.findByRole('region', { name: '机器详情' })
-    expect(page.textContent).toContain('正在以管理员身份查看 周婷 的机器')
+    const page = await screen.findByRole('region', { name: '电脑详情' })
+    expect(page.textContent).toContain('正在以管理员身份查看 周婷 的电脑')
     expect(within(page).getByRole('heading', { name: /zt-desktop/ })).toBeTruthy()
     expect(within(page).queryByRole('tab')).toBeNull()
     expect(within(page).getByRole('button', { name: '重命名' })).toBeTruthy()
-    expect(within(page).getByRole('button', { name: '吊销机器' })).toBeTruthy()
+    expect(within(page).getByRole('button', { name: '解绑电脑' })).toBeTruthy()
     expect(within(page).queryByRole('button', { name: '新建终端' })).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
     fireEvent.click(within(page).getByRole('link', { name: '返回后台' }))
     // The row's「操作」menu opens the details or revokes the machine.
-    rowAction(await findRow('never-measured'), '机器详情…')
-    expect((await screen.findByRole('region', { name: '机器详情' })).textContent).toContain(
-      '正在以管理员身份查看 王磊 的机器',
+    rowAction(await findRow('never-measured'), '电脑详情…')
+    expect((await screen.findByRole('region', { name: '电脑详情' })).textContent).toContain(
+      '正在以管理员身份查看 王磊 的电脑',
     )
     fireEvent.click(screen.getByRole('link', { name: '返回后台' }))
-    rowAction(await findRow('never-measured'), '吊销机器…')
+    rowAction(await findRow('never-measured'), '解绑电脑…')
     expect(await screen.findByRole('alertdialog')).toBeTruthy()
-    expect(screen.getByText('1 台 daemon 协议版本过旧')).toBeTruthy()
+    expect(screen.getByText('1 台共工客户端版本过旧')).toBeTruthy()
     expect(screen.getByText(/zt-desktop 运行 v0\.8\.7（协议 v0），服务器已拒绝连接并提示升级/)).toBeTruthy()
     expect(
       await screen.findByText(
-        '网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。',
+        '网络质量由成员在电脑客户端中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。',
       ),
     ).toBeTruthy()
   })
 })
 
-describe('机器与网络 · 实时', () => {
+describe('电脑与网络 · 实时', () => {
   it('refetches when a machine goes online and polls while open', async () => {
     const sockets: { onmessage: ((e: { data: string }) => void) | null }[] = []
     vi.stubGlobal(
@@ -510,7 +510,7 @@ describe('机器与网络 · 实时', () => {
       'GET /notifications/unread': { n: 0 },
     })
     renderAt('/admin/machines')
-    await screen.findByText('还没有机器')
+    await screen.findByText('还没有电脑')
     const loads = () => calls.filter((c) => c.path === '/admin/machines').length
     await act(async () => sockets.at(-1)?.onopen?.())
     expect(loads()).toBe(1)
@@ -529,7 +529,7 @@ describe('机器与网络 · 实时', () => {
       'GET /notifications/unread': { n: 0 },
     })
     renderAt('/admin/machines')
-    await screen.findByText('还没有机器')
+    await screen.findByText('还没有电脑')
     const loads = () => calls.filter((c) => c.path === '/admin/machines').length
     const before = loads()
     const setHidden = (hidden: boolean) => {
@@ -655,11 +655,11 @@ describe('系统参数', () => {
     renderAt('/admin/params')
     const retention = (await screen.findByLabelText('完整运行过程保留')) as HTMLInputElement
     expect(retention.value).toBe('30')
-    for (const h of ['运行与会话', '附件', '机器连接', '数据保留', '群与 Bot 默认值'])
+    for (const h of ['运行与会话', '附件', '电脑连接', '数据保留', '群与 Bot 默认值'])
       expect(screen.getByRole('heading', { name: h })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: '同步' })).toBeNull()
-    expect(screen.getByLabelText('机器心跳间隔')).toBeTruthy()
-    expect(screen.getByLabelText('机器离线判定（连续未收到心跳）')).toBeTruthy()
+    expect(screen.getByLabelText('电脑心跳间隔')).toBeTruthy()
+    expect(screen.getByLabelText('电脑离线判定（连续未收到心跳）')).toBeTruthy()
     expect(screen.queryByText(/daemon/)).toBeNull()
     expect(screen.queryByText('需实测')).toBeNull()
     expect(screen.queryByPlaceholderText('待定')).toBeNull()
@@ -766,7 +766,9 @@ describe('系统参数 · 演示', () => {
       'PUT /admin/params': (body: unknown) => ({ ...PARAMS, ...(body as object) }),
     })
     renderAt('/admin/params')
-    expect(await screen.findByText(/不能创建公开链接，已发出的公开链接立即失效/)).toBeTruthy()
+    expect(
+      await screen.findByText(/禁止创建公开链接、禁止远程操控实时画面、禁止「完全允许」审批方式/),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('switch', { name: '演示模式' }))
     await waitFor(() => expect(calls.at(-1)?.body).toEqual({ demoMode: true }))
     await waitFor(() =>

@@ -424,12 +424,12 @@ describe('sidebar', () => {
     fireEvent.click(within(guide).getByRole('button', { name: /开始绑定/ }))
     expect(await screen.findByRole('region', { name: '发给你的 Agent' })).toBeTruthy()
     fireEvent.click(
-      within(screen.getByRole('dialog', { name: '绑定新机器' })).getByRole('button', { name: '取消' }),
+      within(screen.getByRole('dialog', { name: '绑定新电脑' })).getByRole('button', { name: '取消' }),
     )
 
     fireEvent.click(within(guide).getByRole('button', { name: /新建 Bot/ }))
     expect(
-      await screen.findByText('王磊 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。'),
+      await screen.findByText('王磊 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。'),
     ).toBeTruthy()
     fireEvent.click(
       within(screen.getByRole('dialog', { name: /新建 Bot/ })).getByRole('button', { name: '取消' }),
@@ -441,17 +441,17 @@ describe('sidebar', () => {
     expect(within(guide).getAllByText('已完成')).toHaveLength(2)
   })
 
-  it('offers only the main area 绑定新机器 in an empty 机器与 Bot, and no 新建 Bot yet', async () => {
+  it('offers only the main area 绑定新电脑 in an empty 电脑与 Bot, and no 新建 Bot yet', async () => {
     mockApi({ ...baseRoutes([]), 'GET /bots': () => [] })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
-    await within(screen.getByRole('main')).findByRole('region', { name: '机器总览' })
-    expect(screen.getAllByRole('button', { name: /绑定新机器/ })).toHaveLength(1)
-    expect(within(nav).queryByRole('button', { name: /绑定新机器/ })).toBeNull()
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
+    await within(screen.getByRole('main')).findByRole('region', { name: '电脑总览' })
+    expect(screen.getAllByRole('button', { name: /绑定新电脑/ })).toHaveLength(1)
+    expect(within(nav).queryByRole('button', { name: /绑定新电脑/ })).toBeNull()
     expect(within(nav).queryByRole('button', { name: /新建 Bot/ })).toBeNull()
   })
 
-  it('names 新建 Bot in 机器与 Bot, offers it under each machine with that machine picked, and binds from the tree end', async () => {
+  it('names 新建 Bot in 电脑与 Bot, offers it under each machine with that machine picked, and binds from the tree end', async () => {
     const other: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux' }
     mockApi({
       ...baseRoutes([]),
@@ -464,7 +464,7 @@ describe('sidebar', () => {
       }),
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
     const head = await within(nav).findByRole('button', { name: '新建 Bot' })
     expect(head.textContent).toContain('新建 Bot')
     fireEvent.click(head)
@@ -472,27 +472,27 @@ describe('sidebar', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
 
-    const mine = within(nav).getByRole('region', { name: '我的机器' })
+    const mine = within(nav).getByRole('region', { name: '我的电脑' })
     fireEvent.click(within(mine).getByRole('button', { name: '在 old-box 上新建 Bot' }))
     dialog = await screen.findByRole('dialog', { name: /新建 Bot/ })
-    const picked = await within(dialog).findByRole('radiogroup', { name: '执行机器' })
+    const picked = await within(dialog).findByRole('radiogroup', { name: '运行电脑' })
     expect((within(picked).getByRole('radio', { name: /old-box/ }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
 
     // The overview card offers it too.
-    const overview = within(screen.getByRole('main')).getByRole('region', { name: '机器总览' })
+    const overview = within(screen.getByRole('main')).getByRole('region', { name: '电脑总览' })
     fireEvent.click(within(overview).getByRole('button', { name: '在 wanglei-mbp 上新建 Bot' }))
     dialog = await screen.findByRole('dialog', { name: /新建 Bot/ })
-    const again = await within(dialog).findByRole('radiogroup', { name: '执行机器' })
+    const again = await within(dialog).findByRole('radiogroup', { name: '运行电脑' })
     expect((within(again).getByRole('radio', { name: /wanglei-mbp/ }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /新建 Bot/ })).toBeNull())
 
-    const bind = within(nav).getByRole('button', { name: '绑定新机器' })
-    expect(bind.closest('[aria-label="我的机器"]')).toBe(mine)
+    const bind = within(nav).getByRole('button', { name: '绑定新电脑' })
+    expect(bind.closest('[aria-label="我的电脑"]')).toBe(mine)
     fireEvent.click(bind)
-    expect(await screen.findByRole('dialog', { name: '绑定新机器' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: '绑定新电脑' })).toBeTruthy()
   })
 
   it('counts a DM with a bot as the first conversation in the sidebar 开始使用', async () => {
@@ -528,19 +528,19 @@ describe('sidebar', () => {
 describe('my machines and bots', () => {
   const oldBox: MachineDto = { ...machine, id: 'mc2', name: 'old-box', os: 'linux', online: false }
 
-  it('lists my bots under their machine in 机器与 Bot, in place of the conversation list', async () => {
+  it('lists my bots under their machine in 电脑与 Bot, in place of the conversation list', async () => {
     mockApi({ ...baseRoutes([group()]), 'GET /machines': () => [machine, oldBox] })
     renderAt('/g/g1')
     const rail = screen.getByRole('navigation', { name: '应用导航' })
-    fireEvent.click(await within(rail).findByRole('button', { name: '机器与 Bot' }))
-    const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
+    fireEvent.click(await within(rail).findByRole('button', { name: '电脑与 Bot' }))
+    const nav = await screen.findByRole('navigation', { name: '电脑与 Bot' })
     expect(screen.queryByRole('navigation', { name: '会话列表' })).toBeNull()
-    expect(within(rail).getByRole('button', { name: '机器与 Bot' }).getAttribute('aria-current')).toBe('page')
-    const mine = within(nav).getByRole('region', { name: '我的机器' })
+    expect(within(rail).getByRole('button', { name: '电脑与 Bot' }).getAttribute('aria-current')).toBe('page')
+    const mine = within(nav).getByRole('region', { name: '我的电脑' })
     const bot = await within(mine).findByRole('link', { name: /小王的 Claude/ })
     expect(bot.closest('.sidebar__machine')?.textContent).toContain('wanglei-mbp')
     expect(bot.closest('.sidebar__machine')?.textContent).not.toContain('old-box')
-    const overview = await within(screen.getByRole('main')).findByRole('region', { name: '机器总览' })
+    const overview = await within(screen.getByRole('main')).findByRole('region', { name: '电脑总览' })
     expect(
       within(overview)
         .getByRole('link', { name: /wanglei-mbp/ })
@@ -585,10 +585,10 @@ describe('my machines and bots', () => {
       'DELETE /machines/mc2': () => null,
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
-    const section = await within(nav).findByRole('region', { name: '我的机器' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
+    const section = await within(nav).findByRole('region', { name: '我的电脑' })
     fireEvent.click(await within(section).findByRole('link', { name: /old-box/ }))
-    const dialog = await screen.findByRole('region', { name: '机器详情' })
+    const dialog = await screen.findByRole('region', { name: '电脑详情' })
     for (const text of ['Ubuntu 24.04', '6.8.0', 'AMD EPYC · 8 核', '16 GB', 'Claude Code', '2.1.4'])
       expect(within(dialog).getByText(text)).toBeTruthy()
     expect(within(dialog).queryByRole('textbox', { name: '名称' })).toBeNull()
@@ -600,11 +600,11 @@ describe('my machines and bots', () => {
       expect(calls).toContainEqual({ method: 'PATCH', path: '/machines/mc2', body: { name: '旧服务器' } }),
     )
 
-    fireEvent.click(within(dialog).getByRole('button', { name: '吊销机器' }))
-    const confirm = await screen.findByRole('alertdialog', { name: /吊销机器 old-box/ })
-    fireEvent.click(within(confirm).getByRole('button', { name: '吊销' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '解绑电脑' }))
+    const confirm = await screen.findByRole('alertdialog', { name: /解绑电脑 old-box/ })
+    fireEvent.click(within(confirm).getByRole('button', { name: '解绑' }))
     await waitFor(() => expect(within(section).queryByText('old-box')).toBeNull())
-    await waitFor(() => expect(screen.queryByRole('region', { name: '机器详情' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('region', { name: '电脑详情' })).toBeNull())
     expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', path: '/machines/mc2' }))
   })
 
@@ -619,10 +619,10 @@ describe('my machines and bots', () => {
     })
     renderAt('/machines')
     const main = screen.getByRole('main')
-    const empty = await within(main).findByRole('region', { name: '机器总览' })
-    expect(empty.textContent).toContain('还没有绑定机器')
-    fireEvent.click(within(empty).getByRole('button', { name: '绑定新机器' }))
-    const dialog = await screen.findByRole('dialog', { name: '绑定新机器' })
+    const empty = await within(main).findByRole('region', { name: '电脑总览' })
+    expect(empty.textContent).toContain('还没有绑定电脑')
+    fireEvent.click(within(empty).getByRole('button', { name: '绑定新电脑' }))
+    const dialog = await screen.findByRole('dialog', { name: '绑定新电脑' })
     expect(within(dialog).getByRole('region', { name: '发给你的 Agent' })).toBeTruthy()
   })
 
@@ -634,7 +634,7 @@ describe('my machines and bots', () => {
       'DELETE /bots/b1': () => null,
     })
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
     fireEvent.click(await within(nav).findByRole('link', { name: /小王的 Claude/ }))
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
     fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
@@ -2040,7 +2040,7 @@ describe('machine admin tabs', () => {
       }),
     })
     renderAt('/machine/mc1')
-    const page = await screen.findByRole('region', { name: '机器详情' })
+    const page = await screen.findByRole('region', { name: '电脑详情' })
     expect(await within(page).findByText('可升级到 0.4.5')).toBeTruthy()
 
     fireEvent.click(within(page).getByRole('tab', { name: '工作区' }))
@@ -2110,7 +2110,7 @@ describe('machine admin tabs', () => {
       'POST /machines/mc1/workspaces/gc': () => ({ before: 9 * 1024 * 1024, after: 3 * 1024 * 1024 }),
     })
     renderAt('/machine/mc1')
-    const page = await screen.findByRole('region', { name: '机器详情' })
+    const page = await screen.findByRole('region', { name: '电脑详情' })
     fireEvent.click(await within(page).findByRole('tab', { name: '工作区' }))
     const list = await within(page).findByRole('region', { name: '工作区' })
     // A running workspace is never slimmed.

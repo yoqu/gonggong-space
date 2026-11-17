@@ -360,7 +360,7 @@ describe('the mode switch cannot get stuck (§3.5)', () => {
     await offlineFor(11)
     await expireSwitches(t.ctx)
     expect((await group()).mode).toBe('partition')
-    expect(await events()).toContain('切换为强制同步失败，仍为分区模式：基准 Bot 所在机器离线超过 10 分钟')
+    expect(await events()).toContain('切换为强制同步失败，仍为分区模式：基准 Bot 所在电脑离线超过 10 分钟')
   })
 })
 

@@ -114,10 +114,10 @@ describe('notification center', () => {
     expect(within(dialog).getByRole('img', { name: '1 条未读' })).toBeTruthy()
     expect(list.textContent).toContain('小王的 Claude 请求执行 go build ./...')
     expect(list.textContent).toContain('支付服务重构')
-    expect(list.textContent).toContain('Bot 离线作废')
-    expect(list.textContent).toContain('你 @小周的 Codex 的请求等待 30 分钟未上线，已作废')
+    expect(list.textContent).toContain('Bot 离线超时')
+    expect(list.textContent).toContain('你 @小周的 Codex 的请求等待 30 分钟未上线，已失效')
     expect(
-      screen.getByText('只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。'),
+      screen.getByText('只推送需要你操作的事项；模式切换、电脑落后等群级事件只在群内显示。'),
     ).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '全部标为已读' }))
@@ -303,7 +303,7 @@ describe('notification center', () => {
       notification: note({ id: 'n9', type: 'offline_expired', payload: { groupId: 'g1', botName: 'B' } }),
     })
     await waitFor(() => expect(list.querySelectorAll('.notif__item')).toHaveLength(2))
-    expect(within(list.querySelector('.notif__item') as HTMLElement).getByText('Bot 离线作废')).toBeTruthy()
+    expect(within(list.querySelector('.notif__item') as HTMLElement).getByText('Bot 离线超时')).toBeTruthy()
     // Only the pushed one drops in; the loaded list stays still.
     expect([...list.querySelectorAll('.notif__row')].map((r) => r.hasAttribute('data-new'))).toEqual([
       true,
@@ -333,7 +333,7 @@ describe('notification center', () => {
     renderShell()
     fireEvent.click(screen.getByRole('button', { name: /^通知/ }))
     const list = await screen.findByTestId('notification-list')
-    await within(list).findByText('Bot 离线作废')
+    await within(list).findByText('Bot 离线超时')
     const deletes = within(list).getAllByRole('button', { name: '删除通知' })
     expect(deletes).toHaveLength(3)
 
@@ -341,7 +341,7 @@ describe('notification center', () => {
     fireEvent.click(deletes[1]!)
     // It slides out before it leaves the list.
     await waitFor(() => expect(row.classList.contains('ui-leaving')).toBe(true))
-    await waitFor(() => expect(within(list).queryByText('Bot 离线作废')).toBeNull())
+    await waitFor(() => expect(within(list).queryByText('Bot 离线超时')).toBeNull())
     expect(useWorkspace.getState().notifCount).toBe(0)
     expect(screen.getByTestId('where').textContent).toBe('/')
 

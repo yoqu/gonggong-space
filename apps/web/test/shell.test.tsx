@@ -185,21 +185,21 @@ describe('full-width pages', () => {
 })
 
 describe('connection status', () => {
-  it('shows machine count once in the sidebar footer, not a 本机 daemon line', async () => {
+  it('shows computer count once in the sidebar footer, not a client line', async () => {
     mockApi(routes([], [machine('mbp', true), machine('box', false), machine('nuc', true)]))
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
-    expect(await within(nav).findByText('2 台机器在线')).toBeTruthy()
+    expect(await within(nav).findByText('2 台电脑在线')).toBeTruthy()
     expect(within(nav).queryByText(/本机 daemon/)).toBeNull()
   })
 
-  it('leaves out the bot and machine counts until I have any', async () => {
+  it('leaves out the bot and computer counts until I have any', async () => {
     mockApi(routes([]))
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: '会话列表' })
     await screen.findByRole('region', { name: '开始使用' })
     expect(within(nav).queryByText(/个 Bot 在线/)).toBeNull()
-    expect(within(nav).queryByText(/台机器在线/)).toBeNull()
+    expect(within(nav).queryByText(/台电脑在线/)).toBeNull()
   })
 
   it('offers 发起会话 in the empty conversation list once I have a bot', async () => {
@@ -362,7 +362,7 @@ describe('sidebar sections', () => {
       .queryAllByTestId(/^group-item-/)
       .map((e) => e.getAttribute('data-testid')?.slice(11))
 
-  it('stars across kinds above 频道 and 私信, each keeping the latest message first', async () => {
+  it('stars across kinds above 频道 and 私聊, each keeping the latest message first', async () => {
     mockApi(
       routes([
         group('g1', '退款', { lastAt: '2026-10-01T00:00:00.000Z' }),
@@ -376,8 +376,8 @@ describe('sidebar sections', () => {
     await screen.findByTestId('group-item-d1')
     expect(rowsIn('星标').sort()).toEqual(['d2', 'g3'])
     expect(rowsIn('频道')).toEqual(['g2', 'g1'])
-    expect(rowsIn('私信')).toEqual(['d1'])
-    // Among other kinds a DM says what it is; under 私信 the head does.
+    expect(rowsIn('私聊')).toEqual(['d1'])
+    // Among other kinds a DM says what it is; under 私聊 the head does.
     expect(within(screen.getByTestId('group-item-d2')).getByText('Bot')).toBeTruthy()
     expect(within(screen.getByTestId('group-item-d1')).queryByText('Bot')).toBeNull()
   })
@@ -392,13 +392,13 @@ describe('sidebar sections', () => {
     )
     const { unmount } = renderAt('/g/g1')
     await screen.findByTestId('group-item-d1')
-    fireEvent.click(screen.getByRole('button', { name: /^私信/ }))
-    expect(rowsIn('私信')).toEqual(['d2'])
+    fireEvent.click(screen.getByRole('button', { name: /^私聊/ }))
+    expect(rowsIn('私聊')).toEqual(['d2'])
     unmount()
     renderAt('/g/d1')
     await screen.findByTestId('group-item-d1')
-    expect(screen.getByRole('button', { name: /^私信/ }).getAttribute('aria-expanded')).toBe('false')
-    expect(rowsIn('私信').sort()).toEqual(['d1', 'd2'])
+    expect(screen.getByRole('button', { name: /^私聊/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(rowsIn('私聊').sort()).toEqual(['d1', 'd2'])
   })
 
   it('files conversations under my own sections, by menu or by dragging, and a star wins', async () => {
@@ -872,8 +872,8 @@ describe('home route', () => {
 
 describe('not-found pages', () => {
   it.each([
-    ['/bot/zz', 'Bot 不存在或已删除', '返回机器与 Bot', '/machines'],
-    ['/machine/zz', '机器不存在或已吊销', '返回机器与 Bot', '/machines'],
+    ['/bot/zz', 'Bot 不存在或已删除', '返回电脑与 Bot', '/machines'],
+    ['/machine/zz', '电脑不存在或已解绑', '返回电脑与 Bot', '/machines'],
     ['/t/zz', '终端不存在或已删除', '返回消息', '/'],
     ['/g/zz', '群不存在或你已不在群内', '返回消息', '/'],
     ['/nope', '页面不存在', '返回消息', '/'],
@@ -966,7 +966,7 @@ describe('sidebar rows', () => {
     const bare = { ...machine('m1', true), os: undefined } as unknown as MachineDto
     mockApi(routes([], [bare]))
     renderAt('/machines')
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
     const row = await within(nav).findByRole('link', { name: /^m1/ })
     expect(row.textContent).not.toContain('undefined')
     expect(row.getAttribute('title')).toBe('m1 · 在线')

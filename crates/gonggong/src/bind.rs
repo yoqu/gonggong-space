@@ -199,6 +199,30 @@ pub struct Login {
     pub bot: Option<LoginBot>,
 }
 
+fn retry_cmd(server: &str, trust: &Trust) -> String {
+    match trust {
+        Trust::System => format!("gg login --server {server}"),
+        Trust::Fingerprint { sha256 } => format!("gg login --server {server} --fingerprint {sha256}"),
+        Trust::CaFile { path } => format!("gg login --server {server} --ca-file {}", path.display()),
+    }
+}
+
+fn connect_error(server: &str, trust: &Trust, err: anyhow::Error) -> anyhow::Error {
+    let lower = format!("{err:#}").to_ascii_lowercase();
+    let tls_like = lower.contains("cert")
+        || lower.contains("tls")
+        || lower.contains("handshake")
+        || lower.contains("unknown issuer");
+    if server.starts_with("https:") && matches!(trust, Trust::System) && tls_like {
+        err.context(t!(
+            "无法连接服务器 {server}（证书校验失败；自签证书请加 --fingerprint <sha256> 或 --ca-file <证书路径>）",
+            server = server
+        ))
+    } else {
+        err.context(t!("无法连接服务器 {server}", server = server))
+    }
+}
+
 /// [`login`], asking the server to make a bot of `create_bot` on this machine (Agent 自助接入).
 pub async fn login_as(
     server: &str,
@@ -213,7 +237,7 @@ pub async fn login_as(
         token: String::new(),
         machine_id: String::new(),
         owner_name: String::new(),
-        tls_trust: Some(trust),
+        tls_trust: Some(trust.clone()),
     };
     let res = tls::http(&config)?
         .post(format!("{server}/api/daemon/login"))
@@ -224,7 +248,7 @@ pub async fn login_as(
         })
         .send()
         .await
-        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
+        .map_err(|e| connect_error(server, &trust, e.into()))?;
     if !res.status().is_success() {
         let status = res.status();
         let reason = match res.json::<ApiError>().await {
@@ -299,7 +323,7 @@ pub async fn connect(
         token: String::new(),
         machine_id: String::new(),
         owner_name: String::new(),
-        tls_trust: Some(trust),
+        tls_trust: Some(trust.clone()),
     };
     let http = tls::http(&config)?;
     let file = opts.home.join("pending-link.json");
@@ -312,10 +336,10 @@ pub async fn connect(
         Some(r) => (r, t!("继续等待上次的接入申请：")),
         None => {
             let heading = match code {
-                Some(_) => t!("接入码已过期或已用过，改为在网页上确认这台机器："),
-                None => t!("请在网页上确认这台机器："),
+                Some(_) => t!("接入码已过期或已用过，改为在网页上确认这台电脑："),
+                None => t!("请在网页上确认这台电脑："),
             };
-            (request_link(&http, server, code, &machine, create_bot).await?, heading)
+            (request_link(&http, server, &trust, code, &machine, create_bot).await?, heading)
         }
     };
     let mut renewed = false;
@@ -326,7 +350,7 @@ pub async fn connect(
         let interval =
             std::time::Duration::from_millis(if request.interval_ms == 0 { 3000 } else { request.interval_ms });
         let ended = loop {
-            match poll_link(&http, server, &request).await? {
+            match poll_link(&http, server, &trust, &request).await? {
                 Some(LinkPollRes::Pending) => tokio::time::sleep(interval).await,
                 other => break other,
             }
@@ -335,17 +359,17 @@ pub async fn connect(
         match ended {
             Some(LinkPollRes::Approved(body)) => return Ok(logged_in(config, body)),
             Some(LinkPollRes::Denied) => {
-                bail!(t!("接入申请已被拒绝；如需接入，请重新运行 gg login --server {server}", server = server))
+                bail!(t!("接入申请已被拒绝；如需接入，请重新运行 {cmd}", cmd = retry_cmd(server, &trust)))
             }
             // Expired, or gone from the server (a stale saved request): one fresh request, then give up.
             _ if !renewed => {
                 renewed = true;
                 heading = t!("接入申请已过期，已重新发起：");
-                request = request_link(&http, server, code, &machine, create_bot).await?;
+                request = request_link(&http, server, &trust, code, &machine, create_bot).await?;
             }
             _ => bail!(t!(
-                "接入申请一直没有人确认，已停止等待；准备好后请重新运行 gg login --server {server}",
-                server = server
+                "接入申请一直没有人确认，已停止等待；准备好后请重新运行 {cmd}",
+                cmd = retry_cmd(server, &trust)
             )),
         }
     }
@@ -354,6 +378,7 @@ pub async fn connect(
 async fn request_link(
     http: &reqwest::Client,
     server: &str,
+    trust: &Trust,
     code: Option<&str>,
     machine: &MachineInfo,
     create_bot: Option<AgentKind>,
@@ -367,7 +392,7 @@ async fn request_link(
         })
         .send()
         .await
-        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
+        .map_err(|e| connect_error(server, trust, e.into()))?;
     let status = res.status();
     if status == reqwest::StatusCode::NOT_FOUND {
         // A server from before web confirmation.
@@ -388,13 +413,18 @@ async fn request_link(
 }
 
 /// `None`: the server no longer knows this request (or its secret), e.g. one saved by an earlier run.
-async fn poll_link(http: &reqwest::Client, server: &str, request: &LinkRequestRes) -> Result<Option<LinkPollRes>> {
+async fn poll_link(
+    http: &reqwest::Client,
+    server: &str,
+    trust: &Trust,
+    request: &LinkRequestRes,
+) -> Result<Option<LinkPollRes>> {
     let res = http
         .post(format!("{server}/api/daemon/link-requests/{}/poll", request.id))
         .json(&LinkPollReq { secret: request.secret.clone() })
         .send()
         .await
-        .with_context(|| t!("无法连接服务器 {server}", server = server))?;
+        .map_err(|e| connect_error(server, trust, e.into()))?;
     let status = res.status();
     if matches!(status.as_u16(), 401 | 404 | 409) {
         return Ok(None);

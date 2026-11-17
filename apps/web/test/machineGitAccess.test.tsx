@@ -135,7 +135,7 @@ describe('Git 访问', () => {
     })
     open()
     const section = await screen.findByRole('region', { name: 'SSH 密钥' })
-    expect(within(section).getByText('这台机器还没有 SSH 密钥')).toBeTruthy()
+    expect(within(section).getByText('这台电脑还没有 SSH 密钥')).toBeTruthy()
     fireEvent.click(within(section).getByRole('button', { name: '生成密钥' }))
     fireEvent.click(await within(section).findByRole('button', { name: '复制公钥' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(KEY.publicKey))

@@ -41,17 +41,17 @@ export function LinkRequestPage() {
               {t('链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。')}
             </>
           }
-          action={<Button onClick={() => navigate('/machines')}>{t('查看我的机器')}</Button>}
+          action={<Button onClick={() => navigate('/machines')}>{t('查看我的电脑')}</Button>}
         />
       ) : !request ? (
         <Spinner />
       ) : (
         <div className="link-page">
-          <h1 className="link-page__title">{t('确认机器接入')}</h1>
+          <h1 className="link-page__title">{t('确认电脑接入')}</h1>
           <LinkRequestCard request={request} onDecided={setOutcome} />
           {outcome && outcome !== 'pending' && !waitForBot ? (
             <Link to="/machines" className="ui-btn ui-btn--secondary ui-btn--md link-page__back">
-              {t('查看我的机器')}
+              {t('查看我的电脑')}
             </Link>
           ) : null}
         </div>

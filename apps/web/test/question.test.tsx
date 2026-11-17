@@ -232,7 +232,7 @@ describe('QuestionBlock', () => {
       '王磊 已回答 · 10:26 · 已写入审计记录',
     ],
     [set({ status: 'expired' }), '无人回答，agent 已按推荐项继续 · 10:48'],
-    [set({ status: 'void' }), '提问已作废，agent 不再等待回答'],
+    [set({ status: 'void' }), '提问已失效，Agent 不再等待回答'],
   ])('shows the outcome %#', (q, text) => {
     render(<QuestionBlock run={run({ status: 'running', questions: [q] })} />)
     expect(screen.getByText(text)).toBeTruthy()
@@ -241,7 +241,7 @@ describe('QuestionBlock', () => {
     if (q.status === 'void') {
       cleanup()
       render(<QuestionBlock run={run({ status: 'completed', questions: [q] })} />)
-      expect(screen.getByText('运行已结束，提问作废')).toBeTruthy()
+      expect(screen.getByText('运行已结束，提问已失效')).toBeTruthy()
     }
     // Settled: only what was decided shows, the questions one click away.
     expect(screen.queryByRole('button', { name: 'Go' })).toBeNull()

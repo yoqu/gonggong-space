@@ -143,7 +143,7 @@ describe('preview tunnel (server side)', () => {
     s.end()
     s.on('error', () => {})
     ws.close()
-    await expect(s.head).rejects.toThrow('daemon')
+    await expect(s.head).rejects.toThrow('电脑已断开连接')
     await vi.waitFor(() => expect(t.ctx.tunnels.get(machine.id)).toBeUndefined())
   })
 

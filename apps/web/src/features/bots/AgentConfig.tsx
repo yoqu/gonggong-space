@@ -120,7 +120,7 @@ export function AgentConfigFields({
     return (
       <FormRow label={t('模型')}>
         <div className="bots-detail__buttons">
-          <span className="bots-detail__unset">{t('跟随默认 · 机器上报可选模型后可设置')}</span>
+          <span className="bots-detail__unset">{t('跟随默认 · 电脑上报可选模型后可设置')}</span>
           <RefreshButton refresh={refresh} />
         </div>
       </FormRow>

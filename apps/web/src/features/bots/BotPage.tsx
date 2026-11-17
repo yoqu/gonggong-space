@@ -86,7 +86,7 @@ function WorkspacePath({ path, groupId }: { path: string; groupId?: string }) {
 function idleText(bot: BotDto) {
   if (bot.presence === 'online') return t('空闲，在群里 @ 它即可开工')
   if (bot.presence === 'offline')
-    return t('{machine} 离线，被 @ 的请求会等待机器上线', { machine: bot.machineName ?? t('机器') })
+    return t('{machine} 离线，被 @ 的请求会等待电脑上线', { machine: bot.machineName ?? t('电脑') })
   return PRESENCE[bot.presence].label
 }
 
@@ -249,7 +249,7 @@ function Profile({
     [
       t('运行配置'),
       [
-        [t('执行机器'), <MachineLink key="machine" id={bot.machineId} name={bot.machineName} />],
+        [t('运行电脑'), <MachineLink key="machine" id={bot.machineId} name={bot.machineName} />],
         [
           'Agent',
           <span key="agent" className="bot-page__mono">

@@ -65,8 +65,11 @@ impl Config {
     }
 
     pub fn load() -> Result<Option<Config>> {
-        match std::fs::read_to_string(Self::path()) {
-            Ok(s) => Ok(Some(serde_json::from_str(&s).context("corrupt config.json")?)),
+        let path = Self::path();
+        match std::fs::read_to_string(&path) {
+            Ok(s) => Ok(Some(serde_json::from_str(&s).with_context(|| {
+                crate::t!("配置文件 {path} 格式损坏，请检查或重新登录后绑定", path = path.display())
+            })?)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -152,8 +155,11 @@ impl Mirror {
 
 impl Settings {
     pub fn load(home: &Path) -> Result<Settings> {
-        match std::fs::read_to_string(home.join("settings.json")) {
-            Ok(s) => Ok(serde_json::from_str(&s).context("corrupt settings.json")?),
+        let path = home.join("settings.json");
+        match std::fs::read_to_string(&path) {
+            Ok(s) => Ok(serde_json::from_str(&s).with_context(|| {
+                crate::t!("设置文件 {path} 格式损坏，请检查文件内容", path = path.display())
+            })?),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
             Err(e) => Err(e.into()),
         }

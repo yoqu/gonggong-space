@@ -188,10 +188,10 @@ describe('bot provider and model', () => {
     })
     renderDetail()
     const select = await screen.findByRole('button', { name: '供应商/模型' })
-    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：Kimi / kimi-k2）'))
+    await waitFor(() => expect(select.textContent).toContain('使用电脑默认（当前：Kimi / kimi-k2）'))
     fireEvent.click(select)
     expect(menuLabels()).toEqual([
-      '继承机器默认（当前：Kimi / kimi-k2）',
+      '使用电脑默认（当前：Kimi / kimi-k2）',
       '官方登录 / 默认模型',
       '官方登录 / Sonnet',
       'Kimi / 默认模型',
@@ -204,7 +204,7 @@ describe('bot provider and model', () => {
     expect(codex.getAttribute('aria-disabled')).toBe('true')
     expect(codex.textContent).toContain('该供应商只提供 OpenAI 兼容 接口，Claude Code 需要 Anthropic 兼容')
     fireEvent.click(codex)
-    expect(select.textContent).toContain('继承机器默认')
+    expect(select.textContent).toContain('使用电脑默认')
   })
 
   it('overrides provider, model and level in one PUT on 保存', async () => {
@@ -289,11 +289,11 @@ describe('bot provider and model', () => {
     })
     renderDetail()
     const select = await screen.findByRole('button', { name: '供应商/模型' })
-    expect(screen.getByText('升级该机器的客户端后可以同时选择模型')).toBeTruthy()
-    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：Kimi）'))
+    expect(screen.getByText('升级这台电脑的共工客户端后可同时选择模型')).toBeTruthy()
+    await waitFor(() => expect(select.textContent).toContain('使用电脑默认（当前：Kimi）'))
     fireEvent.click(select)
-    expect(menuLabels()).toEqual(['继承机器默认（当前：Kimi）', '官方登录', 'Kimi', 'GLM', 'Codex 中转'])
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '继承机器默认（当前：Kimi）' }))
+    expect(menuLabels()).toEqual(['使用电脑默认（当前：Kimi）', '官方登录', 'Kimi', 'GLM', 'Codex 中转'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '使用电脑默认（当前：Kimi）' }))
     fireEvent.click(screen.getByRole('button', { name: '模型' }))
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'kimi-k2' }))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
@@ -308,7 +308,7 @@ describe('bot provider and model', () => {
     renderDetail()
     const select = screen.getByRole('button', { name: '供应商/模型' }) as HTMLButtonElement
     expect(select.disabled).toBe(true)
-    expect(screen.getByText(/机器离线/)).toBeTruthy()
+    expect(screen.getByText(/电脑离线/)).toBeTruthy()
     expect(calls.some((c) => c.path.includes('/providers'))).toBe(false)
   })
 
@@ -338,7 +338,7 @@ describe('bot agent settings', () => {
     })
     renderDetail()
     const thinking = await screen.findByRole('button', { name: '扩展思考' })
-    await waitFor(() => expect(thinking.textContent).toContain('跟随机器设置（当前：开）'))
+    await waitFor(() => expect(thinking.textContent).toContain('跟随电脑设置（当前：开）'))
     fireEvent.click(thinking)
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '关' }))
     fireEvent.click(screen.getByRole('button', { name: '提交署名' }))
@@ -362,7 +362,7 @@ describe('bot agent settings', () => {
     const thinking = await screen.findByRole('button', { name: '扩展思考' })
     expect(thinking.textContent).toBe('关')
     fireEvent.click(thinking)
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /跟随机器设置/ }))
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /跟随电脑设置/ }))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ agentSettings: {} }))
   })
@@ -373,14 +373,14 @@ describe('bot agent settings', () => {
     renderDetail()
     const language = await screen.findByRole('textbox', { name: '语言' })
     expect(language.getAttribute('maxlength')).toBe('64')
-    expect(screen.getByText('该机器的 daemon 版本过旧，覆盖不会生效')).toBeTruthy()
+    expect(screen.getByText('这台电脑的共工客户端版本过旧，覆盖不会生效')).toBeTruthy()
   })
 
   it('does not warn on a daemon that applies the overrides', async () => {
     mockApi({ 'GET /machines/m1/providers': view, 'GET /bots/b1/catalog': { catalog: KIMI } })
     renderDetail()
     await screen.findByRole('textbox', { name: '语言' })
-    expect(screen.queryByText('该机器的 daemon 版本过旧，覆盖不会生效')).toBeNull()
+    expect(screen.queryByText('这台电脑的共工客户端版本过旧，覆盖不会生效')).toBeNull()
   })
 
   it("shows the overrides read-only to anyone but the bot's owner", () => {
@@ -388,6 +388,6 @@ describe('bot agent settings', () => {
     renderDetail(bot({ agentSettings: { thinking: 'false' } }), { ...me, id: 'u9', role: 'sysadmin' })
     expect(screen.queryByRole('button', { name: '扩展思考' })).toBeNull()
     expect(screen.getByText('只有 Bot 主人可以修改 Agent 设置')).toBeTruthy()
-    expect(screen.getByText('语言：跟随机器设置 · 扩展思考：关 · 提交署名：跟随机器设置')).toBeTruthy()
+    expect(screen.getByText('语言：跟随电脑设置 · 扩展思考：关 · 提交署名：跟随电脑设置')).toBeTruthy()
   })
 })

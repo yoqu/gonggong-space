@@ -40,10 +40,10 @@ export function MachinePage({
     (machine.os === 'macos' || machine.os === 'linux') &&
     machine.features.includes(TERMINAL_DIR_FEATURE)
   return (
-    <section className="machine-page" aria-label={t('机器详情')}>
+    <section className="machine-page" aria-label={t('电脑详情')}>
       {owner ? null : (
         <p className="machine-page__admin" role="note">
-          {t('正在以管理员身份查看 {owner} 的机器', { owner: ownerName ?? '' })}
+          {t('正在以管理员身份查看 {owner} 的电脑', { owner: ownerName ?? '' })}
           <Link to="/admin/machines">{t('返回后台')}</Link>
         </p>
       )}
@@ -67,7 +67,7 @@ export function MachinePage({
                 },
               ]
             : []),
-          { icon: 'trash', label: t('吊销机器'), text: t('吊销'), onClick: () => setRevoking(true) },
+          { icon: 'trash', label: t('解绑电脑'), text: t('解绑'), onClick: () => setRevoking(true) },
         ]}
       />
       <div className="machine-page__body">
@@ -106,9 +106,9 @@ export function AdminMachinePage({ id, onBack }: { id: string; onBack?: () => vo
       <div className="chat__placeholder">
         <EmptyState
           illustration={<DeniedArt />}
-          title={t('机器不存在或已吊销')}
+          title={t('电脑不存在或已解绑')}
           description={t('可能已被删除，或你没有访问权限。')}
-          action={<Button onClick={() => navigate('/machines')}>{t('返回机器与 Bot')}</Button>}
+          action={<Button onClick={() => navigate('/machines')}>{t('返回电脑与 Bot')}</Button>}
         />
       </div>
     )

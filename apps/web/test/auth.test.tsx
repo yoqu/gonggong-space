@@ -266,7 +266,7 @@ describe('account menu', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByText('王磊')).toBeTruthy()
     expect(within(menu).getByText('普通成员 · wanglei')).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: '接入我的电脑' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '绑定新电脑' })).toBeTruthy()
     expect(within(menu).queryAllByRole('link')).toEqual([])
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: '我的用量' }))

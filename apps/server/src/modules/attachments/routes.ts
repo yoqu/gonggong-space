@@ -186,11 +186,11 @@ export function attachmentRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       const maxMb = (await sysParams(ctx.db)).attachmentMaxMb
       const part = await req.file({ limits: { fileSize: maxMb * 1024 * 1024, files: 1 } })
-      if (!part) return fail('invalid', '缺少文件')
+      if (!part) return fail('invalid', '请先选择要上传的文件')
       const field = part.fields.groupId
       const groupId = field && 'value' in field ? String(field.value) : ''
       try {
-        if (!groupId) fail('invalid', '缺少 groupId')
+        if (!groupId) fail('invalid', '缺少群信息，请刷新后重试')
         await requireMember(ctx, groupId, me.id)
       } catch (e) {
         part.file.resume()
@@ -242,7 +242,7 @@ export function attachmentRoutes(ctx: Ctx) {
           and(eq(groupBots.groupId, a.groupId), eq(bots.machineId, machine.id), isNull(groupBots.removedAt)),
         )
         .limit(1)
-      if (!hosted) return fail('forbidden', '该机器上没有这个群的 Bot')
+      if (!hosted) return fail('forbidden', '这台电脑上没有这个群的 Bot')
       return sendFile(req, reply, a)
     })
 

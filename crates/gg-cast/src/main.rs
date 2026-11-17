@@ -74,7 +74,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> anyhow::Result<Args> {
     // screen would be the owner's own.
     if cfg!(target_os = "linux") != screen || screen == !pids.is_empty() {
         bail!(t!(
-            "Linux 上只能推送虚拟显示里的桌面应用：请用 service_start 的 display: \"virtual\" 重新启动服务（其他系统推送窗口，用 --pids）"
+            "Linux 上只能推送虚拟显示里的桌面应用：请在虚拟显示模式下启动服务"
         ));
     }
     Ok(Args { url: url.context(t!("缺少 --url"))?, pids, titles, fps, screen })
@@ -98,7 +98,7 @@ fn screen_recording_hint() -> Option<&'static str> {
     // SAFETY: no arguments; only reads the TCC state.
     if !unsafe { CGPreflightScreenCaptureAccess() } {
         return Some(t!(
-            "本机没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工空间桌面端）"
+            "这台电脑没有授予「屏幕录制」权限：请在 系统设置 → 隐私与安全性 → 屏幕录制 中允许运行 gg 的程序（终端或共工空间桌面端）"
         ));
     }
     None
@@ -329,9 +329,10 @@ fn start(
 
 fn no_source(window_id: Option<u32>) -> anyhow::Error {
     let hint = screen_recording_hint().map(String::from);
-    anyhow::anyhow!(
-        hint.unwrap_or_else(|| t!("采集器里没有要推送的画面（{window}）", window = format!("{window_id:?}")))
-    )
+    anyhow::anyhow!(hint.unwrap_or_else(|| match window_id {
+        Some(id) => t!("采集器里没有找到可推送的窗口（{id}）", id = id),
+        None => t!("采集器里没有找到可推送的屏幕画面").to_string(),
+    }))
 }
 
 /// The native capturer (macOS: ScreenCaptureKit, B0: far cheaper than screenshots) on the window found by pid, or on
@@ -414,7 +415,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
     let token = std::env::var("GG_CAST_TOKEN").context(t!("缺少 GG_CAST_TOKEN"))?;
     let (window, (width, height), target) = shown(&a)?;
     let (room, mut events) =
-        Room::connect(&a.url, &token, RoomOptions::default()).await.context(t!("无法连接实时画面服务（LiveKit）"))?;
+        Room::connect(&a.url, &token, RoomOptions::default()).await.context(t!("无法连接实时画面服务"))?;
     let source = NativeVideoSource::new(VideoResolution { width, height }, true);
     let frame = VideoFrame {
         rotation: VideoRotation::VideoRotation0,
@@ -449,7 +450,7 @@ async fn run(a: Args) -> anyhow::Result<()> {
             Some(reason) = ended.recv() => return Err(owner_fix(reason)),
             _ = gone.recv() => return Ok(()),
             ev = events.recv() => match ev {
-                Some(RoomEvent::Disconnected { reason }) => bail!(t!("与实时画面服务断开（{reason}）", reason = format!("{reason:?}"))),
+                Some(RoomEvent::Disconnected { .. }) => bail!(t!("与实时画面服务断开")),
                 Some(RoomEvent::DataReceived { payload, topic, .. }) if topic.as_deref() == Some(INPUT_TOPIC) => {
                     if let Err(e) = replay(&mut injector, &target, &payload).await {
                         eprintln!("input: {e:#}");

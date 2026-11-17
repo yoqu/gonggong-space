@@ -6,10 +6,10 @@ export default {
   '{protocol} 端点': '{protocol} endpoint',
   新增供应商: 'Add provider',
   设为默认: 'Default for',
-  '这些 Agent 在该机器上默认使用它': 'These agents use it by default on this machine',
+  '这些 Agent 在这台电脑上默认使用它': 'These Agents use it by default on this computer',
   请至少选择一种协议: 'Choose at least one protocol',
-  '该机器的客户端较旧，一个供应商只能登记一种协议':
-    "The machine's client is older: a provider can serve one protocol only",
+  '这台电脑的客户端版本较旧，一个供应商只能登记一种协议':
+    "This computer's client is older: a provider can serve one protocol only",
   '从 CC Switch 导入供应商': 'Import providers from CC Switch',
   'CC Switch 里没有可直接使用的供应商': 'CC Switch has no usable providers',
   '{agents} 的默认': 'Default for {agents}',
@@ -17,22 +17,22 @@ export default {
     "A provider can serve several protocols. Each agent picks one that speaks its protocol, in the agent's details",
   '它是 {agents} 的默认，删除后改为官方登录。':
     "It is the default for {agents}; they'll switch to the official login.",
-  '该机器的客户端较旧，一个供应商只能登记一种协议；升级客户端后可登记多种':
-    "The machine's client is older: a provider can serve one protocol only. Update the client to add more",
+  '这台电脑的客户端版本较旧，一个供应商只能登记一种协议；升级客户端后可登记多种':
+    "This computer's client is older: a provider can serve one protocol only. Update the client to add more",
   '还没有供应商，Agent 使用官方登录': 'No providers yet. Agents use their official login',
   一句话接入演示: 'One-message setup demo',
-  '该机器 Claude 配置目录': 'Claude configuration directory on the machine',
+  '这台电脑的 Claude 配置目录': 'Claude configuration directory on this computer',
   请填写配置目录: 'Enter a configuration directory',
   配置目录: 'Configuration directory',
   'Agent 使用该目录自己的登录与 settings.json，可从列表选择或点「浏览…」':
-    'The agent uses this directory’s own login and settings.json. Pick one from the list or Browse…',
-  该机器上的绝对路径: 'Absolute path on this machine',
+    "The Agent uses this directory's own login and settings.json. Pick one from the list or Browse…",
+  这台电脑上的绝对路径: 'Absolute path on this computer',
   进入配置目录后选择: 'Open the configuration directory, then choose it',
-  '使用机器上另一个 Claude 配置目录自己的登录与设置，无需 API Key':
-    'Use the login and settings of another Claude configuration directory on this machine; no API key needed',
+  '使用这台电脑上另一个 Claude 配置目录里的登录与设置，无需 API Key':
+    'Use the login and settings of another Claude configuration directory on this computer; no API key needed',
   选择配置目录: 'Choose the configuration directory',
   'Claude 可执行文件': 'Claude executable',
-  '可选；留空使用该机器的 Agent 路径': "Optional; leave empty to use the machine's Agent path",
+  '可选；留空使用这台电脑的 Agent 路径': "Optional; leave empty to use this computer's Agent path",
   接入链接: 'Connect link',
   重新生成: 'Regenerate',
   在客户端中打开: 'Open in client',
@@ -44,13 +44,13 @@ export default {
   使用命令行: 'Use the command line',
   复制命令: 'Copy command',
   已复制绑定命令: 'Bind command copied',
-  '没有安装客户端时，在机器的终端里执行。':
-    "Without the client installed, run this in the machine's terminal.",
-  绑定新机器: 'Bind new machine',
+  '没有安装客户端时，在电脑的终端里执行。':
+    "Without the client installed, run this in the computer's terminal.",
+  绑定新电脑: 'Bind new computer',
   完成: 'Done',
   取消: 'Cancel',
-  '绑定后该机器归属于你，客户端会上报机器名、系统、CPU、内存与该机器可用的 Claude Code / Codex / Gemini CLI；同一台机器重新绑定会恢复原记录。':
-    'Once bound, the machine is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex / Gemini CLI; rebinding the same machine restores its record.',
+  '绑定后这台电脑归属于你，客户端会上报电脑名称、系统、CPU、内存和可用的 Claude Code / Codex / Gemini CLI；同一台电脑重新绑定会恢复原记录。':
+    'Once bound, this computer is yours. The client reports its name, OS, CPU, memory and available Claude Code / Codex / Gemini CLI; rebinding the same computer restores its record.',
   'macOS（Apple 芯片）': 'macOS (Apple silicon)',
   'macOS（Intel）': 'macOS (Intel)',
   'Linux x86_64（命令行）': 'Linux x86_64 (CLI)',
@@ -63,45 +63,46 @@ export default {
   '桌面客户端 · v{version}': 'Desktop app · v{version}',
   '下载 {name}': 'Download {name}',
   选择系统: 'Choose a system',
-  已恢复原有机器: 'Existing machine restored',
+  已恢复原有电脑: 'Existing computer restored',
   绑定成功: 'Bound',
-  '{name} 之前绑定过，已沿用原机器记录与其上的 Bot（{os} · {arch}）':
+  '{name} 之前绑定过，已恢复原电脑记录和上面的 Bot（{os} · {arch}）':
     '{name} was bound before; its record and Bots are kept ({os} · {arch})',
-  '该机器已归属你 · {name}（{os} · {arch}）': 'This machine is now yours · {name} ({os} · {arch})',
-  '该机器的 agent': 'Agents on this machine',
+  '这台电脑已归属你 · {name}（{os} · {arch}）': 'This computer is now yours · {name} ({os} · {arch})',
+  '这台电脑的 Agent': 'Agents on this computer',
   未安装: 'Not installed',
   '未检测到 Claude Code / Codex / Gemini CLI，安装后在客户端中重新检测即可上报。':
     'No Claude Code / Codex / Gemini CLI detected. Install one, then re-detect in the client to report it.',
-  '等待上报 agent…在机器上打开共工空间客户端':
-    'Waiting for agents… Open the Gonggong Space client on the machine',
-  '你自己创建的 Bot 已直接绑定到该机器，无需操作；管理员为你创建并指定到该机器的 Bot，需在通知中确认后才能被触发。':
-    'Bots you created are bound to this machine directly. Bots an admin created for you on this machine need your confirmation in notifications before they can be triggered.',
+  '等待上报 Agent…在电脑上打开共工空间客户端':
+    'Waiting for Agents… Open the Gonggong Space client on the computer',
+  '你自己创建的 Bot 已直接绑定到这台电脑；别人为你创建并指定到这台电脑的 Bot，需在通知里确认后才能使用。':
+    'Bots you created are bound to this computer directly. Bots someone else created for you on this computer need your confirmation in notifications before they can be used.',
   '{n} 核': '{n} {n:core|cores}',
   'Agent 工具': 'Agent tools',
   '供应商#nav': 'Providers',
-  '机器离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断':
-    'The machine is offline; Agents & providers, workspaces, Git access and diagnostics are available once it is back',
+  '电脑离线，上线后才能管理 Agent 与供应商、工作区、Git 访问和诊断':
+    'The computer is offline; Agents & providers, workspaces, Git access and diagnostics are available once it is back',
   'Agent 与供应商': 'Agents & providers',
   '工作区#tab': 'Workspaces',
   诊断: 'Diagnostics',
   运行环境: 'Runtime',
-  'daemon 版本': 'Daemon version',
+  客户端版本: 'Client version',
   '重命名#action': 'Rename',
-  '请先升级该机器的 daemon，才能管理{what}': "Upgrade this machine's daemon first to manage {what}",
+  '请先升级这台电脑的共工客户端，才能管理{what}':
+    "Upgrade this computer's Gonggong client first to manage {what}",
   与: ' and ',
   '已重命名为 {name}': 'Renamed to {name}',
   内存: 'Memory',
   内核: 'Kernel',
   'MAC 地址': 'MAC address',
-  机器详情: 'Machine details',
-  吊销机器: 'Revoke machine',
+  电脑详情: 'Computer details',
+  解绑电脑: 'Unbind computer',
   概览: 'Overview',
-  机器离线: 'Machine offline',
-  '请先升级该机器的 daemon': "Upgrade this machine's daemon first",
-  '供应商、Agent 工具与 Agent 设置只保存在机器上，机器上线后才能查看和修改。':
-    'Providers, agent tools and agent settings live only on the machine; view and edit them once it is online.',
-  '当前 daemon 版本不支持在 Web 上管理，升级后即可使用。':
-    "This daemon version can't be managed from the web; upgrade to use this.",
+  电脑离线: 'Computer offline',
+  请先升级这台电脑的共工客户端: "Upgrade this computer's Gonggong client first",
+  '供应商、Agent 工具与 Agent 设置只保存在这台电脑上，上线后才能查看和修改。':
+    'Providers, agent tools and agent settings live only on this computer; view and edit them once it is online.',
+  '当前客户端版本不支持在网页端管理，升级后即可使用。':
+    "This client version can't be managed from the web; upgrade to use this.",
   在线: 'Online',
   离线: 'Offline',
   名称: 'Name',
@@ -127,13 +128,13 @@ export default {
   自定义: 'Custom',
   '更换…': 'Change…',
   '留空则保留已保存的 Key': 'Leave empty to keep the saved key',
-  'Key 只保存在这台机器上': 'The key is stored only on this machine',
+  'Key 只保存在这台电脑上': 'The key is stored only on this computer',
   必填: 'Required',
   '获取 Key': 'Get a key',
   模型: 'Model',
   '可从列表选择，也可直接输入': 'Choose from the list or type one',
   默认: 'Default',
-  设为该机器默认: 'Set as machine default',
+  设为这台电脑默认: 'Set as computer default',
   高级: 'Advanced',
   '{tier} 模型': '{tier} model',
   代理地址: 'Proxy',
@@ -143,27 +144,27 @@ export default {
   'Agent 经此代理联网，留空为直连':
     'The agent goes online through this proxy; leave empty for a direct connection',
   '{agent} 官方登录设置': '{agent} official login settings',
-  '登录与配置仍用这台机器上 CLI 自己的，以下设置在启动 Agent 时附加':
-    "The CLI's own login and config on this machine stay in use; these settings are added when the agent starts",
+  '登录与配置仍用这台电脑上 CLI 自己的，以下设置在启动 Agent 时附加':
+    "The CLI's own login and config on this computer stay in use; these settings are added when the Agent starts",
   '{n} 个环境变量': '{n} environment {n:variable|variables}',
   官方登录设置已保存: 'Official login settings saved',
   搜索厂商: 'Search vendors',
   '手动填写 Base URL': 'Enter the Base URL manually',
-  '只读取这台机器上的 CC Switch，Key 只保存在这台机器上':
-    'Reads only CC Switch on this machine; keys are stored only on this machine',
+  '只读取这台电脑上的 CC Switch，Key 只保存在这台电脑上':
+    'Reads only CC Switch on this computer; keys are stored only on this computer',
   导入: 'Import',
   'CC Switch 当前': 'Current in CC Switch',
   将更新已有项: 'Updates existing',
-  '将 CC Switch 当前使用的设为该机器默认': "Set CC Switch's current provider as machine default",
+  '将 CC Switch 当前使用的设为这台电脑默认': "Set CC Switch's current provider as computer default",
   粘贴链接导入: 'Import from link',
-  'CC Switch 的供应商分享链接，Key 只保存在这台机器上':
-    'A CC Switch provider share link; the key is stored only on this machine',
+  'CC Switch 的供应商分享链接，Key 只保存在这台电脑上':
+    'A CC Switch provider share link; the key is stored only on this computer',
   导入链接: 'Import link',
   '已删除供应商 {name}': 'Deleted provider {name}',
   '它是该机器默认，删除后改为官方登录。':
     'It is the machine default; after deletion the default becomes the official login.',
-  '单独设置为它的 Bot 改为继承该机器默认。': 'Bots set to it will inherit the machine default.',
-  '使用这台机器上 CLI 自己的登录与配置': "Uses the CLI's own login and config on this machine",
+  '单独设置为它的 Bot 会改回使用电脑默认。': 'Bots set to it will use the computer default.',
+  '使用这台电脑上 CLI 自己的登录与配置': "Uses the CLI's own login and config on this computer",
   '编辑…': 'Edit…',
   删除: 'Delete',
   '从 CC Switch 导入…': 'Import from CC Switch…',
@@ -173,13 +174,14 @@ export default {
   '已从 CC Switch 导入 {n} 个供应商': 'Imported {n} {n:provider|providers} from CC Switch',
   '已导入供应商 {name}': 'Imported provider {name}',
   '要删除供应商 {name} 吗？': 'Delete provider {name}?',
-  '要吊销机器 {name} 吗？': 'Revoke machine {name}?',
-  '吊销后需要重新生成接入链接才能再次使用。': 'After revoking, a new connect link is needed to use it again.',
-  '该机器的 daemon 立即断开': "The machine's daemon disconnects immediately",
-  'daemon 会清理该机器上的托管工作区；/cd 目录与备份保留':
-    'The daemon removes managed workspaces; /cd folders and backups are kept',
-  吊销: 'Revoke',
-  '已吊销 {name}': 'Revoked {name}',
+  '要解绑电脑 {name} 吗？': 'Unbind computer {name}?',
+  '解绑后需要重新生成接入链接才能再次使用。':
+    'After unbinding, a new connect link is needed to use it again.',
+  这台电脑的共工客户端会立即断开: "This computer's Gonggong client disconnects immediately",
+  '客户端会清理这台电脑上的托管工作区；/cd 目录与本地备份保留':
+    'The client removes managed workspaces on this computer; /cd folders and local backups are kept',
+  '解绑#computer': 'Unbind',
+  '已解绑 {name}': 'Unbound {name}',
   协议: 'Protocol',
   '进入后输入 /login，用微信、Google/GitHub 或企业账号登录':
     'Inside it, type /login and sign in with WeChat, Google/GitHub or an enterprise account',
@@ -198,8 +200,8 @@ export default {
     'Choose Configure Providers, then pick a provider and enter its API key',
   '进入后输入 /login，选择供应商登录或填写 API Key':
     'Inside it, type /login and sign in with a provider or enter an API key',
-  '在打开的网页「模型」里填写 DeepSeek API Key（也可以在机器环境变量里设置 DEEPSEEK_API_KEY）':
-    'Enter the DeepSeek API key under Models in the page it opens (or set DEEPSEEK_API_KEY in the machine environment)',
+  '在打开的网页「模型」里填写 DeepSeek API Key（也可以在电脑环境变量里设置 DEEPSEEK_API_KEY）':
+    'Enter the DeepSeek API key under Models in the page it opens (or set DEEPSEEK_API_KEY in the computer environment)',
   '淘宝镜像（npmmirror）': 'Taobao mirror (npmmirror)',
   官方源: 'Official registry',
   来源: 'Source',
@@ -213,14 +215,14 @@ export default {
   安装: 'Install',
   '升级到 {version}': 'Upgrade to {version}',
   升级命令: 'Upgrade command',
-  '升级时按原安装方式运行，也可以在该机器的终端自己运行':
-    'Run the way it was installed when you upgrade; you can also run it in a terminal on this machine',
+  '升级时按原安装方式运行，也可以在这台电脑的终端自己运行':
+    'Run the way it was installed when you upgrade; you can also run it in a terminal on this computer',
   改用共工空间托管安装: 'Switch to the Gonggong Space managed install',
   '正在安装…': 'Installing…',
   安装失败: 'Install failed',
   安装完成: 'Installed',
   安装日志: 'Install log',
-  '等待机器输出…': 'Waiting for machine output…',
+  '等待电脑输出…': 'Waiting for computer output…',
   镜像源: 'Mirror',
   '安装、升级 Node.js 与 Agent 工具时从这里下载':
     'Node.js and agent tool installs and upgrades download from here',
@@ -279,28 +281,29 @@ export default {
   '{name} 已废弃，请改用 Haiku 模型映射': '{name} is deprecated; use the Haiku model mapping instead',
   '改用 Haiku 映射': 'Use Haiku mapping',
   'Agent 设置': 'Agent settings',
-  '该机器 CLI': 'Machine CLI',
+  '这台电脑 CLI': 'This computer CLI',
   '{agent} Agent 设置': '{agent} agent settings',
-  '该机器 CLI：{v}': 'Machine CLI: {v}',
+  '这台电脑 CLI：{v}': 'This computer CLI: {v}',
   '来源：{s}': 'Source: {s}',
   '来源：{s}（{v}）': 'Source: {s} ({v})',
-  '这台机器上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名':
-    'Defaults for every Bot on this machine; a Bot may override language, extended thinking and commit attribution',
+  '这台电脑上所有 Bot 的默认设置，Bot 可单独覆盖语言、扩展思考与提交署名':
+    'Defaults for every Bot on this computer; a Bot may override language, extended thinking and commit attribution',
   '需要 {agent} {v} 及以上': 'Requires {agent} {v} or later',
-  '继承该机器 CLI 配置': 'Inherit the machine CLI config',
-  '同时加载这台机器上 CLI 自己的用户配置': "Also loads the CLI's own user config on this machine",
+  '继承这台电脑 CLI 配置': 'Inherit this computer CLI config',
+  '同时加载这台电脑上 CLI 自己的用户配置': "Also loads the CLI's own user config on this computer",
   '已关闭：同时不再加载个人 CLAUDE.md、记忆、hooks 和用户 Skill':
     'Off: personal CLAUDE.md, memory, hooks and user Skills are no longer loaded either',
   '{hooks} 个 hooks、{rules} 条权限规则会随继承一起生效':
     '{hooks} {hooks:hook|hooks} and {rules} permission {rules:rule|rules} apply with it',
   由共工管理: 'Managed by Gonggong',
-  '权限、模型、MCP、插件与密钥由共工统一管理，该机器 CLI 中的同名设置不生效':
-    'Permissions, model, MCP, plugins and keys are managed by Gonggong; the same settings in the machine CLI have no effect',
-  '该机器 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置':
-    'The machine CLI sets {names}, which overrides the Bot’s effort, model and similar settings',
+  '权限、模型、MCP、插件与密钥由共工统一管理，这台电脑 CLI 中的同名设置不生效':
+    'Permissions, model, MCP, plugins and keys are managed by Gonggong; the same settings in this computer CLI have no effect',
+  '这台电脑 CLI 设置了 {names}，会覆盖 Bot 的 effort/模型等设置':
+    "This computer's CLI sets {names}, which overrides the Bot's effort, model and similar settings",
   是: 'Yes',
   否: 'No',
-  '来自该机器 CLI': 'From machine CLI',
+  '来自这台电脑 CLI': 'From this computer CLI',
+  客户端: 'Client',
   'Bot 覆盖': 'Bot overrides',
   日志: 'Logs',
   级别: 'Level',
@@ -308,7 +311,7 @@ export default {
   警告及以上: 'Warnings and up',
   信息及以上: 'Info and up',
   '全部（含调试）': 'All (with debug)',
-  '最近 {n} 行，密钥与令牌已在机器上打码': 'Last {n} lines; keys and tokens are masked on the machine',
+  '最近 {n} 行，密钥与令牌已在电脑上打码': 'Last {n} lines; keys and tokens are masked on the computer',
   没有日志: 'No logs',
   托管: 'Managed',
   '托管 · 无仓库': 'Managed · no repo',
@@ -324,16 +327,16 @@ export default {
   '正在瘦身…': 'Slimming…',
   '已释放 {size}': 'Freed {size}',
   '删除所选的 {n} 个工作区？': 'Delete {n} selected {n:workspace|workspaces}?',
-  '会删除机器上的这些目录，不可恢复。': 'This deletes these folders on the machine and cannot be undone.',
+  '会删除电脑上的这些目录，不可恢复。': 'This deletes these folders on the computer and cannot be undone.',
   '这些工作区还有没推送的改动，删除后会丢失': 'These workspaces have work not pushed yet; deleting loses it',
   '正在删除…': 'Deleting…',
-  这台机器上还没有工作区: 'No workspaces on this machine yet',
-  'daemon 会自动升级到最新版本': 'The daemon upgrades itself to the latest version',
+  这台电脑上还没有工作区: 'No workspaces on this computer yet',
+  共工客户端会自动升级到最新版本: 'The Gonggong client upgrades itself to the latest version',
   '可升级到 {version}': 'Update to {version} available',
   命令行参数: 'Command-line arguments',
   '启动 Claude Code 时附加，每行一个，如 --settings ~/team.json；--settings 合并进共工的设置，共工管理的参数（权限、模型、会话、MCP 等）不能设置':
     "Added when Claude Code starts, one per line, e.g. --settings ~/team.json; --settings is merged into Gonggong's settings, and flags Gonggong manages (permissions, model, session, MCP…) cannot be set",
-  机器设置: 'Machine settings',
+  电脑设置: 'Computer settings',
   '改动立即保存，下一轮生效': 'Changes save right away and apply from the next turn',
   '{n} 个群的会话开启新会话后才切换': 'sessions in {n} {n:group|groups} switch once a new session starts',
   已保存: 'Saved',
@@ -352,15 +355,15 @@ export default {
   '{version} 已下载，没有任务运行时自动重启完成升级':
     '{version} is downloaded; it restarts to finish once no run is active',
   '{version} 校验失败，已拒绝安装': '{version} failed verification and was not installed',
-  'daemon 在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：':
-    'While online, the daemon downloads the new version itself and restarts to finish once no run is active. If it never does:',
-  '桌面端：在该机器上打开共工空间客户端，点「检查更新」':
-    'Desktop: open the Gonggong Space client on the machine and click "Check for updates"',
-  '命令行：在该机器上重启 daemon，重连后自动升级':
-    'Command line: restart the daemon on the machine; it upgrades after reconnecting',
+  '客户端在线时会自动下载新版本，没有任务运行时重启完成升级。一直没有升级时：':
+    'While online, the client downloads the new version itself and restarts to finish once no run is active. If it never does:',
+  '桌面端：在这台电脑上打开共工空间客户端，点「检查更新」':
+    'Desktop: open the Gonggong Space client on the computer and click "Check for updates"',
+  '命令行：在这台电脑上重启共工客户端，重连后自动升级':
+    'Command line: restart the Gonggong client on the computer; it upgrades after reconnecting',
   '最后在线：{time}': 'Last online: {time}',
-  '让它上线：在该机器上打开共工空间客户端，或在终端运行':
-    'To bring it online, open the Gonggong Space client on the machine, or run in a terminal',
+  '让它上线：在这台电脑上打开共工空间客户端，或在终端运行':
+    'To bring it online, open the Gonggong Space client on the computer, or run in a terminal',
   安装客户端: 'Install the client',
   打开接入链接: 'Open the connect link',
   '① 安装客户端': '① Install the client',
@@ -368,50 +371,50 @@ export default {
   '已经装好客户端可以跳过这一步。': 'Skip this if the client is already installed.',
   等待接入: 'Waiting to connect',
   '复制给 Agent': 'Copy to your agent',
-  机器接入: 'Machine connects',
-  已接入的机器: 'Connected machine',
-  '等待机器上线…': 'Waiting for the machine to come online…',
+  电脑接入: 'Computer connects',
+  已接入的电脑: 'Connected computer',
+  '等待电脑上线…': 'Waiting for the computer to come online…',
   了解上报内容: 'What the client reports',
   'Bot 就绪': 'Bot ready',
-  '把下面这句话粘贴给本机的 Claude Code、Codex 等，它会自己安装 gg、绑定这台机器并建好 Bot（支持 macOS 和 Linux）。机器归属于你，Bot 在上面运行。':
-    'Paste the sentence below to Claude Code, Codex or another agent on this machine: it installs gg, binds the machine and sets up your Bot by itself (macOS and Linux). The machine is then yours and your Bots run on it.',
+  '把下面这句话粘贴给这台电脑上的 Claude Code 或 Codex（支持 macOS / Linux），它会自己安装、绑定电脑并建好 Bot。':
+    'Paste the sentence below to Claude Code or Codex on this computer (macOS / Linux): it installs, binds the computer and sets up your Bot by itself.',
   '发给你的 Agent': 'Send to your agent',
   'Windows 上请展开「其他方式」，用桌面客户端绑定。':
     'On Windows, open "Other ways" and bind with the desktop app.',
   其他方式: 'Other ways',
   '等待接入…Agent 会自己下载安装，通常 1–3 分钟':
     'Waiting… the agent downloads and installs by itself, usually in 1–3 minutes',
-  机器已上线: 'The machine is online',
-  '正在以管理员身份查看 {owner} 的机器': "Viewing {owner}'s machine as an admin",
+  电脑已上线: 'The computer is online',
+  '正在以管理员身份查看 {owner} 的电脑': "Viewing {owner}'s computer as an admin",
   返回后台: 'Back to admin',
   我已安装: 'Already installed',
   已安装客户端: 'Client installed',
-  机器总览: 'Machines overview',
-  '在一台装有 Claude Code、Codex 或 Gemini CLI 的机器上安装共工空间客户端并绑定，Bot 就在上面运行。':
-    'Install the Gonggong Space client on a machine with Claude Code, Codex or Gemini CLI and bind it; Bots run there.',
+  电脑总览: 'Computers overview',
+  '在一台装有 Claude Code、Codex 或 Gemini CLI 的电脑上安装共工空间客户端并绑定，Bot 就在上面运行。':
+    'Install the Gonggong Space client on a computer with Claude Code, Codex or Gemini CLI and bind it; Bots run there.',
   '供应商：{name}': 'Provider: {name}',
   '{n} 个 Bot · {k} 个运行中': '{n} {n:Bot|Bots} · {k} running',
   '没有 Bot': 'No Bots',
   'Git 访问': 'Git access',
   测试连接: 'Test access',
-  'Bot 在这台机器上拉取、推送代码时不会弹出账号密码，需要先配置 SSH 密钥或 HTTPS 令牌':
-    "Bots can't type a password when they pull or push on this machine: set up an SSH key or an HTTPS token first",
+  'Bot 在这台电脑上拉取、推送代码时不会弹出账号密码，需要先配置 SSH 密钥或 HTTPS 令牌':
+    "Bots can't type a password when they pull or push on this computer: set up an SSH key or an HTTPS token first",
   仓库地址: 'Repository URL',
   测试: 'Test',
   'SSH 密钥': 'SSH key',
-  '用于 git@ 开头的地址。把公钥添加到 GitHub（Settings → SSH and GPG keys）或 GitLab（Preferences → SSH Keys）；只给一个仓库用时添加为该仓库的 Deploy Key。私钥只保存在这台机器上。':
-    "For git@ URLs. Add the public key to GitHub (Settings → SSH and GPG keys) or GitLab (Preferences → SSH Keys); for a single repo, add it as that repo's deploy key. The private key stays on this machine.",
+  '用于 git@ 开头的地址。把公钥添加到 GitHub（Settings → SSH and GPG keys）或 GitLab（Preferences → SSH Keys）；只给一个仓库用时添加为该仓库的 Deploy Key。私钥只保存在这台电脑上。':
+    "For git@ URLs. Add the public key to GitHub (Settings → SSH and GPG keys) or GitLab (Preferences → SSH Keys); for a single repo, add it as that repo's deploy key. The private key stays on this computer.",
   生成密钥: 'Generate key',
   '已生成 SSH 密钥': 'SSH key generated',
   复制公钥: 'Copy public key',
   已复制公钥: 'Public key copied',
-  '这台机器还没有 SSH 密钥': 'This machine has no SSH key yet',
+  '这台电脑还没有 SSH 密钥': 'This computer has no SSH key yet',
   '已信任的主机：{hosts}': 'Trusted hosts: {hosts}',
   'HTTPS 令牌': 'HTTPS tokens',
-  '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台机器上。':
-    'For https:// and http:// URLs, per host. On GitHub use a personal access token; on GitLab a personal or project access token with read_repository and write_repository. Tokens stay on this machine.',
-  '该机器已有凭据助手 {helper}，git 会先使用它保存的账号，再使用这里的令牌':
-    'This machine already has the credential helper {helper}: git tries the accounts it keeps before these tokens',
+  '用于 https:// 和 http:// 开头的地址，按主机生效。GitHub 填 Personal access token；GitLab 填 Personal 或 Project access token，需要 read_repository 与 write_repository 权限。令牌只保存在这台电脑上。':
+    'For https:// and http:// URLs, per host. On GitHub use a personal access token; on GitLab a personal or project access token with read_repository and write_repository. Tokens stay on this computer.',
+  '这台电脑已有凭据助手 {helper}，git 会先使用它保存的账号，再使用这里的令牌':
+    'This computer already has the credential helper {helper}: git tries the accounts it keeps before these tokens',
   '删除 {host} 的令牌': 'Delete the token for {host}',
   主机: 'Host',
   用户名: 'Username',
@@ -421,8 +424,8 @@ export default {
   '已删除 {host} 的令牌': 'Token for {host} deleted',
   '已信任 {host}': 'Trusted {host}',
   '可以访问 {url}': 'Can access {url}',
-  '这台机器还不认识该主机的密钥。核对下面的指纹与托管平台公布的一致后再信任。':
-    "This machine doesn't know the host's key yet. Check the fingerprints below against the ones the host publishes, then trust it.",
+  '这台电脑还不认识该主机的密钥。核对下面的指纹与托管平台公布的一致后再信任。':
+    "This computer doesn't know the host's key yet. Check the fingerprints below against the ones the host publishes, then trust it.",
   '在下方为 {host} 添加 HTTPS 令牌后再测试': 'Add an HTTPS token for {host} below, then test again',
   '把下方的 SSH 公钥添加到托管平台后再测试': 'Add the SSH public key below to the Git host, then test again',
   无法访问: "Can't access",
@@ -434,59 +437,61 @@ export default {
   辅助功能: 'Accessibility',
   异常: 'Problem',
   注意: 'Warning',
+  '跳过#check': 'Skipped',
   自检: 'Self-check',
-  '该机器关闭了自动升级。升级方式：': 'This machine has automatic upgrades turned off. To upgrade:',
-  '该机器运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：':
-    "This machine runs in a Docker container and doesn't upgrade itself. In docker/daemon on the server, set GG_VERSION in .env to {version}, then rebuild the container:",
+  '这台电脑关闭了自动升级。升级方式：': 'This computer has automatic upgrades turned off. To upgrade:',
+  '这台电脑运行在 Docker 容器里，不会自行升级。在服务器的 docker/daemon 目录把 .env 里的 GG_VERSION 改为 {version}，再重建容器：':
+    "This computer runs in a Docker container and doesn't upgrade itself. In docker/daemon on the server, set GG_VERSION in .env to {version}, then rebuild the container:",
   '在 Docker 中运行': 'Run in Docker',
   '在服务器的 docker/daemon 目录，把这一行加到 .env（另需 GG_VERSION 与 GONGGONG_MACHINE_ID），然后运行 docker compose up -d --build，容器首次启动时自动绑定。':
     'In docker/daemon on the server, add this line to .env (GG_VERSION and GONGGONG_MACHINE_ID are needed too), then run docker compose up -d --build: the container binds on its first start.',
   '登录…': 'Log in…',
   '登录 {agent} 官方账号': 'Log in to the official {agent} account',
-  '官方账号在该机器上的 {agent} 里登录，登录信息只保存在该机器上。':
-    'The official account is logged in from {agent} on the machine; the login stays on the machine.',
+  '官方账号在这台电脑上的 {agent} 里登录，登录信息只保存在这台电脑上。':
+    'The official account is logged in from {agent} on this computer; the login stays on this computer.',
   '改用 API Key 供应商': 'Use an API key provider instead',
-  打开该机器的终端: "Open the machine's terminal",
+  打开这台电脑的终端: "Open this computer's terminal",
   打开终端: 'Open terminal',
-  '在该机器上打开终端（Docker 里用 docker compose exec daemon bash）':
-    'Open a terminal on the machine (in Docker: docker compose exec daemon bash)',
+  '在这台电脑上打开终端（Docker 里用 docker compose exec daemon bash）':
+    'Open a terminal on this computer (in Docker: docker compose exec daemon bash)',
   '进入后输入 /login，按提示在浏览器里完成登录': 'Then type /login and finish logging in in the browser',
   '打开它给出的链接，输入验证码完成登录': 'Open the link it prints and enter the code to log in',
   插件授权: 'Plugin permissions',
-  '会运行代码的插件第一次在这台机器上使用时请你确认；插件出新版本要重新确认。':
-    'Plugins that run code ask you the first time they are used on this machine, and again for each new version.',
+  '会运行代码的插件第一次在这台电脑上使用时请你确认；插件出新版本要重新确认。':
+    'Plugins that run code ask you the first time they are used on this computer, and again for each new version.',
   已允许: 'Allowed',
   '撤销后，下次用到时会重新请你确认': 'After revoking, you will be asked again the next time it is needed',
-  还没有插件请求在这台机器上运行代码: 'No plugin has asked to run code on this machine yet',
+  还没有插件请求在这台电脑上运行代码: 'No plugin has asked to run code on this computer yet',
   稍后: 'Later',
   '在 {machine} 上新建 Bot': 'New Bot on {machine}',
   '接入码过期也能接入，届时在这里点一下允许': 'An expired code still connects: you will just allow it here',
   '接入码 30 分钟内有效，过期请重新生成。':
     'The code is valid for 30 minutes; generate a new one once it expires.',
-  确认机器接入: 'Confirm a machine',
+  确认电脑接入: 'Confirm a computer',
   无法打开接入申请: 'Cannot open this connection request',
-  查看我的机器: 'View my machines',
+  查看我的电脑: 'View my computers',
   核对码: 'Check code',
   '发起 IP': 'Requested from IP',
   '只在你本人刚发起接入、且核对码与终端一致时允许。':
-    'Allow only if you just started connecting this machine yourself and the code matches the one in its terminal.',
+    'Allow only if you just started connecting this computer yourself and the code matches the one in its terminal.',
   允许接入: 'Allow',
   已允许接入: 'Allowed',
-  '机器正在接入，Bot 建好后自动打开私聊。':
-    'The machine is connecting; its bot’s DM opens once the bot is made.',
-  '机器正在接入，稍后可在「机器与 Bot」中查看。':
-    'The machine is connecting; find it under Machines & Bots shortly.',
+  '电脑正在接入，Bot 建好后自动打开私聊。':
+    "The computer is connecting; its Bot's DM opens once the Bot is made.",
+  '电脑正在接入，稍后可在「电脑与 Bot」中查看。':
+    'The computer is connecting; find it under Computers & Bots shortly.',
   已拒绝接入: 'Denied',
-  '这台机器不会被绑定。': 'This machine will not be bound.',
+  '这台电脑不会被绑定。': 'This computer will not be bound.',
   接入申请已过期: 'This request has expired',
-  '在机器的终端重新运行接入命令即可。': 'Run the connect command again in the machine’s terminal.',
+  '在电脑的终端重新运行接入命令即可。': "Run the connect command again in the computer's terminal.",
   这个接入申请已处理过: 'This request was already handled',
   '链接可能已过期或已处理，可在终端重新运行 gg 获取新的确认链接。':
     'The link may have expired or already been handled. Run gg again in the terminal to get a new confirmation link.',
   安装命令: 'Install command',
   '自行安装，按它自己的方式升级': 'Installed by you; upgrade it its own way',
-  '共工空间不能托管安装它，请在该机器的终端运行':
-    "Gonggong Space can't install it; run this in the machine's terminal",
-  '进入后按提示用 Google 账号登录；机器没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码':
-    'Sign in with a Google account as it prompts; on a machine without a browser run agy acp --login instead, open the link elsewhere and paste the code',
+  '共工空间无法自动安装它，请在这台电脑的终端运行':
+    "Gonggong Space can't install it; run this in this computer's terminal",
+  '进入后按提示用 Google 账号登录；电脑没有浏览器时改为运行 agy acp --login，在别处打开链接后粘贴授权码':
+    'Sign in with a Google account as it prompts; on a computer without a browser run agy acp --login instead, open the link elsewhere and paste the code',
+  电脑接入申请: 'Computer connect request',
 } satisfies Record<string, string>

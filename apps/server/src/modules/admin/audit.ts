@@ -64,12 +64,12 @@ const TOOL: Record<string, string> = {
   antigravity: 'Antigravity CLI',
 }
 const PROVIDERS: Record<string, MessageKey> = {
-  'machine.providers.save': '保存机器的供应商',
-  'machine.providers.remove': '删除机器的供应商',
-  'machine.providers.default': '修改机器的默认供应商',
-  'machine.providers.official': '修改机器的官方登录设置',
-  'machine.providers.import': '导入机器的供应商',
-  'machine.providers.agentSettings': '修改机器的 Agent 设置',
+  'machine.providers.save': '保存电脑的供应商',
+  'machine.providers.remove': '删除电脑的供应商',
+  'machine.providers.default': '修改电脑的默认供应商',
+  'machine.providers.official': '修改电脑的官方登录设置',
+  'machine.providers.import': '导入电脑的供应商',
+  'machine.providers.agentSettings': '修改电脑的 Agent 设置',
 }
 
 const SCHEDULE: Record<string, MessageKey> = {
@@ -102,8 +102,8 @@ const TOGGLE: Record<string, [MessageKey, MessageKey]> = {
   'skill.group_toggle': ['在本群启用 Skill {name}', '在本群停用 Skill {name}'],
 }
 const PLUGIN_TRUST: Record<string, MessageKey> = {
-  'plugin.trust_allow': '允许在机器上运行插件 {plugin} {version}',
-  'plugin.trust_deny': '拒绝在机器上运行插件 {plugin} {version}',
+  'plugin.trust_allow': '允许在电脑上运行插件 {plugin} {version}',
+  'plugin.trust_deny': '拒绝在电脑上运行插件 {plugin} {version}',
   'plugin.trust_revoke': '撤销插件 {plugin} {version} 的运行授权',
 }
 const MARKET: Record<string, MessageKey> = {
@@ -132,7 +132,8 @@ function paramChanges(d: Detail) {
   const changes = (d.changes ?? {}) as Record<string, [unknown, unknown]>
   const numeric = SYSTEM_PARAM_VIEW.filter((p) => p.key in changes).map(({ key, label, unit }) => {
     const [from, to] = changes[key] as [unknown, unknown]
-    return `${t(label as MessageKey)} ${from} → ${to} ${t(unit as MessageKey)}`
+    const unitText = t(unit as MessageKey)
+    return `${t(label as MessageKey)} ${from} → ${to}${unitText ? ` ${unitText}` : ''}`
   })
   const reg = changes.registrationOpen
     ? [t(changes.registrationOpen[1] ? '开放自助注册' : '关闭自助注册')]
@@ -161,7 +162,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
       const title = str(d.title)
       if (row.action === 'void') {
         const reason = VOID_REASON[str(d.reason)]
-        return t('{bot} 的审批请求作废：{title}（{reason}）', {
+        return t('{bot} 的审批请求已失效：{title}（{reason}）', {
           bot,
           title,
           reason: reason ? t(reason) : str(d.reason),
@@ -173,13 +174,13 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
     case 'question':
       if (row.action === 'actions.answer')
         return t('点选 Bot 回复中的按钮（{block}）', { block: str(d.blockId) })
-      return t(QUESTION[row.action] ?? '{bot} 的 {n} 个问题已作废', { bot, n: count(d.questions) })
+      return t(QUESTION[row.action] ?? '{bot} 的 {n} 个问题已失效', { bot, n: count(d.questions) })
     case 'run':
       switch (row.action) {
         case 'command.stop': {
           const names = ids(d.botIds).map(n.bot)
           return names.length
-            ? t('/stop 中断 {bots}', { bots: names.join('、') })
+            ? t('/stop 中断 {bots}', { bots: names.join(t('、')) })
             : t('/stop 中断本群全部轮次')
         }
         case 'run.stop':
@@ -220,7 +221,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         return t('{verb}{layer}密钥 {name}', {
           verb: { key: SECRET[row.action] as MessageKey },
           layer: { key: str(d.layer) === 'personal' ? '个人' : (LAYER[str(d.layer)] ?? '平台层') },
-          name: Array.isArray(d.names) ? ids(d.names).join('、') : str(d.name),
+          name: Array.isArray(d.names) ? ids(d.names).join(t('、')) : str(d.name),
         })
       if (row.action in PLUGIN)
         return t(PLUGIN[row.action] as MessageKey, {
@@ -315,9 +316,9 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
         case 'user.enable':
           return t('启用账号 {account}', { account: str(d.account) })
         case 'daemon.release':
-          return t('发布 daemon {version}（{platforms}）', {
+          return t('发布客户端 {version}（{platforms}）', {
             version: str(d.version),
-            platforms: (d.platforms as string[]).join('、'),
+            platforms: (d.platforms as string[]).join(t('、')),
           })
         case 'daemon.release.upload':
         case 'daemon.release.remove':
@@ -332,22 +333,22 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
                   desktop: t('桌面端'),
                   update: t('桌面端更新包'),
                   signature: t('桌面端更新签名'),
-                }[str(d.kind)] ?? 'daemon',
+                }[str(d.kind)] ?? t('共工客户端'),
               version: str(d.version),
               platform: str(d.platform),
             },
           )
         case 'machine.revoke':
-          return t('吊销 {user} 的机器 {name}', { user: n.user(d.ownerId), name: str(d.name) })
+          return t('解绑 {user} 的电脑 {name}', { user: n.user(d.ownerId), name: str(d.name) })
         case 'machine.transfer':
-          return t('将 {user} 的机器 {name} 转移到名下', { user: n.user(d.fromOwnerId), name: str(d.name) })
+          return t('将 {user} 的电脑 {name} 转移到名下', { user: n.user(d.fromOwnerId), name: str(d.name) })
         case 'machine.tools.install':
         case 'machine.tools.upgrade':
           return t(row.action.endsWith('install') ? '安装 {tool}' : '升级 {tool}', {
             tool: TOOL[str(d.kind)] ?? str(d.kind),
           })
         case 'machine.upgrade':
-          return t('升级 daemon 到 {version}', { version: str(d.version) })
+          return t('升级共工客户端到 {version}', { version: str(d.version) })
         case 'machine.tools.settings':
           return t('修改 Agent 工具的镜像源')
         case 'bot.provider':
@@ -414,23 +415,23 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
           return t('删除团队分区 {name}', { name: str(d.name) })
         case 'bot.groupTier':
           return d.tier
-            ? t('将 Bot {name} 在群内的档位设为「{tier}」', {
+            ? t('将 Bot {name} 在群内的审批方式设为「{tier}」', {
                 name: str(d.name),
                 tier: TIER_LABEL[d.tier as Tier] ? { key: TIER_LABEL[d.tier as Tier] } : str(d.tier),
               })
-            : t('将 Bot {name} 在群内的档位恢复为跟随全局', { name: str(d.name) })
+            : t('将 Bot {name} 在群内的审批方式恢复为跟随全局', { name: str(d.name) })
         case 'bot.share_request.approve':
           return t('同意 {user} 使用 Bot {name} 的申请', { user: n.user(d.userId), name: str(d.name) })
         case 'daemon.release.notes':
-          return t('更新 daemon {version} 的版本说明', { version: str(d.version) })
+          return t('更新客户端 {version} 的版本说明', { version: str(d.version) })
         case 'machine.link.approve':
-          return t('允许机器 {name} 接入（{ip}）', { name: str(d.name), ip: str(d.ip) })
+          return t('允许电脑 {name} 接入（{ip}）', { name: str(d.name), ip: str(d.ip) })
         case 'machine.git.key':
-          return t('为机器生成 Git SSH 密钥')
+          return t('为电脑生成 Git SSH 密钥')
         case 'machine.git.token':
-          return t('保存机器的 Git 访问令牌（{host}）', { host: str(d.host) })
+          return t('保存电脑的 Git 访问令牌（{host}）', { host: str(d.host) })
         case 'machine.git.trust':
-          return t('信任机器的 Git 主机 {host}', { host: str(d.host) })
+          return t('信任电脑的 Git 主机 {host}', { host: str(d.host) })
         case 'workspace.open':
           return t('用 {app} 打开 {bot} 的工作区', { app: str(d.app), bot: n.bot(d.botId) })
         case 'git.request':
@@ -478,7 +479,7 @@ export function summarize(row: Pick<Row, 'category' | 'action'>, d: Detail, n: N
     case 'terminal':
       if (row.action in TERMINAL)
         return t(TERMINAL[row.action] as MessageKey, {
-          target: d.botId ? { key: '{bot} 的终端', params: { bot: n.bot(d.botId) } } : { key: '机器终端' },
+          target: d.botId ? { key: '{bot} 的终端', params: { bot: n.bot(d.botId) } } : { key: '电脑终端' },
         })
       break
     case 'preview':

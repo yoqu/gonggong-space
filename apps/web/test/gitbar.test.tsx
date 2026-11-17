@@ -406,7 +406,7 @@ describe('git status bar', () => {
     expect(writeText).toHaveBeenCalledWith('/Users/w/code/refund')
 
     const other = await menu('老李的 Codex')
-    expect(within(other).getByText('未绑定机器')).toBeTruthy()
+    expect(within(other).getByText('未绑定电脑')).toBeTruthy()
     expect(within(other).getByText('托管目录')).toBeTruthy()
     expect(within(other).queryByText(/当前在/)).toBeNull()
     expect(within(other).queryByText('附加目录')).toBeNull()

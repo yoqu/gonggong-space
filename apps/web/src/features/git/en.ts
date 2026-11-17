@@ -35,7 +35,7 @@ export default {
   没有匹配的分支: 'No matching branches',
   '读取改动失败：{error}': "Couldn't read the changes: {error}",
   要提交的文件: 'Files to commit',
-  '查看 {path} 的改动': 'View changes in {path}',
+  '查看 {path} 的改动': 'View changes to {path}',
   '首次推送，会在远程创建 {branch} 并设为上游':
     'First push: creates {branch} on the remote and sets it as the upstream',
   '{dest} 已包含全部提交，没有新的提交可推送': '{dest} already has every commit; nothing new to push',
@@ -363,7 +363,7 @@ export default {
   '已提交 {n} 个文件：{subject}': '{n} {n:file|files} committed: {subject}',
   '已修改提交说明：{subject}': 'Commit message amended: {subject}',
   编辑说明: 'Edit message',
-  'Git 检出问题': 'Git Checkout Problem',
+  'Git 检出问题': 'Git checkout problem',
   '检出 {branch} 会覆盖以下文件的本地改动':
     'Checking out {branch} would overwrite your local changes to these files',
   会被覆盖的文件: 'Files that would be overwritten',
@@ -418,7 +418,7 @@ export default {
   '获取 {ref}，把 {branch} 变基到它之上': 'Fetches {ref} and rebases {branch} onto it',
   '仓库#group': 'Repositories',
   '{n} 个改动': '{n} {n:change|changes}',
-  推送提交: 'Push Commits',
+  推送提交: 'Push commits',
   '推送到 {hash} 为止': 'Push up to {hash}',
   '推送标签#tags': 'Push tags',
   更多选项: 'More options',

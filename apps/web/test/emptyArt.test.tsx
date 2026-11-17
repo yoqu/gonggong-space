@@ -118,7 +118,7 @@ describe('empty state illustrations', () => {
     })
     for (const [path, title] of [
       ['/admin/groups', '还没有群'],
-      ['/admin/machines', '还没有机器'],
+      ['/admin/machines', '还没有电脑'],
       ['/admin/audit', '暂无记录'],
     ] as const) {
       const { unmount } = renderAt(path)

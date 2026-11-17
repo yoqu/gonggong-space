@@ -81,12 +81,12 @@ export class TerminalService {
       .innerJoin(users, eq(users.id, machines.ownerId))
       .where(and(eq(groupBots.groupId, groupId), eq(groupBots.botId, botId)))
     if (!row || row.groupBot.removedAt || row.bot.deletedAt) return fail('not_found', 'Bot 不存在')
-    if (row.machine.ownerId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    if (row.machine.ownerId !== userId) return fail('forbidden', '只有电脑主人可以使用终端')
     return { ...row, revoked: !!(row.machine.revokedAt || row.ownerDisabled) }
   }
 
   private requireUsable(target: Target) {
-    if (target.revoked) return fail('forbidden', '仅机器主人可以使用终端')
+    if (target.revoked) return fail('forbidden', '只有电脑主人可以使用终端')
   }
 
   /** The space and its machine; only their owner may use it. */
@@ -100,7 +100,7 @@ export class TerminalService {
       .where(eq(terminalSpaces.id, spaceId))
     // Someone else's space is not theirs to know about; a machine that changed hands is.
     if (!row || row.space.ownerId !== userId) return fail('not_found', '终端不存在')
-    if (row.machine.ownerId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    if (row.machine.ownerId !== userId) return fail('forbidden', '只有电脑主人可以使用终端')
     return { ...row, revoked: !!(row.machine.revokedAt || row.ownerDisabled) }
   }
 
@@ -109,7 +109,7 @@ export class TerminalService {
       return fail('conflict', '网页终端仅支持 macOS 和 Linux')
     const features = this.ctx.hub.features(machine.id)
     if (!features.includes(TERMINAL_FEATURE) || !features.includes(feature))
-      return fail('conflict', 'daemon 未连接或不支持网页终端')
+      return fail('conflict', '电脑未连接，或客户端版本过旧不支持网页终端')
   }
 
   private session(id: string) {
@@ -120,7 +120,7 @@ export class TerminalService {
   /** The owner's session, revoked first if its machine was revoked or its bot moved to another machine. */
   private async owned(userId: string, sessionId: string) {
     const session = this.session(sessionId)
-    if (session.userId !== userId) return fail('forbidden', '仅机器主人可以使用终端')
+    if (session.userId !== userId) return fail('forbidden', '只有电脑主人可以使用终端')
     if (session.spaceId) {
       const target = await this.spaceTarget(userId, session.spaceId)
       this.expire(session, target)

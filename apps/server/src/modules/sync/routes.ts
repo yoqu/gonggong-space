@@ -68,7 +68,7 @@ async function requireReplicaMachine(ctx: Ctx, req: GroupReq) {
       ),
     )
     .limit(1)
-  if (!hosted) return fail('forbidden', '该机器上没有这个强制同步群的 Bot')
+  if (!hosted) return fail('forbidden', '这台电脑上没有这个强制同步群的 Bot')
   return groupId
 }
 

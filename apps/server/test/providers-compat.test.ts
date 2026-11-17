@@ -19,7 +19,7 @@ import { client } from './support/http.js'
 
 const OLD = ['tools', 'providers']
 const NEW = ['tools', 'providers', 'protocolProviders', 'agentState']
-const UPGRADE = '请先升级该机器的客户端才能为一个供应商登记多种协议'
+const UPGRADE = '请先升级这台电脑的共工客户端，才能为一个供应商登记多种协议'
 
 let t: TestApp
 afterEach(() => t.close())
@@ -285,7 +285,7 @@ describe('a daemon without protocolProviders', () => {
     const many = await w.as.post<{ message: string }>(url, { ...one, setDefault: ['claude', 'deepseek'] })
     expect([many.status, many.body.message]).toEqual([
       409,
-      '请先升级该机器的客户端才能把一个供应商设为多个 Agent 的默认',
+      '请先升级这台电脑的共工客户端，才能把一个供应商设为多个 Agent 的默认',
     ])
 
     // The agent asked for, else the protocol's own one.
@@ -323,7 +323,7 @@ describe('a daemon without protocolProviders', () => {
     const refused = await w.as.put<{ message: string }>(url, { agent: 'codex', choice: 'kimi', model: 'k2' })
     expect([refused.status, refused.body.message]).toEqual([
       409,
-      '请先升级该机器的客户端才能为机器默认指定模型',
+      '请先升级这台电脑的共工客户端，才能为电脑默认指定模型',
     ])
     const pending = w.as.put<ProviderStoreView>(url, { agent: 'codex', choice: 'kimi', model: null })
     const use = await w.answer({

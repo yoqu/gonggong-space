@@ -8,7 +8,7 @@ pub const ALL: [Permission; 2] = [Permission::ScreenRecording, Permission::Acces
 
 /// Shown wherever a preview cannot publish because of it (cast.state, the Web's live tab).
 pub fn screen_recording_denied() -> &'static str {
-    crate::t!("机器未授权屏幕录制，请在共工空间桌面端「实时画面」页完成授权")
+    crate::t!("这台电脑未授权屏幕录制，请在共工空间桌面端「实时画面」页完成授权")
 }
 
 #[cfg(target_os = "macos")]

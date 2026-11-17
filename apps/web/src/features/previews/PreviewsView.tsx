@@ -36,7 +36,7 @@ export function PreviewsView({ groupId, onOpen }: { groupId: string; onOpen?: ()
       )}
       <div className="gs-foot">
         {t(
-          '服务由 Bot 所在的机器托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。',
+          '服务由 Bot 所在的电脑托管，本轮结束后仍在运行；预览 24 小时无人访问会自动关闭。服务停止后预览卡片保留，Bot 重启服务或在卡片上点启动即可恢复。',
         )}
       </div>
     </>

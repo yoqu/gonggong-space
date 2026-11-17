@@ -43,8 +43,8 @@ export function Welcome({
     {
       icon: 'laptop',
       color: 'var(--system-blue)',
-      title: t('绑定新机器'),
-      desc: t('复制一句话发给本机的 Claude Code 或 Codex，它会自己安装、绑定这台机器并建好 Bot。'),
+      title: t('绑定新电脑'),
+      desc: t('复制一句话发给这台电脑上的 Claude Code 或 Codex，它会自己安装、绑定并建好 Bot。'),
       action: t('开始绑定'),
       done: bound,
       onClick: onBindMachine,
@@ -53,7 +53,7 @@ export function Welcome({
       icon: 'bot',
       color: 'var(--system-indigo)',
       title: t('新建 Bot'),
-      desc: t('选择机器上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。'),
+      desc: t('选择电脑上的 Claude Code、Codex 或 Gemini CLI，给它起个好认的名字。'),
       action: t('新建 Bot'),
       done: hasBot,
       onClick: onNewBot,
@@ -83,7 +83,7 @@ export function Welcome({
             onBindMachine()
           }}
         >
-          {t('接入我的电脑，搭自己的 Bot')}
+          {t('绑定新电脑，搭自己的 Bot')}
         </Button>
         {onBrowse ? (
           <>

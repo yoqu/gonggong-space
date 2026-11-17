@@ -301,7 +301,8 @@ export async function chooseInterrupt(ctx: Ctx, runId: string, choice: 'keep' | 
     if (!synced) return fail('conflict', '该 Bot 已不在强制同步中，本轮改动留在工作区')
     const action = { kind: 'drift', choice: choice === 'keep' ? 'submit' : 'discard' } as const
     const msg = { t: 'sync.action', groupId: run.groupId, botId: run.botId, action } as const
-    if (!machineId || !ctx.hub.send(machineId, msg)) return fail('conflict', 'Bot 所在机器离线，上线后再处理')
+    if (!machineId || !ctx.hub.send(machineId, msg))
+      return fail('conflict', 'Bot 所在的电脑离线，上线后再处理')
     await record({})
   } else if (choice === 'discard') {
     const res = machineId ? await discard(ctx, machineId, runId) : null
@@ -388,7 +389,7 @@ export async function expireOfflineRuns(ctx: Ctx) {
       .update(runs)
       .set({
         status: 'expired',
-        ...runStep('Bot 离线超过 {n} 分钟，已作废并通知 {user}', { n: min, user: trigger ?? '' }),
+        ...runStep('Bot 离线超过 {n} 分钟，已失效并通知 {user}', { n: min, user: trigger ?? '' }),
         endedAt: ctx.now(),
       })
       .where(and(eq(runs.id, run.id), eq(runs.status, 'offline_wait')))

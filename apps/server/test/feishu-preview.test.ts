@@ -90,7 +90,7 @@ describe('preview cards in Feishu', () => {
     expect(json).toContain(
       `https://applink.feishu.cn/client/web_url/open?mode=sidebar-semi&url=${encodeURIComponent(url)}`,
     )
-    expect(json).toContain('codex · 网页 · 机器离线')
+    expect(json).toContain('codex · 网页 · 电脑离线')
     const [l] = await t.db
       .select()
       .from(feishuMessageLinks)

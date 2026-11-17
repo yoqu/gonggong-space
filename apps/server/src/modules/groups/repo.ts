@@ -4,7 +4,7 @@ const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
 
 export function repoProblem(url: string, branch: string) {
   if (!REPO_URL.test(url)) return '地址格式不正确，支持 git@ / https:// / http:// / ssh://'
-  if (!BRANCH.test(branch)) return '基准分支名不正确'
+  if (!BRANCH.test(branch)) return '基准分支名格式不正确（只能包含字母、数字、. _ / -，且不能以 / 或 - 开头）'
   return null
 }
 

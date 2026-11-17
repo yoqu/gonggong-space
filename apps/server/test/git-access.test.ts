@@ -81,12 +81,12 @@ describe("a machine's git access, relayed to its daemon", () => {
   it('is for the owner of an online machine whose daemon has it', async () => {
     const w = await world()
     const url = `/api/machines/${w.a.machine.id}/git-access`
-    expect((await w.asWang.get<{ message: string }>(url)).body.message).toBe('机器离线')
+    expect((await w.asWang.get<{ message: string }>(url)).body.message).toBe('电脑离线')
     const old = await daemon(w.a.token, w.a.machine.id, [])
     const res = await w.asWang.get<{ message: string }>(url)
-    expect([res.status, res.body.message]).toEqual([409, '请先升级该机器的 daemon'])
+    expect([res.status, res.body.message]).toEqual([409, '请先升级这台电脑的共工客户端'])
     const diag = await w.asWang.get<{ message: string }>(`/api/machines/${w.a.machine.id}/diag`)
-    expect([diag.status, diag.body.message]).toEqual([409, '请先升级该机器的 daemon'])
+    expect([diag.status, diag.body.message]).toEqual([409, '请先升级这台电脑的共工客户端'])
     await old.close()
     await daemon(w.a.token, w.a.machine.id, ['gitAccess'])
     expect((await w.asLi.get(url)).status).toBe(403)
@@ -250,7 +250,7 @@ describe("upgrading a machine's daemon from the web", () => {
     const url = `/api/machines/${w.a.machine.id}/upgrade`
     const old = await daemon(w.a.token, w.a.machine.id, [])
     const res = await w.asWang.post<{ message: string }>(url, {})
-    expect([res.status, res.body.message]).toEqual([409, '请先升级该机器的 daemon'])
+    expect([res.status, res.body.message]).toEqual([409, '请先升级这台电脑的共工客户端'])
     await old.close()
     await daemon(w.a.token, w.a.machine.id, ['upgrade'])
     const none = await w.asWang.post<{ message: string }>(url, {})

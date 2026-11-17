@@ -160,12 +160,12 @@ describe('机器与 Bot: logs and workspaces through the daemon', () => {
       `/api/machines/${old.machine.id}/workspaces/gc`,
       target,
     )
-    expect(res).toMatchObject({ status: 409, body: { message: '请先升级该机器的 daemon' } })
+    expect(res).toMatchObject({ status: 409, body: { message: '请先升级这台电脑的共工客户端' } })
   })
 
   it('asks for a daemon upgrade when the machine cannot answer', async () => {
     const w = await world([])
     const res = await w.asWang.get<{ message: string }>(`/api/machines/${w.machine.id}/workspaces`)
-    expect(res).toMatchObject({ status: 409, body: { message: '请先升级该机器的 daemon' } })
+    expect(res).toMatchObject({ status: 409, body: { message: '请先升级这台电脑的共工客户端' } })
   })
 })

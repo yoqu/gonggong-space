@@ -59,7 +59,7 @@ export function TerminalSpacePage({ space, onBack }: { space: TerminalSpaceDto; 
             open
             role="alertdialog"
             title={t('删除终端「{name}」？', { name: space.name })}
-            message={t('会结束其中的 Shell 及正在运行的进程，并从会话列表移除；机器上的目录不受影响。')}
+            message={t('会结束其中的 Shell 及正在运行的进程，并从会话列表移除；电脑上的目录不受影响。')}
             onClose={() => setDeleting(false)}
             actions={[
               { label: t('取消'), onClick: () => setDeleting(false), autoFocus: true },

@@ -431,7 +431,7 @@ impl Services {
         let h = self
             .find_id(id)
             .or_else(|| self.0.ended.lock().unwrap().iter().find(|h| h.info.lock().unwrap().id == id).cloned())
-            .ok_or(crate::t!("本机没有这个服务的启动记录（机器重启过），请让 Bot 重新启动"))?;
+            .ok_or(crate::t!("这台电脑没有这个服务的启动记录（电脑重启过），请让 Bot 重新启动"))?;
         let (group_id, bot_id, name) = {
             let i = h.info.lock().unwrap();
             (i.group_id.clone(), i.bot_id.clone(), i.name.clone())
@@ -635,7 +635,7 @@ async fn virtual_display(program: &Path) -> Result<Screen, String> {
     cmd.process_group(0);
     let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            "本机没有 Xvfb，无法使用虚拟显示：请机器主人先安装（Debian/Ubuntu：sudo apt install xvfb）".to_string()
+            "这台电脑没有 Xvfb，无法使用虚拟显示：请电脑主人先安装（Debian/Ubuntu：sudo apt install xvfb）".to_string()
         } else {
             format!("无法启动虚拟显示：{e}")
         }

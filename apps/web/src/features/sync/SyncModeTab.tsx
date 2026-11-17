@@ -25,7 +25,7 @@ import './sync.css'
 const EXCLUDED: Record<SyncPreviewReason, string> = {
   cd: t('不参与（本机目录）'),
   dirty: t('不参与（有未提交的改动）'),
-  offline: t('对齐（机器离线，上线后对齐）'),
+  offline: t('对齐（电脑离线，上线后对齐）'),
   not_ready: t('对齐（工作区就绪后对齐）'),
   outdated: t('不参与（共工空间客户端版本过旧，请升级）'),
 }

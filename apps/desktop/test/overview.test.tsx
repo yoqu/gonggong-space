@@ -190,9 +190,9 @@ describe('overview', () => {
     })
     show(status({ runs: [r1] }))
     fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
-    const alert = (await screen.findByText('运行失败：agent 异常')).closest('[role="alert"]') as HTMLElement
+    const alert = (await screen.findByText('运行失败：Agent 异常')).closest('[role="alert"]') as HTMLElement
     expect(alert.querySelector('pre')?.textContent).toBe('401 Unauthorized\nplease run /login')
-    expect(within(alert).getByText(/检查 Bot 所在机器上 agent 的登录/)).toBeTruthy()
+    expect(within(alert).getByText(/检查 Bot 所在电脑上 Agent 的登录/)).toBeTruthy()
     expect(within(alert).getByRole('button', { name: '复制错误信息' })).toBeTruthy()
     expect(
       alert.compareDocumentPosition(screen.getByText('主进度')) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -200,7 +200,7 @@ describe('overview', () => {
   })
 
   it.each([
-    ['failed without an error', 'failed', null, '运行失败：agent 异常', '未知错误'],
+    ['failed without an error', 'failed', null, '运行失败：Agent 异常', '未知错误'],
     ['interrupted with a reason', 'interrupted', 'agent 进程退出', '运行已中断', 'agent 进程退出'],
   ] as const)('explains a run %s', async (_, outcome, error, title, detail) => {
     const r1 = run({ runId: 'r1' })
@@ -265,7 +265,7 @@ describe('overview', () => {
 
   it('warns while offline with the next retry', () => {
     show(status({ conn: { state: 'offline', retryAtMs: Date.now() + 16_000, error: 'refused' } }))
-    expect(screen.getByRole('alert').textContent).toMatch(/服务器不可用 · 指数退避重连中（下次 1[56] 秒后）/)
+    expect(screen.getByRole('alert').textContent).toMatch(/连不上服务器 · 1[56] 秒后自动重连/)
     expect(screen.getByText('当前没有运行中的轮次')).toBeTruthy()
     expect(screen.getByText('本机队列为空')).toBeTruthy()
   })
@@ -274,7 +274,7 @@ describe('overview', () => {
     show(status({ conn: { state: 'rejected', reason: 'protocol', message: '需要协议 v2', wiped: [] } }))
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('协议版本不兼容 · 服务器拒绝连接')
-    expect(alert.textContent).toContain('本机 daemon v0.1.0 使用协议 v1')
+    expect(alert.textContent).toContain('这台电脑的共工客户端（v0.1.0）版本太旧')
     expect(alert.textContent).toContain('需要协议 v2')
   })
 
@@ -294,8 +294,8 @@ describe('overview', () => {
       }),
     )
     const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('token 已被吊销 · 账号已停用')
-    expect(alert.textContent).toContain('已清除本机团队密钥与 2 个托管工作区')
+    expect(alert.textContent).toContain('电脑已解绑 · 账号已停用')
+    expect(alert.textContent).toContain('已清理这台电脑上的团队密钥和 2 个托管工作区')
     expect(within(alert).getByRole('button', { name: '重新绑定' })).toBeTruthy()
   })
 })

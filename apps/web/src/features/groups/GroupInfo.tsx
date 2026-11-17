@@ -323,7 +323,7 @@ function MainView({
               confirm === 'leave'
                 ? onlyAdmin
                   ? t('你是唯一的群管理员，退出前先在「群成员」里指定其他群管理员。')
-                  : t('退出后你的 Bot 一并移出本群；运行中的轮次按非主动中断处理。再次点击确认。')
+                  : t('退出后你的 Bot 会一并移出本群，运行中的任务会直接中断。再次点击确认。')
                 : undefined,
           },
         ]
@@ -605,12 +605,12 @@ export function MembersView({
       ) : (
         <EmptyState compact icon="search" title={t('没有匹配的成员')} />
       )}
-      <div className="gs-foot">{t('移出成员时，其 Bot 一并移出；运行中的 Bot 按非主动中断处理。')}</div>
+      <div className="gs-foot">{t('移出成员时，其 Bot 会一并移出，运行中的任务会直接中断。')}</div>
       <Presence>
         {removing ? (
           <ConfirmRemove
             title={t('移出成员 {name}', { name: removing.name })}
-            desc={t('其 Bot 一并移出本群；运行中的 Bot 按非主动中断处理。')}
+            desc={t('其 Bot 会一并移出本群，运行中的任务会直接中断。')}
             onClose={() => setRemoving(null)}
             onConfirm={() =>
               removeWithToast(() => groupsApi.removeMember(group.id, removing.userId), removing.name)
@@ -643,8 +643,7 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
   })
   const recheck = (bot: BotDto) =>
     attempt(() => groupsApi.recheckBot(group.id, bot.id)).then(
-      (ok) =>
-        ok && toast({ type: 'info', message: t('正在让 {name} 的机器重新 clone…', { name: bot.name }) }),
+      (ok) => ok && toast({ type: 'info', message: t('正在让 {name} 的电脑重新克隆…', { name: bot.name }) }),
     )
   const act = (b: BotDto, v: string) => {
     if (v === 'global') return setEditingId(b.id)
@@ -794,7 +793,7 @@ export function BotsView({ group, isAdmin, member }: { group: GroupDto; isAdmin:
         {removing ? (
           <ConfirmRemove
             title={t('移出 Bot {name}', { name: removing.name })}
-            desc={t('移出后保留其工作区，由主人决定是否删除；运行中的轮次按非主动中断处理。')}
+            desc={t('移出后保留其工作区，由主人决定是否删除；运行中的任务会直接中断。')}
             onClose={() => setRemoving(null)}
             onConfirm={() => removeWithToast(() => groupsApi.removeBot(group.id, removing.id), removing.name)}
           />

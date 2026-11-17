@@ -8,20 +8,20 @@ import { type MessageKey, t } from '../../i18n/index.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { idParam } from '../../lib/ids.js'
 
-export const OFFLINE = '机器离线'
+export const OFFLINE = '电脑离线'
 
 /** A live machine of `userId`: its tools and providers are only ever read or changed by its owner. */
 export async function ownMachine(
   ctx: Ctx,
   userId: string,
   rawId: string,
-  denied: MessageKey = '只有机器主人可以管理其 Agent 工具与供应商',
+  denied: MessageKey = '只有电脑主人可以管理其 Agent 工具与供应商',
 ) {
   const [m] = await ctx.db
     .select()
     .from(machines)
-    .where(and(eq(machines.id, idParam(rawId, '机器不存在')), isNull(machines.revokedAt)))
-  if (!m) return fail('not_found', '机器不存在')
+    .where(and(eq(machines.id, idParam(rawId, '电脑不存在')), isNull(machines.revokedAt)))
+  if (!m) return fail('not_found', '电脑不存在')
   return m.ownerId === userId ? m : fail('forbidden', denied)
 }
 
@@ -29,7 +29,7 @@ export function requireFeature(
   ctx: Ctx,
   machineId: string,
   feature: DaemonFeature,
-  missing: MessageKey = '请先升级该机器的 daemon',
+  missing: MessageKey = '请先升级这台电脑的共工客户端',
 ) {
   if (!ctx.hub.isOnline(machineId)) fail('conflict', OFFLINE)
   if (!ctx.hub.features(machineId).includes(feature)) fail('conflict', missing)
@@ -51,7 +51,7 @@ export async function relay<T extends Answered>(
   timeoutMs: number,
 ) {
   const res = await ctx.hub.request(machineId, msg, reply, timeoutMs)
-  if (!res) return fail('conflict', ctx.hub.isOnline(machineId) ? '机器未响应，请稍后重试' : OFFLINE)
+  if (!res) return fail('conflict', ctx.hub.isOnline(machineId) ? '电脑未响应，请稍后重试' : OFFLINE)
   const { ok, error } = res as { ok: boolean; error: string | null }
   if (ok) return res
   throw error ? new HttpError('invalid', error) : new HttpError('invalid', t('操作失败'))
@@ -73,6 +73,6 @@ export function quietErrors(app: FastifyInstance) {
     app.log.warn({ code: (err as { code?: string }).code, status }, 'request failed')
     return reply
       .status(status)
-      .send({ error: 'invalid', message: status < 500 ? t('请求无效') : 'internal error' })
+      .send({ error: 'invalid', message: status < 500 ? t('请求无效') : t('服务器出错了，请稍后重试') })
   })
 }

@@ -46,7 +46,7 @@ export class TunnelConn {
       if (isBinary) this.onFrame(raw)
     })
     ws.on('close', () => {
-      for (const s of [...this.streams.values()]) s.fail('daemon 已断开')
+      for (const s of [...this.streams.values()]) s.fail('电脑已断开连接')
       for (const s of [...this.terminals.values()]) s.onClose()
       this.terminals.clear()
     })

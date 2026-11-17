@@ -167,11 +167,11 @@ function renderAt(path: string, user: UserDto) {
   )
 }
 
-/** Members open their bots from 机器与 Bot: an overview in the main area, settings in a dialog. */
+/** Members open their bots from 电脑与 Bot: an overview in the main area, settings in a dialog. */
 async function openMyBot(name = '小王的 Claude') {
   const rail = screen.getByRole('navigation', { name: '应用导航' })
-  fireEvent.click(await within(rail).findByRole('button', { name: '机器与 Bot' }))
-  const nav = await screen.findByRole('navigation', { name: '机器与 Bot' })
+  fireEvent.click(await within(rail).findByRole('button', { name: '电脑与 Bot' }))
+  const nav = await screen.findByRole('navigation', { name: '电脑与 Bot' })
   fireEvent.click(await within(nav).findByRole('link', { name: new RegExp(name) }))
   const page = await screen.findByRole('region', { name: 'Bot 概况' })
   fireEvent.click(within(page).getByRole('button', { name: '编辑 Bot' }))
@@ -257,7 +257,7 @@ describe('sidebar 我的 BOT', () => {
       return bot({ id: 'b2', name: '小王的 Codex', presence: 'agent_missing' })
     }
     renderAt('/machines', wang)
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
     expect(await within(nav).findByText('wanglei-mbp · 在线')).toBeTruthy()
     expect(within(nav).queryByText('别人的')).toBeNull()
     const row = within(nav).getByRole('link', { name: /小王的 Claude/ })
@@ -292,7 +292,7 @@ describe('新建 Bot', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(within(dialog).getByText('创建后立即可用')).toBeTruthy()
-    expect(within(dialog).queryByRole('button', { name: '归属人' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Bot 主人' })).toBeNull()
     expect(within(dialog).queryByRole('button', { name: '模型' })).toBeNull()
     fireEvent.change(name, { target: { value: '小王的 Claude' } })
     const face = within(dialog).getByRole('img', { name: '小王的 Claude' }).querySelector('img')
@@ -363,7 +363,7 @@ describe('新建 Bot', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: '创建并绑定' }))
     expect(
-      await within(dialog).findByText('机器 wanglei-mbp 当前离线，打开该机器上的共工空间客户端后即可使用'),
+      await within(dialog).findByText('电脑 wanglei-mbp 当前离线，打开这台电脑上的共工空间客户端后即可使用'),
     ).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '完成' }).className).toContain('ui-btn--primary')
   })
@@ -462,8 +462,8 @@ describe('新建 Bot', () => {
     renderAt('/admin/bots', admin)
     fireEvent.click((await screen.findAllByRole('button', { name: '新建 Bot…' }))[0]!)
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
-    fireEvent.click(await within(dialog).findByRole('button', { name: '归属人' }))
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '王磊 · 1 台机器' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Bot 主人' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '王磊 · 1 台电脑' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '创建并发送确认' }))
     expect(await within(dialog).findByText('已发送确认通知给 王磊')).toBeTruthy()
     expect(within(dialog).queryByRole('link', { name: '在客户端中打开' })).toBeNull()
@@ -547,11 +547,11 @@ describe('新建 Bot', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
     fireEvent.click(await within(dialog).findByRole('button', { name: MORE }))
     const select = await within(dialog).findByRole('button', { name: '供应商/模型' })
-    await waitFor(() => expect(select.textContent).toContain('继承机器默认（当前：官方登录）'))
+    await waitFor(() => expect(select.textContent).toContain('使用电脑默认（当前：官方登录）'))
     fireEvent.click(select)
     const items = screen.getAllByRole('menuitemcheckbox')
     expect(items.map((i) => i.querySelector('[id$="-l"]')?.textContent ?? i.textContent)).toEqual([
-      '继承机器默认（当前：官方登录）',
+      '使用电脑默认（当前：官方登录）',
       '官方登录 / 默认模型',
       '官方登录 / Sonnet',
       '官方登录 / Opus',
@@ -602,12 +602,12 @@ describe('新建 Bot', () => {
     renderAt('/admin/bots', admin)
     fireEvent.click((await screen.findAllByRole('button', { name: '新建 Bot…' }))[0]!)
     const dialog = await screen.findByRole('dialog', { name: '新建 Bot' })
-    await within(dialog).findByText('陈晨 还没有绑定机器。Bot 会以「待绑定」创建，可先选 agent 种类。')
-    const owner = within(dialog).getByRole('button', { name: '归属人' })
+    await within(dialog).findByText('陈晨 还没有绑定电脑。Bot 会以「待绑定」状态创建，可先选择 Agent 种类。')
+    const owner = within(dialog).getByRole('button', { name: 'Bot 主人' })
     expect(owner.textContent).toContain('陈晨（我）')
     expect(within(dialog).getByRole('button', { name: '创建' })).toBeTruthy()
     fireEvent.click(owner)
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '王磊 · 1 台机器' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '王磊 · 1 台电脑' }))
     expect(within(dialog).getByText('等待 王磊 确认')).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: '创建并发送确认' })).toBeTruthy()
     expect((within(dialog).getByLabelText('名称') as HTMLInputElement).value).toBe('王磊的 Claude Code')
@@ -915,7 +915,7 @@ describe('bot detail', () => {
     renderAt('/', wang)
     const detail = await openMyBot()
     openTab(detail, '运行配置')
-    expect(within(detail).getByText('跟随默认 · 机器上报可选模型后可设置')).toBeTruthy()
+    expect(within(detail).getByText('跟随默认 · 电脑上报可选模型后可设置')).toBeTruthy()
   })
 
   it('shows the default workspace to its owner only, who clears it on 保存', async () => {
@@ -1201,7 +1201,7 @@ describe('bot page profile', () => {
     const page = await screen.findByRole('region', { name: 'Bot 概况' })
     expect(row(page, '基本信息', '角色')).toBe('角色说不 · 果断 × 本分 × 聚焦')
     expect(row(page, '基本信息', '系统提示词')).toBe('系统提示词负责支付服务\n只改 src/pay')
-    expect(row(page, '运行配置', '执行机器')).toBe('执行机器wanglei-mbp')
+    expect(row(page, '运行配置', '运行电脑')).toBe('运行电脑wanglei-mbp')
     // My own machine opens from here.
     const machine = within(within(page).getByRole('region', { name: '运行配置' })).getByRole('link', {
       name: 'wanglei-mbp',
@@ -1254,7 +1254,7 @@ describe('bot page profile', () => {
       liveRuns: [],
     })
     renderAt('/machines', li)
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
     const shared = await within(nav).findByRole('region', { name: '共享给我' })
     expect(within(shared).getByRole('link', { name: /小王的 Claude/ }).textContent).toContain('王磊 共享')
     expect(within(nav).queryByText('别人的')).toBeNull()
@@ -1392,10 +1392,10 @@ describe('bot page ux', () => {
     ]
     routes['GET /api/machines'] = () => [mbp]
     renderAt('/machines', wang)
-    const nav = screen.getByRole('navigation', { name: '机器与 Bot' })
-    const section = await within(nav).findByRole('region', { name: '我的机器' })
+    const nav = screen.getByRole('navigation', { name: '电脑与 Bot' })
+    const section = await within(nav).findByRole('region', { name: '我的电脑' })
     fireEvent.click(await within(section).findByRole('link', { name: /wanglei-mbp/ }))
-    const dialog = await screen.findByRole('region', { name: '机器详情' })
+    const dialog = await screen.findByRole('region', { name: '电脑详情' })
     const list = within(dialog).getByRole('list', { name: '运行的 Bot' })
     const rows = within(list)
       .getAllByRole('listitem')
@@ -1403,6 +1403,6 @@ describe('bot page ux', () => {
     expect(rows).toEqual(['小王的 Claude在线空闲', '小王的 Codex运行中'])
     fireEvent.click(within(list).getByRole('link', { name: /小王的 Codex/ }))
     expect(await screen.findByRole('region', { name: 'Bot 概况' })).toBeTruthy()
-    expect(screen.queryByRole('region', { name: '机器详情' })).toBeNull()
+    expect(screen.queryByRole('region', { name: '电脑详情' })).toBeNull()
   })
 })

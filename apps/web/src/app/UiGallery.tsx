@@ -223,14 +223,14 @@ export default function UiGallery() {
 
       <Section title="ALERT">
         <div className="gallery__col">
-          <Alert variant="info" title="提示" description="绑定后该机器归属于你。" />
+          <Alert variant="info" title="提示" description="绑定后这台电脑归属于你。" />
           <Alert variant="success" title="已绑定" description="wanglei-mbp 已上线。" />
           <Alert
             variant="warning"
-            title="服务器不可用 · 指数退避重连中"
-            description="运行中的轮次在本地继续。"
+            title="连不上服务器 · 正在自动重连"
+            description="运行中的任务会在本地继续。"
           />
-          <Alert variant="error" title="协议版本不兼容" description="升级 daemon 后重试。" />
+          <Alert variant="error" title="协议版本不兼容" description="升级共工客户端后重试。" />
         </div>
       </Section>
 
@@ -278,7 +278,7 @@ export default function UiGallery() {
           <EmptyState
             icon={<Icon name="tray" size={20} />}
             title="还没有 Bot"
-            description="新建一个 Bot，绑定到你的机器上的 Claude Code 或 Codex。"
+            description="新建一个 Bot，绑定到你电脑上的 Claude Code 或 Codex。"
             actions={
               <Button size="sm" variant="primary">
                 新建 Bot
@@ -306,7 +306,7 @@ export default function UiGallery() {
 
       <Dialog
         open={dialog}
-        title="绑定新机器"
+        title="绑定新电脑"
         subtitle="一次性接入链接"
         onClose={() => setDialog(false)}
         footer={

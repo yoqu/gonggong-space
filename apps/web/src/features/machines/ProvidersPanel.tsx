@@ -87,7 +87,7 @@ export function ProvidersPanel({
       defaultsOf(removing.id).length
         ? t('它是 {agents} 的默认，删除后改为官方登录。', { agents: names(defaultsOf(removing.id)) })
         : '',
-      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 改为继承该机器默认。') : '',
+      Object.values(view.bots).includes(removing.id) ? t('单独设置为它的 Bot 会改回使用电脑默认。') : '',
     ]
       .filter(Boolean)
       .join(locale === 'en' ? ' ' : '')
@@ -101,7 +101,7 @@ export function ProvidersPanel({
           <span className="mx-sub">
             {source.features.includes('protocolProviders')
               ? t('一个供应商可提供多种协议，每个 Agent 在详情里选用协议对得上的')
-              : t('该机器的客户端较旧，一个供应商只能登记一种协议；升级客户端后可登记多种')}
+              : t('这台电脑的客户端版本较旧，一个供应商只能登记一种协议；升级客户端后可登记多种')}
           </span>
         </span>
       </div>

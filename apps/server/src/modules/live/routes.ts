@@ -102,7 +102,7 @@ export function liveRoutes(ctx: Ctx) {
     // The signaling's HTTP side (the client's `/rtc/validate` after a failed join).
     app.get(`${PREFIX}/*`, async (req, reply) => {
       const port = ctx.livekit.signalPort
-      if (!port) return fail('not_found', 'LiveKit 未运行')
+      if (!port) return fail('not_found', '实时画面服务未启动')
       const res = await fetch(`http://127.0.0.1:${port}${req.url.slice(PREFIX.length)}`)
       reply.status(res.status).header('content-type', res.headers.get('content-type') ?? 'text/plain')
       return reply.send(await res.text())

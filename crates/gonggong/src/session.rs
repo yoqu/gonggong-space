@@ -645,7 +645,7 @@ impl Shared {
             let ids: Vec<_> = s.approvals.keys().filter(|k| k.starts_with(&prefix)).cloned().collect();
             for id in ids {
                 let p = s.approvals.remove(&id).unwrap();
-                let step = t!("档位已切换为「完全访问」，自动批准：{title}", title = p.title);
+                let step = t!("审批方式已切换为「完全允许」，自动批准：{title}", title = p.title);
                 let event = RunEvent::Status { status: RunStatus::Running, step };
                 a.out.send(DaemonToServer::RunEvent { run_id: run_id.into(), event });
                 let _ = p.tx.send(auto_allow(&p.options));
@@ -1728,7 +1728,7 @@ impl Asker for Shared {
     }
 
     fn abandon(&self, request_id: &str) {
-        self.withdraw(request_id, t!("agent 已不再等待回答，提问作废"));
+        self.withdraw(request_id, t!("Agent 已不再等待回答，提问已失效"));
     }
 
     fn active_run(&self) -> Option<(String, PathBuf)> {

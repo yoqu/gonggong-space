@@ -102,7 +102,14 @@ export function ApprovalFields({
         align="top"
         hint={
           <>
-            {mode === 'full' ? MODE_HINT.full : `${MODE_HINT[mode]}${FLOOR}`}
+            {mode === 'full' ? (
+              MODE_HINT.full
+            ) : (
+              <>
+                <div>{MODE_HINT[mode]}</div>
+                <div>{FLOOR}</div>
+              </>
+            )}
             {mode === 'review' && builtin ? ` ${BUILTIN_HINT}` : null}
             {mode === 'review' && outdated !== undefined ? (
               <span className="bot-settings__warn" role="note">
@@ -138,7 +145,7 @@ export function ApprovalFields({
         <FormRow
           label={t('AI 预审')}
           align="top"
-          hint={models ? REVIEW_HINT : t('Bot 所在机器尚未上报可选模型，暂不能开启。')}
+          hint={models ? REVIEW_HINT : t('Bot 所在电脑尚未上报可选模型，暂不能开启。')}
         >
           <PopUpButton<string>
             aria-label={t('AI 预审')}

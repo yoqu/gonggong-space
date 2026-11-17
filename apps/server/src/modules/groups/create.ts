@@ -72,7 +72,7 @@ export async function createGroup(
 ) {
   const dm = body.kind === 'dm'
   const name = body.name.trim()
-  if (!name) return fail('invalid', '填写群名')
+  if (!name) return fail('invalid', '请填写群名称')
   const repo = body.repo && { url: body.repo.url.trim(), branch: body.repo.branch.trim() }
   if (repo) assertBindable(ctx, repo.url, repo.branch)
   const invitedIds = uniq(body.memberIds).filter((id) => id !== me.id)

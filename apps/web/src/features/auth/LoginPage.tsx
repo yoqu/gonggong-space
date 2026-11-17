@@ -99,7 +99,7 @@ export function LoginPage() {
       footer={
         options?.registrationOpen ? (
           <p className="auth__foot">
-            {t('还没有账号？')}
+            {t('还没有账号？')}{' '}
             <Link to="/register" className="auth__link">
               {t('立即注册')}
             </Link>

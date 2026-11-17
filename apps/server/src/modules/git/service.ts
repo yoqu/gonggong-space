@@ -134,7 +134,7 @@ export function assertFeature(
 ) {
   const machineId = bot.machineId
   if (machineId && ctx.hub.isOnline(machineId) && !ctx.hub.features(machineId).includes(feature))
-    fail('conflict', '{bot} 所在机器的客户端版本过旧，升级后才能使用 Git 操作', { bot: bot.name })
+    fail('conflict', '{bot} 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作', { bot: bot.name })
 }
 
 /**

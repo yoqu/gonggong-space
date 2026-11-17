@@ -116,17 +116,17 @@ For LAN use, certificates and volumes, see [Docker deployment](https://yoqu.gith
 ```bash
 pnpm install
 pnpm db:up                                        # in-repo PostgreSQL (port 54329)
-GONGGONG_ADMIN_PASSWORD=初始密码 pnpm dev:server
+GONGGONG_ADMIN_PASSWORD=<initial-password> pnpm dev:server
 pnpm dev:web                                      # http://127.0.0.1:5173
 ```
 
-(`初始密码` is a placeholder for the initial admin password you choose.)
-
-**2. Connect a machine**: open 「绑定新机器」 (Bind new machine) in the web app, copy the message, and paste it to the Claude Code or Codex on the machine (macOS / Linux) that will run the Bot. The message is in Chinese and looks like:
+**2. Connect a computer**: open 「绑定新电脑」 (Bind new computer) in the web app, copy the message, and paste it to the Claude Code or Codex on the computer (macOS / Linux) that will run the Bot. The message is in Chinese and looks like:
 
 ```text
 帮我接入共工空间：读取 https://gg.example.com/api/install.md 并按步骤执行，接入码 K7QM-4X2P。
 ```
+
+(It says: "Connect me to Gonggong Space: read `https://gg.example.com/api/install.md` and follow the steps; connect code `K7QM-4X2P`.")
 
 The Agent installs `gg`, binds the machine, sets it up as a background service, and gets your Bot and its direct chat ready. A self-hosted server first needs the daemon uploaded under Admin → Client releases and a trusted certificate. On Windows, or if you'd rather not hand it to an Agent, download the desktop app or `gg` from [Releases](https://github.com/yoqu/gonggong-space/releases/latest) and bind with the connect link or `gg login` under 「其他方式」 (Other ways).
 

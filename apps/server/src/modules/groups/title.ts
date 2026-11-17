@@ -1,9 +1,12 @@
 import { inArray, sql } from 'drizzle-orm'
 import type { Ctx } from '../../context.js'
 import { groups } from '../../db/schema.js'
+import { t } from '../../i18n/index.js'
 import { isUuid } from '../../lib/ids.js'
 
 const DELETED_BOT = '已删除的 Bot'
+
+export const translateGroupTitle = (title: string) => (title === DELETED_BOT ? t('已删除的 Bot') : title)
 
 /**
  * What people see a group called: a DM is titled by its Bot's current name until its owner renames it; a Bot shared
@@ -25,5 +28,5 @@ export async function groupTitles(ctx: Ctx, ids: string[]) {
     .select({ id: groups.id, title: groupTitle })
     .from(groups)
     .where(inArray(groups.id, valid))
-  return new Map(rows.map((r) => [r.id, r.title]))
+  return new Map(rows.map((r) => [r.id, translateGroupTitle(r.title)]))
 }

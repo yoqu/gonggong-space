@@ -77,7 +77,7 @@ describe('git reads', () => {
   it('needs a daemon with gitOps2 for diff, refresh and committing chosen paths', async () => {
     const w = await world()
     await daemon(w.token, ['gitOps'])
-    const old = { status: 409, body: { message: 'cc 所在机器的客户端版本过旧，升级后才能使用 Git 操作' } }
+    const old = { status: 409, body: { message: 'cc 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作' } }
     expect(await w.members.get(`${w.base}/diff?from=HEAD`)).toMatchObject(old)
     expect(await w.members.post(`${w.base}/refresh`, { fetch: true })).toMatchObject(old)
     const pick = { action: 'commit', message: 'x', paths: ['a.ts'] }
@@ -211,7 +211,7 @@ describe('git reads', () => {
   it('needs a daemon with gitRepos for a sub-repo; the root repo asks as before', async () => {
     const w = await world()
     const d = await daemon(w.token)
-    const old = { status: 409, body: { message: 'cc 所在机器的客户端版本过旧，升级后才能使用 Git 操作' } }
+    const old = { status: 409, body: { message: 'cc 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作' } }
     expect(await w.members.get(`${w.base}/refs?repo=libs%2Fcore`)).toMatchObject(old)
     expect(await w.owners.post(`${w.base}/actions`, { action: 'pull', repo: 'libs/core' })).toMatchObject(old)
     expect(await w.members.post(`${w.base}/actions`, { action: 'pull', repo: 'libs/core' })).toMatchObject(

@@ -249,13 +249,13 @@ describe('joining a repo group', () => {
       extraDirs: [],
       repoPaths: {},
     })
-    await until(async () => (await w.bodies(g.id)).includes('小王的 Claude · daemon 已 clone 到托管工作区'))
+    await until(async () => (await w.bodies(g.id)).includes('小王的 Claude · 客户端已克隆到托管工作区'))
   })
 
   it('waits for an offline daemon and clones once it comes online', async () => {
     const w = await world()
     const g = await w.createGroup()
-    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · daemon 离线，上线后克隆托管工作区')
+    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · 客户端离线，上线后克隆托管工作区')
     expect(await w.stateOf(g.id)).toMatchObject({ state: 'pending', workspace: 'managed' })
     const d = await daemon(w.a.token)
     d.send(reply(await joinEnsure(d, g.id)))
@@ -342,7 +342,7 @@ describe('default workspace', () => {
     const w = await world()
     await setDefault(w, '/src/notes')
     const g = await w.createGroup({ repo: false })
-    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · daemon 离线，上线后使用默认工作区')
+    expect(await w.bodies(g.id)).toContain('小王的 Claude 加入 · 客户端离线，上线后使用默认工作区')
     expect((await w.stateOf(g.id)).state).toBe('pending')
 
     const d = await daemon(w.a.token)
@@ -562,7 +562,7 @@ describe('/cd requests', () => {
       state: 'ready',
       path: '/src/new',
     })
-    expect(await w.bodies(g.id)).not.toContain('小王的 Claude · daemon 已 clone 到托管工作区')
+    expect(await w.bodies(g.id)).not.toContain('小王的 Claude · 客户端已克隆到托管工作区')
   })
 
   it('resumes the managed clone when the directory that replaced it is refused', async () => {

@@ -1251,7 +1251,7 @@ pub fn delete(home: &Path, entry: &Entry) -> Result<(), String> {
 /// The 工作区 page for the web's 机器与 Bot: the server's pairs as the desktop app gets them, sizes walked off the
 /// async runtime, each clone's unpushed work and the free space.
 pub async fn list_for_web(home: PathBuf, config: Option<Config>) -> Result<(Vec<Entry>, Option<Disk>), String> {
-    let config = config.ok_or_else(|| t!("daemon 未登录服务器").to_string())?;
+    let config = config.ok_or_else(|| t!("尚未登录服务器，请先执行 gg login").to_string())?;
     let pairs = fetch_pairs(&config).await.map_err(|e| t!("读取工作区失败：{e}", e = e))?;
     let (mut entries, disk) = tokio::task::spawn_blocking(move || {
         let entries = list(&home, &pairs);

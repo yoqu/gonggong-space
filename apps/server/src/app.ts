@@ -130,7 +130,7 @@ export async function buildApp(ctx: Ctx, opts: { https?: TlsOptions | null; logS
         .status(400)
         .send({ error: 'invalid', message: t((err.issues[0]?.message ?? 'invalid') as MessageKey) })
     app.log.error(err)
-    return reply.status(500).send({ error: 'invalid', message: 'internal error' })
+    return reply.status(500).send({ error: 'invalid', message: t('服务器出错了，请稍后重试') })
   })
   app.get('/api/health', async () => ({ ok: true, protocol: PROTOCOL_VERSION }))
   await app.register(groupRoutes(ctx))

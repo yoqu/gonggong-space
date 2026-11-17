@@ -96,13 +96,15 @@ export function ContextSummary({ context }: { context: ContextUsage }) {
         }
       />
       <p className="ctx-pop__hint">
-        {left ? t('还剩 {n} 自动压缩。', { n: left }) : null}
-        {context.blockAt
-          ? t('已关闭自动压缩，用到 {n} 时 Agent 会停下，需要手动压缩或开新对话。', {
+        {left ? <>{t('还剩 {n} 自动压缩。', { n: left })} </> : null}
+        {context.blockAt ? (
+          <>
+            {t('已关闭自动压缩，用到 {n} 时 Agent 会停下，需要手动压缩或开新对话。', {
               n: fmtTokens(context.blockAt),
-            })
-          : null}
-        {level === 'critical' ? (context.blockAt ? t('即将停下。') : t('即将用满。')) : null}
+            })}{' '}
+          </>
+        ) : null}
+        {level === 'critical' ? <>{context.blockAt ? t('即将停下。') : t('即将用满。')} </> : null}
         {t('压缩会把此前的对话总结后保留；开新对话则不再带上此前的对话。')}
       </p>
     </>

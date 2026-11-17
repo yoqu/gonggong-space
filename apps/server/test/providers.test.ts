@@ -197,7 +197,7 @@ describe('agent tools and providers relayed to the machine', () => {
     const refused = await w.asWang.post<{ message: string }>(url, provider)
     expect([refused.status, refused.body.message]).toEqual([
       409,
-      '请先升级该机器的 daemon 才能使用命令行参数',
+      '请先升级这台电脑的共工客户端，才能使用命令行参数',
     ])
     await old.close()
     const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'providerArgs'])
@@ -234,7 +234,7 @@ describe('agent tools and providers relayed to the machine', () => {
     )
     expect([refused.status, refused.body.message]).toEqual([
       409,
-      '请先升级该机器的 daemon 才能使用该机器 Claude 配置目录',
+      '请先升级这台电脑的共工客户端，才能使用 Claude 配置目录',
     ])
     await old.close()
     const d = await daemon(w.a.token, w.a.machine.id, ['tools', 'providers', 'claudeProfile'])
@@ -263,19 +263,19 @@ describe('agent tools and providers relayed to the machine', () => {
     const w = await world()
     const url = `/api/machines/${w.a.machine.id}/providers`
     const offline = await w.asWang.get<{ message: string }>(url)
-    expect([offline.status, offline.body.message]).toEqual([409, '机器离线'])
+    expect([offline.status, offline.body.message]).toEqual([409, '电脑离线'])
     expect((await w.asLi.get(url)).status).toBe(403)
     expect((await w.asWang.get('/api/machines/00000000-0000-4000-8000-000000000000/tools')).status).toBe(404)
 
     const old = await daemon(w.a.token, w.a.machine.id, [])
     for (const path of ['providers', 'tools', 'ccswitch']) {
       const res = await w.asWang.get<{ message: string }>(`/api/machines/${w.a.machine.id}/${path}`)
-      expect([res.status, res.body.message]).toEqual([409, '请先升级该机器的 daemon'])
+      expect([res.status, res.body.message]).toEqual([409, '请先升级这台电脑的共工客户端'])
     }
     await old.close()
     await daemon(w.a.token, w.a.machine.id)
     const noCc = await w.asWang.get<{ message: string }>(`/api/machines/${w.a.machine.id}/ccswitch`)
-    expect([noCc.status, noCc.body.message]).toEqual([409, '这台机器上没有 CC Switch'])
+    expect([noCc.status, noCc.body.message]).toEqual([409, '这台电脑上没有 CC Switch'])
     const [mine] = (await w.asWang.get<MachineDto[]>('/api/machines')).body
     expect(mine?.features).toEqual(['tools', 'providers'])
   })
@@ -713,7 +713,7 @@ describe('agent tools and providers relayed to the machine', () => {
     await until(() => wangSees.some((e) => e.t === 'machine.tools.result' && e.opId === up.body.opId))
     expect(wangSees.filter((e) => e.t === 'machine.tools.result').at(-1)).toMatchObject({
       ok: false,
-      error: '机器离线',
+      error: '电脑离线',
       state: null,
     })
 

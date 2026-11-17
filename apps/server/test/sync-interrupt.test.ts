@@ -317,8 +317,8 @@ describe('daemons without sync (old versions)', () => {
     )
     expect(status.body.replicas.find((r) => r.botId === w.b.id)).toMatchObject({
       state: 'excluded',
-      reason: 'daemon 版本过旧，请升级',
-      reasonI18n: { key: 'daemon 版本过旧，请升级' },
+      reason: '共工客户端版本过旧，请升级',
+      reasonI18n: { key: '共工客户端版本过旧，请升级' },
     })
   })
 

@@ -13,7 +13,7 @@ afterEach(() => t.close())
 
 const OPS3 = ['gitOps', 'gitOps2', 'gitRepos', 'gitOps3']
 const ALL = [...OPS3, 'gitOps4']
-const old = { status: 409, body: { message: 'cc 所在机器的客户端版本过旧，升级后才能使用 Git 操作' } }
+const old = { status: 409, body: { message: 'cc 所在电脑的共工客户端版本过旧，升级后才能使用 Git 操作' } }
 const noRewrite = { status: 409, body: { message: '受保护的基准分支不能改写历史' } }
 const hash = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'
 const said = (summary: string) => `王磊 在 cc 的工作区执行了 ${summary}`

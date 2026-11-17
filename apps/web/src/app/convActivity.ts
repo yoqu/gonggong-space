@@ -13,8 +13,8 @@ export function levelOf(r: LiveRun): ActivityLevel {
 }
 
 const LOOK: Record<ActivityLevel, { label: () => string; tone: TagTone; action: MascotAction }> = {
-  approve_me: { label: () => t('待审批'), tone: 'orange', action: 'raise' },
-  answer: { label: () => t('待回答'), tone: 'orange', action: 'ask' },
+  approve_me: { label: () => t('待审批#badge'), tone: 'orange', action: 'raise' },
+  answer: { label: () => t('待回答#badge'), tone: 'orange', action: 'ask' },
   approve_other: { label: () => t('等待审批'), tone: 'gray', action: 'raise' },
   running: { label: () => t('运行中'), tone: 'blue', action: 'carry' },
   queued: { label: () => t('排队中'), tone: 'blue', action: 'wait' },

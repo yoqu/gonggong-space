@@ -61,9 +61,9 @@ export function terminalSpaceRoutes({ ctx, terminals }: { ctx: Ctx; terminals: T
       const user = await requireUser(ctx, req)
       const input = TerminalSpaceCreateReq.parse(req.body)
       const [machine] = await ctx.db.select().from(machines).where(eq(machines.id, input.machineId))
-      if (!machine || machine.revokedAt) return fail('not_found', '机器不存在或已吊销')
-      if (machine.ownerId !== user.id) return fail('forbidden', '仅机器主人可以使用终端')
-      if (!input.cwd.startsWith('/')) return fail('invalid', '请填写机器上的绝对路径')
+      if (!machine || machine.revokedAt) return fail('not_found', '电脑不存在或已解绑')
+      if (machine.ownerId !== user.id) return fail('forbidden', '只有电脑主人可以使用终端')
+      if (!input.cwd.startsWith('/')) return fail('invalid', '请填写电脑上的绝对路径')
       const [space] = await ctx.db
         .insert(terminalSpaces)
         .values({

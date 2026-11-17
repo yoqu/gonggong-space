@@ -24,8 +24,8 @@ export default {
   '需要你审批或回答的事项会出现在这里。': 'Things waiting for your approval or answer show up here.',
   已处理: 'Handled',
   删除通知: 'Delete notification',
-  '只推送需要你操作的事项；模式切换、机器落后等群级事件只在群内显示。':
-    'Only things that need you are pushed; group events such as mode changes or outdated machines appear in the group only.',
+  '只推送需要你操作的事项；模式切换、电脑落后等群级事件只在群内显示。':
+    'Only things that need you are pushed; group events such as mode changes or outdated computers appear in the group only.',
   '30 分钟': '30 minutes',
   '1 小时': '1 hour',
   '2 小时': '2 hours',

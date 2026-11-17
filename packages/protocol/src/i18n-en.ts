@@ -72,14 +72,14 @@ export const protocolEn = {
   '{user} 邀请 {member} 加入群': '{user} invited {member} to the group',
   '{user} 加入了频道': '{user} joined the channel',
   '{admin} 同意 {user} 加入群': '{admin} let {user} join the group',
-  '{user} 将本群归入团队分区「{section}」': '{user} filed this group under the team section “{section}”',
+  '{user} 将本群归入团队分区「{section}」': '{user} filed this group under the team section "{section}"',
   '{user} 将本群移出团队分区': '{user} removed this group from its team section',
   入群申请: 'Join request',
   待处理入群申请: 'Join request to review',
   '{by} 申请加入群：{reason}': '{by} asked to join: {reason}',
   '{by} 申请加入群': '{by} asked to join',
   入群申请已通过: 'Join request approved',
-  '{by} 同意你加入群': '{by} let you join',
+  '{by} 同意你加入群': '{by} approved your join request',
   入群申请被拒绝: 'Join request declined',
   '{by} 拒绝了你的入群申请': '{by} declined your join request',
   '{user} 将本群设为公开频道': '{user} made this group a public channel',
@@ -90,27 +90,28 @@ export const protocolEn = {
   '欢迎 {member} 加入团队，有问题直接 @{bot}': 'Welcome {member} to the team. Got a question? Just @{bot}',
   '{member} 已退出飞书群，移出群': '{member} left the Feishu chat and was removed from the group',
   '飞书群里的消息现在会全部同步到本群（不触发 Bot），群管理员可在「群设置 · 飞书」关闭':
-    'All messages of the Feishu chat now come into this group (without running bots); group admins can turn this off in Group settings · Feishu',
+    'All messages of the Feishu chat now come into this group (without running Bots); group admins can turn this off in Group settings · Feishu',
   '未能将 {member} 拉入飞书群：{reason}': 'Could not add {member} to the Feishu chat: {reason}',
   '{owner} 作为 {bot} 的主人一并加入群': "{owner} joined the group as {bot}'s owner",
   '{bot} 被移出 · 工作区保留': '{bot} was removed · workspace kept',
   '{bot} 被移出 · {user} 的账号已停用': "{bot} was removed · {user}'s account was disabled",
   '{user} 将同步模式切换为强制同步，基准 Bot：{bot}':
-    '{user} switched the group to force sync, base Bot: {bot}',
+    '{user} switched the group to force sync; base Bot: {bot}',
   '{user} 将同步模式切回分区模式，各 Bot 保留当前文件':
-    '{user} switched the group back to partition mode, each Bot keeps its current files',
+    '{user} switched the group back to partition mode; each Bot keeps its current files',
   '切换为强制同步失败，仍为分区模式：{reason}':
-    'Switching to force sync failed, still in partition mode: {reason}',
+    'Switching to force sync failed; still in partition mode: {reason}',
   '基准 Bot 未能在 10 分钟内完成首版，已退回分区模式':
-    'The base Bot did not submit the first version within 10 minutes, back to partition mode',
+    'The base Bot did not submit the first version within 10 minutes; switched back to partition mode',
   '基准 Bot 已离开群': 'the base Bot left the group',
-  '基准 Bot 所在机器离线超过 10 分钟': "the base Bot's machine has been offline for over 10 minutes",
+  '基准 Bot 所在电脑离线超过 10 分钟': "the base Bot's computer has been offline for over 10 minutes",
+  '基准 Bot 所在机器离线超过 10 分钟': "the base Bot's computer has been offline for over 10 minutes",
   '{user} 修改了名称': '{user} changed the name',
   '{user} 修改了群名称与公告': '{user} changed the group name and notice',
-  '{user} 开启了「仅群管理员可拉人」': '{user} turned on “Only admins can invite”',
-  '{user} 关闭了「仅群管理员可拉人」': '{user} turned off “Only admins can invite”',
-  '{user} 开启了「禁止直推基准分支」': '{user} turned on “No direct pushes to the base branch”',
-  '{user} 关闭了「禁止直推基准分支」': '{user} turned off “No direct pushes to the base branch”',
+  '{user} 开启了「仅群管理员可拉人」': '{user} turned on "Only admins can invite"',
+  '{user} 关闭了「仅群管理员可拉人」': '{user} turned off "Only admins can invite"',
+  '{user} 开启了「禁止直推基准分支」': '{user} turned on "No direct pushes to the base branch"',
+  '{user} 关闭了「禁止直推基准分支」': '{user} turned off "No direct pushes to the base branch"',
   '{user} 开启了「Bot 回复进话题」': '{user} turned on "Bot replies in threads"',
   '{user} 关闭了「Bot 回复进话题」': '{user} turned off "Bot replies in threads"',
   '{user} 移除了群公告': '{user} removed the group notice',
@@ -122,9 +123,14 @@ export const protocolEn = {
   '{member} 接任群管理员': '{member} took over as group admin',
   '{user} 以团队管理员身份加入并成为群管理员': '{user} joined as team admin and is now group admin',
   '{user} 以团队管理员身份成为群管理员': '{user} is now group admin as team admin',
-  '{user} 将 {bot} 在本群的档位设为「{tier}」': '{user} set the tier of {bot} in this group to "{tier}"',
+  '{user} 将 {bot} 在本群的审批方式设为「{tier}」':
+    '{user} set {bot}\'s approval mode in this group to "{tier}"',
+  '{user} 将 {bot} 在本群的审批方式恢复为跟随全局（{tier}）':
+    "{user} reset {bot}'s approval mode in this group to follow the global setting ({tier})",
+  // legacy
+  '{user} 将 {bot} 在本群的档位设为「{tier}」': '{user} set {bot}\'s approval mode in this group to "{tier}"',
   '{user} 将 {bot} 在本群的档位恢复为跟随全局（{tier}）':
-    '{user} reset the tier of {bot} in this group to follow the global setting ({tier})',
+    "{user} reset {bot}'s approval mode in this group to follow the global setting ({tier})",
   '{user} 将 {bot} 在本群的模型设为 {model}': '{user} set the model of {bot} in this group to {model}',
   '{user} 将 {bot} 在本群的模型设为 {model} · {effort}':
     '{user} set the model of {bot} in this group to {model} · {effort}',
@@ -182,52 +188,64 @@ export const protocolEn = {
   '✓ {bot} 已使用托管工作区': '✓ {bot} now uses the managed workspace',
   '✓ {bot} 已绑定到 {path}（本机目录）': '✓ {bot} is bound to {path} (local directory)',
   '已请求 {bot} 使用托管工作区，等待本机确认…':
-    'Asked {bot} to use the managed workspace, waiting for its machine to confirm…',
+    'Asked {bot} to use the managed workspace; waiting for this computer to confirm…',
   '已请求 {bot} 绑定到 {path}，等待本机校验…':
-    'Asked {bot} to bind to {path}, waiting for its machine to check…',
+    'Asked {bot} to bind to {path}; waiting for this computer to check…',
   '{bot} 加入': '{bot} joined',
   '{bot} · 使用托管工作区，等待本机克隆…':
-    '{bot} · using a managed workspace, waiting for its machine to clone…',
+    '{bot} · using a managed workspace; waiting for this computer to clone…',
+  '{bot} · 客户端离线，上线后克隆托管工作区':
+    '{bot} · client offline; the managed workspace will be cloned once it is back',
   '{bot} · daemon 离线，上线后克隆托管工作区':
-    '{bot} · daemon offline, the managed workspace will be cloned once it is back',
+    '{bot} · client offline; the managed workspace will be cloned once it is back',
   '{bot} · 等待 {owner} 绑定工作区': '{bot} · waiting for {owner} to bind a workspace',
   '群解绑仓库 · 各 Bot 改用默认工作区或本机目录，自动克隆保留在本机':
-    'The group repo was unbound · Bots switch to their default or local directories; automatic clones stay on their machines',
+    'The group repo was unbound · Bots switch to their default or local folders; automatic clones stay on their computers',
   '{bot} · 等待 {owner} 确认工作区：自动克隆或使用本机已有目录':
-    '{bot} · waiting for {owner} to choose a workspace: an automatic clone or an existing local one',
+    '{bot} · waiting for {owner} to choose a workspace: an automatic clone or an existing local folder',
   '{bot} 等待 {owner} 确认工作区，本次未执行；确认后重新发起即可':
-    '{bot} is waiting for {owner} to choose a workspace, so this was not run; ask again once it is chosen',
+    '{bot} is waiting for {owner} to choose a workspace, so this did not run; resend once it is chosen',
+  '{bot} · 客户端离线，上线后使用默认工作区':
+    '{bot} · client offline; the default workspace will be used once it is back',
   '{bot} · daemon 离线，上线后使用默认工作区':
-    '{bot} · daemon offline, the default workspace will be used once it is back',
+    '{bot} · client offline; the default workspace will be used once it is back',
   '{bot} 默认工作区不可用：{error}，等待 {owner} 绑定工作区':
     '{bot} default workspace unavailable: {error}; waiting for {owner} to bind a workspace',
   '{bot} · 使用默认工作区 {path}（主人可改绑）':
     '{bot} · using the default workspace {path} (the owner can rebind it)',
-  '{bot} · daemon 已 clone 到托管工作区': '{bot} · daemon cloned into the managed workspace',
+  '{bot} · 客户端已克隆到托管工作区': '{bot} · client cloned into the managed workspace',
+  '{bot} · daemon 已 clone 到托管工作区': '{bot} · client cloned into the managed workspace',
   '{bot} 工作区创建失败：{error}': '{bot} failed to create the workspace: {error}',
   '{bot} 还没有工作区，本次未执行；{owner} 绑定工作区后重新发起即可':
-    '{bot} has no workspace yet, so this was not run; ask again after {owner} binds one',
+    '{bot} has no workspace yet, so this did not run; resend after {owner} binds one',
+  '{bot} 所在的电脑连不上仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」':
+    '{bot}\'s computer cannot reach the repo ({reason}), so this run didn\'t start; {owner} can configure it and click "Recheck"',
+  // legacy
   '{bot} 所在机器无法访问仓库（{reason}），本次未执行；{owner} 配置后点「重新检查」':
-    '{bot}\'s machine cannot reach the repo ({reason}), so this was not run; {owner} can fix it and click "Recheck"',
+    '{bot}\'s computer cannot reach the repo ({reason}), so this was not run; {owner} can fix it and click "Recheck"',
   '丢弃本轮改动失败：{error}': 'Failed to discard the changes of this turn: {error}',
   未知错误: 'Unknown error',
   'Bot 离线': 'Bot offline',
 
   // Run steps
-  'Bot 离线，等待上线': 'Bot offline, waiting for it to come online',
+  'Bot 离线，等待上线': 'Bot offline; waiting for it to come online',
+  '这台电脑的共工客户端版本过旧，升级后才能运行这种 Agent 的 Bot':
+    "This computer's Gonggong client is too old for this Bot's Agent; upgrade it to run this Agent",
   '执行机器的共工客户端版本过低，升级后才能运行这种 Agent 的 Bot':
-    "The machine's Gonggong client is too old for this bot's agent; upgrade it to run this one",
+    "This computer's Gonggong client is too old for this Bot's Agent; upgrade it to run this Agent",
   工作区准备中: 'Preparing the workspace',
   等待切换为强制同步: 'Waiting for the switch to force sync',
   等待同步对齐: 'Waiting for the workspace to align with force sync',
-  等待处理本地改动: 'Waiting for its local changes to be settled',
-  等待处理同步冲突: 'Waiting for its sync conflict to be settled',
-  '本群上一轮未结束，排第 {n}': 'Previous turn in this group still running, #{n} in line',
-  '该 Bot 忙，排第 {n}': 'This Bot is busy, #{n} in line',
-  'daemon 重启，本轮已中断': 'The daemon restarted, this turn was interrupted',
-  '{user} 的账号已停用，本轮中断': "{user}'s account was disabled, this turn was interrupted",
-  '触发消息已撤回，已作废': 'The triggering message was recalled, voided',
-  '消息已编辑，已重新运行': 'Message edited, run again',
+  等待处理本地改动: 'Waiting for local changes to be resolved',
+  等待处理同步冲突: 'Waiting for the sync conflict to be resolved',
+  '本群上一轮未结束，排第 {n}': 'Previous turn in this group still running; #{n} in line',
+  '该 Bot 忙，排第 {n}': 'This Bot is busy; #{n} in line',
+  '共工客户端重启，本轮已中断': 'The Gonggong client restarted; this turn was interrupted',
+  'daemon 重启，本轮已中断': 'The Gonggong client restarted; this turn was interrupted',
+  '{user} 的账号已停用，本轮中断': "{user}'s account was disabled; this turn was interrupted",
+  '触发消息已撤回，请求已失效': 'The triggering message was recalled; request expired',
+  '触发消息已撤回，已作废': 'The triggering message was recalled; request expired',
+  '消息已编辑，已重新运行': 'Message edited; run again',
   '等待回答：{n} 个问题': 'Awaiting answers: {n} {n:question|questions}',
   '等待审批：{title}': 'Awaiting approval: {title}',
   '整条链已被 {user} /stop 终止': 'The whole relay was ended by {user} with /stop',
@@ -236,12 +254,17 @@ export const protocolEn = {
     '{step} · partition mode: {n} changed {n:file stays|files stay} in the workspace, uncommitted',
   '{step} · 强制同步：已改的 {n} 个文件待处理，未提交':
     '{step} · force sync: {n} changed {n:file awaits|files await} a decision, not submitted',
+  'Bot 离线超过 {n} 分钟，已失效并通知 {user}':
+    'Bot offline for over {n} {n:minute|minutes}; expired and {user} was notified',
   'Bot 离线超过 {n} 分钟，已作废并通知 {user}':
-    'Bot offline for over {n} {n:minute|minutes}, voided and {user} was notified',
-  'agent 异常：{error}': 'Agent error: {error}',
+    'Bot offline for over {n} {n:minute|minutes}; expired and {user} was notified',
+  '运行出错：{error}': 'Run error: {error}',
+  'agent 异常：{error}': 'Run error: {error}',
   'Bot 未绑定或未确认，不能被触发': "The Bot isn't bound or confirmed and can't be triggered",
-  '该 Bot 仅允许主人触发，未启动运行': 'Only its owner can trigger this Bot, no run started',
-  '该 Bot 仅允许指定名单触发，未启动运行': 'Only its allowlist can trigger this Bot, no run started',
+  '只有 Bot 主人可以触发，未启动运行': 'Only its owner can trigger this Bot; no run started',
+  '只有指定成员可以触发，未启动运行': 'Only its allowlist can trigger this Bot; no run started',
+  '该 Bot 仅允许主人触发，未启动运行': 'Only its owner can trigger this Bot; no run started',
+  '该 Bot 仅允许指定名单触发，未启动运行': 'Only its allowlist can trigger this Bot; no run started',
 
   // Group list previews
   你撤回了一条消息: 'You recalled a message',
@@ -267,24 +290,31 @@ export const protocolEn = {
   提问: 'Question',
   待回答: 'Awaiting answer',
   '{bot} 向你提了 {n} 个问题': '{bot} asked you {n} {n:question|questions}',
+  'Bot 离线超时': 'Expired: Bot offline',
   'Bot 离线作废': 'Expired: Bot offline',
+  '你 @{bot} 的请求等待 {n} 分钟未上线，已失效':
+    'Your request to @{bot} expired after {n} {n:minute|minutes} waiting for it to come online',
   '你 @{bot} 的请求等待 {n} 分钟未上线，已作废':
     'Your request to @{bot} expired after {n} {n:minute|minutes} waiting for it to come online',
   接力链结束: 'Relay finished',
   '{n} 跳完成': '{n} {n:hop|hops} completed',
   '{n} 跳 · 已被 /stop 中断': '{n} {n:hop|hops} · stopped by /stop',
   'Bot 无法访问仓库': 'Bot cannot reach the repo',
+  '{bot} 所在的电脑连不上 {repo}（{reason}），配置后在群里点「重新检查」':
+    '{bot}\'s computer cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
   '{bot} 所在机器无法访问 {repo}（{reason}），配置后在群里点「重新检查」':
-    '{bot}\'s machine cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
+    '{bot}\'s computer cannot reach {repo} ({reason}); fix it, then click "Recheck" in the group',
   '待确认 Bot': 'Bot to confirm',
   插件运行授权: 'Plugin authorization',
-  机器接入申请: 'Machine hookup request',
-  待确认的机器接入: 'Machine waiting to be allowed',
-  '{machine} 请求接入': '{machine} asks to be hooked up',
+  电脑接入申请: 'Computer connect request',
+  待确认的电脑接入: 'Computer waiting to be allowed',
+  机器接入申请: 'Computer connect request',
+  待确认的机器接入: 'Computer waiting to be allowed',
+  '{machine} 请求接入': '{machine} asks to connect',
   待授权的插件: 'Plugin to authorize',
   '插件 {plugin} {version} 要在 {machine} 上运行代码，请确认':
     'Plugin {plugin} {version} wants to run code on {machine}. Please confirm',
-  '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you, please confirm the binding',
+  '{by} 为你创建了 {bot}，请确认绑定': '{by} created {bot} for you; please confirm the binding',
   '共享 Bot': 'Shared Bot',
   '有人@我': 'Mentioned',
   'Bot 回复了我': 'Bot replied to me',
@@ -334,8 +364,10 @@ export const protocolEn = {
   单个附件大小上限: 'Max size of one attachment',
   每条消息附件数: 'Attachments per message',
   提问卡片每张题数上限: 'Max questions per question card',
-  机器心跳间隔: 'Machine heartbeat interval',
-  '机器离线判定（连续未收到心跳）': 'Machine offline after (missed heartbeats in a row)',
+  电脑心跳间隔: 'Computer heartbeat interval',
+  '电脑离线判定（连续未收到心跳）': 'Computer offline after (missed heartbeats in a row)',
+  机器心跳间隔: 'Computer heartbeat interval',
+  '机器离线判定（连续未收到心跳）': 'Computer offline after (missed heartbeats in a row)',
   '服务器备份（每日）保留': 'Keep daily server backups for',
   删群后存档保留: 'Keep archives of deleted groups for',
   '权限审批等待 · 群默认': 'Approval wait · group default',
@@ -406,7 +438,7 @@ export const protocolEn = {
   '定时任务「{name}」已停用：{reason}': 'Scheduled task "{name}" was turned off: {reason}',
   仅一次的任务已执行: 'it was a one-off and has run',
   '连续 {n} 次失败': 'it failed {n} times in a row',
-  '候选 Bot 都已不在群内': 'none of its Bots is in the group any more',
+  '候选 Bot 都已不在群内': 'none of its Bots are in the group anymore',
   主人已不在群内: 'its owner left the group',
   '错过执行时间超过 24 小时': 'it missed its time by over 24 hours',
   定时任务已停用: 'Scheduled task turned off',
@@ -429,33 +461,35 @@ export const protocolEn = {
   '{path} 路径超过 260 个字符': '{path} is longer than 260 characters',
   '上传同步内容失败：{e}': "Couldn't upload sync content: {e}",
   '下载同步内容失败：{e}': "Couldn't download sync content: {e}",
-  '同步提交被拒绝：与权威版本冲突': 'Sync submit rejected: it conflicts with the authoritative version',
-  '同步提交被拒绝：基准版本无效': 'Sync submit rejected: its base version is invalid',
-  '同步提交被拒绝：文件内容未上传完整': 'Sync submit rejected: not all file contents were uploaded',
+  '同步提交被拒绝：与权威版本冲突': 'Sync submission rejected: it conflicts with the authoritative version',
+  '同步提交被拒绝：基准版本无效': 'Sync submission rejected: its base version is invalid',
+  '同步提交被拒绝：文件内容未上传完整': 'Sync submission rejected: not all file contents were uploaded',
   '同步提交被拒绝：该副本未参与强制同步':
-    'Sync submit rejected: this replica does not take part in force sync',
-  '同步提交被拒绝：超过单版体积上限': 'Sync submit rejected: over the per-version size limit',
+    'Sync submission rejected: this replica does not take part in force sync',
+  '同步提交被拒绝：超过单版体积上限': 'Sync submission rejected: over the per-version size limit',
   强制同步还没有版本: 'Force sync has no version yet',
   找不到待处理的同步冲突: 'No held sync conflict found',
   '找不到待处理的同步冲突，无法合并': 'No held sync conflict found; cannot merge',
   '无法读取 {path}：{e}': "Couldn't read {path}: {e}",
   无法连接服务器同步接口: "Can't reach the server's sync API",
-  '本机同步状态丢失，正在重新对齐': 'This machine lost its sync state; realigning',
+  '本机同步状态丢失，正在重新对齐': 'This computer lost its sync state; realigning',
+  '这台电脑同步状态丢失，正在重新对齐': 'This computer lost its sync state; realigning',
   '本版改动共 {size} MB，超过单版上限 {max} MB（最大的是 {path}），请把大文件加入 .gitignore':
     "This version's changes total {size} MB, over the {max} MB per-version limit (largest: {path}); add large files to .gitignore",
   '本版改动共 {n} 个文件，超过单版上限 {max} 个（最多的是 {path}），请把生成的文件加入 .gitignore':
     'This version changes {n} files, over the {max}-file per-version limit (most in {path}); add generated files to .gitignore',
   '本轮异常结束，改动未提交，待 Bot 主人处理':
-    'The turn ended abnormally; its changes were not submitted and wait for the Bot owner',
+    'The turn ended abnormally; its changes were not submitted and await the Bot owner',
   '疑似密钥文件 {path}，未被 git 跟踪，请加入 .gitignore 或移出工作区':
     "{path} looks like a secret file and isn't tracked by git; add it to .gitignore or move it out of the workspace",
-  等待服务器确认同步提交超时: 'Timed out waiting for the server to confirm the sync submit',
+  等待服务器确认同步提交超时: 'Timed out waiting for the server to confirm the sync submission',
   '副本内容与 v{version} 不一致': 'The replica does not match v{version}',
-  'daemon 版本过旧，请升级': 'The daemon is too old to sync, please upgrade',
+  '共工客户端版本过旧，请升级': 'The Gonggong client is too old to sync; please upgrade',
+  'daemon 版本过旧，请升级': 'The Gonggong client is too old to sync; please upgrade',
   '分支自「{group}」，以下是分支点之前的对话：\n{summary}':
-    'Branched from 「{group}」; the conversation before the branch point:\n{summary}',
+    'Branched from "{group}"; the conversation before the branch point:\n{summary}',
   '分支自「{group}」，分支点之前没有对话':
-    'Branched from 「{group}」; there was no conversation before the branch point',
+    'Branched from "{group}"; there was no conversation before the branch point',
   引入申请: 'Install request',
   待处理的引入申请: 'Install request to handle',
   '{by} 申请把 {listing} 引入到 {target}': '{by} asks to install {listing} into {target}',
@@ -488,14 +522,16 @@ export const protocolEn = {
   腾讯: 'Tencent',
   阿里巴巴: 'Alibaba',
   月之暗面: 'Moonshot AI',
-  'OpenCode 使用它自己的登录：在该机器上运行 opencode auth login 登录或填写 API Key':
-    'OpenCode keeps its own login: run opencode auth login on that machine to sign in or enter an API key',
+  'OpenCode 使用它自己的登录：在这台电脑上运行 opencode auth login 登录或填写 API Key':
+    'OpenCode keeps its own login: run opencode auth login on this computer to sign in or enter an API key',
   '需要 Node.js ≥ 22.19': 'Needs Node.js ≥ 22.19',
   深度求索: 'DeepSeek',
   '需要 Node.js ≥ 24.9': 'Needs Node.js ≥ 24.9',
-  'pi 使用它自己的登录：在该机器上运行 pi，输入 /login 登录或填写 API Key':
-    'pi keeps its own login: run pi on that machine and type /login, or enter an API key',
-  'Antigravity CLI 使用它自己的登录：在该机器上运行 agy，用 Google 账号登录':
-    'Antigravity CLI keeps its own login: run agy on that machine and sign in with Google',
+  'pi 使用它自己的登录：在这台电脑上运行 pi，输入 /login 登录或填写 API Key':
+    'pi keeps its own login: run pi on this computer and type /login, or enter an API key',
+  'Antigravity CLI 使用它自己的登录：在这台电脑上运行 agy，用 Google 账号登录':
+    'Antigravity CLI keeps its own login: run agy on this computer and sign in with Google',
+  '审批方式已切换为「完全允许」，自动批准：{title}':
+    'Approval mode switched to "Allow everything"; auto-approved: {title}',
 } satisfies Record<string, string>
 export type ProtocolKey = keyof typeof protocolEn

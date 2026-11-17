@@ -665,7 +665,7 @@ async function terminate(ctx: Ctx, owned: RunRow, done: RunDone) {
       .set({
         status: done.outcome === 'completed' ? 'completed' : 'interrupted',
         ...(done.outcome === 'failed'
-          ? runStep('agent 异常：{error}', { error: done.error ? redact(done.error) : { key: '未知错误' } })
+          ? runStep('运行出错：{error}', { error: done.error ? redact(done.error) : { key: '未知错误' } })
           : { step: '' }),
         filesChanged: done.filesChanged,
         patch: done.patch && seal(redact(done.patch)),

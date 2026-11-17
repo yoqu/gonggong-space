@@ -130,7 +130,7 @@ export function BindCodePanel({ bind }: { bind: BindCode }) {
               <Icon name="copy" />
             </IconButton>
           </div>
-          <p className="bind__note">{t('没有安装客户端时，在机器的终端里执行。')}</p>
+          <p className="bind__note">{t('没有安装客户端时，在电脑的终端里执行。')}</p>
         </Disclosure>
       </FormRow>
       <FormRow align="top">

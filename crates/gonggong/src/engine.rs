@@ -283,7 +283,7 @@ impl Handler for Engine {
                 let out = out.clone();
                 tokio::spawn(async move {
                     let mut result =
-                        Err(t!("找不到这一轮的改动快照（daemon 已重启、已丢弃过或该 Bot 已开始新一轮）").to_string());
+                        Err(t!("找不到这一轮的改动快照（客户端已重启、已丢弃过或该 Bot 已开始新一轮）").to_string());
                     for shared in sessions {
                         if let Some(r) = shared.discard(&run_id).await {
                             result = r;
@@ -1103,7 +1103,7 @@ impl Inner {
                 let node = self.node().await?;
                 if crate::upgrade::is_newer(&install.min_node, &node.version) {
                     bail!(t!(
-                        "{agent} 需要 Node.js ≥ {v}（当前 {current}），请在「设置 → Agent 工具」里升级 Node.js",
+                        "{agent} 需要 Node.js ≥ {v}（当前 {current}），请在桌面端「执行 → Agent」页升级 Node.js（或运行 gg agents install node）",
                         agent = a.spec.title,
                         v = install.min_node,
                         current = node.version
@@ -1271,7 +1271,7 @@ impl Inner {
         let log = |line: &str| tracing::info!("{line}");
         let node = tools::ensure_node(home, &log)
             .await
-            .context(t!("ACP 适配器需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))?;
+            .context(t!("部分 Agent 需要 Node.js ≥ {v}", v = tools::MIN_NODE_MAJOR))?;
         let m = modules.clone();
         let installed =
             move || ADAPTERS.iter().all(|(_, name, ver)| installed_version(&m.join(name)).as_deref() == Some(*ver));

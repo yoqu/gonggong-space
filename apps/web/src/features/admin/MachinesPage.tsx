@@ -91,8 +91,8 @@ export function MachinesPage() {
 
   return (
     <AdminPage
-      title={t('机器与网络')}
-      desc={t('所有机器的系统、硬件、daemon 版本、在线状态与网络质量记录。')}
+      title={t('电脑与网络')}
+      desc={t('查看所有电脑的系统、硬件、客户端版本、在线状态与网络质量记录。')}
       subtitle={
         machines
           ? countLine(
@@ -106,18 +106,18 @@ export function MachinesPage() {
         <ToolbarGroup>
           <ToolbarButton
             icon="info"
-            label={t('机器详情…')}
+            label={t('电脑详情…')}
             disabled={!selected}
             onClick={() => selected && open(selected)}
           />
         </ToolbarGroup>
       }
-      search={<SearchField placeholder={t('搜索机器或主人')} value={query} onChange={setQuery} />}
+      search={<SearchField placeholder={t('搜索电脑或主人')} value={query} onChange={setQuery} />}
     >
       {error ? <Alert variant="error" description={error} /> : null}
       {shown ? (
         <Table<AdminMachineDto>
-          aria-label={t('机器列表')}
+          aria-label={t('电脑列表')}
           className="admin-grid"
           rows={shown}
           multiple={false}
@@ -126,15 +126,15 @@ export function MachinesPage() {
           defaultSort={{ key: 'ownerName', dir: 'asc' }}
           onOpen={(m) => open(m.id)}
           rowActions={() => [
-            { label: t('机器详情…'), value: 'open' },
+            { label: t('电脑详情…'), value: 'open' },
             { separator: true },
-            { label: t('吊销机器…'), value: 'revoke', destructive: true },
+            { label: t('解绑电脑…'), value: 'revoke', destructive: true },
           ]}
           onRowAction={(action, m) => (action === 'open' ? open(m.id) : setRevoking(m))}
           emptyText={
             <EmptyState
               compact
-              title={q ? t('没有匹配的机器') : t('还没有机器')}
+              title={q ? t('没有匹配的电脑') : t('还没有电脑')}
               illustration={q ? <NoResultsArt /> : <NoMachinesArt />}
             />
           }
@@ -142,7 +142,7 @@ export function MachinesPage() {
             { key: 'ownerName', title: t('主人'), width: 88, sortable: true },
             {
               key: 'name',
-              title: t('机器'),
+              title: t('电脑'),
               mono: true,
               sortable: true,
               render: (m) => <span title={m.name === m.hostname ? undefined : m.hostname}>{m.name}</span>,
@@ -151,7 +151,7 @@ export function MachinesPage() {
             { key: 'hardware', title: t('硬件'), secondary: true, render: (m) => hardwareText(m) },
             {
               key: 'daemonVersion',
-              title: 'daemon',
+              title: t('客户端版本'),
               width: 84,
               mono: true,
               sortable: true,
@@ -257,7 +257,7 @@ export function MachinesPage() {
       {old.length ? (
         <Alert
           variant="warning"
-          title={t('{n} 台 daemon 协议版本过旧', { n: old.length })}
+          title={t('{n} 台共工客户端版本过旧', { n: old.length })}
           description={t('{list}，服务器已拒绝连接并提示升级。', {
             list: old
               .map((m) =>
@@ -272,7 +272,7 @@ export function MachinesPage() {
         />
       ) : null}
       <p className="admin__foot">
-        {t('网络质量由成员在 daemon 中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。')}
+        {t('网络质量由成员在电脑客户端中测量上报（gg net 或桌面端「测量延迟与带宽」），不在群里展示。')}
       </p>
     </AdminPage>
   )

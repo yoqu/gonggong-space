@@ -14,9 +14,9 @@ use gonggong::workspace::{Entry, EntryKind, human_size};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "gg", version, about = "Gonggong daemon: runs your team bots on this machine")]
+#[command(name = "gg", version, about = "Gonggong client: runs your team bots on this computer")]
 struct Cli {
-    /// Output language: zh or en (default: GG_LANG, then LC_ALL / LC_MESSAGES / LANG; Chinese unless another language).
+    /// Output language for runtime messages: zh or en (defaults to GG_LANG, LC_ALL, LC_MESSAGES, LANG, or zh).
     #[arg(long, global = true, env = "GG_LANG", value_name = "zh|en")]
     lang: Option<String>,
     #[command(subcommand)]
@@ -25,22 +25,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// List agent CLIs and Node.js on this machine; install, upgrade, pick their download mirror or change their
-    /// settings.
+    /// List Agent CLIs and Node.js on this computer; install, upgrade, pick their download mirror or change settings.
     #[command(visible_alias = "agent")]
     Agents {
         #[command(subcommand)]
         cmd: Option<gonggong::tools::AgentsCmd>,
     },
-    /// Bind this machine to your account with a one-time code from the Web (头像菜单 → 绑定新机器): pass the 接入链接
-    /// (gg login 'gonggong://bind?…') or --server and --code. An expired code, or --server alone, asks you to allow
-    /// this machine on the Web instead.
+    /// Bind this computer to your account with a connect link from the Web, or with --server and --code. An expired
+    /// code, or --server alone, asks you to allow this computer on the Web instead.
     Login {
-        /// The 接入链接 copied from the Web.
+        /// The connect link copied from the Web.
         #[arg(conflicts_with_all = ["server", "code", "fingerprint", "ca_file"], required_unless_present = "server")]
         link: Option<String>,
+        /// Server URL (http:// or https://).
         #[arg(long)]
         server: Option<String>,
+        /// One-time bind code shown on the Web (e.g. XXXX-XXXX).
         #[arg(long, requires = "server")]
         code: Option<String>,
         /// Trust this SHA-256 certificate fingerprint (needed for a self-signed server).
@@ -49,11 +49,11 @@ enum Cmd {
         /// Trust the PEM CA certificate at this path (needed for a private CA).
         #[arg(long, requires = "server", conflicts_with = "fingerprint")]
         ca_file: Option<PathBuf>,
-        /// Also have the server create a bot of this agent on this machine, and a DM with it
+        /// Also have the server create a bot of this Agent on this computer and open a DM with it
         /// (claude|codex|gemini|codebuddy|pi|deepseek|antigravity|opencode|qwen|kimi|goose|copilot).
         #[arg(long, value_name = "AGENT", value_parser = configure::parse_kind)]
         create_bot: Option<AgentKind>,
-        /// Fail on an expired code instead of asking for a confirmation on the Web (unattended setups such as Docker).
+        /// Fail on an expired code instead of asking for confirmation on the Web (for unattended setups like Docker).
         #[arg(long)]
         code_only: bool,
     },
@@ -62,47 +62,49 @@ enum Cmd {
         #[command(subcommand)]
         cmd: ServiceCmd,
     },
-    /// Unbind this machine locally (removes the saved token).
+    /// Unbind this computer locally (removes the saved token).
     Logout,
-    /// Show which server and owner this machine is bound to.
+    /// Show which server and owner this computer is bound to.
     Status,
-    /// Connect to the server and run bots dispatched to this machine.
+    /// Connect to the server and run bots dispatched to this computer.
     Run {
         /// Replace the ACP adapter command for every agent (debugging / tests).
         #[arg(long, env = "GONGGONG_ADAPTER_CMD", hide = true)]
         adapter_cmd: Option<String>,
     },
-    /// List the bots bound to this machine (they are managed on the Web).
+    /// List the bots bound to this computer (settings are managed on the Web).
     Bots,
     /// Measure latency and bandwidth to the server and report them (shown to admins only).
     Net,
-    /// Check the server connection, agents, git credentials, disk and line endings.
+    /// Check the server connection, Agents, git credentials, disk space and line endings.
     Doctor,
-    /// List this machine's workspaces and local backups.
+    /// List this computer's workspaces and local backups.
     Workspaces {
-        /// Delete the removed / unused managed workspaces of <group>/<bot> (ids or names). /cd dirs are never deleted.
+        /// Delete the removed / unused managed workspaces of <group>/<bot> (IDs or names). /cd dirs are never deleted.
         #[arg(long, value_name = "GROUP/BOT")]
         delete: Option<String>,
         /// Point a /cd-bound <group>/<bot> back at its managed clone (same as `/cd @bot --reset`).
         #[arg(long, value_name = "GROUP/BOT", conflicts_with = "delete")]
         reset_cd: Option<String>,
     },
-    /// Show recent daemon log lines, or export a redacted diagnostics bundle.
+    /// Show recent client log lines, or export a redacted diagnostics bundle.
     Logs {
+        /// Minimum log level to include.
         #[arg(long, value_enum, default_value = "info")]
         level: LogLevel,
+        /// Number of recent log lines to print.
         #[arg(long, default_value_t = 200)]
         lines: usize,
         /// Write a diagnostics .zip (redacted logs, checks, versions, config without the token).
         #[arg(long, value_name = "PATH.zip", num_args = 0..=1, default_missing_value = "")]
         export: Option<PathBuf>,
     },
-    /// Local settings of this machine (a value of `default` restores the default).
+    /// Local settings on this computer (use `default` as the value to clear).
     Config {
         #[command(subcommand)]
         cmd: ConfigCmd,
     },
-    /// This machine's model providers (third-party endpoints and API keys); they never leave the machine.
+    /// Model providers on this computer (third-party endpoints and API keys stay local).
     Provider {
         #[command(subcommand)]
         cmd: gonggong::provider_cli::ProviderCmd,
@@ -121,10 +123,12 @@ enum ServiceCmd {
 
 #[derive(Subcommand)]
 enum ConfigCmd {
-    /// The agent CLI to use instead of the one found on PATH (models are chosen on the server).
+    /// Path to an Agent CLI executable to use instead of PATH (pass `default` to auto-detect).
     Agent {
+        /// Agent name (claude, codex, gemini, ...).
         #[arg(value_parser = configure::parse_kind)]
         kind: AgentKind,
+        /// Executable path, or `default` to clear the override.
         #[arg(long)]
         path: String,
     },
@@ -137,17 +141,33 @@ fn config() -> anyhow::Result<Config> {
 fn workspaces(entries: &[Entry], backups: &[gonggong::workspace::Backup]) {
     if entries.is_empty() {
         println!("{}", t!("本机还没有工作区"));
-    }
-    for e in entries {
-        let who = format!("{} × {}", e.group_label(), e.bot_label());
-        println!("{who}\t{}\t{}\t{}", e.kind_label(), e.path.display(), e.state_label());
+    } else {
+        let rows: Vec<_> = entries
+            .iter()
+            .map(|e| {
+                vec![
+                    format!("{} × {}", e.group_label(), e.bot_label()),
+                    e.kind_label().to_string(),
+                    e.path.display().to_string(),
+                    e.state_label(),
+                ]
+            })
+            .collect();
+        for line in gonggong::format_columns(&rows) {
+            println!("{line}");
+        }
     }
     println!("\n{}", t!("本机备份 · 不上传"));
     if backups.is_empty() {
         println!("{}", t!("（无）"));
-    }
-    for b in backups {
-        println!("{}\t{}\t{}", b.name, human_size(b.size), b.path.display());
+    } else {
+        let rows: Vec<_> = backups
+            .iter()
+            .map(|b| vec![b.name.clone(), human_size(b.size), b.path.display().to_string()])
+            .collect();
+        for line in gonggong::format_columns(&rows) {
+            println!("{line}");
+        }
     }
 }
 
@@ -240,12 +260,12 @@ async fn main() -> anyhow::Result<()> {
             if restored {
                 println!(
                     "{}",
-                    t!("绑定成功：已恢复本机原有机器记录（{name}），原有 Bot 绑定保持不变", name = machine.name)
+                    t!("绑定成功：已恢复原有电脑记录（{name}），原有 Bot 绑定保持不变", name = machine.name)
                 );
             } else {
                 println!(
                     "{}",
-                    t!("绑定成功：本机已归属 {owner}（{name}）", owner = config.owner_name, name = machine.name)
+                    t!("绑定成功：这台电脑已归属 {owner}（{name}）", owner = config.owner_name, name = machine.name)
                 );
             }
             match bot {
@@ -278,11 +298,11 @@ async fn main() -> anyhow::Result<()> {
             {
                 eprintln!(
                     "{}",
-                    t!("未能通知服务器（{e}），本机凭据仍会删除；如需停用该机器请在 Web 端移除", e = format!("{e:#}"))
+                    t!("未能通知服务器（{e}），本机凭据仍会删除；如需解绑这台电脑请在 Web 端移除", e = format!("{e:#}"))
                 );
             }
             Config::remove()?;
-            println!("{}", t!("已退出登录；再次 gg login 会恢复这台机器及其 Bot"));
+            println!("{}", t!("已退出登录；再次 gg login 会恢复这台电脑及其 Bot"));
         }
         Cmd::Status => {
             let bound = Config::load()?;
@@ -290,7 +310,7 @@ async fn main() -> anyhow::Result<()> {
                 Some(c) => println!(
                     "{}",
                     t!(
-                        "已绑定：{server} · 归属 {owner} · 机器 {machine}",
+                        "已绑定：{server} · 主人 {owner} · 电脑 {machine}",
                         server = c.server,
                         owner = c.owner_name,
                         machine = c.machine_id
@@ -304,9 +324,24 @@ async fn main() -> anyhow::Result<()> {
             println!("service: {}", gonggong::autostart::state(&spec, &gonggong::autostart::System).as_str());
         }
         Cmd::Run { adapter_cmd } => {
-            let options = Options { home: config::home(), config: config()?, adapter_cmd, self_upgrade: true };
+            let cfg = config()?;
+            let server = cfg.server.clone();
+            let options = Options { home: config::home(), config: cfg, adapter_cmd, self_upgrade: true };
             let daemon = Daemon::start(options)?;
             let services = daemon.services();
+            let mut rx = daemon.subscribe();
+            eprintln!("{}", t!("正在连接服务器 {server}…", server = server));
+            tokio::spawn(async move {
+                loop {
+                    if matches!(rx.borrow_and_update().conn, gonggong::status::Conn::Online { .. }) {
+                        eprintln!("{}", t!("已连接，共工客户端正在运行（Ctrl-C 退出）"));
+                        break;
+                    }
+                    if rx.changed().await.is_err() {
+                        break;
+                    }
+                }
+            });
             let stopped = tokio::select! {
                 stopped = daemon.wait() => stopped,
                 _ = shutdown_signal() => {
@@ -315,12 +350,14 @@ async fn main() -> anyhow::Result<()> {
                     std::process::exit(0)
                 }
             };
-            eprintln!("{}", stopped.fatal);
-            if let Fatal::Rejected { reason: RejectReason::Revoked, .. } = stopped.fatal {
-                eprintln!("{}", t!("本机已被吊销（账号停用或机器被吊销），清除托管工作区与本机凭据："));
+            let Fatal::Rejected { reason, message } = &stopped.fatal;
+            if *reason == RejectReason::Revoked {
+                eprintln!("{}", t!("这台电脑已被解绑或账号已停用，正在清理托管工作区和本机凭据："));
                 for path in stopped.wiped {
                     eprintln!("  {}", t!("已删除 {path}", path = path.display()));
                 }
+            } else {
+                eprintln!("{}", t!("服务器拒绝连接：{message}", message = message));
             }
             std::process::exit(1);
         }
@@ -338,14 +375,20 @@ async fn main() -> anyhow::Result<()> {
         }
         Cmd::Doctor => {
             let checks = gonggong::diag::run(&config::home(), Config::load()?.as_ref()).await;
-            for c in &checks {
-                let mark = match c.status {
-                    Status::Ok => "✓",
-                    Status::Warn => "!",
-                    Status::Error => "✗",
-                    Status::Skipped => "-",
-                };
-                println!("{mark} {}\t{}", c.label, c.detail);
+            let rows: Vec<_> = checks
+                .iter()
+                .map(|c| {
+                    let mark = match c.status {
+                        Status::Ok => "✓",
+                        Status::Warn => "!",
+                        Status::Error => "✗",
+                        Status::Skipped => "-",
+                    };
+                    vec![format!("{mark} {}", c.label), c.detail.clone()]
+                })
+                .collect();
+            for line in gonggong::format_columns(&rows) {
+                println!("{line}");
             }
             if checks.iter().any(|c| c.status == Status::Error) {
                 std::process::exit(1);
