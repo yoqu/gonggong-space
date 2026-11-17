@@ -46,9 +46,24 @@ pub fn detect(home: &Path, local: &LocalSettings) -> Vec<AgentState> {
             let mut info = detect_one(home, kind, local);
             let key = catalog_key(kind, info.version.as_deref());
             info.catalog = cached.get(&kind).filter(|c| info.available && c.key == key).map(|c| c.catalog.clone());
+            if info.available && info.catalog.is_none() && kind == AgentKind::Claude {
+                info.catalog = fallback_profile_catalog(home, &info);
+            }
             info
         })
         .collect()
+}
+
+/// When `~/.claude` has no probed catalog (e.g. only a local Claude profile directory is logged in), fall back to the
+/// machine default profile's probed catalog, else the first probed profile's.
+fn fallback_profile_catalog(home: &Path, claude: &AgentState) -> Option<AgentCatalog> {
+    let store = Store::load(home).ok()?;
+    let default = store.machine_default(AgentKind::Claude).ok();
+    let default_ep = default.as_ref().and_then(|s| s.provider()).map(|(_, e)| e);
+    default_ep
+        .into_iter()
+        .chain(store.providers.iter().flat_map(|p| p.endpoint_for(AgentKind::Claude)))
+        .find_map(|e| profile_catalog(home, e, Some(claude)))
 }
 
 /// A probed catalog worth caching: an agent logged out or offline (agy) offers no models, and caching that would hide
@@ -86,26 +101,50 @@ pub fn profile_catalog_key(version: Option<&str>, e: &Endpoint) -> Option<String
 
 /// The catalog probed for the local Claude profile `e` with the Claude build `claude` (the detected one).
 pub fn profile_catalog(home: &Path, e: &Endpoint, claude: Option<&AgentState>) -> Option<AgentCatalog> {
-    let key = profile_catalog_key(claude?.version.as_deref(), e)?;
+    let version = claude
+        .and_then(|c| c.version.as_deref())
+        .map(String::from)
+        .or_else(|| crate::agent_settings::claude_version(home));
     let dir = e.config_dir.as_deref()?;
-    load_profile_catalogs(home).remove(dir).filter(|c| c.key == key).map(|c| c.catalog)
+    let entry = load_profile_catalogs(home).remove(dir)?;
+    match version {
+        Some(v) => (Some(entry.key) == profile_catalog_key(Some(&v), e)).then_some(entry.catalog),
+        None => {
+            let key = profile_catalog_key(None, e)?;
+            let matched = match key.strip_prefix('?') {
+                Some(suffix) => !entry.key.starts_with('?') && entry.key.ends_with(suffix),
+                None => entry.key == key,
+            };
+            matched.then_some(entry.catalog)
+        }
+    }
 }
 
-/// The local Claude profiles (one per directory) without a catalog for the Claude build `version`, with the key to
-/// cache the probed one under.
-pub fn unprobed_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
-    let cached = load_profile_catalogs(home);
+/// All local Claude profiles (one per directory) and the key to cache each probed catalog under.
+pub fn claude_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
     let mut seen = std::collections::HashSet::new();
     let mut out = vec![];
     for p in Store::load(home)?.providers {
         let Some(selection) = Selection::of(&p, AgentKind::Claude) else { continue };
         let Some((_, e)) = selection.provider() else { continue };
         let (Some(dir), Some(key)) = (e.config_dir.clone(), profile_catalog_key(version, e)) else { continue };
-        if seen.insert(dir.clone()) && cached.get(&dir).is_none_or(|c| c.key != key) {
+        if seen.insert(dir) {
             out.push((selection, key));
         }
     }
     Ok(out)
+}
+
+/// The local Claude profiles (one per directory) without a catalog for the Claude build `version`, with the key to
+/// cache the probed one under.
+pub fn unprobed_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
+    let cached = load_profile_catalogs(home);
+    Ok(claude_profiles(home, version)?
+        .into_iter()
+        .filter(|(s, key)| {
+            s.claude_profile().and_then(|d| d.to_str()).is_some_and(|dir| cached.get(dir).is_none_or(|c| &c.key != key))
+        })
+        .collect())
 }
 
 /// A short digest of the file's content, empty when it cannot be read.
@@ -115,24 +154,59 @@ fn file_digest(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// The agent talks to its maker's own service, where its built-in reviewer works: the official login, without a base
-/// URL in its env, the daemon's env or the CLI's user config (`config`: Claude's `settings.json` when the run loads
-/// it, Codex's `config.toml`; None = absent). Claude `auto` through a gateway refuses every action it should check;
-/// Codex's reviewer model fails on third-party providers.
+fn custom_endpoint(kind: AgentKind, k: &str, v: &str) -> bool {
+    let v = v.trim();
+    if v.is_empty() {
+        return false;
+    }
+    match kind {
+        AgentKind::Claude => {
+            matches!(k, "ANTHROPIC_BASE_URL" | "ANTHROPIC_BEDROCK_BASE_URL" | "ANTHROPIC_VERTEX_BASE_URL")
+                || (matches!(k, "CLAUDE_CODE_USE_BEDROCK" | "CLAUDE_CODE_USE_VERTEX") && v != "0" && v != "false")
+        }
+        AgentKind::Codex => k == "OPENAI_BASE_URL",
+        _ => true,
+    }
+}
+
+/// The agent talks to its maker's own service, where its built-in reviewer works: the official login or a local
+/// Claude profile, without a base URL in its env, `--settings`, the daemon's env or the CLI's user config (`config`:
+/// Claude's `settings.json` when the run loads it, Codex's `config.toml`; None = absent). Claude `auto` through a
+/// gateway refuses every action it should check; Codex's reviewer model fails on third-party providers.
 pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection, config: Option<&str>) -> bool {
-    let crate::providers::Selection::Official(official) = selection else { return false };
     if !matches!(kind, AgentKind::Claude | AgentKind::Codex) {
         return false;
     }
-    let base_url = |k: &str| k.ends_with("BASE_URL") || k == "CODEX_HOME" || k == "CLAUDE_CONFIG_DIR";
-    if official.env.keys().any(|k| base_url(k)) || std::env::vars_os().any(|(k, _)| k.to_str().is_some_and(base_url)) {
+    let is_profile = selection.claude_profile().is_some();
+    if !matches!(selection, crate::providers::Selection::Official(_)) && !is_profile {
         return false;
+    }
+    if selection.process_env().iter().any(|(k, v)| custom_endpoint(kind, k, v)) {
+        return false;
+    }
+    if !is_profile
+        && std::env::vars_os().any(|(k, v)| k.to_str().is_some_and(|k| custom_endpoint(kind, k, &v.to_string_lossy())))
+    {
+        return false;
+    }
+    if kind == AgentKind::Claude {
+        let Ok(args) = selection.claude_args() else { return false };
+        let Ok(settings) = args.settings() else { return false };
+        if settings
+            .and_then(|mut s| s.remove("env"))
+            .and_then(|e| e.as_object().cloned())
+            .is_some_and(|env| env.iter().any(|(k, v)| custom_endpoint(kind, k, v.as_str().unwrap_or("x"))))
+        {
+            return false;
+        }
     }
     let Some(config) = config else { return true };
     match kind {
         AgentKind::Claude => {
             let Ok(settings) = serde_json::from_str::<serde_json::Value>(config) else { return false };
-            settings["env"].as_object().is_none_or(|env| !env.keys().any(|k| base_url(k)))
+            settings["env"]
+                .as_object()
+                .is_none_or(|env| !env.iter().any(|(k, v)| custom_endpoint(kind, k, v.as_str().unwrap_or("x"))))
         }
         AgentKind::Codex => {
             let Ok(doc) = toml::from_str::<toml::Table>(config) else { return false };
@@ -145,28 +219,45 @@ pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection
     }
 }
 
-/// [`official_service`] with the CLI's user config under `user_home`; Claude's only when the run loads it.
+/// [`official_service`] with the CLI's user config under `user_home` (or the profile's / configured config dir);
+/// Claude's only when the run loads it.
 pub fn official_service_here(
     kind: AgentKind,
     selection: &crate::providers::Selection,
     user_home: &Path,
     loads_cli_config: bool,
 ) -> bool {
+    let env_dir = |key: &str| {
+        selection
+            .process_env()
+            .get(key)
+            .cloned()
+            .or_else(|| std::env::var_os(key).map(|v| v.to_string_lossy().into_owned()))
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from)
+    };
     let path = match kind {
-        AgentKind::Claude if loads_cli_config => Some(user_home.join(".claude/settings.json")),
-        AgentKind::Codex => Some(
-            std::env::var_os("CODEX_HOME").map_or_else(|| user_home.join(".codex"), PathBuf::from).join("config.toml"),
-        ),
+        AgentKind::Claude => match selection.claude_profile().map(Path::to_path_buf) {
+            Some(dir) => Some(dir.join("settings.json")),
+            None if loads_cli_config => {
+                Some(env_dir("CLAUDE_CONFIG_DIR").unwrap_or_else(|| user_home.join(".claude")).join("settings.json"))
+            }
+            None => None,
+        },
+        AgentKind::Codex => Some(env_dir("CODEX_HOME").unwrap_or_else(|| user_home.join(".codex")).join("config.toml")),
         _ => None,
     };
-    let config = path.and_then(|p| std::fs::read_to_string(p).ok());
+    let config = path.as_ref().and_then(|p| std::fs::read_to_string(p).ok());
     official_service(kind, selection, config.as_deref())
 }
 
 /// The user-level config file the CLI reads its providers and models from.
 fn cli_config(kind: AgentKind) -> PathBuf {
     match kind {
-        AgentKind::Claude => crate::config::user_home().join(".claude/settings.json"),
+        AgentKind::Claude => std::env::var_os("CLAUDE_CONFIG_DIR")
+            .filter(|v| !v.is_empty())
+            .map_or_else(|| crate::config::user_home().join(".claude"), PathBuf::from)
+            .join("settings.json"),
         AgentKind::Codex => std::env::var_os("CODEX_HOME")
             .map_or_else(|| crate::config::user_home().join(".codex"), PathBuf::from)
             .join("config.toml"),
@@ -488,6 +579,19 @@ mod tests {
             "k".into(),
         );
         assert!(!super::official_service(Codex, &Selection::of(&relay, Codex).unwrap(), None));
+
+        // A local Claude profile with official subscription/token login works unless its settings route to a gateway.
+        let dir = tempfile::tempdir().unwrap();
+        let mut profile =
+            Provider::custom(crate::protocol::ApiProtocol::Anthropic, "Local".into(), String::new(), String::new());
+        profile.endpoints[0].config_dir = Some(dir.path().to_string_lossy().into());
+        let sel = Selection::of(&profile, Claude).unwrap();
+        assert!(super::official_service_here(Claude, &sel, dir.path(), true));
+        std::fs::write(dir.path().join("settings.json"), r#"{"env":{"CLAUDE_CODE_OAUTH_TOKEN":"oat-123"}}"#).unwrap();
+        assert!(super::official_service_here(Claude, &sel, dir.path(), true));
+        std::fs::write(dir.path().join("settings.json"), r#"{"env":{"ANTHROPIC_BASE_URL":"https://gw.test"}}"#)
+            .unwrap();
+        assert!(!super::official_service_here(Claude, &sel, dir.path(), true));
     }
 
     use super::{file_names, parse_version};

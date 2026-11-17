@@ -346,6 +346,13 @@ describe('「供应商/模型」 options', () => {
       'PP / 默认模型',
       '(OLD)',
     ])
+    const catalog = {
+      current: 'opus',
+      efforts: [],
+      effort: null,
+      models: [{ value: 'opus', name: 'Opus', efforts: [], effort: null }],
+    }
+    expect(labels(choiceOptions(view, 'claude', { catalog, models: true }))).toContain('PP / Opus')
   })
 
   it('says why a provider does not fit', () => {

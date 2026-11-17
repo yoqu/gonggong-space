@@ -404,7 +404,15 @@ fn catalog_lists_an_endpoints_declared_models_once() {
 #[tokio::test]
 async fn bot_catalog_follows_what_a_new_session_would_use() {
     let home = tempfile::tempdir().unwrap();
-    let official = AgentCatalog { current: Some("opus".into()), ..Default::default() };
+    let official = AgentCatalog {
+        current: Some("opus".into()),
+        models: vec![ModelChoice {
+            choice: Choice { name: "Opus".into(), value: "opus".into(), description: None },
+            efforts: vec![],
+            effort: None,
+        }],
+        ..Default::default()
+    };
     let claude = AgentState {
         kind: AgentKind::Claude,
         available: true,
@@ -449,7 +457,15 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
     let (home, profile) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     std::fs::write(profile.path().join("settings.json"), r#"{"env":{"ANTHROPIC_BASE_URL":"https://gw.test"}}"#)
         .unwrap();
-    let official = AgentCatalog { current: Some("opus".into()), ..Default::default() };
+    let official = AgentCatalog {
+        current: Some("opus".into()),
+        models: vec![ModelChoice {
+            choice: Choice { name: "Opus".into(), value: "opus".into(), description: None },
+            efforts: vec![],
+            effort: None,
+        }],
+        ..Default::default()
+    };
     let claude = AgentState {
         kind: AgentKind::Claude,
         available: true,
@@ -491,7 +507,15 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
     assert_eq!(unprobed.len(), 1);
     let (selection, key) = &unprobed[0];
     assert_eq!(selection.claude_profile(), Some(profile.path()));
-    let probed = AgentCatalog { current: Some("claude-opus-5-5".into()), ..Default::default() };
+    let probed = AgentCatalog {
+        current: Some("claude-opus-5-5".into()),
+        models: vec![ModelChoice {
+            choice: Choice { name: "Opus 5.5".into(), value: "claude-opus-5-5".into(), description: None },
+            efforts: vec![],
+            effort: None,
+        }],
+        ..Default::default()
+    };
     crate::local::save_profile_catalog(home.path(), &dir, CachedCatalog { key: key.clone(), catalog: probed.clone() })
         .unwrap();
     assert!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().is_empty());
@@ -502,6 +526,9 @@ async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one(
     assert_eq!(ask(ProvidersAction::Catalog).await, Some(official), "its settings changed: probed again");
     assert_eq!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().len(), 1);
     assert_eq!(crate::agents::unprobed_profiles(home.path(), Some("2.2.0")).unwrap().len(), 1, "a Claude upgrade");
+    manage.providers(cmd(ProvidersAction::List), &out);
+    let DaemonToServer::ProvidersResult(listed) = rx.recv().await.unwrap() else { panic!() };
+    assert_eq!(listed.view.unwrap().providers[0].endpoints[0].model_options, vec!["opus"]);
 }
 
 #[test]

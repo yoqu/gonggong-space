@@ -310,6 +310,7 @@ async fn probe_profiles(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
                     if let Err(e) = crate::local::save_profile_catalog(&home, &dir, CachedCatalog { key, catalog }) {
                         tracing::warn!("saving the catalog of Claude profile {dir} failed: {e:#}");
                     }
+                    republish(&home, &tx).await;
                 }
                 Err(e) => {
                     failed.insert(key);

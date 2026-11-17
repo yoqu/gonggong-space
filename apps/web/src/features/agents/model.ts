@@ -12,7 +12,9 @@ import {
   endpointFor,
   INHERIT_PROVIDER,
   MIN_NODE,
+  modelName,
   OFFICIAL_PROVIDER,
+  type ProviderEndpoint,
   type ProviderStoreView,
   type ProviderView,
   type RuntimeState,
@@ -138,6 +140,21 @@ export interface ChoiceOption {
   disabled?: boolean
 }
 
+function endpointModels(
+  e: ProviderEndpoint,
+  catalog: AgentCatalog | null,
+): { value: string; name: string }[] {
+  if (e.configDir) {
+    if (e.modelOptions.length) return e.modelOptions.map((n) => ({ value: n, name: modelName(catalog, n) }))
+    return catalog?.models ?? []
+  }
+  const tiers = e.models
+    ? [e.models.haiku, e.models.sonnet, e.models.opus].filter((x): x is string => !!x)
+    : []
+  const names = [...new Set([...(tiers.length && e.model ? [e.model] : []), ...tiers, ...e.modelOptions])]
+  return names.map((n) => ({ value: n, name: n }))
+}
+
 /**
  * 「供应商/模型」 options grouped by provider: each provider's default model first, then the models it offers. The
  * official login's models come from the agent's catalog, a provider's from its endpoint. Providers `agent` cannot
@@ -179,12 +196,7 @@ export function choiceOptions(
       })
       continue
     }
-    group(
-      p.id,
-      p.name,
-      e.model,
-      e.modelOptions.map((n) => ({ value: n, name: n })),
-    )
+    group(p.id, p.name, e.model, endpointModels(e, catalog))
   }
   return out
 }

@@ -116,7 +116,7 @@ export function ProviderModelFields({
           <ProviderModelPicker
             view={view}
             agent={agent}
-            catalog={machine ? (reportedAgent(machine, agent)?.catalog ?? null) : null}
+            catalog={(machine ? reportedAgent(machine, agent)?.catalog : null) ?? catalog}
             models={models}
             inherit={view ? machineDefault(view, agent) : undefined}
             value={choiceValue(value.provider, models ? value.config.model : null)}

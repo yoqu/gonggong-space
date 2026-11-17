@@ -234,7 +234,10 @@ impl Manage {
                 .unwrap_or_else(|e| ProvidersResult { ok: false, error: Some(format!("{e:#}")), ..answer(request_id) });
             let ok = result.ok;
             out.send(DaemonToServer::ProvidersResult(result));
-            if ok && (changes || matches!(action, ProvidersAction::Catalog | ProvidersAction::BotCatalog)) {
+            if ok
+                && (changes
+                    || matches!(action, ProvidersAction::List | ProvidersAction::Catalog | ProvidersAction::BotCatalog))
+            {
                 this.0.profiles.notify_one();
             }
             if ok && changes {
@@ -353,6 +356,20 @@ fn providers_op(home: &Path, user_home: &Path, cmd: ProvidersCmd, agents: &[Agen
     let mut r = providers_change(home, cmd, agents)?;
     if let Some(view) = r.view.as_mut() {
         view.cli = crate::agent_settings::cli_snapshots(home, user_home);
+        for p in &mut view.providers {
+            for e in &mut p.endpoints {
+                if e.config_dir.is_some() && e.model_options.is_empty() {
+                    let ep = Endpoint {
+                        config_dir: e.config_dir.clone(),
+                        executable_path: e.executable_path.clone(),
+                        ..Endpoint::new(e.protocol, String::new())
+                    };
+                    if let Some(c) = profile_endpoint_catalog(home, &ep, agents) {
+                        e.model_options = c.models.into_iter().map(|m| m.choice.value).collect();
+                    }
+                }
+            }
+        }
     }
     Ok(r)
 }
@@ -386,7 +403,11 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentState]) -> Re
                 None => store.machine_default(agent)?,
             };
             r.catalog = match selection.provider() {
-                None => agents.iter().find(|a| a.kind == agent && a.available).and_then(|a| a.catalog.clone()),
+                None => agents
+                    .iter()
+                    .find(|a| a.kind == agent && a.available)
+                    .and_then(|a| a.catalog.clone())
+                    .or_else(|| crate::local::load_catalogs(home).remove(&agent).map(|c| c.catalog)),
                 Some((p, e)) => endpoint_catalog(home, p, e, agents),
             };
         }
@@ -575,8 +596,14 @@ fn endpoint_catalog(home: &Path, p: &Provider, e: &Endpoint, agents: &[AgentStat
     if e.claude_profile().is_none() {
         return Some(catalog(p, e));
     }
+    profile_endpoint_catalog(home, e, agents)
+}
+
+fn profile_endpoint_catalog(home: &Path, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
     let claude = agents.iter().find(|a| a.kind == crate::protocol::AgentKind::Claude && a.available);
-    crate::agents::profile_catalog(home, e, claude).or_else(|| claude?.catalog.clone())
+    crate::agents::profile_catalog(home, e, claude)
+        .or_else(|| claude?.catalog.clone())
+        .or_else(|| crate::local::load_catalogs(home).remove(&crate::protocol::AgentKind::Claude).map(|c| c.catalog))
 }
 
 /// The models a third-party endpoint declares (its model, the haiku/sonnet/opus mapping, its preset's options).

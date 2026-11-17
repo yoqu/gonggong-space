@@ -4,7 +4,7 @@ use crate::agents;
 use crate::engine::Process;
 use crate::local::LocalSettings;
 use crate::protocol::{AgentCatalog, AgentKind, Approval, RunBot, SecretEnv, Tier};
-use crate::providers::{Selection, Store};
+use crate::providers::{RunPlan, Selection, Store};
 use crate::session;
 use crate::t;
 use agent_client_protocol::AcpAgent;
@@ -26,9 +26,29 @@ impl Engine {
         let Some(info) = detected.into_iter().find(|a| a.kind == kind && a.available) else {
             bail!(t!("这台机器上没有可用的 {kind}", kind = format!("{kind:?}")));
         };
-        let catalog = self.probe(kind).await?;
-        let key = agents::catalog_key(kind, info.version.as_deref());
-        crate::local::save_catalog(&home, kind, crate::local::CachedCatalog { key, catalog })?;
+        let official = self.probe(kind).await;
+        if let Ok(catalog) = &official {
+            let key = agents::catalog_key(kind, info.version.as_deref());
+            crate::local::save_catalog(&home, kind, crate::local::CachedCatalog { key, catalog: catalog.clone() })?;
+        }
+        let mut any_profile = false;
+        if kind == AgentKind::Claude {
+            let profiles = {
+                let (home, version) = (home.clone(), info.version.clone());
+                tokio::task::spawn_blocking(move || agents::claude_profiles(&home, version.as_deref())).await??
+            };
+            for (selection, key) in profiles {
+                let Some(dir) = selection.claude_profile().map(|d| d.to_string_lossy().into_owned()) else { continue };
+                if let Ok(catalog) = self.probe_with(AgentKind::Claude, &selection).await {
+                    let cached = crate::local::CachedCatalog { key, catalog };
+                    crate::local::save_profile_catalog(&home, &dir, cached)?;
+                    any_profile = true;
+                }
+            }
+        }
+        if !any_profile {
+            official?;
+        }
         self.0.manage.refresh_agents().await;
         Ok(())
     }
@@ -53,8 +73,12 @@ impl Engine {
 
     /// Forks `session` in its workspace `dir` (session/fork): the copy is a new session of the same adapter.
     pub async fn fork_session(&self, kind: AgentKind, dir: &Path, session: &str) -> Result<String, String> {
-        let official = Selection::Official(Store::load(&self.0.config.home).map_err(|e| e.to_string())?.official(kind));
-        let agent = self.throwaway_agent(kind, &official).await.map_err(|e| e.to_string())?;
+        let store = Store::load(&self.0.config.home).map_err(|e| e.to_string())?;
+        let selection = match store.resolve_run(kind, "", Some(session)) {
+            Ok(RunPlan::Resume(s)) => s,
+            _ => Selection::Official(store.official(kind)),
+        };
+        let agent = self.throwaway_agent(kind, &selection).await.map_err(|e| e.to_string())?;
         session::fork(agent, dir, session).await
     }
 
@@ -79,6 +103,9 @@ impl Engine {
         };
         let process = Process { key: crate::adapters::PROBE, ..Default::default() };
         let config = self.0.adapter(&bot, &local, selection, &SecretEnv::default(), &process).await?;
-        Ok(AcpAgent::new(config))
+        let extra = (kind == AgentKind::Claude
+            && (selection.provider().is_none() || selection.claude_profile().is_some()))
+        .then(|| selection.process_env());
+        Ok(AcpAgent::new(config.envs(extra.into_iter().flatten())))
     }
 }

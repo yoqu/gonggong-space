@@ -35,8 +35,14 @@ async fn local_profile_is_selected_and_pinned_without_provider_settings() {
     assert_eq!(result["claudeAmbientCleared"], true);
     assert_eq!(r.pinned(first.session_id.as_deref().unwrap()), id);
     Store::update(r.home(), |s| s.use_machine(AgentKind::Claude, OFFICIAL, None)).unwrap();
-    r.run(follow_up("profile-2", &first, AgentKind::Claude));
-    assert_eq!(echo(&r.finish("profile-2").await)["claudeConfigDir"], dir.to_str().unwrap());
+    let mut second_run = follow_up("profile-2", &first, AgentKind::Claude);
+    second_run.bot.ai_review = true;
+    second_run.env.0.insert("MOCK_AUTO".into(), "1".into());
+    std::fs::write(dir.join("settings.json"), r#"{"env":{"CLAUDE_CODE_OAUTH_TOKEN":"oat-123"}}"#).unwrap();
+    r.run(second_run);
+    let second = echo(&r.finish("profile-2").await);
+    assert_eq!(second["claudeConfigDir"], dir.to_str().unwrap());
+    assert_eq!(second["mode"], "auto", "a local profile without a gateway uses built-in review");
 }
 
 #[tokio::test]
