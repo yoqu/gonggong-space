@@ -96,7 +96,7 @@ const bots = [
 const users = [
   { id: 'u1', name: '王磊', account: 'wanglei' },
   { id: 'u2', name: '李建国', account: 'lijg' },
-  { id: 'u3', name: '赵敏', account: 'zhaomin' },
+  { id: 'u3', name: '赵敏', account: 'zhaomin', avatar: '/avatars/u3.png' },
   { id: 'u4', name: '周芳', account: 'zhoufang' },
 ]
 const params = { approvalTimeoutMin: 30, chainMaxHops: 3, offlineWaitMin: 30 }
@@ -787,7 +787,10 @@ describe('group settings inspector', () => {
     const people = await screen.findByRole('dialog', { name: '添加成员' })
     const add = within(people).getByRole('button', { name: '添加' })
     expect(add.hasAttribute('disabled')).toBe(true)
-    fireEvent.click(within(people).getByRole('menuitemcheckbox', { name: /赵敏/ }))
+    const zhao = within(people).getByRole('menuitemcheckbox', { name: /赵敏/ })
+    expect(zhao.querySelector('img')?.getAttribute('src')).toBe('/avatars/u3.png')
+    expect(within(people).getByRole('img', { name: '周芳' })).toBeTruthy()
+    fireEvent.click(zhao)
     fireEvent.click(within(people).getByRole('menuitemcheckbox', { name: /周芳/ }))
     expect(within(people).getByRole('menuitemcheckbox', { name: /周芳/ }).getAttribute('aria-checked')).toBe(
       'true',

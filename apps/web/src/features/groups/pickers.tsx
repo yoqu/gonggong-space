@@ -4,7 +4,7 @@ import { useSession } from '../../app/session'
 import { t } from '../../i18n'
 import { matchAny } from '../../lib/match'
 import { useGet } from '../../lib/useGet'
-import { AgentIcon, Button, Icon, type Placement, Popover, SearchField } from '../../ui'
+import { AgentIcon, Avatar, Button, Icon, type Placement, Popover, SearchField } from '../../ui'
 import { BotAvatar } from '../bots/avatars'
 import { BINDING_LABEL, PRESENCE } from '../bots/model'
 import './pickers.css'
@@ -184,6 +184,7 @@ export function MemberPicker({
                   <span className="pick__check">
                     {on ? <Icon name="check" size={12} weight={2} /> : null}
                   </span>
+                  <Avatar name={u.name} src={u.avatar ?? undefined} size={20} />
                   <span className="pick__main">
                     <span className="pick__name">{u.name}</span>
                     <span className="pick__sub">{u.account}</span>
