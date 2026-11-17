@@ -26,6 +26,8 @@ export interface Step {
   title?: string
   /** A subagent's own process. */
   children?: Step[]
+  /** A subagent's agent id. */
+  agent?: string
   /** A background task that can be stopped: its id. */
   stop?: string
   /** An MCP tool call's arguments and result. */
@@ -154,6 +156,7 @@ function eventStep(id: number, e: RunEvent, live: boolean): Step | null {
         label: t('子 agent'),
         title: e.name,
         body: e.task,
+        agent: e.agentId,
         meta: SUBAGENT_STATE[e.state],
         running: e.state === 'running',
         failed: e.state === 'failed' || e.state === 'disconnected',

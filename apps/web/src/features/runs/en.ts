@@ -276,6 +276,8 @@ export default {
   审核版本: 'Review a version',
   '子 agent {n} 个运行中': '{n} {n:subagent|subagents} running',
   后台运行: 'Running in background',
+  '已全部结束：{done} 个完成，{failed} 个失败': 'All finished: {done} done, {failed} failed',
+  '已全部结束：{n} 个完成': 'All finished: {n} done',
   '{time} · 耗时 {span}': '{time} · took {span}',
   '运行失败：agent 异常': 'Run failed: agent error',
   '看完错误信息后重新 @ Bot 再试；反复出现时检查 Bot 所在机器上 agent 的登录、额度与网络。':

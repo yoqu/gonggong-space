@@ -1,7 +1,7 @@
 import { ActivityDock } from '@web/features/runs/ActivityDock'
 import { IssueBanner } from '@web/features/runs/IssueBanner'
 import { agentErrorIssue, interruptedIssue, type RunIssue } from '@web/features/runs/issue'
-import { ProcessView } from '@web/features/runs/ProcessView'
+import { locateStep, ProcessView } from '@web/features/runs/ProcessView'
 import { processSteps } from '@web/features/runs/steps'
 import { Badge, Button, EmptyState, GroupBox, Icon, Spinner } from '@web/ui'
 import { useEffect, useMemo, useState } from 'react'
@@ -124,12 +124,7 @@ export function RunDetail({ runId, onBack }: { runId: string; onBack: () => void
         </GroupBox>
       </Section>
       <div className="dk-dock">
-        <ActivityDock
-          steps={steps}
-          onLocate={(key) =>
-            document.querySelector(`[data-step="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center' })
-          }
-        />
+        <ActivityDock steps={steps} onLocate={(key) => locateStep(document, key)} />
       </div>
     </>
   )

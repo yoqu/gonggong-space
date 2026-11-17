@@ -1,9 +1,10 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { copyWithToast } from '../../lib/clipboard'
 import { cx } from '../../lib/cx'
 import { Elapsed } from '../../lib/now'
 import { fullTime, stamp } from '../../lib/time'
 import { Button, Icon, type IconName, Mascot, type MascotCostume } from '../../ui'
+import { avatarSrc } from '../bots/avatars'
 import { Markdown } from '../chat/Markdown'
 import {
   type Action,
@@ -21,6 +22,7 @@ import {
 } from './activity'
 import { McpDetail } from './McpDetail'
 import type { Step } from './steps'
+import { type SubagentFace, subagentFaces } from './subagents'
 import './process.css'
 import { t } from '../../i18n'
 
@@ -75,8 +77,10 @@ export function ProcessView({
   )
   // Between calls the model is thinking: say so, like Codex's `Working (12s)` line.
   const idle = live && filter === 'all' && !steps.some((s) => s.running)
+  const faces = useMemo(() => subagentFaces(steps), [steps])
   const ctx: Ctx = {
     open,
+    faces,
     toggle: (key, current = !!open[key]) => setOpen((o) => ({ ...o, [key]: !current })),
     root,
     live,
@@ -151,6 +155,7 @@ const flat = (steps: Step[]): Step[] => steps.flatMap((s) => [s, ...flat(s.child
 
 type Ctx = {
   open: Record<string, boolean>
+  faces: Map<string, SubagentFace>
   toggle: (key: string, current?: boolean) => void
   root: string | null
   live: boolean
@@ -232,22 +237,104 @@ function ItemRow({ item, ...ctx }: { item: Item } & Ctx) {
 
 const stateOf = (s: Step, quiet?: boolean) => (s.failed && !quiet ? 'failed' : s.running ? 'running' : 'done')
 
-/** A delegated subagent: name, task and state; its own process folds out beneath, open while it works. */
+/** How long a finished lane stays open before folding itself. */
+const FOLD_MS = 900
+
+/** True while `active`, and for `ms` after it turns false while mounted (not for a run looked back at). */
+export function useLinger(active: boolean, ms: number) {
+  const [linger, setLinger] = useState(false)
+  const was = useRef(active)
+  const ending = was.current && !active
+  useEffect(() => {
+    if (was.current && !active) {
+      was.current = active
+      setLinger(true)
+      const timer = setTimeout(() => setLinger(false), ms)
+      return () => clearTimeout(timer)
+    }
+    was.current = active
+  }, [active, ms])
+  return active || linger || ending
+}
+
+/** Fired on a process row brought into view from the dock: a folded lane opens. */
+const LOCATE = 'act-locate'
+
+/** Scrolls a process row into view and flashes it; a subagent's lane opens. */
+export function locateStep(root: ParentNode | null | undefined, key: string) {
+  const el = root?.querySelector<HTMLElement>(`[data-step="${CSS.escape(key)}"]`)
+  if (!el) return
+  el.dispatchEvent(new Event(LOCATE))
+  el.scrollIntoView({ block: 'center' })
+  el.removeAttribute('data-located')
+  void el.offsetWidth
+  el.setAttribute('data-located', '')
+  setTimeout(() => el.removeAttribute('data-located'), 1600)
+}
+
+/** A subagent's persona: moving while it works, still with a tick or a cross once done; a bot glyph without one. */
+export function Face({
+  face,
+  state,
+  size = 18,
+}: {
+  face?: SubagentFace
+  state: 'running' | 'done' | 'failed'
+  size?: number
+}) {
+  if (!face) return <Icon name="bot" size={14} className="act-row__icon" />
+  return (
+    <span
+      className="act-face"
+      data-state={state}
+      style={{ '--lane': face.from, width: size, height: size } as CSSProperties}
+    >
+      <img src={avatarSrc(face.role, state === 'running')} alt="" width={size} height={size} />
+      {state === 'running' ? null : (
+        <span className="act-face__badge" aria-hidden>
+          <Icon name={state === 'failed' ? 'xmark' : 'check'} size={8} />
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * A delegated subagent's lane: its persona, name, task and state; its own process folds out beneath, open while it
+ * works and a moment after, and kept open on a failure, unless the user folded it.
+ */
 function SubagentRow({ action: a, ...ctx }: { action: Action } & Ctx) {
   const s = a.step
   const children = s.children ?? []
-  const expanded = ctx.open[a.key] ?? !!s.running
-  const calls = children.filter((c) => !['text', 'thought', 'status'].includes(c.kind)).length
   const state = stateOf(s)
+  const face = ctx.faces.get(s.key)
+  const working = useLinger(!!s.running, FOLD_MS)
+  const expanded = ctx.open[a.key] ?? (working || state === 'failed')
+  const calls = children.filter((c) => !['text', 'thought', 'status'].includes(c.kind)).length
+  const ref = useRef<HTMLLIElement>(null)
+  const { toggle } = ctx
+  useEffect(() => {
+    const el = ref.current
+    const open = () => toggle(a.key, false)
+    el?.addEventListener(LOCATE, open)
+    return () => el?.removeEventListener(LOCATE, open)
+  })
   return (
-    <li className="act-item" data-state={state} data-family="subagent" data-step={a.key}>
+    <li
+      ref={ref}
+      className="act-item act-lane"
+      data-state={state}
+      data-family="subagent"
+      data-step={a.key}
+      style={face ? ({ '--lane': face.from } as CSSProperties) : undefined}
+    >
       <button
         type="button"
         className="act-row act-row--head"
         aria-expanded={expanded}
-        onClick={() => ctx.toggle(a.key, expanded)}
+        onClick={() => toggle(a.key, expanded)}
       >
-        <Icon name="bot" size={14} className="act-row__icon" />
+        <Face face={face} state={state} />
         <span className={cx('act-row__verb', state === 'running' && 'ui-shimmer')}>{a.verb}</span>
         <span className="act-row__target" title={a.target}>
           {a.target}

@@ -869,8 +869,8 @@ describe('process timeline', () => {
     // The dock under the run counts them on every view and leads back to the row.
     fireEvent.click(within(rail).getByRole('tab', { name: '改动' }))
     const dock = within(rail).getByTestId('activity-dock')
-    const head = within(dock).getByRole('button', { name: /子 agent 1 个运行中\s*后台任务 1 个运行中/ })
-    fireEvent.click(head)
+    expect(within(dock).getByText('子 agent 1 个运行中')).toBeTruthy()
+    expect(within(dock).getByText('后台任务 1 个运行中')).toBeTruthy()
     const scroll = vi.fn()
     Element.prototype.scrollIntoView = scroll
     fireEvent.click(within(dock).getByRole('button', { name: /^pnpm dev/ }))

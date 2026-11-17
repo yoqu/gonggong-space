@@ -293,7 +293,7 @@ button.act-row:hover .act-row__target--file {
 .act-ask__opts {
   color: var(--label-secondary);
 }
-/* Pinned under the run: running subagents and background tasks stay in sight while the process scrolls. */
+/* Pinned under the run: a chip per subagent or background task at work stays in sight while the process scrolls. */
 .act-dock {
   flex: none;
   display: flex;
@@ -304,18 +304,274 @@ button.act-row:hover .act-row__target--file {
   background: var(--content-bg);
 }
 .act-dock__list {
-  max-height: 40vh;
+  /* Five rows, then it scrolls. */
+  max-height: calc(5 * 28px);
   overflow-y: auto;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--separator);
+}
+.act-dock__task {
+  flex: 0 1 auto;
+  max-width: 40%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label);
+}
+.act-dock__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  min-height: 30px;
 }
 .act-dock__count {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
   color: var(--label);
+  font-size: var(--text-callout-size);
+  font-weight: 500;
   white-space: nowrap;
+}
+.act-dock__chips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--space-4);
+  overflow: hidden;
+}
+.act-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 260px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-8) 0 var(--space-4);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
+}
+@media (hover: hover) {
+  .act-chip:hover {
+    background: var(--quote-fill);
+  }
+}
+.act-chip[data-state="done"] {
+  border-color: var(--tint-green-text);
+  background: var(--tint-green);
+  color: var(--tint-green-text);
+}
+.act-chip[data-state="failed"] {
+  border-color: var(--tint-red-text);
+  background: var(--tint-red);
+  color: var(--tint-red-text);
+}
+.act-chip__name {
+  flex: none;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--label);
+  font-weight: 500;
+}
+.act-chip[data-state="done"] .act-chip__name,
+.act-chip[data-state="failed"] .act-chip__name {
+  color: inherit;
+}
+.act-chip__doing {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  height: 1.4em;
+}
+.act-chip__doing > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.act-chip__when {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-footnote-size);
+  color: var(--label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.act-chip[data-state="done"] .act-chip__when,
+.act-chip[data-state="failed"] .act-chip__when {
+  font-family: inherit;
+  color: inherit;
+}
+.act-dock__more {
+  flex: none;
+  height: 26px;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--quote-fill);
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-subheadline-size);
+  font-variant-numeric: tabular-nums;
+}
+.act-dock__toggle {
+  flex: none;
+  width: auto;
+  margin: 0;
+}
+.act-dock__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 30px;
+  color: var(--tint-green-text);
+  font-size: var(--text-callout-size);
 }
 .act-row[aria-expanded="true"] .act-dock__chevron {
   transform: rotate(180deg);
+}
+/* A subagent's persona; its lane's line and highlight take the persona's colour (--lane). */
+.act-face {
+  position: relative;
+  flex: none;
+  display: inline-block;
+  border-radius: 50%;
+}
+.act-face > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.act-face__badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--content-bg);
+  background: var(--tint-green-text);
+  color: #fff;
+}
+.act-face[data-state="failed"] .act-face__badge {
+  background: var(--tint-red-text);
+}
+.act-lane > .act--nested {
+  border-left-color: color-mix(in srgb, var(--lane, var(--separator)) 60%, transparent);
+}
+.act-item[data-located] > .act-row {
+  animation: act-locate 1.6s ease-out;
+}
+@keyframes act-locate {
+  0%,
+  40% {
+    background: color-mix(in srgb, var(--lane, var(--accent)) 22%, transparent);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .act-face {
+    animation: act-face-pop var(--spring-bouncy) both;
+  }
+  .act-face[data-state="running"] {
+    animation:
+      act-face-pop var(--spring-bouncy) both,
+      act-face-breathe 1.8s ease-in-out infinite;
+  }
+  .act-face__badge {
+    animation: act-face-pop var(--spring-bouncy) both;
+  }
+  .act-face[data-state="failed"] {
+    animation: act-shake 0.4s ease-in-out;
+  }
+  .act-lane[data-state="running"] > .act > .act-item:last-child {
+    --enter-y: 4px;
+    animation:
+      var(--fade-in) ui-fade-in,
+      var(--spring-snappy) ui-enter;
+  }
+  .act-chip {
+    animation: act-chip-in var(--spring-snappy) both;
+  }
+  .act-chip[data-state="done"],
+  .act-chip[data-state="failed"] {
+    animation: act-chip-out 0.3s ease-in 1.1s forwards;
+  }
+  .act-chip__doing > span {
+    animation: act-slide-up var(--spring-snappy) both;
+  }
+  .act-dock__list,
+  .act-dock__summary {
+    --enter-y: 6px;
+    animation:
+      var(--fade-in) ui-fade-in,
+      var(--spring-snappy) ui-enter;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act-item[data-located] > .act-row {
+    animation: none;
+    background: color-mix(in srgb, var(--lane, var(--accent)) 16%, transparent);
+  }
+}
+@keyframes act-face-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+@keyframes act-face-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--lane) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--lane) 0%, transparent);
+  }
+}
+@keyframes act-shake {
+  25% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+  75% {
+    transform: translateX(-1px);
+  }
+}
+@keyframes act-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.92);
+  }
+}
+@keyframes act-chip-out {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+@keyframes act-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+  }
 }
 /* 过程 filters: 全部 / 失败 / 需处理 / 命令. */
 .act-filters {

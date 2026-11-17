@@ -50,7 +50,7 @@ import { processMarkdown, processText } from '../../runs/activity'
 import { ContextWindow, lastContext } from '../../runs/ContextWindow'
 import { IssueBanner } from '../../runs/IssueBanner'
 import { runIssue } from '../../runs/issue'
-import { ProcessView } from '../../runs/ProcessView'
+import { locateStep, ProcessView } from '../../runs/ProcessView'
 import { approvalText, buildSteps, questionText } from '../../runs/process'
 import { QuestionCard } from '../../runs/QuestionBlock'
 import type { Step } from '../../runs/steps'
@@ -270,9 +270,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
   const [locate, setLocate] = useState<{ view: RunView; key: string } | null>(null)
   useEffect(() => {
     if (!locate || view !== locate.view) return
-    tabRef.current
-      ?.querySelector(`[data-step="${CSS.escape(locate.key)}"]`)
-      ?.scrollIntoView({ block: 'center' })
+    locateStep(tabRef.current, locate.key)
     setLocate(null)
   }, [locate, view])
   const goTo = (to: RunView, key: string) => {

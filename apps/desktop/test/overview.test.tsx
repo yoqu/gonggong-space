@@ -160,7 +160,8 @@ describe('overview', () => {
     })
     show(status({ runs: [r1] }))
     fireEvent.click(within(screen.getByTestId('running')).getByRole('button', { name: /小王的 Claude/ }))
-    expect(await screen.findByText('Explore')).toBeTruthy()
+    // The lane and its chip in the dock.
+    expect(await screen.findAllByText('Explore')).toHaveLength(2)
     expect(m.runProcess).toHaveBeenCalledWith('r1', null, null)
     expect(within(screen.getByTestId('activity-dock')).getByText('子 agent 1 个运行中')).toBeTruthy()
     expect(screen.getByText('找调用方')).toBeTruthy()
