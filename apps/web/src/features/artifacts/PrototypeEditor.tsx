@@ -1,6 +1,5 @@
 import type {
   ArtifactEditOp,
-  ArtifactTransition,
   ArtifactVersionDetail,
   BotDto,
   BridgeBackRect,
@@ -9,77 +8,56 @@ import type {
   GgArtifactManifest,
   Rect,
 } from '@gonggong/protocol'
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
-import {
-  Button,
-  CloseButton,
-  Icon,
-  IconButton,
-  type IconName,
-  MenuButton,
-  PopUpButton,
-  Presence,
-  SegmentedControl,
-  Textarea,
-  Tooltip,
-  toast,
-  useEscape,
-} from '../../ui'
+import { Button, Icon, IconButton, MenuButton, Presence, SegmentedControl, Tooltip, toast } from '../../ui'
 import { openUrl } from '../previews/store'
-import { offlineHint, saveEdits, sendCommand, useArtifactBot } from './actions'
+import { saveEdits, sendCommand, useArtifactBot } from './actions'
 import { type BridgeMessage, linkSpots, postToScreen, useBridge } from './bridge'
-import { BotChoice } from './ElementPopover'
 import type { PickedElement } from './elements'
+import { useTextEdit } from './inPlace'
+import { capsuleOf } from './markLayout'
+import { drawerHeight, usePreviewMarks } from './previewMarks'
+import { useComposerClearance } from './previewNotes'
+import { AskForm, ChangeBar, ConnectPanel, ElementMenu, isTransition } from './protoEditing'
 import {
-  ImageUrlForm,
-  isImage,
-  type TextEditing,
-  textEditingHint,
-  useImageUpload,
-  useTextEdit,
-} from './inPlace'
+  DEVICE_ICON,
+  DEVICE_LABEL,
+  DeviceChrome,
+  Hot,
+  RailButton,
+  useDeviceZoom,
+  useScreenSwap,
+  useStageScroll,
+  ZOOM_KEY_OF,
+  ZOOM_KEYS,
+  ZOOM_LABEL,
+  ZOOMS,
+  type Zoom,
+} from './protoParts'
 import {
   backRects,
-  connectOps,
   currentScreen,
   disconnectOps,
   enterClass,
   GUIDE_KEY,
   holds,
   linkHost,
-  menuPlace,
   navReducer,
+  notOurKey,
   type ProtoDevice,
-  type ProtoFrame,
   protoDevices,
   startNav,
-  typing,
 } from './prototype'
-import { Panel } from './SidePanel'
 import { QrDialog } from './share'
 
 type Mode = 'preview' | 'edit'
+/** Room above a zoomed device. */
+const ZOOMED_TOP = 52
+/** How long after a pick the zoomed stage follows its element as the page scrolls to it (ms). */
+const FOLLOW_MS = 1500
 
-const DEVICE_ICON: Record<ProtoDevice, IconName> = {
-  mobile: 'smartphone',
-  tablet: 'tablet',
-  desktop: 'desktop',
-}
-const DEVICE_LABEL: Record<ProtoDevice, string> = {
-  mobile: t('手机'),
-  tablet: t('平板'),
-  desktop: t('桌面'),
-}
-const TRANSITIONS: { value: ArtifactTransition; label: string }[] = [
-  { value: 'none', label: t('无转场') },
-  { value: 'push', label: t('推入') },
-  { value: 'push-back', label: t('推回') },
-  { value: 'slide-up', label: t('上滑') },
-  { value: 'fade', label: t('淡入') },
-]
-const isTransition = (v: unknown): v is ArtifactTransition => TRANSITIONS.some((x) => x.value === v)
 /** Around the screen: the bezel (px at 100%). */
 const BEZEL = 10
 const NO_SCROLL = { x: 0, y: 0 }
@@ -89,10 +67,6 @@ const FLASH_MS = 800
 const CHANGE_ROOM = 200
 /** Room the connect panel takes at the right while open (its 300px, 60px off the edge, and a gap). */
 const CONNECT_ROOM = 380
-/** The popover's width on screen. */
-const MENU_W = 248
-/** The popover's height before it is measured (its four actions). */
-const MENU_H = 190
 /** What the screen list takes of the stage's left edge (prototype.css `.proto-screens`: 12 + 212 + 12). */
 const LIST_ROOM = 236
 /** What the rail takes of the stage's right edge (its 44px, 12px off the edge, and a gap). */
@@ -106,6 +80,10 @@ const THUMB_W = 188
  * the bottom, taking RAIL_ROOM there instead of at the right.
  */
 const NARROW_STAGE = 720
+/** How long a page coming back scrolled stays hidden at most, waiting to be where it was (ms). */
+const REVEAL_MS = 400
+/** How long the device glides after a layout change (prototype.css `.proto-stage--glide`, --spring-smooth). */
+const GLIDE_MS = 700
 /** What a narrow stage's guide takes of its top (prototype.css `.proto-guide--narrow`: 52 down, two lines, a gap). */
 const GUIDE_ROOM = 120
 
@@ -122,9 +100,14 @@ export interface PrototypeEditorProps {
   start: string
   onEdit: (ops: ArtifactEditOp[]) => Promise<void>
   onBack: () => void
+  /** Back to the canvas on a screen's page rules (to add some). */
+  onCanvasRules: (screenId: string) => void
   onShare: () => void
   /** Server screenshots of this version's screens; the list falls back to live frames without one. */
   screenThumbs: NonNullable<ArtifactVersionDetail['screenThumbs']>
+  /** The shown version's files (null until loaded) and a reader for them: the page rules for 标注. */
+  files: { path: string; hash: string }[] | null
+  readFile: (file: string) => Promise<string>
 }
 
 /**
@@ -144,14 +127,18 @@ export function PrototypeEditor({
   start,
   onEdit,
   onBack,
+  onCanvasRules,
   onShare,
   screenThumbs,
+  files,
+  readFile,
 }: PrototypeEditorProps) {
   const screens = manifest.screens
   const [mode, setMode] = useState<Mode>('preview')
   const [nav, go] = useReducer(navReducer, start, startNav)
   const cur = screens.find((s) => s.id === currentScreen(nav)) ?? screens[0]
   const [device, setDevice] = useState<ProtoDevice>(manifest.device === 'desktop' ? 'desktop' : 'mobile')
+  const [zoom, setZoom] = useDeviceZoom(device)
   const devices = protoDevices(manifest.device)
   const [listOpen, setListOpen] = useState(true)
   const [reload, setReload] = useState(0)
@@ -174,12 +161,48 @@ export function PrototypeEditor({
   const [hover, setHover] = useState<Rect | null>(null)
   /** The server's screenshot of each screen (screen id → url): the list shows these, not a page per screen. */
   const [room, setRoom] = useState({ width: 0, height: 0 })
+  /** The device glides to its new place and size while a panel or the mode changes; resizing the window does not. */
+  const [glide, setGlide] = useState(false)
   const root = useRef<HTMLElement>(null)
+  /** When the stage last resized: a layout change then is the window's, not a panel's. */
+  const resized = useRef(0)
   const stage = useRef<HTMLDivElement>(null)
+  const deviceBox = useRef<HTMLDivElement>(null)
   const frames = useRef(new Map<string, HTMLIFrameElement>()).current
   const { bots, bot, pick: pickBot } = useArtifactBot(groupId, botId)
   const origin = preview?.origin ?? null
   const edit = mode === 'edit'
+  const marks = usePreviewMarks({
+    files,
+    readFile,
+    versionKey,
+    screen: cur ?? { id: '', title: '', file: '' },
+    active: !edit,
+    frames,
+    origin,
+    scrolls,
+    root,
+    onCanvasRules,
+  })
+  const composer = useComposerClearance(stage, true, true)
+  const stageScroll = useStageScroll(stage)
+  /** The nav step the marks came in on: later screens' come in quietly. */
+  const [introStep, setIntroStep] = useState(nav.step)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on turning the marks on only
+  useEffect(() => {
+    if (!marks.visible) return
+    setIntroStep(nav.step)
+    localStorage.setItem(GUIDE_KEY, '1')
+    setGuide(false)
+  }, [marks.visible])
+  // A desktop page beside the panel needs the room: the screen list folds.
+  useEffect(() => {
+    if (marks.panelOpen && device === 'desktop') setListOpen(false)
+  }, [marks.panelOpen, device])
+  const swap = useScreenSwap(nav, cur?.id ?? '', reload, (id) => {
+    const file = screens.find((s) => s.id === id)?.file
+    return (file && scrolls[file]) || NO_SCROLL
+  })
 
   const closeGuide = useCallback(() => {
     localStorage.setItem(GUIDE_KEY, '1')
@@ -188,7 +211,8 @@ export function PrototypeEditor({
   useEffect(() => {
     if (!guide) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeGuide()
+      // Not the Esc a panel took already (unpicking a rule).
+      if (e.key === 'Escape' && !e.defaultPrevented) closeGuide()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -210,12 +234,11 @@ export function PrototypeEditor({
   // Window-wide like the guide's Escape, but not from a field, a dialog, or a hidden workbench tab.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return
-      if (e.target instanceof Element && e.target.closest('[role="dialog"]')) return
-      if (root.current?.closest('[hidden]')) return
+      if (notOurKey(e, root.current)) return
       const k = e.key.toLowerCase()
       if (k === 'r') setReload((n) => n + 1)
       else if (k === 'h') setHotspots((on) => !on)
+      else if (ZOOM_KEYS[k]) setZoom(ZOOM_KEYS[k])
       else if (edit) return
       else if (e.key === 'ArrowLeft') go({ type: 'back' })
       else if (e.key === 'Home') go({ type: 'restart', screen: entry })
@@ -224,18 +247,50 @@ export function PrototypeEditor({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [edit, entry])
+  }, [edit, entry, setZoom])
 
   useEffect(() => {
     const el = stage.current
     if (!el) return
-    const measure = () => setRoom({ width: el.clientWidth, height: el.clientHeight })
+    // A stage turning narrow (or opening narrow) leaves the device the room: the list folds to its pill.
+    let wasNarrow = false
+    let first = true
+    const measure = () => {
+      // Resizing follows the window at once: no glide meanwhile.
+      if (!first) {
+        resized.current = performance.now()
+        setGlide(false)
+      }
+      first = false
+      setRoom({ width: el.clientWidth, height: el.clientHeight })
+      const isNarrow = !!el.clientWidth && el.clientWidth < NARROW_STAGE
+      if (isNarrow && !wasNarrow) setListOpen(false)
+      wasNarrow = isNarrow
+    }
     measure()
-    if (el.clientWidth && el.clientWidth < NARROW_STAGE) setListOpen(false)
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // A page coming back scrolled shows once it is there, or after a moment anyway.
+  useEffect(() => {
+    if (!swap.holding) return
+    const id = setTimeout(swap.reveal, REVEAL_MS)
+    return () => clearTimeout(id)
+  }, [swap.holding, swap.reveal])
+
+  // A panel, the list, the mode or the device changing moves the device: it glides there, briefly.
+  const layoutKey = `${marks.panelOpen}|${mode}|${listOpen}|${device}|${connect}|${change}`
+  const lastLayout = useRef(layoutKey)
+  useEffect(() => {
+    if (lastLayout.current === layoutKey) return
+    lastLayout.current = layoutKey
+    if (performance.now() - resized.current < GLIDE_MS) return
+    setGlide(true)
+    const id = setTimeout(() => setGlide(false), GLIDE_MS)
+    return () => clearTimeout(id)
+  }, [layoutKey])
 
   const bridgeMode: BridgeMode = edit ? 'edit' : 'preview'
   const textEdit = useTextEdit({
@@ -275,8 +330,17 @@ export function PrototypeEditor({
   }, [versionKey, cur?.id])
 
   useBridge(origin, frames, (m: BridgeMessage) => {
+    marks.onBridge(m)
     if (m.type === 'ready' || m.type === 'size') {
       if (m.type === 'ready') postToScreen(frames.get(m.file), origin, { type: 'mode', mode: bridgeMode })
+      if (m.type === 'ready' && m.file === cur?.file) {
+        // Back on a screen left scrolled: it comes back where it was.
+        const back = swap.ready()
+        if (back) postToScreen(frames.get(m.file), origin, { type: 'scroll-position', ...back })
+      }
+      // A page (re)loads at its top, or where it says it is: the scroll it had before no longer counts.
+      if (m.type === 'ready')
+        setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX ?? 0, y: m.scrollY ?? 0 } }))
       const found = linkSpots(m.links)
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
       setBacks((b) => ({ ...b, [m.file]: backRects(m.back) }))
@@ -295,13 +359,19 @@ export function PrototypeEditor({
       if (guide) closeGuide()
       go({ type: 'back' })
     } else if (m.type === 'miss') {
+      marks.unpick()
       if (!edit && !hotspots) setFlash((n) => n + 1)
     } else if (m.type === 'hover') {
       if (!edit) return
       const at = scrolls[m.file] ?? NO_SCROLL
       setHover(m.rect && { ...m.rect, x: m.rect.x + at.x, y: m.rect.y + at.y })
     } else if (m.type === 'scroll') {
+      if (m.file === cur?.file) swap.reveal()
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
+    } else if (m.type === 'key') {
+      // A key pressed in the screen: the shortcuts as if pressed here.
+      // Cancelable: the 标注 panel's ←/→ take it before the editor's ← (back) sees it.
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: m.key, repeat: m.repeat, cancelable: true }))
     } else if (m.type === 'text-edit') {
       textEdit.onMessage(m)
     } else if (m.type === 'select' && edit && cur) {
@@ -327,8 +397,43 @@ export function PrototypeEditor({
     }
   })
 
+  // The layout worked out below, for the effects here (before the early return).
+  const layout = useRef({ scale: 1, zoomed: false, pads: { left: 0, right: 0, top: 0, bottom: 0 } })
+  // The marks draw outlines 2px on screen at the device's zoom.
+  useEffect(() => marks.setScale(layout.current.scale))
+  // Zoomed, a picked rule's element is brought into the stage's view (as its page scrolls to it, for a moment).
+  const followUntil = useRef(0)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a pick, and as its element moves after it
+  useEffect(() => {
+    followUntil.current = performance.now() + FOLLOW_MS
+  }, [marks.picked.n])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: as the picked element moves
+  useEffect(() => {
+    const r = marks.picked.rect
+    const { zoomed, scale, pads } = layout.current
+    if (!zoomed || !r || !cur || performance.now() > followUntil.current) return
+    const fr = frames.get(cur.file)?.getBoundingClientRect()
+    const sr = stage.current?.getBoundingClientRect()
+    if (!fr?.width || !sr) return
+    stageScroll.reveal(
+      {
+        x: fr.left - sr.left + r.x * scale,
+        y: fr.top - sr.top + r.y * scale,
+        w: r.w * scale,
+        h: r.h * scale,
+      },
+      pads,
+    )
+  }, [marks.picked.n, marks.picked.rect?.x, marks.picked.rect?.y])
+
   if (!cur) return null
   const size = devices[device]
+  const markFrame = {
+    w: size.w,
+    h: size.h,
+    status: size.status,
+    capsule: size.capsule ? capsuleOf(size.w) : null,
+  }
   const scrolled = scrolls[cur.file] ?? NO_SCROLL
   /** A document rect where it shows in the device now. */
   const inView = (r: Rect): Rect => ({ ...r, x: r.x - scrolled.x, y: r.y - scrolled.y })
@@ -339,22 +444,61 @@ export function PrototypeEditor({
    * above the change bar, and above the rail where a narrow stage lays it along the bottom.
    */
   const left = listOpen ? LIST_ROOM : EDGE
-  const right = connecting ? CONNECT_ROOM : narrow ? EDGE : RAIL_ROOM
-  const bottom = (change ? CHANGE_ROOM : 0) + (narrow ? RAIL_ROOM : 0)
+  /**
+   * A narrow stage lays the rail along its bottom, unless the full-screen workbench's floating composer covers that:
+   * height is then what is short, the rail stays at the right.
+   */
+  const bottomRail = narrow && composer === null
+  /** A narrow stage's 标注 panel lies along its bottom, above the rail or the composer. */
+  const drawerBottom = composer ?? RAIL_ROOM
+  const drawer =
+    narrow && marks.panelOpen ? drawerHeight(room.height, devices[device].h + BEZEL * 2, drawerBottom) : 0
+  /** A narrow stage's guide gives way to the drawer meanwhile: it would take the device's room. */
+  const guideShown = guide && !drawer
+  const right = connecting || (marks.panelOpen && !narrow) ? CONNECT_ROOM : bottomRail ? EDGE : RAIL_ROOM
+  /** The full-screen workbench's floating composer covers the stage's bottom: the device keeps clear of it. */
+  const bottom = Math.max((change ? CHANGE_ROOM : 0) + (bottomRail ? RAIL_ROOM : 0), composer ?? 0) + drawer
   /** A narrow stage's guide spans it under the screens pill: the device starts below it. */
-  const top = narrow && guide ? GUIDE_ROOM : 0
-  const scale = room.width
-    ? Math.max(
-        0.2,
-        Math.min(
-          1,
-          (room.width - left - right) / (size.w + BEZEL * 2),
-          (room.height - 96 - top - bottom) / (size.h + BEZEL * 2),
-        ),
-      )
-    : 1
-  /** A screen rect (in its viewport) on the stage: the device box sits centred between the stage's paddings. */
+  const top = narrow && guideShown ? GUIDE_ROOM : 0
+  const fitWidth = Math.min(1, (room.width - left - right) / (size.w + BEZEL * 2))
+  /** 适应: the whole device in the stage; 适应宽度 and 100%: larger, the stage scrolls (a desktop page reads at all). */
+  const scale = !room.width
+    ? 1
+    : zoom === 'actual'
+      ? 1
+      : zoom === 'width'
+        ? Math.max(0.2, fitWidth)
+        : Math.max(0.2, Math.min(fitWidth, (room.height - 96 - top - bottom) / (size.h + BEZEL * 2)))
+  const zoomed = zoom !== 'fit'
+  /** What the stage keeps clear around the device: a picked rule's element is brought in between. */
+  const pads = { left, right, top: Math.max(top, zoomed ? ZOOMED_TOP : 0), bottom }
+  layout.current = { scale, zoomed, pads }
+  /** What of the device box the scrolled stage shows, between its paddings, in the box's coordinates. */
+  const stageView = () => {
+    const sr = stage.current?.getBoundingClientRect()
+    const br = deviceBox.current?.getBoundingClientRect()
+    if (!sr?.width || !br) return undefined
+    return {
+      x: sr.left + pads.left - br.left,
+      y: sr.top + pads.top - br.top,
+      w: sr.width - pads.left - pads.right,
+      h: sr.height - pads.top - pads.bottom,
+    }
+  }
+  /**
+   * A screen rect (in its viewport) where it shows on the stage's box: measured from the screen's frame (zoomed, the
+   * stage scrolls); before layout, worked out from the device box centred between the stage's paddings.
+   */
   const onStage = (r: Rect): Rect => {
+    const fr = frames.get(cur.file)?.getBoundingClientRect()
+    const sr = stage.current?.getBoundingClientRect()
+    if (fr?.width && sr)
+      return {
+        x: fr.left - sr.left + r.x * scale,
+        y: fr.top - sr.top + r.y * scale,
+        w: r.w * scale,
+        h: r.h * scale,
+      }
     const x = left + (room.width - left - right - (size.w + BEZEL * 2) * scale) / 2
     const y = top + (room.height - top - bottom - (size.h + BEZEL * 2) * scale) / 2
     return { x: x + (BEZEL + r.x) * scale, y: y + (BEZEL + r.y) * scale, w: r.w * scale, h: r.h * scale }
@@ -367,7 +511,7 @@ export function PrototypeEditor({
   const showHots = edit || hotspots || flashing
   const askBot = (f: (b: BotDto) => Promise<boolean>) => (bot ? f(bot) : Promise.resolve(false))
   const located = element?.ggId ? { file: element.file, ggId: element.ggId } : null
-  const tip = narrow ? 'top' : 'left'
+  const tip = bottomRail ? 'top' : 'left'
   /** Edit mode tags a hotspot only under the pointer: its outline alone says it is connected. */
   const tagged = (r: Rect) => edit && !!hover && holds(r, hover)
   const at = screens.indexOf(cur) + 1
@@ -403,6 +547,7 @@ export function PrototypeEditor({
               <span className="proto-bar__where" data-testid="proto-where">
                 {`${cur.title} · ${at}/${screens.length}`}
               </span>
+              {marks.badge}
               {nav.stack.length > 1 ? (
                 <IconButton size="small" title={t('返回')} onClick={() => go({ type: 'back' })}>
                   {'arrow-left' as const}
@@ -420,6 +565,7 @@ export function PrototypeEditor({
           )}
         </div>
         <span className="art-bar__fill" />
+        {marks.button}
         <Button size="small" variant="primary" icon="share" onClick={onShare}>
           {t('分享')}
         </Button>
@@ -514,18 +660,24 @@ export function PrototypeEditor({
           </button>
         )}
 
+        {/* biome-ignore lint/a11y: a click beside the marks lets a picked rule go; Esc does from the keyboard */}
         <div
           ref={stage}
-          className="proto-stage"
+          className={cx('proto-stage', glide && 'proto-stage--glide', zoomed && 'proto-stage--zoomed')}
           data-testid="proto-stage"
+          {...stageScroll.handlers}
+          onClick={(e) => {
+            if (!(e.target as Element).closest('.proto-mark, .proto-bubble, .proto-notes')) marks.unpick()
+          }}
           style={{
             ...(bottom ? { paddingBottom: bottom } : {}),
-            ...(top ? { paddingTop: top } : {}),
+            ...(top || zoomed ? { paddingTop: Math.max(top, zoomed ? ZOOMED_TOP : 0) } : {}),
             paddingLeft: left,
             paddingRight: right,
           }}
         >
           <div
+            ref={deviceBox}
             className="proto-device-box"
             style={{ width: (size.w + BEZEL * 2) * scale, height: (size.h + BEZEL * 2) * scale }}
           >
@@ -537,70 +689,128 @@ export function PrototypeEditor({
             >
               {/* A fixed clip around the moving screen: transitions slide inside the device, never over its bezel. */}
               <div className="proto-clip" data-testid="proto-clip">
+                {swap.layers.map((layer) => {
+                  // The leaving layer is the same element the screen had (its key), so its page stays as it was.
+                  const live = layer.step === nav.step
+                  const s = live ? cur : (screens.find((x) => x.id === layer.screen) ?? cur)
+                  return (
+                    <div
+                      key={layer.step}
+                      className={
+                        live
+                          ? cx('proto-scroll', enterClass(nav.enter))
+                          : cx('proto-scroll', swap.leave?.className)
+                      }
+                      data-testid={live ? 'proto-screen' : 'proto-leave'}
+                      data-screen={s.id}
+                      aria-hidden={live ? undefined : true}
+                      onAnimationEnd={live ? undefined : swap.leave?.onAnimationEnd}
+                    >
+                      <div className="proto-content" style={{ width: size.w, height: size.h }}>
+                        {!live || !(swap.loading || swap.holding) ? null : thumbOf(s.id) &&
+                          !swap.restoring ? (
+                          <img
+                            className="proto-placeholder"
+                            data-testid="proto-placeholder"
+                            src={thumbOf(s.id)}
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <div className="proto-skeleton" data-testid="proto-skeleton" aria-hidden="true">
+                            <b />
+                            <b />
+                            <b />
+                            <b />
+                          </div>
+                        )}
+                        {preview ? (
+                          <iframe
+                            key={`${versionKey}:${reload}`}
+                            ref={(el) => {
+                              if (!el) return
+                              frames.set(s.file, el)
+                              return () => {
+                                if (frames.get(s.file) === el) frames.delete(s.file)
+                              }
+                            }}
+                            // Coming back scrolled: hidden until it is where it was (its top would flash first).
+                            className={cx('proto-frame', live && swap.holding && 'proto-frame--hold')}
+                            title={s.title}
+                            src={src(s.file)}
+                            style={{ height: size.h }}
+                          />
+                        ) : null}
+                        <div
+                          key={flashing ? flash : 0}
+                          className={cx('proto-hots', flashing && 'proto-hots--flash')}
+                          data-testid={live ? 'proto-hots' : undefined}
+                        >
+                          {live && showHots
+                            ? fileSpots.map((h, i) => (
+                                <Hot
+                                  // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
+                                  key={i}
+                                  rect={inView(h.rect)}
+                                  tag={tagged(h.rect) ? `→ ${titleOf(h.screen)}` : null}
+                                  title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
+                                />
+                              ))
+                            : null}
+                          {live && showHots
+                            ? fileBacks.map((h, i) => (
+                                <Hot
+                                  // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
+                                  key={`b${i}`}
+                                  rect={inView(h.rect)}
+                                  tag={tagged(h.rect) ? `← ${t('返回')}` : null}
+                                  title={t('返回上一屏')}
+                                />
+                              ))
+                            : null}
+                          {live && edit && element && !textEdit.state ? (
+                            <Hot
+                              rect={inView(element.rect)}
+                              tag={element.link ? `→ ${titleOf(element.link)}` : t('已选中')}
+                              selected
+                            />
+                          ) : null}
+                        </div>
+                        {/* The leaving screen's marks go with it. */}
+                        {live ? null : marks.layer(markFrame, scale, s, true)}
+                      </div>
+                    </div>
+                  )
+                })}
+                {size.status ? <DeviceChrome frame={size} light={cur.statusBar === 'light'} /> : null}
+                {/* Over the chrome: a mark is never under the status bar or a mini program's capsule. */}
                 <div
                   key={nav.step}
-                  className={cx('proto-scroll', enterClass(nav.enter))}
-                  data-testid="proto-screen"
-                  data-screen={cur.id}
+                  className={cx(
+                    'proto-marks-host',
+                    nav.enter !== 'none' && 'proto-marks-host--after',
+                    nav.step !== introStep && 'proto-marks-host--quiet',
+                  )}
                 >
-                  <div className="proto-content" style={{ width: size.w, height: size.h }}>
-                    {preview ? (
-                      <iframe
-                        key={`${versionKey}:${reload}`}
-                        ref={(el) => {
-                          if (el) frames.set(cur.file, el)
-                          else frames.delete(cur.file)
-                        }}
-                        className="proto-frame"
-                        title={cur.title}
-                        src={src(cur.file)}
-                        style={{ height: size.h }}
-                      />
-                    ) : null}
-                    <div
-                      key={flashing ? flash : 0}
-                      className={cx('proto-hots', flashing && 'proto-hots--flash')}
-                      data-testid="proto-hots"
-                    >
-                      {showHots
-                        ? fileSpots.map((h, i) => (
-                            <Hot
-                              // biome-ignore lint/suspicious/noArrayIndexKey: one per link element, in document order
-                              key={i}
-                              rect={inView(h.rect)}
-                              tag={tagged(h.rect) ? `→ ${titleOf(h.screen)}` : null}
-                              title={t('跳转到「{title}」', { title: titleOf(h.screen) })}
-                            />
-                          ))
-                        : null}
-                      {showHots
-                        ? fileBacks.map((h, i) => (
-                            <Hot
-                              // biome-ignore lint/suspicious/noArrayIndexKey: one per back element, in document order
-                              key={`b${i}`}
-                              rect={inView(h.rect)}
-                              tag={tagged(h.rect) ? `← ${t('返回')}` : null}
-                              title={t('返回上一屏')}
-                            />
-                          ))
-                        : null}
-                      {edit && element && !textEdit.state ? (
-                        <Hot
-                          rect={inView(element.rect)}
-                          tag={element.link ? `→ ${titleOf(element.link)}` : t('已选中')}
-                          selected
-                        />
-                      ) : null}
-                    </div>
-                  </div>
+                  {marks.layer(markFrame, scale)}
                 </div>
-                {size.status ? <DeviceChrome frame={size} light={cur.statusBar === 'light'} /> : null}
               </div>
             </div>
+            {zoomed ? null : marks.pageRow(false)}
+            {marks.bubble(markFrame, scale, BEZEL, zoomed ? stageView() : undefined)}
           </div>
-          {guide ? (
+          {guideShown ? (
             <div
               className={cx('proto-guide', narrow && 'proto-guide--narrow')}
+              // Centred over the device, clear of the screen list and a panel at the right.
+              style={
+                narrow
+                  ? undefined
+                  : {
+                      left: left + (room.width - left - right) / 2,
+                      maxWidth: room.width - left - right - 2 * EDGE,
+                    }
+              }
               role="status"
               aria-label={t('原型预览引导')}
             >
@@ -613,47 +823,50 @@ export function PrototypeEditor({
           ) : null}
           {/* On the stage, outside the device's clip: a tab bar's menu opens above it, whole. */}
           {edit && element && menu ? (
-            <ElementMenu
-              el={element}
-              anchor={onStage(inView(element.rect))}
-              room={room}
-              edges={{ left, right: narrow ? EDGE : RAIL_ROOM }}
-              readOnly={readOnly}
-              bots={bots}
-              bot={bot}
-              onPickBot={pickBot}
-              onConnect={() => {
-                setMenu(false)
-                setConnect(true)
-              }}
-              texting={textEdit.state}
-              onEditText={() => textEdit.start(element)}
-              artifactId={artifactId}
-              onApply={(ops) => saveEdits(onEdit, ops)}
-              onAi={(text) =>
-                askBot((b) =>
+            // Its place is in the stage's box; the stage scrolled (zoomed), it moves with what it shows.
+            <div className="proto-pop-at" style={{ left: stageScroll.at.x, top: stageScroll.at.y }}>
+              <ElementMenu
+                el={element}
+                anchor={onStage(inView(element.rect))}
+                room={room}
+                edges={{ left, right: bottomRail ? EDGE : RAIL_ROOM }}
+                readOnly={readOnly}
+                bots={bots}
+                bot={bot}
+                onPickBot={pickBot}
+                onConnect={() => {
+                  setMenu(false)
+                  setConnect(true)
+                }}
+                texting={textEdit.state}
+                onEditText={() => textEdit.start(element)}
+                artifactId={artifactId}
+                onApply={(ops) => saveEdits(onEdit, ops)}
+                onAi={(text) =>
+                  askBot((b) =>
+                    located
+                      ? sendCommand(
+                          artifactId,
+                          { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
+                          b,
+                        )
+                      : Promise.resolve(false),
+                  )
+                }
+                onImagine={newScreen}
+                onDisconnect={() =>
                   located
-                    ? sendCommand(
-                        artifactId,
-                        { command: 'edit-with-ai', botId: b.id, ggIds: [located], text },
-                        b,
-                      )
-                    : Promise.resolve(false),
-                )
-              }
-              onImagine={newScreen}
-              onDisconnect={() =>
-                located
-                  ? saveEdits(onEdit, disconnectOps({ ...located, transition: element.transition }))
-                  : Promise.resolve(false)
-              }
-              onClose={dropElement}
-            />
+                    ? saveEdits(onEdit, disconnectOps({ ...located, transition: element.transition }))
+                    : Promise.resolve(false)
+                }
+                onClose={dropElement}
+              />
+            </div>
           ) : null}
           {!edit ? null : change ? (
             <ChangeBar
               beside={connecting}
-              raised={narrow}
+              raised={bottomRail}
               bots={bots}
               bot={bot}
               onPickBot={pickBot}
@@ -669,7 +882,7 @@ export function PrototypeEditor({
               onClose={() => setChange(false)}
             />
           ) : (
-            <div className={cx('proto-pencil', narrow && 'proto-pencil--raised')}>
+            <div className={cx('proto-pencil', bottomRail && 'proto-pencil--raised')}>
               <Tooltip content={bot ? t('描述要怎么改这屏') : t('群里没有 Bot')}>
                 <button
                   type="button"
@@ -685,10 +898,17 @@ export function PrototypeEditor({
           )}
         </div>
 
+        {/* Zoomed, the stage scrolls: the whole-page rules stay at its top left, in view. */}
+        {zoomed ? (
+          <div className="proto-page-float" style={{ left: left + EDGE }}>
+            {marks.pageRow(true)}
+          </div>
+        ) : null}
         <div
-          className={cx('art-tools proto-rail', narrow && 'proto-rail--bottom')}
+          className={cx('art-tools proto-rail', bottomRail && 'proto-rail--bottom')}
+          style={!bottomRail && bottom ? { top: `calc(50% - ${bottom / 2}px)` } : undefined}
           role="toolbar"
-          aria-orientation={narrow ? 'horizontal' : 'vertical'}
+          aria-orientation={bottomRail ? 'horizontal' : 'vertical'}
           aria-label={t('原型工具')}
         >
           <MenuButton
@@ -706,6 +926,22 @@ export function PrototypeEditor({
           >
             <Icon name={DEVICE_ICON[device]} size={16} />
             <small aria-hidden="true">{size.w}</small>
+          </MenuButton>
+          <MenuButton
+            className="art-tools__btn proto-rail__zoom"
+            aria-label={t('缩放：{name}', { name: ZOOM_LABEL[zoom] })}
+            title={t('缩放')}
+            align="end"
+            items={ZOOMS.map((z) => ({
+              label: ZOOM_LABEL[z],
+              shortcut: ZOOM_KEY_OF[z],
+              value: z,
+              checked: z === zoom,
+              radio: true,
+            }))}
+            onSelect={(z) => setZoom(z as Zoom)}
+          >
+            <small>{`${Math.round(scale * 100)}%`}</small>
           </MenuButton>
           <RailButton
             icon="arrow-clockwise"
@@ -735,6 +971,7 @@ export function PrototypeEditor({
           />
         </div>
 
+        {marks.panel(drawer ? { height: drawer, bottom: drawerBottom } : null)}
         {connecting && element ? (
           <ConnectPanel
             key={`${element.file}#${element.ggId}`}
@@ -759,471 +996,5 @@ export function PrototypeEditor({
         ) : null}
       </Presence>
     </section>
-  )
-}
-
-/**
- * The phone's status bar (and a mini program's capsule) and home indicator, drawn over the screen like the
- * web-prototype kit's shell: screens leave `--gg-status-bar` free for it. Clicks go through to the screen.
- */
-function DeviceChrome({ frame, light }: { frame: ProtoFrame; light: boolean }) {
-  return (
-    <div
-      className={cx('proto-chrome', light && 'proto-chrome--light')}
-      data-testid="proto-chrome"
-      aria-hidden="true"
-    >
-      <div className="proto-chrome__status" style={{ height: frame.status }}>
-        <span>9:41</span>
-        <svg width="68" height="12" viewBox="0 0 68 12" fill="currentColor" aria-hidden="true">
-          <rect x="0" y="8" width="3" height="4" rx="1" />
-          <rect x="5" y="6" width="3" height="6" rx="1" />
-          <rect x="10" y="3" width="3" height="9" rx="1" />
-          <rect x="15" y="0" width="3" height="12" rx="1" />
-          <path d="M30 3.2a8.6 8.6 0 0 1 11.6 0l-1.3 1.4a6.7 6.7 0 0 0-9 0zm2.6 2.8a4.8 4.8 0 0 1 6.4 0l-1.3 1.4a3 3 0 0 0-3.8 0zm3.2 2.4 1.5 1.6-1.5 1.6-1.5-1.6z" />
-          <rect
-            x="44.5"
-            y="0.5"
-            width="21"
-            height="11"
-            rx="3.2"
-            fill="none"
-            stroke="currentColor"
-            opacity="0.4"
-          />
-          <rect x="46" y="2" width="18" height="8" rx="2" />
-          <rect x="66.5" y="4" width="1.5" height="4" rx="0.7" opacity="0.4" />
-        </svg>
-      </div>
-      {frame.capsule ? (
-        <div className="proto-chrome__capsule" data-testid="proto-capsule">
-          <span>
-            <svg width="20" height="6" viewBox="0 0 20 6" fill="currentColor" aria-hidden="true">
-              <circle cx="3" cy="3" r="2.2" />
-              <circle cx="10" cy="3" r="3" />
-              <circle cx="17" cy="3" r="2.2" />
-            </svg>
-          </span>
-          <i />
-          <span>
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              aria-hidden="true"
-            >
-              <circle cx="9" cy="9" r="7.2" />
-              <circle cx="9" cy="9" r="2.6" fill="currentColor" stroke="none" />
-            </svg>
-          </span>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-/** Room a hotspot tag takes above its element (prototype.css `.proto-hot__tag`: 15px line + 2px gap). */
-const TAG_ROOM = 17
-
-/**
- * A hotspot box in the screen's viewport coordinates; `tag` labels it in edit mode, outside the box so it covers none
- * of the element: above it, or below when the screen's top leaves no room.
- */
-function Hot({
-  rect,
-  tag,
-  title,
-  selected,
-}: {
-  rect: { x: number; y: number; w: number; h: number }
-  tag: string | null
-  title?: string
-  selected?: boolean
-}) {
-  return (
-    <div
-      className={cx('proto-hot', selected && 'proto-hot--selected')}
-      style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
-      title={title}
-    >
-      {tag ? (
-        <span className={cx('proto-hot__tag', rect.y < TAG_ROOM && 'proto-hot__tag--below')}>{tag}</span>
-      ) : null}
-    </div>
-  )
-}
-
-function RailButton({
-  icon,
-  label,
-  shortcut,
-  tip,
-  on,
-  onClick,
-}: {
-  icon: IconName
-  label: string
-  shortcut?: string
-  tip: 'top' | 'left'
-  on?: boolean
-  onClick?: () => void
-}) {
-  return (
-    <Tooltip content={label} shortcut={shortcut} placement={tip}>
-      <button
-        type="button"
-        className="art-tools__btn"
-        aria-label={label}
-        aria-pressed={on === undefined ? undefined : on}
-        disabled={!onClick}
-        onClick={onClick}
-      >
-        <Icon name={icon} size={16} />
-      </button>
-    </Tooltip>
-  )
-}
-
-/** A request to the bot: text, the bot when the group has several, send. */
-function AskForm({
-  label,
-  placeholder,
-  bots,
-  bot,
-  onPickBot,
-  onSend,
-  onClose,
-  children,
-}: {
-  label: string
-  placeholder: string
-  bots: BotDto[]
-  bot: BotDto | null
-  onPickBot: (id: string) => void
-  onSend: (text: string) => Promise<boolean>
-  onClose: () => void
-  children?: ReactNode
-}) {
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const send = async () => {
-    if (!text.trim()) return
-    setBusy(true)
-    const ok = await onSend(text.trim())
-    setBusy(false)
-    if (ok) onClose()
-  }
-  return (
-    <form
-      className="art-pop__form proto-ask"
-      onSubmit={(e) => {
-        e.preventDefault()
-        void send()
-      }}
-      onKeyDown={(e) => {
-        e.stopPropagation()
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <Textarea
-        aria-label={label}
-        placeholder={placeholder}
-        value={text}
-        rows={3}
-        maxLength={2000}
-        autoFocus
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit()
-        }}
-      />
-      <BotChoice bots={bots} bot={bot} onPick={onPickBot} />
-      {children}
-      <div className="art-pop__row">
-        <Button size="small" variant="plain" onClick={onClose}>
-          {t('取消')}
-        </Button>
-        <Button
-          size="small"
-          variant="primary"
-          icon="send"
-          type="submit"
-          disabled={busy || !text.trim() || !bot}
-        >
-          {bot ? t('发给 @{name}', { name: bot.name }) : t('发送')}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-/** The AI pill's request bar under the device: describe how to change this screen. */
-function ChangeBar({
-  beside,
-  raised,
-  ...props
-}: {
-  /** The connect panel is open: keep clear of it. */
-  beside: boolean
-  /** Above the rail along a narrow stage's bottom. */
-  raised: boolean
-  bots: BotDto[]
-  bot: BotDto | null
-  onPickBot: (id: string) => void
-  onSend: (text: string) => Promise<boolean>
-  onClose: () => void
-}) {
-  return (
-    <div className={cx('proto-change', beside && 'proto-change--beside', raised && 'proto-change--raised')}>
-      <AskForm label={t('修改要求')} placeholder={t('描述要怎么改这屏…')} {...props}>
-        <small className="proto-change__hint">{t('Esc 关闭')}</small>
-      </AskForm>
-    </div>
-  )
-}
-
-/** Edit mode's element menu (Stitch: Connect to screen, Edit text, Change with AI, Imagine new screen). */
-function ElementMenu({
-  el,
-  anchor,
-  room,
-  edges,
-  readOnly,
-  bots,
-  bot,
-  onPickBot,
-  onConnect,
-  texting,
-  onEditText,
-  artifactId,
-  onApply,
-  onAi,
-  onImagine,
-  onDisconnect,
-  onClose,
-}: {
-  el: PickedElement
-  /** The element on the stage. */
-  anchor: Rect
-  room: { width: number; height: number }
-  /** What the screen list and the rail take of the stage's sides. */
-  edges: { left: number; right: number }
-  readOnly: boolean
-  bots: BotDto[]
-  bot: BotDto | null
-  onPickBot: (id: string) => void
-  onConnect: () => void
-  /** Whether the element's text is being picked or typed in the screen. */
-  texting: TextEditing
-  onEditText: () => void
-  artifactId: string
-  onApply: (ops: ArtifactEditOp[]) => Promise<boolean>
-  onAi: (text: string) => Promise<boolean>
-  onImagine: (text: string) => Promise<boolean>
-  onDisconnect: () => Promise<boolean>
-  onClose: () => void
-}) {
-  const box = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(MENU_H)
-  // Each step (the actions, a form) has its own height: placed by the one it has now.
-  useLayoutEffect(() => {
-    const h = box.current?.offsetHeight
-    if (h && h !== height) setHeight(h)
-  })
-  const [step, setStep] = useState<'menu' | 'image' | 'ai' | 'imagine'>('menu')
-  const [busy, setBusy] = useState(false)
-  const located = el.ggId !== null
-  const noSource = located ? undefined : t('脚本生成的元素，只能批注')
-  const noBot = bot ? undefined : t('群里没有 Bot')
-  const offline = offlineHint(bot) ?? undefined
-  const ro = readOnly ? t('历史版本只读') : undefined
-  const status = textEditingHint(texting)
-  const apply = async (ops: ArtifactEditOp[]) => (await onApply(ops)) && onClose()
-  const upload = useImageUpload(artifactId, el, apply)
-  const at = menuPlace(anchor, { w: MENU_W, h: height }, room, edges)
-  /** `hint` says why it is off; `note` (an offline bot) only informs. */
-  const action = (
-    icon: IconName,
-    label: string,
-    hint: string | undefined,
-    onClick: () => void,
-    note?: string,
-    danger?: boolean,
-    on?: boolean,
-  ) => (
-    <button
-      type="button"
-      className={cx('art-pop__action', danger && 'art-pop__action--danger', on && 'art-pop__action--on')}
-      aria-pressed={on}
-      disabled={!!hint}
-      title={hint ?? note}
-      onClick={onClick}
-    >
-      <Icon name={icon} size={15} />
-      <span>{label}</span>
-      {hint || note ? <small>{hint ?? note}</small> : null}
-    </button>
-  )
-  return (
-    <div
-      ref={box}
-      className="art-pop proto-pop"
-      role="dialog"
-      aria-label={t('编辑元素')}
-      style={{ ...at, width: MENU_W }}
-      onKeyDown={(e) => {
-        e.stopPropagation()
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <header className="art-pop__head">
-        <span className="art-pop__title">{t('编辑元素')}</span>
-        <CloseButton onClick={onClose} />
-      </header>
-      {step === 'menu' ? (
-        <div className="art-pop__actions">
-          {action('link', el.link ? t('编辑连接') : t('连到屏幕'), ro ?? noSource, onConnect)}
-          {isImage(el) ? (
-            <>
-              {action('globe', t('输入图片地址'), ro ?? noSource, () => setStep('image'))}
-              {action(
-                'upload',
-                t('上传图片'),
-                ro ?? noSource ?? (upload.busy ? t('上传中…') : undefined),
-                upload.open,
-              )}
-              {upload.input}
-            </>
-          ) : (
-            action(
-              'textformat',
-              t('编辑文字'),
-              ro ?? noSource,
-              onEditText,
-              undefined,
-              false,
-              texting !== null,
-            )
-          )}
-          {status ? (
-            <p className="art-pop__status" role="status">
-              {status}
-            </p>
-          ) : null}
-          {action('sparkle', t('用 AI 修改'), noSource ?? noBot, () => setStep('ai'), offline)}
-          {action('plus', t('构想新屏'), noSource ?? noBot, () => setStep('imagine'), offline)}
-          {el.link
-            ? action(
-                'xmark-circle',
-                t('移除连接'),
-                ro ?? noSource,
-                async () => {
-                  setBusy(true)
-                  const ok = await onDisconnect()
-                  setBusy(false)
-                  if (ok) onClose()
-                },
-                undefined,
-                true,
-              )
-            : null}
-        </div>
-      ) : step === 'image' ? (
-        <ImageUrlForm el={el} readOnly={readOnly} onApply={apply} onBack={() => setStep('menu')} />
-      ) : (
-        <AskForm
-          label={step === 'ai' ? t('修改要求') : t('新屏描述')}
-          placeholder={step === 'ai' ? t('描述要怎么改这个元素…') : t('描述点它之后打开的新屏…')}
-          bots={bots}
-          bot={bot}
-          onPickBot={onPickBot}
-          onSend={step === 'ai' ? onAi : onImagine}
-          onClose={onClose}
-        />
-      )}
-    </div>
-  )
-}
-
-/** Connect Element: the screen the element opens and how it moves there; Disconnect removes the link. */
-function ConnectPanel({
-  el,
-  screens,
-  readOnly,
-  onApply,
-  onClose,
-}: {
-  el: PickedElement
-  screens: { id: string; title: string }[]
-  readOnly: boolean
-  onApply: (ops: ArtifactEditOp[]) => Promise<boolean>
-  onClose: () => void
-}) {
-  const [to, setTo] = useState(el.link && screens.some((s) => s.id === el.link) ? el.link : '')
-  const [transition, setTransition] = useState<ArtifactTransition>(
-    isTransition(el.transition) ? el.transition : 'push',
-  )
-  const [busy, setBusy] = useState(false)
-  useEscape(onClose)
-  const where = { file: el.file, ggId: el.ggId ?? '' }
-  const unchanged =
-    to === (el.link ?? '') && transition === (isTransition(el.transition) ? el.transition : 'push')
-  const run = async (ops: ArtifactEditOp[]) => {
-    setBusy(true)
-    const ok = await onApply(ops)
-    setBusy(false)
-    if (ok) onClose()
-  }
-  return (
-    <Panel title={t('连接元素')} onClose={onClose}>
-      <div className="art-el proto-connect" data-testid="proto-connect">
-        <p className="art-el__crumbs">
-          <code className="art-el__tag">{`<${el.tag}>`}</code>
-          <span>{el.text.slice(0, 40)}</span>
-        </p>
-        <h4 className="art-panel__label">{t('连到屏幕')}</h4>
-        <PopUpButton
-          aria-label={t('连到屏幕')}
-          size="small"
-          disabled={readOnly}
-          value={to}
-          placeholder={t('选择屏幕')}
-          onChange={setTo}
-          options={screens.map((s) => ({ value: s.id, label: s.title }))}
-        />
-        <h4 className="art-panel__label">{t('转场')}</h4>
-        <PopUpButton<ArtifactTransition>
-          aria-label={t('转场')}
-          size="small"
-          disabled={readOnly}
-          value={transition}
-          onChange={setTransition}
-          options={TRANSITIONS}
-        />
-      </div>
-      <div className="art-el__foot">
-        {el.link ? (
-          <Button
-            size="small"
-            disabled={readOnly || busy}
-            onClick={() => void run(disconnectOps({ ...where, transition: el.transition }))}
-          >
-            {t('断开连接')}
-          </Button>
-        ) : null}
-        <Button
-          size="small"
-          variant="primary"
-          loading={busy}
-          disabled={readOnly || !to || unchanged}
-          onClick={() => void run(connectOps(where, to, transition))}
-        >
-          {t('应用连接')}
-        </Button>
-      </div>
-    </Panel>
   )
 }

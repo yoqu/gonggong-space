@@ -20,6 +20,39 @@ import { isWholePage, type RuleTarget, ruleStats, type ScreenRules, splitRefs, W
 export const ruleLabel = (r: PageRule) =>
   isWholePage(r) && (!r.label || r.label === WHOLE_PAGE) ? t('整页') : (r.label ?? r.anchor ?? '')
 
+/** 规则 N · 待确认 M beside a screen's title (on the canvas, in the prototype preview's bar); nothing without rules. */
+export function RulesBadge({
+  rules,
+  testId,
+  onClick,
+}: {
+  rules: readonly PageRule[] | undefined
+  testId?: string
+  onClick: () => void
+}) {
+  if (!rules?.length) return null
+  const { total, pending } = ruleStats(rules)
+  return (
+    <button
+      type="button"
+      className="art-title__rules"
+      data-testid={testId}
+      aria-label={
+        pending ? t('规则 {n} · 待确认 {m}', { n: total, m: pending }) : t('规则 {n}', { n: total })
+      }
+      onClick={onClick}
+    >
+      {t('规则 {n}', { n: total })}
+      {pending ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <em>{t('待确认 {n}', { n: pending })}</em>
+        </>
+      ) : null}
+    </button>
+  )
+}
+
 const saveKey = (e: KeyboardEvent<HTMLElement>, save: () => void) => {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
     e.preventDefault()

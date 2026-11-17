@@ -305,7 +305,8 @@
   height: 100%;
   border-radius: 36px;
   background: var(--content-bg);
-  overflow: hidden;
+  /* Clip, not hidden: a hidden box scrolls (a focused mark would scroll the whole screen away). */
+  overflow: clip;
   /* Safari clips transformed children to a rounded overflow only with its own layer. */
   isolation: isolate;
 }
@@ -319,7 +320,27 @@
   width: 100%;
   height: 100%;
   background: var(--content-bg);
-  overflow: hidden;
+  overflow: clip;
+}
+/* 适应宽度 / 100%: the device as large as that, the stage scrolls to it (centred while it fits). */
+.proto-stage--zoomed {
+  overflow: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.proto-stage--zoomed .proto-device-box {
+  margin: auto;
+}
+/* The element menu's place in the stage's scrolled box (PrototypeEditor): it moves with what it shows. */
+.proto-pop-at {
+  position: absolute;
+  z-index: 4;
+  width: 0;
+  height: 0;
+}
+/* Coming back scrolled: hidden until it is where it was. */
+.proto-frame--hold {
+  visibility: hidden;
 }
 .proto-content {
   position: relative;
@@ -336,7 +357,7 @@
  */
 .proto-chrome {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   inset: 0;
   color: #000;
   pointer-events: none;
@@ -389,30 +410,124 @@
   background: #fff6;
 }
 
-/* Transitions (data-gg-transition); going back reverses them. */
+/*
+ * Transitions (data-gg-transition), in two layers like a native stack (protoParts.tsx useScreenSwap): the new screen
+ * comes in while the last one (.proto-leave, its live page) goes, dimmed when it ends up under it. Going back reverses
+ * them: the leaving screen slides away over the one coming back.
+ */
+.proto-scroll {
+  position: relative;
+  z-index: 1;
+}
+.proto-leave {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+}
+.proto-leave--over {
+  z-index: 2;
+  box-shadow: var(--shadow-glass);
+}
+/* The screen left under the new one dims (a scrim over it). */
+.proto-leave::after {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  content: "";
+  opacity: 0;
+}
+.proto-leave--push::after,
+.proto-leave--slide-up::after {
+  animation: var(--spring-snappy) proto-dim forwards;
+}
+.proto-leave--push {
+  animation: var(--spring-snappy) proto-to-left forwards;
+}
+.proto-leave--push-back {
+  animation: var(--spring-snappy) proto-to-right forwards;
+}
+.proto-leave--slide-up {
+  animation: var(--spring-snappy) proto-sink forwards;
+}
+.proto-leave--slide-down {
+  animation: var(--spring-snappy) proto-to-bottom forwards;
+}
+.proto-leave--fade {
+  animation: 260ms ease-out proto-fade-out forwards;
+}
+/* Without a screenshot, a skeleton of a page until it is ready (it pulses, or stays still under reduced motion). */
+.proto-skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: calc(var(--gg-status-bar, 47px) + var(--space-16)) var(--space-16);
+  pointer-events: none;
+  animation: 1.2s ease-in-out infinite alternate proto-skeleton;
+}
+.proto-skeleton > b {
+  display: block;
+  height: 20px;
+  border-radius: var(--radius-field);
+  background: var(--selection-fill);
+}
+.proto-skeleton > b:first-child {
+  width: 45%;
+  height: 28px;
+}
+.proto-skeleton > b:nth-child(2) {
+  height: 160px;
+}
+.proto-skeleton > b:last-child {
+  width: 70%;
+}
+@keyframes proto-skeleton {
+  from {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proto-skeleton {
+    animation: none;
+  }
+}
+/* The new screen's screenshot until its page is ready. */
+.proto-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.proto-frame {
+  position: relative;
+}
 .proto-enter--push {
-  animation: proto-from-right 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: var(--spring-snappy) proto-from-right;
 }
 .proto-enter--push-back {
-  animation: proto-from-left 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: var(--spring-snappy) proto-from-left-under;
 }
 .proto-enter--slide-up {
-  animation: proto-from-bottom 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: var(--spring-snappy) proto-from-bottom;
 }
 .proto-enter--slide-down {
-  animation: proto-from-top 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: var(--spring-snappy) proto-rise;
 }
 .proto-enter--fade {
-  animation: proto-fade 260ms ease-out;
+  animation: 260ms ease-out proto-fade;
 }
 @keyframes proto-from-right {
   from {
     transform: translateX(100%);
   }
 }
-@keyframes proto-from-left {
+@keyframes proto-from-left-under {
   from {
-    transform: translateX(-100%);
+    transform: translateX(-30%);
+    filter: brightness(0.85);
   }
 }
 @keyframes proto-from-bottom {
@@ -420,9 +535,10 @@
     transform: translateY(100%);
   }
 }
-@keyframes proto-from-top {
+@keyframes proto-rise {
   from {
-    transform: translateY(-100%);
+    transform: scale(0.94);
+    filter: brightness(0.85);
   }
 }
 @keyframes proto-fade {
@@ -430,17 +546,83 @@
     opacity: 0;
   }
 }
+@keyframes proto-to-left {
+  to {
+    transform: translateX(-30%);
+  }
+}
+@keyframes proto-to-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes proto-sink {
+  to {
+    transform: scale(0.94);
+  }
+}
+@keyframes proto-to-bottom {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes proto-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes proto-dim {
+  to {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .proto-scroll {
     animation: none;
   }
+  .proto-leave {
+    display: none;
+  }
+}
+
+/*
+ * Moving between modes, devices and panels: the device glides to its new place and size (only then: resizing the
+ * window follows at once), what a mode adds fades in, the screen list's current marker follows the screen.
+ */
+.proto-stage--glide {
+  transition: padding var(--spring-smooth);
+}
+.proto-stage--glide .proto-device-box {
+  transition:
+    width var(--spring-smooth),
+    height var(--spring-smooth);
+}
+.proto-stage--glide .proto-device {
+  transition: transform var(--spring-smooth);
+}
+.proto-bar__nav,
+.proto-screens__foot,
+.proto-pencil,
+.proto-hot {
+  animation: var(--fade-in) ui-fade-in;
+}
+.proto-thumb {
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--spring-interactive);
+}
+.proto-thumb__shot img {
+  transition: transform var(--spring-smooth);
+}
+.proto-thumb[aria-current="page"] .proto-thumb__shot img {
+  transform: scale(1.03);
 }
 
 /* Hotspots: link and back elements, moved by the screen's scroll; clicks go through to the screen. */
 .proto-hots {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
 }
 /* A thin outline only: edit mode tags a hotspot (→ 目标屏) when the pointer is over it or it is selected. */
@@ -451,16 +633,22 @@
 }
 /* Preview: a click beside the hotspots shows where they are, for a moment (FLASH_MS in PrototypeEditor.tsx). */
 .proto-hots--flash .proto-hot {
-  animation: proto-hots-flash 800ms ease-in-out both;
+  background: color-mix(in srgb, var(--system-blue) 10%, transparent);
+  animation: proto-hots-flash 800ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
+/* Swells into place and fades, softly. */
 @keyframes proto-hots-flash {
-  0%,
-  100% {
+  0% {
     opacity: 0;
+    transform: scale(1.04);
   }
   25%,
-  70% {
+  65% {
     opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

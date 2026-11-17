@@ -144,6 +144,23 @@ export const holds = (q: Rect, r: Rect) =>
 export const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
 
+/**
+ * Whether a window-wide key press is not the prototype editor's: modified, already taken, typed in a field or a modal dialog,
+ * or with the editor (`root`) in a hidden workbench tab.
+ */
+export const notOurKey = (e: KeyboardEvent, root: Element | null) =>
+  e.defaultPrevented ||
+  e.metaKey ||
+  e.ctrlKey ||
+  e.altKey ||
+  typing(e.target) ||
+  // A modal dialog's keys are its own, and an open menu's or list's; a non-modal popup's (a mark's bubble) go on.
+  (e.target instanceof Element &&
+    !!e.target.closest('[role="dialog"]:not([aria-modal="false"]), [role="menu"], [role="listbox"]')) ||
+  // Shift+← is not ← (selecting, in a field or the page): only plain arrows and Esc are shortcuts.
+  (e.shiftKey && e.key.length > 1) ||
+  !!root?.closest('[hidden]')
+
 const POP_GAP = 8
 
 /**

@@ -221,8 +221,14 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           start={proto}
           onEdit={(ops) => editArtifact(tab.artifactId, head, ops)}
           onBack={() => setProto(null)}
+          onCanvasRules={(screen) => {
+            setProto(null)
+            setRequest((r) => ({ what: 'rules', screen, n: (r?.n ?? 0) + 1 }))
+          }}
           onShare={() => setSharing(true)}
           screenThumbs={detail?.id === shown ? (detail.screenThumbs ?? []) : []}
+          files={detail?.id === shown ? detail.files : null}
+          readFile={(file) => readArtifactFile(tab.artifactId, file, shown ?? head)}
         />
         {shareDialog}
       </div>
@@ -359,6 +365,7 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
           designPanel={design.panel}
           guardDesign={design.guard}
           request={request}
+          onRequestHandled={() => setRequest((r) => r && { ...r, handled: true })}
           versions={entry.versions}
           onViewVersion={(id) => setViewing(id === head ? null : id)}
           onPrototypeAsked={() => {

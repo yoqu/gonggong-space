@@ -30,6 +30,7 @@ const TYPES = new Set([
   'scroll',
   'mark-rect',
   'text-edit',
+  'key',
 ])
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
@@ -47,6 +48,10 @@ export function acceptBridge(
   if (d.type === 'size' && !(isNum(d.width) && isNum(d.height))) return null
   if (d.type === 'nav' && typeof d.screen !== 'string') return null
   if (d.type === 'scroll' && !(isNum(d.scrollX) && isNum(d.scrollY))) return null
+  if (d.type === 'key') {
+    const parsed = BridgeFromShell.safeParse(d)
+    return parsed.success ? parsed.data : null
+  }
   if (d.type === 'text-edit') {
     const parsed = BridgeFromShell.safeParse(d)
     return parsed.success ? parsed.data : null
@@ -65,7 +70,7 @@ export function acceptBridge(
   return d as unknown as BridgeFromShell
 }
 
-function isRect(r: unknown): r is Rect {
+export function isRect(r: unknown): r is Rect {
   const o = r as Record<string, unknown> | null
   return !!o && typeof o === 'object' && isNum(o.x) && isNum(o.y) && isNum(o.w) && isNum(o.h)
 }

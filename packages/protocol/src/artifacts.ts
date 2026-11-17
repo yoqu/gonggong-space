@@ -668,11 +668,19 @@ export type BridgeMode = z.infer<typeof BridgeMode>
 export const BridgeToShell = z.discriminatedUnion('type', [
   /** `mark` / `edit`: clicks select elements (links and forms do nothing); `preview`: `data-gg-link` clicks post `nav`. */
   z.object({ type: z.literal('mode'), mode: BridgeMode }),
-  /** Outlines these elements (annotated ones, say); an empty list clears them. */
-  z.object({ type: z.literal('highlight'), ggIds: z.array(GgId).max(500) }),
+  /** Outlines these elements; empty clears. `tone`: a page rule's, like its mark (else the default dashed outline). */
+  z.object({
+    type: z.literal('highlight'),
+    ggIds: z.array(GgId).max(500),
+    tone: z.enum(['settled', 'pending']).optional(),
+    unscale: z.number().min(1).max(10).optional(), // 1 / the main site's zoom: the outline stays 2px there
+  }),
   /** Also ends picking text and commits text being edited (`text-edit`). */
   z.object({ type: z.literal('select-clear') }),
-  z.object({ type: z.literal('scroll-to'), ggId: GgId }),
+  /** Brings the element into view, a horizontally scrolling box's too; `instant` under reduced motion. */
+  z.object({ type: z.literal('scroll-to'), ggId: GgId, behavior: z.enum(['smooth', 'instant']).optional() }),
+  /** Scrolls the page there at once (coming back to a screen where it was left). */
+  z.object({ type: z.literal('scroll-position'), x: z.number(), y: z.number() }),
   /**
    * Edit mode, Stitch's Edit Text: the element's text becomes editable in place (all of it selected). For an element
    * whose text cannot be edited directly (see `select.textOnly`) the one editable text inside it is, or, when it holds
@@ -713,7 +721,15 @@ export const BridgeLinkRect = z.object({
 export type BridgeLinkRect = z.infer<typeof BridgeLinkRect>
 export const BridgeBackRect = z.object({ ggId: GgId.nullable(), rect: Rect })
 export type BridgeBackRect = z.infer<typeof BridgeBackRect>
-export const BridgeAnchorRect = z.object({ anchor: ArtifactAnchor, ggId: GgId.nullable(), rect: Rect })
+export const BridgeAnchorRect = z.object({
+  anchor: ArtifactAnchor,
+  ggId: GgId.nullable(),
+  rect: Rect,
+  /** In the page but not showing: not displayed, or scrolled out of a scrolling box (`scroll-to` brings it in). */
+  hidden: z.literal(true).optional(),
+  /** Pinned to the viewport (position fixed, or sticky): `rect` in viewport coordinates, the scroll left out. */
+  fixed: z.literal(true).optional(),
+})
 export type BridgeAnchorRect = z.infer<typeof BridgeAnchorRect>
 const Layout = {
   width: z.number(),
@@ -723,6 +739,8 @@ const Layout = {
   back: z.array(BridgeBackRect).max(500).optional(),
   /** `data-gg-anchor` elements (page rules hang on them), in document coordinates like `links`. */
   anchors: z.array(BridgeAnchorRect).max(500).optional(),
+  /** Layers pinned over the page (fixed, or sticky), in viewport coordinates: what they cover does not show. */
+  covers: z.array(Rect).max(20).optional(),
 }
 /**
  * Element rects (`hover`, `select`) are in the screen's viewport (its iframe) when posted, in CSS pixels; `links` /
@@ -730,7 +748,14 @@ const Layout = {
  */
 export const BridgeFromShell = z.discriminatedUnion('type', [
   /** On load, then `size` whenever the document's size or its links' layout changes (the canvas sizes the iframe to it). */
-  z.object({ ...FromScreen, type: z.literal('ready'), ...Layout }),
+  z.object({
+    ...FromScreen,
+    type: z.literal('ready'),
+    ...Layout,
+    /** Where the page starts scrolled (a reload keeps it): overlays use it until the next `scroll`. */
+    scrollX: z.number().optional(),
+    scrollY: z.number().optional(),
+  }),
   z.object({ ...FromScreen, type: z.literal('size'), ...Layout }),
   /** `ggId` and `rect` null when the pointer leaves the elements. */
   z.object({ ...FromScreen, type: z.literal('hover'), ggId: GgId.nullable(), rect: Rect.nullable() }),
@@ -793,8 +818,10 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
     ggId: GgId.nullable(),
     text: z.string().max(5000).nullable(),
   }),
+  /** Preview: an unmodified key (one character, Escape, ← or →; never Home) pressed outside a control that takes keys. */
+  z.object({ ...FromScreen, type: z.literal('key'), key: z.string().max(20), repeat: z.boolean() }),
   /**
-   * The screen scrolled (at most every 100 ms, the last position always sent): its `window.scrollX` / `scrollY`, in
+   * The screen scrolled (at most once per animation frame, the last position always sent): its `window.scrollX` / `scrollY`, in
    * CSS pixels. Turns document coordinates into viewport ones; rects posted earlier in viewport coordinates move by
    * the change.
    */

@@ -97,6 +97,12 @@
   const style = document.createElement('style')
   style.textContent =
     '[data-gg-mark]{outline:2px dashed #f5a524 !important;outline-offset:-2px}' +
+    // A page rule's element, like its mark in the 标注 mode: a box over it (settled solid with a light fill, pending
+    // dashed orange), so its own outline, shadow and an image's pixels stay as they are.
+    '[data-gg-mark="settled"],[data-gg-mark="pending"]{outline:none !important}' +
+    '.gg-mark-box{position:absolute;z-index:2147483646;pointer-events:none}' +
+    '.gg-mark-box[data-tone="settled"]{outline:2px solid #0088ff;outline-offset:-1px;background:rgba(0,136,255,.12)}' +
+    '.gg-mark-box[data-tone="pending"]{outline:2px dashed #ff8d28;outline-offset:-1px;background:rgba(255,141,40,.12)}' +
     '[data-gg-hover]{outline:2px solid rgba(79,124,255,.6) !important;outline-offset:-2px;cursor:pointer}' +
     '[data-gg-selected]{outline:2px solid #4f7cff !important;outline-offset:-2px}' +
     '[data-gg-pick]{outline:2px solid rgba(79,124,255,.7) !important;outline-offset:1px;cursor:text;' +
@@ -108,6 +114,99 @@
     'outline:2px dashed #4f7cff;outline-offset:-2px;background:rgba(79,124,255,.08)}'
   document.head.appendChild(style)
 
+  // Pinned to the viewport: the element or a box holding it is fixed (or sticky, where it sticks).
+  const pinnedBy = (el) => {
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const p = getComputedStyle(n).position
+      if (p === 'fixed' || p === 'sticky') return p
+    }
+    return null
+  }
+  // The element's rect in the viewport as far as the boxes clipping it let it show; null when none of it does.
+  const CLIPS = /auto|scroll|hidden|clip/
+  const viewRect = (el) => {
+    let r = rectOf(el)
+    let clipped = false
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p)
+      if (!CLIPS.test(cs.overflowX + cs.overflowY)) continue
+      const c = rectOf(p)
+      const x = Math.max(r.x, c.x)
+      const y = Math.max(r.y, c.y)
+      r = { x, y, w: Math.min(r.x + r.w, c.x + c.w) - x, h: Math.min(r.y + r.h, c.y + c.h) - y }
+      clipped = true
+    }
+    return clipped && (r.w <= 0 || r.h <= 0) ? null : r
+  }
+  // The toned highlight's boxes: over each element where it shows.
+  let markTone = ''
+  let markWidth = 2
+  let markBoxes = []
+  const drawMarkBoxes = () => {
+    for (const b of markBoxes) b.remove()
+    markBoxes = []
+    if (!markTone) return
+    for (const el of marked) {
+      // Not displayed: nothing to outline. Under a pinned layer (a fixed head): only what shows of it.
+      let r = shown(el) ? viewRect(el) : null
+      if (r && !pinnedBy(el)) r = uncovered(r)
+      if (!r || r.w <= 0 || r.h <= 0) continue
+      // Fixed in viewport coordinates, drawn again every frame the page or a box in it scrolls; on the root, which a
+      // positioned or transformed body would not move.
+      const b = document.createElement('div')
+      b.className = 'gg-mark-box'
+      b.dataset.tone = markTone
+      Object.assign(b.style, {
+        position: 'fixed',
+        left: `${r.x}px`,
+        top: `${r.y}px`,
+        width: `${r.w}px`,
+        height: `${r.h}px`,
+        outlineWidth: `${markWidth}px`,
+      })
+      document.documentElement.appendChild(b)
+      markBoxes.push(b)
+    }
+  }
+  // Brings the element into view the least it takes (nothing when it shows already), in each box that scrolls it and
+  // then in the page, by setting their scroll: scrollIntoView would also scroll the main site's boxes holding this
+  // frame. One pinned to the viewport shows wherever the page is.
+  const SCROLLS = /auto|scroll/
+  const MARGIN = 8
+  const nearest = (start, end, from, to) =>
+    start >= from && end <= to
+      ? 0
+      : start < from || end - start > to - from
+        ? start - from - MARGIN
+        : end - to + MARGIN
+  const statusBar = () =>
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gg-status-bar')) || 0
+  const bringIntoView = (el, behavior) => {
+    if (pinnedBy(el) === 'fixed') return
+    const r = el.getBoundingClientRect()
+    let x = r.left
+    let y = r.top
+    for (
+      let p = el.parentElement;
+      p && p !== document.body && p !== document.documentElement;
+      p = p.parentElement
+    ) {
+      const cs = getComputedStyle(p)
+      const sideways = SCROLLS.test(cs.overflowX) && p.scrollWidth > p.clientWidth
+      const down = SCROLLS.test(cs.overflowY) && p.scrollHeight > p.clientHeight
+      if (!sideways && !down) continue
+      const c = p.getBoundingClientRect()
+      const dx = sideways ? nearest(x, x + r.width, c.left, c.left + p.clientWidth) : 0
+      const dy = down ? nearest(y, y + r.height, c.top, c.top + p.clientHeight) : 0
+      if (!dx && !dy) continue
+      p.scrollTo({ left: p.scrollLeft + dx, top: p.scrollTop + dy, behavior })
+      x -= dx
+      y -= dy
+    }
+    const dx = nearest(x, x + r.width, 0, window.innerWidth)
+    const dy = nearest(y, y + r.height, statusBar(), window.innerHeight)
+    if (dx || dy) window.scrollTo({ left: window.scrollX + dx, top: window.scrollY + dy, behavior })
+  }
   const flag = (el, name, on) => {
     if (!el) return
     if (on) el.setAttribute(name, '')
@@ -421,6 +520,43 @@
     },
     true,
   )
+  // Preview: the main site's shortcuts (标注 N, ←/→, Esc, R, H…) work with the focus in the screen.
+  const SHORTCUT_KEYS = new Set(['Escape', 'ArrowLeft', 'ArrowRight'])
+  // A box scrolling sideways around the focus takes ←/→ itself.
+  const sidewaysBox = (el) => {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (SCROLLS.test(getComputedStyle(n).overflowX) && n.scrollWidth > n.clientWidth) return true
+    }
+    return false
+  }
+  const KEYED = [
+    'input',
+    'textarea',
+    'select',
+    '[contenteditable]:not([contenteditable="false"])',
+    ...[
+      'slider',
+      'spinbutton',
+      'listbox',
+      'menu',
+      'menubar',
+      'tablist',
+      'grid',
+      'combobox',
+      'textbox',
+      'radiogroup',
+      'tree',
+    ].map((r) => `[role="${r}"]`),
+  ].join(',')
+  window.addEventListener('keydown', (e) => {
+    if (mode !== 'preview' || e.isComposing || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey)
+      return
+    if (e.key.length !== 1 && (!SHORTCUT_KEYS.has(e.key) || e.shiftKey)) return
+    // Not from a control that takes keys itself.
+    if (target(e)?.closest(KEYED)) return
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && sidewaysBox(target(e))) return
+    post({ type: 'key', key: e.key, repeat: e.repeat })
+  })
   document.documentElement.addEventListener('mouseleave', () => {
     if (picking()) setHover(null)
   })
@@ -444,7 +580,11 @@
       case 'highlight':
         for (const el of marked) flag(el, 'data-gg-mark', false)
         marked = (Array.isArray(m.ggIds) ? m.ggIds : []).map(byGgId).filter(Boolean)
-        for (const el of marked) flag(el, 'data-gg-mark', true)
+        markTone = m.tone === 'settled' || m.tone === 'pending' ? m.tone : ''
+        // The main site's zoom undone: the outline is 2px on its screen.
+        markWidth = Number.isFinite(m.unscale) ? Math.min(Math.max(m.unscale, 1), 10) * 2 : 2
+        for (const el of marked) el.setAttribute('data-gg-mark', markTone)
+        drawMarkBoxes()
         return
       case 'select-clear':
         if (stopChoosing()) textPost('done')
@@ -457,8 +597,14 @@
         if (el) editText(el)
         return
       }
-      case 'scroll-to':
-        byGgId(m.ggId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      case 'scroll-to': {
+        const el = byGgId(m.ggId)
+        if (el) bringIntoView(el, m.behavior === 'instant' ? 'instant' : 'smooth')
+        return
+      }
+      case 'scroll-position':
+        if (Number.isFinite(m.x) && Number.isFinite(m.y))
+          window.scrollTo({ left: m.x, top: m.y, behavior: 'instant' })
         return
       case 'preview-style':
         previewStyle(m.ggId, m.props)
@@ -476,26 +622,45 @@
   }
   // A hotspot inside scrolling or clipping boxes (a horizontal card row) shows only where they let it: its document rect
   // cut to each of them, null when nothing of it shows.
-  const CLIPS = /auto|scroll|hidden|clip/
   const hotRect = (el) => {
-    let r = rectOf(el)
-    let clipped = false
-    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-      const cs = getComputedStyle(p)
-      if (!CLIPS.test(cs.overflowX + cs.overflowY)) continue
-      const c = rectOf(p)
-      const x = Math.max(r.x, c.x)
-      const y = Math.max(r.y, c.y)
-      r = { x, y, w: Math.min(r.x + r.w, c.x + c.w) - x, h: Math.min(r.y + r.h, c.y + c.h) - y }
-      clipped = true
-    }
-    if (clipped && (r.w <= 0 || r.h <= 0)) return null
-    return { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
+    const r = viewRect(el)
+    return r && { x: r.x + window.scrollX, y: r.y + window.scrollY, w: r.w, h: r.h }
   }
   const hots = (sel, entry) =>
     [...document.querySelectorAll(sel)].slice(0, 500).flatMap((el) => {
       const rect = hotRect(el)
       return rect ? [{ ggId: ggIdOf(el), ...entry(el), rect }] : []
+    })
+  // Every anchored element, the ones not showing too (not displayed, or out of a scrolling box) marked `hidden`.
+  const shown = (el) => {
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const cs = getComputedStyle(n)
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false
+    }
+    return true
+  }
+  let sticky = false
+  const anchors = () =>
+    [...document.querySelectorAll('[data-gg-anchor]')].slice(0, 500).flatMap((el) => {
+      const anchor = anchorOf(el)
+      if (!anchor) return []
+      // Pinned to the viewport: where it shows there, whatever the page's scroll (sticky ones are reported again
+      // as the page scrolls).
+      const pin = pinnedBy(el)
+      if (pin === 'sticky') sticky = true
+      const view = shown(el) ? viewRect(el) : null
+      const rect =
+        view &&
+        (pin ? view : { x: view.x + window.scrollX, y: view.y + window.scrollY, w: view.w, h: view.h })
+      return [
+        {
+          anchor,
+          ggId: ggIdOf(el),
+          rect: rect ?? docRect(el),
+          ...(!rect && { hidden: true }),
+          ...(rect && pin && { fixed: true }),
+        },
+      ]
     })
   const layout = () => {
     const d = document.documentElement
@@ -510,27 +675,64 @@
         }
       }),
       back: hots('[data-gg-back]', () => ({})),
-      anchors: hots('[data-gg-anchor]', (el) => ({ anchor: anchorOf(el) })).filter((a) => a.anchor),
+      anchors: anchors(),
+      covers: covers(),
     }
   }
-  // Throttled to one post per 100 ms, the last position always sent: the main site moves its overlays with it.
-  let scrollTimer = null
-  let scrolled = false
-  const postScroll = () => post({ type: 'scroll', scrollX: window.scrollX, scrollY: window.scrollY })
-  const scrollTick = () => {
-    scrollTimer = scrolled ? setTimeout(scrollTick, 100) : null
-    if (scrolled) postScroll()
-    scrolled = false
+  // The layers pinned over the page (fixed, or sticky), outermost only, in viewport coordinates: what they cover of the
+  // page does not show. A sticky one moves as the page scrolls: reported again then.
+  // Which elements those are is looked up as the page loads or resizes; a scrolling frame only measures them again.
+  let pinnedEls = null
+  const findPinned = () => {
+    pinnedEls = []
+    for (const el of [...document.body.querySelectorAll('*')].slice(0, 3000)) {
+      const p = getComputedStyle(el).position
+      if (p !== 'fixed' && p !== 'sticky') continue
+      if (el.parentElement && pinnedBy(el.parentElement)) continue
+      if (p === 'sticky') sticky = true
+      pinnedEls.push(el)
+    }
   }
+  // Not what does not show or lets the pointer through (a transparent, hidden or decorative layer).
+  const covering = (el) => {
+    const cs = getComputedStyle(el)
+    return shown(el) && Number(cs.opacity) > 0 && cs.pointerEvents !== 'none'
+  }
+  // A rect less the pinned layers covering its top or bottom; null when they cover all of it.
+  const uncovered = (r) => {
+    let from = r.y
+    let to = r.y + r.h
+    for (const c of covers()) {
+      if (c.x >= r.x + r.w || c.x + c.w <= r.x) continue
+      if (c.y <= from && c.y + c.h > from) from = c.y + c.h
+      if (c.y < to && c.y + c.h >= to) to = c.y
+    }
+    return to > from ? { ...r, y: from, h: to - from } : null
+  }
+  const covers = () => {
+    if (!pinnedEls) findPinned()
+    const out = []
+    for (const el of pinnedEls) {
+      if (!el.isConnected || !covering(el)) continue
+      const r = rectOf(el)
+      if (r.w > 0 && r.h > 0) out.push(r)
+      if (out.length === 20) break
+    }
+    return out
+  }
+  // One post per animation frame, with the position at that frame: the main site moves its overlays with it.
+  let scrollFrame = 0
+  const postScroll = () => post({ type: 'scroll', scrollX: window.scrollX, scrollY: window.scrollY })
   window.addEventListener(
     'scroll',
     () => {
-      if (scrollTimer) {
-        scrolled = true
-        return
-      }
-      postScroll()
-      scrollTimer = setTimeout(scrollTick, 100)
+      if (scrollFrame) return
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = 0
+        postScroll()
+        if (sticky) report()
+        drawMarkBoxes()
+      })
     },
     { passive: true },
   )
@@ -545,19 +747,26 @@
   }
   const first = layout()
   last = JSON.stringify(first)
-  post({ type: 'ready', ...first })
+  post({ type: 'ready', ...first, scrollX: window.scrollX, scrollY: window.scrollY })
   window.addEventListener('load', report)
-  if (window.ResizeObserver) new ResizeObserver(report).observe(document.documentElement)
+  if (window.ResizeObserver)
+    new ResizeObserver(() => {
+      pinnedEls = null
+      report()
+      drawMarkBoxes()
+    }).observe(document.documentElement)
   // A box scrolling inside the page (the document's own scroll is `scroll` above) moves the hotspots in it.
-  let boxTimer = null
+  // Every frame it scrolls: the outline, and the layout (its anchors and links move with it).
+  let boxFrame = 0
   document.addEventListener(
     'scroll',
     (e) => {
-      if (!(e.target instanceof Element) || boxTimer) return
-      boxTimer = setTimeout(() => {
-        boxTimer = null
+      if (!(e.target instanceof Element) || boxFrame) return
+      boxFrame = requestAnimationFrame(() => {
+        boxFrame = 0
         report()
-      }, 100)
+        drawMarkBoxes()
+      })
     },
     { capture: true, passive: true },
   )

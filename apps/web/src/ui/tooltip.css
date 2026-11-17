@@ -8,7 +8,8 @@
   z-index: 70;
   left: 50%;
   bottom: calc(100% + 8px);
-  display: inline-flex;
+  /* Shut, it takes no room at all: placed past a scrolling box's edge it would widen what that box scrolls. */
+  display: none;
   align-items: center;
   gap: var(--space-8);
   width: max-content;
@@ -28,7 +29,8 @@
   transform: translate(-50%, 2px);
   transition:
     opacity var(--motion-fast),
-    transform var(--motion-fast);
+    transform var(--motion-fast),
+    display var(--motion-fast) allow-discrete;
 }
 .ui-tip--bottom {
   top: calc(100% + 8px);
@@ -36,8 +38,21 @@
   transform: translate(-50%, -2px);
 }
 .ui-tip[data-open] {
+  display: inline-flex;
   opacity: 1;
   transform: translate(-50%, 0);
+}
+@starting-style {
+  .ui-tip[data-open] {
+    opacity: 0;
+    transform: translate(-50%, 2px);
+  }
+  .ui-tip--bottom[data-open] {
+    transform: translate(-50%, -2px);
+  }
+  .ui-tip--left[data-open] {
+    transform: translate(2px, -50%);
+  }
 }
 .ui-tip--left {
   top: 50%;

@@ -362,11 +362,30 @@ describe('page rules on the canvas', () => {
     fireEvent.click(mark)
     expect(within(panel()).getByTestId('art-rule-1').className).toContain('art-rule--on')
     fireEvent.click(within(panel()).getByText('未登录时点击先去登录。'))
+    // In the rule's tone, like the preview's marks.
     expect(post.mock.calls.map(([m]) => m)).toContainEqual({
       source: 'gg-host',
       type: 'highlight',
       ggIds: ['12'],
+      tone: 'settled',
     })
+  })
+
+  it('draws no mark for an anchor the screen reports as not showing (not displayed, or out of a scrolling row)', async () => {
+    mockApi(routes())
+    await renderTab()
+    await screen.findByRole('button', { name: '规则 2 · 待确认 1' })
+    fromScreen({
+      type: 'ready',
+      width: 390,
+      height: 800,
+      anchors: [
+        { anchor: 'ben-zhou-gong-du', ggId: '12', rect: { x: 600, y: 100, w: 80, h: 20 }, hidden: true },
+      ],
+    })
+    expect(screen.queryByTestId('art-rule-mark-home-1')).toBeNull()
+    // The whole-page rule keeps its mark.
+    expect(screen.getByTestId('art-rule-mark-home-2')).toBeTruthy()
   })
 
   it('edits and deletes a rule as one file save each', async () => {

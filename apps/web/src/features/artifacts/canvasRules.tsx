@@ -13,14 +13,13 @@ import { offlineHint } from './actions'
 import { type BridgeMessage, postToScreen } from './bridge'
 import { elementBox, inDocument, NO_SCROLL, type Scroll, scrolledBy } from './elements'
 import type { CanvasNode, Rect, View } from './geometry'
-import { type RulesAdding, RulesPanel } from './RulesPanel'
+import { type RulesAdding, RulesBadge, RulesPanel } from './RulesPanel'
 import {
   addRuleOps,
   anchorSpots,
   defaultLabel,
   loadRomanizer,
   ruleFileOp,
-  ruleStats,
   type SharedRef,
   sharedRefs,
   useRuleFiles,
@@ -78,13 +77,20 @@ export function useCanvasRules(o: {
     localStorage.setItem(MARKS_KEY, show ? 'off' : 'on')
     setShow(!show)
   }
-  const highlight = (file: string | null, ggId: string | null) => {
+  /** Outlines a rule's element in its tone (settled, or pending to confirm), like the preview's marks. */
+  const highlight = (file: string | null, ggId: string | null, pending = false) => {
     const last = highlighted.current
     if (last && last !== file) postToScreen(o.frames.get(last), o.origin, { type: 'highlight', ggIds: [] })
     highlighted.current = ggId ? file : null
     if (!file) return
     const f = o.frames.get(file)
-    postToScreen(f, o.origin, { type: 'highlight', ggIds: ggId ? [ggId] : [] })
+    postToScreen(
+      f,
+      o.origin,
+      ggId
+        ? { type: 'highlight', ggIds: [ggId], tone: pending ? 'pending' : 'settled' }
+        : { type: 'highlight', ggIds: [] },
+    )
     if (ggId) postToScreen(f, o.origin, { type: 'scroll-to', ggId })
   }
   const spotOf = (file: string, anchor: string | null) =>
@@ -93,7 +99,7 @@ export function useCanvasRules(o: {
     setSelected(i)
     const s = o.screens.find((x) => x.id === sid)
     const r = data.pages[sid]?.rules[i]
-    if (s && r) highlight(s.file, spotOf(s.file, r.anchor)?.ggId ?? null)
+    if (s && r) highlight(s.file, spotOf(s.file, r.anchor)?.ggId ?? null, r.pending)
   }
   const open = (sid: string, i?: number) => {
     if (o.panel !== 'rules' || sid !== screenId) o.focus(sid)
@@ -223,30 +229,14 @@ export function useCanvasRules(o: {
     return ok
   }
 
-  const badge = (n: CanvasNode): ReactNode => {
-    const rules = data.pages[n.id]?.rules
-    if (!show || !rules?.length) return null
-    const { total, pending } = ruleStats(rules)
-    return (
-      <button
-        type="button"
-        className="art-title__rules"
-        data-testid={`art-rules-badge-${n.id}`}
-        aria-label={
-          pending ? t('规则 {n} · 待确认 {m}', { n: total, m: pending }) : t('规则 {n}', { n: total })
-        }
+  const badge = (n: CanvasNode): ReactNode =>
+    show ? (
+      <RulesBadge
+        rules={data.pages[n.id]?.rules}
+        testId={`art-rules-badge-${n.id}`}
         onClick={() => open(n.id)}
-      >
-        {t('规则 {n}', { n: total })}
-        {pending ? (
-          <>
-            <span aria-hidden="true">·</span>
-            <em>{t('待确认 {n}', { n: pending })}</em>
-          </>
-        ) : null}
-      </button>
-    )
-  }
+      />
+    ) : null
 
   /** The numbered marks on the screens (and the new rule's), over the canvas at the current pan and zoom. */
   const marks = (view: View, nodes: CanvasNode[]): ReactNode => {
@@ -269,6 +259,8 @@ export function useCanvasRules(o: {
       }
       for (const [i, r] of rules.entries()) {
         const spot = spotOf(n.file, r.anchor)
+        // Not showing (not displayed, or out of a scrolling row): no mark, rather than one in the wrong place.
+        if (spot?.hidden) continue
         const at = place(spot?.rect ?? null)
         if (!at) continue
         out.push(

@@ -25,6 +25,8 @@ export type MenuItem =
       icon?: IconName | ReactElement
       /** Defined (true or false) makes the item a checkbox item with a check column. */
       checked?: boolean
+      /** With `checked`: one of a set, only one checked (a radio item). */
+      radio?: boolean
       disabled?: boolean
       /** Help tag, e.g. why the item is disabled. */
       title?: string
@@ -204,11 +206,11 @@ export function Menu({
         const value = itemValue(it)
         const sub = it.submenu
         const item = (
-          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role is menuitemcheckbox whenever aria-checked is set
+          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the role is menuitemcheckbox or menuitemradio whenever aria-checked is set
           <button
             key={value}
             type="button"
-            role={it.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+            role={it.checked === undefined ? 'menuitem' : it.radio ? 'menuitemradio' : 'menuitemcheckbox'}
             aria-checked={it.checked}
             aria-haspopup={sub ? 'menu' : undefined}
             aria-expanded={sub ? openSub === i : undefined}

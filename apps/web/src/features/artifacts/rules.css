@@ -41,7 +41,8 @@
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
-  border: 1.5px solid var(--content-bg);
+  /* Light in either theme: marks sit on screens, which are mostly light. */
+  border: 1.5px solid var(--on-accent);
   border-radius: var(--radius-capsule);
   background: var(--accent-fill);
   color: var(--on-accent);
@@ -56,8 +57,10 @@
 .art-rule-mark--page {
   transform: none;
 }
+/* Dark figures on orange: white on it reads at about 2:1, ink at above 7:1. */
 .art-rule-mark--pending {
   background: var(--system-orange);
+  color: var(--brand-ink);
 }
 .art-rule-mark--on {
   outline: 2px solid var(--accent);
@@ -147,6 +150,18 @@
 }
 .art-rule__no--pending {
   background: var(--system-orange);
+  color: var(--brand-ink);
+}
+/* High contrast light: its orange is dark (#c93400), white reads on it at above 6:1 (ink at under 3). */
+[data-theme="hc-light"] .art-rule-mark--pending,
+[data-theme="hc-light"] .art-rule__no--pending {
+  color: var(--on-accent);
+}
+@media (prefers-contrast: more) {
+  [data-theme="light"] .art-rule-mark--pending,
+  [data-theme="light"] .art-rule__no--pending {
+    color: var(--on-accent);
+  }
 }
 .art-rule__main {
   flex: 1;

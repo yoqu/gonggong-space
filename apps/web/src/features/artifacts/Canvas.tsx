@@ -168,8 +168,12 @@ type Panel = 'details' | 'favourites' | 'design' | 'element' | 'annotations' | '
 
 /** What the tab's bar asks the canvas for (its 导出 button and project menu); `n` makes each ask a new one. */
 export interface CanvasRequest {
-  what: 'export' | 'commands' | 'shortcuts'
+  what: 'export' | 'commands' | 'shortcuts' | 'rules'
   n: number
+  /** `rules`: the screen whose page rules open (the prototype preview sends one back here for them). */
+  screen?: string
+  /** Done: a canvas mounting later does not do it again. */
+  handled?: boolean
 }
 
 const TOOL_IDS: Tool[] = ['select', 'mark', 'edit', 'hand']
@@ -288,6 +292,8 @@ export interface CanvasProps {
   request: CanvasRequest | null
   /** Instant Prototype was handed to the bot: the tab opens the prototype editor once its run ends. */
   onPrototypeAsked: () => void
+  /** The `request` is done (the tab marks it). */
+  onRequestHandled: () => void
 }
 
 /** 项目简报 in the export panel: the plugin command that writes brief.md (notes.ts reads it), when the plugin has one. */
@@ -376,6 +382,7 @@ export function Canvas({
   guardDesign,
   request,
   onPrototypeAsked,
+  onRequestHandled,
   versions,
   onViewVersion,
 }: CanvasProps) {
@@ -781,12 +788,17 @@ export function Canvas({
     if (manifest) setSelectionContext(contextBase, selectionItems())
   }, [selectionKey, manifest])
   useEffect(() => () => dropSelectionContext(artifactId), [artifactId])
-  // A request made before this canvas mounted (it was away for the prototype editor) is not a new one.
-  const requestSeen = useRef(request?.n)
+  // A request made before this canvas mounted (it was away for the prototype editor) is not a new one, but for the
+  // page rules the prototype preview sends it back here for.
+  const requestSeen = useRef(request?.what === 'rules' && !request.handled ? undefined : request?.n)
   // biome-ignore lint/correctness/useExhaustiveDependencies: on a new request only
   useEffect(() => {
     if (!request || request.n === requestSeen.current) return
     requestSeen.current = request.n
+    if (request.what === 'rules') {
+      onRequestHandled()
+      return request.screen ? rules.open(request.screen) : undefined
+    }
     if (request.what === 'export') setPanel('export')
     else if (request.what === 'commands') setCmdk(true)
     else setHelp(true)

@@ -3,7 +3,6 @@
   "apps/web/src/app/Sidebar.tsx": 1038,
   "apps/web/src/app/shell.css": 1090,
   "apps/web/src/features/artifacts/Canvas.tsx": 2393,
-  "apps/web/src/features/artifacts/PrototypeEditor.tsx": 1229,
   "apps/web/src/features/artifacts/artifacts.css": 1891,
   "apps/web/src/features/chat/ChatView.tsx": 1055,
   "apps/web/src/features/chat/TimelineItems.tsx": 1021,

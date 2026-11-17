@@ -395,10 +395,20 @@ describe('bridge', () => {
       { type: 'select-clear' },
       { type: 'scroll-to', ggId: '3' },
       { type: 'reload' },
+      // The 标注 mode outlines a rule's element in its mark's tone, and scrolls without motion when asked.
+      { type: 'highlight', ggIds: ['3'], tone: 'settled' },
+      { type: 'highlight', ggIds: ['3'], tone: 'pending' },
+      // Its outline as wide on the main site's screen whatever the device's zoom.
+      { type: 'highlight', ggIds: ['3'], tone: 'settled', unscale: 2.5 },
+      { type: 'scroll-to', ggId: '3', behavior: 'instant' },
+      // Coming back to a screen: where it was scrolled.
+      { type: 'scroll-position', x: 0, y: 420 },
     ])
       expect(BridgeToShell.parse(m)).toEqual(m)
     expect(BridgeToShell.safeParse({ type: 'mode', mode: 'draw' }).success).toBe(false)
     expect(BridgeToShell.safeParse({ type: 'highlight', ggIds: ['x'] }).success).toBe(false)
+    expect(BridgeToShell.safeParse({ type: 'highlight', ggIds: [], tone: 'red' }).success).toBe(false)
+    expect(BridgeToShell.safeParse({ type: 'scroll-to', ggId: '3', behavior: 'auto' }).success).toBe(false)
   })
   it('previews inline style on one element: token values or empty (removed); null restores', () => {
     for (const m of [
@@ -445,6 +455,24 @@ describe('bridge', () => {
       { ...at, type: 'nav', screen: 'home', transition: 'push-back' },
       { ...at, type: 'back' },
       { ...at, type: 'scroll', scrollX: 0, scrollY: 320 },
+      // A page reloaded where it was scrolled says so as it starts.
+      { ...at, type: 'ready', width: 390, height: 900, scrollX: 0, scrollY: 600 },
+      // The layers pinned over the page (a sticky head, a fixed tab bar), in viewport coordinates.
+      { ...at, type: 'size', width: 390, height: 900, covers: [{ x: 0, y: 0, w: 375, h: 40 }] },
+      // An anchor's element that does not show (in a scrolled-away row, or not displayed).
+      {
+        ...at,
+        type: 'size',
+        width: 390,
+        height: 900,
+        anchors: [
+          { anchor: 'pay', ggId: '3', rect: { x: 0, y: 0, w: 1, h: 1 }, hidden: true },
+          // Pinned to the viewport (a fixed tab bar): its rect in viewport coordinates.
+          { anchor: 'tab', ggId: '4', rect: { x: 0, y: 744, w: 375, h: 56 }, fixed: true },
+        ],
+      },
+      // Preview mode: a key pressed in the screen, for the main site's shortcuts.
+      { ...at, type: 'key', key: 'n', repeat: false },
       {
         ...at,
         type: 'ready',
@@ -464,6 +492,9 @@ describe('bridge', () => {
     ])
       expect(BridgeFromShell.parse(m)).toEqual(m)
     expect(BridgeFromShell.safeParse({ ...at, type: 'scroll', scrollY: 1 }).success).toBe(false)
+    expect(
+      BridgeFromShell.safeParse({ ...at, type: 'key', key: 'x'.repeat(21), repeat: false }).success,
+    ).toBe(false)
     expect(BridgeFromShell.safeParse({ ...select, source: 'x' }).success).toBe(false)
     expect(BridgeFromShell.safeParse({ ...select, file: '../x.html' }).success).toBe(false)
     expect(BridgeFromShell.parse({ ...select, transition: null }).type).toBe('select')

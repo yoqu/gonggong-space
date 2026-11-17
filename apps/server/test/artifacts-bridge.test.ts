@@ -29,6 +29,7 @@ function screen(html = PAGE, parent = MAIN) {
     {
       url: 'https://p1.preview.test/screens/home.html',
       runScripts: 'dangerously',
+      pretendToBeVisual: true,
       beforeParse(win) {
         Object.defineProperty(win, 'parent', { value: top.window, configurable: true })
       },
@@ -164,25 +165,237 @@ describe('gg-bridge', () => {
     expect(s.last()).toMatchObject({ type: 'select', anchor: null })
   })
 
-  it('reports scrolling at most every 100 ms, ending with the last position', async () => {
+  it('reports scrolling once per animation frame, with the position at that frame', async () => {
     const s = screen()
     const scrollTo = (y: number) => {
       Object.defineProperty(s.w, 'scrollY', { value: y, configurable: true })
       s.w.dispatchEvent(new s.w.Event('scroll'))
     }
     const scrolls = () => s.posts.map((p) => p.data).filter((d) => d.type === 'scroll')
+    const frame = () => new Promise((r) => s.w.requestAnimationFrame(() => r(null)))
     scrollTo(10)
     scrollTo(20)
     scrollTo(30)
+    expect(scrolls()).toEqual([])
+    await frame()
     expect(scrolls()).toEqual([
-      { source: 'gg-bridge', file: 'screens/home.html', type: 'scroll', scrollX: 0, scrollY: 10 },
+      { source: 'gg-bridge', file: 'screens/home.html', type: 'scroll', scrollX: 0, scrollY: 30 },
     ])
-    expect(BridgeFromShell.parse(scrolls()[0])).toMatchObject({ type: 'scroll', scrollY: 10 })
-    await new Promise((r) => setTimeout(r, 150))
-    expect(scrolls().map((d) => d.scrollY)).toEqual([10, 30])
-    await new Promise((r) => setTimeout(r, 150))
+    expect(BridgeFromShell.parse(scrolls()[0])).toMatchObject({ type: 'scroll', scrollY: 30 })
     scrollTo(40)
-    expect(scrolls().map((d) => d.scrollY)).toEqual([10, 30, 40])
+    await frame()
+    expect(scrolls().map((d) => d.scrollY)).toEqual([30, 40])
+  })
+
+  it('says where it starts scrolled with ready', () => {
+    const s = screen()
+    expect(BridgeFromShell.parse(s.posts[0]?.data)).toMatchObject({ type: 'ready', scrollX: 0, scrollY: 0 })
+  })
+
+  it('reports anchors that do not show as hidden: in a scrolled-away row, or not displayed', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="row" style="overflow-x: auto"><b id="a" data-gg-anchor="a">A</b><b id="c" data-gg-anchor="c">C</b></div>
+<p id="gone" style="display: none" data-gg-anchor="gone">x</p><p id="in" data-gg-anchor="in">y</p></body></html>`)
+    const at = (sel: string, left: number, width: number) => {
+      s.$(sel).getBoundingClientRect = () => ({ left, top: 400, width, height: 50 }) as DOMRect
+    }
+    at('#row', 0, 375)
+    at('#a', 13, 150)
+    at('#c', 460, 150)
+    at('#in', 0, 100)
+    s.w.dispatchEvent(new s.w.Event('load'))
+    const anchors = BridgeFromShell.parse(s.last()).type === 'size' ? (s.last()?.anchors as unknown[]) : []
+    expect(anchors.map((a) => [(a as { anchor: string }).anchor, (a as { hidden?: true }).hidden])).toEqual([
+      ['a', undefined],
+      ['c', true],
+      ['gone', true],
+      ['in', undefined],
+    ])
+  })
+
+  it('brings an element into view by scrolling its own boxes and the page only, the least it takes', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="row" style="overflow-x: auto"><b id="c" data-gg-anchor="c">C</b><b id="d">D</b></div>
+<nav id="tab" style="position: fixed; bottom: 0"><b id="t" data-gg-anchor="t">T</b></nav></body></html>`)
+    const viaIntoView: unknown[] = []
+    s.w.HTMLElement.prototype.scrollIntoView = (o: unknown) => {
+      viaIntoView.push(o)
+    }
+    const calls: { who: string; o: unknown }[] = []
+    s.w.HTMLElement.prototype.scrollTo = function (this: HTMLElement, o: unknown) {
+      calls.push({ who: this.id, o })
+    } as never
+    s.w.scrollTo = ((o: unknown) => calls.push({ who: 'window', o })) as never
+    const box = (sel: string, left: number, top: number, width: number, height: number) => {
+      s.$(sel).getBoundingClientRect = () => ({ left, top, width, height }) as DOMRect
+    }
+    Object.defineProperty(s.w, 'innerWidth', { value: 375, configurable: true })
+    Object.defineProperty(s.w, 'innerHeight', { value: 800, configurable: true })
+    Object.defineProperty(s.w, 'scrollY', { value: 100, configurable: true })
+    // The row: 375 wide at y 1000 (viewport), scrolling sideways; the card at x 600 in it, the second at 100.
+    box('#row', 0, 1000, 375, 100)
+    box('#c', 600, 1000, 150, 100)
+    box('#d', 100, 1000, 150, 100)
+    Object.defineProperty(s.$('#row'), 'scrollWidth', { value: 900 })
+    Object.defineProperty(s.$('#row'), 'clientWidth', { value: 375 })
+    Object.defineProperty(s.$('#row'), 'clientHeight', { value: 100 })
+    const id = (sel: string) => s.$(sel).getAttribute('data-gg-id')
+    s.send({ type: 'scroll-to', ggId: id('#c') })
+    expect(viaIntoView).toEqual([])
+    // Nearest: the row brings the card's right edge in (750 - 375 + 8), the page the row's bottom (1100 - 800 + 8).
+    expect(calls).toEqual([
+      { who: 'row', o: { left: 383, top: 0, behavior: 'smooth' } },
+      { who: 'window', o: { left: 0, top: 408, behavior: 'smooth' } },
+    ])
+    calls.length = 0
+    s.send({ type: 'scroll-to', ggId: id('#c'), behavior: 'instant' })
+    expect(calls.map((c) => (c.o as { behavior: string }).behavior)).toEqual(['instant', 'instant'])
+    // In view already: nothing scrolls.
+    calls.length = 0
+    box('#row', 0, 300, 375, 100)
+    box('#d', 100, 300, 150, 100)
+    s.send({ type: 'scroll-to', ggId: id('#d') })
+    expect(calls).toEqual([])
+    // Pinned to the viewport (a fixed tab bar): scrolling would not bring it anywhere.
+    box('#t', 0, 900, 375, 56)
+    s.send({ type: 'scroll-to', ggId: id('#t') })
+    expect(calls).toEqual([])
+  })
+
+  it('reports an anchor pinned to the viewport (fixed) in viewport coordinates, and outlines it with a fixed box', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<nav id="tab" style="position: fixed; bottom: 0"><b id="t" data-gg-anchor="t">T</b></nav><p id="p" data-gg-anchor="p">P</p></body></html>`)
+    Object.defineProperty(s.w, 'scrollY', { value: 300, configurable: true })
+    s.$('#t').getBoundingClientRect = () => ({ left: 0, top: 744, width: 375, height: 56 }) as DOMRect
+    s.$('#p').getBoundingClientRect = () => ({ left: 0, top: 10, width: 100, height: 20 }) as DOMRect
+    s.w.dispatchEvent(new s.w.Event('load'))
+    const size = BridgeFromShell.parse(s.last())
+    expect(size.type === 'size' && size.anchors).toEqual([
+      {
+        anchor: 't',
+        ggId: s.$('#t').getAttribute('data-gg-id'),
+        rect: { x: 0, y: 744, w: 375, h: 56 },
+        fixed: true,
+      },
+      { anchor: 'p', ggId: s.$('#p').getAttribute('data-gg-id'), rect: { x: 0, y: 310, w: 100, h: 20 } },
+    ])
+    s.send({ type: 'highlight', ggIds: [s.$('#t').getAttribute('data-gg-id')], tone: 'settled' })
+    const b = s.w.document.querySelector('.gg-mark-box') as HTMLElement
+    expect([b.style.position, b.style.top]).toEqual(['fixed', '744px'])
+  })
+
+  it('draws the outline only where a scrolling box lets its element show', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="row" style="overflow-x: auto"><b id="c" data-gg-anchor="c">C</b></div></body></html>`)
+    s.$('#row').getBoundingClientRect = () => ({ left: 0, top: 100, width: 375, height: 100 }) as DOMRect
+    s.$('#c').getBoundingClientRect = () => ({ left: 300, top: 100, width: 150, height: 100 }) as DOMRect
+    s.send({ type: 'highlight', ggIds: [s.$('#c').getAttribute('data-gg-id')], tone: 'pending' })
+    const b = s.w.document.querySelector('.gg-mark-box') as HTMLElement
+    expect([b.style.left, b.style.width]).toEqual(['300px', '75px'])
+  })
+
+  it('draws no outline for an element not displayed, and none over a pinned layer covering it', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="head" style="position: fixed; top: 0">筛选</div><p id="gone" style="display: none">x</p><p id="p">P</p></body></html>`)
+    s.$('#head').getBoundingClientRect = () => ({ left: 0, top: 0, width: 375, height: 60 }) as DOMRect
+    s.$('#p').getBoundingClientRect = () => ({ left: 0, top: 40, width: 375, height: 60 }) as DOMRect
+    s.w.dispatchEvent(new s.w.Event('load'))
+    const boxes = () => [...s.w.document.querySelectorAll('.gg-mark-box')] as HTMLElement[]
+    s.send({ type: 'highlight', ggIds: [s.$('#gone').getAttribute('data-gg-id')], tone: 'settled' })
+    expect(boxes()).toEqual([])
+    // Under the fixed head down to 60: only what shows below it is outlined.
+    s.send({ type: 'highlight', ggIds: [s.$('#p').getAttribute('data-gg-id')], tone: 'settled' })
+    expect(boxes().map((b) => [b.style.top, b.style.height])).toEqual([['60px', '40px']])
+  })
+
+  it('follows a scrolling box frame by frame: the outline and the anchors', async () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="row" style="overflow-x: auto"><b id="c" data-gg-anchor="c">C</b></div></body></html>`)
+    s.$('#row').getBoundingClientRect = () => ({ left: 0, top: 100, width: 375, height: 100 }) as DOMRect
+    let x = 200
+    s.$('#c').getBoundingClientRect = () => ({ left: x, top: 100, width: 100, height: 100 }) as DOMRect
+    s.send({ type: 'highlight', ggIds: [s.$('#c').getAttribute('data-gg-id')], tone: 'settled' })
+    const frame = () => new Promise((r) => s.w.requestAnimationFrame(() => r(null)))
+    const anchorX = () => {
+      const d = s.posts
+        .map((p) => p.data)
+        .filter((m) => m.type === 'size')
+        .at(-1) as { anchors: { rect: { x: number } }[] }
+      return d?.anchors[0]?.rect.x
+    }
+    for (const at of [150, 120, 90]) {
+      x = at
+      s.$('#row').dispatchEvent(new s.w.Event('scroll'))
+      await frame()
+      await frame()
+      expect((s.w.document.querySelector('.gg-mark-box') as HTMLElement).style.left).toBe(`${at}px`)
+      expect(anchorX()).toBe(at)
+    }
+  })
+
+  it('reports the layers pinned over the page (a sticky head, a fixed tab bar) as covers, in viewport coordinates', () => {
+    const s = screen(`<!doctype html><html><head></head><body>
+<div id="head" style="position: sticky; top: 0">筛选</div><p>正文</p>
+<div style="position: fixed; top: 0; opacity: 0">透明</div><div style="position: fixed; top: 0; visibility: hidden">隐藏</div>
+<div style="position: fixed; inset: 0; pointer-events: none">点不到的装饰</div>
+<nav id="tab" style="position: fixed; bottom: 0"><b data-gg-anchor="t">T</b></nav></body></html>`)
+    for (const el of s.w.document.querySelectorAll('div')) {
+      if (el.id) continue
+      ;(el as HTMLElement).getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 375, height: 800 }) as DOMRect
+    }
+    s.$('#head').getBoundingClientRect = () => ({ left: 0, top: 0, width: 375, height: 40 }) as DOMRect
+    s.$('#tab').getBoundingClientRect = () => ({ left: 0, top: 756, width: 375, height: 56 }) as DOMRect
+    s.w.dispatchEvent(new s.w.Event('load'))
+    const size = BridgeFromShell.parse(s.last())
+    expect(size.type === 'size' && size.covers).toEqual([
+      { x: 0, y: 0, w: 375, h: 40 },
+      { x: 0, y: 756, w: 375, h: 56 },
+    ])
+  })
+
+  it('scrolls the page to a position at once (coming back to a screen)', () => {
+    const s = screen()
+    const calls: unknown[] = []
+    s.w.scrollTo = ((o: unknown) => calls.push(o)) as never
+    s.send({ type: 'scroll-position', x: 0, y: 420 })
+    expect(calls).toEqual([{ left: 0, top: 420, behavior: 'instant' }])
+  })
+
+  it('passes unmodified keys to the main site in preview mode, not from fields, nor in edit mode', () => {
+    const s = screen(`${PAGE.replace('</section>', '<input id="name"></section>')}`)
+    const keys = () => s.posts.map((p) => p.data).filter((d) => d.type === 'key')
+    const press = (el: EventTarget, key: string, o: Record<string, boolean> = {}) =>
+      el.dispatchEvent(new s.w.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...o }))
+    press(s.w.document.body, 'n')
+    press(s.w.document.body, 'ArrowLeft', { repeat: true })
+    press(s.w.document.body, 'n', { metaKey: true })
+    press(s.w.document.body, 'Tab')
+    // Shift+← selects; it is not ←.
+    press(s.w.document.body, 'ArrowLeft', { shiftKey: true })
+    press(s.$('#name'), 'n')
+    // The page's own keys: taken already, or on a control that uses them.
+    s.$('#t').addEventListener('keydown', (e) => e.preventDefault())
+    press(s.$('#t'), 'ArrowRight')
+    s.$('[data-gg-back]').setAttribute('role', 'slider')
+    press(s.$('[data-gg-back]'), 'ArrowLeft')
+    // Home stays the page's (never passed on); arrows inside a sideways-scrolling box are that box's.
+    press(s.w.document.body, 'Home')
+    const row = s.w.document.createElement('div')
+    row.style.overflowX = 'auto'
+    Object.defineProperty(row, 'scrollWidth', { value: 900 })
+    Object.defineProperty(row, 'clientWidth', { value: 375 })
+    const cell = s.w.document.createElement('span')
+    row.appendChild(cell)
+    s.w.document.body.appendChild(row)
+    press(cell, 'ArrowRight')
+    expect(keys().map((d) => BridgeFromShell.parse(d))).toMatchObject([
+      { type: 'key', key: 'n', repeat: false },
+      { type: 'key', key: 'ArrowLeft', repeat: true },
+    ])
+    s.send({ type: 'mode', mode: 'edit' })
+    press(s.w.document.body, 'n')
+    expect(keys()).toHaveLength(2)
   })
 
   it('sends the transition of a link with nav', () => {
@@ -414,6 +627,35 @@ describe('gg-bridge', () => {
     expect([...s.w.document.querySelectorAll('[data-gg-mark]')].map((e) => e.tagName)).toEqual(['H1', 'A'])
     s.send({ type: 'highlight', ggIds: [] })
     expect(s.w.document.querySelectorAll('[data-gg-mark]')).toHaveLength(0)
+    // A page rule's element in its mark's tone: a box drawn over it (its own shadow and an image stay as they are).
+    Object.defineProperty(s.w, 'scrollY', { value: 50, configurable: true })
+    s.$('h1').getBoundingClientRect = () => ({ left: 10, top: 20, width: 100, height: 30 }) as DOMRect
+    s.send({ type: 'highlight', ggIds: [h1], tone: 'pending' })
+    expect(s.$('h1').getAttribute('data-gg-mark')).toBe('pending')
+    const boxes = () => [...s.w.document.querySelectorAll('.gg-mark-box')] as HTMLElement[]
+    // Fixed, in viewport coordinates, on the root (a positioned or transformed body would move it off).
+    expect(
+      boxes().map((b) => [
+        b.dataset.tone,
+        b.style.position,
+        b.style.left,
+        b.style.top,
+        b.style.width,
+        b.style.height,
+      ]),
+    ).toEqual([['pending', 'fixed', '10px', '20px', '100px', '30px']])
+    expect(boxes()[0]?.parentElement).toBe(s.w.document.documentElement)
+    s.send({ type: 'highlight', ggIds: [h1], tone: 'settled' })
+    expect(boxes().map((b) => b.dataset.tone)).toEqual(['settled'])
+    // Drawn 2px wide on the main site's screen whatever the device's zoom (×2.5 at 0.4).
+    s.send({ type: 'highlight', ggIds: [h1], tone: 'settled', unscale: 2.5 })
+    expect(boxes()[0]?.style.outlineWidth).toBe('5px')
+    const css = s.w.document.head.querySelector('style')?.textContent ?? ''
+    expect(css).toContain('.gg-mark-box[data-tone="settled"]{outline:2px solid')
+    expect(css).toContain('.gg-mark-box[data-tone="pending"]{outline:2px dashed')
+    expect(css).not.toContain('box-shadow:inset 0 0 0 100vmax')
+    s.send({ type: 'highlight', ggIds: [] })
+    expect(boxes()).toEqual([])
   })
 
   it('previews style on one element at a time and puts its own style back', () => {

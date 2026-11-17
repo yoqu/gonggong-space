@@ -586,7 +586,8 @@ describe('prototype editor', () => {
       editMode()
       select({ rect: { x: 0, y: 790, w: 390, h: 54 }, text: '我的' })
       expect(menu().closest('[data-testid="proto-clip"]')).toBeNull()
-      expect(menu().parentElement).toBe(screen.getByTestId('proto-stage'))
+      // On the stage, in a holder at its scroll (zoomed, the stage scrolls and the menu moves with the element).
+      expect(menu().parentElement?.parentElement).toBe(screen.getByTestId('proto-stage'))
       // Mobile 390×844 in a 10px bezel, scaled to the stage's height less its 96px.
       const scale = Math.min(1, (1200 - 236 - 68) / 410, (900 - 96) / 864)
       const tabTop = (900 - 864 * scale) / 2 + (10 + 790) * scale
