@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.23 — 2026-11-17
+
+- 子 Agent 角色头像、独立泳道与可展开汇总栏，运行页上下文实时更新 / Sub-agent personas, lanes and an expandable activity dock, with live context updates
+- 发起会话可同时创建并关联飞书群，成员选择器显示头像，创作面板与稍后处理的状态和预览更准确 / Create and link a Feishu group with a new chat, member avatars in pickers, and clearer creation and Later states
+- Claude Code 本机配置目录的模型探测、Gemini 登录提示与桌面 Agent 页崩溃修复 / Model probing for local Claude Code configs and fixes for Gemini sign-in prompts and the desktop Agent page crash
+- 新建 Bot 默认选择在线机器，Agent 详情适配窄屏长命令 / New Bots default to online machines, and Agent details handle long commands on narrow screens
+- 市场不再把只作用于机器的 Agent 和供应商预设插件列为可引入 / The market no longer lists machine-only Agent and provider-preset plugins as importable
+
 ## v0.4.22 — 2026-11-16
 
 - Agent 管理重构：网页端与桌面端共用 Agent 页，供应商改为「厂商 + 按协议端点」，Agent 注册表统一名称、图标、安装与登录方式 / Agent management overhaul: a shared web and desktop Agent page, vendors with per-protocol endpoints, and one registry for names, icons, installation and sign-in
