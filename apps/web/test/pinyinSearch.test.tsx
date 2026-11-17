@@ -45,6 +45,12 @@ describe('name search', () => {
       />,
     )
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索成员' }), { target: { value: 'JWC' } })
-    expect(screen.getAllByRole('menuitemcheckbox').map((r) => r.textContent)).toEqual(['姜维川yoqu'])
+    expect(
+      screen
+        .getAllByRole('menuitemcheckbox')
+        .map((row) =>
+          [...row.querySelectorAll('.pick__name, .pick__sub')].map((el) => el.textContent).join(''),
+        ),
+    ).toEqual(['姜维川yoqu'])
   })
 })
