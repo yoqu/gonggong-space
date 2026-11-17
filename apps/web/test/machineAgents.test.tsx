@@ -318,8 +318,8 @@ describe('machine details sections', () => {
     const installable = screen.getByRole('region', { name: '可安装' })
     for (const [a, b] of [
       [node, agents],
-      [agents, installable],
-      [installable, providers],
+      [agents, providers],
+      [providers, installable],
     ] as const)
       expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(agents).getByRole('button', { name: /^Claude Code/ })).toBeTruthy()
@@ -995,10 +995,15 @@ describe('供应商', () => {
     fireEvent.click(within(list).getByRole('button', { name: '编辑…' }))
     const form = await screen.findByRole('form', { name: '编辑供应商' })
     fireEvent.click(within(form).getByRole('button', { name: '高级' }))
-    fireEvent.change(within(form).getByRole('textbox', { name: '代理地址' }), {
+    const disclosure = within(form).getByRole('button', { name: '高级' })
+    const proxy = within(form).getByRole('textbox', { name: '代理地址' })
+    const env = within(form).getByRole('textbox', { name: '环境变量' })
+    expect(disclosure.compareDocumentPosition(proxy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(disclosure.compareDocumentPosition(env) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.change(proxy, {
       target: { value: ' http://127.0.0.1:7890 ' },
     })
-    fireEvent.change(within(form).getByRole('textbox', { name: '环境变量' }), {
+    fireEvent.change(env, {
       target: { value: 'NODE_OPTIONS=--max-old-space-size=4096' },
     })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))

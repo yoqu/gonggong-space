@@ -468,22 +468,19 @@ export function ProviderEditor({
                 ) : null}
               </span>
             </FormRow>
+            {active.map((e) => (
+              <EndpointRows
+                key={e.protocol}
+                endpoint={e}
+                fromPreset={!!presetEndpoint(e.protocol)}
+                options={
+                  presetEndpoint(e.protocol)?.modelOptions ?? editingEndpoint(e.protocol)?.modelOptions ?? []
+                }
+                onChange={(patch) => setEndpoint(e.protocol, patch)}
+              />
+            ))}
           </>
         )}
-        {active.map((e) => (
-          <EndpointRows
-            key={e.protocol}
-            endpoint={e}
-            profile={localProfile}
-            fromPreset={!!presetEndpoint(e.protocol) && !advanced}
-            advanced={advanced}
-            options={
-              presetEndpoint(e.protocol)?.modelOptions ?? editingEndpoint(e.protocol)?.modelOptions ?? []
-            }
-            preset={presetEndpoint(e.protocol)}
-            onChange={(patch) => setEndpoint(e.protocol, patch)}
-          />
-        ))}
         {editing || !agentsFor.length ? null : (
           <FormRow label={t('设为默认')} hint={t('这些 Agent 在该机器上默认使用它')}>
             <span className="mx-inline mx-preset">
@@ -502,14 +499,26 @@ export function ProviderEditor({
           <Disclosure title={t('高级')} open={advanced} onToggle={setAdvanced} />
         </FormRow>
         {advanced ? (
-          <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
-            <TextField
-              aria-label={t('代理地址')}
-              placeholder="http://127.0.0.1:7890"
-              value={f.proxy}
-              onChange={(e) => set({ proxy: e.target.value })}
-            />
-          </FormRow>
+          <>
+            <FormRow label={t('代理地址')} hint={t('Agent 经此代理访问供应商，留空为直连')}>
+              <TextField
+                aria-label={t('代理地址')}
+                placeholder="http://127.0.0.1:7890"
+                value={f.proxy}
+                onChange={(e) => set({ proxy: e.target.value })}
+              />
+            </FormRow>
+            {active.map((e) => (
+              <EndpointAdvancedRows
+                key={e.protocol}
+                endpoint={e}
+                profile={localProfile}
+                showTitle={!localProfile && active.length > 1}
+                preset={presetEndpoint(e.protocol)}
+                onChange={(patch) => setEndpoint(e.protocol, patch)}
+              />
+            ))}
+          </>
         ) : null}
         {error ? (
           <FormRow>
@@ -586,22 +595,58 @@ function ProfileRows({
   )
 }
 
-/** One protocol's block: Base URL (in 高级 for a preset), model, and in 高级 its mapping, settings and variables. */
+/** One protocol's basic block: Base URL (unless the preset already fills it) and model. */
 function EndpointRows({
   endpoint: e,
-  profile,
   fromPreset,
-  advanced,
   options,
+  onChange,
+}: {
+  endpoint: EndpointFields
+  /** The preset fills the URL: shown in 高级 instead. */
+  fromPreset: boolean
+  options: string[]
+  onChange: (patch: Partial<EndpointFields>) => void
+}) {
+  const label = PROTOCOL_LABEL[e.protocol]
+  return (
+    <section className="ag-endpoint" aria-label={t('{protocol} 端点', { protocol: label })}>
+      <Divider label={t('{protocol} 端点', { protocol: label })} />
+      {fromPreset ? null : (
+        <FormRow label="Base URL">
+          <TextField
+            aria-label={t('{protocol} Base URL', { protocol: label })}
+            value={e.baseUrl}
+            onChange={(ev) => onChange({ baseUrl: ev.target.value })}
+            placeholder={URL_HINT[e.protocol]}
+          />
+        </FormRow>
+      )}
+      <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
+        <ComboBox
+          aria-label={t('{protocol} 模型', { protocol: label })}
+          options={options}
+          value={e.model}
+          placeholder={t('默认')}
+          onInput={(model) => onChange({ model })}
+          onChange={(model) => onChange({ model })}
+        />
+      </FormRow>
+    </section>
+  )
+}
+
+/** One protocol's advanced settings: preset URL, model mapping, provider settings and variables. */
+function EndpointAdvancedRows({
+  endpoint: e,
+  profile,
+  showTitle,
   preset,
   onChange,
 }: {
   endpoint: EndpointFields
   profile: boolean
-  /** The preset fills the URL: shown only in 高级. */
-  fromPreset: boolean
-  advanced: boolean
-  options: string[]
+  showTitle: boolean
   preset: PresetEndpoint | undefined
   onChange: (patch: Partial<EndpointFields>) => void
 }) {
@@ -619,85 +664,67 @@ function EndpointRows({
     onChange({ settings: { ...e.settings, [id]: textOf(field, raw) }, base: { ...e.base, [id]: raw } })
   }
   return (
-    <section className="ag-endpoint" aria-label={t('{protocol} 端点', { protocol: label })}>
-      {profile ? null : (
-        <>
-          <Divider label={t('{protocol} 端点', { protocol: label })} />
-          {fromPreset ? null : (
-            <FormRow label="Base URL">
+    <>
+      {showTitle ? <Divider label={label} /> : null}
+      {!profile && preset ? (
+        <FormRow label="Base URL">
+          <TextField
+            aria-label={t('{protocol} Base URL', { protocol: label })}
+            value={e.baseUrl}
+            onChange={(ev) => onChange({ baseUrl: ev.target.value })}
+            placeholder={URL_HINT[e.protocol]}
+          />
+        </FormRow>
+      ) : null}
+      {anthropic && !profile
+        ? TIERS.map((tier) => (
+            <FormRow
+              key={tier}
+              label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
+            >
               <TextField
-                aria-label={t('{protocol} Base URL', { protocol: label })}
-                value={e.baseUrl}
-                onChange={(ev) => onChange({ baseUrl: ev.target.value })}
-                placeholder={URL_HINT[e.protocol]}
+                aria-label={t('{tier} 模型', { tier })}
+                value={e.models[tier]}
+                onChange={(ev) => onChange({ models: { ...e.models, [tier]: ev.target.value } })}
               />
             </FormRow>
-          )}
-          <FormRow label={t('模型')} hint={t('可从列表选择，也可直接输入')}>
-            <ComboBox
-              aria-label={t('{protocol} 模型', { protocol: label })}
-              options={options}
-              value={e.model}
-              placeholder={t('默认')}
-              onInput={(model) => onChange({ model })}
-              onChange={(model) => onChange({ model })}
-            />
-          </FormRow>
-        </>
-      )}
-      {advanced ? (
-        <>
-          {anthropic && !profile
-            ? TIERS.map((tier) => (
-                <FormRow
-                  key={tier}
-                  label={t('{tier} 模型', { tier: `${tier[0]?.toUpperCase()}${tier.slice(1)}` })}
-                >
-                  <TextField
-                    aria-label={t('{tier} 模型', { tier })}
-                    value={e.models[tier]}
-                    onChange={(ev) => onChange({ models: { ...e.models, [tier]: ev.target.value } })}
-                  />
-                </FormRow>
-              ))
-            : null}
-          <ProviderSettingRows
-            fields={fields}
-            texts={e.settings}
-            preset={presetEnv?.settings}
-            modelWindow={modelWindow}
-            onChange={(id, text) => onChange({ settings: { ...e.settings, [id]: text } })}
-            onRestore={restore}
-          />
-          {anthropic ? <ArgsRow value={e.args} onChange={(args) => onChange({ args })} /> : null}
-          <EnvRow
-            label={fields.length ? t('其他环境变量') : t('环境变量')}
-            value={e.env}
-            onChange={(env) => onChange({ env })}
-          />
-          {smallFast !== undefined ? (
-            <FormRow>
-              <Alert
-                variant="warning"
-                description={t('{name} 已废弃，请改用 Haiku 模型映射', { name: SMALL_FAST })}
-              >
-                <Button
-                  size="small"
-                  onClick={() =>
-                    onChange({
-                      env: withoutVar(e.env, SMALL_FAST),
-                      models: { ...e.models, haiku: e.models.haiku || smallFast },
-                    })
-                  }
-                >
-                  {t('改用 Haiku 映射')}
-                </Button>
-              </Alert>
-            </FormRow>
-          ) : null}
-        </>
+          ))
+        : null}
+      <ProviderSettingRows
+        fields={fields}
+        texts={e.settings}
+        preset={presetEnv?.settings}
+        modelWindow={modelWindow}
+        onChange={(id, text) => onChange({ settings: { ...e.settings, [id]: text } })}
+        onRestore={restore}
+      />
+      {anthropic ? <ArgsRow value={e.args} onChange={(args) => onChange({ args })} /> : null}
+      <EnvRow
+        label={fields.length ? t('其他环境变量') : t('环境变量')}
+        value={e.env}
+        onChange={(env) => onChange({ env })}
+      />
+      {smallFast !== undefined ? (
+        <FormRow>
+          <Alert
+            variant="warning"
+            description={t('{name} 已废弃，请改用 Haiku 模型映射', { name: SMALL_FAST })}
+          >
+            <Button
+              size="small"
+              onClick={() =>
+                onChange({
+                  env: withoutVar(e.env, SMALL_FAST),
+                  models: { ...e.models, haiku: e.models.haiku || smallFast },
+                })
+              }
+            >
+              {t('改用 Haiku 映射')}
+            </Button>
+          </Alert>
+        </FormRow>
       ) : null}
-    </section>
+    </>
   )
 }
 

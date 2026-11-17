@@ -62,7 +62,7 @@
   line-height: 14px;
   color: var(--label-secondary);
 }
-.ui-form > .ui-divider {
+.ui-form .ui-divider:not(.ui-divider--v) {
   grid-column: 1 / -1;
   margin: var(--space-4) 0;
 }

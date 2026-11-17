@@ -116,14 +116,14 @@ export function AgentsPanel({ source, bots }: { source: AgentsSource; bots: Agen
           <p className="mx-sub ag-empty">{t('这台机器上还没有可用的 Agent，从下面选一个安装')}</p>
         )}
       </section>
+      {view && has('providers') ? (
+        <ProvidersPanel source={source} view={view} onView={setView} editor={editor} onEditor={setEditor} />
+      ) : null}
       {installable.length ? (
         <section className="mx-section" aria-label={t('可安装')}>
           <span className="mx-section__head mx-strong">{t('可安装')}</span>
           <GroupBox>{installable.map(row)}</GroupBox>
         </section>
-      ) : null}
-      {view && has('providers') ? (
-        <ProvidersPanel source={source} view={view} onView={setView} editor={editor} onEditor={setEditor} />
       ) : null}
     </div>
   )

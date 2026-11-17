@@ -132,7 +132,10 @@ describe('Agent page on any source', () => {
   it('lists installed agents, then those to install, each with the one action of its state', async () => {
     await show(fakeSource())
     const agents = screen.getByRole('region', { name: 'Agent' })
+    const providers = screen.getByRole('region', { name: '供应商' })
     const installable = screen.getByRole('region', { name: '可安装' })
+    expect(agents.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(providers.compareDocumentPosition(installable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(
       within(agents)
         .getAllByRole('button', { expanded: false })
@@ -226,6 +229,8 @@ describe('Agent page on any source', () => {
     }))
     await show(fakeSource({ loadProviders: async () => view, setDefault }))
     fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    const defaults = screen.getByRole('region', { name: '默认「供应商/模型」' })
+    expect(within(defaults).getByRole('button', { name: '新增供应商…' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '供应商/模型' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'KIMI / k2' }))
     await waitFor(() => expect(setDefault).toHaveBeenCalledWith('claude', 'kimi', 'k2'))
@@ -300,6 +305,8 @@ describe('Agent page on any source', () => {
     )
     await screen.findByRole('region', { name: '供应商' })
     fireEvent.click(screen.getByRole('button', { name: /^Claude Code/ }))
+    const defaults = screen.getByRole('region', { name: '默认「供应商/模型」' })
+    expect(within(defaults).getByRole('button', { name: '新增供应商…' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '供应商/模型' }))
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'KIMI / 默认模型' }))
     const dialog = await screen.findByRole('alertdialog')

@@ -54,7 +54,7 @@ export function FormRow({
   colon?: boolean
   children?: ReactNode
 }) {
-  const top = align === 'top'
+  const top = align === 'top' || Boolean(hint)
   return (
     <>
       <div className={cx('ui-form__label', top && 'ui-form__label--top')}>

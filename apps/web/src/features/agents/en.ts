@@ -10,6 +10,7 @@ export default {
   '继承机器默认（当前：{name}）': 'Machine default (now {name})',
   '继承机器默认（{name}）': 'Machine default ({name})',
   '供应商/模型': 'Provider / model',
+  '新增供应商…': 'Add provider…',
   '默认「供应商/模型」': 'Default provider / model',
   '这台机器上 Bot 默认使用它，新会话生效；进行中的会话开启新会话后才切换':
     'Bots on this machine use it unless they set their own. New sessions pick it up; ongoing ones switch once a new session starts',

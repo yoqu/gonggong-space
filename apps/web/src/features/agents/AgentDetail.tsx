@@ -263,6 +263,9 @@ function DefaultBox({
               value={choiceValue(current.provider, models ? current.model : null)}
               onChange={pick}
             />
+            <Button size="small" onClick={onAddProvider}>
+              {t('新增供应商…')}
+            </Button>
           </span>
         </GroupRow>
         <GroupRow

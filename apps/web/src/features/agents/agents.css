@@ -61,11 +61,11 @@
   gap: var(--space-4);
 }
 .ag-endpoint {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-8) 0;
-  border-top: 1px solid var(--separator);
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  row-gap: var(--space-12);
 }
 /* Rows holding a long path or command: the value moves below the label when it does not fit, then wraps. */
 .ui-group__row.ag-long {
