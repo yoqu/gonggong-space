@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.24 — 2026-11-17
+
+- daemon 上报主 Agent 的 ACP 计划，运行时可随计划更新 / The daemon reports the main agent's ACP plan as it changes
+- 修复 Antigravity 命令审批无法识别命令，Agent 模型并行探测并及时上报 / Fix Antigravity command recognition in approvals and report agent models as parallel probes finish
+- Antigravity CLI 最低建议版本提升至 1.5.9 / Raise the recommended minimum Antigravity CLI version to 1.5.9
+
 ## v0.4.23 — 2026-11-17
 
 - 子 Agent 角色头像、独立泳道与可展开汇总栏，运行页上下文实时更新 / Sub-agent personas, lanes and an expandable activity dock, with live context updates
