@@ -57,7 +57,6 @@ import { Markdown, MentionNames } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
 import { mentionInChat } from './mention'
-import { RunProgress, walkable } from './ProgressCard'
 import {
   ClockFact,
   DelegationFacts,
@@ -70,6 +69,7 @@ import {
   STATUS_LABEL,
   TokenFact,
 } from './RunGraphics'
+import { RunTodos, walkable } from './RunPlan'
 import { reedit, useRecalled } from './recalled'
 import { openThread } from './thread'
 import { InThread, ThreadScope, useThreadSummary } from './threadSummary'
@@ -858,7 +858,7 @@ export const RunCard = memo(function RunCard({
   )
   // 共字君 itself (no costume) walks the first running progress card's stages, in place of the step line's figure.
   const walked = live && !costume && run.status === 'running' ? progress?.find(walkable) : undefined
-  const todos = progress?.map((c) => <RunProgress key={c.id} card={c} walker={c === walked} />)
+  const todos = <RunTodos run={run} live={live} progress={progress} walked={walked} />
   if (reply && !live && run.interrupt !== 'pending') {
     const tags = (
       <>

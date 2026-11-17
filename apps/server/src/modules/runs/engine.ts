@@ -254,6 +254,15 @@ async function onEvent(ctx: Ctx, machineId: string, runId: string, raw: RunEvent
   if (event.kind === 'usage' && event.context)
     await updateContextUsage(ctx, run.groupId, run.botId, sql`${JSON.stringify(event.context)}::jsonb`)
   if (event.kind === 'compaction') await onCompaction(ctx, run, event)
+  if (event.kind === 'plan')
+    for (const row of await ctx.db
+      .update(runs)
+      .set({ plan: event.entries.length ? event.entries : null })
+      .where(eq(runs.id, runId))
+      .returning(cardColumns)) {
+      await publishRun(ctx, row)
+      card = true
+    }
   if (event.kind === 'subagent' || event.kind === 'task') {
     const [field, id] = event.kind === 'subagent' ? ['subagents', event.agentId] : ['tasks', event.taskId]
     const delegation = sql`jsonb_set(${runs.delegation}, ${`{${field}}`}::text[], coalesce(${runs.delegation} -> ${field}, '{}') || jsonb_build_object(${id}::text, ${event.state}::text))`

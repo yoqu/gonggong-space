@@ -8,6 +8,7 @@
 //   "mock:commands" report available commands (compact, new), then reply "ok"
 //   "mock:live [ms]" report an occupancy, then read two files (their results counted after the report) <ms>
 //                (default 2500) apart, report again and reply
+//   "mock:plan [ms]" report a plan of three entries three times, each followed by <ms> (default 2500): made, advanced, all done
 //   "mock:sh <command>" run the rest of the prompt (from its last "mock:sh") with sh in the session cwd (like Codex
 //                editing via shell)
 //   "mock:delay <ms>" wait that long first (the last one in the prompt), then behave as the rest of the prompt says
@@ -383,6 +384,24 @@ async function prompt({ sessionId, prompt: blocks }, client) {
     await read('b', 8000)
     await sleep(wait)
     await update({ sessionUpdate: 'usage_update', used: 4100, size: 200000 })
+    await say('ok')
+    return { stopReason: 'end_turn' }
+  }
+  const plan = text.match(/mock:plan(?: (\d+))?/)
+  if (plan) {
+    const steps = ['读代码', '写测试', '提交']
+    const states = [
+      ['in_progress', 'pending', 'pending'],
+      ['completed', 'completed', 'in_progress'],
+      ['completed', 'completed', 'completed'],
+    ]
+    for (const state of states) {
+      await update({
+        sessionUpdate: 'plan',
+        entries: steps.map((content, j) => ({ content, priority: 'medium', status: state[j] })),
+      })
+      await sleep(Number(plan[1] ?? 2500))
+    }
     await say('ok')
     return { stopReason: 'end_turn' }
   }

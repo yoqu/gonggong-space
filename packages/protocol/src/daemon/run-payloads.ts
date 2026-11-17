@@ -181,6 +181,14 @@ export const RunStart = z.object({
 })
 export type RunStart = z.infer<typeof RunStart>
 
+export const PlanItem = z.object({
+  content: z.string(),
+  status: z.enum(['pending', 'in_progress', 'completed']),
+})
+export type PlanItem = z.infer<typeof PlanItem>
+/** The daemon sends a plan's first 100 entries, each clipped to 500 characters. */
+export const PLAN_MAX_ENTRIES = 100
+
 /** A subagent's ACP session id; absent on the main agent's events. */
 const AgentId = z.string().optional()
 
@@ -263,5 +271,7 @@ export const RunEvent = z.discriminatedUnion('kind', [
     /** The adapter can stop it (`task.stop`). */
     canStop: z.boolean().optional(),
   }),
+  /** The main agent's plan (ACP `plan`, e.g. Claude's todos), whole on every change; no entries = cleared. */
+  z.object({ kind: z.literal('plan'), entries: z.array(PlanItem).max(PLAN_MAX_ENTRIES) }),
 ])
 export type RunEvent = z.infer<typeof RunEvent>

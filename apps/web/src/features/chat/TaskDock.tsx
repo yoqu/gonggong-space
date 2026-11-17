@@ -18,6 +18,7 @@ import { stepText, toolTitle } from '../runs/mcp'
 import { openTab } from '../workbench/open'
 import { ProgressStages, stagesDone } from './ProgressCard'
 import { STATUS_LABEL } from './RunGraphics'
+import { planCard } from './RunPlan'
 import './task-dock.css'
 
 type PendingItem =
@@ -39,7 +40,7 @@ export function TaskDock({
   onLocate,
 }: {
   runs: RunDto[]
-  /** Progress cards by run (latest last), shown in each run's chip. */
+  /** Progress cards by run (latest last), shown in each run's chip; else the run's plan. */
   progress?: Map<string, ProgressCardDto[]>
   root?: RefObject<HTMLElement | null>
   onLocate: (run: RunDto, pendingId?: string) => void
@@ -181,7 +182,7 @@ export function TaskDock({
               key={row.key}
               run={row.run}
               waiting={row.section === 'waiting'}
-              progress={progress?.get(row.run.id)?.at(-1)}
+              progress={progress?.get(row.run.id)?.at(-1) ?? planCard(row.run)}
               onLocate={onLocate}
             />
           ),

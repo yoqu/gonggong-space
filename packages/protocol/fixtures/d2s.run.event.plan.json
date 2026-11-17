@@ -1,0 +1,12 @@
+{
+  "t": "run.event",
+  "runId": "r1",
+  "event": {
+    "kind": "plan",
+    "entries": [
+      { "content": "读懂现有的上下文统计", "status": "completed" },
+      { "content": "接入 ACP plan 更新", "status": "in_progress" },
+      { "content": "补测试", "status": "pending" }
+    ]
+  }
+}

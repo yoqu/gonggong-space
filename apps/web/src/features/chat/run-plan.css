@@ -1,0 +1,114 @@
+/* The agent's plan in a run card: a quiet block like .run-progress, no card surface of its own. */
+.run-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-callout-size);
+}
+.run-plan--panel {
+  flex: none;
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 0.5px solid var(--separator);
+}
+.run-plan__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--label-secondary);
+  font: inherit;
+  text-align: left;
+}
+button.run-plan__head {
+  cursor: pointer;
+}
+.run-plan__title {
+  color: var(--label);
+  font-weight: 600;
+}
+.run-plan__count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.run-plan__chevron {
+  transition: transform var(--spring-snappy);
+}
+.run-plan__head[aria-expanded="true"] > .run-plan__chevron {
+  transform: rotate(90deg);
+}
+.run-plan__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.run-plan__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  color: var(--label-secondary);
+}
+.run-plan__item > svg,
+.run-plan__dot {
+  flex: none;
+  margin-top: 3px;
+}
+.run-plan__item[data-status="in_progress"] {
+  color: var(--accent);
+  font-weight: 500;
+}
+.run-plan__item[data-status="completed"] {
+  color: var(--label-tertiary);
+}
+.run-plan__item[data-status="completed"] > svg {
+  color: var(--system-green);
+}
+.run-plan__item[data-status="completed"] > .run-plan__text {
+  text-decoration: line-through;
+}
+.run-plan__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-plan__dot {
+  width: 13px;
+  height: 13px;
+  border: 1.4px solid var(--label-tertiary);
+  border-radius: 50%;
+  transform: scale(0.75);
+}
+.run-plan__spin {
+  animation: ui-spin 1s steps(8) infinite;
+}
+.run-plan__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--label-tertiary);
+  font: inherit;
+  cursor: pointer;
+}
+.run-plan__fold:hover {
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-plan__spin,
+  .run-plan__chevron {
+    animation: none;
+    transition: none;
+  }
+}
+.run-plan--panel .run-plan__list {
+  max-height: 40vh;
+  overflow-y: auto;
+}

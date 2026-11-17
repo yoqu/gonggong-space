@@ -14,7 +14,7 @@ import {
   RunStatus,
   Usage,
 } from '../common.js'
-import { PermissionOption, RunEvent } from '../daemon.js'
+import { PermissionOption, PlanItem, RunEvent } from '../daemon.js'
 import { HtmlRenderRef } from '../html-render.js'
 import { I18nText } from '../i18n.js'
 import { RunSecret } from '../secrets.js'
@@ -149,6 +149,8 @@ export const RunDto = z.object({
     subagentsRunning: z.number().int(),
     tasksRunning: z.number().int(),
   }),
+  /** The main agent's latest plan (ACP `plan`); absent when it has none. */
+  plan: z.array(PlanItem).optional(),
   /** Model and thought level of the turn: as requested, then as the daemon reported them in effect. */
   model: z.string().nullable(),
   effort: z.string().nullable(),

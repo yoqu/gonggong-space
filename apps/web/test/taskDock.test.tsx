@@ -313,6 +313,27 @@ describe('TaskDock', () => {
     ])
   })
 
+  it("shows the agent's plan in the chip when the run posted no progress card", () => {
+    const plan = [
+      { content: '读代码', status: 'completed' as const },
+      { content: '写测试', status: 'in_progress' as const },
+    ]
+    render(<TaskDock runs={[run({ plan })]} onLocate={() => {}} />)
+
+    expect(screen.getByTestId('task-dock-row').textContent).toContain('1/2')
+    fireEvent.click(screen.getByRole('button', { name: /小王的 Claude/ }))
+    const pop = screen.getByRole('dialog', { name: '小王的 Claude 的任务' })
+    expect(within(pop).getByText('计划')).toBeTruthy()
+    expect(
+      within(pop)
+        .getAllByTestId('progress-stage')
+        .map((s) => [s.textContent, s.dataset.status]),
+    ).toEqual([
+      ['读代码', 'done'],
+      ['写测试', 'running'],
+    ])
+  })
+
   it('hides pending items whose original forms are visible and shows them after scrolling away', () => {
     vi.stubGlobal('IntersectionObserver', FakeObserver)
     const root = createRef<HTMLDivElement>()

@@ -39,6 +39,7 @@ import {
 import { OFFICIAL_NAME } from '../../agents/model'
 import { agentLabel } from '../../bots/AgentConfig'
 import { BotAvatar, useBotCostume } from '../../bots/avatars'
+import { RunPlan } from '../../chat/RunPlan'
 import { fmtDuration, fmtUsage, RUN_STATUS } from '../../chat/TimelineItems'
 import { DiffPane } from '../../diff/DiffPane'
 import type { DiffSource } from '../../diff/store'
@@ -393,6 +394,7 @@ export function RunTab({ tab, tabKey, active }: TabProps<'run'>) {
         {issue ? <IssueBanner issue={issue} onRetry={canRetry ? retry : undefined} /> : null}
         <Tabs size="sm" items={VIEWS} value={view} onChange={(v) => patch(tabKey, { view: v })} />
       </div>
+      {view === 'process' && run?.plan ? <RunPlan plan={run.plan} live={live} panel /> : null}
       <div
         ref={body}
         className={cx('run-tab__body', view === 'diff' && 'run-tab__body--fill')}

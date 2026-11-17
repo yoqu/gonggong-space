@@ -177,6 +177,7 @@ function eventStep(id: number, e: RunEvent, live: boolean): Step | null {
     case 'compaction':
       return { key, kind: 'compaction', ...compactionStep(e, live) }
     case 'usage':
+    case 'plan':
       return null
   }
 }

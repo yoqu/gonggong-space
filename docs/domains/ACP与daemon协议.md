@@ -38,7 +38,8 @@
 - 不派发的原因写进 `step`：本群上一轮未结束、强制同步挂起、工作区准备中、客户端版本过低、Bot 忙、Bot 离线。
 - 事务内先标 running 再提交后发送 `run.start`；发送失败退回 `offline_wait`，提交后崩溃由下次 hello 对账中断。
 - `RunStart` 携带：bot（agentKind、systemPrompt、tier、model/effort、approval、allowlist、alwaysAllow、aiReview、reviewModel、git 身份、agentSettings）、`workspace`、`resumeSessionId`/`newSessionReason`、prompt（text、context、omitted、fallbackContext、attachments、quote）、`mcpServers`、`skills`、`plugins`、`hiddenTools`、`command`、`sync`、`artifacts`、`env`（密钥，仅内存）。
-- 过程以 `run.event` 上报（`RunEvent`：text / thought / tool / status / usage / task / subagent / compaction），服务端按机器串行处理，积压超 32MB 时丢流式片段（`runs/engine.ts`）。
+- 过程以 `run.event` 上报（`RunEvent`：text / thought / tool / status / usage / task / subagent / compaction / plan），服务端按机器串行处理，积压超 32MB 时丢流式片段（`runs/engine.ts`）。
+- `plan`：ACP 标准 `plan` 更新（Claude Code 的 TodoWrite/Task*、Codex 的计划、CodeBuddy 的 TodoWrite 都转成它；Gemini、Pi、DeepSeek 不发）。daemon 只收主 Agent 的、整份替换、与上一份相同不发，最多 100 条、每条 500 字（`turn.rs`）。服务端照常记入 `run_events`，最新一份另存 `runs.plan`（空条目置空）随 `RunDto.plan` 返回，用于运行卡片「计划」块、任务栏圆环和运行页顶部面板；与 `progress_card` 是两套：进度卡由 Bot 主动调用，计划是 Agent 自己的清单，两者并存时进度卡在前、计划折叠。旧服务端会把 `plan` 当无效消息丢弃并记日志，所以服务端先于客户端上线。
 - 结束 `run.done`：`outcome` 为 completed / interrupted / failed，带 `reply`、`usage`、`sessionId`、`newSessionReason`、`git`、`patch`、`repos`、`appendsApplied`、`sync`。
 - s2d 控制：`run.cancel`（/stop，daemon 发 ACP `session/cancel`）、`run.append`（打断并追加，未应用的追加由服务端退化成新一轮）、`run.discard`→`run.discarded`（只还原本轮动过的文件）、`run.tier`（中途改档位）、`task.stop`（停后台任务）。
 - Agent 在上一轮结束后自行继续（后台任务完成）时 daemon 发 `run.continue`，服务端以 `run.continued` 回新 runId 或拒绝。

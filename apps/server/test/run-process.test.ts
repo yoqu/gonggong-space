@@ -627,6 +627,31 @@ describe('run process', () => {
     ])
   })
 
+  it("keeps the main agent's latest plan on the card, each change in the process; no entries clear it", async () => {
+    const w = await world()
+    const runId = await w.mention()
+    const doing = [
+      { content: '读代码', status: 'in_progress' },
+      { content: '写测试', status: 'pending' },
+    ]
+    w.send(runId, { kind: 'plan', entries: doing })
+    await expect
+      .poll(() => w.seen.some((e) => e.t === 'run.updated' && e.run.id === runId && e.run.plan?.length === 2))
+      .toBe(true)
+    const done = doing.map((e) => ({ ...e, status: 'completed' }))
+    w.send(runId, { kind: 'plan', entries: done })
+    await expect.poll(async () => (await w.detail(runId)).run.plan).toEqual(done)
+    expect((await w.timeline()).runs.find((r) => r.id === runId)?.plan).toEqual(done)
+    expect((await w.detail(runId)).events.filter((e) => e.event.kind === 'plan')).toHaveLength(2)
+
+    w.send(runId, { kind: 'plan', entries: [] })
+    await expect.poll(async () => (await w.detail(runId)).run.plan).toBeUndefined()
+    w.done(runId)
+    await w.ended(runId)
+    const next = await w.mention('@bot again')
+    expect((await w.detail(next)).run.plan).toBeUndefined()
+  })
+
   it('lets group members stop a background task through its machine', async () => {
     const w = await world()
     const runId = await w.mention()

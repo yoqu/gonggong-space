@@ -193,6 +193,24 @@ pub enum RunEvent {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         can_stop: bool,
     },
+    /// The main agent's plan (ACP `plan`, e.g. Claude's todos), whole on every change; empty = cleared.
+    Plan {
+        entries: Vec<PlanItem>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanItem {
+    pub content: String,
+    pub status: PlanStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanStatus {
+    Pending,
+    InProgress,
+    Completed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

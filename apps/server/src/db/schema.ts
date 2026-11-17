@@ -16,6 +16,7 @@ import {
   type MachineInfo,
   type NotifyLevel,
   type NotifyPrefs,
+  type PlanItem,
   type PluginManifest,
   type PluginRef,
   type RunConfigPick,
@@ -860,6 +861,8 @@ export const runs = pgTable(
     plugins: jsonb('plugins').$type<Omit<PluginRef, 'mcp'>[]>().notNull().default([]),
     /** Latest state of each subagent / background task by id: { subagents: {id: state}, tasks: {id: state} }. */
     delegation: jsonb('delegation').notNull().default({}),
+    /** The main agent's latest plan (RunEvent `plan`); null before one or once it is cleared. */
+    plan: jsonb('plan').$type<PlanItem[]>(),
     /**
      * Bots that take over once this run completes (the hand_off tool); an @ in the reply alone relays nothing.
      * `groupId`: the hop runs in that other group instead of the run's own; `threadRootId`: in that thread
