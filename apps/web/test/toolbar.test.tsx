@@ -212,6 +212,27 @@ describe('Sidebar selection capsule', () => {
       vi.unstubAllGlobals()
     }
   })
+  it('re-measures once rows easing in settle, so the capsule does not stay where they started', () => {
+    let top = 124
+    const saved = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      return { top: this.dataset.testid === 'group-item-g2' ? top : 0, height: 48 } as DOMRect
+    }
+    try {
+      render(
+        <MemoryRouter initialEntries={['/g/g2']}>
+          <Sidebar groups={[group('g1', '前端'), group('g2', '后端')]} bots={[]} machines={[]} />
+        </MemoryRouter>,
+      )
+      const scroll = document.querySelector('.sidebar__scroll') as HTMLElement
+      expect(scroll.style.getPropertyValue('--capsule-y')).toBe('124px')
+      top = 130
+      fireEvent.animationEnd(screen.getByTestId('group-item-g2'))
+      expect(scroll.style.getPropertyValue('--capsule-y')).toBe('130px')
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = saved
+    }
+  })
 })
 
 describe('Sidebar flag filter', () => {

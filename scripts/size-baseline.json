@@ -1,6 +1,6 @@
 {
   "apps/server/src/modules/feishu/mirror.ts": 1041,
-  "apps/web/src/app/Sidebar.tsx": 1065,
+  "apps/web/src/app/Sidebar.tsx": 1038,
   "apps/web/src/app/shell.css": 1090,
   "apps/web/src/features/artifacts/Canvas.tsx": 2393,
   "apps/web/src/features/artifacts/PrototypeEditor.tsx": 1229,
