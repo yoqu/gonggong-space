@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
 import { api } from '../../lib/api'
 import { cx } from '../../lib/cx'
+import { plainText } from '../../lib/plain'
 import { realtime } from '../../lib/realtime'
 import { ago } from '../../lib/time'
 import {
@@ -32,7 +33,8 @@ const PAGE = 30
 const snippet = (m: MessageDto) =>
   m.recalled
     ? t('该消息已撤回')
-    : m.body.replace(/\s+/g, ' ').trim().slice(0, SNIPPET) || (m.attachments.length ? t('[附件]') : '')
+    : m.body.split('\n').map(plainText).join(' ').replace(/\s+/g, ' ').trim().slice(0, SNIPPET) ||
+      (m.attachments.length ? t('[附件]') : '')
 
 /** Where 跳到原消息 goes: a thread reply opens its thread. */
 const messageHref = (m: MessageDto) =>

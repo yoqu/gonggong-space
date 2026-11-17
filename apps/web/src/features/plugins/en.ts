@@ -165,4 +165,7 @@ export default {
   '跑步 App：今日计划、实时跑步、月度报告': "Running app: today's plan, live run, monthly report",
   '选择 Bot': 'Choose a bot',
   预设: 'Presets',
+  '本群暂时没有 Bot 能接这个任务': 'No bot in this group can take this right now',
+  '可以先选好内容，最后一步会写明每个 Bot 不能用的原因。':
+    'You can fill in the details first; the last step says why each bot is unavailable.',
 }

@@ -1197,3 +1197,69 @@ describe('插件 · 产物卡片', () => {
     )
   })
 })
+
+describe('插件 · 步骤状态', () => {
+  const twoBots = (o: Partial<GroupPluginDto> = {}) =>
+    plugin({
+      manifest: manifest({
+        inputs: [
+          ...manifest().inputs,
+          {
+            id: 'notes',
+            label: '演讲者备注',
+            type: 'boolean',
+            required: false,
+            options: [],
+            default: null,
+            placeholder: null,
+            designSource: false,
+          },
+        ],
+      }),
+      bots: [
+        { botId: 'b1', blocker: null },
+        { botId: 'b2', blocker: null },
+      ],
+      ...o,
+    })
+
+  it('marks a passed step done only when complete, and sums content by what was typed', async () => {
+    mockApi(chatRoutes([twoBots()]))
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: '创作' }))
+    const d = within(await screen.findByRole('dialog', { name: '创作' }))
+    for (let i = 0; i < 3; i++) fireEvent.click(d.getByRole('button', { name: '下一步' }))
+    const nav = d.getByRole('navigation', { name: '步骤' })
+    const content = within(nav).getByRole('button', { name: /内容与参数/ })
+    expect(content.textContent).not.toContain('否')
+    expect(content.querySelector('.plg-step__n--done')).toBeNull()
+    expect(
+      within(nav)
+        .getByRole('button', { name: /类型与模板/ })
+        .querySelector('.plg-step__n--done'),
+    ).toBeTruthy()
+
+    fireEvent.click(content)
+    fireEvent.change(d.getByLabelText('主标题'), { target: { value: '共工' } })
+    fireEvent.click(d.getByRole('button', { name: '下一步' }))
+    expect(content.textContent).toContain('共工')
+    expect(content.querySelector('.plg-step__n--done')).toBeTruthy()
+  })
+
+  it('says up front when no bot in the group can take it', async () => {
+    mockApi(
+      chatRoutes([
+        twoBots({
+          bots: [
+            { botId: 'b1', blocker: 'offline' },
+            { botId: 'b2', blocker: 'offline' },
+          ],
+        }),
+      ]),
+    )
+    renderAt('/g/g1')
+    fireEvent.click(await screen.findByRole('button', { name: '创作' }))
+    const d = within(await screen.findByRole('dialog', { name: '创作' }))
+    expect(d.getByText('本群暂时没有 Bot 能接这个任务')).toBeTruthy()
+  })
+})

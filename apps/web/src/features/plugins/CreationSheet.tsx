@@ -16,6 +16,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { toastError } from '../../lib/errors'
 import {
+  Alert,
   Button,
   Dialog,
   EmptyState,
@@ -185,10 +186,16 @@ export function CreationSheet({
   const subtitles: Record<CreationStep, string> = {
     template: [m.title, template?.title].filter(Boolean).join(' · '),
     design: ds?.title ?? '—',
-    content: filled.find((f) => asked.find((i) => i.label === f.label)?.type !== 'select')?.value ?? '—',
+    content:
+      asked
+        .flatMap((i) => (i.type === 'select' || i.type === 'boolean' ? [] : [valueText(draft.inputs[i.id])]))
+        .find(Boolean) ?? '—',
     bot: bot?.name ?? t('未选'),
   }
   const last = at === steps.length - 1
+  const missing = asked.some((i) => i.required && !valueText(draft.inputs[i.id]))
+  const done = (key: CreationStep, i: number) =>
+    i < at && !(key === 'content' && missing) && !(key === 'bot' && !bot)
 
   return (
     <Dialog
@@ -226,8 +233,8 @@ export function CreationSheet({
               aria-current={i === at ? 'step' : undefined}
               onClick={() => setStep(key)}
             >
-              <span className={cx('plg-step__n', i < at && 'plg-step__n--done')}>
-                {i < at ? <Icon name="check" size={10} /> : i + 1}
+              <span className={cx('plg-step__n', done(key, i) && 'plg-step__n--done')}>
+                {done(key, i) ? <Icon name="check" size={10} /> : i + 1}
               </span>
               <span className="plg-step__text">
                 <span>{STEP_LABEL[key]}</span>
@@ -239,6 +246,13 @@ export function CreationSheet({
         <div className="plg-pane">
           {step === 'template' ? (
             <>
+              {usable.length ? null : (
+                <Alert
+                  variant="warning"
+                  title={t('本群暂时没有 Bot 能接这个任务')}
+                  description={t('可以先选好内容，最后一步会写明每个 Bot 不能用的原因。')}
+                />
+              )}
               <section>
                 <h3 className="plg-heading">{t('做什么')}</h3>
                 <div className="gs-note">

@@ -188,6 +188,17 @@ describe('稍后处理 page', () => {
     expect(await screen.findByText('已经处理了')).toBeTruthy()
     expect(screen.getByRole('button', { name: '移回进行中' })).toBeTruthy()
   })
+
+  it('previews a markdown message as plain text', async () => {
+    renderAt('/later', {
+      'GET /saved/state': { ids: ['m1'], due: 0 },
+      'GET /saved?state=open': {
+        items: [saved({ message: msg({ seq: 1, body: '## 结论\n耗时 **39s**，见 `run.ts`\n- 先拆分' }) })],
+      },
+    })
+    const item = await screen.findByTestId('later-m1')
+    expect(item.textContent).toContain('结论 耗时 39s，见 run.ts 先拆分')
+  })
 })
 
 describe('稍后处理 page actions', () => {
