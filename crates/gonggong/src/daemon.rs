@@ -6,11 +6,12 @@ use crate::engine::{Engine, EngineConfig};
 use crate::hosted::Services;
 use crate::local::{CachedCatalog, LocalSettings, save_catalog};
 use crate::lock::Lock;
-use crate::protocol::{AgentKind, AgentState, RejectReason};
+use crate::protocol::{AgentCatalog, AgentKind, AgentState, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, ProcessPatch, Status};
 use crate::tools::ToolKind;
 use crate::upgrade::{GithubSource, Upgrader};
+use futures_util::StreamExt;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -223,14 +224,14 @@ async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
             .map(|a| (a.kind, crate::agents::catalog_key(a.kind, a.version.as_deref())))
             .filter(|k| !done.contains(k))
             .collect();
-        let mut failed = false;
-        for (kind, key) in missing {
-            // Checked again on each retry: probing resumes once the agent is logged in.
-            if crate::agents::logged_out(kind, &crate::config::user_home(), &|n| std::env::var(n).ok()) {
-                failed = true;
-                continue;
-            }
-            match engine.probe(kind).await {
+        // Checked again on each retry: probing resumes once the agent is logged in.
+        let (out, missing): (Vec<_>, Vec<_>) = missing.into_iter().partition(|(kind, _)| {
+            crate::agents::logged_out(*kind, &crate::config::user_home(), &|n| std::env::var(n).ok())
+        });
+        let mut failed = !out.is_empty();
+        let mut probed = std::pin::pin!(probe_each(missing, |kind| engine.probe(kind)));
+        while let Some((kind, key, result)) = probed.next().await {
+            match result {
                 Ok(catalog) => {
                     done.insert((kind, key.clone()));
                     if let Err(e) = save_catalog(&home, kind, CachedCatalog { key, catalog }) {
@@ -255,6 +256,27 @@ async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
             () = retry => {}
         }
     }
+}
+
+/// Agents probed at once: each probe starts an adapter process.
+const PROBE_PARALLEL: usize = 4;
+
+/// Probes `missing` a few at a time, each yielded as it finishes: one agent that hangs until the probe timeout must
+/// not hold back the others' catalogs.
+fn probe_each<F, Fut>(
+    missing: Vec<(AgentKind, String)>,
+    probe: F,
+) -> impl futures_util::Stream<Item = (AgentKind, String, anyhow::Result<AgentCatalog>)>
+where
+    F: Fn(AgentKind) -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<AgentCatalog>>,
+{
+    futures_util::stream::iter(missing)
+        .map(move |(kind, key)| {
+            let probe = probe(kind);
+            async move { (kind, key, probe.await) }
+        })
+        .buffer_unordered(PROBE_PARALLEL)
 }
 
 /// Probes each local Claude profile (a provider's own `CLAUDE_CONFIG_DIR`) without a catalog for the detected Claude
@@ -311,3 +333,25 @@ async fn probe_profiles(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
 }
 
 const PROBE_RETRY: Duration = Duration::from_secs(5 * 60);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_slow_probe_does_not_hold_back_the_others() {
+        let missing = vec![(AgentKind::Codebuddy, "c".to_string()), (AgentKind::Antigravity, "a".to_string())];
+        let start = tokio::time::Instant::now();
+        let probe = |kind| async move {
+            let wait = if kind == AgentKind::Codebuddy { 90 } else { 2 };
+            tokio::time::sleep(Duration::from_secs(wait)).await;
+            Ok::<_, anyhow::Error>(AgentCatalog::default())
+        };
+        let mut done = probe_each(missing, probe);
+        let (kind, key, _) = done.next().await.unwrap();
+        assert_eq!((kind, key.as_str()), (AgentKind::Antigravity, "a"));
+        assert_eq!(start.elapsed(), Duration::from_secs(2));
+        assert_eq!(done.next().await.unwrap().0, AgentKind::Codebuddy);
+        assert!(done.next().await.is_none());
+    }
+}

@@ -575,7 +575,7 @@ impl Turn {
             let path = l.path.display();
             state.location = Some(clip_head(&l.line.map_or_else(|| path.to_string(), |n| format!("{path}:{n}"))));
         }
-        if let Some(cmd) = f.raw_input.as_ref().and_then(|v| v.get("command")?.as_str()) {
+        if let Some(cmd) = f.raw_input.as_ref().and_then(|v| command_field(v)?.as_str()) {
             state.command = Some(clip(cmd));
         }
         if let Some(out) = output_tail(f.content.as_deref().unwrap_or_default()) {
@@ -627,6 +627,11 @@ fn text(block: ContentBlock) -> Option<String> {
         ContentBlock::Text(t) => Some(t.text),
         _ => None,
     }
+}
+
+/// The command of an execute call's raw input: `command`, or `CommandLine` (Antigravity CLI's run_command).
+pub(crate) fn command_field(raw: &serde_json::Value) -> Option<&serde_json::Value> {
+    raw.get("command").or_else(|| raw.get("CommandLine"))
 }
 
 fn clip(s: &str) -> String {

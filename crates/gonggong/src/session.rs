@@ -1558,7 +1558,7 @@ fn truncate(s: &str) -> String {
 
 /// The shell command of a tool call's raw input: a string (Claude, Codex) or an argv array.
 fn command_of(raw: Option<&serde_json::Value>) -> Option<String> {
-    match raw?.get("command")? {
+    match crate::turn::command_field(raw?)? {
         serde_json::Value::String(c) => Some(c.clone()),
         serde_json::Value::Array(argv) => Some(argv.iter().filter_map(|a| a.as_str()).collect::<Vec<_>>().join(" ")),
         _ => None,

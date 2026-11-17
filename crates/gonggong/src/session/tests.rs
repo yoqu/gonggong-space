@@ -67,3 +67,14 @@ fn names_gemini_mcp_calls_by_the_server_in_meta() {
     assert_eq!(call(Some(meta)), "mcp__gonggong__get_group_info");
     assert_eq!(call(None), "get_group_info");
 }
+
+#[test]
+fn the_command_of_a_permission_request_is_read_from_each_agent_s_raw_input() {
+    let of = |raw: serde_json::Value| command_of(Some(&raw));
+    assert_eq!(of(serde_json::json!({ "command": "ls -la" })).as_deref(), Some("ls -la"));
+    assert_eq!(of(serde_json::json!({ "command": ["git", "status"] })).as_deref(), Some("git status"));
+    // Antigravity CLI's run_command.
+    let agy = serde_json::json!({ "CommandLine": "grep -rn x .", "WaitMsBeforeAsync": 5000 });
+    assert_eq!(of(agy).as_deref(), Some("grep -rn x ."));
+    assert_eq!(of(serde_json::json!({ "Path": "/a" })), None);
+}
