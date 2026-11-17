@@ -174,6 +174,19 @@ fn custom_endpoint(kind: AgentKind, k: &str, v: &str) -> bool {
 /// Claude's `settings.json` when the run loads it, Codex's `config.toml`; None = absent). Claude `auto` through a
 /// gateway refuses every action it should check; Codex's reviewer model fails on third-party providers.
 pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection, config: Option<&str>) -> bool {
+    let daemon_env: Vec<(String, String)> = std::env::vars_os()
+        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.to_string_lossy().into_owned())))
+        .collect();
+    official_service_in(kind, selection, config, &daemon_env)
+}
+
+/// [`official_service`] against the given daemon env, so tests do not depend on the machine running them.
+fn official_service_in(
+    kind: AgentKind,
+    selection: &crate::providers::Selection,
+    config: Option<&str>,
+    daemon_env: &[(String, String)],
+) -> bool {
     if !matches!(kind, AgentKind::Claude | AgentKind::Codex) {
         return false;
     }
@@ -184,9 +197,7 @@ pub fn official_service(kind: AgentKind, selection: &crate::providers::Selection
     if selection.process_env().iter().any(|(k, v)| custom_endpoint(kind, k, v)) {
         return false;
     }
-    if !is_profile
-        && std::env::vars_os().any(|(k, v)| k.to_str().is_some_and(|k| custom_endpoint(kind, k, &v.to_string_lossy())))
-    {
+    if !is_profile && daemon_env.iter().any(|(k, v)| custom_endpoint(kind, k, v)) {
         return false;
     }
     if kind == AgentKind::Claude {
@@ -560,7 +571,7 @@ mod tests {
         use crate::protocol::AgentKind::{Claude, Codex, Gemini};
         use crate::providers::{Official, Provider, Selection};
         let official = Selection::Official(Official::default());
-        let works = |kind, config: Option<&str>| super::official_service(kind, &official, config);
+        let works = |kind, config: Option<&str>| super::official_service_in(kind, &official, config, &[]);
         assert!(works(Codex, None));
         assert!(works(Codex, Some("model = \"gpt-5\"\nmodel_provider = \"openai\"\n")));
         assert!(!works(Codex, Some("openai_base_url = \"http://127.0.0.1:3425/v1\"\n")));
@@ -571,7 +582,9 @@ mod tests {
         assert!(!works(Gemini, None));
         let mut env = Official::default();
         env.env.insert("ANTHROPIC_BASE_URL".into(), "https://relay.test".into());
-        assert!(!super::official_service(Claude, &Selection::Official(env), None));
+        assert!(!super::official_service_in(Claude, &Selection::Official(env), None, &[]));
+        let gateway = [("ANTHROPIC_BASE_URL".to_string(), "https://relay.test".to_string())];
+        assert!(!super::official_service_in(Claude, &official, None, &gateway), "the daemon's own env counts too");
         let relay = Provider::custom(
             crate::protocol::ApiProtocol::Openai,
             "relay".into(),

@@ -553,6 +553,9 @@ describe('新建 Bot', () => {
     expect(items.map((i) => i.querySelector('[id$="-l"]')?.textContent ?? i.textContent)).toEqual([
       '继承机器默认（当前：官方登录）',
       '官方登录 / 默认模型',
+      '官方登录 / Sonnet',
+      '官方登录 / Opus',
+      '官方登录 / Haiku',
       'Kimi / 默认模型',
       'Kimi / kimi-for-coding',
       'Kimi / kimi-k2',
