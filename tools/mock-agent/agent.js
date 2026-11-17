@@ -200,6 +200,9 @@ function open(sessionId, params) {
       : { currentModeId: 'default', availableModes: MODES }
   // Like agy logged out or offline: a session with no models to pick.
   if (existsSync(`${params.cwd}/.mock-no-models`)) return { sessionId, modes }
+  // A Claude profile (its own CLAUDE_CONFIG_DIR) whose login offers no models.
+  const profile = process.env.CLAUDE_CONFIG_DIR
+  if (profile && existsSync(`${profile}/.mock-no-models`)) return { sessionId, modes }
   if (GEMINI)
     return {
       sessionId,

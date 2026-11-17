@@ -6,7 +6,7 @@ use crate::engine::{Engine, EngineConfig};
 use crate::hosted::Services;
 use crate::local::{CachedCatalog, LocalSettings, save_catalog};
 use crate::lock::Lock;
-use crate::protocol::{AgentState, RejectReason};
+use crate::protocol::{AgentKind, AgentState, RejectReason};
 use crate::service::{Fatal, Service};
 use crate::status::{Monitor, ProcessPatch, Status};
 use crate::tools::ToolKind;
@@ -91,6 +91,7 @@ impl Daemon {
         let mut background = vec![
             tokio::spawn(redetect(opts.home.clone(), agents.clone())),
             tokio::spawn(probe_catalogs(opts.home.clone(), engine.clone(), agents.clone())),
+            tokio::spawn(probe_profiles(opts.home.clone(), engine.clone(), agents.clone())),
             tokio::spawn(tunnel),
             tokio::spawn(crate::janitor::run(opts.home.clone(), opts.config.clone())),
         ];
@@ -252,6 +253,59 @@ async fn probe_catalogs(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<Age
         tokio::select! {
             changed = rx.changed() => if changed.is_err() { return },
             () = retry => {}
+        }
+    }
+}
+
+/// Probes each local Claude profile (a provider's own `CLAUDE_CONFIG_DIR`) without a catalog for the detected Claude
+/// build and its settings: its login may offer other models than the official one. Woken when Claude is detected again
+/// and when providers change or a catalog is asked for; a failed probe is retried after PROBE_RETRY.
+async fn probe_profiles(home: PathBuf, engine: Engine, tx: watch::Sender<Vec<AgentState>>) {
+    let (mut rx, wanted) = (tx.subscribe(), engine.profile_probes());
+    // Failed probes wait for the retry instead of running again on every catalog asked for.
+    let (mut failed, mut retry_at) = (HashSet::new(), None::<tokio::time::Instant>);
+    loop {
+        let claude = rx.borrow_and_update().iter().find(|a| a.kind == AgentKind::Claude && a.available).cloned();
+        let pending = match &claude {
+            Some(c) => {
+                let (home, version) = (home.clone(), c.version.clone());
+                tokio::task::spawn_blocking(move || crate::agents::unprobed_profiles(&home, version.as_deref()))
+                    .await
+                    .map_err(anyhow::Error::from)
+                    .and_then(|r| r)
+                    .unwrap_or_else(|e| {
+                        tracing::warn!("listing Claude profiles failed: {e:#}");
+                        vec![]
+                    })
+            }
+            None => vec![],
+        };
+        let pending: Vec<_> = pending.into_iter().filter(|(_, k)| !failed.contains(k)).collect();
+        for (selection, key) in pending {
+            let Some(dir) = selection.claude_profile().map(|d| d.to_string_lossy().into_owned()) else { continue };
+            match engine.probe_with(AgentKind::Claude, &selection).await {
+                Ok(catalog) => {
+                    if let Err(e) = crate::local::save_profile_catalog(&home, &dir, CachedCatalog { key, catalog }) {
+                        tracing::warn!("saving the catalog of Claude profile {dir} failed: {e:#}");
+                    }
+                }
+                Err(e) => {
+                    failed.insert(key);
+                    retry_at.get_or_insert_with(|| tokio::time::Instant::now() + PROBE_RETRY);
+                    tracing::warn!("probing Claude profile {dir} failed: {e:#}");
+                }
+            }
+        }
+        let retry = async {
+            match retry_at {
+                Some(at) => tokio::time::sleep_until(at).await,
+                None => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            changed = rx.changed() => if changed.is_err() { return },
+            () = wanted.notified() => {}
+            () = retry => (failed, retry_at) = (HashSet::new(), None),
         }
     }
 }

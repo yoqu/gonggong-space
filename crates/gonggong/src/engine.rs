@@ -16,10 +16,10 @@ use crate::inject;
 use crate::local::LocalSettings;
 use crate::manage::Manage;
 use crate::protocol::{
-    AgentCatalog, AgentKind, Approval, Attachment, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome,
-    RunStart, RunSyncDone, SecretEnv, ServerToDaemon, ServiceInfo, SyncWaitIssue, Tier, WorkspaceSpec,
+    AgentKind, Attachment, DaemonToServer, DiffScope, RepoKind, RunBot, RunDone, RunOutcome, RunStart, RunSyncDone,
+    SecretEnv, ServerToDaemon, ServiceInfo, SyncWaitIssue, WorkspaceSpec,
 };
-use crate::providers::{Selection, Store};
+use crate::providers::Selection;
 use crate::replicas::{Init, Refusal, Replicas, sync_error};
 use crate::repo;
 use crate::service::{Handler, Outbox};
@@ -173,6 +173,10 @@ impl Engine {
         self.0.manage.watch_agents(tx);
     }
 
+    pub fn profile_probes(&self) -> Arc<tokio::sync::Notify> {
+        self.0.manage.profile_probes()
+    }
+
     pub fn services(&self) -> Services {
         self.0.services.clone()
     }
@@ -190,70 +194,6 @@ impl Engine {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub fn terminals(&self) -> crate::terminal::TerminalManager {
         self.0.terminals.clone()
-    }
-
-    /// `agents.reprobe`: probes the agent again now, whatever is cached, and publishes the new catalog before
-    /// answering. A failed probe keeps the cached one.
-    async fn reprobe(&self, kind: AgentKind) -> anyhow::Result<()> {
-        let home = self.0.config.home.clone();
-        let detected = {
-            let home = home.clone();
-            tokio::task::spawn_blocking(move || {
-                Ok::<_, anyhow::Error>(agents::detect(&home, &LocalSettings::load(&home)?))
-            })
-            .await??
-        };
-        let Some(info) = detected.into_iter().find(|a| a.kind == kind && a.available) else {
-            bail!(t!("这台机器上没有可用的 {kind}", kind = format!("{kind:?}")));
-        };
-        let catalog = self.probe(kind).await?;
-        let key = agents::catalog_key(kind, info.version.as_deref());
-        crate::local::save_catalog(&home, kind, crate::local::CachedCatalog { key, catalog })?;
-        self.0.manage.refresh_agents().await;
-        Ok(())
-    }
-
-    /// What the agent's adapter offers (models and their thought levels), from a throwaway session.
-    pub async fn probe(&self, kind: AgentKind) -> anyhow::Result<AgentCatalog> {
-        let agent = self.throwaway_agent(kind).await?;
-        let dir = self.0.config.home.join("probe");
-        tokio::fs::create_dir_all(&dir).await?;
-        let probe = session::probe(agent, &dir);
-        match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
-            Ok(result) => result.map_err(anyhow::Error::msg).and_then(|c| agents::offered(kind, c)),
-            Err(_) => bail!(t!("探测 {kind} 可选模型超时", kind = format!("{kind:?}"))),
-        }
-    }
-
-    /// Forks `session` in its workspace `dir` (session/fork): the copy is a new session of the same adapter.
-    pub async fn fork_session(&self, kind: AgentKind, dir: &Path, session: &str) -> Result<String, String> {
-        let agent = self.throwaway_agent(kind).await.map_err(|e| e.to_string())?;
-        session::fork(agent, dir, session).await
-    }
-
-    /// The adapter of `kind` for a session no bot runs in (probe, fork): official credentials, no bot settings.
-    async fn throwaway_agent(&self, kind: AgentKind) -> anyhow::Result<AcpAgent> {
-        let local = LocalSettings::load(&self.0.config.home)?;
-        let bot = RunBot {
-            id: String::new(),
-            name: String::new(),
-            agent_kind: kind,
-            system_prompt: String::new(),
-            tier: Tier::ReadOnly,
-            model: None,
-            effort: None,
-            approval: Approval::Ask,
-            allowlist: vec![],
-            always_allow: vec![],
-            ai_review: false,
-            review_model: None,
-            git: None,
-            agent_settings: Default::default(),
-        };
-        let official = Selection::Official(Store::load(&self.0.config.home)?.official(kind));
-        let process = Process { key: crate::adapters::PROBE, ..Default::default() };
-        let config = self.0.adapter(&bot, &local, &official, &SecretEnv::default(), &process).await?;
-        Ok(AcpAgent::new(config))
     }
 }
 
@@ -1421,6 +1361,8 @@ fn failed_done(run_id: &str, error: String) -> RunDone {
         sync: None,
     }
 }
+
+mod probe;
 
 #[cfg(test)]
 mod tests {

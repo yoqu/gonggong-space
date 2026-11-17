@@ -2,7 +2,7 @@
 //! path per agent. Model, effort and the bot's 命令审批 are set on the server (plan J8): `Rules` applies the latter to
 //! permission requests here. Also the catalog probed from each adapter (`<home>/models.json`), reported to the server
 //! for its pickers.
-use crate::protocol::{AgentCatalog, AgentKind, Approval, ApprovalReason, RunBot, RunStart, Tier};
+use crate::protocol::{AgentKind, Approval, ApprovalReason, RunBot, RunStart, Tier};
 use crate::t;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -1538,40 +1538,13 @@ impl LocalStore {
     }
 }
 
-/// A probed catalog and the adapter + CLI build and CLI config it came from (`agents::catalog_key`); any change is probed
-/// again.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CachedCatalog {
-    pub key: String,
-    pub catalog: AgentCatalog,
-}
-
-fn catalogs_path(home: &Path) -> PathBuf {
-    home.join("models.json")
-}
-
-/// Empty until an adapter was probed here; a file in an older format reads as empty too.
-pub fn load_catalogs(home: &Path) -> BTreeMap<AgentKind, CachedCatalog> {
-    std::fs::read_to_string(catalogs_path(home)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
-}
-
-/// The daemon and the desktop app may probe concurrently; their read-modify-write must not interleave.
-static CATALOGS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-pub fn save_catalog(home: &Path, kind: AgentKind, cached: CachedCatalog) -> Result<()> {
-    let _guard = CATALOGS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut all = load_catalogs(home);
-    all.insert(kind, cached);
-    std::fs::create_dir_all(home)?;
-    let tmp = catalogs_path(home).with_extension("json.tmp");
-    std::fs::write(&tmp, serde_json::to_vec_pretty(&all)?)?;
-    std::fs::rename(&tmp, catalogs_path(home))?;
-    Ok(())
-}
+mod catalogs;
+pub use catalogs::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::AgentCatalog;
 
     fn strings(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| s.to_string()).collect()

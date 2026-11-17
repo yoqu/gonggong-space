@@ -40,15 +40,28 @@ struct Inner {
     agents: OnceLock<watch::Sender<Vec<AgentState>>>,
     /// The provider state the server holds for this machine (none after connecting).
     reported: Mutex<Vec<ProviderStateItem>>,
+    /// Wakes the catalog prober: a local Claude profile may have been added, changed or asked for.
+    profiles: Arc<tokio::sync::Notify>,
 }
 
 impl Manage {
     pub fn new(home: PathBuf, user_home: PathBuf) -> Self {
-        Manage(Arc::new(Inner { home, user_home, agents: OnceLock::new(), reported: Mutex::default() }))
+        Manage(Arc::new(Inner {
+            home,
+            user_home,
+            agents: OnceLock::new(),
+            reported: Mutex::default(),
+            profiles: Arc::default(),
+        }))
     }
 
     pub fn watch_agents(&self, tx: watch::Sender<Vec<AgentState>>) {
         let _ = self.0.agents.set(tx);
+    }
+
+    /// Notified when local Claude profiles may need probing.
+    pub fn profile_probes(&self) -> Arc<tokio::sync::Notify> {
+        self.0.profiles.clone()
     }
 
     pub fn features(&self) -> Vec<String> {
@@ -215,12 +228,15 @@ impl Manage {
                 cmd.action,
                 ProvidersAction::Save | ProvidersAction::Remove | ProvidersAction::Use | ProvidersAction::ImportLink
             );
-            let request_id = cmd.request_id.clone();
+            let (request_id, action) = (cmd.request_id.clone(), cmd.action);
             let agents = this.0.agents.get().map(|tx| tx.borrow().clone()).unwrap_or_default();
             let result = providers_op(&this.0.home, &this.0.user_home, cmd, &agents)
                 .unwrap_or_else(|e| ProvidersResult { ok: false, error: Some(format!("{e:#}")), ..answer(request_id) });
             let ok = result.ok;
             out.send(DaemonToServer::ProvidersResult(result));
+            if ok && (changes || matches!(action, ProvidersAction::Catalog | ProvidersAction::BotCatalog)) {
+                this.0.profiles.notify_one();
+            }
             if ok && changes {
                 this.report_now(&out);
             }
@@ -360,7 +376,7 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentState]) -> Re
                 })?,
                 None => &p.endpoints[0],
             };
-            r.catalog = Some(catalog(p, e));
+            r.catalog = endpoint_catalog(home, p, e, agents);
         }
         ProvidersAction::BotCatalog => {
             let agent = cmd.agent.context(t!("缺少 agent"))?;
@@ -371,7 +387,7 @@ fn providers_change(home: &Path, cmd: ProvidersCmd, agents: &[AgentState]) -> Re
             };
             r.catalog = match selection.provider() {
                 None => agents.iter().find(|a| a.kind == agent && a.available).and_then(|a| a.catalog.clone()),
-                Some((p, e)) => Some(catalog(p, e)),
+                Some((p, e)) => endpoint_catalog(home, p, e, agents),
             };
         }
         ProvidersAction::Save => {
@@ -551,6 +567,16 @@ fn set_proxy(stored: &mut Option<String>, input: String) {
     if Some(input.to_string()) != stored.as_deref().map(providers::mask_proxy) {
         *stored = Some(input.to_string()).filter(|s| !s.is_empty());
     }
+}
+
+/// What a new session on the endpoint may pick: a local Claude profile's probed catalog (until probed, the official
+/// login's: the same CLI), else what the endpoint declares.
+fn endpoint_catalog(home: &Path, p: &Provider, e: &Endpoint, agents: &[AgentState]) -> Option<AgentCatalog> {
+    if e.claude_profile().is_none() {
+        return Some(catalog(p, e));
+    }
+    let claude = agents.iter().find(|a| a.kind == crate::protocol::AgentKind::Claude && a.available);
+    crate::agents::profile_catalog(home, e, claude).or_else(|| claude?.catalog.clone())
 }
 
 /// The models a third-party endpoint declares (its model, the haiku/sonnet/opus mapping, its preset's options).

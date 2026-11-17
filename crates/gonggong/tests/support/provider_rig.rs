@@ -11,7 +11,7 @@ use std::time::Duration;
 pub const KEY: &str = "sk-provider-secret-0123456789";
 
 pub struct Rig {
-    engine: Engine,
+    pub engine: Engine,
     out: Outbox,
     rx: OutboxRx,
     home: tempfile::TempDir,

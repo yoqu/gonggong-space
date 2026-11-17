@@ -1,6 +1,8 @@
 use super::*;
+use crate::local::CachedCatalog;
 use crate::protocol::{AgentKind, ApiProtocol, OfficialInput};
 use ApiProtocol::{Anthropic, Openai};
+use std::time::Duration;
 
 const KEY: &str = "sk-test-0123456789abcd";
 
@@ -440,6 +442,66 @@ async fn bot_catalog_follows_what_a_new_session_would_use() {
     assert_eq!(third.models.iter().map(|m| m.choice.value.as_str()).collect::<Vec<_>>(), vec!["kimi-for-coding"]);
     assert_eq!(ask(None).await, Some(third), "a new bot gets the machine default");
     assert_eq!(ask(Some("b2")).await, Some(official), "the bot's override wins");
+}
+
+#[tokio::test]
+async fn a_local_claude_profile_offers_its_probed_catalog_else_the_official_one() {
+    let (home, profile) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::fs::write(profile.path().join("settings.json"), r#"{"env":{"ANTHROPIC_BASE_URL":"https://gw.test"}}"#)
+        .unwrap();
+    let official = AgentCatalog { current: Some("opus".into()), ..Default::default() };
+    let claude = AgentState {
+        kind: AgentKind::Claude,
+        available: true,
+        version: Some("2.1.0".into()),
+        path: None,
+        min_version: None,
+        catalog: Some(official.clone()),
+        latest: None,
+        managed: false,
+        upgrade_command: None,
+        install_command: None,
+    };
+    let dir = profile.path().to_string_lossy().to_string();
+    let id = Store::update(home.path(), |s| {
+        let id = save(
+            s,
+            ProviderInput { name: Some("Local".into()), ..input(Anthropic, |e| e.config_dir = Some(dir.clone())) },
+        )?;
+        s.use_bot("b1", AgentKind::Claude, &id)?;
+        Ok(id)
+    })
+    .unwrap();
+    let manage = Manage::new(home.path().into(), home.path().into());
+    manage.watch_agents(watch::channel(vec![claude]).0);
+    let probes = manage.profile_probes();
+    let (out, mut rx) = Outbox::channel();
+    let mut ask = async |action: ProvidersAction| {
+        let mut c = cmd(action);
+        (c.agent, c.bot_id, c.id) = (Some(AgentKind::Claude), Some("b1".into()), Some(id.clone()));
+        manage.providers(c, &out);
+        let DaemonToServer::ProvidersResult(r) = rx.recv().await.unwrap() else { panic!() };
+        assert!(r.ok, "{:?}", r.error);
+        r.catalog
+    };
+    assert_eq!(ask(ProvidersAction::BotCatalog).await, Some(official.clone()), "not probed yet: the same CLI's");
+    tokio::time::timeout(Duration::from_secs(1), probes.notified()).await.expect("the prober is woken");
+
+    let unprobed = crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap();
+    assert_eq!(unprobed.len(), 1);
+    let (selection, key) = &unprobed[0];
+    assert_eq!(selection.claude_profile(), Some(profile.path()));
+    let probed = AgentCatalog { current: Some("claude-opus-5-5".into()), ..Default::default() };
+    crate::local::save_profile_catalog(home.path(), &dir, CachedCatalog { key: key.clone(), catalog: probed.clone() })
+        .unwrap();
+    assert!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().is_empty());
+    assert_eq!(ask(ProvidersAction::BotCatalog).await, Some(probed.clone()));
+    assert_eq!(ask(ProvidersAction::Catalog).await, Some(probed));
+
+    std::fs::write(profile.path().join("settings.json"), "{}").unwrap();
+    assert_eq!(ask(ProvidersAction::Catalog).await, Some(official), "its settings changed: probed again");
+    assert_eq!(crate::agents::unprobed_profiles(home.path(), Some("2.1.0")).unwrap().len(), 1);
+    assert_eq!(crate::agents::unprobed_profiles(home.path(), Some("2.2.0")).unwrap().len(), 1, "a Claude upgrade");
 }
 
 #[test]

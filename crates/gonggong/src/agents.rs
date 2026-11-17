@@ -1,7 +1,8 @@
 use crate::adapters;
 use crate::engine::ADAPTERS;
-use crate::local::{LocalSettings, load_catalogs};
+use crate::local::{LocalSettings, load_catalogs, load_profile_catalogs};
 use crate::protocol::{AgentCatalog, AgentKind, AgentState};
+use crate::providers::{Endpoint, Selection, Store};
 use crate::t;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -62,13 +63,49 @@ pub fn offered(kind: AgentKind, catalog: AgentCatalog) -> anyhow::Result<AgentCa
 /// The CLI and adapter builds a catalog is probed from, and the CLI's own user-level config: upgrading either build or
 /// editing the config (a provider or model added to `~/.codex/config.toml`) may change what is offered.
 pub fn catalog_key(kind: AgentKind, version: Option<&str>) -> String {
-    let adapter = ADAPTERS
+    format!("{}+{}+{}", version.unwrap_or("?"), adapter_version(kind), file_digest(&cli_config(kind)))
+}
+
+fn adapter_version(kind: AgentKind) -> &'static str {
+    ADAPTERS
         .iter()
         .find(|(k, ..)| *k == kind)
         .map(|(.., v)| *v)
         .or_else(|| adapters::get(kind)?.adapter_version())
-        .unwrap_or("");
-    format!("{}+{adapter}+{}", version.unwrap_or("?"), file_digest(&cli_config(kind)))
+        .unwrap_or("")
+}
+
+/// [`catalog_key`] of a local Claude profile: the Claude build it runs (`version` of the detected one, unless the
+/// profile pins its own executable) and the profile's `settings.json`, where its gateway and models are configured.
+pub fn profile_catalog_key(version: Option<&str>, e: &Endpoint) -> Option<String> {
+    let dir = e.claude_profile()?;
+    let cli = e.executable_path.as_deref().or(version).unwrap_or("?");
+    let adapter = adapter_version(AgentKind::Claude);
+    Some(format!("{cli}+{adapter}+{}", file_digest(&dir.join("settings.json"))))
+}
+
+/// The catalog probed for the local Claude profile `e` with the Claude build `claude` (the detected one).
+pub fn profile_catalog(home: &Path, e: &Endpoint, claude: Option<&AgentState>) -> Option<AgentCatalog> {
+    let key = profile_catalog_key(claude?.version.as_deref(), e)?;
+    let dir = e.config_dir.as_deref()?;
+    load_profile_catalogs(home).remove(dir).filter(|c| c.key == key).map(|c| c.catalog)
+}
+
+/// The local Claude profiles (one per directory) without a catalog for the Claude build `version`, with the key to
+/// cache the probed one under.
+pub fn unprobed_profiles(home: &Path, version: Option<&str>) -> anyhow::Result<Vec<(Selection, String)>> {
+    let cached = load_profile_catalogs(home);
+    let mut seen = std::collections::HashSet::new();
+    let mut out = vec![];
+    for p in Store::load(home)?.providers {
+        let Some(selection) = Selection::of(&p, AgentKind::Claude) else { continue };
+        let Some((_, e)) = selection.provider() else { continue };
+        let (Some(dir), Some(key)) = (e.config_dir.clone(), profile_catalog_key(version, e)) else { continue };
+        if seen.insert(dir.clone()) && cached.get(&dir).is_none_or(|c| c.key != key) {
+            out.push((selection, key));
+        }
+    }
+    Ok(out)
 }
 
 /// A short digest of the file's content, empty when it cannot be read.

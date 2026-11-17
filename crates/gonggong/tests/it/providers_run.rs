@@ -3,7 +3,7 @@
 mod provider_rig;
 
 use gonggong::protocol::*;
-use gonggong::providers::{OFFICIAL, Provider, Store};
+use gonggong::providers::{OFFICIAL, Provider, Selection, Store};
 use provider_rig::*;
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -37,6 +37,25 @@ async fn local_profile_is_selected_and_pinned_without_provider_settings() {
     Store::update(r.home(), |s| s.use_machine(AgentKind::Claude, OFFICIAL, None)).unwrap();
     r.run(follow_up("profile-2", &first, AgentKind::Claude));
     assert_eq!(echo(&r.finish("profile-2").await)["claudeConfigDir"], dir.to_str().unwrap());
+}
+
+#[tokio::test]
+async fn a_local_profile_is_probed_with_its_own_config_dir() {
+    let r = rig(Duration::from_secs(60));
+    let dir = r.home().join("profile");
+    std::fs::create_dir(&dir).unwrap();
+    let id = Store::update(r.home(), |s| {
+        let mut p = Provider::custom(ApiProtocol::Anthropic, "Local".into(), String::new(), String::new());
+        p.endpoints[0].config_dir = Some(dir.to_string_lossy().into());
+        s.add(p)
+    })
+    .unwrap();
+    let store = Store::load(r.home()).unwrap();
+    let profile = Selection::of(store.get(&id).unwrap(), AgentKind::Claude).unwrap();
+    assert!(!r.engine.probe_with(AgentKind::Claude, &profile).await.unwrap().models.is_empty());
+    std::fs::write(dir.join(".mock-no-models"), "").unwrap();
+    assert!(r.engine.probe_with(AgentKind::Claude, &profile).await.is_err(), "its login offers no models");
+    assert!(!r.engine.probe(AgentKind::Claude).await.unwrap().models.is_empty(), "the official login is not it");
 }
 
 #[tokio::test]
