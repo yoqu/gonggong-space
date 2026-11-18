@@ -13,6 +13,9 @@ export interface FeishuBody {
   content: string
 }
 
+/** Upload types of im/v1/files that a file message can carry. */
+export type FeishuFileType = 'pdf' | 'doc' | 'xls' | 'ppt' | 'stream'
+
 /** Asked at authorization; each must also be enabled on the main app. offline_access is what yields a refresh_token. */
 export const USER_SCOPES = [
   'offline_access',
@@ -159,6 +162,8 @@ export interface FeishuApi {
   download(app: FeishuCreds, messageId: string, fileKey: string, type: 'image' | 'file'): Promise<Buffer>
   /** Uploads an image for cards and messages; returns its image_key. */
   uploadImage(app: FeishuCreds, data: Buffer): Promise<string>
+  /** Uploads a file for a file message; returns its file_key. */
+  uploadFile(app: FeishuCreds, name: string, type: FeishuFileType, data: Buffer): Promise<string>
   /** Adds an emoji reaction (`emoji` is an emoji_type) as the app; returns its reaction_id. */
   addReaction(app: FeishuCreds, messageId: string, emoji: string): Promise<string>
   removeReaction(app: FeishuCreds, messageId: string, reactionId: string): Promise<void>
@@ -381,6 +386,20 @@ export function larkApi(): FeishuApi {
         throw new FeishuError(res?.code ?? 0, res?.msg ?? (err as Error).message)
       }
       if (!key) throw new FeishuError(0, 'no image_key')
+      return key
+    },
+
+    async uploadFile(app, name, type, data) {
+      let key: string | undefined
+      try {
+        key = (
+          await client(app).im.v1.file.create({ data: { file_type: type, file_name: name, file: data } })
+        )?.file_key
+      } catch (err) {
+        const res = (err as { response?: { data?: { code?: number; msg?: string } } }).response?.data
+        throw new FeishuError(res?.code ?? 0, res?.msg ?? (err as Error).message)
+      }
+      if (!key) throw new FeishuError(0, 'no file_key')
       return key
     },
 

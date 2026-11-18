@@ -6,6 +6,7 @@ import {
   type FeishuCreds,
   type FeishuDevConfig,
   FeishuError,
+  type FeishuFileType,
   type FeishuHistoryItem,
   FeishuRegisterError,
   type FeishuRegistration,
@@ -69,6 +70,8 @@ export class FakeFeishu {
   strictChats = false
   /** Images uploaded per app; the key is `img_<n>`. */
   readonly images: { appId: string; key: string; data: Buffer }[] = []
+  /** Files uploaded per app; the key is `file_<n>`. */
+  readonly uploads: { appId: string; key: string; name: string; type: FeishuFileType; data: Buffer }[] = []
   /** Emoji reactions added through the API; `removed` once taken back. */
   readonly reactions: {
     appId: string
@@ -400,6 +403,12 @@ export class FakeFeishu {
       this.check(app.appId)
       const key = `img_${this.images.length + 1}`
       this.images.push({ appId: app.appId, key, data })
+      return key
+    },
+    uploadFile: async (app, name, type, data) => {
+      this.check(app.appId)
+      const key = `file_${this.uploads.length + 1}`
+      this.uploads.push({ appId: app.appId, key, name, type, data })
       return key
     },
     addReaction: async (app, messageId, emoji) => {

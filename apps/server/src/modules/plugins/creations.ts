@@ -19,7 +19,7 @@ import { isUuid } from '../../lib/ids.js'
 import { pluginKit } from '../artifacts/kit.js'
 import { type Artifact, cardOf, newArtifactDir } from '../artifacts/service.js'
 import { claimAttachments } from '../attachments/service.js'
-import { mirrorUserMessage } from '../feishu/mirror.js'
+import { mirrorUserMessage } from '../feishu/outbound.js'
 import { requireMember } from '../groups/service.js'
 import {
   authorName,

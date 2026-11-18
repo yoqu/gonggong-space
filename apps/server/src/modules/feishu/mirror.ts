@@ -7,11 +7,9 @@ import type { Db } from '../../db/client.js'
 import {
   approvals,
   bots,
-  feishuApps,
   feishuChats,
   feishuIdentities,
   feishuMessageLinks,
-  groups,
   messages,
   previews,
   questionSets,
@@ -45,7 +43,7 @@ import {
 } from './cards.js'
 import { type FeishuBody, FeishuError } from './client.js'
 import { credsOf, type FeishuAppRow } from './gateway.js'
-import { publicUrl, userToken } from './identity.js'
+import { publicUrl } from './identity.js'
 import { hintParams, issueOf } from './issues.js'
 
 /** Patched (non-streaming) run cards change at most this often; the final state is never held back. */
@@ -243,144 +241,10 @@ export async function appOfBot(ctx: Ctx, botId: string) {
   return (await botApp(ctx, botId)) ?? (await mainApp(ctx))
 }
 
-const textBody = (text: string): FeishuBody => ({ msgType: 'text', content: JSON.stringify({ text }) })
 export const cardBody = (card: object): FeishuBody => ({
   msgType: 'interactive',
   content: JSON.stringify(card),
 })
-
-async function appById(ctx: Ctx, appId: string) {
-  const [row] = await ctx.db.select().from(feishuApps).where(eq(feishuApps.appId, appId))
-  return row
-}
-
-/** A DM's binding is a user's single chat with a bot app: the app the chat's messages came in through. */
-async function singleChatApp(ctx: Ctx, chatId: string) {
-  const [link] = await ctx.db
-    .select({ appId: feishuMessageLinks.appId })
-    .from(feishuMessageLinks)
-    .where(and(eq(feishuMessageLinks.chatId, chatId), eq(feishuMessageLinks.direction, 'in')))
-    .limit(1)
-  return link && appById(ctx, link.appId)
-}
-
-/** The body with each @ of a member linked to Feishu as a real Feishu @ (by union id, valid for any app). */
-async function withFeishuAts(ctx: Ctx, body: string, userIds: string[]) {
-  if (!userIds.length) return body
-  const linked = await ctx.db
-    .select({ name: users.name, unionId: feishuIdentities.unionId })
-    .from(feishuIdentities)
-    .innerJoin(users, eq(users.id, feishuIdentities.userId))
-    .where(inArray(feishuIdentities.userId, userIds))
-  // Longest first, so 「@王磊磊」 is not taken for 「@王磊」.
-  return linked
-    .sort((a, b) => b.name.length - a.name.length)
-    .reduce((text, u) => text.split(`@${u.name}`).join(`<at user_id="${u.unionId}">${u.name}</at>`), body)
-}
-
-/**
- * A web message that @-s bots or members goes to the bound chat through the main app: as its author when they authorized
- * Feishu, otherwise as 「名字：…」. A DM's single chat only has the bot app in it, which sends as 「名字：…」.
- */
-export async function mirrorUserMessage(
-  ctx: Ctx,
-  message: typeof messages.$inferSelect,
-  author: { id: string; name: string },
-) {
-  const chat = await boundChat(ctx.db, message.groupId)
-  if (!chat?.syncOutbound) return
-  enqueue(ctx, message.groupId, async () => {
-    const [group] = await ctx.db
-      .select({ kind: groups.kind })
-      .from(groups)
-      .where(eq(groups.id, message.groupId))
-    const dm = group?.kind === 'dm'
-    const from = dm ? await singleChatApp(ctx, chat.chatId) : await mainApp(ctx)
-    if (!from) return
-    const app = credsOf(from)
-    const token = dm ? null : await userToken(ctx, author.id)
-    const meta = message.meta as MessageMeta
-    const body = await withFeishuAts(
-      ctx,
-      meta.mentionsAll ? message.body.split('@所有人').join('<at user_id="all">所有人</at>') : message.body,
-      meta.userMentions ?? [],
-    )
-    // A thread reply quotes its root in the chat, when the root went there (Feishu threads are not mapped).
-    const [root] = message.threadRootId
-      ? await ctx.db
-          .select({ id: feishuMessageLinks.feishuMessageId })
-          .from(feishuMessageLinks)
-          .where(
-            and(
-              eq(feishuMessageLinks.messageId, message.threadRootId),
-              eq(feishuMessageLinks.chatId, chat.chatId),
-            ),
-          )
-          .limit(1)
-      : []
-    const replyTo = root?.id
-    let sent: { messageId: string } | null = null
-    if (token)
-      sent = await ctx.feishu.api
-        .send(app, chat.chatId, textBody(body), { userToken: token, replyTo })
-        .catch((err) => {
-          if (!(err instanceof FeishuError)) throw err
-          return null
-        })
-    const byUser = !!sent
-    sent ??= await ctx.feishu.api.send(app, chat.chatId, textBody(`${author.name}：${body}`), { replyTo })
-    await ctx.db.insert(feishuMessageLinks).values({
-      feishuMessageId: sent.messageId,
-      chatId: chat.chatId,
-      appId: from.appId,
-      direction: 'out',
-      kind: 'message',
-      messageId: message.id,
-      ...(byUser && { refId: author.id }),
-    })
-  })
-}
-
-/** Out links sent as a user keep that user in `refId`: their token is needed to recall or edit it. */
-async function asSender(ctx: Ctx, link: Link) {
-  const from = await appById(ctx, link.appId)
-  if (!from) return null
-  const token = link.refId ? await userToken(ctx, link.refId) : undefined
-  return { app: credsOf(from), token: token ?? undefined }
-}
-
-/** 共工 recall of a mirrored message recalls its Feishu copy (an inbound one is the Feishu user's own). */
-export async function mirrorRecall(ctx: Ctx, messageId: string, groupId: string) {
-  const [link] = await ctx.db
-    .select()
-    .from(feishuMessageLinks)
-    .where(and(eq(feishuMessageLinks.messageId, messageId), eq(feishuMessageLinks.direction, 'out')))
-  if (!link) return
-  enqueue(ctx, groupId, async () => {
-    const sender = await asSender(ctx, link)
-    if (sender) await ctx.feishu.api.recall(sender.app, link.feishuMessageId, sender.token)
-  })
-}
-
-/** 共工 edit of a mirrored message edits its Feishu copy. */
-export async function mirrorEdit(
-  ctx: Ctx,
-  message: { id: string; groupId: string; body: string; userMentions?: string[] },
-  authorName: string,
-) {
-  const [link] = await ctx.db
-    .select()
-    .from(feishuMessageLinks)
-    .where(and(eq(feishuMessageLinks.messageId, message.id), eq(feishuMessageLinks.direction, 'out')))
-  if (!link) return
-  enqueue(ctx, message.groupId, async () => {
-    const sender = await asSender(ctx, link)
-    if (!sender) return
-    const body = await withFeishuAts(ctx, message.body, message.userMentions ?? [])
-    const text = link.refId ? body : `${authorName}：${body}`
-    await ctx.feishu.api.edit(sender.app, link.feishuMessageId, textBody(text), sender.token)
-  })
-}
 
 /**
  * Called on every run change (publishRun): mirrors its card, question and approval cards to the chat its trigger

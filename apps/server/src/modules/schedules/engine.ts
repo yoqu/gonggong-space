@@ -5,7 +5,7 @@ import { bots, groupBots, groupMembers, groups, messages, runs, schedules, users
 import { audit } from '../../lib/audit.js'
 import { fail, HttpError } from '../../lib/errors.js'
 import { assertPick, botCatalog } from '../bots/config.js'
-import { mirrorUserMessage } from '../feishu/mirror.js'
+import { mirrorUserMessage } from '../feishu/outbound.js'
 import { activeBots } from '../groups/service.js'
 import { type MessageRow, messageDto, postEvent, publishMessage } from '../messages/service.js'
 import { notify } from '../notifications/notify.js'

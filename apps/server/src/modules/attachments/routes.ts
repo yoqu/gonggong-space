@@ -15,6 +15,7 @@ import { idParam } from '../../lib/ids.js'
 import { FILE_OVERHEAD, sealStream } from '../../lib/seal.js'
 import { sysParams } from '../admin/params.js'
 import { requireUser } from '../auth/session.js'
+import { mirrorBotAttachments } from '../feishu/outbound.js'
 import { effectiveParams } from '../groups/params.js'
 import { requireMember, requireReader } from '../groups/service.js'
 import {
@@ -169,6 +170,7 @@ async function sendAgentAttachments(ctx: Ctx, req: FastifyRequest<{ Params: { ru
     })
     const dto = messageDto(message, await authorName(ctx, message))
     await publishMessage(ctx, dto)
+    await mirrorBotAttachments(ctx, message)
     return dto satisfies MessageDto
   } catch (e) {
     await cleanup()
