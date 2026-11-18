@@ -114,3 +114,50 @@ test('on a phone dialogs rise as bottom sheets with 16px fields and side panels 
   await rail.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(rail).toHaveCount(0)
 })
+
+test('on a phone a file opened from a thread shows over it, and back returns to the thread, then the chat', async ({
+  page,
+}) => {
+  const { api } = await memberWithMachine(page, 'mobile4')
+  const group = await api.call<{ id: string }>('post', '/api/groups', {
+    name: 'mobile4',
+    kind: 'group',
+    botIds: [],
+    repo: null,
+  })
+  const res = await page.request.post('/api/uploads', {
+    multipart: {
+      groupId: group.id,
+      file: { name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# 拆分说明\n') },
+    },
+  })
+  expect(res.ok()).toBe(true)
+  const upload = (await res.json()) as { id: string }
+  const root = await api.call<{ id: string }>('post', `/api/groups/${group.id}/messages`, {
+    body: '退款要不要拆',
+    clientId: 'mobile4-root',
+  })
+  await api.call('post', `/api/groups/${group.id}/messages`, {
+    body: '附上说明',
+    clientId: 'mobile4-reply',
+    threadRootId: root.id,
+    attachmentIds: [upload.id],
+  })
+  await page.goto(`/g/${group.id}`)
+  await page.getByRole('button', { name: /1 条回复/ }).click()
+  const thread = page.locator('.chat__rail--overlay')
+  await expect(thread.getByText('附上说明')).toBeVisible()
+
+  await thread.getByText('notes.md').click()
+  const bench = page.getByRole('region', { name: '工作台' })
+  await expect(bench).toBeVisible()
+  await expect(thread).toHaveCount(0)
+
+  await page.goBack()
+  await expect(bench).toHaveCount(0)
+  await expect(thread.getByText('附上说明')).toBeVisible()
+  await page.goBack()
+  await expect(thread).toHaveCount(0)
+  await expect(page.getByRole('main').getByText('退款要不要拆', { exact: true })).toBeVisible()
+  expect(new URL(page.url()).pathname).toBe(`/g/${group.id}`)
+})
