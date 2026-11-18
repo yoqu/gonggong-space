@@ -256,12 +256,16 @@ describe('artifact sharing', () => {
     expect((await s.req('POST', url, s.liCookie, { enabled: true, follow: false })).statusCode).toBe(403)
   })
 
-  it('serves the newest shell of the plugin, even to artifacts made with an older one', async () => {
+  it('serves the newest shell and screen runtime of the plugin, even to artifacts made with an older one', async () => {
     const s = await setup()
     const [p] = await t.db.select().from(plugins).where(eq(plugins.name, 'web-prototype'))
     const [old] = await t.db.select().from(pluginVersions).where(eq(pluginVersions.id, p!.versionId!))
     const files = (old!.files as SkillFile[]).map((f) =>
-      f.path.endsWith('kit/index.html') ? { ...f, content: '<p>new shell</p>' } : f,
+      f.path.endsWith('kit/index.html')
+        ? { ...f, content: '<p>new shell</p>' }
+        : f.path.endsWith('kit/gg-kit.js') || f.path.endsWith('kit/gg-kit.css')
+          ? { ...f, content: `/* new ${f.path.slice(-3)} */` }
+          : f,
     )
     const [next] = await t.db
       .insert(pluginVersions)
@@ -279,6 +283,9 @@ describe('artifact sharing', () => {
       ';',
     )[0]!
     expect((await get(link.host, '/', { cookie })).text).toContain('<p>new shell</p>')
+    // The runtime only ever adds (screen states); the styles stay the version's own so its layout holds.
+    expect((await get(link.host, '/_gg/gg-kit.js', { cookie })).text).toBe('/* new .js */')
+    expect((await get(link.host, '/_gg/gg-kit.css', { cookie })).text).not.toContain('new')
   })
 
   it('reports an expired or revoked link as off, and keeps outsiders out', async () => {

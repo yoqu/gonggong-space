@@ -37,19 +37,23 @@ export function kitOf(m: PluginManifest, files: SkillFile[]): Kit | null {
 }
 
 /**
- * The shell page (`index.html`) for an artifact: the platform owns it, so artifacts made with an older version of
- * their plugin get the latest approved one's; screens keep their own version's `_gg/*`.
+ * Kit files artifacts made with an older version of their plugin get from the latest approved one: the shell page,
+ * and the screen runtime, which only ever adds behaviour (screen states). Other `_gg/*` (styles) stay the version's.
  */
-export async function currentShell(
+export const LATEST_KIT_FILES = new Set(['index.html', 'gg-kit.js'])
+
+/** A kit file (`LATEST_KIT_FILES`) from the latest approved version of the artifact's plugin, else its own version's. */
+export async function currentKitFile(
   db: Pick<Db, 'select'>,
   a: { pluginId: string | null; pluginVersionId: string | null },
+  name: string,
 ) {
   const [p] = a.pluginId
     ? await db.select({ v: plugins.listedVersionId }).from(plugins).where(eq(plugins.id, a.pluginId))
     : []
   return (
-    (p?.v ? (await pluginKit(db, p.v))?.get('index.html') : undefined) ??
-    (await pluginKit(db, a.pluginVersionId))?.get('index.html')
+    (p?.v ? (await pluginKit(db, p.v))?.get(name) : undefined) ??
+    (await pluginKit(db, a.pluginVersionId))?.get(name)
   )
 }
 

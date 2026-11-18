@@ -216,4 +216,8 @@ export default {
   '结束编辑 {name}': 'Stop editing {name}',
   之后的消息都针对这个作品: 'Your next messages are about this work',
   '# 作品': '# Works',
+  默认状态: 'Default state',
+  切换这一屏的状态: "Switch this screen's state",
+  '状态：{label}': 'State: {label}',
+  '仅在状态 {when} 时显示': 'Shows only in state {when}',
 }

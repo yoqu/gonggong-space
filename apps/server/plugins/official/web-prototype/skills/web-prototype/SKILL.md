@@ -23,7 +23,7 @@ web-prototype/
 ├── kit/                           ← platform-owned shell and runtime: never edit (copied only without hosting)
 │   ├── index.html                 ← the shell: canvas of all screens with link arrows, plus a click-through play view
 │   ├── gg-kit.css                 ← base styles, device variables, .gg-ph / .gg-scroll-x
-│   └── gg-kit.js                  ← data-gg-link / data-gg-back navigation
+│   └── gg-kit.js                  ← data-gg-link / data-gg-back navigation, data-gg-when / data-gg-set screen states
 ├── templates/<id>/GUIDE.md        ← per-template instructions; templates/<id>/example/ is a finished reference
 ├── design-systems/<id>/           ← DESIGN.md (source of truth) + tokens.css (generated from its front matter)
 ├── craft/                         ← cross-template rules (imagery, anti-ai-slop, accessibility, states, forms, UX laws)
@@ -73,6 +73,30 @@ design/<slug>/
 ```
 
 People may add reference nodes to the canvas: `gg-artifact.json` then has `"refs": [{ "id", "title", "file": "refs/<id>.<ext>", "kind", "x"?, "y"? }]`. Keep `refs` as it is whenever you rewrite the manifest, and leave `refs/` alone. Web pages people put on the canvas (a Feishu doc, say) are in `"links": [{ "id", "url", "title", … }]`: context to read when you can, keep them as they are too. A screen people dragged on the canvas has `"x"` and `"y"`: keep them too.
+
+## Screen states
+
+One screen often looks different by state: an order's stage (待付款 / 已发货 / 已退款), its data (正常 / 空 / 加载失败), who looks (会员 / 游客), an open sheet. Show them as **states of one screen**, not as copies of it: people switch them on the canvas, in the play view and in shared links.
+
+```json
+{
+  "dims": [{ "id": "role", "label": "角色", "values": [{ "id": "member", "label": "会员" }, { "id": "guest", "label": "游客" }] }],
+  "screens": [{
+    "id": "order-detail", "title": "订单详情", "file": "screens/order-detail.html", "uses": ["role"],
+    "dims": [
+      { "id": "order", "label": "订单状态", "values": [{ "id": "unpaid", "label": "待付款" }, { "id": "shipped", "label": "已发货" }, { "id": "refunded", "label": "已退款" }] },
+      { "id": "data", "label": "数据", "values": [{ "id": "normal", "label": "正常" }, { "id": "error", "label": "加载失败" }] }
+    ]
+  }]
+}
+```
+
+- **Global dims** (top-level `dims`, at most 3; usually only role or signed-in) hold across screens; a screen opts in with `uses`. A global dim a screen does not list does not apply to it. **A screen's own dims** (`screens[].dims`, at most 2) are only its. Each has 2–8 values; **the first value is the default** (the populated, primary case) — screenshots and thumbnails show it. Ids are kebab-case; labels are the request's language.
+- In the screen, write every state's content as static HTML and mark it: `data-gg-when="order=refunded"` shows an element only in that state; spaces mean and, `|` means or (`data-gg-when="order=unpaid|shipped role=member"`). No `!=` or brackets. Never write CSS or JS that shows or hides states yourself — gg-kit does it.
+- `data-gg-set="data=error"` on a button switches this screen's state in place (a 模拟失败 control, a tab whose content differs by state). With `data-gg-link`, it opens the target screen in that state: `<a data-gg-link="order-detail" data-gg-set="order=unpaid">`. Keep `data-gg-link`'s value a plain screen id.
+- **State or screen.** Same structure, different content → a state (empty list, error, no permission, order stage, validation errors, an open sheet). Different layout, or reached on its own by a link → its own screen (payment result, 404, each wizard step, an admin-only page).
+- **States show, flows act.** A state shows a moment; what people must try — submit fails, the input stays, retry succeeds — is a real clickable flow: link the steps with `data-gg-set` (or in-screen JS for toggles), not states alone.
+- Cover what `craft/state-coverage.md` asks for the screen's kind (lists: empty and error; forms: validation errors; detail pages: their business stages) with a dim only where the content really differs. The platform lints conditions naming dims or values a screen lacks, and dims declared but never used.
 
 ## Page business rules
 
@@ -125,7 +149,7 @@ Screen skeleton:
    3. Otherwise the preset the creation message names, or under 自动 the one you picked.
 
    Read the resulting `DESIGN.md` fully (front matter tokens, components, Do's and Don'ts) and `tokens.css`. A top-level `seed` (the seed colour picked in the design system panel) is optional metadata, not a token: keep it as is, generate nothing from it. Token names follow the front matter: `colors.x` → `--color-x`, `rounded.x` → `--rounded-x`, `spacing.x` → `--space-x`, `typography.x` → class `.t-x` (and `--text-x-size/-weight/-leading`). Generating `tokens.css`: one `:root` rule with those custom properties in front-matter order (colours, then radii, then spacing), `--font-sans` from the first typography family plus system fallbacks, and one `.t-x { font-family: var(--font-sans); font-size: …; font-weight: …; line-height: … }` rule per typography entry using its variables; open with a comment naming the system — see any `design-systems/*/tokens.css`. Only custom properties, comments and `.t-*` rules: no `@import`, `url(` or other selectors.
-4. **Craft.** Read `craft/imagery.md` and skim `craft/anti-ai-slop.md`; for forms read `craft/form-validation.md`, for empty/loading/error states `craft/state-coverage.md`.
+4. **Craft.** Read `craft/imagery.md` and skim `craft/anti-ai-slop.md`; for forms read `craft/form-validation.md`, for empty/loading/error states `craft/state-coverage.md` (and model them as screen states, see「Screen states」).
 5. **Design brief.** Before writing any file, expand the request into a brief the way a product designer would — the request is a starting point, not a spec:
    - One line on the product and its mood, in the words of the folder's `DESIGN.md` Overview.
    - Per screen: its job, its sections top to bottom, and its **signature module** — the one thing that makes it this product rather than a generic list (a live map with boats on the lake, a countdown order card, a ticket stub). Give it the most space and the strongest visual.
@@ -152,7 +176,7 @@ Report the stages with gonggong's `progress_card` so the group sees where you ar
 
 ### Step 3 — Check and critique
 
-1. Serve the folder over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome. Hosted folders have no `index.html` or `_gg/`: copy the folder to a temporary directory outside the workspace, add the kit there (`index.html`, `_gg/`) and serve that copy — never add them to `design/<slug>/`. `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame. Screenshot each screen at the device size too (375×812 miniprogram, 390×844 mobile) to judge the first view. Look for: nothing under the status bar, capsule or bottom bars; no empty band above a fixed bar; floating labels clear of pins and of each other; lists full; text not clipped; every image loads and fits its slot; no screen is a stack of same-looking grey rows — each has its signature module and visual anchor from the brief.
+1. Serve the folder over a local HTTP server (the shell reads `gg-artifact.json` with `fetch`) and screenshot with headless Chrome. Hosted folders have no `index.html` or `_gg/`: copy the folder to a temporary directory outside the workspace, add the kit there (`index.html`, `_gg/`) and serve that copy — never add them to `design/<slug>/`. `index.html` shows the canvas (every screen plus link arrows: check each link lands where intended), `index.html#play:<id>` shows one screen in the device frame, `index.html#play:<id>?order=refunded` in that state: screenshot each state you added once. Screenshot each screen at the device size too (375×812 miniprogram, 390×844 mobile) to judge the first view. Look for: nothing under the status bar, capsule or bottom bars; no empty band above a fixed bar; floating labels clear of pins and of each other; lists full; text not clipped; every image loads and fits its slot; no screen is a stack of same-looking grey rows — each has its signature module and visual anchor from the brief.
 2. Run the template's checklist in its GUIDE.md (every P0 must pass), then `references/critique.md`, and fix what they find.
 
 ### Step 4 — Publish and reply

@@ -158,6 +158,7 @@ import { RefNode } from './RefNode'
 import { removal } from './removal'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { DetailsPanel, FavouritesPanel } from './SidePanel'
+import { useScreenStates } from './screenStates'
 import { QrDialog, useShareAccess } from './share'
 import { type ArtifactLink, artifactLink, loadArtifact, takeArtifactFocus, useArtifactFocus } from './store'
 import type { DesignTokens } from './tokens'
@@ -538,6 +539,7 @@ export function Canvas({
     () => manifest && { ...manifest, screens: manifest.screens.map((s) => ({ ...s, ...moves[s.id] })) },
     [manifest, moves],
   )
+  const states = useScreenStates(manifest)
   const rules = useCanvasRules({
     ...{ files, readFile, versionKey, canEdit, scrolls, panel, setPanel, bot },
     screens: manifest?.screens ?? [],
@@ -1003,7 +1005,7 @@ export function Canvas({
         if (one && preview)
           window.open(
             manifest
-              ? `${openUrl(preview.previewId, '/')}#play:${one.id}`
+              ? `${openUrl(preview.previewId, '/')}#play:${one.id}${states.query(one.id)}`
               : openUrl(preview.previewId, `/${one.file}`),
             '_blank',
             'noopener',
@@ -1337,7 +1339,7 @@ export function Canvas({
     const at = scrolledBy(r, scrolls[file] ?? NO_SCROLL)
     return at.y + at.h < 0 || at.y > n.h ? null : at
   }
-  const src = (n: CanvasNode) => (preview ? openUrl(preview.previewId, `/${n.file}`) : null)
+  const src = (n: CanvasNode) => (preview ? openUrl(preview.previewId, `/${states.fileOf(n)}`) : null)
   const shownLinks = !showLinks
     ? []
     : picked.length
@@ -1933,6 +1935,7 @@ export function Canvas({
                         <span className="art-title__changed">{t('本版改动')}</span>
                       ) : null}
                       {!tiny && n.kind === 'screen' ? rules.badge(n) : null}
+                      {!tiny && n.kind === 'screen' ? states.picker(n.id) : null}
                     </div>
                   )}
                   {on ? (

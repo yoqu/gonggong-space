@@ -1,0 +1,34 @@
+/* The screen-state picker beside a screen's title on the canvas and in the prototype editor's bar (screenStates.tsx). */
+.art-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  height: 18px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--control-track);
+  color: var(--label-secondary);
+  font: inherit;
+  font-size: var(--text-caption-size);
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.art-state span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.art-state:hover {
+  color: var(--label);
+}
+.art-state--on {
+  background: var(--tint-orange);
+  color: var(--tint-orange-text);
+}
+.art-state:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

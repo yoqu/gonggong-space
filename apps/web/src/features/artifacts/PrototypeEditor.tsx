@@ -27,6 +27,7 @@ import {
   DeviceChrome,
   Hot,
   RailButton,
+  ScreenThumbs,
   useDeviceZoom,
   useScreenSwap,
   useStageScroll,
@@ -50,6 +51,7 @@ import {
   protoDevices,
   startNav,
 } from './prototype'
+import { useScreenStates } from './screenStates'
 import { QrDialog } from './share'
 
 type Mode = 'preview' | 'edit'
@@ -73,8 +75,6 @@ const LIST_ROOM = 236
 const RAIL_ROOM = 68
 /** The stage's margin where nothing sits. */
 const EDGE = 12
-/** A thumbnail's width in the screen list (px). */
-const THUMB_W = 188
 /**
  * A stage narrower than this opens with the screen list collapsed, leaving the device the room; its rail lies along
  * the bottom, taking RAIL_ROOM there instead of at the right.
@@ -229,6 +229,7 @@ export function PrototypeEditor({
   }
 
   const thumbOf = (id: string) => screenThumbs.find((x) => x.screenId === id)?.url
+  const states = useScreenStates(manifest)
   const entry = screens.some((s) => s.id === manifest.entry) ? manifest.entry : (screens[0]?.id ?? start)
   const restart = () => go({ type: 'restart', screen: entry })
   // Window-wide like the guide's Escape, but not from a field, a dialog, or a hidden workbench tab.
@@ -349,6 +350,7 @@ export function PrototypeEditor({
       if (guide) closeGuide()
       if (!screens.some((s) => s.id === m.screen))
         return toast({ type: 'warning', message: t('没有屏幕「{id}」', { id: m.screen }) })
+      states.choose(m.screen, m.set)
       go({
         type: 'go',
         screen: m.screen,
@@ -503,7 +505,8 @@ export function PrototypeEditor({
     const y = top + (room.height - top - bottom - (size.h + BEZEL * 2) * scale) / 2
     return { x: x + (BEZEL + r.x) * scale, y: y + (BEZEL + r.y) * scale, w: r.w * scale, h: r.h * scale }
   }
-  const src = (file: string) => (preview ? openUrl(preview.previewId, `/${file}`) : undefined)
+  const src = (s: { id: string; file: string }) =>
+    preview ? openUrl(preview.previewId, `/${states.fileOf(s)}`) : undefined
   const titleOf = (id: string) => screens.find((s) => s.id === id)?.title ?? id
   const fileSpots = spots[cur.file] ?? []
   const fileBacks = backs[cur.file] ?? []
@@ -564,6 +567,7 @@ export function PrototypeEditor({
             </div>
           )}
         </div>
+        {states.picker(cur.id)}
         <span className="art-bar__fill" />
         {marks.button}
         <Button size="small" variant="primary" icon="share" onClick={onShare}>
@@ -580,37 +584,14 @@ export function PrototypeEditor({
                 {'minus' as const}
               </IconButton>
             </header>
-            <ul className="proto-screens__list">
-              {screens.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className="proto-thumb"
-                    aria-current={s.id === cur.id ? 'page' : undefined}
-                    onClick={() => s.id !== cur.id && go({ type: 'jump', screen: s.id })}
-                  >
-                    <span className="proto-thumb__shot">
-                      {thumbOf(s.id) ? (
-                        <img
-                          src={thumbOf(s.id)}
-                          alt={t('{title} 缩略图', { title: s.title })}
-                          loading="lazy"
-                        />
-                      ) : preview ? (
-                        <iframe
-                          title={t('{title} 缩略图', { title: s.title })}
-                          src={src(s.file)}
-                          tabIndex={-1}
-                          loading="lazy"
-                          style={{ width: size.w, height: size.h, transform: `scale(${THUMB_W / size.w})` }}
-                        />
-                      ) : null}
-                    </span>
-                    <span className="proto-thumb__title">{s.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <ScreenThumbs
+              screens={screens}
+              current={cur.id}
+              thumbOf={thumbOf}
+              src={preview ? src : null}
+              size={size}
+              onPick={(id) => go({ type: 'jump', screen: id })}
+            />
             {edit ? (
               <footer className="proto-screens__foot">
                 <MenuButton
@@ -737,7 +718,7 @@ export function PrototypeEditor({
                             // Coming back scrolled: hidden until it is where it was (its top would flash first).
                             className={cx('proto-frame', live && swap.holding && 'proto-frame--hold')}
                             title={s.title}
-                            src={src(s.file)}
+                            src={src(s)}
                             style={{ height: size.h }}
                           />
                         ) : null}
@@ -965,7 +946,12 @@ export function PrototypeEditor({
             tip={tip}
             onClick={
               preview
-                ? () => window.open(`${openUrl(preview.previewId, '/')}#play:${cur.id}`, '_blank', 'noopener')
+                ? () =>
+                    window.open(
+                      `${openUrl(preview.previewId, '/')}#play:${cur.id}${states.query(cur.id)}`,
+                      '_blank',
+                      'noopener',
+                    )
                 : undefined
             }
           />

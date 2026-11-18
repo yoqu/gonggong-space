@@ -7,6 +7,7 @@ import {
 } from '@gonggong/protocol'
 import { type Kit, kitName } from './kit.js'
 import { lintRules } from './rules.js'
+import { lintStates } from './states.js'
 
 const warn = (code: string, message: string, file?: string): LintIssue => ({
   code,
@@ -66,6 +67,7 @@ export async function lintVersion(
         [...html.matchAll(LINK)].map((m) => m[1] ?? '').filter((id) => !screens.has(id)),
       )
       for (const id of missing) issues.push(warn('link-missing', `跳转目标屏幕不存在：${id}`, f.path))
+      if (manifest) issues.push(...lintStates(manifest, f.path, html))
     }
     const styles = [
       ...[...html.matchAll(STYLE_ATTR)].map((m) => m[1] ?? m[2] ?? ''),

@@ -4,8 +4,58 @@ import { cx } from '../../lib/cx'
 import { Icon, type IconName, Tooltip } from '../../ui'
 import type { Enter, ProtoDevice, ProtoFrame, ProtoNav } from './prototype'
 
-// Pieces of the prototype editor's stage (PrototypeEditor.tsx): the device's chrome, hotspots, the rail's buttons and
-// the screen change's two layers.
+// Pieces of the prototype editor's stage (PrototypeEditor.tsx): the device's chrome, hotspots, the rail's buttons,
+// the screen list and the screen change's two layers.
+
+/** A thumbnail's width in the screen list (px). */
+const THUMB_W = 188
+
+/** The screen list: each screen's screenshot, or its live page scaled down when it has none yet. */
+export function ScreenThumbs({
+  screens,
+  current,
+  thumbOf,
+  src,
+  size,
+  onPick,
+}: {
+  screens: { id: string; title: string; file: string }[]
+  current: string
+  thumbOf: (id: string) => string | undefined
+  src: ((s: { id: string; file: string }) => string | undefined) | null
+  size: { w: number; h: number }
+  onPick: (id: string) => void
+}) {
+  return (
+    <ul className="proto-screens__list">
+      {screens.map((s) => (
+        <li key={s.id}>
+          <button
+            type="button"
+            className="proto-thumb"
+            aria-current={s.id === current ? 'page' : undefined}
+            onClick={() => s.id !== current && onPick(s.id)}
+          >
+            <span className="proto-thumb__shot">
+              {thumbOf(s.id) ? (
+                <img src={thumbOf(s.id)} alt={t('{title} 缩略图', { title: s.title })} loading="lazy" />
+              ) : src ? (
+                <iframe
+                  title={t('{title} 缩略图', { title: s.title })}
+                  src={src(s)}
+                  tabIndex={-1}
+                  loading="lazy"
+                  style={{ width: size.w, height: size.h, transform: `scale(${THUMB_W / size.w})` }}
+                />
+              ) : null}
+            </span>
+            <span className="proto-thumb__title">{s.title}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /**
  * The phone's status bar (and a mini program's capsule) and home indicator, drawn over the screen like the

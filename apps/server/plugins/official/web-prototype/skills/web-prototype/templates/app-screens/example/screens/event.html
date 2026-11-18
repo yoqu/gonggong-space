@@ -45,6 +45,7 @@
     width: 160px; height: 42px; border-radius: var(--rounded-full);
     background: var(--color-primary); color: var(--color-on-primary);
   }
+  .cta--off { background: var(--color-surface-placeholder); color: var(--color-on-surface-variant); }
 </style>
 </head>
 <body>
@@ -73,8 +74,10 @@
 </section>
 
 <div class="bar" data-section="cta">
-  <span class="price t-label-md"><b>免费</b> · 剩余 46 位</span>
-  <button class="cta t-title-sm" type="button" data-gg-link="signup-done">立即报名</button>
+  <span class="price t-label-md" data-gg-when="seats=open"><b>免费</b> · 剩余 46 位</span>
+  <button class="cta t-title-sm" type="button" data-gg-when="seats=open" data-gg-link="signup-done">立即报名</button>
+  <span class="price t-label-md" data-gg-when="seats=full"><b>已满</b> · 200 人已报名</span>
+  <button class="cta cta--off t-title-sm" type="button" data-gg-when="seats=full" disabled>名额已满</button>
 </div>
 </body>
 </html>

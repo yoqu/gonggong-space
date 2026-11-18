@@ -47,10 +47,9 @@ export function acceptBridge(
   const frame = typeof d.file === 'string' ? frames.get(d.file) : undefined
   if (!frame || frame.contentWindow !== e.source) return null
   if (d.type === 'size' && !(isNum(d.width) && isNum(d.height))) return null
-  if (d.type === 'nav' && typeof d.screen !== 'string') return null
   if (d.type === 'scroll' && !(isNum(d.scrollX) && isNum(d.scrollY))) return null
   if (d.type === 'zoom' && !(isNum(d.factor) && d.factor > 0 && isNum(d.x) && isNum(d.y))) return null
-  if (d.type === 'key') {
+  if (d.type === 'key' || d.type === 'nav') {
     const parsed = BridgeFromShell.safeParse(d)
     return parsed.success ? parsed.data : null
   }

@@ -21,6 +21,15 @@
   const TRANSITIONS = ['none', 'push', 'push-back', 'slide-up', 'fade']
   // ArtifactAnchor in the contract.
   const ANCHOR = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  // data-gg-set (parseStateSet in the contract); null when absent or malformed.
+  const stateSet = (text) => {
+    const pairs = (text || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((p) => /^([a-z0-9]+(?:-[a-z0-9]+)*)=([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(p))
+    return pairs.length && pairs.every(Boolean) ? Object.fromEntries(pairs.map((m) => [m[1], m[2]])) : null
+  }
   const anchorOf = (el) => {
     const a = el.getAttribute('data-gg-anchor')
     return a && a.length <= 40 && ANCHOR.test(a) ? a : null
@@ -56,7 +65,7 @@
     'opacity',
   ])
   // What the server and this script add to the stored source.
-  const INJECTED = / data-gg-(?:id|selected|hover|mark|pick|editing)(?:="[^"]*")?/g
+  const INJECTED = / data-gg-(?:id|selected|hover|mark|pick|editing|off)(?:="[^"]*")?/g
   let mode = 'preview'
   let hovered = null
   let selected = null
@@ -265,6 +274,7 @@
       link: el.getAttribute('data-gg-link'),
       transition: TRANSITIONS.includes(transition) ? transition : null,
       anchor: anchorOf(el),
+      when: el.closest('[data-gg-when]')?.getAttribute('data-gg-when').slice(0, 200) ?? null,
       snippet: el.outerHTML.replace(INJECTED, '').slice(0, 300),
     }
   }
@@ -461,17 +471,25 @@
       }
       const link = el.closest('[data-gg-link],[data-gg-back]')
       if (!link) {
-        if (mode === 'preview' && !el.closest('input,textarea,select,label')) post({ type: 'miss' })
+        // A state switch (data-gg-set) is the screen runtime's own.
+        if (mode === 'preview' && !el.closest('input,textarea,select,label,[data-gg-set]'))
+          post({ type: 'miss' })
         return
       }
       e.preventDefault()
       e.stopImmediatePropagation()
       const screen = link.getAttribute('data-gg-link')
       const transition = link.getAttribute('data-gg-transition')
+      const set = stateSet(link.getAttribute('data-gg-set'))
       post(
         screen === null
           ? { type: 'back' }
-          : { type: 'nav', screen, ...(TRANSITIONS.includes(transition) && { transition }) },
+          : {
+              type: 'nav',
+              screen,
+              ...(TRANSITIONS.includes(transition) && { transition }),
+              ...(set && { set }),
+            },
       )
     },
     true,
@@ -659,6 +677,8 @@
   }
   const hots = (sel, entry) =>
     [...document.querySelectorAll(sel)].slice(0, 500).flatMap((el) => {
+      // Not in the screen's current state (gg-kit's data-gg-when).
+      if (el.closest('[data-gg-off]')) return []
       const rect = hotRect(el)
       return rect ? [{ ggId: ggIdOf(el), ...entry(el), rect }] : []
     })
@@ -812,7 +832,7 @@
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['open', 'hidden', 'class', 'style'],
+    attributeFilter: ['open', 'hidden', 'class', 'style', 'data-gg-off'],
   })
   // A box scrolling inside the page (the document's own scroll is `scroll` above) moves the hotspots in it.
   // Every frame it scrolls: the outline, and the layout (its anchors and links move with it).

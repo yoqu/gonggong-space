@@ -74,6 +74,13 @@
   .btn[aria-pressed='true'] { background: var(--selection-fill); color: var(--accent); }
   .btn:focus-visible, .seg button:focus-visible, .item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .where { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--label-secondary); font-variant-numeric: tabular-nums; }
+  .dims { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .dims label { display: flex; align-items: center; gap: 4px; color: var(--label-secondary); font-size: 12px; white-space: nowrap; }
+  .dims select {
+    height: 24px; max-width: 120px; padding: 0 6px; border: 0; border-radius: 6px; background: var(--control-track);
+    color: var(--label); font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .dims select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .zoom { min-width: 44px; text-align: center; color: var(--label-secondary); font-variant-numeric: tabular-nums; }
   main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
@@ -236,6 +243,7 @@
     <button type="button" data-view="canvas">总览</button>
   </div>
   <div class="tools" data-for="play">
+    <span class="dims" role="group" aria-label="状态"></span>
     <span class="where"></span>
     <button class="btn back" type="button" title="返回上一屏（Esc）" aria-label="返回" hidden><svg class="icon" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5"/></svg></button>
     <button class="btn restart" type="button" title="回到第一屏" aria-label="回到第一屏"><svg class="icon" viewBox="0 0 16 16"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.8h2.8"/></svg></button>
@@ -329,13 +337,35 @@
   const phone = matchMedia('(max-width: 520px)')
   const compact = () => device.framed && phone.matches
 
+  // States (gg-kit.js): a screen plays with the global dims it uses and its own in its query; a global choice holds on
+  // every screen, a screen's own only there. Unchosen dims take their first value.
+  const globals = new Set((manifest.dims ?? []).map((d) => d.id))
+  const dimsOf = (s) => [...(manifest.dims ?? []).filter((d) => s.uses?.includes(d.id)), ...(s.dims ?? [])]
+  const chosen = { all: {}, screen: new Map() }
+  const stateOf = (s) =>
+    Object.fromEntries(
+      dimsOf(s).map((d) => {
+        const v = (globals.has(d.id) ? chosen.all : (chosen.screen.get(s.id) ?? {}))[d.id]
+        return [d.id, d.values.some((x) => x.id === v) ? v : d.values[0].id]
+      }),
+    )
+  const choose = (s, set) => {
+    for (const [k, v] of Object.entries(set ?? {})) {
+      if (typeof v !== 'string') continue
+      if (globals.has(k)) chosen.all[k] = v
+      else chosen.screen.set(s.id, { ...chosen.screen.get(s.id), [k]: v })
+    }
+  }
+  const query = (s) => (dimsOf(s).length ? `?${new URLSearchParams(stateOf(s))}` : '')
+  const srcOf = (s) => s.file + query(s)
+
   const makeDevice = (s, src = true) => {
     const el = $('#device').content.firstElementChild.cloneNode(true)
     $('.status', el).hidden = !device.status
     $('.capsule', el).hidden = !device.capsule
     const iframe = $('iframe', el)
     iframe.title = s.title
-    if (src) loadInto(el, iframe, s.file)
+    if (src) loadInto(el, iframe, srcOf(s))
     el.classList.toggle('light', s.statusBar === 'light')
     return { el, iframe }
   }
@@ -463,7 +493,7 @@
       if (n.state !== 'idle' || !near(n)) continue
       n.state = 'loading'
       busy++
-      loadInto(n.el, n.iframe, n.s.file)
+      loadInto(n.el, n.iframe, srcOf(n.s))
     }
   }
 
@@ -600,7 +630,7 @@
     old.classList.remove('over')
     if (transition === 'none' || still.matches || !old.getAttribute('src')) {
       old.title = s.title
-      loadInto(player.el, old, s.file)
+      loadInto(player.el, old, srcOf(s))
     } else {
       const next = document.createElement('iframe')
       next.title = s.title
@@ -627,7 +657,7 @@
         },
         { once: true },
       )
-      next.src = s.file
+      next.src = srcOf(s)
       player.iframe = next
     }
     player.el.classList.toggle('light', s.statusBar === 'light')
@@ -638,10 +668,33 @@
     $('.pill small').textContent = at
     $('span', strip).textContent = at
     back.hidden = stack.length < 2
-    history.replaceState(null, '', `#play:${id}`)
+    showDims(s)
   }
-  const go = (id, transition = 'none') => {
-    if (!screens.has(id) || stack.at(-1)?.id === id) return
+  const dimsBox = $('.dims')
+  function showDims(s) {
+    dimsBox.replaceChildren(
+      ...dimsOf(s).map((d) => {
+        const label = document.createElement('label')
+        const name = document.createElement('span')
+        name.textContent = d.label
+        const select = document.createElement('select')
+        for (const v of d.values) select.add(new Option(v.label, v.id))
+        select.value = stateOf(s)[d.id]
+        select.onchange = () => {
+          choose(s, { [d.id]: select.value })
+          show(s.id)
+        }
+        label.append(name, select)
+        return label
+      }),
+    )
+    history.replaceState(null, '', `#play:${s.id}${query(s)}`)
+  }
+  const go = (id, transition = 'none', set = null) => {
+    if (!screens.has(id)) return
+    choose(screens.get(id), set)
+    // The same screen with a new state reloads in place.
+    if (stack.at(-1)?.id === id) return Object.keys(set ?? {}).length && show(id)
     const t = TRANSITIONS.includes(transition) ? transition : 'push'
     stack.push({ id, t })
     show(id, t)
@@ -700,7 +753,7 @@
   phone.addEventListener?.('change', relayout)
 
   document.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.metaKey || e.ctrlKey || e.altKey) return
     if (e.key === 'Escape') return nav.classList.contains('closed') ? goBack() : openList(false)
     if (current !== 'play') return
     if (e.key === 'ArrowRight') step(1)
@@ -708,21 +761,26 @@
   })
   addEventListener('message', (e) => {
     const local = location.protocol === 'file:' && (e.origin === 'null' || e.origin === 'file://')
-    if ((e.origin !== location.origin && !local) || e.data?.type !== 'gg:nav') return
+    if ((e.origin !== location.origin && !local) || !['gg:nav', 'gg:state'].includes(e.data?.type)) return
     if (current !== 'play' || e.source !== player.iframe.contentWindow) return
+    const s = screens.get(stack.at(-1)?.id)
+    // The screen switched its own state already: the choice and the address follow it.
+    if (e.data.type === 'gg:state') return s && (choose(s, e.data.state), showDims(s))
     // A link without data-gg-transition pushes.
-    if (e.data.screen) go(e.data.screen, e.data.transition ?? 'push')
+    if (e.data.screen) go(e.data.screen, e.data.transition ?? 'push', e.data.set)
     else goBack()
   })
 
   document.body.classList.toggle('compact', compact())
   layout()
-  // A link opens to play; #canvas to the overview; #play:<id> to that screen.
+  // A link opens to play; #canvas to the overview; #play:<id>?<state> to that screen in that state.
   const hash = decodeURIComponent(location.hash.slice(1))
   if (hash === 'canvas') setView('canvas')
   else {
-    const id = hash.startsWith('play:') ? hash.slice(5) : entry
-    stack.push({ id: screens.has(id) ? id : entry, t: 'none' })
+    const [at, q = ''] = hash.startsWith('play:') ? hash.slice(5).split('?') : [entry]
+    const id = screens.has(at) ? at : entry
+    choose(screens.get(id), Object.fromEntries(new URLSearchParams(q)))
+    stack.push({ id, t: 'none' })
     setView('play')
   }
 })()

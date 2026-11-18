@@ -411,6 +411,8 @@ describe('official plugin web-prototype', () => {
 
   it('shell: lists every screen, goes back the way it came, and pages with the arrow keys', async () => {
     const { w, $ } = openShell(`#play:${app.entry}`)
+    // A screen with states carries them after a `?` (prototype-states.test.ts).
+    const at = () => w.location.hash.split('?')[0]
     await tick()
     expect(
       [...w.document.querySelectorAll('.screens [data-id]')].map((b) => b.getAttribute('data-id')),
@@ -418,15 +420,15 @@ describe('official plugin web-prototype', () => {
     expect($('.back').hidden).toBe(true)
     const other = app.screens.find((s) => s.id !== app.entry)?.id
     $(`.screens [data-id="${other}"]`).click()
-    expect(w.location.hash).toBe(`#play:${other}`)
+    expect(at()).toBe(`#play:${other}`)
     expect($('.back').hidden).toBe(false)
     expect($('.where').textContent).toContain(`2/${app.screens.length}`)
     $('.back').click()
     expect($('.back').hidden).toBe(true)
     w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight' }))
-    expect(w.location.hash).toBe(`#play:${app.screens[1]?.id}`)
+    expect(at()).toBe(`#play:${app.screens[1]?.id}`)
     w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }))
-    expect(w.location.hash).toBe(`#play:${app.screens[0]?.id}`)
+    expect(at()).toBe(`#play:${app.screens[0]?.id}`)
   })
 
   it('shell: on a phone the screen fills the window, with no device frame and no 总览', async () => {

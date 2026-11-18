@@ -9,7 +9,7 @@ import type { MessageKey } from '../../i18n/index.js'
 import type { Visitor } from '../previews/access.js'
 import { artifactBlobs, readBlob } from './blobs.js'
 import { injectBridge } from './html.js'
-import { currentShell, kitName, pluginKit } from './kit.js'
+import { currentKitFile, kitName, LATEST_KIT_FILES, pluginKit } from './kit.js'
 import { findArtifact } from './service.js'
 
 const MIME: Record<string, string> = {
@@ -102,13 +102,16 @@ export async function serveArtifact(
   const shell = l1 ? kitName(path) : null
   const kit = shell ? await pluginKit(ctx.db, a.pluginVersionId) : null
   if (shell === 'index.html' && kit?.has(shell)) {
-    const page = ((await currentShell(ctx.db, a)) ?? (kit.get(shell) as Buffer)).toString('utf8')
+    const page = ((await currentKitFile(ctx.db, a, shell)) ?? (kit.get(shell) as Buffer)).toString('utf8')
     // The shell shows which version it plays.
     const meta = `<script type="application/json" id="gg-meta">${JSON.stringify({ version: v.n })}</script>`
     const at = page.indexOf('</head>')
     return send(mimeOf(path), Buffer.from(at < 0 ? page : page.slice(0, at) + meta + page.slice(at)))
   }
-  const fromKit = shell && kit?.get(shell)
+  const fromKit =
+    shell &&
+    kit?.has(shell) &&
+    (LATEST_KIT_FILES.has(shell) ? await currentKitFile(ctx.db, a, shell) : kit.get(shell))
   if (fromKit) return send(mimeOf(path), fromKit)
   const file = v.files.find((f) => f.path === path)
   if (!file) return { status: 404, key: '文件不存在' }

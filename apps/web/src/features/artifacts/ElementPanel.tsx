@@ -162,6 +162,11 @@ export function ElementPanel({
             <span key={i}>{c}</span>
           ))}
         </div>
+        {el.when ? (
+          <p className="art-el__hint" data-testid="art-element-when">
+            {t('仅在状态 {when} 时显示', { when: el.when })}
+          </p>
+        ) : null}
 
         <h4 className="art-panel__label">{t('文字')}</h4>
         <Textarea

@@ -508,6 +508,41 @@ describe('gg-bridge', () => {
     })
   })
 
+  it('sends the state a link sets with nav; a state switch alone is the page’s own, not a miss', () => {
+    const s = screen(
+      PAGE.replace(
+        '<a data-gg-link="done"',
+        '<a data-gg-link="done" data-gg-set="order=paid role=guest"',
+      ).replace(
+        '<button data-gg-back>',
+        '<button id="sw" data-gg-set="order=refunded">退款</button><button data-gg-back>',
+      ),
+    )
+    s.click('[data-gg-link]')
+    expect(BridgeFromShell.parse(s.last())).toMatchObject({
+      type: 'nav',
+      screen: 'done',
+      set: { order: 'paid', role: 'guest' },
+    })
+    const before = s.posts.length
+    expect(s.click('#sw')).toBe(true)
+    expect(s.posts).toHaveLength(before)
+  })
+
+  it('leaves links out of the current state (gg-kit data-gg-off) out of the hotspots', () => {
+    const s = screen(PAGE.replace('<a data-gg-link="done"', '<a data-gg-link="done" data-gg-off'))
+    expect(BridgeFromShell.parse(s.posts[0]?.data)).toMatchObject({ type: 'ready', links: [] })
+  })
+
+  it('tells the element panel which state an element shows in, and keeps the state flag out of its snippet', () => {
+    const s = screen(PAGE.replace('<h1 id="t"', '<h1 id="t" data-gg-when="order=unpaid" data-gg-off'))
+    s.send({ type: 'mode', mode: 'edit' })
+    s.click('#t')
+    const sel = BridgeFromShell.parse(s.last())
+    expect(sel).toMatchObject({ type: 'select', when: 'order=unpaid' })
+    expect(sel.type === 'select' && sel.snippet).not.toContain('data-gg-off')
+  })
+
   it('stays silent without a parent origin', () => {
     expect(screen(PAGE, '').posts).toEqual([])
   })
