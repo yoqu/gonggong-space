@@ -70,6 +70,7 @@ import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
 import { FloatMenu, RenameField, ToolButton } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
+import { framePoint, onPinch } from './canvasZoom'
 import {
   dropSelectionContext,
   elementItem,
@@ -655,8 +656,16 @@ export function Canvas({
         setView((v) => zoomAt(v, v.z * Math.exp(-e.deltaY * 0.01), e.clientX - box.left, e.clientY - box.top))
       else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
     }
+    const pinch = onPinch(el, (f, cx, cy) => {
+      const box = el.getBoundingClientRect()
+      auto.current = false
+      setView((v) => zoomAt(v, v.z * f, cx - box.left, cy - box.top))
+    })
     el.addEventListener('wheel', wheel, { passive: false })
-    return () => el.removeEventListener('wheel', wheel)
+    return () => {
+      el.removeEventListener('wheel', wheel)
+      pinch()
+    }
   }, [])
 
   // The design-system and DESIGN.md cards are as tall as their content.
@@ -703,6 +712,14 @@ export function Canvas({
       if (h) setContent((c) => (c[m.file] === h ? c : { ...c, [m.file]: h }))
       const found = linkSpots(m.links)
       if (found) setSpots((s) => ({ ...s, [m.file]: found }))
+    } else if (m.type === 'zoom') {
+      // A zoom gesture over a live screen zooms the canvas about that point, not the browser page.
+      const f = frameEls.get(m.file)
+      const at = f && framePoint(f, m.x, m.y)
+      const box = plane.current?.getBoundingClientRect()
+      if (!at || !box) return
+      auto.current = false
+      setView((v) => zoomAt(v, v.z * m.factor, at.x - box.left, at.y - box.top))
     } else if (m.type === 'scroll') {
       setScrolls((s) => ({ ...s, [m.file]: { x: m.scrollX, y: m.scrollY } }))
     } else if (m.type === 'text-edit') {

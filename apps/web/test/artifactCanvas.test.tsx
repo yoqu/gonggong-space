@@ -869,6 +869,19 @@ describe('Stitch round 2 fixes', () => {
     expect(fitView([], { width: 100, height: 100 })).toBeNull()
   })
 
+  it('zooms the canvas, not the page, on a zoom gesture over a live screen', async () => {
+    sized(1200, 800)
+    mockApi(routes())
+    await renderTab()
+    key('0', { shiftKey: true, code: 'Digit0' })
+    expect(zoomText()).toBe('100%')
+    Object.defineProperty(screen.getByTitle('首页'), 'offsetWidth', { value: 390 })
+    post('screens/home.html', { type: 'zoom', factor: 0.5, x: 10, y: 10 })
+    expect(zoomText()).toBe('50%')
+    post('screens/home.html', { type: 'zoom', factor: -1, x: 10, y: 10 })
+    expect(zoomText()).toBe('50%')
+  })
+
   it('shows titles as icons zoomed far out, never wider than their node (R06)', async () => {
     sized(600, 400)
     mockApi(routes({ 'GET /artifacts/a1': artifact({ manifest: twelve }) }))

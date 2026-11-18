@@ -820,11 +820,9 @@ export const BridgeFromShell = z.discriminatedUnion('type', [
   }),
   /** Preview: an unmodified key (one character, Escape, ← or →; never Home) pressed outside a control that takes keys. */
   z.object({ ...FromScreen, type: z.literal('key'), key: z.string().max(20), repeat: z.boolean() }),
-  /**
-   * The screen scrolled (at most once per animation frame, the last position always sent): its `window.scrollX` / `scrollY`, in
-   * CSS pixels. Turns document coordinates into viewport ones; rects posted earlier in viewport coordinates move by
-   * the change.
-   */
+  /** ⌘/Ctrl + wheel, a pinch or ⌘+ / ⌘- over the screen: zoom the view by `factor` about its viewport's (x, y). */
+  z.object({ ...FromScreen, type: z.literal('zoom'), factor: z.number(), x: z.number(), y: z.number() }),
+  /** Scrolled (at most once a frame, the last always sent): `window.scrollX/Y`; viewport rects move by it. */
   z.object({ ...FromScreen, type: z.literal('scroll'), scrollX: z.number(), scrollY: z.number() }),
 ])
 export type BridgeFromShell = z.infer<typeof BridgeFromShell>

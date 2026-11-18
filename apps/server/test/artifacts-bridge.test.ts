@@ -362,6 +362,56 @@ describe('gg-bridge', () => {
     expect(calls).toEqual([{ left: 0, top: 420, behavior: 'instant' }])
   })
 
+  it('hands zoom gestures to the main site instead of letting the browser zoom the whole page', () => {
+    const s = screen()
+    const zooms = () => s.posts.map((p) => p.data).filter((d) => d.type === 'zoom')
+    const wheel = (o: Record<string, unknown>) => {
+      const e = new s.w.WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 30,
+        clientY: 40,
+        ...o,
+      })
+      s.w.document.body.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    // A pinch on a trackpad is a wheel with ctrlKey.
+    expect(wheel({ deltaY: 100, ctrlKey: true })).toBe(true)
+    expect(wheel({ deltaY: -50, metaKey: true })).toBe(true)
+    // Plain scrolling stays the page's.
+    expect(wheel({ deltaY: 100 })).toBe(false)
+    const key = (k: string) => {
+      const e = new s.w.KeyboardEvent('keydown', { key: k, metaKey: true, bubbles: true, cancelable: true })
+      s.w.document.body.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    Object.defineProperty(s.w, 'innerWidth', { value: 400 })
+    Object.defineProperty(s.w, 'innerHeight', { value: 800 })
+    expect(key('=')).toBe(true)
+    expect(key('-')).toBe(true)
+    expect(key('c')).toBe(false)
+    // Safari reports a pinch as gesture events.
+    const gesture = (type: string, scale: number) => {
+      const e = Object.assign(new s.w.Event(type, { bubbles: true, cancelable: true }), {
+        scale,
+        clientX: 5,
+        clientY: 6,
+      })
+      s.w.document.body.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    expect(gesture('gesturestart', 1)).toBe(true)
+    expect(gesture('gesturechange', 2)).toBe(true)
+    expect(zooms().map((d) => BridgeFromShell.parse(d))).toEqual([
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-1), x: 30, y: 40 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(0.5), x: 30, y: 40 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 1.25, x: 200, y: 400 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 0.8, x: 200, y: 400 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 2, x: 5, y: 6 },
+    ])
+  })
+
   it('passes unmodified keys to the main site in preview mode, not from fields, nor in edit mode', () => {
     const s = screen(`${PAGE.replace('</section>', '<input id="name"></section>')}`)
     const keys = () => s.posts.map((p) => p.data).filter((d) => d.type === 'key')

@@ -557,6 +557,37 @@
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && sidewaysBox(target(e))) return
     post({ type: 'key', key: e.key, repeat: e.repeat })
   })
+  // Zoom gestures over a framed screen would zoom the whole main-site page: the main site zooms its own view instead.
+  const zoom = (factor, x, y) => post({ type: 'zoom', factor, x, y })
+  window.addEventListener(
+    'wheel',
+    (e) => {
+      // A trackpad pinch is a wheel with ctrlKey.
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      zoom(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY)
+    },
+    { passive: false },
+  )
+  window.addEventListener('keydown', (e) => {
+    if (!e.metaKey && !e.ctrlKey) return
+    const factor = e.key === '=' || e.key === '+' ? 1.25 : e.key === '-' ? 0.8 : 0
+    if (!factor) return
+    e.preventDefault()
+    zoom(factor, window.innerWidth / 2, window.innerHeight / 2)
+  })
+  // Safari reports a pinch as gesture events, `scale` counted from the gesture's start.
+  let pinch = 1
+  window.addEventListener('gesturestart', (e) => {
+    e.preventDefault()
+    pinch = 1
+  })
+  window.addEventListener('gesturechange', (e) => {
+    e.preventDefault()
+    if (!(e.scale > 0)) return
+    zoom(e.scale / pinch, e.clientX, e.clientY)
+    pinch = e.scale
+  })
   document.documentElement.addEventListener('mouseleave', () => {
     if (picking()) setHover(null)
   })
