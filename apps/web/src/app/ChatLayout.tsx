@@ -3,7 +3,7 @@ import { t } from '../i18n'
 import { cx } from '../lib/cx'
 import { AppFrame } from '../ui'
 import { useEscape } from '../ui/overlay'
-import { FloatingChat } from './floatingChat'
+import { FloatingChat, ShowFloatingChat } from './floatingChat'
 import { MOBILE_MAX, RAIL_MIN, useViewportBelow, useViewportWidth } from './viewport'
 import { useWorkbench, type WorkbenchMode } from './workbench'
 
@@ -322,7 +322,11 @@ export function ChatLayout({
           // Kept mounted under the phone workbench so the draft and scroll survive 返回聊天.
           hidden={phoneBench || railTakesChat}
         >
-          <FloatingChat.Provider value={floating}>{children}</FloatingChat.Provider>
+          <FloatingChat.Provider value={floating}>
+            <ShowFloatingChat.Provider value={floating ? () => setOver(true) : null}>
+              {children}
+            </ShowFloatingChat.Provider>
+          </FloatingChat.Provider>
         </main>
       ) : null}
       {bench && !full && !railTakesChat ? (

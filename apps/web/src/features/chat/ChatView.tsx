@@ -1037,7 +1037,7 @@ export function ChatView({
               </div>
               <TaskDock runs={runList} progress={progressByRun} root={box} onLocate={locate} />
               <ProviderBanner group={group} />
-              <ComposerDock>
+              <ComposerDock groupId={group.id} runs={runList} messages={shown} onLocate={locate}>
                 <MessageComposer
                   group={group}
                   dropFiles={dropFiles}

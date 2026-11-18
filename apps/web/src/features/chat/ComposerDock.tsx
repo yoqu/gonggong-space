@@ -1,13 +1,53 @@
-import { type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { FloatingChat } from '../../app/floatingChat'
+import type { MessageDto, RunDto, RunStatus } from '@gonggong/protocol'
+import {
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { FloatingChat, ShowFloatingChat } from '../../app/floatingChat'
+import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
+import { stepText, toolTitle } from '../runs/mcp'
+import { usePending } from './pending'
+import { STATUS_LABEL } from './RunGraphics'
 import './composer-dock.css'
 
 type Phase = 'open' | 'opening' | 'closing' | 'closed'
 const KEY = 'gg.composerDock.hidden'
+const POS_KEY = 'gg.composerDock.orbPos'
 const ORB = 44
+const DRAG_THRESHOLD = 5
+const HUD_TTL_MS = 5000
+
+export interface OrbPos {
+  edge: 'bottom' | 'left' | 'right'
+  ratio: number
+}
+
+export interface ComposerHud {
+  tone?: 'sending' | 'sent' | 'running' | 'attention' | 'done'
+  text: string
+  onClick?: () => void
+}
+
+const AWAITING: RunStatus[] = ['awaiting_approval', 'awaiting_answer']
+const ACTIVE: RunStatus[] = ['running', 'queued', 'offline_wait']
+
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max)
+const clamp01 = (v: number) => clamp(v, 0, 1)
+
+function clipText(raw: string, max = 28): string {
+  const one = raw.replace(/\s+/g, ' ').trim()
+  if (!one) return '…'
+  return one.length > max ? `${one.slice(0, max)}…` : one
+}
 
 /** A spring token as WAAPI timing: `--spring-bouncy: 558ms linear(…)`; 0 under reduced motion. */
 function spring(name: string): { duration: number; easing: string } {
@@ -25,17 +65,166 @@ const stored = () => {
   }
 }
 
+const storedPos = (): OrbPos => {
+  try {
+    const raw = localStorage.getItem(POS_KEY)
+    if (!raw) return { edge: 'bottom', ratio: 0.5 }
+    const parsed = JSON.parse(raw) as Partial<OrbPos>
+    if (
+      (parsed.edge === 'bottom' || parsed.edge === 'left' || parsed.edge === 'right') &&
+      typeof parsed.ratio === 'number' &&
+      Number.isFinite(parsed.ratio)
+    ) {
+      return { edge: parsed.edge, ratio: clamp01(parsed.ratio) }
+    }
+  } catch {
+    // Fall back to default bottom-center when storage is unavailable or corrupted.
+  }
+  return { edge: 'bottom', ratio: 0.5 }
+}
+
+type FlashHud = { kind: 'sent'; text: string } | { kind: 'done'; name: string; text: string }
+
+type HudMessage = Pick<MessageDto, 'id' | 'kind' | 'authorName' | 'body'>
+
+function useAutoHud(
+  floating: boolean,
+  groupId?: string,
+  runs?: RunDto[],
+  messages?: HudMessage[],
+  onLocate?: (run: RunDto, pendingId?: string) => void,
+): ComposerHud | null {
+  const bots = useWorkspace((s) => s.bots)
+  const sending = usePending((s) =>
+    groupId
+      ? s.list.find((p) => p.groupId === groupId && !p.req.threadRootId && p.status === 'sending')
+      : undefined,
+  )
+  const [flash, setFlash] = useState<FlashHud | null>(null)
+  const lastMsgId = useRef<string | null | undefined>(undefined)
+
+  useEffect(() => {
+    const last = messages?.at(-1)
+    if (!floating) {
+      lastMsgId.current = last?.id ?? null
+      setFlash(null)
+      return
+    }
+    if (lastMsgId.current === undefined) {
+      lastMsgId.current = last?.id ?? null
+      return
+    }
+    if (!last || last.id === lastMsgId.current) return
+    lastMsgId.current = last.id
+    if (last.kind === 'user') {
+      setFlash({ kind: 'sent', text: clipText(last.body) })
+    } else if (last.kind === 'bot') {
+      setFlash({ kind: 'done', name: last.authorName, text: clipText(last.body) })
+    }
+  }, [floating, messages])
+
+  useEffect(() => {
+    if (!flash) return
+    const timer = setTimeout(() => setFlash(null), HUD_TTL_MS)
+    return () => clearTimeout(timer)
+  }, [flash])
+
+  return useMemo(() => {
+    if (!floating) return null
+    const botName = (botId: string) => bots.find((b) => b.id === botId)?.name ?? 'Bot'
+
+    if (runs?.length) {
+      const attentionRun = runs.find((r) => AWAITING.includes(r.status))
+      if (attentionRun) {
+        const name = botName(attentionRun.botId)
+        const approval = attentionRun.approvals.find((a) => a.status === 'pending')
+        const question = attentionRun.questions.find((q) => q.status === 'pending')
+        const kind = approval ? t('待审批') : t('待回答')
+        const title = clipText(
+          approval?.title ?? question?.questions[0]?.title ?? STATUS_LABEL[attentionRun.status],
+        )
+        return {
+          tone: 'attention',
+          text: t('{kind}：{text}（{name}）', { kind, text: title, name }),
+          onClick: () => onLocate?.(attentionRun, approval?.id ?? question?.id),
+        }
+      }
+
+      const activeRun = runs.find((r) => ACTIVE.includes(r.status))
+      if (activeRun) {
+        const name = botName(activeRun.botId)
+        const step =
+          activeRun.status === 'running'
+            ? toolTitle(stepText(activeRun)) || STATUS_LABEL.running
+            : STATUS_LABEL[activeRun.status]
+        return {
+          tone: 'running',
+          text:
+            flash?.kind === 'sent'
+              ? t('已发送「{text}」 · {name}：{step}', { text: flash.text, name, step })
+              : t('{name}：{step}', { name, step }),
+          onClick: () => onLocate?.(activeRun),
+        }
+      }
+    }
+
+    if (sending) {
+      return {
+        tone: 'sending',
+        text: t('正在发送「{text}」…', { text: clipText(sending.req.body) }),
+      }
+    }
+
+    if (flash?.kind === 'sent') {
+      return {
+        tone: 'sent',
+        text: t('已发送「{text}」', { text: flash.text }),
+      }
+    }
+
+    if (flash?.kind === 'done') {
+      return {
+        tone: 'done',
+        text: t('{name} 已回复：「{text}」', { name: flash.name, text: flash.text }),
+      }
+    }
+
+    return null
+  }, [floating, runs, bots, sending, flash, onLocate])
+}
+
 /**
  * The composer's place. Normally it stays in the chat column (layout-neutral); while the workbench is 全屏 it floats
- * over the workbench as a glass bar, and hides into a glass orb that grows back like a drop of liquid (⌘J both ways).
+ * over the workbench as a glass bar, and hides into a draggable edge-snapping glass orb (⌘J both ways).
  */
-export function ComposerDock({ children }: { children: ReactNode }) {
+export function ComposerDock({
+  children,
+  groupId,
+  runs,
+  messages,
+  onLocate,
+  hud: customHud,
+}: {
+  children: ReactNode
+  groupId?: string
+  runs?: RunDto[]
+  messages?: HudMessage[]
+  onLocate?: (run: RunDto, pendingId?: string) => void
+  hud?: ComposerHud | null
+}) {
   const floating = useContext(FloatingChat)
+  const showChat = useContext(ShowFloatingChat)
   const [phase, setPhase] = useState<Phase>(() => (stored() ? 'closed' : 'open'))
-  const [at, setAt] = useState<{ left: number; width: number; bottom: number } | null>(null)
+  const [at, setAt] = useState<{ left: number; width: number; height: number; bottom: number } | null>(null)
+  const [orbPos, setOrbPos] = useState<OrbPos>(storedPos)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const shell = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const from = useRef<{ w: number; h: number } | null>(null)
+  const dragged = useRef(false)
+
+  const autoHud = useAutoHud(floating, groupId, runs, messages, onLocate)
+  const hud = customHud !== undefined ? customHud : autoHud
 
   // Over the workbench: centred on it, clear of its edges.
   useLayoutEffect(() => {
@@ -47,6 +236,7 @@ export function ComposerDock({ children }: { children: ReactNode }) {
       setAt({
         left: r.left + 24,
         width: Math.max(r.width - 48, 0),
+        height: Math.max(r.height - 32, 0),
         bottom: window.innerHeight - r.bottom + 16,
       })
     }
@@ -60,11 +250,32 @@ export function ComposerDock({ children }: { children: ReactNode }) {
     }
   }, [floating])
 
+  const travelW = Math.max((at?.width || window.innerWidth - 48 || 720) - ORB, 200)
+  const travelH = Math.max((at?.height || window.innerHeight - 32 || 500) - ORB, 200)
+  const dockedOffset = useMemo(() => {
+    if (orbPos.edge === 'left') {
+      return { x: Math.round(-travelW / 2), y: Math.round(-travelH * (1 - clamp01(orbPos.ratio))) }
+    }
+    if (orbPos.edge === 'right') {
+      return { x: Math.round(travelW / 2), y: Math.round(-travelH * (1 - clamp01(orbPos.ratio))) }
+    }
+    return { x: Math.round((clamp01(orbPos.ratio) - 0.5) * travelW), y: 0 }
+  }, [orbPos, travelW, travelH])
+  const activeOffset = dragOffset ?? dockedOffset
+
   const persist = (hidden: boolean) => {
     try {
       localStorage.setItem(KEY, hidden ? '1' : '0')
     } catch {
       // Storage unavailable: the choice lasts for this page.
+    }
+  }
+
+  const persistPos = (pos: OrbPos) => {
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify(pos))
+    } catch {
+      // Storage unavailable: position lasts for this page.
     }
   }
 
@@ -80,16 +291,21 @@ export function ComposerDock({ children }: { children: ReactNode }) {
     if (!duration || typeof s.animate !== 'function') return setPhase('closed')
     const r = s.getBoundingClientRect()
     from.current = { w: r.width, h: r.height }
-    // The focus ring would ride the shrinking drop down to the orb.
     if (s.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
     setPhase('closing')
   }
 
-  // Grow (orb → stretch up like a drop → bar) and shrink (bar → narrow drop → orb), measured before paint.
+  // Pure compositor + geometry FLIP transition without per-frame blur filter or 1-frame cancel flash.
   useLayoutEffect(() => {
     const s = shell.current
     const b = body.current
     if (!s || !b) return
+    if (phase === 'open' || phase === 'closed') {
+      for (const a of s.getAnimations?.() ?? []) a.cancel()
+      for (const a of b.getAnimations?.() ?? []) a.cancel()
+      return
+    }
+    const { x: ox, y: oy } = dockedOffset
     if (phase === 'opening') {
       const { duration, easing } = spring('--spring-bouncy')
       const r = s.getBoundingClientRect()
@@ -97,36 +313,34 @@ export function ComposerDock({ children }: { children: ReactNode }) {
       const radius = getComputedStyle(s).borderTopLeftRadius
       const grow = s.animate(
         [
-          { width: `${ORB}px`, height: `${ORB}px`, borderRadius: `${ORB / 2}px`, transform: 'translateY(0)' },
           {
-            offset: 0.2,
-            width: `${ORB - 6}px`,
-            height: `${ORB + 18}px`,
+            width: `${ORB}px`,
+            height: `${ORB}px`,
             borderRadius: `${ORB / 2}px`,
-            transform: 'translateY(-8px)',
+            transform: `translate3d(${ox}px, ${oy}px, 0)`,
           },
           {
             offset: 0.5,
-            width: `${Math.max(r.width * 0.5, ORB)}px`,
+            width: `${Math.max(r.width * 0.55, ORB)}px`,
             height: `${r.height}px`,
             borderRadius: radius,
-            transform: 'translateY(-3px)',
+            transform: `translate3d(${Math.round(ox * 0.2)}px, ${Math.round(oy * 0.2 - 3)}px, 0)`,
           },
           {
             width: `${r.width}px`,
             height: `${r.height}px`,
             borderRadius: radius,
-            transform: 'translateY(0)',
+            transform: 'translate3d(0, 0, 0)',
           },
         ],
-        { duration: duration * 1.1, easing },
+        { duration, easing },
       )
       b.animate(
         [
-          { opacity: 0, filter: 'blur(8px)', transform: 'translateY(8px) scale(0.98)' },
-          { opacity: 1, filter: 'blur(0)', transform: 'none' },
+          { opacity: 0, transform: 'translateY(6px) scale(0.98)' },
+          { opacity: 1, transform: 'none' },
         ],
-        { duration: duration * 0.55, delay: duration * 0.35, easing, fill: 'backwards' },
+        { duration: duration * 0.5, delay: duration * 0.25, easing, fill: 'backwards' },
       )
       grow.onfinish = () => {
         setPhase('open')
@@ -140,43 +354,42 @@ export function ComposerDock({ children }: { children: ReactNode }) {
       const radius = getComputedStyle(s).borderTopLeftRadius
       b.animate(
         [
-          { opacity: 1, filter: 'blur(0)' },
-          { opacity: 0, filter: 'blur(6px)' },
+          { opacity: 1, transform: 'scale(1)' },
+          { opacity: 0, transform: 'scale(0.96)' },
         ],
         {
-          duration: duration * 0.3,
+          duration: duration * 0.25,
           easing: 'ease-out',
           fill: 'forwards',
         },
       )
       const shrink = s.animate(
         [
-          { width: `${w}px`, height: `${h}px`, borderRadius: radius, transform: 'translateY(0)' },
           {
-            offset: 0.45,
-            width: `${Math.max(w * 0.35, ORB)}px`,
-            height: `${Math.max(h * 0.8, ORB)}px`,
+            width: `${w}px`,
+            height: `${h}px`,
             borderRadius: radius,
-            transform: 'translateY(0)',
+            transform: 'translate3d(0, 0, 0)',
           },
           {
-            offset: 0.75,
-            width: `${ORB - 6}px`,
-            height: `${ORB + 14}px`,
-            borderRadius: `${ORB / 2}px`,
-            transform: 'translateY(-6px)',
+            offset: 0.55,
+            width: `${Math.max(w * 0.32, ORB)}px`,
+            height: `${Math.max(h * 0.72, ORB)}px`,
+            borderRadius: radius,
+            transform: `translate3d(${Math.round(ox * 0.55)}px, ${Math.round(oy * 0.55)}px, 0)`,
           },
-          { width: `${ORB}px`, height: `${ORB}px`, borderRadius: `${ORB / 2}px`, transform: 'translateY(0)' },
+          {
+            width: `${ORB}px`,
+            height: `${ORB}px`,
+            borderRadius: `${ORB / 2}px`,
+            transform: `translate3d(${ox}px, ${oy}px, 0)`,
+          },
         ],
         { duration, easing, fill: 'forwards' },
       )
-      shrink.onfinish = () => {
-        setPhase('closed')
-        shrink.cancel()
-        for (const a of b.getAnimations()) a.cancel()
-      }
+      shrink.onfinish = () => setPhase('closed')
     }
-  }, [phase])
+  }, [phase, dockedOffset])
 
   // ⌘J hides and shows it while floating.
   useEffect(() => {
@@ -191,22 +404,125 @@ export function ComposerDock({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const onOrbPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    const startX = e.clientX
+    const startY = e.clientY
+    const startOx = dockedOffset.x
+    const startOy = dockedOffset.y
+    let curOx = startOx
+    let curOy = startOy
+    let moved = false
+    dragged.current = false
+
+    const onMove = (ev: globalThis.PointerEvent) => {
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      if (!moved && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+        moved = true
+        dragged.current = true
+      }
+      if (!moved) return
+      curOx = Math.round(clamp(startOx + dx, -travelW / 2, travelW / 2))
+      curOy = Math.round(clamp(startOy + dy, -travelH, 0))
+      setDragOffset({ x: curOx, y: curOy })
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      if (!moved) return
+      const dLeft = curOx + travelW / 2
+      const dRight = travelW / 2 - curOx
+      const dBottom = -curOy
+      let nextPos: OrbPos
+      if (dBottom <= dLeft && dBottom <= dRight) {
+        nextPos = { edge: 'bottom', ratio: travelW > 0 ? clamp01((curOx + travelW / 2) / travelW) : 0.5 }
+      } else if (dLeft <= dRight) {
+        nextPos = { edge: 'left', ratio: travelH > 0 ? clamp01(1 + curOy / travelH) : 1 }
+      } else {
+        nextPos = { edge: 'right', ratio: travelH > 0 ? clamp01(1 + curOy / travelH) : 1 }
+      }
+      setOrbPos(nextPos)
+      persistPos(nextPos)
+      setDragOffset(null)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
+  const onOrbClick = () => {
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
+    toggle()
+  }
+
   const closed = floating && phase === 'closed'
+  const orbTransform =
+    closed && (activeOffset.x !== 0 || activeOffset.y !== 0)
+      ? `translate3d(${activeOffset.x}px, ${activeOffset.y}px, 0)`
+      : undefined
+
   return (
     <div
       className={cx('cdock', floating && 'cdock--float')}
       data-phase={floating ? phase : undefined}
       style={floating && at ? { left: at.left, width: at.width, bottom: at.bottom } : undefined}
     >
-      <div ref={shell} className={cx('cdock__shell', closed && 'cdock__shell--orb')}>
+      {floating && hud && phase !== 'closing' ? (
+        <button
+          type="button"
+          className="cdock__hud"
+          data-testid="cdock-hud"
+          data-tone={hud.tone ?? 'sent'}
+          style={orbTransform ? { transform: orbTransform } : undefined}
+          onClick={() => {
+            hud.onClick?.()
+            showChat?.()
+          }}
+        >
+          <span className="cdock__hud-dot" aria-hidden="true" />
+          <span className="cdock__hud-text">{hud.text}</span>
+          <span className="cdock__hud-action">
+            <span>{t('展开聊天')}</span>
+            <Icon name="chevron-right" size={12} />
+          </span>
+        </button>
+      ) : null}
+      <div
+        ref={shell}
+        className={cx('cdock__shell', closed && 'cdock__shell--orb')}
+        data-edge={closed ? orbPos.edge : undefined}
+        data-dragging={closed && dragOffset ? '' : undefined}
+        style={orbTransform ? { transform: orbTransform } : undefined}
+      >
         {floating && (phase === 'open' || phase === 'opening') ? (
-          <button
-            type="button"
-            className="cdock__grip"
-            aria-label={t('收起输入框')}
-            title={t('收起输入框 ⌘J')}
-            onClick={toggle}
-          />
+          <>
+            <span
+              className="cdock__grip"
+              data-testid="cdock-grip"
+              aria-hidden="true"
+              title={t('收起输入框 ⌘J')}
+              onClick={toggle}
+            />
+            <button
+              type="button"
+              className="cdock__hide"
+              aria-label={t('收起输入框')}
+              title={t('收起输入框 ⌘J')}
+              onClick={toggle}
+            >
+              <Icon name="chevron-down" size={12} />
+              <span>{t('收起')}</span>
+              <kbd className="cdock__kbd">⌘J</kbd>
+            </button>
+          </>
         ) : null}
         <div ref={body} className="cdock__body" hidden={closed} inert={closed || undefined}>
           {children}
@@ -217,9 +533,13 @@ export function ComposerDock({ children }: { children: ReactNode }) {
             className="cdock__orb"
             aria-label={t('展开输入框')}
             title={t('展开输入框 ⌘J')}
-            onClick={toggle}
+            onPointerDown={onOrbPointerDown}
+            onClick={onOrbClick}
           >
             <Icon name="message" size={18} />
+            {hud ? (
+              <span className="cdock__orb-badge" data-tone={hud.tone ?? 'sent'} aria-hidden="true" />
+            ) : null}
           </button>
         ) : null}
       </div>
