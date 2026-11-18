@@ -106,3 +106,19 @@
 - P3 打开群时对离线 Bot 逐个请求 `git/refresh`，控制台 3 条 409「离线，无法读取 Git 信息」→ 前端对离线 Bot 不发刷新（验收：全离线群打开时无 409）。
 
 未走查：运行页「上下文」实时分项（需真实运行中的 daemon 与 Agent，按记忆 real-agent-test-isolation 不在本机跑真实 Agent）。
+
+## 11-18 第 1 轮（原型编辑器页面规则与标注模式、画布链接卡片、运行卡「计划」块、子 agent 泳道与聚合栏、Bot 审批设置、建群飞书开关；桌面 1440 + 深色 + 390 触屏）
+
+已交共字君修复（5 项 P1）：
+- P1 原型预览「标注」模式合并角标（`3+1` / `5+2`）按 `]` / `→` 切换规则陷入死循环，且关侧栏时弹出合并列表而非当前选中规则气泡：合并角标按钮仅带 `data-testid="proto-mark-${first + 1}"`（无组内第 2 条的按钮节点），推进到组内第 2 条（`selected = 3`）后焦点仍留在 `proto-mark-3`，再按 `]` 时 `focusedRule()` 读回 `2` 并永远切到 `2 + 1 = 3`；同时代码 `.focus()` 触发 `onFocus={() => hoverOn(ids[0])}` 导致关侧栏时显示合并列表而非选中规则气泡（`artifacts/previewMarks.tsx`）→ 按钮补 `data-rule-ids` 按组查找按钮、焦点已在当前选中规则所属合并角标上时以 `selected` 为起点推进、键盘推进期间不误触 `hoverOn`（验收：含合并角标页连续按 `]` 可遍历全部规则不卡死，关侧栏按 `]` 逐条弹出对应规则气泡）。
+- P1 原型画布页面规则把锚点缺失的元素规则当成整页规则画在屏幕左上角、新建整页规则草稿角标偏移叠字、同元素多条规则角标完全重叠、侧栏不标「元素已不存在」：`canvasRules.tsx` 中 `place(spot?.rect ?? null)` 在 `r.anchor` 非空但 `!spot` 时也走 `pageAt(n, k++)` 画到左上角；草稿角标缺 `art-rule-mark--page` 导致 `-50%` 偏移盖住编号 `1`；同锚点多条规则坐标相同完全重叠；`RulesPanel.tsx` 未渲染预览侧已有的 `<Tag tone="red">{t('元素已不存在')}</Tag>` → 仅 `!r.anchor` 排整页角标、草稿无 `rect` 时补 `art-rule-mark--page`、同锚点角标横向错开、`RulesPanel` 标红「元素已不存在」（验收：删掉锚点元素后画布左上角无假角标且侧栏显示红标，新建整页规则草稿角标不叠字，同元素多条规则角标并排可见）。
+- P1 原型预览「标注」面板与窄栏排版 4 处破版：`.art-panel__head h3`（`flex: 1`）与 `NotesPanel` 头部 `.art-bar__fill`（`flex: 1`）双弹性占位把 `?` 快捷键按钮顶在面板正中（`preview-marks.css`）；`.proto-note__shared` 与 `.art-shared__body` 内 Markdown 表格缺横向滚动被挤成一字一行（`preview-marks.css`、`rules.css`）；`@container (max-width: 480px)` 下 `.proto-bar__mode` 居中且无裁剪，左溢盖住返回键（`prototype.css`）；`.art-tip` 的 `max-width: min(420px, calc(100% - 320px))` 在 390px 宽屏下仅剩 70px 挤成竖条（`artifacts.css`）→ 标注面板标题 `flex: none`、共享规则表格 `width: max-content; min-width: 100%` 横向滚动、窄栏 `.proto-bar__mode` 左对齐裁剪、窄屏隐藏底部 `.art-tip`（验收：`?` 紧贴标题右侧，共享规则表格不折成单字列，390px 顶栏返回键不被遮挡且画布无竖条气泡）。
+- P1 子 agent 底部聚合栏（`runs/ActivityDock.tsx`、`process.css`）胶囊耗时穿出右边框、动作被挤成半字：`.act-chip` 缺 `overflow: hidden` 且 `.act-chip__name` 为 `flex: none`，窄屏与分栏下耗时穿出胶囊圆角边框；同时展示 `subagents` 与 `tasks` 双计数时 3 枚胶囊把 `.act-chip__doing` 挤剩 6px → `.act-chip` 加 `overflow: hidden`、`.act-chip__name` 允许收缩省略、双计数时最多展示 2 枚胶囊（验收：390px 窄屏与桌面分栏下胶囊文字不穿出边框，动作摘要可读）。
+- P1 Bot 详情 › 权限与运行配置在电脑离线时误报「客户端版本较旧，升级客户端后生效」（`bots/BotSettings.tsx`）：电脑离线时 `machine.features` 为空数组，组件未判断 `machine.online` 即报版本过旧 → 仅 `machine.online && !machine.features.includes(...)` 时显示旧版提示（验收：离线电脑下不显示「客户端版本较旧」黄条）。
+
+- P2 运行卡与运行页「计划」块展开全量后无法收起已完成项：计划超 5 项时点「已完成 N 项」或「还有 M 项」后 `all` 单向变 `true`（`chat/RunPlan.tsx`），运行页顶部固定面板（`panel={true}`，头部不可折叠）一旦展开会常驻占用最高 `40vh` 挤压下方过程列表 → `all` 为真且原本满足折叠条件时，列表末尾提供「收起已完成（{n} 项）」按钮还原折叠态（验收：长计划点「已完成 N 项」展开后，可再点「收起已完成」回到只看当前进度）。
+- P2 原型预览窄栏顶栏规则计数胶囊 `7 · 2` 丢失「待确认」语义与橙色警示：容器宽度 ≤ 720px 时 `.art-title__rules` 隐藏，「标注」按钮内 `.proto-marks-toggle__count` 把总数与待确认数拼成蓝底白字 `7 · 2`（`artifacts/previewMarks.tsx`、`preview-marks.css`），像版本号 `7.2` 且看不出有待确认项 → 有待确认时胶囊拆为总数 + 橙色圆点/橙底待确认数，并设 `title="规则 7 · 待确认 2"`（验收：窄栏下有待确认规则时「标注」按钮可见橙色待确认标识）。
+- P2 原型画布极小缩放（如手机总览 5%–19%）下 18px 规则角标盖满屏幕缩略图：画布缩小看全局时屏幕节点仅几十像素宽，而 `.art-rule-mark` 固定 18×18px（`artifacts/canvasRules.tsx`），多条规则角标把整块屏幕画面完全遮住 → `view.z < 0.35` 时隐藏屏幕内单元素角标（仅保留屏幕标题旁「规则 N · 待确认 M」徽标）（验收：画布缩放 < 35% 时屏幕缩略图不被角标遮挡，放大后角标显现）。
+- P3 添加链接弹窗（`artifacts/AddLinkDialog.tsx`）细节：「显示方式」双行单选项的圆点垂直居中于两行文字之间而非对齐首行标题；初始空表单时「添加到画布」按钮置灰但无必填标识或原因提示 → 多行 Radio 项圆点与首行文字对齐；「链接地址」「标题」标签加必填说明或按钮旁提示缺项（验收：弹窗内单选圆点与粗体标题同行对齐，空态可知需填链接与标题）。
+- P3 Bot 详情 › 权限「帮我审批」说明段落在开启内置审核时过密（`bots/ApprovalFields.tsx`）：`MODE_HINT.review`、`FLOOR`、`BUILTIN_HINT` 三段共 140 多字塞在同一 `FormRow` 的 `hint` 里，且 `BUILTIN_HINT` 未包块级元素与上一段紧贴 → `BUILTIN_HINT` 独立成带上下间距的段落或浅色提示条（验收：Claude/Codex 在线电脑下「帮我审批」说明分段清晰、段间有留白）。
+- P3 发起会话弹窗「同时创建飞书群」未绑定飞书账号时无快捷跳转（`chat/NewGroupDialog.tsx`）：开关置灰时副标题仅纯文本写「先在设置 › 账户中绑定飞书账号」，用户需先关建群弹窗再自己找设置入口 → 副标题后附「去绑定 ›」按钮直接打开个人设置 › 账户页（验收：未绑定飞书时点击副标题入口可直达账户设置）。
