@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.25 — 2026-11-18
+
+- 修复 Claude 独立配置目录的模型切换与官方登录识别，刷新模型时重新探测各配置目录 / Fix model switching and official sign-in detection for separate Claude config directories, and reprobe those directories when refreshing models
+- 「帮我审批」改用规则判断，不再使用 AI 预审 / Assisted approvals now use rules instead of AI pre-screening
+- 统一 `gg` 和 `gg-cast` 的中英文术语与提示 / Standardize Chinese and English terminology and prompts in `gg` and `gg-cast`
+
 ## v0.4.24 — 2026-11-17
 
 - daemon 上报主 Agent 的 ACP 计划，运行时可随计划更新 / The daemon reports the main agent's ACP plan as it changes
