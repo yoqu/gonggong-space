@@ -70,7 +70,7 @@ import { type CommandEntry, CommandMenu, entriesOf } from './CommandMenu'
 import { FloatMenu, RenameField, ToolButton } from './canvasControls'
 import { LINK_CMD, useCanvasLinks } from './canvasLinks'
 import { useCanvasRules } from './canvasRules'
-import { framePoint, onPinch } from './canvasZoom'
+import { framePoint, onPinch, wheelZoomFactor } from './canvasZoom'
 import {
   dropSelectionContext,
   elementItem,
@@ -655,7 +655,7 @@ export function Canvas({
       // ctrlKey is also how trackpads report a pinch.
       auto.current = false
       if (e.ctrlKey || e.metaKey)
-        setView((v) => zoomAt(v, v.z * Math.exp(-e.deltaY * 0.01), e.clientX - box.left, e.clientY - box.top))
+        setView((v) => zoomAt(v, v.z * wheelZoomFactor(e), e.clientX - box.left, e.clientY - box.top))
       else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
     }
     const pinch = onPinch(el, (f, cx, cy) => {

@@ -417,6 +417,7 @@ describe('gg-bridge', () => {
     // A pinch on a trackpad is a wheel with ctrlKey.
     expect(wheel({ deltaY: 100, ctrlKey: true })).toBe(true)
     expect(wheel({ deltaY: -50, metaKey: true })).toBe(true)
+    expect(wheel({ deltaY: 4, ctrlKey: true })).toBe(true)
     // Plain scrolling stays the page's.
     expect(wheel({ deltaY: 100 })).toBe(false)
     const key = (k: string) => {
@@ -442,8 +443,9 @@ describe('gg-bridge', () => {
     expect(gesture('gesturestart', 1)).toBe(true)
     expect(gesture('gesturechange', 2)).toBe(true)
     expect(zooms().map((d) => BridgeFromShell.parse(d))).toEqual([
-      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-1), x: 30, y: 40 },
-      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(0.5), x: 30, y: 40 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-0.1), x: 30, y: 40 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(0.1), x: 30, y: 40 },
+      { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: Math.exp(-0.04), x: 30, y: 40 },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 1.25, x: 200, y: 400 },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 0.8, x: 200, y: 400 },
       { source: 'gg-bridge', type: 'zoom', file: 'screens/home.html', factor: 2, x: 5, y: 6 },

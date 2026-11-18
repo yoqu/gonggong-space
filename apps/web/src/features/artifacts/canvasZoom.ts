@@ -1,3 +1,13 @@
+/** One wheel event zooms by at most this much in log scale: a mouse notch (|deltaY| ≈ 100) was a 2.7× jump. */
+const WHEEL_ZOOM_MAX = 0.1
+const LINE_PX = 16
+
+/** The zoom factor for a ⌘/Ctrl wheel or trackpad pinch: smooth for small pinch deltas, capped for mouse notches. */
+export function wheelZoomFactor(e: Pick<WheelEvent, 'deltaY' | 'deltaMode'>) {
+  const dy = e.deltaMode === 1 ? e.deltaY * LINE_PX : e.deltaY
+  return Math.exp(Math.max(-WHEEL_ZOOM_MAX, Math.min(WHEEL_ZOOM_MAX, -dy * 0.01)))
+}
+
 /**
  * Safari reports a trackpad pinch as gesture events (`scale` counted from the gesture's start), not as a wheel with
  * ctrlKey: they zoom the canvas by the step since the last one, never the page. Returns the cleanup.
