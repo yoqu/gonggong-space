@@ -717,6 +717,18 @@ describe('bot detail', () => {
     expect(within(detail).queryByText(/的客户端版本较旧/)).toBeNull()
   })
 
+  it('does not blame the client version while the machine is offline', async () => {
+    routes['GET /api/bots'] = () => [bot({ aiReview: true })]
+    routes['GET /api/machines'] = () => [{ ...mbp, online: false, features: [] }]
+    renderAt('/', wang)
+    const detail = await openMyBot()
+    openTab(detail, '权限')
+    expect(within(detail).getByRole('radio', { name: '帮我审批' }).getAttribute('aria-checked')).toBe('true')
+    expect(within(detail).queryByText(/的客户端版本较旧/)).toBeNull()
+    openTab(detail, '运行配置')
+    expect(within(detail).queryByText(/版本过旧/)).toBeNull()
+  })
+
   it('says nothing about the client once it has 帮我审批 rules', async () => {
     routes['GET /api/bots'] = () => [bot({ aiReview: true })]
     routes['GET /api/machines'] = () => [{ ...mbp, features: ['approvalGates'] }]

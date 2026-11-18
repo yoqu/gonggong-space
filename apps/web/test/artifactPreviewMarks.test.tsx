@@ -1028,6 +1028,63 @@ describe('标注 round 8', () => {
   })
 })
 
+describe('标注 round 9', () => {
+  // 1 and 5 share one element: one `1+1` mark for both.
+  const allAnchored = () =>
+    fromScreen({
+      type: 'ready',
+      width: 390,
+      height: 1200,
+      anchors: [
+        { anchor: 'ben-zhou-gong-du', ggId: '12', rect: { x: 20, y: 100, w: 80, h: 40 } },
+        { anchor: 'lun-bo', ggId: '30', rect: { x: 20, y: 300, w: 80, h: 40 } },
+        { anchor: 'jiu-an-niu', ggId: '40', rect: { x: 20, y: 500, w: 80, h: 40 } },
+      ],
+    })
+  const on = (n: number) =>
+    within(panel()).getByTestId(`proto-note-${n}`).className.includes('proto-note--on')
+
+  it('walks through a group mark’s rules with the focus on the marks, never stuck on it', async () => {
+    mockApi(routes(MORE_RULES))
+    await openPreview()
+    allAnchored()
+    press('n')
+    act(() => mark(3).focus())
+    press('ArrowRight')
+    expect(on(4)).toBe(true)
+    press('ArrowRight')
+    expect(on(5)).toBe(true)
+    expect(document.activeElement).toBe(mark(1))
+    press('ArrowRight')
+    expect(on(1)).toBe(true)
+    press('ArrowRight')
+    expect(on(2)).toBe(true)
+  })
+
+  it('walks every rule with ] and the panel closed, each in its own bubble (not the group’s list)', async () => {
+    mockApi(routes(MORE_RULES))
+    await openPreview()
+    allAnchored()
+    press('n')
+    press('Escape')
+    const words = [
+      '未登录时点击先去',
+      '家庭成员能否看到书单',
+      '自动轮播 4 秒',
+      '已下线',
+      '满员后显示候补',
+      '未登录时点击先去',
+    ]
+    for (const w of words) {
+      press(']')
+      const bubble = document.querySelector('.proto-bubble') as HTMLElement
+      expect(bubble.textContent).toContain(w)
+      expect(bubble.querySelector('.proto-bubble__group')).toBeNull()
+      expect((document.activeElement as HTMLElement).getAttribute('aria-pressed')).toBe('true')
+    }
+  })
+})
+
 describe('screen transitions', () => {
   it('slides the last screen’s live page out under the new one, which shows its screenshot until it loads', async () => {
     mockApi(routes())

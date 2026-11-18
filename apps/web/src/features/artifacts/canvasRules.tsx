@@ -30,6 +30,8 @@ import './rules.css'
 const MARKS_KEY = 'gg.art.ruleMarks'
 /** Whole-page marks sit in a row at the screen's top left, this far apart (px). */
 const PAGE_MARK_STEP = 22
+/** Marks of rules on one element sit in a row, this far apart (px). */
+const SAME_ANCHOR_STEP = 16
 
 type RulesPanelKind = 'rules' | 'shared'
 
@@ -250,18 +252,23 @@ export function useCanvasRules(o: {
       if (n.kind !== 'screen') continue
       const rules = show ? (data.pages[n.id]?.rules ?? []) : []
       let k = 0
-      const place = (rect: Rect | null) => {
-        if (!rect) return pageAt(n, k++)
+      const onAnchor = new Map<string, number>()
+      const place = (rect: Rect, shift = 0) => {
         const at = scrolledBy(rect, o.scrolls[n.file] ?? NO_SCROLL)
         if (at.y + at.h < 0 || at.y > n.h) return null
         const b = elementBox(n, at, view)
-        return { left: b.left + b.width, top: b.top }
+        return { left: b.left + b.width + shift * SAME_ANCHOR_STEP, top: b.top }
       }
       for (const [i, r] of rules.entries()) {
         const spot = spotOf(n.file, r.anchor)
-        // Not showing (not displayed, or out of a scrolling row): no mark, rather than one in the wrong place.
-        if (spot?.hidden) continue
-        const at = place(spot?.rect ?? null)
+        // Not showing (not displayed, out of a scrolling row, or gone): no mark, rather than one in the wrong place.
+        if (r.anchor && (!spot || spot.hidden)) continue
+        let at: { left: number; top: number } | null
+        if (spot && r.anchor) {
+          const shift = onAnchor.get(r.anchor) ?? 0
+          onAnchor.set(r.anchor, shift + 1)
+          at = place(spot.rect, shift)
+        } else at = pageAt(n, k++)
         if (!at) continue
         out.push(
           <button
@@ -283,12 +290,12 @@ export function useCanvasRules(o: {
         )
       }
       if (adding?.picked && adding.screenId === n.id) {
-        const at = place(adding.rect)
+        const at = adding.rect ? place(adding.rect) : pageAt(n, k++)
         if (at)
           out.push(
             <span
               key={`${n.id}:new`}
-              className="art-rule-mark art-rule-mark--draft"
+              className={cx('art-rule-mark', 'art-rule-mark--draft', !adding.rect && 'art-rule-mark--page')}
               data-testid="art-rule-draft"
               style={at}
             >
@@ -319,6 +326,7 @@ export function useCanvasRules(o: {
         screenId={screen.id}
         onScreen={(id) => open(id)}
         data={page}
+        gone={(r) => !!r.anchor && !!anchors[screen.file] && !spotOf(screen.file, r.anchor)}
         canEdit={o.canEdit}
         selected={selected}
         onSelect={(i) => selectRule(screen.id, i)}

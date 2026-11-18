@@ -8,8 +8,8 @@ import type { Step } from './steps'
 import { subagentFaces } from './subagents'
 import './process.css'
 
-/** Chips in the bar before the rest fold into +N. */
-export const chipLimit = (narrow: boolean) => (narrow ? 2 : 3)
+/** Chips in the bar before the rest fold into +N; two counts leave room for only 2 chips with a readable action. */
+export const chipLimit = (narrow: boolean, bothCounts = false) => (narrow || bothCounts ? 2 : 3)
 const NARROW_PX = 480
 /** A finished chip stays this long, marked 完成 / 失败, before it leaves. */
 const LEAVE_MS = 1400
@@ -109,7 +109,7 @@ export function ActivityDock({
   const running = shown.filter((s) => s.running)
   const subagents = running.filter((s) => s.kind === 'subagent').length
   const tasks = running.length - subagents
-  const limit = chipLimit(narrow)
+  const limit = chipLimit(narrow, subagents > 0 && tasks > 0)
   const extra = shown.length - limit
   const lead = (s: Step) =>
     s.kind === 'task' ? (

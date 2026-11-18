@@ -387,7 +387,7 @@ export function BotDetail({
         agent={bot.agentKind}
         value={overrides}
         machine={view && !reason ? (view.agentSettings[bot.agentKind]?.values ?? {}) : undefined}
-        outdated={!!machine && !machine.features.includes('agentSettings')}
+        outdated={!!machine?.online && !machine.features.includes('agentSettings')}
         editable={owner}
         onChange={setOverrides}
       />
@@ -445,7 +445,7 @@ export function BotDetail({
         demo={demo}
         value={approval}
         outdated={
-          machine && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
+          machine?.online && !machine.features.includes('approvalGates') ? (bot.machineName ?? '') : undefined
         }
         builtin={
           (bot.agentKind === 'claude' || bot.agentKind === 'codex') &&

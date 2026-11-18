@@ -347,6 +347,7 @@ button.act-row:hover .act-row__target--file {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 260px;
+  overflow: hidden;
   height: 26px;
   display: inline-flex;
   align-items: center;
@@ -379,8 +380,9 @@ button.act-row:hover .act-row__target--file {
   color: var(--tint-red-text);
 }
 .act-chip__name {
-  flex: none;
-  max-width: 96px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 8em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

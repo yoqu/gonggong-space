@@ -275,6 +275,16 @@
 .art-shared__body {
   gap: var(--space-8);
 }
+.art-shared__section {
+  overflow-x: auto;
+}
+.art-shared__body table {
+  width: max-content;
+  min-width: 100%;
+}
+.art-shared__body :is(th, td) {
+  max-width: 20em;
+}
 .art-shared__section--on {
   border-radius: var(--radius-menu);
   background: var(--selection-fill);
@@ -296,4 +306,11 @@
   height: 100%;
   max-height: none;
   cursor: pointer;
+}
+
+/* Canvas tips (artifacts.css is at its size limit): a phone has no room beside the canvas controls for a tip. */
+@media (max-width: 640px) {
+  .art-tip {
+    display: none;
+  }
 }

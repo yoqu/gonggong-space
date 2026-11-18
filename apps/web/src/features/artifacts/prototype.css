@@ -90,7 +90,9 @@
     gap: var(--space-4);
   }
   .proto-bar__mode {
+    justify-content: flex-start;
     gap: var(--space-4);
+    overflow: hidden;
   }
   .proto-bar__where {
     max-width: 56px;

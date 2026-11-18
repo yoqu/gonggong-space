@@ -176,28 +176,49 @@ export function usePreviewMarks(o: {
 
   // With the focus on a mark or in the panel, ←/→ take it to the rule they pick, on the same side.
   const follow = useRef<'marks' | 'panel' | null>(null)
+  /** Set while the code moves the focus to a mark: that is no hover, the picked rule's bubble shows. */
+  const quiet = useRef(false)
+  /** The mark the walk put the focus on: a group's walks on from the picked rule, not its first. */
+  const walkedTo = useRef<Element | null>(null)
+  const idsOf = (el: Element | null | undefined) =>
+    el?.getAttribute('data-rule-ids')?.split(',').map(Number) ?? []
+  /** A rule's mark: its own, or the group's it is in. */
+  const markBtn = (i: number) => {
+    const root = o.root.current
+    return (
+      root?.querySelector<HTMLElement>(`[data-testid="proto-mark-${i + 1}"]`) ??
+      [...(root?.querySelectorAll<HTMLElement>('.proto-mark[data-rule-ids]') ?? [])].find((m) =>
+        idsOf(m).includes(i),
+      )
+    )
+  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on a pick only (markBtn reads the root)
   useEffect(() => {
     const side = follow.current
     if (!side || selected === null) return
     follow.current = null
-    const root = o.root.current
-    const note = root?.querySelector<HTMLElement>(
+    const note = o.root.current?.querySelector<HTMLElement>(
       `[data-testid="proto-note-${selected + 1}"] .proto-note__pick`,
     )
-    // A mark scrolled out of view (or one in a group) cannot take it: the panel's rule does.
-    const mark = root?.querySelector<HTMLElement>(
-      `[data-testid="proto-mark-${selected + 1}"]:not(.proto-mark--out)`,
-    )
-    ;(side === 'marks' ? (mark ?? note) : note)?.focus({ preventScroll: true })
+    // A mark scrolled out of view cannot take it: the panel's rule does.
+    const found = markBtn(selected)
+    const mark = found?.classList.contains('proto-mark--out') ? undefined : found
+    const to = side === 'marks' ? (mark ?? note) : note
+    quiet.current = true
+    to?.focus({ preventScroll: true })
+    quiet.current = false
+    walkedTo.current = to ?? null
   }, [selected, o.root])
-  /** The rule the focus is on (a mark or a panel's rule), else the picked one. */
+  /** The rule the focus is on (a mark — a walked-to group's the picked one — or a panel's rule), else the picked one. */
   const focusedRule = () => {
     const el = document.activeElement
-    const id =
-      el?.closest('.proto-mark')?.getAttribute('data-testid') ??
-      el?.closest('.proto-note')?.getAttribute('data-testid') ??
-      ''
-    const n = Number(/-(\d+)$/.exec(id)?.[1])
+    const m = el?.closest('.proto-mark')
+    const ids = idsOf(m)
+    if (ids.length)
+      return m === walkedTo.current && selected !== null && ids.includes(selected)
+        ? selected
+        : (ids[0] as number)
+    const n = Number(/-(\d+)$/.exec(el?.closest('.proto-note')?.getAttribute('data-testid') ?? '')?.[1])
     return n ? n - 1 : selected
   }
 
@@ -307,6 +328,7 @@ export function usePreviewMarks(o: {
         extra,
       ),
       'data-testid': `proto-mark-${(ids[0] ?? 0) + 1}`,
+      'data-rule-ids': ids.join(','),
       'aria-label': label,
       'aria-pressed': at >= 0,
       onClick: () => {
@@ -325,7 +347,11 @@ export function usePreviewMarks(o: {
       },
       onMouseEnter: () => hoverOn(ids[at >= 0 ? at : 0] ?? 0),
       onMouseLeave: hoverOff,
-      onFocus: () => hoverOn(ids[at >= 0 ? at : 0] ?? 0),
+      onFocus: () => {
+        if (quiet.current) return
+        walkedTo.current = null
+        hoverOn(ids[at >= 0 ? at : 0] ?? 0)
+      },
       onBlur: hoverOff,
       children: (
         <>
@@ -398,11 +424,7 @@ export function usePreviewMarks(o: {
       }}
       onEnter={() => hoverOn(i)}
       onLeave={hoverOff}
-      onBack={() =>
-        o.root.current
-          ?.querySelector<HTMLElement>(`[data-testid="proto-mark-${(group[0] ?? i) + 1}"]`)
-          ?.focus()
-      }
+      onBack={() => markBtn(i)?.focus()}
     />
   )
   /**
@@ -444,7 +466,8 @@ export function usePreviewMarks(o: {
         : { left, top }
     return (
       <div key={bubbled} className="proto-bubble-at" style={style}>
-        {bubbleOf(bubbled, bubbleRule, mark.ids)}
+        {/* A group's list on its mark's hover; the picked rule (walked to) alone. */}
+        {bubbleOf(bubbled, bubbleRule, bubbleHover === null ? [bubbled] : mark.ids)}
       </div>
     )
   }

@@ -1,7 +1,7 @@
 import type { RunDetailDto } from '@gonggong/protocol'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { ActivityDock } from '../src/features/runs/ActivityDock'
+import { ActivityDock, chipLimit } from '../src/features/runs/ActivityDock'
 import { processSteps, runningWork } from '../src/features/runs/steps'
 
 const at = '2026-09-23T02:21:00.000Z'
@@ -58,6 +58,13 @@ describe('activity dock', () => {
     expect(container.innerHTML).toBe('')
   })
 
+  it('shows at most 2 chips when both counts show, so the chips keep room for their action', () => {
+    expect(chipLimit(false, true)).toBe(2)
+    expect(chipLimit(true, true)).toBe(2)
+    expect(chipLimit(false, false)).toBe(3)
+    expect(chipLimit(true, false)).toBe(2)
+  })
+
   it('counts running work, lists it on demand, stops a task and locates a row', () => {
     const onStopTask = vi.fn(() => Promise.resolve())
     const onLocate = vi.fn()
@@ -65,7 +72,8 @@ describe('activity dock', () => {
     render(<ActivityDock steps={steps} onStopTask={onStopTask} onLocate={onLocate} />)
     expect(screen.getByText('子 agent 2 个运行中')).toBeTruthy()
     expect(screen.getByText('后台任务 1 个运行中')).toBeTruthy()
-    expect(screen.getAllByTestId('dock-chip')).toHaveLength(3)
+    expect(screen.getAllByTestId('dock-chip')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '+1' })).toBeTruthy()
     const head = screen.getByRole('button', { name: '后台运行' })
     expect(head.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(head)

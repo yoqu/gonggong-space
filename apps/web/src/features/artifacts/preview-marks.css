@@ -323,6 +323,18 @@
     var(--fade-in) ui-fade-in,
     var(--spring-snappy) proto-note-in;
 }
+/* The help button sits right after the title, not pushed to the middle by two flexible fillers. */
+.proto-notes .art-panel__head h3 {
+  flex: 0 1 auto;
+}
+/* Markdown tables keep their columns and scroll sideways instead of folding into one character per line. */
+.proto-note__shared table {
+  width: max-content;
+  min-width: 100%;
+}
+.proto-note__shared :is(th, td) {
+  max-width: 20em;
+}
 .proto-notes__help {
   display: grid;
   place-items: center;

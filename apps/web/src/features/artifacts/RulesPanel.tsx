@@ -90,6 +90,7 @@ function RuleItem({
   n,
   rule,
   on,
+  gone,
   canEdit,
   onPick,
   onSave,
@@ -99,6 +100,8 @@ function RuleItem({
   n: number
   rule: PageRule
   on: boolean
+  /** Its anchor is no longer in the screen. */
+  gone: boolean
   canEdit: boolean
   onPick: () => void
   onSave: (next: PageRule) => Promise<boolean>
@@ -126,6 +129,7 @@ function RuleItem({
         <div className="art-rule__anchor">
           <span>{ruleLabel(rule)}</span>
           {rule.pending ? <Tag tone="orange">{t('待确认')}</Tag> : null}
+          {gone ? <Tag tone="red">{t('元素已不存在')}</Tag> : null}
         </div>
         {draft ? (
           <div className="art-rule__edit">
@@ -271,6 +275,7 @@ export function RulesPanel({
   screenId,
   onScreen,
   data,
+  gone,
   canEdit,
   selected,
   onSelect,
@@ -289,6 +294,8 @@ export function RulesPanel({
   screenId: string
   onScreen: (id: string) => void
   data: ScreenRules | undefined
+  /** A rule whose anchor the screen reported without it. */
+  gone: (r: PageRule) => boolean
   canEdit: boolean
   selected: number | null
   onSelect: (i: number) => void
@@ -373,6 +380,7 @@ export function RulesPanel({
                 n={i + 1}
                 rule={r}
                 on={selected === i}
+                gone={gone(r)}
                 canEdit={canEdit}
                 onPick={() => onSelect(i)}
                 onSave={(next) => replace(i, next)}

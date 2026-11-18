@@ -388,6 +388,49 @@ describe('page rules on the canvas', () => {
     expect(screen.getByTestId('art-rule-mark-home-2')).toBeTruthy()
   })
 
+  it('an anchor gone from the screen draws no mark and is flagged in the panel', async () => {
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
+    // Before the screen reports its anchors nothing is known to be gone.
+    expect(within(panel()).queryByText('元素已不存在')).toBeNull()
+    fromScreen({ type: 'ready', width: 390, height: 800, anchors: [] })
+    expect(screen.queryByTestId('art-rule-mark-home-1')).toBeNull()
+    expect(screen.getByTestId('art-rule-mark-home-2').className).toContain('art-rule-mark--page')
+    expect(within(within(panel()).getByTestId('art-rule-1')).getByText('元素已不存在')).toBeTruthy()
+    expect(within(within(panel()).getByTestId('art-rule-2')).queryByText('元素已不存在')).toBeNull()
+  })
+
+  it('puts a new whole-page rule’s draft mark in the page row', async () => {
+    mockApi(routes())
+    await renderTab()
+    fireEvent.click(await screen.findByRole('button', { name: '规则 2 · 待确认 1' }))
+    fireEvent.click(within(panel()).getByRole('button', { name: '添加规则' }))
+    fireEvent.click(screen.getByRole('button', { name: '挂到整页' }))
+    expect(screen.getByTestId('art-rule-draft').className).toContain('art-rule-mark--page')
+  })
+
+  it('sets the marks of rules on one element side by side', async () => {
+    const md = `# 首页 · 页面规则
+
+1. **本周共读** \`#ben-zhou-gong-du\`：未登录时点击先去登录。
+2. **本周共读** \`#ben-zhou-gong-du\`：已读完的书置灰。
+`
+    mockApi(routes({ 'GET /artifacts/a1/files/rules/home.md?version=v2': () => new Response(md) }))
+    await renderTab()
+    await screen.findByRole('button', { name: '规则 2' })
+    fromScreen({
+      type: 'ready',
+      width: 390,
+      height: 800,
+      anchors: [{ anchor: 'ben-zhou-gong-du', ggId: '12', rect: { x: 20, y: 100, w: 80, h: 20 } }],
+    })
+    const a = screen.getByTestId('art-rule-mark-home-1').style
+    const b = screen.getByTestId('art-rule-mark-home-2').style
+    expect(b.top).toBe(a.top)
+    expect(Number.parseFloat(b.left) - Number.parseFloat(a.left)).toBe(16)
+  })
+
   it('edits and deletes a rule as one file save each', async () => {
     const calls = mockApi(routes())
     await renderTab()
