@@ -14,6 +14,7 @@ import { useWorkspace } from '../src/app/workspace'
 import { InstallList } from '../src/features/market/InstallList'
 import { InstallTargetDialog } from '../src/features/market/InstallTargetDialog'
 import { ListingDetail } from '../src/features/market/ListingDetail'
+import { useToasts } from '../src/ui/toast'
 import { apiError, mockApi } from './mockApi'
 
 const KEY: SecretRequirement = {
@@ -193,11 +194,59 @@ describe('需要的密钥', () => {
     })
     const dialog = openDialog()
     fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
-    expect(await within(dialog).findByText(/每人自填的密钥建在团队层，一个团队只建一次/)).toBeTruthy()
+    expect((await within(dialog).findAllByText(/每人自填的密钥建在团队层，一个团队只建一次/)).length).toBe(2)
     expect(within(dialog).queryByRole('checkbox', { name: '在本团队创建定义' })).toBeNull()
     fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/groups/g1/secrets'])
+  })
+
+  it('keeps a group admin who does not run the team from switching a group definition to 每人自填', async () => {
+    useSession.setState({
+      tenancy: {
+        ...useSession.getState().tenancy!,
+        teams: [{ id: 't1', name: '支付组', role: 'member' } as TeamDto],
+      },
+    })
+    mockApi({ 'GET /teams/t1/repos': [], 'GET /groups/g1/secrets': [] })
+    const dialog = openDialog()
+    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
+    const modes = await within(dialog).findByRole('radiogroup', { name: 'DW_TEST_KEY 的模式' })
+    const personal = within(modes).getByRole('radio', { name: '每人自填' }) as HTMLInputElement
+    expect(personal.disabled).toBe(true)
+    expect(within(modes).getByRole('radio', { name: '统一值' })).toBeTruthy()
+    expect(within(dialog).getAllByText(/每人自填的密钥建在团队层/).length).toBe(2)
+  })
+
+  it('does not report full success when a definition could not be made', async () => {
+    useToasts.setState({ items: [] })
+    let closed = false
+    mockApi({
+      'GET /teams/t1/repos': [],
+      'GET /groups/g1/secrets': [],
+      'PUT /groups/g1/installs/l1': {},
+      'POST /teams/t1/secrets': apiError(403, 'forbidden', '仅团队管理员可操作'),
+      'POST /groups/g1/secrets': {},
+    })
+    const d = detail()
+    render(
+      <InstallTargetDialog
+        listing={{ ...d, listedVersionId: 'pv3', listedRevision: 3 }}
+        onClose={() => {
+          closed = true
+        }}
+      />,
+    )
+    const dialog = screen.getByRole('dialog', { name: '引入「dw-query」' })
+    fireEvent.click(within(dialog).getByRole('radio', { name: '支付核心群' }))
+    await within(dialog).findByRole('checkbox', { name: '在本团队创建定义' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '引入' }))
+    await waitFor(() => expect(closed).toBe(true))
+    const items = useToasts.getState().items
+    expect(items.some((x) => x.type === 'success')).toBe(false)
+    const err = items.find((x) => x.type === 'error')
+    expect(err?.title).toBe('已引入到「支付核心群」，但有密钥定义没建好')
+    expect(err?.message).toBe('DW_KEY：仅团队管理员可操作')
   })
 
   it('disables installing when the same-layer definition is answered with 取消引入', async () => {

@@ -114,7 +114,7 @@ describe('gg-kit screen states', () => {
 const getComputedStyleDisplay = (w: JSDOM['window'], id: string) =>
   w.getComputedStyle(w.document.getElementById(id) as Element).display
 
-function openShell(hash: string) {
+function openShell(hash: string, phone = false) {
   const shell = readFileSync(join(KIT, 'index.html'), 'utf8').replace(
     '<script>',
     `<script type="application/json" id="gg-manifest">${JSON.stringify(MANIFEST)}</script><script>`,
@@ -124,7 +124,10 @@ function openShell(hash: string) {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
     beforeParse(win) {
-      win.matchMedia = (() => ({ matches: false, addEventListener() {} })) as never
+      win.matchMedia = ((q: string) => ({
+        matches: phone && q.includes('max-width'),
+        addEventListener() {},
+      })) as never
     },
   })
   const $ = (sel: string) => w.document.querySelector(sel) as HTMLElement
@@ -179,6 +182,41 @@ describe('shell screen states', () => {
     expect(s.w.location.hash).toBe('#play:list')
     s.message({ type: 'gg:nav', screen: 'detail', transition: 'none', set: { role: 'member' } })
     expect(s.src()).toBe('screens/detail.html?role=member&order=refunded')
+  })
+})
+
+describe('shell on a phone (UX 11-18)', () => {
+  it('switches the screen’s states from the strip over the status bar', async () => {
+    const s = openShell('#play:detail', true)
+    await tick()
+    expect(s.w.document.body.classList.contains('compact')).toBe(true)
+    const strip = () => [...s.w.document.querySelectorAll<HTMLSelectElement>('.strip select')]
+    expect(strip().map((x) => [x.dataset.dim, x.value])).toEqual([
+      ['role', 'member'],
+      ['order', 'unpaid'],
+    ])
+    const order = strip()[1] as HTMLSelectElement
+    order.value = 'refunded'
+    order.dispatchEvent(new s.w.Event('change'))
+    expect(s.src()).toBe('screens/detail.html?role=member&order=refunded')
+    expect(strip()[1]?.value).toBe('refunded')
+    s.message({ type: 'gg:nav', screen: 'list', transition: 'none', set: {} })
+    expect(strip()).toEqual([])
+  })
+})
+
+describe('shell overview zoom', () => {
+  it('zooms a ⌘/Ctrl wheel notch by at most about 3.4%, like the app’s canvas', async () => {
+    const s = openShell('#canvas')
+    await tick()
+    const scale = () => Number(/scale\(([\d.]+)\)/.exec(s.$('.world').style.transform)?.[1])
+    const before = scale()
+    s.$('.canvas').dispatchEvent(
+      new s.w.WheelEvent('wheel', { deltaY: -100, ctrlKey: true, cancelable: true }),
+    )
+    const step = scale() / before
+    expect(step).toBeGreaterThan(1)
+    expect(step).toBeLessThan(1.05)
   })
 })
 

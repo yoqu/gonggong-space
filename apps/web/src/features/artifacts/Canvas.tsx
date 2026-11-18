@@ -238,6 +238,7 @@ const FLOAT_FULL_WITH_BOT = 500
 
 /** Below this zoom node titles show their icon only. */
 const TINY_ZOOM = 0.15
+const STATE_ZOOM = 0.55
 /** A title is at most as wide as its node on screen, but keeps room for its icon. */
 const TITLE_MIN = 26
 
@@ -1371,6 +1372,7 @@ export function Canvas({
 
   /** Zoomed out this far, titles show their icon only (the name in a tooltip) so they never run into each other. */
   const tiny = view.z < TINY_ZOOM
+  const narrow = view.z < STATE_ZOOM // state pills only on the selected screen, so names stay readable
   /** Dot spacing on screen: sparser as the view zooms out, never a haze. */
   let dot = 24 * view.z
   while (dot < 12) dot *= 4
@@ -1882,6 +1884,7 @@ export function Canvas({
                         on && 'art-title--on',
                         canEdit && n.kind === 'screen' && 'art-title--movable',
                         tiny && 'art-title--tiny',
+                        narrow && !on && 'art-title--narrow',
                       )}
                       data-screen-title={n.kind === 'screen' ? n.id : undefined}
                       data-ref-title={n.kind === 'ref' || n.kind === 'link' ? n.id : undefined}
@@ -1935,7 +1938,7 @@ export function Canvas({
                         <span className="art-title__changed">{t('本版改动')}</span>
                       ) : null}
                       {!tiny && n.kind === 'screen' ? rules.badge(n) : null}
-                      {!tiny && n.kind === 'screen' ? states.picker(n.id) : null}
+                      {!tiny && n.kind === 'screen' && (on || !narrow) ? states.picker(n.id) : null}
                     </div>
                   )}
                   {on ? (

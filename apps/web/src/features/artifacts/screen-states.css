@@ -32,3 +32,19 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+/* Short of room, the pills after the name give way before it does (UX 11-18: a 19% overview squeezed names to 0). */
+.art-title > .art-title__rules,
+.art-title > .art-title__changed,
+.art-title > .ui-menu-anchor {
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.art-title .art-state {
+  max-width: 100%;
+  overflow: hidden;
+}
+/* Zoomed out and not selected the title has no menu to open, so nothing may spill onto the next screen's. */
+.art-title--narrow {
+  overflow: hidden;
+}

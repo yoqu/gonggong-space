@@ -168,9 +168,6 @@
 .art-bar__issues:hover {
   filter: brightness(0.96);
 }
-.art-issues {
-  width: 320px;
-}
 .art-issues__list {
   display: flex;
   flex-direction: column;

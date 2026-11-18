@@ -99,6 +99,8 @@ export default {
   二进制文件已变化: 'Binary file changed',
   没有可引入的目标: 'Nowhere to install',
   '已引入到「{name}」': 'Installed to {name}',
+  '已引入到「{name}」，但有密钥定义没建好':
+    'Installed to {name}, but some secret definitions were not created',
   '发布…': 'Publish…',
   发布到市场: 'Publish to the market',
   '发布后先存为草稿，提交审核通过后才会出现在市场。':

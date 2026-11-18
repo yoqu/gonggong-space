@@ -53,11 +53,12 @@ export function IssuesButton({
     <Popover
       portal
       aria-label={label}
-      className="art-issues"
+      width={320}
       trigger={
-        <button type="button" className="art-bar__issues">
+        <button type="button" className="art-bar__issues" aria-label={label}>
           <Icon name="warning" size={12} />
-          {label}
+          <span className="art-bar__issues-label">{label}</span>
+          <span className="art-bar__issues-count">{issues.length}</span>
         </button>
       }
     >

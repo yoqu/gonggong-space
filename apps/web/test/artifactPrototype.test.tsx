@@ -1171,3 +1171,33 @@ describe('prototype preview walkthrough fixes (2026-11-09)', () => {
     expect(within(list).getByTitle('书架 缩略图').tagName).toBe('IFRAME')
   })
 })
+
+describe('prototype walkthrough fixes (UX 11-18)', () => {
+  it('puts the screen-state picker on the right of the bar, not beside the artifact name', async () => {
+    const states = {
+      ...manifest,
+      dims: [
+        {
+          id: 'role',
+          label: '角色',
+          values: [
+            { id: 'member', label: '会员' },
+            { id: 'guest', label: '游客' },
+          ],
+        },
+      ],
+      screens: manifest.screens.map((s) => ({ ...s, uses: ['role'] })),
+    }
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ manifest: states }),
+        'GET /artifacts/a1/versions/v2': { ...detail, manifest: states },
+      }),
+    )
+    await openEditor()
+    const bar = document.querySelector('.proto-bar') as HTMLElement
+    const fill = bar.querySelector(':scope > .art-bar__fill') as HTMLElement
+    const picker = within(bar).getByTestId('art-state-home')
+    expect(fill.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

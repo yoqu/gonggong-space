@@ -627,6 +627,35 @@ describe('/secret-requests/:id (opened from Feishu)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('names who can create a team-layer define card instead of offering it to a group admin', async () => {
+    useSession.setState({
+      tenancy: {
+        teams: [{ ...team, role: 'member' }],
+        singleTeamMode: false,
+        canCreateTeam: true,
+        demoMode: false,
+        pluginsEnabled: true,
+      },
+    })
+    mockApi({
+      'GET /secret-requests/q1': {
+        ...req,
+        audience: 'define',
+        userId: null,
+        define: {
+          skill: 'dw-query',
+          versionId: 'v1',
+          layer: { scope: 'team', teamId: 't1', groupId: null },
+          specs: [{ name: 'JIRA_TOKEN', description: '', mode: 'personal', required: true }],
+          admins: ['陈晨'],
+        },
+      },
+    })
+    page()
+    expect(await screen.findByText('等待 陈晨 创建')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('goes to the group when the dialog is closed', async () => {
     mockApi({ 'GET /secret-requests/q1': req })
     page()

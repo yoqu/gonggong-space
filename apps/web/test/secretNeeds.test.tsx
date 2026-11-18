@@ -4,6 +4,7 @@ import type {
   GroupDto,
   MessageDto,
   SecretNeedDto,
+  TeamDto,
   UserDto,
 } from '@gonggong/protocol'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -235,6 +236,44 @@ describe('define card', () => {
     })
     useSession.setState({ tenancy: null })
     render(<SecretCard m={m} card={card} />)
+    expect(screen.getByText('等待 王磊、李建国 创建')).toBeTruthy()
+  })
+
+  const teamCard: Card = {
+    ...card,
+    define: { ...card.define!, layer: { scope: 'team', teamId: 't1', groupId: null }, admins: ['陈晨'] },
+  }
+  const asTeam = (role: 'admin' | 'member') =>
+    useSession.setState({
+      tenancy: {
+        teams: [{ id: 't1', name: '支付组', role } as TeamDto],
+        singleTeamMode: false,
+        canCreateTeam: true,
+        demoMode: false,
+        pluginsEnabled: true,
+      },
+    })
+
+  it('leaves a team-layer card to team admins even for a group admin', () => {
+    asTeam('member')
+    render(<SecretCard m={m} card={teamCard} />)
+    expect(screen.queryByRole('button', { name: '按声明创建' })).toBeNull()
+    expect(screen.getByText('等待 陈晨 创建')).toBeTruthy()
+  })
+
+  it('offers a team-layer card to a team admin', () => {
+    asTeam('admin')
+    render(<SecretCard m={m} card={teamCard} />)
+    expect(screen.getByRole('button', { name: '按声明创建' })).toBeTruthy()
+  })
+
+  it('leaves a group-layer card to group admins even for a team admin', () => {
+    asTeam('admin')
+    useWorkspace.setState({
+      groups: [{ ...group, members: [{ userId: 'u1', name: '王磊', avatar: null, isAdmin: false }] }],
+    })
+    render(<SecretCard m={m} card={card} />)
+    expect(screen.queryByRole('button', { name: '按声明创建' })).toBeNull()
     expect(screen.getByText('等待 王磊、李建国 创建')).toBeTruthy()
   })
 })

@@ -8,8 +8,7 @@ import {
 import { useState } from 'react'
 import { useSession } from '../../app/session'
 import { t } from '../../i18n'
-import { ApiError } from '../../lib/api'
-import { toastError } from '../../lib/errors'
+import { ApiError, errorText } from '../../lib/api'
 import { useGet } from '../../lib/useGet'
 import {
   Alert,
@@ -26,6 +25,10 @@ import {
 import { MODE_LABEL, SCOPE_LABEL, secretsApi } from '../secrets/api'
 
 const MODES: SecretMode[] = ['personal', 'shared', 'shared_overridable']
+
+const PERSONAL_NOTE = t(
+  '每人自填的密钥建在团队层，一个团队只建一次；需团队管理员创建，成员用到时会提醒团队管理员。',
+)
 
 const hostOf = (url: string) => new URL(url).host
 
@@ -87,8 +90,10 @@ interface Item {
   spec: SecretRequirement
   /** Where a new definition goes: per-member ones in the team, whatever the install target (plan §5). */
   layer: SecretScope
-  /** Whether I may make it there: a group admin may not administer the team. */
+  /** Whether I may make it in the chosen mode: a group admin may not administer the team. */
   canCreate: boolean
+  /** Whether I may make a per-member one, which goes in the team. */
+  canPersonal: boolean
   /** A same-named definition on the target layer. */
   own?: SecretDto
   /** …or above it (a group install over a team or platform one). */
@@ -134,15 +139,17 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
             .sort((a, b) => RANK[b.scope] - RANK[a.scope])[0]
           const own = near && RANK[near.scope] >= RANK[target] ? near : undefined
           const upper = own ? undefined : near
-          const canCreate = target === layer || teamAdmin
+          const edit = edits[`${base}|${spec.name}`]
+          const canPersonal = layer === 'team' || teamAdmin
+          const canCreate = layerFor(edit?.mode ?? spec.mode) === layer || teamAdmin
           const choice: Choice = {
             action: own || upper ? 'reuse' : canCreate ? 'create' : 'skip',
             description: [spec.title, spec.description].filter(Boolean).join('：'),
             mode: spec.mode,
             value: '',
-            ...edits[`${base}|${spec.name}`],
+            ...edit,
           }
-          return { spec, layer: target, canCreate, own, upper, choice }
+          return { spec, layer: target, canCreate, canPersonal, own, upper, choice }
         })
       : null
   const set = (name: string, c: Partial<Choice>) =>
@@ -151,9 +158,10 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
   const short = creating.find(
     (i) => i.choice.mode !== 'personal' && i.choice.value && i.choice.value.length < SECRET_MIN_LENGTH,
   )
-  /** Makes the chosen definitions; one made meanwhile (409) is the one to use. A failure is toasted. */
+  /** Makes the chosen definitions; one made meanwhile (409) is the one to use. Returns each other failure. */
   const apply = async () => {
-    if (!base) return
+    const failed: string[] = []
+    if (!base) return failed
     for (const { spec, choice } of creating) {
       const shared = choice.mode !== 'personal' && choice.value
       const where = layerFor(choice.mode) === layer || !teamId ? base : `/teams/${teamId}/secrets`
@@ -168,9 +176,10 @@ export function useSecretPlan(specs: SecretRequirement[], secretsBase: string | 
           ...(shared ? { value: choice.value } : {}),
         })
       } catch (e) {
-        if (!(e instanceof ApiError && e.status === 409)) toastError(e)
+        if (!(e instanceof ApiError && e.status === 409)) failed.push(`${spec.name}：${errorText(e)}`)
       }
     }
+    return failed
   }
   return {
     base,
@@ -199,7 +208,7 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
       ) : !plan.items ? (
         <Spinner />
       ) : (
-        plan.items.map(({ spec, own, upper, choice, canCreate }) => {
+        plan.items.map(({ spec, own, upper, choice, canCreate, canPersonal }) => {
           const def = own ?? upper
           const above = upper ? SCOPE_LABEL[upper.scope] : ''
           const set = (c: Partial<Choice>) => plan.set(spec.name, c)
@@ -264,11 +273,7 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
                   onChange={(on) => set({ action: on ? 'create' : 'skip' })}
                 />
               ) : (
-                <div className="cfg__hint">
-                  {t(
-                    '每人自填的密钥建在团队层，一个团队只建一次；需团队管理员创建，成员用到时会提醒团队管理员。',
-                  )}
-                </div>
+                <div className="cfg__hint">{PERSONAL_NOTE}</div>
               )}
               {choice.action === 'create' ? (
                 <div className="mkt-secret__form">
@@ -286,8 +291,13 @@ export function InstallSecrets({ plan }: { plan: SecretPlan }) {
                     direction="row"
                     value={choice.mode}
                     onChange={(mode) => set({ mode })}
-                    options={MODES.map((m) => ({ value: m, label: MODE_LABEL[m] }))}
+                    options={MODES.map((m) => ({
+                      value: m,
+                      label: MODE_LABEL[m],
+                      disabled: m === 'personal' && !canPersonal,
+                    }))}
                   />
+                  {canPersonal ? null : <div className="cfg__hint">{PERSONAL_NOTE}</div>}
                   {choice.mode === 'personal' ? null : (
                     <SecureField
                       aria-label={t('{name} 的统一值', { name: spec.name })}

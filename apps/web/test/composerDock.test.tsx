@@ -114,6 +114,25 @@ describe('composer dock', () => {
     expect(screen.queryByTestId('cdock-hud')).toBeNull()
   })
 
+  it('pins the HUD beside an orb snapped to the top-right corner, on a layer apart from its enter animation', () => {
+    localStorage.setItem('gg.composerDock.hidden', '1')
+    localStorage.setItem('gg.composerDock.orbPos', JSON.stringify({ edge: 'right', ratio: 0 }))
+    const w = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(300)
+    const h = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(30)
+    try {
+      render(dock(true, { tone: 'running', text: '共字君：思考中' }))
+      const hud = screen.getByTestId('cdock-hud')
+      const pos = hud.parentElement as HTMLElement
+      expect(pos.className).toBe('cdock__hud-pos')
+      // jsdom 1024 x 768: dock 976 x 736, orb at (466, -692) → HUD right-aligned and dropped below the orb.
+      expect(pos.style.transform).toBe(`translate3d(338px, ${-692 + 44 + 16 + 30}px, 0)`)
+      expect(hud.style.transform).toBe('')
+    } finally {
+      w.mockRestore()
+      h.mockRestore()
+    }
+  })
+
   it('auto-shows HUD when a message is sent while floating and fades out after 5s', () => {
     vi.useFakeTimers()
     try {

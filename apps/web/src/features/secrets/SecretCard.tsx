@@ -24,11 +24,29 @@ function useCanManage(groupId: string) {
   )
 }
 
+type DefineLayer = NonNullable<Card['define']>['layer']
+
+/** Whether I may make what a `define` card asks for, as the server decides it: an admin of exactly that layer. */
+export function useLayerAdmin(layer: DefineLayer | undefined) {
+  const user = useSession((s) => s.user)
+  const teamAdmin = useSession(
+    (s) => !!s.tenancy?.teams.some((x) => x.id === layer?.teamId && x.role !== 'member'),
+  )
+  const group = useWorkspace((s) => s.groups.find((g) => g.id === layer?.groupId))
+  if (!user || !layer) return false
+  return layer.scope === 'team' ? teamAdmin : !!group?.members.some((m) => m.userId === user.id && m.isAdmin)
+}
+
+/** 等待 {admins} 创建 on a `define` card I may not act on. */
+export const waitingFor = (d: NonNullable<Card['define']>) =>
+  d.admins.length ? t('等待 {admins} 创建', { admins: d.admins.join('、') }) : t('等待填写')
+
 /** A bot's 填写密钥 card (secret_request): the asker fills personal values, a layer admin fills shared ones. */
 export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto; card: Card }) {
   const mine = useSession((s) => s.user?.id === card.userId)
   const admin = useCanManage(m.groupId)
-  const canFill = card.audience === 'origin' ? mine : admin
+  const layerAdmin = useLayerAdmin(card.define?.layer)
+  const canFill = card.audience === 'origin' ? mine : card.define ? layerAdmin : admin
   const [open, setOpen] = useState(false)
   const [filled, setFilled] = useState(false)
   const done = card.filled || filled
@@ -44,11 +62,7 @@ export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto;
             {card.define ? t('按声明创建') : t('填写密钥')}
           </Button>
         ) : (
-          <Tag tone="gray">
-            {card.define?.admins.length
-              ? t('等待 {admins} 创建', { admins: card.define.admins.join('、') })
-              : t('等待填写')}
-          </Tag>
+          <Tag tone="gray">{card.define ? waitingFor(card.define) : t('等待填写')}</Tag>
         )}
       </span>
       <Presence>

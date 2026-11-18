@@ -218,14 +218,17 @@
   .strip { display: none; }
   body.compact .strip {
     position: absolute; z-index: 3; inset: 0 0 auto; height: var(--status); display: flex; align-items: center;
-    padding: 0 10px; pointer-events: none; color: #000;
+    gap: 6px; padding: 0 10px; pointer-events: none; color: #000;
   }
   .light .strip { color: #fff; }
-  body.compact .strip button {
+  body.compact .strip button, body.compact .strip select {
     pointer-events: auto; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0;
     border-radius: 999px; background: rgba(127, 127, 127, 0.18); color: inherit; font-size: 12px; font-variant-numeric: tabular-nums;
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
+  /* The screen's states beside the list button: without the bar this is the only place to switch them. */
+  .strip-dims { display: flex; gap: 6px; min-width: 0; }
+  body.compact .strip select { min-width: 0; max-width: 40vw; -webkit-appearance: none; appearance: none; text-overflow: ellipsis; }
   body.compact .list { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 72%; border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
   body.compact .list.closed { transform: translateY(calc(100% + 16px)); }
   body.compact .list:not(.closed) ~ .scrim { opacity: 1; pointer-events: auto; }
@@ -568,7 +571,9 @@
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault()
     const box = canvas.getBoundingClientRect()
-    if (e.ctrlKey || e.metaKey) zoomAt(view.z * Math.exp(-e.deltaY * 0.01), e.clientX - box.left, e.clientY - box.top)
+    // Same as the app's wheelZoomFactor: capped so a mouse notch is a small step, not a 2.7× jump.
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+    if (e.ctrlKey || e.metaKey) zoomAt(view.z * Math.exp(Math.max(-0.1 / 3, Math.min(0.1 / 3, -dy / 300))), e.clientX - box.left, e.clientY - box.top)
     else { view.x -= e.deltaX; view.y -= e.deltaY; apply() }
   }, { passive: false })
   let drag = null, moved = false
@@ -601,7 +606,7 @@
   const player = makeDevice(screens.get(entry), false)
   const strip = document.createElement('div')
   strip.className = 'strip'
-  strip.innerHTML = '<button type="button" aria-label="屏幕列表"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg><span></span></button>'
+  strip.innerHTML = '<button type="button" aria-label="屏幕列表"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h10"/></svg><span></span></button><span class="strip-dims"></span>'
   player.el.append(strip)
   stage.append(player.el)
   order.forEach((s, i) => {
@@ -707,7 +712,7 @@
     back.hidden = stack.length < 2
     showDims(s)
   }
-  const dimsBox = $('.dims')
+  const dimsBox = $('.dims'), stripDims = $('.strip-dims', strip)
   function showDims(s) {
     dimsBox.replaceChildren(
       ...dimsOf(s).map((d) => {
@@ -716,6 +721,13 @@
         name.textContent = d.label
         label.append(name, dimSelect(s, d, (v) => v.label, () => show(s.id)))
         return label
+      }),
+    )
+    stripDims.replaceChildren(
+      ...dimsOf(s).map((d) => {
+        const select = dimSelect(s, d, (v) => v.label, () => show(s.id))
+        select.setAttribute('aria-label', d.label)
+        return select
       }),
     )
     history.replaceState(null, '', `#play:${s.id}${query(s)}`)

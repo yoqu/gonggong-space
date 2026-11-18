@@ -145,8 +145,14 @@ export function InstallTargetDialog({
         toast({ type: 'success', message: t('已向「{name}」的管理员提交引入申请', { name: target.label }) })
       } else {
         await api.put(`${target.base}/installs/${listing.id}`, { enabled: true, pinVersionId })
-        await secrets.apply()
-        toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
+        const failed = await secrets.apply()
+        if (failed.length)
+          toast({
+            type: 'error',
+            title: t('已引入到「{name}」，但有密钥定义没建好', { name: target.label }),
+            message: failed.join('；'),
+          })
+        else toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
         onInstalled?.()
       }
       onClose()

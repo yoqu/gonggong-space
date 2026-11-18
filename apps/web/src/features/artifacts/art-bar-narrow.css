@@ -1,0 +1,21 @@
+.art-bar__issues-count {
+  display: none;
+}
+/* A phone keeps 「预览」 and 「分享」 whole: the findings shrink to their count, 导出 to its icon. */
+@media (max-width: 560px) {
+  .art-bar {
+    gap: var(--space-4);
+    padding-left: var(--space-8);
+  }
+  .art-bar__issues-label,
+  .art-bar__export-label {
+    display: none;
+  }
+  .art-bar__issues-count {
+    display: inline;
+  }
+  .art-bar__export {
+    min-width: 0;
+    padding: 0 var(--space-8);
+  }
+}

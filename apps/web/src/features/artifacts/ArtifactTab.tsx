@@ -41,6 +41,7 @@ import {
   useVersionDetail,
 } from './store'
 import './artifacts.css'
+import './art-bar-narrow.css'
 import './prototype.css'
 
 const SOURCE: Record<ArtifactVersionDto['source'], string> = {
@@ -303,8 +304,15 @@ export function ArtifactTab({ tab, tabKey }: TabProps<'artifact'>) {
         >
           {t('预览')}
         </Button>
-        <Button size="small" icon="download" disabled={!head} onClick={() => ask('export')}>
-          {t('导出')}
+        <Button
+          size="small"
+          icon="download"
+          className="art-bar__export"
+          aria-label={t('导出')}
+          disabled={!head}
+          onClick={() => ask('export')}
+        >
+          <span className="art-bar__export-label">{t('导出')}</span>
         </Button>
         <Button size="small" variant="primary" icon="share" onClick={() => setSharing(true)}>
           {t('分享')}

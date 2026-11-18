@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Button, DeniedArt, EmptyState, Presence, Spinner } from '../../ui'
 import { secretsApi } from './api'
-import { DefineDialog, FillDialog } from './SecretCard'
+import { DefineDialog, FillDialog, useLayerAdmin, waitingFor } from './SecretCard'
 
 /** /secret-requests/:id — where a Feishu 填写密钥 card links: the value is typed here, never in Feishu. */
 export function SecretRequestPage() {
@@ -16,6 +16,7 @@ export function SecretRequestPage() {
   const [req, setReq] = useState<SecretRequestDto | null>(null)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const layerAdmin = useLayerAdmin(req?.define?.layer)
 
   useEffect(() => {
     secretsApi.request(id).then(setReq, (e) => setError(errorText(e)))
@@ -44,6 +45,8 @@ export function SecretRequestPage() {
     />
   ) : req.audience === 'origin' && req.userId !== me ? (
     <EmptyState title={t('只有发起人本人可以填写这些密钥')} icon="lock" action={back} />
+  ) : req.define && !layerAdmin ? (
+    <EmptyState title={waitingFor(req.define)} icon="lock" action={back} />
   ) : (
     <Presence>
       {req.define ? (

@@ -59,6 +59,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The screen's state, right of the centre group by 标注 so the two never meet (UX 11-18). */
+.proto-bar > .ui-menu-anchor {
+  min-width: 0;
+}
+.proto-bar .art-state {
+  max-width: 160px;
+}
 /* A narrow bar: the centre group joins the flow between the title and Share instead of overlapping them. */
 .proto {
   container-type: inline-size;
@@ -80,6 +87,9 @@
   .proto-bar__where {
     max-width: 96px;
   }
+  .proto-bar .art-state {
+    max-width: 96px;
+  }
 }
 /* A phone: the workbench header already names the artifact, the back arrow is enough. */
 @container (max-width: 480px) {
@@ -97,6 +107,9 @@
   .proto-bar__where {
     max-width: 56px;
     margin-right: 0;
+  }
+  .proto-bar .art-state {
+    max-width: 56px;
   }
 }
 

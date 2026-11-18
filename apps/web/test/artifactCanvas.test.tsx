@@ -893,6 +893,43 @@ describe('Stitch round 2 fixes', () => {
     expect(Number.parseFloat(title.style.maxWidth)).toBeLessThanOrEqual(Math.max(390 * 0.15, 26))
   })
 
+  it('zoomed out, keeps a screen’s state pill off its title until the screen is selected (UX 11-18)', async () => {
+    sized(1200, 800)
+    const states = {
+      ...manifest,
+      screens: manifest.screens.map((s) => ({
+        ...s,
+        dims: [
+          {
+            id: 'order',
+            label: '订单状态',
+            values: [
+              { id: 'unpaid', label: '待付款' },
+              { id: 'paid', label: '已付款' },
+            ],
+          },
+        ],
+      })),
+    }
+    mockApi(
+      routes({
+        'GET /artifacts/a1': artifact({ manifest: states }),
+        'GET /artifacts/a1/versions/v2': detail({ manifest: states }),
+      }),
+    )
+    await renderTab()
+    await waitFor(() => expect(zoomText()).toBe('45%'))
+    expect(screen.queryByTestId('art-state-home')).toBeNull()
+    expect(titleOf('首页').classList.contains('art-title--narrow')).toBe(true)
+    fireEvent.click(node('home'))
+    expect(titleOf('首页').classList.contains('art-title--narrow')).toBe(false)
+    expect(screen.getByTestId('art-state-home')).toBeTruthy()
+    expect(screen.queryByTestId('art-state-detail')).toBeNull()
+    key('0', { shiftKey: true, code: 'Digit0' })
+    expect(zoomText()).toBe('100%')
+    expect(screen.getByTestId('art-state-detail')).toBeTruthy()
+  })
+
   it('closes an open menu on Escape and keeps the selection (R03)', async () => {
     mockApi(routes())
     await renderTab()

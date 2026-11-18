@@ -522,6 +522,22 @@ describe('design issues (P2-11)', () => {
       ]),
     )
   })
+
+  // UX walk-through 11-18 round 2, P1: a 320px-wide anchor covered 「预览」 and pushed 「分享」 off a 390px screen.
+  it('sizes the floating panel, not the bar anchor, and compacts the bar on a phone', async () => {
+    mockApi(routes({ 'GET /artifacts/a1/versions': [version(1), version(2, { issues })] }))
+    render(<ArtifactTab tab={tab} tabKey="artifact:a1" active />)
+    const trigger = await screen.findByRole('button', { name: '2 项规范问题' })
+    const anchor = trigger.closest('.ui-popover-anchor') as HTMLElement
+    expect(anchor.className).toBe('ui-popover-anchor')
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: '2 项规范问题' }).style.width).toBe('320px')
+    expect(screen.getByRole('button', { name: '导出' })).toBeTruthy()
+    expect(css('artifacts/artifacts.css')).not.toMatch(/\.art-issues \{/)
+    const text = css('artifacts/art-bar-narrow.css')
+    const phone = text.slice(text.indexOf('@media (max-width: 560px) {'))
+    expect(rule(phone, '  .art-bar__issues-label,\n  .art-bar__export-label')).toContain('display: none')
+  })
 })
 
 describe('seed colour (P2-05)', () => {

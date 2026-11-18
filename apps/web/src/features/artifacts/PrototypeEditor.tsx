@@ -567,8 +567,8 @@ export function PrototypeEditor({
             </div>
           )}
         </div>
-        {states.picker(cur.id)}
         <span className="art-bar__fill" />
+        {states.picker(cur.id)}
         {marks.button}
         <Button size="small" variant="primary" icon="share" onClick={onShare}>
           {t('分享')}

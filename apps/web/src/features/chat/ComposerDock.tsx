@@ -15,6 +15,7 @@ import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Icon } from '../../ui'
 import { stepText, toolTitle } from '../runs/mcp'
+import { hudOffset, ORB } from './composerDockHud'
 import { usePending } from './pending'
 import { STATUS_LABEL } from './RunGraphics'
 import './composer-dock.css'
@@ -22,7 +23,6 @@ import './composer-dock.css'
 type Phase = 'open' | 'opening' | 'closing' | 'closed'
 const KEY = 'gg.composerDock.hidden'
 const POS_KEY = 'gg.composerDock.orbPos'
-const ORB = 44
 const DRAG_THRESHOLD = 5
 const HUD_TTL_MS = 5000
 
@@ -220,6 +220,8 @@ export function ComposerDock({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const shell = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
+  const hudPos = useRef<HTMLDivElement>(null)
+  const [hudSize, setHudSize] = useState({ w: 0, h: 0 })
   const from = useRef<{ w: number; h: number } | null>(null)
   const dragged = useRef(false)
 
@@ -233,20 +235,32 @@ export function ComposerDock({
     if (!bench) return
     const place = () => {
       const r = bench.getBoundingClientRect()
-      setAt({
+      const next = {
         left: r.left + 24,
         width: Math.max(r.width - 48, 0),
         height: Math.max(r.height - 32, 0),
         bottom: window.innerHeight - r.bottom + 16,
-      })
+      }
+      setAt((prev) =>
+        prev &&
+        prev.left === next.left &&
+        prev.width === next.width &&
+        prev.height === next.height &&
+        prev.bottom === next.bottom
+          ? prev
+          : next,
+      )
     }
     place()
     const ro = new ResizeObserver(place)
     ro.observe(bench)
     window.addEventListener('resize', place)
+    // Switching to 全屏 slides the layout: a move without a resize, so measure again once it settles.
+    document.addEventListener('transitionend', place)
     return () => {
       ro.disconnect()
       window.removeEventListener('resize', place)
+      document.removeEventListener('transitionend', place)
     }
   }, [floating])
 
@@ -468,6 +482,29 @@ export function ComposerDock({
     closed && (activeOffset.x !== 0 || activeOffset.y !== 0)
       ? `translate3d(${activeOffset.x}px, ${activeOffset.y}px, 0)`
       : undefined
+  const showHud = floating && !!hud && phase !== 'closing'
+
+  useLayoutEffect(() => {
+    const el = hudPos.current
+    if (!showHud || !el) return
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    setHudSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }))
+  })
+
+  const hudShift = closed
+    ? hudOffset({
+        edge: orbPos.edge,
+        orb: activeOffset,
+        width: travelW + ORB,
+        height: travelH + ORB,
+        hud: hudSize,
+      })
+    : null
+  const hudTransform =
+    hudShift && (hudShift.x !== 0 || hudShift.y !== 0)
+      ? `translate3d(${hudShift.x}px, ${hudShift.y}px, 0)`
+      : undefined
 
   return (
     <div
@@ -475,25 +512,31 @@ export function ComposerDock({
       data-phase={floating ? phase : undefined}
       style={floating && at ? { left: at.left, width: at.width, bottom: at.bottom } : undefined}
     >
-      {floating && hud && phase !== 'closing' ? (
-        <button
-          type="button"
-          className="cdock__hud"
-          data-testid="cdock-hud"
-          data-tone={hud.tone ?? 'sent'}
-          style={orbTransform ? { transform: orbTransform } : undefined}
-          onClick={() => {
-            hud.onClick?.()
-            showChat?.()
-          }}
+      {showHud && hud ? (
+        // Positioned here, animated in on the button: the enter keyframes would override this transform.
+        <div
+          ref={hudPos}
+          className="cdock__hud-pos"
+          style={hudTransform ? { transform: hudTransform } : undefined}
         >
-          <span className="cdock__hud-dot" aria-hidden="true" />
-          <span className="cdock__hud-text">{hud.text}</span>
-          <span className="cdock__hud-action">
-            <span>{t('展开聊天')}</span>
-            <Icon name="chevron-right" size={12} />
-          </span>
-        </button>
+          <button
+            type="button"
+            className="cdock__hud"
+            data-testid="cdock-hud"
+            data-tone={hud.tone ?? 'sent'}
+            onClick={() => {
+              hud.onClick?.()
+              showChat?.()
+            }}
+          >
+            <span className="cdock__hud-dot" aria-hidden="true" />
+            <span className="cdock__hud-text">{hud.text}</span>
+            <span className="cdock__hud-action">
+              <span>{t('展开聊天')}</span>
+              <Icon name="chevron-right" size={12} />
+            </span>
+          </button>
+        </div>
       ) : null}
       <div
         ref={shell}
