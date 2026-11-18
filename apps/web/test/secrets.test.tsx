@@ -521,18 +521,21 @@ describe('填写密钥 card', () => {
     let pending: Card[] = [{ ...card, names: ['JIRA_TOKEN'], foreign: true }]
     const calls = mockApi({
       'GET /groups/g1/secret-requests': () => pending,
+      'GET /groups/g1/secret-needs': [],
       'POST /secret-requests/q1': () => {
         pending = []
         return {}
       },
     })
     render(<SecretBanner groupId="g1" />)
-    expect(await screen.findByText('你有 1 个密钥待填写')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '填写密钥' }))
+    expect(await screen.findByText('本群有 1 个密钥待你配置')).toBeTruthy()
+    // A card asking me is not snoozed.
+    expect(screen.queryByRole('button', { name: '24 小时内不再提醒' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '去配置' }))
     const dialog = await screen.findByRole('dialog', { name: '填写密钥' })
     fireEvent.change(within(dialog).getByLabelText('JIRA_TOKEN'), { target: { value: 'jira_12345678' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
-    await waitFor(() => expect(screen.queryByText('你有 1 个密钥待填写')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('本群有 1 个密钥待你配置')).toBeNull())
     expect(calls).toContainEqual({
       method: 'POST',
       path: '/secret-requests/q1',

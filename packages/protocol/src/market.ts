@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PluginCategory, PluginMcp, PluginPermission } from './plugins.js'
+import { SecretRequirement } from './secrets.js'
 
 // ── Skill 市场 (plan Skill市场-PRD): listings (the `plugins` table) installed into a scope ────
 /** `plugin`: a creation plugin with gonggong-plugin.json; `skill`: a bare skill folder (SKILL.md at its root). */
@@ -13,7 +14,12 @@ export const InstallScope = z.enum(['user', 'group', 'repo', 'team'])
 export type InstallScope = z.infer<typeof InstallScope>
 
 /** The manifest stored for a `skill` listing: its SKILL.md frontmatter. */
-export const SkillListingManifest = z.object({ name: z.string(), description: z.string() })
+export const SkillListingManifest = z.object({
+  name: z.string(),
+  description: z.string(),
+  /** Its frontmatter `secrets` (plan Skill密钥声明); absent in snapshots stored before declarations. */
+  secretSpecs: z.array(SecretRequirement).optional(),
+})
 export type SkillListingManifest = z.infer<typeof SkillListingManifest>
 
 /** A listing as the install lists show it. */
@@ -153,6 +159,8 @@ export const MarketListingDetailDto = MarketListingDto.extend({
   /** A plugin's permissions and MCP servers (plan 插件扩展点 §9), shown before installing; empty for skills. */
   permissions: z.array(PluginPermission).default([]),
   mcp: z.array(PluginMcp).default([]),
+  /** The shown version's declared secrets (plan Skill密钥声明 §4), shown before installing. */
+  secretSpecs: z.array(SecretRequirement).default([]),
   files: z.array(z.object({ path: z.string(), size: z.number().int() })),
   versions: z.array(ListingVersionDto),
   ghSource: ListingSource.nullable(),

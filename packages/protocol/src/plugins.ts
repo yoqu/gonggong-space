@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ArtifactCard } from './artifacts.js'
 import { AgentKind } from './common.js'
 import { ApiProtocol, LegacyProviderPreset, ProviderPreset, SkillFile } from './daemon.js'
+import { type SecretRequirement, SecretRequirements } from './secrets.js'
 
 // ── Plugins (plan 插件体系-方案): a folder with a manifest, layered like team skills ────
 /** The manifest at the root of a plugin folder; the rest is a Claude plugin layout (`skills/<name>/SKILL.md`). */
@@ -363,11 +364,13 @@ export const PluginManifest = z
     templates: z.array(PluginTemplate).max(80).default([]),
     designSystems: z.array(PluginDesignSystem).max(80).default([]),
     inputs: z.array(PluginInput).max(12).default([]),
-    /** Env var names of secrets it needs (plan 团队密钥-方案); runs without them do not get the plugin. */
-    secrets: z
-      .array(z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/))
-      .max(10)
-      .default([]),
+    /**
+     * Secrets it needs (plan 团队密钥-方案, Skill密钥声明): names or SecretRequirements on upload; parsed, the names of
+     * the required ones (runs without them do not get the plugin), so readers of old snapshots see the same shape.
+     */
+    secrets: SecretRequirements.default([]),
+    /** Every declared secret; absent in snapshots stored before declarations (read them with `secretSpecsOf`). */
+    secretSpecs: SecretRequirements.optional(),
     /** Optional (plan Skill市场 D11): left out rather than made up. */
     license: z.string().min(1).max(40).optional(),
     /**
@@ -407,6 +410,7 @@ export const PluginManifest = z
     const need = requiredPermissions(m.contributes)
     if (need.join() !== [...new Set(m.permissions)].sort().join())
       ctx.addIssue({ code: 'custom', path: ['permissions'], message: `必须正好是 [${need.join(', ')}]` })
+    const specs = m.secretSpecs ?? m.secrets
     const names = m.contributes.mcp.map((c) => c.name)
     for (const [k, c] of m.contributes.mcp.entries()) {
       if (names.indexOf(c.name) !== k)
@@ -414,15 +418,29 @@ export const PluginManifest = z
       const values = Object.values(c.transport === 'stdio' ? c.env : c.headers)
       for (const v of values)
         for (const [, name] of v.matchAll(PLUGIN_SECRET_REF))
-          if (!m.secrets.includes(name!))
+          if (!specs.some((s) => s.name === name && s.required))
             ctx.addIssue({
               code: 'custom',
               path: ['contributes', 'mcp', k],
-              message: `${name} 不在 secrets 里`,
+              message: `${name} 不在 secrets 的必需项里`,
             })
     }
   })
+  // Typed optional: stored snapshots from before declarations lack it (read them with `secretSpecsOf`).
+  .transform((m): Omit<typeof m, keyof ParsedSecrets> & ParsedSecrets => {
+    const specs = m.secretSpecs ?? m.secrets
+    return { ...m, secrets: specs.filter((s) => s.required).map((s) => s.name), secretSpecs: specs }
+  })
+type ParsedSecrets = { secrets: string[]; secretSpecs?: SecretRequirement[] }
 export type PluginManifest = z.infer<typeof PluginManifest>
+
+/** A stored manifest's declared secrets: old snapshots only have the names, each a required shared secret. */
+export const secretSpecsOf = (m: {
+  secrets?: string[]
+  secretSpecs?: SecretRequirement[]
+}): SecretRequirement[] =>
+  m.secretSpecs ??
+  (m.secrets ?? []).map((name) => ({ name, description: '', mode: 'shared', required: true }))
 
 /** The inputs a creation from `tpl` asks for, in manifest order. */
 export const templateInputs = (m: PluginManifest, tpl: PluginTemplate | null | undefined) => {

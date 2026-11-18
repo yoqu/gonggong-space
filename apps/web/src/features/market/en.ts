@@ -191,4 +191,30 @@ export default {
   在市场中查看详情: 'View in the market',
   '权限#plugin': 'Permissions',
   'MCP 服务': 'MCP servers',
+  必需: 'Required',
+  '建议：{mode}': 'Suggested: {mode}',
+  '前往 {host} 申请': 'Get one at {host}',
+  需要的密钥: 'Secrets needed',
+  '名称是脚本读取的环境变量名，不能改。由发布者声明，引入时可建好定义。':
+    'Names are the environment variables its scripts read and cannot change. Declared by the publisher; definitions can be made on install.',
+  '{name} 的统一值至少 8 个字符': 'The shared value of {name} needs at least 8 characters',
+  声明: 'Declared',
+  '{layer}现有定义': 'Existing definition on {layer}',
+  用途可能不一致: 'The purposes may differ',
+  '{name} 的处理': 'What to do with {name}',
+  '共用现有定义（说明和模式不变）': 'Share the existing definition (description and mode unchanged)',
+  取消引入: 'Cancel the install',
+  '复用{layer}现有定义': 'Reuse the existing definition on {layer}',
+  '在本群新建同名定义（仅本群生效，覆盖{layer}）':
+    'Make a same-named definition in this group (applies here only, overriding {layer})',
+  '在本团队新建同名定义（仅本团队生效，覆盖{layer}）':
+    'Make a same-named definition in this team (applies to this team only, overriding {layer})',
+  在本群创建定义: 'Create the definition in this group',
+  在本团队创建定义: 'Create the definition in this team',
+  '{name} 的用途': 'Purpose of {name}',
+  '{name} 的模式': 'Mode of {name}',
+  '{name} 的统一值': 'Shared value of {name}',
+  '统一值，可稍后填写': 'Shared value; can be filled later',
+  'r{n} 新增必需密钥：{names}，升级后需建好定义并填写':
+    'r{n} adds required secrets: {names}; define and fill them after upgrading',
 }

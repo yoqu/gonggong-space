@@ -547,6 +547,18 @@ export const en = {
   密钥名称已存在: 'A secret with this name already exists',
   '{name} 是系统保留的环境变量名，请换一个名称':
     '{name} is a reserved environment variable; pick another name',
+  'SKILL.md 的 secrets 不合法（{path}）：{reason}': 'Invalid secrets in SKILL.md ({path}): {reason}',
+  '密钥 {name} 不需要这样填写，请刷新后重试': 'Secret {name} is not filled this way; refresh and try again',
+  '这张卡片发出时还没有绑定密钥定义，请让 Bot 重新申请，或到设置「我的密钥」里填写':
+    'This card predates bound definitions; ask the bot again, or fill it in under My secrets',
+  '密钥 {name} 的定义已变更，请让 Bot 重新申请': 'The definition of {name} changed; ask the bot again',
+  '卡片已失效，请让 Bot 重新申请': 'This card is no longer valid; ask the bot again',
+  '仅 {admins} 可以创建这些密钥': 'Only {admins} can create these secrets',
+  'Skill {skill} 已升级或移除，卡片已失效，请让 Bot 重新申请':
+    'Skill {skill} was upgraded or removed; this card is no longer valid, ask the bot again',
+  '期间已出现同名密钥 {name}，卡片已失效，请让 Bot 重新申请':
+    'A secret named {name} appeared meanwhile; this card is no longer valid, ask the bot again',
+  密钥已创建: 'The secrets were already created',
   '「个人」模式的密钥由各成员自己填写，没有统一值':
     'A "personal" secret is filled in by each member and has no shared value',
   到期时间无效: 'Invalid expiry time',

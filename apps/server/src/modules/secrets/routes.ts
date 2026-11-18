@@ -1,5 +1,6 @@
 import {
   CreateSecretReq,
+  FillNewSecretReq,
   FillSecretReq,
   type MySecretDto,
   SetMySecretReq,
@@ -16,6 +17,7 @@ import { requireSysadmin, requireUser } from '../auth/session.js'
 import { requireAdmin, requireMember } from '../groups/service.js'
 import type { Layer } from '../mcp/service.js'
 import { currentTeam, requireTeam } from '../teams/service.js'
+import { fillNewPersonal, memberNeeds } from './needs.js'
 import { fillSecretRequest, pendingSecretCards, secretRequestOf } from './requests.js'
 import { RANK, type SecretRow, visibleSecrets } from './resolve.js'
 import {
@@ -146,6 +148,21 @@ export function secretRoutes(ctx: Ctx) {
       const me = await requireUser(ctx, req)
       return pendingSecretCards(ctx, me.id, idParam(req.params.groupId, '群不存在或你已不在群内'))
     })
+    app.get<{ Params: { groupId: string } }>('/api/groups/:groupId/secret-needs', async (req) => {
+      const me = await requireUser(ctx, req)
+      const groupId = idParam(req.params.groupId, '群不存在或你已不在群内')
+      await requireMember(ctx, groupId, me.id)
+      return memberNeeds(ctx, groupId, me.id)
+    })
+    app.post<{ Params: { groupId: string } }>(
+      '/api/groups/:groupId/secret-needs/personal',
+      async (req, reply) => {
+        const me = await requireUser(ctx, req)
+        const groupId = idParam(req.params.groupId, '群不存在或你已不在群内')
+        await fillNewPersonal(ctx, groupId, me.id, FillNewSecretReq.parse(req.body))
+        return reply.status(204).send()
+      },
+    )
     app.get<{ Params: { id: string } }>('/api/secret-requests/:id', async (req) => {
       const me = await requireUser(ctx, req)
       return secretRequestOf(ctx, me.id, idParam(req.params.id, '密钥请求不存在'))

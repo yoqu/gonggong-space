@@ -5,7 +5,7 @@ import { useWorkspace } from '../../app/workspace'
 import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Alert, Button, ChatNotice, Checkbox, Dialog, Icon, Presence, SecureField, Tag } from '../../ui'
-import { secretsApi } from './api'
+import { MODE_LABEL, secretsApi } from './api'
 import { FOREIGN, FOREIGN_NOTE } from './MySecrets'
 
 /**
@@ -38,17 +38,30 @@ export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto;
         <Icon name="lock" size={13} />
         <span className="tl-event__text">{m.i18n ? t.text(m.i18n) : m.body}</span>
         {done ? (
-          <Tag tone="green">{t('已填写')}</Tag>
+          <Tag tone="green">{card.define ? t('已创建') : t('已填写')}</Tag>
         ) : canFill ? (
           <Button size="small" variant="primary" onClick={() => setOpen(true)}>
-            {t('填写密钥')}
+            {card.define ? t('按声明创建') : t('填写密钥')}
           </Button>
         ) : (
-          <Tag tone="gray">{t('等待填写')}</Tag>
+          <Tag tone="gray">
+            {card.define?.admins.length
+              ? t('等待 {admins} 创建', { admins: card.define.admins.join('、') })
+              : t('等待填写')}
+          </Tag>
         )}
       </span>
       <Presence>
-        {open ? (
+        {open && card.define ? (
+          <DefineDialog
+            card={card}
+            onClose={() => setOpen(false)}
+            onDone={() => {
+              setFilled(true)
+              setOpen(false)
+            }}
+          />
+        ) : open ? (
           <FillDialog
             card={card}
             onClose={() => setOpen(false)}
@@ -62,6 +75,63 @@ export const SecretCard = memo(function SecretCard({ m, card }: { m: MessageDto;
     </ChatNotice>
   )
 })
+
+/** A `define` card (plan Skill密钥声明 §7): what the skill declares, made as-is by an admin of the layer. */
+export function DefineDialog({
+  card,
+  onClose,
+  onDone,
+}: {
+  card: Card
+  onClose: () => void
+  onDone: () => void
+}) {
+  const d = card.define!
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    setBusy(true)
+    try {
+      await secretsApi.fill(card.id, { values: {} })
+      onDone()
+    } catch (e) {
+      setError(errorText(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={t('按声明创建密钥')}
+      message={
+        d.layer.scope === 'group'
+          ? t('Skill「{skill}」声明需要以下密钥，将在本群创建定义（不填值），创建后请成员各自填写。', {
+              skill: d.skill,
+            })
+          : t('Skill「{skill}」声明需要以下密钥，将在团队层创建定义（不填值），创建后请成员各自填写。', {
+              skill: d.skill,
+            })
+      }
+      onClose={onClose}
+      actions={[
+        { label: t('取消'), onClick: onClose },
+        { label: t('创建'), variant: 'primary', onClick: () => void submit(), disabled: busy },
+      ]}
+    >
+      {error ? <Alert variant="error" title={error} /> : null}
+      {d.specs.map((s) => (
+        <div key={s.name} className="sn-row">
+          <div className="sn-row__head">
+            <strong>{s.title ?? s.name}</strong>
+            <code>{s.name}</code>
+            <Tag tone="blue">{MODE_LABEL[s.mode]}</Tag>
+          </div>
+          {s.description ? <div className="gs-desc">{s.description}</div> : null}
+        </div>
+      ))}
+    </Dialog>
+  )
+}
 
 export function FillDialog({
   card,

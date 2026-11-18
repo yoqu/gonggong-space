@@ -90,6 +90,7 @@ const detail = (o: Partial<MarketListingDetailDto> = {}): MarketListingDetailDto
   readme: '# 审查 PR\n\n按规范逐条检查。',
   permissions: [],
   mcp: [],
+  secretSpecs: [],
   files: [
     { path: 'SKILL.md', size: 320 },
     { path: 'scripts/run.sh', size: 1024 },

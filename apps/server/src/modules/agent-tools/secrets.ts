@@ -1,11 +1,13 @@
-import type { GONGGONG_TOOLS } from '@gonggong/protocol'
+import type { GONGGONG_TOOLS, SecretRequirement } from '@gonggong/protocol'
 import type { z } from 'zod'
 import type { Ctx } from '../../context.js'
-import type { Scope } from '../mcp/service.js'
-import { type Audience, postSecretCard } from '../secrets/requests.js'
+import type { Layer, Scope } from '../mcp/service.js'
+import { type EffectiveSkill, targetLayer } from '../secrets/needs.js'
+import { askValues, postDefineCard } from '../secrets/requests.js'
 import { blocked, RANK, resolveSecrets, type SecretState } from '../secrets/resolve.js'
 import { logSecret } from '../secrets/service.js'
-import { LAYER, type Run } from './layers.js'
+import { enabledSkills } from '../skills/service.js'
+import { LAYER, type Run, teamOf } from './layers.js'
 import { refuse, type ToolOutput } from './service.js'
 
 type Args<N extends keyof typeof GONGGONG_TOOLS> = z.infer<(typeof GONGGONG_TOOLS)[N]['input']>
@@ -57,43 +59,74 @@ export async function secretList(ctx: Ctx, run: Run): Promise<ToolOutput> {
 
 /**
  * One card per audience: personal and overridable names ask the originator for their own value, shared names ask
- * the admins of each definition's layer.
+ * the admins of each definition's layer. A name a group skill declares without a definition asks that layer's admins
+ * to make it from the declaration (plan Skill密钥声明 §7); the agent never makes one.
  */
 export async function secretRequest(ctx: Ctx, run: Run, a: Args<'secret_request'>): Promise<ToolOutput> {
   const now = ctx.now()
   const { rows, states } = await resolveSecrets(ctx.db, run, now)
   const names = [...new Set(a.names)]
-  const by: Record<Audience, string[]> = { origin: [], admins: [] }
-  for (const name of names) {
-    const s = states.find((x) => x.def.name === name)
-    if (!s) {
+  const missing = names.filter((name) => !states.some((x) => x.def.name === name))
+  const define = new Map<string, { skill: EffectiveSkill; specs: SecretRequirement[]; layer: Layer }>()
+  if (missing.length) {
+    const skills = await enabledSkills(ctx.db, run.groupId, run.originUserId)
+    const teamId = await teamOf(ctx, run)
+    for (const name of missing) {
       const any = rows.find((r) => r.name === name)
-      refuse(
-        any
-          ? `密钥 ${name} ${blocked(any, run.botId, now)}，请管理员在设置里处理`
-          : `本群没有名为 ${name} 的密钥定义，请用 secret_list 查看；新定义只能由管理员在设置里添加`,
-      )
-      continue
+      if (any) refuse(`密钥 ${name} ${blocked(any, run.botId, now)}，请管理员在设置里处理`)
+      const skill = skills.find((s) => s.secretSpecs.some((x) => x.name === name))
+      if (!skill)
+        refuse(`本群没有名为 ${name} 的密钥定义，请用 secret_list 查看；新定义只能由管理员在设置里添加`)
+      const declared = skill!
+      if (declared.scope === 'user')
+        refuse(
+          `${name} 由发起人的个人 Skill ${declared.name} 声明，本团队还没有这个定义；请发起人在群输入框上方的密钥提示里填写，填写时会一并创建`,
+        )
+      const layer = targetLayer(declared, teamId, run.groupId)
+      if (!layer)
+        refuse(`${name} 由平台 Skill ${declared.name} 声明，本群还没有定义；请平台管理员在设置里添加`)
+      const entry = define.get(declared.name) ?? { skill: declared, specs: [], layer: layer! }
+      entry.specs.push(declared.secretSpecs.find((x) => x.name === name)!)
+      define.set(declared.name, entry)
     }
-    by[s.def.mode === 'shared' ? 'admins' : 'origin'].push(name)
   }
   const force = a.forceNewSession ?? false
-  const posted: string[] = []
-  for (const audience of ['origin', 'admins'] as const) {
-    if (!by[audience].length) continue
-    const card = await postSecretCard(ctx, run, audience, by[audience], force)
+  const lines: string[] = []
+  for (const { skill, specs, layer } of define.values()) {
+    const card = await postDefineCard(ctx, run, skill, specs, {
+      scope: layer.scope as 'team' | 'group',
+      teamId: layer.teamId!,
+      groupId: layer.groupId,
+    })
     await logSecret(
       ctx,
       run.originUserId,
       'secret.request',
       { layer: 'group', teamId: null, groupId: run.groupId },
-      { requestId: card.id, names: by[audience], audience, botId: run.botId, runId: run.id },
+      { requestId: card.id, names: card.names, audience: 'define', botId: run.botId, runId: run.id },
     )
-    posted.push(`${audience === 'origin' ? '请发起人填写' : '请管理员填写'}：${by[audience].join('、')}`)
+    lines.push(
+      `请管理员按 Skill ${skill.name} 的声明创建：${card.names.join('、')}（创建后会自动发填写卡片）`,
+    )
+  }
+  for (const p of await askValues(
+    ctx,
+    run,
+    names.filter((n) => !missing.includes(n)),
+    force,
+  )) {
+    await logSecret(
+      ctx,
+      run.originUserId,
+      'secret.request',
+      { layer: 'group', teamId: null, groupId: run.groupId },
+      { requestId: p.id, names: p.names, audience: p.audience, botId: run.botId, runId: run.id },
+    )
+    lines.push(`${p.audience === 'origin' ? '请发起人填写' : '请管理员填写'}：${p.names.join('、')}`)
   }
   return {
     text:
-      `已在群里发出填写密钥卡片（${posted.join('；')}）。填写后下一轮注入${force ? '，相关 Bot 开新会话' : ''}。` +
+      `已在群里发出密钥卡片（${lines.join('；')}）。填写后下一轮注入${force ? '，相关 Bot 开新会话' : ''}。` +
       '你看不到密钥，也不要在对话里索要；之后可用 secret_list 查看是否已填写。',
     groups: [],
   }

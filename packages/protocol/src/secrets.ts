@@ -18,6 +18,47 @@ export type SecretMode = z.infer<typeof SecretMode>
 export const SecretSource = z.enum(['personal', 'group', 'team', 'platform'])
 export type SecretSource = z.infer<typeof SecretSource>
 
+/**
+ * A secret a skill or plugin declares (plan Skill密钥声明): SKILL.md frontmatter `secrets`, a plugin manifest's
+ * `secrets`. A gonggong extension, not part of the Agent Skills spec. A bare name means a required shared secret.
+ */
+export const SecretRequirement = z.object({
+  name: SecretName,
+  title: z.string().trim().min(1).max(60).optional(),
+  description: z.string().trim().max(500).default(''),
+  /** Where to get one: https only, shown with its host. */
+  url: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith('https://'), '申请链接只能是 https 地址')
+    .optional(),
+  /** Hint of the value's shape for the input box. */
+  placeholder: z.string().max(60).optional(),
+  /** The suggested mode for the definition the installer creates. */
+  mode: SecretMode.default('shared'),
+  required: z.boolean().default(true),
+})
+export type SecretRequirement = z.infer<typeof SecretRequirement>
+export const SecretRequirements = z
+  .array(
+    z.union([
+      SecretName.transform(
+        (name): SecretRequirement => ({ name, description: '', mode: 'shared', required: true }),
+      ),
+      SecretRequirement,
+    ]),
+  )
+  .max(10)
+  .superRefine((specs, ctx) => {
+    const seen = new Set<string>()
+    for (const [k, s] of specs.entries()) {
+      if (seen.has(s.name))
+        ctx.addIssue({ code: 'custom', path: [k, 'name'], message: `重复的密钥 ${s.name}` })
+      seen.add(s.name)
+    }
+  })
+
 /** A stored value as anyone may see it: never the value itself. */
 export const SecretValueState = z.object({
   last4: z.string(),
@@ -111,11 +152,28 @@ export type SetMySecretReq = z.infer<typeof SetMySecretReq>
 export const SecretCard = z.object({
   id: z.string(),
   names: z.array(z.string()),
-  audience: z.enum(['origin', 'admins']),
+  /** `define` (plan Skill密钥声明 §7): an admin of `define.layer` makes the definitions a skill declares. */
+  audience: z.enum(['origin', 'admins', 'define']),
   userId: z.string().nullable(),
   filled: z.boolean(),
   /** `origin` cards: the asking bot runs on a machine `userId` does not own, so a value needs allowForeignMachines. */
   foreign: z.boolean().optional(),
+  /** The definition each name was asked for; cards from before it are asked again rather than guessed. */
+  defs: z.record(z.string(), z.string()).optional(),
+  define: z
+    .object({
+      skill: z.string(),
+      versionId: z.string(),
+      layer: z.object({
+        scope: z.enum(['team', 'group']),
+        teamId: z.string(),
+        groupId: z.string().nullable(),
+      }),
+      specs: z.array(SecretRequirement),
+      /** Who can make them: the layer's admins' names. */
+      admins: z.array(z.string()),
+    })
+    .optional(),
 })
 export type SecretCard = z.infer<typeof SecretCard>
 /** GET /api/secret-requests/:id (the page a Feishu card links to): the card, its group and the asking bot. */
@@ -128,6 +186,51 @@ export const FillSecretReq = z.object({
   allowForeignMachines: z.boolean().optional(),
 })
 export type FillSecretReq = z.infer<typeof FillSecretReq>
+
+/**
+ * GET /api/groups/:groupId/secret-needs (plan Skill密钥声明 §6): each secret the group's skills (mine included)
+ * declare, its state for me and what I can do: `create` the missing definition (an admin of `target`), `fill_shared`
+ * its shared value (an admin of its layer), `fill_personal` my own value, `fill_new` my own value of my personal
+ * skill's secret, whose per-member team definition is made with it (POST …/secret-needs/personal).
+ */
+export const SecretNeedDto = z.object({
+  skill: z.string(),
+  skillVersionId: z.string(),
+  /** From my personal install. */
+  personalSkill: z.boolean(),
+  spec: SecretRequirement,
+  status: z.enum(['ok', 'unfilled', 'missing_def', 'blocked']),
+  /** `blocked`: 已停用 / 已过期. */
+  reason: z.string().optional(),
+  def: z
+    .object({
+      id: z.string(),
+      scope: SecretScope,
+      mode: SecretMode,
+      description: z.string(),
+      hasValue: z.boolean(),
+    })
+    .nullable(),
+  /** `missing_def`: where it would be made and with which mode; null for platform skills. */
+  target: z
+    .object({
+      scope: SecretScope,
+      teamId: z.string().nullable(),
+      groupId: z.string().nullable(),
+      mode: SecretMode,
+    })
+    .nullable()
+    .optional(),
+  mine: SecretValueState.extend({ allowForeignMachines: z.boolean() }).nullable(),
+  action: z.enum(['create', 'fill_shared', 'fill_personal', 'fill_new']).nullable(),
+})
+export type SecretNeedDto = z.infer<typeof SecretNeedDto>
+export const FillNewSecretReq = z.object({
+  name: SecretName,
+  value: SecretValue,
+  allowForeignMachines: z.boolean().default(false),
+})
+export type FillNewSecretReq = z.infer<typeof FillNewSecretReq>
 
 /** A secret injected into a run (run detail): never the value. */
 export const RunSecret = z.object({ name: z.string(), source: SecretSource })

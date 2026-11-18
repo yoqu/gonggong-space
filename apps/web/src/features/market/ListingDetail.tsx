@@ -28,6 +28,7 @@ import {
 import { Markdown } from '../chat/Markdown'
 import { mcpTarget, permissionsText } from '../plugins/model'
 import { ListingFiles } from './ListingFiles'
+import { SecretSpecList } from './SecretSpecs'
 import { TYPE_LABEL, targetLabels } from './status'
 import { VersionDiff } from './VersionDiff'
 import '../config/config.css'
@@ -201,6 +202,7 @@ export function ListingDetail({
           ) : null}
         </section>
       ) : null}
+      {data.secretSpecs.length ? <SecretSpecList specs={data.secretSpecs} /> : null}
       <section className="mkt-detail__section" aria-label={t('说明')}>
         <div className="cfg__eyebrow">{t('说明')}</div>
         <div className="mkt-detail__readme">

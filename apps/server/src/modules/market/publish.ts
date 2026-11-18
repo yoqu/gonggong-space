@@ -14,11 +14,12 @@ import type {
   ReviewItemDto,
   ReviewReq,
   SkillFile,
+  SkillListingManifest,
   UpdateListingReq,
   UpstreamMovedDto,
   VersionDiffDto,
 } from '@gonggong/protocol'
-import { type PluginShelf, pluginRunsCode, shelfCategories } from '@gonggong/protocol'
+import { type PluginShelf, pluginRunsCode, secretSpecsOf, shelfCategories } from '@gonggong/protocol'
 import {
   and,
   desc,
@@ -444,6 +445,9 @@ export async function marketDetail(
     readme,
     permissions: plugin?.permissions ?? [],
     mcp: plugin?.contributes.mcp ?? [],
+    secretSpecs: plugin
+      ? secretSpecsOf(plugin)
+      : ((card!.shown.manifest as SkillListingManifest).secretSpecs ?? []),
     files: files.map((f) => ({
       path: f.path,
       size: f.encoding === 'base64' ? Buffer.from(f.content, 'base64').length : Buffer.byteLength(f.content),

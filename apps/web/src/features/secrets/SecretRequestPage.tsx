@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { errorText } from '../../lib/api'
 import { Button, DeniedArt, EmptyState, Presence, Spinner } from '../../ui'
 import { secretsApi } from './api'
-import { FillDialog } from './SecretCard'
+import { DefineDialog, FillDialog } from './SecretCard'
 
 /** /secret-requests/:id — where a Feishu 填写密钥 card links: the value is typed here, never in Feishu. */
 export function SecretRequestPage() {
@@ -46,7 +46,11 @@ export function SecretRequestPage() {
     <EmptyState title={t('只有发起人本人可以填写这些密钥')} icon="lock" action={back} />
   ) : (
     <Presence>
-      <FillDialog card={req} onClose={() => navigate(`/g/${req.groupId}`)} onDone={() => setDone(true)} />
+      {req.define ? (
+        <DefineDialog card={req} onClose={() => navigate(`/g/${req.groupId}`)} onDone={() => setDone(true)} />
+      ) : (
+        <FillDialog card={req} onClose={() => navigate(`/g/${req.groupId}`)} onDone={() => setDone(true)} />
+      )}
     </Presence>
   )
   return <div className="not-found">{view}</div>

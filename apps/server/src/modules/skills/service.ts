@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto'
 import {
+  SecretRequirements,
   SKILL_MAX_BYTES,
   type SkillDetailDto,
   type SkillDto,
   type SkillFile,
   type SkillListingManifest,
 } from '@gonggong/protocol'
-import { and, desc, eq, inArray, isNull, ne, or, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, or, type SQL, sql } from 'drizzle-orm'
 import { parse as parseYaml } from 'yaml'
 import type { Ctx } from '../../context.js'
 import type { Db } from '../../db/client.js'
@@ -17,6 +18,7 @@ import { fail } from '../../lib/errors.js'
 import { keptIn, turnedOff as offIn, setInherited as setOverride } from '../../lib/group-overrides.js'
 import { groupInstalls, personalInstalls, skillInstalled } from '../market/service.js'
 import type { Layer } from '../mcp/service.js'
+import { reservedName } from '../secrets/service.js'
 
 export type SkillRow = typeof skills.$inferSelect
 type Version = typeof skillVersions.$inferSelect
@@ -48,12 +50,38 @@ export function frontmatter(files: SkillFile[], path = 'SKILL.md') {
     meta = null
   }
   if (!meta || typeof meta !== 'object') return fail('invalid', 'SKILL.md 缺少 frontmatter')
-  const { name, description } = meta as Record<string, unknown>
+  const { name, description, secrets } = meta as Record<string, unknown>
   if (typeof name !== 'string' || !NAME.test(name) || name.length > NAME_MAX)
     return fail('invalid', 'SKILL.md 的 name 只能用小写字母、数字和连字符，最长 64 个字符')
   if (typeof description !== 'string' || !description.trim() || description.length > DESCRIPTION_MAX)
     return fail('invalid', 'SKILL.md 缺少 description（最长 1024 个字符）')
-  return { name, description: description.trim() }
+  return { name, description: description.trim(), secretSpecs: declaredSecrets(secrets) }
+}
+
+/** Frontmatter `secrets` (plan Skill密钥声明): a gonggong extension the agents' skill loaders ignore. */
+function declaredSecrets(raw: unknown) {
+  if (raw === undefined || raw === null) return []
+  const r = SecretRequirements.safeParse(raw)
+  if (!r.success) {
+    const issue = r.error.issues[0]!
+    return fail('invalid', 'SKILL.md 的 secrets 不合法（{path}）：{reason}', {
+      path: issue.path.join('.') || 'secrets',
+      reason: issue.message,
+    })
+  }
+  for (const spec of r.data)
+    if (reservedName(spec.name))
+      fail('invalid', '{name} 是系统保留的环境变量名，请换一个名称', { name: spec.name })
+  return r.data
+}
+
+/** A stored skill folder's declared secrets; an invalid declaration counts as none (it was checked on upload). */
+export function skillSecretSpecs(files: SkillFile[]) {
+  try {
+    return frontmatter(files).secretSpecs
+  } catch {
+    return []
+  }
 }
 
 /** Validates the folder and returns it sorted by path, with its frontmatter, digest and size. */
@@ -262,7 +290,13 @@ export async function rollbackSkill(
   await nameTaken(ctx, l, s.name, skill.id)
   const [row] = await ctx.db
     .update(skills)
-    .set({ ...s, versionId: v.id, updatedBy: actorId, updatedAt: ctx.now() })
+    .set({
+      name: s.name,
+      description: s.description,
+      versionId: v.id,
+      updatedBy: actorId,
+      updatedAt: ctx.now(),
+    })
     .where(eq(skills.id, skill.id))
     .returning()
   await log(ctx, actorId, l, 'skill.rollback', row!, v.version, extra)
@@ -357,18 +391,21 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string, ori
       description: skills.description,
       versionId: skillVersions.id,
       digest: skillVersions.digest,
+      main: sql<SkillFile | null>`jsonb_path_query_first(${skillVersions.files}, '$[*] ? (@.path == "SKILL.md")')`,
     })
     .from(skills)
     .innerJoin(skillVersions, eq(skillVersions.id, skills.versionId))
     .where(and(eq(skills.enabled, true), visibleIn(db, groupId)))
+  const specsOf = (m: unknown) => (m as SkillListingManifest).secretSpecs ?? []
   const rows = [
-    ...own,
+    ...own.map(({ main, ...r }) => ({ ...r, secretSpecs: main ? skillSecretSpecs([main]) : [] })),
     ...installed.map(({ scope, name, description, version }) => ({
       scope,
       name,
       description,
       versionId: version.id,
       digest: version.digest,
+      secretSpecs: specsOf(version.manifest),
     })),
     ...personal.map(({ name, version }) => ({
       scope: 'user',
@@ -376,17 +413,21 @@ export async function enabledSkills(db: Pick<Db, 'select'>, groupId: string, ori
       description: (version.manifest as SkillListingManifest).description,
       versionId: version.id,
       digest: version.digest,
+      secretSpecs: specsOf(version.manifest),
     })),
   ]
   // A group turning an inherited skill off does not reach into its members' personal layers.
   const kept = keptIn(off)
   return mergeSkills(rows.filter((r) => r.scope === 'user' || kept(r))).map(
-    ({ scope, name, description, versionId, digest }) => ({
+    ({ scope, name, description, versionId, digest, secretSpecs }) => ({
       name,
       description,
       versionId,
       digest,
       personal: scope === 'user',
+      /** The layer it comes from: platform, team, repo, group or user (personal). */
+      scope,
+      secretSpecs,
     }),
   )
 }

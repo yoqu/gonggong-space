@@ -4,6 +4,7 @@ import {
   PERSONAL_BASE,
   type RepoDto,
   type RequestedTarget,
+  type SecretRequirement,
   type TargetRef,
 } from '@gonggong/protocol'
 import { useEffect, useState } from 'react'
@@ -14,6 +15,7 @@ import { api, errorText } from '../../lib/api'
 import { Alert, Dialog, RadioGroup, SegmentedControl, Spinner, Tag, TextArea, toast } from '../../ui'
 import { isGroupAdmin } from '../groups/GroupNotice'
 import { type Policy, VersionPolicy } from './InstallList'
+import { InstallSecrets, secretsBaseOf, useSecretPlan } from './SecretSpecs'
 
 type Kind = 'me' | 'group' | 'team' | 'repo'
 interface Target {
@@ -75,6 +77,8 @@ export function InstallTargetDialog({
     installedIn?: InstalledTarget[]
     requestedIn?: RequestedTarget[]
     nameTakenIn?: TargetRef[]
+    /** What the listed version declares (plan Skill密钥声明 §5). */
+    secretSpecs: SecretRequirement[]
   }
   onClose: () => void
   /** A direct install went through (a request changes nothing yet). */
@@ -118,8 +122,11 @@ export function InstallTargetDialog({
   const there = !!target && blocked(target)
   const ask = target?.ask
   const pinVersionId = policy === 'pin' ? listing.listedVersionId : null
+  // Only who installs directly makes definitions: they administer the layer.
+  const secrets = useSecretPlan(listing.secretSpecs, target && !ask ? secretsBaseOf(target.base) : null)
   const submit = async () => {
     if (!target) return
+    if (!ask && secrets.invalid) return setError(secrets.invalid)
     setBusy(true)
     setError('')
     try {
@@ -129,6 +136,7 @@ export function InstallTargetDialog({
         toast({ type: 'success', message: t('已向「{name}」的管理员提交引入申请', { name: target.label }) })
       } else {
         await api.put(`${target.base}/installs/${listing.id}`, { enabled: true, pinVersionId })
+        await secrets.apply()
         toast({ type: 'success', message: t('已引入到「{name}」', { name: target.label }) })
         onInstalled?.()
       }
@@ -150,7 +158,7 @@ export function InstallTargetDialog({
         {
           label: ask ? t('申请引入') : t('引入'),
           variant: 'primary',
-          disabled: !target || there || busy,
+          disabled: !target || there || busy || (!ask && (secrets.loading || secrets.cancelled)),
           onClick: () => void submit(),
         },
       ]}
@@ -230,6 +238,7 @@ export function InstallTargetDialog({
         <div className="gs-note">{t('没有可引入的目标')}</div>
       )}
       <VersionPolicy value={policy} onChange={setPolicy} revision={listing.listedRevision} />
+      {target && !ask && !there ? <InstallSecrets plan={secrets} /> : null}
       {ask ? (
         <TextArea
           label={t('申请说明')}

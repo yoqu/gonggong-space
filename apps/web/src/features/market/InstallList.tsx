@@ -1,4 +1,4 @@
-import type { InstallableDto, InstallDto, ListingSummary } from '@gonggong/protocol'
+import type { InstallableDto, InstallDto, ListingSummary, MarketListingDetailDto } from '@gonggong/protocol'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../i18n'
@@ -21,6 +21,7 @@ import {
 } from '../../ui'
 import '../config/config.css'
 import './market.css'
+import { newlyRequired } from './SecretSpecs'
 import { newerFor, statusNote, TYPE_LABEL, VersionTags } from './status'
 
 const LAYER_LABEL: Record<ListingSummary['layer'], string> = {
@@ -79,6 +80,7 @@ export function InstallList({
                     {note ? (
                       <div className={i.listing.status === 'banned' ? 'cfg__danger' : undefined}>{note}</div>
                     ) : null}
+                    {newer && !readOnly ? <UpgradeSecrets install={i} /> : null}
                   </>
                 }
               >
@@ -156,6 +158,25 @@ export function InstallList({
       </Presence>
     </>
   )
+}
+
+/**
+ * Required secrets the newer version adds, next to 升级到 rN: the upgrade makes no definitions, the layer's 待办条
+ * asks for them afterwards (plan Skill密钥声明 §5). Silent while either version can't be read here.
+ */
+function UpgradeSecrets({ install: i }: { install: InstallDto }) {
+  const detail = (versionId: string) => `/market/${i.listing.id}?versionId=${encodeURIComponent(versionId)}`
+  const from = useGet<MarketListingDetailDto>(detail(i.resolvedVersionId)).data
+  const to = useGet<MarketListingDetailDto>(detail(i.listing.versionId)).data
+  const added = from && to ? newlyRequired(from.secretSpecs, to.secretSpecs) : []
+  return added.length ? (
+    <div className="cfg__danger">
+      {t('r{n} 新增必需密钥：{names}，升级后需建好定义并填写', {
+        n: i.listing.revision,
+        names: added.join(t('、')),
+      })}
+    </div>
+  ) : null
 }
 
 /** Opens the market, or one listing's detail there (`?listing=`), after closing the caller's dialog. */

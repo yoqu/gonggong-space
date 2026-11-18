@@ -127,8 +127,8 @@ export function listingSnapshot(files: SkillFile[]) {
       : fail('invalid', '根目录缺少 SKILL.md（Skill）或 gonggong-plugin.json（插件）')
   }
   if (has(files, PLUGIN_MANIFEST)) return pluginSnapshot(files)
-  const { name, description, ...checked } = snapshot(files)
-  const manifest: SkillListingManifest = { name, description }
+  const { name, description, secretSpecs, ...checked } = snapshot(files)
+  const manifest: SkillListingManifest = { name, description, ...(secretSpecs.length && { secretSpecs }) }
   return { ...checked, manifest, type: 'skill' as const }
 }
 export type ListingSnapshot = ReturnType<typeof listingSnapshot>

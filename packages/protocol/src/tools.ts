@@ -548,7 +548,7 @@ const SKILL_WRITE =
 const SKILL_FORMAT =
   ' A skill is a folder with SKILL.md starting with YAML frontmatter: name (lowercase letters, digits, hyphens, ≤64, unique in the layer) ' +
   'and description (≤1024: what it does and when to use it; agents load it by this). The body gives the steps, kept short; ' +
-  'details go in references/ read on demand, scripts in scripts/. At most 5 MB and 200 files.'
+  'details go in references/ read on demand, scripts in scripts/. At most 5 MB and 200 files. Declare each env var secret it reads in a frontmatter `secrets` list (≤10): name (UPPER_SNAKE), title, description (where to get it), url (https, where to apply), placeholder, mode (personal: each member their own | shared | shared_overridable), required (default true); installers then create the definitions and members are prompted to fill them.'
 
 export const GONGGONG_TOOLS = {
   list_messages: {
@@ -845,7 +845,7 @@ export const GONGGONG_TOOLS = {
   secret_request: {
     title: GONGGONG_TOOL_TITLES.secret_request,
     description:
-      'Post a 「填写密钥」 card: the initiator fills personal / overridable secrets, a layer admin shared ones; values never pass through you, the chat or logs. ' +
+      'Post a 「填写密钥」 card: the initiator fills personal / overridable secrets, a layer admin shared ones; values never pass through you, the chat or logs. A name a group skill declares (frontmatter `secrets`) but the group has no definition of asks the layer admins to create it from the declaration first, then the fill card follows. ' +
       'Returns at once; filled values are injected from the next turn. Never ask for secrets in the chat.',
     input: SecretRequestArgs,
   },

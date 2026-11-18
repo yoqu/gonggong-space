@@ -144,11 +144,37 @@ When a Bot finds a secret missing while working, it posts a card in the group:
 2. Enter the value in the 「填写密钥」 (Fill in secrets) dialog (at least 8 characters). If the Bot is on someone else's machine, the dialog includes 「允许在他人机器上的 Bot 使用」 (Allow bots on other people's machines), checked by default.
 3. After saving, the card changes to 「已填写」 (Filled in). If the turn was triggered directly by your message, the Bot continues automatically (the group shows 「已填写密钥，某某 继续处理」 ("Secrets filled, X carries on")); otherwise you see 「已填写密钥，重新 @某某 即可继续」 ("Secrets filled, @X again to carry on").
 
-When there are cards you haven't filled in, the top of the group shows 「你有 N 个密钥待填写」 ("You have N secrets to fill in"); click 「填写密钥」 (Fill in secrets).
+When there are cards you haven't filled in, the top of the group shows 「本群有 N 个密钥待你配置」 ("N secrets here need your setup"); click 「去配置」 (Set up).
 
 ::: tip Cards in Feishu
 When the group is bound to Feishu with sync turned on, the card is also sent to the Feishu group and @-mentions you. Click 「去填写」 (Fill in) to open Gonggong's fill-in page (only the requester can fill it in); the value is never entered in Feishu. Once filled, the Feishu card also changes to 「已填写」 (Filled in).
 :::
+
+### Secrets a Skill needs
+
+A Skill can declare the secrets it reads in the frontmatter at the top of `SKILL.md`, so once it is brought in, Gonggong knows what is missing and whom to remind:
+
+```yaml
+secrets:
+  - name: DW_MANAGER_API_KEY        # environment variable name: uppercase letters, digits and underscores
+    title: Data warehouse Manager key (production)
+    description: Issued under Manager's "Profile → API Key"; read-only is enough
+    url: https://manager.example.com/keys   # optional; where to apply, https only
+    placeholder: dwk_…                       # optional; format hint in the input box
+    mode: personal                           # personal: each member fills their own · shared: one value · shared_overridable: one value members may override
+    required: true                           # false means optional (such as a test environment key)
+```
+
+Up to 10 entries. A bare name (such as `- DW_KEY`) also works and means a required shared value. `secrets` is a Gonggong extension; agents ignore it when they load the Skill.
+
+Once it is brought in:
+
+- **Above the group's input box**, 「本群有 N 个密钥待你配置」 ("N secrets here need your setup") counts only required entries and appears only to people who need to act: members who fill their own value, and admins who fill a shared value or create a definition. Click 「去配置」 (Set up) to fill them in by Skill, each with its purpose, apply link and format hint; optional entries sit under 「可选配置」 (Optional). Click × to stop the reminder for 24 hours; it comes back right away when the missing set changes (say, a Skill upgrade adds one) or a Bot sends you a card for it.
+- **Group settings → Secrets** always has 「配置密钥」 (Set up secrets).
+- Your own values are kept per team, you and name: fill one once and other groups of the team using the same name stop asking.
+- For a Skill you brought in for yourself whose secret the team doesn't define yet, your first fill also creates a "personal" definition at the team level — only the definition; everyone else still fills their own.
+
+At run time the Bot knows from the start which required secrets its Skills are missing. When the group has no definition of one yet, the Bot's request first posts a 「按声明创建」 (Create as declared) card to that level's admins, naming who can handle it; once an admin clicks 「创建」 (Create), the definition is made from the declaration and the fill card follows. If the Skill is upgraded or removed, or someone creates a secret of the same name meanwhile, the old card stops working; just ask the Bot again.
 
 ### Who sees what
 

@@ -38,6 +38,7 @@ import { substitute } from '../mcp/secrets.js'
 import { enabledMcpServers } from '../mcp/service.js'
 import { type MessageMeta, userAuthorName } from '../messages/service.js'
 import { askPluginTrust, commandPrompt, runPlugins } from '../plugins/service.js'
+import { runNeeds, runNeedsNote } from '../secrets/needs.js'
 import { resolveSecrets } from '../secrets/resolve.js'
 import { enabledSkills } from '../skills/service.js'
 import { runSyncStart } from '../sync/store.js'
@@ -440,12 +441,16 @@ export async function buildRunStart(
   const fallbackContext = replay?.kept.reverse() ?? []
   const omitted = !recent || recent.complete ? 0 : (await countContext(tx, since)) - context.length
   const config = resolveConfig(catalog, meta.runOptions?.[bot.id], gb, bot)
+  const needsNote = runNeedsNote(runNeeds(skills, secrets, bot.id, now))
   const note = [
     ...(interrupted ? [interrupted.note] : []),
     ...relay,
     ...(scheduled ? [scheduled] : []),
     ...(hosted?.note
       ? [{ seq: 0, author: '共工空间', kind: 'user' as const, body: hosted.note, at, attachments: [] }]
+      : []),
+    ...(needsNote
+      ? [{ seq: 0, author: '共工空间', kind: 'user' as const, body: needsNote, at, attachments: [] }]
       : []),
   ]
   const kbNote = (body: string | null | undefined): ContextMessage[] =>
