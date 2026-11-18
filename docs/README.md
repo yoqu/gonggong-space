@@ -36,6 +36,7 @@
 - `docs/plan/产物托管与编辑-待办.md` — 产物托管与编辑 · 待办 — 进行中
 - `docs/plan/发布与平台说明.md` — 发布与平台说明 — 长期有效
 - `docs/plan/团队密钥-方案.md` — 密钥管理方案（团队 / 群 / 个人 / 本机） — 进行中
+- `docs/plan/Skill密钥声明-方案.md` — Skill 密钥声明与配置引导（团队密钥二期） — 评审中
 - `docs/plan/安全说明.md` — 安全说明（M5 · 需求 §13、D18、风险 6） — 长期有效
 - `docs/plan/插件体系-contributes-方案.md` — 插件扩展点（contributes）方案 — 进行中
 - `docs/plan/群内多工作区-开发计划.md` — 群内多工作区开发计划 — 进行中
