@@ -20,10 +20,12 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { useWorkbench } from '../../app/workbench'
 import { t } from '../../i18n'
 import { cx } from '../../lib/cx'
 import { Button, Dialog, EmptyState, IconButton, Lightbox } from '../../ui'
 import { attachmentUrl } from '../attachments/api'
+import { openTab } from '../workbench/open'
 import { token } from './theme'
 import './html-render.css'
 
@@ -47,7 +49,7 @@ type PageImage = { src: string; alt: string }
  * reports its height, takes the app theme and asks to open links and images; those open only while the reader is
  * using the frame, since a page script can post at any time.
  */
-function PageFrame({
+export function PageFrame({
   page,
   className,
   style,
@@ -108,6 +110,13 @@ function PageFrame({
   )
 }
 
+/** The opaque-origin frame hides its HTTP status, so an error body would show as the page; ask once it loaded. */
+export const pageFailure = (page: HtmlRenderRef): Promise<'gone' | 'error' | null> =>
+  fetch(`${attachmentUrl(page.attachmentId)}/render`, { method: 'HEAD' }).then(
+    (res) => (res.ok ? null : res.status === 404 ? 'gone' : 'error'),
+    () => 'error',
+  )
+
 /** A bot's html_render page, inline in the chat at the reply column's width, with a full-screen view. */
 export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   const box = useRef<HTMLDivElement>(null)
@@ -120,6 +129,7 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
   const [failed, setFailed] = useState<'gone' | 'error'>()
   const [attempt, setAttempt] = useState(0)
   const [image, setImage] = useState<PageImage>()
+  const bench = useWorkbench((s) => !!s.groupId)
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
@@ -130,13 +140,9 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  // The opaque-origin frame hides its HTTP status, so an error body would show as the page; ask once it loaded.
   const check = () => {
     setLoaded(true)
-    fetch(`${attachmentUrl(page.attachmentId)}/render`, { method: 'HEAD' }).then(
-      (res) => !res.ok && setFailed(res.status === 404 ? 'gone' : 'error'),
-      () => setFailed('error'),
-    )
+    void pageFailure(page).then((f) => f && setFailed(f))
   }
   return (
     <div
@@ -176,15 +182,21 @@ export function HtmlRender({ page }: { page: HtmlRenderRef }) {
             onImage={setImage}
             onLoaded={check}
           />
-          <IconButton
-            title={t('全屏查看')}
-            variant="glass"
-            size="small"
-            className="html-render__expand"
-            onClick={() => setFull(true)}
-          >
-            {'expand' as const}
-          </IconButton>
+          <div className="html-render__actions">
+            {bench && (
+              <IconButton
+                title={t('在工作台打开')}
+                variant="glass"
+                size="small"
+                onClick={() => openTab({ kind: 'page', page })}
+              >
+                {'sidebar-right' as const}
+              </IconButton>
+            )}
+            <IconButton title={t('全屏查看')} variant="glass" size="small" onClick={() => setFull(true)}>
+              {'expand' as const}
+            </IconButton>
+          </div>
         </>
       )}
       {full && (

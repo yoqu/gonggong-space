@@ -27,6 +27,7 @@ import { realtime } from '../lib/realtime'
 import { Button, DeniedArt, EmptyState, FailedArt, Mascot, PickChatArt, Presence } from '../ui'
 import { AppRail, isMarketPath, isWorksPath } from './AppRail'
 import { ShellBar } from './AppShell'
+import { useBackLayer } from './backLayer'
 import { ChatLayout } from './ChatLayout'
 import { ConversationStrip } from './ConversationStrip'
 import { InspectorSlot, useInspector } from './inspector'
@@ -206,6 +207,8 @@ export function ChatPage({ notFound = false }: { notFound?: boolean }) {
   const benchGroup = botId || machineId || spaceId ? null : (group?.id ?? null)
   useEffect(() => useWorkbench.getState().setGroup(benchGroup), [benchGroup])
   const benchShown = useWorkbench((s) => !!benchGroup && s.groupId === benchGroup && s.open)
+  useBackLayer('inspector', !!inspector, () => useInspector.getState().close(), mobile)
+  useBackLayer('bench', benchShown, () => useWorkbench.getState().setOpen(false), mobile)
   useEffect(() => {
     if (group) rememberGroup(group.id)
   }, [group])

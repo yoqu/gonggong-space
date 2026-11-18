@@ -12,6 +12,7 @@ import { KnowledgeTab, useKnowledgeTabMeta } from './tabs/KnowledgeTab'
 import { LinkTab, useLinkTabMeta } from './tabs/LinkTab'
 import { LiveTab, useLiveTabMeta } from './tabs/LiveTab'
 import { MiniprogramTab, useMiniprogramTabMeta } from './tabs/MiniprogramTab'
+import { PageTab, usePageTabMeta } from './tabs/PageTab'
 import { RunTab, useRunTabMeta } from './tabs/RunTab'
 import { TerminalTab, useTerminalTabMeta } from './tabs/TerminalTab'
 import { useWebTabMeta, WebTab } from './tabs/WebTab'
@@ -51,6 +52,8 @@ export const TabContent = memo(function TabContent({ tab, active }: { tab: Workb
       return <TerminalTab tab={tab} tabKey={key} active={active} />
     case 'artifact':
       return <ArtifactTab tab={tab} tabKey={key} active={active} />
+    case 'page':
+      return <PageTab tab={tab} tabKey={key} active={active} />
   }
 })
 
@@ -89,6 +92,8 @@ export function TabLabel({ tab, children }: { tab: WorkbenchTab; children: Rende
       return <TerminalMeta tab={tab}>{children}</TerminalMeta>
     case 'artifact':
       return <ArtifactMeta tab={tab}>{children}</ArtifactMeta>
+    case 'page':
+      return <PageMeta tab={tab}>{children}</PageMeta>
   }
 }
 
@@ -108,3 +113,4 @@ const LinkMeta = ({ tab, children }: MetaProps<'link'>) => children(useLinkTabMe
 const KnowledgeMeta = ({ tab, children }: MetaProps<'knowledge'>) => children(useKnowledgeTabMeta(tab))
 const TerminalMeta = ({ tab, children }: MetaProps<'terminal'>) => children(useTerminalTabMeta(tab))
 const ArtifactMeta = ({ tab, children }: MetaProps<'artifact'>) => children(useArtifactTabMeta(tab))
+const PageMeta = ({ tab, children }: MetaProps<'page'>) => children(usePageTabMeta(tab))

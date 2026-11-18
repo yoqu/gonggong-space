@@ -1,0 +1,14 @@
+/* Short of room the rail opens in the chat's column, a page pushed over the chat. */
+.chat__dock--in-chat {
+  --enter-x: 24px;
+  border-left: 0;
+  animation: var(--spring-smooth) ui-enter;
+}
+/* 全屏: the rail floats over the workbench, which keeps its full width. */
+.chat__dock--over {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 25;
+  box-shadow: var(--shadow-menu);
+}

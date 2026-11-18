@@ -200,13 +200,29 @@ describe('inspector while the workbench is open', () => {
     expect(mounts.web).toBe(1)
   })
 
-  it('takes the chat column when the workbench would get under 400px', () => {
+  it('opens in the chat column, at its width, when the workbench would get under 400px', () => {
     setWidth(1100)
     const view = render(layout({ rail: <div>群信息</div> }))
+    const before = bench()
     expect(chat().hidden).toBe(true)
-    expect(screen.getByRole('complementary', { name: '侧栏' })).toBeTruthy()
+    const dock = screen.getByRole('complementary', { name: '侧栏' })
+    expect(dock.className).toContain('chat__dock--in-chat')
+    expect(dock.style.width).toBe('380px')
+    expect(screen.getByRole('separator', { name: '调整聊天栏宽度' })).toBeTruthy()
+    expect(screen.queryByRole('separator', { name: '调整侧栏宽度' })).toBeNull()
     view.rerender(layout())
     expect(chat().hidden).toBe(false)
+    expect(bench()).toBe(before)
+  })
+
+  it('floats over the workbench in full, which keeps its width', () => {
+    useWorkbench.setState({ mode: 'full' })
+    render(layout({ rail: <div>群信息</div> }))
+    const dock = screen.getByRole('complementary', { name: '侧栏' })
+    expect(dock.className).toContain('chat__dock--over')
+    expect(dock.style.left).toBe('40px')
+    fireEvent.click(screen.getByRole('button', { name: '展开聊天' }))
+    expect(dock.style.left).toBe('420px')
   })
 
   it('folds the list to the icon strip when that leaves room for the chat, without changing the stored mode', () => {
@@ -229,12 +245,11 @@ describe('inspector while the workbench is open', () => {
     expect(chat().hidden).toBe(false)
   })
 
-  it('never grows past what leaves the workbench 400px, and gets its stored width back once undocked', () => {
+  it('takes the chat width in its column, and gets its stored width back once undocked', () => {
     setWidth(1100)
     localStorage.setItem('gonggong.railWidth.info', '600')
     const view = render(layout({ rail: <div>群信息</div> }))
-    // 1100 - list 281 - 400 (no nav here)
-    expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('419px')
+    expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('380px')
     view.rerender(layout({ bench: false, rail: <div>群信息</div> }))
     expect(screen.getByRole('complementary', { name: '侧栏' }).style.width).toBe('600px')
   })
@@ -281,5 +296,18 @@ describe('inspector while the workbench is open', () => {
     expect(screen.getByLabelText('话题输入')).toBe(input)
     expect(screen.getByRole('complementary', { name: '侧栏' }).contains(input)).toBe(true)
     act(() => useInspector.getState().close())
+  })
+})
+
+describe('phones', () => {
+  it('shows the workbench over an open thread, and the thread again once it closes', () => {
+    setWidth(390)
+    const view = render(layout({ rail: <div>话题内容</div>, bench: false }))
+    expect(screen.getByText('话题内容')).toBeTruthy()
+    view.rerender(layout({ rail: <div>话题内容</div>, bench: true }))
+    expect(bench()).not.toBeNull()
+    expect(screen.queryByText('话题内容')).toBeNull()
+    view.rerender(layout({ rail: <div>话题内容</div>, bench: false }))
+    expect(screen.getByText('话题内容')).toBeTruthy()
   })
 })

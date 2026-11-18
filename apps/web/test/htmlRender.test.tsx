@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { HTML_RENDER_PALETTES, type HtmlRenderRef } from '@gonggong/protocol'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useWorkbench } from '../src/app/workbench'
 import { HtmlRender } from '../src/features/rich/HtmlRender'
+import { PageTab } from '../src/features/workbench/tabs/PageTab'
 
 const page: HtmlRenderRef = { attachmentId: 'a1', title: 'CPU 走势', height: 300 }
 
@@ -102,6 +104,29 @@ describe('html render', () => {
     expect(screen.getAllByTitle('CPU 走势')).toHaveLength(2)
   })
 
+  it('opens in the group workbench as one tab per page, when there is one', () => {
+    useWorkbench.setState({ groupId: null, open: false, benches: {} })
+    const { unmount } = render(<HtmlRender page={page} />)
+    expect(screen.queryByRole('button', { name: '在工作台打开' })).toBeNull()
+    unmount()
+    act(() => useWorkbench.setState({ groupId: 'g1' }))
+    render(<HtmlRender page={page} />)
+    fireEvent.click(screen.getByRole('button', { name: '在工作台打开' }))
+    fireEvent.click(screen.getByRole('button', { name: '在工作台打开' }))
+    const bench = useWorkbench.getState()
+    expect(bench.open).toBe(true)
+    expect(bench.benches.g1?.tabs).toEqual([{ kind: 'page', page }])
+    expect(bench.benches.g1?.active).toBe('page:a1')
+  })
+
+  it('shows the page in its tab, or a readable state once its file is gone', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })))
+    render(<PageTab tab={{ kind: 'page', page }} tabKey="page:a1" active />)
+    expect(frameOf().getAttribute('sandbox')).toBe('allow-scripts allow-forms')
+    await act(async () => fireEvent.load(frameOf()))
+    expect(screen.getByText('页面内容已不存在')).toBeTruthy()
+  })
+
   it('shows a placeholder until the page has loaded', () => {
     const { container } = render(<HtmlRender page={page} />)
     const box = container.querySelector('.html-render') as HTMLElement
@@ -175,7 +200,7 @@ describe('html render palettes', () => {
 })
 
 describe('rich reply width', () => {
-  it('lets a reply with UI blocks or pages run as wide as a plain reply; a page keeps its own 720px', () => {
+  it('lets a reply with UI blocks or pages run as wide as a plain reply; a page keeps the reply measure', () => {
     const css = readFileSync(join(import.meta.dirname, '../src/features/rich/rich.css'), 'utf8')
     const rules = (selector: string) =>
       [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
@@ -185,6 +210,8 @@ describe('rich reply width', () => {
     expect(rules('.rich-reply')).not.toContain('max-width')
     expect(rules('.rich-reply--pages')).not.toContain('max-width')
     const page = readFileSync(join(import.meta.dirname, '../src/features/rich/html-render.css'), 'utf8')
-    expect(page).toMatch(/\.html-render \{[^}]*width: 720px;[^}]*max-width: 100%;/)
+    expect(page).toMatch(/\.html-render \{[^}]*width: var\(--msg-measure\);[^}]*max-width: 100%;/)
+    const tokens = readFileSync(join(import.meta.dirname, '../src/styles/tokens.css'), 'utf8')
+    expect(tokens).toContain('--msg-measure: 720px;')
   })
 })

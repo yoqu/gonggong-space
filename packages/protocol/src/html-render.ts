@@ -10,7 +10,7 @@ export const HTML_RENDER_MIN_HEIGHT = 80
 export const HTML_RENDER_MAX_HEIGHT = 2000
 /** A client fits the frame to the live page up to this height: it only stops a page that grows with its frame. */
 export const HTML_RENDER_MAX_FIT_HEIGHT = 20_000
-/** The wide reply column (`.tl-msg--wide`), what an agent should design for. */
+/** The reply column's measure on wide screens (`--msg-measure`), what an agent should design for. */
 export const HTML_RENDER_COLUMN_WIDTH = 720
 /** Widths the daemon measures a published page at, so the frame starts at the right height. */
 export const HTML_RENDER_MEASURE_WIDTHS = [320, 375, 430, 520, 640, 720, 860, 1000, 1144] as const
@@ -202,7 +202,8 @@ export const HTML_RENDER_THEME_GUIDE = [
 
 /** Agent-facing (not translated). */
 export const HTML_RENDER_LAYOUT_GUIDE = [
-  `Width is the reply column (${HTML_RENDER_COLUMN_WIDTH}px desktop, ~360px phones) on the chat background.`,
+  `Width is the reply column on the chat background: up to ${HTML_RENDER_COLUMN_WIDTH}px on wide screens, ~300px beside an open workbench, ~360px on phones.`,
+  'Lay it out fluidly so it reads from 300px: grids and cards wrap to one column, wide tables scroll, no fixed widths over 300px.',
   'html, body and the outer element get no background, outer card, border, banner title or side padding (overrides any page-background rule).',
   'An inner box with its own background gets 16px padding and var(--radius). Charts get fixed pixel heights.',
   'Content sets the height: no vh units (rejected) or height:100% on html/body (loops).',

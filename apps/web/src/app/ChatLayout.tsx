@@ -6,6 +6,7 @@ import { useEscape } from '../ui/overlay'
 import { FloatingChat, ShowFloatingChat } from './floatingChat'
 import { MOBILE_MAX, RAIL_MIN, useViewportBelow, useViewportWidth } from './viewport'
 import { useWorkbench, type WorkbenchMode } from './workbench'
+import './dock.css'
 
 /** Rail open state: defaults to open on wide screens and resets whenever the 1100px breakpoint is crossed. */
 export function useRailOpen() {
@@ -268,6 +269,23 @@ export function ChatLayout({
   const railTakesChat = docked && !full && room - (chat.width + 1) - resize.width < BENCH_MIN
   // 全屏 hides the chat but floats its composer over the workbench: one composer, draft and selection kept.
   const floating = full && !over && !phoneBench
+  // Short of room the rail opens in the chat's column, at its width, so the workbench keeps its place; in 全屏 it
+  // floats over the workbench's left side, right of the chat when that is out too.
+  const dock = (
+    <aside
+      aria-label={t('侧栏')}
+      className={cx('chat__dock', railTakesChat && 'chat__dock--in-chat', full && 'chat__dock--over')}
+      style={{
+        width: railTakesChat ? chat.width : resize.width,
+        left: full ? CHAT_STRIP_WIDTH + (over ? chat.width : 0) : undefined,
+      }}
+    >
+      {railTakesChat ? null : (
+        <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
+      )}
+      {railBody}
+    </aside>
+  )
   return (
     <AppFrame
       className={cx('chat', mobile && `chat--${mobileView}`, bench && `chat--bench chat--${mode}`)}
@@ -282,7 +300,8 @@ export function ChatLayout({
         ) : undefined
       }
       inspector={
-        railBody && !bench ? (
+        // On phones the workbench is the top page: a thread it was opened from waits under it, mounted in its host.
+        railBody && !bench && !phoneBench ? (
           <>
             {mobile ? null : (
               <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
@@ -329,15 +348,9 @@ export function ChatLayout({
           </FloatingChat.Provider>
         </main>
       ) : null}
-      {bench && !full && !railTakesChat ? (
-        <Splitter label={t('调整聊天栏宽度')} resize={chat} className="chat__split" />
-      ) : null}
-      {docked ? (
-        <aside aria-label={t('侧栏')} className="chat__dock" style={{ width: resize.width }}>
-          <Splitter label={t('调整侧栏宽度')} resize={resize} className="chat__rail-handle" />
-          {railBody}
-        </aside>
-      ) : null}
+      {railTakesChat ? dock : null}
+      {bench && !full ? <Splitter label={t('调整聊天栏宽度')} resize={chat} className="chat__split" /> : null}
+      {docked && !railTakesChat ? dock : null}
       {bench || phoneBench ? workbench : null}
     </AppFrame>
   )

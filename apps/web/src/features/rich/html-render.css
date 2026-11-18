@@ -1,7 +1,7 @@
 /* An html_render page: no card or border, it sits on the chat background like the reply text. */
 .html-render {
   position: relative;
-  width: 720px;
+  width: var(--msg-measure);
   max-width: 100%;
 }
 /* Its height is reserved from the publish-time measurement; until the page paints, a shimmer holds the place. */
@@ -27,21 +27,31 @@
   border: 0;
   background: transparent;
 }
-.html-render__expand {
+.html-render__actions {
   position: absolute;
   top: var(--space-6);
   right: var(--space-6);
+  display: flex;
+  gap: var(--space-4);
   opacity: 0;
   transition: opacity var(--fade-in);
 }
-.html-render:hover .html-render__expand,
-.html-render__expand:focus-visible {
+.html-render:hover .html-render__actions,
+.html-render__actions:focus-within {
   opacity: 1;
 }
 @media (hover: none) {
-  .html-render__expand {
+  .html-render__actions {
     opacity: 1;
   }
+}
+/* In a workbench tab the page fills the tab and scrolls inside. */
+.html-render__tab {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--content-bg);
 }
 .html-render__full {
   display: block;

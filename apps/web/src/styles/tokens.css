@@ -152,6 +152,9 @@
   --text-caption-weight: 500;
   --text-caption-tracking: 0.12px;
 
+  /* The reply column's measure: prose, code, tables and html_render pages share its right edge. */
+  --msg-measure: 720px;
+
   /* Spacing */
   --space-2: 2px;
   --space-4: 4px;

@@ -99,10 +99,10 @@
   margin: 0;
   white-space: pre-wrap;
 }
-/* Prose stops at a readable measure on wide screens; tables and code keep their own widths. */
+/* Prose, code and tables stop at one readable measure on wide screens; wider code and tables scroll inside it. */
 .pn-bubble > p,
-.pn-bubble .md > :is(p, ul, ol, blockquote, h1, h2, h3, h4) {
-  max-width: 720px;
+.pn-bubble .md > :is(p, ul, ol, blockquote, h1, h2, h3, h4, .pn-code, .md-table) {
+  max-width: min(100%, var(--msg-measure));
 }
 .pn-bubble :not(pre) > code {
   font-family: var(--font-mono);

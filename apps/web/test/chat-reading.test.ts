@@ -12,13 +12,13 @@ describe('group chat reading details', () => {
   const message = read('ui/im/message.css')
   const composer = read('ui/im/composer.css')
 
-  it('sets message text at 14px on a 22px line, prose capped at 720px', () => {
+  it('sets message text at 14px on a 22px line, prose, code and tables capped at the reply measure', () => {
     const bubble = ruleOf(message, '.pn-bubble')
     expect(bubble).toContain('font-size: 14px;')
     expect(bubble).toContain('line-height: 22px;')
-    expect(ruleOf(message, '.pn-bubble .md > :is(p, ul, ol, blockquote, h1, h2, h3, h4)')).toContain(
-      'max-width: 720px;',
-    )
+    expect(
+      ruleOf(message, '.pn-bubble .md > :is(p, ul, ol, blockquote, h1, h2, h3, h4, .pn-code, .md-table)'),
+    ).toContain('max-width: min(100%, var(--msg-measure));')
     expect(message).toMatch(/\.pn-bubble > p,\s*\.pn-bubble \.md > :is/)
   })
 

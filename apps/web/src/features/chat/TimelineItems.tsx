@@ -52,7 +52,7 @@ import { Clamp } from './Clamp'
 import { citeInChat } from './cite'
 import { useRunDeltas } from './deltas'
 import { startEditing, stopEditing, useEditing } from './editing'
-import { isRich, replyFiles } from './grouping'
+import { replyFiles } from './grouping'
 import { Markdown, MentionNames } from './Markdown'
 import { type ActionTarget, MessageMenu } from './MessageActions'
 import { MessageEditor } from './MessageEditor'
@@ -657,7 +657,6 @@ function ReplyMessage({
     <div data-testid="bot-reply">
       <Message
         thread={thread}
-        className={cx((isRich(m) || !!m.htmlRender || !!m.htmlRenders?.length) && 'tl-msg--wide')}
         bare={!!m.htmlRender}
         author={botAuthor(m.authorName, m.authorId, m.groupId)}
         continued={continued}
@@ -899,7 +898,6 @@ export const RunCard = memo(function RunCard({
       {(bar) => (
         <div className="run-card" data-testid="run-card" data-run-id={run.id} data-status={run.status}>
           <Message
-            className={cx(!reply && !!run.htmlRenders?.length && 'tl-msg--wide')}
             author={botAuthor(botName, run.botId, run.groupId)}
             time={<Time iso={reply?.createdAt ?? run.queuedAt} pin={reply ?? undefined} />}
             meta={meta}

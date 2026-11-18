@@ -1,4 +1,4 @@
-import type { Attachment, DiffScope } from '@gonggong/protocol'
+import type { Attachment, DiffScope, HtmlRenderRef } from '@gonggong/protocol'
 import { create } from 'zustand'
 
 /** Right-hand workbench of the chat page (docs/archive/2026-11/预览工作台-设计.md): tabs per group, three space modes. */
@@ -78,6 +78,8 @@ export type WorkbenchTab =
   | { kind: 'knowledge'; knowledgeId: string; title: string }
   /** A hosted artifact's canvas (docs/archive/2026-11/原型编辑器-Stitch对标-开发计划.md); `title` until its details load. */
   | { kind: 'artifact'; artifactId: string; title: string }
+  /** A bot's html_render page, read at the workbench's width. */
+  | { kind: 'page'; page: HtmlRenderRef }
   /** A daemon-owned shell; closing this tab only detaches its browser socket. */
   | { kind: 'terminal'; botId: string; sessionId?: string }
 
@@ -177,6 +179,8 @@ export function tabKey(t: WorkbenchTab): string {
       return `artifact:${t.artifactId}`
     case 'terminal':
       return `terminal:${t.botId}`
+    case 'page':
+      return `page:${t.page.attachmentId}`
   }
 }
 
@@ -238,7 +242,7 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
       if (!groupId || (tabs.length >= WORKBENCH_MAX_TABS && !tabs.some((t) => tabKey(t) === key)))
         return false
       // A web page or a canvas needs the room: it folds the conversation list (design §10.1).
-      const page = tab.kind === 'web' || tab.kind === 'link' || tab.kind === 'artifact'
+      const page = tab.kind === 'web' || tab.kind === 'link' || tab.kind === 'artifact' || tab.kind === 'page'
       const nextMode = page && mode === 'split' ? 'focus' : mode
       update(
         (b) => {

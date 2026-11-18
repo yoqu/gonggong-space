@@ -931,7 +931,7 @@ export const HtmlPreviewArgs = z.object({
     .int()
     .min(240)
     .max(1600)
-    .describe(`CSS pixels, 240 to 1600. Default ${HTML_RENDER_COLUMN_WIDTH}. Use about 390 for phones.`)
+    .describe(`CSS pixels, 240 to 1600. Default ${HTML_RENDER_COLUMN_WIDTH}. Check 320 too.`)
     .optional(),
   appearance: z.enum(['light', 'dark']).describe('Default light.').optional(),
 })
